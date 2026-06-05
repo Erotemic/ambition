@@ -11,6 +11,7 @@ helper that has since been split into `build_spritesheet` (in-memory
 result) and `write_spritesheet` (on-disk result). Updated to the current
 API so the suite is green from a clean checkout.
 """
+
 from pathlib import Path
 
 from ambition_sprite2d_renderer.canonical import render_canonical
@@ -18,9 +19,10 @@ from ambition_sprite2d_renderer.config import CharacterJob
 from ambition_sprite2d_renderer.sheet import write_spritesheet
 
 
-
 # Resolve configs relative to the package, not the cwd.
-CONFIGS = Path(__file__).resolve().parent.parent / 'ambition_sprite2d_renderer' / 'configs'
+CONFIGS = (
+    Path(__file__).resolve().parent.parent / "ambition_sprite2d_renderer" / "configs"
+)
 
 
 def test_goblin_sheet_smoke(tmp_path: Path):
@@ -43,7 +45,9 @@ def test_robot_sheet_smoke(tmp_path: Path):
     job.render.frame_height = 64
     job.render.supersample = 1
     job.animations = ["idle"]
-    image_path, _ = write_spritesheet(job, tmp_path / "robot.png", tmp_path / "robot.yaml")
+    image_path, _ = write_spritesheet(
+        job, tmp_path / "robot.png", tmp_path / "robot.yaml"
+    )
     assert image_path.exists()
 
 

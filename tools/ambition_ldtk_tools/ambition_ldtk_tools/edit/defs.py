@@ -64,6 +64,7 @@ The tool:
 6. Runs `ambition_ldtk_tools repair --in-place` and
    `ambition_ldtk_tools validate --schema ... --require-schema`.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -185,9 +186,12 @@ def _default_override(human_type: str, value):
     """LDtk's `defaultOverride` shape."""
     if value is None:
         return None
-    wrapper = {"String": "V_String", "Bool": "V_Bool", "Int": "V_Int", "Float": "V_Float"}[
-        human_type
-    ]
+    wrapper = {
+        "String": "V_String",
+        "Bool": "V_Bool",
+        "Int": "V_Int",
+        "Float": "V_Float",
+    }[human_type]
     if human_type == "Bool":
         params = [bool(value)]
     elif human_type == "Int":
@@ -267,7 +271,11 @@ def patch_validator_known_entities(identifiers: list[str]) -> list[str]:
     new_set = sorted(existing | set(additions))
     rendered = "    " + ",\n    ".join(f'"{name}"' for name in new_set) + ",\n"
     new_text = (
-        text[: match.start()] + "KNOWN_ENTITIES = {\n" + rendered + "}" + text[match.end() :]
+        text[: match.start()]
+        + "KNOWN_ENTITIES = {\n"
+        + rendered
+        + "}"
+        + text[match.end() :]
     )
     VALIDATOR.write_text(new_text)
     return additions
@@ -305,7 +313,9 @@ def patch_runtime_identifiers(identifiers: list[str]) -> list[str]:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("spec", type=Path, help="YAML or JSON spec with `entities` list")
+    parser.add_argument(
+        "spec", type=Path, help="YAML or JSON spec with `entities` list"
+    )
     parser.add_argument("--ldtk", type=Path, default=SANDBOX_LDTK)
     parser.add_argument("--in-place", action="store_true", help="write to --ldtk")
     parser.add_argument("--output", type=Path, default=None)
@@ -370,7 +380,13 @@ def main(argv=None) -> int:
     if args.no_repair:
         return 0
 
-    cmd = [sys.executable, "-m", "ambition_ldtk_tools.repair", str(target), "--in-place"]
+    cmd = [
+        sys.executable,
+        "-m",
+        "ambition_ldtk_tools.repair",
+        str(target),
+        "--in-place",
+    ]
     print("$ " + " ".join(cmd))
     r = subprocess.run(cmd)
     if r.returncode != 0:

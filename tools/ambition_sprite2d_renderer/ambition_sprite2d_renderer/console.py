@@ -41,6 +41,8 @@ def print_canonical_outputs(paths: Iterable[str | Path]) -> None:
     outputs: List[Path] = [Path(path) for path in paths]
     print_paths(outputs)
 
-    contact = next((p for p in outputs if p.name == "canonicals_contact_sheet.png"), None)
+    contact = next(
+        (p for p in outputs if p.name == "canonicals_contact_sheet.png"), None
+    )
     if contact is not None:
         print_path(contact, prefix="[bold green]Canonical contact sheet:[/bold green] ")

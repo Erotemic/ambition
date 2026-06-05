@@ -6,6 +6,7 @@ basic level/transition metrics for two full-mix section files. It writes WAV
 previews, CSV metrics, PNG plots, and a Markdown report so a transition can be
 audited visually when the ear is not enough.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -59,7 +60,9 @@ def peak(audio: np.ndarray) -> float:
     return float(np.max(np.abs(audio)))
 
 
-def high_band_ratio(audio: np.ndarray, sample_rate: int, cutoff_hz: float = 8000.0) -> float:
+def high_band_ratio(
+    audio: np.ndarray, sample_rate: int, cutoff_hz: float = 8000.0
+) -> float:
     """Approximate hiss/air as high-frequency energy ratio.
 
     This is intentionally simple: it is not a psychoacoustic noise metric, but
@@ -91,11 +94,15 @@ def section_file(root: Path, section: str) -> Path:
     if not candidates:
         raise FileNotFoundError(f"no full-mix OGG under {section_dir}")
     # Prefer stable installed names when present; otherwise use hashed renderer output.
-    candidates.sort(key=lambda p: (p.name != f"{section}.full.ogg", len(p.name), p.name))
+    candidates.sort(
+        key=lambda p: (p.name != f"{section}.full.ogg", len(p.name), p.name)
+    )
     return candidates[0]
 
 
-def stats_for(path: Path, *, sample_window_seconds: float, tail_window_seconds: float) -> dict[str, float | str]:
+def stats_for(
+    path: Path, *, sample_window_seconds: float, tail_window_seconds: float
+) -> dict[str, float | str]:
     audio, sample_rate = read_audio(path)
     head_frames = max(1, int(round(sample_window_seconds * sample_rate)))
     tail_frames = max(1, int(round(tail_window_seconds * sample_rate)))
@@ -176,7 +183,8 @@ def transition_components(
     outgoing = np.concatenate(
         [
             first_tail[:-crossfade_frames],
-            first_tail[-crossfade_frames:] * fade(crossfade_frames, direction="out", shape=crossfade_shape),
+            first_tail[-crossfade_frames:]
+            * fade(crossfade_frames, direction="out", shape=crossfade_shape),
             zeros_post,
         ],
         axis=0,
@@ -184,7 +192,8 @@ def transition_components(
     incoming = np.concatenate(
         [
             zeros_pre,
-            second_head[:crossfade_frames] * fade(crossfade_frames, direction="in", shape=crossfade_shape),
+            second_head[:crossfade_frames]
+            * fade(crossfade_frames, direction="in", shape=crossfade_shape),
             second_head[crossfade_frames:],
         ],
         axis=0,
@@ -215,15 +224,15 @@ def write_runtime_preview(
     sf.write(output, preview, sr)
 
 
-
-
 def mono(audio: np.ndarray) -> np.ndarray:
     if audio.ndim == 1:
         return audio.astype("float32", copy=False)
     return np.mean(audio, axis=1).astype("float32", copy=False)
 
 
-def windowed_rms_db(audio: np.ndarray, sample_rate: int, *, window_ms: float, hop_ms: float) -> tuple[np.ndarray, np.ndarray]:
+def windowed_rms_db(
+    audio: np.ndarray, sample_rate: int, *, window_ms: float, hop_ms: float
+) -> tuple[np.ndarray, np.ndarray]:
     signal = mono(audio)
     win = max(1, int(round(sample_rate * window_ms / 1000.0)))
     hop = max(1, int(round(sample_rate * hop_ms / 1000.0)))
@@ -238,7 +247,9 @@ def windowed_rms_db(audio: np.ndarray, sample_rate: int, *, window_ms: float, ho
     return np.asarray(times, dtype="float32"), np.asarray(values, dtype="float32")
 
 
-def windowed_peak_db(audio: np.ndarray, sample_rate: int, *, window_ms: float, hop_ms: float) -> tuple[np.ndarray, np.ndarray]:
+def windowed_peak_db(
+    audio: np.ndarray, sample_rate: int, *, window_ms: float, hop_ms: float
+) -> tuple[np.ndarray, np.ndarray]:
     signal = mono(audio)
     win = max(1, int(round(sample_rate * window_ms / 1000.0)))
     hop = max(1, int(round(sample_rate * hop_ms / 1000.0)))
@@ -253,7 +264,9 @@ def windowed_peak_db(audio: np.ndarray, sample_rate: int, *, window_ms: float, h
     return np.asarray(times, dtype="float32"), np.asarray(values, dtype="float32")
 
 
-def spectrogram_db(audio: np.ndarray, sample_rate: int, *, n_fft: int = 2048, hop: int = 512) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def spectrogram_db(
+    audio: np.ndarray, sample_rate: int, *, n_fft: int = 2048, hop: int = 512
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     signal = mono(audio)
     if signal.size < n_fft:
         signal = np.pad(signal, (0, n_fft - signal.size))
@@ -265,9 +278,17 @@ def spectrogram_db(audio: np.ndarray, sample_rate: int, *, n_fft: int = 2048, ho
         power = np.square(np.abs(np.fft.rfft(frame)))
         frames.append(10.0 * np.log10(np.maximum(power, 1e-16)))
         times.append((start + 0.5 * n_fft) / float(sample_rate))
-    spec = np.stack(frames, axis=1) if frames else np.zeros((n_fft // 2 + 1, 0), dtype="float32")
+    spec = (
+        np.stack(frames, axis=1)
+        if frames
+        else np.zeros((n_fft // 2 + 1, 0), dtype="float32")
+    )
     freqs = np.fft.rfftfreq(n_fft, d=1.0 / float(sample_rate))
-    return np.asarray(times, dtype="float32"), freqs.astype("float32"), spec.astype("float32")
+    return (
+        np.asarray(times, dtype="float32"),
+        freqs.astype("float32"),
+        spec.astype("float32"),
+    )
 
 
 def load_matplotlib():
@@ -305,9 +326,15 @@ def plot_transition_components(
         level_match_second=False,
         crossfade_shape=crossfade_shape,
     )
-    t_out, y_out = windowed_rms_db(outgoing, sample_rate, window_ms=window_ms, hop_ms=hop_ms)
-    t_in, y_in = windowed_rms_db(incoming, sample_rate, window_ms=window_ms, hop_ms=hop_ms)
-    t_sum, y_sum = windowed_rms_db(summed, sample_rate, window_ms=window_ms, hop_ms=hop_ms)
+    t_out, y_out = windowed_rms_db(
+        outgoing, sample_rate, window_ms=window_ms, hop_ms=hop_ms
+    )
+    t_in, y_in = windowed_rms_db(
+        incoming, sample_rate, window_ms=window_ms, hop_ms=hop_ms
+    )
+    t_sum, y_sum = windowed_rms_db(
+        summed, sample_rate, window_ms=window_ms, hop_ms=hop_ms
+    )
     crossfade_start = max(0.0, context_seconds - crossfade_seconds)
     crossfade_end = context_seconds
 
@@ -315,7 +342,9 @@ def plot_transition_components(
     ax.plot(t_out, y_out, label=f"outgoing {path_a.parent.name} RMS")
     ax.plot(t_in, y_in, label=f"incoming {path_b.parent.name} RMS")
     ax.plot(t_sum, y_sum, label="summed preview RMS", linewidth=2.0)
-    ax.axvspan(crossfade_start, crossfade_end, alpha=0.18, label="runtime crossfade window")
+    ax.axvspan(
+        crossfade_start, crossfade_end, alpha=0.18, label="runtime crossfade window"
+    )
     ax.axvline(crossfade_start, linestyle="--", linewidth=1.0)
     ax.axvline(crossfade_end, linestyle="--", linewidth=1.0)
     ax.set_title("Transition components: outgoing vs incoming vs sum")
@@ -344,15 +373,21 @@ def plot_transition_envelope(
     if plt is None:
         return None
     audio, sample_rate = read_audio(preview_path)
-    t_rms, y_rms = windowed_rms_db(audio, sample_rate, window_ms=window_ms, hop_ms=hop_ms)
-    t_peak, y_peak = windowed_peak_db(audio, sample_rate, window_ms=window_ms, hop_ms=hop_ms)
+    t_rms, y_rms = windowed_rms_db(
+        audio, sample_rate, window_ms=window_ms, hop_ms=hop_ms
+    )
+    t_peak, y_peak = windowed_peak_db(
+        audio, sample_rate, window_ms=window_ms, hop_ms=hop_ms
+    )
     crossfade_start = max(0.0, context_seconds - crossfade_seconds)
     crossfade_end = context_seconds
 
     fig, ax = plt.subplots(figsize=(11, 5))
     ax.plot(t_rms, y_rms, label="RMS envelope")
     ax.plot(t_peak, y_peak, label="Peak envelope", alpha=0.65)
-    ax.axvspan(crossfade_start, crossfade_end, alpha=0.18, label="runtime crossfade window")
+    ax.axvspan(
+        crossfade_start, crossfade_end, alpha=0.18, label="runtime crossfade window"
+    )
     ax.axvline(crossfade_start, linestyle="--", linewidth=1.0)
     ax.axvline(crossfade_end, linestyle="--", linewidth=1.0)
     ax.set_title(f"Transition envelope: {preview_path.name}")
@@ -395,13 +430,20 @@ def plot_tail_head_comparison(
     fig, ax = plt.subplots(figsize=(11, 5))
     ax.plot(t_a - context_seconds, rms_a, label=f"{path_a.parent.name} tail RMS")
     ax.plot(t_b, rms_b, label=f"{path_b.parent.name} head RMS")
-    ax.plot(t_a - context_seconds, peak_a, label=f"{path_a.parent.name} tail peak", alpha=0.55)
+    ax.plot(
+        t_a - context_seconds,
+        peak_a,
+        label=f"{path_a.parent.name} tail peak",
+        alpha=0.55,
+    )
     ax.plot(t_b, peak_b, label=f"{path_b.parent.name} head peak", alpha=0.55)
     ax.axvline(0.0, linestyle="--", linewidth=1.0, label="section boundary")
     ax.set_title("Tail/head level comparison")
     ax.set_xlabel("seconds relative to boundary")
     ax.set_ylabel("dBFS")
-    ax.set_ylim(bottom=max(-80.0, float(min(np.nanmin(rms_a), np.nanmin(rms_b))) - 6.0), top=3.0)
+    ax.set_ylim(
+        bottom=max(-80.0, float(min(np.nanmin(rms_a), np.nanmin(rms_b))) - 6.0), top=3.0
+    )
     ax.grid(True, alpha=0.25)
     ax.legend(loc="best")
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -411,7 +453,13 @@ def plot_tail_head_comparison(
     return output
 
 
-def plot_preview_spectrogram(preview_path: Path, output: Path, *, crossfade_seconds: float, context_seconds: float) -> Path | None:
+def plot_preview_spectrogram(
+    preview_path: Path,
+    output: Path,
+    *,
+    crossfade_seconds: float,
+    context_seconds: float,
+) -> Path | None:
     plt = load_matplotlib()
     if plt is None:
         return None
@@ -448,7 +496,6 @@ def plot_preview_spectrogram(preview_path: Path, output: Path, *, crossfade_seco
     return output
 
 
-
 def crossfade_envelope_summary(
     path_a: Path,
     path_b: Path,
@@ -468,11 +515,15 @@ def crossfade_envelope_summary(
         level_match_second=False,
         crossfade_shape=crossfade_shape,
     )
-    times, values = windowed_rms_db(summed, sample_rate, window_ms=window_ms, hop_ms=hop_ms)
+    times, values = windowed_rms_db(
+        summed, sample_rate, window_ms=window_ms, hop_ms=hop_ms
+    )
     crossfade_start = max(0.0, context_seconds - crossfade_seconds)
     crossfade_end = context_seconds
     pre_start = max(0.0, crossfade_start - 0.6)
-    post_end = min(float(times[-1]) if times.size else crossfade_end, crossfade_end + 0.6)
+    post_end = min(
+        float(times[-1]) if times.size else crossfade_end, crossfade_end + 0.6
+    )
 
     def finite_region(mask: np.ndarray) -> np.ndarray:
         region = values[mask]
@@ -515,10 +566,12 @@ def write_markdown_report(
     lookup = {str(row["section"]): row for row in rows}
     a = lookup.get(section_a, {})
     b = lookup.get(section_b, {})
+
     def fmt_delta(key: str) -> str:
         if key in a and key in b:
             return f"{float(b[key]) - float(a[key]):+.1f} dB"
         return "n/a"
+
     lines = [
         f"# Transition audit: {section_a} -> {section_b}",
         "",
@@ -526,24 +579,36 @@ def write_markdown_report(
         "",
         f"- Head RMS delta ({section_b} head - {section_a} head): {fmt_delta('head_rms_db')}",
         f"- Tail/head RMS delta ({section_b} head - {section_a} tail): "
-        + (f"{float(b['head_rms_db']) - float(a['tail_rms_db']):+.1f} dB" if 'head_rms_db' in b and 'tail_rms_db' in a else "n/a"),
+        + (
+            f"{float(b['head_rms_db']) - float(a['tail_rms_db']):+.1f} dB"
+            if "head_rms_db" in b and "tail_rms_db" in a
+            else "n/a"
+        ),
         f"- Tail high-band ratio delta ({section_b} - {section_a}): "
-        + (f"{100.0 * (float(b['tail_high_band_ratio']) - float(a['tail_high_band_ratio'])):+.2f} percentage points" if 'tail_high_band_ratio' in b and 'tail_high_band_ratio' in a else "n/a"),
+        + (
+            f"{100.0 * (float(b['tail_high_band_ratio']) - float(a['tail_high_band_ratio'])):+.2f} percentage points"
+            if "tail_high_band_ratio" in b and "tail_high_band_ratio" in a
+            else "n/a"
+        ),
     ]
     if crossfade_summary:
-        lines.extend([
-            f"- Runtime crossfade: {crossfade_summary['crossfade_seconds']:.2f}s ({crossfade_shape})",
-            f"- Crossfade floor RMS: {crossfade_summary['crossfade_floor_rms_db']:.1f} dBFS",
-            f"- Crossfade dip vs pre-window median: {crossfade_summary['dip_vs_pre_db']:+.1f} dB",
-            f"- Crossfade dip vs post-window median: {crossfade_summary['dip_vs_post_db']:+.1f} dB",
-        ])
-    lines.extend([
-        "",
-        "Use this report visually: a smooth handoff should have compatible tail/head RMS envelopes, no large high-frequency tail spike, no obvious spectral cliff at the crossfade window, and no deep dip in the component/summed RMS plot.",
-        "",
-        "## Audio previews",
-        "",
-    ])
+        lines.extend(
+            [
+                f"- Runtime crossfade: {crossfade_summary['crossfade_seconds']:.2f}s ({crossfade_shape})",
+                f"- Crossfade floor RMS: {crossfade_summary['crossfade_floor_rms_db']:.1f} dBFS",
+                f"- Crossfade dip vs pre-window median: {crossfade_summary['dip_vs_pre_db']:+.1f} dB",
+                f"- Crossfade dip vs post-window median: {crossfade_summary['dip_vs_post_db']:+.1f} dB",
+            ]
+        )
+    lines.extend(
+        [
+            "",
+            "Use this report visually: a smooth handoff should have compatible tail/head RMS envelopes, no large high-frequency tail spike, no obvious spectral cliff at the crossfade window, and no deep dip in the component/summed RMS plot.",
+            "",
+            "## Audio previews",
+            "",
+        ]
+    )
     if raw_preview:
         lines.append(f"- Runtime preview: `{raw_preview.name}`")
     if matched_preview:
@@ -554,7 +619,16 @@ def write_markdown_report(
             lines.append(f"![{file.stem}]({file.name})")
             lines.append("")
     lines.extend(["## Metrics", "", "```csv"])
-    metric_keys = ["section", "peak_db", "rms_db", "head_rms_db", "tail_rms_db", "tail_to_full_db", "high_band_ratio", "tail_high_band_ratio"]
+    metric_keys = [
+        "section",
+        "peak_db",
+        "rms_db",
+        "head_rms_db",
+        "tail_rms_db",
+        "tail_to_full_db",
+        "high_band_ratio",
+        "tail_high_band_ratio",
+    ]
     lines.append(",".join(metric_keys))
     for row in rows:
         values = []
@@ -598,18 +672,64 @@ def write_csv(path: Path, rows: Iterable[dict[str, float | str]]) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("root", type=Path, help="generated cue root containing adaptive/<section>/")
-    parser.add_argument("--sections", nargs=2, default=["intro", "wave1"], metavar=("A", "B"))
-    parser.add_argument("--window", type=float, default=1.0, help="head/tail analysis window in seconds")
-    parser.add_argument("--tail-window", type=float, default=1.5, help="tail hiss/noise window in seconds")
-    parser.add_argument("--crossfade", type=float, default=0.35, help="runtime-style crossfade seconds")
-    parser.add_argument("--crossfade-shape", choices=["linear", "equal_power"], default="linear", help="preview crossfade curve shape")
-    parser.add_argument("--context", type=float, default=4.0, help="seconds of each side to include in previews")
-    parser.add_argument("--outdir", type=Path, default=None, help="directory for reports/previews; default root/transition_audit")
-    parser.add_argument("--no-preview", action="store_true", help="only print metrics; do not write WAV previews")
-    parser.add_argument("--no-plots", action="store_true", help="skip PNG plots and Markdown visual report")
-    parser.add_argument("--envelope-window-ms", type=float, default=80.0, help="RMS/peak envelope window for plots")
-    parser.add_argument("--envelope-hop-ms", type=float, default=20.0, help="RMS/peak envelope hop for plots")
+    parser.add_argument(
+        "root", type=Path, help="generated cue root containing adaptive/<section>/"
+    )
+    parser.add_argument(
+        "--sections", nargs=2, default=["intro", "wave1"], metavar=("A", "B")
+    )
+    parser.add_argument(
+        "--window", type=float, default=1.0, help="head/tail analysis window in seconds"
+    )
+    parser.add_argument(
+        "--tail-window",
+        type=float,
+        default=1.5,
+        help="tail hiss/noise window in seconds",
+    )
+    parser.add_argument(
+        "--crossfade", type=float, default=0.35, help="runtime-style crossfade seconds"
+    )
+    parser.add_argument(
+        "--crossfade-shape",
+        choices=["linear", "equal_power"],
+        default="linear",
+        help="preview crossfade curve shape",
+    )
+    parser.add_argument(
+        "--context",
+        type=float,
+        default=4.0,
+        help="seconds of each side to include in previews",
+    )
+    parser.add_argument(
+        "--outdir",
+        type=Path,
+        default=None,
+        help="directory for reports/previews; default root/transition_audit",
+    )
+    parser.add_argument(
+        "--no-preview",
+        action="store_true",
+        help="only print metrics; do not write WAV previews",
+    )
+    parser.add_argument(
+        "--no-plots",
+        action="store_true",
+        help="skip PNG plots and Markdown visual report",
+    )
+    parser.add_argument(
+        "--envelope-window-ms",
+        type=float,
+        default=80.0,
+        help="RMS/peak envelope window for plots",
+    )
+    parser.add_argument(
+        "--envelope-hop-ms",
+        type=float,
+        default=20.0,
+        help="RMS/peak envelope hop for plots",
+    )
     args = parser.parse_args(argv)
 
     root = args.root.resolve()
@@ -620,7 +740,11 @@ def main(argv: list[str] | None = None) -> int:
 
     rows = []
     for section, path in [(section_a, path_a), (section_b, path_b)]:
-        row = stats_for(path, sample_window_seconds=args.window, tail_window_seconds=args.tail_window)
+        row = stats_for(
+            path,
+            sample_window_seconds=args.window,
+            tail_window_seconds=args.tail_window,
+        )
         row["section"] = section
         rows.append(row)
     print_table(rows)
@@ -642,7 +766,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     if not args.no_preview:
         raw_preview = outdir / f"{section_a}_to_{section_b}_runtime_preview.wav"
-        matched_preview = outdir / f"{section_a}_to_{section_b}_level_matched_preview.wav"
+        matched_preview = (
+            outdir / f"{section_a}_to_{section_b}_level_matched_preview.wav"
+        )
         write_runtime_preview(
             path_a,
             path_b,
@@ -725,7 +851,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         rich_print(f"[green]report[/green] {path_link(report)}")
 
-    rich_print("[dim]Tip: if level_matched sounds smooth but runtime_preview does not, focus on mastering/gain. If both sounds obvious, focus on arrangement/timbre continuity. Use the component/envelope/spectrogram plots to spot outgoing/incoming handoff dips, loudness cliffs, noisy tails, or spectral discontinuities. Compare --crossfade-shape linear vs equal_power to distinguish content holes from amplitude-curve dips.[/dim]")
+    rich_print(
+        "[dim]Tip: if level_matched sounds smooth but runtime_preview does not, focus on mastering/gain. If both sounds obvious, focus on arrangement/timbre continuity. Use the component/envelope/spectrogram plots to spot outgoing/incoming handoff dips, loudness cliffs, noisy tails, or spectral discontinuities. Compare --crossfade-shape linear vs equal_power to distinguish content holes from amplitude-curve dips.[/dim]"
+    )
     return 0
 
 

@@ -45,7 +45,10 @@ ACTOR_METADATA = {
     "sockets": {
         "top": {"source": f"{TARGET_NAME}.geometry", "point": {"x": 24.0, "y": 4.0}},
         "cut": {"source": f"{TARGET_NAME}.geometry", "point": {"x": 24.0, "y": 92.0}},
-        "bottom": {"source": f"{TARGET_NAME}.geometry", "point": {"x": 24.0, "y": 188.0}},
+        "bottom": {
+            "source": f"{TARGET_NAME}.geometry",
+            "point": {"x": 24.0, "y": 188.0},
+        },
     },
     "tags": ["prop", "rope", "cuttable", "boss-arena"],
 }
@@ -76,12 +79,12 @@ def _box(x1: float, y1: float, x2: float, y2: float) -> Tuple[int, int, int, int
 def _rope_wave(y: float, strand: int) -> float:
     # Static braided silhouette. A deterministic triangular-ish wave reads as
     # rope twist without the DNA/dancing-flower motion the old idle row had.
-    t = ((y * 0.08 + strand * 0.33) % 1.0)
+    t = (y * 0.08 + strand * 0.33) % 1.0
     return (abs(t - 0.5) - 0.25) * 7.0
 
 
 def _rope_band_wave(y: float) -> float:
-    t = ((y * 0.08) % 1.0)
+    t = (y * 0.08) % 1.0
     return (abs(t - 0.5) - 0.25) * 5.0
 
 
@@ -116,8 +119,20 @@ def _draw_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
 
     for y in range(26, 184, 12):
         wave = _rope_band_wave(y)
-        draw.arc(_box(cx - 6 + wave, y - 4, cx + 6 + wave, y + 8), 210, 330, fill=ROPE_SHADOW, width=_s(1.0))
-        draw.arc(_box(cx - 6 - wave, y - 4, cx + 6 - wave, y + 8), 30, 150, fill=ROPE_LIGHT, width=_s(0.8))
+        draw.arc(
+            _box(cx - 6 + wave, y - 4, cx + 6 + wave, y + 8),
+            210,
+            330,
+            fill=ROPE_SHADOW,
+            width=_s(1.0),
+        )
+        draw.arc(
+            _box(cx - 6 - wave, y - 4, cx + 6 - wave, y + 8),
+            30,
+            150,
+            fill=ROPE_LIGHT,
+            width=_s(0.8),
+        )
 
     # A faint cut marker near the intended strike height.
     draw.line((_s(cx - 7), _s(92), _s(cx + 7), _s(92)), fill=BINDING, width=_s(0.7))

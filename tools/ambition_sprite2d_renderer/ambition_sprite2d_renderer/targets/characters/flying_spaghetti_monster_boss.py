@@ -79,25 +79,83 @@ ACTOR_METADATA = {
         "action.melee.primary": {
             "animation": "noodle_whip",
             "events": [
-                {"t": 0.34, "event": "hitbox_active_start", "source": "flying_spaghetti_monster_boss.noodle_whip"},
-                {"t": 0.62, "event": "hitbox_active_end", "source": "flying_spaghetti_monster_boss.noodle_whip"},
+                {
+                    "t": 0.34,
+                    "event": "hitbox_active_start",
+                    "source": "flying_spaghetti_monster_boss.noodle_whip",
+                },
+                {
+                    "t": 0.62,
+                    "event": "hitbox_active_end",
+                    "source": "flying_spaghetti_monster_boss.noodle_whip",
+                },
             ],
         },
-        "action.ranged.primary": {"animation": "meatball_volley", "events": [{"t": 0.48, "event": "projectile_release", "source": "flying_spaghetti_monster_boss.meatball_volley"}]},
-        "action.special.eye_beam": {"animation": "eye_beam", "events": [{"t": 0.44, "event": "beam_active_start", "source": "flying_spaghetti_monster_boss.eye_beam"}, {"t": 0.72, "event": "beam_active_end", "source": "flying_spaghetti_monster_boss.eye_beam"}]},
+        "action.ranged.primary": {
+            "animation": "meatball_volley",
+            "events": [
+                {
+                    "t": 0.48,
+                    "event": "projectile_release",
+                    "source": "flying_spaghetti_monster_boss.meatball_volley",
+                }
+            ],
+        },
+        "action.special.eye_beam": {
+            "animation": "eye_beam",
+            "events": [
+                {
+                    "t": 0.44,
+                    "event": "beam_active_start",
+                    "source": "flying_spaghetti_monster_boss.eye_beam",
+                },
+                {
+                    "t": 0.72,
+                    "event": "beam_active_end",
+                    "source": "flying_spaghetti_monster_boss.eye_beam",
+                },
+            ],
+        },
         "damage.hit": {"animation": "hurt", "events": []},
         "lifecycle.death": {"animation": "death", "events": []},
     },
     "sockets": {
-        "core": {"source": "flying_spaghetti_monster_boss.geometry", "point": {"x": 160.0, "y": 136.0}},
-        "meatball_l": {"source": "flying_spaghetti_monster_boss.geometry", "point": {"x": 126.0, "y": 140.0}},
-        "meatball_r": {"source": "flying_spaghetti_monster_boss.geometry", "point": {"x": 192.0, "y": 138.0}},
-        "eye_l": {"source": "flying_spaghetti_monster_boss.geometry", "point": {"x": 116.0, "y": 40.0}},
-        "eye_r": {"source": "flying_spaghetti_monster_boss.geometry", "point": {"x": 220.0, "y": 42.0}},
-        "beam_l": {"source": "flying_spaghetti_monster_boss.geometry", "point": {"x": 116.0, "y": 40.0}},
-        "beam_r": {"source": "flying_spaghetti_monster_boss.geometry", "point": {"x": 220.0, "y": 42.0}},
-        "noodle_tip": {"source": "flying_spaghetti_monster_boss.geometry", "point": {"x": 252.0, "y": 150.0}},
-        "projectile_origin": {"source": "flying_spaghetti_monster_boss.geometry", "point": {"x": 190.0, "y": 132.0}},
+        "core": {
+            "source": "flying_spaghetti_monster_boss.geometry",
+            "point": {"x": 160.0, "y": 136.0},
+        },
+        "meatball_l": {
+            "source": "flying_spaghetti_monster_boss.geometry",
+            "point": {"x": 126.0, "y": 140.0},
+        },
+        "meatball_r": {
+            "source": "flying_spaghetti_monster_boss.geometry",
+            "point": {"x": 192.0, "y": 138.0},
+        },
+        "eye_l": {
+            "source": "flying_spaghetti_monster_boss.geometry",
+            "point": {"x": 116.0, "y": 40.0},
+        },
+        "eye_r": {
+            "source": "flying_spaghetti_monster_boss.geometry",
+            "point": {"x": 220.0, "y": 42.0},
+        },
+        "beam_l": {
+            "source": "flying_spaghetti_monster_boss.geometry",
+            "point": {"x": 116.0, "y": 40.0},
+        },
+        "beam_r": {
+            "source": "flying_spaghetti_monster_boss.geometry",
+            "point": {"x": 220.0, "y": 42.0},
+        },
+        "noodle_tip": {
+            "source": "flying_spaghetti_monster_boss.geometry",
+            "point": {"x": 252.0, "y": 150.0},
+        },
+        "projectile_origin": {
+            "source": "flying_spaghetti_monster_boss.geometry",
+            "point": {"x": 190.0, "y": 132.0},
+        },
     },
     "tags": ["boss", "floating", "multipart"],
 }
@@ -145,22 +203,58 @@ def _rot(x: float, y: float, deg: float) -> Point:
     return (x * c - y * s, x * s + y * c)
 
 
-def _poly(draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, outline: RGBA | None = OUTLINE, width: float = 1.0) -> None:
+def _poly(
+    draw: ImageDraw.ImageDraw,
+    pts: Sequence[Point],
+    fill: RGBA,
+    outline: RGBA | None = OUTLINE,
+    width: float = 1.0,
+) -> None:
     draw.polygon([_pt(p) for p in pts], fill=fill)
     if outline is not None and len(pts) >= 2:
-        draw.line([_pt(p) for p in list(pts) + [pts[0]]], fill=outline, width=max(1, _s(width)), joint="curve")
+        draw.line(
+            [_pt(p) for p in list(pts) + [pts[0]]],
+            fill=outline,
+            width=max(1, _s(width)),
+            joint="curve",
+        )
 
 
-def _line(draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, width: float) -> None:
+def _line(
+    draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, width: float
+) -> None:
     if len(pts) >= 2:
-        draw.line([_pt(p) for p in pts], fill=fill, width=max(1, _s(width)), joint="curve")
+        draw.line(
+            [_pt(p) for p in pts], fill=fill, width=max(1, _s(width)), joint="curve"
+        )
 
 
-def _ellipse(draw: ImageDraw.ImageDraw, cx: float, cy: float, rx: float, ry: float, fill: RGBA, outline: RGBA | None = OUTLINE, width: float = 0.8) -> None:
-    draw.ellipse(_box(cx, cy, rx, ry), fill=fill, outline=outline, width=max(1, _s(width)) if outline is not None else 0)
+def _ellipse(
+    draw: ImageDraw.ImageDraw,
+    cx: float,
+    cy: float,
+    rx: float,
+    ry: float,
+    fill: RGBA,
+    outline: RGBA | None = OUTLINE,
+    width: float = 0.8,
+) -> None:
+    draw.ellipse(
+        _box(cx, cy, rx, ry),
+        fill=fill,
+        outline=outline,
+        width=max(1, _s(width)) if outline is not None else 0,
+    )
 
 
-def _circle(draw: ImageDraw.ImageDraw, center: Point, r: float, fill: RGBA, outline: RGBA | None = OUTLINE, width: float = 0.8) -> None:
+def _circle(
+    draw: ImageDraw.ImageDraw,
+    center: Point,
+    r: float,
+    fill: RGBA,
+    outline: RGBA | None = OUTLINE,
+    width: float = 0.8,
+) -> None:
     _ellipse(draw, center[0], center[1], r, r, fill, outline, width)
 
 
@@ -173,7 +267,12 @@ def _quad(a: Point, b: Point, c: Point, steps: int = 18) -> List[Point]:
     for i in range(steps + 1):
         t = i / steps
         u = 1.0 - t
-        pts.append((u * u * a[0] + 2 * u * t * b[0] + t * t * c[0], u * u * a[1] + 2 * u * t * b[1] + t * t * c[1]))
+        pts.append(
+            (
+                u * u * a[0] + 2 * u * t * b[0] + t * t * c[0],
+                u * u * a[1] + 2 * u * t * b[1] + t * t * c[1],
+            )
+        )
     return pts
 
 
@@ -182,14 +281,24 @@ def _cubic(a: Point, b: Point, c: Point, d: Point, steps: int = 22) -> List[Poin
     for i in range(steps + 1):
         t = i / steps
         u = 1.0 - t
-        pts.append((
-            u * u * u * a[0] + 3 * u * u * t * b[0] + 3 * u * t * t * c[0] + t * t * t * d[0],
-            u * u * u * a[1] + 3 * u * u * t * b[1] + 3 * u * t * t * c[1] + t * t * t * d[1],
-        ))
+        pts.append(
+            (
+                u * u * u * a[0]
+                + 3 * u * u * t * b[0]
+                + 3 * u * t * t * c[0]
+                + t * t * t * d[0],
+                u * u * u * a[1]
+                + 3 * u * u * t * b[1]
+                + 3 * u * t * t * c[1]
+                + t * t * t * d[1],
+            )
+        )
     return pts
 
 
-def _cubic_from_triplet(a: Point, b: Point, c: Point, curve: float = 0.72, steps: int = 22) -> List[Point]:
+def _cubic_from_triplet(
+    a: Point, b: Point, c: Point, curve: float = 0.72, steps: int = 22
+) -> List[Point]:
     c1 = (_lerp(a[0], b[0], curve), _lerp(a[1], b[1], curve))
     c2 = (_lerp(c[0], b[0], curve), _lerp(c[1], b[1], curve))
     return _cubic(a, c1, c2, c, steps)
@@ -217,7 +326,6 @@ class Pose:
 def _ease(t: float) -> float:
     t = max(0.0, min(1.0, t))
     return 0.5 - 0.5 * math.cos(math.pi * t)
-
 
 
 def _pose(anim: str, frame_idx: int, nframes: int) -> Pose:
@@ -295,7 +403,9 @@ def _pose(anim: str, frame_idx: int, nframes: int) -> Pose:
     return p
 
 
-def _draw_noodle(draw: ImageDraw.ImageDraw, pts: Sequence[Point], width: float, front: bool) -> None:
+def _draw_noodle(
+    draw: ImageDraw.ImageDraw, pts: Sequence[Point], width: float, front: bool
+) -> None:
     _line(draw, pts, OUTLINE, width + 1.9)
     _line(draw, pts, NOODLE, width)
     _line(draw, pts, NOODLE_SHADE, max(1.2, width * 0.34))
@@ -304,28 +414,79 @@ def _draw_noodle(draw: ImageDraw.ImageDraw, pts: Sequence[Point], width: float, 
         _line(draw, hi_pts, NOODLE_HI, max(0.8, width * 0.18))
 
 
-def _draw_meatball(draw: ImageDraw.ImageDraw, center: Point, rx: float, ry: float, sauce_tilt: float, sauce_drip: float = 0.0) -> None:
+def _draw_meatball(
+    draw: ImageDraw.ImageDraw,
+    center: Point,
+    rx: float,
+    ry: float,
+    sauce_tilt: float,
+    sauce_drip: float = 0.0,
+) -> None:
     cx, cy = center
     _ellipse(draw, cx, cy, rx, ry, MEATBALL, OUTLINE, 1.0)
-    _ellipse(draw, cx - rx * 0.18, cy - ry * 0.15, rx * 0.62, ry * 0.58, MEATBALL_HI, None, 0)
-    _ellipse(draw, cx + rx * 0.20, cy + ry * 0.18, rx * 0.46, ry * 0.44, MEATBALL_SHADE, None, 0)
+    _ellipse(
+        draw, cx - rx * 0.18, cy - ry * 0.15, rx * 0.62, ry * 0.58, MEATBALL_HI, None, 0
+    )
+    _ellipse(
+        draw,
+        cx + rx * 0.20,
+        cy + ry * 0.18,
+        rx * 0.46,
+        ry * 0.44,
+        MEATBALL_SHADE,
+        None,
+        0,
+    )
     # Chunky texture.
-    for ox, oy, rr in [(-12, -6, 4), (10, -2, 3.5), (-6, 12, 3), (14, 11, 2.8), (4, -13, 2.8)]:
-        _circle(draw, (cx + ox * rx / 26.0, cy + oy * ry / 24.0), rr * (rx / 24.0), MEATBALL_SHADE, None, 0)
+    for ox, oy, rr in [
+        (-12, -6, 4),
+        (10, -2, 3.5),
+        (-6, 12, 3),
+        (14, 11, 2.8),
+        (4, -13, 2.8),
+    ]:
+        _circle(
+            draw,
+            (cx + ox * rx / 26.0, cy + oy * ry / 24.0),
+            rr * (rx / 24.0),
+            MEATBALL_SHADE,
+            None,
+            0,
+        )
     # Sauce cap.
     sauce = []
     for i in range(11):
         ang = math.radians(-160 + i * 32 + sauce_tilt)
         rad = rx * (0.72 + 0.14 * math.sin(i * 0.8 + sauce_tilt))
-        sauce.append((cx + math.cos(ang) * rad, cy - ry * 0.42 + math.sin(ang) * ry * 0.22))
-    sauce += [(cx + rx * 0.52, cy - ry * 0.04), (cx + rx * 0.18, cy + ry * 0.12), (cx - rx * 0.28, cy + ry * 0.06), (cx - rx * 0.52, cy - ry * 0.02)]
+        sauce.append(
+            (cx + math.cos(ang) * rad, cy - ry * 0.42 + math.sin(ang) * ry * 0.22)
+        )
+    sauce += [
+        (cx + rx * 0.52, cy - ry * 0.04),
+        (cx + rx * 0.18, cy + ry * 0.12),
+        (cx - rx * 0.28, cy + ry * 0.06),
+        (cx - rx * 0.52, cy - ry * 0.02),
+    ]
     _poly(draw, sauce, SAUCE, None, 0)
     if sauce_drip > 0.02:
-        drip = [(cx + rx * 0.18, cy + ry * 0.08), (cx + rx * 0.36, cy + ry * (0.26 + sauce_drip * 0.35)), (cx + rx * 0.12, cy + ry * 0.18)]
+        drip = [
+            (cx + rx * 0.18, cy + ry * 0.08),
+            (cx + rx * 0.36, cy + ry * (0.26 + sauce_drip * 0.35)),
+            (cx + rx * 0.12, cy + ry * 0.18),
+        ]
         _poly(draw, drip, SAUCE_DARK, None, 0)
 
 
-def _draw_eye_stalk(draw: ImageDraw.ImageDraw, root: Point, bend: Point, tip: Point, eye_angle: float, angry: float, blink: bool = False, dead: bool = False) -> None:
+def _draw_eye_stalk(
+    draw: ImageDraw.ImageDraw,
+    root: Point,
+    bend: Point,
+    tip: Point,
+    eye_angle: float,
+    angry: float,
+    blink: bool = False,
+    dead: bool = False,
+) -> None:
     pts = _cubic_from_triplet(root, bend, tip, curve=0.76, steps=20)
     _line(draw, pts, OUTLINE, 6.0)
     _line(draw, pts, STALK, 4.8)
@@ -349,7 +510,9 @@ def _draw_eye_stalk(draw: ImageDraw.ImageDraw, root: Point, bend: Point, tip: Po
 
 def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
     p = _pose(anim, frame_idx, nframes)
-    img = Image.new("RGBA", (_s(WORK_FRAME_SIZE[0]), _s(WORK_FRAME_SIZE[1])), (0, 0, 0, 0))
+    img = Image.new(
+        "RGBA", (_s(WORK_FRAME_SIZE[0]), _s(WORK_FRAME_SIZE[1])), (0, 0, 0, 0)
+    )
     draw = ImageDraw.Draw(img, "RGBA")
 
     root = (160.0 + p.root_x, 152.0 + p.root_y + p.bob)
@@ -371,8 +534,18 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
         (-58, 28, -104, 66, -146, 92, 10.4, False),
     ]
     for idx, (ax, ay, bx, by, cx, cy, width, front) in enumerate(back_specs):
-        wave = math.sin(frame_idx * 0.9 + idx * 0.8 + p.slither * 0.7) * 10.0 * (0.35 + p.spread)
-        pts = _cubic_from_triplet(P(ax, ay), P(bx + wave * 0.35, by + p.noodle_wave * 7.0 + wave * 0.12), P(cx + wave, cy + p.noodle_wave * 10.0), curve=0.78, steps=24)
+        wave = (
+            math.sin(frame_idx * 0.9 + idx * 0.8 + p.slither * 0.7)
+            * 10.0
+            * (0.35 + p.spread)
+        )
+        pts = _cubic_from_triplet(
+            P(ax, ay),
+            P(bx + wave * 0.35, by + p.noodle_wave * 7.0 + wave * 0.12),
+            P(cx + wave, cy + p.noodle_wave * 10.0),
+            curve=0.78,
+            steps=24,
+        )
         _draw_noodle(draw, pts, width, front)
 
     # Extra tangled center mass behind the meatballs.
@@ -386,14 +559,34 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
     ]
     for idx, (ax, ay, bx, by, cx, cy, width, front) in enumerate(tangle_specs):
         wave = math.sin(frame_idx * 1.05 + idx * 1.15 + p.slither) * 8.0
-        pts = _cubic_from_triplet(P(ax, ay), P(bx + wave * 0.55, by + p.noodle_wave * 6.5 - wave * 0.14), P(cx - wave * 0.35, cy + p.noodle_wave * 5.2), curve=0.82, steps=24)
+        pts = _cubic_from_triplet(
+            P(ax, ay),
+            P(bx + wave * 0.55, by + p.noodle_wave * 6.5 - wave * 0.14),
+            P(cx - wave * 0.35, cy + p.noodle_wave * 5.2),
+            curve=0.82,
+            steps=24,
+        )
         _draw_noodle(draw, pts, width, front)
 
     # Meatballs.
     left_ball = P(-44 + p.left_meatball_shift, -4)
     right_ball = P(34 + p.right_meatball_shift, 2)
-    _draw_meatball(draw, left_ball, 28.0, 30.0, sauce_tilt=-12 + frame_idx * 3.0, sauce_drip=p.volley)
-    _draw_meatball(draw, right_ball, 31.0, 33.0, sauce_tilt=14 - frame_idx * 2.0, sauce_drip=max(0.0, p.volley - 0.1))
+    _draw_meatball(
+        draw,
+        left_ball,
+        28.0,
+        30.0,
+        sauce_tilt=-12 + frame_idx * 3.0,
+        sauce_drip=p.volley,
+    )
+    _draw_meatball(
+        draw,
+        right_ball,
+        31.0,
+        33.0,
+        sauce_tilt=14 - frame_idx * 2.0,
+        sauce_drip=max(0.0, p.volley - 0.1),
+    )
 
     # Mid noodles wrapping across meatballs.
     mid_specs = [
@@ -408,7 +601,13 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
     ]
     for idx, (ax, ay, bx, by, cx, cy, width, front) in enumerate(mid_specs):
         wave = math.sin(frame_idx * 0.75 + idx * 0.9 + 0.8 + p.slither) * 9.0
-        pts = _cubic_from_triplet(P(ax, ay), P(bx + wave * 0.40, by + p.noodle_wave * 7.5), P(cx + wave * (0.7 + p.spread * 0.25), cy + p.noodle_wave * 8.5), curve=0.80, steps=24)
+        pts = _cubic_from_triplet(
+            P(ax, ay),
+            P(bx + wave * 0.40, by + p.noodle_wave * 7.5),
+            P(cx + wave * (0.7 + p.spread * 0.25), cy + p.noodle_wave * 8.5),
+            curve=0.80,
+            steps=24,
+        )
         _draw_noodle(draw, pts, width, front)
 
     # Distinct front lash noodle for the whip.
@@ -416,12 +615,23 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
         whip_end_x = 116.0 + 116.0 * p.whip
         whip_end_y = -20.0 - 10.0 * p.whip
         whip_mid_y = -68.0 - 40.0 * p.whip
-        pts = _cubic_from_triplet(P(42, -6), P(82 + 46 * p.whip, whip_mid_y), P(whip_end_x, whip_end_y), curve=0.84, steps=28)
+        pts = _cubic_from_triplet(
+            P(42, -6),
+            P(82 + 46 * p.whip, whip_mid_y),
+            P(whip_end_x, whip_end_y),
+            curve=0.84,
+            steps=28,
+        )
         _draw_noodle(draw, pts, 10.2, True)
         if p.whip > 0.2:
             cx, cy = pts[-1]
             for expand in [0, 12]:
-                box = (_s(cx - 16 - expand), _s(cy - 12 - expand * 0.5), _s(cx + 18 + expand), _s(cy + 12 + expand * 0.5))
+                box = (
+                    _s(cx - 16 - expand),
+                    _s(cy - 12 - expand * 0.5),
+                    _s(cx + 18 + expand),
+                    _s(cy + 12 + expand * 0.5),
+                )
                 draw.arc(box, 200, 340, fill=IMPACT, width=_s(2.0))
 
     # Lower dangling noodles in front.
@@ -435,7 +645,13 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
     for idx, (ax, ay, bx, by, cx, cy, width, front) in enumerate(front_specs):
         drip = math.sin(frame_idx * 0.7 + idx * 0.9 + p.slither * 0.9) * 8.0
         collapse_y = p.collapse * (20.0 + idx * 6)
-        pts = _cubic_from_triplet(P(ax, ay), P(bx + drip * 0.35, by + p.noodle_wave * 8.0 + collapse_y * 0.2), P(cx + drip * 0.8, cy + collapse_y), curve=0.78, steps=24)
+        pts = _cubic_from_triplet(
+            P(ax, ay),
+            P(bx + drip * 0.35, by + p.noodle_wave * 8.0 + collapse_y * 0.2),
+            P(cx + drip * 0.8, cy + collapse_y),
+            curve=0.78,
+            steps=24,
+        )
         _draw_noodle(draw, pts, width, front)
 
     # Eye stalks: two larger matching eyes.
@@ -443,19 +659,39 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
     eye_dead = anim == "death" and p.collapse > 0.55
     blink = anim == "hurt"
     stalks = [
-        (P(-28, -28), P(-44, -72 - p.beam * 8), P(-36, -106 - p.beam * 14), eye_ang - 2),
+        (
+            P(-28, -28),
+            P(-44, -72 - p.beam * 8),
+            P(-36, -106 - p.beam * 14),
+            eye_ang - 2,
+        ),
         (P(34, -26), P(52, -70 - p.beam * 8), P(60, -104 - p.beam * 14), eye_ang + 2),
     ]
     for root_pt, bend_pt, tip_pt, ang in stalks:
         if anim == "death":
             bend_pt = (bend_pt[0] - p.collapse * 22, bend_pt[1] + p.collapse * 22)
             tip_pt = (tip_pt[0] - p.collapse * 40, tip_pt[1] + p.collapse * 58)
-        _draw_eye_stalk(draw, root_pt, bend_pt, tip_pt, ang, angry=0.8 if anim in {"noodle_whip", "eye_beam", "meatball_volley"} else 0.35, blink=blink, dead=eye_dead)
+        _draw_eye_stalk(
+            draw,
+            root_pt,
+            bend_pt,
+            tip_pt,
+            ang,
+            angry=0.8
+            if anim in {"noodle_whip", "eye_beam", "meatball_volley"}
+            else 0.35,
+            blink=blink,
+            dead=eye_dead,
+        )
 
     # Attack extras.
     if anim == "meatball_volley" and p.volley > 0.02:
         # Telegraph only: no projectile sprite baked into the boss animation.
-        arc = [P(54, -2), P(88 + 54 * p.volley, -20 - 12 * p.volley), P(126 + 74 * p.volley, -10 - 8 * p.volley)]
+        arc = [
+            P(54, -2),
+            P(88 + 54 * p.volley, -20 - 12 * p.volley),
+            P(126 + 74 * p.volley, -10 - 8 * p.volley),
+        ]
         _line(draw, arc, SAUCE, 3.0)
         _line(draw, arc, SAUCE_DARK, 1.0)
         for cx, cy in arc[1:]:
@@ -500,7 +736,16 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
     # Death smear / floor pile.
     if anim == "death" and p.collapse > 0.15:
         smear_center = P(-8, 118)
-        _ellipse(draw, smear_center[0], smear_center[1], 76 + 28 * p.collapse, 14 + 12 * p.collapse, DUST, None, 0)
+        _ellipse(
+            draw,
+            smear_center[0],
+            smear_center[1],
+            76 + 28 * p.collapse,
+            14 + 12 * p.collapse,
+            DUST,
+            None,
+            0,
+        )
 
     return _downsample(img)
 
@@ -511,19 +756,38 @@ def render(out_dir: str | Path, **opts) -> List[Path]:
     outputs = build_sheet(
         target=TARGET_NAME,
         rows=ROWS,
-        render_fn=lambda anim, frame_idx, nframes: _render_frame(anim, frame_idx, nframes),
+        render_fn=lambda anim, frame_idx, nframes: _render_frame(
+            anim, frame_idx, nframes
+        ),
         out_dir=out_dir,
         frame_size=opts.get("frame_size", FRAME_SIZE),
         crop_margin=18,
         auto_crop=True,
         actor_metadata=ACTOR_METADATA,
     )
-    return [outputs[k] for k in ["spritesheet", "yaml", "ron", "actor", "preview", "canonical", "canonical_transparent"]]
+    return [
+        outputs[k]
+        for k in [
+            "spritesheet",
+            "yaml",
+            "ron",
+            "actor",
+            "preview",
+            "canonical",
+            "canonical_transparent",
+        ]
+    ]
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Render the standalone Flying Spaghetti Monster boss sprite sheet.")
-    parser.add_argument("--out-dir", type=Path, default=Path(__file__).resolve().parents[2] / "generated" / TARGET_NAME)
+    parser = argparse.ArgumentParser(
+        description="Render the standalone Flying Spaghetti Monster boss sprite sheet."
+    )
+    parser.add_argument(
+        "--out-dir",
+        type=Path,
+        default=Path(__file__).resolve().parents[2] / "generated" / TARGET_NAME,
+    )
     args = parser.parse_args(argv)
     for path in render(args.out_dir):
         print(path)

@@ -9,6 +9,7 @@ This script has two layers:
    known entity identifiers, top-left pivots, direct bevy_ecs_ldtk spawning
    compatibility, and required custom fields.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -169,7 +170,9 @@ def editor_value_for(value, human_type):
     if isinstance(value, list):
         values = []
         for item in value:
-            values.extend(editor_value_for(item, human_type.replace("Array<", "").rstrip(">")))
+            values.extend(
+                editor_value_for(item, human_type.replace("Array<", "").rstrip(">"))
+            )
         return values
     return [{"id": "V_String", "params": [str(value)]}]
 
@@ -206,7 +209,12 @@ def entity_name(entity):
 
 def rect(entity):
     px = entity.get("px") or [0, 0]
-    return (float(px[0]), float(px[1]), float(entity.get("width", 0) or 0), float(entity.get("height", 0) or 0))
+    return (
+        float(px[0]),
+        float(px[1]),
+        float(entity.get("width", 0) or 0),
+        float(entity.get("height", 0) or 0),
+    )
 
 
 def strict_rects_intersect(a, b):
@@ -272,7 +280,9 @@ def validate_official_schema(project, schema_path: Path | None, require_schema: 
         schema = json.loads(schema_path.read_text())
         jsonschema.Draft7Validator.check_schema(schema)
         validator = jsonschema.Draft7Validator(schema)
-        schema_errors = sorted(validator.iter_errors(project), key=lambda error: list(error.path))
+        schema_errors = sorted(
+            validator.iter_errors(project), key=lambda error: list(error.path)
+        )
     except Exception as ex:  # noqa: BLE001
         errors.append(f"failed to validate official LDtk schema {schema_path}: {ex}")
         return errors, warnings
@@ -280,8 +290,6 @@ def validate_official_schema(project, schema_path: Path | None, require_schema: 
         path = ".".join(str(part) for part in error.absolute_path) or "<root>"
         errors.append(f"LDtk JSON schema: {path}: {error.message}")
     return errors, warnings
-
-
 
 
 def _wrapper_payload(wrapper):
@@ -349,7 +357,9 @@ def _value_matches_default_override(value, human_type, field_def):
     if len(params) != 1:
         return False
     try:
-        return _coerce_for_editor_compare(value, human_type) == _coerce_for_editor_compare(params[0], human_type)
+        return _coerce_for_editor_compare(
+            value, human_type
+        ) == _coerce_for_editor_compare(params[0], human_type)
     except (TypeError, ValueError):
         return value == params[0]
 
@@ -395,17 +405,25 @@ def real_editor_values_are_acceptable(field, field_def=None):
 def normalize_editor_values(project):
     changed = 0
     defs = project.get("defs") or {}
-    entity_defs = {entity.get("identifier"): entity for entity in defs.get("entities") or []}
+    entity_defs = {
+        entity.get("identifier"): entity for entity in defs.get("entities") or []
+    }
     entity_field_defs = {
-        identifier: {field.get("identifier"): field for field in (entity.get("fieldDefs") or [])}
+        identifier: {
+            field.get("identifier"): field for field in (entity.get("fieldDefs") or [])
+        }
         for identifier, entity in entity_defs.items()
     }
-    level_field_defs = {field.get("identifier"): field for field in defs.get("levelFields") or []}
+    level_field_defs = {
+        field.get("identifier"): field for field in defs.get("levelFields") or []
+    }
 
     def normalize_fields(fields, field_defs):
         nonlocal changed
         for field in fields or []:
-            field_def = field_defs.get(field.get("__identifier")) if field_defs else None
+            field_def = (
+                field_defs.get(field.get("__identifier")) if field_defs else None
+            )
             if real_editor_values_are_acceptable(field, field_def):
                 continue
             expected = expected_real_editor_values(field, field_def)
@@ -421,6 +439,7 @@ def normalize_editor_values(project):
                     entity_field_defs.get(entity.get("__identifier"), {}),
                 )
     return changed
+
 
 def _set_if_missing(mapping, key, value):
     if key not in mapping:
@@ -520,12 +539,18 @@ def normalize_definitions_for_editor(project):
 def sync_instance_definition_uids(project):
     changes = []
     defs = project.get("defs") or {}
-    entity_defs = {entity.get("identifier"): entity for entity in defs.get("entities") or []}
+    entity_defs = {
+        entity.get("identifier"): entity for entity in defs.get("entities") or []
+    }
     entity_field_defs = {
-        identifier: {field.get("identifier"): field for field in (entity.get("fieldDefs") or [])}
+        identifier: {
+            field.get("identifier"): field for field in (entity.get("fieldDefs") or [])
+        }
         for identifier, entity in entity_defs.items()
     }
-    level_field_defs = {field.get("identifier"): field for field in defs.get("levelFields") or []}
+    level_field_defs = {
+        field.get("identifier"): field for field in defs.get("levelFields") or []
+    }
 
     def sync_field_instances(fields, field_defs, owner):
         for field in fields or []:
@@ -544,18 +569,27 @@ def sync_instance_definition_uids(project):
 
     for level in project.get("levels") or []:
         level_name = level.get("identifier", "<unnamed-level>")
-        sync_field_instances(level.get("fieldInstances") or [], level_field_defs, f"level {level_name}")
+        sync_field_instances(
+            level.get("fieldInstances") or [], level_field_defs, f"level {level_name}"
+        )
         for layer in level.get("layerInstances") or []:
             for entity in layer.get("entityInstances") or []:
                 ident = entity.get("__identifier")
                 entity_def = entity_defs.get(ident)
                 owner = f"entity {level_name}/{ident}/{entity.get('iid', '<no-iid>')}"
-                if entity_def and entity_def.get("uid") is not None and entity.get("defUid") != entity_def.get("uid"):
+                if (
+                    entity_def
+                    and entity_def.get("uid") is not None
+                    and entity.get("defUid") != entity_def.get("uid")
+                ):
                     entity["defUid"] = entity_def.get("uid")
                     changes.append(f"{owner}: set defUid={entity_def.get('uid')}")
-                sync_field_instances(entity.get("fieldInstances") or [], entity_field_defs.get(ident, {}), owner)
+                sync_field_instances(
+                    entity.get("fieldInstances") or [],
+                    entity_field_defs.get(ident, {}),
+                    owner,
+                )
     return changes
-
 
 
 def normalize_entity_world_coordinates(project):
@@ -599,11 +633,16 @@ def normalize_project_for_editor(project):
     changes.extend(sync_instance_definition_uids(project))
     world_coord_count = normalize_entity_world_coordinates(project)
     if world_coord_count:
-        changes.append(f"synchronized {world_coord_count} cached entity __worldX/__worldY values")
+        changes.append(
+            f"synchronized {world_coord_count} cached entity __worldX/__worldY values"
+        )
     editor_value_count = normalize_editor_values(project)
     if editor_value_count:
-        changes.append(f"normalized {editor_value_count} field instance realEditorValues records")
+        changes.append(
+            f"normalized {editor_value_count} field instance realEditorValues records"
+        )
     return changes
+
 
 def validate(
     path: Path,
@@ -637,9 +676,7 @@ def validate(
         try:
             secondary_project = json.loads(secondary_path.read_text())
         except Exception as ex:  # noqa: BLE001
-            warnings.append(
-                f"failed to parse secondary world {secondary_path}: {ex}"
-            )
+            warnings.append(f"failed to parse secondary world {secondary_path}: {ex}")
             continue
         for sec_level in secondary_project.get("levels") or []:
             sec_area = field_value(sec_level.get("fieldInstances") or [], "activeArea")
@@ -661,7 +698,9 @@ def validate(
                     continue
                 secondary_index[sec_area].add(str(sec_zone_id))
 
-    schema_errors, schema_warnings = validate_official_schema(project, schema_path, require_schema)
+    schema_errors, schema_warnings = validate_official_schema(
+        project, schema_path, require_schema
+    )
     errors.extend(schema_errors)
     warnings.extend(schema_warnings)
 
@@ -669,11 +708,22 @@ def validate(
     if not levels:
         errors.append("project has no levels")
     if project.get("jsonVersion") != "1.5.3":
-        warnings.append(f"expected LDtk jsonVersion 1.5.3, got {project.get('jsonVersion')!r}")
+        warnings.append(
+            f"expected LDtk jsonVersion 1.5.3, got {project.get('jsonVersion')!r}"
+        )
     if not project.get("iid"):
-        errors.append("project is missing root iid; bevy_ecs_ldtk treats LDtk as a first-class asset and expects stable project identity")
-    if project.get("worldLayout") not in {"Free", "GridVania", "LinearHorizontal", "LinearVertical"}:
-        errors.append(f"project has unsupported or missing worldLayout {project.get('worldLayout')!r}")
+        errors.append(
+            "project is missing root iid; bevy_ecs_ldtk treats LDtk as a first-class asset and expects stable project identity"
+        )
+    if project.get("worldLayout") not in {
+        "Free",
+        "GridVania",
+        "LinearHorizontal",
+        "LinearVertical",
+    }:
+        errors.append(
+            f"project has unsupported or missing worldLayout {project.get('worldLayout')!r}"
+        )
     first_class_root_fields = {
         "appBuildId",
         "backupLimit",
@@ -688,26 +738,52 @@ def validate(
         "nextUid",
         "worlds",
     }
-    missing_root_fields = sorted(field for field in first_class_root_fields if field not in project)
+    missing_root_fields = sorted(
+        field for field in first_class_root_fields if field not in project
+    )
     if missing_root_fields:
-        errors.append("first-class LDtk project is missing editor/schema fields: " + ", ".join(missing_root_fields))
+        errors.append(
+            "first-class LDtk project is missing editor/schema fields: "
+            + ", ".join(missing_root_fields)
+        )
     defs = project.get("defs") or {}
     layer_defs = defs.get("layers") or []
-    if not any(layer.get("identifier") == AMBITION_LAYER and layer.get("__type") == "Entities" for layer in layer_defs):
-        errors.append(f"defs.layers must contain an Entities layer definition named {AMBITION_LAYER!r}")
+    if not any(
+        layer.get("identifier") == AMBITION_LAYER and layer.get("__type") == "Entities"
+        for layer in layer_defs
+    ):
+        errors.append(
+            f"defs.layers must contain an Entities layer definition named {AMBITION_LAYER!r}"
+        )
     for layer in layer_defs:
         if layer.get("identifier") == AMBITION_LAYER:
-            for required in ["parallaxFactorX", "parallaxFactorY", "parallaxScaling", "canSelectWhenInactive", "guideGridHei", "guideGridWid", "uiFilterTags", "useAsyncRender"]:
+            for required in [
+                "parallaxFactorX",
+                "parallaxFactorY",
+                "parallaxScaling",
+                "canSelectWhenInactive",
+                "guideGridHei",
+                "guideGridWid",
+                "uiFilterTags",
+                "useAsyncRender",
+            ]:
                 if required not in layer:
-                    errors.append(f"Ambition layer definition is missing first-class LDtk field {required!r}")
-    entity_defs_by_identifier = {entity.get("identifier"): entity for entity in defs.get("entities") or []}
+                    errors.append(
+                        f"Ambition layer definition is missing first-class LDtk field {required!r}"
+                    )
+    entity_defs_by_identifier = {
+        entity.get("identifier"): entity for entity in defs.get("entities") or []
+    }
     entity_defs = set(entity_defs_by_identifier.keys())
     entity_def_uid_by_identifier = {
         identifier: entity.get("uid")
         for identifier, entity in entity_defs_by_identifier.items()
     }
     entity_field_def_uid_by_identifier = {
-        identifier: {field_def.get("identifier"): field_def.get("uid") for field_def in (entity.get("fieldDefs") or [])}
+        identifier: {
+            field_def.get("identifier"): field_def.get("uid")
+            for field_def in (entity.get("fieldDefs") or [])
+        }
         for identifier, entity in entity_defs_by_identifier.items()
     }
     level_field_def_uid_by_identifier = {
@@ -716,34 +792,71 @@ def validate(
     }
     missing_known_defs = sorted(KNOWN_ENTITIES - entity_defs)
     if missing_known_defs:
-        errors.append("defs.entities is missing editor definitions for supported Ambition entities: " + ", ".join(missing_known_defs))
-    missing_defs = sorted(KNOWN_ENTITIES.intersection({entity for level in levels for layer in (level.get("layerInstances") or []) for entity in [inst.get("__identifier") for inst in (layer.get("entityInstances") or [])] if entity}) - entity_defs)
+        errors.append(
+            "defs.entities is missing editor definitions for supported Ambition entities: "
+            + ", ".join(missing_known_defs)
+        )
+    missing_defs = sorted(
+        KNOWN_ENTITIES.intersection(
+            {
+                entity
+                for level in levels
+                for layer in (level.get("layerInstances") or [])
+                for entity in [
+                    inst.get("__identifier")
+                    for inst in (layer.get("entityInstances") or [])
+                ]
+                if entity
+            }
+        )
+        - entity_defs
+    )
     if missing_defs:
-        errors.append("defs.entities is missing definitions for used Ambition entities: " + ", ".join(missing_defs))
+        errors.append(
+            "defs.entities is missing definitions for used Ambition entities: "
+            + ", ".join(missing_defs)
+        )
+
     def validate_field_def_shape(owner, field_def):
         field_name = f"{owner}.{field_def.get('identifier')}"
         for required in FIRST_CLASS_FIELD_DEF_FIELDS:
             if required not in field_def:
-                errors.append(f"field definition {field_name} is missing first-class LDtk field {required!r}")
+                errors.append(
+                    f"field definition {field_name} is missing first-class LDtk field {required!r}"
+                )
         allowed_refs = field_def.get("allowedRefs")
         if allowed_refs not in {"Any", "OnlySame", "OnlyTags", "OnlySpecificEntity"}:
-            errors.append(f"field definition {field_name} has invalid allowedRefs {allowed_refs!r}")
+            errors.append(
+                f"field definition {field_name} has invalid allowedRefs {allowed_refs!r}"
+            )
         human_type = field_def.get("__type")
         internal_type = field_def.get("type")
         expected_internal_type = FIELD_DEF_TYPE_BY_HUMAN_TYPE.get(human_type)
-        if expected_internal_type is not None and internal_type != expected_internal_type:
+        if (
+            expected_internal_type is not None
+            and internal_type != expected_internal_type
+        ):
             errors.append(
                 f"field definition {field_name} has type {internal_type!r}; expected {expected_internal_type!r} "
                 f"for __type {human_type!r}. LDtk's editor reads `type` as an internal FieldType constructor "
                 "such as F_String, not the human-readable type string."
             )
         if human_type is None or internal_type is None:
-            errors.append(f"field definition {field_name} must include both __type and type for LDtk editor round-tripping")
+            errors.append(
+                f"field definition {field_name} must include both __type and type for LDtk editor round-tripping"
+            )
 
     for entity_def in defs.get("entities") or []:
-        for required in ["allowOutOfBounds", "exportToToc", "nineSliceBorders", "tileOpacity"]:
+        for required in [
+            "allowOutOfBounds",
+            "exportToToc",
+            "nineSliceBorders",
+            "tileOpacity",
+        ]:
             if required not in entity_def:
-                errors.append(f"entity definition {entity_def.get('identifier')!r} is missing first-class LDtk field {required!r}")
+                errors.append(
+                    f"entity definition {entity_def.get('identifier')!r} is missing first-class LDtk field {required!r}"
+                )
         for field_def in entity_def.get("fieldDefs") or []:
             validate_field_def_shape(entity_def.get("identifier"), field_def)
 
@@ -767,20 +880,32 @@ def validate(
         width = int(level.get("pxWid", 0) or 0)
         height = int(level.get("pxHei", 0) or 0)
         if width <= 0 or height <= 0:
-            errors.append(f"level {identifier!r} has non-positive dimensions {width}x{height}")
+            errors.append(
+                f"level {identifier!r} has non-positive dimensions {width}x{height}"
+            )
         world_x = int(level.get("worldX", 0) or 0)
         world_y = int(level.get("worldY", 0) or 0)
         if world_x % GRID or world_y % GRID:
-            warnings.append(f"level {identifier!r} origin ({world_x}, {world_y}) is not {GRID}px aligned")
+            warnings.append(
+                f"level {identifier!r} origin ({world_x}, {world_y}) is not {GRID}px aligned"
+            )
         area = str(active_area(level))
-        raw_active_area = field_value(level.get("fieldInstances") or [], "activeArea", None)
-        if raw_active_area is None or (isinstance(raw_active_area, str) and not raw_active_area.strip()):
-            errors.append(f"level {identifier!r} has blank activeArea; LDtk editor round-trips must preserve this level field")
+        raw_active_area = field_value(
+            level.get("fieldInstances") or [], "activeArea", None
+        )
+        if raw_active_area is None or (
+            isinstance(raw_active_area, str) and not raw_active_area.strip()
+        ):
+            errors.append(
+                f"level {identifier!r} has blank activeArea; LDtk editor round-trips must preserve this level field"
+            )
         for field in level.get("fieldInstances") or []:
             field_ident = field.get("__identifier")
             expected_def_uid = level_field_def_uid_by_identifier.get(field_ident)
             if expected_def_uid is None:
-                errors.append(f"level {identifier!r} has undefined level field {field_ident!r}")
+                errors.append(
+                    f"level {identifier!r} has undefined level field {field_ident!r}"
+                )
             elif field.get("defUid") != expected_def_uid:
                 errors.append(
                     f"level {identifier!r} field {field_ident!r} has defUid {field.get('defUid')!r}; "
@@ -798,20 +923,32 @@ def validate(
 
         layer = ambition_layer(level)
         if layer is None:
-            errors.append(f"level {identifier!r} is missing {AMBITION_LAYER!r} entity layer")
+            errors.append(
+                f"level {identifier!r} is missing {AMBITION_LAYER!r} entity layer"
+            )
             continue
         if layer.get("__type") != "Entities":
-            errors.append(f"level {identifier!r} Ambition layer must have __type='Entities' for direct bevy_ecs_ldtk spawning")
+            errors.append(
+                f"level {identifier!r} Ambition layer must have __type='Entities' for direct bevy_ecs_ldtk spawning"
+            )
 
-        solids = [entity for entity in layer.get("entityInstances") or [] if entity.get("__identifier") == "Solid"]
+        solids = [
+            entity
+            for entity in layer.get("entityInstances") or []
+            if entity.get("__identifier") == "Solid"
+        ]
         for solid in solids:
             sx, sy, sw, sh = rect(solid)
-            area_solids[area].append((world_x + sx, world_y + sy, sw, sh, identifier, entity_name(solid)))
+            area_solids[area].append(
+                (world_x + sx, world_y + sy, sw, sh, identifier, entity_name(solid))
+            )
 
         for entity in layer.get("entityInstances") or []:
             ident = entity.get("__identifier")
             if ident not in KNOWN_ENTITIES:
-                errors.append(f"level {identifier!r} has unsupported entity {ident!r} ({entity.get('iid')})")
+                errors.append(
+                    f"level {identifier!r} has unsupported entity {ident!r} ({entity.get('iid')})"
+                )
             # NOTE: `width`/`height` further down still refer to the LEVEL
             # dimensions captured above (the per-level loop). Per-entity
             # dimensions use distinct `entity_w`/`entity_h` names to
@@ -825,13 +962,26 @@ def validate(
             entity_h = int(entity.get("height", 0) or 0)
             px = entity.get("px") or [0, 0]
             if entity_w <= 0 or entity_h <= 0:
-                errors.append(f"level {identifier!r} entity {entity_name(entity)} has non-positive dimensions")
-            if len(px) != 2 or px[0] < 0 or px[1] < 0 or px[0] + entity_w > level.get("pxWid", 0) or px[1] + entity_h > level.get("pxHei", 0):
-                errors.append(f"level {identifier!r} entity {entity_name(entity)} is outside level bounds")
+                errors.append(
+                    f"level {identifier!r} entity {entity_name(entity)} has non-positive dimensions"
+                )
+            if (
+                len(px) != 2
+                or px[0] < 0
+                or px[1] < 0
+                or px[0] + entity_w > level.get("pxWid", 0)
+                or px[1] + entity_h > level.get("pxHei", 0)
+            ):
+                errors.append(
+                    f"level {identifier!r} entity {entity_name(entity)} is outside level bounds"
+                )
             elif "__worldX" in entity or "__worldY" in entity:
                 expected_world_x = world_x + int(px[0])
                 expected_world_y = world_y + int(px[1])
-                if entity.get("__worldX") != expected_world_x or entity.get("__worldY") != expected_world_y:
+                if (
+                    entity.get("__worldX") != expected_world_x
+                    or entity.get("__worldY") != expected_world_y
+                ):
                     errors.append(
                         f"level {identifier!r} entity {entity_name(entity)} has stale cached world coords "
                         f"({entity.get('__worldX')!r}, {entity.get('__worldY')!r}); expected "
@@ -839,33 +989,54 @@ def validate(
                         "Run `PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools repair <file> --in-place`."
                     )
             pivot = entity.get("__pivot", [0, 0])
-            if len(pivot) == 2 and (abs(float(pivot[0])) > 1e-6 or abs(float(pivot[1])) > 1e-6):
-                errors.append(f"level {identifier!r} entity {entity_name(entity)} must use top-left pivot [0, 0]")
+            if len(pivot) == 2 and (
+                abs(float(pivot[0])) > 1e-6 or abs(float(pivot[1])) > 1e-6
+            ):
+                errors.append(
+                    f"level {identifier!r} entity {entity_name(entity)} must use top-left pivot [0, 0]"
+                )
             expected_entity_def_uid = entity_def_uid_by_identifier.get(ident)
-            if expected_entity_def_uid is not None and entity.get("defUid") != expected_entity_def_uid:
+            if (
+                expected_entity_def_uid is not None
+                and entity.get("defUid") != expected_entity_def_uid
+            ):
                 errors.append(
                     f"level {identifier!r} entity {entity_name(entity)} has defUid {entity.get('defUid')!r}; "
                     f"expected entity definition uid {expected_entity_def_uid!r}"
                 )
             fields = entity.get("fieldInstances") or []
-            field_def_uid_by_identifier = entity_field_def_uid_by_identifier.get(ident, {})
+            field_def_uid_by_identifier = entity_field_def_uid_by_identifier.get(
+                ident, {}
+            )
             for field in fields:
                 field_ident = field.get("__identifier")
                 expected_field_def_uid = field_def_uid_by_identifier.get(field_ident)
                 if expected_field_def_uid is None:
-                    errors.append(f"level {identifier!r} entity {entity_name(entity)} has undefined field {field_ident!r}")
+                    errors.append(
+                        f"level {identifier!r} entity {entity_name(entity)} has undefined field {field_ident!r}"
+                    )
                 elif field.get("defUid") != expected_field_def_uid:
                     errors.append(
                         f"level {identifier!r} entity {entity_name(entity)} field {field_ident!r} has defUid {field.get('defUid')!r}; "
                         f"expected field definition uid {expected_field_def_uid!r}"
                     )
-                validate_field_instance_editor_value(errors, f"level {identifier!r} entity {entity_name(entity)}", field)
+                validate_field_instance_editor_value(
+                    errors, f"level {identifier!r} entity {entity_name(entity)}", field
+                )
             if ident == "PlayerStart":
                 starts_by_area[area] += 1
-            elif ident == "BlinkWall" and field_value(fields, "tier", "Soft") not in {"Soft", "Hard"}:
+            elif ident == "BlinkWall" and field_value(fields, "tier", "Soft") not in {
+                "Soft",
+                "Hard",
+            }:
                 errors.append(f"BlinkWall {entity.get('iid')} has invalid tier")
-            elif ident == "ReboundPad" and (field_value(fields, "impulseX") is None or field_value(fields, "impulseY") is None):
-                errors.append(f"ReboundPad {entity.get('iid')} requires impulseX and impulseY")
+            elif ident == "ReboundPad" and (
+                field_value(fields, "impulseX") is None
+                or field_value(fields, "impulseY") is None
+            ):
+                errors.append(
+                    f"ReboundPad {entity.get('iid')} requires impulseX and impulseY"
+                )
             elif ident == "DebugLabel" and field_value(fields, "text") is None:
                 errors.append(f"DebugLabel {entity.get('iid')} requires text")
             elif ident == "LoadingZone":
@@ -887,7 +1058,9 @@ def validate(
                     }
                 if activation == "EdgeExit":
                     if not touches_level_edge(entity, width, height):
-                        errors.append(f"EdgeExit LoadingZone {entity.get('iid')} in {identifier!r} must touch a level edge")
+                        errors.append(
+                            f"EdgeExit LoadingZone {entity.get('iid')} in {identifier!r} must touch a level edge"
+                        )
                     zone_rect = rect(entity)
                     for solid in solids:
                         if strict_rects_intersect(zone_rect, rect(solid)):
@@ -896,25 +1069,54 @@ def validate(
                                 "split the wall or move the zone so the exit is physically reachable"
                             )
                 if target_room is None or target_zone is None:
-                    errors.append(f"LoadingZone {entity.get('iid')} requires target_room and target_zone")
+                    errors.append(
+                        f"LoadingZone {entity.get('iid')} requires target_room and target_zone"
+                    )
                 else:
-                    requested_links.append((identifier, area, str(zone_id), str(target_room), str(target_zone)))
+                    requested_links.append(
+                        (
+                            identifier,
+                            area,
+                            str(zone_id),
+                            str(target_room),
+                            str(target_zone),
+                        )
+                    )
             elif ident == "KinematicPath":
                 if len(parse_points(field_value(fields, "points", ""))) < 2:
-                    errors.append(f"KinematicPath {entity.get('iid')} requires at least two points")
+                    errors.append(
+                        f"KinematicPath {entity.get('iid')} requires at least two points"
+                    )
                 if field_value(fields, "speed") is None:
                     errors.append(f"KinematicPath {entity.get('iid')} requires speed")
-                if field_value(fields, "mode", "PingPong") not in {"Once", "Loop", "PingPong"}:
+                if field_value(fields, "mode", "PingPong") not in {
+                    "Once",
+                    "Loop",
+                    "PingPong",
+                }:
                     errors.append(f"KinematicPath {entity.get('iid')} has invalid mode")
             elif ident == "DamageVolume":
-                has_any_path = any(field_value(fields, name) is not None for name in ("path_points", "path_speed", "path_mode"))
+                has_any_path = any(
+                    field_value(fields, name) is not None
+                    for name in ("path_points", "path_speed", "path_mode")
+                )
                 if has_any_path:
                     if len(parse_points(field_value(fields, "path_points", ""))) < 2:
-                        errors.append(f"DamageVolume {entity.get('iid')} path_points requires at least two points")
+                        errors.append(
+                            f"DamageVolume {entity.get('iid')} path_points requires at least two points"
+                        )
                     if field_value(fields, "path_speed") is None:
-                        errors.append(f"DamageVolume {entity.get('iid')} path requires path_speed")
-                    if field_value(fields, "path_mode", "PingPong") not in {"Once", "Loop", "PingPong"}:
-                        errors.append(f"DamageVolume {entity.get('iid')} has invalid path_mode")
+                        errors.append(
+                            f"DamageVolume {entity.get('iid')} path requires path_speed"
+                        )
+                    if field_value(fields, "path_mode", "PingPong") not in {
+                        "Once",
+                        "Loop",
+                        "PingPong",
+                    }:
+                        errors.append(
+                            f"DamageVolume {entity.get('iid')} has invalid path_mode"
+                        )
             elif ident == "BreakablePlatform":
                 collision = field_value(fields, "collision")
                 if collision is not None and collision not in {"Solid", "OneWayUp"}:
@@ -940,9 +1142,10 @@ def validate(
                             f"BreakablePlatform {entity.get('iid')} respawn=AfterSeconds requires a "
                             "positive respawn_seconds field"
                         )
-                elif respawn not in {"Never", "OnRoomReload"} and not respawn.startswith(
-                    "AfterSeconds:"
-                ):
+                elif respawn not in {
+                    "Never",
+                    "OnRoomReload",
+                } and not respawn.startswith("AfterSeconds:"):
                     errors.append(
                         f"BreakablePlatform {entity.get('iid')} has invalid respawn value {respawn!r}"
                     )
@@ -959,9 +1162,10 @@ def validate(
                             f"BreakablePogoOrb {entity.get('iid')} respawn=AfterSeconds requires a "
                             "positive respawn_seconds field"
                         )
-                elif respawn not in {"Never", "OnRoomReload"} and not respawn.startswith(
-                    "AfterSeconds:"
-                ):
+                elif respawn not in {
+                    "Never",
+                    "OnRoomReload",
+                } and not respawn.startswith("AfterSeconds:"):
                     errors.append(
                         f"BreakablePogoOrb {entity.get('iid')} has invalid respawn value {respawn!r}"
                     )
@@ -977,10 +1181,14 @@ def validate(
                 # Strict arrival-rect / solid-overlap checks skipped for
                 # secondary targets; the runtime merge handles them.
                 continue
-            errors.append(f"LoadingZone {zone_id!r} in {source_level!r} targets unknown room/activeArea {target_room!r}")
+            errors.append(
+                f"LoadingZone {zone_id!r} in {source_level!r} targets unknown room/activeArea {target_room!r}"
+            )
             continue
         if target_zone not in zones_by_area[target_room]:
-            errors.append(f"LoadingZone {zone_id!r} in {source_level!r} targets missing zone {target_zone!r} in {target_room!r}")
+            errors.append(
+                f"LoadingZone {zone_id!r} in {source_level!r} targets missing zone {target_zone!r} in {target_room!r}"
+            )
             continue
 
         target = area_zones[target_room][target_zone]
@@ -1023,7 +1231,9 @@ def validate(
                 f"LoadingZone {zone_id!r} in {source_level!r} arrives outside target area {target_room!r} "
                 f"via zone {target_zone!r}: arrival=({arrival[0]:.1f}, {arrival[1]:.1f}), area=({width:.1f}, {height:.1f})"
             )
-        for solid_x, solid_y, solid_w, solid_h, solid_level, solid_name in area_solids[target_room]:
+        for solid_x, solid_y, solid_w, solid_h, solid_level, solid_name in area_solids[
+            target_room
+        ]:
             local_solid = (solid_x - bx0, solid_y - by0, solid_w, solid_h)
             if strict_rects_intersect(spawn, local_solid):
                 errors.append(
@@ -1035,7 +1245,9 @@ def validate(
     for area, level_names in levels_by_area.items():
         count = starts_by_area[area]
         if count != 1:
-            errors.append(f"active area {area!r} has {count} PlayerStart entities across {level_names}; expected exactly 1")
+            errors.append(
+                f"active area {area!r} has {count} PlayerStart entities across {level_names}; expected exactly 1"
+            )
 
     _check_intro_authoring_hygiene(project, warnings)
 
@@ -1075,7 +1287,9 @@ def _check_intro_authoring_hygiene(project, warnings):
                 if entity.get("__identifier") != "DebugLabel":
                     continue
                 ex, ey, ew, eh = rect(entity)
-                label_rects_by_level[identifier].append((entity_name(entity), ex, ey, ew, eh))
+                label_rects_by_level[identifier].append(
+                    (entity_name(entity), ex, ey, ew, eh)
+                )
     for level_name, rects in label_rects_by_level.items():
         for i in range(len(rects)):
             for j in range(i + 1, len(rects)):
@@ -1179,7 +1393,9 @@ def _check_intro_authoring_hygiene(project, warnings):
         ig_c_hei = int(intgrid_layer.get("__cHei", 0)) if intgrid_layer else 0
         ig_csv = intgrid_layer.get("intGridCsv", []) if intgrid_layer else []
 
-        def intgrid_rect_intersects_walkable(rect_xywh: tuple[float, float, float, float]) -> bool:
+        def intgrid_rect_intersects_walkable(
+            rect_xywh: tuple[float, float, float, float],
+        ) -> bool:
             if not (intgrid_layer and ig_c_wid and ig_c_hei and ig_csv):
                 return False
             rx, ry, rw, rh = rect_xywh
@@ -1199,13 +1415,17 @@ def _check_intro_authoring_hygiene(project, warnings):
                 continue
             door_bottom_y = dy + dh
             probe = (dx, door_bottom_y, dw, STAND_GAP)
-            supports = any(
-                strict_rects_intersect(probe, (sx, sy, sw, sh))
-                for (sx, sy, sw, sh) in solids
-            ) or any(
-                strict_rects_intersect(probe, (sx, sy, sw, sh))
-                for (sx, sy, sw, sh) in one_ways
-            ) or intgrid_rect_intersects_walkable(probe)
+            supports = (
+                any(
+                    strict_rects_intersect(probe, (sx, sy, sw, sh))
+                    for (sx, sy, sw, sh) in solids
+                )
+                or any(
+                    strict_rects_intersect(probe, (sx, sy, sw, sh))
+                    for (sx, sy, sw, sh) in one_ways
+                )
+                or intgrid_rect_intersects_walkable(probe)
+            )
             if not supports:
                 warnings.append(
                     f"LoadingZone {name!r} in level {identifier!r} is a "
@@ -1226,7 +1446,9 @@ def _check_intro_authoring_hygiene(project, warnings):
                 if layer.get("__identifier") == "Collision":
                     intgrid_layer = layer
                     break
-            grid_size = int(intgrid_layer.get("__gridSize", 16)) if intgrid_layer else 16
+            grid_size = (
+                int(intgrid_layer.get("__gridSize", 16)) if intgrid_layer else 16
+            )
             c_wid = int(intgrid_layer.get("__cWid", 0)) if intgrid_layer else 0
             c_hei = int(intgrid_layer.get("__cHei", 0)) if intgrid_layer else 0
             csv = intgrid_layer.get("intGridCsv", []) if intgrid_layer else []
@@ -1245,9 +1467,9 @@ def _check_intro_authoring_hygiene(project, warnings):
                 return False
 
             sides = (
-                ("left",   (0, 0, 1, height)),
-                ("right",  (max(0, width - 1), 0, 1, height)),
-                ("top",    (0, 0, width, 1)),
+                ("left", (0, 0, 1, height)),
+                ("right", (max(0, width - 1), 0, 1, height)),
+                ("top", (0, 0, width, 1)),
                 ("bottom", (0, max(0, height - 1), width, 1)),
             )
             for side_name, probe in sides:
@@ -1267,7 +1489,9 @@ def _check_intro_authoring_hygiene(project, warnings):
 
 def main(argv=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument("path", type=Path, help="Path to an Ambition-authored .ldtk file")
+    parser.add_argument(
+        "path", type=Path, help="Path to an Ambition-authored .ldtk file"
+    )
     parser.add_argument(
         "--schema",
         type=Path,
@@ -1311,13 +1535,19 @@ def main(argv=None):
                 from ambition_ldtk_tools.editor_format import dump_editor_style
 
                 args.path.write_text(dump_editor_style(project))
-                print(f"repaired {len(changes)} LDtk editor-roundtrip issue(s) in {args.path}", file=sys.stderr)
+                print(
+                    f"repaired {len(changes)} LDtk editor-roundtrip issue(s) in {args.path}",
+                    file=sys.stderr,
+                )
                 for change in changes[:20]:
                     print(f"  - {change}", file=sys.stderr)
                 if len(changes) > 20:
                     print(f"  ... {len(changes) - 20} more", file=sys.stderr)
         except Exception as ex:  # noqa: BLE001
-            print(f"error: failed to repair editor-roundtrip values: {ex}", file=sys.stderr)
+            print(
+                f"error: failed to repair editor-roundtrip values: {ex}",
+                file=sys.stderr,
+            )
             return 1
     errors, warnings = validate(
         args.path,

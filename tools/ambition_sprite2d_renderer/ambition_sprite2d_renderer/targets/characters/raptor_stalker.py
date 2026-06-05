@@ -50,7 +50,11 @@ ACTOR_METADATA = {
     "capabilities": {
         "traversal": {
             "walk": True,
-            "jump": {"height_px": None, "distance_px": None, "source": "raptor_pounce_animation"},
+            "jump": {
+                "height_px": None,
+                "distance_px": None,
+                "source": "raptor_pounce_animation",
+            },
             "climb": None,
             "crawl": None,
             "fly": None,
@@ -73,28 +77,64 @@ ACTOR_METADATA = {
         "action.melee.primary": {
             "animation": "bite",
             "events": [
-                {"t": 0.34, "event": "hitbox_active_start", "source": "raptor_stalker.bite"},
-                {"t": 0.56, "event": "hitbox_active_end", "source": "raptor_stalker.bite"},
+                {
+                    "t": 0.34,
+                    "event": "hitbox_active_start",
+                    "source": "raptor_stalker.bite",
+                },
+                {
+                    "t": 0.56,
+                    "event": "hitbox_active_end",
+                    "source": "raptor_stalker.bite",
+                },
             ],
         },
         "action.melee.tail_sweep": {
             "animation": "tail_sweep",
             "events": [
-                {"t": 0.32, "event": "hitbox_active_start", "source": "raptor_stalker.tail_sweep"},
-                {"t": 0.64, "event": "hitbox_active_end", "source": "raptor_stalker.tail_sweep"},
+                {
+                    "t": 0.32,
+                    "event": "hitbox_active_start",
+                    "source": "raptor_stalker.tail_sweep",
+                },
+                {
+                    "t": 0.64,
+                    "event": "hitbox_active_end",
+                    "source": "raptor_stalker.tail_sweep",
+                },
             ],
         },
-        "action.special.pounce": {"animation": "pounce", "events": [{"t": 0.42, "event": "leap_commit", "source": "raptor_stalker.pounce"}]},
+        "action.special.pounce": {
+            "animation": "pounce",
+            "events": [
+                {"t": 0.42, "event": "leap_commit", "source": "raptor_stalker.pounce"}
+            ],
+        },
         "damage.hit": {"animation": "hurt", "events": []},
         "lifecycle.death": {"animation": "death", "events": []},
     },
     "sockets": {
         "head": {"source": "raptor_stalker.geometry", "point": {"x": 166.0, "y": 60.0}},
-        "mouth": {"source": "raptor_stalker.geometry", "point": {"x": 194.0, "y": 76.0}},
-        "tail_base": {"source": "raptor_stalker.geometry", "point": {"x": 72.0, "y": 118.0}},
-        "tail_tip": {"source": "raptor_stalker.geometry", "point": {"x": 32.0, "y": 106.0}},
-        "foreclaw": {"source": "raptor_stalker.geometry", "point": {"x": 164.0, "y": 118.0}},
-        "pounce_origin": {"source": "raptor_stalker.geometry", "point": {"x": 116.0, "y": 172.0}},
+        "mouth": {
+            "source": "raptor_stalker.geometry",
+            "point": {"x": 194.0, "y": 76.0},
+        },
+        "tail_base": {
+            "source": "raptor_stalker.geometry",
+            "point": {"x": 72.0, "y": 118.0},
+        },
+        "tail_tip": {
+            "source": "raptor_stalker.geometry",
+            "point": {"x": 32.0, "y": 106.0},
+        },
+        "foreclaw": {
+            "source": "raptor_stalker.geometry",
+            "point": {"x": 164.0, "y": 118.0},
+        },
+        "pounce_origin": {
+            "source": "raptor_stalker.geometry",
+            "point": {"x": 116.0, "y": 172.0},
+        },
     },
     "tags": ["enemy", "beast", "dinosaur"],
 }
@@ -324,22 +364,50 @@ def _rot_local(x: float, y: float, deg: float) -> Point:
     return (x * c - y * s, x * s + y * c)
 
 
-def _poly(draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
+def _poly(
+    draw: ImageDraw.ImageDraw,
+    pts: Sequence[Point],
+    fill: RGBA,
+    outline: RGBA = OUTLINE,
+    width: float = 1.0,
+) -> None:
     ipts = [_pt(p) for p in pts]
     draw.polygon(ipts, fill=fill)
     if outline and width > 0:
-        draw.line(ipts + [ipts[0]], fill=outline, width=max(1, _s(width)), joint="curve")
+        draw.line(
+            ipts + [ipts[0]], fill=outline, width=max(1, _s(width)), joint="curve"
+        )
 
 
-def _line(draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, width: float = 1.0) -> None:
+def _line(
+    draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, width: float = 1.0
+) -> None:
     draw.line([_pt(p) for p in pts], fill=fill, width=max(1, _s(width)), joint="curve")
 
 
-def _ellipse(draw: ImageDraw.ImageDraw, cx: float, cy: float, rx: float, ry: float, fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
-    draw.ellipse(_box(cx, cy, rx, ry), fill=fill, outline=outline, width=max(1, _s(width)))
+def _ellipse(
+    draw: ImageDraw.ImageDraw,
+    cx: float,
+    cy: float,
+    rx: float,
+    ry: float,
+    fill: RGBA,
+    outline: RGBA = OUTLINE,
+    width: float = 1.0,
+) -> None:
+    draw.ellipse(
+        _box(cx, cy, rx, ry), fill=fill, outline=outline, width=max(1, _s(width))
+    )
 
 
-def _circle(draw: ImageDraw.ImageDraw, c: Point, r: float, fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
+def _circle(
+    draw: ImageDraw.ImageDraw,
+    c: Point,
+    r: float,
+    fill: RGBA,
+    outline: RGBA = OUTLINE,
+    width: float = 1.0,
+) -> None:
     _ellipse(draw, c[0], c[1], r, r, fill, outline, width)
 
 
@@ -355,11 +423,13 @@ def _write_yaml(path: Path) -> None:
         "rows:",
     ]
     for name, frames, ms in ROWS:
-        lines.extend([
-            f"  - name: {name}",
-            f"    frames: {frames}",
-            f"    frame_ms: {ms}",
-        ])
+        lines.extend(
+            [
+                f"  - name: {name}",
+                f"    frames: {frames}",
+                f"    frame_ms: {ms}",
+            ]
+        )
     path.write_text("\n".join(lines) + "\n")
 
 
@@ -370,8 +440,8 @@ def _write_ron(path: Path) -> None:
     ron = [
         "(",
         f'    target: "{TARGET_BASENAME}",',
-        f'    frame_width: {FRAME_SIZE[0]},',
-        f'    frame_height: {FRAME_SIZE[1]},',
+        f"    frame_width: {FRAME_SIZE[0]},",
+        f"    frame_height: {FRAME_SIZE[1]},",
         "    rows: [",
         *row_lines,
         "    ],",
@@ -382,7 +452,11 @@ def _write_ron(path: Path) -> None:
 
 class RaptorStalkerRenderer:
     def render_frame(self, anim: str, frame_idx: int, nframes: int) -> Image.Image:
-        img = Image.new("RGBA", (WORK_FRAME_SIZE[0] * SUPER, WORK_FRAME_SIZE[1] * SUPER), (0, 0, 0, 0))
+        img = Image.new(
+            "RGBA",
+            (WORK_FRAME_SIZE[0] * SUPER, WORK_FRAME_SIZE[1] * SUPER),
+            (0, 0, 0, 0),
+        )
         draw = ImageDraw.Draw(img, "RGBA")
         pose = Pose(anim, frame_idx, nframes)
 
@@ -414,7 +488,16 @@ class RaptorStalkerRenderer:
 
     def _draw_shadow(self, draw: ImageDraw.ImageDraw, P, pose: Pose) -> None:
         c = P(-6, 14)
-        _ellipse(draw, c[0], c[1], 58 + pose.pounce * 8, 11 - pose.bob * 0.08, SHADOW, outline=(0, 0, 0, 0), width=0)
+        _ellipse(
+            draw,
+            c[0],
+            c[1],
+            58 + pose.pounce * 8,
+            11 - pose.bob * 0.08,
+            SHADOW,
+            outline=(0, 0, 0, 0),
+            width=0,
+        )
 
     def _draw_tail(self, draw: ImageDraw.ImageDraw, P, pose: Pose) -> None:
         a = P(-34, -74 + pose.tail_lift * 0.4)
@@ -431,50 +514,113 @@ class RaptorStalkerRenderer:
             (d[0] + 8, d[1] + 8),
         ]
         _poly(draw, blade, ACCENT_LIGHT, OUTLINE, 0.8)
-        fin1 = [P(-92, -84 + pose.tail_lift * 0.7), P(-104, -102 + pose.tail_lift * 0.8), P(-82, -92 + pose.tail_lift * 0.7)]
-        fin2 = [P(-70, -78 + pose.tail_lift * 0.4), P(-82, -96 + pose.tail_lift * 0.5), P(-60, -84 + pose.tail_lift * 0.4)]
+        fin1 = [
+            P(-92, -84 + pose.tail_lift * 0.7),
+            P(-104, -102 + pose.tail_lift * 0.8),
+            P(-82, -92 + pose.tail_lift * 0.7),
+        ]
+        fin2 = [
+            P(-70, -78 + pose.tail_lift * 0.4),
+            P(-82, -96 + pose.tail_lift * 0.5),
+            P(-60, -84 + pose.tail_lift * 0.4),
+        ]
         _poly(draw, fin1, ACCENT, OUTLINE, 0.7)
         _poly(draw, fin2, ACCENT, OUTLINE, 0.7)
 
     def _draw_body(self, draw: ImageDraw.ImageDraw, P, pose: Pose) -> None:
         torso = [
-            P(-42, -94 - pose.crouch), P(2, -122 - pose.crouch), P(48, -110 - pose.crouch),
-            P(68, -80), P(50, -44), P(8, -30), P(-34, -42), P(-54, -68)
+            P(-42, -94 - pose.crouch),
+            P(2, -122 - pose.crouch),
+            P(48, -110 - pose.crouch),
+            P(68, -80),
+            P(50, -44),
+            P(8, -30),
+            P(-34, -42),
+            P(-54, -68),
         ]
         _poly(draw, torso, SCALE, OUTLINE, 1.6)
-        back_plate = [P(-28, -92 - pose.crouch), P(8, -110 - pose.crouch), P(36, -98 - pose.crouch), P(28, -70), P(-4, -60), P(-24, -72)]
+        back_plate = [
+            P(-28, -92 - pose.crouch),
+            P(8, -110 - pose.crouch),
+            P(36, -98 - pose.crouch),
+            P(28, -70),
+            P(-4, -60),
+            P(-24, -72),
+        ]
         _poly(draw, back_plate, SCALE_LIGHT, OUTLINE, 1.0)
-        belly = [P(-18, -74), P(20, -80), P(46, -68), P(34, -42), P(4, -34), P(-22, -46)]
+        belly = [
+            P(-18, -74),
+            P(20, -80),
+            P(46, -68),
+            P(34, -42),
+            P(4, -34),
+            P(-22, -46),
+        ]
         _poly(draw, belly, BELLY, OUTLINE, 0.9)
         chest = [P(10, -86), P(36, -88), P(52, -70), P(36, -54), P(12, -58)]
         _poly(draw, chest, BELLY_SHADOW, OUTLINE, 0.8)
-        stripe1 = [P(-8, -96 - pose.crouch * 0.4), P(2, -108 - pose.crouch * 0.4), P(14, -90), P(4, -84)]
-        stripe2 = [P(18, -100 - pose.crouch * 0.4), P(30, -110 - pose.crouch * 0.4), P(40, -92), P(28, -86)]
+        stripe1 = [
+            P(-8, -96 - pose.crouch * 0.4),
+            P(2, -108 - pose.crouch * 0.4),
+            P(14, -90),
+            P(4, -84),
+        ]
+        stripe2 = [
+            P(18, -100 - pose.crouch * 0.4),
+            P(30, -110 - pose.crouch * 0.4),
+            P(40, -92),
+            P(28, -86),
+        ]
         _poly(draw, stripe1, ACCENT, OUTLINE, 0.6)
         _poly(draw, stripe2, ACCENT, OUTLINE, 0.6)
         _line(draw, [P(-16, -88), P(4, -38)], SCALE_DARK, 1.0)
 
     def _draw_head(self, draw: ImageDraw.ImageDraw, P, pose: Pose) -> None:
-        hx, hy = P(64 + pose.neck_extend + pose.bite_lunge * 0.35, -98 - pose.crouch * 0.4 + pose.head_tilt * 0.15)
+        hx, hy = P(
+            64 + pose.neck_extend + pose.bite_lunge * 0.35,
+            -98 - pose.crouch * 0.4 + pose.head_tilt * 0.15,
+        )
         skull = [
-            (hx - 28, hy - 14), (hx - 8, hy - 24), (hx + 30, hy - 20), (hx + 60, hy - 8),
-            (hx + 70, hy + 2), (hx + 54, hy + 10), (hx + 18, hy + 14), (hx - 18, hy + 10),
+            (hx - 28, hy - 14),
+            (hx - 8, hy - 24),
+            (hx + 30, hy - 20),
+            (hx + 60, hy - 8),
+            (hx + 70, hy + 2),
+            (hx + 54, hy + 10),
+            (hx + 18, hy + 14),
+            (hx - 18, hy + 10),
             (hx - 32, hy - 2),
         ]
         _poly(draw, skull, SCALE_LIGHT, OUTLINE, 1.2)
         crest = [
-            (hx - 4, hy - 22), (hx + 14, hy - 36 + pose.crest_sway * 0.15), (hx + 30, hy - 20), (hx + 10, hy - 10)
+            (hx - 4, hy - 22),
+            (hx + 14, hy - 36 + pose.crest_sway * 0.15),
+            (hx + 30, hy - 20),
+            (hx + 10, hy - 10),
         ]
         _poly(draw, crest, ACCENT, OUTLINE, 0.8)
-        neck = [P(32, -100 - pose.crouch * 0.2), P(54 + pose.neck_extend * 0.35, -112 - pose.crouch * 0.3), P(66 + pose.neck_extend * 0.2, -90), P(40, -76)]
+        neck = [
+            P(32, -100 - pose.crouch * 0.2),
+            P(54 + pose.neck_extend * 0.35, -112 - pose.crouch * 0.3),
+            P(66 + pose.neck_extend * 0.2, -90),
+            P(40, -76),
+        ]
         _poly(draw, neck, SCALE, OUTLINE, 1.0)
         upper_jaw = [
-            (hx + 12, hy - 2), (hx + 64, hy + 0), (hx + 76, hy + 4), (hx + 56, hy + 10), (hx + 18, hy + 8)
+            (hx + 12, hy - 2),
+            (hx + 64, hy + 0),
+            (hx + 76, hy + 4),
+            (hx + 56, hy + 10),
+            (hx + 18, hy + 8),
         ]
         _poly(draw, upper_jaw, BELLY, OUTLINE, 0.8)
         lj = pose.jaw_open * 22.0
         lower_jaw = [
-            (hx + 12, hy + 8), (hx + 46, hy + 14 + lj), (hx + 68, hy + 12 + lj), (hx + 50, hy + 20 + lj), (hx + 18, hy + 16)
+            (hx + 12, hy + 8),
+            (hx + 46, hy + 14 + lj),
+            (hx + 68, hy + 12 + lj),
+            (hx + 50, hy + 20 + lj),
+            (hx + 18, hy + 16),
         ]
         _poly(draw, lower_jaw, BELLY_SHADOW, OUTLINE, 0.8)
         if pose.x_eyes:
@@ -485,22 +631,49 @@ class RaptorStalkerRenderer:
         else:
             _ellipse(draw, hx + 8, hy + 1, 6, 4, EYE, EYE_HOT, 0.8)
             _circle(draw, (hx + 10, hy + 1), 1.6, OUTLINE, OUTLINE, 0.5)
-        nostril = [
-            (hx + 42, hy - 2), (hx + 48, hy - 2), (hx + 46, hy + 2)
-        ]
+        nostril = [(hx + 42, hy - 2), (hx + 48, hy - 2), (hx + 46, hy + 2)]
         _poly(draw, nostril, OUTLINE, OUTLINE, 0.3)
         for xoff in (24, 34, 46, 58, 68):
             _line(draw, [(hx + xoff, hy + 6), (hx + xoff - 4, hy + 12)], CLAW, 0.7)
-            _line(draw, [(hx + xoff - 2, hy + 12 + lj * 0.5), (hx + xoff + 2, hy + 8 + lj * 0.3)], CLAW, 0.7)
+            _line(
+                draw,
+                [
+                    (hx + xoff - 2, hy + 12 + lj * 0.5),
+                    (hx + xoff + 2, hy + 8 + lj * 0.3),
+                ],
+                CLAW,
+                0.7,
+            )
 
-    def _draw_leg(self, draw: ImageDraw.ImageDraw, hip: Point, knee: Point, ankle: Point, toe: Point, back_toe: Point, front: bool) -> None:
+    def _draw_leg(
+        self,
+        draw: ImageDraw.ImageDraw,
+        hip: Point,
+        knee: Point,
+        ankle: Point,
+        toe: Point,
+        back_toe: Point,
+        front: bool,
+    ) -> None:
         base = SCALE if front else SCALE_DARK
         _line(draw, [hip, knee], base, 8.4 if front else 7.6)
         _line(draw, [knee, ankle], base, 7.2 if front else 6.6)
         _line(draw, [hip, knee, ankle], OUTLINE, 2.0)
-        _ellipse(draw, knee[0], knee[1], 7.0, 8.5, SCALE_LIGHT if front else SCALE, OUTLINE, 1.0)
+        _ellipse(
+            draw,
+            knee[0],
+            knee[1],
+            7.0,
+            8.5,
+            SCALE_LIGHT if front else SCALE,
+            OUTLINE,
+            1.0,
+        )
         shin = [
-            (knee[0] - 4, knee[1]), (ankle[0] - 2, ankle[1] - 8), (ankle[0] + 7, ankle[1] + 2), (knee[0] + 5, knee[1] + 4)
+            (knee[0] - 4, knee[1]),
+            (ankle[0] - 2, ankle[1] - 8),
+            (ankle[0] + 7, ankle[1] + 2),
+            (knee[0] + 5, knee[1] + 4),
         ]
         _poly(draw, shin, SCALE_LIGHT if front else SCALE, OUTLINE, 0.8)
         _line(draw, [ankle, toe], CLAW, 2.5)
@@ -530,7 +703,14 @@ class RaptorStalkerRenderer:
         back_toe = P(36 + pose.front_leg * 0.10, 20 - pose.front_foot_lift)
         self._draw_leg(draw, hip, knee, ankle, toe, back_toe, front=True)
 
-    def _draw_arm(self, draw: ImageDraw.ImageDraw, shoulder: Point, elbow: Point, wrist: Point, front: bool) -> None:
+    def _draw_arm(
+        self,
+        draw: ImageDraw.ImageDraw,
+        shoulder: Point,
+        elbow: Point,
+        wrist: Point,
+        front: bool,
+    ) -> None:
         base = SCALE_LIGHT if front else SCALE
         _line(draw, [shoulder, elbow], base, 5.2 if front else 4.6)
         _line(draw, [elbow, wrist], base, 4.6 if front else 4.0)
@@ -558,12 +738,23 @@ class RaptorStalkerRenderer:
     def _draw_tail_fx(self, draw: ImageDraw.ImageDraw, P, pose: Pose) -> None:
         cx, cy = P(-74, -70)
         box = (_s(cx - 102), _s(cy - 70), _s(cx + 102), _s(cy + 70))
-        draw.arc(box, 18, 166, fill=(*ACCENT[:3], 132), width=_s(5.0 + pose.sweep_arc * 2.0))
+        draw.arc(
+            box, 18, 166, fill=(*ACCENT[:3], 132), width=_s(5.0 + pose.sweep_arc * 2.0)
+        )
         draw.arc(box, 28, 154, fill=(255, 244, 208, 104), width=_s(2.0))
 
     def _draw_pounce_fx(self, draw: ImageDraw.ImageDraw, P, pose: Pose) -> None:
         c = P(-12, 12)
-        _ellipse(draw, c[0], c[1], 18 + pose.pounce * 8, 6 + pose.pounce * 2, DUST, outline=(0, 0, 0, 0), width=0)
+        _ellipse(
+            draw,
+            c[0],
+            c[1],
+            18 + pose.pounce * 8,
+            6 + pose.pounce * 2,
+            DUST,
+            outline=(0, 0, 0, 0),
+            width=0,
+        )
         for dx in (-16, -4, 10):
             shard = [P(-12 + dx, 10), P(-4 + dx, 0), P(4 + dx, 10)]
             _poly(draw, shard, (*ACCENT_LIGHT[:3], 148), (*ACCENT[:3], 120), 0.5)
@@ -613,6 +804,7 @@ def render(out_dir: str | Path, **opts):
     runtime-compatible YAML+RON shape). See `bear_mauler.render` for
     the full rationale — same conversion."""
     from ...tackon_sheet import build_sheet
+
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     renderer = RaptorStalkerRenderer()
@@ -626,14 +818,25 @@ def render(out_dir: str | Path, **opts):
         actor_metadata=ACTOR_METADATA,
     )
     return [
-        outputs["spritesheet"], outputs["yaml"], outputs["ron"],
-        outputs["actor"], outputs["preview"], outputs["canonical"], outputs["canonical_transparent"],
+        outputs["spritesheet"],
+        outputs["yaml"],
+        outputs["ron"],
+        outputs["actor"],
+        outputs["preview"],
+        outputs["canonical"],
+        outputs["canonical_transparent"],
     ]
 
 
 def main(argv: List[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Render a side-profile raptor stalker enemy spritesheet.")
-    parser.add_argument("--out-dir", type=Path, default=Path(__file__).resolve().parents[2] / "generated" / TARGET_BASENAME)
+    parser = argparse.ArgumentParser(
+        description="Render a side-profile raptor stalker enemy spritesheet."
+    )
+    parser.add_argument(
+        "--out-dir",
+        type=Path,
+        default=Path(__file__).resolve().parents[2] / "generated" / TARGET_BASENAME,
+    )
     args = parser.parse_args(argv)
     for path in render(args.out_dir):
         print(path)

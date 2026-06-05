@@ -68,7 +68,9 @@ class GoblinAdapter(BaseAdapter):
 
     def sample_spec(self, job: CharacterJob) -> Any:
         rng = random.Random(job.seed)
-        view = ViewSpec(camera_x=1.55, camera_y=-6.7, camera_z=1.30, target_z=1.0, ortho_scale=3.08)
+        view = ViewSpec(
+            camera_x=1.55, camera_y=-6.7, camera_z=1.30, target_z=1.0, ortho_scale=3.08
+        )
         archetype = job.archetype or "shadow_scout"
         item = job.held_item or "spear"
         return GoblinSpec(
@@ -99,4 +101,6 @@ def get_adapter(target: str) -> BaseAdapter:
     try:
         return TARGETS[target]
     except KeyError as ex:
-        raise KeyError(f"unknown target {target!r}; available={sorted(TARGETS)}") from ex
+        raise KeyError(
+            f"unknown target {target!r}; available={sorted(TARGETS)}"
+        ) from ex

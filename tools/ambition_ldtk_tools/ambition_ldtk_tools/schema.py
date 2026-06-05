@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Fetch LDtk's official JSON schema for Python jsonschema validation."""
+
 from __future__ import annotations
 
 import argparse
@@ -16,7 +17,9 @@ DEFAULT_OUTPUT = (
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", default=DEFAULT_URL, help="LDtk schema URL")
-    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT, help="Output schema path")
+    parser.add_argument(
+        "--output", type=Path, default=DEFAULT_OUTPUT, help="Output schema path"
+    )
     args = parser.parse_args(argv)
 
     try:

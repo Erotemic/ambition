@@ -41,6 +41,7 @@ pass a different `--layer-identifier` to disambiguate.
 The standard `repair --in-place` + `validate --require-schema`
 post-pass runs unless `--no-repair` is passed.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -209,7 +210,9 @@ def main(argv=None) -> int:
         help="Write back to the input .ldtk path.",
     )
     parser.add_argument(
-        "--output", type=Path, default=None,
+        "--output",
+        type=Path,
+        default=None,
         help="Output path (alternative to --in-place).",
     )
     parser.add_argument(
@@ -225,7 +228,12 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--schema",
         type=Path,
-        default=REPO_ROOT / "tools" / "ambition_ldtk_tools" / "schemas" / "ldtk" / "JSON_SCHEMA.json",
+        default=REPO_ROOT
+        / "tools"
+        / "ambition_ldtk_tools"
+        / "schemas"
+        / "ldtk"
+        / "JSON_SCHEMA.json",
     )
     args = parser.parse_args(argv)
 
@@ -293,7 +301,13 @@ def main(argv=None) -> int:
     if args.no_repair:
         return 0
 
-    cmd = [sys.executable, "-m", "ambition_ldtk_tools.repair", str(target), "--in-place"]
+    cmd = [
+        sys.executable,
+        "-m",
+        "ambition_ldtk_tools.repair",
+        str(target),
+        "--in-place",
+    ]
     print("$ " + " ".join(cmd))
     rc = subprocess.run(cmd).returncode
     if rc != 0:

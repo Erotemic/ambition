@@ -26,6 +26,7 @@ REPO = os.path.dirname(os.path.dirname(SCRIPT_DIR))
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def find_font(preferred: list, size: int) -> pygame.font.Font:
     available = set(pygame.font.get_fonts())
     for name in preferred:
@@ -45,17 +46,25 @@ def ease_out(t):
 
 # ── Speech bubble drawing ─────────────────────────────────────────────────────
 
-def draw_bubble(surface: pygame.Surface, text: str, font: pygame.font.Font,
-                panel_rect: pygame.Rect, side: str, alpha: int, cfg: dict) -> None:
+
+def draw_bubble(
+    surface: pygame.Surface,
+    text: str,
+    font: pygame.font.Font,
+    panel_rect: pygame.Rect,
+    side: str,
+    alpha: int,
+    cfg: dict,
+) -> None:
     """Render a speech bubble overlaid on panel_rect, faded to *alpha* (0-255)."""
     if alpha <= 0:
         return
 
     ac = cfg["animation"]
-    pad    = ac["bubble_padding"]
-    bw     = ac["bubble_border_width"]
+    pad = ac["bubble_padding"]
+    bw = ac["bubble_border_width"]
     tail_l = ac["bubble_tail_length"]
-    bg     = tuple(ac["bubble_bg"])
+    bg = tuple(ac["bubble_bg"])
     border = tuple(ac["bubble_border"])
 
     lines = text.split("\n")
@@ -71,7 +80,7 @@ def draw_bubble(surface: pygame.Surface, text: str, font: pygame.font.Font,
     pr = panel_rect
     if side == "right":
         bub_x = pr.x + pr.width // 2 + 10
-        tail_ox = bub_x + bub_w // 4          # tail exits from left-centre-bottom
+        tail_ox = bub_x + bub_w // 4  # tail exits from left-centre-bottom
         tail_oy = pr.y + int(pr.height * 0.55)  # aim toward character mid-body
     else:
         bub_x = pr.x + pr.width // 4 - bub_w // 2
@@ -104,8 +113,11 @@ def draw_bubble(surface: pygame.Surface, text: str, font: pygame.font.Font,
     pygame.draw.rect(buf, bg + (255,), body, border_radius=14)
     pygame.draw.rect(buf, border + (255,), body, bw, border_radius=14)
     # Cover the gap between tail and body
-    pygame.draw.rect(buf, bg + (255,),
-                     (ox + bub_w // 2 - tw // 2 + bw, bub_h + oy - bw - 1, tw - 2 * bw + 2, bw + 2))
+    pygame.draw.rect(
+        buf,
+        bg + (255,),
+        (ox + bub_w // 2 - tw // 2 + bw, bub_h + oy - bw - 1, tw - 2 * bw + 2, bw + 2),
+    )
 
     # Text
     ty = oy + pad
@@ -120,6 +132,7 @@ def draw_bubble(surface: pygame.Surface, text: str, font: pygame.font.Font,
 
 # ── Panel display ─────────────────────────────────────────────────────────────
 
+
 def scale_panel(img: pygame.Surface, display_rect: pygame.Rect) -> tuple:
     """Scale img to fill display_rect preserving aspect, return (surface, dest_rect)."""
     iw, ih = img.get_size()
@@ -130,7 +143,8 @@ def scale_panel(img: pygame.Surface, display_rect: pygame.Rect) -> tuple:
     dest = pygame.Rect(
         display_rect.x + (dw - nw) // 2,
         display_rect.y + (dh - nh) // 2,
-        nw, nh,
+        nw,
+        nh,
     )
     return scaled, dest
 
@@ -142,7 +156,7 @@ STATES = ["fade_in", "hold", "bubble_fade", "hold_bubble", "fade_out"]
 
 class VanityCardDemo:
     def __init__(self, cfg: dict):
-        self.cfg  = cfg
+        self.cfg = cfg
         self.acfg = cfg["animation"]
         self.dcfg = cfg["demo"]
 
@@ -179,22 +193,24 @@ class VanityCardDemo:
                 print(f"WARNING: missing {path}")
                 continue
             surf = pygame.image.load(path).convert_alpha()
-            panels.append({
-                "surf":     surf,
-                "bubble":   pc.get("speech_bubble"),
-                "side":     pc.get("bubble_side", "right"),
-                "beat":     beat,
-            })
+            panels.append(
+                {
+                    "surf": surf,
+                    "bubble": pc.get("speech_bubble"),
+                    "side": pc.get("bubble_side", "right"),
+                    "beat": beat,
+                }
+            )
         return panels
 
     # ── State management ──────────────────────────────────────────────────────
 
     def _reset(self):
-        self.panel_idx  = 0
-        self.state      = "fade_in"
-        self.timer      = 0.0
-        self.global_fade = 0.0   # 0 = black, 1 = fully visible
-        self.bubble_fade = 0.0   # 0 = hidden, 1 = fully visible
+        self.panel_idx = 0
+        self.state = "fade_in"
+        self.timer = 0.0
+        self.global_fade = 0.0  # 0 = black, 1 = fully visible
+        self.bubble_fade = 0.0  # 0 = hidden, 1 = fully visible
 
     def _advance(self):
         """Skip to the next panel (or restart if on the last)."""
@@ -217,9 +233,9 @@ class VanityCardDemo:
             return
 
         anim = self.acfg
-        fd   = anim["fade_duration"]
-        bd   = anim["bubble_delay"]
-        bf   = anim["bubble_fade"]
+        fd = anim["fade_duration"]
+        bd = anim["bubble_delay"]
+        bf = anim["bubble_fade"]
         is_last = self.panel_idx == len(self.panels) - 1
         hold = anim["punchline_hold"] if is_last else anim["hold_duration"]
 
@@ -265,10 +281,10 @@ class VanityCardDemo:
 
     def draw(self):
         anim = self.acfg
-        bg   = tuple(anim["background_color"])
-        pbc  = tuple(anim["panel_bg_color"])
-        bdc  = tuple(anim["panel_border_color"])
-        bdw  = anim["panel_border_width"]
+        bg = tuple(anim["background_color"])
+        pbc = tuple(anim["panel_bg_color"])
+        bdc = tuple(anim["panel_border_color"])
+        bdw = anim["panel_border_width"]
         shad = anim["shadow_offset"]
 
         W, H = self.screen.get_size()
@@ -295,11 +311,15 @@ class VanityCardDemo:
 
         # --- Panel frame (shadow + border + cream bg) -----------------------
         if ga > 0:
-            shadow_surf = pygame.Surface((disp_w + bdw * 2, disp_h + bdw * 2), pygame.SRCALPHA)
-            shadow_col  = tuple(anim["shadow_color"])
+            shadow_surf = pygame.Surface(
+                (disp_w + bdw * 2, disp_h + bdw * 2), pygame.SRCALPHA
+            )
+            shadow_col = tuple(anim["shadow_color"])
             shadow_surf.fill(shadow_col)
             shadow_surf.set_alpha(ga * shadow_col[3] // 255)
-            self.screen.blit(shadow_surf, (disp_rect.x + shad - bdw, disp_rect.y + shad - bdw))
+            self.screen.blit(
+                shadow_surf, (disp_rect.x + shad - bdw, disp_rect.y + shad - bdw)
+            )
 
             border_rect = disp_rect.inflate(bdw * 2, bdw * 2)
             border_surf = pygame.Surface(border_rect.size, pygame.SRCALPHA)
@@ -321,8 +341,13 @@ class VanityCardDemo:
         # --- Speech bubble --------------------------------------------------
         if ba > 0 and panel_data["bubble"]:
             draw_bubble(
-                self.screen, panel_data["bubble"], self.bubble_font,
-                disp_rect, panel_data["side"], ba, self.cfg,
+                self.screen,
+                panel_data["bubble"],
+                self.bubble_font,
+                disp_rect,
+                panel_data["side"],
+                ba,
+                self.cfg,
             )
 
         # --- Black fade overlay (for transitions) ---------------------------
@@ -366,6 +391,7 @@ class VanityCardDemo:
 
 # ── Strip mode ────────────────────────────────────────────────────────────────
 
+
 class StripDemo(VanityCardDemo):
     """
     Alternative display: all 4 panels side-by-side, revealing left to right.
@@ -373,18 +399,18 @@ class StripDemo(VanityCardDemo):
     """
 
     def _reset(self):
-        self.revealed = 0    # how many panels have been fully shown
-        self.state    = "fade_in"
-        self.timer    = 0.0
+        self.revealed = 0  # how many panels have been fully shown
+        self.state = "fade_in"
+        self.timer = 0.0
         self.global_fade = 0.0
         self.bubble_fade = 0.0
 
     def update(self, dt: float):
         anim = self.acfg
-        fd   = anim["fade_duration"]
-        bd   = anim["bubble_delay"]
-        bf   = anim["bubble_fade"]
-        n    = len(self.panels)
+        fd = anim["fade_duration"]
+        bd = anim["bubble_delay"]
+        bf = anim["bubble_fade"]
+        n = len(self.panels)
         if self.revealed >= n and self.state == "done":
             if self.dcfg["loop"]:
                 self._reset()
@@ -430,10 +456,10 @@ class StripDemo(VanityCardDemo):
 
     def draw(self):
         anim = self.acfg
-        bg   = tuple(anim["background_color"])
-        pbc  = tuple(anim["panel_bg_color"])
-        bdc  = tuple(anim["panel_border_color"])
-        bdw  = anim["panel_border_width"]
+        bg = tuple(anim["background_color"])
+        pbc = tuple(anim["panel_bg_color"])
+        bdc = tuple(anim["panel_border_color"])
+        bdw = anim["panel_border_width"]
         shad = anim["shadow_offset"]
 
         W, H = self.screen.get_size()
@@ -454,11 +480,19 @@ class StripDemo(VanityCardDemo):
 
             is_current = i == self.revealed
             ga = int((self.global_fade if is_current else 1.0) * 255)
-            ba = int((self.bubble_fade if is_current else
-                      (1.0 if i < self.revealed else 0.0)) * 255)
+            ba = int(
+                (
+                    self.bubble_fade
+                    if is_current
+                    else (1.0 if i < self.revealed else 0.0)
+                )
+                * 255
+            )
 
             # Shadow + border + bg
-            shd = pygame.Surface((panel_display_w + bdw*2, panel_display_h + bdw*2), pygame.SRCALPHA)
+            shd = pygame.Surface(
+                (panel_display_w + bdw * 2, panel_display_h + bdw * 2), pygame.SRCALPHA
+            )
             shd.fill(tuple(anim["shadow_color"]))
             shd.set_alpha(ga * anim["shadow_color"][3] // 255)
             self.screen.blit(shd, (pr.x + shad - bdw, pr.y + shad - bdw))
@@ -479,13 +513,21 @@ class StripDemo(VanityCardDemo):
             self.screen.blit(scaled, dest)
 
             if ba > 0 and panel_data["bubble"]:
-                draw_bubble(self.screen, panel_data["bubble"], self.bubble_font,
-                            pr, panel_data["side"], ba, self.cfg)
+                draw_bubble(
+                    self.screen,
+                    panel_data["bubble"],
+                    self.bubble_font,
+                    pr,
+                    panel_data["side"],
+                    ba,
+                    self.cfg,
+                )
 
         self._draw_fade(0.0)  # no global fade in strip mode
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
+
 
 def main():
     cfg = load_config()

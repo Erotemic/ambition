@@ -1,8 +1,11 @@
 from pathlib import Path
-path = Path('gen3d_blender_lab/blender_backend/scene_builder.py')
+
+path = Path("gen3d_blender_lab/blender_backend/scene_builder.py")
 text = path.read_text()
-start = text.index('# BEGIN SIMPLIFIED_TARGET_OVERRIDES')
-end = text.index('# END SIMPLIFIED_TARGET_OVERRIDES') + len('# END SIMPLIFIED_TARGET_OVERRIDES')
+start = text.index("# BEGIN SIMPLIFIED_TARGET_OVERRIDES")
+end = text.index("# END SIMPLIFIED_TARGET_OVERRIDES") + len(
+    "# END SIMPLIFIED_TARGET_OVERRIDES"
+)
 new_block = r'''# BEGIN SIMPLIFIED_TARGET_OVERRIDES
 # v25 principled convergence pass.
 #

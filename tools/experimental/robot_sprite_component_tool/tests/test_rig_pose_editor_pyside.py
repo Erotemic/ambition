@@ -20,11 +20,15 @@ def _load_pyside_tool():
 def test_pyside_editor_headless_preview_does_not_require_pyside(tmp_path):
     tool = _load_pyside_tool()
     out = tmp_path / "pyside_preview.png"
-    code = tool.main([
-        str(ROOT / "examples" / "robot_rig_job.yaml"),
-        "--render-preview", str(out),
-        "--animations", "run",
-    ])
+    code = tool.main(
+        [
+            str(ROOT / "examples" / "robot_rig_job.yaml"),
+            "--render-preview",
+            str(out),
+            "--animations",
+            "run",
+        ]
+    )
     assert code == 0
     assert out.exists()
     img = Image.open(out).convert("RGBA")
@@ -34,10 +38,13 @@ def test_pyside_editor_headless_preview_does_not_require_pyside(tmp_path):
 def test_pyside_editor_headless_anchor_report(tmp_path):
     tool = _load_pyside_tool()
     out = tmp_path / "pyside_instances.json"
-    code = tool.main([
-        str(ROOT / "examples" / "robot_rig_job.yaml"),
-        "--anchor-report", str(out),
-    ])
+    code = tool.main(
+        [
+            str(ROOT / "examples" / "robot_rig_job.yaml"),
+            "--anchor-report",
+            str(out),
+        ]
+    )
     assert code == 0
     assert out.exists()
     text = out.read_text()

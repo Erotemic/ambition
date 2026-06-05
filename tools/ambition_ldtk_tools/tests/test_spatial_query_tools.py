@@ -6,6 +6,7 @@ docs/concepts/llm-spatial-authoring-discipline.md). They never mutate the
 project, so these tests build a tiny in-memory LDtk file and assert on the
 stdout each command prints.
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -79,7 +80,12 @@ def make_project(grid: int = 16) -> dict:
                         "intGridCsv": [],
                         "entityInstances": [
                             _entity(
-                                "Switch", "sw-1", 32, 16, 16, 16,
+                                "Switch",
+                                "sw-1",
+                                32,
+                                16,
+                                16,
+                                16,
                                 {
                                     "id": "test_switch",
                                     "action": "ResetEncounter",
@@ -88,7 +94,12 @@ def make_project(grid: int = 16) -> dict:
                                 },
                             ),
                             _entity(
-                                "Switch", "sw-2", 64, 16, 16, 16,
+                                "Switch",
+                                "sw-2",
+                                64,
+                                16,
+                                16,
+                                16,
                                 {
                                     "id": "spout_switch",
                                     "action": "ResetEncounter",
@@ -97,11 +108,21 @@ def make_project(grid: int = 16) -> dict:
                                 },
                             ),
                             _entity(
-                                "LockWall", "lw-1", 80, 0, 16, 80,
+                                "LockWall",
+                                "lw-1",
+                                80,
+                                0,
+                                16,
+                                80,
                                 {"id": "test_enc_lock"},
                             ),
                             _entity(
-                                "EncounterTrigger", "et-1", 100, 0, 32, 80,
+                                "EncounterTrigger",
+                                "et-1",
+                                100,
+                                0,
+                                32,
+                                80,
                                 {"id": "test_enc"},
                             ),
                             _entity("BreakablePlatform", "bp-1", 0, 0, 16, 16, {}),
@@ -133,8 +154,17 @@ def test_intgrid_query_reports_solid_in_rect():
         # The bottom px row (80..96) is the Solid floor.
         rc, out = _run(
             intgrid_main,
-            ["query", "--ldtk", str(path), "--level", "TestLevel",
-             "--px", "0,80", "--size", "160,16"],
+            [
+                "query",
+                "--ldtk",
+                str(path),
+                "--level",
+                "TestLevel",
+                "--px",
+                "0,80",
+                "--size",
+                "160,16",
+            ],
         )
         assert rc == 0
         assert "Solid" in out, out
@@ -146,8 +176,17 @@ def test_intgrid_query_reports_nothing_above_the_floor():
         # The top cell row (0..16) is all empty.
         rc, out = _run(
             intgrid_main,
-            ["query", "--ldtk", str(path), "--level", "TestLevel",
-             "--px", "0,0", "--size", "160,16"],
+            [
+                "query",
+                "--ldtk",
+                str(path),
+                "--level",
+                "TestLevel",
+                "--px",
+                "0,0",
+                "--size",
+                "160,16",
+            ],
         )
         assert rc == 0
         assert "Solid" not in out, out

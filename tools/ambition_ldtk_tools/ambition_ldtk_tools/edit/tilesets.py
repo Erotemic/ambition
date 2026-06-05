@@ -46,6 +46,7 @@ The tool:
 It refuses to overwrite an existing identifier — pass a different
 `--identifier` or delete the old def by hand first.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -284,7 +285,13 @@ def main(argv=None) -> int:
     if args.no_repair:
         return 0
 
-    cmd = [sys.executable, "-m", "ambition_ldtk_tools.repair", str(target), "--in-place"]
+    cmd = [
+        sys.executable,
+        "-m",
+        "ambition_ldtk_tools.repair",
+        str(target),
+        "--in-place",
+    ]
     print("$ " + " ".join(cmd))
     rc = subprocess.run(cmd).returncode
     if rc != 0:

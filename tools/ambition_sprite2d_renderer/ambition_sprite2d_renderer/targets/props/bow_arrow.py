@@ -36,9 +36,9 @@ FRAME_SIZE = (176, 32)
 ROWS: List[Tuple[str, int, int]] = [("idle", 1, 200)]
 
 CY = FRAME_SIZE[1] * 0.5
-NOCK_X = 12.0          # back end (string contact)
-SHAFT_END_X = 150.0    # where shaft meets the head
-TIP_X = 166.0          # broadhead point
+NOCK_X = 12.0  # back end (string contact)
+SHAFT_END_X = 150.0  # where shaft meets the head
+TIP_X = 166.0  # broadhead point
 SHAFT_HALF = 1.6
 
 
@@ -56,13 +56,20 @@ def _draw_arrow(d: ImageDraw.ImageDraw) -> None:
         outline=hp.OUTLINE,
     )
     d.line(
-        [(p(NOCK_X + 1), p(CY - SHAFT_HALF * 0.3)), (p(SHAFT_END_X - 1), p(CY - SHAFT_HALF * 0.3))],
+        [
+            (p(NOCK_X + 1), p(CY - SHAFT_HALF * 0.3)),
+            (p(SHAFT_END_X - 1), p(CY - SHAFT_HALF * 0.3)),
+        ],
         fill=hp.WOOD_HI,
         width=max(1, int(hp.px(0.5))),
     )
 
     # Nock notch + three fletches at the back.
-    d.line([(p(NOCK_X), p(CY - 2.4)), (p(NOCK_X), p(CY + 2.4))], fill=hp.OUTLINE, width=max(1, int(hp.px(0.8))))
+    d.line(
+        [(p(NOCK_X), p(CY - 2.4)), (p(NOCK_X), p(CY + 2.4))],
+        fill=hp.OUTLINE,
+        width=max(1, int(hp.px(0.8))),
+    )
     for sign, vane_h in ((-1, 7.0), (1, 7.0), (0, 0.0)):
         if sign == 0:
             continue
@@ -77,7 +84,10 @@ def _draw_arrow(d: ImageDraw.ImageDraw) -> None:
             outline=hp.OUTLINE,
         )
         d.line(
-            [(p(NOCK_X + 6), p(CY + sign * (SHAFT_HALF + 1.0))), (p(NOCK_X + 26), p(CY + sign * (vane_h - 1.5)))],
+            [
+                (p(NOCK_X + 6), p(CY + sign * (SHAFT_HALF + 1.0))),
+                (p(NOCK_X + 26), p(CY + sign * (vane_h - 1.5))),
+            ],
             fill=hp.FLETCH_HI,
             width=max(1, int(hp.px(0.5))),
         )

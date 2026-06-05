@@ -4,17 +4,24 @@ import pytest
 from PIL import Image
 
 from ambition_sprite2d_renderer.adapters import get_adapter
-from ambition_sprite2d_renderer.animation_vocab import ADVANCED_PLAYER_ANIMATION_ORDER, EXTENDED_PLAYER_ANIMATION_ORDER
+from ambition_sprite2d_renderer.animation_vocab import (
+    ADVANCED_PLAYER_ANIMATION_ORDER,
+    EXTENDED_PLAYER_ANIMATION_ORDER,
+)
 from ambition_sprite2d_renderer.cli import draw_all, draw_canonicals
 from ambition_sprite2d_renderer.config import CharacterJob
-from ambition_sprite2d_renderer.targets.props.entities import ENTITY_SPECS, write_entity_sprites
+from ambition_sprite2d_renderer.targets.props.entities import (
+    ENTITY_SPECS,
+    write_entity_sprites,
+)
 from ambition_sprite2d_renderer.sheet import build_spritesheet
 
 
-
 # Resolve configs relative to the package, not the cwd.
-CONFIGS = Path(__file__).resolve().parent.parent / 'ambition_sprite2d_renderer' / 'configs'
-REVIEW_CONFIGS = CONFIGS / 'review'
+CONFIGS = (
+    Path(__file__).resolve().parent.parent / "ambition_sprite2d_renderer" / "configs"
+)
+REVIEW_CONFIGS = CONFIGS / "review"
 
 
 def _alpha_bbox_metrics(img):
@@ -67,7 +74,10 @@ def test_death_frames_keep_visible_mass_and_anchor():
         adapter = get_adapter(job.target)
         spec = adapter.sample_spec(job)
         info = adapter.animations()["death"]
-        frames = [adapter.render_frame(spec, "death", idx, (128, 128), job) for idx in range(info["frames"])]
+        frames = [
+            adapter.render_frame(spec, "death", idx, (128, 128), job)
+            for idx in range(info["frames"])
+        ]
         metrics = [_alpha_bbox_metrics(img) for img in frames]
         first = metrics[0]
         min_area = min(m["area"] for m in metrics)
@@ -111,7 +121,13 @@ def test_entity_manifest_contains_current_feature_families(tmp_path):
     out_dir = tmp_path / "entities"
     write_entity_sprites(out_dir)
     manifest = (out_dir / "entity_manifest.yaml").read_text()
-    for token in ["FeatureVisualKind::Chest", "FeatureVisualKind::Breakable", "FeatureVisualKind::Pickup", "FeatureVisualKind::Boss", "ActorKind::MovingPlatform"]:
+    for token in [
+        "FeatureVisualKind::Chest",
+        "FeatureVisualKind::Breakable",
+        "FeatureVisualKind::Pickup",
+        "FeatureVisualKind::Boss",
+        "ActorKind::MovingPlatform",
+    ]:
         assert token in manifest
 
 
@@ -234,7 +250,19 @@ def test_sandbag_adapter_participates_in_character_pipeline(tmp_path):
     job = CharacterJob.load(CONFIGS / "sandbag.yaml")
     adapter = get_adapter("sandbag")
     animations = adapter.animations()
-    for name in ["idle", "walk", "run", "jump", "fall", "slash", "hit", "death", "blink_out", "blink_in", "dash"]:
+    for name in [
+        "idle",
+        "walk",
+        "run",
+        "jump",
+        "fall",
+        "slash",
+        "hit",
+        "death",
+        "blink_out",
+        "blink_in",
+        "dash",
+    ]:
         assert name in animations
     sheet, manifest = build_spritesheet(job)
     assert sheet.size[1] == 11 * 128
@@ -272,7 +300,12 @@ def test_review_configs_do_not_overwrite_variants(tmp_path):
     # full review directory can continue growing.
     subset = tmp_path / "review_configs"
     subset.mkdir()
-    for name in ["robot_runner.yaml", "robot_guardian.yaml", "player_social_review.yaml", "sandbag_full_review.yaml"]:
+    for name in [
+        "robot_runner.yaml",
+        "robot_guardian.yaml",
+        "player_social_review.yaml",
+        "sandbag_full_review.yaml",
+    ]:
         (subset / name).write_text((REVIEW_CONFIGS / name).read_text())
     outputs = draw_all(str(subset), tmp_path / "out")
     output_names = {Path(p).name for p in outputs}
@@ -288,15 +321,34 @@ def test_sandbag_full_review_uses_shared_animation_vocabulary(tmp_path):
     adapter = get_adapter(job.target)
     missing = [name for name in job.animations if name not in adapter.animations()]
     assert missing == []
-    for name in ["land", "roll", "slide", "pickup", "throw", "aim", "shoot", "charge", "cast", "celebrate", "sleep", "hover", "stomp"]:
+    for name in [
+        "land",
+        "roll",
+        "slide",
+        "pickup",
+        "throw",
+        "aim",
+        "shoot",
+        "charge",
+        "cast",
+        "celebrate",
+        "sleep",
+        "hover",
+        "stomp",
+    ]:
         info = adapter.animations()[name]
-        img = adapter.render_frame(adapter.sample_spec(job), name, info["frames"] // 2, (128, 128), job)
+        img = adapter.render_frame(
+            adapter.sample_spec(job), name, info["frames"] // 2, (128, 128), job
+        )
         assert img.getchannel("A").getbbox() is not None, name
 
 
 @pytest.mark.slow_render
 def test_ability_item_icons_render(tmp_path):
-    from ambition_sprite2d_renderer.targets.icons.item_icons import ICON_SPECS, write_item_icons
+    from ambition_sprite2d_renderer.targets.icons.item_icons import (
+        ICON_SPECS,
+        write_item_icons,
+    )
 
     out_dir = tmp_path / "icons"
     outputs = write_item_icons(out_dir)
@@ -342,7 +394,14 @@ def test_review_npc_variants_have_distinct_specs_and_render(tmp_path):
         adapter = get_adapter(job.target)
         spec = adapter.sample_spec(job)
         data = adapter.spec_dict(spec)
-        fingerprints.add((job.target, data.get("palette_name"), data.get("archetype"), data.get("held_item")))
+        fingerprints.add(
+            (
+                job.target,
+                data.get("palette_name"),
+                data.get("archetype"),
+                data.get("held_item"),
+            )
+        )
         img = adapter.render_frame(spec, "idle", 0, (128, 128), job)
         assert img.getchannel("A").getbbox() is not None, name
     assert len(fingerprints) == len(samples)
@@ -350,7 +409,10 @@ def test_review_npc_variants_have_distinct_specs_and_render(tmp_path):
 
 @pytest.mark.slow_render
 def test_music_faction_lineup_renders_selective_animation_sets(tmp_path):
-    from ambition_sprite2d_renderer.faction_lineup import FactionLineup, write_faction_lineup
+    from ambition_sprite2d_renderer.faction_lineup import (
+        FactionLineup,
+        write_faction_lineup,
+    )
 
     config = CONFIGS / "factions" / "music_factions.yaml"
     lineup = FactionLineup.load(config)
@@ -381,8 +443,20 @@ def test_music_faction_leader_specs_have_visual_identity_tokens():
     from ambition_sprite2d_renderer.faction_lineup import FactionLineup
 
     lineup = FactionLineup.load(CONFIGS / "factions" / "music_factions.yaml")
-    identities = {(character.target, character.archetype, character.held_item) for _faction, character, _job in lineup.iter_jobs()}
+    identities = {
+        (character.target, character.archetype, character.held_item)
+        for _faction, character, _job in lineup.iter_jobs()
+    }
     assert len(identities) >= 9
-    archetypes = {character.archetype for _faction, character, _job in lineup.iter_jobs()}
-    for token in ["drift_dj", "pulse_captain", "tech_disruptor", "dinosaur_liberator", "iron_marshal", "glasswood_warden"]:
+    archetypes = {
+        character.archetype for _faction, character, _job in lineup.iter_jobs()
+    }
+    for token in [
+        "drift_dj",
+        "pulse_captain",
+        "tech_disruptor",
+        "dinosaur_liberator",
+        "iron_marshal",
+        "glasswood_warden",
+    ]:
         assert token in archetypes

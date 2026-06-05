@@ -43,8 +43,8 @@ ROWS: List[Tuple[str, int, int]] = [("idle", 6, 120)]
 CY = FRAME_SIZE[1] * 0.55
 BUTT_X = 14.0
 HEAD_X = 150.0
-GRIP_X = 52.0          # primary (lower) hand
-HAFT_HALF = 4.4        # haft half-thickness
+GRIP_X = 52.0  # primary (lower) hand
+HAFT_HALF = 4.4  # haft half-thickness
 
 
 def _draw_haft(d: ImageDraw.ImageDraw) -> None:
@@ -62,12 +62,18 @@ def _draw_haft(d: ImageDraw.ImageDraw) -> None:
     )
     # Grain highlight along the top of the shaft.
     d.line(
-        [(p(BUTT_X + 2), p(CY - HAFT_HALF * 0.5)), (p(HEAD_X - 4), p(CY - HAFT_HALF * 0.5))],
+        [
+            (p(BUTT_X + 2), p(CY - HAFT_HALF * 0.5)),
+            (p(HEAD_X - 4), p(CY - HAFT_HALF * 0.5)),
+        ],
         fill=hp.WOOD_HI,
         width=max(1, int(hp.px(0.9))),
     )
     d.line(
-        [(p(BUTT_X + 2), p(CY + HAFT_HALF * 0.55)), (p(HEAD_X - 4), p(CY + HAFT_HALF * 0.55))],
+        [
+            (p(BUTT_X + 2), p(CY + HAFT_HALF * 0.55)),
+            (p(HEAD_X - 4), p(CY + HAFT_HALF * 0.55)),
+        ],
         fill=hp.WOOD_DARK,
         width=max(1, int(hp.px(0.8))),
     )
@@ -141,13 +147,13 @@ def _draw_head(d: ImageDraw.ImageDraw, gleam_t: float) -> None:
     # Bearded blade: broad crescent flaring up and forward, with a long
     # "beard" hooking down past the haft on the cutting side.
     blade = [
-        (HEAD_X - 8, CY - HAFT_HALF - 6.0),     # back-top, against the socket
-        (HEAD_X + 8, CY - 30.0),                # top horn
-        (HEAD_X + 22, CY - 12.0),              # leading top
-        (HEAD_X + 24, CY + 6.0),               # edge mid (forward point)
-        (HEAD_X + 14, CY + 26.0),              # leading bottom
-        (HEAD_X - 4, CY + 30.0),               # beard tip (hooks down)
-        (HEAD_X - 8, CY + HAFT_HALF + 6.0),    # back-bottom, against the socket
+        (HEAD_X - 8, CY - HAFT_HALF - 6.0),  # back-top, against the socket
+        (HEAD_X + 8, CY - 30.0),  # top horn
+        (HEAD_X + 22, CY - 12.0),  # leading top
+        (HEAD_X + 24, CY + 6.0),  # edge mid (forward point)
+        (HEAD_X + 14, CY + 26.0),  # leading bottom
+        (HEAD_X - 4, CY + 30.0),  # beard tip (hooks down)
+        (HEAD_X - 8, CY + HAFT_HALF + 6.0),  # back-bottom, against the socket
     ]
     d.polygon([(p(x), p(y)) for (x, y) in blade], fill=hp.IRON_HI, outline=hp.OUTLINE)
 
@@ -171,7 +177,11 @@ def _draw_head(d: ImageDraw.ImageDraw, gleam_t: float) -> None:
         (HEAD_X + 14, CY + 26.0),
         (HEAD_X - 4, CY + 30.0),
     ]
-    d.line([(p(x), p(y)) for (x, y) in edge], fill=hp.STEEL_EDGE, width=max(1, int(hp.px(1.4))))
+    d.line(
+        [(p(x), p(y)) for (x, y) in edge],
+        fill=hp.STEEL_EDGE,
+        width=max(1, int(hp.px(1.4))),
+    )
 
     # Travelling gleam: a short bright segment sliding along the edge.
     n = len(edge)
@@ -230,7 +240,10 @@ ACTOR_METADATA = {
     "sockets": {
         "grip": {"source": f"{TARGET_NAME}.geometry", "point": {"x": GRIP_X, "y": CY}},
         "head": {"source": f"{TARGET_NAME}.geometry", "point": {"x": HEAD_X, "y": CY}},
-        "edge": {"source": f"{TARGET_NAME}.geometry", "point": {"x": HEAD_X + 24.0, "y": CY + 6.0}},
+        "edge": {
+            "source": f"{TARGET_NAME}.geometry",
+            "point": {"x": HEAD_X + 24.0, "y": CY + 6.0},
+        },
     },
     "tags": ["prop", "weapon", "axe", "held"],
 }

@@ -24,12 +24,12 @@ def test_write_spritesheet_emits_optional_actor_contract(tmp_path: Path):
     assert manifest_path.exists()
     assert actor_path.exists()
     text = actor_path.read_text()
-    assert 'schema_version: 1' in text
+    assert "schema_version: 1" in text
     assert 'character_id: "goblin"' in text
     assert '"action.melee.primary"' in text
-    assert 'missing_information: []' in text
-    assert 'collision: Some' in text
-    assert 'hurtbox: Some' in text
+    assert "missing_information: []" in text
+    assert "collision: Some" in text
+    assert "hurtbox: Some" in text
     assert '"hand_r"' in text
     assert '"weapon_tip"' in text
 
@@ -64,28 +64,45 @@ def test_contract_derives_runtime_fields_from_body_metrics_without_requiring_han
             "feet_pixel": {"x": 20, "y": 63},
         },
         "rows": [
-            {"animation": "shamble_idle", "row_index": 0, "frame_count": 1, "duration_ms": 100, "rects": []},
-            {"animation": "bite", "row_index": 1, "frame_count": 1, "duration_ms": 100, "rects": []},
+            {
+                "animation": "shamble_idle",
+                "row_index": 0,
+                "frame_count": 1,
+                "duration_ms": 100,
+                "rects": [],
+            },
+            {
+                "animation": "bite",
+                "row_index": 1,
+                "frame_count": 1,
+                "duration_ms": 100,
+                "rects": [],
+            },
         ],
     }
-    ron = to_ron(build_actor_contract(
-        stem="zombie_shambler",
-        target="toon",
-        image="zombie_shambler_spritesheet.png",
-        sheet_manifest="zombie_shambler_spritesheet.ron",
-        manifest=manifest,
-        job_data={"surface": "adapter", "tags": []},
-        authoring={
-            "body": {"body_plan": "HumanoidBiped", "traits": ["undead", "no_hands"]},
-            "actions": {"default_preset": "zombie_bite"},
-            "sockets": {"mouth": {"point": {"x": 22.0, "y": 26.0}}},
-        },
-    ))
-    assert 'collision: Some' in ron
-    assert 'hurtbox: Some' in ron
+    ron = to_ron(
+        build_actor_contract(
+            stem="zombie_shambler",
+            target="toon",
+            image="zombie_shambler_spritesheet.png",
+            sheet_manifest="zombie_shambler_spritesheet.ron",
+            manifest=manifest,
+            job_data={"surface": "adapter", "tags": []},
+            authoring={
+                "body": {
+                    "body_plan": "HumanoidBiped",
+                    "traits": ["undead", "no_hands"],
+                },
+                "actions": {"default_preset": "zombie_bite"},
+                "sockets": {"mouth": {"point": {"x": 22.0, "y": 26.0}}},
+            },
+        )
+    )
+    assert "collision: Some" in ron
+    assert "hurtbox: Some" in ron
     assert '"mouth"' in ron
     assert '"hand_r"' not in ron
-    assert 'melee origin socket' not in ron
+    assert "melee origin socket" not in ron
 
 
 def test_tackon_target_render_sheet_includes_actor_sidecar(tmp_path: Path):
@@ -107,19 +124,33 @@ def test_catalog_defaults_enrich_actor_contract_when_available(tmp_path: Path):
         "target": "toon",
         "image": "erdish_spritesheet.png",
         "rows": [
-            {"animation": "idle", "row_index": 0, "frame_count": 1, "duration_ms": 100, "rects": []},
-            {"animation": "walk", "row_index": 1, "frame_count": 1, "duration_ms": 100, "rects": []},
+            {
+                "animation": "idle",
+                "row_index": 0,
+                "frame_count": 1,
+                "duration_ms": 100,
+                "rects": [],
+            },
+            {
+                "animation": "walk",
+                "row_index": 1,
+                "frame_count": 1,
+                "duration_ms": 100,
+                "rects": [],
+            },
         ],
     }
-    ron = to_ron(build_actor_contract(
-        stem="erdish",
-        target="toon",
-        image="erdish_spritesheet.png",
-        sheet_manifest="erdish_spritesheet.ron",
-        manifest=manifest,
-        job_data={"surface": "adapter", "tags": []},
-        authoring={},
-    ))
+    ron = to_ron(
+        build_actor_contract(
+            stem="erdish",
+            target="toon",
+            image="erdish_spritesheet.png",
+            sheet_manifest="erdish_spritesheet.ron",
+            manifest=manifest,
+            job_data={"surface": "adapter", "tags": []},
+            authoring={},
+        )
+    )
     assert 'character_id: "npc_erdish"' in ron
     assert 'display_name: Some("Erdish")' in ron
     assert 'default_preset: Some("patrol_peaceful")' in ron
@@ -138,7 +169,10 @@ def test_json_manifest_targets_can_emit_actor_sidecar(tmp_path: Path):
         target_name="mockingbird_boss",
         render_dir=tmp_path,
         paths=[manifest_path],
-        actor_metadata={"actor": {"character_id": "npc_mockingbird_boss"}, "tags": ["boss"]},
+        actor_metadata={
+            "actor": {"character_id": "npc_mockingbird_boss"},
+            "tags": ["boss"],
+        },
     )
     actor_path = tmp_path / "mockingbird_boss_actor.ron"
     assert actor_path.exists()
@@ -159,7 +193,9 @@ def test_every_registered_character_target_advertises_actor_sidecar():
     assert missing == []
 
 
-def _contract_text_for_metadata(stem: str, target: str, rows: list[str], metadata: dict) -> str:
+def _contract_text_for_metadata(
+    stem: str, target: str, rows: list[str], metadata: dict
+) -> str:
     from ambition_sprite2d_renderer.actor_contract import build_actor_contract, to_ron
 
     manifest = {
@@ -170,23 +206,33 @@ def _contract_text_for_metadata(stem: str, target: str, rows: list[str], metadat
             "feet_pixel": {"x": 50, "y": 76},
         },
         "rows": [
-            {"animation": name, "row_index": i, "frame_count": 1, "duration_ms": 100, "rects": []}
+            {
+                "animation": name,
+                "row_index": i,
+                "frame_count": 1,
+                "duration_ms": 100,
+                "rects": [],
+            }
             for i, name in enumerate(rows)
         ],
     }
-    return to_ron(build_actor_contract(
-        stem=stem,
-        target=target,
-        image=f"{stem}_spritesheet.png",
-        sheet_manifest=f"{stem}_spritesheet.ron",
-        manifest=manifest,
-        job_data={"surface": "tackon", "tags": []},
-        authoring=metadata,
-    ))
+    return to_ron(
+        build_actor_contract(
+            stem=stem,
+            target=target,
+            image=f"{stem}_spritesheet.png",
+            sheet_manifest=f"{stem}_spritesheet.ron",
+            manifest=manifest,
+            job_data={"surface": "tackon", "tags": []},
+            authoring=metadata,
+        )
+    )
 
 
 def test_bespoke_burning_flying_shark_actor_metadata():
-    from ambition_sprite2d_renderer.targets.characters import burning_flying_shark as shark
+    from ambition_sprite2d_renderer.targets.characters import (
+        burning_flying_shark as shark,
+    )
 
     ron = _contract_text_for_metadata(
         "burning_flying_shark",
@@ -196,8 +242,8 @@ def test_bespoke_burning_flying_shark_actor_metadata():
     )
     assert 'character_id: "npc_burning_flying_shark"' in ron
     assert 'body_plan: Some("Flyer")' in ron
-    assert 'fly: Some(true)' in ron
-    assert 'walk: Some(false)' in ron
+    assert "fly: Some(true)" in ron
+    assert "walk: Some(false)" in ron
     assert '"mouth"' in ron
     assert '"saddle"' in ron
     assert '"action.melee.primary"' in ron
@@ -215,8 +261,8 @@ def test_bespoke_puppy_slug_actor_metadata():
     )
     assert 'character_id: "npc_puppy_slug"' in ron
     assert 'body_plan: Some("Crawler")' in ron
-    assert 'climb: Some(true)' in ron
-    assert 'crawl: Some(true)' in ron
+    assert "climb: Some(true)" in ron
+    assert "crawl: Some(true)" in ron
     assert '"mouth"' in ron
     assert '"wall_contact"' in ron
     assert '"hand_r"' not in ron
@@ -233,9 +279,9 @@ def test_bespoke_president_portrait_actor_metadata():
         president_portrait.ACTOR_METADATA,
     )
     assert 'character_id: "npc_president_portrait"' in ron
-    assert 'door_access: [' in ron
+    assert "door_access: [" in ron
     assert '"public"' in ron
-    assert 'talk: Some(true)' in ron
+    assert "talk: Some(true)" in ron
     assert '"speech_bubble"' in ron
     assert '"decree_origin"' in ron
     assert '"interaction.oath"' in ron
@@ -252,7 +298,7 @@ def test_bespoke_ghoul_skulker_actor_metadata():
     )
     assert 'character_id: "npc_ghoul_skulker"' in ron
     assert 'body_kind: Some("LowProfile")' in ron
-    assert 'crawl: Some(true)' in ron
+    assert "crawl: Some(true)" in ron
     assert '"claw_tip"' in ron
     assert '"action.special.pounce"' in ron
 
@@ -268,7 +314,7 @@ def test_bespoke_mantis_lancer_actor_metadata():
     )
     assert 'character_id: "npc_mantis_lancer"' in ron
     assert 'body_plan: Some("InsectoidBiped")' in ron
-    assert 'climb: Some(true)' in ron
+    assert "climb: Some(true)" in ron
     assert '"blade_tip"' in ron
     assert '"action.melee.sweep"' in ron
 
@@ -317,14 +363,16 @@ def test_bespoke_smart_house_actor_metadata():
     )
     assert 'character_id: "npc_smart_house"' in ron
     assert 'body_plan: Some("PropActor")' in ron
-    assert 'walk: Some(true)' in ron
-    assert 'talk: Some(true)' in ron
+    assert "walk: Some(true)" in ron
+    assert "talk: Some(true)" in ron
     assert '"speech_bubble"' in ron
     assert '"action.special.ram"' in ron
 
 
 def test_bespoke_flying_spaghetti_monster_boss_actor_metadata():
-    from ambition_sprite2d_renderer.targets.characters import flying_spaghetti_monster_boss as fsm
+    from ambition_sprite2d_renderer.targets.characters import (
+        flying_spaghetti_monster_boss as fsm,
+    )
 
     ron = _contract_text_for_metadata(
         "flying_spaghetti_monster_boss",
@@ -334,8 +382,8 @@ def test_bespoke_flying_spaghetti_monster_boss_actor_metadata():
     )
     assert 'character_id: "npc_flying_spaghetti_monster_boss"' in ron
     assert 'body_plan: Some("BossMultipart")' in ron
-    assert 'fly: Some(true)' in ron
-    assert 'walk: Some(false)' in ron
+    assert "fly: Some(true)" in ron
+    assert "walk: Some(false)" in ron
     assert '"beam_l"' in ron
     assert '"action.special.eye_beam"' in ron
 

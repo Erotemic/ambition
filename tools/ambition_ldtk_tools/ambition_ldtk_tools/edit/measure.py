@@ -17,6 +17,7 @@ Examples:
   python -m ambition_ldtk_tools entity measure --level goblin_encounter --identifier BossSpawn
   python -m ambition_ldtk_tools entity measure --iid <iid>
 """
+
 from __future__ import annotations
 
 import argparse

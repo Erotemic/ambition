@@ -46,6 +46,7 @@ The TODO subcommands are placeholders — the package was migrated from
 several standalone scripts and these slots are reserved so the surface
 stays stable while we backfill them.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -74,6 +75,7 @@ def _delegate(module_path: str, argv: list[str]) -> int:
 
 
 # ---- Command implementations (most are thin wrappers around legacy mains) ----
+
 
 def cmd_validate(args, rest):
     return _delegate("ambition_ldtk_tools.validate", rest)
@@ -130,10 +132,14 @@ def cmd_world(args, rest):
 def cmd_door(args, rest):
     if args.door_action == "free-spots":
         # area_authoring exposes --list-free-spots <room>; forward through.
-        return _delegate("ambition_ldtk_tools.area_authoring", ["--list-free-spots", *rest])
+        return _delegate(
+            "ambition_ldtk_tools.area_authoring", ["--list-free-spots", *rest]
+        )
     if args.door_action == "snap":
         # area_authoring exposes --snap-to-surface; forward through.
-        return _delegate("ambition_ldtk_tools.area_authoring", ["--snap-to-surface", *rest])
+        return _delegate(
+            "ambition_ldtk_tools.area_authoring", ["--snap-to-surface", *rest]
+        )
     return _todo(f"door {args.door_action}")
 
 
@@ -199,7 +205,9 @@ def cmd_tileset(args, rest):
         # The tileset module's argparse owns its surface; prepend the
         # action verb so the existing per-tool parser sees it
         # positionally (matches the `intgrid summarize/erase` pattern).
-        return _delegate("ambition_ldtk_tools.edit.tilesets", [args.tileset_action, *rest])
+        return _delegate(
+            "ambition_ldtk_tools.edit.tilesets", [args.tileset_action, *rest]
+        )
     if args.tileset_action == "add-layer":
         return _delegate(
             "ambition_ldtk_tools.edit.tile_layers", [args.tileset_action, *rest]
@@ -235,6 +243,7 @@ def cmd_gates(args, rest):
 
 # ---- Parser construction ------------------------------------------------------
 
+
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(
         prog="ambition_ldtk_tools",
@@ -249,13 +258,17 @@ def build_parser() -> argparse.ArgumentParser:
     sp_repair = sub.add_parser("repair", help="Repair editor metadata in the LDtk file")
     sp_repair.set_defaults(func=cmd_repair)
 
-    sp_roundtrip = sub.add_parser("roundtrip", help="Non-mutating round-trip smoke check")
+    sp_roundtrip = sub.add_parser(
+        "roundtrip", help="Non-mutating round-trip smoke check"
+    )
     sp_roundtrip.set_defaults(func=cmd_roundtrip)
 
     sp_doctor = sub.add_parser("doctor", help="Run roundtrip + validate")
     sp_doctor.set_defaults(func=cmd_doctor)
 
-    sp_compact = sub.add_parser("compact", help="Compact LDtk JSON arrays to editor style")
+    sp_compact = sub.add_parser(
+        "compact", help="Compact LDtk JSON arrays to editor style"
+    )
     sp_compact.set_defaults(func=cmd_compact)
 
     sp_list_metadata = sub.add_parser(

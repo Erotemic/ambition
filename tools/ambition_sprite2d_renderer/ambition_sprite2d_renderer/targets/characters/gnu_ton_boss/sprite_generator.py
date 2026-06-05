@@ -24,6 +24,7 @@ Frame size: 512x384  (wide to accommodate side-extending horns and hands)
 
 Dependencies: python -m pip install pillow
 """
+
 from __future__ import annotations
 
 import math
@@ -55,12 +56,12 @@ OY = FRAME_H // 2
 # breathing loop; attack rows interpolate the windup → strike → recover arc
 # across more frames so the giant reads as deliberate, not jerky.
 ANIMATIONS: List[Tuple[str, int, int]] = [
-    ("rest",       10, 110),
-    ("hand_slam",  10,  72),
-    ("hand_sweep", 10,  65),
-    ("head_down",   9,  90),
-    ("hit",         6,  80),
-    ("death",      10, 105),
+    ("rest", 10, 110),
+    ("hand_slam", 10, 72),
+    ("hand_sweep", 10, 65),
+    ("head_down", 9, 90),
+    ("hit", 6, 80),
+    ("death", 10, 105),
 ]
 
 # Output files: the runtime consumes the split body/hands pair plus the
@@ -68,7 +69,7 @@ ANIMATIONS: List[Tuple[str, int, int]] = [
 # the RON's `body_metrics` block, so the old JSON manifest/parts sidecars are
 # no longer emitted for GNU-ton.
 OUTPUT_FILES = [
-    f"{TARGET_NAME}_spritesheet.png",        # alias for _full (back-compat)
+    f"{TARGET_NAME}_spritesheet.png",  # alias for _full (back-compat)
     f"{TARGET_NAME}_full_spritesheet.png",
     f"{TARGET_NAME}_body_spritesheet.png",
     f"{TARGET_NAME}_hands_spritesheet.png",
@@ -84,7 +85,11 @@ HITBOX_DEBUG_FILE = f"{TARGET_NAME}_hitboxes_debug.png"
 
 ACTOR_METADATA = {
     "actor": {"character_id": f"npc_{TARGET_NAME}"},
-    "body": {"body_plan": "BossMultipart", "body_kind": "Wide", "traits": ["boss", "multipart"]},
+    "body": {
+        "body_plan": "BossMultipart",
+        "body_kind": "Wide",
+        "traits": ["boss", "multipart"],
+    },
     "brain": {"default_preset": "stand_still"},
     "actions": {"default_preset": "peaceful"},
     "tags": ["boss", "multipart"],
@@ -94,50 +99,50 @@ ACTOR_METADATA = {
 }
 
 # ── Palette ──────────────────────────────────────────────────────────────────
-C_OUTLINE      = (20,  14,   8, 255)
-C_BODY_DARK    = (48,  34,  20, 255)
-C_BODY_MID     = (82,  60,  38, 255)
-C_BODY_LIGHT   = (118, 88,  56, 255)
-C_BODY_SPEC    = (148, 112, 72, 255)
-C_HORN         = (212, 188, 142, 255)
-C_HORN_TIP     = (238, 218, 176, 255)
-C_HORN_DARK    = (162, 138,  98, 255)
-C_MANE_DARK    = (58,  38,  22, 255)
-C_MANE_MID     = (92,  66,  42, 255)
-C_MANE_LIGHT   = (128, 96,  62, 255)
-C_SNOUT        = (98,  74,  50, 255)
-C_NOSTRIL      = (32,  20,  10, 255)
-C_EYE_WHITE    = (230, 218, 200, 255)
-C_EYE_IRIS     = (185, 138,  44, 255)
-C_EYE_GLOW    = (255, 200,  60, 255)
-C_EYE_GLOW2   = (255, 240, 140, 180)
-C_PUPIL        = (12,   8,   4, 255)
-C_HAND_DARK    = (52,  36,  22, 255)
-C_HAND_MID     = (90,  66,  44, 255)
-C_HAND_LIGHT   = (128, 98,  66, 255)
-C_HOOF_DARK    = (32,  22,  12, 255)
-C_HOOF_MID     = (58,  42,  26, 255)
-C_KNUCKLE      = (148, 112, 72, 255)
-C_MAN_ROBE     = (55,  78, 148, 255)
-C_MAN_ROBE_D   = (38,  55, 108, 255)
-C_MAN_ROBE_L   = (78, 108, 190, 255)
-C_MAN_SKIN     = (198, 162, 126, 255)
-C_MAN_HAIR     = (72,  52,  32, 255)
-C_MAN_BEARD    = (88,  66,  44, 255)
-C_MAN_SPEC     = (240, 220, 180, 255)
+C_OUTLINE = (20, 14, 8, 255)
+C_BODY_DARK = (48, 34, 20, 255)
+C_BODY_MID = (82, 60, 38, 255)
+C_BODY_LIGHT = (118, 88, 56, 255)
+C_BODY_SPEC = (148, 112, 72, 255)
+C_HORN = (212, 188, 142, 255)
+C_HORN_TIP = (238, 218, 176, 255)
+C_HORN_DARK = (162, 138, 98, 255)
+C_MANE_DARK = (58, 38, 22, 255)
+C_MANE_MID = (92, 66, 42, 255)
+C_MANE_LIGHT = (128, 96, 62, 255)
+C_SNOUT = (98, 74, 50, 255)
+C_NOSTRIL = (32, 20, 10, 255)
+C_EYE_WHITE = (230, 218, 200, 255)
+C_EYE_IRIS = (185, 138, 44, 255)
+C_EYE_GLOW = (255, 200, 60, 255)
+C_EYE_GLOW2 = (255, 240, 140, 180)
+C_PUPIL = (12, 8, 4, 255)
+C_HAND_DARK = (52, 36, 22, 255)
+C_HAND_MID = (90, 66, 44, 255)
+C_HAND_LIGHT = (128, 98, 66, 255)
+C_HOOF_DARK = (32, 22, 12, 255)
+C_HOOF_MID = (58, 42, 26, 255)
+C_KNUCKLE = (148, 112, 72, 255)
+C_MAN_ROBE = (55, 78, 148, 255)
+C_MAN_ROBE_D = (38, 55, 108, 255)
+C_MAN_ROBE_L = (78, 108, 190, 255)
+C_MAN_SKIN = (198, 162, 126, 255)
+C_MAN_HAIR = (72, 52, 32, 255)
+C_MAN_BEARD = (88, 66, 44, 255)
+C_MAN_SPEC = (240, 220, 180, 255)
 # Powdered wig (Isaac Newton style): cream-white with a soft warm shadow
 # so the curls read against the dark wildebeest mane behind the scholar.
-C_MAN_WIG      = (240, 234, 220, 255)
-C_MAN_WIG_S    = (190, 180, 158, 255)
-C_MAN_WIG_D    = (138, 128, 110, 255)
-C_SPEECH_BG    = (248, 246, 238, 220)
-C_SPEECH_EDGE  = (180, 170, 148, 255)
-C_SPEECH_TXT   = (28,  22,  14, 255)
-C_HIT_FLASH    = (255, 160,  60, 200)
-C_DEATH_GREY   = (88,  80,  72, 255)
-C_GLOW_RING    = (255, 200,  60,  60)
-C_AMBER_GLOW   = (255, 180,  40,  80)
-C_BG           = (0,   0,   0,   0)  # transparent background
+C_MAN_WIG = (240, 234, 220, 255)
+C_MAN_WIG_S = (190, 180, 158, 255)
+C_MAN_WIG_D = (138, 128, 110, 255)
+C_SPEECH_BG = (248, 246, 238, 220)
+C_SPEECH_EDGE = (180, 170, 148, 255)
+C_SPEECH_TXT = (28, 22, 14, 255)
+C_HIT_FLASH = (255, 160, 60, 200)
+C_DEATH_GREY = (88, 80, 72, 255)
+C_GLOW_RING = (255, 200, 60, 60)
+C_AMBER_GLOW = (255, 180, 40, 80)
+C_BG = (0, 0, 0, 0)  # transparent background
 
 
 def wave(phase: float, freq: float = 1.0, offset: float = 0.0) -> float:
@@ -176,29 +181,57 @@ class Canvas:
 
     def P(self, x: float, y: float) -> Tuple[int, int]:
         """Design-space point -> pixel coordinate."""
-        return (int(round(self.ox + x * self.scale)),
-                int(round(self.oy + y * self.scale)))
+        return (
+            int(round(self.ox + x * self.scale)),
+            int(round(self.oy + y * self.scale)),
+        )
 
     def Ps(self, pts):
         return [self.P(x, y) for x, y in pts]
 
-    def polygon(self, pts, fill: RGBA, outline: Optional[RGBA] = None, width: float = 1.5):
+    def polygon(
+        self, pts, fill: RGBA, outline: Optional[RGBA] = None, width: float = 1.5
+    ):
         px = self.Ps(pts)
         self.draw.polygon(px, fill=fill)
         if outline:
-            self.draw.line(px + [px[0]], fill=outline,
-                           width=max(1, int(round(width * self.scale))), joint="curve")
+            self.draw.line(
+                px + [px[0]],
+                fill=outline,
+                width=max(1, int(round(width * self.scale))),
+                joint="curve",
+            )
 
-    def ellipse(self, cx: float, cy: float, rx: float, ry: float,
-                fill: RGBA, outline: Optional[RGBA] = None, width: float = 1.5):
+    def ellipse(
+        self,
+        cx: float,
+        cy: float,
+        rx: float,
+        ry: float,
+        fill: RGBA,
+        outline: Optional[RGBA] = None,
+        width: float = 1.5,
+    ):
         p0 = self.P(cx - rx, cy - ry)
         p1 = self.P(cx + rx, cy + ry)
-        self.draw.ellipse([p0, p1], fill=fill, outline=outline,
-                          width=max(1, int(round(width * self.scale))))
+        self.draw.ellipse(
+            [p0, p1],
+            fill=fill,
+            outline=outline,
+            width=max(1, int(round(width * self.scale))),
+        )
 
-    def alpha_ellipse(self, cx: float, cy: float, rx: float, ry: float, fill:
-                      RGBA, blur: float = 0.0, outline: Optional[RGBA] = None,
-                      width: float = 1.5):
+    def alpha_ellipse(
+        self,
+        cx: float,
+        cy: float,
+        rx: float,
+        ry: float,
+        fill: RGBA,
+        blur: float = 0.0,
+        outline: Optional[RGBA] = None,
+        width: float = 1.5,
+    ):
         """Draw a translucent ellipse using real alpha compositing."""
         layer = Image.new("RGBA", (self.sw, self.sh), (0, 0, 0, 0))
         d = ImageDraw.Draw(layer, "RGBA")
@@ -225,11 +258,20 @@ class Canvas:
 
     def line(self, pts, fill: RGBA, width: float = 2.0):
         px = self.Ps(pts)
-        self.draw.line(px, fill=fill,
-                       width=max(1, int(round(width * self.scale))), joint="curve")
+        self.draw.line(
+            px, fill=fill, width=max(1, int(round(width * self.scale))), joint="curve"
+        )
 
-    def arc_pts(self, cx: float, cy: float, rx: float, ry: float,
-                start_deg: float, end_deg: float, n: int = 20) -> list:
+    def arc_pts(
+        self,
+        cx: float,
+        cy: float,
+        rx: float,
+        ry: float,
+        start_deg: float,
+        end_deg: float,
+        n: int = 20,
+    ) -> list:
         pts = []
         for i in range(n + 1):
             t = i / n
@@ -239,12 +281,14 @@ class Canvas:
 
     def finish(self) -> Image.Image:
         if self.scale > 1:
-            return self.img.resize((self.sw // self.scale, self.sh // self.scale),
-                                   Image.LANCZOS)
+            return self.img.resize(
+                (self.sw // self.scale, self.sh // self.scale), Image.LANCZOS
+            )
         return self.img
 
 
 # ── Drawing primitives ───────────────────────────────────────────────────────
+
 
 def _leg_lift(leg_idx: int, phase: float, anim: str) -> float:
     """Per-leg vertical lift in design pixels for walk-in-place shuffle.
@@ -268,26 +312,51 @@ def _leg_lift(leg_idx: int, phase: float, anim: str) -> float:
     return max(0.0, wave(pair_phase, 0.85)) * 5.5 - 1.5
 
 
-def draw_gnu_body(c: Canvas, body_y: float = 0.0, alpha_scale: float = 1.0,
-                  phase: float = 0.0, anim: str = "rest") -> None:
+def draw_gnu_body(
+    c: Canvas,
+    body_y: float = 0.0,
+    alpha_scale: float = 1.0,
+    phase: float = 0.0,
+    anim: str = "rest",
+) -> None:
     """Giant GNU torso, hindquarters, and legs."""
     # Subtle breathing
     breathe = wave(phase, 0.8) * 2.5 if anim not in ("death",) else 0
     by = body_y + breathe
 
     # ── Hindquarters ──
-    hq = [(-140, by + 50), (-180, by + 30), (-200, by + 10),
-          (-185, by - 20), (-140, by - 32), (-90, by - 28),
-          (-55, by - 15), (-60, by + 40)]
+    hq = [
+        (-140, by + 50),
+        (-180, by + 30),
+        (-200, by + 10),
+        (-185, by - 20),
+        (-140, by - 32),
+        (-90, by - 28),
+        (-55, by - 15),
+        (-60, by + 40),
+    ]
     c.polygon(hq, C_BODY_DARK, C_OUTLINE, 1.5)
     # Highlight
-    hq_hi = [(-150, by + 10), (-175, by - 5), (-160, by - 22), (-115, by - 25), (-85, by - 20)]
+    hq_hi = [
+        (-150, by + 10),
+        (-175, by - 5),
+        (-160, by - 22),
+        (-115, by - 25),
+        (-85, by - 20),
+    ]
     c.polygon(hq_hi, C_BODY_MID)
 
     # ── Main torso / barrel ──
-    torso = [(-60, by + 50), (-55, by - 15), (0, by - 38),
-             (70, by - 32), (100, by - 10), (95, by + 45),
-             (40, by + 58), (-20, by + 58)]
+    torso = [
+        (-60, by + 50),
+        (-55, by - 15),
+        (0, by - 38),
+        (70, by - 32),
+        (100, by - 10),
+        (95, by + 45),
+        (40, by + 58),
+        (-20, by + 58),
+    ]
     c.polygon(torso, C_BODY_MID, C_OUTLINE, 1.5)
 
     # Torso highlight
@@ -295,16 +364,22 @@ def draw_gnu_body(c: Canvas, body_y: float = 0.0, alpha_scale: float = 1.0,
     c.polygon(hi, C_BODY_LIGHT)
 
     # ── Shoulder hump ──
-    hump = [(-20, by - 38), (10, by - 58), (40, by - 62),
-            (65, by - 50), (70, by - 32), (20, by - 35)]
+    hump = [
+        (-20, by - 38),
+        (10, by - 58),
+        (40, by - 62),
+        (65, by - 50),
+        (70, by - 32),
+        (20, by - 35),
+    ]
     c.polygon(hump, C_BODY_LIGHT, C_OUTLINE, 1.2)
 
     # ── Four legs (with walk-in-place shuffle) ──
     legs = [
-        (-130, by + 50, -145, by + 100, -138, by + 115),   # 0: hind left
-        (-70,  by + 52, -80,  by + 102, -72,  by + 118),   # 1: hind right-ish
-        (20,   by + 55, 12,   by + 108, 22,   by + 122),   # 2: fore left
-        (75,   by + 48, 82,   by + 100, 74,   by + 115),   # 3: fore right
+        (-130, by + 50, -145, by + 100, -138, by + 115),  # 0: hind left
+        (-70, by + 52, -80, by + 102, -72, by + 118),  # 1: hind right-ish
+        (20, by + 55, 12, by + 108, 22, by + 122),  # 2: fore left
+        (75, by + 48, 82, by + 100, 74, by + 115),  # 3: fore right
     ]
     for idx, (x0, y0, x1, y1, x2, y2) in enumerate(legs):
         lift = _leg_lift(idx, phase, anim)
@@ -315,11 +390,19 @@ def draw_gnu_body(c: Canvas, body_y: float = 0.0, alpha_scale: float = 1.0,
         y1l = y1 - knee_lift
         y2l = y2 - hoof_lift
         # Upper leg
-        c.polygon([(x0 - 14, y0), (x0 + 10, y0), (x1 + 8, y1l), (x1 - 12, y1l)],
-                  C_BODY_DARK, C_OUTLINE, 1.2)
+        c.polygon(
+            [(x0 - 14, y0), (x0 + 10, y0), (x1 + 8, y1l), (x1 - 12, y1l)],
+            C_BODY_DARK,
+            C_OUTLINE,
+            1.2,
+        )
         # Lower leg (slightly lighter)
-        c.polygon([(x1 - 10, y1l), (x1 + 7, y1l), (x2 + 6, y2l), (x2 - 9, y2l)],
-                  C_BODY_MID, C_OUTLINE, 1.2)
+        c.polygon(
+            [(x1 - 10, y1l), (x1 + 7, y1l), (x2 + 6, y2l), (x2 - 9, y2l)],
+            C_BODY_MID,
+            C_OUTLINE,
+            1.2,
+        )
         # Hoof
         c.ellipse(x2 - 2, y2l + 6, 12, 6, C_HOOF_DARK, C_OUTLINE, 1.0)
 
@@ -327,15 +410,23 @@ def draw_gnu_body(c: Canvas, body_y: float = 0.0, alpha_scale: float = 1.0,
     for i in range(8):
         mx = lerp(-50, 50, i / 7)
         my = by - 25 + wave(i * 1.3, 1.0) * 5
-        c.polygon([
-            (mx - 8, my),
-            (mx, my - 20 - i * 1.5),
-            (mx + 8, my - 2),
-        ], C_MANE_DARK if i % 2 == 0 else C_MANE_MID)
+        c.polygon(
+            [
+                (mx - 8, my),
+                (mx, my - 20 - i * 1.5),
+                (mx + 8, my - 2),
+            ],
+            C_MANE_DARK if i % 2 == 0 else C_MANE_MID,
+        )
 
 
-def draw_gnu_neck(c: Canvas, head_y_offset: float = 0.0, tilt: float = 0.0,
-                  phase: float = 0.0, anim: str = "rest") -> None:
+def draw_gnu_neck(
+    c: Canvas,
+    head_y_offset: float = 0.0,
+    tilt: float = 0.0,
+    phase: float = 0.0,
+    anim: str = "rest",
+) -> None:
     """Thick muscular neck connecting body to head."""
     sway = wave(phase, 0.7) * 3.0
     nx = sway + tilt * 15
@@ -355,8 +446,14 @@ def draw_gnu_neck(c: Canvas, head_y_offset: float = 0.0, tilt: float = 0.0,
     c.polygon(hi, C_BODY_LIGHT)
 
 
-def draw_gnu_horns(c: Canvas, hx: float = 0.0, hy: float = 0.0,
-                   scale: float = 1.0, phase: float = 0.0, anim: str = "rest") -> None:
+def draw_gnu_horns(
+    c: Canvas,
+    hx: float = 0.0,
+    hy: float = 0.0,
+    scale: float = 1.0,
+    phase: float = 0.0,
+    anim: str = "rest",
+) -> None:
     """GNU's iconic curved horns (C-shaped: outward, down, then back up at tips)."""
     droop = 0.0
     if anim == "death":
@@ -371,12 +468,12 @@ def draw_gnu_horns(c: Canvas, hx: float = 0.0, hy: float = 0.0,
         # Control points for the C-curve
         # The GNU horn goes: out → curves down → then the tip curls back inward/up
         pts = [
-            (bx,                      by),
-            (bx + sx * 40 * scale,    by - 10 * scale + droop),
-            (bx + sx * 80 * scale,    by + 20 * scale + droop),
-            (bx + sx * 88 * scale,    by + 55 * scale + droop),
-            (bx + sx * 70 * scale,    by + 85 * scale + droop * 0.5),
-            (bx + sx * 45 * scale,    by + 90 * scale),
+            (bx, by),
+            (bx + sx * 40 * scale, by - 10 * scale + droop),
+            (bx + sx * 80 * scale, by + 20 * scale + droop),
+            (bx + sx * 88 * scale, by + 55 * scale + droop),
+            (bx + sx * 70 * scale, by + 85 * scale + droop * 0.5),
+            (bx + sx * 45 * scale, by + 90 * scale),
         ]
 
         # Draw horn as thick tapered line with decreasing width
@@ -404,9 +501,14 @@ def draw_gnu_horns(c: Canvas, hx: float = 0.0, hy: float = 0.0,
         c.ellipse(tip[0], tip[1], 5 * scale, 5 * scale, C_HORN_TIP)
 
 
-def draw_gnu_head(c: Canvas, hx: float = 0.0, hy: float = 0.0,
-                  phase: float = 0.0, anim: str = "rest",
-                  enraged: bool = False) -> None:
+def draw_gnu_head(
+    c: Canvas,
+    hx: float = 0.0,
+    hy: float = 0.0,
+    phase: float = 0.0,
+    anim: str = "rest",
+    enraged: bool = False,
+) -> None:
     """GNU's massive head: skull, snout, eyes, and horns."""
     sway = wave(phase, 0.5) * 4.0
 
@@ -427,15 +529,20 @@ def draw_gnu_head(c: Canvas, hx: float = 0.0, hy: float = 0.0,
         (hx + 50 + sway, hy + 12),
         (hx + 52 + sway, hy - 15),
         (hx + 35 + sway, hy - 30),
-        (hx + 5 + sway,  hy - 34),
+        (hx + 5 + sway, hy - 34),
         (hx - 28 + sway, hy - 30),
     ]
     c.polygon(skull, C_BODY_MID, C_OUTLINE, 2.0)
 
     # Skull highlight
-    hi = [(hx - 20 + sway, hy - 22), (hx + 15 + sway, hy - 26),
-          (hx + 32 + sway, hy - 12), (hx + 20 + sway, hy + 5),
-          (hx - 5 + sway, hy + 2), (hx - 22 + sway, hy - 10)]
+    hi = [
+        (hx - 20 + sway, hy - 22),
+        (hx + 15 + sway, hy - 26),
+        (hx + 32 + sway, hy - 12),
+        (hx + 20 + sway, hy + 5),
+        (hx - 5 + sway, hy + 2),
+        (hx - 22 + sway, hy - 10),
+    ]
     c.polygon(hi, C_BODY_LIGHT)
 
     # ── Wide snout ──
@@ -485,9 +592,16 @@ def draw_gnu_head(c: Canvas, hx: float = 0.0, hy: float = 0.0,
     draw_gnu_horns(c, hx + sway, hy, 1.0, phase, anim)
 
 
-def draw_hand(c: Canvas, cx: float, cy: float, side: int = 1,
-              phase: float = 0.0, anim: str = "rest",
-              slam_progress: float = 0.0, sweep_progress: float = 0.0) -> None:
+def draw_hand(
+    c: Canvas,
+    cx: float,
+    cy: float,
+    side: int = 1,
+    phase: float = 0.0,
+    anim: str = "rest",
+    slam_progress: float = 0.0,
+    sweep_progress: float = 0.0,
+) -> None:
     """One of the giant stylized hoof-hands at the sides."""
     # side: +1 = right, -1 = left
 
@@ -546,17 +660,25 @@ def draw_hand(c: Canvas, cx: float, cy: float, side: int = 1,
     if sweep_progress > 0.4 and anim == "hand_sweep":
         trail_alpha = int(80 * min(1.0, sweep_progress))
         trail = (120, 180, 255, trail_alpha)
-        c.polygon([
-            (cx + side * 30, cy - 20),
-            (cx + side * 80, cy - 10),
-            (cx + side * 80, cy + 10),
-            (cx + side * 30, cy + 20),
-        ], trail)
+        c.polygon(
+            [
+                (cx + side * 30, cy - 20),
+                (cx + side * 80, cy - 10),
+                (cx + side * 80, cy + 10),
+                (cx + side * 30, cy + 20),
+            ],
+            trail,
+        )
 
 
-def draw_gnu_ton_man(c: Canvas, hx: float = 0.0, hy: float = 0.0,
-                     phase: float = 0.0, anim: str = "rest",
-                     show_speech: bool = False) -> None:
+def draw_gnu_ton_man(
+    c: Canvas,
+    hx: float = 0.0,
+    hy: float = 0.0,
+    phase: float = 0.0,
+    anim: str = "rest",
+    show_speech: bool = False,
+) -> None:
     """The GNU-ton scholar standing atop the GNU's neck/back.
 
     Isaac-Newton-coded: white powdered wig with side curls and a tied
@@ -610,13 +732,18 @@ def draw_gnu_ton_man(c: Canvas, hx: float = 0.0, hy: float = 0.0,
 
     # ── Triangular beard with shading ──
     beard_bob = wave(phase, 1.2) * 0.8
-    c.polygon([
-        (hx - 4, hy - 8),
-        (hx + 4, hy - 8),
-        (hx + 2, hy - 1 + beard_bob),
-        (hx, hy + 1 + beard_bob),
-        (hx - 2, hy - 1 + beard_bob),
-    ], C_MAN_BEARD, C_OUTLINE, 0.8)
+    c.polygon(
+        [
+            (hx - 4, hy - 8),
+            (hx + 4, hy - 8),
+            (hx + 2, hy - 1 + beard_bob),
+            (hx, hy + 1 + beard_bob),
+            (hx - 2, hy - 1 + beard_bob),
+        ],
+        C_MAN_BEARD,
+        C_OUTLINE,
+        0.8,
+    )
     # Beard highlight stripe
     c.line([(hx - 1, hy - 6), (hx, hy - 2 + beard_bob)], C_MAN_SPEC, 0.8)
 
@@ -632,10 +759,15 @@ def draw_gnu_ton_man(c: Canvas, hx: float = 0.0, hy: float = 0.0,
     ]
     c.polygon(robe, C_MAN_ROBE, C_OUTLINE, 1.0)
     # Robe lining (lighter)
-    c.polygon([
-        (hx - 2, hy - 6), (hx + 3, hy - 6),
-        (hx + 3, hy + 9), (hx - 2, hy + 9),
-    ], C_MAN_ROBE_L)
+    c.polygon(
+        [
+            (hx - 2, hy - 6),
+            (hx + 3, hy - 6),
+            (hx + 3, hy + 9),
+            (hx - 2, hy + 9),
+        ],
+        C_MAN_ROBE_L,
+    )
     # Cinched belt
     c.line([(hx - 8, hy + 2), (hx + 8, hy + 2)], C_MAN_ROBE_D, 1.2)
     c.ellipse(hx, hy + 2, 1.4, 1.0, C_HORN_TIP)
@@ -652,34 +784,54 @@ def draw_gnu_ton_man(c: Canvas, hx: float = 0.0, hy: float = 0.0,
         hand = (hx + 16, hy - 9 + arm_phase)
         c.line([(hx + 7, hy - 4), elbow, hand], C_MAN_SKIN, 2.0)
         # Tiny scroll (parchment) in raised hand
-        c.polygon([
-            (hand[0] - 1.6, hand[1] - 3.6),
-            (hand[0] + 4.2, hand[1] - 3.6),
-            (hand[0] + 4.2, hand[1] + 1.0),
-            (hand[0] - 1.6, hand[1] + 1.0),
-        ], C_SPEECH_BG, C_SPEECH_EDGE, 0.8)
+        c.polygon(
+            [
+                (hand[0] - 1.6, hand[1] - 3.6),
+                (hand[0] + 4.2, hand[1] - 3.6),
+                (hand[0] + 4.2, hand[1] + 1.0),
+                (hand[0] - 1.6, hand[1] + 1.0),
+            ],
+            C_SPEECH_BG,
+            C_SPEECH_EDGE,
+            0.8,
+        )
         # Scroll text bar
-        c.line([(hand[0] - 0.5, hand[1] - 2), (hand[0] + 3.0, hand[1] - 2)],
-               C_SPEECH_TXT, 0.6)
+        c.line(
+            [(hand[0] - 0.5, hand[1] - 2), (hand[0] + 3.0, hand[1] - 2)],
+            C_SPEECH_TXT,
+            0.6,
+        )
         # Left arm hangs along robe
         c.line([(hx - 7, hy - 4), (hx - 9, hy + 4)], C_MAN_ROBE_D, 1.8)
     elif anim == "death":
         settle = min(1.0, phase * 1.5)
-        c.line([
-            (hx + 7, hy - 4),
-            (hx + 14 + settle * 8, hy + 6 + settle * 16),
-        ], C_MAN_SKIN, 1.8)
-        c.line([
-            (hx - 7, hy - 4),
-            (hx - 14 - settle * 6, hy + 4 + settle * 12),
-        ], C_MAN_SKIN, 1.8)
+        c.line(
+            [
+                (hx + 7, hy - 4),
+                (hx + 14 + settle * 8, hy + 6 + settle * 16),
+            ],
+            C_MAN_SKIN,
+            1.8,
+        )
+        c.line(
+            [
+                (hx - 7, hy - 4),
+                (hx - 14 - settle * 6, hy + 4 + settle * 12),
+            ],
+            C_MAN_SKIN,
+            1.8,
+        )
     elif anim in ("hand_slam", "hand_sweep", "head_down"):
         # Pointing dramatically with right arm during attacks
-        c.line([
-            (hx + 7, hy - 4),
-            (hx + 13, hy - 8),
-            (hx + 18, hy - 11),
-        ], C_MAN_SKIN, 2.0)
+        c.line(
+            [
+                (hx + 7, hy - 4),
+                (hx + 13, hy - 8),
+                (hx + 18, hy - 11),
+            ],
+            C_MAN_SKIN,
+            2.0,
+        )
         # Bracing left hand on robe
         c.line([(hx - 7, hy - 4), (hx - 11, hy + 2)], C_MAN_SKIN, 1.8)
     else:
@@ -698,14 +850,22 @@ def draw_gnu_ton_man(c: Canvas, hx: float = 0.0, hy: float = 0.0,
         bx = hx + 14
         by = hy - 30
         bw, bh = 60, 24
-        c.polygon([
-            (bx, by), (bx + bw, by),
-            (bx + bw, by + bh), (bx + 6, by + bh),
-            (bx + 2, by + bh + 8), (bx + 12, by + bh),
-            (bx, by + bh),
-        ], C_SPEECH_BG, C_SPEECH_EDGE, 1.0)
+        c.polygon(
+            [
+                (bx, by),
+                (bx + bw, by),
+                (bx + bw, by + bh),
+                (bx + 6, by + bh),
+                (bx + 2, by + bh + 8),
+                (bx + 12, by + bh),
+                (bx, by + bh),
+            ],
+            C_SPEECH_BG,
+            C_SPEECH_EDGE,
+            1.0,
+        )
         lines = [
-            (bx + 5, by + 6,  bx + 44, by + 6),
+            (bx + 5, by + 6, bx + 44, by + 6),
             (bx + 5, by + 12, bx + 50, by + 12),
             (bx + 5, by + 18, bx + 34, by + 18),
         ]
@@ -715,9 +875,14 @@ def draw_gnu_ton_man(c: Canvas, hx: float = 0.0, hy: float = 0.0,
 
 # ── Per-animation frame drawing ──────────────────────────────────────────────
 
-def draw_frame(anim: str, frame_idx: int, frame_count: int,
-               layer: str = "full",
-               parts: Optional[dict] = None) -> Image.Image:
+
+def draw_frame(
+    anim: str,
+    frame_idx: int,
+    frame_count: int,
+    layer: str = "full",
+    parts: Optional[dict] = None,
+) -> Image.Image:
     """Render one animation frame and return a FRAME_SIZE RGBA image.
 
     `layer` selects which silhouette layers to draw:
@@ -766,9 +931,9 @@ REST_BODY_Y = 60.0
 
 # Shoulder contact point: body hump peak is at (body_y - 62).
 # Scholar feet sit here; scholar center = foot_y - 18 (smaller figure now).
-_SHOULDER_TOP_Y = REST_BODY_Y - 62      # ≈ -2
-_MAN_CENTER_Y   = _SHOULDER_TOP_Y - 18  # ≈ -20
-_MAN_CENTER_X   = 44.0                  # nudged further onto the right shoulder
+_SHOULDER_TOP_Y = REST_BODY_Y - 62  # ≈ -2
+_MAN_CENTER_Y = _SHOULDER_TOP_Y - 18  # ≈ -20
+_MAN_CENTER_X = 44.0  # nudged further onto the right shoulder
 
 # Hand x-anchors. Slightly wider than the older 185 px so the wider 768
 # frame still places hands near the edges.
@@ -781,11 +946,20 @@ REST_HAND_X = 235.0
 SLAM_STRIKE_Y = 195.0
 
 
-def _draw_body_layer(c: Canvas, body_y: float, head_y: float, head_x: float,
-                     neck_offset: float, neck_tilt: float,
-                     man_x: float, man_y: float,
-                     anim: str, phase: float,
-                     enraged: bool, draw_man: bool = True) -> None:
+def _draw_body_layer(
+    c: Canvas,
+    body_y: float,
+    head_y: float,
+    head_x: float,
+    neck_offset: float,
+    neck_tilt: float,
+    man_x: float,
+    man_y: float,
+    anim: str,
+    phase: float,
+    enraged: bool,
+    draw_man: bool = True,
+) -> None:
     """Draw the static silhouette: body, neck, head, scholar.
 
     Excludes the hands and any attack VFX (shockwave, glow rings) — those
@@ -798,25 +972,53 @@ def _draw_body_layer(c: Canvas, body_y: float, head_y: float, head_x: float,
         draw_gnu_ton_man(c, man_x, man_y, phase=phase, anim=anim, show_speech=False)
 
 
-def _draw_hands_layer(c: Canvas, lhx: float, lhy: float, rhx: float, rhy: float,
-                      anim: str, phase: float,
-                      slam_alpha: float = 0.0, sweep_prog: float = 0.0,
-                      head_y_for_glow: Optional[float] = None,
-                      vulnerability_alpha: float = 0.0,
-                      shockwave_radius: float = 0.0,
-                      shockwave_alpha: float = 0.0) -> None:
+def _draw_hands_layer(
+    c: Canvas,
+    lhx: float,
+    lhy: float,
+    rhx: float,
+    rhy: float,
+    anim: str,
+    phase: float,
+    slam_alpha: float = 0.0,
+    sweep_prog: float = 0.0,
+    head_y_for_glow: Optional[float] = None,
+    vulnerability_alpha: float = 0.0,
+    shockwave_radius: float = 0.0,
+    shockwave_alpha: float = 0.0,
+) -> None:
     """Draw the hands plus attack VFX (shockwaves, glow rings, sweep trails)."""
-    draw_hand(c, lhx, lhy, side=-1, phase=phase, anim=anim,
-              slam_progress=slam_alpha, sweep_progress=sweep_prog)
-    draw_hand(c, rhx, rhy, side=+1, phase=phase, anim=anim,
-              slam_progress=slam_alpha, sweep_progress=sweep_prog)
+    draw_hand(
+        c,
+        lhx,
+        lhy,
+        side=-1,
+        phase=phase,
+        anim=anim,
+        slam_progress=slam_alpha,
+        sweep_progress=sweep_prog,
+    )
+    draw_hand(
+        c,
+        rhx,
+        rhy,
+        side=+1,
+        phase=phase,
+        anim=anim,
+        slam_progress=slam_alpha,
+        sweep_progress=sweep_prog,
+    )
     # Vulnerability ring around the head, lives in the hands layer so it
     # renders in front of platforms (it's a readability signal).
     if vulnerability_alpha > 0.1 and head_y_for_glow is not None:
         ga = int(80 * vulnerability_alpha * (0.7 + 0.3 * blink01(phase, 3.0)))
-        c.alpha_ellipse(0.0, head_y_for_glow,
-                        100 * vulnerability_alpha, 80 * vulnerability_alpha,
-                        (255, 220, 60, ga))
+        c.alpha_ellipse(
+            0.0,
+            head_y_for_glow,
+            100 * vulnerability_alpha,
+            80 * vulnerability_alpha,
+            (255, 220, 60, ga),
+        )
     # Hand-slam impact shockwave at floor level — same layer as hands.
     if shockwave_radius > 0 and shockwave_alpha > 0:
         ws = shockwave_alpha
@@ -825,12 +1027,16 @@ def _draw_hands_layer(c: Canvas, lhx: float, lhy: float, rhx: float, rhy: float,
             c.ellipse(0, 120, shockwave_radius * r, 22 * r * ws, (255, 200, 80, a))
 
 
-def _record_parts(parts: Optional[dict], anim: str, frame_idx: int,
-                  head: Tuple[float, float],
-                  hand_left: Tuple[float, float],
-                  hand_right: Tuple[float, float],
-                  scholar: Tuple[float, float],
-                  extra: Optional[dict] = None) -> None:
+def _record_parts(
+    parts: Optional[dict],
+    anim: str,
+    frame_idx: int,
+    head: Tuple[float, float],
+    hand_left: Tuple[float, float],
+    hand_right: Tuple[float, float],
+    scholar: Tuple[float, float],
+    extra: Optional[dict] = None,
+) -> None:
     """Append one frame's design-space anchors into the parts dict.
 
     Consumed by the runtime to position hitboxes against the actually-drawn
@@ -850,8 +1056,13 @@ def _record_parts(parts: Optional[dict], anim: str, frame_idx: int,
     parts.setdefault(anim, []).append(entry)
 
 
-def _draw_rest(c: Canvas, phase: float, frame_idx: int,
-               layer: str = "full", parts: Optional[dict] = None) -> None:
+def _draw_rest(
+    c: Canvas,
+    phase: float,
+    frame_idx: int,
+    layer: str = "full",
+    parts: Optional[dict] = None,
+) -> None:
     """Idle: gentle sway, scholar muttering from the GNU's right shoulder."""
     bob = wave(phase, 0.9) * 3.5
     head_y = REST_HEAD_Y + bob * 0.6
@@ -866,19 +1077,40 @@ def _draw_rest(c: Canvas, phase: float, frame_idx: int,
     man_x = _MAN_CENTER_X + wave(phase, 0.7, 0.2) * 1.5
 
     if layer in ("full", "body"):
-        _draw_body_layer(c, REST_BODY_Y, head_y, 0.0, neck_offset, 0.0,
-                         man_x, man_y, anim="rest", phase=phase, enraged=False)
+        _draw_body_layer(
+            c,
+            REST_BODY_Y,
+            head_y,
+            0.0,
+            neck_offset,
+            0.0,
+            man_x,
+            man_y,
+            anim="rest",
+            phase=phase,
+            enraged=False,
+        )
     if layer in ("full", "hands"):
         _draw_hands_layer(c, lhx, lhy, rhx, rhy, anim="rest", phase=phase)
 
-    _record_parts(parts, "rest", frame_idx,
-                  head=(0.0, head_y),
-                  hand_left=(lhx, lhy), hand_right=(rhx, rhy),
-                  scholar=(man_x, man_y))
+    _record_parts(
+        parts,
+        "rest",
+        frame_idx,
+        head=(0.0, head_y),
+        hand_left=(lhx, lhy),
+        hand_right=(rhx, rhy),
+        scholar=(man_x, man_y),
+    )
 
 
-def _draw_hand_slam(c: Canvas, phase: float, frame_idx: int,
-                    layer: str = "full", parts: Optional[dict] = None) -> None:
+def _draw_hand_slam(
+    c: Canvas,
+    phase: float,
+    frame_idx: int,
+    layer: str = "full",
+    parts: Optional[dict] = None,
+) -> None:
     """Hands raise then slam down from above.
 
     Strike peak is design y = SLAM_STRIKE_Y (below the leg hooves) so the
@@ -901,9 +1133,19 @@ def _draw_hand_slam(c: Canvas, phase: float, frame_idx: int,
 
     head_y = REST_HEAD_Y
     if layer in ("full", "body"):
-        _draw_body_layer(c, REST_BODY_Y, head_y, 0.0, head_y + 70, 0.0,
-                         _MAN_CENTER_X, _MAN_CENTER_Y,
-                         anim="hand_slam", phase=phase, enraged=True)
+        _draw_body_layer(
+            c,
+            REST_BODY_Y,
+            head_y,
+            0.0,
+            head_y + 70,
+            0.0,
+            _MAN_CENTER_X,
+            _MAN_CENTER_Y,
+            anim="hand_slam",
+            phase=phase,
+            enraged=True,
+        )
 
     shockwave_radius = 0.0
     shockwave_alpha = 0.0
@@ -912,58 +1154,101 @@ def _draw_hand_slam(c: Canvas, phase: float, frame_idx: int,
         shockwave_radius = 260.0 * shockwave_alpha
 
     if layer in ("full", "hands"):
-        _draw_hands_layer(c, -REST_HAND_X, slam_y, REST_HAND_X, slam_y,
-                          anim="hand_slam", phase=phase,
-                          slam_alpha=slam_alpha,
-                          shockwave_radius=shockwave_radius,
-                          shockwave_alpha=shockwave_alpha)
+        _draw_hands_layer(
+            c,
+            -REST_HAND_X,
+            slam_y,
+            REST_HAND_X,
+            slam_y,
+            anim="hand_slam",
+            phase=phase,
+            slam_alpha=slam_alpha,
+            shockwave_radius=shockwave_radius,
+            shockwave_alpha=shockwave_alpha,
+        )
 
-    _record_parts(parts, "hand_slam", frame_idx,
-                  head=(0.0, head_y),
-                  hand_left=(-REST_HAND_X, slam_y),
-                  hand_right=(REST_HAND_X, slam_y),
-                  scholar=(_MAN_CENTER_X, _MAN_CENTER_Y),
-                  extra={"slam_alpha": round(slam_alpha, 3)})
+    _record_parts(
+        parts,
+        "hand_slam",
+        frame_idx,
+        head=(0.0, head_y),
+        hand_left=(-REST_HAND_X, slam_y),
+        hand_right=(REST_HAND_X, slam_y),
+        scholar=(_MAN_CENTER_X, _MAN_CENTER_Y),
+        extra={"slam_alpha": round(slam_alpha, 3)},
+    )
 
 
-def _draw_hand_sweep(c: Canvas, phase: float, frame_idx: int,
-                     layer: str = "full", parts: Optional[dict] = None) -> None:
+def _draw_hand_sweep(
+    c: Canvas,
+    phase: float,
+    frame_idx: int,
+    layer: str = "full",
+    parts: Optional[dict] = None,
+) -> None:
     """Hands sweep in from the far sides."""
     if phase < 0.2:
         t = phase / 0.2
         lhx = lerp(-REST_HAND_X, -290, smoothstep(t))
-        rhx = lerp(REST_HAND_X,  290, smoothstep(t))
+        rhx = lerp(REST_HAND_X, 290, smoothstep(t))
         sweep_prog = 0.0
     elif phase < 0.65:
         t = (phase - 0.2) / 0.45
         lhx = lerp(-290, -80, smoothstep(t))
-        rhx = lerp(290,   80, smoothstep(t))
+        rhx = lerp(290, 80, smoothstep(t))
         sweep_prog = smoothstep(t)
     else:
         t = (phase - 0.65) / 0.35
         lhx = lerp(-80, -REST_HAND_X, smoothstep(t))
-        rhx = lerp(80,   REST_HAND_X, smoothstep(t))
+        rhx = lerp(80, REST_HAND_X, smoothstep(t))
         sweep_prog = lerp(1.0, 0.0, t)
 
     head_y = REST_HEAD_Y
     if layer in ("full", "body"):
-        _draw_body_layer(c, REST_BODY_Y, head_y, 0.0, head_y + 70, 0.0,
-                         _MAN_CENTER_X, _MAN_CENTER_Y,
-                         anim="hand_sweep", phase=phase, enraged=True)
+        _draw_body_layer(
+            c,
+            REST_BODY_Y,
+            head_y,
+            0.0,
+            head_y + 70,
+            0.0,
+            _MAN_CENTER_X,
+            _MAN_CENTER_Y,
+            anim="hand_sweep",
+            phase=phase,
+            enraged=True,
+        )
     if layer in ("full", "hands"):
-        _draw_hands_layer(c, lhx, REST_HAND_Y, rhx, REST_HAND_Y,
-                          anim="hand_sweep", phase=phase, sweep_prog=sweep_prog)
+        _draw_hands_layer(
+            c,
+            lhx,
+            REST_HAND_Y,
+            rhx,
+            REST_HAND_Y,
+            anim="hand_sweep",
+            phase=phase,
+            sweep_prog=sweep_prog,
+        )
 
-    _record_parts(parts, "hand_sweep", frame_idx,
-                  head=(0.0, head_y),
-                  hand_left=(lhx, REST_HAND_Y),
-                  hand_right=(rhx, REST_HAND_Y),
-                  scholar=(_MAN_CENTER_X, _MAN_CENTER_Y),
-                  extra={"sweep_prog": round(sweep_prog, 3)})
+    _record_parts(
+        parts,
+        "hand_sweep",
+        frame_idx,
+        head=(0.0, head_y),
+        hand_left=(lhx, REST_HAND_Y),
+        hand_right=(rhx, REST_HAND_Y),
+        scholar=(_MAN_CENTER_X, _MAN_CENTER_Y),
+        extra={"sweep_prog": round(sweep_prog, 3)},
+    )
 
 
-def _draw_head_down(c: Canvas, phase: float, frame_idx: int,
-                    layer: str = "full", parts: Optional[dict] = None) -> None:
+def _draw_head_down(
+    c: Canvas,
+    phase: float,
+    frame_idx: int,
+    layer: str = "full",
+    parts: Optional[dict] = None,
+) -> None:
     """Head descends dramatically — vulnerability window."""
     if phase < 0.45:
         t = phase / 0.45
@@ -982,26 +1267,51 @@ def _draw_head_down(c: Canvas, phase: float, frame_idx: int,
     rhx = REST_HAND_X - c_sway
 
     if layer in ("full", "body"):
-        _draw_body_layer(c, REST_BODY_Y, head_y, 0.0, head_y + 55, 0.3,
-                         _MAN_CENTER_X, _MAN_CENTER_Y,
-                         anim="head_down", phase=phase,
-                         enraged=(enrage_scale > 0.5))
+        _draw_body_layer(
+            c,
+            REST_BODY_Y,
+            head_y,
+            0.0,
+            head_y + 55,
+            0.3,
+            _MAN_CENTER_X,
+            _MAN_CENTER_Y,
+            anim="head_down",
+            phase=phase,
+            enraged=(enrage_scale > 0.5),
+        )
     if layer in ("full", "hands"):
-        _draw_hands_layer(c, lhx, REST_HAND_Y, rhx, REST_HAND_Y,
-                          anim="head_down", phase=phase,
-                          head_y_for_glow=head_y,
-                          vulnerability_alpha=enrage_scale)
+        _draw_hands_layer(
+            c,
+            lhx,
+            REST_HAND_Y,
+            rhx,
+            REST_HAND_Y,
+            anim="head_down",
+            phase=phase,
+            head_y_for_glow=head_y,
+            vulnerability_alpha=enrage_scale,
+        )
 
-    _record_parts(parts, "head_down", frame_idx,
-                  head=(0.0, head_y),
-                  hand_left=(lhx, REST_HAND_Y),
-                  hand_right=(rhx, REST_HAND_Y),
-                  scholar=(_MAN_CENTER_X, _MAN_CENTER_Y),
-                  extra={"vulnerability": round(enrage_scale, 3)})
+    _record_parts(
+        parts,
+        "head_down",
+        frame_idx,
+        head=(0.0, head_y),
+        hand_left=(lhx, REST_HAND_Y),
+        hand_right=(rhx, REST_HAND_Y),
+        scholar=(_MAN_CENTER_X, _MAN_CENTER_Y),
+        extra={"vulnerability": round(enrage_scale, 3)},
+    )
 
 
-def _draw_hit(c: Canvas, phase: float, frame_idx: int,
-              layer: str = "full", parts: Optional[dict] = None) -> None:
+def _draw_hit(
+    c: Canvas,
+    phase: float,
+    frame_idx: int,
+    layer: str = "full",
+    parts: Optional[dict] = None,
+) -> None:
     """Hit flash and brief recoil."""
     jolt = wave(phase, 2.0) * 8
     flash_alpha = int(150 * (1.0 - phase))
@@ -1016,8 +1326,19 @@ def _draw_hit(c: Canvas, phase: float, frame_idx: int,
     man_y = _MAN_CENTER_Y + jolt * 0.2
 
     if layer in ("full", "body"):
-        _draw_body_layer(c, body_y_hit, head_y, jolt * 0.7, head_y + 70, 0.0,
-                         man_x, man_y, anim="hit", phase=phase, enraged=False)
+        _draw_body_layer(
+            c,
+            body_y_hit,
+            head_y,
+            jolt * 0.7,
+            head_y + 70,
+            0.0,
+            man_x,
+            man_y,
+            anim="hit",
+            phase=phase,
+            enraged=False,
+        )
     if layer in ("full", "hands"):
         _draw_hands_layer(c, lhx, lhy, rhx, rhy, anim="hit", phase=phase)
 
@@ -1028,14 +1349,24 @@ def _draw_hit(c: Canvas, phase: float, frame_idx: int,
         c.img = Image.alpha_composite(c.img, flash_img)
         c.draw = ImageDraw.Draw(c.img)
 
-    _record_parts(parts, "hit", frame_idx,
-                  head=(jolt * 0.7, head_y),
-                  hand_left=(lhx, lhy), hand_right=(rhx, rhy),
-                  scholar=(man_x, man_y))
+    _record_parts(
+        parts,
+        "hit",
+        frame_idx,
+        head=(jolt * 0.7, head_y),
+        hand_left=(lhx, lhy),
+        hand_right=(rhx, rhy),
+        scholar=(man_x, man_y),
+    )
 
 
-def _draw_death(c: Canvas, phase: float, frame_idx: int,
-                layer: str = "full", parts: Optional[dict] = None) -> None:
+def _draw_death(
+    c: Canvas,
+    phase: float,
+    frame_idx: int,
+    layer: str = "full",
+    parts: Optional[dict] = None,
+) -> None:
     """Boss collapses: horns droop, body slumps, man tumbles off."""
     settle = min(1.0, phase * 1.2)
 
@@ -1050,9 +1381,20 @@ def _draw_death(c: Canvas, phase: float, frame_idx: int,
     rhy = lerp(REST_HAND_Y, 105, smoothstep(settle))
 
     if layer in ("full", "body"):
-        _draw_body_layer(c, body_y, head_y, 0.0, head_y + 70, 0.0,
-                         man_x, man_y, anim="death", phase=phase,
-                         enraged=False, draw_man=(settle < 0.9))
+        _draw_body_layer(
+            c,
+            body_y,
+            head_y,
+            0.0,
+            head_y + 70,
+            0.0,
+            man_x,
+            man_y,
+            anim="death",
+            phase=phase,
+            enraged=False,
+            draw_man=(settle < 0.9),
+        )
     if layer in ("full", "hands"):
         _draw_hands_layer(c, lhx, lhy, rhx, rhy, anim="death", phase=phase)
 
@@ -1063,12 +1405,16 @@ def _draw_death(c: Canvas, phase: float, frame_idx: int,
             c.img = Image.alpha_composite(c.img, grey)
             c.draw = ImageDraw.Draw(c.img)
 
-    _record_parts(parts, "death", frame_idx,
-                  head=(0.0, head_y),
-                  hand_left=(lhx, lhy), hand_right=(rhx, rhy),
-                  scholar=(man_x, man_y),
-                  extra={"settle": round(settle, 3)})
-
+    _record_parts(
+        parts,
+        "death",
+        frame_idx,
+        head=(0.0, head_y),
+        hand_left=(lhx, lhy),
+        hand_right=(rhx, rhy),
+        scholar=(man_x, man_y),
+        extra={"settle": round(settle, 3)},
+    )
 
 
 # ── Runtime RON manifest ────────────────────────────────────────────────────
@@ -1101,7 +1447,9 @@ def _part_rect(name: str, rect: dict) -> dict:
 
 def _head_rect(head_anchor) -> dict:
     _x, y = head_anchor
-    return _part_rect("head", _pixel_rect_from_center(0.0, float(y), _HEAD_BOX_W, _HEAD_BOX_H))
+    return _part_rect(
+        "head", _pixel_rect_from_center(0.0, float(y), _HEAD_BOX_W, _HEAD_BOX_H)
+    )
 
 
 def _scale_part_rect_centered(part: dict, scale: float) -> dict:
@@ -1126,7 +1474,7 @@ def _head_hurt_rect(head_anchor) -> dict:
 def _ron_part(part: dict) -> str:
     return (
         f'(name: "{part["name"]}", x: {part["x"]}, y: {part["y"]}, '
-        f'w: {part["w"]}, h: {part["h"]})'
+        f"w: {part['w']}, h: {part['h']})"
     )
 
 
@@ -1195,18 +1543,24 @@ def _hand_hit_frames(parts_doc: dict, anim: str) -> list[dict]:
     for frame in parts_doc["anchors"].get(anim, []):
         left_x, left_y = frame["hand_left"]
         right_x, right_y = frame["hand_right"]
-        frames.append({
-            "parts": [
-                _part_rect(
-                    "left_hand",
-                    _pixel_rect_from_center(float(left_x), float(left_y), _HAND_BOX_W, _HAND_BOX_H),
-                ),
-                _part_rect(
-                    "right_hand",
-                    _pixel_rect_from_center(float(right_x), float(right_y), _HAND_BOX_W, _HAND_BOX_H),
-                ),
-            ]
-        })
+        frames.append(
+            {
+                "parts": [
+                    _part_rect(
+                        "left_hand",
+                        _pixel_rect_from_center(
+                            float(left_x), float(left_y), _HAND_BOX_W, _HAND_BOX_H
+                        ),
+                    ),
+                    _part_rect(
+                        "right_hand",
+                        _pixel_rect_from_center(
+                            float(right_x), float(right_y), _HAND_BOX_W, _HAND_BOX_H
+                        ),
+                    ),
+                ]
+            }
+        )
     return frames
 
 
@@ -1221,22 +1575,31 @@ def _first_part(frames: list[dict], fallback: dict) -> dict:
 def _deepest_frame_parts(frames: list[dict], fallback: list[dict]) -> list[dict]:
     if not frames:
         return list(fallback)
-    return list(max(
-        frames,
-        key=lambda frame: max((part["y"] for part in frame.get("parts", [])), default=-10_000),
-    ).get("parts", fallback))
+    return list(
+        max(
+            frames,
+            key=lambda frame: max(
+                (part["y"] for part in frame.get("parts", [])), default=-10_000
+            ),
+        ).get("parts", fallback)
+    )
 
 
 def _widest_frame_parts(frames: list[dict], fallback: list[dict]) -> list[dict]:
     if not frames:
         return list(fallback)
-    return list(max(
-        frames,
-        key=lambda frame: max(
-            (abs(part["x"] + part["w"] * 0.5 - OX) for part in frame.get("parts", [])),
-            default=-1.0,
-        ),
-    ).get("parts", fallback))
+    return list(
+        max(
+            frames,
+            key=lambda frame: max(
+                (
+                    abs(part["x"] + part["w"] * 0.5 - OX)
+                    for part in frame.get("parts", [])
+                ),
+                default=-1.0,
+            ),
+        ).get("parts", fallback)
+    )
 
 
 def _row_hurt_entry(parts_doc: dict, anim: str) -> dict:
@@ -1281,12 +1644,30 @@ def _gnu_ton_body_metrics(parts_doc: dict) -> dict:
     hand_slam_frames = _hand_hit_frames(parts_doc, "hand_slam")
     hand_sweep_frames = _hand_hit_frames(parts_doc, "hand_sweep")
     hand_slam_fallback = [
-        _part_rect("left_hand", _pixel_rect_from_center(-REST_HAND_X, SLAM_STRIKE_Y, _HAND_BOX_W, _HAND_BOX_H)),
-        _part_rect("right_hand", _pixel_rect_from_center(REST_HAND_X, SLAM_STRIKE_Y, _HAND_BOX_W, _HAND_BOX_H)),
+        _part_rect(
+            "left_hand",
+            _pixel_rect_from_center(
+                -REST_HAND_X, SLAM_STRIKE_Y, _HAND_BOX_W, _HAND_BOX_H
+            ),
+        ),
+        _part_rect(
+            "right_hand",
+            _pixel_rect_from_center(
+                REST_HAND_X, SLAM_STRIKE_Y, _HAND_BOX_W, _HAND_BOX_H
+            ),
+        ),
     ]
     hand_sweep_fallback = [
-        _part_rect("left_hand", _pixel_rect_from_center(-REST_HAND_X, REST_HAND_Y, _HAND_BOX_W, _HAND_BOX_H)),
-        _part_rect("right_hand", _pixel_rect_from_center(REST_HAND_X, REST_HAND_Y, _HAND_BOX_W, _HAND_BOX_H)),
+        _part_rect(
+            "left_hand",
+            _pixel_rect_from_center(
+                -REST_HAND_X, REST_HAND_Y, _HAND_BOX_W, _HAND_BOX_H
+            ),
+        ),
+        _part_rect(
+            "right_hand",
+            _pixel_rect_from_center(REST_HAND_X, REST_HAND_Y, _HAND_BOX_W, _HAND_BOX_H),
+        ),
     ]
     shockwave = _part_rect("shockwave", {"x": 84, "y": 465, "w": 600, "h": 36})
 
@@ -1320,6 +1701,7 @@ def _gnu_ton_body_metrics(parts_doc: dict) -> dict:
         "gnu_head_descent": head_down_boxes,
     }
 
+
 def _gnu_ton_body_metrics_ron(parts_doc: dict) -> str:
     animations = _gnu_ton_body_metrics(parts_doc)
     lines = ["        body_metrics: Some((", "            animations: {"]
@@ -1342,7 +1724,7 @@ def _row_ron(anim_name: str, row_index: int, frame_count: int, duration_ms: int)
     duration_secs = duration_ms / 1000.0
     return (
         "            (\n"
-        f"                animation: \"{anim_name}\",\n"
+        f'                animation: "{anim_name}",\n'
         f"                row_index: {row_index},\n"
         f"                frame_count: {frame_count},\n"
         f"                duration_ms: {duration_ms},\n"
@@ -1358,13 +1740,15 @@ def _runtime_spritesheet_ron(manifest: dict, parts_doc: dict) -> str:
     metrics = _gnu_ton_body_metrics_ron(parts_doc)
     row_blocks = []
     for row in manifest["rows"]:
-        row_blocks.append(_row_ron(row["name"], row["row"], row["frames"], row["duration_ms"]))
+        row_blocks.append(
+            _row_ron(row["name"], row["row"], row["frames"], row["duration_ms"])
+        )
     rows = "\n".join(row_blocks)
     return (
         "[\n"
         "    (\n"
-        f"        target: \"{TARGET_NAME}\",\n"
-        f"        image: \"{TARGET_NAME}_spritesheet.png\",\n"
+        f'        target: "{TARGET_NAME}",\n'
+        f'        image: "{TARGET_NAME}_spritesheet.png",\n'
         "        label_width: 0,\n"
         f"        frame_width: {FRAME_W},\n"
         f"        frame_height: {FRAME_H},\n"
@@ -1376,6 +1760,7 @@ def _runtime_spritesheet_ron(manifest: dict, parts_doc: dict) -> str:
         "    ),\n"
         "]\n"
     )
+
 
 # ── Sheet assembly ───────────────────────────────────────────────────────────
 
@@ -1399,8 +1784,9 @@ def build_spritesheet(outdir: Path) -> List[Path]:
     sheet_w = max_frames * FRAME_W
     sheet_h = rows * FRAME_H
 
-    sheets = {layer: Image.new("RGBA", (sheet_w, sheet_h), (0, 0, 0, 0))
-              for layer in _LAYERS}
+    sheets = {
+        layer: Image.new("RGBA", (sheet_w, sheet_h), (0, 0, 0, 0)) for layer in _LAYERS
+    }
 
     manifest = {
         "target": TARGET_NAME,
@@ -1417,15 +1803,18 @@ def build_spritesheet(outdir: Path) -> List[Path]:
             # `parts` is populated on the full pass (one entry per frame).
             for layer in _LAYERS:
                 pass_parts = parts if layer == "full" else None
-                img = draw_frame(anim_name, f, frame_count,
-                                 layer=layer, parts=pass_parts)
+                img = draw_frame(
+                    anim_name, f, frame_count, layer=layer, parts=pass_parts
+                )
                 sheets[layer].paste(img, (x, y))
-        manifest["rows"].append({
-            "name": anim_name,
-            "row": row_idx,
-            "frames": frame_count,
-            "duration_ms": duration_ms,
-        })
+        manifest["rows"].append(
+            {
+                "name": anim_name,
+                "row": row_idx,
+                "frames": frame_count,
+                "duration_ms": duration_ms,
+            }
+        )
         print(f"  [{row_idx + 1}/{rows}] {anim_name} ({frame_count} frames)")
 
     outputs: List[Path] = []
@@ -1488,8 +1877,14 @@ def _box_parts_for_frame(box: dict, frame_index: int) -> list[dict]:
     return list(box.get("parts", []))
 
 
-def _draw_metric_parts(draw: ImageDraw.ImageDraw, frame_x: int, frame_y: int,
-                       parts: list[dict], *, is_hitbox: bool) -> None:
+def _draw_metric_parts(
+    draw: ImageDraw.ImageDraw,
+    frame_x: int,
+    frame_y: int,
+    parts: list[dict],
+    *,
+    is_hitbox: bool,
+) -> None:
     outline = HITBOX_OUTLINE if is_hitbox else HURTBOX_OUTLINE
     fill = HITBOX_FILL if is_hitbox else HURTBOX_FILL
     prefix = "X" if is_hitbox else "H"
@@ -1504,10 +1899,14 @@ def _draw_metric_parts(draw: ImageDraw.ImageDraw, frame_x: int, frame_y: int,
         draw.rectangle(rect, fill=fill, outline=outline, width=2)
         name = str(part.get("name", ""))
         if name:
-            draw.text((frame_x + x + 3, frame_y + y + 2), f"{prefix} {name}", fill=LABEL_FILL)
+            draw.text(
+                (frame_x + x + 3, frame_y + y + 2), f"{prefix} {name}", fill=LABEL_FILL
+            )
 
 
-def build_hitbox_debug(outdir: Path, full_sheet: Image.Image, manifest: dict, parts_doc: dict) -> Path:
+def build_hitbox_debug(
+    outdir: Path, full_sheet: Image.Image, manifest: dict, parts_doc: dict
+) -> Path:
     """Write a per-frame visual review of the exact RON hit/hurt boxes."""
     metrics = _gnu_ton_body_metrics(parts_doc)
     overlay = Image.new("RGBA", full_sheet.size, (0, 0, 0, 0))
@@ -1545,7 +1944,9 @@ def build_hitbox_debug(outdir: Path, full_sheet: Image.Image, manifest: dict, pa
                         _box_parts_for_frame(hurtbox, frame_index),
                         is_hitbox=False,
                     )
-            draw.text((frame_x + 6, frame_y + 6), f"{anim} #{frame_index}", fill=LABEL_FILL)
+            draw.text(
+                (frame_x + 6, frame_y + 6), f"{anim} #{frame_index}", fill=LABEL_FILL
+            )
     debug = Image.alpha_composite(full_sheet.convert("RGBA"), overlay)
     path = outdir / HITBOX_DEBUG_FILE
     debug.save(path, "PNG")
@@ -1553,7 +1954,9 @@ def build_hitbox_debug(outdir: Path, full_sheet: Image.Image, manifest: dict, pa
 
 
 def _write_actor_contract(outdir: Path, manifest: dict, ron_path: Path) -> Path:
-    from ambition_sprite2d_renderer.actor_contract import write_actor_contract_for_tackon
+    from ambition_sprite2d_renderer.actor_contract import (
+        write_actor_contract_for_tackon,
+    )
 
     return write_actor_contract_for_tackon(
         target=TARGET_NAME,
@@ -1635,6 +2038,7 @@ def install_outputs(render_dir: Path, install_dir: Path) -> List[Path]:
 
 if __name__ == "__main__":
     import argparse, sys
+
     p = argparse.ArgumentParser()
     p.add_argument("outdir", nargs="?", default="generated/gnu_ton_boss")
     p.add_argument("--quick", action="store_true")

@@ -21,7 +21,9 @@ def test_anchor_editor_preview_render_headless(tmp_path):
     editor = _load_anchor_editor(root)
     meta = editor.load_yaml(root / "metadata" / "robot_components.refined.yaml")
     config = root / "examples" / "robot_rig_job.yaml"
-    img = editor.render_preview_image(meta, config, max_width=320, max_height=160, bg="black")
+    img = editor.render_preview_image(
+        meta, config, max_width=320, max_height=160, bg="black"
+    )
     assert isinstance(img, Image.Image)
     assert img.width <= 320
     assert img.height <= 160
@@ -34,10 +36,14 @@ def test_anchor_report_includes_pivot_anchor(tmp_path):
     meta_path = tmp_path / "meta.yaml"
     meta = editor.load_yaml(root / "metadata" / "robot_components.refined.yaml")
     meta["sprites"]["hand_fist"]["pivot_anchor"] = "wrist"
-    meta["sprites"]["hand_fist"]["pivot"] = meta["sprites"]["hand_fist"]["anchors"]["wrist"]
+    meta["sprites"]["hand_fist"]["pivot"] = meta["sprites"]["hand_fist"]["anchors"][
+        "wrist"
+    ]
     meta_path.write_text(yaml.safe_dump(meta, sort_keys=False), encoding="utf8")
     out = tmp_path / "report.json"
-    editor.write_anchor_report(meta_path, root / "output" / "slices", out, ["hand_fist"])
+    editor.write_anchor_report(
+        meta_path, root / "output" / "slices", out, ["hand_fist"]
+    )
     text = out.read_text()
     assert '"pivot_anchor": "wrist"' in text
 
@@ -54,11 +60,15 @@ def test_anchor_editor_preview_uses_unsaved_metadata_state(tmp_path):
     # Check the raw compositor output to verify the temporary metadata written
     # by render_preview_image comes from the in-memory dictionary.
     editor.preview_fit_image = lambda img, *args, **kwargs: img.convert("RGBA")
-    original = editor.render_preview_image(meta, config, max_width=640, max_height=260, bg="black")
+    original = editor.render_preview_image(
+        meta, config, max_width=640, max_height=260, bg="black"
+    )
     edited = copy.deepcopy(meta)
     # Move a run-critical shoulder far enough that the rendered sheet must change.
     edited["sprites"]["torso_lean_forward"]["anchors"]["shoulder_right"] = [300, 0]
-    changed = editor.render_preview_image(edited, config, max_width=640, max_height=260, bg="black")
+    changed = editor.render_preview_image(
+        edited, config, max_width=640, max_height=260, bg="black"
+    )
     assert original.size == changed.size
     assert ImageChops.difference(original, changed).getbbox() is not None
 

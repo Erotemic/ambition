@@ -106,7 +106,9 @@ def codec_for(resolved_format_policy: str, output_keys: Iterable[str]) -> int:
         return CODEC_OGG
     if "flac" in keys:
         return CODEC_FLAC
-    raise ValueError(f"could not determine codec from policy={resolved_format_policy!r} keys={keys}")
+    raise ValueError(
+        f"could not determine codec from policy={resolved_format_policy!r} keys={keys}"
+    )
 
 
 def collect_entries(input_dir: Path) -> list[Entry]:
@@ -141,7 +143,9 @@ def collect_entries(input_dir: Path) -> list[Entry]:
             if local.exists():
                 candidate = local
             else:
-                print(f"  skip {sfx_id}: payload missing at {candidate}", file=sys.stderr)
+                print(
+                    f"  skip {sfx_id}: payload missing at {candidate}", file=sys.stderr
+                )
                 continue
 
         payload = candidate.read_bytes()
@@ -258,7 +262,9 @@ def write_dump(dump_path: Path, entries: list[Entry], bank_path: Path) -> None:
         "# id_hash            codec channels  sr  ms     bytes  peak_db  rms_db  flags  id",
     ]
     for entry in entries:
-        codec_name = {CODEC_WAV: "wav", CODEC_OGG: "ogg", CODEC_FLAC: "flac"}[entry.codec]
+        codec_name = {CODEC_WAV: "wav", CODEC_OGG: "ogg", CODEC_FLAC: "flac"}[
+            entry.codec
+        ]
         lines.append(
             f"0x{entry.id_hash:016x} {codec_name:>5} {entry.channels:>8} "
             f"{entry.sample_rate:>5} {entry.duration_ms:>5} "
@@ -278,13 +284,21 @@ def main(argv: list[str] | None = None) -> int:
         repo_root / "crates" / "ambition_sandbox" / "assets" / "audio" / "sfx.bank"
     )
     parser.add_argument(
-        "--input", type=Path, default=default_input, help=f"renderer output dir (default: {default_input})"
+        "--input",
+        type=Path,
+        default=default_input,
+        help=f"renderer output dir (default: {default_input})",
     )
     parser.add_argument(
-        "--output", type=Path, default=default_output, help=f"bank file path (default: {default_output})"
+        "--output",
+        type=Path,
+        default=default_output,
+        help=f"bank file path (default: {default_output})",
     )
     parser.add_argument(
-        "--dump", action="store_true", help="also emit a human-readable .txt sibling file"
+        "--dump",
+        action="store_true",
+        help="also emit a human-readable .txt sibling file",
     )
     args = parser.parse_args(argv)
 

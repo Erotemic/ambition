@@ -39,9 +39,9 @@ ROWS: List[Tuple[str, int, int]] = [("idle", 4, 130)]
 
 CY = FRAME_SIZE[1] * 0.5
 BUTT_X = 10.0
-SHAFT_END_X = 198.0     # where shaft meets the head socket
-TIP_X = 232.0           # spear point
-GRIP_X = 132.0          # centre of balance (biased toward the head)
+SHAFT_END_X = 198.0  # where shaft meets the head socket
+TIP_X = 232.0  # spear point
+GRIP_X = 132.0  # centre of balance (biased toward the head)
 SHAFT_HALF = 2.2
 
 
@@ -58,7 +58,10 @@ def _draw_shaft(d: ImageDraw.ImageDraw) -> None:
         outline=hp.OUTLINE,
     )
     d.line(
-        [(p(BUTT_X + 2), p(CY - SHAFT_HALF * 0.4)), (p(SHAFT_END_X - 2), p(CY - SHAFT_HALF * 0.4))],
+        [
+            (p(BUTT_X + 2), p(CY - SHAFT_HALF * 0.4)),
+            (p(SHAFT_END_X - 2), p(CY - SHAFT_HALF * 0.4)),
+        ],
         fill=hp.WOOD_HI,
         width=max(1, int(hp.px(0.7))),
     )
@@ -127,11 +130,11 @@ def _draw_head(d: ImageDraw.ImageDraw, glint_t: float) -> None:
     base_x = SHAFT_END_X + 4
     head = [
         (base_x, CY - 1.5),
-        (base_x + 8, CY - 7.5),     # widest, top
+        (base_x + 8, CY - 7.5),  # widest, top
         (base_x + 20, CY - 3.0),
-        (TIP_X, CY),                # point
+        (TIP_X, CY),  # point
         (base_x + 20, CY + 3.0),
-        (base_x + 8, CY + 7.5),     # widest, bottom
+        (base_x + 8, CY + 7.5),  # widest, bottom
         (base_x, CY + 1.5),
     ]
     d.polygon([(p(x), p(y)) for (x, y) in head], fill=hp.IRON_HI, outline=hp.OUTLINE)
@@ -143,7 +146,11 @@ def _draw_head(d: ImageDraw.ImageDraw, glint_t: float) -> None:
     )
     # Edge highlight + travelling glint on the upper edge.
     upper = [(base_x + 8, CY - 7.5), (base_x + 20, CY - 3.0), (TIP_X, CY)]
-    d.line([(p(x), p(y)) for (x, y) in upper], fill=hp.STEEL_EDGE, width=max(1, int(hp.px(1.1))))
+    d.line(
+        [(p(x), p(y)) for (x, y) in upper],
+        fill=hp.STEEL_EDGE,
+        width=max(1, int(hp.px(1.1))),
+    )
     gx = base_x + 8 + (TIP_X - (base_x + 8)) * glint_t
     gy = CY - 7.5 + (0 - (-7.5)) * glint_t * 0.6
     for r, a in ((2.2, 110), (1.1, 235)):
@@ -174,7 +181,10 @@ def _frame_meta(anim: str, frame_idx: int, nframes: int) -> dict:
 
 
 ACTOR_METADATA = {
-    "actor": {"character_id": "prop_throwing_javelin", "display_name": "Throwing Javelin"},
+    "actor": {
+        "character_id": "prop_throwing_javelin",
+        "display_name": "Throwing Javelin",
+    },
     "body": {
         "body_plan": "Prop",
         "body_kind": "Projectile",

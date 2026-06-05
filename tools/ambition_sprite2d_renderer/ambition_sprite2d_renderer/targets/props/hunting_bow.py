@@ -40,12 +40,12 @@ SHEET_FILES = (
 FRAME_SIZE = (128, 184)
 ROWS: List[Tuple[str, int, int]] = [("idle", 1, 200), ("draw", 4, 90)]
 
-STRING_X = FRAME_SIZE[0] * 0.40   # chord (string) line, archer side
+STRING_X = FRAME_SIZE[0] * 0.40  # chord (string) line, archer side
 TOP_Y = 16.0
 BOT_Y = FRAME_SIZE[1] - 16.0
 MID_Y = (TOP_Y + BOT_Y) * 0.5
-BOW_DEPTH = 44.0                  # how far the limbs bulge toward the target (+X)
-MAX_PULL = 34.0                   # string pull-back at full draw
+BOW_DEPTH = 44.0  # how far the limbs bulge toward the target (+X)
+MAX_PULL = 34.0  # string pull-back at full draw
 
 
 def _limb_points(depth: float, n: int = 22) -> List[Tuple[float, float]]:
@@ -71,8 +71,12 @@ def _draw_bow(d: ImageDraw.ImageDraw, depth: float) -> None:
     d.line(hi, fill=hp.WOOD_HI, width=max(1, int(hp.px(1.2))), joint="curve")
 
     # Nock caps at the limb tips.
-    for (tx, ty) in (_limb_points(depth)[0], _limb_points(depth)[-1]):
-        d.ellipse((p(tx - 2.4), p(ty - 2.4), p(tx + 2.4), p(ty + 2.4)), fill=hp.IRON, outline=hp.OUTLINE)
+    for tx, ty in (_limb_points(depth)[0], _limb_points(depth)[-1]):
+        d.ellipse(
+            (p(tx - 2.4), p(ty - 2.4), p(tx + 2.4), p(ty + 2.4)),
+            fill=hp.IRON,
+            outline=hp.OUTLINE,
+        )
 
     # Riser / grip: darker leather wrap at the belly (max bulge).
     grip_cx = STRING_X + depth
@@ -95,14 +99,20 @@ def _draw_bow(d: ImageDraw.ImageDraw, depth: float) -> None:
         )
 
 
-def _draw_string(d: ImageDraw.ImageDraw, depth: float, pull: float) -> Tuple[float, float]:
+def _draw_string(
+    d: ImageDraw.ImageDraw, depth: float, pull: float
+) -> Tuple[float, float]:
     """Draw the bowstring; return the nock (string-midpoint) position."""
     p = hp.px
     top = (STRING_X, TOP_Y)
     bot = (STRING_X, BOT_Y)
     nock = (STRING_X - pull, MID_Y)
     if pull < 0.5:
-        d.line([(p(top[0]), p(top[1])), (p(bot[0]), p(bot[1]))], fill=hp.IRON_HI, width=max(1, int(hp.px(0.9))))
+        d.line(
+            [(p(top[0]), p(top[1])), (p(bot[0]), p(bot[1]))],
+            fill=hp.IRON_HI,
+            width=max(1, int(hp.px(0.9))),
+        )
     else:
         d.line(
             [(p(top[0]), p(top[1])), (p(nock[0]), p(nock[1])), (p(bot[0]), p(bot[1]))],
@@ -111,7 +121,10 @@ def _draw_string(d: ImageDraw.ImageDraw, depth: float, pull: float) -> Tuple[flo
             joint="curve",
         )
         # Nocking point bead.
-        d.ellipse((p(nock[0] - 1.6), p(nock[1] - 1.6), p(nock[0] + 1.6), p(nock[1] + 1.6)), fill=hp.STEEL_EDGE)
+        d.ellipse(
+            (p(nock[0] - 1.6), p(nock[1] - 1.6), p(nock[0] + 1.6), p(nock[1] + 1.6)),
+            fill=hp.STEEL_EDGE,
+        )
     return nock
 
 
@@ -165,12 +178,24 @@ ACTOR_METADATA = {
         "default": {"animation": "idle", "events": []},
         "action.ranged.draw": {
             "animation": "draw",
-            "events": [{"t": 1.0, "event": "projectile_release", "source": f"{TARGET_NAME}.nock"}],
+            "events": [
+                {
+                    "t": 1.0,
+                    "event": "projectile_release",
+                    "source": f"{TARGET_NAME}.nock",
+                }
+            ],
         },
     },
     "sockets": {
-        "grip": {"source": f"{TARGET_NAME}.geometry", "point": {"x": STRING_X + BOW_DEPTH, "y": MID_Y}},
-        "nock": {"source": f"{TARGET_NAME}.geometry", "point": {"x": STRING_X, "y": MID_Y}},
+        "grip": {
+            "source": f"{TARGET_NAME}.geometry",
+            "point": {"x": STRING_X + BOW_DEPTH, "y": MID_Y},
+        },
+        "nock": {
+            "source": f"{TARGET_NAME}.geometry",
+            "point": {"x": STRING_X, "y": MID_Y},
+        },
     },
     "tags": ["prop", "weapon", "bow", "ranged", "held"],
 }

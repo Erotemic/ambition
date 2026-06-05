@@ -48,6 +48,7 @@ python -m ambition_ldtk_tools.generate_hall_of_characters
 Re-running with no catalog changes produces a byte-identical spec
 (idempotent — characters are emitted in catalog key order).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -57,8 +58,21 @@ from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-CATALOG_PATH = REPO_ROOT / "crates" / "ambition_sandbox" / "assets" / "data" / "character_catalog.ron"
-SPEC_PATH = REPO_ROOT / "tools" / "ambition_ldtk_tools" / "specs" / "hall_of_characters_area.ron"
+CATALOG_PATH = (
+    REPO_ROOT
+    / "crates"
+    / "ambition_sandbox"
+    / "assets"
+    / "data"
+    / "character_catalog.ron"
+)
+SPEC_PATH = (
+    REPO_ROOT
+    / "tools"
+    / "ambition_ldtk_tools"
+    / "specs"
+    / "hall_of_characters_area.ron"
+)
 
 # --- Layout dimensions ---
 HALL_WIDTH_PX = 2048
@@ -84,7 +98,13 @@ def derived_dims() -> tuple[int, int]:
     # basement section yields 12 slot capacity.
     basement_rows = 3
     basement_section = basement_rows * BASEMENT_SLOT_HEIGHT_PX
-    height = CEILING_PX + main_section + FLOOR_THICKNESS_PX + basement_section + FLOOR_THICKNESS_PX
+    height = (
+        CEILING_PX
+        + main_section
+        + FLOOR_THICKNESS_PX
+        + basement_section
+        + FLOOR_THICKNESS_PX
+    )
     return width, height
 
 
@@ -101,8 +121,7 @@ def parse_catalog(catalog_text: str) -> tuple[list[str], list[str], dict[str, st
     data = ron_load(catalog_text)
     ids = list(data["characters"].keys())
     display_names: dict[str, str] = {
-        cid: entry.get("display_name", cid)
-        for cid, entry in data["characters"].items()
+        cid: entry.get("display_name", cid) for cid, entry in data["characters"].items()
     }
     tiers: dict[str, str] = {}
     for cid in ids:
@@ -120,7 +139,9 @@ def parse_catalog(catalog_text: str) -> tuple[list[str], list[str], dict[str, st
     return main, basement, display_names
 
 
-def make_entity(type_name: str, px: tuple[int, int], size: tuple[int, int], fields: dict[str, Any]) -> dict:
+def make_entity(
+    type_name: str, px: tuple[int, int], size: tuple[int, int], fields: dict[str, Any]
+) -> dict:
     return {
         "type": type_name,
         "px": [px[0], px[1]],
@@ -129,7 +150,9 @@ def make_entity(type_name: str, px: tuple[int, int], size: tuple[int, int], fiel
     }
 
 
-def build_spec(main_ids: list[str], basement_ids: list[str], display_names: dict[str, str]) -> dict:
+def build_spec(
+    main_ids: list[str], basement_ids: list[str], display_names: dict[str, str]
+) -> dict:
     px_wid, px_hei = derived_dims()
 
     # --- Compute slot positions ---
@@ -158,27 +181,51 @@ def build_spec(main_ids: list[str], basement_ids: list[str], display_names: dict
         col_in_row = slot_index % BASEMENT_SLOTS_PER_ROW
         slot_top_y = basement_section_top + row * BASEMENT_SLOT_HEIGHT_PX
         slot_left_x = col_in_row * BASEMENT_SLOT_WIDTH_PX
-        return (slot_left_x, slot_top_y, BASEMENT_SLOT_WIDTH_PX, BASEMENT_SLOT_HEIGHT_PX)
+        return (
+            slot_left_x,
+            slot_top_y,
+            BASEMENT_SLOT_WIDTH_PX,
+            BASEMENT_SLOT_HEIGHT_PX,
+        )
 
     entities: list[dict] = []
 
     # --- Outer geometry ---
     # Top ceiling.
-    entities.append(make_entity(
-        "Solid", (0, 0), (px_wid, CEILING_PX), {"name": "hall_ceiling"},
-    ))
+    entities.append(
+        make_entity(
+            "Solid",
+            (0, 0),
+            (px_wid, CEILING_PX),
+            {"name": "hall_ceiling"},
+        )
+    )
     # Bottom floor (under the basement).
-    entities.append(make_entity(
-        "Solid", (0, px_hei - FLOOR_THICKNESS_PX), (px_wid, FLOOR_THICKNESS_PX),
-        {"name": "hall_floor"},
-    ))
+    entities.append(
+        make_entity(
+            "Solid",
+            (0, px_hei - FLOOR_THICKNESS_PX),
+            (px_wid, FLOOR_THICKNESS_PX),
+            {"name": "hall_floor"},
+        )
+    )
     # Left + right walls.
-    entities.append(make_entity(
-        "Solid", (0, 0), (16, px_hei), {"name": "hall_left_wall"},
-    ))
-    entities.append(make_entity(
-        "Solid", (px_wid - 16, 0), (16, px_hei), {"name": "hall_right_wall"},
-    ))
+    entities.append(
+        make_entity(
+            "Solid",
+            (0, 0),
+            (16, px_hei),
+            {"name": "hall_left_wall"},
+        )
+    )
+    entities.append(
+        make_entity(
+            "Solid",
+            (px_wid - 16, 0),
+            (16, px_hei),
+            {"name": "hall_right_wall"},
+        )
+    )
 
     # --- Main-hall floor surfaces (OneWayPlatform between floors) ---
     # Between Floor i (from top) and Floor i+1 sits a OneWayPlatform
@@ -189,43 +236,49 @@ def build_spec(main_ids: list[str], basement_ids: list[str], display_names: dict
     # *between* floors, plus the solid floor of Floor 1.
     for i in range(MAIN_FLOORS - 1):
         floor_top_index = i  # from top
-        platform_y = (
-            main_section_top + (floor_top_index + 1) * MAIN_SLOT_HEIGHT_PX
-        )
+        platform_y = main_section_top + (floor_top_index + 1) * MAIN_SLOT_HEIGHT_PX
         # Solid left half + solid right half with a gap in the middle
         # for the ladder column. The ladder is at x = 1024-32..1024+32.
         gap_w = 96
         gap_x = (px_wid - gap_w) // 2
         # Left segment.
-        entities.append(make_entity(
-            "OneWayPlatform",
-            (16, platform_y),
-            (gap_x - 16, 16),
-            {"name": f"floor_platform_{i + 1}_left"},
-        ))
+        entities.append(
+            make_entity(
+                "OneWayPlatform",
+                (16, platform_y),
+                (gap_x - 16, 16),
+                {"name": f"floor_platform_{i + 1}_left"},
+            )
+        )
         # Right segment.
-        entities.append(make_entity(
-            "OneWayPlatform",
-            (gap_x + gap_w, platform_y),
-            (px_wid - 16 - (gap_x + gap_w), 16),
-            {"name": f"floor_platform_{i + 1}_right"},
-        ))
+        entities.append(
+            make_entity(
+                "OneWayPlatform",
+                (gap_x + gap_w, platform_y),
+                (px_wid - 16 - (gap_x + gap_w), 16),
+                {"name": f"floor_platform_{i + 1}_right"},
+            )
+        )
     # Solid floor under Floor 1 (the bottom of the main section).
     floor1_top = main_section_top + MAIN_FLOORS * MAIN_SLOT_HEIGHT_PX
     drop_hole_w = 96
     drop_hole_x = (px_wid - drop_hole_w) // 2
-    entities.append(make_entity(
-        "Solid",
-        (16, floor1_top),
-        (drop_hole_x - 16, FLOOR_THICKNESS_PX),
-        {"name": "floor_1_solid_left"},
-    ))
-    entities.append(make_entity(
-        "Solid",
-        (drop_hole_x + drop_hole_w, floor1_top),
-        (px_wid - 16 - (drop_hole_x + drop_hole_w), FLOOR_THICKNESS_PX),
-        {"name": "floor_1_solid_right"},
-    ))
+    entities.append(
+        make_entity(
+            "Solid",
+            (16, floor1_top),
+            (drop_hole_x - 16, FLOOR_THICKNESS_PX),
+            {"name": "floor_1_solid_left"},
+        )
+    )
+    entities.append(
+        make_entity(
+            "Solid",
+            (drop_hole_x + drop_hole_w, floor1_top),
+            (px_wid - 16 - (drop_hole_x + drop_hole_w), FLOOR_THICKNESS_PX),
+            {"name": "floor_1_solid_right"},
+        )
+    )
 
     # --- Basement floors: one platform per basement row so each
     # boss/large-character pedestal has something to stand on.
@@ -247,53 +300,66 @@ def build_spec(main_ids: list[str], basement_ids: list[str], display_names: dict
         is_last_row = row == basement_rows_total - 1
         if is_last_row:
             # Terminal floor — no drop hole.
-            entities.append(make_entity(
-                "Solid",
-                (16, floor_top_y),
-                (px_wid - 32, basement_floor_thickness),
-                {"name": f"basement_row_{row + 1}_floor"},
-            ))
+            entities.append(
+                make_entity(
+                    "Solid",
+                    (16, floor_top_y),
+                    (px_wid - 32, basement_floor_thickness),
+                    {"name": f"basement_row_{row + 1}_floor"},
+                )
+            )
         else:
             # Two-segment floor with a center drop hole.
-            entities.append(make_entity(
-                "Solid",
-                (16, floor_top_y),
-                (drop_hole_x - 16, basement_floor_thickness),
-                {"name": f"basement_row_{row + 1}_floor_left"},
-            ))
-            entities.append(make_entity(
-                "Solid",
-                (drop_hole_x + drop_hole_w, floor_top_y),
-                (px_wid - 16 - (drop_hole_x + drop_hole_w), basement_floor_thickness),
-                {"name": f"basement_row_{row + 1}_floor_right"},
-            ))
+            entities.append(
+                make_entity(
+                    "Solid",
+                    (16, floor_top_y),
+                    (drop_hole_x - 16, basement_floor_thickness),
+                    {"name": f"basement_row_{row + 1}_floor_left"},
+                )
+            )
+            entities.append(
+                make_entity(
+                    "Solid",
+                    (drop_hole_x + drop_hole_w, floor_top_y),
+                    (
+                        px_wid - 16 - (drop_hole_x + drop_hole_w),
+                        basement_floor_thickness,
+                    ),
+                    {"name": f"basement_row_{row + 1}_floor_right"},
+                )
+            )
 
     # --- PlayerStart at the hub-entry floor (left side) ---
     floor1_slot_y = main_section_top + (MAIN_FLOORS - 1) * MAIN_SLOT_HEIGHT_PX
-    entities.append(make_entity(
-        "PlayerStart",
-        (96, floor1_slot_y + MAIN_SLOT_HEIGHT_PX - 48),
-        (28, 46),
-        {"name": "hall_spawn"},
-    ))
+    entities.append(
+        make_entity(
+            "PlayerStart",
+            (96, floor1_slot_y + MAIN_SLOT_HEIGHT_PX - 48),
+            (28, 46),
+            {"name": "hall_spawn"},
+        )
+    )
 
     # --- LoadingZone door back to the hub ---
     # Hall door targets the `central_hub_complex` active area (the
     # logical group covering main hub + basement). hall_of_bosses
     # uses the same target.
-    entities.append(make_entity(
-        "LoadingZone",
-        (24, floor1_slot_y + MAIN_SLOT_HEIGHT_PX - 96),
-        (48, 96),
-        {
-            "id": "hall_of_characters_entry",
-            "name": "hall_of_characters_entry",
-            "activation": "Door",
-            "target_room": "central_hub_complex",
-            "target_zone": "hall_of_characters_door",
-            "bidirectional": True,
-        },
-    ))
+    entities.append(
+        make_entity(
+            "LoadingZone",
+            (24, floor1_slot_y + MAIN_SLOT_HEIGHT_PX - 96),
+            (48, 96),
+            {
+                "id": "hall_of_characters_entry",
+                "name": "hall_of_characters_entry",
+                "activation": "Door",
+                "target_room": "central_hub_complex",
+                "target_zone": "hall_of_characters_door",
+                "bidirectional": True,
+            },
+        )
+    )
 
     # --- NPC pedestals for each MainHall entry ---
     for slot_index, cid in enumerate(main_ids):
@@ -310,29 +376,33 @@ def build_spec(main_ids: list[str], basement_ids: list[str], display_names: dict
         center_x = x + w // 2
         foot_y = y + h
         npc_w, npc_h = 32, 48
-        entities.append(make_entity(
-            "NpcSpawn",
-            (center_x - npc_w // 2, foot_y - npc_h),
-            (npc_w, npc_h),
-            {
-                "character_id": cid,
-                "prompt": "Inspect",
-                "dialogue_id": "",
-                "patrol_radius": 0,
-            },
-        ))
+        entities.append(
+            make_entity(
+                "NpcSpawn",
+                (center_x - npc_w // 2, foot_y - npc_h),
+                (npc_w, npc_h),
+                {
+                    "character_id": cid,
+                    "prompt": "Inspect",
+                    "dialogue_id": "",
+                    "patrol_radius": 0,
+                },
+            )
+        )
         # DebugLabel above the pedestal.
         label_w = MAIN_SLOT_WIDTH_PX - 8
-        entities.append(make_entity(
-            "DebugLabel",
-            (x + 4, y + 4),
-            (label_w, 20),
-            {
-                "name": f"hall_label_{cid}",
-                "text": display_names.get(cid, cid),
-                "category": "Custom",
-            },
-        ))
+        entities.append(
+            make_entity(
+                "DebugLabel",
+                (x + 4, y + 4),
+                (label_w, 20),
+                {
+                    "name": f"hall_label_{cid}",
+                    "text": display_names.get(cid, cid),
+                    "category": "Custom",
+                },
+            )
+        )
 
     # --- Basement pedestals ---
     for slot_index, cid in enumerate(basement_ids):
@@ -340,40 +410,46 @@ def build_spec(main_ids: list[str], basement_ids: list[str], display_names: dict
         center_x = x + w // 2
         foot_y = y + h
         npc_w, npc_h = 48, 80
-        entities.append(make_entity(
-            "NpcSpawn",
-            (center_x - npc_w // 2, foot_y - npc_h),
-            (npc_w, npc_h),
-            {
-                "character_id": cid,
-                "prompt": "Inspect",
-                "dialogue_id": "",
-                "patrol_radius": 0,
-            },
-        ))
+        entities.append(
+            make_entity(
+                "NpcSpawn",
+                (center_x - npc_w // 2, foot_y - npc_h),
+                (npc_w, npc_h),
+                {
+                    "character_id": cid,
+                    "prompt": "Inspect",
+                    "dialogue_id": "",
+                    "patrol_radius": 0,
+                },
+            )
+        )
         label_w = BASEMENT_SLOT_WIDTH_PX - 8
-        entities.append(make_entity(
-            "DebugLabel",
-            (x + 4, y + 4),
-            (label_w, 24),
-            {
-                "name": f"hall_label_{cid}",
-                "text": display_names.get(cid, cid),
-                "category": "Custom",
-            },
-        ))
+        entities.append(
+            make_entity(
+                "DebugLabel",
+                (x + 4, y + 4),
+                (label_w, 24),
+                {
+                    "name": f"hall_label_{cid}",
+                    "text": display_names.get(cid, cid),
+                    "category": "Custom",
+                },
+            )
+        )
 
     # --- Single full-room camera zone ---
-    entities.append(make_entity(
-        "CameraZone",
-        (0, 0),
-        (px_wid, px_hei),
-        {
-            "id": "hall_of_characters_camera",
-            "name": "hall_of_characters_camera",
-            "mode": "Default",
-        },
-    ))
+    entities.append(
+        make_entity(
+            "CameraZone",
+            (0, 0),
+            (px_wid, px_hei),
+            {
+                "id": "hall_of_characters_camera",
+                "name": "hall_of_characters_camera",
+                "mode": "Default",
+            },
+        )
+    )
 
     spec = {
         "id": "hall_of_characters",
@@ -438,7 +514,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.print_summary:
         px_wid, px_hei = derived_dims()
         print(f"hall: {px_wid}x{px_hei} px")
-        print(f"  main_hall entries: {len(main_ids)} / capacity {MAIN_FLOORS * MAIN_SLOTS_PER_FLOOR}")
+        print(
+            f"  main_hall entries: {len(main_ids)} / capacity {MAIN_FLOORS * MAIN_SLOTS_PER_FLOOR}"
+        )
         print(f"  basement entries:  {len(basement_ids)}")
         print(f"  spec written to:   {args.out}")
     return 0

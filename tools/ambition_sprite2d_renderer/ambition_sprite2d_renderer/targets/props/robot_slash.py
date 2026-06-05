@@ -77,7 +77,12 @@ def _envelope(t: float) -> float:
 
 
 def _crescent_points(
-    cx: float, cy: float, facing_deg: float, half_span_deg: float, r_outer: float, r_inner: float
+    cx: float,
+    cy: float,
+    facing_deg: float,
+    half_span_deg: float,
+    r_outer: float,
+    r_inner: float,
 ) -> List[Tuple[float, float]]:
     n = 16
     outer: List[Tuple[float, float]] = []
@@ -109,24 +114,40 @@ def _draw_arc_variant(spec: dict, t: float) -> Image.Image:
     r_inner = r_outer * (0.58 - 0.06 * t)
 
     def pts(ro, ri):
-        return [(_px(x), _px(y)) for (x, y) in _crescent_points(cx, cy, facing, half_span, ro, ri)]
+        return [
+            (_px(x), _px(y))
+            for (x, y) in _crescent_points(cx, cy, facing, half_span, ro, ri)
+        ]
 
     # Cyan halo (blurred, slightly larger).
     glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     gd = ImageDraw.Draw(glow, "RGBA")
-    gd.polygon(pts(r_outer * 1.06, r_inner * 0.92), fill=(GLOW[0], GLOW[1], GLOW[2], int(150 * amp)))
+    gd.polygon(
+        pts(r_outer * 1.06, r_inner * 0.92),
+        fill=(GLOW[0], GLOW[1], GLOW[2], int(150 * amp)),
+    )
     glow = glow.filter(ImageFilter.GaussianBlur(radius=max(3, int(SUPER * 2.2))))
     layer.alpha_composite(glow)
 
     # Rim + body.
     bd = ImageDraw.Draw(layer, "RGBA")
     bd.polygon(pts(r_outer, r_inner), fill=(RIM[0], RIM[1], RIM[2], int(210 * amp)))
-    bd.polygon(pts(r_outer * 0.97, r_inner * 1.08), fill=(HOT[0], HOT[1], HOT[2], int(225 * amp)))
+    bd.polygon(
+        pts(r_outer * 0.97, r_inner * 1.08),
+        fill=(HOT[0], HOT[1], HOT[2], int(225 * amp)),
+    )
 
     # Bright leading edge along the outer arc, brightest at the leading tip.
-    outer_edge = _crescent_points(cx, cy, facing, half_span, r_outer * 0.99, r_outer * 0.99)[: 17]
+    outer_edge = _crescent_points(
+        cx, cy, facing, half_span, r_outer * 0.99, r_outer * 0.99
+    )[:17]
     edge_pts = [(_px(x), _px(y)) for (x, y) in outer_edge]
-    bd.line(edge_pts, fill=(CORE[0], CORE[1], CORE[2], int(245 * amp)), width=max(2, int(SUPER * 1.6)), joint="curve")
+    bd.line(
+        edge_pts,
+        fill=(CORE[0], CORE[1], CORE[2], int(245 * amp)),
+        width=max(2, int(SUPER * 1.6)),
+        joint="curve",
+    )
 
     # Leading-tip spark (the end of the swing arc).
     tip = outer_edge[-1]
@@ -167,22 +188,37 @@ def _draw_poke_variant(spec: dict, t: float) -> Image.Image:
     # Halo.
     glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     gd = ImageDraw.Draw(glow, "RGBA")
-    gd.polygon([P(base), P(left), P(tip), P(right)], fill=(GLOW[0], GLOW[1], GLOW[2], int(150 * amp)))
+    gd.polygon(
+        [P(base), P(left), P(tip), P(right)],
+        fill=(GLOW[0], GLOW[1], GLOW[2], int(150 * amp)),
+    )
     glow = glow.filter(ImageFilter.GaussianBlur(radius=max(3, int(SUPER * 2.0))))
     layer.alpha_composite(glow)
 
     bd = ImageDraw.Draw(layer, "RGBA")
-    bd.polygon([P(base), P(left), P(tip), P(right)], fill=(RIM[0], RIM[1], RIM[2], int(210 * amp)))
+    bd.polygon(
+        [P(base), P(left), P(tip), P(right)],
+        fill=(RIM[0], RIM[1], RIM[2], int(210 * amp)),
+    )
     # Inner hot lance.
     left2 = (belly[0] + nx * width * 0.55, belly[1] + ny * width * 0.55)
     right2 = (belly[0] - nx * width * 0.55, belly[1] - ny * width * 0.55)
-    bd.polygon([P(base), P(left2), P(tip), P(right2)], fill=(HOT[0], HOT[1], HOT[2], int(230 * amp)))
+    bd.polygon(
+        [P(base), P(left2), P(tip), P(right2)],
+        fill=(HOT[0], HOT[1], HOT[2], int(230 * amp)),
+    )
     # Bright core spine.
-    bd.line([P(base), P(tip)], fill=(CORE[0], CORE[1], CORE[2], int(245 * amp)), width=max(2, int(SUPER * 1.4)))
+    bd.line(
+        [P(base), P(tip)],
+        fill=(CORE[0], CORE[1], CORE[2], int(245 * amp)),
+        width=max(2, int(SUPER * 1.4)),
+    )
     # Tip impact spark.
     for r, a in ((6.0, 110), (3.2, 205), (1.6, 255)):
-        bd.ellipse((_px(tip[0] - r), _px(tip[1] - r), _px(tip[0] + r), _px(tip[1] + r)),
-                   fill=(CORE[0], CORE[1], CORE[2], int(a * amp)))
+        bd.ellipse(
+            (_px(tip[0] - r), _px(tip[1] - r), _px(tip[0] + r), _px(tip[1] + r)),
+            fill=(CORE[0], CORE[1], CORE[2], int(a * amp)),
+        )
     return layer.resize(FRAME_SIZE, Image.Resampling.LANCZOS)
 
 
@@ -237,7 +273,13 @@ ACTOR_METADATA = {
         "action.melee.down": {"animation": "down", "events": []},
     },
     "sockets": {
-        "origin": {"source": f"{TARGET_NAME}.geometry", "point": {"x": GEOMETRY['side']['origin'][0], "y": GEOMETRY['side']['origin'][1]}},
+        "origin": {
+            "source": f"{TARGET_NAME}.geometry",
+            "point": {
+                "x": GEOMETRY["side"]["origin"][0],
+                "y": GEOMETRY["side"]["origin"][1],
+            },
+        },
     },
     "tags": ["fx", "slash", "melee", "overlay"],
 }

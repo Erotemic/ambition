@@ -12,6 +12,7 @@ Run from the repo root with:
     python -m ambition_ldtk_tools roundtrip \
       crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
 """
+
 from __future__ import annotations
 
 import argparse
@@ -59,9 +60,20 @@ def print_repair_hint(path: Path, changes: list[str]) -> None:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("path", type=Path, help="Path to an Ambition-authored .ldtk file")
-    parser.add_argument("--schema", type=Path, default=None, help="Optional official LDtk JSON schema path")
-    parser.add_argument("--require-schema", action="store_true", help="Fail if official LDtk schema validation cannot run")
+    parser.add_argument(
+        "path", type=Path, help="Path to an Ambition-authored .ldtk file"
+    )
+    parser.add_argument(
+        "--schema",
+        type=Path,
+        default=None,
+        help="Optional official LDtk JSON schema path",
+    )
+    parser.add_argument(
+        "--require-schema",
+        action="store_true",
+        help="Fail if official LDtk schema validation cannot run",
+    )
     parser.add_argument(
         "--secondary-world",
         action="append",

@@ -67,7 +67,9 @@ def _body_image(mask: Image.Image) -> Image.Image:
             u = x / max(1, WORK_SIZE - 1)
             # Soft left/top highlight and right/bottom shadow produce a
             # polished painted look without any dependency on a photo source.
-            highlight = _clamp(1.0 - (((u - 0.30) / 0.56) ** 2 + ((v - 0.28) / 0.62) ** 2) ** 0.5)
+            highlight = _clamp(
+                1.0 - (((u - 0.30) / 0.56) ** 2 + ((v - 0.28) / 0.62) ** 2) ** 0.5
+            )
             shadow = _clamp(((u * 0.82) + (v * 0.68) - 0.36) / 0.68)
             stripe = 0.5 + 0.5 * math.sin(u * 22.0 + v * 5.0)
             sheen = _clamp(highlight * 1.2 - shadow * 0.15)

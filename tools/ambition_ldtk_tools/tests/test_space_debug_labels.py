@@ -4,6 +4,7 @@ entities down so the debug overlay text is readable.
 Mirror of the spawn-overlap validator test pattern: build a minimal
 in-memory level, run the shifting function, assert the rects no
 longer overlap."""
+
 from __future__ import annotations
 
 import sys

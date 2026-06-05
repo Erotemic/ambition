@@ -28,51 +28,109 @@ from PIL import Image, ImageDraw
 
 from ...tackon_sheet import build_sheet
 
-ACTOR_METADATA = {'actor': {'character_id': 'npc_dark_lord', 'display_name': 'Dark Lord'},
- 'body': {'body_plan': 'HumanoidBiped',
-          'body_kind': 'Wide',
-          'mass_class': 'Heavy',
-          'traits': ['story', 'humanoid', 'enemy', 'combatant', 'story', 'enemy', 'boss_candidate'],
-          'locomotion_hint': 'Walk'},
- 'capabilities': {'traversal': {'walk': True,
-                                'jump': None,
-                                'climb': None,
-                                'fly': None,
-                                'swim': None,
-                                'crawl': None,
-                                'use_lifts': True,
-                                'door_access': ['public']},
-                  'interactions': {'talk': True,
-                                   'trade': None,
-                                   'carry': None,
-                                   'open_doors': ['public']}},
- 'brain': {'default_preset': 'melee_brute_brute'},
- 'actions': {'default_preset': 'boss_bolt'},
- 'visual': {'default_pose': 'idle'},
- 'tags': ['story', 'humanoid', 'enemy', 'combatant', 'story', 'enemy', 'boss_candidate'],
- 'sockets': {'head': {'source': 'explicit.profile.humanoid', 'point': {'x': 64.0, 'y': 24.0}},
-             'chest': {'source': 'explicit.profile.humanoid', 'point': {'x': 64.0, 'y': 54.0}},
-             'hand_l': {'source': 'explicit.profile.humanoid', 'point': {'x': 48.0, 'y': 64.0}},
-             'hand_r': {'source': 'explicit.profile.humanoid', 'point': {'x': 80.0, 'y': 64.0}},
-             'speech_bubble': {'source': 'explicit.profile.humanoid',
-                               'point': {'x': 64.0, 'y': 8.0}},
-             'weapon_grip': {'source': 'explicit.profile.combat_humanoid',
-                             'point': {'x': 80.0, 'y': 64.0}},
-             'weapon_tip': {'source': 'explicit.profile.combat_humanoid',
-                            'point': {'x': 104.0, 'y': 60.0}},
-             'projectile_origin': {'source': 'explicit.profile.dark_lord',
-                                   'point': {'x': 84.0, 'y': 44.0}}},
- 'animation_bindings': {'default': {'animation': 'idle', 'events': []},
-                        'locomotion.walk': {'animation': 'walk', 'events': []},
-                        'interaction.talk': {'animation': 'talk', 'events': []},
-                        'interaction.use': {'animation': 'interact', 'events': []},
-                        'action.melee.primary': {'animation': 'slash',
-                                                 'events': [{'t': 0.34,
-                                                             'event': 'hitbox_active_start',
-                                                             'source': 'explicit.profile.combat_humanoid'},
-                                                            {'t': 0.58,
-                                                             'event': 'hitbox_active_end',
-                                                             'source': 'explicit.profile.combat_humanoid'}]}}}
+ACTOR_METADATA = {
+    "actor": {"character_id": "npc_dark_lord", "display_name": "Dark Lord"},
+    "body": {
+        "body_plan": "HumanoidBiped",
+        "body_kind": "Wide",
+        "mass_class": "Heavy",
+        "traits": [
+            "story",
+            "humanoid",
+            "enemy",
+            "combatant",
+            "story",
+            "enemy",
+            "boss_candidate",
+        ],
+        "locomotion_hint": "Walk",
+    },
+    "capabilities": {
+        "traversal": {
+            "walk": True,
+            "jump": None,
+            "climb": None,
+            "fly": None,
+            "swim": None,
+            "crawl": None,
+            "use_lifts": True,
+            "door_access": ["public"],
+        },
+        "interactions": {
+            "talk": True,
+            "trade": None,
+            "carry": None,
+            "open_doors": ["public"],
+        },
+    },
+    "brain": {"default_preset": "melee_brute_brute"},
+    "actions": {"default_preset": "boss_bolt"},
+    "visual": {"default_pose": "idle"},
+    "tags": [
+        "story",
+        "humanoid",
+        "enemy",
+        "combatant",
+        "story",
+        "enemy",
+        "boss_candidate",
+    ],
+    "sockets": {
+        "head": {
+            "source": "explicit.profile.humanoid",
+            "point": {"x": 64.0, "y": 24.0},
+        },
+        "chest": {
+            "source": "explicit.profile.humanoid",
+            "point": {"x": 64.0, "y": 54.0},
+        },
+        "hand_l": {
+            "source": "explicit.profile.humanoid",
+            "point": {"x": 48.0, "y": 64.0},
+        },
+        "hand_r": {
+            "source": "explicit.profile.humanoid",
+            "point": {"x": 80.0, "y": 64.0},
+        },
+        "speech_bubble": {
+            "source": "explicit.profile.humanoid",
+            "point": {"x": 64.0, "y": 8.0},
+        },
+        "weapon_grip": {
+            "source": "explicit.profile.combat_humanoid",
+            "point": {"x": 80.0, "y": 64.0},
+        },
+        "weapon_tip": {
+            "source": "explicit.profile.combat_humanoid",
+            "point": {"x": 104.0, "y": 60.0},
+        },
+        "projectile_origin": {
+            "source": "explicit.profile.dark_lord",
+            "point": {"x": 84.0, "y": 44.0},
+        },
+    },
+    "animation_bindings": {
+        "default": {"animation": "idle", "events": []},
+        "locomotion.walk": {"animation": "walk", "events": []},
+        "interaction.talk": {"animation": "talk", "events": []},
+        "interaction.use": {"animation": "interact", "events": []},
+        "action.melee.primary": {
+            "animation": "slash",
+            "events": [
+                {
+                    "t": 0.34,
+                    "event": "hitbox_active_start",
+                    "source": "explicit.profile.combat_humanoid",
+                },
+                {
+                    "t": 0.58,
+                    "event": "hitbox_active_end",
+                    "source": "explicit.profile.combat_humanoid",
+                },
+            ],
+        },
+    },
+}
 
 
 RGBA = Tuple[int, int, int, int]
@@ -140,22 +198,50 @@ def _ease(t: float) -> float:
     return 0.5 - 0.5 * math.cos(math.pi * t)
 
 
-def _poly(draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
+def _poly(
+    draw: ImageDraw.ImageDraw,
+    pts: Sequence[Point],
+    fill: RGBA,
+    outline: RGBA = OUTLINE,
+    width: float = 1.0,
+) -> None:
     ipts = [_pt(p) for p in pts]
     draw.polygon(ipts, fill=fill)
     if outline and width > 0:
-        draw.line(ipts + [ipts[0]], fill=outline, width=max(1, _s(width)), joint="curve")
+        draw.line(
+            ipts + [ipts[0]], fill=outline, width=max(1, _s(width)), joint="curve"
+        )
 
 
-def _line(draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, width: float = 1.0) -> None:
+def _line(
+    draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, width: float = 1.0
+) -> None:
     draw.line([_pt(p) for p in pts], fill=fill, width=max(1, _s(width)), joint="curve")
 
 
-def _ellipse(draw: ImageDraw.ImageDraw, cx: float, cy: float, rx: float, ry: float, fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
-    draw.ellipse(_box(cx, cy, rx, ry), fill=fill, outline=outline, width=max(1, _s(width)))
+def _ellipse(
+    draw: ImageDraw.ImageDraw,
+    cx: float,
+    cy: float,
+    rx: float,
+    ry: float,
+    fill: RGBA,
+    outline: RGBA = OUTLINE,
+    width: float = 1.0,
+) -> None:
+    draw.ellipse(
+        _box(cx, cy, rx, ry), fill=fill, outline=outline, width=max(1, _s(width))
+    )
 
 
-def _circle(draw: ImageDraw.ImageDraw, p: Point, r: float, fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
+def _circle(
+    draw: ImageDraw.ImageDraw,
+    p: Point,
+    r: float,
+    fill: RGBA,
+    outline: RGBA = OUTLINE,
+    width: float = 1.0,
+) -> None:
     _ellipse(draw, p[0], p[1], r, r, fill, outline, width)
 
 
@@ -317,7 +403,9 @@ class Pose:
             self.eye = max(0.0, 1.0 - tt * 1.5)
 
 
-def _draw_halberd(draw: ImageDraw.ImageDraw, hand: Point, angle: float, front: bool = True) -> None:
+def _draw_halberd(
+    draw: ImageDraw.ImageDraw, hand: Point, angle: float, front: bool = True
+) -> None:
     def T(x: float, y: float) -> Point:
         rx, ry = _rot(x, y, angle)
         return (hand[0] + rx, hand[1] + ry)
@@ -334,9 +422,18 @@ def _draw_halberd(draw: ImageDraw.ImageDraw, hand: Point, angle: float, front: b
 
     # axe / spear head
     blade = [
-        T(88, -35), T(118, -45), T(146, -30), T(156, -10), T(134, -8),
-        T(160, 18), T(146, 42), T(116, 34), T(100, 15), T(76, 24),
-        T(90, 2), T(74, -16),
+        T(88, -35),
+        T(118, -45),
+        T(146, -30),
+        T(156, -10),
+        T(134, -8),
+        T(160, 18),
+        T(146, 42),
+        T(116, 34),
+        T(100, 15),
+        T(76, 24),
+        T(90, 2),
+        T(74, -16),
     ]
     _poly(draw, blade, METAL, OUTLINE, 1.5)
     _poly(draw, [T(122, -42), T(134, -72), T(146, -40)], METAL_HI, OUTLINE, 0.8)
@@ -350,7 +447,9 @@ def _draw_halberd(draw: ImageDraw.ImageDraw, hand: Point, angle: float, front: b
         _line(draw, [T(122, -7), T(122, 13)], RUNE_HI, 1.0)
 
 
-def _draw_boot(draw: ImageDraw.ImageDraw, p: Point, toe: float, scale: float = 1.0) -> None:
+def _draw_boot(
+    draw: ImageDraw.ImageDraw, p: Point, toe: float, scale: float = 1.0
+) -> None:
     greave = [
         (p[0] - 9 * scale, p[1] - 34 * scale),
         (p[0] + 10 * scale, p[1] - 33 * scale),
@@ -358,7 +457,18 @@ def _draw_boot(draw: ImageDraw.ImageDraw, p: Point, toe: float, scale: float = 1
         (p[0] - 10 * scale, p[1] - 4 * scale),
     ]
     _poly(draw, greave, METAL_DARK, OUTLINE, 1.0)
-    _poly(draw, [(p[0] - 7 * scale, p[1] - 28 * scale), (p[0] + 8 * scale, p[1] - 29 * scale), (p[0] + 5 * scale, p[1] - 13 * scale), (p[0] - 6 * scale, p[1] - 11 * scale)], METAL, OUTLINE, 0.7)
+    _poly(
+        draw,
+        [
+            (p[0] - 7 * scale, p[1] - 28 * scale),
+            (p[0] + 8 * scale, p[1] - 29 * scale),
+            (p[0] + 5 * scale, p[1] - 13 * scale),
+            (p[0] - 6 * scale, p[1] - 11 * scale),
+        ],
+        METAL,
+        OUTLINE,
+        0.7,
+    )
     foot = [
         (p[0] - 12 * scale, p[1] - 6 * scale),
         (p[0] + 12 * scale + toe * 2, p[1] - 8 * scale),
@@ -367,7 +477,17 @@ def _draw_boot(draw: ImageDraw.ImageDraw, p: Point, toe: float, scale: float = 1
         (p[0] - 13 * scale, p[1] + 4 * scale),
     ]
     _poly(draw, foot, METAL, OUTLINE, 1.0)
-    _poly(draw, [(p[0] + 14 * scale + toe * 2, p[1] - 6 * scale), (p[0] + 34 * scale + toe * 3, p[1] + 2 * scale), (p[0] + 15 * scale + toe, p[1] + 7 * scale)], METAL_HI, OUTLINE, 0.7)
+    _poly(
+        draw,
+        [
+            (p[0] + 14 * scale + toe * 2, p[1] - 6 * scale),
+            (p[0] + 34 * scale + toe * 3, p[1] + 2 * scale),
+            (p[0] + 15 * scale + toe, p[1] + 7 * scale),
+        ],
+        METAL_HI,
+        OUTLINE,
+        0.7,
+    )
 
 
 def _draw_helmet(draw: ImageDraw.ImageDraw, P, pose: Pose) -> None:
@@ -378,16 +498,32 @@ def _draw_helmet(draw: ImageDraw.ImageDraw, P, pose: Pose) -> None:
     _poly(draw, [P(9, -164), P(18, -224), P(22, -166)], BLACK, OUTLINE, 1.0)
 
     helm = [
-        P(-28, -154), P(-14, -174), P(12, -176), P(30, -158), P(28, -132),
-        P(16, -115), P(-8, -113), P(-27, -128),
+        P(-28, -154),
+        P(-14, -174),
+        P(12, -176),
+        P(30, -158),
+        P(28, -132),
+        P(16, -115),
+        P(-8, -113),
+        P(-27, -128),
     ]
     _poly(draw, helm, METAL, OUTLINE, 1.4)
-    _poly(draw, [P(-22, -150), P(-2, -164), P(18, -156), P(24, -139), P(4, -144), P(-20, -136)], METAL_HI, OUTLINE, 0.8)
-    _poly(draw, [P(-18, -138), P(21, -141), P(18, -127), P(-16, -125)], VOID, OUTLINE, 0.7)
+    _poly(
+        draw,
+        [P(-22, -150), P(-2, -164), P(18, -156), P(24, -139), P(4, -144), P(-20, -136)],
+        METAL_HI,
+        OUTLINE,
+        0.8,
+    )
+    _poly(
+        draw, [P(-18, -138), P(21, -141), P(18, -127), P(-16, -125)], VOID, OUTLINE, 0.7
+    )
 
     # red visor
     glow = max(0.0, pose.eye)
-    _line(draw, [P(-15, -135), P(-3, -132), P(11, -134), P(20, -138)], RUNE_HI, 1.5 + glow)
+    _line(
+        draw, [P(-15, -135), P(-3, -132), P(11, -134), P(20, -138)], RUNE_HI, 1.5 + glow
+    )
     _line(draw, [P(-14, -134), P(18, -137)], RUNE, 2.0)
 
     faceplate = [P(-16, -124), P(16, -126), P(11, -106), P(-12, -105)]
@@ -401,14 +537,29 @@ def _draw_helmet(draw: ImageDraw.ImageDraw, P, pose: Pose) -> None:
 def _draw_torso(draw: ImageDraw.ImageDraw, P, pose: Pose) -> None:
     # cape behind shoulders
     cape = [
-        P(-46, -118), P(-86 - pose.cape_sway * 0.4, -92), P(-104 - pose.cape_sway * 0.6, -26),
-        P(-75 - pose.cape_sway * 0.7, 60), P(-42 - pose.cape_sway * 0.3, 28),
-        P(-22, -44), P(0, -50), P(32, -42),
-        P(68 + pose.cape_sway * 0.3, 72), P(90 + pose.cape_sway * 0.7, 40),
-        P(84 + pose.cape_sway * 0.5, -22), P(54, -108),
+        P(-46, -118),
+        P(-86 - pose.cape_sway * 0.4, -92),
+        P(-104 - pose.cape_sway * 0.6, -26),
+        P(-75 - pose.cape_sway * 0.7, 60),
+        P(-42 - pose.cape_sway * 0.3, 28),
+        P(-22, -44),
+        P(0, -50),
+        P(32, -42),
+        P(68 + pose.cape_sway * 0.3, 72),
+        P(90 + pose.cape_sway * 0.7, 40),
+        P(84 + pose.cape_sway * 0.5, -22),
+        P(54, -108),
     ]
     _poly(draw, cape, CAPE, OUTLINE, 1.2)
-    inner = [P(-20, -58), P(0, -48), P(30, -45), P(58 + pose.cape_sway * 0.4, 42), P(22, 54), P(-5, -3), P(-44 - pose.cape_sway * 0.2, 42)]
+    inner = [
+        P(-20, -58),
+        P(0, -48),
+        P(30, -45),
+        P(58 + pose.cape_sway * 0.4, 42),
+        P(22, 54),
+        P(-5, -3),
+        P(-44 - pose.cape_sway * 0.2, 42),
+    ]
     _poly(draw, inner, CAPE_RED, None, 0)
     # tears
     for x, y, h in [(-67, 35, 28), (-20, 50, 24), (40, 54, 34), (73, 30, 24)]:
@@ -429,10 +580,26 @@ def _draw_torso(draw: ImageDraw.ImageDraw, P, pose: Pose) -> None:
     _line(draw, [P(29, -107), P(39, -107)], RUNE, 0.9)
 
     # chest armor
-    chest = [P(-30, -108), P(-12, -126), P(15, -126), P(34, -105), P(28, -66), P(0, -48), P(-28, -65)]
+    chest = [
+        P(-30, -108),
+        P(-12, -126),
+        P(15, -126),
+        P(34, -105),
+        P(28, -66),
+        P(0, -48),
+        P(-28, -65),
+    ]
     _poly(draw, chest, METAL, OUTLINE, 1.4)
-    _poly(draw, [P(-23, -101), P(-4, -116), P(-2, -58), P(-26, -67)], METAL_HI, OUTLINE, 0.8)
-    _poly(draw, [P(6, -116), P(27, -101), P(25, -68), P(2, -58)], METAL_DARK, OUTLINE, 0.8)
+    _poly(
+        draw,
+        [P(-23, -101), P(-4, -116), P(-2, -58), P(-26, -67)],
+        METAL_HI,
+        OUTLINE,
+        0.8,
+    )
+    _poly(
+        draw, [P(6, -116), P(27, -101), P(25, -68), P(2, -58)], METAL_DARK, OUTLINE, 0.8
+    )
     _line(draw, [P(0, -119), P(0, -51)], OUTLINE, 0.8)
 
     # rune sigil on chest
@@ -476,8 +643,12 @@ def _draw_limbs(draw: ImageDraw.ImageDraw, P, pose: Pose) -> Tuple[Point, Point]
     _poly(draw, _rect(far_elbow, 16, 20, pose.tilt * 0.2), METAL, OUTLINE, 0.8)
 
     near_shoulder = P(38, -99)
-    near_elbow = P(54 + pose.near_arm * 0.08, -68 + pose.near_arm * 0.16 + pose.weapon_lift * 0.15)
-    near_hand = P(39 + pose.near_arm * 0.19, -34 + pose.near_arm * 0.23 + pose.weapon_lift)
+    near_elbow = P(
+        54 + pose.near_arm * 0.08, -68 + pose.near_arm * 0.16 + pose.weapon_lift * 0.15
+    )
+    near_hand = P(
+        39 + pose.near_arm * 0.19, -34 + pose.near_arm * 0.23 + pose.weapon_lift
+    )
     _line(draw, [near_shoulder, near_elbow, near_hand], METAL_MID, 11.0)
     _line(draw, [near_shoulder, near_elbow, near_hand], OUTLINE, 1.4)
     _poly(draw, _rect(near_elbow, 18, 22, pose.tilt * 0.2), METAL_HI, OUTLINE, 0.8)
@@ -485,17 +656,32 @@ def _draw_limbs(draw: ImageDraw.ImageDraw, P, pose: Pose) -> Tuple[Point, Point]
     for hand, front in [(far_hand, False), (near_hand, True)]:
         _circle(draw, hand, 5.2 if front else 4.6, VOID, OUTLINE, 0.7)
         for dx in [-4, 0, 4]:
-            _poly(draw, [(hand[0] + dx, hand[1]), (hand[0] + dx + 4, hand[1] + 9), (hand[0] + dx - 2, hand[1] + 6)], METAL_HI if front else METAL, OUTLINE, 0.35)
+            _poly(
+                draw,
+                [
+                    (hand[0] + dx, hand[1]),
+                    (hand[0] + dx + 4, hand[1] + 9),
+                    (hand[0] + dx - 2, hand[1] + 6),
+                ],
+                METAL_HI if front else METAL,
+                OUTLINE,
+                0.35,
+            )
 
     return far_hand, near_hand
 
 
 def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
-    img = Image.new("RGBA", (WORK_FRAME_SIZE[0] * SUPER, WORK_FRAME_SIZE[1] * SUPER), (0, 0, 0, 0))
+    img = Image.new(
+        "RGBA", (WORK_FRAME_SIZE[0] * SUPER, WORK_FRAME_SIZE[1] * SUPER), (0, 0, 0, 0)
+    )
     draw = ImageDraw.Draw(img, "RGBA")
     pose = Pose(anim, frame_idx, nframes)
 
-    root = (WORK_FRAME_SIZE[0] * 0.47 + pose.root_x + pose.dead_t * 7.0, WORK_FRAME_SIZE[1] * 0.70 + pose.root_y + pose.bob)
+    root = (
+        WORK_FRAME_SIZE[0] * 0.47 + pose.root_x + pose.dead_t * 7.0,
+        WORK_FRAME_SIZE[1] * 0.70 + pose.root_y + pose.bob,
+    )
     tilt = pose.tilt
 
     def P(x: float, y: float) -> Point:
@@ -511,16 +697,26 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
     if anim == "slash" and pose.slash > 0.12:
         cx, cy = P(45, -68)
         box = (_s(cx - 110), _s(cy - 100), _s(cx + 130), _s(cy + 90))
-        draw.arc(box, 202, 342, fill=(255, 46, 38, 145), width=_s(6.5 + pose.slash * 2.0))
+        draw.arc(
+            box, 202, 342, fill=(255, 46, 38, 145), width=_s(6.5 + pose.slash * 2.0)
+        )
         draw.arc(box, 214, 330, fill=(255, 184, 140, 110), width=_s(2.5))
 
     _draw_torso(draw, P, pose)
     far_hand, near_hand = _draw_limbs(draw, P, pose)
-    _poly(draw, [P(-9, -128), P(11, -128), P(9, -112), P(-8, -112)], METAL_DARK, OUTLINE, 0.8)
+    _poly(
+        draw,
+        [P(-9, -128), P(11, -128), P(9, -112), P(-8, -112)],
+        METAL_DARK,
+        OUTLINE,
+        0.8,
+    )
     _draw_helmet(draw, P, pose)
 
     if weapon_front:
-        hand = P(39 + pose.near_arm * 0.19, -34 + pose.near_arm * 0.23 + pose.weapon_lift)
+        hand = P(
+            39 + pose.near_arm * 0.19, -34 + pose.near_arm * 0.23 + pose.weapon_lift
+        )
         _draw_halberd(draw, hand, pose.weapon + tilt, front=True)
 
     # magic / guard / summon effects in front
@@ -536,8 +732,20 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
             _line(draw, [p1, p2], RUNE_HI, 0.8)
     if anim == "guard" and pose.guard > 0.1:
         cx, cy = P(42, -80)
-        shield = [(cx - 30, cy - 52), (cx + 36, cy - 34), (cx + 26, cy + 42), (cx - 34, cy + 50), (cx - 48, cy - 4)]
-        _poly(draw, shield, (190, 210, 220, int(56 + 50 * pose.guard)), (245, 80, 70, int(120 + 50 * pose.guard)), 0.8)
+        shield = [
+            (cx - 30, cy - 52),
+            (cx + 36, cy - 34),
+            (cx + 26, cy + 42),
+            (cx - 34, cy + 50),
+            (cx - 48, cy - 4),
+        ]
+        _poly(
+            draw,
+            shield,
+            (190, 210, 220, int(56 + 50 * pose.guard)),
+            (245, 80, 70, int(120 + 50 * pose.guard)),
+            0.8,
+        )
         _line(draw, [(cx - 26, cy), (cx + 26, cy)], RUNE_HI, 1.0)
         _line(draw, [(cx, cy - 34), (cx, cy + 34)], RUNE_HI, 1.0)
     if anim == "summon" and pose.summon > 0.12:
@@ -545,15 +753,40 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
         for i, xoff in enumerate([-70, -42, -14, 18, 48, 76]):
             height = (16 + (i % 3) * 8) * pose.summon
             base_x = P(xoff, 60)[0]
-            _poly(draw, [(base_x - 7, ground_y + 5), (base_x + 3, ground_y - height), (base_x + 12, ground_y + 6)], METAL_DARK, OUTLINE, 0.5)
-            _line(draw, [(base_x + 1, ground_y - height * 0.8), (base_x + 6, ground_y + 2)], RUNE, 0.6)
+            _poly(
+                draw,
+                [
+                    (base_x - 7, ground_y + 5),
+                    (base_x + 3, ground_y - height),
+                    (base_x + 12, ground_y + 6),
+                ],
+                METAL_DARK,
+                OUTLINE,
+                0.5,
+            )
+            _line(
+                draw,
+                [(base_x + 1, ground_y - height * 0.8), (base_x + 6, ground_y + 2)],
+                RUNE,
+                0.6,
+            )
     if anim in {"slash", "summon", "walk"}:
         # grounded dust / sparks
         if pose.slash > 0.4 or pose.summon > 0.3 or anim == "walk":
             amount = max(pose.slash, pose.summon, 0.2 if anim == "walk" else 0.0)
             for dx in [-34, -12, 18, 44]:
                 c = P(dx, 62)
-                _poly(draw, [(c[0] - 3 * amount, c[1]), (c[0] + 4 * amount, c[1] - 5 * amount), (c[0] + 8 * amount, c[1] + 1)], DUST, None, 0)
+                _poly(
+                    draw,
+                    [
+                        (c[0] - 3 * amount, c[1]),
+                        (c[0] + 4 * amount, c[1] - 5 * amount),
+                        (c[0] + 8 * amount, c[1] + 1),
+                    ],
+                    DUST,
+                    None,
+                    0,
+                )
 
     return _downsample(img)
 
@@ -564,18 +797,33 @@ def render(out_dir: str | Path, **opts) -> List[Path]:
     outputs = build_sheet(
         target=TARGET_NAME,
         rows=ROWS,
-        render_fn=lambda anim, frame_idx, nframes: _render_frame(anim, frame_idx, nframes),
+        render_fn=lambda anim, frame_idx, nframes: _render_frame(
+            anim, frame_idx, nframes
+        ),
         out_dir=out_dir,
         frame_size=opts.get("frame_size", FRAME_SIZE),
         crop_margin=10,
         auto_crop=True,
     )
-    return [outputs["spritesheet"], outputs["yaml"], outputs["ron"], outputs["preview"], outputs["canonical"], outputs["canonical_transparent"]]
+    return [
+        outputs["spritesheet"],
+        outputs["yaml"],
+        outputs["ron"],
+        outputs["preview"],
+        outputs["canonical"],
+        outputs["canonical_transparent"],
+    ]
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Render the standalone dark-lord armored boss spritesheet.")
-    parser.add_argument("--out-dir", type=Path, default=Path(__file__).resolve().parents[2] / "generated" / TARGET_NAME)
+    parser = argparse.ArgumentParser(
+        description="Render the standalone dark-lord armored boss spritesheet."
+    )
+    parser.add_argument(
+        "--out-dir",
+        type=Path,
+        default=Path(__file__).resolve().parents[2] / "generated" / TARGET_NAME,
+    )
     args = parser.parse_args(argv)
     for path in render(args.out_dir):
         print(path)

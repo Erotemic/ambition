@@ -13,6 +13,7 @@ For the current in-game goblin cue, the runtime consumes per-section full mixes
 and not per-stem OGG files. Use --full-mix-only to skip those per-stem encodes
 while still rendering the adaptive section full mixes that the game loads.
 """
+
 from __future__ import annotations
 import argparse, json, math, os, shlex, subprocess, sys
 from pathlib import Path
@@ -21,7 +22,9 @@ import yaml
 from . import musicir_renderer as r
 
 
-def in_game_preview_mixes(spec: dict, group_names: list[str]) -> dict[str, dict[str, float]]:
+def in_game_preview_mixes(
+    spec: dict, group_names: list[str]
+) -> dict[str, dict[str, float]]:
     """Define preview mixes that approximate runtime playback at different
     dynamic intensities.
 
@@ -39,7 +42,9 @@ def in_game_preview_mixes(spec: dict, group_names: list[str]) -> dict[str, dict[
     """
     out: dict[str, dict[str, float]] = {}
 
-    bridge = (spec.get("playback", {}) or {}).get("exit_policy", {}).get("bridge_stems") or []
+    bridge = (spec.get("playback", {}) or {}).get("exit_policy", {}).get(
+        "bridge_stems"
+    ) or []
     bridge = [s for s in bridge if s in group_names]
     if bridge:
         out["minimal"] = {s: 1.0 for s in bridge}
@@ -52,7 +57,11 @@ def in_game_preview_mixes(spec: dict, group_names: list[str]) -> dict[str, dict[
         stems = cfg.get("stems")
         if not isinstance(stems, dict):
             continue
-        weights = {k: float(v) for k, v in stems.items() if isinstance(v, (int, float)) and float(v) > 0.0}
+        weights = {
+            k: float(v)
+            for k, v in stems.items()
+            if isinstance(v, (int, float)) and float(v) > 0.0
+        }
         if weights:
             out[f"state_{name}"] = weights
 
@@ -116,17 +125,25 @@ def is_render_current(
     if missing:
         return False, manifest_path, f"missing output file: {missing[0]}"
     spec_mtime = spec_path.stat().st_mtime
-    stale = [path for path in [manifest_path, *outputs] if path.stat().st_mtime < spec_mtime]
+    stale = [
+        path for path in [manifest_path, *outputs] if path.stat().st_mtime < spec_mtime
+    ]
     if stale:
         return False, manifest_path, f"output older than source: {stale[0]}"
     return True, manifest_path, "current"
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description="Render Ambition MusicIR via isolated stem workers")
+    ap = argparse.ArgumentParser(
+        description="Render Ambition MusicIR via isolated stem workers"
+    )
     ap.add_argument("spec")
     ap.add_argument("--outdir", default="output")
-    ap.add_argument("--backend", default="fallback", choices=["fallback", "auto", "fluidsynth-cli", "pretty-midi"])
+    ap.add_argument(
+        "--backend",
+        default="fallback",
+        choices=["fallback", "auto", "fluidsynth-cli", "pretty-midi"],
+    )
     ap.add_argument(
         "--simple-mix",
         action="store_true",
@@ -203,17 +220,28 @@ def main(argv=None) -> int:
         )
         if current and manifest_path is not None:
             manifest = json.loads(manifest_path.read_text(encoding="utf8"))
-            preview_rel = (manifest.get("files", {}).get("preview", {}) or {}).get("full_soundtrack")
-            print(json.dumps({
-                "skipped": True,
-                "reason": reason,
-                "manifest": str(manifest_path),
-                "preview": str(outdir / preview_rel) if isinstance(preview_rel, str) else None,
-                "hash": cue_hash,
-            }, indent=2))
+            preview_rel = (manifest.get("files", {}).get("preview", {}) or {}).get(
+                "full_soundtrack"
+            )
+            print(
+                json.dumps(
+                    {
+                        "skipped": True,
+                        "reason": reason,
+                        "manifest": str(manifest_path),
+                        "preview": str(outdir / preview_rel)
+                        if isinstance(preview_rel, str)
+                        else None,
+                        "hash": cue_hash,
+                    },
+                    indent=2,
+                )
+            )
             return 0
         if manifest_path is not None:
-            print(f"render_isolated: regenerating {spec['id']}: {reason}", file=sys.stderr)
+            print(
+                f"render_isolated: regenerating {spec['id']}: {reason}", file=sys.stderr
+            )
 
     pm, groups, meta = r.build_score(spec)
     total = meta[-1]["end_seconds"]
@@ -226,8 +254,16 @@ def main(argv=None) -> int:
     # picked subprocess isolation for stability, not for serialization).
     def worker_cmd(group: str) -> list[str]:
         cmd = [
-            sys.executable, "-m", "ambition_music_renderer.render_group_worker",
-            str(spec_path), "--outdir", str(outdir), "--group", group, "--backend", ns.backend,
+            sys.executable,
+            "-m",
+            "ambition_music_renderer.render_group_worker",
+            str(spec_path),
+            "--outdir",
+            str(outdir),
+            "--group",
+            group,
+            "--backend",
+            ns.backend,
         ]
         if ns.simple_mix or ns.full_mix_only:
             cmd.append("--skip-section-ogg")
@@ -243,6 +279,7 @@ def main(argv=None) -> int:
         # sleep loop because `Popen.wait(timeout=...)` raises on timeout
         # which makes the "wait for any" idiom awkward.
         import time as _time
+
         pending: list[tuple[str, subprocess.Popen]] = []
         remaining = list(group_names)
         while remaining or pending:
@@ -276,8 +313,15 @@ def main(argv=None) -> int:
         stem_audio[group] = r.ensure_audio_length(np.load(npy), target)
         for sec in meta:
             if not (ns.simple_mix or ns.full_mix_only):
-                path = outdir / "adaptive" / sec["id"] / f"{spec['id']}_{cue_hash}.{sec['id']}.{group}.ogg"
-                output_files["adaptive"].setdefault(sec["id"], {})[group] = str(path.relative_to(outdir))
+                path = (
+                    outdir
+                    / "adaptive"
+                    / sec["id"]
+                    / f"{spec['id']}_{cue_hash}.{sec['id']}.{group}.ogg"
+                )
+                output_files["adaptive"].setdefault(sec["id"], {})[group] = str(
+                    path.relative_to(outdir)
+                )
 
     # ---- Full mastered preview (matches the YAML postprocess intent) ----
     full = np.zeros((target, 2), dtype="float32")
@@ -287,7 +331,9 @@ def main(argv=None) -> int:
     master_settings.setdefault("normalize", True)
     master_settings.setdefault("target_peak_db", -1.2)
     master = r.post_process(full, sr, master_settings)
-    preview = outdir / "preview" / f"{spec['id']}_{cue_hash}.full_soundtrack_preview.ogg"
+    preview = (
+        outdir / "preview" / f"{spec['id']}_{cue_hash}.full_soundtrack_preview.ogg"
+    )
     r.write_ogg_from_audio(master, sr, preview, quality=quality, keep_wav=False)
     output_files["preview"]["full_soundtrack"] = str(preview.relative_to(outdir))
 
@@ -305,15 +351,26 @@ def main(argv=None) -> int:
             if section_pp:
                 # Slice the raw stem sum (pre-master), apply the section's
                 # postprocess chain to that slice.
-                raw_piece = r.slice_audio(full, sr, sec["start_seconds"], sec["end_seconds"])
+                raw_piece = r.slice_audio(
+                    full, sr, sec["start_seconds"], sec["end_seconds"]
+                )
                 section_settings = dict(master_settings)
                 section_settings.update(section_pp)
                 piece = r.post_process(raw_piece, sr, section_settings)
             else:
-                piece = r.slice_audio(master, sr, sec["start_seconds"], sec["end_seconds"])
-            path = outdir / "adaptive" / sec["id"] / f"{spec['id']}_{cue_hash}.{sec['id']}.full.ogg"
+                piece = r.slice_audio(
+                    master, sr, sec["start_seconds"], sec["end_seconds"]
+                )
+            path = (
+                outdir
+                / "adaptive"
+                / sec["id"]
+                / f"{spec['id']}_{cue_hash}.{sec['id']}.full.ogg"
+            )
             r.write_ogg_from_audio(piece, sr, path, quality=quality, keep_wav=False)
-            output_files["adaptive"].setdefault(sec["id"], {})["full"] = str(path.relative_to(outdir))
+            output_files["adaptive"].setdefault(sec["id"], {})["full"] = str(
+                path.relative_to(outdir)
+            )
 
     # ---- In-game-style previews (no master chain, soft limit only) ----
     # The runtime layers stems on the fly and never runs the master postprocess.
@@ -365,7 +422,7 @@ def main(argv=None) -> int:
         f"full_mix_only={1 if ns.full_mix_only else 0}\n"
         f"keep_debug_stems={1 if ns.keep_debug_stems else 0}\n"
         'cd "$renderer_dir"\n'
-        'if [ -d .venv ]; then source .venv/bin/activate; fi\n'
+        "if [ -d .venv ]; then source .venv/bin/activate; fi\n"
         'rm -rf "$outdir"\n'
         'args=("${spec}" --outdir "${outdir}" --backend "${backend}" --force)\n'
         'if [ "${full_mix_only}" -eq 1 ]; then args+=(--full-mix-only); fi\n'
@@ -383,15 +440,24 @@ def main(argv=None) -> int:
         except OSError:
             pass
 
-    print(json.dumps({
-        "skipped": False,
-        "manifest": str(manifest_path),
-        "preview": str(preview),
-        "in_game_previews": [v for k, v in output_files["preview"].items() if k.startswith("in_game_")],
-        "full_mix_only": bool(ns.full_mix_only),
-        "kept_debug_stems": bool(ns.keep_debug_stems),
-        "hash": cue_hash,
-    }, indent=2))
+    print(
+        json.dumps(
+            {
+                "skipped": False,
+                "manifest": str(manifest_path),
+                "preview": str(preview),
+                "in_game_previews": [
+                    v
+                    for k, v in output_files["preview"].items()
+                    if k.startswith("in_game_")
+                ],
+                "full_mix_only": bool(ns.full_mix_only),
+                "kept_debug_stems": bool(ns.keep_debug_stems),
+                "hash": cue_hash,
+            },
+            indent=2,
+        )
+    )
     return 0
 
 

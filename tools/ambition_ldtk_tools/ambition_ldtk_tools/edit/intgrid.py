@@ -29,6 +29,7 @@ when a real need lands rather than speculatively):
 Default layer is `Collision`; pass `--layer Water` or
 `--layer Climbable` for those.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -99,9 +100,7 @@ def _cmd_summarize(args: argparse.Namespace) -> int:
     c_hei = int(layer["__cHei"])
     csv = layer.get("intGridCsv") or []
     if len(csv) != c_wid * c_hei:
-        raise SystemExit(
-            f"intGridCsv length {len(csv)} != cWid*cHei={c_wid * c_hei}"
-        )
+        raise SystemExit(f"intGridCsv length {len(csv)} != cWid*cHei={c_wid * c_hei}")
     counts: dict[int, int] = {}
     bboxes: dict[int, tuple[int, int, int, int]] = {}
     for cy in range(c_hei):

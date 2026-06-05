@@ -22,6 +22,7 @@ Controls:
 - Click selects nodes; toggle Transform Node to move/rotate/scale them on the canvas.
 - In Transform Node mode: drag node body to move, corner handles scale, round handle rotates.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -85,7 +86,7 @@ def prune_to_focus(node, focus_path):
 
 
 def is_descendant_path(path, ancestor):
-    return tuple(path[:len(ancestor)]) == tuple(ancestor)
+    return tuple(path[: len(ancestor)]) == tuple(ancestor)
 
 
 def default_transform():
@@ -134,7 +135,16 @@ def offset_node(node, dx=26, dy=18):
 
 def new_group(label="New Group"):
     ident = slug(label)
-    return {"id": ident, "kind": "group", "label": label, "visible": True, "locked": False, "z_order": 0, "transform": default_transform(), "children": []}
+    return {
+        "id": ident,
+        "kind": "group",
+        "label": label,
+        "visible": True,
+        "locked": False,
+        "z_order": 0,
+        "transform": default_transform(),
+        "children": [],
+    }
 
 
 def new_shape(label="New Shape"):
@@ -171,7 +181,11 @@ class SceneCanvas(QtWidgets.QWidget):
         self.edit_path = ()
         self.focus_path = None
         self.zoom = 1.0
-        work = tuple(self.scene.render_cfg.get("work_size", self.scene.meta.get("work_size", [900, 640])))
+        work = tuple(
+            self.scene.render_cfg.get(
+                "work_size", self.scene.meta.get("work_size", [900, 640])
+            )
+        )
         self.work_size = work
         self.view_center = QtCore.QPointF(work[0] / 2, work[1] / 2)
         self.dragging = False
@@ -214,19 +228,33 @@ class SceneCanvas(QtWidgets.QWidget):
         return QtGui.QColor(r, g, b, a)
 
     def refresh(self):
-        self.work_size = tuple(self.scene.render_cfg.get("work_size", self.scene.meta.get("work_size", [900, 640])))
-        origin = tuple(self.scene.meta.get("origin", [self.work_size[0] / 2, self.work_size[1] / 2]))
+        self.work_size = tuple(
+            self.scene.render_cfg.get(
+                "work_size", self.scene.meta.get("work_size", [900, 640])
+            )
+        )
+        origin = tuple(
+            self.scene.meta.get(
+                "origin", [self.work_size[0] / 2, self.work_size[1] / 2]
+            )
+        )
         scene_for_preview = self.preview_scene()
-        renderer = gen.Renderer(scene_for_preview, frame_size=self.work_size, aa_scale=2, origin=origin)
+        renderer = gen.Renderer(
+            scene_for_preview, frame_size=self.work_size, aa_scale=2, origin=origin
+        )
         img = renderer.render("hover", 1, 6, debug=False)
         self._bounds_by_id = renderer.bounds_by_id.copy()
-        self._path_by_id = {node.get("id"): path for path, node in iter_nodes(self.scene.root)}
+        self._path_by_id = {
+            node.get("id"): path for path, node in iter_nodes(self.scene.root)
+        }
         self._pixmap = QtGui.QPixmap.fromImage(ImageQt(img.convert("RGBA")))
         self.update()
 
     def base_view_rect(self):
         margin = 16
-        avail = QtCore.QRectF(margin, margin, self.width() - 2 * margin, self.height() - 2 * margin)
+        avail = QtCore.QRectF(
+            margin, margin, self.width() - 2 * margin, self.height() - 2 * margin
+        )
         aspect = self.work_size[0] / self.work_size[1]
         if avail.width() / avail.height() > aspect:
             base_h = avail.height()
@@ -234,14 +262,21 @@ class SceneCanvas(QtWidgets.QWidget):
         else:
             base_w = avail.width()
             base_h = base_w / aspect
-        return QtCore.QRectF(avail.center().x() - base_w / 2, avail.center().y() - base_h / 2, base_w, base_h)
+        return QtCore.QRectF(
+            avail.center().x() - base_w / 2,
+            avail.center().y() - base_h / 2,
+            base_w,
+            base_h,
+        )
 
     def compute_view_rect(self):
         base = self.base_view_rect()
         scale = self.zoom * base.width() / self.work_size[0]
         left = base.center().x() - self.view_center.x() * scale
         top = base.center().y() - self.view_center.y() * scale
-        return QtCore.QRectF(left, top, self.work_size[0] * scale, self.work_size[1] * scale)
+        return QtCore.QRectF(
+            left, top, self.work_size[0] * scale, self.work_size[1] * scale
+        )
 
     def image_to_widget(self, p):
         base = self.base_view_rect()
@@ -274,7 +309,11 @@ class SceneCanvas(QtWidgets.QWidget):
         painter.fillRect(self.rect(), self.visible_bg_qcolor())
         rect = self.compute_view_rect()
         if self._pixmap:
-            painter.drawPixmap(rect, self._pixmap, QtCore.QRectF(0, 0, self.work_size[0], self.work_size[1]))
+            painter.drawPixmap(
+                rect,
+                self._pixmap,
+                QtCore.QRectF(0, 0, self.work_size[0], self.work_size[1]),
+            )
 
         selected_id = self.selected_node().get("id")
         edit_id = self.edit_node().get("id")
@@ -319,9 +358,22 @@ class SceneCanvas(QtWidgets.QWidget):
                         painter.setPen(QtGui.QPen(QtGui.QColor(255, 120, 40), 2))
                         painter.drawRect(rect)
 
-        crumb = " / ".join(get_node(self.scene.root, self.edit_path[:i]).get("label", "") for i in range(1, len(self.edit_path) + 1))
-        focus_txt = "off" if not self.focus_path else get_node(self.scene.root, self.focus_path).get("label", get_node(self.scene.root, self.focus_path).get("id", ""))
-        painter.drawText(20, self.height() - 18, f"edit level: {crumb or 'Root'}   focus: {focus_txt}   zoom {self.zoom * 100:.0f}%")
+        crumb = " / ".join(
+            get_node(self.scene.root, self.edit_path[:i]).get("label", "")
+            for i in range(1, len(self.edit_path) + 1)
+        )
+        focus_txt = (
+            "off"
+            if not self.focus_path
+            else get_node(self.scene.root, self.focus_path).get(
+                "label", get_node(self.scene.root, self.focus_path).get("id", "")
+            )
+        )
+        painter.drawText(
+            20,
+            self.height() - 18,
+            f"edit level: {crumb or 'Root'}   focus: {focus_txt}   zoom {self.zoom * 100:.0f}%",
+        )
 
     def pick_path(self, ix, iy):
         """Pick the topmost visible node under the cursor.
@@ -338,7 +390,9 @@ class SceneCanvas(QtWidgets.QWidget):
             x1, y1, x2, y2 = box
             if x1 <= ix <= x2 and y1 <= iy <= y2:
                 node = get_node(self.scene.root, path)
-                hits.append((len(path), int(node.get("z_order", 0)), str(node_id), path))
+                hits.append(
+                    (len(path), int(node.get("z_order", 0)), str(node_id), path)
+                )
         if hits:
             return sorted(hits)[-1][3]
         return None
@@ -357,13 +411,13 @@ class SceneCanvas(QtWidgets.QWidget):
         hit_path = tuple(hit_path)
         edit_path = tuple(self.edit_path)
 
-        if edit_path and hit_path[:len(edit_path)] == edit_path:
+        if edit_path and hit_path[: len(edit_path)] == edit_path:
             if len(hit_path) > len(edit_path):
                 return edit_path + (hit_path[len(edit_path)],)
             return edit_path
 
         depth = max(1, len(edit_path) + 1)
-        return hit_path[:min(depth, len(hit_path))]
+        return hit_path[: min(depth, len(hit_path))]
 
     def selected_box(self):
         try:
@@ -388,7 +442,7 @@ class SceneCanvas(QtWidgets.QWidget):
         for name, pt in pts.items():
             wp = self.image_to_widget(pt)
             r = 7 if name != "rotate" else 9
-            out[name] = QtCore.QRectF(wp.x() - r, wp.y() - r, 2*r, 2*r)
+            out[name] = QtCore.QRectF(wp.x() - r, wp.y() - r, 2 * r, 2 * r)
         return out
 
     def hit_handle(self, pos):
@@ -399,12 +453,14 @@ class SceneCanvas(QtWidgets.QWidget):
                 return name
         return None
 
-
     def mousePressEvent(self, event):
         self.setFocus()
         self.last_pos = event.position()
 
-        if event.button() == QtCore.Qt.MiddleButton or (event.modifiers() & QtCore.Qt.AltModifier and event.button() == QtCore.Qt.LeftButton):
+        if event.button() == QtCore.Qt.MiddleButton or (
+            event.modifiers() & QtCore.Qt.AltModifier
+            and event.button() == QtCore.Qt.LeftButton
+        ):
             self.dragging = True
             self.drag_mode = "pan"
             return
@@ -475,7 +531,9 @@ class SceneCanvas(QtWidgets.QWidget):
                 v = event.position() - self.rotate_center_widget
                 ang = math.degrees(math.atan2(v.y(), v.x()))
                 if self.rotate_last_angle is not None:
-                    t["rotation"] = float(t.get("rotation", 0)) + (ang - self.rotate_last_angle)
+                    t["rotation"] = float(t.get("rotation", 0)) + (
+                        ang - self.rotate_last_angle
+                    )
                 self.rotate_last_angle = ang
             else:
                 t["rotation"] = float(t.get("rotation", 0)) + delta.x() * 0.35
@@ -525,16 +583,22 @@ class SceneCanvas(QtWidgets.QWidget):
         self.scale_anchor = None
 
     def wheelEvent(self, event):
-        if event.modifiers() & QtCore.Qt.ControlModifier and self.selected_path and self.transform_mode:
+        if (
+            event.modifiers() & QtCore.Qt.ControlModifier
+            and self.selected_path
+            and self.transform_mode
+        ):
             t = self.selected_transform()
-            t["rotation"] = float(t.get("rotation", 0)) + event.angleDelta().y() / 120.0 * 2.0
+            t["rotation"] = (
+                float(t.get("rotation", 0)) + event.angleDelta().y() / 120.0 * 2.0
+            )
             self.sceneChanged.emit()
             self.refresh()
             return
         cursor = event.position()
         before = self.widget_to_image(cursor)
         steps = event.angleDelta().y() / 120.0
-        self.zoom = max(0.1, min(24.0, self.zoom * (1.15 ** steps)))
+        self.zoom = max(0.1, min(24.0, self.zoom * (1.15**steps)))
         base = self.base_view_rect()
         scale = self.zoom * base.width() / self.work_size[0]
         self.view_center = QtCore.QPointF(
@@ -556,9 +620,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tree.setMinimumHeight(420)
         self.tree.header().setStretchLastSection(False)
         self.tree.header().setSectionResizeMode(0, QtWidgets.QHeaderView.Interactive)
-        self.tree.header().setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
-        self.tree.header().setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
-        self.tree.header().setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeToContents)
+        self.tree.header().setSectionResizeMode(
+            1, QtWidgets.QHeaderView.ResizeToContents
+        )
+        self.tree.header().setSectionResizeMode(
+            2, QtWidgets.QHeaderView.ResizeToContents
+        )
+        self.tree.header().setSectionResizeMode(
+            3, QtWidgets.QHeaderView.ResizeToContents
+        )
         self.expand_tree_btn = QtWidgets.QPushButton("Expand Tree")
         self.collapse_tree_btn = QtWidgets.QPushButton("Collapse Tree")
         self.id_edit = QtWidgets.QLineEdit()
@@ -585,7 +655,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.apply_prim_btn = QtWidgets.QPushButton("Apply Primitive YAML")
         self.transform_btn = QtWidgets.QPushButton("Transform Node")
         self.transform_btn.setCheckable(True)
-        self.transform_btn.setToolTip("Toggle transform workflow. While active, canvas clicks do not select other nodes; drag translates selected node by default.")
+        self.transform_btn.setToolTip(
+            "Toggle transform workflow. While active, canvas clicks do not select other nodes; drag translates selected node by default."
+        )
         self.focus_btn = QtWidgets.QPushButton("Focus Node")
         self.clear_focus_btn = QtWidgets.QPushButton("Clear Focus")
         self.focus_label = QtWidgets.QLabel("none")
@@ -690,7 +762,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tree.setColumnWidth(3, 38)
         self.rebuild_tree()
         self.connect_signals()
-        QtGui.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Escape), self, activated=self.escape_up_one_level)
+        QtGui.QShortcut(
+            QtGui.QKeySequence(QtCore.Qt.Key_Escape),
+            self,
+            activated=self.escape_up_one_level,
+        )
         self.select_path(())
         self.load_background_widgets()
         self.set_focus_label()
@@ -713,7 +789,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.canvas.editLevelChanged.connect(self.on_edit_level_changed)
         for w in [self.id_edit, self.label_edit]:
             w.editingFinished.connect(self.props_changed)
-        for w in [self.z_spin, self.x_spin, self.y_spin, self.rot_spin, self.sx_spin, self.sy_spin]:
+        for w in [
+            self.z_spin,
+            self.x_spin,
+            self.y_spin,
+            self.rot_spin,
+            self.sx_spin,
+            self.sy_spin,
+        ]:
             w.valueChanged.connect(self.props_changed)
         self.visible_check.toggled.connect(self.props_changed)
         self.enter_group_btn.clicked.connect(self.enter_group)
@@ -735,7 +818,11 @@ class MainWindow(QtWidgets.QMainWindow):
     def collapse_tree_to_edit_level(self):
         self.tree.collapseAll()
         # Keep the root and current edit/selection ancestors visible.
-        for path in [(), tuple(self.canvas.edit_path), tuple(self.canvas.selected_path)]:
+        for path in [
+            (),
+            tuple(self.canvas.edit_path),
+            tuple(self.canvas.selected_path),
+        ]:
             for depth in range(len(path) + 1):
                 item = self.find_item(path[:depth])
                 if item:
@@ -771,13 +858,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def apply_background_text(self):
         text = self.bg_rgba_edit.text().strip()
-        parts = [p.strip() for p in text.replace(';', ',').split(',') if p.strip()]
+        parts = [p.strip() for p in text.replace(";", ",").split(",") if p.strip()]
         try:
             vals = [int(float(p)) for p in parts]
             if len(vals) == 3:
                 vals.append(255)
             if len(vals) != 4:
-                raise ValueError('expected 3 or 4 comma-separated integers')
+                raise ValueError("expected 3 or 4 comma-separated integers")
             vals = [max(0, min(255, v)) for v in vals]
             self.canvas.scene.render_cfg["background_rgba"] = vals
             self.load_background_widgets()
@@ -788,12 +875,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def on_transform_toggled(self, checked):
         self.canvas.transform_mode = bool(checked)
-        self.canvas.setCursor(QtCore.Qt.SizeAllCursor if checked else QtCore.Qt.ArrowCursor)
+        self.canvas.setCursor(
+            QtCore.Qt.SizeAllCursor if checked else QtCore.Qt.ArrowCursor
+        )
         self.canvas.update()
         self.status.setText(
             "Transform Node mode on: drag translates selected node; handles scale/rotate; Escape exits"
-            if checked else
-            "Selection mode on"
+            if checked
+            else "Selection mode on"
         )
 
     def focus_selected(self):
@@ -817,14 +906,26 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tree.clear()
 
         def add(parent_item, node, path):
-            item = QtWidgets.QTreeWidgetItem([node.get("label", node.get("id", "")), node.get("kind", ""), str(node.get("z_order", 0)), ""])
+            item = QtWidgets.QTreeWidgetItem(
+                [
+                    node.get("label", node.get("id", "")),
+                    node.get("kind", ""),
+                    str(node.get("z_order", 0)),
+                    "",
+                ]
+            )
             item.setData(0, QtCore.Qt.UserRole, path)
             item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
-            item.setCheckState(3, QtCore.Qt.Checked if node.get("visible", True) else QtCore.Qt.Unchecked)
+            item.setCheckState(
+                3,
+                QtCore.Qt.Checked if node.get("visible", True) else QtCore.Qt.Unchecked,
+            )
             if path == self.canvas.edit_path:
                 item.setForeground(0, QtGui.QBrush(QtGui.QColor(25, 95, 170)))
                 item.setText(0, item.text(0) + "  [editing]")
-            if self.canvas.focus_path is not None and path == tuple(self.canvas.focus_path):
+            if self.canvas.focus_path is not None and path == tuple(
+                self.canvas.focus_path
+            ):
                 item.setForeground(0, QtGui.QBrush(QtGui.QColor(148, 86, 15)))
                 item.setText(0, item.text(0) + "  [focus]")
             if parent_item is None:
@@ -832,7 +933,9 @@ class MainWindow(QtWidgets.QMainWindow):
             else:
                 parent_item.addChild(item)
             children = node.get("children", [])
-            for orig_idx, child_node in sorted(enumerate(children), key=lambda p: (p[1].get("z_order", 0), p[0])):
+            for orig_idx, child_node in sorted(
+                enumerate(children), key=lambda p: (p[1].get("z_order", 0), p[0])
+            ):
                 add(item, child_node, path + (orig_idx,))
             item.setExpanded(True)
 
@@ -856,7 +959,10 @@ class MainWindow(QtWidgets.QMainWindow):
         return None
 
     def set_edit_level_label(self):
-        labels = [get_node(self.canvas.scene.root, self.canvas.edit_path[:i]).get("label", "") for i in range(1, len(self.canvas.edit_path) + 1)]
+        labels = [
+            get_node(self.canvas.scene.root, self.canvas.edit_path[:i]).get("label", "")
+            for i in range(1, len(self.canvas.edit_path) + 1)
+        ]
         text = " / ".join(labels) if labels else "Root"
         self.edit_level_label.setText(text)
 
@@ -892,7 +998,9 @@ class MainWindow(QtWidgets.QMainWindow):
         node["visible"] = item.checkState(3) == QtCore.Qt.Checked
         self.canvas.refresh()
         self.load_props()
-        self.status.setText(f"{'shown' if node['visible'] else 'hidden'}: {node.get('id')}")
+        self.status.setText(
+            f"{'shown' if node['visible'] else 'hidden'}: {node.get('id')}"
+        )
 
     def select_root_from_background(self):
         self.canvas.selected_path = ()
@@ -978,11 +1086,17 @@ class MainWindow(QtWidgets.QMainWindow):
             (self.sy_spin, "scale_y", 1),
         ]:
             spin.blockSignals(True)
-            spin.setValue(float(node.get(key, default)) if key == "z_order" else float(t.get(key, default)))
+            spin.setValue(
+                float(node.get(key, default))
+                if key == "z_order"
+                else float(t.get(key, default))
+            )
             spin.blockSignals(False)
         self.primitive_yaml.blockSignals(True)
         if node.get("kind") == "shape":
-            self.primitive_yaml.setPlainText(yaml.safe_dump(node.get("primitive", {}), sort_keys=False, width=100))
+            self.primitive_yaml.setPlainText(
+                yaml.safe_dump(node.get("primitive", {}), sort_keys=False, width=100)
+            )
             self.primitive_yaml.setEnabled(True)
             self.apply_prim_btn.setEnabled(True)
         else:
@@ -1052,7 +1166,10 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         parent, idx = get_parent(self.canvas.scene.root, self.canvas.selected_path)
         parent["children"].pop(idx)
-        if self.canvas.edit_path[: len(self.canvas.selected_path)] == self.canvas.selected_path:
+        if (
+            self.canvas.edit_path[: len(self.canvas.selected_path)]
+            == self.canvas.selected_path
+        ):
             self.canvas.edit_path = self.canvas.selected_path[:-1]
         self.rebuild_tree()
         self.select_path(self.canvas.selected_path[:-1])

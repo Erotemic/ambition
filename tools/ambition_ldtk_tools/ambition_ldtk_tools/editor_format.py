@@ -28,6 +28,7 @@ algorithm encodes:
 Tools that mutate the LDtk file call :func:`dump_editor_style` so their output
 matches the editor's.
 """
+
 from __future__ import annotations
 
 import json
@@ -119,7 +120,11 @@ class _Printer:
 
         t = _typeof(v)
         if t in ("null", "int", "bool"):
-            token = "null" if v is None else ("true" if v is True else ("false" if v is False else str(v)))
+            token = (
+                "null"
+                if v is None
+                else ("true" if v is True else ("false" if v is False else str(v)))
+            )
             self.buf.append(token if name is None else f'"{name}": {token}')
         elif t == "float":
             sf = _float_str(v)

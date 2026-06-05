@@ -9,6 +9,7 @@ as `down=edge` — so a hand-picked y floats. These tests pin that one-way
 platforms count as floor, that the lowest surface wins by default, that
 `prefer_y` biases the choice, and that a gap raises rather than floating.
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -27,7 +28,9 @@ from ambition_ldtk_tools.area_authoring import snap_entity_to_surface  # noqa: E
 from ambition_ldtk_tools.edit.snap_to_floor import main as snap_main  # noqa: E402
 
 
-def _project(csv: list[int], c_wid: int, c_hei: int, grid: int = 16, entities=None) -> dict:
+def _project(
+    csv: list[int], c_wid: int, c_hei: int, grid: int = 16, entities=None
+) -> dict:
     layers = [
         {
             "__identifier": "Collision",
@@ -131,27 +134,60 @@ def _run(argv: list[str]) -> tuple[int, str]:
 
 
 def test_cli_dry_run_reports_landing_without_writing():
-    sw = {"__identifier": "Switch", "iid": "sw-x", "px": [16, 0], "width": 16, "height": 16, "fieldInstances": []}
+    sw = {
+        "__identifier": "Switch",
+        "iid": "sw-x",
+        "px": [16, 0],
+        "width": 16,
+        "height": 16,
+        "fieldInstances": [],
+    }
     proj = _project(_floor_row(4, 3, row=2, value=1), 4, 3, entities=[sw])
     with tempfile.TemporaryDirectory() as td:
         path = Path(td) / "t.ldtk"
         path.write_text(json.dumps(proj))
-        rc, out = _run(["--ldtk", str(path), "--level", "L", "--iid", "sw-x", "--dry-run"])
+        rc, out = _run(
+            ["--ldtk", str(path), "--level", "L", "--iid", "sw-x", "--dry-run"]
+        )
         assert rc == 0, out
         assert "sw-x" in out and "rests on Solid" in out
         # Dry-run must not mutate the file.
-        assert json.loads(path.read_text())["levels"][0]["layerInstances"][1]["entityInstances"][0]["px"] == [16, 0]
+        assert json.loads(path.read_text())["levels"][0]["layerInstances"][1][
+            "entityInstances"
+        ][0]["px"] == [16, 0]
 
 
 def test_cli_snaps_in_place_with_x_reposition():
-    sw = {"__identifier": "Switch", "iid": "sw-x", "px": [99, 0], "width": 16, "height": 16, "fieldInstances": []}
+    sw = {
+        "__identifier": "Switch",
+        "iid": "sw-x",
+        "px": [99, 0],
+        "width": 16,
+        "height": 16,
+        "fieldInstances": [],
+    }
     proj = _project(_floor_row(4, 3, row=2, value=1), 4, 3, entities=[sw])
     with tempfile.TemporaryDirectory() as td:
         path = Path(td) / "t.ldtk"
         path.write_text(json.dumps(proj))
-        rc, _ = _run(["--ldtk", str(path), "--level", "L", "--iid", "sw-x", "--x", "0", "--in-place", "--no-repair"])
+        rc, _ = _run(
+            [
+                "--ldtk",
+                str(path),
+                "--level",
+                "L",
+                "--iid",
+                "sw-x",
+                "--x",
+                "0",
+                "--in-place",
+                "--no-repair",
+            ]
+        )
         assert rc == 0
-        ent = json.loads(path.read_text())["levels"][0]["layerInstances"][1]["entityInstances"][0]
+        ent = json.loads(path.read_text())["levels"][0]["layerInstances"][1][
+            "entityInstances"
+        ][0]
         assert ent["px"] == [0, 16]
         assert ent["__grid"] == [0, 1]
         assert ent["__worldX"] == 0 and ent["__worldY"] == 16

@@ -99,7 +99,10 @@ ACTOR_METADATA = {
         "head": {"source": "puppy_slug.geometry", "point": {"x": 96.0, "y": 40.0}},
         "belly": {"source": "puppy_slug.geometry", "point": {"x": 64.0, "y": 66.0}},
         "tail": {"source": "puppy_slug.geometry", "point": {"x": 28.0, "y": 58.0}},
-        "wall_contact": {"source": "puppy_slug.geometry", "point": {"x": 64.0, "y": 72.0}},
+        "wall_contact": {
+            "source": "puppy_slug.geometry",
+            "point": {"x": 64.0, "y": 72.0},
+        },
     },
     "tags": ["enemy", "ai_era", "crawler"],
 }
@@ -173,6 +176,7 @@ def _downsample(img: Image.Image) -> Image.Image:
 
 # ---- Geometry helpers --------------------------------------------------------
 
+
 def _body_centerline(
     cx: float,
     cy: float,
@@ -221,7 +225,9 @@ def _segment_radius(t: float, base: float) -> float:
     return base * (0.65 + 0.55 * head_lobe + 0.40 * mid_lobe) * tail_taper
 
 
-def _ring_points(center: Point, radius: float, normal: Point, n: int = 14) -> List[Point]:
+def _ring_points(
+    center: Point, radius: float, normal: Point, n: int = 14
+) -> List[Point]:
     """Approximate an ellipse perpendicular to `normal` for body shading."""
     nx, ny = normal
     # Tangent perpendicular to normal in 2D.
@@ -238,6 +244,7 @@ def _ring_points(center: Point, radius: float, normal: Point, n: int = 14) -> Li
 
 
 # ---- Body drawing ------------------------------------------------------------
+
 
 def _draw_slime_trail(
     img: Image.Image,
@@ -295,8 +302,10 @@ def _draw_body(
         r = _segment_radius(t, base_r) * (1.0 - 0.35 * death_progress)
         ox = x + grav_x * sag * 0.45 * math.sin(t * math.pi)
         oy = y + grav_y * sag * 0.45 * math.sin(t * math.pi)
-        bd.ellipse(_box(ox - r - 0.8, oy - r - 0.8, ox + r + 0.8, oy + r + 0.8),
-                   fill=_rgba(PAL_OUTLINE))
+        bd.ellipse(
+            _box(ox - r - 0.8, oy - r - 0.8, ox + r + 0.8, oy + r + 0.8),
+            fill=_rgba(PAL_OUTLINE),
+        )
 
     # Pass 2: mid-tone fill.
     for i, (x, y) in enumerate(centerline):
@@ -313,7 +322,10 @@ def _draw_body(
         hx = x - grav_x * r * 0.45
         hy = y - grav_y * r * 0.45
         rr = r * 0.55
-        bd.ellipse(_box(hx - rr, hy - rr * 0.7, hx + rr, hy + rr * 0.7), fill=_rgba(PAL_BODY_LIGHT))
+        bd.ellipse(
+            _box(hx - rr, hy - rr * 0.7, hx + rr, hy + rr * 0.7),
+            fill=_rgba(PAL_BODY_LIGHT),
+        )
 
     # Pass 4: belly band — lighter tone hugging the gravity-down side.
     for i, (x, y) in enumerate(centerline):
@@ -322,8 +334,10 @@ def _draw_body(
         bx = x + grav_x * r * 0.55
         by = y + grav_y * r * 0.55
         rr = r * 0.40
-        bd.ellipse(_box(bx - rr, by - rr * 0.55, bx + rr, by + rr * 0.55),
-                   fill=_rgba(PAL_BELLY, 230))
+        bd.ellipse(
+            _box(bx - rr, by - rr * 0.55, bx + rr, by + rr * 0.55),
+            fill=_rgba(PAL_BELLY, 230),
+        )
 
     # Pass 5: fur tufts along the dorsal ridge. Short angled strokes.
     # These look intentional (not random) so a follow-up shader can
@@ -350,13 +364,13 @@ def _draw_body(
         ay = y + uy * (r * 0.55) + ty * 1.2
         bx = ax + ux * L + tx * 0.6
         by = ay + uy * L + ty * 0.6
-        bd.line([_pt(ax, ay), _pt(bx, by)],
-                fill=_rgba(PAL_BODY_DARK), width=_s(1.1))
+        bd.line([_pt(ax, ay), _pt(bx, by)], fill=_rgba(PAL_BODY_DARK), width=_s(1.1))
 
     img.alpha_composite(body_layer)
 
 
 # ---- Puppy heads -------------------------------------------------------------
+
 
 def _draw_pup_head(
     img: Image.Image,
@@ -390,58 +404,96 @@ def _draw_pup_head(
     py = sx
 
     # Skull base.
-    d.ellipse(_box(cx - head_w / 2 - 0.5, cy - head_h / 2 - 0.5,
-                   cx + head_w / 2 + 0.5, cy + head_h / 2 + 0.5),
-              fill=_rgba(PAL_OUTLINE))
-    d.ellipse(_box(cx - head_w / 2, cy - head_h / 2,
-                   cx + head_w / 2, cy + head_h / 2),
-              fill=_rgba(PAL_PUP_FACE))
+    d.ellipse(
+        _box(
+            cx - head_w / 2 - 0.5,
+            cy - head_h / 2 - 0.5,
+            cx + head_w / 2 + 0.5,
+            cy + head_h / 2 + 0.5,
+        ),
+        fill=_rgba(PAL_OUTLINE),
+    )
+    d.ellipse(
+        _box(cx - head_w / 2, cy - head_h / 2, cx + head_w / 2, cy + head_h / 2),
+        fill=_rgba(PAL_PUP_FACE),
+    )
 
     # Cheek highlight.
-    d.ellipse(_box(cx - head_w * 0.3, cy - head_h * 0.10,
-                   cx + head_w * 0.18, cy + head_h * 0.32),
-              fill=_rgba(PAL_PUP_FACE_LIGHT, 200))
+    d.ellipse(
+        _box(
+            cx - head_w * 0.3,
+            cy - head_h * 0.10,
+            cx + head_w * 0.18,
+            cy + head_h * 0.32,
+        ),
+        fill=_rgba(PAL_PUP_FACE_LIGHT, 200),
+    )
 
     if melt < 0.5:
         # Ears: two angled drops above the head. They use the
         # "up" direction (opposite gravity, modulated by snout).
         up_x = -math.sin(pitch)
         up_y = -math.cos(pitch)
-        ear_base_left = (cx + (px * 0.55 - up_x * 0.05) * head_w * 0.30,
-                         cy + (py * 0.55 - up_y * 0.05) * head_h * 0.30)
-        ear_tip_left = (ear_base_left[0] + up_x * head_h * 0.55 + px * head_w * 0.15,
-                        ear_base_left[1] + up_y * head_h * 0.55 + py * head_h * 0.15)
-        ear_base_right = (cx + (-px * 0.55 - up_x * 0.05) * head_w * 0.30,
-                          cy + (-py * 0.55 - up_y * 0.05) * head_h * 0.30)
-        ear_tip_right = (ear_base_right[0] + up_x * head_h * 0.55 - px * head_w * 0.15,
-                         ear_base_right[1] + up_y * head_h * 0.55 - py * head_h * 0.15)
-        for base, tip in ((ear_base_left, ear_tip_left), (ear_base_right, ear_tip_right)):
+        ear_base_left = (
+            cx + (px * 0.55 - up_x * 0.05) * head_w * 0.30,
+            cy + (py * 0.55 - up_y * 0.05) * head_h * 0.30,
+        )
+        ear_tip_left = (
+            ear_base_left[0] + up_x * head_h * 0.55 + px * head_w * 0.15,
+            ear_base_left[1] + up_y * head_h * 0.55 + py * head_h * 0.15,
+        )
+        ear_base_right = (
+            cx + (-px * 0.55 - up_x * 0.05) * head_w * 0.30,
+            cy + (-py * 0.55 - up_y * 0.05) * head_h * 0.30,
+        )
+        ear_tip_right = (
+            ear_base_right[0] + up_x * head_h * 0.55 - px * head_w * 0.15,
+            ear_base_right[1] + up_y * head_h * 0.55 - py * head_h * 0.15,
+        )
+        for base, tip in (
+            (ear_base_left, ear_tip_left),
+            (ear_base_right, ear_tip_right),
+        ):
             tri = [
                 (base[0] - px * head_w * 0.08, base[1] - py * head_w * 0.08),
                 (base[0] + px * head_w * 0.08, base[1] + py * head_w * 0.08),
                 tip,
             ]
-            d.polygon([_pt(*p) for p in tri], fill=_rgba(PAL_BODY_DARK), outline=_rgba(PAL_OUTLINE))
+            d.polygon(
+                [_pt(*p) for p in tri],
+                fill=_rgba(PAL_BODY_DARK),
+                outline=_rgba(PAL_OUTLINE),
+            )
 
     # Snout — fat oval extending from the face center along `facing`.
     if melt < 0.7:
         snout_cx = cx + sx * head_w * 0.40
         snout_cy = cy + sy * head_w * 0.40
         snout_r = head_w * 0.32 * (1.0 - melt)
-        d.ellipse(_box(snout_cx - snout_r, snout_cy - snout_r * 0.75,
-                       snout_cx + snout_r, snout_cy + snout_r * 0.75),
-                  fill=_rgba(PAL_PUP_SNOUT), outline=_rgba(PAL_OUTLINE))
+        d.ellipse(
+            _box(
+                snout_cx - snout_r,
+                snout_cy - snout_r * 0.75,
+                snout_cx + snout_r,
+                snout_cy + snout_r * 0.75,
+            ),
+            fill=_rgba(PAL_PUP_SNOUT),
+            outline=_rgba(PAL_OUTLINE),
+        )
         # Wet nose tip.
         nose_cx = snout_cx + sx * snout_r * 0.55
         nose_cy = snout_cy + sy * snout_r * 0.55
         nr = snout_r * 0.30
-        d.ellipse(_box(nose_cx - nr, nose_cy - nr * 0.85,
-                       nose_cx + nr, nose_cy + nr * 0.85),
-                  fill=_rgba(PAL_PUP_NOSE))
+        d.ellipse(
+            _box(nose_cx - nr, nose_cy - nr * 0.85, nose_cx + nr, nose_cy + nr * 0.85),
+            fill=_rgba(PAL_PUP_NOSE),
+        )
         # Mouth seam.
         m_a = (snout_cx - sx * snout_r * 0.05, snout_cy - sy * snout_r * 0.05)
-        m_b = (snout_cx + sx * snout_r * 0.55 + px * snout_r * 0.10,
-               snout_cy + sy * snout_r * 0.55 + py * snout_r * 0.10)
+        m_b = (
+            snout_cx + sx * snout_r * 0.55 + px * snout_r * 0.10,
+            snout_cy + sy * snout_r * 0.55 + py * snout_r * 0.10,
+        )
         d.line([_pt(*m_a), _pt(*m_b)], fill=_rgba(PAL_OUTLINE), width=_s(0.8))
 
     # Eyes — two glassy beads. Eye-open lerps the pupil to a slit.
@@ -451,21 +503,28 @@ def _draw_pup_head(
             ex = cx + sx * head_w * 0.05 + px * sign * head_w * 0.22
             ey = cy + sy * head_w * 0.05 + py * sign * head_w * 0.22
             er = head_w * 0.13
-            d.ellipse(_box(ex - er, ey - er, ex + er, ey + er), fill=_rgba(PAL_EYE_WHITE))
+            d.ellipse(
+                _box(ex - er, ey - er, ex + er, ey + er), fill=_rgba(PAL_EYE_WHITE)
+            )
             ir = er * 0.65 * eye_open
             if ir > 0.01:
                 # Iris drifts slightly toward snout direction.
                 ix = ex + sx * er * 0.20
                 iy = ey + sy * er * 0.20
-                d.ellipse(_box(ix - ir, iy - ir, ix + ir, iy + ir),
-                          fill=_rgba(PAL_EYE_IRIS))
+                d.ellipse(
+                    _box(ix - ir, iy - ir, ix + ir, iy + ir), fill=_rgba(PAL_EYE_IRIS)
+                )
                 pr = ir * 0.55
-                d.ellipse(_box(ix - pr, iy - pr, ix + pr, iy + pr),
-                          fill=_rgba(PAL_EYE_PUPIL))
+                d.ellipse(
+                    _box(ix - pr, iy - pr, ix + pr, iy + pr), fill=_rgba(PAL_EYE_PUPIL)
+                )
             else:
                 # Closed-eye slit.
-                d.line([_pt(ex - er * 0.8, ey), _pt(ex + er * 0.8, ey)],
-                       fill=_rgba(PAL_EYE_PUPIL), width=_s(0.8))
+                d.line(
+                    [_pt(ex - er * 0.8, ey), _pt(ex + er * 0.8, ey)],
+                    fill=_rgba(PAL_EYE_PUPIL),
+                    width=_s(0.8),
+                )
 
     img.alpha_composite(layer)
 
@@ -519,6 +578,7 @@ def _pup_heads_along(
 
 
 # ---- Per-animation params ----------------------------------------------------
+
 
 def _params_for(anim: str, frame_idx: int, nframes: int):
     """Drive every per-frame variable from anim + frame."""
@@ -587,7 +647,7 @@ def _params_for(anim: str, frame_idx: int, nframes: int):
         squash = math.sin(t * math.pi)
         wave_amp = 0.4
         wave_freq = 1.0
-        length *= (1.0 - 0.18 * squash)
+        length *= 1.0 - 0.18 * squash
         sag = 1.8 * squash
         trail_strength = 0.15
         eye_open = max(0.1, 1.0 - 1.5 * squash)
@@ -597,7 +657,7 @@ def _params_for(anim: str, frame_idx: int, nframes: int):
         death_progress = min(1.0, t * 1.15)
         wave_amp = 0.6 * (1.0 - death_progress)
         wave_freq = 1.4
-        length *= (1.0 - 0.10 * death_progress)
+        length *= 1.0 - 0.10 * death_progress
         sag = 2.6 + 3.5 * death_progress
         trail_strength = 0.6 * (1.0 - death_progress)
         eye_open = max(0.0, 1.0 - 2.2 * death_progress)
@@ -626,6 +686,7 @@ def _params_for(anim: str, frame_idx: int, nframes: int):
 
 
 # ---- Renderer ----------------------------------------------------------------
+
 
 def _render_internal(p: dict) -> Image.Image:
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
@@ -658,7 +719,7 @@ def _render_internal(p: dict) -> Image.Image:
         phase=p["head_phase"],
         head_scale=p["head_scale"],
     )
-    for (center, radius, facing) in heads:
+    for center, radius, facing in heads:
         _draw_pup_head(
             img,
             center=center,

@@ -10,7 +10,13 @@ from typing import Any
 
 import torch
 
-from .imageio import load_target_tensor, save_tensor_image, write_comparison, write_debug_gif, write_loss_curve
+from .imageio import (
+    load_target_tensor,
+    save_tensor_image,
+    write_comparison,
+    write_debug_gif,
+    write_loss_curve,
+)
 from .losses import LossWeights, image_fit_loss
 from .schema import load_spec, write_spec
 from .soft_render import ProceduralScene, RenderOptions
@@ -27,9 +33,27 @@ class FitResult:
 
 
 PROFILE_WEIGHTS: dict[str, dict[str, float]] = {
-    "generic": {"rgb": 1.0, "pyramid": 0.45, "edge": 0.15, "detail": 0.0, "color_stats": 0.05},
-    "background": {"rgb": 1.0, "pyramid": 0.60, "edge": 0.12, "detail": 0.04, "color_stats": 0.08},
-    "sprite": {"rgb": 1.0, "pyramid": 0.28, "edge": 0.48, "detail": 0.30, "color_stats": 0.02},
+    "generic": {
+        "rgb": 1.0,
+        "pyramid": 0.45,
+        "edge": 0.15,
+        "detail": 0.0,
+        "color_stats": 0.05,
+    },
+    "background": {
+        "rgb": 1.0,
+        "pyramid": 0.60,
+        "edge": 0.12,
+        "detail": 0.04,
+        "color_stats": 0.08,
+    },
+    "sprite": {
+        "rgb": 1.0,
+        "pyramid": 0.28,
+        "edge": 0.48,
+        "detail": 0.30,
+        "color_stats": 0.02,
+    },
 }
 
 PROFILE_SHARPNESS: dict[str, tuple[float, float]] = {
@@ -62,7 +86,9 @@ def _jitter_trainable(scene: ProceduralScene, amount: float, seed: int) -> None:
     gen.manual_seed(seed)
     with torch.no_grad():
         for name, param in scene.named_parameters():
-            noise = torch.randn(param.detach().cpu().shape, generator=gen, dtype=param.dtype).to(param.device)
+            noise = torch.randn(
+                param.detach().cpu().shape, generator=gen, dtype=param.dtype
+            ).to(param.device)
             if "color" in name:
                 scale = amount * 0.35
             elif "angle" in name:
@@ -74,14 +100,29 @@ def _jitter_trainable(scene: ProceduralScene, amount: float, seed: int) -> None:
 
 def _resolve_weights(mode: str, spec_loss: dict[str, Any]) -> LossWeights:
     weights_dict = dict(PROFILE_WEIGHTS.get(mode, PROFILE_WEIGHTS["generic"]))
-    weights_dict.update({k: float(v) for k, v in (spec_loss.get("weights") or {}).items() if k in LossWeights.__annotations__})
+    weights_dict.update(
+        {
+            k: float(v)
+            for k, v in (spec_loss.get("weights") or {}).items()
+            if k in LossWeights.__annotations__
+        }
+    )
     return LossWeights(**weights_dict)
 
 
-def _resolve_sharpness(mode: str, sharpness: float, sharpness_start: float | None, sharpness_end: float | None) -> tuple[float, float]:
-    default_start, default_end = PROFILE_SHARPNESS.get(mode, PROFILE_SHARPNESS["generic"])
+def _resolve_sharpness(
+    mode: str,
+    sharpness: float,
+    sharpness_start: float | None,
+    sharpness_end: float | None,
+) -> tuple[float, float]:
+    default_start, default_end = PROFILE_SHARPNESS.get(
+        mode, PROFILE_SHARPNESS["generic"]
+    )
     start = float(sharpness_start if sharpness_start is not None else default_start)
-    end = float(sharpness_end if sharpness_end is not None else max(sharpness, default_end))
+    end = float(
+        sharpness_end if sharpness_end is not None else max(sharpness, default_end)
+    )
     if sharpness_start is None and sharpness_end is None and mode == "generic":
         start = float(sharpness)
         end = float(sharpness)
@@ -141,9 +182,13 @@ def fit_template(
     torch.manual_seed(seed)
     random.seed(seed)
     spec = load_spec(template_path)
-    target = load_target_tensor(target_path, (size, size), background=spec.canvas.background[:3]).to(device)
+    target = load_target_tensor(
+        target_path, (size, size), background=spec.canvas.background[:3]
+    ).to(device)
     weights = _resolve_weights(mode, spec.loss)
-    fit_sharpness_start, fit_sharpness_end = _resolve_sharpness(mode, sharpness, sharpness_start, sharpness_end)
+    fit_sharpness_start, fit_sharpness_end = _resolve_sharpness(
+        mode, sharpness, sharpness_start, sharpness_end
+    )
 
     best_state: dict[str, torch.Tensor] | None = None
     best_loss = math.inf
@@ -157,9 +202,13 @@ def fit_template(
 
     for restart in range(max(1, restarts)):
         scene = ProceduralScene(spec, device=device)
-        _jitter_trainable(scene, amount=0.45 if restart else 0.0, seed=seed + restart * 101)
+        _jitter_trainable(
+            scene, amount=0.45 if restart else 0.0, seed=seed + restart * 101
+        )
         opt = torch.optim.Adam(scene.parameters(), lr=lr)
-        sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=max(1, int(steps)))
+        sched = torch.optim.lr_scheduler.CosineAnnealingLR(
+            opt, T_max=max(1, int(steps))
+        )
         losses: list[float] = []
         last_scalars: dict[str, float] = {}
         restart_debug_frames: list[Path] = []
@@ -173,8 +222,17 @@ def fit_template(
             restart_templates_dir.mkdir(parents=True, exist_ok=True)
         for step in range(int(steps)):
             opt.zero_grad(set_to_none=True)
-            step_sharpness = _annealed_value(fit_sharpness_start, fit_sharpness_end, step, int(steps))
-            render = scene(RenderOptions(width=size, height=size, sharpness=step_sharpness, supersample=supersample))
+            step_sharpness = _annealed_value(
+                fit_sharpness_start, fit_sharpness_end, step, int(steps)
+            )
+            render = scene(
+                RenderOptions(
+                    width=size,
+                    height=size,
+                    sharpness=step_sharpness,
+                    supersample=supersample,
+                )
+            )
             loss, scalars = image_fit_loss(render, target, weights=weights)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(scene.parameters(), 2.0)
@@ -185,18 +243,27 @@ def fit_template(
             last_scalars = dict(scalars)
             last_scalars["sharpness"] = float(step_sharpness)
             last_scalars["lr"] = float(opt.param_groups[0]["lr"])
-            if log_every and (step == 0 or (step + 1) % log_every == 0 or step + 1 == steps):
+            if log_every and (
+                step == 0 or (step + 1) % log_every == 0 or step + 1 == steps
+            ):
                 print(
                     f"restart={restart + 1}/{restarts} step={step + 1:04d}/{steps} "
                     f"loss={loss_value:.6f} sharpness={step_sharpness:.1f} lr={opt.param_groups[0]['lr']:.6f}"
                 )
-            if save_debug and _should_capture_debug(step, int(steps), int(debug_every), int(debug_max_frames)):
+            if save_debug and _should_capture_debug(
+                step, int(steps), int(debug_every), int(debug_max_frames)
+            ):
                 frame_tag = f"step_{step + 1:04d}"
                 render_path = restart_renders_dir / f"{frame_tag}.png"
                 comp_path = restart_comparisons_dir / f"{frame_tag}.png"
                 template_snapshot_path = restart_templates_dir / f"{frame_tag}.yaml"
                 save_tensor_image(render.detach().cpu(), render_path)
-                write_comparison(target.detach().cpu(), render.detach().cpu(), comp_path, title=f"restart {restart + 1} / step {step + 1}")
+                write_comparison(
+                    target.detach().cpu(),
+                    render.detach().cpu(),
+                    comp_path,
+                    title=f"restart {restart + 1} / step {step + 1}",
+                )
                 write_spec(scene.to_spec(), template_snapshot_path)
                 restart_debug_frames.append(comp_path)
         restart_summary: dict[str, Any] = {
@@ -209,14 +276,18 @@ def fit_template(
             gif_path = restart_dir / "optimization.gif"
             write_debug_gif(restart_debug_frames, gif_path)
             restart_summary["debug_gif"] = str(gif_path)
-            restart_summary["debug_comparison_frames"] = [str(p) for p in restart_debug_frames]
+            restart_summary["debug_comparison_frames"] = [
+                str(p) for p in restart_debug_frames
+            ]
             restart_summary["debug_render_dir"] = str(restart_renders_dir)
             restart_summary["debug_comparison_dir"] = str(restart_comparisons_dir)
             restart_summary["debug_template_dir"] = str(restart_templates_dir)
         all_restart_metrics.append(restart_summary)
         if losses and losses[-1] < best_loss:
             best_loss = float(losses[-1])
-            best_state = {k: v.detach().cpu().clone() for k, v in scene.state_dict().items()}
+            best_state = {
+                k: v.detach().cpu().clone() for k, v in scene.state_dict().items()
+            }
             best_metrics = {"restart": restart, "final_terms": last_scalars}
             best_losses = losses
 
@@ -224,7 +295,12 @@ def fit_template(
     if best_state is not None:
         final_scene.load_state_dict({k: v.to(device) for k, v in best_state.items()})
     final_render = final_scene(
-        RenderOptions(width=size, height=size, sharpness=fit_sharpness_end, supersample=max(1, supersample))
+        RenderOptions(
+            width=size,
+            height=size,
+            sharpness=fit_sharpness_end,
+            supersample=max(1, supersample),
+        )
     )
     optimized_spec = final_scene.to_spec()
     optimized_spec.canvas.width = size
@@ -283,7 +359,9 @@ def fit_template(
         **best_metrics,
     }
     metrics_out.write_text(json.dumps(metrics, indent=2))
-    return FitResult(out_dir, best_loss, metrics_out, template_out, render_out, comparison_out)
+    return FitResult(
+        out_dir, best_loss, metrics_out, template_out, render_out, comparison_out
+    )
 
 
 def render_template(

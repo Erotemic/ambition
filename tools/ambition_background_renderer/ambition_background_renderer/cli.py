@@ -8,7 +8,9 @@ from .render import render_profile
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Render Ambition parallax background placeholder layers.")
+    parser = argparse.ArgumentParser(
+        description="Render Ambition parallax background placeholder layers."
+    )
     parser.add_argument(
         "--out",
         type=Path,

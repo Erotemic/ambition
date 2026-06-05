@@ -83,21 +83,60 @@ ACTOR_METADATA = {
         "default": {"animation": "idle", "events": []},
         "locomotion.stompy_walk": {"animation": "walk", "events": []},
         "interaction.ponder": {"animation": "ponder", "events": []},
-        "interaction.lecture": {"animation": "lecture", "events": [{"t": 0.42, "event": "speech_cue", "source": "smart_house.lecture"}]},
-        "interaction.idea": {"animation": "idea", "events": [{"t": 0.48, "event": "vfx_cue", "source": "smart_house.idea"}]},
-        "action.special.ram": {"animation": "ram", "events": [{"t": 0.44, "event": "hitbox_active_start", "source": "smart_house.ram"}, {"t": 0.62, "event": "hitbox_active_end", "source": "smart_house.ram"}]},
+        "interaction.lecture": {
+            "animation": "lecture",
+            "events": [
+                {"t": 0.42, "event": "speech_cue", "source": "smart_house.lecture"}
+            ],
+        },
+        "interaction.idea": {
+            "animation": "idea",
+            "events": [{"t": 0.48, "event": "vfx_cue", "source": "smart_house.idea"}],
+        },
+        "action.special.ram": {
+            "animation": "ram",
+            "events": [
+                {
+                    "t": 0.44,
+                    "event": "hitbox_active_start",
+                    "source": "smart_house.ram",
+                },
+                {"t": 0.62, "event": "hitbox_active_end", "source": "smart_house.ram"},
+            ],
+        },
         "damage.hit": {"animation": "hurt", "events": []},
         "lifecycle.death": {"animation": "death", "events": []},
     },
     "sockets": {
-        "door_center": {"source": "smart_house.geometry", "point": {"x": 160.0, "y": 210.0}},
-        "face_center": {"source": "smart_house.geometry", "point": {"x": 160.0, "y": 132.0}},
-        "speech_bubble": {"source": "smart_house.geometry", "point": {"x": 160.0, "y": 48.0}},
+        "door_center": {
+            "source": "smart_house.geometry",
+            "point": {"x": 160.0, "y": 210.0},
+        },
+        "face_center": {
+            "source": "smart_house.geometry",
+            "point": {"x": 160.0, "y": 132.0},
+        },
+        "speech_bubble": {
+            "source": "smart_house.geometry",
+            "point": {"x": 160.0, "y": 48.0},
+        },
         "chimney": {"source": "smart_house.geometry", "point": {"x": 112.0, "y": 48.0}},
-        "lightbulb": {"source": "smart_house.geometry", "point": {"x": 160.0, "y": 38.0}},
-        "book_origin": {"source": "smart_house.geometry", "point": {"x": 114.0, "y": 172.0}},
-        "paper_origin": {"source": "smart_house.geometry", "point": {"x": 210.0, "y": 172.0}},
-        "ram_front": {"source": "smart_house.geometry", "point": {"x": 248.0, "y": 146.0}},
+        "lightbulb": {
+            "source": "smart_house.geometry",
+            "point": {"x": 160.0, "y": 38.0},
+        },
+        "book_origin": {
+            "source": "smart_house.geometry",
+            "point": {"x": 114.0, "y": 172.0},
+        },
+        "paper_origin": {
+            "source": "smart_house.geometry",
+            "point": {"x": 210.0, "y": 172.0},
+        },
+        "ram_front": {
+            "source": "smart_house.geometry",
+            "point": {"x": 248.0, "y": 146.0},
+        },
     },
     "tags": ["story", "prop_actor", "speaker", "mobile_house"],
 }
@@ -160,22 +199,50 @@ def _ease(t: float) -> float:
     return 0.5 - 0.5 * math.cos(math.pi * t)
 
 
-def _poly(draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
+def _poly(
+    draw: ImageDraw.ImageDraw,
+    pts: Sequence[Point],
+    fill: RGBA,
+    outline: RGBA = OUTLINE,
+    width: float = 1.0,
+) -> None:
     ipts = [_pt(p) for p in pts]
     draw.polygon(ipts, fill=fill)
     if outline and width > 0:
-        draw.line(ipts + [ipts[0]], fill=outline, width=max(1, _s(width)), joint="curve")
+        draw.line(
+            ipts + [ipts[0]], fill=outline, width=max(1, _s(width)), joint="curve"
+        )
 
 
-def _line(draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, width: float = 1.0) -> None:
+def _line(
+    draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, width: float = 1.0
+) -> None:
     draw.line([_pt(p) for p in pts], fill=fill, width=max(1, _s(width)), joint="curve")
 
 
-def _ellipse(draw: ImageDraw.ImageDraw, cx: float, cy: float, rx: float, ry: float, fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
-    draw.ellipse(_box(cx, cy, rx, ry), fill=fill, outline=outline, width=max(1, _s(width)))
+def _ellipse(
+    draw: ImageDraw.ImageDraw,
+    cx: float,
+    cy: float,
+    rx: float,
+    ry: float,
+    fill: RGBA,
+    outline: RGBA = OUTLINE,
+    width: float = 1.0,
+) -> None:
+    draw.ellipse(
+        _box(cx, cy, rx, ry), fill=fill, outline=outline, width=max(1, _s(width))
+    )
 
 
-def _circle(draw: ImageDraw.ImageDraw, p: Point, r: float, fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
+def _circle(
+    draw: ImageDraw.ImageDraw,
+    p: Point,
+    r: float,
+    fill: RGBA,
+    outline: RGBA = OUTLINE,
+    width: float = 1.0,
+) -> None:
     _ellipse(draw, p[0], p[1], r, r, fill, outline, width)
 
 
@@ -308,21 +375,51 @@ class Pose:
             self.x_eye = tt > 0.55
 
 
-def _draw_leg(draw: ImageDraw.ImageDraw, hip: Point, ang: float, lift: float, *, front: bool) -> Point:
+def _draw_leg(
+    draw: ImageDraw.ImageDraw, hip: Point, ang: float, lift: float, *, front: bool
+) -> Point:
     seg1 = 22
     seg2 = 26
-    knee = (hip[0] + seg1 * math.cos(math.radians(ang)), hip[1] + seg1 * math.sin(math.radians(ang)))
-    foot = (knee[0] + seg2 * math.cos(math.radians(ang + 8)), knee[1] + seg2 * math.sin(math.radians(ang + 8)) - lift)
+    knee = (
+        hip[0] + seg1 * math.cos(math.radians(ang)),
+        hip[1] + seg1 * math.sin(math.radians(ang)),
+    )
+    foot = (
+        knee[0] + seg2 * math.cos(math.radians(ang + 8)),
+        knee[1] + seg2 * math.sin(math.radians(ang + 8)) - lift,
+    )
     col = STONE if front else STONE_SHADE
     _line(draw, [hip, knee, foot], col, 8.0 if front else 7.0)
     _line(draw, [hip, knee, foot], OUTLINE, 1.1)
-    _ellipse(draw, foot[0], foot[1] + 4, 10.0, 4.5, STONE_SHADE if front else (90, 94, 104, 255), OUTLINE, 0.7)
+    _ellipse(
+        draw,
+        foot[0],
+        foot[1] + 4,
+        10.0,
+        4.5,
+        STONE_SHADE if front else (90, 94, 104, 255),
+        OUTLINE,
+        0.7,
+    )
     return foot
 
 
-def _draw_arm(draw: ImageDraw.ImageDraw, shoulder: Point, ang: float, length: float, *, front: bool) -> Point:
-    elbow = (shoulder[0] + (length * 0.45) * math.cos(math.radians(ang)), shoulder[1] + (length * 0.45) * math.sin(math.radians(ang)))
-    hand = (shoulder[0] + length * math.cos(math.radians(ang)), shoulder[1] + length * math.sin(math.radians(ang)))
+def _draw_arm(
+    draw: ImageDraw.ImageDraw,
+    shoulder: Point,
+    ang: float,
+    length: float,
+    *,
+    front: bool,
+) -> Point:
+    elbow = (
+        shoulder[0] + (length * 0.45) * math.cos(math.radians(ang)),
+        shoulder[1] + (length * 0.45) * math.sin(math.radians(ang)),
+    )
+    hand = (
+        shoulder[0] + length * math.cos(math.radians(ang)),
+        shoulder[1] + length * math.sin(math.radians(ang)),
+    )
     col = WOOD_SHADE if front else WOOD_DARK
     _line(draw, [shoulder, elbow, hand], col, 6.8 if front else 5.8)
     _line(draw, [shoulder, elbow, hand], OUTLINE, 0.9)
@@ -331,11 +428,16 @@ def _draw_arm(draw: ImageDraw.ImageDraw, shoulder: Point, ang: float, length: fl
 
 
 def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
-    img = Image.new("RGBA", (WORK_FRAME_SIZE[0] * SUPER, WORK_FRAME_SIZE[1] * SUPER), (0, 0, 0, 0))
+    img = Image.new(
+        "RGBA", (WORK_FRAME_SIZE[0] * SUPER, WORK_FRAME_SIZE[1] * SUPER), (0, 0, 0, 0)
+    )
     draw = ImageDraw.Draw(img, "RGBA")
     pose = Pose(anim, frame_idx, nframes)
 
-    root = (WORK_FRAME_SIZE[0] * 0.48 + pose.root_x, WORK_FRAME_SIZE[1] * 0.75 + pose.root_y + pose.bob)
+    root = (
+        WORK_FRAME_SIZE[0] * 0.48 + pose.root_x,
+        WORK_FRAME_SIZE[1] * 0.75 + pose.root_y + pose.bob,
+    )
     body_ang = pose.tilt
 
     def P(x: float, y: float, extra: float = 0.0) -> Point:
@@ -366,15 +468,34 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
     _line(draw, roof_edge, ROOF_HI, 2.0)
     for frac in [0.12, 0.28, 0.44, 0.60, 0.76]:
         ax = _lerp(-86, 92, frac)
-        _line(draw, [P(ax, -170), P(ax - 22, -186 - frac * 16, pose.roof_tilt * 0.8)], ROOF_HI, 0.8)
+        _line(
+            draw,
+            [P(ax, -170), P(ax - 22, -186 - frac * 16, pose.roof_tilt * 0.8)],
+            ROOF_HI,
+            0.8,
+        )
 
     # chimney and smoke
-    chimney = [P(44, -216, pose.chimney), P(68, -216, pose.chimney), P(68, -152), P(44, -152)]
+    chimney = [
+        P(44, -216, pose.chimney),
+        P(68, -216, pose.chimney),
+        P(68, -152),
+        P(44, -152),
+    ]
     _poly(draw, chimney, CHIMNEY, OUTLINE, 0.8)
     if pose.smoke > 0.05:
         sx, sy = P(58, -224, pose.chimney)
         for i, (dx, dy, rr) in enumerate([(0, 0, 8), (10, -12, 9), (2, -22, 10)]):
-            _ellipse(draw, sx + dx, sy + dy - pose.smoke * 6 * i, rr, rr * 0.75, SMOKE, None, 0)
+            _ellipse(
+                draw,
+                sx + dx,
+                sy + dy - pose.smoke * 6 * i,
+                rr,
+                rr * 0.75,
+                SMOKE,
+                None,
+                0,
+            )
 
     # windows / eyes with glasses
     win_l = [P(-54, -136), P(-8, -136), P(-8, -94), P(-54, -94)]
@@ -385,8 +506,8 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
         x0, y0 = pts[0]
         x1, _ = pts[1]
         _, y1 = pts[2]
-        _line(draw, [((x0+x1)/2, y0), ((x0+x1)/2, y1)], WINDOW_SHADE, 0.8)
-        _line(draw, [(x0, (y0+y1)/2), (x1, (y0+y1)/2)], WINDOW_SHADE, 0.8)
+        _line(draw, [((x0 + x1) / 2, y0), ((x0 + x1) / 2, y1)], WINDOW_SHADE, 0.8)
+        _line(draw, [(x0, (y0 + y1) / 2), (x1, (y0 + y1) / 2)], WINDOW_SHADE, 0.8)
     _line(draw, [P(-48, -132), P(-18, -102)], GLASS_HI, 0.8)
     _line(draw, [P(14, -132), P(44, -102)], GLASS_HI, 0.8)
 
@@ -420,7 +541,16 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
     _poly(draw, door, DOOR, OUTLINE, 1.0)
     _line(draw, [P(0, -68), P(0, -14)], DOOR_SHADE, 0.8)
     if pose.mouth_open > 0.03:
-        _ellipse(draw, P(0, -40)[0], P(0, -40)[1], 11.0, 6.0 + pose.mouth_open * 14.0, MOUTH, OUTLINE, 0.5)
+        _ellipse(
+            draw,
+            P(0, -40)[0],
+            P(0, -40)[1],
+            11.0,
+            6.0 + pose.mouth_open * 14.0,
+            MOUTH,
+            OUTLINE,
+            0.5,
+        )
         _poly(draw, [P(-4, -34), P(0, -28), P(4, -34)], TONGUE, OUTLINE, 0.3)
     else:
         _line(draw, [P(-12, -40), P(0, -36), P(12, -40)], MOUTH, 0.9)
@@ -428,7 +558,9 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
 
     # front leg and front arm
     near_hip = P(-18, -12)
-    near_foot = _draw_leg(draw, near_hip, 94 + pose.left_leg, pose.left_lift, front=True)
+    near_foot = _draw_leg(
+        draw, near_hip, 94 + pose.left_leg, pose.left_lift, front=True
+    )
     near_shoulder = P(-60, -126)
     near_hand = _draw_arm(draw, near_shoulder, 154 - pose.left_arm, 38, front=True)
 
@@ -440,12 +572,34 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
     # props / fx
     if anim == "ponder" and pose.book > 0.05:
         bx, by = near_hand[0] - 10, near_hand[1] - 2
-        _poly(draw, [(bx - 10, by - 8), (bx + 6, by - 10), (bx + 10, by + 8), (bx - 6, by + 10)], BOOK, OUTLINE, 0.5)
+        _poly(
+            draw,
+            [
+                (bx - 10, by - 8),
+                (bx + 6, by - 10),
+                (bx + 10, by + 8),
+                (bx - 6, by + 10),
+            ],
+            BOOK,
+            OUTLINE,
+            0.5,
+        )
         _line(draw, [(bx - 2, by - 6), (bx + 4, by + 6)], BOOK_PAPER, 0.8)
         _line(draw, [(bx - 7, by - 4), (bx + 0, by + 8)], BOOK_PAPER, 0.6)
     if anim == "lecture" and pose.paper > 0.05:
         px, py = far_hand[0] + 12, far_hand[1] - 4
-        _poly(draw, [(px - 9, py - 12), (px + 7, py - 10), (px + 10, py + 10), (px - 8, py + 12)], PAPER, OUTLINE, 0.45)
+        _poly(
+            draw,
+            [
+                (px - 9, py - 12),
+                (px + 7, py - 10),
+                (px + 10, py + 10),
+                (px - 8, py + 12),
+            ],
+            PAPER,
+            OUTLINE,
+            0.45,
+        )
         _line(draw, [(px - 5, py - 6), (px + 3, py - 4)], WOOD_DARK, 0.5)
         _line(draw, [(px - 4, py), (px + 4, py + 2)], WOOD_DARK, 0.5)
         _line(draw, [(px - 3, py + 6), (px + 5, py + 8)], WOOD_DARK, 0.5)
@@ -459,7 +613,21 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
         for ang in [-60, -30, 0, 30, 60]:
             r0 = 20
             r1 = 30 + pose.idea * 6
-            _line(draw, [(bx + math.cos(math.radians(ang)) * r0, by + math.sin(math.radians(ang)) * r0), (bx + math.cos(math.radians(ang)) * r1, by + math.sin(math.radians(ang)) * r1)], FX, 1.0)
+            _line(
+                draw,
+                [
+                    (
+                        bx + math.cos(math.radians(ang)) * r0,
+                        by + math.sin(math.radians(ang)) * r0,
+                    ),
+                    (
+                        bx + math.cos(math.radians(ang)) * r1,
+                        by + math.sin(math.radians(ang)) * r1,
+                    ),
+                ],
+                FX,
+                1.0,
+            )
     if anim == "ram" and pose.impact > 0.15:
         cx, cy = P(96, -108)
         box = (_s(cx - 36), _s(cy - 26), _s(cx + 42), _s(cy + 36))
@@ -467,7 +635,18 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
     if anim in {"walk", "ram"} and (pose.left_lift > 0.5 or pose.right_lift > 0.5):
         for dx in [-30, -8, 14, 34]:
             c = (near_foot[0] + dx, near_foot[1] + 8)
-            _poly(draw, [(c[0] - 3, c[1]), (c[0], c[1] - 4), (c[0] + 4, c[1] - 1), (c[0] + 1, c[1] + 3)], DUST, None, 0)
+            _poly(
+                draw,
+                [
+                    (c[0] - 3, c[1]),
+                    (c[0], c[1] - 4),
+                    (c[0] + 4, c[1] - 1),
+                    (c[0] + 1, c[1] + 3),
+                ],
+                DUST,
+                None,
+                0,
+            )
 
     return _downsample(img)
 
@@ -478,7 +657,9 @@ def render(out_dir: str | Path, **opts) -> List[Path]:
     outputs = build_sheet(
         target=TARGET_NAME,
         rows=ROWS,
-        render_fn=lambda anim, frame_idx, nframes: _render_frame(anim, frame_idx, nframes),
+        render_fn=lambda anim, frame_idx, nframes: _render_frame(
+            anim, frame_idx, nframes
+        ),
         out_dir=out_dir,
         frame_size=opts.get("frame_size", FRAME_SIZE),
         crop_margin=10,
@@ -497,8 +678,14 @@ def render(out_dir: str | Path, **opts) -> List[Path]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Render the standalone Smart House sprite sheet.")
-    parser.add_argument("--out-dir", type=Path, default=Path(__file__).resolve().parents[2] / "generated" / TARGET_NAME)
+    parser = argparse.ArgumentParser(
+        description="Render the standalone Smart House sprite sheet."
+    )
+    parser.add_argument(
+        "--out-dir",
+        type=Path,
+        default=Path(__file__).resolve().parents[2] / "generated" / TARGET_NAME,
+    )
     args = parser.parse_args(argv)
     for path in render(args.out_dir):
         print(path)

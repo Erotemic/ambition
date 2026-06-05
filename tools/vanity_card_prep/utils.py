@@ -11,6 +11,7 @@ CONFIG_PATH = os.path.join(SCRIPT_DIR, "config.yaml")
 
 def load_config() -> dict:
     import yaml
+
     with open(CONFIG_PATH) as f:
         return yaml.safe_load(f)
 
@@ -29,8 +30,10 @@ def src_path(config: dict, *parts: str) -> str:
 
 # ── Chroma key ────────────────────────────────────────────────────────────────
 
-def chroma_key(img: Image.Image, inner: float = 25.0, outer: float = 70.0,
-               spill: bool = True) -> Image.Image:
+
+def chroma_key(
+    img: Image.Image, inner: float = 25.0, outer: float = 70.0, spill: bool = True
+) -> Image.Image:
     """
     Remove a green-screen background, adapting to the actual background colour
     sampled from image corners.  Returns an RGBA image.
@@ -39,7 +42,12 @@ def chroma_key(img: Image.Image, inner: float = 25.0, outer: float = 70.0,
     arr = np.array(rgba, dtype=np.float32)
     h, w = arr.shape[:2]
 
-    corners = [arr[0, 0, :3], arr[0, w-1, :3], arr[h-1, 0, :3], arr[h-1, w-1, :3]]
+    corners = [
+        arr[0, 0, :3],
+        arr[0, w - 1, :3],
+        arr[h - 1, 0, :3],
+        arr[h - 1, w - 1, :3],
+    ]
     greenish = [p for p in corners if p[1] - p[0] > 20 and p[1] - p[2] > 20]
     bg = np.median(greenish if greenish else corners, axis=0)
 
@@ -79,12 +87,14 @@ def cleanup_green_residue(img: Image.Image) -> Image.Image:
 
 # ── Flat background removal ───────────────────────────────────────────────────
 
+
 def remove_flat_bg(img: Image.Image, tolerance: int = 25) -> Image.Image:
     """
     Remove a uniform flat background by BFS flood-fill from the four borders.
     Returns RGBA with background pixels set to alpha=0.
     """
     from collections import deque
+
     rgba = img.convert("RGBA")
     arr = np.array(rgba)
 
@@ -113,7 +123,12 @@ def remove_flat_bg(img: Image.Image, tolerance: int = 25) -> Image.Image:
         y, x = queue.popleft()
         for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1)):
             ny, nx = y + dy, x + dx
-            if 0 <= ny < h and 0 <= nx < w and not visited[ny, nx] and candidate[ny, nx]:
+            if (
+                0 <= ny < h
+                and 0 <= nx < w
+                and not visited[ny, nx]
+                and candidate[ny, nx]
+            ):
                 visited[ny, nx] = True
                 queue.append((ny, nx))
 
@@ -124,8 +139,10 @@ def remove_flat_bg(img: Image.Image, tolerance: int = 25) -> Image.Image:
 
 # ── Content span detection ────────────────────────────────────────────────────
 
-def find_content_spans(has_content: np.ndarray, min_gap: int = 15,
-                       min_size: int = 40) -> list:
+
+def find_content_spans(
+    has_content: np.ndarray, min_gap: int = 15, min_size: int = 40
+) -> list:
     """
     Return list of (start, end) pairs for runs of True values in has_content.
     Gaps shorter than min_gap are bridged; spans shorter than min_size dropped.
@@ -161,6 +178,7 @@ def find_content_spans(has_content: np.ndarray, min_gap: int = 15,
 
 
 # ── Misc image helpers ────────────────────────────────────────────────────────
+
 
 def tight_crop(img: Image.Image, margin: int = 4) -> Image.Image:
     bbox = img.getbbox()

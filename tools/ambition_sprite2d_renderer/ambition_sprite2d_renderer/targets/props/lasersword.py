@@ -124,7 +124,9 @@ def render_frame(animation: str, frame_idx: int, nframes: int) -> Image.Image:
                 (sx - rad, sy - rad, sx + rad, sy + rad),
                 fill=lc.with_alpha(lc.BLADE_HALO, int(220 * (1.0 - t))),
             )
-        spark_layer = spark_layer.filter(ImageFilter.GaussianBlur(radius=max(2, int(lc.SUPER * 0.55))))
+        spark_layer = spark_layer.filter(
+            ImageFilter.GaussianBlur(radius=max(2, int(lc.SUPER * 0.55)))
+        )
         spark_layer = spark_layer.resize(FRAME_SIZE, Image.Resampling.LANCZOS)
         base.alpha_composite(spark_layer)
         # Only the blade fades during dissipate (handled by
@@ -145,11 +147,17 @@ def frame_meta(animation: str, frame_idx: int, nframes: int) -> dict:
     return {
         "anchors": {
             "grip": {"x": round(anchors.grip[0], 2), "y": round(anchors.grip[1], 2)},
-            "pommel": {"x": round(anchors.pommel[0], 2), "y": round(anchors.pommel[1], 2)},
+            "pommel": {
+                "x": round(anchors.pommel[0], 2),
+                "y": round(anchors.pommel[1], 2),
+            },
             "guard": {"x": round(anchors.guard[0], 2), "y": round(anchors.guard[1], 2)},
             "tip": {"x": round(anchors.tip[0], 2), "y": round(anchors.tip[1], 2)},
         },
-        "forward": {"x": round(anchors.forward[0], 4), "y": round(anchors.forward[1], 4)},
+        "forward": {
+            "x": round(anchors.forward[0], 4),
+            "y": round(anchors.forward[1], 4),
+        },
         "blade_angle_deg": round(anchors.angle_deg, 2),
     }
 

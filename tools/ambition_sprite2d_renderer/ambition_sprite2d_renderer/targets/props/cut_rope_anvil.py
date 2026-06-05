@@ -43,7 +43,10 @@ ACTOR_METADATA = {
     },
     "sockets": {
         "hang": {"source": f"{TARGET_NAME}.geometry", "point": {"x": 64.0, "y": 8.0}},
-        "impact": {"source": f"{TARGET_NAME}.geometry", "point": {"x": 64.0, "y": 88.0}},
+        "impact": {
+            "source": f"{TARGET_NAME}.geometry",
+            "point": {"x": 64.0, "y": 88.0},
+        },
     },
     "tags": ["prop", "trap", "anvil", "boss-arena"],
 }
@@ -87,12 +90,23 @@ def _draw_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
     y = 0.0
 
     # Hanging eye/strap at the top.
-    draw.rectangle(_box(58, 2 + y, 70, 16 + y), fill=STRAP, outline=OUTLINE, width=_s(1.0))
+    draw.rectangle(
+        _box(58, 2 + y, 70, 16 + y), fill=STRAP, outline=OUTLINE, width=_s(1.0)
+    )
     draw.ellipse(_box(54, 3 + y, 74, 21 + y), outline=OUTLINE, width=_s(2.0))
     draw.ellipse(_box(59, 8 + y, 69, 18 + y), outline=METAL_LIGHT, width=_s(1.2))
 
     # Top face and horn. Broad classic blacksmith anvil silhouette.
-    horn = _poly([(13, 34 + y), (40, 23 + y), (90, 23 + y), (116, 34 + y), (93, 43 + y), (36, 43 + y)])
+    horn = _poly(
+        [
+            (13, 34 + y),
+            (40, 23 + y),
+            (90, 23 + y),
+            (116, 34 + y),
+            (93, 43 + y),
+            (36, 43 + y),
+        ]
+    )
     draw.polygon(horn, fill=METAL_MID, outline=OUTLINE)
     draw.line(_poly([(39, 25 + y), (89, 25 + y)]), fill=RIM, width=_s(1.6))
 
@@ -107,14 +121,18 @@ def _draw_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
     draw.rectangle(_box(18, 33 + y, 39, 38 + y), fill=METAL_LIGHT)
 
     # Waist and base.
-    draw.rectangle(_box(51, 67 + y, 78, 79 + y), fill=METAL_MID, outline=OUTLINE, width=_s(1.0))
+    draw.rectangle(
+        _box(51, 67 + y, 78, 79 + y), fill=METAL_MID, outline=OUTLINE, width=_s(1.0)
+    )
     base = _poly([(31, 78 + y), (98, 78 + y), (111, 89 + y), (18, 89 + y)])
     draw.polygon(base, fill=METAL_DARK, outline=OUTLINE)
     draw.rectangle(_box(29, 79 + y, 100, 84 + y), fill=METAL_LIGHT, outline=None)
     draw.line(_poly([(22, 88 + y), (106, 88 + y)]), fill=OUTLINE, width=_s(1.0))
 
     # White-edge chips on the corners.
-    draw.line(_poly([(96, 31 + y), (105, 34 + y), (96, 38 + y)]), fill=RIM, width=_s(1.2))
+    draw.line(
+        _poly([(96, 31 + y), (105, 34 + y), (96, 38 + y)]), fill=RIM, width=_s(1.2)
+    )
     draw.line(_poly([(37, 70 + y), (47, 70 + y)]), fill=RIM, width=_s(1.0))
 
     return img.resize(FRAME_SIZE, Image.Resampling.LANCZOS)

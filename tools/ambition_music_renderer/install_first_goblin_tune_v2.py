@@ -9,6 +9,7 @@ hash-free filename under
 The Rust loader (``crates/ambition_sandbox/src/generated_music.rs``) targets
 those stable filenames, so re-rendering the cue does not require Rust changes.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -39,7 +40,9 @@ def find_manifest(src: Path) -> Path:
         reverse=True,
     )
     if not matches:
-        raise SystemExit(f"no adaptive manifest matching {CUE_ID}_*.adaptive_manifest.json in {src}")
+        raise SystemExit(
+            f"no adaptive manifest matching {CUE_ID}_*.adaptive_manifest.json in {src}"
+        )
     return matches[0]
 
 
@@ -74,7 +77,9 @@ def install_stable(
                 shutil.copy2(src_full, dst_full)
                 written.append(dst_full)
     if missing:
-        raise SystemExit("missing expected renderer outputs:\n  " + "\n  ".join(missing))
+        raise SystemExit(
+            "missing expected renderer outputs:\n  " + "\n  ".join(missing)
+        )
     return written
 
 
@@ -144,7 +149,9 @@ def main() -> int:
     src = Path(args.src).resolve()
     if not (src / "adaptive").exists():
         print(f"error: no adaptive directory at {src}", file=sys.stderr)
-        print("       run ./scripts/regen_first_goblin_tune_v2.sh first.", file=sys.stderr)
+        print(
+            "       run ./scripts/regen_first_goblin_tune_v2.sh first.", file=sys.stderr
+        )
         return 2
 
     manifest_path = find_manifest(src)

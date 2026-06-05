@@ -21,6 +21,7 @@ A handful of non-pirate characters that happened to look pirate-ish
 `draw_character` palette branches — see the per-kind switches inside
 the body-draw helpers.
 """
+
 from __future__ import annotations
 
 import math
@@ -138,9 +139,9 @@ PALETTES = {
         skin=(112, 76, 50, 255),
         skin_shadow=(72, 46, 28, 255),
         hat=(20, 24, 30, 255),
-        coat=(28, 92, 92, 255),       # deep teal
-        coat2=(206, 178, 92, 255),    # warm gold trim
-        sash=(160, 38, 38, 255),      # bright crimson sash for contrast
+        coat=(28, 92, 92, 255),  # deep teal
+        coat2=(206, 178, 92, 255),  # warm gold trim
+        sash=(160, 38, 38, 255),  # bright crimson sash for contrast
         shirt=(238, 226, 198, 255),
         pants=(46, 42, 38, 255),
         boots=(54, 36, 22, 255),
@@ -165,10 +166,10 @@ PALETTES = {
         # Deep brown skin in the Quartermaster range, slightly warmer.
         skin=(118, 80, 56, 255),
         skin_shadow=(76, 48, 32, 255),
-        hat=(24, 28, 38, 255),       # dark navy cap
-        coat=(176, 60, 88, 255),     # raspberry coat
+        hat=(24, 28, 38, 255),  # dark navy cap
+        coat=(176, 60, 88, 255),  # raspberry coat
         coat2=(232, 200, 132, 255),  # buttery trim
-        sash=(48, 36, 28, 255),      # dark leather sash
+        sash=(48, 36, 28, 255),  # dark leather sash
         shirt=(244, 232, 208, 255),
         pants=(52, 38, 32, 255),
         boots=(60, 38, 22, 255),
@@ -184,10 +185,10 @@ PALETTES = {
         # brown so the cove lineup reads as five different people.
         skin=(238, 206, 178, 255),
         skin_shadow=(196, 152, 116, 255),
-        hat=(72, 24, 48, 255),       # plum hat
-        coat=(46, 64, 96, 255),      # midnight navy coat
+        hat=(72, 24, 48, 255),  # plum hat
+        coat=(46, 64, 96, 255),  # midnight navy coat
         coat2=(214, 198, 174, 255),  # bone trim
-        sash=(212, 168, 64, 255),    # gold sash
+        sash=(212, 168, 64, 255),  # gold sash
         shirt=(244, 240, 232, 255),
         pants=(58, 50, 48, 255),
         boots=(64, 44, 28, 255),
@@ -324,6 +325,7 @@ def animation_pose(anim, frame_idx, nframes):
         pose["x_eyes"] = tt > 0.55
     return pose
 
+
 def draw_boot(draw, center, w, h, angle, pal, foot_forward=1):
     pts = rotated_rect_points(center, w, h * 0.58, angle)
     poly(draw, pts, pal.boots, pal.outline, width=3)
@@ -365,7 +367,15 @@ def draw_human_neck(draw, chest, head_center, global_tilt, pal, kind="pirate_adm
     poly(draw, pts, neck_fill, pal.outline, width=3)
 
     # Throat / shading line.
-    line(draw, [((pts[0][0] + pts[1][0]) / 2 + 1, (pts[0][1] + pts[1][1]) / 2), (top[0] + 1, top[1] - 2)], pal.skin_shadow, width=2)
+    line(
+        draw,
+        [
+            ((pts[0][0] + pts[1][0]) / 2 + 1, (pts[0][1] + pts[1][1]) / 2),
+            (top[0] + 1, top[1] - 2),
+        ],
+        pal.skin_shadow,
+        width=2,
+    )
 
     # Shirt collar / cravat for a more human look.
     collar_left = [
@@ -384,22 +394,40 @@ def draw_human_neck(draw, chest, head_center, global_tilt, pal, kind="pirate_adm
     poly(draw, collar_right, pal.shirt, pal.outline, width=2)
 
     if kind == "pirate_admiral":
-        knot = rotated_rect_points(transform((0, -2), chest, deg=global_tilt), 10, 8, global_tilt)
-        tail_l = [transform(p, chest, deg=global_tilt) for p in [(-2, 2), (-10, 16), (-3, 18), (1, 8)]]
-        tail_r = [transform(p, chest, deg=global_tilt) for p in [(2, 2), (10, 16), (4, 18), (-1, 8)]]
+        knot = rotated_rect_points(
+            transform((0, -2), chest, deg=global_tilt), 10, 8, global_tilt
+        )
+        tail_l = [
+            transform(p, chest, deg=global_tilt)
+            for p in [(-2, 2), (-10, 16), (-3, 18), (1, 8)]
+        ]
+        tail_r = [
+            transform(p, chest, deg=global_tilt)
+            for p in [(2, 2), (10, 16), (4, 18), (-1, 8)]
+        ]
         poly(draw, knot, pal.sash, pal.outline, width=2)
         poly(draw, tail_l, pal.sash, pal.outline, width=2)
         poly(draw, tail_r, pal.sash, pal.outline, width=2)
     else:
-        scarf = [transform(p, chest, deg=global_tilt) for p in [(-7, -4), (8, -4), (5, 10), (-9, 8)]]
+        scarf = [
+            transform(p, chest, deg=global_tilt)
+            for p in [(-7, -4), (8, -4), (5, 10), (-9, 8)]
+        ]
         poly(draw, scarf, pal.accent or pal.coat2, pal.outline, width=2)
+
 
 def draw_hat(draw, head_center, hat_scale, pal, skull=False, tilt=0.0):
     hx, hy = head_center
     brim_local = [(-44, -38), (-16, -48), (18, -46), (44, -36), (16, -30), (-20, -31)]
     crown_local = [(-18, -34), (-8, -62), (8, -63), (18, -34)]
-    brim = [transform((x * hat_scale, y * hat_scale), head_center, deg=tilt) for x, y in brim_local]
-    crown = [transform((x * hat_scale, y * hat_scale), head_center, deg=tilt) for x, y in crown_local]
+    brim = [
+        transform((x * hat_scale, y * hat_scale), head_center, deg=tilt)
+        for x, y in brim_local
+    ]
+    crown = [
+        transform((x * hat_scale, y * hat_scale), head_center, deg=tilt)
+        for x, y in crown_local
+    ]
     poly(draw, brim, pal.hat, pal.outline, width=4)
     poly(draw, crown, pal.hat, pal.outline, width=4)
     if skull:
@@ -413,20 +441,50 @@ def draw_hat(draw, head_center, hat_scale, pal, skull=False, tilt=0.0):
         line(draw, [l3, l4], pal.outline, width=2)
 
 
-def draw_face(draw, head_bbox, pal, eyepatch=False, beard=False, mean=False, x_eyes=False, blink=False, mouth_open=0.0):
+def draw_face(
+    draw,
+    head_bbox,
+    pal,
+    eyepatch=False,
+    beard=False,
+    mean=False,
+    x_eyes=False,
+    blink=False,
+    mouth_open=0.0,
+):
     x1, y1, x2, y2 = head_bbox
     ellipse(draw, head_bbox, pal.skin, pal.outline, width=4)
-    nose = [(lerp(x1, x2, 0.53), lerp(y1, y2, 0.42)), (lerp(x1, x2, 0.60), lerp(y1, y2, 0.56)), (lerp(x1, x2, 0.52), lerp(y1, y2, 0.60))]
+    nose = [
+        (lerp(x1, x2, 0.53), lerp(y1, y2, 0.42)),
+        (lerp(x1, x2, 0.60), lerp(y1, y2, 0.56)),
+        (lerp(x1, x2, 0.52), lerp(y1, y2, 0.60)),
+    ]
     line(draw, nose, pal.skin_shadow, width=3)
     brow_y = lerp(y1, y2, 0.34)
     eye_y = lerp(y1, y2, 0.43)
     if x_eyes:
         for ex in [lerp(x1, x2, 0.38), lerp(x1, x2, 0.61)]:
-            line(draw, [(ex - 6, eye_y - 6), (ex + 6, eye_y + 6)], pal.accent or (255, 255, 255, 255), width=3)
-            line(draw, [(ex - 6, eye_y + 6), (ex + 6, eye_y - 6)], pal.accent or (255, 255, 255, 255), width=3)
+            line(
+                draw,
+                [(ex - 6, eye_y - 6), (ex + 6, eye_y + 6)],
+                pal.accent or (255, 255, 255, 255),
+                width=3,
+            )
+            line(
+                draw,
+                [(ex - 6, eye_y + 6), (ex + 6, eye_y - 6)],
+                pal.accent or (255, 255, 255, 255),
+                width=3,
+            )
     else:
-        left_brow = [(lerp(x1, x2, 0.28), brow_y + (3 if mean else 0)), (lerp(x1, x2, 0.43), brow_y - (4 if mean else 1))]
-        right_brow = [(lerp(x1, x2, 0.56), brow_y - (4 if mean else 1)), (lerp(x1, x2, 0.72), brow_y + (3 if mean else 0))]
+        left_brow = [
+            (lerp(x1, x2, 0.28), brow_y + (3 if mean else 0)),
+            (lerp(x1, x2, 0.43), brow_y - (4 if mean else 1)),
+        ]
+        right_brow = [
+            (lerp(x1, x2, 0.56), brow_y - (4 if mean else 1)),
+            (lerp(x1, x2, 0.72), brow_y + (3 if mean else 0)),
+        ]
         line(draw, left_brow, pal.outline, width=4)
         line(draw, right_brow, pal.outline, width=4)
         if eyepatch:
@@ -435,24 +493,58 @@ def draw_face(draw, head_bbox, pal, eyepatch=False, beard=False, mean=False, x_e
             line(draw, [(x1 + 8, eye_y - 10), (x2 - 4, eye_y - 4)], pal.hat, width=3)
         else:
             if blink:
-                line(draw, [(lerp(x1, x2, 0.31), eye_y), (lerp(x1, x2, 0.40), eye_y + 1)], pal.outline, width=3)
+                line(
+                    draw,
+                    [(lerp(x1, x2, 0.31), eye_y), (lerp(x1, x2, 0.40), eye_y + 1)],
+                    pal.outline,
+                    width=3,
+                )
             else:
-                ellipse(draw, (lerp(x1, x2, 0.31), eye_y - 4, lerp(x1, x2, 0.40), eye_y + 4), (255,255,255,255), pal.outline, width=2)
+                ellipse(
+                    draw,
+                    (lerp(x1, x2, 0.31), eye_y - 4, lerp(x1, x2, 0.40), eye_y + 4),
+                    (255, 255, 255, 255),
+                    pal.outline,
+                    width=2,
+                )
                 circle(draw, (lerp(x1, x2, 0.36), eye_y), 2, pal.outline)
         if blink:
-            line(draw, [(lerp(x1, x2, 0.58), eye_y), (lerp(x1, x2, 0.67), eye_y + 1)], pal.outline, width=3)
+            line(
+                draw,
+                [(lerp(x1, x2, 0.58), eye_y), (lerp(x1, x2, 0.67), eye_y + 1)],
+                pal.outline,
+                width=3,
+            )
         else:
-            ellipse(draw, (lerp(x1, x2, 0.58), eye_y - 4, lerp(x1, x2, 0.67), eye_y + 4), (255,255,255,255), pal.outline, width=2)
+            ellipse(
+                draw,
+                (lerp(x1, x2, 0.58), eye_y - 4, lerp(x1, x2, 0.67), eye_y + 4),
+                (255, 255, 255, 255),
+                pal.outline,
+                width=2,
+            )
             circle(draw, (lerp(x1, x2, 0.62), eye_y), 2, pal.outline)
     mouth_mid = lerp(y1, y2, 0.80) + mouth_open * 10.0
-    mouth = [(lerp(x1, x2, 0.38), lerp(y1, y2, 0.76)), (lerp(x1, x2, 0.51), mouth_mid), (lerp(x1, x2, 0.67), lerp(y1, y2, 0.73))]
+    mouth = [
+        (lerp(x1, x2, 0.38), lerp(y1, y2, 0.76)),
+        (lerp(x1, x2, 0.51), mouth_mid),
+        (lerp(x1, x2, 0.67), lerp(y1, y2, 0.73)),
+    ]
     line(draw, mouth, pal.outline, width=3)
     if beard and pal.beard:
-        beard_pts = [(lerp(x1,x2,0.23), lerp(y1,y2,0.63)), (lerp(x1,x2,0.50), lerp(y1,y2,0.94)), (lerp(x1,x2,0.80), lerp(y1,y2,0.62)), (lerp(x1,x2,0.69), lerp(y1,y2,0.86)), (lerp(x1,x2,0.38), lerp(y1,y2,0.86))]
+        beard_pts = [
+            (lerp(x1, x2, 0.23), lerp(y1, y2, 0.63)),
+            (lerp(x1, x2, 0.50), lerp(y1, y2, 0.94)),
+            (lerp(x1, x2, 0.80), lerp(y1, y2, 0.62)),
+            (lerp(x1, x2, 0.69), lerp(y1, y2, 0.86)),
+            (lerp(x1, x2, 0.38), lerp(y1, y2, 0.86)),
+        ]
         poly(draw, beard_pts, pal.beard, pal.outline, width=3)
 
 
-def draw_character(kind: str, anim: str, frame_idx: int, nframes: int, frame_size=BASE_FRAME) -> Image.Image:
+def draw_character(
+    kind: str, anim: str, frame_idx: int, nframes: int, frame_size=BASE_FRAME
+) -> Image.Image:
     pal = PALETTES[kind]
     w, h = frame_size[0] * SCALE, frame_size[1] * SCALE
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
@@ -463,11 +555,16 @@ def draw_character(kind: str, anim: str, frame_idx: int, nframes: int, frame_siz
     ground = h * 0.83
     bob = pose["bob"] * SCALE
     root = (cx, ground + bob)
-    global_tilt = pose["body_tilt"] + (5 if kind in SCARFED_KINDS and anim == "taunt" else 0)
+    global_tilt = pose["body_tilt"] + (
+        5 if kind in SCARFED_KINDS and anim == "taunt" else 0
+    )
     death_t = pose["death_t"]
 
     # Whole body offsets / lean for death.
-    char_origin = (root[0] + pose["root_x"] * SCALE + death_t * 12 * SCALE, root[1] + death_t * 5 * SCALE)
+    char_origin = (
+        root[0] + pose["root_x"] * SCALE + death_t * 12 * SCALE,
+        root[1] + death_t * 5 * SCALE,
+    )
 
     # No baked drop shadow. A shadow ellipse below the feet extends the
     # auto-crop bbox downward, which moves the cropped frame's "bottom"
@@ -479,7 +576,9 @@ def draw_character(kind: str, anim: str, frame_idx: int, nframes: int, frame_siz
     # Local joints.
     hip = transform((0, -60), char_origin, deg=global_tilt)
     chest = transform((0, -124 + pose["shoulder_bounce"]), char_origin, deg=global_tilt)
-    head_center = transform((8, -202 + pose["head_y"]), char_origin, deg=global_tilt + pose["head_tilt"])
+    head_center = transform(
+        (8, -202 + pose["head_y"]), char_origin, deg=global_tilt + pose["head_tilt"]
+    )
 
     # Back arm / weapon arm first.
     if kind == "pirate_admiral":
@@ -501,8 +600,12 @@ def draw_character(kind: str, anim: str, frame_idx: int, nframes: int, frame_siz
     right_hip = transform((18, -56), char_origin, deg=global_tilt)
     left_knee = transform((-4, 30), left_hip, deg=pose["left_leg"])
     right_knee = transform((4, 30), right_hip, deg=pose["right_leg"])
-    left_foot = transform((-8, 30 - pose["left_foot_lift"]), left_knee, deg=pose["left_leg"] * 0.3)
-    right_foot = transform((8, 30 - pose["right_foot_lift"]), right_knee, deg=pose["right_leg"] * 0.3)
+    left_foot = transform(
+        (-8, 30 - pose["left_foot_lift"]), left_knee, deg=pose["left_leg"] * 0.3
+    )
+    right_foot = transform(
+        (8, 30 - pose["right_foot_lift"]), right_knee, deg=pose["right_leg"] * 0.3
+    )
 
     for hip_pt, knee_pt, foot_pt, ang in [
         (left_hip, left_knee, left_foot, pose["left_leg"]),
@@ -513,22 +616,49 @@ def draw_character(kind: str, anim: str, frame_idx: int, nframes: int, frame_siz
         draw_boot(draw, foot_pt, 24, 18, ang * 0.2, pal)
 
     # Body / shirt / coat
-    torso_pts = [transform(p, chest, deg=global_tilt) for p in [(-34, -8), (30, -8), (42, 58), (0, 76), (-44, 58)]]
+    torso_pts = [
+        transform(p, chest, deg=global_tilt)
+        for p in [(-34, -8), (30, -8), (42, 58), (0, 76), (-44, 58)]
+    ]
     poly(draw, torso_pts, pal.coat, pal.outline, width=5)
-    shirt_pts = [transform(p, chest, deg=global_tilt) for p in [(-10, -4), (18, -4), (14, 52), (-16, 52)]]
+    shirt_pts = [
+        transform(p, chest, deg=global_tilt)
+        for p in [(-10, -4), (18, -4), (14, 52), (-16, 52)]
+    ]
     poly(draw, shirt_pts, pal.shirt, pal.outline, width=4)
-    lapel_left = [transform(p, chest, deg=global_tilt) for p in [(-16, -6), (-2, 16), (-10, 44), (-20, 18)]]
-    lapel_right = [transform(p, chest, deg=global_tilt) for p in [(8, -6), (20, 16), (16, 42), (4, 18)]]
+    lapel_left = [
+        transform(p, chest, deg=global_tilt)
+        for p in [(-16, -6), (-2, 16), (-10, 44), (-20, 18)]
+    ]
+    lapel_right = [
+        transform(p, chest, deg=global_tilt)
+        for p in [(8, -6), (20, 16), (16, 42), (4, 18)]
+    ]
     poly(draw, lapel_left, pal.coat2, pal.outline, width=3)
     poly(draw, lapel_right, pal.coat2, pal.outline, width=3)
-    sash_box = rotated_rect_points(transform((0, 24), chest, deg=global_tilt), 44, 12, global_tilt)
+    sash_box = rotated_rect_points(
+        transform((0, 24), chest, deg=global_tilt), 44, 12, global_tilt
+    )
     poly(draw, sash_box, pal.sash, pal.outline, width=3)
     for bx in [-10, 0, 10]:
-        circle(draw, transform((bx, 4), chest, deg=global_tilt), 3, pal.gold, pal.outline, width=1)
+        circle(
+            draw,
+            transform((bx, 4), chest, deg=global_tilt),
+            3,
+            pal.gold,
+            pal.outline,
+            width=1,
+        )
 
     coat_sway = pose["coat_sway"]
-    tail_left = [transform(p, hip, deg=global_tilt + coat_sway) for p in [(-36, 0), (-8, -2), (-8, 48), (-30, 58)]]
-    tail_right = [transform(p, hip, deg=global_tilt - coat_sway) for p in [(8, -2), (34, 0), (28, 58), (6, 48)]]
+    tail_left = [
+        transform(p, hip, deg=global_tilt + coat_sway)
+        for p in [(-36, 0), (-8, -2), (-8, 48), (-30, 58)]
+    ]
+    tail_right = [
+        transform(p, hip, deg=global_tilt - coat_sway)
+        for p in [(8, -2), (34, 0), (28, 58), (6, 48)]
+    ]
     poly(draw, tail_left, pal.coat, pal.outline, width=4)
     poly(draw, tail_right, pal.coat, pal.outline, width=4)
 
@@ -539,7 +669,12 @@ def draw_character(kind: str, anim: str, frame_idx: int, nframes: int, frame_siz
     line(draw, [back_shoulder, back_elbow, back_hand], pal.outline, width=4)
     circle(draw, back_hand, 7, pal.skin, pal.outline, width=2)
     if anim == "taunt":
-        line(draw, [transform((0,-10), back_hand), transform((10,-22), back_hand)], pal.outline, width=3)
+        line(
+            draw,
+            [transform((0, -10), back_hand), transform((10, -22), back_hand)],
+            pal.outline,
+            width=3,
+        )
 
     # Front arm / weapon
     front_elbow = transform((6, 50), front_shoulder, deg=pose["right_arm"])
@@ -547,28 +682,88 @@ def draw_character(kind: str, anim: str, frame_idx: int, nframes: int, frame_siz
     line(draw, [front_shoulder, front_elbow, front_hand], pal.coat, width=13)
     line(draw, [front_shoulder, front_elbow, front_hand], pal.outline, width=4)
     circle(draw, front_hand, 8, pal.skin, pal.outline, width=2)
-    draw_sword(draw, front_hand, pose["weapon"], 92 if kind == "pirate_admiral" else 86, pal, curve=(16 if kind in SCARFED_KINDS else 5))
+    draw_sword(
+        draw,
+        front_hand,
+        pose["weapon"],
+        92 if kind == "pirate_admiral" else 86,
+        pal,
+        curve=(16 if kind in SCARFED_KINDS else 5),
+    )
     if anim == "slash":
-        arc_box = (front_hand[0] - 70, front_hand[1] - 96, front_hand[0] + 110, front_hand[1] + 76)
+        arc_box = (
+            front_hand[0] - 70,
+            front_hand[1] - 96,
+            front_hand[0] + 110,
+            front_hand[1] + 76,
+        )
         draw.arc(arc_box, start=205, end=336, fill=(255, 245, 200, 180), width=8)
         draw.arc(arc_box, start=214, end=328, fill=(255, 255, 255, 120), width=4)
     elif anim in {"idle", "walk", "taunt"} and frame_idx % 2 == 0:
-        blade_tip = transform((92 if kind == "pirate_admiral" else 86, 4 if kind in SCARFED_KINDS else 0), front_hand, pose["weapon"])
-        line(draw, [blade_tip, (blade_tip[0] + 10, blade_tip[1] - 8)], (255, 255, 255, 100), width=2)
+        blade_tip = transform(
+            (92 if kind == "pirate_admiral" else 86, 4 if kind in SCARFED_KINDS else 0),
+            front_hand,
+            pose["weapon"],
+        )
+        line(
+            draw,
+            [blade_tip, (blade_tip[0] + 10, blade_tip[1] - 8)],
+            (255, 255, 255, 100),
+            width=2,
+        )
 
     # Neck / head / hat
     draw_human_neck(draw, chest, head_center, global_tilt, pal, kind=kind)
 
-    head_bbox = (head_center[0] - 28, head_center[1] - 34, head_center[0] + 28, head_center[1] + 34)
-    draw_face(draw, head_bbox, pal, eyepatch=(kind == "pirate_admiral"), beard=(kind in BEARDED_KINDS), mean=True, x_eyes=pose["x_eyes"], blink=pose["blink"], mouth_open=pose["mouth_open"])
-    draw_hat(draw, head_center, 1.0, pal, skull=True, tilt=pose["hat_tilt"] + global_tilt * 0.15)
+    head_bbox = (
+        head_center[0] - 28,
+        head_center[1] - 34,
+        head_center[0] + 28,
+        head_center[1] + 34,
+    )
+    draw_face(
+        draw,
+        head_bbox,
+        pal,
+        eyepatch=(kind == "pirate_admiral"),
+        beard=(kind in BEARDED_KINDS),
+        mean=True,
+        x_eyes=pose["x_eyes"],
+        blink=pose["blink"],
+        mouth_open=pose["mouth_open"],
+    )
+    draw_hat(
+        draw,
+        head_center,
+        1.0,
+        pal,
+        skull=True,
+        tilt=pose["hat_tilt"] + global_tilt * 0.15,
+    )
 
     if kind in SKULL_MOTIF_KINDS:
         # chest skull motif
         chest_c = transform((0, 14), chest, deg=global_tilt)
-        circle(draw, (chest_c[0], chest_c[1] - 4), 8, (242, 236, 230, 255), pal.outline, width=2)
-        line(draw, [(chest_c[0] - 7, chest_c[1] + 5), (chest_c[0] + 7, chest_c[1] + 5)], (242,236,230,255), width=3)
-        line(draw, [(chest_c[0], chest_c[1] + 1), (chest_c[0], chest_c[1] + 9)], pal.outline, width=2)
+        circle(
+            draw,
+            (chest_c[0], chest_c[1] - 4),
+            8,
+            (242, 236, 230, 255),
+            pal.outline,
+            width=2,
+        )
+        line(
+            draw,
+            [(chest_c[0] - 7, chest_c[1] + 5), (chest_c[0] + 7, chest_c[1] + 5)],
+            (242, 236, 230, 255),
+            width=3,
+        )
+        line(
+            draw,
+            [(chest_c[0], chest_c[1] + 1), (chest_c[0], chest_c[1] + 9)],
+            pal.outline,
+            width=2,
+        )
 
     # Death settle pose, ground line accent
     if anim == "death":
@@ -577,7 +772,9 @@ def draw_character(kind: str, anim: str, frame_idx: int, nframes: int, frame_siz
     return downsample(img, frame_size)
 
 
-def render_target(target: str, out_dir: Path, frame_size: Tuple[int, int] = BASE_FRAME) -> Dict[str, Path]:
+def render_target(
+    target: str, out_dir: Path, frame_size: Tuple[int, int] = BASE_FRAME
+) -> Dict[str, Path]:
     """Build a pirate-family character sheet via the parametric rig.
 
     Thin shim used by the 5 pirate character modules so their per-target
@@ -593,7 +790,11 @@ def render_target(target: str, out_dir: Path, frame_size: Tuple[int, int] = BASE
         target=target,
         rows=ANIMATIONS,
         render_fn=lambda anim, frame_idx, nframes: draw_character(
-            target, anim, frame_idx, nframes, frame_size=frame_size,
+            target,
+            anim,
+            frame_idx,
+            nframes,
+            frame_size=frame_size,
         ),
         out_dir=out_dir,
         frame_size=frame_size,

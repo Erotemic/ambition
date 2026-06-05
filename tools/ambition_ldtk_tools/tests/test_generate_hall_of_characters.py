@@ -4,6 +4,7 @@ pedestal per character.
 
 Tests focus on pure helpers (no LDtk file IO) so they stay fast and
 deterministic."""
+
 from __future__ import annotations
 
 import sys
@@ -47,7 +48,13 @@ def test_derived_dims_layout():
     width, height = derived_dims()
     assert width == HALL_WIDTH_PX
     # Height = ceiling + (6 floors × 192) + floor + (3 basement × 384) + floor
-    expected = 16 + (MAIN_FLOORS * MAIN_SLOT_HEIGHT_PX) + 16 + (3 * BASEMENT_SLOT_HEIGHT_PX) + 16
+    expected = (
+        16
+        + (MAIN_FLOORS * MAIN_SLOT_HEIGHT_PX)
+        + 16
+        + (3 * BASEMENT_SLOT_HEIGHT_PX)
+        + 16
+    )
     assert height == expected
 
 

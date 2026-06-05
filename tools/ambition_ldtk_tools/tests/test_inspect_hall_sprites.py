@@ -11,6 +11,7 @@ Pin two invariants:
     the catalog renders. If a future commit drops below this floor
     something visible is breaking.
 """
+
 from __future__ import annotations
 
 import io
@@ -43,7 +44,9 @@ def test_inspect_hall_sprites_reports_high_coverage():
         stripped = line.strip()
         if stripped.startswith("ok:"):
             count = int(stripped.removeprefix("ok:").strip())
-            assert count >= 95, f"Hall ok-count dropped to {count} — sprite chain regression?"
+            assert count >= 95, (
+                f"Hall ok-count dropped to {count} — sprite chain regression?"
+            )
             break
     else:  # pragma: no cover - sanity for unexpected output shape
         raise AssertionError(f"no `ok:` line in summary:\n{summary}")
@@ -57,10 +60,8 @@ def test_inspect_hall_sprites_only_issues_filters_out_ok_rows():
     assert rc == 0
     # `--only-issues` mode: no `[ok]` rows should appear in the body,
     # only `[no_*]` rows and the summary.
-    body_lines = [
-        line for line in output.splitlines()
-        if line.strip().startswith("[")
-    ]
+    body_lines = [line for line in output.splitlines() if line.strip().startswith("[")]
     for line in body_lines:
-        assert not line.lstrip().startswith("[ok"), \
+        assert not line.lstrip().startswith("[ok"), (
             f"--only-issues leaked an ok row: {line!r}"
+        )

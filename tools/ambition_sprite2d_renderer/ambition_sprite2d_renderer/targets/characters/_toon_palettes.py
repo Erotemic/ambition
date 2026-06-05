@@ -6,6 +6,7 @@ through 800 lines of rig code. See GOALS.md goal #1 for the
 larger direction (shared shape-primitive rig with declarative
 per-character files).
 """
+
 from __future__ import annotations
 
 from typing import Tuple
@@ -19,6 +20,7 @@ def rgba(value: str, alpha: int = 255) -> Color:
     # has the canonical definition but we mirror it so importing
     # this module doesn't require a circular dep on toon_side.
     from PIL import ImageColor
+
     r, g, b = ImageColor.getrgb(value)
     return (r, g, b, alpha)
 
@@ -326,9 +328,9 @@ PALETTES = {
         "skin_shadow": rgba("#3F271A"),
         "hair": rgba("#0A0A10"),
         "hair_shine": rgba("#2D2A36"),
-        "outfit": rgba("#5C2E7A"),       # plum base
+        "outfit": rgba("#5C2E7A"),  # plum base
         "outfit_dark": rgba("#321648"),
-        "accent": rgba("#E6A14E"),       # contrasting marigold
+        "accent": rgba("#E6A14E"),  # contrasting marigold
         "accent_dark": rgba("#A36A1F"),
         "shoe": rgba("#1A1418"),
         "outline": rgba("#0A0710"),
@@ -343,9 +345,9 @@ PALETTES = {
         "skin_shadow": rgba("#7E5C44"),
         "hair": rgba("#1A1820"),
         "hair_shine": rgba("#3E3A48"),
-        "outfit": rgba("#3F4A5C"),       # slate blue blazer
+        "outfit": rgba("#3F4A5C"),  # slate blue blazer
         "outfit_dark": rgba("#22293A"),
-        "accent": rgba("#B8C0CA"),       # brushed chrome
+        "accent": rgba("#B8C0CA"),  # brushed chrome
         "accent_dark": rgba("#727B86"),
         "shoe": rgba("#16181E"),
         "outline": rgba("#0C0F14"),
@@ -360,9 +362,9 @@ PALETTES = {
         "skin_shadow": rgba("#5C3F2A"),
         "hair": rgba("#13100E"),
         "hair_shine": rgba("#3A302A"),
-        "outfit": rgba("#D8662A"),       # warm orange
+        "outfit": rgba("#D8662A"),  # warm orange
         "outfit_dark": rgba("#8A3B15"),
-        "accent": rgba("#F2E5C2"),       # cream
+        "accent": rgba("#F2E5C2"),  # cream
         "accent_dark": rgba("#B8A87E"),
         "shoe": rgba("#1F1612"),
         "outline": rgba("#100A08"),
@@ -374,11 +376,11 @@ PALETTES = {
     "walter": {
         "skin": rgba("#C2A48B"),
         "skin_shadow": rgba("#8C7158"),
-        "hair": rgba("#B4B0B0"),         # silver
+        "hair": rgba("#B4B0B0"),  # silver
         "hair_shine": rgba("#E2DEDE"),
-        "outfit": rgba("#1A2438"),       # deep navy
+        "outfit": rgba("#1A2438"),  # deep navy
         "outfit_dark": rgba("#0B1020"),
-        "accent": rgba("#C49A56"),       # brass
+        "accent": rgba("#C49A56"),  # brass
         "accent_dark": rgba("#7E5E24"),
         "shoe": rgba("#0E0E14"),
         "outline": rgba("#06080E"),
@@ -391,11 +393,11 @@ PALETTES = {
     "olivia": {
         "skin": rgba("#F2DDC6"),
         "skin_shadow": rgba("#C8AE96"),
-        "hair": rgba("#F4EEDC"),         # platinum/white
+        "hair": rgba("#F4EEDC"),  # platinum/white
         "hair_shine": rgba("#FFFAEC"),
-        "outfit": rgba("#9A8FB0"),       # lavender
+        "outfit": rgba("#9A8FB0"),  # lavender
         "outfit_dark": rgba("#5E5470"),
-        "accent": rgba("#D6D2E4"),       # silver-lavender
+        "accent": rgba("#D6D2E4"),  # silver-lavender
         "accent_dark": rgba("#888098"),
         "shoe": rgba("#28242E"),
         "outline": rgba("#1B1822"),

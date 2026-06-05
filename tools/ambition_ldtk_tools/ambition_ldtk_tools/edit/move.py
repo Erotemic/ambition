@@ -24,6 +24,7 @@ The `__grid` array is recomputed from `px` using the level's grid
 size so LDtk's editor view stays consistent. The repair + validate
 pass runs on the way out, identical to `entity set-field`.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -57,7 +58,14 @@ def _grid_size(project: dict, level: dict) -> int:
     return int(project.get("defaultGridSize", 16))
 
 
-def apply_move(entity: dict, px, size, grid_size: int, level_world_x: int = 0, level_world_y: int = 0) -> None:
+def apply_move(
+    entity: dict,
+    px,
+    size,
+    grid_size: int,
+    level_world_x: int = 0,
+    level_world_y: int = 0,
+) -> None:
     if not (isinstance(px, (list, tuple)) and len(px) == 2):
         raise SystemExit(f"`px` must be [x, y]; got {px!r}")
     nx, ny = int(px[0]), int(px[1])
@@ -149,7 +157,13 @@ def main(argv=None) -> int:
     if args.no_repair:
         return 0
 
-    cmd = [sys.executable, "-m", "ambition_ldtk_tools.repair", str(target_path), "--in-place"]
+    cmd = [
+        sys.executable,
+        "-m",
+        "ambition_ldtk_tools.repair",
+        str(target_path),
+        "--in-place",
+    ]
     print("$ " + " ".join(cmd))
     if subprocess.run(cmd).returncode != 0:
         return 1

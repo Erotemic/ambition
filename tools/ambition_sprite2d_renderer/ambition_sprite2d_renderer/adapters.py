@@ -7,16 +7,41 @@ from PIL import Image
 
 from .animation_vocab import FULL_PLAYER_ANIMATION_ORDER, ordered_subset
 from .config import CharacterJob
-from .targets.characters.boss_side import AISlopZetaGenerator, parse_background as boss_parse_background
-from .targets.characters.goblin_side import SideGoblinGenerator, parse_background as goblin_parse_background
-from .targets.characters.ninja_side import NinjaSideGenerator, parse_background as ninja_parse_background
+from .targets.characters.boss_side import (
+    AISlopZetaGenerator,
+    parse_background as boss_parse_background,
+)
+from .targets.characters.goblin_side import (
+    SideGoblinGenerator,
+    parse_background as goblin_parse_background,
+)
+from .targets.characters.ninja_side import (
+    NinjaSideGenerator,
+    parse_background as ninja_parse_background,
+)
 from .targets.characters.robot_side import SideRobotGenerator
-from .targets.characters.sandbag import ADAPTER_ANIMATIONS as SANDBAG_ANIMATIONS, SandbagSpec, render_frame as render_sandbag_frame
+from .targets.characters.sandbag import (
+    ADAPTER_ANIMATIONS as SANDBAG_ANIMATIONS,
+    SandbagSpec,
+    render_frame as render_sandbag_frame,
+)
 from .targets.characters.robot25d import parse_background as robot_parse_background
-from .targets.characters.toon_side import ToonSideGenerator, parse_background as toon_parse_background
-from .targets.characters.trent_elder import TrentElderGenerator, parse_background as trent_parse_background
-from .targets.characters.bob_engineer import BobEngineerGenerator, parse_background as bob_parse_background
-from .targets.characters.alice_cryptographer import AliceCryptographerGenerator, parse_background as alice_parse_background
+from .targets.characters.toon_side import (
+    ToonSideGenerator,
+    parse_background as toon_parse_background,
+)
+from .targets.characters.trent_elder import (
+    TrentElderGenerator,
+    parse_background as trent_parse_background,
+)
+from .targets.characters.bob_engineer import (
+    BobEngineerGenerator,
+    parse_background as bob_parse_background,
+)
+from .targets.characters.alice_cryptographer import (
+    AliceCryptographerGenerator,
+    parse_background as alice_parse_background,
+)
 
 
 def _dataclass_dict(obj: Any) -> Dict[str, Any]:
@@ -55,7 +80,14 @@ class BaseAdapter:
     def spec_dict(self, spec: Any) -> Dict[str, Any]:
         return _dataclass_dict(spec)
 
-    def render_frame(self, spec: Any, animation: str, frame_index: int, size: Tuple[int, int], job: CharacterJob) -> Image.Image:
+    def render_frame(
+        self,
+        spec: Any,
+        animation: str,
+        frame_index: int,
+        size: Tuple[int, int],
+        job: CharacterJob,
+    ) -> Image.Image:
         raise NotImplementedError
 
     def attack_hitboxes(self, size: Tuple[int, int]) -> Dict[str, Dict[str, Any]]:
@@ -122,9 +154,13 @@ class BaseAdapter:
         del size
         return {}
 
-    def render_single(self, spec: Any, animation: str, frame_index: int, job: CharacterJob) -> Image.Image:
+    def render_single(
+        self, spec: Any, animation: str, frame_index: int, job: CharacterJob
+    ) -> Image.Image:
         r = job.render
-        return self.render_frame(spec, animation, frame_index, (r.single_width, r.single_height), job)
+        return self.render_frame(
+            spec, animation, frame_index, (r.single_width, r.single_height), job
+        )
 
     def render_canonical(self, spec: Any, job: CharacterJob) -> Image.Image:
         animation, frame_index = self.canonical_pose()
@@ -135,11 +171,15 @@ class BaseAdapter:
         if not overrides:
             return spec
         if not is_dataclass(spec):
-            raise TypeError(f"spec overrides are only supported for dataclass specs (target={job.target})")
+            raise TypeError(
+                f"spec overrides are only supported for dataclass specs (target={job.target})"
+            )
         known = {f.name for f in fields(spec)}
         unknown = sorted(set(overrides) - known)
         if unknown:
-            raise KeyError(f"unknown spec override keys for {job.target}: {unknown}; available={sorted(known)}")
+            raise KeyError(
+                f"unknown spec override keys for {job.target}: {unknown}; available={sorted(known)}"
+            )
         return replace(spec, **overrides)
 
 
@@ -156,7 +196,14 @@ class GoblinAdapter(BaseAdapter):
         spec = self.generator.sample_spec(job.seed, job.archetype, job.held_item)
         return self._apply_overrides(spec, job)
 
-    def render_frame(self, spec: Any, animation: str, frame_index: int, size: Tuple[int, int], job: CharacterJob) -> Image.Image:
+    def render_frame(
+        self,
+        spec: Any,
+        animation: str,
+        frame_index: int,
+        size: Tuple[int, int],
+        job: CharacterJob,
+    ) -> Image.Image:
         anim = self.animations()[animation]
         return self.generator.render_animation_frame(
             spec,
@@ -186,7 +233,14 @@ class BossAdapter(BaseAdapter):
         spec = self.generator.sample_spec(job.seed, job.archetype)
         return self._apply_overrides(spec, job)
 
-    def render_frame(self, spec: Any, animation: str, frame_index: int, size: Tuple[int, int], job: CharacterJob) -> Image.Image:
+    def render_frame(
+        self,
+        spec: Any,
+        animation: str,
+        frame_index: int,
+        size: Tuple[int, int],
+        job: CharacterJob,
+    ) -> Image.Image:
         anim = self.animations()[animation]
         return self.generator.render_animation_frame(
             spec,
@@ -251,9 +305,21 @@ class BossAdapter(BaseAdapter):
             "spike_halo": {
                 "parts": [
                     {"name": "top", "x": 8, "y": 0, "w": canvas_w - 16, "h": 36},
-                    {"name": "bottom", "x": 8, "y": canvas_h - 36, "w": canvas_w - 16, "h": 36},
+                    {
+                        "name": "bottom",
+                        "x": 8,
+                        "y": canvas_h - 36,
+                        "w": canvas_w - 16,
+                        "h": 36,
+                    },
                     {"name": "left", "x": 0, "y": 24, "w": 36, "h": canvas_h - 48},
-                    {"name": "right", "x": canvas_w - 36, "y": 24, "w": 36, "h": canvas_h - 48},
+                    {
+                        "name": "right",
+                        "x": canvas_w - 36,
+                        "y": 24,
+                        "w": 36,
+                        "h": canvas_h - 48,
+                    },
                 ],
             },
             # DashEcho: an elongated horizontal lane tracking the
@@ -320,7 +386,14 @@ class RobotAdapter(BaseAdapter):
         spec = self.generator.sample_spec(job.seed, job.archetype)
         return self._apply_overrides(spec, job)
 
-    def render_frame(self, spec: Any, animation: str, frame_index: int, size: Tuple[int, int], job: CharacterJob) -> Image.Image:
+    def render_frame(
+        self,
+        spec: Any,
+        animation: str,
+        frame_index: int,
+        size: Tuple[int, int],
+        job: CharacterJob,
+    ) -> Image.Image:
         anim = self.animations()[animation]
         return self.generator.render_animation_frame(
             spec,
@@ -350,7 +423,14 @@ class NinjaAdapter(BaseAdapter):
     def spec_dict(self, spec: Any) -> Dict[str, Any]:
         return spec.to_dict()
 
-    def render_frame(self, spec: Any, animation: str, frame_index: int, size: Tuple[int, int], job: CharacterJob) -> Image.Image:
+    def render_frame(
+        self,
+        spec: Any,
+        animation: str,
+        frame_index: int,
+        size: Tuple[int, int],
+        job: CharacterJob,
+    ) -> Image.Image:
         anim = self.animations()[animation]
         return self.generator.render_animation_frame(
             spec,
@@ -384,9 +464,18 @@ class SandbagAdapter(BaseAdapter):
     def spec_dict(self, spec: SandbagSpec) -> Dict[str, Any]:
         return spec.to_dict()
 
-    def render_frame(self, spec: SandbagSpec, animation: str, frame_index: int, size: Tuple[int, int], job: CharacterJob) -> Image.Image:
+    def render_frame(
+        self,
+        spec: SandbagSpec,
+        animation: str,
+        frame_index: int,
+        size: Tuple[int, int],
+        job: CharacterJob,
+    ) -> Image.Image:
         anim = self.animations()[animation]
-        frame = render_sandbag_frame(animation, frame_index % anim["frames"], anim["frames"])
+        frame = render_sandbag_frame(
+            animation, frame_index % anim["frames"], anim["frames"]
+        )
         if frame.size != size:
             frame = frame.resize(size, Image.Resampling.LANCZOS)
         return frame
@@ -407,7 +496,14 @@ class ToonAdapter(BaseAdapter):
             spec = replace(spec, name=job.name)
         return self._apply_overrides(spec, job)
 
-    def render_frame(self, spec: Any, animation: str, frame_index: int, size: Tuple[int, int], job: CharacterJob) -> Image.Image:
+    def render_frame(
+        self,
+        spec: Any,
+        animation: str,
+        frame_index: int,
+        size: Tuple[int, int],
+        job: CharacterJob,
+    ) -> Image.Image:
         anim = self.animations()[animation]
         return self.generator.render_animation_frame(
             spec,
@@ -439,7 +535,14 @@ class TrentElderAdapter(BaseAdapter):
             spec = replace(spec, name=job.name)
         return self._apply_overrides(spec, job)
 
-    def render_frame(self, spec: Any, animation: str, frame_index: int, size: Tuple[int, int], job: CharacterJob) -> Image.Image:
+    def render_frame(
+        self,
+        spec: Any,
+        animation: str,
+        frame_index: int,
+        size: Tuple[int, int],
+        job: CharacterJob,
+    ) -> Image.Image:
         anim = self.animations()[animation]
         return self.generator.render_animation_frame(
             spec,
@@ -472,7 +575,14 @@ class BobEngineerAdapter(BaseAdapter):
             spec = replace(spec, name=job.name)
         return self._apply_overrides(spec, job)
 
-    def render_frame(self, spec: Any, animation: str, frame_index: int, size: Tuple[int, int], job: CharacterJob) -> Image.Image:
+    def render_frame(
+        self,
+        spec: Any,
+        animation: str,
+        frame_index: int,
+        size: Tuple[int, int],
+        job: CharacterJob,
+    ) -> Image.Image:
         anim = self.animations()[animation]
         return self.generator.render_animation_frame(
             spec,
@@ -505,7 +615,14 @@ class AliceCryptographerAdapter(BaseAdapter):
             spec = replace(spec, name=job.name)
         return self._apply_overrides(spec, job)
 
-    def render_frame(self, spec: Any, animation: str, frame_index: int, size: Tuple[int, int], job: CharacterJob) -> Image.Image:
+    def render_frame(
+        self,
+        spec: Any,
+        animation: str,
+        frame_index: int,
+        size: Tuple[int, int],
+        job: CharacterJob,
+    ) -> Image.Image:
         anim = self.animations()[animation]
         return self.generator.render_animation_frame(
             spec,
@@ -536,4 +653,6 @@ def get_adapter(target: str) -> BaseAdapter:
     try:
         return TARGETS[target]
     except KeyError as ex:
-        raise KeyError(f"unknown target {target!r}; available={sorted(TARGETS)}") from ex
+        raise KeyError(
+            f"unknown target {target!r}; available={sorted(TARGETS)}"
+        ) from ex

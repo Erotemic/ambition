@@ -10,8 +10,12 @@ from ambition_sprite2d_renderer.cli import draw_review
 from ambition_sprite2d_renderer.config import CharacterJob
 
 
-REVIEW_DIR = Path(__file__).resolve().parents[1] / "ambition_sprite2d_renderer" / "configs" / "review"
-
+REVIEW_DIR = (
+    Path(__file__).resolve().parents[1]
+    / "ambition_sprite2d_renderer"
+    / "configs"
+    / "review"
+)
 
 
 def test_review_configs_render(tmp_path):
@@ -23,7 +27,6 @@ def test_review_configs_render(tmp_path):
     assert (out_dir / "general_hero_spritesheet.png").exists()
     assert (out_dir / "absurd_general_spritesheet.png").exists()
     assert (out_dir / "canonicals" / "canonicals_contact_sheet.png").exists()
-
 
 
 def test_toon_target_supports_overrides(tmp_path):
@@ -81,7 +84,13 @@ def test_oiler_and_erdish_review_specs_render(tmp_path):
     # "Euler with tools" rather than generic mechanic.
     checks = {
         "oiler.yaml": ("Oiler", "banyan", "savant_cap", "wrench", "satchel"),
-        "erdish.yaml": ("Erdish", "long_coat", "combed_back_balding", "tablet", "satchel"),
+        "erdish.yaml": (
+            "Erdish",
+            "long_coat",
+            "combed_back_balding",
+            "tablet",
+            "satchel",
+        ),
     }
     for filename, (name, outfit, hair_style, prop, accessory) in checks.items():
         job = CharacterJob.load(REVIEW_DIR / filename)

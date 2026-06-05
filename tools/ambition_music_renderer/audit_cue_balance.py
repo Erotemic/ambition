@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Print peak/RMS balance for generated cue OGG files."""
+
 from __future__ import annotations
 
 import argparse
@@ -61,10 +62,14 @@ def main() -> int:
         raise SystemExit(f"no adaptive ogg files under {root}")
 
     print(f"audio balance audit: {root}")
-    print(f"{'section':<12} {'stem':<12} {'peak':>9} {'peak_db':>9} {'rms':>9} {'rms_db':>9} {'dur':>7}")
+    print(
+        f"{'section':<12} {'stem':<12} {'peak':>9} {'peak_db':>9} {'rms':>9} {'rms_db':>9} {'dur':>7}"
+    )
     for section, stem, path in files:
         peak, rms, duration = stats(path)
-        print(f"{section:<12} {stem:<12} {peak:9.4f} {db(peak):9.1f} {rms:9.4f} {db(rms):9.1f} {duration:7.2f}")
+        print(
+            f"{section:<12} {stem:<12} {peak:9.4f} {db(peak):9.1f} {rms:9.4f} {db(rms):9.1f} {duration:7.2f}"
+        )
     return 0
 
 

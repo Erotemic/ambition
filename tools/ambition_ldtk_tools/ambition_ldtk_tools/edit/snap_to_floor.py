@@ -23,6 +23,7 @@ or `--identifier ID` plus repeatable `--match key=value`. `--x` optionally
 repositions horizontally before snapping; `--prefer-y` biases toward a
 particular surface row; `--dry-run` reports the landing without writing.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -149,7 +150,9 @@ def main(argv=None) -> int:
         )
         label = f"{entity.get('__identifier')} ({entity.get('iid')})"
         moved_x = "" if snapped_x == old_px[0] else f"x {old_px[0]}->{snapped_x}, "
-        results.append(f"{label}: {moved_x}y {old_px[1]}->{snapped_y} (rests on {kind})")
+        results.append(
+            f"{label}: {moved_x}y {old_px[1]}->{snapped_y} (rests on {kind})"
+        )
         if not args.dry_run:
             entity["px"] = [snapped_x, snapped_y]
             entity["__grid"] = [snapped_x // grid_size, snapped_y // grid_size]
@@ -174,7 +177,13 @@ def main(argv=None) -> int:
     if args.no_repair:
         return 0
 
-    cmd = [sys.executable, "-m", "ambition_ldtk_tools.repair", str(target_path), "--in-place"]
+    cmd = [
+        sys.executable,
+        "-m",
+        "ambition_ldtk_tools.repair",
+        str(target_path),
+        "--in-place",
+    ]
     print("$ " + " ".join(cmd))
     if subprocess.run(cmd).returncode != 0:
         return 1

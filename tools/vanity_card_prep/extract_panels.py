@@ -20,17 +20,44 @@ import numpy as np
 from PIL import Image
 
 from utils import (
-    load_config, src_path, out_path,
-    chroma_key, cleanup_green_residue, remove_flat_bg, tight_crop, save,
+    load_config,
+    src_path,
+    out_path,
+    chroma_key,
+    cleanup_green_residue,
+    remove_flat_bg,
+    tight_crop,
+    save,
 )
 
 # ── Source files ──────────────────────────────────────────────────────────────
 
-def _scene_sheet(cfg):   return src_path(cfg, "cutouts", "ChatGPT Image May 13, 2026, 09_35_29 PM.png")
-def _robot_gs_3d(cfg):   return src_path(cfg, "cutouts", "greenscreen", "ChatGPT Image May 13, 2026, 09_15_45 PM.png")
-def _robot_gs_alt(cfg):  return src_path(cfg, "cutouts", "greenscreen", "ChatGPT Image May 13, 2026, 09_20_55 PM.png")
-def _human_gs(cfg):      return src_path(cfg, "cutouts", "greenscreen", "ChatGPT Image May 13, 2026, 09_14_02 PM.png")
-def _bubble_sheet(cfg):  return src_path(cfg, "ChatGPT Image May 13, 2026, 12_20_36 AM (3).png")
+
+def _scene_sheet(cfg):
+    return src_path(cfg, "cutouts", "ChatGPT Image May 13, 2026, 09_35_29 PM.png")
+
+
+def _robot_gs_3d(cfg):
+    return src_path(
+        cfg, "cutouts", "greenscreen", "ChatGPT Image May 13, 2026, 09_15_45 PM.png"
+    )
+
+
+def _robot_gs_alt(cfg):
+    return src_path(
+        cfg, "cutouts", "greenscreen", "ChatGPT Image May 13, 2026, 09_20_55 PM.png"
+    )
+
+
+def _human_gs(cfg):
+    return src_path(
+        cfg, "cutouts", "greenscreen", "ChatGPT Image May 13, 2026, 09_14_02 PM.png"
+    )
+
+
+def _bubble_sheet(cfg):
+    return src_path(cfg, "ChatGPT Image May 13, 2026, 12_20_36 AM (3).png")
+
 
 # Scene-sheet grid — measured from pixel analysis.
 # To adjust: change config.yaml → chroma_key params, then re-run this script.
@@ -40,6 +67,7 @@ SCENE_ROW_SPANS = [(136, 482), (582, 928)]
 
 # ── Stage 1a: Scene panels ────────────────────────────────────────────────────
 
+
 def extract_scene_panels(cfg):
     print("\n--- Scene panels ---")
     ck = cfg["chroma_key"]
@@ -48,7 +76,9 @@ def extract_scene_panels(cfg):
     for ci, (cx0, cx1) in enumerate(SCENE_COL_SPANS):
         for ri, (ry0, ry1) in enumerate(SCENE_ROW_SPANS):
             cell = src.crop((cx0, ry0, cx1 + 1, ry1 + 1))
-            keyed = chroma_key(cell, ck["inner_radius"], ck["outer_radius"], ck["spill_reduction"])
+            keyed = chroma_key(
+                cell, ck["inner_radius"], ck["outer_radius"], ck["spill_reduction"]
+            )
             keyed = cleanup_green_residue(keyed)
             cropped = tight_crop(keyed, margin=8)
             save(cropped, out_path(cfg, "panels", f"panel_{ci}_{ri}.png"))
@@ -56,21 +86,25 @@ def extract_scene_panels(cfg):
 
 # ── Stage 1b: Parts kits ──────────────────────────────────────────────────────
 
+
 def extract_parts(cfg):
     print("\n--- Parts kits ---")
     ck = cfg["chroma_key"]
     kits = [
-        (_robot_gs_3d(cfg),  out_path(cfg, "parts", "robot_parts_3d.png")),
+        (_robot_gs_3d(cfg), out_path(cfg, "parts", "robot_parts_3d.png")),
         (_robot_gs_alt(cfg), out_path(cfg, "parts", "robot_parts_alt.png")),
-        (_human_gs(cfg),     out_path(cfg, "parts", "human_parts.png")),
+        (_human_gs(cfg), out_path(cfg, "parts", "human_parts.png")),
     ]
     for src_file, dst in kits:
         img = Image.open(src_file)
-        keyed = chroma_key(img, ck["inner_radius"], ck["outer_radius"], ck["spill_reduction"])
+        keyed = chroma_key(
+            img, ck["inner_radius"], ck["outer_radius"], ck["spill_reduction"]
+        )
         save(keyed, dst)
 
 
 # ── Stage 1c: Speech-bubble sheet ─────────────────────────────────────────────
+
 
 def extract_ui(cfg):
     print("\n--- Speech bubbles ---")
@@ -84,6 +118,7 @@ def extract_ui(cfg):
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
+
 
 def main():
     cfg = load_config()

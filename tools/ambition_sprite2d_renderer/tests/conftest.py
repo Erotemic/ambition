@@ -9,6 +9,7 @@ See ``GOALS.md`` for the rationale — the long-term goal is to remove
 this marker entirely once every target supports a ``scale`` parameter,
 at which point every test is fast.
 """
+
 from __future__ import annotations
 
 import pytest

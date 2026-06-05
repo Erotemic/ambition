@@ -22,6 +22,7 @@ After `--in-place`, inspect and validate:
     PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools doctor \
       crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
 """
+
 from __future__ import annotations
 
 import argparse
@@ -172,8 +173,12 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("path", nargs="?", type=Path, default=DEFAULT_LDTK)
     parser.add_argument("--in-place", action="store_true", help="Rewrite the LDtk file")
-    parser.add_argument("--output", type=Path, default=None, help="Write to a separate LDtk path")
-    parser.add_argument("--dry-run", action="store_true", help="Print planned changes without writing")
+    parser.add_argument(
+        "--output", type=Path, default=None, help="Write to a separate LDtk path"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Print planned changes without writing"
+    )
     parser.add_argument("--schema", type=Path, default=DEFAULT_SCHEMA)
     parser.add_argument("--require-schema", action="store_true")
     args = parser.parse_args(argv)

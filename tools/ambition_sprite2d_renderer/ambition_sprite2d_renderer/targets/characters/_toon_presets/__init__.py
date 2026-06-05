@@ -8,6 +8,7 @@ it; this module walks the directory and picks it up automatically.
 Modules starting with ``_`` are skipped so internal helpers can sit
 alongside the archetype files without polluting the registry.
 """
+
 from __future__ import annotations
 
 import importlib

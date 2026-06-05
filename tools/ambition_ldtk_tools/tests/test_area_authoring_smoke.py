@@ -12,6 +12,7 @@ Run directly:
 Exit code 0 means the tool produced an editor-roundtrip-clean file
 that validates against both Ambition semantics and the LDtk schema.
 """
+
 from __future__ import annotations
 
 import json
@@ -23,7 +24,15 @@ from pathlib import Path
 
 # tools/ambition_ldtk_tools/tests/test_area_authoring_smoke.py -> repo root
 REPO_ROOT = Path(__file__).resolve().parents[3]
-LDTK_PATH = REPO_ROOT / "crates" / "ambition_sandbox" / "assets" / "ambition" / "worlds" / "sandbox.ldtk"
+LDTK_PATH = (
+    REPO_ROOT
+    / "crates"
+    / "ambition_sandbox"
+    / "assets"
+    / "ambition"
+    / "worlds"
+    / "sandbox.ldtk"
+)
 PKG_ROOT = REPO_ROOT / "tools" / "ambition_ldtk_tools"
 
 # Minimal but realistic: a PlayerStart, a floor solid, a loading zone back
@@ -93,6 +102,7 @@ def main() -> int:
         ]
         env = {"PYTHONPATH": str(PKG_ROOT)}
         import os
+
         env = {**os.environ, **env}
         print("$ " + " ".join(cmd))
         result = subprocess.run(cmd, capture_output=True, text=True, env=env)
@@ -208,11 +218,17 @@ def main() -> int:
         # And the floor row should be 1s while the rest is 0s.
         bottom_row = col["intGridCsv"][(c_hei - 1) * c_wid : c_hei * c_wid]
         if any(v != 1 for v in bottom_row):
-            print("FAIL: solid_floor fill did not produce a 1-row at the bottom", file=sys.stderr)
+            print(
+                "FAIL: solid_floor fill did not produce a 1-row at the bottom",
+                file=sys.stderr,
+            )
             return 1
-        upper_row = col["intGridCsv"][: c_wid]
+        upper_row = col["intGridCsv"][:c_wid]
         if any(v != 0 for v in upper_row):
-            print("FAIL: solid_floor fill incorrectly populated the top row", file=sys.stderr)
+            print(
+                "FAIL: solid_floor fill incorrectly populated the top row",
+                file=sys.stderr,
+            )
             return 1
 
     print("PASS: author_ldtk_area produced a valid, editor-roundtrip-clean level")

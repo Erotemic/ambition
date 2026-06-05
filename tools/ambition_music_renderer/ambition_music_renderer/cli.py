@@ -20,6 +20,7 @@ into ``output/<cue>/preview/`` (or ``generated/<cue>/preview/``) and publish
 will copy that exact file instead of the auto-named full mix. Used when a
 cue's mastered preview lives under a manual filename.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -44,8 +45,10 @@ try:
             adjust=False,
         )
 except ImportError:  # pragma: no cover — graceful fallback
+
     def _progress(iterable, *, total, desc):  # noqa: ARG001
         return iterable
+
 
 # Single-track cues authored under scores/active that ship via the radio.
 # These render with --simple-mix and publish the mastered preview.
@@ -112,13 +115,9 @@ def find_score(cue: str) -> Path | None:
     if p.suffix in (".yaml", ".yml") and p.exists():
         return p.resolve()
     candidates = [
-        package_dir() / "scores" / sub / f"{cue}.music.yaml"
-        for sub in SCORE_DIRS
+        package_dir() / "scores" / sub / f"{cue}.music.yaml" for sub in SCORE_DIRS
     ]
-    candidates += [
-        package_dir() / "scores" / sub / f"{cue}.yaml"
-        for sub in SCORE_DIRS
-    ]
+    candidates += [package_dir() / "scores" / sub / f"{cue}.yaml" for sub in SCORE_DIRS]
     for c in candidates:
         if c.exists():
             return c
@@ -453,7 +452,9 @@ def build_parser() -> argparse.ArgumentParser:
     add_render_args(p_render)
     p_render.set_defaults(func=cmd_render)
 
-    p_publish = sub.add_parser("publish", help="Publish newest preview to sandbox assets")
+    p_publish = sub.add_parser(
+        "publish", help="Publish newest preview to sandbox assets"
+    )
     p_publish.add_argument("cue")
     add_publish_args(p_publish)
     p_publish.set_defaults(func=cmd_publish)

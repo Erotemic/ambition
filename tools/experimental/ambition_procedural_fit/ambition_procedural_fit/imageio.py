@@ -7,13 +7,17 @@ import torch
 from PIL import Image, ImageChops, ImageDraw, ImageOps
 
 
-def load_target_tensor(path: str | Path, size: tuple[int, int], *, background=(0.04, 0.045, 0.055)) -> torch.Tensor:
+def load_target_tensor(
+    path: str | Path, size: tuple[int, int], *, background=(0.04, 0.045, 0.055)
+) -> torch.Tensor:
     """Load an RGB/RGBA image as HWC float tensor in [0, 1]."""
     img = Image.open(path).convert("RGBA")
     img = ImageOps.exif_transpose(img)
     img = ImageOps.contain(img, size, method=Image.Resampling.LANCZOS)
     canvas = Image.new("RGBA", size, tuple(int(v * 255) for v in (*background, 1.0)))
-    canvas.alpha_composite(img, ((size[0] - img.width) // 2, (size[1] - img.height) // 2))
+    canvas.alpha_composite(
+        img, ((size[0] - img.width) // 2, (size[1] - img.height) // 2)
+    )
     arr = np.asarray(canvas.convert("RGB"), dtype=np.float32) / 255.0
     return torch.from_numpy(arr)
 
@@ -35,7 +39,13 @@ def save_tensor_image(tensor: torch.Tensor, path: str | Path) -> None:
     tensor_to_image(tensor).save(path)
 
 
-def write_comparison(target: torch.Tensor, render: torch.Tensor, path: str | Path, *, title: str = "target / render / abs diff") -> None:
+def write_comparison(
+    target: torch.Tensor,
+    render: torch.Tensor,
+    path: str | Path,
+    *,
+    title: str = "target / render / abs diff",
+) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     tgt = tensor_to_image(target)
@@ -78,11 +88,15 @@ def write_loss_curve(losses: list[float], path: str | Path) -> None:
         ys = (height - pad) - (vals - lo) / (hi - lo) * (height - pad * 2)
         pts = [(float(x), float(y)) for x, y in zip(xs, ys)]
         draw.line(pts, fill=(30, 30, 30), width=2)
-        draw.text((pad + 4, 8), f"loss {vals[0]:.6f} -> {vals[-1]:.6f}", fill=(30, 30, 30))
+        draw.text(
+            (pad + 4, 8), f"loss {vals[0]:.6f} -> {vals[-1]:.6f}", fill=(30, 30, 30)
+        )
     out.save(path)
 
 
-def write_debug_gif(image_paths: list[str | Path], path: str | Path, *, duration_ms: int = 220) -> None:
+def write_debug_gif(
+    image_paths: list[str | Path], path: str | Path, *, duration_ms: int = 220
+) -> None:
     image_paths = [Path(p) for p in image_paths]
     if not image_paths:
         return

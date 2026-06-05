@@ -125,6 +125,7 @@ is required (the IntGrid lowering needs an explicit footprint to
 paint). Other entities (PlayerStart, LoadingZone, Switch, NPC,
 EncounterTrigger, LockWall, …) stay on the Ambition layer.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -291,9 +292,27 @@ def ensure_climbable_layer_def(project: dict) -> dict:
         "uiFilterTags": [],
         "useAsyncRender": False,
         "intGridValues": [
-            {"value": 1, "identifier": "Ladder", "color": "#C28447", "tile": None, "groupUid": 0},
-            {"value": 2, "identifier": "Vine", "color": "#5FA452", "tile": None, "groupUid": 0},
-            {"value": 3, "identifier": "Wall", "color": "#9B7A4A", "tile": None, "groupUid": 0},
+            {
+                "value": 1,
+                "identifier": "Ladder",
+                "color": "#C28447",
+                "tile": None,
+                "groupUid": 0,
+            },
+            {
+                "value": 2,
+                "identifier": "Vine",
+                "color": "#5FA452",
+                "tile": None,
+                "groupUid": 0,
+            },
+            {
+                "value": 3,
+                "identifier": "Wall",
+                "color": "#9B7A4A",
+                "tile": None,
+                "groupUid": 0,
+            },
         ],
         "intGridValuesGroups": [],
         "autoRuleGroups": [],
@@ -461,7 +480,9 @@ def build_level_field_instances(project: dict, spec: dict) -> list[dict]:
     migration script instead of silently dropping the value.
     """
     instances = [build_active_area_field(project, spec["id"])]
-    level_fields = {f.get("identifier"): f for f in project["defs"].get("levelFields") or []}
+    level_fields = {
+        f.get("identifier"): f for f in project["defs"].get("levelFields") or []
+    }
     for ident in OPTIONAL_LEVEL_FIELDS:
         if ident not in spec:
             continue
@@ -542,7 +563,11 @@ def entity_to_intgrid_value(ent_spec: dict) -> int | None:
         return INTGRID_VALUE_ONE_WAY
     if ident == "BlinkWall":
         tier = (ent_spec.get("fields") or {}).get("tier", "Soft")
-        return INTGRID_VALUE_BLINK_HARD if str(tier) == "Hard" else INTGRID_VALUE_BLINK_SOFT
+        return (
+            INTGRID_VALUE_BLINK_HARD
+            if str(tier) == "Hard"
+            else INTGRID_VALUE_BLINK_SOFT
+        )
     if ident == "HazardBlock":
         return INTGRID_VALUE_HAZARD
     return None
@@ -603,8 +628,12 @@ def build_entity_instance(
         raise SystemExit(f"entity '{identifier}' missing required 'px'")
     if len(px) != 2:
         raise SystemExit(f"entity '{identifier}' px must be [x, y]")
-    width = int(ent_spec.get("size", [ent_def.get("width", 16), ent_def.get("height", 16)])[0])
-    height = int(ent_spec.get("size", [ent_def.get("width", 16), ent_def.get("height", 16)])[1])
+    width = int(
+        ent_spec.get("size", [ent_def.get("width", 16), ent_def.get("height", 16)])[0]
+    )
+    height = int(
+        ent_spec.get("size", [ent_def.get("width", 16), ent_def.get("height", 16)])[1]
+    )
 
     # Grid coordinate is px / gridSize (LDtk's convention).
     grid_x = int(px[0]) // grid_size
@@ -656,9 +685,7 @@ def build_entity_instance(
         if fname in known_fields:
             continue
         suggestion = _closest_match(fname, known_fields)
-        msg = (
-            f"entity '{identifier}' has no field '{fname}'."
-        )
+        msg = f"entity '{identifier}' has no field '{fname}'."
         if suggestion:
             msg += f" Did you mean '{suggestion}'?"
         if known_fields:
@@ -670,7 +697,9 @@ def build_entity_instance(
         if fname not in spec_fields:
             continue
         try:
-            value = coerce_field_value(field_def.get("__type", "String"), spec_fields[fname])
+            value = coerce_field_value(
+                field_def.get("__type", "String"), spec_fields[fname]
+            )
         except (ValueError, TypeError) as ex:
             raise SystemExit(
                 f"entity '{identifier}' field '{fname}' expects {field_def.get('__type')!r}; "
@@ -733,9 +762,15 @@ def build_level(project: dict, spec: dict) -> dict:
     for ent_spec in spec.get("entities", []):
         value = entity_to_intgrid_value(ent_spec)
         if value is None:
-            entity_instances.append(build_entity_instance(
-                project, ent_spec, grid_size, world_x, world_y,
-            ))
+            entity_instances.append(
+                build_entity_instance(
+                    project,
+                    ent_spec,
+                    grid_size,
+                    world_x,
+                    world_y,
+                )
+            )
             continue
         px = ent_spec.get("px")
         if px is None or len(px) != 2:
@@ -1063,7 +1098,11 @@ def add_reciprocal_loading_zone(
     target_world_x = int(target_level.get("worldX", 0))
     target_world_y = int(target_level.get("worldY", 0))
     instance = build_entity_instance(
-        project, ent_spec, grid_size, target_world_x, target_world_y,
+        project,
+        ent_spec,
+        grid_size,
+        target_world_x,
+        target_world_y,
     )
     ambition.setdefault("entityInstances", []).append(instance)
     return instance
@@ -1071,7 +1110,13 @@ def add_reciprocal_loading_zone(
 
 def run_repair_and_validate(project_path: Path, schema: Path | None) -> int:
     """Run the existing repair + validator scripts and forward their exit code."""
-    cmd_repair = [sys.executable, "-m", "ambition_ldtk_tools.repair", str(project_path), "--in-place"]
+    cmd_repair = [
+        sys.executable,
+        "-m",
+        "ambition_ldtk_tools.repair",
+        str(project_path),
+        "--in-place",
+    ]
     print(f"$ {' '.join(cmd_repair)}")
     r = subprocess.run(cmd_repair)
     if r.returncode != 0:
@@ -1309,8 +1354,10 @@ def even_space_entities(
     # Authors who specifically need 16px-aligned door tops opt in
     # via `--snap-to-grid`.
     grid_size = int(project.get("defaultGridSize", 16))
-    print(f"# even-space {len(matched)} '{identifier}' in '{target_room}' "
-          f"(strategy={strategy}, snap_to_grid={snap_to_grid})")
+    print(
+        f"# even-space {len(matched)} '{identifier}' in '{target_room}' "
+        f"(strategy={strategy}, snap_to_grid={snap_to_grid})"
+    )
     changed = 0
     for ent, target in zip(matched, new_x):
         old = int(ent["px"][0])
@@ -1325,7 +1372,9 @@ def even_space_entities(
                 break
         if new_pos != old:
             changed += 1
-            print(f"  {ident:30s}  x: {old:>5} -> {new_pos:>5}  (delta {new_pos - old:+d})")
+            print(
+                f"  {ident:30s}  x: {old:>5} -> {new_pos:>5}  (delta {new_pos - old:+d})"
+            )
         else:
             print(f"  {ident:30s}  x: {old:>5}  (unchanged)")
         if not dry_run:
@@ -1408,7 +1457,7 @@ def list_free_spots(project: dict, target_room: str) -> int:
         # Walk the row finding gaps wider than door_w_default.
         cursor = 0
         free_gaps: list[tuple[int, int]] = []
-        for (x, _y, w, _h, ident) in row_doors:
+        for x, _y, w, _h, ident in row_doors:
             if x - cursor >= door_w_default:
                 free_gaps.append((cursor, x))
             cursor = x + w
@@ -1418,7 +1467,7 @@ def list_free_spots(project: dict, target_room: str) -> int:
         if not free_gaps:
             print(f"  (no free 48x96 gap in this row)")
             continue
-        for (gap_start, gap_end) in free_gaps:
+        for gap_start, gap_end in free_gaps:
             mid = (gap_start + gap_end - door_w_default) // 2
             mid = max(gap_start, min(mid, gap_end - door_w_default))
             print(
@@ -1441,9 +1490,7 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--ldtk",
         type=Path,
-        default=Path(
-            "crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk"
-        ),
+        default=Path("crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk"),
         help="Target LDtk file to extend (default: sandbox.ldtk)",
     )
     parser.add_argument(
@@ -1618,7 +1665,9 @@ def main(argv=None) -> int:
         except SystemExit as ex:
             print(f"error: {ex}", file=sys.stderr)
             return 2
-        print(f"snap x={x} y={y} surface={kind}  -> px=[{x}, {y}] size=[{args.door_w}, {args.door_h}]")
+        print(
+            f"snap x={x} y={y} surface={kind}  -> px=[{x}, {y}] size=[{args.door_w}, {args.door_h}]"
+        )
         return 0
 
     if args.even_space_entities:
@@ -1643,10 +1692,13 @@ def main(argv=None) -> int:
         write_project(args.ldtk, project)
         if not args.no_repair:
             from . import repair, validate as ldtk_validate
+
             repair_rc = repair.main([str(args.ldtk), "--in-place"])
             if repair_rc != 0:
                 return repair_rc
-            return ldtk_validate.main([str(args.ldtk), "--schema", str(args.schema), "--require-schema"])
+            return ldtk_validate.main(
+                [str(args.ldtk), "--schema", str(args.schema), "--require-schema"]
+            )
         return 0
 
     if args.spec is None:

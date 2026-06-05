@@ -25,6 +25,7 @@ The registry's job is just to walk every surface and yield Target
 instances. Consumers (CLI, gallery, render-publish) iterate the
 returned dict without caring which surface a target came from.
 """
+
 from __future__ import annotations
 
 import importlib
@@ -68,24 +69,28 @@ CATEGORIES: Tuple[str, ...] = (
 # `adapters.py` and driven by YAML configs instead of a `render()`
 # function. Discovery silently skips these so they don't show up as
 # warnings under `list-targets`.
-ADAPTER_HELPER_STEMS: frozenset[str] = frozenset({
-    "alice_cryptographer",
-    "bob_engineer",
-    "boss_side",
-    "goblin_side",
-    "ninja_side",
-    "robot25d",
-    "robot_side",
-    "toon_side",
-    "trent_elder",
-})
+ADAPTER_HELPER_STEMS: frozenset[str] = frozenset(
+    {
+        "alice_cryptographer",
+        "bob_engineer",
+        "boss_side",
+        "goblin_side",
+        "ninja_side",
+        "robot25d",
+        "robot_side",
+        "toon_side",
+        "trent_elder",
+    }
+)
 
 
 # ---- Shared install helpers --------------------------------------------------
 
 
 def _copy_sheet_files(
-    sheet_files: "Sequence[str]", render_dir: Path, dest_root: Path,
+    sheet_files: "Sequence[str]",
+    render_dir: Path,
+    dest_root: Path,
 ) -> List[Path]:
     """Copy every listed sheet file plus optional generated sidecars.
 
@@ -190,7 +195,13 @@ def _ensure_actor_sidecars(
 
     extras: List[Path] = []
 
-    def maybe_emit(*, manifest_path: Path, manifest: Mapping[str, Any], image_name: str, sheet_manifest_name: str) -> None:
+    def maybe_emit(
+        *,
+        manifest_path: Path,
+        manifest: Mapping[str, Any],
+        image_name: str,
+        sheet_manifest_name: str,
+    ) -> None:
         actor_path = manifest_path.with_name(f"{target_name}_actor.ron")
         if actor_path.exists() and not actor_metadata:
             return
@@ -213,14 +224,18 @@ def _ensure_actor_sidecars(
                 continue
             if not isinstance(manifest, dict):
                 continue
-            image_name = str(manifest.get("image") or path.name.replace(".yaml", ".png"))
+            image_name = str(
+                manifest.get("image") or path.name.replace(".yaml", ".png")
+            )
             maybe_emit(
                 manifest_path=path,
                 manifest=manifest,
                 image_name=image_name,
                 sheet_manifest_name=path.with_suffix(".ron").name,
             )
-        elif path.suffix == ".json" and path.name.endswith("_spritesheet_manifest.json"):
+        elif path.suffix == ".json" and path.name.endswith(
+            "_spritesheet_manifest.json"
+        ):
             try:
                 manifest = json.loads(path.read_text(encoding="utf8")) or {}
             except Exception:
@@ -268,12 +283,14 @@ class TackonTarget:
         out_dir = Path(out_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
         paths = list(self._render_sheet_fn(out_dir, **opts))
-        paths.extend(_ensure_actor_sidecars(
-            target_name=self.name,
-            render_dir=out_dir,
-            paths=paths,
-            actor_metadata=self._actor_metadata,
-        ))
+        paths.extend(
+            _ensure_actor_sidecars(
+                target_name=self.name,
+                render_dir=out_dir,
+                paths=paths,
+                actor_metadata=self._actor_metadata,
+            )
+        )
         return paths
 
     def render_canonical(self, out_dir: Path, **opts) -> Path:
@@ -369,7 +386,11 @@ class AdapterTarget:
         out_dir.mkdir(parents=True, exist_ok=True)
         image_out = out_dir / f"{self.name}_spritesheet.png"
         manifest_out = out_dir / f"{self.name}_spritesheet.yaml"
-        paths = list(write_spritesheet(self._job, image_out, manifest_out, source_config=self._config_path))
+        paths = list(
+            write_spritesheet(
+                self._job, image_out, manifest_out, source_config=self._config_path
+            )
+        )
         actor_out = out_dir / f"{self.name}_actor.ron"
         if actor_out.exists():
             paths.append(actor_out)
@@ -418,8 +439,6 @@ def _walk_category(category: str) -> Iterator[Tuple[str, str]]:
             yield name, f"ambition_sprite2d_renderer.targets.{category}.{name}"
 
 
-
-
 def _with_actor_sidecar(stem: str, sheet_files: Sequence[str]) -> Tuple[str, ...]:
     """Return install file list with the optional actor sidecar included."""
     out = list(sheet_files)
@@ -427,6 +446,7 @@ def _with_actor_sidecar(stem: str, sheet_files: Sequence[str]) -> Tuple[str, ...
     if actor not in out:
         out.append(actor)
     return tuple(out)
+
 
 def default_sheet_files(stem: str) -> List[str]:
     """Default install set for tack-on targets that don't declare ``SHEET_FILES``."""
@@ -439,9 +459,15 @@ def default_sheet_files(stem: str) -> List[str]:
 
 
 def _build_tackon_single(
-    mod, stem: str, category: str, dotted: str, render: Callable,
+    mod,
+    stem: str,
+    category: str,
+    dotted: str,
+    render: Callable,
 ) -> TackonTarget:
-    sheet_files = _with_actor_sidecar(stem, getattr(mod, "SHEET_FILES", default_sheet_files(stem)))
+    sheet_files = _with_actor_sidecar(
+        stem, getattr(mod, "SHEET_FILES", default_sheet_files(stem))
+    )
     install_fn = getattr(mod, "install", None)
     if not callable(install_fn):
         install_fn = None
@@ -461,7 +487,11 @@ def _build_tackon_single(
 
 
 def _build_tackon_multi(
-    mod, stem: str, category: str, dotted: str, warnings: List[str],
+    mod,
+    stem: str,
+    category: str,
+    dotted: str,
+    warnings: List[str],
 ) -> List[TackonTarget]:
     """A module exposing ``TARGETS = {name: {...}}`` registers many."""
     results: List[TackonTarget] = []
@@ -472,23 +502,29 @@ def _build_tackon_multi(
                 f"{category}/{stem}: TARGETS[{sub_name!r}] missing `render`; skipped"
             )
             continue
-        sheet_files = _with_actor_sidecar(sub_name, spec.get("sheet_files", default_sheet_files(sub_name)))
+        sheet_files = _with_actor_sidecar(
+            sub_name, spec.get("sheet_files", default_sheet_files(sub_name))
+        )
         install_fn = spec.get("install")
         if install_fn is not None and not callable(install_fn):
             install_fn = None
         render_canonical_fn = spec.get("render_canonical")
         if render_canonical_fn is not None and not callable(render_canonical_fn):
             render_canonical_fn = None
-        results.append(TackonTarget(
-            name=sub_name,
-            category=category,
-            module_path=dotted,
-            render=render,
-            sheet_files=sheet_files,
-            install=install_fn,
-            render_canonical=render_canonical_fn,
-            actor_metadata=merge_actor_metadata(getattr(mod, "ACTOR_METADATA", None), spec.get("actor_metadata")),
-        ))
+        results.append(
+            TackonTarget(
+                name=sub_name,
+                category=category,
+                module_path=dotted,
+                render=render,
+                sheet_files=sheet_files,
+                install=install_fn,
+                render_canonical=render_canonical_fn,
+                actor_metadata=merge_actor_metadata(
+                    getattr(mod, "ACTOR_METADATA", None), spec.get("actor_metadata")
+                ),
+            )
+        )
     return results
 
 
@@ -509,8 +545,7 @@ def discover_tackon_targets() -> DiscoveryReport:
                 mod = importlib.import_module(dotted)
             except Exception as ex:  # noqa: BLE001 - record + continue
                 warnings.append(
-                    f"{category}/{stem}: import failed "
-                    f"({type(ex).__name__}: {ex})"
+                    f"{category}/{stem}: import failed ({type(ex).__name__}: {ex})"
                 )
                 continue
             multi = getattr(mod, "TARGETS", None)
@@ -530,7 +565,9 @@ def discover_tackon_targets() -> DiscoveryReport:
     return DiscoveryReport(targets=targets, warnings=warnings)
 
 
-def _discover_yaml_configs(config_dir: Path, category: str) -> Tuple[Dict[str, Target], List[str]]:
+def _discover_yaml_configs(
+    config_dir: Path, category: str
+) -> Tuple[Dict[str, Target], List[str]]:
     """Walk ``config_dir/*.yaml`` and wrap each as an AdapterTarget."""
     targets: Dict[str, Target] = {}
     warnings: List[str] = []
@@ -568,10 +605,12 @@ def discover_all_targets() -> DiscoveryReport:
     # the split was internal renderer-bookkeeping). Adapter rigs and
     # tack-ons both surface under one category.
     review_targets, review_warnings = _discover_yaml_configs(
-        _configs_dir() / "review", "characters",
+        _configs_dir() / "review",
+        "characters",
     )
     main_targets, main_warnings = _discover_yaml_configs(
-        _configs_dir(), "characters",
+        _configs_dir(),
+        "characters",
     )
     targets: Dict[str, Target] = {}
     # Precedence (later overrides earlier).

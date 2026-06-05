@@ -30,6 +30,7 @@ The tool errors out if:
     write-through would leave the LDtk editor refusing to load the
     field next time).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -76,9 +77,7 @@ def find_ambition_layer(level: dict) -> dict:
     for li in level.get("layerInstances", []):
         if li.get("__identifier") == "Ambition":
             return li
-    raise SystemExit(
-        f"level '{level['identifier']}' has no Ambition entity layer"
-    )
+    raise SystemExit(f"level '{level['identifier']}' has no Ambition entity layer")
 
 
 def _entity_field_value(entity: dict, field_name: str):
@@ -110,9 +109,7 @@ def select_entities(layer: dict, target: dict) -> list[dict]:
     for fname, fvalue in match.items():
         candidates = [e for e in candidates if _entity_field_value(e, fname) == fvalue]
     if not candidates:
-        raise SystemExit(
-            f"no entity '{identifier}' matched fields {match!r}"
-        )
+        raise SystemExit(f"no entity '{identifier}' matched fields {match!r}")
     if len(candidates) > 1:
         ids = [c.get("iid", "<no-iid>") for c in candidates]
         raise SystemExit(
@@ -215,7 +212,13 @@ def main(argv=None) -> int:
     if args.no_repair:
         return 0
 
-    cmd = [sys.executable, "-m", "ambition_ldtk_tools.repair", str(target_path), "--in-place"]
+    cmd = [
+        sys.executable,
+        "-m",
+        "ambition_ldtk_tools.repair",
+        str(target_path),
+        "--in-place",
+    ]
     print("$ " + " ".join(cmd))
     if subprocess.run(cmd).returncode != 0:
         return 1

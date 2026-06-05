@@ -5,6 +5,7 @@ The check warns when a sheet looks like a character sheet (≥1 row maps
 to `CharacterAnim`) but no row is an Idle alias. The runtime's
 `try_load_spec_for_character_id` would silently render it as a
 colored-rectangle placeholder; this surfaces it at publish time."""
+
 from __future__ import annotations
 
 from ambition_sprite2d_renderer.tackon_sheet import diagnose_idle_coverage
@@ -28,7 +29,9 @@ def test_idle_alias_front_idle_returns_none():
 def test_no_character_rows_returns_none():
     """A sheet that doesn't look like a character (e.g. a prop sheet
     with custom row names) is not flagged."""
-    assert diagnose_idle_coverage("prop", ["opening", "closing"]) is None  # opening IS idle alias, but matches our "any idle alias" criterion
+    assert (
+        diagnose_idle_coverage("prop", ["opening", "closing"]) is None
+    )  # opening IS idle alias, but matches our "any idle alias" criterion
     # Pure props with no recognized rows: no warning either.
     assert diagnose_idle_coverage("prop", ["spin_left", "spin_right"]) is None
 

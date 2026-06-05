@@ -19,6 +19,7 @@ Examples:
   python level_report.py --format tsv             # machine / commit form
   python level_report.py --root some/dir --target-rms-db -20
 """
+
 from __future__ import annotations
 
 import argparse
@@ -148,19 +149,35 @@ def main(argv: list[str] | None = None) -> int:
     if argv is None:
         argv = sys.argv[1:]
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--root", type=Path, default=DEFAULT_ROOT,
-                    help="music root to scan (default: sandbox generated cues)")
-    ap.add_argument("--glob", default="*/full.ogg",
-                    help="glob under --root for files to analyze")
-    ap.add_argument("--target-rms-db", type=float, default=-20.0,
-                    help="reference RMS dBFS for the dRMS delta + LOUD/QUIET flags")
-    ap.add_argument("--rms-tol", type=float, default=3.0,
-                    help="dB tolerance before a cue is flagged LOUD/QUIET")
+    ap.add_argument(
+        "--root",
+        type=Path,
+        default=DEFAULT_ROOT,
+        help="music root to scan (default: sandbox generated cues)",
+    )
+    ap.add_argument(
+        "--glob", default="*/full.ogg", help="glob under --root for files to analyze"
+    )
+    ap.add_argument(
+        "--target-rms-db",
+        type=float,
+        default=-20.0,
+        help="reference RMS dBFS for the dRMS delta + LOUD/QUIET flags",
+    )
+    ap.add_argument(
+        "--rms-tol",
+        type=float,
+        default=3.0,
+        help="dB tolerance before a cue is flagged LOUD/QUIET",
+    )
     ap.add_argument("--format", choices=["table", "tsv"], default="table")
-    ap.add_argument("--check", action="store_true",
-                    help="exit non-zero if any cue clips (true peak > -1 dBTP) — "
-                    "a CI guard for the one unambiguous defect (loudness spread "
-                    "is a mastering call and stays report-only)")
+    ap.add_argument(
+        "--check",
+        action="store_true",
+        help="exit non-zero if any cue clips (true peak > -1 dBTP) — "
+        "a CI guard for the one unambiguous defect (loudness spread "
+        "is a mastering call and stays report-only)",
+    )
     args = ap.parse_args(argv)
 
     paths = sorted(args.root.glob(args.glob))
@@ -175,9 +192,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.check:
         clipping = [r for r in rows if r["true_peak_dbtp"] > CLIP_DBTP]
         if clipping:
-            names = ", ".join(f"{r['cue']} ({r['true_peak_dbtp']:.1f} dBTP)" for r in clipping)
-            print(f"\nCLIP: {len(clipping)} cue(s) exceed {CLIP_DBTP:.0f} dBTP: {names}",
-                  file=sys.stderr)
+            names = ", ".join(
+                f"{r['cue']} ({r['true_peak_dbtp']:.1f} dBTP)" for r in clipping
+            )
+            print(
+                f"\nCLIP: {len(clipping)} cue(s) exceed {CLIP_DBTP:.0f} dBTP: {names}",
+                file=sys.stderr,
+            )
             return 1
     return 0
 

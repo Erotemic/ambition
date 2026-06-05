@@ -10,6 +10,7 @@ The package layout exists so adding the next multi-file character is a
 copy-this-directory operation: drop ``targets/characters/<name>/`` with
 the same ``__init__.py`` shape, and discovery picks it up.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -22,7 +23,11 @@ SHEET_FILES = list(sprite_generator.OUTPUT_FILES) + [f"{TARGET_NAME}_actor.ron"]
 
 ACTOR_METADATA = {
     "actor": {"character_id": f"npc_{TARGET_NAME}"},
-    "body": {"body_plan": "BossMultipart", "body_kind": "Wide", "traits": ["boss", "multipart"]},
+    "body": {
+        "body_plan": "BossMultipart",
+        "body_kind": "Wide",
+        "traits": ["boss", "multipart"],
+    },
     "brain": {"default_preset": "stand_still"},
     "actions": {"default_preset": "peaceful"},
     "tags": ["boss", "multipart"],
@@ -59,6 +64,7 @@ def install(render_dir: str | Path, dest_root: str | Path) -> List[Path]:
         install_dir.mkdir(parents=True, exist_ok=True)
         actor_dst = install_dir / actor_src.name
         import shutil
+
         shutil.copy2(actor_src, actor_dst)
         copied.append(actor_dst)
     return copied

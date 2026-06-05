@@ -27,6 +27,7 @@ door.
 The repair + validate pass runs on the way out, identical to the
 other edit commands. Pass `--no-repair` to skip the post-pass.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -72,9 +73,7 @@ def select_for_delete(layer: dict, target: dict, all_matching: bool) -> list[dic
     for fname, fvalue in match.items():
         candidates = [e for e in candidates if _entity_field_value(e, fname) == fvalue]
     if not candidates:
-        raise SystemExit(
-            f"no entity '{identifier}' matched fields {match!r}"
-        )
+        raise SystemExit(f"no entity '{identifier}' matched fields {match!r}")
     if len(candidates) > 1 and not all_matching:
         ids = [c.get("iid", "<no-iid>") for c in candidates]
         raise SystemExit(
@@ -157,7 +156,9 @@ def main(argv=None) -> int:
 
     for line in summaries:
         print(line)
-    print(f"deleted {total_deleted} entit{'y' if total_deleted == 1 else 'ies'} from '{level_id}'")
+    print(
+        f"deleted {total_deleted} entit{'y' if total_deleted == 1 else 'ies'} from '{level_id}'"
+    )
 
     target_path = args.output or args.ldtk
     if args.output is None and args.backup:

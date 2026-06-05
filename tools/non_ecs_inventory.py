@@ -107,7 +107,14 @@ COLLECTION_TYPES = {
     "SmallVec",
     "ArrayVec",
 }
-MAP_LIKE_COLLECTIONS = {"HashMap", "BTreeMap", "IndexMap", "SlotMap", "SecondaryMap", "SparseSecondaryMap"}
+MAP_LIKE_COLLECTIONS = {
+    "HashMap",
+    "BTreeMap",
+    "IndexMap",
+    "SlotMap",
+    "SecondaryMap",
+    "SparseSecondaryMap",
+}
 SET_LIKE_COLLECTIONS = {"HashSet", "BTreeSet"}
 
 LOW_SIGNAL_PATH_PARTS = {
@@ -140,25 +147,82 @@ HIGH_SIGNAL_PATH_PARTS = {
 RUNTIME_NAME_RE = re.compile(
     r"(Runtime|State|Cache|Queue|Buffer|Index|Registry|Tracker|Controller|Director|Runner|Session|Context)$"
 )
-DOMAIN_NAME_RE = re.compile(r"(Spec|Data|Config|Definition|Catalog|Profile|Tuning|Template|Entry|Model)$")
-ENTITY_NAME_RE = re.compile(r"(Actor|Player|Enemy|Boss|Npc|Feature|Projectile|Room|Encounter|Quest|Inventory|Hitbox|Platform|Portal)")
+DOMAIN_NAME_RE = re.compile(
+    r"(Spec|Data|Config|Definition|Catalog|Profile|Tuning|Template|Entry|Model)$"
+)
+ENTITY_NAME_RE = re.compile(
+    r"(Actor|Player|Enemy|Boss|Npc|Feature|Projectile|Room|Encounter|Quest|Inventory|Hitbox|Platform|Portal)"
+)
 MUTABLE_FIELD_RE = re.compile(
     r"(state|status|timer|cooldown|health|mana|position|velocity|accel|intent|target|phase|queue|pending|active|current|previous|runtime|cache|dirty|flags?)",
     flags=re.IGNORECASE,
 )
 ID_FIELD_RE = re.compile(r"(^id$|_id$|key$|handle$|entity$|slot$)", flags=re.IGNORECASE)
 SAVE_PATH_RE = re.compile(r"/(persistence|save|settings)(/|$|\.rs$)")
-VALUE_OBJECT_NAME_RE = re.compile(r"^(Aabb|Rect|Rectangle|Bounds|Point|Line|Segment|Range|Interval|GridPos|TilePos|PixelRect|NormPoint|FrameRect)$")
+VALUE_OBJECT_NAME_RE = re.compile(
+    r"^(Aabb|Rect|Rectangle|Bounds|Point|Line|Segment|Range|Interval|GridPos|TilePos|PixelRect|NormPoint|FrameRect)$"
+)
 UI_PATH_RE = re.compile(r"/(ui|menu|hud|overlay|presentation|rendering)(/|$)")
 PLATFORM_PATH_RE = re.compile(r"/(host|platform|audio|assets|music)(/|$)")
 
 STOPWORD_TYPE_NAMES = {
-    "Self", "Option", "Result", "Vec", "VecDeque", "HashMap", "BTreeMap", "IndexMap",
-    "HashSet", "BTreeSet", "Box", "Arc", "Rc", "Cow", "String", "str", "bool", "usize", "isize",
-    "u8", "u16", "u32", "u64", "u128", "i8", "i16", "i32", "i64", "i128", "f32", "f64",
-    "Entity", "Commands", "Query", "Res", "ResMut", "Local", "Assets", "Handle", "Name",
-    "Transform", "GlobalTransform", "Vec2", "Vec3", "IVec2", "UVec2", "Quat", "Color", "Timer",
-    "Duration", "PhantomData", "Default", "Debug", "Clone", "Copy", "Serialize", "Deserialize",
+    "Self",
+    "Option",
+    "Result",
+    "Vec",
+    "VecDeque",
+    "HashMap",
+    "BTreeMap",
+    "IndexMap",
+    "HashSet",
+    "BTreeSet",
+    "Box",
+    "Arc",
+    "Rc",
+    "Cow",
+    "String",
+    "str",
+    "bool",
+    "usize",
+    "isize",
+    "u8",
+    "u16",
+    "u32",
+    "u64",
+    "u128",
+    "i8",
+    "i16",
+    "i32",
+    "i64",
+    "i128",
+    "f32",
+    "f64",
+    "Entity",
+    "Commands",
+    "Query",
+    "Res",
+    "ResMut",
+    "Local",
+    "Assets",
+    "Handle",
+    "Name",
+    "Transform",
+    "GlobalTransform",
+    "Vec2",
+    "Vec3",
+    "IVec2",
+    "UVec2",
+    "Quat",
+    "Color",
+    "Timer",
+    "Duration",
+    "PhantomData",
+    "Default",
+    "Debug",
+    "Clone",
+    "Copy",
+    "Serialize",
+    "Deserialize",
 }
 
 
@@ -344,7 +408,9 @@ def iter_named_descendants(node: object) -> Iterator[object]:
         yield from iter_named_descendants(child)
 
 
-def iter_rs_files(crate_root: pathlib.Path, include_tests: bool) -> Iterator[pathlib.Path]:
+def iter_rs_files(
+    crate_root: pathlib.Path, include_tests: bool
+) -> Iterator[pathlib.Path]:
     src_root = crate_root / "src"
     for path in sorted(src_root.rglob("*.rs")):
         parts = set(path.parts)
@@ -361,7 +427,9 @@ def iter_rs_files(crate_root: pathlib.Path, include_tests: bool) -> Iterator[pat
         yield path
 
 
-def iter_parsed_rs_files(crate_root: pathlib.Path, include_tests: bool) -> Iterator[ParsedRustFile]:
+def iter_parsed_rs_files(
+    crate_root: pathlib.Path, include_tests: bool
+) -> Iterator[ParsedRustFile]:
     for path in iter_rs_files(crate_root, include_tests):
         yield parse_rust_file(path)
 
@@ -427,7 +495,9 @@ def attr_is_cfg_test(attr: str) -> bool:
 def is_in_cfg_test_context(source: bytes, node: object) -> bool:
     current = node
     while current is not None:
-        if any(attr_is_cfg_test(attr) for attr in attrs_immediately_before(source, current)):
+        if any(
+            attr_is_cfg_test(attr) for attr in attrs_immediately_before(source, current)
+        ):
             return True
         current = current.parent
     return False
@@ -509,7 +579,9 @@ def split_top_level_commas(text: str) -> list[str]:
             depth_brace += 1
         elif char == "}" and depth_brace:
             depth_brace -= 1
-        elif char == "," and not (depth_angle or depth_paren or depth_bracket or depth_brace):
+        elif char == "," and not (
+            depth_angle or depth_paren or depth_bracket or depth_brace
+        ):
             part = text[start:index].strip()
             if part:
                 parts.append(part)
@@ -546,7 +618,9 @@ def generic_inners(text: str, name: str) -> list[str]:
 def compact_type(type_text: str, max_len: int = 120) -> str:
     text = type_text.strip()
     text = re.sub(r"\b(?:crate|super|self)::", "", text)
-    text = re.sub(r"\b(?:[A-Za-z_][A-Za-z0-9_]*::)+([A-Za-z_][A-Za-z0-9_]*)", r"\1", text)
+    text = re.sub(
+        r"\b(?:[A-Za-z_][A-Za-z0-9_]*::)+([A-Za-z_][A-Za-z0-9_]*)", r"\1", text
+    )
     text = re.sub(r"\s+", " ", text)
     return compact(text, max_len)
 
@@ -560,13 +634,28 @@ def generic_payload_type(inner: str) -> str:
 
 
 def analyze_system_params(params: str) -> dict[str, object]:
-    resources_read = [generic_payload_type(inner) for inner in generic_inners(params, "Res")]
-    resources_written = [generic_payload_type(inner) for inner in generic_inners(params, "ResMut")]
-    resources_read.extend(f"Assets<{generic_payload_type(inner)}>" for inner in generic_inners(params, "Assets"))
-    messages_read = [generic_payload_type(inner) for inner in generic_inners(params, "MessageReader")]
-    messages_read.extend(generic_payload_type(inner) for inner in generic_inners(params, "EventReader"))
-    messages_written = [generic_payload_type(inner) for inner in generic_inners(params, "MessageWriter")]
-    messages_written.extend(generic_payload_type(inner) for inner in generic_inners(params, "EventWriter"))
+    resources_read = [
+        generic_payload_type(inner) for inner in generic_inners(params, "Res")
+    ]
+    resources_written = [
+        generic_payload_type(inner) for inner in generic_inners(params, "ResMut")
+    ]
+    resources_read.extend(
+        f"Assets<{generic_payload_type(inner)}>"
+        for inner in generic_inners(params, "Assets")
+    )
+    messages_read = [
+        generic_payload_type(inner) for inner in generic_inners(params, "MessageReader")
+    ]
+    messages_read.extend(
+        generic_payload_type(inner) for inner in generic_inners(params, "EventReader")
+    )
+    messages_written = [
+        generic_payload_type(inner) for inner in generic_inners(params, "MessageWriter")
+    ]
+    messages_written.extend(
+        generic_payload_type(inner) for inner in generic_inners(params, "EventWriter")
+    )
     locals_ = [generic_payload_type(inner) for inner in generic_inners(params, "Local")]
     queries = [compact(inner, 160) for inner in generic_inners(params, "Query")]
     return {
@@ -581,7 +670,9 @@ def analyze_system_params(params: str) -> dict[str, object]:
 
 
 def has_system_param(params: str) -> bool:
-    return any(re.search(rf"\b{re.escape(name)}\b", params) for name in SYSTEM_PARAM_NAMES)
+    return any(
+        re.search(rf"\b{re.escape(name)}\b", params) for name in SYSTEM_PARAM_NAMES
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -596,7 +687,11 @@ def field_type_node(field_node: object) -> object | None:
     if not named:
         return None
     # field_declaration usually has name then type; tuple fields often only have type.
-    candidates = [child for child in named if child.type not in {"visibility_modifier", "field_identifier", "identifier"}]
+    candidates = [
+        child
+        for child in named
+        if child.type not in {"visibility_modifier", "field_identifier", "identifier"}
+    ]
     return candidates[-1] if candidates else named[-1]
 
 
@@ -613,8 +708,16 @@ def collect_fields(source: bytes, item_node: object, file: str) -> list[FieldRec
                     name = node_text(source, child).strip()
                     break
         type_node = field_type_node(node)
-        type_text = compact_type(node_text(source, type_node), 180) if type_node is not None else compact(node_text(source, node), 180)
-        referenced_types = collect_type_names(source, type_node) if type_node is not None else collect_type_names(source, node)
+        type_text = (
+            compact_type(node_text(source, type_node), 180)
+            if type_node is not None
+            else compact(node_text(source, node), 180)
+        )
+        referenced_types = (
+            collect_type_names(source, type_node)
+            if type_node is not None
+            else collect_type_names(source, node)
+        )
         fields.append(
             FieldRecord(
                 name=name or f"field_{len(fields)}",
@@ -724,8 +827,14 @@ def collect_raw_items(
                 derives = sorted(set(derive_names(attrs)))
                 ecs_kind = sorted(set(derives).intersection(ECS_DERIVES))
                 arch_kind = sorted(set(derives).intersection(ARCHITECTURE_DERIVES))
-                fields = collect_fields(source, node, file) if node.type in {"struct_item", "union_item"} else []
-                variants = collect_variants(source, node) if node.type == "enum_item" else []
+                fields = (
+                    collect_fields(source, node, file)
+                    if node.type in {"struct_item", "union_item"}
+                    else []
+                )
+                variants = (
+                    collect_variants(source, node) if node.type == "enum_item" else []
+                )
                 ref_types = collect_type_names(source, node)
                 record = ItemRecord(
                     name=name,
@@ -761,7 +870,10 @@ def collect_raw_items(
 
 
 def collect_functions(
-    parsed_files: Sequence[ParsedRustFile], repo_root: pathlib.Path, include_tests: bool, item_names: set[str]
+    parsed_files: Sequence[ParsedRustFile],
+    repo_root: pathlib.Path,
+    include_tests: bool,
+    item_names: set[str],
 ) -> list[FunctionRecord]:
     functions: list[FunctionRecord] = []
     for parsed in parsed_files:
@@ -776,9 +888,17 @@ def collect_functions(
             if not name:
                 continue
             _, params, ret = function_signature_parts(source, node)
-            sig_types = unique_ordered([t for t in collect_type_names(source, node) if t in item_names])
+            sig_types = unique_ordered(
+                [t for t in collect_type_names(source, node) if t in item_names]
+            )
             body = function_body_node(node)
-            body_types = unique_ordered([t for t in collect_type_names(source, body) if t in item_names]) if body is not None else []
+            body_types = (
+                unique_ordered(
+                    [t for t in collect_type_names(source, body) if t in item_names]
+                )
+                if body is not None
+                else []
+            )
             owner = ""
             impl_node = enclosing_impl_node(node)
             if impl_node is not None:
@@ -845,17 +965,42 @@ def classify_category(item: ItemRecord) -> tuple[str, list[str]]:
     if VALUE_OBJECT_NAME_RE.search(item.name) or "/engine_core/geometry" in file:
         reasons.append("small reusable value/object geometry type")
         return "value_object", reasons
-    if SAVE_PATH_RE.search(file) or "Save" in item.name or item.name.startswith("Persisted") or "Settings" in item.name:
+    if (
+        SAVE_PATH_RE.search(file)
+        or "Save" in item.name
+        or item.name.startswith("Persisted")
+        or "Settings" in item.name
+    ):
         reasons.append("save/settings path or name")
         return "save_data", reasons
-    if UI_PATH_RE.search(file) or any(term in item.name for term in ["Ui", "UI", "Visual", "Overlay", "Hud", "Menu", "Panel", "Button", "Text"]):
+    if UI_PATH_RE.search(file) or any(
+        term in item.name
+        for term in [
+            "Ui",
+            "UI",
+            "Visual",
+            "Overlay",
+            "Hud",
+            "Menu",
+            "Panel",
+            "Button",
+            "Text",
+        ]
+    ):
         reasons.append("UI/presentation path or name")
         return "ui_presentation", reasons
     if PLATFORM_PATH_RE.search(file):
         reasons.append("platform/asset/audio/music path")
         return "platform_backend", reasons
-    if "Asset" in derives or "TypePath" in derives or "Serialize" in derives or "Deserialize" in derives:
-        if DOMAIN_NAME_RE.search(item.name) or any(part in parts for part in {"content", "data", "catalog"}):
+    if (
+        "Asset" in derives
+        or "TypePath" in derives
+        or "Serialize" in derives
+        or "Deserialize" in derives
+    ):
+        if DOMAIN_NAME_RE.search(item.name) or any(
+            part in parts for part in {"content", "data", "catalog"}
+        ):
             reasons.append("serializable or asset-like content model")
             return "content_data", reasons
     if DOMAIN_NAME_RE.search(item.name):
@@ -864,7 +1009,9 @@ def classify_category(item: ItemRecord) -> tuple[str, list[str]]:
     if RUNTIME_NAME_RE.search(item.name):
         reasons.append("runtime-state-like name")
         return "runtime_state", reasons
-    if ENTITY_NAME_RE.search(item.name) and (MUTABLE_FIELD_RE.search(field_names) or MUTABLE_FIELD_RE.search(field_types)):
+    if ENTITY_NAME_RE.search(item.name) and (
+        MUTABLE_FIELD_RE.search(field_names) or MUTABLE_FIELD_RE.search(field_types)
+    ):
         reasons.append("entity-like name with mutable/gameplay fields")
         return "runtime_state", reasons
     if any(part in parts for part in LOW_SIGNAL_PATH_PARTS):
@@ -917,7 +1064,10 @@ def collection_payloads(field_type: str) -> list[tuple[str, str]]:
 
 
 def payload_item_name(payload: str, non_ecs_names: set[str]) -> str:
-    candidates = [identifier_last(match.group(0)) for match in QUALIFIED_IDENT_RE.finditer(payload)]
+    candidates = [
+        identifier_last(match.group(0))
+        for match in QUALIFIED_IDENT_RE.finditer(payload)
+    ]
     for candidate in reversed(candidates):
         if candidate in non_ecs_names:
             return candidate
@@ -951,7 +1101,14 @@ def score_item(
     if category == "runtime_state":
         score += 3
         reasons.append("runtime state category")
-    if category in {"content_data", "save_data", "domain_model", "platform_backend", "ui_presentation", "value_object"}:
+    if category in {
+        "content_data",
+        "save_data",
+        "domain_model",
+        "platform_backend",
+        "ui_presentation",
+        "value_object",
+    }:
         score -= 3
         reasons.append(f"{category} is often intentionally non-ECS")
     if used_by_ecs_fields:
@@ -990,7 +1147,12 @@ def score_item(
         reasons.append("presentation/platform/dev subsystem path")
     if item.kind == "trait":
         score -= 3
-    if item.kind == "enum" and len(item.variants) and not item.fields and category != "runtime_state":
+    if (
+        item.kind == "enum"
+        and len(item.variants)
+        and not item.fields
+        and category != "runtime_state"
+    ):
         score -= 1
     if item.name.endswith("Error") or item.name.endswith("Plugin"):
         score -= 3
@@ -1001,7 +1163,9 @@ def score_item(
 
 
 def build_collection_records(
-    all_items: dict[str, ItemRecord], non_ecs_names: set[str], classified: dict[str, ItemRecord]
+    all_items: dict[str, ItemRecord],
+    non_ecs_names: set[str],
+    classified: dict[str, ItemRecord],
 ) -> list[CollectionRecord]:
     records: list[CollectionRecord] = []
     # Use first non-qualified record for owner lookup by name.
@@ -1014,7 +1178,9 @@ def build_collection_records(
                     continue
                 payload_item = classified.get(payload_name)
                 payload_category = payload_item.category if payload_item else "unknown"
-                reasons = [f"{owner.name}.{field.name} stores {container}<{payload_name}>"]
+                reasons = [
+                    f"{owner.name}.{field.name} stores {container}<{payload_name}>"
+                ]
                 if owner.ecs_kind == "Resource":
                     reasons.append("collection lives inside an ECS Resource")
                 if payload_item and payload_item.category == "runtime_state":
@@ -1024,7 +1190,11 @@ def build_collection_records(
                 if payload_item and ENTITY_NAME_RE.search(payload_item.name):
                     reasons.append("payload has entity/gameplay noun in name")
 
-                if owner.ecs_kind == "Resource" and payload_item and payload_item.category == "runtime_state":
+                if (
+                    owner.ecs_kind == "Resource"
+                    and payload_item
+                    and payload_item.category == "runtime_state"
+                ):
                     suggested = "Component-backed entities or Resource index"
                     priority = "high"
                 elif owner.ecs_kind == "Resource":
@@ -1057,12 +1227,23 @@ def build_collection_records(
 
 
 def classify_and_link(
-    all_items: dict[str, ItemRecord], functions: Sequence[FunctionRecord], methods_by_type: dict[str, list[str]], traits_by_type: dict[str, list[str]]
-) -> tuple[list[ItemRecord], list[FunctionRecord], list[CollectionRecord], list[ModuleSummaryRecord]]:
+    all_items: dict[str, ItemRecord],
+    functions: Sequence[FunctionRecord],
+    methods_by_type: dict[str, list[str]],
+    traits_by_type: dict[str, list[str]],
+) -> tuple[
+    list[ItemRecord],
+    list[FunctionRecord],
+    list[CollectionRecord],
+    list[ModuleSummaryRecord],
+]:
     # Direct ECS and architecture marker types are not the subject of this script.
     non_ecs_keys = [
-        key for key, item in all_items.items()
-        if not item.ecs_kind and not item.architecture_kind and not item.name.endswith("Plugin")
+        key
+        for key, item in all_items.items()
+        if not item.ecs_kind
+        and not item.architecture_kind
+        and not item.name.endswith("Plugin")
     ]
     non_ecs_names = {all_items[key].name for key in non_ecs_keys}
 
@@ -1077,14 +1258,24 @@ def classify_and_link(
         for field in owner.fields:
             for ref in field.referenced_types:
                 if ref in non_ecs_names:
-                    used_by_ecs_fields[ref].append(f"{owner.ecs_kind} {owner.name}.{field.name} ({field.file}:{field.line})")
+                    used_by_ecs_fields[ref].append(
+                        f"{owner.ecs_kind} {owner.name}.{field.name} ({field.file}:{field.line})"
+                    )
 
     # References from function signatures and bodies.
     updated_functions: list[FunctionRecord] = []
     for fn in functions:
-        refs = unique_ordered([t for t in (fn.referenced_types + fn.body_referenced_types) if t in non_ecs_names])
+        refs = unique_ordered(
+            [
+                t
+                for t in (fn.referenced_types + fn.body_referenced_types)
+                if t in non_ecs_names
+            ]
+        )
         for ref in refs:
-            context = f"{fn.owner + '::' if fn.owner else ''}{fn.name} ({fn.file}:{fn.line})"
+            context = (
+                f"{fn.owner + '::' if fn.owner else ''}{fn.name} ({fn.file}:{fn.line})"
+            )
             used_by_functions[ref].append(context)
             if fn.is_system_like:
                 used_by_systems[ref].append(context)
@@ -1104,7 +1295,9 @@ def classify_and_link(
             suggested_target=suggested,
             methods=methods,
             trait_impls=traits,
-            used_by_ecs_fields=unique_ordered(used_by_ecs_fields.get(item.name, []))[:30],
+            used_by_ecs_fields=unique_ordered(used_by_ecs_fields.get(item.name, []))[
+                :30
+            ],
             used_by_systems=unique_ordered(used_by_systems.get(item.name, []))[:30],
             used_by_functions=unique_ordered(used_by_functions.get(item.name, []))[:30],
             reasons=cat_reasons,
@@ -1114,7 +1307,9 @@ def classify_and_link(
     collection_records = build_collection_records(all_items, non_ecs_names, preliminary)
     collection_payload_for: dict[str, list[str]] = defaultdict(list)
     for rec in collection_records:
-        collection_payload_for[rec.payload_type].append(f"{rec.owner}.{rec.field} ({rec.file}:{rec.line})")
+        collection_payload_for[rec.payload_type].append(
+            f"{rec.owner}.{rec.field} ({rec.file}:{rec.line})"
+        )
 
     final_items: list[ItemRecord] = []
     for item in preliminary.values():
@@ -1138,16 +1333,22 @@ def classify_and_link(
                 migration_priority=priority,
                 reasons=reasons,
                 suggested_target=suggested,
-                collection_payload_for=unique_ordered(collection_payload_for.get(item.name, []))[:30],
+                collection_payload_for=unique_ordered(
+                    collection_payload_for.get(item.name, [])
+                )[:30],
             )
         )
 
-    final_items.sort(key=lambda row: (-row.migration_score, row.file, row.line, row.name))
+    final_items.sort(
+        key=lambda row: (-row.migration_score, row.file, row.line, row.name)
+    )
     module_summaries = build_module_summaries(final_items, collection_records)
     return final_items, updated_functions, collection_records, module_summaries
 
 
-def build_module_summaries(items: Sequence[ItemRecord], collections: Sequence[CollectionRecord]) -> list[ModuleSummaryRecord]:
+def build_module_summaries(
+    items: Sequence[ItemRecord], collections: Sequence[CollectionRecord]
+) -> list[ModuleSummaryRecord]:
     stats: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
     for item in items:
         mod = module_name(item.file)
@@ -1173,16 +1374,26 @@ def build_module_summaries(items: Sequence[ItemRecord], collections: Sequence[Co
                 high_priority=values["high_priority"],
                 medium_priority=values["medium_priority"],
                 runtime_state=values["runtime_state"],
-                content_data=values["content_data"] + values["domain_model"] + values["plain_model"],
+                content_data=values["content_data"]
+                + values["domain_model"]
+                + values["plain_model"],
                 save_data=values["save_data"],
                 ui_presentation=values["ui_presentation"],
-                platform_backend=values["platform_backend"] + values["utility_or_backend"],
+                platform_backend=values["platform_backend"]
+                + values["utility_or_backend"],
                 utility=values["trait_or_interface"],
                 ecs_adjacent=values["ecs_adjacent"],
                 hidden_collections=values["hidden_collections"],
             )
         )
-    records.sort(key=lambda row: (-row.high_priority, -row.medium_priority, -row.non_ecs_items, row.module))
+    records.sort(
+        key=lambda row: (
+            -row.high_priority,
+            -row.medium_priority,
+            -row.non_ecs_items,
+            row.module,
+        )
+    )
     return records
 
 
@@ -1194,11 +1405,15 @@ def asdict_list(records: Iterable[object]) -> list[dict]:
     return [dataclasses.asdict(record) for record in records]
 
 
-def write_table(out: list[str], headers: Sequence[str], rows: Sequence[Sequence[str]]) -> None:
+def write_table(
+    out: list[str], headers: Sequence[str], rows: Sequence[Sequence[str]]
+) -> None:
     out.append("| " + " | ".join(headers) + " |")
     out.append("| " + " | ".join("---" for _ in headers) + " |")
     for row in rows:
-        out.append("| " + " | ".join(str(cell).replace("|", "\\|") for cell in row) + " |")
+        out.append(
+            "| " + " | ".join(str(cell).replace("|", "\\|") for cell in row) + " |"
+        )
     out.append("")
 
 
@@ -1207,24 +1422,48 @@ def location(item: ItemRecord) -> str:
 
 
 def write_markdown(inventory: dict, path: pathlib.Path) -> None:
-    items = [ItemRecord(**{**row, "fields": [FieldRecord(**f) for f in row["fields"]]}) for row in inventory["non_ecs_items"]]
-    collections = [CollectionRecord(**row) for row in inventory["collections_hiding_state"]]
+    items = [
+        ItemRecord(**{**row, "fields": [FieldRecord(**f) for f in row["fields"]]})
+        for row in inventory["non_ecs_items"]
+    ]
+    collections = [
+        CollectionRecord(**row) for row in inventory["collections_hiding_state"]
+    ]
     modules = [ModuleSummaryRecord(**row) for row in inventory["module_summaries"]]
     functions = [FunctionRecord(**row) for row in inventory["functions_using_non_ecs"]]
 
     high = [item for item in items if item.migration_priority == "high"]
     medium = [item for item in items if item.migration_priority == "medium"]
-    ecs_adjacent = [item for item in items if item.used_by_ecs_fields or item.used_by_systems]
+    ecs_adjacent = [
+        item for item in items if item.used_by_ecs_fields or item.used_by_systems
+    ]
     runtime = [item for item in items if item.category == "runtime_state"]
-    content = [item for item in items if item.category in {"content_data", "domain_model", "save_data", "value_object"}]
-    keepish = [item for item in items if item.category in {"platform_backend", "ui_presentation", "utility_or_backend", "trait_or_interface"}]
+    content = [
+        item
+        for item in items
+        if item.category
+        in {"content_data", "domain_model", "save_data", "value_object"}
+    ]
+    keepish = [
+        item
+        for item in items
+        if item.category
+        in {
+            "platform_backend",
+            "ui_presentation",
+            "utility_or_backend",
+            "trait_or_interface",
+        }
+    ]
 
     out: list[str] = []
     out.append("# Ambition Sandbox non-ECS inventory")
     out.append("")
     out.append(f"Generated from `{inventory['crate_root']}`.")
     out.append("")
-    out.append("This report complements the ECS inventory. It lists Rust items that do not directly derive Bevy ECS marker traits, then highlights which ones are close to ECS boundaries or may be migration candidates.")
+    out.append(
+        "This report complements the ECS inventory. It lists Rust items that do not directly derive Bevy ECS marker traits, then highlights which ones are close to ECS boundaries or may be migration candidates."
+    )
     out.append("")
 
     out.append("## Executive summary")
@@ -1232,7 +1471,9 @@ def write_markdown(inventory: dict, path: pathlib.Path) -> None:
     for key, value in inventory["counts"].items():
         out.append(f"- {key.replace('_', ' ').title()}: {value}")
     out.append("")
-    out.append("Migration scores are heuristic. Treat high-priority rows as review leads, not automatic refactor instructions.")
+    out.append(
+        "Migration scores are heuristic. Treat high-priority rows as review leads, not automatic refactor instructions."
+    )
     out.append("")
 
     out.append("## Top migration candidates")
@@ -1244,16 +1485,30 @@ def write_markdown(inventory: dict, path: pathlib.Path) -> None:
     else:
         rows = []
         for item in top[:40]:
-            rows.append([
-                f"`{item.name}`",
-                item.kind,
-                item.category,
-                str(item.migration_score),
-                item.suggested_target,
-                f"`{item.file}:{item.line}`",
-                "; ".join(item.reasons[:4]),
-            ])
-        write_table(out, ["Item", "Kind", "Category", "Score", "Suggested target", "Location", "Why"], rows)
+            rows.append(
+                [
+                    f"`{item.name}`",
+                    item.kind,
+                    item.category,
+                    str(item.migration_score),
+                    item.suggested_target,
+                    f"`{item.file}:{item.line}`",
+                    "; ".join(item.reasons[:4]),
+                ]
+            )
+        write_table(
+            out,
+            [
+                "Item",
+                "Kind",
+                "Category",
+                "Score",
+                "Suggested target",
+                "Location",
+                "Why",
+            ],
+            rows,
+        )
 
     out.append("## Collections that may be hiding ECS entities or runtime state")
     out.append("")
@@ -1262,31 +1517,58 @@ def write_markdown(inventory: dict, path: pathlib.Path) -> None:
         out.append("")
     else:
         rows = []
-        for rec in sorted(collections, key=lambda r: ({"high": 0, "medium": 1, "low": 2}.get(r.priority, 3), r.file, r.line))[:80]:
+        for rec in sorted(
+            collections,
+            key=lambda r: (
+                {"high": 0, "medium": 1, "low": 2}.get(r.priority, 3),
+                r.file,
+                r.line,
+            ),
+        )[:80]:
             owner = f"`{rec.owner}.{rec.field}`"
             if rec.owner_ecs_kind:
                 owner += f" ({rec.owner_ecs_kind})"
-            rows.append([
-                owner,
-                rec.container,
-                f"`{rec.payload_type}`",
-                rec.payload_category,
-                rec.priority,
-                rec.suggested_target,
-                f"`{rec.file}:{rec.line}`",
-            ])
-        write_table(out, ["Collection field", "Container", "Payload", "Payload category", "Priority", "Suggestion", "Location"], rows)
+            rows.append(
+                [
+                    owner,
+                    rec.container,
+                    f"`{rec.payload_type}`",
+                    rec.payload_category,
+                    rec.priority,
+                    rec.suggested_target,
+                    f"`{rec.file}:{rec.line}`",
+                ]
+            )
+        write_table(
+            out,
+            [
+                "Collection field",
+                "Container",
+                "Payload",
+                "Payload category",
+                "Priority",
+                "Suggestion",
+                "Location",
+            ],
+            rows,
+        )
 
     out.append("## ECS-adjacent non-ECS types")
     out.append("")
-    out.append("These types are not ECS items themselves, but they are referenced by ECS item fields or system-like functions.")
+    out.append(
+        "These types are not ECS items themselves, but they are referenced by ECS item fields or system-like functions."
+    )
     out.append("")
     if not ecs_adjacent:
         out.append("- None found.")
         out.append("")
     else:
-        for item in sorted(ecs_adjacent, key=lambda row: (-row.migration_score, row.file, row.line))[:80]:
-            out.append(f"- `{item.name}` ({item.category}, score {item.migration_score}) at `{item.file}:{item.line}`")
+        for item in sorted(
+            ecs_adjacent, key=lambda row: (-row.migration_score, row.file, row.line)
+        )[:80]:
+            out.append(
+                f"- `{item.name}` ({item.category}, score {item.migration_score}) at `{item.file}:{item.line}`"
+            )
             if item.used_by_ecs_fields:
                 out.append("  - ECS fields:")
                 for ref in item.used_by_ecs_fields[:6]:
@@ -1308,17 +1590,33 @@ def write_markdown(inventory: dict, path: pathlib.Path) -> None:
         out.append("")
     else:
         rows = []
-        for item in sorted(runtime, key=lambda row: (-row.migration_score, row.file, row.line))[:100]:
-            rows.append([
-                f"`{item.name}`",
-                item.migration_priority,
-                str(item.migration_score),
-                item.suggested_target,
-                str(len(item.fields)),
-                str(len(item.methods)),
-                f"`{item.file}:{item.line}`",
-            ])
-        write_table(out, ["Item", "Priority", "Score", "Suggested target", "Fields", "Methods", "Location"], rows)
+        for item in sorted(
+            runtime, key=lambda row: (-row.migration_score, row.file, row.line)
+        )[:100]:
+            rows.append(
+                [
+                    f"`{item.name}`",
+                    item.migration_priority,
+                    str(item.migration_score),
+                    item.suggested_target,
+                    str(len(item.fields)),
+                    str(len(item.methods)),
+                    f"`{item.file}:{item.line}`",
+                ]
+            )
+        write_table(
+            out,
+            [
+                "Item",
+                "Priority",
+                "Score",
+                "Suggested target",
+                "Fields",
+                "Methods",
+                "Location",
+            ],
+            rows,
+        )
 
     out.append("## Content, save, and domain data likely to stay non-ECS")
     out.append("")
@@ -1327,8 +1625,17 @@ def write_markdown(inventory: dict, path: pathlib.Path) -> None:
         out.append("")
     else:
         rows = []
-        for item in sorted(content, key=lambda row: (row.category, row.file, row.line))[:120]:
-            rows.append([f"`{item.name}`", item.category, item.suggested_target, f"`{item.file}:{item.line}`"])
+        for item in sorted(content, key=lambda row: (row.category, row.file, row.line))[
+            :120
+        ]:
+            rows.append(
+                [
+                    f"`{item.name}`",
+                    item.category,
+                    item.suggested_target,
+                    f"`{item.file}:{item.line}`",
+                ]
+            )
         write_table(out, ["Item", "Category", "Suggestion", "Location"], rows)
 
     out.append("## Presentation/platform/utility items likely to stay non-ECS")
@@ -1338,8 +1645,17 @@ def write_markdown(inventory: dict, path: pathlib.Path) -> None:
         out.append("")
     else:
         rows = []
-        for item in sorted(keepish, key=lambda row: (row.category, row.file, row.line))[:120]:
-            rows.append([f"`{item.name}`", item.category, item.suggested_target, f"`{item.file}:{item.line}`"])
+        for item in sorted(keepish, key=lambda row: (row.category, row.file, row.line))[
+            :120
+        ]:
+            rows.append(
+                [
+                    f"`{item.name}`",
+                    item.category,
+                    item.suggested_target,
+                    f"`{item.file}:{item.line}`",
+                ]
+            )
         write_table(out, ["Item", "Category", "Suggestion", "Location"], rows)
 
     out.append("## Modules with the most migration leads")
@@ -1350,20 +1666,36 @@ def write_markdown(inventory: dict, path: pathlib.Path) -> None:
     else:
         rows = []
         for row in modules[:80]:
-            rows.append([
-                f"`{row.module}`",
-                str(row.non_ecs_items),
-                str(row.high_priority),
-                str(row.medium_priority),
-                str(row.runtime_state),
-                str(row.ecs_adjacent),
-                str(row.hidden_collections),
-            ])
-        write_table(out, ["Module", "Items", "High", "Medium", "Runtime", "ECS-adjacent", "Collections"], rows)
+            rows.append(
+                [
+                    f"`{row.module}`",
+                    str(row.non_ecs_items),
+                    str(row.high_priority),
+                    str(row.medium_priority),
+                    str(row.runtime_state),
+                    str(row.ecs_adjacent),
+                    str(row.hidden_collections),
+                ]
+            )
+        write_table(
+            out,
+            [
+                "Module",
+                "Items",
+                "High",
+                "Medium",
+                "Runtime",
+                "ECS-adjacent",
+                "Collections",
+            ],
+            rows,
+        )
 
     out.append("## System-like functions touching non-ECS types")
     out.append("")
-    system_functions = [fn for fn in functions if fn.is_system_like and fn.non_ecs_types]
+    system_functions = [
+        fn for fn in functions if fn.is_system_like and fn.non_ecs_types
+    ]
     if not system_functions:
         out.append("- None found.")
         out.append("")
@@ -1371,7 +1703,9 @@ def write_markdown(inventory: dict, path: pathlib.Path) -> None:
         for fn in sorted(system_functions, key=lambda row: (row.file, row.line))[:160]:
             name = f"{fn.owner}::{fn.name}" if fn.owner else fn.name
             out.append(f"- `{name}` at `{fn.file}:{fn.line}`")
-            out.append(f"  - non-ECS types: {', '.join(f'`{t}`' for t in fn.non_ecs_types[:12])}")
+            out.append(
+                f"  - non-ECS types: {', '.join(f'`{t}`' for t in fn.non_ecs_types[:12])}"
+            )
             reads = fn.ecs_access.get("resources_read") or []
             writes = fn.ecs_access.get("resources_written") or []
             queries = fn.ecs_access.get("queries") or []
@@ -1405,9 +1739,13 @@ def write_markdown(inventory: dict, path: pathlib.Path) -> None:
     path.write_text("\n".join(out) + "\n", encoding="utf-8")
 
 
-def build_inventory(repo_root: pathlib.Path, crate_root: pathlib.Path, include_tests: bool) -> dict:
+def build_inventory(
+    repo_root: pathlib.Path, crate_root: pathlib.Path, include_tests: bool
+) -> dict:
     parsed_files = list(iter_parsed_rs_files(crate_root, include_tests))
-    all_items, methods_by_type, traits_by_type = collect_raw_items(parsed_files, repo_root, include_tests)
+    all_items, methods_by_type, traits_by_type = collect_raw_items(
+        parsed_files, repo_root, include_tests
+    )
     item_names = {item.name for item in all_items.values()}
     functions = collect_functions(parsed_files, repo_root, include_tests, item_names)
     non_ecs_items, linked_functions, collections, module_summaries = classify_and_link(
@@ -1418,7 +1756,11 @@ def build_inventory(repo_root: pathlib.Path, crate_root: pathlib.Path, include_t
     arch_items = [item for item in all_items.values() if item.architecture_kind]
     high = [item for item in non_ecs_items if item.migration_priority == "high"]
     medium = [item for item in non_ecs_items if item.migration_priority == "medium"]
-    ecs_adjacent = [item for item in non_ecs_items if item.used_by_ecs_fields or item.used_by_systems]
+    ecs_adjacent = [
+        item
+        for item in non_ecs_items
+        if item.used_by_ecs_fields or item.used_by_systems
+    ]
     functions_using_non_ecs = [fn for fn in linked_functions if fn.non_ecs_types]
 
     inventory = {
@@ -1437,15 +1779,25 @@ def build_inventory(repo_root: pathlib.Path, crate_root: pathlib.Path, include_t
             "ecs_adjacent_non_ecs_items": len(ecs_adjacent),
             "collections_hiding_state": len(collections),
             "functions_using_non_ecs": len(functions_using_non_ecs),
-            "system_like_functions_using_non_ecs": len([fn for fn in functions_using_non_ecs if fn.is_system_like]),
+            "system_like_functions_using_non_ecs": len(
+                [fn for fn in functions_using_non_ecs if fn.is_system_like]
+            ),
         },
         "non_ecs_items": asdict_list(non_ecs_items),
         "collections_hiding_state": asdict_list(collections),
         "functions_using_non_ecs": asdict_list(functions_using_non_ecs),
         "module_summaries": asdict_list(module_summaries),
         "excluded_ecs_items": [
-            {"name": item.name, "kind": item.kind, "ecs_kind": item.ecs_kind, "file": item.file, "line": item.line}
-            for item in sorted(direct_ecs_items, key=lambda row: (row.file, row.line, row.name))
+            {
+                "name": item.name,
+                "kind": item.kind,
+                "ecs_kind": item.ecs_kind,
+                "file": item.file,
+                "line": item.line,
+            }
+            for item in sorted(
+                direct_ecs_items, key=lambda row: (row.file, row.line, row.name)
+            )
         ],
     }
     return inventory
@@ -1454,24 +1806,43 @@ def build_inventory(repo_root: pathlib.Path, crate_root: pathlib.Path, include_t
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", type=pathlib.Path, default=pathlib.Path.cwd())
-    parser.add_argument("--crate", type=pathlib.Path, default=pathlib.Path("crates/ambition_sandbox"))
-    parser.add_argument("--json", type=pathlib.Path, default=pathlib.Path("target/ambition_non_ecs_inventory.json"))
-    parser.add_argument("--markdown", type=pathlib.Path, default=pathlib.Path("target/ambition_non_ecs_inventory.md"))
+    parser.add_argument(
+        "--crate", type=pathlib.Path, default=pathlib.Path("crates/ambition_sandbox")
+    )
+    parser.add_argument(
+        "--json",
+        type=pathlib.Path,
+        default=pathlib.Path("target/ambition_non_ecs_inventory.json"),
+    )
+    parser.add_argument(
+        "--markdown",
+        type=pathlib.Path,
+        default=pathlib.Path("target/ambition_non_ecs_inventory.md"),
+    )
     parser.add_argument("--include-tests", action="store_true")
-    parser.add_argument("--check-json", type=pathlib.Path, help="Compare generated JSON with an existing inventory file.")
+    parser.add_argument(
+        "--check-json",
+        type=pathlib.Path,
+        help="Compare generated JSON with an existing inventory file.",
+    )
     args = parser.parse_args(argv)
 
     repo_root = args.repo_root.resolve()
     crate_root = args.crate if args.crate.is_absolute() else repo_root / args.crate
     crate_root = crate_root.resolve()
     if not (crate_root / "src").is_dir():
-        print(f"error: crate source directory not found: {crate_root / 'src'}", file=sys.stderr)
+        print(
+            f"error: crate source directory not found: {crate_root / 'src'}",
+            file=sys.stderr,
+        )
         return 2
 
     inventory = build_inventory(repo_root, crate_root, args.include_tests)
 
     args.json.parent.mkdir(parents=True, exist_ok=True)
-    args.json.write_text(json.dumps(inventory, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    args.json.write_text(
+        json.dumps(inventory, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     write_markdown(inventory, args.markdown)
 
     if args.check_json:

@@ -179,7 +179,9 @@ DEFAULT_DIRECTIONAL_ATTACK_TIMINGS: AnimationMap = {
 }
 
 
-def ordered_subset(source: Mapping[str, AnimationInfo], order: Iterable[str]) -> AnimationMap:
+def ordered_subset(
+    source: Mapping[str, AnimationInfo], order: Iterable[str]
+) -> AnimationMap:
     """Return ``source`` in the requested order, skipping missing names."""
 
     return {name: dict(source[name]) for name in order if name in source}

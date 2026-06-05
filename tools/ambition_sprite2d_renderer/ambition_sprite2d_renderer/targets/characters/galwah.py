@@ -20,39 +20,66 @@ from typing import Iterable, Sequence
 
 from PIL import Image, ImageDraw, ImageFont
 
-ACTOR_METADATA = {'actor': {'character_id': 'npc_galwah', 'display_name': 'Galwah'},
- 'body': {'body_plan': 'HumanoidBiped',
-          'body_kind': 'Standard',
-          'mass_class': 'Medium',
-          'traits': ['story', 'humanoid', 'story', 'mystic'],
-          'locomotion_hint': 'Walk'},
- 'capabilities': {'traversal': {'walk': True,
-                                'jump': None,
-                                'climb': None,
-                                'fly': None,
-                                'swim': None,
-                                'crawl': None,
-                                'use_lifts': True,
-                                'door_access': ['public']},
-                  'interactions': {'talk': True,
-                                   'trade': None,
-                                   'carry': None,
-                                   'open_doors': ['public']}},
- 'brain': {'default_preset': 'patrol_peaceful'},
- 'actions': {'default_preset': 'peaceful'},
- 'visual': {'default_pose': 'idle'},
- 'tags': ['story', 'humanoid', 'story', 'mystic'],
- 'sockets': {'head': {'source': 'explicit.profile.humanoid', 'point': {'x': 64.0, 'y': 24.0}},
-             'chest': {'source': 'explicit.profile.humanoid', 'point': {'x': 64.0, 'y': 54.0}},
-             'hand_l': {'source': 'explicit.profile.humanoid', 'point': {'x': 48.0, 'y': 64.0}},
-             'hand_r': {'source': 'explicit.profile.humanoid', 'point': {'x': 80.0, 'y': 64.0}},
-             'speech_bubble': {'source': 'explicit.profile.humanoid',
-                               'point': {'x': 64.0, 'y': 8.0}}},
- 'animation_bindings': {'default': {'animation': 'turn', 'events': []},
-                        'locomotion.walk': {'animation': 'walk', 'events': []},
-                        'interaction.talk': {'animation': 'talk', 'events': []},
-                        'interaction.use': {'animation': 'interact', 'events': []}}}
-
+ACTOR_METADATA = {
+    "actor": {"character_id": "npc_galwah", "display_name": "Galwah"},
+    "body": {
+        "body_plan": "HumanoidBiped",
+        "body_kind": "Standard",
+        "mass_class": "Medium",
+        "traits": ["story", "humanoid", "story", "mystic"],
+        "locomotion_hint": "Walk",
+    },
+    "capabilities": {
+        "traversal": {
+            "walk": True,
+            "jump": None,
+            "climb": None,
+            "fly": None,
+            "swim": None,
+            "crawl": None,
+            "use_lifts": True,
+            "door_access": ["public"],
+        },
+        "interactions": {
+            "talk": True,
+            "trade": None,
+            "carry": None,
+            "open_doors": ["public"],
+        },
+    },
+    "brain": {"default_preset": "patrol_peaceful"},
+    "actions": {"default_preset": "peaceful"},
+    "visual": {"default_pose": "idle"},
+    "tags": ["story", "humanoid", "story", "mystic"],
+    "sockets": {
+        "head": {
+            "source": "explicit.profile.humanoid",
+            "point": {"x": 64.0, "y": 24.0},
+        },
+        "chest": {
+            "source": "explicit.profile.humanoid",
+            "point": {"x": 64.0, "y": 54.0},
+        },
+        "hand_l": {
+            "source": "explicit.profile.humanoid",
+            "point": {"x": 48.0, "y": 64.0},
+        },
+        "hand_r": {
+            "source": "explicit.profile.humanoid",
+            "point": {"x": 80.0, "y": 64.0},
+        },
+        "speech_bubble": {
+            "source": "explicit.profile.humanoid",
+            "point": {"x": 64.0, "y": 8.0},
+        },
+    },
+    "animation_bindings": {
+        "default": {"animation": "turn", "events": []},
+        "locomotion.walk": {"animation": "walk", "events": []},
+        "interaction.talk": {"animation": "talk", "events": []},
+        "interaction.use": {"animation": "interact", "events": []},
+    },
+}
 
 
 # --- palette -----------------------------------------------------------------
@@ -81,6 +108,7 @@ LABEL = (55, 52, 58, 255)
 
 
 # --- utility -----------------------------------------------------------------
+
 
 def lerp(a: float, b: float, t: float) -> float:
     return a + (b - a) * t
@@ -127,7 +155,9 @@ def rotate(v: tuple[float, float], ang: float) -> tuple[float, float]:
     return (v[0] * c - v[1] * s, v[0] * s + v[1] * c)
 
 
-def qcurve(a: tuple[float, float], b: tuple[float, float], c: tuple[float, float], n: int = 12) -> list[tuple[float, float]]:
+def qcurve(
+    a: tuple[float, float], b: tuple[float, float], c: tuple[float, float], n: int = 12
+) -> list[tuple[float, float]]:
     pts = []
     for i in range(n + 1):
         t = i / n
@@ -140,27 +170,60 @@ def qcurve(a: tuple[float, float], b: tuple[float, float], c: tuple[float, float
 
 # --- primitives ---------------------------------------------------------------
 
-def polygon(draw: ImageDraw.ImageDraw, pts: Sequence[tuple[float, float]], fill, outline=None, width: int = 1) -> None:
+
+def polygon(
+    draw: ImageDraw.ImageDraw,
+    pts: Sequence[tuple[float, float]],
+    fill,
+    outline=None,
+    width: int = 1,
+) -> None:
     draw.polygon([(round(x), round(y)) for x, y in pts], fill=fill, outline=outline)
     if outline is not None and width > 1:
         loop = list(pts) + [pts[0]]
         draw.line([(round(x), round(y)) for x, y in loop], fill=outline, width=width)
 
 
-def line(draw: ImageDraw.ImageDraw, pts: Sequence[tuple[float, float]], fill, width: int = 1) -> None:
-    draw.line([(round(x), round(y)) for x, y in pts], fill=fill, width=width, joint="curve")
+def line(
+    draw: ImageDraw.ImageDraw, pts: Sequence[tuple[float, float]], fill, width: int = 1
+) -> None:
+    draw.line(
+        [(round(x), round(y)) for x, y in pts], fill=fill, width=width, joint="curve"
+    )
 
 
-def ellipse(draw: ImageDraw.ImageDraw, center: tuple[float, float], rx: float, ry: float, fill, outline=None, width: int = 1) -> None:
+def ellipse(
+    draw: ImageDraw.ImageDraw,
+    center: tuple[float, float],
+    rx: float,
+    ry: float,
+    fill,
+    outline=None,
+    width: int = 1,
+) -> None:
     cx, cy = center
-    draw.ellipse((round(cx - rx), round(cy - ry), round(cx + rx), round(cy + ry)), fill=fill, outline=outline, width=width)
+    draw.ellipse(
+        (round(cx - rx), round(cy - ry), round(cx + rx), round(cy + ry)),
+        fill=fill,
+        outline=outline,
+        width=width,
+    )
 
 
-def circle(draw: ImageDraw.ImageDraw, center: tuple[float, float], r: float, fill, outline=None, width: int = 1) -> None:
+def circle(
+    draw: ImageDraw.ImageDraw,
+    center: tuple[float, float],
+    r: float,
+    fill,
+    outline=None,
+    width: int = 1,
+) -> None:
     ellipse(draw, center, r, r, fill, outline, width)
 
 
-def stroke_polyline(draw: ImageDraw.ImageDraw, pts: Sequence[tuple[float, float]], color, width: float) -> None:
+def stroke_polyline(
+    draw: ImageDraw.ImageDraw, pts: Sequence[tuple[float, float]], color, width: float
+) -> None:
     """Thick line with rounded joints via line + joint circles."""
     w = max(1, round(width))
     line(draw, pts, color, w)
@@ -172,13 +235,13 @@ def stroke_polyline(draw: ImageDraw.ImageDraw, pts: Sequence[tuple[float, float]
 @dataclass
 class Pose:
     name: str
-    facing: int = 1            # 1=right, -1=left
-    yaw: float = 0.0           # 0 front, 1 side
-    lean: float = 0.0          # torso lean
+    facing: int = 1  # 1=right, -1=left
+    yaw: float = 0.0  # 0 front, 1 side
+    lean: float = 0.0  # torso lean
     head_tilt: float = 0.0
     blink: bool = False
-    mouth: float = 0.0         # -1 frown, +1 open / talk
-    step: float = 0.0          # walk cycle phase-ish
+    mouth: float = 0.0  # -1 frown, +1 open / talk
+    step: float = 0.0  # walk cycle phase-ish
     body_y: float = 0.0
     crouch: float = 0.0
     left_hand: tuple[float, float] | None = None
@@ -191,7 +254,7 @@ class Pose:
     paper_drop: float = 0.0
     pistol_smoke: bool = False
     hair_bounce: float = 0.0
-    collapse: float = 0.0      # 0 standing, 1 collapsed
+    collapse: float = 0.0  # 0 standing, 1 collapsed
 
 
 # --- figure drawing -----------------------------------------------------------
@@ -214,7 +277,13 @@ class GalwahRenderer:
         draw = ImageDraw.Draw(img, "RGBA")
 
         # Shadow / ground anchor.
-        ellipse(draw, self.pt(48, 88 + pose.body_y * 0.18), self.S(18 - 8 * pose.collapse), self.S(4 + 2 * pose.collapse), SHADOW)
+        ellipse(
+            draw,
+            self.pt(48, 88 + pose.body_y * 0.18),
+            self.S(18 - 8 * pose.collapse),
+            self.S(4 + 2 * pose.collapse),
+            SHADOW,
+        )
 
         # Body scaffold.
         facing = 1 if pose.facing >= 0 else -1
@@ -227,14 +296,24 @@ class GalwahRenderer:
         pelvis = self.pt(48 + lean * 1.8, 58 + body_y + crouch * 3 + pose.collapse * 8)
         chest = self.pt(48 + lean * 4.2, 41 + body_y + crouch * 1.8 + pose.collapse * 2)
         neck = self.pt(48 + lean * 4.8, 33 + body_y + crouch * 1.1)
-        head = self.pt(48 + facing * yaw * 3.0 + lean * 4.5, 24 + body_y - pose.collapse * 2)
+        head = self.pt(
+            48 + facing * yaw * 3.0 + lean * 4.5, 24 + body_y - pose.collapse * 2
+        )
 
         shoulder_span = lerp(10.5, 5.5, yaw)
         hip_span = lerp(6.8, 4.2, yaw)
-        left_shoulder = self.pt(48 - shoulder_span + lean * 3.6, 42 + body_y + crouch * 1.5)
-        right_shoulder = self.pt(48 + shoulder_span + lean * 4.2, 42 + body_y + crouch * 1.5)
-        left_hip = self.pt(48 - hip_span + lean * 1.8, 58 + body_y + crouch * 2.8 + pose.collapse * 8)
-        right_hip = self.pt(48 + hip_span + lean * 1.8, 58 + body_y + crouch * 2.8 + pose.collapse * 8)
+        left_shoulder = self.pt(
+            48 - shoulder_span + lean * 3.6, 42 + body_y + crouch * 1.5
+        )
+        right_shoulder = self.pt(
+            48 + shoulder_span + lean * 4.2, 42 + body_y + crouch * 1.5
+        )
+        left_hip = self.pt(
+            48 - hip_span + lean * 1.8, 58 + body_y + crouch * 2.8 + pose.collapse * 8
+        )
+        right_hip = self.pt(
+            48 + hip_span + lean * 1.8, 58 + body_y + crouch * 2.8 + pose.collapse * 8
+        )
 
         # Near/far sides for draw order.
         near_side = "right" if facing > 0 else "left"
@@ -266,13 +345,23 @@ class GalwahRenderer:
         right_hand = add(chest, self.pt(rh[0], rh[1]))
 
         # Knees / elbows.
-        def knee(a: tuple[float, float], b: tuple[float, float], side: float, bias: float = 1.0) -> tuple[float, float]:
+        def knee(
+            a: tuple[float, float],
+            b: tuple[float, float],
+            side: float,
+            bias: float = 1.0,
+        ) -> tuple[float, float]:
             mid = midpoint(a, b)
             d = sub(b, a)
             n = normalize(perp(d))
             return add(mid, mul(n, self.S(5.0 * side * bias)))
 
-        def elbow(a: tuple[float, float], b: tuple[float, float], side: float, bias: float = 1.0) -> tuple[float, float]:
+        def elbow(
+            a: tuple[float, float],
+            b: tuple[float, float],
+            side: float,
+            bias: float = 1.0,
+        ) -> tuple[float, float]:
             mid = midpoint(a, b)
             d = sub(b, a)
             n = normalize(perp(d))
@@ -285,15 +374,41 @@ class GalwahRenderer:
 
         if pose.collapse > 0.25:
             left_elbow = add(left_elbow, self.pt(-2 * pose.collapse, 2 * pose.collapse))
-            right_elbow = add(right_elbow, self.pt(2 * pose.collapse, 3 * pose.collapse))
+            right_elbow = add(
+                right_elbow, self.pt(2 * pose.collapse, 3 * pose.collapse)
+            )
 
         # Draw order: far leg, near leg, torso, far arm, head, near arm, items.
-        self._draw_leg(draw, left_hip if far_side == "left" else right_hip, left_knee if far_side == "left" else right_knee, left_foot if far_side == "left" else right_foot, far=True)
-        self._draw_leg(draw, right_hip if near_side == "right" else left_hip, right_knee if near_side == "right" else left_knee, right_foot if near_side == "right" else left_foot, far=False)
+        self._draw_leg(
+            draw,
+            left_hip if far_side == "left" else right_hip,
+            left_knee if far_side == "left" else right_knee,
+            left_foot if far_side == "left" else right_foot,
+            far=True,
+        )
+        self._draw_leg(
+            draw,
+            right_hip if near_side == "right" else left_hip,
+            right_knee if near_side == "right" else left_knee,
+            right_foot if near_side == "right" else left_foot,
+            far=False,
+        )
         self._draw_torso(draw, pelvis, chest, neck, pose, facing, yaw)
-        self._draw_arm(draw, left_shoulder if far_side == "left" else right_shoulder, left_elbow if far_side == "left" else right_elbow, left_hand if far_side == "left" else right_hand, far=True)
+        self._draw_arm(
+            draw,
+            left_shoulder if far_side == "left" else right_shoulder,
+            left_elbow if far_side == "left" else right_elbow,
+            left_hand if far_side == "left" else right_hand,
+            far=True,
+        )
         self._draw_head(draw, head, pose, facing, yaw)
-        self._draw_arm(draw, right_shoulder if near_side == "right" else left_shoulder, right_elbow if near_side == "right" else left_elbow, right_hand if near_side == "right" else left_hand, far=False)
+        self._draw_arm(
+            draw,
+            right_shoulder if near_side == "right" else left_shoulder,
+            right_elbow if near_side == "right" else left_elbow,
+            right_hand if near_side == "right" else left_hand,
+            far=False,
+        )
 
         # Items.
         if pose.left_item:
@@ -309,7 +424,12 @@ class GalwahRenderer:
             base = add(right_hand, self.pt(8 * facing, -5))
             for i in range(4):
                 off = rotate(self.pt(5 + i * 2.2, -4 - i * 1.5), -0.2 * facing)
-                circle(draw, add(base, off), self.S(2.2 - i * 0.3), (230, 230, 230, 92 - i * 14))
+                circle(
+                    draw,
+                    add(base, off),
+                    self.S(2.2 - i * 0.3),
+                    (230, 230, 230, 92 - i * 14),
+                )
 
         # Downsample from supersampled render.
         return img.resize((self.frame_w, self.frame_h), Image.Resampling.LANCZOS)
@@ -321,14 +441,39 @@ class GalwahRenderer:
         toe = add(foot, self.pt(4.8, 0.6))
         heel = add(foot, self.pt(-2.2, 0.8))
         upper = add(foot, self.pt(0.0, -2.6))
-        polygon(draw, [upper, toe, add(toe, self.pt(0.4, 1.4)), add(heel, self.pt(0.0, 1.8)), heel], BOOT, OUTLINE, max(1, self.aa // 2))
+        polygon(
+            draw,
+            [
+                upper,
+                toe,
+                add(toe, self.pt(0.4, 1.4)),
+                add(heel, self.pt(0.0, 1.8)),
+                heel,
+            ],
+            BOOT,
+            OUTLINE,
+            max(1, self.aa // 2),
+        )
 
-    def _draw_arm(self, draw: ImageDraw.ImageDraw, shoulder, elbow, hand, far: bool) -> None:
+    def _draw_arm(
+        self, draw: ImageDraw.ImageDraw, shoulder, elbow, hand, far: bool
+    ) -> None:
         sleeve = (58, 64, 90, 235) if far else COAT
-        stroke_polyline(draw, [shoulder, elbow, hand], sleeve, self.S(4.2 if far else 5.0))
+        stroke_polyline(
+            draw, [shoulder, elbow, hand], sleeve, self.S(4.2 if far else 5.0)
+        )
         circle(draw, hand, self.S(2.2), SKIN, OUTLINE, max(1, self.aa // 2))
 
-    def _draw_torso(self, draw: ImageDraw.ImageDraw, pelvis, chest, neck, pose: Pose, facing: int, yaw: float) -> None:
+    def _draw_torso(
+        self,
+        draw: ImageDraw.ImageDraw,
+        pelvis,
+        chest,
+        neck,
+        pose: Pose,
+        facing: int,
+        yaw: float,
+    ) -> None:
         cx, cy = chest
         px, py = pelvis
         coat_swing = pose.coat_swing
@@ -353,8 +498,16 @@ class GalwahRenderer:
         polygon(draw, coat_pts, COAT, OUTLINE, max(1, self.aa // 2))
 
         # Lapels and vest.
-        left_lapel = [(cx - self.S(6.5), cy - self.S(1.5)), (cx - self.S(1.0), cy + self.S(7.0)), (cx - self.S(4.0), py + self.S(2.0))]
-        right_lapel = [(cx + self.S(6.5), cy - self.S(1.5)), (cx + self.S(1.0), cy + self.S(7.0)), (cx + self.S(4.0), py + self.S(2.0))]
+        left_lapel = [
+            (cx - self.S(6.5), cy - self.S(1.5)),
+            (cx - self.S(1.0), cy + self.S(7.0)),
+            (cx - self.S(4.0), py + self.S(2.0)),
+        ]
+        right_lapel = [
+            (cx + self.S(6.5), cy - self.S(1.5)),
+            (cx + self.S(1.0), cy + self.S(7.0)),
+            (cx + self.S(4.0), py + self.S(2.0)),
+        ]
         polygon(draw, left_lapel, COAT_DARK, OUTLINE)
         polygon(draw, right_lapel, COAT_DARK, OUTLINE)
         vest_pts = [
@@ -377,25 +530,42 @@ class GalwahRenderer:
         ]
         polygon(draw, shirt_pts, SHIRT, OUTLINE)
         cravat_knot = (cx, cy - self.S(1.2))
-        polygon(draw, [
-            add(cravat_knot, self.pt(-1.8, -1.2)),
-            add(cravat_knot, self.pt(1.8, -1.2)),
-            add(cravat_knot, self.pt(2.8, 1.4)),
-            add(cravat_knot, self.pt(0.0, 3.6)),
-            add(cravat_knot, self.pt(-2.8, 1.4)),
-        ], CRAVAT, OUTLINE)
-        polygon(draw, [
-            add(cravat_knot, self.pt(-0.8, 2.8)),
-            add(cravat_knot, self.pt(0.3, 8.0)),
-            add(cravat_knot, self.pt(-2.0, 8.3)),
-        ], CRAVAT, OUTLINE)
-        polygon(draw, [
-            add(cravat_knot, self.pt(0.8, 2.8)),
-            add(cravat_knot, self.pt(2.0, 7.6)),
-            add(cravat_knot, self.pt(0.0, 8.2)),
-        ], CRAVAT, OUTLINE)
+        polygon(
+            draw,
+            [
+                add(cravat_knot, self.pt(-1.8, -1.2)),
+                add(cravat_knot, self.pt(1.8, -1.2)),
+                add(cravat_knot, self.pt(2.8, 1.4)),
+                add(cravat_knot, self.pt(0.0, 3.6)),
+                add(cravat_knot, self.pt(-2.8, 1.4)),
+            ],
+            CRAVAT,
+            OUTLINE,
+        )
+        polygon(
+            draw,
+            [
+                add(cravat_knot, self.pt(-0.8, 2.8)),
+                add(cravat_knot, self.pt(0.3, 8.0)),
+                add(cravat_knot, self.pt(-2.0, 8.3)),
+            ],
+            CRAVAT,
+            OUTLINE,
+        )
+        polygon(
+            draw,
+            [
+                add(cravat_knot, self.pt(0.8, 2.8)),
+                add(cravat_knot, self.pt(2.0, 7.6)),
+                add(cravat_knot, self.pt(0.0, 8.2)),
+            ],
+            CRAVAT,
+            OUTLINE,
+        )
 
-    def _draw_head(self, draw: ImageDraw.ImageDraw, head, pose: Pose, facing: int, yaw: float) -> None:
+    def _draw_head(
+        self, draw: ImageDraw.ImageDraw, head, pose: Pose, facing: int, yaw: float
+    ) -> None:
         cx, cy = head
         side = facing if yaw >= 0.15 else 0
         head_tilt = pose.head_tilt
@@ -407,12 +577,17 @@ class GalwahRenderer:
         ellipse(draw, hair_oval_center, self.S(11.0 - 1.3 * yaw), self.S(8.4), HAIR)
 
         # Neck.
-        polygon(draw, [
-            self.pt(cx / self.aa - 2.2, cy / self.aa + 10.0),
-            self.pt(cx / self.aa + 2.2, cy / self.aa + 10.0),
-            self.pt(cx / self.aa + 2.6, cy / self.aa + 15.0),
-            self.pt(cx / self.aa - 2.6, cy / self.aa + 15.0),
-        ], SKIN, OUTLINE)
+        polygon(
+            draw,
+            [
+                self.pt(cx / self.aa - 2.2, cy / self.aa + 10.0),
+                self.pt(cx / self.aa + 2.2, cy / self.aa + 10.0),
+                self.pt(cx / self.aa + 2.6, cy / self.aa + 15.0),
+                self.pt(cx / self.aa - 2.6, cy / self.aa + 15.0),
+            ],
+            SKIN,
+            OUTLINE,
+        )
 
         if yaw < 0.18:
             # Front face.
@@ -438,18 +613,28 @@ class GalwahRenderer:
                 (cx - self.S(7.2), cy - self.S(4.9)),
             ]
             polygon(draw, fringe, HAIR, OUTLINE)
-            polygon(draw, [
-                (cx - self.S(10.2), cy - self.S(5.3)),
-                (cx - self.S(6.8), cy + self.S(2.0)),
-                (cx - self.S(8.4), cy + self.S(4.8)),
-                (cx - self.S(11.2), cy - self.S(1.0)),
-            ], HAIR, OUTLINE)
-            polygon(draw, [
-                (cx + self.S(10.0), cy - self.S(4.6)),
-                (cx + self.S(6.4), cy + self.S(1.6)),
-                (cx + self.S(7.6), cy + self.S(4.6)),
-                (cx + self.S(10.8), cy - self.S(0.4)),
-            ], HAIR, OUTLINE)
+            polygon(
+                draw,
+                [
+                    (cx - self.S(10.2), cy - self.S(5.3)),
+                    (cx - self.S(6.8), cy + self.S(2.0)),
+                    (cx - self.S(8.4), cy + self.S(4.8)),
+                    (cx - self.S(11.2), cy - self.S(1.0)),
+                ],
+                HAIR,
+                OUTLINE,
+            )
+            polygon(
+                draw,
+                [
+                    (cx + self.S(10.0), cy - self.S(4.6)),
+                    (cx + self.S(6.4), cy + self.S(1.6)),
+                    (cx + self.S(7.6), cy + self.S(4.6)),
+                    (cx + self.S(10.8), cy - self.S(0.4)),
+                ],
+                HAIR,
+                OUTLINE,
+            )
             # Features.
             self._front_face_features(draw, (cx, cy), pose)
         elif yaw < 0.75:
@@ -476,11 +661,16 @@ class GalwahRenderer:
                 (cx - self.S(7.2 * facing), cy - self.S(4.5)),
             ]
             polygon(draw, fringe, HAIR, OUTLINE)
-            polygon(draw, [
-                (cx - self.S(9.8 * facing), cy - self.S(2.5)),
-                (cx - self.S(6.0 * facing), cy + self.S(5.8)),
-                (cx - self.S(9.0 * facing), cy + self.S(3.8)),
-            ], HAIR, OUTLINE)
+            polygon(
+                draw,
+                [
+                    (cx - self.S(9.8 * facing), cy - self.S(2.5)),
+                    (cx - self.S(6.0 * facing), cy + self.S(5.8)),
+                    (cx - self.S(9.0 * facing), cy + self.S(3.8)),
+                ],
+                HAIR,
+                OUTLINE,
+            )
             self._three_quarter_features(draw, (fx, cy), pose, facing)
         else:
             # Profile / side.
@@ -510,98 +700,377 @@ class GalwahRenderer:
             polygon(draw, hair_pts, HAIR, OUTLINE)
             self._side_features(draw, (cx, cy), pose, facing)
 
-    def _front_face_features(self, draw: ImageDraw.ImageDraw, c: tuple[float, float], pose: Pose) -> None:
+    def _front_face_features(
+        self, draw: ImageDraw.ImageDraw, c: tuple[float, float], pose: Pose
+    ) -> None:
         cx, cy = c
-        ellipse(draw, (cx - self.S(11.2), cy - self.S(0.8)), self.S(1.3), self.S(2.2), SKIN, OUTLINE)
-        ellipse(draw, (cx + self.S(11.2), cy - self.S(0.8)), self.S(1.3), self.S(2.2), SKIN, OUTLINE)
-        line(draw, [self.pt(cx / self.aa - 5.4, cy / self.aa - 5.0), self.pt(cx / self.aa - 1.6, cy / self.aa - 5.6)], OUTLINE, max(1, self.aa // 2))
-        line(draw, [self.pt(cx / self.aa + 1.6, cy / self.aa - 5.6), self.pt(cx / self.aa + 5.6, cy / self.aa - 5.0)], OUTLINE, max(1, self.aa // 2))
+        ellipse(
+            draw,
+            (cx - self.S(11.2), cy - self.S(0.8)),
+            self.S(1.3),
+            self.S(2.2),
+            SKIN,
+            OUTLINE,
+        )
+        ellipse(
+            draw,
+            (cx + self.S(11.2), cy - self.S(0.8)),
+            self.S(1.3),
+            self.S(2.2),
+            SKIN,
+            OUTLINE,
+        )
+        line(
+            draw,
+            [
+                self.pt(cx / self.aa - 5.4, cy / self.aa - 5.0),
+                self.pt(cx / self.aa - 1.6, cy / self.aa - 5.6),
+            ],
+            OUTLINE,
+            max(1, self.aa // 2),
+        )
+        line(
+            draw,
+            [
+                self.pt(cx / self.aa + 1.6, cy / self.aa - 5.6),
+                self.pt(cx / self.aa + 5.6, cy / self.aa - 5.0),
+            ],
+            OUTLINE,
+            max(1, self.aa // 2),
+        )
         if pose.blink:
-            line(draw, [self.pt(cx / self.aa - 4.8, cy / self.aa - 1.5), self.pt(cx / self.aa - 1.8, cy / self.aa - 1.0)], OUTLINE, max(1, self.aa // 2))
-            line(draw, [self.pt(cx / self.aa + 1.8, cy / self.aa - 1.0), self.pt(cx / self.aa + 4.8, cy / self.aa - 1.5)], OUTLINE, max(1, self.aa // 2))
+            line(
+                draw,
+                [
+                    self.pt(cx / self.aa - 4.8, cy / self.aa - 1.5),
+                    self.pt(cx / self.aa - 1.8, cy / self.aa - 1.0),
+                ],
+                OUTLINE,
+                max(1, self.aa // 2),
+            )
+            line(
+                draw,
+                [
+                    self.pt(cx / self.aa + 1.8, cy / self.aa - 1.0),
+                    self.pt(cx / self.aa + 4.8, cy / self.aa - 1.5),
+                ],
+                OUTLINE,
+                max(1, self.aa // 2),
+            )
         else:
-            ellipse(draw, self.pt(cx / self.aa - 3.4, cy / self.aa - 1.0), self.S(1.15), self.S(1.45), SHIRT, OUTLINE)
-            ellipse(draw, self.pt(cx / self.aa + 3.4, cy / self.aa - 1.0), self.S(1.15), self.S(1.45), SHIRT, OUTLINE)
-            circle(draw, self.pt(cx / self.aa - 3.2, cy / self.aa - 0.9), self.S(0.48), OUTLINE)
-            circle(draw, self.pt(cx / self.aa + 3.2, cy / self.aa - 0.9), self.S(0.48), OUTLINE)
-        line(draw, [self.pt(cx / self.aa + 0.2, cy / self.aa - 1.4), self.pt(cx / self.aa - 0.5, cy / self.aa + 2.4), self.pt(cx / self.aa + 0.8, cy / self.aa + 3.6)], SKIN_SHADE, max(1, self.aa // 2))
+            ellipse(
+                draw,
+                self.pt(cx / self.aa - 3.4, cy / self.aa - 1.0),
+                self.S(1.15),
+                self.S(1.45),
+                SHIRT,
+                OUTLINE,
+            )
+            ellipse(
+                draw,
+                self.pt(cx / self.aa + 3.4, cy / self.aa - 1.0),
+                self.S(1.15),
+                self.S(1.45),
+                SHIRT,
+                OUTLINE,
+            )
+            circle(
+                draw,
+                self.pt(cx / self.aa - 3.2, cy / self.aa - 0.9),
+                self.S(0.48),
+                OUTLINE,
+            )
+            circle(
+                draw,
+                self.pt(cx / self.aa + 3.2, cy / self.aa - 0.9),
+                self.S(0.48),
+                OUTLINE,
+            )
+        line(
+            draw,
+            [
+                self.pt(cx / self.aa + 0.2, cy / self.aa - 1.4),
+                self.pt(cx / self.aa - 0.5, cy / self.aa + 2.4),
+                self.pt(cx / self.aa + 0.8, cy / self.aa + 3.6),
+            ],
+            SKIN_SHADE,
+            max(1, self.aa // 2),
+        )
         mouth_y = cy / self.aa + 7.0
         mouth_curve = pose.mouth * 1.6
-        line(draw, qcurve(self.pt(cx / self.aa - 3.8, mouth_y), self.pt(cx / self.aa, mouth_y + mouth_curve), self.pt(cx / self.aa + 3.8, mouth_y)), OUTLINE, max(1, self.aa // 2))
-        line(draw, [self.pt(cx / self.aa - 5.5, cy / self.aa + 2.2), self.pt(cx / self.aa - 6.4, cy / self.aa + 6.0)], SKIN_SHADE, max(1, self.aa // 2))
-        line(draw, [self.pt(cx / self.aa + 5.5, cy / self.aa + 2.2), self.pt(cx / self.aa + 6.4, cy / self.aa + 6.0)], SKIN_SHADE, max(1, self.aa // 2))
+        line(
+            draw,
+            qcurve(
+                self.pt(cx / self.aa - 3.8, mouth_y),
+                self.pt(cx / self.aa, mouth_y + mouth_curve),
+                self.pt(cx / self.aa + 3.8, mouth_y),
+            ),
+            OUTLINE,
+            max(1, self.aa // 2),
+        )
+        line(
+            draw,
+            [
+                self.pt(cx / self.aa - 5.5, cy / self.aa + 2.2),
+                self.pt(cx / self.aa - 6.4, cy / self.aa + 6.0),
+            ],
+            SKIN_SHADE,
+            max(1, self.aa // 2),
+        )
+        line(
+            draw,
+            [
+                self.pt(cx / self.aa + 5.5, cy / self.aa + 2.2),
+                self.pt(cx / self.aa + 6.4, cy / self.aa + 6.0),
+            ],
+            SKIN_SHADE,
+            max(1, self.aa // 2),
+        )
 
-    def _three_quarter_features(self, draw: ImageDraw.ImageDraw, c: tuple[float, float], pose: Pose, facing: int) -> None:
+    def _three_quarter_features(
+        self, draw: ImageDraw.ImageDraw, c: tuple[float, float], pose: Pose, facing: int
+    ) -> None:
         cx, cy = c
         # single visible ear
-        ellipse(draw, self.pt(cx / self.aa - 8.8 * facing, cy / self.aa - 0.8), self.S(1.2), self.S(2.0), SKIN, OUTLINE)
-        line(draw, [self.pt(cx / self.aa - 4.8 * facing, cy / self.aa - 5.0), self.pt(cx / self.aa - 1.4 * facing, cy / self.aa - 5.2)], OUTLINE, max(1, self.aa // 2))
-        line(draw, [self.pt(cx / self.aa + 1.0 * facing, cy / self.aa - 4.8), self.pt(cx / self.aa + 4.6 * facing, cy / self.aa - 5.3)], OUTLINE, max(1, self.aa // 2))
+        ellipse(
+            draw,
+            self.pt(cx / self.aa - 8.8 * facing, cy / self.aa - 0.8),
+            self.S(1.2),
+            self.S(2.0),
+            SKIN,
+            OUTLINE,
+        )
+        line(
+            draw,
+            [
+                self.pt(cx / self.aa - 4.8 * facing, cy / self.aa - 5.0),
+                self.pt(cx / self.aa - 1.4 * facing, cy / self.aa - 5.2),
+            ],
+            OUTLINE,
+            max(1, self.aa // 2),
+        )
+        line(
+            draw,
+            [
+                self.pt(cx / self.aa + 1.0 * facing, cy / self.aa - 4.8),
+                self.pt(cx / self.aa + 4.6 * facing, cy / self.aa - 5.3),
+            ],
+            OUTLINE,
+            max(1, self.aa // 2),
+        )
         if pose.blink:
-            line(draw, [self.pt(cx / self.aa - 4.2 * facing, cy / self.aa - 1.0), self.pt(cx / self.aa - 1.8 * facing, cy / self.aa - 0.6)], OUTLINE, max(1, self.aa // 2))
-            line(draw, [self.pt(cx / self.aa + 1.0 * facing, cy / self.aa - 0.8), self.pt(cx / self.aa + 3.4 * facing, cy / self.aa - 0.8)], OUTLINE, max(1, self.aa // 2))
+            line(
+                draw,
+                [
+                    self.pt(cx / self.aa - 4.2 * facing, cy / self.aa - 1.0),
+                    self.pt(cx / self.aa - 1.8 * facing, cy / self.aa - 0.6),
+                ],
+                OUTLINE,
+                max(1, self.aa // 2),
+            )
+            line(
+                draw,
+                [
+                    self.pt(cx / self.aa + 1.0 * facing, cy / self.aa - 0.8),
+                    self.pt(cx / self.aa + 3.4 * facing, cy / self.aa - 0.8),
+                ],
+                OUTLINE,
+                max(1, self.aa // 2),
+            )
         else:
-            ellipse(draw, self.pt(cx / self.aa - 3.2 * facing, cy / self.aa - 0.9), self.S(1.05), self.S(1.35), SHIRT, OUTLINE)
-            circle(draw, self.pt(cx / self.aa - 3.0 * facing, cy / self.aa - 0.9), self.S(0.44), OUTLINE)
-            ellipse(draw, self.pt(cx / self.aa + 2.2 * facing, cy / self.aa - 0.9), self.S(0.85), self.S(1.1), SHIRT, OUTLINE)
-            circle(draw, self.pt(cx / self.aa + 2.1 * facing, cy / self.aa - 0.9), self.S(0.34), OUTLINE)
-        line(draw, [self.pt(cx / self.aa - 0.8 * facing, cy / self.aa - 1.2), self.pt(cx / self.aa + 1.8 * facing, cy / self.aa + 2.7), self.pt(cx / self.aa + 3.4 * facing, cy / self.aa + 3.8)], SKIN_SHADE, max(1, self.aa // 2))
+            ellipse(
+                draw,
+                self.pt(cx / self.aa - 3.2 * facing, cy / self.aa - 0.9),
+                self.S(1.05),
+                self.S(1.35),
+                SHIRT,
+                OUTLINE,
+            )
+            circle(
+                draw,
+                self.pt(cx / self.aa - 3.0 * facing, cy / self.aa - 0.9),
+                self.S(0.44),
+                OUTLINE,
+            )
+            ellipse(
+                draw,
+                self.pt(cx / self.aa + 2.2 * facing, cy / self.aa - 0.9),
+                self.S(0.85),
+                self.S(1.1),
+                SHIRT,
+                OUTLINE,
+            )
+            circle(
+                draw,
+                self.pt(cx / self.aa + 2.1 * facing, cy / self.aa - 0.9),
+                self.S(0.34),
+                OUTLINE,
+            )
+        line(
+            draw,
+            [
+                self.pt(cx / self.aa - 0.8 * facing, cy / self.aa - 1.2),
+                self.pt(cx / self.aa + 1.8 * facing, cy / self.aa + 2.7),
+                self.pt(cx / self.aa + 3.4 * facing, cy / self.aa + 3.8),
+            ],
+            SKIN_SHADE,
+            max(1, self.aa // 2),
+        )
         mouth_y = cy / self.aa + 6.8
-        line(draw, qcurve(self.pt(cx / self.aa - 2.8 * facing, mouth_y), self.pt(cx / self.aa + 0.3 * facing, mouth_y + pose.mouth * 1.2), self.pt(cx / self.aa + 4.2 * facing, mouth_y - 0.5)), OUTLINE, max(1, self.aa // 2))
+        line(
+            draw,
+            qcurve(
+                self.pt(cx / self.aa - 2.8 * facing, mouth_y),
+                self.pt(cx / self.aa + 0.3 * facing, mouth_y + pose.mouth * 1.2),
+                self.pt(cx / self.aa + 4.2 * facing, mouth_y - 0.5),
+            ),
+            OUTLINE,
+            max(1, self.aa // 2),
+        )
 
-    def _side_features(self, draw: ImageDraw.ImageDraw, c: tuple[float, float], pose: Pose, facing: int) -> None:
+    def _side_features(
+        self, draw: ImageDraw.ImageDraw, c: tuple[float, float], pose: Pose, facing: int
+    ) -> None:
         cx, cy = c
-        ellipse(draw, self.pt(cx / self.aa - 8.0 * facing, cy / self.aa - 1.2), self.S(1.1), self.S(1.9), SKIN, OUTLINE)
-        line(draw, [self.pt(cx / self.aa - 1.0 * facing, cy / self.aa - 5.0), self.pt(cx / self.aa + 3.8 * facing, cy / self.aa - 5.2)], OUTLINE, max(1, self.aa // 2))
+        ellipse(
+            draw,
+            self.pt(cx / self.aa - 8.0 * facing, cy / self.aa - 1.2),
+            self.S(1.1),
+            self.S(1.9),
+            SKIN,
+            OUTLINE,
+        )
+        line(
+            draw,
+            [
+                self.pt(cx / self.aa - 1.0 * facing, cy / self.aa - 5.0),
+                self.pt(cx / self.aa + 3.8 * facing, cy / self.aa - 5.2),
+            ],
+            OUTLINE,
+            max(1, self.aa // 2),
+        )
         if pose.blink:
-            line(draw, [self.pt(cx / self.aa + 0.5 * facing, cy / self.aa - 0.8), self.pt(cx / self.aa + 3.4 * facing, cy / self.aa - 0.8)], OUTLINE, max(1, self.aa // 2))
+            line(
+                draw,
+                [
+                    self.pt(cx / self.aa + 0.5 * facing, cy / self.aa - 0.8),
+                    self.pt(cx / self.aa + 3.4 * facing, cy / self.aa - 0.8),
+                ],
+                OUTLINE,
+                max(1, self.aa // 2),
+            )
         else:
-            ellipse(draw, self.pt(cx / self.aa + 2.0 * facing, cy / self.aa - 1.0), self.S(0.95), self.S(1.25), SHIRT, OUTLINE)
-            circle(draw, self.pt(cx / self.aa + 2.0 * facing, cy / self.aa - 0.95), self.S(0.38), OUTLINE)
+            ellipse(
+                draw,
+                self.pt(cx / self.aa + 2.0 * facing, cy / self.aa - 1.0),
+                self.S(0.95),
+                self.S(1.25),
+                SHIRT,
+                OUTLINE,
+            )
+            circle(
+                draw,
+                self.pt(cx / self.aa + 2.0 * facing, cy / self.aa - 0.95),
+                self.S(0.38),
+                OUTLINE,
+            )
         # nose / lips / chin profile
-        line(draw, [self.pt(cx / self.aa + 2.8 * facing, cy / self.aa - 1.0), self.pt(cx / self.aa + 5.3 * facing, cy / self.aa + 1.1), self.pt(cx / self.aa + 3.6 * facing, cy / self.aa + 2.2)], SKIN_SHADE, max(1, self.aa // 2))
-        line(draw, qcurve(self.pt(cx / self.aa + 1.8 * facing, cy / self.aa + 6.5), self.pt(cx / self.aa + 3.6 * facing, cy / self.aa + 7.1 + pose.mouth * 1.1), self.pt(cx / self.aa + 5.3 * facing, cy / self.aa + 6.6)), OUTLINE, max(1, self.aa // 2))
+        line(
+            draw,
+            [
+                self.pt(cx / self.aa + 2.8 * facing, cy / self.aa - 1.0),
+                self.pt(cx / self.aa + 5.3 * facing, cy / self.aa + 1.1),
+                self.pt(cx / self.aa + 3.6 * facing, cy / self.aa + 2.2),
+            ],
+            SKIN_SHADE,
+            max(1, self.aa // 2),
+        )
+        line(
+            draw,
+            qcurve(
+                self.pt(cx / self.aa + 1.8 * facing, cy / self.aa + 6.5),
+                self.pt(
+                    cx / self.aa + 3.6 * facing, cy / self.aa + 7.1 + pose.mouth * 1.1
+                ),
+                self.pt(cx / self.aa + 5.3 * facing, cy / self.aa + 6.6),
+            ),
+            OUTLINE,
+            max(1, self.aa // 2),
+        )
 
-    def _draw_item(self, draw: ImageDraw.ImageDraw, hand: tuple[float, float], item: str, facing: int, pose: Pose) -> None:
+    def _draw_item(
+        self,
+        draw: ImageDraw.ImageDraw,
+        hand: tuple[float, float],
+        item: str,
+        facing: int,
+        pose: Pose,
+    ) -> None:
         if item == "page":
             self._draw_page(draw, hand, angle=0.12 * facing - pose.lean * 0.2)
         elif item == "pistol":
-            self._draw_pistol(draw, hand, angle=-0.18 * facing + pose.lean * 0.12, facing=facing)
+            self._draw_pistol(
+                draw, hand, angle=-0.18 * facing + pose.lean * 0.12, facing=facing
+            )
         elif item == "book":
             self._draw_book(draw, hand, angle=0.15 * facing)
 
-    def _draw_page(self, draw: ImageDraw.ImageDraw, hand: tuple[float, float], angle: float = 0.0) -> None:
+    def _draw_page(
+        self, draw: ImageDraw.ImageDraw, hand: tuple[float, float], angle: float = 0.0
+    ) -> None:
         hw = self.S(4.7)
         hh = self.S(6.2)
         pts = [(-hw, -hh), (hw, -hh), (hw, hh), (-hw, hh)]
         rot = [add(hand, rotate(p, angle)) for p in pts]
         polygon(draw, rot, PAPER, OUTLINE)
         # folded corner
-        polygon(draw, [rot[1], midpoint(rot[1], rot[2]), midpoint(rot[1], rot[0])], (220, 211, 186, 255), OUTLINE)
+        polygon(
+            draw,
+            [rot[1], midpoint(rot[1], rot[2]), midpoint(rot[1], rot[0])],
+            (220, 211, 186, 255),
+            OUTLINE,
+        )
         for dy in (-2.6, -0.5, 1.7):
             a = add(hand, rotate((-hw * 0.65, self.S(dy)), angle))
             b = add(hand, rotate((hw * 0.45, self.S(dy + 0.2)), angle))
             line(draw, [a, b], PAPER_LINE, max(1, self.aa // 2))
 
-    def _draw_book(self, draw: ImageDraw.ImageDraw, hand: tuple[float, float], angle: float = 0.0) -> None:
+    def _draw_book(
+        self, draw: ImageDraw.ImageDraw, hand: tuple[float, float], angle: float = 0.0
+    ) -> None:
         hw = self.S(5.0)
         hh = self.S(6.0)
         pts = [(-hw, -hh), (hw, -hh), (hw, hh), (-hw, hh)]
         rot = [add(hand, rotate(p, angle)) for p in pts]
         polygon(draw, rot, RED, OUTLINE)
-        line(draw, [midpoint(rot[0], rot[3]), midpoint(rot[1], rot[2])], (220, 210, 190, 255), max(1, self.aa // 2))
+        line(
+            draw,
+            [midpoint(rot[0], rot[3]), midpoint(rot[1], rot[2])],
+            (220, 210, 190, 255),
+            max(1, self.aa // 2),
+        )
 
-    def _draw_pistol(self, draw: ImageDraw.ImageDraw, hand: tuple[float, float], angle: float, facing: int) -> None:
+    def _draw_pistol(
+        self,
+        draw: ImageDraw.ImageDraw,
+        hand: tuple[float, float],
+        angle: float,
+        facing: int,
+    ) -> None:
         body = [(-1.2, -1.1), (8.6, -1.1), (8.6, 0.8), (-1.2, 0.8)]
         grip = [(-0.2, 0.8), (1.5, 0.8), (2.1, 4.8), (0.2, 5.2), (-1.2, 1.8)]
         hammer = [(0.0, -1.1), (1.2, -2.8), (2.0, -1.1)]
+
         def t(poly):
             return [add(hand, rotate(self.pt(x * facing, y), angle)) for x, y in poly]
+
         polygon(draw, t(body), METAL, OUTLINE)
         polygon(draw, t(grip), WOOD, OUTLINE)
         polygon(draw, t(hammer), METAL, OUTLINE)
 
-    def _draw_dropped_page(self, draw: ImageDraw.ImageDraw, p: tuple[float, float], angle: float) -> None:
+    def _draw_dropped_page(
+        self, draw: ImageDraw.ImageDraw, p: tuple[float, float], angle: float
+    ) -> None:
         self._draw_page(draw, p, angle)
 
 
@@ -615,19 +1084,83 @@ def build_pose_rows() -> list[tuple[str, list[Pose]]]:
     # idle animation. Previously named `turn`, which the runtime
     # didn't recognize as an idle equivalent and which left the Hall
     # of Characters pedestal as a colored-rectangle placeholder.
-    rows.append((
-        "rest",
-        [
-            Pose("front", facing=1, yaw=0.0, mouth=-0.15, right_hand=(13, 9), left_hand=(-12, 10)),
-            Pose("front_talk", facing=1, yaw=0.0, mouth=0.45, head_tilt=-0.05, right_hand=(14, 8), left_hand=(-11, 10)),
-            Pose("quarter_r", facing=1, yaw=0.35, mouth=-0.05, right_hand=(14, 8), left_hand=(-12, 9), hair_bounce=0.3),
-            Pose("side_r", facing=1, yaw=1.0, mouth=-0.05, right_hand=(14, 8), left_hand=(-12, 9), hair_bounce=0.1),
-            Pose("quarter_l", facing=-1, yaw=0.35, mouth=-0.08, right_hand=(12, 10), left_hand=(-14, 8), hair_bounce=0.1),
-            Pose("side_l", facing=-1, yaw=1.0, mouth=-0.08, right_hand=(11, 10), left_hand=(-14, 8)),
-            Pose("blink", facing=1, yaw=0.0, blink=True, head_tilt=0.03, left_hand=(-13, 11), right_hand=(13, 8)),
-            Pose("page_front", facing=1, yaw=0.0, left_hand=(-8, 10), right_hand=(11, 6), right_item="page", mouth=-0.08),
-        ],
-    ))
+    rows.append(
+        (
+            "rest",
+            [
+                Pose(
+                    "front",
+                    facing=1,
+                    yaw=0.0,
+                    mouth=-0.15,
+                    right_hand=(13, 9),
+                    left_hand=(-12, 10),
+                ),
+                Pose(
+                    "front_talk",
+                    facing=1,
+                    yaw=0.0,
+                    mouth=0.45,
+                    head_tilt=-0.05,
+                    right_hand=(14, 8),
+                    left_hand=(-11, 10),
+                ),
+                Pose(
+                    "quarter_r",
+                    facing=1,
+                    yaw=0.35,
+                    mouth=-0.05,
+                    right_hand=(14, 8),
+                    left_hand=(-12, 9),
+                    hair_bounce=0.3,
+                ),
+                Pose(
+                    "side_r",
+                    facing=1,
+                    yaw=1.0,
+                    mouth=-0.05,
+                    right_hand=(14, 8),
+                    left_hand=(-12, 9),
+                    hair_bounce=0.1,
+                ),
+                Pose(
+                    "quarter_l",
+                    facing=-1,
+                    yaw=0.35,
+                    mouth=-0.08,
+                    right_hand=(12, 10),
+                    left_hand=(-14, 8),
+                    hair_bounce=0.1,
+                ),
+                Pose(
+                    "side_l",
+                    facing=-1,
+                    yaw=1.0,
+                    mouth=-0.08,
+                    right_hand=(11, 10),
+                    left_hand=(-14, 8),
+                ),
+                Pose(
+                    "blink",
+                    facing=1,
+                    yaw=0.0,
+                    blink=True,
+                    head_tilt=0.03,
+                    left_hand=(-13, 11),
+                    right_hand=(13, 8),
+                ),
+                Pose(
+                    "page_front",
+                    facing=1,
+                    yaw=0.0,
+                    left_hand=(-8, 10),
+                    right_hand=(11, 6),
+                    right_item="page",
+                    mouth=-0.08,
+                ),
+            ],
+        )
+    )
 
     # Row 2: walk cycle.
     steps = [-1.0, -0.55, 0.0, 0.65, 1.0, 0.55, 0.0, -0.65]
@@ -650,49 +1183,296 @@ def build_pose_rows() -> list[tuple[str, list[Pose]]]:
     rows.append(("walk", walk_poses))
 
     # Row 3: manuscript / theorem gestures.
-    rows.append((
-        "theorem",
-        [
-            Pose("read", facing=1, yaw=0.25, left_hand=(-5, 6), right_hand=(7, 7), left_item="page", right_item="page", mouth=-0.12),
-            Pose("point_page", facing=1, yaw=0.25, left_hand=(-6, 8), right_hand=(15, 4), left_item="page", mouth=0.15),
-            Pose("wave_page", facing=1, yaw=0.45, left_hand=(-1, -1), left_item="page", right_hand=(15, 10), coat_swing=0.3, mouth=0.22, hair_bounce=0.35),
-            Pose("clutch_notes", facing=1, yaw=0.0, left_hand=(-5, 12), right_hand=(6, 9), left_item="page", right_item="page", mouth=-0.2),
-            Pose("lecture", facing=-1, yaw=0.32, left_hand=(-15, 4), right_hand=(7, 8), right_item="page", mouth=0.3),
-            Pose("argument", facing=-1, yaw=0.55, left_hand=(-16, 2), right_hand=(3, 9), right_item="book", mouth=0.05, head_tilt=-0.08),
-            Pose("thinking", facing=1, yaw=0.18, left_hand=(-6, 10), right_hand=(5, 2), left_item="page", mouth=-0.18),
-            Pose("brandish", facing=1, yaw=0.45, left_hand=(-10, 13), right_hand=(13, -1), right_item="page", coat_swing=0.5, mouth=0.4),
-        ],
-    ))
+    rows.append(
+        (
+            "theorem",
+            [
+                Pose(
+                    "read",
+                    facing=1,
+                    yaw=0.25,
+                    left_hand=(-5, 6),
+                    right_hand=(7, 7),
+                    left_item="page",
+                    right_item="page",
+                    mouth=-0.12,
+                ),
+                Pose(
+                    "point_page",
+                    facing=1,
+                    yaw=0.25,
+                    left_hand=(-6, 8),
+                    right_hand=(15, 4),
+                    left_item="page",
+                    mouth=0.15,
+                ),
+                Pose(
+                    "wave_page",
+                    facing=1,
+                    yaw=0.45,
+                    left_hand=(-1, -1),
+                    left_item="page",
+                    right_hand=(15, 10),
+                    coat_swing=0.3,
+                    mouth=0.22,
+                    hair_bounce=0.35,
+                ),
+                Pose(
+                    "clutch_notes",
+                    facing=1,
+                    yaw=0.0,
+                    left_hand=(-5, 12),
+                    right_hand=(6, 9),
+                    left_item="page",
+                    right_item="page",
+                    mouth=-0.2,
+                ),
+                Pose(
+                    "lecture",
+                    facing=-1,
+                    yaw=0.32,
+                    left_hand=(-15, 4),
+                    right_hand=(7, 8),
+                    right_item="page",
+                    mouth=0.3,
+                ),
+                Pose(
+                    "argument",
+                    facing=-1,
+                    yaw=0.55,
+                    left_hand=(-16, 2),
+                    right_hand=(3, 9),
+                    right_item="book",
+                    mouth=0.05,
+                    head_tilt=-0.08,
+                ),
+                Pose(
+                    "thinking",
+                    facing=1,
+                    yaw=0.18,
+                    left_hand=(-6, 10),
+                    right_hand=(5, 2),
+                    left_item="page",
+                    mouth=-0.18,
+                ),
+                Pose(
+                    "brandish",
+                    facing=1,
+                    yaw=0.45,
+                    left_hand=(-10, 13),
+                    right_hand=(13, -1),
+                    right_item="page",
+                    coat_swing=0.5,
+                    mouth=0.4,
+                ),
+            ],
+        )
+    )
 
     # Row 4: duel sequence.
-    rows.append((
-        "duel",
-        [
-            Pose("adjust_cuff", facing=1, yaw=0.6, right_hand=(8, 9), left_hand=(-10, 8), mouth=-0.18),
-            Pose("reach_pistol", facing=1, yaw=0.8, right_hand=(12, 10), left_hand=(-8, 8), lean=0.06, mouth=-0.12),
-            Pose("ready", facing=1, yaw=1.0, right_hand=(16, 6), right_item="pistol", left_hand=(-13, 10), lean=0.08, coat_swing=0.35),
-            Pose("present", facing=1, yaw=1.0, right_hand=(21, 1), right_item="pistol", left_hand=(-11, 9), lean=0.22, mouth=-0.08, coat_swing=0.5),
-            Pose("aim", facing=1, yaw=1.0, right_hand=(24, -1), right_item="pistol", left_hand=(-8, 7), lean=0.26, mouth=-0.2),
-            Pose("fire", facing=1, yaw=1.0, right_hand=(25, -1), right_item="pistol", left_hand=(-8, 8), lean=0.2, mouth=0.1, pistol_smoke=True, coat_swing=0.55, hair_bounce=0.25),
-            Pose("recoil", facing=1, yaw=0.95, right_hand=(18, 3), right_item="pistol", left_hand=(-9, 10), lean=-0.12, body_y=1.0, coat_swing=-0.3),
-            Pose("wounded", facing=1, yaw=0.75, right_hand=(10, 12), right_item="pistol", left_hand=(-4, 7), lean=-0.22, mouth=-0.35, body_y=2.0, coat_swing=-0.2),
-        ],
-    ))
+    rows.append(
+        (
+            "duel",
+            [
+                Pose(
+                    "adjust_cuff",
+                    facing=1,
+                    yaw=0.6,
+                    right_hand=(8, 9),
+                    left_hand=(-10, 8),
+                    mouth=-0.18,
+                ),
+                Pose(
+                    "reach_pistol",
+                    facing=1,
+                    yaw=0.8,
+                    right_hand=(12, 10),
+                    left_hand=(-8, 8),
+                    lean=0.06,
+                    mouth=-0.12,
+                ),
+                Pose(
+                    "ready",
+                    facing=1,
+                    yaw=1.0,
+                    right_hand=(16, 6),
+                    right_item="pistol",
+                    left_hand=(-13, 10),
+                    lean=0.08,
+                    coat_swing=0.35,
+                ),
+                Pose(
+                    "present",
+                    facing=1,
+                    yaw=1.0,
+                    right_hand=(21, 1),
+                    right_item="pistol",
+                    left_hand=(-11, 9),
+                    lean=0.22,
+                    mouth=-0.08,
+                    coat_swing=0.5,
+                ),
+                Pose(
+                    "aim",
+                    facing=1,
+                    yaw=1.0,
+                    right_hand=(24, -1),
+                    right_item="pistol",
+                    left_hand=(-8, 7),
+                    lean=0.26,
+                    mouth=-0.2,
+                ),
+                Pose(
+                    "fire",
+                    facing=1,
+                    yaw=1.0,
+                    right_hand=(25, -1),
+                    right_item="pistol",
+                    left_hand=(-8, 8),
+                    lean=0.2,
+                    mouth=0.1,
+                    pistol_smoke=True,
+                    coat_swing=0.55,
+                    hair_bounce=0.25,
+                ),
+                Pose(
+                    "recoil",
+                    facing=1,
+                    yaw=0.95,
+                    right_hand=(18, 3),
+                    right_item="pistol",
+                    left_hand=(-9, 10),
+                    lean=-0.12,
+                    body_y=1.0,
+                    coat_swing=-0.3,
+                ),
+                Pose(
+                    "wounded",
+                    facing=1,
+                    yaw=0.75,
+                    right_hand=(10, 12),
+                    right_item="pistol",
+                    left_hand=(-4, 7),
+                    lean=-0.22,
+                    mouth=-0.35,
+                    body_y=2.0,
+                    coat_swing=-0.2,
+                ),
+            ],
+        )
+    )
 
     # Row 5: death / collapse.
-    rows.append((
-        "death",
-        [
-            Pose("clutch", facing=1, yaw=0.6, right_hand=(5, 9), left_hand=(-2, 4), left_item="page", lean=-0.25, mouth=-0.4, body_y=2.0, coat_swing=-0.2),
-            Pose("stagger", facing=1, yaw=0.8, right_hand=(9, 14), left_hand=(-7, 5), lean=-0.35, mouth=-0.55, body_y=4.0, right_item="pistol", paper_drop=0.1),
-            Pose("kneel", facing=1, yaw=0.8, right_hand=(8, 17), left_hand=(-8, 8), lean=-0.4, mouth=-0.65, body_y=8.0, crouch=3.5, right_item="pistol", paper_drop=0.25),
-            Pose("sink", facing=1, yaw=0.85, right_hand=(4, 18), left_hand=(-8, 11), lean=-0.42, mouth=-0.75, body_y=12.0, crouch=5.5, right_item="pistol", paper_drop=0.45, collapse=0.2),
-            Pose("fall_1", facing=1, yaw=1.0, right_hand=(1, 20), left_hand=(-10, 13), lean=-0.46, mouth=-0.8, body_y=15.0, crouch=6.5, paper_drop=0.65, collapse=0.38),
-            Pose("fall_2", facing=1, yaw=1.0, right_hand=(-2, 21), left_hand=(-8, 15), lean=-0.5, mouth=-0.85, body_y=17.0, crouch=7.0, paper_drop=0.82, collapse=0.55),
-            Pose("down", facing=1, yaw=1.0, right_hand=(-4, 22), left_hand=(-7, 17), lean=-0.58, mouth=-0.9, body_y=19.0, crouch=7.4, paper_drop=0.96, collapse=0.72),
-            Pose("still", facing=1, yaw=1.0, right_hand=(-5, 22), left_hand=(-7, 18), lean=-0.6, mouth=-0.95, body_y=20.0, crouch=7.8, paper_drop=1.0, collapse=0.85),
-        ],
-    ))
+    rows.append(
+        (
+            "death",
+            [
+                Pose(
+                    "clutch",
+                    facing=1,
+                    yaw=0.6,
+                    right_hand=(5, 9),
+                    left_hand=(-2, 4),
+                    left_item="page",
+                    lean=-0.25,
+                    mouth=-0.4,
+                    body_y=2.0,
+                    coat_swing=-0.2,
+                ),
+                Pose(
+                    "stagger",
+                    facing=1,
+                    yaw=0.8,
+                    right_hand=(9, 14),
+                    left_hand=(-7, 5),
+                    lean=-0.35,
+                    mouth=-0.55,
+                    body_y=4.0,
+                    right_item="pistol",
+                    paper_drop=0.1,
+                ),
+                Pose(
+                    "kneel",
+                    facing=1,
+                    yaw=0.8,
+                    right_hand=(8, 17),
+                    left_hand=(-8, 8),
+                    lean=-0.4,
+                    mouth=-0.65,
+                    body_y=8.0,
+                    crouch=3.5,
+                    right_item="pistol",
+                    paper_drop=0.25,
+                ),
+                Pose(
+                    "sink",
+                    facing=1,
+                    yaw=0.85,
+                    right_hand=(4, 18),
+                    left_hand=(-8, 11),
+                    lean=-0.42,
+                    mouth=-0.75,
+                    body_y=12.0,
+                    crouch=5.5,
+                    right_item="pistol",
+                    paper_drop=0.45,
+                    collapse=0.2,
+                ),
+                Pose(
+                    "fall_1",
+                    facing=1,
+                    yaw=1.0,
+                    right_hand=(1, 20),
+                    left_hand=(-10, 13),
+                    lean=-0.46,
+                    mouth=-0.8,
+                    body_y=15.0,
+                    crouch=6.5,
+                    paper_drop=0.65,
+                    collapse=0.38,
+                ),
+                Pose(
+                    "fall_2",
+                    facing=1,
+                    yaw=1.0,
+                    right_hand=(-2, 21),
+                    left_hand=(-8, 15),
+                    lean=-0.5,
+                    mouth=-0.85,
+                    body_y=17.0,
+                    crouch=7.0,
+                    paper_drop=0.82,
+                    collapse=0.55,
+                ),
+                Pose(
+                    "down",
+                    facing=1,
+                    yaw=1.0,
+                    right_hand=(-4, 22),
+                    left_hand=(-7, 17),
+                    lean=-0.58,
+                    mouth=-0.9,
+                    body_y=19.0,
+                    crouch=7.4,
+                    paper_drop=0.96,
+                    collapse=0.72,
+                ),
+                Pose(
+                    "still",
+                    facing=1,
+                    yaw=1.0,
+                    right_hand=(-5, 22),
+                    left_hand=(-7, 18),
+                    lean=-0.6,
+                    mouth=-0.95,
+                    body_y=20.0,
+                    crouch=7.8,
+                    paper_drop=1.0,
+                    collapse=0.85,
+                ),
+            ],
+        )
+    )
 
     return rows
 
@@ -786,29 +1566,49 @@ def render_canonical(out_dir: str | Path, **opts) -> Path:
     so the canonical pose matches what the full sheet would produce.
     """
     from ...tackon_sheet import write_canonical
+
     sheet_rows, render_fn, frame_size = _build_setup(**opts)
     return write_canonical(
-        TARGET_NAME, sheet_rows, render_fn, Path(out_dir), frame_size=frame_size,
+        TARGET_NAME,
+        sheet_rows,
+        render_fn,
+        Path(out_dir),
+        frame_size=frame_size,
     )
 
 
 # --- sheet assembly -----------------------------------------------------------
-def assemble_sheet(renderer: GalwahRenderer, rows: Sequence[tuple[str, list[Pose]]]) -> Image.Image:
+def assemble_sheet(
+    renderer: GalwahRenderer, rows: Sequence[tuple[str, list[Pose]]]
+) -> Image.Image:
     cols = max(len(row) for _, row in rows)
-    sheet = Image.new("RGBA", (renderer.frame_w * cols, renderer.frame_h * len(rows)), BG)
+    sheet = Image.new(
+        "RGBA", (renderer.frame_w * cols, renderer.frame_h * len(rows)), BG
+    )
     for row_idx, (_, poses) in enumerate(rows):
         for col_idx, pose in enumerate(poses):
             frame = renderer.render_pose(pose)
-            sheet.alpha_composite(frame, (col_idx * renderer.frame_w, row_idx * renderer.frame_h))
+            sheet.alpha_composite(
+                frame, (col_idx * renderer.frame_w, row_idx * renderer.frame_h)
+            )
     return sheet
 
 
-def assemble_preview(sheet: Image.Image, rows: Sequence[tuple[str, list[Pose]]], frame_w: int, frame_h: int) -> Image.Image:
+def assemble_preview(
+    sheet: Image.Image,
+    rows: Sequence[tuple[str, list[Pose]]],
+    frame_w: int,
+    frame_h: int,
+) -> Image.Image:
     cols = max(len(row) for _, row in rows)
     label_w = 88
     pad = 10
     header_h = 28
-    out = Image.new("RGBA", (label_w + cols * frame_w + pad * 2, header_h + len(rows) * frame_h + pad * 2), PREVIEW_BG)
+    out = Image.new(
+        "RGBA",
+        (label_w + cols * frame_w + pad * 2, header_h + len(rows) * frame_h + pad * 2),
+        PREVIEW_BG,
+    )
     draw = ImageDraw.Draw(out, "RGBA")
     font = ImageFont.load_default()
 
@@ -825,29 +1625,68 @@ def assemble_preview(sheet: Image.Image, rows: Sequence[tuple[str, list[Pose]]],
         draw.line((0, y, out.width, y), fill=(210, 206, 198, 255), width=1)
         for c, pose in enumerate(poses):
             x = label_w + pad + c * frame_w
-            out.alpha_composite(sheet.crop((c * frame_w, r * frame_h, (c + 1) * frame_w, (r + 1) * frame_h)), (x, y))
-            draw.rectangle((x, y, x + frame_w, y + frame_h), outline=(220, 214, 205, 255), width=1)
-            draw.text((x + 3, y + 3), pose.name[:10], font=font, fill=(102, 96, 88, 220))
+            out.alpha_composite(
+                sheet.crop(
+                    (c * frame_w, r * frame_h, (c + 1) * frame_w, (r + 1) * frame_h)
+                ),
+                (x, y),
+            )
+            draw.rectangle(
+                (x, y, x + frame_w, y + frame_h), outline=(220, 214, 205, 255), width=1
+            )
+            draw.text(
+                (x + 3, y + 3), pose.name[:10], font=font, fill=(102, 96, 88, 220)
+            )
 
-    draw.line((0, header_h + pad + len(rows) * frame_h, out.width, header_h + pad + len(rows) * frame_h), fill=(210, 206, 198, 255), width=1)
+    draw.line(
+        (
+            0,
+            header_h + pad + len(rows) * frame_h,
+            out.width,
+            header_h + pad + len(rows) * frame_h,
+        ),
+        fill=(210, 206, 198, 255),
+        width=1,
+    )
     return out
 
 
 # --- cli ---------------------------------------------------------------------
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate a procedural GalWah spritesheet.")
-    parser.add_argument("--out-dir", type=Path, default=Path("galwah_sheet"), help="Directory to write outputs into.")
-    parser.add_argument("--frame-width", type=int, default=96, help="Width of each frame.")
-    parser.add_argument("--frame-height", type=int, default=96, help="Height of each frame.")
+    parser = argparse.ArgumentParser(
+        description="Generate a procedural GalWah spritesheet."
+    )
+    parser.add_argument(
+        "--out-dir",
+        type=Path,
+        default=Path("galwah_sheet"),
+        help="Directory to write outputs into.",
+    )
+    parser.add_argument(
+        "--frame-width", type=int, default=96, help="Width of each frame."
+    )
+    parser.add_argument(
+        "--frame-height", type=int, default=96, help="Height of each frame."
+    )
     parser.add_argument("--aa", type=int, default=4, help="Supersampling factor.")
-    parser.add_argument("--sheet-name", default="galwah_spritesheet.png", help="Spritesheet filename.")
-    parser.add_argument("--no-preview", action="store_true", help="Do not emit labeled preview image.")
-    parser.add_argument("--no-canonical", action="store_true", help="Do not emit a canonical front-pose image.")
+    parser.add_argument(
+        "--sheet-name", default="galwah_spritesheet.png", help="Spritesheet filename."
+    )
+    parser.add_argument(
+        "--no-preview", action="store_true", help="Do not emit labeled preview image."
+    )
+    parser.add_argument(
+        "--no-canonical",
+        action="store_true",
+        help="Do not emit a canonical front-pose image.",
+    )
     args = parser.parse_args()
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
-    renderer = GalwahRenderer(frame_w=args.frame_width, frame_h=args.frame_height, aa=args.aa)
+    renderer = GalwahRenderer(
+        frame_w=args.frame_width, frame_h=args.frame_height, aa=args.aa
+    )
     rows = build_pose_rows()
     sheet = assemble_sheet(renderer, rows)
     sheet_path = args.out_dir / args.sheet_name

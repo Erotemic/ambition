@@ -37,6 +37,7 @@ Examples (all read-only; no file is modified):
 Default output is a compact text table. `--format json` emits a
 structured JSON array suitable for piping into jq or another tool.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -82,9 +83,7 @@ def _matches_field_filter(entity: dict, filters: list[tuple[str, str]]) -> bool:
 
 def _parse_field_filter(raw: str) -> tuple[str, str]:
     if "=" not in raw:
-        raise SystemExit(
-            f"--field expects NAME=VALUE; got {raw!r}"
-        )
+        raise SystemExit(f"--field expects NAME=VALUE; got {raw!r}")
     name, _, value = raw.partition("=")
     name = name.strip()
     value = value.strip()
@@ -240,7 +239,9 @@ def main(argv=None) -> int:
         return 0
 
     summary_fields = (
-        [s.strip() for s in args.summary.split(",") if s.strip()] if args.summary else None
+        [s.strip() for s in args.summary.split(",") if s.strip()]
+        if args.summary
+        else None
     )
     print_table(rows, summary_fields)
     return 0

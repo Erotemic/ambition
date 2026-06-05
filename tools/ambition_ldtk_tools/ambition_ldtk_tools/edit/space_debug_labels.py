@@ -30,6 +30,7 @@ The tool:
 
 Idempotent — running on an already-spaced file is a no-op.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -49,7 +50,9 @@ def rects_overlap(
     return ax < bx + bw and bx < ax + aw and ay < by + bh and by < ay + ah
 
 
-def shift_overlapping_labels_in_level(level: dict) -> list[tuple[str, str, tuple[int, int], tuple[int, int]]]:
+def shift_overlapping_labels_in_level(
+    level: dict,
+) -> list[tuple[str, str, tuple[int, int], tuple[int, int]]]:
     """Mutate the level in place. Returns a list of (level_id,
     label_text, old_px, new_px) tuples documenting the shifts."""
     moved: list[tuple[str, str, tuple[int, int], tuple[int, int]]] = []
@@ -68,7 +71,12 @@ def shift_overlapping_labels_in_level(level: dict) -> list[tuple[str, str, tuple
     # Pair-wise check; shift the second of each colliding pair down.
     def current_rect(inst: dict) -> tuple[int, int, int, int]:
         px = inst.get("px", [0, 0])
-        return (int(px[0]), int(px[1]), int(inst.get("width", 0)), int(inst.get("height", 0)))
+        return (
+            int(px[0]),
+            int(px[1]),
+            int(inst.get("width", 0)),
+            int(inst.get("height", 0)),
+        )
 
     for i in range(len(label_refs)):
         for j in range(i + 1, len(label_refs)):
@@ -98,9 +106,14 @@ def shift_overlapping_labels_in_level(level: dict) -> list[tuple[str, str, tuple
             inst["__worldX"] = world_x + int(inst["px"][0])
             inst["__worldY"] = world_y + int(inst["px"][1])
             grid_size = 16
-            inst["__grid"] = [int(inst["px"][0]) // grid_size, int(inst["px"][1]) // grid_size]
-            fields = {f["__identifier"]: f.get("__value")
-                      for f in inst.get("fieldInstances", []) or []}
+            inst["__grid"] = [
+                int(inst["px"][0]) // grid_size,
+                int(inst["px"][1]) // grid_size,
+            ]
+            fields = {
+                f["__identifier"]: f.get("__value")
+                for f in inst.get("fieldInstances", []) or []
+            }
             text = (fields.get("text") or "")[:30]
             moved.append((level_id, text, old_px, (rb[0], new_y)))
     return moved
@@ -109,10 +122,16 @@ def shift_overlapping_labels_in_level(level: dict) -> list[tuple[str, str, tuple
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("ldtk_file", type=Path)
-    parser.add_argument("--in-place", action="store_true",
-                        help="Write the result back to the input file (else stdout).")
-    parser.add_argument("--no-repair", action="store_true",
-                        help="Skip the post-pass `ambition_ldtk_tools repair`.")
+    parser.add_argument(
+        "--in-place",
+        action="store_true",
+        help="Write the result back to the input file (else stdout).",
+    )
+    parser.add_argument(
+        "--no-repair",
+        action="store_true",
+        help="Skip the post-pass `ambition_ldtk_tools repair`.",
+    )
     args = parser.parse_args(argv)
 
     data = json.loads(args.ldtk_file.read_text())
@@ -133,9 +152,13 @@ def main(argv: list[str] | None = None) -> int:
         )
         if not args.no_repair and all_moved:
             import subprocess
+
             cmd = [
-                sys.executable, "-m", "ambition_ldtk_tools.repair",
-                str(args.ldtk_file), "--in-place",
+                sys.executable,
+                "-m",
+                "ambition_ldtk_tools.repair",
+                str(args.ldtk_file),
+                "--in-place",
             ]
             subprocess.run(cmd)
     else:

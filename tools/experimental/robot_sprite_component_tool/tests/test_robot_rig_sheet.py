@@ -45,7 +45,10 @@ def test_teleport_is_available_and_blink_row_is_not_required():
     tool = _load_tool(root)
     assert "teleport" in tool.ANIMATIONS
     assert "blink" not in tool.ANIMATIONS
-    poses = [tool.animation_pose("teleport", i, tool.ANIMATIONS["teleport"]["frames"], 0.235) for i in range(tool.ANIMATIONS["teleport"]["frames"])]
+    poses = [
+        tool.animation_pose("teleport", i, tool.ANIMATIONS["teleport"]["frames"], 0.235)
+        for i in range(tool.ANIMATIONS["teleport"]["frames"])
+    ]
     assert min(p.opacity for p in poses) == 0.0
 
 
@@ -53,7 +56,14 @@ def test_part_scale_defaults_are_neutral():
     root = Path(__file__).resolve().parents[1]
     tool = _load_tool(root)
     pose = tool.animation_pose("idle", 0, tool.ANIMATIONS["idle"]["frames"], 0.235)
-    for role in ["front_arm", "back_arm", "front_hand", "back_hand", "front_leg", "back_leg"]:
+    for role in [
+        "front_arm",
+        "back_arm",
+        "front_hand",
+        "back_hand",
+        "front_leg",
+        "back_leg",
+    ]:
         assert tool.role_scale_multiplier(pose, role) == 1.0
     assert pose.torso_scale == 1.0
     assert pose.head_scale == 1.0
@@ -63,13 +73,27 @@ def test_part_scale_defaults_are_neutral():
 def test_baked_expression_stays_inside_detected_visor():
     root = Path(__file__).resolve().parents[1]
     tool = _load_tool(root)
-    atlas = tool.ComponentAtlas(root / "metadata" / "robot_components.refined.yaml", root / "output" / "slices")
-    for head_name in ["head_front", "head_tilt_left", "head_tilt_right", "head_squash_blink"]:
+    atlas = tool.ComponentAtlas(
+        root / "metadata" / "robot_components.refined.yaml", root / "output" / "slices"
+    )
+    for head_name in [
+        "head_front",
+        "head_tilt_left",
+        "head_tilt_right",
+        "head_squash_blink",
+    ]:
         head = atlas.image(head_name)
         visor = tool.find_dark_visor_bbox(head)
         assert visor is not None
-        for face_name in ["face_blink", "face_sad", "face_dead_x", "face_teleport_scan"]:
-            baked = tool.compose_head_expression(head, atlas.image(face_name), face_name)
+        for face_name in [
+            "face_blink",
+            "face_sad",
+            "face_dead_x",
+            "face_teleport_scan",
+        ]:
+            baked = tool.compose_head_expression(
+                head, atlas.image(face_name), face_name
+            )
             cb = tool.cyan_bbox(baked)
             assert cb is not None
             x1, y1, x2, y2 = visor
@@ -161,13 +185,17 @@ def test_arm_mount_and_hand_follow_are_active():
     # identifies the visible side mount; no compensating offset is required.
     assert abs(target[0] - raw[0]) <= 0.01
     assert abs(target[1] - raw[1]) <= 0.01
-    assert pose["arm_mounts"]["z_order"].index("front_hand") < pose["arm_mounts"]["z_order"].index("head")
+    assert pose["arm_mounts"]["z_order"].index("front_hand") < pose["arm_mounts"][
+        "z_order"
+    ].index("head")
 
 
 def test_fist_anchor_is_on_wrist_cuff_and_mirrors_correctly():
     root = Path(__file__).resolve().parents[1]
     tool = _load_tool(root)
-    atlas = tool.ComponentAtlas(root / "metadata" / "robot_components.refined.yaml", root / "output" / "slices")
+    atlas = tool.ComponentAtlas(
+        root / "metadata" / "robot_components.refined.yaml", root / "output" / "slices"
+    )
     w = atlas.image("hand_fist").width
     wrist = atlas.anchor("hand_fist", "wrist")
     flipped = atlas.anchor("hand_fist@flip_x", "wrist")
@@ -238,7 +266,10 @@ def test_run_arm_hand_scale_and_leg_zorder_policy():
 def test_run_torso_lean_forward_anchors_are_on_visible_sockets():
     root = Path(__file__).resolve().parents[1]
     import yaml
-    meta = yaml.safe_load((root / "metadata" / "robot_components.refined.yaml").read_text())
+
+    meta = yaml.safe_load(
+        (root / "metadata" / "robot_components.refined.yaml").read_text()
+    )
     anchors = meta["sprites"]["torso_lean_forward"]["anchors"]
     # These anchors are user-editable.  Keep the regression semantic instead of
     # hard-coding one old hand-tuned pixel solution: shoulders must be separated
@@ -246,7 +277,9 @@ def test_run_torso_lean_forward_anchors_are_on_visible_sockets():
     # separated enough for the endpoint solver to avoid component pile-ups.
     assert anchors["shoulder_right"][0] < anchors["shoulder_left"][0]
     assert anchors["shoulder_left"][0] - anchors["shoulder_right"][0] >= 45
-    assert max(anchors["shoulder_left"][1], anchors["shoulder_right"][1]) < min(anchors["hip_left"][1], anchors["hip_right"][1])
+    assert max(anchors["shoulder_left"][1], anchors["shoulder_right"][1]) < min(
+        anchors["hip_left"][1], anchors["hip_right"][1]
+    )
     # In the run/forward-lean torso art, semantic right/front should remain on the visually near side
     # (smaller x in this side-view art), and left/back should remain on the far
     # side. The names should match the rig side convention.
@@ -269,14 +302,29 @@ def test_v20_run_zorder_and_anchor_nudges():
     # Far/left-side hand sits behind the arm; near/right-side hand sits in
     # front.  Far/left leg is behind the body; near/right leg is in front.
     assert z_order.index("back_foot") < z_order.index("back_leg")
-    assert z_order.index("back_hand") < z_order.index("back_arm") < z_order.index("torso")
-    assert z_order.index("torso") < z_order.index("front_leg") < z_order.index("front_foot") < z_order.index("front_arm") < z_order.index("front_hand")
+    assert (
+        z_order.index("back_hand") < z_order.index("back_arm") < z_order.index("torso")
+    )
+    assert (
+        z_order.index("torso")
+        < z_order.index("front_leg")
+        < z_order.index("front_foot")
+        < z_order.index("front_arm")
+        < z_order.index("front_hand")
+    )
 
-    meta = yaml.safe_load((root / "metadata" / "robot_components.refined.yaml").read_text())
+    meta = yaml.safe_load(
+        (root / "metadata" / "robot_components.refined.yaml").read_text()
+    )
     anchors = meta["sprites"]["torso_lean_forward"]["anchors"]
     assert anchors["shoulder_right"][0] >= 43
     assert anchors["shoulder_left"][0] - anchors["shoulder_right"][0] >= 45
-    for leg_name in ["leg_straight_right", "leg_bent_right", "leg_straight_left", "leg_bent_left"]:
+    for leg_name in [
+        "leg_straight_right",
+        "leg_bent_right",
+        "leg_straight_left",
+        "leg_bent_left",
+    ]:
         leg = meta["sprites"][leg_name]
         assert leg["pivot"] == leg["anchors"]["hip"]
 
@@ -284,7 +332,10 @@ def test_v20_run_zorder_and_anchor_nudges():
 def test_v21_bent_leg_anchors_are_on_joint_centers():
     root = Path(__file__).resolve().parents[1]
     import yaml
-    meta = yaml.safe_load((root / "metadata" / "robot_components.refined.yaml").read_text())
+
+    meta = yaml.safe_load(
+        (root / "metadata" / "robot_components.refined.yaml").read_text()
+    )
     right = meta["sprites"]["leg_bent_right"]
     left = meta["sprites"]["leg_bent_left"]
     # Bent-leg hip anchors should be at the center of the top black connector
@@ -323,12 +374,18 @@ def test_anchor_editor_headless_report(tmp_path):
     assert spec.loader is not None
     spec.loader.exec_module(module)
     out = tmp_path / "anchors.json"
-    code = module.main([
-        str(root / "metadata" / "robot_components.refined.yaml"),
-        "--slices", str(root / "output" / "slices"),
-        "--anchor-report", str(out),
-        "--sprites", "torso_lean_forward", "hand_fist",
-    ])
+    code = module.main(
+        [
+            str(root / "metadata" / "robot_components.refined.yaml"),
+            "--slices",
+            str(root / "output" / "slices"),
+            "--anchor-report",
+            str(out),
+            "--sprites",
+            "torso_lean_forward",
+            "hand_fist",
+        ]
+    )
     assert code == 0
     data = __import__("json").loads(out.read_text())
     ids = {row["sprite"] for row in data["sprites"]}
@@ -395,7 +452,7 @@ def test_scale_frame_overrides_are_exact_only():
                     "7": {"front_arm_scale": 2.0, "front_arm_angle": 20},
                 }
             }
-        }
+        },
     }
     mid = tool.interpolated_frame_overrides(pose, "run", 3)
     assert "front_arm_scale" not in mid
@@ -408,7 +465,9 @@ def test_top_level_scale_defaults_apply_to_all_frames():
     root = Path(__file__).resolve().parents[1]
     tool = _load_tool(root)
     pose = tool.animation_pose("run", 3, 8, 0.275)
-    pose = tool.apply_pose_overrides(pose, "run", 3, {"defaults": {"front_arm_scale": 1.25}})
+    pose = tool.apply_pose_overrides(
+        pose, "run", 3, {"defaults": {"front_arm_scale": 1.25}}
+    )
     assert tool.role_scale_multiplier(pose, "front_arm") == 1.25
     assert tool.role_scale_multiplier(pose, "front_hand") == 1.0
 
@@ -416,7 +475,9 @@ def test_top_level_scale_defaults_apply_to_all_frames():
 def test_default_yaml_side_convention_and_scales():
     root = Path(__file__).resolve().parents[1]
     tool = _load_tool(root)
-    overrides = tool.load_pose_overrides(root / "metadata" / "robot_pose_overrides.yaml")
+    overrides = tool.load_pose_overrides(
+        root / "metadata" / "robot_pose_overrides.yaml"
+    )
     defaults = overrides["defaults"]
     assert defaults["front_arm_scale"] == 1.0
     assert defaults["back_arm_scale"] == 1.0
@@ -442,21 +503,51 @@ def test_connected_anchor_constraints_are_exact_in_run_manifest():
     tool = _load_tool(root)
     job = tool.RigJob.load(root / "examples" / "robot_rig_job.yaml")
     atlas = tool.ComponentAtlas(job.metadata, job.slices)
-    assembler = tool.RobotAssembler(atlas, job.render, pose_overrides=tool.load_pose_overrides(job.pose_overrides))
+    assembler = tool.RobotAssembler(
+        atlas, job.render, pose_overrides=tool.load_pose_overrides(job.pose_overrides)
+    )
     for idx in range(tool.animation_info("run", assembler.pose_overrides)["frames"]):
         _frame, manifest = assembler.render_frame("run", idx)
         comps = {c["role"]: c for c in manifest["pose"]["components"]}
         assert comps["front_arm"]["connects_to"]["anchor"] == "shoulder_right"
         assert comps["back_arm"]["connects_to"]["anchor"] == "shoulder_left"
-        for role in ["front_arm", "back_arm", "front_hand", "back_hand", "front_leg", "back_leg", "front_foot", "back_foot"]:
+        for role in [
+            "front_arm",
+            "back_arm",
+            "front_hand",
+            "back_hand",
+            "front_leg",
+            "back_leg",
+            "front_foot",
+            "back_foot",
+        ]:
             assert comps[role]["snap_error_px"] <= 0.001, (idx, role, comps[role])
-        for role in ["front_arm", "back_arm", "front_leg", "back_leg", "front_foot", "back_foot"]:
+        for role in [
+            "front_arm",
+            "back_arm",
+            "front_leg",
+            "back_leg",
+            "front_foot",
+            "back_foot",
+        ]:
             err = comps[role].get("endpoint_snap_error_px")
             assert err is None or err <= 0.001, (idx, role, comps[role])
-        assert comps["front_hand"]["parent_target"] == comps["front_arm"]["endpoint_anchor_world"]
-        assert comps["back_hand"]["parent_target"] == comps["back_arm"]["endpoint_anchor_world"]
-        assert comps["front_foot"]["parent_target"] == manifest["pose"]["leg_mounts"]["front_ankle"]
-        assert comps["back_foot"]["parent_target"] == manifest["pose"]["leg_mounts"]["back_ankle"]
+        assert (
+            comps["front_hand"]["parent_target"]
+            == comps["front_arm"]["endpoint_anchor_world"]
+        )
+        assert (
+            comps["back_hand"]["parent_target"]
+            == comps["back_arm"]["endpoint_anchor_world"]
+        )
+        assert (
+            comps["front_foot"]["parent_target"]
+            == manifest["pose"]["leg_mounts"]["front_ankle"]
+        )
+        assert (
+            comps["back_foot"]["parent_target"]
+            == manifest["pose"]["leg_mounts"]["back_ankle"]
+        )
 
 
 def test_run_feet_are_first_class_ankle_constraints():
@@ -464,11 +555,21 @@ def test_run_feet_are_first_class_ankle_constraints():
     tool = _load_tool(root)
     job = tool.RigJob.load(root / "examples" / "robot_rig_job.yaml")
     atlas = tool.ComponentAtlas(job.metadata, job.slices)
-    assembler = tool.RobotAssembler(atlas, job.render, pose_overrides=tool.load_pose_overrides(job.pose_overrides))
+    assembler = tool.RobotAssembler(
+        atlas, job.render, pose_overrides=tool.load_pose_overrides(job.pose_overrides)
+    )
     _frame, manifest = assembler.render_frame("run", 0)
     comps = {c["role"]: c for c in manifest["pose"]["components"]}
-    assert comps["front_foot"]["connects_to"] == {"role": "front_leg", "sprite": comps["front_leg"]["sprite"], "anchor": "ankle"}
-    assert comps["back_foot"]["connects_to"] == {"role": "back_leg", "sprite": comps["back_leg"]["sprite"], "anchor": "ankle"}
+    assert comps["front_foot"]["connects_to"] == {
+        "role": "front_leg",
+        "sprite": comps["front_leg"]["sprite"],
+        "anchor": "ankle",
+    }
+    assert comps["back_foot"]["connects_to"] == {
+        "role": "back_leg",
+        "sprite": comps["back_leg"]["sprite"],
+        "anchor": "ankle",
+    }
     assert comps["front_foot"]["snap_error_px"] <= 0.001
     assert comps["back_foot"]["snap_error_px"] <= 0.001
 
@@ -501,5 +602,14 @@ def test_zero_endpoint_delta_keeps_anchor_constraints_exact():
     assembler = tool.RobotAssembler(atlas, job.render, pose_overrides=overrides)
     _frame, manifest = assembler.render_frame("run", 0)
     comps = {c["role"]: c for c in manifest["pose"]["components"]}
-    for role in ["front_arm", "back_arm", "front_hand", "back_hand", "front_leg", "back_leg", "front_foot", "back_foot"]:
+    for role in [
+        "front_arm",
+        "back_arm",
+        "front_hand",
+        "back_hand",
+        "front_leg",
+        "back_leg",
+        "front_foot",
+        "back_foot",
+    ]:
         assert comps[role]["snap_error_px"] <= 0.001, (role, comps[role])

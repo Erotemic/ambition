@@ -36,6 +36,7 @@ levels keep their existing array order.
 The standard `repair --in-place` + `validate --require-schema`
 post-pass runs unless `--no-repair` is passed.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -74,20 +75,24 @@ def update_entity_world_coords(level: dict) -> int:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument(
-        "action", choices=["repack"], help="Subcommand action."
-    )
+    parser.add_argument("action", choices=["repack"], help="Subcommand action.")
     parser.add_argument("ldtk", type=Path, help="Target .ldtk file to modify.")
     parser.add_argument(
-        "--start-x", type=int, default=0,
+        "--start-x",
+        type=int,
+        default=0,
         help="x coordinate of the first level (default 0).",
     )
     parser.add_argument(
-        "--start-y", type=int, default=0,
+        "--start-y",
+        type=int,
+        default=0,
         help="y coordinate of every level (default 0). Re-packs along x.",
     )
     parser.add_argument(
-        "--order", type=str, default=None,
+        "--order",
+        type=str,
+        default=None,
         metavar="L1,L2,...",
         help="Comma-separated level identifiers giving placement order.",
     )
@@ -97,25 +102,35 @@ def main(argv=None) -> int:
         help="Don't enforce that level dimensions match worldGridWidth.",
     )
     parser.add_argument(
-        "--in-place", action="store_true",
+        "--in-place",
+        action="store_true",
         help="Write back to the input .ldtk path.",
     )
     parser.add_argument(
-        "--output", type=Path, default=None,
+        "--output",
+        type=Path,
+        default=None,
         help="Output path (alternative to --in-place).",
     )
     parser.add_argument(
-        "--backup", action="store_true",
+        "--backup",
+        action="store_true",
         help="When using --in-place, copy the original to <ldtk>.bak first.",
     )
     parser.add_argument(
-        "--no-repair", action="store_true",
+        "--no-repair",
+        action="store_true",
         help="Skip the repair + validate post-pass.",
     )
     parser.add_argument(
         "--schema",
         type=Path,
-        default=REPO_ROOT / "tools" / "ambition_ldtk_tools" / "schemas" / "ldtk" / "JSON_SCHEMA.json",
+        default=REPO_ROOT
+        / "tools"
+        / "ambition_ldtk_tools"
+        / "schemas"
+        / "ldtk"
+        / "JSON_SCHEMA.json",
     )
     args = parser.parse_args(argv)
 
@@ -194,7 +209,13 @@ def main(argv=None) -> int:
     if args.no_repair:
         return 0
 
-    cmd = [sys.executable, "-m", "ambition_ldtk_tools.repair", str(target), "--in-place"]
+    cmd = [
+        sys.executable,
+        "-m",
+        "ambition_ldtk_tools.repair",
+        str(target),
+        "--in-place",
+    ]
     print("$ " + " ".join(cmd))
     rc = subprocess.run(cmd).returncode
     if rc != 0:

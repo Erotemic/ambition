@@ -48,6 +48,7 @@ python -m ambition_ldtk_tools.publish_catalog_sprites \\
   1 — at least one target failed (logged with `[fail]`); the rest
       were attempted and the missing files reported in summary.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -57,7 +58,14 @@ from pathlib import Path
 from typing import Iterable
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-CATALOG_PATH = REPO_ROOT / "crates" / "ambition_sandbox" / "assets" / "data" / "character_catalog.ron"
+CATALOG_PATH = (
+    REPO_ROOT
+    / "crates"
+    / "ambition_sandbox"
+    / "assets"
+    / "data"
+    / "character_catalog.ron"
+)
 RENDERER_DIR = REPO_ROOT / "tools" / "ambition_sprite2d_renderer"
 SPRITES_DIR = REPO_ROOT / "crates" / "ambition_sandbox" / "assets" / "sprites"
 
@@ -120,7 +128,11 @@ def expected_outputs(target: str, subdir: bool = False) -> list[str]:
 
 
 def publish_target(
-    target: str, renderer_dir: Path, sprites_dir: Path, dry_run: bool, verbose: bool,
+    target: str,
+    renderer_dir: Path,
+    sprites_dir: Path,
+    dry_run: bool,
+    verbose: bool,
     subdir: bool = False,
 ) -> tuple[bool, str]:
     """Run `publish <target> --dest-root <sprites_dir>`. Returns
@@ -186,8 +198,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--renderer-dir", type=Path, default=RENDERER_DIR)
     parser.add_argument("--sprites-dir", type=Path, default=SPRITES_DIR)
     parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Print stderr from each renderer publish on failure.")
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Print stderr from each renderer publish on failure.",
+    )
     args = parser.parse_args(argv)
 
     triples = sorted(set(load_catalog_targets(args.catalog)))
@@ -203,7 +219,11 @@ def main(argv: list[str] | None = None) -> int:
     failures: list[tuple[str, str, str]] = []
     for cid, target, subdir in triples:
         ok, summary = publish_target(
-            target, args.renderer_dir, args.sprites_dir, args.dry_run, args.verbose,
+            target,
+            args.renderer_dir,
+            args.sprites_dir,
+            args.dry_run,
+            args.verbose,
             subdir=subdir,
         )
         layout = "subdir" if subdir else "top"

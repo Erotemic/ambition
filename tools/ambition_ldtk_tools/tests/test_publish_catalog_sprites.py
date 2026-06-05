@@ -2,6 +2,7 @@
 the catalog-driven renderer publish driver. The end-to-end flow
 shells out to the renderer (full sprite generation), so this file
 only covers what can be tested without an actual render."""
+
 from __future__ import annotations
 
 import sys
@@ -17,7 +18,10 @@ from ambition_ldtk_tools.publish_catalog_sprites import (  # noqa: E402
 
 def test_top_level_sprite_strips_prefix_and_suffix():
     """`sprites/architect_spritesheet.png` → renderer target `architect`."""
-    assert renderer_target_for_catalog_entry("sprites/architect_spritesheet.png") == "architect"
+    assert (
+        renderer_target_for_catalog_entry("sprites/architect_spritesheet.png")
+        == "architect"
+    )
 
 
 def test_subdir_sprite_returns_target_name():
@@ -38,18 +42,24 @@ def test_subdir_sprite_returns_target_name():
         "sprites/mockingbird_boss/mockingbird_boss_spritesheet.png"
     )
     assert target == "mockingbird_boss"
-    assert is_subdir_target(target, "sprites/mockingbird_boss/mockingbird_boss_spritesheet.png")
+    assert is_subdir_target(
+        target, "sprites/mockingbird_boss/mockingbird_boss_spritesheet.png"
+    )
 
 
 def test_underscore_target_names_round_trip():
     """Multi-word target names keep their underscores; the loop
     strips only the trailing `_spritesheet.png` suffix."""
-    assert renderer_target_for_catalog_entry(
-        "sprites/player_robot_spritesheet.png"
-    ) == "player_robot"
-    assert renderer_target_for_catalog_entry(
-        "sprites/pirate_heavy_iron_mary_spritesheet.png"
-    ) == "pirate_heavy_iron_mary"
+    assert (
+        renderer_target_for_catalog_entry("sprites/player_robot_spritesheet.png")
+        == "player_robot"
+    )
+    assert (
+        renderer_target_for_catalog_entry(
+            "sprites/pirate_heavy_iron_mary_spritesheet.png"
+        )
+        == "pirate_heavy_iron_mary"
+    )
 
 
 def test_missing_sprites_prefix_returns_none():
@@ -57,9 +67,10 @@ def test_missing_sprites_prefix_returns_none():
     these would be configuration errors and the driver shouldn't
     silently mis-derive a target name."""
     assert renderer_target_for_catalog_entry("architect_spritesheet.png") is None
-    assert renderer_target_for_catalog_entry(
-        "assets/sprites/architect_spritesheet.png"
-    ) is None
+    assert (
+        renderer_target_for_catalog_entry("assets/sprites/architect_spritesheet.png")
+        is None
+    )
 
 
 def test_non_spritesheet_filename_returns_none():

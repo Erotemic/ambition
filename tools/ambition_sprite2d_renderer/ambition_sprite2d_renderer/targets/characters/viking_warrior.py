@@ -20,49 +20,89 @@ from PIL import Image, ImageDraw
 
 from ...tackon_sheet import build_sheet
 
-ACTOR_METADATA = {'actor': {'character_id': 'npc_viking_warrior', 'display_name': 'Viking Warrior'},
- 'body': {'body_plan': 'HumanoidBiped',
-          'body_kind': 'Standard',
-          'mass_class': 'Medium',
-          'traits': ['story', 'humanoid', 'enemy', 'combatant', 'viking'],
-          'locomotion_hint': 'Walk'},
- 'capabilities': {'traversal': {'walk': True,
-                                'jump': None,
-                                'climb': None,
-                                'fly': None,
-                                'swim': None,
-                                'crawl': None,
-                                'use_lifts': True,
-                                'door_access': ['public']},
-                  'interactions': {'talk': True,
-                                   'trade': None,
-                                   'carry': None,
-                                   'open_doors': ['public']}},
- 'brain': {'default_preset': 'melee_brute_striker'},
- 'actions': {'default_preset': 'striker_swipe'},
- 'visual': {'default_pose': 'idle'},
- 'tags': ['story', 'humanoid', 'enemy', 'combatant', 'viking'],
- 'sockets': {'head': {'source': 'explicit.profile.humanoid', 'point': {'x': 64.0, 'y': 24.0}},
-             'chest': {'source': 'explicit.profile.humanoid', 'point': {'x': 64.0, 'y': 54.0}},
-             'hand_l': {'source': 'explicit.profile.humanoid', 'point': {'x': 48.0, 'y': 64.0}},
-             'hand_r': {'source': 'explicit.profile.humanoid', 'point': {'x': 80.0, 'y': 64.0}},
-             'speech_bubble': {'source': 'explicit.profile.humanoid',
-                               'point': {'x': 64.0, 'y': 8.0}},
-             'weapon_grip': {'source': 'explicit.profile.combat_humanoid',
-                             'point': {'x': 80.0, 'y': 64.0}},
-             'weapon_tip': {'source': 'explicit.profile.combat_humanoid',
-                            'point': {'x': 104.0, 'y': 60.0}}},
- 'animation_bindings': {'default': {'animation': 'idle', 'events': []},
-                        'locomotion.walk': {'animation': 'walk', 'events': []},
-                        'interaction.talk': {'animation': 'talk', 'events': []},
-                        'interaction.use': {'animation': 'interact', 'events': []},
-                        'action.melee.primary': {'animation': 'slash',
-                                                 'events': [{'t': 0.34,
-                                                             'event': 'hitbox_active_start',
-                                                             'source': 'explicit.profile.combat_humanoid'},
-                                                            {'t': 0.58,
-                                                             'event': 'hitbox_active_end',
-                                                             'source': 'explicit.profile.combat_humanoid'}]}}}
+ACTOR_METADATA = {
+    "actor": {"character_id": "npc_viking_warrior", "display_name": "Viking Warrior"},
+    "body": {
+        "body_plan": "HumanoidBiped",
+        "body_kind": "Standard",
+        "mass_class": "Medium",
+        "traits": ["story", "humanoid", "enemy", "combatant", "viking"],
+        "locomotion_hint": "Walk",
+    },
+    "capabilities": {
+        "traversal": {
+            "walk": True,
+            "jump": None,
+            "climb": None,
+            "fly": None,
+            "swim": None,
+            "crawl": None,
+            "use_lifts": True,
+            "door_access": ["public"],
+        },
+        "interactions": {
+            "talk": True,
+            "trade": None,
+            "carry": None,
+            "open_doors": ["public"],
+        },
+    },
+    "brain": {"default_preset": "melee_brute_striker"},
+    "actions": {"default_preset": "striker_swipe"},
+    "visual": {"default_pose": "idle"},
+    "tags": ["story", "humanoid", "enemy", "combatant", "viking"],
+    "sockets": {
+        "head": {
+            "source": "explicit.profile.humanoid",
+            "point": {"x": 64.0, "y": 24.0},
+        },
+        "chest": {
+            "source": "explicit.profile.humanoid",
+            "point": {"x": 64.0, "y": 54.0},
+        },
+        "hand_l": {
+            "source": "explicit.profile.humanoid",
+            "point": {"x": 48.0, "y": 64.0},
+        },
+        "hand_r": {
+            "source": "explicit.profile.humanoid",
+            "point": {"x": 80.0, "y": 64.0},
+        },
+        "speech_bubble": {
+            "source": "explicit.profile.humanoid",
+            "point": {"x": 64.0, "y": 8.0},
+        },
+        "weapon_grip": {
+            "source": "explicit.profile.combat_humanoid",
+            "point": {"x": 80.0, "y": 64.0},
+        },
+        "weapon_tip": {
+            "source": "explicit.profile.combat_humanoid",
+            "point": {"x": 104.0, "y": 60.0},
+        },
+    },
+    "animation_bindings": {
+        "default": {"animation": "idle", "events": []},
+        "locomotion.walk": {"animation": "walk", "events": []},
+        "interaction.talk": {"animation": "talk", "events": []},
+        "interaction.use": {"animation": "interact", "events": []},
+        "action.melee.primary": {
+            "animation": "slash",
+            "events": [
+                {
+                    "t": 0.34,
+                    "event": "hitbox_active_start",
+                    "source": "explicit.profile.combat_humanoid",
+                },
+                {
+                    "t": 0.58,
+                    "event": "hitbox_active_end",
+                    "source": "explicit.profile.combat_humanoid",
+                },
+            ],
+        },
+    },
+}
 
 
 RGBA = Tuple[int, int, int, int]
@@ -145,22 +185,50 @@ def _ease(t: float) -> float:
     return 0.5 - 0.5 * math.cos(math.pi * t)
 
 
-def _poly(draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
+def _poly(
+    draw: ImageDraw.ImageDraw,
+    pts: Sequence[Point],
+    fill: RGBA,
+    outline: RGBA = OUTLINE,
+    width: float = 1.0,
+) -> None:
     ipts = [_pt(p) for p in pts]
     draw.polygon(ipts, fill=fill)
     if outline and width > 0:
-        draw.line(ipts + [ipts[0]], fill=outline, width=max(1, _s(width)), joint="curve")
+        draw.line(
+            ipts + [ipts[0]], fill=outline, width=max(1, _s(width)), joint="curve"
+        )
 
 
-def _line(draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, width: float = 1.0) -> None:
+def _line(
+    draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, width: float = 1.0
+) -> None:
     draw.line([_pt(p) for p in pts], fill=fill, width=max(1, _s(width)), joint="curve")
 
 
-def _ellipse(draw: ImageDraw.ImageDraw, cx: float, cy: float, rx: float, ry: float, fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
-    draw.ellipse(_box(cx, cy, rx, ry), fill=fill, outline=outline, width=max(1, _s(width)))
+def _ellipse(
+    draw: ImageDraw.ImageDraw,
+    cx: float,
+    cy: float,
+    rx: float,
+    ry: float,
+    fill: RGBA,
+    outline: RGBA = OUTLINE,
+    width: float = 1.0,
+) -> None:
+    draw.ellipse(
+        _box(cx, cy, rx, ry), fill=fill, outline=outline, width=max(1, _s(width))
+    )
 
 
-def _circle(draw: ImageDraw.ImageDraw, p: Point, r: float, fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
+def _circle(
+    draw: ImageDraw.ImageDraw,
+    p: Point,
+    r: float,
+    fill: RGBA,
+    outline: RGBA = OUTLINE,
+    width: float = 1.0,
+) -> None:
     _ellipse(draw, p[0], p[1], r, r, fill, outline, width)
 
 
@@ -317,11 +385,19 @@ class Pose:
             self.x_eye = tt > 0.56
 
 
-def _draw_leg(draw: ImageDraw.ImageDraw, hip: Point, ang: float, lift: float, *, front: bool) -> Point:
+def _draw_leg(
+    draw: ImageDraw.ImageDraw, hip: Point, ang: float, lift: float, *, front: bool
+) -> Point:
     thigh = 42
     shin = 40
-    knee = (hip[0] + thigh * math.cos(math.radians(ang)), hip[1] + thigh * math.sin(math.radians(ang)))
-    ankle = (knee[0] + shin * math.cos(math.radians(ang + 8)), knee[1] + shin * math.sin(math.radians(ang + 8)) - lift)
+    knee = (
+        hip[0] + thigh * math.cos(math.radians(ang)),
+        hip[1] + thigh * math.sin(math.radians(ang)),
+    )
+    ankle = (
+        knee[0] + shin * math.cos(math.radians(ang + 8)),
+        knee[1] + shin * math.sin(math.radians(ang + 8)) - lift,
+    )
     col = PANTS if front else PANTS_SHADE
     _line(draw, [hip, knee, ankle], col, 8.6 if front else 7.6)
     _line(draw, [hip, knee, ankle], OUTLINE, 1.1)
@@ -336,10 +412,18 @@ def _draw_leg(draw: ImageDraw.ImageDraw, hip: Point, ang: float, lift: float, *,
     return ankle
 
 
-def _draw_axe(draw: ImageDraw.ImageDraw, hand_a: Point, hand_b: Point, angle: float, length: float) -> Tuple[Point, Point]:
+def _draw_axe(
+    draw: ImageDraw.ImageDraw, hand_a: Point, hand_b: Point, angle: float, length: float
+) -> Tuple[Point, Point]:
     mid = ((hand_a[0] + hand_b[0]) / 2.0, (hand_a[1] + hand_b[1]) / 2.0)
-    tail = (mid[0] - (length * 0.45) * math.cos(math.radians(angle)), mid[1] - (length * 0.45) * math.sin(math.radians(angle)))
-    tip = (mid[0] + (length * 0.55) * math.cos(math.radians(angle)), mid[1] + (length * 0.55) * math.sin(math.radians(angle)))
+    tail = (
+        mid[0] - (length * 0.45) * math.cos(math.radians(angle)),
+        mid[1] - (length * 0.45) * math.sin(math.radians(angle)),
+    )
+    tip = (
+        mid[0] + (length * 0.55) * math.cos(math.radians(angle)),
+        mid[1] + (length * 0.55) * math.sin(math.radians(angle)),
+    )
     _line(draw, [tail, tip], WOOD, 3.2)
     _line(draw, [tail, tip], OUTLINE, 0.6)
     hx, hy = tip
@@ -371,11 +455,16 @@ def _draw_axe(draw: ImageDraw.ImageDraw, hand_a: Point, hand_b: Point, angle: fl
 
 
 def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
-    img = Image.new("RGBA", (WORK_FRAME_SIZE[0] * SUPER, WORK_FRAME_SIZE[1] * SUPER), (0, 0, 0, 0))
+    img = Image.new(
+        "RGBA", (WORK_FRAME_SIZE[0] * SUPER, WORK_FRAME_SIZE[1] * SUPER), (0, 0, 0, 0)
+    )
     draw = ImageDraw.Draw(img, "RGBA")
     pose = Pose(anim, frame_idx, nframes)
 
-    root = (WORK_FRAME_SIZE[0] * 0.47 + pose.root_x, WORK_FRAME_SIZE[1] * 0.79 + pose.root_y + pose.bob)
+    root = (
+        WORK_FRAME_SIZE[0] * 0.47 + pose.root_x,
+        WORK_FRAME_SIZE[1] * 0.79 + pose.root_y + pose.bob,
+    )
     body_ang = pose.lean
 
     def P(x: float, y: float) -> Point:
@@ -386,15 +475,47 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
     _draw_leg(draw, far_hip, 92 + pose.right_leg, pose.right_lift, front=False)
 
     # hips / tunic back
-    kilt_back = [P(-24, -114), P(22, -114), P(28, -54), P(8, -16), P(-18, -20), P(-30, -60)]
+    kilt_back = [
+        P(-24, -114),
+        P(22, -114),
+        P(28, -54),
+        P(8, -16),
+        P(-18, -20),
+        P(-30, -60),
+    ]
     _poly(draw, kilt_back, TUNIC_SHADE, OUTLINE, 1.0)
 
-    torso = [P(-38, -214), P(8, -222), P(40, -200), P(50, -146), P(42, -106), P(12, -86), P(-22, -90), P(-44, -146)]
+    torso = [
+        P(-38, -214),
+        P(8, -222),
+        P(40, -200),
+        P(50, -146),
+        P(42, -106),
+        P(12, -86),
+        P(-22, -90),
+        P(-44, -146),
+    ]
     _poly(draw, torso, TUNIC, OUTLINE, 1.2)
-    chest_panel = [P(-12, -198), P(18, -198), P(22, -122), P(2, -98), P(-18, -122), P(-22, -182)]
+    chest_panel = [
+        P(-12, -198),
+        P(18, -198),
+        P(22, -122),
+        P(2, -98),
+        P(-18, -122),
+        P(-22, -182),
+    ]
     _poly(draw, chest_panel, TUNIC_SHADE, OUTLINE, 0.7)
 
-    fur = [P(-34, -214), P(10, -224), P(40, -206), P(52, -176), P(30, -162), P(2, -170), P(-24, -158), P(-44, -176)]
+    fur = [
+        P(-34, -214),
+        P(10, -224),
+        P(40, -206),
+        P(52, -176),
+        P(30, -162),
+        P(2, -170),
+        P(-24, -158),
+        P(-44, -176),
+    ]
     _poly(draw, fur, FUR, OUTLINE, 1.0)
     for x, y in [(-26, -192), (-10, -200), (8, -194), (24, -186)]:
         _line(draw, [P(x, y), P(x + 6, y + 8)], FUR_SHADE, 0.8)
@@ -414,20 +535,60 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
         rx, ry = _rot(x, y, head_ang)
         return (head_root[0] + rx, head_root[1] + ry)
 
-    hair_back = [H(-24, -10), H(-14, -36), H(10, -38), H(28, -20), H(30, 8), H(16, 24), H(-4, 20), H(-24, 8)]
+    hair_back = [
+        H(-24, -10),
+        H(-14, -36),
+        H(10, -38),
+        H(28, -20),
+        H(30, 8),
+        H(16, 24),
+        H(-4, 20),
+        H(-24, 8),
+    ]
     _poly(draw, hair_back, HAIR_SHADE, OUTLINE, 0.8)
-    hair_tail = [H(16, 4), H(26 + pose.hair * 0.18, 18), H(34 + pose.hair * 0.28, 34), H(30 + pose.hair * 0.22, 54)]
+    hair_tail = [
+        H(16, 4),
+        H(26 + pose.hair * 0.18, 18),
+        H(34 + pose.hair * 0.28, 34),
+        H(30 + pose.hair * 0.22, 54),
+    ]
     _line(draw, hair_tail, HAIR, 6.0)
     _line(draw, hair_tail, OUTLINE, 0.7)
 
-    helmet = [H(-18, -18), H(-4, -32), H(18, -30), H(30, -12), H(26, 2), H(8, 8), H(-12, 2)]
+    helmet = [
+        H(-18, -18),
+        H(-4, -32),
+        H(18, -30),
+        H(30, -12),
+        H(26, 2),
+        H(8, 8),
+        H(-12, 2),
+    ]
     _poly(draw, helmet, STEEL, OUTLINE, 0.8)
     nose_guard = [H(4, -18), H(10, -6), H(6, 14), H(0, 8)]
     _poly(draw, nose_guard, STEEL_SHADE, OUTLINE, 0.35)
 
-    face = [H(-18, -10), H(-12, -26), H(10, -28), H(24, -16), H(24, 6), H(12, 18), H(-6, 18), H(-20, 6)]
+    face = [
+        H(-18, -10),
+        H(-12, -26),
+        H(10, -28),
+        H(24, -16),
+        H(24, 6),
+        H(12, 18),
+        H(-6, 18),
+        H(-20, 6),
+    ]
     _poly(draw, face, SKIN, OUTLINE, 0.9)
-    beard = [H(-12, 2), H(0, 10), H(12, 8), H(22, 2), H(18, 28), H(6, 42), H(-6, 38), H(-16, 20)]
+    beard = [
+        H(-12, 2),
+        H(0, 10),
+        H(12, 8),
+        H(22, 2),
+        H(18, 28),
+        H(6, 42),
+        H(-6, 38),
+        H(-16, 20),
+    ]
     _poly(draw, beard, BEARD, OUTLINE, 0.8)
     moustache_l = [H(-8, 6), H(-2, 10), H(2, 8), H(-2, 2)]
     moustache_r = [H(2, 8), H(10, 10), H(14, 6), H(6, 2)]
@@ -451,16 +612,34 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
     _line(draw, [H(8, -9), H(16, -10)], OUTLINE, 0.5)
 
     if pose.mouth > 0.03:
-        _ellipse(draw, H(4, 12)[0], H(4, 12)[1], 5.0, 2.6 + pose.mouth * 10.0, MOUTH, OUTLINE, 0.4)
+        _ellipse(
+            draw,
+            H(4, 12)[0],
+            H(4, 12)[1],
+            5.0,
+            2.6 + pose.mouth * 10.0,
+            MOUTH,
+            OUTLINE,
+            0.4,
+        )
         if pose.mouth > 0.15:
             _poly(draw, [H(0, 12), H(4, 18), H(8, 12)], TONGUE, OUTLINE, 0.2)
     else:
         _line(draw, [H(-1, 12), H(5, 14), H(11, 12)], MOUTH, 0.7)
 
     near_hip = P(-12, -108)
-    near_foot = _draw_leg(draw, near_hip, 92 + pose.left_leg, pose.left_lift, front=True)
+    near_foot = _draw_leg(
+        draw, near_hip, 92 + pose.left_leg, pose.left_lift, front=True
+    )
 
-    kilt_front = [P(-28, -112), P(20, -112), P(26, -50), P(10, -12), P(-14, -14), P(-30, -56)]
+    kilt_front = [
+        P(-28, -112),
+        P(20, -112),
+        P(26, -50),
+        P(10, -12),
+        P(-14, -14),
+        P(-30, -56),
+    ]
     _poly(draw, kilt_front, TUNIC, OUTLINE, 1.0)
     _line(draw, [P(-10, -104), P(-8, -20)], TUNIC_SHADE, 0.8)
     _line(draw, [P(6, -104), P(10, -18)], TUNIC_SHADE, 0.8)
@@ -486,12 +665,29 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
 
     # hand grips over shaft
     for hand in [near_hand, far_hand]:
-        _circle(draw, hand, 4.5, SKIN if hand == near_hand else SKIN_SHADE, OUTLINE, 0.35)
-        _line(draw, [(hand[0] - 5, hand[1] - 2), (hand[0] + 5, hand[1] + 2)], LEATHER_DARK, 0.5)
+        _circle(
+            draw, hand, 4.5, SKIN if hand == near_hand else SKIN_SHADE, OUTLINE, 0.35
+        )
+        _line(
+            draw,
+            [(hand[0] - 5, hand[1] - 2), (hand[0] + 5, hand[1] + 2)],
+            LEATHER_DARK,
+            0.5,
+        )
 
     # arm bands
-    _line(draw, [(near_hand[0] - 8, near_hand[1] - 2), (near_hand[0] + 5, near_hand[1] + 2)], GOLD, 0.6)
-    _line(draw, [(far_hand[0] - 7, far_hand[1] - 2), (far_hand[0] + 4, far_hand[1] + 1)], GOLD, 0.6)
+    _line(
+        draw,
+        [(near_hand[0] - 8, near_hand[1] - 2), (near_hand[0] + 5, near_hand[1] + 2)],
+        GOLD,
+        0.6,
+    )
+    _line(
+        draw,
+        [(far_hand[0] - 7, far_hand[1] - 2), (far_hand[0] + 4, far_hand[1] + 1)],
+        GOLD,
+        0.6,
+    )
 
     if anim in {"cleave", "leap_chop"} and pose.impact > 0.18:
         cx, cy = axe_tip
@@ -501,10 +697,23 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
         cx, cy = axe_tip
         box = (_s(cx - 24), _s(cy - 20), _s(cx + 64), _s(cy + 28))
         draw.arc(box, 215, 350, fill=FX, width=_s(3.2))
-    if anim in {"walk", "charge", "leap_chop"} and (pose.left_lift > 0.5 or pose.right_lift > 0.5):
+    if anim in {"walk", "charge", "leap_chop"} and (
+        pose.left_lift > 0.5 or pose.right_lift > 0.5
+    ):
         for dx in [-20, 0, 18]:
             c = (near_foot[0] + dx, near_foot[1] + 8)
-            _poly(draw, [(c[0] - 3, c[1]), (c[0], c[1] - 4), (c[0] + 4, c[1] - 1), (c[0] + 1, c[1] + 3)], DUST, None, 0)
+            _poly(
+                draw,
+                [
+                    (c[0] - 3, c[1]),
+                    (c[0], c[1] - 4),
+                    (c[0] + 4, c[1] - 1),
+                    (c[0] + 1, c[1] + 3),
+                ],
+                DUST,
+                None,
+                0,
+            )
 
     return _downsample(img)
 
@@ -515,7 +724,9 @@ def render(out_dir: str | Path, **opts) -> List[Path]:
     outputs = build_sheet(
         target=TARGET_NAME,
         rows=ROWS,
-        render_fn=lambda anim, frame_idx, nframes: _render_frame(anim, frame_idx, nframes),
+        render_fn=lambda anim, frame_idx, nframes: _render_frame(
+            anim, frame_idx, nframes
+        ),
         out_dir=out_dir,
         frame_size=opts.get("frame_size", FRAME_SIZE),
         crop_margin=10,
@@ -532,8 +743,14 @@ def render(out_dir: str | Path, **opts) -> List[Path]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Render the standalone Viking Warrior sprite sheet.")
-    parser.add_argument("--out-dir", type=Path, default=Path(__file__).resolve().parents[2] / "generated" / TARGET_NAME)
+    parser = argparse.ArgumentParser(
+        description="Render the standalone Viking Warrior sprite sheet."
+    )
+    parser.add_argument(
+        "--out-dir",
+        type=Path,
+        default=Path(__file__).resolve().parents[2] / "generated" / TARGET_NAME,
+    )
     args = parser.parse_args(argv)
     for path in render(args.out_dir):
         print(path)

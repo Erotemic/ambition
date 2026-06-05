@@ -8,6 +8,7 @@ These tests pin behavior learned from an actual LDtk 1.5.3 editor save:
 * entity ``__worldX`` / ``__worldY`` are cached world coordinates and must be
   synchronized from ``level.worldX/worldY + entity.px``.
 """
+
 from __future__ import annotations
 
 import copy
@@ -18,7 +19,10 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "tools" / "ambition_ldtk_tools"))
 
-from ambition_ldtk_tools.validate import normalize_editor_values, normalize_project_for_editor  # noqa: E402
+from ambition_ldtk_tools.validate import (
+    normalize_editor_values,
+    normalize_project_for_editor,
+)  # noqa: E402
 
 
 def minimal_project(real_editor_values):
@@ -82,7 +86,9 @@ def minimal_project(real_editor_values):
                         "__value": "offset_area",
                         "__tile": None,
                         "defUid": 3,
-                        "realEditorValues": [{"id": "V_String", "params": ["offset_area"]}],
+                        "realEditorValues": [
+                            {"id": "V_String", "params": ["offset_area"]}
+                        ],
                     }
                 ],
                 "layerInstances": [
@@ -109,7 +115,9 @@ def minimal_project(real_editor_values):
                                         "__value": "Door",
                                         "__tile": None,
                                         "defUid": 2,
-                                        "realEditorValues": copy.deepcopy(real_editor_values),
+                                        "realEditorValues": copy.deepcopy(
+                                            real_editor_values
+                                        ),
                                     }
                                 ],
                             }
@@ -145,7 +153,9 @@ def assert_world_coordinates_are_repaired() -> None:
     if "synchronized 2 cached entity __worldX/__worldY values" not in changes:
         raise AssertionError(f"expected cached world coord repair, got {changes!r}")
     if entity["__worldX"] != -9984 or entity["__worldY"] != 96:
-        raise AssertionError(f"world coords not repaired: {entity['__worldX']}, {entity['__worldY']}")
+        raise AssertionError(
+            f"world coords not repaired: {entity['__worldX']}, {entity['__worldY']}"
+        )
     print("ok: stale cached __worldX/__worldY values are repaired")
 
 

@@ -70,7 +70,9 @@ def px(v: float) -> float:
 
 def new_super(frame_size: Tuple[int, int]) -> Image.Image:
     """Fresh transparent supersample canvas for ``frame_size``."""
-    return Image.new("RGBA", (frame_size[0] * SUPER, frame_size[1] * SUPER), (0, 0, 0, 0))
+    return Image.new(
+        "RGBA", (frame_size[0] * SUPER, frame_size[1] * SUPER), (0, 0, 0, 0)
+    )
 
 
 def finalize(canvas: Image.Image, frame_size: Tuple[int, int]) -> Image.Image:

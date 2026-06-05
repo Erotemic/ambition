@@ -90,7 +90,9 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
     selected = [a for a in job.animations if a in animations]
     missing = [a for a in job.animations if a not in animations]
     if missing:
-        raise KeyError(f"unsupported animations for {job.target}: {missing}; available={sorted(animations)}")
+        raise KeyError(
+            f"unsupported animations for {job.target}: {missing}; available={sorted(animations)}"
+        )
     src_fw, src_fh = job.render.frame_width, job.render.frame_height
     label_w = max(0, job.render.label_width)
     border = max(0, job.render.border)
@@ -106,7 +108,9 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
         info = animations[animation]
         row_frames: List[Image.Image] = []
         for frame_index in range(info["frames"]):
-            frame = adapter.render_frame(spec, animation, frame_index, (src_fw, src_fh), job)
+            frame = adapter.render_frame(
+                spec, animation, frame_index, (src_fw, src_fh), job
+            )
             row_frames.append(frame)
             bbox = frame.getbbox()
             if bbox is not None:
@@ -118,7 +122,9 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
                 union_max_y = max(union_max_y, y_max)
         rendered.append(row_frames)
 
-    crop_padding = max(0, int(getattr(job.render, "crop_padding", _DEFAULT_CROP_PADDING)))
+    crop_padding = max(
+        0, int(getattr(job.render, "crop_padding", _DEFAULT_CROP_PADDING))
+    )
     if not getattr(job.render, "crop", True):
         crop_min_x, crop_min_y = 0, 0
         crop_max_x, crop_max_y = src_fw, src_fh
@@ -138,7 +144,9 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
     # Pass 2: compose the sheet with cropped frames.
     sheet_w = label_w + max_frames * (fw + border) + border
     sheet_h = len(selected) * (fh + border) + border
-    sheet = Image.new("RGBA", (sheet_w, sheet_h), _parse_bg(job.render.sheet_background))
+    sheet = Image.new(
+        "RGBA", (sheet_w, sheet_h), _parse_bg(job.render.sheet_background)
+    )
     draw = ImageDraw.Draw(sheet)
     font = load_font(12)
     manifest: Dict[str, Any] = {
@@ -153,7 +161,9 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
         "role": job.role,
         "music_cue": job.music_cue,
         "tags": list(job.tags),
-        "sheet_tuning": dict(job.sheet_tuning) if getattr(job, "sheet_tuning", None) is not None else None,
+        "sheet_tuning": dict(job.sheet_tuning)
+        if getattr(job, "sheet_tuning", None) is not None
+        else None,
         "frame_width": fw,
         "frame_height": fh,
         "label_width": label_w,
@@ -180,21 +190,28 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
         y = border + row_idx * (fh + border)
         if label_w:
             draw.text((8, y + 8), animation, fill=(255, 255, 255, 255), font=font)
-            draw.text((8, y + 23), f"{info['frames']}f/{info['duration_ms']}ms", fill=(190, 190, 190, 255), font=load_font(10))
+            draw.text(
+                (8, y + 23),
+                f"{info['frames']}f/{info['duration_ms']}ms",
+                fill=(190, 190, 190, 255),
+                font=load_font(10),
+            )
         frame_records: List[Dict[str, Any]] = []
         anim_bbox: Tuple[int, int, int, int] | None = None
         for frame_index, src_frame in enumerate(rendered[row_idx]):
             cropped = src_frame.crop((crop_min_x, crop_min_y, crop_max_x, crop_max_y))
             x = label_w + border + frame_index * (fw + border)
             sheet.alpha_composite(cropped, (x, y))
-            frame_records.append({
-                "index": frame_index,
-                "x": x,
-                "y": y,
-                "w": fw,
-                "h": fh,
-                "duration_ms": info["duration_ms"],
-            })
+            frame_records.append(
+                {
+                    "index": frame_index,
+                    "x": x,
+                    "y": y,
+                    "w": fw,
+                    "h": fh,
+                    "duration_ms": info["duration_ms"],
+                }
+            )
             # Per-animation alpha-bbox accumulator (source canvas coords).
             src_bbox = src_frame.getbbox()
             if src_bbox is not None:
@@ -215,8 +232,15 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
             if body_metric_frame is None:
                 body_metric_frame = cropped
         anim_union_bbox_src[animation] = anim_bbox
-        manifest["animations"][animation] = {"frames": frame_records, "duration_ms": info["duration_ms"]}
-    metrics = _measure_body_extent(body_metric_frame) if body_metric_frame is not None else None
+        manifest["animations"][animation] = {
+            "frames": frame_records,
+            "duration_ms": info["duration_ms"],
+        }
+    metrics = (
+        _measure_body_extent(body_metric_frame)
+        if body_metric_frame is not None
+        else None
+    )
     if metrics is not None:
         # Per-animation hurtbox: each animation's alpha-bbox in
         # cropped-frame coords (subtract the sheet crop offset).
@@ -236,7 +260,12 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
                 ch = min(fh, y1 - crop_min_y) - cy0
                 if cw > 0 and ch > 0:
                     entry["hurtbox"] = {
-                        "bbox": {"x": int(cx0), "y": int(cy0), "w": int(cw), "h": int(ch)}
+                        "bbox": {
+                            "x": int(cx0),
+                            "y": int(cy0),
+                            "w": int(cw),
+                            "h": int(ch),
+                        }
                     }
             anim_metrics[animation] = entry
         # Adapter-declared per-animation hurtbox parts override
@@ -267,13 +296,15 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
                 cw = min(fw, x + w - crop_min_x) - cx0
                 ch = min(fh, y + h - crop_min_y) - cy0
                 if cw > 0 and ch > 0:
-                    cropped_parts.append({
-                        "name": str(part.get("name", "")),
-                        "x": int(cx0),
-                        "y": int(cy0),
-                        "w": int(cw),
-                        "h": int(ch),
-                    })
+                    cropped_parts.append(
+                        {
+                            "name": str(part.get("name", "")),
+                            "x": int(cx0),
+                            "y": int(cy0),
+                            "w": int(cw),
+                            "h": int(ch),
+                        }
+                    )
             if not cropped_parts:
                 continue
             if anim_name not in anim_metrics:
@@ -322,13 +353,15 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
                         cw = min(fw, x + w - crop_min_x) - cx0
                         ch = min(fh, y + h - crop_min_y) - cy0
                         if cw > 0 and ch > 0:
-                            cropped_parts.append({
-                                "name": str(part.get("name", "")),
-                                "x": int(cx0),
-                                "y": int(cy0),
-                                "w": int(cw),
-                                "h": int(ch),
-                            })
+                            cropped_parts.append(
+                                {
+                                    "name": str(part.get("name", "")),
+                                    "x": int(cx0),
+                                    "y": int(cy0),
+                                    "w": int(cw),
+                                    "h": int(ch),
+                                }
+                            )
                     if cropped_parts:
                         hitbox_out["parts"] = cropped_parts
             if hitbox_out:
@@ -342,7 +375,13 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
     return sheet, manifest
 
 
-def write_spritesheet(job: CharacterJob, image_out: str | Path, manifest_out: str | Path | None = None, *, source_config: str | Path | None = None) -> Tuple[Path, Path]:
+def write_spritesheet(
+    job: CharacterJob,
+    image_out: str | Path,
+    manifest_out: str | Path | None = None,
+    *,
+    source_config: str | Path | None = None,
+) -> Tuple[Path, Path]:
     image_out = Path(image_out)
     if manifest_out is None:
         manifest_out = image_out.with_suffix(".yaml")
@@ -448,7 +487,7 @@ def _ron_animation_box(box):
     if isinstance(parts, list) and parts:
         formatted = ", ".join(
             f'(name: "{_ron_escape(str(p.get("name", "")))}", '
-            f'x: {int(p["x"])}, y: {int(p["y"])}, w: {int(p["w"])}, h: {int(p["h"])})'
+            f"x: {int(p['x'])}, y: {int(p['y'])}, w: {int(p['w'])}, h: {int(p['h'])})"
             for p in parts
             if isinstance(p, dict)
         )
@@ -571,7 +610,9 @@ def _adapter_manifest_to_ron(manifest: dict) -> str:
     target = manifest["target"]
     anims = manifest.get("animations") or {}
     rows = []
-    for row_index, (name, info) in enumerate(anims.items() if isinstance(anims, dict) else []):
+    for row_index, (name, info) in enumerate(
+        anims.items() if isinstance(anims, dict) else []
+    ):
         rows.append(_ron_row_from_adapter(name, row_index, info))
     if rows:
         rows_inner = "\n    ".join(r + "," for r in rows)

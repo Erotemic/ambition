@@ -6,6 +6,7 @@ live LDtk file. These tests build minimal in-memory inputs and
 exercise `diff_one` directly so the tool can be regression-pinned
 without relying on the actual repo's specs (which evolve).
 """
+
 from __future__ import annotations
 
 import sys

@@ -14,6 +14,7 @@ Examples:
   python -m ambition_ldtk_tools gates audit --level goblin_encounter
   python -m ambition_ldtk_tools gates audit          # every level
 """
+
 from __future__ import annotations
 
 import argparse
@@ -62,7 +63,9 @@ def main(argv=None) -> int:
         if r["identifier"] in GATE_TYPES
     ]
     if not rows:
-        print("no gating elements found (switches / lock walls / triggers / breakables)")
+        print(
+            "no gating elements found (switches / lock walls / triggers / breakables)"
+        )
         return 0
 
     by_level: dict[str, list[dict]] = {}
@@ -101,9 +104,7 @@ def main(argv=None) -> int:
                     f" -> {target_str}{prompt_str}"
                 )
         if breakables:
-            kinds = ", ".join(
-                sorted({r["identifier"] for r in breakables})
-            )
+            kinds = ", ".join(sorted({r["identifier"] for r in breakables}))
             print(f"  breakables: {len(breakables)} ({kinds})")
     return 0
 

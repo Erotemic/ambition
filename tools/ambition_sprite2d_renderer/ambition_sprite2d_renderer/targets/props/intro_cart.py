@@ -61,20 +61,41 @@ def _draw_glow(base: Image.Image, bbox, fill: RGBA, blur: float = 3.0) -> None:
     base.alpha_composite(layer)
 
 
-def _draw_wheel(draw: ImageDraw.ImageDraw, cx: float, cy: float, radius: float, spoke_angle: float) -> None:
+def _draw_wheel(
+    draw: ImageDraw.ImageDraw, cx: float, cy: float, radius: float, spoke_angle: float
+) -> None:
     rim_dark = _rgba("#281b14")
     rim = _rgba("#4d3424")
     iron = _rgba("#70727a")
     hub = _rgba("#c5a36a")
-    draw.ellipse(_box(cx - radius, cy - radius, cx + radius, cy + radius), fill=rim_dark, outline=_rgba("#120c0a"), width=_s(1.2))
-    draw.ellipse(_box(cx - radius + 2.2, cy - radius + 2.2, cx + radius - 2.2, cy + radius - 2.2), fill=rim, outline=iron, width=_s(1.3))
+    draw.ellipse(
+        _box(cx - radius, cy - radius, cx + radius, cy + radius),
+        fill=rim_dark,
+        outline=_rgba("#120c0a"),
+        width=_s(1.2),
+    )
+    draw.ellipse(
+        _box(
+            cx - radius + 2.2, cy - radius + 2.2, cx + radius - 2.2, cy + radius - 2.2
+        ),
+        fill=rim,
+        outline=iron,
+        width=_s(1.3),
+    )
     inner_r = radius - 5.5
     for i in range(8):
         ang = spoke_angle + i * (math.tau / 8.0)
         x2 = cx + math.cos(ang) * inner_r
         y2 = cy + math.sin(ang) * inner_r
-        draw.line((_s(cx), _s(cy), _s(x2), _s(y2)), fill=_rgba("#8b6d45"), width=_s(1.0))
-    draw.ellipse(_box(cx - 3.6, cy - 3.6, cx + 3.6, cy + 3.6), fill=hub, outline=_rgba("#493321"), width=_s(0.8))
+        draw.line(
+            (_s(cx), _s(cy), _s(x2), _s(y2)), fill=_rgba("#8b6d45"), width=_s(1.0)
+        )
+    draw.ellipse(
+        _box(cx - 3.6, cy - 3.6, cx + 3.6, cy + 3.6),
+        fill=hub,
+        outline=_rgba("#493321"),
+        width=_s(0.8),
+    )
 
 
 def _draw_cart(anim: str, frame_idx: int, nframes: int) -> Image.Image:
@@ -122,36 +143,93 @@ def _draw_cart(anim: str, frame_idx: int, nframes: int) -> Image.Image:
     _draw_wheel(cd, front_wheel[0], front_wheel[1], 16.0, wheel_spin + 0.35)
 
     # Chassis beams.
-    cd.rounded_rectangle(_box(back_x + 4.0, floor_y - 4.5, front_x - 2.5, floor_y + 2.2), radius=_s(1.8), fill=wood_dark)
-    cd.line(_box(back_x + 11.0, floor_y + 1.0, front_x - 3.0, floor_y + 7.0), fill=_rgba("#24160f"), width=_s(1.0))
+    cd.rounded_rectangle(
+        _box(back_x + 4.0, floor_y - 4.5, front_x - 2.5, floor_y + 2.2),
+        radius=_s(1.8),
+        fill=wood_dark,
+    )
+    cd.line(
+        _box(back_x + 11.0, floor_y + 1.0, front_x - 3.0, floor_y + 7.0),
+        fill=_rgba("#24160f"),
+        width=_s(1.0),
+    )
 
     # Floor planks.
-    cd.rounded_rectangle(_box(back_x, body_y + 4.5, front_x, floor_y), radius=_s(3.0), fill=wood, outline=_rgba("#20140e"), width=_s(1.2))
+    cd.rounded_rectangle(
+        _box(back_x, body_y + 4.5, front_x, floor_y),
+        radius=_s(3.0),
+        fill=wood,
+        outline=_rgba("#20140e"),
+        width=_s(1.2),
+    )
     for x in (46.0, 58.0, 70.0, 82.0, 94.0, 106.0):
         cd.line(_box(x, body_y + 6.0, x, floor_y - 1.0), fill=wood_dark, width=_s(0.7))
-    cd.rectangle(_box(back_x + 5.0, body_y + 9.0, front_x - 5.0, body_y + 17.0), fill=hay)
+    cd.rectangle(
+        _box(back_x + 5.0, body_y + 9.0, front_x - 5.0, body_y + 17.0), fill=hay
+    )
     for x in range(0, 8):
         hx = 48.0 + x * 8.4
-        cd.arc(_box(hx, body_y + 8.0 + (x % 2), hx + 11.0, body_y + 18.0 + (x % 2)), 205, 345, fill=_rgba("#d8be70"), width=_s(0.8))
+        cd.arc(
+            _box(hx, body_y + 8.0 + (x % 2), hx + 11.0, body_y + 18.0 + (x % 2)),
+            205,
+            345,
+            fill=_rgba("#d8be70"),
+            width=_s(0.8),
+        )
 
     # Side walls / slats.
-    wall_poly = [(back_x + 1.0, body_y + 2.0), (front_x - 2.0, body_y + 2.0), (front_x - 6.0, body_y - 16.0), (back_x + 7.0, body_y - 16.0)]
+    wall_poly = [
+        (back_x + 1.0, body_y + 2.0),
+        (front_x - 2.0, body_y + 2.0),
+        (front_x - 6.0, body_y - 16.0),
+        (back_x + 7.0, body_y - 16.0),
+    ]
     cd.polygon([_pt(*p) for p in wall_poly], fill=wood_light, outline=_rgba("#21150f"))
     for x in (47.0, 58.0, 69.0, 80.0, 91.0, 102.0, 113.0):
         top_x = x + 2.4
-        cd.line(_box(x, body_y + 2.0, top_x, body_y - 16.0), fill=wood_dark, width=_s(1.15))
-    cd.line(_box(back_x + 6.0, body_y - 16.0, front_x - 6.0, body_y - 16.0), fill=wood_dark, width=_s(1.2))
-    cd.line(_box(back_x + 2.0, body_y - 6.5, front_x - 2.5, body_y - 6.5), fill=wood_dark, width=_s(1.0))
+        cd.line(
+            _box(x, body_y + 2.0, top_x, body_y - 16.0), fill=wood_dark, width=_s(1.15)
+        )
+    cd.line(
+        _box(back_x + 6.0, body_y - 16.0, front_x - 6.0, body_y - 16.0),
+        fill=wood_dark,
+        width=_s(1.2),
+    )
+    cd.line(
+        _box(back_x + 2.0, body_y - 6.5, front_x - 2.5, body_y - 6.5),
+        fill=wood_dark,
+        width=_s(1.0),
+    )
 
     # Back panel.
-    back_panel = [(back_x + 2.0, body_y + 1.5), (back_x + 12.0, body_y - 1.5), (back_x + 16.5, body_y - 14.0), (back_x + 7.0, body_y - 16.0)]
-    cd.polygon([_pt(*p) for p in back_panel], fill=_rgba("#8c653f"), outline=_rgba("#24150d"))
-    cd.line(_box(back_x + 7.5, body_y - 14.0, back_x + 12.0, body_y), fill=wood_dark, width=_s(1.0))
+    back_panel = [
+        (back_x + 2.0, body_y + 1.5),
+        (back_x + 12.0, body_y - 1.5),
+        (back_x + 16.5, body_y - 14.0),
+        (back_x + 7.0, body_y - 16.0),
+    ]
+    cd.polygon(
+        [_pt(*p) for p in back_panel], fill=_rgba("#8c653f"), outline=_rgba("#24150d")
+    )
+    cd.line(
+        _box(back_x + 7.5, body_y - 14.0, back_x + 12.0, body_y),
+        fill=wood_dark,
+        width=_s(1.0),
+    )
 
     # Bench / occupant crossbar.
-    cd.rounded_rectangle(_box(59.0, body_y - 1.0, 91.0, body_y + 4.5), radius=_s(1.6), fill=_rgba("#6e4a2c"), outline=_rgba("#27180f"))
-    cd.line(_box(60.0, body_y + 5.0, 60.0, floor_y - 1.5), fill=wood_dark, width=_s(0.9))
-    cd.line(_box(90.0, body_y + 5.0, 90.0, floor_y - 1.5), fill=wood_dark, width=_s(0.9))
+    cd.rounded_rectangle(
+        _box(59.0, body_y - 1.0, 91.0, body_y + 4.5),
+        radius=_s(1.6),
+        fill=_rgba("#6e4a2c"),
+        outline=_rgba("#27180f"),
+    )
+    cd.line(
+        _box(60.0, body_y + 5.0, 60.0, floor_y - 1.5), fill=wood_dark, width=_s(0.9)
+    )
+    cd.line(
+        _box(90.0, body_y + 5.0, 90.0, floor_y - 1.5), fill=wood_dark, width=_s(0.9)
+    )
 
     # Canopy frame / arch.
     posts = [
@@ -167,12 +245,28 @@ def _draw_cart(anim: str, frame_idx: int, nframes: int) -> Image.Image:
         (96.0, roof_y - 8.0 + sway * 0.2),
         (109.0, roof_y + 1.5),
     ]
-    cd.line([_pt(*p) for p in arch], fill=_rgba("#5e4127"), width=_s(1.15), joint="curve")
+    cd.line(
+        [_pt(*p) for p in arch], fill=_rgba("#5e4127"), width=_s(1.15), joint="curve"
+    )
 
     # Simple leather / cloth roof roll.
-    roof_poly = [(49.0, roof_y + 2.0), (59.0, roof_y - 4.0), (81.0, roof_y - 7.5), (101.0, roof_y - 4.5), (108.0, roof_y + 1.5), (102.0, roof_y + 6.0), (56.0, roof_y + 6.0)]
+    roof_poly = [
+        (49.0, roof_y + 2.0),
+        (59.0, roof_y - 4.0),
+        (81.0, roof_y - 7.5),
+        (101.0, roof_y - 4.5),
+        (108.0, roof_y + 1.5),
+        (102.0, roof_y + 6.0),
+        (56.0, roof_y + 6.0),
+    ]
     cd.polygon([_pt(*p) for p in roof_poly], fill=cloth, outline=_rgba("#2c1d14"))
-    cd.arc(_box(56.0, roof_y - 2.0, 98.0, roof_y + 8.5), 190, 350, fill=_rgba("#967255"), width=_s(0.8))
+    cd.arc(
+        _box(56.0, roof_y - 2.0, 98.0, roof_y + 8.5),
+        190,
+        350,
+        fill=_rgba("#967255"),
+        width=_s(0.8),
+    )
 
     # Rope bindings.
     for x in (57.0, 70.0, 87.0, 99.0):
@@ -181,23 +275,60 @@ def _draw_cart(anim: str, frame_idx: int, nframes: int) -> Image.Image:
     # Forward hitch pole and yoke extension.
     pole = [(front_x - 1.0, floor_y - 2.0), (157.0, 72.0 + yoff - sway * 0.2)]
     cd.line([_pt(*p) for p in pole], fill=_rgba("#6b472c"), width=_s(1.5))
-    cd.line(_box(154.0, 69.5 + yoff, 165.0, 66.0 + yoff), fill=_rgba("#6b472c"), width=_s(1.1))
-    cd.line(_box(154.0, 74.5 + yoff, 165.0, 80.0 + yoff), fill=_rgba("#6b472c"), width=_s(1.1))
+    cd.line(
+        _box(154.0, 69.5 + yoff, 165.0, 66.0 + yoff),
+        fill=_rgba("#6b472c"),
+        width=_s(1.1),
+    )
+    cd.line(
+        _box(154.0, 74.5 + yoff, 165.0, 80.0 + yoff),
+        fill=_rgba("#6b472c"),
+        width=_s(1.1),
+    )
 
     # Small hanging lantern near the front to help the intro read at night.
     lantern_x = 119.0
     lantern_y = body_y - 12.0 + sway
-    cd.line(_box(lantern_x, body_y - 16.0, lantern_x, lantern_y - 4.0), fill=iron, width=_s(0.6))
-    cd.rounded_rectangle(_box(lantern_x - 3.2, lantern_y - 3.0, lantern_x + 3.2, lantern_y + 5.2), radius=_s(1.1), fill=_rgba("#59452a"), outline=_rgba("#201812"), width=_s(0.7))
-    _draw_glow(img, _box(lantern_x - 4.0, lantern_y - 0.5, lantern_x + 4.0, lantern_y + 7.5), _rgba("#ffb14a", 110), blur=3.8)
-    cd.ellipse(_box(lantern_x - 1.8, lantern_y + 0.4, lantern_x + 1.8, lantern_y + 4.4), fill=_rgba("#ffd580", 200))
+    cd.line(
+        _box(lantern_x, body_y - 16.0, lantern_x, lantern_y - 4.0),
+        fill=iron,
+        width=_s(0.6),
+    )
+    cd.rounded_rectangle(
+        _box(lantern_x - 3.2, lantern_y - 3.0, lantern_x + 3.2, lantern_y + 5.2),
+        radius=_s(1.1),
+        fill=_rgba("#59452a"),
+        outline=_rgba("#201812"),
+        width=_s(0.7),
+    )
+    _draw_glow(
+        img,
+        _box(lantern_x - 4.0, lantern_y - 0.5, lantern_x + 4.0, lantern_y + 7.5),
+        _rgba("#ffb14a", 110),
+        blur=3.8,
+    )
+    cd.ellipse(
+        _box(lantern_x - 1.8, lantern_y + 0.4, lantern_x + 1.8, lantern_y + 4.4),
+        fill=_rgba("#ffd580", 200),
+    )
 
     # Front shield plate for a slightly more fortified silhouette.
-    nose = [(116.0, body_y + 2.0), (126.0, body_y - 2.0), (126.0, body_y - 14.0), (116.0, body_y - 17.0)]
+    nose = [
+        (116.0, body_y + 2.0),
+        (126.0, body_y - 2.0),
+        (126.0, body_y - 14.0),
+        (116.0, body_y - 17.0),
+    ]
     cd.polygon([_pt(*p) for p in nose], fill=_rgba("#8a633d"), outline=_rgba("#2c1b10"))
 
     # Reins / hanging strap shapes.
-    cd.arc(_box(107.0, 60.0 + yoff, 132.0, 82.0 + yoff), 280, 30, fill=_rgba("#5a3f29"), width=_s(0.75))
+    cd.arc(
+        _box(107.0, 60.0 + yoff, 132.0, 82.0 + yoff),
+        280,
+        30,
+        fill=_rgba("#5a3f29"),
+        width=_s(0.75),
+    )
 
     # Composite and downsample.
     cart = cart.filter(ImageFilter.GaussianBlur(radius=0.15))

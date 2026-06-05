@@ -22,7 +22,12 @@ from typing import Dict, Optional, Tuple
 
 from PIL import Image, ImageColor, ImageDraw
 
-from ...common_draw import RESAMPLING, draw_capsule, draw_rotated_ellipse, draw_rotated_rounded_rect
+from ...common_draw import (
+    RESAMPLING,
+    draw_capsule,
+    draw_rotated_ellipse,
+    draw_rotated_rounded_rect,
+)
 from ...rig import add, clamp, ease_in_out_sine, ease_out_cubic, lerp, smoothstep, vec
 
 Color = Tuple[int, int, int, int]
@@ -43,12 +48,22 @@ def parse_background(value: str) -> Optional[Color]:
 
 
 def _bbox(center: Point, w: float, h: float) -> Tuple[float, float, float, float]:
-    return (center[0] - w / 2.0, center[1] - h / 2.0, center[0] + w / 2.0, center[1] + h / 2.0)
+    return (
+        center[0] - w / 2.0,
+        center[1] - h / 2.0,
+        center[0] + w / 2.0,
+        center[1] + h / 2.0,
+    )
 
 
-def _paste_rotated_local(base: Image.Image, layer: Image.Image, center: Point, angle: float) -> None:
+def _paste_rotated_local(
+    base: Image.Image, layer: Image.Image, center: Point, angle: float
+) -> None:
     rotated = layer.rotate(angle, resample=RESAMPLING.BICUBIC, expand=True)
-    base.alpha_composite(rotated, (int(center[0] - rotated.width / 2), int(center[1] - rotated.height / 2)))
+    base.alpha_composite(
+        rotated,
+        (int(center[0] - rotated.width / 2), int(center[1] - rotated.height / 2)),
+    )
 
 
 @dataclass(frozen=True)
@@ -154,7 +169,9 @@ class AISlopZetaGenerator:
     def spec_dict(self, spec: ZetaSpec) -> Dict[str, object]:
         return asdict(spec)
 
-    def pose_for_animation(self, animation: str, frame_index: int, frame_count: int) -> ZetaPose:
+    def pose_for_animation(
+        self, animation: str, frame_index: int, frame_count: int
+    ) -> ZetaPose:
         p = ZetaPose()
         t = 0.0 if frame_count <= 1 else frame_index / float(frame_count - 1)
         wave = math.sin(t * math.tau)
@@ -296,42 +313,123 @@ class AISlopZetaGenerator:
             p.near_arm_lower = lerp(20.0, 96.0, fall)
         return p
 
-    def _leg_chain(self, hip: Point, upper: float, lower: float, a1: float, a2: float) -> Tuple[Point, Point]:
+    def _leg_chain(
+        self, hip: Point, upper: float, lower: float, a1: float, a2: float
+    ) -> Tuple[Point, Point]:
         knee = add(hip, vec(upper, a1))
         ankle = add(knee, vec(lower, a2))
         return knee, ankle
 
-    def _draw_shadow(self, img: Image.Image, ground_y: float, center_x: float, radius_x: float, alpha: int) -> None:
-        draw_rotated_ellipse(img, (center_x, ground_y + 2), (radius_x, 8), 0.0, with_alpha(self.PALETTE["shadow"], alpha), None, 0)
+    def _draw_shadow(
+        self,
+        img: Image.Image,
+        ground_y: float,
+        center_x: float,
+        radius_x: float,
+        alpha: int,
+    ) -> None:
+        draw_rotated_ellipse(
+            img,
+            (center_x, ground_y + 2),
+            (radius_x, 8),
+            0.0,
+            with_alpha(self.PALETTE["shadow"], alpha),
+            None,
+            0,
+        )
 
-    def _draw_dash_echo_legacy_fx(self, img: Image.Image, root_x: float, ground_y: float, S: float, frame_index: int, frame_count: int) -> None:
+    def _draw_dash_echo_legacy_fx(
+        self,
+        img: Image.Image,
+        root_x: float,
+        ground_y: float,
+        S: float,
+        frame_index: int,
+        frame_count: int,
+    ) -> None:
         d = ImageDraw.Draw(img)
         t = 0.0 if frame_count <= 1 else frame_index / float(frame_count - 1)
         ring = 18 + 24 * smoothstep(t)
-        for i, color in enumerate([self.PALETTE["energy2"], self.PALETTE["energy"], self.PALETTE["energy3"]]):
+        for i, color in enumerate(
+            [self.PALETTE["energy2"], self.PALETTE["energy"], self.PALETTE["energy3"]]
+        ):
             alpha = int(140 * (1.0 - 0.16 * i) * (1.0 - 0.15 * t))
-            d.arc((root_x - (ring+i*8)*S, ground_y - (48+i*4)*S, root_x + (ring+i*8)*S, ground_y + (12+i*4)*S), -40, 55, fill=with_alpha(color, alpha), width=max(1, int((2.2 - i*0.3) * S)))
+            d.arc(
+                (
+                    root_x - (ring + i * 8) * S,
+                    ground_y - (48 + i * 4) * S,
+                    root_x + (ring + i * 8) * S,
+                    ground_y + (12 + i * 4) * S,
+                ),
+                -40,
+                55,
+                fill=with_alpha(color, alpha),
+                width=max(1, int((2.2 - i * 0.3) * S)),
+            )
         for j in range(9):
             frac = j / 8.0
             ang = -100 + frac * 130
-            start = (root_x + math.cos(math.radians(ang)) * 12 * S, ground_y - 34 * S + math.sin(math.radians(ang)) * 10 * S)
-            end = (root_x + math.cos(math.radians(ang)) * (18 + 20 * t) * S, ground_y - 34 * S + math.sin(math.radians(ang)) * (16 + 24 * t) * S)
-            d.line([start, end], fill=with_alpha(self.PALETTE["energy2"], int(140 * (1.0 - 0.4 * t))), width=max(1, int(1.6 * S)))
+            start = (
+                root_x + math.cos(math.radians(ang)) * 12 * S,
+                ground_y - 34 * S + math.sin(math.radians(ang)) * 10 * S,
+            )
+            end = (
+                root_x + math.cos(math.radians(ang)) * (18 + 20 * t) * S,
+                ground_y - 34 * S + math.sin(math.radians(ang)) * (16 + 24 * t) * S,
+            )
+            d.line(
+                [start, end],
+                fill=with_alpha(self.PALETTE["energy2"], int(140 * (1.0 - 0.4 * t))),
+                width=max(1, int(1.6 * S)),
+            )
 
-    def _draw_teleport_in_legacy_fx(self, img: Image.Image, root_x: float, ground_y: float, S: float, frame_index: int, frame_count: int) -> None:
+    def _draw_teleport_in_legacy_fx(
+        self,
+        img: Image.Image,
+        root_x: float,
+        ground_y: float,
+        S: float,
+        frame_index: int,
+        frame_count: int,
+    ) -> None:
         d = ImageDraw.Draw(img)
         t = 0.0 if frame_count <= 1 else frame_index / float(frame_count - 1)
         p = 1.0 - smoothstep(t)
         ring = 18 + 22 * p
-        for i, color in enumerate([self.PALETTE["energy3"], self.PALETTE["energy"], self.PALETTE["energy2"]]):
+        for i, color in enumerate(
+            [self.PALETTE["energy3"], self.PALETTE["energy"], self.PALETTE["energy2"]]
+        ):
             alpha = int(160 * (1.0 - 0.22 * i) * p)
-            d.arc((root_x - (ring+i*8)*S, ground_y - (46+i*4)*S, root_x + (ring+i*8)*S, ground_y + (10+i*4)*S), -50, 65, fill=with_alpha(color, alpha), width=max(1, int((2.2 - i*0.25) * S)))
+            d.arc(
+                (
+                    root_x - (ring + i * 8) * S,
+                    ground_y - (46 + i * 4) * S,
+                    root_x + (ring + i * 8) * S,
+                    ground_y + (10 + i * 4) * S,
+                ),
+                -50,
+                65,
+                fill=with_alpha(color, alpha),
+                width=max(1, int((2.2 - i * 0.25) * S)),
+            )
         for j in range(10):
             frac = j / 9.0
             x = root_x - 16 * S + frac * 34 * S
-            d.line([(x, ground_y - (10 + 34 * p) * S), (x, ground_y - 4 * S)], fill=with_alpha(self.PALETTE["energy3"], int(150 * p)), width=max(1, int(1.6 * S)))
+            d.line(
+                [(x, ground_y - (10 + 34 * p) * S), (x, ground_y - 4 * S)],
+                fill=with_alpha(self.PALETTE["energy3"], int(150 * p)),
+                width=max(1, int(1.6 * S)),
+            )
 
-    def _composite_teleport_actor(self, base: Image.Image, actor: Image.Image, mode: str, frame_index: int, frame_count: int, S: float) -> None:
+    def _composite_teleport_actor(
+        self,
+        base: Image.Image,
+        actor: Image.Image,
+        mode: str,
+        frame_index: int,
+        frame_count: int,
+        S: float,
+    ) -> None:
         bbox = actor.getchannel("A").getbbox()
         if bbox is None:
             return
@@ -344,13 +442,19 @@ class AISlopZetaGenerator:
                 strip = actor.crop((x, y1, min(x + slice_w, x2), y2))
                 if strip.getchannel("A").getbbox() is None:
                     continue
-                frac = 0.5 if x2 == x1 else ((x + slice_w * 0.5) - x1) / float(max(1, x2 - x1))
+                frac = (
+                    0.5
+                    if x2 == x1
+                    else ((x + slice_w * 0.5) - x1) / float(max(1, x2 - x1))
+                )
                 dx = (frac - 0.5) * (26.0 * S * progress)
                 dy = -(4.0 + abs(frac - 0.5) * 18.0) * S * progress
                 alpha_scale = max(0.0, 1.0 - progress * (0.72 + 0.20 * abs(frac - 0.5)))
                 if progress > 0.42 and (i + frame_index) % 4 == 0:
                     alpha_scale *= 0.45
-                a = strip.getchannel("A").point(lambda v, s=alpha_scale: max(0, min(255, int(v * s))))
+                a = strip.getchannel("A").point(
+                    lambda v, s=alpha_scale: max(0, min(255, int(v * s)))
+                )
                 strip.putalpha(a)
                 base.alpha_composite(strip, (int(x + dx), int(y1 + dy)))
         else:
@@ -359,23 +463,42 @@ class AISlopZetaGenerator:
                 strip = actor.crop((x, y1, min(x + slice_w, x2), y2))
                 if strip.getchannel("A").getbbox() is None:
                     continue
-                frac = 0.5 if x2 == x1 else ((x + slice_w * 0.5) - x1) / float(max(1, x2 - x1))
+                frac = (
+                    0.5
+                    if x2 == x1
+                    else ((x + slice_w * 0.5) - x1) / float(max(1, x2 - x1))
+                )
                 dx = (frac - 0.5) * (28.0 * S * (1.0 - progress))
                 dy = -(4.0 + abs(frac - 0.5) * 18.0) * S * (1.0 - progress)
                 alpha_scale = min(1.0, 0.18 + 0.94 * progress)
                 if progress < 0.45 and (i + frame_index) % 4 == 0:
                     alpha_scale *= 0.55
-                a = strip.getchannel("A").point(lambda v, s=alpha_scale: max(0, min(255, int(v * s))))
+                a = strip.getchannel("A").point(
+                    lambda v, s=alpha_scale: max(0, min(255, int(v * s)))
+                )
                 strip.putalpha(a)
                 base.alpha_composite(strip, (int(x + dx), int(y1 + dy)))
             full_alpha = smoothstep(clamp((progress - 0.34) / 0.66, 0.0, 1.0))
             if full_alpha > 0:
                 resolved = actor.copy()
-                a = resolved.getchannel("A").point(lambda v, s=full_alpha: max(0, min(255, int(v * s))))
+                a = resolved.getchannel("A").point(
+                    lambda v, s=full_alpha: max(0, min(255, int(v * s)))
+                )
                 resolved.putalpha(a)
                 base.alpha_composite(resolved)
 
-    def _draw_head(self, img: Image.Image, center: Point, spec: ZetaSpec, pal: Dict[str, Color], S: float, angle: float, jaw_open: float, eye_glow: float, dead: bool) -> None:
+    def _draw_head(
+        self,
+        img: Image.Image,
+        center: Point,
+        spec: ZetaSpec,
+        pal: Dict[str, Color],
+        S: float,
+        angle: float,
+        jaw_open: float,
+        eye_glow: float,
+        dead: bool,
+    ) -> None:
         pad = int(math.ceil(42 * S))
         layer = Image.new("RGBA", (pad * 2, pad * 2), (0, 0, 0, 0))
         d = ImageDraw.Draw(layer)
@@ -384,49 +507,127 @@ class AISlopZetaGenerator:
 
         # horns / crown spikes
         for sign in (-1, 1):
-            tip = (cx - sign * spec.head_w * 0.18, cy - spec.head_h * 0.78 - spec.horn_len * 0.55)
+            tip = (
+                cx - sign * spec.head_w * 0.18,
+                cy - spec.head_h * 0.78 - spec.horn_len * 0.55,
+            )
             mid = (cx - sign * spec.head_w * 0.34, cy - spec.head_h * 0.50)
             base = (cx - sign * spec.head_w * 0.10, cy - spec.head_h * 0.34)
             d.polygon([tip, mid, base], fill=pal["cloak_hi"], outline=pal["outline"])
 
         hood_outer = _bbox((cx + 2 * S, cy + 2 * S), spec.hood_w * S, spec.hood_h * S)
         d.ellipse(hood_outer, fill=pal["outline"])
-        hood_inner = _bbox((cx + 2 * S, cy + 1 * S), (spec.hood_w - 4) * S, (spec.hood_h - 4) * S)
+        hood_inner = _bbox(
+            (cx + 2 * S, cy + 1 * S), (spec.hood_w - 4) * S, (spec.hood_h - 4) * S
+        )
         d.ellipse(hood_inner, fill=pal["cloak_mid"])
 
         skull = _bbox((cx, cy - 1 * S), spec.head_w * S, spec.head_h * S)
         d.ellipse(skull, fill=pal["skin"], outline=pal["outline"], width=outline)
-        d.ellipse((skull[0] + 4 * S, skull[1] + 3 * S, skull[2] - 5 * S, cy - 2 * S), fill=with_alpha((255, 255, 255, 255), 48))
+        d.ellipse(
+            (skull[0] + 4 * S, skull[1] + 3 * S, skull[2] - 5 * S, cy - 2 * S),
+            fill=with_alpha((255, 255, 255, 255), 48),
+        )
 
         # multiple glowing eyes
         eye_y = cy - 4.5 * S
-        centers = [(cx - 6.0 * S, eye_y), (cx + 1.0 * S, eye_y - 1.0 * S), (cx + 8.0 * S, eye_y + 1.0 * S)]
+        centers = [
+            (cx - 6.0 * S, eye_y),
+            (cx + 1.0 * S, eye_y - 1.0 * S),
+            (cx + 8.0 * S, eye_y + 1.0 * S),
+        ]
         for ex, ey in centers:
             glow_r = spec.eye_r * S * (1.0 + eye_glow * 0.6)
-            d.ellipse(_bbox((ex, ey), glow_r * 2.8, glow_r * 2.0), fill=with_alpha(pal["eye_soft"], int(42 + 90 * eye_glow)))
-            d.ellipse(_bbox((ex, ey), glow_r * 1.3, glow_r * 1.6), fill=pal["eye"], outline=pal["outline"])
+            d.ellipse(
+                _bbox((ex, ey), glow_r * 2.8, glow_r * 2.0),
+                fill=with_alpha(pal["eye_soft"], int(42 + 90 * eye_glow)),
+            )
+            d.ellipse(
+                _bbox((ex, ey), glow_r * 1.3, glow_r * 1.6),
+                fill=pal["eye"],
+                outline=pal["outline"],
+            )
         if dead:
-            d.line([(cx - 9 * S, eye_y - 5 * S), (cx + 11 * S, eye_y + 5 * S)], fill=pal["energy3"], width=max(1, int(1.4 * S)))
-            d.line([(cx - 9 * S, eye_y + 5 * S), (cx + 11 * S, eye_y - 5 * S)], fill=pal["energy3"], width=max(1, int(1.4 * S)))
+            d.line(
+                [(cx - 9 * S, eye_y - 5 * S), (cx + 11 * S, eye_y + 5 * S)],
+                fill=pal["energy3"],
+                width=max(1, int(1.4 * S)),
+            )
+            d.line(
+                [(cx - 9 * S, eye_y + 5 * S), (cx + 11 * S, eye_y - 5 * S)],
+                fill=pal["energy3"],
+                width=max(1, int(1.4 * S)),
+            )
 
         # mouth / jaw
         mouth_c = (cx + 2 * S, cy + 8.5 * S)
         mh = (5.0 + jaw_open * 10.0) * S
-        d.rounded_rectangle((mouth_c[0] - 10 * S, mouth_c[1] - mh * 0.45, mouth_c[0] + 11 * S, mouth_c[1] + mh * 0.55), radius=5 * S, fill=pal["mouth"], outline=pal["outline"], width=max(1, int(1.0 * S)))
+        d.rounded_rectangle(
+            (
+                mouth_c[0] - 10 * S,
+                mouth_c[1] - mh * 0.45,
+                mouth_c[0] + 11 * S,
+                mouth_c[1] + mh * 0.55,
+            ),
+            radius=5 * S,
+            fill=pal["mouth"],
+            outline=pal["outline"],
+            width=max(1, int(1.0 * S)),
+        )
         for tx in (-7.0, -1.0, 5.0):
-            d.polygon([(mouth_c[0] + tx * S, mouth_c[1] - mh * 0.42), (mouth_c[0] + (tx + 2.5) * S, mouth_c[1] - mh * 0.05), (mouth_c[0] + (tx + 5.0) * S, mouth_c[1] - mh * 0.42)], fill=pal["tooth"], outline=pal["outline"])
+            d.polygon(
+                [
+                    (mouth_c[0] + tx * S, mouth_c[1] - mh * 0.42),
+                    (mouth_c[0] + (tx + 2.5) * S, mouth_c[1] - mh * 0.05),
+                    (mouth_c[0] + (tx + 5.0) * S, mouth_c[1] - mh * 0.42),
+                ],
+                fill=pal["tooth"],
+                outline=pal["outline"],
+            )
 
         _paste_rotated_local(img, layer, center, angle)
 
-    def _draw_tendril(self, img: Image.Image, d: ImageDraw.ImageDraw, shoulder: Point, a1: float, a2: float, tint: Color, spec: ZetaSpec, pal: Dict[str, Color], S: float, outline: float) -> Point:
+    def _draw_tendril(
+        self,
+        img: Image.Image,
+        d: ImageDraw.ImageDraw,
+        shoulder: Point,
+        a1: float,
+        a2: float,
+        tint: Color,
+        spec: ZetaSpec,
+        pal: Dict[str, Color],
+        S: float,
+        outline: float,
+    ) -> Point:
         elbow = add(shoulder, vec(spec.tendril_upper * S, a1))
         hand = add(elbow, vec(spec.tendril_lower * S, a2))
         draw_capsule(d, shoulder, elbow, 3.6 * S, tint, pal["outline"], outline * 0.70)
         draw_capsule(d, elbow, hand, 2.8 * S, tint, pal["outline"], outline * 0.70)
-        d.ellipse((hand[0] - spec.claw_r * S, hand[1] - spec.claw_r * S, hand[0] + spec.claw_r * S, hand[1] + spec.claw_r * S), fill=pal["energy2"], outline=pal["outline"], width=max(1, int(outline * 0.65)))
+        d.ellipse(
+            (
+                hand[0] - spec.claw_r * S,
+                hand[1] - spec.claw_r * S,
+                hand[0] + spec.claw_r * S,
+                hand[1] + spec.claw_r * S,
+            ),
+            fill=pal["energy2"],
+            outline=pal["outline"],
+            width=max(1, int(outline * 0.65)),
+        )
         return hand
 
-    def _draw_cloak(self, img: Image.Image, center: Point, spec: ZetaSpec, pal: Dict[str, Color], S: float, angle: float, flare: float, collapse: float) -> None:
+    def _draw_cloak(
+        self,
+        img: Image.Image,
+        center: Point,
+        spec: ZetaSpec,
+        pal: Dict[str, Color],
+        S: float,
+        angle: float,
+        flare: float,
+        collapse: float,
+    ) -> None:
         pad = int(math.ceil(58 * S))
         layer = Image.new("RGBA", (pad * 2, pad * 2), (0, 0, 0, 0))
         d = ImageDraw.Draw(layer)
@@ -449,52 +650,139 @@ class AISlopZetaGenerator:
         d.polygon(pts, fill=pal["outline"])
         inner = [(x * 0.96 + cx * 0.04, y * 0.96 + cy * 0.04) for x, y in pts]
         d.polygon(inner, fill=pal["cloak"])
-        d.polygon([(cx - w * 0.10, cy - h * 0.18), (cx + w * 0.18, cy - h * 0.22), (cx + w * 0.26, cy + h * 0.28), (cx - w * 0.08, cy + h * 0.18)], fill=with_alpha(pal["cloak_hi"], 120))
-        tail = [(cx - w * 0.10, cy + h * 0.35), (cx - w * 0.24, cy + h * 0.68), (cx - w * 0.06, cy + h * 0.48)]
+        d.polygon(
+            [
+                (cx - w * 0.10, cy - h * 0.18),
+                (cx + w * 0.18, cy - h * 0.22),
+                (cx + w * 0.26, cy + h * 0.28),
+                (cx - w * 0.08, cy + h * 0.18),
+            ],
+            fill=with_alpha(pal["cloak_hi"], 120),
+        )
+        tail = [
+            (cx - w * 0.10, cy + h * 0.35),
+            (cx - w * 0.24, cy + h * 0.68),
+            (cx - w * 0.06, cy + h * 0.48),
+        ]
         d.polygon(tail, fill=pal["cloak_mid"], outline=pal["outline"])
         _paste_rotated_local(img, layer, center, angle)
 
-    def _draw_spit_fx(self, img: Image.Image, mouth: Point, direction: float, strength: float, S: float) -> None:
+    def _draw_spit_fx(
+        self,
+        img: Image.Image,
+        mouth: Point,
+        direction: float,
+        strength: float,
+        S: float,
+    ) -> None:
         d = ImageDraw.Draw(img)
         if strength <= 0:
             return
         tip = add(mouth, vec((14 + 18 * strength) * S, direction))
-        d.line([mouth, tip], fill=with_alpha(self.PALETTE["energy2"], 190), width=max(1, int(2.2 * S)))
-        d.ellipse(_bbox(tip, 7 * S, 7 * S), fill=with_alpha(self.PALETTE["energy"], 220), outline=self.PALETTE["outline"])
-        d.ellipse(_bbox((tip[0] + 4 * S, tip[1]), 4 * S, 4 * S), fill=with_alpha(self.PALETTE["energy3"], 180))
+        d.line(
+            [mouth, tip],
+            fill=with_alpha(self.PALETTE["energy2"], 190),
+            width=max(1, int(2.2 * S)),
+        )
+        d.ellipse(
+            _bbox(tip, 7 * S, 7 * S),
+            fill=with_alpha(self.PALETTE["energy"], 220),
+            outline=self.PALETTE["outline"],
+        )
+        d.ellipse(
+            _bbox((tip[0] + 4 * S, tip[1]), 4 * S, 4 * S),
+            fill=with_alpha(self.PALETTE["energy3"], 180),
+        )
 
-    def _draw_beam_fx(self, img: Image.Image, mouth: Point, charge: float, fire: float, S: float) -> None:
+    def _draw_beam_fx(
+        self, img: Image.Image, mouth: Point, charge: float, fire: float, S: float
+    ) -> None:
         d = ImageDraw.Draw(img)
         if charge > 0:
             for r, a in [(10, 70), (16, 60), (22, 48)]:
-                d.ellipse(_bbox(mouth, (r + charge * 8) * S, (r + charge * 8) * S), outline=with_alpha(self.PALETTE["energy2"], int(a + charge * 70)), width=max(1, int(1.6 * S)))
+                d.ellipse(
+                    _bbox(mouth, (r + charge * 8) * S, (r + charge * 8) * S),
+                    outline=with_alpha(self.PALETTE["energy2"], int(a + charge * 70)),
+                    width=max(1, int(1.6 * S)),
+                )
         if fire > 0:
             x2 = mouth[0] + (48 + 40 * fire) * S
-            d.line([mouth, (x2, mouth[1] - 2 * S)], fill=with_alpha(self.PALETTE["energy3"], 110), width=max(1, int(11 * S)))
-            d.line([mouth, (x2, mouth[1] - 2 * S)], fill=with_alpha(self.PALETTE["energy2"], 160), width=max(1, int(7 * S)))
-            d.line([mouth, (x2, mouth[1] - 2 * S)], fill=with_alpha(self.PALETTE["eye_soft"], 230), width=max(1, int(3 * S)))
+            d.line(
+                [mouth, (x2, mouth[1] - 2 * S)],
+                fill=with_alpha(self.PALETTE["energy3"], 110),
+                width=max(1, int(11 * S)),
+            )
+            d.line(
+                [mouth, (x2, mouth[1] - 2 * S)],
+                fill=with_alpha(self.PALETTE["energy2"], 160),
+                width=max(1, int(7 * S)),
+            )
+            d.line(
+                [mouth, (x2, mouth[1] - 2 * S)],
+                fill=with_alpha(self.PALETTE["eye_soft"], 230),
+                width=max(1, int(3 * S)),
+            )
 
-    def _draw_slam_fx(self, img: Image.Image, root_x: float, ground_y: float, amount: float, S: float) -> None:
+    def _draw_slam_fx(
+        self, img: Image.Image, root_x: float, ground_y: float, amount: float, S: float
+    ) -> None:
         if amount <= 0:
             return
         d = ImageDraw.Draw(img)
         rad = (16 + 28 * amount) * S
-        d.arc((root_x - rad, ground_y - 16 * S, root_x + rad, ground_y + 16 * S), 180, 360, fill=with_alpha(self.PALETTE["energy3"], 180), width=max(1, int(2.5 * S)))
+        d.arc(
+            (root_x - rad, ground_y - 16 * S, root_x + rad, ground_y + 16 * S),
+            180,
+            360,
+            fill=with_alpha(self.PALETTE["energy3"], 180),
+            width=max(1, int(2.5 * S)),
+        )
         for sign in (-1, 1):
-            d.line([(root_x + sign * 10 * S, ground_y - 2 * S), (root_x + sign * (18 + 18 * amount) * S, ground_y - (8 + 10 * amount) * S)], fill=with_alpha(self.PALETTE["energy2"], 150), width=max(1, int(1.8 * S)))
+            d.line(
+                [
+                    (root_x + sign * 10 * S, ground_y - 2 * S),
+                    (
+                        root_x + sign * (18 + 18 * amount) * S,
+                        ground_y - (8 + 10 * amount) * S,
+                    ),
+                ],
+                fill=with_alpha(self.PALETTE["energy2"], 150),
+                width=max(1, int(1.8 * S)),
+            )
 
-    def _draw_summon_fx(self, img: Image.Image, root_x: float, center_y: float, amount: float, S: float) -> None:
+    def _draw_summon_fx(
+        self, img: Image.Image, root_x: float, center_y: float, amount: float, S: float
+    ) -> None:
         if amount <= 0:
             return
         d = ImageDraw.Draw(img)
         for sign in (-1, 1):
-            orb = (root_x + sign * (18 + 8 * amount) * S, center_y + (8 - 18 * amount) * S)
-            d.ellipse(_bbox(orb, (9 + 8 * amount) * S, (9 + 8 * amount) * S), fill=with_alpha(self.PALETTE["energy"], 140), outline=self.PALETTE["outline"])
+            orb = (
+                root_x + sign * (18 + 8 * amount) * S,
+                center_y + (8 - 18 * amount) * S,
+            )
+            d.ellipse(
+                _bbox(orb, (9 + 8 * amount) * S, (9 + 8 * amount) * S),
+                fill=with_alpha(self.PALETTE["energy"], 140),
+                outline=self.PALETTE["outline"],
+            )
             for i in range(3):
-                d.arc((orb[0] - (13+i*6)*S, orb[1] - (13+i*6)*S, orb[0] + (13+i*6)*S, orb[1] + (13+i*6)*S), -40, 70, fill=with_alpha(self.PALETTE["energy3"], int(90 - i * 18)), width=max(1, int(1.4 * S)))
+                d.arc(
+                    (
+                        orb[0] - (13 + i * 6) * S,
+                        orb[1] - (13 + i * 6) * S,
+                        orb[0] + (13 + i * 6) * S,
+                        orb[1] + (13 + i * 6) * S,
+                    ),
+                    -40,
+                    70,
+                    fill=with_alpha(self.PALETTE["energy3"], int(90 - i * 18)),
+                    width=max(1, int(1.4 * S)),
+                )
 
-
-    def _draw_side_sweep_fx(self, img: Image.Image, hand: Point, root_x: float, amount: float, S: float) -> None:
+    def _draw_side_sweep_fx(
+        self, img: Image.Image, hand: Point, root_x: float, amount: float, S: float
+    ) -> None:
         if amount <= 0:
             return
         d = ImageDraw.Draw(img)
@@ -506,14 +794,32 @@ class AISlopZetaGenerator:
             root_x + (78 + 22 * amount) * S,
             hand[1] + (24 + 8 * amount) * S,
         )
-        d.arc(box, start=-34, end=42, fill=with_alpha(self.PALETTE["energy2"], alpha), width=max(1, int(3.8 * S)))
-        d.arc((box[0] + 5 * S, box[1] + 6 * S, box[2] - 5 * S, box[3] - 3 * S), start=-28, end=36, fill=with_alpha(self.PALETTE["energy3"], int(alpha * 0.72)), width=max(1, int(1.8 * S)))
+        d.arc(
+            box,
+            start=-34,
+            end=42,
+            fill=with_alpha(self.PALETTE["energy2"], alpha),
+            width=max(1, int(3.8 * S)),
+        )
+        d.arc(
+            (box[0] + 5 * S, box[1] + 6 * S, box[2] - 5 * S, box[3] - 3 * S),
+            start=-28,
+            end=36,
+            fill=with_alpha(self.PALETTE["energy3"], int(alpha * 0.72)),
+            width=max(1, int(1.8 * S)),
+        )
         for i in range(3):
             x = hand[0] + (10 + i * 14) * S
             y = hand[1] - (4 - i * 3) * S
-            d.line([(x, y), (x + (18 + 4 * i) * S, y - (8 - 2 * i) * S)], fill=with_alpha(self.PALETTE["eye_soft"], int(alpha * 0.58)), width=max(1, int(1.2 * S)))
+            d.line(
+                [(x, y), (x + (18 + 4 * i) * S, y - (8 - 2 * i) * S)],
+                fill=with_alpha(self.PALETTE["eye_soft"], int(alpha * 0.58)),
+                width=max(1, int(1.2 * S)),
+            )
 
-    def _draw_spike_halo_fx(self, img: Image.Image, root_x: float, center_y: float, amount: float, S: float) -> None:
+    def _draw_spike_halo_fx(
+        self, img: Image.Image, root_x: float, center_y: float, amount: float, S: float
+    ) -> None:
         if amount <= 0:
             return
         d = ImageDraw.Draw(img)
@@ -521,16 +827,35 @@ class AISlopZetaGenerator:
         cx, cy = root_x + 2 * S, center_y - 10 * S
         for i in range(12):
             theta = (math.tau * i / 12.0) + amount * 0.8
-            inner = (cx + math.cos(theta) * radius * 0.55, cy + math.sin(theta) * radius * 0.55)
+            inner = (
+                cx + math.cos(theta) * radius * 0.55,
+                cy + math.sin(theta) * radius * 0.55,
+            )
             outer = (cx + math.cos(theta) * radius, cy + math.sin(theta) * radius)
-            side1 = (cx + math.cos(theta + 0.12) * radius * 0.73, cy + math.sin(theta + 0.12) * radius * 0.73)
-            side2 = (cx + math.cos(theta - 0.12) * radius * 0.73, cy + math.sin(theta - 0.12) * radius * 0.73)
-            d.polygon([inner, side1, outer, side2], fill=with_alpha(self.PALETTE["energy2"], int(72 + 96 * amount)), outline=with_alpha(self.PALETTE["outline"], 180))
+            side1 = (
+                cx + math.cos(theta + 0.12) * radius * 0.73,
+                cy + math.sin(theta + 0.12) * radius * 0.73,
+            )
+            side2 = (
+                cx + math.cos(theta - 0.12) * radius * 0.73,
+                cy + math.sin(theta - 0.12) * radius * 0.73,
+            )
+            d.polygon(
+                [inner, side1, outer, side2],
+                fill=with_alpha(self.PALETTE["energy2"], int(72 + 96 * amount)),
+                outline=with_alpha(self.PALETTE["outline"], 180),
+            )
         for rscale, alpha in [(0.9, 120), (1.16, 78), (1.42, 42)]:
             rr = radius * rscale
-            d.ellipse((cx - rr, cy - rr, cx + rr, cy + rr), outline=with_alpha(self.PALETTE["energy3"], int(alpha * amount)), width=max(1, int(1.3 * S)))
+            d.ellipse(
+                (cx - rr, cy - rr, cx + rr, cy + rr),
+                outline=with_alpha(self.PALETTE["energy3"], int(alpha * amount)),
+                width=max(1, int(1.3 * S)),
+            )
 
-    def _draw_dash_echo_fx(self, img: Image.Image, root_x: float, ground_y: float, amount: float, S: float) -> None:
+    def _draw_dash_echo_fx(
+        self, img: Image.Image, root_x: float, ground_y: float, amount: float, S: float
+    ) -> None:
         if amount <= 0:
             return
         d = ImageDraw.Draw(img)
@@ -540,10 +865,27 @@ class AISlopZetaGenerator:
             x1 = root_x - (42 + i * 4) * S * amount
             x2 = root_x + (4 + i * 3) * S
             alpha = int((112 - i * 14) * amount)
-            d.line([(x1, y), (x2, y - 2 * S)], fill=with_alpha(self.PALETTE["energy3"], alpha), width=max(1, int((2.4 - i * 0.22) * S)))
-            d.line([(x1 + 12 * S, y + 3 * S), (x2 + 18 * S, y + 1 * S)], fill=with_alpha(self.PALETTE["energy2"], max(0, alpha - 28)), width=max(1, int(1.2 * S)))
+            d.line(
+                [(x1, y), (x2, y - 2 * S)],
+                fill=with_alpha(self.PALETTE["energy3"], alpha),
+                width=max(1, int((2.4 - i * 0.22) * S)),
+            )
+            d.line(
+                [(x1 + 12 * S, y + 3 * S), (x2 + 18 * S, y + 1 * S)],
+                fill=with_alpha(self.PALETTE["energy2"], max(0, alpha - 28)),
+                width=max(1, int(1.2 * S)),
+            )
 
-    def _render_highres(self, spec: ZetaSpec, animation: str, frame_index: int, frame_count: int, size: Tuple[int, int], background: Optional[Color], scale: int) -> Image.Image:
+    def _render_highres(
+        self,
+        spec: ZetaSpec,
+        animation: str,
+        frame_index: int,
+        frame_count: int,
+        size: Tuple[int, int],
+        background: Optional[Color],
+        scale: int,
+    ) -> Image.Image:
         W, H = size[0] * scale, size[1] * scale
         bg = (0, 0, 0, 0) if background is None else background
         img = Image.new("RGBA", (W, H), bg)
@@ -563,26 +905,89 @@ class AISlopZetaGenerator:
         character_draw = ImageDraw.Draw(character_img)
 
         collapse = p.collapse
-        body_center = (root_x + lerp(0, 14 * S, collapse), ground_y - lerp(54 * S, 22 * S, collapse) - p.hover * S)
-        head_center = (body_center[0] + lerp(5 * S, 20 * S, collapse), body_center[1] - lerp(22 * S, 8 * S, collapse))
+        body_center = (
+            root_x + lerp(0, 14 * S, collapse),
+            ground_y - lerp(54 * S, 22 * S, collapse) - p.hover * S,
+        )
+        head_center = (
+            body_center[0] + lerp(5 * S, 20 * S, collapse),
+            body_center[1] - lerp(22 * S, 8 * S, collapse),
+        )
         shoulder_far = (body_center[0] - 15 * S, body_center[1] - 8 * S)
         shoulder_near = (body_center[0] + 15 * S, body_center[1] - 7 * S)
         body_angle = p.body_tilt
         head_angle = p.head_tilt
 
         # far tendril first
-        self._draw_tendril(character_img, character_draw, shoulder_far, p.far_arm_upper, p.far_arm_lower, pal["cloak_mid"], spec, pal, S, outline)
+        self._draw_tendril(
+            character_img,
+            character_draw,
+            shoulder_far,
+            p.far_arm_upper,
+            p.far_arm_lower,
+            pal["cloak_mid"],
+            spec,
+            pal,
+            S,
+            outline,
+        )
 
         # cloak body then rigid head
-        self._draw_cloak(character_img, body_center, spec, pal, S, body_angle, p.cloak_flare, p.collapse)
+        self._draw_cloak(
+            character_img,
+            body_center,
+            spec,
+            pal,
+            S,
+            body_angle,
+            p.cloak_flare,
+            p.collapse,
+        )
         # core / chest eye
         core_center = (body_center[0] + 2 * S, body_center[1] - 1 * S)
-        draw_rotated_ellipse(character_img, core_center, (15 * S, 11 * S), body_angle, with_alpha(pal["eye_soft"], int(60 + p.eye_glow * 90)), None, 0)
-        draw_rotated_ellipse(character_img, core_center, (8 * S, 9 * S), body_angle, pal["eye"], pal["outline"], max(1, int(1.0 * S)))
-        self._draw_head(character_img, head_center, spec, pal, S, head_angle, p.jaw_open, p.eye_glow, p.dead)
+        draw_rotated_ellipse(
+            character_img,
+            core_center,
+            (15 * S, 11 * S),
+            body_angle,
+            with_alpha(pal["eye_soft"], int(60 + p.eye_glow * 90)),
+            None,
+            0,
+        )
+        draw_rotated_ellipse(
+            character_img,
+            core_center,
+            (8 * S, 9 * S),
+            body_angle,
+            pal["eye"],
+            pal["outline"],
+            max(1, int(1.0 * S)),
+        )
+        self._draw_head(
+            character_img,
+            head_center,
+            spec,
+            pal,
+            S,
+            head_angle,
+            p.jaw_open,
+            p.eye_glow,
+            p.dead,
+        )
 
         # near tendril on top
-        near_hand = self._draw_tendril(character_img, character_draw, shoulder_near, p.near_arm_upper, p.near_arm_lower, pal["cloak_hi"], spec, pal, S, outline)
+        near_hand = self._draw_tendril(
+            character_img,
+            character_draw,
+            shoulder_near,
+            p.near_arm_upper,
+            p.near_arm_lower,
+            pal["cloak_hi"],
+            spec,
+            pal,
+            S,
+            outline,
+        )
 
         mouth = (head_center[0] + 11 * S, head_center[1] + 6 * S)
         self._draw_side_sweep_fx(character_img, near_hand, root_x, p.side_sweep, S)
@@ -592,8 +997,22 @@ class AISlopZetaGenerator:
 
         # eerie hand trails during hover / summon
         if p.summon > 0 or animation == "hover":
-            for hand, alpha in [(near_hand, 110), ((shoulder_far[0] - 8 * S, shoulder_far[1] + 14 * S), 80)]:
-                ImageDraw.Draw(character_img).arc((hand[0] - 12 * S, hand[1] - 12 * S, hand[0] + 12 * S, hand[1] + 12 * S), -30, 80, fill=with_alpha(pal["energy3"], alpha), width=max(1, int(1.3 * S)))
+            for hand, alpha in [
+                (near_hand, 110),
+                ((shoulder_far[0] - 8 * S, shoulder_far[1] + 14 * S), 80),
+            ]:
+                ImageDraw.Draw(character_img).arc(
+                    (
+                        hand[0] - 12 * S,
+                        hand[1] - 12 * S,
+                        hand[0] + 12 * S,
+                        hand[1] + 12 * S,
+                    ),
+                    -30,
+                    80,
+                    fill=with_alpha(pal["energy3"], alpha),
+                    width=max(1, int(1.3 * S)),
+                )
 
         img.alpha_composite(character_img)
         return img
@@ -609,6 +1028,14 @@ class AISlopZetaGenerator:
         supersample: int = 4,
         downsample: str = "lanczos",
     ) -> Image.Image:
-        high = self._render_highres(spec, animation, frame_index, frame_count, size, background, max(1, int(supersample)))
+        high = self._render_highres(
+            spec,
+            animation,
+            frame_index,
+            frame_count,
+            size,
+            background,
+            max(1, int(supersample)),
+        )
         resample = RESAMPLING.NEAREST if downsample == "nearest" else RESAMPLING.LANCZOS
         return high.resize(size, resample)

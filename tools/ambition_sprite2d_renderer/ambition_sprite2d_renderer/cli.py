@@ -30,6 +30,7 @@ Two command families:
 
 See ``target_registry.py`` for the Target protocol contract.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -68,13 +69,9 @@ def repo_root() -> Path:
 
 # Defaults are computed against the package, not the cwd, so the CLI works
 # regardless of where the user runs it from.
-DEFAULT_CONFIG_DIR = (
-    Path(__file__).resolve().parent / "configs"
-)
+DEFAULT_CONFIG_DIR = Path(__file__).resolve().parent / "configs"
 DEFAULT_REVIEW_CONFIG_DIR = DEFAULT_CONFIG_DIR / "review"
-DEFAULT_ASSET_DIR = (
-    package_dir() / "generated"
-)
+DEFAULT_ASSET_DIR = package_dir() / "generated"
 DEFAULT_FACTION_CONFIG = DEFAULT_CONFIG_DIR / "factions" / "music_factions.yaml"
 
 
@@ -151,15 +148,12 @@ def _get_target(name: str) -> Target:
                 f"  see `target_registry.py` for the Target protocol contract."
             )
     raise SystemExit(
-        f"error: unknown target: {name!r}\n"
-        f"  run `list` to see the registered targets."
+        f"error: unknown target: {name!r}\n  run `list` to see the registered targets."
     )
 
 
 def sandbox_sprites_dir() -> Path:
-    return (
-        repo_root() / "crates" / "ambition_sandbox" / "assets" / "sprites"
-    )
+    return repo_root() / "crates" / "ambition_sandbox" / "assets" / "sprites"
 
 
 def generated_dir(target_name: str) -> Path:
@@ -168,11 +162,25 @@ def generated_dir(target_name: str) -> Path:
 
 # ---- Adapter (character lab) commands -----------------------------------------
 
-def draw_all(config_dir: str | Path = DEFAULT_CONFIG_DIR, out_dir: str | Path = DEFAULT_ASSET_DIR) -> List[Path]:
+
+def draw_all(
+    config_dir: str | Path = DEFAULT_CONFIG_DIR, out_dir: str | Path = DEFAULT_ASSET_DIR
+) -> List[Path]:
     out_dir = Path(out_dir)
     config_dir_path = Path(config_dir)
-    runtime_stems = {"boss", "raid_enforcer", "goblin", "ninja", "ninja_leader", "player_robot", "robot", "sandbag"}
-    default_runtime_dir = config_dir_path.resolve() == Path(DEFAULT_CONFIG_DIR).resolve()
+    runtime_stems = {
+        "boss",
+        "raid_enforcer",
+        "goblin",
+        "ninja",
+        "ninja_leader",
+        "player_robot",
+        "robot",
+        "sandbag",
+    }
+    default_runtime_dir = (
+        config_dir_path.resolve() == Path(DEFAULT_CONFIG_DIR).resolve()
+    )
     outputs: List[Path] = []
     for path, job in load_jobs(config_dir_path):
         # The default configs/ directory has accumulated a few older review
@@ -187,7 +195,9 @@ def draw_all(config_dir: str | Path = DEFAULT_CONFIG_DIR, out_dir: str | Path = 
         stem = job.output_stem(path)
         image_out = out_dir / f"{stem}_spritesheet.png"
         manifest_out = out_dir / f"{stem}_spritesheet.yaml"
-        outputs.extend(write_spritesheet(job, image_out, manifest_out, source_config=path))
+        outputs.extend(
+            write_spritesheet(job, image_out, manifest_out, source_config=path)
+        )
     return outputs
 
 
@@ -261,7 +271,9 @@ def resolve_config_path(value: str | Path) -> Path:
     )
 
 
-def draw_character(config: str | Path, out_dir: str | Path = DEFAULT_ASSET_DIR) -> List[Path]:
+def draw_character(
+    config: str | Path, out_dir: str | Path = DEFAULT_ASSET_DIR
+) -> List[Path]:
     """Render both review artifacts for one character config.
 
     This is the one-shot path for art iteration: it writes the canonical still
@@ -289,7 +301,9 @@ def draw_character(config: str | Path, out_dir: str | Path = DEFAULT_ASSET_DIR) 
 
     sheet_out = out_dir / f"{stem}_spritesheet.png"
     manifest_out = out_dir / f"{stem}_spritesheet.yaml"
-    image_out, yaml_out = write_spritesheet(job, sheet_out, manifest_out, source_config=config_path)
+    image_out, yaml_out = write_spritesheet(
+        job, sheet_out, manifest_out, source_config=config_path
+    )
     actor_out = out_dir / f"{stem}_actor.ron"
     outputs = [canonical_out, image_out, yaml_out]
     if actor_out.exists():
@@ -321,11 +335,13 @@ def _cmd_canonical(args: argparse.Namespace) -> int:
         out = draw_canonical_of(target, args.out_dir)
         print_paths([out])
         return 0
-    print_canonical_outputs(draw_canonicals(
-        args.config_dir,
-        args.out_dir,
-        adapters_only=args.adapters_only,
-    ))
+    print_canonical_outputs(
+        draw_canonicals(
+            args.config_dir,
+            args.out_dir,
+            adapters_only=args.adapters_only,
+        )
+    )
     return 0
 
 
@@ -363,7 +379,9 @@ def _cmd_draw_factions(args: argparse.Namespace) -> int:
 
 
 def _cmd_list_targets(args: argparse.Namespace) -> int:
-    print("# adapter rigs (driven by configs/*.yaml — renders via draw-character / draw-all):")
+    print(
+        "# adapter rigs (driven by configs/*.yaml — renders via draw-character / draw-all):"
+    )
     for target in sorted(TARGETS):
         adapter = get_adapter(target)
         print(f"  {target}: {', '.join(adapter.default_animations())}")
@@ -395,7 +413,11 @@ def _cmd_list_targets(args: argparse.Namespace) -> int:
 
 def _cmd_spritesheet(args: argparse.Namespace) -> int:
     job = CharacterJob.load(args.config)
-    print_paths(write_spritesheet(job, args.output, args.manifest_out, source_config=args.config))
+    print_paths(
+        write_spritesheet(
+            job, args.output, args.manifest_out, source_config=args.config
+        )
+    )
     return 0
 
 
@@ -423,6 +445,7 @@ _TACKON_CATEGORIES = frozenset({"characters", "props", "tiles", "icons"})
 def _tackon_target_names() -> list[str]:
     """Names of every tack-on (non-AdapterTarget) target, sorted."""
     from .target_registry import TackonTarget
+
     return sorted(
         name for name, t in _ALL_TARGETS.items() if isinstance(t, TackonTarget)
     )
@@ -717,7 +740,11 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_optional_target_arg(p)
-    _add_config_dir_args(p, config_default=DEFAULT_CONFIG_DIR, out_default=DEFAULT_ASSET_DIR / "canonicals")
+    _add_config_dir_args(
+        p,
+        config_default=DEFAULT_CONFIG_DIR,
+        out_default=DEFAULT_ASSET_DIR / "canonicals",
+    )
     p.add_argument(
         "--adapters-only",
         action="store_true",
@@ -757,21 +784,35 @@ def build_parser() -> argparse.ArgumentParser:
     _add_dest_root_arg(p)
     p.set_defaults(func=_cmd_publish)
 
-    p = sub.add_parser("list", help="Show every registered target, grouped by category.")
+    p = sub.add_parser(
+        "list", help="Show every registered target, grouped by category."
+    )
     p.set_defaults(func=_cmd_list_targets)
-    sub.add_parser("list-targets", help="alias of `list`").set_defaults(func=_cmd_list_targets)
+    sub.add_parser("list-targets", help="alias of `list`").set_defaults(
+        func=_cmd_list_targets
+    )
 
     # ---- Adapter-pipeline commands (take config paths, not target names) ----
 
     p = sub.add_parser("draw-all", help="Render every main adapter config in configs/.")
-    _add_config_dir_args(p, config_default=DEFAULT_CONFIG_DIR, out_default=DEFAULT_ASSET_DIR)
+    _add_config_dir_args(
+        p, config_default=DEFAULT_CONFIG_DIR, out_default=DEFAULT_ASSET_DIR
+    )
     p.set_defaults(func=_cmd_draw_all)
 
-    p = sub.add_parser("draw-review", help="Render every review config in configs/review/.")
-    _add_config_dir_args(p, config_default=DEFAULT_REVIEW_CONFIG_DIR, out_default=DEFAULT_ASSET_DIR / "review")
+    p = sub.add_parser(
+        "draw-review", help="Render every review config in configs/review/."
+    )
+    _add_config_dir_args(
+        p,
+        config_default=DEFAULT_REVIEW_CONFIG_DIR,
+        out_default=DEFAULT_ASSET_DIR / "review",
+    )
     p.set_defaults(func=_cmd_draw_review)
 
-    p = sub.add_parser("draw-character", help="Render one config's canonical + spritesheet + YAML.")
+    p = sub.add_parser(
+        "draw-character", help="Render one config's canonical + spritesheet + YAML."
+    )
     p.add_argument(
         "config",
         help=(
@@ -793,12 +834,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.set_defaults(func=_cmd_draw_character)
 
-    p = sub.add_parser("draw-factions", help="Render music-faction leader/NPC review sprites.")
+    p = sub.add_parser(
+        "draw-factions", help="Render music-faction leader/NPC review sprites."
+    )
     p.add_argument("--config", default=str(DEFAULT_FACTION_CONFIG))
     p.add_argument("--out-dir", default=str(DEFAULT_ASSET_DIR / "factions"))
     p.set_defaults(func=_cmd_draw_factions)
 
-    p = sub.add_parser("spritesheet", help="Render one config's sheet to a specific path.")
+    p = sub.add_parser(
+        "spritesheet", help="Render one config's sheet to a specific path."
+    )
     p.add_argument("config")
     p.add_argument("output")
     p.add_argument("--manifest-out", default=None)

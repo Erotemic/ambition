@@ -21,6 +21,7 @@ After `--in-place`, inspect and validate:
     PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools doctor \
       crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
 """
+
 from __future__ import annotations
 
 import argparse
@@ -63,7 +64,9 @@ def apply_authoring_fields(project: dict) -> list[str]:
     changed: list[str] = []
     defs = project["defs"]
     camera_zone = next(
-        entity for entity in defs["entities"] if entity.get("identifier") == "CameraZone"
+        entity
+        for entity in defs["entities"]
+        if entity.get("identifier") == "CameraZone"
     )
     new_doc = (
         "Authored camera behavior zone. Runtime parses priority, zoom, offset, "
@@ -74,22 +77,106 @@ def apply_authoring_fields(project: dict) -> list[str]:
         changed.append("updated CameraZone doc")
     field_defs = camera_zone.setdefault("fieldDefs", [])
     specs = [
-        (field_defs, "priority", "Int", 0, "Higher-priority CameraZone wins when zones overlap.", True),
-        (field_defs, "zoom", "Float", None, "Optional camera zoom multiplier. Empty preserves the legacy 1.15 breath-out.", True),
-        (field_defs, "target_offset_x", "Float", 0, "World-space camera target offset X applied while active.", False),
-        (field_defs, "target_offset_y", "Float", 0, "World-space camera target offset Y applied while active.", False),
-        (field_defs, "easing_hz", "Float", None, "Optional camera target easing speed in hertz.", False),
-        (field_defs, "cinematic_lock", "Bool", False, "When true, target the zone center instead of the player.", False),
-        (field_defs, "clamp_mode", "String", "room_bounds", "room_bounds, zone_bounds, or none.", False),
+        (
+            field_defs,
+            "priority",
+            "Int",
+            0,
+            "Higher-priority CameraZone wins when zones overlap.",
+            True,
+        ),
+        (
+            field_defs,
+            "zoom",
+            "Float",
+            None,
+            "Optional camera zoom multiplier. Empty preserves the legacy 1.15 breath-out.",
+            True,
+        ),
+        (
+            field_defs,
+            "target_offset_x",
+            "Float",
+            0,
+            "World-space camera target offset X applied while active.",
+            False,
+        ),
+        (
+            field_defs,
+            "target_offset_y",
+            "Float",
+            0,
+            "World-space camera target offset Y applied while active.",
+            False,
+        ),
+        (
+            field_defs,
+            "easing_hz",
+            "Float",
+            None,
+            "Optional camera target easing speed in hertz.",
+            False,
+        ),
+        (
+            field_defs,
+            "cinematic_lock",
+            "Bool",
+            False,
+            "When true, target the zone center instead of the player.",
+            False,
+        ),
+        (
+            field_defs,
+            "clamp_mode",
+            "String",
+            "room_bounds",
+            "room_bounds, zone_bounds, or none.",
+            False,
+        ),
     ]
     level_fields = defs.setdefault("levelFields", [])
     specs.extend(
         [
-            (level_fields, "visual_profile", "String", None, "Stable RoomVisualProfile id, e.g. intro_wakeup_room.", False),
-            (level_fields, "parallax_theme", "String", None, "Explicit generated parallax/background theme.", False),
-            (level_fields, "palette", "String", None, "Optional renderer palette/color-grading hint.", False),
-            (level_fields, "lighting_hint", "String", None, "Optional lighting mood hint.", False),
-            (level_fields, "foreground_treatment", "String", None, "Optional foreground/atmosphere treatment hint.", False),
+            (
+                level_fields,
+                "visual_profile",
+                "String",
+                None,
+                "Stable RoomVisualProfile id, e.g. intro_wakeup_room.",
+                False,
+            ),
+            (
+                level_fields,
+                "parallax_theme",
+                "String",
+                None,
+                "Explicit generated parallax/background theme.",
+                False,
+            ),
+            (
+                level_fields,
+                "palette",
+                "String",
+                None,
+                "Optional renderer palette/color-grading hint.",
+                False,
+            ),
+            (
+                level_fields,
+                "lighting_hint",
+                "String",
+                None,
+                "Optional lighting mood hint.",
+                False,
+            ),
+            (
+                level_fields,
+                "foreground_treatment",
+                "String",
+                None,
+                "Optional foreground/atmosphere treatment hint.",
+                False,
+            ),
         ]
     )
     for container, name, human_type, default, doc, show in specs:
@@ -123,8 +210,12 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("path", nargs="?", type=Path, default=DEFAULT_LDTK)
     parser.add_argument("--in-place", action="store_true", help="Rewrite the LDtk file")
-    parser.add_argument("--output", type=Path, default=None, help="Write to a separate LDtk path")
-    parser.add_argument("--dry-run", action="store_true", help="Print planned changes without writing")
+    parser.add_argument(
+        "--output", type=Path, default=None, help="Write to a separate LDtk path"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Print planned changes without writing"
+    )
     parser.add_argument("--schema", type=Path, default=DEFAULT_SCHEMA)
     parser.add_argument("--require-schema", action="store_true")
     args = parser.parse_args(argv)
@@ -147,7 +238,9 @@ def main(argv=None) -> int:
     if args.dry_run:
         print("dry-run only; no file written")
         print("to apply:")
-        print(f"  PYTHONPATH=tools/ambition_ldtk_tools python tools/add_camera_visual_authoring_fields.py {shlex.quote(display_path(args.path))} --in-place")
+        print(
+            f"  PYTHONPATH=tools/ambition_ldtk_tools python tools/add_camera_visual_authoring_fields.py {shlex.quote(display_path(args.path))} --in-place"
+        )
         return 0
 
     target = args.output or args.path

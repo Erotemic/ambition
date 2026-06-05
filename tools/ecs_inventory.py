@@ -65,8 +65,16 @@ STATEFUL_NAME_RE = re.compile(
     r"Room|Actor|Player|Enemy|Boss|Inventory|Quest|Encounter|Save|World)"
 )
 LOW_SIGNAL_PATH_PARTS = {
-    "assets", "audio", "dev", "host", "music", "presentation",
-    "rendering", "ui", "tests", "test",
+    "assets",
+    "audio",
+    "dev",
+    "host",
+    "music",
+    "presentation",
+    "rendering",
+    "ui",
+    "tests",
+    "test",
 }
 DEFAULT_EXCLUDED_DIR_NAMES = {"target", ".git"}
 DEFAULT_EXCLUDED_PATH_PARTS = {"tests"}
@@ -109,10 +117,23 @@ REGISTRATION_NAMES = (
 )
 
 SCHEDULE_NAMES = {
-    "Startup", "PreStartup", "PostStartup", "First", "PreUpdate", "StateTransition",
-    "RunFixedMainLoop", "FixedFirst", "FixedPreUpdate", "FixedUpdate",
-    "FixedPostUpdate", "FixedLast", "Update", "PostUpdate", "Last",
-    "RenderStartup", "Render",
+    "Startup",
+    "PreStartup",
+    "PostStartup",
+    "First",
+    "PreUpdate",
+    "StateTransition",
+    "RunFixedMainLoop",
+    "FixedFirst",
+    "FixedPreUpdate",
+    "FixedUpdate",
+    "FixedPostUpdate",
+    "FixedLast",
+    "Update",
+    "PostUpdate",
+    "Last",
+    "RenderStartup",
+    "Render",
 }
 RUN_CONDITION_METHODS = {"run_if", "distributive_run_if"}
 SET_MODIFIER_METHODS = {"in_set"}
@@ -121,16 +142,72 @@ ORDERING_METHODS = {"after", "before", "chain", "amb"}
 STOPWORD_IDENTIFIERS = {
     # Common Bevy schedule/set/type names and methods that appear inside
     # add_systems expressions but are not systems.
-    "Startup", "PreStartup", "PostStartup", "First", "PreUpdate", "StateTransition",
-    "RunFixedMainLoop", "FixedFirst", "FixedPreUpdate", "FixedUpdate",
-    "FixedPostUpdate", "FixedLast", "Update", "PostUpdate", "Last",
-    "RenderStartup", "Render", "App", "Plugin", "Plugins", "Commands", "Query",
-    "Res", "ResMut", "Local", "Entity", "Name", "Transform", "Visibility", "Vec2",
-    "Vec3", "Color", "Text", "Sprite", "Camera", "Camera2d", "Bundle", "default",
-    "Default", "new", "clone", "load", "insert", "spawn", "id", "into", "from",
-    "as_ref", "map", "run_if", "after", "before", "in_set", "chain", "amb",
-    "system_set", "not", "or", "and", "resource_exists", "resource_changed",
-    "resource_added", "in_state", "on_event", "any_with_component", "distributive_run_if",
+    "Startup",
+    "PreStartup",
+    "PostStartup",
+    "First",
+    "PreUpdate",
+    "StateTransition",
+    "RunFixedMainLoop",
+    "FixedFirst",
+    "FixedPreUpdate",
+    "FixedUpdate",
+    "FixedPostUpdate",
+    "FixedLast",
+    "Update",
+    "PostUpdate",
+    "Last",
+    "RenderStartup",
+    "Render",
+    "App",
+    "Plugin",
+    "Plugins",
+    "Commands",
+    "Query",
+    "Res",
+    "ResMut",
+    "Local",
+    "Entity",
+    "Name",
+    "Transform",
+    "Visibility",
+    "Vec2",
+    "Vec3",
+    "Color",
+    "Text",
+    "Sprite",
+    "Camera",
+    "Camera2d",
+    "Bundle",
+    "default",
+    "Default",
+    "new",
+    "clone",
+    "load",
+    "insert",
+    "spawn",
+    "id",
+    "into",
+    "from",
+    "as_ref",
+    "map",
+    "run_if",
+    "after",
+    "before",
+    "in_set",
+    "chain",
+    "amb",
+    "system_set",
+    "not",
+    "or",
+    "and",
+    "resource_exists",
+    "resource_changed",
+    "resource_added",
+    "in_state",
+    "on_event",
+    "any_with_component",
+    "distributive_run_if",
     *REGISTRATION_NAMES,
 }
 
@@ -326,12 +403,16 @@ def iter_named_descendants(node: object) -> Iterator[object]:
         yield from iter_named_descendants(child)
 
 
-def iter_parsed_rs_files(crate_root: pathlib.Path, include_tests: bool) -> Iterator[ParsedRustFile]:
+def iter_parsed_rs_files(
+    crate_root: pathlib.Path, include_tests: bool
+) -> Iterator[ParsedRustFile]:
     for path in iter_rs_files(crate_root, include_tests):
         yield parse_rust_file(path)
 
 
-def iter_rs_files(crate_root: pathlib.Path, include_tests: bool) -> Iterator[pathlib.Path]:
+def iter_rs_files(
+    crate_root: pathlib.Path, include_tests: bool
+) -> Iterator[pathlib.Path]:
     src_root = crate_root / "src"
     for path in sorted(src_root.rglob("*.rs")):
         parts = set(path.parts)
@@ -395,7 +476,9 @@ def attr_is_cfg_test(attr: str) -> bool:
 def is_in_cfg_test_context(source: bytes, node: object) -> bool:
     current = node
     while current is not None:
-        if any(attr_is_cfg_test(attr) for attr in attrs_immediately_before(source, current)):
+        if any(
+            attr_is_cfg_test(attr) for attr in attrs_immediately_before(source, current)
+        ):
             return True
         current = current.parent
     return False
@@ -447,7 +530,9 @@ def useful_identifier(ident: str) -> bool:
         return False
     if ident in REGISTRATION_NAMES or last in REGISTRATION_NAMES:
         return False
-    return bool(re.match(r"^[a-z_][a-z0-9_]*$", last) or re.match(r"^[A-Z][A-Za-z0-9_]*$", last))
+    return bool(
+        re.match(r"^[a-z_][a-z0-9_]*$", last) or re.match(r"^[A-Z][A-Za-z0-9_]*$", last)
+    )
 
 
 def collect_identifiers(source: bytes, roots: Iterable[object]) -> list[str]:
@@ -618,7 +703,9 @@ def split_top_level_commas(text: str) -> list[str]:
             depth_brace += 1
         elif char == "}" and depth_brace:
             depth_brace -= 1
-        elif char == "," and not (depth_angle or depth_paren or depth_bracket or depth_brace):
+        elif char == "," and not (
+            depth_angle or depth_paren or depth_bracket or depth_brace
+        ):
             part = text[start:index].strip()
             if part:
                 parts.append(part)
@@ -654,7 +741,9 @@ def generic_inners(text: str, name: str) -> list[str]:
 
 def compact_type(type_text: str, max_len: int = 120) -> str:
     text = re.sub(r"\b(?:crate|super|self)::", "", type_text.strip())
-    text = re.sub(r"\b(?:[A-Za-z_][A-Za-z0-9_]*::)+([A-Za-z_][A-Za-z0-9_]*)", r"\1", text)
+    text = re.sub(
+        r"\b(?:[A-Za-z_][A-Za-z0-9_]*::)+([A-Za-z_][A-Za-z0-9_]*)", r"\1", text
+    )
     text = re.sub(r"\s+", " ", text)
     return compact(text, max_len)
 
@@ -668,13 +757,28 @@ def generic_payload_type(inner: str) -> str:
 
 
 def analyze_system_params(params: str) -> dict[str, object]:
-    resources_read = [generic_payload_type(inner) for inner in generic_inners(params, "Res")]
-    resources_written = [generic_payload_type(inner) for inner in generic_inners(params, "ResMut")]
-    resources_read.extend(f"Assets<{generic_payload_type(inner)}>" for inner in generic_inners(params, "Assets"))
-    messages_read = [generic_payload_type(inner) for inner in generic_inners(params, "MessageReader")]
-    messages_read.extend(generic_payload_type(inner) for inner in generic_inners(params, "EventReader"))
-    messages_written = [generic_payload_type(inner) for inner in generic_inners(params, "MessageWriter")]
-    messages_written.extend(generic_payload_type(inner) for inner in generic_inners(params, "EventWriter"))
+    resources_read = [
+        generic_payload_type(inner) for inner in generic_inners(params, "Res")
+    ]
+    resources_written = [
+        generic_payload_type(inner) for inner in generic_inners(params, "ResMut")
+    ]
+    resources_read.extend(
+        f"Assets<{generic_payload_type(inner)}>"
+        for inner in generic_inners(params, "Assets")
+    )
+    messages_read = [
+        generic_payload_type(inner) for inner in generic_inners(params, "MessageReader")
+    ]
+    messages_read.extend(
+        generic_payload_type(inner) for inner in generic_inners(params, "EventReader")
+    )
+    messages_written = [
+        generic_payload_type(inner) for inner in generic_inners(params, "MessageWriter")
+    ]
+    messages_written.extend(
+        generic_payload_type(inner) for inner in generic_inners(params, "EventWriter")
+    )
     locals_ = [generic_payload_type(inner) for inner in generic_inners(params, "Local")]
     queries = [compact(inner, 160) for inner in generic_inners(params, "Query")]
     return {
@@ -688,7 +792,9 @@ def analyze_system_params(params: str) -> dict[str, object]:
     }
 
 
-def identifiers_for_method_calls(source: bytes, roots: Iterable[object], method_names: set[str]) -> list[str]:
+def identifiers_for_method_calls(
+    source: bytes, roots: Iterable[object], method_names: set[str]
+) -> list[str]:
     out: list[str] = []
     for root in roots:
         for node in iter_named_descendants(root):
@@ -696,7 +802,9 @@ def identifiers_for_method_calls(source: bytes, roots: Iterable[object], method_
                 continue
             if called_function_name(source, node) not in method_names:
                 continue
-            out.extend(collect_identifiers(source, argument_nodes(argument_list_node(node))))
+            out.extend(
+                collect_identifiers(source, argument_nodes(argument_list_node(node)))
+            )
     return unique_ordered(out)
 
 
@@ -707,7 +815,9 @@ def identifier_last(ident: str) -> str:
 
 def looks_like_system_identifier(ident: str) -> bool:
     last = identifier_last(ident)
-    return bool(re.match(r"^[a-z_][a-z0-9_]*$", last)) and last not in STOPWORD_IDENTIFIERS
+    return (
+        bool(re.match(r"^[a-z_][a-z0-9_]*$", last)) and last not in STOPWORD_IDENTIFIERS
+    )
 
 
 def looks_like_set_identifier(ident: str) -> bool:
@@ -715,7 +825,9 @@ def looks_like_set_identifier(ident: str) -> bool:
     return "Set::" in ident or last.endswith("Set") or last in SCHEDULE_NAMES
 
 
-def registration_breakdown(source: bytes, name: str, args: Sequence[object], function_node: object | None) -> dict[str, list[str]]:
+def registration_breakdown(
+    source: bytes, name: str, args: Sequence[object], function_node: object | None
+) -> dict[str, list[str]]:
     roots: list[object]
     if name == "add_systems":
         roots = list(args[1:])
@@ -738,7 +850,8 @@ def registration_breakdown(source: bytes, name: str, args: Sequence[object], fun
     if name == "add_systems":
         excluded = set(run_conditions) | set(sets) | set(ordering)
         systems = [
-            ident for ident in all_identifiers
+            ident
+            for ident in all_identifiers
             if ident not in excluded and looks_like_system_identifier(ident)
         ]
 
@@ -773,7 +886,7 @@ def enclosing_context(source: bytes, node: object) -> str:
 
 def module_bucket(file: str) -> str:
     prefix = "crates/ambition_sandbox/src/"
-    rel = file[len(prefix):] if file.startswith(prefix) else file
+    rel = file[len(prefix) :] if file.startswith(prefix) else file
     rel = rel.removesuffix(".rs")
     parts = rel.split("/")
     if not parts:
@@ -791,13 +904,20 @@ def module_bucket(file: str) -> str:
     return parts[0]
 
 
-def classify_plain_item(file: str, name: str, derives: Sequence[str], visibility: str) -> tuple[str, int, str, list[str]]:
+def classify_plain_item(
+    file: str, name: str, derives: Sequence[str], visibility: str
+) -> tuple[str, int, str, list[str]]:
     rel_parts = set(file.split("/"))
     reasons: list[str] = []
     score = 0
     category = "support"
 
-    if "content" in rel_parts or "engine_core" in rel_parts or "world" in rel_parts or "player" in rel_parts:
+    if (
+        "content" in rel_parts
+        or "engine_core" in rel_parts
+        or "world" in rel_parts
+        or "player" in rel_parts
+    ):
         score += 2
         category = "domain_model"
         reasons.append("game/domain path")
@@ -834,7 +954,9 @@ def classify_plain_item(file: str, name: str, derives: Sequence[str], visibility
     return category, score, priority, reasons
 
 
-def collect_plain_items(crate_root: pathlib.Path, repo_root: pathlib.Path, include_tests: bool) -> tuple[list[PlainItemRecord], list[PlainItemRecord]]:
+def collect_plain_items(
+    crate_root: pathlib.Path, repo_root: pathlib.Path, include_tests: bool
+) -> tuple[list[PlainItemRecord], list[PlainItemRecord]]:
     plain: list[PlainItemRecord] = []
     architecture: list[PlainItemRecord] = []
     for parsed in iter_parsed_rs_files(crate_root, include_tests):
@@ -850,7 +972,9 @@ def collect_plain_items(crate_root: pathlib.Path, repo_root: pathlib.Path, inclu
             file = repo_rel(parsed.path, repo_root)
             name = name_child_text(parsed.source, node)
             visibility = direct_visibility(parsed.source, node)
-            category, score, priority, reasons = classify_plain_item(file, name, derives, visibility)
+            category, score, priority, reasons = classify_plain_item(
+                file, name, derives, visibility
+            )
             record = PlainItemRecord(
                 name=name,
                 kind=item_kind(node.type),
@@ -870,7 +994,9 @@ def collect_plain_items(crate_root: pathlib.Path, repo_root: pathlib.Path, inclu
     return plain, architecture
 
 
-def collect_items(crate_root: pathlib.Path, repo_root: pathlib.Path, include_tests: bool) -> list[ItemRecord]:
+def collect_items(
+    crate_root: pathlib.Path, repo_root: pathlib.Path, include_tests: bool
+) -> list[ItemRecord]:
     records: list[ItemRecord] = []
     for parsed in iter_parsed_rs_files(crate_root, include_tests):
         for node in iter_named_descendants(parsed.root):
@@ -905,7 +1031,9 @@ def impl_header_text(source: bytes, node: object) -> str:
     return source[node.start_byte : end].decode("utf-8")
 
 
-def collect_plugins(crate_root: pathlib.Path, repo_root: pathlib.Path, include_tests: bool) -> list[PluginRecord]:
+def collect_plugins(
+    crate_root: pathlib.Path, repo_root: pathlib.Path, include_tests: bool
+) -> list[PluginRecord]:
     records: list[PluginRecord] = []
     for parsed in iter_parsed_rs_files(crate_root, include_tests):
         for node in iter_named_descendants(parsed.root):
@@ -926,7 +1054,9 @@ def collect_plugins(crate_root: pathlib.Path, repo_root: pathlib.Path, include_t
     return records
 
 
-def collect_system_like_functions(crate_root: pathlib.Path, repo_root: pathlib.Path, include_tests: bool) -> list[FunctionRecord]:
+def collect_system_like_functions(
+    crate_root: pathlib.Path, repo_root: pathlib.Path, include_tests: bool
+) -> list[FunctionRecord]:
     records: list[FunctionRecord] = []
     for parsed in iter_parsed_rs_files(crate_root, include_tests):
         for node in iter_named_descendants(parsed.root):
@@ -937,7 +1067,9 @@ def collect_system_like_functions(crate_root: pathlib.Path, repo_root: pathlib.P
             params_node = child_by_field_name(node, "parameters")
             if params_node is None:
                 continue
-            if not (collect_type_names(parsed.source, params_node) & SYSTEM_PARAM_NAMES):
+            if not (
+                collect_type_names(parsed.source, params_node) & SYSTEM_PARAM_NAMES
+            ):
                 continue
             params_text = node_text(parsed.source, params_node).strip()[1:-1]
             access = analyze_system_params(params_text)
@@ -960,7 +1092,9 @@ def collect_system_like_functions(crate_root: pathlib.Path, repo_root: pathlib.P
     return records
 
 
-def collect_registrations(crate_root: pathlib.Path, repo_root: pathlib.Path, include_tests: bool) -> list[RegistrationRecord]:
+def collect_registrations(
+    crate_root: pathlib.Path, repo_root: pathlib.Path, include_tests: bool
+) -> list[RegistrationRecord]:
     records: list[RegistrationRecord] = []
     registration_names = set(REGISTRATION_NAMES)
     for parsed in iter_parsed_rs_files(crate_root, include_tests):
@@ -1023,7 +1157,9 @@ def find_name_labels(source: bytes, expression_root: object) -> list[str]:
     return labels
 
 
-def collect_spawns(crate_root: pathlib.Path, repo_root: pathlib.Path, include_tests: bool) -> list[SpawnRecord]:
+def collect_spawns(
+    crate_root: pathlib.Path, repo_root: pathlib.Path, include_tests: bool
+) -> list[SpawnRecord]:
     records: list[SpawnRecord] = []
     for parsed in iter_parsed_rs_files(crate_root, include_tests):
         for node in iter_named_descendants(parsed.root):
@@ -1053,7 +1189,9 @@ def asdict_list(records: Iterable[object]) -> list[dict]:
 
 
 def group_by_derive(items: Sequence[ItemRecord]) -> dict[str, list[ItemRecord]]:
-    grouped: dict[str, list[ItemRecord]] = {derive: [] for derive in sorted(ECS_DERIVES)}
+    grouped: dict[str, list[ItemRecord]] = {
+        derive: [] for derive in sorted(ECS_DERIVES)
+    }
     for item in items:
         for derive in item.derives:
             grouped.setdefault(derive, []).append(item)
@@ -1087,7 +1225,9 @@ def summarize_modules(
     for function in functions:
         accum[module_bucket(function.file)]["system_like_functions"] += 1
     for registration in registrations:
-        accum[module_bucket(registration.file)]["registered_systems"] += len(registration.systems)
+        accum[module_bucket(registration.file)]["registered_systems"] += len(
+            registration.systems
+        )
     for spawn in spawns:
         accum[module_bucket(spawn.file)]["spawn_sites"] += 1
     for plugin in plugins:
@@ -1103,15 +1243,21 @@ def summarize_modules(
     ]
 
 
-def build_message_bus(functions: Sequence[FunctionRecord], registrations: Sequence[RegistrationRecord]) -> dict[str, dict[str, list[str]]]:
-    bus: dict[str, dict[str, list[str]]] = defaultdict(lambda: {"registered_at": [], "read_by": [], "written_by": []})
+def build_message_bus(
+    functions: Sequence[FunctionRecord], registrations: Sequence[RegistrationRecord]
+) -> dict[str, dict[str, list[str]]]:
+    bus: dict[str, dict[str, list[str]]] = defaultdict(
+        lambda: {"registered_at": [], "read_by": [], "written_by": []}
+    )
     for registration in registrations:
         if registration.kind not in {"add_message", "add_event"}:
             continue
         for ident in registration.identifiers:
             last = identifier_last(ident)
             if last not in {"app"} and re.match(r"^[A-Z]", last):
-                bus[last]["registered_at"].append(f"{registration.file}:{registration.line}")
+                bus[last]["registered_at"].append(
+                    f"{registration.file}:{registration.line}"
+                )
     for function in functions:
         fn_ref = f"{function.name} ({function.file}:{function.line})"
         for msg in function.messages_read:
@@ -1124,8 +1270,12 @@ def build_message_bus(functions: Sequence[FunctionRecord], registrations: Sequen
     }
 
 
-def build_resource_access(functions: Sequence[FunctionRecord]) -> dict[str, dict[str, list[str]]]:
-    access: dict[str, dict[str, list[str]]] = defaultdict(lambda: {"read_by": [], "written_by": []})
+def build_resource_access(
+    functions: Sequence[FunctionRecord],
+) -> dict[str, dict[str, list[str]]]:
+    access: dict[str, dict[str, list[str]]] = defaultdict(
+        lambda: {"read_by": [], "written_by": []}
+    )
     for function in functions:
         fn_ref = f"{function.name} ({function.file}:{function.line})"
         for resource in function.resources_read:
@@ -1138,12 +1288,22 @@ def build_resource_access(functions: Sequence[FunctionRecord]) -> dict[str, dict
     }
 
 
-def append_module_summary(out: list[str], summaries: Sequence[ModuleSummaryRecord]) -> None:
+def append_module_summary(
+    out: list[str], summaries: Sequence[ModuleSummaryRecord]
+) -> None:
     out.append("## Architecture summary by module")
     out.append("")
-    out.append("| Module | ECS items | Components | Resources | Messages | Plugins | Registered systems | System-like fns | Spawns | Non-ECS items | Migration candidates |")
+    out.append(
+        "| Module | ECS items | Components | Resources | Messages | Plugins | Registered systems | System-like fns | Spawns | Non-ECS items | Migration candidates |"
+    )
     out.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
-    for row in sorted(summaries, key=lambda r: (-r.registered_systems - r.ecs_items - r.migration_candidates, r.module)):
+    for row in sorted(
+        summaries,
+        key=lambda r: (
+            -r.registered_systems - r.ecs_items - r.migration_candidates,
+            r.module,
+        ),
+    ):
         out.append(
             f"| `{row.module}` | {row.ecs_items} | {row.components} | {row.resources} | "
             f"{row.messages} | {row.plugins} | {row.registered_systems} | "
@@ -1153,10 +1313,14 @@ def append_module_summary(out: list[str], summaries: Sequence[ModuleSummaryRecor
     out.append("")
 
 
-def append_schedule_map(out: list[str], registrations: Sequence[RegistrationRecord]) -> None:
+def append_schedule_map(
+    out: list[str], registrations: Sequence[RegistrationRecord]
+) -> None:
     out.append("## Schedule and system-set map")
     out.append("")
-    out.append("This section is derived from `add_systems` calls. Run conditions and ordering modifiers are separated from likely system functions when tree-sitter can identify the call structure.")
+    out.append(
+        "This section is derived from `add_systems` calls. Run conditions and ordering modifiers are separated from likely system functions when tree-sitter can identify the call structure."
+    )
     out.append("")
     by_schedule_set: dict[tuple[str, str], list[RegistrationRecord]] = defaultdict(list)
     for row in registrations:
@@ -1177,17 +1341,29 @@ def append_schedule_map(out: list[str], registrations: Sequence[RegistrationReco
             context = f" in `{row.context}`" if row.context else ""
             out.append(f"- `{row.file}:{row.line}`{context}")
             if row.systems:
-                out.append("  - systems: " + ", ".join(f"`{system}`" for system in row.systems))
+                out.append(
+                    "  - systems: " + ", ".join(f"`{system}`" for system in row.systems)
+                )
             if row.run_conditions:
-                out.append("  - run if: " + ", ".join(f"`{cond}`" for cond in row.run_conditions))
+                out.append(
+                    "  - run if: "
+                    + ", ".join(f"`{cond}`" for cond in row.run_conditions)
+                )
             if row.ordering:
-                out.append("  - ordering: " + ", ".join(f"`{item}`" for item in row.ordering))
+                out.append(
+                    "  - ordering: " + ", ".join(f"`{item}`" for item in row.ordering)
+                )
             if not row.systems and row.identifiers:
-                out.append("  - identifiers: " + ", ".join(f"`{ident}`" for ident in row.identifiers[:20]))
+                out.append(
+                    "  - identifiers: "
+                    + ", ".join(f"`{ident}`" for ident in row.identifiers[:20])
+                )
         out.append("")
 
 
-def append_message_bus(out: list[str], message_bus: dict[str, dict[str, list[str]]]) -> None:
+def append_message_bus(
+    out: list[str], message_bus: dict[str, dict[str, list[str]]]
+) -> None:
     out.append("## Message bus")
     out.append("")
     if not message_bus:
@@ -1196,13 +1372,21 @@ def append_message_bus(out: list[str], message_bus: dict[str, dict[str, list[str
         return
     out.append("| Message | Registered | Producers | Consumers |")
     out.append("|---|---:|---:|---:|")
-    for message, info in sorted(message_bus.items(), key=lambda kv: (-(len(kv[1]["read_by"]) + len(kv[1]["written_by"])), kv[0])):
-        out.append(f"| `{message}` | {len(info['registered_at'])} | {len(info['written_by'])} | {len(info['read_by'])} |")
+    for message, info in sorted(
+        message_bus.items(),
+        key=lambda kv: (-(len(kv[1]["read_by"]) + len(kv[1]["written_by"])), kv[0]),
+    ):
+        out.append(
+            f"| `{message}` | {len(info['registered_at'])} | {len(info['written_by'])} | {len(info['read_by'])} |"
+        )
     out.append("")
     for message, info in sorted(message_bus.items()):
         out.append(f"### `{message}`")
         if info["registered_at"]:
-            out.append("- registered at: " + ", ".join(f"`{x}`" for x in info["registered_at"][:8]))
+            out.append(
+                "- registered at: "
+                + ", ".join(f"`{x}`" for x in info["registered_at"][:8])
+            )
         if info["written_by"]:
             out.append("- written by:")
             for writer in info["written_by"][:12]:
@@ -1218,7 +1402,9 @@ def append_message_bus(out: list[str], message_bus: dict[str, dict[str, list[str
         out.append("")
 
 
-def append_resource_access(out: list[str], resource_access: dict[str, dict[str, list[str]]]) -> None:
+def append_resource_access(
+    out: list[str], resource_access: dict[str, dict[str, list[str]]]
+) -> None:
     out.append("## Resource access hotspots")
     out.append("")
     if not resource_access:
@@ -1232,7 +1418,9 @@ def append_resource_access(out: list[str], resource_access: dict[str, dict[str, 
     out.append("| Resource | Mut writers | Readers |")
     out.append("|---|---:|---:|")
     for resource, info in rows[:40]:
-        out.append(f"| `{resource}` | {len(info['written_by'])} | {len(info['read_by'])} |")
+        out.append(
+            f"| `{resource}` | {len(info['written_by'])} | {len(info['read_by'])} |"
+        )
     out.append("")
     out.append("### Mutable resource writers")
     for resource, info in rows[:30]:
@@ -1246,12 +1434,20 @@ def append_resource_access(out: list[str], resource_access: dict[str, dict[str, 
     out.append("")
 
 
-def append_non_ecs_inventory(out: list[str], plain_items: Sequence[PlainItemRecord], architecture_items: Sequence[PlainItemRecord]) -> None:
+def append_non_ecs_inventory(
+    out: list[str],
+    plain_items: Sequence[PlainItemRecord],
+    architecture_items: Sequence[PlainItemRecord],
+) -> None:
     out.append("## Non-ECS Rust data/model inventory")
     out.append("")
-    out.append("These are Rust structs/enums/unions that do not derive Component, Bundle, Resource, Message, or Event. The priority is heuristic: it is meant to highlight likely legacy/domain state that may deserve an ECS migration review, not to make a semantic claim.")
+    out.append(
+        "These are Rust structs/enums/unions that do not derive Component, Bundle, Resource, Message, or Event. The priority is heuristic: it is meant to highlight likely legacy/domain state that may deserve an ECS migration review, not to make a semantic claim."
+    )
     out.append("")
-    candidates = [row for row in plain_items if row.migration_priority in {"high", "medium"}]
+    candidates = [
+        row for row in plain_items if row.migration_priority in {"high", "medium"}
+    ]
     out.append(f"- Total non-ECS items: {len(plain_items)}")
     out.append(f"- High/medium migration candidates: {len(candidates)}")
     out.append(f"- Bevy architecture marker types: {len(architecture_items)}")
@@ -1272,10 +1468,14 @@ def append_non_ecs_inventory(out: list[str], plain_items: Sequence[PlainItemReco
         out.append("|---|---:|---|---|---|---|")
         for row in sorted(candidates, key=priority_sort_key)[:120]:
             reasons = "; ".join(row.reasons)
-            out.append(f"| {row.migration_priority} | {row.migration_score} | `{row.name}` | {row.kind} | `{row.file}:{row.line}` | {reasons} |")
+            out.append(
+                f"| {row.migration_priority} | {row.migration_score} | `{row.name}` | {row.kind} | `{row.file}:{row.line}` | {reasons} |"
+            )
         if len(candidates) > 120:
             out.append("")
-            out.append(f"_... {len(candidates) - 120} additional candidates are present in JSON._")
+            out.append(
+                f"_... {len(candidates) - 120} additional candidates are present in JSON._"
+            )
     out.append("")
 
     out.append("### Complete non-ECS item index by module")
@@ -1287,7 +1487,9 @@ def append_non_ecs_inventory(out: list[str], plain_items: Sequence[PlainItemReco
         out.append(f"#### `{module}` ({len(rows)} items)")
         for row in rows:
             derives = f"; derives {', '.join(row.derives)}" if row.derives else ""
-            out.append(f"- `{row.name}` ({row.kind}, `{row.file}:{row.line}`, priority {row.migration_priority}, score {row.migration_score}{derives})")
+            out.append(
+                f"- `{row.name}` ({row.kind}, `{row.file}:{row.line}`, priority {row.migration_priority}, score {row.migration_score}{derives})"
+            )
         out.append("")
 
 
@@ -1299,8 +1501,12 @@ def write_markdown(inventory: dict, path: pathlib.Path) -> None:
     spawns = [SpawnRecord(**row) for row in inventory["spawn_sites"]]
     plugins = [PluginRecord(**row) for row in inventory["plugins"]]
     plain_items = [PlainItemRecord(**row) for row in inventory.get("non_ecs_items", [])]
-    architecture_items = [PlainItemRecord(**row) for row in inventory.get("architecture_items", [])]
-    module_summaries = [ModuleSummaryRecord(**row) for row in inventory.get("module_summaries", [])]
+    architecture_items = [
+        PlainItemRecord(**row) for row in inventory.get("architecture_items", [])
+    ]
+    module_summaries = [
+        ModuleSummaryRecord(**row) for row in inventory.get("module_summaries", [])
+    ]
     message_bus = inventory.get("message_bus", {})
     resource_access = inventory.get("resource_access", {})
 
@@ -1358,13 +1564,22 @@ def write_markdown(inventory: dict, path: pathlib.Path) -> None:
     else:
         for row in registrations:
             context = f" in `{row.context}`" if row.context else ""
-            out.append(f"- `{row.file}:{row.line}`{context} - `{row.kind}` on/with `{row.schedule_or_arg or '<none>'}`")
+            out.append(
+                f"- `{row.file}:{row.line}`{context} - `{row.kind}` on/with `{row.schedule_or_arg or '<none>'}`"
+            )
             if row.systems:
-                out.append("  - systems: " + ", ".join(f"`{system}`" for system in row.systems))
+                out.append(
+                    "  - systems: " + ", ".join(f"`{system}`" for system in row.systems)
+                )
             if row.sets:
-                out.append("  - sets: " + ", ".join(f"`{set_name}`" for set_name in row.sets))
+                out.append(
+                    "  - sets: " + ", ".join(f"`{set_name}`" for set_name in row.sets)
+                )
             if row.run_conditions:
-                out.append("  - run if: " + ", ".join(f"`{cond}`" for cond in row.run_conditions))
+                out.append(
+                    "  - run if: "
+                    + ", ".join(f"`{cond}`" for cond in row.run_conditions)
+                )
             if row.identifiers:
                 for ident in row.identifiers:
                     out.append(f"  - `{ident}`")
@@ -1392,7 +1607,9 @@ def write_markdown(inventory: dict, path: pathlib.Path) -> None:
                 if row.resources_read:
                     details.append("reads " + ", ".join(row.resources_read[:6]))
                 if row.messages_written:
-                    details.append("writes messages " + ", ".join(row.messages_written[:6]))
+                    details.append(
+                        "writes messages " + ", ".join(row.messages_written[:6])
+                    )
                 if row.messages_read:
                     details.append("reads messages " + ", ".join(row.messages_read[:6]))
                 if row.queries:
@@ -1402,7 +1619,9 @@ def write_markdown(inventory: dict, path: pathlib.Path) -> None:
     out.append("")
 
     out.append("## Entity archetype evidence / spawn sites")
-    out.append("Static analysis cannot know every runtime entity instance. This section lists spawn sites and the bundle/component/type identifiers found in each spawn expression.")
+    out.append(
+        "Static analysis cannot know every runtime entity instance. This section lists spawn sites and the bundle/component/type identifiers found in each spawn expression."
+    )
     if not spawns:
         out.append("- None found.")
     else:
@@ -1412,7 +1631,10 @@ def write_markdown(inventory: dict, path: pathlib.Path) -> None:
                 for label in row.name_labels:
                     out.append(f"  - name label: `{label}`")
             if row.matched_ecs_items:
-                out.append("  - matched ECS items: " + ", ".join(f"`{item}`" for item in row.matched_ecs_items[:30]))
+                out.append(
+                    "  - matched ECS items: "
+                    + ", ".join(f"`{item}`" for item in row.matched_ecs_items[:30])
+                )
             if row.identifiers:
                 out.append("  - identifiers:")
                 for ident in row.identifiers[:40]:
@@ -1427,30 +1649,41 @@ def write_markdown(inventory: dict, path: pathlib.Path) -> None:
     path.write_text("\n".join(out) + "\n", encoding="utf-8")
 
 
-def build_inventory(repo_root: pathlib.Path, crate_root: pathlib.Path, include_tests: bool) -> dict:
+def build_inventory(
+    repo_root: pathlib.Path, crate_root: pathlib.Path, include_tests: bool
+) -> dict:
     items = collect_items(crate_root, repo_root, include_tests)
     functions = collect_system_like_functions(crate_root, repo_root, include_tests)
     registrations = collect_registrations(crate_root, repo_root, include_tests)
     spawns = collect_spawns(crate_root, repo_root, include_tests)
     plugins = collect_plugins(crate_root, repo_root, include_tests)
-    plain_items, architecture_items = collect_plain_items(crate_root, repo_root, include_tests)
+    plain_items, architecture_items = collect_plain_items(
+        crate_root, repo_root, include_tests
+    )
     grouped = group_by_derive(items)
     ecs_item_names = {item.name for item in items}
     spawns = [
         dataclasses.replace(
             row,
             matched_ecs_items=unique_ordered(
-                ident for ident in row.identifiers
+                ident
+                for ident in row.identifiers
                 if identifier_last(ident) in ecs_item_names
             ),
         )
         for row in spawns
     ]
-    unique_registration_identifiers = sorted({ident for row in registrations for ident in row.identifiers})
-    module_summaries = summarize_modules(items, functions, registrations, spawns, plugins, plain_items)
+    unique_registration_identifiers = sorted(
+        {ident for row in registrations for ident in row.identifiers}
+    )
+    module_summaries = summarize_modules(
+        items, functions, registrations, spawns, plugins, plain_items
+    )
     message_bus = build_message_bus(functions, registrations)
     resource_access = build_resource_access(functions)
-    registered_system_names = sorted({identifier_last(system) for row in registrations for system in row.systems})
+    registered_system_names = sorted(
+        {identifier_last(system) for row in registrations for system in row.systems}
+    )
     inventory = {
         "schema_version": 2,
         "repo_root": ".",
@@ -1470,8 +1703,12 @@ def build_inventory(repo_root: pathlib.Path, crate_root: pathlib.Path, include_t
             "registered_systems": len(registered_system_names),
             "module_summaries": len(module_summaries),
             "non_ecs_items": len(plain_items),
-            "migration_candidates_high": sum(1 for row in plain_items if row.migration_priority == "high"),
-            "migration_candidates_medium": sum(1 for row in plain_items if row.migration_priority == "medium"),
+            "migration_candidates_high": sum(
+                1 for row in plain_items if row.migration_priority == "high"
+            ),
+            "migration_candidates_medium": sum(
+                1 for row in plain_items if row.migration_priority == "medium"
+            ),
             "architecture_items": len(architecture_items),
             "message_channels": len(message_bus),
             "resource_access_entries": len(resource_access),
@@ -1495,24 +1732,43 @@ def build_inventory(repo_root: pathlib.Path, crate_root: pathlib.Path, include_t
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", type=pathlib.Path, default=pathlib.Path.cwd())
-    parser.add_argument("--crate", type=pathlib.Path, default=pathlib.Path("crates/ambition_sandbox"))
-    parser.add_argument("--json", type=pathlib.Path, default=pathlib.Path("target/ambition_ecs_inventory.json"))
-    parser.add_argument("--markdown", type=pathlib.Path, default=pathlib.Path("target/ambition_ecs_inventory.md"))
+    parser.add_argument(
+        "--crate", type=pathlib.Path, default=pathlib.Path("crates/ambition_sandbox")
+    )
+    parser.add_argument(
+        "--json",
+        type=pathlib.Path,
+        default=pathlib.Path("target/ambition_ecs_inventory.json"),
+    )
+    parser.add_argument(
+        "--markdown",
+        type=pathlib.Path,
+        default=pathlib.Path("target/ambition_ecs_inventory.md"),
+    )
     parser.add_argument("--include-tests", action="store_true")
-    parser.add_argument("--check-json", type=pathlib.Path, help="Compare generated JSON with an existing inventory file.")
+    parser.add_argument(
+        "--check-json",
+        type=pathlib.Path,
+        help="Compare generated JSON with an existing inventory file.",
+    )
     args = parser.parse_args(argv)
 
     repo_root = args.repo_root.resolve()
     crate_root = args.crate if args.crate.is_absolute() else repo_root / args.crate
     crate_root = crate_root.resolve()
     if not (crate_root / "src").is_dir():
-        print(f"error: crate source directory not found: {crate_root / 'src'}", file=sys.stderr)
+        print(
+            f"error: crate source directory not found: {crate_root / 'src'}",
+            file=sys.stderr,
+        )
         return 2
 
     inventory = build_inventory(repo_root, crate_root, args.include_tests)
 
     args.json.parent.mkdir(parents=True, exist_ok=True)
-    args.json.write_text(json.dumps(inventory, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    args.json.write_text(
+        json.dumps(inventory, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     write_markdown(inventory, args.markdown)
 
     if args.check_json:

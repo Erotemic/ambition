@@ -26,7 +26,13 @@ def scene_builder_script() -> Path:
     return Path(__file__).with_name("scene_builder.py")
 
 
-def build_payload(adapter: BaseAdapter, job: CharacterJob, requests: Iterable[Dict[str, Any]], mode: str, texture_paths: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+def build_payload(
+    adapter: BaseAdapter,
+    job: CharacterJob,
+    requests: Iterable[Dict[str, Any]],
+    mode: str,
+    texture_paths: Optional[Dict[str, str]] = None,
+) -> Dict[str, Any]:
     spec = adapter.spec_dict(adapter.sample_spec(job))
     return {
         "mode": mode,
@@ -40,10 +46,23 @@ def build_payload(adapter: BaseAdapter, job: CharacterJob, requests: Iterable[Di
 
 
 def _env_truthy(value: object) -> bool:
-    return str(value or "").strip().lower() in {"1", "true", "yes", "on", "debug", "verbose"}
+    return str(value or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+        "debug",
+        "verbose",
+    }
 
 
-def _run_blender(payload_path: Path, blender_executable: str, *, log_path: Optional[Path] = None, verbose: Optional[bool] = None) -> None:
+def _run_blender(
+    payload_path: Path,
+    blender_executable: str,
+    *,
+    log_path: Optional[Path] = None,
+    verbose: Optional[bool] = None,
+) -> None:
     cmd = [
         blender_executable,
         "--background",
@@ -59,7 +78,9 @@ def _run_blender(payload_path: Path, blender_executable: str, *, log_path: Optio
     if verbose:
         subprocess.run(cmd, check=True)
         return
-    proc = subprocess.run(cmd, check=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    proc = subprocess.run(
+        cmd, check=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+    )
     if proc.returncode != 0:
         output = proc.stdout or ""
         if log_path is not None:
@@ -74,7 +95,13 @@ def _run_blender(payload_path: Path, blender_executable: str, *, log_path: Optio
         raise RuntimeError(message)
 
 
-def render_requests(adapter: BaseAdapter, job: CharacterJob, requests: Iterable[Dict[str, Any]], mode: str = "frames", blender_executable: Optional[str] = None) -> Dict[str, Any]:
+def render_requests(
+    adapter: BaseAdapter,
+    job: CharacterJob,
+    requests: Iterable[Dict[str, Any]],
+    mode: str = "frames",
+    blender_executable: Optional[str] = None,
+) -> Dict[str, Any]:
     blender_executable = blender_executable or default_blender_executable(job)
     request_list = list(requests)
     log_path = None
@@ -85,7 +112,9 @@ def render_requests(adapter: BaseAdapter, job: CharacterJob, requests: Iterable[
         textures_dir = temp_root / "textures"
         spec = adapter.spec_dict(adapter.sample_spec(job))
         texture_paths = generate_texture_pack(textures_dir, spec, adapter.target)
-        payload = build_payload(adapter, job, request_list, mode, texture_paths=texture_paths)
+        payload = build_payload(
+            adapter, job, request_list, mode, texture_paths=texture_paths
+        )
         payload_path = temp_root / "payload.json"
         payload_path.write_text(json.dumps(payload), encoding="utf-8")
         _run_blender(payload_path, blender_executable, log_path=log_path)

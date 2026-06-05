@@ -33,6 +33,7 @@ The tool errors out if:
     first — silent write-through would leave the LDtk editor refusing
     to load the field next time).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -88,7 +89,10 @@ def find_level_field_def(project: dict, field_name: str) -> dict:
 
 
 def apply_level_field_edit(
-    project: dict, level: dict, field_name: str, new_value,
+    project: dict,
+    level: dict,
+    field_name: str,
+    new_value,
 ) -> None:
     field_def = find_level_field_def(project, field_name)
     type_str = field_def.get("__type") or field_def.get("type") or "String"
@@ -158,9 +162,7 @@ def main(argv=None) -> int:
 
     if args.spec is None:
         if not args.level or not args.set:
-            parser.error(
-                "either pass a spec file, or use --level <id> --set key=value"
-            )
+            parser.error("either pass a spec file, or use --level <id> --set key=value")
         edits_by_level: list[tuple[str, dict[str, str]]] = [
             (args.level, _parse_cli_set(args.set))
         ]
@@ -198,13 +200,17 @@ def main(argv=None) -> int:
     if args.no_repair:
         return 0
 
-    cmd = [sys.executable, "-m", "ambition_ldtk_tools.repair",
-           str(target_path), "--in-place"]
+    cmd = [
+        sys.executable,
+        "-m",
+        "ambition_ldtk_tools.repair",
+        str(target_path),
+        "--in-place",
+    ]
     print("$ " + " ".join(cmd))
     if subprocess.run(cmd).returncode != 0:
         return 1
-    cmd = [sys.executable, "-m", "ambition_ldtk_tools.validate",
-           str(target_path)]
+    cmd = [sys.executable, "-m", "ambition_ldtk_tools.validate", str(target_path)]
     if args.schema and args.schema.exists():
         cmd.extend(["--schema", str(args.schema), "--require-schema"])
     print("$ " + " ".join(cmd))

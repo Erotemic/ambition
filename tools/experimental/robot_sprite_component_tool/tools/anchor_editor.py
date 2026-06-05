@@ -24,6 +24,7 @@ visible and editable so the downstream joint-driven compositor has trustworthy
 attachment points, and it renders a configured spritesheet after edits so bad
 anchor choices are visible immediately.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -80,7 +81,9 @@ def load_yaml(path: Path) -> Dict[str, Any]:
 
 
 def save_yaml(path: Path, data: Mapping[str, Any]) -> None:
-    path.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf8")
+    path.write_text(
+        yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf8"
+    )
 
 
 def backup_file(path: Path) -> Path:
@@ -107,7 +110,9 @@ def checkerboard(size: Tuple[int, int], cell: int = 8) -> Image.Image:
     for y in range(0, h, cell):
         for x in range(0, w, cell):
             if ((x // cell) + (y // cell)) % 2 == 0:
-                draw.rectangle([x, y, x + cell - 1, y + cell - 1], fill=(235, 235, 235, 255))
+                draw.rectangle(
+                    [x, y, x + cell - 1, y + cell - 1], fill=(235, 235, 235, 255)
+                )
     return img
 
 
@@ -121,8 +126,6 @@ def composited_sprite_preview(sprite: Image.Image, bg: str = "checker") -> Image
         base = checkerboard(sprite.size)
     base.alpha_composite(sprite)
     return base
-
-
 
 
 @dataclass
@@ -142,7 +145,9 @@ class PreviewConfig:
     background: str = "black"
 
 
-def infer_preview_config(metadata_path: Path, explicit: Optional[Path] = None) -> Optional[Path]:
+def infer_preview_config(
+    metadata_path: Path, explicit: Optional[Path] = None
+) -> Optional[Path]:
     """Find the default rig job to render inside the GUI."""
     if explicit is not None:
         return explicit.resolve()
@@ -161,7 +166,9 @@ def infer_preview_config(metadata_path: Path, explicit: Optional[Path] = None) -
 def load_robot_rig_sheet_module():
     """Import the sibling compositor without requiring package installation."""
     tool_path = Path(__file__).with_name("robot_rig_sheet.py")
-    spec = importlib.util.spec_from_file_location("robot_rig_sheet_for_anchor_editor", tool_path)
+    spec = importlib.util.spec_from_file_location(
+        "robot_rig_sheet_for_anchor_editor", tool_path
+    )
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Cannot import robot_rig_sheet.py from {tool_path}")
     module = importlib.util.module_from_spec(spec)
@@ -198,7 +205,10 @@ def preview_fit_image(
     scale = min(max_width / max(1, base.width), max_height / max(1, base.height))
     if not allow_upscale:
         scale = min(scale, 1.0)
-    out_size = (max(1, int(round(base.width * scale))), max(1, int(round(base.height * scale))))
+    out_size = (
+        max(1, int(round(base.width * scale))),
+        max(1, int(round(base.height * scale))),
+    )
     if out_size == base.size:
         return base
     return base.resize(out_size, Image.Resampling.LANCZOS)
@@ -221,7 +231,9 @@ def render_preview_image(
     """
     rig = load_robot_rig_sheet_module()
     metadata_snapshot = copy.deepcopy(dict(metadata))
-    with tempfile.NamedTemporaryFile("w", suffix=".yaml", encoding="utf8", delete=False) as temp:
+    with tempfile.NamedTemporaryFile(
+        "w", suffix=".yaml", encoding="utf8", delete=False
+    ) as temp:
         temp_path = Path(temp.name)
         yaml.safe_dump(metadata_snapshot, temp, sort_keys=False, allow_unicode=True)
         temp.flush()
@@ -229,12 +241,19 @@ def render_preview_image(
         job = rig.RigJob.load(preview_config)
         job.metadata = temp_path
         sheet, _manifest = rig.build_spritesheet(job)
-        return preview_fit_image(sheet, max_width=max_width, max_height=max_height, bg=bg, fit_to_view=fit_to_view)
+        return preview_fit_image(
+            sheet,
+            max_width=max_width,
+            max_height=max_height,
+            bg=bg,
+            fit_to_view=fit_to_view,
+        )
     finally:
         try:
             temp_path.unlink()
         except OSError:
             pass
+
 
 @dataclass
 class EditorPaths:
@@ -272,7 +291,9 @@ class AnchorEditorApp:
         self._photo = None
         self._preview_photo = None
         self._preview_after_id = None
-        self.preview = preview or PreviewConfig(config=infer_preview_config(paths.metadata))
+        self.preview = preview or PreviewConfig(
+            config=infer_preview_config(paths.metadata)
+        )
         self._status = tk.StringVar(value="Ready")
         self._selected_sprite = tk.StringVar(value="")
         self._selected_anchor = tk.StringVar(value="pivot")
@@ -291,7 +312,9 @@ class AnchorEditorApp:
         self._preview_height_var = tk.IntVar(value=self.preview.max_height)
 
         self.metadata = load_yaml(paths.metadata)
-        self.rough_metadata = load_yaml(paths.rough_metadata) if paths.rough_metadata else None
+        self.rough_metadata = (
+            load_yaml(paths.rough_metadata) if paths.rough_metadata else None
+        )
         self.sprites: Dict[str, Dict[str, Any]] = self.metadata.get("sprites", {})
         if not self.sprites:
             raise RuntimeError(f"No sprites found in {paths.metadata}")
@@ -336,12 +359,31 @@ class AnchorEditorApp:
         self.anchor_list.grid(row=0, column=0, columnspan=4, sticky="ew")
         self.anchor_entry = ttk.Entry(anchor_frame, width=18)
         self.anchor_entry.grid(row=1, column=0, sticky="ew", pady=(4, 0))
-        ttk.Button(anchor_frame, text="Add", command=self.add_anchor).grid(row=1, column=1, pady=(4, 0))
-        ttk.Button(anchor_frame, text="Delete", command=self.delete_anchor).grid(row=1, column=2, pady=(4, 0))
-        ttk.Button(anchor_frame, text="Select pivot", command=lambda: self.select_anchor("pivot")).grid(row=1, column=3, pady=(4, 0))
-        ttk.Button(anchor_frame, text="Use selected as pivot", command=self.use_selected_as_pivot).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(4, 0))
-        ttk.Label(anchor_frame, text="pivot follows").grid(row=2, column=2, sticky="e", pady=(4, 0))
-        self.pivot_combo = ttk.Combobox(anchor_frame, textvariable=self._pivot_source_var, width=14, state="readonly")
+        ttk.Button(anchor_frame, text="Add", command=self.add_anchor).grid(
+            row=1, column=1, pady=(4, 0)
+        )
+        ttk.Button(anchor_frame, text="Delete", command=self.delete_anchor).grid(
+            row=1, column=2, pady=(4, 0)
+        )
+        ttk.Button(
+            anchor_frame,
+            text="Select pivot",
+            command=lambda: self.select_anchor("pivot"),
+        ).grid(row=1, column=3, pady=(4, 0))
+        ttk.Button(
+            anchor_frame,
+            text="Use selected as pivot",
+            command=self.use_selected_as_pivot,
+        ).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(4, 0))
+        ttk.Label(anchor_frame, text="pivot follows").grid(
+            row=2, column=2, sticky="e", pady=(4, 0)
+        )
+        self.pivot_combo = ttk.Combobox(
+            anchor_frame,
+            textvariable=self._pivot_source_var,
+            width=14,
+            state="readonly",
+        )
         self.pivot_combo.grid(row=2, column=3, sticky="ew", pady=(4, 0))
 
         xy = ttk.Frame(left)
@@ -350,22 +392,45 @@ class AnchorEditorApp:
         ttk.Entry(xy, textvariable=self._x_var, width=6).grid(row=0, column=1)
         ttk.Label(xy, text="y").grid(row=0, column=2, padx=(8, 0))
         ttk.Entry(xy, textvariable=self._y_var, width=6).grid(row=0, column=3)
-        ttk.Button(xy, text="Apply", command=self.apply_xy).grid(row=0, column=4, padx=(8, 0))
+        ttk.Button(xy, text="Apply", command=self.apply_xy).grid(
+            row=0, column=4, padx=(8, 0)
+        )
 
         opts = ttk.Frame(left)
         opts.grid(row=5, column=0, sticky="ew", pady=(8, 0))
         ttk.Label(opts, text="Zoom").grid(row=0, column=0, sticky="w")
-        ttk.Spinbox(opts, from_=1, to=12, textvariable=self._zoom_var, width=4, command=self.set_zoom_from_var).grid(row=0, column=1, sticky="w")
-        ttk.Checkbutton(opts, text="show names", variable=self.show_names, command=self.redraw).grid(row=0, column=2, sticky="w", padx=(8, 0))
+        ttk.Spinbox(
+            opts,
+            from_=1,
+            to=12,
+            textvariable=self._zoom_var,
+            width=4,
+            command=self.set_zoom_from_var,
+        ).grid(row=0, column=1, sticky="w")
+        ttk.Checkbutton(
+            opts, text="show names", variable=self.show_names, command=self.redraw
+        ).grid(row=0, column=2, sticky="w", padx=(8, 0))
         ttk.Label(opts, text="bg").grid(row=1, column=0, sticky="w", pady=(4, 0))
-        bg = ttk.Combobox(opts, textvariable=self._bg_var, width=10, values=["checker", "black", "white"], state="readonly")
+        bg = ttk.Combobox(
+            opts,
+            textvariable=self._bg_var,
+            width=10,
+            values=["checker", "black", "white"],
+            state="readonly",
+        )
         bg.grid(row=1, column=1, sticky="w", pady=(4, 0))
 
         buttons = ttk.Frame(left)
         buttons.grid(row=6, column=0, sticky="ew", pady=(10, 0))
-        ttk.Button(buttons, text="Save", command=self.save).grid(row=0, column=0, sticky="ew")
-        ttk.Button(buttons, text="Backup", command=self.backup).grid(row=0, column=1, sticky="ew", padx=(4, 0))
-        ttk.Button(buttons, text="Reload", command=self.reload).grid(row=0, column=2, sticky="ew", padx=(4, 0))
+        ttk.Button(buttons, text="Save", command=self.save).grid(
+            row=0, column=0, sticky="ew"
+        )
+        ttk.Button(buttons, text="Backup", command=self.backup).grid(
+            row=0, column=1, sticky="ew", padx=(4, 0)
+        )
+        ttk.Button(buttons, text="Reload", command=self.reload).grid(
+            row=0, column=2, sticky="ew", padx=(4, 0)
+        )
 
         center = ttk.Frame(root, padding=6)
         center.grid(row=0, column=1, sticky="nsew")
@@ -380,7 +445,11 @@ class AnchorEditorApp:
         yscroll.grid(row=0, column=1, sticky="ns")
         self.canvas.configure(xscrollcommand=xscroll.set, yscrollcommand=yscroll.set)
 
-        right = ttk.LabelFrame(root, text="Live spritesheet preview (unsaved in-memory metadata)", padding=6)
+        right = ttk.LabelFrame(
+            root,
+            text="Live spritesheet preview (unsaved in-memory metadata)",
+            padding=6,
+        )
         right.grid(row=0, column=2, sticky="nsew", padx=(0, 6), pady=6)
         right.columnconfigure(0, weight=1)
         right.rowconfigure(2, weight=1)
@@ -390,28 +459,83 @@ class AnchorEditorApp:
 
         preview_opts = ttk.Frame(right)
         preview_opts.grid(row=1, column=0, sticky="ew", pady=(4, 6))
-        ttk.Checkbutton(preview_opts, text="live unsaved", variable=self._preview_live_var, command=self._on_preview_controls_changed).grid(row=0, column=0, sticky="w")
-        ttk.Checkbutton(preview_opts, text="enable", variable=self._preview_enabled_var, command=self._on_preview_controls_changed).grid(row=0, column=1, sticky="w", padx=(8, 0))
-        ttk.Checkbutton(preview_opts, text="fit", variable=self._preview_fit_var, command=self._on_preview_controls_changed).grid(row=0, column=2, sticky="w", padx=(8, 0))
-        ttk.Label(preview_opts, text="max w").grid(row=0, column=3, sticky="e", padx=(12, 2))
-        ttk.Spinbox(preview_opts, from_=320, to=4096, increment=80, textvariable=self._preview_width_var, width=6, command=self._on_preview_controls_changed).grid(row=0, column=4, sticky="w")
-        ttk.Label(preview_opts, text="max h").grid(row=0, column=5, sticky="e", padx=(8, 2))
-        ttk.Spinbox(preview_opts, from_=160, to=4096, increment=80, textvariable=self._preview_height_var, width=6, command=self._on_preview_controls_changed).grid(row=0, column=6, sticky="w")
-        ttk.Label(preview_opts, text="bg").grid(row=0, column=7, sticky="e", padx=(8, 2))
-        ttk.Combobox(preview_opts, textvariable=self._preview_bg_var, width=8, values=["black", "checker", "white"], state="readonly").grid(row=0, column=8, sticky="w")
-        ttk.Button(preview_opts, text="Render now", command=lambda: self.update_preview(force=True)).grid(row=0, column=9, sticky="e", padx=(12, 0))
+        ttk.Checkbutton(
+            preview_opts,
+            text="live unsaved",
+            variable=self._preview_live_var,
+            command=self._on_preview_controls_changed,
+        ).grid(row=0, column=0, sticky="w")
+        ttk.Checkbutton(
+            preview_opts,
+            text="enable",
+            variable=self._preview_enabled_var,
+            command=self._on_preview_controls_changed,
+        ).grid(row=0, column=1, sticky="w", padx=(8, 0))
+        ttk.Checkbutton(
+            preview_opts,
+            text="fit",
+            variable=self._preview_fit_var,
+            command=self._on_preview_controls_changed,
+        ).grid(row=0, column=2, sticky="w", padx=(8, 0))
+        ttk.Label(preview_opts, text="max w").grid(
+            row=0, column=3, sticky="e", padx=(12, 2)
+        )
+        ttk.Spinbox(
+            preview_opts,
+            from_=320,
+            to=4096,
+            increment=80,
+            textvariable=self._preview_width_var,
+            width=6,
+            command=self._on_preview_controls_changed,
+        ).grid(row=0, column=4, sticky="w")
+        ttk.Label(preview_opts, text="max h").grid(
+            row=0, column=5, sticky="e", padx=(8, 2)
+        )
+        ttk.Spinbox(
+            preview_opts,
+            from_=160,
+            to=4096,
+            increment=80,
+            textvariable=self._preview_height_var,
+            width=6,
+            command=self._on_preview_controls_changed,
+        ).grid(row=0, column=6, sticky="w")
+        ttk.Label(preview_opts, text="bg").grid(
+            row=0, column=7, sticky="e", padx=(8, 2)
+        )
+        ttk.Combobox(
+            preview_opts,
+            textvariable=self._preview_bg_var,
+            width=8,
+            values=["black", "checker", "white"],
+            state="readonly",
+        ).grid(row=0, column=8, sticky="w")
+        ttk.Button(
+            preview_opts,
+            text="Render now",
+            command=lambda: self.update_preview(force=True),
+        ).grid(row=0, column=9, sticky="e", padx=(12, 0))
 
         preview_area = ttk.Frame(right)
         preview_area.grid(row=2, column=0, sticky="nsew")
         preview_area.columnconfigure(0, weight=1)
         preview_area.rowconfigure(0, weight=1)
-        self.preview_canvas = tk.Canvas(right, background="#101010", highlightthickness=0, width=1100, height=720)
+        self.preview_canvas = tk.Canvas(
+            right, background="#101010", highlightthickness=0, width=1100, height=720
+        )
         self.preview_canvas.grid(row=2, column=0, sticky="nsew")
-        p_xscroll = ttk.Scrollbar(right, orient="horizontal", command=self.preview_canvas.xview)
-        p_yscroll = ttk.Scrollbar(right, orient="vertical", command=self.preview_canvas.yview)
+        p_xscroll = ttk.Scrollbar(
+            right, orient="horizontal", command=self.preview_canvas.xview
+        )
+        p_yscroll = ttk.Scrollbar(
+            right, orient="vertical", command=self.preview_canvas.yview
+        )
         p_xscroll.grid(row=3, column=0, sticky="ew")
         p_yscroll.grid(row=2, column=1, sticky="ns")
-        self.preview_canvas.configure(xscrollcommand=p_xscroll.set, yscrollcommand=p_yscroll.set)
+        self.preview_canvas.configure(
+            xscrollcommand=p_xscroll.set, yscrollcommand=p_yscroll.set
+        )
 
         status = ttk.Label(root, textvariable=self._status, anchor="w", padding=(6, 3))
         status.grid(row=1, column=0, columnspan=3, sticky="ew")
@@ -434,7 +558,9 @@ class AnchorEditorApp:
         self._filter_var.trace_add("write", lambda *_: self._populate_sprite_list())
         self._bg_var.trace_add("write", lambda *_: self.redraw())
         self._pivot_source_var.trace_add("write", self._on_pivot_source_changed)
-        self._preview_bg_var.trace_add("write", lambda *_: self._on_preview_controls_changed())
+        self._preview_bg_var.trace_add(
+            "write", lambda *_: self._on_preview_controls_changed()
+        )
         self.canvas.bind("<Button-1>", self.on_canvas_down)
         self.canvas.bind("<B1-Motion>", self.on_canvas_drag)
         self.canvas.bind("<ButtonRelease-1>", self.on_canvas_up)
@@ -486,7 +612,9 @@ class AnchorEditorApp:
         sprite = self.sprites[name]
         img_file = self.metadata.get("image", {}).get("file")
         if not img_file:
-            raise FileNotFoundError(f"Missing slice {path} and no image.file in metadata")
+            raise FileNotFoundError(
+                f"Missing slice {path} and no image.file in metadata"
+            )
         img_path = (self.paths.metadata.parent / img_file).resolve()
         atlas = Image.open(img_path).convert("RGBA")
         x, y, w, h = sprite["rect"]
@@ -550,7 +678,10 @@ class AnchorEditorApp:
         # This trace may fire during initialization before sprites are selected.
         if self._updating_pivot_combo:
             return
-        if not self._current_sprite_name() or self._current_sprite_name() not in self.sprites:
+        if (
+            not self._current_sprite_name()
+            or self._current_sprite_name() not in self.sprites
+        ):
             return
         src = self._pivot_source_var.get()
         self.set_pivot_source(src)
@@ -565,7 +696,9 @@ class AnchorEditorApp:
                 self._status.set("Pivot is now an independent custom point")
         elif src in anchors:
             old_alias = sprite.get("pivot_anchor")
-            old_pivot = point_list(as_point(sprite.get("pivot"))) if "pivot" in sprite else None
+            old_pivot = (
+                point_list(as_point(sprite.get("pivot"))) if "pivot" in sprite else None
+            )
             new_pivot = point_list(as_point(anchors[src]))
             sprite["pivot_anchor"] = src
             sprite["pivot"] = new_pivot
@@ -753,7 +886,9 @@ class AnchorEditorApp:
             return
         self.background = self._bg_var.get()
         img = composited_sprite_preview(self._load_image(name), self.background)
-        scaled = img.resize((img.width * self.zoom, img.height * self.zoom), Image.Resampling.NEAREST)
+        scaled = img.resize(
+            (img.width * self.zoom, img.height * self.zoom), Image.Resampling.NEAREST
+        )
         # Draw anchors after scaling for crisp markers.
         draw = ImageDraw.Draw(scaled)
         selected = self._selected_anchor.get()
@@ -769,7 +904,11 @@ class AnchorEditorApp:
             draw.line((x, y - r * 2, x, y + r * 2), fill=fill, width=2)
             draw.ellipse((x - r, y - r, x + r, y + r), outline=outline, width=2)
             if aname == selected:
-                draw.ellipse((x - r - 4, y - r - 4, x + r + 4, y + r + 4), outline=(255, 255, 255, 255), width=2)
+                draw.ellipse(
+                    (x - r - 4, y - r - 4, x + r + 4, y + r + 4),
+                    outline=(255, 255, 255, 255),
+                    width=2,
+                )
             if self.show_names.get():
                 draw.text((x + r + 3, y - r), aname, fill=(255, 255, 255, 255))
         self._photo = ImageTk.PhotoImage(scaled)
@@ -782,7 +921,9 @@ class AnchorEditorApp:
             self._preview_status.set("Live preview disabled or no preview config found")
             return
         if not self.preview.live_unsaved and not force:
-            self._preview_status.set("Preview stale; live unsaved preview is off. Press Render now / Ctrl+R.")
+            self._preview_status.set(
+                "Preview stale; live unsaved preview is off. Press Render now / Ctrl+R."
+            )
             return
         if force:
             if self._preview_after_id is not None:
@@ -798,7 +939,9 @@ class AnchorEditorApp:
                 self.root.after_cancel(self._preview_after_id)
             except Exception:
                 pass
-        self._preview_after_id = self.root.after(self.preview.debounce_ms, self.update_preview)
+        self._preview_after_id = self.root.after(
+            self.preview.debounce_ms, self.update_preview
+        )
 
     def update_preview(self, force: bool = False) -> None:
         if not self.preview.enabled or self.preview.config is None:
@@ -817,12 +960,16 @@ class AnchorEditorApp:
             )
             self._preview_photo = ImageTk.PhotoImage(img)
             self.preview_canvas.delete("all")
-            self.preview_canvas.create_image(0, 0, image=self._preview_photo, anchor="nw")
+            self.preview_canvas.create_image(
+                0, 0, image=self._preview_photo, anchor="nw"
+            )
             self.preview_canvas.configure(scrollregion=(0, 0, img.width, img.height))
             live = "live-unsaved" if self.preview.live_unsaved else "manual-unsaved"
             dirty = "dirty" if self.unsaved else "saved"
             fit = "fit" if self.preview.fit_to_view else "native"
-            self._preview_status.set(f"{live} preview: {self.preview.config.name} ({img.width}x{img.height}, {fit}, {dirty})")
+            self._preview_status.set(
+                f"{live} preview: {self.preview.config.name} ({img.width}x{img.height}, {fit}, {dirty})"
+            )
         except Exception as ex:
             self._preview_status.set(f"Preview render failed: {ex}")
 
@@ -844,7 +991,12 @@ class AnchorEditorApp:
                 continue
             refined_rect = refined_sprite.get("rect")
             rough_rect = rough_sprite.get("rect")
-            if not (isinstance(refined_rect, list) and len(refined_rect) == 4 and isinstance(rough_rect, list) and len(rough_rect) == 4):
+            if not (
+                isinstance(refined_rect, list)
+                and len(refined_rect) == 4
+                and isinstance(rough_rect, list)
+                and len(rough_rect) == 4
+            ):
                 continue
             rx, ry = refined_rect[0], refined_rect[1]
             ox, oy = rough_rect[0], rough_rect[1]
@@ -860,12 +1012,16 @@ class AnchorEditorApp:
             elif "pivot_anchor" in rough_sprite:
                 rough_sprite.pop("pivot_anchor", None)
             if "pivot" in refined_sprite:
-                rough_sprite["pivot"] = refined_local_to_rough_local(refined_sprite["pivot"])
+                rough_sprite["pivot"] = refined_local_to_rough_local(
+                    refined_sprite["pivot"]
+                )
             if "anchors" in refined_sprite:
                 rough_anchors = rough_sprite.setdefault("anchors", {})
                 for aname, pt in refined_sprite.get("anchors", {}).items():
                     rough_anchors[aname] = refined_local_to_rough_local(pt)
-        self.rough_metadata["metadata_quality"] = self.rough_metadata.get("metadata_quality", {})
+        self.rough_metadata["metadata_quality"] = self.rough_metadata.get(
+            "metadata_quality", {}
+        )
         notes = self.rough_metadata["metadata_quality"].setdefault("notes", [])
         note = "anchors manually synced from refined metadata by tools/anchor_editor.py"
         if note not in notes:
@@ -878,7 +1034,9 @@ class AnchorEditorApp:
             return
         backup_file(self.paths.metadata)
         self.metadata["metadata_quality"] = self.metadata.get("metadata_quality", {})
-        self.metadata["metadata_quality"]["anchor_precision"] = "manually_adjusted_with_anchor_editor"
+        self.metadata["metadata_quality"]["anchor_precision"] = (
+            "manually_adjusted_with_anchor_editor"
+        )
         save_yaml(self.paths.metadata, self.metadata)
         msg = f"Saved {self.paths.metadata}"
         if self.paths.rough_metadata and self.rough_metadata is not None:
@@ -891,27 +1049,42 @@ class AnchorEditorApp:
 
     def reload(self) -> None:
         if self.unsaved:
-            self._status.set("Unsaved changes present; save or restart to reload safely")
+            self._status.set(
+                "Unsaved changes present; save or restart to reload safely"
+            )
             return
         self.metadata = load_yaml(self.paths.metadata)
-        self.rough_metadata = load_yaml(self.paths.rough_metadata) if self.paths.rough_metadata else None
+        self.rough_metadata = (
+            load_yaml(self.paths.rough_metadata) if self.paths.rough_metadata else None
+        )
         self.sprites = self.metadata.get("sprites", {})
         self.sprite_names = sorted(self.sprites.keys())
         self._populate_sprite_list()
-        self.select_sprite(self._current_sprite_name() if self._current_sprite_name() in self.sprites else self.sprite_names[0])
+        self.select_sprite(
+            self._current_sprite_name()
+            if self._current_sprite_name() in self.sprites
+            else self.sprite_names[0]
+        )
 
     def on_close(self) -> None:
         if self.unsaved:
             # Keep this minimal: avoid modal prompts when running from odd desktop
             # environments.  Users can hit Save explicitly or close again after
             # reading the status.
-            self._status.set("Unsaved changes. Press Save first, or close again after saving.")
+            self._status.set(
+                "Unsaved changes. Press Save first, or close again after saving."
+            )
             self.unsaved = False
             return
         self.root.destroy()
 
 
-def write_anchor_report(metadata_path: Path, slices_path: Path, output: Path, sprites: Optional[List[str]] = None) -> None:
+def write_anchor_report(
+    metadata_path: Path,
+    slices_path: Path,
+    output: Path,
+    sprites: Optional[List[str]] = None,
+) -> None:
     """Write a JSON summary of sprite sizes and anchors for non-GUI inspection."""
     meta = load_yaml(metadata_path)
     rows = []
@@ -923,35 +1096,107 @@ def write_anchor_report(metadata_path: Path, slices_path: Path, output: Path, sp
         if image_path.exists():
             with Image.open(image_path) as img:
                 size = list(img.size)
-        rows.append({
-            "sprite": sid,
-            "image": str(image_path),
-            "size": size,
-            "rect": sprite.get("rect"),
-            "pivot": sprite.get("pivot"),
-            "pivot_anchor": sprite.get("pivot_anchor"),
-            "anchors": sprite.get("anchors", {}),
-        })
-    output.write_text(json.dumps({"metadata": str(metadata_path), "sprites": rows}, indent=2), encoding="utf8")
+        rows.append(
+            {
+                "sprite": sid,
+                "image": str(image_path),
+                "size": size,
+                "rect": sprite.get("rect"),
+                "pivot": sprite.get("pivot"),
+                "pivot_anchor": sprite.get("pivot_anchor"),
+                "anchors": sprite.get("anchors", {}),
+            }
+        )
+    output.write_text(
+        json.dumps({"metadata": str(metadata_path), "sprites": rows}, indent=2),
+        encoding="utf8",
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Manually place robot component pivots and anchors in a Tk GUI.")
-    parser.add_argument("metadata", type=Path, help="Metadata YAML to edit, usually metadata/robot_components.refined.yaml")
-    parser.add_argument("--slices", type=Path, default=Path("output/slices"), help="Directory containing extracted component PNGs")
-    parser.add_argument("--rough-metadata", type=Path, default=None, help="Optional rough YAML to keep in sync when saving")
-    parser.add_argument("--zoom", type=int, default=5, help="Initial integer zoom factor")
-    parser.add_argument("--background", choices=["checker", "black", "white"], default="checker", help="Preview background")
-    parser.add_argument("--show-names", action="store_true", help="Show anchor names on the canvas")
-    parser.add_argument("--preview-config", type=Path, default=None, help="Rig job YAML to render live in the right-side preview pane; defaults to examples/robot_rig_job.yaml when available")
-    parser.add_argument("--no-live-preview", action="store_true", help="Disable live spritesheet preview rendering")
-    parser.add_argument("--render-preview", type=Path, default=None, help="Render the preview spritesheet once and exit instead of opening the GUI")
-    parser.add_argument("--preview-max-width", type=int, default=1400, help="Maximum live preview display width")
-    parser.add_argument("--preview-max-height", type=int, default=820, help="Maximum live preview display height")
-    parser.add_argument("--preview-native", action="store_true", help="Show the live preview at native rendered size with scrollbars instead of fitting to preview limits")
-    parser.add_argument("--manual-preview", action="store_true", help="Do not auto-render on every edit; press Ctrl+R / Render now to preview unsaved metadata")
-    parser.add_argument("--anchor-report", type=Path, default=None, help="Write a JSON anchor report and exit instead of opening the GUI")
-    parser.add_argument("--sprites", nargs="*", default=None, help="Sprite ids to include in --anchor-report")
+    parser = argparse.ArgumentParser(
+        description="Manually place robot component pivots and anchors in a Tk GUI."
+    )
+    parser.add_argument(
+        "metadata",
+        type=Path,
+        help="Metadata YAML to edit, usually metadata/robot_components.refined.yaml",
+    )
+    parser.add_argument(
+        "--slices",
+        type=Path,
+        default=Path("output/slices"),
+        help="Directory containing extracted component PNGs",
+    )
+    parser.add_argument(
+        "--rough-metadata",
+        type=Path,
+        default=None,
+        help="Optional rough YAML to keep in sync when saving",
+    )
+    parser.add_argument(
+        "--zoom", type=int, default=5, help="Initial integer zoom factor"
+    )
+    parser.add_argument(
+        "--background",
+        choices=["checker", "black", "white"],
+        default="checker",
+        help="Preview background",
+    )
+    parser.add_argument(
+        "--show-names", action="store_true", help="Show anchor names on the canvas"
+    )
+    parser.add_argument(
+        "--preview-config",
+        type=Path,
+        default=None,
+        help="Rig job YAML to render live in the right-side preview pane; defaults to examples/robot_rig_job.yaml when available",
+    )
+    parser.add_argument(
+        "--no-live-preview",
+        action="store_true",
+        help="Disable live spritesheet preview rendering",
+    )
+    parser.add_argument(
+        "--render-preview",
+        type=Path,
+        default=None,
+        help="Render the preview spritesheet once and exit instead of opening the GUI",
+    )
+    parser.add_argument(
+        "--preview-max-width",
+        type=int,
+        default=1400,
+        help="Maximum live preview display width",
+    )
+    parser.add_argument(
+        "--preview-max-height",
+        type=int,
+        default=820,
+        help="Maximum live preview display height",
+    )
+    parser.add_argument(
+        "--preview-native",
+        action="store_true",
+        help="Show the live preview at native rendered size with scrollbars instead of fitting to preview limits",
+    )
+    parser.add_argument(
+        "--manual-preview",
+        action="store_true",
+        help="Do not auto-render on every edit; press Ctrl+R / Render now to preview unsaved metadata",
+    )
+    parser.add_argument(
+        "--anchor-report",
+        type=Path,
+        default=None,
+        help="Write a JSON anchor report and exit instead of opening the GUI",
+    )
+    parser.add_argument(
+        "--sprites",
+        nargs="*",
+        default=None,
+        help="Sprite ids to include in --anchor-report",
+    )
     return parser
 
 
@@ -963,15 +1208,26 @@ def main(argv: Optional[List[str]] = None) -> int:
     rough = args.rough_metadata.resolve() if args.rough_metadata else None
     preview_config = infer_preview_config(metadata, args.preview_config)
     if args.anchor_report:
-        write_anchor_report(metadata, slices, args.anchor_report.resolve(), args.sprites)
+        write_anchor_report(
+            metadata, slices, args.anchor_report.resolve(), args.sprites
+        )
         print(f"Wrote {args.anchor_report}")
         return 0
     if args.render_preview:
         if preview_config is None:
-            print("ERROR: no preview config found; pass --preview-config", file=sys.stderr)
+            print(
+                "ERROR: no preview config found; pass --preview-config", file=sys.stderr
+            )
             return 2
         meta = load_yaml(metadata)
-        img = render_preview_image(meta, preview_config, max_width=args.preview_max_width, max_height=args.preview_max_height, bg="black", fit_to_view=not args.preview_native)
+        img = render_preview_image(
+            meta,
+            preview_config,
+            max_width=args.preview_max_width,
+            max_height=args.preview_max_height,
+            bg="black",
+            fit_to_view=not args.preview_native,
+        )
         args.render_preview.parent.mkdir(parents=True, exist_ok=True)
         img.save(args.render_preview)
         print(f"Wrote {args.render_preview}")

@@ -42,25 +42,32 @@ def load_pil_font(size: int) -> ImageFont.FreeTypeFont:
 
 # ── Speech bubble ─────────────────────────────────────────────────────────────
 
-def draw_bubble_pil(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont,
-                    panel_rect: tuple, side: str, cfg: dict) -> None:
+
+def draw_bubble_pil(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    font: ImageFont.FreeTypeFont,
+    panel_rect: tuple,
+    side: str,
+    cfg: dict,
+) -> None:
     """
     Draw a speech bubble onto *draw* over the panel.
     panel_rect: (x, y, w, h)
     side:       'left' | 'right'
     """
     ac = cfg["animation"]
-    pad    = ac["bubble_padding"]
-    bw     = ac["bubble_border_width"]
-    bg     = tuple(ac["bubble_bg"])
+    pad = ac["bubble_padding"]
+    bw = ac["bubble_border_width"]
+    bg = tuple(ac["bubble_bg"])
     border = tuple(ac["bubble_border"])
 
     px, py, pw, ph = panel_rect
     lines = text.split("\n")
     line_boxes = [draw.textbbox((0, 0), ln, font=font) for ln in lines]
-    line_h  = max(b[3] - b[1] for b in line_boxes) if line_boxes else 20
-    text_w  = max(b[2] - b[0] for b in line_boxes) if line_boxes else 60
-    text_h  = len(lines) * line_h + max(0, len(lines) - 1) * 4
+    line_h = max(b[3] - b[1] for b in line_boxes) if line_boxes else 20
+    text_w = max(b[2] - b[0] for b in line_boxes) if line_boxes else 60
+    text_h = len(lines) * line_h + max(0, len(lines) - 1) * 4
 
     bub_w = text_w + pad * 2
     bub_h = text_h + pad * 2
@@ -81,16 +88,17 @@ def draw_bubble_pil(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTy
 
     # Tail (filled triangle)
     tail_base_y = bub_y + bub_h - 1
-    tail_tip_y  = bub_y + bub_h + tail_h
+    tail_tip_y = bub_y + bub_h + tail_h
     tail_pts = [
         (tail_cx - 12, tail_base_y),
         (tail_cx + 12, tail_base_y),
-        (tail_cx,      tail_tip_y),
+        (tail_cx, tail_tip_y),
     ]
     draw.polygon(tail_pts, fill=bg, outline=None)
     # Re-draw bubble bottom to cover the tail's top edge
-    draw.rectangle([bub_x + bw, bub_y + bub_h - bw * 2,
-                    bub_x + bub_w - bw, bub_y + bub_h], fill=bg)
+    draw.rectangle(
+        [bub_x + bw, bub_y + bub_h - bw * 2, bub_x + bub_w - bw, bub_y + bub_h], fill=bg
+    )
 
     # Text
     ty = bub_y + pad
@@ -104,18 +112,24 @@ def draw_bubble_pil(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTy
 
 # ── Panel rendering ───────────────────────────────────────────────────────────
 
-def render_beat(panel_cfg: dict, cfg: dict, display_w: int, display_h: int,
-                font: ImageFont.FreeTypeFont) -> Image.Image:
+
+def render_beat(
+    panel_cfg: dict,
+    cfg: dict,
+    display_w: int,
+    display_h: int,
+    font: ImageFont.FreeTypeFont,
+) -> Image.Image:
     """Render one animation beat to a PIL Image."""
     ac = cfg["animation"]
-    bg_col   = tuple(ac["background_color"])
+    bg_col = tuple(ac["background_color"])
     panel_bg = tuple(ac["panel_bg_color"])
-    border   = tuple(ac["panel_border_color"])
-    bdw      = ac["panel_border_width"]
-    shad     = ac["shadow_offset"]
+    border = tuple(ac["panel_border_color"])
+    bdw = ac["panel_border_width"]
+    shad = ac["shadow_offset"]
 
     frame = Image.new("RGB", (display_w, display_h), bg_col)
-    draw  = ImageDraw.Draw(frame)
+    draw = ImageDraw.Draw(frame)
 
     # Panel display rect (87% of height, centred)
     cfg_pw, cfg_ph = cfg["panel_size"]
@@ -129,13 +143,20 @@ def render_beat(panel_cfg: dict, cfg: dict, display_w: int, display_h: int,
 
     # Shadow
     shad_col = tuple(ac["shadow_color"][:3])
-    draw.rectangle([px + shad, py + shad,
-                    px + disp_w + bdw * 2 + shad,
-                    py + disp_h + bdw * 2 + shad], fill=shad_col)
+    draw.rectangle(
+        [
+            px + shad,
+            py + shad,
+            px + disp_w + bdw * 2 + shad,
+            py + disp_h + bdw * 2 + shad,
+        ],
+        fill=shad_col,
+    )
 
     # Border
-    draw.rectangle([px - bdw, py - bdw, px + disp_w + bdw, py + disp_h + bdw],
-                   fill=border)
+    draw.rectangle(
+        [px - bdw, py - bdw, px + disp_w + bdw, py + disp_h + bdw], fill=border
+    )
 
     # Panel background
     draw.rectangle([px, py, px + disp_w, py + disp_h], fill=panel_bg)
@@ -158,20 +179,26 @@ def render_beat(panel_cfg: dict, cfg: dict, display_w: int, display_h: int,
     # Speech bubble
     bubble_text = panel_cfg.get("speech_bubble")
     if bubble_text:
-        draw_bubble_pil(draw, bubble_text, font,
-                        (px, py, disp_w, disp_h),
-                        panel_cfg.get("bubble_side", "right"), cfg)
+        draw_bubble_pil(
+            draw,
+            bubble_text,
+            font,
+            (px, py, disp_w, disp_h),
+            panel_cfg.get("bubble_side", "right"),
+            cfg,
+        )
 
     return frame
 
 
 # ── Strip ────────────────────────────────────────────────────────────────────
 
+
 def render_strip(beat_frames: list, gap: int = 8) -> Image.Image:
     """Composite all beats side by side."""
-    n   = len(beat_frames)
-    w   = beat_frames[0].width if beat_frames else 320
-    h   = beat_frames[0].height if beat_frames else 240
+    n = len(beat_frames)
+    w = beat_frames[0].width if beat_frames else 320
+    h = beat_frames[0].height if beat_frames else 240
     strip_w = n * (w // 2) + (n + 1) * gap
     strip_h = h // 2 + 2 * gap
 
@@ -186,12 +213,13 @@ def render_strip(beat_frames: list, gap: int = 8) -> Image.Image:
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+
 def main():
-    cfg     = load_config()
-    demo    = cfg["demo"]
-    W, H    = demo["width"], demo["height"]
+    cfg = load_config()
+    demo = cfg["demo"]
+    W, H = demo["width"], demo["height"]
     font_sz = cfg["animation"]["bubble_font_size"]
-    font    = load_pil_font(font_sz)
+    font = load_pil_font(font_sz)
 
     preview_dir = out_path(cfg, "preview")
     os.makedirs(preview_dir, exist_ok=True)
@@ -201,7 +229,7 @@ def main():
         beat = panel_cfg["beat"]
         print(f"  rendering beat {beat} ({panel_cfg['label']}) ...", end=" ")
         frame = render_beat(panel_cfg, cfg, W, H, font)
-        path  = os.path.join(preview_dir, f"beat_{beat}.png")
+        path = os.path.join(preview_dir, f"beat_{beat}.png")
         frame.save(path)
         frames.append(frame)
         print(f"→ preview/beat_{beat}.png")

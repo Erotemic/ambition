@@ -81,18 +81,22 @@ def _render_idle_frame(frame_idx: int, n_frames: int) -> Image.Image:
     d = ImageDraw.Draw(img, "RGBA")
 
     # --- Outer frame (dark wooden / gunmetal border) -------------
-    d.rectangle(_box(2, 6, 62, 88), fill=FRAME_DARK, outline=(0, 0, 0, 255), width=_s(0.8))
+    d.rectangle(
+        _box(2, 6, 62, 88), fill=FRAME_DARK, outline=(0, 0, 0, 255), width=_s(0.8)
+    )
     # Inner lit band (highlight along top + left for depth)
     d.line(_box(3.5, 7.5, 60.5, 7.5)[:4], fill=FRAME_TRIM, width=_s(0.5))
     d.line(_box(3.5, 7.5, 3.5, 87)[:4], fill=FRAME_TRIM, width=_s(0.4))
 
     # --- Brass bolts in the four corners (frame fasteners) -------
     bolt_r = 1.2
-    for (bx, by) in [(6, 10), (58, 10), (6, 84), (58, 84)]:
-        d.ellipse(_box(bx - bolt_r, by - bolt_r, bx + bolt_r, by + bolt_r),
-                  fill=FRAME_BOLT, outline=FRAME_DARK)
-        d.ellipse(_box(bx - 0.5, by - 0.5, bx + 0.5, by + 0.5),
-                  fill=_rgba("#FFE69A"))
+    for bx, by in [(6, 10), (58, 10), (6, 84), (58, 84)]:
+        d.ellipse(
+            _box(bx - bolt_r, by - bolt_r, bx + bolt_r, by + bolt_r),
+            fill=FRAME_BOLT,
+            outline=FRAME_DARK,
+        )
+        d.ellipse(_box(bx - 0.5, by - 0.5, bx + 0.5, by + 0.5), fill=_rgba("#FFE69A"))
 
     # --- Header bar (purple corporate brand banner) --------------
     d.rectangle(_box(6, 12, 58, 22), fill=HEADER_BG, outline=FRAME_DARK, width=_s(0.4))
@@ -139,7 +143,9 @@ def _render_idle_frame(frame_idx: int, n_frames: int) -> Image.Image:
     # Paper C: blue clipping, dossier-style
     d.rectangle(_box(12, 52, 38, 76), fill=PAPER_C, outline=PAPER_INK, width=_s(0.4))
     # Photo placeholder (top half)
-    d.rectangle(_box(14, 54, 22, 62), fill=_rgba("#646D85"), outline=PAPER_INK, width=_s(0.25))
+    d.rectangle(
+        _box(14, 54, 22, 62), fill=_rgba("#646D85"), outline=PAPER_INK, width=_s(0.25)
+    )
     # Caption lines
     for ly in (64, 66.2, 68.4, 70.6, 72.8):
         d.line(_box(14, ly, 35, ly)[:4], fill=PAPER_INK, width=_s(0.25))
@@ -149,12 +155,16 @@ def _render_idle_frame(frame_idx: int, n_frames: int) -> Image.Image:
     # Sticky note (small square) — gentle flutter
     flutter = math.sin((frame_idx / max(1, n_frames)) * math.tau) * 0.5
     nx = 42 + flutter
-    d.rectangle(_box(nx, 54, nx + 12, 66), fill=PAPER_A, outline=PAPER_INK, width=_s(0.3))
+    d.rectangle(
+        _box(nx, 54, nx + 12, 66), fill=PAPER_A, outline=PAPER_INK, width=_s(0.3)
+    )
     # Scrawled lines
     for ly in (56.5, 58.5, 60.5):
         d.line(_box(nx + 1.0, ly, nx + 11.0, ly)[:4], fill=PAPER_INK, width=_s(0.25))
     # Yellow pin
-    d.ellipse(_box(nx + 4.5, 53.6, nx + 6.5, 55.6), fill=_rgba("#E0B23F"), outline=PIN_BLACK)
+    d.ellipse(
+        _box(nx + 4.5, 53.6, nx + 6.5, 55.6), fill=_rgba("#E0B23F"), outline=PIN_BLACK
+    )
 
     # --- Power LED (blinks slowly across the idle cycle) ---------
     # On for frames 0..3, off for 4..5 — gentle "alive" indicator.
@@ -164,8 +174,9 @@ def _render_idle_frame(frame_idx: int, n_frames: int) -> Image.Image:
 
     # Hint of glow under the LED when on
     if led_on:
-        d.ellipse(_box(54.5, 13.5, 57.5, 16.5),
-                  outline=_rgba("#5BFFA8", 130), width=_s(0.3))
+        d.ellipse(
+            _box(54.5, 13.5, 57.5, 16.5), outline=_rgba("#5BFFA8", 130), width=_s(0.3)
+        )
 
     # No drop shadow under the board (project rule). The board's
     # bottom row at y=88 IS the visible foot — feet_anchor_y in
@@ -191,8 +202,8 @@ def render(out_dir: str | Path, **opts) -> List[Path]:
         frame_size=FRAME_SIZE,
         label_width=104,
         auto_crop=False,  # the board's footprint should stay stable
-                          # frame-to-frame; auto-crop would shrink the
-                          # frame around the active art.
+        # frame-to-frame; auto-crop would shrink the
+        # frame around the active art.
     )
     return [
         outputs["canonical"],

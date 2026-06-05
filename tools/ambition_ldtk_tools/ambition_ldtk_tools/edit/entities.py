@@ -27,6 +27,7 @@ Spec format (YAML or JSON):
           target_zone: lab_entry
           bidirectional: true
 """
+
 from __future__ import annotations
 
 import argparse
@@ -76,9 +77,7 @@ def find_ambition_layer(level: dict) -> dict:
     for li in level.get("layerInstances", []):
         if li.get("__identifier") == "Ambition":
             return li
-    raise SystemExit(
-        f"level '{level['identifier']}' has no Ambition entity layer"
-    )
+    raise SystemExit(f"level '{level['identifier']}' has no Ambition entity layer")
 
 
 def main(argv=None) -> int:
@@ -128,7 +127,7 @@ def main(argv=None) -> int:
         # fail loudly rather than silently emitting an unconsumable field.
         ent_def = find_entity_def(project, ent_spec["type"])
         valid_fields = {f["identifier"] for f in ent_def.get("fieldDefs", [])}
-        for fname in (ent_spec.get("fields") or {}):
+        for fname in ent_spec.get("fields") or {}:
             if fname not in valid_fields:
                 return _fail(
                     f"entity '{ent_spec['type']}' has no field '{fname}' "
@@ -150,11 +149,19 @@ def main(argv=None) -> int:
         shutil.copy2(args.ldtk, backup)
         print(f"wrote backup: {backup}")
     write_project(target, project)
-    print(f"added {len(added)} entity instance(s) to '{spec['level_id']}': {', '.join(added)}")
+    print(
+        f"added {len(added)} entity instance(s) to '{spec['level_id']}': {', '.join(added)}"
+    )
     if args.no_repair:
         return 0
 
-    cmd = [sys.executable, "-m", "ambition_ldtk_tools.repair", str(target), "--in-place"]
+    cmd = [
+        sys.executable,
+        "-m",
+        "ambition_ldtk_tools.repair",
+        str(target),
+        "--in-place",
+    ]
     print("$ " + " ".join(cmd))
     if subprocess.run(cmd).returncode != 0:
         return 1

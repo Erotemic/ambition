@@ -8,6 +8,7 @@ on the python side before the Rust test even compiles).
 
 Pinned fields chosen to overlap the runtime's required surface; not
 exhaustive — the Rust pin is."""
+
 from __future__ import annotations
 
 import sys
@@ -18,14 +19,27 @@ sys.path.insert(0, str(REPO_ROOT / "tools" / "ambition_ldtk_tools"))
 
 from ambition_ldtk_tools.ron_parse import load  # noqa: E402
 
-BOSS_DIR = REPO_ROOT / "crates" / "ambition_sandbox" / "assets" / "data" / "boss_encounters"
+BOSS_DIR = (
+    REPO_ROOT / "crates" / "ambition_sandbox" / "assets" / "data" / "boss_encounters"
+)
 
 REQUIRED_FIELDS = {
-    "id", "name", "max_hp",
-    "phase1_to_transition_hp", "transition_to_phase2_hp", "phase2_to_enrage_hp",
-    "intro_seconds", "transition_seconds", "stagger_seconds", "death_seconds",
-    "stagger_threshold", "stagger_window_seconds",
-    "music_intro", "music_phase1", "music_phase2", "music_enrage",
+    "id",
+    "name",
+    "max_hp",
+    "phase1_to_transition_hp",
+    "transition_to_phase2_hp",
+    "phase2_to_enrage_hp",
+    "intro_seconds",
+    "transition_seconds",
+    "stagger_seconds",
+    "death_seconds",
+    "stagger_threshold",
+    "stagger_window_seconds",
+    "music_intro",
+    "music_phase1",
+    "music_phase2",
+    "music_enrage",
 }
 
 
@@ -44,7 +58,9 @@ def test_every_boss_encounter_ron_parses():
     (warns + skips) and fall back to the hardcoded constructor."""
     for ron_path in _ron_files():
         data = load(ron_path.read_text())
-        assert isinstance(data, dict), f"{ron_path.name}: top-level should be a struct/dict"
+        assert isinstance(data, dict), (
+            f"{ron_path.name}: top-level should be a struct/dict"
+        )
 
 
 def test_every_boss_encounter_ron_has_required_fields():
@@ -74,7 +90,11 @@ def test_phase_threshold_fractions_in_valid_range():
     (<0)."""
     for ron_path in _ron_files():
         data = load(ron_path.read_text())
-        for field in ("phase1_to_transition_hp", "transition_to_phase2_hp", "phase2_to_enrage_hp"):
+        for field in (
+            "phase1_to_transition_hp",
+            "transition_to_phase2_hp",
+            "phase2_to_enrage_hp",
+        ):
             v = data[field]
             assert 0.0 <= v <= 1.0, f"{ron_path.name}: {field}={v} out of [0, 1]"
 
@@ -84,11 +104,20 @@ def test_timing_fields_are_positive():
     instant. The loader doesn't enforce — this guards content-side."""
     for ron_path in _ron_files():
         data = load(ron_path.read_text())
-        for field in ("intro_seconds", "transition_seconds", "stagger_seconds", "death_seconds"):
-            assert data[field] > 0.0, f"{ron_path.name}: {field}={data[field]} should be positive"
+        for field in (
+            "intro_seconds",
+            "transition_seconds",
+            "stagger_seconds",
+            "death_seconds",
+        ):
+            assert data[field] > 0.0, (
+                f"{ron_path.name}: {field}={data[field]} should be positive"
+            )
 
 
 def test_max_hp_positive():
     for ron_path in _ron_files():
         data = load(ron_path.read_text())
-        assert data["max_hp"] > 0, f"{ron_path.name}: max_hp={data['max_hp']} must be positive"
+        assert data["max_hp"] > 0, (
+            f"{ron_path.name}: max_hp={data['max_hp']} must be positive"
+        )

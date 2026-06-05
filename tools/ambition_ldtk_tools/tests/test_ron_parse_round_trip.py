@@ -3,6 +3,7 @@ RON helpers used across the python tooling.
 
 Tests focus on the parse↔dump invariant: `load(dumps(x)) == x` for
 the data shapes we actually serialize."""
+
 from __future__ import annotations
 
 import sys
@@ -16,10 +17,20 @@ from ambition_ldtk_tools.ron_parse import dumps, load  # noqa: E402
 
 def test_round_trip_primitive_values():
     samples = [
-        True, False, None,
-        0, 1, -42, 999999,
-        0.0, 1.5, -2.71, 3.14159,
-        "", "hello", "with space",
+        True,
+        False,
+        None,
+        0,
+        1,
+        -42,
+        999999,
+        0.0,
+        1.5,
+        -2.71,
+        3.14159,
+        "",
+        "hello",
+        "with space",
     ]
     for value in samples:
         # Single primitives serialize as bare values; wrap in a list
@@ -38,7 +49,9 @@ def test_round_trip_string_with_escapes():
     ]
     for value in samples:
         wrapped = [value]
-        assert load(dumps(wrapped)) == wrapped, f"escape round-trip failed for {value!r}"
+        assert load(dumps(wrapped)) == wrapped, (
+            f"escape round-trip failed for {value!r}"
+        )
 
 
 def test_round_trip_dict_with_identifier_keys():

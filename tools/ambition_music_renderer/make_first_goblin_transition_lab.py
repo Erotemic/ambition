@@ -6,6 +6,7 @@ This script deliberately does not edit the active score. It reads
 experiment score under ``scores/experiments/`` so runtime / asset-install work
 from other agents can continue independently.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -25,7 +26,9 @@ except Exception:  # pragma: no cover - fallback for fresh environments
 RENDERER_ROOT = Path(__file__).resolve().parent
 REPO_ROOT = RENDERER_ROOT.parents[1]
 DEFAULT_SOURCE = RENDERER_ROOT / "scores" / "active" / "first_goblin_tune_v2.music.yaml"
-DEFAULT_OUTPUT = RENDERER_ROOT / "scores" / "experiments" / "first_goblin_transition_lab.music.yaml"
+DEFAULT_OUTPUT = (
+    RENDERER_ROOT / "scores" / "experiments" / "first_goblin_transition_lab.music.yaml"
+)
 
 
 def path_link(path: Path) -> str:
@@ -57,7 +60,9 @@ def template_by_id(score: dict[str, Any], template_id: str) -> dict[str, Any]:
     return item
 
 
-def scale_template_events(template: dict[str, Any], *, drum_names: set[str], velocity_scale: float) -> None:
+def scale_template_events(
+    template: dict[str, Any], *, drum_names: set[str], velocity_scale: float
+) -> None:
     for event in template.get("events", []) or []:
         if not isinstance(event, dict):
             continue
@@ -66,7 +71,9 @@ def scale_template_events(template: dict[str, Any], *, drum_names: set[str], vel
             event["velocity"] = int(round(float(event["velocity"]) * velocity_scale))
 
 
-def replace_layer_template(section: dict[str, Any], template: str, patch: dict[str, Any]) -> None:
+def replace_layer_template(
+    section: dict[str, Any], template: str, patch: dict[str, Any]
+) -> None:
     for layer in section.get("layers", []) or []:
         if isinstance(layer, dict) and layer.get("template") == template:
             layer.update(patch)
@@ -79,10 +86,14 @@ def replace_named_layer(section: dict[str, Any], old_name: str, new_layer: Any) 
             layers[index] = copy.deepcopy(new_layer)
 
 
-def append_layer_once(section: dict[str, Any], marker_key: str, layer: dict[str, Any]) -> None:
+def append_layer_once(
+    section: dict[str, Any], marker_key: str, layer: dict[str, Any]
+) -> None:
     layers = section.setdefault("layers", [])
     for existing in layers:
-        if isinstance(existing, dict) and existing.get(marker_key) == layer.get(marker_key):
+        if isinstance(existing, dict) and existing.get(marker_key) == layer.get(
+            marker_key
+        ):
             return
     layers.append(layer)
 
@@ -101,7 +112,9 @@ def apply_transition_lab_changes(score: dict[str, Any]) -> dict[str, Any]:
         "make the intro feel like a pickup into wave1, front-load wave1 energy for the runtime crossfade, and keep generated "
         "sections runtime-crossfade friendly."
     )
-    score["notes"] = f"Derived from {source_id}.\n\n{notes}\n\n{lab_notes}" if notes else lab_notes
+    score["notes"] = (
+        f"Derived from {source_id}.\n\n{notes}\n\n{lab_notes}" if notes else lab_notes
+    )
 
     # Global mastering: keep more headroom and reduce hiss-prone ambience. This
     # is not final mastering policy; it is a controlled experiment that makes
@@ -223,10 +236,38 @@ def apply_transition_lab_changes(score: dict[str, Any]) -> dict[str, Any]:
             "kind": "automation",
             "group": "strings",
             "automation": [
-                {"group": "strings", "cc": "expression", "from": 52, "to": 44, "curve": "smooth", "points": 8},
-                {"group": "brass", "cc": "expression", "from": 34, "to": 20, "curve": "smooth", "points": 8},
-                {"group": "winds", "cc": "expression", "from": 48, "to": 22, "curve": "smooth", "points": 8},
-                {"group": "choir_pad", "cc": "expression", "from": 10, "to": 4, "curve": "smooth", "points": 8},
+                {
+                    "group": "strings",
+                    "cc": "expression",
+                    "from": 52,
+                    "to": 44,
+                    "curve": "smooth",
+                    "points": 8,
+                },
+                {
+                    "group": "brass",
+                    "cc": "expression",
+                    "from": 34,
+                    "to": 20,
+                    "curve": "smooth",
+                    "points": 8,
+                },
+                {
+                    "group": "winds",
+                    "cc": "expression",
+                    "from": 48,
+                    "to": 22,
+                    "curve": "smooth",
+                    "points": 8,
+                },
+                {
+                    "group": "choir_pad",
+                    "cc": "expression",
+                    "from": 10,
+                    "to": 4,
+                    "curve": "smooth",
+                    "points": 8,
+                },
             ],
         },
     )
@@ -238,7 +279,9 @@ def apply_transition_lab_changes(score: dict[str, Any]) -> dict[str, Any]:
     for layer in intro.get("layers", []) or []:
         if isinstance(layer, dict) and layer.get("kind") == "drums":
             for event in layer.get("events", []) or []:
-                if isinstance(event, dict) and isinstance(event.get("velocity"), (int, float)):
+                if isinstance(event, dict) and isinstance(
+                    event.get("velocity"), (int, float)
+                ):
                     event["velocity"] = int(round(float(event["velocity"]) * 0.32))
 
     # Add a dark, sustained late final-bar bed so the actual crossfade window
@@ -298,7 +341,9 @@ def apply_transition_lab_changes(score: dict[str, Any]) -> dict[str, Any]:
     )
     replace_layer_template(wave1, "string_pad", {"velocity": 48})
     replace_layer_template(wave1, "low_string_pulse", {"velocity": 68})
-    replace_layer_template(wave1, "wind_goblin", {"starts": [[0, 0.0], [2, 0.0], [4, 0.0]], "velocity": 38})
+    replace_layer_template(
+        wave1, "wind_goblin", {"starts": [[0, 0.0], [2, 0.0], [4, 0.0]], "velocity": 38}
+    )
     replace_layer_template(wave1, "harp_murmur", {"density": 0.06, "velocity": 14})
     append_layer_once(
         wave1,
@@ -402,7 +447,15 @@ def apply_transition_lab_changes(score: dict[str, Any]) -> dict[str, Any]:
     if isinstance(state_map.get("wave_1"), dict):
         stems = state_map["wave_1"].setdefault("stems", {})
         if isinstance(stems, dict):
-            stems.update({"strings": 1.0, "winds": 0.45, "mallets": 0.03, "percussion": 0.10, "brass": 0.08})
+            stems.update(
+                {
+                    "strings": 1.0,
+                    "winds": 0.45,
+                    "mallets": 0.03,
+                    "percussion": 0.10,
+                    "brass": 0.08,
+                }
+            )
 
     return score
 
@@ -411,11 +464,15 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=DEFAULT_SOURCE)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
-    parser.add_argument("--force", action="store_true", help="overwrite an existing experiment score")
+    parser.add_argument(
+        "--force", action="store_true", help="overwrite an existing experiment score"
+    )
     args = parser.parse_args(argv)
 
     if args.output.exists() and not args.force:
-        rich_print(f"[yellow]kept existing experiment score[/yellow] {path_link(args.output)}")
+        rich_print(
+            f"[yellow]kept existing experiment score[/yellow] {path_link(args.output)}"
+        )
         return 0
     if not args.source.exists():
         raise SystemExit(f"source score not found: {args.source}")
@@ -424,7 +481,9 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit(f"source score did not parse as a mapping: {args.source}")
     experiment = apply_transition_lab_changes(score)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(yaml.safe_dump(experiment, sort_keys=False, width=100), encoding="utf8")
+    args.output.write_text(
+        yaml.safe_dump(experiment, sort_keys=False, width=100), encoding="utf8"
+    )
     rich_print(f"[green]wrote[/green] {path_link(args.output)}")
     return 0
 

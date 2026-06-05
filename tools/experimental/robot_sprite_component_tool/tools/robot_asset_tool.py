@@ -51,7 +51,9 @@ def load_metadata(path: Path) -> Dict[str, Any]:
 def save_metadata(data: Dict[str, Any], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.suffix.lower() in {".yaml", ".yml"}:
-        path.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf8")
+        path.write_text(
+            yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf8"
+        )
     else:
         path.write_text(json.dumps(data, indent=2), encoding="utf8")
 
@@ -124,7 +126,9 @@ def union_rect(rects: Iterable[Rect]) -> Rect:
 def estimate_background_rgb(rgba: np.ndarray) -> np.ndarray:
     """Estimate green-screen color from image borders."""
     rgb = rgba[..., :3].astype(np.float32)
-    border = np.concatenate([rgb[0, :, :], rgb[-1, :, :], rgb[:, 0, :], rgb[:, -1, :]], axis=0)
+    border = np.concatenate(
+        [rgb[0, :, :], rgb[-1, :, :], rgb[:, 0, :], rgb[:, -1, :]], axis=0
+    )
     return np.median(border, axis=0)
 
 
@@ -133,7 +137,9 @@ def background_distance(rgb: np.ndarray, bg_rgb: np.ndarray) -> np.ndarray:
     return np.sqrt(np.sum(diff * diff, axis=2))
 
 
-def foreground_mask(rgba: np.ndarray, bg_rgb: np.ndarray, threshold: float) -> np.ndarray:
+def foreground_mask(
+    rgba: np.ndarray, bg_rgb: np.ndarray, threshold: float
+) -> np.ndarray:
     """Return True for pixels that are not background-like."""
     dist = background_distance(rgba[..., :3], bg_rgb)
     alpha = rgba[..., 3] > 0
@@ -191,7 +197,14 @@ def connected_components(mask: np.ndarray, min_area: int = 1) -> List[Component]
             if area < min_area:
                 continue
             cx, cy = centroids[label]
-            comps.append(Component(label=int(label), area=area, bbox=(int(x), int(y), int(w), int(h)), centroid=(float(cx), float(cy))))
+            comps.append(
+                Component(
+                    label=int(label),
+                    area=area,
+                    bbox=(int(x), int(y), int(w), int(h)),
+                    centroid=(float(cx), float(cy)),
+                )
+            )
         return comps
     except Exception:
         pass
@@ -213,10 +226,19 @@ def connected_components(mask: np.ndarray, min_area: int = 1) -> List[Component]
             y0, y1 = int(ys.start), int(ys.stop)
             cx = float(x0 + xx.mean())
             cy = float(y0 + yy.mean())
-            comps.append(Component(label=label, area=area, bbox=(x0, y0, x1 - x0, y1 - y0), centroid=(cx, cy)))
+            comps.append(
+                Component(
+                    label=label,
+                    area=area,
+                    bbox=(x0, y0, x1 - x0, y1 - y0),
+                    centroid=(cx, cy),
+                )
+            )
         return comps
     except Exception as ex:
-        raise RuntimeError("Need either opencv-python-headless or scipy for connected components") from ex
+        raise RuntimeError(
+            "Need either opencv-python-headless or scipy for connected components"
+        ) from ex
 
 
 def select_components(
@@ -232,7 +254,9 @@ def select_components(
     selected: List[Component] = []
     for comp in comps:
         cx, cy = comp.centroid
-        center_inside = (rough_local[0] <= cx <= rough_local[0] + rough_local[2]) and (rough_local[1] <= cy <= rough_local[1] + rough_local[3])
+        center_inside = (rough_local[0] <= cx <= rough_local[0] + rough_local[2]) and (
+            rough_local[1] <= cy <= rough_local[1] + rough_local[3]
+        )
         inter = rect_intersection(comp.bbox, rough_local)
         overlap_fraction = rect_area(inter) / max(1, comp.area)
         if center_inside or overlap_fraction >= min_overlap_fraction:
@@ -301,17 +325,25 @@ def validate_metadata(meta_path: Path) -> int:
             else:
                 ax, ay = point
                 if not (0 <= ax <= w and 0 <= ay <= h):
-                    print(f"WARN {sid}.{aname}: anchor outside crop: {point} rect={rect}")
+                    print(
+                        f"WARN {sid}.{aname}: anchor outside crop: {point} rect={rect}"
+                    )
                     warnings += 1
     total = len(meta.get("sprites", {}))
     if errors:
-        print(f"Validation failed with {errors} error(s), {warnings} warning(s), across {total} sprites.")
+        print(
+            f"Validation failed with {errors} error(s), {warnings} warning(s), across {total} sprites."
+        )
         return 1
-    print(f"Validation ok: {total} sprites, image={img_path.name}, size={(width, height)}, warnings={warnings}")
+    print(
+        f"Validation ok: {total} sprites, image={img_path.name}, size={(width, height)}, warnings={warnings}"
+    )
     return 0
 
 
-def refine_metadata(meta_path: Path, out_path: Path, report_path: Optional[Path] = None) -> int:
+def refine_metadata(
+    meta_path: Path, out_path: Path, report_path: Optional[Path] = None
+) -> int:
     meta = load_metadata(meta_path)
     img_path = resolve_image_path(meta_path, meta)
     with Image.open(img_path) as im:
@@ -323,18 +355,28 @@ def refine_metadata(meta_path: Path, out_path: Path, report_path: Optional[Path]
     default_search_padding = int(refine_cfg.get("default_search_padding", 28))
     default_output_padding = int(refine_cfg.get("output_padding", 4))
     threshold = float(refine_cfg.get("background_distance_transparent", 38))
-    min_overlap_fraction_default = float(refine_cfg.get("component_selection", {}).get("min_overlap_fraction", 0.18))
-    keep_multiple_default = bool(refine_cfg.get("component_selection", {}).get("keep_multiple_components", True))
-    min_area_default = int(refine_cfg.get("component_selection", {}).get("min_component_area", 18))
+    min_overlap_fraction_default = float(
+        refine_cfg.get("component_selection", {}).get("min_overlap_fraction", 0.18)
+    )
+    keep_multiple_default = bool(
+        refine_cfg.get("component_selection", {}).get("keep_multiple_components", True)
+    )
+    min_area_default = int(
+        refine_cfg.get("component_selection", {}).get("min_component_area", 18)
+    )
     clamp_points_to_crop = bool(refine_cfg.get("clamp_points_to_crop", True))
 
     full_mask = foreground_mask(rgba, bg_rgb, threshold)
     out_meta = dict(meta)
     out_meta["version"] = str(out_meta.get("version", "0.2.0")) + "+refined"
     out_meta["image"] = dict(out_meta.get("image", {}))
-    out_meta["image"]["estimated_background_rgb"] = [int(round(v)) for v in bg_rgb.tolist()]
+    out_meta["image"]["estimated_background_rgb"] = [
+        int(round(v)) for v in bg_rgb.tolist()
+    ]
     out_meta["metadata_quality"] = dict(out_meta.get("metadata_quality", {}))
-    out_meta["metadata_quality"]["rect_precision"] = "programmatically_refined_from_rough_yaml"
+    out_meta["metadata_quality"]["rect_precision"] = (
+        "programmatically_refined_from_rough_yaml"
+    )
     out_meta["metadata_quality"]["refinement_source"] = str(meta_path.name)
     out_meta["sprites"] = {}
     report: Dict[str, Any] = {
@@ -351,14 +393,20 @@ def refine_metadata(meta_path: Path, out_path: Path, report_path: Optional[Path]
         search_padding = int(sp_refine.get("search_padding", default_search_padding))
         output_padding = int(sp_refine.get("output_padding", default_output_padding))
         min_area = int(sp_refine.get("min_component_area", min_area_default))
-        min_overlap_fraction = float(sp_refine.get("min_overlap_fraction", min_overlap_fraction_default))
-        keep_multiple = bool(sp_refine.get("keep_multiple_components", keep_multiple_default))
+        min_overlap_fraction = float(
+            sp_refine.get("min_overlap_fraction", min_overlap_fraction_default)
+        )
+        keep_multiple = bool(
+            sp_refine.get("keep_multiple_components", keep_multiple_default)
+        )
 
         search_rect = expand_rect(old_rect, search_padding, width, height)
         sx, sy, sw, sh = search_rect
         search_mask = full_mask[sy : sy + sh, sx : sx + sw]
         comps = connected_components(search_mask, min_area=min_area)
-        selected = select_components(comps, old_rect, search_rect, min_overlap_fraction, keep_multiple)
+        selected = select_components(
+            comps, old_rect, search_rect, min_overlap_fraction, keep_multiple
+        )
         warnings: List[str] = []
         if not selected:
             rx, ry, rw, rh = old_rect
@@ -370,7 +418,9 @@ def refine_metadata(meta_path: Path, out_path: Path, report_path: Optional[Path]
             else:
                 fx, fy, fw, fh = fallback
                 new_rect = clamp_rect((rx + fx, ry + fy, fw, fh), width, height)
-                warnings.append("no selected components in search window; used foreground bbox inside rough rect")
+                warnings.append(
+                    "no selected components in search window; used foreground bbox inside rough rect"
+                )
         else:
             local_union = union_rect([c.bbox for c in selected])
             lx, ly, lw, lh = local_union
@@ -382,23 +432,33 @@ def refine_metadata(meta_path: Path, out_path: Path, report_path: Optional[Path]
             for comp in selected:
                 x, y, w, h = comp.bbox
                 if x <= 0 or y <= 0 or x + w >= sw or y + h >= sh:
-                    warnings.append("selected foreground touches search boundary; increase search_padding")
+                    warnings.append(
+                        "selected foreground touches search boundary; increase search_padding"
+                    )
                     break
         refined_sprite = dict(sprite)
         refined_sprite["rough_rect"] = list(old_rect)
         refined_sprite["rect"] = [int(v) for v in new_rect]
+
         def maybe_clamp_point(pt: List[int]) -> List[int]:
             if not clamp_points_to_crop:
                 return pt
-            return [max(0, min(int(new_rect[2] - 1), int(pt[0]))), max(0, min(int(new_rect[3] - 1), int(pt[1])))]
+            return [
+                max(0, min(int(new_rect[2] - 1), int(pt[0]))),
+                max(0, min(int(new_rect[3] - 1), int(pt[1]))),
+            ]
 
         if "pivot" in sprite and len(sprite["pivot"]) == 2:
-            refined_sprite["pivot"] = maybe_clamp_point(adjust_point(list(sprite["pivot"]), old_rect, new_rect))
+            refined_sprite["pivot"] = maybe_clamp_point(
+                adjust_point(list(sprite["pivot"]), old_rect, new_rect)
+            )
         if "anchors" in sprite:
             anchors = {}
             for aname, point in sprite.get("anchors", {}).items():
                 if isinstance(point, list) and len(point) == 2:
-                    anchors[aname] = maybe_clamp_point(adjust_point(point, old_rect, new_rect))
+                    anchors[aname] = maybe_clamp_point(
+                        adjust_point(point, old_rect, new_rect)
+                    )
                 else:
                     anchors[aname] = point
             refined_sprite["anchors"] = anchors
@@ -411,7 +471,10 @@ def refine_metadata(meta_path: Path, out_path: Path, report_path: Optional[Path]
             "warnings": warnings,
         }
         out_meta["sprites"][sid] = refined_sprite
-        report["sprites"][sid] = refined_sprite["refined"] | {"rough_rect": list(old_rect), "rect": list(new_rect)}
+        report["sprites"][sid] = refined_sprite["refined"] | {
+            "rough_rect": list(old_rect),
+            "rect": list(new_rect),
+        }
 
     save_metadata(out_meta, out_path)
     if report_path:
@@ -432,7 +495,9 @@ def slice_components(meta_path: Path, out_dir: Path, *, remove_bg: bool = True) 
     with Image.open(img_path) as source_image:
         source_image = source_image.convert("RGBA")
         rgba = np.array(source_image)
-        bg_rgb = np.array(meta.get("image", {}).get("estimated_background_rgb", []), dtype=np.float32)
+        bg_rgb = np.array(
+            meta.get("image", {}).get("estimated_background_rgb", []), dtype=np.float32
+        )
         if bg_rgb.size != 3:
             bg_rgb = estimate_background_rgb(rgba)
         refine_cfg = meta.get("refinement", {}) or {}
@@ -445,7 +510,13 @@ def slice_components(meta_path: Path, out_dir: Path, *, remove_bg: bool = True) 
             x, y, w, h = clamp_rect(rect, source_image.width, source_image.height)
             crop = source_image.crop((x, y, x + w, y + h))
             if remove_bg:
-                crop = greenscreen_to_alpha(crop, bg_rgb, transparent=transparent, opaque=opaque, despill=despill)
+                crop = greenscreen_to_alpha(
+                    crop,
+                    bg_rgb,
+                    transparent=transparent,
+                    opaque=opaque,
+                    despill=despill,
+                )
             out_path = out_dir / f"{sid}.png"
             crop.save(out_path)
             index[sid] = {
@@ -457,7 +528,10 @@ def slice_components(meta_path: Path, out_dir: Path, *, remove_bg: bool = True) 
                 "tags": sprite.get("tags", []),
                 "refined": sprite.get("refined", {}),
             }
-    (out_dir / "slices.index.json").write_text(json.dumps({"source_metadata": str(meta_path), "sprites": index}, indent=2), encoding="utf8")
+    (out_dir / "slices.index.json").write_text(
+        json.dumps({"source_metadata": str(meta_path), "sprites": index}, indent=2),
+        encoding="utf8",
+    )
     print(f"Wrote {len(index)} slices to {out_dir}")
 
 
@@ -479,8 +553,16 @@ def make_checkerboard(size: Tuple[int, int], cell: int = 12) -> Image.Image:
     return Image.fromarray(arr, mode="RGBA")
 
 
-def contact_sheet(src_dir: Path, out_path: Path, cell_w: int = 180, cell_h: int = 160, columns: int = 5) -> None:
-    files = sorted(p for p in src_dir.glob("*.png") if p.name not in {"contact_sheet.png"})
+def contact_sheet(
+    src_dir: Path,
+    out_path: Path,
+    cell_w: int = 180,
+    cell_h: int = 160,
+    columns: int = 5,
+) -> None:
+    files = sorted(
+        p for p in src_dir.glob("*.png") if p.name not in {"contact_sheet.png"}
+    )
     files = [p for p in files if p.name != "slices.index.json"]
     if not files:
         raise FileNotFoundError(f"No PNG files found in {src_dir}")
@@ -496,14 +578,19 @@ def contact_sheet(src_dir: Path, out_path: Path, cell_w: int = 180, cell_h: int 
         row = idx // columns
         x0 = col * cell_w
         y0 = row * cell_h
-        draw.rectangle([x0, y0, x0 + cell_w - 1, y0 + cell_h - 1], outline=(200, 200, 200, 255))
+        draw.rectangle(
+            [x0, y0, x0 + cell_w - 1, y0 + cell_h - 1], outline=(200, 200, 200, 255)
+        )
         with Image.open(path) as im:
             im = im.convert("RGBA")
             max_w = cell_w - 20
             max_h = cell_h - 34
             scale = min(max_w / im.width, max_h / im.height, 1.0)
             if scale < 1.0:
-                im = im.resize((max(1, int(im.width * scale)), max(1, int(im.height * scale))), Image.Resampling.LANCZOS)
+                im = im.resize(
+                    (max(1, int(im.width * scale)), max(1, int(im.height * scale))),
+                    Image.Resampling.LANCZOS,
+                )
             bg = make_checkerboard((cell_w - 12, cell_h - 32), cell=10)
             sheet.alpha_composite(bg, (x0 + 6, y0 + 6))
             px = x0 + (cell_w - im.width) // 2
@@ -519,29 +606,47 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    p_validate = sub.add_parser("validate", help="validate metadata and source image bounds")
+    p_validate = sub.add_parser(
+        "validate", help="validate metadata and source image bounds"
+    )
     p_validate.add_argument("metadata", type=Path)
 
-    p_refine = sub.add_parser("refine", help="refine rough YAML boxes using green-screen foreground extents")
+    p_refine = sub.add_parser(
+        "refine", help="refine rough YAML boxes using green-screen foreground extents"
+    )
     p_refine.add_argument("metadata", type=Path)
-    p_refine.add_argument("--out", type=Path, default=Path("metadata/robot_components.refined.yaml"))
-    p_refine.add_argument("--report", type=Path, default=Path("output/refinement_report.json"))
+    p_refine.add_argument(
+        "--out", type=Path, default=Path("metadata/robot_components.refined.yaml")
+    )
+    p_refine.add_argument(
+        "--report", type=Path, default=Path("output/refinement_report.json")
+    )
 
     p_slice = sub.add_parser("slice", help="slice components from refined metadata")
     p_slice.add_argument("metadata", type=Path)
     p_slice.add_argument("--out", type=Path, default=Path("output/slices"))
-    p_slice.add_argument("--keep-background", action="store_true", help="do not remove the green screen")
+    p_slice.add_argument(
+        "--keep-background", action="store_true", help="do not remove the green screen"
+    )
 
-    p_build = sub.add_parser("build", help="refine, slice, and generate contact sheet in one command")
+    p_build = sub.add_parser(
+        "build", help="refine, slice, and generate contact sheet in one command"
+    )
     p_build.add_argument("metadata", type=Path)
-    p_build.add_argument("--refined", type=Path, default=Path("metadata/robot_components.refined.yaml"))
+    p_build.add_argument(
+        "--refined", type=Path, default=Path("metadata/robot_components.refined.yaml")
+    )
     p_build.add_argument("--slices", type=Path, default=Path("output/slices"))
-    p_build.add_argument("--contact", type=Path, default=Path("output/contact_sheet.png"))
+    p_build.add_argument(
+        "--contact", type=Path, default=Path("output/contact_sheet.png")
+    )
 
     p_list = sub.add_parser("list", help="list sprite ids")
     p_list.add_argument("metadata", type=Path)
 
-    p_contact = sub.add_parser("contact-sheet", help="make a contact sheet from sliced PNGs")
+    p_contact = sub.add_parser(
+        "contact-sheet", help="make a contact sheet from sliced PNGs"
+    )
     p_contact.add_argument("src_dir", type=Path)
     p_contact.add_argument("--out", type=Path, default=Path("output/contact_sheet.png"))
     p_contact.add_argument("--cell-width", type=int, default=180)
@@ -561,7 +666,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         slice_components(args.metadata, args.out, remove_bg=not args.keep_background)
         return 0
     if args.cmd == "build":
-        refine_metadata(args.metadata, args.refined, Path("output/refinement_report.json"))
+        refine_metadata(
+            args.metadata, args.refined, Path("output/refinement_report.json")
+        )
         slice_components(args.refined, args.slices, remove_bg=True)
         contact_sheet(args.slices, args.contact)
         return 0
@@ -569,7 +676,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         list_sprites(args.metadata)
         return 0
     if args.cmd == "contact-sheet":
-        contact_sheet(args.src_dir, args.out, cell_w=args.cell_width, cell_h=args.cell_height, columns=args.columns)
+        contact_sheet(
+            args.src_dir,
+            args.out,
+            cell_w=args.cell_width,
+            cell_h=args.cell_height,
+            columns=args.columns,
+        )
         return 0
     parser.error(f"Unknown command: {args.cmd}")
     return 2

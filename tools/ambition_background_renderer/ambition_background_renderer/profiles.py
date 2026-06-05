@@ -45,7 +45,10 @@ PROFILE_SEEDS: tuple[tuple[str, int], ...] = (
 
 
 def profiles() -> dict[str, BackgroundProfile]:
-    return {name: BackgroundProfile(name=name, layers=_layers(seed_base)) for name, seed_base in PROFILE_SEEDS}
+    return {
+        name: BackgroundProfile(name=name, layers=_layers(seed_base))
+        for name, seed_base in PROFILE_SEEDS
+    }
 
 
 def iter_profiles(selected: str | None = None) -> Iterable[BackgroundProfile]:
@@ -56,4 +59,6 @@ def iter_profiles(selected: str | None = None) -> Iterable[BackgroundProfile]:
         return (all_profiles[selected],)
     except KeyError as ex:
         known = ", ".join(sorted(all_profiles))
-        raise KeyError(f"unknown background profile {selected!r}; known profiles: {known}") from ex
+        raise KeyError(
+            f"unknown background profile {selected!r}; known profiles: {known}"
+        ) from ex

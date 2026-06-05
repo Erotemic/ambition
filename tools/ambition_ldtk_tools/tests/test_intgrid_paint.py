@@ -4,6 +4,7 @@ Symmetric counterpart to `intgrid erase` tests if any existed —
 verifies that painting a rect of a given IntGrid value updates the
 right cells and doesn't disturb the rest of the layer.
 """
+
 from __future__ import annotations
 
 import json
@@ -17,7 +18,9 @@ sys.path.insert(0, str(REPO_ROOT / "tools" / "ambition_ldtk_tools"))
 from ambition_ldtk_tools.edit.intgrid import main as intgrid_main  # noqa: E402
 
 
-def make_minimal_project(width_px: int = 160, height_px: int = 96, grid: int = 16) -> dict:
+def make_minimal_project(
+    width_px: int = 160, height_px: int = 96, grid: int = 16
+) -> dict:
     c_wid = width_px // grid
     c_hei = height_px // grid
     return {
@@ -74,15 +77,22 @@ def test_intgrid_paint_fills_rect_with_value():
         path = Path(td) / "test.ldtk"
         path.write_text(json.dumps(project, indent="\t") + "\n")
         # Paint a 32 px wide row at y=64, value=1.
-        rc = intgrid_main([
-            "paint",
-            "--ldtk", str(path),
-            "--level", "TestLevel",
-            "--px", "0,64",
-            "--size", "160,16",
-            "--value", "1",
-            "--no-repair",  # don't run repair pass on the test fixture
-        ])
+        rc = intgrid_main(
+            [
+                "paint",
+                "--ldtk",
+                str(path),
+                "--level",
+                "TestLevel",
+                "--px",
+                "0,64",
+                "--size",
+                "160,16",
+                "--value",
+                "1",
+                "--no-repair",  # don't run repair pass on the test fixture
+            ]
+        )
         assert rc == 0
         reloaded = json.loads(path.read_text())
         csv = reloaded["levels"][0]["layerInstances"][0]["intGridCsv"]
@@ -102,16 +112,23 @@ def test_intgrid_paint_dry_run_does_not_mutate():
         path = Path(td) / "test.ldtk"
         original = json.dumps(project, indent="\t") + "\n"
         path.write_text(original)
-        rc = intgrid_main([
-            "paint",
-            "--ldtk", str(path),
-            "--level", "TestLevel",
-            "--px", "0,0",
-            "--size", "16,16",
-            "--value", "1",
-            "--dry-run",
-            "--no-repair",
-        ])
+        rc = intgrid_main(
+            [
+                "paint",
+                "--ldtk",
+                str(path),
+                "--level",
+                "TestLevel",
+                "--px",
+                "0,0",
+                "--size",
+                "16,16",
+                "--value",
+                "1",
+                "--dry-run",
+                "--no-repair",
+            ]
+        )
         assert rc == 0
         # File should be unchanged.
         assert path.read_text() == original
@@ -124,15 +141,22 @@ def test_intgrid_paint_skips_cells_already_at_target_value():
     with tempfile.TemporaryDirectory() as td:
         path = Path(td) / "test.ldtk"
         path.write_text(json.dumps(project, indent="\t") + "\n")
-        rc = intgrid_main([
-            "paint",
-            "--ldtk", str(path),
-            "--level", "TestLevel",
-            "--px", "0,0",
-            "--size", "32,16",  # covers cells (0,0) + (1,0)
-            "--value", "1",
-            "--no-repair",
-        ])
+        rc = intgrid_main(
+            [
+                "paint",
+                "--ldtk",
+                str(path),
+                "--level",
+                "TestLevel",
+                "--px",
+                "0,0",
+                "--size",
+                "32,16",  # covers cells (0,0) + (1,0)
+                "--value",
+                "1",
+                "--no-repair",
+            ]
+        )
         assert rc == 0
         # Only 1 cell should have changed (the second one).
         # We can't easily assert that from the output without

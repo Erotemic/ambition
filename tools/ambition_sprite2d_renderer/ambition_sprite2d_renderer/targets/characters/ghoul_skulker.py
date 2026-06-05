@@ -65,7 +65,11 @@ ACTOR_METADATA = {
     "capabilities": {
         "traversal": {
             "walk": True,
-            "jump": {"height_px": None, "distance_px": None, "source": "ghoul_pounce_animation"},
+            "jump": {
+                "height_px": None,
+                "distance_px": None,
+                "source": "ghoul_pounce_animation",
+            },
             "climb": None,
             "crawl": True,
             "fly": None,
@@ -88,16 +92,32 @@ ACTOR_METADATA = {
         "action.melee.primary": {
             "animation": "claw",
             "events": [
-                {"t": 0.34, "event": "hitbox_active_start", "source": "ghoul_skulker.claw"},
-                {"t": 0.58, "event": "hitbox_active_end", "source": "ghoul_skulker.claw"},
+                {
+                    "t": 0.34,
+                    "event": "hitbox_active_start",
+                    "source": "ghoul_skulker.claw",
+                },
+                {
+                    "t": 0.58,
+                    "event": "hitbox_active_end",
+                    "source": "ghoul_skulker.claw",
+                },
             ],
         },
         "action.special.pounce": {
             "animation": "pounce",
             "events": [
                 {"t": 0.25, "event": "leap_commit", "source": "ghoul_skulker.pounce"},
-                {"t": 0.54, "event": "hitbox_active_start", "source": "ghoul_skulker.pounce"},
-                {"t": 0.70, "event": "hitbox_active_end", "source": "ghoul_skulker.pounce"},
+                {
+                    "t": 0.54,
+                    "event": "hitbox_active_start",
+                    "source": "ghoul_skulker.pounce",
+                },
+                {
+                    "t": 0.70,
+                    "event": "hitbox_active_end",
+                    "source": "ghoul_skulker.pounce",
+                },
             ],
         },
         "interaction.cackle": {"animation": "cackle", "events": []},
@@ -106,11 +126,26 @@ ACTOR_METADATA = {
     },
     "sockets": {
         "head": {"source": "ghoul_skulker.geometry", "point": {"x": 166.0, "y": 82.0}},
-        "mouth": {"source": "ghoul_skulker.geometry", "point": {"x": 188.0, "y": 102.0}},
-        "hand_l": {"source": "ghoul_skulker.geometry", "point": {"x": 90.0, "y": 198.0}},
-        "hand_r": {"source": "ghoul_skulker.geometry", "point": {"x": 238.0, "y": 194.0}},
-        "claw_tip": {"source": "ghoul_skulker.geometry", "point": {"x": 254.0, "y": 202.0}},
-        "pounce_origin": {"source": "ghoul_skulker.geometry", "point": {"x": 170.0, "y": 245.0}},
+        "mouth": {
+            "source": "ghoul_skulker.geometry",
+            "point": {"x": 188.0, "y": 102.0},
+        },
+        "hand_l": {
+            "source": "ghoul_skulker.geometry",
+            "point": {"x": 90.0, "y": 198.0},
+        },
+        "hand_r": {
+            "source": "ghoul_skulker.geometry",
+            "point": {"x": 238.0, "y": 194.0},
+        },
+        "claw_tip": {
+            "source": "ghoul_skulker.geometry",
+            "point": {"x": 254.0, "y": 202.0},
+        },
+        "pounce_origin": {
+            "source": "ghoul_skulker.geometry",
+            "point": {"x": 170.0, "y": 245.0},
+        },
     },
     "tags": ["enemy", "undead", "skulker"],
 }
@@ -161,23 +196,56 @@ def _rot(x: float, y: float, deg: float) -> Point:
     return (x * c - y * s, x * s + y * c)
 
 
-def _poly(draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
+def _poly(
+    draw: ImageDraw.ImageDraw,
+    pts: Sequence[Point],
+    fill: RGBA,
+    outline: RGBA = OUTLINE,
+    width: float = 1.0,
+) -> None:
     ipts = [_pt(p) for p in pts]
     draw.polygon(ipts, fill=fill)
     if outline and width > 0:
-        draw.line(ipts + [ipts[0]], fill=outline, width=max(1, _s(width)), joint="curve")
+        draw.line(
+            ipts + [ipts[0]], fill=outline, width=max(1, _s(width)), joint="curve"
+        )
 
 
-def _line(draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, width: float = 1.0) -> None:
+def _line(
+    draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, width: float = 1.0
+) -> None:
     draw.line([_pt(p) for p in pts], fill=fill, width=max(1, _s(width)), joint="curve")
 
 
-def _circle(draw: ImageDraw.ImageDraw, p: Point, r: float, fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
-    draw.ellipse((_s(p[0] - r), _s(p[1] - r), _s(p[0] + r), _s(p[1] + r)), fill=fill, outline=outline, width=max(1, _s(width)))
+def _circle(
+    draw: ImageDraw.ImageDraw,
+    p: Point,
+    r: float,
+    fill: RGBA,
+    outline: RGBA = OUTLINE,
+    width: float = 1.0,
+) -> None:
+    draw.ellipse(
+        (_s(p[0] - r), _s(p[1] - r), _s(p[0] + r), _s(p[1] + r)),
+        fill=fill,
+        outline=outline,
+        width=max(1, _s(width)),
+    )
 
 
-def _ellipse(draw: ImageDraw.ImageDraw, cx: float, cy: float, rx: float, ry: float, fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
-    draw.ellipse(_box(cx, cy, rx, ry), fill=fill, outline=outline, width=max(1, _s(width)))
+def _ellipse(
+    draw: ImageDraw.ImageDraw,
+    cx: float,
+    cy: float,
+    rx: float,
+    ry: float,
+    fill: RGBA,
+    outline: RGBA = OUTLINE,
+    width: float = 1.0,
+) -> None:
+    draw.ellipse(
+        _box(cx, cy, rx, ry), fill=fill, outline=outline, width=max(1, _s(width))
+    )
 
 
 def _downsample(img: Image.Image) -> Image.Image:
@@ -317,7 +385,14 @@ class Pose:
             self.x_eye = tt > 0.55
 
 
-def _draw_hand(draw: ImageDraw.ImageDraw, hand: Point, ang: float, spread: float, *, front: bool = True) -> None:
+def _draw_hand(
+    draw: ImageDraw.ImageDraw,
+    hand: Point,
+    ang: float,
+    spread: float,
+    *,
+    front: bool = True,
+) -> None:
     palm_r = 6.0 if front else 5.0
     _circle(draw, hand, palm_r, SKIN if front else SKIN_SHADE, OUTLINE, 0.8)
     finger_len = 12.0 if front else 10.0
@@ -331,9 +406,30 @@ def _draw_hand(draw: ImageDraw.ImageDraw, hand: Point, ang: float, spread: float
             base[0] + math.cos(math.radians(a)) * finger_len,
             base[1] + math.sin(math.radians(a)) * finger_len,
         )
-        _line(draw, [hand, base, tip], SKIN if front else SKIN_SHADE, 2.8 if front else 2.3)
+        _line(
+            draw,
+            [hand, base, tip],
+            SKIN if front else SKIN_SHADE,
+            2.8 if front else 2.3,
+        )
         _line(draw, [hand, base, tip], OUTLINE, 0.6)
-        _poly(draw, [tip, (tip[0] + 4 * math.cos(math.radians(a - 18)), tip[1] + 4 * math.sin(math.radians(a - 18))), (tip[0] + 3 * math.cos(math.radians(a + 20)), tip[1] + 3 * math.sin(math.radians(a + 20)))], NAIL, OUTLINE, 0.35)
+        _poly(
+            draw,
+            [
+                tip,
+                (
+                    tip[0] + 4 * math.cos(math.radians(a - 18)),
+                    tip[1] + 4 * math.sin(math.radians(a - 18)),
+                ),
+                (
+                    tip[0] + 3 * math.cos(math.radians(a + 20)),
+                    tip[1] + 3 * math.sin(math.radians(a + 20)),
+                ),
+            ],
+            NAIL,
+            OUTLINE,
+            0.35,
+        )
 
 
 def _draw_foot(draw: ImageDraw.ImageDraw, foot: Point, facing: float) -> None:
@@ -347,15 +443,26 @@ def _draw_foot(draw: ImageDraw.ImageDraw, foot: Point, facing: float) -> None:
     _poly(draw, sole, SKIN_SHADE, OUTLINE, 0.8)
     for frac in [0.65, 0.82, 0.98]:
         toe = (foot[0] + (12 + facing * 4) * frac, foot[1] + 2)
-        _poly(draw, [toe, (toe[0] + 4, toe[1] - 1), (toe[0] + 2, toe[1] + 3)], NAIL, OUTLINE, 0.3)
+        _poly(
+            draw,
+            [toe, (toe[0] + 4, toe[1] - 1), (toe[0] + 2, toe[1] + 3)],
+            NAIL,
+            OUTLINE,
+            0.3,
+        )
 
 
 def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
-    img = Image.new("RGBA", (WORK_FRAME_SIZE[0] * SUPER, WORK_FRAME_SIZE[1] * SUPER), (0, 0, 0, 0))
+    img = Image.new(
+        "RGBA", (WORK_FRAME_SIZE[0] * SUPER, WORK_FRAME_SIZE[1] * SUPER), (0, 0, 0, 0)
+    )
     draw = ImageDraw.Draw(img, "RGBA")
     pose = Pose(anim, frame_idx, nframes)
 
-    root = (WORK_FRAME_SIZE[0] * 0.47 + pose.root_x + pose.dead_t * 8.0, WORK_FRAME_SIZE[1] * 0.75 + pose.root_y + pose.bob)
+    root = (
+        WORK_FRAME_SIZE[0] * 0.47 + pose.root_x + pose.dead_t * 8.0,
+        WORK_FRAME_SIZE[1] * 0.75 + pose.root_y + pose.bob,
+    )
     tilt = pose.lean
 
     def P(x: float, y: float) -> Point:
@@ -379,10 +486,25 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
     # pelvis and torso
     pelvis = [P(-18, -66), P(14, -66), P(28, -44), P(12, -24), P(-12, -26), P(-26, -46)]
     _poly(draw, pelvis, SKIN_SHADE, OUTLINE, 1.0)
-    loincloth = [P(-10, -60), P(16, -60), P(18, -25), P(4, -6), P(-10, -12), P(-14, -34)]
+    loincloth = [
+        P(-10, -60),
+        P(16, -60),
+        P(18, -25),
+        P(4, -6),
+        P(-10, -12),
+        P(-14, -34),
+    ]
     _poly(draw, loincloth, CLOTH, OUTLINE, 0.8)
     _line(draw, [P(-4, -54), P(4, -10)], CLOTH_HI, 0.8)
-    torso = [P(-18, -116), P(18, -124), P(34, -102), P(28, -58), P(12, -40), P(-16, -46), P(-30, -84)]
+    torso = [
+        P(-18, -116),
+        P(18, -124),
+        P(34, -102),
+        P(28, -58),
+        P(12, -40),
+        P(-16, -46),
+        P(-30, -84),
+    ]
     _poly(draw, torso, SKIN, OUTLINE, 1.2)
     chest_l = [P(-14, -94), P(-6, -102), P(0, -90), P(-4, -78), P(-12, -78)]
     chest_r = [P(2, -94), P(12, -100), P(16, -86), P(12, -76), P(2, -78)]
@@ -400,23 +522,54 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
     _line(draw, [right_elbow, right_hand], SKIN_SHADE, 5.2)
     _line(draw, [right_shoulder, right_elbow, right_hand], OUTLINE, 1.0)
     _circle(draw, right_elbow, 4.8, SKIN_SHADE, OUTLINE, 0.5)
-    _draw_hand(draw, right_hand, 12 + pose.right_arm * 0.3, pose.hand_spread, front=False)
+    _draw_hand(
+        draw, right_hand, 12 + pose.right_arm * 0.3, pose.hand_spread, front=False
+    )
 
     # head and cap
     head_root = P(0, -128)
     head_tilt = tilt + pose.head_tilt
+
     def H(x: float, y: float) -> Point:
         rx, ry = _rot(x, y, head_tilt)
         return (head_root[0] + rx, head_root[1] + ry)
 
-    cap = [H(-16, -22), H(0, -40), H(22, -38), H(36 + pose.cap_swing * 0.35, -18 + pose.cap_swing * 0.12), H(26 + pose.cap_swing * 0.45, -4), H(8, -8), H(-10, -4)]
+    cap = [
+        H(-16, -22),
+        H(0, -40),
+        H(22, -38),
+        H(36 + pose.cap_swing * 0.35, -18 + pose.cap_swing * 0.12),
+        H(26 + pose.cap_swing * 0.45, -4),
+        H(8, -8),
+        H(-10, -4),
+    ]
     _poly(draw, cap, CAP, OUTLINE, 1.0)
-    tail = [H(18, -28), H(44 + pose.cap_swing * 0.35, -42), H(66 + pose.cap_swing * 0.5, -26), H(34 + pose.cap_swing * 0.25, -10)]
+    tail = [
+        H(18, -28),
+        H(44 + pose.cap_swing * 0.35, -42),
+        H(66 + pose.cap_swing * 0.5, -26),
+        H(34 + pose.cap_swing * 0.25, -10),
+    ]
     _poly(draw, tail, CAP_SHADE, OUTLINE, 0.8)
-    head = [H(-16, -14), H(-10, -26), H(6, -30), H(18, -20), H(20, -4), H(12, 10), H(-6, 14), H(-18, 2)]
+    head = [
+        H(-16, -14),
+        H(-10, -26),
+        H(6, -30),
+        H(18, -20),
+        H(20, -4),
+        H(12, 10),
+        H(-6, 14),
+        H(-18, 2),
+    ]
     _poly(draw, head, SKIN, OUTLINE, 1.1)
 
-    nose = [H(10, -10), H(28, -12 + pose.nose_pitch * 0.2), H(42, -4 + pose.nose_pitch * 0.25), H(22, 0), H(14, 2)]
+    nose = [
+        H(10, -10),
+        H(28, -12 + pose.nose_pitch * 0.2),
+        H(42, -4 + pose.nose_pitch * 0.25),
+        H(22, 0),
+        H(14, 2),
+    ]
     _poly(draw, nose, SKIN_SHADE, OUTLINE, 0.8)
     moust_l = [H(8, 0), H(-2, 4), H(-12, 2), H(-18, -4), H(-14, -8), H(-4, -5)]
     moust_r = [H(14, 0), H(22, 2), H(34, 0), H(40, -7), H(36, -12), H(24, -8)]
@@ -434,7 +587,16 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
         _line(draw, [H(-8, -11), H(2, -12)], OUTLINE, 0.8)
     _line(draw, [H(15, -4), H(18, 2)], SKIN_DARK, 0.6)
     if pose.mouth > 0.16:
-        _ellipse(draw, H(4, 8)[0], H(4, 8)[1], 6.0, 3.6 + pose.mouth * 3.0, MOUTH, OUTLINE, 0.6)
+        _ellipse(
+            draw,
+            H(4, 8)[0],
+            H(4, 8)[1],
+            6.0,
+            3.6 + pose.mouth * 3.0,
+            MOUTH,
+            OUTLINE,
+            0.6,
+        )
         _poly(draw, [H(0, 8), H(4, 13), H(8, 8)], TEETH, OUTLINE, 0.25)
     else:
         _line(draw, [H(0, 8), H(6, 10), H(12, 8)], LIP, 0.8)
@@ -462,7 +624,18 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
     if anim in {"skulk", "pounce"} and (pose.left_lift > 1.0 or pose.right_lift > 1.0):
         for i, (dx, dy) in enumerate([(-26, 0), (-10, 4), (12, 1), (30, 5)]):
             c = P(dx, 34 + dy)
-            _poly(draw, [(c[0] - 2, c[1]), (c[0], c[1] - 4), (c[0] + 3, c[1] - 1), (c[0] + 1, c[1] + 2)], DUST, (88, 80, 70, 100), 0.25)
+            _poly(
+                draw,
+                [
+                    (c[0] - 2, c[1]),
+                    (c[0], c[1] - 4),
+                    (c[0] + 3, c[1] - 1),
+                    (c[0] + 1, c[1] + 2),
+                ],
+                DUST,
+                (88, 80, 70, 100),
+                0.25,
+            )
 
     return _downsample(img)
 
@@ -473,7 +646,9 @@ def render(out_dir: str | Path, **opts) -> List[Path]:
     outputs = build_sheet(
         target=TARGET_NAME,
         rows=ROWS,
-        render_fn=lambda anim, frame_idx, nframes: _render_frame(anim, frame_idx, nframes),
+        render_fn=lambda anim, frame_idx, nframes: _render_frame(
+            anim, frame_idx, nframes
+        ),
         out_dir=out_dir,
         frame_size=opts.get("frame_size", FRAME_SIZE),
         crop_margin=10,
@@ -492,8 +667,14 @@ def render(out_dir: str | Path, **opts) -> List[Path]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Render the standalone Ghoul Skulker sprite sheet.")
-    parser.add_argument("--out-dir", type=Path, default=Path(__file__).resolve().parents[2] / "generated" / TARGET_NAME)
+    parser = argparse.ArgumentParser(
+        description="Render the standalone Ghoul Skulker sprite sheet."
+    )
+    parser.add_argument(
+        "--out-dir",
+        type=Path,
+        default=Path(__file__).resolve().parents[2] / "generated" / TARGET_NAME,
+    )
     args = parser.parse_args(argv)
     for path in render(args.out_dir):
         print(path)

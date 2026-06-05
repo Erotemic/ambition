@@ -28,8 +28,11 @@ from PIL import Image, ImageDraw, ImageFont
 import pygame
 
 from utils import (
-    load_config, out_path,
-    chroma_key as do_chroma_key, cleanup_green_residue, src_path,
+    load_config,
+    out_path,
+    chroma_key as do_chroma_key,
+    cleanup_green_residue,
+    src_path,
 )
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -62,6 +65,7 @@ def load_pygame_font(size: int) -> pygame.font.Font:
 
 
 # ── Frame loading ─────────────────────────────────────────────────────────────
+
 
 def load_panel_frames(cfg: dict) -> list:
     """Load PNG files from panels/ in the sequence defined by panel_animation."""
@@ -103,15 +107,21 @@ def load_spritesheet_frames(cfg: dict) -> list:
             bbox = cell.getbbox()
             if bbox:
                 l, t, r, b = bbox
-                cell = cell.crop((max(0, l - margin), max(0, t - margin),
-                                   min(cell.width, r + margin),
-                                   min(cell.height, b + margin)))
+                cell = cell.crop(
+                    (
+                        max(0, l - margin),
+                        max(0, t - margin),
+                        min(cell.width, r + margin),
+                        min(cell.height, b + margin),
+                    )
+                )
             frames.append(cell)
     print(f"  loaded {len(frames)} frames from spritesheet")
     return frames
 
 
 # ── Shared panel-rect helper ──────────────────────────────────────────────────
+
 
 def make_panel_rect(W: int, H: int, sample: Image.Image) -> tuple:
     """Compute (px, py, pw, ph) for the panel area, centred in WxH."""
@@ -126,25 +136,31 @@ def make_panel_rect(W: int, H: int, sample: Image.Image) -> tuple:
 
 # ── PIL speech bubble ─────────────────────────────────────────────────────────
 
-def draw_bubble_pil(draw: ImageDraw.ImageDraw,
-                    text: str, font: ImageFont.FreeTypeFont,
-                    panel_rect: tuple, side: str,
-                    bubble_alpha: int, cfg: dict) -> None:
+
+def draw_bubble_pil(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    font: ImageFont.FreeTypeFont,
+    panel_rect: tuple,
+    side: str,
+    bubble_alpha: int,
+    cfg: dict,
+) -> None:
     if not text or bubble_alpha <= 0:
         return
-    ac  = cfg["animation"]
+    ac = cfg["animation"]
     pad = ac["bubble_padding"]
-    bw  = ac["bubble_border_width"]
-    bg  = tuple(ac["bubble_bg"])
+    bw = ac["bubble_border_width"]
+    bg = tuple(ac["bubble_bg"])
     border = tuple(ac["bubble_border"])
     tail_h = ac["bubble_tail_length"]
 
     px, py, pw, ph = panel_rect
     lines = text.split("\n")
     boxes = [draw.textbbox((0, 0), ln, font=font) for ln in lines]
-    line_h  = max(b[3] - b[1] for b in boxes) if boxes else 20
-    text_w  = max(b[2] - b[0] for b in boxes) if boxes else 60
-    text_h  = len(lines) * line_h + max(0, len(lines) - 1) * 4
+    line_h = max(b[3] - b[1] for b in boxes) if boxes else 20
+    text_w = max(b[2] - b[0] for b in boxes) if boxes else 60
+    text_h = len(lines) * line_h + max(0, len(lines) - 1) * 4
 
     bub_w = text_w + pad * 2
     bub_h = text_h + pad * 2
@@ -164,13 +180,16 @@ def draw_bubble_pil(draw: ImageDraw.ImageDraw,
 
     draw.rounded_rectangle(
         [bub_x, bub_y, bub_x + bub_w, bub_y + bub_h],
-        radius=14, fill=bg, outline=border, width=bw,
+        radius=14,
+        fill=bg,
+        outline=border,
+        width=bw,
     )
     tail_base_y = bub_y + bub_h - 1
     tail_pts = [
         (tail_cx - 12, tail_base_y),
         (tail_cx + 12, tail_base_y),
-        (tail_cx,      tail_base_y + tail_h),
+        (tail_cx, tail_base_y + tail_h),
     ]
     draw.polygon(tail_pts, fill=bg)
     draw.rectangle(
@@ -181,32 +200,38 @@ def draw_bubble_pil(draw: ImageDraw.ImageDraw,
     for i, line in enumerate(lines):
         lb = draw.textbbox((0, 0), line, font=font)
         lw = lb[2] - lb[0]
-        draw.text((bub_x + pad + (text_w - lw) // 2, ty), line,
-                  fill=border, font=font)
+        draw.text((bub_x + pad + (text_w - lw) // 2, ty), line, fill=border, font=font)
         ty += line_h + 4
 
 
 # ── PIL frame renderer (used by GIF export) ───────────────────────────────────
 
-def render_frame_pil(frame_img: Image.Image,
-                     bubble_text: str | None, bubble_side: str, bubble_alpha: int,
-                     panel_rect: tuple, cfg: dict, W: int, H: int,
-                     pil_font: ImageFont.FreeTypeFont) -> Image.Image:
+
+def render_frame_pil(
+    frame_img: Image.Image,
+    bubble_text: str | None,
+    bubble_side: str,
+    bubble_alpha: int,
+    panel_rect: tuple,
+    cfg: dict,
+    W: int,
+    H: int,
+    pil_font: ImageFont.FreeTypeFont,
+) -> Image.Image:
     ac = cfg["animation"]
-    bg_col   = tuple(ac["background_color"])
+    bg_col = tuple(ac["background_color"])
     panel_bg = tuple(ac["panel_bg_color"])
-    border   = tuple(ac["panel_border_color"])
-    bdw      = ac["panel_border_width"]
-    shad     = ac["shadow_offset"]
+    border = tuple(ac["panel_border_color"])
+    bdw = ac["panel_border_width"]
+    shad = ac["shadow_offset"]
     shad_col = tuple(ac["shadow_color"][:3])
 
-    out  = Image.new("RGB", (W, H), bg_col)
+    out = Image.new("RGB", (W, H), bg_col)
     draw = ImageDraw.Draw(out)
     px, py, pw, ph = panel_rect
 
     draw.rectangle(
-        [px - bdw + shad, py - bdw + shad,
-         px + pw + bdw + shad, py + ph + bdw + shad],
+        [px - bdw + shad, py - bdw + shad, px + pw + bdw + shad, py + ph + bdw + shad],
         fill=shad_col,
     )
     draw.rectangle([px - bdw, py - bdw, px + pw + bdw, py + ph + bdw], fill=border)
@@ -219,16 +244,24 @@ def render_frame_pil(frame_img: Image.Image,
     out.paste(scaled, (px + (pw - nw) // 2, py + (ph - nh) // 2), scaled)
 
     if bubble_text and bubble_alpha > 0:
-        draw_bubble_pil(draw, bubble_text, pil_font, panel_rect,
-                        bubble_side, bubble_alpha, cfg)
+        draw_bubble_pil(
+            draw, bubble_text, pil_font, panel_rect, bubble_side, bubble_alpha, cfg
+        )
     return out
 
 
 # ── GIF export ────────────────────────────────────────────────────────────────
 
-def export_gif(frames_pil: list, beats: list, cfg: dict,
-               gif_path: str, W: int = 640, H: int = 360,
-               fps: int = 12) -> None:
+
+def export_gif(
+    frames_pil: list,
+    beats: list,
+    cfg: dict,
+    gif_path: str,
+    W: int = 640,
+    H: int = 360,
+    fps: int = 12,
+) -> None:
     """Simulate the animation timeline and write an animated GIF."""
     ac = cfg["animation"]
     pil_font = load_pil_font(ac["bubble_font_size"])
@@ -243,32 +276,50 @@ def export_gif(frames_pil: list, beats: list, cfg: dict,
         beat = beats[beat_idx]
 
         if beat["type"] == "hold":
-            duration    = beat["duration"]
+            duration = beat["duration"]
             bubble_text = beat.get("speech_bubble")
             bubble_side = beat.get("bubble_side", "right")
             bubble_delay = ac["bubble_delay"]
-            frame_img   = frames_pil[beat["frame"]]
+            frame_img = frames_pil[beat["frame"]]
             t = 0.0
             while t < duration:
                 alpha = 255 if bubble_text and t >= bubble_delay else 0
-                gif_frames.append(render_frame_pil(
-                    frame_img, bubble_text, bubble_side, alpha,
-                    panel_rect, cfg, W, H, pil_font,
-                ))
+                gif_frames.append(
+                    render_frame_pil(
+                        frame_img,
+                        bubble_text,
+                        bubble_side,
+                        alpha,
+                        panel_rect,
+                        cfg,
+                        W,
+                        H,
+                        pil_font,
+                    )
+                )
                 t += dt
 
         elif beat["type"] == "play":
-            seq       = beat.get("frames", [])
-            beat_fps  = beat.get("fps", 8)
+            seq = beat.get("frames", [])
+            beat_fps = beat.get("fps", 8)
             frame_dur = 1.0 / max(beat_fps, 0.01)
             total_dur = len(seq) * frame_dur
             t = 0.0
             while t < total_dur:
                 idx = min(int(t / frame_dur), len(seq) - 1)
-                gif_frames.append(render_frame_pil(
-                    frames_pil[seq[idx]], None, "right", 0,
-                    panel_rect, cfg, W, H, pil_font,
-                ))
+                gif_frames.append(
+                    render_frame_pil(
+                        frames_pil[seq[idx]],
+                        None,
+                        "right",
+                        0,
+                        panel_rect,
+                        cfg,
+                        W,
+                        H,
+                        pil_font,
+                    )
+                )
                 t += dt
 
         beat_idx += 1
@@ -292,25 +343,30 @@ def export_gif(frames_pil: list, beats: list, cfg: dict,
 
 # ── pygame helpers ────────────────────────────────────────────────────────────
 
+
 def pil_to_surf(img: Image.Image) -> pygame.Surface:
     return pygame.image.fromstring(img.tobytes(), img.size, "RGBA").convert_alpha()
 
 
-def draw_panel_frame_pg(screen: pygame.Surface,
-                         frame_surf: pygame.Surface,
-                         panel_rect: tuple, cfg: dict) -> None:
-    ac  = cfg["animation"]
+def draw_panel_frame_pg(
+    screen: pygame.Surface, frame_surf: pygame.Surface, panel_rect: tuple, cfg: dict
+) -> None:
+    ac = cfg["animation"]
     bdw = ac["panel_border_width"]
     shd = ac["shadow_offset"]
     px, py, pw, ph = panel_rect
 
-    pygame.draw.rect(screen, tuple(ac["shadow_color"][:3]),
-                     (px - bdw + shd, py - bdw + shd,
-                      pw + bdw * 2, ph + bdw * 2))
-    pygame.draw.rect(screen, tuple(ac["panel_border_color"]),
-                     (px - bdw, py - bdw, pw + bdw * 2, ph + bdw * 2))
-    pygame.draw.rect(screen, tuple(ac["panel_bg_color"]),
-                     (px, py, pw, ph))
+    pygame.draw.rect(
+        screen,
+        tuple(ac["shadow_color"][:3]),
+        (px - bdw + shd, py - bdw + shd, pw + bdw * 2, ph + bdw * 2),
+    )
+    pygame.draw.rect(
+        screen,
+        tuple(ac["panel_border_color"]),
+        (px - bdw, py - bdw, pw + bdw * 2, ph + bdw * 2),
+    )
+    pygame.draw.rect(screen, tuple(ac["panel_bg_color"]), (px, py, pw, ph))
 
     iw, ih = frame_surf.get_size()
     scale = min(pw / max(iw, 1), ph / max(ih, 1))
@@ -319,23 +375,28 @@ def draw_panel_frame_pg(screen: pygame.Surface,
     screen.blit(scaled, (px + (pw - nw) // 2, py + (ph - nh) // 2))
 
 
-def draw_bubble_pg(screen: pygame.Surface,
-                   text: str, font: pygame.font.Font,
-                   panel_rect: tuple, side: str,
-                   alpha: int, cfg: dict) -> None:
+def draw_bubble_pg(
+    screen: pygame.Surface,
+    text: str,
+    font: pygame.font.Font,
+    panel_rect: tuple,
+    side: str,
+    alpha: int,
+    cfg: dict,
+) -> None:
     if not text or alpha <= 0:
         return
-    ac  = cfg["animation"]
+    ac = cfg["animation"]
     pad = ac["bubble_padding"]
-    bw  = ac["bubble_border_width"]
-    bg  = tuple(ac["bubble_bg"])
+    bw = ac["bubble_border_width"]
+    bg = tuple(ac["bubble_bg"])
     border = tuple(ac["bubble_border"])
     tail_h = ac["bubble_tail_length"]
 
     px, py, pw, ph = panel_rect
     lines = text.split("\n")
     surfs = [font.render(ln, True, border) for ln in lines]
-    text_w = max(s.get_width()  for s in surfs) if surfs else 60
+    text_w = max(s.get_width() for s in surfs) if surfs else 60
     line_h = max(s.get_height() for s in surfs) if surfs else 20
 
     bub_w = text_w + pad * 2
@@ -351,17 +412,21 @@ def draw_bubble_pg(screen: pygame.Surface,
 
     buf = pygame.Surface((pw, ph), pygame.SRCALPHA)
     body = pygame.Rect(bub_x, bub_y, bub_w, bub_h)
-    pygame.draw.rect(buf, (*bg, 255),     body, border_radius=14)
+    pygame.draw.rect(buf, (*bg, 255), body, border_radius=14)
     pygame.draw.rect(buf, (*border, 255), body, width=bw, border_radius=14)
     tail_base = bub_y + bub_h - 1
-    pygame.draw.polygon(buf, (*bg, 255), [
-        (tail_cx - 12, tail_base),
-        (tail_cx + 12, tail_base),
-        (tail_cx,      tail_base + tail_h),
-    ])
-    pygame.draw.rect(buf, (*bg, 255),
-                     (bub_x + bw, bub_y + bub_h - bw * 2,
-                      bub_w - bw * 2, bw * 3))
+    pygame.draw.polygon(
+        buf,
+        (*bg, 255),
+        [
+            (tail_cx - 12, tail_base),
+            (tail_cx + 12, tail_base),
+            (tail_cx, tail_base + tail_h),
+        ],
+    )
+    pygame.draw.rect(
+        buf, (*bg, 255), (bub_x + bw, bub_y + bub_h - bw * 2, bub_w - bw * 2, bw * 3)
+    )
     ty = bub_y + pad
     for s in surfs:
         buf.blit(s, (bub_x + pad + (text_w - s.get_width()) // 2, ty))
@@ -373,19 +438,20 @@ def draw_bubble_pg(screen: pygame.Surface,
 
 # ── Beat state machine ────────────────────────────────────────────────────────
 
+
 class BeatAnimator:
     def __init__(self, beats: list, frames: list, cfg: dict):
-        self.beats  = beats
+        self.beats = beats
         self.frames = frames
-        self.cfg    = cfg
+        self.cfg = cfg
         self._reset()
 
     def _reset(self):
-        self.beat_idx       = 0
-        self.elapsed        = 0.0
+        self.beat_idx = 0
+        self.elapsed = 0.0
         self.play_frame_pos = 0
-        self.bubble_alpha   = 0
-        self.done           = False
+        self.bubble_alpha = 0
+        self.done = False
 
     def restart(self):
         self._reset()
@@ -394,10 +460,10 @@ class BeatAnimator:
         return self.beats[self.beat_idx]
 
     def _next(self):
-        self.beat_idx      += 1
-        self.elapsed        = 0.0
+        self.beat_idx += 1
+        self.elapsed = 0.0
         self.play_frame_pos = 0
-        self.bubble_alpha   = 0
+        self.bubble_alpha = 0
         if self.beat_idx >= len(self.beats):
             self.done = True
 
@@ -411,7 +477,7 @@ class BeatAnimator:
         beat = self._beat()
 
         if beat["type"] == "hold":
-            delay    = self.cfg["animation"]["bubble_delay"]
+            delay = self.cfg["animation"]["bubble_delay"]
             fade_dur = self.cfg["animation"]["bubble_fade"]
             if self.elapsed > delay:
                 t = min(1.0, (self.elapsed - delay) / max(fade_dur, 0.01))
@@ -420,9 +486,9 @@ class BeatAnimator:
                 self._next()
 
         elif beat["type"] == "play":
-            fps   = beat.get("fps", 8)
-            seq   = beat.get("frames", [])
-            fdur  = 1.0 / max(fps, 0.01)
+            fps = beat.get("fps", 8)
+            seq = beat.get("frames", [])
+            fdur = 1.0 / max(fps, 0.01)
             self.play_frame_pos = min(int(self.elapsed / fdur), len(seq) - 1)
             if self.elapsed >= len(seq) * fdur:
                 self._next()
@@ -437,15 +503,19 @@ class BeatAnimator:
     def current_bubble(self) -> tuple:
         beat = self._beat()
         if beat["type"] == "hold":
-            return (beat.get("speech_bubble"), beat.get("bubble_side", "right"),
-                    self.bubble_alpha)
+            return (
+                beat.get("speech_bubble"),
+                beat.get("bubble_side", "right"),
+                self.bubble_alpha,
+            )
         return (None, "right", 0)
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+
 def main():
-    cfg  = load_config()
+    cfg = load_config()
     demo = cfg["demo"]
     W, H = demo["width"], demo["height"]
 
@@ -459,7 +529,9 @@ def main():
         frames_pil = load_spritesheet_frames(cfg)
         beats = cfg.get("spritesheet_beats", [])
     else:
-        print("ERROR: no panel_animation or spritesheet in config.yaml", file=sys.stderr)
+        print(
+            "ERROR: no panel_animation or spritesheet in config.yaml", file=sys.stderr
+        )
         sys.exit(1)
 
     if not beats:
@@ -468,22 +540,23 @@ def main():
 
     # ── Export GIF ────────────────────────────────────────────────────────────
     import sys as _sys
+
     gif_path = out_path(cfg, "vanity_card.gif")
     print("Exporting GIF ...")
     export_gif(frames_pil, beats, cfg, gif_path)
 
     # ── pygame setup ──────────────────────────────────────────────────────────
     pygame.init()
-    flags  = pygame.FULLSCREEN if demo.get("fullscreen") else 0
+    flags = pygame.FULLSCREEN if demo.get("fullscreen") else 0
     screen = pygame.display.set_mode((W, H), flags)
     pygame.display.set_caption("Vanity Card  —  Space/Right=skip  R=restart  Esc=quit")
-    clock  = pygame.time.Clock()
+    clock = pygame.time.Clock()
 
     frames_surf = [pil_to_surf(f) for f in frames_pil]
-    pg_font     = load_pygame_font(cfg["animation"]["bubble_font_size"])
-    panel_rect  = make_panel_rect(W, H, frames_pil[0])
-    bg_color    = tuple(cfg["animation"]["background_color"])
-    loop        = demo.get("loop", True)
+    pg_font = load_pygame_font(cfg["animation"]["bubble_font_size"])
+    panel_rect = make_panel_rect(W, H, frames_pil[0])
+    bg_color = tuple(cfg["animation"]["background_color"])
+    loop = demo.get("loop", True)
 
     animator = BeatAnimator(beats, frames_surf, cfg)
 

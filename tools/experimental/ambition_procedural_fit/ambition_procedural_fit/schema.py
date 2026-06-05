@@ -58,7 +58,9 @@ def spec_from_mapping(data: dict[str, Any]) -> FitSpec:
     canvas = CanvasSpec(
         width=int(canvas_map.get("width", 256)),
         height=int(canvas_map.get("height", 256)),
-        background=_as_float_list(canvas_map.get("background", [0.04, 0.045, 0.055, 1.0]), 4),
+        background=_as_float_list(
+            canvas_map.get("background", [0.04, 0.045, 0.055, 1.0]), 4
+        ),
     )
     primitives = []
     for idx, item in enumerate(data.get("primitives") or []):
@@ -74,9 +76,13 @@ def spec_from_mapping(data: dict[str, Any]) -> FitSpec:
         train = [str(t) for t in train]
         unknown_train = set(train) - CANONICAL_TRAIN_FIELDS[kind]
         if unknown_train:
-            raise ValueError(f"Unsupported train fields for {name}: {sorted(unknown_train)}")
+            raise ValueError(
+                f"Unsupported train fields for {name}: {sorted(unknown_train)}"
+            )
         params = {k: v for k, v in item.items() if k not in {"kind", "name", "train"}}
-        primitives.append(PrimitiveSpec(kind=kind, name=name, params=params, train=train))
+        primitives.append(
+            PrimitiveSpec(kind=kind, name=name, params=params, train=train)
+        )
     return FitSpec(
         canvas=canvas,
         primitives=primitives,

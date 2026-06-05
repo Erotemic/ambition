@@ -14,6 +14,7 @@ Invoked through the parent CLI:
 
 The old ``render``/``install`` commands remain as a stable compatibility shim.
 """
+
 from __future__ import annotations
 
 import math
@@ -24,34 +25,48 @@ from ...animation_vocab import DEFAULT_ADVANCED_TIMINGS
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-ACTOR_METADATA = {'actor': {'character_id': 'sandbag', 'display_name': 'Sandbag'},
- 'body': {'body_plan': 'TrainingDummy',
-          'body_kind': 'Standard',
-          'mass_class': 'Static',
-          'traits': ['training', 'dummy']},
- 'capabilities': {'traversal': {'walk': False,
-                                'jump': None,
-                                'climb': None,
-                                'fly': None,
-                                'swim': None,
-                                'crawl': None,
-                                'use_lifts': None,
-                                'door_access': []},
-                  'interactions': {'talk': None, 'trade': None, 'carry': None, 'open_doors': []}},
- 'brain': {'default_preset': 'stand_still'},
- 'actions': {'default_preset': 'sandbag_punch'},
- 'visual': {'default_pose': 'idle'},
- 'tags': ['training', 'dummy'],
- 'sockets': {'center': {'source': 'explicit.profile.dummy', 'point': {'x': 64.0, 'y': 64.0}},
-             'top': {'source': 'explicit.profile.dummy', 'point': {'x': 64.0, 'y': 18.0}}},
- 'animation_bindings': {'default': {'animation': 'idle', 'events': []},
-                        'damage.hit': {'animation': 'hit', 'events': []}}}
+ACTOR_METADATA = {
+    "actor": {"character_id": "sandbag", "display_name": "Sandbag"},
+    "body": {
+        "body_plan": "TrainingDummy",
+        "body_kind": "Standard",
+        "mass_class": "Static",
+        "traits": ["training", "dummy"],
+    },
+    "capabilities": {
+        "traversal": {
+            "walk": False,
+            "jump": None,
+            "climb": None,
+            "fly": None,
+            "swim": None,
+            "crawl": None,
+            "use_lifts": None,
+            "door_access": [],
+        },
+        "interactions": {"talk": None, "trade": None, "carry": None, "open_doors": []},
+    },
+    "brain": {"default_preset": "stand_still"},
+    "actions": {"default_preset": "sandbag_punch"},
+    "visual": {"default_pose": "idle"},
+    "tags": ["training", "dummy"],
+    "sockets": {
+        "center": {"source": "explicit.profile.dummy", "point": {"x": 64.0, "y": 64.0}},
+        "top": {"source": "explicit.profile.dummy", "point": {"x": 64.0, "y": 18.0}},
+    },
+    "animation_bindings": {
+        "default": {"animation": "idle", "events": []},
+        "damage.hit": {"animation": "hit", "events": []},
+    },
+}
 
 
 try:
     from PIL import Image, ImageDraw, ImageFont
 except ImportError as ex:  # pragma: no cover
-    raise SystemExit("This generator needs Pillow. Install with: python -m pip install pillow") from ex
+    raise SystemExit(
+        "This generator needs Pillow. Install with: python -m pip install pillow"
+    ) from ex
 
 RGBA = Tuple[int, int, int, int]
 
@@ -116,7 +131,12 @@ def _box(x1: float, y1: float, x2: float, y2: float) -> Tuple[int, int, int, int
 
 def _rgba(hex_color: str, alpha: int = 255) -> RGBA:
     hex_color = hex_color.lstrip("#")
-    return (int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16), alpha)
+    return (
+        int(hex_color[0:2], 16),
+        int(hex_color[2:4], 16),
+        int(hex_color[4:6], 16),
+        alpha,
+    )
 
 
 def _font(size: int = 12):
@@ -128,7 +148,13 @@ def _font(size: int = 12):
     return ImageFont.load_default()
 
 
-def _dashed_line(draw: ImageDraw.ImageDraw, xy: Tuple[float, float, float, float], fill: RGBA, width: float = 1.0, dash: float = 4.0) -> None:
+def _dashed_line(
+    draw: ImageDraw.ImageDraw,
+    xy: Tuple[float, float, float, float],
+    fill: RGBA,
+    width: float = 1.0,
+    dash: float = 4.0,
+) -> None:
     x1, y1, x2, y2 = xy
     total = math.hypot(x2 - x1, y2 - y1)
     if total <= 0:
@@ -142,12 +168,23 @@ def _dashed_line(draw: ImageDraw.ImageDraw, xy: Tuple[float, float, float, float
         draw.line((_s(xa), _s(ya), _s(xb), _s(yb)), fill=fill, width=max(1, _s(width)))
 
 
-def _draw_eye(draw: ImageDraw.ImageDraw, cx: float, cy: float, *, scale_y: float = 1.0, expression: str = "normal") -> None:
+def _draw_eye(
+    draw: ImageDraw.ImageDraw,
+    cx: float,
+    cy: float,
+    *,
+    scale_y: float = 1.0,
+    expression: str = "normal",
+) -> None:
     dark = _rgba("14131d")
     hi = _rgba("f7f8ff", 235)
     if expression == "x":
         for dx in (-4, 4):
-            draw.line((_s(cx - dx), _s(cy - 4), _s(cx + dx), _s(cy + 4)), fill=dark, width=_s(2))
+            draw.line(
+                (_s(cx - dx), _s(cy - 4), _s(cx + dx), _s(cy + 4)),
+                fill=dark,
+                width=_s(2),
+            )
         return
     if expression == "sleepy":
         draw.line((_s(cx - 5), _s(cy), _s(cx + 5), _s(cy + 1)), fill=dark, width=_s(2))
@@ -160,7 +197,9 @@ def _draw_eye(draw: ImageDraw.ImageDraw, cx: float, cy: float, *, scale_y: float
         radius=_s(4.2),
         fill=dark,
     )
-    draw.ellipse(_box(cx - 2.1, cy - 8.5 * scale_y, cx + 1.0, cy - 4.0 * scale_y), fill=hi)
+    draw.ellipse(
+        _box(cx - 2.1, cy - 8.5 * scale_y, cx + 1.0, cy - 4.0 * scale_y), fill=hi
+    )
 
 
 def _draw_sandbag_body(
@@ -202,20 +241,64 @@ def _draw_sandbag_body(
 
     # Main sack silhouette: a soft, slightly asymmetric rounded body, not a
     # perfect cylinder. The lower half bulges a bit more than the top.
-    draw.rounded_rectangle(_box(left + 1, top + 5, right - 1, bottom - 2), radius=_s(20), fill=cloth_mid, outline=stitch, width=_s(2.0))
-    draw.rounded_rectangle(_box(left + 4, top + 8, right - 7, bottom - 5), radius=_s(18), fill=cloth, width=0)
+    draw.rounded_rectangle(
+        _box(left + 1, top + 5, right - 1, bottom - 2),
+        radius=_s(20),
+        fill=cloth_mid,
+        outline=stitch,
+        width=_s(2.0),
+    )
+    draw.rounded_rectangle(
+        _box(left + 4, top + 8, right - 7, bottom - 5),
+        radius=_s(18),
+        fill=cloth,
+        width=0,
+    )
 
     # Side shading and a belly highlight make the simple shape read as stuffed
     # cloth without copying any exact source highlights.
-    draw.pieslice(_box(right - 20, top + 9, right + 10, bottom - 2), 84, 276, fill=cloth_shadow)
-    draw.pieslice(_box(left + 4, top + 19, right - 12, bottom - 15), 105, 258, fill=highlight)
-    draw.arc(_box(right - 17, top + 14, right + 1, bottom - 6), 78, 278, fill=cloth_dark, width=_s(1.3))
+    draw.pieslice(
+        _box(right - 20, top + 9, right + 10, bottom - 2), 84, 276, fill=cloth_shadow
+    )
+    draw.pieslice(
+        _box(left + 4, top + 19, right - 12, bottom - 15), 105, 258, fill=highlight
+    )
+    draw.arc(
+        _box(right - 17, top + 14, right + 1, bottom - 6),
+        78,
+        278,
+        fill=cloth_dark,
+        width=_s(1.3),
+    )
 
     # Top and bottom stitched caps.
-    draw.ellipse(_box(left + 2, top - 2, right - 2, top + 21), fill=tone((235, 237, 249)), outline=stitch, width=_s(1.6))
-    draw.arc(_box(left + 5, top + 3, right - 5, top + 19), 10, 172, fill=highlight, width=_s(1.0))
-    draw.arc(_box(left + 1, bottom - 20, right - 1, bottom + 1), 10, 170, fill=stitch, width=_s(1.5))
-    draw.arc(_box(left + 4, bottom - 17, right - 4, bottom - 2), 13, 169, fill=cloth_shadow, width=_s(3.0))
+    draw.ellipse(
+        _box(left + 2, top - 2, right - 2, top + 21),
+        fill=tone((235, 237, 249)),
+        outline=stitch,
+        width=_s(1.6),
+    )
+    draw.arc(
+        _box(left + 5, top + 3, right - 5, top + 19),
+        10,
+        172,
+        fill=highlight,
+        width=_s(1.0),
+    )
+    draw.arc(
+        _box(left + 1, bottom - 20, right - 1, bottom + 1),
+        10,
+        170,
+        fill=stitch,
+        width=_s(1.5),
+    )
+    draw.arc(
+        _box(left + 4, bottom - 17, right - 4, bottom - 2),
+        13,
+        169,
+        fill=cloth_shadow,
+        width=_s(3.0),
+    )
 
     # Stitches on the cap bands. Small dashed arcs are enough at gameplay scale.
     for i in range(12):
@@ -223,21 +306,62 @@ def _draw_sandbag_body(
         x = left + 7 + (w - 14) * t
         y_top = top + 17 + math.sin(t * math.pi) * 2.2
         y_bot = bottom - 9 + math.sin(t * math.pi) * 2.0
-        draw.line((_s(x - 1.5), _s(y_top), _s(x + 1.4), _s(y_top + 0.5)), fill=cloth_dark, width=_s(0.9))
-        draw.line((_s(x - 1.6), _s(y_bot), _s(x + 1.5), _s(y_bot + 0.4)), fill=cloth_dark, width=_s(0.9))
+        draw.line(
+            (_s(x - 1.5), _s(y_top), _s(x + 1.4), _s(y_top + 0.5)),
+            fill=cloth_dark,
+            width=_s(0.9),
+        )
+        draw.line(
+            (_s(x - 1.6), _s(y_bot), _s(x + 1.5), _s(y_bot + 0.4)),
+            fill=cloth_dark,
+            width=_s(0.9),
+        )
 
     # Hanging tab/strap: same visual vocabulary as the reference, but shorter,
     # wider, and attached at a different angle with an inset patch.
     strap_x = right - 9 + strap_swing
     strap_y = top + 3
-    draw.rounded_rectangle(_box(strap_x - 5, strap_y - 1, strap_x + 8, strap_y + 28), radius=_s(4), fill=cloth_mid, outline=stitch, width=_s(1.4))
-    draw.rounded_rectangle(_box(strap_x - 2, strap_y + 4, strap_x + 5, strap_y + 20), radius=_s(2), fill=cloth, width=0)
-    draw.line((_s(strap_x - 3), _s(strap_y + 23), _s(strap_x + 7), _s(strap_y + 22)), fill=cloth_dark, width=_s(1.1))
+    draw.rounded_rectangle(
+        _box(strap_x - 5, strap_y - 1, strap_x + 8, strap_y + 28),
+        radius=_s(4),
+        fill=cloth_mid,
+        outline=stitch,
+        width=_s(1.4),
+    )
+    draw.rounded_rectangle(
+        _box(strap_x - 2, strap_y + 4, strap_x + 5, strap_y + 20),
+        radius=_s(2),
+        fill=cloth,
+        width=0,
+    )
+    draw.line(
+        (_s(strap_x - 3), _s(strap_y + 23), _s(strap_x + 7), _s(strap_y + 22)),
+        fill=cloth_dark,
+        width=_s(1.1),
+    )
 
     # A few cloth wrinkles, deliberately sparse.
-    draw.arc(_box(left + 5, cy - 17, right - 11, cy + 1), 192, 340, fill=tone((150, 153, 175), 96), width=_s(1.0))
-    draw.arc(_box(left + 3, cy + 5, right - 8, cy + 24), 195, 342, fill=tone((150, 153, 175), 90), width=_s(1.0))
-    _dashed_line(draw, (left + 10, top + 28, left + 7, bottom - 19), tone((115, 117, 138), 110), width=0.8, dash=5)
+    draw.arc(
+        _box(left + 5, cy - 17, right - 11, cy + 1),
+        192,
+        340,
+        fill=tone((150, 153, 175), 96),
+        width=_s(1.0),
+    )
+    draw.arc(
+        _box(left + 3, cy + 5, right - 8, cy + 24),
+        195,
+        342,
+        fill=tone((150, 153, 175), 90),
+        width=_s(1.0),
+    )
+    _dashed_line(
+        draw,
+        (left + 10, top + 28, left + 7, bottom - 19),
+        tone((115, 117, 138), 110),
+        width=0.8,
+        dash=5,
+    )
 
     # Face. The eyes are the immediately recognizable rhyme; placement,
     # spacing, and highlights differ from the reference.
@@ -264,12 +388,22 @@ def _impact_marks(canvas: Image.Image, frame_index: int) -> None:
     cx, cy = 29 + frame_index * 2, 58 - frame_index * 2
     rays = [(-13, 0), (13, 0), (0, -12), (0, 12), (-9, -8), (9, 8), (-9, 8), (9, -8)]
     for dx, dy in rays:
-        draw.line((_s(cx), _s(cy), _s(cx + dx), _s(cy + dy)), fill=yellow if abs(dx) + abs(dy) > 14 else orange, width=_s(2.0))
+        draw.line(
+            (_s(cx), _s(cy), _s(cx + dx), _s(cy + dy)),
+            fill=yellow if abs(dx) + abs(dy) > 14 else orange,
+            width=_s(2.0),
+        )
     for k in range(3):
-        draw.line((_s(36 + k * 11), _s(47 + k * 12), _s(55 + k * 9), _s(47 + k * 12)), fill=_rgba("9ba0ba", max(0, alpha - 75)), width=_s(1.0))
+        draw.line(
+            (_s(36 + k * 11), _s(47 + k * 12), _s(55 + k * 9), _s(47 + k * 12)),
+            fill=_rgba("9ba0ba", max(0, alpha - 75)),
+            width=_s(1.0),
+        )
 
 
-def _dust(canvas: Image.Image, frame_index: int, base_x: float = 68.0, base_y: float = 112.0) -> None:
+def _dust(
+    canvas: Image.Image, frame_index: int, base_x: float = 68.0, base_y: float = 112.0
+) -> None:
     draw = ImageDraw.Draw(canvas, "RGBA")
     for i in range(5):
         x = base_x - 20 + i * 10 + frame_index * (1.4 - i * 0.25)
@@ -606,7 +740,9 @@ def render_frame(animation: str, frame_index: int, frame_count: int) -> Image.Im
             (22, 38, 1.13, 0.61, 88, "x", 0.91, 5),
             (22, 39, 1.15, 0.56, 91, "x", 0.89, 5),
         ]
-        dx, dy, sx, sy, angle, eyes, tint, strap_swing = poses[min(frame_index, len(poses) - 1)]
+        dx, dy, sx, sy, angle, eyes, tint, strap_swing = poses[
+            min(frame_index, len(poses) - 1)
+        ]
         cx += dx
         cy += dy
         shadow_w = 53 + frame_index * 5.0
@@ -617,7 +753,16 @@ def render_frame(animation: str, frame_index: int, frame_count: int) -> Image.Im
 
     # Ground shadow removed; in-game compositing handles ground contact.
     body_layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-    _draw_sandbag_body(body_layer, cx=cx, cy=cy, sx=sx, sy=sy, eyes=eyes, tint=tint, strap_swing=strap_swing)
+    _draw_sandbag_body(
+        body_layer,
+        cx=cx,
+        cy=cy,
+        sx=sx,
+        sy=sy,
+        eyes=eyes,
+        tint=tint,
+        strap_swing=strap_swing,
+    )
     if angle:
         body_layer = body_layer.rotate(
             angle,
@@ -637,12 +782,20 @@ def render_frame(animation: str, frame_index: int, frame_count: int) -> Image.Im
         t = frame_index / max(1, frame_count - 1)
         if 0.20 <= t <= 0.74:
             alpha = int(160 * math.sin((t - 0.20) / 0.54 * math.pi))
-            d.arc(_box(66, 34, 126, 95), start=-70, end=35, fill=_rgba("ffdf70", alpha), width=_s(3.2))
+            d.arc(
+                _box(66, 34, 126, 95),
+                start=-70,
+                end=35,
+                fill=_rgba("ffdf70", alpha),
+                width=_s(3.2),
+            )
     if animation == "dash":
         d = ImageDraw.Draw(canvas, "RGBA")
         for i in range(4):
             y = 44 + i * 12 + math.sin(frame_index + i) * 2.0
-            d.line(_box(18, y, 48 - i * 4, y - 2), fill=_rgba("dfe7ff", 78), width=_s(1.2))
+            d.line(
+                _box(18, y, 48 - i * 4, y - 2), fill=_rgba("dfe7ff", 78), width=_s(1.2)
+            )
     if animation in {"blink_out", "blink_in"}:
         d = ImageDraw.Draw(canvas, "RGBA")
         t = frame_index / max(1, frame_count - 1)
@@ -656,20 +809,38 @@ def render_frame(animation: str, frame_index: int, frame_count: int) -> Image.Im
     if animation == "talk":
         d = ImageDraw.Draw(canvas, "RGBA")
         if frame_index % 2 == 0:
-            d.arc(_box(58, 70, 72, 78), 10, 170, fill=_rgba("14131d", 180), width=_s(1.5))
+            d.arc(
+                _box(58, 70, 72, 78), 10, 170, fill=_rgba("14131d", 180), width=_s(1.5)
+            )
     if animation == "block":
         d = ImageDraw.Draw(canvas, "RGBA")
-        d.rounded_rectangle(_box(28, 38, 39, 91), radius=_s(5), fill=_rgba("c9ccd9", 178), outline=_rgba("4b4d60", 220), width=_s(1.3))
+        d.rounded_rectangle(
+            _box(28, 38, 39, 91),
+            radius=_s(5),
+            fill=_rgba("c9ccd9", 178),
+            outline=_rgba("4b4d60", 220),
+            width=_s(1.3),
+        )
     if animation in {"land", "stomp"}:
         d = ImageDraw.Draw(canvas, "RGBA")
         t = frame_index / max(1, frame_count - 1)
         impact = 1.0 - min(1.0, abs(t - 0.52) / 0.52)
         if impact > 0.02:
-            d.arc(_box(24, 105 - 3 * impact, 105, 119 + 3 * impact), start=190, end=350, fill=_rgba("c5b8ff", int(120 * impact)), width=_s(1.5))
+            d.arc(
+                _box(24, 105 - 3 * impact, 105, 119 + 3 * impact),
+                start=190,
+                end=350,
+                fill=_rgba("c5b8ff", int(120 * impact)),
+                width=_s(1.5),
+            )
     if animation in {"slide", "roll"}:
         d = ImageDraw.Draw(canvas, "RGBA")
         for i in range(3):
-            d.line(_box(39 - i * 10, 101 + i * 4, 19 - i * 9, 105 + i * 4), fill=_rgba("a99b83", 82 - i * 15), width=_s(1.2))
+            d.line(
+                _box(39 - i * 10, 101 + i * 4, 19 - i * 9, 105 + i * 4),
+                fill=_rgba("a99b83", 82 - i * 15),
+                width=_s(1.2),
+            )
     if animation in {"aim", "shoot"}:
         d = ImageDraw.Draw(canvas, "RGBA")
         d.ellipse(_box(103, 53, 117, 67), outline=_rgba("ffe56f", 145), width=_s(1.2))
@@ -678,12 +849,19 @@ def render_frame(animation: str, frame_index: int, frame_count: int) -> Image.Im
         t = frame_index / max(1, frame_count - 1)
         flash = 1.0 - min(1.0, t * 2.2)
         if flash > 0.03:
-            d.polygon([(_s(91), _s(61)), (_s(118), _s(51)), (_s(113), _s(69))], fill=_rgba("ffe56f", int(190 * flash)))
+            d.polygon(
+                [(_s(91), _s(61)), (_s(118), _s(51)), (_s(113), _s(69))],
+                fill=_rgba("ffe56f", int(190 * flash)),
+            )
     if animation in {"charge", "cast"}:
         d = ImageDraw.Draw(canvas, "RGBA")
         t = frame_index / max(1, frame_count - 1)
         r = 9 + 17 * min(1.0, t * 1.2)
-        d.ellipse(_box(84 - r, 55 - r, 84 + r, 55 + r), outline=_rgba("c5b8ff", 115), width=_s(1.4))
+        d.ellipse(
+            _box(84 - r, 55 - r, 84 + r, 55 + r),
+            outline=_rgba("c5b8ff", 115),
+            width=_s(1.4),
+        )
     if animation == "throw":
         d = ImageDraw.Draw(canvas, "RGBA")
         t = frame_index / max(1, frame_count - 1)
@@ -691,21 +869,40 @@ def render_frame(animation: str, frame_index: int, frame_count: int) -> Image.Im
             u = min(1.0, (t - 0.2) / 0.8)
             x = 83 + 38 * u
             y = 47 - 16 * math.sin(u * math.pi) + 16 * u
-            d.ellipse(_box(x - 4, y - 4, x + 4, y + 4), fill=_rgba("ffe56f", 210), outline=_rgba("4b4d60", 230), width=_s(1.0))
+            d.ellipse(
+                _box(x - 4, y - 4, x + 4, y + 4),
+                fill=_rgba("ffe56f", 210),
+                outline=_rgba("4b4d60", 230),
+                width=_s(1.0),
+            )
     if animation == "sleep":
         d = ImageDraw.Draw(canvas, "RGBA")
         for i in range(3):
             u = ((frame_index + i * 2) % max(1, frame_count)) / max(1, frame_count - 1)
-            d.text((_s(78 + i * 8), _s(42 - u * 22)), "Z", fill=_rgba("4b4d60", int(155 * (1.0 - u * 0.4))))
+            d.text(
+                (_s(78 + i * 8), _s(42 - u * 22)),
+                "Z",
+                fill=_rgba("4b4d60", int(155 * (1.0 - u * 0.4))),
+            )
     if animation == "celebrate":
         d = ImageDraw.Draw(canvas, "RGBA")
         for i, (x, y) in enumerate([(38, 38), (54, 27), (78, 30), (94, 42), (48, 55)]):
             yy = y + ((frame_index + i) % max(1, frame_count)) * 2
-            d.rectangle(_box(x - 2, yy - 2, x + 2, yy + 2), fill=_rgba("ffe56f" if i % 2 else "c5b8ff", 165))
+            d.rectangle(
+                _box(x - 2, yy - 2, x + 2, yy + 2),
+                fill=_rgba("ffe56f" if i % 2 else "c5b8ff", 165),
+            )
     if animation == "hover":
         d = ImageDraw.Draw(canvas, "RGBA")
         flame = 0.6 + 0.4 * math.sin(frame_index * 1.8)
-        d.polygon([(_s(56), _s(104)), (_s(48), _s(119 + 7 * flame)), (_s(65), _s(119 + 7 * flame))], fill=_rgba("c5b8ff", int(135 * flame)))
+        d.polygon(
+            [
+                (_s(56), _s(104)),
+                (_s(48), _s(119 + 7 * flame)),
+                (_s(65), _s(119 + 7 * flame)),
+            ],
+            fill=_rgba("c5b8ff", int(135 * flame)),
+        )
 
     return canvas.resize((FRAME_W, FRAME_H), Image.Resampling.LANCZOS)
 
@@ -720,9 +917,17 @@ def _measure_body_extent(frame: Image.Image) -> Dict[str, object] | None:
     return {
         "frame_width": frame.width,
         "frame_height": frame.height,
-        "body_pixel_bbox": {"x": int(x1), "y": int(y1), "w": int(x2 - x1), "h": int(y2 - y1)},
+        "body_pixel_bbox": {
+            "x": int(x1),
+            "y": int(y1),
+            "w": int(x2 - x1),
+            "h": int(y2 - y1),
+        },
         "feet_pixel": {"x": round(feet_x, 3), "y": round(float(feet_y), 3)},
-        "feet_anchor_norm": {"x": round(feet_x / frame.width - 0.5, 6), "y": round(0.5 - feet_y / frame.height, 6)},
+        "feet_anchor_norm": {
+            "x": round(feet_x / frame.width - 0.5, 6),
+            "y": round(0.5 - feet_y / frame.height, 6),
+        },
     }
 
 
@@ -767,12 +972,18 @@ def _write_manifest(path: Path, manifest: Dict[str, object]) -> None:
 
 
 def _rows_for_sparse() -> List[Tuple[str, str, int, int]]:
-    return [(name, name, frames, duration_ms) for name, frames, duration_ms in SANDBAG_ROWS]
+    return [
+        (name, name, frames, duration_ms) for name, frames, duration_ms in SANDBAG_ROWS
+    ]
 
 
-def build_sheet(rows: List[Tuple[str, str, int, int]], *, sheet_background: RGBA = (0, 0, 0, 0)) -> Tuple[Image.Image, Dict[str, object]]:
+def build_sheet(
+    rows: List[Tuple[str, str, int, int]], *, sheet_background: RGBA = (0, 0, 0, 0)
+) -> Tuple[Image.Image, Dict[str, object]]:
     max_frames = max(frames for _, _, frames, _ in rows)
-    sheet = Image.new("RGBA", (LABEL_W + max_frames * FRAME_W, len(rows) * FRAME_H), sheet_background)
+    sheet = Image.new(
+        "RGBA", (LABEL_W + max_frames * FRAME_W, len(rows) * FRAME_H), sheet_background
+    )
     draw = ImageDraw.Draw(sheet, "RGBA")
     font = _font(12)
     small = _font(10)
@@ -803,7 +1014,16 @@ def build_sheet(rows: List[Tuple[str, str, int, int]], *, sheet_background: RGBA
             sheet.alpha_composite(frame, (x, y))
             if first_frame is None and row_name == "idle" and frame_index == 0:
                 first_frame = frame
-            frame_records.append({"index": frame_index, "x": x, "y": y, "w": FRAME_W, "h": FRAME_H, "duration_ms": duration_ms})
+            frame_records.append(
+                {
+                    "index": frame_index,
+                    "x": x,
+                    "y": y,
+                    "w": FRAME_W,
+                    "h": FRAME_H,
+                    "duration_ms": duration_ms,
+                }
+            )
         manifest["animations"][row_name] = {
             "source_animation": source_name,
             "frames": frame_records,
@@ -830,7 +1050,10 @@ def write_outputs(out_dir: Path) -> Tuple[Path, Path, Path]:
     # manifest already has the `animations: {...}` shape that
     # `_adapter_manifest_to_ron` consumes — same path the adapter
     # `draw-all` pipeline uses for the row-ordered RON.
-    from ...sheet import _adapter_manifest_to_ron  # local import: tooling-only dependency
+    from ...sheet import (
+        _adapter_manifest_to_ron,
+    )  # local import: tooling-only dependency
+
     manifest_for_ron = dict(manifest)
     manifest_for_ron["image"] = png_path.name
     ron_path.write_text(_adapter_manifest_to_ron(manifest_for_ron), encoding="utf8")
@@ -843,7 +1066,11 @@ def write_outputs(out_dir: Path) -> Tuple[Path, Path, Path]:
             "actor": {"character_id": "sandbag", "display_name": "Sandbag"},
             "brain": {"default_preset": "stand_still"},
             "actions": {"default_preset": "sandbag_punch"},
-            "body": {"body_plan": "TrainingDummy", "body_kind": "Standard", "traits": ["training"]},
+            "body": {
+                "body_plan": "TrainingDummy",
+                "body_kind": "Standard",
+                "traits": ["training"],
+            },
             "tags": ["training"],
         },
     )

@@ -4,6 +4,7 @@ output (used during Phase 3 of the character-catalog refactor).
 
 These tests focus on pure helper functions (no subprocess execution
 of the renderer) so they're fast and self-contained."""
+
 from __future__ import annotations
 
 import sys
@@ -49,14 +50,20 @@ def test_character_id_prefixes_npc_for_arbitrary_target():
     """Anything else gets the `npc_` prefix."""
     assert character_id_for("agent_swarm") == "npc_agent_swarm"
     assert character_id_for("trex_enemy") == "npc_trex_enemy"
-    assert character_id_for("flying_spaghetti_monster_boss") == "npc_flying_spaghetti_monster_boss"
+    assert (
+        character_id_for("flying_spaghetti_monster_boss")
+        == "npc_flying_spaghetti_monster_boss"
+    )
 
 
 def test_display_name_camelizes_underscores():
     """snake_case target → Title Case display."""
     assert display_name_of("agent_swarm") == "Agent Swarm"
     assert display_name_of("robot_guardian") == "Robot Guardian"
-    assert display_name_of("flying_spaghetti_monster_boss") == "Flying Spaghetti Monster Boss"
+    assert (
+        display_name_of("flying_spaghetti_monster_boss")
+        == "Flying Spaghetti Monster Boss"
+    )
 
 
 def test_render_entry_produces_well_formed_ron():

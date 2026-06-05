@@ -279,7 +279,9 @@ def collect_source_stats(repo: Path, out: Path) -> dict[str, object]:
         "largest_tracked_files": largest[:80],
         "extensions_by_size": ext_rows[:80],
     }
-    (out / "source_stats.json").write_text(json.dumps(stats, indent=2), encoding="utf-8")
+    (out / "source_stats.json").write_text(
+        json.dumps(stats, indent=2), encoding="utf-8"
+    )
     return stats
 
 
@@ -320,7 +322,9 @@ def collect_binary_sizes(repo: Path, out: Path) -> list[dict[str, object]]:
                     }
                 )
     candidates.sort(key=lambda item: (str(item["profile"]), -int(item["bytes"])))
-    (out / "binary_sizes.json").write_text(json.dumps(candidates, indent=2), encoding="utf-8")
+    (out / "binary_sizes.json").write_text(
+        json.dumps(candidates, indent=2), encoding="utf-8"
+    )
     return candidates
 
 
@@ -352,12 +356,16 @@ def cargo_profile_exists(repo: Path, profile_name: str) -> bool:
 
 
 def cargo_bloat_available(repo: Path, logs_dir: Path) -> bool:
-    result = run_command("probe_cargo_bloat", ["cargo", "bloat", "--version"], repo, logs_dir)
+    result = run_command(
+        "probe_cargo_bloat", ["cargo", "bloat", "--version"], repo, logs_dir
+    )
     return result.returncode == 0
 
 
 def llvm_lines_available(repo: Path, logs_dir: Path) -> bool:
-    result = run_command("probe_cargo_llvm_lines", ["cargo", "llvm-lines", "--version"], repo, logs_dir)
+    result = run_command(
+        "probe_cargo_llvm_lines", ["cargo", "llvm-lines", "--version"], repo, logs_dir
+    )
     return result.returncode == 0
 
 
@@ -373,7 +381,9 @@ def markdown_table(headers: Sequence[str], rows: Iterable[Sequence[str]]) -> str
     lines.append("| " + " | ".join(headers) + " |")
     lines.append("| " + " | ".join(["---"] * len(headers)) + " |")
     for row in rows:
-        lines.append("| " + " | ".join(str(cell).replace("\n", "<br>") for cell in row) + " |")
+        lines.append(
+            "| " + " | ".join(str(cell).replace("\n", "<br>") for cell in row) + " |"
+        )
     return "\n".join(lines)
 
 
@@ -423,11 +433,15 @@ def failure_excerpts(
         stdout = ""
         stderr = ""
         try:
-            stdout = (out / cmd.stdout_path).read_text(encoding="utf-8", errors="replace")
+            stdout = (out / cmd.stdout_path).read_text(
+                encoding="utf-8", errors="replace"
+            )
         except OSError:
             pass
         try:
-            stderr = (out / cmd.stderr_path).read_text(encoding="utf-8", errors="replace")
+            stderr = (out / cmd.stderr_path).read_text(
+                encoding="utf-8", errors="replace"
+            )
         except OSError:
             pass
         stderr_excerpt = tail_excerpt(stderr, max_lines=max_lines, max_bytes=max_bytes)
@@ -438,13 +452,14 @@ def failure_excerpts(
         if stdout_excerpt and not stderr_excerpt:
             body_parts.append("stdout excerpt:\n\n```text\n" + stdout_excerpt + "\n```")
         if not body_parts:
-            body_parts.append("No stdout/stderr payload captured. See command metadata.")
+            body_parts.append(
+                "No stdout/stderr payload captured. See command metadata."
+            )
         chunks.append(
             f"### {cmd.label}\n\n"
             f"- status: `{cmd.returncode}`\n"
             f"- full log: `{cmd.combined_path}`\n"
-            f"- command: `{shell_quote(cmd.argv)}`\n\n"
-            + "\n\n".join(body_parts)
+            f"- command: `{shell_quote(cmd.argv)}`\n\n" + "\n\n".join(body_parts)
         )
     return "\n\n".join(chunks) if chunks else "_No command failures._"
 
@@ -475,30 +490,40 @@ def write_report(
 
     largest_rows = []
     for item in source_stats.get("largest_tracked_files", [])[:25]:
-        largest_rows.append([
-            f"`{item['path']}`",
-            human_bytes(int(item["bytes"])),
-            str(item.get("kind", "")),
-        ])
+        largest_rows.append(
+            [
+                f"`{item['path']}`",
+                human_bytes(int(item["bytes"])),
+                str(item.get("kind", "")),
+            ]
+        )
 
     ext_rows = []
     for item in source_stats.get("extensions_by_size", [])[:25]:
-        ext_rows.append([
-            f"`{item['extension']}`",
-            str(item["files"]),
-            human_bytes(int(item["bytes"])),
-        ])
+        ext_rows.append(
+            [
+                f"`{item['extension']}`",
+                str(item["files"]),
+                human_bytes(int(item["bytes"])),
+            ]
+        )
 
     bin_rows = []
     for item in binaries:
-        bin_rows.append([
-            str(item["profile"]),
-            str(item["name"]),
-            human_bytes(int(item["bytes"])),
-            f"`{item['path']}`",
-        ])
+        bin_rows.append(
+            [
+                str(item["profile"]),
+                str(item["name"]),
+                human_bytes(int(item["bytes"])),
+                f"`{item['path']}`",
+            ]
+        )
 
-    timing_lines = "\n".join(f"- `{p}`" for p in timings) if timings else "- No Cargo timing files found."
+    timing_lines = (
+        "\n".join(f"- `{p}`" for p in timings)
+        if timings
+        else "- No Cargo timing files found."
+    )
 
     git_head = "unknown"
     for cmd in commands:
@@ -507,11 +532,13 @@ def write_report(
 
     failed_table_rows = []
     for cmd in failed:
-        failed_table_rows.append([
-            cmd.label,
-            str(cmd.returncode),
-            f"`{cmd.combined_path}`",
-        ])
+        failed_table_rows.append(
+            [
+                cmd.label,
+                str(cmd.returncode),
+                f"`{cmd.combined_path}`",
+            ]
+        )
 
     failure_block = failure_excerpts(
         out,
@@ -547,14 +574,14 @@ The command table intentionally stays concise. Full stdout/stderr payloads are i
 
 - Commands run: {len(commands)}
 - Failed commands: {len(failed)}
-- Tracked files: {source_stats.get('tracked_file_count')}
-- Tracked source/data size: {human_bytes(int(source_stats.get('tracked_total_bytes', 0)))}
-- Text files: {source_stats.get('tracked_text_file_count')}
-- Binary-ish files: {source_stats.get('tracked_binary_file_count')}
+- Tracked files: {source_stats.get("tracked_file_count")}
+- Tracked source/data size: {human_bytes(int(source_stats.get("tracked_total_bytes", 0)))}
+- Text files: {source_stats.get("tracked_text_file_count")}
+- Binary-ish files: {source_stats.get("tracked_binary_file_count")}
 
 ## Failed commands
 
-{markdown_table(['label', 'status', 'full log'], failed_table_rows)}
+{markdown_table(["label", "status", "full log"], failed_table_rows)}
 
 ## Failure excerpts
 
@@ -562,11 +589,11 @@ The command table intentionally stays concise. Full stdout/stderr payloads are i
 
 ## Command results
 
-{markdown_table(['label', 'status', 'duration', 'output size', 'log', 'command'], rows)}
+{markdown_table(["label", "status", "duration", "output size", "log", "command"], rows)}
 
 ## Binary sizes found after builds
 
-{markdown_table(['profile', 'binary', 'size', 'path'], bin_rows) if bin_rows else 'No known Ambition binaries were found under `target/{{debug,release,distribution}}`.'}
+{markdown_table(["profile", "binary", "size", "path"], bin_rows) if bin_rows else "No known Ambition binaries were found under `target/{{debug,release,distribution}}`."}
 
 ## Cargo timing artifacts copied
 
@@ -574,11 +601,11 @@ The command table intentionally stays concise. Full stdout/stderr payloads are i
 
 ## Largest tracked files
 
-{markdown_table(['path', 'size', 'kind'], largest_rows)}
+{markdown_table(["path", "size", "kind"], largest_rows)}
 
 ## Largest tracked extensions
 
-{markdown_table(['extension', 'files', 'bytes'], ext_rows)}
+{markdown_table(["extension", "files", "bytes"], ext_rows)}
 
 ## Suggested first questions for optimization review
 
@@ -632,13 +659,39 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
     )
     parser.add_argument("--repo", required=True, type=Path, help="Repository root")
-    parser.add_argument("--out", required=True, type=Path, help="Output report directory")
-    parser.add_argument("--quick", action="store_true", help="Skip release/distribution builds and optional deep probes")
-    parser.add_argument("--clean", action="store_true", help="Run cargo clean before measuring")
-    parser.add_argument("--long-tests", action="store_true", help="Run slower/noisier deep probes, including optional bloat tools and full diagnostics")
-    parser.add_argument("--strict", action="store_true", help="Exit non-zero if any measured command fails")
-    parser.add_argument("--max-failure-lines", type=int, default=DEFAULT_FAILURE_EXCERPT_LINES, help="Max lines per failed-command excerpt in the Markdown report")
-    parser.add_argument("--max-failure-bytes", type=int, default=DEFAULT_FAILURE_EXCERPT_BYTES, help="Max bytes per failed-command excerpt in the Markdown report")
+    parser.add_argument(
+        "--out", required=True, type=Path, help="Output report directory"
+    )
+    parser.add_argument(
+        "--quick",
+        action="store_true",
+        help="Skip release/distribution builds and optional deep probes",
+    )
+    parser.add_argument(
+        "--clean", action="store_true", help="Run cargo clean before measuring"
+    )
+    parser.add_argument(
+        "--long-tests",
+        action="store_true",
+        help="Run slower/noisier deep probes, including optional bloat tools and full diagnostics",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit non-zero if any measured command fails",
+    )
+    parser.add_argument(
+        "--max-failure-lines",
+        type=int,
+        default=DEFAULT_FAILURE_EXCERPT_LINES,
+        help="Max lines per failed-command excerpt in the Markdown report",
+    )
+    parser.add_argument(
+        "--max-failure-bytes",
+        type=int,
+        default=DEFAULT_FAILURE_EXCERPT_BYTES,
+        help="Max bytes per failed-command excerpt in the Markdown report",
+    )
     args = parser.parse_args(argv)
 
     repo = args.repo.resolve()
@@ -667,7 +720,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     def run(label: str, cmd: Sequence[str]) -> CommandResult:
         result = run_command(label, cmd, repo, logs_dir)
         commands.append(result)
-        write_json(out / "commands_so_far.json", [dataclasses.asdict(c) for c in commands])
+        write_json(
+            out / "commands_so_far.json", [dataclasses.asdict(c) for c in commands]
+        )
         return result
 
     run("git_rev_parse_head", ["git", "rev-parse", "HEAD"])
@@ -675,7 +730,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     run("git_submodule_status", ["git", "submodule", "status", "--recursive"])
     run("rustc_version_verbose", ["rustc", "-Vv"])
     run("cargo_version_verbose", ["cargo", "-Vv"])
-    run("cargo_metadata_no_deps", ["cargo", "metadata", "--format-version", "1", "--no-deps"])
+    run(
+        "cargo_metadata_no_deps",
+        ["cargo", "metadata", "--format-version", "1", "--no-deps"],
+    )
     if args.long_tests:
         run("cargo_metadata_full", ["cargo", "metadata", "--format-version", "1"])
 
@@ -687,7 +745,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     # Dependency / feature graph probes. These are intentionally captured even
     # if later builds fail.
     run("cargo_tree_workspace_duplicates", ["cargo", "tree", "-d"])
-    run("cargo_tree_sandbox_features_default", ["cargo", "tree", "-e", "features", "-p", "ambition_sandbox"])
+    run(
+        "cargo_tree_sandbox_features_default",
+        ["cargo", "tree", "-e", "features", "-p", "ambition_sandbox"],
+    )
     run(
         "cargo_tree_sandbox_features_headlessish",
         [
@@ -704,10 +765,26 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
 
     check_results = []
-    check_results.append(run("cargo_check_sfx_crates", cargo_check_cmd("-p", "ambition_sfx", "-p", "ambition_sfx_bank", long_tests=args.long_tests)))
+    check_results.append(
+        run(
+            "cargo_check_sfx_crates",
+            cargo_check_cmd(
+                "-p",
+                "ambition_sfx",
+                "-p",
+                "ambition_sfx_bank",
+                long_tests=args.long_tests,
+            ),
+        )
+    )
     # The former ambition_engine crate is gone; its code lives in
     # ambition_sandbox/src/engine_core and is covered by the sandbox check below.
-    check_results.append(run("cargo_check_sandbox_default", cargo_check_cmd("-p", "ambition_sandbox", long_tests=args.long_tests)))
+    check_results.append(
+        run(
+            "cargo_check_sandbox_default",
+            cargo_check_cmd("-p", "ambition_sandbox", long_tests=args.long_tests),
+        )
+    )
     check_results.append(
         run(
             "cargo_check_sandbox_headlessish",
@@ -724,16 +801,32 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     # Build/timing baseline. cargo --timings writes HTML under target/cargo-timings.
     if not args.quick:
-        run("cargo_build_timings_sandbox_default", ["cargo", "build", "--timings", "-p", "ambition_sandbox"])
+        run(
+            "cargo_build_timings_sandbox_default",
+            ["cargo", "build", "--timings", "-p", "ambition_sandbox"],
+        )
 
-        run("cargo_build_timings_sandbox_release", ["cargo", "build", "--timings", "-p", "ambition_sandbox", "--release"])
+        run(
+            "cargo_build_timings_sandbox_release",
+            ["cargo", "build", "--timings", "-p", "ambition_sandbox", "--release"],
+        )
         if cargo_profile_exists(repo, "distribution"):
             run(
                 "cargo_build_timings_sandbox_distribution",
-                ["cargo", "build", "--timings", "-p", "ambition_sandbox", "--profile", "distribution"],
+                [
+                    "cargo",
+                    "build",
+                    "--timings",
+                    "-p",
+                    "ambition_sandbox",
+                    "--profile",
+                    "distribution",
+                ],
             )
         else:
-            (logs_dir / "cargo_build_timings_sandbox_distribution.skipped.txt").write_text(
+            (
+                logs_dir / "cargo_build_timings_sandbox_distribution.skipped.txt"
+            ).write_text(
                 "Skipped: no [profile.distribution] found in root Cargo.toml.\n",
                 encoding="utf-8",
             )
@@ -749,20 +842,44 @@ def main(argv: Sequence[str] | None = None) -> int:
         if cargo_bloat_available(repo, logs_dir):
             run(
                 "cargo_bloat_release_ambition_sandbox_top50",
-                ["cargo", "bloat", "--release", "-p", "ambition_sandbox", "--bin", "ambition_sandbox", "-n", "50"],
+                [
+                    "cargo",
+                    "bloat",
+                    "--release",
+                    "-p",
+                    "ambition_sandbox",
+                    "--bin",
+                    "ambition_sandbox",
+                    "-n",
+                    "50",
+                ],
             )
         else:
-            (logs_dir / "cargo_bloat_release_ambition_sandbox_top50.skipped.txt").write_text(
+            (
+                logs_dir / "cargo_bloat_release_ambition_sandbox_top50.skipped.txt"
+            ).write_text(
                 "Skipped: cargo-bloat is not installed. Install with `cargo install cargo-bloat`.\n",
                 encoding="utf-8",
             )
         if llvm_lines_available(repo, logs_dir):
             run(
                 "cargo_llvm_lines_release_ambition_sandbox_top50",
-                ["cargo", "llvm-lines", "--release", "-p", "ambition_sandbox", "--bin", "ambition_sandbox", "--lines", "50"],
+                [
+                    "cargo",
+                    "llvm-lines",
+                    "--release",
+                    "-p",
+                    "ambition_sandbox",
+                    "--bin",
+                    "ambition_sandbox",
+                    "--lines",
+                    "50",
+                ],
             )
         else:
-            (logs_dir / "cargo_llvm_lines_release_ambition_sandbox_top50.skipped.txt").write_text(
+            (
+                logs_dir / "cargo_llvm_lines_release_ambition_sandbox_top50.skipped.txt"
+            ).write_text(
                 "Skipped: cargo-llvm-lines is not installed. Install with `cargo install cargo-llvm-lines`.\n",
                 encoding="utf-8",
             )
@@ -782,13 +899,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     timings = copy_cargo_timings(repo, out)
     binaries = collect_binary_sizes(repo, out)
     write_json(out / "commands.json", [dataclasses.asdict(c) for c in commands])
-    report_path = write_report(repo, out, args, commands, source_stats, binaries, timings)
+    report_path = write_report(
+        repo, out, args, commands, source_stats, binaries, timings
+    )
     zip_path = zip_report(out)
 
     print("", flush=True)
     print(f"[optimization-report] wrote report: {report_path}")
     print(f"[optimization-report] wrote bundle: {zip_path}")
-    print("[optimization-report] hand the Markdown file or zip bundle to an LLM for review")
+    print(
+        "[optimization-report] hand the Markdown file or zip bundle to an LLM for review"
+    )
 
     if args.strict and any(cmd.returncode != 0 for cmd in commands):
         return 1

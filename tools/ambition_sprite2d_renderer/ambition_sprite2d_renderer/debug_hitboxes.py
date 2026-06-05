@@ -15,6 +15,7 @@ Run via the CLI::
 
     python -m ambition_sprite2d_renderer debug-hitboxes <sheet.yaml>
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -32,7 +33,9 @@ HITBOX_FILL = (255, 60, 60, 60)
 PART_LABEL = (255, 255, 255, 220)
 
 
-def _coerce_box(box: Any) -> Optional[Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]]:
+def _coerce_box(
+    box: Any,
+) -> Optional[Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]]:
     """Normalize a hit-or-hurt box descriptor into (parts, bbox)."""
     if not isinstance(box, dict):
         return None

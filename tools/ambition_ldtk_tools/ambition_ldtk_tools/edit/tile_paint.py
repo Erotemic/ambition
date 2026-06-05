@@ -46,6 +46,7 @@ that might not be in the IntGrid).
 The standard `repair --in-place` + `validate --require-schema`
 post-pass runs unless `--no-repair` is passed.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -77,7 +78,11 @@ def find_layer_def(project: dict, identifier: str) -> dict:
 def find_levels(project: dict, level_identifier: str | None) -> list[dict]:
     if level_identifier is None:
         return list(project.get("levels", []))
-    matches = [lvl for lvl in project.get("levels", []) if lvl.get("identifier") == level_identifier]
+    matches = [
+        lvl
+        for lvl in project.get("levels", [])
+        if lvl.get("identifier") == level_identifier
+    ]
     if not matches:
         raise SystemExit(f"level '{level_identifier}' not found in project")
     return matches
@@ -179,14 +184,16 @@ def paint_layer(
                 continue
             tile_id = value_to_tile[best_value]
             atlas_x, atlas_y = tile_src_px(tile_id, tile_grid_size, atlas_cols)
-            grid_tiles.append({
-                "a": 1,
-                "f": 0,
-                "px": [cx * grid_size, cy * grid_size],
-                "src": [atlas_x, atlas_y],
-                "t": tile_id,
-                "d": [cy * c_wid + cx],
-            })
+            grid_tiles.append(
+                {
+                    "a": 1,
+                    "f": 0,
+                    "px": [cx * grid_size, cy * grid_size],
+                    "src": [atlas_x, atlas_y],
+                    "t": tile_id,
+                    "d": [cy * c_wid + cx],
+                }
+            )
             painted += 1
     layer_instance["gridTiles"] = grid_tiles
     return painted
@@ -238,7 +245,9 @@ def main(argv=None) -> int:
         help="Write back to the input .ldtk path.",
     )
     parser.add_argument(
-        "--output", type=Path, default=None,
+        "--output",
+        type=Path,
+        default=None,
         help="Output path (alternative to --in-place).",
     )
     parser.add_argument(
@@ -254,7 +263,12 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--schema",
         type=Path,
-        default=REPO_ROOT / "tools" / "ambition_ldtk_tools" / "schemas" / "ldtk" / "JSON_SCHEMA.json",
+        default=REPO_ROOT
+        / "tools"
+        / "ambition_ldtk_tools"
+        / "schemas"
+        / "ldtk"
+        / "JSON_SCHEMA.json",
     )
     args = parser.parse_args(argv)
 
@@ -362,7 +376,13 @@ def main(argv=None) -> int:
     if args.no_repair:
         return 0
 
-    cmd = [sys.executable, "-m", "ambition_ldtk_tools.repair", str(target), "--in-place"]
+    cmd = [
+        sys.executable,
+        "-m",
+        "ambition_ldtk_tools.repair",
+        str(target),
+        "--in-place",
+    ]
     print("$ " + " ".join(cmd))
     rc = subprocess.run(cmd).returncode
     if rc != 0:

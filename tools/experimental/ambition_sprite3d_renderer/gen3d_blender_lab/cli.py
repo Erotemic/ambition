@@ -17,15 +17,26 @@ from .sheet import render_spritesheet
 from . import __version__
 from .textures import generate_texture_pack
 
-DEFAULT_GEN3D_ROOT = Path(os.environ.get("GEN3D_BLENDER_LAB_ROOT", Path(__file__).resolve().parents[1]))
-DEFAULT_CONFIG_DIR = Path(os.environ.get("GEN3D_BLENDER_LAB_CONFIG_DIR", DEFAULT_GEN3D_ROOT / "gen3d_blender_lab" / "configs"))
-DEFAULT_ASSET_DIR = Path(os.environ.get("GEN3D_BLENDER_LAB_ASSET_DIR", DEFAULT_GEN3D_ROOT / "assets"))
+DEFAULT_GEN3D_ROOT = Path(
+    os.environ.get("GEN3D_BLENDER_LAB_ROOT", Path(__file__).resolve().parents[1])
+)
+DEFAULT_CONFIG_DIR = Path(
+    os.environ.get(
+        "GEN3D_BLENDER_LAB_CONFIG_DIR",
+        DEFAULT_GEN3D_ROOT / "gen3d_blender_lab" / "configs",
+    )
+)
+DEFAULT_ASSET_DIR = Path(
+    os.environ.get("GEN3D_BLENDER_LAB_ASSET_DIR", DEFAULT_GEN3D_ROOT / "assets")
+)
 
 app = typer.Typer(help="Blender-first procedural character sprite generation.")
 console = Console()
 
 
-def _texture_preview_sheet(texture_groups: list[tuple[str, dict[str, str]]], out_path: Path) -> Path:
+def _texture_preview_sheet(
+    texture_groups: list[tuple[str, dict[str, str]]], out_path: Path
+) -> Path:
     if not texture_groups:
         return out_path
     tile = 128
@@ -47,8 +58,12 @@ def _texture_preview_sheet(texture_groups: list[tuple[str, dict[str, str]]], out
         for key, path in sorted(texmap.items()):
             img = Image.open(path).convert("RGBA").resize((tile, tile))
             sheet.alpha_composite(img, (x, y_img))
-            draw.rectangle((x, y_img, x + tile, y_img + tile), outline=(80, 84, 96, 255), width=1)
-            draw.text((x + 4, y_img + tile + 2), key, fill=(40, 42, 52, 255), font=font_small)
+            draw.rectangle(
+                (x, y_img, x + tile, y_img + tile), outline=(80, 84, 96, 255), width=1
+            )
+            draw.text(
+                (x + 4, y_img + tile + 2), key, fill=(40, 42, 52, 255), font=font_small
+            )
             x += tile + gutter
         y += header_h + tile + label_h + gutter
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -65,11 +80,19 @@ def _file_link(path: Path, label: str | None = None) -> str:
 @app.command("list-targets")
 def list_targets() -> None:
     for name, adapter in TARGETS.items():
-        console.print(f"[bold]{name}[/bold]: animations={', '.join(adapter.default_animations())}")
+        console.print(
+            f"[bold]{name}[/bold]: animations={', '.join(adapter.default_animations())}"
+        )
 
 
 @app.command("init-config")
-def init_config(target: str = typer.Option("goblin"), out: Path = typer.Option(Path("character.yaml")), seed: int = 0, archetype: str = "default", held_item: Optional[str] = None) -> None:
+def init_config(
+    target: str = typer.Option("goblin"),
+    out: Path = typer.Option(Path("character.yaml")),
+    seed: int = 0,
+    archetype: str = "default",
+    held_item: Optional[str] = None,
+) -> None:
     adapter = get_adapter(target)
     render = RenderConfig()
     if target == "robot":
@@ -80,7 +103,14 @@ def init_config(target: str = typer.Option("goblin"), out: Path = typer.Option(P
         render.background = "transparent"
         render.sheet_background = "#F4F4F4"
         render.label_width = 112
-    job = CharacterJob(target=target, seed=seed, archetype=archetype, held_item=held_item, animations=adapter.default_animations(), render=render)
+    job = CharacterJob(
+        target=target,
+        seed=seed,
+        archetype=archetype,
+        held_item=held_item,
+        animations=adapter.default_animations(),
+        render=render,
+    )
     save_job(job, out)
     console.print(f"wrote {out}")
 
@@ -104,10 +134,18 @@ def canonical(config: Path, out: Path) -> None:
 
 @app.command("canonical-all")
 def canonical_all(
-    config_dir: Path = typer.Option(DEFAULT_CONFIG_DIR, help="Directory containing character YAML configs."),
-    out_dir: Path = typer.Option(DEFAULT_ASSET_DIR, help="Directory for canonical outputs."),
-    pattern: str = typer.Option("*.yaml", help="Glob pattern for character YAML configs."),
-    contact_sheet: bool = typer.Option(True, help="Also draw a quick review contact sheet."),
+    config_dir: Path = typer.Option(
+        DEFAULT_CONFIG_DIR, help="Directory containing character YAML configs."
+    ),
+    out_dir: Path = typer.Option(
+        DEFAULT_ASSET_DIR, help="Directory for canonical outputs."
+    ),
+    pattern: str = typer.Option(
+        "*.yaml", help="Glob pattern for character YAML configs."
+    ),
+    contact_sheet: bool = typer.Option(
+        True, help="Also draw a quick review contact sheet."
+    ),
 ) -> None:
     if not config_dir.exists():
         raise typer.BadParameter(f"config directory does not exist: {config_dir}")
@@ -126,7 +164,9 @@ def canonical_all(
     if contact_sheet:
         sheet_out = out_dir / "character_canonicals.png"
         render_canonical_contact_sheet(items, sheet_out)
-        console.print(f"[bold green]Canonical contact sheet:[/bold green] {_file_link(sheet_out)}")
+        console.print(
+            f"[bold green]Canonical contact sheet:[/bold green] {_file_link(sheet_out)}"
+        )
 
 
 @app.command("spritesheet")
@@ -143,9 +183,16 @@ def spritesheet(config: Path, out: Path, manifest_out: Optional[Path] = None) ->
 
 @app.command("draw-all")
 def draw_all(
-    config_dir: Path = typer.Option(DEFAULT_CONFIG_DIR, help="Directory containing character YAML configs."),
-    out_dir: Path = typer.Option(DEFAULT_ASSET_DIR, help="Directory where sprite sheets and manifests are written."),
-    pattern: str = typer.Option("*.yaml", help="Glob pattern for character YAML configs."),
+    config_dir: Path = typer.Option(
+        DEFAULT_CONFIG_DIR, help="Directory containing character YAML configs."
+    ),
+    out_dir: Path = typer.Option(
+        DEFAULT_ASSET_DIR,
+        help="Directory where sprite sheets and manifests are written.",
+    ),
+    pattern: str = typer.Option(
+        "*.yaml", help="Glob pattern for character YAML configs."
+    ),
 ) -> None:
     if not config_dir.exists():
         raise typer.BadParameter(f"config directory does not exist: {config_dir}")
@@ -163,20 +210,35 @@ def draw_all(
         manifest = render_spritesheet(adapter, job, sheet_out, manifest_out)
         total_frames += len(manifest["frames"])
         console.print(f"[bold]{stem}[/bold] -> {sheet_out}")
-        console.print(f"[dim]{stem} manifest -> {manifest_out} ({len(manifest['frames'])} frames)[/dim]")
-    console.print(f"rendered {len(configs)} character configs, {total_frames} frames total")
+        console.print(
+            f"[dim]{stem} manifest -> {manifest_out} ({len(manifest['frames'])} frames)[/dim]"
+        )
+    console.print(
+        f"rendered {len(configs)} character configs, {total_frames} frames total"
+    )
     canonical_path = out_dir / "character_canonicals.png"
     if canonical_path.exists():
-        console.print(f"[bold green]Canonical contact sheet:[/bold green] {_file_link(canonical_path)}")
+        console.print(
+            f"[bold green]Canonical contact sheet:[/bold green] {_file_link(canonical_path)}"
+        )
     else:
-        console.print("[dim]Canonical contact sheet not found yet. Run: python -m gen3d_blender_lab.cli canonical-all[/dim]")
+        console.print(
+            "[dim]Canonical contact sheet not found yet. Run: python -m gen3d_blender_lab.cli canonical-all[/dim]"
+        )
 
 
 @app.command("textures-all")
 def textures_all(
-    config_dir: Path = typer.Option(DEFAULT_CONFIG_DIR, help="Directory containing character YAML configs."),
-    out_dir: Path = typer.Option(DEFAULT_ASSET_DIR / "textures", help="Directory where generated texture previews are written."),
-    pattern: str = typer.Option("*.yaml", help="Glob pattern for character YAML configs."),
+    config_dir: Path = typer.Option(
+        DEFAULT_CONFIG_DIR, help="Directory containing character YAML configs."
+    ),
+    out_dir: Path = typer.Option(
+        DEFAULT_ASSET_DIR / "textures",
+        help="Directory where generated texture previews are written.",
+    ),
+    pattern: str = typer.Option(
+        "*.yaml", help="Glob pattern for character YAML configs."
+    ),
 ) -> None:
     if not config_dir.exists():
         raise typer.BadParameter(f"config directory does not exist: {config_dir}")
@@ -197,17 +259,25 @@ def textures_all(
             console.print(f"[dim]{key}: {path}[/dim]")
     preview_out = out_dir / "texture_previews.png"
     _texture_preview_sheet(texture_groups, preview_out)
-    console.print(f"[bold green]Texture preview sheet:[/bold green] {_file_link(preview_out)}")
+    console.print(
+        f"[bold green]Texture preview sheet:[/bold green] {_file_link(preview_out)}"
+    )
 
 
 @app.command("validate-config")
 def validate_config(config: Path) -> None:
     job = load_job(config)
     adapter = get_adapter(job.target)
-    missing = [a for a in (job.animations or adapter.default_animations()) if a not in adapter.animations()]
+    missing = [
+        a
+        for a in (job.animations or adapter.default_animations())
+        if a not in adapter.animations()
+    ]
     if missing:
         raise typer.BadParameter(f"unknown animations for {job.target}: {missing}")
-    console.print(f"valid: target={job.target}, seed={job.seed}, archetype={job.archetype}")
+    console.print(
+        f"valid: target={job.target}, seed={job.seed}, archetype={job.archetype}"
+    )
 
 
 if __name__ == "__main__":

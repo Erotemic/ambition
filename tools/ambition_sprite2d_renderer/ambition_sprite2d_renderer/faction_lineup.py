@@ -50,7 +50,9 @@ class FactionCharacter:
             notes=str(data.get("notes", "")),
         )
 
-    def to_job(self, faction_id: str, music_cue: str, default_render: Dict[str, Any]) -> CharacterJob:
+    def to_job(
+        self, faction_id: str, music_cue: str, default_render: Dict[str, Any]
+    ) -> CharacterJob:
         render_data = dict(default_render)
         render_data.update(self.render)
         return CharacterJob(
@@ -81,7 +83,9 @@ class MusicFaction:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "MusicFaction":
-        chars = [FactionCharacter.from_dict(item) for item in data.get("characters", [])]
+        chars = [
+            FactionCharacter.from_dict(item) for item in data.get("characters", [])
+        ]
         return cls(
             id=str(data["id"]),
             display_name=str(data.get("display_name") or data["id"]),
@@ -107,7 +111,9 @@ class FactionLineup:
             data = yaml.safe_load(file) or {}
         if not isinstance(data, dict):
             raise TypeError(f"expected mapping in {path}")
-        default_animations = list(data.get("default_animations") or ["idle", "walk", "talk", "hit", "death"])
+        default_animations = list(
+            data.get("default_animations") or ["idle", "walk", "talk", "hit", "death"]
+        )
         default_render = dict(data.get("default_render") or {})
         factions = [MusicFaction.from_dict(item) for item in data.get("factions", [])]
         if not factions:
@@ -119,17 +125,23 @@ class FactionLineup:
             factions=factions,
         )
 
-    def iter_jobs(self) -> Iterable[Tuple[MusicFaction, FactionCharacter, CharacterJob]]:
+    def iter_jobs(
+        self,
+    ) -> Iterable[Tuple[MusicFaction, FactionCharacter, CharacterJob]]:
         for faction in self.factions:
             for character in faction.characters:
-                job = character.to_job(faction.id, faction.music_cue, self.default_render)
+                job = character.to_job(
+                    faction.id, faction.music_cue, self.default_render
+                )
                 if not job.animations:
                     job.animations = list(self.default_animations)
                 yield faction, character, job
 
 
 def _safe_name(value: str) -> str:
-    return "".join(ch if ch.isalnum() or ch in {"_", "-"} else "_" for ch in value.lower()).strip("_")
+    return "".join(
+        ch if ch.isalnum() or ch in {"_", "-"} else "_" for ch in value.lower()
+    ).strip("_")
 
 
 def _write_contact_sheet(tiles: List[Tuple[str, str, Image.Image]], out: Path) -> None:
@@ -150,19 +162,33 @@ def _write_contact_sheet(tiles: List[Tuple[str, str, Image.Image]], out: Path) -
         row = idx // cols
         x = col * tile_w
         y = row * tile_h
-        draw.rounded_rectangle((x + 5, y + 5, x + tile_w - 5, y + tile_h - 5), radius=10, fill=(28, 32, 43, 255), outline=(70, 78, 104, 255), width=1)
+        draw.rounded_rectangle(
+            (x + 5, y + 5, x + tile_w - 5, y + tile_h - 5),
+            radius=10,
+            fill=(28, 32, 43, 255),
+            outline=(70, 78, 104, 255),
+            width=1,
+        )
         # Fit the canonical image into the card without distorting it.
         max_w, max_h = 112, 108
         scale = min(max_w / img.width, max_h / img.height, 1.0)
         if scale < 1.0:
-            shown = img.resize((max(1, int(img.width * scale)), max(1, int(img.height * scale))), Image.Resampling.LANCZOS)
+            shown = img.resize(
+                (max(1, int(img.width * scale)), max(1, int(img.height * scale))),
+                Image.Resampling.LANCZOS,
+            )
         else:
             shown = img
         contact.alpha_composite(shown, (x + (tile_w - shown.width) // 2, y + 35))
-        for text, ty, fnt, fill in [(name, 11, font, (245, 247, 255, 255)), (subtitle, 146, small, (190, 198, 220, 255))]:
+        for text, ty, fnt, fill in [
+            (name, 11, font, (245, 247, 255, 255)),
+            (subtitle, 146, small, (190, 198, 220, 255)),
+        ]:
             bbox = draw_probe.textbbox((0, 0), text, font=fnt)
             tw = bbox[2] - bbox[0]
-            draw.text((x + max(8, (tile_w - tw) // 2), y + ty), text, font=fnt, fill=fill)
+            draw.text(
+                (x + max(8, (tile_w - tw) // 2), y + ty), text, font=fnt, fill=fill
+            )
     out.parent.mkdir(parents=True, exist_ok=True)
     contact.save(out)
 
@@ -187,29 +213,31 @@ def write_faction_lineup(config_path: str | Path, out_dir: str | Path) -> List[P
         img.save(canonical_out)
         outputs.append(canonical_out)
         tiles.append((character.display_name, faction.display_name, img))
-        manifest["factions"].append({
-            "faction_id": faction.id,
-            "display_name": faction.display_name,
-            "music_cue": faction.music_cue,
-            "music_source": faction.music_source,
-            "palette_hint": faction.palette_hint,
-            "lair_hook": faction.lair_hook,
-            "character": {
-                "id": character.id,
-                "display_name": character.display_name,
-                "target": character.target,
-                "archetype": character.archetype,
-                "role": character.role,
-                "held_item": character.held_item,
-                "animations": list(job.animations),
-                "notes": character.notes,
-            },
-            "outputs": {
-                "spritesheet": image_out.name,
-                "manifest": manifest_out.name,
-                "canonical": canonical_out.name,
-            },
-        })
+        manifest["factions"].append(
+            {
+                "faction_id": faction.id,
+                "display_name": faction.display_name,
+                "music_cue": faction.music_cue,
+                "music_source": faction.music_source,
+                "palette_hint": faction.palette_hint,
+                "lair_hook": faction.lair_hook,
+                "character": {
+                    "id": character.id,
+                    "display_name": character.display_name,
+                    "target": character.target,
+                    "archetype": character.archetype,
+                    "role": character.role,
+                    "held_item": character.held_item,
+                    "animations": list(job.animations),
+                    "notes": character.notes,
+                },
+                "outputs": {
+                    "spritesheet": image_out.name,
+                    "manifest": manifest_out.name,
+                    "canonical": canonical_out.name,
+                },
+            }
+        )
     manifest_out = out_dir / "faction_lineup_manifest.yaml"
     with manifest_out.open("w", encoding="utf8") as file:
         yaml.safe_dump(manifest, file, sort_keys=False)

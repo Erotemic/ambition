@@ -28,6 +28,7 @@ Exit code is 0 if every named spec matches the live LDtk, 1 if any
 spec diverges. Pipe through grep / wc -l in CI to enforce a clean
 state before bulk re-applies.
 """
+
 from __future__ import annotations
 
 import argparse

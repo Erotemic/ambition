@@ -10,6 +10,7 @@ per-surface collectors. The slow/fast fallback for tack-on targets
 without a dedicated canonical hook lives inside [`TackonTarget`]
 itself.
 """
+
 from __future__ import annotations
 
 import math
@@ -117,7 +118,9 @@ def _grid_contact_sheet(
     """Compose a gallery from a list of canonical tiles."""
     font = load_font(14)
     header_font = load_font(18)
-    max_label_w = max((font.getbbox(label)[2] - font.getbbox(label)[0]) for _, label, _ in tiles)
+    max_label_w = max(
+        (font.getbbox(label)[2] - font.getbbox(label)[0]) for _, label, _ in tiles
+    )
     cell_w = max(max(img.width for _, _, img in tiles), max_label_w + 18) + 16
     cell_h = max(img.height for _, _, img in tiles) + 32
 
@@ -163,7 +166,9 @@ def _grid_contact_sheet(
                 y0 = y + r * cell_h
                 draw.rectangle(
                     (x0 + 2, y0 + 2, x0 + cell_w - 6, y0 + cell_h - 4),
-                    fill=_TILE_BG, outline=_TILE_BORDER, width=1,
+                    fill=_TILE_BG,
+                    outline=_TILE_BORDER,
+                    width=1,
                 )
                 img_x = x0 + (cell_w - img.width) // 2
                 img_y = y0 + 4 + (cell_h - 24 - img.height) // 2
@@ -172,7 +177,9 @@ def _grid_contact_sheet(
                 label_x = x0 + max(4, (cell_w - (label_box[2] - label_box[0])) // 2)
                 draw.text(
                     (label_x, y0 + cell_h - 20),
-                    label, fill=(228, 228, 240, 255), font=font,
+                    label,
+                    fill=(228, 228, 240, 255),
+                    font=font,
                 )
             else:
                 continue
@@ -217,7 +224,11 @@ def write_gallery(
     targets: Iterable[Target],
     *,
     section_order: Tuple[str, ...] = (
-        "characters", "props", "tiles", "icons", "review_npcs",
+        "characters",
+        "props",
+        "tiles",
+        "icons",
+        "review_npcs",
     ),
 ) -> Tuple[List[Path], List[str]]:
     """Draw a labeled gallery from any iterable of [`Target`] instances.
@@ -257,7 +268,9 @@ def write_gallery(
             all_tiles.extend(cat_tiles)
             section_headers.append((cat.replace("_", " ").title(), len(cat_tiles)))
 
-    outputs: List[Path] = [out_dir / f"{stem}_canonical.png" for stem, _, _ in all_tiles]
+    outputs: List[Path] = [
+        out_dir / f"{stem}_canonical.png" for stem, _, _ in all_tiles
+    ]
     if all_tiles:
         contact = _grid_contact_sheet(all_tiles, sections=section_headers)
         contact_out = out_dir / "canonicals_contact_sheet.png"

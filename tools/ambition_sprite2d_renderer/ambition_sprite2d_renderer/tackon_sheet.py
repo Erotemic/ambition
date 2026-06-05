@@ -29,6 +29,7 @@ A target's ``render()`` function typically composes:
 which the target's ``render()`` flattens into a `list[Path]` for the
 discovery API.
 """
+
 from __future__ import annotations
 
 import math
@@ -60,18 +61,47 @@ ANIMATIONS = [
 # Two sets so `is_character_sheet` can detect *any* CharacterAnim row
 # while `IDLE_ALIASES` flags the missing-Idle case specifically.
 IDLE_ALIASES = frozenset(("idle", "opening", "rest", "front_idle", "side_idle"))
-CHARACTER_ANIM_NAMES = frozenset((
-    *IDLE_ALIASES,
-    "walk", "stable", "spin", "side_walk",
-    "run", "closing",
-    "jump", "fall", "slash", "hit", "hurt", "death",
-    "blink_out", "blink_in", "dash", "fly", "hover", "taunt",
-    "ledge_grab", "ledge_climb", "ledge_getup", "wall_grab",
-    "float_glide", "land_hard", "land_recovery", "dash_startup",
-    "attack_side", "attack_up", "attack_down",
-    "air_neutral", "air_forward", "air_back", "air_down", "air_up",
-    "ledge_roll", "ledge_getup_attack",
-))
+CHARACTER_ANIM_NAMES = frozenset(
+    (
+        *IDLE_ALIASES,
+        "walk",
+        "stable",
+        "spin",
+        "side_walk",
+        "run",
+        "closing",
+        "jump",
+        "fall",
+        "slash",
+        "hit",
+        "hurt",
+        "death",
+        "blink_out",
+        "blink_in",
+        "dash",
+        "fly",
+        "hover",
+        "taunt",
+        "ledge_grab",
+        "ledge_climb",
+        "ledge_getup",
+        "wall_grab",
+        "float_glide",
+        "land_hard",
+        "land_recovery",
+        "dash_startup",
+        "attack_side",
+        "attack_up",
+        "attack_down",
+        "air_neutral",
+        "air_forward",
+        "air_back",
+        "air_down",
+        "air_up",
+        "ledge_roll",
+        "ledge_getup_attack",
+    )
+)
 
 
 def diagnose_idle_coverage(target: str, anim_names: List[str]) -> Optional[str]:
@@ -197,13 +227,19 @@ def alpha_bbox_metrics(frame: Image.Image):
     feet_x = (x1 + x2) / 2.0
     feet_y = float(y2)
     return {
-        "body_pixel_bbox": {"x": int(x1), "y": int(y1), "w": int(x2 - x1), "h": int(y2 - y1)},
+        "body_pixel_bbox": {
+            "x": int(x1),
+            "y": int(y1),
+            "w": int(x2 - x1),
+            "h": int(y2 - y1),
+        },
         "feet_pixel": {"x": round(feet_x, 3), "y": round(feet_y, 3)},
         "feet_anchor_norm": {
             "x": round(feet_x / frame.width - 0.5, 6),
             "y": round(0.5 - feet_y / frame.height, 6),
         },
     }
+
 
 def build_sheet(
     target: str,
@@ -269,7 +305,7 @@ def build_sheet(
     if auto_crop:
         union_bbox: Optional[List[int]] = None
         all_frames_iter = []
-        for (_, _, _, frames_data) in rendered_rows:
+        for _, _, _, frames_data in rendered_rows:
             all_frames_iter.extend(f for (f, _) in frames_data)
         all_frames_iter.append(canonical_raw)
         for frame in all_frames_iter:
@@ -293,10 +329,12 @@ def build_sheet(
             new_fw = crop_x1 - crop_x
             new_fh = crop_y1 - crop_y
 
-            cropped_rows: List[Tuple[str, int, int, List[Tuple[Image.Image, dict]]]] = []
-            for (anim, nframes, duration_ms, frames_data) in rendered_rows:
+            cropped_rows: List[
+                Tuple[str, int, int, List[Tuple[Image.Image, dict]]]
+            ] = []
+            for anim, nframes, duration_ms, frames_data in rendered_rows:
                 new_data: List[Tuple[Image.Image, dict]] = []
-                for (frame, meta) in frames_data:
+                for frame, meta in frames_data:
                     cropped = frame.crop((crop_x, crop_y, crop_x1, crop_y1))
                     # Translate any positional anchors in `meta.anchors`
                     # by the crop offset so the metadata coordinates
@@ -322,8 +360,12 @@ def build_sheet(
 
     # ---- Pass 2: assemble the spritesheet from the (cropped) frames. ----
     max_frames = max(n for _, n, _ in rows)
-    sheet = Image.new("RGBA", (label_width + fw * max_frames, fh * len(rows)), (0, 0, 0, 0))
-    preview = Image.new("RGBA", (label_width + fw * max_frames, fh * len(rows)), (34, 34, 40, 255))
+    sheet = Image.new(
+        "RGBA", (label_width + fw * max_frames, fh * len(rows)), (0, 0, 0, 0)
+    )
+    preview = Image.new(
+        "RGBA", (label_width + fw * max_frames, fh * len(rows)), (34, 34, 40, 255)
+    )
     draw_sheet = ImageDraw.Draw(sheet, "RGBA")
     draw_prev = ImageDraw.Draw(preview, "RGBA")
     draw_prev.rectangle((0, 0, preview.width, preview.height), fill=(43, 33, 40, 255))
@@ -335,7 +377,12 @@ def build_sheet(
         for dr in [draw_sheet, draw_prev]:
             dr.rectangle((0, y, label_width - 1, y + fh - 1), fill=(18, 22, 30, 235))
             dr.text((8, y + 10), anim, fill=(236, 240, 244, 255), font=font(14))
-            dr.text((8, y + 30), f"{nframes}f @ {duration_ms}ms", fill=(160, 170, 184, 255), font=font(11))
+            dr.text(
+                (8, y + 30),
+                f"{nframes}f @ {duration_ms}ms",
+                fill=(160, 170, 184, 255),
+                font=font(11),
+            )
         rects = []
         for frame_idx, (frame, meta) in enumerate(frames_data):
             if first is None:
@@ -347,14 +394,16 @@ def build_sheet(
             if meta:
                 rect.update(meta)
             rects.append(rect)
-        rows_meta.append({
-            "animation": anim,
-            "row_index": row_idx,
-            "frame_count": nframes,
-            "duration_ms": duration_ms,
-            "duration_secs": round(duration_ms / 1000.0, 6),
-            "rects": rects,
-        })
+        rows_meta.append(
+            {
+                "animation": anim,
+                "row_index": row_idx,
+                "frame_count": nframes,
+                "duration_ms": duration_ms,
+                "duration_secs": round(duration_ms / 1000.0, 6),
+                "rects": rects,
+            }
+        )
 
     can = canonical_raw
     can_bg = Image.new("RGBA", (fw, fh), (43, 33, 40, 255))
@@ -414,6 +463,7 @@ def build_sheet(
     warning = diagnose_idle_coverage(target, [name for name, _, _ in rows])
     if warning:
         import sys as _sys
+
         print(warning, file=_sys.stderr)
     return {
         "canonical": canonical_path,
@@ -457,6 +507,7 @@ def _ron_body_metrics(bm):
         f"feet_anchor_norm: {_ron_optional_point(bm.get('feet_anchor_norm'))}",
     ]
     return _ron_some(f"({', '.join(parts)})")
+
 
 def _ron_tuning(manifest_or_tuning):
     """Serialize optional tack-on sheet tuning into a full RON field.
@@ -506,7 +557,6 @@ def _ron_tuning(manifest_or_tuning):
 
     inner = "\n".join(f"        {field}," for field in fields)
     return f"    tuning: Some((\n{inner}\n    )),\n"
-
 
 
 def _ron_anchors(anchors):

@@ -30,6 +30,7 @@ python -m ambition_ldtk_tools.synth_boss_manifest \\
 
 Writes `<target>_spritesheet.ron` next to the JSON.
 """
+
 from __future__ import annotations
 
 import argparse

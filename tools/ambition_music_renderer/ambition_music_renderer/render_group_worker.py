@@ -4,6 +4,7 @@
 This keeps long production renders robust by resetting Python/SciPy/FFmpeg state
 between stems. It is intentionally a small command invoked by render_isolated.py.
 """
+
 from __future__ import annotations
 import argparse, json, math, os, sys, tempfile
 from pathlib import Path
@@ -43,7 +44,9 @@ def main(argv=None) -> int:
     target = int(math.ceil(total * sr))
     outdir = Path(ns.outdir)
     with tempfile.TemporaryDirectory() as td:
-        raw = r.render_group_audio(pm, groups, ns.group, ns.backend, soundfont, sr, Path(td), total, bpm)
+        raw = r.render_group_audio(
+            pm, groups, ns.group, ns.backend, soundfont, sr, Path(td), total, bpm
+        )
         raw = r.ensure_audio_length(raw, target)
         settings = dict(spec.get("stem_postprocess", {}) or {})
         settings.update((spec.get("group_postprocess", {}) or {}).get(ns.group, {}))
@@ -57,11 +60,21 @@ def main(argv=None) -> int:
     if not ns.skip_section_ogg:
         for sec in meta:
             piece = r.slice_audio(audio, sr, sec["start_seconds"], sec["end_seconds"])
-            path = outdir / "adaptive" / sec["id"] / f"{spec['id']}_{cue_hash}.{sec['id']}.{ns.group}.ogg"
+            path = (
+                outdir
+                / "adaptive"
+                / sec["id"]
+                / f"{spec['id']}_{cue_hash}.{sec['id']}.{ns.group}.ogg"
+            )
             r.write_ogg_from_audio(piece, sr, path, quality=quality, keep_wav=False)
             files[sec["id"]] = str(path.relative_to(outdir))
-    print(json.dumps({"group": ns.group, "npy": str(npy), "files": files, "hash": cue_hash}))
+    print(
+        json.dumps(
+            {"group": ns.group, "npy": str(npy), "files": files, "hash": cue_hash}
+        )
+    )
     return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

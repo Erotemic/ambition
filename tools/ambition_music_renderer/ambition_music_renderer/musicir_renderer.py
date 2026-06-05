@@ -9,6 +9,7 @@ The Python library interprets those declarative layers, emits MIDI events, rende
 through either FluidSynth or a built-in orchestral/synth fallback, post-processes,
 and exports OGG Vorbis section/stem assets plus a full soundtrack preview.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -45,70 +46,207 @@ DEFAULT_SOUNDFONTS = [
 ]
 
 NOTE_CLASS = {
-    "C": 0, "C#": 1, "Db": 1, "D": 2, "D#": 3, "Eb": 3,
-    "E": 4, "F": 5, "F#": 6, "Gb": 6, "G": 7, "G#": 8,
-    "Ab": 8, "A": 9, "A#": 10, "Bb": 10, "B": 11,
+    "C": 0,
+    "C#": 1,
+    "Db": 1,
+    "D": 2,
+    "D#": 3,
+    "Eb": 3,
+    "E": 4,
+    "F": 5,
+    "F#": 6,
+    "Gb": 6,
+    "G": 7,
+    "G#": 8,
+    "Ab": 8,
+    "A": 9,
+    "A#": 10,
+    "Bb": 10,
+    "B": 11,
 }
 
 GM_PROGRAMS = {
-    "acoustic_grand_piano": 0, "bright_piano": 1, "electric_grand_piano": 2,
-    "honky_tonk_piano": 3, "electric_piano_1": 4, "electric_piano_2": 5,
-    "harpsichord": 6, "clavinet": 7, "celesta": 8, "glockenspiel": 9,
-    "music_box": 10, "vibraphone": 11, "marimba": 12, "xylophone": 13,
-    "tubular_bells": 14, "dulcimer": 15, "drawbar_organ": 16,
-    "church_organ": 19, "accordion": 21, "nylon_guitar": 24,
-    "steel_guitar": 25, "jazz_guitar": 26, "clean_guitar": 27,
-    "muted_guitar": 28, "overdrive_guitar": 29, "distortion_guitar": 30,
-    "acoustic_bass": 32, "fingered_bass": 33, "picked_bass": 34,
-    "fretless_bass": 35, "slap_bass_1": 36, "synth_bass_1": 38,
-    "synth_bass_2": 39, "violin": 40, "viola": 41, "cello": 42,
-    "contrabass": 43, "tremolo_strings": 44, "pizzicato_strings": 45,
-    "orchestral_harp": 46, "timpani": 47, "string_ensemble_1": 48,
-    "string_ensemble_2": 49, "synth_strings_1": 50, "synth_strings_2": 51,
-    "choir_aahs": 52, "voice_oohs": 53, "synth_voice": 54,
-    "orchestra_hit": 55, "trumpet": 56, "trombone": 57, "tuba": 58,
-    "muted_trumpet": 59, "french_horn": 60, "brass_section": 61,
-    "synth_brass_1": 62, "synth_brass_2": 63, "soprano_sax": 64,
-    "alto_sax": 65, "tenor_sax": 66, "baritone_sax": 67, "oboe": 68,
-    "english_horn": 69, "bassoon": 70, "clarinet": 71, "piccolo": 72,
-    "flute": 73, "recorder": 74, "pan_flute": 75, "blown_bottle": 76,
-    "shakuhachi": 77, "whistle": 78, "ocarina": 79, "lead_square": 80,
-    "lead_saw": 81, "lead_calliope": 82, "lead_chiff": 83,
-    "lead_charang": 84, "lead_voice": 85, "lead_fifths": 86,
-    "lead_basslead": 87, "pad_new_age": 88, "pad_warm": 89,
-    "pad_poly": 90, "pad_choir": 91, "pad_bowed": 92, "pad_metallic": 93,
-    "pad_halo": 94, "pad_sweep": 95, "fx_rain": 96, "fx_soundtrack": 97,
-    "fx_crystal": 98, "fx_atmosphere": 99, "fx_brightness": 100,
-    "fx_goblins": 101, "fx_echoes": 102, "fx_scifi": 103, "sitar": 104,
-    "banjo": 105, "shamisen": 106, "koto": 107, "kalimba": 108,
-    "bagpipe": 109, "fiddle": 110, "shanai": 111, "tinkle_bell": 112,
-    "agogo": 113, "steel_drums": 114, "woodblock": 115, "taiko_drum": 116,
-    "melodic_tom": 117, "synth_drum": 118, "reverse_cymbal": 119,
+    "acoustic_grand_piano": 0,
+    "bright_piano": 1,
+    "electric_grand_piano": 2,
+    "honky_tonk_piano": 3,
+    "electric_piano_1": 4,
+    "electric_piano_2": 5,
+    "harpsichord": 6,
+    "clavinet": 7,
+    "celesta": 8,
+    "glockenspiel": 9,
+    "music_box": 10,
+    "vibraphone": 11,
+    "marimba": 12,
+    "xylophone": 13,
+    "tubular_bells": 14,
+    "dulcimer": 15,
+    "drawbar_organ": 16,
+    "church_organ": 19,
+    "accordion": 21,
+    "nylon_guitar": 24,
+    "steel_guitar": 25,
+    "jazz_guitar": 26,
+    "clean_guitar": 27,
+    "muted_guitar": 28,
+    "overdrive_guitar": 29,
+    "distortion_guitar": 30,
+    "acoustic_bass": 32,
+    "fingered_bass": 33,
+    "picked_bass": 34,
+    "fretless_bass": 35,
+    "slap_bass_1": 36,
+    "synth_bass_1": 38,
+    "synth_bass_2": 39,
+    "violin": 40,
+    "viola": 41,
+    "cello": 42,
+    "contrabass": 43,
+    "tremolo_strings": 44,
+    "pizzicato_strings": 45,
+    "orchestral_harp": 46,
+    "timpani": 47,
+    "string_ensemble_1": 48,
+    "string_ensemble_2": 49,
+    "synth_strings_1": 50,
+    "synth_strings_2": 51,
+    "choir_aahs": 52,
+    "voice_oohs": 53,
+    "synth_voice": 54,
+    "orchestra_hit": 55,
+    "trumpet": 56,
+    "trombone": 57,
+    "tuba": 58,
+    "muted_trumpet": 59,
+    "french_horn": 60,
+    "brass_section": 61,
+    "synth_brass_1": 62,
+    "synth_brass_2": 63,
+    "soprano_sax": 64,
+    "alto_sax": 65,
+    "tenor_sax": 66,
+    "baritone_sax": 67,
+    "oboe": 68,
+    "english_horn": 69,
+    "bassoon": 70,
+    "clarinet": 71,
+    "piccolo": 72,
+    "flute": 73,
+    "recorder": 74,
+    "pan_flute": 75,
+    "blown_bottle": 76,
+    "shakuhachi": 77,
+    "whistle": 78,
+    "ocarina": 79,
+    "lead_square": 80,
+    "lead_saw": 81,
+    "lead_calliope": 82,
+    "lead_chiff": 83,
+    "lead_charang": 84,
+    "lead_voice": 85,
+    "lead_fifths": 86,
+    "lead_basslead": 87,
+    "pad_new_age": 88,
+    "pad_warm": 89,
+    "pad_poly": 90,
+    "pad_choir": 91,
+    "pad_bowed": 92,
+    "pad_metallic": 93,
+    "pad_halo": 94,
+    "pad_sweep": 95,
+    "fx_rain": 96,
+    "fx_soundtrack": 97,
+    "fx_crystal": 98,
+    "fx_atmosphere": 99,
+    "fx_brightness": 100,
+    "fx_goblins": 101,
+    "fx_echoes": 102,
+    "fx_scifi": 103,
+    "sitar": 104,
+    "banjo": 105,
+    "shamisen": 106,
+    "koto": 107,
+    "kalimba": 108,
+    "bagpipe": 109,
+    "fiddle": 110,
+    "shanai": 111,
+    "tinkle_bell": 112,
+    "agogo": 113,
+    "steel_drums": 114,
+    "woodblock": 115,
+    "taiko_drum": 116,
+    "melodic_tom": 117,
+    "synth_drum": 118,
+    "reverse_cymbal": 119,
 }
 
 DRUMS = {
-    "kick": 36, "concert_bass_drum": 35, "side_stick": 37, "snare": 38,
-    "hand_clap": 39, "electric_snare": 40, "floor_tom": 41, "closed_hat": 42,
-    "low_tom": 43, "pedal_hat": 44, "mid_tom": 45, "open_hat": 46,
-    "high_tom": 48, "crash": 49, "ride": 51, "china": 52, "ride_bell": 53,
-    "tambourine": 54, "splash": 55, "cowbell": 56, "vibraslap": 58,
-    "bongo_hi": 60, "bongo_low": 61, "conga_hi": 62, "conga_low": 64,
-    "timbale_hi": 65, "timbale_low": 66, "agogo_hi": 67, "agogo_low": 68,
-    "shaker": 70, "whistle_short": 71, "whistle_long": 72, "guiro_short": 73,
-    "guiro_long": 74, "claves": 75, "woodblock_hi": 76, "woodblock_low": 77,
-    "triangle_mute": 80, "triangle": 81,
+    "kick": 36,
+    "concert_bass_drum": 35,
+    "side_stick": 37,
+    "snare": 38,
+    "hand_clap": 39,
+    "electric_snare": 40,
+    "floor_tom": 41,
+    "closed_hat": 42,
+    "low_tom": 43,
+    "pedal_hat": 44,
+    "mid_tom": 45,
+    "open_hat": 46,
+    "high_tom": 48,
+    "crash": 49,
+    "ride": 51,
+    "china": 52,
+    "ride_bell": 53,
+    "tambourine": 54,
+    "splash": 55,
+    "cowbell": 56,
+    "vibraslap": 58,
+    "bongo_hi": 60,
+    "bongo_low": 61,
+    "conga_hi": 62,
+    "conga_low": 64,
+    "timbale_hi": 65,
+    "timbale_low": 66,
+    "agogo_hi": 67,
+    "agogo_low": 68,
+    "shaker": 70,
+    "whistle_short": 71,
+    "whistle_long": 72,
+    "guiro_short": 73,
+    "guiro_long": 74,
+    "claves": 75,
+    "woodblock_hi": 76,
+    "woodblock_low": 77,
+    "triangle_mute": 80,
+    "triangle": 81,
 }
 
 ARTICULATION_GATE = {
-    "staccato": 0.40, "spiccato": 0.34, "pluck": 0.46, "marcato": 0.68,
-    "normal": 0.86, "tenuto": 0.98, "legato": 1.10, "pad": 1.02,
-    "hit": 0.28, "bell": 1.40,
+    "staccato": 0.40,
+    "spiccato": 0.34,
+    "pluck": 0.46,
+    "marcato": 0.68,
+    "normal": 0.86,
+    "tenuto": 0.98,
+    "legato": 1.10,
+    "pad": 1.02,
+    "hit": 0.28,
+    "bell": 1.40,
 }
 
 CC_NUMBERS = {
-    "modulation": 1, "breath": 2, "volume": 7, "pan": 10,
-    "expression": 11, "sustain": 64, "reverb": 91, "chorus": 93,
+    "modulation": 1,
+    "breath": 2,
+    "volume": 7,
+    "pan": 10,
+    "expression": 11,
+    "sustain": 64,
+    "reverb": 91,
+    "chorus": 93,
 }
+
 
 @dc.dataclass
 class RenderContext:
@@ -217,12 +355,16 @@ def chord_intervals(chord_symbol: str) -> tuple[str, list[int], str | None]:
     return root, intervals, slash_bass
 
 
-def chord_pitches(chord_symbol: str, octave: int = 4, *, voicing: str = "closed") -> list[int]:
+def chord_pitches(
+    chord_symbol: str, octave: int = 4, *, voicing: str = "closed"
+) -> list[int]:
     root, intervals, slash_bass = chord_intervals(chord_symbol)
     root_midi = note_to_midi(f"{root}{octave}")
     notes = [root_midi + i for i in intervals]
     if voicing in {"open", "spread"} and len(notes) >= 4:
-        notes = [notes[0] - 12, notes[2], notes[1] + 12, notes[3]] + [n + 12 for n in notes[4:]]
+        notes = [notes[0] - 12, notes[2], notes[1] + 12, notes[3]] + [
+            n + 12 for n in notes[4:]
+        ]
     elif voicing == "wide" and len(notes) >= 3:
         notes = [notes[0] - 12, notes[2], notes[1] + 12] + [n + 12 for n in notes[3:]]
     elif voicing == "drop2" and len(notes) >= 4:
@@ -247,7 +389,11 @@ def section_starts(sections: list[dict[str, Any]]) -> dict[str, int]:
 
 
 def add_cc(inst: pretty_midi.Instrument, number: int, value: int, time: float) -> None:
-    inst.control_changes.append(pretty_midi.ControlChange(number=int(number), value=int(clamp(value, 0, 127)), time=float(time)))
+    inst.control_changes.append(
+        pretty_midi.ControlChange(
+            number=int(number), value=int(clamp(value, 0, 127)), time=float(time)
+        )
+    )
 
 
 def add_instrument(ctx: RenderContext, spec: dict[str, Any]) -> None:
@@ -256,7 +402,11 @@ def add_instrument(ctx: RenderContext, spec: dict[str, Any]) -> None:
         inst = pretty_midi.Instrument(program=0, is_drum=True, name=name)
     else:
         program_name = spec.get("program", "string_ensemble_1")
-        program = int(program_name) if isinstance(program_name, int) else GM_PROGRAMS[program_name]
+        program = (
+            int(program_name)
+            if isinstance(program_name, int)
+            else GM_PROGRAMS[program_name]
+        )
         inst = pretty_midi.Instrument(program=program, is_drum=False, name=name)
     ctx.pm.instruments.append(inst)
     ctx.instruments[name] = inst
@@ -321,23 +471,31 @@ def add_note(
     if humanize_velocity_pct:
         vel = vel * (1.0 + float(ctx.rng.normal(0.0, humanize_velocity_pct / 100.0)))
     velocity = int(clamp(round(vel), 1, 127))
-    inst.notes.append(pretty_midi.Note(velocity=velocity, pitch=pitch_num, start=start, end=end))
+    inst.notes.append(
+        pretty_midi.Note(velocity=velocity, pitch=pitch_num, start=start, end=end)
+    )
     if pitch_bend_curve:
         # Interpolate the curve in time and write as a sequence of pitch bends.
         # Cents are clamped to MIDI's ±2 semitone default range here (200 cents
         # max). For deeper bends, expand `synth.pitch_wheel_sensitivity` upstream.
         note_duration = ctx.beat_to_time(dur_beats)
         for beat_off, cents in pitch_bend_curve:
-            bend_time = start + max(0.0, float(beat_off) * (note_duration / max(dur_beats, 1e-6)))
+            bend_time = start + max(
+                0.0, float(beat_off) * (note_duration / max(dur_beats, 1e-6))
+            )
             bend_time = min(bend_time, end)
             bend_value = int(clamp(float(cents) / 200.0 * 8192.0, -8192, 8191))
-            inst.pitch_bends.append(pretty_midi.PitchBend(pitch=bend_value, time=bend_time))
+            inst.pitch_bends.append(
+                pretty_midi.PitchBend(pitch=bend_value, time=bend_time)
+            )
         # Reset to 0 just past the note end so we don't drag bend into the next note.
         inst.pitch_bends.append(pretty_midi.PitchBend(pitch=0, time=end + 0.001))
     elif pitch_scoop_cents:
         bend_value = int(clamp(pitch_scoop_cents / 200.0 * 8192.0, -8192, 8191))
         inst.pitch_bends.append(pretty_midi.PitchBend(pitch=bend_value, time=start))
-        inst.pitch_bends.append(pretty_midi.PitchBend(pitch=0, time=min(end, start + 0.10)))
+        inst.pitch_bends.append(
+            pretty_midi.PitchBend(pitch=0, time=min(end, start + 0.10))
+        )
 
 
 def add_chord(
@@ -362,7 +520,13 @@ def add_chord(
         notes = _apply_voicing_constraints(ctx, inst_name, notes, constraints)
     for idx, p in enumerate(notes):
         add_note(
-            ctx, inst_name, p, bar, beat, dur_beats, vel - idx * 2,
+            ctx,
+            inst_name,
+            p,
+            bar,
+            beat,
+            dur_beats,
+            vel - idx * 2,
             articulation=articulation,
             humanize_ms=humanize_ms,
             humanize_velocity_pct=humanize_velocity_pct,
@@ -478,9 +642,30 @@ def _spread_clusters(notes: list[int]) -> list[int]:
     return out
 
 
-def add_drum(ctx: RenderContext, kit: str, drum_name: str, bar: float, beat: float, vel: float, *, dur_beats: float = 0.30, humanize_ms: float = 0.0) -> None:
+def add_drum(
+    ctx: RenderContext,
+    kit: str,
+    drum_name: str,
+    bar: float,
+    beat: float,
+    vel: float,
+    *,
+    dur_beats: float = 0.30,
+    humanize_ms: float = 0.0,
+) -> None:
     pitch = DRUMS[drum_name]
-    add_note(ctx, kit, pitch, bar, beat, dur_beats, vel, articulation="normal", humanize_ms=humanize_ms, gate=1.0)
+    add_note(
+        ctx,
+        kit,
+        pitch,
+        bar,
+        beat,
+        dur_beats,
+        vel,
+        articulation="normal",
+        humanize_ms=humanize_ms,
+        gate=1.0,
+    )
 
 
 def chord_for_bar(section: dict[str, Any], local_bar: int) -> str:
@@ -495,7 +680,9 @@ def root_for_chord(chord: str, octave: int = 2) -> int:
     return note_to_midi(f"{bass}{octave}")
 
 
-def transform_motif(notes: list[int], transform: str | dict[str, Any] | None, pivot: int | None = None) -> list[int]:
+def transform_motif(
+    notes: list[int], transform: str | dict[str, Any] | None, pivot: int | None = None
+) -> list[int]:
     out = list(notes)
     if not transform:
         return out
@@ -518,10 +705,18 @@ def transform_motif(notes: list[int], transform: str | dict[str, Any] | None, pi
     return out
 
 
-def motif_notes(ctx: RenderContext, motif_id: str, root: str | int | None = None, transform: Any = None, transpose: int = 0) -> tuple[list[int], list[float], list[float]]:
+def motif_notes(
+    ctx: RenderContext,
+    motif_id: str,
+    root: str | int | None = None,
+    transform: Any = None,
+    transpose: int = 0,
+) -> tuple[list[int], list[float], list[float]]:
     motif = ctx.motifs[motif_id]
     if "notes" in motif:
-        notes = [note_to_midi(n) if isinstance(n, str) else int(n) for n in motif["notes"]]
+        notes = [
+            note_to_midi(n) if isinstance(n, str) else int(n) for n in motif["notes"]
+        ]
         if root is not None and isinstance(root, str):
             base = note_to_midi(root)
             motif_base = note_to_midi(motif.get("root", "C4"))
@@ -541,11 +736,19 @@ def motif_notes(ctx: RenderContext, motif_id: str, root: str | int | None = None
     return notes, rhythm, velocities
 
 
-def apply_automation(ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]) -> None:
+def apply_automation(
+    ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]
+) -> None:
     for auto in layer.get("automation", []):
-        inst_names = resolve_instruments(ctx, auto) if any(k in auto for k in ("instrument", "instruments", "group")) else resolve_instruments(ctx, layer)
+        inst_names = (
+            resolve_instruments(ctx, auto)
+            if any(k in auto for k in ("instrument", "instruments", "group"))
+            else resolve_instruments(ctx, layer)
+        )
         cc = auto.get("cc", "expression")
-        cc_num = CC_NUMBERS.get(cc, int(cc) if isinstance(cc, int) or str(cc).isdigit() else 11)
+        cc_num = CC_NUMBERS.get(
+            cc, int(cc) if isinstance(cc, int) or str(cc).isdigit() else 11
+        )
         start_bar = section["start_bar"] + float(auto.get("start_bar", 0.0))
         dur_bars = float(auto.get("bars", section["bars"]))
         start_val = float(auto.get("from", 80))
@@ -589,7 +792,9 @@ def _layer_human(layer: dict[str, Any], default_ms: float) -> dict[str, float]:
     }
 
 
-def _layer_constraints(spec: dict[str, Any], layer: dict[str, Any]) -> dict[str, Any] | None:
+def _layer_constraints(
+    spec: dict[str, Any], layer: dict[str, Any]
+) -> dict[str, Any] | None:
     """Merge the spec-level and layer-level `constraints` blocks."""
     spec_c = spec.get("constraints") or {}
     layer_c = layer.get("constraints") or {}
@@ -598,7 +803,9 @@ def _layer_constraints(spec: dict[str, Any], layer: dict[str, Any]) -> dict[str,
     return merged or None
 
 
-def render_layer_pad_chords(ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]) -> None:
+def render_layer_pad_chords(
+    ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]
+) -> None:
     insts = resolve_instruments(ctx, layer)
     every = float(layer.get("every_bars", 1.0))
     dur = float(layer.get("duration_beats", ctx.beats_per_bar * every))
@@ -611,10 +818,25 @@ def render_layer_pad_chords(ctx: RenderContext, section: dict[str, Any], layer: 
     for local in range(0, int(section["bars"]), max(1, int(every))):
         chord = chord_for_bar(section, local)
         for inst in insts:
-            add_chord(ctx, inst, chord, section["start_bar"] + local, 0.0, dur, velocity, octave=octave, articulation=articulation, voicing=voicing, constraints=constraints, **hk)
+            add_chord(
+                ctx,
+                inst,
+                chord,
+                section["start_bar"] + local,
+                0.0,
+                dur,
+                velocity,
+                octave=octave,
+                articulation=articulation,
+                voicing=voicing,
+                constraints=constraints,
+                **hk,
+            )
 
 
-def render_layer_arpeggio(ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]) -> None:
+def render_layer_arpeggio(
+    ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]
+) -> None:
     insts = resolve_instruments(ctx, layer)
     pattern = [int(x) for x in layer.get("pattern", [0, 2, 1, 2])]
     step = float(layer.get("step", 0.5))
@@ -627,9 +849,15 @@ def render_layer_arpeggio(ctx: RenderContext, section: dict[str, Any], layer: di
     inst_octave_offsets = layer.get("instrument_octave_offsets", {}) or {}
     hk = _layer_human(layer, 4.0)
     for local in range(int(section["bars"])):
-        if "every" in layer and local % int(layer["every"]) != int(layer.get("offset", 0)):
+        if "every" in layer and local % int(layer["every"]) != int(
+            layer.get("offset", 0)
+        ):
             continue
-        tones = chord_pitches(chord_for_bar(section, local), octave=octave, voicing=layer.get("voicing", "closed"))
+        tones = chord_pitches(
+            chord_for_bar(section, local),
+            octave=octave,
+            voicing=layer.get("voicing", "closed"),
+        )
         count = int(ctx.beats_per_bar / step)
         for i in range(count):
             if ctx.rng.random() > density:
@@ -638,10 +866,22 @@ def render_layer_arpeggio(ctx: RenderContext, section: dict[str, Any], layer: di
             for inst in insts:
                 p = base_pitch + 12 * int(inst_octave_offsets.get(inst, 0))
                 v = velocity + float(inst_velocity_offsets.get(inst, 0.0))
-                add_note(ctx, inst, p, section["start_bar"] + local, i * step, dur, v * float(section.get("intensity", 1.0)), articulation=articulation, **hk)
+                add_note(
+                    ctx,
+                    inst,
+                    p,
+                    section["start_bar"] + local,
+                    i * step,
+                    dur,
+                    v * float(section.get("intensity", 1.0)),
+                    articulation=articulation,
+                    **hk,
+                )
 
 
-def render_layer_ostinato(ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]) -> None:
+def render_layer_ostinato(
+    ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]
+) -> None:
     insts = resolve_instruments(ctx, layer)
     intervals = [int(x) for x in layer.get("intervals", [0, 7, 12, 7])]
     rhythm = [float(x) for x in layer.get("rhythm", [0.5] * len(intervals))]
@@ -658,14 +898,28 @@ def render_layer_ostinato(ctx: RenderContext, section: dict[str, Any], layer: di
             dur = rhythm[idx % len(rhythm)]
             p = root + intervals[idx % len(intervals)]
             for inst in insts:
-                add_note(ctx, inst, p, section["start_bar"] + local, beat, dur, velocity * float(section.get("intensity", 1.0)), articulation=articulation, **hk)
+                add_note(
+                    ctx,
+                    inst,
+                    p,
+                    section["start_bar"] + local,
+                    beat,
+                    dur,
+                    velocity * float(section.get("intensity", 1.0)),
+                    articulation=articulation,
+                    **hk,
+                )
             beat += dur
             idx += 1
 
 
-def render_layer_bassline(ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]) -> None:
+def render_layer_bassline(
+    ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]
+) -> None:
     inst = resolve_instruments(ctx, layer)[0]
-    pattern = layer.get("pattern", [[0, 0.0, 0.75], [7, 1.5, 0.5], [12, 2.5, 0.5], [7, 3.25, 0.4]])
+    pattern = layer.get(
+        "pattern", [[0, 0.0, 0.75], [7, 1.5, 0.5], [12, 2.5, 0.5], [7, 3.25, 0.4]]
+    )
     octave = int(layer.get("octave", 2))
     velocity = float(layer.get("velocity", 74))
     articulation = layer.get("articulation", "marcato")
@@ -674,10 +928,22 @@ def render_layer_bassline(ctx: RenderContext, section: dict[str, Any], layer: di
         root = root_for_chord(chord_for_bar(section, local), octave)
         for item in pattern:
             interval, beat, dur = int(item[0]), float(item[1]), float(item[2])
-            add_note(ctx, inst, root + interval, section["start_bar"] + local, beat, dur, velocity * float(section.get("intensity", 1.0)), articulation=articulation, **hk)
+            add_note(
+                ctx,
+                inst,
+                root + interval,
+                section["start_bar"] + local,
+                beat,
+                dur,
+                velocity * float(section.get("intensity", 1.0)),
+                articulation=articulation,
+                **hk,
+            )
 
 
-def render_layer_motif(ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]) -> None:
+def render_layer_motif(
+    ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]
+) -> None:
     insts = resolve_instruments(ctx, layer)
     roots = layer.get("roots") or [layer.get("root", None)]
     starts = layer.get("starts") or [[0, 0.0]]
@@ -701,24 +967,51 @@ def render_layer_motif(ctx: RenderContext, section: dict[str, Any], layer: dict[
             local_bar, start_beat = float(start[0]) + rep * every_bars, float(start[1])
             if local_bar >= section["bars"]:
                 continue
-            notes, rhythm, velocities = motif_notes(ctx, layer["motif"], root=root, transform=transform, transpose=transpose)
+            notes, rhythm, velocities = motif_notes(
+                ctx, layer["motif"], root=root, transform=transform, transpose=transpose
+            )
             beat = start_beat
             for i, p0 in enumerate(notes):
                 dur = rhythm[i % len(rhythm)] * float(layer.get("rhythm_scale", 1.0))
                 vel_scale = velocities[i % len(velocities)]
                 if note_velocity_pattern:
-                    vel_scale *= float(note_velocity_pattern[i % len(note_velocity_pattern)])
+                    vel_scale *= float(
+                        note_velocity_pattern[i % len(note_velocity_pattern)]
+                    )
                 for j, inst in enumerate(insts):
                     p = p0 + 12 * int(inst_octave_offsets.get(inst, 0))
                     v = velocity + float(inst_velocity_offsets.get(inst, -8 * j))
-                    scoop = float(inst_pitch_scoop.get(inst, layer.get("pitch_scoop_cents", 0.0)))
-                    bend_curve = inst_pitch_bend_curves.get(inst, layer.get("pitch_bend_curve"))
-                    bend_curve_pairs = [(float(x[0]), float(x[1])) for x in bend_curve] if bend_curve else None
-                    add_note(ctx, inst, p, section["start_bar"] + local_bar, beat, dur, v * vel_scale * float(section.get("intensity", 1.0)), articulation=articulation, gate=gate, pitch_scoop_cents=scoop, pitch_bend_curve=bend_curve_pairs, **hk)
+                    scoop = float(
+                        inst_pitch_scoop.get(inst, layer.get("pitch_scoop_cents", 0.0))
+                    )
+                    bend_curve = inst_pitch_bend_curves.get(
+                        inst, layer.get("pitch_bend_curve")
+                    )
+                    bend_curve_pairs = (
+                        [(float(x[0]), float(x[1])) for x in bend_curve]
+                        if bend_curve
+                        else None
+                    )
+                    add_note(
+                        ctx,
+                        inst,
+                        p,
+                        section["start_bar"] + local_bar,
+                        beat,
+                        dur,
+                        v * vel_scale * float(section.get("intensity", 1.0)),
+                        articulation=articulation,
+                        gate=gate,
+                        pitch_scoop_cents=scoop,
+                        pitch_bend_curve=bend_curve_pairs,
+                        **hk,
+                    )
                 beat += dur
 
 
-def render_layer_chord_hits(ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]) -> None:
+def render_layer_chord_hits(
+    ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]
+) -> None:
     insts = resolve_instruments(ctx, layer)
     hits = layer.get("hits", [[0, 0.0], [4, 0.0], [8, 0.0], [12, 0.0]])
     velocity = float(layer.get("velocity", 90))
@@ -730,10 +1023,25 @@ def render_layer_chord_hits(ctx: RenderContext, section: dict[str, Any], layer: 
             continue
         chord = chord_for_bar(section, int(local))
         for inst in insts:
-            add_chord(ctx, inst, chord, section["start_bar"] + float(local), float(beat), float(layer.get("duration_beats", 0.75)), velocity * float(section.get("intensity", 1.0)), octave=octave, articulation=layer.get("articulation", "marcato"), voicing=layer.get("voicing", "closed"), constraints=constraints, **hk)
+            add_chord(
+                ctx,
+                inst,
+                chord,
+                section["start_bar"] + float(local),
+                float(beat),
+                float(layer.get("duration_beats", 0.75)),
+                velocity * float(section.get("intensity", 1.0)),
+                octave=octave,
+                articulation=layer.get("articulation", "marcato"),
+                voicing=layer.get("voicing", "closed"),
+                constraints=constraints,
+                **hk,
+            )
 
 
-def render_layer_drums(ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]) -> None:
+def render_layer_drums(
+    ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]
+) -> None:
     kit = resolve_instruments(ctx, layer)[0]
     events = layer.get("events", [])
     if not events:
@@ -748,10 +1056,24 @@ def render_layer_drums(ctx: RenderContext, section: dict[str, Any], layer: dict[
             for beat in beats:
                 if ctx.rng.random() > float(ev.get("probability", 1.0)):
                     continue
-                add_drum(ctx, kit, ev["drum"], section["start_bar"] + local, float(beat), float(ev.get("velocity", layer.get("velocity", 70))) * float(section.get("intensity", 1.0)), dur_beats=float(ev.get("duration_beats", 0.1)), humanize_ms=float(ev.get("humanize_ms", layer.get("humanize_ms", 2.0))))
+                add_drum(
+                    ctx,
+                    kit,
+                    ev["drum"],
+                    section["start_bar"] + local,
+                    float(beat),
+                    float(ev.get("velocity", layer.get("velocity", 70)))
+                    * float(section.get("intensity", 1.0)),
+                    dur_beats=float(ev.get("duration_beats", 0.1)),
+                    humanize_ms=float(
+                        ev.get("humanize_ms", layer.get("humanize_ms", 2.0))
+                    ),
+                )
 
 
-def render_layer_texture(ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]) -> None:
+def render_layer_texture(
+    ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]
+) -> None:
     insts = resolve_instruments(ctx, layer)
     scale = [int(x) for x in layer.get("scale", [0, 2, 3, 5, 7, 10, 12])]
     root = note_to_midi(layer.get("root", "D5"))
@@ -759,15 +1081,29 @@ def render_layer_texture(ctx: RenderContext, section: dict[str, Any], layer: dic
     velocity = float(layer.get("velocity", 38))
     hk = _layer_human(layer, 2.0)
     for local in range(int(section["bars"])):
-        count = int(math.floor(count_per_bar)) + (1 if ctx.rng.random() < count_per_bar % 1 else 0)
+        count = int(math.floor(count_per_bar)) + (
+            1 if ctx.rng.random() < count_per_bar % 1 else 0
+        )
         for _ in range(count):
             beat = float(ctx.rng.uniform(0.0, ctx.beats_per_bar))
             p = root + int(ctx.rng.choice(scale)) + 12 * int(ctx.rng.integers(-1, 2))
             inst = str(ctx.rng.choice(insts))
-            add_note(ctx, inst, p, section["start_bar"] + local, beat, float(layer.get("duration_beats", 0.25)), velocity * float(section.get("intensity", 1.0)), articulation=layer.get("articulation", "bell"), **hk)
+            add_note(
+                ctx,
+                inst,
+                p,
+                section["start_bar"] + local,
+                beat,
+                float(layer.get("duration_beats", 0.25)),
+                velocity * float(section.get("intensity", 1.0)),
+                articulation=layer.get("articulation", "bell"),
+                **hk,
+            )
 
 
-def render_layer_pedal(ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]) -> None:
+def render_layer_pedal(
+    ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]
+) -> None:
     insts = resolve_instruments(ctx, layer)
     pitch = layer.get("note")
     if pitch is None:
@@ -775,11 +1111,22 @@ def render_layer_pedal(ctx: RenderContext, section: dict[str, Any], layer: dict[
     velocity = float(layer.get("velocity", 45)) * float(section.get("intensity", 1.0))
     hk = _layer_human(layer, 8.0)
     for inst in insts:
-        add_note(ctx, inst, pitch, section["start_bar"], 0.0, section["bars"] * ctx.beats_per_bar, velocity, articulation=layer.get("articulation", "pad"), **hk)
+        add_note(
+            ctx,
+            inst,
+            pitch,
+            section["start_bar"],
+            0.0,
+            section["bars"] * ctx.beats_per_bar,
+            velocity,
+            articulation=layer.get("articulation", "pad"),
+            **hk,
+        )
 
 
-
-def render_layer_root_hits(ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]) -> None:
+def render_layer_root_hits(
+    ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]
+) -> None:
     insts = resolve_instruments(ctx, layer)
     hits = layer.get("hits", [[0, 0.0, 0, 0.75]])
     velocity = float(layer.get("velocity", 76))
@@ -787,19 +1134,41 @@ def render_layer_root_hits(ctx: RenderContext, section: dict[str, Any], layer: d
     articulation = layer.get("articulation", "marcato")
     hk = _layer_human(layer, 2.0)
     for item in hits:
-        local = float(item[0]); beat = float(item[1]); interval = int(item[2]) if len(item) > 2 else 0; dur = float(item[3]) if len(item) > 3 else float(layer.get("duration_beats", 0.75))
+        local = float(item[0])
+        beat = float(item[1])
+        interval = int(item[2]) if len(item) > 2 else 0
+        dur = (
+            float(item[3])
+            if len(item) > 3
+            else float(layer.get("duration_beats", 0.75))
+        )
         if local >= section["bars"]:
             continue
         root = root_for_chord(chord_for_bar(section, int(local)), octave)
         for inst in insts:
-            add_note(ctx, inst, root + interval, section["start_bar"] + local, beat, dur, velocity * float(section.get("intensity", 1.0)), articulation=articulation, **hk)
+            add_note(
+                ctx,
+                inst,
+                root + interval,
+                section["start_bar"] + local,
+                beat,
+                dur,
+                velocity * float(section.get("intensity", 1.0)),
+                articulation=articulation,
+                **hk,
+            )
 
 
-def render_layer_automation(ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]) -> None:
+def render_layer_automation(
+    ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]
+) -> None:
     # Note-free layer used to express section-wide CC ramps in YAML.
     apply_automation(ctx, section, layer)
 
-def render_layer(ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]) -> None:
+
+def render_layer(
+    ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]
+) -> None:
     kind = layer["kind"]
     if kind == "pad_chords":
         render_layer_pad_chords(ctx, section, layer)
@@ -829,7 +1198,9 @@ def render_layer(ctx: RenderContext, section: dict[str, Any], layer: dict[str, A
     apply_automation(ctx, section, layer)
 
 
-def merged_layers(spec: dict[str, Any], section: dict[str, Any]) -> list[dict[str, Any]]:
+def merged_layers(
+    spec: dict[str, Any], section: dict[str, Any]
+) -> list[dict[str, Any]]:
     templates = spec.get("layer_templates", {})
     out: list[dict[str, Any]] = []
     for item in section.get("layers", []):
@@ -844,7 +1215,9 @@ def merged_layers(spec: dict[str, Any], section: dict[str, Any]) -> list[dict[st
     return out
 
 
-def build_score(spec: dict[str, Any]) -> tuple[pretty_midi.PrettyMIDI, dict[str, str], list[dict[str, Any]]]:
+def build_score(
+    spec: dict[str, Any],
+) -> tuple[pretty_midi.PrettyMIDI, dict[str, str], list[dict[str, Any]]]:
     bpm = float(spec.get("tempo", {}).get("bpm", spec.get("bpm", 120)))
     beats_per_bar = float(spec.get("meter", {}).get("beats_per_bar", 4))
     pm = pretty_midi.PrettyMIDI(initial_tempo=bpm)
@@ -878,7 +1251,9 @@ def spec_hash(spec_path: Path, soundfont_path: str, backend: str) -> str:
         "soundfont": str(soundfont_path),
         "backend": backend,
     }
-    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf8")).hexdigest()[:16]
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True).encode("utf8")
+    ).hexdigest()[:16]
 
 
 def _coerce_stereo(audio: np.ndarray) -> np.ndarray:
@@ -890,7 +1265,9 @@ def _coerce_stereo(audio: np.ndarray) -> np.ndarray:
     return audio.astype(np.float32, copy=False)
 
 
-def sanitize_same_pitch_overlaps(pm: pretty_midi.PrettyMIDI, *, min_duration: float = 0.001) -> None:
+def sanitize_same_pitch_overlaps(
+    pm: pretty_midi.PrettyMIDI, *, min_duration: float = 0.001
+) -> None:
     """Trim overlapping same-pitch notes on each MIDI instrument.
 
     FluidSynth's channel model cannot represent two simultaneously sounding
@@ -912,7 +1289,9 @@ def sanitize_same_pitch_overlaps(pm: pretty_midi.PrettyMIDI, *, min_duration: fl
                 prev = note
 
 
-def render_pretty_midi(pm: pretty_midi.PrettyMIDI, soundfont: str, sample_rate: int) -> np.ndarray:
+def render_pretty_midi(
+    pm: pretty_midi.PrettyMIDI, soundfont: str, sample_rate: int
+) -> np.ndarray:
     """Render via pyFluidSynth, with the synth's built-in reverb and chorus
     disabled so they don't stack on top of the YAML postprocess chain.
 
@@ -960,8 +1339,10 @@ def render_pretty_midi(pm: pretty_midi.PrettyMIDI, soundfont: str, sample_rate: 
 
         events: list[tuple] = []
         for note in inst.notes:
-            events.append((float(note.start), 1, "on", int(note.pitch), int(note.velocity)))
-            events.append((float(note.end),   0, "off", int(note.pitch), 0))
+            events.append(
+                (float(note.start), 1, "on", int(note.pitch), int(note.velocity))
+            )
+            events.append((float(note.end), 0, "off", int(note.pitch), 0))
         for cc in inst.control_changes:
             events.append((float(cc.time), 0, "cc", int(cc.number), int(cc.value)))
         for pb in inst.pitch_bends:
@@ -983,10 +1364,12 @@ def render_pretty_midi(pm: pretty_midi.PrettyMIDI, soundfont: str, sample_rate: 
             if n > 0:
                 buf = fl.get_samples(n)
                 # pyFluidSynth returns interleaved L,R,L,R,...; mix to mono.
-                mono = (buf[0::2].astype(np.float32) + buf[1::2].astype(np.float32)) * 0.5
+                mono = (
+                    buf[0::2].astype(np.float32) + buf[1::2].astype(np.float32)
+                ) * 0.5
                 # Normalize the int16 range pyFluidSynth uses by default.
                 mono /= 32768.0
-                out[cursor:cursor + len(mono)] = mono[:n]
+                out[cursor : cursor + len(mono)] = mono[:n]
                 cursor += n
             kind = ev[2]
             if kind == "on":
@@ -1001,7 +1384,7 @@ def render_pretty_midi(pm: pretty_midi.PrettyMIDI, soundfont: str, sample_rate: 
             buf = fl.get_samples(total_samples - cursor)
             mono = (buf[0::2].astype(np.float32) + buf[1::2].astype(np.float32)) * 0.5
             mono /= 32768.0
-            out[cursor:cursor + len(mono)] = mono[: total_samples - cursor]
+            out[cursor : cursor + len(mono)] = mono[: total_samples - cursor]
         fl.delete()
         waveforms.append(out)
 
@@ -1022,19 +1405,33 @@ def _lowpass_mono(signal_in: np.ndarray, amount: float) -> np.ndarray:
     if len(signal_in) == 0:
         return signal_in
     amount = float(clamp(amount, 1e-5, 1.0))
-    return signal.lfilter([amount], [1.0, -(1.0 - amount)], signal_in).astype(np.float32)
+    return signal.lfilter([amount], [1.0, -(1.0 - amount)], signal_in).astype(
+        np.float32
+    )
 
 
-
-def render_with_fluidsynth_cli(midi_path: Path, soundfont: str, sample_rate: int, dry_wav_path: Path) -> np.ndarray:
+def render_with_fluidsynth_cli(
+    midi_path: Path, soundfont: str, sample_rate: int, dry_wav_path: Path
+) -> np.ndarray:
     # `-R 0 -C 0` disables fluidsynth's internal reverb and chorus so they
     # don't stack on top of the YAML postprocess chain. `-g 1.6` lifts the
     # synth gain off its quiet 0.2 default so authored MIDI velocities map
     # to sensible per-stem levels (matches the pyfluidsynth gain).
     cmd = [
-        "fluidsynth", "-ni", "-R", "0", "-C", "0", "-g", "1.6",
-        "-r", str(sample_rate), "-F", str(dry_wav_path),
-        soundfont, str(midi_path),
+        "fluidsynth",
+        "-ni",
+        "-R",
+        "0",
+        "-C",
+        "0",
+        "-g",
+        "1.6",
+        "-r",
+        str(sample_rate),
+        "-F",
+        str(dry_wav_path),
+        soundfont,
+        str(midi_path),
     ]
     subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     audio, sr = sf.read(dry_wav_path, dtype="float32", always_2d=True)
@@ -1043,28 +1440,54 @@ def render_with_fluidsynth_cli(midi_path: Path, soundfont: str, sample_rate: int
     return _coerce_stereo(audio)
 
 
-def render_synth_audio(pm: pretty_midi.PrettyMIDI, backend: str, soundfont: str, sample_rate: int, midi_path: Path, dry_wav_path: Path, minimum_duration: float) -> np.ndarray:
+def render_synth_audio(
+    pm: pretty_midi.PrettyMIDI,
+    backend: str,
+    soundfont: str,
+    sample_rate: int,
+    midi_path: Path,
+    dry_wav_path: Path,
+    minimum_duration: float,
+) -> np.ndarray:
     if backend == "fallback":
-        from . import fallback_backend  # imported lazily so its synth code stays out of YAML-only paths
-        return fallback_backend.render_fallback(pm, sample_rate, minimum_duration=minimum_duration)
+        from . import (
+            fallback_backend,
+        )  # imported lazily so its synth code stays out of YAML-only paths
+
+        return fallback_backend.render_fallback(
+            pm, sample_rate, minimum_duration=minimum_duration
+        )
     if backend == "fluidsynth-cli":
         if not soundfont:
-            raise FileNotFoundError("fluidsynth-cli backend requires --soundfont or installed default SoundFont")
+            raise FileNotFoundError(
+                "fluidsynth-cli backend requires --soundfont or installed default SoundFont"
+            )
         if not shutil.which("fluidsynth"):
             raise FileNotFoundError("fluidsynth binary not found")
-        return render_with_fluidsynth_cli(midi_path, soundfont, sample_rate, dry_wav_path)
+        return render_with_fluidsynth_cli(
+            midi_path, soundfont, sample_rate, dry_wav_path
+        )
     if backend == "pretty-midi":
         if not soundfont:
-            raise FileNotFoundError("pretty-midi backend requires --soundfont or installed default SoundFont")
+            raise FileNotFoundError(
+                "pretty-midi backend requires --soundfont or installed default SoundFont"
+            )
         return render_pretty_midi(pm, soundfont, sample_rate)
     if backend == "auto":
         if soundfont and shutil.which("fluidsynth"):
             try:
-                return render_with_fluidsynth_cli(midi_path, soundfont, sample_rate, dry_wav_path)
+                return render_with_fluidsynth_cli(
+                    midi_path, soundfont, sample_rate, dry_wav_path
+                )
             except Exception as ex:
-                print(f"[WARN] fluidsynth-cli failed ({ex}); falling back to fallback renderer")
+                print(
+                    f"[WARN] fluidsynth-cli failed ({ex}); falling back to fallback renderer"
+                )
         from . import fallback_backend
-        return fallback_backend.render_fallback(pm, sample_rate, minimum_duration=minimum_duration)
+
+        return fallback_backend.render_fallback(
+            pm, sample_rate, minimum_duration=minimum_duration
+        )
     raise ValueError(f"unknown backend {backend}")
 
 
@@ -1073,7 +1496,9 @@ def _one_pole_alpha(hz: float, sample_rate: int) -> float:
     return float(1.0 - math.exp(-2.0 * math.pi * hz / sample_rate))
 
 
-def lowpass(audio: np.ndarray, sample_rate: int, hz: float = 12_000.0, order: int = 1) -> np.ndarray:
+def lowpass(
+    audio: np.ndarray, sample_rate: int, hz: float = 12_000.0, order: int = 1
+) -> np.ndarray:
     if hz <= 0 or hz >= sample_rate * 0.49:
         return audio.astype(np.float32, copy=False)
     audio = _coerce_stereo(audio)
@@ -1093,7 +1518,9 @@ def highpass(audio: np.ndarray, sample_rate: int, hz: float = 35.0) -> np.ndarra
     return (audio - lowpass(audio, sample_rate, hz, order=1)).astype(np.float32)
 
 
-def high_shelf(audio: np.ndarray, sample_rate: int, *, hz: float = 4_500.0, db: float = -2.0) -> np.ndarray:
+def high_shelf(
+    audio: np.ndarray, sample_rate: int, *, hz: float = 4_500.0, db: float = -2.0
+) -> np.ndarray:
     """Simple high-shelf using a high-passed side band."""
     if abs(db) < 1e-6:
         return audio.astype(np.float32, copy=False)
@@ -1102,7 +1529,9 @@ def high_shelf(audio: np.ndarray, sample_rate: int, *, hz: float = 4_500.0, db: 
     return (audio + hi * (gain - 1.0)).astype(np.float32)
 
 
-def band_gain(audio: np.ndarray, sample_rate: int, *, low_hz: float, high_hz: float, db: float) -> np.ndarray:
+def band_gain(
+    audio: np.ndarray, sample_rate: int, *, low_hz: float, high_hz: float, db: float
+) -> np.ndarray:
     if abs(db) < 1e-6:
         return audio.astype(np.float32, copy=False)
     audio = _coerce_stereo(audio)
@@ -1110,13 +1539,16 @@ def band_gain(audio: np.ndarray, sample_rate: int, *, low_hz: float, high_hz: fl
     high_hz = min(float(high_hz), sample_rate * 0.49)
     if high_hz <= low_hz:
         return audio.astype(np.float32, copy=False)
-    band = lowpass(audio, sample_rate, high_hz, order=1) - lowpass(audio, sample_rate, low_hz, order=1)
+    band = lowpass(audio, sample_rate, high_hz, order=1) - lowpass(
+        audio, sample_rate, low_hz, order=1
+    )
     gain = 10 ** (db / 20.0)
     return (audio + band * (gain - 1.0)).astype(np.float32)
 
 
-
-def _comb_filter(signal_in: np.ndarray, delay: int, feedback: float, damping: float) -> np.ndarray:
+def _comb_filter(
+    signal_in: np.ndarray, delay: int, feedback: float, damping: float
+) -> np.ndarray:
     """Lowpass-feedback comb (Freeverb-style). Delay in samples; feedback is
     the per-loop multiplier (RT60-controlling); damping applies a one-pole
     lowpass inside the feedback path so the reverb tail darkens over time.
@@ -1144,7 +1576,9 @@ def _comb_filter(signal_in: np.ndarray, delay: int, feedback: float, damping: fl
     return out
 
 
-def _allpass_filter(signal_in: np.ndarray, delay: int, feedback: float = 0.5) -> np.ndarray:
+def _allpass_filter(
+    signal_in: np.ndarray, delay: int, feedback: float = 0.5
+) -> np.ndarray:
     """Schroeder-style allpass for diffusion. No spectral coloration, just
     smears the impulse response."""
     n = len(signal_in)
@@ -1165,7 +1599,13 @@ def _allpass_filter(signal_in: np.ndarray, delay: int, feedback: float = 0.5) ->
     return out
 
 
-def simple_reverb(audio: np.ndarray, sr: int, wet: float = 0.08, decay: float = 0.9, damping_hz: float = 6500.0) -> np.ndarray:
+def simple_reverb(
+    audio: np.ndarray,
+    sr: int,
+    wet: float = 0.08,
+    decay: float = 0.9,
+    damping_hz: float = 6500.0,
+) -> np.ndarray:
     """Schroeder-Freeverb-style reverb.
 
     Four parallel lowpass-feedback combs in series with two allpass
@@ -1191,7 +1631,9 @@ def simple_reverb(audio: np.ndarray, sr: int, wet: float = 0.08, decay: float = 
     # for one comb; we average the comb delays for the calculation.
     avg_delay = sum(comb_delays_seconds) / len(comb_delays_seconds)
     rt60_iterations = decay / avg_delay
-    feedback = 0.0 if rt60_iterations <= 0 else 10.0 ** (-3.0 / max(rt60_iterations, 1.0))
+    feedback = (
+        0.0 if rt60_iterations <= 0 else 10.0 ** (-3.0 / max(rt60_iterations, 1.0))
+    )
     feedback = float(clamp(feedback, 0.0, 0.97))
 
     # Damping coefficient from cutoff: alpha for one-pole = exp(-2π * fc / sr).
@@ -1219,9 +1661,17 @@ def simple_reverb(audio: np.ndarray, sr: int, wet: float = 0.08, decay: float = 
     return (y * (1.0 - wet) + wet_arr * wet).astype(np.float32, copy=False)
 
 
-def compressor(audio: np.ndarray, sr: int, *, threshold_db: float = -18.0, ratio: float = 3.0,
-               attack_ms: float = 10.0, release_ms: float = 100.0, makeup_db: float = 0.0,
-               knee_db: float = 6.0) -> np.ndarray:
+def compressor(
+    audio: np.ndarray,
+    sr: int,
+    *,
+    threshold_db: float = -18.0,
+    ratio: float = 3.0,
+    attack_ms: float = 10.0,
+    release_ms: float = 100.0,
+    makeup_db: float = 0.0,
+    knee_db: float = 6.0,
+) -> np.ndarray:
     """Feed-forward peak compressor with attack/release smoothing.
 
     Pulls signal above `threshold_db` toward `1/ratio:1`. `knee_db` softens
@@ -1272,6 +1722,7 @@ def compressor(audio: np.ndarray, sr: int, *, threshold_db: float = -18.0, ratio
     out = audio * gain[:, None]
     return out.astype(np.float32, copy=False)
 
+
 def stereo_widen(audio: np.ndarray, amount: float = 0.12) -> np.ndarray:
     if amount <= 0:
         return audio.astype(np.float32, copy=False)
@@ -1280,7 +1731,13 @@ def stereo_widen(audio: np.ndarray, amount: float = 0.12) -> np.ndarray:
     return np.column_stack([mid + side, mid - side]).astype(np.float32)
 
 
-def soft_limit(audio: np.ndarray, target_peak_db: float = -1.0, *, drive: float = 1.08, normalize: bool = True) -> np.ndarray:
+def soft_limit(
+    audio: np.ndarray,
+    target_peak_db: float = -1.0,
+    *,
+    drive: float = 1.08,
+    normalize: bool = True,
+) -> np.ndarray:
     driven = np.tanh(audio * drive).astype(np.float32)
     peak = float(np.max(np.abs(driven)))
     target = 10 ** (target_peak_db / 20.0)
@@ -1293,7 +1750,9 @@ def soft_limit(audio: np.ndarray, target_peak_db: float = -1.0, *, drive: float 
     return driven.astype(np.float32)
 
 
-def post_process(audio: np.ndarray, sample_rate: int, settings: dict[str, Any]) -> np.ndarray:
+def post_process(
+    audio: np.ndarray, sample_rate: int, settings: dict[str, Any]
+) -> np.ndarray:
     audio = _coerce_stereo(audio)
     if settings.get("gain_db", 0):
         audio = audio * (10 ** (float(settings["gain_db"]) / 20.0))
@@ -1303,12 +1762,25 @@ def post_process(audio: np.ndarray, sample_rate: int, settings: dict[str, Any]) 
     # useful for synthetic mallets, cymbals, and plucked/arpeggiated layers.
     tame = float(settings.get("transient_tame", 0.0))
     if tame > 0:
-        dark = lowpass(audio, sample_rate, float(settings.get("transient_lowpass_hz", 6_500)))
+        dark = lowpass(
+            audio, sample_rate, float(settings.get("transient_lowpass_hz", 6_500))
+        )
         audio = (audio * (1.0 - tame) + dark * tame).astype(np.float32)
     if settings.get("presence_db", 0):
-        audio = band_gain(audio, sample_rate, low_hz=float(settings.get("presence_low_hz", 2_000)), high_hz=float(settings.get("presence_high_hz", 4_500)), db=float(settings["presence_db"]))
+        audio = band_gain(
+            audio,
+            sample_rate,
+            low_hz=float(settings.get("presence_low_hz", 2_000)),
+            high_hz=float(settings.get("presence_high_hz", 4_500)),
+            db=float(settings["presence_db"]),
+        )
     if settings.get("high_shelf_db", 0):
-        audio = high_shelf(audio, sample_rate, hz=float(settings.get("high_shelf_hz", 4_500)), db=float(settings["high_shelf_db"]))
+        audio = high_shelf(
+            audio,
+            sample_rate,
+            hz=float(settings.get("high_shelf_hz", 4_500)),
+            db=float(settings["high_shelf_db"]),
+        )
     if settings.get("lowpass_hz", 0):
         audio = lowpass(audio, sample_rate, float(settings["lowpass_hz"]))
     # Real bus compressor — opt-in via `compressor_threshold_db`. Glues the mix
@@ -1316,7 +1788,8 @@ def post_process(audio: np.ndarray, sample_rate: int, settings: dict[str, Any]) 
     # raw transients. Set ratio:1 between 2 and 6 for typical bus glue.
     if "compressor_threshold_db" in settings:
         audio = compressor(
-            audio, sample_rate,
+            audio,
+            sample_rate,
             threshold_db=float(settings["compressor_threshold_db"]),
             ratio=float(settings.get("compressor_ratio", 3.0)),
             attack_ms=float(settings.get("compressor_attack_ms", 10.0)),
@@ -1334,7 +1807,12 @@ def post_process(audio: np.ndarray, sample_rate: int, settings: dict[str, Any]) 
     # Apply one final brightness control after the room, because undamped
     # reverb can reintroduce fizz on synthetic sources.
     if settings.get("post_reverb_high_shelf_db", 0):
-        audio = high_shelf(audio, sample_rate, hz=float(settings.get("post_reverb_high_shelf_hz", 5_000)), db=float(settings["post_reverb_high_shelf_db"]))
+        audio = high_shelf(
+            audio,
+            sample_rate,
+            hz=float(settings.get("post_reverb_high_shelf_hz", 5_000)),
+            db=float(settings["post_reverb_high_shelf_db"]),
+        )
     audio = stereo_widen(audio, float(settings.get("stereo_width", 0.10)))
     return soft_limit(
         audio,
@@ -1342,6 +1820,7 @@ def post_process(audio: np.ndarray, sample_rate: int, settings: dict[str, Any]) 
         drive=float(settings.get("limiter_drive", 1.08)),
         normalize=bool(settings.get("normalize", True)),
     )
+
 
 def write_wav(path: Path, audio: np.ndarray, sample_rate: int) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -1352,14 +1831,38 @@ def encode_ogg(wav_path: Path, ogg_path: Path, quality: float = 5.0) -> None:
     ogg_path.parent.mkdir(parents=True, exist_ok=True)
     if not shutil.which("ffmpeg"):
         raise FileNotFoundError("ffmpeg is required to encode OGG Vorbis")
-    cmd = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", str(wav_path), "-map_metadata", "-1", "-c:a", "libvorbis", "-q:a", str(quality), str(ogg_path)]
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-i",
+        str(wav_path),
+        "-map_metadata",
+        "-1",
+        "-c:a",
+        "libvorbis",
+        "-q:a",
+        str(quality),
+        str(ogg_path),
+    ]
     subprocess.run(cmd, check=True)
 
 
-def write_ogg_from_audio(audio: np.ndarray, sample_rate: int, ogg_path: Path, *, quality: float = 5.0, keep_wav: bool = False) -> Path:
+def write_ogg_from_audio(
+    audio: np.ndarray,
+    sample_rate: int,
+    ogg_path: Path,
+    *,
+    quality: float = 5.0,
+    keep_wav: bool = False,
+) -> Path:
     """Write OGG Vorbis, preferring ffmpeg pipe encoding for reliability/speed."""
     ogg_path.parent.mkdir(parents=True, exist_ok=True)
-    pcm = np.nan_to_num(np.clip(_coerce_stereo(audio), -1.0, 1.0), nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32, copy=False)
+    pcm = np.nan_to_num(
+        np.clip(_coerce_stereo(audio), -1.0, 1.0), nan=0.0, posinf=0.0, neginf=0.0
+    ).astype(np.float32, copy=False)
     if not shutil.which("ffmpeg"):
         # Fallback for minimal environments. Some libsndfile builds are slow on
         # many OGG writes, but this keeps the renderer usable if ffmpeg is absent.
@@ -1368,18 +1871,43 @@ def write_ogg_from_audio(audio: np.ndarray, sample_rate: int, ogg_path: Path, *,
             write_wav(ogg_path.with_suffix(".wav"), audio, sample_rate)
         return ogg_path
     cmd = [
-        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
-        "-f", "f32le", "-ar", str(sample_rate), "-ac", "2", "-i", "pipe:0",
-        "-map_metadata", "-1", "-c:a", "libvorbis", "-q:a", str(quality), str(ogg_path),
+        "ffmpeg",
+        "-y",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-f",
+        "f32le",
+        "-ar",
+        str(sample_rate),
+        "-ac",
+        "2",
+        "-i",
+        "pipe:0",
+        "-map_metadata",
+        "-1",
+        "-c:a",
+        "libvorbis",
+        "-q:a",
+        str(quality),
+        str(ogg_path),
     ]
-    proc = subprocess.run(cmd, input=pcm.tobytes(order="C"), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc = subprocess.run(
+        cmd,
+        input=pcm.tobytes(order="C"),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
     if proc.returncode != 0:
         raise RuntimeError(proc.stderr.decode("utf8", errors="replace"))
     if keep_wav:
         write_wav(ogg_path.with_suffix(".wav"), audio, sample_rate)
     return ogg_path
 
-def copy_with_instruments(pm: pretty_midi.PrettyMIDI, instruments: list[pretty_midi.Instrument], bpm: float) -> pretty_midi.PrettyMIDI:
+
+def copy_with_instruments(
+    pm: pretty_midi.PrettyMIDI, instruments: list[pretty_midi.Instrument], bpm: float
+) -> pretty_midi.PrettyMIDI:
     new_pm = pretty_midi.PrettyMIDI(initial_tempo=bpm)
     new_pm.instruments = [copy.deepcopy(inst) for inst in instruments]
     return new_pm
@@ -1393,7 +1921,9 @@ def ensure_audio_length(audio: np.ndarray, target_samples: int) -> np.ndarray:
     return audio.astype(np.float32, copy=False)
 
 
-def slice_audio(audio: np.ndarray, sample_rate: int, start_seconds: float, end_seconds: float) -> np.ndarray:
+def slice_audio(
+    audio: np.ndarray, sample_rate: int, start_seconds: float, end_seconds: float
+) -> np.ndarray:
     a = max(0, int(round(start_seconds * sample_rate)))
     b = max(a, int(round(end_seconds * sample_rate)))
     return audio[a:b]
@@ -1409,25 +1939,37 @@ def section_metadata_from_spec(spec: dict[str, Any]) -> list[dict[str, Any]]:
         bars = int(section["bars"])
         start_beat = cursor * beats_per_bar
         end_beat = (cursor + bars) * beats_per_bar
-        out.append({
-            "id": section["id"],
-            "label": section.get("label", section["id"]),
-            "kind": section.get("kind", "section"),
-            "start_bar": cursor,
-            "bars": bars,
-            "start_beat": start_beat,
-            "end_beat": end_beat,
-            "start_seconds": start_beat * seconds_per_beat,
-            "end_seconds": end_beat * seconds_per_beat,
-            "duration_seconds": (end_beat - start_beat) * seconds_per_beat,
-            "loopable": bool(section.get("loopable", False)),
-            "valid_exit_local_bars": section.get("valid_exit_local_bars", []),
-        })
+        out.append(
+            {
+                "id": section["id"],
+                "label": section.get("label", section["id"]),
+                "kind": section.get("kind", "section"),
+                "start_bar": cursor,
+                "bars": bars,
+                "start_beat": start_beat,
+                "end_beat": end_beat,
+                "start_seconds": start_beat * seconds_per_beat,
+                "end_seconds": end_beat * seconds_per_beat,
+                "duration_seconds": (end_beat - start_beat) * seconds_per_beat,
+                "loopable": bool(section.get("loopable", False)),
+                "valid_exit_local_bars": section.get("valid_exit_local_bars", []),
+            }
+        )
         cursor += bars
     return out
 
 
-def render_group_audio(pm: pretty_midi.PrettyMIDI, groups: dict[str, str], group: str, backend: str, soundfont: str, sample_rate: int, tempdir: Path, minimum_duration: float, bpm: float) -> np.ndarray:
+def render_group_audio(
+    pm: pretty_midi.PrettyMIDI,
+    groups: dict[str, str],
+    group: str,
+    backend: str,
+    soundfont: str,
+    sample_rate: int,
+    tempdir: Path,
+    minimum_duration: float,
+    bpm: float,
+) -> np.ndarray:
     insts = [inst for inst in pm.instruments if groups.get(inst.name) == group]
     sub_pm = copy_with_instruments(pm, insts, bpm)
     midi_path = tempdir / f"group_{group}.mid"
@@ -1438,10 +1980,19 @@ def render_group_audio(pm: pretty_midi.PrettyMIDI, groups: dict[str, str], group
     # writer stalls on sparse/empty instrument groups.
     if backend != "fallback":
         sub_pm.write(str(midi_path))
-    return render_synth_audio(sub_pm, backend, soundfont, sample_rate, midi_path, dry_wav, minimum_duration)
+    return render_synth_audio(
+        sub_pm, backend, soundfont, sample_rate, midi_path, dry_wav, minimum_duration
+    )
 
 
-def build_manifest(spec: dict[str, Any], cue_hash: str, section_meta: list[dict[str, Any]], group_names: list[str], output_files: dict[str, Any], sample_rate: int) -> dict[str, Any]:
+def build_manifest(
+    spec: dict[str, Any],
+    cue_hash: str,
+    section_meta: list[dict[str, Any]],
+    group_names: list[str],
+    output_files: dict[str, Any],
+    sample_rate: int,
+) -> dict[str, Any]:
     bpm = float(spec.get("tempo", {}).get("bpm", spec.get("bpm", 120)))
     beats_per_bar = float(spec.get("meter", {}).get("beats_per_bar", 4))
     return {
@@ -1477,7 +2028,9 @@ def render_all(args: argparse.Namespace) -> dict[str, Any]:
     quality = float(render_cfg.get("ogg_quality", 5.0))
     pm, groups, section_meta = build_score(spec)
     sanitize_same_pitch_overlaps(pm)
-    total_seconds = section_meta[-1]["end_seconds"] if section_meta else pm.get_end_time()
+    total_seconds = (
+        section_meta[-1]["end_seconds"] if section_meta else pm.get_end_time()
+    )
     target_samples = int(math.ceil(total_seconds * sample_rate))
     group_names = sorted(set(groups.values()))
     output_files: dict[str, Any] = {"preview": {}, "adaptive": {}}
@@ -1492,8 +2045,19 @@ def render_all(args: argparse.Namespace) -> dict[str, Any]:
         stem_base_settings = copy.deepcopy(spec.get("stem_postprocess", {}))
         group_post = spec.get("group_postprocess", {}) or {}
         for group in group_names:
-            if getattr(args, "verbose", False): print(f"[render] stem {group}", flush=True)
-            group_raw = render_group_audio(pm, groups, group, backend, soundfont, sample_rate, tempdir, total_seconds, bpm)
+            if getattr(args, "verbose", False):
+                print(f"[render] stem {group}", flush=True)
+            group_raw = render_group_audio(
+                pm,
+                groups,
+                group,
+                backend,
+                soundfont,
+                sample_rate,
+                tempdir,
+                total_seconds,
+                bpm,
+            )
             group_raw = ensure_audio_length(group_raw, target_samples)
             group_settings = copy.deepcopy(stem_base_settings)
             group_settings.update(group_post.get(group, {}))
@@ -1501,41 +2065,90 @@ def render_all(args: argparse.Namespace) -> dict[str, Any]:
             # upward normalization unless YAML explicitly asks for it.
             group_settings.setdefault("normalize", False)
             group_settings.setdefault("target_peak_db", -2.5)
-            if getattr(args, "verbose", False): print(f"[post] stem {group} settings={group_settings}", flush=True)
+            if getattr(args, "verbose", False):
+                print(f"[post] stem {group} settings={group_settings}", flush=True)
             import time as _time
+
             _t0 = _time.time()
             group_audio = post_process(group_raw, sample_rate, group_settings)
-            if getattr(args, "verbose", False): print(f"[post-done] stem {group} elapsed={_time.time() - _t0:.2f}s shape={group_audio.shape}", flush=True)
+            if getattr(args, "verbose", False):
+                print(
+                    f"[post-done] stem {group} elapsed={_time.time() - _t0:.2f}s shape={group_audio.shape}",
+                    flush=True,
+                )
             _t0 = _time.time()
             full_stem_sum += ensure_audio_length(group_audio, target_samples)
-            if getattr(args, "verbose", False): print(f"[sum-done] stem {group} elapsed={_time.time() - _t0:.2f}s", flush=True)
+            if getattr(args, "verbose", False):
+                print(
+                    f"[sum-done] stem {group} elapsed={_time.time() - _t0:.2f}s",
+                    flush=True,
+                )
             for meta in section_meta:
-                piece = slice_audio(group_audio, sample_rate, meta["start_seconds"], meta["end_seconds"])
-                path = output_root / "adaptive" / meta["id"] / f"{spec['id']}_{cue_hash}.{meta['id']}.{group}.ogg"
-                if getattr(args, "verbose", False): print(f"[write] stem {group} section {meta['id']}", flush=True)
+                piece = slice_audio(
+                    group_audio, sample_rate, meta["start_seconds"], meta["end_seconds"]
+                )
+                path = (
+                    output_root
+                    / "adaptive"
+                    / meta["id"]
+                    / f"{spec['id']}_{cue_hash}.{meta['id']}.{group}.ogg"
+                )
+                if getattr(args, "verbose", False):
+                    print(f"[write] stem {group} section {meta['id']}", flush=True)
                 _t0 = _time.time()
-                write_ogg_from_audio(piece, sample_rate, path, quality=quality, keep_wav=args.keep_wav)
-                if getattr(args, "verbose", False): print(f"[write-done] stem {group} section {meta['id']} elapsed={_time.time() - _t0:.2f}s", flush=True)
-                output_files["adaptive"].setdefault(meta["id"], {})[group] = str(path.relative_to(output_root))
+                write_ogg_from_audio(
+                    piece, sample_rate, path, quality=quality, keep_wav=args.keep_wav
+                )
+                if getattr(args, "verbose", False):
+                    print(
+                        f"[write-done] stem {group} section {meta['id']} elapsed={_time.time() - _t0:.2f}s",
+                        flush=True,
+                    )
+                output_files["adaptive"].setdefault(meta["id"], {})[group] = str(
+                    path.relative_to(output_root)
+                )
             del group_raw, group_audio
             gc.collect()
 
-        if getattr(args, "verbose", False): print("[post] master from processed stems", flush=True)
-        full_audio = post_process(full_stem_sum, sample_rate, spec.get("postprocess", {}))
-        preview_path = output_root / "preview" / f"{spec['id']}_{cue_hash}.full_soundtrack_preview.ogg"
-        if getattr(args, "verbose", False): print("[write] preview", flush=True)
-        write_ogg_from_audio(full_audio, sample_rate, preview_path, quality=quality, keep_wav=args.keep_wav)
-        output_files["preview"]["full_soundtrack"] = str(preview_path.relative_to(output_root))
+        if getattr(args, "verbose", False):
+            print("[post] master from processed stems", flush=True)
+        full_audio = post_process(
+            full_stem_sum, sample_rate, spec.get("postprocess", {})
+        )
+        preview_path = (
+            output_root
+            / "preview"
+            / f"{spec['id']}_{cue_hash}.full_soundtrack_preview.ogg"
+        )
+        if getattr(args, "verbose", False):
+            print("[write] preview", flush=True)
+        write_ogg_from_audio(
+            full_audio,
+            sample_rate,
+            preview_path,
+            quality=quality,
+            keep_wav=args.keep_wav,
+        )
+        output_files["preview"]["full_soundtrack"] = str(
+            preview_path.relative_to(output_root)
+        )
 
         # Full section renders are slices of the mastered stem sum.
         for meta in section_meta:
             section_dir = output_root / "adaptive" / meta["id"]
             section_dir.mkdir(parents=True, exist_ok=True)
-            piece = slice_audio(full_audio, sample_rate, meta["start_seconds"], meta["end_seconds"])
+            piece = slice_audio(
+                full_audio, sample_rate, meta["start_seconds"], meta["end_seconds"]
+            )
             path = section_dir / f"{spec['id']}_{cue_hash}.{meta['id']}.full.ogg"
-            if getattr(args, "verbose", False): print(f"[write] section full {meta['id']}", flush=True)
-            write_ogg_from_audio(piece, sample_rate, path, quality=quality, keep_wav=args.keep_wav)
-            output_files["adaptive"].setdefault(meta["id"], {})["full"] = str(path.relative_to(output_root))
+            if getattr(args, "verbose", False):
+                print(f"[write] section full {meta['id']}", flush=True)
+            write_ogg_from_audio(
+                piece, sample_rate, path, quality=quality, keep_wav=args.keep_wav
+            )
+            output_files["adaptive"].setdefault(meta["id"], {})["full"] = str(
+                path.relative_to(output_root)
+            )
 
         if args.keep_midi:
             midi_out = output_root / "debug" / f"{spec['id']}_{cue_hash}.mid"
@@ -1543,16 +2156,29 @@ def render_all(args: argparse.Namespace) -> dict[str, Any]:
             pm.write(str(midi_out))
             output_files["debug_midi"] = str(midi_out.relative_to(output_root))
 
-    manifest = build_manifest(spec, cue_hash, section_meta, group_names, output_files, sample_rate)
+    manifest = build_manifest(
+        spec, cue_hash, section_meta, group_names, output_files, sample_rate
+    )
     manifest_path = output_root / f"{spec['id']}_{cue_hash}.adaptive_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf8")
-    return {"manifest": str(manifest_path), "preview": str(preview_path), "hash": cue_hash}
+    return {
+        "manifest": str(manifest_path),
+        "preview": str(preview_path),
+        "hash": cue_hash,
+    }
+
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Render Ambition MusicIR YAML to adaptive OGG assets")
+    parser = argparse.ArgumentParser(
+        description="Render Ambition MusicIR YAML to adaptive OGG assets"
+    )
     parser.add_argument("spec", help="Path to .music.yaml source")
     parser.add_argument("--outdir", default="output", help="Output directory")
-    parser.add_argument("--backend", choices=["auto", "fallback", "fluidsynth-cli", "pretty-midi"], default=None)
+    parser.add_argument(
+        "--backend",
+        choices=["auto", "fallback", "fluidsynth-cli", "pretty-midi"],
+        default=None,
+    )
     parser.add_argument("--soundfont", default=None)
     parser.add_argument("--keep-wav", action="store_true")
     parser.add_argument("--keep-midi", action="store_true")

@@ -72,8 +72,14 @@ ACTOR_METADATA = {
     },
     "sockets": {
         "eye": {"source": f"{TARGET_NAME}.geometry", "point": {"x": 164.0, "y": 96.0}},
-        "eye_right": {"source": f"{TARGET_NAME}.geometry", "point": {"x": 149.0, "y": 101.0}},
-        "mouth": {"source": f"{TARGET_NAME}.geometry", "point": {"x": 176.0, "y": 164.0}},
+        "eye_right": {
+            "source": f"{TARGET_NAME}.geometry",
+            "point": {"x": 149.0, "y": 101.0},
+        },
+        "mouth": {
+            "source": f"{TARGET_NAME}.geometry",
+            "point": {"x": 176.0, "y": 164.0},
+        },
     },
     "tags": ["boss", "behemoth", "eye_beam"],
 }
@@ -149,23 +155,52 @@ def _overlay_draw(img: Image.Image) -> tuple[Image.Image, ImageDraw.ImageDraw]:
     return layer, ImageDraw.Draw(layer, "RGBA")
 
 
-def _composite_ellipse(img: Image.Image, bbox: Tuple[float, float, float, float], *, fill: RGBA, outline: RGBA | None = None, width: int = 1) -> None:
+def _composite_ellipse(
+    img: Image.Image,
+    bbox: Tuple[float, float, float, float],
+    *,
+    fill: RGBA,
+    outline: RGBA | None = None,
+    width: int = 1,
+) -> None:
     layer, draw = _overlay_draw(img)
     draw.ellipse(_box(*bbox), fill=fill, outline=outline, width=width)
     img.alpha_composite(layer)
 
 
-def _composite_polygon(img: Image.Image, points: List[Point], *, fill: RGBA, outline: RGBA | None = None, width: int = 1) -> None:
+def _composite_polygon(
+    img: Image.Image,
+    points: List[Point],
+    *,
+    fill: RGBA,
+    outline: RGBA | None = None,
+    width: int = 1,
+) -> None:
     layer, draw = _overlay_draw(img)
     draw.polygon([_pt(x, y) for x, y in points], fill=fill, outline=outline)
     if outline is not None and len(points) > 1:
-        draw.line([_pt(x, y) for x, y in points + [points[0]]], fill=outline, width=width, joint="curve")
+        draw.line(
+            [_pt(x, y) for x, y in points + [points[0]]],
+            fill=outline,
+            width=width,
+            joint="curve",
+        )
     img.alpha_composite(layer)
 
 
-def _composite_rounded_rect(img: Image.Image, bbox: Tuple[float, float, float, float], *, radius: float, fill: RGBA, outline: RGBA | None = None, width: int = 1) -> None:
+def _composite_rounded_rect(
+    img: Image.Image,
+    bbox: Tuple[float, float, float, float],
+    *,
+    radius: float,
+    fill: RGBA,
+    outline: RGBA | None = None,
+    width: int = 1,
+) -> None:
     layer, draw = _overlay_draw(img)
-    draw.rounded_rectangle(_box(*bbox), radius=_s(radius), fill=fill, outline=outline, width=width)
+    draw.rounded_rectangle(
+        _box(*bbox), radius=_s(radius), fill=fill, outline=outline, width=width
+    )
     img.alpha_composite(layer)
 
 
@@ -206,7 +241,15 @@ def _draw_explosion(
         ox = cx + math.cos(ang) * orbit
         oy = cy + math.sin(ang) * orbit * 0.82
         draw.ellipse((ox - rx, oy - ry, ox + rx, oy + ry), fill=smoke_fill)
-    draw.ellipse((cx - smoke_r * 0.45, cy - smoke_r * 0.38, cx + smoke_r * 0.45, cy + smoke_r * 0.38), fill=smoke_fill)
+    draw.ellipse(
+        (
+            cx - smoke_r * 0.45,
+            cy - smoke_r * 0.38,
+            cx + smoke_r * 0.45,
+            cy + smoke_r * 0.38,
+        ),
+        fill=smoke_fill,
+    )
 
     # Flame starburst
     pts: List[Point] = []
@@ -221,9 +264,16 @@ def _draw_explosion(
     draw.polygon(pts, fill=flame_fill, outline=outline)
 
     # Core / flash
-    draw.ellipse((cx - core_r, cy - core_r, cx + core_r, cy + core_r), fill=core_fill, outline=outline)
+    draw.ellipse(
+        (cx - core_r, cy - core_r, cx + core_r, cy + core_r),
+        fill=core_fill,
+        outline=outline,
+    )
     inner_r = core_r * 0.52
-    draw.ellipse((cx - inner_r, cy - inner_r, cx + inner_r, cy + inner_r), fill=(255, 252, 236, 255))
+    draw.ellipse(
+        (cx - inner_r, cy - inner_r, cx + inner_r, cy + inner_r),
+        fill=(255, 252, 236, 255),
+    )
 
     # Radial sparks
     for i in range(max(0, spark_count)):
@@ -234,7 +284,9 @@ def _draw_explosion(
         y1 = cy + math.sin(ang) * start_r
         x2 = cx + math.cos(ang) * end_r
         y2 = cy + math.sin(ang) * end_r
-        draw.line((x1, y1, x2, y2), fill=core_fill, width=max(1, int(round(radius * 0.08))))
+        draw.line(
+            (x1, y1, x2, y2), fill=core_fill, width=max(1, int(round(radius * 0.08)))
+        )
 
     img.alpha_composite(layer)
 
@@ -244,7 +296,9 @@ def _erase_rect(img: Image.Image, x1: float, y1: float, x2: float, y2: float) ->
     img.paste((0, 0, 0, 0), _box(x1, y1, x2, y2))
 
 
-def _erase_ellipse(img: Image.Image, x1: float, y1: float, x2: float, y2: float) -> None:
+def _erase_ellipse(
+    img: Image.Image, x1: float, y1: float, x2: float, y2: float
+) -> None:
     """Punch a transparent elliptical chip out of the supersampled frame."""
     mask = Image.new("L", img.size, 0)
     mask_draw = ImageDraw.Draw(mask)
@@ -269,7 +323,15 @@ def _ease(t: float) -> float:
     return t * t * (3.0 - 2.0 * t)
 
 
-def _arc_points(cx: float, cy: float, rx: float, ry: float, start_deg: float, end_deg: float, steps: int = 16) -> List[Point]:
+def _arc_points(
+    cx: float,
+    cy: float,
+    rx: float,
+    ry: float,
+    start_deg: float,
+    end_deg: float,
+    steps: int = 16,
+) -> List[Point]:
     pts: List[Point] = []
     for i in range(steps + 1):
         f = i / max(1, steps)
@@ -279,7 +341,13 @@ def _arc_points(cx: float, cy: float, rx: float, ry: float, start_deg: float, en
     return pts
 
 
-def _rounded_monolith(draw: ImageDraw.ImageDraw, box: Tuple[float, float, float, float], radius: float, fill: RGBA, outline: RGBA) -> None:
+def _rounded_monolith(
+    draw: ImageDraw.ImageDraw,
+    box: Tuple[float, float, float, float],
+    radius: float,
+    fill: RGBA,
+    outline: RGBA,
+) -> None:
     """Draw the behemoth body with only the TOP corners rounded.
 
     Avoids floor-contact softness so the boss still feels heavy and planted.
@@ -398,20 +466,36 @@ def _draw_body(draw: ImageDraw.ImageDraw, g: Dict[str, float]) -> None:
     # Keep the slab nearly featureless. A subtle inset panel gives volume,
     # but it deliberately avoids the earlier accidental "P" silhouette.
     draw.rounded_rectangle(
-        _box(g["body_x1"] + 11.0, g["body_y1"] + 18.0, g["body_x2"] - 12.0, g["body_y2"] - 28.0),
+        _box(
+            g["body_x1"] + 11.0,
+            g["body_y1"] + 18.0,
+            g["body_x2"] - 12.0,
+            g["body_y2"] - 28.0,
+        ),
         radius=_s(10.0),
         fill=BODY_MID,
         outline=None,
     )
     draw.rounded_rectangle(
-        _box(g["body_x1"] + 22.0, g["body_y1"] + 30.0, g["body_x2"] - 26.0, g["body_y2"] - 52.0),
+        _box(
+            g["body_x1"] + 22.0,
+            g["body_y1"] + 30.0,
+            g["body_x2"] - 26.0,
+            g["body_y2"] - 52.0,
+        ),
         radius=_s(8.0),
         fill=BODY_HI,
         outline=None,
     )
     # Darken the rim so the body reads as a single monolith, not armor plates.
-    draw.rectangle(_box(g["body_x1"], g["body_y1"] + 55.0, g["body_x1"] + 14.0, g["body_y2"]), fill=BODY)
-    draw.rectangle(_box(g["body_x2"] - 11.0, g["body_y1"] + 65.0, g["body_x2"], g["body_y2"]), fill=BODY)
+    draw.rectangle(
+        _box(g["body_x1"], g["body_y1"] + 55.0, g["body_x1"] + 14.0, g["body_y2"]),
+        fill=BODY,
+    )
+    draw.rectangle(
+        _box(g["body_x2"] - 11.0, g["body_y1"] + 65.0, g["body_x2"], g["body_y2"]),
+        fill=BODY,
+    )
 
 
 def _rot_points(points: List[Point], cx: float, cy: float, deg: float) -> List[Point]:
@@ -431,37 +515,65 @@ def _draw_hat(img: Image.Image, g: Dict[str, float]) -> None:
     cx = g["hat_cx"]
     y = g["hat_y"]
     tilt = g["hat_tilt"]
-    brim = _rot_points([
-        (cx - 24.0, y + 8.0),
-        (cx + 19.0, y + 8.0),
-        (cx + 16.0, y + 14.0),
-        (cx - 27.0, y + 14.0),
-    ], cx, y + 10.0, tilt)
-    crown = _rot_points([
-        (cx - 12.0, y - 8.0),
-        (cx + 8.0, y - 8.0),
-        (cx + 11.0, y + 8.0),
-        (cx - 15.0, y + 8.0),
-    ], cx, y + 2.0, tilt)
-    band = _rot_points([
-        (cx - 12.5, y + 2.5),
-        (cx + 9.5, y + 2.5),
-        (cx + 10.5, y + 7.0),
-        (cx - 13.5, y + 7.0),
-    ], cx, y + 5.0, tilt)
-    brim_hi = _rot_points([
-        (cx - 20.0, y + 9.0),
-        (cx - 4.0, y + 9.0),
-        (cx - 6.0, y + 11.0),
-        (cx - 22.0, y + 11.0),
-    ], cx, y + 10.0, tilt)
+    brim = _rot_points(
+        [
+            (cx - 24.0, y + 8.0),
+            (cx + 19.0, y + 8.0),
+            (cx + 16.0, y + 14.0),
+            (cx - 27.0, y + 14.0),
+        ],
+        cx,
+        y + 10.0,
+        tilt,
+    )
+    crown = _rot_points(
+        [
+            (cx - 12.0, y - 8.0),
+            (cx + 8.0, y - 8.0),
+            (cx + 11.0, y + 8.0),
+            (cx - 15.0, y + 8.0),
+        ],
+        cx,
+        y + 2.0,
+        tilt,
+    )
+    band = _rot_points(
+        [
+            (cx - 12.5, y + 2.5),
+            (cx + 9.5, y + 2.5),
+            (cx + 10.5, y + 7.0),
+            (cx - 13.5, y + 7.0),
+        ],
+        cx,
+        y + 5.0,
+        tilt,
+    )
+    brim_hi = _rot_points(
+        [
+            (cx - 20.0, y + 9.0),
+            (cx - 4.0, y + 9.0),
+            (cx - 6.0, y + 11.0),
+            (cx - 22.0, y + 11.0),
+        ],
+        cx,
+        y + 10.0,
+        tilt,
+    )
     _composite_polygon(img, brim, fill=HAT, outline=OUTLINE, width=max(1, _s(0.9)))
     _composite_polygon(img, crown, fill=HAT, outline=OUTLINE, width=max(1, _s(0.9)))
     _composite_polygon(img, band, fill=HAT_BAND, outline=None)
     _composite_polygon(img, brim_hi, fill=HAT_HI, outline=None)
 
 
-def _draw_eye(draw: ImageDraw.ImageDraw, g: Dict[str, float], *, cx: float | None = None, cy: float | None = None, bloodshot: bool = False, img: Image.Image | None = None) -> None:
+def _draw_eye(
+    draw: ImageDraw.ImageDraw,
+    g: Dict[str, float],
+    *,
+    cx: float | None = None,
+    cy: float | None = None,
+    bloodshot: bool = False,
+    img: Image.Image | None = None,
+) -> None:
     beam = g["beam"]
     settle = g["settle"]
     cx = g["eye_x"] if cx is None else cx
@@ -475,15 +587,37 @@ def _draw_eye(draw: ImageDraw.ImageDraw, g: Dict[str, float], *, cx: float | Non
         glow = max(0.0, beam - 0.18)
         if glow > 0.0 and img is not None:
             alpha = int(58 + glow * 90)
-            _composite_ellipse(img, (cx - rx - 5.0 * glow, cy - ry - 5.0 * glow, cx + rx + 5.0 * glow, cy + ry + 5.0 * glow), fill=(255, 246, 196, alpha))
+            _composite_ellipse(
+                img,
+                (
+                    cx - rx - 5.0 * glow,
+                    cy - ry - 5.0 * glow,
+                    cx + rx + 5.0 * glow,
+                    cy + ry + 5.0 * glow,
+                ),
+                fill=(255, 246, 196, alpha),
+            )
 
     eye_fill = EYE_GLOW if beam > 0.72 else EYE_WHITE
-    draw.ellipse(_box(cx - rx, cy - ry, cx + rx, cy + ry), fill=eye_fill, outline=OUTLINE, width=max(1, _s(1.0)))
+    draw.ellipse(
+        _box(cx - rx, cy - ry, cx + rx, cy + ry),
+        fill=eye_fill,
+        outline=OUTLINE,
+        width=max(1, _s(1.0)),
+    )
 
     if bloodshot:
         veins = [
-            [(cx - rx + 3.0, cy - 1.0), (cx - rx + 8.0, cy - 5.0), (cx - rx + 11.0, cy - 9.0)],
-            [(cx + rx - 3.0, cy + 1.0), (cx + rx - 8.0, cy + 5.0), (cx + rx - 11.0, cy + 9.0)],
+            [
+                (cx - rx + 3.0, cy - 1.0),
+                (cx - rx + 8.0, cy - 5.0),
+                (cx - rx + 11.0, cy - 9.0),
+            ],
+            [
+                (cx + rx - 3.0, cy + 1.0),
+                (cx + rx - 8.0, cy + 5.0),
+                (cx + rx - 11.0, cy + 9.0),
+            ],
             [(cx - 1.0, cy - ry + 3.0), (cx - 4.0, cy - ry + 7.0)],
             [(cx + 1.0, cy + ry - 3.0), (cx + 5.0, cy + ry - 8.0)],
         ]
@@ -492,13 +626,21 @@ def _draw_eye(draw: ImageDraw.ImageDraw, g: Dict[str, float], *, cx: float | Non
 
     pupil_color = EYE_GLOW if beam > 0.55 else EYE_PUPIL
     pupil_r = 3.6 + beam * 1.5
-    draw.ellipse(_box(cx - pupil_r + 1.0, cy - pupil_r, cx + pupil_r + 1.0, cy + pupil_r), fill=pupil_color, outline=OUTLINE if beam > 0.75 else None)
+    draw.ellipse(
+        _box(cx - pupil_r + 1.0, cy - pupil_r, cx + pupil_r + 1.0, cy + pupil_r),
+        fill=pupil_color,
+        outline=OUTLINE if beam > 0.75 else None,
+    )
 
     if settle < 0.95:
-        draw.ellipse(_box(cx - 4.4, cy - 5.2, cx - 1.0, cy - 1.8), fill=(255, 255, 255, 190))
+        draw.ellipse(
+            _box(cx - 4.4, cy - 5.2, cx - 1.0, cy - 1.8), fill=(255, 255, 255, 190)
+        )
 
 
-def _draw_mouth(draw: ImageDraw.ImageDraw, g: Dict[str, float], *, centered: bool = False) -> None:
+def _draw_mouth(
+    draw: ImageDraw.ImageDraw, g: Dict[str, float], *, centered: bool = False
+) -> None:
     open_amt = g["mouth_open"]
     if centered:
         mx = (g["body_x1"] + g["body_x2"]) * 0.5 + 1.0
@@ -517,7 +659,12 @@ def _draw_mouth(draw: ImageDraw.ImageDraw, g: Dict[str, float], *, centered: boo
         x1 = g["body_x2"] - 6.0
         y = my
         pts = [(x0, y + 1.0), (x0 + 14.0, y + 1.6), (x1 - 10.0, y - 0.4), (x1, y - 1.1)]
-        draw.line([_pt(x, yy) for x, yy in pts], fill=MOUTH_LIP, width=max(1, _s(1.7)), joint="curve")
+        draw.line(
+            [_pt(x, yy) for x, yy in pts],
+            fill=MOUTH_LIP,
+            width=max(1, _s(1.7)),
+            joint="curve",
+        )
         return
 
     # Side-mouth cavity: a white upper lip with a maroon blocky interior.
@@ -551,7 +698,11 @@ def _draw_mouth(draw: ImageDraw.ImageDraw, g: Dict[str, float], *, centered: boo
         # we drop it and keep only the upper teeth bars. Any blast energy near
         # the mouth is now communicated by separate explosion FX.
         for offs in (-13.0, -7.0, -1.0, 5.0, 11.0):
-            draw.line([_pt(mx + offs, top + 0.5), _pt(mx + offs, top + 7.0)], fill=OUTLINE, width=max(1, _s(0.65)))
+            draw.line(
+                [_pt(mx + offs, top + 0.5), _pt(mx + offs, top + 7.0)],
+                fill=OUTLINE,
+                width=max(1, _s(0.65)),
+            )
 
 
 def _erode_death_body(img: Image.Image, g: Dict[str, float]) -> None:
@@ -566,19 +717,66 @@ def _erode_death_body(img: Image.Image, g: Dict[str, float]) -> None:
     if settle <= 0.16:
         return
     shards = [
-        ([(g["body_x2"] + 2.0, g["body_y2"] - 41.0), (g["body_x2"] + 18.0, g["body_y2"] - 39.0), (g["body_x2"] + 13.0, g["body_y2"] - 23.0), (g["body_x2"] + 1.0, g["body_y2"] - 28.0)], 0.18),
-        ([(g["body_x2"] + 6.0, g["body_y2"] - 11.0), (g["body_x2"] + 22.0, g["body_y2"] - 6.0), (g["body_x2"] + 18.0, g["body_y2"] + 10.0), (g["body_x2"] + 4.0, g["body_y2"] + 5.0)], 0.28),
-        ([(g["body_x1"] - 19.0, g["body_y2"] - 18.0), (g["body_x1"] - 2.0, g["body_y2"] - 14.0), (g["body_x1"] - 6.0, g["body_y2"] + 5.0), (g["body_x1"] - 23.0, g["body_y2"] + 1.0)], 0.38),
-        ([(g["body_x2"] + 4.0, g["body_y1"] + 16.0), (g["body_x2"] + 24.0, g["body_y1"] + 20.0), (g["body_x2"] + 22.0, g["body_y1"] + 37.0), (g["body_x2"] + 8.0, g["body_y1"] + 31.0)], 0.52),
-        ([(g["body_x1"] - 22.0, g["body_y1"] + 8.0), (g["body_x1"] - 4.0, g["body_y1"] + 9.0), (g["body_x1"] - 5.0, g["body_y1"] + 24.0), (g["body_x1"] - 18.0, g["body_y1"] + 22.0)], 0.66),
+        (
+            [
+                (g["body_x2"] + 2.0, g["body_y2"] - 41.0),
+                (g["body_x2"] + 18.0, g["body_y2"] - 39.0),
+                (g["body_x2"] + 13.0, g["body_y2"] - 23.0),
+                (g["body_x2"] + 1.0, g["body_y2"] - 28.0),
+            ],
+            0.18,
+        ),
+        (
+            [
+                (g["body_x2"] + 6.0, g["body_y2"] - 11.0),
+                (g["body_x2"] + 22.0, g["body_y2"] - 6.0),
+                (g["body_x2"] + 18.0, g["body_y2"] + 10.0),
+                (g["body_x2"] + 4.0, g["body_y2"] + 5.0),
+            ],
+            0.28,
+        ),
+        (
+            [
+                (g["body_x1"] - 19.0, g["body_y2"] - 18.0),
+                (g["body_x1"] - 2.0, g["body_y2"] - 14.0),
+                (g["body_x1"] - 6.0, g["body_y2"] + 5.0),
+                (g["body_x1"] - 23.0, g["body_y2"] + 1.0),
+            ],
+            0.38,
+        ),
+        (
+            [
+                (g["body_x2"] + 4.0, g["body_y1"] + 16.0),
+                (g["body_x2"] + 24.0, g["body_y1"] + 20.0),
+                (g["body_x2"] + 22.0, g["body_y1"] + 37.0),
+                (g["body_x2"] + 8.0, g["body_y1"] + 31.0),
+            ],
+            0.52,
+        ),
+        (
+            [
+                (g["body_x1"] - 22.0, g["body_y1"] + 8.0),
+                (g["body_x1"] - 4.0, g["body_y1"] + 9.0),
+                (g["body_x1"] - 5.0, g["body_y1"] + 24.0),
+                (g["body_x1"] - 18.0, g["body_y1"] + 22.0),
+            ],
+            0.66,
+        ),
     ]
     for points, threshold in shards:
         if settle >= threshold:
-            _composite_polygon(img, points, fill=BODY, outline=OUTLINE, width=max(1, _s(0.8)))
+            _composite_polygon(
+                img, points, fill=BODY, outline=OUTLINE, width=max(1, _s(0.8))
+            )
     if settle >= 0.74:
         _composite_ellipse(
             img,
-            (g["body_x2"] + 3.0, g["body_y2"] - 30.0, g["body_x2"] + 31.0, g["body_y2"] - 1.0),
+            (
+                g["body_x2"] + 3.0,
+                g["body_y2"] - 30.0,
+                g["body_x2"] + 31.0,
+                g["body_y2"] - 1.0,
+            ),
             fill=BODY,
             outline=OUTLINE,
             width=max(1, _s(0.8)),
@@ -594,7 +792,12 @@ def _draw_death_explosions(img: Image.Image, g: Dict[str, float]) -> None:
         ((g["body_x2"] - 10.0, g["body_y1"] + 20.0), 8.0, 0.20, 0.8),
         ((g["body_x1"] - 7.0, g["body_y1"] + 64.0), 9.0, 0.30, 1.6),
         ((g["body_x2"] + 8.0, g["body_y1"] + 56.0), 9.0, 0.38, 2.3),
-        (((g["body_x1"] + g["body_x2"]) * 0.5 + 2.0, g["body_y1"] + 126.0), 8.5, 0.48, 3.1),
+        (
+            ((g["body_x1"] + g["body_x2"]) * 0.5 + 2.0, g["body_y1"] + 126.0),
+            8.5,
+            0.48,
+            3.1,
+        ),
         ((g["body_x2"] - 16.0, g["body_y2"] - 18.0), 10.0, 0.58, 3.9),
         ((g["body_x1"] - 10.0, g["body_y2"] - 10.0), 10.5, 0.68, 4.6),
         ((g["body_x2"] + 18.0, g["body_y2"] + 8.0), 11.5, 0.78, 5.4),
@@ -615,7 +818,6 @@ def _draw_death_explosions(img: Image.Image, g: Dict[str, float]) -> None:
             seed=seed + settle * 0.6,
             spark_count=5,
         )
-
 
 
 def _draw_dust(draw: ImageDraw.ImageDraw, g: Dict[str, float]) -> None:
@@ -654,8 +856,22 @@ def _draw_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
         _draw_death_explosions(img, g)
         draw = ImageDraw.Draw(img, "RGBA")
         # Death turns front-facing: two separated cracked eyes plus central maw.
-        _draw_eye(draw, g, cx=g["death_eye_left_x"], cy=g["death_eye_y"], bloodshot=True, img=img)
-        _draw_eye(draw, g, cx=g["death_eye_right_x"], cy=g["death_eye_y"] + 1.5, bloodshot=True, img=img)
+        _draw_eye(
+            draw,
+            g,
+            cx=g["death_eye_left_x"],
+            cy=g["death_eye_y"],
+            bloodshot=True,
+            img=img,
+        )
+        _draw_eye(
+            draw,
+            g,
+            cx=g["death_eye_right_x"],
+            cy=g["death_eye_y"] + 1.5,
+            bloodshot=True,
+            img=img,
+        )
         _draw_mouth(draw, g, centered=True)
         _draw_cracks(draw, g["settle"])
         _draw_dust(draw, g)
@@ -692,10 +908,19 @@ def _body_metrics_for_sheet(frame_width: int, frame_height: int) -> dict:
 def _frame_meta(anim: str, frame_idx: int, nframes: int) -> dict:
     g = _body_geometry(anim, frame_idx, nframes)
     anchors = {
-        "mouth": {"x": round(g["mouth_x"], 2), "y": round(g["mouth_y"] + max(2.0, g["mouth_h"] * 0.4), 2)},
+        "mouth": {
+            "x": round(g["mouth_x"], 2),
+            "y": round(g["mouth_y"] + max(2.0, g["mouth_h"] * 0.4), 2),
+        },
         "eye": {"x": round(g["eye_x"], 2), "y": round(g["eye_y"], 2)},
-        "eye_right": {"x": round(g.get("death_eye_right_x", g["eye_x"] + 16.0), 2), "y": round(g.get("death_eye_y", g["eye_y"] + 2.0), 2)},
-        "core": {"x": round((g["body_x1"] + g["body_x2"]) * 0.5, 2), "y": round((g["body_y1"] + g["body_y2"]) * 0.5, 2)},
+        "eye_right": {
+            "x": round(g.get("death_eye_right_x", g["eye_x"] + 16.0), 2),
+            "y": round(g.get("death_eye_y", g["eye_y"] + 2.0), 2),
+        },
+        "core": {
+            "x": round((g["body_x1"] + g["body_x2"]) * 0.5, 2),
+            "y": round((g["body_y1"] + g["body_y2"]) * 0.5, 2),
+        },
     }
     return {
         "anchors": anchors,

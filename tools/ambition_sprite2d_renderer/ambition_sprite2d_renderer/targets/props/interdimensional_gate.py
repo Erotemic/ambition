@@ -68,7 +68,9 @@ def _ease(t: float) -> float:
     return t * t * (3.0 - 2.0 * t)
 
 
-def _downsample(img: Image.Image, final_size: Tuple[int, int] = FRAME_SIZE) -> Image.Image:
+def _downsample(
+    img: Image.Image, final_size: Tuple[int, int] = FRAME_SIZE
+) -> Image.Image:
     return img.resize(final_size, Image.Resampling.LANCZOS)
 
 
@@ -87,7 +89,12 @@ def _polar(center: Point, radius: float, deg: float) -> Point:
 
 
 def _ring_bbox(radius: float) -> Tuple[float, float, float, float]:
-    return (CENTER[0] - radius, CENTER[1] - radius, CENTER[0] + radius, CENTER[1] + radius)
+    return (
+        CENTER[0] - radius,
+        CENTER[1] - radius,
+        CENTER[0] + radius,
+        CENTER[1] + radius,
+    )
 
 
 def _paste_center(dst: Image.Image, src: Image.Image, center: Point) -> None:
@@ -118,7 +125,9 @@ def _draw_rotated_polygon(
         draw.line(pts + [pts[0]], fill=outline, width=width, joint="curve")
 
 
-def _rune_glow(frame_index: int, nframes: int, offset: int = 0, *, dim: bool = False) -> float:
+def _rune_glow(
+    frame_index: int, nframes: int, offset: int = 0, *, dim: bool = False
+) -> float:
     phase = ((frame_index + offset) / max(1, nframes)) * math.tau
     base = 0.26 if dim else 0.46
     amp = 0.16 if dim else 0.34
@@ -169,8 +178,24 @@ def _make_glyph_chevron(glyph: str, glow_strength: float) -> Image.Image:
         (0.0, 8.35 * SUPER),
         (-7.7 * SUPER, 1.95 * SUPER),
     ]
-    _draw_rotated_polygon(draw, (cx, cy), outer, 0.0, fill=_rgba("#765f3f"), outline=_rgba("#151922"), width=4)
-    _draw_rotated_polygon(draw, (cx, cy), inner, 0.0, fill=_rgba("#34261a"), outline=_rgba("#97784e"), width=2)
+    _draw_rotated_polygon(
+        draw,
+        (cx, cy),
+        outer,
+        0.0,
+        fill=_rgba("#765f3f"),
+        outline=_rgba("#151922"),
+        width=4,
+    )
+    _draw_rotated_polygon(
+        draw,
+        (cx, cy),
+        inner,
+        0.0,
+        fill=_rgba("#34261a"),
+        outline=_rgba("#97784e"),
+        width=2,
+    )
 
     font = _font(12 * SUPER)
 
@@ -203,13 +228,20 @@ def _make_glyph_chevron(glyph: str, glow_strength: float) -> Image.Image:
     ember = Image.new("RGBA", tile.size, (0, 0, 0, 0))
     ember_draw = ImageDraw.Draw(ember, "RGBA")
     dot_r = 0.95 * SUPER
-    ember_draw.ellipse((cx - dot_r, cy + 4.7 * SUPER - dot_r, cx + dot_r, cy + 4.7 * SUPER + dot_r), fill=_rgba("#ff9d43", int(170 * glow_strength)))
+    ember_draw.ellipse(
+        (cx - dot_r, cy + 4.7 * SUPER - dot_r, cx + dot_r, cy + 4.7 * SUPER + dot_r),
+        fill=_rgba("#ff9d43", int(170 * glow_strength)),
+    )
     tile.alpha_composite(ember)
     return tile
 
 
-def _draw_gate_ring_base(rotation_deg: float, *, frame_index: int, nframes: int, idle_mode: bool) -> Image.Image:
-    img = Image.new("RGBA", (FRAME_SIZE[0] * SUPER, FRAME_SIZE[1] * SUPER), (0, 0, 0, 0))
+def _draw_gate_ring_base(
+    rotation_deg: float, *, frame_index: int, nframes: int, idle_mode: bool
+) -> Image.Image:
+    img = Image.new(
+        "RGBA", (FRAME_SIZE[0] * SUPER, FRAME_SIZE[1] * SUPER), (0, 0, 0, 0)
+    )
     draw = ImageDraw.Draw(img, "RGBA")
 
     shadow_bbox = (
@@ -223,12 +255,26 @@ def _draw_gate_ring_base(rotation_deg: float, *, frame_index: int, nframes: int,
     ring = Image.new("RGBA", img.size, (0, 0, 0, 0))
     rd = ImageDraw.Draw(ring, "RGBA")
 
-    rd.ellipse(_ring_bbox(OUTER_R), fill=_rgba("#454b57"), outline=_rgba("#1a1e28"), width=12)
+    rd.ellipse(
+        _ring_bbox(OUTER_R), fill=_rgba("#454b57"), outline=_rgba("#1a1e28"), width=12
+    )
     rd.ellipse(_ring_bbox(OUTER_R - 5 * SUPER), outline=_rgba("#778091"), width=5)
     rd.ellipse(_ring_bbox(OUTER_R - 9 * SUPER), outline=_rgba("#2c313b"), width=6)
-    rd.ellipse(_ring_bbox(OUTER_R - 14 * SUPER), fill=_rgba("#596170"), outline=_rgba("#8790a1"), width=3)
-    rd.ellipse(_ring_bbox(INNER_R + 7 * SUPER), fill=_rgba("#353b46"), outline=_rgba("#7f8797"), width=4)
-    rd.ellipse(_ring_bbox(INNER_R), fill=(0, 0, 0, 0), outline=_rgba("#151922"), width=8)
+    rd.ellipse(
+        _ring_bbox(OUTER_R - 14 * SUPER),
+        fill=_rgba("#596170"),
+        outline=_rgba("#8790a1"),
+        width=3,
+    )
+    rd.ellipse(
+        _ring_bbox(INNER_R + 7 * SUPER),
+        fill=_rgba("#353b46"),
+        outline=_rgba("#7f8797"),
+        width=4,
+    )
+    rd.ellipse(
+        _ring_bbox(INNER_R), fill=(0, 0, 0, 0), outline=_rgba("#151922"), width=8
+    )
 
     for i in range(30):
         ang = rotation_deg + i * (360.0 / 30.0)
@@ -249,7 +295,9 @@ def _draw_gate_ring_base(rotation_deg: float, *, frame_index: int, nframes: int,
         housing_center = _polar(CENTER, RING_MID_R, ang)
         glow_strength = _rune_glow(frame_index, nframes, idx * 2, dim=idle_mode)
         icon = _make_glyph_chevron(glyph, glow_strength)
-        rotated_icon = icon.rotate(-(ang + 90.0), expand=True, resample=Image.Resampling.BICUBIC)
+        rotated_icon = icon.rotate(
+            -(ang + 90.0), expand=True, resample=Image.Resampling.BICUBIC
+        )
         _paste_center(ring, rotated_icon, housing_center)
 
     for ang in (-90, 30, 150):
@@ -257,7 +305,12 @@ def _draw_gate_ring_base(rotation_deg: float, *, frame_index: int, nframes: int,
         _draw_rotated_polygon(
             rd,
             cap_center,
-            [(-10 * SUPER, -4.5 * SUPER), (10 * SUPER, -4.5 * SUPER), (8 * SUPER, 5.5 * SUPER), (-8 * SUPER, 5.5 * SUPER)],
+            [
+                (-10 * SUPER, -4.5 * SUPER),
+                (10 * SUPER, -4.5 * SUPER),
+                (8 * SUPER, 5.5 * SUPER),
+                (-8 * SUPER, 5.5 * SUPER),
+            ],
             ang + 90.0,
             fill=_rgba("#6d7581"),
             outline=_rgba("#1a1e28"),
@@ -270,8 +323,14 @@ def _draw_gate_ring_base(rotation_deg: float, *, frame_index: int, nframes: int,
     rim = Image.new("RGBA", img.size, (0, 0, 0, 0))
     rim_draw = ImageDraw.Draw(rim, "RGBA")
     rim_alpha = 78 if idle_mode else 106
-    rim_draw.ellipse(_ring_bbox(INNER_R + 2.5 * SUPER), outline=_rgba("#ff9d4b", rim_alpha), width=4)
-    rim_draw.ellipse(_ring_bbox(INNER_R + 3.9 * SUPER), outline=_rgba("#ffbe73", rim_alpha // 2), width=2)
+    rim_draw.ellipse(
+        _ring_bbox(INNER_R + 2.5 * SUPER), outline=_rgba("#ff9d4b", rim_alpha), width=4
+    )
+    rim_draw.ellipse(
+        _ring_bbox(INNER_R + 3.9 * SUPER),
+        outline=_rgba("#ffbe73", rim_alpha // 2),
+        width=2,
+    )
     rim = rim.filter(ImageFilter.GaussianBlur(radius=2.5))
     img.alpha_composite(rim)
     return img
@@ -284,7 +343,9 @@ def render_ring_frame(animation: str, frame_index: int, nframes: int) -> Image.I
     else:
         rotation = 0.0
         idle_glow = True
-    high = _draw_gate_ring_base(rotation, frame_index=frame_index, nframes=nframes, idle_mode=idle_glow)
+    high = _draw_gate_ring_base(
+        rotation, frame_index=frame_index, nframes=nframes, idle_mode=idle_glow
+    )
     return _downsample(high)
 
 
@@ -295,7 +356,9 @@ def _portal_mask(radius: float) -> Image.Image:
     return mask
 
 
-def _draw_energy_ribbons(draw: ImageDraw.ImageDraw, t: float, radius: float, count: int) -> None:
+def _draw_energy_ribbons(
+    draw: ImageDraw.ImageDraw, t: float, radius: float, count: int
+) -> None:
     for ridx in range(count):
         phase = t * math.tau + ridx * 0.9
         points: List[Point] = []
@@ -303,8 +366,16 @@ def _draw_energy_ribbons(draw: ImageDraw.ImageDraw, t: float, radius: float, cou
         for step in range(turns + 1):
             u = step / turns
             ang = phase + u * math.tau * (1.4 + ridx * 0.06)
-            rr = radius * (0.20 + 0.75 * u) + math.sin(u * math.tau * 3.0 + phase) * (2.0 + ridx * 0.25) * SUPER
-            points.append((CENTER[0] + math.cos(ang) * rr, CENTER[1] + math.sin(ang * 1.08) * rr * 0.72))
+            rr = (
+                radius * (0.20 + 0.75 * u)
+                + math.sin(u * math.tau * 3.0 + phase) * (2.0 + ridx * 0.25) * SUPER
+            )
+            points.append(
+                (
+                    CENTER[0] + math.cos(ang) * rr,
+                    CENTER[1] + math.sin(ang * 1.08) * rr * 0.72,
+                )
+            )
         color = [
             _rgba("#7ff7ff", 90),
             _rgba("#8a86ff", 70),
@@ -314,18 +385,30 @@ def _draw_energy_ribbons(draw: ImageDraw.ImageDraw, t: float, radius: float, cou
         draw.line(points, fill=color, width=max(1, SUPER + (ridx % 2)), joint="curve")
 
 
-def _draw_star_specks(draw: ImageDraw.ImageDraw, t: float, radius: float, opening: float) -> None:
+def _draw_star_specks(
+    draw: ImageDraw.ImageDraw, t: float, radius: float, opening: float
+) -> None:
     for i in range(16):
         ang = i * 137.5 + t * 180.0
         rr = radius * (0.22 + ((i * 37) % 100) / 120.0)
         x, y = _polar(CENTER, rr, ang)
         spark = 1.1 + ((i * 13) % 7) * 0.22
         alpha = int(_lerp(0, 165, opening) * (0.55 + 0.45 * math.sin(t * math.tau + i)))
-        draw.ellipse((x - spark * SUPER, y - spark * SUPER, x + spark * SUPER, y + spark * SUPER), fill=(255, 255, 255, max(0, alpha)))
+        draw.ellipse(
+            (
+                x - spark * SUPER,
+                y - spark * SUPER,
+                x + spark * SUPER,
+                y + spark * SUPER,
+            ),
+            fill=(255, 255, 255, max(0, alpha)),
+        )
 
 
 def render_portal_frame(animation: str, frame_index: int, nframes: int) -> Image.Image:
-    img = Image.new("RGBA", (FRAME_SIZE[0] * SUPER, FRAME_SIZE[1] * SUPER), (0, 0, 0, 0))
+    img = Image.new(
+        "RGBA", (FRAME_SIZE[0] * SUPER, FRAME_SIZE[1] * SUPER), (0, 0, 0, 0)
+    )
     t = frame_index / max(1, nframes - 1)
     if animation == "opening":
         strength = _ease(t)
@@ -356,12 +439,24 @@ def render_portal_frame(animation: str, frame_index: int, nframes: int) -> Image
     for i in range(6):
         rr = radius * (0.92 + i * 0.06)
         alpha = int((130 - i * 16) * strength)
-        rd.ellipse(_ring_bbox(rr), outline=_rgba("#8bf1ff", alpha), width=max(1, SUPER - i // 2))
+        rd.ellipse(
+            _ring_bbox(rr),
+            outline=_rgba("#8bf1ff", alpha),
+            width=max(1, SUPER - i // 2),
+        )
     for i in range(18):
         ang = i * (360.0 / 18.0) + t * 70.0
         p1 = _polar(CENTER, radius * 0.86, ang)
-        p2 = _polar(CENTER, radius * (1.02 + 0.10 * math.sin(t * math.tau * 2.0 + i)), ang + 6.0 * math.sin(i + t * math.tau))
-        rd.line([p1, p2], fill=_rgba("#c3f8ff", int(155 * strength)), width=max(1, SUPER - 1))
+        p2 = _polar(
+            CENTER,
+            radius * (1.02 + 0.10 * math.sin(t * math.tau * 2.0 + i)),
+            ang + 6.0 * math.sin(i + t * math.tau),
+        )
+        rd.line(
+            [p1, p2],
+            fill=_rgba("#c3f8ff", int(155 * strength)),
+            width=max(1, SUPER - 1),
+        )
     rim = rim.filter(ImageFilter.GaussianBlur(radius=3.2))
     portal.alpha_composite(rim)
 

@@ -1,4 +1,5 @@
 """CLI for Ambition background/parallax generation."""
+
 from __future__ import annotations
 
 import argparse
@@ -17,7 +18,14 @@ def repo_root() -> Path:
     return Path(__file__).resolve().parents[3]
 
 
-DEFAULT_OUT_DIR = repo_root() / "crates" / "ambition_sandbox" / "assets" / "backgrounds" / "parallax_layers"
+DEFAULT_OUT_DIR = (
+    repo_root()
+    / "crates"
+    / "ambition_sandbox"
+    / "assets"
+    / "backgrounds"
+    / "parallax_layers"
+)
 
 
 def _print_paths(paths: Iterable[Path]) -> None:
@@ -37,7 +45,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p = sub.add_parser("draw-backgrounds", help="Render opaque skies plus transparent parallax layers")
+    p = sub.add_parser(
+        "draw-backgrounds", help="Render opaque skies plus transparent parallax layers"
+    )
     p.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
     p.set_defaults(func=_cmd_draw_backgrounds)
 

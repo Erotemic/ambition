@@ -22,7 +22,9 @@ def _median_color(arr: np.ndarray) -> list[float]:
     return [float(v) for v in np.median(arr.reshape(-1, 3), axis=0)] + [1.0]
 
 
-def _cell_candidates(arr: np.ndarray, count: int) -> list[tuple[int, int, int, int, float, np.ndarray]]:
+def _cell_candidates(
+    arr: np.ndarray, count: int
+) -> list[tuple[int, int, int, int, float, np.ndarray]]:
     h, w = arr.shape[:2]
     aspect = w / max(1, h)
     cols = max(3, int(math.sqrt(count * 2 * aspect)))
@@ -86,7 +88,9 @@ def init_template_from_image(
         )
 
     used_superellipse: list[tuple[float, float]] = []
-    for idx, (x0, y0, x1, y1, _score, mean) in enumerate(cands[: max(superellipses * 5, superellipses)]):
+    for idx, (x0, y0, x1, y1, _score, mean) in enumerate(
+        cands[: max(superellipses * 5, superellipses)]
+    ):
         if len(used_superellipse) >= superellipses:
             break
         cx = ((x0 + x1) * 0.5) / w
@@ -102,7 +106,13 @@ def init_template_from_image(
             PrimitiveSpec(
                 kind="superellipse",
                 name=f"superellipse_seed_{len(used_superellipse) - 1:03d}",
-                params={"xy": [cx, cy], "wh": [ww, hh], "angle": 0.0, "exponent": exponent, "color": color},
+                params={
+                    "xy": [cx, cy],
+                    "wh": [ww, hh],
+                    "angle": 0.0,
+                    "exponent": exponent,
+                    "color": color,
+                },
                 train=["xy", "wh", "angle", "exponent", "color"],
             )
         )
@@ -111,7 +121,9 @@ def init_template_from_image(
     sat = arr.max(axis=2) - arr.min(axis=2)
     flat = sat.reshape(-1)
     if flat.size:
-        quant = np.argpartition(flat, -min(flat.size, max(1, ellipses * 12)))[-min(flat.size, max(1, ellipses * 12)): ]
+        quant = np.argpartition(flat, -min(flat.size, max(1, ellipses * 12)))[
+            -min(flat.size, max(1, ellipses * 12)) :
+        ]
         ys, xs = np.unravel_index(quant, sat.shape)
         order = np.argsort(flat[quant])[::-1]
         used: list[tuple[float, float]] = []
@@ -128,18 +140,27 @@ def init_template_from_image(
                 PrimitiveSpec(
                     kind="ellipse",
                     name=f"ellipse_seed_{len(used) - 1:03d}",
-                    params={"xy": [x, y], "wh": [0.16, 0.10], "angle": 0.0, "color": color},
+                    params={
+                        "xy": [x, y],
+                        "wh": [0.16, 0.10],
+                        "angle": 0.0,
+                        "color": color,
+                    },
                     train=["xy", "wh", "angle", "color"],
                 )
             )
 
     # Very lightweight edge line seeds using PIL filters to avoid optional CV deps.
     edge_img = Image.fromarray((arr * 255).astype(np.uint8), mode="RGB").convert("L")
-    edge_img = edge_img.filter(ImageFilter.FIND_EDGES).filter(ImageFilter.GaussianBlur(radius=1.0))
+    edge_img = edge_img.filter(ImageFilter.FIND_EDGES).filter(
+        ImageFilter.GaussianBlur(radius=1.0)
+    )
     edge = np.asarray(edge_img, dtype=np.float32) / 255.0
     flat_edge = edge.reshape(-1)
     if flat_edge.size:
-        quant = np.argpartition(flat_edge, -min(flat_edge.size, max(1, segments * 20)))[-min(flat_edge.size, max(1, segments * 20)): ]
+        quant = np.argpartition(flat_edge, -min(flat_edge.size, max(1, segments * 20)))[
+            -min(flat_edge.size, max(1, segments * 20)) :
+        ]
         ys, xs = np.unravel_index(quant, edge.shape)
         order = np.argsort(flat_edge[quant])[::-1]
         used = []
@@ -161,8 +182,14 @@ def init_template_from_image(
                     kind="segment",
                     name=f"edge_seed_{len(used) - 1:03d}",
                     params={
-                        "p0": [min(0.98, max(0.02, x - dx)), min(0.98, max(0.02, y - dy))],
-                        "p1": [min(0.98, max(0.02, x + dx)), min(0.98, max(0.02, y + dy))],
+                        "p0": [
+                            min(0.98, max(0.02, x - dx)),
+                            min(0.98, max(0.02, y - dy)),
+                        ],
+                        "p1": [
+                            min(0.98, max(0.02, x + dx)),
+                            min(0.98, max(0.02, y + dy)),
+                        ],
                         "width": 0.012,
                         "color": color,
                     },
@@ -172,7 +199,15 @@ def init_template_from_image(
 
     spec = FitSpec(
         canvas=CanvasSpec(width=size, height=size, background=bg),
-        loss={"weights": {"rgb": 1.0, "pyramid": 0.45, "edge": 0.16, "detail": 0.0, "color_stats": 0.05}},
+        loss={
+            "weights": {
+                "rgb": 1.0,
+                "pyramid": 0.45,
+                "edge": 0.16,
+                "detail": 0.0,
+                "color_stats": 0.05,
+            }
+        },
         metadata={
             "description": "Auto-seeded soft primitive template for ambition_procedural_fit.",
             "target_image": str(target_path),

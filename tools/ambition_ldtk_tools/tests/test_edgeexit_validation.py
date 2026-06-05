@@ -21,6 +21,7 @@ The tests build a synthetic LDtk project in-memory and call
 project ships the entity / layer / level field defs the validator
 needs; everything else (tilesets, audio, etc.) is omitted.
 """
+
 from __future__ import annotations
 
 import copy
@@ -40,7 +41,15 @@ def _load_real_project() -> dict:
     """Use the real sandbox.ldtk defs (they have all the entity / field
     UIDs the validator looks up) so the synthetic project under test
     only differs in its levels."""
-    src = REPO_ROOT / "crates" / "ambition_sandbox" / "assets" / "ambition" / "worlds" / "sandbox.ldtk"
+    src = (
+        REPO_ROOT
+        / "crates"
+        / "ambition_sandbox"
+        / "assets"
+        / "ambition"
+        / "worlds"
+        / "sandbox.ldtk"
+    )
     return json.loads(src.read_text())
 
 
@@ -111,29 +120,61 @@ def _make_loading_zone(
         "defUid": def_uid,
         "px": list(px),
         "fieldInstances": [
-            {"__identifier": "id", "__type": "String", "__value": zone_id,
-             "__tile": None, "defUid": id_uid,
-             "realEditorValues": [{"id": "V_String", "params": [zone_id]}]},
-            {"__identifier": "name", "__type": "String", "__value": zone_id,
-             "__tile": None, "defUid": name_uid,
-             "realEditorValues": [{"id": "V_String", "params": [zone_id]}]},
-            {"__identifier": "activation", "__type": "String", "__value": activation,
-             "__tile": None, "defUid": activation_uid,
-             "realEditorValues": [{"id": "V_String", "params": [activation]}]},
-            {"__identifier": "target_room", "__type": "String", "__value": target_room,
-             "__tile": None, "defUid": target_room_uid,
-             "realEditorValues": [{"id": "V_String", "params": [target_room]}]},
-            {"__identifier": "target_zone", "__type": "String", "__value": target_zone,
-             "__tile": None, "defUid": target_zone_uid,
-             "realEditorValues": [{"id": "V_String", "params": [target_zone]}]},
-            {"__identifier": "bidirectional", "__type": "Bool", "__value": False,
-             "__tile": None, "defUid": bidir_uid,
-             "realEditorValues": [{"id": "V_Bool", "params": [False]}]},
+            {
+                "__identifier": "id",
+                "__type": "String",
+                "__value": zone_id,
+                "__tile": None,
+                "defUid": id_uid,
+                "realEditorValues": [{"id": "V_String", "params": [zone_id]}],
+            },
+            {
+                "__identifier": "name",
+                "__type": "String",
+                "__value": zone_id,
+                "__tile": None,
+                "defUid": name_uid,
+                "realEditorValues": [{"id": "V_String", "params": [zone_id]}],
+            },
+            {
+                "__identifier": "activation",
+                "__type": "String",
+                "__value": activation,
+                "__tile": None,
+                "defUid": activation_uid,
+                "realEditorValues": [{"id": "V_String", "params": [activation]}],
+            },
+            {
+                "__identifier": "target_room",
+                "__type": "String",
+                "__value": target_room,
+                "__tile": None,
+                "defUid": target_room_uid,
+                "realEditorValues": [{"id": "V_String", "params": [target_room]}],
+            },
+            {
+                "__identifier": "target_zone",
+                "__type": "String",
+                "__value": target_zone,
+                "__tile": None,
+                "defUid": target_zone_uid,
+                "realEditorValues": [{"id": "V_String", "params": [target_zone]}],
+            },
+            {
+                "__identifier": "bidirectional",
+                "__type": "Bool",
+                "__value": False,
+                "__tile": None,
+                "defUid": bidir_uid,
+                "realEditorValues": [{"id": "V_Bool", "params": [False]}],
+            },
         ],
     }
 
 
-def _make_player_start(project: dict, *, iid: str, px: list[int], world_x: int, world_y: int, name: str) -> dict:
+def _make_player_start(
+    project: dict, *, iid: str, px: list[int], world_x: int, world_y: int, name: str
+) -> dict:
     def_uid = _entity_def_uid(project, "PlayerStart")
     name_uid = _field_def_uid(project, "PlayerStart", "name")
     return {
@@ -151,9 +192,14 @@ def _make_player_start(project: dict, *, iid: str, px: list[int], world_x: int, 
         "defUid": def_uid,
         "px": list(px),
         "fieldInstances": [
-            {"__identifier": "name", "__type": "String", "__value": name,
-             "__tile": None, "defUid": name_uid,
-             "realEditorValues": [{"id": "V_String", "params": [name]}]},
+            {
+                "__identifier": "name",
+                "__type": "String",
+                "__value": name,
+                "__tile": None,
+                "defUid": name_uid,
+                "realEditorValues": [{"id": "V_String", "params": [name]}],
+            },
         ],
     }
 
@@ -196,15 +242,32 @@ def _make_level(
         "__bgPos": None,
         "externalRelPath": None,
         "fieldInstances": [
-            {"__identifier": "activeArea", "__type": "String", "__value": identifier,
-             "__tile": None, "defUid": active_area_uid,
-             "realEditorValues": [{"id": "V_String", "params": [identifier]}]},
-            {"__identifier": "biome", "__type": "String", "__value": "lab",
-             "__tile": None, "defUid": biome_uid,
-             "realEditorValues": [{"id": "V_String", "params": ["lab"]}]},
-            {"__identifier": "music_track", "__type": "String", "__value": "tech_bros_disruption",
-             "__tile": None, "defUid": music_uid,
-             "realEditorValues": [{"id": "V_String", "params": ["tech_bros_disruption"]}]},
+            {
+                "__identifier": "activeArea",
+                "__type": "String",
+                "__value": identifier,
+                "__tile": None,
+                "defUid": active_area_uid,
+                "realEditorValues": [{"id": "V_String", "params": [identifier]}],
+            },
+            {
+                "__identifier": "biome",
+                "__type": "String",
+                "__value": "lab",
+                "__tile": None,
+                "defUid": biome_uid,
+                "realEditorValues": [{"id": "V_String", "params": ["lab"]}],
+            },
+            {
+                "__identifier": "music_track",
+                "__type": "String",
+                "__value": "tech_bros_disruption",
+                "__tile": None,
+                "defUid": music_uid,
+                "realEditorValues": [
+                    {"id": "V_String", "params": ["tech_bros_disruption"]}
+                ],
+            },
         ],
         "layerInstances": [
             {
@@ -276,9 +339,7 @@ def _ambition_layer_uid(project: dict) -> int:
 
 
 def _write_and_validate(project: dict) -> tuple[list[str], list[str]]:
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".ldtk", delete=False
-    ) as fh:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".ldtk", delete=False) as fh:
         fh.write(json.dumps(project))
         path = Path(fh.name)
     try:
@@ -293,8 +354,14 @@ def _scenario(*, source_zone_px, source_zone_size, target_zone_px, target_zone_s
     zone sits."""
     project = _strip_to_defs(_load_real_project())
     src_entities = [
-        _make_player_start(project, iid="PlayerStart-src", px=[64, 64],
-                           world_x=0, world_y=0, name="src_spawn"),
+        _make_player_start(
+            project,
+            iid="PlayerStart-src",
+            px=[64, 64],
+            world_x=0,
+            world_y=0,
+            name="src_spawn",
+        ),
         _make_loading_zone(
             project,
             iid="LoadingZone-src",
@@ -309,8 +376,14 @@ def _scenario(*, source_zone_px, source_zone_size, target_zone_px, target_zone_s
         ),
     ]
     dst_entities = [
-        _make_player_start(project, iid="PlayerStart-dst", px=[64, 64],
-                           world_x=200, world_y=0, name="dst_spawn"),
+        _make_player_start(
+            project,
+            iid="PlayerStart-dst",
+            px=[64, 64],
+            world_x=200,
+            world_y=0,
+            name="dst_spawn",
+        ),
         _make_loading_zone(
             project,
             iid="LoadingZone-dst",
@@ -325,12 +398,26 @@ def _scenario(*, source_zone_px, source_zone_size, target_zone_px, target_zone_s
         ),
     ]
     project["levels"] = [
-        _make_level(project, identifier="src", uid=900_001,
-                    world_x=0, world_y=0, px_wid=200, px_hei=200,
-                    entities=src_entities),
-        _make_level(project, identifier="dst", uid=900_002,
-                    world_x=200, world_y=0, px_wid=200, px_hei=200,
-                    entities=dst_entities),
+        _make_level(
+            project,
+            identifier="src",
+            uid=900_001,
+            world_x=0,
+            world_y=0,
+            px_wid=200,
+            px_hei=200,
+            entities=src_entities,
+        ),
+        _make_level(
+            project,
+            identifier="dst",
+            uid=900_002,
+            world_x=200,
+            world_y=0,
+            px_wid=200,
+            px_hei=200,
+            entities=dst_entities,
+        ),
     ]
     # The validator keys area lookups by `activeArea`, not `identifier`.
     # Use distinct active areas so each level is its own area.
@@ -394,9 +481,7 @@ def test_left_edge_edgeexit_still_passes_validation():
     )
     errors, _warnings = _write_and_validate(project)
     edge_errors = [e for e in errors if "EdgeExit" in e and "level edge" in e]
-    assert not edge_errors, (
-        f"side-scroll left-edge EdgeExit regressed: {edge_errors!r}"
-    )
+    assert not edge_errors, f"side-scroll left-edge EdgeExit regressed: {edge_errors!r}"
 
 
 if __name__ == "__main__":

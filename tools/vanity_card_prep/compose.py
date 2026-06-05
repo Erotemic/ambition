@@ -24,9 +24,15 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 from utils import (
-    load_config, src_path, out_path,
-    chroma_key, remove_flat_bg,
-    find_content_spans, tight_crop, has_transparency, save,
+    load_config,
+    src_path,
+    out_path,
+    chroma_key,
+    remove_flat_bg,
+    find_content_spans,
+    tight_crop,
+    has_transparency,
+    save,
 )
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -34,6 +40,7 @@ REPO = os.path.dirname(os.path.dirname(SCRIPT_DIR))
 
 
 # ── Pose sheet loading ────────────────────────────────────────────────────────
+
 
 def load_pose_sheet(path: str) -> Image.Image:
     """Load a pose sheet, removing background if needed."""
@@ -44,9 +51,14 @@ def load_pose_sheet(path: str) -> Image.Image:
     return remove_flat_bg(img, tolerance=30)
 
 
-def detect_sprites(img: Image.Image, min_gap: int = 18, min_size: int = 55,
-                   content_col_frac: float = 0.05, content_row_frac: float = 0.03,
-                   margin: int = 10) -> list:
+def detect_sprites(
+    img: Image.Image,
+    min_gap: int = 18,
+    min_size: int = 55,
+    content_col_frac: float = 0.05,
+    content_row_frac: float = 0.03,
+    margin: int = 10,
+) -> list:
     """
     Find all distinct sprites in a sheet image.
 
@@ -106,7 +118,9 @@ def save_index_map(sprites: list, output_path: str, cols: int = 5) -> None:
     draw = ImageDraw.Draw(grid)
 
     try:
-        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18)
+        font = ImageFont.truetype(
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18
+        )
     except Exception:
         font = ImageFont.load_default()
 
@@ -117,8 +131,12 @@ def save_index_map(sprites: list, output_path: str, cols: int = 5) -> None:
         y = row_idx * (thumb_h + label_h + pad) + pad
 
         # White cell background
-        draw.rectangle([x, y, x + thumb_w - 1, y + thumb_h - 1],
-                       fill=(255, 255, 255, 255), outline=(160, 160, 160), width=1)
+        draw.rectangle(
+            [x, y, x + thumb_w - 1, y + thumb_h - 1],
+            fill=(255, 255, 255, 255),
+            outline=(160, 160, 160),
+            width=1,
+        )
 
         # Thumbnail: fit in cell, align bottom
         thumb = sprite.copy()
@@ -129,8 +147,13 @@ def save_index_map(sprites: list, output_path: str, cols: int = 5) -> None:
 
         # Index label
         label = f"#{i}"
-        draw.text((x + thumb_w // 2, y + thumb_h + 2), label,
-                  fill=(20, 20, 20), anchor="mt", font=font)
+        draw.text(
+            (x + thumb_w // 2, y + thumb_h + 2),
+            label,
+            fill=(20, 20, 20),
+            anchor="mt",
+            font=font,
+        )
 
     grid = grid.convert("RGB")
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -140,8 +163,10 @@ def save_index_map(sprites: list, output_path: str, cols: int = 5) -> None:
 
 # ── Panel canvas composition ──────────────────────────────────────────────────
 
-def fit_to_canvas(src: Image.Image, canvas_w: int, canvas_h: int,
-                  ground_y: float, margin: int = 24) -> Image.Image:
+
+def fit_to_canvas(
+    src: Image.Image, canvas_w: int, canvas_h: int, ground_y: float, margin: int = 24
+) -> Image.Image:
     """
     Fit *src* (transparent PNG) onto a transparent canvas of (canvas_w, canvas_h).
     The bottom of the content lands at ground_y * canvas_h.
@@ -168,8 +193,9 @@ def fit_to_canvas(src: Image.Image, canvas_w: int, canvas_h: int,
     return canvas
 
 
-def compose_panel(panel_cfg: dict, cfg: dict, pose_sets: dict,
-                  panels_dir: str) -> Image.Image:
+def compose_panel(
+    panel_cfg: dict, cfg: dict, pose_sets: dict, panels_dir: str
+) -> Image.Image:
     """Build one final panel image from its config entry."""
     source = panel_cfg["source"]
     pw, ph = cfg["panel_size"]
@@ -183,16 +209,20 @@ def compose_panel(panel_cfg: dict, cfg: dict, pose_sets: dict,
         idx = panel_cfg["pose_index"]
         poses = pose_sets.get("robot", [])
         if idx >= len(poses):
-            print(f"  WARNING: robot pose_index {idx} out of range "
-                  f"({len(poses)} detected). Using last available.")
+            print(
+                f"  WARNING: robot pose_index {idx} out of range "
+                f"({len(poses)} detected). Using last available."
+            )
             idx = max(0, len(poses) - 1)
         src = poses[idx]
     elif source == "human_pose":
         idx = panel_cfg["pose_index"]
         poses = pose_sets.get("human", [])
         if idx >= len(poses):
-            print(f"  WARNING: human pose_index {idx} out of range "
-                  f"({len(poses)} detected). Using last available.")
+            print(
+                f"  WARNING: human pose_index {idx} out of range "
+                f"({len(poses)} detected). Using last available."
+            )
             idx = max(0, len(poses) - 1)
         src = poses[idx]
     else:
@@ -202,6 +232,7 @@ def compose_panel(panel_cfg: dict, cfg: dict, pose_sets: dict,
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
+
 
 def main():
     cfg = load_config()
@@ -238,7 +269,7 @@ def main():
     # ── Step 2: Compose final panels ───────────────────────────────────────
     print("\n--- Composing final panels ---")
     panels_dir = out_path(cfg, "panels")
-    final_dir  = out_path(cfg, "final")
+    final_dir = out_path(cfg, "final")
     os.makedirs(final_dir, exist_ok=True)
 
     for panel_cfg in cfg["panels"]:

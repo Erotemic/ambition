@@ -47,6 +47,7 @@ are tied to entity identifier, not field identifier). Add those
 as `--remove-field` / `--rename-field` flags when the use case
 lands.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -76,9 +77,7 @@ def parse_add_field(spec: str) -> tuple[str, str, object | None]:
     """
     parts = spec.split(":", 2)
     if len(parts) < 2:
-        raise SystemExit(
-            f"--add-field expects 'name:type[:default]', got {spec!r}"
-        )
+        raise SystemExit(f"--add-field expects 'name:type[:default]', got {spec!r}")
     name, human_type = parts[0], parts[1]
     default: object | None
     if len(parts) == 3:
@@ -114,9 +113,7 @@ def main(argv=None) -> int:
         help="Subcommand action.",
     )
     parser.add_argument("identifier", help="Entity identifier to extend.")
-    parser.add_argument(
-        "ldtk", type=Path, help="Target .ldtk file."
-    )
+    parser.add_argument("ldtk", type=Path, help="Target .ldtk file.")
     parser.add_argument(
         "--add-field",
         action="append",
@@ -207,7 +204,13 @@ def main(argv=None) -> int:
     if args.no_repair:
         return 0
 
-    cmd = [sys.executable, "-m", "ambition_ldtk_tools.repair", str(target), "--in-place"]
+    cmd = [
+        sys.executable,
+        "-m",
+        "ambition_ldtk_tools.repair",
+        str(target),
+        "--in-place",
+    ]
     print("$ " + " ".join(cmd))
     rc = subprocess.run(cmd).returncode
     if rc != 0:

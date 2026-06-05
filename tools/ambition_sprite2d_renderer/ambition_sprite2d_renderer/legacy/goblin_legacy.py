@@ -81,19 +81,39 @@ def with_alpha(color: Color, alpha: int) -> Color:
     return (color[0], color[1], color[2], alpha)
 
 
-def rounded(draw: ImageDraw.ImageDraw, box: Sequence[float], radius: float, fill: Color, outline: Optional[Color] = None, width: int = 1) -> None:
+def rounded(
+    draw: ImageDraw.ImageDraw,
+    box: Sequence[float],
+    radius: float,
+    fill: Color,
+    outline: Optional[Color] = None,
+    width: int = 1,
+) -> None:
     draw.rounded_rectangle(box, radius=radius, fill=fill, outline=outline, width=width)
 
 
-def ellipse(draw: ImageDraw.ImageDraw, box: Sequence[float], fill: Color, outline: Optional[Color] = None, width: int = 1) -> None:
+def ellipse(
+    draw: ImageDraw.ImageDraw,
+    box: Sequence[float],
+    fill: Color,
+    outline: Optional[Color] = None,
+    width: int = 1,
+) -> None:
     draw.ellipse(box, fill=fill, outline=outline, width=width)
 
 
-def polygon(draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: Color, outline: Optional[Color] = None) -> None:
+def polygon(
+    draw: ImageDraw.ImageDraw,
+    pts: Sequence[Point],
+    fill: Color,
+    outline: Optional[Color] = None,
+) -> None:
     draw.polygon(list(pts), fill=fill, outline=outline)
 
 
-def line(draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: Color, width: int = 1) -> None:
+def line(
+    draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: Color, width: int = 1
+) -> None:
     draw.line(list(pts), fill=fill, width=width, joint="curve")
 
 
@@ -260,7 +280,17 @@ class GoblinTarget:
         },
     }
     STANCES = ["idle", "lean", "crouch", "lunge"]
-    HELD_ITEMS = ["none", "knife", "sword", "club", "spear", "staff", "gun", "shield", "bomb"]
+    HELD_ITEMS = [
+        "none",
+        "knife",
+        "sword",
+        "club",
+        "spear",
+        "staff",
+        "gun",
+        "shield",
+        "bomb",
+    ]
     SPRITESHEET_ANIMATIONS = {
         "idle": {"frames": 4, "duration_ms": 140},
         "walk": {"frames": 6, "duration_ms": 100},
@@ -273,31 +303,84 @@ class GoblinTarget:
     }
     PALETTES = {
         "moss": Palette(
-            rgb("#73A942"), rgb("#446A22"), rgb("#A8D673"), rgb("#6B4F3A"), rgb("#4A3425"),
-            rgb("#C99835"), rgb("#8A5A34"), rgb("#F7E96E"), rgb("#F6F2D8"), rgb("#1B160F"),
-            rgb("#0A0A12", 120), rgb("#B9C2CF"), rgb("#7A8596"), rgb("#FFD9A2")
+            rgb("#73A942"),
+            rgb("#446A22"),
+            rgb("#A8D673"),
+            rgb("#6B4F3A"),
+            rgb("#4A3425"),
+            rgb("#C99835"),
+            rgb("#8A5A34"),
+            rgb("#F7E96E"),
+            rgb("#F6F2D8"),
+            rgb("#1B160F"),
+            rgb("#0A0A12", 120),
+            rgb("#B9C2CF"),
+            rgb("#7A8596"),
+            rgb("#FFD9A2"),
         ),
         "bog": Palette(
-            rgb("#6C8E3B"), rgb("#3D5B26"), rgb("#9EBF6B"), rgb("#5A4455"), rgb("#37263B"),
-            rgb("#C56B2D"), rgb("#7A4E29"), rgb("#E9FF76"), rgb("#F3F0DB"), rgb("#171310"),
-            rgb("#0A0A12", 120), rgb("#ADB6C2"), rgb("#73808F"), rgb("#FFD09B")
+            rgb("#6C8E3B"),
+            rgb("#3D5B26"),
+            rgb("#9EBF6B"),
+            rgb("#5A4455"),
+            rgb("#37263B"),
+            rgb("#C56B2D"),
+            rgb("#7A4E29"),
+            rgb("#E9FF76"),
+            rgb("#F3F0DB"),
+            rgb("#171310"),
+            rgb("#0A0A12", 120),
+            rgb("#ADB6C2"),
+            rgb("#73808F"),
+            rgb("#FFD09B"),
         ),
         "ember": Palette(
-            rgb("#89B640"), rgb("#506C22"), rgb("#B7DB74"), rgb("#7A2E2B"), rgb("#4D1B19"),
-            rgb("#E2933A"), rgb("#8A5C2F"), rgb("#FFD76A"), rgb("#F6F2D8"), rgb("#1A130E"),
-            rgb("#0A0A12", 120), rgb("#D1D7E0"), rgb("#7D8694"), rgb("#FFC18C")
+            rgb("#89B640"),
+            rgb("#506C22"),
+            rgb("#B7DB74"),
+            rgb("#7A2E2B"),
+            rgb("#4D1B19"),
+            rgb("#E2933A"),
+            rgb("#8A5C2F"),
+            rgb("#FFD76A"),
+            rgb("#F6F2D8"),
+            rgb("#1A130E"),
+            rgb("#0A0A12", 120),
+            rgb("#D1D7E0"),
+            rgb("#7D8694"),
+            rgb("#FFC18C"),
         ),
         "gradient": Palette(
-            rgb("#76C96D"), rgb("#377945"), rgb("#B6F1B0"), rgb("#33415C"), rgb("#1C2438"),
-            rgb("#57CC99"), rgb("#4B5E7A"), rgb("#86F7FF"), rgb("#F1FFFB"), rgb("#10131A"),
-            rgb("#080A14", 120), rgb("#CAE8FF"), rgb("#6EAAC7"), rgb("#A9FBFF")
+            rgb("#76C96D"),
+            rgb("#377945"),
+            rgb("#B6F1B0"),
+            rgb("#33415C"),
+            rgb("#1C2438"),
+            rgb("#57CC99"),
+            rgb("#4B5E7A"),
+            rgb("#86F7FF"),
+            rgb("#F1FFFB"),
+            rgb("#10131A"),
+            rgb("#080A14", 120),
+            rgb("#CAE8FF"),
+            rgb("#6EAAC7"),
+            rgb("#A9FBFF"),
         ),
     }
 
-    def sample_spec(self, seed: int, archetype: str = "default", held_item_override: Optional[str] = None) -> GoblinSpec:
+    def sample_spec(
+        self,
+        seed: int,
+        archetype: str = "default",
+        held_item_override: Optional[str] = None,
+    ) -> GoblinSpec:
         rng = random.Random(seed)
         arch = self.ARCHETYPES.get(archetype, self.ARCHETYPES["default"])
-        palette_name = "gradient" if archetype == "gradient_seeker" else rng.choice(["moss", "bog", "ember"])
+        palette_name = (
+            "gradient"
+            if archetype == "gradient_seeker"
+            else rng.choice(["moss", "bog", "ember"])
+        )
         if archetype == "default":
             palette_name = rng.choice(list(self.PALETTES.keys()))
         if held_item_override is not None:
@@ -327,14 +410,19 @@ class GoblinTarget:
             tooth_count=rng.randint(1, 4 if archetype == "small_skitter" else 6),
             has_hood=rng.random() < (0.35 if archetype != "large_brute" else 0.15),
             has_belt=rng.random() < 0.75,
-            has_pads=rng.random() < (0.55 if archetype in {"medium_striker", "large_brute"} else 0.25),
+            has_pads=rng.random()
+            < (0.55 if archetype in {"medium_striker", "large_brute"} else 0.25),
             scar=rng.random() < 0.28,
             underbite=rng.random() < 0.45,
             held_item=held_item,
         )
 
-    def animation_pose(self, spec: GoblinSpec, animation: str, frame_index: int, frame_count: int) -> FramePose:
-        phase = 0.0 if frame_count <= 1 else frame_index / float(max(1, frame_count - 1))
+    def animation_pose(
+        self, spec: GoblinSpec, animation: str, frame_index: int, frame_count: int
+    ) -> FramePose:
+        phase = (
+            0.0 if frame_count <= 1 else frame_index / float(max(1, frame_count - 1))
+        )
         wave = math.sin(phase * math.tau)
         wave_cos = math.cos(phase * math.tau)
         p = FramePose()
@@ -531,7 +619,12 @@ class GoblinTarget:
             p.torso_twist += 0.12
         return p
 
-    def render(self, spec: GoblinSpec, size: Tuple[int, int], background: Optional[Color] = None) -> Image.Image:
+    def render(
+        self,
+        spec: GoblinSpec,
+        size: Tuple[int, int],
+        background: Optional[Color] = None,
+    ) -> Image.Image:
         return self._render_core(spec, size, background, FramePose())
 
     def render_animation_frame(
@@ -548,13 +641,23 @@ class GoblinTarget:
         pose = self.animation_pose(spec, animation, frame_index, frame_count)
         if supersample <= 1:
             return self._render_core(spec, size, background, pose)
-        hi_img = self._render_core(spec, (size[0] * supersample, size[1] * supersample), background, pose)
+        hi_img = self._render_core(
+            spec, (size[0] * supersample, size[1] * supersample), background, pose
+        )
         resample = RESAMPLING.NEAREST if downsample == "nearest" else RESAMPLING.LANCZOS
         return hi_img.resize(size, resample)
 
-    def _render_core(self, spec: GoblinSpec, size: Tuple[int, int], background: Optional[Color], pose: FramePose) -> Image.Image:
+    def _render_core(
+        self,
+        spec: GoblinSpec,
+        size: Tuple[int, int],
+        background: Optional[Color],
+        pose: FramePose,
+    ) -> Image.Image:
         w, h = size
-        img = Image.new("RGBA", (w, h), background if background is not None else (0, 0, 0, 0))
+        img = Image.new(
+            "RGBA", (w, h), background if background is not None else (0, 0, 0, 0)
+        )
         draw = ImageDraw.Draw(img)
         pal = self.PALETTES[spec.palette_name]
         outline = lighten(pal.outline, 0.55) if pose.flash else pal.outline
@@ -589,7 +692,11 @@ class GoblinTarget:
         stretch_scale = max(0.78, 1.0 + pose.stretch_y)
         torso_w = base_torso_w * squash_scale * (1.0 - abs(pose.torso_twist) * 0.04)
         torso_h = base_torso_h * stretch_scale
-        head_w = base_head_w * (1.0 + pose.squash_x * 0.35) * (1.0 - abs(pose.torso_twist) * 0.05)
+        head_w = (
+            base_head_w
+            * (1.0 + pose.squash_x * 0.35)
+            * (1.0 - abs(pose.torso_twist) * 0.05)
+        )
         head_h = base_head_h * (1.0 + pose.stretch_y * 0.18)
 
         body_bob = pose.body_bob * scale
@@ -615,97 +722,340 @@ class GoblinTarget:
         head_x0 = head_center_x - head_w / 2
         head_x1 = head_center_x + head_w / 2
 
-        rear_shoulder_x = torso_center_x - facing * max(torso_w * 0.16, torso_w * 0.24 - twist_px)
+        rear_shoulder_x = torso_center_x - facing * max(
+            torso_w * 0.16, torso_w * 0.24 - twist_px
+        )
         rear_shoulder_y = torso_top_y + 13 * scale - shoulder_tilt * 0.45
         front_shoulder_x = torso_center_x + facing * (torso_w * 0.34 + twist_px)
         front_shoulder_y = torso_top_y + 12 * scale + shoulder_tilt * 0.45
-        rear_hip_x = torso_center_x - facing * max(torso_w * 0.10, torso_w * 0.15 - twist_px * 0.35)
+        rear_hip_x = torso_center_x - facing * max(
+            torso_w * 0.10, torso_w * 0.15 - twist_px * 0.35
+        )
         rear_hip_y = leg_top_y - hip_tilt * 0.50
         front_hip_x = torso_center_x + facing * (torso_w * 0.20 + twist_px * 0.25)
         front_hip_y = leg_top_y + hip_tilt * 0.50
 
         rear_hand_x, rear_hand_y = self._draw_arm(
-            draw, rear_shoulder_x, rear_shoulder_y, arm_len, facing, pose.rear_arm_dx, pose.rear_arm_dy,
-            pose.rear_arm_bend, -1, skin_dark, scale, extra_raise=pose.item_raise * 0.18, hand_radius=4.0
+            draw,
+            rear_shoulder_x,
+            rear_shoulder_y,
+            arm_len,
+            facing,
+            pose.rear_arm_dx,
+            pose.rear_arm_dy,
+            pose.rear_arm_bend,
+            -1,
+            skin_dark,
+            scale,
+            extra_raise=pose.item_raise * 0.18,
+            hand_radius=4.0,
         )
 
-        self._draw_legs(draw, spec, skin_dark, leather, outline, front_hip_x, front_hip_y, rear_hip_x, rear_hip_y, ground_y, pose, scale)
+        self._draw_legs(
+            draw,
+            spec,
+            skin_dark,
+            leather,
+            outline,
+            front_hip_x,
+            front_hip_y,
+            rear_hip_x,
+            rear_hip_y,
+            ground_y,
+            pose,
+            scale,
+        )
 
         body_color = darken(tunic, 0.08) if spec.has_hood else tunic
-        rounded(draw, (torso_x0, torso_top_y, torso_x1, torso_bottom_y), radius=11 * scale, fill=body_color, outline=outline, width=stroke2)
-        chest_box = (torso_x0 + 6 * scale, torso_top_y + 6 * scale, torso_x1 - 6 * scale, torso_bottom_y - 14 * scale)
+        rounded(
+            draw,
+            (torso_x0, torso_top_y, torso_x1, torso_bottom_y),
+            radius=11 * scale,
+            fill=body_color,
+            outline=outline,
+            width=stroke2,
+        )
+        chest_box = (
+            torso_x0 + 6 * scale,
+            torso_top_y + 6 * scale,
+            torso_x1 - 6 * scale,
+            torso_bottom_y - 14 * scale,
+        )
         rounded(draw, chest_box, radius=8 * scale, fill=lighten(body_color, 0.08))
         chest_mid_x = torso_center_x - facing * torso_w * 0.08 + twist_px * 0.2
-        line(draw, [(chest_mid_x, chest_box[1] + 3 * scale), (chest_mid_x, chest_box[3] - 2 * scale)], fill=with_alpha(outline, 110), width=stroke1)
+        line(
+            draw,
+            [
+                (chest_mid_x, chest_box[1] + 3 * scale),
+                (chest_mid_x, chest_box[3] - 2 * scale),
+            ],
+            fill=with_alpha(outline, 110),
+            width=stroke1,
+        )
         hem_y = torso_bottom_y - 4 * scale
         for off in (-0.28, 0.0, 0.28):
             px = torso_center_x + torso_w * off
-            polygon(draw, [(px - 7 * scale, hem_y), (px + 7 * scale, hem_y), (px, hem_y + 10 * scale)], fill=darken(body_color, 0.10), outline=outline)
+            polygon(
+                draw,
+                [
+                    (px - 7 * scale, hem_y),
+                    (px + 7 * scale, hem_y),
+                    (px, hem_y + 10 * scale),
+                ],
+                fill=darken(body_color, 0.10),
+                outline=outline,
+            )
         if spec.has_belt:
             belt_y = torso_top_y + torso_h * 0.60
-            rounded(draw, (torso_x0 - 2 * scale, belt_y, torso_x1 + 2 * scale, belt_y + 8 * scale), radius=4 * scale, fill=leather)
+            rounded(
+                draw,
+                (
+                    torso_x0 - 2 * scale,
+                    belt_y,
+                    torso_x1 + 2 * scale,
+                    belt_y + 8 * scale,
+                ),
+                radius=4 * scale,
+                fill=leather,
+            )
             buckle_x = torso_center_x + twist_px * 0.35
-            rounded(draw, (buckle_x - 5 * scale, belt_y + 1 * scale, buckle_x + 5 * scale, belt_y + 7 * scale), radius=2 * scale, fill=pal.accent)
+            rounded(
+                draw,
+                (
+                    buckle_x - 5 * scale,
+                    belt_y + 1 * scale,
+                    buckle_x + 5 * scale,
+                    belt_y + 7 * scale,
+                ),
+                radius=2 * scale,
+                fill=pal.accent,
+            )
         if spec.has_pads:
             for sgn in (-1, 1):
                 local_x = torso_center_x + sgn * (torso_w * 0.29)
                 py = torso_top_y + 6 * scale + (shoulder_tilt * 0.25 * sgn)
-                ellipse(draw, (local_x - 9 * scale, py - 6 * scale, local_x + 9 * scale, py + 8 * scale), fill=darken(leather, 0.05), outline=outline, width=stroke2)
+                ellipse(
+                    draw,
+                    (
+                        local_x - 9 * scale,
+                        py - 6 * scale,
+                        local_x + 9 * scale,
+                        py + 8 * scale,
+                    ),
+                    fill=darken(leather, 0.05),
+                    outline=outline,
+                    width=stroke2,
+                )
 
-        ellipse(draw, (head_x0, head_top_y, head_x1, head_bottom_y), fill=skin, outline=outline, width=stroke2)
+        ellipse(
+            draw,
+            (head_x0, head_top_y, head_x1, head_bottom_y),
+            fill=skin,
+            outline=outline,
+            width=stroke2,
+        )
         jaw = [
-            (head_center_x - head_w * 0.26, head_top_y + head_h * 0.68 + pose.head_tilt * 0.10 * scale),
-            (head_center_x + head_w * 0.26, head_top_y + head_h * 0.68 - pose.head_tilt * 0.10 * scale),
+            (
+                head_center_x - head_w * 0.26,
+                head_top_y + head_h * 0.68 + pose.head_tilt * 0.10 * scale,
+            ),
+            (
+                head_center_x + head_w * 0.26,
+                head_top_y + head_h * 0.68 - pose.head_tilt * 0.10 * scale,
+            ),
             (head_center_x + head_w * 0.18, head_bottom_y + 3 * scale),
             (head_center_x - head_w * 0.18, head_bottom_y + 3 * scale),
         ]
         polygon(draw, jaw, fill=skin_dark, outline=outline)
         face_light_x0 = head_x0 + (10 - 4 * max(0, facing)) * scale
         face_light_x1 = head_x1 - (10 + 6 * max(0, -facing)) * scale
-        ellipse(draw, (face_light_x0, head_top_y + 8 * scale, face_light_x1, head_bottom_y - 18 * scale), fill=skin_light)
-        self._draw_ears(draw, outline, head_x0, head_x1, head_top_y + 18 * scale, ear_len, ear_drop, skin_dark, lighten(skin, 0.14), facing)
+        ellipse(
+            draw,
+            (
+                face_light_x0,
+                head_top_y + 8 * scale,
+                face_light_x1,
+                head_bottom_y - 18 * scale,
+            ),
+            fill=skin_light,
+        )
+        self._draw_ears(
+            draw,
+            outline,
+            head_x0,
+            head_x1,
+            head_top_y + 18 * scale,
+            ear_len,
+            ear_drop,
+            skin_dark,
+            lighten(skin, 0.14),
+            facing,
+        )
         if spec.has_hood:
             hood = darken(pal.tunic_dark, 0.05)
-            rounded(draw, (head_x0 - 8 * scale, head_top_y - 4 * scale, head_x1 + 8 * scale, head_bottom_y - 2 * scale), radius=18 * scale, fill=with_alpha(hood, 220), outline=outline, width=stroke2)
-            ellipse(draw, (head_x0 + 7 * scale, head_top_y + 3 * scale, head_x1 - 7 * scale, head_bottom_y - 2 * scale), fill=skin)
-            self._draw_ears(draw, outline, head_x0, head_x1, head_top_y + 18 * scale, ear_len, ear_drop, skin_dark, lighten(skin, 0.14), facing)
+            rounded(
+                draw,
+                (
+                    head_x0 - 8 * scale,
+                    head_top_y - 4 * scale,
+                    head_x1 + 8 * scale,
+                    head_bottom_y - 2 * scale,
+                ),
+                radius=18 * scale,
+                fill=with_alpha(hood, 220),
+                outline=outline,
+                width=stroke2,
+            )
+            ellipse(
+                draw,
+                (
+                    head_x0 + 7 * scale,
+                    head_top_y + 3 * scale,
+                    head_x1 - 7 * scale,
+                    head_bottom_y - 2 * scale,
+                ),
+                fill=skin,
+            )
+            self._draw_ears(
+                draw,
+                outline,
+                head_x0,
+                head_x1,
+                head_top_y + 18 * scale,
+                ear_len,
+                ear_drop,
+                skin_dark,
+                lighten(skin, 0.14),
+                facing,
+            )
 
-        self._draw_face(draw, spec, outline, eyes, teeth, skin_dark, head_center_x, head_top_y + pose.head_tilt * 0.10 * scale, head_w, head_h, nose_len, eye_size, pose, scale)
+        self._draw_face(
+            draw,
+            spec,
+            outline,
+            eyes,
+            teeth,
+            skin_dark,
+            head_center_x,
+            head_top_y + pose.head_tilt * 0.10 * scale,
+            head_w,
+            head_h,
+            nose_len,
+            eye_size,
+            pose,
+            scale,
+        )
 
         front_hand_x, front_hand_y = self._draw_arm(
-            draw, front_shoulder_x, front_shoulder_y, arm_len, facing, pose.front_arm_dx, pose.front_arm_dy,
-            pose.front_arm_bend, 1, skin, scale, extra_raise=pose.item_raise * 0.45, hand_radius=4.0
+            draw,
+            front_shoulder_x,
+            front_shoulder_y,
+            arm_len,
+            facing,
+            pose.front_arm_dx,
+            pose.front_arm_dy,
+            pose.front_arm_bend,
+            1,
+            skin,
+            scale,
+            extra_raise=pose.item_raise * 0.45,
+            hand_radius=4.0,
         )
         if spec.held_item == "none":
             self._draw_claws(draw, front_hand_x, front_hand_y, facing, teeth, scale)
-        self._draw_item(draw, spec, outline, metal, metal_dark, leather, pal.accent, pal.muzzle, front_hand_x, front_hand_y + pose.item_lag * scale, facing, pose, scale)
+        self._draw_item(
+            draw,
+            spec,
+            outline,
+            metal,
+            metal_dark,
+            leather,
+            pal.accent,
+            pal.muzzle,
+            front_hand_x,
+            front_hand_y + pose.item_lag * scale,
+            facing,
+            pose,
+            scale,
+        )
 
         if pose.dizzy:
-            self._draw_stun_effect(draw, outline, pal.accent, head_center_x, head_top_y - 10 * scale, scale)
+            self._draw_stun_effect(
+                draw, outline, pal.accent, head_center_x, head_top_y - 10 * scale, scale
+            )
 
         if spec.archetype == "gradient_seeker":
             glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
             gdraw = ImageDraw.Draw(glow)
             gx = head_center_x + facing * 4 * scale
             gy = head_top_y + head_h * 0.50
-            ellipse(gdraw, (gx - 16 * scale, gy - 12 * scale, gx + 16 * scale, gy + 12 * scale), fill=with_alpha(eyes, 46))
+            ellipse(
+                gdraw,
+                (gx - 16 * scale, gy - 12 * scale, gx + 16 * scale, gy + 12 * scale),
+                fill=with_alpha(eyes, 46),
+            )
             if spec.held_item in {"staff", "gun"}:
-                ellipse(gdraw, (front_hand_x - 14 * scale, front_hand_y - 14 * scale, front_hand_x + 14 * scale, front_hand_y + 14 * scale), fill=with_alpha(pal.accent, 34))
+                ellipse(
+                    gdraw,
+                    (
+                        front_hand_x - 14 * scale,
+                        front_hand_y - 14 * scale,
+                        front_hand_x + 14 * scale,
+                        front_hand_y + 14 * scale,
+                    ),
+                    fill=with_alpha(pal.accent, 34),
+                )
             glow = glow.filter(ImageFilter.GaussianBlur(radius=max(2, int(8 * scale))))
             img.alpha_composite(glow)
         return img
 
-    def _draw_ears(self, draw: ImageDraw.ImageDraw, outline: Color, head_x0: float, head_x1: float, ear_y: float, ear_len: float, ear_drop: float, ear_fill: Color, inner: Color, facing: int) -> None:
+    def _draw_ears(
+        self,
+        draw: ImageDraw.ImageDraw,
+        outline: Color,
+        head_x0: float,
+        head_x1: float,
+        ear_y: float,
+        ear_len: float,
+        ear_drop: float,
+        ear_fill: Color,
+        inner: Color,
+        facing: int,
+    ) -> None:
         for sgn in (-1, 1):
             base_x = head_x0 if sgn < 0 else head_x1
             near = 1.0 if sgn == facing else 0.72
             tip_x = base_x + sgn * ear_len * near
             tip_y = ear_y - ear_drop * (1.0 if sgn == facing else 0.82)
             low_y = ear_y + ear_drop * (0.70 if sgn == facing else 0.58)
-            polygon(draw, [(base_x, ear_y - 6), (tip_x, tip_y), (base_x + sgn * 4 * near, low_y)], fill=ear_fill, outline=outline)
-            polygon(draw, [(base_x + sgn * 2, ear_y - 3), (tip_x - sgn * 5 * near, tip_y + 4), (base_x + sgn * 3 * near, low_y - 2)], fill=inner)
+            polygon(
+                draw,
+                [(base_x, ear_y - 6), (tip_x, tip_y), (base_x + sgn * 4 * near, low_y)],
+                fill=ear_fill,
+                outline=outline,
+            )
+            polygon(
+                draw,
+                [
+                    (base_x + sgn * 2, ear_y - 3),
+                    (tip_x - sgn * 5 * near, tip_y + 4),
+                    (base_x + sgn * 3 * near, low_y - 2),
+                ],
+                fill=inner,
+            )
 
-    def _compute_face_layout(self, spec: GoblinSpec, cx: float, head_top_y: float, head_w: float, head_h: float, nose_len: float, eye_size: float, pose: FramePose, scale: float) -> FaceLayout:
+    def _compute_face_layout(
+        self,
+        spec: GoblinSpec,
+        cx: float,
+        head_top_y: float,
+        head_w: float,
+        head_h: float,
+        nose_len: float,
+        eye_size: float,
+        pose: FramePose,
+        scale: float,
+    ) -> FaceLayout:
         face_left = cx - head_w * 0.34
         face_right = cx + head_w * 0.34
         eye_y = head_top_y + head_h * 0.40
@@ -741,7 +1091,9 @@ class GoblinTarget:
         nose_y = head_top_y + head_h * 0.58
         nose_root_x = cx + spec.facing * (head_w * 0.10)
         nose_tip_x = nose_root_x + spec.facing * max(nose_len * 0.88, head_w * 0.13)
-        nose_tip_x = clamp(nose_tip_x, face_left + 6.0 * scale, face_right - 4.0 * scale)
+        nose_tip_x = clamp(
+            nose_tip_x, face_left + 6.0 * scale, face_right - 4.0 * scale
+        )
         nose_pts = (
             (nose_root_x - spec.facing * 2.0 * scale, nose_y - 5.0 * scale),
             (nose_tip_x, nose_y + 1.0 * scale),
@@ -751,8 +1103,12 @@ class GoblinTarget:
         mouth_y = max(head_top_y + head_h * 0.76, nose_y + 12.0 * scale)
         mouth_center_x = cx + spec.facing * (head_w * 0.02)
         mouth_half = clamp(head_w * 0.15, 10.0 * scale, head_w * 0.19)
-        mouth_left_x = clamp(mouth_center_x - mouth_half, cx - head_w * 0.18, cx + head_w * 0.08)
-        mouth_right_x = clamp(mouth_center_x + mouth_half, cx - head_w * 0.08, cx + head_w * 0.18)
+        mouth_left_x = clamp(
+            mouth_center_x - mouth_half, cx - head_w * 0.18, cx + head_w * 0.08
+        )
+        mouth_right_x = clamp(
+            mouth_center_x + mouth_half, cx - head_w * 0.08, cx + head_w * 0.18
+        )
         if mouth_left_x > mouth_right_x:
             mouth_left_x, mouth_right_x = mouth_right_x, mouth_left_x
         tooth_left = mouth_left_x + 1.0 * scale
@@ -786,7 +1142,18 @@ class GoblinTarget:
             scar_b=scar_b,
         )
 
-    def _draw_eye_feature(self, draw: ImageDraw.ImageDraw, cx: float, cy: float, rx: float, ry: float, outline: Color, iris: Color, scale: float, near: bool = False) -> None:
+    def _draw_eye_feature(
+        self,
+        draw: ImageDraw.ImageDraw,
+        cx: float,
+        cy: float,
+        rx: float,
+        ry: float,
+        outline: Color,
+        iris: Color,
+        scale: float,
+        near: bool = False,
+    ) -> None:
         sclera = rgb("#E6E2CC")
         pts = [
             (cx - rx, cy),
@@ -799,31 +1166,106 @@ class GoblinTarget:
             (cx - rx * 0.60, cy + ry * 0.56),
         ]
         polygon(draw, pts, fill=sclera, outline=outline)
-        line(draw, [pts[0], pts[1], pts[2], pts[3], pts[4]], fill=outline, width=max(1, int(2 * scale)))
+        line(
+            draw,
+            [pts[0], pts[1], pts[2], pts[3], pts[4]],
+            fill=outline,
+            width=max(1, int(2 * scale)),
+        )
         iris_r = max(1.8 * scale, min(rx, ry) * (0.34 if near else 0.31))
         iris_x = cx + rx * (0.08 if near else 0.03)
         iris_y = cy + ry * 0.02
-        ellipse(draw, (iris_x - iris_r, iris_y - iris_r, iris_x + iris_r, iris_y + iris_r), fill=iris, outline=outline)
+        ellipse(
+            draw,
+            (iris_x - iris_r, iris_y - iris_r, iris_x + iris_r, iris_y + iris_r),
+            fill=iris,
+            outline=outline,
+        )
         pupil_r = max(1.0 * scale, iris_r * 0.45)
-        ellipse(draw, (iris_x - pupil_r, iris_y - pupil_r, iris_x + pupil_r, iris_y + pupil_r), fill=outline)
+        ellipse(
+            draw,
+            (iris_x - pupil_r, iris_y - pupil_r, iris_x + pupil_r, iris_y + pupil_r),
+            fill=outline,
+        )
         gleam_r = max(0.9 * scale, iris_r * 0.22)
-        ellipse(draw, (iris_x - gleam_r * 0.4, iris_y - gleam_r * 1.2, iris_x + gleam_r * 0.4, iris_y - gleam_r * 0.4), fill=rgb("#FFFDF7"))
+        ellipse(
+            draw,
+            (
+                iris_x - gleam_r * 0.4,
+                iris_y - gleam_r * 1.2,
+                iris_x + gleam_r * 0.4,
+                iris_y - gleam_r * 0.4,
+            ),
+            fill=rgb("#FFFDF7"),
+        )
 
-    def _draw_face(self, draw: ImageDraw.ImageDraw, spec: GoblinSpec, outline: Color, eyes: Color, teeth: Color, nose_color: Color, cx: float, head_top_y: float, head_w: float, head_h: float, nose_len: float, eye_size: float, pose: FramePose, scale: float) -> None:
-        layout = self._compute_face_layout(spec, cx, head_top_y, head_w, head_h, nose_len, eye_size, pose, scale)
+    def _draw_face(
+        self,
+        draw: ImageDraw.ImageDraw,
+        spec: GoblinSpec,
+        outline: Color,
+        eyes: Color,
+        teeth: Color,
+        nose_color: Color,
+        cx: float,
+        head_top_y: float,
+        head_w: float,
+        head_h: float,
+        nose_len: float,
+        eye_size: float,
+        pose: FramePose,
+        scale: float,
+    ) -> None:
+        layout = self._compute_face_layout(
+            spec, cx, head_top_y, head_w, head_h, nose_len, eye_size, pose, scale
+        )
 
-        line(draw, [layout.brow_far_a, layout.brow_far_b], fill=outline, width=max(1, int(3 * scale)))
-        line(draw, [layout.brow_near_a, layout.brow_near_b], fill=outline, width=max(1, int(3 * scale)))
+        line(
+            draw,
+            [layout.brow_far_a, layout.brow_far_b],
+            fill=outline,
+            width=max(1, int(3 * scale)),
+        )
+        line(
+            draw,
+            [layout.brow_near_a, layout.brow_near_b],
+            fill=outline,
+            width=max(1, int(3 * scale)),
+        )
 
         if pose.death_progress >= 0.65:
             self._draw_x_eye(draw, layout.far_eye_x, layout.eye_y, outline, scale)
             self._draw_x_eye(draw, layout.near_eye_x, layout.eye_y, outline, scale)
         elif pose.dizzy:
-            self._draw_swirl_eye(draw, layout.far_eye_x, layout.eye_y, outline, eyes, scale)
-            self._draw_swirl_eye(draw, layout.near_eye_x, layout.eye_y, outline, eyes, scale)
+            self._draw_swirl_eye(
+                draw, layout.far_eye_x, layout.eye_y, outline, eyes, scale
+            )
+            self._draw_swirl_eye(
+                draw, layout.near_eye_x, layout.eye_y, outline, eyes, scale
+            )
         else:
-            self._draw_eye_feature(draw, layout.far_eye_x, layout.eye_y, layout.far_eye_rx, layout.eye_ry, outline, eyes, scale, near=False)
-            self._draw_eye_feature(draw, layout.near_eye_x, layout.eye_y, layout.near_eye_rx, layout.eye_ry, outline, eyes, scale, near=True)
+            self._draw_eye_feature(
+                draw,
+                layout.far_eye_x,
+                layout.eye_y,
+                layout.far_eye_rx,
+                layout.eye_ry,
+                outline,
+                eyes,
+                scale,
+                near=False,
+            )
+            self._draw_eye_feature(
+                draw,
+                layout.near_eye_x,
+                layout.eye_y,
+                layout.near_eye_rx,
+                layout.eye_ry,
+                outline,
+                eyes,
+                scale,
+                near=True,
+            )
 
         polygon(draw, list(layout.nose_pts), fill=nose_color, outline=outline)
 
@@ -831,22 +1273,63 @@ class GoblinTarget:
         mouth_left = layout.mouth_left
         mouth_right = layout.mouth_right
         if spec.mood in {"snarl", "angry", "glare"}:
-            mouth_right = (mouth_right[0], mouth_right[1] + 2 * scale + mouth_drop * 0.25)
+            mouth_right = (
+                mouth_right[0],
+                mouth_right[1] + 2 * scale + mouth_drop * 0.25,
+            )
         elif spec.mood in {"smirk", "sneaky"}:
-            mouth_right = (mouth_right[0], mouth_right[1] - 2 * scale + mouth_drop * 0.10)
+            mouth_right = (
+                mouth_right[0],
+                mouth_right[1] - 2 * scale + mouth_drop * 0.10,
+            )
             mouth_left = (mouth_left[0], mouth_left[1] + 1 * scale)
         else:
             mouth_right = (mouth_right[0], mouth_right[1] + 0.5 * scale)
-        line(draw, [mouth_left, mouth_right], fill=outline, width=max(1, int((3 if spec.mood in {"snarl", "angry", "glare", "smirk", "sneaky"} else 2) * scale)))
+        line(
+            draw,
+            [mouth_left, mouth_right],
+            fill=outline,
+            width=max(
+                1,
+                int(
+                    (
+                        3
+                        if spec.mood in {"snarl", "angry", "glare", "smirk", "sneaky"}
+                        else 2
+                    )
+                    * scale
+                ),
+            ),
+        )
 
-        tooth_slots = min(4, max(2, spec.tooth_count)) if (spec.tooth_count > 0 or spec.underbite) else 0
+        tooth_slots = (
+            min(4, max(2, spec.tooth_count))
+            if (spec.tooth_count > 0 or spec.underbite)
+            else 0
+        )
         for i in range(tooth_slots):
-            tx = lerp(layout.tooth_left, layout.tooth_right, i / max(1, tooth_slots - 1))
+            tx = lerp(
+                layout.tooth_left, layout.tooth_right, i / max(1, tooth_slots - 1)
+            )
             th = (5 if i % 2 == 0 else 4) * scale + mouth_drop * 0.35
-            polygon(draw, [(tx - 1.3 * scale, layout.mouth_left[1] + 2.0 * scale), (tx + 1.3 * scale, layout.mouth_left[1] + 2.0 * scale), (tx, layout.mouth_left[1] + 2.0 * scale + th)], fill=teeth, outline=outline)
+            polygon(
+                draw,
+                [
+                    (tx - 1.3 * scale, layout.mouth_left[1] + 2.0 * scale),
+                    (tx + 1.3 * scale, layout.mouth_left[1] + 2.0 * scale),
+                    (tx, layout.mouth_left[1] + 2.0 * scale + th),
+                ],
+                fill=teeth,
+                outline=outline,
+            )
 
         if layout.scar_a is not None and layout.scar_b is not None:
-            line(draw, [layout.scar_a, layout.scar_b], fill=outline, width=max(1, int(2 * scale)))
+            line(
+                draw,
+                [layout.scar_a, layout.scar_b],
+                fill=outline,
+                width=max(1, int(2 * scale)),
+            )
 
     def _draw_arm(
         self,
@@ -866,27 +1349,89 @@ class GoblinTarget:
     ) -> Tuple[float, float]:
         hand_x = shoulder_x + facing * (arm_len * 0.32) + arm_dx * scale * facing
         hand_y = shoulder_y + arm_len * 0.82 + arm_dy * scale - extra_raise * scale
-        elbow_x = (shoulder_x + hand_x) * 0.5 + facing * bend * 0.55 * scale + depth_sign * 3.0 * scale
-        elbow_y = (shoulder_y + hand_y) * 0.5 - abs(bend) * 0.18 * scale + arm_dy * 0.16 * scale
-        line(draw, [(shoulder_x, shoulder_y), (elbow_x, elbow_y), (hand_x, hand_y)], fill=color, width=max(2, int((8 if depth_sign < 0 else 9) * scale)))
-        ellipse(draw, (hand_x - hand_radius * scale, hand_y - hand_radius * scale, hand_x + hand_radius * scale, hand_y + hand_radius * scale), fill=color)
+        elbow_x = (
+            (shoulder_x + hand_x) * 0.5
+            + facing * bend * 0.55 * scale
+            + depth_sign * 3.0 * scale
+        )
+        elbow_y = (
+            (shoulder_y + hand_y) * 0.5
+            - abs(bend) * 0.18 * scale
+            + arm_dy * 0.16 * scale
+        )
+        line(
+            draw,
+            [(shoulder_x, shoulder_y), (elbow_x, elbow_y), (hand_x, hand_y)],
+            fill=color,
+            width=max(2, int((8 if depth_sign < 0 else 9) * scale)),
+        )
+        ellipse(
+            draw,
+            (
+                hand_x - hand_radius * scale,
+                hand_y - hand_radius * scale,
+                hand_x + hand_radius * scale,
+                hand_y + hand_radius * scale,
+            ),
+            fill=color,
+        )
         return hand_x, hand_y
 
-    def _draw_legs(self, draw: ImageDraw.ImageDraw, spec: GoblinSpec, leg_color: Color, foot_color: Color, outline: Color, front_hip_x: float, front_hip_y: float, rear_hip_x: float, rear_hip_y: float, ground_y: float, pose: FramePose, scale: float) -> None:
+    def _draw_legs(
+        self,
+        draw: ImageDraw.ImageDraw,
+        spec: GoblinSpec,
+        leg_color: Color,
+        foot_color: Color,
+        outline: Color,
+        front_hip_x: float,
+        front_hip_y: float,
+        rear_hip_x: float,
+        rear_hip_y: float,
+        ground_y: float,
+        pose: FramePose,
+        scale: float,
+    ) -> None:
         foot_w = spec.foot_w * scale
         legs = [
-            (rear_hip_x, rear_hip_y, pose.rear_leg_dx, pose.rear_leg_lift, pose.rear_knee_bend, -1),
-            (front_hip_x, front_hip_y, pose.front_leg_dx, pose.front_leg_lift, pose.front_knee_bend, 1),
+            (
+                rear_hip_x,
+                rear_hip_y,
+                pose.rear_leg_dx,
+                pose.rear_leg_lift,
+                pose.rear_knee_bend,
+                -1,
+            ),
+            (
+                front_hip_x,
+                front_hip_y,
+                pose.front_leg_dx,
+                pose.front_leg_lift,
+                pose.front_knee_bend,
+                1,
+            ),
         ]
         for hip_x, hip_y, dx, lift, knee_bias, depth_sign in legs:
-            local_dx = dx * scale * spec.facing + spec.facing * (1.5 + 0.8 * depth_sign) * scale
+            local_dx = (
+                dx * scale * spec.facing
+                + spec.facing * (1.5 + 0.8 * depth_sign) * scale
+            )
             ankle_x = hip_x + local_dx
             ankle_y = ground_y - 5 * scale - lift * scale
             bend_dir = spec.facing
-            knee_x = (hip_x + ankle_x) * 0.5 + bend_dir * (3.2 + knee_bias * 0.30) * scale
-            knee_y = (hip_y + ankle_y) * 0.5 + (5.5 + pose.knee_bend + knee_bias * 0.65) * scale
+            knee_x = (hip_x + ankle_x) * 0.5 + bend_dir * (
+                3.2 + knee_bias * 0.30
+            ) * scale
+            knee_y = (hip_y + ankle_y) * 0.5 + (
+                5.5 + pose.knee_bend + knee_bias * 0.65
+            ) * scale
             width = max(2, int((9 if depth_sign < 0 else 10) * scale))
-            line(draw, [(hip_x, hip_y), (knee_x, knee_y), (ankle_x, ankle_y)], fill=leg_color, width=width)
+            line(
+                draw,
+                [(hip_x, hip_y), (knee_x, knee_y), (ankle_x, ankle_y)],
+                fill=leg_color,
+                width=width,
+            )
 
             heel_x = ankle_x - spec.facing * foot_w * 0.30
             toe_x = ankle_x + spec.facing * foot_w * 0.70
@@ -899,12 +1444,36 @@ class GoblinTarget:
             ]
             polygon(draw, shoe, fill=foot_color, outline=outline)
 
-    def _draw_claws(self, draw: ImageDraw.ImageDraw, hand_x: float, hand_y: float, facing: int, teeth: Color, scale: float) -> None:
+    def _draw_claws(
+        self,
+        draw: ImageDraw.ImageDraw,
+        hand_x: float,
+        hand_y: float,
+        facing: int,
+        teeth: Color,
+        scale: float,
+    ) -> None:
         for delta in (-3, 0, 3):
-            line(draw, [(hand_x + facing * 1 * scale, hand_y), (hand_x + facing * (4 + abs(delta)) * scale, hand_y + delta * scale)], fill=teeth, width=max(1, int(scale)))
+            line(
+                draw,
+                [
+                    (hand_x + facing * 1 * scale, hand_y),
+                    (
+                        hand_x + facing * (4 + abs(delta)) * scale,
+                        hand_y + delta * scale,
+                    ),
+                ],
+                fill=teeth,
+                width=max(1, int(scale)),
+            )
 
     def _weapon_basis(self, facing: int, pose: FramePose) -> Tuple[Point, Point]:
-        ang = math.radians(-16.0 - pose.item_raise * 0.25 - pose.front_arm_dy * 0.10 + pose.front_arm_bend * 0.08)
+        ang = math.radians(
+            -16.0
+            - pose.item_raise * 0.25
+            - pose.front_arm_dy * 0.10
+            + pose.front_arm_bend * 0.08
+        )
         fx = facing * math.cos(ang)
         fy = math.sin(ang)
         mag = math.hypot(fx, fy) or 1.0
@@ -914,13 +1483,17 @@ class GoblinTarget:
         sy = fx
         return (fx, fy), (sx, sy)
 
-    def _offset_point(self, origin: Point, forward: Point, side: Point, along: float, across: float) -> Point:
+    def _offset_point(
+        self, origin: Point, forward: Point, side: Point, along: float, across: float
+    ) -> Point:
         return (
             origin[0] + forward[0] * along + side[0] * across,
             origin[1] + forward[1] * along + side[1] * across,
         )
 
-    def _tapered_quad(self, start: Point, end: Point, side: Point, start_half: float, end_half: float) -> List[Point]:
+    def _tapered_quad(
+        self, start: Point, end: Point, side: Point, start_half: float, end_half: float
+    ) -> List[Point]:
         return [
             (start[0] + side[0] * start_half, start[1] + side[1] * start_half),
             (end[0] + side[0] * end_half, end[1] + side[1] * end_half),
@@ -928,7 +1501,19 @@ class GoblinTarget:
             (start[0] - side[0] * start_half, start[1] - side[1] * start_half),
         ]
 
-    def _draw_socketed_sword(self, draw: ImageDraw.ImageDraw, outline: Color, metal: Color, leather: Color, accent: Color, hand_x: float, hand_y: float, facing: int, pose: FramePose, scale: float) -> None:
+    def _draw_socketed_sword(
+        self,
+        draw: ImageDraw.ImageDraw,
+        outline: Color,
+        metal: Color,
+        leather: Color,
+        accent: Color,
+        hand_x: float,
+        hand_y: float,
+        facing: int,
+        pose: FramePose,
+        scale: float,
+    ) -> None:
         forward, side = self._weapon_basis(facing, pose)
         hand = (hand_x, hand_y)
         grip_back = self._offset_point(hand, forward, side, -10.0 * scale, 0.0)
@@ -940,7 +1525,17 @@ class GoblinTarget:
 
         grip_poly = self._tapered_quad(grip_back, hand, side, 2.2 * scale, 2.6 * scale)
         polygon(draw, grip_poly, fill=leather, outline=outline)
-        ellipse(draw, (pommel[0] - 2.5 * scale, pommel[1] - 2.5 * scale, pommel[0] + 2.5 * scale, pommel[1] + 2.5 * scale), fill=accent, outline=outline)
+        ellipse(
+            draw,
+            (
+                pommel[0] - 2.5 * scale,
+                pommel[1] - 2.5 * scale,
+                pommel[0] + 2.5 * scale,
+                pommel[1] + 2.5 * scale,
+            ),
+            fill=accent,
+            outline=outline,
+        )
 
         cross_a = self._offset_point(guard_c, forward, side, 0.0, -6.5 * scale)
         cross_b = self._offset_point(guard_c, forward, side, 0.0, 6.5 * scale)
@@ -956,9 +1551,29 @@ class GoblinTarget:
         polygon(draw, blade_poly, fill=metal, outline=outline)
         fuller_a = self._offset_point(blade_start, forward, side, 2.0 * scale, 0.0)
         fuller_b = self._offset_point(blade_end, forward, side, -4.0 * scale, 0.0)
-        line(draw, [fuller_a, fuller_b], fill=lighten(metal, 0.16), width=max(1, int(1.5 * scale)))
+        line(
+            draw,
+            [fuller_a, fuller_b],
+            fill=lighten(metal, 0.16),
+            width=max(1, int(1.5 * scale)),
+        )
 
-    def _draw_item(self, draw: ImageDraw.ImageDraw, spec: GoblinSpec, outline: Color, metal: Color, metal_dark: Color, leather: Color, accent: Color, muzzle: Color, hand_x: float, hand_y: float, facing: int, pose: FramePose, scale: float) -> None:
+    def _draw_item(
+        self,
+        draw: ImageDraw.ImageDraw,
+        spec: GoblinSpec,
+        outline: Color,
+        metal: Color,
+        metal_dark: Color,
+        leather: Color,
+        accent: Color,
+        muzzle: Color,
+        hand_x: float,
+        hand_y: float,
+        facing: int,
+        pose: FramePose,
+        scale: float,
+    ) -> None:
         item = spec.held_item
         if item == "none":
             return
@@ -970,7 +1585,12 @@ class GoblinTarget:
             grip_back = self._offset_point(hand, forward, side, -7.0 * scale, 0.0)
             blade_start = self._offset_point(hand, forward, side, 4.0 * scale, 0.0)
             tip = self._offset_point(hand, forward, side, 19.0 * scale, 0.0)
-            polygon(draw, self._tapered_quad(grip_back, hand, side, 2.0 * scale, 2.4 * scale), fill=leather, outline=outline)
+            polygon(
+                draw,
+                self._tapered_quad(grip_back, hand, side, 2.0 * scale, 2.4 * scale),
+                fill=leather,
+                outline=outline,
+            )
             blade = [
                 self._offset_point(blade_start, forward, side, 0.0, 2.0 * scale),
                 self._offset_point(tip, forward, side, -2.5 * scale, 0.9 * scale),
@@ -980,17 +1600,49 @@ class GoblinTarget:
             ]
             polygon(draw, blade, fill=metal, outline=outline)
         elif item == "sword":
-            self._draw_socketed_sword(draw, outline, metal, leather, accent, hand_x, hand_y, facing, pose, scale)
+            self._draw_socketed_sword(
+                draw,
+                outline,
+                metal,
+                leather,
+                accent,
+                hand_x,
+                hand_y,
+                facing,
+                pose,
+                scale,
+            )
         elif item == "club":
             grip_back = self._offset_point(hand, forward, side, -8.0 * scale, 0.0)
             head_c = self._offset_point(hand, forward, side, 21.0 * scale, 0.0)
-            polygon(draw, self._tapered_quad(grip_back, head_c, side, 2.3 * scale, 3.0 * scale), fill=leather, outline=outline)
-            ellipse(draw, (head_c[0] - 8.0 * scale, head_c[1] - 8.0 * scale, head_c[0] + 8.0 * scale, head_c[1] + 8.0 * scale), fill=darken(leather, 0.18), outline=outline, width=max(1, int(scale)))
+            polygon(
+                draw,
+                self._tapered_quad(grip_back, head_c, side, 2.3 * scale, 3.0 * scale),
+                fill=leather,
+                outline=outline,
+            )
+            ellipse(
+                draw,
+                (
+                    head_c[0] - 8.0 * scale,
+                    head_c[1] - 8.0 * scale,
+                    head_c[0] + 8.0 * scale,
+                    head_c[1] + 8.0 * scale,
+                ),
+                fill=darken(leather, 0.18),
+                outline=outline,
+                width=max(1, int(scale)),
+            )
         elif item == "spear":
             butt = self._offset_point(hand, forward, side, -10.0 * scale, 0.0)
             head_base = self._offset_point(hand, forward, side, 36.0 * scale, 0.0)
             tip = self._offset_point(hand, forward, side, 49.0 * scale, 0.0)
-            polygon(draw, self._tapered_quad(butt, head_base, side, 1.5 * scale, 1.1 * scale), fill=leather, outline=outline)
+            polygon(
+                draw,
+                self._tapered_quad(butt, head_base, side, 1.5 * scale, 1.1 * scale),
+                fill=leather,
+                outline=outline,
+            )
             spear_head = [
                 self._offset_point(head_base, forward, side, 0.0, 3.0 * scale),
                 tip,
@@ -1001,16 +1653,36 @@ class GoblinTarget:
         elif item == "staff":
             butt = self._offset_point(hand, forward, side, -9.0 * scale, 0.0)
             head_c = self._offset_point(hand, forward, side, 25.0 * scale, 0.0)
-            polygon(draw, self._tapered_quad(butt, head_c, side, 2.0 * scale, 2.0 * scale), fill=leather, outline=outline)
+            polygon(
+                draw,
+                self._tapered_quad(butt, head_c, side, 2.0 * scale, 2.0 * scale),
+                fill=leather,
+                outline=outline,
+            )
             orb = self._offset_point(head_c, forward, side, 6.0 * scale, 0.0)
-            ellipse(draw, (orb[0] - 6 * scale, orb[1] - 6 * scale, orb[0] + 6 * scale, orb[1] + 6 * scale), fill=accent, outline=outline, width=max(1, int(scale)))
+            ellipse(
+                draw,
+                (
+                    orb[0] - 6 * scale,
+                    orb[1] - 6 * scale,
+                    orb[0] + 6 * scale,
+                    orb[1] + 6 * scale,
+                ),
+                fill=accent,
+                outline=outline,
+                width=max(1, int(scale)),
+            )
         elif item == "gun":
             body_a = self._offset_point(hand, forward, side, -1.0 * scale, 0.0)
             body_b = self._offset_point(hand, forward, side, 18.0 * scale, 0.0)
             slide = self._tapered_quad(body_a, body_b, side, 3.6 * scale, 3.0 * scale)
             polygon(draw, slide, fill=metal_dark, outline=outline)
-            grip_top = self._offset_point(hand, forward, side, 4.0 * scale, -1.0 * scale)
-            grip_bot = self._offset_point(hand, forward, side, 1.0 * scale, -8.0 * scale)
+            grip_top = self._offset_point(
+                hand, forward, side, 4.0 * scale, -1.0 * scale
+            )
+            grip_bot = self._offset_point(
+                hand, forward, side, 1.0 * scale, -8.0 * scale
+            )
             grip_poly = [
                 self._offset_point(grip_top, forward, side, 0.0, 2.0 * scale),
                 self._offset_point(grip_top, forward, side, 0.0, -2.0 * scale),
@@ -1019,7 +1691,17 @@ class GoblinTarget:
             ]
             polygon(draw, grip_poly, fill=metal_dark, outline=outline)
             muzzle_pt = self._offset_point(body_b, forward, side, 2.0 * scale, 0.0)
-            ellipse(draw, (muzzle_pt[0] - 2 * scale, muzzle_pt[1] - 2 * scale, muzzle_pt[0] + 2 * scale, muzzle_pt[1] + 2 * scale), fill=muzzle, outline=outline)
+            ellipse(
+                draw,
+                (
+                    muzzle_pt[0] - 2 * scale,
+                    muzzle_pt[1] - 2 * scale,
+                    muzzle_pt[0] + 2 * scale,
+                    muzzle_pt[1] + 2 * scale,
+                ),
+                fill=muzzle,
+                outline=outline,
+            )
         elif item == "shield":
             center = self._offset_point(hand, forward, side, 8.0 * scale, 0.0)
             shield_poly = [
@@ -1032,29 +1714,121 @@ class GoblinTarget:
             ]
             polygon(draw, shield_poly, fill=metal_dark, outline=outline)
             boss = self._offset_point(center, forward, side, 0.0, 0.0)
-            ellipse(draw, (boss[0] - 3.5 * scale, boss[1] - 3.5 * scale, boss[0] + 3.5 * scale, boss[1] + 3.5 * scale), fill=accent, outline=outline)
+            ellipse(
+                draw,
+                (
+                    boss[0] - 3.5 * scale,
+                    boss[1] - 3.5 * scale,
+                    boss[0] + 3.5 * scale,
+                    boss[1] + 3.5 * scale,
+                ),
+                fill=accent,
+                outline=outline,
+            )
         elif item == "bomb":
             bomb_c = self._offset_point(hand, forward, side, 1.0 * scale, 0.0)
-            ellipse(draw, (bomb_c[0] - 7 * scale, bomb_c[1] - 7 * scale, bomb_c[0] + 7 * scale, bomb_c[1] + 7 * scale), fill=metal_dark, outline=outline, width=max(1, int(scale)))
-            fuse_a = self._offset_point(bomb_c, forward, side, 3.0 * scale, -1.0 * scale)
-            fuse_b = self._offset_point(bomb_c, forward, side, 8.0 * scale, -8.0 * scale)
+            ellipse(
+                draw,
+                (
+                    bomb_c[0] - 7 * scale,
+                    bomb_c[1] - 7 * scale,
+                    bomb_c[0] + 7 * scale,
+                    bomb_c[1] + 7 * scale,
+                ),
+                fill=metal_dark,
+                outline=outline,
+                width=max(1, int(scale)),
+            )
+            fuse_a = self._offset_point(
+                bomb_c, forward, side, 3.0 * scale, -1.0 * scale
+            )
+            fuse_b = self._offset_point(
+                bomb_c, forward, side, 8.0 * scale, -8.0 * scale
+            )
             line(draw, [fuse_a, fuse_b], fill=accent, width=max(1, int(2 * scale)))
-            ellipse(draw, (fuse_b[0] - 2 * scale, fuse_b[1] - 2 * scale, fuse_b[0] + 2 * scale, fuse_b[1] + 2 * scale), fill=muzzle)
+            ellipse(
+                draw,
+                (
+                    fuse_b[0] - 2 * scale,
+                    fuse_b[1] - 2 * scale,
+                    fuse_b[0] + 2 * scale,
+                    fuse_b[1] + 2 * scale,
+                ),
+                fill=muzzle,
+            )
 
-    def _draw_swirl_eye(self, draw: ImageDraw.ImageDraw, x: float, y: float, outline: Color, accent: Color, scale: float) -> None:
-        ellipse(draw, (x - 6 * scale, y - 5 * scale, x + 6 * scale, y + 5 * scale), fill=outline)
+    def _draw_swirl_eye(
+        self,
+        draw: ImageDraw.ImageDraw,
+        x: float,
+        y: float,
+        outline: Color,
+        accent: Color,
+        scale: float,
+    ) -> None:
+        ellipse(
+            draw,
+            (x - 6 * scale, y - 5 * scale, x + 6 * scale, y + 5 * scale),
+            fill=outline,
+        )
         for radius in (4, 2):
-            ellipse(draw, (x - radius * scale, y - radius * scale, x + radius * scale, y + radius * scale), fill=None, outline=accent, width=max(1, int(scale)))
+            ellipse(
+                draw,
+                (
+                    x - radius * scale,
+                    y - radius * scale,
+                    x + radius * scale,
+                    y + radius * scale,
+                ),
+                fill=None,
+                outline=accent,
+                width=max(1, int(scale)),
+            )
 
-    def _draw_x_eye(self, draw: ImageDraw.ImageDraw, x: float, y: float, outline: Color, scale: float) -> None:
-        line(draw, [(x - 4 * scale, y - 4 * scale), (x + 4 * scale, y + 4 * scale)], fill=outline, width=max(1, int(2 * scale)))
-        line(draw, [(x + 4 * scale, y - 4 * scale), (x - 4 * scale, y + 4 * scale)], fill=outline, width=max(1, int(2 * scale)))
+    def _draw_x_eye(
+        self,
+        draw: ImageDraw.ImageDraw,
+        x: float,
+        y: float,
+        outline: Color,
+        scale: float,
+    ) -> None:
+        line(
+            draw,
+            [(x - 4 * scale, y - 4 * scale), (x + 4 * scale, y + 4 * scale)],
+            fill=outline,
+            width=max(1, int(2 * scale)),
+        )
+        line(
+            draw,
+            [(x + 4 * scale, y - 4 * scale), (x - 4 * scale, y + 4 * scale)],
+            fill=outline,
+            width=max(1, int(2 * scale)),
+        )
 
-    def _draw_stun_effect(self, draw: ImageDraw.ImageDraw, outline: Color, accent: Color, x: float, y: float, scale: float) -> None:
+    def _draw_stun_effect(
+        self,
+        draw: ImageDraw.ImageDraw,
+        outline: Color,
+        accent: Color,
+        x: float,
+        y: float,
+        scale: float,
+    ) -> None:
         for i, dx in enumerate((-12, 0, 12)):
             px = x + dx * scale
             py = y + (2 if i == 1 else -2) * scale
-            polygon(draw, [(px - 3 * scale, py), (px, py - 5 * scale), (px + 3 * scale, py), (px, py + 5 * scale)], fill=accent, outline=outline)
+            polygon(
+                draw,
+                [
+                    (px - 3 * scale, py),
+                    (px, py - 5 * scale),
+                    (px + 3 * scale, py),
+                    (px, py + 5 * scale),
+                ],
+                fill=accent,
+                outline=outline,
+            )
 
 
 TARGETS: Dict[str, GoblinTarget] = {"goblin": GoblinTarget()}
@@ -1075,7 +1849,9 @@ def get_target(name: str):
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Standalone procedural graphics generator")
+    parser = argparse.ArgumentParser(
+        description="Standalone procedural graphics generator"
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     common = argparse.ArgumentParser(add_help=False)
@@ -1107,15 +1883,23 @@ def build_parser() -> argparse.ArgumentParser:
     p_spec = sub.add_parser("spec", parents=[common])
 
     p_spritesheet = sub.add_parser("spritesheet")
-    p_spritesheet.add_argument("--target", default="goblin", choices=sorted(TARGETS.keys()))
+    p_spritesheet.add_argument(
+        "--target", default="goblin", choices=sorted(TARGETS.keys())
+    )
     p_spritesheet.add_argument("--seed", type=int, default=0)
     p_spritesheet.add_argument("--archetype", default="default")
-    p_spritesheet.add_argument("--held-item", default=None, choices=GoblinTarget.HELD_ITEMS)
-    p_spritesheet.add_argument("--animations", default="idle,walk,attack,hurt,jump,fall,stun,death")
+    p_spritesheet.add_argument(
+        "--held-item", default=None, choices=GoblinTarget.HELD_ITEMS
+    )
+    p_spritesheet.add_argument(
+        "--animations", default="idle,walk,attack,hurt,jump,fall,stun,death"
+    )
     p_spritesheet.add_argument("--frame-width", type=int, default=192)
     p_spritesheet.add_argument("--frame-height", type=int, default=192)
     p_spritesheet.add_argument("--supersample", type=int, default=12)
-    p_spritesheet.add_argument("--downsample", choices=["nearest", "lanczos"], default="nearest")
+    p_spritesheet.add_argument(
+        "--downsample", choices=["nearest", "lanczos"], default="nearest"
+    )
     p_spritesheet.add_argument("--background", default="transparent")
     p_spritesheet.add_argument("--sheet-background", default="transparent")
     p_spritesheet.add_argument("--border", type=int, default=0)
@@ -1129,7 +1913,9 @@ def build_parser() -> argparse.ArgumentParser:
 def cmd_single(args: argparse.Namespace) -> None:
     target = get_target(args.target)
     spec = target.sample_spec(args.seed, args.archetype, args.held_item)
-    img = target.render(spec, (args.width, args.height), parse_background(args.background))
+    img = target.render(
+        spec, (args.width, args.height), parse_background(args.background)
+    )
     ensure_parent(args.out)
     img.save(args.out)
     print(json.dumps(asdict(spec), indent=2))
@@ -1148,7 +1934,9 @@ def cmd_sheet(args: argparse.Namespace) -> None:
     font = ImageFont.load_default()
     bg = parse_background(args.background) or rgb("#12161F")
     cell_bg = parse_background(args.cell_background) or rgb("#1A2030")
-    sheet = Image.new("RGBA", (outer_pad * 2 + cols * cell_w, outer_pad * 2 + rows * cell_h), bg)
+    sheet = Image.new(
+        "RGBA", (outer_pad * 2 + cols * cell_w, outer_pad * 2 + rows * cell_h), bg
+    )
     draw = ImageDraw.Draw(sheet)
     for idx in range(args.count):
         seed = args.base_seed + idx
@@ -1157,12 +1945,23 @@ def cmd_sheet(args: argparse.Namespace) -> None:
         row = idx // cols
         x0 = outer_pad + col * cell_w
         y0 = outer_pad + row * cell_h
-        rounded(draw, (x0, y0, x0 + cell_w - 1, y0 + cell_h - 1), radius=12, fill=cell_bg, outline=rgb("#2A3248"), width=2)
+        rounded(
+            draw,
+            (x0, y0, x0 + cell_w - 1, y0 + cell_h - 1),
+            radius=12,
+            fill=cell_bg,
+            outline=rgb("#2A3248"),
+            width=2,
+        )
         render_h = cell_h - label_h - 8
-        img = target.render(spec, (cell_w - 2 * cell_pad, render_h - 2 * cell_pad), None)
+        img = target.render(
+            spec, (cell_w - 2 * cell_pad, render_h - 2 * cell_pad), None
+        )
         sheet.alpha_composite(img, (x0 + cell_pad, y0 + cell_pad))
         label = f"seed={seed} {spec.archetype} {spec.held_item}"
-        draw.text((x0 + 8, y0 + cell_h - label_h + 6), label, fill=rgb("#E8EEF7"), font=font)
+        draw.text(
+            (x0 + 8, y0 + cell_h - label_h + 6), label, fill=rgb("#E8EEF7"), font=font
+        )
     ensure_parent(args.out)
     sheet.save(args.out)
     print_path(args.out, prefix="Wrote ")
@@ -1190,7 +1989,11 @@ def cmd_spritesheet(args: argparse.Namespace) -> None:
     row_h = fh + border * 2
     sheet_bg = parse_background(args.sheet_background)
     frame_bg = parse_background(args.background)
-    sheet = Image.new("RGBA", (label_w + cols * (fw + border * 2), rows * row_h), sheet_bg if sheet_bg is not None else (0, 0, 0, 0))
+    sheet = Image.new(
+        "RGBA",
+        (label_w + cols * (fw + border * 2), rows * row_h),
+        sheet_bg if sheet_bg is not None else (0, 0, 0, 0),
+    )
     draw = ImageDraw.Draw(sheet)
     font = ImageFont.load_default()
     manifest = {
@@ -1213,7 +2016,14 @@ def cmd_spritesheet(args: argparse.Namespace) -> None:
     for row, anim in enumerate(requested):
         row_y = row * row_h
         if label_w > 0:
-            rounded(draw, (4, row_y + 4, label_w - 4, row_y + row_h - 4), radius=8, fill=rgb("#151B27", 220), outline=rgb("#3A455A"), width=1)
+            rounded(
+                draw,
+                (4, row_y + 4, label_w - 4, row_y + row_h - 4),
+                radius=8,
+                fill=rgb("#151B27", 220),
+                outline=rgb("#3A455A"),
+                width=1,
+            )
             label_text = anim.upper()
             bbox = draw.textbbox((0, 0), label_text, font=font)
             tx = 8
@@ -1223,14 +2033,39 @@ def cmd_spritesheet(args: argparse.Namespace) -> None:
         duration_ms = anim_defs[anim]["duration_ms"]
         anim_names = []
         for idx in range(frame_count):
-            frame = target.render_animation_frame(spec, anim, idx, frame_count, (fw, fh), frame_bg, args.supersample, args.downsample)
+            frame = target.render_animation_frame(
+                spec,
+                anim,
+                idx,
+                frame_count,
+                (fw, fh),
+                frame_bg,
+                args.supersample,
+                args.downsample,
+            )
             x = label_w + idx * (fw + border * 2) + border
             y = row_y + border
             sheet.alpha_composite(frame, (x, y))
             name = f"{anim}_{idx}"
-            manifest["frames"].append({"name": name, "animation": anim, "index": idx, "x": x, "y": y, "w": fw, "h": fh, "duration_ms": duration_ms})
+            manifest["frames"].append(
+                {
+                    "name": name,
+                    "animation": anim,
+                    "index": idx,
+                    "x": x,
+                    "y": y,
+                    "w": fw,
+                    "h": fh,
+                    "duration_ms": duration_ms,
+                }
+            )
             anim_names.append(name)
-        manifest["animations"][anim] = {"frames": anim_names, "frame_count": frame_count, "duration_ms": duration_ms, "row": row}
+        manifest["animations"][anim] = {
+            "frames": anim_names,
+            "frame_count": frame_count,
+            "duration_ms": duration_ms,
+            "row": row,
+        }
     ensure_parent(args.out)
     sheet.save(args.out)
     print_path(args.out, prefix="Wrote ")

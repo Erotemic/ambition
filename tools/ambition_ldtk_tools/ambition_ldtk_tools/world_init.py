@@ -31,6 +31,7 @@ to sandbox.ldtk). The optional `--uid-offset` controls the buffer applied
 to nextUid (default 100000 — sandbox.ldtk currently has nextUid ~4346
 and grows slowly, so 100000 gives several decades of headroom).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -38,9 +39,7 @@ import json
 import sys
 from pathlib import Path
 
-DEFAULT_SOURCE = Path(
-    "crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk"
-)
+DEFAULT_SOURCE = Path("crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk")
 DEFAULT_UID_OFFSET = 100_000
 
 
@@ -89,9 +88,7 @@ def main(argv: list[str] | None = None) -> int:
     source: Path = args.source
 
     if target.exists() and not args.force:
-        return _fail(
-            f"target {target} already exists; pass --force to overwrite"
-        )
+        return _fail(f"target {target} already exists; pass --force to overwrite")
     if not source.exists():
         return _fail(f"source defs file {source} not found")
 

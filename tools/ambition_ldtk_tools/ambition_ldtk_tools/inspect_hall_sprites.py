@@ -28,6 +28,7 @@ python -m ambition_ldtk_tools.inspect_hall_sprites
 Pass `--ldtk` / `--catalog` / `--sprites-dir` to override the paths.
 Pass `--only-issues` to suppress the "ok" rows.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -36,8 +37,23 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-CATALOG_PATH = REPO_ROOT / "crates" / "ambition_sandbox" / "assets" / "data" / "character_catalog.ron"
-LDTK_PATH = REPO_ROOT / "crates" / "ambition_sandbox" / "assets" / "ambition" / "worlds" / "sandbox.ldtk"
+CATALOG_PATH = (
+    REPO_ROOT
+    / "crates"
+    / "ambition_sandbox"
+    / "assets"
+    / "data"
+    / "character_catalog.ron"
+)
+LDTK_PATH = (
+    REPO_ROOT
+    / "crates"
+    / "ambition_sandbox"
+    / "assets"
+    / "ambition"
+    / "worlds"
+    / "sandbox.ldtk"
+)
 SPRITES_DIR = REPO_ROOT / "crates" / "ambition_sandbox" / "assets" / "sprites"
 
 # Mirror of the Rust `CharacterAnim::from_name` Idle-equivalent
@@ -56,8 +72,10 @@ def hall_npc_spawns(ldtk_path: Path) -> list[dict]:
             for inst in layer.get("entityInstances", []) or []:
                 if inst.get("__identifier") != "NpcSpawn":
                     continue
-                fields = {f["__identifier"]: f.get("__value")
-                          for f in inst.get("fieldInstances", []) or []}
+                fields = {
+                    f["__identifier"]: f.get("__value")
+                    for f in inst.get("fieldInstances", []) or []
+                }
                 spawns.append(fields)
         return spawns
     return []
@@ -99,7 +117,10 @@ def classify(character_id: str, catalog: dict, sprites_dir: Path) -> tuple[str, 
     png_path = sprites_dir / spritesheet.removeprefix("sprites/")
     manifest = find_manifest_path(spritesheet, sprites_dir)
     if manifest is None:
-        return ("no_manifest", f"missing {png_path.parent.name}/{png_path.name.replace('.png', '.ron')}")
+        return (
+            "no_manifest",
+            f"missing {png_path.parent.name}/{png_path.name.replace('.png', '.ron')}",
+        )
     if not png_path.exists():
         return ("no_png", f"missing {png_path}")
     if not manifest_has_idle(manifest):
@@ -112,8 +133,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--catalog", type=Path, default=CATALOG_PATH)
     parser.add_argument("--ldtk", type=Path, default=LDTK_PATH)
     parser.add_argument("--sprites-dir", type=Path, default=SPRITES_DIR)
-    parser.add_argument("--only-issues", action="store_true",
-                        help="Suppress the 'ok' rows; print only fallback cases.")
+    parser.add_argument(
+        "--only-issues",
+        action="store_true",
+        help="Suppress the 'ok' rows; print only fallback cases.",
+    )
     args = parser.parse_args(argv)
 
     from .ron_parse import load as ron_load
@@ -122,8 +146,13 @@ def main(argv: list[str] | None = None) -> int:
     spawns = hall_npc_spawns(args.ldtk)
     print(f"# {len(spawns)} NpcSpawn pedestals in `hall_of_characters`.\n")
 
-    counts: dict[str, int] = {"ok": 0, "no_manifest": 0, "no_png": 0,
-                              "no_idle": 0, "no_catalog": 0}
+    counts: dict[str, int] = {
+        "ok": 0,
+        "no_manifest": 0,
+        "no_png": 0,
+        "no_idle": 0,
+        "no_catalog": 0,
+    }
     for spawn in sorted(spawns, key=lambda s: s.get("character_id", "")):
         cid = spawn.get("character_id", "")
         status, detail = classify(cid, catalog, args.sprites_dir)

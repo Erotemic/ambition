@@ -8,6 +8,7 @@ soundfile / scipy):
 
     .venv/bin/python tests/test_level_report.py
 """
+
 from __future__ import annotations
 
 import math
@@ -26,7 +27,9 @@ import level_report as lr  # noqa: E402
 SR = 48_000
 
 
-def _write_sine(directory: Path, cue: str, amplitude: float, seconds: float = 1.0) -> Path:
+def _write_sine(
+    directory: Path, cue: str, amplitude: float, seconds: float = 1.0
+) -> Path:
     cue_dir = directory / cue
     cue_dir.mkdir(parents=True, exist_ok=True)
     path = cue_dir / "full.wav"
@@ -92,7 +95,7 @@ def test_render_table_and_summary():
 def test_check_mode_flags_clipping_and_passes_clean():
     with tempfile.TemporaryDirectory() as td:
         root = Path(td)
-        _write_sine(root, "clean", amplitude=0.5)   # ~-6 dBTP, fine
+        _write_sine(root, "clean", amplitude=0.5)  # ~-6 dBTP, fine
         # Clean root passes --check.
         assert lr.main(["--root", str(root), "--glob", "*/full.wav", "--check"]) == 0
         # Add a hot cue that clips, and --check must now fail.
@@ -103,7 +106,9 @@ def test_check_mode_flags_clipping_and_passes_clean():
 
 
 def _run_all() -> int:
-    fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
+    fns = [
+        v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)
+    ]
     for fn in fns:
         fn()
         print(f"ok  {fn.__name__}")

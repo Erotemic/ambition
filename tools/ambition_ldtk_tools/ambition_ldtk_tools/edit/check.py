@@ -32,6 +32,7 @@ nearest neighbor is at least --min-spacing away if specified), 1
 otherwise. Makes the tool drop straight into a shell-script
 pipeline before an authoring run.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -54,7 +55,9 @@ def _rects_overlap(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -
     return ax < bx + bw and ax + aw > bx and ay < by + bh and ay + ah > by
 
 
-def _center_distance(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -> float:
+def _center_distance(
+    a: tuple[int, int, int, int], b: tuple[int, int, int, int]
+) -> float:
     ax = a[0] + a[2] / 2.0
     ay = a[1] + a[3] / 2.0
     bx = b[0] + b[2] / 2.0
@@ -179,7 +182,9 @@ def main(argv=None) -> int:
         f"size={list(check_rect[2:])}"
     )
     if overlaps:
-        print(f"  OVERLAP: {len(overlaps)} entit{'y' if len(overlaps) == 1 else 'ies'}:")
+        print(
+            f"  OVERLAP: {len(overlaps)} entit{'y' if len(overlaps) == 1 else 'ies'}:"
+        )
         for o in overlaps:
             print(
                 f"    - {o['identifier']} ({o['iid']}) at px={o['px']} size={o['size']}"
@@ -199,11 +204,7 @@ def main(argv=None) -> int:
     rc = 0
     if overlaps:
         rc = 1
-    if (
-        args.min_spacing
-        and nearest is not None
-        and nearest[0] < args.min_spacing
-    ):
+    if args.min_spacing and nearest is not None and nearest[0] < args.min_spacing:
         rc = 1
     return rc
 

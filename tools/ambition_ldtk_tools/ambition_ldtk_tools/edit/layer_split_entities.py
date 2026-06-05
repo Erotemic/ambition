@@ -38,6 +38,7 @@ in CI.
 Runs `repair --in-place` on the result by default; pass `--no-repair`
 to skip.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -180,12 +181,22 @@ def main(argv: list[str] | None = None) -> int:
         help=argparse.SUPPRESS,
     )
     ap.add_argument("ldtk", type=Path)
-    ap.add_argument("--type", dest="entity_type", required=True,
-                    help="Entity `__identifier` to relocate (e.g. CameraZone)")
-    ap.add_argument("--to-layer", required=True,
-                    help="Destination layer identifier (created if absent)")
-    ap.add_argument("--from-layer", default="Ambition",
-                    help="Source layer identifier (default: Ambition)")
+    ap.add_argument(
+        "--type",
+        dest="entity_type",
+        required=True,
+        help="Entity `__identifier` to relocate (e.g. CameraZone)",
+    )
+    ap.add_argument(
+        "--to-layer",
+        required=True,
+        help="Destination layer identifier (created if absent)",
+    )
+    ap.add_argument(
+        "--from-layer",
+        default="Ambition",
+        help="Source layer identifier (default: Ambition)",
+    )
     ap.add_argument("--in-place", action="store_true")
     ap.add_argument("--output", type=Path, default=None)
     ap.add_argument("--backup", action="store_true")

@@ -76,12 +76,30 @@ ACTOR_METADATA = {
         "lifecycle.death": {"animation": "death", "events": []},
     },
     "sockets": {
-        "head": {"source": "president_portrait.geometry", "point": {"x": 160.0, "y": 78.0}},
-        "chest": {"source": "president_portrait.geometry", "point": {"x": 160.0, "y": 170.0}},
-        "hand_l": {"source": "president_portrait.geometry", "point": {"x": 112.0, "y": 198.0}},
-        "hand_r": {"source": "president_portrait.geometry", "point": {"x": 210.0, "y": 198.0}},
-        "decree_origin": {"source": "president_portrait.geometry", "point": {"x": 208.0, "y": 178.0}},
-        "speech_bubble": {"source": "president_portrait.geometry", "point": {"x": 160.0, "y": 48.0}},
+        "head": {
+            "source": "president_portrait.geometry",
+            "point": {"x": 160.0, "y": 78.0},
+        },
+        "chest": {
+            "source": "president_portrait.geometry",
+            "point": {"x": 160.0, "y": 170.0},
+        },
+        "hand_l": {
+            "source": "president_portrait.geometry",
+            "point": {"x": 112.0, "y": 198.0},
+        },
+        "hand_r": {
+            "source": "president_portrait.geometry",
+            "point": {"x": 210.0, "y": 198.0},
+        },
+        "decree_origin": {
+            "source": "president_portrait.geometry",
+            "point": {"x": 208.0, "y": 178.0},
+        },
+        "speech_bubble": {
+            "source": "president_portrait.geometry",
+            "point": {"x": 160.0, "y": 48.0},
+        },
     },
     "tags": ["hub", "static", "story", "statesman"],
 }
@@ -152,22 +170,50 @@ def _ease(t: float) -> float:
     return 0.5 - 0.5 * math.cos(math.pi * t)
 
 
-def _poly(draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
+def _poly(
+    draw: ImageDraw.ImageDraw,
+    pts: Sequence[Point],
+    fill: RGBA,
+    outline: RGBA = OUTLINE,
+    width: float = 1.0,
+) -> None:
     ipts = [_pt(p) for p in pts]
     draw.polygon(ipts, fill=fill)
     if outline and width > 0:
-        draw.line(ipts + [ipts[0]], fill=outline, width=max(1, _s(width)), joint="curve")
+        draw.line(
+            ipts + [ipts[0]], fill=outline, width=max(1, _s(width)), joint="curve"
+        )
 
 
-def _line(draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, width: float = 1.0) -> None:
+def _line(
+    draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, width: float = 1.0
+) -> None:
     draw.line([_pt(p) for p in pts], fill=fill, width=max(1, _s(width)), joint="curve")
 
 
-def _ellipse(draw: ImageDraw.ImageDraw, cx: float, cy: float, rx: float, ry: float, fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
-    draw.ellipse(_box(cx, cy, rx, ry), fill=fill, outline=outline, width=max(1, _s(width)))
+def _ellipse(
+    draw: ImageDraw.ImageDraw,
+    cx: float,
+    cy: float,
+    rx: float,
+    ry: float,
+    fill: RGBA,
+    outline: RGBA = OUTLINE,
+    width: float = 1.0,
+) -> None:
+    draw.ellipse(
+        _box(cx, cy, rx, ry), fill=fill, outline=outline, width=max(1, _s(width))
+    )
 
 
-def _circle(draw: ImageDraw.ImageDraw, p: Point, r: float, fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
+def _circle(
+    draw: ImageDraw.ImageDraw,
+    p: Point,
+    r: float,
+    fill: RGBA,
+    outline: RGBA = OUTLINE,
+    width: float = 1.0,
+) -> None:
     _ellipse(draw, p[0], p[1], r, r, fill, outline, width)
 
 
@@ -293,11 +339,19 @@ class Pose:
             self.x_eye = tt > 0.58
 
 
-def _draw_leg(draw: ImageDraw.ImageDraw, hip: Point, thigh_ang: float, lift: float, front: bool) -> Point:
+def _draw_leg(
+    draw: ImageDraw.ImageDraw, hip: Point, thigh_ang: float, lift: float, front: bool
+) -> Point:
     thigh_len = 46
     shin_len = 44
-    knee = (hip[0] + thigh_len * math.cos(math.radians(thigh_ang)), hip[1] + thigh_len * math.sin(math.radians(thigh_ang)))
-    ankle = (knee[0] + shin_len * math.cos(math.radians(thigh_ang + 10)), knee[1] + shin_len * math.sin(math.radians(thigh_ang + 10)) - lift)
+    knee = (
+        hip[0] + thigh_len * math.cos(math.radians(thigh_ang)),
+        hip[1] + thigh_len * math.sin(math.radians(thigh_ang)),
+    )
+    ankle = (
+        knee[0] + shin_len * math.cos(math.radians(thigh_ang + 10)),
+        knee[1] + shin_len * math.sin(math.radians(thigh_ang + 10)) - lift,
+    )
     col = BREECH if front else (212, 210, 205, 255)
     _line(draw, [hip, knee, ankle], col, 8.0 if front else 7.0)
     _line(draw, [hip, knee, ankle], OUTLINE, 1.1)
@@ -323,10 +377,35 @@ def _draw_breeches_overlay(draw: ImageDraw.ImageDraw, P) -> None:
     This sits on top of the leg strokes so the trousers read as an outer garment
     and hide any distracting upper-leg construction lines.
     """
-    waist = [P(-24, -114), P(20, -114), P(28, -98), P(10, -82), P(-16, -84), P(-30, -100)]
+    waist = [
+        P(-24, -114),
+        P(20, -114),
+        P(28, -98),
+        P(10, -82),
+        P(-16, -84),
+        P(-30, -100),
+    ]
     _poly(draw, waist, COAT, OUTLINE, 0.9)
-    left_breech = [P(-24, -110), P(-2, -112), P(6, -96), P(8, -60), P(-4, -48), P(-24, -54), P(-34, -74), P(-34, -96)]
-    right_breech = [P(0, -112), P(22, -110), P(32, -94), P(34, -70), P(24, -50), P(8, -48), P(-2, -66), P(-2, -94)]
+    left_breech = [
+        P(-24, -110),
+        P(-2, -112),
+        P(6, -96),
+        P(8, -60),
+        P(-4, -48),
+        P(-24, -54),
+        P(-34, -74),
+        P(-34, -96),
+    ]
+    right_breech = [
+        P(0, -112),
+        P(22, -110),
+        P(32, -94),
+        P(34, -70),
+        P(24, -50),
+        P(8, -48),
+        P(-2, -66),
+        P(-2, -94),
+    ]
     _poly(draw, left_breech, BREECH, OUTLINE, 0.9)
     _poly(draw, right_breech, BREECH, OUTLINE, 0.9)
     # leg openings and gentle folds
@@ -337,11 +416,16 @@ def _draw_breeches_overlay(draw: ImageDraw.ImageDraw, P) -> None:
 
 
 def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
-    img = Image.new("RGBA", (WORK_FRAME_SIZE[0] * SUPER, WORK_FRAME_SIZE[1] * SUPER), (0, 0, 0, 0))
+    img = Image.new(
+        "RGBA", (WORK_FRAME_SIZE[0] * SUPER, WORK_FRAME_SIZE[1] * SUPER), (0, 0, 0, 0)
+    )
     draw = ImageDraw.Draw(img, "RGBA")
     pose = Pose(anim, frame_idx, nframes)
 
-    root = (WORK_FRAME_SIZE[0] * 0.47 + pose.root_x, WORK_FRAME_SIZE[1] * 0.77 + pose.root_y + pose.bob)
+    root = (
+        WORK_FRAME_SIZE[0] * 0.47 + pose.root_x,
+        WORK_FRAME_SIZE[1] * 0.77 + pose.root_y + pose.bob,
+    )
     tilt = pose.tilt
 
     def P(x: float, y: float) -> Point:
@@ -353,21 +437,59 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
     _draw_leg(draw, far_hip, 92 + pose.right_leg, pose.right_lift, False)
 
     # coat tails behind body
-    tail_l = [P(-18, -102), P(-6, -38), P(-20 + pose.coat_sway * 0.4, 22), P(-2, 18), P(10, -24), P(2, -102)]
-    tail_r = [P(8, -102), P(12, -34), P(28 + pose.coat_sway * 0.55, 18), P(44, 12), P(32, -40), P(26, -102)]
+    tail_l = [
+        P(-18, -102),
+        P(-6, -38),
+        P(-20 + pose.coat_sway * 0.4, 22),
+        P(-2, 18),
+        P(10, -24),
+        P(2, -102),
+    ]
+    tail_r = [
+        P(8, -102),
+        P(12, -34),
+        P(28 + pose.coat_sway * 0.55, 18),
+        P(44, 12),
+        P(32, -40),
+        P(26, -102),
+    ]
     _poly(draw, tail_l, COAT, OUTLINE, 1.0)
     _poly(draw, tail_r, COAT, OUTLINE, 1.0)
 
     # torso/coat
-    torso = [P(-34, -200), P(6, -214), P(36, -198), P(48, -148), P(44, -100), P(22, -76), P(-10, -72), P(-36, -94), P(-42, -148)]
+    torso = [
+        P(-34, -200),
+        P(6, -214),
+        P(36, -198),
+        P(48, -148),
+        P(44, -100),
+        P(22, -76),
+        P(-10, -72),
+        P(-36, -94),
+        P(-42, -148),
+    ]
     _poly(draw, torso, COAT, OUTLINE, 1.2)
     lapel_l = [P(-12, -188), P(0, -194), P(-4, -116), P(-18, -100), P(-26, -124)]
     lapel_r = [P(10, -190), P(22, -188), P(34, -124), P(18, -98), P(6, -118)]
     _poly(draw, lapel_l, COAT_HI, OUTLINE, 0.6)
     _poly(draw, lapel_r, COAT_HI, OUTLINE, 0.6)
-    vest = [P(-8, -196), P(14, -194), P(18, -104), P(-2, -92), P(-18, -108), P(-18, -176)]
+    vest = [
+        P(-8, -196),
+        P(14, -194),
+        P(18, -104),
+        P(-2, -92),
+        P(-18, -108),
+        P(-18, -176),
+    ]
     _poly(draw, vest, VEST, OUTLINE, 0.8)
-    cravat = [P(-2, -202), P(10, -202), P(14, -174 + pose.cravat * 0.2), P(6, -144), P(-4, -170), P(-10, -184)]
+    cravat = [
+        P(-2, -202),
+        P(10, -202),
+        P(14, -174 + pose.cravat * 0.2),
+        P(6, -144),
+        P(-4, -170),
+        P(-10, -184),
+    ]
     _poly(draw, cravat, CRAVAT, OUTLINE, 0.7)
     folds = [P(0, -182), P(8, -166), P(2, -152), P(12, -138)]
     _line(draw, folds, (214, 214, 210, 255), 0.8)
@@ -395,7 +517,18 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
         rx, ry = _rot(x, y, head_ang)
         return (head_root[0] + rx, head_root[1] + ry)
 
-    wig_back = [H(-28, -10), H(-22, -40), H(0, -54), H(20, -46), H(32, -20), H(30, 12), H(22, 26), H(12, 24), H(8, 0), H(-20, 8)]
+    wig_back = [
+        H(-28, -10),
+        H(-22, -40),
+        H(0, -54),
+        H(20, -46),
+        H(32, -20),
+        H(30, 12),
+        H(22, 26),
+        H(12, 24),
+        H(8, 0),
+        H(-20, 8),
+    ]
     _poly(draw, wig_back, WIG_SHADE, OUTLINE, 1.0)
     side_left = [H(-34, -4), H(-48, 10), H(-50, 28), H(-38, 42), H(-18, 34), H(-20, 12)]
     side_right = [H(30, -4), H(46, 6), H(50, 24), H(42, 42), H(24, 36), H(22, 8)]
@@ -404,7 +537,16 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
     queue = [H(14, 18), H(20, 34), H(16, 54), H(8, 62), H(0, 54), H(4, 30)]
     _poly(draw, queue, WIG_SHADE, OUTLINE, 0.6)
     _poly(draw, [H(2, 42), H(22, 42), H(20, 48), H(4, 48)], PRES_BLUE, OUTLINE, 0.3)
-    head = [H(-20, -18), H(-10, -36), H(12, -40), H(28, -26), H(30, 0), H(16, 20), H(-6, 24), H(-24, 10)]
+    head = [
+        H(-20, -18),
+        H(-10, -36),
+        H(12, -40),
+        H(28, -26),
+        H(30, 0),
+        H(16, 20),
+        H(-6, 24),
+        H(-24, 10),
+    ]
     _poly(draw, head, SKIN, OUTLINE, 1.0)
     _ellipse(draw, H(8, -2)[0], H(8, -2)[1], 9.0, 7.2, BLUSH, None, 0)
     _ellipse(draw, H(-8, 0)[0], H(-8, 0)[1], 8.5, 6.8, BLUSH, None, 0)
@@ -419,8 +561,26 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
         _line(draw, [H(-8, -3), H(0, -3)], OUTLINE, 0.8)
         _line(draw, [H(10, -4), H(18, -4)], OUTLINE, 0.8)
     else:
-        _ellipse(draw, H(-4, -3)[0], H(-4, -3)[1], 3.5, 2.8, (239, 241, 240, 255), OUTLINE, 0.4)
-        _ellipse(draw, H(14, -4)[0], H(14, -4)[1], 3.5, 2.8, (239, 241, 240, 255), OUTLINE, 0.4)
+        _ellipse(
+            draw,
+            H(-4, -3)[0],
+            H(-4, -3)[1],
+            3.5,
+            2.8,
+            (239, 241, 240, 255),
+            OUTLINE,
+            0.4,
+        )
+        _ellipse(
+            draw,
+            H(14, -4)[0],
+            H(14, -4)[1],
+            3.5,
+            2.8,
+            (239, 241, 240, 255),
+            OUTLINE,
+            0.4,
+        )
         _circle(draw, H(-3, -3), 0.9, (36, 44, 54, 255), (36, 44, 54, 255), 0.1)
         _circle(draw, H(15, -4), 0.9, (36, 44, 54, 255), (36, 44, 54, 255), 0.1)
         _line(draw, [H(-9, -8), H(-1, -10)], OUTLINE, 0.5)
@@ -428,7 +588,16 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
     nose = [H(6, -2), H(10, 6), H(4, 10), H(2, 4)]
     _poly(draw, nose, SKIN_SHADE, OUTLINE, 0.3)
     if pose.open_mouth > 0.02:
-        _ellipse(draw, H(7, 14)[0], H(7, 14)[1], 4.6, 2.4 + pose.open_mouth * 10.0, (102, 62, 66, 255), OUTLINE, 0.4)
+        _ellipse(
+            draw,
+            H(7, 14)[0],
+            H(7, 14)[1],
+            4.6,
+            2.4 + pose.open_mouth * 10.0,
+            (102, 62, 66, 255),
+            OUTLINE,
+            0.4,
+        )
     else:
         _line(draw, [H(2, 14), H(8, 15), H(14, 14)], (114, 76, 72, 255), 0.7)
 
@@ -459,14 +628,34 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
             (paper_c[0] - 16, paper_c[1] + 11),
         ]
         _poly(draw, paper, PARCHMENT, OUTLINE, 0.5)
-        _line(draw, [(paper_c[0] - 9, paper_c[1] - 4), (paper_c[0] + 8, paper_c[1] - 3)], INK, 0.5)
-        _line(draw, [(paper_c[0] - 8, paper_c[1] + 2), (paper_c[0] + 10, paper_c[1] + 3)], INK, 0.5)
+        _line(
+            draw,
+            [(paper_c[0] - 9, paper_c[1] - 4), (paper_c[0] + 8, paper_c[1] - 3)],
+            INK,
+            0.5,
+        )
+        _line(
+            draw,
+            [(paper_c[0] - 8, paper_c[1] + 2), (paper_c[0] + 10, paper_c[1] + 3)],
+            INK,
+            0.5,
+        )
         _circle(draw, (paper_c[0] + 9, paper_c[1] + 8), 2.6, SEAL, OUTLINE, 0.25)
         # quill / signature flourish
         quill_base = (near_hand[0] + 2, near_hand[1] - 3)
         quill_tip = (paper_c[0] - 10 + pose.rapier * 8, paper_c[1] + 7)
         _line(draw, [quill_base, quill_tip], INK, 0.8)
-        _poly(draw, [(quill_base[0] - 2, quill_base[1] - 8), (quill_base[0] + 9, quill_base[1] - 2), (quill_base[0] + 1, quill_base[1] + 1)], CRAVAT, OUTLINE, 0.25)
+        _poly(
+            draw,
+            [
+                (quill_base[0] - 2, quill_base[1] - 8),
+                (quill_base[0] + 9, quill_base[1] - 2),
+                (quill_base[0] + 1, quill_base[1] + 1),
+            ],
+            CRAVAT,
+            OUTLINE,
+            0.25,
+        )
         if pose.rapier > 0.2:
             cx, cy = paper_c
             box = (_s(cx - 46), _s(cy - 28), _s(cx + 42), _s(cy + 32))
@@ -481,14 +670,34 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
             (book_c[0] - 10, book_c[1] + 11),
         ]
         _poly(draw, book, BOOK, OUTLINE, 0.5)
-        _line(draw, [(book_c[0] - 8, book_c[1] - 4), (book_c[0] + 8, book_c[1] - 2)], BOOK_EDGE, 0.7)
-        _line(draw, [(book_c[0] - 6, book_c[1] + 2), (book_c[0] + 10, book_c[1] + 3)], BOOK_EDGE, 0.6)
-        _line(draw, [(book_c[0] - 10, book_c[1] - 8), (book_c[0] - 10, book_c[1] + 8)], GOLD, 0.5)
+        _line(
+            draw,
+            [(book_c[0] - 8, book_c[1] - 4), (book_c[0] + 8, book_c[1] - 2)],
+            BOOK_EDGE,
+            0.7,
+        )
+        _line(
+            draw,
+            [(book_c[0] - 6, book_c[1] + 2), (book_c[0] + 10, book_c[1] + 3)],
+            BOOK_EDGE,
+            0.6,
+        )
+        _line(
+            draw,
+            [(book_c[0] - 10, book_c[1] - 8), (book_c[0] - 10, book_c[1] + 8)],
+            GOLD,
+            0.5,
+        )
         # oath energy lines above raised hand
         hand_c = far_hand
         for rr in [0, 1, 2]:
             cx, cy = hand_c[0] + 14, hand_c[1] - 22
-            box = (_s(cx - 12 - rr * 7), _s(cy - 10 - rr * 6), _s(cx + 12 + rr * 7), _s(cy + 10 + rr * 6))
+            box = (
+                _s(cx - 12 - rr * 7),
+                _s(cy - 10 - rr * 6),
+                _s(cx + 12 + rr * 7),
+                _s(cy + 10 + rr * 6),
+            )
             draw.arc(box, 210, 330, fill=FX, width=_s(1.6))
 
     # buttons and cuff details
@@ -508,7 +717,9 @@ def render(out_dir: str | Path, **opts) -> List[Path]:
     outputs = build_sheet(
         target=TARGET_NAME,
         rows=ROWS,
-        render_fn=lambda anim, frame_idx, nframes: _render_frame(anim, frame_idx, nframes),
+        render_fn=lambda anim, frame_idx, nframes: _render_frame(
+            anim, frame_idx, nframes
+        ),
         out_dir=out_dir,
         frame_size=opts.get("frame_size", FRAME_SIZE),
         crop_margin=10,
@@ -527,8 +738,14 @@ def render(out_dir: str | Path, **opts) -> List[Path]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Render the more explicitly presidential portrait-style President sprite sheet.")
-    parser.add_argument("--out-dir", type=Path, default=Path(__file__).resolve().parents[2] / "generated" / TARGET_NAME)
+    parser = argparse.ArgumentParser(
+        description="Render the more explicitly presidential portrait-style President sprite sheet."
+    )
+    parser.add_argument(
+        "--out-dir",
+        type=Path,
+        default=Path(__file__).resolve().parents[2] / "generated" / TARGET_NAME,
+    )
     args = parser.parse_args(argv)
     for path in render(args.out_dir):
         print(path)

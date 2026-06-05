@@ -9,6 +9,7 @@ that doesn't fall just from lowering master volume.
 
 Lower numbers = less squeak.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -25,7 +26,9 @@ def to_mono(audio: np.ndarray) -> np.ndarray:
     return audio.mean(axis=0).astype("float32")
 
 
-def band_energy(mono: np.ndarray, sr: int, t_lo: float, t_hi: float, lo_hz: float, hi_hz: float) -> float:
+def band_energy(
+    mono: np.ndarray, sr: int, t_lo: float, t_hi: float, lo_hz: float, hi_hz: float
+) -> float:
     s = int(t_lo * sr)
     e = int(t_hi * sr)
     seg = mono[s:e]
@@ -41,7 +44,9 @@ def band_energy(mono: np.ndarray, sr: int, t_lo: float, t_hi: float, lo_hz: floa
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("cue_outdir", type=Path)
-    ap.add_argument("--window", nargs=2, type=float, metavar=("LO", "HI"), default=(38.0, 43.0))
+    ap.add_argument(
+        "--window", nargs=2, type=float, metavar=("LO", "HI"), default=(38.0, 43.0)
+    )
     ap.add_argument("--sr", type=int, default=48000)
     ap.add_argument("--label", type=str, default="")
     ns = ap.parse_args(argv)
@@ -72,7 +77,7 @@ def main(argv=None) -> int:
     vhigh_total = max(total["vhigh"], 1e-12)
     for g in sorted(by_group, key=lambda x: -by_group[x]["vhigh"]):
         frac = by_group[g]["vhigh"] / vhigh_total
-        print(f"    {g:14s} {frac*100:5.1f}%   abs={by_group[g]['vhigh']:.3e}")
+        print(f"    {g:14s} {frac * 100:5.1f}%   abs={by_group[g]['vhigh']:.3e}")
 
     return 0
 

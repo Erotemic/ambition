@@ -24,49 +24,89 @@ from PIL import Image, ImageDraw
 
 from ...tackon_sheet import build_sheet
 
-ACTOR_METADATA = {'actor': {'character_id': 'npc_pirate_heavy', 'display_name': 'Pirate Heavy'},
- 'body': {'body_plan': 'HumanoidBiped',
-          'body_kind': 'Wide',
-          'mass_class': 'Heavy',
-          'traits': ['enemy', 'combatant', 'pirate', 'heavy'],
-          'locomotion_hint': 'Walk'},
- 'capabilities': {'traversal': {'walk': True,
-                                'jump': None,
-                                'climb': None,
-                                'fly': None,
-                                'swim': None,
-                                'crawl': None,
-                                'use_lifts': True,
-                                'door_access': ['public']},
-                  'interactions': {'talk': True,
-                                   'trade': None,
-                                   'carry': None,
-                                   'open_doors': ['public']}},
- 'brain': {'default_preset': 'melee_brute_brute'},
- 'actions': {'default_preset': 'brute_lunge'},
- 'visual': {'default_pose': 'idle'},
- 'tags': ['story', 'humanoid', 'enemy', 'combatant', 'pirate', 'heavy'],
- 'sockets': {'head': {'source': 'explicit.profile.humanoid', 'point': {'x': 64.0, 'y': 24.0}},
-             'chest': {'source': 'explicit.profile.humanoid', 'point': {'x': 64.0, 'y': 54.0}},
-             'hand_l': {'source': 'explicit.profile.humanoid', 'point': {'x': 48.0, 'y': 64.0}},
-             'hand_r': {'source': 'explicit.profile.humanoid', 'point': {'x': 80.0, 'y': 64.0}},
-             'speech_bubble': {'source': 'explicit.profile.humanoid',
-                               'point': {'x': 64.0, 'y': 8.0}},
-             'weapon_grip': {'source': 'explicit.profile.combat_humanoid',
-                             'point': {'x': 80.0, 'y': 64.0}},
-             'weapon_tip': {'source': 'explicit.profile.combat_humanoid',
-                            'point': {'x': 104.0, 'y': 60.0}}},
- 'animation_bindings': {'default': {'animation': 'idle', 'events': []},
-                        'locomotion.walk': {'animation': 'walk', 'events': []},
-                        'interaction.talk': {'animation': 'talk', 'events': []},
-                        'interaction.use': {'animation': 'interact', 'events': []},
-                        'action.melee.primary': {'animation': 'slash',
-                                                 'events': [{'t': 0.34,
-                                                             'event': 'hitbox_active_start',
-                                                             'source': 'explicit.profile.combat_humanoid'},
-                                                            {'t': 0.58,
-                                                             'event': 'hitbox_active_end',
-                                                             'source': 'explicit.profile.combat_humanoid'}]}}}
+ACTOR_METADATA = {
+    "actor": {"character_id": "npc_pirate_heavy", "display_name": "Pirate Heavy"},
+    "body": {
+        "body_plan": "HumanoidBiped",
+        "body_kind": "Wide",
+        "mass_class": "Heavy",
+        "traits": ["enemy", "combatant", "pirate", "heavy"],
+        "locomotion_hint": "Walk",
+    },
+    "capabilities": {
+        "traversal": {
+            "walk": True,
+            "jump": None,
+            "climb": None,
+            "fly": None,
+            "swim": None,
+            "crawl": None,
+            "use_lifts": True,
+            "door_access": ["public"],
+        },
+        "interactions": {
+            "talk": True,
+            "trade": None,
+            "carry": None,
+            "open_doors": ["public"],
+        },
+    },
+    "brain": {"default_preset": "melee_brute_brute"},
+    "actions": {"default_preset": "brute_lunge"},
+    "visual": {"default_pose": "idle"},
+    "tags": ["story", "humanoid", "enemy", "combatant", "pirate", "heavy"],
+    "sockets": {
+        "head": {
+            "source": "explicit.profile.humanoid",
+            "point": {"x": 64.0, "y": 24.0},
+        },
+        "chest": {
+            "source": "explicit.profile.humanoid",
+            "point": {"x": 64.0, "y": 54.0},
+        },
+        "hand_l": {
+            "source": "explicit.profile.humanoid",
+            "point": {"x": 48.0, "y": 64.0},
+        },
+        "hand_r": {
+            "source": "explicit.profile.humanoid",
+            "point": {"x": 80.0, "y": 64.0},
+        },
+        "speech_bubble": {
+            "source": "explicit.profile.humanoid",
+            "point": {"x": 64.0, "y": 8.0},
+        },
+        "weapon_grip": {
+            "source": "explicit.profile.combat_humanoid",
+            "point": {"x": 80.0, "y": 64.0},
+        },
+        "weapon_tip": {
+            "source": "explicit.profile.combat_humanoid",
+            "point": {"x": 104.0, "y": 60.0},
+        },
+    },
+    "animation_bindings": {
+        "default": {"animation": "idle", "events": []},
+        "locomotion.walk": {"animation": "walk", "events": []},
+        "interaction.talk": {"animation": "talk", "events": []},
+        "interaction.use": {"animation": "interact", "events": []},
+        "action.melee.primary": {
+            "animation": "slash",
+            "events": [
+                {
+                    "t": 0.34,
+                    "event": "hitbox_active_start",
+                    "source": "explicit.profile.combat_humanoid",
+                },
+                {
+                    "t": 0.58,
+                    "event": "hitbox_active_end",
+                    "source": "explicit.profile.combat_humanoid",
+                },
+            ],
+        },
+    },
+}
 
 
 RGBA = Tuple[int, int, int, int]
@@ -256,22 +296,50 @@ def _rot_local(x: float, y: float, deg: float) -> Point:
     return (x * c - y * s, x * s + y * c)
 
 
-def _poly(draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
+def _poly(
+    draw: ImageDraw.ImageDraw,
+    pts: Sequence[Point],
+    fill: RGBA,
+    outline: RGBA = OUTLINE,
+    width: float = 1.0,
+) -> None:
     ipts = [_pt(p) for p in pts]
     draw.polygon(ipts, fill=fill)
     if outline and width > 0:
-        draw.line(ipts + [ipts[0]], fill=outline, width=max(1, _s(width)), joint="curve")
+        draw.line(
+            ipts + [ipts[0]], fill=outline, width=max(1, _s(width)), joint="curve"
+        )
 
 
-def _line(draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, width: float = 1.0) -> None:
+def _line(
+    draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, width: float = 1.0
+) -> None:
     draw.line([_pt(p) for p in pts], fill=fill, width=max(1, _s(width)), joint="curve")
 
 
-def _ellipse(draw: ImageDraw.ImageDraw, cx: float, cy: float, rx: float, ry: float, fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
-    draw.ellipse(_box(cx, cy, rx, ry), fill=fill, outline=outline, width=max(1, _s(width)))
+def _ellipse(
+    draw: ImageDraw.ImageDraw,
+    cx: float,
+    cy: float,
+    rx: float,
+    ry: float,
+    fill: RGBA,
+    outline: RGBA = OUTLINE,
+    width: float = 1.0,
+) -> None:
+    draw.ellipse(
+        _box(cx, cy, rx, ry), fill=fill, outline=outline, width=max(1, _s(width))
+    )
 
 
-def _circle(draw: ImageDraw.ImageDraw, c: Point, r: float, fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
+def _circle(
+    draw: ImageDraw.ImageDraw,
+    c: Point,
+    r: float,
+    fill: RGBA,
+    outline: RGBA = OUTLINE,
+    width: float = 1.0,
+) -> None:
     _ellipse(draw, c[0], c[1], r, r, fill, outline, width)
 
 
@@ -280,7 +348,12 @@ def _rect_poly(center: Point, w: float, h: float, deg: float) -> List[Point]:
     hh = h * 0.5
     return [
         (center[0] + dx, center[1] + dy)
-        for dx, dy in (_rot_local(-hw, -hh, deg), _rot_local(hw, -hh, deg), _rot_local(hw, hh, deg), _rot_local(-hw, hh, deg))
+        for dx, dy in (
+            _rot_local(-hw, -hh, deg),
+            _rot_local(hw, -hh, deg),
+            _rot_local(hw, hh, deg),
+            _rot_local(-hw, hh, deg),
+        )
     ]
 
 
@@ -399,19 +472,41 @@ class Pose:
             self.x_eyes = tt > 0.55
 
 
-def _draw_cleaver(draw: ImageDraw.ImageDraw, hand: Point, angle: float, pal: Palette, scale: float = 1.0, front: bool = True) -> None:
+def _draw_cleaver(
+    draw: ImageDraw.ImageDraw,
+    hand: Point,
+    angle: float,
+    pal: Palette,
+    scale: float = 1.0,
+    front: bool = True,
+) -> None:
     def tr(x: float, y: float) -> Point:
         rx, ry = _rot_local(x * scale, y * scale, angle)
         return (hand[0] + rx, hand[1] + ry)
 
     _line(draw, [tr(-6, 7), tr(55, -1), tr(85, -2)], OUTLINE, 6.4 * scale)
     _line(draw, [tr(-6, 7), tr(55, -1), tr(85, -2)], (88, 54, 34, 255), 4.4 * scale)
-    _poly(draw, _rect_poly(tr(1, 6), 14 * scale, 8 * scale, angle - 8), GOLD, OUTLINE, 1.6 * scale)
+    _poly(
+        draw,
+        _rect_poly(tr(1, 6), 14 * scale, 8 * scale, angle - 8),
+        GOLD,
+        OUTLINE,
+        1.6 * scale,
+    )
     _circle(draw, tr(-9, 7), 4.0 * scale, GOLD, OUTLINE, 1.3 * scale)
 
     blade = [
-        tr(54, -25), tr(72, -34), tr(91, -27), tr(96, -12), tr(84, -3),
-        tr(98, 13), tr(92, 29), tr(72, 35), tr(55, 24), tr(65, 6), tr(50, 0),
+        tr(54, -25),
+        tr(72, -34),
+        tr(91, -27),
+        tr(96, -12),
+        tr(84, -3),
+        tr(98, 13),
+        tr(92, 29),
+        tr(72, 35),
+        tr(55, 24),
+        tr(65, 6),
+        tr(50, 0),
     ]
     _poly(draw, blade, METAL, OUTLINE, 2.0 * scale)
     notch = [tr(78, -18), tr(87, -14), tr(82, -7)]
@@ -423,8 +518,16 @@ def _draw_cleaver(draw: ImageDraw.ImageDraw, hand: Point, angle: float, pal: Pal
             _circle(draw, tr(x, y), 2.0 * scale, METAL_DARK, OUTLINE, 0.6 * scale)
 
 
-def _draw_boot(draw: ImageDraw.ImageDraw, p: Point, toe_dir: float, pal: Palette) -> None:
-    _poly(draw, _rect_poly((p[0], p[1] - 6), 15, 20, toe_dir * 0.25), pal.boot, OUTLINE, 1.6)
+def _draw_boot(
+    draw: ImageDraw.ImageDraw, p: Point, toe_dir: float, pal: Palette
+) -> None:
+    _poly(
+        draw,
+        _rect_poly((p[0], p[1] - 6), 15, 20, toe_dir * 0.25),
+        pal.boot,
+        OUTLINE,
+        1.6,
+    )
     toe = [
         (p[0] - 7, p[1] - 2),
         (p[0] + 10 + toe_dir * 2, p[1] - 2),
@@ -435,36 +538,92 @@ def _draw_boot(draw: ImageDraw.ImageDraw, p: Point, toe_dir: float, pal: Palette
     _line(draw, [(p[0] - 5, p[1] - 12), (p[0] + 6, p[1] - 10)], GOLD, 1.0)
 
 
-def _draw_face(draw: ImageDraw.ImageDraw, head: Point, pose: Pose, spec: VariantSpec) -> None:
+def _draw_face(
+    draw: ImageDraw.ImageDraw, head: Point, pose: Pose, spec: VariantSpec
+) -> None:
     pal = spec.palette
     hx, hy = head
     hrx = 21 * spec.head_scale
     hry = 25 * spec.head_scale
     hair_back = [
-        (hx - 23, hy - 14), (hx - 9, hy - 28), (hx + 16, hy - 25), (hx + 28, hy - 10),
-        (hx + 22, hy + 18), (hx + 10, hy + 30), (hx - 14, hy + 28), (hx - 27, hy + 8),
+        (hx - 23, hy - 14),
+        (hx - 9, hy - 28),
+        (hx + 16, hy - 25),
+        (hx + 28, hy - 10),
+        (hx + 22, hy + 18),
+        (hx + 10, hy + 30),
+        (hx - 14, hy + 28),
+        (hx - 27, hy + 8),
     ]
     _poly(draw, hair_back, pal.hair, OUTLINE, 1.5)
-    _poly(draw, [(hx - 26, hy + 0), (hx - 37, hy + 21), (hx - 25, hy + 34), (hx - 16, hy + 14)], pal.hair, OUTLINE, 1.4)
-    _poly(draw, [(hx + 20, hy + 3), (hx + 35, hy + 18), (hx + 24, hy + 31), (hx + 14, hy + 14)], pal.hair, OUTLINE, 1.4)
+    _poly(
+        draw,
+        [(hx - 26, hy + 0), (hx - 37, hy + 21), (hx - 25, hy + 34), (hx - 16, hy + 14)],
+        pal.hair,
+        OUTLINE,
+        1.4,
+    )
+    _poly(
+        draw,
+        [(hx + 20, hy + 3), (hx + 35, hy + 18), (hx + 24, hy + 31), (hx + 14, hy + 14)],
+        pal.hair,
+        OUTLINE,
+        1.4,
+    )
 
     if spec.hair_beads:
         for bead_pt in [(hx - 31, hy + 24), (hx - 25, hy + 31), (hx + 27, hy + 29)]:
             _circle(draw, bead_pt, 2.8, GOLD, OUTLINE, 0.6)
 
     _ellipse(draw, hx, hy, hrx, hry, pal.skin, OUTLINE, 1.8)
-    jaw = [(hx - 18, hy + 9), (hx - 9, hy + 28), (hx + 10, hy + 28), (hx + 19, hy + 9), (hx + 12, hy + 22), (hx - 10, hy + 22)]
+    jaw = [
+        (hx - 18, hy + 9),
+        (hx - 9, hy + 28),
+        (hx + 10, hy + 28),
+        (hx + 19, hy + 9),
+        (hx + 12, hy + 22),
+        (hx - 10, hy + 22),
+    ]
     _poly(draw, jaw, pal.skin, OUTLINE, 1.2)
 
-    band = [(hx - 23, hy - 13), (hx - 13, hy - 22), (hx + 12, hy - 22), (hx + 24, hy - 13), (hx + 19, hy - 6), (hx - 20, hy - 6)]
+    band = [
+        (hx - 23, hy - 13),
+        (hx - 13, hy - 22),
+        (hx + 12, hy - 22),
+        (hx + 24, hy - 13),
+        (hx + 19, hy - 6),
+        (hx - 20, hy - 6),
+    ]
     _poly(draw, band, pal.bandana, OUTLINE, 1.4)
     _circle(draw, (hx + 22, hy - 12), 4.5, pal.bandana_dark, OUTLINE, 1.0)
-    _poly(draw, [(hx + 25, hy - 11), (hx + 42, hy - 18), (hx + 36, hy - 4)], pal.bandana, OUTLINE, 1.0)
-    _poly(draw, [(hx + 24, hy - 8), (hx + 39, hy + 6), (hx + 29, hy + 8)], pal.bandana_dark, OUTLINE, 1.0)
+    _poly(
+        draw,
+        [(hx + 25, hy - 11), (hx + 42, hy - 18), (hx + 36, hy - 4)],
+        pal.bandana,
+        OUTLINE,
+        1.0,
+    )
+    _poly(
+        draw,
+        [(hx + 24, hy - 8), (hx + 39, hy + 6), (hx + 29, hy + 8)],
+        pal.bandana_dark,
+        OUTLINE,
+        1.0,
+    )
     _line(draw, [(hx - 17, hy - 16), (hx + 14, hy - 17)], (238, 92, 100, 210), 1.0)
 
-    _line(draw, [(hx - 13, hy - 2), (hx - 18, hy + 16), (hx - 12, hy + 27)], pal.hair_hi, 1.5)
-    _line(draw, [(hx + 10, hy - 1), (hx + 16, hy + 16), (hx + 9, hy + 27)], pal.hair_hi, 1.2)
+    _line(
+        draw,
+        [(hx - 13, hy - 2), (hx - 18, hy + 16), (hx - 12, hy + 27)],
+        pal.hair_hi,
+        1.5,
+    )
+    _line(
+        draw,
+        [(hx + 10, hy - 1), (hx + 16, hy + 16), (hx + 9, hy + 27)],
+        pal.hair_hi,
+        1.2,
+    )
 
     eye_y = hy + 2
     if pose.x_eyes:
@@ -477,7 +636,12 @@ def _draw_face(draw: ImageDraw.ImageDraw, head: Point, pose: Pose, spec: Variant
         _line(draw, [(hx - 15, left_brow_y), (hx - 6, eye_y - 2)], OUTLINE, 1.4)
         _line(draw, [(hx + 5, eye_y - 2), (hx + 16, right_brow_y)], OUTLINE, 1.4)
         if spec.brow_notch:
-            _line(draw, [(hx - 10, left_brow_y - 2), (hx - 8, left_brow_y + 2)], pal.skin_shadow, 0.9)
+            _line(
+                draw,
+                [(hx - 10, left_brow_y - 2), (hx - 8, left_brow_y + 2)],
+                pal.skin_shadow,
+                0.9,
+            )
         if pose.blink:
             _line(draw, [(hx - 13, eye_y + 1), (hx - 6, eye_y + 1)], OUTLINE, 1.1)
             _line(draw, [(hx + 6, eye_y + 1), (hx + 13, eye_y + 1)], OUTLINE, 1.1)
@@ -494,22 +658,47 @@ def _draw_face(draw: ImageDraw.ImageDraw, head: Point, pose: Pose, spec: Variant
             _line(draw, [(hx + 14, eye_y - 1), (hx + 17, eye_y - 5)], OUTLINE, 0.9)
 
     if spec.cheek_scar:
-        _line(draw, [(hx + 8, hy + 8), (hx + 13, hy + 15), (hx + 10, hy + 20)], pal.skin_shadow, 1.0)
+        _line(
+            draw,
+            [(hx + 8, hy + 8), (hx + 13, hy + 15), (hx + 10, hy + 20)],
+            pal.skin_shadow,
+            1.0,
+        )
     if spec.freckles:
         for dx, dy in [(-8, 10), (-4, 12), (5, 12), (9, 10)]:
-            _circle(draw, (hx + dx, hy + dy), 0.8, pal.skin_shadow, pal.skin_shadow, 0.1)
+            _circle(
+                draw, (hx + dx, hy + dy), 0.8, pal.skin_shadow, pal.skin_shadow, 0.1
+            )
     if spec.beauty_mark:
         _circle(draw, (hx + 12, hy + 18), 1.1, OUTLINE, OUTLINE, 0.1)
     if spec.nose_ring:
-        _line(draw, [(hx + 1, hy + 10), (hx + 4, hy + 11), (hx + 2, hy + 14)], GOLD, 0.8)
+        _line(
+            draw, [(hx + 1, hy + 10), (hx + 4, hy + 11), (hx + 2, hy + 14)], GOLD, 0.8
+        )
 
-    _line(draw, [(hx, hy + 3), (hx + 3, hy + 11), (hx - 2, hy + 13)], pal.skin_shadow, 1.0)
+    _line(
+        draw, [(hx, hy + 3), (hx + 3, hy + 11), (hx - 2, hy + 13)], pal.skin_shadow, 1.0
+    )
     mouth_y = hy + 19 + pose.mouth * 3.5
     if pose.mouth > 0.2:
-        _ellipse(draw, hx, mouth_y - 1, 7, 3 + pose.mouth * 3.0, (70, 24, 32, 255), OUTLINE, 1.0)
+        _ellipse(
+            draw,
+            hx,
+            mouth_y - 1,
+            7,
+            3 + pose.mouth * 3.0,
+            (70, 24, 32, 255),
+            OUTLINE,
+            1.0,
+        )
         _line(draw, [(hx - 5, mouth_y - 3), (hx + 5, mouth_y - 3)], TEETH, 1.0)
     else:
-        _line(draw, [(hx - 7, mouth_y), (hx, mouth_y + 2), (hx + 8, mouth_y - 1)], OUTLINE, 1.1)
+        _line(
+            draw,
+            [(hx - 7, mouth_y), (hx, mouth_y + 2), (hx + 8, mouth_y - 1)],
+            OUTLINE,
+            1.1,
+        )
 
     if spec.earrings >= 1:
         _circle(draw, (hx + 25, hy + 11), 2.2, GOLD, OUTLINE, 0.6)
@@ -525,47 +714,171 @@ def _draw_torso(draw: ImageDraw.ImageDraw, p, pose: Pose, spec: VariantSpec) -> 
     waist_x = 18 * spec.waist_scale
     skirt_x = 50 * spec.hip_scale
 
-    shoulders = [P(-shoulder_x, -98), P(-24, -114), P(28, -114), P(shoulder_x + 5, -97), P(29, -71), P(-29, -71)]
+    shoulders = [
+        P(-shoulder_x, -98),
+        P(-24, -114),
+        P(28, -114),
+        P(shoulder_x + 5, -97),
+        P(29, -71),
+        P(-29, -71),
+    ]
     _poly(draw, shoulders, pal.shirt, OUTLINE, 2.0)
-    _ellipse(draw, *P(-42 * spec.shoulder_scale, -96), 13 * spec.arm_scale, 12 * spec.arm_scale, pal.shirt, OUTLINE, 1.6)
-    _ellipse(draw, *P(43 * spec.shoulder_scale, -96), 13 * spec.arm_scale, 12 * spec.arm_scale, pal.shirt, OUTLINE, 1.6)
+    _ellipse(
+        draw,
+        *P(-42 * spec.shoulder_scale, -96),
+        13 * spec.arm_scale,
+        12 * spec.arm_scale,
+        pal.shirt,
+        OUTLINE,
+        1.6,
+    )
+    _ellipse(
+        draw,
+        *P(43 * spec.shoulder_scale, -96),
+        13 * spec.arm_scale,
+        12 * spec.arm_scale,
+        pal.shirt,
+        OUTLINE,
+        1.6,
+    )
 
     upper = [
-        P(-36 * spec.bust_scale, -103), P(-21 * spec.bust_scale, -114), P(17 * spec.bust_scale, -114),
-        P(37 * spec.bust_scale, -102), P(35 * spec.bust_scale, -74), P(22 * spec.bust_scale, -63),
-        P(0, -57), P(-23 * spec.bust_scale, -63), P(-36 * spec.bust_scale, -74),
+        P(-36 * spec.bust_scale, -103),
+        P(-21 * spec.bust_scale, -114),
+        P(17 * spec.bust_scale, -114),
+        P(37 * spec.bust_scale, -102),
+        P(35 * spec.bust_scale, -74),
+        P(22 * spec.bust_scale, -63),
+        P(0, -57),
+        P(-23 * spec.bust_scale, -63),
+        P(-36 * spec.bust_scale, -74),
     ]
     _poly(draw, upper, pal.bodice, OUTLINE, 1.8)
-    left_plate = [P(-33 * spec.bust_scale, -100), P(-12 * spec.bust_scale, -109), P(-1, -99), P(-2, -84), P(-18 * spec.bust_scale, -68), P(-33 * spec.bust_scale, -78)]
-    right_plate = [P(11 * spec.bust_scale, -109), P(33 * spec.bust_scale, -100), P(33 * spec.bust_scale, -78), P(18 * spec.bust_scale, -68), P(2, -84), P(1, -99)]
+    left_plate = [
+        P(-33 * spec.bust_scale, -100),
+        P(-12 * spec.bust_scale, -109),
+        P(-1, -99),
+        P(-2, -84),
+        P(-18 * spec.bust_scale, -68),
+        P(-33 * spec.bust_scale, -78),
+    ]
+    right_plate = [
+        P(11 * spec.bust_scale, -109),
+        P(33 * spec.bust_scale, -100),
+        P(33 * spec.bust_scale, -78),
+        P(18 * spec.bust_scale, -68),
+        P(2, -84),
+        P(1, -99),
+    ]
     _poly(draw, left_plate, pal.bodice_hi, OUTLINE, 1.0)
     _poly(draw, right_plate, pal.bodice_hi, OUTLINE, 1.0)
-    _line(draw, [P(-24 * spec.bust_scale, -81), P(-11 * spec.bust_scale, -71), P(0, -67), P(12 * spec.bust_scale, -71), P(25 * spec.bust_scale, -81)], (94, 52, 64, 255), 1.4)
+    _line(
+        draw,
+        [
+            P(-24 * spec.bust_scale, -81),
+            P(-11 * spec.bust_scale, -71),
+            P(0, -67),
+            P(12 * spec.bust_scale, -71),
+            P(25 * spec.bust_scale, -81),
+        ],
+        (94, 52, 64, 255),
+        1.4,
+    )
     _line(draw, [P(0, -109), P(0, -58)], OUTLINE, 1.0)
-    _poly(draw, [P(-9 * spec.waist_scale, -93), P(9 * spec.waist_scale, -93), P(7 * spec.waist_scale, -74), P(-8 * spec.waist_scale, -74)], (88, 45, 58, 255), OUTLINE, 0.8)
-    _line(draw, [P(-24 * spec.bust_scale, -99), P(-8 * spec.bust_scale, -105)], pal.bodice_hi, 1.0)
-    _line(draw, [P(8 * spec.bust_scale, -105), P(24 * spec.bust_scale, -99)], pal.bodice_hi, 1.0)
-    _line(draw, [P(-18 * spec.bust_scale, -71), P(-7 * spec.bust_scale, -63)], pal.bodice_hi, 0.8)
-    _line(draw, [P(7 * spec.bust_scale, -63), P(18 * spec.bust_scale, -71)], pal.bodice_hi, 0.8)
+    _poly(
+        draw,
+        [
+            P(-9 * spec.waist_scale, -93),
+            P(9 * spec.waist_scale, -93),
+            P(7 * spec.waist_scale, -74),
+            P(-8 * spec.waist_scale, -74),
+        ],
+        (88, 45, 58, 255),
+        OUTLINE,
+        0.8,
+    )
+    _line(
+        draw,
+        [P(-24 * spec.bust_scale, -99), P(-8 * spec.bust_scale, -105)],
+        pal.bodice_hi,
+        1.0,
+    )
+    _line(
+        draw,
+        [P(8 * spec.bust_scale, -105), P(24 * spec.bust_scale, -99)],
+        pal.bodice_hi,
+        1.0,
+    )
+    _line(
+        draw,
+        [P(-18 * spec.bust_scale, -71), P(-7 * spec.bust_scale, -63)],
+        pal.bodice_hi,
+        0.8,
+    )
+    _line(
+        draw,
+        [P(7 * spec.bust_scale, -63), P(18 * spec.bust_scale, -71)],
+        pal.bodice_hi,
+        0.8,
+    )
 
-    sash = [P(-35 * spec.hip_scale, -66), P(34 * spec.hip_scale, -65), P(30 * spec.hip_scale, -54), P(-34 * spec.hip_scale, -55)]
+    sash = [
+        P(-35 * spec.hip_scale, -66),
+        P(34 * spec.hip_scale, -65),
+        P(30 * spec.hip_scale, -54),
+        P(-34 * spec.hip_scale, -55),
+    ]
     _poly(draw, sash, pal.sash, OUTLINE, 1.4)
     _poly(draw, [P(-6, -68), P(10, -67), P(8, -53), P(-8, -54)], GOLD, OUTLINE, 1.0)
 
     sway = pose.skirt_sway
-    skirt = [P(-34 * spec.hip_scale, -54), P(31 * spec.hip_scale, -54), P(skirt_x + sway * 0.18, -7), P(24 * spec.hip_scale, 7), P(0, 0), P(-25 * spec.hip_scale, 8), P(-skirt_x + sway * 0.18, -7)]
+    skirt = [
+        P(-34 * spec.hip_scale, -54),
+        P(31 * spec.hip_scale, -54),
+        P(skirt_x + sway * 0.18, -7),
+        P(24 * spec.hip_scale, 7),
+        P(0, 0),
+        P(-25 * spec.hip_scale, 8),
+        P(-skirt_x + sway * 0.18, -7),
+    ]
     _poly(draw, skirt, pal.skirt, OUTLINE, 2.0)
-    pleats = [(-26, -50, -36, 0), (-10, -51, -15, 2), (10, -51, 14, 2), (27, -50, 36, -1)]
+    pleats = [
+        (-26, -50, -36, 0),
+        (-10, -51, -15, 2),
+        (10, -51, 14, 2),
+        (27, -50, 36, -1),
+    ]
     for x1, y1, x2, y2 in pleats:
-        _line(draw, [P(x1 * spec.hip_scale + sway * 0.04, y1), P(x2 * spec.hip_scale + sway * 0.10, y2)], pal.skirt_hi, 1.2)
-    _line(draw, [P(-48 * spec.hip_scale + sway * 0.18, -6), P(-25 * spec.hip_scale, 8), P(0, 0), P(24 * spec.hip_scale, 7), P(skirt_x + sway * 0.18, -7)], (26, 40, 62, 255), 1.0)
+        _line(
+            draw,
+            [
+                P(x1 * spec.hip_scale + sway * 0.04, y1),
+                P(x2 * spec.hip_scale + sway * 0.10, y2),
+            ],
+            pal.skirt_hi,
+            1.2,
+        )
+    _line(
+        draw,
+        [
+            P(-48 * spec.hip_scale + sway * 0.18, -6),
+            P(-25 * spec.hip_scale, 8),
+            P(0, 0),
+            P(24 * spec.hip_scale, 7),
+            P(skirt_x + sway * 0.18, -7),
+        ],
+        (26, 40, 62, 255),
+        1.0,
+    )
 
     if spec.necklace:
         for c in [P(-10, -61), P(0, -58), P(10, -61)]:
             _circle(draw, c, 1.8, GOLD, OUTLINE, 0.4)
 
 
-def _draw_limbs(draw: ImageDraw.ImageDraw, p, pose: Pose, spec: VariantSpec) -> Tuple[Point, Point]:
+def _draw_limbs(
+    draw: ImageDraw.ImageDraw, p, pose: Pose, spec: VariantSpec
+) -> Tuple[Point, Point]:
     pal = spec.palette
     P = p
     left_hip = P(-22 * spec.hip_scale, -47)
@@ -573,42 +886,95 @@ def _draw_limbs(draw: ImageDraw.ImageDraw, p, pose: Pose, spec: VariantSpec) -> 
     left_knee = P(-25 * spec.hip_scale + pose.left_leg * 0.18, -18)
     right_knee = P(24 * spec.hip_scale + pose.right_leg * 0.18, -18)
     left_foot = P(-29 * spec.hip_scale + pose.left_leg * 0.16, 5 - pose.left_foot_lift)
-    right_foot = P(31 * spec.hip_scale + pose.right_leg * 0.16, 5 - pose.right_foot_lift)
-    for hip, knee, foot in [(left_hip, left_knee, left_foot), (right_hip, right_knee, right_foot)]:
+    right_foot = P(
+        31 * spec.hip_scale + pose.right_leg * 0.16, 5 - pose.right_foot_lift
+    )
+    for hip, knee, foot in [
+        (left_hip, left_knee, left_foot),
+        (right_hip, right_knee, right_foot),
+    ]:
         _line(draw, [hip, knee, foot], pal.skin_shadow, 6.4)
         _line(draw, [hip, knee, foot], OUTLINE, 1.8)
         _draw_boot(draw, foot, 1 if foot[0] > hip[0] else -1, pal)
 
     left_shoulder = P(-44 * spec.shoulder_scale, -95)
-    left_elbow = P(-55 * spec.shoulder_scale + pose.left_arm * 0.06, -63 + pose.left_arm * 0.15)
-    left_hand = P(-42 * spec.shoulder_scale + pose.left_arm * 0.22, -41 + pose.left_arm * 0.24)
+    left_elbow = P(
+        -55 * spec.shoulder_scale + pose.left_arm * 0.06, -63 + pose.left_arm * 0.15
+    )
+    left_hand = P(
+        -42 * spec.shoulder_scale + pose.left_arm * 0.22, -41 + pose.left_arm * 0.24
+    )
     _line(draw, [left_shoulder, left_elbow], pal.skin_shadow, 9.5 * spec.arm_scale)
     _line(draw, [left_elbow, left_hand], pal.skin, 8.4 * spec.arm_scale)
     _line(draw, [left_shoulder, left_elbow, left_hand], OUTLINE, 2.2)
-    _ellipse(draw, left_elbow[0], left_elbow[1], 8 * spec.arm_scale, 10 * spec.arm_scale, pal.skin, OUTLINE, 1.4)
+    _ellipse(
+        draw,
+        left_elbow[0],
+        left_elbow[1],
+        8 * spec.arm_scale,
+        10 * spec.arm_scale,
+        pal.skin,
+        OUTLINE,
+        1.4,
+    )
     _circle(draw, left_hand, 7.5 * spec.arm_scale, pal.skin, OUTLINE, 1.5)
 
     right_shoulder = P(44 * spec.shoulder_scale, -96)
-    right_elbow = P(55 * spec.shoulder_scale + pose.right_arm * 0.05, -64 + pose.right_arm * 0.16 + pose.weapon_lift * 0.2)
-    right_hand = P(43 * spec.shoulder_scale + pose.right_arm * 0.24, -41 + pose.right_arm * 0.27 + pose.weapon_lift)
+    right_elbow = P(
+        55 * spec.shoulder_scale + pose.right_arm * 0.05,
+        -64 + pose.right_arm * 0.16 + pose.weapon_lift * 0.2,
+    )
+    right_hand = P(
+        43 * spec.shoulder_scale + pose.right_arm * 0.24,
+        -41 + pose.right_arm * 0.27 + pose.weapon_lift,
+    )
     _line(draw, [right_shoulder, right_elbow], pal.skin_shadow, 10.0 * spec.arm_scale)
     _line(draw, [right_elbow, right_hand], pal.skin, 9.0 * spec.arm_scale)
     _line(draw, [right_shoulder, right_elbow, right_hand], OUTLINE, 2.2)
-    _ellipse(draw, right_elbow[0], right_elbow[1], 9 * spec.arm_scale, 10 * spec.arm_scale, pal.skin, OUTLINE, 1.4)
+    _ellipse(
+        draw,
+        right_elbow[0],
+        right_elbow[1],
+        9 * spec.arm_scale,
+        10 * spec.arm_scale,
+        pal.skin,
+        OUTLINE,
+        1.4,
+    )
     _circle(draw, right_hand, 8.2 * spec.arm_scale, pal.skin, OUTLINE, 1.5)
 
-    _line(draw, [(left_hand[0] - 5, left_hand[1] - 6), (left_hand[0] + 6, left_hand[1] - 5)], GOLD, 1.2)
-    _line(draw, [(right_hand[0] - 6, right_hand[1] - 6), (right_hand[0] + 7, right_hand[1] - 4)], GOLD, 1.2)
+    _line(
+        draw,
+        [(left_hand[0] - 5, left_hand[1] - 6), (left_hand[0] + 6, left_hand[1] - 5)],
+        GOLD,
+        1.2,
+    )
+    _line(
+        draw,
+        [
+            (right_hand[0] - 6, right_hand[1] - 6),
+            (right_hand[0] + 7, right_hand[1] - 4),
+        ],
+        GOLD,
+        1.2,
+    )
     return left_hand, right_hand
 
 
-def _draw_variant(anim: str, frame_idx: int, nframes: int, spec: VariantSpec) -> Image.Image:
-    img = Image.new("RGBA", (WORK_FRAME_SIZE[0] * SUPER, WORK_FRAME_SIZE[1] * SUPER), (0, 0, 0, 0))
+def _draw_variant(
+    anim: str, frame_idx: int, nframes: int, spec: VariantSpec
+) -> Image.Image:
+    img = Image.new(
+        "RGBA", (WORK_FRAME_SIZE[0] * SUPER, WORK_FRAME_SIZE[1] * SUPER), (0, 0, 0, 0)
+    )
     draw = ImageDraw.Draw(img, "RGBA")
     pose = Pose(anim, frame_idx, nframes)
     pal = spec.palette
 
-    root = (WORK_FRAME_SIZE[0] * 0.46 + pose.root_x + pose.death_t * 8.0, WORK_FRAME_SIZE[1] * 0.67 + pose.root_y + pose.bob)
+    root = (
+        WORK_FRAME_SIZE[0] * 0.46 + pose.root_x + pose.death_t * 8.0,
+        WORK_FRAME_SIZE[1] * 0.67 + pose.root_y + pose.bob,
+    )
     tilt = pose.tilt
 
     def P(x: float, y: float) -> Point:
@@ -617,8 +983,17 @@ def _draw_variant(anim: str, frame_idx: int, nframes: int, spec: VariantSpec) ->
 
     weapon_in_front = anim == "slash"
     if not weapon_in_front:
-        back_hand = P(38 * spec.shoulder_scale + pose.right_arm * 0.12, -44 + pose.weapon_lift)
-        _draw_cleaver(draw, back_hand, pose.weapon + tilt, pal, scale=spec.cleaver_scale, front=False)
+        back_hand = P(
+            38 * spec.shoulder_scale + pose.right_arm * 0.12, -44 + pose.weapon_lift
+        )
+        _draw_cleaver(
+            draw,
+            back_hand,
+            pose.weapon + tilt,
+            pal,
+            scale=spec.cleaver_scale,
+            front=False,
+        )
 
     if anim == "slash" and pose.impact > 0.10:
         cx, cy = P(38, -62)
@@ -627,23 +1002,54 @@ def _draw_variant(anim: str, frame_idx: int, nframes: int, spec: VariantSpec) ->
         draw.arc(box, 214, 326, fill=(255, 255, 255, 115), width=_s(2.5))
 
     head = P(0, -125 + pose.head_tilt * 0.10)
-    hair_shadow = [P(-22, -137), P(-8, -153), P(18, -149), P(35, -127), P(26, -93), P(8, -83), P(-18, -87), P(-34, -109)]
+    hair_shadow = [
+        P(-22, -137),
+        P(-8, -153),
+        P(18, -149),
+        P(35, -127),
+        P(26, -93),
+        P(8, -83),
+        P(-18, -87),
+        P(-34, -109),
+    ]
     _poly(draw, hair_shadow, pal.hair, OUTLINE, 1.4)
 
     _draw_limbs(draw, P, pose, spec)
     _draw_torso(draw, P, pose, spec)
-    _poly(draw, [P(-11, -112), P(12, -112), P(9, -95), P(-10, -95)], pal.skin_shadow, OUTLINE, 1.4)
+    _poly(
+        draw,
+        [P(-11, -112), P(12, -112), P(9, -95), P(-10, -95)],
+        pal.skin_shadow,
+        OUTLINE,
+        1.4,
+    )
     _draw_face(draw, head, pose, spec)
 
     if weapon_in_front:
-        hand = P(43 * spec.shoulder_scale + pose.right_arm * 0.24, -41 + pose.right_arm * 0.27 + pose.weapon_lift)
-        _draw_cleaver(draw, hand, pose.weapon + tilt, pal, scale=1.05 * spec.cleaver_scale, front=True)
+        hand = P(
+            43 * spec.shoulder_scale + pose.right_arm * 0.24,
+            -41 + pose.right_arm * 0.27 + pose.weapon_lift,
+        )
+        _draw_cleaver(
+            draw,
+            hand,
+            pose.weapon + tilt,
+            pal,
+            scale=1.05 * spec.cleaver_scale,
+            front=True,
+        )
 
     if anim == "slash" and pose.impact > 0.45:
         for i, (dx, dy) in enumerate([(-44, 3), (-30, 9), (44, 2), (57, 10)]):
             jitter = math.sin(frame_idx + i) * 1.5
             c = P(dx + jitter, dy)
-            _poly(draw, [(c[0] - 2.5, c[1] - 1.5), (c[0] + 3.0, c[1]), (c[0], c[1] + 3.0)], (118, 92, 62, 170), (72, 52, 36, 150), 0.5)
+            _poly(
+                draw,
+                [(c[0] - 2.5, c[1] - 1.5), (c[0] + 3.0, c[1]), (c[0], c[1] + 3.0)],
+                (118, 92, 62, 170),
+                (72, 52, 36, 150),
+                0.5,
+            )
 
     return _downsample(img)
 
@@ -656,13 +1062,22 @@ def render_variant(spec: VariantSpec, out_dir: str | Path, **opts) -> List[Path]
     outputs = build_sheet(
         target=target_name,
         rows=ROWS,
-        render_fn=lambda anim, frame_idx, nframes: _draw_variant(anim, frame_idx, nframes, spec),
+        render_fn=lambda anim, frame_idx, nframes: _draw_variant(
+            anim, frame_idx, nframes, spec
+        ),
         out_dir=out_dir,
         frame_size=frame_size,
         crop_margin=10,
         auto_crop=True,
     )
-    return [outputs["spritesheet"], outputs["yaml"], outputs["ron"], outputs["preview"], outputs["canonical"], outputs["canonical_transparent"]]
+    return [
+        outputs["spritesheet"],
+        outputs["yaml"],
+        outputs["ron"],
+        outputs["preview"],
+        outputs["canonical"],
+        outputs["canonical_transparent"],
+    ]
 
 
 def render(out_dir: str | Path, variant: str = "all", **opts) -> List[Path]:
@@ -685,6 +1100,7 @@ def render(out_dir: str | Path, variant: str = "all", **opts) -> List[Path]:
 # filenames). Mirrors the pattern in `sandbag.install`.
 def install(out_dir: "Path | str", dest_root: "Path | str") -> List["Path"]:
     import shutil
+
     out_dir = Path(out_dir)
     dest_root = Path(dest_root)
     dest_root.mkdir(parents=True, exist_ok=True)
@@ -702,9 +1118,17 @@ def install(out_dir: "Path | str", dest_root: "Path | str") -> List["Path"]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Render one or more pirate-heavy sprite variants.")
+    parser = argparse.ArgumentParser(
+        description="Render one or more pirate-heavy sprite variants."
+    )
     parser.add_argument("--variant", choices=["all", *VARIANTS.keys()], default="all")
-    parser.add_argument("--out-dir", type=Path, default=Path(__file__).resolve().parents[2] / "generated" / "pirate_heavy_variants")
+    parser.add_argument(
+        "--out-dir",
+        type=Path,
+        default=Path(__file__).resolve().parents[2]
+        / "generated"
+        / "pirate_heavy_variants",
+    )
     args = parser.parse_args(argv)
     for path in render(args.out_dir, variant=args.variant):
         print(path)

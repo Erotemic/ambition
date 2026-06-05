@@ -5,6 +5,7 @@ A multi-file character package. Same shape as
 ships its own :mod:`.sprite_generator` and the ``__init__.py``
 exposes the discovery API on top of it.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

@@ -8,13 +8,16 @@ attach per-target ``actor_metadata`` inside ``TARGETS``.
 This module keeps only the small deep-merge helper shared by the registry and
 contract builder; it is no longer a central source of character facts.
 """
+
 from __future__ import annotations
 
 from copy import deepcopy
 from typing import Any, Mapping
 
 
-def merge_actor_metadata(base: Mapping[str, Any] | None, overlay: Mapping[str, Any] | None) -> dict[str, Any]:
+def merge_actor_metadata(
+    base: Mapping[str, Any] | None, overlay: Mapping[str, Any] | None
+) -> dict[str, Any]:
     """Deep-merge sparse actor metadata dictionaries.
 
     ``base`` is copied first, then ``overlay`` wins recursively for mapping

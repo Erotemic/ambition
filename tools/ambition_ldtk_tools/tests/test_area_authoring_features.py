@@ -16,6 +16,7 @@ Run directly:
 
 Exit code 0 means every feature behaves as documented.
 """
+
 from __future__ import annotations
 
 import json
@@ -28,11 +29,21 @@ from pathlib import Path
 
 # tools/ambition_ldtk_tools/tests/test_area_authoring_features.py -> repo root
 REPO_ROOT = Path(__file__).resolve().parents[3]
-LDTK_PATH = REPO_ROOT / "crates" / "ambition_sandbox" / "assets" / "ambition" / "worlds" / "sandbox.ldtk"
+LDTK_PATH = (
+    REPO_ROOT
+    / "crates"
+    / "ambition_sandbox"
+    / "assets"
+    / "ambition"
+    / "worlds"
+    / "sandbox.ldtk"
+)
 PKG_ROOT = REPO_ROOT / "tools" / "ambition_ldtk_tools"
 
 
-def run_tool(spec_path: Path, ldtk_path: Path, *extra_args: str) -> subprocess.CompletedProcess:
+def run_tool(
+    spec_path: Path, ldtk_path: Path, *extra_args: str
+) -> subprocess.CompletedProcess:
     cmd = [
         sys.executable,
         "-m",
@@ -56,23 +67,27 @@ def fail(msg: str) -> None:
 def test_dry_run_does_not_modify_file(tmp_path: Path) -> None:
     td = tmp_path
     spec_path = td / "dry.json"
-    spec_path.write_text(json.dumps({
-        "id": "dryrun_area",
-        "level_id": "dryrun_level",
-        "world_x": 24000,
-        "world_y": 1024,
-        "px_wid": 256,
-        "px_hei": 128,
-        "fill_collision": "empty",
-        "entities": [
+    spec_path.write_text(
+        json.dumps(
             {
-                "type": "PlayerStart",
-                "px": [16, 16],
-                "size": [28, 46],
-                "fields": {"name": "dry_spawn"},
-            },
-        ],
-    }))
+                "id": "dryrun_area",
+                "level_id": "dryrun_level",
+                "world_x": 24000,
+                "world_y": 1024,
+                "px_wid": 256,
+                "px_hei": 128,
+                "fill_collision": "empty",
+                "entities": [
+                    {
+                        "type": "PlayerStart",
+                        "px": [16, 16],
+                        "size": [28, 46],
+                        "fields": {"name": "dry_spawn"},
+                    },
+                ],
+            }
+        )
+    )
     ldtk_copy = td / "sandbox_dry.ldtk"
     shutil.copy2(LDTK_PATH, ldtk_copy)
     before_mtime = ldtk_copy.stat().st_mtime_ns
@@ -102,27 +117,31 @@ def test_biome_metadata_lands_as_level_fields(tmp_path: Path) -> None:
     shutil.copy2(LDTK_PATH, ldtk_copy)
 
     spec_path = td / "biome_spec.json"
-    spec_path.write_text(json.dumps({
-        "id": "biome_area",
-        "level_id": "biome_level",
-        "world_x": 24500,
-        "world_y": 1024,
-        "px_wid": 256,
-        "px_hei": 128,
-        "fill_collision": "empty",
-        "biome": "cave",
-        "music_track": "original_lofi_loop",
-        "ambient_profile": "damp",
-        "visual_theme": "blue",
-        "entities": [
+    spec_path.write_text(
+        json.dumps(
             {
-                "type": "PlayerStart",
-                "px": [16, 16],
-                "size": [28, 46],
-                "fields": {"name": "biome_spawn"},
-            },
-        ],
-    }))
+                "id": "biome_area",
+                "level_id": "biome_level",
+                "world_x": 24500,
+                "world_y": 1024,
+                "px_wid": 256,
+                "px_hei": 128,
+                "fill_collision": "empty",
+                "biome": "cave",
+                "music_track": "original_lofi_loop",
+                "ambient_profile": "damp",
+                "visual_theme": "blue",
+                "entities": [
+                    {
+                        "type": "PlayerStart",
+                        "px": [16, 16],
+                        "size": [28, 46],
+                        "fields": {"name": "biome_spawn"},
+                    },
+                ],
+            }
+        )
+    )
     r = run_tool(spec_path, ldtk_copy, "--no-repair")
     if r.returncode != 0:
         fail(f"biome metadata run exited {r.returncode}: {r.stderr}")
@@ -135,8 +154,7 @@ def test_biome_metadata_lands_as_level_fields(tmp_path: Path) -> None:
     if new_level is None:
         fail("biome_level was not inserted")
     fields = {
-        f["__identifier"]: f.get("__value")
-        for f in new_level.get("fieldInstances", [])
+        f["__identifier"]: f.get("__value") for f in new_level.get("fieldInstances", [])
     }
     expected = {
         "activeArea": "biome_area",
@@ -159,53 +177,59 @@ def test_connect_to_inserts_reciprocal_loading_zone(tmp_path: Path) -> None:
     # Place the new level in a fresh corridor of the world frame so it
     # does not overlap existing levels.
     spec_path = td / "connect_spec.json"
-    spec_path.write_text(json.dumps({
-        "id": "connect_area",
-        "level_id": "connect_level",
-        "world_x": 25000,
-        "world_y": 1024,
-        "px_wid": 256,
-        "px_hei": 128,
-        "fill_collision": "empty",
-        "entities": [
+    spec_path.write_text(
+        json.dumps(
             {
-                "type": "PlayerStart",
-                "px": [16, 16],
-                "size": [28, 46],
-                "fields": {"name": "connect_spawn"},
-            },
-            {
-                "type": "LoadingZone",
-                "px": [200, 16],
-                "size": [48, 96],
-                "fields": {
-                    "id": "connect_entry",
-                    "name": "connect_entry",
-                    "activation": "Door",
-                    "target_room": "central_hub_main",
-                    "target_zone": "connect_door",
-                    "bidirectional": True,
-                },
-            },
-        ],
-        "connect_to": [
-            {
-                "target_room": "central_hub_main",
-                # Pick coordinates that don't overlap any existing entity in
-                # central_hub_main. The hub is sparse near (240, 600) and
-                # this 16x96 footprint slots into the lower-floor zone.
-                "px": [240, 600],
-                "size": [16, 96],
-                "id": "connect_door",
-                "target_zone": "connect_entry",
-                "activation": "Door",
-                "bidirectional": True,
-            },
-        ],
-    }))
+                "id": "connect_area",
+                "level_id": "connect_level",
+                "world_x": 25000,
+                "world_y": 1024,
+                "px_wid": 256,
+                "px_hei": 128,
+                "fill_collision": "empty",
+                "entities": [
+                    {
+                        "type": "PlayerStart",
+                        "px": [16, 16],
+                        "size": [28, 46],
+                        "fields": {"name": "connect_spawn"},
+                    },
+                    {
+                        "type": "LoadingZone",
+                        "px": [200, 16],
+                        "size": [48, 96],
+                        "fields": {
+                            "id": "connect_entry",
+                            "name": "connect_entry",
+                            "activation": "Door",
+                            "target_room": "central_hub_main",
+                            "target_zone": "connect_door",
+                            "bidirectional": True,
+                        },
+                    },
+                ],
+                "connect_to": [
+                    {
+                        "target_room": "central_hub_main",
+                        # Pick coordinates that don't overlap any existing entity in
+                        # central_hub_main. The hub is sparse near (240, 600) and
+                        # this 16x96 footprint slots into the lower-floor zone.
+                        "px": [240, 600],
+                        "size": [16, 96],
+                        "id": "connect_door",
+                        "target_zone": "connect_entry",
+                        "activation": "Door",
+                        "bidirectional": True,
+                    },
+                ],
+            }
+        )
+    )
     r = run_tool(spec_path, ldtk_copy, "--no-repair")
     if r.returncode != 0:
-        fail(f"connect_to run exited {r.returncode}\n--- stdout ---\n{r.stdout}\n--- stderr ---\n{r.stderr}")
+        fail(
+            f"connect_to run exited {r.returncode}\n--- stdout ---\n{r.stdout}\n--- stderr ---\n{r.stderr}"
+        )
 
     project = json.loads(ldtk_copy.read_text())
     hub = next(
@@ -224,7 +248,9 @@ def test_connect_to_inserts_reciprocal_loading_zone(tmp_path: Path) -> None:
     for inst in ambition["entityInstances"]:
         if inst["__identifier"] != "LoadingZone":
             continue
-        fields = {f["__identifier"]: f.get("__value") for f in inst.get("fieldInstances", [])}
+        fields = {
+            f["__identifier"]: f.get("__value") for f in inst.get("fieldInstances", [])
+        }
         if fields.get("id") == "connect_door":
             found = (inst, fields)
             break
@@ -232,9 +258,13 @@ def test_connect_to_inserts_reciprocal_loading_zone(tmp_path: Path) -> None:
         fail("reciprocal LoadingZone 'connect_door' not inserted into central_hub_main")
     inst, fields = found
     if fields.get("target_room") != "connect_level":
-        fail(f"reciprocal LoadingZone target_room {fields.get('target_room')!r} != 'connect_level'")
+        fail(
+            f"reciprocal LoadingZone target_room {fields.get('target_room')!r} != 'connect_level'"
+        )
     if fields.get("target_zone") != "connect_entry":
-        fail(f"reciprocal LoadingZone target_zone {fields.get('target_zone')!r} != 'connect_entry'")
+        fail(
+            f"reciprocal LoadingZone target_zone {fields.get('target_zone')!r} != 'connect_entry'"
+        )
     print("ok: connect_to inserts reciprocal LoadingZone into the target level")
 
 
@@ -243,22 +273,26 @@ def test_unknown_entity_type_suggestion(tmp_path: Path) -> None:
     ldtk_copy = td / "sandbox_typo.ldtk"
     shutil.copy2(LDTK_PATH, ldtk_copy)
     spec_path = td / "typo_spec.json"
-    spec_path.write_text(json.dumps({
-        "id": "typo_area",
-        "level_id": "typo_level",
-        # Far from any authored level so the overlap check passes and
-        # we reach the entity-type validation. Tests in this file
-        # used to land at (26000, 1024) — that's now `crawl_lab`'s
-        # footprint.
-        "world_x": 100_000,
-        "world_y": 0,
-        "px_wid": 256,
-        "px_hei": 128,
-        "fill_collision": "empty",
-        "entities": [
-            {"type": "PlayerStrt", "px": [16, 16], "size": [28, 46]},
-        ],
-    }))
+    spec_path.write_text(
+        json.dumps(
+            {
+                "id": "typo_area",
+                "level_id": "typo_level",
+                # Far from any authored level so the overlap check passes and
+                # we reach the entity-type validation. Tests in this file
+                # used to land at (26000, 1024) — that's now `crawl_lab`'s
+                # footprint.
+                "world_x": 100_000,
+                "world_y": 0,
+                "px_wid": 256,
+                "px_hei": 128,
+                "fill_collision": "empty",
+                "entities": [
+                    {"type": "PlayerStrt", "px": [16, 16], "size": [28, 46]},
+                ],
+            }
+        )
+    )
     r = run_tool(spec_path, ldtk_copy, "--dry-run")
     if r.returncode == 0:
         fail("typo run unexpectedly succeeded")
@@ -273,24 +307,28 @@ def test_unknown_field_rejected(tmp_path: Path) -> None:
     ldtk_copy = td / "sandbox_field.ldtk"
     shutil.copy2(LDTK_PATH, ldtk_copy)
     spec_path = td / "field_spec.json"
-    spec_path.write_text(json.dumps({
-        "id": "field_area",
-        "level_id": "field_level",
-        # Far from any authored level — see `test_unknown_entity_type_suggestion`.
-        "world_x": 100_000,
-        "world_y": 256,
-        "px_wid": 256,
-        "px_hei": 128,
-        "fill_collision": "empty",
-        "entities": [
+    spec_path.write_text(
+        json.dumps(
             {
-                "type": "PlayerStart",
-                "px": [16, 16],
-                "size": [28, 46],
-                "fields": {"not_a_real_field": 42},
-            },
-        ],
-    }))
+                "id": "field_area",
+                "level_id": "field_level",
+                # Far from any authored level — see `test_unknown_entity_type_suggestion`.
+                "world_x": 100_000,
+                "world_y": 256,
+                "px_wid": 256,
+                "px_hei": 128,
+                "fill_collision": "empty",
+                "entities": [
+                    {
+                        "type": "PlayerStart",
+                        "px": [16, 16],
+                        "size": [28, 46],
+                        "fields": {"not_a_real_field": 42},
+                    },
+                ],
+            }
+        )
+    )
     r = run_tool(spec_path, ldtk_copy, "--dry-run")
     if r.returncode == 0:
         fail("unknown-field run unexpectedly succeeded")

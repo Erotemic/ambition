@@ -11,6 +11,7 @@ Pin three invariants:
   - Per-frame `rects` are grid-derived from frame_width/height +
     row_index when the source JSON doesn't supply them.
 """
+
 from __future__ import annotations
 
 import json
@@ -37,8 +38,9 @@ def test_normalize_row_aliases_first_row_to_rest():
         frame_h=216,
         is_first_row=True,
     )
-    assert out["animation"] == "rest", \
+    assert out["animation"] == "rest", (
         f"first non-idle row should rename to 'rest'; got {out['animation']!r}"
+    )
 
 
 def test_normalize_row_preserves_existing_idle_name():
@@ -91,7 +93,9 @@ def test_synthesize_emits_vec_sheetrecord():
         assert out_path.name == "test_boss_spritesheet.ron"
         data = ron_load(out_path.read_text())
         # Vec<SheetRecord> shape — top-level is a list.
-        assert isinstance(data, list), f"output must be a list; got {type(data).__name__}"
+        assert isinstance(data, list), (
+            f"output must be a list; got {type(data).__name__}"
+        )
         assert len(data) == 1
         record = data[0]
         assert record["target"] == "test_boss"

@@ -5,6 +5,7 @@ The primary editor moved to ``tools/rig_pose_editor_pyside.py`` when the GUI
 backend switched to PySide6.  This module remains so older scripts
 that invoke ``tools/rig_pose_editor_qt.py`` continue to work.
 """
+
 from __future__ import annotations
 
 try:  # pragma: no cover - package/module invocation path

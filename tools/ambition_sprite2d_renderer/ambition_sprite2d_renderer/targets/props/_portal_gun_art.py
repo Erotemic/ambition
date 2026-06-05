@@ -48,8 +48,12 @@ def _draw_body(d: ImageDraw.ImageDraw, accent: RGBA) -> None:
         outline=hp.OUTLINE,
         width=max(1, int(p(0.8))),
     )
-    d.rounded_rectangle((p(50), p(CY - 11), p(144), p(CY + 11)), radius=p(7), fill=ALLOY)
-    d.rounded_rectangle((p(54), p(CY - 10), p(140), p(CY - 4)), radius=p(3), fill=ALLOY_HI)
+    d.rounded_rectangle(
+        (p(50), p(CY - 11), p(144), p(CY + 11)), radius=p(7), fill=ALLOY
+    )
+    d.rounded_rectangle(
+        (p(54), p(CY - 10), p(140), p(CY - 4)), radius=p(3), fill=ALLOY_HI
+    )
     # Thin glowing energy stripe along the body in the mode accent color.
     d.line(
         [(p(58), p(CY + 6)), (p(138), p(CY + 6))],
@@ -64,9 +68,17 @@ def _draw_heatsink(d: ImageDraw.ImageDraw, glint_t: float) -> None:
     n = 7
     for i in range(n):
         x = fin_x0 + (fin_x1 - fin_x0) * (i / (n - 1))
-        d.line([(p(x), p(CY - 18)), (p(x), p(CY - 11))], fill=ALLOY_DARK, width=max(1, int(p(1.4))))
+        d.line(
+            [(p(x), p(CY - 18)), (p(x), p(CY - 11))],
+            fill=ALLOY_DARK,
+            width=max(1, int(p(1.4))),
+        )
     gx = fin_x0 + (fin_x1 - fin_x0) * glint_t
-    d.line([(p(gx), p(CY - 18)), (p(gx), p(CY - 11))], fill=hp.STEEL_EDGE, width=max(1, int(p(1.8))))
+    d.line(
+        [(p(gx), p(CY - 18)), (p(gx), p(CY - 11))],
+        fill=hp.STEEL_EDGE,
+        width=max(1, int(p(1.8))),
+    )
 
 
 def _draw_grip(d: ImageDraw.ImageDraw) -> None:
@@ -97,17 +109,33 @@ def _draw_grip(d: ImageDraw.ImageDraw) -> None:
 def _draw_emitter(d: ImageDraw.ImageDraw, pulse: float, glow: RGBA, core: RGBA) -> None:
     p = hp.px
     d.ellipse(
-        (p(MUZZLE_X - LENS_R - 4), p(CY - LENS_R - 4), p(MUZZLE_X + LENS_R + 4), p(CY + LENS_R + 4)),
+        (
+            p(MUZZLE_X - LENS_R - 4),
+            p(CY - LENS_R - 4),
+            p(MUZZLE_X + LENS_R + 4),
+            p(CY + LENS_R + 4),
+        ),
         fill=ALLOY,
         outline=hp.OUTLINE,
         width=max(1, int(p(0.9))),
     )
     r_glow = LENS_R * (0.86 + 0.14 * pulse)
-    d.ellipse((p(MUZZLE_X - r_glow), p(CY - r_glow), p(MUZZLE_X + r_glow), p(CY + r_glow)), fill=glow)
-    r_core = LENS_R * (0.42 + 0.18 * pulse)
-    d.ellipse((p(MUZZLE_X - r_core), p(CY - r_core), p(MUZZLE_X + r_core), p(CY + r_core)), fill=core)
     d.ellipse(
-        (p(MUZZLE_X - 2.2), p(CY - LENS_R * 0.4 - 2.2), p(MUZZLE_X + 2.2), p(CY - LENS_R * 0.4 + 2.2)),
+        (p(MUZZLE_X - r_glow), p(CY - r_glow), p(MUZZLE_X + r_glow), p(CY + r_glow)),
+        fill=glow,
+    )
+    r_core = LENS_R * (0.42 + 0.18 * pulse)
+    d.ellipse(
+        (p(MUZZLE_X - r_core), p(CY - r_core), p(MUZZLE_X + r_core), p(CY + r_core)),
+        fill=core,
+    )
+    d.ellipse(
+        (
+            p(MUZZLE_X - 2.2),
+            p(CY - LENS_R * 0.4 - 2.2),
+            p(MUZZLE_X + 2.2),
+            p(CY - LENS_R * 0.4 + 2.2),
+        ),
         fill=(255, 255, 255, 235),
     )
 
@@ -155,8 +183,14 @@ def build(
         "actions": {"default_preset": "peaceful"},
         "animation_bindings": {"default": {"animation": "idle", "events": []}},
         "sockets": {
-            "grip": {"source": f"{target_name}.geometry", "point": {"x": GRIP_X, "y": CY + 18}},
-            "muzzle": {"source": f"{target_name}.geometry", "point": {"x": MUZZLE_X, "y": CY}},
+            "grip": {
+                "source": f"{target_name}.geometry",
+                "point": {"x": GRIP_X, "y": CY + 18},
+            },
+            "muzzle": {
+                "source": f"{target_name}.geometry",
+                "point": {"x": MUZZLE_X, "y": CY},
+            },
         },
         "tags": ["prop", "weapon", "device", "portal_gun"],
     }

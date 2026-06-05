@@ -15,6 +15,7 @@ Output groups levels under their activeArea so the merge semantics
 each level's individual metadata appears alongside the merged value
 the runtime would resolve.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -64,7 +65,10 @@ def main(argv: list[str] | None = None) -> int:
 
     by_area = defaultdict(list)
     for level in proj.get("levels", []):
-        area = field_value(level.get("fieldInstances") or [], "activeArea") or level["identifier"]
+        area = (
+            field_value(level.get("fieldInstances") or [], "activeArea")
+            or level["identifier"]
+        )
         by_area[area].append(level)
 
     print(f"# LDtk metadata report ({args.ldtk})")

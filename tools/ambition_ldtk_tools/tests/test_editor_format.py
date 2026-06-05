@@ -15,6 +15,7 @@ Run directly:
     PYTHONPATH=tools/ambition_ldtk_tools \\
       python tools/ambition_ldtk_tools/tests/test_editor_format.py
 """
+
 from __future__ import annotations
 
 import json
@@ -88,9 +89,12 @@ def main() -> int:
     # field instances. The string-array `params` trips the 99 heuristic so
     # the inner object is multiline while the array stays inline.
     rev = {"realEditorValues": [{"id": "V_String", "params": ["FlipGravity"]}]}
-    _contains("realEditorValues inline-array, multiline-object", rev,
-              '"realEditorValues": [{\n')
-    _absent("realEditorValues has no bracket space", rev, '[ {')
+    _contains(
+        "realEditorValues inline-array, multiline-object",
+        rev,
+        '"realEditorValues": [{\n',
+    )
+    _absent("realEditorValues has no bracket space", rev, "[ {")
 
     print("== defaultOverride: numeric inline, string/bool multiline ==")
     # Numeric defaultOverride inlines (params [0] evaluates to length 1).
@@ -129,7 +133,9 @@ def main() -> int:
     assert lines[0] == "[", f"grid opens on its own line, got {lines[0]!r}"
     # First data row: 35 values, comma-separated, no spaces.
     first_row = lines[1].strip()
-    assert first_row == ",".join(["0"] * 35) + ",", f"expected 35/row, got {first_row!r}"
+    assert first_row == ",".join(["0"] * 35) + ",", (
+        f"expected 35/row, got {first_row!r}"
+    )
     assert " " not in first_row, "numeric grid rows have no spaces"
     print("  ok: 35-per-line numeric grid, no inner spaces")
 
@@ -147,7 +153,10 @@ def main() -> int:
     ]:
         restored = json.loads(dump_editor_style(sample))
         if restored != sample:
-            print(f"FAIL round-trip:\n  sent: {sample}\n  got:  {restored}", file=sys.stderr)
+            print(
+                f"FAIL round-trip:\n  sent: {sample}\n  got:  {restored}",
+                file=sys.stderr,
+            )
             return 1
     print("  ok: round-trip identity")
 

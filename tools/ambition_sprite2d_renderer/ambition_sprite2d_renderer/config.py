@@ -81,7 +81,9 @@ class CharacterJob:
         raw_sheet_tuning = data.get("sheet_tuning")
         if raw_sheet_tuning is None:
             raw_sheet_tuning = data.get("tuning")
-        sheet_tuning = dict(raw_sheet_tuning) if isinstance(raw_sheet_tuning, dict) else None
+        sheet_tuning = (
+            dict(raw_sheet_tuning) if isinstance(raw_sheet_tuning, dict) else None
+        )
         return cls(
             target=str(data["target"]),
             name=data.get("name"),
@@ -142,7 +144,9 @@ class CharacterJob:
             "role": self.role,
             "music_cue": self.music_cue,
             "tags": list(self.tags),
-            "sheet_tuning": dict(self.sheet_tuning) if self.sheet_tuning is not None else None,
+            "sheet_tuning": dict(self.sheet_tuning)
+            if self.sheet_tuning is not None
+            else None,
             "actor": dict(self.actor),
             "visual": dict(self.visual),
             "body": dict(self.body),

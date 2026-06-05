@@ -20,7 +20,9 @@ def _logit(value: float) -> float:
     return float(torch.logit(torch.tensor(value)).item())
 
 
-def _tensor(values, *, device: torch.device, dtype: torch.dtype = torch.float32) -> torch.Tensor:
+def _tensor(
+    values, *, device: torch.device, dtype: torch.dtype = torch.float32
+) -> torch.Tensor:
     return torch.tensor(values, device=device, dtype=dtype)
 
 
@@ -57,9 +59,13 @@ class ProceduralScene(torch.nn.Module):
         self._param_meta: list[tuple[int, str, str]] = []
         self._init_from_spec(spec)
 
-    def _register_raw(self, prim_index: int, field_name: str, suffix: str, values: Iterable[float]) -> None:
+    def _register_raw(
+        self, prim_index: int, field_name: str, suffix: str, values: Iterable[float]
+    ) -> None:
         name = f"p{prim_index:03d}_{field_name}_{suffix}"
-        self.register_parameter(name, torch.nn.Parameter(_tensor(list(values), device=self.device_obj)))
+        self.register_parameter(
+            name, torch.nn.Parameter(_tensor(list(values), device=self.device_obj))
+        )
         self._param_meta.append((prim_index, field_name, name))
 
     def _init_from_spec(self, spec: FitSpec) -> None:
@@ -73,14 +79,24 @@ class ProceduralScene(torch.nn.Module):
                 wh = p.get("wh", [0.2, 0.2])
                 angle = float(p.get("angle", 0.0))
                 color = p.get("color", [1.0, 1.0, 1.0, 0.8])
-                default_exp = 10.0 if prim.kind == "rect" else 2.0 if prim.kind == "ellipse" else float(p.get("exponent", 4.0))
+                default_exp = (
+                    10.0
+                    if prim.kind == "rect"
+                    else 2.0
+                    if prim.kind == "ellipse"
+                    else float(p.get("exponent", 4.0))
+                )
                 exponent = float(p.get("exponent", default_exp))
                 if "xy" in train:
-                    self._register_raw(idx, "xy", "raw", [_logit(float(xy[0])), _logit(float(xy[1]))])
+                    self._register_raw(
+                        idx, "xy", "raw", [_logit(float(xy[0])), _logit(float(xy[1]))]
+                    )
                 else:
                     self.static[f"{prefix}.xy"] = _tensor(xy, device=self.device_obj)
                 if "wh" in train:
-                    self._register_raw(idx, "wh", "raw", [_logit(float(wh[0])), _logit(float(wh[1]))])
+                    self._register_raw(
+                        idx, "wh", "raw", [_logit(float(wh[0])), _logit(float(wh[1]))]
+                    )
                 else:
                     self.static[f"{prefix}.wh"] = _tensor(wh, device=self.device_obj)
                 if "angle" in train:
@@ -88,36 +104,51 @@ class ProceduralScene(torch.nn.Module):
                 else:
                     self.static[f"{prefix}.angle"] = float(angle)
                 if "exponent" in train and prim.kind == "superellipse":
-                    self._register_raw(idx, "exponent", "raw", [_inverse_sigmoid_param(exponent, 2.0, 24.0)])
+                    self._register_raw(
+                        idx,
+                        "exponent",
+                        "raw",
+                        [_inverse_sigmoid_param(exponent, 2.0, 24.0)],
+                    )
                 elif prim.kind == "superellipse":
                     self.static[f"{prefix}.exponent"] = float(exponent)
                 if "color" in train:
                     rgba = [float(v) for v in color]
                     self._register_raw(idx, "color", "raw", [_logit(v) for v in rgba])
                 else:
-                    self.static[f"{prefix}.color"] = _tensor(color, device=self.device_obj)
+                    self.static[f"{prefix}.color"] = _tensor(
+                        color, device=self.device_obj
+                    )
             elif prim.kind == "segment":
                 p0 = p.get("p0", [0.25, 0.25])
                 p1 = p.get("p1", [0.75, 0.75])
                 width = float(p.get("width", 0.02))
                 color = p.get("color", [1.0, 1.0, 1.0, 0.8])
                 if "p0" in train:
-                    self._register_raw(idx, "p0", "raw", [_logit(float(p0[0])), _logit(float(p0[1]))])
+                    self._register_raw(
+                        idx, "p0", "raw", [_logit(float(p0[0])), _logit(float(p0[1]))]
+                    )
                 else:
                     self.static[f"{prefix}.p0"] = _tensor(p0, device=self.device_obj)
                 if "p1" in train:
-                    self._register_raw(idx, "p1", "raw", [_logit(float(p1[0])), _logit(float(p1[1]))])
+                    self._register_raw(
+                        idx, "p1", "raw", [_logit(float(p1[0])), _logit(float(p1[1]))]
+                    )
                 else:
                     self.static[f"{prefix}.p1"] = _tensor(p1, device=self.device_obj)
                 if "width" in train:
-                    self._register_raw(idx, "width", "raw", [_logit(float(width) / 0.18)])
+                    self._register_raw(
+                        idx, "width", "raw", [_logit(float(width) / 0.18)]
+                    )
                 else:
                     self.static[f"{prefix}.width"] = float(width)
                 if "color" in train:
                     rgba = [float(v) for v in color]
                     self._register_raw(idx, "color", "raw", [_logit(v) for v in rgba])
                 else:
-                    self.static[f"{prefix}.color"] = _tensor(color, device=self.device_obj)
+                    self.static[f"{prefix}.color"] = _tensor(
+                        color, device=self.device_obj
+                    )
 
     def _raw(self, idx: int, field_name: str) -> torch.Tensor | None:
         needle = (idx, field_name)
@@ -164,7 +195,12 @@ class ProceduralScene(torch.nn.Module):
             new_prims.append(PrimitiveSpec(old.kind, old.name, params, list(old.train)))
         metadata = dict(self.spec.metadata)
         metadata["optimized_by"] = "ambition_procedural_fit 0.1.0"
-        return FitSpec(canvas=self.spec.canvas, primitives=new_prims, loss=dict(self.spec.loss), metadata=metadata)
+        return FitSpec(
+            canvas=self.spec.canvas,
+            primitives=new_prims,
+            loss=dict(self.spec.loss),
+            metadata=metadata,
+        )
 
     def forward(self, opts: RenderOptions) -> torch.Tensor:
         scale = max(1, int(opts.supersample))
@@ -187,10 +223,16 @@ class ProceduralScene(torch.nn.Module):
             img = img * (1.0 - alpha) + color[:3].view(1, 1, 3) * alpha
         if scale > 1:
             img_chw = img.permute(2, 0, 1).unsqueeze(0)
-            img = F.avg_pool2d(img_chw, kernel_size=scale, stride=scale).squeeze(0).permute(1, 2, 0)
+            img = (
+                F.avg_pool2d(img_chw, kernel_size=scale, stride=scale)
+                .squeeze(0)
+                .permute(1, 2, 0)
+            )
         return img.clamp(0.0, 1.0)
 
-    def _oriented_coords(self, idx: int, xx: torch.Tensor, yy: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def _oriented_coords(
+        self, idx: int, xx: torch.Tensor, yy: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         center = self._field(idx, "xy")
         wh = self._field(idx, "wh")
         angle = self._field(idx, "angle")
@@ -206,7 +248,9 @@ class ProceduralScene(torch.nn.Module):
         yr = -sa * x + ca * y
         return xr, yr, wh
 
-    def _primitive_alpha(self, idx: int, kind: str, xx: torch.Tensor, yy: torch.Tensor, sharpness: float) -> torch.Tensor:
+    def _primitive_alpha(
+        self, idx: int, kind: str, xx: torch.Tensor, yy: torch.Tensor, sharpness: float
+    ) -> torch.Tensor:
         if kind in {"rect", "ellipse", "superellipse"}:
             xr, yr, wh = self._oriented_coords(idx, xx, yy)
             if kind == "rect":
@@ -222,7 +266,9 @@ class ProceduralScene(torch.nn.Module):
             exponent = self._field(idx, "exponent")
             if not isinstance(exponent, torch.Tensor):
                 exponent = _tensor([exponent], device=self.device_obj)[0]
-            term = (torch.abs(xr / rx) + EPS).pow(exponent) + (torch.abs(yr / ry) + EPS).pow(exponent)
+            term = (torch.abs(xr / rx) + EPS).pow(exponent) + (
+                torch.abs(yr / ry) + EPS
+            ).pow(exponent)
             dist = term.pow(1.0 / exponent) - 1.0
             return torch.sigmoid(-dist * sharpness / 7.0)
         if kind == "segment":
@@ -247,6 +293,19 @@ class ProceduralScene(torch.nn.Module):
         raise KeyError(kind)
 
 
-def render_spec(spec: FitSpec, width: int | None = None, height: int | None = None, *, device: str = "cpu", supersample: int = 2) -> torch.Tensor:
+def render_spec(
+    spec: FitSpec,
+    width: int | None = None,
+    height: int | None = None,
+    *,
+    device: str = "cpu",
+    supersample: int = 2,
+) -> torch.Tensor:
     scene = ProceduralScene(spec, device=device)
-    return scene(RenderOptions(width=width or spec.canvas.width, height=height or spec.canvas.height, supersample=supersample))
+    return scene(
+        RenderOptions(
+            width=width or spec.canvas.width,
+            height=height or spec.canvas.height,
+            supersample=supersample,
+        )
+    )

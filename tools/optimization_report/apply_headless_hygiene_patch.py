@@ -89,7 +89,7 @@ def patch_app(repo: Path) -> bool:
         text,
         insert_anchor,
         insert_block,
-        "register input-gated map menu systems behind cfg(feature = \"input\")",
+        'register input-gated map menu systems behind cfg(feature = "input")',
     )
     changed_any |= changed
 
@@ -120,7 +120,9 @@ def patch_app(repo: Path) -> bool:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("repo", nargs="?", default=".", type=Path, help="repository root")
+    parser.add_argument(
+        "repo", nargs="?", default=".", type=Path, help="repository root"
+    )
     args = parser.parse_args()
     repo = args.repo.resolve()
     if not (repo / "Cargo.toml").exists():

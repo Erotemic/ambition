@@ -39,6 +39,7 @@ The output is a `// === auto-generated additions ===` block —
 copy/paste into `character_catalog.ron` before the closing `},)` of
 the `characters` map.
 """
+
 from __future__ import annotations
 
 import subprocess
@@ -47,7 +48,14 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 RENDERER_DIR = REPO_ROOT / "tools" / "ambition_sprite2d_renderer"
-CATALOG_PATH = REPO_ROOT / "crates" / "ambition_sandbox" / "assets" / "data" / "character_catalog.ron"
+CATALOG_PATH = (
+    REPO_ROOT
+    / "crates"
+    / "ambition_sandbox"
+    / "assets"
+    / "data"
+    / "character_catalog.ron"
+)
 
 
 # Heuristics — character_id prefix → (default_brain, default_action_set,
@@ -68,95 +76,155 @@ STAND_STILL = "stand_still"
 # Catches things the simple substring rules miss.
 CATEGORY: dict[str, str] = {
     # ===== Bosses (Basement tier).
-    "boss":                            "boss",  # legacy archetype
-    "dark_lord":                       "boss",
-    "flying_spaghetti_monster_boss":   "boss",
-    "gnu_ton_boss":                    "boss",
-    "mockingbird_boss":                "boss",
-    "smart_house":                     "boss",
-    "trex_enemy":                      "boss",   # large; basement
-    "bear_mauler":                     "boss",   # large; basement
-    "raptor_stalker":                  "basement_enemy",
-    "mantis_lancer":                   "basement_enemy",
+    "boss": "boss",  # legacy archetype
+    "dark_lord": "boss",
+    "flying_spaghetti_monster_boss": "boss",
+    "gnu_ton_boss": "boss",
+    "mockingbird_boss": "boss",
+    "smart_house": "boss",
+    "trex_enemy": "boss",  # large; basement
+    "bear_mauler": "boss",  # large; basement
+    "raptor_stalker": "basement_enemy",
+    "mantis_lancer": "basement_enemy",
     # ===== Robots (enemy variants).
-    "robot_guardian":                  "enemy_brute",
-    "robot_heavy":                     "enemy_brute",
-    "robot_runner":                    "enemy_swipe",
+    "robot_guardian": "enemy_brute",
+    "robot_heavy": "enemy_brute",
+    "robot_runner": "enemy_swipe",
     # ===== Goblin variants.
-    "goblin_forest_spear":             "enemy_ranger",
-    "goblin_brute_hammer":             "enemy_brute",
-    "goblin_cave_dagger":              "enemy_swipe",
-    "goblin_desert_bow":               "enemy_ranger",
-    "goblin_frost_sword":              "enemy_swipe",
-    "goblin_shaman_staff":             "enemy_ranger",
+    "goblin_forest_spear": "enemy_ranger",
+    "goblin_brute_hammer": "enemy_brute",
+    "goblin_cave_dagger": "enemy_swipe",
+    "goblin_desert_bow": "enemy_ranger",
+    "goblin_frost_sword": "enemy_swipe",
+    "goblin_shaman_staff": "enemy_ranger",
     # ===== Pirates / vikings / ninjas.
-    "pirate_cutlass_viper":            "enemy_swipe",
-    "pirate_heavy":                    "enemy_brute",
-    "viking_warrior":                  "enemy_swipe",
-    "viking_shieldmaiden":             "enemy_swipe",
-    "viking_heavy_warrior":            "enemy_brute",
-    "viking_heavy_shieldmaiden":       "enemy_brute",
-    "ninja_heavy":                     "enemy_brute",
+    "pirate_cutlass_viper": "enemy_swipe",
+    "pirate_heavy": "enemy_brute",
+    "viking_warrior": "enemy_swipe",
+    "viking_shieldmaiden": "enemy_swipe",
+    "viking_heavy_warrior": "enemy_brute",
+    "viking_heavy_shieldmaiden": "enemy_brute",
+    "ninja_heavy": "enemy_brute",
     # ===== AI-era enemies (recently added sprite generators).
-    "agent_swarm":                     "enemy_swipe",
-    "ai_slop":                         "enemy_swipe",
-    "spaghetti_event":                 "enemy_swipe",
-    "synthetic_friend":                "enemy_swipe",
-    "helpful_liar":                    "enemy_ranger",
-    "hand_saint":                      "enemy_brute",
-    "puppy_slug_variant2":             "wanderer",
+    "agent_swarm": "enemy_swipe",
+    "ai_slop": "enemy_swipe",
+    "spaghetti_event": "enemy_swipe",
+    "synthetic_friend": "enemy_swipe",
+    "helpful_liar": "enemy_ranger",
+    "hand_saint": "enemy_brute",
+    "puppy_slug_variant2": "wanderer",
     # ===== Hostile humans / wildlife.
-    "raid_enforcer":                   "enemy_swipe",
-    "ghoul_skulker":                   "enemy_swipe",
-    "weird_hermit":                    "peaceful",   # dialogue-flavored
-    "galwah":                          "peaceful",
-    "girdle":                          "peaceful",
+    "raid_enforcer": "enemy_swipe",
+    "ghoul_skulker": "enemy_swipe",
+    "weird_hermit": "peaceful",  # dialogue-flavored
+    "galwah": "peaceful",
+    "girdle": "peaceful",
     # ===== Hub / story stand-ins.
-    "colonial_statesman":              "peaceful",
-    "president_portrait":              "stand_still",  # mounted portrait
+    "colonial_statesman": "peaceful",
+    "president_portrait": "stand_still",  # mounted portrait
     # ===== Player variants (catalog covers them so the
     #       coverage gate test holds; runtime uses Brain::Player).
-    "player_robot":                    "player",
-    "player_extended":                 "player",
-    "player_combat_review":            "player",
-    "player_social_review":            "player",
-    "player_traversal_review":         "player",
+    "player_robot": "player",
+    "player_extended": "player",
+    "player_combat_review": "player",
+    "player_social_review": "player",
+    "player_traversal_review": "player",
     # ===== Sandbag variants.
-    "sandbag_armored_review":          "training",
-    "sandbag_full_review":             "training",
+    "sandbag_armored_review": "training",
+    "sandbag_full_review": "training",
     # ===== Review NPCs (hub-style dialogue-only).
-    "craig":                           "peaceful",
-    "eve":                             "peaceful",
-    "judy":                            "peaceful",
-    "mallory":                         "peaceful",
-    "olivia":                          "peaceful",
-    "peggy":                           "peaceful",
-    "sybil":                           "peaceful",
-    "trent":                           "peaceful",
-    "trudy":                           "peaceful",
-    "victor":                          "peaceful",
-    "walter":                          "peaceful",
-    "general_hero":                    "peaceful",
+    "craig": "peaceful",
+    "eve": "peaceful",
+    "judy": "peaceful",
+    "mallory": "peaceful",
+    "olivia": "peaceful",
+    "peggy": "peaceful",
+    "sybil": "peaceful",
+    "trent": "peaceful",
+    "trudy": "peaceful",
+    "victor": "peaceful",
+    "walter": "peaceful",
+    "general_hero": "peaceful",
     # ===== Robot specialty roles.
-    "robot_archivist":                 "peaceful",
-    "robot_caster":                    "peaceful",
-    "robot_diver":                     "peaceful",
-    "robot_engineer":                  "peaceful",
-    "robot_medic":                     "peaceful",
-    "robot_miner":                     "peaceful",
+    "robot_archivist": "peaceful",
+    "robot_caster": "peaceful",
+    "robot_diver": "peaceful",
+    "robot_engineer": "peaceful",
+    "robot_medic": "peaceful",
+    "robot_miner": "peaceful",
 }
 
 CATEGORY_TEMPLATE: dict[str, dict] = {
-    "boss":             dict(brain=STAND_STILL, action=PEACEFUL_ACTION, tier="Basement", body="Wide",       tags=["boss", "placeholder_brain"]),
-    "basement_enemy":   dict(brain=ENEMY_BRAIN, action=ENEMY_ACTION,    tier="Basement", body="Wide",       tags=["enemy", "large"]),
-    "enemy_swipe":      dict(brain=ENEMY_BRAIN, action=ENEMY_ACTION,    tier="MainHall", body="Standard",   tags=["enemy"]),
-    "enemy_brute":      dict(brain=BRUTE_BRAIN, action=BRUTE_ACTION,    tier="MainHall", body="Wide",       tags=["enemy", "heavy"]),
-    "enemy_ranger":     dict(brain=RANGER_BRAIN, action=RANGER_ACTION,  tier="MainHall", body="Standard",   tags=["enemy", "ranged"]),
-    "wanderer":         dict(brain="wanderer_puppy_slug", action="peaceful_slither", tier="MainHall", body="Crawler", tags=["enemy", "wanderer"]),
-    "peaceful":         dict(brain=PEACEFUL_BRAIN, action=PEACEFUL_ACTION, tier="MainHall", body="Standard", tags=["hub", "peaceful"]),
-    "stand_still":      dict(brain=STAND_STILL, action=PEACEFUL_ACTION, tier="MainHall", body="Standard",   tags=["hub", "static"]),
-    "player":           dict(brain=STAND_STILL, action=PEACEFUL_ACTION, tier="MainHall", body="Standard",   tags=["player", "variant"]),
-    "training":         dict(brain=STAND_STILL, action="sandbag_punch", tier="MainHall", body="Standard",   tags=["training"]),
+    "boss": dict(
+        brain=STAND_STILL,
+        action=PEACEFUL_ACTION,
+        tier="Basement",
+        body="Wide",
+        tags=["boss", "placeholder_brain"],
+    ),
+    "basement_enemy": dict(
+        brain=ENEMY_BRAIN,
+        action=ENEMY_ACTION,
+        tier="Basement",
+        body="Wide",
+        tags=["enemy", "large"],
+    ),
+    "enemy_swipe": dict(
+        brain=ENEMY_BRAIN,
+        action=ENEMY_ACTION,
+        tier="MainHall",
+        body="Standard",
+        tags=["enemy"],
+    ),
+    "enemy_brute": dict(
+        brain=BRUTE_BRAIN,
+        action=BRUTE_ACTION,
+        tier="MainHall",
+        body="Wide",
+        tags=["enemy", "heavy"],
+    ),
+    "enemy_ranger": dict(
+        brain=RANGER_BRAIN,
+        action=RANGER_ACTION,
+        tier="MainHall",
+        body="Standard",
+        tags=["enemy", "ranged"],
+    ),
+    "wanderer": dict(
+        brain="wanderer_puppy_slug",
+        action="peaceful_slither",
+        tier="MainHall",
+        body="Crawler",
+        tags=["enemy", "wanderer"],
+    ),
+    "peaceful": dict(
+        brain=PEACEFUL_BRAIN,
+        action=PEACEFUL_ACTION,
+        tier="MainHall",
+        body="Standard",
+        tags=["hub", "peaceful"],
+    ),
+    "stand_still": dict(
+        brain=STAND_STILL,
+        action=PEACEFUL_ACTION,
+        tier="MainHall",
+        body="Standard",
+        tags=["hub", "static"],
+    ),
+    "player": dict(
+        brain=STAND_STILL,
+        action=PEACEFUL_ACTION,
+        tier="MainHall",
+        body="Standard",
+        tags=["player", "variant"],
+    ),
+    "training": dict(
+        brain=STAND_STILL,
+        action="sandbag_punch",
+        tier="MainHall",
+        body="Standard",
+        tags=["training"],
+    ),
 }
 
 
@@ -209,7 +277,11 @@ def read_renderer_targets() -> tuple[list[str], list[str]]:
         if line.startswith("  [characters]"):
             section = "characters"
             continue
-        if line.startswith("  [props]") or line.startswith("  [tiles]") or line.startswith("  [icons]"):
+        if (
+            line.startswith("  [props]")
+            or line.startswith("  [tiles]")
+            or line.startswith("  [icons]")
+        ):
             section = None
             continue
         if section == "characters" and line.startswith("    "):
@@ -246,20 +318,22 @@ def render_entry(character_id: str, target: str, category: str) -> str:
     display = display_name_of(target)
     sprite = f"sprites/{target}_spritesheet.png"
     manifest = f"sprites/{target}_spritesheet.ron"
-    tags = tpl["tags"] + ([f"renderer:{target}"] if target != character_id.removeprefix("npc_") else [])
+    tags = tpl["tags"] + (
+        [f"renderer:{target}"] if target != character_id.removeprefix("npc_") else []
+    )
     tags_ron = ", ".join(f'"{t}"' for t in tags)
     return (
         f'        "{character_id}": (\n'
         f'            display_name: "{display}",\n'
         f'            spritesheet: "{sprite}",\n'
         f'            manifest: "{manifest}",\n'
-        f'            tier: {tpl["tier"]},\n'
-        f'            body_kind: {tpl["body"]},\n'
-        f'            composition: None,\n'
+        f"            tier: {tpl['tier']},\n"
+        f"            body_kind: {tpl['body']},\n"
+        f"            composition: None,\n"
         f'            default_brain: "{tpl["brain"]}",\n'
         f'            default_action_set: "{tpl["action"]}",\n'
-        f'            tags: [{tags_ron}],\n'
-        f'        ),\n'
+        f"            tags: [{tags_ron}],\n"
+        f"        ),\n"
     )
 
 
@@ -283,7 +357,10 @@ def main() -> int:
         seen_ids.add(character_id)
 
     if missing_no_category:
-        print("// [warning] no category mapping — review and add to CATEGORY:", file=sys.stderr)
+        print(
+            "// [warning] no category mapping — review and add to CATEGORY:",
+            file=sys.stderr,
+        )
         for t in missing_no_category:
             print(f"//   {t}", file=sys.stderr)
 

@@ -55,7 +55,10 @@ ACTOR_METADATA = {
         "action.special.starburst": {"animation": "starburst", "events": []},
     },
     "sockets": {
-        "origin": {"source": f"{TARGET_NAME}.geometry", "point": {"x": 72.0, "y": 72.0}},
+        "origin": {
+            "source": f"{TARGET_NAME}.geometry",
+            "point": {"x": 72.0, "y": 72.0},
+        },
     },
     "tags": ["fx", "explosion", "overlay"],
 }
@@ -101,7 +104,12 @@ def _lerp(a: float, b: float, t: float) -> float:
 
 def _mul_alpha(color: RGBA, factor: float) -> RGBA:
     factor = max(0.0, factor)
-    return (color[0], color[1], color[2], max(0, min(255, int(round(color[3] * factor)))))
+    return (
+        color[0],
+        color[1],
+        color[2],
+        max(0, min(255, int(round(color[3] * factor)))),
+    )
 
 
 def _ease(t: float) -> float:
@@ -114,13 +122,27 @@ def _overlay_draw(img: Image.Image) -> tuple[Image.Image, ImageDraw.ImageDraw]:
     return layer, ImageDraw.Draw(layer, "RGBA")
 
 
-def _composite_ellipse(img: Image.Image, bbox: Tuple[float, float, float, float], *, fill: RGBA, outline: RGBA | None = None, width: int = 1) -> None:
+def _composite_ellipse(
+    img: Image.Image,
+    bbox: Tuple[float, float, float, float],
+    *,
+    fill: RGBA,
+    outline: RGBA | None = None,
+    width: int = 1,
+) -> None:
     layer, draw = _overlay_draw(img)
     draw.ellipse(bbox, fill=fill, outline=outline, width=width)
     img.alpha_composite(layer)
 
 
-def _composite_polygon(img: Image.Image, points: List[Point], *, fill: RGBA, outline: RGBA | None = None, width: int = 1) -> None:
+def _composite_polygon(
+    img: Image.Image,
+    points: List[Point],
+    *,
+    fill: RGBA,
+    outline: RGBA | None = None,
+    width: int = 1,
+) -> None:
     layer, draw = _overlay_draw(img)
     draw.polygon(points, fill=fill, outline=outline)
     if outline is not None and len(points) > 1:
@@ -128,13 +150,30 @@ def _composite_polygon(img: Image.Image, points: List[Point], *, fill: RGBA, out
     img.alpha_composite(layer)
 
 
-def _draw_ring(img: Image.Image, cx: float, cy: float, rx: float, ry: float, *, color: RGBA, width_px: int) -> None:
+def _draw_ring(
+    img: Image.Image,
+    cx: float,
+    cy: float,
+    rx: float,
+    ry: float,
+    *,
+    color: RGBA,
+    width_px: int,
+) -> None:
     layer, draw = _overlay_draw(img)
     draw.ellipse((cx - rx, cy - ry, cx + rx, cy + ry), outline=color, width=width_px)
     img.alpha_composite(layer)
 
 
-def _star_points(cx: float, cy: float, inner_r: float, outer_r: float, spokes: int, seed: float = 0.0, aspect_y: float = 0.92) -> List[Point]:
+def _star_points(
+    cx: float,
+    cy: float,
+    inner_r: float,
+    outer_r: float,
+    spokes: int,
+    seed: float = 0.0,
+    aspect_y: float = 0.92,
+) -> List[Point]:
     pts: List[Point] = []
     for i in range(spokes * 2):
         ang = (math.tau * i / (spokes * 2)) + seed
@@ -143,7 +182,17 @@ def _star_points(cx: float, cy: float, inner_r: float, outer_r: float, spokes: i
     return pts
 
 
-def _draw_smoke_puffs(img: Image.Image, cx: float, cy: float, radius: float, t: float, *, density: int = 7, seed: float = 0.0, color: RGBA = SMOKE) -> None:
+def _draw_smoke_puffs(
+    img: Image.Image,
+    cx: float,
+    cy: float,
+    radius: float,
+    t: float,
+    *,
+    density: int = 7,
+    seed: float = 0.0,
+    color: RGBA = SMOKE,
+) -> None:
     layer, draw = _overlay_draw(img)
     spread = radius * (0.48 + t * 0.78)
     for i in range(density):
@@ -154,7 +203,15 @@ def _draw_smoke_puffs(img: Image.Image, cx: float, cy: float, radius: float, t: 
         ox = cx + math.cos(ang) * orbit
         oy = cy + math.sin(ang) * orbit * 0.82
         draw.ellipse((ox - rx, oy - ry, ox + rx, oy + ry), fill=color)
-    draw.ellipse((cx - radius * 0.44, cy - radius * 0.38, cx + radius * 0.44, cy + radius * 0.38), fill=color)
+    draw.ellipse(
+        (
+            cx - radius * 0.44,
+            cy - radius * 0.38,
+            cx + radius * 0.44,
+            cy + radius * 0.38,
+        ),
+        fill=color,
+    )
     img.alpha_composite(layer)
 
 
@@ -175,12 +232,16 @@ def _draw_embers(
     for i in range(count):
         ang = (math.tau * i / max(1, count)) + seed * 0.53
         start_r = radius * (0.62 + 0.08 * math.sin(seed + i))
-        end_r = radius * (0.94 + 0.34 * t + 0.08 * math.cos(seed * 1.2 + i)) * length_scale
+        end_r = (
+            radius * (0.94 + 0.34 * t + 0.08 * math.cos(seed * 1.2 + i)) * length_scale
+        )
         x1 = cx + math.cos(ang) * start_r
         y1 = cy + math.sin(ang) * start_r
         x2 = cx + math.cos(ang) * end_r
         y2 = cy + math.sin(ang) * end_r
-        draw.line((x1, y1, x2, y2), fill=line_color, width=max(1, int(round(radius * 0.08))))
+        draw.line(
+            (x1, y1, x2, y2), fill=line_color, width=max(1, int(round(radius * 0.08)))
+        )
         rr = max(1.5, radius * 0.06)
         draw.ellipse((x2 - rr, y2 - rr, x2 + rr, y2 + rr), fill=tip_color)
     img.alpha_composite(layer)
@@ -213,35 +274,113 @@ def _draw_explosion_sprite(img: Image.Image, spec: Dict[str, float]) -> None:
     outline = _mul_alpha(OUTLINE, _lerp(0.95, 0.22, fade))
 
     density = int(spec.get("smoke_count", 7))
-    ember_count = max(2, int(round(spec.get("ember_count", 8) * _lerp(1.0, 0.55, fade))))
+    ember_count = max(
+        2, int(round(spec.get("ember_count", 8) * _lerp(1.0, 0.55, fade)))
+    )
     spokes = int(spec.get("spokes", 6))
 
     if style in {"round", "shockwave", "smoke", "classic"}:
-        _draw_smoke_puffs(img, cx, cy, smoke_r, expansion, density=density, seed=seed, color=smoke_color)
+        _draw_smoke_puffs(
+            img,
+            cx,
+            cy,
+            smoke_r,
+            expansion,
+            density=density,
+            seed=seed,
+            color=smoke_color,
+        )
     elif style == "star":
-        _draw_smoke_puffs(img, cx, cy, smoke_r * 0.9, expansion, density=max(5, density - 1), seed=seed, color=smoke_color)
+        _draw_smoke_puffs(
+            img,
+            cx,
+            cy,
+            smoke_r * 0.9,
+            expansion,
+            density=max(5, density - 1),
+            seed=seed,
+            color=smoke_color,
+        )
 
     if style == "shockwave":
         ring_r = base_r * _lerp(0.42, 1.40, expansion)
         ring_alpha = _mul_alpha(RING, _lerp(0.85, 0.14, fade))
-        _draw_ring(img, cx, cy, ring_r, ring_r * 0.90, color=ring_alpha, width_px=max(1, int(round(_s(_lerp(1.6, 0.8, fade))))))
+        _draw_ring(
+            img,
+            cx,
+            cy,
+            ring_r,
+            ring_r * 0.90,
+            color=ring_alpha,
+            width_px=max(1, int(round(_s(_lerp(1.6, 0.8, fade))))),
+        )
 
     if flame_outer > base_r * 0.12:
         if style == "smoke":
-            flame_pts = _star_points(cx, cy, flame_inner * 0.82, flame_outer * 0.82, spokes=max(5, spokes - 1), seed=seed * 0.7, aspect_y=0.96)
+            flame_pts = _star_points(
+                cx,
+                cy,
+                flame_inner * 0.82,
+                flame_outer * 0.82,
+                spokes=max(5, spokes - 1),
+                seed=seed * 0.7,
+                aspect_y=0.96,
+            )
         else:
-            flame_pts = _star_points(cx, cy, flame_inner, flame_outer, spokes=spokes, seed=seed * 0.7, aspect_y=0.92)
-        _composite_polygon(img, flame_pts, fill=flame_b, outline=outline, width=max(1, _s(0.7)))
+            flame_pts = _star_points(
+                cx,
+                cy,
+                flame_inner,
+                flame_outer,
+                spokes=spokes,
+                seed=seed * 0.7,
+                aspect_y=0.92,
+            )
+        _composite_polygon(
+            img, flame_pts, fill=flame_b, outline=outline, width=max(1, _s(0.7))
+        )
 
-        hot_outer = _star_points(cx, cy, flame_inner * 0.62, flame_outer * 0.64, spokes=spokes, seed=seed * 1.1 + 0.35, aspect_y=0.94)
+        hot_outer = _star_points(
+            cx,
+            cy,
+            flame_inner * 0.62,
+            flame_outer * 0.64,
+            spokes=spokes,
+            seed=seed * 1.1 + 0.35,
+            aspect_y=0.94,
+        )
         _composite_polygon(img, hot_outer, fill=flame_a, outline=None)
 
     if core_r > base_r * 0.06:
-        _composite_ellipse(img, (cx - core_r, cy - core_r, cx + core_r, cy + core_r), fill=core, outline=outline, width=max(1, _s(0.7)))
-        _composite_ellipse(img, (cx - core_r * 0.50, cy - core_r * 0.50, cx + core_r * 0.50, cy + core_r * 0.50), fill=core_hi)
+        _composite_ellipse(
+            img,
+            (cx - core_r, cy - core_r, cx + core_r, cy + core_r),
+            fill=core,
+            outline=outline,
+            width=max(1, _s(0.7)),
+        )
+        _composite_ellipse(
+            img,
+            (
+                cx - core_r * 0.50,
+                cy - core_r * 0.50,
+                cx + core_r * 0.50,
+                cy + core_r * 0.50,
+            ),
+            fill=core_hi,
+        )
 
     if style == "smoke":
-        _draw_smoke_puffs(img, cx, cy, smoke_r * 0.78, expansion, density=max(5, density - 1), seed=seed + 0.9, color=smoke_dark)
+        _draw_smoke_puffs(
+            img,
+            cx,
+            cy,
+            smoke_r * 0.78,
+            expansion,
+            density=max(5, density - 1),
+            seed=seed + 0.9,
+            color=smoke_dark,
+        )
 
     _draw_embers(
         img,
@@ -280,15 +419,61 @@ def _frame_spec(anim: str, frame_idx: int, nframes: int) -> Dict[str, float]:
         "inner_ratio": 0.44,
     }
     if anim == "classic_burst":
-        spec.update({"style": "classic", "base_r": 27.0, "spokes": 6, "ember_count": 7, "seed": 0.15})
+        spec.update(
+            {
+                "style": "classic",
+                "base_r": 27.0,
+                "spokes": 6,
+                "ember_count": 7,
+                "seed": 0.15,
+            }
+        )
     elif anim == "burst_round":
-        spec.update({"style": "round", "base_r": 31.0, "smoke_count": 8, "spokes": 7, "ember_count": 9, "seed": 0.85})
+        spec.update(
+            {
+                "style": "round",
+                "base_r": 31.0,
+                "smoke_count": 8,
+                "spokes": 7,
+                "ember_count": 9,
+                "seed": 0.85,
+            }
+        )
     elif anim == "shockwave":
-        spec.update({"style": "shockwave", "base_r": 29.0, "spokes": 6, "ember_count": 6, "seed": 1.5, "inner_ratio": 0.36})
+        spec.update(
+            {
+                "style": "shockwave",
+                "base_r": 29.0,
+                "spokes": 6,
+                "ember_count": 6,
+                "seed": 1.5,
+                "inner_ratio": 0.36,
+            }
+        )
     elif anim == "smoke_burst":
-        spec.update({"style": "smoke", "base_r": 28.0, "smoke_count": 10, "spokes": 5, "ember_count": 6, "seed": 2.1, "inner_ratio": 0.50})
+        spec.update(
+            {
+                "style": "smoke",
+                "base_r": 28.0,
+                "smoke_count": 10,
+                "spokes": 5,
+                "ember_count": 6,
+                "seed": 2.1,
+                "inner_ratio": 0.50,
+            }
+        )
     elif anim == "starburst":
-        spec.update({"style": "star", "base_r": 30.0, "smoke_count": 6, "spokes": 8, "ember_count": 10, "seed": 2.8, "inner_ratio": 0.32})
+        spec.update(
+            {
+                "style": "star",
+                "base_r": 30.0,
+                "smoke_count": 6,
+                "spokes": 8,
+                "ember_count": 10,
+                "seed": 2.8,
+                "inner_ratio": 0.32,
+            }
+        )
     else:
         raise ValueError(f"unknown animation: {anim}")
     return spec

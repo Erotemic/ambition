@@ -13,6 +13,7 @@ versus what is a synthesis approximation.
 
 Public entry point: `render_fallback(pm, sample_rate, *, minimum_duration=None)`.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -27,6 +28,7 @@ from .musicir_renderer import _lowpass_mono, clamp
 # ---------------------------------------------------------------------------
 # Instrument-family classification (fallback renderer only).
 # ---------------------------------------------------------------------------
+
 
 def _program_family(program: int) -> str | None:
     """Classify a GM program into a fallback-renderer family.
@@ -80,13 +82,34 @@ def _instrument_family(inst: pretty_midi.Instrument) -> str:
         return "harp"
     if "timpani" in name:
         return "timpani"
-    if any(k in name for k in ("marimba", "mallet", "xylo", "vibe", "glock", "celesta", "bell")):
+    if any(
+        k in name
+        for k in ("marimba", "mallet", "xylo", "vibe", "glock", "celesta", "bell")
+    ):
         return "mallet"
-    if any(k in name for k in ("violin", "viola", "celli", "cello", "cell", "contrabass", "string")):
+    if any(
+        k in name
+        for k in ("violin", "viola", "celli", "cello", "cell", "contrabass", "string")
+    ):
         return "string"
-    if any(k in name for k in ("trumpet", "trombone", "tuba", "brass")) or ("horn" in name and "english" not in name):
+    if any(k in name for k in ("trumpet", "trombone", "tuba", "brass")) or (
+        "horn" in name and "english" not in name
+    ):
         return "brass"
-    if any(k in name for k in ("flute", "oboe", "clarinet", "bassoon", "piccolo", "recorder", "english_horn", "english horn", "wind")):
+    if any(
+        k in name
+        for k in (
+            "flute",
+            "oboe",
+            "clarinet",
+            "bassoon",
+            "piccolo",
+            "recorder",
+            "english_horn",
+            "english horn",
+            "wind",
+        )
+    ):
         return "wind"
     if any(k in name for k in ("choir", "voice")):
         return "choir"
@@ -101,6 +124,7 @@ def _instrument_family(inst: pretty_midi.Instrument) -> str:
 # Waveform / envelope helpers used by the per-note synth.
 # ---------------------------------------------------------------------------
 
+
 def _saw(phase: np.ndarray) -> np.ndarray:
     return (2.0 * (phase % 1.0) - 1.0).astype(np.float32)
 
@@ -113,21 +137,29 @@ def _pulse(phase: np.ndarray, duty: float = 0.5) -> np.ndarray:
     return np.where((phase % 1.0) < duty, 1.0, -1.0).astype(np.float32)
 
 
-def _adsr_curve(n: int, sr: int, attack: float, decay: float, sustain: float, release: float) -> np.ndarray:
-    a = max(1, int(attack * sr)); d = max(1, int(decay * sr)); r = max(1, int(release * sr))
+def _adsr_curve(
+    n: int, sr: int, attack: float, decay: float, sustain: float, release: float
+) -> np.ndarray:
+    a = max(1, int(attack * sr))
+    d = max(1, int(decay * sr))
+    r = max(1, int(release * sr))
     s = max(0, n - a - d - r)
-    env = np.concatenate([
-        np.linspace(0.0, 1.0, a, endpoint=False),
-        np.linspace(1.0, sustain, d, endpoint=False),
-        np.full(s, sustain, dtype=np.float32),
-        np.linspace(sustain, 0.0, r, endpoint=True),
-    ]).astype(np.float32)
+    env = np.concatenate(
+        [
+            np.linspace(0.0, 1.0, a, endpoint=False),
+            np.linspace(1.0, sustain, d, endpoint=False),
+            np.full(s, sustain, dtype=np.float32),
+            np.linspace(sustain, 0.0, r, endpoint=True),
+        ]
+    ).astype(np.float32)
     if len(env) < n:
         env = np.pad(env, (0, n - len(env)))
     return env[:n]
 
 
-def _declick(sig: np.ndarray, sr: int, attack: float = 0.006, release: float = 0.018) -> np.ndarray:
+def _declick(
+    sig: np.ndarray, sr: int, attack: float = 0.006, release: float = 0.018
+) -> np.ndarray:
     """Apply a tiny edge fade to synthetic notes/drums.
 
     The fallback renderer is additive and section/stem based.  Hard synthetic
@@ -159,7 +191,15 @@ def _pan_stereo(mono: np.ndarray, pan: float) -> np.ndarray:
 # Per-note voices.
 # ---------------------------------------------------------------------------
 
-def _synth_note_fallback(frequency: float, duration: float, velocity: int, family: str, sr: int, rng: np.random.Generator) -> np.ndarray:
+
+def _synth_note_fallback(
+    frequency: float,
+    duration: float,
+    velocity: int,
+    family: str,
+    sr: int,
+    rng: np.random.Generator,
+) -> np.ndarray:
     """Built-in fallback instrument model.
 
     Composes bandlimited harmonic stacks (`_harm_saw` / `_harm_stack`) plus
@@ -192,7 +232,9 @@ def _synth_note_fallback(frequency: float, duration: float, velocity: int, famil
         for n_idx in range(1, n_max + 1):
             if f * n_idx >= cap:
                 break
-            out += (amp / (n_idx ** exponent)) * np.sin(twopi_f_t * n_idx).astype(np.float32)
+            out += (amp / (n_idx**exponent)) * np.sin(twopi_f_t * n_idx).astype(
+                np.float32
+            )
         return out
 
     if family == "string":
@@ -244,38 +286,55 @@ def _synth_note_fallback(frequency: float, duration: float, velocity: int, famil
         raw = _harm_stack([1.00, 0.30, 0.14, 0.06, 0.03])
         sig = _lowpass_mono(raw, 0.55)
         env = np.exp(-t / max(0.18, duration * 0.50)).astype(np.float32)
-        ramp = np.linspace(0.0, 1.0, min(n, max(8, int(0.014 * sr))), endpoint=True, dtype=np.float32)
-        env[:len(ramp)] *= ramp
+        ramp = np.linspace(
+            0.0, 1.0, min(n, max(8, int(0.014 * sr))), endpoint=True, dtype=np.float32
+        )
+        env[: len(ramp)] *= ramp
     elif family == "harp":
         raw = _harm_stack([0.70, 0.30, 0.16, 0.08, 0.04, 0.02])
         sig = _lowpass_mono(raw, 0.55)
         decay_tau = max(0.40, duration * 0.85)
         env = np.exp(-t / decay_tau).astype(np.float32)
-        ramp = np.linspace(0.0, 1.0, min(n, max(6, int(0.005 * sr))), endpoint=True, dtype=np.float32)
-        env[:len(ramp)] *= ramp
+        ramp = np.linspace(
+            0.0, 1.0, min(n, max(6, int(0.005 * sr))), endpoint=True, dtype=np.float32
+        )
+        env[: len(ramp)] *= ramp
     elif family == "timpani":
         body_freq = max(40.0, frequency * 0.5)
         sweep_t = np.exp(-t / 0.045)
         f_sweep = body_freq + (frequency - body_freq) * sweep_t
         phase_int = 2 * np.pi * np.cumsum(f_sweep) / sr
-        raw = 0.80 * np.sin(phase_int) + 0.18 * np.sin(2 * np.pi * frequency * 1.5 * t) + 0.08 * np.sin(2 * np.pi * frequency * 2.0 * t)
+        raw = (
+            0.80 * np.sin(phase_int)
+            + 0.18 * np.sin(2 * np.pi * frequency * 1.5 * t)
+            + 0.08 * np.sin(2 * np.pi * frequency * 2.0 * t)
+        )
         rumble = rng.normal(0.0, 0.05, n).astype(np.float32) * np.exp(-t / 0.060)
         sig = _lowpass_mono(raw + rumble, 0.20)
         env = np.exp(-t / max(0.55, duration * 0.85)).astype(np.float32)
-        ramp = np.linspace(0.0, 1.0, min(n, max(6, int(0.004 * sr))), endpoint=True, dtype=np.float32)
-        env[:len(ramp)] *= ramp
+        ramp = np.linspace(
+            0.0, 1.0, min(n, max(6, int(0.004 * sr))), endpoint=True, dtype=np.float32
+        )
+        env[: len(ramp)] *= ramp
     elif family == "piano":
         raw = _harm_stack([0.62, 0.28, 0.16, 0.10, 0.06, 0.03])
         sig = _lowpass_mono(raw, 0.40)
         env = np.exp(-t / max(0.34, duration * 0.70)).astype(np.float32)
-        ramp = np.linspace(0.0, 1.0, min(n, max(8, int(0.010 * sr))), endpoint=True, dtype=np.float32)
-        env[:len(ramp)] *= ramp
+        ramp = np.linspace(
+            0.0, 1.0, min(n, max(8, int(0.010 * sr))), endpoint=True, dtype=np.float32
+        )
+        env[: len(ramp)] *= ramp
     elif family == "bass":
         raw = _harm_stack([0.65, 0.32, 0.18, 0.08, 0.04])
         sig = _lowpass_mono(raw, 0.28)
         env = _adsr_curve(n, sr, 0.018, 0.08, 0.72, 0.18)
     elif family == "lead":
-        raw = 0.50 * np.sin(twopi_f_t) + 0.26 * _tri(phase) + 0.10 * _pulse(phase, 0.45) + 0.10 * np.sin(twopi_f_t * 2.0)
+        raw = (
+            0.50 * np.sin(twopi_f_t)
+            + 0.26 * _tri(phase)
+            + 0.10 * _pulse(phase, 0.45)
+            + 0.10 * np.sin(twopi_f_t * 2.0)
+        )
         sig = np.tanh(raw * 0.88).astype(np.float32)
         sig = _lowpass_mono(sig, 0.40)
         env = _adsr_curve(n, sr, 0.018, 0.06, 0.60, 0.16)
@@ -286,7 +345,9 @@ def _synth_note_fallback(frequency: float, duration: float, velocity: int, famil
     return _declick(sig * env * vel, sr, 0.004, 0.012).astype(np.float32)
 
 
-def _synth_drum_fallback(pitch: int, duration: float, velocity: int, sr: int, rng: np.random.Generator) -> np.ndarray:
+def _synth_drum_fallback(
+    pitch: int, duration: float, velocity: int, sr: int, rng: np.random.Generator
+) -> np.ndarray:
     n = max(1, int(duration * sr))
     t = np.arange(n, dtype=np.float32) / sr
     vel = (velocity / 127.0) ** 1.18
@@ -324,6 +385,7 @@ def _synth_drum_fallback(pitch: int, duration: float, velocity: int, sr: int, rn
 # Note-stream rendering.
 # ---------------------------------------------------------------------------
 
+
 def _midi_content_seed(pm: pretty_midi.PrettyMIDI) -> int:
     """Stable pseudo-random seed derived from score content."""
     h = hashlib.sha256()
@@ -332,18 +394,26 @@ def _midi_content_seed(pm: pretty_midi.PrettyMIDI) -> int:
         h.update(str(inst.is_drum).encode())
         h.update((inst.name or "").encode())
         for note in inst.notes[:2048]:
-            h.update(f"{note.pitch}:{note.start:.4f}:{note.end:.4f}:{note.velocity}".encode())
+            h.update(
+                f"{note.pitch}:{note.start:.4f}:{note.end:.4f}:{note.velocity}".encode()
+            )
     return int.from_bytes(h.digest()[:8], "big") & 0xFFFFFFFF
 
 
-def _cc_track(inst: pretty_midi.Instrument, number: int) -> tuple[np.ndarray, np.ndarray]:
+def _cc_track(
+    inst: pretty_midi.Instrument, number: int
+) -> tuple[np.ndarray, np.ndarray]:
     """Return sorted (times, values) arrays for one CC number on `inst`."""
     events = [(c.time, c.value) for c in inst.control_changes if c.number == number]
     if not events:
         return np.empty(0, dtype=np.float64), np.empty(0, dtype=np.float32)
     events.sort(key=lambda tv: tv[0])
-    times = np.fromiter((float(t) for t, _ in events), dtype=np.float64, count=len(events))
-    values = np.fromiter((float(v) for _, v in events), dtype=np.float32, count=len(events))
+    times = np.fromiter(
+        (float(t) for t, _ in events), dtype=np.float64, count=len(events)
+    )
+    values = np.fromiter(
+        (float(v) for _, v in events), dtype=np.float32, count=len(events)
+    )
     return times, values
 
 
@@ -357,7 +427,12 @@ def _cc_value(times: np.ndarray, values: np.ndarray, t: float, default: float) -
     return float(values[idx])
 
 
-def render_fallback(pm: pretty_midi.PrettyMIDI, sample_rate: int, *, minimum_duration: float | None = None) -> np.ndarray:
+def render_fallback(
+    pm: pretty_midi.PrettyMIDI,
+    sample_rate: int,
+    *,
+    minimum_duration: float | None = None,
+) -> np.ndarray:
     """Synthesize the score with the fallback in-Python additive engine."""
     end_time = pm.get_end_time()
     if minimum_duration is not None:
@@ -382,13 +457,22 @@ def render_fallback(pm: pretty_midi.PrettyMIDI, sample_rate: int, *, minimum_dur
             vol = (vol_cc / 127.0) * (expr_cc / 127.0)
             pan = (pan_cc - 64.0) / 63.0
             if inst.is_drum:
-                mono = _synth_drum_fallback(note.pitch, dur, note.velocity, sample_rate, rng)
+                mono = _synth_drum_fallback(
+                    note.pitch, dur, note.velocity, sample_rate, rng
+                )
             else:
-                mono = _synth_note_fallback(pretty_midi.note_number_to_hz(note.pitch), dur, note.velocity, family, sample_rate, rng)
+                mono = _synth_note_fallback(
+                    pretty_midi.note_number_to_hz(note.pitch),
+                    dur,
+                    note.velocity,
+                    family,
+                    sample_rate,
+                    rng,
+                )
             n = min(len(mono), total_samples - start)
             if n <= 0:
                 continue
-            mix[start:start + n] += _pan_stereo(mono[:n] * vol, pan)
+            mix[start : start + n] += _pan_stereo(mono[:n] * vol, pan)
     # Leave authored/stem relative loudness alone. Only protect the
     # fallback renderer from obvious clipping; normalization-up happens
     # later only if the YAML master postprocess asks for it.

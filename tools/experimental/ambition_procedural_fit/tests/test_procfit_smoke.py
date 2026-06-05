@@ -7,7 +7,12 @@ from PIL import Image, ImageDraw
 
 from ambition_procedural_fit.fit import fit_template, render_template
 from ambition_procedural_fit.init_template import init_template_from_image
-from ambition_procedural_fit.schema import CanvasSpec, FitSpec, PrimitiveSpec, write_spec
+from ambition_procedural_fit.schema import (
+    CanvasSpec,
+    FitSpec,
+    PrimitiveSpec,
+    write_spec,
+)
 from ambition_procedural_fit.soft_render import ProceduralScene, RenderOptions
 
 
@@ -18,19 +23,35 @@ def test_soft_render_smoke() -> None:
             PrimitiveSpec(
                 kind="rect",
                 name="box",
-                params={"xy": [0.5, 0.5], "wh": [0.4, 0.3], "angle": 0.1, "color": [1.0, 0.8, 0.2, 0.9]},
+                params={
+                    "xy": [0.5, 0.5],
+                    "wh": [0.4, 0.3],
+                    "angle": 0.1,
+                    "color": [1.0, 0.8, 0.2, 0.9],
+                },
                 train=["xy", "wh", "angle", "color"],
             ),
             PrimitiveSpec(
                 kind="superellipse",
                 name="squircle",
-                params={"xy": [0.25, 0.22], "wh": [0.22, 0.18], "angle": 0.0, "exponent": 5.0, "color": [0.8, 0.3, 0.9, 0.6]},
+                params={
+                    "xy": [0.25, 0.22],
+                    "wh": [0.22, 0.18],
+                    "angle": 0.0,
+                    "exponent": 5.0,
+                    "color": [0.8, 0.3, 0.9, 0.6],
+                },
                 train=["xy", "wh", "angle", "exponent", "color"],
             ),
             PrimitiveSpec(
                 kind="segment",
                 name="line",
-                params={"p0": [0.1, 0.1], "p1": [0.9, 0.8], "width": 0.04, "color": [0.1, 0.7, 1.0, 0.7]},
+                params={
+                    "p0": [0.1, 0.1],
+                    "p1": [0.9, 0.8],
+                    "width": 0.04,
+                    "color": [0.1, 0.7, 1.0, 0.7],
+                },
                 train=["p0", "p1", "width", "color"],
             ),
         ],
@@ -53,11 +74,21 @@ def test_init_render_and_tiny_fit(tmp_path: Path) -> None:
     img.save(target_path)
 
     template_path = tmp_path / "seed.yaml"
-    init_template_from_image(target_path, template_path, size=48, rects=8, ellipses=2, superellipses=2, segments=2)
+    init_template_from_image(
+        target_path,
+        template_path,
+        size=48,
+        rects=8,
+        ellipses=2,
+        superellipses=2,
+        segments=2,
+    )
     assert template_path.exists()
 
     render_path = tmp_path / "render.png"
-    render_template(template_path, render_path, width=48, height=48, device="cpu", supersample=1)
+    render_template(
+        template_path, render_path, width=48, height=48, device="cpu", supersample=1
+    )
     assert render_path.exists()
 
     out_dir = tmp_path / "fit"

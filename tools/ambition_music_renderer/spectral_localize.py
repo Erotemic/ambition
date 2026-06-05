@@ -29,6 +29,7 @@ Workflow:
 
 The script intentionally does not mutate the YAML — it only diagnoses.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -59,7 +60,9 @@ def band_energy(spec: np.ndarray, freqs: np.ndarray, lo: float, hi: float) -> fl
     return float(np.square(spec[mask]).sum())
 
 
-def time_resolved_band_energy(mono: np.ndarray, sr: int, t_lo: float, t_hi: float, bucket_s: float, bands: dict) -> tuple[np.ndarray, dict]:
+def time_resolved_band_energy(
+    mono: np.ndarray, sr: int, t_lo: float, t_hi: float, bucket_s: float, bands: dict
+) -> tuple[np.ndarray, dict]:
     win = int(sr * bucket_s)
     nfft = 1 << (win - 1).bit_length()
     freqs = np.fft.rfftfreq(nfft, 1.0 / sr)
@@ -102,28 +105,54 @@ def render_heatmap_row(name: str, vals: np.ndarray) -> str:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("cue_outdir", type=Path)
-    ap.add_argument("--window", nargs=2, type=float, metavar=("LO", "HI"), default=(0.0, -1.0), help="Time window in seconds (default: full track)")
-    ap.add_argument("--bucket", type=float, default=0.25, help="Bucket size in seconds (default: 0.25)")
-    ap.add_argument("--sr", type=int, default=48000, help="Sample rate of stems (default: 48000)")
+    ap.add_argument(
+        "--window",
+        nargs=2,
+        type=float,
+        metavar=("LO", "HI"),
+        default=(0.0, -1.0),
+        help="Time window in seconds (default: full track)",
+    )
+    ap.add_argument(
+        "--bucket",
+        type=float,
+        default=0.25,
+        help="Bucket size in seconds (default: 0.25)",
+    )
+    ap.add_argument(
+        "--sr", type=int, default=48000, help="Sample rate of stems (default: 48000)"
+    )
     ap.add_argument("--bands", choices=["default", "vhigh-only"], default="default")
     ns = ap.parse_args(argv)
 
     stems_dir = ns.cue_outdir / "scratch_stems"
     if not stems_dir.is_dir():
-        ap.error(f"no scratch_stems/ under {ns.cue_outdir} — re-render with --keep-debug-stems")
+        ap.error(
+            f"no scratch_stems/ under {ns.cue_outdir} — re-render with --keep-debug-stems"
+        )
     stems = sorted(stems_dir.glob("*.npy"))
     if not stems:
         ap.error(f"no .npy files under {stems_dir}")
 
-    bands = DEFAULT_BANDS if ns.bands == "default" else {"vhigh (3-6k)": (3000.0, 6000.0)}
+    bands = (
+        DEFAULT_BANDS if ns.bands == "default" else {"vhigh (3-6k)": (3000.0, 6000.0)}
+    )
 
     # Determine track duration from the first stem
     first = np.load(stems[0])
-    dur = first.shape[0] / ns.sr if first.ndim == 1 else first.shape[-2] / ns.sr if first.ndim == 2 and first.shape[-1] == 2 else len(first) / ns.sr
+    dur = (
+        first.shape[0] / ns.sr
+        if first.ndim == 1
+        else first.shape[-2] / ns.sr
+        if first.ndim == 2 and first.shape[-1] == 2
+        else len(first) / ns.sr
+    )
     t_lo, t_hi = ns.window
     if t_hi < 0:
         t_hi = dur
-    print(f"track duration ~{dur:.2f}s, analyzing {t_lo:.2f}-{t_hi:.2f}s @ {ns.bucket}s buckets")
+    print(
+        f"track duration ~{dur:.2f}s, analyzing {t_lo:.2f}-{t_hi:.2f}s @ {ns.bucket}s buckets"
+    )
 
     # Stem name = part of filename before .npy and after the cue hash, e.g. ".bass.npy"
     def stem_name(p: Path) -> str:
@@ -134,14 +163,18 @@ def main(argv: list[str] | None = None) -> int:
     times_ref = None
     for p in stems:
         mono = to_mono(np.load(p))
-        times, energies = time_resolved_band_energy(mono, ns.sr, t_lo, t_hi, ns.bucket, bands)
+        times, energies = time_resolved_band_energy(
+            mono, ns.sr, t_lo, t_hi, ns.bucket, bands
+        )
         all_data[stem_name(p)] = energies
         times_ref = times
 
     print(f"\nGroups found: {', '.join(sorted(all_data))}")
 
     # Window-mean fraction per band
-    win_energy = {name: {b: float(all_data[name][b].mean()) for b in bands} for name in all_data}
+    win_energy = {
+        name: {b: float(all_data[name][b].mean()) for b in bands} for name in all_data
+    }
     print(f"\nWindow-mean band energy fraction per group ({t_lo:.2f}-{t_hi:.2f}s):")
     print(f"{'group':14s}  " + "  ".join(f"{b:>14s}" for b in bands))
     for name in sorted(all_data):
@@ -149,14 +182,16 @@ def main(argv: list[str] | None = None) -> int:
         for b in bands:
             total = sum(win_energy[g][b] for g in win_energy)
             frac = win_energy[name][b] / total if total > 0 else 0
-            row.append(f"{frac*100:13.1f}%")
+            row.append(f"{frac * 100:13.1f}%")
         print(f"{name:14s}  " + "  ".join(row))
 
     # Heatmap per band, per group, per time bucket. Each row scaled to its own peak.
     if times_ref is not None and len(times_ref) > 0:
         for b in bands:
             print(f"\n{b} energy heatmap, per group, scaled to row peak:")
-            tick = "             " + "".join(f"{int(t)%10:>2d}" if t == int(t) else "  " for t in times_ref)
+            tick = "             " + "".join(
+                f"{int(t) % 10:>2d}" if t == int(t) else "  " for t in times_ref
+            )
             print(tick)
             for name in sorted(all_data):
                 print(render_heatmap_row(name, all_data[name][b]))
@@ -169,11 +204,15 @@ def main(argv: list[str] | None = None) -> int:
             total = sum(all_data[g][b][i] for g in all_data)
             if total <= 0:
                 continue
-            ranked = sorted(((all_data[g][b][i] / total, g) for g in all_data), reverse=True)
+            ranked = sorted(
+                ((all_data[g][b][i] / total, g) for g in all_data), reverse=True
+            )
             top = ranked[0]
             if top[0] >= 0.30:
                 runner = ranked[1] if len(ranked) > 1 else (0.0, "-")
-                print(f"    t={t:6.2f}s  {top[1]:14s} {top[0]*100:5.1f}%  (next: {runner[1]} {runner[0]*100:.0f}%)")
+                print(
+                    f"    t={t:6.2f}s  {top[1]:14s} {top[0] * 100:5.1f}%  (next: {runner[1]} {runner[0] * 100:.0f}%)"
+                )
 
     return 0
 

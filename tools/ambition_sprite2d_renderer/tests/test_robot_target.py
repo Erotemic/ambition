@@ -4,6 +4,7 @@ The animation set grew to include core runtime rows plus richer review-only
 player mechanics. Tests reflect the current adapter vocabulary rather than the
 runtime row subset.
 """
+
 from ambition_sprite2d_renderer.adapters import get_adapter
 from ambition_sprite2d_renderer.animation_vocab import FULL_PLAYER_ANIMATION_ORDER
 

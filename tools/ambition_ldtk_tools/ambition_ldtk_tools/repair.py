@@ -17,6 +17,7 @@ LDtk GUI, or after hand-patching JSON:
       crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk \
       --in-place
 """
+
 from __future__ import annotations
 
 import argparse
@@ -84,13 +85,39 @@ def print_check_failure(path: Path, changes: list[str]) -> None:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("path", type=Path, help="Path to an Ambition-authored .ldtk file")
-    parser.add_argument("--output", type=Path, default=None, help="Write repaired JSON to this path instead of editing in place")
-    parser.add_argument("--in-place", action="store_true", help="Rewrite the input file in place")
-    parser.add_argument("--backup", action="store_true", help="When using --in-place, write <file>.bak before modifying")
-    parser.add_argument("--check", action="store_true", help="Do not write; fail if repairs would be needed")
-    parser.add_argument("--schema", type=Path, default=None, help="Optional official LDtk JSON schema path for post-repair validation")
-    parser.add_argument("--require-schema", action="store_true", help="Fail if official LDtk schema validation cannot run")
+    parser.add_argument(
+        "path", type=Path, help="Path to an Ambition-authored .ldtk file"
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Write repaired JSON to this path instead of editing in place",
+    )
+    parser.add_argument(
+        "--in-place", action="store_true", help="Rewrite the input file in place"
+    )
+    parser.add_argument(
+        "--backup",
+        action="store_true",
+        help="When using --in-place, write <file>.bak before modifying",
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Do not write; fail if repairs would be needed",
+    )
+    parser.add_argument(
+        "--schema",
+        type=Path,
+        default=None,
+        help="Optional official LDtk JSON schema path for post-repair validation",
+    )
+    parser.add_argument(
+        "--require-schema",
+        action="store_true",
+        help="Fail if official LDtk schema validation cannot run",
+    )
     args = parser.parse_args(argv)
 
     if args.check and (args.output or args.in_place):

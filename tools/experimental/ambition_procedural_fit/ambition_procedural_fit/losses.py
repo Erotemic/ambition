@@ -25,8 +25,12 @@ def _chw(x: torch.Tensor) -> torch.Tensor:
 def _sobel_gray(x: torch.Tensor) -> torch.Tensor:
     chw = _chw(x)
     gray = chw[:, :1] * 0.299 + chw[:, 1:2] * 0.587 + chw[:, 2:3] * 0.114
-    kx = torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=x.dtype, device=x.device).view(1, 1, 3, 3)
-    ky = torch.tensor([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=x.dtype, device=x.device).view(1, 1, 3, 3)
+    kx = torch.tensor(
+        [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=x.dtype, device=x.device
+    ).view(1, 1, 3, 3)
+    ky = torch.tensor(
+        [[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=x.dtype, device=x.device
+    ).view(1, 1, 3, 3)
     gx = F.conv2d(gray, kx, padding=1)
     gy = F.conv2d(gray, ky, padding=1)
     return torch.sqrt(gx * gx + gy * gy + 1e-6)
@@ -35,11 +39,15 @@ def _sobel_gray(x: torch.Tensor) -> torch.Tensor:
 def _laplacian_gray(x: torch.Tensor) -> torch.Tensor:
     chw = _chw(x)
     gray = chw[:, :1] * 0.299 + chw[:, 1:2] * 0.587 + chw[:, 2:3] * 0.114
-    kernel = torch.tensor([[0, 1, 0], [1, -4, 1], [0, 1, 0]], dtype=x.dtype, device=x.device).view(1, 1, 3, 3)
+    kernel = torch.tensor(
+        [[0, 1, 0], [1, -4, 1], [0, 1, 0]], dtype=x.dtype, device=x.device
+    ).view(1, 1, 3, 3)
     return F.conv2d(gray, kernel, padding=1)
 
 
-def image_fit_loss(render: torch.Tensor, target: torch.Tensor, *, weights: LossWeights | None = None) -> tuple[torch.Tensor, dict[str, float]]:
+def image_fit_loss(
+    render: torch.Tensor, target: torch.Tensor, *, weights: LossWeights | None = None
+) -> tuple[torch.Tensor, dict[str, float]]:
     """Smooth multi-scale loss for matching a procedural render to target art.
 
     Geometry still makes the problem non-convex, but each term is smooth under

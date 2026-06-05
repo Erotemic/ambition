@@ -1179,59 +1179,51 @@ pub fn transit_step(
     }
 }
 
-/// Holds the player's real wall abilities while they're suppressed during a
-/// portal transit, so nothing is lost when transit ends.
-#[derive(Component, Clone, Copy, Debug)]
-pub struct WallAbilitiesSuppressed {
-    ledge_grab: bool,
-    wall_cling: bool,
-    wall_jump: bool,
-    wall_climb: bool,
+/// Runtime toggle for [`suppress_ledge_grab_during_transit`]. Default ON; flip it
+/// off to play with ledge-grab / wall-movement INTO portals enabled (the
+/// "ledge-grab through a portal" experiment — see TODO.md). Toggleable at runtime
+/// (e.g. via the inspector) so both behaviors can be tried without a recompile.
+#[derive(Resource, Clone, Copy, Debug)]
+pub struct SuppressWallAbilitiesInPortal(pub bool);
+
+impl Default for SuppressWallAbilitiesInPortal {
+    fn default() -> Self {
+        Self(true)
+    }
 }
 
 /// While the player is mid-transit, suppress the wall abilities (ledge-grab,
 /// cling, wall-jump, wall-climb) so they don't latch onto the carved aperture
 /// EDGES — the carve splits the host block, and those new edges read as grabbable
 /// ledges / climbable walls, so you'd cling "into" a portal and pop back out the
-/// entry instead of sinking through and crossing. The real abilities are saved
-/// and restored, so the player keeps them everywhere else (including wall-jumping
-/// UP to reach a portal — suppression only starts once transit begins). Runs
-/// before the movement integration.
+/// entry instead of sinking through and crossing.
+///
+/// IMPORTANT — this must re-apply EVERY frame, not set-once. `PlayerAbilities` is
+/// wholesale-reset to the editable loadout every frame
+/// (`sync_live_ability_edits_clusters`: `abilities.abilities = desired`), so a
+/// save-once/restore-on-exit pattern is clobbered after a single frame (that was
+/// the "disable didn't work" bug). Re-applying each frame is robust against that
+/// reset, AND needs no save/restore — when transit ends, the per-frame reset
+/// restores the loadout automatically. (The wider structural smell — transient
+/// ability mods fighting a per-frame wholesale reset — is noted in TODO.md.)
+/// Gated on [`SuppressWallAbilitiesInPortal`]. Runs before the movement integration.
 pub fn suppress_ledge_grab_during_transit(
-    mut commands: Commands,
+    toggle: Res<SuppressWallAbilitiesInPortal>,
     mut players: Query<
-        (
-            Entity,
-            &mut crate::player::PlayerAbilities,
-            Option<&PortalTransit>,
-            Option<&WallAbilitiesSuppressed>,
-        ),
+        (&mut crate::player::PlayerAbilities, Option<&PortalTransit>),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
 ) {
-    for (entity, mut abilities, transiting, saved) in &mut players {
-        let a = &mut abilities.abilities;
-        match (transiting.is_some(), saved) {
-            (true, None) => {
-                commands.entity(entity).insert(WallAbilitiesSuppressed {
-                    ledge_grab: a.ledge_grab,
-                    wall_cling: a.wall_cling,
-                    wall_jump: a.wall_jump,
-                    wall_climb: a.wall_climb,
-                });
-                a.ledge_grab = false;
-                a.wall_cling = false;
-                a.wall_jump = false;
-                a.wall_climb = false;
-            }
-            (false, Some(saved)) => {
-                a.ledge_grab = saved.ledge_grab;
-                a.wall_cling = saved.wall_cling;
-                a.wall_jump = saved.wall_jump;
-                a.wall_climb = saved.wall_climb;
-                commands.entity(entity).remove::<WallAbilitiesSuppressed>();
-            }
-            _ => {}
+    if !toggle.0 {
+        return;
+    }
+    for (mut abilities, transiting) in &mut players {
+        if transiting.is_some() {
+            let a = &mut abilities.abilities;
+            a.ledge_grab = false;
+            a.wall_cling = false;
+            a.wall_jump = false;
+            a.wall_climb = false;
         }
     }
 }
@@ -2835,6 +2827,52 @@ mod tests {
             app.world().get::<PortalInputWarp>(player).is_none(),
             "a clearly different direction drops the warp"
         );
+    }
+
+    #[test]
+    fn wall_ability_suppression_reapplies_every_frame_against_the_loadout_reset() {
+        use crate::player::PlayerAbilities;
+        let mut app = App::new();
+        app.init_resource::<SuppressWallAbilitiesInPortal>();
+        // Stand in for the per-frame loadout reset that clobbered the old
+        // save-once suppression: re-enable ledge_grab BEFORE the suppressor runs.
+        fn reenable_ledge_grab(mut q: Query<&mut PlayerAbilities>) {
+            for mut a in &mut q {
+                a.abilities.ledge_grab = true;
+            }
+        }
+        app.add_systems(
+            Update,
+            (reenable_ledge_grab, suppress_ledge_grab_during_transit).chain(),
+        );
+        let player = app
+            .world_mut()
+            .spawn((PlayerEntity, PrimaryPlayer, PlayerAbilities::default()))
+            .id();
+        app.world_mut().get_mut::<PlayerAbilities>(player).unwrap().abilities.ledge_grab = true;
+
+        // Not transiting: the reset wins, ledge_grab stays enabled.
+        app.update();
+        assert!(app.world().get::<PlayerAbilities>(player).unwrap().abilities.ledge_grab);
+
+        // Transiting: even though the reset re-enables it first, the suppressor
+        // re-applies every frame, so it stays disabled across MANY frames.
+        app.world_mut().entity_mut(player).insert(PortalTransit {
+            straddling: PortalColor::Blue,
+            crossed: false,
+        });
+        for _ in 0..5 {
+            app.update();
+            assert!(
+                !app.world().get::<PlayerAbilities>(player).unwrap().abilities.ledge_grab,
+                "ledge_grab must stay suppressed every frame while transiting"
+            );
+        }
+
+        // Transit ends: the per-frame reset restores it (no save/restore needed).
+        app.world_mut().entity_mut(player).remove::<PortalTransit>();
+        app.update();
+        assert!(app.world().get::<PlayerAbilities>(player).unwrap().abilities.ledge_grab);
     }
 
     #[test]

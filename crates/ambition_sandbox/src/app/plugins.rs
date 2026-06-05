@@ -250,6 +250,7 @@ fn register_player_simulation_systems(app: &mut App) {
 /// run in the same `PlayerSimulation` set so a fire/toggle this frame is seen.
 fn register_portal_systems(app: &mut App) {
     app.init_resource::<crate::portal::IntentionalTeleport>();
+    app.init_resource::<crate::portal::SuppressWallAbilitiesInPortal>();
     app.init_resource::<crate::physics::GravityField>();
     app.init_resource::<crate::physics::BaseGravity>();
     app.init_resource::<crate::physics::GravityZones>();

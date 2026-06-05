@@ -225,14 +225,20 @@ feel changes — but they are still departures from a purely ideal portal.
   body touches the opening's thin capture box (face + a small margin), a hair
   before the geometric plane crossing, so the carve can open before the body needs
   to sink. A purely ideal aperture would begin exactly at the plane.
-- **Wall abilities suppressed while transiting** (`suppress_ledge_grab_during_transit`):
-  the carve splits the host block, and the new edges read as grabbable ledges /
-  climbable walls — so without this you can grab or cling "into" a portal (and pop
-  back out the entry instead of crossing). While mid-transit, ledge-grab, wall-
-  cling, wall-jump, and wall-climb are suppressed (the real abilities are saved and
-  restored, and suppression only starts once transit begins — so wall-jumping *up*
-  to reach a portal still works). Grabbing the *outer* rim of a wall portal mid-air
-  is still possible and is not currently considered wrong.
+- **Wall abilities suppressed while transiting** (`suppress_ledge_grab_during_transit`,
+  toggle `SuppressWallAbilitiesInPortal`, default on): the carve splits the host
+  block, and the new edges read as grabbable ledges / climbable walls — so without
+  this you can grab or cling "into" a portal (and pop back out the entry instead of
+  crossing). While mid-transit, ledge-grab, wall-cling, wall-jump, and wall-climb
+  are forced off. It must **re-apply every frame**: `PlayerAbilities` is
+  wholesale-reset to the editable loadout every frame
+  (`sync_live_ability_edits_clusters`), so a set-once/restore pattern is clobbered
+  after one frame (that was a real "disable didn't work" bug). Re-applying each
+  frame is robust and self-restoring (when transit ends the per-frame reset brings
+  the loadout back). The toggle exists because grabbing/climbing *through* a portal
+  may actually be desirable — see the "ledge-grab through portals" item in TODO.md;
+  flip it off to experiment. (The wider smell — transient ability mods fighting a
+  per-frame wholesale reset — is also a TODO.)
 
 ### Debug aids
 

@@ -31,6 +31,7 @@ use ambition_inventory_ui::{
 };
 
 use crate::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
+use crate::persistence::settings::{AudioSettings, UserSettings};
 
 /// Edge page-turn buttons flank the page in the side margins (NOT over the grid),
 /// matching the demo's `add_edge_buttons` rects (`crates/ambition_mock_demo/src/
@@ -145,6 +146,8 @@ pub enum CubeFocus {
     EdgeLeft,
     EdgeRight,
     Item(usize),
+    /// A System-face option row (index into [`SystemOption::ALL`]).
+    System(usize),
 }
 
 impl Default for CubeFocus {
@@ -171,6 +174,117 @@ pub enum CubeAction {
     Equip(Item),
     Use(Item),
     ChangePage(CubePage),
+    /// A toggle/cycle/close on the System face. The host applies it by mutating
+    /// `UserSettings` (see `oot_cube_app::apply_system_option`), which the
+    /// existing `save_settings_on_change` system then persists — no parallel
+    /// persistence path. `SystemOption` is the unit selected by [`CubeFocus::System`].
+    System(SystemOption),
+}
+
+/// The selectable options on the System cube face. Each maps to a real
+/// `UserSettings` field (or the menu itself, for `CloseMenu`). Kept as a flat
+/// `Copy` enum so it rides inside [`CubeAction`] and the [`CubeFocus::System`]
+/// cursor without allocation. Mutation + persistence is the pause menu's single
+/// source of truth (`UserSettings` change detection → `save_settings_on_change`);
+/// see `oot_cube_app::apply_system_option`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SystemOption {
+    ToggleFps,
+    ToggleDebugHud,
+    ToggleQuestHud,
+    ToggleTouchControls,
+    ToggleMute,
+    CycleMasterVolume,
+    CycleMusicVolume,
+    CycleSfxVolume,
+    CycleCameraZoom,
+    CloseMenu,
+}
+
+impl SystemOption {
+    /// Every System option, in display order (top-to-bottom on the face). The
+    /// length drives the System grid's row count and the cursor's clamp.
+    pub const ALL: [SystemOption; 10] = [
+        SystemOption::ToggleFps,
+        SystemOption::ToggleDebugHud,
+        SystemOption::ToggleQuestHud,
+        SystemOption::ToggleTouchControls,
+        SystemOption::ToggleMute,
+        SystemOption::CycleMasterVolume,
+        SystemOption::CycleMusicVolume,
+        SystemOption::CycleSfxVolume,
+        SystemOption::CycleCameraZoom,
+        SystemOption::CloseMenu,
+    ];
+
+    /// The control LABEL for this option, reflecting the CURRENT settings state
+    /// (e.g. "Show FPS: on", "Camera Zoom: combat 800x450"). Volume rows append
+    /// `< >` to signal they cycle, matching the pause menu's slider affordance.
+    pub fn label(self, settings: &UserSettings) -> String {
+        match self {
+            SystemOption::ToggleFps => {
+                format!("Show FPS: {}", on_off(settings.video.show_fps))
+            }
+            SystemOption::ToggleDebugHud => {
+                format!("Debug HUD: {}", on_off(settings.gameplay.debug_hud_visible))
+            }
+            SystemOption::ToggleQuestHud => {
+                format!("Quest HUD: {}", on_off(settings.gameplay.quest_hud_visible))
+            }
+            SystemOption::ToggleTouchControls => format!(
+                "Touch Controls: {}",
+                on_off(settings.controls.touch_controls_visible)
+            ),
+            SystemOption::ToggleMute => format!(
+                "Mute: {}",
+                if settings.audio.muted { "muted" } else { "off" }
+            ),
+            SystemOption::CycleMasterVolume => format!(
+                "Master Volume: {}%  < >",
+                AudioSettings::percent(settings.audio.master_volume)
+            ),
+            SystemOption::CycleMusicVolume => format!(
+                "Music Volume: {}%  < >",
+                AudioSettings::percent(settings.audio.music_volume)
+            ),
+            SystemOption::CycleSfxVolume => format!(
+                "SFX Volume: {}%  < >",
+                AudioSettings::percent(settings.audio.sfx_volume)
+            ),
+            SystemOption::CycleCameraZoom => {
+                format!("Camera Zoom: {}", settings.video.camera_zoom.label())
+            }
+            SystemOption::CloseMenu => "Close Menu".to_string(),
+        }
+    }
+
+    /// One-line detail-panel description of what this option does. Shown in the
+    /// System face's right-hand panel for the focused option.
+    pub fn description(self) -> &'static str {
+        match self {
+            SystemOption::ToggleFps => "Toggle the on-screen frames-per-second counter.",
+            SystemOption::ToggleDebugHud => "Toggle the debug HUD overlay (state, timers).",
+            SystemOption::ToggleQuestHud => "Toggle the quest objective HUD panel.",
+            SystemOption::ToggleTouchControls => {
+                "Show or hide the on-screen touch control pads."
+            }
+            SystemOption::ToggleMute => "Mute or unmute all game audio.",
+            SystemOption::CycleMasterVolume => "Step the master output volume up/down.",
+            SystemOption::CycleMusicVolume => "Step the music volume up/down.",
+            SystemOption::CycleSfxVolume => "Step the sound-effects volume up/down.",
+            SystemOption::CycleCameraZoom => "Cycle the gameplay camera zoom preset.",
+            SystemOption::CloseMenu => "Close this menu and return to the game.",
+        }
+    }
+}
+
+/// Shared "on"/"off" word for boolean rows, matching the pause menu's wording.
+fn on_off(value: bool) -> &'static str {
+    if value {
+        "on"
+    } else {
+        "off"
+    }
 }
 
 /// A short, cell-sized verb hint for an item, mirroring the demo's
@@ -325,6 +439,7 @@ pub fn build_inventory_pages(
     owned: &OwnedItems,
     equipped: Option<Item>,
     focus: CubeFocus,
+    settings: &UserSettings,
 ) -> Vec<MenuPageModel<CubePage, CubeAction>> {
     vec![
         build_items_page(owned, equipped, focus),
@@ -338,8 +453,109 @@ pub fn build_inventory_pages(
             "QUEST",
             "Quest status + key items from save data (host data TODO).",
         ),
-        placeholder_page(CubePage::System, "SYSTEM", "Save / options (TODO)."),
+        build_system_page(settings, focus),
     ]
+}
+
+/// Index of the focused System option, clamped into range. Non-System focuses
+/// (e.g. a stale items cursor) default to the first option so callers always
+/// have a valid row to describe in the detail panel.
+fn system_focus_index(focus: CubeFocus) -> usize {
+    match focus {
+        CubeFocus::System(idx) => idx.min(SystemOption::ALL.len() - 1),
+        _ => 0,
+    }
+}
+
+/// The System cube face: one control per real option in [`SystemOption::ALL`],
+/// each labelled with its CURRENT settings state, plus a right-hand detail panel
+/// describing the focused option and the generic L/R edge buttons (so rotation
+/// still works). Mirrors the items page's grid + detail-panel + edge-button
+/// structure (`add_detail_panel` / `add_edge_buttons`) for visual consistency.
+pub fn build_system_page(
+    settings: &UserSettings,
+    focus: CubeFocus,
+) -> MenuPageModel<CubePage, CubeAction> {
+    let mut model =
+        MenuPageModel::new(CubePage::System, "SYSTEM", MenuColor::rgba(0.03, 0.04, 0.10, 0.96));
+    model.text(
+        40.0,
+        13.0,
+        3.4,
+        "SYSTEM",
+        MenuTextAlign::Center,
+        MenuColor::rgba(1.0, 0.84, 0.38, 1.0),
+    );
+
+    let focused = system_focus_index(focus);
+    let options = SystemOption::ALL;
+    // Lay the option rows out as a single vertical column inside the same
+    // left/centre band the items grid uses (clear of the side arrows). Evenly
+    // spaced between the title and the bottom margin.
+    let count = options.len() as f32;
+    let top = 21.0;
+    let bottom = 74.0;
+    let step = (bottom - top) / count;
+    let row_h = (step * 0.78).min(5.0);
+    for (idx, option) in options.into_iter().enumerate() {
+        let y = top + idx as f32 * step;
+        model.control(
+            MenuRect {
+                x: GRID_RECT.x,
+                y,
+                w: GRID_RECT.w,
+                h: row_h,
+            },
+            MenuControlKind::OptionToggle,
+            option.label(settings),
+            Some(option.description().to_string()),
+            idx == focused,
+            false,
+            Some(CubeAction::System(option)),
+        );
+    }
+
+    add_system_detail_panel(&mut model, settings, focused);
+    add_edge_buttons(&mut model, CubePage::System, focus);
+    model
+}
+
+/// The System face's right-hand detail panel: the focused option's label (its
+/// current state) plus a wrapped description. Reuses the items panel's rect +
+/// styling so the two faces read identically.
+fn add_system_detail_panel(
+    model: &mut MenuPageModel<CubePage, CubeAction>,
+    settings: &UserSettings,
+    focused: usize,
+) {
+    model.panel(
+        DETAIL_PANEL_RECT,
+        MenuColor::rgba(0.035, 0.046, 0.105, 0.96),
+        None,
+    );
+    model.text(
+        79.6,
+        23.0,
+        2.6,
+        "OPTION",
+        MenuTextAlign::Center,
+        MenuColor::rgba(1.0, 0.84, 0.38, 1.0),
+    );
+    let option = SystemOption::ALL[focused.min(SystemOption::ALL.len() - 1)];
+    let mut lines = wrap_text(&option.label(settings), DETAIL_WRAP_COLS);
+    lines.push(String::new());
+    lines.extend(wrap_text(option.description(), DETAIL_WRAP_COLS));
+    lines.truncate(DETAIL_VISIBLE_LINES + 2);
+    for (line_idx, line) in lines.into_iter().enumerate() {
+        model.text(
+            79.6,
+            28.5 + line_idx as f32 * 3.2,
+            1.55,
+            line,
+            MenuTextAlign::Center,
+            MenuColor::rgba(0.88, 0.94, 1.0, 0.96),
+        );
+    }
 }
 
 fn placeholder_page(page: CubePage, title: &str, body: &str) -> MenuPageModel<CubePage, CubeAction> {
@@ -483,6 +699,49 @@ mod tests {
             ambition_inventory_ui::MenuNode::Text { text, .. } if Item::Blink.description().contains(text.as_str()) && !text.is_empty()
         ));
         assert!(has_desc, "detail panel renders the focused item's description");
+    }
+
+    #[test]
+    fn system_page_has_one_control_per_option_with_state_labels() {
+        let mut settings = UserSettings::default();
+        settings.video.show_fps = true;
+        let focus = CubeFocus::System(0);
+        let page = build_system_page(&settings, focus);
+        // One actionable System control per option (edge buttons are also actions
+        // but carry ChangePage, not System).
+        let system_controls = page
+            .nodes
+            .iter()
+            .filter(|n| matches!(
+                n,
+                ambition_inventory_ui::MenuNode::Control { action: Some(CubeAction::System(_)), .. }
+            ))
+            .count();
+        assert_eq!(system_controls, SystemOption::ALL.len());
+
+        // The Show FPS row's label reflects the ON state we set above.
+        let has_on = page.nodes.iter().any(|n| matches!(
+            n,
+            ambition_inventory_ui::MenuNode::Control { action: Some(CubeAction::System(SystemOption::ToggleFps)), label, .. }
+                if label == "Show FPS: on"
+        ));
+        assert!(has_on, "Show FPS row reflects the current ON state");
+
+        // Edge buttons are present so rotation still works.
+        let has_edges = page.nodes.iter().any(|n| matches!(
+            n,
+            ambition_inventory_ui::MenuNode::Control { action: Some(CubeAction::ChangePage(_)), .. }
+        ));
+        assert!(has_edges, "System page keeps the L/R edge buttons");
+    }
+
+    #[test]
+    fn system_option_label_tracks_settings_changes() {
+        let mut settings = UserSettings::default();
+        let off = SystemOption::ToggleQuestHud.label(&settings);
+        settings.gameplay.quest_hud_visible = !settings.gameplay.quest_hud_visible;
+        let on = SystemOption::ToggleQuestHud.label(&settings);
+        assert_ne!(off, on, "toggling the setting changes the row label");
     }
 
     #[test]

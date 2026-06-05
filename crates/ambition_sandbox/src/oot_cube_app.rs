@@ -16,8 +16,9 @@ use bevy::prelude::*;
 
 use crate::input::MenuControlFrame;
 use crate::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
-use crate::oot_cube::{build_inventory_pages, CubeAction, CubeFocus, CubePage};
+use crate::oot_cube::{build_inventory_pages, CubeAction, CubeFocus, CubePage, SystemOption};
 use crate::oot_menu::input::{dispatch_item_confirm, MenuEffectManaQuery, MenuEffectPlayers};
+use crate::persistence::settings::{AudioSettings, UserSettings};
 use crate::player::PlayerHealRequested;
 
 /// Which inventory frontend renders. Runtime toggle (both compiled in); defaults to
@@ -149,6 +150,7 @@ fn cube_focus_nav(
     // separate `Res<InventoryUiState>` would be a B0002 conflict with this `ResMut`).
     mut overlay: ResMut<crate::inventory::InventoryUiState>,
     mut owned: ResMut<OwnedItems>,
+    mut settings: ResMut<UserSettings>,
     mut commands: Commands,
     mut players: MenuEffectPlayers,
     mut mana_q: MenuEffectManaQuery,
@@ -165,8 +167,19 @@ fn cube_focus_nav(
     let dx = (menu.right as i32) - (menu.left as i32);
     let dy = (menu.down as i32) - (menu.up as i32);
 
-    // Non-items faces only respond to horizontal page turns (matches the demo's
-    // early branch in move_spatial).
+    // The System face is an interactive option list: UP/DOWN move the cursor
+    // between rows, LEFT/RIGHT at the column edges turn the page (or step a
+    // value), and SELECT applies the focused option.
+    if active_page == CubePage::System {
+        system_focus_nav(
+            &menu, dx, dy, &mut cursor, &mut pages, &mut overlay, &mut settings, active_page,
+            &mut owned, &mut commands, &mut players, &mut mana_q, &mut heals,
+        );
+        return;
+    }
+
+    // Other non-items faces only respond to horizontal page turns (matches the
+    // demo's early branch in move_spatial).
     if active_page != CubePage::Items {
         if dx < 0 {
             turn_page(&mut pages, active_page.on_viewer_left());
@@ -205,18 +218,139 @@ fn cube_focus_nav(
             CubeFocus::EdgeLeft => Some(CubeAction::ChangePage(active_page.on_viewer_left())),
             CubeFocus::EdgeRight => Some(CubeAction::ChangePage(active_page.on_viewer_right())),
             CubeFocus::Item(idx) => owned_item_action(&owned, idx),
+            // System focus is handled by the System branch above; never reached here.
+            CubeFocus::System(_) => None,
         };
         if let Some(action) = action {
+            let mut close_menu = false;
             dispatch_cube_action(
                 action,
                 &mut pages,
                 &mut owned,
+                &mut settings,
+                &mut close_menu,
                 &mut commands,
                 &mut players,
                 &mut mana_q,
                 &mut heals,
             );
+            if close_menu {
+                overlay.visible = false;
+            }
         }
+    }
+}
+
+/// Directional navigation + select for the System face. UP/DOWN move the cursor
+/// over [`SystemOption::ALL`]; from the leftmost/rightmost edge LEFT/RIGHT turns
+/// the page; SELECT applies the focused option (volume/zoom rows also respond to
+/// LEFT/RIGHT to step). `back` closes the menu. Mutations go through
+/// [`apply_system_option`] so persistence stays in one place.
+#[allow(clippy::too_many_arguments)]
+fn system_focus_nav(
+    menu: &MenuControlFrame,
+    dx: i32,
+    dy: i32,
+    cursor: &mut CubeCursor,
+    pages: &mut ActiveMenuPages<CubePage, CubeAction>,
+    overlay: &mut crate::inventory::InventoryUiState,
+    settings: &mut UserSettings,
+    active_page: CubePage,
+    owned: &mut OwnedItems,
+    commands: &mut Commands,
+    players: &mut MenuEffectPlayers,
+    mana_q: &mut MenuEffectManaQuery,
+    heals: &mut MessageWriter<PlayerHealRequested>,
+) {
+    let count = SystemOption::ALL.len() as i32;
+    // Normalise the cursor onto a System row (it may arrive as an items/edge focus
+    // after a page turn).
+    let mut row = match cursor.focus {
+        CubeFocus::System(idx) => idx as i32,
+        _ => 0,
+    };
+
+    if dy != 0 {
+        row = (row + dy).clamp(0, count - 1);
+        cursor.focus = CubeFocus::System(row as usize);
+    }
+
+    let option = SystemOption::ALL[row.max(0).min(count - 1) as usize];
+
+    if dx != 0 {
+        // LEFT/RIGHT step value rows in place; for non-value rows they turn the page.
+        let is_value_row = matches!(
+            option,
+            SystemOption::CycleMasterVolume
+                | SystemOption::CycleMusicVolume
+                | SystemOption::CycleSfxVolume
+                | SystemOption::CycleCameraZoom
+        );
+        if is_value_row {
+            apply_system_option_step(option, dx, settings);
+        } else if dx < 0 {
+            turn_page(pages, active_page.on_viewer_left());
+            cursor.focus = CubeFocus::System(0);
+        } else {
+            turn_page(pages, active_page.on_viewer_right());
+            cursor.focus = CubeFocus::System(0);
+        }
+    }
+
+    if menu.back {
+        overlay.visible = false;
+        return;
+    }
+
+    if menu.select {
+        let mut close_menu = false;
+        dispatch_cube_action(
+            CubeAction::System(option),
+            pages,
+            owned,
+            settings,
+            &mut close_menu,
+            commands,
+            players,
+            mana_q,
+            heals,
+        );
+        if close_menu {
+            overlay.visible = false;
+        }
+    }
+}
+
+/// Apply a signed LEFT/RIGHT step to a value-style System option (volume up/down,
+/// camera-zoom prev/next). Toggle/close rows ignore stepping (they only respond
+/// to SELECT). Persistence is automatic via `UserSettings` change detection.
+fn apply_system_option_step(option: SystemOption, dx: i32, settings: &mut UserSettings) {
+    match option {
+        SystemOption::CycleMasterVolume => {
+            settings.audio.nudge_master(step_sign(dx) * AudioSettings::VOLUME_STEP);
+        }
+        SystemOption::CycleMusicVolume => {
+            settings.audio.nudge_music(step_sign(dx) * AudioSettings::VOLUME_STEP);
+        }
+        SystemOption::CycleSfxVolume => {
+            settings.audio.nudge_sfx(step_sign(dx) * AudioSettings::VOLUME_STEP);
+        }
+        SystemOption::CycleCameraZoom => {
+            settings.video.camera_zoom = if dx < 0 {
+                settings.video.camera_zoom.prev()
+            } else {
+                settings.video.camera_zoom.next()
+            };
+        }
+        _ => {}
+    }
+}
+
+fn step_sign(dx: i32) -> f32 {
+    if dx < 0 {
+        -1.0
+    } else {
+        1.0
     }
 }
 
@@ -277,6 +411,9 @@ fn move_spatial(focus: CubeFocus, dx: i32, dy: i32, _page: CubePage) -> SpatialM
             let next_row = (row + dy).clamp(0, rows - 1);
             SpatialMove::Focus(CubeFocus::Item((next_row * cols + next_col) as usize))
         }
+        // `move_spatial` is only invoked on the Items face; a System focus here
+        // would be a logic error — re-enter the grid at slot 0 to stay safe.
+        CubeFocus::System(_) => SpatialMove::Focus(CubeFocus::Item(0)),
     }
 }
 
@@ -310,6 +447,8 @@ fn dispatch_cube_action(
     action: CubeAction,
     pages: &mut ActiveMenuPages<CubePage, CubeAction>,
     owned: &mut OwnedItems,
+    settings: &mut UserSettings,
+    close_menu: &mut bool,
     commands: &mut Commands,
     players: &mut MenuEffectPlayers,
     mana_q: &mut MenuEffectManaQuery,
@@ -324,6 +463,65 @@ fn dispatch_cube_action(
             pages.active = Some(page);
             info!("cube page \u{2192} {:?}", page);
         }
+        CubeAction::System(option) => {
+            apply_system_option(option, settings, close_menu);
+        }
+    }
+}
+
+/// Apply a System-face option by mutating `UserSettings` (toggles flip the bool;
+/// volume rows step via the audio settings' own `nudge_*` clamping helpers; the
+/// camera-zoom row cycles the preset enum). Persistence is NOT re-implemented
+/// here: the existing `save_settings_on_change` system writes `settings.ron`
+/// whenever `UserSettings` changes, so mutating the resource is the whole job.
+/// `CloseMenu` raises `close_menu` for the caller to fold back into the overlay.
+fn apply_system_option(option: SystemOption, settings: &mut UserSettings, close_menu: &mut bool) {
+    match option {
+        SystemOption::ToggleFps => settings.video.show_fps = !settings.video.show_fps,
+        SystemOption::ToggleDebugHud => {
+            settings.gameplay.debug_hud_visible = !settings.gameplay.debug_hud_visible;
+        }
+        SystemOption::ToggleQuestHud => {
+            settings.gameplay.quest_hud_visible = !settings.gameplay.quest_hud_visible;
+        }
+        SystemOption::ToggleTouchControls => {
+            settings.controls.touch_controls_visible = !settings.controls.touch_controls_visible;
+        }
+        SystemOption::ToggleMute => settings.audio.toggle_mute(),
+        // Volume rows confirm-cycle UP by one step (wrapping at the ceiling), so a
+        // single select/tap keeps stepping the value the way a slider would. The
+        // audio settings' own `nudge_*` helpers do the clamping + mute coupling.
+        SystemOption::CycleMasterVolume => {
+            settings.audio.master_volume = step_volume(settings.audio.master_volume);
+            // Raising master while muted unmutes, matching `nudge_master`.
+            if settings.audio.master_volume > 0.0 && settings.audio.muted {
+                settings.audio.muted = false;
+            }
+        }
+        SystemOption::CycleMusicVolume => {
+            settings.audio.music_volume = step_volume(settings.audio.music_volume);
+        }
+        SystemOption::CycleSfxVolume => {
+            settings.audio.sfx_volume = step_volume(settings.audio.sfx_volume);
+        }
+        SystemOption::CycleCameraZoom => {
+            settings.video.camera_zoom = settings.video.camera_zoom.next();
+        }
+        SystemOption::CloseMenu => *close_menu = true,
+    }
+    info!("cube system option: {:?}", option);
+}
+
+/// Step a 0..=1 volume up by one `AudioSettings::VOLUME_STEP`, wrapping back to
+/// 0 once it passes the ceiling. Single-select "cycle" behaviour for the System
+/// face's volume rows (no L/R needed).
+fn step_volume(current: f32) -> f32 {
+    let step = AudioSettings::VOLUME_STEP;
+    let next = current + step;
+    if next > 1.0 + step * 0.5 {
+        0.0
+    } else {
+        next.clamp(0.0, 1.0)
     }
 }
 
@@ -340,6 +538,13 @@ fn focus_for_action(action: CubeAction, active_page: CubePage) -> CubeFocus {
             } else {
                 CubeFocus::EdgeRight
             }
+        }
+        CubeAction::System(option) => {
+            let idx = SystemOption::ALL
+                .iter()
+                .position(|o| *o == option)
+                .unwrap_or(0);
+            CubeFocus::System(idx)
         }
     }
 }
@@ -371,17 +576,18 @@ fn cube_pointer_over(
 fn cube_pointer_click(
     click: On<Pointer<Click>>,
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Res<crate::inventory::InventoryUiState>>,
+    mut ui_state: Option<ResMut<crate::inventory::InventoryUiState>>,
     controls: Query<&AmbitionMenuControl<CubeAction>>,
     mut pages: ResMut<ActiveMenuPages<CubePage, CubeAction>>,
     mut cursor: ResMut<CubeCursor>,
     mut owned: ResMut<OwnedItems>,
+    mut settings: ResMut<UserSettings>,
     mut commands: Commands,
     mut players: MenuEffectPlayers,
     mut mana_q: MenuEffectManaQuery,
     mut heals: MessageWriter<PlayerHealRequested>,
 ) {
-    let open = ui_state.map(|s| s.visible).unwrap_or(false);
+    let open = ui_state.as_deref().map(|s| s.visible).unwrap_or(false);
     if *backend != InventoryUiBackend::Cube || !open {
         return;
     }
@@ -390,15 +596,23 @@ fn cube_pointer_click(
             if let Some(active_page) = pages.active {
                 cursor.focus = focus_for_action(action, active_page);
             }
+            let mut close_menu = false;
             dispatch_cube_action(
                 action,
                 &mut pages,
                 &mut owned,
+                &mut settings,
+                &mut close_menu,
                 &mut commands,
                 &mut players,
                 &mut mana_q,
                 &mut heals,
             );
+            if close_menu {
+                if let Some(ui_state) = ui_state.as_deref_mut() {
+                    ui_state.visible = false;
+                }
+            }
         }
     }
 }
@@ -475,6 +689,10 @@ fn republish_cube_pages(
     backend: Res<InventoryUiBackend>,
     ui_state: Option<Res<crate::inventory::InventoryUiState>>,
     owned: Option<Res<OwnedItems>>,
+    // Read-only here. The mutators (`cube_focus_nav`, `cube_pointer_click`) take
+    // `ResMut<UserSettings>` in SEPARATE systems, so this `Res` is not a B0002
+    // conflict; `UserSettings` is inserted at startup so the `Res` never panics.
+    settings: Res<UserSettings>,
     cursor: Res<CubeCursor>,
     mut pages: ResMut<ActiveMenuPages<CubePage, CubeAction>>,
     mut was_open: Local<bool>,
@@ -491,10 +709,12 @@ fn republish_cube_pages(
     *was_open = open;
 
     let key = (cursor.focus, pages.active);
-    // Republish on: catalog change, first publish, menu-open (textures that loaded
+    // Republish on: catalog change, settings change (so a toggled System option's
+    // label updates immediately), first publish, menu-open (textures that loaded
     // after the initial build get picked up), cursor move, or page change. The
     // open case fixes icons rendering blank until the first rotate.
     let dirty = owned.is_changed()
+        || settings.is_changed()
         || pages.pages.is_empty()
         || just_opened
         || *last != Some(key);
@@ -504,6 +724,6 @@ fn republish_cube_pages(
     *last = Some(key);
 
     let active = pages.active.unwrap_or(CubePage::Items);
-    pages.pages = build_inventory_pages(&owned, owned.equipped(), cursor.focus);
+    pages.pages = build_inventory_pages(&owned, owned.equipped(), cursor.focus, &settings);
     pages.active = Some(active);
 }

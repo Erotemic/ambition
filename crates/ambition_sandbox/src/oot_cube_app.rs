@@ -706,7 +706,12 @@ fn gate_cube_menu(
     // AMOUNT (not the binary `show`) so the close-fold animation stays on-screen
     // until the cube has fully folded shut.
     open_state.target = if show { 1.0 } else { 0.0 };
-    let shown = open_state.amount > 0.002;
+    // Hide the camera/ring once the close-fold has decayed past a sizable cutoff
+    // (not a near-zero `0.002`) so the slow fold/scrim TAIL is cut and the menu
+    // clears snappily. Combined with the lib's faster close decay
+    // (`close_speed_scale`), the scrim (which follows `amount`) reads as a quick
+    // fade-out. The cutoff only matters while CLOSING; opening crosses it instantly.
+    let shown = open_state.amount > 0.08;
     // Option 1 overlay experiment: toggle ONLY the cube camera and LEAVE the game's
     // 2D camera active, so the live world renders behind the cube (which now clears
     // None). This is the configuration we previously avoided (sole-camera) to dodge

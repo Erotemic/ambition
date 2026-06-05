@@ -954,8 +954,28 @@ pub enum TransitStep {
     Continue,
 }
 
+/// The somersault roll a body picks up crossing a portal pair. It is the
+/// on-screen turn from [`portal_transit_roll`] — EXCEPT a pure turn-around in
+/// the gravity-perpendicular plane (wall↔wall under normal gravity) imparts NO
+/// tumble: the body stays gravity-upright and just reverses facing, so it comes
+/// out the far wall already correctly oriented. Crossing a floor / ceiling
+/// (normal along gravity) keeps the genuine tumble (feet-in → reorient).
+pub fn somersault_roll(n_in: Vec2, n_out: Vec2, gravity_dir: Vec2) -> f32 {
+    let g = gravity_dir.normalize_or_zero();
+    // A portal whose normal is perpendicular to gravity sits on a wall; the body
+    // enters/leaves it moving horizontally, so the transit is a turn-around, not
+    // a tumble.
+    let in_wall = n_in.normalize_or_zero().dot(g).abs() < 0.5;
+    let out_wall = n_out.normalize_or_zero().dot(g).abs() < 0.5;
+    if in_wall && out_wall {
+        return 0.0;
+    }
+    portal_transit_roll(n_in, n_out)
+}
+
 /// Compute the transit step for a body. See [`TransitStep`]. `cooldown` is the
-/// body's post-jump latch (player gun cooldown / actor [`PortalCooldown`]).
+/// body's post-jump latch (player gun cooldown / actor [`PortalCooldown`]);
+/// `gravity_dir` selects whether a transit tumbles or just turns around.
 pub fn transit_step(
     center: Vec2,
     size: Vec2,
@@ -964,6 +984,7 @@ pub fn transit_step(
     cooldown: f32,
     blue: Portal,
     orange: Portal,
+    gravity_dir: Vec2,
 ) -> TransitStep {
     let body = ae::Aabb::new(center, size * 0.5);
     let pair_for = |c: PortalColor| match c {
@@ -1013,10 +1034,11 @@ pub fn transit_step(
                 return TransitStep::Transfer {
                     pos: pp::map_point(center, &ef, &xf),
                     vel: vel_out,
-                    // The body picks up the on-screen turn it travels through, the
-                    // same somersault the old teleport applied; `update_actor_roll`
-                    // then eases it back to gravity-upright (feet-in → reorient).
-                    roll_delta: portal_transit_roll(enter.normal, exit.normal),
+                    // The body picks up the on-screen turn it travels through
+                    // (a tumble for floor/ceiling, nothing for a wall↔wall
+                    // turn-around); `update_actor_roll` then eases it back to
+                    // gravity-upright (feet-in → reorient).
+                    roll_delta: somersault_roll(enter.normal, exit.normal, gravity_dir),
                     exit_color: exit.color,
                     exit_pos: exit.pos,
                 };
@@ -1053,6 +1075,7 @@ pub fn portal_transit_system(
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     portals: Query<&Portal>,
+    gravity: Option<Res<crate::physics::GravityField>>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
     mut intentional: Option<ResMut<IntentionalTeleport>>,
 ) {
@@ -1074,6 +1097,7 @@ pub fn portal_transit_system(
         }
         return;
     };
+    let gravity_dir = gravity.map_or(Vec2::new(0.0, 1.0), |g| g.dir);
     let step = transit_step(
         kin.pos,
         kin.size,
@@ -1082,6 +1106,7 @@ pub fn portal_transit_system(
         gun.teleport_cooldown,
         blue,
         orange,
+        gravity_dir,
     );
     match step {
         TransitStep::Idle | TransitStep::Continue => {}
@@ -1291,11 +1316,13 @@ pub fn portal_transit_actors(
         Option<&mut ActorRoll>,
         Option<&PortalCooldown>,
     )>,
+    gravity: Option<Res<crate::physics::GravityField>>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     let Some((blue, orange)) = portal_pair(portals.iter()) else {
         return;
     };
+    let gravity_dir = gravity.map_or(Vec2::new(0.0, 1.0), |g| g.dir);
 
     for (entity, kin, mut transit, mut roll, cooldown) in &mut actors {
         let kin = kin.into_inner();
@@ -1307,6 +1334,7 @@ pub fn portal_transit_actors(
             cooldown.map_or(0.0, |c| c.0),
             blue,
             orange,
+            gravity_dir,
         );
         apply_actor_transit(
             &mut commands,
@@ -1332,6 +1360,7 @@ pub fn portal_transit_actors(
             cooldown.map_or(0.0, |c| c.0),
             blue,
             orange,
+            gravity_dir,
         );
         apply_actor_transit(
             &mut commands,
@@ -1409,24 +1438,26 @@ pub struct PortalVisual;
 #[derive(Component)]
 pub struct PortalBodyPiece;
 
-/// Render the player as TWO clipped spatial pieces while it is mid-transit
-/// through a portal: the slice still on the entry side, drawn at the entry, and
-/// the slice that has crossed, drawn emerging (rotated through the pair) from the
-/// exit. This is the visible "feet in, feet out" — some percent of the body is
-/// shown on the far side instead of an instantaneous teleport. The authoritative
-/// character sprite is hidden for the brief crossing so the body never doubles
-/// up. (Silhouette quads for now; texture-accurate clipping is a polish pass —
-/// the atlas frame + feet anchor make pixel cropping fiddly.)
+/// Render the player mid-transit as the body in BOTH charts: the real sprite at
+/// the entry, a second copy of the sprite emerging from the exit (rotated by the
+/// somersault the body is taking), and an opaque box over the **invisible /
+/// intangible** slice of each — the part of the entry sprite that has sunk
+/// through the portal plane (into the wall), and the part of the exit copy that
+/// has not yet emerged. So the visible part of each shows the real character art
+/// and the through-the-wall part is masked off ("feet in, feet out"). Drawing
+/// the sprite twice + masking sidesteps texture clipping until we tune visuals.
 pub fn sync_portal_body_pieces(
     mut commands: Commands,
     world: Res<GameWorld>,
     pieces: Query<Entity, With<PortalBodyPiece>>,
     portals: Query<&Portal>,
+    gravity: Option<Res<crate::physics::GravityField>>,
     mut player: Query<
         (
             &PlayerKinematics,
             Option<&PortalTransit>,
             Option<&ActorRoll>,
+            &Sprite,
             &mut Visibility,
         ),
         With<crate::presentation::rendering::PlayerVisual>,
@@ -1435,53 +1466,69 @@ pub fn sync_portal_body_pieces(
     for entity in &pieces {
         commands.entity(entity).despawn();
     }
-    let Ok((kin, transit, roll, mut visibility)) = player.single_mut() else {
+    let Ok((kin, transit, roll, sprite, mut visibility)) = player.single_mut() else {
         return;
     };
+    // The real character sprite always shows now (no hiding) — the masks below
+    // cover only the parts that have passed through a portal.
+    *visibility = Visibility::Inherited;
     let pair = portal_pair(portals.iter());
     let (Some(_transit), Some((blue, orange))) = (transit, pair) else {
-        // Not transiting (or the pair is gone): show the real character sprite.
-        *visibility = Visibility::Inherited;
         return;
     };
     let body = ae::Aabb::new(kin.pos, kin.size * 0.5);
-    // Decompose via the tested Core-invariant function so the slices here can
-    // never drift from the collision / gameplay decomposition.
+    // Decompose via the tested Core-invariant function so these slices can never
+    // drift from the collision / gameplay decomposition.
     let pieces = pp::compute_body_pieces(body, Some((blue.frame(), orange.frame())));
     let Some(through) = pieces.through else {
-        // Touching a portal but nothing has crossed the plane yet — the whole
-        // body is still on this side, so show the real sprite uncut.
-        *visibility = Visibility::Inherited;
+        // Touching a portal but nothing has crossed the plane yet.
         return;
     };
-    // Part of the body has crossed: hide the real sprite and stand in two clipped
-    // pieces — the `here` slice at the entry and the `through` slice emerging from
-    // the exit. (Silhouette quads for now; texture-accurate clipping is a polish
-    // pass — the atlas frame + feet anchor make pixel cropping fiddly.)
-    *visibility = Visibility::Hidden;
+    let (enter, exit) = (through.enter, through.exit);
     let base_roll = roll.map_or(0.0, |r| r.angle);
-    let color = Color::srgb(0.80, 0.95, 1.0);
-    // Entry-side slice — at the body's current roll.
-    let here_translation =
-        crate::config::world_to_bevy(&world.0, pieces.here.center(), crate::config::WORLD_Z_PLAYER);
+    let gravity_dir = gravity.map_or(Vec2::new(0.0, 1.0), |g| g.dir);
+    // Opaque mask over the invisible/intangible slice (per Jon's note: the box
+    // belongs over the part you should NOT see).
+    let mask_color = Color::srgb(0.80, 0.95, 1.0);
+    let mask_z = crate::config::WORLD_Z_PLAYER + 1.0;
+
+    // Exit copy: the whole sprite emerging from the exit, mapped + rotated by the
+    // somersault it is taking (none for a wall↔wall turn-around).
+    let exit_center = pp::map_point(kin.pos, &enter, &exit);
+    let exit_roll = base_roll + somersault_roll(enter.normal, exit.normal, gravity_dir);
+    let exit_translation =
+        crate::config::world_to_bevy(&world.0, exit_center, crate::config::WORLD_Z_PLAYER);
     commands.spawn((
         PortalBodyPiece,
-        Sprite::from_color(color, pieces.here.half_size() * 2.0),
-        Transform::from_translation(here_translation)
-            .with_rotation(Quat::from_rotation_z(base_roll)),
-        Name::new("Portal body piece (entry)"),
+        sprite.clone(),
+        Transform::from_translation(exit_translation)
+            .with_rotation(Quat::from_rotation_z(exit_roll)),
+        Name::new("Portal body copy (exit)"),
     ));
-    // Exit-side slice — the mapped AABB is already axis-aligned in the exit chart
-    // (the 90° swap is baked into its dimensions), so a silhouette quad sized to
-    // it sits correctly without an extra rotation.
-    let through_translation =
-        crate::config::world_to_bevy(&world.0, through.aabb.center(), crate::config::WORLD_Z_PLAYER);
-    commands.spawn((
-        PortalBodyPiece,
-        Sprite::from_color(color, through.aabb.half_size() * 2.0),
-        Transform::from_translation(through_translation),
-        Name::new("Portal body piece (exit)"),
-    ));
+
+    // Entry mask: the slice of the real sprite that has sunk THROUGH the entry
+    // plane (into the wall) — invisible on this side.
+    if let Some(hidden) = pp::clip_halfspace(body, enter.pos, -enter.normal) {
+        let translation = crate::config::world_to_bevy(&world.0, hidden.center(), mask_z);
+        commands.spawn((
+            PortalBodyPiece,
+            Sprite::from_color(mask_color, hidden.half_size() * 2.0),
+            Transform::from_translation(translation),
+            Name::new("Portal mask (entry, through-wall)"),
+        ));
+    }
+    // Exit mask: the slice of the exit copy that has NOT yet emerged (still behind
+    // the exit plane) — invisible until it comes out.
+    let exit_body = pp::map_aabb(body, &enter, &exit);
+    if let Some(hidden) = pp::clip_halfspace(exit_body, exit.pos, -exit.normal) {
+        let translation = crate::config::world_to_bevy(&world.0, hidden.center(), mask_z);
+        commands.spawn((
+            PortalBodyPiece,
+            Sprite::from_color(mask_color, hidden.half_size() * 2.0),
+            Transform::from_translation(translation),
+            Name::new("Portal mask (exit, not-yet-emerged)"),
+        ));
+    }
 }
 
 /// Loaded portal-gun art: the blue / orange mode sprites. Visible build only.
@@ -1954,6 +2001,23 @@ mod tests {
     }
 
     #[test]
+    fn somersault_is_suppressed_for_a_wall_to_wall_turn_around() {
+        use std::f32::consts::PI;
+        let g = Vec2::new(0.0, 1.0); // gravity down
+        let up = Vec2::new(0.0, -1.0); // floor normal
+        let down = Vec2::new(0.0, 1.0); // ceiling normal
+        let left = Vec2::new(-1.0, 0.0); // right-wall normal
+        // Floor↔floor and ceiling↔ceiling KEEP the 180° tumble (feet-in → reorient).
+        assert!((somersault_roll(up, up, g).abs() - PI).abs() < 1e-5);
+        assert!((somersault_roll(down, down, g).abs() - PI).abs() < 1e-5);
+        // Two portals on the SAME wall (both normals horizontal) impart NO tumble —
+        // the body just turns around and comes out upright.
+        assert!(somersault_roll(left, left, g).abs() < 1e-5);
+        // A floor→wall pair still tumbles 90° (it genuinely reorients).
+        assert!(somersault_roll(up, left, g).abs() > 1.0);
+    }
+
+    #[test]
     fn portal_transit_roll_is_general_and_matches_on_screen_turn() {
         use std::f32::consts::{FRAC_PI_2, PI};
         let up = Vec2::new(0.0, -1.0); // floor portal faces up (y-down world)
@@ -2344,7 +2408,7 @@ mod tests {
     }
 
     #[test]
-    fn partial_render_hides_the_real_sprite_and_spawns_two_pieces() {
+    fn partial_render_keeps_the_sprite_and_masks_the_through_slice() {
         use crate::presentation::rendering::PlayerVisual;
         let mut app = App::new();
         app.insert_resource(world_with_two_walls());
@@ -2374,21 +2438,25 @@ mod tests {
                     base_size: Vec2::new(24.0, 40.0),
                     facing: 1.0,
                 },
+                Sprite::from_color(Color::WHITE, Vec2::new(24.0, 40.0)),
                 Visibility::Inherited,
                 PortalTransit { straddling: PortalColor::Blue, crossed: false },
             ))
             .id();
         app.update();
+        // The real sprite stays visible — only the through-wall slice is masked.
         assert_eq!(
             *app.world().get::<Visibility>(player).unwrap(),
-            Visibility::Hidden,
-            "the real character sprite is hidden while a slice has crossed"
+            Visibility::Inherited,
+            "the real character sprite is NOT hidden; the box masks the invisible part"
         );
+        // An exit copy of the sprite + a mask over each invisible slice (entry
+        // through-wall + exit not-yet-emerged) = three transient pieces.
         let pieces = {
             let mut q = app.world_mut().query::<&PortalBodyPiece>();
             q.iter(app.world()).count()
         };
-        assert_eq!(pieces, 2, "exactly two clipped pieces (entry slice + exit slice)");
+        assert_eq!(pieces, 3, "exit sprite copy + entry mask + exit mask");
     }
 
     #[test]

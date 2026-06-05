@@ -30,19 +30,95 @@ use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
 use crate::portal_pieces::{self as pp, PortalFrame};
 use crate::GameWorld;
 
-/// Which of the two linked portals.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// A portal's color. Portals are linked into PAIRS by complementary color (one
+/// of each), so several independent pairs can exist at once: the gun fires the
+/// **Blue↔Orange** pair, and authored test rooms place other pairs
+/// (Purple↔Yellow, Teal↔Red, Green↔Magenta) so it's clear at a glance which two
+/// portals are linked. [`partner`](Self::partner) gives the linked color.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum PortalColor {
     Blue,
     Orange,
+    Purple,
+    Yellow,
+    Teal,
+    Red,
+    Green,
+    Magenta,
 }
 
 impl PortalColor {
-    pub fn other(self) -> Self {
+    /// The complementary color this portal is linked to (its pair partner).
+    pub fn partner(self) -> Self {
+        use PortalColor::*;
         match self {
-            PortalColor::Blue => PortalColor::Orange,
-            PortalColor::Orange => PortalColor::Blue,
+            Blue => Orange,
+            Orange => Blue,
+            Purple => Yellow,
+            Yellow => Purple,
+            Teal => Red,
+            Red => Teal,
+            Green => Magenta,
+            Magenta => Green,
         }
+    }
+
+    /// Back-compat alias for [`partner`](Self::partner) (the gun's blue↔orange toggle).
+    pub fn other(self) -> Self {
+        self.partner()
+    }
+
+    /// True for the gun's pair — the only one the portal gun fires / owns, so the
+    /// only one that despawns when the gun is gone. Authored pairs persist.
+    pub fn is_gun_pair(self) -> bool {
+        matches!(self, PortalColor::Blue | PortalColor::Orange)
+    }
+
+    /// `(rim, core)` display colors for the portal bar — partners are visibly
+    /// complementary so a linked pair reads as a pair.
+    pub fn display(self) -> (Color, Color) {
+        use PortalColor::*;
+        match self {
+            Blue => (Color::srgb(0.30, 0.62, 1.0), Color::srgb(0.74, 0.92, 1.0)),
+            Orange => (Color::srgb(1.0, 0.55, 0.20), Color::srgb(1.0, 0.86, 0.55)),
+            Purple => (Color::srgb(0.55, 0.30, 0.95), Color::srgb(0.82, 0.66, 1.0)),
+            Yellow => (Color::srgb(0.95, 0.85, 0.18), Color::srgb(1.0, 0.96, 0.66)),
+            Teal => (Color::srgb(0.13, 0.76, 0.70), Color::srgb(0.64, 0.96, 0.92)),
+            Red => (Color::srgb(0.92, 0.22, 0.25), Color::srgb(1.0, 0.62, 0.62)),
+            Green => (Color::srgb(0.28, 0.80, 0.35), Color::srgb(0.72, 0.96, 0.74)),
+            Magenta => (Color::srgb(0.92, 0.25, 0.80), Color::srgb(1.0, 0.70, 0.95)),
+        }
+    }
+
+    /// Lowercase name, used in logs and as the LDtk authoring token.
+    pub fn name(self) -> &'static str {
+        use PortalColor::*;
+        match self {
+            Blue => "blue",
+            Orange => "orange",
+            Purple => "purple",
+            Yellow => "yellow",
+            Teal => "teal",
+            Red => "red",
+            Green => "green",
+            Magenta => "magenta",
+        }
+    }
+
+    /// Parse a color from its [`name`](Self::name) (LDtk authoring). Case-insensitive.
+    pub fn from_name(s: &str) -> Option<Self> {
+        use PortalColor::*;
+        Some(match s.trim().to_ascii_lowercase().as_str() {
+            "blue" => Blue,
+            "orange" => Orange,
+            "purple" => Purple,
+            "yellow" => Yellow,
+            "teal" => Teal,
+            "red" => Red,
+            "green" => Green,
+            "magenta" => Magenta,
+            _ => return None,
+        })
     }
 }
 
@@ -93,20 +169,12 @@ impl Portal {
     }
 }
 
-/// The linked portal frames `(blue, orange)` if BOTH are placed — the pair the
-/// transit + carve logic needs. A lone portal has no exit, so nothing happens
-/// (and crucially its host surface is NOT carved, so you can't fall through a
-/// one-sided floor portal into the void).
-fn portal_pair<'a>(portals: impl IntoIterator<Item = &'a Portal>) -> Option<(Portal, Portal)> {
-    let mut blue = None;
-    let mut orange = None;
-    for p in portals {
-        match p.color {
-            PortalColor::Blue => blue = Some(*p),
-            PortalColor::Orange => orange = Some(*p),
-        }
-    }
-    Some((blue?, orange?))
+/// The placed portal of `color`, if any.
+fn find_portal<'a>(
+    portals: impl IntoIterator<Item = &'a Portal>,
+    color: PortalColor,
+) -> Option<Portal> {
+    portals.into_iter().find(|p| p.color == color).copied()
 }
 
 /// A portal opening is the SAME size in every orientation: a doorway
@@ -242,26 +310,27 @@ pub fn raycast_through_portals(
         return None;
     }
     let mut budget = max_dist;
-    let pair = portal_pair(portals.iter());
     for _ in 0..=max_depth {
         let solid = raycast_solids(world, origin, dir, budget, include_one_way);
         let solid_t = solid
             .map(|(hit, _)| (hit - origin).length())
             .unwrap_or(f32::INFINITY);
-        // Nearest portal face the ray ENTERS (front side) before that solid.
+        // Nearest portal face the ray ENTERS (front side) before that solid —
+        // across ALL placed pairs, each portal redirecting to its partner.
         let mut nearest: Option<(f32, Portal, Portal)> = None;
-        if let Some((blue, orange)) = pair {
-            for (enter, exit) in [(blue, orange), (orange, blue)] {
-                // Only enter through the front of the face (moving into it).
-                if dir.dot(enter.normal) >= 0.0 {
-                    continue;
-                }
-                if let Some((t, _)) =
-                    ray_aabb(origin, dir, ae::Aabb::new(enter.pos, enter.half_extent))
-                {
-                    if t <= budget && t < solid_t && nearest.map_or(true, |(bt, _, _)| t < bt) {
-                        nearest = Some((t, enter, exit));
-                    }
+        for enter in portals {
+            let Some(exit) = find_portal(portals, enter.color.partner()) else {
+                continue;
+            };
+            // Only enter through the front of the face (moving into it).
+            if dir.dot(enter.normal) >= 0.0 {
+                continue;
+            }
+            if let Some((t, _)) =
+                ray_aabb(origin, dir, ae::Aabb::new(enter.pos, enter.half_extent))
+            {
+                if t <= budget && t < solid_t && nearest.map_or(true, |(bt, _, _)| t < bt) {
+                    nearest = Some((t, *enter, exit));
                 }
             }
         }
@@ -575,10 +644,7 @@ pub fn portal_projectile_step(
                     normal,
                     half_extent: portal_half_extent(normal),
                 },
-                Name::new(match proj.color {
-                    PortalColor::Blue => "Portal: blue",
-                    PortalColor::Orange => "Portal: orange",
-                }),
+                Name::new(format!("Portal: {}", proj.color.name())),
                 // Portals are per-room: a room transition despawns them, so they
                 // don't linger and reappear when you leave and come back (#41).
                 crate::presentation::rendering::RoomScopedEntity,
@@ -903,22 +969,22 @@ pub fn publish_portal_carves(
     mut overlay: ResMut<crate::features::FeatureEcsWorldOverlay>,
 ) {
     overlay.portal_carves.clear();
-    let Some((blue, orange)) = portal_pair(portals.iter()) else {
-        return;
-    };
-    let mut carve_blue = false;
-    let mut carve_orange = false;
+    let all: Vec<Portal> = portals.iter().copied().collect();
+    // Carve each portal a body is actively transiting (deduped), but only if its
+    // pair partner is placed — a lone portal must never open a bottomless hole.
+    let mut carved: Vec<PortalColor> = Vec::new();
     for t in &transits {
-        match t.straddling {
-            PortalColor::Blue => carve_blue = true,
-            PortalColor::Orange => carve_orange = true,
+        if carved.contains(&t.straddling) {
+            continue;
         }
-    }
-    if carve_blue {
-        overlay.portal_carves.push(pp::carve_hole(&blue.frame()));
-    }
-    if carve_orange {
-        overlay.portal_carves.push(pp::carve_hole(&orange.frame()));
+        let Some(enter) = find_portal(&all, t.straddling) else {
+            continue;
+        };
+        if find_portal(&all, t.straddling.partner()).is_none() {
+            continue;
+        }
+        overlay.portal_carves.push(pp::carve_hole(&enter.frame()));
+        carved.push(t.straddling);
     }
 }
 
@@ -982,23 +1048,26 @@ pub fn transit_step(
     vel: Vec2,
     transit: Option<PortalTransit>,
     cooldown: f32,
-    blue: Portal,
-    orange: Portal,
+    portals: &[Portal],
     gravity_dir: Vec2,
 ) -> TransitStep {
     let body = ae::Aabb::new(center, size * 0.5);
-    let pair_for = |c: PortalColor| match c {
-        PortalColor::Blue => (blue, orange),
-        PortalColor::Orange => (orange, blue),
+    // Resolve `(straddled, its linked exit)` for a color — both must be placed.
+    let pair_for = |c: PortalColor| -> Option<(Portal, Portal)> {
+        Some((find_portal(portals, c)?, find_portal(portals, c.partner())?))
     };
     match transit {
         None => {
             if cooldown > 0.0 {
                 return TransitStep::Idle;
             }
-            for color in [PortalColor::Blue, PortalColor::Orange] {
-                let (enter, _) = pair_for(color);
-                if !portal_fits(size, &enter) {
+            // Begin into the first portal (across ALL pairs) the body is entering.
+            for enter in portals {
+                // Need the partner placed, or there's no exit to transit to.
+                if find_portal(portals, enter.color.partner()).is_none() {
+                    continue;
+                }
+                if !portal_fits(size, enter) {
                     continue;
                 }
                 let frame = enter.frame();
@@ -1011,13 +1080,16 @@ pub fn transit_step(
                 let entering =
                     pp::front_distance(center, &frame) > 0.0 || vel.dot(enter.normal) < 0.0;
                 if entering && body.strict_intersects(capture) {
-                    return TransitStep::Begin { color, portal_pos: enter.pos };
+                    return TransitStep::Begin { color: enter.color, portal_pos: enter.pos };
                 }
             }
             TransitStep::Idle
         }
         Some(t) => {
-            let (enter, exit) = pair_for(t.straddling);
+            // The straddled portal or its partner was removed → end transit.
+            let Some((enter, exit)) = pair_for(t.straddling) else {
+                return TransitStep::Clear;
+            };
             let ef = enter.frame();
             // The CENTROID crossing the plane is the authoritative transfer —
             // the body jumps to the exit; gameplay sees no discontinuity because
@@ -1045,8 +1117,7 @@ pub fn transit_step(
             }
             // Clear once the body no longer straddles the plane it's on (trailing
             // edge out). The cooldown latch (set on transfer) stops a re-entry.
-            let (cur, _) = pair_for(t.straddling);
-            if !pp::straddles(body, &cur.frame()) {
+            if !pp::straddles(body, &enter.frame()) {
                 TransitStep::Clear
             } else {
                 TransitStep::Continue
@@ -1090,13 +1161,7 @@ pub fn portal_transit_system(
     if gun.teleport_cooldown > 0.0 {
         gun.teleport_cooldown = (gun.teleport_cooldown - dt).max(0.0);
     }
-    let Some((blue, orange)) = portal_pair(portals.iter()) else {
-        // No pair: drop any stale transit (e.g. a portal was just removed).
-        if transit.is_some() {
-            commands.entity(entity).remove::<PortalTransit>();
-        }
-        return;
-    };
+    let all: Vec<Portal> = portals.iter().copied().collect();
     let gravity_dir = gravity.map_or(Vec2::new(0.0, 1.0), |g| g.dir);
     let step = transit_step(
         kin.pos,
@@ -1104,8 +1169,7 @@ pub fn portal_transit_system(
         kin.vel,
         transit.as_deref().copied(),
         gun.teleport_cooldown,
-        blue,
-        orange,
+        &all,
         gravity_dir,
     );
     match step {
@@ -1163,27 +1227,27 @@ pub fn clear_portals_on_reset(
     }
 }
 
-/// Portals must not outlive the gun that made them: despawn all portals (and
-/// any in-flight shots) when **no** portal gun is present in the room — neither
-/// held (`PortalGun`) nor lying on the ground as a `PortalGunPickup`. This is
-/// the "gun is destroyed" case. A merely *dropped* gun still exists as a pickup
-/// in the room, so its portals persist; leaving the room is handled separately
-/// by [`clear_portals_on_reset`].
+/// The GUN's portals must not outlive the gun that made them: despawn the
+/// gun-pair portals (blue/orange) + in-flight shots when **no** portal gun is
+/// present in the room — neither held (`PortalGun`) nor lying as a
+/// `PortalGunPickup`. This is the "gun is destroyed" case. Authored pairs (other
+/// colors, e.g. a test room's portals) are NOT gun-owned, so they persist even
+/// with no gun around. A merely *dropped* gun still exists as a pickup, so its
+/// portals persist; leaving the room is handled by [`clear_portals_on_reset`].
 pub fn despawn_orphaned_portals(
     mut commands: Commands,
     guns: Query<(), With<PortalGun>>,
     pickups: Query<(), With<PortalGunPickup>>,
-    portals: Query<Entity, With<Portal>>,
+    portals: Query<(Entity, &Portal)>,
     shots: Query<Entity, With<PortalProjectile>>,
 ) {
     if !guns.is_empty() || !pickups.is_empty() {
         return;
     }
-    if portals.is_empty() && shots.is_empty() {
-        return;
-    }
-    for entity in &portals {
-        commands.entity(entity).despawn();
+    for (entity, portal) in &portals {
+        if portal.color.is_gun_pair() {
+            commands.entity(entity).despawn();
+        }
     }
     for entity in &shots {
         commands.entity(entity).despawn();
@@ -1319,9 +1383,10 @@ pub fn portal_transit_actors(
     gravity: Option<Res<crate::physics::GravityField>>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
-    let Some((blue, orange)) = portal_pair(portals.iter()) else {
+    let all: Vec<Portal> = portals.iter().copied().collect();
+    if all.is_empty() {
         return;
-    };
+    }
     let gravity_dir = gravity.map_or(Vec2::new(0.0, 1.0), |g| g.dir);
 
     for (entity, kin, mut transit, mut roll, cooldown) in &mut actors {
@@ -1332,8 +1397,7 @@ pub fn portal_transit_actors(
             kin.vel,
             transit.as_deref().copied(),
             cooldown.map_or(0.0, |c| c.0),
-            blue,
-            orange,
+            &all,
             gravity_dir,
         );
         apply_actor_transit(
@@ -1358,8 +1422,7 @@ pub fn portal_transit_actors(
             Vec2::ZERO,
             transit.as_deref().copied(),
             cooldown.map_or(0.0, |c| c.0),
-            blue,
-            orange,
+            &all,
             gravity_dir,
         );
         apply_actor_transit(
@@ -1472,14 +1535,21 @@ pub fn sync_portal_body_pieces(
     // The real character sprite always shows now (no hiding) — the masks below
     // cover only the parts that have passed through a portal.
     *visibility = Visibility::Inherited;
-    let pair = portal_pair(portals.iter());
-    let (Some(_transit), Some((blue, orange))) = (transit, pair) else {
+    // The body is transiting exactly one portal — decompose against that pair.
+    let Some(transit) = transit else {
+        return;
+    };
+    let all: Vec<Portal> = portals.iter().copied().collect();
+    let (Some(enter_portal), Some(exit_portal)) = (
+        find_portal(&all, transit.straddling),
+        find_portal(&all, transit.straddling.partner()),
+    ) else {
         return;
     };
     let body = ae::Aabb::new(kin.pos, kin.size * 0.5);
     // Decompose via the tested Core-invariant function so these slices can never
     // drift from the collision / gameplay decomposition.
-    let pieces = pp::compute_body_pieces(body, Some((blue.frame(), orange.frame())));
+    let pieces = pp::compute_body_pieces(body, Some((enter_portal.frame(), exit_portal.frame())));
     let Some(through) = pieces.through else {
         // Touching a portal but nothing has crossed the plane yet.
         return;
@@ -1579,9 +1649,11 @@ pub fn sync_portal_mode_indicator(
     let Some(art) = art else {
         return;
     };
+    // The gun only ever fires its blue↔orange pair; orange art for orange, blue
+    // for everything else.
     let image = match gun.next_color {
-        PortalColor::Blue => art.blue.clone(),
         PortalColor::Orange => art.orange.clone(),
+        _ => art.blue.clone(),
     };
     let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
     // In the player's hand: just in front of the body at roughly hand height
@@ -1657,10 +1729,7 @@ pub fn sync_portal_visuals(
     }
     // In-flight portal shots: a small bright streak in the shot's color.
     for proj in &projectiles {
-        let color = match proj.color {
-            PortalColor::Blue => Color::srgb(0.55, 0.85, 1.0),
-            PortalColor::Orange => Color::srgb(1.0, 0.72, 0.35),
-        };
+        let color = proj.color.display().1;
         let translation = crate::config::world_to_bevy(&world.0, proj.pos, 9.5);
         commands.spawn((
             PortalVisual,
@@ -1692,10 +1761,7 @@ pub fn sync_portal_visuals(
         ));
     }
     for portal in &portals {
-        let (rim, core) = match portal.color {
-            PortalColor::Blue => (Color::srgb(0.30, 0.62, 1.0), Color::srgb(0.74, 0.92, 1.0)),
-            PortalColor::Orange => (Color::srgb(1.0, 0.55, 0.20), Color::srgb(1.0, 0.86, 0.55)),
-        };
+        let (rim, core) = portal.color.display();
         // A portal is a thin doorway seen in side profile (2D): a bar lying
         // ALONG the wall (perpendicular to the surface normal), thin in the
         // normal direction. `along` rotates with the normal, so a slanted
@@ -1998,6 +2064,42 @@ mod tests {
             "an oversized actor does not fit and stays put, pos={:?}",
             b.pos
         );
+    }
+
+    #[test]
+    fn n_pairs_transit_routes_to_the_matching_partner() {
+        let he = portal_half_extent(Vec2::new(0.0, -1.0));
+        let floor = |color, x: f32| Portal {
+            color,
+            pos: Vec2::new(x, 300.0),
+            normal: Vec2::new(0.0, -1.0),
+            half_extent: he,
+        };
+        // Two INDEPENDENT floor pairs placed at once.
+        let portals = vec![
+            floor(PortalColor::Blue, 100.0),
+            floor(PortalColor::Orange, 200.0),
+            floor(PortalColor::Purple, 400.0),
+            floor(PortalColor::Yellow, 700.0),
+        ];
+        // A body whose centroid has crossed the PURPLE plane transfers to YELLOW
+        // (its partner) — never to the unrelated orange portal.
+        let step = transit_step(
+            Vec2::new(400.0, 305.0),
+            Vec2::new(24.0, 40.0),
+            Vec2::new(0.0, 50.0),
+            Some(PortalTransit { straddling: PortalColor::Purple, crossed: false }),
+            0.0,
+            &portals,
+            Vec2::new(0.0, 1.0),
+        );
+        match step {
+            TransitStep::Transfer { exit_color, pos, .. } => {
+                assert_eq!(exit_color, PortalColor::Yellow, "purple links to yellow");
+                assert!(pos.x > 600.0, "emerges at the yellow portal, got {pos:?}");
+            }
+            other => panic!("expected a transfer to yellow, got {other:?}"),
+        }
     }
 
     #[test]

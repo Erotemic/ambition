@@ -209,10 +209,7 @@ fn draw_portals<'a>(
     portals: impl Iterator<Item = &'a crate::portal::Portal>,
 ) {
     for portal in portals {
-        let color = match portal.color {
-            crate::portal::PortalColor::Blue => Color::srgba(0.30, 0.70, 1.0, 0.95),
-            crate::portal::PortalColor::Orange => Color::srgba(1.0, 0.60, 0.20, 0.95),
-        };
+        let color = portal.color.display().0.with_alpha(0.95);
         draw_aabb(gizmos, world, ae::Aabb::new(portal.pos, portal.half_extent), color);
         // Outward normal tick from the portal face into the room.
         let base = w2(world, portal.pos);

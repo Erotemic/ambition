@@ -254,17 +254,27 @@ pub fn subtract_aabb(block: ae::Aabb, hole: ae::Aabb, out: &mut Vec<ae::Aabb>) {
 /// geometry on a thick wall.
 pub const CARVE_DEPTH: f32 = 60.0;
 
-/// The carve hole for a portal: the opening width along the surface, cut from
-/// the surface *inward* (along `-normal`) by [`CARVE_DEPTH`]. Centered just
-/// inside the wall so it never removes solid in front of the face (the room).
+/// How far OUTWARD of the portal face (px) the carve also reaches. A portal
+/// authored on a surface can land a few px off the grid-snapped collision edge
+/// (e.g. a floor whose IntGrid top is y=896 but the portal face is y=900); the
+/// carve must reach back across that gap or a thin solid LIP survives in the
+/// opening and the body rests on it instead of sinking in. One grid cell covers
+/// any realistic snap; for a floor it only removes the lip (open room is above).
+pub const SURFACE_GRACE: f32 = 16.0;
+
+/// The carve hole for a portal: the opening width along the surface, cut from a
+/// little OUTWARD of the face ([`SURFACE_GRACE`], to clear any grid-snap lip)
+/// through [`CARVE_DEPTH`] inward.
 pub fn carve_hole(frame: &PortalFrame) -> ae::Aabb {
     let along = Vec2::new(-frame.normal.y, frame.normal.x);
     let open = frame.aperture_half();
     let n = frame.normal;
-    let center = frame.pos - n * (CARVE_DEPTH * 0.5);
+    // Span from `+SURFACE_GRACE` outward of the face to `CARVE_DEPTH` inward.
+    let through = (SURFACE_GRACE + CARVE_DEPTH) * 0.5;
+    let center = frame.pos + n * (SURFACE_GRACE * 0.5) - n * (CARVE_DEPTH * 0.5);
     let half = Vec2::new(
-        along.x.abs() * open + n.x.abs() * (CARVE_DEPTH * 0.5),
-        along.y.abs() * open + n.y.abs() * (CARVE_DEPTH * 0.5),
+        along.x.abs() * open + n.x.abs() * through,
+        along.y.abs() * open + n.y.abs() * through,
     );
     ae::Aabb::new(center, half)
 }
@@ -392,13 +402,18 @@ mod tests {
     }
 
     #[test]
-    fn carve_hole_cuts_inward_only() {
+    fn carve_hole_reaches_through_the_surface_grace() {
         let f = floor(Vec2::new(100.0, 300.0));
         let hole = carve_hole(&f);
-        // The hole spans from the surface (y=300) inward (+y, into the wall),
-        // never out into the room (y<300).
-        assert!(hole.min.y >= 300.0 - 1e-3, "hole stays at/under surface: {hole:?}");
-        assert!(hole.max.y > 300.0, "hole reaches into the wall: {hole:?}");
+        // The hole reaches a little OUTWARD of the face (y < 300 by SURFACE_GRACE)
+        // so it clears any thin solid lip left by a portal authored a few px off
+        // the grid-snapped surface...
+        assert!(
+            (hole.min.y - (300.0 - SURFACE_GRACE)).abs() < 1e-3,
+            "hole reaches SURFACE_GRACE outward: {hole:?}"
+        );
+        // ...and mostly INWARD (CARVE_DEPTH into the wall).
+        assert!((hole.max.y - (300.0 + CARVE_DEPTH)).abs() < 1e-3, "hole goes inward: {hole:?}");
         // Opening width matches the aperture (2*46).
         assert!((hole.max.x - hole.min.x - 92.0).abs() < 1e-3, "{hole:?}");
     }

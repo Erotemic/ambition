@@ -1131,12 +1131,26 @@ pub fn transit_step(
                     exit_pos: exit.pos,
                 };
             }
-            // Clear once the body no longer straddles the plane it's on (trailing
-            // edge out). The cooldown latch (set on transfer) stops a re-entry.
-            if !pp::straddles(body, &enter.frame()) {
-                TransitStep::Clear
+            // Stay engaged so the carve persists long enough to sink + cross —
+            // clearing on "not straddling yet" would drop the carve every other
+            // frame and the body would never sink in (it re-grounds on the solid
+            // frame). Before the centroid crosses, stay while the body still
+            // touches the opening (the capture box); after, stay while it still
+            // straddles the exit plane (trailing edge not yet out). The cooldown
+            // latch (set on transfer) stops a re-entry.
+            let still_engaged = if t.crossed {
+                pp::straddles(body, &enter.frame())
             } else {
+                let capture = ae::Aabb::new(
+                    enter.pos,
+                    enter.half_extent + Vec2::splat(TRANSIT_BEGIN_MARGIN),
+                );
+                body.strict_intersects(capture)
+            };
+            if still_engaged {
                 TransitStep::Continue
+            } else {
+                TransitStep::Clear
             }
         }
     }

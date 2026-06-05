@@ -4,6 +4,7 @@
 //! feature remains "add a RoomSpec Vec + add one loop in spawn.rs".
 
 use super::*;
+use crate::presentation::rendering::RoomScopedEntity;
 use bevy::prelude::Name;
 
 pub(super) fn spawn_hazard(
@@ -54,6 +55,7 @@ pub(super) fn spawn_ground_item(commands: &mut Commands, spec: &crate::rooms::Gr
     };
     commands.spawn((
         Name::new(format!("Ground item: {}", spec.name)),
+        RoomScopedEntity,
         crate::item_pickup::GroundItem {
             spec: held,
             pos: spec.pos,
@@ -69,6 +71,7 @@ pub(super) fn spawn_portal_gun_spawn(
 ) {
     commands.spawn((
         Name::new(format!("Portal gun pickup: {}", spec.name)),
+        RoomScopedEntity,
         crate::portal::PortalGunPickup {
             pos: spec.pos,
             half_extent: spec.half_extent,
@@ -97,6 +100,7 @@ pub(super) fn spawn_portal(commands: &mut Commands, spec: &crate::rooms::PortalS
 pub(super) fn spawn_shrine(commands: &mut Commands, spec: &crate::rooms::ShrineSpec) {
     commands.spawn((
         Name::new(format!("Heal/save shrine: {}", spec.name)),
+        RoomScopedEntity,
         crate::shrine::HealShrine {
             pos: spec.pos,
             half_extent: spec.half_extent,
@@ -107,6 +111,7 @@ pub(super) fn spawn_shrine(commands: &mut Commands, spec: &crate::rooms::ShrineS
 pub(super) fn spawn_gravity_zone(commands: &mut Commands, spec: &crate::rooms::GravityZoneSpec) {
     let mut entity = commands.spawn((
         Name::new(format!("Gravity zone: {}", spec.name)),
+        RoomScopedEntity,
         crate::physics::GravityZone {
             aabb: crate::engine_core::Aabb::new(spec.center, spec.half_extent),
             dir: spec.dir,

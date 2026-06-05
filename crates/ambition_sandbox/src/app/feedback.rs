@@ -51,6 +51,8 @@ pub struct CombatRoomReset<'w> {
     pub enemy_projectiles: ResMut<'w, crate::enemy_projectile::EnemyProjectileState>,
     pub slot_board: ResMut<'w, crate::combat_slots::CombatSlotsRes>,
     pub feature_overlay: Res<'w, crate::features::FeatureEcsWorldOverlay>,
+    pub gravity: ResMut<'w, crate::physics::GravityField>,
+    pub base_gravity: ResMut<'w, crate::physics::BaseGravity>,
 }
 
 impl<'w> CombatRoomReset<'w> {
@@ -63,6 +65,8 @@ impl<'w> CombatRoomReset<'w> {
     pub fn clear_carryover(&mut self) {
         self.enemy_projectiles.clear();
         self.slot_board.0.clear_assignments();
+        *self.gravity = crate::physics::GravityField::default();
+        *self.base_gravity = crate::physics::BaseGravity::default();
     }
 }
 

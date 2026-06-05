@@ -291,6 +291,7 @@ pub fn throw_held_item_system(
             half_extent: Vec2::splat(PICKUP_HALF),
         },
         Name::new("Ground item: thrown"),
+        crate::presentation::rendering::RoomScopedEntity,
     ));
 }
 
@@ -433,6 +434,7 @@ pub fn fire_held_ranged_system(
             explode_half,
         },
         Name::new("Held ranged shot"),
+        crate::presentation::rendering::RoomScopedEntity,
     ));
     // A Fireball whooshes out (reusing the dash whoosh) rather than the gun-sword
     // laser zap, so it doesn't *sound* like a sword either; a bespoke ignite SFX

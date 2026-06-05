@@ -468,6 +468,7 @@ pub fn drop_portal_gun_system(
             arm_timer: 0.35,
         },
         Name::new("Portal gun pickup"),
+        crate::presentation::rendering::RoomScopedEntity,
     ));
     sfx.write(crate::audio::SfxMessage::Play {
         id: ambition_sfx::ids::PORTAL_FIZZLE,
@@ -623,6 +624,7 @@ pub fn portal_fire_system(
             traveled: 0.0,
         },
         Name::new("Portal shot"),
+        crate::presentation::rendering::RoomScopedEntity,
     ));
 }
 

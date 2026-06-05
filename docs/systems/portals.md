@@ -163,6 +163,13 @@ pure physics says**, **what we do instead**, and **why**.
   horizontal *turn-around*, not a tumble, so `somersault_roll` imparts **zero**
   roll — the body comes out already upright. Floor↔floor / ceiling↔ceiling keep
   the full 180° somersault; floor↔wall keeps 90°.
+- **Sub-rule — facing mirrors on that same turn-around** (`portal_facing_flips`):
+  a 180° somersault rotation inherently mirrors the sprite left↔right. Since the
+  wall↔wall case *suppresses* that rotation, the mirror would be lost and the body
+  would emerge **back-first** ("face in, back out"). So in exactly the
+  suppressed-180° case the horizontal facing is flipped, giving the wanted "face
+  in, face out" (really **X-in, X-out**: whatever part led in leads out). Every
+  other case carries its orientation in the rotation, so facing is left alone.
 - **Why:** a gravity-bound platformer character should read as "which way is
   down" = gravity, regardless of the non-Euclidean geometry. The somersault sells
   the transit; the righting keeps the character controllable; the wall-wall

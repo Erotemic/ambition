@@ -1025,6 +1025,8 @@ pub enum TransitStep {
         vel: Vec2,
         roll_delta: f32,
         warp_rot: (f32, f32),
+        /// Mirror the body's horizontal facing (the wall↔wall "face out" rule).
+        facing_flip: bool,
         exit_color: PortalColor,
         exit_pos: Vec2,
     },
@@ -1051,6 +1053,24 @@ pub fn somersault_roll(n_in: Vec2, n_out: Vec2, gravity_dir: Vec2) -> f32 {
         return 0.0;
     }
     portal_transit_roll(n_in, n_out)
+}
+
+/// Whether the body's horizontal FACING flips through this portal pair.
+///
+/// A 180° somersault rotation inherently mirrors the sprite left↔right. For a
+/// wall↔wall turn-around we SUPPRESS that rotation (to keep the body upright —
+/// see [`somersault_roll`]), which would lose the mirror and emerge the body
+/// back-first ("face in, back out"). So in exactly that suppressed-180° case the
+/// mirror is re-applied as a facing flip, giving the wanted "face in, face out"
+/// (really: X-in, X-out). Every other case carries its orientation in the
+/// rotation, so facing is left alone.
+pub fn portal_facing_flips(n_in: Vec2, n_out: Vec2, gravity_dir: Vec2) -> bool {
+    let g = gravity_dir.normalize_or_zero();
+    let in_wall = n_in.normalize_or_zero().dot(g).abs() < 0.5;
+    let out_wall = n_out.normalize_or_zero().dot(g).abs() < 0.5;
+    // Suppressed (both walls) AND the would-be turn is a ~180° flip (same-wall),
+    // not a 0° straight-through (facing-each-other walls).
+    in_wall && out_wall && portal_transit_roll(n_in, n_out).abs() > std::f32::consts::FRAC_PI_2
 }
 
 /// Compute the transit step for a body. See [`TransitStep`]. `cooldown` is the
@@ -1127,6 +1147,7 @@ pub fn transit_step(
                     roll_delta: somersault_roll(enter.normal, exit.normal, gravity_dir),
                     // Same rotation the velocity took — the held-input warp uses it.
                     warp_rot: pp::portal_rotation(enter.normal, exit.normal),
+                    facing_flip: portal_facing_flips(enter.normal, exit.normal, gravity_dir),
                     exit_color: exit.color,
                     exit_pos: exit.pos,
                 };
@@ -1224,9 +1245,12 @@ pub fn portal_transit_system(
                 pos: portal_pos,
             });
         }
-        TransitStep::Transfer { pos, vel, roll_delta, warp_rot, exit_color, exit_pos } => {
+        TransitStep::Transfer { pos, vel, roll_delta, warp_rot, facing_flip, exit_color, exit_pos } => {
             kin.pos = pos;
             kin.vel = vel;
+            if facing_flip {
+                kin.facing = -kin.facing;
+            }
             if let Some(roll) = roll.as_deref_mut() {
                 roll.angle += roll_delta;
             }
@@ -1572,6 +1596,7 @@ fn apply_actor_transit(
             });
         }
         // Non-player actors have no held input to warp, so `warp_rot` is ignored.
+        // (`facing_flip` is too — actor facing follows their own AI each tick.)
         TransitStep::Transfer { pos: new_pos, vel: new_vel, roll_delta, exit_color, exit_pos, .. } => {
             if let Some(pos) = pos {
                 *pos = new_pos;
@@ -1673,14 +1698,20 @@ pub fn sync_portal_body_pieces(
     let mask_z = crate::config::WORLD_Z_PLAYER + 1.0;
 
     // Exit copy: the whole sprite emerging from the exit, mapped + rotated by the
-    // somersault it is taking (none for a wall↔wall turn-around).
+    // somersault it is taking (none for a wall↔wall turn-around). For a suppressed
+    // wall↔wall turn-around the sprite stays upright but its FACING mirrors, so it
+    // comes out face-first (X-in, X-out) instead of back-first.
     let exit_center = pp::map_point(kin.pos, &enter, &exit);
     let exit_roll = base_roll + somersault_roll(enter.normal, exit.normal, gravity_dir);
+    let mut exit_sprite = sprite.clone();
+    if portal_facing_flips(enter.normal, exit.normal, gravity_dir) {
+        exit_sprite.flip_x = !exit_sprite.flip_x;
+    }
     let exit_translation =
         crate::config::world_to_bevy(&world.0, exit_center, crate::config::WORLD_Z_PLAYER);
     commands.spawn((
         PortalBodyPiece,
-        sprite.clone(),
+        exit_sprite,
         Transform::from_translation(exit_translation)
             .with_rotation(Quat::from_rotation_z(exit_roll)),
         Name::new("Portal body copy (exit)"),
@@ -2210,6 +2241,25 @@ mod tests {
             }
             other => panic!("expected a transfer to yellow, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn facing_flips_only_for_a_same_wall_turn_around() {
+        let g = Vec2::new(0.0, 1.0); // gravity down
+        let up = Vec2::new(0.0, -1.0); // floor
+        let down = Vec2::new(0.0, 1.0); // ceiling
+        let left = Vec2::new(-1.0, 0.0); // right-wall normal
+        let right = Vec2::new(1.0, 0.0); // left-wall normal
+        // Same wall (both normals left) is the only "face in, back out" case →
+        // facing mirrors so it comes out face-first.
+        assert!(portal_facing_flips(left, left, g));
+        // Walls facing EACH OTHER (portal_bridge) go straight through → no flip.
+        assert!(!portal_facing_flips(right, left, g));
+        // Floor/ceiling pairs carry orientation in the somersault rotation → no
+        // separate facing flip (the 180° rotation already mirrors).
+        assert!(!portal_facing_flips(up, up, g));
+        assert!(!portal_facing_flips(down, down, g));
+        assert!(!portal_facing_flips(up, left, g));
     }
 
     #[test]

@@ -699,7 +699,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "ambition_sandbox",
             "--no-default-features",
             "--features",
-            "rl,headless,ldtk_runtime",
+            "rl_sim,headless,ldtk_runtime",
         ],
     )
 
@@ -716,7 +716,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "ambition_sandbox",
                 "--no-default-features",
                 "--features",
-                "rl,headless,ldtk_runtime",
+                "rl_sim,headless,ldtk_runtime",
                 long_tests=args.long_tests,
             ),
         )

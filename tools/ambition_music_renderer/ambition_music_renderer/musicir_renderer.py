@@ -890,6 +890,28 @@ def _coerce_stereo(audio: np.ndarray) -> np.ndarray:
     return audio.astype(np.float32, copy=False)
 
 
+def sanitize_same_pitch_overlaps(pm: pretty_midi.PrettyMIDI, *, min_duration: float = 0.001) -> None:
+    """Trim overlapping same-pitch notes on each MIDI instrument.
+
+    FluidSynth's channel model cannot represent two simultaneously sounding
+    notes with the same pitch on the same channel. If a long pad/choir note is
+    re-articulated before the previous same-pitch note-off, the older note-off
+    can silence the newer note and create an audible dropout. Keep exact
+    adjacency intact, but trim true overlaps before synthesis.
+    """
+    for inst in pm.instruments:
+        by_pitch: dict[int, list[pretty_midi.Note]] = {}
+        for note in inst.notes:
+            by_pitch.setdefault(int(note.pitch), []).append(note)
+        for notes in by_pitch.values():
+            notes.sort(key=lambda n: (float(n.start), float(n.end)))
+            prev: pretty_midi.Note | None = None
+            for note in notes:
+                if prev is not None and float(prev.end) > float(note.start):
+                    prev.end = max(float(prev.start) + min_duration, float(note.start))
+                prev = note
+
+
 def render_pretty_midi(pm: pretty_midi.PrettyMIDI, soundfont: str, sample_rate: int) -> np.ndarray:
     """Render via pyFluidSynth, with the synth's built-in reverb and chorus
     disabled so they don't stack on top of the YAML postprocess chain.
@@ -1454,6 +1476,7 @@ def render_all(args: argparse.Namespace) -> dict[str, Any]:
     cue_hash = spec_hash(spec_path, soundfont, backend)
     quality = float(render_cfg.get("ogg_quality", 5.0))
     pm, groups, section_meta = build_score(spec)
+    sanitize_same_pitch_overlaps(pm)
     total_seconds = section_meta[-1]["end_seconds"] if section_meta else pm.get_end_time()
     target_samples = int(math.ceil(total_seconds * sample_rate))
     group_names = sorted(set(groups.values()))

@@ -511,3 +511,10 @@ like the idea of having a tagline for the M version where it says that at least
 
 Alice needs a Charles Dodgson Joke, maybe a white rabbit. Could do a Fleetwood
 Mac joke here too.
+
+----
+
+The portal mechanic can be used topologically. You can create an identification
+space, by identifying the surface of one portal with the surface of the other.
+It is a cut into space along the portal surfaces and then a glue of the portal
+surfaces together.  I think it is correct to call it a quotient space.

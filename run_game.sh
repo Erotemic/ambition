@@ -16,6 +16,8 @@ hot_reload=0
 validate_before_run=0
 validate_only=0
 no_default_features=0
+cargo_jobs=""
+cargo_timings=0
 extra_features=()
 game_args=()
 
@@ -50,6 +52,13 @@ Common commands:
   ./run_game.sh --validate hot release
       Validate LDtk first, then launch with hot reload + release.
 
+  ./run_game.sh -j 8
+  ./run_game.sh --jobs=8 release
+      Limit the number of parallel cargo jobs.
+
+  ./run_game.sh --timings
+      Run with cargo build timing output enabled.
+
 Options and mode aliases:
   -h, --help              Show this help.
   -r, --release, release  Use cargo --release.
@@ -64,6 +73,9 @@ Options and mode aliases:
   --validate-only         Validate LDtk and exit.
   --features LIST         Add extra comma-separated cargo features.
   --no-default-features   Pass --no-default-features to cargo.
+  -j, --jobs N            Pass cargo --jobs N.
+  --jobs=N                Pass cargo --jobs N.
+  --timings               Pass cargo --timings.
   --                      Everything after this is passed to the game binary.
 
 Environment:
@@ -82,6 +94,12 @@ print_cmd() {
     printf '+ '
     printf '%q ' "$@"
     printf '\n'
+}
+
+require_positive_integer() {
+    local opt="$1"
+    local value="$2"
+    [[ "$value" =~ ^[1-9][0-9]*$ ]] || fail "$opt requires a positive integer"
 }
 
 run_ldtk_validation() {
@@ -142,6 +160,24 @@ while [[ $# -gt 0 ]]; do
         --no-default-features)
             no_default_features=1
             ;;
+        -j|--jobs)
+            opt="$1"
+            shift
+            [[ $# -gt 0 ]] || fail "$opt requires a job count"
+            require_positive_integer "$opt" "$1"
+            cargo_jobs="$1"
+            ;;
+        -j[0-9]*)
+            cargo_jobs="${1#-j}"
+            require_positive_integer "-j" "$cargo_jobs"
+            ;;
+        --jobs=*)
+            cargo_jobs="${1#--jobs=}"
+            require_positive_integer "--jobs" "$cargo_jobs"
+            ;;
+        --timings)
+            cargo_timings=1
+            ;;
         --)
             shift
             game_args+=("$@")
@@ -169,6 +205,14 @@ cargo_args=(run -p ambition_sandbox --bin ambition_sandbox)
 
 if [[ "$no_default_features" -eq 1 ]]; then
     cargo_args+=(--no-default-features)
+fi
+
+if [[ -n "$cargo_jobs" ]]; then
+    cargo_args+=(--jobs "$cargo_jobs")
+fi
+
+if [[ "$cargo_timings" -eq 1 ]]; then
+    cargo_args+=(--timings)
 fi
 
 features=()

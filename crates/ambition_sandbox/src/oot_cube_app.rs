@@ -20,9 +20,23 @@ use crate::oot_cube::{
     build_inventory_pages, system_rows, CubeAction, CubeFocus, CubePage, SystemCategory,
     SystemOption, SystemRow,
 };
+use crate::audio::SfxMessage;
+use crate::engine_core::Vec2;
+use crate::oot_menu::effects::MenuAction;
 use crate::oot_menu::input::{dispatch_item_confirm, MenuEffectManaQuery, MenuEffectPlayers};
 use crate::persistence::settings::{AudioSettings, UserSettings};
 use crate::player::PlayerHealRequested;
+
+/// Play a one-shot UI sound for the cube menu. Mirrors the proven pause-menu emit
+/// (`pause_menu::input::pause_menu_toggle`): `Play { id, pos }` with `pos = ZERO`.
+/// `Play` is non-spatialized (see `audio::runtime::audio_play_sfx_messages` — it
+/// looks the id up in the bank and plays it full-volume; the `pos` is unused for
+/// `Play`), so `Vec2::ZERO` keeps menu sounds audible at full volume. If the id
+/// isn't packed into the runtime bank yet the play just no-ops (safe).
+#[inline]
+fn play_ui(sfx: &mut MessageWriter<SfxMessage>, id: ambition_sfx::SfxId) {
+    sfx.write(SfxMessage::Play { id, pos: Vec2::ZERO });
+}
 
 /// Which inventory frontend renders. Runtime toggle (both compiled in); defaults to
 /// the 3D `Cube` (#31), with `\` flipping to the proven Bevy-UI `Grid` (see
@@ -240,6 +254,7 @@ fn cube_focus_nav(
     mut players: MenuEffectPlayers,
     mut mana_q: MenuEffectManaQuery,
     mut heals: MessageWriter<PlayerHealRequested>,
+    mut sfx: MessageWriter<SfxMessage>,
 ) {
     if *backend != InventoryUiBackend::Cube || !overlay.visible {
         return;
@@ -247,6 +262,14 @@ fn cube_focus_nav(
     let Some(active_page) = pages.active else {
         return;
     };
+
+    // Remember the focus we start the frame on. A cursor MOVE (focus actually
+    // changes) plays `UI_MENU_MOVE` exactly once at the end of this system — NOT on
+    // the per-frame rebuild churn (this only fires when keyboard/gamepad nav lands on
+    // a different control). Page turns / selects emit their own distinct sounds, so
+    // we suppress the move sound when the page changed this frame.
+    let focus_before = cursor.focus;
+    let page_before = pages.active;
 
     // Directional intent (one step; the menu frame already debounces repeat).
     let dx = (menu.right as i32) - (menu.left as i32);
@@ -259,10 +282,10 @@ fn cube_focus_nav(
     // where the item cursor sits. The cursor lands on the new page's back-edge button.
     let bump = (menu.page_right as i32) - (menu.page_left as i32);
     if bump < 0 {
-        turn_page_seeded(&mut pages, &mut cursor, active_page.on_viewer_left());
+        turn_page_seeded(&mut pages, &mut cursor, active_page.on_viewer_left(), &mut sfx);
         return;
     } else if bump > 0 {
-        turn_page_seeded(&mut pages, &mut cursor, active_page.on_viewer_right());
+        turn_page_seeded(&mut pages, &mut cursor, active_page.on_viewer_right(), &mut sfx);
         return;
     }
 
@@ -272,7 +295,7 @@ fn cube_focus_nav(
     if active_page == CubePage::System {
         system_focus_nav(
             &menu, dx, dy, &mut cursor, &mut system_nav, &mut pages, &mut overlay, &mut settings,
-            active_page, &mut owned, &mut commands, &mut players, &mut mana_q, &mut heals,
+            active_page, &mut owned, &mut commands, &mut players, &mut mana_q, &mut heals, &mut sfx,
         );
         return;
     }
@@ -290,12 +313,15 @@ fn cube_focus_nav(
             match cursor.focus {
                 CubeFocus::EdgeLeft if dx > 0 => cursor.mark_keyboard(CubeFocus::EdgeRight),
                 CubeFocus::EdgeLeft => {
-                    turn_page_seeded(&mut pages, &mut cursor, active_page.on_viewer_left())
+                    turn_page_seeded(&mut pages, &mut cursor, active_page.on_viewer_left(), &mut sfx)
                 }
                 CubeFocus::EdgeRight if dx < 0 => cursor.mark_keyboard(CubeFocus::EdgeLeft),
-                CubeFocus::EdgeRight => {
-                    turn_page_seeded(&mut pages, &mut cursor, active_page.on_viewer_right())
-                }
+                CubeFocus::EdgeRight => turn_page_seeded(
+                    &mut pages,
+                    &mut cursor,
+                    active_page.on_viewer_right(),
+                    &mut sfx,
+                ),
                 // Cursor not yet on an edge — seed onto the edge for the pressed direction.
                 _ => cursor.mark_keyboard(if dx < 0 {
                     CubeFocus::EdgeLeft
@@ -308,17 +334,22 @@ fn cube_focus_nav(
             // The only selectable controls on a placeholder are the edge buttons.
             match cursor.focus {
                 CubeFocus::EdgeLeft => {
-                    turn_page_seeded(&mut pages, &mut cursor, active_page.on_viewer_left())
+                    turn_page_seeded(&mut pages, &mut cursor, active_page.on_viewer_left(), &mut sfx)
                 }
-                CubeFocus::EdgeRight => {
-                    turn_page_seeded(&mut pages, &mut cursor, active_page.on_viewer_right())
-                }
+                CubeFocus::EdgeRight => turn_page_seeded(
+                    &mut pages,
+                    &mut cursor,
+                    active_page.on_viewer_right(),
+                    &mut sfx,
+                ),
                 _ => {}
             }
         }
         if menu.back {
+            play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_CLOSE);
             overlay.visible = false;
         }
+        emit_move_sfx(&mut sfx, focus_before, cursor.focus, page_before, pages.active);
         return;
     }
 
@@ -326,19 +357,20 @@ fn cube_focus_nav(
         match move_spatial(cursor.focus, dx, dy, active_page) {
             SpatialMove::Focus(next) => cursor.mark_keyboard(next),
             SpatialMove::TurnLeft => {
-                turn_page(&mut pages, active_page.on_viewer_left());
+                turn_page(&mut pages, active_page.on_viewer_left(), &mut sfx);
                 // Land the cursor on the new face's right arrow (so pressing back
                 // toward centre re-enters the grid) — demo's turn_page_from_edge.
                 cursor.mark_keyboard(CubeFocus::EdgeRight);
             }
             SpatialMove::TurnRight => {
-                turn_page(&mut pages, active_page.on_viewer_right());
+                turn_page(&mut pages, active_page.on_viewer_right(), &mut sfx);
                 cursor.mark_keyboard(CubeFocus::EdgeLeft);
             }
         }
     }
 
     if menu.back {
+        play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_CLOSE);
         overlay.visible = false;
         return;
     }
@@ -365,11 +397,34 @@ fn cube_focus_nav(
                 &mut players,
                 &mut mana_q,
                 &mut heals,
+                &mut sfx,
             );
             if close_menu {
                 overlay.visible = false;
             }
+        } else {
+            // Selecting an empty / unowned item slot is a no-op: error feedback.
+            play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_ERROR);
         }
+    }
+
+    emit_move_sfx(&mut sfx, focus_before, cursor.focus, page_before, pages.active);
+}
+
+/// Emit `UI_MENU_MOVE` ONCE when the cursor's focus actually changed this frame and
+/// the page did NOT turn (a page turn plays its own directional rotate sound, and a
+/// select that lands on a new control already played accept/equip/etc.). This is the
+/// single gate that keeps the per-frame republish churn from spamming the move sound:
+/// it compares the pre-frame focus to the post-frame focus, not "did a system run".
+fn emit_move_sfx(
+    sfx: &mut MessageWriter<SfxMessage>,
+    focus_before: CubeFocus,
+    focus_after: CubeFocus,
+    page_before: Option<CubePage>,
+    page_after: Option<CubePage>,
+) {
+    if page_before == page_after && focus_before != focus_after {
+        play_ui(sfx, ambition_sfx::ids::UI_MENU_MOVE);
     }
 }
 
@@ -394,7 +449,10 @@ fn system_focus_nav(
     players: &mut MenuEffectPlayers,
     mana_q: &mut MenuEffectManaQuery,
     heals: &mut MessageWriter<PlayerHealRequested>,
+    sfx: &mut MessageWriter<SfxMessage>,
 ) {
+    let focus_before = cursor.focus;
+    let page_before = pages.active;
     // The rows shown for the current drill-down state: categories (+ Close Menu) at
     // the top level, or the open category's options + a Back row.
     let rows = system_rows(system_nav.open_category);
@@ -420,12 +478,12 @@ fn system_focus_nav(
             _ => None,
         };
         if let Some(option) = value_option {
-            apply_system_option_step(option, dx, settings);
+            apply_system_option_step(option, dx, settings, sfx);
         } else if dx < 0 {
-            turn_page(pages, active_page.on_viewer_left());
+            turn_page(pages, active_page.on_viewer_left(), sfx);
             cursor.mark_keyboard(CubeFocus::System(0));
         } else {
-            turn_page(pages, active_page.on_viewer_right());
+            turn_page(pages, active_page.on_viewer_right(), sfx);
             cursor.mark_keyboard(CubeFocus::System(0));
         }
     }
@@ -434,8 +492,10 @@ fn system_focus_nav(
         // Inside a category, Back drills OUT to the category list; at the top level
         // Back closes the menu (matching the items face).
         if system_nav.open_category.is_some() {
+            play_ui(sfx, ambition_sfx::ids::UI_MENU_BACK);
             close_system_category(system_nav, cursor);
         } else {
+            play_ui(sfx, ambition_sfx::ids::UI_MENU_CLOSE);
             overlay.visible = false;
         }
         return;
@@ -456,12 +516,16 @@ fn system_focus_nav(
                 players,
                 mana_q,
                 heals,
+                sfx,
             );
             if close_menu {
                 overlay.visible = false;
             }
         }
+        return;
     }
+
+    emit_move_sfx(sfx, focus_before, cursor.focus, page_before, pages.active);
 }
 
 /// True for OPTION rows whose value steps with LEFT/RIGHT (volume + camera zoom).
@@ -495,16 +559,24 @@ fn close_system_category(system_nav: &mut CubeSystemNav, cursor: &mut CubeCursor
 /// Apply a signed LEFT/RIGHT step to a value-style System option (volume up/down,
 /// camera-zoom prev/next). Toggle/close rows ignore stepping (they only respond
 /// to SELECT). Persistence is automatic via `UserSettings` change detection.
-fn apply_system_option_step(option: SystemOption, dx: i32, settings: &mut UserSettings) {
+fn apply_system_option_step(
+    option: SystemOption,
+    dx: i32,
+    settings: &mut UserSettings,
+    sfx: &mut MessageWriter<SfxMessage>,
+) {
     match option {
         SystemOption::CycleMasterVolume => {
             settings.audio.nudge_master(step_sign(dx) * AudioSettings::VOLUME_STEP);
+            play_ui(sfx, ambition_sfx::ids::UI_SLIDER_TICK);
         }
         SystemOption::CycleMusicVolume => {
             settings.audio.nudge_music(step_sign(dx) * AudioSettings::VOLUME_STEP);
+            play_ui(sfx, ambition_sfx::ids::UI_SLIDER_TICK);
         }
         SystemOption::CycleSfxVolume => {
             settings.audio.nudge_sfx(step_sign(dx) * AudioSettings::VOLUME_STEP);
+            play_ui(sfx, ambition_sfx::ids::UI_SLIDER_TICK);
         }
         SystemOption::CycleCameraZoom => {
             settings.video.camera_zoom = if dx < 0 {
@@ -512,6 +584,7 @@ fn apply_system_option_step(option: SystemOption, dx: i32, settings: &mut UserSe
             } else {
                 settings.video.camera_zoom.next()
             };
+            play_ui(sfx, ambition_sfx::ids::UI_SLIDER_TICK);
         }
         _ => {}
     }
@@ -622,15 +695,23 @@ fn turn_page_seeded(
     pages: &mut ActiveMenuPages<CubePage, CubeAction>,
     cursor: &mut CubeCursor,
     page: CubePage,
+    sfx: &mut MessageWriter<SfxMessage>,
 ) {
     let from = pages.active;
-    turn_page(pages, page);
+    turn_page(pages, page, sfx);
     cursor.mark_keyboard(back_edge_focus(from, page));
 }
 
-/// Set the active page (the lib rotates that face to the camera).
-fn turn_page(pages: &mut ActiveMenuPages<CubePage, CubeAction>, page: CubePage) {
+/// Set the active page (the lib rotates that face to the camera). Emits the
+/// directional rotate SFX only when the page ACTUALLY changes (so re-selecting the
+/// current page is silent).
+fn turn_page(
+    pages: &mut ActiveMenuPages<CubePage, CubeAction>,
+    page: CubePage,
+    sfx: &mut MessageWriter<SfxMessage>,
+) {
     if pages.active != Some(page) {
+        play_ui(sfx, rotate_sfx(pages.active, page));
         pages.active = Some(page);
         info!("cube page \u{2192} {:?}", page);
     }
@@ -652,14 +733,25 @@ fn dispatch_cube_action(
     players: &mut MenuEffectPlayers,
     mana_q: &mut MenuEffectManaQuery,
     heals: &mut MessageWriter<PlayerHealRequested>,
+    sfx: &mut MessageWriter<SfxMessage>,
 ) {
     match action {
         CubeAction::Equip(item) | CubeAction::Use(item) => {
             let decided = dispatch_item_confirm(item, owned, commands, players, mana_q, heals);
+            // Pick the confirm sound from the RESOLVED action so equip/unequip/use
+            // are distinct, and a no-op (not owned / nothing to do) gives error feedback.
+            let id = match decided {
+                MenuAction::Equip(_) => ambition_sfx::ids::UI_MENU_EQUIP,
+                MenuAction::Unequip(_) => ambition_sfx::ids::UI_MENU_UNEQUIP,
+                MenuAction::UseConsumable(_) => ambition_sfx::ids::UI_MENU_ACCEPT,
+                MenuAction::Inspect(_) | MenuAction::NotOwned(_) => ambition_sfx::ids::UI_MENU_ERROR,
+            };
+            play_ui(sfx, id);
             info!("cube action: {:?} \u{2192} {:?}", item, decided);
         }
         CubeAction::ChangePage(page) => {
             let from = pages.active;
+            play_ui(sfx, rotate_sfx(from, page));
             pages.active = Some(page);
             // Fix 1: land the cursor on the new page's "back" edge button — the one
             // that turns BACK toward the page we came from — so an immediate select /
@@ -668,19 +760,31 @@ fn dispatch_cube_action(
             info!("cube page \u{2192} {:?}", page);
         }
         CubeAction::System(option) => {
-            apply_system_option(option, settings, close_menu);
+            apply_system_option(option, settings, close_menu, sfx);
         }
         CubeAction::OpenSystemCategory(category) => {
             // Drill INTO a category: show its option rows, land the cursor on the
             // first option. The republish picks up the new drill state + cursor.
+            play_ui(sfx, ambition_sfx::ids::UI_TAB_CHANGE);
             system_nav.open_category = Some(category);
             cursor.mark_keyboard(CubeFocus::System(0));
             info!("cube system category \u{2192} {:?}", category);
         }
         CubeAction::CloseSystemCategory => {
+            play_ui(sfx, ambition_sfx::ids::UI_MENU_BACK);
             close_system_category(system_nav, cursor);
             info!("cube system category \u{2192} (list)");
         }
+    }
+}
+
+/// The directional page-turn sound for a rotation `from` → `to`: rotating to the
+/// page that sits on the viewer-LEFT of `from` plays the left rotate, otherwise the
+/// right rotate. When `from` is unknown (first publish) defaults to the right rotate.
+fn rotate_sfx(from: Option<CubePage>, to: CubePage) -> ambition_sfx::SfxId {
+    match from {
+        Some(from) if from.on_viewer_left() == to => ambition_sfx::ids::UI_MENU_ROTATE_LEFT,
+        _ => ambition_sfx::ids::UI_MENU_ROTATE_RIGHT,
     }
 }
 
@@ -690,19 +794,35 @@ fn dispatch_cube_action(
 /// here: the existing `save_settings_on_change` system writes `settings.ron`
 /// whenever `UserSettings` changes, so mutating the resource is the whole job.
 /// `CloseMenu` raises `close_menu` for the caller to fold back into the overlay.
-fn apply_system_option(option: SystemOption, settings: &mut UserSettings, close_menu: &mut bool) {
+fn apply_system_option(
+    option: SystemOption,
+    settings: &mut UserSettings,
+    close_menu: &mut bool,
+    sfx: &mut MessageWriter<SfxMessage>,
+) {
+    // Toggle rows pick on/off from the NEW value; value rows tick; close folds shut.
+    let mut toggled_to: Option<bool> = None;
     match option {
-        SystemOption::ToggleFps => settings.video.show_fps = !settings.video.show_fps,
+        SystemOption::ToggleFps => {
+            settings.video.show_fps = !settings.video.show_fps;
+            toggled_to = Some(settings.video.show_fps);
+        }
         SystemOption::ToggleDebugHud => {
             settings.gameplay.debug_hud_visible = !settings.gameplay.debug_hud_visible;
+            toggled_to = Some(settings.gameplay.debug_hud_visible);
         }
         SystemOption::ToggleQuestHud => {
             settings.gameplay.quest_hud_visible = !settings.gameplay.quest_hud_visible;
+            toggled_to = Some(settings.gameplay.quest_hud_visible);
         }
         SystemOption::ToggleTouchControls => {
             settings.controls.touch_controls_visible = !settings.controls.touch_controls_visible;
+            toggled_to = Some(settings.controls.touch_controls_visible);
         }
-        SystemOption::ToggleMute => settings.audio.toggle_mute(),
+        SystemOption::ToggleMute => {
+            settings.audio.toggle_mute();
+            toggled_to = Some(settings.audio.muted);
+        }
         // Volume rows confirm-cycle UP by one step (wrapping at the ceiling), so a
         // single select/tap keeps stepping the value the way a slider would. The
         // audio settings' own `nudge_*` helpers do the clamping + mute coupling.
@@ -712,17 +832,34 @@ fn apply_system_option(option: SystemOption, settings: &mut UserSettings, close_
             if settings.audio.master_volume > 0.0 && settings.audio.muted {
                 settings.audio.muted = false;
             }
+            play_ui(sfx, ambition_sfx::ids::UI_SLIDER_TICK);
         }
         SystemOption::CycleMusicVolume => {
             settings.audio.music_volume = step_volume(settings.audio.music_volume);
+            play_ui(sfx, ambition_sfx::ids::UI_SLIDER_TICK);
         }
         SystemOption::CycleSfxVolume => {
             settings.audio.sfx_volume = step_volume(settings.audio.sfx_volume);
+            play_ui(sfx, ambition_sfx::ids::UI_SLIDER_TICK);
         }
         SystemOption::CycleCameraZoom => {
             settings.video.camera_zoom = settings.video.camera_zoom.next();
+            play_ui(sfx, ambition_sfx::ids::UI_SLIDER_TICK);
         }
-        SystemOption::CloseMenu => *close_menu = true,
+        SystemOption::CloseMenu => {
+            *close_menu = true;
+            play_ui(sfx, ambition_sfx::ids::UI_MENU_CLOSE);
+        }
+    }
+    if let Some(on) = toggled_to {
+        play_ui(
+            sfx,
+            if on {
+                ambition_sfx::ids::UI_TOGGLE_ON
+            } else {
+                ambition_sfx::ids::UI_TOGGLE_OFF
+            },
+        );
     }
     info!("cube system option: {:?}", option);
 }
@@ -796,6 +933,7 @@ fn cube_pointer_over(
     pages: Res<ActiveMenuPages<CubePage, CubeAction>>,
     system_nav: Res<CubeSystemNav>,
     mut cursor: ResMut<CubeCursor>,
+    mut sfx: MessageWriter<SfxMessage>,
 ) {
     let Some(active_page) = pages.active else {
         return;
@@ -814,6 +952,10 @@ fn cube_pointer_over(
             if cursor.focus != next {
                 cursor.focus = next;
                 cursor.owner = FocusSource::Pointer;
+                // The hover moved to a genuinely different control (the dedup guard
+                // above already filtered the parked-mouse rebuild re-fire): play the
+                // move sound, matching the keyboard nav path.
+                play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_MOVE);
             }
         }
     }
@@ -835,6 +977,7 @@ fn cube_pointer_click(
     mut players: MenuEffectPlayers,
     mut mana_q: MenuEffectManaQuery,
     mut heals: MessageWriter<PlayerHealRequested>,
+    mut sfx: MessageWriter<SfxMessage>,
 ) {
     let open = ui_state.as_deref().map(|s| s.visible).unwrap_or(false);
     if *backend != InventoryUiBackend::Cube || !open {
@@ -849,6 +992,9 @@ fn cube_pointer_click(
                 cursor.last_pointer_focus = Some(next);
             }
             let mut close_menu = false;
+            // Clicks route through the SAME `dispatch_cube_action` as the keyboard
+            // select path, so the action sounds (equip/use/rotate/toggle/...) live in
+            // one place and are identical for pointer + keyboard.
             dispatch_cube_action(
                 action,
                 &mut pages,
@@ -861,6 +1007,7 @@ fn cube_pointer_click(
                 &mut players,
                 &mut mana_q,
                 &mut heals,
+                &mut sfx,
             );
             if close_menu {
                 if let Some(ui_state) = ui_state.as_deref_mut() {
@@ -901,6 +1048,7 @@ fn cube_menu_open_routing(
     mut cursor: ResMut<CubeCursor>,
     mut system_nav: ResMut<CubeSystemNav>,
     mut map: ResMut<crate::map_menu::MapMenuState>,
+    mut sfx: MessageWriter<SfxMessage>,
 ) {
     use crate::runtime::game_mode::GameMode;
     if *backend != InventoryUiBackend::Cube {
@@ -910,8 +1058,10 @@ fn cube_menu_open_routing(
     // pause / Esc: toggle the cube on the System page.
     if menu.start {
         if overlay.visible {
+            play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_CLOSE);
             close_cube_menu(&mut overlay, mode.get(), &mut next_mode);
         } else if matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
+            play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_OPEN);
             open_cube_menu(
                 CubePage::System,
                 &mut overlay,
@@ -931,6 +1081,17 @@ fn cube_menu_open_routing(
     // page + seed the cursor whenever that key fires. Closing is handled there too —
     // when the key closes the overlay this just sets a page that won't be shown.
     if menu.inventory {
+        // The overlay's `visible` is flipped by `oot_menu_input`; play open vs close
+        // off the state it WILL be in this frame (we observe the pre-flip value here,
+        // so a currently-hidden overlay is opening and a visible one is closing).
+        play_ui(
+            &mut sfx,
+            if overlay.visible {
+                ambition_sfx::ids::UI_MENU_CLOSE
+            } else {
+                ambition_sfx::ids::UI_MENU_OPEN
+            },
+        );
         pages.active = Some(CubePage::Items);
         system_nav.open_category = None;
         cursor.mark_keyboard(CubeFocus::Item(0));
@@ -944,6 +1105,7 @@ fn cube_menu_open_routing(
             pages.active = Some(CubePage::Map);
             cursor.mark_keyboard(CubeFocus::EdgeLeft);
         } else {
+            play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_OPEN);
             open_cube_menu(
                 CubePage::Map,
                 &mut overlay,
@@ -1184,6 +1346,7 @@ mod oot_cube_app_tests {
         app.init_resource::<UserSettings>();
         app.init_resource::<crate::inventory::InventoryUiState>();
         app.add_message::<PlayerHealRequested>();
+        app.add_message::<SfxMessage>();
         app.add_observer(cube_pointer_click);
         *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::Cube;
         app.world_mut()
@@ -1243,6 +1406,7 @@ mod oot_cube_app_tests {
         app.init_resource::<crate::inventory::InventoryUiState>();
         app.init_resource::<MenuControlFrame>();
         app.add_message::<PlayerHealRequested>();
+        app.add_message::<SfxMessage>();
         app.add_systems(Update, cube_focus_nav);
         *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::Cube;
         app.world_mut()

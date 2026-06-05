@@ -69,6 +69,17 @@ pub const UI_PAUSE_CLOSE: SfxId = SfxId::from_static("ui.pause.close");
 pub const UI_SAVE_COMPLETE: SfxId = SfxId::from_static("ui.save.complete");
 pub const UI_ERROR: SfxId = SfxId::from_static("ui.error");
 
+// Cube inventory menu (3D OoT cube). These `ui.*` ids are authored under
+// `tools/ambition_sfx_renderer/sounds/active/ui.*.sfx.yaml`; if an id isn't packed
+// into the runtime bank yet the play just no-ops, so wiring them is always safe.
+pub const UI_MENU_OPEN: SfxId = SfxId::from_static("ui.menu.open");
+pub const UI_MENU_CLOSE: SfxId = SfxId::from_static("ui.menu.close");
+pub const UI_MENU_ROTATE_LEFT: SfxId = SfxId::from_static("ui.menu.rotate_left");
+pub const UI_MENU_ROTATE_RIGHT: SfxId = SfxId::from_static("ui.menu.rotate_right");
+pub const UI_MENU_EQUIP: SfxId = SfxId::from_static("ui.menu.equip");
+pub const UI_MENU_UNEQUIP: SfxId = SfxId::from_static("ui.menu.unequip");
+pub const UI_MENU_ERROR: SfxId = SfxId::from_static("ui.menu.error");
+
 // Footsteps (variants are sibling ids; gameplay picks among them)
 pub const PLAYER_FOOTSTEP_STONE_01: SfxId = SfxId::from_static("player.footstep.stone.01");
 pub const PLAYER_FOOTSTEP_STONE_02: SfxId = SfxId::from_static("player.footstep.stone.02");

@@ -575,6 +575,24 @@ pub struct PortalGunSpawnSpec {
     pub half_extent: ae::Vec2,
 }
 
+/// LDtk-authored static portal. Resolves to a [`crate::portal::Portal`] at room
+/// load — pre-placed linked pairs (by complementary color) for the portal test
+/// lab, independent of the portal gun. The half-extent is the standard portal
+/// opening (derived from the normal), not the LDtk box size.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PortalSpec {
+    /// LDtk iid — stable across rebuilds for save/debug joins.
+    pub id: String,
+    /// LDtk display name (editor-facing / entity naming only).
+    pub name: String,
+    /// Portal color (its partner color is the linked exit).
+    pub color: crate::portal::PortalColor,
+    /// World-space center of the portal face (on the host surface).
+    pub pos: ae::Vec2,
+    /// Outward surface normal (axis-aligned), pointing into the room.
+    pub normal: ae::Vec2,
+}
+
 /// LDtk-authored heal/save shrine. Resolves to a [`crate::shrine::HealShrine`]
 /// at room load — the authored-placement home for the debug
 /// `spawn_debug_shrine_once`.
@@ -661,6 +679,8 @@ pub struct RoomSpec {
     pub ground_items: Vec<GroundItemSpec>,
     /// LDtk-authored portal-gun pickups. See [`PortalGunSpawnSpec`].
     pub portal_gun_spawns: Vec<PortalGunSpawnSpec>,
+    /// LDtk-authored static portals (pre-placed linked pairs). See [`PortalSpec`].
+    pub portals: Vec<PortalSpec>,
     /// LDtk-authored heal/save shrines. See [`ShrineSpec`].
     pub shrines: Vec<ShrineSpec>,
     /// LDtk-authored localized-gravity zones. See [`GravityZoneSpec`].

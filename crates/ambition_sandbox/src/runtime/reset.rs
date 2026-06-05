@@ -443,6 +443,7 @@ mod tests {
             props: Vec::new(),
             ground_items: Vec::new(),
             portal_gun_spawns: Vec::new(),
+            portals: Vec::new(),
             shrines: Vec::new(),
             gravity_zones: Vec::new(),
             hazards: Vec::new(),

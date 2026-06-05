@@ -78,6 +78,22 @@ pub(super) fn spawn_portal_gun_spawn(
     ));
 }
 
+pub(super) fn spawn_portal(commands: &mut Commands, spec: &crate::rooms::PortalSpec) {
+    // Authored static portal: the same `Portal` component the gun fires, but
+    // pre-placed and color-paired. Room-scoped so a transition despawns it and
+    // the loader re-spawns it; never gun-owned, so it persists without a gun.
+    commands.spawn((
+        Name::new(format!("Portal ({}): {}", spec.color.name(), spec.name)),
+        crate::portal::Portal {
+            color: spec.color,
+            pos: spec.pos,
+            normal: spec.normal,
+            half_extent: crate::portal::portal_half_extent(spec.normal),
+        },
+        crate::presentation::rendering::RoomScopedEntity,
+    ));
+}
+
 pub(super) fn spawn_shrine(commands: &mut Commands, spec: &crate::rooms::ShrineSpec) {
     commands.spawn((
         Name::new(format!("Heal/save shrine: {}", spec.name)),

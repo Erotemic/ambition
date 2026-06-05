@@ -45,6 +45,8 @@ pub enum PortalColor {
     Red,
     Green,
     Magenta,
+    Cyan,
+    Rose,
 }
 
 impl PortalColor {
@@ -60,6 +62,8 @@ impl PortalColor {
             Red => Teal,
             Green => Magenta,
             Magenta => Green,
+            Cyan => Rose,
+            Rose => Cyan,
         }
     }
 
@@ -87,6 +91,8 @@ impl PortalColor {
             Red => (Color::srgb(0.92, 0.22, 0.25), Color::srgb(1.0, 0.62, 0.62)),
             Green => (Color::srgb(0.28, 0.80, 0.35), Color::srgb(0.72, 0.96, 0.74)),
             Magenta => (Color::srgb(0.92, 0.25, 0.80), Color::srgb(1.0, 0.70, 0.95)),
+            Cyan => (Color::srgb(0.18, 0.92, 0.95), Color::srgb(0.70, 0.99, 1.0)),
+            Rose => (Color::srgb(1.0, 0.40, 0.62), Color::srgb(1.0, 0.74, 0.84)),
         }
     }
 
@@ -102,6 +108,8 @@ impl PortalColor {
             Red => "red",
             Green => "green",
             Magenta => "magenta",
+            Cyan => "cyan",
+            Rose => "rose",
         }
     }
 
@@ -117,6 +125,8 @@ impl PortalColor {
             "red" => Red,
             "green" => Green,
             "magenta" => Magenta,
+            "cyan" => Cyan,
+            "rose" => Rose,
             _ => return None,
         })
     }

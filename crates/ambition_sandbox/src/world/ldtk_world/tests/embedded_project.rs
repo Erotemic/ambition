@@ -712,6 +712,52 @@ fn ldtk_authors_portal_gun_spawn() {
     );
 }
 
+/// The `portal_lab` test room authors its static portal pairs: 8 `Portal`
+/// entities (four complementary pairs, one per orientation test case), and each
+/// placed color has its partner placed (so every pair links).
+#[test]
+fn ldtk_authors_portal_lab_pairs() {
+    use crate::portal::PortalColor;
+    let project = LdtkProject::load_default_for_dev().expect("sandbox + intro LDtk should load");
+    let room_set = project.to_room_set().expect("LDtk should compose");
+    let portals: Vec<_> = room_set
+        .rooms
+        .iter()
+        .flat_map(|room| room.portals.iter())
+        .collect();
+    assert!(
+        portals.len() >= 8,
+        "expected the portal_lab's 8 authored Portals; got {} — did the Portal \
+         entity def / convert_portal / the area authoring break?",
+        portals.len()
+    );
+    // Every placed color must have its partner placed, or a pair can't link.
+    for portal in &portals {
+        assert!(
+            portals.iter().any(|p| p.color == portal.color.partner()),
+            "portal color {:?} has no partner {:?} placed — the pair won't link",
+            portal.color,
+            portal.color.partner()
+        );
+    }
+    // The four non-gun pairs the lab uses are all present.
+    for color in [
+        PortalColor::Purple,
+        PortalColor::Yellow,
+        PortalColor::Teal,
+        PortalColor::Red,
+        PortalColor::Green,
+        PortalColor::Magenta,
+        PortalColor::Cyan,
+        PortalColor::Rose,
+    ] {
+        assert!(
+            portals.iter().any(|p| p.color == color),
+            "portal_lab should author a {color:?} portal"
+        );
+    }
+}
+
 /// `ShrineSpawn` and `GravityZone` convert into their `RoomSpec` lists — the
 /// authored homes for the last two near-player debug spawns.
 #[test]

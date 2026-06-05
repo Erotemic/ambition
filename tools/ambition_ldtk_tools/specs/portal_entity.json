@@ -1,0 +1,17 @@
+{
+  "entities": [
+    {
+      "identifier": "Portal",
+      "color": "#A06CFF",
+      "width": 92,
+      "height": 18,
+      "docs": "Pre-placed static portal for the portal test lab. Paired by complementary color (blue<->orange, purple<->yellow, teal<->red, green<->magenta) - place both colors of a pair to link them. The box center is the portal face; normal (up/down/left/right, y-down) sets the host surface and the opening is derived from it.",
+      "fields": [
+        {"name": "id", "type": "String", "default": ""},
+        {"name": "name", "type": "String", "default": ""},
+        {"name": "color", "type": "String", "default": "purple"},
+        {"name": "normal", "type": "String", "default": "up"}
+      ]
+    }
+  ]
+}

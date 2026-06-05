@@ -142,4 +142,5 @@ pub const AMBITION_LDTK_ENTITY_IDENTIFIERS: &[&str] = &[
     "WaterVolume",
     "MovingPlatform",
     "Prop",
+    "Portal",
 ];

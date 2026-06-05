@@ -9,19 +9,17 @@
 //! `dev/journals/oot-cube-integration-plan.md`.
 
 use ambition_inventory_ui::cube::{CubeMenuConfig, CubeMenuPlugin};
-use ambition_inventory_ui::{
-    ActiveMenuPages, AmbitionInventoryUiPlugin, AmbitionMenuControl,
-};
+use ambition_inventory_ui::{ActiveMenuPages, AmbitionInventoryUiPlugin, AmbitionMenuControl};
 use bevy::prelude::*;
 
+use crate::audio::SfxMessage;
+use crate::engine_core::Vec2;
 use crate::input::MenuControlFrame;
 use crate::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use crate::oot_cube::{
     build_inventory_pages, system_rows, CubeAction, CubeFocus, CubePage, SystemCategory,
     SystemOption, SystemRow,
 };
-use crate::audio::SfxMessage;
-use crate::engine_core::Vec2;
 use crate::oot_menu::effects::MenuAction;
 use crate::oot_menu::input::{dispatch_item_confirm, MenuEffectManaQuery, MenuEffectPlayers};
 use crate::persistence::settings::{AudioSettings, UserSettings};
@@ -35,7 +33,10 @@ use crate::player::PlayerHealRequested;
 /// isn't packed into the runtime bank yet the play just no-ops (safe).
 #[inline]
 fn play_ui(sfx: &mut MessageWriter<SfxMessage>, id: ambition_sfx::SfxId) {
-    sfx.write(SfxMessage::Play { id, pos: Vec2::ZERO });
+    sfx.write(SfxMessage::Play {
+        id,
+        pos: Vec2::ZERO,
+    });
 }
 
 /// Which inventory frontend renders. Runtime toggle (both compiled in); defaults to
@@ -101,7 +102,7 @@ pub fn install_cube_menu(app: &mut App) {
             )
                 .chain(),
         )
-        .add_observer(cube_pointer_over)
+        .add_observer(cube_pointer_move)
         .add_observer(cube_pointer_click);
 }
 
@@ -127,10 +128,8 @@ struct CubeCursor {
     focus: CubeFocus,
     /// Which input source last moved the cursor (keyboard nav vs pointer hover).
     owner: FocusSource,
-    /// The last focus the POINTER hovered. A parked mouse re-fires `Pointer<Over>`
-    /// every model rebuild (new entities spawn under the cursor); gating on this
-    /// means a stationary hover over the same logical focus is a no-op, so it can't
-    /// (a) loop the rebuild or (b) override a later keyboard move.
+    /// The last focus the POINTER moved over. A parked mouse should not count as a
+    /// selection; only actual pointer motion can change the cursor here.
     last_pointer_focus: Option<CubeFocus>,
 }
 
@@ -203,7 +202,9 @@ fn retarget_cube_scrim(
     };
     let mut any = false;
     for entity in &scrim {
-        commands.entity(entity).insert(UiTargetCamera(main_camera.0));
+        commands
+            .entity(entity)
+            .insert(UiTargetCamera(main_camera.0));
         any = true;
     }
     if any {
@@ -282,10 +283,20 @@ fn cube_focus_nav(
     // where the item cursor sits. The cursor lands on the new page's back-edge button.
     let bump = (menu.page_right as i32) - (menu.page_left as i32);
     if bump < 0 {
-        turn_page_seeded(&mut pages, &mut cursor, active_page.on_viewer_left(), &mut sfx);
+        turn_page_seeded(
+            &mut pages,
+            &mut cursor,
+            active_page.on_viewer_left(),
+            &mut sfx,
+        );
         return;
     } else if bump > 0 {
-        turn_page_seeded(&mut pages, &mut cursor, active_page.on_viewer_right(), &mut sfx);
+        turn_page_seeded(
+            &mut pages,
+            &mut cursor,
+            active_page.on_viewer_right(),
+            &mut sfx,
+        );
         return;
     }
 
@@ -294,8 +305,21 @@ fn cube_focus_nav(
     // value), and SELECT applies the focused option.
     if active_page == CubePage::System {
         system_focus_nav(
-            &menu, dx, dy, &mut cursor, &mut system_nav, &mut pages, &mut overlay, &mut settings,
-            active_page, &mut owned, &mut commands, &mut players, &mut mana_q, &mut heals, &mut sfx,
+            &menu,
+            dx,
+            dy,
+            &mut cursor,
+            &mut system_nav,
+            &mut pages,
+            &mut overlay,
+            &mut settings,
+            active_page,
+            &mut owned,
+            &mut commands,
+            &mut players,
+            &mut mana_q,
+            &mut heals,
+            &mut sfx,
         );
         return;
     }
@@ -312,9 +336,12 @@ fn cube_focus_nav(
         if dx != 0 {
             match cursor.focus {
                 CubeFocus::EdgeLeft if dx > 0 => cursor.mark_keyboard(CubeFocus::EdgeRight),
-                CubeFocus::EdgeLeft => {
-                    turn_page_seeded(&mut pages, &mut cursor, active_page.on_viewer_left(), &mut sfx)
-                }
+                CubeFocus::EdgeLeft => turn_page_seeded(
+                    &mut pages,
+                    &mut cursor,
+                    active_page.on_viewer_left(),
+                    &mut sfx,
+                ),
                 CubeFocus::EdgeRight if dx < 0 => cursor.mark_keyboard(CubeFocus::EdgeLeft),
                 CubeFocus::EdgeRight => turn_page_seeded(
                     &mut pages,
@@ -333,9 +360,12 @@ fn cube_focus_nav(
         if menu.select {
             // The only selectable controls on a placeholder are the edge buttons.
             match cursor.focus {
-                CubeFocus::EdgeLeft => {
-                    turn_page_seeded(&mut pages, &mut cursor, active_page.on_viewer_left(), &mut sfx)
-                }
+                CubeFocus::EdgeLeft => turn_page_seeded(
+                    &mut pages,
+                    &mut cursor,
+                    active_page.on_viewer_left(),
+                    &mut sfx,
+                ),
                 CubeFocus::EdgeRight => turn_page_seeded(
                     &mut pages,
                     &mut cursor,
@@ -349,7 +379,13 @@ fn cube_focus_nav(
             play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_CLOSE);
             overlay.visible = false;
         }
-        emit_move_sfx(&mut sfx, focus_before, cursor.focus, page_before, pages.active);
+        emit_move_sfx(
+            &mut sfx,
+            focus_before,
+            cursor.focus,
+            page_before,
+            pages.active,
+        );
         return;
     }
 
@@ -408,7 +444,13 @@ fn cube_focus_nav(
         }
     }
 
-    emit_move_sfx(&mut sfx, focus_before, cursor.focus, page_before, pages.active);
+    emit_move_sfx(
+        &mut sfx,
+        focus_before,
+        cursor.focus,
+        page_before,
+        pages.active,
+    );
 }
 
 /// Emit `UI_MENU_MOVE` ONCE when the cursor's focus actually changed this frame and
@@ -429,10 +471,10 @@ fn emit_move_sfx(
 }
 
 /// Directional navigation + select for the System face. UP/DOWN move the cursor
-/// over [`SystemOption::ALL`]; from the leftmost/rightmost edge LEFT/RIGHT turns
-/// the page; SELECT applies the focused option (volume/zoom rows also respond to
-/// LEFT/RIGHT to step). `back` closes the menu. Mutations go through
-/// [`apply_system_option`] so persistence stays in one place.
+/// over the live row list; LEFT/RIGHT moves between the edge buttons and the row
+/// list, while value rows also respond to LEFT/RIGHT to step. `back` closes the
+/// menu. Mutations go through [`apply_system_option`] so persistence stays in one
+/// place.
 #[allow(clippy::too_many_arguments)]
 fn system_focus_nav(
     menu: &MenuControlFrame,
@@ -472,19 +514,42 @@ fn system_focus_nav(
     let current = rows[row.max(0).min(count - 1) as usize];
 
     if dx != 0 {
-        // LEFT/RIGHT step value OPTION rows in place; otherwise turn the page.
-        let value_option = match current {
-            SystemRow::Option(o) if is_value_option(o) => Some(o),
-            _ => None,
-        };
-        if let Some(option) = value_option {
-            apply_system_option_step(option, dx, settings, sfx);
-        } else if dx < 0 {
-            turn_page(pages, active_page.on_viewer_left(), sfx);
-            cursor.mark_keyboard(CubeFocus::System(0));
-        } else {
-            turn_page(pages, active_page.on_viewer_right(), sfx);
-            cursor.mark_keyboard(CubeFocus::System(0));
+        match cursor.focus {
+            CubeFocus::EdgeLeft => {
+                if dx > 0 {
+                    // Move inward from the page-turn button into the row list.
+                    cursor.mark_keyboard(CubeFocus::System(0));
+                } else {
+                    // Moving further outward from the edge still rotates the cube.
+                    turn_page(pages, active_page.on_viewer_left(), sfx);
+                    cursor.mark_keyboard(CubeFocus::System(0));
+                }
+            }
+            CubeFocus::EdgeRight => {
+                if dx < 0 {
+                    cursor.mark_keyboard(CubeFocus::System(0));
+                } else {
+                    turn_page(pages, active_page.on_viewer_right(), sfx);
+                    cursor.mark_keyboard(CubeFocus::System(0));
+                }
+            }
+            CubeFocus::System(_) | CubeFocus::Item(_) => {
+                // LEFT/RIGHT step value OPTION rows in place; otherwise use the
+                // horizontal affordance to move onto the edge buttons.
+                if let SystemRow::Option(o) = current {
+                    if is_value_option(o) {
+                        apply_system_option_step(o, dx, settings, sfx);
+                    } else if dx < 0 {
+                        cursor.mark_keyboard(CubeFocus::EdgeLeft);
+                    } else {
+                        cursor.mark_keyboard(CubeFocus::EdgeRight);
+                    }
+                } else if dx < 0 {
+                    cursor.mark_keyboard(CubeFocus::EdgeLeft);
+                } else {
+                    cursor.mark_keyboard(CubeFocus::EdgeRight);
+                }
+            }
         }
     }
 
@@ -567,15 +632,21 @@ fn apply_system_option_step(
 ) {
     match option {
         SystemOption::CycleMasterVolume => {
-            settings.audio.nudge_master(step_sign(dx) * AudioSettings::VOLUME_STEP);
+            settings
+                .audio
+                .nudge_master(step_sign(dx) * AudioSettings::VOLUME_STEP);
             play_ui(sfx, ambition_sfx::ids::UI_SLIDER_TICK);
         }
         SystemOption::CycleMusicVolume => {
-            settings.audio.nudge_music(step_sign(dx) * AudioSettings::VOLUME_STEP);
+            settings
+                .audio
+                .nudge_music(step_sign(dx) * AudioSettings::VOLUME_STEP);
             play_ui(sfx, ambition_sfx::ids::UI_SLIDER_TICK);
         }
         SystemOption::CycleSfxVolume => {
-            settings.audio.nudge_sfx(step_sign(dx) * AudioSettings::VOLUME_STEP);
+            settings
+                .audio
+                .nudge_sfx(step_sign(dx) * AudioSettings::VOLUME_STEP);
             play_ui(sfx, ambition_sfx::ids::UI_SLIDER_TICK);
         }
         SystemOption::CycleCameraZoom => {
@@ -744,7 +815,9 @@ fn dispatch_cube_action(
                 MenuAction::Equip(_) => ambition_sfx::ids::UI_MENU_EQUIP,
                 MenuAction::Unequip(_) => ambition_sfx::ids::UI_MENU_UNEQUIP,
                 MenuAction::UseConsumable(_) => ambition_sfx::ids::UI_MENU_ACCEPT,
-                MenuAction::Inspect(_) | MenuAction::NotOwned(_) => ambition_sfx::ids::UI_MENU_ERROR,
+                MenuAction::Inspect(_) | MenuAction::NotOwned(_) => {
+                    ambition_sfx::ids::UI_MENU_ERROR
+                }
             };
             play_ui(sfx, id);
             info!("cube action: {:?} \u{2192} {:?}", item, decided);
@@ -911,24 +984,21 @@ fn focus_for_action(
     }
 }
 
-/// Pointer hover (mouse/touch) over a cube control: move the focus cursor to it —
-/// but ONLY on a genuine pointer move to a DIFFERENT control. Bevy picking fires
-/// this for mouse AND touch uniformly.
+/// Pointer motion (mouse/touch) over a cube control: move the focus cursor to it.
+/// We listen to `Pointer<Move>` instead of `Pointer<Over>` so a menu that opens
+/// under a parked mouse does not immediately select whatever is already under the
+/// cursor. A real move is required before hover can take ownership.
 ///
 /// Two guards (both essential), mirroring the grid's `MenuFocusState`:
 ///
-/// 1. **Semantic dedup.** Every model rebuild despawns/respawns the controls, so a
-///    parked mouse re-fires `Pointer<Over>` on a NEW entity that maps to the SAME
-///    logical [`CubeFocus`]. We compare the hovered focus against `last_pointer_focus`
-///    and bail when unchanged → no `CubeCursor` write → no rebuild → the
-///    "rebuilding 4 faces" loop is broken.
-/// 2. **Pointer-vs-keyboard ownership.** When the hovered focus equals the last one
-///    the pointer reported, the mouse hasn't moved; we leave the cursor alone even
-///    if keyboard nav has since taken it elsewhere. The pointer only re-claims the
-///    cursor when it moves onto a genuinely different control. This fixes "can't
-///    move away from the hovered option."
-fn cube_pointer_over(
-    over: On<Pointer<Over>>,
+/// 1. **Semantic dedup.** A moving pointer can emit several events while it stays
+///    over the same control. We compare the hovered focus against `last_pointer_focus`
+///    and bail when unchanged, so the cursor only reacts once per logical focus.
+/// 2. **Pointer-vs-keyboard ownership.** The pointer only re-claims the cursor when
+///    it moves onto a genuinely different control. This fixes "can't move away from
+///    the hovered option."
+fn cube_pointer_move(
+    move_: On<Pointer<Move>>,
     controls: Query<&AmbitionMenuControl<CubeAction>>,
     pages: Res<ActiveMenuPages<CubePage, CubeAction>>,
     system_nav: Res<CubeSystemNav>,
@@ -938,13 +1008,11 @@ fn cube_pointer_over(
     let Some(active_page) = pages.active else {
         return;
     };
-    if let Ok(control) = controls.get(over.entity) {
+    if let Ok(control) = controls.get(move_.entity) {
         if let Some(action) = control.action {
             let next = focus_for_action(action, active_page, system_nav.open_category);
-            // The pointer hasn't moved to a new control (same logical focus, just a
-            // freshly-rebuilt entity under a parked mouse): do nothing. This is the
-            // single guard that breaks the rebuild loop AND prevents the parked
-            // mouse from locking the cursor against keyboard nav.
+            // The pointer hasn't moved to a new control (same logical focus as the
+            // previous move event): do nothing.
             if cursor.last_pointer_focus == Some(next) {
                 return;
             }
@@ -952,9 +1020,8 @@ fn cube_pointer_over(
             if cursor.focus != next {
                 cursor.focus = next;
                 cursor.owner = FocusSource::Pointer;
-                // The hover moved to a genuinely different control (the dedup guard
-                // above already filtered the parked-mouse rebuild re-fire): play the
-                // move sound, matching the keyboard nav path.
+                // The move landed on a genuinely different control: play the move
+                // sound, matching the keyboard nav path.
                 play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_MOVE);
             }
         }
@@ -1094,6 +1161,7 @@ fn cube_menu_open_routing(
         );
         pages.active = Some(CubePage::Items);
         system_nav.open_category = None;
+        cursor.last_pointer_focus = None;
         cursor.mark_keyboard(CubeFocus::Item(0));
         map.open = false;
         return;
@@ -1142,6 +1210,7 @@ fn open_cube_menu(
     pages.active = Some(page);
     // Seed a sensible cursor for the opening page.
     system_nav.open_category = None;
+    cursor.last_pointer_focus = None;
     cursor.mark_keyboard(match page {
         CubePage::Items => CubeFocus::Item(0),
         CubePage::System => CubeFocus::System(0),
@@ -1192,14 +1261,20 @@ fn gate_cube_menu(
     backend: Res<InventoryUiBackend>,
     ui_state: Option<Res<crate::inventory::InventoryUiState>>,
     mut open_state: ResMut<ambition_inventory_ui::cube::CubeOpenState>,
-    mut cameras: Query<(&mut Camera, Has<ambition_inventory_ui::cube::CubePauseCamera>)>,
+    mut cameras: Query<(
+        &mut Camera,
+        Has<ambition_inventory_ui::cube::CubePauseCamera>,
+    )>,
     mut rings: Query<&mut Visibility, With<ambition_inventory_ui::cube::MenuRing>>,
     mut last_show: Local<Option<bool>>,
 ) {
     let open = ui_state.map(|s| s.visible).unwrap_or(false);
     let show = *backend == InventoryUiBackend::Cube && open;
     if *last_show != Some(show) {
-        info!("cube gate: show={show} backend={:?} menu_open={open}", *backend);
+        info!(
+            "cube gate: show={show} backend={:?} menu_open={open}",
+            *backend
+        );
         *last_show = Some(show);
     }
     // Drive the lib's open/close fold: it eases `amount` toward this target each
@@ -1311,10 +1386,10 @@ mod oot_cube_app_tests {
     use crate::brain::ActionSet;
     use crate::game_mode::GameMode;
     use crate::player::{PlayerEntity, PlayerMana, PrimaryPlayer};
-    use bevy::picking::pointer::{Location, PointerId};
-    use bevy::picking::backend::HitData;
-    use bevy::picking::events::{Click, Pointer};
     use bevy::camera::NormalizedRenderTarget;
+    use bevy::picking::backend::HitData;
+    use bevy::picking::events::{Click, Move, Pointer};
+    use bevy::picking::pointer::{Location, PointerId};
     use core::time::Duration;
 
     // ---- Fix 1: back-edge seeding --------------------------------------------
@@ -1354,10 +1429,46 @@ mod oot_cube_app_tests {
             .visible = true;
         let player = app
             .world_mut()
-            .spawn((PlayerEntity, PrimaryPlayer, ActionSet::default(), PlayerMana::default()))
+            .spawn((
+                PlayerEntity,
+                PrimaryPlayer,
+                ActionSet::default(),
+                PlayerMana::default(),
+            ))
             .id();
         app.update();
         (app, player)
+    }
+
+    fn open_app() -> App {
+        let mut app = App::new();
+        app.add_plugins(bevy::state::app::StatesPlugin);
+        app.init_state::<GameMode>();
+        app.init_resource::<InventoryUiBackend>();
+        app.init_resource::<ActiveMenuPages<CubePage, CubeAction>>();
+        app.init_resource::<CubeCursor>();
+        app.init_resource::<CubeSystemNav>();
+        app.init_resource::<OwnedItems>();
+        app.init_resource::<UserSettings>();
+        app.init_resource::<crate::inventory::InventoryUiState>();
+        app.init_resource::<crate::map_menu::MapMenuState>();
+        app.init_resource::<MenuControlFrame>();
+        app.add_message::<PlayerHealRequested>();
+        app.add_message::<SfxMessage>();
+        app.add_systems(Update, cube_menu_open_routing);
+        app.add_observer(cube_pointer_move);
+        *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::Cube;
+        app.world_mut()
+            .resource_mut::<crate::inventory::InventoryUiState>()
+            .visible = false;
+        app.world_mut().spawn((
+            PlayerEntity,
+            PrimaryPlayer,
+            ActionSet::default(),
+            PlayerMana::default(),
+        ));
+        app.update();
+        app
     }
 
     /// Spawn a cube control carrying `action` and fire a real `Pointer<Click>` at it,
@@ -1374,7 +1485,10 @@ mod oot_cube_app_tests {
         // The observer only reads `click.entity`; any render target works for the
         // location, so the simplest no-render target keeps the fixture minimal.
         let location = Location {
-            target: NormalizedRenderTarget::None { width: 1, height: 1 },
+            target: NormalizedRenderTarget::None {
+                width: 1,
+                height: 1,
+            },
             position: Vec2::ZERO,
         };
         let click = Pointer::new(
@@ -1388,6 +1502,35 @@ mod oot_cube_app_tests {
             entity,
         );
         app.world_mut().trigger(click);
+        app.update();
+    }
+
+    fn move_control(app: &mut App, action: CubeAction) {
+        let entity = app
+            .world_mut()
+            .spawn(AmbitionMenuControl::<CubeAction> {
+                kind: ambition_inventory_ui::MenuControlKind::OptionToggle,
+                action: Some(action),
+                focus: ambition_inventory_ui::MenuFocusKey::default(),
+            })
+            .id();
+        let location = Location {
+            target: NormalizedRenderTarget::None {
+                width: 1,
+                height: 1,
+            },
+            position: Vec2::ZERO,
+        };
+        let pointer_move = Pointer::new(
+            PointerId::Mouse,
+            location,
+            Move {
+                hit: HitData::new(entity, 0.0, None, None),
+                delta: Vec2::new(1.0, 0.0),
+            },
+            entity,
+        );
+        app.world_mut().trigger(pointer_move);
         app.update();
     }
 
@@ -1415,8 +1558,46 @@ mod oot_cube_app_tests {
         app.world_mut()
             .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
             .active = Some(CubePage::Items);
+        app.world_mut().spawn((
+            PlayerEntity,
+            PrimaryPlayer,
+            ActionSet::default(),
+            PlayerMana::default(),
+        ));
+        app.update();
+        app
+    }
+
+    fn system_nav_app(focus: CubeFocus) -> App {
+        let mut app = App::new();
+        app.add_plugins(bevy::state::app::StatesPlugin);
+        app.init_state::<GameMode>();
+        app.init_resource::<InventoryUiBackend>();
+        app.init_resource::<ActiveMenuPages<CubePage, CubeAction>>();
+        app.init_resource::<CubeCursor>();
+        app.init_resource::<CubeSystemNav>();
+        app.init_resource::<OwnedItems>();
+        app.init_resource::<UserSettings>();
+        app.init_resource::<crate::inventory::InventoryUiState>();
+        app.init_resource::<crate::map_menu::MapMenuState>();
+        app.init_resource::<MenuControlFrame>();
+        app.add_message::<PlayerHealRequested>();
+        app.add_message::<SfxMessage>();
+        app.add_systems(Update, cube_focus_nav);
+        *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::Cube;
         app.world_mut()
-            .spawn((PlayerEntity, PrimaryPlayer, ActionSet::default(), PlayerMana::default()));
+            .resource_mut::<crate::inventory::InventoryUiState>()
+            .visible = true;
+        app.world_mut()
+            .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
+            .active = Some(CubePage::System);
+        app.world_mut().resource_mut::<CubeCursor>().focus = focus;
+        app.world_mut().spawn((
+            PlayerEntity,
+            PrimaryPlayer,
+            ActionSet::default(),
+            PlayerMana::default(),
+        ));
         app.update();
         app
     }
@@ -1437,7 +1618,9 @@ mod oot_cube_app_tests {
         let mut app = nav_app();
         press_bumper(&mut app, true);
         assert_eq!(
-            app.world().resource::<ActiveMenuPages<CubePage, CubeAction>>().active,
+            app.world()
+                .resource::<ActiveMenuPages<CubePage, CubeAction>>()
+                .active,
             Some(CubePage::Items.on_viewer_right()),
             "right bumper rotates to the viewer-right page (Fix 2)"
         );
@@ -1455,7 +1638,9 @@ mod oot_cube_app_tests {
         let mut app = nav_app();
         press_bumper(&mut app, false);
         assert_eq!(
-            app.world().resource::<ActiveMenuPages<CubePage, CubeAction>>().active,
+            app.world()
+                .resource::<ActiveMenuPages<CubePage, CubeAction>>()
+                .active,
             Some(CubePage::Items.on_viewer_left()),
             "left bumper rotates to the viewer-left page (Fix 2)"
         );
@@ -1472,8 +1657,15 @@ mod oot_cube_app_tests {
         app.world_mut()
             .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
             .active = Some(CubePage::System);
-        assert!(app.world().resource::<CubeSystemNav>().open_category.is_none());
-        click_control(&mut app, CubeAction::OpenSystemCategory(SystemCategory::Audio));
+        assert!(app
+            .world()
+            .resource::<CubeSystemNav>()
+            .open_category
+            .is_none());
+        click_control(
+            &mut app,
+            CubeAction::OpenSystemCategory(SystemCategory::Audio),
+        );
         assert_eq!(
             app.world().resource::<CubeSystemNav>().open_category,
             Some(SystemCategory::Audio),
@@ -1487,11 +1679,16 @@ mod oot_cube_app_tests {
         app.world_mut()
             .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
             .active = Some(CubePage::System);
-        app.world_mut().resource_mut::<CubeSystemNav>().open_category = Some(SystemCategory::Video);
+        app.world_mut()
+            .resource_mut::<CubeSystemNav>()
+            .open_category = Some(SystemCategory::Video);
         let before = app.world().resource::<UserSettings>().video.show_fps;
         click_control(&mut app, CubeAction::System(SystemOption::ToggleFps));
         let after = app.world().resource::<UserSettings>().video.show_fps;
-        assert_ne!(before, after, "clicking an option toggles the setting (Fix 4)");
+        assert_ne!(
+            before, after,
+            "clicking an option toggles the setting (Fix 4)"
+        );
     }
 
     #[test]
@@ -1500,10 +1697,15 @@ mod oot_cube_app_tests {
         app.world_mut()
             .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
             .active = Some(CubePage::System);
-        app.world_mut().resource_mut::<CubeSystemNav>().open_category = Some(SystemCategory::Audio);
+        app.world_mut()
+            .resource_mut::<CubeSystemNav>()
+            .open_category = Some(SystemCategory::Audio);
         click_control(&mut app, CubeAction::CloseSystemCategory);
         assert!(
-            app.world().resource::<CubeSystemNav>().open_category.is_none(),
+            app.world()
+                .resource::<CubeSystemNav>()
+                .open_category
+                .is_none(),
             "clicking Back drills out to the category list (Fix 4)"
         );
     }
@@ -1516,8 +1718,94 @@ mod oot_cube_app_tests {
             .active = Some(CubePage::System);
         click_control(&mut app, CubeAction::System(SystemOption::CloseMenu));
         assert!(
-            !app.world().resource::<crate::inventory::InventoryUiState>().visible,
+            !app.world()
+                .resource::<crate::inventory::InventoryUiState>()
+                .visible,
             "clicking Close Menu folds the cube shut (Fix 4)"
+        );
+    }
+
+    #[test]
+    fn system_edge_left_moves_inward_to_the_row_list() {
+        let mut app = system_nav_app(CubeFocus::EdgeLeft);
+        let mut frame = MenuControlFrame::default();
+        frame.right = true;
+        app.insert_resource(frame);
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<CubeCursor>().focus,
+            CubeFocus::System(0),
+            "moving right from the < Items button enters the System row list instead of rotating"
+        );
+        assert_eq!(
+            app.world()
+                .resource::<ActiveMenuPages<CubePage, CubeAction>>()
+                .active,
+            Some(CubePage::System),
+            "the cube stays on the System face while moving into the rows"
+        );
+    }
+
+    #[test]
+    fn system_row_horizontal_moves_to_the_edge_buttons() {
+        let mut app = system_nav_app(CubeFocus::System(1));
+        let mut frame = MenuControlFrame::default();
+        frame.left = true;
+        app.insert_resource(frame);
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<CubeCursor>().focus,
+            CubeFocus::EdgeLeft,
+            "horizontal motion from a row should land on the left edge button"
+        );
+    }
+
+    #[test]
+    fn pointer_motion_selects_a_cube_control() {
+        let mut app = open_app();
+        app.world_mut()
+            .resource_mut::<crate::inventory::InventoryUiState>()
+            .visible = true;
+        app.world_mut()
+            .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
+            .active = Some(CubePage::Items);
+        app.world_mut().resource_mut::<CubeCursor>().focus = CubeFocus::EdgeRight;
+
+        move_control(
+            &mut app,
+            CubeAction::ChangePage(CubePage::Items.on_viewer_left()),
+        );
+
+        assert_eq!(
+            app.world().resource::<CubeCursor>().focus,
+            CubeFocus::EdgeLeft,
+            "actual pointer motion updates the cube cursor"
+        );
+        assert_eq!(
+            app.world().resource::<CubeCursor>().last_pointer_focus,
+            Some(CubeFocus::EdgeLeft),
+            "the hovered focus is remembered for later move dedup"
+        );
+    }
+
+    #[test]
+    fn opening_the_cube_clears_stale_pointer_hover_state() {
+        let mut app = open_app();
+        app.world_mut()
+            .resource_mut::<CubeCursor>()
+            .last_pointer_focus = Some(CubeFocus::Item(7));
+        app.world_mut().resource_mut::<MenuControlFrame>().start = true;
+        app.world_mut()
+            .resource_mut::<crate::inventory::InventoryUiState>()
+            .visible = false;
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<CubeCursor>().last_pointer_focus,
+            None,
+            "opening the cube clears stale pointer hover state so parked hover cannot select immediately"
         );
     }
 }

@@ -150,6 +150,10 @@ fn register_player_input_systems(app: &mut App) {
             apply_cut_rope_room_replay_request_system,
             input_timer_system.run_if(gameplay_allowed),
             interaction_input_system.run_if(gameplay_allowed),
+            // Portal-warp the held movement input after a crossing (the
+            // same-wall ping-pong fix) — runs on the finalized ControlFrame,
+            // before it is mirrored to the player's PlayerInputFrame below.
+            crate::portal::warp_portal_input.run_if(gameplay_allowed),
             // Per-player input migration (OVERNIGHT-TODO #17.5). Mirror
             // the now-final `Res<ControlFrame>` onto the local primary
             // player's `PlayerInputFrame` so simulation systems can

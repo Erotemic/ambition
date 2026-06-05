@@ -1016,11 +1016,15 @@ pub enum TransitStep {
     Begin { color: PortalColor, portal_pos: Vec2 },
     /// The centroid crossed: move the body to `pos`, set velocity `vel`, add
     /// `roll_delta` to its roll (the somersault), latch the cooldown, flip the
-    /// straddled portal to `exit_color`, mark crossed, play EXIT sfx.
+    /// straddled portal to `exit_color`, mark crossed, play EXIT sfx. `warp_rot`
+    /// is the `(cos, sin)` portal map (same rotation applied to velocity) — the
+    /// player layer warps the held movement input by it so the held direction
+    /// keeps carrying the body OUT instead of fighting the warped velocity.
     Transfer {
         pos: Vec2,
         vel: Vec2,
         roll_delta: f32,
+        warp_rot: (f32, f32),
         exit_color: PortalColor,
         exit_pos: Vec2,
     },
@@ -1121,6 +1125,8 @@ pub fn transit_step(
                     // turn-around); `update_actor_roll` then eases it back to
                     // gravity-upright (feet-in → reorient).
                     roll_delta: somersault_roll(enter.normal, exit.normal, gravity_dir),
+                    // Same rotation the velocity took — the held-input warp uses it.
+                    warp_rot: pp::portal_rotation(enter.normal, exit.normal),
                     exit_color: exit.color,
                     exit_pos: exit.pos,
                 };
@@ -1144,6 +1150,7 @@ pub fn transit_step(
 /// the trace detector doesn't auto-dump on it.
 pub fn portal_transit_system(
     time: Res<crate::WorldTime>,
+    control: Option<Res<ControlFrame>>,
     mut commands: Commands,
     mut players: Query<
         (
@@ -1203,7 +1210,7 @@ pub fn portal_transit_system(
                 pos: portal_pos,
             });
         }
-        TransitStep::Transfer { pos, vel, roll_delta, exit_color, exit_pos } => {
+        TransitStep::Transfer { pos, vel, roll_delta, warp_rot, exit_color, exit_pos } => {
             kin.pos = pos;
             kin.vel = vel;
             if let Some(roll) = roll.as_deref_mut() {
@@ -1215,6 +1222,16 @@ pub fn portal_transit_system(
             // Always set the component latch too, so a gun-less player can't
             // ping-pong through an authored pair.
             commands.entity(entity).insert(PortalCooldown(TELEPORT_COOLDOWN_S));
+            // If the player crossed WITH movement held, portal-warp that held
+            // input so it keeps carrying them out the exit (see PortalInputWarp).
+            let held = control
+                .as_deref()
+                .map_or(Vec2::ZERO, |c| Vec2::new(c.axis_x, c.axis_y));
+            if held.length() > PORTAL_INPUT_HELD_EPS {
+                commands
+                    .entity(entity)
+                    .insert(PortalInputWarp { rot: warp_rot, anchor: held });
+            }
             if let Some(t) = transit.as_deref_mut() {
                 t.crossed = true;
                 t.straddling = exit_color;
@@ -1232,6 +1249,57 @@ pub fn portal_transit_system(
             commands.entity(entity).remove::<PortalTransit>();
         }
     }
+}
+
+/// Movement-axis magnitude above which input counts as "held" (stick deadzone).
+const PORTAL_INPUT_HELD_EPS: f32 = 0.25;
+/// While warped, the live raw input may drift this far (cosine) from the anchor
+/// before it counts as a "clearly different" direction that drops the warp.
+const PORTAL_INPUT_WARP_KEEP_COS: f32 = 0.5;
+
+/// The input-layer fix for the same-wall ping-pong: after a portal crossing the
+/// player's HELD movement input is warped by the same portal map as velocity, so
+/// holding "right" into a left-facing pair keeps carrying you LEFT out the exit
+/// instead of instantly fighting the warped velocity and pulling you back through.
+/// (Soft, not a hard latch — see [`warp_portal_input`].)
+#[derive(Component, Clone, Copy, Debug)]
+pub struct PortalInputWarp {
+    /// `(cos, sin)` portal-map rotation applied to the movement axis.
+    pub rot: (f32, f32),
+    /// Raw (un-warped) movement direction held when the warp was set; the warp
+    /// drops once the live raw input releases or clearly diverges from this.
+    pub anchor: Vec2,
+}
+
+/// Apply the active [`PortalInputWarp`] to the held movement axis (an input-layer
+/// transform, so the player brain / movement see the warped direction). The warp
+/// is soft: it drops the moment the player releases movement or makes a clearly
+/// different directional input — never a hard latch.
+pub fn warp_portal_input(
+    mut commands: Commands,
+    mut control: ResMut<ControlFrame>,
+    player: Query<(Entity, &PortalInputWarp), (With<PlayerEntity>, With<PrimaryPlayer>)>,
+) {
+    let Ok((entity, warp)) = player.single() else {
+        return;
+    };
+    let raw = Vec2::new(control.axis_x, control.axis_y);
+    // Released movement → drop the warp.
+    if raw.length() < PORTAL_INPUT_HELD_EPS {
+        commands.entity(entity).remove::<PortalInputWarp>();
+        return;
+    }
+    // Clearly different direction than when the warp was set → drop it.
+    if warp.anchor.length() > 0.01
+        && raw.normalize_or_zero().dot(warp.anchor.normalize_or_zero()) < PORTAL_INPUT_WARP_KEEP_COS
+    {
+        commands.entity(entity).remove::<PortalInputWarp>();
+        return;
+    }
+    // Otherwise warp the held movement input by the portal map.
+    let warped = pp::rotate(raw, warp.rot);
+    control.axis_x = warped.x;
+    control.axis_y = warped.y;
 }
 
 /// Despawn all portals when the room resets / transitions, and clear the
@@ -1489,7 +1557,8 @@ fn apply_actor_transit(
                 pos: portal_pos,
             });
         }
-        TransitStep::Transfer { pos: new_pos, vel: new_vel, roll_delta, exit_color, exit_pos } => {
+        // Non-player actors have no held input to warp, so `warp_rot` is ignored.
+        TransitStep::Transfer { pos: new_pos, vel: new_vel, roll_delta, exit_color, exit_pos, .. } => {
             if let Some(pos) = pos {
                 *pos = new_pos;
             }
@@ -2472,6 +2541,51 @@ mod tests {
         assert!(
             (roll - 0.5).abs() < 1e-5,
             "player keeps its orientation through the portal (#47 — no flip), got {roll}"
+        );
+    }
+
+    #[test]
+    fn portal_input_warp_transforms_held_input_then_clears() {
+        let mut app = App::new();
+        app.insert_resource(ControlFrame::default());
+        app.add_systems(Update, warp_portal_input);
+        // A 180° warp (a same-wall pair). Player holds RIGHT (anchor right).
+        let player = app
+            .world_mut()
+            .spawn((
+                PlayerEntity,
+                PrimaryPlayer,
+                PortalInputWarp {
+                    rot: pp::portal_rotation(Vec2::new(-1.0, 0.0), Vec2::new(-1.0, 0.0)),
+                    anchor: Vec2::new(1.0, 0.0),
+                },
+            ))
+            .id();
+
+        // Still holding right → input is warped to LEFT (keeps you moving out).
+        app.world_mut().resource_mut::<ControlFrame>().axis_x = 1.0;
+        app.update();
+        assert!(
+            app.world().resource::<ControlFrame>().axis_x < -0.5,
+            "held right is warped to left while the warp is active"
+        );
+        assert!(app.world().get::<PortalInputWarp>(player).is_some(), "warp persists while held");
+
+        // Release movement → warp drops, input passes through untouched next frame.
+        app.world_mut().resource_mut::<ControlFrame>().axis_x = 0.0;
+        app.update();
+        assert!(app.world().get::<PortalInputWarp>(player).is_none(), "release drops the warp");
+
+        // Re-arm, then press a clearly different direction (left) → warp drops.
+        app.world_mut().entity_mut(player).insert(PortalInputWarp {
+            rot: pp::portal_rotation(Vec2::new(-1.0, 0.0), Vec2::new(-1.0, 0.0)),
+            anchor: Vec2::new(1.0, 0.0),
+        });
+        app.world_mut().resource_mut::<ControlFrame>().axis_x = -1.0;
+        app.update();
+        assert!(
+            app.world().get::<PortalInputWarp>(player).is_none(),
+            "a clearly different direction drops the warp"
         );
     }
 

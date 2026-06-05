@@ -326,16 +326,44 @@ fn presentation_world_inner(
     let ui_fonts: Option<&UiFonts> = None;
     let character_sprites = &game_assets.characters;
 
+    // The MAIN camera (order 0) renders the gameplay world (sprites on the default
+    // RenderLayers::layer(0)). It NO LONGER carries `IsDefaultUiCamera`: the default
+    // UI camera is now the dedicated FRONT camera below (order 9), so all bevy_ui
+    // draws IN FRONT of the order-8 cube-menu `Camera3d`. The cube's dim-scrim is the
+    // one exception and is explicitly retargeted back to this camera (see
+    // `oot_cube_app::spawn_cube_scrim`) so it stays BEHIND the cube.
+    let main_camera = commands
+        .spawn((
+            Camera2d,
+            crate::runtime::camera_layers::MainCamera,
+            crate::presentation::screen_effects::ScreenEffectSettings::default(),
+            Name::new("Main Camera"),
+        ))
+        .id();
+
+    // The FRONT HUD/UI camera (order 9): clears nothing, sits IN FRONT of the cube
+    // (order 8), and is the default UI camera so the HUD / FPS / debug / control
+    // overlays render on top of the cube during the pause menu (and normally
+    // otherwise). It is pinned to a DEDICATED RenderLayers that the gameplay sprites
+    // (layer 0) are NOT on, so it never re-draws the world over the cube — bevy_ui's
+    // node→camera resolution is by `IsDefaultUiCamera`/`UiTargetCamera`, independent
+    // of sprite RenderLayers, so UI still renders here.
     commands.spawn((
         Camera2d,
-        // Pin bevy_ui's default UI camera to the main camera. Without this, adding any
-        // second camera (the #31 cube-menu `Camera3d`) makes bevy_ui's implicit
-        // default-camera resolution ambiguous, so the HUD + pause overlay silently
-        // render to the wrong camera and vanish (still present/clickable, just unseen).
+        Camera {
+            order: 9,
+            clear_color: ClearColorConfig::None,
+            ..default()
+        },
+        crate::runtime::camera_layers::FrontHudCamera,
         IsDefaultUiCamera,
-        crate::presentation::screen_effects::ScreenEffectSettings::default(),
-        Name::new("Main Camera"),
+        bevy::camera::visibility::RenderLayers::layer(
+            crate::runtime::camera_layers::FRONT_HUD_LAYER,
+        ),
+        Name::new("Front HUD Camera"),
     ));
+
+    commands.insert_resource(crate::runtime::camera_layers::MainCameraEntity(main_camera));
 
     // `Instant::now()` is unsupported under `wasm32-unknown-unknown`
     // (panics with "time not implemented on this platform"). Gate the

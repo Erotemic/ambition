@@ -73,6 +73,7 @@ pub fn install_cube_menu(app: &mut App) {
                 republish_cube_pages,
                 gate_cube_menu,
                 toggle_inventory_backend,
+                retarget_cube_scrim,
                 fade_cube_scrim,
             )
                 .chain(),
@@ -119,8 +120,13 @@ impl CubeCursor {
 }
 
 /// Spawn the readability dim-scrim node (full-screen, starts fully transparent).
-/// It lives on the `Camera2d` (which carries `IsDefaultUiCamera`), so it renders
-/// between the world and the order-8 cube. [`fade_cube_scrim`] drives its alpha.
+///
+/// The scrim DIMS THE WORLD, so it must render BEHIND the order-8 cube. Since the
+/// default UI camera is now the order-9 [`FrontHudCamera`] (which draws in front of
+/// the cube), the scrim is explicitly retargeted onto the order-0 main camera via
+/// [`retarget_cube_scrim`] (the `MainCameraEntity` resource isn't guaranteed to
+/// exist yet at this Startup point, so the target is attached from an Update guard).
+/// [`fade_cube_scrim`] drives its alpha.
 fn spawn_cube_scrim(mut commands: Commands) {
     commands.spawn((
         CubeScrim,
@@ -138,6 +144,36 @@ fn spawn_cube_scrim(mut commands: Commands) {
         GlobalZIndex(-1),
         Pickable::IGNORE,
     ));
+}
+
+/// Retarget the dim-scrim onto the order-0 main camera so it renders BEHIND the cube.
+///
+/// The default UI camera is the order-9 front HUD camera (so the HUD draws in front
+/// of the cube); without this retarget the scrim would inherit that default and dim
+/// the cube itself. Runs once, as soon as both the scrim and the `MainCameraEntity`
+/// resource exist (Startup ordering between them is not guaranteed, so this Update
+/// guard does it on the first frame both are present). `Option<Res<_>>` keeps it
+/// B0002-safe and never panics on an uninserted resource.
+fn retarget_cube_scrim(
+    mut commands: Commands,
+    main_camera: Option<Res<crate::runtime::camera_layers::MainCameraEntity>>,
+    scrim: Query<Entity, (With<CubeScrim>, Without<UiTargetCamera>)>,
+    mut done: Local<bool>,
+) {
+    if *done {
+        return;
+    }
+    let Some(main_camera) = main_camera else {
+        return;
+    };
+    let mut any = false;
+    for entity in &scrim {
+        commands.entity(entity).insert(UiTargetCamera(main_camera.0));
+        any = true;
+    }
+    if any {
+        *done = true;
+    }
 }
 
 /// Fade the dim-scrim's alpha with the cube's eased open `amount`, so the world

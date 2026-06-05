@@ -16,7 +16,10 @@ use bevy::prelude::*;
 
 use crate::input::MenuControlFrame;
 use crate::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
-use crate::oot_cube::{build_inventory_pages, CubeAction, CubeFocus, CubePage, SystemOption};
+use crate::oot_cube::{
+    build_inventory_pages, system_rows, CubeAction, CubeFocus, CubePage, SystemCategory,
+    SystemOption, SystemRow,
+};
 use crate::oot_menu::input::{dispatch_item_confirm, MenuEffectManaQuery, MenuEffectPlayers};
 use crate::persistence::settings::{AudioSettings, UserSettings};
 use crate::player::PlayerHealRequested;
@@ -61,6 +64,7 @@ pub fn install_cube_menu(app: &mut App) {
     app.init_resource::<InventoryUiBackend>()
         .init_resource::<ActiveMenuPages<CubePage, CubeAction>>()
         .init_resource::<CubeCursor>()
+        .init_resource::<CubeSystemNav>()
         .add_plugins(AmbitionInventoryUiPlugin)
         .add_plugins(CubeMenuPlugin::<CubePage, CubeAction>::default())
         .add_systems(Startup, spawn_cube_scrim)
@@ -117,6 +121,18 @@ impl CubeCursor {
         self.focus = focus;
         self.owner = FocusSource::Keyboard;
     }
+}
+
+/// Drill-down state for the System face. `None` = the top-level category list is
+/// shown (Video / Audio / Controls / Gameplay + Close Menu); `Some(category)` = the
+/// open category's option rows + a Back row are shown. Mirrors the Bevy-UI pause
+/// menu's settings page stack. `republish_cube_pages` feeds this into
+/// `build_system_page`, and changing it republishes (the System cursor resets to
+/// row 0). B0002-safe: only `cube_focus_nav` / `cube_pointer_click` mutate it (both
+/// `ResMut`); `republish_cube_pages` reads it as `Res`.
+#[derive(Resource, Default)]
+struct CubeSystemNav {
+    open_category: Option<SystemCategory>,
 }
 
 /// Spawn the readability dim-scrim node (full-screen, starts fully transparent).
@@ -208,6 +224,7 @@ fn cube_focus_nav(
     backend: Res<InventoryUiBackend>,
     menu: Res<MenuControlFrame>,
     mut cursor: ResMut<CubeCursor>,
+    mut system_nav: ResMut<CubeSystemNav>,
     mut pages: ResMut<ActiveMenuPages<CubePage, CubeAction>>,
     // Single mutable access to the overlay state — also read `.visible` from it (a
     // separate `Res<InventoryUiState>` would be a B0002 conflict with this `ResMut`).
@@ -235,8 +252,8 @@ fn cube_focus_nav(
     // value), and SELECT applies the focused option.
     if active_page == CubePage::System {
         system_focus_nav(
-            &menu, dx, dy, &mut cursor, &mut pages, &mut overlay, &mut settings, active_page,
-            &mut owned, &mut commands, &mut players, &mut mana_q, &mut heals,
+            &menu, dx, dy, &mut cursor, &mut system_nav, &mut pages, &mut overlay, &mut settings,
+            active_page, &mut owned, &mut commands, &mut players, &mut mana_q, &mut heals,
         );
         return;
     }
@@ -289,6 +306,8 @@ fn cube_focus_nav(
             dispatch_cube_action(
                 action,
                 &mut pages,
+                &mut system_nav,
+                &mut cursor,
                 &mut owned,
                 &mut settings,
                 &mut close_menu,
@@ -315,6 +334,7 @@ fn system_focus_nav(
     dx: i32,
     dy: i32,
     cursor: &mut CubeCursor,
+    system_nav: &mut CubeSystemNav,
     pages: &mut ActiveMenuPages<CubePage, CubeAction>,
     overlay: &mut crate::inventory::InventoryUiState,
     settings: &mut UserSettings,
@@ -325,11 +345,14 @@ fn system_focus_nav(
     mana_q: &mut MenuEffectManaQuery,
     heals: &mut MessageWriter<PlayerHealRequested>,
 ) {
-    let count = SystemOption::ALL.len() as i32;
+    // The rows shown for the current drill-down state: categories (+ Close Menu) at
+    // the top level, or the open category's options + a Back row.
+    let rows = system_rows(system_nav.open_category);
+    let count = rows.len() as i32;
     // Normalise the cursor onto a System row (it may arrive as an items/edge focus
     // after a page turn).
     let mut row = match cursor.focus {
-        CubeFocus::System(idx) => idx as i32,
+        CubeFocus::System(idx) => (idx as i32).min(count - 1),
         _ => 0,
     };
 
@@ -338,18 +361,15 @@ fn system_focus_nav(
         cursor.mark_keyboard(CubeFocus::System(row as usize));
     }
 
-    let option = SystemOption::ALL[row.max(0).min(count - 1) as usize];
+    let current = rows[row.max(0).min(count - 1) as usize];
 
     if dx != 0 {
-        // LEFT/RIGHT step value rows in place; for non-value rows they turn the page.
-        let is_value_row = matches!(
-            option,
-            SystemOption::CycleMasterVolume
-                | SystemOption::CycleMusicVolume
-                | SystemOption::CycleSfxVolume
-                | SystemOption::CycleCameraZoom
-        );
-        if is_value_row {
+        // LEFT/RIGHT step value OPTION rows in place; otherwise turn the page.
+        let value_option = match current {
+            SystemRow::Option(o) if is_value_option(o) => Some(o),
+            _ => None,
+        };
+        if let Some(option) = value_option {
             apply_system_option_step(option, dx, settings);
         } else if dx < 0 {
             turn_page(pages, active_page.on_viewer_left());
@@ -361,27 +381,65 @@ fn system_focus_nav(
     }
 
     if menu.back {
-        overlay.visible = false;
+        // Inside a category, Back drills OUT to the category list; at the top level
+        // Back closes the menu (matching the items face).
+        if system_nav.open_category.is_some() {
+            close_system_category(system_nav, cursor);
+        } else {
+            overlay.visible = false;
+        }
         return;
     }
 
     if menu.select {
-        let mut close_menu = false;
-        dispatch_cube_action(
-            CubeAction::System(option),
-            pages,
-            owned,
-            settings,
-            &mut close_menu,
-            commands,
-            players,
-            mana_q,
-            heals,
-        );
-        if close_menu {
-            overlay.visible = false;
+        if let Some(action) = system_row_action_for(current) {
+            let mut close_menu = false;
+            dispatch_cube_action(
+                action,
+                pages,
+                system_nav,
+                cursor,
+                owned,
+                settings,
+                &mut close_menu,
+                commands,
+                players,
+                mana_q,
+                heals,
+            );
+            if close_menu {
+                overlay.visible = false;
+            }
         }
     }
+}
+
+/// True for OPTION rows whose value steps with LEFT/RIGHT (volume + camera zoom).
+fn is_value_option(option: SystemOption) -> bool {
+    matches!(
+        option,
+        SystemOption::CycleMasterVolume
+            | SystemOption::CycleMusicVolume
+            | SystemOption::CycleSfxVolume
+            | SystemOption::CycleCameraZoom
+    )
+}
+
+/// The `CubeAction` a System row dispatches on select (categories drill in, options
+/// apply, Back drills out).
+fn system_row_action_for(row: SystemRow) -> Option<CubeAction> {
+    match row {
+        SystemRow::Category(c) => Some(CubeAction::OpenSystemCategory(c)),
+        SystemRow::Option(o) => Some(CubeAction::System(o)),
+        SystemRow::Back => Some(CubeAction::CloseSystemCategory),
+    }
+}
+
+/// Drill OUT of an open System category back to the category list, resetting the
+/// cursor to the first (category) row so the highlight lands sensibly.
+fn close_system_category(system_nav: &mut CubeSystemNav, cursor: &mut CubeCursor) {
+    system_nav.open_category = None;
+    cursor.mark_keyboard(CubeFocus::System(0));
 }
 
 /// Apply a signed LEFT/RIGHT step to a value-style System option (volume up/down,
@@ -509,6 +567,8 @@ fn turn_page(pages: &mut ActiveMenuPages<CubePage, CubeAction>, page: CubePage) 
 fn dispatch_cube_action(
     action: CubeAction,
     pages: &mut ActiveMenuPages<CubePage, CubeAction>,
+    system_nav: &mut CubeSystemNav,
+    cursor: &mut CubeCursor,
     owned: &mut OwnedItems,
     settings: &mut UserSettings,
     close_menu: &mut bool,
@@ -528,6 +588,17 @@ fn dispatch_cube_action(
         }
         CubeAction::System(option) => {
             apply_system_option(option, settings, close_menu);
+        }
+        CubeAction::OpenSystemCategory(category) => {
+            // Drill INTO a category: show its option rows, land the cursor on the
+            // first option. The republish picks up the new drill state + cursor.
+            system_nav.open_category = Some(category);
+            cursor.mark_keyboard(CubeFocus::System(0));
+            info!("cube system category \u{2192} {:?}", category);
+        }
+        CubeAction::CloseSystemCategory => {
+            close_system_category(system_nav, cursor);
+            info!("cube system category \u{2192} (list)");
         }
     }
 }
@@ -592,7 +663,21 @@ fn step_volume(current: f32) -> f32 {
 /// hover/click and the keyboard cursor share one model. `Equip`/`Use` carry the
 /// item (→ its slot); `ChangePage` is an edge arrow — left vs right is decided by
 /// whether its target is the active page's viewer-left neighbour.
-fn focus_for_action(action: CubeAction, active_page: CubePage) -> CubeFocus {
+fn focus_for_action(
+    action: CubeAction,
+    active_page: CubePage,
+    open_category: Option<SystemCategory>,
+) -> CubeFocus {
+    // System rows are positional: the focus index is the action's row in the
+    // currently-displayed System row list (categories+Close, or the open category's
+    // options+Back), so hover/click and the keyboard cursor agree on the row.
+    let system_row = |want: SystemRow| {
+        let idx = system_rows(open_category)
+            .iter()
+            .position(|r| *r == want)
+            .unwrap_or(0);
+        CubeFocus::System(idx)
+    };
     match action {
         CubeAction::Equip(item) | CubeAction::Use(item) => CubeFocus::Item(item.index()),
         CubeAction::ChangePage(target) => {
@@ -602,13 +687,9 @@ fn focus_for_action(action: CubeAction, active_page: CubePage) -> CubeFocus {
                 CubeFocus::EdgeRight
             }
         }
-        CubeAction::System(option) => {
-            let idx = SystemOption::ALL
-                .iter()
-                .position(|o| *o == option)
-                .unwrap_or(0);
-            CubeFocus::System(idx)
-        }
+        CubeAction::System(option) => system_row(SystemRow::Option(option)),
+        CubeAction::OpenSystemCategory(category) => system_row(SystemRow::Category(category)),
+        CubeAction::CloseSystemCategory => system_row(SystemRow::Back),
     }
 }
 
@@ -632,6 +713,7 @@ fn cube_pointer_over(
     over: On<Pointer<Over>>,
     controls: Query<&AmbitionMenuControl<CubeAction>>,
     pages: Res<ActiveMenuPages<CubePage, CubeAction>>,
+    system_nav: Res<CubeSystemNav>,
     mut cursor: ResMut<CubeCursor>,
 ) {
     let Some(active_page) = pages.active else {
@@ -639,7 +721,7 @@ fn cube_pointer_over(
     };
     if let Ok(control) = controls.get(over.entity) {
         if let Some(action) = control.action {
-            let next = focus_for_action(action, active_page);
+            let next = focus_for_action(action, active_page, system_nav.open_category);
             // The pointer hasn't moved to a new control (same logical focus, just a
             // freshly-rebuilt entity under a parked mouse): do nothing. This is the
             // single guard that breaks the rebuild loop AND prevents the parked
@@ -665,6 +747,7 @@ fn cube_pointer_click(
     controls: Query<&AmbitionMenuControl<CubeAction>>,
     mut pages: ResMut<ActiveMenuPages<CubePage, CubeAction>>,
     mut cursor: ResMut<CubeCursor>,
+    mut system_nav: ResMut<CubeSystemNav>,
     mut owned: ResMut<OwnedItems>,
     mut settings: ResMut<UserSettings>,
     mut commands: Commands,
@@ -679,7 +762,7 @@ fn cube_pointer_click(
     if let Ok(control) = controls.get(click.entity) {
         if let Some(action) = control.action {
             if let Some(active_page) = pages.active {
-                let next = focus_for_action(action, active_page);
+                let next = focus_for_action(action, active_page, system_nav.open_category);
                 cursor.focus = next;
                 cursor.owner = FocusSource::Pointer;
                 cursor.last_pointer_focus = Some(next);
@@ -688,6 +771,8 @@ fn cube_pointer_click(
             dispatch_cube_action(
                 action,
                 &mut pages,
+                &mut system_nav,
+                &mut cursor,
                 &mut owned,
                 &mut settings,
                 &mut close_menu,
@@ -787,9 +872,13 @@ fn republish_cube_pages(
     // conflict; `UserSettings` is inserted at startup so the `Res` never panics.
     settings: Res<UserSettings>,
     cursor: Res<CubeCursor>,
+    // Read-only here; the mutators (`cube_focus_nav`, `cube_pointer_click`) take
+    // `ResMut<CubeSystemNav>` in SEPARATE systems/observers, so this `Res` is not a
+    // B0002 conflict. Inserted at startup (`init_resource`) so it never panics.
+    system_nav: Res<CubeSystemNav>,
     mut pages: ResMut<ActiveMenuPages<CubePage, CubeAction>>,
     mut was_open: Local<bool>,
-    mut last: Local<Option<(CubeFocus, Option<CubePage>)>>,
+    mut last: Local<Option<(CubeFocus, Option<CubePage>, Option<SystemCategory>)>>,
 ) {
     if *backend != InventoryUiBackend::Cube {
         return;
@@ -801,11 +890,14 @@ fn republish_cube_pages(
     let just_opened = open && !*was_open;
     *was_open = open;
 
-    let key = (cursor.focus, pages.active);
+    // The drill-down state is part of the page key, so drilling into/out of a
+    // System category republishes the (now different) System rows.
+    let key = (cursor.focus, pages.active, system_nav.open_category);
     // Republish on: catalog change, settings change (so a toggled System option's
     // label updates immediately), first publish, menu-open (textures that loaded
-    // after the initial build get picked up), cursor move, or page change. The
-    // open case fixes icons rendering blank until the first rotate.
+    // after the initial build get picked up), cursor move, page change, or a
+    // System drill in/out. The open case fixes icons rendering blank until the
+    // first rotate.
     let dirty = owned.is_changed()
         || settings.is_changed()
         || pages.pages.is_empty()
@@ -817,6 +909,12 @@ fn republish_cube_pages(
     *last = Some(key);
 
     let active = pages.active.unwrap_or(CubePage::Items);
-    pages.pages = build_inventory_pages(&owned, owned.equipped(), cursor.focus, &settings);
+    pages.pages = build_inventory_pages(
+        &owned,
+        owned.equipped(),
+        cursor.focus,
+        &settings,
+        system_nav.open_category,
+    );
     pages.active = Some(active);
 }

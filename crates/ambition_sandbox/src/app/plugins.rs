@@ -291,7 +291,7 @@ fn register_portal_systems(app: &mut App) {
             crate::portal::tick_portal_cooldowns,
             crate::portal::portal_transit_system,
             crate::portal::portal_teleport_ground_items,
-            crate::portal::portal_teleport_actors,
+            crate::portal::portal_transit_actors,
             // Ease the aerial roll the teleport just set (somersault to upright).
             crate::portal::update_actor_roll,
         )

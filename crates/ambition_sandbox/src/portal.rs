@@ -890,35 +890,166 @@ pub struct PortalTransit {
     pub crossed: bool,
 }
 
-/// Publish the placed portals' apertures so [`crate::features::world_with_sandbox_solids`]
-/// carves them out of the host surface (the floor / wall becomes non-solid
-/// inside the opening, so a body can sink in). ONLY when the full pair exists —
-/// a lone portal must not open a hole with no exit on the far side.
+/// Carve placed-portal apertures out of the host surface — but ONLY a portal a
+/// transiting body currently occupies (its `PortalTransit.straddling`), so the
+/// opening exists exactly while a body is passing through and re-seals the
+/// instant it clears. A permanently-carved portal left a walk-in pocket in the
+/// host wall (you could wiggle into the solid wall / ledge-grab the carved
+/// edges); gating the carve on active transit closes that. Pair-gated — a lone
+/// portal never carves.
 pub fn publish_portal_carves(
     portals: Query<&Portal>,
+    transits: Query<&PortalTransit>,
     mut overlay: ResMut<crate::features::FeatureEcsWorldOverlay>,
 ) {
     overlay.portal_carves.clear();
     let Some((blue, orange)) = portal_pair(portals.iter()) else {
         return;
     };
-    overlay.portal_carves.push(pp::carve_hole(&blue.frame()));
-    overlay.portal_carves.push(pp::carve_hole(&orange.frame()));
+    let mut carve_blue = false;
+    let mut carve_orange = false;
+    for t in &transits {
+        match t.straddling {
+            PortalColor::Blue => carve_blue = true,
+            PortalColor::Orange => carve_orange = true,
+        }
+    }
+    if carve_blue {
+        overlay.portal_carves.push(pp::carve_hole(&blue.frame()));
+    }
+    if carve_orange {
+        overlay.portal_carves.push(pp::carve_hole(&orange.frame()));
+    }
 }
 
-/// Drive the player through a portal as an **aperture**, not a trigger: the body
-/// physically sinks into the carved opening (the movement integrator does that —
-/// the host surface is non-solid there), and this machine watches the centroid.
-/// Before it crosses, the real body is entry-side with a piece poking out the
-/// exit; when the centroid crosses, the authoritative body transfers to the exit
-/// carrying momentum; the trailing piece then emerges and transit clears. The
-/// position snap at the centroid transfer is flagged as an intentional teleport
-/// so the trace detector doesn't auto-dump on it.
+/// Margin (px) added to a portal's thin face so a body resting against the
+/// surface registers as "entering" before it has visibly sunk in (the carve
+/// only opens once transit has begun, so begin must trigger on contact).
+const TRANSIT_BEGIN_MARGIN: f32 = 6.0;
+
+/// One step of the aperture / centroid-crossing transit machine for ANY body.
+/// Pure: given the body's geometry + current transit/cooldown state + the portal
+/// pair, it returns the action the caller applies. Shared by the player and
+/// every non-player actor so they all cross a portal identically (the
+/// unification the design calls for).
+#[derive(Clone, Copy, Debug)]
+pub enum TransitStep {
+    /// Not touching a portal (or latched) — do nothing.
+    Idle,
+    /// Begin transit into this portal: insert [`PortalTransit`], play ENTER sfx.
+    Begin { color: PortalColor, portal_pos: Vec2 },
+    /// The centroid crossed: move the body to `pos`, set velocity `vel`, add
+    /// `roll_delta` to its roll (the somersault), latch the cooldown, flip the
+    /// straddled portal to `exit_color`, mark crossed, play EXIT sfx.
+    Transfer {
+        pos: Vec2,
+        vel: Vec2,
+        roll_delta: f32,
+        exit_color: PortalColor,
+        exit_pos: Vec2,
+    },
+    /// The body fully cleared the plane — remove [`PortalTransit`].
+    Clear,
+    /// Mid-transit, nothing to apply this frame.
+    Continue,
+}
+
+/// Compute the transit step for a body. See [`TransitStep`]. `cooldown` is the
+/// body's post-jump latch (player gun cooldown / actor [`PortalCooldown`]).
+pub fn transit_step(
+    center: Vec2,
+    size: Vec2,
+    vel: Vec2,
+    transit: Option<PortalTransit>,
+    cooldown: f32,
+    blue: Portal,
+    orange: Portal,
+) -> TransitStep {
+    let body = ae::Aabb::new(center, size * 0.5);
+    let pair_for = |c: PortalColor| match c {
+        PortalColor::Blue => (blue, orange),
+        PortalColor::Orange => (orange, blue),
+    };
+    match transit {
+        None => {
+            if cooldown > 0.0 {
+                return TransitStep::Idle;
+            }
+            for color in [PortalColor::Blue, PortalColor::Orange] {
+                let (enter, _) = pair_for(color);
+                if !portal_fits(size, &enter) {
+                    continue;
+                }
+                let frame = enter.frame();
+                // Begin when the leading face reaches the opening, from the front
+                // (centroid in front of the plane, or moving into it). The
+                // capture box is the thin face plus a small margin; its
+                // along-surface span is the opening, so this also gates laterally.
+                let capture =
+                    ae::Aabb::new(enter.pos, enter.half_extent + Vec2::splat(TRANSIT_BEGIN_MARGIN));
+                let entering =
+                    pp::front_distance(center, &frame) > 0.0 || vel.dot(enter.normal) < 0.0;
+                if entering && body.strict_intersects(capture) {
+                    return TransitStep::Begin { color, portal_pos: enter.pos };
+                }
+            }
+            TransitStep::Idle
+        }
+        Some(t) => {
+            let (enter, exit) = pair_for(t.straddling);
+            let ef = enter.frame();
+            // The CENTROID crossing the plane is the authoritative transfer —
+            // the body jumps to the exit; gameplay sees no discontinuity because
+            // every query uses the portal pieces.
+            if !t.crossed && pp::front_distance(center, &ef) <= 0.0 {
+                let xf = exit.frame();
+                let mut vel_out = portal_transform_velocity(vel, enter.normal, exit.normal);
+                // Floor the exit speed along the exit normal so a slow walk-in
+                // still emerges instead of stalling in the opening.
+                if vel_out.dot(exit.normal) < MIN_EXIT_SPEED {
+                    let tangential = vel_out - vel_out.dot(exit.normal) * exit.normal;
+                    vel_out = tangential + exit.normal * MIN_EXIT_SPEED;
+                }
+                return TransitStep::Transfer {
+                    pos: pp::map_point(center, &ef, &xf),
+                    vel: vel_out,
+                    // The body picks up the on-screen turn it travels through, the
+                    // same somersault the old teleport applied; `update_actor_roll`
+                    // then eases it back to gravity-upright (feet-in → reorient).
+                    roll_delta: portal_transit_roll(enter.normal, exit.normal),
+                    exit_color: exit.color,
+                    exit_pos: exit.pos,
+                };
+            }
+            // Clear once the body no longer straddles the plane it's on (trailing
+            // edge out). The cooldown latch (set on transfer) stops a re-entry.
+            let (cur, _) = pair_for(t.straddling);
+            if !pp::straddles(body, &cur.frame()) {
+                TransitStep::Clear
+            } else {
+                TransitStep::Continue
+            }
+        }
+    }
+}
+
+/// Drive the PLAYER through a portal as an **aperture**, not a trigger, via the
+/// shared [`transit_step`] machine: the body physically sinks into the carved
+/// opening (the movement integrator does that), transfers when the centroid
+/// crosses (carrying momentum + a somersault roll), and clears on trailing-edge
+/// out. The transfer's position snap is flagged as an intentional teleport so
+/// the trace detector doesn't auto-dump on it.
 pub fn portal_transit_system(
     time: Res<crate::WorldTime>,
     mut commands: Commands,
     mut players: Query<
-        (Entity, &mut PlayerKinematics, &mut PortalGun, Option<&mut PortalTransit>),
+        (
+            Entity,
+            &mut PlayerKinematics,
+            &mut PortalGun,
+            Option<&mut PortalTransit>,
+            Option<&mut ActorRoll>,
+        ),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     portals: Query<&Portal>,
@@ -930,7 +1061,7 @@ pub fn portal_transit_system(
         flag.0 = false;
     }
     let dt = time.sim_dt();
-    let Ok((entity, mut kin, mut gun, transit)) = players.single_mut() else {
+    let Ok((entity, mut kin, mut gun, mut transit, mut roll)) = players.single_mut() else {
         return;
     };
     if gun.teleport_cooldown > 0.0 {
@@ -943,85 +1074,46 @@ pub fn portal_transit_system(
         }
         return;
     };
-    // Resolve `(straddled_portal, its_link)` for a color.
-    let pair_for = |color: PortalColor| -> (Portal, Portal) {
-        match color {
-            PortalColor::Blue => (blue, orange),
-            PortalColor::Orange => (orange, blue),
+    let step = transit_step(
+        kin.pos,
+        kin.size,
+        kin.vel,
+        transit.as_deref().copied(),
+        gun.teleport_cooldown,
+        blue,
+        orange,
+    );
+    match step {
+        TransitStep::Idle | TransitStep::Continue => {}
+        TransitStep::Begin { color, portal_pos } => {
+            commands.entity(entity).insert(PortalTransit { straddling: color, crossed: false });
+            sfx.write(crate::audio::SfxMessage::Play {
+                id: ambition_sfx::ids::PORTAL_ENTER,
+                pos: portal_pos,
+            });
         }
-    };
-    let body = ae::Aabb::new(kin.pos, kin.size * 0.5);
-
-    match transit {
-        // Not in transit: begin one if the body straddles a (fitting) portal and
-        // we're not still latched from the last jump.
-        None => {
-            if gun.teleport_cooldown > 0.0 {
-                return;
+        TransitStep::Transfer { pos, vel, roll_delta, exit_color, exit_pos } => {
+            kin.pos = pos;
+            kin.vel = vel;
+            if let Some(roll) = roll.as_deref_mut() {
+                roll.angle += roll_delta;
             }
-            for color in [PortalColor::Blue, PortalColor::Orange] {
-                let (enter, _exit) = pair_for(color);
-                if !portal_fits(kin.size, &enter) {
-                    continue;
-                }
-                if pp::straddles(body, &enter.frame()) {
-                    commands.entity(entity).insert(PortalTransit {
-                        straddling: color,
-                        crossed: false,
-                    });
-                    // Suction warp as the leading edge enters.
-                    sfx.write(crate::audio::SfxMessage::Play {
-                        id: ambition_sfx::ids::PORTAL_ENTER,
-                        pos: enter.pos,
-                    });
-                    break;
-                }
+            gun.teleport_cooldown = TELEPORT_COOLDOWN_S;
+            if let Some(t) = transit.as_deref_mut() {
+                t.crossed = true;
+                t.straddling = exit_color;
             }
+            if let Some(flag) = intentional.as_deref_mut() {
+                flag.0 = true;
+            }
+            sfx.write(crate::audio::SfxMessage::Play {
+                id: ambition_sfx::ids::PORTAL_EXIT,
+                pos: exit_pos,
+            });
+            bevy::log::info!(target: "ambition::portal", "transferred through the portal pair");
         }
-        // Mid-transit: handle the centroid transfer, then the clear.
-        Some(mut t) => {
-            let (enter, exit) = pair_for(t.straddling);
-            let enter_frame = enter.frame();
-            if !t.crossed {
-                // The CENTROID crossing the entry plane is the authoritative
-                // transfer — the internal body jumps to the exit, gameplay sees
-                // no discontinuity because every query uses the portal pieces.
-                if pp::front_distance(kin.pos, &enter_frame) <= 0.0 {
-                    let exit_frame = exit.frame();
-                    kin.pos = pp::map_point(kin.pos, &enter_frame, &exit_frame);
-                    let mut out_vel =
-                        portal_transform_velocity(kin.vel, enter.normal, exit.normal);
-                    // Floor the exit speed along the exit normal so a slow
-                    // walk-in still emerges instead of stalling in the opening.
-                    if out_vel.dot(exit.normal) < MIN_EXIT_SPEED {
-                        let tangential = out_vel - out_vel.dot(exit.normal) * exit.normal;
-                        out_vel = tangential + exit.normal * MIN_EXIT_SPEED;
-                    }
-                    kin.vel = out_vel;
-                    // Mutating the live `Mut` writes the transit state back in
-                    // place — no re-insert needed.
-                    t.crossed = true;
-                    // Now the body straddles the EXIT plane from its front side.
-                    t.straddling = exit.color;
-                    gun.teleport_cooldown = TELEPORT_COOLDOWN_S;
-                    if let Some(flag) = intentional.as_deref_mut() {
-                        flag.0 = true;
-                    }
-                    sfx.write(crate::audio::SfxMessage::Play {
-                        id: ambition_sfx::ids::PORTAL_EXIT,
-                        pos: exit.pos,
-                    });
-                    bevy::log::info!(target: "ambition::portal", "transferred through the portal pair");
-                    return;
-                }
-            }
-            // Clear transit once the body fully clears the plane it straddles
-            // (trailing edge out). The cooldown latch (set on transfer) keeps it
-            // from immediately re-entering and ping-ponging.
-            let (cur, _) = pair_for(t.straddling);
-            if !pp::straddles(body, &cur.frame()) {
-                commands.entity(entity).remove::<PortalTransit>();
-            }
+        TransitStep::Clear => {
+            commands.entity(entity).remove::<PortalTransit>();
         }
     }
 }
@@ -1169,94 +1261,137 @@ pub fn portal_fits(size: Vec2, portal: &Portal) -> bool {
 /// (`ActorKinematics`) carry their momentum through the rotation; bosses
 /// (`BossKinematics`, no velocity field) are repositioned out the exit. A short
 /// [`PortalCooldown`] after each jump prevents ping-pong.
-pub fn portal_teleport_actors(
+/// Send EVERY non-player actor (enemies / NPCs via `ActorKinematics`, bosses via
+/// `BossKinematics`) through a portal with the SAME aperture / centroid-crossing
+/// machine the player uses ([`transit_step`]) — the unification: a goblin or a
+/// boss now sinks into the carved opening and transfers when its centroid
+/// crosses, carrying momentum + a somersault roll, instead of instant-popping
+/// out the far side. Size-gated (big bosses can't fit a small opening) and
+/// latched by [`PortalCooldown`] against ping-pong.
+pub fn portal_transit_actors(
     mut commands: Commands,
     portals: Query<&Portal>,
     mut actors: Query<
         (
             Entity,
             &mut crate::features::ActorKinematics,
+            Option<&mut PortalTransit>,
             Option<&mut ActorRoll>,
+            Option<&PortalCooldown>,
         ),
         // Exclude bosses so this query and the boss query below have disjoint
-        // entity sets — both take `&mut ActorRoll`, so Bevy needs them proven
-        // non-overlapping.
-        (Without<PortalCooldown>, Without<crate::features::BossKinematics>),
+        // entity sets — both take `&mut ActorRoll` / `&mut PortalTransit`, so
+        // Bevy needs them proven non-overlapping.
+        Without<crate::features::BossKinematics>,
     >,
-    mut bosses: Query<
-        (
-            Entity,
-            &mut crate::features::BossKinematics,
-            Option<&mut ActorRoll>,
-        ),
-        Without<PortalCooldown>,
-    >,
+    mut bosses: Query<(
+        Entity,
+        &mut crate::features::BossKinematics,
+        Option<&mut PortalTransit>,
+        Option<&mut ActorRoll>,
+        Option<&PortalCooldown>,
+    )>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
-    let blue = portals.iter().find(|p| p.color == PortalColor::Blue).copied();
-    let orange = portals
-        .iter()
-        .find(|p| p.color == PortalColor::Orange)
-        .copied();
-    let (Some(blue), Some(orange)) = (blue, orange) else {
+    let Some((blue, orange)) = portal_pair(portals.iter()) else {
         return;
     };
-    let pair = [(blue, orange), (orange, blue)];
 
-    for (entity, mut kin, mut roll) in &mut actors {
-        let aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
-        for (enter, exit) in pair {
-            if !portal_fits(kin.size, &enter) {
-                continue;
-            }
-            if aabb.strict_intersects(ae::Aabb::new(enter.pos, enter.half_extent + Vec2::splat(4.0)))
-            {
-                kin.vel = portal_transform_velocity(kin.vel, enter.normal, exit.normal);
-                let clearance = portal_exit_clearance(kin.size * 0.5, exit.normal);
-                kin.pos = exit.pos + exit.normal * clearance;
-                // Same aerial roll as the player (the unification): the actor
-                // leaves rotated and `update_actor_roll` rights it to gravity.
-                if let Some(roll) = roll.as_deref_mut() {
-                    roll.angle += portal_transit_roll(enter.normal, exit.normal);
-                }
-                commands.entity(entity).insert(PortalCooldown(TELEPORT_COOLDOWN_S));
-                sfx.write(crate::audio::SfxMessage::Play {
-                    id: ambition_sfx::ids::PORTAL_ENTER,
-                    pos: enter.pos,
-                });
-                sfx.write(crate::audio::SfxMessage::Play {
-                    id: ambition_sfx::ids::PORTAL_EXIT,
-                    pos: exit.pos,
-                });
-                break;
-            }
-        }
+    for (entity, kin, mut transit, mut roll, cooldown) in &mut actors {
+        let kin = kin.into_inner();
+        let step = transit_step(
+            kin.pos,
+            kin.size,
+            kin.vel,
+            transit.as_deref().copied(),
+            cooldown.map_or(0.0, |c| c.0),
+            blue,
+            orange,
+        );
+        apply_actor_transit(
+            &mut commands,
+            entity,
+            &mut sfx,
+            step,
+            Some(&mut kin.pos),
+            Some(&mut kin.vel),
+            roll.as_deref_mut(),
+            transit.as_deref_mut(),
+        );
     }
 
-    for (entity, mut kin, mut roll) in &mut bosses {
-        let aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
-        for (enter, exit) in pair {
-            if !portal_fits(kin.size, &enter) {
-                continue;
+    for (entity, kin, mut transit, mut roll, cooldown) in &mut bosses {
+        // Bosses have no velocity field — feed ZERO and ignore the velocity the
+        // step computes; they reposition + roll only.
+        let kin = kin.into_inner();
+        let step = transit_step(
+            kin.pos,
+            kin.size,
+            Vec2::ZERO,
+            transit.as_deref().copied(),
+            cooldown.map_or(0.0, |c| c.0),
+            blue,
+            orange,
+        );
+        apply_actor_transit(
+            &mut commands,
+            entity,
+            &mut sfx,
+            step,
+            Some(&mut kin.pos),
+            None,
+            roll.as_deref_mut(),
+            transit.as_deref_mut(),
+        );
+    }
+}
+
+/// Apply a [`TransitStep`] to a non-player actor: the ECS-side of the shared
+/// machine (insert / mutate / remove `PortalTransit`, latch `PortalCooldown`,
+/// move the body, somersault its roll, play sfx). `vel` is `None` for bodies
+/// without a velocity field (bosses).
+#[allow(clippy::too_many_arguments)]
+fn apply_actor_transit(
+    commands: &mut Commands,
+    entity: Entity,
+    sfx: &mut MessageWriter<crate::audio::SfxMessage>,
+    step: TransitStep,
+    pos: Option<&mut Vec2>,
+    vel: Option<&mut Vec2>,
+    roll: Option<&mut ActorRoll>,
+    transit: Option<&mut PortalTransit>,
+) {
+    match step {
+        TransitStep::Idle | TransitStep::Continue => {}
+        TransitStep::Begin { color, portal_pos } => {
+            commands.entity(entity).insert(PortalTransit { straddling: color, crossed: false });
+            sfx.write(crate::audio::SfxMessage::Play {
+                id: ambition_sfx::ids::PORTAL_ENTER,
+                pos: portal_pos,
+            });
+        }
+        TransitStep::Transfer { pos: new_pos, vel: new_vel, roll_delta, exit_color, exit_pos } => {
+            if let Some(pos) = pos {
+                *pos = new_pos;
             }
-            if aabb.strict_intersects(ae::Aabb::new(enter.pos, enter.half_extent + Vec2::splat(4.0)))
-            {
-                let clearance = portal_exit_clearance(kin.size * 0.5, exit.normal);
-                kin.pos = exit.pos + exit.normal * clearance;
-                if let Some(roll) = roll.as_deref_mut() {
-                    roll.angle += portal_transit_roll(enter.normal, exit.normal);
-                }
-                commands.entity(entity).insert(PortalCooldown(TELEPORT_COOLDOWN_S));
-                sfx.write(crate::audio::SfxMessage::Play {
-                    id: ambition_sfx::ids::PORTAL_ENTER,
-                    pos: enter.pos,
-                });
-                sfx.write(crate::audio::SfxMessage::Play {
-                    id: ambition_sfx::ids::PORTAL_EXIT,
-                    pos: exit.pos,
-                });
-                break;
+            if let Some(vel) = vel {
+                *vel = new_vel;
             }
+            if let Some(roll) = roll {
+                roll.angle += roll_delta;
+            }
+            if let Some(t) = transit {
+                t.crossed = true;
+                t.straddling = exit_color;
+            }
+            commands.entity(entity).insert(PortalCooldown(TELEPORT_COOLDOWN_S));
+            sfx.write(crate::audio::SfxMessage::Play {
+                id: ambition_sfx::ids::PORTAL_EXIT,
+                pos: exit_pos,
+            });
+        }
+        TransitStep::Clear => {
+            commands.entity(entity).remove::<PortalTransit>();
         }
     }
 }
@@ -1304,58 +1439,49 @@ pub fn sync_portal_body_pieces(
         return;
     };
     let pair = portal_pair(portals.iter());
-    let (Some(transit), Some((blue, orange))) = (transit, pair) else {
+    let (Some(_transit), Some((blue, orange))) = (transit, pair) else {
         // Not transiting (or the pair is gone): show the real character sprite.
         *visibility = Visibility::Inherited;
         return;
     };
-    let (enter, exit) = match transit.straddling {
-        PortalColor::Blue => (blue, orange),
-        PortalColor::Orange => (orange, blue),
-    };
     let body = ae::Aabb::new(kin.pos, kin.size * 0.5);
-    let enter_frame = enter.frame();
-    // Entry-side slice (in front of the straddled plane) and the crossed slice
-    // (behind it), both in body space.
-    let front = pp::clip_halfspace(body, enter_frame.pos, enter_frame.normal);
-    let back = pp::clip_halfspace(body, enter_frame.pos, -enter_frame.normal);
-    // Nothing straddling after all (numerical edge) → just show the real sprite.
-    if front.is_none() || back.is_none() {
+    // Decompose via the tested Core-invariant function so the slices here can
+    // never drift from the collision / gameplay decomposition.
+    let pieces = pp::compute_body_pieces(body, Some((blue.frame(), orange.frame())));
+    let Some(through) = pieces.through else {
+        // Touching a portal but nothing has crossed the plane yet — the whole
+        // body is still on this side, so show the real sprite uncut.
         *visibility = Visibility::Inherited;
         return;
-    }
-    // Hide the real character sprite for the crossing; the two pieces stand in.
+    };
+    // Part of the body has crossed: hide the real sprite and stand in two clipped
+    // pieces — the `here` slice at the entry and the `through` slice emerging from
+    // the exit. (Silhouette quads for now; texture-accurate clipping is a polish
+    // pass — the atlas frame + feet anchor make pixel cropping fiddly.)
     *visibility = Visibility::Hidden;
     let base_roll = roll.map_or(0.0, |r| r.angle);
     let color = Color::srgb(0.80, 0.95, 1.0);
-    // Entry-side slice: drawn where it sits, at the player's current roll.
-    if let Some(front) = front {
-        let translation = crate::config::world_to_bevy(&world.0, front.center(), crate::config::WORLD_Z_PLAYER);
-        commands.spawn((
-            PortalBodyPiece,
-            Sprite::from_color(color, front.half_size() * 2.0),
-            Transform::from_translation(translation)
-                .with_rotation(Quat::from_rotation_z(base_roll)),
-            Name::new("Portal body piece (entry)"),
-        ));
-    }
-    // Crossed slice: mapped through the pair to emerge from the exit, rotated by
-    // the on-screen turn the body undergoes (feet-first out of the exit).
-    if let Some(back) = back {
-        let exit_frame = exit.frame();
-        let center = pp::map_point(back.center(), &enter_frame, &exit_frame);
-        let turn = portal_transit_roll(enter.normal, exit.normal);
-        let translation = crate::config::world_to_bevy(&world.0, center, crate::config::WORLD_Z_PLAYER);
-        commands.spawn((
-            PortalBodyPiece,
-            // Size stays in the body's local frame; the Transform rotation
-            // orients (and visually swaps the axes for a 90° turn) at the exit.
-            Sprite::from_color(color, back.half_size() * 2.0),
-            Transform::from_translation(translation)
-                .with_rotation(Quat::from_rotation_z(base_roll + turn)),
-            Name::new("Portal body piece (exit)"),
-        ));
-    }
+    // Entry-side slice — at the body's current roll.
+    let here_translation =
+        crate::config::world_to_bevy(&world.0, pieces.here.center(), crate::config::WORLD_Z_PLAYER);
+    commands.spawn((
+        PortalBodyPiece,
+        Sprite::from_color(color, pieces.here.half_size() * 2.0),
+        Transform::from_translation(here_translation)
+            .with_rotation(Quat::from_rotation_z(base_roll)),
+        Name::new("Portal body piece (entry)"),
+    ));
+    // Exit-side slice — the mapped AABB is already axis-aligned in the exit chart
+    // (the 90° swap is baked into its dimensions), so a silhouette quad sized to
+    // it sits correctly without an extra rotation.
+    let through_translation =
+        crate::config::world_to_bevy(&world.0, through.aabb.center(), crate::config::WORLD_Z_PLAYER);
+    commands.spawn((
+        PortalBodyPiece,
+        Sprite::from_color(color, through.aabb.half_size() * 2.0),
+        Transform::from_translation(through_translation),
+        Name::new("Portal body piece (exit)"),
+    ));
 }
 
 /// Loaded portal-gun art: the blue / orange mode sprites. Visible build only.
@@ -1778,7 +1904,7 @@ mod tests {
         use crate::features::ActorKinematics;
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
-        app.add_systems(Update, portal_teleport_actors);
+        app.add_systems(Update, portal_transit_actors);
         app.world_mut().spawn(Portal {
             color: PortalColor::Blue,
             pos: Vec2::new(20.0, 200.0),
@@ -1809,11 +1935,14 @@ mod tests {
                 facing: -1.0,
             })
             .id();
+        // Aperture transit: frame 1 begins (leading edge in the opening), frame 2
+        // transfers (centroid already on the plane).
+        app.update();
         app.update();
         let s = app.world().get::<ActorKinematics>(small).unwrap();
         assert!(
             s.pos.x > 250.0,
-            "a fitting actor teleports out the orange portal, pos={:?}",
+            "a fitting actor transits out the orange portal, pos={:?}",
             s.pos
         );
         let b = app.world().get::<ActorKinematics>(big).unwrap();
@@ -1890,10 +2019,11 @@ mod tests {
         use crate::features::ActorKinematics;
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
-        app.add_systems(Update, portal_teleport_actors);
+        app.add_systems(Update, portal_transit_actors);
         // Floor portal (normal up) + right-wall portal (normal left): a
-        // floor→wall pair, so transit imparts a -90° roll. (Non-player actors
-        // still tumble through portals; the PLAYER stays gravity-upright — #47.)
+        // floor→wall pair, so transit imparts a -90° roll. Player and non-player
+        // actors alike now tumble + reorient (the somersault is ported to the
+        // aperture model and applied on the centroid transfer).
         app.world_mut().spawn(Portal {
             color: PortalColor::Blue,
             pos: Vec2::new(200.0, 380.0),
@@ -1918,6 +2048,9 @@ mod tests {
                 ActorRoll::default(),
             ))
             .id();
+        // Frame 1 begins transit; frame 2 transfers (centroid on the plane) and
+        // imparts the somersault roll.
+        app.update();
         app.update();
         let roll = app.world().get::<ActorRoll>(actor).unwrap().angle;
         let expected = portal_transit_roll(Vec2::new(0.0, -1.0), Vec2::new(-1.0, 0.0))
@@ -2207,6 +2340,98 @@ mod tests {
         assert!(
             !app.world().resource::<IntentionalTeleport>().0,
             "the teleport flag is a single frame"
+        );
+    }
+
+    #[test]
+    fn partial_render_hides_the_real_sprite_and_spawns_two_pieces() {
+        use crate::presentation::rendering::PlayerVisual;
+        let mut app = App::new();
+        app.insert_resource(world_with_two_walls());
+        app.add_systems(Update, sync_portal_body_pieces);
+        // Floor pair so a body standing on the blue portal straddles its plane.
+        app.world_mut().spawn(Portal {
+            color: PortalColor::Blue,
+            pos: Vec2::new(200.0, 300.0),
+            normal: Vec2::new(0.0, -1.0),
+            half_extent: portal_half_extent(Vec2::new(0.0, -1.0)),
+        });
+        app.world_mut().spawn(Portal {
+            color: PortalColor::Orange,
+            pos: Vec2::new(300.0, 300.0),
+            normal: Vec2::new(0.0, -1.0),
+            half_extent: portal_half_extent(Vec2::new(0.0, -1.0)),
+        });
+        // Body whose feet have dipped below the floor plane (y 275..315, plane 300).
+        let player = app
+            .world_mut()
+            .spawn((
+                PlayerVisual,
+                PlayerKinematics {
+                    pos: Vec2::new(200.0, 295.0),
+                    vel: Vec2::ZERO,
+                    size: Vec2::new(24.0, 40.0),
+                    base_size: Vec2::new(24.0, 40.0),
+                    facing: 1.0,
+                },
+                Visibility::Inherited,
+                PortalTransit { straddling: PortalColor::Blue, crossed: false },
+            ))
+            .id();
+        app.update();
+        assert_eq!(
+            *app.world().get::<Visibility>(player).unwrap(),
+            Visibility::Hidden,
+            "the real character sprite is hidden while a slice has crossed"
+        );
+        let pieces = {
+            let mut q = app.world_mut().query::<&PortalBodyPiece>();
+            q.iter(app.world()).count()
+        };
+        assert_eq!(pieces, 2, "exactly two clipped pieces (entry slice + exit slice)");
+    }
+
+    #[test]
+    fn portal_carve_is_transient_and_pair_gated() {
+        let mut app = App::new();
+        app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
+        app.add_systems(Update, publish_portal_carves);
+        // A lone portal must NOT carve (no exit → no bottomless hole).
+        let blue = app
+            .world_mut()
+            .spawn(Portal {
+                color: PortalColor::Blue,
+                pos: Vec2::new(200.0, 300.0),
+                normal: Vec2::new(0.0, -1.0),
+                half_extent: portal_half_extent(Vec2::new(0.0, -1.0)),
+            })
+            .id();
+        app.update();
+        assert!(
+            app.world().resource::<crate::features::FeatureEcsWorldOverlay>().portal_carves.is_empty(),
+            "a lone portal does not carve"
+        );
+        // Complete the pair — but with NO body transiting, still nothing carves
+        // (so you can't wiggle into a wall pocket between crossings).
+        app.world_mut().spawn(Portal {
+            color: PortalColor::Orange,
+            pos: Vec2::new(600.0, 300.0),
+            normal: Vec2::new(0.0, -1.0),
+            half_extent: portal_half_extent(Vec2::new(0.0, -1.0)),
+        });
+        app.update();
+        assert!(
+            app.world().resource::<crate::features::FeatureEcsWorldOverlay>().portal_carves.is_empty(),
+            "a placed pair with no body transiting stays solid (no walk-in pocket)"
+        );
+        // A body transiting the blue portal carves EXACTLY that portal.
+        let _ = blue;
+        app.world_mut().spawn(PortalTransit { straddling: PortalColor::Blue, crossed: false });
+        app.update();
+        assert_eq!(
+            app.world().resource::<crate::features::FeatureEcsWorldOverlay>().portal_carves.len(),
+            1,
+            "only the portal a body is passing through is carved"
         );
     }
 

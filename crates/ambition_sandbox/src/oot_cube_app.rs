@@ -81,14 +81,41 @@ pub fn install_cube_menu(app: &mut App) {
         .add_observer(cube_pointer_click);
 }
 
+/// Which input source currently owns the cube cursor. Mirrors the grid's
+/// [`crate::ui_nav::MenuFocusOwner`]: keyboard/gamepad nav claims focus and keeps
+/// it until the pointer moves to a DIFFERENT control. A stationary hover must not
+/// keep reasserting itself over newer directional navigation (the "can't move away
+/// from the hovered option" bug).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+enum FocusSource {
+    #[default]
+    Keyboard,
+    Pointer,
+}
+
 /// The directional-focus cursor for the items page: which item slot or edge
 /// (page-turn) button the cursor sits on. Mirrors the demo's selection state
 /// (`MockDemo::selected`). [`cube_focus_nav`] moves it with `move_spatial`-style
-/// rules; [`republish_cube_pages`] republishes the page model whenever it changes
-/// so the highlight + detail panel follow it.
+/// rules; [`republish_cube_pages`] republishes the page model whenever its
+/// SEMANTIC focus changes so the highlight + detail panel follow it.
 #[derive(Resource, Default)]
 struct CubeCursor {
     focus: CubeFocus,
+    /// Which input source last moved the cursor (keyboard nav vs pointer hover).
+    owner: FocusSource,
+    /// The last focus the POINTER hovered. A parked mouse re-fires `Pointer<Over>`
+    /// every model rebuild (new entities spawn under the cursor); gating on this
+    /// means a stationary hover over the same logical focus is a no-op, so it can't
+    /// (a) loop the rebuild or (b) override a later keyboard move.
+    last_pointer_focus: Option<CubeFocus>,
+}
+
+impl CubeCursor {
+    /// Keyboard/gamepad nav took the cursor to `focus` (claims ownership).
+    fn mark_keyboard(&mut self, focus: CubeFocus) {
+        self.focus = focus;
+        self.owner = FocusSource::Keyboard;
+    }
 }
 
 /// Spawn the readability dim-scrim node (full-screen, starts fully transparent).
@@ -194,16 +221,16 @@ fn cube_focus_nav(
 
     if dx != 0 || dy != 0 {
         match move_spatial(cursor.focus, dx, dy, active_page) {
-            SpatialMove::Focus(next) => cursor.focus = next,
+            SpatialMove::Focus(next) => cursor.mark_keyboard(next),
             SpatialMove::TurnLeft => {
                 turn_page(&mut pages, active_page.on_viewer_left());
                 // Land the cursor on the new face's right arrow (so pressing back
                 // toward centre re-enters the grid) — demo's turn_page_from_edge.
-                cursor.focus = CubeFocus::EdgeRight;
+                cursor.mark_keyboard(CubeFocus::EdgeRight);
             }
             SpatialMove::TurnRight => {
                 turn_page(&mut pages, active_page.on_viewer_right());
-                cursor.focus = CubeFocus::EdgeLeft;
+                cursor.mark_keyboard(CubeFocus::EdgeLeft);
             }
         }
     }
@@ -272,7 +299,7 @@ fn system_focus_nav(
 
     if dy != 0 {
         row = (row + dy).clamp(0, count - 1);
-        cursor.focus = CubeFocus::System(row as usize);
+        cursor.mark_keyboard(CubeFocus::System(row as usize));
     }
 
     let option = SystemOption::ALL[row.max(0).min(count - 1) as usize];
@@ -290,10 +317,10 @@ fn system_focus_nav(
             apply_system_option_step(option, dx, settings);
         } else if dx < 0 {
             turn_page(pages, active_page.on_viewer_left());
-            cursor.focus = CubeFocus::System(0);
+            cursor.mark_keyboard(CubeFocus::System(0));
         } else {
             turn_page(pages, active_page.on_viewer_right());
-            cursor.focus = CubeFocus::System(0);
+            cursor.mark_keyboard(CubeFocus::System(0));
         }
     }
 
@@ -549,9 +576,22 @@ fn focus_for_action(action: CubeAction, active_page: CubePage) -> CubeFocus {
     }
 }
 
-/// Pointer hover (mouse/touch) over a cube control: move the focus cursor to it.
-/// Bevy picking fires this for mouse AND touch uniformly. Republish then follows
-/// the cursor (highlight + detail panel).
+/// Pointer hover (mouse/touch) over a cube control: move the focus cursor to it —
+/// but ONLY on a genuine pointer move to a DIFFERENT control. Bevy picking fires
+/// this for mouse AND touch uniformly.
+///
+/// Two guards (both essential), mirroring the grid's `MenuFocusState`:
+///
+/// 1. **Semantic dedup.** Every model rebuild despawns/respawns the controls, so a
+///    parked mouse re-fires `Pointer<Over>` on a NEW entity that maps to the SAME
+///    logical [`CubeFocus`]. We compare the hovered focus against `last_pointer_focus`
+///    and bail when unchanged → no `CubeCursor` write → no rebuild → the
+///    "rebuilding 4 faces" loop is broken.
+/// 2. **Pointer-vs-keyboard ownership.** When the hovered focus equals the last one
+///    the pointer reported, the mouse hasn't moved; we leave the cursor alone even
+///    if keyboard nav has since taken it elsewhere. The pointer only re-claims the
+///    cursor when it moves onto a genuinely different control. This fixes "can't
+///    move away from the hovered option."
 fn cube_pointer_over(
     over: On<Pointer<Over>>,
     controls: Query<&AmbitionMenuControl<CubeAction>>,
@@ -564,8 +604,17 @@ fn cube_pointer_over(
     if let Ok(control) = controls.get(over.entity) {
         if let Some(action) = control.action {
             let next = focus_for_action(action, active_page);
+            // The pointer hasn't moved to a new control (same logical focus, just a
+            // freshly-rebuilt entity under a parked mouse): do nothing. This is the
+            // single guard that breaks the rebuild loop AND prevents the parked
+            // mouse from locking the cursor against keyboard nav.
+            if cursor.last_pointer_focus == Some(next) {
+                return;
+            }
+            cursor.last_pointer_focus = Some(next);
             if cursor.focus != next {
                 cursor.focus = next;
+                cursor.owner = FocusSource::Pointer;
             }
         }
     }
@@ -594,7 +643,10 @@ fn cube_pointer_click(
     if let Ok(control) = controls.get(click.entity) {
         if let Some(action) = control.action {
             if let Some(active_page) = pages.active {
-                cursor.focus = focus_for_action(action, active_page);
+                let next = focus_for_action(action, active_page);
+                cursor.focus = next;
+                cursor.owner = FocusSource::Pointer;
+                cursor.last_pointer_focus = Some(next);
             }
             let mut close_menu = false;
             dispatch_cube_action(

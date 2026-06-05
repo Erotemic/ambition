@@ -17,12 +17,14 @@ use crate::engine_core::Vec2;
 use crate::input::MenuControlFrame;
 use crate::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use crate::oot_cube::{
-    build_inventory_pages, system_rows, CubeAction, CubeFocus, CubePage, SystemCategory,
-    SystemOption, SystemRow,
+    build_inventory_pages, system_rows, CubeAction, CubeFocus, CubePage, SystemRow,
 };
 use crate::oot_menu::effects::MenuAction;
 use crate::oot_menu::input::{dispatch_item_confirm, MenuEffectManaQuery, MenuEffectPlayers};
-use crate::persistence::settings::{AudioSettings, UserSettings};
+use crate::persistence::settings::{
+    apply_settings_option, settings_menu_model, SettingsCategoryId, SettingsOptionId,
+    SettingsOptionKind, UserSettings,
+};
 use crate::player::PlayerHealRequested;
 
 /// Play a one-shot UI sound for the cube menu. Mirrors the proven pause-menu emit
@@ -150,7 +152,7 @@ impl CubeCursor {
 /// `ResMut`); `republish_cube_pages` reads it as `Res`.
 #[derive(Resource, Default)]
 struct CubeSystemNav {
-    open_category: Option<SystemCategory>,
+    open_category: Option<SettingsCategoryId>,
 }
 
 /// Spawn the readability dim-scrim node (full-screen, starts fully transparent).
@@ -537,7 +539,7 @@ fn system_focus_nav(
                 // LEFT/RIGHT step value OPTION rows in place; otherwise use the
                 // horizontal affordance to move onto the edge buttons.
                 if let SystemRow::Option(o) = current {
-                    if is_value_option(o) {
+                    if is_value_option(o, settings) {
                         apply_system_option_step(o, dx, settings, sfx);
                     } else if dx < 0 {
                         cursor.mark_keyboard(CubeFocus::EdgeLeft);
@@ -593,15 +595,26 @@ fn system_focus_nav(
     emit_move_sfx(sfx, focus_before, cursor.focus, page_before, pages.active);
 }
 
-/// True for OPTION rows whose value steps with LEFT/RIGHT (volume + camera zoom).
-fn is_value_option(option: SystemOption) -> bool {
-    matches!(
-        option,
-        SystemOption::CycleMasterVolume
-            | SystemOption::CycleMusicVolume
-            | SystemOption::CycleSfxVolume
-            | SystemOption::CycleCameraZoom
-    )
+/// True for OPTION rows whose value steps with LEFT/RIGHT in place (cycles +
+/// sliders). Toggles and the Close action ignore horizontal stepping and instead
+/// use the horizontal affordance to move onto the edge buttons. Read from the
+/// shared settings IR so the cube can never disagree with the option's real kind.
+fn is_value_option(option: SettingsOptionId, settings: &UserSettings) -> bool {
+    if option == SettingsOptionId::Close {
+        return false;
+    }
+    settings_menu_model(settings)
+        .categories
+        .iter()
+        .flat_map(|c| c.options.iter())
+        .find(|o| o.id == option)
+        .map(|o| {
+            matches!(
+                o.kind,
+                SettingsOptionKind::Cycle { .. } | SettingsOptionKind::Slider { .. }
+            )
+        })
+        .unwrap_or(false)
 }
 
 /// The `CubeAction` a System row dispatches on select (categories drill in, options
@@ -621,52 +634,18 @@ fn close_system_category(system_nav: &mut CubeSystemNav, cursor: &mut CubeCursor
     cursor.mark_keyboard(CubeFocus::System(0));
 }
 
-/// Apply a signed LEFT/RIGHT step to a value-style System option (volume up/down,
-/// camera-zoom prev/next). Toggle/close rows ignore stepping (they only respond
-/// to SELECT). Persistence is automatic via `UserSettings` change detection.
+/// Apply a signed LEFT/RIGHT step to a value-style System option (slider up/down,
+/// cycle prev/next) through the shared settings IR. Toggle/close rows ignore
+/// stepping (they only respond to SELECT). Persistence is automatic via
+/// `UserSettings` change detection.
 fn apply_system_option_step(
-    option: SystemOption,
+    option: SettingsOptionId,
     dx: i32,
     settings: &mut UserSettings,
     sfx: &mut MessageWriter<SfxMessage>,
 ) {
-    match option {
-        SystemOption::CycleMasterVolume => {
-            settings
-                .audio
-                .nudge_master(step_sign(dx) * AudioSettings::VOLUME_STEP);
-            play_ui(sfx, ambition_sfx::ids::UI_SLIDER_TICK);
-        }
-        SystemOption::CycleMusicVolume => {
-            settings
-                .audio
-                .nudge_music(step_sign(dx) * AudioSettings::VOLUME_STEP);
-            play_ui(sfx, ambition_sfx::ids::UI_SLIDER_TICK);
-        }
-        SystemOption::CycleSfxVolume => {
-            settings
-                .audio
-                .nudge_sfx(step_sign(dx) * AudioSettings::VOLUME_STEP);
-            play_ui(sfx, ambition_sfx::ids::UI_SLIDER_TICK);
-        }
-        SystemOption::CycleCameraZoom => {
-            settings.video.camera_zoom = if dx < 0 {
-                settings.video.camera_zoom.prev()
-            } else {
-                settings.video.camera_zoom.next()
-            };
-            play_ui(sfx, ambition_sfx::ids::UI_SLIDER_TICK);
-        }
-        _ => {}
-    }
-}
-
-fn step_sign(dx: i32) -> f32 {
-    if dx < 0 {
-        -1.0
-    } else {
-        1.0
-    }
+    apply_settings_option(option, dx, settings);
+    play_ui(sfx, ambition_sfx::ids::UI_SLIDER_TICK);
 }
 
 /// Outcome of a spatial cursor move on the items page.
@@ -861,93 +840,63 @@ fn rotate_sfx(from: Option<CubePage>, to: CubePage) -> ambition_sfx::SfxId {
     }
 }
 
-/// Apply a System-face option by mutating `UserSettings` (toggles flip the bool;
-/// volume rows step via the audio settings' own `nudge_*` clamping helpers; the
-/// camera-zoom row cycles the preset enum). Persistence is NOT re-implemented
-/// here: the existing `save_settings_on_change` system writes `settings.ron`
-/// whenever `UserSettings` changes, so mutating the resource is the whole job.
-/// `CloseMenu` raises `close_menu` for the caller to fold back into the overlay.
+/// Apply a System-face option (SELECT/confirm) by mutating `UserSettings` through
+/// the shared settings IR ([`apply_settings_option`]): toggles flip, cycles +
+/// sliders advance one step (confirm = next), and `Close` folds the menu. The SFX
+/// is chosen from the option's IR `kind` (toggle on/off, slider tick, close).
+/// Persistence is NOT re-implemented here: the existing `save_settings_on_change`
+/// system writes `settings.ron` whenever `UserSettings` changes, so mutating the
+/// resource is the whole job.
 fn apply_system_option(
-    option: SystemOption,
+    option: SettingsOptionId,
     settings: &mut UserSettings,
     close_menu: &mut bool,
     sfx: &mut MessageWriter<SfxMessage>,
 ) {
-    // Toggle rows pick on/off from the NEW value; value rows tick; close folds shut.
-    let mut toggled_to: Option<bool> = None;
-    match option {
-        SystemOption::ToggleFps => {
-            settings.video.show_fps = !settings.video.show_fps;
-            toggled_to = Some(settings.video.show_fps);
-        }
-        SystemOption::ToggleDebugHud => {
-            settings.gameplay.debug_hud_visible = !settings.gameplay.debug_hud_visible;
-            toggled_to = Some(settings.gameplay.debug_hud_visible);
-        }
-        SystemOption::ToggleQuestHud => {
-            settings.gameplay.quest_hud_visible = !settings.gameplay.quest_hud_visible;
-            toggled_to = Some(settings.gameplay.quest_hud_visible);
-        }
-        SystemOption::ToggleTouchControls => {
-            settings.controls.touch_controls_visible = !settings.controls.touch_controls_visible;
-            toggled_to = Some(settings.controls.touch_controls_visible);
-        }
-        SystemOption::ToggleMute => {
-            settings.audio.toggle_mute();
-            toggled_to = Some(settings.audio.muted);
-        }
-        // Volume rows confirm-cycle UP by one step (wrapping at the ceiling), so a
-        // single select/tap keeps stepping the value the way a slider would. The
-        // audio settings' own `nudge_*` helpers do the clamping + mute coupling.
-        SystemOption::CycleMasterVolume => {
-            settings.audio.master_volume = step_volume(settings.audio.master_volume);
-            // Raising master while muted unmutes, matching `nudge_master`.
-            if settings.audio.master_volume > 0.0 && settings.audio.muted {
-                settings.audio.muted = false;
-            }
-            play_ui(sfx, ambition_sfx::ids::UI_SLIDER_TICK);
-        }
-        SystemOption::CycleMusicVolume => {
-            settings.audio.music_volume = step_volume(settings.audio.music_volume);
-            play_ui(sfx, ambition_sfx::ids::UI_SLIDER_TICK);
-        }
-        SystemOption::CycleSfxVolume => {
-            settings.audio.sfx_volume = step_volume(settings.audio.sfx_volume);
-            play_ui(sfx, ambition_sfx::ids::UI_SLIDER_TICK);
-        }
-        SystemOption::CycleCameraZoom => {
-            settings.video.camera_zoom = settings.video.camera_zoom.next();
-            play_ui(sfx, ambition_sfx::ids::UI_SLIDER_TICK);
-        }
-        SystemOption::CloseMenu => {
-            *close_menu = true;
-            play_ui(sfx, ambition_sfx::ids::UI_MENU_CLOSE);
-        }
+    // Resolve the option's kind BEFORE mutating, so a toggle reports its NEW state
+    // and a slider/cycle gets a tick. `Close` is the only kind that folds the menu.
+    let kind = settings_menu_model(settings)
+        .categories
+        .iter()
+        .flat_map(|c| c.options.iter())
+        .find(|o| o.id == option)
+        .map(|o| o.kind)
+        .unwrap_or(SettingsOptionKind::Action);
+
+    // Confirm advances like Next (dir 0 == next/toggle/up in the IR).
+    let closed = apply_settings_option(option, 0, settings);
+    if closed {
+        *close_menu = true;
+        play_ui(sfx, ambition_sfx::ids::UI_MENU_CLOSE);
+        info!("cube system option: {:?}", option);
+        return;
     }
-    if let Some(on) = toggled_to {
-        play_ui(
-            sfx,
-            if on {
-                ambition_sfx::ids::UI_TOGGLE_ON
-            } else {
-                ambition_sfx::ids::UI_TOGGLE_OFF
-            },
-        );
+
+    match kind {
+        SettingsOptionKind::Toggle(_) => {
+            // Read the now-current state from the rebuilt model for the on/off SFX.
+            let on = settings_menu_model(settings)
+                .categories
+                .iter()
+                .flat_map(|c| c.options.iter())
+                .find(|o| o.id == option)
+                .map(|o| matches!(o.kind, SettingsOptionKind::Toggle(true)))
+                .unwrap_or(false);
+            play_ui(
+                sfx,
+                if on {
+                    ambition_sfx::ids::UI_TOGGLE_ON
+                } else {
+                    ambition_sfx::ids::UI_TOGGLE_OFF
+                },
+            );
+        }
+        SettingsOptionKind::Cycle { .. } | SettingsOptionKind::Slider { .. } => {
+            play_ui(sfx, ambition_sfx::ids::UI_SLIDER_TICK);
+        }
+        SettingsOptionKind::Action => {}
     }
     info!("cube system option: {:?}", option);
-}
-
-/// Step a 0..=1 volume up by one `AudioSettings::VOLUME_STEP`, wrapping back to
-/// 0 once it passes the ceiling. Single-select "cycle" behaviour for the System
-/// face's volume rows (no L/R needed).
-fn step_volume(current: f32) -> f32 {
-    let step = AudioSettings::VOLUME_STEP;
-    let next = current + step;
-    if next > 1.0 + step * 0.5 {
-        0.0
-    } else {
-        next.clamp(0.0, 1.0)
-    }
 }
 
 /// Map a control's `CubeAction` back to the cursor focus it represents, so pointer
@@ -957,7 +906,7 @@ fn step_volume(current: f32) -> f32 {
 fn focus_for_action(
     action: CubeAction,
     active_page: CubePage,
-    open_category: Option<SystemCategory>,
+    open_category: Option<SettingsCategoryId>,
 ) -> CubeFocus {
     // System rows are positional: the focus index is the action's row in the
     // currently-displayed System row list (categories+Close, or the open category's
@@ -1333,7 +1282,7 @@ fn republish_cube_pages(
     system_nav: Res<CubeSystemNav>,
     mut pages: ResMut<ActiveMenuPages<CubePage, CubeAction>>,
     mut was_open: Local<bool>,
-    mut last: Local<Option<(CubeFocus, Option<CubePage>, Option<SystemCategory>)>>,
+    mut last: Local<Option<(CubeFocus, Option<CubePage>, Option<SettingsCategoryId>)>>,
 ) {
     if *backend != InventoryUiBackend::Cube {
         return;
@@ -1664,11 +1613,11 @@ mod oot_cube_app_tests {
             .is_none());
         click_control(
             &mut app,
-            CubeAction::OpenSystemCategory(SystemCategory::Audio),
+            CubeAction::OpenSystemCategory(SettingsCategoryId::Audio),
         );
         assert_eq!(
             app.world().resource::<CubeSystemNav>().open_category,
-            Some(SystemCategory::Audio),
+            Some(SettingsCategoryId::Audio),
             "clicking a System category drills into it (Fix 4)"
         );
     }
@@ -1681,9 +1630,9 @@ mod oot_cube_app_tests {
             .active = Some(CubePage::System);
         app.world_mut()
             .resource_mut::<CubeSystemNav>()
-            .open_category = Some(SystemCategory::Video);
+            .open_category = Some(SettingsCategoryId::Video);
         let before = app.world().resource::<UserSettings>().video.show_fps;
-        click_control(&mut app, CubeAction::System(SystemOption::ToggleFps));
+        click_control(&mut app, CubeAction::System(SettingsOptionId::ShowFps));
         let after = app.world().resource::<UserSettings>().video.show_fps;
         assert_ne!(
             before, after,
@@ -1699,7 +1648,7 @@ mod oot_cube_app_tests {
             .active = Some(CubePage::System);
         app.world_mut()
             .resource_mut::<CubeSystemNav>()
-            .open_category = Some(SystemCategory::Audio);
+            .open_category = Some(SettingsCategoryId::Audio);
         click_control(&mut app, CubeAction::CloseSystemCategory);
         assert!(
             app.world()
@@ -1716,7 +1665,7 @@ mod oot_cube_app_tests {
         app.world_mut()
             .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
             .active = Some(CubePage::System);
-        click_control(&mut app, CubeAction::System(SystemOption::CloseMenu));
+        click_control(&mut app, CubeAction::System(SettingsOptionId::Close));
         assert!(
             !app.world()
                 .resource::<crate::inventory::InventoryUiState>()

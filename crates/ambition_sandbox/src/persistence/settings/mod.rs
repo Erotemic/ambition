@@ -42,6 +42,7 @@ use serde::{Deserialize, Serialize};
 pub mod audio;
 pub mod controls;
 pub mod gameplay;
+pub mod menu;
 pub mod model;
 pub mod persistence;
 pub mod platform_paths;
@@ -53,6 +54,14 @@ pub use controls::{
     TriggerEdgeState,
 };
 pub use gameplay::{AssistMode, GameplaySettings};
+// Public IR surface used by renderers (the cube today; the pause menu migrates
+// onto it next). `SettingsCategory` / `SettingsMenuModel` are reachable via the
+// `menu` submodule directly; only the names renderers currently name are
+// re-exported here to keep this convenience list warning-free.
+pub use menu::{
+    apply_settings_option, close_menu_option, settings_menu_model, SettingsCategoryId,
+    SettingsOption, SettingsOptionId, SettingsOptionKind,
+};
 pub use model::{
     apply_action, apply_display_mode, DevToggleSnapshot, SettingsAction, SettingsItem,
     SettingsOutcome, SettingsPage,

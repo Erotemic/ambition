@@ -25,6 +25,7 @@ file is a no-op (the `name` field def is gone, so nothing matches).
 
 After running, do `repair --in-place` + `validate` on each file.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -72,6 +73,7 @@ LEGACY_NAME_TO_CHARACTER_ID = {
     "Raid Enforcer": "npc_raid_enforcer",
     "Sandbag": "npc_sandbag",
 }
+
 
 # When the script can't find a mapping for an existing instance, it
 # falls back to slugifying the display name. This is intentionally

@@ -39,6 +39,7 @@ python3 -m ambition_ldtk_tools tileset paint \\
 
 Idempotent: running twice is a no-op (the grid sizes are already 16).
 """
+
 from __future__ import annotations
 
 import json
@@ -48,7 +49,9 @@ from PIL import Image
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 LDTK_PATH = REPO_ROOT / "crates/ambition_sandbox/assets/ambition/worlds/intro.ldtk"
-INTRO_LAB_PNG = REPO_ROOT / "crates/ambition_sandbox/assets/sprites/intro_lab_tileset.png"
+INTRO_LAB_PNG = (
+    REPO_ROOT / "crates/ambition_sandbox/assets/sprites/intro_lab_tileset.png"
+)
 TOWN_PNG = REPO_ROOT / "crates/ambition_sandbox/assets/sprites/town_tileset.png"
 
 NEW_TILE_GRID = 16

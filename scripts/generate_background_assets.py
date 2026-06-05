@@ -25,7 +25,9 @@ def main() -> int:
 
     from ambition_background_renderer.cli import main as renderer_main
 
-    return renderer_main(["--out", str(root / "assets" / "backgrounds"), "--profile", "all"])
+    return renderer_main(
+        ["--out", str(root / "assets" / "backgrounds"), "--profile", "all"]
+    )
 
 
 if __name__ == "__main__":

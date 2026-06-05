@@ -72,7 +72,9 @@ def strip_angle(target: str) -> str:
 
 def is_external(target: str) -> bool:
     parsed = urlparse(target)
-    return bool(parsed.scheme and parsed.scheme not in {"", "file"}) or target.startswith("mailto:")
+    return bool(
+        parsed.scheme and parsed.scheme not in {"", "file"}
+    ) or target.startswith("mailto:")
 
 
 def local_target_exists(root: Path, source: Path, target: str) -> bool:
@@ -116,7 +118,9 @@ def main() -> int:
         rel = path.relative_to(root)
         for offset, target in collect_links(text):
             if not local_target_exists(root, path, target):
-                errors.append(f"{rel}:{line_for_offset(text, offset)} broken local link: {target}")
+                errors.append(
+                    f"{rel}:{line_for_offset(text, offset)} broken local link: {target}"
+                )
         for stale in STALE_PATH_HINTS:
             if stale in text:
                 errors.append(f"{rel}: stale path hint still present: {stale}")

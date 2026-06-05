@@ -28,7 +28,9 @@ except Exception:  # pragma: no cover - convenience fallback for fresh systems
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_OUT_DIR = REPO_ROOT / "crates" / "ambition_sandbox" / "assets" / "fonts" / "bundled"
+DEFAULT_OUT_DIR = (
+    REPO_ROOT / "crates" / "ambition_sandbox" / "assets" / "fonts" / "bundled"
+)
 DEFAULT_CACHE_DIR = REPO_ROOT / "target" / "font_download_cache"
 
 
@@ -59,9 +61,7 @@ FONT_SOURCES: tuple[FontSource, ...] = (
         url="https://download.jetbrains.com/fonts/JetBrainsMono-2.304.zip",
         license_name="SIL Open Font License 1.1",
         homepage="https://www.jetbrains.com/lp/mono/",
-        extracts=(
-            ("JetBrainsMono-Regular.ttf", "JetBrainsMono-Regular.ttf"),
-        ),
+        extracts=(("JetBrainsMono-Regular.ttf", "JetBrainsMono-Regular.ttf"),),
         license_candidates=("OFL.txt", "LICENSE.txt"),
     ),
 )
@@ -118,7 +118,9 @@ def find_zip_member(zip_file: zipfile.ZipFile, basename: str) -> str:
     return matches[0]
 
 
-def extract_member(zip_file: zipfile.ZipFile, basename: str, destination: Path, *, force: bool) -> dict:
+def extract_member(
+    zip_file: zipfile.ZipFile, basename: str, destination: Path, *, force: bool
+) -> dict:
     if destination.exists() and not force:
         return {
             "path": str(destination.relative_to(REPO_ROOT)),
@@ -138,7 +140,9 @@ def extract_member(zip_file: zipfile.ZipFile, basename: str, destination: Path, 
     }
 
 
-def copy_license(zip_file: zipfile.ZipFile, candidates: Iterable[str], destination: Path) -> dict | None:
+def copy_license(
+    zip_file: zipfile.ZipFile, candidates: Iterable[str], destination: Path
+) -> dict | None:
     names = list(iter_zip_names(zip_file))
     for candidate in candidates:
         matches = [name for name in names if Path(name).name == candidate]
@@ -165,7 +169,9 @@ def grab_fonts(out_dir: Path, cache_dir: Path, *, force: bool, dry_run: bool) ->
         "sources": [],
     }
     if dry_run:
-        console(f"[yellow]dry-run[/yellow] would write fonts under {path_link(out_dir)}")
+        console(
+            f"[yellow]dry-run[/yellow] would write fonts under {path_link(out_dir)}"
+        )
         for source in FONT_SOURCES:
             console(f"  - {source.name}: {source.url}")
         return 0
@@ -201,13 +207,17 @@ def grab_fonts(out_dir: Path, cache_dir: Path, *, force: bool, dry_run: bool) ->
                 if license_entry is not None:
                     source_entry["license_file"] = license_entry
                 else:
-                    console(f"[yellow]warning[/yellow] no license file found in {source.name} archive")
+                    console(
+                        f"[yellow]warning[/yellow] no license file found in {source.name} archive"
+                    )
             manifest["sources"].append(source_entry)
 
     manifest_path = out_dir / "FONT_ASSET_MANIFEST.json"
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
     console(f"[green]manifest[/green] {path_link(manifest_path)}")
-    console("[bold]next[/bold] review licenses, then force-add/IPFS-track the generated assets if accepted")
+    console(
+        "[bold]next[/bold] review licenses, then force-add/IPFS-track the generated assets if accepted"
+    )
     console(f"       git add -f {path_link(out_dir)}")
     return 0
 
@@ -220,8 +230,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
     parser.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE_DIR)
-    parser.add_argument("--force", action="store_true", help="redownload archives and overwrite fonts")
-    parser.add_argument("--dry-run", action="store_true", help="print planned downloads without writing")
+    parser.add_argument(
+        "--force", action="store_true", help="redownload archives and overwrite fonts"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="print planned downloads without writing"
+    )
     args = parser.parse_args(argv)
     return grab_fonts(
         args.out_dir.resolve(),

@@ -4,6 +4,7 @@
 The indexes are intentionally simple, reviewable JSON. They are navigation aids,
 not source-of-truth replacements for code, ADRs, or concept pages.
 """
+
 from __future__ import annotations
 
 import json
@@ -22,7 +23,9 @@ TEXT_EXTS = {".md", ".rs", ".toml", ".ron", ".yaml", ".yml", ".py", ".sh", ".jso
 
 def git_commit() -> str:
     try:
-        return subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, text=True).strip()
+        return subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, text=True
+        ).strip()
     except Exception:
         return "unknown"
 
@@ -30,7 +33,10 @@ def git_commit() -> str:
 def generated_meta() -> dict[str, str]:
     return {
         "generated_from_commit": git_commit(),
-        "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+        "generated_at": datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z"),
         "generator": "scripts/generate_agent_index.py",
     }
 
@@ -96,12 +102,14 @@ def build_file_summaries(files: list[Path]) -> dict[str, object]:
     entries = []
     for path in files:
         text = path.read_text(encoding="utf-8", errors="replace")
-        entries.append({
-            "path": rel(path),
-            "extension": path.suffix,
-            "lines": text.count("\n") + (1 if text else 0),
-            "heading": first_heading(text),
-        })
+        entries.append(
+            {
+                "path": rel(path),
+                "extension": path.suffix,
+                "lines": text.count("\n") + (1 if text else 0),
+                "heading": first_heading(text),
+            }
+        )
     return {**generated_meta(), "files": entries}
 
 
@@ -119,13 +127,15 @@ def build_symbol_index() -> dict[str, object]:
     for path in sorted(crates_dir.rglob("*.rs")):
         text = path.read_text(encoding="utf-8", errors="replace")
         for m in SYMBOL_RE.finditer(text):
-            symbols.append({
-                "name": m.group("name"),
-                "kind": m.group("kind"),
-                "visibility": "public" if m.group("vis") else "private",
-                "path": rel(path),
-                "line": text.count("\n", 0, m.start()) + 1,
-            })
+            symbols.append(
+                {
+                    "name": m.group("name"),
+                    "kind": m.group("kind"),
+                    "visibility": "public" if m.group("vis") else "private",
+                    "path": rel(path),
+                    "line": text.count("\n", 0, m.start()) + 1,
+                }
+            )
     return {**generated_meta(), "symbols": symbols}
 
 
@@ -140,20 +150,40 @@ def build_test_map() -> dict[str, object]:
         pending_attr_line: int | None = None
         for idx, line in enumerate(lines, start=1):
             stripped = line.strip()
-            if stripped.startswith("#[test]") or stripped.startswith("#[rstest") or stripped.startswith("#[tokio::test"):
+            if (
+                stripped.startswith("#[test]")
+                or stripped.startswith("#[rstest")
+                or stripped.startswith("#[tokio::test")
+            ):
                 pending_attr_line = idx
                 continue
             if pending_attr_line is not None:
                 m = re.search(r"\bfn\s+([A-Za-z_][A-Za-z0-9_]*)", line)
                 if m:
-                    tests.append({"name": m.group(1), "path": rel(path), "line": idx, "attr_line": pending_attr_line})
+                    tests.append(
+                        {
+                            "name": m.group(1),
+                            "path": rel(path),
+                            "line": idx,
+                            "attr_line": pending_attr_line,
+                        }
+                    )
                     pending_attr_line = None
             m = re.search(r"\bfn\s+(test_[A-Za-z0-9_]+|[A-Za-z0-9_]+_test)\b", line)
             if m:
-                tests.append({"name": m.group(1), "path": rel(path), "line": idx, "attr_line": None})
+                tests.append(
+                    {
+                        "name": m.group(1),
+                        "path": rel(path),
+                        "line": idx,
+                        "attr_line": None,
+                    }
+                )
         r = rel(path)
         if "/tests/" in r and not any(t["path"] == r for t in tests):
-            tests.append({"name": Path(r).stem, "path": r, "line": 1, "attr_line": None})
+            tests.append(
+                {"name": Path(r).stem, "path": r, "line": 1, "attr_line": None}
+            )
     return {**generated_meta(), "tests": tests}
 
 
@@ -165,17 +195,19 @@ def build_concept_index() -> dict[str, object]:
             continue
         text = path.read_text(encoding="utf-8", errors="replace")
         fm = parse_frontmatter(text)
-        concepts.append({
-            "id": fm.get("id", path.stem),
-            "path": rel(path),
-            "title": first_heading(text) or path.stem,
-            "aliases": fm.get("aliases", []),
-            "implemented_by": fm.get("implemented_by", []),
-            "tested_by": fm.get("tested_by", []),
-            "related_docs": fm.get("related_docs", []),
-            "related_memory": fm.get("related_memory", []),
-            "last_verified": fm.get("last_verified"),
-        })
+        concepts.append(
+            {
+                "id": fm.get("id", path.stem),
+                "path": rel(path),
+                "title": first_heading(text) or path.stem,
+                "aliases": fm.get("aliases", []),
+                "implemented_by": fm.get("implemented_by", []),
+                "tested_by": fm.get("tested_by", []),
+                "related_docs": fm.get("related_docs", []),
+                "related_memory": fm.get("related_memory", []),
+                "last_verified": fm.get("last_verified"),
+            }
+        )
     return {**generated_meta(), "concepts": concepts}
 
 
@@ -202,13 +234,19 @@ def build_tool_index() -> dict[str, object]:
                 continue
             readme = path / "README.md"
             pyproject = path / "pyproject.toml"
-            tools.append({
-                "name": path.name,
-                "path": rel(path),
-                "has_readme": readme.exists(),
-                "has_pyproject": pyproject.exists(),
-                "heading": first_heading(readme.read_text(encoding="utf-8", errors="replace")) if readme.exists() else None,
-            })
+            tools.append(
+                {
+                    "name": path.name,
+                    "path": rel(path),
+                    "has_readme": readme.exists(),
+                    "has_pyproject": pyproject.exists(),
+                    "heading": first_heading(
+                        readme.read_text(encoding="utf-8", errors="replace")
+                    )
+                    if readme.exists()
+                    else None,
+                }
+            )
     return {**generated_meta(), "tools": tools}
 
 
@@ -218,14 +256,28 @@ def build_archive_index() -> dict[str, object]:
     if archive.exists():
         for path in sorted(archive.rglob("*.md")):
             text = path.read_text(encoding="utf-8", errors="replace")
-            entries.append({"path": rel(path), "basename": path.name, "heading": first_heading(text), "lines": text.count("\n") + 1})
+            entries.append(
+                {
+                    "path": rel(path),
+                    "basename": path.name,
+                    "heading": first_heading(text),
+                    "lines": text.count("\n") + 1,
+                }
+            )
     return {**generated_meta(), "archive_docs": entries}
 
 
 def build_doc_health(files: list[Path]) -> dict[str, object]:
     md = [p for p in files if p.suffix == ".md"]
     longest = sorted(
-        ({"path": rel(p), "lines": p.read_text(encoding="utf-8", errors="replace").count("\n") + 1} for p in md),
+        (
+            {
+                "path": rel(p),
+                "lines": p.read_text(encoding="utf-8", errors="replace").count("\n")
+                + 1,
+            }
+            for p in md
+        ),
         key=lambda x: x["lines"],
         reverse=True,
     )[:25]

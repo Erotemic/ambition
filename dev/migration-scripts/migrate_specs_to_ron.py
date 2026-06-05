@@ -29,6 +29,7 @@ The script:
 
 A `--dry-run` flag prints what would happen without writing.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -65,7 +66,9 @@ def extract_header_comment(yaml_text: str) -> str:
     return "\n".join(f"// {line}" if line else "//" for line in lines) + "\n\n"
 
 
-def migrate_file(yaml_path: Path, dry_run: bool, delete_yaml: bool) -> tuple[Path | None, str]:
+def migrate_file(
+    yaml_path: Path, dry_run: bool, delete_yaml: bool
+) -> tuple[Path | None, str]:
     """Returns (output_path_or_none, status_str)."""
     import yaml  # type: ignore
     from .ron_parse import dumps as ron_dumps, load as ron_load
@@ -120,7 +123,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     any_error = False
-    yaml_files = sorted(args.specs_dir.glob("*.yaml")) + sorted(args.specs_dir.glob("*.yml"))
+    yaml_files = sorted(args.specs_dir.glob("*.yaml")) + sorted(
+        args.specs_dir.glob("*.yml")
+    )
     if not yaml_files:
         print(f"no YAML specs found under {args.specs_dir}")
         return 0

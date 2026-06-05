@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Lightweight lint for Ambition's agent-readable repository knowledge base."""
+
 from __future__ import annotations
 
 import json
@@ -110,9 +111,20 @@ DUPLICATE_ARCHIVE_PATHS = [
 ]
 
 STALE_ACTIVE_PATTERNS = [
-    (re.compile(r"docs/(AGENT_HANDOFF|CURRENT_STATE|GOAL_STATE|lessons_learned|redirects)\.md"), "removed top-level doc stub"),
+    (
+        re.compile(
+            r"docs/(AGENT_HANDOFF|CURRENT_STATE|GOAL_STATE|lessons_learned|redirects)\.md"
+        ),
+        "removed top-level doc stub",
+    ),
     (re.compile(r"0002-engine-may-be-bevy-native\.md"), "superseded ADR path"),
-    (re.compile(r"RON rooms|RON room authoring|RON-backed RoomSet|sandbox\.ron.*rooms", re.IGNORECASE), "stale RON-room phrasing"),
+    (
+        re.compile(
+            r"RON rooms|RON room authoring|RON-backed RoomSet|sandbox\.ron.*rooms",
+            re.IGNORECASE,
+        ),
+        "stale RON-room phrasing",
+    ),
 ]
 
 STALE_RECIPE_OR_SYSTEM_PATTERNS = [
@@ -175,7 +187,15 @@ def active_text_files() -> list[Path]:
             r = rel(path)
             if r.startswith(("docs/archive/", "tools/experimental/")):
                 continue
-            if path.suffix.lower() in {".md", ".rs", ".toml", ".py", ".yaml", ".yml", ".sh"}:
+            if path.suffix.lower() in {
+                ".md",
+                ".rs",
+                ".toml",
+                ".py",
+                ".yaml",
+                ".yml",
+                ".sh",
+            }:
                 out.append(path)
     return sorted(set(out))
 
@@ -189,17 +209,26 @@ def check_required_files(errors: list[str]) -> None:
 def check_forbidden_live_paths(errors: list[str]) -> None:
     for item in FORBIDDEN_LIVE_PATHS:
         if (ROOT / item).exists():
-            fail(errors, f"forbidden live stale doc remains: {item}; archive or delete it")
+            fail(
+                errors,
+                f"forbidden live stale doc remains: {item}; archive or delete it",
+            )
     for item in DUPLICATE_ARCHIVE_PATHS:
         if (ROOT / item).exists():
-            fail(errors, f"duplicate archived copy remains: {item}; keep one canonical archive copy")
+            fail(
+                errors,
+                f"duplicate archived copy remains: {item}; keep one canonical archive copy",
+            )
 
 
 def check_top_level_docs(errors: list[str]) -> None:
     docs = ROOT / "docs"
     for path in sorted(docs.glob("*.md")):
         if path.name not in ALLOWED_TOP_LEVEL_DOCS:
-            fail(errors, f"unexpected top-level docs file: {rel(path)}; only docs/README.md should remain")
+            fail(
+                errors,
+                f"unexpected top-level docs file: {rel(path)}; only docs/README.md should remain",
+            )
 
 
 def check_stale_active_references(errors: list[str]) -> None:
@@ -216,7 +245,10 @@ def check_agents_size(errors: list[str]) -> None:
         return
     lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     if len(lines) > AGENTS_MAX_LINES:
-        fail(errors, f"AGENTS.md has {len(lines)} lines; keep it <= {AGENTS_MAX_LINES} and route to docs instead")
+        fail(
+            errors,
+            f"AGENTS.md has {len(lines)} lines; keep it <= {AGENTS_MAX_LINES} and route to docs instead",
+        )
 
 
 def git_tracked_paths(pathspec: str) -> list[str]:
@@ -247,7 +279,9 @@ def check_generated_indexes(errors: list[str]) -> None:
             f"remove it with `git rm -r --cached .agent/index` ({shown}{suffix})",
         )
 
-    missing = [relpath for relpath in GENERATED_INDEX_FILES if not (ROOT / relpath).exists()]
+    missing = [
+        relpath for relpath in GENERATED_INDEX_FILES if not (ROOT / relpath).exists()
+    ]
     if missing:
         fail(
             errors,
@@ -279,7 +313,13 @@ def check_concepts(errors: list[str]) -> None:
         missing = sorted(CONCEPT_REQUIRED_KEYS - set(fm))
         if missing:
             fail(errors, f"{rel(path)} missing frontmatter keys: {', '.join(missing)}")
-        for key in ["implemented_by", "tested_by", "related_docs", "related_adrs", "related_memory"]:
+        for key in [
+            "implemented_by",
+            "tested_by",
+            "related_docs",
+            "related_adrs",
+            "related_memory",
+        ]:
             values = fm.get(key)
             if not values:
                 continue
@@ -311,7 +351,9 @@ def check_markdown_links(errors: list[str]) -> None:
             target = match.group(1).strip()
             if not target or target.startswith(("http://", "https://", "mailto:", "#")):
                 continue
-            if target.startswith("<") or (" " in target and not target.startswith("../")):
+            if target.startswith("<") or (
+                " " in target and not target.startswith("../")
+            ):
                 continue
             base_target = target.split("#", 1)[0]
             if not base_target:
@@ -333,7 +375,10 @@ def check_retrieval_evals(errors: list[str]) -> None:
     text = path.read_text(encoding="utf-8", errors="replace")
     eval_count = len(re.findall(r"^\s*- id:\s*", text, flags=re.MULTILINE))
     if eval_count < 10:
-        fail(errors, f".agent/retrieval_evals.yaml has only {eval_count} evals; expected at least 10")
+        fail(
+            errors,
+            f".agent/retrieval_evals.yaml has only {eval_count} evals; expected at least 10",
+        )
     for relpath in re.findall(r"(?:dev|docs|crates)/[^\s\]]+\.md", text):
         relpath = relpath.rstrip(",")
         if relpath.startswith("crates/"):
@@ -361,7 +406,10 @@ def check_active_doc_phrasing(errors: list[str]) -> None:
             text = path.read_text(encoding="utf-8", errors="replace")
             for pattern, label in STALE_RECIPE_OR_SYSTEM_PATTERNS:
                 if pattern.search(text):
-                    fail(errors, f"{rel(path)} contains {label}; archive old patch/migration notes")
+                    fail(
+                        errors,
+                        f"{rel(path)} contains {label}; archive old patch/migration notes",
+                    )
 
 
 def check_archive_duplicates(errors: list[str]) -> None:
@@ -380,17 +428,24 @@ def check_archive_duplicates(errors: list[str]) -> None:
 
 def check_tool_docs(errors: list[str]) -> None:
     tools = ROOT / "tools"
-    docs_text = "\n".join(
-        p.read_text(encoding="utf-8", errors="replace")
-        for p in (ROOT / "docs" / "tools").glob("*.md")
-    ) if (ROOT / "docs" / "tools").exists() else ""
+    docs_text = (
+        "\n".join(
+            p.read_text(encoding="utf-8", errors="replace")
+            for p in (ROOT / "docs" / "tools").glob("*.md")
+        )
+        if (ROOT / "docs" / "tools").exists()
+        else ""
+    )
     if not tools.exists():
         return
     for path in sorted(tools.iterdir()):
         if not path.is_dir() or path.name == "experimental":
             continue
         if (path / "README.md").exists() and path.name not in docs_text:
-            fail(errors, f"tool with README missing from docs/tools coverage: tools/{path.name}")
+            fail(
+                errors,
+                f"tool with README missing from docs/tools coverage: tools/{path.name}",
+            )
 
 
 def main() -> int:

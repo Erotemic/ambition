@@ -25,6 +25,7 @@ Run with:
 
     python3 scripts/migrate_intro_music_tracks.py
 """
+
 from __future__ import annotations
 
 import json

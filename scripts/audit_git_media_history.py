@@ -151,7 +151,9 @@ def collect_historical_paths(repo: Path) -> dict[str, set[str]]:
     return object_paths
 
 
-def batch_object_info(repo: Path, object_names: Iterable[str]) -> dict[str, tuple[str, int]]:
+def batch_object_info(
+    repo: Path, object_names: Iterable[str]
+) -> dict[str, tuple[str, int]]:
     """Return object SHA -> (type, size) using one cat-file batch call."""
 
     object_list = list(object_names)
@@ -278,8 +280,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"            ... {remaining} more path(s)")
         print()
 
-    print("These media blobs may no longer exist in the current checkout but are still reachable from Git history.")
-    print("If they should be removed, use a history rewrite tool such as git-filter-repo or BFG Repo-Cleaner.")
+    print(
+        "These media blobs may no longer exist in the current checkout but are still reachable from Git history."
+    )
+    print(
+        "If they should be removed, use a history rewrite tool such as git-filter-repo or BFG Repo-Cleaner."
+    )
     return 1
 
 

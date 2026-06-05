@@ -1,6 +1,5 @@
-use super::*;
 use super::ecs::npc_clusters::NpcMut;
-
+use super::*;
 
 /// Number of player attacks before a peaceful NPC turns hostile.
 /// Three lets the player commit to the choice intentionally without
@@ -22,7 +21,6 @@ pub const NPC_TALK_RADIUS: f32 = 80.0;
 /// hasn't migrated yet (none today, but the player polarity flip
 /// preserves the value) stays in sync.
 pub const NPC_PATROL_SPEED: f32 = 60.0;
-
 
 /// Cluster-native NPC integration + helpers. Port of the `NpcRuntime`
 /// methods that operate on the authoritative ECS components through the
@@ -88,7 +86,10 @@ impl<'a> NpcMut<'a> {
             self.kin.facing = frame.facing;
         }
 
-        if matches!(self.status.ai_mode, crate::character_ai::CharacterAiMode::Patrol) {
+        if matches!(
+            self.status.ai_mode,
+            crate::character_ai::CharacterAiMode::Patrol
+        ) {
             if let Some(motion) = &mut self.motion.0 {
                 let old = self.kin.pos;
                 self.kin.pos = motion.advance(self.kin.pos, dt);
@@ -103,14 +104,19 @@ impl<'a> NpcMut<'a> {
 
         let prev_vel_x = self.integrate_velocity(frame.desired_vel.x, world, dt, gravity_sign);
 
-        if matches!(self.status.ai_mode, crate::character_ai::CharacterAiMode::Patrol)
-            && prev_vel_x.abs() > 1.0
+        if matches!(
+            self.status.ai_mode,
+            crate::character_ai::CharacterAiMode::Patrol
+        ) && prev_vel_x.abs() > 1.0
             && self.kin.vel.x.abs() < 0.01
         {
             self.kin.facing *= -1.0;
         }
 
-        if matches!(self.status.ai_mode, crate::character_ai::CharacterAiMode::Chase) {
+        if matches!(
+            self.status.ai_mode,
+            crate::character_ai::CharacterAiMode::Chase
+        ) {
             let dx = target_pos.x - self.kin.pos.x;
             if dx.abs() > 4.0 {
                 self.kin.facing = dx.signum();

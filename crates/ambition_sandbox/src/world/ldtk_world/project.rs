@@ -243,7 +243,10 @@ mod project_lookup_tests {
         assert!(lvl.ambition_layer().is_some());
         assert!(lvl.collision_layer().is_some());
         assert!(lvl.water_layer().is_some());
-        assert!(lvl.climbable_layer().is_none(), "no Climbable layer present");
+        assert!(
+            lvl.climbable_layer().is_none(),
+            "no Climbable layer present"
+        );
     }
 
     #[test]
@@ -254,7 +257,11 @@ mod project_lookup_tests {
             layer("AmbitionCameras", "Entities", vec![]),
         ]);
         let ids: Vec<&str> = lvl.entity_layers().map(|l| l.identifier.as_str()).collect();
-        assert_eq!(ids, vec!["Ambition", "AmbitionCameras"], "both Entities layers, file order");
+        assert_eq!(
+            ids,
+            vec!["Ambition", "AmbitionCameras"],
+            "both Entities layers, file order"
+        );
     }
 
     #[test]

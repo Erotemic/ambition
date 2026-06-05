@@ -484,8 +484,14 @@ mod tests {
                 reach_px: 64.0,
             },
         ));
-        assert!((axe.startup_seconds - 0.22).abs() < 1e-6, "windup -> startup");
-        assert!((axe.recovery_seconds - 0.30).abs() < 1e-6, "recover -> recovery");
+        assert!(
+            (axe.startup_seconds - 0.22).abs() < 1e-6,
+            "windup -> startup"
+        );
+        assert!(
+            (axe.recovery_seconds - 0.30).abs() < 1e-6,
+            "recover -> recovery"
+        );
         assert_eq!(axe.damage_override, Some(3), "axe carries its own damage");
         assert!(
             axe.startup_seconds > base.startup_seconds,

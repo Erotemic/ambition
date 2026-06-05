@@ -104,7 +104,8 @@ mod tests {
             id: "flag".into(),
             on: true,
         };
-        let quest = QuestAdvanceRequested(crate::quest::QuestAdvanceEvent::NpcTalked("guide".into()));
+        let quest =
+            QuestAdvanceRequested(crate::quest::QuestAdvanceEvent::NpcTalked("guide".into()));
         let switch = SwitchActivated {
             activation: crate::encounter::SwitchActivation {
                 id: "goblin_encounter".into(),
@@ -119,7 +120,10 @@ mod tests {
         };
 
         assert!(flag.on);
-        assert!(matches!(quest.0, crate::quest::QuestAdvanceEvent::NpcTalked(_)));
+        assert!(matches!(
+            quest.0,
+            crate::quest::QuestAdvanceEvent::NpcTalked(_)
+        ));
         assert_eq!(switch.pos, ae::Vec2::new(1.0, 2.0));
         assert_eq!(sfx.pos, ae::Vec2::new(5.0, 6.0));
     }

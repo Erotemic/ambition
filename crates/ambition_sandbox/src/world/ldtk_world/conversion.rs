@@ -1103,10 +1103,7 @@ mod tests {
             Some("already_slug")
         );
         // Collapses runs of separators and trims trailing ones.
-        assert_eq!(
-            compact_path_name("  a -- b  ").as_deref(),
-            Some("a_b")
-        );
+        assert_eq!(compact_path_name("  a -- b  ").as_deref(), Some("a_b"));
         // No alphanumerics → no usable slug.
         assert_eq!(compact_path_name("  !! "), None);
         assert_eq!(compact_path_name(""), None);

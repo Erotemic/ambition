@@ -318,7 +318,10 @@ mod tests {
             "it must NOT register as an enemy projectile (would hit the player)"
         );
         assert!(
-            app.world().resource::<EnemyProjectileState>().bodies.is_empty(),
+            app.world()
+                .resource::<EnemyProjectileState>()
+                .bodies
+                .is_empty(),
             "the shot expires on contact with the enemy"
         );
     }
@@ -396,7 +399,10 @@ mod tests {
             crate::projectile::ProjectileFaction::Player,
             "parry flips the bolt to the player's faction"
         );
-        assert!(body.vel.x > 0.0, "reversed: it now travels back toward the enemy (was -x)");
+        assert!(
+            body.vel.x > 0.0,
+            "reversed: it now travels back toward the enemy (was -x)"
+        );
         assert!(
             body.vel.length() > 300.0,
             "reflected with a speed boost, was 300 now {}",

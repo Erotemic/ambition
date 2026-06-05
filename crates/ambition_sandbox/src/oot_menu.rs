@@ -42,8 +42,10 @@ use bevy::prelude::*;
 /// which the caller chains into the existing input pipeline so ordering matches
 /// the legacy menu it replaces).
 pub fn install_oot_menu_visuals(app: &mut App) {
-    app.init_resource::<OotMenuState>()
-        .add_systems(Update, sync_oot_menu.after(crate::app::SandboxSet::CoreSimulation));
+    app.init_resource::<OotMenuState>().add_systems(
+        Update,
+        sync_oot_menu.after(crate::app::SandboxSet::CoreSimulation),
+    );
     // `spawn_oot_menu` is registered by the caller at `Startup` alongside the
     // other menu panels so it shares their `.after(setup_simulation_system)`
     // ordering.

@@ -81,7 +81,11 @@ mod tests {
         app.add_systems(Update, tick_ability_cooldown);
         let player = app
             .world_mut()
-            .spawn((PlayerEntity, PrimaryPlayer, AbilityCooldown { remaining: 0.5 }))
+            .spawn((
+                PlayerEntity,
+                PrimaryPlayer,
+                AbilityCooldown { remaining: 0.5 },
+            ))
             .id();
 
         app.update(); // 0.5 -> 0.4
@@ -107,7 +111,8 @@ mod tests {
         mut log: ResMut<UseLog>,
     ) {
         if let Ok((player, mut cd)) = players.single_mut() {
-            log.0.push(try_use_ability(&mut cd, &mut commands, player, 0.5));
+            log.0
+                .push(try_use_ability(&mut cd, &mut commands, player, 0.5));
         }
     }
 

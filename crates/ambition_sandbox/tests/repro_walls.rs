@@ -587,11 +587,7 @@ fn goblin_encounter_full_world_lock_wall_cling_repro() {
     let project =
         sb::ldtk_world::LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
     let room_set = project.to_room_set().expect("room_set");
-    let Some(room) = room_set
-        .rooms
-        .iter()
-        .find(|s| s.id == "goblin_encounter")
-    else {
+    let Some(room) = room_set.rooms.iter().find(|s| s.id == "goblin_encounter") else {
         eprintln!("no goblin_encounter room; known rooms:");
         for r in &room_set.rooms {
             eprintln!("  {}", r.id);
@@ -619,7 +615,10 @@ fn goblin_encounter_full_world_lock_wall_cling_repro() {
     );
     for b in &augmented.blocks {
         if b.aabb.min.y < 64.0 || b.name.starts_with("lockwall") {
-            println!("  block {:?} aabb min={:?} max={:?}", b.name, b.aabb.min, b.aabb.max);
+            println!(
+                "  block {:?} aabb min={:?} max={:?}",
+                b.name, b.aabb.min, b.aabb.max
+            );
         }
     }
 
@@ -652,14 +651,21 @@ fn goblin_encounter_full_world_lock_wall_cling_repro() {
             ..Default::default()
         };
         let _ = ae::update_player_simulation_with_tuning_scratch(
-            &augmented, &mut player, input, dt, DEFAULT_TUNING,
+            &augmented,
+            &mut player,
+            input,
+            dt,
+            DEFAULT_TUNING,
         );
         let moved = (player.kinematics.pos - pre).length();
         if frame < 4 || moved > 40.0 {
             println!(
                 "f{frame:02}: pos=({:.1}, {:.1}) vel=({:.1}, {:.1}) moved={:.2}px",
-                player.kinematics.pos.x, player.kinematics.pos.y,
-                player.kinematics.vel.x, player.kinematics.vel.y, moved
+                player.kinematics.pos.x,
+                player.kinematics.pos.y,
+                player.kinematics.vel.x,
+                player.kinematics.vel.y,
+                moved
             );
         }
         assert_within_displacement_budget(
@@ -719,17 +725,29 @@ fn goblin_encounter_real_walljump_repro() {
         };
         // Control phase first (fires the wall-jump impulse), then sim.
         let _ = ae::update_player_control_with_tuning_scratch(
-            &augmented, &mut player, input, dt, DEFAULT_TUNING,
+            &augmented,
+            &mut player,
+            input,
+            dt,
+            DEFAULT_TUNING,
         );
         let _ = ae::update_player_simulation_with_tuning_scratch(
-            &augmented, &mut player, input, dt, DEFAULT_TUNING,
+            &augmented,
+            &mut player,
+            input,
+            dt,
+            DEFAULT_TUNING,
         );
         let moved = (player.kinematics.pos - pre).length();
         if frame < 4 || moved > 40.0 {
             println!(
                 "f{frame:02}: pos=({:.1}, {:.1}) vel=({:.1}, {:.1}) moved={:.2}px cling={}",
-                player.kinematics.pos.x, player.kinematics.pos.y,
-                player.kinematics.vel.x, player.kinematics.vel.y, moved, player.wall.wall_clinging
+                player.kinematics.pos.x,
+                player.kinematics.pos.y,
+                player.kinematics.vel.x,
+                player.kinematics.vel.y,
+                moved,
+                player.wall.wall_clinging
             );
         }
         assert_within_displacement_budget(

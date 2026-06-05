@@ -116,11 +116,20 @@ mod util_tests {
     #[test]
     fn player_is_standing_on_requires_overlap_and_top_contact() {
         let platform = aabb(50.0, 100.0, 50.0, 10.0); // top = 90
-        assert!(player_is_standing_on(aabb(50.0, 67.0, 14.0, 23.0), platform)); // bottom = 90
-        // Far above -> no top contact.
-        assert!(!player_is_standing_on(aabb(50.0, 0.0, 14.0, 23.0), platform));
+        assert!(player_is_standing_on(
+            aabb(50.0, 67.0, 14.0, 23.0),
+            platform
+        )); // bottom = 90
+            // Far above -> no top contact.
+        assert!(!player_is_standing_on(
+            aabb(50.0, 0.0, 14.0, 23.0),
+            platform
+        ));
         // Off to the side -> no horizontal overlap.
-        assert!(!player_is_standing_on(aabb(300.0, 67.0, 14.0, 23.0), platform));
+        assert!(!player_is_standing_on(
+            aabb(300.0, 67.0, 14.0, 23.0),
+            platform
+        ));
     }
 
     #[test]

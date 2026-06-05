@@ -421,7 +421,10 @@ pub fn boss_phase_transition_feedback(
         if prev.is_none() || prev == Some(state.phase) {
             continue;
         }
-        if matches!(state.phase, P::Transition | P::Phase2 | P::Enrage | P::Stagger) {
+        if matches!(
+            state.phase,
+            P::Transition | P::Phase2 | P::Enrage | P::Stagger
+        ) {
             if let Some(shake) = shake.as_deref_mut() {
                 shake.kick(BOSS_PHASE_SHAKE_PX);
             }
@@ -519,7 +522,7 @@ mod phase_feedback_tests {
         app.insert_resource(registry_with_boss(BossEncounterPhase::Intro));
         app.add_systems(Update, boss_phase_transition_feedback);
         app.update(); // observe Intro
-        // Intro → Phase1 (not dramatic) → no shake.
+                      // Intro → Phase1 (not dramatic) → no shake.
         app.world_mut()
             .resource_mut::<BossEncounterRegistry>()
             .encounters

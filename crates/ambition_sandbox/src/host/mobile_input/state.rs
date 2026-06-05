@@ -277,7 +277,10 @@ mod touch_state_tests {
 
     #[test]
     fn activity_gate_includes_release_edges() {
-        assert!(!touch_state_is_active(&TouchInputState::default()), "empty is inactive");
+        assert!(
+            !touch_state_is_active(&TouchInputState::default()),
+            "empty is inactive"
+        );
         let stick = TouchInputState {
             move_x: 0.5,
             ..Default::default()
@@ -292,6 +295,9 @@ mod touch_state_tests {
             },
             ..Default::default()
         };
-        assert!(touch_state_is_active(&released), "a release edge keeps the merge alive");
+        assert!(
+            touch_state_is_active(&released),
+            "a release edge keeps the merge alive"
+        );
     }
 }

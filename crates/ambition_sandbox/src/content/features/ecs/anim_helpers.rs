@@ -149,7 +149,11 @@ pub fn ecs_breakable_state(
 
 pub fn ecs_boss_name<'a>(
     id: &str,
-    bosses: &'a Query<(&FeatureId, super::boss_clusters::BossClusterRef, &crate::brain::BossAttackState)>,
+    bosses: &'a Query<(
+        &FeatureId,
+        super::boss_clusters::BossClusterRef,
+        &crate::brain::BossAttackState,
+    )>,
 ) -> Option<&'a str> {
     bosses.iter().find_map(|(feature_id, boss, _)| {
         (feature_id.as_str() == id).then_some(boss.config.name.as_str())
@@ -257,7 +261,10 @@ pub fn ecs_boss_anim_state_and_entity(
             if feature_id.as_str() != id {
                 return None;
             }
-            Some((entity, boss_anim_state_for(boss.as_boss_ref(), attack_state, brain)))
+            Some((
+                entity,
+                boss_anim_state_for(boss.as_boss_ref(), attack_state, brain),
+            ))
         })
 }
 

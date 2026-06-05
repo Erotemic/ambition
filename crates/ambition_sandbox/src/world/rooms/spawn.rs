@@ -174,7 +174,10 @@ mod spawn_tests {
         let world = world_with(Vec::new());
         let desired = ae::Vec2::new(200.0, 200.0);
         let got = validated_spawn(&world, desired, ae::Vec2::new(28.0, 46.0));
-        assert_eq!(got, desired, "an already-clear in-bounds spawn is unchanged");
+        assert_eq!(
+            got, desired,
+            "an already-clear in-bounds spawn is unchanged"
+        );
     }
 
     #[test]

@@ -21,11 +21,10 @@ use super::super::{
     NPC_HOSTILE_STRIKE_THRESHOLD,
 };
 use super::{
-    ae, sync_actor_components_from_enemy, ActorCombatState,
-    ActorCooldowns, ActorDisposition, ActorHealth, ActorIdentity, ActorIntent, ActorRuntime,
-    BossConfig, BreakableFeature, EnemyArchetype, FeatureAabb, FeatureId, FeatureName,
-    FeatureSimEntity, GameplayBanner, HitEvent, HitSource, PickupFeature, RespawnTimer,
-    SetFlagRequested,
+    ae, sync_actor_components_from_enemy, ActorCombatState, ActorCooldowns, ActorDisposition,
+    ActorHealth, ActorIdentity, ActorIntent, ActorRuntime, BossConfig, BreakableFeature,
+    EnemyArchetype, FeatureAabb, FeatureId, FeatureName, FeatureSimEntity, GameplayBanner,
+    HitEvent, HitSource, PickupFeature, RespawnTimer, SetFlagRequested,
 };
 use crate::audio::SfxMessage;
 use crate::boss_encounter::{record_boss_damage, BossEncounterRegistry};
@@ -426,9 +425,7 @@ pub fn apply_feature_hit_events(
                         }
                     }
                     ActorRuntime::Npc => {
-                        if let (Some(status), Some(config)) =
-                            (npc_status.as_deref(), npc_config)
-                        {
+                        if let (Some(status), Some(config)) = (npc_status.as_deref(), npc_config) {
                             let (i, d, h, c, it, cd) =
                                 super::actors::npc_component_snapshot(config, status);
                             *identity = i;
@@ -502,7 +499,12 @@ pub fn apply_feature_hit_events(
                 banner.show(format!("broke {}", name.0.as_str()), 2.6);
                 // Loot: a smashed crate/pot drops a small coin (same collectible
                 // pickup path as enemy drops).
-                drop_currency_coin(&mut writers.commands, id.as_str(), aabb.center, BREAKABLE_BOUNTY);
+                drop_currency_coin(
+                    &mut writers.commands,
+                    id.as_str(),
+                    aabb.center,
+                    BREAKABLE_BOUNTY,
+                );
                 emit_breakable_destroyed(
                     aabb.center,
                     &mut writers.sfx,
@@ -636,7 +638,12 @@ fn apply_actor_hit(
                     // Earn-side: a defeated enemy drops a collectible coin so the
                     // player can fund the merchant / ability shop from combat, and
                     // ~1 in 4 enemy kinds also drops a heart (combat sustain).
-                    drop_currency_coin(&mut writers.commands, &em.config.id, em.kin.pos, ENEMY_BOUNTY);
+                    drop_currency_coin(
+                        &mut writers.commands,
+                        &em.config.id,
+                        em.kin.pos,
+                        ENEMY_BOUNTY,
+                    );
                     // Volatile archetypes detonate on death — a sizable
                     // Enemy-faction blast at the corpse, so a point-blank kill is
                     // punished (the read: kill it at range / sidestep the body).
@@ -865,7 +872,12 @@ fn apply_boss_hit(
         });
         writers.sfx.write(SfxMessage::Death { pos: boss.kin.pos });
         // A jackpot of coins + a heal for the hardest fight, on top of the ability.
-        drop_currency_coin(&mut writers.commands, &boss.config.behavior.id, boss.kin.pos, BOSS_BOUNTY);
+        drop_currency_coin(
+            &mut writers.commands,
+            &boss.config.behavior.id,
+            boss.kin.pos,
+            BOSS_BOUNTY,
+        );
         drop_health_pickup(
             &mut writers.commands,
             &boss.config.behavior.id,
@@ -1194,7 +1206,11 @@ mod tests {
         });
         app.update();
         assert_eq!(
-            app.world().get::<ActorHealth>(actor_entity).unwrap().health.current,
+            app.world()
+                .get::<ActorHealth>(actor_entity)
+                .unwrap()
+                .health
+                .current,
             3,
             "a 2-damage player slash should bring the 5-HP enemy to 3"
         );
@@ -1219,7 +1235,11 @@ mod tests {
         });
         app.update();
         assert_eq!(
-            app.world().get::<ActorHealth>(actor_entity).unwrap().health.current,
+            app.world()
+                .get::<ActorHealth>(actor_entity)
+                .unwrap()
+                .health
+                .current,
             0,
             "a lethal slash should bring the enemy to 0 HP"
         );
@@ -1257,7 +1277,11 @@ mod tests {
                 BreakableFeature::new(crate::interaction::Breakable::new("crate", 1)),
             ))
             .id();
-        assert!(!app.world().get::<BreakableFeature>(breakable).unwrap().broken());
+        assert!(!app
+            .world()
+            .get::<BreakableFeature>(breakable)
+            .unwrap()
+            .broken());
 
         app.world_mut().write_message(HitEvent {
             volume: aabb,
@@ -1272,7 +1296,10 @@ mod tests {
         app.update();
 
         assert!(
-            app.world().get::<BreakableFeature>(breakable).unwrap().broken(),
+            app.world()
+                .get::<BreakableFeature>(breakable)
+                .unwrap()
+                .broken(),
             "a player slash should shatter a 1-HP breakable"
         );
 
@@ -1321,7 +1348,12 @@ mod tests {
         assert_eq!(boss_reward_ability("mockingbird"), None);
         assert_eq!(boss_reward_ability("smirking_behemoth_boss"), None);
         // Every mapped reward resolves to a real catalog item.
-        for boss in ["flying_spaghetti_monster_boss", "trex_boss", "gnu_ton", "clockwork_warden"] {
+        for boss in [
+            "flying_spaghetti_monster_boss",
+            "trex_boss",
+            "gnu_ton",
+            "clockwork_warden",
+        ] {
             let id = boss_reward_ability(boss).unwrap();
             assert!(
                 crate::items::Item::from_dialog_id(id).is_some(),
@@ -1332,7 +1364,13 @@ mod tests {
         // The drop spawns a single collectible Ability pickup.
         let mut app = App::new();
         app.add_systems(Update, |mut c: Commands| {
-            drop_ability_pickup(&mut c, "trex_boss", ae::Vec2::new(10.0, 20.0), "grapple", "Grapple");
+            drop_ability_pickup(
+                &mut c,
+                "trex_boss",
+                ae::Vec2::new(10.0, 20.0),
+                "grapple",
+                "Grapple",
+            );
         });
         app.update();
         let mut q = app.world_mut().query::<&PickupFeature>();
@@ -1353,20 +1391,41 @@ mod tests {
         // drops the Volley spread — "every boss a failed objective function,
         // learn its attack". Each must resolve to a real held-item spec so the
         // dropped GroundItem is actually pick-up-able.
-        assert_eq!(boss_signature_gauntlet("trex_boss"), Some(crate::shockwave::SHOCKWAVE_ID));
-        assert_eq!(boss_signature_gauntlet("mockingbird"), Some(crate::volley::VOLLEY_ID));
+        assert_eq!(
+            boss_signature_gauntlet("trex_boss"),
+            Some(crate::shockwave::SHOCKWAVE_ID)
+        );
+        assert_eq!(
+            boss_signature_gauntlet("mockingbird"),
+            Some(crate::volley::VOLLEY_ID)
+        );
         // The eye-beam boss drops the focus beam — wield its signature line
         // attack. Keyed on the REAL behavior id (`smirking_behemoth_boss`).
-        assert_eq!(boss_signature_gauntlet("smirking_behemoth_boss"), Some(crate::beam::BEAM_ID));
+        assert_eq!(
+            boss_signature_gauntlet("smirking_behemoth_boss"),
+            Some(crate::beam::BEAM_ID)
+        );
         // The three data-driven bosses each arm the player with a thematic kit:
         // Mode Collapse -> the gathering Vortex; Exploding Gradient -> the
         // spraying Sentry; Overflow -> the lunging Dive.
-        assert_eq!(boss_signature_gauntlet("mode_collapse_boss"), Some(crate::vortex::VORTEX_ID));
-        assert_eq!(boss_signature_gauntlet("exploding_gradient_boss"), Some(crate::sentry::SENTRY_ID));
-        assert_eq!(boss_signature_gauntlet("overflow_boss"), Some(crate::dive::DIVE_ID));
+        assert_eq!(
+            boss_signature_gauntlet("mode_collapse_boss"),
+            Some(crate::vortex::VORTEX_ID)
+        );
+        assert_eq!(
+            boss_signature_gauntlet("exploding_gradient_boss"),
+            Some(crate::sentry::SENTRY_ID)
+        );
+        assert_eq!(
+            boss_signature_gauntlet("overflow_boss"),
+            Some(crate::dive::DIVE_ID)
+        );
         // GNU-ton's apple-rain becomes the wielded Meteor (it also grants
         // Fireball as a catalog ability — a dual drop, like the T-Rex).
-        assert_eq!(boss_signature_gauntlet("gnu_ton"), Some(crate::meteor::METEOR_ID));
+        assert_eq!(
+            boss_signature_gauntlet("gnu_ton"),
+            Some(crate::meteor::METEOR_ID)
+        );
         for boss in [
             "trex_boss",
             "mockingbird",
@@ -1427,16 +1486,37 @@ mod tests {
         // trex + mockingbird + smirking + mode_collapse + exploding_gradient +
         // overflow + gnu_ton each arm a wielded gauntlet (seven "learn its
         // attack" drops; trex and gnu_ton also grant a catalog ability).
-        assert_eq!(gauntlets, 7, "seven bosses drop a signature gauntlet, keyed on real ids");
+        assert_eq!(
+            gauntlets, 7,
+            "seven bosses drop a signature gauntlet, keyed on real ids"
+        );
         // FSM(blink) + trex(grapple) + gnu(fireball) + clockwork(markrecall).
-        assert_eq!(abilities, 4, "four bosses grant a catalog ability, keyed on real ids");
+        assert_eq!(
+            abilities, 4,
+            "four bosses grant a catalog ability, keyed on real ids"
+        );
         // The bug this guards: the beam drop must fire on the REAL behavior id.
         let g = |b: BossBehaviorProfile| boss_signature_gauntlet(&b.id);
-        assert_eq!(g(BossBehaviorProfile::smirking_behemoth_boss()), Some(crate::beam::BEAM_ID));
-        assert_eq!(g(BossBehaviorProfile::mode_collapse_boss()), Some(crate::vortex::VORTEX_ID));
-        assert_eq!(g(BossBehaviorProfile::exploding_gradient_boss()), Some(crate::sentry::SENTRY_ID));
-        assert_eq!(g(BossBehaviorProfile::overflow_boss()), Some(crate::dive::DIVE_ID));
-        assert_eq!(g(BossBehaviorProfile::gnu_ton()), Some(crate::meteor::METEOR_ID));
+        assert_eq!(
+            g(BossBehaviorProfile::smirking_behemoth_boss()),
+            Some(crate::beam::BEAM_ID)
+        );
+        assert_eq!(
+            g(BossBehaviorProfile::mode_collapse_boss()),
+            Some(crate::vortex::VORTEX_ID)
+        );
+        assert_eq!(
+            g(BossBehaviorProfile::exploding_gradient_boss()),
+            Some(crate::sentry::SENTRY_ID)
+        );
+        assert_eq!(
+            g(BossBehaviorProfile::overflow_boss()),
+            Some(crate::dive::DIVE_ID)
+        );
+        assert_eq!(
+            g(BossBehaviorProfile::gnu_ton()),
+            Some(crate::meteor::METEOR_ID)
+        );
     }
 
     #[test]
@@ -1456,7 +1536,11 @@ mod tests {
         );
         assert_eq!(boxes[0].damage, EXPLODER_BLAST_DAMAGE);
         if let crate::features::HitboxAnchor::World { center } = boxes[0].anchor {
-            assert_eq!(center, ae::Vec2::new(50.0, 60.0), "the blast centers on the corpse");
+            assert_eq!(
+                center,
+                ae::Vec2::new(50.0, 60.0),
+                "the blast centers on the corpse"
+            );
         } else {
             panic!("the blast should be world-anchored at the death site");
         }
@@ -1471,9 +1555,15 @@ mod tests {
         app.update();
         let mut q = app.world_mut().query::<&crate::features::ActorFaction>();
         let factions: Vec<crate::features::ActorFaction> = q.iter(app.world()).cloned().collect();
-        assert_eq!(factions.len(), 2, "a dividing mite splits into exactly two offspring");
+        assert_eq!(
+            factions.len(),
+            2,
+            "a dividing mite splits into exactly two offspring"
+        );
         assert!(
-            factions.iter().all(|f| *f == crate::features::ActorFaction::Enemy),
+            factions
+                .iter()
+                .all(|f| *f == crate::features::ActorFaction::Enemy),
             "the offspring are hostile (Enemy faction), not player-allies",
         );
     }

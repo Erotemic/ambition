@@ -15,7 +15,11 @@ fn approach(value: f32, target: f32, delta: f32) -> f32 {
 /// Clamp the velocity component ALONG `gravity_dir` (the fall direction) to
 /// `cap`, leaving the perpendicular (movement) component untouched. The
 /// gravity-direction-relative form of `vel.y = vel.y.min(cap)`.
-fn cap_fall_speed(vel: &mut crate::engine_core::Vec2, gravity_dir: crate::engine_core::Vec2, cap: f32) {
+fn cap_fall_speed(
+    vel: &mut crate::engine_core::Vec2,
+    gravity_dir: crate::engine_core::Vec2,
+    cap: f32,
+) {
     let along = vel.dot(gravity_dir);
     if along > cap {
         *vel -= (along - cap) * gravity_dir;

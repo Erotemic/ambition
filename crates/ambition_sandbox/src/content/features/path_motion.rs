@@ -130,7 +130,10 @@ mod path_motion_tests {
     }
 
     fn two_point(mode: KinematicPathMode) -> KinematicPath {
-        path(vec![ae::Vec2::new(0.0, 0.0), ae::Vec2::new(10.0, 0.0)], mode)
+        path(
+            vec![ae::Vec2::new(0.0, 0.0), ae::Vec2::new(10.0, 0.0)],
+            mode,
+        )
     }
 
     #[test]
@@ -142,10 +145,17 @@ mod path_motion_tests {
 
     #[test]
     fn advance_is_a_noop_for_invalid_path_or_nonpositive_dt() {
-        let mut single = PathMotion::new(path(vec![ae::Vec2::new(0.0, 0.0)], KinematicPathMode::Once));
-        assert_eq!(single.advance(ae::Vec2::new(5.0, 5.0), 1.0), ae::Vec2::new(5.0, 5.0));
+        let mut single =
+            PathMotion::new(path(vec![ae::Vec2::new(0.0, 0.0)], KinematicPathMode::Once));
+        assert_eq!(
+            single.advance(ae::Vec2::new(5.0, 5.0), 1.0),
+            ae::Vec2::new(5.0, 5.0)
+        );
         let mut valid = PathMotion::new(two_point(KinematicPathMode::Once));
-        assert_eq!(valid.advance(ae::Vec2::new(3.0, 3.0), 0.0), ae::Vec2::new(3.0, 3.0));
+        assert_eq!(
+            valid.advance(ae::Vec2::new(3.0, 3.0), 0.0),
+            ae::Vec2::new(3.0, 3.0)
+        );
     }
 
     #[test]
@@ -161,7 +171,12 @@ mod path_motion_tests {
     fn lookahead_once_stops_at_terminus() {
         let (mut seg, mut dir) = (0usize, 1i32);
         let last = 2; // 4-point path
-        assert!(lookahead_advance(&mut seg, &mut dir, last, KinematicPathMode::Once));
+        assert!(lookahead_advance(
+            &mut seg,
+            &mut dir,
+            last,
+            KinematicPathMode::Once
+        ));
         assert_eq!(seg, 1);
         seg = last;
         assert!(
@@ -174,7 +189,12 @@ mod path_motion_tests {
     #[test]
     fn lookahead_loop_wraps_to_zero() {
         let (mut seg, mut dir) = (2usize, 1i32);
-        assert!(lookahead_advance(&mut seg, &mut dir, 2, KinematicPathMode::Loop));
+        assert!(lookahead_advance(
+            &mut seg,
+            &mut dir,
+            2,
+            KinematicPathMode::Loop
+        ));
         assert_eq!(seg, 0, "Loop wraps from last back to 0");
     }
 

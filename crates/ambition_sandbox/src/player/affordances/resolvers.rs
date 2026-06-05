@@ -334,7 +334,10 @@ mod tests {
         };
         assert_eq!(resolve_interact(&world), InteractVariant::Talk);
         // Nothing nearby and no gun → None (the HUD shows "Context").
-        assert_eq!(resolve_interact(&WorldView::default()), InteractVariant::None);
+        assert_eq!(
+            resolve_interact(&WorldView::default()),
+            InteractVariant::None
+        );
     }
 
     #[test]

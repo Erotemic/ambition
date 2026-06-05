@@ -103,14 +103,13 @@ mod tests {
 
     fn make_enemy(archetype: EnemyArchetype) -> EnemyConfig {
         let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0));
-        let mut enemy =
-            crate::content::features::ecs::enemy_clusters::EnemyClusterScratch::new(
-                "test".to_string(),
-                "test".to_string(),
-                aabb,
-                crate::actor::EnemyBrain::Custom("medium_striker".into()),
-                &[],
-            );
+        let mut enemy = crate::content::features::ecs::enemy_clusters::EnemyClusterScratch::new(
+            "test".to_string(),
+            "test".to_string(),
+            aabb,
+            crate::actor::EnemyBrain::Custom("medium_striker".into()),
+            &[],
+        );
         enemy.config.archetype = archetype;
         enemy.config
     }

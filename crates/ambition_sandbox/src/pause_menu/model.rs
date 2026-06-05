@@ -216,7 +216,10 @@ mod pause_model_tests {
 
     #[test]
     fn items_have_distinct_nonempty_labels() {
-        let labels: Vec<&str> = PauseMenuItem::ALL.iter().map(|i| i.static_label()).collect();
+        let labels: Vec<&str> = PauseMenuItem::ALL
+            .iter()
+            .map(|i| i.static_label())
+            .collect();
         assert_eq!(labels.len(), 6);
         for l in &labels {
             assert!(!l.is_empty());
@@ -251,7 +254,10 @@ mod pause_model_tests {
     fn entering_the_current_page_is_a_no_op() {
         let mut s = PauseMenuState::default();
         s.enter_page(PauseMenuPage::Top); // already on Top
-        assert!(s.stack.is_empty(), "re-entering the current page must not push");
+        assert!(
+            s.stack.is_empty(),
+            "re-entering the current page must not push"
+        );
     }
 
     #[test]

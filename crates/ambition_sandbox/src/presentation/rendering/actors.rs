@@ -455,7 +455,9 @@ pub fn animate_player(
     }
     // Gravity-aware facing flip: a ~180° up-gravity roll already mirrors the
     // sprite, so the flip inverts (fixes #33 "move left, face right upside down").
-    let player_gravity = gravity.as_deref().map_or(crate::engine_core::Vec2::Y, |g| g.dir);
+    let player_gravity = gravity
+        .as_deref()
+        .map_or(crate::engine_core::Vec2::Y, |g| g.dir);
     sprite.flip_x = crate::physics::gravity_aware_flip_x(kinematics.facing, player_gravity);
     // Hit feedback is drawn by the white-silhouette overlay in
     // `presentation::rendering::hit_flash` — a sibling mesh that

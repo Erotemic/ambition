@@ -516,13 +516,55 @@ pub const FLYING_SPAGHETTI_MONSTER_SHEET: BossSheetSpec = BossSheetSpec {
     frame_width: 169,
     frame_height: 150,
     rows: &[
-        (BossAnim::Rest, AnimRow { frame_count: 6, duration_secs: 0.132 }),
-        (BossAnim::DashEcho, AnimRow { frame_count: 8, duration_secs: 0.098 }),
-        (BossAnim::SideSweep, AnimRow { frame_count: 7, duration_secs: 0.090 }),
-        (BossAnim::FloorSlam, AnimRow { frame_count: 7, duration_secs: 0.090 }),
-        (BossAnim::SpikeHalo, AnimRow { frame_count: 7, duration_secs: 0.090 }),
-        (BossAnim::Hit, AnimRow { frame_count: 4, duration_secs: 0.090 }),
-        (BossAnim::Death, AnimRow { frame_count: 8, duration_secs: 0.108 }),
+        (
+            BossAnim::Rest,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.132,
+            },
+        ),
+        (
+            BossAnim::DashEcho,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.098,
+            },
+        ),
+        (
+            BossAnim::SideSweep,
+            AnimRow {
+                frame_count: 7,
+                duration_secs: 0.090,
+            },
+        ),
+        (
+            BossAnim::FloorSlam,
+            AnimRow {
+                frame_count: 7,
+                duration_secs: 0.090,
+            },
+        ),
+        (
+            BossAnim::SpikeHalo,
+            AnimRow {
+                frame_count: 7,
+                duration_secs: 0.090,
+            },
+        ),
+        (
+            BossAnim::Hit,
+            AnimRow {
+                frame_count: 4,
+                duration_secs: 0.090,
+            },
+        ),
+        (
+            BossAnim::Death,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.108,
+            },
+        ),
     ],
     collision_scale: 1.8,
     feet_anchor_y: 0.0,
@@ -544,17 +586,71 @@ pub const TREX_BOSS_SHEET: BossSheetSpec = BossSheetSpec {
     frame_width: 398,
     frame_height: 320,
     rows: &[
-        (BossAnim::Rest, AnimRow { frame_count: 6, duration_secs: 0.140 }),
-        (BossAnim::DashEcho, AnimRow { frame_count: 8, duration_secs: 0.090 }),
-        (BossAnim::FloorSlam, AnimRow { frame_count: 8, duration_secs: 0.080 }),
-        (BossAnim::SideSweep, AnimRow { frame_count: 7, duration_secs: 0.080 }),
-        (BossAnim::SpikeHalo, AnimRow { frame_count: 6, duration_secs: 0.100 }),
+        (
+            BossAnim::Rest,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.140,
+            },
+        ),
+        (
+            BossAnim::DashEcho,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.090,
+            },
+        ),
+        (
+            BossAnim::FloorSlam,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.080,
+            },
+        ),
+        (
+            BossAnim::SideSweep,
+            AnimRow {
+                frame_count: 7,
+                duration_secs: 0.080,
+            },
+        ),
+        (
+            BossAnim::SpikeHalo,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.100,
+            },
+        ),
         // tail_swipe — duplicate SideSweep label; in the atlas, not separately picked.
-        (BossAnim::SideSweep, AnimRow { frame_count: 7, duration_secs: 0.080 }),
+        (
+            BossAnim::SideSweep,
+            AnimRow {
+                frame_count: 7,
+                duration_secs: 0.080,
+            },
+        ),
         // stomp — duplicate FloorSlam label; in the atlas, not separately picked.
-        (BossAnim::FloorSlam, AnimRow { frame_count: 6, duration_secs: 0.090 }),
-        (BossAnim::Hit, AnimRow { frame_count: 4, duration_secs: 0.090 }),
-        (BossAnim::Death, AnimRow { frame_count: 8, duration_secs: 0.110 }),
+        (
+            BossAnim::FloorSlam,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.090,
+            },
+        ),
+        (
+            BossAnim::Hit,
+            AnimRow {
+                frame_count: 4,
+                duration_secs: 0.090,
+            },
+        ),
+        (
+            BossAnim::Death,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.110,
+            },
+        ),
     ],
     collision_scale: 1.6,
     feet_anchor_y: -0.5,
@@ -575,7 +671,10 @@ pub fn all_boss_sprite_filenames() -> Vec<(&'static str, &'static str)> {
         ("smirking_behemoth_boss", SMIRKING_BEHEMOTH_FILENAME),
         ("gnu_ton_body", GNU_TON_BODY_FILENAME),
         ("gnu_ton_hands", GNU_TON_HANDS_FILENAME),
-        ("flying_spaghetti_monster_boss", FLYING_SPAGHETTI_MONSTER_FILENAME),
+        (
+            "flying_spaghetti_monster_boss",
+            FLYING_SPAGHETTI_MONSTER_FILENAME,
+        ),
         ("trex_boss", TREX_BOSS_FILENAME),
     ]
 }
@@ -671,13 +770,7 @@ pub fn load_trex_boss_sprite_in(
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
 ) -> Option<BossSpriteAsset> {
-    load_named_boss_sprite_via_catalog(
-        catalog,
-        asset_server,
-        layouts,
-        "trex_boss",
-        TREX_BOSS_SHEET,
-    )
+    load_named_boss_sprite_via_catalog(catalog, asset_server, layouts, "trex_boss", TREX_BOSS_SHEET)
 }
 
 /// Body-only GNU-ton sheet (no hands, no attack VFX). Rendered behind
@@ -929,12 +1022,24 @@ mod tests {
         assert_eq!(FLYING_SPAGHETTI_MONSTER_SHEET.rows.len(), 7);
         assert_eq!(FLYING_SPAGHETTI_MONSTER_SHEET.frame_width, 169);
         assert_eq!(FLYING_SPAGHETTI_MONSTER_SHEET.frame_height, 150);
-        assert_eq!(FLYING_SPAGHETTI_MONSTER_SHEET.frame_count(BossAnim::Rest), 6);
-        assert_eq!(FLYING_SPAGHETTI_MONSTER_SHEET.frame_count(BossAnim::Death), 8);
+        assert_eq!(
+            FLYING_SPAGHETTI_MONSTER_SHEET.frame_count(BossAnim::Rest),
+            6
+        );
+        assert_eq!(
+            FLYING_SPAGHETTI_MONSTER_SHEET.frame_count(BossAnim::Death),
+            8
+        );
         assert!(FLYING_SPAGHETTI_MONSTER_SHEET.body_centered, "FSM floats");
         // Rest is row 0; FloorSlam (meatball_volley) is row 3 → 6+8+7 frames before.
-        assert_eq!(FLYING_SPAGHETTI_MONSTER_SHEET.flat_index(BossAnim::Rest, 0), 0);
-        assert_eq!(FLYING_SPAGHETTI_MONSTER_SHEET.flat_index(BossAnim::FloorSlam, 0), 6 + 8 + 7);
+        assert_eq!(
+            FLYING_SPAGHETTI_MONSTER_SHEET.flat_index(BossAnim::Rest, 0),
+            0
+        );
+        assert_eq!(
+            FLYING_SPAGHETTI_MONSTER_SHEET.flat_index(BossAnim::FloorSlam, 0),
+            6 + 8 + 7
+        );
 
         // T-Rex: 9 PNG rows (398×320); tail_swipe/stomp reuse SideSweep/FloorSlam
         // labels but every physical row is still listed so the atlas stays aligned.
@@ -944,12 +1049,26 @@ mod tests {
         assert!(!TREX_BOSS_SHEET.body_centered, "T-Rex is grounded");
         assert_eq!(TREX_BOSS_SHEET.frame_count(BossAnim::Rest), 6);
         // SideSweep (bite) is row 3, not the later tail_swipe dup at row 5.
-        assert_eq!(TREX_BOSS_SHEET.flat_index(BossAnim::SideSweep, 0), 6 + 8 + 8);
+        assert_eq!(
+            TREX_BOSS_SHEET.flat_index(BossAnim::SideSweep, 0),
+            6 + 8 + 8
+        );
 
         // Both atlases build without panic and have one rect per frame.
-        let fsm_frames: usize = FLYING_SPAGHETTI_MONSTER_SHEET.rows.iter().map(|(_, r)| r.frame_count).sum();
-        assert_eq!(FLYING_SPAGHETTI_MONSTER_SHEET.build_atlas().len(), fsm_frames);
-        let trex_frames: usize = TREX_BOSS_SHEET.rows.iter().map(|(_, r)| r.frame_count).sum();
+        let fsm_frames: usize = FLYING_SPAGHETTI_MONSTER_SHEET
+            .rows
+            .iter()
+            .map(|(_, r)| r.frame_count)
+            .sum();
+        assert_eq!(
+            FLYING_SPAGHETTI_MONSTER_SHEET.build_atlas().len(),
+            fsm_frames
+        );
+        let trex_frames: usize = TREX_BOSS_SHEET
+            .rows
+            .iter()
+            .map(|(_, r)| r.frame_count)
+            .sum();
         assert_eq!(TREX_BOSS_SHEET.build_atlas().len(), trex_frames);
     }
 
@@ -969,8 +1088,14 @@ mod tests {
         assert!(BOSS_SHEET.flip_x(-1.0));
 
         // Left-authored mockingbird: inverted, so it still faces the player.
-        assert!(MOCKINGBIRD_SHEET.flip_x(1.0), "player on the right ⇒ flip so the left-drawn bird faces right");
-        assert!(!MOCKINGBIRD_SHEET.flip_x(-1.0), "player on the left ⇒ no flip, bird faces left toward them");
+        assert!(
+            MOCKINGBIRD_SHEET.flip_x(1.0),
+            "player on the right ⇒ flip so the left-drawn bird faces right"
+        );
+        assert!(
+            !MOCKINGBIRD_SHEET.flip_x(-1.0),
+            "player on the left ⇒ no flip, bird faces left toward them"
+        );
     }
 
     #[test]

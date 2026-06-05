@@ -19,9 +19,7 @@
 use bevy::ecs::query::QueryData;
 use bevy::prelude::Component;
 
-use super::super::bosses::{
-    canonical_boss_id_from, BossBehaviorProfile, BossSpriteMetrics,
-};
+use super::super::bosses::{canonical_boss_id_from, BossBehaviorProfile, BossSpriteMetrics};
 use crate::boss_encounter::BossEncounterPhase;
 use crate::engine_core as ae;
 use crate::engine_core::AabbExt;
@@ -124,7 +122,10 @@ impl<'a> BossRef<'a> {
     }
 
     pub fn aabb(&self) -> ae::Aabb {
-        ae::Aabb::new(self.kin.pos + self.combat_offset(), self.combat_size() * 0.5)
+        ae::Aabb::new(
+            self.kin.pos + self.combat_offset(),
+            self.combat_size() * 0.5,
+        )
     }
 
     /// World-space anchor for a combat-banter speech bubble. For GNU-ton

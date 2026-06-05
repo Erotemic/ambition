@@ -184,7 +184,10 @@ mod conversion_tests {
                 .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016, 1.0);
         }
         assert!(
-            matches!(npc.status.ai_mode, crate::character_ai::CharacterAiMode::Chase),
+            matches!(
+                npc.status.ai_mode,
+                crate::character_ai::CharacterAiMode::Chase
+            ),
             "expected Chase mode (NPC interprets as hold-and-face), got {:?}",
             npc.status.ai_mode
         );

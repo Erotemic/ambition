@@ -107,11 +107,20 @@ mod tests {
     fn a_thrown_bomb_arms_but_a_resting_one_does_not() {
         let mut app = App::new();
         app.add_systems(Update, arm_thrown_bombs);
-        let thrown = app.world_mut().spawn(bomb_ground(ae::Vec2::new(60.0, -200.0))).id();
+        let thrown = app
+            .world_mut()
+            .spawn(bomb_ground(ae::Vec2::new(60.0, -200.0)))
+            .id();
         let resting = app.world_mut().spawn(bomb_ground(ae::Vec2::ZERO)).id();
         app.update();
-        assert!(app.world().get::<BombFuse>(thrown).is_some(), "thrown bomb arms");
-        assert!(app.world().get::<BombFuse>(resting).is_none(), "resting bomb stays safe");
+        assert!(
+            app.world().get::<BombFuse>(thrown).is_some(),
+            "thrown bomb arms"
+        );
+        assert!(
+            app.world().get::<BombFuse>(resting).is_none(),
+            "resting bomb stays safe"
+        );
     }
 
     #[derive(Resource, Default)]

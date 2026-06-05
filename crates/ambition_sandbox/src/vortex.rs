@@ -175,10 +175,16 @@ mod tests {
         // the radius, off to the side, should be dragged toward the center.
         let enemy = spawn_enemy(&mut app, ae::Vec2::new(420.0, 100.0));
         let start_dist = ae::Vec2::new(420.0, 100.0).distance(ae::Vec2::new(300.0, 100.0));
-        app.world_mut().resource_mut::<ControlFrame>().attack_pressed = true;
+        app.world_mut()
+            .resource_mut::<ControlFrame>()
+            .attack_pressed = true;
         app.update();
         // A well exists.
-        let well_count = app.world_mut().query::<&VortexWell>().iter(app.world()).count();
+        let well_count = app
+            .world_mut()
+            .query::<&VortexWell>()
+            .iter(app.world())
+            .count();
         assert_eq!(well_count, 1, "one vortex well spawned");
         // The enemy moved closer to the well center.
         let new_pos = app.world().get::<ActorKinematics>(enemy).unwrap().pos;
@@ -195,16 +201,27 @@ mod tests {
         spawn_player_holding_vortex(&mut app);
         // Far away (well at 300,100; enemy at 900 — outside the 220 radius).
         let far = spawn_enemy(&mut app, ae::Vec2::new(900.0, 100.0));
-        app.world_mut().resource_mut::<ControlFrame>().attack_pressed = true;
+        app.world_mut()
+            .resource_mut::<ControlFrame>()
+            .attack_pressed = true;
         app.update();
-        app.world_mut().resource_mut::<ControlFrame>().attack_pressed = false;
+        app.world_mut()
+            .resource_mut::<ControlFrame>()
+            .attack_pressed = false;
         let far_pos = app.world().get::<ActorKinematics>(far).unwrap().pos;
-        assert_eq!(far_pos.x, 900.0, "an enemy outside the radius is not pulled");
+        assert_eq!(
+            far_pos.x, 900.0,
+            "an enemy outside the radius is not pulled"
+        );
         // Age it out: lifetime 0.9s at 0.016/tick → ~57 ticks. Run plenty.
         for _ in 0..70 {
             app.update();
         }
-        let well_count = app.world_mut().query::<&VortexWell>().iter(app.world()).count();
+        let well_count = app
+            .world_mut()
+            .query::<&VortexWell>()
+            .iter(app.world())
+            .count();
         assert_eq!(well_count, 0, "the well expires and despawns");
     }
 }

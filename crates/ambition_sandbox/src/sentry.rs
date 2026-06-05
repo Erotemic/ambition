@@ -18,8 +18,8 @@ use crate::enemy_projectile::{EnemyProjectileSpawn, EnemyProjectileState};
 use crate::engine_core as ae;
 use crate::features::{ActorFaction, FeatureAabb, FeatureSimEntity, HeldItem};
 use crate::input::ControlFrame;
-use crate::projectile::ProjectileFaction;
 use crate::player::{PlayerEntity, PlayerKinematics, PlayerMana, PrimaryPlayer};
+use crate::projectile::ProjectileFaction;
 
 /// Held-item id of the sentry gauntlet.
 pub const SENTRY_ID: &str = "sentry";
@@ -199,17 +199,26 @@ mod tests {
             FeatureAabb::new(ae::Vec2::new(300.0, 100.0), ae::Vec2::new(24.0, 40.0)),
             ActorFaction::Enemy,
         ));
-        app.world_mut().resource_mut::<ControlFrame>().attack_pressed = true;
+        app.world_mut()
+            .resource_mut::<ControlFrame>()
+            .attack_pressed = true;
         app.update(); // deploy (arm delay 0.25; dt 0.1 → not yet firing)
-        app.world_mut().resource_mut::<ControlFrame>().attack_pressed = false;
+        app.world_mut()
+            .resource_mut::<ControlFrame>()
+            .attack_pressed = false;
         // Tick until past the arm delay + a fire interval.
         for _ in 0..10 {
             app.update();
         }
         let pool = app.world().resource::<EnemyProjectileState>();
-        assert!(!pool.bodies.is_empty(), "the sentry should have fired at the enemy");
         assert!(
-            pool.bodies.iter().all(|b| b.body.faction == ProjectileFaction::Player),
+            !pool.bodies.is_empty(),
+            "the sentry should have fired at the enemy"
+        );
+        assert!(
+            pool.bodies
+                .iter()
+                .all(|b| b.body.faction == ProjectileFaction::Player),
             "sentry bolts are player-faction (damage enemies, not the player)"
         );
     }
@@ -224,14 +233,21 @@ mod tests {
             FeatureAabb::new(ae::Vec2::new(2000.0, 100.0), ae::Vec2::new(24.0, 40.0)),
             ActorFaction::Enemy,
         ));
-        app.world_mut().resource_mut::<ControlFrame>().attack_pressed = true;
+        app.world_mut()
+            .resource_mut::<ControlFrame>()
+            .attack_pressed = true;
         app.update();
-        app.world_mut().resource_mut::<ControlFrame>().attack_pressed = false;
+        app.world_mut()
+            .resource_mut::<ControlFrame>()
+            .attack_pressed = false;
         for _ in 0..5 {
             app.update();
         }
         assert!(
-            app.world().resource::<EnemyProjectileState>().bodies.is_empty(),
+            app.world()
+                .resource::<EnemyProjectileState>()
+                .bodies
+                .is_empty(),
             "no target in range → no shots"
         );
         // Age out (lifetime 5s at 0.1/tick → 50 ticks).

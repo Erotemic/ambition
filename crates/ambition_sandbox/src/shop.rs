@@ -78,7 +78,10 @@ mod tests {
     fn buying_without_enough_money_changes_nothing() {
         let mut wallet = PlayerWallet { balance: 10 };
         let mut owned = OwnedItems::default();
-        assert_eq!(buy(&mut wallet, &mut owned, Item::Axe, 25), ShopTx::CantAfford);
+        assert_eq!(
+            buy(&mut wallet, &mut owned, Item::Axe, 25),
+            ShopTx::CantAfford
+        );
         assert_eq!(wallet.balance, 10, "wallet untouched on a failed buy");
         assert!(!owned.has(Item::Axe), "no item granted on a failed buy");
     }
@@ -98,7 +101,10 @@ mod tests {
         let mut wallet = PlayerWallet { balance: 0 };
         let mut owned = OwnedItems::default();
         owned.grant(Item::HealthCell, 2);
-        assert_eq!(sell(&mut wallet, &mut owned, Item::HealthCell, 4), ShopTx::Sold);
+        assert_eq!(
+            sell(&mut wallet, &mut owned, Item::HealthCell, 4),
+            ShopTx::Sold
+        );
         assert_eq!(wallet.balance, 4);
         assert_eq!(owned.count(Item::HealthCell), 1);
     }
@@ -107,7 +113,10 @@ mod tests {
     fn selling_what_you_dont_have_is_rejected() {
         let mut wallet = PlayerWallet { balance: 7 };
         let mut owned = OwnedItems::default();
-        assert_eq!(sell(&mut wallet, &mut owned, Item::Axe, 12), ShopTx::NotOwned);
+        assert_eq!(
+            sell(&mut wallet, &mut owned, Item::Axe, 12),
+            ShopTx::NotOwned
+        );
         assert_eq!(wallet.balance, 7, "wallet untouched on a failed sell");
     }
 

@@ -286,9 +286,8 @@ pub fn cleanup_puppy_slug_deep_dream_overlays(
 }
 
 fn puppy_slug_seed(id: &str, actors: &Query<crate::features::ActorSpriteData>) -> Option<f32> {
-    actors
-        .iter()
-        .find_map(|(feature_id, actor, _kin, _status, _attack, config, npc_config, _)| {
+    actors.iter().find_map(
+        |(feature_id, actor, _kin, _status, _attack, config, npc_config, _)| {
             if feature_id.as_str() != id {
                 return None;
             }
@@ -311,7 +310,8 @@ fn puppy_slug_seed(id: &str, actors: &Query<crate::features::ActorSpriteData>) -
             } else {
                 None
             }
-        })
+        },
+    )
 }
 
 fn archetype_seed(archetype: Option<EnemyArchetype>) -> f32 {

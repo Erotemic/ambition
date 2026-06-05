@@ -37,16 +37,36 @@ use crate::persistence::settings::{AudioSettings, UserSettings};
 /// matching the demo's `add_edge_buttons` rects (`crates/ambition_mock_demo/src/
 /// app/models.rs`). The game draws these as REAL controls and turns the lib's
 /// decorative arrows off (`draw_nav_arrows = false`) so they aren't double-drawn.
-const EDGE_LEFT_RECT: MenuRect = MenuRect { x: 1.8, y: 43.5, w: 7.5, h: 13.0 };
-const EDGE_RIGHT_RECT: MenuRect = MenuRect { x: 90.7, y: 43.5, w: 7.5, h: 13.0 };
+const EDGE_LEFT_RECT: MenuRect = MenuRect {
+    x: 1.8,
+    y: 43.5,
+    w: 7.5,
+    h: 13.0,
+};
+const EDGE_RIGHT_RECT: MenuRect = MenuRect {
+    x: 90.7,
+    y: 43.5,
+    w: 7.5,
+    h: 13.0,
+};
 
 /// The item grid lives in the left/centre, clear of the side arrows. Matches the
 /// demo's items-grid panel so the lib's auto-laid cells never reach the margins.
-const GRID_RECT: MenuRect = MenuRect { x: 11.0, y: 19.0, w: 58.0, h: 55.0 };
+const GRID_RECT: MenuRect = MenuRect {
+    x: 11.0,
+    y: 19.0,
+    w: 58.0,
+    h: 55.0,
+};
 
 /// The right-hand detail panel: shows the focused item's name + wrapped
 /// description (the demo's "SELECTED" panel). One panel, not one-per-cell.
-const DETAIL_PANEL_RECT: MenuRect = MenuRect { x: 70.5, y: 19.0, w: 18.2, h: 55.0 };
+const DETAIL_PANEL_RECT: MenuRect = MenuRect {
+    x: 70.5,
+    y: 19.0,
+    w: 18.2,
+    h: 55.0,
+};
 
 /// Description wrap width for the detail panel, matching the demo's
 /// `DETAIL_WRAP_COLS`.
@@ -88,7 +108,11 @@ impl CubePage {
 /// `Action` controls so Bevy picking + directional focus can dispatch them. The
 /// LEFT button turns the cube left → brings the viewer-left page to front
 /// ([`CubePage::on_viewer_left`]); mirrors the demo's `add_edge_buttons`.
-fn add_edge_buttons(model: &mut MenuPageModel<CubePage, CubeAction>, page: CubePage, focus: CubeFocus) {
+fn add_edge_buttons(
+    model: &mut MenuPageModel<CubePage, CubeAction>,
+    page: CubePage,
+    focus: CubeFocus,
+) {
     model.control(
         EDGE_LEFT_RECT,
         MenuControlKind::Action,
@@ -262,10 +286,9 @@ impl SystemCategory {
                 SystemOption::CycleSfxVolume,
             ],
             SystemCategory::Controls => &[SystemOption::ToggleTouchControls],
-            SystemCategory::Gameplay => &[
-                SystemOption::ToggleDebugHud,
-                SystemOption::ToggleQuestHud,
-            ],
+            SystemCategory::Gameplay => {
+                &[SystemOption::ToggleDebugHud, SystemOption::ToggleQuestHud]
+            }
         }
     }
 }
@@ -334,9 +357,7 @@ impl SystemOption {
             SystemOption::ToggleFps => "Toggle the on-screen frames-per-second counter.",
             SystemOption::ToggleDebugHud => "Toggle the debug HUD overlay (state, timers).",
             SystemOption::ToggleQuestHud => "Toggle the quest objective HUD panel.",
-            SystemOption::ToggleTouchControls => {
-                "Show or hide the on-screen touch control pads."
-            }
+            SystemOption::ToggleTouchControls => "Show or hide the on-screen touch control pads.",
             SystemOption::ToggleMute => "Mute or unmute all game audio.",
             SystemOption::CycleMasterVolume => "Step the master output volume up/down.",
             SystemOption::CycleMusicVolume => "Step the music volume up/down.",
@@ -615,8 +636,11 @@ pub fn build_system_page(
     focus: CubeFocus,
     open_category: Option<SystemCategory>,
 ) -> MenuPageModel<CubePage, CubeAction> {
-    let mut model =
-        MenuPageModel::new(CubePage::System, "SYSTEM", MenuColor::rgba(0.03, 0.04, 0.10, 0.96));
+    let mut model = MenuPageModel::new(
+        CubePage::System,
+        "SYSTEM",
+        MenuColor::rgba(0.03, 0.04, 0.10, 0.96),
+    );
     let title = match open_category {
         None => "SYSTEM".to_string(),
         Some(c) => format!("SYSTEM \u{2022} {}", c.title().to_uppercase()),
@@ -752,7 +776,8 @@ fn wrap_text(text: &str, width: usize) -> Vec<String> {
         for raw_word in paragraph.split_whitespace() {
             for word in split_long_word(raw_word, width) {
                 let needs_space = !line.is_empty();
-                let next_len = line.chars().count() + word.chars().count() + usize::from(needs_space);
+                let next_len =
+                    line.chars().count() + word.chars().count() + usize::from(needs_space);
                 if next_len > width && !line.is_empty() {
                     out.push(std::mem::take(&mut line));
                 }
@@ -827,9 +852,15 @@ mod tests {
         // chars, so they never bleed across neighbouring cells.
         let label = cell_label("Puppy-Slug Gun");
         let lines: Vec<&str> = label.split('\n').collect();
-        assert!(lines.len() <= LABEL_MAX_LINES, "label wraps to few lines: {label:?}");
+        assert!(
+            lines.len() <= LABEL_MAX_LINES,
+            "label wraps to few lines: {label:?}"
+        );
         for line in lines {
-            assert!(line.chars().count() <= LABEL_WRAP_COLS, "line fits the cell: {line:?}");
+            assert!(
+                line.chars().count() <= LABEL_WRAP_COLS,
+                "line fits the cell: {line:?}"
+            );
         }
     }
 
@@ -840,7 +871,12 @@ mod tests {
         let owned = OwnedItems::default();
         let page = build_items_page(&owned, None, CubeFocus::Item(Item::Blink.index()));
         for node in &page.nodes {
-            if let ambition_inventory_ui::MenuNode::Control { detail: Some(d), kind, .. } = node {
+            if let ambition_inventory_ui::MenuNode::Control {
+                detail: Some(d),
+                kind,
+                ..
+            } = node
+            {
                 if *kind == MenuControlKind::Item {
                     assert!(
                         !d.contains(Item::Blink.description()),
@@ -854,7 +890,10 @@ mod tests {
             n,
             ambition_inventory_ui::MenuNode::Text { text, .. } if Item::Blink.description().contains(text.as_str()) && !text.is_empty()
         ));
-        assert!(has_desc, "detail panel renders the focused item's description");
+        assert!(
+            has_desc,
+            "detail panel renders the focused item's description"
+        );
     }
 
     #[test]
@@ -866,30 +905,54 @@ mod tests {
         let categories = page
             .nodes
             .iter()
-            .filter(|n| matches!(
-                n,
-                ambition_inventory_ui::MenuNode::Control { action: Some(CubeAction::OpenSystemCategory(_)), .. }
-            ))
+            .filter(|n| {
+                matches!(
+                    n,
+                    ambition_inventory_ui::MenuNode::Control {
+                        action: Some(CubeAction::OpenSystemCategory(_)),
+                        ..
+                    }
+                )
+            })
             .count();
-        assert_eq!(categories, SystemCategory::ALL.len(), "one row per category");
+        assert_eq!(
+            categories,
+            SystemCategory::ALL.len(),
+            "one row per category"
+        );
         // Close Menu is still reachable from the top-level System list.
-        let has_close = page.nodes.iter().any(|n| matches!(
-            n,
-            ambition_inventory_ui::MenuNode::Control { action: Some(CubeAction::System(SystemOption::CloseMenu)), .. }
-        ));
+        let has_close = page.nodes.iter().any(|n| {
+            matches!(
+                n,
+                ambition_inventory_ui::MenuNode::Control {
+                    action: Some(CubeAction::System(SystemOption::CloseMenu)),
+                    ..
+                }
+            )
+        });
         assert!(has_close, "top-level System list keeps a Close Menu row");
         // No raw option toggles leak at the top level.
-        let has_toggle = page.nodes.iter().any(|n| matches!(
-            n,
-            ambition_inventory_ui::MenuNode::Control { action: Some(CubeAction::System(o)), .. }
-                if *o != SystemOption::CloseMenu
-        ));
-        assert!(!has_toggle, "category list does not show raw option toggles");
+        let has_toggle = page.nodes.iter().any(|n| {
+            matches!(
+                n,
+                ambition_inventory_ui::MenuNode::Control { action: Some(CubeAction::System(o)), .. }
+                    if *o != SystemOption::CloseMenu
+            )
+        });
+        assert!(
+            !has_toggle,
+            "category list does not show raw option toggles"
+        );
         // Edge buttons are present so rotation still works.
-        let has_edges = page.nodes.iter().any(|n| matches!(
-            n,
-            ambition_inventory_ui::MenuNode::Control { action: Some(CubeAction::ChangePage(_)), .. }
-        ));
+        let has_edges = page.nodes.iter().any(|n| {
+            matches!(
+                n,
+                ambition_inventory_ui::MenuNode::Control {
+                    action: Some(CubeAction::ChangePage(_)),
+                    ..
+                }
+            )
+        });
         assert!(has_edges, "System page keeps the L/R edge buttons");
     }
 
@@ -904,7 +967,10 @@ mod tests {
             .nodes
             .iter()
             .filter_map(|n| match n {
-                ambition_inventory_ui::MenuNode::Control { action: Some(CubeAction::System(o)), .. } => Some(*o),
+                ambition_inventory_ui::MenuNode::Control {
+                    action: Some(CubeAction::System(o)),
+                    ..
+                } => Some(*o),
                 _ => None,
             })
             .collect();
@@ -919,10 +985,15 @@ mod tests {
         assert!(has_on, "Show FPS row reflects the current ON state");
 
         // A Back row (CloseSystemCategory) drills out to the category list.
-        let has_back = page.nodes.iter().any(|n| matches!(
-            n,
-            ambition_inventory_ui::MenuNode::Control { action: Some(CubeAction::CloseSystemCategory), .. }
-        ));
+        let has_back = page.nodes.iter().any(|n| {
+            matches!(
+                n,
+                ambition_inventory_ui::MenuNode::Control {
+                    action: Some(CubeAction::CloseSystemCategory),
+                    ..
+                }
+            )
+        });
         assert!(has_back, "an open category shows a Back row");
     }
 
@@ -955,14 +1026,16 @@ mod tests {
             let edges: Vec<_> = model
                 .nodes
                 .iter()
-                .filter(|n| matches!(
-                    n,
-                    ambition_inventory_ui::MenuNode::Control {
-                        kind: MenuControlKind::Action,
-                        action: Some(CubeAction::ChangePage(_)),
-                        ..
-                    }
-                ))
+                .filter(|n| {
+                    matches!(
+                        n,
+                        ambition_inventory_ui::MenuNode::Control {
+                            kind: MenuControlKind::Action,
+                            action: Some(CubeAction::ChangePage(_)),
+                            ..
+                        }
+                    )
+                })
                 .collect();
             assert_eq!(edges.len(), 2, "{page:?} has both L/R edge buttons");
             // With EdgeLeft focus, exactly the LEFT edge button reads selected.
@@ -971,7 +1044,10 @@ mod tests {
                 ambition_inventory_ui::MenuNode::Control { rect, selected: true, action: Some(CubeAction::ChangePage(_)), .. }
                     if rect.x < 10.0
             ));
-            assert!(left_selected, "{page:?} left edge button highlights on EdgeLeft focus");
+            assert!(
+                left_selected,
+                "{page:?} left edge button highlights on EdgeLeft focus"
+            );
         }
     }
 
@@ -984,10 +1060,17 @@ mod tests {
         let owned = OwnedItems::default();
         let page = build_items_page(&owned, None, CubeFocus::default());
         let left = page.nodes.iter().find_map(|n| match n {
-            ambition_inventory_ui::MenuNode::Control { action: Some(CubeAction::ChangePage(p)), rect, .. }
-                if rect.x < 10.0 => Some(*p),
+            ambition_inventory_ui::MenuNode::Control {
+                action: Some(CubeAction::ChangePage(p)),
+                rect,
+                ..
+            } if rect.x < 10.0 => Some(*p),
             _ => None,
         });
-        assert_eq!(left, Some(CubePage::Map), "left edge button turns to viewer-left page");
+        assert_eq!(
+            left,
+            Some(CubePage::Map),
+            "left edge button turns to viewer-left page"
+        );
     }
 }

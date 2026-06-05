@@ -167,10 +167,15 @@ mod tests {
         let mut app = test_app(Some(world_with_right_wall()));
         // Player to the left of the wall, facing/aiming right.
         let player = spawn_player_holding(&mut app, GRAPPLE_ID, ae::Vec2::new(100.0, 200.0), 1.0);
-        app.world_mut().resource_mut::<ControlFrame>().attack_pressed = true;
+        app.world_mut()
+            .resource_mut::<ControlFrame>()
+            .attack_pressed = true;
         app.update();
         let vel = player_vel(&app, player);
-        assert!(vel.x > 0.0, "the yank velocity points toward the wall (right)");
+        assert!(
+            vel.x > 0.0,
+            "the yank velocity points toward the wall (right)"
+        );
         assert!(
             vel.x.abs() > vel.y.abs(),
             "a horizontal grapple yanks mostly horizontally ({vel:?})"
@@ -186,9 +191,15 @@ mod tests {
         // No world (or no wall in range) → fizzle, velocity untouched.
         let mut app = test_app(None);
         let player = spawn_player_holding(&mut app, GRAPPLE_ID, ae::Vec2::new(100.0, 200.0), 1.0);
-        app.world_mut().resource_mut::<ControlFrame>().attack_pressed = true;
+        app.world_mut()
+            .resource_mut::<ControlFrame>()
+            .attack_pressed = true;
         app.update();
-        assert_eq!(player_vel(&app, player), ae::Vec2::ZERO, "a dry grapple yanks nothing");
+        assert_eq!(
+            player_vel(&app, player),
+            ae::Vec2::ZERO,
+            "a dry grapple yanks nothing"
+        );
     }
 
     #[test]
@@ -201,7 +212,9 @@ mod tests {
         // Holding the bomb + attacking → grapple_system ignores it.
         let mut app2 = test_app(Some(world_with_right_wall()));
         let player2 = spawn_player_holding(&mut app2, "bomb", ae::Vec2::new(100.0, 200.0), 1.0);
-        app2.world_mut().resource_mut::<ControlFrame>().attack_pressed = true;
+        app2.world_mut()
+            .resource_mut::<ControlFrame>()
+            .attack_pressed = true;
         app2.update();
         assert_eq!(player_vel(&app2, player2), ae::Vec2::ZERO);
     }

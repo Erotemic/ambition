@@ -303,7 +303,9 @@ impl GameplayTraceEvent {
 #[derive(Serialize, Clone, Debug)]
 pub enum DumpReason {
     Manual,
-    OobAuto { reason: String },
+    OobAuto {
+        reason: String,
+    },
     /// Auto-dump triggered the frame an unexplained position correction
     /// (teleport-class `CollisionCorrection`) fires. Unlike `OobAuto`,
     /// this catches teleports that land *inside* the OOB margin — e.g.
@@ -312,8 +314,12 @@ pub enum DumpReason {
     /// ring buffer at the moment of the snap so the pre-teleport frames
     /// are still present (a manual dump seconds later only catches the
     /// stuck aftermath — see `docs/planning/tech-debt-log.md`).
-    TeleportAuto { reason: String },
-    Programmatic { label: String },
+    TeleportAuto {
+        reason: String,
+    },
+    Programmatic {
+        label: String,
+    },
 }
 
 impl DumpReason {

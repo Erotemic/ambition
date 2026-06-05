@@ -68,7 +68,6 @@ pub struct ActorSurfaceState {
     pub air_jumps_remaining: u8,
 }
 
-
 /// Authored rule for when a defeated enemy should reappear. Picked
 /// per-archetype today; a future EnemySpawn LDtk field can override
 /// it on a single spawn without touching the archetype default.
@@ -560,16 +559,13 @@ impl EnemyArchetype {
         match self {
             Combatant | SmallSkitter | SmallLurker | MediumStriker | AggressiveSeeker
             | PuppySlug | PirateRaider | BurningFlyingShark | InfiniteSandbag | FiniteSandbag
-            | ExplodingMite | DividingMite | RangedSkirmisher => {
-                EnemyRespawnPolicy::OnRoomReenter
-            }
+            | ExplodingMite | DividingMite | RangedSkirmisher => EnemyRespawnPolicy::OnRoomReenter,
             LargeBrute | LargeColossus | PirateHeavy | PirateOnShark | PirateHeavyOnShark => {
                 EnemyRespawnPolicy::OnRest
             }
         }
     }
 }
-
 
 /// Cluster-native enemy integration. This is the EnemyRuntime::update
 /// physics/AI port, operating directly on the authoritative ECS

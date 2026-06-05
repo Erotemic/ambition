@@ -158,7 +158,10 @@ pub fn update_player_hud(
         (&PlayerHealth, &PlayerMana, &PlayerWallet),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
-    mut fills: ParamSet<(Query<&mut Node, With<HealthFill>>, Query<&mut Node, With<ManaFill>>)>,
+    mut fills: ParamSet<(
+        Query<&mut Node, With<HealthFill>>,
+        Query<&mut Node, With<ManaFill>>,
+    )>,
     mut labels: ParamSet<(
         Query<&mut Text, With<HealthLabel>>,
         Query<&mut Text, With<ManaLabel>>,
@@ -230,7 +233,10 @@ mod tests {
         let before = app.world().get::<PlayerMana>(player).unwrap().meter.current;
         app.update();
         let after = app.world().get::<PlayerMana>(player).unwrap().meter.current;
-        assert!(after > before, "mana should regenerate ({before} -> {after})");
+        assert!(
+            after > before,
+            "mana should regenerate ({before} -> {after})"
+        );
 
         // Many ticks can't exceed max.
         for _ in 0..20 {

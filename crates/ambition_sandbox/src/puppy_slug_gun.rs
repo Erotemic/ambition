@@ -132,7 +132,9 @@ mod tests {
     fn attack_with_the_gun_summons_a_player_allied_slug() {
         let mut app = test_app();
         spawn_player_holding_gun(&mut app);
-        app.world_mut().resource_mut::<ControlFrame>().attack_pressed = true;
+        app.world_mut()
+            .resource_mut::<ControlFrame>()
+            .attack_pressed = true;
         app.update();
         assert_eq!(ally_count(&mut app), 1, "one ally summoned");
         // The summoned slug is Player-faction, i.e. on the player's side: the
@@ -144,7 +146,10 @@ mod tests {
         let faction = *q.iter(app.world()).next().expect("ally exists");
         assert_eq!(faction, Faction::Player);
         assert!(faction.is_player_side(), "ally is on the player's side");
-        assert!(!Faction::Enemy.is_player_side(), "enemies are the other side (so the ally damages them)");
+        assert!(
+            !Faction::Enemy.is_player_side(),
+            "enemies are the other side (so the ally damages them)"
+        );
     }
 
     #[test]
@@ -153,10 +158,16 @@ mod tests {
         spawn_player_holding_gun(&mut app);
         // Press attack many times (re-arming the edge each frame).
         for _ in 0..6 {
-            app.world_mut().resource_mut::<ControlFrame>().attack_pressed = true;
+            app.world_mut()
+                .resource_mut::<ControlFrame>()
+                .attack_pressed = true;
             app.update();
         }
-        assert_eq!(ally_count(&mut app), MAX_ALLIES, "capped at MAX_ALLIES alive");
+        assert_eq!(
+            ally_count(&mut app),
+            MAX_ALLIES,
+            "capped at MAX_ALLIES alive"
+        );
     }
 
     #[test]

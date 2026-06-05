@@ -9,13 +9,13 @@ use bevy::prelude::*;
 use crate::engine_core as ae;
 use crate::projectile::spec::ProjectileKind;
 
-use crate::projectile::InFlightProjectile;
 use super::super::systems::update_projectiles;
 use super::{
     advance_time, min_app, spawn_player, ActorHealth, ActorIdentity, ControlFrame,
     DebrisBurstMessage, GameWorld, GameplayBanner, GameplayTraceBuffer, HitEvent, SetFlagRequested,
     SfxMessage, VfxMessage,
 };
+use crate::projectile::InFlightProjectile;
 
 /// Pre-spawn a fireball directly into the body list and place it
 /// just beside an ECS-hostile actor. After one tick the fireball
@@ -53,7 +53,10 @@ fn fireball_damages_enemy_on_intersect() {
         // overlaps the enemy AABB regardless of arc tuning.
         body.pos = ae::Vec2::new(395.0, 300.0);
         body.vel = ae::Vec2::new(50.0, 0.0);
-        state.bodies.push(InFlightProjectile { body, owner_id: String::new() });
+        state.bodies.push(InFlightProjectile {
+            body,
+            owner_id: String::new(),
+        });
     }
     advance_time(&mut app, 0.016);
     app.update();
@@ -139,7 +142,10 @@ fn fireball_bounces_off_floor_in_system() {
         body.vel = ae::Vec2::new(60.0, 240.0);
         starting_bounces = body.bounces_remaining;
         assert!(starting_bounces > 0);
-        state.bodies.push(InFlightProjectile { body, owner_id: String::new() });
+        state.bodies.push(InFlightProjectile {
+            body,
+            owner_id: String::new(),
+        });
     }
     advance_time(&mut app, 0.016);
     app.update();
@@ -217,7 +223,10 @@ fn fireball_bounces_off_one_way_platform_in_system() {
         body.vel = ae::Vec2::new(60.0, 240.0);
         starting_bounces = body.bounces_remaining;
         assert!(starting_bounces > 0);
-        state.bodies.push(InFlightProjectile { body, owner_id: String::new() });
+        state.bodies.push(InFlightProjectile {
+            body,
+            owner_id: String::new(),
+        });
     }
     advance_time(&mut app, 0.016);
     app.update();
@@ -297,7 +306,10 @@ fn fireball_passes_through_one_way_from_below_in_system() {
         // landing. Velocity is purely horizontal.
         body.pos = ae::Vec2::new(500.0, 404.0);
         body.vel = ae::Vec2::new(360.0, 0.0);
-        state.bodies.push(InFlightProjectile { body, owner_id: String::new() });
+        state.bodies.push(InFlightProjectile {
+            body,
+            owner_id: String::new(),
+        });
     }
     advance_time(&mut app, 0.016);
     app.update();
@@ -371,7 +383,10 @@ fn hadouken_expires_on_solid_in_system() {
         let mut body = crate::projectile::ProjectileBody::from_spec(spec);
         body.pos = ae::Vec2::new(595.0, 300.0);
         body.vel = ae::Vec2::new(520.0, 0.0);
-        state.bodies.push(InFlightProjectile { body, owner_id: String::new() });
+        state.bodies.push(InFlightProjectile {
+            body,
+            owner_id: String::new(),
+        });
     }
     advance_time(&mut app, 0.016);
     app.update();

@@ -98,17 +98,16 @@ pub use ecs::ActorSpriteData;
 pub use ecs::{
     apply_actor_stimuli, apply_feature_hit_events, apply_gameplay_banner_requests,
     apply_hitbox_damage, boss_spawn_hurtboxes, clear_encounter_reward_ecs, collect_ecs_pickups,
-    derive_boss_sprite_metrics, derive_pogo_target_volumes, despawn_encounter_mobs, magnetize_pickups,
+    derive_boss_sprite_metrics, derive_pogo_target_volumes, despawn_encounter_mobs,
     ecs_boss_anim_state, ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample,
     ecs_boss_name, ecs_breakable_state, ecs_chest_opened, ecs_enemy_anim_state, ecs_enemy_name,
     ecs_enemy_sprite_override, ecs_hit_event_hits_actor, ecs_hit_event_hits_boss,
     ecs_hit_event_hits_breakable, ecs_npc_anim_state, ecs_npc_name, enforce_mount_rider_link,
-    interact_ecs_actors_and_switches, is_composite_spawn, open_ecs_chests,
+    interact_ecs_actors_and_switches, is_composite_spawn, magnetize_pickups, open_ecs_chests,
     pirate_on_shark_rider_offset, rebuild_feature_ecs_world_overlay, rebuild_feature_view_index,
     refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
     refresh_breakable_damageable_volumes, reset_ecs_npc_actors, reset_ecs_room_features,
-    select_actor_targets,
-    spawn_encounter_mob, spawn_enemy_projectiles_from_brain_actions,
+    select_actor_targets, spawn_encounter_mob, spawn_enemy_projectiles_from_brain_actions,
     spawn_eye_beam_from_special_messages, spawn_gnu_apple_rain_from_special_messages,
     spawn_gradient_cascade_minions_from_special_messages, spawn_melee_hitbox,
     spawn_minima_trap_from_special_messages, spawn_overfit_volley_from_special_messages,
@@ -116,17 +115,15 @@ pub use ecs::{
     start_enemy_melee_from_brain_actions, sync_actor_poses_from_feature_aabbs,
     sync_boss_actor_components, sync_boss_encounter_phase, sync_boss_reward_chests_ecs,
     sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_npc_actors_with_save,
-    sync_ecs_switches_from_save,
-    sync_encounter_reward_chests_ecs, sync_riders_to_mounts, tick_and_despawn_hitboxes,
-    tick_boss_brains_system, tick_gameplay_banner, update_ecs_actors, update_ecs_bosses,
-    update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards, update_ecs_npcs,
-    ActorRuntime,
-    AppleRainSpawnState, BossClusterQueryData, BossClusterRef, BossClusterScratch, BossConfig,
-    BossKinematics, BossMut, BossRef, BossStatus, EyeBeamState, FeatureEcsWorldOverlay,
-    FeatureSimEntity,
-    FeatureViewIndex, GradientCascadeState, HazardFeature, HeldItem, Hitbox, HitboxAnchor,
-    HitboxHits, HitboxLifetime, MinimaTrapState, MountSlot, Mountable, Mounted, MountedBrainCache,
-    MountedSize, OverfitVolleyState, RidingOn, SaddlePointState,
+    sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs, sync_riders_to_mounts,
+    tick_and_despawn_hitboxes, tick_boss_brains_system, tick_gameplay_banner, update_ecs_actors,
+    update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards,
+    update_ecs_npcs, ActorRuntime, AppleRainSpawnState, BossClusterQueryData, BossClusterRef,
+    BossClusterScratch, BossConfig, BossKinematics, BossMut, BossRef, BossStatus, EyeBeamState,
+    FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex, GradientCascadeState,
+    HazardFeature, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime, MinimaTrapState,
+    MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, OverfitVolleyState, RidingOn,
+    SaddlePointState,
 };
 pub use enemies::{
     ActorSpawnState, ActorSurfaceState, EnemyArchetype, EnemyRespawnPolicy,
@@ -139,7 +136,7 @@ pub use events::{
     SwitchActivated,
 };
 pub use hazards::HazardRuntime;
-pub use npcs::{NPC_PATROL_SPEED};
+pub use npcs::NPC_PATROL_SPEED;
 pub use path_motion::PathMotion;
 pub use world_overlay::world_with_sandbox_solids;
 

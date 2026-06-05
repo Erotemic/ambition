@@ -249,10 +249,22 @@ mod tests {
 
     #[test]
     fn from_dialog_id_resolves_loose_spelling_and_rejects_unknown() {
-        assert_eq!(ItemKind::from_dialog_id("HealthPotion"), Some(ItemKind::HealthPotion));
-        assert_eq!(ItemKind::from_dialog_id("health_potion"), Some(ItemKind::HealthPotion));
-        assert_eq!(ItemKind::from_dialog_id("Spare Battery"), Some(ItemKind::SpareBattery));
-        assert_eq!(ItemKind::from_dialog_id("DATACHIP"), Some(ItemKind::DataChip));
+        assert_eq!(
+            ItemKind::from_dialog_id("HealthPotion"),
+            Some(ItemKind::HealthPotion)
+        );
+        assert_eq!(
+            ItemKind::from_dialog_id("health_potion"),
+            Some(ItemKind::HealthPotion)
+        );
+        assert_eq!(
+            ItemKind::from_dialog_id("Spare Battery"),
+            Some(ItemKind::SpareBattery)
+        );
+        assert_eq!(
+            ItemKind::from_dialog_id("DATACHIP"),
+            Some(ItemKind::DataChip)
+        );
         assert_eq!(ItemKind::from_dialog_id("grapple"), None);
         // dialog_id round-trips through from_dialog_id for every kind.
         for kind in ItemKind::ALL {

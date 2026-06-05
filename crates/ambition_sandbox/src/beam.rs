@@ -169,7 +169,9 @@ mod tests {
     fn attack_with_the_beam_spawns_one_player_faction_line_hitbox() {
         let mut app = test_app();
         let player = spawn_player_holding_beam(&mut app);
-        app.world_mut().resource_mut::<ControlFrame>().attack_pressed = true;
+        app.world_mut()
+            .resource_mut::<ControlFrame>()
+            .attack_pressed = true;
         app.update();
         let boxes = hitboxes(&mut app);
         assert_eq!(boxes.len(), 1, "one beam hitbox spawned");
@@ -205,12 +207,22 @@ mod tests {
     fn beam_costs_mana_and_is_blocked_when_empty() {
         let mut app = test_app();
         let player = spawn_player_holding_beam(&mut app);
-        app.world_mut().get_mut::<PlayerMana>(player).unwrap().meter.current = 5.0;
-        app.world_mut().resource_mut::<ControlFrame>().attack_pressed = true;
+        app.world_mut()
+            .get_mut::<PlayerMana>(player)
+            .unwrap()
+            .meter
+            .current = 5.0;
+        app.world_mut()
+            .resource_mut::<ControlFrame>()
+            .attack_pressed = true;
         app.update();
         assert_eq!(hitboxes(&mut app).len(), 0, "no beam when mana < cost");
 
-        app.world_mut().get_mut::<PlayerMana>(player).unwrap().meter.current = 100.0;
+        app.world_mut()
+            .get_mut::<PlayerMana>(player)
+            .unwrap()
+            .meter
+            .current = 100.0;
         app.update();
         assert_eq!(hitboxes(&mut app).len(), 1, "fires once there's mana");
         let mana = app.world().get::<PlayerMana>(player).unwrap().meter.current;
@@ -225,7 +237,10 @@ mod tests {
         // Aim straight up → a tall vertical lance (long along y, thin along x),
         // offset above the player. Engine y grows downward, so "up" is -y.
         let (offset, half) = beam_geometry(ae::Vec2::new(0.0, -1.0), 1.0);
-        assert!(half.y > half.x, "vertical beam is long along y; got {half:?}");
+        assert!(
+            half.y > half.x,
+            "vertical beam is long along y; got {half:?}"
+        );
         assert!(offset.y < 0.0, "an up-aimed beam reaches above the player");
     }
 }

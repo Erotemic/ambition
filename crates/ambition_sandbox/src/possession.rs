@@ -249,7 +249,11 @@ mod tests {
         app.update(); // hold_timer = 1.0
         assert_eq!(possessed(&app), None, "not possessed mid-hold");
         app.update(); // hold_timer = 2.0 ≥ threshold → possess
-        assert_eq!(possessed(&app), Some(actor), "a full ~2s hold possesses the nearest candidate");
+        assert_eq!(
+            possessed(&app),
+            Some(actor),
+            "a full ~2s hold possesses the nearest candidate"
+        );
         assert!(app.world().get::<Possessed>(actor).is_some());
         // The possessed enemy flips to the player's side so it fights its allies.
         assert_eq!(
@@ -263,7 +267,11 @@ mod tests {
         app.update();
         hold_down_interact(&mut app, true);
         app.update();
-        assert_eq!(possessed(&app), None, "a fresh Down+Interact press releases");
+        assert_eq!(
+            possessed(&app),
+            None,
+            "a fresh Down+Interact press releases"
+        );
         assert!(app.world().get::<Possessed>(actor).is_none());
         assert_eq!(
             faction_of(&app, actor),
@@ -296,7 +304,11 @@ mod tests {
         app.update();
         hold_down_interact(&mut app, false);
         app.update();
-        assert_eq!(possessed(&app), None, "a brief tap doesn't commit a possession");
+        assert_eq!(
+            possessed(&app),
+            None,
+            "a brief tap doesn't commit a possession"
+        );
     }
 
     #[test]
@@ -308,6 +320,10 @@ mod tests {
         app.update();
         app.update();
         app.update();
-        assert_eq!(possessed(&app), None, "no candidate in range → nothing possessed");
+        assert_eq!(
+            possessed(&app),
+            None,
+            "no candidate in range → nothing possessed"
+        );
     }
 }

@@ -1305,12 +1305,30 @@ mod model_logic_tests {
     fn page_nav_outcome_opens_each_subpage_and_back_pops() {
         use SettingsItem as I;
         use SettingsOutcome::{OpenPage, PopPage};
-        assert_eq!(page_nav_outcome(I::OpenVideo), Some(OpenPage(SettingsPage::Video)));
-        assert_eq!(page_nav_outcome(I::OpenShaders), Some(OpenPage(SettingsPage::Shaders)));
-        assert_eq!(page_nav_outcome(I::OpenAudio), Some(OpenPage(SettingsPage::Audio)));
-        assert_eq!(page_nav_outcome(I::OpenControls), Some(OpenPage(SettingsPage::Controls)));
-        assert_eq!(page_nav_outcome(I::OpenGameplay), Some(OpenPage(SettingsPage::Gameplay)));
-        assert_eq!(page_nav_outcome(I::OpenDeveloper), Some(OpenPage(SettingsPage::Developer)));
+        assert_eq!(
+            page_nav_outcome(I::OpenVideo),
+            Some(OpenPage(SettingsPage::Video))
+        );
+        assert_eq!(
+            page_nav_outcome(I::OpenShaders),
+            Some(OpenPage(SettingsPage::Shaders))
+        );
+        assert_eq!(
+            page_nav_outcome(I::OpenAudio),
+            Some(OpenPage(SettingsPage::Audio))
+        );
+        assert_eq!(
+            page_nav_outcome(I::OpenControls),
+            Some(OpenPage(SettingsPage::Controls))
+        );
+        assert_eq!(
+            page_nav_outcome(I::OpenGameplay),
+            Some(OpenPage(SettingsPage::Gameplay))
+        );
+        assert_eq!(
+            page_nav_outcome(I::OpenDeveloper),
+            Some(OpenPage(SettingsPage::Developer))
+        );
         assert_eq!(page_nav_outcome(I::Back), Some(PopPage));
         // A content row (cycles a value) is not a page-navigation row.
         assert_eq!(page_nav_outcome(I::DisplayMode), None);
@@ -1392,7 +1410,10 @@ mod model_logic_tests {
 
     #[test]
     fn format_helpers_have_the_expected_shape() {
-        assert_eq!(format_cycle("Camera View", "Wide"), "Camera View: Wide  < / >");
+        assert_eq!(
+            format_cycle("Camera View", "Wide"),
+            "Camera View: Wide  < / >"
+        );
         assert_eq!(format_toggle("FPS Overlay", true), "FPS Overlay: on");
         assert_eq!(format_toggle("FPS Overlay", false), "FPS Overlay: off");
     }

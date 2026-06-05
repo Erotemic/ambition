@@ -228,7 +228,10 @@ mod tests {
     fn recall_emits_a_player_side_shockwave_at_the_mark() {
         let mut app = test_app();
         app.init_resource::<CapturedHits>();
-        app.add_systems(bevy::prelude::Update, capture_hits.after(mark_recall_system));
+        app.add_systems(
+            bevy::prelude::Update,
+            capture_hits.after(mark_recall_system),
+        );
         let player = spawn_player_holding(&mut app, MARK_RECALL_ID, ae::Vec2::new(200.0, 80.0));
         press(&mut app, true, false); // mark at (200,80) — no hit yet
         app.update();
@@ -243,7 +246,10 @@ mod tests {
         let cx = (hits[0].volume.min.x + hits[0].volume.max.x) * 0.5;
         assert!((cx - 200.0).abs() < 1.0, "shockwave centered on the mark");
         assert!(
-            matches!(hits[0].source, crate::features::HitSource::PlayerSlash { .. }),
+            matches!(
+                hits[0].source,
+                crate::features::HitSource::PlayerSlash { .. }
+            ),
             "player-side so it spares the player",
         );
     }

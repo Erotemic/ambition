@@ -261,7 +261,9 @@ pub fn clear_transient_on_sandbox_reset(
         commands
             .entity(player)
             .remove::<crate::item_pickup::StashedActionSet>();
-        commands.entity(player).remove::<crate::features::HeldItem>();
+        commands
+            .entity(player)
+            .remove::<crate::features::HeldItem>();
         commands.entity(player).remove::<crate::portal::PortalGun>();
         // Clear any Mark/Recall mark too, so re-equipping after a reset can't
         // recall to a position from before the room was rebuilt.
@@ -334,7 +336,10 @@ mod tests {
                 half_extent: ae::Vec2::splat(18.0),
             })
             .id();
-        let ally = app.world_mut().spawn(crate::puppy_slug_gun::PuppySlugAlly).id();
+        let ally = app
+            .world_mut()
+            .spawn(crate::puppy_slug_gun::PuppySlugAlly)
+            .id();
         let player = app
             .world_mut()
             .spawn((
@@ -348,30 +353,48 @@ mod tests {
 
         // No reset queued → nothing changes.
         app.update();
-        assert!(app.world().get::<crate::item_pickup::GroundItem>(ground).is_some());
-        assert!(app.world().get::<crate::features::HeldItem>(player).is_some());
+        assert!(app
+            .world()
+            .get::<crate::item_pickup::GroundItem>(ground)
+            .is_some());
+        assert!(app
+            .world()
+            .get::<crate::features::HeldItem>(player)
+            .is_some());
 
         // Reset requested → transient entities despawn + player held-state stripped.
-        app.world_mut().resource_mut::<SandboxResetRequested>().request = true;
+        app.world_mut()
+            .resource_mut::<SandboxResetRequested>()
+            .request = true;
         app.update();
         assert!(
-            app.world().get::<crate::item_pickup::GroundItem>(ground).is_none(),
+            app.world()
+                .get::<crate::item_pickup::GroundItem>(ground)
+                .is_none(),
             "ground item despawned on reset"
         );
         assert!(
-            app.world().get::<crate::puppy_slug_gun::PuppySlugAlly>(ally).is_none(),
+            app.world()
+                .get::<crate::puppy_slug_gun::PuppySlugAlly>(ally)
+                .is_none(),
             "summoned ally despawned on reset"
         );
         assert!(
-            app.world().get::<crate::features::HeldItem>(player).is_none(),
+            app.world()
+                .get::<crate::features::HeldItem>(player)
+                .is_none(),
             "held item removed from player"
         );
         assert!(
-            app.world().get::<crate::portal::PortalGun>(player).is_none(),
+            app.world()
+                .get::<crate::portal::PortalGun>(player)
+                .is_none(),
             "portal gun removed from player"
         );
         assert!(
-            app.world().get::<crate::item_pickup::StashedActionSet>(player).is_none(),
+            app.world()
+                .get::<crate::item_pickup::StashedActionSet>(player)
+                .is_none(),
             "stashed action set cleared"
         );
     }

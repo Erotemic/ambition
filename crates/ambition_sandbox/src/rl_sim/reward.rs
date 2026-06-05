@@ -111,7 +111,10 @@ mod tests {
         let prev = obs();
         let mut cur = obs();
         cur.tick = 1;
-        assert!(survival(&prev, &cur) > 0.0, "alive should earn a tick reward");
+        assert!(
+            survival(&prev, &cur) > 0.0,
+            "alive should earn a tick reward"
+        );
 
         // A reset between observations (death) dominates with a big penalty.
         cur.resets = 1;
@@ -157,7 +160,7 @@ mod tests {
         let prev = obs();
         let mut cur = obs();
         cur.player_pos = (100000.0, 0.0); // huge blink
-        // Same room, so only the (capped) distance term applies.
+                                          // Same room, so only the (capped) distance term applies.
         assert!(
             (exploration(&prev, &cur) - 0.05).abs() < 1e-6,
             "the distance term must saturate at its cap"
@@ -179,8 +182,7 @@ mod tests {
         let prev = obs();
         let mut cur = obs();
         cur.player_pos = (50.0, 0.0);
-        let expected =
-            survival(&prev, &cur) + exploration(&prev, &cur) + health_preservation(&cur);
+        let expected = survival(&prev, &cur) + exploration(&prev, &cur) + health_preservation(&cur);
         assert_eq!(default_shaped(&prev, &cur), expected);
     }
 }

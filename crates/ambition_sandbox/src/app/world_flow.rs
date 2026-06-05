@@ -1115,14 +1115,32 @@ mod tests {
     #[test]
     fn shield_blocks_only_hits_from_the_faced_side() {
         // Player at x=100 facing right (+1).
-        assert!(shield_blocks_hit(true, 1.0, 100.0, 150.0), "guards a hit from the right");
-        assert!(!shield_blocks_hit(true, 1.0, 100.0, 50.0), "a hit from behind (left) lands");
+        assert!(
+            shield_blocks_hit(true, 1.0, 100.0, 150.0),
+            "guards a hit from the right"
+        );
+        assert!(
+            !shield_blocks_hit(true, 1.0, 100.0, 50.0),
+            "a hit from behind (left) lands"
+        );
         // Facing left (-1) flips it.
-        assert!(shield_blocks_hit(true, -1.0, 100.0, 50.0), "guards a hit from the left");
-        assert!(!shield_blocks_hit(true, -1.0, 100.0, 150.0), "a hit from behind (right) lands");
+        assert!(
+            shield_blocks_hit(true, -1.0, 100.0, 50.0),
+            "guards a hit from the left"
+        );
+        assert!(
+            !shield_blocks_hit(true, -1.0, 100.0, 150.0),
+            "a hit from behind (right) lands"
+        );
         // No shield held -> never blocks; neutral facing -> guards either side.
-        assert!(!shield_blocks_hit(false, 1.0, 100.0, 150.0), "no shield, no block");
-        assert!(shield_blocks_hit(true, 0.0, 100.0, 50.0), "neutral facing guards either side");
+        assert!(
+            !shield_blocks_hit(false, 1.0, 100.0, 150.0),
+            "no shield, no block"
+        );
+        assert!(
+            shield_blocks_hit(true, 0.0, 100.0, 50.0),
+            "neutral facing guards either side"
+        );
     }
 
     fn test_attack_box() -> ae::Aabb {

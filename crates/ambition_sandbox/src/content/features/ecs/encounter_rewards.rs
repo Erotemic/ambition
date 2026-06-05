@@ -242,7 +242,11 @@ mod reward_sync_tests {
             .iter(app.world())
             .map(|r| r.encounter_id.clone())
             .collect();
-        assert_eq!(ids, vec!["test_enc".to_string()], "one reward chest for the cleared encounter");
+        assert_eq!(
+            ids,
+            vec!["test_enc".to_string()],
+            "one reward chest for the cleared encounter"
+        );
     }
 
     #[test]
@@ -251,7 +255,11 @@ mod reward_sync_tests {
         app.update();
         app.update(); // second tick must not spawn a duplicate chest
         let mut q = app.world_mut().query::<&EncounterRewardChest>();
-        assert_eq!(q.iter(app.world()).count(), 1, "no duplicate chest on re-tick");
+        assert_eq!(
+            q.iter(app.world()).count(),
+            1,
+            "no duplicate chest on re-tick"
+        );
     }
 }
 
@@ -302,10 +310,12 @@ mod boss_reward_sync_tests {
     fn app() -> App {
         let mut app = App::new();
         let mut save = SandboxSave::default();
-        save.data_mut().set_boss("test_boss", PersistedEncounterState::Cleared);
+        save.data_mut()
+            .set_boss("test_boss", PersistedEncounterState::Cleared);
         app.insert_resource(save);
         let mut reg = BossEncounterRegistry::default();
-        reg.profiles.insert("test_boss".into(), BossProfile::mockingbird());
+        reg.profiles
+            .insert("test_boss".into(), BossProfile::mockingbird());
         app.insert_resource(reg);
         app.insert_resource(TestWorld(ae::World::new(
             "t",
@@ -326,8 +336,15 @@ mod boss_reward_sync_tests {
         let mut app = app();
         app.update();
         let mut q = app.world_mut().query::<&BossRewardChest>();
-        let ids: Vec<String> = q.iter(app.world()).map(|r| r.encounter_id.clone()).collect();
-        assert_eq!(ids, vec!["test_boss".to_string()], "a cleared boss drops one reward chest");
+        let ids: Vec<String> = q
+            .iter(app.world())
+            .map(|r| r.encounter_id.clone())
+            .collect();
+        assert_eq!(
+            ids,
+            vec!["test_boss".to_string()],
+            "a cleared boss drops one reward chest"
+        );
     }
 
     #[test]
@@ -336,6 +353,10 @@ mod boss_reward_sync_tests {
         app.update();
         app.update();
         let mut q = app.world_mut().query::<&BossRewardChest>();
-        assert_eq!(q.iter(app.world()).count(), 1, "no duplicate boss chest on re-tick");
+        assert_eq!(
+            q.iter(app.world()).count(),
+            1,
+            "no duplicate boss chest on re-tick"
+        );
     }
 }

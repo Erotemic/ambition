@@ -117,30 +117,199 @@ const ITEM_META: [ItemMeta; ITEM_COUNT] = {
     use crate::inventory::ItemKind;
     use ItemCategory::*;
     [
-        ItemMeta { display_name: "Portal Gun", description: "Fire a linked blue/orange portal pair. Carries momentum.", category: Weapon, held_item_id: None, dialog_id: "portalgun", legacy_kind: None },
-        ItemMeta { display_name: "Axe", description: "A heavy pirate axe. Replaces your attack with a cleaving swing.", category: Weapon, held_item_id: Some("axe"), dialog_id: "axe", legacy_kind: None },
-        ItemMeta { display_name: "Javelin", description: "A throwing spear. Using it throws it.", category: Weapon, held_item_id: Some("javelin"), dialog_id: "javelin", legacy_kind: None },
-        ItemMeta { display_name: "Gun-Sword", description: "A laser sword with a gun on it that shoots swords. Fires aimed bolts.", category: Weapon, held_item_id: Some("gun_sword"), dialog_id: "gunsword", legacy_kind: None },
-        ItemMeta { display_name: "Puppy-Slug Gun", description: "Fires friendly puppy slugs that harry your enemies. (planned)", category: Weapon, held_item_id: Some("puppy_slug_gun"), dialog_id: "puppysluggun", legacy_kind: None },
-        ItemMeta { display_name: "Fireball", description: "A thrown bolt of fire. Spends mana.", category: Ability, held_item_id: Some("fireball"), dialog_id: "fireball", legacy_kind: None },
-        ItemMeta { display_name: "Blink", description: "Short-range teleport. Your favorite, and high-skill.", category: Ability, held_item_id: Some("blink"), dialog_id: "blink", legacy_kind: None },
-        ItemMeta { display_name: "Flight", description: "Sustained flight while you have charge.", category: Ability, held_item_id: None, dialog_id: "fly", legacy_kind: None },
-        ItemMeta { display_name: "Grapple Hook", description: "Pull yourself toward anchor points. (planned)", category: Ability, held_item_id: Some("grapple"), dialog_id: "grapple", legacy_kind: None },
-        ItemMeta { display_name: "Morph Ball", description: "Compress into a ball to fit through gaps only an AI can take.", category: Ability, held_item_id: None, dialog_id: "morphball", legacy_kind: None },
-        ItemMeta { display_name: "Mark / Recall", description: "Drop marks and recall to them — travel and combat tool. (planned)", category: Ability, held_item_id: Some("mark_recall"), dialog_id: "markrecall", legacy_kind: None },
-        ItemMeta { display_name: "Bubble Shield", description: "Raise a shield bubble; time it to parry.", category: Ability, held_item_id: None, dialog_id: "bubbleshield", legacy_kind: None },
-        ItemMeta { display_name: "Health Cell", description: "Restores health.", category: Consumable, held_item_id: None, dialog_id: "healthcell", legacy_kind: Some(ItemKind::HealthPotion) },
-        ItemMeta { display_name: "Mana Cell", description: "Restores mana.", category: Consumable, held_item_id: None, dialog_id: "manacell", legacy_kind: None },
-        ItemMeta { display_name: "Spare Battery", description: "Reserved ability charge. Does nothing yet.", category: Consumable, held_item_id: None, dialog_id: "sparebattery", legacy_kind: Some(ItemKind::SpareBattery) },
-        ItemMeta { display_name: "Data Chip", description: "A lore fragment. Does nothing yet.", category: Consumable, held_item_id: None, dialog_id: "datachip", legacy_kind: Some(ItemKind::DataChip) },
-        ItemMeta { display_name: "Bomb", description: "A thrown explosive — it detonates on a short fuse, blasting nearby enemies.", category: Weapon, held_item_id: Some("bomb"), dialog_id: "bomb", legacy_kind: None },
-        ItemMeta { display_name: "Gold Pouch", description: "Loose currency. Spends as money.", category: Consumable, held_item_id: None, dialog_id: "goldpouch", legacy_kind: None },
-        ItemMeta { display_name: "Map Fragment", description: "A piece of the world map, from Alice and Bob.", category: KeyItem, held_item_id: None, dialog_id: "mapfragment", legacy_kind: None },
-        ItemMeta { display_name: "Sealed Note", description: "Alice's sealed note — carry it to Bob.", category: KeyItem, held_item_id: None, dialog_id: "sealednote", legacy_kind: None },
-        ItemMeta { display_name: "Field Survey", description: "Bob's field survey of a nearby zone.", category: KeyItem, held_item_id: None, dialog_id: "fieldsurvey", legacy_kind: None },
-        ItemMeta { display_name: "Gate Key", description: "Opens a sealed dimension-gate door.", category: KeyItem, held_item_id: None, dialog_id: "gatekey", legacy_kind: None },
-        ItemMeta { display_name: "Debug Lens", description: "See the seams of the world. For an AI, debug is a sense organ.", category: KeyItem, held_item_id: None, dialog_id: "debuglens", legacy_kind: None },
-        ItemMeta { display_name: "—", description: "An empty slot, waiting for an item that does not exist yet.", category: Reserved, held_item_id: None, dialog_id: "reservedslot", legacy_kind: None },
+        ItemMeta {
+            display_name: "Portal Gun",
+            description: "Fire a linked blue/orange portal pair. Carries momentum.",
+            category: Weapon,
+            held_item_id: None,
+            dialog_id: "portalgun",
+            legacy_kind: None,
+        },
+        ItemMeta {
+            display_name: "Axe",
+            description: "A heavy pirate axe. Replaces your attack with a cleaving swing.",
+            category: Weapon,
+            held_item_id: Some("axe"),
+            dialog_id: "axe",
+            legacy_kind: None,
+        },
+        ItemMeta {
+            display_name: "Javelin",
+            description: "A throwing spear. Using it throws it.",
+            category: Weapon,
+            held_item_id: Some("javelin"),
+            dialog_id: "javelin",
+            legacy_kind: None,
+        },
+        ItemMeta {
+            display_name: "Gun-Sword",
+            description: "A laser sword with a gun on it that shoots swords. Fires aimed bolts.",
+            category: Weapon,
+            held_item_id: Some("gun_sword"),
+            dialog_id: "gunsword",
+            legacy_kind: None,
+        },
+        ItemMeta {
+            display_name: "Puppy-Slug Gun",
+            description: "Fires friendly puppy slugs that harry your enemies. (planned)",
+            category: Weapon,
+            held_item_id: Some("puppy_slug_gun"),
+            dialog_id: "puppysluggun",
+            legacy_kind: None,
+        },
+        ItemMeta {
+            display_name: "Fireball",
+            description: "A thrown bolt of fire. Spends mana.",
+            category: Ability,
+            held_item_id: Some("fireball"),
+            dialog_id: "fireball",
+            legacy_kind: None,
+        },
+        ItemMeta {
+            display_name: "Blink",
+            description: "Short-range teleport. Your favorite, and high-skill.",
+            category: Ability,
+            held_item_id: Some("blink"),
+            dialog_id: "blink",
+            legacy_kind: None,
+        },
+        ItemMeta {
+            display_name: "Flight",
+            description: "Sustained flight while you have charge.",
+            category: Ability,
+            held_item_id: None,
+            dialog_id: "fly",
+            legacy_kind: None,
+        },
+        ItemMeta {
+            display_name: "Grapple Hook",
+            description: "Pull yourself toward anchor points. (planned)",
+            category: Ability,
+            held_item_id: Some("grapple"),
+            dialog_id: "grapple",
+            legacy_kind: None,
+        },
+        ItemMeta {
+            display_name: "Morph Ball",
+            description: "Compress into a ball to fit through gaps only an AI can take.",
+            category: Ability,
+            held_item_id: None,
+            dialog_id: "morphball",
+            legacy_kind: None,
+        },
+        ItemMeta {
+            display_name: "Mark / Recall",
+            description: "Drop marks and recall to them — travel and combat tool. (planned)",
+            category: Ability,
+            held_item_id: Some("mark_recall"),
+            dialog_id: "markrecall",
+            legacy_kind: None,
+        },
+        ItemMeta {
+            display_name: "Bubble Shield",
+            description: "Raise a shield bubble; time it to parry.",
+            category: Ability,
+            held_item_id: None,
+            dialog_id: "bubbleshield",
+            legacy_kind: None,
+        },
+        ItemMeta {
+            display_name: "Health Cell",
+            description: "Restores health.",
+            category: Consumable,
+            held_item_id: None,
+            dialog_id: "healthcell",
+            legacy_kind: Some(ItemKind::HealthPotion),
+        },
+        ItemMeta {
+            display_name: "Mana Cell",
+            description: "Restores mana.",
+            category: Consumable,
+            held_item_id: None,
+            dialog_id: "manacell",
+            legacy_kind: None,
+        },
+        ItemMeta {
+            display_name: "Spare Battery",
+            description: "Reserved ability charge. Does nothing yet.",
+            category: Consumable,
+            held_item_id: None,
+            dialog_id: "sparebattery",
+            legacy_kind: Some(ItemKind::SpareBattery),
+        },
+        ItemMeta {
+            display_name: "Data Chip",
+            description: "A lore fragment. Does nothing yet.",
+            category: Consumable,
+            held_item_id: None,
+            dialog_id: "datachip",
+            legacy_kind: Some(ItemKind::DataChip),
+        },
+        ItemMeta {
+            display_name: "Bomb",
+            description:
+                "A thrown explosive — it detonates on a short fuse, blasting nearby enemies.",
+            category: Weapon,
+            held_item_id: Some("bomb"),
+            dialog_id: "bomb",
+            legacy_kind: None,
+        },
+        ItemMeta {
+            display_name: "Gold Pouch",
+            description: "Loose currency. Spends as money.",
+            category: Consumable,
+            held_item_id: None,
+            dialog_id: "goldpouch",
+            legacy_kind: None,
+        },
+        ItemMeta {
+            display_name: "Map Fragment",
+            description: "A piece of the world map, from Alice and Bob.",
+            category: KeyItem,
+            held_item_id: None,
+            dialog_id: "mapfragment",
+            legacy_kind: None,
+        },
+        ItemMeta {
+            display_name: "Sealed Note",
+            description: "Alice's sealed note — carry it to Bob.",
+            category: KeyItem,
+            held_item_id: None,
+            dialog_id: "sealednote",
+            legacy_kind: None,
+        },
+        ItemMeta {
+            display_name: "Field Survey",
+            description: "Bob's field survey of a nearby zone.",
+            category: KeyItem,
+            held_item_id: None,
+            dialog_id: "fieldsurvey",
+            legacy_kind: None,
+        },
+        ItemMeta {
+            display_name: "Gate Key",
+            description: "Opens a sealed dimension-gate door.",
+            category: KeyItem,
+            held_item_id: None,
+            dialog_id: "gatekey",
+            legacy_kind: None,
+        },
+        ItemMeta {
+            display_name: "Debug Lens",
+            description: "See the seams of the world. For an AI, debug is a sense organ.",
+            category: KeyItem,
+            held_item_id: None,
+            dialog_id: "debuglens",
+            legacy_kind: None,
+        },
+        ItemMeta {
+            display_name: "—",
+            description: "An empty slot, waiting for an item that does not exist yet.",
+            category: Reserved,
+            held_item_id: None,
+            dialog_id: "reservedslot",
+            legacy_kind: None,
+        },
     ]
 };
 
@@ -465,7 +634,10 @@ mod tests {
             }
         }
         // The wired set is exactly these nine (everything else is None).
-        let wired: Vec<Item> = Item::ALL.into_iter().filter(|i| i.held_item_id().is_some()).collect();
+        let wired: Vec<Item> = Item::ALL
+            .into_iter()
+            .filter(|i| i.held_item_id().is_some())
+            .collect();
         assert_eq!(wired.len(), 9, "wired held-items: {wired:?}");
     }
 
@@ -473,7 +645,10 @@ mod tests {
     fn dialog_ids_are_unique_and_round_trip() {
         let mut seen = std::collections::HashSet::new();
         for item in Item::ALL {
-            assert!(seen.insert(item.dialog_id()), "duplicate dialog id {item:?}");
+            assert!(
+                seen.insert(item.dialog_id()),
+                "duplicate dialog id {item:?}"
+            );
             assert_eq!(Item::from_dialog_id(item.dialog_id()), Some(item));
         }
         // Loose spellings normalize.
@@ -491,7 +666,10 @@ mod tests {
         }
         // Legacy dialog ids still resolve through the new catalog.
         assert_eq!(Item::from_dialog_id("healthpotion"), Some(Item::HealthCell));
-        assert_eq!(Item::from_dialog_id("health_potion"), Some(Item::HealthCell));
+        assert_eq!(
+            Item::from_dialog_id("health_potion"),
+            Some(Item::HealthCell)
+        );
     }
 
     #[test]
@@ -508,7 +686,11 @@ mod tests {
         assert_eq!(owned.count(Item::HealthCell), 5);
         assert_eq!(owned.take(Item::HealthCell, 4), 4);
         assert_eq!(owned.count(Item::HealthCell), 1);
-        assert_eq!(owned.take(Item::HealthCell, 9), 1, "take floors and reports actual");
+        assert_eq!(
+            owned.take(Item::HealthCell, 9),
+            1,
+            "take floors and reports actual"
+        );
     }
 
     #[test]

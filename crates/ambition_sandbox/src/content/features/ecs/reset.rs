@@ -245,8 +245,14 @@ mod reset_tests {
         app.world_mut().write_message(ResetRoomFeaturesEvent);
         app.update();
 
-        assert!(app.world().get::<Opened>(chest).is_none(), "reset un-opens chests");
-        assert!(app.world().get::<Collected>(pickup).is_none(), "reset un-collects pickups");
+        assert!(
+            app.world().get::<Opened>(chest).is_none(),
+            "reset un-opens chests"
+        );
+        assert!(
+            app.world().get::<Collected>(pickup).is_none(),
+            "reset un-collects pickups"
+        );
         assert!(
             !app.world().get::<BreakableFeature>(brk).unwrap().broken(),
             "reset restores a broken breakable to Intact"

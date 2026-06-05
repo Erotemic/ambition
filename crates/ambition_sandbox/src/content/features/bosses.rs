@@ -754,7 +754,6 @@ pub fn boss_animation_keys_for_profile(
     }
 }
 
-
 #[cfg(test)]
 mod scripted_pattern_tests {
     use super::*;

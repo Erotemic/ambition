@@ -43,11 +43,23 @@ fn base() -> AgentAction {
 /// (the idle tail also covers the blink cooldown before the next gap).
 fn walk_to_then_blink(sim: &mut SandboxSim, edge: f32) {
     for _ in 0..80 {
-        if sim.step(AgentAction { move_x: 1.0, ..base() }).player_pos.0 >= edge {
+        if sim
+            .step(AgentAction {
+                move_x: 1.0,
+                ..base()
+            })
+            .player_pos
+            .0
+            >= edge
+        {
             break;
         }
     }
-    sim.step(AgentAction { attack: true, aim_x: 1.0, ..base() }); // blink right
+    sim.step(AgentAction {
+        attack: true,
+        aim_x: 1.0,
+        ..base()
+    }); // blink right
     for _ in 0..30 {
         sim.step(base());
     }
@@ -70,13 +82,24 @@ fn blink_run_blinks_across_the_death_gaps() {
     // Grab the Blink ability off the start floor (x[120,160]).
     let mut grabbed = false;
     for _ in 0..60 {
-        if sim.step(AgentAction { move_x: 1.0, ..base() }).player_pos.0 >= 115.0 {
+        if sim
+            .step(AgentAction {
+                move_x: 1.0,
+                ..base()
+            })
+            .player_pos
+            .0
+            >= 115.0
+        {
             grabbed = true;
             break;
         }
     }
     assert!(grabbed, "should reach the blink pickup");
-    sim.step(AgentAction { attack: true, ..base() }); // Attack while overlapping = grab
+    sim.step(AgentAction {
+        attack: true,
+        ..base()
+    }); // Attack while overlapping = grab
     sim.step(base());
 
     // Gap 1: near edge ≈ x300; blink should land on the mid floor x[420,620].
@@ -86,7 +109,8 @@ fn blink_run_blinks_across_the_death_gaps() {
         after1.player_pos.0 > 360.0 && after1.resets == 0,
         "should have blinked across gap 1 onto the mid floor (x={}, resets={}); a \
          jump can't clear it under the low ceiling and walking falls onto the hazard",
-        after1.player_pos.0, after1.resets,
+        after1.player_pos.0,
+        after1.resets,
     );
 
     // Gap 2: near edge ≈ x620; blink should land on the end floor x[740,1008].
@@ -95,6 +119,7 @@ fn blink_run_blinks_across_the_death_gaps() {
     assert!(
         after2.player_pos.0 > 740.0 && after2.resets == 0,
         "should have blinked across gap 2 to the end floor (x={}, resets={})",
-        after2.player_pos.0, after2.resets,
+        after2.player_pos.0,
+        after2.resets,
     );
 }

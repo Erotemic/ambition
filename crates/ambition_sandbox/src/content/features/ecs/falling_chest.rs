@@ -108,7 +108,11 @@ mod falling_chest_tests {
     fn chest_settles_just_above_the_floor() {
         let world = world_with_floor();
         let half = ae::Vec2::new(12.0, 12.0);
-        let settled = settled_chest_center(&world, ae::Vec2::new(200.0, 50.0), ae::Vec2::new(24.0, 24.0));
+        let settled = settled_chest_center(
+            &world,
+            ae::Vec2::new(200.0, 50.0),
+            ae::Vec2::new(24.0, 24.0),
+        );
         assert_eq!(settled.x, 200.0, "no horizontal drift");
         assert!(settled.y > 50.0, "the chest fell");
         let body = ae::Aabb::new(settled, half);
@@ -116,7 +120,10 @@ mod falling_chest_tests {
             !world.body_overlaps_any(body, |b| matches!(b.kind, ae::BlockKind::Solid)),
             "settled body must not overlap the floor (settled {settled:?})"
         );
-        assert!(settled.y + half.y <= 300.0, "chest bottom stays above the floor top");
+        assert!(
+            settled.y + half.y <= 300.0,
+            "chest bottom stays above the floor top"
+        );
         assert!(
             300.0 - (settled.y + half.y) <= 13.0,
             "chest comes to rest within a substep of the floor"
@@ -131,7 +138,14 @@ mod falling_chest_tests {
             ae::Vec2::new(50.0, 50.0),
             Vec::new(),
         );
-        let settled = settled_chest_center(&world, ae::Vec2::new(200.0, 50.0), ae::Vec2::new(24.0, 24.0));
-        assert!(settled.y > 100.0, "with no floor the chest keeps falling (settled {settled:?})");
+        let settled = settled_chest_center(
+            &world,
+            ae::Vec2::new(200.0, 50.0),
+            ae::Vec2::new(24.0, 24.0),
+        );
+        assert!(
+            settled.y > 100.0,
+            "with no floor the chest keeps falling (settled {settled:?})"
+        );
     }
 }

@@ -261,8 +261,8 @@ mod tests {
     #[test]
     fn assign_slots_pairs_each_actor_with_a_slot_on_its_own_side() {
         let mut b = board(); // 3 melee slots: slot 0 rightward (+80), 1 & 2 leftward (-40)
-        // Request order is left-then-right on purpose; the pairing must be
-        // by distance, not request order.
+                             // Request order is left-then-right on purpose; the pairing must be
+                             // by distance, not request order.
         let reqs = vec![
             SlotRequest {
                 actor_id: "left",

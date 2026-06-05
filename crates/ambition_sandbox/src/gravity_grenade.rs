@@ -150,7 +150,11 @@ mod tests {
         let mut q = app.world_mut().query::<(&GravityZone, &TemporaryZone)>();
         let wells: Vec<_> = q.iter(app.world()).collect();
         assert_eq!(wells.len(), 1, "one temporary well opened");
-        assert_eq!(wells[0].0.dir, ae::Vec2::new(0.0, -1.0), "the well pulls up");
+        assert_eq!(
+            wells[0].0.dir,
+            ae::Vec2::new(0.0, -1.0),
+            "the well pulls up"
+        );
         assert!(wells[0].1.remaining > 0.0, "the well has a lifetime");
     }
 }

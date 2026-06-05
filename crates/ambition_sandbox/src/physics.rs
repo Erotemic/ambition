@@ -107,9 +107,7 @@ pub struct GravityZones {
 /// before the actor integrators each frame.
 pub fn collect_gravity_zones(mut snapshot: ResMut<GravityZones>, zones: Query<&GravityZone>) {
     snapshot.zones.clear();
-    snapshot
-        .zones
-        .extend(zones.iter().map(|z| (z.aabb, z.dir)));
+    snapshot.zones.extend(zones.iter().map(|z| (z.aabb, z.dir)));
 }
 
 /// A [`GravityZone`] that slides horizontally — a "gravity column riding a moving
@@ -178,10 +176,7 @@ pub fn oscillate_gravity_zones(
 /// [`GravityField`].)
 pub fn gravity_dir_at(pos: Vec2, zones: &GravityZones, base_dir: Vec2) -> Vec2 {
     for (aabb, dir) in &zones.zones {
-        if pos.x >= aabb.min.x
-            && pos.x <= aabb.max.x
-            && pos.y >= aabb.min.y
-            && pos.y <= aabb.max.y
+        if pos.x >= aabb.min.x && pos.x <= aabb.max.x && pos.y >= aabb.min.y && pos.y <= aabb.max.y
         {
             return dir.normalize_or_zero();
         }
@@ -340,10 +335,16 @@ mod tests {
         let up = Vec2::new(0.0, -1.0);
         let right = Vec2::new(1.0, 0.0);
         // Down: normal facing flip.
-        assert!(gravity_aware_flip_x(-1.0, down), "facing left flips under down gravity");
+        assert!(
+            gravity_aware_flip_x(-1.0, down),
+            "facing left flips under down gravity"
+        );
         assert!(!gravity_aware_flip_x(1.0, down));
         // Up: inverted (the #33 bug — moving left must not face right upside down).
-        assert!(!gravity_aware_flip_x(-1.0, up), "facing left must NOT flip upside down");
+        assert!(
+            !gravity_aware_flip_x(-1.0, up),
+            "facing left must NOT flip upside down"
+        );
         assert!(gravity_aware_flip_x(1.0, up));
         // Sideways (#33, the bug Jon found after the up fix): RIGHT gravity
         // inverts (the 90° roll points the rolled sprite opposite the down=right
@@ -400,7 +401,10 @@ mod tests {
 
         // Outside the zone → ambient (down).
         app.update();
-        assert!(app.world().resource::<GravityField>().dir.y > 0.0, "starts ambient down");
+        assert!(
+            app.world().resource::<GravityField>().dir.y > 0.0,
+            "starts ambient down"
+        );
 
         // Inside the zone → gravity points up.
         app.world_mut()
@@ -450,14 +454,20 @@ mod tests {
 
         // A body INSIDE the column feels up — independent of any other body.
         let inside = Vec2::new(300.0, 50.0);
-        assert!(gravity_dir_at(inside, &zones, base).y < 0.0, "inside the column → up");
+        assert!(
+            gravity_dir_at(inside, &zones, base).y < 0.0,
+            "inside the column → up"
+        );
         assert_eq!(local_gravity_sign(inside, &zones, base), -1.0);
 
         // A body OUTSIDE the column (e.g. the player elsewhere) still feels the
         // ambient down. This is the bug fix: the column body's gravity does NOT
         // depend on where the player is.
         let outside = Vec2::new(-200.0, 50.0);
-        assert!(gravity_dir_at(outside, &zones, base).y > 0.0, "outside → ambient down");
+        assert!(
+            gravity_dir_at(outside, &zones, base).y > 0.0,
+            "outside → ambient down"
+        );
         assert_eq!(local_gravity_sign(outside, &zones, base), 1.0);
     }
 
@@ -516,7 +526,11 @@ mod tests {
         app.update(); // phase -> 0.2, sin(0.2) > 0 -> slides right of base
         let aabb = app.world().get::<GravityZone>(e).unwrap().aabb;
         let c = (aabb.min + aabb.max) * 0.5;
-        assert!(c.x > base.x, "the column slid right of its base (x={})", c.x);
+        assert!(
+            c.x > base.x,
+            "the column slid right of its base (x={})",
+            c.x
+        );
         assert!((c.y - base.y).abs() < 1e-3, "vertical position unchanged");
     }
 }

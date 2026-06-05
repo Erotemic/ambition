@@ -323,7 +323,10 @@ mod intgrid_tests {
             INT_GRID_BLINK_HARD,
             INT_GRID_HAZARD,
         ] {
-            assert!(int_grid_value_to_block(v, min, size).is_ok(), "value {v} should map");
+            assert!(
+                int_grid_value_to_block(v, min, size).is_ok(),
+                "value {v} should map"
+            );
         }
         assert!(int_grid_value_to_block(99, min, size).is_err());
     }

@@ -263,7 +263,10 @@ mod tests {
             matches!(outcome, WorldHitOutcome::Continue),
             "a one-way is non-solid from below; got {outcome:?}"
         );
-        assert_eq!(body.bounces_remaining, 2, "passthrough must not spend a bounce");
+        assert_eq!(
+            body.bounces_remaining, 2,
+            "passthrough must not spend a bounce"
+        );
     }
 
     #[test]

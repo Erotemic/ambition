@@ -211,12 +211,18 @@ mod tests {
             parse_path_mode("ping-pong"),
             KinematicPathMode::PingPong
         ));
-        assert!(matches!(parse_path_mode("???"), KinematicPathMode::PingPong));
+        assert!(matches!(
+            parse_path_mode("???"),
+            KinematicPathMode::PingPong
+        ));
     }
 
     #[test]
     fn parse_pickup_kind_dispatches_each_prefix() {
-        assert_eq!(parse_pickup_kind("health:5"), PickupKind::Health { amount: 5 });
+        assert_eq!(
+            parse_pickup_kind("health:5"),
+            PickupKind::Health { amount: 5 }
+        );
         assert_eq!(
             parse_pickup_kind("currency:50"),
             PickupKind::Currency { amount: 50 }

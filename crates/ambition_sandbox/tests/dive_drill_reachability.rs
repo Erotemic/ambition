@@ -55,16 +55,35 @@ fn dive_drill_lunges_through_the_targets() {
 
     // Grab the Dive ability off the floor (pickup x[110,150]).
     for _ in 0..60 {
-        if sim.step(AgentAction { move_x: 1.0, ..base() }).player_pos.0 >= 120.0 {
+        if sim
+            .step(AgentAction {
+                move_x: 1.0,
+                ..base()
+            })
+            .player_pos
+            .0
+            >= 120.0
+        {
             break;
         }
     }
-    sim.step(AgentAction { attack: true, ..base() }); // grab
+    sim.step(AgentAction {
+        attack: true,
+        ..base()
+    }); // grab
     sim.step(base());
 
     // Walk to the firing spot ~x400 (left of the target line at x440..540).
     for _ in 0..80 {
-        if sim.step(AgentAction { move_x: 1.0, ..base() }).player_pos.0 >= 400.0 {
+        if sim
+            .step(AgentAction {
+                move_x: 1.0,
+                ..base()
+            })
+            .player_pos
+            .0
+            >= 400.0
+        {
             break;
         }
     }
@@ -80,7 +99,11 @@ fn dive_drill_lunges_through_the_targets() {
 
     // Dive right: the lunge crosses the hazard gap and strikes the target at the
     // landing (the dive is an offensive gap-closer).
-    sim.step(AgentAction { attack: true, aim_x: 1.0, ..base() });
+    sim.step(AgentAction {
+        attack: true,
+        aim_x: 1.0,
+        ..base()
+    });
     for _ in 0..20 {
         sim.step(base());
     }

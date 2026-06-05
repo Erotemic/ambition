@@ -154,7 +154,10 @@ fn point_in_solid(blocks: &[ae::Aabb], x: f32, y: f32) -> bool {
 
 /// True if the center is past the world bounds (the same test the OOB check uses).
 fn is_oob(pos: (f32, f32), world: (f32, f32)) -> bool {
-    pos.0 < -OOB_MARGIN || pos.0 > world.0 + OOB_MARGIN || pos.1 < -OOB_MARGIN || pos.1 > world.1 + OOB_MARGIN
+    pos.0 < -OOB_MARGIN
+        || pos.0 > world.0 + OOB_MARGIN
+        || pos.1 < -OOB_MARGIN
+        || pos.1 > world.1 + OOB_MARGIN
 }
 
 /// Margin (px) the player center must be *past* a face before we call it
@@ -409,7 +412,10 @@ fn format_report(
     // Split the OOB by whether a Solid sat at the crossed edge: `past_solid` are
     // the SUSPECT clip-throughs to investigate (vs walking off an open edge,
     // which is level-authoring, not a physics bug).
-    let past_solid = violations.iter().filter(|v| v.through_wall == Some(true)).count();
+    let past_solid = violations
+        .iter()
+        .filter(|v| v.through_wall == Some(true))
+        .count();
     let mut s = String::new();
     s.push_str(&format!(
         "\n=== collision-invariant oracle: {episodes} episodes, {total_steps} steps, {} violations ({suppressed} OOB suppressed at authored exits; {past_solid} OOB ended up PAST a Solid at the crossed edge — suspect clips, investigate) ===\n",
@@ -438,8 +444,21 @@ fn oob_classifies_through_wall_vs_open_edge() {
     let oob_right = (130.0, 50.0); // center well past the right edge (> ww + margin)
 
     // A Solid boundary wall at x[92,100]: being at x=130 means clipping through it.
-    let walled = [ae::Aabb::new(ae::Vec2::new(96.0, 50.0), ae::Vec2::new(4.0, 50.0))];
-    let v = check_step("r", 1, 1, oob_right, Some((90.0, 50.0)), world, &walled, &[], &mut supp);
+    let walled = [ae::Aabb::new(
+        ae::Vec2::new(96.0, 50.0),
+        ae::Vec2::new(4.0, 50.0),
+    )];
+    let v = check_step(
+        "r",
+        1,
+        1,
+        oob_right,
+        Some((90.0, 50.0)),
+        world,
+        &walled,
+        &[],
+        &mut supp,
+    );
     let side = v.iter().find(|x| matches!(x.kind, Kind::OutOfBoundsSide));
     assert_eq!(
         side.and_then(|x| x.through_wall),
@@ -448,7 +467,17 @@ fn oob_classifies_through_wall_vs_open_edge() {
     );
 
     // No wall at the right edge — the player walked off an open edge (design).
-    let v = check_step("r", 1, 1, oob_right, Some((90.0, 50.0)), world, &[], &[], &mut supp);
+    let v = check_step(
+        "r",
+        1,
+        1,
+        oob_right,
+        Some((90.0, 50.0)),
+        world,
+        &[],
+        &[],
+        &mut supp,
+    );
     let side = v.iter().find(|x| matches!(x.kind, Kind::OutOfBoundsSide));
     assert_eq!(
         side.and_then(|x| x.through_wall),
@@ -459,7 +488,17 @@ fn oob_classifies_through_wall_vs_open_edge() {
     // Drift: already OOB last tick (prev x=120 is also past the edge) → the same
     // event continuing, not a fresh crossing → NOT recorded. This is the gate that
     // kills the under_town_pipes [past-solid?] false positives.
-    let v = check_step("r", 1, 1, oob_right, Some((120.0, 50.0)), world, &walled, &[], &mut supp);
+    let v = check_step(
+        "r",
+        1,
+        1,
+        oob_right,
+        Some((120.0, 50.0)),
+        world,
+        &walled,
+        &[],
+        &mut supp,
+    );
     assert!(
         v.iter().all(|x| !matches!(x.kind, Kind::OutOfBoundsSide)),
         "a drift continuation (already OOB last tick) is not a new OOB event"
@@ -531,7 +570,10 @@ fn collision_oracle_full_sweep() {
     let rooms = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
         .expect("SandboxSim::new should succeed")
         .room_ids();
-    assert!(!rooms.is_empty(), "no rooms — the sweep would pass vacuously");
+    assert!(
+        !rooms.is_empty(),
+        "no rooms — the sweep would pass vacuously"
+    );
 
     let zones = load_loading_zones();
     let seeds = [1_u64, 42, 2026];

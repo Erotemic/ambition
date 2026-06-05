@@ -33,8 +33,8 @@ use crate::brain::{
 };
 use crate::content::features::components::ActorFaction;
 use crate::content::features::ecs::actors::ActorRuntime;
-use crate::content::features::ecs::hitbox::{Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime};
 use crate::content::features::ecs::boss_clusters::BossClusterRef;
+use crate::content::features::ecs::hitbox::{Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime};
 use crate::content::features::ecs::FeatureSimEntity;
 #[cfg(test)]
 use crate::content::features::enemies::EnemyArchetype;
@@ -974,7 +974,9 @@ pub fn spawn_saddle_point_from_special_messages(
                     Hitbox {
                         owner: entity,
                         source: ActorFaction::Boss,
-                        anchor: HitboxAnchor::World { center: boss.kin.pos },
+                        anchor: HitboxAnchor::World {
+                            center: boss.kin.pos,
+                        },
                         half_extent: ae::Vec2::new(he_x, he_y),
                         damage,
                         knockback_strength: SADDLE_POINT_KNOCKBACK,
@@ -1509,8 +1511,10 @@ mod tests {
     // -----------------------------------------------------------
 
     use crate::content::features::bosses::{BossBehaviorProfile, GNU_TON_APPLE_OWNER_PREFIX};
-    use crate::content::features::ecs::boss_clusters::{BossClusterScratch, BossConfig, BossStatus};
     use crate::content::features::ecs::boss_clusters::BossKinematics;
+    use crate::content::features::ecs::boss_clusters::{
+        BossClusterScratch, BossConfig, BossStatus,
+    };
     use crate::content::features::ecs::FeatureSimEntity;
     use crate::GameWorld;
 

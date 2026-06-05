@@ -97,7 +97,11 @@ pub fn handle_jump_buffer_clusters(
     } else if abilities.abilities.jump
         && (ground.on_ground || ground.coyote_timer > 0.0 || can_ladder_jump)
     {
-        super::integration::set_jump_velocity(&mut kinematics.vel, tuning.gravity_dir, tuning.jump_speed);
+        super::integration::set_jump_velocity(
+            &mut kinematics.vel,
+            tuning.gravity_dir,
+            tuning.jump_speed,
+        );
         ground.on_ground = false;
         action_buffer.jump = 0.0;
         ground.coyote_timer = 0.0;

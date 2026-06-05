@@ -228,7 +228,9 @@ mod menu_input_tests {
     use super::*;
 
     fn step(s: &mut MenuInputState, dir: Option<MenuDir>) -> MenuInputFrame {
-        s.step(false, false, false, false, dir, false, false, false, 0.1, 0.3, 0.1)
+        s.step(
+            false, false, false, false, dir, false, false, false, 0.1, 0.3, 0.1,
+        )
     }
 
     #[test]
@@ -266,13 +268,19 @@ mod menu_input_tests {
             ..Default::default()
         };
         assert!(!scroll.any_directional());
-        assert!(scroll.any_navigation(), "a scroll past 0.5 counts as navigation");
+        assert!(
+            scroll.any_navigation(),
+            "a scroll past 0.5 counts as navigation"
+        );
     }
 
     #[test]
     fn step_emits_new_direction_then_waits_under_the_initial_delay() {
         let mut s = MenuInputState::default();
-        assert!(step(&mut s, Some(MenuDir::Down)).down, "new direction emits at once");
+        assert!(
+            step(&mut s, Some(MenuDir::Down)).down,
+            "new direction emits at once"
+        );
         assert_eq!(s.held_dir, Some(MenuDir::Down));
         assert!(
             !step(&mut s, Some(MenuDir::Down)).down,
@@ -284,7 +292,9 @@ mod menu_input_tests {
     fn step_repeats_after_the_initial_delay() {
         let mut s = MenuInputState::default();
         step(&mut s, Some(MenuDir::Up)); // initial emit
-        let repeats = (0..20).filter(|_| step(&mut s, Some(MenuDir::Up)).up).count();
+        let repeats = (0..20)
+            .filter(|_| step(&mut s, Some(MenuDir::Up)).up)
+            .count();
         assert!(repeats > 0, "a held direction eventually repeats");
     }
 
@@ -300,8 +310,13 @@ mod menu_input_tests {
     #[test]
     fn step_cardinal_edges_always_emit() {
         let mut s = MenuInputState::default();
-        let f = s.step(true, false, false, false, None, false, false, false, 0.1, 0.3, 0.1);
-        assert!(f.up, "a cardinal edge emits regardless of the analog repeat state");
+        let f = s.step(
+            true, false, false, false, None, false, false, false, 0.1, 0.3, 0.1,
+        );
+        assert!(
+            f.up,
+            "a cardinal edge emits regardless of the analog repeat state"
+        );
         assert_eq!(s.held_dir, None);
     }
 }

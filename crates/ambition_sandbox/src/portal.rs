@@ -253,8 +253,10 @@ pub fn raycast_solids(
     for block in &world.blocks {
         // Portals adhere to one-way platforms too (#39); blink/dive pass through
         // them, so they leave `include_one_way` off.
-        let hittable = matches!(block.kind, ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. })
-            || (include_one_way && matches!(block.kind, ae::BlockKind::OneWay));
+        let hittable = matches!(
+            block.kind,
+            ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
+        ) || (include_one_way && matches!(block.kind, ae::BlockKind::OneWay));
         if !hittable {
             continue;
         }
@@ -336,8 +338,7 @@ pub fn raycast_through_portals(
             if dir.dot(enter.normal) >= 0.0 {
                 continue;
             }
-            if let Some((t, _)) =
-                ray_aabb(origin, dir, ae::Aabb::new(enter.pos, enter.half_extent))
+            if let Some((t, _)) = ray_aabb(origin, dir, ae::Aabb::new(enter.pos, enter.half_extent))
             {
                 if t <= budget && t < solid_t && nearest.map_or(true, |(bt, _, _)| t < bt) {
                     nearest = Some((t, *enter, exit));
@@ -409,10 +410,7 @@ pub struct PortalGunPickup {
 /// Tick down each pickup's [`PortalGunPickup::arm_timer`] so a just-dropped gun
 /// becomes grabbable after the short delay. Always runs (cheap; at most a
 /// couple of pickups).
-pub fn arm_portal_pickups(
-    time: Res<crate::WorldTime>,
-    mut pickups: Query<&mut PortalGunPickup>,
-) {
+pub fn arm_portal_pickups(time: Res<crate::WorldTime>, mut pickups: Query<&mut PortalGunPickup>) {
     let dt = time.sim_dt();
     if dt <= 0.0 {
         return;
@@ -432,7 +430,12 @@ pub fn drop_portal_gun_system(
     control: Res<ControlFrame>,
     mut commands: Commands,
     mut players: Query<
-        (Entity, &PlayerKinematics, &mut ActionSet, Option<&StashedActionSet>),
+        (
+            Entity,
+            &PlayerKinematics,
+            &mut ActionSet,
+            Option<&StashedActionSet>,
+        ),
         (
             With<PlayerEntity>,
             With<PrimaryPlayer>,
@@ -486,7 +489,14 @@ pub fn pickup_portal_gun_system(
     already_have: Query<(), (With<PlayerEntity>, With<PrimaryPlayer>, With<PortalGun>)>,
     // One item at a time (Smash-style): can't grab the portal gun while holding
     // a ground item (axe / gun-sword / javelin).
-    holding_item: Query<(), (With<PlayerEntity>, With<PrimaryPlayer>, With<crate::features::HeldItem>)>,
+    holding_item: Query<
+        (),
+        (
+            With<PlayerEntity>,
+            With<PrimaryPlayer>,
+            With<crate::features::HeldItem>,
+        ),
+    >,
     pickups: Query<(Entity, &PortalGunPickup)>,
     mut owned: Option<ResMut<crate::items::OwnedItems>>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
@@ -691,10 +701,7 @@ pub fn portal_toggle_system(
     // A genuine interactable (door / NPC / switch) claims the Interact press,
     // matching the HUD label — only toggle portal mode when there's none.
     if let Some(nearest) = nearest.as_deref() {
-        if !matches!(
-            nearest.0,
-            crate::player::affordances::InteractVariant::None
-        ) {
+        if !matches!(nearest.0, crate::player::affordances::InteractVariant::None) {
             return;
         }
     }
@@ -705,7 +712,6 @@ pub fn portal_toggle_system(
         gun.next_color = gun.next_color.other();
     }
 }
-
 
 /// One-frame flag: set true the frame the player teleports through a portal,
 /// so the trace position-delta detector treats it as an *intentional* teleport
@@ -1009,7 +1015,10 @@ pub enum TransitStep {
     /// Not touching a portal (or latched) — do nothing.
     Idle,
     /// Begin transit into this portal: insert [`PortalTransit`], play ENTER sfx.
-    Begin { color: PortalColor, portal_pos: Vec2 },
+    Begin {
+        color: PortalColor,
+        portal_pos: Vec2,
+    },
     /// The centroid crossed: move the body to `pos`, set velocity `vel`, add
     /// `roll_delta` to its roll (the somersault), latch the cooldown, flip the
     /// straddled portal to `exit_color`, mark crossed, play EXIT sfx. `warp_rot`
@@ -1111,12 +1120,17 @@ pub fn transit_step(
                 // (centroid in front of the plane, or moving into it). The
                 // capture box is the thin face plus a small margin; its
                 // along-surface span is the opening, so this also gates laterally.
-                let capture =
-                    ae::Aabb::new(enter.pos, enter.half_extent + Vec2::splat(TRANSIT_BEGIN_MARGIN));
+                let capture = ae::Aabb::new(
+                    enter.pos,
+                    enter.half_extent + Vec2::splat(TRANSIT_BEGIN_MARGIN),
+                );
                 let entering =
                     pp::front_distance(center, &frame) > 0.0 || vel.dot(enter.normal) < 0.0;
                 if entering && body.strict_intersects(capture) {
-                    return TransitStep::Begin { color: enter.color, portal_pos: enter.pos };
+                    return TransitStep::Begin {
+                        color: enter.color,
+                        portal_pos: enter.pos,
+                    };
                 }
             }
             TransitStep::Idle
@@ -1290,14 +1304,24 @@ pub fn portal_transit_system(
     match step {
         TransitStep::Idle | TransitStep::Continue => {}
         TransitStep::Begin { color, portal_pos } => {
-            commands.entity(entity).insert(PortalTransit { straddling: color, crossed: false });
+            commands.entity(entity).insert(PortalTransit {
+                straddling: color,
+                crossed: false,
+            });
             sfx.write(crate::audio::SfxMessage::Play {
                 id: ambition_sfx::ids::PORTAL_ENTER,
                 pos: portal_pos,
             });
         }
         TransitStep::Transfer {
-            pos, vel, roll_delta, facing_flip, enter_normal, exit_normal, exit_color, exit_pos,
+            pos,
+            vel,
+            roll_delta,
+            facing_flip,
+            enter_normal,
+            exit_normal,
+            exit_color,
+            exit_pos,
         } => {
             kin.pos = pos;
             kin.vel = vel;
@@ -1312,13 +1336,16 @@ pub fn portal_transit_system(
             }
             // Always set the component latch too, so a gun-less player can't
             // ping-pong through an authored pair.
-            commands.entity(entity).insert(PortalCooldown(TELEPORT_COOLDOWN_S));
+            commands
+                .entity(entity)
+                .insert(PortalCooldown(TELEPORT_COOLDOWN_S));
             // Protect the emergence: for a short window the held input can't push
             // back INTO the exit wall (so physics carries the body out — Jon's
             // "don't let input cancel the portal emission").
-            commands
-                .entity(entity)
-                .insert(PortalEmission { exit_normal, timer: PORTAL_EMISSION_TIME });
+            commands.entity(entity).insert(PortalEmission {
+                exit_normal,
+                timer: PORTAL_EMISSION_TIME,
+            });
             // Warp the held input ONLY when the warped direction stays
             // horizontally expressible — i.e. the same-wall turn-around
             // (`facing_flip`). For a floor↔wall 90° turn the warp would rotate a
@@ -1404,7 +1431,11 @@ pub fn warp_portal_input(
     mut commands: Commands,
     mut control: ResMut<ControlFrame>,
     mut player: Query<
-        (Entity, Option<&PortalInputWarp>, Option<&mut PortalEmission>),
+        (
+            Entity,
+            Option<&PortalInputWarp>,
+            Option<&mut PortalEmission>,
+        ),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
 ) {
@@ -1497,10 +1528,7 @@ pub fn despawn_orphaned_portals(
 /// always-on slice gun doesn't fire portals on every Attack while testing
 /// other sandbox mechanics. (Visible build only.) Final gating is via
 /// held-item equip; this is a developer convenience until then.
-pub fn portal_dev_toggle_system(
-    keys: Res<ButtonInput<KeyCode>>,
-    mut guns: Query<&mut PortalGun>,
-) {
+pub fn portal_dev_toggle_system(keys: Res<ButtonInput<KeyCode>>, mut guns: Query<&mut PortalGun>) {
     if !keys.just_pressed(KeyCode::F7) {
         return;
     }
@@ -1519,7 +1547,10 @@ pub fn portal_teleport_ground_items(
     portals: Query<&Portal>,
     mut items: Query<&mut crate::item_pickup::GroundItem>,
 ) {
-    let blue = portals.iter().find(|p| p.color == PortalColor::Blue).copied();
+    let blue = portals
+        .iter()
+        .find(|p| p.color == PortalColor::Blue)
+        .copied();
     let orange = portals
         .iter()
         .find(|p| p.color == PortalColor::Orange)
@@ -1695,7 +1726,10 @@ fn apply_actor_transit(
     match step {
         TransitStep::Idle | TransitStep::Continue => {}
         TransitStep::Begin { color, portal_pos } => {
-            commands.entity(entity).insert(PortalTransit { straddling: color, crossed: false });
+            commands.entity(entity).insert(PortalTransit {
+                straddling: color,
+                crossed: false,
+            });
             sfx.write(crate::audio::SfxMessage::Play {
                 id: ambition_sfx::ids::PORTAL_ENTER,
                 pos: portal_pos,
@@ -1703,7 +1737,14 @@ fn apply_actor_transit(
         }
         // Non-player actors have no held input to warp, so `warp_rot` is ignored.
         // (`facing_flip` is too — actor facing follows their own AI each tick.)
-        TransitStep::Transfer { pos: new_pos, vel: new_vel, roll_delta, exit_color, exit_pos, .. } => {
+        TransitStep::Transfer {
+            pos: new_pos,
+            vel: new_vel,
+            roll_delta,
+            exit_color,
+            exit_pos,
+            ..
+        } => {
             if let Some(pos) = pos {
                 *pos = new_pos;
             }
@@ -1717,7 +1758,9 @@ fn apply_actor_transit(
                 t.crossed = true;
                 t.straddling = exit_color;
             }
-            commands.entity(entity).insert(PortalCooldown(TELEPORT_COOLDOWN_S));
+            commands
+                .entity(entity)
+                .insert(PortalCooldown(TELEPORT_COOLDOWN_S));
             sfx.write(crate::audio::SfxMessage::Play {
                 id: ambition_sfx::ids::PORTAL_EXIT,
                 pos: exit_pos,
@@ -1772,11 +1815,15 @@ pub fn sync_portal_disorientation_indicator(
     }
     // A little spinning-arrow glyph just above the head.
     let pos = kin.pos + Vec2::new(0.0, -(kin.size.y * 0.5 + 16.0));
-    let translation = crate::config::world_to_bevy(&world.0, pos, crate::config::WORLD_Z_PLAYER + 9.0);
+    let translation =
+        crate::config::world_to_bevy(&world.0, pos, crate::config::WORLD_Z_PLAYER + 9.0);
     commands.spawn((
         PortalDisorientIndicator,
         Text2d::new("\u{21BB}"), // ↻ clockwise open circle arrow
-        TextFont { font_size: 18.0, ..default() },
+        TextFont {
+            font_size: 18.0,
+            ..default()
+        },
         TextColor(Color::srgb(0.74, 0.92, 1.0)),
         Transform::from_translation(translation),
         Name::new("Portal disorientation indicator"),
@@ -2077,7 +2124,10 @@ pub fn sync_portal_visuals(
         ));
         commands.spawn((
             PortalVisual,
-            Sprite::from_color(core, Vec2::new(length * 0.86, PORTAL_VISUAL_THICKNESS * 0.42)),
+            Sprite::from_color(
+                core,
+                Vec2::new(length * 0.86, PORTAL_VISUAL_THICKNESS * 0.42),
+            ),
             Transform::from_translation(core_translation).with_rotation(rotation),
             Name::new("Portal visual (core)"),
         ));
@@ -2089,7 +2139,10 @@ pub fn sync_portal_visuals(
         commands.spawn((
             PortalVisual,
             Text2d::new(portal.color.name()),
-            TextFont { font_size: 12.0, ..default() },
+            TextFont {
+                font_size: 12.0,
+                ..default()
+            },
             TextColor(core),
             Transform::from_translation(label_translation),
             Name::new("Portal label"),
@@ -2150,10 +2203,19 @@ mod tests {
         let world = world_with_two_walls().0;
         // Fire left from mid-room: hit the left wall's right face at x=20,
         // normal pointing back toward the shooter (+x).
-        let (hit, normal) = raycast_solids(&world, Vec2::new(200.0, 200.0), Vec2::new(-1.0, 0.0), 6000.0, false)
-            .expect("ray should hit the left wall");
+        let (hit, normal) = raycast_solids(
+            &world,
+            Vec2::new(200.0, 200.0),
+            Vec2::new(-1.0, 0.0),
+            6000.0,
+            false,
+        )
+        .expect("ray should hit the left wall");
         assert!((hit.x - 20.0).abs() < 0.001, "hit x={}", hit.x);
-        assert!(normal.x > 0.5 && normal.y.abs() < 0.001, "normal={normal:?}");
+        assert!(
+            normal.x > 0.5 && normal.y.abs() < 0.001,
+            "normal={normal:?}"
+        );
     }
 
     #[test]
@@ -2173,7 +2235,7 @@ mod tests {
         };
         let from = Vec2::new(200.0, 100.0);
         let dir = Vec2::new(0.0, 1.0); // down toward the one-way's top (y=300)
-        // A portal shot adheres to the one-way (#39).
+                                       // A portal shot adheres to the one-way (#39).
         let portal_hit = raycast_solids(&world, from, dir, 6000.0, true);
         assert!(
             portal_hit.is_some_and(|(hit, n)| (hit.y - 300.0).abs() < 1.0 && n.y < -0.5),
@@ -2195,7 +2257,11 @@ mod tests {
             "portal-los",
             Vec2::new(400.0, 400.0),
             Vec2::new(200.0, 200.0),
-            vec![ae::Block::solid("left", Vec2::new(0.0, 0.0), Vec2::new(20.0, 400.0))],
+            vec![ae::Block::solid(
+                "left",
+                Vec2::new(0.0, 0.0),
+                Vec2::new(20.0, 400.0),
+            )],
         );
         let portals = vec![
             Portal {
@@ -2212,7 +2278,14 @@ mod tests {
             },
         ];
         // Without portals, casting down hits nothing.
-        assert!(raycast_solids(&world, Vec2::new(200.0, 300.0), Vec2::new(0.0, 1.0), 6000.0, false).is_none());
+        assert!(raycast_solids(
+            &world,
+            Vec2::new(200.0, 300.0),
+            Vec2::new(0.0, 1.0),
+            6000.0,
+            false
+        )
+        .is_none());
         // Through the portal pair, the ray emerges from the wall portal heading
         // left and lands on the left wall's right face (x≈20, normal +x).
         let hit = raycast_through_portals(
@@ -2240,8 +2313,14 @@ mod tests {
             Vec2::new(0.0, -1.0),
             Vec2::new(0.0, -1.0),
         );
-        assert!(out.x > 0.0, "horizontal direction kept (right stays right), got {out:?}");
-        assert!(out.y < 0.0, "into-floor reverses to out-of-floor (down → up), got {out:?}");
+        assert!(
+            out.x > 0.0,
+            "horizontal direction kept (right stays right), got {out:?}"
+        );
+        assert!(
+            out.y < 0.0,
+            "into-floor reverses to out-of-floor (down → up), got {out:?}"
+        );
     }
 
     #[test]
@@ -2403,13 +2482,18 @@ mod tests {
             Vec2::new(400.0, 305.0),
             Vec2::new(24.0, 40.0),
             Vec2::new(0.0, 50.0),
-            Some(PortalTransit { straddling: PortalColor::Purple, crossed: false }),
+            Some(PortalTransit {
+                straddling: PortalColor::Purple,
+                crossed: false,
+            }),
             0.0,
             &portals,
             Vec2::new(0.0, 1.0),
         );
         match step {
-            TransitStep::Transfer { exit_color, pos, .. } => {
+            TransitStep::Transfer {
+                exit_color, pos, ..
+            } => {
                 assert_eq!(exit_color, PortalColor::Yellow, "purple links to yellow");
                 assert!(pos.x > 600.0, "emerges at the yellow portal, got {pos:?}");
             }
@@ -2424,8 +2508,8 @@ mod tests {
         let down = Vec2::new(0.0, 1.0); // ceiling
         let left = Vec2::new(-1.0, 0.0); // right-wall normal
         let right = Vec2::new(1.0, 0.0); // left-wall normal
-        // Same wall (both normals left) is the only "face in, back out" case →
-        // facing mirrors so it comes out face-first.
+                                         // Same wall (both normals left) is the only "face in, back out" case →
+                                         // facing mirrors so it comes out face-first.
         assert!(portal_facing_flips(left, left, g));
         // Walls facing EACH OTHER (portal_bridge) go straight through → no flip.
         assert!(!portal_facing_flips(right, left, g));
@@ -2443,7 +2527,7 @@ mod tests {
         let up = Vec2::new(0.0, -1.0); // floor normal
         let down = Vec2::new(0.0, 1.0); // ceiling normal
         let left = Vec2::new(-1.0, 0.0); // right-wall normal
-        // Floor↔floor and ceiling↔ceiling KEEP the 180° tumble (feet-in → reorient).
+                                         // Floor↔floor and ceiling↔ceiling KEEP the 180° tumble (feet-in → reorient).
         assert!((somersault_roll(up, up, g).abs() - PI).abs() < 1e-5);
         assert!((somersault_roll(down, down, g).abs() - PI).abs() < 1e-5);
         // Two portals on the SAME wall (both normals horizontal) impart NO tumble —
@@ -2502,7 +2586,10 @@ mod tests {
         }
         let angle = app.world().get::<ActorRoll>(player).unwrap().angle;
         let from_upright = angle.min(std::f32::consts::TAU - angle); // distance to 0 mod 2π
-        assert!(from_upright < 1e-2, "should right itself to gravity-up, got {angle}");
+        assert!(
+            from_upright < 1e-2,
+            "should right itself to gravity-up, got {angle}"
+        );
     }
 
     #[test]
@@ -2577,7 +2664,10 @@ mod tests {
 
         // Not overlapping → gravity stays down.
         app.update();
-        assert!(app.world().resource::<crate::physics::BaseGravity>().dir.y > 0.0, "starts down");
+        assert!(
+            app.world().resource::<crate::physics::BaseGravity>().dir.y > 0.0,
+            "starts down"
+        );
 
         // Step onto the switch → flips up.
         app.world_mut()
@@ -2591,7 +2681,10 @@ mod tests {
         );
         // Staying on it does not re-flip (latched).
         app.update();
-        assert!(app.world().resource::<crate::physics::BaseGravity>().dir.y < 0.0, "stays flipped while on it");
+        assert!(
+            app.world().resource::<crate::physics::BaseGravity>().dir.y < 0.0,
+            "stays flipped while on it"
+        );
 
         // Leave, then re-enter → flips back down.
         app.world_mut()
@@ -2692,7 +2785,10 @@ mod tests {
         // timer (not distance) guards against a re-grab.
         let pickup_pos = {
             let mut q = app.world_mut().query::<&PortalGunPickup>();
-            q.iter(app.world()).next().expect("a pickup was dropped").pos
+            q.iter(app.world())
+                .next()
+                .expect("a pickup was dropped")
+                .pos
         };
         app.world_mut()
             .get_mut::<PlayerKinematics>(player)
@@ -2808,18 +2904,24 @@ mod tests {
             app.world().resource::<ControlFrame>().axis_x < -0.5,
             "held right is warped to left while the warp is active"
         );
-        assert!(app.world().get::<PortalInputWarp>(player).is_some(), "warp persists while held");
+        assert!(
+            app.world().get::<PortalInputWarp>(player).is_some(),
+            "warp persists while held"
+        );
 
         // Release movement → warp drops, input passes through untouched next frame.
         app.world_mut().resource_mut::<ControlFrame>().axis_x = 0.0;
         app.update();
-        assert!(app.world().get::<PortalInputWarp>(player).is_none(), "release drops the warp");
+        assert!(
+            app.world().get::<PortalInputWarp>(player).is_none(),
+            "release drops the warp"
+        );
 
         // Re-arm, then press a clearly different direction (left) → warp drops.
         app.world_mut().entity_mut(player).insert(PortalInputWarp {
-                    n_in: Vec2::new(-1.0, 0.0),
-                    n_out: Vec2::new(-1.0, 0.0),
-                    anchor: Vec2::new(1.0, 0.0),
+            n_in: Vec2::new(-1.0, 0.0),
+            n_out: Vec2::new(-1.0, 0.0),
+            anchor: Vec2::new(1.0, 0.0),
         });
         app.world_mut().resource_mut::<ControlFrame>().axis_x = -1.0;
         app.update();
@@ -2849,11 +2951,21 @@ mod tests {
             .world_mut()
             .spawn((PlayerEntity, PrimaryPlayer, PlayerAbilities::default()))
             .id();
-        app.world_mut().get_mut::<PlayerAbilities>(player).unwrap().abilities.ledge_grab = true;
+        app.world_mut()
+            .get_mut::<PlayerAbilities>(player)
+            .unwrap()
+            .abilities
+            .ledge_grab = true;
 
         // Not transiting: the reset wins, ledge_grab stays enabled.
         app.update();
-        assert!(app.world().get::<PlayerAbilities>(player).unwrap().abilities.ledge_grab);
+        assert!(
+            app.world()
+                .get::<PlayerAbilities>(player)
+                .unwrap()
+                .abilities
+                .ledge_grab
+        );
 
         // Transiting: even though the reset re-enables it first, the suppressor
         // re-applies every frame, so it stays disabled across MANY frames.
@@ -2864,7 +2976,11 @@ mod tests {
         for _ in 0..5 {
             app.update();
             assert!(
-                !app.world().get::<PlayerAbilities>(player).unwrap().abilities.ledge_grab,
+                !app.world()
+                    .get::<PlayerAbilities>(player)
+                    .unwrap()
+                    .abilities
+                    .ledge_grab,
                 "ledge_grab must stay suppressed every frame while transiting"
             );
         }
@@ -2872,7 +2988,13 @@ mod tests {
         // Transit ends: the per-frame reset restores it (no save/restore needed).
         app.world_mut().entity_mut(player).remove::<PortalTransit>();
         app.update();
-        assert!(app.world().get::<PlayerAbilities>(player).unwrap().abilities.ledge_grab);
+        assert!(
+            app.world()
+                .get::<PlayerAbilities>(player)
+                .unwrap()
+                .abilities
+                .ledge_grab
+        );
     }
 
     #[test]
@@ -2886,7 +3008,10 @@ mod tests {
             .spawn((
                 PlayerEntity,
                 PrimaryPlayer,
-                PortalEmission { exit_normal: Vec2::new(-1.0, 0.0), timer: 1.0 },
+                PortalEmission {
+                    exit_normal: Vec2::new(-1.0, 0.0),
+                    timer: 1.0,
+                },
             ))
             .id();
         // Holding RIGHT (back into the wall) is stripped so physics carries you out.
@@ -2949,10 +3074,17 @@ mod tests {
             "a gun-less player standing on an authored portal begins transit"
         );
         // Sink the centroid past the plane → transfer to the yellow partner.
-        app.world_mut().get_mut::<PlayerKinematics>(player).unwrap().pos.y = 305.0;
+        app.world_mut()
+            .get_mut::<PlayerKinematics>(player)
+            .unwrap()
+            .pos
+            .y = 305.0;
         app.update();
         let pos = app.world().get::<PlayerKinematics>(player).unwrap().pos;
-        assert!(pos.x > 550.0, "transfers to the yellow portal without a gun, got {pos:?}");
+        assert!(
+            pos.x > 550.0,
+            "transfers to the yellow portal without a gun, got {pos:?}"
+        );
     }
 
     #[test]
@@ -2982,29 +3114,50 @@ mod tests {
         // Frame 1: leading edge in the aperture → transit BEGINS, no transfer.
         app.update();
         assert!(
-            app.world().get::<PortalTransit>(player).is_some_and(|t| !t.crossed),
+            app.world()
+                .get::<PortalTransit>(player)
+                .is_some_and(|t| !t.crossed),
             "transit begins without an instant teleport"
         );
-        assert!(app.world().get::<PlayerKinematics>(player).unwrap().pos.x < 250.0, "still entry-side");
-        assert!(!app.world().resource::<IntentionalTeleport>().0, "no teleport flag yet");
+        assert!(
+            app.world().get::<PlayerKinematics>(player).unwrap().pos.x < 250.0,
+            "still entry-side"
+        );
+        assert!(
+            !app.world().resource::<IntentionalTeleport>().0,
+            "no teleport flag yet"
+        );
 
         // Push the centroid across the plane (as the integrator would as the body
         // sinks into the carved opening).
-        app.world_mut().get_mut::<PlayerKinematics>(player).unwrap().pos.y = 305.0;
+        app.world_mut()
+            .get_mut::<PlayerKinematics>(player)
+            .unwrap()
+            .pos
+            .y = 305.0;
         app.update();
         assert!(
-            app.world().get::<PortalTransit>(player).is_some_and(|t| t.crossed),
+            app.world()
+                .get::<PortalTransit>(player)
+                .is_some_and(|t| t.crossed),
             "centroid crossing transfers the authoritative body"
         );
         let pos = app.world().get::<PlayerKinematics>(player).unwrap().pos;
-        assert!(pos.x > 550.0, "authoritative body is now exit-side, got {pos:?}");
+        assert!(
+            pos.x > 550.0,
+            "authoritative body is now exit-side, got {pos:?}"
+        );
         assert!(
             app.world().resource::<IntentionalTeleport>().0,
             "the centroid transfer flags an intentional teleport (suppresses the trace auto-dump)"
         );
 
         // Move clear of the exit plane → transit ends (re-armed via cooldown).
-        app.world_mut().get_mut::<PlayerKinematics>(player).unwrap().pos.y = 270.0;
+        app.world_mut()
+            .get_mut::<PlayerKinematics>(player)
+            .unwrap()
+            .pos
+            .y = 270.0;
         app.update();
         assert!(
             app.world().get::<PortalTransit>(player).is_none(),
@@ -3049,7 +3202,10 @@ mod tests {
                 },
                 Sprite::from_color(Color::WHITE, Vec2::new(24.0, 40.0)),
                 Visibility::Inherited,
-                PortalTransit { straddling: PortalColor::Blue, crossed: false },
+                PortalTransit {
+                    straddling: PortalColor::Blue,
+                    crossed: false,
+                },
             ))
             .id();
         app.update();
@@ -3085,7 +3241,10 @@ mod tests {
             .id();
         app.update();
         assert!(
-            app.world().resource::<crate::features::FeatureEcsWorldOverlay>().portal_carves.is_empty(),
+            app.world()
+                .resource::<crate::features::FeatureEcsWorldOverlay>()
+                .portal_carves
+                .is_empty(),
             "a lone portal does not carve"
         );
         // Complete the pair — but with NO body transiting, still nothing carves
@@ -3098,15 +3257,24 @@ mod tests {
         });
         app.update();
         assert!(
-            app.world().resource::<crate::features::FeatureEcsWorldOverlay>().portal_carves.is_empty(),
+            app.world()
+                .resource::<crate::features::FeatureEcsWorldOverlay>()
+                .portal_carves
+                .is_empty(),
             "a placed pair with no body transiting stays solid (no walk-in pocket)"
         );
         // A body transiting the blue portal carves EXACTLY that portal.
         let _ = blue;
-        app.world_mut().spawn(PortalTransit { straddling: PortalColor::Blue, crossed: false });
+        app.world_mut().spawn(PortalTransit {
+            straddling: PortalColor::Blue,
+            crossed: false,
+        });
         app.update();
         assert_eq!(
-            app.world().resource::<crate::features::FeatureEcsWorldOverlay>().portal_carves.len(),
+            app.world()
+                .resource::<crate::features::FeatureEcsWorldOverlay>()
+                .portal_carves
+                .len(),
             1,
             "only the portal a body is passing through is carved"
         );
@@ -3153,13 +3321,16 @@ mod tests {
         // The opened portal is room-scoped, so a room transition despawns it —
         // no lingering portals that reappear when you leave and come back (#41).
         let scoped = {
-            let mut q = app.world_mut().query_filtered::<
-                (),
-                (With<Portal>, With<crate::presentation::rendering::RoomScopedEntity>),
-            >();
+            let mut q = app.world_mut().query_filtered::<(), (
+                With<Portal>,
+                With<crate::presentation::rendering::RoomScopedEntity>,
+            )>();
             q.iter(app.world()).count()
         };
-        assert!(scoped >= 1, "an opened portal must be RoomScopedEntity (#41)");
+        assert!(
+            scoped >= 1,
+            "an opened portal must be RoomScopedEntity (#41)"
+        );
         assert_eq!(
             {
                 let mut q = app.world_mut().query::<&PortalProjectile>();

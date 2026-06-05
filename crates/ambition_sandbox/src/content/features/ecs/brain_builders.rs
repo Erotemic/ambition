@@ -393,7 +393,10 @@ mod tests {
         let e = enemy("medium_striker");
         let set = enemy_default_action_set(&e);
         assert!(
-            matches!(set.ranged, Some(crate::brain::RangedActionSpec::Rock { .. })),
+            matches!(
+                set.ranged,
+                Some(crate::brain::RangedActionSpec::Rock { .. })
+            ),
             "medium_striker should carry a ranged Rock verb; got {:?}",
             set.ranged
         );

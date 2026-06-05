@@ -464,7 +464,9 @@ pub fn register_functions(runner: &mut DialogueRunner, mirror: &YarnStateMirror)
     // can show it ("You have {wallet_balance()}g").
     let m = Arc::clone(&mirror.0);
     lib.add_function("wallet_balance", move || -> f32 {
-        m.read().map(|snap| snap.wallet_balance as f32).unwrap_or(0.0)
+        m.read()
+            .map(|snap| snap.wallet_balance as f32)
+            .unwrap_or(0.0)
     });
     // can_afford(price) -> bool: gate a purchase choice on affordability.
     let m = Arc::clone(&mirror.0);

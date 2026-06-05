@@ -104,8 +104,11 @@ pub fn fire_dive_system(
     if !mana.meter.try_spend(DIVE_MANA_COST) {
         return;
     }
-    let dir = dive_dir(crate::item_pickup::held_shot_aim(&control, kin.facing), kin.facing)
-        .normalize_or_zero();
+    let dir = dive_dir(
+        crate::item_pickup::held_shot_aim(&control, kin.facing),
+        kin.facing,
+    )
+    .normalize_or_zero();
     let from = kin.pos;
     // Stop a body-half short of the wall so the lunge never embeds. The pull-back
     // must use the body's extent IN THE LUNGE DIRECTION -- half-height for a
@@ -125,8 +128,10 @@ pub fn fire_dive_system(
     if let Some(w) = world.as_ref() {
         let landing = ae::Aabb::new(target, half);
         let embeds = w.0.blocks.iter().any(|b| {
-            matches!(b.kind, ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. })
-                && landing.strict_intersects(b.aabb)
+            matches!(
+                b.kind,
+                ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
+            ) && landing.strict_intersects(b.aabb)
         });
         if embeds {
             target = from;
@@ -206,7 +211,9 @@ mod tests {
         app.init_resource::<CapturedHits>();
         app.add_systems(Update, capture_hits.after(fire_dive_system));
         let player = spawn_player_holding_dive(&mut app);
-        app.world_mut().resource_mut::<ControlFrame>().attack_pressed = true;
+        app.world_mut()
+            .resource_mut::<ControlFrame>()
+            .attack_pressed = true;
         app.update();
         // No world → no walls → full lunge along facing (+x).
         let pos = app.world().get::<PlayerKinematics>(player).unwrap().pos;
@@ -218,7 +225,10 @@ mod tests {
         assert_eq!(hits.len(), 1, "one corridor hit emitted");
         assert_eq!(hits[0].damage, DIVE_DAMAGE);
         assert!(
-            matches!(hits[0].source, crate::features::HitSource::PlayerSlash { .. }),
+            matches!(
+                hits[0].source,
+                crate::features::HitSource::PlayerSlash { .. }
+            ),
             "player-side source so it spares the player",
         );
         // The corridor spans the dash: from start (100) to landing (240) along x.
@@ -257,7 +267,10 @@ mod tests {
             "downward dive embedded the body in the floor: bottom={}, floor top=200",
             pos.y + 20.0,
         );
-        assert!(pos.y > 100.0, "the dive should still carry the player downward");
+        assert!(
+            pos.y > 100.0,
+            "the dive should still carry the player downward"
+        );
     }
 
     #[test]
@@ -281,8 +294,14 @@ mod tests {
         app.init_resource::<CapturedHits>();
         app.add_systems(Update, capture_hits.after(fire_dive_system));
         let player = spawn_player_holding_dive(&mut app);
-        app.world_mut().get_mut::<PlayerMana>(player).unwrap().meter.current = 5.0;
-        app.world_mut().resource_mut::<ControlFrame>().attack_pressed = true;
+        app.world_mut()
+            .get_mut::<PlayerMana>(player)
+            .unwrap()
+            .meter
+            .current = 5.0;
+        app.world_mut()
+            .resource_mut::<ControlFrame>()
+            .attack_pressed = true;
         app.update();
         assert_eq!(
             app.world().resource::<CapturedHits>().0.len(),
@@ -295,7 +314,11 @@ mod tests {
             "and no lunge either"
         );
 
-        app.world_mut().get_mut::<PlayerMana>(player).unwrap().meter.current = 100.0;
+        app.world_mut()
+            .get_mut::<PlayerMana>(player)
+            .unwrap()
+            .meter
+            .current = 100.0;
         app.update();
         assert_eq!(
             app.world().resource::<CapturedHits>().0.len(),
@@ -307,12 +330,21 @@ mod tests {
     #[test]
     fn dive_dir_snaps_to_the_dominant_axis() {
         // Engine y grows downward, so "up" is -y.
-        assert_eq!(dive_dir(ae::Vec2::new(0.0, -1.0), 1.0), ae::Vec2::new(0.0, -1.0));
-        assert_eq!(dive_dir(ae::Vec2::new(1.0, 0.0), 1.0), ae::Vec2::new(1.0, 0.0));
+        assert_eq!(
+            dive_dir(ae::Vec2::new(0.0, -1.0), 1.0),
+            ae::Vec2::new(0.0, -1.0)
+        );
+        assert_eq!(
+            dive_dir(ae::Vec2::new(1.0, 0.0), 1.0),
+            ae::Vec2::new(1.0, 0.0)
+        );
         // Null aim falls back to facing.
         assert_eq!(dive_dir(ae::Vec2::ZERO, -1.0), ae::Vec2::new(-1.0, 0.0));
         // Dominant axis wins on a diagonal.
-        assert_eq!(dive_dir(ae::Vec2::new(0.3, -0.9), 1.0), ae::Vec2::new(0.0, -1.0));
+        assert_eq!(
+            dive_dir(ae::Vec2::new(0.3, -0.9), 1.0),
+            ae::Vec2::new(0.0, -1.0)
+        );
     }
 
     #[test]
@@ -322,6 +354,9 @@ mod tests {
         assert!(c.min.x <= 100.0 && c.max.x >= 240.0, "spans the dash on x");
         let half_y = (c.max.y - c.min.y) * 0.5;
         let half_x = (c.max.x - c.min.x) * 0.5;
-        assert!(half_x > half_y, "horizontal corridor is long along x: {c:?}");
+        assert!(
+            half_x > half_y,
+            "horizontal corridor is long along x: {c:?}"
+        );
     }
 }

@@ -3,8 +3,8 @@
 use bevy::prelude::*;
 
 use super::effects::{self, MenuAction};
-use super::ui::{OotBackButton, OotSlot};
 use super::state::OotMenuState;
+use super::ui::{OotBackButton, OotSlot};
 use crate::brain::ActionSet;
 use crate::game_mode::GameMode;
 use crate::input::MenuControlFrame;
@@ -99,7 +99,14 @@ pub fn oot_menu_input(
     if confirm {
         let item = state.selected_item();
         let action = effects::decide(item, &owned);
-        apply_menu_action(action, &mut owned, &mut commands, &mut players, &mut mana_q, &mut heals);
+        apply_menu_action(
+            action,
+            &mut owned,
+            &mut commands,
+            &mut players,
+            &mut mana_q,
+            &mut heals,
+        );
         state.status = effects::status_for(action);
     }
 }
@@ -110,7 +117,11 @@ pub fn oot_menu_input(
 pub(crate) type MenuEffectPlayers<'w, 's> = Query<
     'w,
     's,
-    (Entity, &'static mut ActionSet, Option<&'static StashedActionSet>),
+    (
+        Entity,
+        &'static mut ActionSet,
+        Option<&'static StashedActionSet>,
+    ),
     (With<PlayerEntity>, With<PrimaryPlayer>),
 >;
 
@@ -252,12 +263,8 @@ pub fn oot_menu_pointer_input(
                 }
             }
             Interaction::Pressed => {
-                let press = tap_mode.resolve_press(
-                    index,
-                    state.cursor,
-                    false,
-                    &mut state.pointer_armed,
-                );
+                let press =
+                    tap_mode.resolve_press(index, state.cursor, false, &mut state.pointer_armed);
                 state.cursor = index;
                 state.focus.mark_pointer(index);
                 if matches!(

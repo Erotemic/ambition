@@ -77,7 +77,9 @@ fn inventory_button_opens_and_closes_the_grid() {
 #[test]
 fn equipping_a_weapon_attaches_a_held_item_and_swaps_the_action_set() {
     let (mut app, player) = test_app();
-    app.world_mut().resource_mut::<OwnedItems>().grant(Item::Axe, 1);
+    app.world_mut()
+        .resource_mut::<OwnedItems>()
+        .grant(Item::Axe, 1);
 
     // Open.
     press(&mut app, |f| f.inventory = true);
@@ -102,7 +104,11 @@ fn equipping_a_weapon_attaches_a_held_item_and_swaps_the_action_set() {
     );
     // The axe grants a melee verb.
     assert!(
-        app.world().get::<ActionSet>(player).unwrap().melee.is_some(),
+        app.world()
+            .get::<ActionSet>(player)
+            .unwrap()
+            .melee
+            .is_some(),
         "the axe's melee verb is overlaid onto the player's action set"
     );
 }
@@ -110,7 +116,9 @@ fn equipping_a_weapon_attaches_a_held_item_and_swaps_the_action_set() {
 #[test]
 fn confirming_an_equipped_weapon_unequips_it() {
     let (mut app, player) = test_app();
-    app.world_mut().resource_mut::<OwnedItems>().grant(Item::Axe, 1);
+    app.world_mut()
+        .resource_mut::<OwnedItems>()
+        .grant(Item::Axe, 1);
     press(&mut app, |f| f.inventory = true);
     app.update();
     app.world_mut().resource_mut::<OotMenuState>().cursor = Item::Axe.index();
@@ -194,19 +202,29 @@ fn equipping_the_portal_gun_attaches_and_detaches_its_component() {
     press(&mut app, |f| f.select = true);
     app.update();
     assert!(
-        app.world().get::<crate::portal::PortalGun>(player).is_some(),
+        app.world()
+            .get::<crate::portal::PortalGun>(player)
+            .is_some(),
         "equipping the portal gun attaches the PortalGun component"
     );
-    assert!(app.world().resource::<OwnedItems>().is_equipped(Item::PortalGun));
+    assert!(app
+        .world()
+        .resource::<OwnedItems>()
+        .is_equipped(Item::PortalGun));
 
     // Confirm again → unequip.
     press(&mut app, |f| f.select = true);
     app.update();
     assert!(
-        app.world().get::<crate::portal::PortalGun>(player).is_none(),
+        app.world()
+            .get::<crate::portal::PortalGun>(player)
+            .is_none(),
         "confirming the equipped portal gun stows it"
     );
-    assert!(!app.world().resource::<OwnedItems>().is_equipped(Item::PortalGun));
+    assert!(!app
+        .world()
+        .resource::<OwnedItems>()
+        .is_equipped(Item::PortalGun));
 }
 
 #[test]

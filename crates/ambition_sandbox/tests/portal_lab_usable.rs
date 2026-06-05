@@ -57,7 +57,10 @@ fn portal_lab_authored_portals_are_enterable_without_the_gun() {
     let mut max_jump = 0.0_f32;
     let mut resets = sim.observation().resets;
     for _ in 0..240 {
-        let obs = sim.step(AgentAction { move_x: 1.0, ..base() });
+        let obs = sim.step(AgentAction {
+            move_x: 1.0,
+            ..base()
+        });
         let cur = obs.player_pos;
         let jump = ((cur.0 - prev.0).powi(2) + (cur.1 - prev.1).powi(2)).sqrt();
         max_jump = max_jump.max(jump);
@@ -74,5 +77,8 @@ fn portal_lab_authored_portals_are_enterable_without_the_gun() {
          (biggest single-frame move was {max_jump:.1}px) — the static portals are \
          not transiting; is the gun-less transit / carve path wired?"
     );
-    assert_eq!(resets, 0, "transited the portal without dying (resets={resets})");
+    assert_eq!(
+        resets, 0,
+        "transited the portal without dying (resets={resets})"
+    );
 }

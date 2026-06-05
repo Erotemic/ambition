@@ -136,7 +136,11 @@ mod tests {
         assert_eq!(count_args(""), 0);
         assert_eq!(count_args("\"sealednote\" 1"), 2);
         assert_eq!(count_args("\"sealednote\""), 1);
-        assert_eq!(count_args("\"a b c\" 1"), 2, "a quoted span with spaces is one arg");
+        assert_eq!(
+            count_args("\"a b c\" 1"),
+            2,
+            "a quoted span with spaces is one arg"
+        );
         assert_eq!(count_args("HealthPotion 3"), 2);
         assert_eq!(count_args("   42   "), 1);
     }
@@ -172,7 +176,11 @@ mod tests {
                         call.name,
                         expected,
                         call.arg_count,
-                        if call.arg_count < expected { "few" } else { "many" },
+                        if call.arg_count < expected {
+                            "few"
+                        } else {
+                            "many"
+                        },
                     ));
                 }
             }

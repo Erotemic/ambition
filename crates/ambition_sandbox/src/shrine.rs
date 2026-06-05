@@ -55,8 +55,8 @@ pub fn heal_save_shrine_system(
     }
     health.reset(); // health to full
     mana.meter.refill_full(); // mana to full
-    // Save checkpoint: mark the live save changed so `autosave_sandbox_save`
-    // persists the current state to disk.
+                              // Save checkpoint: mark the live save changed so `autosave_sandbox_save`
+                              // persists the current state to disk.
     save.set_changed();
     sfx.write(crate::audio::SfxMessage::Play {
         id: ambition_sfx::ids::WORLD_HEALTH_COLLECT,
@@ -143,13 +143,19 @@ mod tests {
         });
 
         // Interact while overlapping → heal to full.
-        app.world_mut().resource_mut::<ControlFrame>().interact_pressed = true;
+        app.world_mut()
+            .resource_mut::<ControlFrame>()
+            .interact_pressed = true;
         app.update();
 
         let health = *app.world().get::<PlayerHealth>(player).unwrap();
         assert_eq!(health.current(), health.max(), "health should be full");
         let mana = app.world().get::<PlayerMana>(player).unwrap().meter;
-        assert!(mana.is_full(), "mana should be refilled, got {}", mana.current);
+        assert!(
+            mana.is_full(),
+            "mana should be refilled, got {}",
+            mana.current
+        );
     }
 
     #[test]
@@ -186,7 +192,9 @@ mod tests {
         });
 
         // Interact pressed but not touching → no heal.
-        app.world_mut().resource_mut::<ControlFrame>().interact_pressed = true;
+        app.world_mut()
+            .resource_mut::<ControlFrame>()
+            .interact_pressed = true;
         app.update();
         assert_eq!(
             app.world().get::<PlayerHealth>(player).unwrap().current(),

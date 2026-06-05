@@ -233,13 +233,25 @@ pub(super) fn grounded_against_gravity(world: &World, body: Aabb, gravity_dir: V
     let half_x = (body.right() - body.left()) * 0.5;
     let half_y = (body.bottom() - body.top()) * 0.5;
     let probe = if gravity_dir.x > 0.0 {
-        Aabb::new(Vec2::new(body.right() + PROBE * 0.5, cy), Vec2::new(PROBE * 0.5, half_y))
+        Aabb::new(
+            Vec2::new(body.right() + PROBE * 0.5, cy),
+            Vec2::new(PROBE * 0.5, half_y),
+        )
     } else if gravity_dir.x < 0.0 {
-        Aabb::new(Vec2::new(body.left() - PROBE * 0.5, cy), Vec2::new(PROBE * 0.5, half_y))
+        Aabb::new(
+            Vec2::new(body.left() - PROBE * 0.5, cy),
+            Vec2::new(PROBE * 0.5, half_y),
+        )
     } else if gravity_dir.y < 0.0 {
-        Aabb::new(Vec2::new(cx, body.top() - PROBE * 0.5), Vec2::new(half_x, PROBE * 0.5))
+        Aabb::new(
+            Vec2::new(cx, body.top() - PROBE * 0.5),
+            Vec2::new(half_x, PROBE * 0.5),
+        )
     } else {
-        Aabb::new(Vec2::new(cx, body.bottom() + PROBE * 0.5), Vec2::new(half_x, PROBE * 0.5))
+        Aabb::new(
+            Vec2::new(cx, body.bottom() + PROBE * 0.5),
+            Vec2::new(half_x, PROBE * 0.5),
+        )
     };
     world.blocks.iter().any(|b| {
         matches!(b.kind, BlockKind::Solid | BlockKind::OneWay) && probe.strict_intersects(b.aabb)
@@ -299,9 +311,7 @@ fn resolve_axis_clusters(
         }
         match axis {
             Axis::X => {
-                if let Some((dx, normal)) =
-                    resolve_x_penetration(aabb, block.aabb, world.size.x)
-                {
+                if let Some((dx, normal)) = resolve_x_penetration(aabb, block.aabb, world.size.x) {
                     kinematics.pos.x += dx;
                     wall.wall_normal_x = normal;
                     kinematics.vel.x = 0.0;
@@ -430,7 +440,11 @@ pub fn try_pogo_clusters(
         .find(|block| block.kind.is_pogo_target() && hitbox.strict_intersects(block.aabb));
     if let Some(block) = hit {
         let aabb = block.aabb;
-        super::integration::set_jump_velocity(&mut kinematics.vel, tuning.gravity_dir, tuning.pogo_speed);
+        super::integration::set_jump_velocity(
+            &mut kinematics.vel,
+            tuning.gravity_dir,
+            tuning.pogo_speed,
+        );
         crate::engine_core::player_clusters::refresh_movement_resources_clusters(
             abilities, dash, jump_state, tuning,
         );

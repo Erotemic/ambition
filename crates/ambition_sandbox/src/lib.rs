@@ -47,9 +47,9 @@ pub mod save;
 // leaves the sandbox-specific ones (`content`, sandbox `assets`) behind.
 pub mod ability_cooldown;
 pub(crate) mod assets;
-pub(crate) mod body_mode;
 pub mod beam;
 pub mod blink;
+pub(crate) mod body_mode;
 pub mod bomb;
 pub(crate) mod boss_encounter;
 pub(crate) mod brain;
@@ -65,43 +65,43 @@ pub(crate) mod enemy_projectile;
 #[cfg(feature = "falling_sand")]
 pub(crate) mod falling_sand;
 pub(crate) mod host;
+pub mod hud_overlay;
 pub(crate) mod intro;
 pub(crate) mod inventory;
 pub mod inventory_persist;
-pub(crate) mod map_menu;
-pub(crate) mod music;
-pub(crate) mod pause_menu;
-pub mod hud_overlay;
 pub mod item_pickup;
 pub mod items;
+pub(crate) mod map_menu;
 pub mod mark_recall;
+pub(crate) mod music;
 #[cfg(feature = "oot_inventory")]
 pub mod oot_menu;
+pub(crate) mod pause_menu;
 // 3D-cube OoT pause menu (#31): the data seam wiring our 24-item inventory into
 // the reusable `ambition_inventory_ui` cube model. Renderer promotion pending.
+pub mod dive;
+pub mod meteor;
 #[cfg(feature = "oot_inventory")]
 pub mod oot_cube;
 #[cfg(feature = "oot_inventory")]
 pub mod oot_cube_app;
-pub mod physics;
-pub mod possession;
-pub mod puppy_slug_gun;
 pub(crate) mod persistence;
+pub mod physics;
 pub mod portal;
 pub mod portal_pieces;
+pub mod possession;
 pub(crate) mod presentation;
 pub(crate) mod projectile;
+pub mod puppy_slug_gun;
 pub(crate) mod runtime;
+pub mod sentry;
 pub mod shockwave;
 pub mod shop;
-pub mod volley;
-pub mod vortex;
-pub mod sentry;
-pub mod dive;
-pub mod meteor;
 pub mod shrine;
 pub(crate) mod time;
 pub(crate) mod ui_nav;
+pub mod volley;
+pub mod vortex;
 pub(crate) mod world;
 
 // Public re-exports double as the external API: `features`, `rooms`,

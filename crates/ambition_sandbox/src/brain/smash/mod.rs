@@ -241,16 +241,13 @@ fn maybe_substitute_ranged(
     actions: &ActionSet,
     state: &mut SmashState,
 ) -> SpecificAction {
-    if actions.ranged.is_none()
-        || obs.self_attacking
-        || state.ranged_cooldown_remaining > 0.0
-    {
+    if actions.ranged.is_none() || obs.self_attacking || state.ranged_cooldown_remaining > 0.0 {
         return action;
     }
     let closing = matches!(action, SpecificAction::Walk { .. } | SpecificAction::Idle);
     let approaching = matches!(mode, BroadMode::Approach | BroadMode::Engage);
-    let in_band = obs.distance_to_target > cfg.attack_range
-        && obs.distance_to_target <= cfg.aggro_radius;
+    let in_band =
+        obs.distance_to_target > cfg.attack_range && obs.distance_to_target <= cfg.aggro_radius;
     if !(closing && approaching && in_band) {
         return action;
     }
@@ -365,7 +362,10 @@ mod tests {
         let snap = snap_with_target_at_x(300.0);
         let mut frame = crate::actor_control::ActorControlFrame::neutral();
         tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
-        assert!(frame.fire.is_some(), "ranged actor should fire at mid-range");
+        assert!(
+            frame.fire.is_some(),
+            "ranged actor should fire at mid-range"
+        );
         assert!(!frame.melee_pressed, "should not also melee at mid-range");
         assert!(
             state.ranged_cooldown_remaining > 0.0,
@@ -451,7 +451,10 @@ mod tests {
             "dash burst should exceed walk speed; got {}",
             frame.desired_vel.x
         );
-        assert!(state.dash_cooldown_remaining > 0.0, "dash cadence armed on commit");
+        assert!(
+            state.dash_cooldown_remaining > 0.0,
+            "dash cadence armed on commit"
+        );
     }
 
     #[test]

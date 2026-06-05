@@ -527,13 +527,20 @@ mod tests {
         ));
         app.update();
         let cap = app.world().resource::<CapturedHits>();
-        assert_eq!(cap.0.len(), 1, "player AOE emits exactly one feature-damaging hit");
+        assert_eq!(
+            cap.0.len(),
+            1,
+            "player AOE emits exactly one feature-damaging hit"
+        );
         assert!(
             matches!(cap.0[0].source, HitSource::PlayerSlash { .. }),
             "carries an attacker-side player source so apply_feature_hit_events applies it"
         );
         assert!(cap.0[0].source.is_attacker_side());
-        assert!(matches!(cap.0[0].target, HitTarget::Volume), "volume hit (every overlapping actor/boss)");
+        assert!(
+            matches!(cap.0[0].target, HitTarget::Volume),
+            "volume hit (every overlapping actor/boss)"
+        );
         assert_eq!(cap.0[0].damage, 5);
     }
 
@@ -550,13 +557,18 @@ mod tests {
         app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
         let owner = app
             .world_mut()
-            .spawn(crate::features::FeatureAabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)))
+            .spawn(crate::features::FeatureAabb::new(
+                ae::Vec2::ZERO,
+                ae::Vec2::splat(8.0),
+            ))
             .id();
         app.world_mut().spawn((
             Hitbox {
                 owner,
                 source: ActorFaction::Player,
-                anchor: HitboxAnchor::World { center: ae::Vec2::ZERO },
+                anchor: HitboxAnchor::World {
+                    center: ae::Vec2::ZERO,
+                },
                 half_extent: ae::Vec2::splat(40.0),
                 damage: 3,
                 knockback_strength: 0.0,

@@ -12,8 +12,8 @@
 
 use bevy::prelude::*;
 
-use crate::engine_core as ae;
 use crate::enemy_projectile::{EnemyProjectileSpawn, EnemyProjectileState};
+use crate::engine_core as ae;
 use crate::features::HeldItem;
 use crate::input::ControlFrame;
 use crate::player::{PlayerEntity, PlayerKinematics, PlayerMana, PrimaryPlayer};
@@ -132,18 +132,31 @@ mod tests {
     fn attack_with_the_volley_spawns_a_fan_of_player_faction_bolts() {
         let mut app = test_app();
         spawn_player_holding_volley(&mut app);
-        app.world_mut().resource_mut::<ControlFrame>().attack_pressed = true;
+        app.world_mut()
+            .resource_mut::<ControlFrame>()
+            .attack_pressed = true;
         app.update();
         let state = app.world().resource::<EnemyProjectileState>();
-        assert_eq!(state.bodies.len(), VOLLEY_SHOT_COUNT, "one bolt per fan slot");
+        assert_eq!(
+            state.bodies.len(),
+            VOLLEY_SHOT_COUNT,
+            "one bolt per fan slot"
+        );
         // Every bolt is Player-faction so the faction-aware pool routes its
         // damage to enemies, not the player who fired it.
         assert!(
-            state.bodies.iter().all(|b| b.body.faction == ProjectileFaction::Player),
+            state
+                .bodies
+                .iter()
+                .all(|b| b.body.faction == ProjectileFaction::Player),
             "the wielded volley fires player-faction bolts"
         );
         // The bolts fan out — not all the same direction.
-        let dirs: Vec<f32> = state.bodies.iter().map(|b| b.body.vel.y.atan2(b.body.vel.x)).collect();
+        let dirs: Vec<f32> = state
+            .bodies
+            .iter()
+            .map(|b| b.body.vel.y.atan2(b.body.vel.x))
+            .collect();
         assert!(
             dirs.windows(2).any(|w| (w[0] - w[1]).abs() > 1e-3),
             "the volley spreads across distinct angles"
@@ -155,6 +168,9 @@ mod tests {
         let mut app = test_app();
         spawn_player_holding_volley(&mut app);
         app.update();
-        assert_eq!(app.world().resource::<EnemyProjectileState>().bodies.len(), 0);
+        assert_eq!(
+            app.world().resource::<EnemyProjectileState>().bodies.len(),
+            0
+        );
     }
 }

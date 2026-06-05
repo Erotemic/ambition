@@ -320,7 +320,10 @@ mod tests {
         app.update();
         let near_x = app.world().get::<FeatureAabb>(near).unwrap().center.x;
         let far_x = app.world().get::<FeatureAabb>(far).unwrap().center.x;
-        assert!(near_x < 200.0, "the nearby pickup drifted toward the player (x={near_x})");
+        assert!(
+            near_x < 200.0,
+            "the nearby pickup drifted toward the player (x={near_x})"
+        );
         assert_eq!(far_x, 500.0, "the far pickup is out of magnet range");
     }
 }

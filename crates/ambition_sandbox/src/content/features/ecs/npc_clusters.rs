@@ -167,6 +167,12 @@ impl NpcClusterScratch {
         NpcConfig,
         NpcStatus,
     ) {
-        (self.kin, self.surface, self.motion, self.config, self.status)
+        (
+            self.kin,
+            self.surface,
+            self.motion,
+            self.config,
+            self.status,
+        )
     }
 }

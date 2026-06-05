@@ -23,8 +23,8 @@ use crate::enemy_projectile::{EnemyProjectileSpawn, EnemyProjectileState};
 use crate::engine_core as ae;
 use crate::features::HeldItem;
 use crate::input::ControlFrame;
-use crate::projectile::ProjectileFaction;
 use crate::player::{PlayerEntity, PlayerKinematics, PlayerMana, PrimaryPlayer};
+use crate::projectile::ProjectileFaction;
 
 /// Held-item id of the meteor gauntlet.
 pub const METEOR_ID: &str = "meteor";
@@ -55,7 +55,11 @@ const METEOR_HALF: ae::Vec2 = ae::Vec2::new(9.0, 9.0);
 /// aim's horizontal (defaulting to `facing`), all `METEOR_DROP_HEIGHT` above the
 /// player's level so they fall *down* onto the zone. Pure so the geometry is
 /// unit-testable without the projectile pool.
-fn meteor_strike_origins(player_pos: ae::Vec2, aim: ae::Vec2, facing: f32) -> [ae::Vec2; METEOR_COUNT] {
+fn meteor_strike_origins(
+    player_pos: ae::Vec2,
+    aim: ae::Vec2,
+    facing: f32,
+) -> [ae::Vec2; METEOR_COUNT] {
     let dir_x = if aim.x.abs() > 0.001 {
         aim.x.signum()
     } else {
@@ -158,12 +162,20 @@ mod tests {
     fn attack_rains_player_faction_meteors() {
         let mut app = test_app();
         spawn_player_holding_meteor(&mut app);
-        app.world_mut().resource_mut::<ControlFrame>().attack_pressed = true;
+        app.world_mut()
+            .resource_mut::<ControlFrame>()
+            .attack_pressed = true;
         app.update();
         let pool = app.world().resource::<EnemyProjectileState>();
-        assert_eq!(pool.bodies.len(), METEOR_COUNT, "one volley = METEOR_COUNT meteors");
+        assert_eq!(
+            pool.bodies.len(),
+            METEOR_COUNT,
+            "one volley = METEOR_COUNT meteors"
+        );
         assert!(
-            pool.bodies.iter().all(|b| b.body.faction == ProjectileFaction::Player),
+            pool.bodies
+                .iter()
+                .all(|b| b.body.faction == ProjectileFaction::Player),
             "meteors are player-faction (damage enemies, spare the player)"
         );
     }
@@ -173,21 +185,38 @@ mod tests {
         let mut app = test_app();
         spawn_player_holding_meteor(&mut app);
         app.update(); // no attack pressed
-        assert!(app.world().resource::<EnemyProjectileState>().bodies.is_empty());
+        assert!(app
+            .world()
+            .resource::<EnemyProjectileState>()
+            .bodies
+            .is_empty());
     }
 
     #[test]
     fn meteor_costs_mana_and_is_blocked_when_empty() {
         let mut app = test_app();
         let player = spawn_player_holding_meteor(&mut app);
-        app.world_mut().get_mut::<PlayerMana>(player).unwrap().meter.current = 5.0;
-        app.world_mut().resource_mut::<ControlFrame>().attack_pressed = true;
+        app.world_mut()
+            .get_mut::<PlayerMana>(player)
+            .unwrap()
+            .meter
+            .current = 5.0;
+        app.world_mut()
+            .resource_mut::<ControlFrame>()
+            .attack_pressed = true;
         app.update();
         assert!(
-            app.world().resource::<EnemyProjectileState>().bodies.is_empty(),
+            app.world()
+                .resource::<EnemyProjectileState>()
+                .bodies
+                .is_empty(),
             "no meteors when mana < cost"
         );
-        app.world_mut().get_mut::<PlayerMana>(player).unwrap().meter.current = 100.0;
+        app.world_mut()
+            .get_mut::<PlayerMana>(player)
+            .unwrap()
+            .meter
+            .current = 100.0;
         app.update();
         assert_eq!(
             app.world().resource::<EnemyProjectileState>().bodies.len(),
@@ -210,8 +239,14 @@ mod tests {
         assert!(mean_x > player_pos.x, "strike zone is ahead of the player");
         // They spread horizontally (not a single column).
         let min_x = origins.iter().map(|o| o.x).fold(f32::INFINITY, f32::min);
-        let max_x = origins.iter().map(|o| o.x).fold(f32::NEG_INFINITY, f32::max);
-        assert!((max_x - min_x) > 100.0, "meteors are spread across a band: {min_x}..{max_x}");
+        let max_x = origins
+            .iter()
+            .map(|o| o.x)
+            .fold(f32::NEG_INFINITY, f32::max);
+        assert!(
+            (max_x - min_x) > 100.0,
+            "meteors are spread across a band: {min_x}..{max_x}"
+        );
     }
 
     #[test]
@@ -219,6 +254,9 @@ mod tests {
         // Aiming left (negative facing, no directional hold) puts the zone to the left.
         let left = meteor_strike_origins(ae::Vec2::new(100.0, 100.0), ae::Vec2::ZERO, -1.0);
         let mean_x = left.iter().map(|o| o.x).sum::<f32>() / METEOR_COUNT as f32;
-        assert!(mean_x < 100.0, "a left-facing null-aim cast strikes to the left");
+        assert!(
+            mean_x < 100.0,
+            "a left-facing null-aim cast strikes to the left"
+        );
     }
 }

@@ -72,8 +72,12 @@ pub fn blink_system(
     }
     // Gate on the shared movement-ability cooldown (after confirming a real blink
     // so an aimless press doesn't burn it).
-    if !crate::ability_cooldown::try_use_ability(&mut cooldown, &mut commands, player, BLINK_COOLDOWN_S)
-    {
+    if !crate::ability_cooldown::try_use_ability(
+        &mut cooldown,
+        &mut commands,
+        player,
+        BLINK_COOLDOWN_S,
+    ) {
         return;
     }
     let from = kin.pos;
@@ -84,10 +88,9 @@ pub fn blink_system(
     // floor/ceiling and trips the inside-solid OOB detector.
     let half = kin.size * 0.5;
     let margin = (half.x * dir.x.abs() + half.y * dir.y.abs()) + 2.0;
-    let mut target = match world
-        .as_ref()
-        .and_then(|w| crate::portal::raycast_solids(&w.0, from, dir, BLINK_DISTANCE + margin, false))
-    {
+    let mut target = match world.as_ref().and_then(|w| {
+        crate::portal::raycast_solids(&w.0, from, dir, BLINK_DISTANCE + margin, false)
+    }) {
         Some((hit, _normal)) => hit - dir * margin,
         None => from + dir * BLINK_DISTANCE,
     };
@@ -97,8 +100,10 @@ pub fn blink_system(
     if let Some(w) = world.as_ref() {
         let landing = ae::Aabb::new(target, half);
         let embeds = w.0.blocks.iter().any(|b| {
-            matches!(b.kind, ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. })
-                && landing.strict_intersects(b.aabb)
+            matches!(
+                b.kind,
+                ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
+            ) && landing.strict_intersects(b.aabb)
         });
         if embeds {
             target = from;
@@ -189,7 +194,9 @@ mod tests {
         app.init_resource::<CapturedHits>();
         app.add_systems(bevy::prelude::Update, capture_hits.after(blink_system));
         let _player = spawn_player_holding(&mut app, BLINK_ID, 1.0);
-        app.world_mut().resource_mut::<ControlFrame>().attack_pressed = true;
+        app.world_mut()
+            .resource_mut::<ControlFrame>()
+            .attack_pressed = true;
         app.update();
         let hits = &app.world().resource::<CapturedHits>().0;
         assert_eq!(hits.len(), 1, "one shockwave on arrival");
@@ -201,7 +208,10 @@ mod tests {
         );
         assert_eq!(hits[0].damage, BLINK_SHOCKWAVE_DAMAGE);
         assert!(
-            matches!(hits[0].source, crate::features::HitSource::PlayerSlash { .. }),
+            matches!(
+                hits[0].source,
+                crate::features::HitSource::PlayerSlash { .. }
+            ),
             "player-side source so it spares the player",
         );
     }
@@ -211,7 +221,9 @@ mod tests {
         // No GameWorld inserted → the no-clamp branch teleports the full distance.
         let mut app = test_app();
         let player = spawn_player_holding(&mut app, BLINK_ID, 1.0);
-        app.world_mut().resource_mut::<ControlFrame>().attack_pressed = true;
+        app.world_mut()
+            .resource_mut::<ControlFrame>()
+            .attack_pressed = true;
         app.update();
         assert_eq!(
             player_pos(&app, player),
@@ -227,7 +239,7 @@ mod tests {
         // inside-solid OOB detector (the fly + aim-down blink case).
         let mut app = test_app();
         let player = spawn_player_holding(&mut app, BLINK_ID, 1.0); // (300,300), 24x40
-        // Solid floor whose top edge is at y=350, just below the player.
+                                                                    // Solid floor whose top edge is at y=350, just below the player.
         app.insert_resource(crate::GameWorld(ae::World::new(
             "test",
             ae::Vec2::new(600.0, 600.0),
@@ -262,7 +274,9 @@ mod tests {
     fn blink_follows_facing_left() {
         let mut app = test_app();
         let player = spawn_player_holding(&mut app, BLINK_ID, -1.0);
-        app.world_mut().resource_mut::<ControlFrame>().attack_pressed = true;
+        app.world_mut()
+            .resource_mut::<ControlFrame>()
+            .attack_pressed = true;
         app.update();
         assert_eq!(
             player_pos(&app, player),
@@ -281,7 +295,9 @@ mod tests {
         // Holding the bomb + attacking → blink_system ignores it.
         let mut app2 = test_app();
         let player2 = spawn_player_holding(&mut app2, "bomb", 1.0);
-        app2.world_mut().resource_mut::<ControlFrame>().attack_pressed = true;
+        app2.world_mut()
+            .resource_mut::<ControlFrame>()
+            .attack_pressed = true;
         app2.update();
         assert_eq!(player_pos(&app2, player2), ae::Vec2::new(300.0, 300.0));
     }

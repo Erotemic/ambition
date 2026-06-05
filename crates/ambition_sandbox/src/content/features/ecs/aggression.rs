@@ -89,7 +89,9 @@ pub fn apply_npc_stimuli(
             hostile.status.ai_mode = crate::character_ai::CharacterAiMode::Chase;
         }
         let (brain, action_set) = super::brain_builders::aggressive_brain_and_action_set_for_enemy(
-            &hostile.config, combat_kit, held_item,
+            &hostile.config,
+            combat_kit,
+            held_item,
         );
         make_entity_enemy(
             &mut commands,

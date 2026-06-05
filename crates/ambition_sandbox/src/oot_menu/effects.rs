@@ -102,7 +102,10 @@ mod tests {
             MenuAction::UseConsumable(Item::ManaCell)
         );
         // Owned but no effect → inspect.
-        assert_eq!(decide(Item::DataChip, &owned), MenuAction::Inspect(Item::DataChip));
+        assert_eq!(
+            decide(Item::DataChip, &owned),
+            MenuAction::Inspect(Item::DataChip)
+        );
     }
 
     #[test]
@@ -124,7 +127,10 @@ mod tests {
         // you equip/unequip it (unlike Blink, a lore-only ability slot).
         let mut owned = OwnedItems::default();
         owned.grant(Item::MarkRecall, 1);
-        assert!(Item::MarkRecall.held_item_id().is_some(), "Mark/Recall is wired");
+        assert!(
+            Item::MarkRecall.held_item_id().is_some(),
+            "Mark/Recall is wired"
+        );
         assert_eq!(
             decide(Item::MarkRecall, &owned),
             MenuAction::Equip(Item::MarkRecall)

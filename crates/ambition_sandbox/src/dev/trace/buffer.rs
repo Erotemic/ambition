@@ -139,7 +139,11 @@ mod buffer_tests {
         b.push_event(jump(2));
         b.push_event(jump(3)); // evicts tick 1
         assert_eq!(b.event_count(), 2);
-        assert_eq!(event_ticks(&b), vec![2, 3], "oldest evicted, order preserved");
+        assert_eq!(
+            event_ticks(&b),
+            vec![2, 3],
+            "oldest evicted, order preserved"
+        );
     }
 
     #[test]
@@ -155,7 +159,9 @@ mod buffer_tests {
         let mut b = GameplayTraceBuffer::with_capacity(4, 4);
         assert!(b.dump_request.is_none());
         b.request_dump(DumpReason::Manual);
-        b.request_dump(DumpReason::Programmatic { label: "later".into() });
+        b.request_dump(DumpReason::Programmatic {
+            label: "later".into(),
+        });
         assert!(
             matches!(b.dump_request, Some(DumpReason::Manual)),
             "the first dump request wins"

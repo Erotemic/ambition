@@ -85,7 +85,11 @@ mod tests {
         );
         let player = app
             .world_mut()
-            .spawn((PlayerEntity, PrimaryPlayer, PlayerWallet { balance: wallet }))
+            .spawn((
+                PlayerEntity,
+                PrimaryPlayer,
+                PlayerWallet { balance: wallet },
+            ))
             .id();
         (app, player)
     }
@@ -104,9 +108,17 @@ mod tests {
         let (mut app, player) = app_with(save, OwnedItems::starter(), 0);
         app.update();
         let owned = app.world().resource::<OwnedItems>();
-        assert_eq!(owned.count(Item::HealthCell), 4, "restored the saved consumable count");
+        assert_eq!(
+            owned.count(Item::HealthCell),
+            4,
+            "restored the saved consumable count"
+        );
         assert_eq!(owned.count(Item::Bomb), 1, "restored the unique weapon");
-        assert_eq!(owned.count(Item::Fireball), 0, "the saved set REPLACES the starter");
+        assert_eq!(
+            owned.count(Item::Fireball),
+            0,
+            "the saved set REPLACES the starter"
+        );
         assert_eq!(
             app.world().get::<PlayerWallet>(player).unwrap().balance,
             137,
@@ -120,13 +132,21 @@ mod tests {
         let (mut app, _player) = app_with(SandboxSave::default(), OwnedItems::starter(), 25);
         app.update();
         let owned = app.world().resource::<OwnedItems>();
-        assert!(owned.count(Item::Fireball) > 0, "fresh save keeps the starter");
+        assert!(
+            owned.count(Item::Fireball) > 0,
+            "fresh save keeps the starter"
+        );
         // …and persist wrote the starter + wallet back into the save.
         let data = app.world().resource::<SandboxSave>().data().clone();
-        assert!(data.inventory_saved, "the fresh inventory is now marked saved");
+        assert!(
+            data.inventory_saved,
+            "the fresh inventory is now marked saved"
+        );
         assert_eq!(data.wallet, 25, "wallet persisted");
         assert!(
-            data.items.iter().any(|i| i.id == Item::Fireball.dialog_id()),
+            data.items
+                .iter()
+                .any(|i| i.id == Item::Fireball.dialog_id()),
             "the starter items were written to the save"
         );
     }
@@ -145,6 +165,10 @@ mod tests {
         assert_eq!(restored.count(Item::Bomb), 1);
         assert_eq!(restored.count(Item::HealthCell), 5);
         assert_eq!(restored.count(Item::ManaCell), 2);
-        assert_eq!(restored.count(Item::Fireball), 0, "apply replaces, not merges");
+        assert_eq!(
+            restored.count(Item::Fireball),
+            0,
+            "apply replaces, not merges"
+        );
     }
 }

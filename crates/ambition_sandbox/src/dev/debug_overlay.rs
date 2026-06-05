@@ -168,7 +168,12 @@ pub fn draw_debug_overlay(
             &enemy_projectiles,
             &developer_tools,
         );
-        draw_held_projectiles(&mut gizmos, world, feature_q.held_projectiles.iter(), &developer_tools);
+        draw_held_projectiles(
+            &mut gizmos,
+            world,
+            feature_q.held_projectiles.iter(),
+            &developer_tools,
+        );
         draw_portals(&mut gizmos, world, portals.iter());
     }
 }
@@ -195,7 +200,13 @@ fn draw_held_projectiles<'a>(
         if let Some(splash) = proj.splash_aabb() {
             draw_aabb_styled(gizmos, world, splash, splash_color, developer_tools);
         }
-        draw_aabb_styled(gizmos, world, proj.contact_aabb(), contact_color, developer_tools);
+        draw_aabb_styled(
+            gizmos,
+            world,
+            proj.contact_aabb(),
+            contact_color,
+            developer_tools,
+        );
     }
 }
 
@@ -210,7 +221,12 @@ fn draw_portals<'a>(
 ) {
     for portal in portals {
         let color = portal.color.display().0.with_alpha(0.95);
-        draw_aabb(gizmos, world, ae::Aabb::new(portal.pos, portal.half_extent), color);
+        draw_aabb(
+            gizmos,
+            world,
+            ae::Aabb::new(portal.pos, portal.half_extent),
+            color,
+        );
         // Outward normal tick from the portal face into the room.
         let base = w2(world, portal.pos);
         let tip = w2(world, portal.pos + portal.normal * 22.0);

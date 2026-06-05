@@ -301,8 +301,14 @@ mod tests {
         // routes through `strict_intersects`, so this is the shared guarantee.
         let hurtbox = Aabb::new(Vec2::new(0.0, 0.0), Vec2::new(20.0, 20.0));
         let inside = Aabb::new(Vec2::new(2.0, -3.0), Vec2::new(3.0, 3.0));
-        assert!(inside.strict_intersects(hurtbox), "small box inside the hurtbox hits");
-        assert!(hurtbox.strict_intersects(inside), "and the check is symmetric");
+        assert!(
+            inside.strict_intersects(hurtbox),
+            "small box inside the hurtbox hits"
+        );
+        assert!(
+            hurtbox.strict_intersects(inside),
+            "and the check is symmetric"
+        );
     }
 
     #[test]

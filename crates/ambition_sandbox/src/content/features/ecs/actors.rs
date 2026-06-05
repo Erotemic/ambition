@@ -184,7 +184,10 @@ pub(crate) fn make_entity_enemy(
         // matching `NpcClusterQueryData` (and thus `update_ecs_npcs`);
         // the shared kin/surface/motion components are overwritten by
         // the enemy bundle below.
-        .remove::<(super::npc_clusters::NpcConfig, super::npc_clusters::NpcStatus)>()
+        .remove::<(
+            super::npc_clusters::NpcConfig,
+            super::npc_clusters::NpcStatus,
+        )>()
         .insert(hostile.clone().into_components());
     let (next_id, next_disp, next_health, next_combat, next_intent, next_cd) =
         enemy_component_snapshot(hostile);
@@ -527,8 +530,7 @@ pub fn update_ecs_actors(
                 } else {
                     crate::actor_control::ActorControlFrame::neutral()
                 };
-                let body_contact_damage_enabled =
-                    !brain.as_deref().is_some_and(crate::brain::Brain::is_player)
+                let body_contact_damage_enabled = !brain.as_deref().is_some_and(crate::brain::Brain::is_player)
                         // A POSSESSED actor is on your side — its body never hurts
                         // you on contact (its melee + ranged already redirect at
                         // its former allies; contact just stops harming the player).
@@ -768,7 +770,14 @@ pub fn update_ecs_npcs(
             );
             bf
         } else if let Some(brain) = brain.as_deref_mut() {
-            npc.tick_via_brain(brain, &feature_world, target_pos, sim_time, dt, gravity_sign)
+            npc.tick_via_brain(
+                brain,
+                &feature_world,
+                target_pos,
+                sim_time,
+                dt,
+                gravity_sign,
+            )
         } else {
             // Brainless peaceful actor — should not happen post-Chunk 3
             // (spawn attaches a brain), but build one inline so the tick
@@ -845,8 +854,10 @@ fn compute_holding_positions(
     requests: &[(String, ae::Vec2, crate::combat_slots::SlotKind)],
     player_pos: ae::Vec2,
 ) -> std::collections::HashMap<String, ae::Vec2> {
-    let mut unassigned_by_kind: std::collections::HashMap<crate::combat_slots::SlotKind, Vec<&str>> =
-        std::collections::HashMap::new();
+    let mut unassigned_by_kind: std::collections::HashMap<
+        crate::combat_slots::SlotKind,
+        Vec<&str>,
+    > = std::collections::HashMap::new();
     for (id, _pos, kind) in requests {
         if board.slot_for(id).is_none() {
             unassigned_by_kind
@@ -871,7 +882,10 @@ fn compute_holding_positions(
         ids.sort_unstable(); // stable round-robin order
         for (rank, id) in ids.into_iter().enumerate() {
             let slot_idx = kind_slots[rank % kind_slots.len()];
-            holding_pos_by_id.insert(id.to_string(), board.slots[slot_idx].holding_pos(player_pos));
+            holding_pos_by_id.insert(
+                id.to_string(),
+                board.slots[slot_idx].holding_pos(player_pos),
+            );
         }
     }
     holding_pos_by_id
@@ -1051,7 +1065,11 @@ mod tests {
             ("a".to_string(), ae::Vec2::new(0.0, 0.0), SlotKind::Melee),
             ("b".to_string(), ae::Vec2::new(10.0, 0.0), SlotKind::Melee), // closest to a
             ("c".to_string(), ae::Vec2::new(100.0, 0.0), SlotKind::Melee),
-            ("flyer".to_string(), ae::Vec2::new(1.0, 0.0), SlotKind::Aerial), // closer but wrong kind
+            (
+                "flyer".to_string(),
+                ae::Vec2::new(1.0, 0.0),
+                SlotKind::Aerial,
+            ), // closer but wrong kind
         ];
         let neighbors = compute_nearest_neighbors(&reqs);
         // a's nearest same-kind neighbor is b (10px), not the aerial flyer
@@ -1068,7 +1086,13 @@ mod tests {
         let mut board = CombatSlotBoard::new(2, 80.0, 0, 0.0, 0.0);
         let target = ae::Vec2::ZERO;
         let requests: Vec<(String, ae::Vec2, SlotKind)> = (0..4)
-            .map(|i| (format!("e{i}"), ae::Vec2::new(i as f32 * 30.0, 0.0), SlotKind::Melee))
+            .map(|i| {
+                (
+                    format!("e{i}"),
+                    ae::Vec2::new(i as f32 * 30.0, 0.0),
+                    SlotKind::Melee,
+                )
+            })
             .collect();
         let slot_reqs: Vec<SlotRequest> = requests
             .iter()
@@ -1086,7 +1110,11 @@ mod tests {
             .filter(|(id, _, _)| board.slot_for(id).is_some())
             .count();
         assert_eq!(assigned, 2, "two actors should win the two slots");
-        assert_eq!(holding.len(), 2, "the two leftover actors get holding positions");
+        assert_eq!(
+            holding.len(),
+            2,
+            "the two leftover actors get holding positions"
+        );
         // The leftover actors are spread round-robin across the two slots'
         // holding points — they must not share a single clump point.
         let positions: Vec<ae::Vec2> = holding.values().copied().collect();
@@ -1095,7 +1123,10 @@ mod tests {
             "leftover actors must occupy distinct holding positions, not clump"
         );
         // Deterministic: recomputing yields the same map.
-        assert_eq!(holding, compute_holding_positions(&board, &requests, target));
+        assert_eq!(
+            holding,
+            compute_holding_positions(&board, &requests, target)
+        );
     }
 
     #[test]
@@ -1143,7 +1174,11 @@ mod tests {
         // spacing do not.
         let aerial = vec![
             ("f1".to_string(), ae::Vec2::new(0.0, 0.0), SlotKind::Aerial),
-            ("f2".to_string(), ae::Vec2::new(150.0, 0.0), SlotKind::Aerial),
+            (
+                "f2".to_string(),
+                ae::Vec2::new(150.0, 0.0),
+                SlotKind::Aerial,
+            ),
         ];
         assert!(
             !compute_crowding_by_id(&aerial).is_empty(),

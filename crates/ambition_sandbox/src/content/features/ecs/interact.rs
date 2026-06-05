@@ -138,7 +138,9 @@ pub fn interact_ecs_actors_and_switches(
 mod tests {
     use super::*;
     use crate::engine_core as ae;
-    use crate::features::{FeatureAabb, FeatureId, FeatureName, FeatureSimEntity, SwitchFeature, SwitchOn};
+    use crate::features::{
+        FeatureAabb, FeatureId, FeatureName, FeatureSimEntity, SwitchFeature, SwitchOn,
+    };
     use bevy::prelude::{App, NextState, Update};
 
     fn spawn_interaction_player(app: &mut App, pos: ae::Vec2) {

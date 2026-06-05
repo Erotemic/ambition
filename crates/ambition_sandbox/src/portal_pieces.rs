@@ -188,7 +188,10 @@ pub struct BodyPieces {
 impl BodyPieces {
     /// A body that straddles no portal: a single, whole piece.
     pub fn whole(body: ae::Aabb) -> Self {
-        Self { here: body, through: None }
+        Self {
+            here: body,
+            through: None,
+        }
     }
 }
 
@@ -316,11 +319,19 @@ mod tests {
 
     fn floor(pos: Vec2) -> PortalFrame {
         // Floor portal: normal points up (y-down world → up = -y).
-        PortalFrame { pos, normal: Vec2::new(0.0, -1.0), half_extent: Vec2::new(46.0, 9.0) }
+        PortalFrame {
+            pos,
+            normal: Vec2::new(0.0, -1.0),
+            half_extent: Vec2::new(46.0, 9.0),
+        }
     }
     fn right_wall(pos: Vec2) -> PortalFrame {
         // Right wall: normal points left.
-        PortalFrame { pos, normal: Vec2::new(-1.0, 0.0), half_extent: Vec2::new(9.0, 46.0) }
+        PortalFrame {
+            pos,
+            normal: Vec2::new(-1.0, 0.0),
+            half_extent: Vec2::new(9.0, 46.0),
+        }
     }
 
     #[test]
@@ -330,10 +341,16 @@ mod tests {
         // A point sunk 10px below the floor plane (into the wall, +y) emerges
         // 10px out in front of the right wall (left of it, -x).
         let p = map_point(Vec2::new(100.0, 310.0), &enter, &exit);
-        assert!((p.x - 390.0).abs() < 1e-3 && (p.y - 200.0).abs() < 1e-3, "got {p:?}");
+        assert!(
+            (p.x - 390.0).abs() < 1e-3 && (p.y - 200.0).abs() < 1e-3,
+            "got {p:?}"
+        );
         // The portal centers map onto each other.
         let c = map_point(enter.pos, &enter, &exit);
-        assert!((c - exit.pos).length() < 1e-3, "centers map together, got {c:?}");
+        assert!(
+            (c - exit.pos).length() < 1e-3,
+            "centers map together, got {c:?}"
+        );
     }
 
     #[test]
@@ -343,8 +360,16 @@ mod tests {
         let b = ae::Aabb::new(Vec2::new(100.0, 305.0), Vec2::new(12.0, 6.0));
         let m = map_aabb(b, &enter, &exit);
         // 90° turn → width/height swap.
-        assert!((m.half_size().x - 6.0).abs() < 1e-3, "half x {:?}", m.half_size());
-        assert!((m.half_size().y - 12.0).abs() < 1e-3, "half y {:?}", m.half_size());
+        assert!(
+            (m.half_size().x - 6.0).abs() < 1e-3,
+            "half x {:?}",
+            m.half_size()
+        );
+        assert!(
+            (m.half_size().y - 12.0).abs() < 1e-3,
+            "half y {:?}",
+            m.half_size()
+        );
     }
 
     #[test]
@@ -353,7 +378,10 @@ mod tests {
         // left (-x), same speed.
         let cs = portal_rotation(Vec2::new(0.0, -1.0), Vec2::new(-1.0, 0.0));
         let out = rotate(Vec2::new(0.0, 100.0), cs);
-        assert!((out.x + 100.0).abs() < 1e-2 && out.y.abs() < 1e-2, "got {out:?}");
+        assert!(
+            (out.x + 100.0).abs() < 1e-2 && out.y.abs() < 1e-2,
+            "got {out:?}"
+        );
     }
 
     #[test]
@@ -379,15 +407,31 @@ mod tests {
         let body = ae::Aabb::new(Vec2::new(100.0, 290.0), Vec2::new(12.0, 20.0));
         let pieces = compute_body_pieces(body, Some((enter, exit)));
         // `here` is the part above the floor plane (y <= 300).
-        assert!(pieces.here.max.y <= 300.0 + 1e-3, "here below plane: {:?}", pieces.here);
+        assert!(
+            pieces.here.max.y <= 300.0 + 1e-3,
+            "here below plane: {:?}",
+            pieces.here
+        );
         // A through-piece exists, emerging from the exit (x < 400).
         let through = pieces.through.expect("feet should poke through");
-        assert!(through.aabb.max.x <= 400.0 + 1e-3, "through in front of exit: {:?}", through.aabb);
+        assert!(
+            through.aabb.max.x <= 400.0 + 1e-3,
+            "through in front of exit: {:?}",
+            through.aabb
+        );
         // The 90° turn maps the crossed DEPTH (10px below the floor) onto the
         // emergence depth out of the wall (10px along the exit normal, x), and
         // the body WIDTH (24px) onto the lateral extent (y).
-        assert!((through.aabb.max.x - through.aabb.min.x - 10.0).abs() < 1e-2, "depth {:?}", through.aabb);
-        assert!((through.aabb.max.y - through.aabb.min.y - 24.0).abs() < 1e-2, "lateral {:?}", through.aabb);
+        assert!(
+            (through.aabb.max.x - through.aabb.min.x - 10.0).abs() < 1e-2,
+            "depth {:?}",
+            through.aabb
+        );
+        assert!(
+            (through.aabb.max.y - through.aabb.min.y - 24.0).abs() < 1e-2,
+            "lateral {:?}",
+            through.aabb
+        );
     }
 
     #[test]
@@ -403,8 +447,14 @@ mod tests {
     #[test]
     fn front_distance_signs() {
         let f = floor(Vec2::new(100.0, 300.0));
-        assert!(front_distance(Vec2::new(100.0, 280.0), &f) > 0.0, "above floor = front");
-        assert!(front_distance(Vec2::new(100.0, 320.0), &f) < 0.0, "below floor = behind");
+        assert!(
+            front_distance(Vec2::new(100.0, 280.0), &f) > 0.0,
+            "above floor = front"
+        );
+        assert!(
+            front_distance(Vec2::new(100.0, 320.0), &f) < 0.0,
+            "below floor = behind"
+        );
     }
 
     #[test]
@@ -418,7 +468,10 @@ mod tests {
         assert_eq!(out.len(), 2, "left + right frame: {out:?}");
         // The opening (x in [70,130]) is not covered by any remaining piece.
         for piece in &out {
-            assert!(piece.min.x >= 130.0 - 1e-3 || piece.max.x <= 70.0 + 1e-3, "piece spans hole: {piece:?}");
+            assert!(
+                piece.min.x >= 130.0 - 1e-3 || piece.max.x <= 70.0 + 1e-3,
+                "piece spans hole: {piece:?}"
+            );
         }
     }
 
@@ -443,7 +496,10 @@ mod tests {
             "hole reaches SURFACE_GRACE outward: {hole:?}"
         );
         // ...and mostly INWARD (CARVE_DEPTH into the wall).
-        assert!((hole.max.y - (300.0 + CARVE_DEPTH)).abs() < 1e-3, "hole goes inward: {hole:?}");
+        assert!(
+            (hole.max.y - (300.0 + CARVE_DEPTH)).abs() < 1e-3,
+            "hole goes inward: {hole:?}"
+        );
         // Opening width matches the aperture (2*46).
         assert!((hole.max.x - hole.min.x - 92.0).abs() < 1e-3, "{hole:?}");
     }

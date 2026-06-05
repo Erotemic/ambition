@@ -332,19 +332,17 @@ fn hit_flash_secs_for_source(
     // Feature path: cross-reference the visual entity's id against
     // the sim entity's `FeatureId`. Tries the actor list first
     // (enemies + NPCs share `ActorRuntime`), then bosses.
-    if let Some(secs) =
-        actors
-            .iter()
-            .find_map(|(feature_id, actor, _kin, status, _attack, _config, _npc_config, npc_status)| {
-                if feature_id.as_str() != id {
-                    return None;
-                }
-                match actor {
-                    ActorRuntime::Enemy => status.map(|s| s.hit_flash),
-                    ActorRuntime::Npc => npc_status.map(|s| s.hit_flash),
-                }
-            })
-    {
+    if let Some(secs) = actors.iter().find_map(
+        |(feature_id, actor, _kin, status, _attack, _config, _npc_config, npc_status)| {
+            if feature_id.as_str() != id {
+                return None;
+            }
+            match actor {
+                ActorRuntime::Enemy => status.map(|s| s.hit_flash),
+                ActorRuntime::Npc => npc_status.map(|s| s.hit_flash),
+            }
+        },
+    ) {
         return Some(secs);
     }
     bosses.iter().find_map(|(feature_id, item)| {

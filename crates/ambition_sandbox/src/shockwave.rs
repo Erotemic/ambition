@@ -151,7 +151,10 @@ mod tests {
         app.add_message::<crate::audio::SfxMessage>();
         app.add_message::<ActorActionMessage>();
         app.insert_resource(ControlFrame::default());
-        app.add_systems(Update, (fire_shockwave_system, spawn_shockwave_from_special_messages).chain());
+        app.add_systems(
+            Update,
+            (fire_shockwave_system, spawn_shockwave_from_special_messages).chain(),
+        );
         app
     }
 
@@ -186,16 +189,25 @@ mod tests {
     fn player_attack_with_shockwave_spawns_a_player_faction_aoe() {
         let mut app = test_app();
         let player = spawn_player_holding_shockwave(&mut app);
-        app.world_mut().resource_mut::<ControlFrame>().attack_pressed = true;
+        app.world_mut()
+            .resource_mut::<ControlFrame>()
+            .attack_pressed = true;
         app.update();
         // Exactly one AOE hitbox, owned by the player and Player-faction so it
         // damages enemies (not the player) through apply_hitbox_damage.
         let mut q = app.world_mut().query::<&Hitbox>();
         let boxes: Vec<&Hitbox> = q.iter(app.world()).collect();
         assert_eq!(boxes.len(), 1, "one shockwave AOE spawned");
-        assert_eq!(boxes[0].source, ActorFaction::Player, "AOE carries the player's faction");
+        assert_eq!(
+            boxes[0].source,
+            ActorFaction::Player,
+            "AOE carries the player's faction"
+        );
         assert_eq!(boxes[0].owner, player);
-        assert!(matches!(boxes[0].anchor, HitboxAnchor::World { .. }), "world-anchored AOE");
+        assert!(
+            matches!(boxes[0].anchor, HitboxAnchor::World { .. }),
+            "world-anchored AOE"
+        );
     }
 
     #[test]
@@ -212,13 +224,23 @@ mod tests {
         let mut app = test_app();
         let player = spawn_player_holding_shockwave(&mut app);
         // Mana below the cost → the slam is blocked.
-        app.world_mut().get_mut::<PlayerMana>(player).unwrap().meter.current = 5.0;
-        app.world_mut().resource_mut::<ControlFrame>().attack_pressed = true;
+        app.world_mut()
+            .get_mut::<PlayerMana>(player)
+            .unwrap()
+            .meter
+            .current = 5.0;
+        app.world_mut()
+            .resource_mut::<ControlFrame>()
+            .attack_pressed = true;
         app.update();
         assert_eq!(shockwave_count(&mut app), 0, "no slam when mana < cost");
 
         // Refill and fire → one slam, and mana drops by exactly the cost.
-        app.world_mut().get_mut::<PlayerMana>(player).unwrap().meter.current = 100.0;
+        app.world_mut()
+            .get_mut::<PlayerMana>(player)
+            .unwrap()
+            .meter
+            .current = 100.0;
         app.update();
         assert_eq!(shockwave_count(&mut app), 1, "fires once there's mana");
         let mana = app.world().get::<PlayerMana>(player).unwrap().meter.current;
@@ -260,7 +282,11 @@ mod tests {
         let mut q = app.world_mut().query::<&Hitbox>();
         let boxes: Vec<&Hitbox> = q.iter(app.world()).collect();
         assert_eq!(boxes.len(), 1, "the enemy's slam spawns one AOE");
-        assert_eq!(boxes[0].source, ActorFaction::Enemy, "AOE carries the enemy's faction");
+        assert_eq!(
+            boxes[0].source,
+            ActorFaction::Enemy,
+            "AOE carries the enemy's faction"
+        );
         assert_eq!(boxes[0].owner, enemy);
     }
 }

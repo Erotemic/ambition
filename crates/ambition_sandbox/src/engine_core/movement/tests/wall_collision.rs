@@ -477,7 +477,11 @@ fn flying_into_the_ceiling_corner_never_ejects_the_body_from_the_world() {
     // Pressed into the corner: under the ceiling (bottom y=24), left of the right
     // wall (left edge x=1564).
     let b = scratch.kinematics.aabb();
-    assert!(b.top() >= 24.0 - 1.0, "should rest under the ceiling, got top={}", b.top());
+    assert!(
+        b.top() >= 24.0 - 1.0,
+        "should rest under the ceiling, got top={}",
+        b.top()
+    );
     assert!(
         b.right() <= 1564.0 + 1.0,
         "should rest left of the right wall, got right={}",
@@ -499,7 +503,11 @@ fn sliding_along_the_ceiling_edge_does_not_teleport_across_the_room() {
         spawn: Vec2::new(950.0, 883.0),
         blocks: vec![
             Block::solid("ceiling", Vec2::new(0.0, 0.0), Vec2::new(1904.0, 32.0)),
-            Block::solid("right wall", Vec2::new(1856.0, 32.0), Vec2::new(48.0, 224.0)),
+            Block::solid(
+                "right wall",
+                Vec2::new(1856.0, 32.0),
+                Vec2::new(48.0, 224.0),
+            ),
             Block::solid("floor", Vec2::new(0.0, 1980.0), Vec2::new(1904.0, 24.0)),
         ],
         water_regions: Vec::new(),
@@ -545,7 +553,11 @@ fn ceiling_graze_x_sweep_does_not_teleport_body_to_the_far_edge() {
         spawn: Vec2::new(950.0, 883.0),
         blocks: vec![
             Block::solid("ceiling", Vec2::new(0.0, 0.0), Vec2::new(1904.0, 32.0)),
-            Block::solid("right wall", Vec2::new(1856.0, 32.0), Vec2::new(48.0, 224.0)),
+            Block::solid(
+                "right wall",
+                Vec2::new(1856.0, 32.0),
+                Vec2::new(48.0, 224.0),
+            ),
         ],
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),

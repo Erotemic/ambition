@@ -216,7 +216,10 @@ const AUTHORED_BOSS_PROFILES: &[(&str, fn() -> BossProfile)] = &[
     ),
     ("trex_boss", BossProfile::trex_boss),
     ("mode_collapse_boss", BossProfile::mode_collapse_boss),
-    ("exploding_gradient_boss", BossProfile::exploding_gradient_boss),
+    (
+        "exploding_gradient_boss",
+        BossProfile::exploding_gradient_boss,
+    ),
     ("overflow_boss", BossProfile::overflow_boss),
 ];
 
@@ -324,7 +327,10 @@ mod tests {
     #[test]
     fn flying_spaghetti_monster_boss_profile_declares_reward_chest() {
         let profile = BossProfile::flying_spaghetti_monster_boss();
-        assert!(matches!(profile.reward, BossRewardProfile::DropChest { .. }));
+        assert!(matches!(
+            profile.reward,
+            BossRewardProfile::DropChest { .. }
+        ));
     }
 
     #[test]

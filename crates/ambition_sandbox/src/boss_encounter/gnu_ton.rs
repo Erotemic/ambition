@@ -248,7 +248,11 @@ mod tests {
             .world()
             .get::<crate::features::BossStatus>(entity)
             .unwrap();
-        let boss_ref = crate::features::BossRef { kin, config, status };
+        let boss_ref = crate::features::BossRef {
+            kin,
+            config,
+            status,
+        };
         let ctx = crate::features::BossVolumeContext::from_ref(boss_ref, attack);
         let hurtboxes = crate::features::damageable_volumes(&ctx);
         assert!(
@@ -267,7 +271,12 @@ mod tests {
             .world()
             .get::<crate::features::BossStatus>(entity)
             .unwrap();
-        let body = crate::features::BossRef { kin, config, status }.aabb();
+        let body = crate::features::BossRef {
+            kin,
+            config,
+            status,
+        }
+        .aabb();
         for hb in &hurtboxes {
             assert!(
                 body.strict_intersects(*hb),

@@ -267,8 +267,14 @@ mod ledge_knock_off_tests {
             grab: Some(hanging()),
             release_cooldown: 0.0,
         };
-        assert!(ledge.knock_off_on_hit(), "was hanging → reports knocked off");
-        assert!(ledge.grab.is_none(), "ledge grab cleared so the player falls");
+        assert!(
+            ledge.knock_off_on_hit(),
+            "was hanging → reports knocked off"
+        );
+        assert!(
+            ledge.grab.is_none(),
+            "ledge grab cleared so the player falls"
+        );
         assert!(
             ledge.release_cooldown >= LEDGE_KNOCK_OFF_COOLDOWN,
             "re-grab lockout armed"
@@ -280,7 +286,10 @@ mod ledge_knock_off_tests {
         let mut ledge = PlayerLedgeState::default();
         assert!(!ledge.knock_off_on_hit());
         assert!(ledge.grab.is_none());
-        assert_eq!(ledge.release_cooldown, 0.0, "no lockout when nothing to drop");
+        assert_eq!(
+            ledge.release_cooldown, 0.0,
+            "no lockout when nothing to drop"
+        );
     }
 }
 

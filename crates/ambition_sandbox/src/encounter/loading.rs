@@ -177,7 +177,10 @@ mod loading_tests {
                     mob.spawn[0],
                 );
                 assert!(mob.delay >= 0.0, "negative spawn delay for {:?}", mob.kind);
-                assert!(mob.size[0] > 0.0 && mob.size[1] > 0.0, "non-positive mob size");
+                assert!(
+                    mob.size[0] > 0.0 && mob.size[1] > 0.0,
+                    "non-positive mob size"
+                );
             }
         }
 

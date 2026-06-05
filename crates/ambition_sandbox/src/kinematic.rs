@@ -223,7 +223,13 @@ mod tests {
         let mut tuning = tuning();
         tuning.gravity_sign = -1.0; // up
         for _ in 0..120 {
-            step_kinematic(&mut b, &world, tuning, KinematicInputs::default(), 1.0 / 60.0);
+            step_kinematic(
+                &mut b,
+                &world,
+                tuning,
+                KinematicInputs::default(),
+                1.0 / 60.0,
+            );
         }
         assert!(
             b.pos.y < 300.0,

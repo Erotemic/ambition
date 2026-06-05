@@ -915,7 +915,10 @@ mod tests {
             ranged: None,
             use_behavior: HeldUseBehavior::Auto,
         };
-        assert!(!axe.throws_on_plain_attack(), "a verb-bearing Auto item keeps on use");
+        assert!(
+            !axe.throws_on_plain_attack(),
+            "a verb-bearing Auto item keeps on use"
+        );
 
         let bare = HeldItemSpec {
             id: "rock".into(),
@@ -923,22 +926,38 @@ mod tests {
             ranged: None,
             use_behavior: HeldUseBehavior::Auto,
         };
-        assert!(bare.throws_on_plain_attack(), "a verb-less Auto item throws on use");
+        assert!(
+            bare.throws_on_plain_attack(),
+            "a verb-less Auto item throws on use"
+        );
 
         // Explicit behaviors override the Auto derivation.
         let use_system = HeldItemSpec {
             use_behavior: HeldUseBehavior::UseSystem,
             ..bare.clone()
         };
-        assert!(!use_system.throws_on_plain_attack(), "a UseSystem ability is not thrown by a plain Attack");
+        assert!(
+            !use_system.throws_on_plain_attack(),
+            "a UseSystem ability is not thrown by a plain Attack"
+        );
         let throw = HeldItemSpec {
             use_behavior: HeldUseBehavior::ThrowOnUse,
             ..axe.clone()
         };
-        assert!(throw.throws_on_plain_attack(), "ThrowOnUse throws even a verb-bearing item");
+        assert!(
+            throw.throws_on_plain_attack(),
+            "ThrowOnUse throws even a verb-bearing item"
+        );
 
         // The wired abilities are UseSystem (so a plain Attack drives them, not a throw).
-        for id in ["blink", "grapple", "mark_recall", "shockwave", "volley", "puppy_slug_gun"] {
+        for id in [
+            "blink",
+            "grapple",
+            "mark_recall",
+            "shockwave",
+            "volley",
+            "puppy_slug_gun",
+        ] {
             assert!(
                 !held_item_by_id(id).unwrap().throws_on_plain_attack(),
                 "{id} should be use-on-attack, not throw-on-attack"
@@ -946,7 +965,9 @@ mod tests {
         }
         // The throwables / weapons are not use-system → throw vs keep per Auto.
         assert!(held_item_by_id("bomb").unwrap().throws_on_plain_attack());
-        assert!(!held_item_by_id("gun_sword").unwrap().throws_on_plain_attack());
+        assert!(!held_item_by_id("gun_sword")
+            .unwrap()
+            .throws_on_plain_attack());
     }
 
     #[test]

@@ -61,21 +61,30 @@ fn portal_bridge_lets_the_player_teleport_across_the_death_gap() {
     // Phase 1: walk right onto the gun pickup (x[160,200]) and grab it.
     let mut on_pickup = false;
     for _ in 0..80 {
-        let obs = sim.step(AgentAction { move_x: 1.0, ..base() });
+        let obs = sim.step(AgentAction {
+            move_x: 1.0,
+            ..base()
+        });
         if obs.player_pos.0 >= 165.0 {
             on_pickup = true;
             break;
         }
     }
     assert!(on_pickup, "should have reached the gun pickup");
-    sim.step(AgentAction { attack: true, ..base() }); // Attack = grab the gun
+    sim.step(AgentAction {
+        attack: true,
+        ..base()
+    }); // Attack = grab the gun
     sim.step(base());
     sim.step(base());
 
     // Phase 2: step clear of the entry door (x[16,64]) so Interact toggles the gun
     // color, not the door — settle near x≈250 (well left of the gap at x=500).
     for _ in 0..80 {
-        let obs = sim.step(AgentAction { move_x: 1.0, ..base() });
+        let obs = sim.step(AgentAction {
+            move_x: 1.0,
+            ..base()
+        });
         if obs.player_pos.0 >= 250.0 {
             break;
         }
@@ -90,17 +99,28 @@ fn portal_bridge_lets_the_player_teleport_across_the_death_gap() {
 
     // Phase 3: fire BLUE aimed right — it flies over the gap and opens on the right
     // wall. Then wait for the ~1900px/s shot to land (right wall ≈1000px away).
-    sim.step(AgentAction { attack: true, aim_x: 1.0, ..base() });
+    sim.step(AgentAction {
+        attack: true,
+        aim_x: 1.0,
+        ..base()
+    });
     for _ in 0..48 {
         sim.step(base());
     }
 
     // Phase 4: Interact toggles the next color to ORANGE.
-    sim.step(AgentAction { interact: true, ..base() });
+    sim.step(AgentAction {
+        interact: true,
+        ..base()
+    });
     sim.step(base());
 
     // Phase 5: fire ORANGE straight down — opens a floor portal at the feet.
-    sim.step(AgentAction { attack: true, aim_y: 1.0, ..base() });
+    sim.step(AgentAction {
+        attack: true,
+        aim_y: 1.0,
+        ..base()
+    });
 
     // Phase 6: standing on the fresh floor portal teleports to the blue one on the
     // far wall. Give it a few ticks to open + carry the player across.

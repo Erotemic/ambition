@@ -256,7 +256,11 @@ mod tests {
         let alive = p.tick(0.2, 1.0);
         assert!(!alive, "a tick past the lifetime reports dead");
         assert!(p.is_expired());
-        assert_eq!(p.pos, Vec2::new(5.0, 5.0), "expiring tick does not move the body");
+        assert_eq!(
+            p.pos,
+            Vec2::new(5.0, 5.0),
+            "expiring tick does not move the body"
+        );
     }
 
     #[test]

@@ -111,7 +111,8 @@ pub fn sync_ecs_npc_actors_with_save(
     ) in &mut actors
     {
         if !data.flag(&super::super::npcs::npc_flag_id(&npc.config)) {
-            let (i, d, h, c, it, cd) = super::actors::npc_component_snapshot(&npc.config, &npc.status);
+            let (i, d, h, c, it, cd) =
+                super::actors::npc_component_snapshot(&npc.config, &npc.status);
             *identity = i;
             *disposition = d;
             *health = h;
@@ -134,7 +135,9 @@ pub fn sync_ecs_npc_actors_with_save(
         aggression.mode = AggressionMode::HostileToPlayer;
         let (new_brain, new_action_set) =
             super::brain_builders::aggressive_brain_and_action_set_for_enemy(
-                &hostile.config, combat_kit, held_item,
+                &hostile.config,
+                combat_kit,
+                held_item,
             );
         make_entity_enemy(
             &mut commands,

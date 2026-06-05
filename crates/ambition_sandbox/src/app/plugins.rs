@@ -47,6 +47,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     // need to pin a cross-set system via `.after(other_system)`. Intra-set
     // `.chain()` ordering is still expressed per-system.
     configure_sandbox_sets(app);
+    app.init_resource::<crate::shrine::ShrineActivationPulse>();
 
     app.add_plugins(super::sim_resources::SandboxSimulationResourcesPlugin);
 

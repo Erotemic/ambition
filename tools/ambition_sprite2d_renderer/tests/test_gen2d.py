@@ -1,7 +1,8 @@
 from pathlib import Path
 
 import pytest
-from PIL import Image
+from PIL import Image, ImageChops
+import yaml
 
 from ambition_sprite2d_renderer.adapters import get_adapter
 from ambition_sprite2d_renderer.animation_vocab import (
@@ -365,9 +366,25 @@ def test_ability_item_icons_render(tmp_path):
 
 @pytest.mark.slow_render
 def test_shrine_prop_renders(tmp_path):
-    from ambition_sprite2d_renderer.targets.icons.item_icons import write_shrine_prop
+    from ambition_sprite2d_renderer.targets.props import shrine
 
-    path = write_shrine_prop(tmp_path / "props")
+    paths = shrine.render(tmp_path / "props")
+    names = {Path(path).name for path in paths}
+    assert "shrine.png" in names
+    assert "shrine_spritesheet.png" in names
+    assert "shrine_spritesheet.yaml" in names
+
+    manifest = yaml.safe_load((tmp_path / "props" / "shrine_spritesheet.yaml").read_text())
+    assert manifest["target"] == "shrine"
+    assert [row["animation"] for row in manifest["rows"]] == ["idle", "activate"]
+
+    idle0 = shrine.render_frame("idle", 0, 6)
+    idle1 = shrine.render_frame("idle", 1, 6)
+    activate0 = shrine.render_frame("activate", 0, 8)
+    assert ImageChops.difference(idle0, idle1).getbbox() is not None
+    assert ImageChops.difference(idle0, activate0).getbbox() is not None
+
+    path = shrine.write_shrine_prop(tmp_path / "props")
     assert path.name == "shrine.png"
     assert path.exists()
     img = Image.open(path).convert("RGBA")

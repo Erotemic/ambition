@@ -1149,9 +1149,13 @@ pub fn portal_transit_system(
         (
             Entity,
             &mut PlayerKinematics,
-            &mut PortalGun,
+            // The gun is OPTIONAL: authored portals (the test lab) work without
+            // ever picking it up. It only carries the anti-ping-pong cooldown; a
+            // `PortalCooldown` component is the gun-less fallback latch.
+            Option<&mut PortalGun>,
             Option<&mut PortalTransit>,
             Option<&mut ActorRoll>,
+            Option<&PortalCooldown>,
         ),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
@@ -1165,12 +1169,20 @@ pub fn portal_transit_system(
         flag.0 = false;
     }
     let dt = time.sim_dt();
-    let Ok((entity, mut kin, mut gun, mut transit, mut roll)) = players.single_mut() else {
+    let Ok((entity, mut kin, mut gun, mut transit, mut roll, cooldown)) = players.single_mut()
+    else {
         return;
     };
-    if gun.teleport_cooldown > 0.0 {
-        gun.teleport_cooldown = (gun.teleport_cooldown - dt).max(0.0);
+    if let Some(gun) = gun.as_deref_mut() {
+        if gun.teleport_cooldown > 0.0 {
+            gun.teleport_cooldown = (gun.teleport_cooldown - dt).max(0.0);
+        }
     }
+    // Latch from the gun (if held) OR the fallback `PortalCooldown` component.
+    let cooldown_now = gun
+        .as_deref()
+        .map_or(0.0, |g| g.teleport_cooldown)
+        .max(cooldown.map_or(0.0, |c| c.0));
     let all: Vec<Portal> = portals.iter().copied().collect();
     let gravity_dir = gravity.map_or(Vec2::new(0.0, 1.0), |g| g.dir);
     let step = transit_step(
@@ -1178,7 +1190,7 @@ pub fn portal_transit_system(
         kin.size,
         kin.vel,
         transit.as_deref().copied(),
-        gun.teleport_cooldown,
+        cooldown_now,
         &all,
         gravity_dir,
     );
@@ -1197,7 +1209,12 @@ pub fn portal_transit_system(
             if let Some(roll) = roll.as_deref_mut() {
                 roll.angle += roll_delta;
             }
-            gun.teleport_cooldown = TELEPORT_COOLDOWN_S;
+            if let Some(gun) = gun.as_deref_mut() {
+                gun.teleport_cooldown = TELEPORT_COOLDOWN_S;
+            }
+            // Always set the component latch too, so a gun-less player can't
+            // ping-pong through an authored pair.
+            commands.entity(entity).insert(PortalCooldown(TELEPORT_COOLDOWN_S));
             if let Some(t) = transit.as_deref_mut() {
                 t.crossed = true;
                 t.straddling = exit_color;
@@ -2456,6 +2473,55 @@ mod tests {
             (roll - 0.5).abs() < 1e-5,
             "player keeps its orientation through the portal (#47 — no flip), got {roll}"
         );
+    }
+
+    #[test]
+    fn a_gunless_player_transits_an_authored_pair() {
+        // The portal_lab scenario: pre-placed portals, player has NOT picked up
+        // the gun. Transit must still work (the gun only carries the cooldown).
+        let mut app = App::new();
+        app.add_message::<crate::audio::SfxMessage>();
+        app.insert_resource(crate::WorldTime::default());
+        app.add_systems(Update, portal_transit_system);
+        let he = portal_half_extent(Vec2::new(0.0, -1.0));
+        app.world_mut().spawn(Portal {
+            color: PortalColor::Purple,
+            pos: Vec2::new(200.0, 300.0),
+            normal: Vec2::new(0.0, -1.0),
+            half_extent: he,
+        });
+        app.world_mut().spawn(Portal {
+            color: PortalColor::Yellow,
+            pos: Vec2::new(600.0, 300.0),
+            normal: Vec2::new(0.0, -1.0),
+            half_extent: he,
+        });
+        let player = app
+            .world_mut()
+            .spawn((
+                PlayerEntity,
+                PrimaryPlayer,
+                PlayerKinematics {
+                    pos: Vec2::new(200.0, 285.0),
+                    vel: Vec2::ZERO,
+                    size: Vec2::new(24.0, 40.0),
+                    base_size: Vec2::new(24.0, 40.0),
+                    facing: 1.0,
+                },
+                // No PortalGun on purpose.
+            ))
+            .id();
+        // Frame 1 begins transit (standing on the purple floor portal).
+        app.update();
+        assert!(
+            app.world().get::<PortalTransit>(player).is_some(),
+            "a gun-less player standing on an authored portal begins transit"
+        );
+        // Sink the centroid past the plane → transfer to the yellow partner.
+        app.world_mut().get_mut::<PlayerKinematics>(player).unwrap().pos.y = 305.0;
+        app.update();
+        let pos = app.world().get::<PlayerKinematics>(player).unwrap().pos;
+        assert!(pos.x > 550.0, "transfers to the yellow portal without a gun, got {pos:?}");
     }
 
     #[test]

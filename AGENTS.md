@@ -82,6 +82,13 @@ python scripts/check_doc_links.py
 - Do not hand-edit `sandbox.ldtk`; use Ambition LDtk tooling.
 - Update concepts, recipes, ADRs, or dev memory when a durable invariant changes.
 
+## Style
+
+To keep merge conflicts simple to resolve use a style formatter.
+
+- Use `cargo fmt` on any modified Rust files.
+- Use `ruff format` on any modified Python files.
+
 ## Common validation commands
 
 ```bash

@@ -130,24 +130,34 @@ Where pure portal physics would feel bad in a gravity-bound platformer, we bend
 the rules — deliberately and minimally. Each accommodation below notes **what
 pure physics says**, **what we do instead**, and **why**.
 
-### 1. Held-input warp (the same-wall ping-pong fix)
+### 1. Held-input warp + emergence guard
 
-- **Code:** `PortalInputWarp` + `warp_portal_input` (input layer), set on transfer
-  in `portal_transit_system`.
+- **Code:** `PortalInputWarp` + `PortalEmission` + `warp_portal_input` (input
+  layer), set on transfer in `portal_transit_system`.
 - **Pure physics says:** a portal transforms the *body* (position, velocity,
   facing). It has no business touching the player's controller.
-- **What we do:** when the player crosses a portal *with movement held*, the held
-  movement axis is warped by the **same** portal map as velocity, at the input
-  layer (`ControlFrame`), before the player brain reads it. The warp is soft — it
-  drops the instant the player releases movement or makes a clearly different
-  directional input.
-- **Why:** consider two portals on the same wall (both normals left). Holding
-  *right* drives you into one; the portal maps your velocity to *left* out the
-  other. But the still-held *right* input immediately fights that exit velocity
-  and yanks you back through. Warping the held input to *left* makes the held
-  direction keep carrying you out, so it feels continuous instead of sticky. We
-  chose a soft input transform (not a hard movement latch) specifically so
-  portals never feel hacky.
+- **What we do — the warp:** on a **same-wall turn-around** crossing (both portals
+  perpendicular to gravity, where `portal_facing_flips` holds), the held movement
+  axis is mirrored at the input layer (`ControlFrame`), before the player brain
+  reads it, so a held *right* keeps carrying you *left* out the exit instead of
+  fighting the reversed exit velocity and yanking you back. Soft — it drops the
+  moment movement is released or clearly redirected.
+- **The expressibility rule:** the warp is applied **only** when the warped
+  direction is something the controller can express as movement — i.e. the
+  same-wall case, where it stays a horizontal mirror. For a floor↔wall (90°)
+  crossing the portal map would rotate a *horizontal* hold into *vertical* ("up"),
+  which the controller can't use for horizontal movement, so we **do not warp**
+  there.
+- **What we do — the emergence guard (`PortalEmission`):** for a short window
+  after **every** crossing, held input that pushes back *into* the exit wall
+  (against the exit normal) is stripped, so the floored exit velocity carries the
+  body out — "don't let input cancel the portal emission". This is gravity-general
+  (it works off the exit normal vector, not a fixed axis) and covers the cases the
+  warp deliberately skips (e.g. holding *right* as you fall a floor portal and
+  emerge *left* from a wall portal: physics carries you left, the held-right can't
+  re-cancel the emergence, then control returns).
+- **Why:** these keep the held input from fighting the portal's transformed
+  velocity without ever feeling like a hard input latch.
 
 ### 2. Auto-orientation (the somersault + gravity-righting)
 
@@ -201,6 +211,24 @@ feel changes — but they are still departures from a purely ideal portal.
   body touches the opening's thin capture box (face + a small margin), a hair
   before the geometric plane crossing, so the carve can open before the body needs
   to sink. A purely ideal aperture would begin exactly at the plane.
+- **Ledge-grab suppressed while transiting** (`suppress_ledge_grab_during_transit`):
+  the carve splits the host block, and the new edges read as grabbable ledges — so
+  without this you can ledge-grab "into" a portal (and pop back out the entry
+  instead of crossing), or cling to the carved opening mid-wall. While the player
+  is mid-transit, ledge-grab is suppressed (the real ability is saved and
+  restored). Ledge-grabbing the *outer* rim of a wall portal mid-air is still
+  possible and is not currently considered wrong.
+
+## Gravity
+
+The orientation + input rules are written **gravity-parameterized**, not
+hard-coded to "down": `somersault_roll`, `portal_facing_flips`, and the emergence
+guard all take the gravity direction / the portal normals, so they generalize to
+flipped or sideways gravity. The one place still effectively assuming down-gravity
+is the same-wall input *warp itself* (it mirrors the screen-horizontal axis); the
+**gate** on it is gravity-aware, so under non-down gravity the warp simply won't
+engage where it shouldn't. Correctness under arbitrary gravity is verified for the
+down case first; the seams are in place to finish it without a rewrite.
 
 ---
 

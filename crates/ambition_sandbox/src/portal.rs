@@ -1026,7 +1026,12 @@ pub enum TransitStep {
         roll_delta: f32,
         warp_rot: (f32, f32),
         /// Mirror the body's horizontal facing (the wall↔wall "face out" rule).
+        /// Also the gate for the held-input warp: it's exactly the case where
+        /// warping held movement stays horizontally expressible.
         facing_flip: bool,
+        /// Outward normal of the exit portal — the direction the body emerges.
+        /// Used by emission protection so held input can't cancel the emergence.
+        exit_normal: Vec2,
         exit_color: PortalColor,
         exit_pos: Vec2,
     },
@@ -1148,6 +1153,7 @@ pub fn transit_step(
                     // Same rotation the velocity took — the held-input warp uses it.
                     warp_rot: pp::portal_rotation(enter.normal, exit.normal),
                     facing_flip: portal_facing_flips(enter.normal, exit.normal, gravity_dir),
+                    exit_normal: exit.normal,
                     exit_color: exit.color,
                     exit_pos: exit.pos,
                 };
@@ -1173,6 +1179,43 @@ pub fn transit_step(
             } else {
                 TransitStep::Clear
             }
+        }
+    }
+}
+
+/// Holds the player's real `ledge_grab` ability while it's suppressed during a
+/// portal transit, so nothing is lost when transit ends.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct LedgeGrabSuppressed(pub bool);
+
+/// While the player is mid-transit, suppress ledge-grab so they don't latch onto
+/// the carved aperture EDGES (the carve splits the host block, and those new
+/// edges read as grabbable ledges — you'd grab "into" the portal and pop back out
+/// the entry instead of crossing). The real ability is saved and restored, so the
+/// player keeps ledge-grab everywhere else. Runs before the movement integration.
+pub fn suppress_ledge_grab_during_transit(
+    mut commands: Commands,
+    mut players: Query<
+        (
+            Entity,
+            &mut crate::player::PlayerAbilities,
+            Option<&PortalTransit>,
+            Option<&LedgeGrabSuppressed>,
+        ),
+        (With<PlayerEntity>, With<PrimaryPlayer>),
+    >,
+) {
+    for (entity, mut abilities, transiting, saved) in &mut players {
+        match (transiting.is_some(), saved) {
+            (true, None) => {
+                commands.entity(entity).insert(LedgeGrabSuppressed(abilities.abilities.ledge_grab));
+                abilities.abilities.ledge_grab = false;
+            }
+            (false, Some(saved)) => {
+                abilities.abilities.ledge_grab = saved.0;
+                commands.entity(entity).remove::<LedgeGrabSuppressed>();
+            }
+            _ => {}
         }
     }
 }
@@ -1245,7 +1288,9 @@ pub fn portal_transit_system(
                 pos: portal_pos,
             });
         }
-        TransitStep::Transfer { pos, vel, roll_delta, warp_rot, facing_flip, exit_color, exit_pos } => {
+        TransitStep::Transfer {
+            pos, vel, roll_delta, warp_rot, facing_flip, exit_normal, exit_color, exit_pos,
+        } => {
             kin.pos = pos;
             kin.vel = vel;
             if facing_flip {
@@ -1260,12 +1305,21 @@ pub fn portal_transit_system(
             // Always set the component latch too, so a gun-less player can't
             // ping-pong through an authored pair.
             commands.entity(entity).insert(PortalCooldown(TELEPORT_COOLDOWN_S));
-            // If the player crossed WITH movement held, portal-warp that held
-            // input so it keeps carrying them out the exit (see PortalInputWarp).
+            // Protect the emergence: for a short window the held input can't push
+            // back INTO the exit wall (so physics carries the body out — Jon's
+            // "don't let input cancel the portal emission").
+            commands
+                .entity(entity)
+                .insert(PortalEmission { exit_normal, timer: PORTAL_EMISSION_TIME });
+            // Warp the held input ONLY when the warped direction stays
+            // horizontally expressible — i.e. the same-wall turn-around
+            // (`facing_flip`). For a floor↔wall 90° turn the warp would rotate a
+            // horizontal hold into "up", which the controller can't use, so we
+            // skip it and let the emission guard + physics do the work.
             let held = control
                 .as_deref()
                 .map_or(Vec2::ZERO, |c| Vec2::new(c.axis_x, c.axis_y));
-            if held.length() > PORTAL_INPUT_HELD_EPS {
+            if facing_flip && held.length() > PORTAL_INPUT_HELD_EPS {
                 commands
                     .entity(entity)
                     .insert(PortalInputWarp { rot: warp_rot, anchor: held });
@@ -1295,11 +1349,16 @@ const PORTAL_INPUT_HELD_EPS: f32 = 0.25;
 /// before it counts as a "clearly different" direction that drops the warp.
 const PORTAL_INPUT_WARP_KEEP_COS: f32 = 0.5;
 
+/// Seconds the [`PortalEmission`] guard protects a fresh exit. Long enough for
+/// the floored exit velocity to carry the body clear of the opening.
+const PORTAL_EMISSION_TIME: f32 = 0.18;
+
 /// The input-layer fix for the same-wall ping-pong: after a portal crossing the
 /// player's HELD movement input is warped by the same portal map as velocity, so
 /// holding "right" into a left-facing pair keeps carrying you LEFT out the exit
 /// instead of instantly fighting the warped velocity and pulling you back through.
-/// (Soft, not a hard latch — see [`warp_portal_input`].)
+/// Only set for the wall↔wall turn-around (where the warp stays horizontally
+/// expressible). Soft, not a hard latch — see [`warp_portal_input`].
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PortalInputWarp {
     /// `(cos, sin)` portal-map rotation applied to the movement axis.
@@ -1309,35 +1368,69 @@ pub struct PortalInputWarp {
     pub anchor: Vec2,
 }
 
-/// Apply the active [`PortalInputWarp`] to the held movement axis (an input-layer
-/// transform, so the player brain / movement see the warped direction). The warp
-/// is soft: it drops the moment the player releases movement or makes a clearly
-/// different directional input — never a hard latch.
+/// Short-lived guard set on every crossing: for [`PORTAL_EMISSION_TIME`] the held
+/// movement input cannot push back INTO the exit wall (against `exit_normal`), so
+/// the floored exit velocity carries the body out instead of the input cancelling
+/// the emergence. Gravity-general — it works off the exit normal vector, not a
+/// hard-coded axis.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct PortalEmission {
+    /// Outward normal of the exit portal (the emergence direction).
+    pub exit_normal: Vec2,
+    /// Remaining protection time (s).
+    pub timer: f32,
+}
+
+/// Apply the active portal input effects at the input layer (so the player brain
+/// / movement see the adjusted `ControlFrame`): the same-wall held-input warp
+/// (soft — drops on release or a clearly different direction) and the emergence
+/// guard (held input can't push back into the exit wall while it's fresh). Both
+/// are deliberately mild so portals never feel like a hard input latch.
 pub fn warp_portal_input(
+    time: Option<Res<crate::WorldTime>>,
     mut commands: Commands,
     mut control: ResMut<ControlFrame>,
-    player: Query<(Entity, &PortalInputWarp), (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    mut player: Query<
+        (Entity, Option<&PortalInputWarp>, Option<&mut PortalEmission>),
+        (With<PlayerEntity>, With<PrimaryPlayer>),
+    >,
 ) {
-    let Ok((entity, warp)) = player.single() else {
+    let Ok((entity, warp, emission)) = player.single_mut() else {
         return;
     };
-    let raw = Vec2::new(control.axis_x, control.axis_y);
-    // Released movement → drop the warp.
-    if raw.length() < PORTAL_INPUT_HELD_EPS {
-        commands.entity(entity).remove::<PortalInputWarp>();
-        return;
+
+    // --- Same-wall held-input warp ---
+    if let Some(warp) = warp {
+        let raw = Vec2::new(control.axis_x, control.axis_y);
+        if raw.length() < PORTAL_INPUT_HELD_EPS {
+            commands.entity(entity).remove::<PortalInputWarp>();
+        } else if warp.anchor.length() > 0.01
+            && raw.normalize_or_zero().dot(warp.anchor.normalize_or_zero())
+                < PORTAL_INPUT_WARP_KEEP_COS
+        {
+            commands.entity(entity).remove::<PortalInputWarp>();
+        } else {
+            let warped = pp::rotate(raw, warp.rot);
+            control.axis_x = warped.x;
+            control.axis_y = warped.y;
+        }
     }
-    // Clearly different direction than when the warp was set → drop it.
-    if warp.anchor.length() > 0.01
-        && raw.normalize_or_zero().dot(warp.anchor.normalize_or_zero()) < PORTAL_INPUT_WARP_KEEP_COS
-    {
-        commands.entity(entity).remove::<PortalInputWarp>();
-        return;
+
+    // --- Emergence guard: strip any held input that pushes back into the wall ---
+    if let Some(mut emission) = emission {
+        emission.timer -= time.as_deref().map_or(0.0, |t| t.sim_dt());
+        if emission.timer <= 0.0 {
+            commands.entity(entity).remove::<PortalEmission>();
+        } else {
+            let raw = Vec2::new(control.axis_x, control.axis_y);
+            let into = raw.dot(emission.exit_normal); // < 0 = pushing into the wall
+            if into < 0.0 {
+                let kept = raw - into * emission.exit_normal;
+                control.axis_x = kept.x;
+                control.axis_y = kept.y;
+            }
+        }
     }
-    // Otherwise warp the held movement input by the portal map.
-    let warped = pp::rotate(raw, warp.rot);
-    control.axis_x = warped.x;
-    control.axis_y = warped.y;
 }
 
 /// Despawn all portals when the room resets / transitions, and clear the
@@ -1933,6 +2026,19 @@ pub fn sync_portal_visuals(
             Sprite::from_color(core, Vec2::new(length * 0.86, PORTAL_VISUAL_THICKNESS * 0.42)),
             Transform::from_translation(core_translation).with_rotation(rotation),
             Name::new("Portal visual (core)"),
+        ));
+        // A small color-name label just out in front of the face, so portals can
+        // be referred to precisely (each linked pair is a distinct complementary
+        // color: purple↔yellow, teal↔red, …). The color name IS the identifier.
+        let label_pos = portal.pos + n * 24.0;
+        let label_translation = crate::config::world_to_bevy(&world.0, label_pos, 9.2);
+        commands.spawn((
+            PortalVisual,
+            Text2d::new(portal.color.name()),
+            TextFont { font_size: 12.0, ..default() },
+            TextColor(core),
+            Transform::from_translation(label_translation),
+            Name::new("Portal label"),
         ));
     }
 }
@@ -2651,6 +2757,37 @@ mod tests {
             app.world().get::<PortalInputWarp>(player).is_none(),
             "a clearly different direction drops the warp"
         );
+    }
+
+    #[test]
+    fn emission_guard_strips_input_pushing_back_into_the_exit_wall() {
+        let mut app = App::new();
+        app.insert_resource(ControlFrame::default());
+        app.add_systems(Update, warp_portal_input);
+        // Emerging from a right-wall portal — exit_normal points LEFT (into room).
+        let player = app
+            .world_mut()
+            .spawn((
+                PlayerEntity,
+                PrimaryPlayer,
+                PortalEmission { exit_normal: Vec2::new(-1.0, 0.0), timer: 1.0 },
+            ))
+            .id();
+        // Holding RIGHT (back into the wall) is stripped so physics carries you out.
+        app.world_mut().resource_mut::<ControlFrame>().axis_x = 1.0;
+        app.update();
+        assert!(
+            app.world().resource::<ControlFrame>().axis_x.abs() < 0.01,
+            "input pushing back into the exit wall is stripped during emergence"
+        );
+        // Holding LEFT (the emergence direction) passes through untouched.
+        app.world_mut().resource_mut::<ControlFrame>().axis_x = -1.0;
+        app.update();
+        assert!(
+            app.world().resource::<ControlFrame>().axis_x < -0.5,
+            "input in the emergence direction is preserved"
+        );
+        let _ = player;
     }
 
     #[test]

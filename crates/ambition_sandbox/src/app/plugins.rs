@@ -285,6 +285,15 @@ fn register_portal_systems(app: &mut App) {
             .chain()
             .in_set(SandboxSet::PlayerSimulation),
     );
+    // Suppress ledge-grab while transiting (so the carved aperture edges aren't
+    // grabbed) — must run BEFORE the movement integration probes for a grab.
+    app.add_systems(
+        Update,
+        crate::portal::suppress_ledge_grab_during_transit
+            .in_set(SandboxSet::PlayerSimulation)
+            .before(player_simulation_system)
+            .run_if(gameplay_allowed),
+    );
     // Teleports MUST run after the player movement integration (and the ground
     // item physics) — otherwise `player_simulation_system` re-integrates from
     // the pre-teleport position and the jump is silently undone (that's the

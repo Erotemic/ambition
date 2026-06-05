@@ -10,5 +10,45 @@ pub fn world_with_sandbox_solids(
     collision_world
         .blocks
         .extend(ecs_overlay.blocks.iter().cloned());
+    // Carve portal apertures out of the host surface so a body can sink into a
+    // portal (the "feet in, feet out" transit). Only the solid host kinds are
+    // carved; the portal rim and surrounding geometry stay solid.
+    if !ecs_overlay.portal_carves.is_empty() {
+        carve_portal_apertures(&mut collision_world.blocks, &ecs_overlay.portal_carves);
+    }
     collision_world
+}
+
+/// Split every solid host block by the portal aperture holes, leaving a doorway
+/// in the surface (and a solid frame around it). Non-host kinds (hazard, pogo,
+/// rebound) pass through untouched.
+fn carve_portal_apertures(blocks: &mut Vec<ae::Block>, holes: &[ae::Aabb]) {
+    let original = std::mem::take(blocks);
+    for block in original {
+        let carvable = matches!(
+            block.kind,
+            ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. } | ae::BlockKind::OneWay
+        );
+        if !carvable {
+            blocks.push(block);
+            continue;
+        }
+        // Subtract each hole in turn; a block can be split by more than one
+        // portal (rare, but cheap to handle).
+        let mut pieces = vec![block.aabb];
+        for hole in holes {
+            let mut next = Vec::with_capacity(pieces.len());
+            for piece in pieces.drain(..) {
+                crate::portal_pieces::subtract_aabb(piece, *hole, &mut next);
+            }
+            pieces = next;
+        }
+        for aabb in pieces {
+            blocks.push(ae::Block {
+                name: block.name.clone(),
+                aabb,
+                kind: block.kind,
+            });
+        }
+    }
 }

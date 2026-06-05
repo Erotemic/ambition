@@ -14,6 +14,11 @@ use super::*;
 #[derive(Resource, Default, Clone, Debug)]
 pub struct FeatureEcsWorldOverlay {
     pub blocks: Vec<ae::Block>,
+    /// Portal apertures to carve OUT of the host surface: the floor / wall a
+    /// portal sits on becomes non-solid inside the opening so a body can sink
+    /// in (the "feet in, feet out" transit). Filled each frame by
+    /// `portal::publish_portal_carves`; consumed by `world_with_sandbox_solids`.
+    pub portal_carves: Vec<ae::Aabb>,
 }
 
 /// Rebuild the transient collision blocks contributed by ECS-owned features.

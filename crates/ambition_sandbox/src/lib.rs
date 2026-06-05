@@ -88,6 +88,7 @@ pub mod possession;
 pub mod puppy_slug_gun;
 pub(crate) mod persistence;
 pub mod portal;
+pub mod portal_pieces;
 pub(crate) mod presentation;
 pub(crate) mod projectile;
 pub(crate) mod runtime;

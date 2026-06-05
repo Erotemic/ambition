@@ -258,6 +258,10 @@ fn register_portal_systems(app: &mut App) {
             // Slide oscillating columns, then snapshot, before the integrators read.
             crate::physics::oscillate_gravity_zones,
             crate::physics::collect_gravity_zones,
+            // Carve placed-portal apertures out of the host surface BEFORE the
+            // movement integrators build the augmented collision world, so a body
+            // can sink into a portal (the "feet in, feet out" transit).
+            crate::portal::publish_portal_carves,
         )
             .chain()
             .before(SandboxSet::CoreSimulation),
@@ -285,7 +289,7 @@ fn register_portal_systems(app: &mut App) {
         Update,
         (
             crate::portal::tick_portal_cooldowns,
-            crate::portal::portal_teleport_system,
+            crate::portal::portal_transit_system,
             crate::portal::portal_teleport_ground_items,
             crate::portal::portal_teleport_actors,
             // Ease the aerial roll the teleport just set (somersault to upright).

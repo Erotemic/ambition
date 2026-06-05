@@ -110,6 +110,10 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                 Update,
                 (
                     crate::portal::sync_portal_visuals.after(actors::sync_visuals),
+                    // Partial-transit pieces ("feet in, feet out"): runs after
+                    // the character sync so it can override the player's
+                    // visibility while crossing.
+                    crate::portal::sync_portal_body_pieces.after(actors::sync_visuals),
                     crate::portal::sync_portal_mode_indicator.after(actors::sync_visuals),
                     crate::portal::portal_dev_toggle_system,
                     crate::item_pickup::sync_ground_item_visuals.after(actors::sync_visuals),

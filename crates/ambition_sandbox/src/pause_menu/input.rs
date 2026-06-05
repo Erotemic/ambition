@@ -15,8 +15,22 @@ pub fn pause_menu_toggle(
     mut state: ResMut<PauseMenuState>,
     mut inventory: ResMut<InventoryUiState>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    // Fix 3: under the 3D-cube inventory backend, `Esc`/pause is owned by
+    // `oot_cube_app::cube_menu_open_routing` (opens the cube on the System page /
+    // closes it). Bail here so the GameMode toggle never double-fires. `Option` keeps
+    // this safe when the `oot_inventory` feature (and its backend resource) is absent.
+    #[cfg(feature = "oot_inventory")] cube_backend: Option<
+        Res<crate::oot_cube_app::InventoryUiBackend>,
+    >,
 ) {
     if !menu.start {
+        return;
+    }
+    #[cfg(feature = "oot_inventory")]
+    if cube_backend
+        .map(|b| *b == crate::oot_cube_app::InventoryUiBackend::Cube)
+        .unwrap_or(false)
+    {
         return;
     }
     match mode.get() {

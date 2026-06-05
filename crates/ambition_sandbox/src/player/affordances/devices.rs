@@ -187,6 +187,8 @@ fn keyboard_glyph(action: SandboxAction, preset: &KeyboardPreset) -> &'static st
         | SandboxAction::MenuNavigateRight => movement_label,
         SandboxAction::MenuSelect => "Enter",
         SandboxAction::MenuBack => "Esc",
+        SandboxAction::MenuPageLeft => "Q",
+        SandboxAction::MenuPageRight => "E",
         SandboxAction::DashAnalog | SandboxAction::AimStick => "",
     }
 }
@@ -243,6 +245,8 @@ fn gamepad_glyph(action: SandboxAction, kind: GamepadKind) -> &'static str {
         | SandboxAction::MenuNavigateRight => "D-Pad",
         SandboxAction::MenuSelect => south,
         SandboxAction::MenuBack => east,
+        SandboxAction::MenuPageLeft => lb,
+        SandboxAction::MenuPageRight => rb,
         SandboxAction::DashAnalog | SandboxAction::AimStick => "R-Stick",
     }
 }

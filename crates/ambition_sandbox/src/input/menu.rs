@@ -41,6 +41,13 @@ pub struct MenuControlFrame {
     pub start: bool,
     pub inventory: bool,
     pub map: bool,
+    /// Left shoulder bumper (L1 / LB), or its keyboard equivalent. A direct
+    /// "turn the page LEFT" intent for paged menus (the 3D inventory cube),
+    /// independent of the arrow/d-pad cursor navigation. Just-pressed edge.
+    pub page_left: bool,
+    /// Right shoulder bumper (R1 / RB), or its keyboard equivalent. Direct
+    /// "turn the page RIGHT" intent. Just-pressed edge.
+    pub page_right: bool,
     /// Positive values mean “navigate/scroll up”, negative values mean
     /// “navigate/scroll down”. Mouse wheels and touch drags both add here.
     pub scroll_y: f32,

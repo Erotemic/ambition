@@ -517,11 +517,13 @@ pub fn build_inventory_pages(
             CubePage::Map,
             "MAP",
             "Area map: discovered rooms, anchors, portal markers (host data TODO).",
+            focus,
         ),
         placeholder_page(
             CubePage::Quest,
             "QUEST",
             "Quest status + key items from save data (host data TODO).",
+            focus,
         ),
         build_system_page(settings, focus, open_category),
     ]
@@ -705,7 +707,12 @@ fn add_system_detail_panel(
     }
 }
 
-fn placeholder_page(page: CubePage, title: &str, body: &str) -> MenuPageModel<CubePage, CubeAction> {
+fn placeholder_page(
+    page: CubePage,
+    title: &str,
+    body: &str,
+    focus: CubeFocus,
+) -> MenuPageModel<CubePage, CubeAction> {
     let mut model = MenuPageModel::new(page, title, MenuColor::rgba(0.03, 0.04, 0.10, 0.96));
     model.text(
         50.0,
@@ -723,9 +730,11 @@ fn placeholder_page(page: CubePage, title: &str, body: &str) -> MenuPageModel<Cu
         MenuTextAlign::Center,
         MenuColor::rgba(0.85, 0.92, 1.0, 0.9),
     );
-    // Placeholder pages keep the edge buttons too (no item focus → CubeFocus::Item(0)
-    // is harmless; only the items page reads it for highlighting).
-    add_edge_buttons(&mut model, page, CubeFocus::Item(0));
+    // Placeholder pages keep the edge buttons AND honour the live cursor focus, so
+    // landing on an edge button after a page turn (Fix 1) highlights it. Only the
+    // EdgeLeft/EdgeRight focuses matter here; an item/system focus simply leaves both
+    // edge buttons un-highlighted (harmless — the placeholder has no other controls).
+    add_edge_buttons(&mut model, page, focus);
     model
 }
 
@@ -933,6 +942,37 @@ mod tests {
         settings.gameplay.quest_hud_visible = !settings.gameplay.quest_hud_visible;
         let on = SystemOption::ToggleQuestHud.label(&settings);
         assert_ne!(off, on, "toggling the setting changes the row label");
+    }
+
+    #[test]
+    fn map_and_quest_edge_buttons_are_focusable_and_highlight() {
+        // Fix 1: placeholder pages (Map / Quest) build real, focusable L/R edge
+        // buttons that highlight from the live cursor focus — previously they were
+        // hard-wired to `CubeFocus::Item(0)` so they could never highlight.
+        for page in [CubePage::Map, CubePage::Quest] {
+            let model = placeholder_page(page, "T", "body", CubeFocus::EdgeLeft);
+            // Both edge buttons exist as Action controls with a ChangePage action.
+            let edges: Vec<_> = model
+                .nodes
+                .iter()
+                .filter(|n| matches!(
+                    n,
+                    ambition_inventory_ui::MenuNode::Control {
+                        kind: MenuControlKind::Action,
+                        action: Some(CubeAction::ChangePage(_)),
+                        ..
+                    }
+                ))
+                .collect();
+            assert_eq!(edges.len(), 2, "{page:?} has both L/R edge buttons");
+            // With EdgeLeft focus, exactly the LEFT edge button reads selected.
+            let left_selected = model.nodes.iter().any(|n| matches!(
+                n,
+                ambition_inventory_ui::MenuNode::Control { rect, selected: true, action: Some(CubeAction::ChangePage(_)), .. }
+                    if rect.x < 10.0
+            ));
+            assert!(left_selected, "{page:?} left edge button highlights on EdgeLeft focus");
+        }
     }
 
     #[test]

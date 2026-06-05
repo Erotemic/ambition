@@ -167,6 +167,10 @@ pub fn populate_menu_control_frame_from_actions(
             actions.pressed(&SandboxAction::MenuBack) || actions.pressed(&SandboxAction::Reset);
         next.inventory = actions.just_pressed(&SandboxAction::Inventory);
         next.map = actions.just_pressed(&SandboxAction::Map);
+        // Paged-menu page-turn bumpers (Fix 2): just-pressed edge so one bumper tap
+        // turns exactly one page, independent of the arrow/d-pad item cursor.
+        next.page_left = actions.just_pressed(&SandboxAction::MenuPageLeft);
+        next.page_right = actions.just_pressed(&SandboxAction::MenuPageRight);
     }
 
     for ev in mouse_wheel.read() {

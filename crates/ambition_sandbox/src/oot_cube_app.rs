@@ -71,6 +71,11 @@ pub fn install_cube_menu(app: &mut App) {
         .add_systems(
             Update,
             (
+                // Fix 3: when Cube is the backend, the game's menu-open inputs
+                // (pause/Esc, inventory, map) open the cube on the matching page
+                // instead of the old Bevy-UI menus. Runs before nav so the page is
+                // set the same frame the cube opens.
+                cube_menu_open_routing,
                 // Nav first (mutates the cursor), then republish (reads the cursor +
                 // inventory) so the highlight + detail panel reflect this frame's move.
                 cube_focus_nav,
@@ -247,6 +252,20 @@ fn cube_focus_nav(
     let dx = (menu.right as i32) - (menu.left as i32);
     let dy = (menu.down as i32) - (menu.up as i32);
 
+    // Fix 2: the L/R shoulder bumpers turn the page DIRECTLY (same target as the
+    // on-screen L/R edge buttons), independent of the arrow/d-pad item cursor. Left
+    // bumper rotates to the viewer-left page, right bumper to the viewer-right page.
+    // Handled before the per-face nav so a bumper press always rotates regardless of
+    // where the item cursor sits. The cursor lands on the new page's back-edge button.
+    let bump = (menu.page_right as i32) - (menu.page_left as i32);
+    if bump < 0 {
+        turn_page_seeded(&mut pages, &mut cursor, active_page.on_viewer_left());
+        return;
+    } else if bump > 0 {
+        turn_page_seeded(&mut pages, &mut cursor, active_page.on_viewer_right());
+        return;
+    }
+
     // The System face is an interactive option list: UP/DOWN move the cursor
     // between rows, LEFT/RIGHT at the column edges turn the page (or step a
     // value), and SELECT applies the focused option.
@@ -258,13 +277,26 @@ fn cube_focus_nav(
         return;
     }
 
-    // Other non-items faces only respond to horizontal page turns (matches the
-    // demo's early branch in move_spatial).
+    // Other non-items faces (Map / Quest placeholders) respond to horizontal page
+    // turns; arrows rotate, landing the cursor on the new page's back-edge button
+    // (Fix 1). The L/R bumpers (Fix 2) are already handled above for every face.
     if active_page != CubePage::Items {
         if dx < 0 {
-            turn_page(&mut pages, active_page.on_viewer_left());
+            turn_page_seeded(&mut pages, &mut cursor, active_page.on_viewer_left());
         } else if dx > 0 {
-            turn_page(&mut pages, active_page.on_viewer_right());
+            turn_page_seeded(&mut pages, &mut cursor, active_page.on_viewer_right());
+        }
+        if menu.select {
+            // The only selectable controls on a placeholder are the edge buttons.
+            match cursor.focus {
+                CubeFocus::EdgeLeft => {
+                    turn_page_seeded(&mut pages, &mut cursor, active_page.on_viewer_left())
+                }
+                CubeFocus::EdgeRight => {
+                    turn_page_seeded(&mut pages, &mut cursor, active_page.on_viewer_right())
+                }
+                _ => {}
+            }
         }
         if menu.back {
             overlay.visible = false;
@@ -552,6 +584,32 @@ fn owned_item_action(owned: &OwnedItems, idx: usize) -> Option<CubeAction> {
     })
 }
 
+/// The edge-button focus on `to` that turns BACK toward `from` (Fix 1). After a page
+/// turn the cursor lands here, so the arriving control is highlighted and an immediate
+/// rotate/select returns to the page we came from. On `to`, the LEFT edge button
+/// targets `to.on_viewer_left()` and the RIGHT targets `to.on_viewer_right()`; we pick
+/// whichever points back at `from`. When `from` is unknown (first open) we default to
+/// the left edge button so there is always a highlighted control.
+fn back_edge_focus(from: Option<CubePage>, to: CubePage) -> CubeFocus {
+    match from {
+        Some(from) if to.on_viewer_right() == from => CubeFocus::EdgeRight,
+        Some(from) if to.on_viewer_left() == from => CubeFocus::EdgeLeft,
+        _ => CubeFocus::EdgeLeft,
+    }
+}
+
+/// Set the active page (the lib rotates that face to the camera), landing the cursor
+/// on the new page's back-edge button (Fix 1) via [`back_edge_focus`].
+fn turn_page_seeded(
+    pages: &mut ActiveMenuPages<CubePage, CubeAction>,
+    cursor: &mut CubeCursor,
+    page: CubePage,
+) {
+    let from = pages.active;
+    turn_page(pages, page);
+    cursor.mark_keyboard(back_edge_focus(from, page));
+}
+
 /// Set the active page (the lib rotates that face to the camera).
 fn turn_page(pages: &mut ActiveMenuPages<CubePage, CubeAction>, page: CubePage) {
     if pages.active != Some(page) {
@@ -583,7 +641,12 @@ fn dispatch_cube_action(
             info!("cube action: {:?} \u{2192} {:?}", item, decided);
         }
         CubeAction::ChangePage(page) => {
+            let from = pages.active;
             pages.active = Some(page);
+            // Fix 1: land the cursor on the new page's "back" edge button — the one
+            // that turns BACK toward the page we came from — so an immediate select /
+            // rotate goes home and the arriving control is highlighted.
+            cursor.mark_keyboard(back_edge_focus(from, page));
             info!("cube page \u{2192} {:?}", page);
         }
         CubeAction::System(option) => {
@@ -790,6 +853,143 @@ fn cube_pointer_click(
     }
 }
 
+/// Fix 3: route the game's menu-open inputs to the CUBE when it is the active
+/// backend, opening it on the page that matches the requested menu:
+///
+/// * pause / `Esc` (`menu.start`) → open on [`CubePage::System`] (replacing the old
+///   pause/system menu); pressing it again while the cube is open CLOSES the cube.
+/// * inventory key (`menu.inventory`) → open on [`CubePage::Items`].
+/// * map key (`menu.map`) → open on [`CubePage::Map`].
+///
+/// Opening pauses the sim (`GameMode::Paused`) and raises `InventoryUiState.visible`,
+/// exactly like the inventory open path — which makes the existing pause-menu UI
+/// auto-suppress (`Paused && !inventory.visible`). The old `pause_menu_toggle` and
+/// `handle_map_menu_hotkeys` are gated to no-op under the Cube backend (see their
+/// `cube_backend_active` guards), so nothing double-fires the `GameMode` toggle and
+/// the map panel never opens behind the cube.
+///
+/// `Esc`-to-close is owned HERE (not by `cube_focus_nav`'s `menu.back`) so the close
+/// also restores `GameMode::Playing`; the routing runs before `cube_focus_nav`, and
+/// consuming the open/close intent keeps the two from fighting over the same frame.
+#[cfg(feature = "input")]
+#[allow(clippy::too_many_arguments)]
+fn cube_menu_open_routing(
+    backend: Res<InventoryUiBackend>,
+    menu: Res<MenuControlFrame>,
+    mut overlay: ResMut<crate::inventory::InventoryUiState>,
+    mode: Res<State<crate::runtime::game_mode::GameMode>>,
+    mut next_mode: ResMut<NextState<crate::runtime::game_mode::GameMode>>,
+    mut pages: ResMut<ActiveMenuPages<CubePage, CubeAction>>,
+    mut cursor: ResMut<CubeCursor>,
+    mut system_nav: ResMut<CubeSystemNav>,
+    mut map: ResMut<crate::map_menu::MapMenuState>,
+) {
+    use crate::runtime::game_mode::GameMode;
+    if *backend != InventoryUiBackend::Cube {
+        return;
+    }
+
+    // pause / Esc: toggle the cube on the System page.
+    if menu.start {
+        if overlay.visible {
+            close_cube_menu(&mut overlay, mode.get(), &mut next_mode);
+        } else if matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
+            open_cube_menu(
+                CubePage::System,
+                &mut overlay,
+                mode.get(),
+                &mut next_mode,
+                &mut pages,
+                &mut cursor,
+                &mut system_nav,
+                &mut map,
+            );
+        }
+        return;
+    }
+
+    // inventory key: the shared open/close TOGGLE stays in `oot_menu_input` (it raises
+    // `visible` + pauses for both backends); here we only point the cube at the Items
+    // page + seed the cursor whenever that key fires. Closing is handled there too —
+    // when the key closes the overlay this just sets a page that won't be shown.
+    if menu.inventory {
+        pages.active = Some(CubePage::Items);
+        system_nav.open_category = None;
+        cursor.mark_keyboard(CubeFocus::Item(0));
+        map.open = false;
+        return;
+    }
+
+    // map key: open on the Map page (suppressing the standalone map panel).
+    if menu.map && matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
+        if overlay.visible {
+            pages.active = Some(CubePage::Map);
+            cursor.mark_keyboard(CubeFocus::EdgeLeft);
+        } else {
+            open_cube_menu(
+                CubePage::Map,
+                &mut overlay,
+                mode.get(),
+                &mut next_mode,
+                &mut pages,
+                &mut cursor,
+                &mut system_nav,
+                &mut map,
+            );
+        }
+    }
+}
+
+/// Open the cube overlay on `page`, pausing the sim and seeding the cursor. Mirrors
+/// the inventory open path (`oot_menu_input`): raise `visible`, switch to
+/// `GameMode::Paused` when coming from gameplay, and make sure the standalone map
+/// panel stays shut so it can't render behind the cube.
+#[cfg(feature = "input")]
+#[allow(clippy::too_many_arguments)]
+fn open_cube_menu(
+    page: CubePage,
+    overlay: &mut crate::inventory::InventoryUiState,
+    mode: &crate::runtime::game_mode::GameMode,
+    next_mode: &mut NextState<crate::runtime::game_mode::GameMode>,
+    pages: &mut ActiveMenuPages<CubePage, CubeAction>,
+    cursor: &mut CubeCursor,
+    system_nav: &mut CubeSystemNav,
+    map: &mut crate::map_menu::MapMenuState,
+) {
+    use crate::runtime::game_mode::GameMode;
+    overlay.visible = true;
+    overlay.opened_from_pause = matches!(mode, GameMode::Paused);
+    pages.active = Some(page);
+    // Seed a sensible cursor for the opening page.
+    system_nav.open_category = None;
+    cursor.mark_keyboard(match page {
+        CubePage::Items => CubeFocus::Item(0),
+        CubePage::System => CubeFocus::System(0),
+        CubePage::Map | CubePage::Quest => CubeFocus::EdgeLeft,
+    });
+    // Never leave the standalone map panel open underneath the cube.
+    map.open = false;
+    if matches!(mode, GameMode::Playing) {
+        next_mode.set(GameMode::Paused);
+    }
+}
+
+/// Close the cube overlay (Esc while open), restoring `GameMode::Playing` when the
+/// cube was opened directly from gameplay (matching `close_oot_menu`).
+#[cfg(feature = "input")]
+fn close_cube_menu(
+    overlay: &mut crate::inventory::InventoryUiState,
+    mode: &crate::runtime::game_mode::GameMode,
+    next_mode: &mut NextState<crate::runtime::game_mode::GameMode>,
+) {
+    use crate::runtime::game_mode::GameMode;
+    let opened_from_pause = overlay.opened_from_pause;
+    overlay.visible = false;
+    if !opened_from_pause && matches!(mode, GameMode::Paused) {
+        next_mode.set(GameMode::Playing);
+    }
+}
+
 /// Dev runtime toggle (#31): `\` flips the inventory frontend between the Bevy-UI
 /// grid and the 3D cube. Logs the new backend so it's visible in the console.
 fn toggle_inventory_backend(
@@ -917,4 +1117,225 @@ fn republish_cube_pages(
         system_nav.open_category,
     );
     pages.active = Some(active);
+}
+
+#[cfg(test)]
+mod oot_cube_app_tests {
+    //! Behaviour tests for the cube's interaction seams, driven through the real
+    //! systems / observers exactly as the app wires them.
+    //!
+    //! * Fix 1 — [`back_edge_focus`] lands the cursor on the "back" edge button.
+    //! * Fix 4 — `cube_pointer_click` dispatches System-page clicks (drill in,
+    //!   apply an option, Close) at parity with keyboard select.
+    use super::*;
+    use crate::brain::ActionSet;
+    use crate::game_mode::GameMode;
+    use crate::player::{PlayerEntity, PlayerMana, PrimaryPlayer};
+    use bevy::picking::pointer::{Location, PointerId};
+    use bevy::picking::backend::HitData;
+    use bevy::picking::events::{Click, Pointer};
+    use bevy::camera::NormalizedRenderTarget;
+    use core::time::Duration;
+
+    // ---- Fix 1: back-edge seeding --------------------------------------------
+
+    #[test]
+    fn back_edge_lands_opposite_the_direction_travelled() {
+        // Turning RIGHT brings the viewer-right page to front; to go BACK you turn
+        // left, so the cursor lands on the LEFT edge button — and vice-versa.
+        let from = CubePage::Items;
+        let right = from.on_viewer_right();
+        assert_eq!(back_edge_focus(Some(from), right), CubeFocus::EdgeLeft);
+        let left = from.on_viewer_left();
+        assert_eq!(back_edge_focus(Some(from), left), CubeFocus::EdgeRight);
+        // First open (no prior page) defaults to a highlighted left edge button.
+        assert_eq!(back_edge_focus(None, CubePage::Map), CubeFocus::EdgeLeft);
+    }
+
+    // ---- Fix 4: System-page pointer clicks -----------------------------------
+
+    fn click_app() -> (App, Entity) {
+        let mut app = App::new();
+        app.add_plugins(bevy::state::app::StatesPlugin);
+        app.init_state::<GameMode>();
+        app.init_resource::<InventoryUiBackend>();
+        app.init_resource::<ActiveMenuPages<CubePage, CubeAction>>();
+        app.init_resource::<CubeCursor>();
+        app.init_resource::<CubeSystemNav>();
+        app.init_resource::<OwnedItems>();
+        app.init_resource::<UserSettings>();
+        app.init_resource::<crate::inventory::InventoryUiState>();
+        app.add_message::<PlayerHealRequested>();
+        app.add_observer(cube_pointer_click);
+        *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::Cube;
+        app.world_mut()
+            .resource_mut::<crate::inventory::InventoryUiState>()
+            .visible = true;
+        let player = app
+            .world_mut()
+            .spawn((PlayerEntity, PrimaryPlayer, ActionSet::default(), PlayerMana::default()))
+            .id();
+        app.update();
+        (app, player)
+    }
+
+    /// Spawn a cube control carrying `action` and fire a real `Pointer<Click>` at it,
+    /// exactly as Bevy picking would.
+    fn click_control(app: &mut App, action: CubeAction) {
+        let entity = app
+            .world_mut()
+            .spawn(AmbitionMenuControl::<CubeAction> {
+                kind: ambition_inventory_ui::MenuControlKind::OptionToggle,
+                action: Some(action),
+                focus: ambition_inventory_ui::MenuFocusKey::default(),
+            })
+            .id();
+        // The observer only reads `click.entity`; any render target works for the
+        // location, so the simplest no-render target keeps the fixture minimal.
+        let location = Location {
+            target: NormalizedRenderTarget::None { width: 1, height: 1 },
+            position: Vec2::ZERO,
+        };
+        let click = Pointer::new(
+            PointerId::Mouse,
+            location,
+            Click {
+                button: bevy::picking::pointer::PointerButton::Primary,
+                hit: HitData::new(entity, 0.0, None, None),
+                duration: Duration::ZERO,
+            },
+            entity,
+        );
+        app.world_mut().trigger(click);
+        app.update();
+    }
+
+    // ---- Fix 2: shoulder-bumper page turns -----------------------------------
+
+    fn nav_app() -> App {
+        let mut app = App::new();
+        app.add_plugins(bevy::state::app::StatesPlugin);
+        app.init_state::<GameMode>();
+        app.init_resource::<InventoryUiBackend>();
+        app.init_resource::<ActiveMenuPages<CubePage, CubeAction>>();
+        app.init_resource::<CubeCursor>();
+        app.init_resource::<CubeSystemNav>();
+        app.init_resource::<OwnedItems>();
+        app.init_resource::<UserSettings>();
+        app.init_resource::<crate::inventory::InventoryUiState>();
+        app.init_resource::<MenuControlFrame>();
+        app.add_message::<PlayerHealRequested>();
+        app.add_systems(Update, cube_focus_nav);
+        *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::Cube;
+        app.world_mut()
+            .resource_mut::<crate::inventory::InventoryUiState>()
+            .visible = true;
+        app.world_mut()
+            .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
+            .active = Some(CubePage::Items);
+        app.world_mut()
+            .spawn((PlayerEntity, PrimaryPlayer, ActionSet::default(), PlayerMana::default()));
+        app.update();
+        app
+    }
+
+    fn press_bumper(app: &mut App, right: bool) {
+        let mut frame = MenuControlFrame::default();
+        if right {
+            frame.page_right = true;
+        } else {
+            frame.page_left = true;
+        }
+        app.insert_resource(frame);
+        app.update();
+    }
+
+    #[test]
+    fn right_bumper_turns_to_the_viewer_right_page() {
+        let mut app = nav_app();
+        press_bumper(&mut app, true);
+        assert_eq!(
+            app.world().resource::<ActiveMenuPages<CubePage, CubeAction>>().active,
+            Some(CubePage::Items.on_viewer_right()),
+            "right bumper rotates to the viewer-right page (Fix 2)"
+        );
+        // The cursor lands on the new page's back-edge button (Fix 1): arriving from
+        // the right edge means the LEFT edge button turns back home.
+        assert_eq!(
+            app.world().resource::<CubeCursor>().focus,
+            CubeFocus::EdgeLeft,
+            "cursor seeds onto the back (left) edge button"
+        );
+    }
+
+    #[test]
+    fn left_bumper_turns_to_the_viewer_left_page() {
+        let mut app = nav_app();
+        press_bumper(&mut app, false);
+        assert_eq!(
+            app.world().resource::<ActiveMenuPages<CubePage, CubeAction>>().active,
+            Some(CubePage::Items.on_viewer_left()),
+            "left bumper rotates to the viewer-left page (Fix 2)"
+        );
+        assert_eq!(
+            app.world().resource::<CubeCursor>().focus,
+            CubeFocus::EdgeRight,
+            "cursor seeds onto the back (right) edge button"
+        );
+    }
+
+    #[test]
+    fn clicking_a_system_category_drills_in() {
+        let (mut app, _player) = click_app();
+        app.world_mut()
+            .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
+            .active = Some(CubePage::System);
+        assert!(app.world().resource::<CubeSystemNav>().open_category.is_none());
+        click_control(&mut app, CubeAction::OpenSystemCategory(SystemCategory::Audio));
+        assert_eq!(
+            app.world().resource::<CubeSystemNav>().open_category,
+            Some(SystemCategory::Audio),
+            "clicking a System category drills into it (Fix 4)"
+        );
+    }
+
+    #[test]
+    fn clicking_a_system_option_applies_it() {
+        let (mut app, _player) = click_app();
+        app.world_mut()
+            .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
+            .active = Some(CubePage::System);
+        app.world_mut().resource_mut::<CubeSystemNav>().open_category = Some(SystemCategory::Video);
+        let before = app.world().resource::<UserSettings>().video.show_fps;
+        click_control(&mut app, CubeAction::System(SystemOption::ToggleFps));
+        let after = app.world().resource::<UserSettings>().video.show_fps;
+        assert_ne!(before, after, "clicking an option toggles the setting (Fix 4)");
+    }
+
+    #[test]
+    fn clicking_back_drills_out_to_the_category_list() {
+        let (mut app, _player) = click_app();
+        app.world_mut()
+            .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
+            .active = Some(CubePage::System);
+        app.world_mut().resource_mut::<CubeSystemNav>().open_category = Some(SystemCategory::Audio);
+        click_control(&mut app, CubeAction::CloseSystemCategory);
+        assert!(
+            app.world().resource::<CubeSystemNav>().open_category.is_none(),
+            "clicking Back drills out to the category list (Fix 4)"
+        );
+    }
+
+    #[test]
+    fn clicking_close_menu_closes_the_overlay() {
+        let (mut app, _player) = click_app();
+        app.world_mut()
+            .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
+            .active = Some(CubePage::System);
+        click_control(&mut app, CubeAction::System(SystemOption::CloseMenu));
+        assert!(
+            !app.world().resource::<crate::inventory::InventoryUiState>().visible,
+            "clicking Close Menu folds the cube shut (Fix 4)"
+        );
+    }
 }

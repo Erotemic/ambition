@@ -10,9 +10,24 @@ pub fn handle_map_menu_hotkeys(
     keys: Res<bevy::input::ButtonInput<bevy::input::keyboard::KeyCode>>,
     menu: Res<MenuControlFrame>,
     mut map: ResMut<MapMenuState>,
+    // Fix 3: under the 3D-cube inventory backend, the map key opens the cube on its
+    // Map page (`oot_cube_app::cube_menu_open_routing`) instead of this standalone
+    // panel, so suppress the `menu.map` open here. The `M`/`N`/zoom keys still drive
+    // the panel directly for users who toggle back to the Grid backend.
+    #[cfg(feature = "oot_inventory")] cube_backend: Option<
+        Res<crate::oot_cube_app::InventoryUiBackend>,
+    >,
 ) {
     use bevy::input::keyboard::KeyCode;
-    if keys.just_pressed(KeyCode::KeyM) || menu.map {
+    #[cfg(feature = "oot_inventory")]
+    let cube = cube_backend
+        .map(|b| *b == crate::oot_cube_app::InventoryUiBackend::Cube)
+        .unwrap_or(false);
+    #[cfg(not(feature = "oot_inventory"))]
+    let cube = false;
+    // The `menu.map` intent routes to the cube under the Cube backend; the `M` key
+    // keeps toggling the standalone panel so it stays reachable for debugging.
+    if keys.just_pressed(KeyCode::KeyM) || (menu.map && !cube) {
         map.toggle_open();
     }
     if keys.just_pressed(KeyCode::KeyN) {

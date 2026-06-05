@@ -52,6 +52,13 @@ pub enum SandboxAction {
     MenuNavigateRight,
     MenuSelect,
     MenuBack,
+    /// Paged-menu page turn LEFT. Bound to the LEFT shoulder bumper (L1 / LB =
+    /// `GamepadButton::LeftTrigger`) and the `Q` key. Read only by paged menus
+    /// (the 3D inventory cube); gameplay never consumes it.
+    MenuPageLeft,
+    /// Paged-menu page turn RIGHT. Bound to the RIGHT shoulder bumper (R1 / RB =
+    /// `GamepadButton::RightTrigger`) and the `E` key.
+    MenuPageRight,
     /// Analog left-stick read used to drive menu navigation with
     /// configurable deadzone + repeat. Renders into `MenuAxisFrame`.
     #[actionlike(DualAxis)]

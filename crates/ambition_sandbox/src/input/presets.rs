@@ -330,6 +330,16 @@ impl KeyboardPreset {
         map.insert(SandboxAction::MenuBack, KeyCode::Backspace);
         map.insert(SandboxAction::MenuBack, GamepadButton::East);
 
+        // Paged-menu page turn: the L/R shoulder bumpers (L1/LB, R1/RB) turn the
+        // page directly in the 3D inventory cube, plus the Q/E keyboard equivalents.
+        // The bumpers double as gameplay Utility/QuickAction, but menu page actions
+        // are only read while a paged menu is open, so the physical button is shared
+        // safely. `MoveLeft`/`MoveRight` already own A/D, so paging uses Q/E.
+        map.insert(SandboxAction::MenuPageLeft, GamepadButton::LeftTrigger);
+        map.insert(SandboxAction::MenuPageLeft, KeyCode::KeyQ);
+        map.insert(SandboxAction::MenuPageRight, GamepadButton::RightTrigger);
+        map.insert(SandboxAction::MenuPageRight, KeyCode::KeyE);
+
         map.insert_dual_axis(SandboxAction::MenuStick, GamepadStick::LEFT);
         map.insert_dual_axis(SandboxAction::AimStick, GamepadStick::RIGHT);
         // RIGHT_Z is the analog right-trigger axis on most pads.

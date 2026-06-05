@@ -281,10 +281,28 @@ fn cube_focus_nav(
     // turns; arrows rotate, landing the cursor on the new page's back-edge button
     // (Fix 1). The L/R bumpers (Fix 2) are already handled above for every face.
     if active_page != CubePage::Items {
-        if dx < 0 {
-            turn_page_seeded(&mut pages, &mut cursor, active_page.on_viewer_left());
-        } else if dx > 0 {
-            turn_page_seeded(&mut pages, &mut cursor, active_page.on_viewer_right());
+        // Placeholder faces (Map / Quest) have only the two edge buttons and no centre
+        // content. LEFT/RIGHT move BETWEEN the edges when stepping INWARD; only stepping
+        // OUTWARD past an edge rotates the page — the same arrow/edge rule as the items
+        // face, just with nothing in the middle. (Was: any L/R rotated immediately, so
+        // right-from-the-left-edge jumped to the next page instead of the right edge.)
+        if dx != 0 {
+            match cursor.focus {
+                CubeFocus::EdgeLeft if dx > 0 => cursor.mark_keyboard(CubeFocus::EdgeRight),
+                CubeFocus::EdgeLeft => {
+                    turn_page_seeded(&mut pages, &mut cursor, active_page.on_viewer_left())
+                }
+                CubeFocus::EdgeRight if dx < 0 => cursor.mark_keyboard(CubeFocus::EdgeLeft),
+                CubeFocus::EdgeRight => {
+                    turn_page_seeded(&mut pages, &mut cursor, active_page.on_viewer_right())
+                }
+                // Cursor not yet on an edge — seed onto the edge for the pressed direction.
+                _ => cursor.mark_keyboard(if dx < 0 {
+                    CubeFocus::EdgeLeft
+                } else {
+                    CubeFocus::EdgeRight
+                }),
+            }
         }
         if menu.select {
             // The only selectable controls on a placeholder are the edge buttons.

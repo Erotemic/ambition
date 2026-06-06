@@ -166,7 +166,7 @@ pub fn portal_transit_system(
     >,
     portals: Query<&PlacedPortal>,
     gravity: Option<Res<crate::physics::GravityField>>,
-    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
     mut teleported: MessageWriter<BodyTeleported>,
 ) {
     let Ok((entity, mut kin, mut transit, mut roll, cooldown)) = players.single_mut() else {
@@ -197,7 +197,7 @@ pub fn portal_transit_system(
                 straddling: channel,
                 crossed: false,
             });
-            sfx.write(crate::audio::SfxMessage::Play {
+            sfx.write(ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::ids::PORTAL_ENTER,
                 pos: portal_pos,
             });
@@ -250,7 +250,7 @@ pub fn portal_transit_system(
                 t.straddling = exit_channel;
             }
             teleported.write(BodyTeleported { body: entity });
-            sfx.write(crate::audio::SfxMessage::Play {
+            sfx.write(ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::ids::PORTAL_EXIT,
                 pos: exit_pos,
             });
@@ -472,7 +472,7 @@ pub fn portal_transit_actors(
         Option<&crate::features::BossConfig>,
     )>,
     gravity: Option<Res<crate::physics::GravityField>>,
-    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
 ) {
     let all: Vec<PlacedPortal> = portals.iter().copied().collect();
     if all.is_empty() {
@@ -518,7 +518,7 @@ pub fn portal_transit_actors(
 fn apply_actor_transit(
     commands: &mut Commands,
     entity: Entity,
-    sfx: &mut MessageWriter<crate::audio::SfxMessage>,
+    sfx: &mut MessageWriter<ambition_sfx::SfxMessage>,
     step: TransitStep,
     pos: Option<&mut Vec2>,
     vel: Option<&mut Vec2>,
@@ -535,7 +535,7 @@ fn apply_actor_transit(
                 straddling: channel,
                 crossed: false,
             });
-            sfx.write(crate::audio::SfxMessage::Play {
+            sfx.write(ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::ids::PORTAL_ENTER,
                 pos: portal_pos,
             });
@@ -566,7 +566,7 @@ fn apply_actor_transit(
             commands
                 .entity(entity)
                 .insert(PortalTransitCooldown(TELEPORT_COOLDOWN_S));
-            sfx.write(crate::audio::SfxMessage::Play {
+            sfx.write(ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::ids::PORTAL_EXIT,
                 pos: exit_pos,
             });

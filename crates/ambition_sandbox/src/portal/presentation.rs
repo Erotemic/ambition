@@ -62,8 +62,11 @@ pub fn sync_portal_disorientation_indicator(
     }
     // A little spinning-arrow glyph just above the head.
     let pos = kin.pos + Vec2::new(0.0, -(kin.size.y * 0.5 + 16.0));
-    let translation =
-        crate::config::world_to_bevy(&world.0, pos, crate::config::WORLD_Z_PLAYER + 9.0);
+    let translation = crate::engine_core::config::world_to_bevy(
+        &world.0,
+        pos,
+        crate::engine_core::config::WORLD_Z_PLAYER + 9.0,
+    );
     commands.spawn((
         PortalDisorientIndicator,
         Text2d::new("\u{21BB}"), // ↻ clockwise open circle arrow
@@ -136,7 +139,7 @@ pub fn sync_portal_body_pieces(
     // Opaque mask over the invisible/intangible slice (per Jon's note: the box
     // belongs over the part you should NOT see).
     let mask_color = Color::srgb(0.80, 0.95, 1.0);
-    let mask_z = crate::config::WORLD_Z_PLAYER + 1.0;
+    let mask_z = crate::engine_core::config::WORLD_Z_PLAYER + 1.0;
 
     // Exit copy: the whole sprite emerging from the exit, mapped + rotated by the
     // somersault it is taking (none for a wall↔wall turn-around). For a suppressed
@@ -148,8 +151,11 @@ pub fn sync_portal_body_pieces(
     if portal_facing_flips(enter.normal, exit.normal, gravity_dir) {
         exit_sprite.flip_x = !exit_sprite.flip_x;
     }
-    let exit_translation =
-        crate::config::world_to_bevy(&world.0, exit_center, crate::config::WORLD_Z_PLAYER);
+    let exit_translation = crate::engine_core::config::world_to_bevy(
+        &world.0,
+        exit_center,
+        crate::engine_core::config::WORLD_Z_PLAYER,
+    );
     commands.spawn((
         PortalBodyPiece,
         exit_sprite,
@@ -161,7 +167,8 @@ pub fn sync_portal_body_pieces(
     // Entry mask: the slice of the real sprite that has sunk THROUGH the entry
     // plane (into the wall) — invisible on this side.
     if let Some(hidden) = pp::clip_halfspace(body, enter.pos, -enter.normal) {
-        let translation = crate::config::world_to_bevy(&world.0, hidden.center(), mask_z);
+        let translation =
+            crate::engine_core::config::world_to_bevy(&world.0, hidden.center(), mask_z);
         commands.spawn((
             PortalBodyPiece,
             Sprite::from_color(mask_color, hidden.half_size() * 2.0),
@@ -173,7 +180,8 @@ pub fn sync_portal_body_pieces(
     // the exit plane) — invisible until it comes out.
     let exit_body = pp::map_aabb(body, &enter, &exit);
     if let Some(hidden) = pp::clip_halfspace(exit_body, exit.pos, -exit.normal) {
-        let translation = crate::config::world_to_bevy(&world.0, hidden.center(), mask_z);
+        let translation =
+            crate::engine_core::config::world_to_bevy(&world.0, hidden.center(), mask_z);
         commands.spawn((
             PortalBodyPiece,
             Sprite::from_color(mask_color, hidden.half_size() * 2.0),
@@ -255,7 +263,7 @@ pub fn sync_portal_mode_indicator(
     // (y-down world, so a small +y is slightly below centre). z=12 keeps it
     // in front of the player sprite.
     let pos = kin.pos + Vec2::new(facing * (kin.size.x * 0.45 + 6.0), kin.size.y * 0.06);
-    let translation = crate::config::world_to_bevy(&world.0, pos, 12.0);
+    let translation = crate::engine_core::config::world_to_bevy(&world.0, pos, 12.0);
     // Aim the barrel where the shot will go (same aim the input adapter resolves
     // for `FirePortalGun`: right-stick aim, else move axis, else facing). World
     // y-down → render y-up; aiming left flips vertically so the gun stays upright
@@ -301,7 +309,7 @@ pub fn sync_portal_visuals(
     // In-flight portal shots: a small bright streak in the shot's color.
     for proj in &projectiles {
         let color = proj.channel.display().1;
-        let translation = crate::config::world_to_bevy(&world.0, proj.pos, 9.5);
+        let translation = crate::engine_core::config::world_to_bevy(&world.0, proj.pos, 9.5);
         commands.spawn((
             PortalVisual,
             Sprite::from_color(color, Vec2::new(16.0, 8.0)),
@@ -311,7 +319,7 @@ pub fn sync_portal_visuals(
     }
     // Uncollected portal-gun pickup: a purple marker quad.
     for pickup in &pickups {
-        let translation = crate::config::world_to_bevy(&world.0, pickup.pos, 9.0);
+        let translation = crate::engine_core::config::world_to_bevy(&world.0, pickup.pos, 9.0);
         // The world pickup shows the actual gun sprite (blue mode by default);
         // falls back to a marker quad before the art has loaded.
         let sprite = match art.as_ref() {
@@ -350,8 +358,8 @@ pub fn sync_portal_visuals(
         let angle = (-along.y).atan2(along.x);
         let rotation = Quat::from_rotation_z(angle);
         // Rim (outer) + brighter thin core, both oriented along the wall.
-        let rim_translation = crate::config::world_to_bevy(&world.0, portal.pos, 9.0);
-        let core_translation = crate::config::world_to_bevy(&world.0, portal.pos, 9.1);
+        let rim_translation = crate::engine_core::config::world_to_bevy(&world.0, portal.pos, 9.0);
+        let core_translation = crate::engine_core::config::world_to_bevy(&world.0, portal.pos, 9.1);
         commands.spawn((
             PortalVisual,
             Sprite::from_color(rim, Vec2::new(length, PORTAL_VISUAL_THICKNESS)),
@@ -371,7 +379,7 @@ pub fn sync_portal_visuals(
         // be referred to precisely (each linked pair is a distinct complementary
         // color: purple↔yellow, teal↔red, …). The color name IS the identifier.
         let label_pos = portal.pos + n * 24.0;
-        let label_translation = crate::config::world_to_bevy(&world.0, label_pos, 9.2);
+        let label_translation = crate::engine_core::config::world_to_bevy(&world.0, label_pos, 9.2);
         commands.spawn((
             PortalVisual,
             Text2d::new(portal.channel.name()),

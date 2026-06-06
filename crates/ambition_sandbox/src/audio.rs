@@ -16,7 +16,13 @@
 //! Reverb / heavier coloration remains future work.
 
 use crate::engine_core as ae;
+// `SfxMessage` now lives in the `ambition_sfx` crate (moved down so
+// reusable mechanics request sound without naming a sandbox module).
+// Re-export it here so the historical `crate::audio::SfxMessage` path
+// — used across the sandbox and by the audio runtime consumer below —
+// keeps resolving unchanged.
 use ambition_sfx::SfxId;
+pub use ambition_sfx::SfxMessage;
 #[cfg(feature = "audio")]
 use ambition_sfx::{self as sfx, SfxProvider};
 #[cfg(feature = "audio")]
@@ -52,7 +58,7 @@ mod web_unlock;
 mod tests;
 
 pub use environment::{AudioEnvironment, AudioEnvironmentMode};
-pub use runtime::{SfxMessage, SoundCue, ORIGINAL_TRACK_ID};
+pub use runtime::{SfxMessageCue, SoundCue, ORIGINAL_TRACK_ID};
 
 #[cfg(feature = "audio")]
 pub use bank_asset::{SfxBankAsset, SfxBankAssetPlugin};

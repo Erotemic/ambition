@@ -26,6 +26,11 @@ use std::sync::Arc;
 
 pub mod ids;
 
+#[cfg(feature = "bevy")]
+mod message;
+#[cfg(feature = "bevy")]
+pub use message::SfxMessage;
+
 /// Stable, hashed identifier for an SFX entry. Construct via
 /// [`SfxId::from_static`] for compile-time hashing of literal ids
 /// (zero runtime cost) or [`SfxId::new`] for ids that come from data

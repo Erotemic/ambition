@@ -33,7 +33,7 @@ pub fn portal_fire_system(
     mut fires: MessageReader<FirePortalGun>,
     players: Query<(&BodyKinematics, &PortalGun), (With<PlayerEntity>, With<PrimaryPlayer>)>,
     mut commands: Commands,
-    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
 ) {
     let Some(fire) = fires.read().last().copied() else {
         return;
@@ -49,11 +49,11 @@ pub fn portal_fire_system(
         return;
     }
     // Punchy fire blast + the airy travel whizz.
-    sfx.write(crate::audio::SfxMessage::Play {
+    sfx.write(ambition_sfx::SfxMessage::Play {
         id: ambition_sfx::ids::PORTAL_FIRE,
         pos: kin.pos,
     });
-    sfx.write(crate::audio::SfxMessage::Play {
+    sfx.write(ambition_sfx::SfxMessage::Play {
         id: ambition_sfx::ids::PORTAL_TRAVEL,
         pos: kin.pos,
     });
@@ -76,7 +76,7 @@ pub fn portal_projectile_step(
     mut commands: Commands,
     mut projectiles: Query<(Entity, &mut PortalShot)>,
     portals: Query<(Entity, &PlacedPortal)>,
-    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
 ) {
     let dt = time.sim_dt();
     if dt <= 0.0 {
@@ -89,7 +89,7 @@ pub fn portal_projectile_step(
             for (entity, portal) in &portals {
                 if portal.channel == proj.channel {
                     commands.entity(entity).despawn();
-                    sfx.write(crate::audio::SfxMessage::Play {
+                    sfx.write(ambition_sfx::SfxMessage::Play {
                         id: ambition_sfx::ids::PORTAL_CLOSE,
                         pos: hit,
                     });
@@ -106,7 +106,7 @@ pub fn portal_projectile_step(
                 // Portals are per-room: a room transition despawns them, so they
                 // don't linger and reappear when you leave and come back (#41).
             ));
-            sfx.write(crate::audio::SfxMessage::Play {
+            sfx.write(ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::ids::PORTAL_ATTACH,
                 pos: hit,
             });
@@ -121,7 +121,7 @@ pub fn portal_projectile_step(
             || proj.pos.x > world.0.size.x + 64.0
             || proj.pos.y > world.0.size.y + 64.0;
         if proj.traveled > PORTAL_MAX_RANGE || oob {
-            sfx.write(crate::audio::SfxMessage::Play {
+            sfx.write(ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::ids::PORTAL_INVALID,
                 pos: proj.pos,
             });

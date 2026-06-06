@@ -12,22 +12,19 @@ pub struct MusicChannel;
 #[derive(Resource)]
 pub struct SfxChannel;
 
-#[derive(Message, Clone, Copy, Debug)]
-pub enum SfxMessage {
-    Jump { pos: ae::Vec2 },
-    DoubleJump { pos: ae::Vec2 },
-    Dash { pos: ae::Vec2 },
-    Blink { pos: ae::Vec2, precision: bool },
-    Pogo { pos: ae::Vec2 },
-    Slash { pos: ae::Vec2 },
-    Hit { pos: ae::Vec2 },
-    Death { pos: ae::Vec2 },
-    Reset { pos: ae::Vec2 },
-    Play { id: SfxId, pos: ae::Vec2 },
+/// Maps the typed [`SfxMessage`] variants to the sandbox's [`SoundCue`]
+/// table. `SfxMessage` now lives in the `ambition_sfx` crate (so reusable
+/// mechanics can request sound without naming a sandbox module), but
+/// `SoundCue` is a sandbox-internal mapping — hence this consumer-side
+/// extension trait rather than an inherent method on the foreign type.
+pub trait SfxMessageCue {
+    /// The typed cue this message maps to, or `None` for the open-ended
+    /// `Play { id }` variant (handled directly via its `SfxId`).
+    fn cue(self) -> Option<SoundCue>;
 }
 
-impl SfxMessage {
-    pub fn cue(self) -> Option<SoundCue> {
+impl SfxMessageCue for SfxMessage {
+    fn cue(self) -> Option<SoundCue> {
         Some(match self {
             SfxMessage::Jump { .. } => SoundCue::Jump,
             SfxMessage::DoubleJump { .. } => SoundCue::DoubleJump,

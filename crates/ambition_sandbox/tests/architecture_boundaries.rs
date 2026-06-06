@@ -472,6 +472,111 @@ crate::ambition_content::items::AmbitionItemRosterPlugin, not inline OwnedItems:
 }
 
 #[test]
+fn architecture_boundaries_gravity_zone_mechanic_left_portal() {
+    // Stage 6 follow-up (ADR 0019): the gravity-zone MECHANIC (the zones /
+    // switches that flip ambient gravity + their visuals) was extracted out of
+    // `crate::portal` into `crate::mechanics::gravity`, which owns its own
+    // `GravityPlugin`. Assert (a) the new module exists with its files, and
+    // (b) the portal module no longer names the gravity-zone-mechanic symbols.
+    let src_root = crate_src();
+
+    // (a) The gravity mechanic owns its files.
+    for rel in [
+        "mechanics/mod.rs",
+        "mechanics/gravity/mod.rs",
+        "mechanics/gravity/plugin.rs",
+        "mechanics/gravity/lifecycle.rs",
+        "mechanics/gravity/presentation.rs",
+    ] {
+        assert!(
+            src_root.join(rel).exists(),
+            "extracted gravity mechanic should include {rel}"
+        );
+    }
+    let gravity_plugin = fs::read_to_string(src_root.join("mechanics/gravity/plugin.rs"))
+        .expect("read gravity plugin");
+    assert!(
+        gravity_plugin.contains("pub struct GravityPlugin"),
+        "gravity mechanic should own a GravityPlugin"
+    );
+    // The gravity mechanic must not depend on portal. Match the mechanic path
+    // with explicit boundaries (so `crate::portal_pieces` does not false-
+    // positive) and skip comment lines (the module doc legitimately names the
+    // `crate::portal` it was extracted from).
+    let portal_boundaries = [
+        "crate::portal::",
+        "crate::portal;",
+        "crate::portal}",
+        "crate::portal,",
+        "crate::portal ",
+    ];
+    for file in collect_rs_files(&src_root.join("mechanics/gravity")) {
+        let text = fs::read_to_string(&file).expect("read gravity source");
+        for (idx, raw) in text.lines().enumerate() {
+            let line = raw.trim();
+            if line.starts_with("//") || line.starts_with("/*") || line.starts_with('*') {
+                continue;
+            }
+            for needle in portal_boundaries {
+                assert!(
+                    !line.contains(needle),
+                    "{}:{} references {needle} — the gravity mechanic must be portal-independent: {line}",
+                    file.display(),
+                    idx + 1
+                );
+            }
+        }
+    }
+
+    // (b) Portal no longer owns the gravity-zone mechanic symbols.
+    let forbidden_in_portal = [
+        "GravityFlipSwitch",
+        "gravity_flip_switch_system",
+        "GravityZoneVisual",
+        "GravitySwitchVisual",
+        "sync_gravity_zone_visual",
+        "sync_gravity_switch_visual",
+        "reset_gravity_on_room_reset",
+    ];
+    let mut violations = Vec::new();
+    for file in collect_rs_files(&src_root.join("portal")) {
+        // tests.rs legitimately exercises the moved system through its new
+        // `crate::mechanics::gravity` path (a gravity-mechanic unit test that
+        // still lives beside the portal test helpers).
+        let is_test = file
+            .file_name()
+            .and_then(|n| n.to_str())
+            .is_some_and(|n| n == "tests.rs");
+        let text = fs::read_to_string(&file).expect("read portal source");
+        for (idx, raw) in text.lines().enumerate() {
+            let line = raw.trim();
+            if line.starts_with("//") || line.starts_with("/*") || line.starts_with('*') {
+                continue;
+            }
+            // Allow the test file to reference the moved symbols via the new
+            // `crate::mechanics::gravity` path only.
+            if is_test && line.contains("crate::mechanics::gravity") {
+                continue;
+            }
+            for needle in forbidden_in_portal {
+                if line.contains(needle) {
+                    violations.push(format!(
+                        "{}:{} portal still references gravity-zone-mechanic symbol `{needle}`: {line}",
+                        file.display(),
+                        idx + 1
+                    ));
+                }
+            }
+        }
+    }
+    assert!(
+        violations.is_empty(),
+        "the gravity-zone mechanic must fully leave crate::portal (it lives in crate::mechanics::gravity now):\n{}",
+        violations.join("\n")
+    );
+}
+
+#[test]
 fn architecture_boundaries_portal_has_facade_plugin_and_schedule_files() {
     let src_root = crate_src();
     let expected = [

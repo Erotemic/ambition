@@ -75,6 +75,7 @@ pub mod item_pickup;
 pub mod items;
 pub(crate) mod map_menu;
 pub mod mark_recall;
+pub mod mechanics;
 pub(crate) mod music;
 #[cfg(feature = "oot_inventory")]
 pub mod oot_menu;

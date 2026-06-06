@@ -1,0 +1,22 @@
+//! Gravity-zone mechanic.
+//!
+//! The zones/switches that flip the room's ambient gravity, plus their visuals.
+//! Extracted out of `crate::portal` (Stage 6 follow-up / ADR 0019): this is a
+//! *gravity mechanic*, not a portal helper, so it owns its own registration via
+//! [`GravityPlugin`] and must NOT depend on `crate::portal`.
+//!
+//! The underlying ambient-gravity types/resources ([`crate::physics::BaseGravity`],
+//! [`crate::physics::GravityField`], [`crate::physics::GravityZone`], the
+//! [`crate::physics::GravityZones`] snapshot and its `oscillate`/`collect`
+//! systems) stay in [`crate::physics`] because they are read widely; this module
+//! owns the gravity-zone *mechanic* layered on top.
+
+mod lifecycle;
+mod plugin;
+mod presentation;
+
+pub use lifecycle::{gravity_flip_switch_system, reset_gravity_on_room_reset, GravityFlipSwitch};
+pub use plugin::{GravityPlugin, GravitySet};
+pub use presentation::{
+    sync_gravity_switch_visual, sync_gravity_zone_visual, GravitySwitchVisual, GravityZoneVisual,
+};

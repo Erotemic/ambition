@@ -194,7 +194,13 @@ impl SystemMenuParams<'_> {
         match opt {
             SystemOptionId::Radio(index) => {
                 #[cfg(feature = "audio")]
-                if let (Some(library), Some(asset_server), Some(music_state), Some(radio), Some(music_channel)) = (
+                if let (
+                    Some(library),
+                    Some(asset_server),
+                    Some(music_state),
+                    Some(radio),
+                    Some(music_channel),
+                ) = (
                     self.library.as_deref_mut(),
                     self.asset_server.as_deref(),
                     self.music_state.as_deref_mut(),
@@ -314,7 +320,11 @@ impl SystemMenuSnapshotParams<'_> {
         #[cfg(feature = "audio")]
         {
             changed = changed
-                || self.library.as_ref().map(|r| r.is_changed()).unwrap_or(false)
+                || self
+                    .library
+                    .as_ref()
+                    .map(|r| r.is_changed())
+                    .unwrap_or(false)
                 || self
                     .music_state
                     .as_ref()
@@ -371,7 +381,10 @@ fn dev_snapshot(dev: &crate::dev::dev_tools::DeveloperTools) -> DevSnapshot {
         D::DebugViewMode,
         dev.debug_view_mode.label(),
     ));
-    values.push(DevSnapshot::cycle(D::DebugArtMode, dev.debug_art_mode.label()));
+    values.push(DevSnapshot::cycle(
+        D::DebugArtMode,
+        dev.debug_art_mode.label(),
+    ));
     values.push(DevSnapshot::cycle(
         D::PlayerBodyProfile,
         dev.player_body_profile.label(),
@@ -387,11 +400,7 @@ fn dev_snapshot(dev: &crate::dev::dev_tools::DeveloperTools) -> DevSnapshot {
 /// direction for cycles (`<0` prev, otherwise next); toggles flip regardless. This
 /// is the single place that mutates `DeveloperTools` from the cube, so the dev
 /// menu and the inspector stay in lock-step on field semantics.
-fn apply_dev_toggle(
-    dev: &mut crate::dev::dev_tools::DeveloperTools,
-    id: DevToggleId,
-    dir: i32,
-) {
+fn apply_dev_toggle(dev: &mut crate::dev::dev_tools::DeveloperTools, id: DevToggleId, dir: i32) {
     use DevToggleId as D;
     match id {
         D::Inspector => dev.inspector_visible = !dev.inspector_visible,
@@ -2022,8 +2031,7 @@ mod oot_cube_app_tests {
         app.world_mut()
             .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
             .active = Some(CubePage::System);
-        app.world_mut().resource_mut::<CubeSystemNav>().open_entry =
-            Some(SystemMenuEntryId::Video);
+        app.world_mut().resource_mut::<CubeSystemNav>().open_entry = Some(SystemMenuEntryId::Video);
         let before = app.world().resource::<UserSettings>().video.show_fps;
         click_control(&mut app, CubeAction::System(SettingsOptionId::ShowFps));
         let after = app.world().resource::<UserSettings>().video.show_fps;
@@ -2036,8 +2044,7 @@ mod oot_cube_app_tests {
         app.world_mut()
             .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
             .active = Some(CubePage::System);
-        app.world_mut().resource_mut::<CubeSystemNav>().open_entry =
-            Some(SystemMenuEntryId::Audio);
+        app.world_mut().resource_mut::<CubeSystemNav>().open_entry = Some(SystemMenuEntryId::Audio);
         click_control(&mut app, CubeAction::CloseSystemEntry);
         assert!(
             app.world().resource::<CubeSystemNav>().open_entry.is_none(),
@@ -2054,8 +2061,7 @@ mod oot_cube_app_tests {
         app.world_mut()
             .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
             .active = Some(CubePage::System);
-        app.world_mut().resource_mut::<CubeSystemNav>().open_entry =
-            Some(SystemMenuEntryId::Radio);
+        app.world_mut().resource_mut::<CubeSystemNav>().open_entry = Some(SystemMenuEntryId::Radio);
         click_control(&mut app, CubeAction::SystemOption(SystemOptionId::Radio(0)));
         assert!(
             app.world()
@@ -2222,8 +2228,7 @@ mod oot_cube_app_tests {
         app.world_mut()
             .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
             .active = Some(CubePage::System);
-        app.world_mut().resource_mut::<CubeSystemNav>().open_entry =
-            Some(SystemMenuEntryId::Audio);
+        app.world_mut().resource_mut::<CubeSystemNav>().open_entry = Some(SystemMenuEntryId::Audio);
         app.world_mut().resource_mut::<CubeCursor>().focus = CubeFocus::System(0);
 
         // Second Esc press → backs OUT to the entry list (menu stays open).
@@ -2355,7 +2360,10 @@ mod oot_cube_app_tests {
         app.update();
         assert!(visible(&app), "first Esc opens the cube");
         assert!(
-            matches!(app.world().resource::<State<GameMode>>().get(), GameMode::Paused),
+            matches!(
+                app.world().resource::<State<GameMode>>().get(),
+                GameMode::Paused
+            ),
             "opening the cube pauses the game"
         );
 

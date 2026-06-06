@@ -420,9 +420,9 @@ impl Item {
             MarkRecall => "sprites/props/gauntlet_mark_recall.png",
             Bomb => "sprites/props/gauntlet_bomb.png",
             // No authored sprite — these fall back to the text label in the grid.
-            Fly | MorphBall | BubbleShield | HealthCell | ManaCell | SpareBattery
-            | DataChip | GoldPouch | MapFragment | SealedNote | FieldSurvey | GateKey
-            | DebugLens | ReservedSlot => return None,
+            Fly | MorphBall | BubbleShield | HealthCell | ManaCell | SpareBattery | DataChip
+            | GoldPouch | MapFragment | SealedNote | FieldSurvey | GateKey | DebugLens
+            | ReservedSlot => return None,
         };
         Some(path)
     }

@@ -165,12 +165,7 @@ fn on_off(value: bool) -> &'static str {
     }
 }
 
-fn toggle(
-    id: SettingsOptionId,
-    label: &str,
-    value: bool,
-    description: &str,
-) -> SettingsOption {
+fn toggle(id: SettingsOptionId, label: &str, value: bool, description: &str) -> SettingsOption {
     SettingsOption {
         id,
         label: label.to_string(),
@@ -228,10 +223,7 @@ fn percent_label(value: f32) -> String {
 /// Position of `value` within `all` (defaulting to 0 if missing), for the
 /// `Cycle { index, count }` dot strip.
 fn enum_index<T: PartialEq + Copy>(all: &[T], value: T) -> (usize, usize) {
-    (
-        all.iter().position(|v| *v == value).unwrap_or(0),
-        all.len(),
-    )
+    (all.iter().position(|v| *v == value).unwrap_or(0), all.len())
 }
 
 /// Build the live settings menu model from the current [`UserSettings`]. This
@@ -240,9 +232,7 @@ fn enum_index<T: PartialEq + Copy>(all: &[T], value: T) -> (usize, usize) {
 pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
     use super::controls::{ControllerProfileId, DashInputMode, MenuTapMode};
     use super::gameplay::Difficulty;
-    use super::video::{
-        CameraAspectPolicy, CameraFramingPreset, ColorblindMode, FlashIntensity,
-    };
+    use super::video::{CameraAspectPolicy, CameraFramingPreset, ColorblindMode, FlashIntensity};
     use crate::host::windowing::DisplayModeKind;
 
     let v = &settings.video;
@@ -704,7 +694,11 @@ mod tests {
     #[test]
     fn close_option_reports_close() {
         let mut settings = UserSettings::default();
-        assert!(apply_settings_option(SettingsOptionId::Close, 0, &mut settings));
+        assert!(apply_settings_option(
+            SettingsOptionId::Close,
+            0,
+            &mut settings
+        ));
     }
 
     #[test]

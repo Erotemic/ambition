@@ -1287,6 +1287,17 @@ fn cube_pointer_move(
     let Some(active_page) = pages.active else {
         return;
     };
+    // TEMPORARY (cube mouse-click diagnosis): log every Pointer<Move> that reaches
+    // this observer. If hover logs but click does NOT, the backend IS delivering
+    // pointer events and the click is lost in the press→release path (likely the
+    // hovered control entity being despawned/respawned by the per-frame face rebuild
+    // between press and release). If neither logs, the backend isn't emitting hits.
+    // Remove once the click path is fixed.
+    info!(
+        "[cube-move TEMP] Pointer<Move> entity={:?} resolves_control={}",
+        move_.entity,
+        controls.get(move_.entity).is_ok(),
+    );
     if let Ok(control) = controls.get(move_.entity) {
         if let Some(action) = control.action {
             let model = SystemMenuModel::build(
@@ -1332,6 +1343,18 @@ fn cube_pointer_click(
     mut system: SystemMenuParams,
 ) {
     let open = ui_state.as_deref().map(|s| s.visible).unwrap_or(false);
+    // TEMPORARY (cube mouse-click diagnosis): log every Pointer<Click> that reaches
+    // this observer, with the hit entity and whether it resolves to a control+action.
+    // If this NEVER logs while clicking the cube, the picking backend / hover-map
+    // isn't delivering clicks (look at the `[cube-pick TEMP]` backend log). If it
+    // logs `control=None`, the click landed on a non-control plane. Remove once fixed.
+    info!(
+        "[cube-click TEMP] Pointer<Click> entity={:?} backend_cube={} open={} resolves_control={}",
+        click.entity,
+        *backend == InventoryUiBackend::Cube,
+        open,
+        controls.get(click.entity).is_ok(),
+    );
     if *backend != InventoryUiBackend::Cube || !open {
         return;
     }
@@ -2223,6 +2246,134 @@ mod oot_cube_app_tests {
         press_esc(&mut app, false);
         app.update();
         assert!(!visible(&app), "third Esc (top level) closes the cube");
+    }
+
+    /// Bug 1 regression: Esc closes the cube and it STAYS closed. Reproduces the
+    /// real failure by including the bevy-UI pause menu's `pause_menu_navigate` in
+    /// the SAME schedule as the cube routing. Before the fix, `pause_menu_navigate`
+    /// ran on every `Paused` frame (it is only gated on `Paused`), and its Top-page
+    /// nav would re-raise `InventoryUiState.visible` behind the invisible cube — so
+    /// the menu the cube just closed popped straight back open. With the Cube-backend
+    /// guard added to `pause_menu_navigate`, the bevy-UI pause menu is inert under the
+    /// cube and the close sticks.
+    ///
+    /// Regression guard: removing the `pause_menu_ui_active` gate makes this test
+    /// fail (the now-ungated `pause_menu_navigate` runs under the cube and re-raises
+    /// `visible` / accesses pause-menu resources this minimal fixture omits) — so the
+    /// re-open can never silently come back.
+    #[test]
+    fn esc_close_stays_closed_with_pause_menu_in_schedule() {
+        use crate::input::SandboxAction;
+        use crate::presentation::rendering::PlayerVisual;
+        use leafwing_input_manager::prelude::*;
+
+        let mut app = App::new();
+        app.add_plugins(bevy::state::app::StatesPlugin);
+        app.add_plugins(bevy::time::TimePlugin);
+        app.add_plugins(bevy::input::InputPlugin);
+        app.add_plugins(InputManagerPlugin::<SandboxAction>::default());
+        app.init_state::<GameMode>();
+        app.init_resource::<InventoryUiBackend>();
+        app.init_resource::<ActiveMenuPages<CubePage, CubeAction>>();
+        app.init_resource::<CubeCursor>();
+        app.init_resource::<CubeSystemNav>();
+        app.init_resource::<OwnedItems>();
+        app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
+        app.init_resource::<UserSettings>();
+        app.init_resource::<crate::inventory::InventoryUiState>();
+        app.init_resource::<crate::map_menu::MapMenuState>();
+        app.init_resource::<MenuControlFrame>();
+        app.init_resource::<crate::input::MenuInputState>();
+        app.init_resource::<crate::oot_menu::OotMenuState>();
+        app.init_resource::<crate::pause_menu::PauseMenuState>();
+        app.init_resource::<crate::host::windowing::DisplayModeState>();
+        app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
+        app.init_resource::<crate::SandboxDevState>();
+        app.init_resource::<crate::ldtk_world::LdtkHotReloadState>();
+        app.add_message::<PlayerHealRequested>();
+        app.add_message::<SfxMessage>();
+        app.add_message::<bevy::app::AppExit>();
+        // The cube routing (owns Esc under the cube) PLUS the bevy-UI pause menu
+        // navigate system, in the same Update set, exactly mirroring the real app's
+        // wiring where both are registered. The pause-menu system is the one that
+        // used to stomp `visible` back on.
+        app.add_systems(
+            Update,
+            (
+                crate::app::populate_menu_control_frame_from_actions,
+                crate::oot_menu::oot_menu_input,
+                cube_menu_open_routing,
+                // Exactly as registered in the real app (`app/plugins.rs`): gated by
+                // `pause_menu_ui_active` so it is inert under the Cube backend. This
+                // run-condition IS the Bug 1 fix; the assertions below would fail if it
+                // were removed (the navigate system would re-raise `visible`).
+                crate::pause_menu::pause_menu_navigate
+                    .run_if(crate::pause_menu::pause_menu_ui_active),
+                cube_focus_nav,
+            )
+                .chain(),
+        );
+        *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::Cube;
+
+        let mut map = InputMap::<SandboxAction>::default();
+        map.insert(SandboxAction::Start, KeyCode::Escape);
+        map.insert(SandboxAction::MenuBack, KeyCode::Escape);
+        app.world_mut().spawn((
+            PlayerVisual,
+            PlayerEntity,
+            PrimaryPlayer,
+            ActionSet::default(),
+            PlayerMana::default(),
+            crate::player::PlayerKinematics::default(),
+            crate::player::PlayerAbilities::default(),
+            crate::player::PlayerDashState::default(),
+            crate::player::PlayerJumpState::default(),
+            ActionState::<SandboxAction>::default(),
+            map,
+        ));
+        app.update();
+
+        let press_esc = |app: &mut App, down: bool| {
+            let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+            if down {
+                keys.press(KeyCode::Escape);
+            } else {
+                keys.release(KeyCode::Escape);
+            }
+        };
+        let visible = |app: &App| {
+            app.world()
+                .resource::<crate::inventory::InventoryUiState>()
+                .visible
+        };
+
+        // Open the cube (lands on the System top level).
+        press_esc(&mut app, true);
+        app.update();
+        press_esc(&mut app, false);
+        app.update();
+        assert!(visible(&app), "first Esc opens the cube");
+        assert!(
+            matches!(app.world().resource::<State<GameMode>>().get(), GameMode::Paused),
+            "opening the cube pauses the game"
+        );
+
+        // Close it (top level → close). It must STAY closed across the close frame
+        // and several idle Paused frames afterwards: the bevy-UI pause menu must not
+        // re-raise `visible`.
+        press_esc(&mut app, true);
+        app.update();
+        press_esc(&mut app, false);
+        app.update();
+        assert!(!visible(&app), "second Esc closes the cube");
+        for _ in 0..5 {
+            app.update();
+            assert!(
+                !visible(&app),
+                "the cube stays closed — pause_menu_navigate must not re-open it under the Cube backend"
+            );
+        }
     }
 
     #[test]

@@ -27,7 +27,9 @@ use crate::input::ControlFrame;
 use crate::item_pickup::StashedActionSet;
 use crate::physics::{gravity_upright_angle, GravityField, GravityZone};
 use crate::platformer_runtime::collision::ray_aabb;
+use crate::platformer_runtime::orientation::ActorRoll;
 use crate::platformer_runtime::prelude::SpawnScopedExt;
+use crate::platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
 use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
 use crate::portal_pieces::{self as pp, PortalFrame};
 use crate::GameWorld;
@@ -300,15 +302,6 @@ pub fn raycast_through_portals(
         }
     }
     None
-}
-
-/// Transform a velocity through a portal pair via the IDEAL tangent-preserving
-/// portal map ([`crate::portal_pieces::portal_map_vec`]): the component into the
-/// entry emerges out of the exit, the along-surface component is carried over. So
-/// momentum is preserved Portal-style AND your along-surface direction is kept
-/// (two floor portals don't mirror your horizontal velocity).
-pub fn portal_transform_velocity(v: Vec2, n_in: Vec2, n_out: Vec2) -> Vec2 {
-    pp::portal_map_vec(v, n_in, n_out)
 }
 
 /// Aim direction for a fired portal: right-stick aim, else movement axis,
@@ -780,98 +773,6 @@ pub fn reset_gravity_on_room_reset(
     }
     *gravity = GravityField::default();
     *base = crate::physics::BaseGravity::default();
-}
-
-/// Visual roll (aerial orientation) of an actor — player OR any NPC / enemy /
-/// boss — in render-space radians. Portal transit ADDS the rotation the velocity
-/// underwent (general for ANY portal-pair angle — see [`portal_transit_roll`]),
-/// so a body leaves a portal rotated consistently with how it entered; then
-/// [`update_actor_roll`] eases the roll back toward "feet along gravity" so the
-/// body rights itself.
-///
-/// This is the shared "which way is down" orientation: the SAME component,
-/// righting system ([`update_actor_roll`]), and transit math drive the player
-/// and every actor, so a goblin or shark somersaults through a portal exactly
-/// like the player (the unification). The [`GravityField`] it orients to is the
-/// gravity-room hook.
-#[derive(Component, Clone, Copy, Debug, Default)]
-pub struct ActorRoll {
-    /// Current render-space z-rotation applied to the body's sprite.
-    pub angle: f32,
-}
-
-/// Reorientation rate easing `angle` toward gravity-upright (rad/s). Visible but
-/// quick — a 180° portal flip rights itself in ~0.4s as the body arcs.
-const ACTOR_ROLL_SPEED: f32 = 8.0;
-
-/// Attach an [`ActorRoll`] to every body that can travel through a portal — the
-/// player plus all non-player actors (enemies / NPCs via `ActorKinematics`,
-/// bosses via `BossKinematics`) — lazily, so no bundle needs to know about the
-/// portal module.
-pub fn ensure_actor_roll(
-    mut commands: Commands,
-    player: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>, Without<ActorRoll>)>,
-    actors: Query<Entity, (With<crate::features::ActorKinematics>, Without<ActorRoll>)>,
-    bosses: Query<Entity, (With<crate::features::BossKinematics>, Without<ActorRoll>)>,
-) {
-    for entity in &player {
-        commands.entity(entity).insert(ActorRoll::default());
-    }
-    for entity in &actors {
-        commands.entity(entity).insert(ActorRoll::default());
-    }
-    for entity in &bosses {
-        commands.entity(entity).insert(ActorRoll::default());
-    }
-}
-
-/// Continuously ease EVERY actor's roll toward "feet along gravity" (the
-/// orient-to-gravity reflex) — player and non-player alike. Runs whether
-/// airborne or grounded, so after a portal rotates a body it visibly rights
-/// itself toward the current [`GravityField`]; in a gravity room it settles to
-/// that room's down.
-pub fn update_actor_roll(
-    time: Res<crate::WorldTime>,
-    gravity: crate::physics::GravityCtx,
-    mut rolls: Query<(
-        &mut ActorRoll,
-        Option<&PlayerKinematics>,
-        Option<&crate::features::ActorKinematics>,
-        Option<&crate::features::BossKinematics>,
-    )>,
-) {
-    let dt = time.sim_dt();
-    if dt <= 0.0 {
-        return;
-    }
-    let max_step = ACTOR_ROLL_SPEED * dt;
-    for (mut roll, pkin, akin, bkin) in &mut rolls {
-        // Each body rights toward the gravity of the column IT is standing in
-        // (localized): resolve from its own position, falling back to the
-        // player's field when position is unavailable.
-        let pos = pkin
-            .map(|k| k.pos)
-            .or_else(|| akin.map(|k| k.pos))
-            .or_else(|| bkin.map(|k| k.pos));
-        let gravity_dir = match pos {
-            Some(p) => gravity.dir_at(p),
-            None => gravity.field_dir(),
-        };
-        let target = gravity_upright_angle(gravity_dir);
-        // Shortest signed difference, wrapped to (-π, π], so righting always
-        // takes the short way around.
-        let mut diff = (target - roll.angle).rem_euclid(std::f32::consts::TAU);
-        if diff > std::f32::consts::PI {
-            diff -= std::f32::consts::TAU;
-        }
-        if diff.abs() <= max_step {
-            roll.angle = target;
-        } else {
-            roll.angle += max_step * diff.signum();
-        }
-        // Keep the stored angle bounded so repeated portals don't grow it.
-        roll.angle = roll.angle.rem_euclid(std::f32::consts::TAU);
-    }
 }
 
 /// The render-space roll a body picks up traveling through a portal pair: the
@@ -2092,6 +1993,7 @@ pub fn sync_portal_visuals(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::platformer_runtime::orientation::update_actor_roll;
 
     fn world_with_two_walls() -> GameWorld {
         // Left wall x[0,20], right wall x[380,400], both y[0,400].

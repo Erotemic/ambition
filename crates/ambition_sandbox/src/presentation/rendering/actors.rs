@@ -36,7 +36,7 @@ pub fn sync_visuals(
             Option<&PlayerSpriteBaseline>,
             &crate::player::PlayerKinematics,
             &crate::player::PlayerCombatState,
-            Option<&crate::portal::ActorRoll>,
+            Option<&crate::platformer_runtime::orientation::ActorRoll>,
         ),
         With<PlayerVisual>,
     >,

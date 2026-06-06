@@ -11,6 +11,8 @@ mod plugin;
 mod schedule;
 
 pub use crate::platformer_runtime::collision::raycast_solids;
+pub use crate::platformer_runtime::orientation::{ensure_actor_roll, update_actor_roll, ActorRoll};
+pub use crate::platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
 pub use implementation::*;
 pub use plugin::{PortalPlugin, PortalSimulationPlugin};
 pub use schedule::PortalSet;

@@ -9,10 +9,16 @@
 
 use bevy::prelude::*;
 
-use crate::portal::PortalSet;
+use crate::portal::{
+    portal_teleport_ground_items, portal_transit_system, warp_portal_input, PortalSet,
+};
 
 use super::input_adapter::portal_input_adapter_system;
 use super::inventory_adapter::drop_portal_gun_system;
+use super::transit_adapter::{
+    apply_movement_intent_to_control, sync_ground_items_to_transitable,
+    sync_movement_intent_from_control, sync_transitable_to_ground_items,
+};
 
 /// Installs the Ambition-specific portal input/inventory adapters.
 pub struct AmbitionPortalAdaptersPlugin;
@@ -39,6 +45,56 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .run_if(crate::gameplay_allowed)
                 .in_set(PortalSet::WeaponAndProjectiles)
                 .in_set(crate::app::SandboxSet::PlayerSimulation),
+        );
+
+        // --- Movement-intent bracketing around portal core's input warp ---
+        // Portal core's `warp_portal_input` reads + mutates the content-agnostic
+        // `PlayerMovementIntent`; these adapters mirror it to/from `ControlFrame`
+        // so the result is byte-identical to the old direct-`ControlFrame` mutate.
+        // Sync ControlFrame -> intent BEFORE the warp, apply intent -> ControlFrame
+        // AFTER it.
+        app.add_systems(
+            Update,
+            sync_movement_intent_from_control
+                .run_if(crate::gameplay_allowed)
+                .in_set(PortalSet::InputWarp)
+                .before(warp_portal_input),
+        );
+        app.add_systems(
+            Update,
+            apply_movement_intent_to_control
+                .run_if(crate::gameplay_allowed)
+                .in_set(PortalSet::InputWarp)
+                .after(warp_portal_input),
+        );
+        // `portal_transit_system` reads `PlayerMovementIntent` as the warp anchor;
+        // re-sync from `ControlFrame` immediately before it so the anchor matches
+        // the live held direction (as it did when transit read `ControlFrame`).
+        app.add_systems(
+            Update,
+            sync_movement_intent_from_control
+                .run_if(crate::gameplay_allowed)
+                .in_set(PortalSet::Transit)
+                .before(portal_transit_system),
+        );
+
+        // --- GroundItem <-> PortalTransitable bracketing around item transit ---
+        // Portal core teleports the generic `PortalTransitable` body; these
+        // adapters attach it to `GroundItem`s and mirror it around
+        // `portal_teleport_ground_items`.
+        app.add_systems(
+            Update,
+            sync_ground_items_to_transitable
+                .run_if(crate::gameplay_allowed)
+                .in_set(PortalSet::Transit)
+                .before(portal_teleport_ground_items),
+        );
+        app.add_systems(
+            Update,
+            sync_transitable_to_ground_items
+                .run_if(crate::gameplay_allowed)
+                .in_set(PortalSet::Transit)
+                .after(portal_teleport_ground_items),
         );
     }
 }

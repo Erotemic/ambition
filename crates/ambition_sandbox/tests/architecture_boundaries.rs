@@ -329,32 +329,41 @@ fn architecture_boundaries_portal_core_does_not_import_ambition_content_roster()
         "crate::ldtk_world",
         "crate::world::ldtk_world",
         "crate::persistence",
+        // Stage Q / Task H2: portal transit + presentation no longer import the
+        // Ambition input frame or the ground-item body. Transit reads a
+        // content-agnostic `PlayerMovementIntent` + `PortalTransitable`, and the
+        // held-gun presentation reads a `PortalAimHint`; the content adapter
+        // (`crate::ambition_content::portal`) owns the `ControlFrame` / `GroundItem`
+        // glue. (The `crate::item_pickup::ItemPickupSet` schedule label remains
+        // allowlisted below — it is an ordering label, not a content concept.)
+        "crate::input::ControlFrame",
+        "crate::item_pickup::GroundItem",
     ];
 
     // ALLOWLIST — genuinely-shared low-level couplings that remain in portal
-    // core for now, each with a tracked reason. These are NOT the item roster;
-    // they are deeper input/physics-body seams a later pass (or Task J) can
-    // finish extracting behind a generic abstraction:
+    // core for now, each with a tracked reason. These are NOT the item roster:
     //
-    //   crate::input::ControlFrame
-    //     - transit.rs `warp_portal_input` / `portal_transit_system`: the
-    //       same-wall held-input warp + emergence guard read AND mutate the
-    //       Ambition input frame. Extracting this needs a generic movement-input
-    //       abstraction; deferred to keep replay timing identical.
-    //     - presentation.rs `sync_portal_mode_indicator`: visible-build aim
-    //       indicator resolves aim from the control frame. Presentation glue.
-    //   crate::item_pickup::GroundItem
-    //     - transit.rs `portal_teleport_ground_items`: thrown-item transit
-    //       queries the content body component. Needs a generic transit-body
-    //       marker to decouple.
     //   crate::item_pickup::ItemPickupSet
     //     - plugin.rs: a *schedule ordering label* (not a content concept);
     //       already guarded by `architecture_boundaries_portal_orders_against_item_set_not_function`.
-    let allow = |line: &str| -> bool {
-        line.contains("crate::input::ControlFrame")
-            || line.contains("crate::item_pickup::GroundItem")
-            || line.contains("crate::item_pickup::ItemPickupSet")
+    //
+    // (Stage Q / Task H2 removed the former `crate::input::ControlFrame` and
+    // `crate::item_pickup::GroundItem` entries: transit + presentation now read
+    // the content-agnostic `PlayerMovementIntent` / `PortalTransitable` /
+    // `PortalAimHint`, and those names are now hard-forbidden above.)
+    let allow = |line: &str, is_test: bool| -> bool {
+        line.contains("crate::item_pickup::ItemPickupSet")
             || line.contains("crate::item_pickup::axe_spec") // test fixture only
+            // Portal-core tests (tests.rs) legitimately build the Ambition
+            // `GroundItem` fixture and drive the full content+core transit chain
+            // through the `crate::ambition_content::portal` adapters; those names
+            // are NOT used in non-test core code (asserted by the absence of
+            // hits in every other file).
+            || (is_test && line.contains("crate::item_pickup::GroundItem"))
+            // tests.rs drives the warp through the full content+core chain on the
+            // `ControlFrame` surface (the content adapter mirrors it to/from the
+            // movement intent); core (non-test) code reads `PlayerMovementIntent`.
+            || (is_test && line.contains("crate::input::ControlFrame"))
     };
 
     let mut violations = Vec::new();
@@ -371,15 +380,15 @@ fn architecture_boundaries_portal_core_does_not_import_ambition_content_roster()
             if line.starts_with("//") || line.starts_with("/*") || line.starts_with('*') {
                 continue;
             }
-            if allow(line) {
+            if allow(line, is_test) {
                 continue;
             }
             for needle in forbidden {
                 if line.contains(needle) {
-                    // Tests may construct content fixtures (axe_spec/GroundItem),
-                    // which are already allowlisted; anything else in tests is a
-                    // genuine violation too, so do not blanket-skip tests.
-                    let _ = is_test;
+                    // Non-test core code triggers any forbidden name; tests may
+                    // build the documented fixtures (axe_spec / GroundItem),
+                    // which are allowlisted above, but anything else in tests is
+                    // still a genuine violation.
                     violations.push(format!(
                         "{}:{} portal core references Ambition content `{needle}`: {line}",
                         file.display(),

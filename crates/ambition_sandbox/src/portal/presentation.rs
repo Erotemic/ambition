@@ -9,7 +9,6 @@
 use bevy::prelude::*;
 
 use crate::engine_core::{self as ae, AabbExt};
-use crate::input::ControlFrame;
 use crate::platformer_runtime::orientation::ActorRoll;
 use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 use crate::portal_pieces as pp;
@@ -203,6 +202,19 @@ pub fn load_portal_gun_art(mut commands: Commands, assets: Res<AssetServer>) {
 #[derive(Component)]
 pub struct PortalModeIndicator;
 
+/// Content-agnostic aim hint for the held-gun presentation: the resolved
+/// world-space direction the barrel should point (same aim the input adapter
+/// resolves for `FirePortalGun`). The content input adapter
+/// (`crate::ambition_content::portal`) sets this each frame from `ControlFrame`;
+/// the visible-build [`sync_portal_mode_indicator`] reads it, so portal
+/// presentation no longer imports the Ambition input type. `None` aim falls back
+/// to facing.
+#[derive(Resource, Clone, Copy, Debug, Default)]
+pub struct PortalAimHint {
+    /// Resolved aim direction (need not be normalized; zero falls back to facing).
+    pub aim: Vec2,
+}
+
 /// On-screen size of the portal-gun sprite, used for BOTH the held gun and the
 /// ground pickup so it doesn't change size when you pick it up (keeps the
 /// 140×64 sprite aspect ≈ 2.19).
@@ -214,7 +226,7 @@ const PORTAL_GUN_DISPLAY: Vec2 = Vec2::new(52.0, 24.0);
 /// (Interact) visibly swaps blue↔orange.
 pub fn sync_portal_mode_indicator(
     mut commands: Commands,
-    control: Res<ControlFrame>,
+    aim_hint: Option<Res<PortalAimHint>>,
     world: Res<GameWorld>,
     art: Option<Res<PortalGunArt>>,
     visuals: Query<Entity, With<PortalModeIndicator>>,
@@ -244,21 +256,17 @@ pub fn sync_portal_mode_indicator(
     // in front of the player sprite.
     let pos = kin.pos + Vec2::new(facing * (kin.size.x * 0.45 + 6.0), kin.size.y * 0.06);
     let translation = crate::config::world_to_bevy(&world.0, pos, 12.0);
-    // Aim the barrel where the shot will go (same aim resolution the input
-    // adapter uses for `FirePortalGun`: right-stick aim, else move axis, else
-    // facing). World y-down → render y-up; aiming left flips vertically so the
-    // gun stays upright rather than upside-down. Resolved inline here because
-    // this is visible-build presentation glue that already reads ControlFrame.
-    let aim = {
-        let a = Vec2::new(control.aim_x, control.aim_y);
-        let mv = Vec2::new(control.axis_x, control.axis_y);
-        if a.length() > 0.2 {
-            a
-        } else if mv.length() > 0.2 {
-            mv
-        } else {
-            Vec2::new(if kin.facing >= 0.0 { 1.0 } else { -1.0 }, 0.0)
-        }
+    // Aim the barrel where the shot will go (same aim the input adapter resolves
+    // for `FirePortalGun`: right-stick aim, else move axis, else facing). World
+    // y-down → render y-up; aiming left flips vertically so the gun stays upright
+    // rather than upside-down. The aim is supplied by the content input adapter
+    // via `PortalAimHint` (so portal presentation stays content-agnostic); a zero
+    // hint (or no hint) falls back to facing.
+    let hinted = aim_hint.as_deref().map_or(Vec2::ZERO, |h| h.aim);
+    let aim = if hinted.length() > 0.0 {
+        hinted
+    } else {
+        Vec2::new(if kin.facing >= 0.0 { 1.0 } else { -1.0 }, 0.0)
     }
     .normalize_or_zero();
     let angle = (-aim.y).atan2(aim.x);

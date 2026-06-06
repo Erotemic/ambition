@@ -6,7 +6,6 @@
 use bevy::prelude::*;
 
 use crate::engine_core::{self as ae, AabbExt};
-use crate::input::ControlFrame;
 use crate::platformer_runtime::orientation::ActorRoll;
 use crate::platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
 use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
@@ -29,6 +28,19 @@ use super::types::{
 pub struct BodyTeleported {
     /// The body whose position snapped to a portal exit this frame.
     pub body: Entity,
+}
+
+/// Content-agnostic movement intent the portal transit reads in place of the
+/// Ambition `ControlFrame`. The content/input layer syncs this from its own
+/// input each frame BEFORE transit runs (see `crate::ambition_content::portal`),
+/// so portal core never imports the Ambition input type. Holds the primary
+/// player's current held movement direction (raw, un-warped): transit uses it as
+/// the anchor for the same-wall held-input warp.
+#[derive(Resource, Clone, Copy, Debug, Default)]
+pub struct PlayerMovementIntent {
+    /// Raw held movement direction this frame (x = horizontal, y = vertical;
+    /// `ZERO` when the player isn't pushing a direction).
+    pub dir: Vec2,
 }
 
 /// Per-player transit state: the aperture latch / centroid-crossing machine
@@ -140,7 +152,7 @@ pub fn suppress_ledge_grab_during_transit(
 /// here it extends to player-placed pairs). The anti-ping-pong cooldown lives on
 /// the BODY ([`PortalTransitCooldown`]), not on the gun.
 pub fn portal_transit_system(
-    control: Option<Res<ControlFrame>>,
+    intent: Option<Res<PlayerMovementIntent>>,
     mut commands: Commands,
     mut players: Query<
         (
@@ -225,9 +237,7 @@ pub fn portal_transit_system(
             // (`facing_flip`). For a floor↔wall 90° turn the warp would rotate a
             // horizontal hold into "up", which the controller can't use, so we
             // skip it and let the emission guard + physics do the work.
-            let held = control
-                .as_deref()
-                .map_or(Vec2::ZERO, |c| Vec2::new(c.axis_x, c.axis_y));
+            let held = intent.as_deref().map_or(Vec2::ZERO, |i| i.dir);
             if facing_flip && held.length() > PORTAL_INPUT_HELD_EPS {
                 commands.entity(entity).insert(PortalInputWarp {
                     n_in: enter_normal,
@@ -293,15 +303,24 @@ pub struct PortalEmission {
     pub timer: f32,
 }
 
-/// Apply the active portal input effects at the input layer (so the player brain
-/// / movement see the adjusted `ControlFrame`): the same-wall held-input warp
-/// (soft — drops on release or a clearly different direction) and the emergence
-/// guard (held input can't push back into the exit wall while it's fresh). Both
-/// are deliberately mild so portals never feel like a hard input latch.
+/// Apply the active portal input effects to the player's movement intent (which
+/// the content input adapter mirrors to/from the Ambition `ControlFrame` so the
+/// brain / movement see the adjusted axes): the same-wall held-input warp (soft —
+/// drops on release or a clearly different direction) and the emergence guard
+/// (held input can't push back into the exit wall while it's fresh). Both are
+/// deliberately mild so portals never feel like a hard input latch.
+///
+/// Portal-core decoupling: this reads and MUTATES the content-agnostic
+/// [`PlayerMovementIntent`] (the live movement axis for this frame), never the
+/// Ambition input type. The content adapter
+/// (`crate::ambition_content::portal::sync_movement_intent_from_control` /
+/// `apply_movement_intent_to_control`) brackets this system to copy
+/// `ControlFrame` axes into the intent before it runs and back out afterward, so
+/// the timing and result are byte-identical to mutating `ControlFrame` directly.
 pub fn warp_portal_input(
     time: Option<Res<crate::WorldTime>>,
     mut commands: Commands,
-    mut control: ResMut<ControlFrame>,
+    intent: Option<ResMut<PlayerMovementIntent>>,
     mut player: Query<
         (
             Entity,
@@ -311,13 +330,16 @@ pub fn warp_portal_input(
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
 ) {
+    let Some(mut intent) = intent else {
+        return;
+    };
     let Ok((entity, warp, emission)) = player.single_mut() else {
         return;
     };
 
     // --- Same-wall held-input warp ---
     if let Some(warp) = warp {
-        let raw = Vec2::new(control.axis_x, control.axis_y);
+        let raw = intent.dir;
         if raw.length() < PORTAL_INPUT_HELD_EPS {
             commands.entity(entity).remove::<PortalInputWarp>();
         } else if warp.anchor.length() > 0.01
@@ -326,9 +348,7 @@ pub fn warp_portal_input(
         {
             commands.entity(entity).remove::<PortalInputWarp>();
         } else {
-            let warped = pp::portal_map_vec(raw, warp.n_in, warp.n_out);
-            control.axis_x = warped.x;
-            control.axis_y = warped.y;
+            intent.dir = pp::portal_map_vec(raw, warp.n_in, warp.n_out);
         }
     }
 
@@ -338,25 +358,46 @@ pub fn warp_portal_input(
         if emission.timer <= 0.0 {
             commands.entity(entity).remove::<PortalEmission>();
         } else {
-            let raw = Vec2::new(control.axis_x, control.axis_y);
+            let raw = intent.dir;
             let into = raw.dot(emission.exit_normal); // < 0 = pushing into the wall
             if into < 0.0 {
-                let kept = raw - into * emission.exit_normal;
-                control.axis_x = kept.x;
-                control.axis_y = kept.y;
+                intent.dir = raw - into * emission.exit_normal;
             }
         }
     }
 }
 
-/// In-flight ground items (thrown axes / javelins) also travel through the
+/// A free in-flight body that should travel through a portal pair (thrown axes /
+/// javelins / any content-owned projectile). This is portal core's
+/// content-agnostic transit body: it carries exactly the kinematics
+/// [`portal_teleport_ground_items`] reads and writes (position, velocity,
+/// half-extent), so portal core never names the Ambition `GroundItem`. The
+/// content/item layer attaches this marker to its transitable bodies and keeps
+/// it in sync with its own body component each frame (see
+/// `crate::ambition_content::portal`). Resting bodies (`vel == ZERO`) are
+/// ignored; a transited body pops out clear of the exit portal.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct PortalTransitable {
+    /// Authoritative world position of the body's center.
+    pub pos: Vec2,
+    /// Current velocity; `ZERO` means "resting", which never transits.
+    pub vel: Vec2,
+    /// Half-extent (AABB) used for the portal overlap test and exit clearance.
+    pub half_extent: Vec2,
+}
+
+/// In-flight transitable bodies (thrown axes / javelins) also travel through the
 /// portal pair, carrying momentum through the rotation — throw a javelin into
-/// the blue portal and it flies out of the orange one. Resting items are
-/// ignored (only `vel != ZERO` items teleport), and a teleported item pops out
+/// the blue portal and it flies out of the orange one. Resting bodies are
+/// ignored (only `vel != ZERO` bodies teleport), and a teleported body pops out
 /// clear of the exit portal so it doesn't immediately re-enter.
+///
+/// Operates on the content-agnostic [`PortalTransitable`] component, not the
+/// Ambition `GroundItem`: the item layer syncs its body into/out of this marker
+/// around transit, so portal core teleports any transitable body.
 pub fn portal_teleport_ground_items(
     portals: Query<&PlacedPortal>,
-    mut items: Query<&mut crate::item_pickup::GroundItem>,
+    mut items: Query<&mut PortalTransitable>,
 ) {
     use super::color::PortalGunColor;
     let blue = portals

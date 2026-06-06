@@ -228,9 +228,22 @@ fn velocity_transform_rotates_through_perpendicular_portals() {
 
 #[test]
 fn in_flight_ground_item_travels_through_the_portal_pair() {
+    use crate::ambition_content::portal::{
+        sync_ground_items_to_transitable, sync_transitable_to_ground_items,
+    };
     use crate::item_pickup::GroundItem;
     let mut app = App::new();
-    app.add_systems(Update, portal_teleport_ground_items);
+    // The content adapter brackets the core teleport: attach + sync the
+    // PortalTransitable body before, mirror it back to GroundItem after.
+    app.add_systems(
+        Update,
+        (
+            sync_ground_items_to_transitable,
+            portal_teleport_ground_items,
+            sync_transitable_to_ground_items,
+        )
+            .chain(),
+    );
     // Blue portal facing right at x=20, orange facing left at x=380.
     app.world_mut().spawn(PlacedPortal {
         channel: BLUE,
@@ -588,9 +601,25 @@ fn portal_pair_teleports_player_carrying_momentum() {
 
 #[test]
 fn portal_input_warp_transforms_held_input_then_clears() {
+    use crate::ambition_content::portal::{
+        apply_movement_intent_to_control, sync_movement_intent_from_control,
+    };
     let mut app = App::new();
     app.insert_resource(ControlFrame::default());
-    app.add_systems(Update, warp_portal_input);
+    app.init_resource::<PlayerMovementIntent>();
+    // The content adapter brackets the core warp: mirror ControlFrame -> intent
+    // before the warp, and the warped intent -> ControlFrame after, so this
+    // exercises the full content+core chain on the ControlFrame surface exactly
+    // as the game does.
+    app.add_systems(
+        Update,
+        (
+            sync_movement_intent_from_control,
+            warp_portal_input,
+            apply_movement_intent_to_control,
+        )
+            .chain(),
+    );
     // A 180° warp (a same-wall pair). Player holds RIGHT (anchor right).
     let player = app
         .world_mut()
@@ -707,9 +736,21 @@ fn wall_ability_suppression_reapplies_every_frame_against_the_loadout_reset() {
 
 #[test]
 fn emission_guard_strips_input_pushing_back_into_the_exit_wall() {
+    use crate::ambition_content::portal::{
+        apply_movement_intent_to_control, sync_movement_intent_from_control,
+    };
     let mut app = App::new();
     app.insert_resource(ControlFrame::default());
-    app.add_systems(Update, warp_portal_input);
+    app.init_resource::<PlayerMovementIntent>();
+    app.add_systems(
+        Update,
+        (
+            sync_movement_intent_from_control,
+            warp_portal_input,
+            apply_movement_intent_to_control,
+        )
+            .chain(),
+    );
     // Emerging from a right-wall portal — exit_normal points LEFT (into room).
     let player = app
         .world_mut()

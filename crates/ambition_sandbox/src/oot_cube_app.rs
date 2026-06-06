@@ -553,6 +553,18 @@ fn cube_focus_nav(
     if *backend != InventoryUiBackend::Cube || !overlay.visible {
         return;
     }
+    // The Esc/pause toggle (`menu.start`) is owned ENTIRELY by
+    // `cube_menu_open_routing` (close the cube / drill out of a System category /
+    // restore GameMode). Esc co-fires `menu.back`, and this nav system (and the
+    // `system_focus_nav` it calls) closes on `menu.back` below — so without bailing
+    // here a single Esc would CLOSE the cube HERE and then `cube_menu_open_routing`
+    // would see `!visible` and RE-OPEN it (the Esc-Esc reopen bug). The router was
+    // meant to consume `menu.back` before this system, but the chain order is no
+    // longer guaranteed once these systems join multiple sets, so make the router the
+    // SOLE Esc handler order-independently by bailing on `menu.start` here.
+    if menu.start {
+        return;
+    }
     let Some(active_page) = pages.active else {
         return;
     };

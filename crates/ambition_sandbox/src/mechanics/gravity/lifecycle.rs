@@ -49,7 +49,7 @@ pub fn gravity_flip_switch_system(
     mut base: ResMut<crate::physics::BaseGravity>,
     players: Query<&BodyKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     mut switches: Query<&mut GravityFlipSwitch>,
-    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
 ) {
     let Ok(kin) = players.single() else {
         return;
@@ -61,7 +61,7 @@ pub fn gravity_flip_switch_system(
             // Flip the vertical component of the ambient gravity.
             base.dir = Vec2::new(base.dir.x, -base.dir.y);
             sw.armed = false;
-            sfx.write(crate::audio::SfxMessage::Play {
+            sfx.write(ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::ids::PORTAL_POWERUP,
                 pos: kin.pos,
             });
@@ -99,7 +99,7 @@ mod tests {
     #[test]
     fn gravity_switch_flips_on_entry_and_rearms_on_exit() {
         let mut app = App::new();
-        app.add_message::<crate::audio::SfxMessage>();
+        app.add_message::<ambition_sfx::SfxMessage>();
         app.init_resource::<GravityField>();
         app.init_resource::<BaseGravity>();
         app.add_systems(Update, gravity_flip_switch_system);

@@ -223,6 +223,8 @@ name = "ambition_sfx"
 version = "0.1.0"
 dependencies = [
  "ambition_sfx_bank",
+ "bevy_ecs",
+ "bevy_math",
  "thiserror 1.0.69",
 ]
 

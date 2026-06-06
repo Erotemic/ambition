@@ -23,6 +23,7 @@
 //! `dev/journals/player-cluster-native-push-2026-05-28.md`.
 
 pub mod abilities;
+pub mod config;
 pub mod geometry;
 pub mod ledge_grab;
 pub mod movement;

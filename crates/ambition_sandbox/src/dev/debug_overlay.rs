@@ -86,7 +86,16 @@ pub fn draw_debug_overlay(
             Option<&crate::player::PlayerHealth>,
             &crate::player::ActivePlayerAttack,
         ),
-        crate::player::PrimaryPlayerOnly,
+        // The primary player never carries `FeatureSimEntity` (player vs
+        // feature-sim entities are mutually exclusive — see the kinematics
+        // unification). Spell that disjointness out with `Without` so Bevy can
+        // prove this `&mut BodyKinematics` (PlayerClusterQueryData) query does
+        // not conflict with the `bosses`/`actors` feature queries that read
+        // `BodyKinematics` under `With<FeatureSimEntity>` (B0001).
+        (
+            crate::player::PrimaryPlayerOnly,
+            Without<crate::features::FeatureSimEntity>,
+        ),
     >,
     feature_q: FeatureDebugQueries,
     #[cfg(feature = "portal")] portals: Query<&crate::portal::PlacedPortal>,

@@ -107,11 +107,10 @@ pub struct BossEncounterSpec {
 
 impl BossEncounterSpec {
     /// Clockwork Warden — a renamed reskin of `gradient_sentinel` with
-    /// a different display name + tighter HP pool. The sandbox-side
-    /// `BossProfile::clockwork_warden` returns the same numeric body;
-    /// shipping a dedicated constructor lets the on-disk RON pin
-    /// against a single source of truth instead of duplicating the
-    /// gradient_sentinel-then-mutate sequence.
+    /// a different display name + tighter HP pool. The on-disk
+    /// `boss_encounters/clockwork_warden.ron` pins against this
+    /// constructor (ADR 0017); `BossProfile::from_id("clockwork_warden")`
+    /// reads the same numeric body from that RON.
     pub fn clockwork_warden() -> Self {
         let mut spec = Self::gradient_sentinel();
         spec.id = "clockwork_warden".into();

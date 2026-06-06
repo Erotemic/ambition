@@ -244,6 +244,11 @@
         attack_damage: 2,
         body_damage: 1,
         attack_pattern: Cycle,
+        reward: DropChest(
+            pickup: Custom("pirate_hoard"),
+            offset: (0.0, 24.0),
+            size: (56.0, 56.0),
+        ),
     ),
     // ============================================================
     // GNU-ton — stationary giant with wide-ranging hand attacks.
@@ -353,6 +358,11 @@
                 Strike(profile: GnuShockwave, duration: 0.70),
                 Rest(duration: 1.2),
             ]),
+        ),
+        reward: DropChest(
+            pickup: Custom("gnu_scroll"),
+            offset: (0.0, 30.0),
+            size: (52.0, 52.0),
         ),
     ),
     // ============================================================
@@ -558,6 +568,11 @@
                 Rest(duration: 0.8),
             ]),
         ),
+        reward: DropChest(
+            pickup: Custom("noodly_relic"),
+            offset: (0.0, 24.0),
+            size: (54.0, 54.0),
+        ),
     ),
     // T-rex — a bipedal, GROUNDED, melee-centric boss (Jon canon: "a boss to
     // flex the player/boss unification with a bipedal character like the trex").
@@ -666,6 +681,11 @@
                 Rest(duration: 0.7),
             ]),
         ),
+        reward: DropChest(
+            pickup: Custom("trex_bone_relic"),
+            offset: (0.0, 26.0),
+            size: (56.0, 56.0),
+        ),
     ),
     // Mode Collapse — a floating summoner boss (a training failure that keeps
     // generating the SAME output, so it floods the arena with identical lesser
@@ -766,6 +786,11 @@
                 Rest(duration: 0.7),
             ]),
         ),
+        reward: DropChest(
+            pickup: Custom("collapsed_relic"),
+            offset: (0.0, 24.0),
+            size: (54.0, 54.0),
+        ),
     ),
     // Exploding Gradient — a floating ranged-pressure boss (a divergent training
     // run: the gradients blow up, so its barrages escalate into chaos). No
@@ -863,6 +888,11 @@
                 Strike(profile: SideSweep, duration: 0.32),
                 Rest(duration: 0.5),
             ]),
+        ),
+        reward: DropChest(
+            pickup: Custom("divergence_shard"),
+            offset: (0.0, 24.0),
+            size: (54.0, 54.0),
         ),
     ),
     // Overflow — an aerial melee dive-bomber (a numerical overflow: it bursts
@@ -962,6 +992,11 @@
                 Strike(profile: SideSweep, duration: 0.35),
                 Rest(duration: 0.6),
             ]),
+        ),
+        reward: DropChest(
+            pickup: Custom("stack_frame_relic"),
+            offset: (0.0, 24.0),
+            size: (54.0, 54.0),
         ),
     ),
 }

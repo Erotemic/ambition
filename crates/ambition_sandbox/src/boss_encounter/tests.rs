@@ -55,7 +55,7 @@ fn encounter_id_from_name_drops_non_ascii() {
 #[test]
 fn mockingbird_profile_registers_and_links() {
     let mut registry = BossEncounterRegistry::default();
-    registry.ensure_profile(BossProfile::mockingbird());
+    registry.ensure_profile(BossProfile::from_id("mockingbird").expect("mockingbird is authored"));
     registry.link_runtime(MOCKINGBIRD_ENCOUNTER_ID, "MockingbirdSpawn-0");
     assert!(registry.profiles.contains_key(MOCKINGBIRD_ENCOUNTER_ID));
     assert_eq!(

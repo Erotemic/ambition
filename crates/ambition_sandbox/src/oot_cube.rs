@@ -276,6 +276,13 @@ pub fn items_spec(
             node = node
                 .detail(cell_hint(owned, equipped, item))
                 .equipped(equipped == Some(item));
+            // Render the item's sprite in the cell when it has one; the catalog
+            // returns `None` for items with no authored art, which keeps the text
+            // label (the lib falls back to text when `icon` is `None`). The item's
+            // name still shows in the detail panel either way.
+            if let Some(icon) = item.icon_path() {
+                node = node.icon(icon);
+            }
             if owns {
                 // Held-item weapons/abilities equip; everything else "uses".
                 let (action, label) = if item.held_item_id().is_some() {
@@ -897,6 +904,42 @@ mod tests {
                 "line fits the cell: {line:?}"
             );
         }
+    }
+
+    #[test]
+    fn item_cells_carry_a_sprite_icon_when_one_exists_else_fall_back_to_text() {
+        // Items with authored art emit an `icon` on their grid control; items
+        // without art carry `None` (the lib then renders the text label).
+        let owned = OwnedItems::default();
+        let page = build_items_page(&owned, None, CubeFocus::default());
+        // Item-grid controls are emitted in catalog slot order, so the icon list
+        // lines up 1:1 with `Item::ALL`.
+        let icons: Vec<Option<String>> = page
+            .nodes
+            .iter()
+            .filter_map(|n| match n {
+                ambition_inventory_ui::MenuNode::Control {
+                    kind: MenuControlKind::Item,
+                    icon,
+                    ..
+                } => Some(icon.clone()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(icons.len(), Item::ALL.len(), "one control per catalog item");
+        for (item, icon) in Item::ALL.into_iter().zip(icons.iter()) {
+            match item.icon_path() {
+                Some(path) => assert_eq!(
+                    icon.as_deref(),
+                    Some(path),
+                    "{item:?} should carry its sprite icon"
+                ),
+                None => assert!(icon.is_none(), "{item:?} has no art → text fallback"),
+            }
+        }
+        // Sanity: at least one of each (a real sprite + a real text fallback).
+        assert!(icons.iter().any(|i| i.is_some()), "some items have icons");
+        assert!(icons.iter().any(|i| i.is_none()), "some items fall back to text");
     }
 
     #[test]

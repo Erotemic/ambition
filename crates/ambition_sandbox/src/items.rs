@@ -394,6 +394,39 @@ impl Item {
         self.meta().held_item_id
     }
 
+    /// Asset path (relative to Bevy's asset root) of this item's icon sprite, if
+    /// one already exists in `sprites/props/`. Items render this picture in the OoT
+    /// cube's Items grid instead of their name; items with no authored sprite return
+    /// `None` and fall back to the text label.
+    ///
+    /// The set of available sprites is the same `sprites/props/` art used for
+    /// ground/held items ([`crate::item_pickup::ItemArt`] / `GAUNTLET_PROP_IDS`):
+    /// the three physical weapons (axe/javelin/gunsword), the portal gun, and the
+    /// abstract gauntlet abilities that have a generated icon. This is a deliberate,
+    /// explicit map (not a derived lookup) so a missing sprite is a visible `None`
+    /// here, not a silent runtime miss. Items with no art (Flight, Morph Ball,
+    /// Bubble Shield, the cells/resources, and all the key/quest items) stay text.
+    pub fn icon_path(self) -> Option<&'static str> {
+        use Item::*;
+        let path = match self {
+            PortalGun => "sprites/props/portal_gun_blue.png",
+            Axe => "sprites/props/axe.png",
+            Javelin => "sprites/props/javelin.png",
+            GunSword => "sprites/props/gunsword.png",
+            PuppySlugGun => "sprites/props/gauntlet_puppy_slug_gun.png",
+            Fireball => "sprites/props/gauntlet_fireball.png",
+            Blink => "sprites/props/gauntlet_blink.png",
+            Grapple => "sprites/props/gauntlet_grapple.png",
+            MarkRecall => "sprites/props/gauntlet_mark_recall.png",
+            Bomb => "sprites/props/gauntlet_bomb.png",
+            // No authored sprite — these fall back to the text label in the grid.
+            Fly | MorphBall | BubbleShield | HealthCell | ManaCell | SpareBattery
+            | DataChip | GoldPouch | MapFragment | SealedNote | FieldSurvey | GateKey
+            | DebugLens | ReservedSlot => return None,
+        };
+        Some(path)
+    }
+
     /// Reverse of [`Self::held_item_id`]: which catalog slot a world held-item
     /// (`GroundItem`/`HeldItemSpec` id) corresponds to, so picking one up grants
     /// the right slot.

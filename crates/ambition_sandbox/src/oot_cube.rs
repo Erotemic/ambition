@@ -434,7 +434,10 @@ pub enum SystemRow {
 /// live model. When no entry is open this is the top-level entry list; when an
 /// entry is open it is that entry's screen rows followed by a Back row (immediate
 /// Action entries have no screen, so they are never the open entry).
-pub fn system_rows(model: &SystemMenuModel, open_entry: Option<SystemMenuEntryId>) -> Vec<SystemRow> {
+pub fn system_rows(
+    model: &SystemMenuModel,
+    open_entry: Option<SystemMenuEntryId>,
+) -> Vec<SystemRow> {
     match open_entry.and_then(|id| model.entry(id)) {
         None => model
             .entries
@@ -630,7 +633,10 @@ const SYSTEM_VISIBLE_ROWS: usize = 7;
 /// below scroll into view as the cursor passes the visible edge. Returns the
 /// windowed `(absolute_index, row)` slice plus an `"n/total"` indicator string the
 /// title appends so it's clear there is more off-screen.
-fn system_visible_window(rows: &[SystemRow], focused: usize) -> (Vec<(usize, SystemRow)>, Option<String>) {
+fn system_visible_window(
+    rows: &[SystemRow],
+    focused: usize,
+) -> (Vec<(usize, SystemRow)>, Option<String>) {
     let total = rows.len();
     if total <= SYSTEM_VISIBLE_ROWS {
         let slice = rows.iter().copied().enumerate().collect();
@@ -939,7 +945,10 @@ mod tests {
         }
         // Sanity: at least one of each (a real sprite + a real text fallback).
         assert!(icons.iter().any(|i| i.is_some()), "some items have icons");
-        assert!(icons.iter().any(|i| i.is_none()), "some items fall back to text");
+        assert!(
+            icons.iter().any(|i| i.is_none()),
+            "some items fall back to text"
+        );
     }
 
     #[test]
@@ -1007,7 +1016,10 @@ mod tests {
         } else {
             6
         };
-        assert_eq!(entries, expected_drill, "one drill row per non-action entry");
+        assert_eq!(
+            entries, expected_drill,
+            "one drill row per non-action entry"
+        );
         // No raw settings toggles leak at the top level.
         let has_setting = page.nodes.iter().any(|n| {
             matches!(
@@ -1180,7 +1192,11 @@ mod tests {
             window.iter().any(|(abs, _)| *abs == focused),
             "the focused row scrolls into the visible window"
         );
-        assert_eq!(indicator.as_deref(), Some("14/26"), "1-based n/total indicator");
+        assert_eq!(
+            indicator.as_deref(),
+            Some("14/26"),
+            "1-based n/total indicator"
+        );
 
         // Cursor at the bottom: the window clamps to the list end (no overflow).
         let (window, _) = system_visible_window(&rows, total - 1);
@@ -1222,15 +1238,20 @@ mod tests {
             "a long Radio screen renders only the visible window of station rows"
         );
         // The window includes the focused station (index 13).
-        let has_focused = page.nodes.iter().any(|n| matches!(
-            n,
-            ambition_inventory_ui::MenuNode::Control {
-                action: Some(CubeAction::SystemOption(SystemOptionId::Radio(13))),
-                selected: true,
-                ..
-            }
-        ));
-        assert!(has_focused, "the focused station is the selected windowed row");
+        let has_focused = page.nodes.iter().any(|n| {
+            matches!(
+                n,
+                ambition_inventory_ui::MenuNode::Control {
+                    action: Some(CubeAction::SystemOption(SystemOptionId::Radio(13))),
+                    selected: true,
+                    ..
+                }
+            )
+        });
+        assert!(
+            has_focused,
+            "the focused station is the selected windowed row"
+        );
     }
 
     #[test]

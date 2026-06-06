@@ -30,9 +30,7 @@
 //! build [`SystemMenuModel::build`] omits them entirely, so there are no dead
 //! rows and no references to dev-only code.
 
-use super::menu::{
-    settings_menu_model, SettingsOption, SettingsOptionId, SettingsOptionKind,
-};
+use super::menu::{settings_menu_model, SettingsOption, SettingsOptionId, SettingsOptionKind};
 use super::UserSettings;
 
 /// True in builds that ship the developer tooling. Matches the gate used by the
@@ -358,10 +356,7 @@ fn curated_options(id: SystemMenuEntryId) -> &'static [SettingsOptionId] {
             SettingsOptionId::DashInputMode,
             SettingsOptionId::LeftStickDeadzone,
         ],
-        SystemMenuEntryId::Gameplay => &[
-            SettingsOptionId::DebugHud,
-            SettingsOptionId::QuestHud,
-        ],
+        SystemMenuEntryId::Gameplay => &[SettingsOptionId::DebugHud, SettingsOptionId::QuestHud],
         _ => &[],
     }
 }
@@ -520,7 +515,11 @@ mod tests {
                 ]
             );
         } else {
-            assert_eq!(ids.len(), 6, "non-dev builds omit Developer + Reset Sandbox");
+            assert_eq!(
+                ids.len(),
+                6,
+                "non-dev builds omit Developer + Reset Sandbox"
+            );
         }
     }
 
@@ -552,13 +551,9 @@ mod tests {
             stations: vec![(0, "A".into()), (1, "B".into())],
             active: Some(1),
         };
-        let model = SystemMenuModel::build(
-            &UserSettings::default(),
-            &radio,
-            &DevSnapshot::default(),
-        );
-        let SystemMenuTarget::Radio(rows) =
-            &model.entry(SystemMenuEntryId::Radio).unwrap().target
+        let model =
+            SystemMenuModel::build(&UserSettings::default(), &radio, &DevSnapshot::default());
+        let SystemMenuTarget::Radio(rows) = &model.entry(SystemMenuEntryId::Radio).unwrap().target
         else {
             panic!("radio screen");
         };

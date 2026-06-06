@@ -53,11 +53,28 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // so the result is byte-identical to the old direct-`ControlFrame` mutate.
         // Sync ControlFrame -> intent BEFORE the warp, apply intent -> ControlFrame
         // AFTER it.
+        //
+        // BOTH brackets must sit in the same `[populate ControlFrame ->
+        // sync_local_player_input_frame consumes it]` window that
+        // `warp_portal_input` itself occupies, exactly as the old in-`warp`
+        // direct mutate did. `warp_portal_input` is `.in_set(PlayerInput)` and
+        // `.before(sync_local_player_input_frame)`; pin the brackets the same way
+        // so:
+        //   * `sync_movement_intent_from_control` reads the FRESH per-frame axis
+        //     (PlayerInput runs after the `.before(CoreSimulation)` populate), and
+        //   * `apply_movement_intent_to_control` writes the (round-tripped or
+        //     warped) axis back BEFORE the player consumes it.
+        // Without these anchors the brackets float (their only constraint is
+        // `.before/.after(warp_portal_input)`), so the scheduler can run the
+        // write-back AFTER the consume and the read BEFORE the populate — the
+        // write-back then stamps a STALE intent over the fresh axis, which reads
+        // as a dead / sticky Move axis.
         app.add_systems(
             Update,
             sync_movement_intent_from_control
                 .run_if(crate::gameplay_allowed)
                 .in_set(PortalSet::InputWarp)
+                .in_set(crate::app::SandboxSet::PlayerInput)
                 .before(warp_portal_input),
         );
         app.add_systems(
@@ -65,7 +82,9 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
             apply_movement_intent_to_control
                 .run_if(crate::gameplay_allowed)
                 .in_set(PortalSet::InputWarp)
-                .after(warp_portal_input),
+                .in_set(crate::app::SandboxSet::PlayerInput)
+                .after(warp_portal_input)
+                .before(crate::player::sync_local_player_input_frame),
         );
         // `portal_transit_system` reads `PlayerMovementIntent` as the warp anchor;
         // re-sync from `ControlFrame` immediately before it so the anchor matches
@@ -95,6 +114,105 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .run_if(crate::gameplay_allowed)
                 .in_set(PortalSet::Transit)
                 .after(portal_teleport_ground_items),
+        );
+    }
+}
+
+#[cfg(test)]
+mod schedule_tests {
+    //! Regression guard for the movement-axis "dead/sticky" input bug.
+    //!
+    //! The portal movement-intent brackets mirror `ControlFrame` axes into
+    //! `PlayerMovementIntent` before `warp_portal_input` and back to
+    //! `ControlFrame` after. They MUST live inside the same
+    //! `[populate ControlFrame -> player consumes ControlFrame]` window the old
+    //! in-`warp` direct mutate occupied. When the brackets only carried
+    //! `.before/.after(warp_portal_input)` (and no SandboxSet / consume anchor)
+    //! they floated: the read could run before the per-frame populate and the
+    //! write-back after the player had already consumed the frame, stamping a
+    //! STALE intent over the fresh axis — the live Move axis read as dead/sticky.
+    //!
+    //! This test reproduces that window with a stand-in populate (before
+    //! `CoreSimulation`) and a stand-in consume (the tail of `PlayerInput`) plus
+    //! the REAL bracket systems + REAL `warp_portal_input`, and asserts the axis
+    //! the consumer sees is the one populate wrote this frame (no active warp =
+    //! pure round-trip).
+    use bevy::prelude::*;
+
+    use crate::app::{configure_sandbox_sets, SandboxSet};
+    use crate::input::ControlFrame;
+    use crate::player::{PlayerEntity, PrimaryPlayer};
+    use crate::portal::{warp_portal_input, PlayerMovementIntent};
+
+    use super::super::transit_adapter::{
+        apply_movement_intent_to_control, sync_movement_intent_from_control,
+    };
+
+    #[derive(Resource, Default)]
+    struct ConsumedAxis(f32);
+
+    // Stand-in for the device populate (`populate_control_frame_from_actions`),
+    // which runs `.before(SandboxSet::CoreSimulation)`.
+    fn populate_fresh_axis(mut frame: ResMut<ControlFrame>) {
+        frame.axis_x = -1.0;
+    }
+
+    // Stand-in for the player consume (`sync_local_player_input_frame`), the tail
+    // of `SandboxSet::PlayerInput`. Records the axis it observes.
+    fn consume_axis(frame: Res<ControlFrame>, mut consumed: ResMut<ConsumedAxis>) {
+        consumed.0 = frame.axis_x;
+    }
+
+    #[test]
+    fn portal_intent_brackets_do_not_clobber_the_fresh_move_axis() {
+        let mut app = App::new();
+        configure_sandbox_sets(&mut app);
+        app.init_resource::<ControlFrame>();
+        app.init_resource::<PlayerMovementIntent>();
+        app.init_resource::<ConsumedAxis>();
+        // A primary player so `warp_portal_input` runs its body.
+        app.world_mut().spawn((PlayerEntity, PrimaryPlayer));
+
+        app.add_systems(
+            Update,
+            populate_fresh_axis.before(SandboxSet::CoreSimulation),
+        );
+        // Real brackets + real warp, anchored exactly as the plugin wires them.
+        // Wire the brackets exactly as the plugin does: both inside
+        // `SandboxSet::PlayerInput` (so the read runs after the
+        // `.before(CoreSimulation)` populate) and the write-back
+        // `.before` the consumer (so the fresh/round-tripped axis reaches the
+        // player this frame).
+        app.add_systems(
+            Update,
+            sync_movement_intent_from_control
+                .in_set(SandboxSet::PlayerInput)
+                .before(warp_portal_input),
+        );
+        app.add_systems(
+            Update,
+            warp_portal_input
+                .in_set(SandboxSet::PlayerInput)
+                .before(consume_axis),
+        );
+        app.add_systems(
+            Update,
+            apply_movement_intent_to_control
+                .in_set(SandboxSet::PlayerInput)
+                .after(warp_portal_input)
+                .before(consume_axis),
+        );
+        app.add_systems(Update, consume_axis.in_set(SandboxSet::PlayerInput));
+
+        app.update();
+
+        let consumed = app.world().resource::<ConsumedAxis>().0;
+        assert_eq!(
+            consumed, -1.0,
+            "the player must consume this frame's fresh Move axis (-1.0); got \
+             {consumed}. A 0.0 here means the portal intent write-back stamped a \
+             stale/empty PlayerMovementIntent over the fresh ControlFrame axis \
+             (the dead/sticky Move-axis regression)."
         );
     }
 }

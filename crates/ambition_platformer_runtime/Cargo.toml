@@ -1,0 +1,18 @@
+[package]
+name = "ambition_platformer_runtime"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Reusable, content-free platformer runtime primitives (lifecycle vocabulary + schedule sets) extracted from ambition_sandbox. See docs/planning/plugin_refactor/14_action_plan.md."
+
+[lib]
+# rlib only: a library consumed by ambition_sandbox (and future runtime
+# crates). Packaging is the consuming binary's responsibility.
+crate-type = ["rlib"]
+
+[dependencies]
+# Only the ECS surface is needed: Component / Bundle / Commands /
+# EntityCommands / Entity / SystemSet (via bevy::prelude). No render, audio,
+# windowing, or asset features — this crate must stay reusable and headless.
+bevy = { version = "0.18.1", default-features = false }

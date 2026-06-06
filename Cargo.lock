@@ -155,11 +155,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_platformer_runtime"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+]
+
+[[package]]
 name = "ambition_sandbox"
 version = "0.2.0"
 dependencies = [
  "ambition_asset_manager",
  "ambition_inventory_ui",
+ "ambition_platformer_runtime",
  "ambition_sfx",
  "avian2d",
  "bevy",

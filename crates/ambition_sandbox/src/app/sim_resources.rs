@@ -144,25 +144,12 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             // disk; mutated by encounter + switch systems; written by
             // `autosave_sandbox_save` when change-detection fires.
             .insert_resource(crate::persistence::save::SandboxSave::default())
-            // Quest + cutscene systems. Both are sim-side state machines
-            // that read/write the save resource and surface HUD lines via
-            // the encounter overlay.
-            .insert_resource(crate::content::quest::QuestRegistry::default())
-            .insert_resource(crate::presentation::cutscene::default_cutscene_library())
-            .insert_resource(crate::presentation::cutscene::ActiveCutscene::default())
-            .insert_resource(crate::presentation::cutscene::CutsceneTriggerQueue::default())
-            .insert_resource(crate::presentation::cutscene::CutsceneAdvanceRequest::default())
-            .insert_resource(crate::presentation::cutscene::RoomCutsceneBindings::defaults())
-            // Combat-banter registry — story-content lines for the
-            // `apply_feature_hit_events` hit handler. Boss barks are
-            // installed inline; IntroPlugin adds the intro raiders' lines
-            // via a startup system.
-            .insert_resource({
-                let mut reg = crate::content::banter::CombatBanterRegistry::default();
-                crate::boss_encounter::install_boss_banter(&mut reg);
-                crate::content::banter::install_pirate_banter(&mut reg);
-                reg
-            })
+            // Quest registry, the named cutscene library + room bindings,
+            // and the combat-banter registry are registered by
+            // `crate::ambition_content::AmbitionContentPlugin` (Stage 11 /
+            // Task J). The runtime cutscene state channels (ActiveCutscene /
+            // trigger / advance) move with them since they are part of the
+            // cutscene content seam.
             // World-clock dt mirror — `WorldTime::scaled_dt` is the
             // bullet-time-respecting delta for gameplay timers and
             // world-anchored animation timers. `WorldTime::raw_dt`
@@ -182,14 +169,10 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             // registers the intro_portal_zone → intro_portal_switch
             // hookup.
             .insert_resource(crate::rooms::GatePortalRegistry::default())
-            // Intro story content plugin. Extends CutsceneLibrary +
-            // RoomCutsceneBindings (always) and GameAssets.characters.npcs
-            // (visible builds only — the sprite installer is a no-op in
-            // headless where GameAssets is absent). Keeps story content out
-            // of sandbox-owned files in preparation for a future
-            // sandbox / game crate split.
-            .add_plugins(crate::intro::IntroPlugin)
-            .insert_resource(crate::boss_encounter::BossEncounterRegistry::default())
+            // The intro/cut-rope story hooks (IntroPlugin) and the boss
+            // encounter registry are registered by
+            // `crate::ambition_content::AmbitionContentPlugin` (Stage 11 /
+            // Task J).
             .insert_resource(crate::map_menu::MapMenuState::default())
             .insert_resource(crate::CameraEaseState::default())
             .insert_resource(crate::CameraEaseTuning::default())

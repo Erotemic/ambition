@@ -51,6 +51,16 @@ pub fn add_simulation_plugins(app: &mut App) {
 
     app.add_plugins(super::sim_resources::SandboxSimulationResourcesPlugin);
 
+    // Named Ambition game content (quests, bosses, cutscenes/banter, the
+    // intro/cut-rope story hooks, and — under the `portal` feature — the
+    // portal adapters). Registration ownership lives behind one composer
+    // so the named-content rosters are constructed in a single content-
+    // owned place instead of inline in `sim_resources.rs`. Installed right
+    // after the simulation resources so the registries land at the same
+    // point in app assembly as before (preserving replay / scripted
+    // ordering).
+    app.add_plugins(crate::ambition_content::AmbitionContentPlugin);
+
     // Yarn dialogue stack (gated by `ui` feature):
     //   1. `yarn_spinner_plugin()` — bevy_yarnspinner: compiles
     //      `.yarn` files into a `YarnProject` resource at startup.
@@ -76,8 +86,9 @@ pub fn add_simulation_plugins(app: &mut App) {
     register_player_simulation_systems(app);
     #[cfg(feature = "portal")]
     app.add_plugins(crate::portal::PortalPlugin);
-    #[cfg(feature = "portal")]
-    app.add_plugins(crate::ambition_content::portal::AmbitionPortalAdaptersPlugin);
+    // The Ambition portal adapters (AmbitionPortalAdaptersPlugin) are now
+    // installed by `crate::ambition_content::AmbitionContentPlugin` above so
+    // all Ambition content lives in one composer.
     app.add_plugins(crate::item_pickup::ItemPickupSimulationPlugin);
     register_room_transition_systems(app);
     app.add_plugins(super::combat_schedule::CombatSchedulePlugin);
@@ -491,12 +502,13 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
 /// Pause menu, inventory, map menu, presentation startup, dev/dialog
 /// hotkeys.
 fn install_menu_setup_and_hotkeys(app: &mut App) {
+    // Starter item-ownership roster (the 24-item catalog default set).
+    // Owned by the content boundary but installed here to preserve its
+    // original presentation-scoped insertion point (Stage 11 / Task J).
+    app.add_plugins(crate::ambition_content::items::AmbitionItemRosterPlugin);
     app.insert_resource(pause_menu::PauseMenuState::default())
         .insert_resource(inventory::InventoryUiState::default())
         .insert_resource(inventory::PlayerInventory::starter())
-        // The 24-item catalog ownership model is always-on core state (pickups
-        // and dialogue read/write it regardless of which menu renders it).
-        .insert_resource(crate::items::OwnedItems::starter())
         .init_resource::<crate::inventory_persist::InventoryRestored>()
         // Persist the inventory + wallet across save/load: restore the saved set
         // once the player exists, then mirror live changes back into the save

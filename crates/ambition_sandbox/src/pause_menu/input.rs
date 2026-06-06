@@ -76,6 +76,14 @@ pub fn pause_menu_navigate(
     #[cfg(feature = "audio")] mut radio: ResMut<RadioStationState>,
     #[cfg(feature = "audio")] music_channel: Res<AudioChannel<MusicChannel>>,
 ) {
+    // NOTE: under the 3D-cube inventory backend the cube OWNS pause/Esc/inventory
+    // entirely, so this system (and the rest of the bevy-UI pause menu) must be
+    // inert. `pause_menu_navigate` is already at Bevy's 16-param ceiling, so the
+    // Cube-backend guard is applied as a `run_if(pause_menu_ui_active)` run-condition
+    // at registration (see `app/plugins.rs`) rather than an inline `Option<Res<_>>`
+    // param. Without that gate, this navigate system runs on every `Paused` frame
+    // behind the invisible cube and re-raises `InventoryUiState.visible`, re-opening
+    // the menu the cube just closed (Bug 1).
     if !matches!(mode.get(), GameMode::Paused) {
         return;
     }

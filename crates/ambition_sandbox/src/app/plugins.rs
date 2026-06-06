@@ -1043,14 +1043,20 @@ pub(super) fn add_input_plugins(app: &mut App) {
                 inventory::inventory_input,
                 #[cfg(feature = "oot_inventory")]
                 crate::oot_menu::oot_menu_input,
-                pause_menu::pause_menu_pointer_input,
-                pause_menu::settings_slider_drag_input,
-                pause_menu::settings_scrollbar_drag_input,
+                // The bevy-UI pause menu is INERT under the Cube backend (the cube
+                // owns pause/Esc/inventory). Every interaction system that runs/mutates
+                // while `Paused` is gated by `pause_menu_ui_active` so none of them can
+                // re-raise `InventoryUiState.visible` or mutate pause state behind the
+                // invisible cube (Bug 1). Under the Grid backend the condition is `true`
+                // and they behave exactly as before.
+                pause_menu::pause_menu_pointer_input.run_if(pause_menu::pause_menu_ui_active),
+                pause_menu::settings_slider_drag_input.run_if(pause_menu::pause_menu_ui_active),
+                pause_menu::settings_scrollbar_drag_input.run_if(pause_menu::pause_menu_ui_active),
                 #[cfg(not(feature = "oot_inventory"))]
                 inventory::inventory_pointer_input,
                 #[cfg(feature = "oot_inventory")]
                 crate::oot_menu::oot_menu_pointer_input,
-                pause_menu::pause_menu_navigate,
+                pause_menu::pause_menu_navigate.run_if(pause_menu::pause_menu_ui_active),
             )
                 .chain()
                 .before(SandboxSet::CoreSimulation),

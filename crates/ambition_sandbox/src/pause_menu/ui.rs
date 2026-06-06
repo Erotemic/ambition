@@ -917,6 +917,7 @@ pub fn settings_slider_drag_input(
         Changed<bevy::ui::RelativeCursorPosition>,
     >,
 ) {
+    // Inert under the Cube backend via the `pause_menu_ui_active` run-condition.
     if !matches!(mode.get(), GameMode::Paused) || inventory.visible {
         return;
     }
@@ -965,6 +966,7 @@ pub fn settings_scrollbar_drag_input(
         ),
     >,
 ) {
+    // Inert under the Cube backend via the `pause_menu_ui_active` run-condition.
     if !matches!(mode.get(), GameMode::Paused) || inventory.visible {
         return;
     }

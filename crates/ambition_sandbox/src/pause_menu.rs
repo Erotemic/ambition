@@ -51,6 +51,33 @@ mod ui;
 #[cfg(test)]
 mod tests;
 
+/// Run-condition: is the bevy-UI pause menu the ACTIVE inventory/pause frontend?
+///
+/// Under the 3D-cube inventory backend (`oot_inventory`) the cube owns pause / Esc /
+/// inventory entirely, so EVERY bevy-UI pause-menu interaction system must be inert
+/// (navigate, pointer, slider/scrollbar drag). They are gated with this run-condition
+/// at registration instead of an inline `Option<Res<_>>` param, because
+/// `pause_menu_navigate` already sits at Bevy's 16-param ceiling — adding a 17th param
+/// makes it an invalid system. Returns `true` (menu active) whenever the cube backend
+/// is absent or set to `Grid`, exactly mirroring `pause_menu_toggle`'s inline guard.
+#[cfg(feature = "input")]
+pub fn pause_menu_ui_active(
+    #[cfg(feature = "oot_inventory")] cube_backend: Option<
+        Res<crate::oot_cube_app::InventoryUiBackend>,
+    >,
+) -> bool {
+    #[cfg(feature = "oot_inventory")]
+    {
+        !cube_backend
+            .map(|b| *b == crate::oot_cube_app::InventoryUiBackend::Cube)
+            .unwrap_or(false)
+    }
+    #[cfg(not(feature = "oot_inventory"))]
+    {
+        true
+    }
+}
+
 #[cfg(feature = "input")]
 pub use self::input::{pause_menu_navigate, pause_menu_toggle};
 pub use self::model::{

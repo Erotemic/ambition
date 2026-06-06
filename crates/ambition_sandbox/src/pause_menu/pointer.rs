@@ -18,6 +18,8 @@ pub fn pause_menu_pointer_input(
     settings_rows: Query<(&Interaction, &SettingsRowSlot), Changed<Interaction>>,
     #[cfg(feature = "audio")] library: Res<AudioLibrary>,
 ) {
+    // Inert under the Cube backend via the `pause_menu_ui_active` run-condition at
+    // registration (see `app/plugins.rs`) — the cube owns all pause-menu interaction.
     if !matches!(mode.get(), GameMode::Paused) {
         return;
     }

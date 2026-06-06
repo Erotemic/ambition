@@ -22,8 +22,9 @@ use crate::oot_cube::{
 use crate::oot_menu::effects::MenuAction;
 use crate::oot_menu::input::{dispatch_item_confirm, MenuEffectManaQuery, MenuEffectPlayers};
 use crate::persistence::settings::{
-    apply_settings_option, settings_menu_model, SettingsCategoryId, SettingsOptionId,
-    SettingsOptionKind, UserSettings,
+    apply_settings_option, settings_menu_model, DevSnapshot, DevToggleId, RadioSnapshot,
+    SettingsOptionId, SettingsOptionKind, SystemMenuAction, SystemMenuEntryId, SystemMenuModel,
+    SystemOptionId, UserSettings,
 };
 use crate::player::PlayerHealRequested;
 
@@ -152,7 +153,287 @@ impl CubeCursor {
 /// `ResMut`); `republish_cube_pages` reads it as `Res`.
 #[derive(Resource, Default)]
 struct CubeSystemNav {
-    open_category: Option<SettingsCategoryId>,
+    open_entry: Option<SystemMenuEntryId>,
+}
+
+/// All the live resources the broadened SYSTEM screens need to READ a snapshot
+/// and APPLY a selection, bundled into one [`SystemParam`] so the cube nav system
+/// / pointer observer stay within Bevy's 16-param ceiling. The radio resources are
+/// `audio`-gated; `DeveloperTools` + `SandboxResetRequested` are always present
+/// (inserted at startup), so accessing them never panics. Held mutably here; the
+/// two consumers (`cube_focus_nav`, `cube_pointer_click`) are separate systems so
+/// there is no B0002 conflict, and `republish_cube_pages` reads its own `Res`
+/// copies (`SystemMenuSnapshotParams`) in a third system.
+#[derive(bevy::ecs::system::SystemParam)]
+struct SystemMenuParams<'w> {
+    dev_tools: ResMut<'w, crate::dev::dev_tools::DeveloperTools>,
+    reset: ResMut<'w, crate::runtime::reset::SandboxResetRequested>,
+    // The radio resources are `Option`-wrapped so the System nav stays B0002-safe
+    // and never panics when audio is off / a fixture omits them: a missing radio
+    // resource simply disables station audition (the rows still render). Gated on
+    // `audio` so non-audio builds carry none of the types.
+    #[cfg(feature = "audio")]
+    library: Option<ResMut<'w, crate::audio::AudioLibrary>>,
+    #[cfg(feature = "audio")]
+    asset_server: Option<Res<'w, AssetServer>>,
+    #[cfg(feature = "audio")]
+    music_state: Option<ResMut<'w, crate::audio::MusicPlaybackState>>,
+    #[cfg(feature = "audio")]
+    radio: Option<ResMut<'w, crate::audio::RadioStationState>>,
+    #[cfg(feature = "audio")]
+    music_channel:
+        Option<Res<'w, bevy_kira_audio::prelude::AudioChannel<crate::audio::MusicChannel>>>,
+}
+
+impl SystemMenuParams<'_> {
+    /// Apply a non-settings System screen option against its live resource.
+    /// Radio auditions a station (keeps the menu open); Locale is a no-op stub
+    /// (only English exists); Dev toggles/cycles mutate `DeveloperTools`.
+    /// Returns the SFX id to play for feedback.
+    fn apply_option(&mut self, opt: SystemOptionId) -> ambition_sfx::SfxId {
+        match opt {
+            SystemOptionId::Radio(index) => {
+                #[cfg(feature = "audio")]
+                if let (Some(library), Some(asset_server), Some(music_state), Some(radio), Some(music_channel)) = (
+                    self.library.as_deref_mut(),
+                    self.asset_server.as_deref(),
+                    self.music_state.as_deref_mut(),
+                    self.radio.as_deref_mut(),
+                    self.music_channel.as_deref(),
+                ) {
+                    if let Some(track_id) = library.track_at(index).map(|t| t.id.clone()) {
+                        crate::audio::set_radio_track(
+                            library,
+                            asset_server,
+                            radio,
+                            music_state,
+                            music_channel,
+                            &track_id,
+                        );
+                        return ambition_sfx::ids::UI_MENU_ACCEPT;
+                    }
+                }
+                let _ = index;
+                ambition_sfx::ids::UI_MENU_ERROR
+            }
+            SystemOptionId::Locale(id) => {
+                // Language is a stub: only English is selectable. Selecting it is a
+                // confirm; anything else is an error beep.
+                if id.is_available() {
+                    ambition_sfx::ids::UI_MENU_ACCEPT
+                } else {
+                    ambition_sfx::ids::UI_MENU_ERROR
+                }
+            }
+            SystemOptionId::Dev(id) => {
+                apply_dev_toggle(&mut self.dev_tools, id, 0);
+                if id.is_cycle() {
+                    ambition_sfx::ids::UI_SLIDER_TICK
+                } else {
+                    ambition_sfx::ids::UI_TOGGLE_ON
+                }
+            }
+        }
+    }
+
+    /// Step a value-style screen option in place (radio prev/next station, dev
+    /// cycle prev/next). Toggles + locales ignore stepping (handled by select).
+    fn step_option(&mut self, opt: SystemOptionId, dir: i32) -> Option<ambition_sfx::SfxId> {
+        match opt {
+            SystemOptionId::Dev(id) if id.is_cycle() => {
+                apply_dev_toggle(&mut self.dev_tools, id, dir);
+                Some(ambition_sfx::ids::UI_SLIDER_TICK)
+            }
+            _ => None,
+        }
+    }
+
+    fn request_reset(&mut self) {
+        self.reset.request();
+    }
+
+    /// Build the live radio snapshot for the SYSTEM IR (empty under no `audio` /
+    /// when the radio resources are absent).
+    fn radio_snapshot(&self) -> RadioSnapshot {
+        #[cfg(feature = "audio")]
+        if let (Some(library), Some(music_state)) =
+            (self.library.as_deref(), self.music_state.as_deref())
+        {
+            return radio_snapshot_from(library, music_state, self.radio.as_deref());
+        }
+        RadioSnapshot::default()
+    }
+
+    /// Build the live developer-toggle snapshot for the SYSTEM IR.
+    fn dev_snapshot(&self) -> DevSnapshot {
+        dev_snapshot(&self.dev_tools)
+    }
+
+    /// Build the live SYSTEM model from current settings + held resources.
+    fn model(&self, settings: &UserSettings) -> SystemMenuModel {
+        SystemMenuModel::build(settings, &self.radio_snapshot(), &self.dev_snapshot())
+    }
+}
+
+/// Resources `republish_cube_pages` reads (immutably) to snapshot the radio + dev
+/// state into the SYSTEM IR. Separate `Res` bundle so it never conflicts with the
+/// mutable `SystemMenuParams` (different systems).
+#[derive(bevy::ecs::system::SystemParam)]
+struct SystemMenuSnapshotParams<'w> {
+    dev_tools: Res<'w, crate::dev::dev_tools::DeveloperTools>,
+    #[cfg(feature = "audio")]
+    library: Option<Res<'w, crate::audio::AudioLibrary>>,
+    #[cfg(feature = "audio")]
+    music_state: Option<Res<'w, crate::audio::MusicPlaybackState>>,
+    #[cfg(feature = "audio")]
+    radio: Option<Res<'w, crate::audio::RadioStationState>>,
+}
+
+impl SystemMenuSnapshotParams<'_> {
+    /// Build the live radio-station snapshot for the SYSTEM IR (empty under no
+    /// `audio` / when the radio resources are absent).
+    fn radio_snapshot(&self) -> RadioSnapshot {
+        #[cfg(feature = "audio")]
+        if let (Some(library), Some(music_state)) =
+            (self.library.as_deref(), self.music_state.as_deref())
+        {
+            return radio_snapshot_from(library, music_state, self.radio.as_deref());
+        }
+        RadioSnapshot::default()
+    }
+
+    /// Build the live developer-toggle snapshot for the SYSTEM IR.
+    fn dev_snapshot(&self) -> DevSnapshot {
+        dev_snapshot(&self.dev_tools)
+    }
+
+    /// True when any radio/dev resource changed this frame (so the cube republishes
+    /// the System face to reflect an auditioned station / toggled dev flag).
+    fn is_changed(&self) -> bool {
+        let mut changed = self.dev_tools.is_changed();
+        #[cfg(feature = "audio")]
+        {
+            changed = changed
+                || self.library.as_ref().map(|r| r.is_changed()).unwrap_or(false)
+                || self
+                    .music_state
+                    .as_ref()
+                    .map(|r| r.is_changed())
+                    .unwrap_or(false)
+                || self.radio.as_ref().map(|r| r.is_changed()).unwrap_or(false);
+        }
+        changed
+    }
+}
+
+/// Build a [`RadioSnapshot`] from the live audio library + playback state. The
+/// single place that maps the audio runtime onto the SYSTEM IR's station list.
+#[cfg(feature = "audio")]
+fn radio_snapshot_from(
+    library: &crate::audio::AudioLibrary,
+    music_state: &crate::audio::MusicPlaybackState,
+    radio: Option<&crate::audio::RadioStationState>,
+) -> RadioSnapshot {
+    let active_id = radio
+        .and_then(|r| r.selected_track())
+        .unwrap_or(music_state.active_track.as_str())
+        .to_string();
+    let active = library.track_index(&active_id);
+    let stations = (0..library.track_count())
+        .filter_map(|i| library.display_name_at(i).map(|name| (i, name.to_string())))
+        .collect();
+    RadioSnapshot { stations, active }
+}
+
+/// Read every developer toggle/cycle into a [`DevSnapshot`] for the SYSTEM IR. The
+/// single place mapping `DeveloperTools` fields onto [`DevToggleId`]s for display.
+fn dev_snapshot(dev: &crate::dev::dev_tools::DeveloperTools) -> DevSnapshot {
+    use DevToggleId as D;
+    let mut values = Vec::with_capacity(DevToggleId::ALL.len());
+    values.push(DevSnapshot::toggle(D::Inspector, dev.inspector_visible));
+    values.push(DevSnapshot::toggle(
+        D::WorldInspector,
+        dev.world_inspector_visible,
+    ));
+    values.push(DevSnapshot::toggle(D::Gizmos, dev.gizmos_enabled));
+    values.push(DevSnapshot::toggle(D::ShowHud, dev.show_hud));
+    values.push(DevSnapshot::toggle(D::ShowHitboxes, dev.show_player_hitbox));
+    values.push(DevSnapshot::toggle(D::HideSprites, dev.hide_sprites));
+    values.push(DevSnapshot::toggle(
+        D::PlaceholderSprites,
+        dev.placeholder_sprites,
+    ));
+    values.push(DevSnapshot::toggle(D::FillDebugBoxes, dev.fill_debug_boxes));
+    values.push(DevSnapshot::toggle(D::MicroGrid, dev.show_micro_grid));
+    values.push(DevSnapshot::toggle(D::CameraFrame, dev.show_camera_frame));
+    values.push(DevSnapshot::toggle(D::OverviewCamera, dev.overview_camera));
+    values.push(DevSnapshot::cycle(
+        D::DebugViewMode,
+        dev.debug_view_mode.label(),
+    ));
+    values.push(DevSnapshot::cycle(D::DebugArtMode, dev.debug_art_mode.label()));
+    values.push(DevSnapshot::cycle(
+        D::PlayerBodyProfile,
+        dev.player_body_profile.label(),
+    ));
+    values.push(DevSnapshot::cycle(
+        D::MovementProfile,
+        dev.movement_profile.label(),
+    ));
+    DevSnapshot { values }
+}
+
+/// Apply a single developer toggle/cycle to `DeveloperTools`. `dir` selects the
+/// direction for cycles (`<0` prev, otherwise next); toggles flip regardless. This
+/// is the single place that mutates `DeveloperTools` from the cube, so the dev
+/// menu and the inspector stay in lock-step on field semantics.
+fn apply_dev_toggle(
+    dev: &mut crate::dev::dev_tools::DeveloperTools,
+    id: DevToggleId,
+    dir: i32,
+) {
+    use DevToggleId as D;
+    match id {
+        D::Inspector => dev.inspector_visible = !dev.inspector_visible,
+        D::WorldInspector => dev.world_inspector_visible = !dev.world_inspector_visible,
+        D::Gizmos => dev.gizmos_enabled = !dev.gizmos_enabled,
+        D::ShowHud => dev.show_hud = !dev.show_hud,
+        D::ShowHitboxes => dev.show_player_hitbox = !dev.show_player_hitbox,
+        D::HideSprites => dev.hide_sprites = !dev.hide_sprites,
+        D::PlaceholderSprites => dev.placeholder_sprites = !dev.placeholder_sprites,
+        D::FillDebugBoxes => dev.fill_debug_boxes = !dev.fill_debug_boxes,
+        D::MicroGrid => dev.show_micro_grid = !dev.show_micro_grid,
+        D::CameraFrame => dev.show_camera_frame = !dev.show_camera_frame,
+        D::OverviewCamera => dev.overview_camera = !dev.overview_camera,
+        D::DebugViewMode => {
+            dev.debug_view_mode = if dir < 0 {
+                dev.debug_view_mode.prev()
+            } else {
+                dev.debug_view_mode.next()
+            };
+        }
+        D::DebugArtMode => {
+            dev.debug_art_mode = if dir < 0 {
+                dev.debug_art_mode.prev()
+            } else {
+                dev.debug_art_mode.next()
+            };
+        }
+        D::PlayerBodyProfile => {
+            dev.player_body_profile = if dir < 0 {
+                dev.player_body_profile.prev()
+            } else {
+                dev.player_body_profile.next()
+            };
+        }
+        D::MovementProfile => {
+            dev.movement_profile = if dir < 0 {
+                dev.movement_profile.prev()
+            } else {
+                dev.movement_profile.next()
+            };
+        }
+    }
 }
 
 /// Spawn the readability dim-scrim node (full-screen, starts fully transparent).
@@ -258,6 +539,7 @@ fn cube_focus_nav(
     mut mana_q: MenuEffectManaQuery,
     mut heals: MessageWriter<PlayerHealRequested>,
     mut sfx: MessageWriter<SfxMessage>,
+    mut system: SystemMenuParams,
 ) {
     if *backend != InventoryUiBackend::Cube || !overlay.visible {
         return;
@@ -322,6 +604,7 @@ fn cube_focus_nav(
             &mut mana_q,
             &mut heals,
             &mut sfx,
+            &mut system,
         );
         return;
     }
@@ -436,6 +719,7 @@ fn cube_focus_nav(
                 &mut mana_q,
                 &mut heals,
                 &mut sfx,
+                &mut system,
             );
             if close_menu {
                 overlay.visible = false;
@@ -494,13 +778,16 @@ fn system_focus_nav(
     mana_q: &mut MenuEffectManaQuery,
     heals: &mut MessageWriter<PlayerHealRequested>,
     sfx: &mut MessageWriter<SfxMessage>,
+    system: &mut SystemMenuParams,
 ) {
     let focus_before = cursor.focus;
     let page_before = pages.active;
-    // The rows shown for the current drill-down state: categories (+ Close Menu) at
-    // the top level, or the open category's options + a Back row.
-    let rows = system_rows(system_nav.open_category);
-    let count = rows.len() as i32;
+    // The rows shown for the current drill-down state: the SYSTEM entry list at the
+    // top level, or the open entry's screen rows + a Back row. Built from the live
+    // model so radio/dev/language rows are enumerated correctly.
+    let model = system.model(settings);
+    let rows = system_rows(&model, system_nav.open_entry);
+    let count = rows.len().max(1) as i32;
     // Normalise the cursor onto a System row (it may arrive as an items/edge focus
     // after a page turn).
     let mut row = match cursor.focus {
@@ -536,31 +823,41 @@ fn system_focus_nav(
                 }
             }
             CubeFocus::System(_) | CubeFocus::Item(_) => {
-                // LEFT/RIGHT step value OPTION rows in place; otherwise use the
-                // horizontal affordance to move onto the edge buttons.
-                if let SystemRow::Option(o) = current {
-                    if is_value_option(o, settings) {
+                // LEFT/RIGHT step value rows in place (settings cycles/sliders, dev
+                // cycles); otherwise use the horizontal affordance to move onto the
+                // edge buttons.
+                let stepped = match current {
+                    SystemRow::Setting(o) if is_value_setting(o, settings) => {
                         apply_system_option_step(o, dx, settings, sfx);
-                    } else if dx < 0 {
+                        true
+                    }
+                    SystemRow::Option(o) => {
+                        if let Some(id) = system.step_option(o, dx) {
+                            play_ui(sfx, id);
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    _ => false,
+                };
+                if !stepped {
+                    if dx < 0 {
                         cursor.mark_keyboard(CubeFocus::EdgeLeft);
                     } else {
                         cursor.mark_keyboard(CubeFocus::EdgeRight);
                     }
-                } else if dx < 0 {
-                    cursor.mark_keyboard(CubeFocus::EdgeLeft);
-                } else {
-                    cursor.mark_keyboard(CubeFocus::EdgeRight);
                 }
             }
         }
     }
 
     if menu.back {
-        // Inside a category, Back drills OUT to the category list; at the top level
-        // Back closes the menu (matching the items face).
-        if system_nav.open_category.is_some() {
+        // Inside an entry, Back drills OUT to the entry list; at the top level Back
+        // closes the menu (matching the items face).
+        if system_nav.open_entry.is_some() {
             play_ui(sfx, ambition_sfx::ids::UI_MENU_BACK);
-            close_system_category(system_nav, cursor);
+            close_system_entry(system_nav, cursor);
         } else {
             play_ui(sfx, ambition_sfx::ids::UI_MENU_CLOSE);
             overlay.visible = false;
@@ -569,7 +866,7 @@ fn system_focus_nav(
     }
 
     if menu.select {
-        if let Some(action) = system_row_action_for(current) {
+        if let Some(action) = system_row_action_for(&model, current) {
             let mut close_menu = false;
             dispatch_cube_action(
                 action,
@@ -584,6 +881,7 @@ fn system_focus_nav(
                 mana_q,
                 heals,
                 sfx,
+                system,
             );
             if close_menu {
                 overlay.visible = false;
@@ -595,14 +893,11 @@ fn system_focus_nav(
     emit_move_sfx(sfx, focus_before, cursor.focus, page_before, pages.active);
 }
 
-/// True for OPTION rows whose value steps with LEFT/RIGHT in place (cycles +
-/// sliders). Toggles and the Close action ignore horizontal stepping and instead
-/// use the horizontal affordance to move onto the edge buttons. Read from the
-/// shared settings IR so the cube can never disagree with the option's real kind.
-fn is_value_option(option: SettingsOptionId, settings: &UserSettings) -> bool {
-    if option == SettingsOptionId::Close {
-        return false;
-    }
+/// True for SETTINGS rows whose value steps with LEFT/RIGHT in place (cycles +
+/// sliders). Toggles ignore horizontal stepping and instead use the horizontal
+/// affordance to move onto the edge buttons. Read from the shared settings IR so
+/// the cube can never disagree with the option's real kind.
+fn is_value_setting(option: SettingsOptionId, settings: &UserSettings) -> bool {
     settings_menu_model(settings)
         .categories
         .iter()
@@ -617,20 +912,25 @@ fn is_value_option(option: SettingsOptionId, settings: &UserSettings) -> bool {
         .unwrap_or(false)
 }
 
-/// The `CubeAction` a System row dispatches on select (categories drill in, options
-/// apply, Back drills out).
-fn system_row_action_for(row: SystemRow) -> Option<CubeAction> {
+/// The `CubeAction` a System row dispatches on select.
+fn system_row_action_for(model: &SystemMenuModel, row: SystemRow) -> Option<CubeAction> {
     match row {
-        SystemRow::Category(c) => Some(CubeAction::OpenSystemCategory(c)),
-        SystemRow::Option(o) => Some(CubeAction::System(o)),
-        SystemRow::Back => Some(CubeAction::CloseSystemCategory),
+        SystemRow::Entry(id) => match model.entry(id).map(|e| &e.target) {
+            Some(crate::persistence::settings::SystemMenuTarget::Action(action)) => {
+                Some(CubeAction::SystemAction(*action))
+            }
+            _ => Some(CubeAction::OpenSystemEntry(id)),
+        },
+        SystemRow::Setting(o) => Some(CubeAction::System(o)),
+        SystemRow::Option(o) => Some(CubeAction::SystemOption(o)),
+        SystemRow::Back => Some(CubeAction::CloseSystemEntry),
     }
 }
 
-/// Drill OUT of an open System category back to the category list, resetting the
-/// cursor to the first (category) row so the highlight lands sensibly.
-fn close_system_category(system_nav: &mut CubeSystemNav, cursor: &mut CubeCursor) {
-    system_nav.open_category = None;
+/// Drill OUT of an open System entry back to the entry list, resetting the cursor
+/// to the first row so the highlight lands sensibly.
+fn close_system_entry(system_nav: &mut CubeSystemNav, cursor: &mut CubeCursor) {
+    system_nav.open_entry = None;
     cursor.mark_keyboard(CubeFocus::System(0));
 }
 
@@ -784,6 +1084,7 @@ fn dispatch_cube_action(
     mana_q: &mut MenuEffectManaQuery,
     heals: &mut MessageWriter<PlayerHealRequested>,
     sfx: &mut MessageWriter<SfxMessage>,
+    system: &mut SystemMenuParams,
 ) {
     match action {
         CubeAction::Equip(item) | CubeAction::Use(item) => {
@@ -814,18 +1115,33 @@ fn dispatch_cube_action(
         CubeAction::System(option) => {
             apply_system_option(option, settings, close_menu, sfx);
         }
-        CubeAction::OpenSystemCategory(category) => {
-            // Drill INTO a category: show its option rows, land the cursor on the
-            // first option. The republish picks up the new drill state + cursor.
-            play_ui(sfx, ambition_sfx::ids::UI_TAB_CHANGE);
-            system_nav.open_category = Some(category);
-            cursor.mark_keyboard(CubeFocus::System(0));
-            info!("cube system category \u{2192} {:?}", category);
+        CubeAction::SystemOption(opt) => {
+            // Radio / Language / Developer screen options apply against their live
+            // resource (radio auditions + keeps the menu open; dev toggles mutate
+            // DeveloperTools). The menu never closes from these.
+            let id = system.apply_option(opt);
+            play_ui(sfx, id);
+            info!("cube system option: {:?}", opt);
         }
-        CubeAction::CloseSystemCategory => {
+        CubeAction::SystemAction(SystemMenuAction::ResetSandbox) => {
+            // Immediate, no-confirm: queue the reset and fold the menu shut.
+            system.request_reset();
+            *close_menu = true;
+            play_ui(sfx, ambition_sfx::ids::UI_MENU_ACCEPT);
+            info!("cube system action: reset sandbox");
+        }
+        CubeAction::OpenSystemEntry(entry) => {
+            // Drill INTO an entry: show its screen rows, land the cursor on the
+            // first row. The republish picks up the new drill state + cursor.
+            play_ui(sfx, ambition_sfx::ids::UI_TAB_CHANGE);
+            system_nav.open_entry = Some(entry);
+            cursor.mark_keyboard(CubeFocus::System(0));
+            info!("cube system entry \u{2192} {:?}", entry);
+        }
+        CubeAction::CloseSystemEntry => {
             play_ui(sfx, ambition_sfx::ids::UI_MENU_BACK);
-            close_system_category(system_nav, cursor);
-            info!("cube system category \u{2192} (list)");
+            close_system_entry(system_nav, cursor);
+            info!("cube system entry \u{2192} (list)");
         }
     }
 }
@@ -906,13 +1222,14 @@ fn apply_system_option(
 fn focus_for_action(
     action: CubeAction,
     active_page: CubePage,
-    open_category: Option<SettingsCategoryId>,
+    model: &SystemMenuModel,
+    open_entry: Option<SystemMenuEntryId>,
 ) -> CubeFocus {
     // System rows are positional: the focus index is the action's row in the
-    // currently-displayed System row list (categories+Close, or the open category's
-    // options+Back), so hover/click and the keyboard cursor agree on the row.
+    // currently-displayed System row list (the entry list, or an open entry's
+    // screen rows + Back), so hover/click and the keyboard cursor agree on the row.
     let system_row = |want: SystemRow| {
-        let idx = system_rows(open_category)
+        let idx = system_rows(model, open_entry)
             .iter()
             .position(|r| *r == want)
             .unwrap_or(0);
@@ -927,9 +1244,20 @@ fn focus_for_action(
                 CubeFocus::EdgeRight
             }
         }
-        CubeAction::System(option) => system_row(SystemRow::Option(option)),
-        CubeAction::OpenSystemCategory(category) => system_row(SystemRow::Category(category)),
-        CubeAction::CloseSystemCategory => system_row(SystemRow::Back),
+        CubeAction::System(option) => system_row(SystemRow::Setting(option)),
+        CubeAction::SystemOption(opt) => system_row(SystemRow::Option(opt)),
+        CubeAction::SystemAction(_) => {
+            // An Action entry sits at top level; find its entry row.
+            let entry = match action {
+                CubeAction::SystemAction(SystemMenuAction::ResetSandbox) => {
+                    SystemMenuEntryId::ResetSandbox
+                }
+                _ => return CubeFocus::System(0),
+            };
+            system_row(SystemRow::Entry(entry))
+        }
+        CubeAction::OpenSystemEntry(entry) => system_row(SystemRow::Entry(entry)),
+        CubeAction::CloseSystemEntry => system_row(SystemRow::Back),
     }
 }
 
@@ -951,6 +1279,8 @@ fn cube_pointer_move(
     controls: Query<&AmbitionMenuControl<CubeAction>>,
     pages: Res<ActiveMenuPages<CubePage, CubeAction>>,
     system_nav: Res<CubeSystemNav>,
+    settings: Res<UserSettings>,
+    snapshot: SystemMenuSnapshotParams,
     mut cursor: ResMut<CubeCursor>,
     mut sfx: MessageWriter<SfxMessage>,
 ) {
@@ -959,7 +1289,12 @@ fn cube_pointer_move(
     };
     if let Ok(control) = controls.get(move_.entity) {
         if let Some(action) = control.action {
-            let next = focus_for_action(action, active_page, system_nav.open_category);
+            let model = SystemMenuModel::build(
+                &settings,
+                &snapshot.radio_snapshot(),
+                &snapshot.dev_snapshot(),
+            );
+            let next = focus_for_action(action, active_page, &model, system_nav.open_entry);
             // The pointer hasn't moved to a new control (same logical focus as the
             // previous move event): do nothing.
             if cursor.last_pointer_focus == Some(next) {
@@ -994,6 +1329,7 @@ fn cube_pointer_click(
     mut mana_q: MenuEffectManaQuery,
     mut heals: MessageWriter<PlayerHealRequested>,
     mut sfx: MessageWriter<SfxMessage>,
+    mut system: SystemMenuParams,
 ) {
     let open = ui_state.as_deref().map(|s| s.visible).unwrap_or(false);
     if *backend != InventoryUiBackend::Cube || !open {
@@ -1002,7 +1338,8 @@ fn cube_pointer_click(
     if let Ok(control) = controls.get(click.entity) {
         if let Some(action) = control.action {
             if let Some(active_page) = pages.active {
-                let next = focus_for_action(action, active_page, system_nav.open_category);
+                let model = system.model(&settings);
+                let next = focus_for_action(action, active_page, &model, system_nav.open_entry);
                 cursor.focus = next;
                 cursor.owner = FocusSource::Pointer;
                 cursor.last_pointer_focus = Some(next);
@@ -1024,6 +1361,7 @@ fn cube_pointer_click(
                 &mut mana_q,
                 &mut heals,
                 &mut sfx,
+                &mut system,
             );
             if close_menu {
                 if let Some(ui_state) = ui_state.as_deref_mut() {
@@ -1117,7 +1455,7 @@ fn cube_menu_open_routing(
             },
         );
         pages.active = Some(CubePage::Items);
-        system_nav.open_category = None;
+        system_nav.open_entry = None;
         cursor.last_pointer_focus = None;
         cursor.mark_keyboard(CubeFocus::Item(0));
         map.open = false;
@@ -1166,7 +1504,7 @@ fn open_cube_menu(
     overlay.opened_from_pause = matches!(mode, GameMode::Paused);
     pages.active = Some(page);
     // Seed a sensible cursor for the opening page.
-    system_nav.open_category = None;
+    system_nav.open_entry = None;
     cursor.last_pointer_focus = None;
     cursor.mark_keyboard(match page {
         CubePage::Items => CubeFocus::Item(0),
@@ -1288,9 +1626,13 @@ fn republish_cube_pages(
     // `ResMut<CubeSystemNav>` in SEPARATE systems/observers, so this `Res` is not a
     // B0002 conflict. Inserted at startup (`init_resource`) so it never panics.
     system_nav: Res<CubeSystemNav>,
+    // The radio + developer snapshots feed the broadened SYSTEM screens. Read-only
+    // here; the mutators take the `ResMut` `SystemMenuParams` in separate systems,
+    // so no B0002. Audio resources are absent under no `audio` (the bundle cfgs out).
+    snapshot: SystemMenuSnapshotParams,
     mut pages: ResMut<ActiveMenuPages<CubePage, CubeAction>>,
     mut was_open: Local<bool>,
-    mut last: Local<Option<(CubeFocus, Option<CubePage>, Option<SettingsCategoryId>)>>,
+    mut last: Local<Option<(CubeFocus, Option<CubePage>, Option<SystemMenuEntryId>)>>,
 ) {
     if *backend != InventoryUiBackend::Cube {
         return;
@@ -1303,15 +1645,16 @@ fn republish_cube_pages(
     *was_open = open;
 
     // The drill-down state is part of the page key, so drilling into/out of a
-    // System category republishes the (now different) System rows.
-    let key = (cursor.focus, pages.active, system_nav.open_category);
-    // Republish on: catalog change, settings change (so a toggled System option's
-    // label updates immediately), first publish, menu-open (textures that loaded
-    // after the initial build get picked up), cursor move, page change, or a
-    // System drill in/out. The open case fixes icons rendering blank until the
-    // first rotate.
+    // System entry republishes the (now different) System rows.
+    let key = (cursor.focus, pages.active, system_nav.open_entry);
+    // Republish on: catalog change, settings change (so a toggled setting's label
+    // updates immediately), radio/dev change (so an auditioned station or toggled
+    // dev flag updates), first publish, menu-open (textures that loaded after the
+    // initial build get picked up), cursor move, page change, or a System drill
+    // in/out. The open case fixes icons rendering blank until the first rotate.
     let dirty = owned.is_changed()
         || settings.is_changed()
+        || snapshot.is_changed()
         || pages.pages.is_empty()
         || just_opened
         || *last != Some(key);
@@ -1326,7 +1669,9 @@ fn republish_cube_pages(
         owned.equipped(),
         cursor.focus,
         &settings,
-        system_nav.open_category,
+        &snapshot.radio_snapshot(),
+        &snapshot.dev_snapshot(),
+        system_nav.open_entry,
     );
     pages.active = Some(active);
 }
@@ -1375,6 +1720,8 @@ mod oot_cube_app_tests {
         app.init_resource::<CubeCursor>();
         app.init_resource::<CubeSystemNav>();
         app.init_resource::<OwnedItems>();
+        app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
         app.init_resource::<UserSettings>();
         app.init_resource::<crate::inventory::InventoryUiState>();
         app.add_message::<PlayerHealRequested>();
@@ -1406,6 +1753,8 @@ mod oot_cube_app_tests {
         app.init_resource::<CubeCursor>();
         app.init_resource::<CubeSystemNav>();
         app.init_resource::<OwnedItems>();
+        app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
         app.init_resource::<UserSettings>();
         app.init_resource::<crate::inventory::InventoryUiState>();
         app.init_resource::<crate::map_menu::MapMenuState>();
@@ -1502,6 +1851,8 @@ mod oot_cube_app_tests {
         app.init_resource::<CubeCursor>();
         app.init_resource::<CubeSystemNav>();
         app.init_resource::<OwnedItems>();
+        app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
         app.init_resource::<UserSettings>();
         app.init_resource::<crate::inventory::InventoryUiState>();
         app.init_resource::<MenuControlFrame>();
@@ -1534,6 +1885,8 @@ mod oot_cube_app_tests {
         app.init_resource::<CubeCursor>();
         app.init_resource::<CubeSystemNav>();
         app.init_resource::<OwnedItems>();
+        app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
         app.init_resource::<UserSettings>();
         app.init_resource::<crate::inventory::InventoryUiState>();
         app.init_resource::<crate::map_menu::MapMenuState>();
@@ -1609,76 +1962,69 @@ mod oot_cube_app_tests {
     }
 
     #[test]
-    fn clicking_a_system_category_drills_in() {
+    fn clicking_a_system_entry_drills_in() {
         let (mut app, _player) = click_app();
         app.world_mut()
             .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
             .active = Some(CubePage::System);
-        assert!(app
-            .world()
-            .resource::<CubeSystemNav>()
-            .open_category
-            .is_none());
+        assert!(app.world().resource::<CubeSystemNav>().open_entry.is_none());
         click_control(
             &mut app,
-            CubeAction::OpenSystemCategory(SettingsCategoryId::Audio),
+            CubeAction::OpenSystemEntry(SystemMenuEntryId::Audio),
         );
         assert_eq!(
-            app.world().resource::<CubeSystemNav>().open_category,
-            Some(SettingsCategoryId::Audio),
-            "clicking a System category drills into it (Fix 4)"
+            app.world().resource::<CubeSystemNav>().open_entry,
+            Some(SystemMenuEntryId::Audio),
+            "clicking a System entry drills into it (Fix 4)"
         );
     }
 
     #[test]
-    fn clicking_a_system_option_applies_it() {
+    fn clicking_a_system_setting_applies_it() {
         let (mut app, _player) = click_app();
         app.world_mut()
             .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
             .active = Some(CubePage::System);
-        app.world_mut()
-            .resource_mut::<CubeSystemNav>()
-            .open_category = Some(SettingsCategoryId::Video);
+        app.world_mut().resource_mut::<CubeSystemNav>().open_entry =
+            Some(SystemMenuEntryId::Video);
         let before = app.world().resource::<UserSettings>().video.show_fps;
         click_control(&mut app, CubeAction::System(SettingsOptionId::ShowFps));
         let after = app.world().resource::<UserSettings>().video.show_fps;
-        assert_ne!(
-            before, after,
-            "clicking an option toggles the setting (Fix 4)"
-        );
+        assert_ne!(before, after, "clicking a setting toggles it (Fix 4)");
     }
 
     #[test]
-    fn clicking_back_drills_out_to_the_category_list() {
+    fn clicking_back_drills_out_to_the_entry_list() {
         let (mut app, _player) = click_app();
         app.world_mut()
             .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
             .active = Some(CubePage::System);
+        app.world_mut().resource_mut::<CubeSystemNav>().open_entry =
+            Some(SystemMenuEntryId::Audio);
+        click_control(&mut app, CubeAction::CloseSystemEntry);
+        assert!(
+            app.world().resource::<CubeSystemNav>().open_entry.is_none(),
+            "clicking Back drills out to the entry list (Fix 4)"
+        );
+    }
+
+    #[test]
+    fn clicking_a_radio_station_keeps_the_menu_open() {
+        // Selecting a radio station auditions it WITHOUT closing the cube, so the
+        // user can keep browsing. Audio is absent under `oot_inventory`, so the apply
+        // no-ops, but the menu must still stay open.
+        let (mut app, _player) = click_app();
         app.world_mut()
-            .resource_mut::<CubeSystemNav>()
-            .open_category = Some(SettingsCategoryId::Audio);
-        click_control(&mut app, CubeAction::CloseSystemCategory);
+            .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
+            .active = Some(CubePage::System);
+        app.world_mut().resource_mut::<CubeSystemNav>().open_entry =
+            Some(SystemMenuEntryId::Radio);
+        click_control(&mut app, CubeAction::SystemOption(SystemOptionId::Radio(0)));
         assert!(
             app.world()
-                .resource::<CubeSystemNav>()
-                .open_category
-                .is_none(),
-            "clicking Back drills out to the category list (Fix 4)"
-        );
-    }
-
-    #[test]
-    fn clicking_close_menu_closes_the_overlay() {
-        let (mut app, _player) = click_app();
-        app.world_mut()
-            .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
-            .active = Some(CubePage::System);
-        click_control(&mut app, CubeAction::System(SettingsOptionId::Close));
-        assert!(
-            !app.world()
                 .resource::<crate::inventory::InventoryUiState>()
                 .visible,
-            "clicking Close Menu folds the cube shut (Fix 4)"
+            "auditioning a station keeps the cube open"
         );
     }
 
@@ -1769,6 +2115,8 @@ mod oot_cube_app_tests {
         app.init_resource::<CubeCursor>();
         app.init_resource::<CubeSystemNav>();
         app.init_resource::<OwnedItems>();
+        app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
         app.init_resource::<UserSettings>();
         app.init_resource::<crate::inventory::InventoryUiState>();
         app.init_resource::<crate::map_menu::MapMenuState>();
@@ -1831,8 +2179,8 @@ mod oot_cube_app_tests {
         app.world_mut()
             .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
             .active = Some(CubePage::System);
-        app.world_mut().resource_mut::<CubeSystemNav>().open_category =
-            Some(SettingsCategoryId::Audio);
+        app.world_mut().resource_mut::<CubeSystemNav>().open_entry =
+            Some(SystemMenuEntryId::Audio);
         app.world_mut().resource_mut::<CubeCursor>().focus = CubeFocus::System(0);
 
         // Second Esc press → must CLOSE the cube.

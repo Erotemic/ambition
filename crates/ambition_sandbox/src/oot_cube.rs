@@ -32,8 +32,9 @@ use ambition_inventory_ui::{
 
 use crate::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use crate::persistence::settings::{
-    close_menu_option, settings_menu_model, SettingsCategoryId, SettingsOption, SettingsOptionId,
-    SettingsOptionKind, UserSettings,
+    DevSnapshot, RadioSnapshot, SettingsOption, SettingsOptionId, SettingsOptionKind,
+    SystemMenuAction, SystemMenuEntryId, SystemMenuModel, SystemMenuTarget, SystemOptionId,
+    UserSettings,
 };
 
 /// Edge page-turn buttons flank the page in the side margins (NOT over the grid),
@@ -201,17 +202,22 @@ pub enum CubeAction {
     Equip(Item),
     Use(Item),
     ChangePage(CubePage),
-    /// A toggle/cycle/slider/close on the System face. The host applies it by
-    /// mutating `UserSettings` through the shared settings IR
+    /// A settings toggle/cycle/slider on a drilled-in System SETTINGS screen. The
+    /// host applies it by mutating `UserSettings` through the shared settings IR
     /// (`apply_settings_option`), which the existing `save_settings_on_change`
-    /// system then persists — no parallel persistence path. The unit is a
-    /// [`SettingsOptionId`] from the IR, selected by [`CubeFocus::System`].
+    /// system then persists — no parallel persistence path.
     System(SettingsOptionId),
-    /// Drill INTO a System category (show its option rows). Handled host-side by
-    /// setting the cube's drill-down state (`oot_cube_app::CubeSystemNav`).
-    OpenSystemCategory(SettingsCategoryId),
-    /// Drill OUT of an open System category (back to the category list).
-    CloseSystemCategory,
+    /// A non-settings System screen option (radio station / locale / dev toggle).
+    /// Applied host-side against the matching live resource.
+    SystemOption(SystemOptionId),
+    /// An immediate, screen-less System action (Reset Sandbox).
+    SystemAction(SystemMenuAction),
+    /// Drill INTO a top-level System entry (show its screen rows). Handled
+    /// host-side by setting the cube's drill-down state
+    /// (`oot_cube_app::CubeSystemNav`).
+    OpenSystemEntry(SystemMenuEntryId),
+    /// Drill OUT of an open System entry (back to the top-level list).
+    CloseSystemEntry,
 }
 
 /// A short, cell-sized verb hint for an item, mirroring the demo's
@@ -367,7 +373,9 @@ pub fn build_inventory_pages(
     equipped: Option<Item>,
     focus: CubeFocus,
     settings: &UserSettings,
-    open_category: Option<SettingsCategoryId>,
+    radio: &RadioSnapshot,
+    dev: &DevSnapshot,
+    open_entry: Option<SystemMenuEntryId>,
 ) -> Vec<MenuPageModel<CubePage, CubeAction>> {
     vec![
         build_items_page(owned, equipped, focus),
@@ -383,7 +391,7 @@ pub fn build_inventory_pages(
             "Quest status + key items from save data (host data TODO).",
             focus,
         ),
-        build_system_page(settings, focus, open_category),
+        build_system_page(settings, radio, dev, focus, open_entry),
     ]
 }
 
@@ -398,100 +406,169 @@ fn system_focus_index(focus: CubeFocus, row_count: usize) -> usize {
     }
 }
 
-/// One System-face row: either a category to drill INTO, an option to apply, or
-/// the Back row that drills OUT of an open category. The cube's `CubeFocus::System`
-/// cursor is an index into the currently-displayed row list (categories when no
-/// category is open; the open category's options + a Back row otherwise). Carries
-/// the shared settings-IR ids ([`SettingsCategoryId`] / [`SettingsOptionId`]) so
-/// the cube and the pause menu draw from one source of truth.
+/// One System-face row. The cube's `CubeFocus::System` cursor is an index into the
+/// currently-displayed row list: the top-level [`SystemMenuEntry`] list when no
+/// entry is open, or the open entry's screen rows + a Back row otherwise. Carries
+/// the shared SYSTEM-menu IR ids so the cube (and later the pause menu) draw from
+/// one source of truth.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SystemRow {
-    /// A category row in the top-level category list (drill in on select).
-    Category(SettingsCategoryId),
-    /// An option row inside an open category (apply on select).
-    Option(SettingsOptionId),
-    /// The Back row inside an open category (drill out on select).
+    /// A top-level entry row (drill in / fire its action on select).
+    Entry(SystemMenuEntryId),
+    /// A settings option row inside an open settings screen (apply on select).
+    Setting(SettingsOptionId),
+    /// A non-settings screen option (radio / locale / dev toggle).
+    Option(SystemOptionId),
+    /// The Back row inside an open entry (drill out on select).
     Back,
 }
 
-/// The ordered rows shown on the System face for the given drill-down state. When
-/// no category is open this is the category list (+ the top-level Close Menu row);
-/// when a category is open it is that category's options (from the shared settings
-/// IR) followed by a Back row.
-pub fn system_rows(open_category: Option<SettingsCategoryId>) -> Vec<SystemRow> {
-    match open_category {
-        None => {
-            let mut rows: Vec<SystemRow> = SettingsCategoryId::ALL
-                .iter()
-                .map(|c| SystemRow::Category(*c))
-                .collect();
-            // Keep Close Menu reachable from the top-level System list.
-            rows.push(SystemRow::Option(SettingsOptionId::Close));
-            rows
-        }
-        Some(category) => {
-            // Pull the category's option order from the IR so the cube can never
-            // drift from the pause menu's grouping. Settings are irrelevant to the
-            // ids, so a default snapshot is enough to enumerate them.
-            let model = settings_menu_model(&UserSettings::default());
-            let mut rows: Vec<SystemRow> = model
-                .category(category)
-                .map(|c| c.options.iter().map(|o| SystemRow::Option(o.id)).collect())
-                .unwrap_or_default();
+/// The ordered rows shown on the System face for the given drill-down state and
+/// live model. When no entry is open this is the top-level entry list; when an
+/// entry is open it is that entry's screen rows followed by a Back row (immediate
+/// Action entries have no screen, so they are never the open entry).
+pub fn system_rows(model: &SystemMenuModel, open_entry: Option<SystemMenuEntryId>) -> Vec<SystemRow> {
+    match open_entry.and_then(|id| model.entry(id)) {
+        None => model
+            .entries
+            .iter()
+            .map(|e| SystemRow::Entry(e.id))
+            .collect(),
+        Some(entry) => {
+            let mut rows: Vec<SystemRow> = match &entry.target {
+                SystemMenuTarget::Settings(options) => {
+                    options.iter().map(|o| SystemRow::Setting(o.id)).collect()
+                }
+                SystemMenuTarget::Radio(rows) => rows
+                    .iter()
+                    .map(|r| SystemRow::Option(SystemOptionId::Radio(r.index)))
+                    .collect(),
+                SystemMenuTarget::Language(rows) => rows
+                    .iter()
+                    .map(|r| SystemRow::Option(SystemOptionId::Locale(r.id)))
+                    .collect(),
+                SystemMenuTarget::Developer(rows) => rows
+                    .iter()
+                    .map(|r| SystemRow::Option(SystemOptionId::Dev(r.id)))
+                    .collect(),
+                // An Action entry never opens a screen; defensively empty.
+                SystemMenuTarget::Action(_) => Vec::new(),
+            };
             rows.push(SystemRow::Back);
             rows
         }
     }
 }
 
-/// Look up an option's live IR entry by id, given the current settings. The Close
-/// pseudo-option lives outside any category so it is resolved separately.
-fn option_entry(id: SettingsOptionId, settings: &UserSettings) -> SettingsOption {
-    if id == SettingsOptionId::Close {
-        return close_menu_option();
-    }
-    let model = settings_menu_model(settings);
-    model
-        .categories
-        .iter()
-        .flat_map(|c| c.options.iter())
-        .find(|o| o.id == id)
-        .cloned()
-        .unwrap_or_else(close_menu_option)
+/// Look up a settings option's live IR entry by id from the live model.
+fn setting_entry(model: &SystemMenuModel, id: SettingsOptionId) -> Option<SettingsOption> {
+    model.entries.iter().find_map(|e| match &e.target {
+        SystemMenuTarget::Settings(options) => options.iter().find(|o| o.id == id).cloned(),
+        _ => None,
+    })
 }
 
-/// The row's display label, joining the option's name and its live value label
-/// (e.g. "Master Volume: 75%"). Toggle/cycle/slider rows append a `< >` affordance
-/// so the value reads as steppable; action + back rows show just their name.
-fn system_row_label(row: SystemRow, settings: &UserSettings) -> String {
-    match row {
-        SystemRow::Category(c) => format!("{} >", c.label()),
-        SystemRow::Back => "< Back".to_string(),
-        SystemRow::Option(id) => {
-            let entry = option_entry(id, settings);
-            match entry.kind {
-                SettingsOptionKind::Action => entry.label,
-                _ => format!("{}: {}  < >", entry.label, entry.value_label),
+/// The display label for a non-settings screen option (radio / locale / dev).
+fn system_option_label(model: &SystemMenuModel, opt: SystemOptionId) -> String {
+    match opt {
+        SystemOptionId::Radio(index) => model
+            .entry(SystemMenuEntryId::Radio)
+            .and_then(|e| match &e.target {
+                SystemMenuTarget::Radio(rows) => rows.iter().find(|r| r.index == index),
+                _ => None,
+            })
+            .map(|r| {
+                let marker = if r.active { "▶ " } else { "  " };
+                format!("{marker}{}", r.label)
+            })
+            .unwrap_or_else(|| "Station".to_string()),
+        SystemOptionId::Locale(id) => model
+            .entry(SystemMenuEntryId::Language)
+            .and_then(|e| match &e.target {
+                SystemMenuTarget::Language(rows) => rows.iter().find(|r| r.id == id),
+                _ => None,
+            })
+            .map(|r| {
+                let marker = if r.active {
+                    "▶ "
+                } else if r.available {
+                    "  "
+                } else {
+                    "× "
+                };
+                format!("{marker}{}", r.label)
+            })
+            .unwrap_or_else(|| "Locale".to_string()),
+        SystemOptionId::Dev(id) => model
+            .entry(SystemMenuEntryId::Developer)
+            .and_then(|e| match &e.target {
+                SystemMenuTarget::Developer(rows) => rows.iter().find(|r| r.id == id),
+                _ => None,
+            })
+            .map(|r| format!("{}: {}  < >", r.label, r.value_label))
+            .unwrap_or_else(|| id.label().to_string()),
+    }
+}
+
+/// The description for a non-settings screen option.
+fn system_option_description(opt: SystemOptionId) -> String {
+    match opt {
+        SystemOptionId::Radio(_) => {
+            "Play this station now (the menu stays open to audition).".to_string()
+        }
+        SystemOptionId::Locale(id) => {
+            if id.is_available() {
+                "Active interface language.".to_string()
+            } else {
+                "Not available yet (real localization is a later pass).".to_string()
             }
         }
+        SystemOptionId::Dev(id) => id.description().to_string(),
     }
 }
 
-/// The detail-panel description for a row, reflecting the option's purpose.
-fn system_row_description(row: SystemRow, settings: &UserSettings) -> String {
+/// The row's display label. Top-level entries append `>` (drill) except the
+/// immediate Action entry; Back shows `< Back`.
+fn system_row_label(model: &SystemMenuModel, row: SystemRow) -> String {
     match row {
-        SystemRow::Category(c) => c.description().to_string(),
-        SystemRow::Back => "Return to the category list.".to_string(),
-        SystemRow::Option(id) => option_entry(id, settings).description,
+        SystemRow::Entry(id) => match model.entry(id).map(|e| &e.target) {
+            Some(SystemMenuTarget::Action(_)) => id.label().to_string(),
+            _ => format!("{} >", id.label()),
+        },
+        SystemRow::Back => "< Back".to_string(),
+        SystemRow::Setting(id) => match setting_entry(model, id) {
+            Some(entry) => match entry.kind {
+                SettingsOptionKind::Action => entry.label,
+                _ => format!("{}: {}  < >", entry.label, entry.value_label),
+            },
+            None => "—".to_string(),
+        },
+        SystemRow::Option(opt) => system_option_label(model, opt),
+    }
+}
+
+/// The detail-panel description for a row.
+fn system_row_description(model: &SystemMenuModel, row: SystemRow) -> String {
+    match row {
+        SystemRow::Entry(id) => id.description().to_string(),
+        SystemRow::Back => "Return to the SYSTEM list.".to_string(),
+        SystemRow::Setting(id) => setting_entry(model, id)
+            .map(|e| e.description)
+            .unwrap_or_default(),
+        SystemRow::Option(opt) => system_option_description(opt),
     }
 }
 
 /// The action a System row dispatches on select.
-fn system_row_action(row: SystemRow) -> Option<CubeAction> {
+fn system_row_action(model: &SystemMenuModel, row: SystemRow) -> Option<CubeAction> {
     match row {
-        SystemRow::Category(c) => Some(CubeAction::OpenSystemCategory(c)),
-        SystemRow::Option(o) => Some(CubeAction::System(o)),
-        SystemRow::Back => Some(CubeAction::CloseSystemCategory),
+        SystemRow::Entry(id) => match model.entry(id).map(|e| &e.target) {
+            Some(SystemMenuTarget::Action(action)) => Some(CubeAction::SystemAction(*action)),
+            _ => Some(CubeAction::OpenSystemEntry(id)),
+        },
+        SystemRow::Setting(o) => Some(CubeAction::System(o)),
+        SystemRow::Option(o) => Some(CubeAction::SystemOption(o)),
+        SystemRow::Back => Some(CubeAction::CloseSystemEntry),
     }
 }
 
@@ -539,17 +616,20 @@ const SYSTEM_DESC_WRAP_COLS: usize = 60;
 /// edge buttons (so rotation still works) are kept.
 pub fn build_system_page(
     settings: &UserSettings,
+    radio: &RadioSnapshot,
+    dev: &DevSnapshot,
     focus: CubeFocus,
-    open_category: Option<SettingsCategoryId>,
+    open_entry: Option<SystemMenuEntryId>,
 ) -> MenuPageModel<CubePage, CubeAction> {
+    let sys_model = SystemMenuModel::build(settings, radio, dev);
     let mut model = MenuPageModel::new(
         CubePage::System,
         "SYSTEM",
         MenuColor::rgba(0.03, 0.04, 0.10, 0.96),
     );
-    let title = match open_category {
+    let title = match open_entry {
         None => "SYSTEM".to_string(),
-        Some(c) => format!("SYSTEM \u{2022} {}", c.label().to_uppercase()),
+        Some(id) => format!("SYSTEM \u{2022} {}", id.label().to_uppercase()),
     };
     model.text(
         50.0,
@@ -560,7 +640,7 @@ pub fn build_system_page(
         MenuColor::rgba(1.0, 0.84, 0.38, 1.0),
     );
 
-    let rows = system_rows(open_category);
+    let rows = system_rows(&sys_model, open_entry);
     let focused = system_focus_index(focus, rows.len());
     // Lay the rows as one centered vertical column. The pitch is sized to fill the
     // list rect for the CURRENT row count (so a sparse category reads large), but
@@ -578,17 +658,17 @@ pub fn build_system_page(
                 h: row_h,
             },
             MenuControlKind::OptionToggle,
-            system_row_label(*row, settings),
+            system_row_label(&sys_model, *row),
             // No per-row detail hint: the focused option's description now lives
             // in the dedicated BOTTOM panel, so the tall rows stay uncluttered.
             None,
             idx == focused,
             false,
-            system_row_action(*row),
+            system_row_action(&sys_model, *row),
         );
     }
 
-    add_system_detail_panel(&mut model, settings, &rows, focused);
+    add_system_detail_panel(&mut model, &sys_model, &rows, focused);
     add_edge_buttons(&mut model, CubePage::System, focus);
     model
 }
@@ -599,7 +679,7 @@ pub fn build_system_page(
 /// option column can be centered + enlarged).
 fn add_system_detail_panel(
     model: &mut MenuPageModel<CubePage, CubeAction>,
-    settings: &UserSettings,
+    sys_model: &SystemMenuModel,
     rows: &[SystemRow],
     focused: usize,
 ) {
@@ -611,7 +691,12 @@ fn add_system_detail_panel(
     let cx = SYSTEM_DESC_RECT.x + SYSTEM_DESC_RECT.w * 0.5;
     let (label, description) = rows
         .get(focused)
-        .map(|row| (system_row_label(*row, settings), system_row_description(*row, settings)))
+        .map(|row| {
+            (
+                system_row_label(sys_model, *row),
+                system_row_description(sys_model, *row),
+            )
+        })
         .unwrap_or_else(|| ("System".to_string(), "System options.".to_string()));
     // Header: the focused row's label (its live value), then the wrapped
     // description below it inside the bottom band.
@@ -803,52 +888,50 @@ mod tests {
     }
 
     #[test]
-    fn system_page_top_level_shows_category_list() {
+    fn system_page_top_level_shows_entry_list() {
         let settings = UserSettings::default();
         let focus = CubeFocus::System(0);
-        // No category open -> the top-level view is the CATEGORY list.
-        let page = build_system_page(&settings, focus, None);
-        let categories = page
+        // No entry open -> the top-level view is the SYSTEM entry list.
+        let page = build_system_page(
+            &settings,
+            &RadioSnapshot::default(),
+            &DevSnapshot::default(),
+            focus,
+            None,
+        );
+        let entries = page
             .nodes
             .iter()
             .filter(|n| {
                 matches!(
                     n,
                     ambition_inventory_ui::MenuNode::Control {
-                        action: Some(CubeAction::OpenSystemCategory(_)),
+                        action: Some(CubeAction::OpenSystemEntry(_)),
                         ..
                     }
                 )
             })
             .count();
-        assert_eq!(
-            categories,
-            SettingsCategoryId::ALL.len(),
-            "one row per category"
-        );
-        // Close Menu is still reachable from the top-level System list.
-        let has_close = page.nodes.iter().any(|n| {
+        // Radio + Video + Audio + Controls + Gameplay + Language always drill in;
+        // Developer also drills in only in dev builds (Reset Sandbox is an Action,
+        // not OpenSystemEntry).
+        let expected_drill = if crate::persistence::settings::system_menu::DEV_BUILD {
+            7
+        } else {
+            6
+        };
+        assert_eq!(entries, expected_drill, "one drill row per non-action entry");
+        // No raw settings toggles leak at the top level.
+        let has_setting = page.nodes.iter().any(|n| {
             matches!(
                 n,
                 ambition_inventory_ui::MenuNode::Control {
-                    action: Some(CubeAction::System(SettingsOptionId::Close)),
+                    action: Some(CubeAction::System(_)),
                     ..
                 }
             )
         });
-        assert!(has_close, "top-level System list keeps a Close Menu row");
-        // No raw option toggles leak at the top level.
-        let has_toggle = page.nodes.iter().any(|n| {
-            matches!(
-                n,
-                ambition_inventory_ui::MenuNode::Control { action: Some(CubeAction::System(o)), .. }
-                    if *o != SettingsOptionId::Close
-            )
-        });
-        assert!(
-            !has_toggle,
-            "category list does not show raw option toggles"
-        );
+        assert!(!has_setting, "entry list does not show raw setting toggles");
         // Edge buttons are present so rotation still works.
         let has_edges = page.nodes.iter().any(|n| {
             matches!(
@@ -863,12 +946,18 @@ mod tests {
     }
 
     #[test]
-    fn system_page_drilled_into_category_shows_its_options_and_back() {
+    fn system_page_drilled_into_video_shows_curated_options_and_back() {
         let mut settings = UserSettings::default();
         settings.video.show_fps = true;
         let focus = CubeFocus::System(0);
-        // Drill into Video -> its options (from the shared IR) + a Back row.
-        let page = build_system_page(&settings, focus, Some(SettingsCategoryId::Video));
+        // Drill into Video -> its curated options (from the SYSTEM IR) + a Back row.
+        let page = build_system_page(
+            &settings,
+            &RadioSnapshot::default(),
+            &DevSnapshot::default(),
+            focus,
+            Some(SystemMenuEntryId::Video),
+        );
         let options: Vec<_> = page
             .nodes
             .iter()
@@ -880,16 +969,15 @@ mod tests {
                 _ => None,
             })
             .collect();
-        // The cube's Video options match the IR's Video grouping exactly.
-        let ir_video: Vec<_> = settings_menu_model(&settings)
-            .category(SettingsCategoryId::Video)
-            .unwrap()
-            .options
-            .iter()
-            .map(|o| o.id)
-            .collect();
-        assert_eq!(options, ir_video);
-        assert!(options.contains(&SettingsOptionId::ShowFps));
+        // The cube's Video screen is the curated subset.
+        assert_eq!(
+            options,
+            vec![
+                SettingsOptionId::DisplayMode,
+                SettingsOptionId::ShowFps,
+                SettingsOptionId::CameraZoom,
+            ]
+        );
 
         // The FPS Overlay row's label reflects the ON state we set above.
         let has_on = page.nodes.iter().any(|n| matches!(
@@ -899,37 +987,35 @@ mod tests {
         ));
         assert!(has_on, "FPS Overlay row reflects the current ON state");
 
-        // A Back row (CloseSystemCategory) drills out to the category list.
+        // A Back row (CloseSystemEntry) drills out to the entry list.
         let has_back = page.nodes.iter().any(|n| {
             matches!(
                 n,
                 ambition_inventory_ui::MenuNode::Control {
-                    action: Some(CubeAction::CloseSystemCategory),
+                    action: Some(CubeAction::CloseSystemEntry),
                     ..
                 }
             )
         });
-        assert!(has_back, "an open category shows a Back row");
+        assert!(has_back, "an open entry shows a Back row");
     }
 
     #[test]
-    fn every_system_category_groups_at_least_one_option() {
-        // Sanity: every IR category the cube surfaces is non-empty.
-        let model = settings_menu_model(&UserSettings::default());
-        for category in SettingsCategoryId::ALL {
-            assert!(
-                !model.category(category).unwrap().options.is_empty(),
-                "{category:?} has options"
-            );
-        }
-    }
-
-    #[test]
-    fn system_option_label_tracks_settings_changes() {
+    fn system_setting_label_tracks_settings_changes() {
         let mut settings = UserSettings::default();
-        let off = system_row_label(SystemRow::Option(SettingsOptionId::QuestHud), &settings);
+        let model0 = SystemMenuModel::build(
+            &settings,
+            &RadioSnapshot::default(),
+            &DevSnapshot::default(),
+        );
+        let off = system_row_label(&model0, SystemRow::Setting(SettingsOptionId::QuestHud));
         settings.gameplay.quest_hud_visible = !settings.gameplay.quest_hud_visible;
-        let on = system_row_label(SystemRow::Option(SettingsOptionId::QuestHud), &settings);
+        let model1 = SystemMenuModel::build(
+            &settings,
+            &RadioSnapshot::default(),
+            &DevSnapshot::default(),
+        );
+        let on = system_row_label(&model1, SystemRow::Setting(SettingsOptionId::QuestHud));
         assert_ne!(off, on, "toggling the setting changes the row label");
     }
 

@@ -46,6 +46,7 @@ pub mod menu;
 pub mod model;
 pub mod persistence;
 pub mod platform_paths;
+pub mod system_menu;
 pub mod video;
 
 pub use audio::AudioSettings;
@@ -59,12 +60,21 @@ pub use gameplay::{AssistMode, GameplaySettings};
 // `menu` submodule directly; only the names renderers currently name are
 // re-exported here to keep this convenience list warning-free.
 pub use menu::{
-    apply_settings_option, close_menu_option, settings_menu_model, SettingsCategoryId,
-    SettingsOption, SettingsOptionId, SettingsOptionKind,
+    apply_settings_option, settings_menu_model, SettingsOption, SettingsOptionId,
+    SettingsOptionKind,
 };
 pub use model::{
     apply_action, apply_display_mode, DevToggleSnapshot, SettingsAction, SettingsItem,
     SettingsOutcome, SettingsPage,
+};
+// The SYSTEM-menu IR layer (cube System face; the pause menu migrates onto it
+// later). Sits on top of the settings IR above.
+// Only the names the cube currently uses are re-exported here (matching the
+// settings-IR convenience list above); the rest of the IR vocabulary (`DevRow`,
+// `LocaleId`, `RadioRow`, …) is reachable via the `system_menu` submodule.
+pub use system_menu::{
+    DevSnapshot, DevToggleId, RadioSnapshot, SystemMenuAction, SystemMenuEntryId, SystemMenuModel,
+    SystemMenuTarget, SystemOptionId,
 };
 pub use video::{CameraAspectPolicy, ScreenShaderSettings, VideoSettings};
 

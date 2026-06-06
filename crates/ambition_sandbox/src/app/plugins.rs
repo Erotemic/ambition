@@ -646,7 +646,23 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
         .add_systems(
             Update,
             (
+                // The bevy-UI pause menu's visibility sync is gated to NO-OP under the
+                // 3D-cube inventory backend (Bug 2: the "Paused" flash). Without the
+                // gate it runs every frame and sets the "Paused" root `Visible` whenever
+                // `Paused && !inventory.visible` — which is briefly true on the Esc-/I-
+                // close frame (the cube clears `visible` while `GameMode` is still
+                // `Paused` for one frame), flashing the old menu behind the closing cube.
+                // `pause_menu_ui_active` mirrors the other pause-menu systems' Cube
+                // guard; it only exists with the `input` feature (which `oot_inventory`
+                // — the only backend that can be Cube — requires), so non-input builds
+                // register the ungated sync (there is no cube to suppress).
+                #[cfg(feature = "input")]
+                pause_menu::sync_pause_menu.run_if(pause_menu::pause_menu_ui_active),
+                #[cfg(feature = "input")]
+                pause_menu::sync_settings_panel_rows.run_if(pause_menu::pause_menu_ui_active),
+                #[cfg(not(feature = "input"))]
                 pause_menu::sync_pause_menu,
+                #[cfg(not(feature = "input"))]
                 pause_menu::sync_settings_panel_rows,
                 #[cfg(not(feature = "oot_inventory"))]
                 inventory::sync_inventory_panel,

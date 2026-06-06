@@ -606,6 +606,37 @@ const SYSTEM_ROW_FONT: f32 = 2.3;
 const SYSTEM_ROW_MAX_H: f32 = 8.5;
 /// Description wrap width inside the wider bottom panel.
 const SYSTEM_DESC_WRAP_COLS: usize = 60;
+/// Max System rows shown at once before the list becomes a windowed scroll list
+/// (Fix 3/4). Long screens — Radio (~26 stations) and Developer (~15 toggles) —
+/// otherwise cram every row into the list rect, producing unreadably thin rows.
+/// At/under this count the whole list shows; over it, the window follows the
+/// cursor (same mechanic as the Bevy-UI pause menu's `RADIO_VISIBLE_ROWS`). Sized
+/// for large, finger-readable rows that still leave room for the bottom panel.
+const SYSTEM_VISIBLE_ROWS: usize = 7;
+
+/// The visible window of System rows for the current cursor + a scroll indicator.
+///
+/// `rows` is the full ordered row list ([`system_rows`]); `focused` is the cursor's
+/// ABSOLUTE index into it. When the list fits ([`SYSTEM_VISIBLE_ROWS`]) the whole
+/// list shows with no indicator. When it overflows, the window follows the cursor
+/// (reusing the pause menu's [`crate::ui_nav::visible_window_start`]) so rows above /
+/// below scroll into view as the cursor passes the visible edge. Returns the
+/// windowed `(absolute_index, row)` slice plus an `"n/total"` indicator string the
+/// title appends so it's clear there is more off-screen.
+fn system_visible_window(rows: &[SystemRow], focused: usize) -> (Vec<(usize, SystemRow)>, Option<String>) {
+    let total = rows.len();
+    if total <= SYSTEM_VISIBLE_ROWS {
+        let slice = rows.iter().copied().enumerate().collect();
+        return (slice, None);
+    }
+    let start = crate::ui_nav::visible_window_start(focused, total, SYSTEM_VISIBLE_ROWS);
+    let end = (start + SYSTEM_VISIBLE_ROWS).min(total);
+    let slice = (start..end).map(|i| (i, rows[i])).collect();
+    // 1-based "position/total" indicator (e.g. "13/26") so the cursor's place in the
+    // full list is legible even though only a window renders.
+    let indicator = format!("{}/{}", focused + 1, total);
+    (slice, Some(indicator))
+}
 
 /// The System cube face. When no category is open it shows the CATEGORY list
 /// (Video / Audio / Controls / Gameplay + Close Menu), mirroring the Bevy-UI pause
@@ -627,9 +658,21 @@ pub fn build_system_page(
         "SYSTEM",
         MenuColor::rgba(0.03, 0.04, 0.10, 0.96),
     );
+    let rows = system_rows(&sys_model, open_entry);
+    let focused = system_focus_index(focus, rows.len());
+    // Fix 3/4: long screens (Radio ~26, Developer ~15) become a windowed scroll
+    // list — only the visible window of rows is rendered, the window follows the
+    // cursor, and the title gains an "n/total" scroll indicator. Short screens show
+    // every row with no indicator (unchanged).
+    let (window, indicator) = system_visible_window(&rows, focused);
+
     let title = match open_entry {
         None => "SYSTEM".to_string(),
         Some(id) => format!("SYSTEM \u{2022} {}", id.label().to_uppercase()),
+    };
+    let title = match indicator {
+        Some(ind) => format!("{title}  {ind}"),
+        None => title,
     };
     model.text(
         50.0,
@@ -640,16 +683,17 @@ pub fn build_system_page(
         MenuColor::rgba(1.0, 0.84, 0.38, 1.0),
     );
 
-    let rows = system_rows(&sys_model, open_entry);
-    let focused = system_focus_index(focus, rows.len());
-    // Lay the rows as one centered vertical column. The pitch is sized to fill the
-    // list rect for the CURRENT row count (so a sparse category reads large), but
-    // each row height is capped at the touch maximum.
-    let count = rows.len().max(1) as f32;
+    // Lay the VISIBLE rows as one centered vertical column. The pitch is sized to
+    // fill the list rect for the visible row count (so a sparse window reads large),
+    // but each row height is capped at the touch maximum. `slot` is the row's
+    // position WITHIN the window; `abs_idx` is its absolute index into the full row
+    // list — the latter drives selection highlight + the dispatched action, so the
+    // keyboard cursor (which navigates the full list) and the windowed render agree.
+    let count = window.len().max(1) as f32;
     let step = SYSTEM_LIST_RECT.h / count;
     let row_h = (step * 0.82).min(SYSTEM_ROW_MAX_H);
-    for (idx, row) in rows.iter().enumerate() {
-        let y = SYSTEM_LIST_RECT.y + idx as f32 * step;
+    for (slot, (abs_idx, row)) in window.iter().enumerate() {
+        let y = SYSTEM_LIST_RECT.y + slot as f32 * step;
         model.control(
             MenuRect {
                 x: SYSTEM_LIST_RECT.x,
@@ -662,7 +706,7 @@ pub fn build_system_page(
             // No per-row detail hint: the focused option's description now lives
             // in the dedicated BOTTOM panel, so the tall rows stay uncluttered.
             None,
-            idx == focused,
+            *abs_idx == focused,
             false,
             system_row_action(&sys_model, *row),
         );
@@ -1053,6 +1097,97 @@ mod tests {
                 "{page:?} left edge button highlights on EdgeLeft focus"
             );
         }
+    }
+
+    #[test]
+    fn short_system_screens_show_every_row_without_an_indicator() {
+        // Fix 3/4: a screen that fits shows all rows and adds NO scroll indicator.
+        let rows: Vec<SystemRow> = (0..SYSTEM_VISIBLE_ROWS)
+            .map(|i| SystemRow::Option(SystemOptionId::Radio(i)))
+            .collect();
+        let (window, indicator) = system_visible_window(&rows, 0);
+        assert_eq!(window.len(), rows.len(), "all rows visible when they fit");
+        assert!(indicator.is_none(), "no indicator for a short screen");
+        // Absolute indices are identity for a non-windowed list.
+        for (slot, (abs, _)) in window.iter().enumerate() {
+            assert_eq!(slot, *abs);
+        }
+    }
+
+    #[test]
+    fn long_system_screens_window_the_list_and_follow_the_cursor() {
+        // Fix 3/4: a Radio-sized screen (26 rows) windows to SYSTEM_VISIBLE_ROWS and
+        // the window follows the cursor, mapping windowed slots back to absolute rows.
+        let total = 26usize;
+        let rows: Vec<SystemRow> = (0..total)
+            .map(|i| SystemRow::Option(SystemOptionId::Radio(i)))
+            .collect();
+
+        // Cursor at the top: window starts at 0, indicator reads "1/26".
+        let (window, indicator) = system_visible_window(&rows, 0);
+        assert_eq!(window.len(), SYSTEM_VISIBLE_ROWS, "list is windowed");
+        assert_eq!(window.first().unwrap().0, 0);
+        assert_eq!(indicator.as_deref(), Some("1/26"));
+
+        // Cursor mid-list: the focused absolute row stays inside the rendered window.
+        let focused = 13;
+        let (window, indicator) = system_visible_window(&rows, focused);
+        assert_eq!(window.len(), SYSTEM_VISIBLE_ROWS);
+        assert!(
+            window.iter().any(|(abs, _)| *abs == focused),
+            "the focused row scrolls into the visible window"
+        );
+        assert_eq!(indicator.as_deref(), Some("14/26"), "1-based n/total indicator");
+
+        // Cursor at the bottom: the window clamps to the list end (no overflow).
+        let (window, _) = system_visible_window(&rows, total - 1);
+        assert_eq!(window.len(), SYSTEM_VISIBLE_ROWS);
+        assert_eq!(window.last().unwrap().0, total - 1, "last row reachable");
+    }
+
+    #[test]
+    fn long_system_page_renders_only_a_window_of_clickable_rows() {
+        // The built System page for a long Radio screen renders exactly
+        // SYSTEM_VISIBLE_ROWS option controls (all clickable), not all 26.
+        let settings = UserSettings::default();
+        let radio = RadioSnapshot {
+            stations: (0..26).map(|i| (i, format!("Station {i}"))).collect(),
+            active: Some(0),
+        };
+        let page = build_system_page(
+            &settings,
+            &radio,
+            &DevSnapshot::default(),
+            CubeFocus::System(13),
+            Some(SystemMenuEntryId::Radio),
+        );
+        let option_rows = page
+            .nodes
+            .iter()
+            .filter(|n| {
+                matches!(
+                    n,
+                    ambition_inventory_ui::MenuNode::Control {
+                        action: Some(CubeAction::SystemOption(_)),
+                        ..
+                    }
+                )
+            })
+            .count();
+        assert_eq!(
+            option_rows, SYSTEM_VISIBLE_ROWS,
+            "a long Radio screen renders only the visible window of station rows"
+        );
+        // The window includes the focused station (index 13).
+        let has_focused = page.nodes.iter().any(|n| matches!(
+            n,
+            ambition_inventory_ui::MenuNode::Control {
+                action: Some(CubeAction::SystemOption(SystemOptionId::Radio(13))),
+                selected: true,
+                ..
+            }
+        ));
+        assert!(has_focused, "the focused station is the selected windowed row");
     }
 
     #[test]

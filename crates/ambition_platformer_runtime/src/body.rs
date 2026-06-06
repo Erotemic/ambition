@@ -25,3 +25,14 @@
 // so the runtime's `body::BodyKinematics` path resolves and the sandbox facade
 // can forward it.
 pub use ambition_engine_core::BodyKinematics;
+
+use bevy::prelude::*;
+
+/// Marks the single body whose position drives the room's live gravity
+/// resolution (the active player). The runtime's `resolve_active_gravity`
+/// queries `(&BodyKinematics, With<PrimaryBody>)` so it stays content-free; the
+/// host (`ambition_sandbox`) adds this marker to its primary player entity. This
+/// is the inversion seam that lets the gravity runtime live in the crate without
+/// naming the sandbox's `PlayerEntity` / `PrimaryPlayer` markers.
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct PrimaryBody;

@@ -140,11 +140,11 @@ pub struct TemporaryZone {
 /// Tick down temporary gravity zones and despawn the expired ones. Uses scaled dt
 /// so pause / bullet-time hold the well open.
 pub fn tick_temporary_zones(
-    time: Res<crate::WorldTime>,
+    time: Res<ambition_platformer_runtime::time::SimDt>,
     mut commands: Commands,
     mut zones: Query<(Entity, &mut TemporaryZone)>,
 ) {
-    let dt = time.scaled_dt;
+    let dt = time.get();
     for (entity, mut zone) in &mut zones {
         zone.remaining -= dt;
         if zone.remaining <= 0.0 {
@@ -156,11 +156,11 @@ pub fn tick_temporary_zones(
 /// Slide each oscillating gravity zone before [`collect_gravity_zones`] snapshots
 /// it, so the moved region is what the actor integrators read this frame.
 pub fn oscillate_gravity_zones(
-    time: Res<crate::WorldTime>,
+    time: Res<ambition_platformer_runtime::time::SimDt>,
     mut zones: Query<(&mut GravityZone, &mut OscillatingZone)>,
 ) {
     for (mut zone, mut osc) in &mut zones {
-        osc.phase += time.scaled_dt * osc.freq;
+        osc.phase += time.get() * osc.freq;
         let cx = osc.base_center.x + osc.phase.sin() * osc.amplitude_x;
         zone.aabb = crate::engine_core::Aabb::new(Vec2::new(cx, osc.base_center.y), osc.half);
     }
@@ -263,18 +263,15 @@ impl GravityCtx<'_> {
 pub fn resolve_active_gravity(
     base: Option<Res<BaseGravity>>,
     zones: Query<&GravityZone>,
-    players: Query<
-        &crate::player::BodyKinematics,
-        (
-            With<crate::player::PlayerEntity>,
-            With<crate::player::PrimaryPlayer>,
-        ),
+    bodies: Query<
+        &ambition_platformer_runtime::body::BodyKinematics,
+        With<ambition_platformer_runtime::body::PrimaryBody>,
     >,
     mut gravity: ResMut<GravityField>,
 ) {
     use crate::engine_core::AabbExt;
     let base_dir = base.map_or(Vec2::new(0.0, 1.0), |b| b.dir);
-    let target = players
+    let target = bodies
         .single()
         .ok()
         .and_then(|kin| {
@@ -383,16 +380,12 @@ mod tests {
         let player = app
             .world_mut()
             .spawn((
-                crate::player::PlayerEntity,
-                crate::player::PrimaryPlayer,
-                crate::player::BodyKinematics {
+                ambition_platformer_runtime::body::PrimaryBody,
+                ambition_platformer_runtime::body::BodyKinematics {
                     pos: Vec2::new(0.0, 0.0),
                     vel: Vec2::ZERO,
                     size: Vec2::new(24.0, 40.0),
                     facing: 1.0,
-                },
-                crate::player::PlayerBaseSize {
-                    base_size: Vec2::new(24.0, 40.0),
                 },
             ))
             .id();
@@ -410,7 +403,7 @@ mod tests {
 
         // Inside the zone → gravity points up.
         app.world_mut()
-            .get_mut::<crate::player::BodyKinematics>(player)
+            .get_mut::<ambition_platformer_runtime::body::BodyKinematics>(player)
             .unwrap()
             .pos = Vec2::new(200.0, 0.0);
         app.update();
@@ -421,7 +414,7 @@ mod tests {
 
         // Leave the zone → reverts to ambient down.
         app.world_mut()
-            .get_mut::<crate::player::BodyKinematics>(player)
+            .get_mut::<ambition_platformer_runtime::body::BodyKinematics>(player)
             .unwrap()
             .pos = Vec2::new(0.0, 0.0);
         app.update();
@@ -503,10 +496,7 @@ mod tests {
     #[test]
     fn oscillating_zone_slides_horizontally_over_time() {
         let mut app = App::new();
-        app.insert_resource(crate::WorldTime {
-            scaled_dt: 0.1,
-            ..Default::default()
-        });
+        app.insert_resource(ambition_platformer_runtime::time::SimDt { dt: 0.1 });
         app.add_systems(Update, oscillate_gravity_zones);
         let base = Vec2::new(100.0, 50.0);
         let e = app

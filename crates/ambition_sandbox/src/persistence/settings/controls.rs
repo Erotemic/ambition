@@ -286,11 +286,14 @@ pub struct ControlSettings {
     pub menu_repeat_initial_delay: f32,
     /// Repeat interval after the initial delay.
     pub menu_repeat_interval: f32,
-    /// On-screen touch controls (joystick + action buttons) visible.
-    /// Mirrors into the `TouchControlsVisible` resource from the
-    /// `mobile_touch` plugin. Default true so the HUD shows on
-    /// `--features mobile_touch` builds; toggle off via the controls
-    /// settings page when testing keyboard-only on desktop.
+    /// Whether the on-screen touch overlay (joystick + action buttons)
+    /// is VISIBLE. Mirrors into the `TouchControlsVisible` resource from
+    /// the `TouchControlsPlugin`. This controls only the overlay's
+    /// visibility, NOT whether touch input is enabled — touch enablement
+    /// is owned by the plugin (installed = enabled). Default true so the
+    /// overlay shows whenever the plugin is installed; toggle off via the
+    /// controls settings page to hide it while testing keyboard-only on
+    /// desktop (touch input stays live, just invisible).
     #[serde(default = "default_touch_controls_visible")]
     pub touch_controls_visible: bool,
     /// How a tap or mouse click on a menu item should behave. See

@@ -413,7 +413,7 @@ impl SettingsItem {
                 format_cycle("Dash Input", settings.controls.dash_input_mode.label())
             }
             Self::TouchControls => {
-                format_toggle("Touch Controls", settings.controls.touch_controls_visible)
+                format_toggle("Touch Overlay", settings.controls.touch_controls_visible)
             }
             Self::MenuTapMode => format_cycle("Menu Tap", settings.controls.menu_tap_mode.label()),
             Self::ResetControlFiltering => "Reset Filter Defaults".into(),

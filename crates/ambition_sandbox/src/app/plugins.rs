@@ -1064,12 +1064,15 @@ pub(super) fn add_input_plugins(app: &mut App) {
 #[cfg(not(feature = "input"))]
 pub(super) fn add_input_plugins(_app: &mut App) {}
 
-/// Register the mobile-touch input plugin (`virtual_joystick` sticks
-/// and on-screen action buttons that fold into ControlFrame). Gated
-/// behind the `mobile_touch` feature; on desktop builds without the
-/// feature this is a no-op.
+/// Register the [`TouchControlsPlugin`](crate::host::mobile_input::bevy_plugin::TouchControlsPlugin)
+/// (`virtual_joystick` sticks + on-screen action buttons that fold into
+/// ControlFrame). Added UNCONDITIONALLY whenever the `mobile_touch`
+/// feature is compiled (which pulls the optional `virtual_joystick`
+/// dep) — there is no runtime boolean gating its existence. To rip the
+/// touch controls out, remove the single `add_plugins(TouchControlsPlugin)`
+/// line below. On builds compiled without `mobile_touch` this is a no-op.
 ///
-/// The mobile plugin runs ALONGSIDE the desktop input pipeline --
+/// The touch plugin runs ALONGSIDE the desktop input pipeline --
 /// both write into the same `ControlFrame` resource, with the
 /// mobile-side write happening after the desktop one in this
 /// session's chain. On a phone, the desktop pipeline produces
@@ -1080,7 +1083,7 @@ pub(super) fn add_input_plugins(_app: &mut App) {}
 /// inactive folder.
 #[cfg(feature = "mobile_touch")]
 pub(super) fn add_mobile_touch_plugin(app: &mut App) {
-    app.add_plugins(crate::host::mobile_input::bevy_plugin::MobileTouchPlugin);
+    app.add_plugins(crate::host::mobile_input::bevy_plugin::TouchControlsPlugin);
 }
 
 #[cfg(not(feature = "mobile_touch"))]

@@ -457,9 +457,9 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
             },
             toggle(
                 SettingsOptionId::TouchControls,
-                "Touch Controls",
+                "Touch Overlay",
                 c.touch_controls_visible,
-                "Show or hide the on-screen touch control pads.",
+                "Show or hide the on-screen touch overlay (touch input stays active either way).",
             ),
             {
                 let (i, n) = enum_index(&MenuTapMode::ALL, c.menu_tap_mode);

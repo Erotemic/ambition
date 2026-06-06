@@ -13,14 +13,14 @@
 //! plus [`super::bevy_plugin::TouchControlsVisible`] /
 //! [`super::bevy_plugin::MenuTouchGestureState`], and write
 //! [`crate::input::ControlFrame`] / [`crate::input::MenuControlFrame`].
-//! They are scheduled by [`super::bevy_plugin::MobileTouchPlugin`].
+//! They are scheduled by [`super::bevy_plugin::TouchControlsPlugin`].
 
 use bevy::input::mouse::MouseButton;
 use bevy::input::touch::Touches;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
-use super::bevy_plugin::{MenuTouchGestureState, MobileTouchState, TouchControlsVisible};
+use super::bevy_plugin::{MenuTouchGestureState, MobileTouchState};
 use super::layout::{touch_action_at_position, TOUCH_SCALE};
 use super::state::{fold_touch_into_control_frame, touch_state_is_active, TouchInputState};
 use crate::input::{ControlFrame, MenuControlFrame, MenuInputState};
@@ -50,12 +50,13 @@ pub fn fold_to_control_frame(
     mode: Res<State<crate::game_mode::GameMode>>,
     cutscene: Res<crate::presentation::cutscene::ActiveCutscene>,
     state: Res<MobileTouchState>,
-    visible: Res<TouchControlsVisible>,
     mut frame: ResMut<ControlFrame>,
 ) {
-    if !visible.0 {
-        return;
-    }
+    // Touch input is always live while the plugin is installed (enablement is
+    // plugin-gated, not a runtime boolean). The `touch_controls_visible` setting
+    // only hides/shows the on-screen overlay (see `sync_touch_ui_visibility`); it
+    // no longer gates the input fold. The activity gate below (`touch_state_is_active`)
+    // already keeps an untouched overlay from stomping keyboard input.
     if !mode.get().allows_gameplay() {
         return;
     }
@@ -132,7 +133,6 @@ pub fn fold_to_menu_control_frame(
     time: Res<Time>,
     mode: Res<State<crate::game_mode::GameMode>>,
     state: Res<MobileTouchState>,
-    visible: Res<TouchControlsVisible>,
     touches: Res<Touches>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window, With<PrimaryWindow>>,
@@ -140,12 +140,8 @@ pub fn fold_to_menu_control_frame(
     mut gesture: ResMut<MenuTouchGestureState>,
     mut frame: ResMut<MenuControlFrame>,
 ) {
-    if !visible.0 {
-        gesture.drag_scroll.reset();
-        gesture.stick_input = MenuInputState::default();
-        return;
-    }
-
+    // Touch menu input is always live while the plugin is installed; the
+    // `touch_controls_visible` setting only hides the overlay, not the input.
     let touch = state.0;
     frame.start |= touch.start.pressed_this_frame;
     frame.back |= touch.reset.pressed_this_frame;

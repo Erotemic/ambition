@@ -45,22 +45,21 @@ pub struct MenuTouchGestureState {
     pub(super) stick_input: MenuInputState,
 }
 
-/// Runtime visibility toggle for the touch UI. `true` shows the
-/// stick + button HUD; `false` hides the elements and zeroes
-/// the touch input contribution to ControlFrame so neither
-/// path stomps the desktop input.
+/// Runtime VISIBILITY toggle for the on-screen touch UI. `true`
+/// shows the stick + button HUD; `false` hides the overlay.
 ///
-/// Per Jon's "we also need a toggle for touch controls, so we
-/// can disable them in the desktop version of the game, but
-/// also still test them there." This is a Bevy resource —
-/// flip it from the pause menu / settings menu (preferred,
-/// see TODO row) or programmatically from code. No hotkey
-/// binding by design: Jon also asked us to "move all of these
-/// options into settings" so the canonical non-hotkey place
-/// for the toggle is the settings menu, not an F-key.
+/// This now controls ONLY the on-screen overlay's visibility — it no
+/// longer gates the touch INPUT fold. Touch enablement is owned by the
+/// plugin itself (`TouchControlsPlugin`): the touch systems exist iff
+/// the plugin is installed, so "rip touch out" = stop adding the plugin,
+/// not flip a boolean. The input fold stays activity-gated, so an
+/// untouched (even hidden) overlay never stomps keyboard input.
 ///
-/// Default is `true` so the touch HUD shows immediately when
-/// the game launches with `--features mobile_touch`.
+/// Flip it from the settings menu (the controls page "Touch Overlay"
+/// row) or programmatically. No hotkey binding by design.
+///
+/// Default is `true` so the touch HUD shows immediately when the
+/// `TouchControlsPlugin` is installed.
 #[derive(Resource, Clone, Copy, Debug)]
 pub struct TouchControlsVisible(pub bool);
 
@@ -85,9 +84,19 @@ impl Default for TouchControlsVisible {
 #[derive(Component)]
 pub struct MobileTouchUiRoot;
 
-pub struct MobileTouchPlugin;
+/// Installs the on-screen touch joystick + action-button overlay and the
+/// systems that feed touch input into the shared `ControlFrame` /
+/// `MenuControlFrame` seams.
+///
+/// Touch enablement is owned by THIS plugin, not a runtime boolean: the touch
+/// controls exist iff the plugin is installed. To rip touch out later, remove
+/// the single `add_plugins(TouchControlsPlugin)` line in the app build — no
+/// setting to flip. The `touch_controls_visible` setting only hides/shows the
+/// on-screen overlay (see [`TouchControlsVisible`]); it does not enable or
+/// disable the touch input itself.
+pub struct TouchControlsPlugin;
 
-impl Plugin for MobileTouchPlugin {
+impl Plugin for TouchControlsPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(VirtualJoystickPlugin::<MobileStick>::default())
             .insert_resource(MobileTouchState::default())

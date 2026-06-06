@@ -1056,7 +1056,7 @@ fn cube_pointer_click(
 #[allow(clippy::too_many_arguments)]
 fn cube_menu_open_routing(
     backend: Res<InventoryUiBackend>,
-    menu: Res<MenuControlFrame>,
+    mut menu: ResMut<MenuControlFrame>,
     mut overlay: ResMut<crate::inventory::InventoryUiState>,
     mode: Res<State<crate::runtime::game_mode::GameMode>>,
     mut next_mode: ResMut<NextState<crate::runtime::game_mode::GameMode>>,
@@ -1073,6 +1073,14 @@ fn cube_menu_open_routing(
 
     // pause / Esc: toggle the cube on the System page.
     if menu.start {
+        // Esc binds to BOTH `pause` (→ `menu.start`) AND `MenuBack` (→ `menu.back`),
+        // so a single Esc sets both bits. This system OWNS the Esc open/close toggle;
+        // consume the duplicate `back` so the later `cube_focus_nav` / `system_focus_nav`
+        // in the chain can't act on the same Esc (e.g. immediately re-close what we just
+        // opened, or drill out of a System category instead of closing). `back` from a
+        // NON-Esc source (Backspace / gamepad East) never co-occurs with `start`, so it
+        // still reaches the nav systems for its own close / drill-out handling.
+        menu.back = false;
         if overlay.visible {
             play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_CLOSE);
             close_cube_menu(&mut overlay, mode.get(), &mut next_mode);
@@ -1737,6 +1745,102 @@ mod oot_cube_app_tests {
             Some(CubeFocus::EdgeLeft),
             "the hovered focus is remembered for later move dedup"
         );
+    }
+
+    /// Faithful reproduction of the real app's input wiring: a leafwing player with
+    /// Esc bound to BOTH `Start` (pause) and `MenuBack`, the menu-frame populate
+    /// system, AND the cube routing — registered in the SAME default Update set so
+    /// the scheduler is free to order them as it does in the real app. Pressing Esc
+    /// twice (open, then close) must leave the cube CLOSED.
+    #[test]
+    fn esc_closes_the_open_cube_from_any_page_via_real_input() {
+        use crate::input::SandboxAction;
+        use crate::presentation::rendering::PlayerVisual;
+        use leafwing_input_manager::prelude::*;
+
+        let mut app = App::new();
+        app.add_plugins(bevy::state::app::StatesPlugin);
+        app.add_plugins(bevy::time::TimePlugin);
+        app.add_plugins(bevy::input::InputPlugin);
+        app.add_plugins(InputManagerPlugin::<SandboxAction>::default());
+        app.init_state::<GameMode>();
+        app.init_resource::<InventoryUiBackend>();
+        app.init_resource::<ActiveMenuPages<CubePage, CubeAction>>();
+        app.init_resource::<CubeCursor>();
+        app.init_resource::<CubeSystemNav>();
+        app.init_resource::<OwnedItems>();
+        app.init_resource::<UserSettings>();
+        app.init_resource::<crate::inventory::InventoryUiState>();
+        app.init_resource::<crate::map_menu::MapMenuState>();
+        app.init_resource::<MenuControlFrame>();
+        app.init_resource::<crate::input::MenuInputState>();
+        app.init_resource::<crate::oot_menu::OotMenuState>();
+        app.add_message::<PlayerHealRequested>();
+        app.add_message::<SfxMessage>();
+        app.add_systems(
+            Update,
+            (
+                crate::app::populate_menu_control_frame_from_actions,
+                crate::oot_menu::oot_menu_input,
+                cube_menu_open_routing,
+                cube_focus_nav,
+            )
+                .chain(),
+        );
+        *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::Cube;
+
+        // Esc → both Start (pause) and MenuBack, exactly like the keyboard preset.
+        let mut map = InputMap::<SandboxAction>::default();
+        map.insert(SandboxAction::Start, KeyCode::Escape);
+        map.insert(SandboxAction::MenuBack, KeyCode::Escape);
+        app.world_mut().spawn((
+            PlayerVisual,
+            PlayerEntity,
+            PrimaryPlayer,
+            ActionSet::default(),
+            PlayerMana::default(),
+            ActionState::<SandboxAction>::default(),
+            map,
+        ));
+        app.update();
+
+        let press_esc = |app: &mut App, down: bool| {
+            let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+            if down {
+                keys.press(KeyCode::Escape);
+            } else {
+                keys.release(KeyCode::Escape);
+            }
+        };
+        let visible = |app: &App| {
+            app.world()
+                .resource::<crate::inventory::InventoryUiState>()
+                .visible
+        };
+
+        // First Esc press → opens the cube.
+        press_esc(&mut app, true);
+        app.update();
+        press_esc(&mut app, false);
+        app.update();
+        assert!(visible(&app), "first Esc opens the cube");
+
+        // Drill INTO a System-page category (the page-dependent close path: inside a
+        // category `system_focus_nav` treats `menu.back` as "drill out", so the close
+        // must be owned by the start branch, not left to `menu.back`).
+        app.world_mut()
+            .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
+            .active = Some(CubePage::System);
+        app.world_mut().resource_mut::<CubeSystemNav>().open_category =
+            Some(SettingsCategoryId::Audio);
+        app.world_mut().resource_mut::<CubeCursor>().focus = CubeFocus::System(0);
+
+        // Second Esc press → must CLOSE the cube.
+        press_esc(&mut app, true);
+        app.update();
+        press_esc(&mut app, false);
+        app.update();
+        assert!(!visible(&app), "second Esc closes the cube");
     }
 
     #[test]

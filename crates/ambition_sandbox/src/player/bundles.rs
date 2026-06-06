@@ -46,6 +46,11 @@ impl PlayerIdentityBundle {
 pub struct PlayerSimulationBundle {
     pub identity: PlayerIdentityBundle,
     pub primary: PrimaryPlayer,
+    /// Runtime-side marker (`ambition_platformer_runtime`) tagging this as the
+    /// body whose position drives live gravity resolution. The gravity runtime
+    /// queries `With<PrimaryBody>` instead of the sandbox's player markers, so
+    /// the gravity layer stays content-free.
+    pub primary_body: ambition_platformer_runtime::body::PrimaryBody,
     pub local: LocalPlayer,
     pub health: PlayerHealth,
     pub wallet: PlayerWallet,
@@ -141,6 +146,7 @@ impl PlayerSimulationBundle {
         Self {
             identity: PlayerIdentityBundle::new(PlayerSlot::PRIMARY),
             primary: PrimaryPlayer,
+            primary_body: ambition_platformer_runtime::body::PrimaryBody,
             local: LocalPlayer,
             health: PlayerHealth::new(health),
             wallet: PlayerWallet::default(),

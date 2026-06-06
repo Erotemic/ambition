@@ -12,9 +12,11 @@
 //! not-yet-extracted remainder and are tracked by the architecture-boundary
 //! guardrail.
 
+pub mod body;
 pub mod lifecycle;
 pub mod math;
 pub mod prelude;
 pub mod schedule;
 pub mod time;
 pub mod transit;
+pub mod world_query;

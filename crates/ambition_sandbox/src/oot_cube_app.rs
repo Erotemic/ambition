@@ -1412,6 +1412,8 @@ fn cube_menu_open_routing(
     mut system_nav: ResMut<CubeSystemNav>,
     mut map: ResMut<crate::map_menu::MapMenuState>,
     mut sfx: MessageWriter<SfxMessage>,
+    // Tracks last frame's `menu.start` so we only act on its RISING edge (below).
+    mut last_start: Local<bool>,
 ) {
     use crate::runtime::game_mode::GameMode;
     if *backend != InventoryUiBackend::Cube {
@@ -1419,7 +1421,17 @@ fn cube_menu_open_routing(
     }
 
     // pause / Esc: toggle the cube on the System page.
-    if menu.start {
+    //
+    // Rising-edge debounce: `menu.start` is `just_pressed(Start)`, but it can be
+    // observed on MORE THAN ONE consecutive frame (e.g. when the Update schedule
+    // ticks more than once per leafwing input update). Without edge-detection a
+    // single Esc press would CLOSE the cube on frame N (overlay.visible true→false)
+    // and then immediately RE-OPEN it on frame N+1 (start still set, overlay now
+    // hidden → the `else` open branch) — the "Esc-Esc reopen" bug. Acting only on
+    // the rising edge guarantees one open/close per physical press.
+    let start_edge = menu.start && !*last_start;
+    *last_start = menu.start;
+    if start_edge {
         // Esc binds to BOTH `pause` (→ `menu.start`) AND `MenuBack` (→ `menu.back`),
         // so a single Esc sets both bits. This system OWNS the Esc open/close toggle;
         // consume the duplicate `back` so the later `cube_focus_nav` / `system_focus_nav`
@@ -1443,10 +1455,22 @@ fn cube_menu_open_routing(
                 close_system_entry(&mut system_nav, &mut cursor);
             } else {
                 play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_CLOSE);
+                // TEMP esc-diag (remove once the Esc-Esc reopen is confirmed fixed):
+                info!(
+                    "[esc-diag] router CLOSE (start={} mode={:?})",
+                    menu.start,
+                    mode.get()
+                );
                 close_cube_menu(&mut overlay, mode.get(), &mut next_mode);
             }
         } else if matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
             play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_OPEN);
+            // TEMP esc-diag (remove once the Esc-Esc reopen is confirmed fixed):
+            info!(
+                "[esc-diag] router OPEN (start={} mode={:?})",
+                menu.start,
+                mode.get()
+            );
             open_cube_menu(
                 CubePage::System,
                 &mut overlay,

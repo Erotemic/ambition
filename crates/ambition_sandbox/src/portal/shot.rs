@@ -3,7 +3,6 @@
 
 use bevy::prelude::*;
 
-use crate::input::ControlFrame;
 use crate::platformer_runtime::collision::raycast_solids;
 use crate::platformer_runtime::prelude::SpawnScopedExt;
 use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
@@ -11,7 +10,7 @@ use crate::GameWorld;
 
 use super::color::PortalColor;
 use super::gun::PortalGun;
-use super::placement::pick_aim;
+use super::messages::FirePortalGun;
 use super::types::{portal_half_extent, PlacedPortal, PORTAL_MAX_RANGE, PORTAL_SHOT_SPEED};
 
 /// An in-flight portal shot streaking toward a surface. On contact with a
@@ -25,26 +24,27 @@ pub struct PortalShot {
     pub traveled: f32,
 }
 
-/// `Attack` fires a portal *shot* of the gun's current color along the aim
-/// direction. The shot travels (see `portal_projectile_step`) so the player
-/// sees its path before it lands and opens a portal.
+/// On a [`FirePortalGun`] intent, fire a portal *shot* of the gun's current
+/// color along the message's aim direction. The shot travels (see
+/// `portal_projectile_step`) so the player sees its path before it lands and
+/// opens a portal. The shield-gated "this is a drop, not a fire" decision is
+/// made by the input adapter before it emits the intent.
 pub fn portal_fire_system(
-    control: Res<ControlFrame>,
+    mut fires: MessageReader<FirePortalGun>,
     players: Query<(&PlayerKinematics, &PortalGun), (With<PlayerEntity>, With<PrimaryPlayer>)>,
     mut commands: Commands,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
-    // Shield+Attack is the "drop the gun" gesture — don't fire on it.
-    if !control.attack_pressed || control.shield_held {
+    let Some(fire) = fires.read().last().copied() else {
         return;
-    }
+    };
     let Ok((kin, gun)) = players.single() else {
         return;
     };
     if !gun.active {
         return;
     }
-    let aim = pick_aim(&control, kin.facing).normalize_or_zero();
+    let aim = fire.aim.normalize_or_zero();
     if aim == Vec2::ZERO {
         return;
     }

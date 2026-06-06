@@ -204,6 +204,100 @@ fn architecture_boundaries_portal_orders_against_item_set_not_function() {
 }
 
 #[test]
+fn architecture_boundaries_portal_core_does_not_import_ambition_content_roster() {
+    // Reusable portal core (Stage 9 / Task H) must not depend on Ambition
+    // content concepts: the item roster (`crate::items` / `Item::PortalGun` /
+    // `OwnedItems`), the inventory menu, held-item equip glue
+    // (`StashedActionSet`), quests, save schema, or the LDtk world schema. The
+    // Ambition-specific input/inventory bindings live in
+    // `crate::ambition_content::portal` adapters, which translate `ControlFrame`
+    // and item state into the reusable portal intent/outcome messages.
+    let root = crate_src().join("portal");
+
+    // Hard-forbidden content roster: portal core must never name these. (No
+    // allowlist — these were fully moved into the content adapter.)
+    let forbidden = [
+        "crate::items",
+        "Item::PortalGun",
+        "OwnedItems",
+        "crate::inventory",
+        "crate::oot_menu",
+        "StashedActionSet",
+        "crate::content",
+        "crate::quest",
+        "crate::ldtk_world",
+        "crate::world::ldtk_world",
+        "crate::persistence",
+    ];
+
+    // ALLOWLIST — genuinely-shared low-level couplings that remain in portal
+    // core for now, each with a tracked reason. These are NOT the item roster;
+    // they are deeper input/physics-body seams a later pass (or Task J) can
+    // finish extracting behind a generic abstraction:
+    //
+    //   crate::input::ControlFrame
+    //     - transit.rs `warp_portal_input` / `portal_transit_system`: the
+    //       same-wall held-input warp + emergence guard read AND mutate the
+    //       Ambition input frame. Extracting this needs a generic movement-input
+    //       abstraction; deferred to keep replay timing identical.
+    //     - presentation.rs `sync_portal_mode_indicator`: visible-build aim
+    //       indicator resolves aim from the control frame. Presentation glue.
+    //   crate::item_pickup::GroundItem
+    //     - transit.rs `portal_teleport_ground_items`: thrown-item transit
+    //       queries the content body component. Needs a generic transit-body
+    //       marker to decouple.
+    //   crate::item_pickup::ItemPickupSet
+    //     - plugin.rs: a *schedule ordering label* (not a content concept);
+    //       already guarded by `architecture_boundaries_portal_orders_against_item_set_not_function`.
+    let allow = |line: &str| -> bool {
+        line.contains("crate::input::ControlFrame")
+            || line.contains("crate::item_pickup::GroundItem")
+            || line.contains("crate::item_pickup::ItemPickupSet")
+            || line.contains("crate::item_pickup::axe_spec") // test fixture only
+    };
+
+    let mut violations = Vec::new();
+    for file in collect_rs_files(&root) {
+        let is_test = file
+            .file_name()
+            .and_then(|n| n.to_str())
+            .is_some_and(|n| n == "tests.rs");
+        let text = fs::read_to_string(&file).expect("read portal source");
+        for (idx, raw) in text.lines().enumerate() {
+            let line = raw.trim();
+            // Skip comments / doc-comments: they legitimately reference the
+            // adapter module path by name.
+            if line.starts_with("//") || line.starts_with("/*") || line.starts_with('*') {
+                continue;
+            }
+            if allow(line) {
+                continue;
+            }
+            for needle in forbidden {
+                if line.contains(needle) {
+                    // Tests may construct content fixtures (axe_spec/GroundItem),
+                    // which are already allowlisted; anything else in tests is a
+                    // genuine violation too, so do not blanket-skip tests.
+                    let _ = is_test;
+                    violations.push(format!(
+                        "{}:{} portal core references Ambition content `{needle}`: {line}",
+                        file.display(),
+                        idx + 1
+                    ));
+                }
+            }
+        }
+    }
+
+    assert!(
+        violations.is_empty(),
+        "portal core must consume reusable messages/components, not the Ambition content roster. \
+Move the binding into crate::ambition_content::portal (or extend the documented allowlist with a reason):\n{}",
+        violations.join("\n")
+    );
+}
+
+#[test]
 fn architecture_boundaries_portal_has_facade_plugin_and_schedule_files() {
     let src_root = crate_src();
     let expected = [

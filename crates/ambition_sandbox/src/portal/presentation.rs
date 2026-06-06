@@ -17,7 +17,7 @@ use super::color::PortalColor;
 use super::gun::PortalGun;
 use super::lifecycle::GravityFlipSwitch;
 use super::pickup::PortalGunPickup;
-use super::placement::{pick_aim, portal_facing_flips, somersault_roll};
+use super::placement::{portal_facing_flips, somersault_roll};
 use super::shot::PortalShot;
 use super::transit::{PortalInputWarp, PortalTransit};
 use super::types::{find_portal, PlacedPortal, PORTAL_VISUAL_THICKNESS};
@@ -299,10 +299,23 @@ pub fn sync_portal_mode_indicator(
     // in front of the player sprite.
     let pos = kin.pos + Vec2::new(facing * (kin.size.x * 0.45 + 6.0), kin.size.y * 0.06);
     let translation = crate::config::world_to_bevy(&world.0, pos, 12.0);
-    // Aim the barrel where the shot will go (same aim as `portal_fire_system`).
-    // World y-down → render y-up; aiming left flips vertically so the gun stays
-    // upright rather than upside-down.
-    let aim = pick_aim(&control, kin.facing).normalize_or_zero();
+    // Aim the barrel where the shot will go (same aim resolution the input
+    // adapter uses for `FirePortalGun`: right-stick aim, else move axis, else
+    // facing). World y-down → render y-up; aiming left flips vertically so the
+    // gun stays upright rather than upside-down. Resolved inline here because
+    // this is visible-build presentation glue that already reads ControlFrame.
+    let aim = {
+        let a = Vec2::new(control.aim_x, control.aim_y);
+        let mv = Vec2::new(control.axis_x, control.axis_y);
+        if a.length() > 0.2 {
+            a
+        } else if mv.length() > 0.2 {
+            mv
+        } else {
+            Vec2::new(if kin.facing >= 0.0 { 1.0 } else { -1.0 }, 0.0)
+        }
+    }
+    .normalize_or_zero();
     let angle = (-aim.y).atan2(aim.x);
     commands.spawn((
         PortalModeIndicator,

@@ -79,7 +79,10 @@ impl Plugin for ItemPickupSimulationPlugin {
                 ground_item_physics.run_if(crate::gameplay_allowed),
                 // After portal_fire (registered by PortalSimulationPlugin) so
                 // picking up the gun does not also fire on the same Attack press.
-                crate::portal::pickup_portal_gun_system.run_if(crate::gameplay_allowed),
+                // The pickup grant is Ambition inventory policy, so it lives in
+                // the content adapter.
+                crate::ambition_content::portal::pickup_portal_gun_system
+                    .run_if(crate::gameplay_allowed),
             )
                 .chain()
                 .in_set(crate::app::SandboxSet::PlayerSimulation)

@@ -1,12 +1,15 @@
 use bevy::prelude::*;
 
+use super::messages::{
+    DropPortalGun, FirePortalGun, PickUpPortalGun, PortalGunEquipped, TogglePortalGun,
+};
 use super::schedule::PortalSet;
 use super::{
-    clear_portals_on_reset, despawn_orphaned_portals, drop_portal_gun_system, portal_fire_system,
-    portal_projectile_step, portal_teleport_ground_items, portal_toggle_system,
-    portal_transit_actors, portal_transit_system, publish_portal_carves,
-    reset_gravity_on_room_reset, suppress_ledge_grab_during_transit, tick_portal_cooldowns,
-    warp_portal_input, BodyTeleported, SuppressWallAbilitiesInPortal,
+    clear_portals_on_reset, despawn_orphaned_portals, portal_fire_system, portal_projectile_step,
+    portal_teleport_ground_items, portal_toggle_system, portal_transit_actors,
+    portal_transit_system, publish_portal_carves, reset_gravity_on_room_reset,
+    suppress_ledge_grab_during_transit, tick_portal_cooldowns, warp_portal_input, BodyTeleported,
+    SuppressWallAbilitiesInPortal,
 };
 use crate::platformer_runtime::orientation::{ensure_actor_roll, update_actor_roll};
 
@@ -33,6 +36,14 @@ pub struct PortalSimulationPlugin;
 impl Plugin for PortalSimulationPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<BodyTeleported>();
+        // Reusable portal intent / outcome messages — the Ambition input and
+        // inventory adapters (crate::ambition_content::portal) write these; core
+        // consumes them, staying content-agnostic.
+        app.add_message::<FirePortalGun>();
+        app.add_message::<TogglePortalGun>();
+        app.add_message::<DropPortalGun>();
+        app.add_message::<PickUpPortalGun>();
+        app.add_message::<PortalGunEquipped>();
         app.init_resource::<SuppressWallAbilitiesInPortal>();
         app.init_resource::<crate::physics::GravityField>();
         app.init_resource::<crate::physics::BaseGravity>();
@@ -63,10 +74,18 @@ impl Plugin for PortalSimulationPlugin {
                 .run_if(crate::gameplay_allowed),
         );
 
+        // The Ambition input adapter (which translates ControlFrame into portal
+        // intents) runs in PortalSet::InputAdapter, ordered before this set, so
+        // these consumers see the intents the same frame. The drop consumer
+        // lives in the inventory adapter (it touches Ambition item state).
+        app.configure_sets(
+            Update,
+            PortalSet::InputAdapter.before(PortalSet::WeaponAndProjectiles),
+        );
+
         app.add_systems(
             Update,
             (
-                drop_portal_gun_system.run_if(crate::gameplay_allowed),
                 portal_toggle_system.run_if(crate::gameplay_allowed),
                 portal_fire_system.run_if(crate::gameplay_allowed),
                 portal_projectile_step.run_if(crate::gameplay_allowed),

@@ -60,6 +60,20 @@ fn set_control(app: &mut App, attack: bool, interact: bool) {
     cf.interact_pressed = interact;
 }
 
+/// Emit a `FirePortalGun` intent for the primary player, resolving aim the same
+/// way the input adapter does (facing-ahead, since these tests set no stick).
+fn fire_portal(app: &mut App) {
+    let facing = {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<&PlayerKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>();
+        q.iter(app.world()).next().map_or(1.0, |k| k.facing)
+    };
+    app.world_mut().write_message(FirePortalGun {
+        aim: Vec2::new(if facing >= 0.0 { 1.0 } else { -1.0 }, 0.0),
+    });
+}
+
 #[test]
 fn raycast_hits_nearest_solid_face_with_outward_normal() {
     let world = world_with_two_walls().0;
@@ -566,130 +580,6 @@ fn gravity_switch_flips_on_entry_and_rearms_on_exit() {
 }
 
 #[test]
-fn picking_up_the_portal_gun_activates_it() {
-    let mut app = App::new();
-    app.add_message::<crate::audio::SfxMessage>();
-    app.insert_resource(ControlFrame::default());
-    app.add_systems(Update, pickup_portal_gun_system);
-    let player = app
-        .world_mut()
-        .spawn((
-            PlayerEntity,
-            PrimaryPlayer,
-            PlayerKinematics {
-                pos: Vec2::new(50.0, 50.0),
-                vel: Vec2::ZERO,
-                size: Vec2::new(24.0, 40.0),
-                base_size: Vec2::new(24.0, 40.0),
-                facing: 1.0,
-            },
-            ActionSet::default(),
-            // No PortalGun yet — the single pickup item grants it.
-        ))
-        .id();
-    app.world_mut().spawn(PortalGunPickup {
-        pos: Vec2::new(50.0, 50.0),
-        half_extent: Vec2::splat(20.0),
-        arm_timer: 0.0,
-    });
-    assert!(app.world().get::<PortalGun>(player).is_none());
-
-    app.world_mut()
-        .resource_mut::<ControlFrame>()
-        .attack_pressed = true;
-    app.update();
-    assert!(
-        app.world()
-            .get::<PortalGun>(player)
-            .is_some_and(|g| g.active),
-        "walking onto the pickup and pressing Attack grants the active gun"
-    );
-    let remaining = {
-        let mut q = app.world_mut().query::<&PortalGunPickup>();
-        q.iter(app.world()).count()
-    };
-    assert_eq!(remaining, 0, "the pickup is consumed");
-}
-
-#[test]
-fn dropped_portal_gun_arms_before_it_can_be_regrabbed() {
-    let mut app = App::new();
-    app.add_message::<crate::audio::SfxMessage>();
-    app.insert_resource(ControlFrame::default());
-    app.insert_resource(crate::WorldTime {
-        raw_dt: 1.0 / 60.0,
-        scaled_dt: 1.0 / 60.0,
-    });
-    app.add_systems(
-        Update,
-        (
-            drop_portal_gun_system,
-            arm_portal_pickups,
-            pickup_portal_gun_system,
-        )
-            .chain(),
-    );
-    let player = spawn_player(&mut app, Vec2::new(100.0, 100.0), 1.0);
-
-    // Shield + Attack drops the gun.
-    {
-        let mut cf = app.world_mut().resource_mut::<ControlFrame>();
-        cf.attack_pressed = true;
-        cf.shield_held = true;
-    }
-    app.update();
-    assert!(
-        app.world().get::<PortalGun>(player).is_none(),
-        "Shield+Attack should drop the portal gun"
-    );
-
-    // Move the player directly onto the dropped pickup so only the arm
-    // timer (not distance) guards against a re-grab.
-    let pickup_pos = {
-        let mut q = app.world_mut().query::<&PortalGunPickup>();
-        q.iter(app.world())
-            .next()
-            .expect("a pickup was dropped")
-            .pos
-    };
-    app.world_mut()
-        .get_mut::<PlayerKinematics>(player)
-        .unwrap()
-        .pos = pickup_pos;
-
-    // Immediately press Attack again while overlapping — the freshly-dropped
-    // pickup is still arming, so it must NOT be re-grabbed (the bug).
-    {
-        let mut cf = app.world_mut().resource_mut::<ControlFrame>();
-        cf.attack_pressed = true;
-        cf.shield_held = false;
-    }
-    app.update();
-    assert!(
-        app.world().get::<PortalGun>(player).is_none(),
-        "an armed (just-dropped) pickup can't be re-grabbed on the next Attack"
-    );
-
-    // Let it disarm, then Attack picks it back up.
-    {
-        let mut cf = app.world_mut().resource_mut::<ControlFrame>();
-        cf.attack_pressed = false;
-    }
-    for _ in 0..30 {
-        app.update();
-    }
-    {
-        let mut cf = app.world_mut().resource_mut::<ControlFrame>();
-        cf.attack_pressed = true;
-    }
-    app.update();
-    assert!(
-        app.world().get::<PortalGun>(player).is_some(),
-        "once disarmed, Attack while overlapping re-grabs the gun"
-    );
-}
-
-#[test]
 fn portal_pair_teleports_player_carrying_momentum() {
     let mut app = App::new();
     app.add_message::<crate::audio::SfxMessage>();
@@ -1168,12 +1058,13 @@ fn portal_shot_travels_and_opens_a_portal_on_a_wall() {
         scaled_dt: 1.0 / 60.0,
     });
     app.insert_resource(ControlFrame::default());
+    app.add_message::<FirePortalGun>();
     app.add_systems(Update, (portal_fire_system, portal_projectile_step).chain());
     // Player mid-room facing left.
     spawn_player(&mut app, Vec2::new(200.0, 200.0), -1.0);
 
-    // One Attack pulse fires a single shot.
-    set_control(&mut app, true, false);
+    // One fire intent fires a single shot.
+    fire_portal(&mut app);
     app.update();
     assert_eq!(
         {

@@ -1,0 +1,23 @@
+//! Ambition-specific portal adapters.
+//!
+//! These modules translate Ambition game concepts (the [`ControlFrame`] input
+//! channel and the [`OwnedItems`] inventory roster) into the reusable,
+//! content-agnostic portal intent/outcome messages exposed by
+//! [`crate::portal`]. The reusable portal mechanic never imports Ambition input
+//! or inventory types; this boundary owns that glue.
+//!
+//! [`ControlFrame`]: crate::input::ControlFrame
+//! [`OwnedItems`]: crate::items::OwnedItems
+//!
+//! This is the first slice of the `ambition_content` boundary (Stage 9 / Task H);
+//! Stage 11 / Task J expands it to the rest of the named Ambition content.
+
+mod input_adapter;
+mod inventory_adapter;
+mod plugin;
+
+pub use input_adapter::{pick_aim, portal_input_adapter_system};
+pub use inventory_adapter::{
+    drop_portal_gun_system, equip_portal_gun, pickup_portal_gun_system, unequip_portal_gun,
+};
+pub use plugin::AmbitionPortalAdaptersPlugin;

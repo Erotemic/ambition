@@ -75,6 +75,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     register_player_input_systems(app);
     register_player_simulation_systems(app);
     app.add_plugins(crate::portal::PortalPlugin);
+    app.add_plugins(crate::ambition_content::portal::AmbitionPortalAdaptersPlugin);
     app.add_plugins(crate::item_pickup::ItemPickupSimulationPlugin);
     register_room_transition_systems(app);
     app.add_plugins(super::combat_schedule::CombatSchedulePlugin);

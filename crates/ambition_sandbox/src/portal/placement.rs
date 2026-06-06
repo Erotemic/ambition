@@ -7,7 +7,6 @@
 use bevy::prelude::*;
 
 use crate::engine_core::{self as ae, AabbExt};
-use crate::input::ControlFrame;
 use crate::platformer_runtime::collision::{ray_aabb, raycast_solids};
 use crate::platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
 use crate::portal_pieces as pp;
@@ -75,20 +74,6 @@ pub fn raycast_through_portals(
         }
     }
     None
-}
-
-/// Aim direction for a fired portal: right-stick aim, else movement axis,
-/// else straight ahead along facing.
-pub(crate) fn pick_aim(control: &ControlFrame, facing: f32) -> Vec2 {
-    let aim = Vec2::new(control.aim_x, control.aim_y);
-    if aim.length() > 0.2 {
-        return aim;
-    }
-    let mv = Vec2::new(control.axis_x, control.axis_y);
-    if mv.length() > 0.2 {
-        return mv;
-    }
-    Vec2::new(if facing >= 0.0 { 1.0 } else { -1.0 }, 0.0)
 }
 
 /// The render-space roll a body picks up traveling through a portal pair: the

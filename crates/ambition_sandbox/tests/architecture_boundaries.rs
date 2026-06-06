@@ -186,8 +186,8 @@ fn architecture_boundaries_platformer_runtime_crate_is_extracted() {
         "actor orientation should live in the extracted crate (Stage 16 / S5)"
     );
     // The sandbox-side modules are facades re-exporting the extracted crate.
-    let orientation_facade =
-        fs::read_to_string(sandbox_runtime.join("orientation.rs")).expect("read orientation facade");
+    let orientation_facade = fs::read_to_string(sandbox_runtime.join("orientation.rs"))
+        .expect("read orientation facade");
     assert!(
         orientation_facade.contains("ambition_platformer_runtime::orientation"),
         "sandbox orientation should re-export the extracted crate's orientation module"

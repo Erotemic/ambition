@@ -47,17 +47,25 @@ fn architecture_boundaries_platformer_runtime_stays_content_free() {
         "crate::quest",
         "crate::assets::sandbox_assets",
         "crate::music",
-        "crate::portal",
         "crate::items",
         "crate::app",
         "crate::dev",
         "crate::presentation",
     ];
+    // `crate::portal` (the portal mechanic) is forbidden, but `crate::portal_pieces`
+    // (the reusable Core portal-map math) is allowed — match the mechanic path with
+    // an explicit boundary so the prefix does not false-positive on portal_pieces.
+    let forbidden_boundary = ["crate::portal::", "crate::portal;", "crate::portal}"];
 
     let mut violations = Vec::new();
     for file in collect_rs_files(&root) {
         let text = fs::read_to_string(&file).expect("read rust source");
         for needle in forbidden {
+            if text.contains(needle) {
+                violations.push(format!("{} imports or mentions {needle}", file.display()));
+            }
+        }
+        for needle in forbidden_boundary {
             if text.contains(needle) {
                 violations.push(format!("{} imports or mentions {needle}", file.display()));
             }

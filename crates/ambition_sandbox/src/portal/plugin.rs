@@ -1,13 +1,14 @@
 use bevy::prelude::*;
 
 use super::implementation::{
-    clear_portals_on_reset, despawn_orphaned_portals, drop_portal_gun_system, ensure_actor_roll,
-    portal_fire_system, portal_projectile_step, portal_teleport_ground_items, portal_toggle_system,
+    clear_portals_on_reset, despawn_orphaned_portals, drop_portal_gun_system, portal_fire_system,
+    portal_projectile_step, portal_teleport_ground_items, portal_toggle_system,
     portal_transit_actors, portal_transit_system, publish_portal_carves,
     reset_gravity_on_room_reset, suppress_ledge_grab_during_transit, tick_portal_cooldowns,
-    update_actor_roll, warp_portal_input, IntentionalTeleport, SuppressWallAbilitiesInPortal,
+    warp_portal_input, IntentionalTeleport, SuppressWallAbilitiesInPortal,
 };
 use super::schedule::PortalSet;
+use crate::platformer_runtime::orientation::{ensure_actor_roll, update_actor_roll};
 
 /// Top-level portal mechanic plugin.
 ///

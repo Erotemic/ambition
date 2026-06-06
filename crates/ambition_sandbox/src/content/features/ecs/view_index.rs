@@ -104,7 +104,7 @@ pub fn rebuild_feature_view_index(
         Option<&super::npc_clusters::NpcStatus>,
         // Portal aerial-roll (same component the player uses) so actors
         // somersault + self-right through portals just like the player.
-        Option<&crate::portal::ActorRoll>,
+        Option<&crate::platformer_runtime::orientation::ActorRoll>,
     )>,
     hazards: Query<(&FeatureId, &FeatureAabb, &HazardFeature)>,
     bosses: Query<(

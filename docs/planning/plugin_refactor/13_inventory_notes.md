@@ -83,3 +83,20 @@ When deeper code work starts, ask:
 6. Which systems in app/plugins.rs can move behind subsystem plugins first?
 7. Which tests assume portal is always compiled?
 ```
+
+## Stage 6 follow-up: gravity-zone mechanic still in portal
+
+The ambient gravity-flip system and `GravityZoneVisual` marker still live in
+`portal/implementation.rs` (around the `reset_gravity_on_room_reset` /
+`GravityZoneVisual` region). These are a *gravity mechanic*, not a generic
+platformer helper, so Stage 6 deliberately left them in place per the
+"only move a helper if the name and API become generic" rule. Extract them to a
+dedicated gravity mechanic module (e.g. `mechanics/gravity` or
+`platformer_runtime/gravity`) in a later stage (see Stage 6 step 4 and Stage 12
+`mechanics/gravity/`), alongside `GravityZone` / `GravityField` / `BaseGravity`
+ownership.
+
+Stage 6 did extract the genuinely-generic helpers:
+`portal_transform_velocity` -> `platformer_runtime::transit::rotate_velocity_between_normals`,
+and `ActorRoll` / `ensure_actor_roll` / `update_actor_roll` ->
+`platformer_runtime::orientation` (gravity-upright reflex, no portal dependency).

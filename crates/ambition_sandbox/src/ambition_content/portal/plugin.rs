@@ -83,6 +83,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .run_if(crate::gameplay_allowed)
                 .in_set(PortalSet::InputWarp)
                 .in_set(crate::app::SandboxSet::PlayerInput)
+                .in_set(crate::input::InputSet::Populate)
                 .after(warp_portal_input)
                 .before(crate::player::sync_local_player_input_frame),
         );
@@ -213,6 +214,61 @@ mod schedule_tests {
              {consumed}. A 0.0 here means the portal intent write-back stamped a \
              stale/empty PlayerMovementIntent over the fresh ControlFrame axis \
              (the dead/sticky Move-axis regression)."
+        );
+    }
+
+    // A `ControlFrame` writer whose ONLY scheduling constraint is set
+    // membership: `InputSet::Populate`. It carries no manual ordering against
+    // the consumer, so it can only land before the consume if the structural
+    // `Populate.before(sync_local_player_input_frame)` contract holds.
+    fn populate_only_via_set(mut frame: ResMut<ControlFrame>) {
+        frame.axis_x = 0.75;
+    }
+
+    /// The general input contract: any system tagged `InputSet::Populate` is
+    /// pinned BEFORE the real gameplay consumer (`sync_local_player_input_frame`),
+    /// purely by set membership + the `configure_sandbox_sets` constraint — no
+    /// per-system `.before` anchor required. The consumer snapshots
+    /// `ControlFrame` into the player's `PlayerInputFrame`, so observing the
+    /// written axis there proves the populate ran first.
+    #[test]
+    fn input_set_populate_runs_before_the_real_consumer() {
+        use crate::player::{
+            sync_local_player_input_frame, LocalPlayer, PlayerEntity, PlayerInputFrame,
+        };
+
+        let mut app = App::new();
+        configure_sandbox_sets(&mut app);
+        app.init_resource::<ControlFrame>();
+        let player = app
+            .world_mut()
+            .spawn((PlayerEntity, LocalPlayer, PlayerInputFrame::default()))
+            .id();
+
+        app.add_systems(
+            Update,
+            populate_only_via_set.in_set(crate::input::InputSet::Populate),
+        );
+        app.add_systems(
+            Update,
+            sync_local_player_input_frame.in_set(SandboxSet::PlayerInput),
+        );
+
+        app.update();
+
+        let observed = app
+            .world()
+            .entity(player)
+            .get::<PlayerInputFrame>()
+            .expect("player has an input frame")
+            .frame
+            .axis_x;
+        assert_eq!(
+            observed, 0.75,
+            "a Populate-tagged ControlFrame writer must run before the consumer \
+             (sync_local_player_input_frame); the consumer snapshotted axis_x = \
+             {observed} instead of the populated 0.75 — InputSet::Populate is not \
+             pinned before the consume boundary."
         );
     }
 }

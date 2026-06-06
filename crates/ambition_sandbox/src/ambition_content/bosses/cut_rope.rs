@@ -20,7 +20,8 @@ use crate::engine_core::{self as ae, AabbExt};
 use crate::features::{
     ActorPose, ActorRuntime, BossClusterQueryData, BossClusterRef, BossRef, DamageableVolumes,
     EnemyActorBundle, FeatureAabb, FeatureBaseBundle, FeatureId, FeatureName, FeatureSimEntity,
-    GameplayBanner, HitEvent, HitSource, PogoPolicy, PogoTargetVolumes, ResetRoomFeaturesEvent,
+    GameplayBanner, HitEvent, HitSource, PogoPolicy, PogoTargetVolumes, PostBossNpc,
+    ResetRoomFeaturesEvent,
 };
 use crate::presentation::character_sprites::{
     build_character_sprite, feet_anchor_for, CharacterAnimator,
@@ -266,6 +267,7 @@ fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
         .spawn((
             Name::new("Post-boss NPC: Smirking Behemoth victory"),
             SmirkingBehemothVictoryNpc,
+            PostBossNpc,
             EnemyActorBundle {
                 base: FeatureBaseBundle::new(
                     CUT_ROPE_VICTORY_NPC_ID,

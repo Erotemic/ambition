@@ -15,9 +15,19 @@
 use bevy::prelude::*;
 
 pub mod banter;
+pub mod cut_rope;
 pub mod gnu_ton;
 
 pub use banter::{install_boss_banter, tick_boss_idle_barks};
+pub use cut_rope::{
+    emit_cut_rope_room_replay_after_dialogue_closes, is_cut_rope_boss,
+    reset_cut_rope_boss_arena_on_room_reset, reset_cut_rope_boss_attempt,
+    spawn_cut_rope_victory_npc, steer_cut_rope_boss_under_anvil,
+    sync_cut_rope_boss_arena_prop_visuals, tick_cut_rope_boss_arena, CutRopeBossArenaState,
+    CutRopeHeavyObjectCycle, CutRopeRoomReplayRequested, PendingCutRopeRoomReplay,
+    SmirkingBehemothVictoryNpc, CUT_ROPE_BOSS_ID, CUT_ROPE_VICTORY_NPC_DIALOGUE_ID,
+    CUT_ROPE_VICTORY_NPC_ID,
+};
 pub use gnu_ton::gate_gnu_ton_arena_ladder;
 
 /// Installs the default Ambition boss encounter registry resource.

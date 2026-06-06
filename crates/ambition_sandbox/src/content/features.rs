@@ -89,7 +89,8 @@ pub use components::{
     EncounterMob, EncounterRewardChest, EnemyActorBundle, FallingChest, FeatureAabb,
     FeatureBaseBundle, FeatureId, FeatureLifecycleBundle, FeatureName, FeatureRenderedBundle,
     Opened, PersistKey, PickupBundle, PickupFeature, PogoPolicy, PogoTargetContributor,
-    PogoTargetVolumes, RespawnTimer, SandboxSolidContributor, StandTimer, SwitchFeature, SwitchOn,
+    PogoTargetVolumes, PostBossNpc, RespawnTimer, SandboxSolidContributor, StandTimer,
+    SwitchFeature, SwitchOn,
 };
 pub use ecs::enemy_clusters::{
     ActorMotionPath, BodyKinematics, EnemyConfig, EnemyMut, EnemyStatus,
@@ -203,7 +204,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // `BossPatternContext` carries.
                 sync_boss_encounter_phase,
                 tick_boss_brains_system,
-                crate::boss_encounter::steer_cut_rope_boss_under_anvil,
+                crate::ambition_content::bosses::steer_cut_rope_boss_under_anvil,
                 update_ecs_bosses,
                 sync_boss_actor_components,
                 sync_actor_poses_from_feature_aabbs,

@@ -754,19 +754,21 @@ fn apply_boss_hit(
     if !boss.status.alive {
         return false;
     }
-    if crate::boss_encounter::is_cut_rope_boss(&boss.config.behavior.id)
+    if boss.config.behavior.environmental_kill_only
         && matches!(
             event.source,
             HitSource::PlayerSlash { .. } | HitSource::PlayerProjectile { .. }
         )
     {
-        // Smirking Behemoth is an environmental puzzle boss:
-        // ordinary player hits should give honest local feedback only
-        // when they overlap the body hurtbox, but they must not damage
-        // the boss. The LDtk-authored rope/anvil system owns the only
-        // kill condition. Keep this before the generic damage branch
-        // so harmless feedback cannot accidentally route through
-        // `record_boss_damage`.
+        // Environmental puzzle bosses (e.g. the Smirking Behemoth) take
+        // no HP from ordinary player hits; those should give honest local
+        // feedback only when they overlap the body hurtbox. The authored
+        // environmental rule (the rope/anvil trap in
+        // `ambition_content::bosses::cut_rope`) owns the only kill
+        // condition. This is data-driven via `environmental_kill_only`
+        // so core never names a specific boss. Keep this before the
+        // generic damage branch so harmless feedback cannot accidentally
+        // route through `record_boss_damage`.
         let damageable = crate::features::damageable_volumes(
             &crate::features::BossVolumeContext::from_ref(boss.as_ref(), attack_state)
                 .with_animation_frame(animation_frame),

@@ -45,7 +45,7 @@ pub fn spawn_dynamic_feature_visuals(
             Option<&crate::features::EnemyConfig>,
             Option<&crate::features::NpcConfig>,
         ),
-        With<crate::boss_encounter::SmirkingBehemothVictoryNpc>,
+        With<crate::features::PostBossNpc>,
     >,
     ecs_reward_chests: Query<
         (&FeatureId, &FeatureAabb, &ChestFeature),

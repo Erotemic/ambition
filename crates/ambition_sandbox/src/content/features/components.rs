@@ -840,6 +840,17 @@ impl BossRewardChest {
     }
 }
 
+/// Neutral marker for a runtime-spawned post-boss NPC.
+///
+/// Core room-reset cleanup and the presentation render-fallback both need to
+/// treat these runtime NPCs generically (despawn them on a same-room reset,
+/// give them an NPC sprite-fallback) without naming any specific boss. The
+/// bespoke per-boss content (e.g. the Smirking Behemoth victory NPC in
+/// `crate::ambition_content::bosses::cut_rope`) tags the entity with this
+/// marker so the dependency points content -> core, never the reverse.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PostBossNpc;
+
 // ── Bundles ───────────────────────────────────────────────────────────────
 //
 // Each bundle groups the components that always appear together when a feature

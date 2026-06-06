@@ -166,7 +166,7 @@ fn register_player_input_systems(app: &mut App) {
             crate::refresh_world_time,
             sync_live_player_dev_edits_system,
             apply_player_reset_input_system.run_if(gameplay_allowed),
-            crate::boss_encounter::emit_cut_rope_room_replay_after_dialogue_closes,
+            crate::ambition_content::bosses::emit_cut_rope_room_replay_after_dialogue_closes,
             apply_cut_rope_room_replay_request_system,
             input_timer_system.run_if(gameplay_allowed),
             interaction_input_system.run_if(gameplay_allowed),
@@ -280,7 +280,7 @@ fn register_room_transition_systems(app: &mut App) {
             apply_room_transition_system,
             crate::features::reset_ecs_room_features,
             crate::features::reset_ecs_npc_actors,
-            crate::boss_encounter::reset_cut_rope_boss_arena_on_room_reset,
+            crate::ambition_content::bosses::reset_cut_rope_boss_arena_on_room_reset,
             // Portal room-reset cleanup is registered by
             // `crate::portal::PortalPlugin`.
         )

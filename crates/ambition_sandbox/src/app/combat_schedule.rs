@@ -82,8 +82,8 @@ impl Plugin for CombatSchedulePlugin {
                 crate::features::apply_hitbox_damage.run_if(gameplay_allowed),
                 crate::features::tick_and_despawn_hitboxes,
                 crate::features::apply_feature_hit_events,
-                crate::boss_encounter::tick_cut_rope_boss_arena.run_if(gameplay_allowed),
-                crate::boss_encounter::sync_cut_rope_boss_arena_prop_visuals,
+                crate::ambition_content::bosses::tick_cut_rope_boss_arena.run_if(gameplay_allowed),
+                crate::ambition_content::bosses::sync_cut_rope_boss_arena_prop_visuals,
                 // Mount/rider link bookkeeping. Runs after damage so
                 // it observes the alive flag transition for either
                 // side; a dead mount releases its rider (gravity on,

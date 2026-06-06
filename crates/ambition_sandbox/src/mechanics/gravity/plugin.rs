@@ -69,7 +69,7 @@ impl Plugin for GravityPlugin {
             reset_gravity_on_room_reset
                 .in_set(GravitySet::RoomReset)
                 .in_set(crate::app::SandboxSet::RoomTransition)
-                .after(crate::boss_encounter::reset_cut_rope_boss_arena_on_room_reset),
+                .after(crate::ambition_content::bosses::reset_cut_rope_boss_arena_on_room_reset),
         );
     }
 }

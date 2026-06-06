@@ -272,7 +272,7 @@ pub fn apply_player_reset_input_system(
 /// input is suspended by dialogue, so relying on the input frame would make the
 /// reset timing depend on UI/game-mode scheduling.
 pub fn apply_cut_rope_room_replay_request_system(
-    mut replay_requests: MessageReader<crate::boss_encounter::CutRopeRoomReplayRequested>,
+    mut replay_requests: MessageReader<crate::ambition_content::bosses::CutRopeRoomReplayRequested>,
     world: Res<GameWorld>,
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
@@ -299,7 +299,7 @@ pub fn apply_cut_rope_room_replay_request_system(
     if replay_requests.read().count() == 0 {
         return;
     }
-    crate::boss_encounter::reset_cut_rope_boss_attempt(
+    crate::ambition_content::bosses::reset_cut_rope_boss_attempt(
         &mut *boss_registry,
         save.as_deref_mut(),
         boss_music.as_deref_mut(),

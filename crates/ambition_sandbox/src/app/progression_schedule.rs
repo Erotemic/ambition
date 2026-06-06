@@ -26,7 +26,7 @@ impl Plugin for ProgressionSchedulePlugin {
                 // diffs the registry phase, so it just needs to run after the
                 // boss update advances it.
                 crate::boss_encounter::boss_phase_transition_feedback,
-                crate::boss_encounter::spawn_cut_rope_victory_npc,
+                crate::ambition_content::bosses::spawn_cut_rope_victory_npc,
                 // Hides the gnu_ton arena's retreat ladder while the boss
                 // is alive, re-adds it the frame the boss dies. Runs after
                 // `update_boss_encounters` so a defeat this tick is

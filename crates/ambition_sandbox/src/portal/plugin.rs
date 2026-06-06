@@ -109,7 +109,7 @@ impl Plugin for PortalSimulationPlugin {
             clear_portals_on_reset
                 .in_set(PortalSet::RoomReset)
                 .in_set(crate::app::SandboxSet::RoomTransition)
-                .after(crate::boss_encounter::reset_cut_rope_boss_arena_on_room_reset),
+                .after(crate::ambition_content::bosses::reset_cut_rope_boss_arena_on_room_reset),
         );
 
         // Suppress ledge-grab while transiting so the carved aperture edges are

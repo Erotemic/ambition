@@ -16,7 +16,6 @@
 //! transitions; this module mirrors them onto the seldom_state `BossPhase`
 //! component, the audio request, and the save resource.
 
-mod cut_rope;
 mod damage;
 mod events;
 mod ids;
@@ -31,16 +30,6 @@ mod spec_types;
 #[cfg(test)]
 mod tests;
 
-#[allow(unused_imports)]
-pub use cut_rope::{
-    emit_cut_rope_room_replay_after_dialogue_closes, is_cut_rope_boss,
-    reset_cut_rope_boss_arena_on_room_reset, reset_cut_rope_boss_attempt,
-    spawn_cut_rope_victory_npc, steer_cut_rope_boss_under_anvil,
-    sync_cut_rope_boss_arena_prop_visuals, tick_cut_rope_boss_arena, CutRopeBossArenaState,
-    CutRopeHeavyObjectCycle, CutRopeRoomReplayRequested, PendingCutRopeRoomReplay,
-    SmirkingBehemothVictoryNpc, CUT_ROPE_BOSS_ID, CUT_ROPE_VICTORY_NPC_DIALOGUE_ID,
-    CUT_ROPE_VICTORY_NPC_ID,
-};
 #[allow(unused_imports)] // Future callers of `record_boss_damage` will name the outcome type.
 pub use damage::BossDamageOutcome;
 pub use damage::{force_boss_death, record_boss_damage};

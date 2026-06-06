@@ -375,6 +375,10 @@
     // ============================================================
     "smirking_behemoth_boss": (
         id: "smirking_behemoth_boss",
+        // Environmental puzzle boss: ordinary slashes/projectiles never
+        // damage it; the only kill condition is the LDtk-authored
+        // rope/anvil trap (see ambition_content::bosses::cut_rope).
+        environmental_kill_only: true,
         // Matches the generated Smirking Behemoth monolith body metrics:
         // x=0, y=22, w=208, h=266.  The bottom sits exactly on the sprite
         // frame floor so contact blocks morph-ball tunneling under the boss

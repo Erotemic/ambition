@@ -13,6 +13,7 @@
 //! guardrail.
 
 pub mod body;
+pub mod gravity;
 pub mod lifecycle;
 pub mod math;
 pub mod prelude;

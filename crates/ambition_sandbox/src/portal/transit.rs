@@ -165,7 +165,7 @@ pub fn portal_transit_system(
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     portals: Query<&PlacedPortal>,
-    gravity: Option<Res<crate::physics::GravityField>>,
+    gravity: Option<Res<crate::platformer_runtime::gravity::GravityField>>,
     mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
     mut teleported: MessageWriter<BodyTeleported>,
 ) {
@@ -471,7 +471,7 @@ pub fn portal_transit_actors(
         Option<&PortalTransitCooldown>,
         Option<&crate::features::BossConfig>,
     )>,
-    gravity: Option<Res<crate::physics::GravityField>>,
+    gravity: Option<Res<crate::platformer_runtime::gravity::GravityField>>,
     mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
 ) {
     let all: Vec<PlacedPortal> = portals.iter().copied().collect();

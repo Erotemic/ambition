@@ -90,7 +90,15 @@ pub fn add_simulation_plugins(app: &mut App) {
     // independent of the `portal` feature (it used to live inside portal).
     app.add_plugins(crate::mechanics::gravity::GravityPlugin);
     #[cfg(feature = "portal")]
-    app.add_plugins(crate::portal::PortalPlugin);
+    {
+        app.add_plugins(crate::portal::PortalPlugin);
+        // Wire portal's internal `PortalSet`s into the sandbox app schedule.
+        // `crate::portal` owns only its own intra-set ordering; the sandbox
+        // declares the cross-set phase placement, `.before`/`.after` edges, and
+        // `gameplay_allowed` gating here so portal can become a standalone crate
+        // without naming `SandboxSet`/app-systems/`gameplay_allowed`/etc.
+        wire_portal_schedule(app);
+    }
     // The Ambition portal adapters (AmbitionPortalAdaptersPlugin) are now
     // installed by `crate::ambition_content::AmbitionContentPlugin` above so
     // all Ambition content lives in one composer.
@@ -114,6 +122,98 @@ pub fn add_simulation_plugins(app: &mut App) {
     // also inspect affordances; the resources are cheap and the
     // compute systems no-op when no primary player exists.
     app.add_plugins(crate::player::affordances::AffordancesPlugin);
+}
+
+/// Place portal's internal [`crate::portal::PortalSet`] variants into the
+/// sandbox app schedule.
+///
+/// `crate::portal::PortalPlugin` registers each portal system `.in_set(PortalSet::X)`
+/// with only PORTAL-INTERNAL ordering (edges between portal's own sets). This
+/// function — the sandbox side of the seam — declares everything that ties
+/// portal to the host app schedule:
+///   * which `SandboxSet` phase each `PortalSet` runs in,
+///   * the cross-set `.before`/`.after` edges against concrete sandbox systems
+///     (`interaction_input_system`, `sync_local_player_input_frame`,
+///     `player_simulation_system`, `collect_gravity_zones`) and sets
+///     (`ItemPickupSet::CoreHeldItems`, `reset_cut_rope_boss_arena_on_room_reset`,
+///     `SandboxSet::CoreSimulation`),
+///   * the `gameplay_allowed` run condition.
+///
+/// These are EXACTLY the edges `portal/plugin.rs` used to bake; moving where they
+/// are declared does not change the resulting execution order.
+#[cfg(feature = "portal")]
+fn wire_portal_schedule(app: &mut App) {
+    use crate::portal::PortalSet;
+
+    // Carves: published with the same early-world snapshot cadence as the
+    // gravity-zone snapshot — after `collect_gravity_zones`, before
+    // `CoreSimulation` (byte-identical to the pre-extraction
+    // `oscillate → collect → carves` chain).
+    app.configure_sets(
+        Update,
+        PortalSet::Carves
+            .after(crate::physics::collect_gravity_zones)
+            .before(SandboxSet::CoreSimulation),
+    );
+
+    // InputWarp: input rewrite in the player-input phase, after interaction
+    // input and before the player input frame is synced (the Move-axis-fix
+    // window), gated to gameplay.
+    app.configure_sets(
+        Update,
+        PortalSet::InputWarp
+            .in_set(SandboxSet::PlayerInput)
+            .after(crate::app::interaction_input_system)
+            .before(crate::player::sync_local_player_input_frame)
+            .run_if(crate::gameplay_allowed),
+    );
+
+    // WeaponAndProjectiles: gameplay-gated weapon/projectile systems in the
+    // player-simulation phase. WeaponMaintenance (orphan cleanup + roll
+    // readiness) runs in the same phase but stays UNGATED, matching the
+    // pre-extraction per-system gating; portal already chains it after
+    // WeaponAndProjectiles.
+    app.configure_sets(
+        Update,
+        PortalSet::WeaponAndProjectiles
+            .in_set(SandboxSet::PlayerSimulation)
+            .run_if(crate::gameplay_allowed),
+    );
+    app.configure_sets(
+        Update,
+        PortalSet::WeaponMaintenance.in_set(SandboxSet::PlayerSimulation),
+    );
+
+    // RoomReset: reset-time portal cleanup in the room-transition phase, after
+    // the cut-rope boss arena reset.
+    app.configure_sets(
+        Update,
+        PortalSet::RoomReset
+            .in_set(SandboxSet::RoomTransition)
+            .after(crate::ambition_content::bosses::reset_cut_rope_boss_arena_on_room_reset),
+    );
+
+    // TransitGuards: suppress ledge-grab while transiting, before player
+    // simulation integrates movement, gated to gameplay.
+    app.configure_sets(
+        Update,
+        PortalSet::TransitGuards
+            .in_set(SandboxSet::PlayerSimulation)
+            .before(crate::app::player_simulation_system)
+            .run_if(crate::gameplay_allowed),
+    );
+
+    // Transit: teleports run after player + ground-item integration so this
+    // frame's integrated body positions are what cross the portal, gated to
+    // gameplay.
+    app.configure_sets(
+        Update,
+        PortalSet::Transit
+            .in_set(SandboxSet::PlayerSimulation)
+            .after(crate::app::player_simulation_system)
+            .after(crate::item_pickup::ItemPickupSet::CoreHeldItems)
+            .run_if(crate::gameplay_allowed),
+    );
 }
 
 // Core simulation, split into 6 finer-grained sub-sets that are

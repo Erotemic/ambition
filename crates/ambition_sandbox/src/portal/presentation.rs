@@ -93,7 +93,7 @@ pub fn sync_portal_body_pieces(
     world: Res<GameWorld>,
     pieces: Query<Entity, With<PortalBodyPiece>>,
     portals: Query<&PlacedPortal>,
-    gravity: Option<Res<crate::physics::GravityField>>,
+    gravity: Option<Res<crate::platformer_runtime::gravity::GravityField>>,
     mut player: Query<
         (
             &BodyKinematics,

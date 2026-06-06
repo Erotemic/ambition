@@ -168,8 +168,8 @@ fn architecture_boundaries_platformer_runtime_crate_is_extracted() {
     );
     let facade = fs::read_to_string(sandbox_runtime.join("mod.rs")).expect("read facade mod.rs");
     assert!(
-        facade.contains("ambition_platformer_runtime::{lifecycle, math, schedule, transit}"),
-        "sandbox platformer_runtime facade should re-export the extracted crate's lifecycle + math + schedule + transit"
+        facade.contains("ambition_platformer_runtime::{gravity, lifecycle, math, schedule, transit}"),
+        "sandbox platformer_runtime facade should re-export the extracted crate's gravity + lifecycle + math + schedule + transit"
     );
 
     // (d) Stage 16 extracted the rest of the generic ECS runtime layer:
@@ -380,15 +380,34 @@ fn architecture_boundaries_non_portal_mechanics_use_runtime_raycast_seam() {
 
 #[test]
 fn architecture_boundaries_portal_orders_against_item_set_not_function() {
-    let text = fs::read_to_string(crate_src().join("portal/plugin.rs"))
+    // Phase 2b (ADR 0019): the cross-set edges that tie portal to the host app
+    // schedule moved OUT of portal/plugin.rs and INTO the sandbox wiring fn
+    // `wire_portal_schedule` (crate::app::plugins) so `crate::portal` can become
+    // a standalone crate. The portal plugin must no longer name the item set at
+    // all; the sandbox declares the CoreHeldItems ordering for PortalSet::Transit.
+    let portal_text = fs::read_to_string(crate_src().join("portal/plugin.rs"))
         .expect("read portal plugin source");
+    let names_item_set_in_code = portal_text.lines().any(|raw| {
+        let line = raw.trim();
+        if line.starts_with("//") || line.starts_with("/*") || line.starts_with('*') {
+            return false;
+        }
+        line.contains("crate::item_pickup")
+    });
     assert!(
-        !text.contains("after(crate::item_pickup::ground_item_physics)"),
-        "portal should order against crate::item_pickup::ItemPickupSet, not the concrete ground_item_physics function"
+        !names_item_set_in_code,
+        "portal/plugin.rs must not name the item subsystem in code; the host wires PortalSet::Transit against ItemPickupSet"
+    );
+
+    let wiring = fs::read_to_string(crate_src().join("app/plugins.rs"))
+        .expect("read sandbox plugins source");
+    assert!(
+        !wiring.contains("after(crate::item_pickup::ground_item_physics)"),
+        "the host should order PortalSet::Transit against crate::item_pickup::ItemPickupSet, not the concrete ground_item_physics function"
     );
     assert!(
-        text.contains("crate::item_pickup::ItemPickupSet::CoreHeldItems"),
-        "portal transit should document its dependency on the held-item/ground-item simulation set"
+        wiring.contains("crate::item_pickup::ItemPickupSet::CoreHeldItems"),
+        "the sandbox portal wiring should order PortalSet::Transit on the held-item/ground-item simulation set"
     );
 }
 

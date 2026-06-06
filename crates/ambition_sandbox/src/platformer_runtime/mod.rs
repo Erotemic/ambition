@@ -19,7 +19,7 @@
 //! It moves out once gravity (`crate::physics`) is in-crate (Stage 16 / S4–S5).
 
 // Re-export the extracted crate's modules so existing paths resolve unchanged.
-pub use ambition_platformer_runtime::{lifecycle, math, schedule, transit};
+pub use ambition_platformer_runtime::{gravity, lifecycle, math, schedule, transit};
 
 // Facade modules re-exporting extracted runtime surfaces (Stage 16 / S1–S2).
 pub mod body;

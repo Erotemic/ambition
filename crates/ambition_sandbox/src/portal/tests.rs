@@ -6,7 +6,7 @@ use bevy::prelude::*;
 use crate::brain::ActionSet;
 use crate::engine_core::{self as ae};
 use crate::input::ControlFrame;
-use crate::physics::{gravity_upright_angle, GravityField};
+use crate::platformer_runtime::gravity::{gravity_upright_angle, GravityField};
 use crate::platformer_runtime::orientation::{update_actor_roll, ActorRoll};
 use crate::platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
 use crate::player::{BodyKinematics, PlayerBaseSize, PlayerEntity, PrimaryPlayer};

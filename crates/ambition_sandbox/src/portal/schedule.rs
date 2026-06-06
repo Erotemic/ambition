@@ -16,8 +16,14 @@ pub enum PortalSet {
     /// before the weapon/projectile consumers so the intents are visible the
     /// same frame.
     InputAdapter,
-    /// Fire, toggle, projectile, and ownership maintenance systems.
+    /// Fire, toggle, and projectile systems (gameplay-gated by the host).
     WeaponAndProjectiles,
+    /// Ownership maintenance that must run even when gameplay is not allowed
+    /// (orphan-portal cleanup + aerial-roll readiness). Chained after
+    /// [`PortalSet::WeaponAndProjectiles`]; the host does NOT gate this set,
+    /// preserving the pre-extraction behavior where `despawn_orphaned_portals`
+    /// and `ensure_actor_roll` ran unconditionally inside `PlayerSimulation`.
+    WeaponMaintenance,
     /// Reset-time portal and gravity cleanup.
     RoomReset,
     /// Temporary ability suppression while crossing a portal aperture.

@@ -10,30 +10,32 @@ should assert that every module remaining under
 ## Entries
 
 ```text
-collision.rs
-  current blocker:    sandbox-side `impl SolidWorldQuery for engine_core::World`
-                      (raycast itself is now generic; only the adapter names the world)
-  done (M2):          `raycast_solids` is generic over `SolidWorldQuery`, a 1-method
-                      trait (`for_each_solid_aabb(include_one_way, &mut visit)`) that
-                      yields only the hittable AABBs. Its signature no longer mentions
-                      `engine_core`; `ray_aabb` only uses `ae::Aabb` (= `Aabb2d`, a Bevy
-                      type). So the trait + both fns are extraction-ready as-is.
-  extraction cond.:   move trait + raycast_solids + ray_aabb to the runtime crate;
-                      leave the `impl SolidWorldQuery for engine_core::World` adapter
-                      sandbox-side (the only remaining tie to the concrete world).
-  destination:        ambition_platformer_runtime::world_query
-  stage:              M2
-
-orientation.rs
-  current blockers:   crate::physics::{gravity_upright_angle,GravityCtx},
-                      crate::player::{PlayerEntity,PlayerKinematics,PrimaryPlayer},
-                      crate::features::{ActorKinematics,BossKinematics}, crate::WorldTime
-  extraction cond.:   a generic body position/velocity/facing interface (Body2d family)
-                      so roll easing reads body components, not concrete player/actor/boss
-                      kinematics; gravity-upright math takes a plain gravity dir
-  destination:        ambition_platformer_runtime::orientation
-  stage:              M3
+(none — the proto-runtime remainder is fully extracted as of Stage 16.)
 ```
+
+Stage 16 (done): the generic ECS runtime layer moved into the crate, so there is
+no not-yet-extracted remainder left under `platformer_runtime/` — every module
+there is a facade/adapter:
+- `world_query` (S1): `SolidWorldQuery` + `raycast_solids` + `ray_aabb` moved to
+  `ambition_platformer_runtime::world_query`. The `impl SolidWorldQuery for
+  engine_core::World` adapter moved with them (the orphan rule precludes keeping
+  it sandbox-side once the trait is foreign; both the trait and `World`/`BlockKind`
+  are content-free foundation types, so the adapter stays sandbox-free).
+- `body` (S2): the unified `BodyKinematics` re-export moved to
+  `ambition_platformer_runtime::body`, which also defines the neutral `PrimaryBody`
+  marker (the sandbox adds it to the player bundle).
+- gravity (S3–S4): `crate::physics` decoupled from `crate::WorldTime` (→ the
+  neutral `SimDt` resource the sandbox mirrors from `WorldTime.sim_dt()`) and from
+  the player markers (→ `PrimaryBody`), then moved to
+  `ambition_platformer_runtime::gravity`; `crate::physics` is now a glob facade.
+  The gravity *mechanic* (`GravityFlipSwitch` + switch system, room-reset reset,
+  `GravityPlugin`, zone/switch visuals) stays sandbox-side in
+  `crate::mechanics::gravity` (sandbox content deps) and consumes the moved core
+  types via the facade — no duplicate gravity state.
+- `orientation` (S5): `ActorRoll` + `ensure_actor_roll`/`update_actor_roll` moved to
+  `ambition_platformer_runtime::orientation`; with gravity in-crate, scaled dt via
+  `SimDt`, and the unified `BodyKinematics`, the dual player/actor query arms
+  collapsed to a single `With<BodyKinematics>` query.
 
 Stage M1 (done): the pure portal-map vector math (`portal_rotation`, `rotate`,
 `portal_tangent`, `portal_map_vec`) moved to `ambition_platformer_runtime::math`;

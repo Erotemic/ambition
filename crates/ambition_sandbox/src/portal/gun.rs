@@ -1,14 +1,15 @@
-//! The player-held [`PortalGun`]: active/next-color state, equip/unequip, the
-//! color toggle, and the dev on/off switch.
+//! The player-held [`PortalGun`]: active/next-color state and the color toggle.
+//!
+//! The Ambition equip/unequip glue (action-set stashing for the inventory menu)
+//! lives in `crate::ambition_content::portal::inventory_adapter`; core keeps only
+//! the gun component and the message-driven color toggle.
 
 use bevy::prelude::*;
 
-use crate::brain::ActionSet;
-use crate::input::ControlFrame;
-use crate::item_pickup::StashedActionSet;
 use crate::player::{PlayerEntity, PrimaryPlayer};
 
 use super::color::PortalColor;
+use super::messages::TogglePortalGun;
 
 /// Player-held portal gun state.
 #[derive(Component, Clone, Copy, Debug)]
@@ -29,50 +30,15 @@ impl Default for PortalGun {
     }
 }
 
-/// Equip the portal gun onto the player from a non-pickup source (the inventory
-/// menu): stash the action set, attach an active [`PortalGun`], and clear the
-/// melee swing so `Attack` fires portals (the same replacement the world pickup
-/// does). Mirrors [`super::pickup::pickup_portal_gun_system`] minus the ground entity.
-pub fn equip_portal_gun(commands: &mut Commands, player: Entity, action_set: &mut ActionSet) {
-    commands
-        .entity(player)
-        .insert(StashedActionSet(action_set.clone()));
-    commands.entity(player).insert(PortalGun {
-        active: true,
-        ..PortalGun::default()
-    });
-    action_set.melee = None;
-}
-
-/// Detach the portal gun and restore the stashed action set (inventory unequip).
-pub fn unequip_portal_gun(
-    commands: &mut Commands,
-    player: Entity,
-    action_set: &mut ActionSet,
-    stashed: Option<&StashedActionSet>,
-) {
-    if let Some(stash) = stashed {
-        *action_set = stash.0.clone();
-    }
-    commands.entity(player).remove::<PortalGun>();
-    commands.entity(player).remove::<StashedActionSet>();
-}
-
-/// `Interact` toggles which color the next `Attack` will place.
+/// Flip which color the next shot will place, on a [`TogglePortalGun`] intent.
+/// The adapter decides *whether* a press is a portal toggle (vs. a door / NPC
+/// interaction); core just applies the flip.
 pub fn portal_toggle_system(
-    control: Res<ControlFrame>,
+    mut toggles: MessageReader<TogglePortalGun>,
     mut players: Query<&mut PortalGun, (With<PlayerEntity>, With<PrimaryPlayer>)>,
-    nearest: Option<Res<crate::player::affordances::NearestInteractable>>,
 ) {
-    if !control.interact_pressed {
+    if toggles.read().next().is_none() {
         return;
-    }
-    // A genuine interactable (door / NPC / switch) claims the Interact press,
-    // matching the HUD label — only toggle portal mode when there's none.
-    if let Some(nearest) = nearest.as_deref() {
-        if !matches!(nearest.0, crate::player::affordances::InteractVariant::None) {
-            return;
-        }
     }
     let Ok(mut gun) = players.single_mut() else {
         return;
@@ -85,7 +51,8 @@ pub fn portal_toggle_system(
 /// Dev off-switch: `F7` toggles the portal gun active/inactive so the
 /// always-on slice gun doesn't fire portals on every Attack while testing
 /// other sandbox mechanics. (Visible build only.) Final gating is via
-/// held-item equip; this is a developer convenience until then.
+/// held-item equip; this is a developer convenience until then. Reads generic
+/// Bevy keyboard input, not Ambition content, so it stays in core.
 pub fn portal_dev_toggle_system(keys: Res<ButtonInput<KeyCode>>, mut guns: Query<&mut PortalGun>) {
     if !keys.just_pressed(KeyCode::F7) {
         return;

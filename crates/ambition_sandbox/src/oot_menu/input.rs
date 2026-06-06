@@ -172,7 +172,11 @@ pub(crate) fn apply_menu_action(
                     commands.entity(player).remove::<crate::portal::PortalGun>();
                 }
                 if is_portal_gun {
-                    crate::portal::equip_portal_gun(commands, player, &mut action_set);
+                    crate::ambition_content::portal::equip_portal_gun(
+                        commands,
+                        player,
+                        &mut action_set,
+                    );
                 } else if let Some(spec) = held_spec {
                     equip_held_spec(commands, player, &mut action_set, spec);
                 }

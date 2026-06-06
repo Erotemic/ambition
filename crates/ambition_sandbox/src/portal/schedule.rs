@@ -11,6 +11,10 @@ pub enum PortalSet {
     GravityAndCarves,
     /// Input rewrites that happen before the player input frame is synced.
     InputWarp,
+    /// Ambition input → portal intent translation (the content adapter), run
+    /// before the weapon/projectile consumers so the intents are visible the
+    /// same frame.
+    InputAdapter,
     /// Fire, toggle, projectile, and ownership maintenance systems.
     WeaponAndProjectiles,
     /// Reset-time portal and gravity cleanup.

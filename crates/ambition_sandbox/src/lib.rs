@@ -22,6 +22,7 @@
 // can tell us what's actually depended on from outside.
 pub mod actor;
 pub mod actor_control;
+pub mod ambition_content;
 pub mod app;
 pub mod audio;
 pub mod character_ai;

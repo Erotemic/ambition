@@ -26,6 +26,7 @@
 mod color;
 mod gun;
 mod lifecycle;
+mod messages;
 mod pickup;
 mod placement;
 mod plugin;
@@ -43,16 +44,15 @@ pub use crate::platformer_runtime::orientation::{ensure_actor_roll, update_actor
 pub use crate::platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
 
 pub use color::PortalColor;
-pub use gun::{
-    equip_portal_gun, portal_dev_toggle_system, portal_toggle_system, unequip_portal_gun, PortalGun,
-};
+pub use gun::{portal_dev_toggle_system, portal_toggle_system, PortalGun};
 pub use lifecycle::{
     clear_portals_on_reset, despawn_orphaned_portals, gravity_flip_switch_system,
     reset_gravity_on_room_reset, GravityFlipSwitch,
 };
-pub use pickup::{
-    arm_portal_pickups, drop_portal_gun_system, pickup_portal_gun_system, PortalGunPickup,
+pub use messages::{
+    DropPortalGun, FirePortalGun, PickUpPortalGun, PortalGunEquipped, TogglePortalGun,
 };
+pub use pickup::{arm_portal_pickups, PortalGunPickup};
 pub use placement::{
     portal_facing_flips, portal_fits, portal_transit_roll, raycast_through_portals,
     somersault_roll, transit_step, TransitStep,

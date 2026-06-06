@@ -533,61 +533,6 @@ fn actors_get_an_aerial_roll_through_portals() {
 }
 
 #[test]
-fn gravity_switch_flips_on_entry_and_rearms_on_exit() {
-    let mut app = App::new();
-    app.add_message::<crate::audio::SfxMessage>();
-    app.init_resource::<GravityField>();
-    app.init_resource::<crate::physics::BaseGravity>();
-    app.add_systems(Update, gravity_flip_switch_system);
-    let player = spawn_player(&mut app, Vec2::new(100.0, 100.0), 1.0);
-    app.world_mut().spawn(GravityFlipSwitch {
-        pos: Vec2::new(400.0, 100.0),
-        half_extent: Vec2::new(16.0, 220.0),
-        armed: true,
-    });
-
-    // Not overlapping → gravity stays down.
-    app.update();
-    assert!(
-        app.world().resource::<crate::physics::BaseGravity>().dir.y > 0.0,
-        "starts down"
-    );
-
-    // Step onto the switch → flips up.
-    app.world_mut()
-        .get_mut::<PlayerKinematics>(player)
-        .unwrap()
-        .pos = Vec2::new(400.0, 100.0);
-    app.update();
-    assert!(
-        app.world().resource::<crate::physics::BaseGravity>().dir.y < 0.0,
-        "stepping on the switch flips ambient gravity up"
-    );
-    // Staying on it does not re-flip (latched).
-    app.update();
-    assert!(
-        app.world().resource::<crate::physics::BaseGravity>().dir.y < 0.0,
-        "stays flipped while on it"
-    );
-
-    // Leave, then re-enter → flips back down.
-    app.world_mut()
-        .get_mut::<PlayerKinematics>(player)
-        .unwrap()
-        .pos = Vec2::new(100.0, 100.0);
-    app.update();
-    app.world_mut()
-        .get_mut::<PlayerKinematics>(player)
-        .unwrap()
-        .pos = Vec2::new(400.0, 100.0);
-    app.update();
-    assert!(
-        app.world().resource::<crate::physics::BaseGravity>().dir.y > 0.0,
-        "re-entering flips ambient gravity back down"
-    );
-}
-
-#[test]
 fn portal_pair_teleports_player_carrying_momentum() {
     let mut app = App::new();
     app.add_message::<crate::audio::SfxMessage>();

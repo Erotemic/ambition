@@ -17,7 +17,7 @@
 //!   decision machine.
 //! - [`transit`] — player/actor/item transit systems plus the carve / input
 //!   guards.
-//! - [`lifecycle`] — orphan cleanup, room-reset, and the gravity-flip switch.
+//! - [`lifecycle`] — portal orphan cleanup and room-reset portal clearing.
 //! - [`presentation`] — visible-build visual sync (registered by the
 //!   presentation plugin).
 //!
@@ -46,10 +46,7 @@ pub use crate::platformer_runtime::transit::rotate_velocity_between_normals as p
 
 pub use color::{PortalChannel, PortalChannelColor, PortalGunColor};
 pub use gun::{portal_dev_toggle_system, portal_toggle_system, PortalGun};
-pub use lifecycle::{
-    clear_portals_on_reset, despawn_orphaned_portals, gravity_flip_switch_system,
-    reset_gravity_on_room_reset, GravityFlipSwitch,
-};
+pub use lifecycle::{clear_portals_on_reset, despawn_orphaned_portals};
 pub use messages::{
     DropPortalGun, FirePortalGun, PickUpPortalGun, PortalGunEquipped, TogglePortalGun,
 };
@@ -59,10 +56,9 @@ pub use placement::{
     somersault_roll, transit_step, TransitStep,
 };
 pub use presentation::{
-    load_portal_gun_art, sync_gravity_switch_visual, sync_gravity_zone_visual,
-    sync_portal_body_pieces, sync_portal_disorientation_indicator, sync_portal_mode_indicator,
-    sync_portal_visuals, GravitySwitchVisual, GravityZoneVisual, PortalBodyPiece,
-    PortalDisorientIndicator, PortalGunArt, PortalModeIndicator, PortalVisual,
+    load_portal_gun_art, sync_portal_body_pieces, sync_portal_disorientation_indicator,
+    sync_portal_mode_indicator, sync_portal_visuals, PortalBodyPiece, PortalDisorientIndicator,
+    PortalGunArt, PortalModeIndicator, PortalVisual,
 };
 pub use shot::{portal_fire_system, portal_projectile_step, PortalShot};
 pub use transit::{

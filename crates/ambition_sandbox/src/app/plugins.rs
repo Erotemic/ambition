@@ -84,6 +84,11 @@ pub fn add_simulation_plugins(app: &mut App) {
     app.add_plugins(crate::brain::BrainPlugin);
     register_player_input_systems(app);
     register_player_simulation_systems(app);
+    // Gravity-zone mechanic (Stage 6 follow-up): the gravity zones / switches
+    // that flip ambient gravity + their per-frame snapshot. Owns its own
+    // resources + scheduling; installed alongside the other mechanic plugins and
+    // independent of the `portal` feature (it used to live inside portal).
+    app.add_plugins(crate::mechanics::gravity::GravityPlugin);
     #[cfg(feature = "portal")]
     app.add_plugins(crate::portal::PortalPlugin);
     // The Ambition portal adapters (AmbitionPortalAdaptersPlugin) are now

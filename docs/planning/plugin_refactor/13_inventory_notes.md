@@ -84,17 +84,27 @@ When deeper code work starts, ask:
 7. Which tests assume portal is always compiled?
 ```
 
-## Stage 6 follow-up: gravity-zone mechanic still in portal
+## Stage 6 follow-up: gravity-zone mechanic still in portal — DONE
 
-The ambient gravity-flip system and `GravityZoneVisual` marker still live in
-`portal/implementation.rs` (around the `reset_gravity_on_room_reset` /
-`GravityZoneVisual` region). These are a *gravity mechanic*, not a generic
-platformer helper, so Stage 6 deliberately left them in place per the
-"only move a helper if the name and API become generic" rule. Extract them to a
-dedicated gravity mechanic module (e.g. `mechanics/gravity` or
-`platformer_runtime/gravity`) in a later stage (see Stage 6 step 4 and Stage 12
-`mechanics/gravity/`), alongside `GravityZone` / `GravityField` / `BaseGravity`
-ownership.
+The ambient gravity-flip system, `GravityFlipSwitch`, the room-reset gravity
+reset, and the `GravityZoneVisual` / `GravitySwitchVisual` markers + their sync
+systems were extracted out of `crate::portal` into a dedicated
+`crate::mechanics::gravity` module (bootstrapping the Stage 12 `src/mechanics/`
+layout). The mechanic now owns its registration via `GravityPlugin` (installed
+from `app/plugins.rs::add_simulation_plugins` alongside the other mechanic
+plugins, independent of the `portal` feature): it inits the shared gravity
+resources, runs the `oscillate_gravity_zones → collect_gravity_zones` snapshot
+before `CoreSimulation`, and resets gravity on room reset. Portal's
+`publish_portal_carves` pins `.after(collect_gravity_zones)` so the combined
+ordering is byte-identical to the old `oscillate → collect → carves` chain (the
+`PortalSet::GravityAndCarves` label was renamed to `PortalSet::Carves`). The
+gravity module imports only physics + player kinematics + bevy — never
+`crate::portal` — and a new guardrail
+(`architecture_boundaries_gravity_zone_mechanic_left_portal`) enforces both
+directions. `GravityZone` / `GravityField` / `BaseGravity` deliberately STAY in
+`crate::physics` (read widely); only the zone/switch *mechanic* moved. Behavior
+unchanged: replay fixtures replay with zero divergence (none regenerated), and
+`gravity_room_reachability` / `scripted_gameplay` stay green.
 
 Stage 6 did extract the genuinely-generic helpers:
 `portal_transform_velocity` -> `platformer_runtime::transit::rotate_velocity_between_normals`,

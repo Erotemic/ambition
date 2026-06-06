@@ -7,9 +7,8 @@ use super::schedule::PortalSet;
 use super::{
     clear_portals_on_reset, despawn_orphaned_portals, portal_fire_system, portal_projectile_step,
     portal_teleport_ground_items, portal_toggle_system, portal_transit_actors,
-    portal_transit_system, publish_portal_carves, reset_gravity_on_room_reset,
-    suppress_ledge_grab_during_transit, tick_portal_cooldowns, warp_portal_input, BodyTeleported,
-    SuppressWallAbilitiesInPortal,
+    portal_transit_system, publish_portal_carves, suppress_ledge_grab_during_transit,
+    tick_portal_cooldowns, warp_portal_input, BodyTeleported, SuppressWallAbilitiesInPortal,
 };
 use crate::platformer_runtime::orientation::{ensure_actor_roll, update_actor_roll};
 
@@ -45,22 +44,18 @@ impl Plugin for PortalSimulationPlugin {
         app.add_message::<PickUpPortalGun>();
         app.add_message::<PortalGunEquipped>();
         app.init_resource::<SuppressWallAbilitiesInPortal>();
-        app.init_resource::<crate::physics::GravityField>();
-        app.init_resource::<crate::physics::BaseGravity>();
-        app.init_resource::<crate::physics::GravityZones>();
 
-        // Snapshot all gravity zones once per frame BEFORE actor integrators read
-        // them, so every body can resolve local gravity by position. PlacedPortal carves
-        // are published with the same early-world snapshot cadence.
+        // PlacedPortal carves are published with the same early-world snapshot
+        // cadence as the gravity-zone snapshot: the gravity mechanic
+        // (`crate::mechanics::gravity::GravityPlugin`) runs `oscillate_gravity_zones`
+        // then `collect_gravity_zones` before `CoreSimulation`; carve publishing
+        // pins itself `.after(collect_gravity_zones)` so the combined ordering is
+        // byte-identical to the pre-extraction `oscillate → collect → carves` chain.
         app.add_systems(
             Update,
-            (
-                crate::physics::oscillate_gravity_zones,
-                crate::physics::collect_gravity_zones,
-                publish_portal_carves,
-            )
-                .chain()
-                .in_set(PortalSet::GravityAndCarves)
+            publish_portal_carves
+                .after(crate::physics::collect_gravity_zones)
+                .in_set(PortalSet::Carves)
                 .before(crate::app::SandboxSet::CoreSimulation),
         );
 
@@ -101,8 +96,7 @@ impl Plugin for PortalSimulationPlugin {
 
         app.add_systems(
             Update,
-            (clear_portals_on_reset, reset_gravity_on_room_reset)
-                .chain()
+            clear_portals_on_reset
                 .in_set(PortalSet::RoomReset)
                 .in_set(crate::app::SandboxSet::RoomTransition)
                 .after(crate::boss_encounter::reset_cut_rope_boss_arena_on_room_reset),

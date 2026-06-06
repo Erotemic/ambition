@@ -132,8 +132,9 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     crate::portal::sync_portal_disorientation_indicator.after(actors::sync_visuals),
                     crate::portal::sync_portal_mode_indicator.after(actors::sync_visuals),
                     crate::portal::portal_dev_toggle_system,
-                    crate::portal::sync_gravity_switch_visual.after(actors::sync_visuals),
-                    crate::portal::sync_gravity_zone_visual.after(actors::sync_visuals),
+                    crate::mechanics::gravity::sync_gravity_switch_visual
+                        .after(actors::sync_visuals),
+                    crate::mechanics::gravity::sync_gravity_zone_visual.after(actors::sync_visuals),
                 ),
             );
     }

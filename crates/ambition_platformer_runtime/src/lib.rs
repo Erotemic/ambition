@@ -16,6 +16,7 @@ pub mod body;
 pub mod gravity;
 pub mod lifecycle;
 pub mod math;
+pub mod orientation;
 pub mod prelude;
 pub mod schedule;
 pub mod time;

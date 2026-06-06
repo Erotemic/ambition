@@ -172,23 +172,31 @@ fn architecture_boundaries_platformer_runtime_crate_is_extracted() {
         "sandbox platformer_runtime facade should re-export the extracted crate's lifecycle + math + schedule + transit"
     );
 
-    // (d) The still-local remainder stays in the sandbox because it is not
-    //     import-clean; document the blocking dependency for each. (collision
-    //     was extracted in Stage 16 / S1; orientation follows once gravity
-    //     moves in S4–S5.)
-    for (rel, blocking_dep) in [("orientation.rs", "crate::physics")] {
-        let path = sandbox_runtime.join(rel);
-        assert!(
-            path.exists(),
-            "{rel} stays in the sandbox facade until its sandbox coupling is decoupled"
-        );
-        let text = fs::read_to_string(&path).expect("read remainder module");
-        assert!(
-            text.contains(blocking_dep),
-            "{rel} is documented as not-yet-extracted because it depends on {blocking_dep}; \
-if that dependency is gone, extract it into ambition_platformer_runtime and update this guardrail"
-        );
-    }
+    // (d) Stage 16 extracted the rest of the generic ECS runtime layer:
+    //     gravity (S4) and orientation (S5) now live in the crate, so
+    //     `crate::physics` and `crate::platformer_runtime::orientation` are
+    //     facades. There is no not-yet-extracted remainder left under
+    //     `platformer_runtime/` — every module there is a facade or adapter.
+    assert!(
+        crate_root.join("src/gravity.rs").exists(),
+        "the gravity runtime should live in the extracted crate (Stage 16 / S4)"
+    );
+    assert!(
+        crate_root.join("src/orientation.rs").exists(),
+        "actor orientation should live in the extracted crate (Stage 16 / S5)"
+    );
+    // The sandbox-side modules are facades re-exporting the extracted crate.
+    let orientation_facade =
+        fs::read_to_string(sandbox_runtime.join("orientation.rs")).expect("read orientation facade");
+    assert!(
+        orientation_facade.contains("ambition_platformer_runtime::orientation"),
+        "sandbox orientation should re-export the extracted crate's orientation module"
+    );
+    let physics_facade = fs::read_to_string(crate_src().join("physics.rs")).expect("read physics");
+    assert!(
+        physics_facade.contains("ambition_platformer_runtime::gravity"),
+        "crate::physics should be a facade re-exporting the extracted crate's gravity module"
+    );
 }
 
 fn raw_commands_spawn_count(text: &str) -> usize {

@@ -665,7 +665,10 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     )
     // Idle barks fire on a 5-10s cadence while the boss is in an
     // attacking phase, so the scholar feels alive between strikes.
-    .add_systems(Update, crate::boss_encounter::tick_boss_idle_barks)
+    .add_systems(
+        Update,
+        crate::ambition_content::bosses::tick_boss_idle_barks,
+    )
     // Portal presentation: read GatePortalRegistry.phase + apply
     // visibility / animation row / ring-spin to the matching
     // FeatureName-tagged sprites + hide the redundant debug

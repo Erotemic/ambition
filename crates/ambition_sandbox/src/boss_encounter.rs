@@ -16,11 +16,9 @@
 //! transitions; this module mirrors them onto the seldom_state `BossPhase`
 //! component, the audio request, and the save resource.
 
-pub(crate) mod banter;
 mod cut_rope;
 mod damage;
 mod events;
-mod gnu_ton;
 mod ids;
 mod profile;
 mod registry;
@@ -33,7 +31,6 @@ mod spec_types;
 #[cfg(test)]
 mod tests;
 
-pub use banter::{install_boss_banter, tick_boss_idle_barks};
 #[allow(unused_imports)]
 pub use cut_rope::{
     emit_cut_rope_room_replay_after_dialogue_closes, is_cut_rope_boss,
@@ -47,7 +44,6 @@ pub use cut_rope::{
 #[allow(unused_imports)] // Future callers of `record_boss_damage` will name the outcome type.
 pub use damage::BossDamageOutcome;
 pub use damage::{force_boss_death, record_boss_damage};
-pub use gnu_ton::gate_gnu_ton_arena_ladder;
 pub use ids::encounter_id_from_name;
 // `MOCKINGBIRD_ENCOUNTER_ID` is no longer re-exported — the dialog
 // redirect that read it moved to the data-driven

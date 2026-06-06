@@ -11,9 +11,16 @@ should assert that every module remaining under
 
 ```text
 collision.rs
-  current blocker:    crate::engine_core::World (raycast takes the concrete world)
-  extraction cond.:   raycast operates on a generic SolidWorldQuery / SolidBlock view,
-                      with a sandbox-side adapter from engine_core::World
+  current blocker:    sandbox-side `impl SolidWorldQuery for engine_core::World`
+                      (raycast itself is now generic; only the adapter names the world)
+  done (M2):          `raycast_solids` is generic over `SolidWorldQuery`, a 1-method
+                      trait (`for_each_solid_aabb(include_one_way, &mut visit)`) that
+                      yields only the hittable AABBs. Its signature no longer mentions
+                      `engine_core`; `ray_aabb` only uses `ae::Aabb` (= `Aabb2d`, a Bevy
+                      type). So the trait + both fns are extraction-ready as-is.
+  extraction cond.:   move trait + raycast_solids + ray_aabb to the runtime crate;
+                      leave the `impl SolidWorldQuery for engine_core::World` adapter
+                      sandbox-side (the only remaining tie to the concrete world).
   destination:        ambition_platformer_runtime::world_query
   stage:              M2
 

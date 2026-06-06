@@ -9,13 +9,46 @@ use bevy::prelude::*;
 
 use crate::engine_core as ae;
 
+/// The minimal world access `raycast_solids` needs: a way to visit every solid
+/// AABB the ray could hit.
+///
+/// `raycast_solids` only ever reads, per block, whether the block is hittable
+/// (given the `include_one_way` policy) and its [`ae::Aabb`]. This trait
+/// captures exactly that — the world decides which blocks count as solid; the
+/// raycast just consumes their AABBs. Keeping the surface this narrow is what
+/// lets the raycast logic be lifted out of the sandbox later: the trait + fn
+/// can move to a runtime crate while only the [`ae::World`] adapter impl below
+/// stays sandbox-side.
+pub trait SolidWorldQuery {
+    /// Invoke `visit` once for each solid AABB the ray should test.
+    ///
+    /// When `include_one_way` is true, one-way platforms are visited too;
+    /// otherwise they are skipped (blink/dive/grapple pass through them, while
+    /// portal placement adheres to them).
+    fn for_each_solid_aabb(&self, include_one_way: bool, visit: &mut dyn FnMut(ae::Aabb));
+}
+
+impl SolidWorldQuery for ae::World {
+    fn for_each_solid_aabb(&self, include_one_way: bool, visit: &mut dyn FnMut(ae::Aabb)) {
+        for block in &self.blocks {
+            let hittable = matches!(
+                block.kind,
+                ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
+            ) || (include_one_way && matches!(block.kind, ae::BlockKind::OneWay));
+            if hittable {
+                visit(block.aabb);
+            }
+        }
+    }
+}
+
 /// Nearest solid surface hit by a ray from `origin` along `dir`.
 ///
 /// Returns the hit point and the outward face normal (pointing back toward the
 /// ray). `include_one_way` is opt-in because blink/dive/grapple pathing can pass
 /// through one-way platforms, while portal placement should adhere to them.
-pub fn raycast_solids(
-    world: &ae::World,
+pub fn raycast_solids<W: SolidWorldQuery + ?Sized>(
+    world: &W,
     origin: Vec2,
     dir: Vec2,
     max_dist: f32,
@@ -27,21 +60,14 @@ pub fn raycast_solids(
     }
     let mut best_t = max_dist;
     let mut best_normal = Vec2::ZERO;
-    for block in &world.blocks {
-        let hittable = matches!(
-            block.kind,
-            ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
-        ) || (include_one_way && matches!(block.kind, ae::BlockKind::OneWay));
-        if !hittable {
-            continue;
-        }
-        if let Some((t, n)) = ray_aabb(origin, dir, block.aabb) {
+    world.for_each_solid_aabb(include_one_way, &mut |aabb| {
+        if let Some((t, n)) = ray_aabb(origin, dir, aabb) {
             if t < best_t {
                 best_t = t;
                 best_normal = n;
             }
         }
-    }
+    });
     if best_normal == Vec2::ZERO {
         None
     } else {

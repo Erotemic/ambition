@@ -154,6 +154,18 @@ fn architecture_boundaries_platformer_runtime_crate_is_extracted() {
         crate_root.join("src/transit.rs").exists(),
         "transit.rs should live in the extracted crate (Stage M1)"
     );
+    // Stage 16 / S1–S2: the generic solid-world raycast (SolidWorldQuery /
+    // raycast_solids / ray_aabb + the engine_core::World adapter) and the
+    // unified BodyKinematics re-export moved into the crate; the sandbox keeps
+    // only thin facades.
+    assert!(
+        crate_root.join("src/world_query.rs").exists(),
+        "solid-world raycast should live in the extracted crate (Stage 16 / S1)"
+    );
+    assert!(
+        crate_root.join("src/body.rs").exists(),
+        "unified BodyKinematics should live in the extracted crate (Stage 16 / S2)"
+    );
     let facade = fs::read_to_string(sandbox_runtime.join("mod.rs")).expect("read facade mod.rs");
     assert!(
         facade.contains("ambition_platformer_runtime::{lifecycle, math, schedule, transit}"),
@@ -161,11 +173,10 @@ fn architecture_boundaries_platformer_runtime_crate_is_extracted() {
     );
 
     // (d) The still-local remainder stays in the sandbox because it is not
-    //     import-clean; document the blocking dependency for each.
-    for (rel, blocking_dep) in [
-        ("collision.rs", "crate::engine_core"),
-        ("orientation.rs", "crate::physics"),
-    ] {
+    //     import-clean; document the blocking dependency for each. (collision
+    //     was extracted in Stage 16 / S1; orientation follows once gravity
+    //     moves in S4–S5.)
+    for (rel, blocking_dep) in [("orientation.rs", "crate::physics")] {
         let path = sandbox_runtime.join(rel);
         assert!(
             path.exists(),

@@ -8,19 +8,22 @@
 //! `crate::platformer_runtime::{lifecycle, schedule, math, transit}` path keeps
 //! resolving for sandbox callers.
 //!
-//! The not-yet-extracted remainder stays here because each still reaches back
-//! into the sandbox and is therefore NOT import-clean:
-//! - `collision` -> `crate::engine_core`
+//! Stage 16 moved the generic body / world-query / body-kinematics surface into
+//! the crate too: `body` and `collision` are now thin facades re-exporting
+//! `ambition_platformer_runtime::{body, world_query}`.
+//!
+//! The not-yet-extracted remainder stays here because it still reaches back into
+//! the sandbox and is therefore NOT import-clean:
 //! - `orientation` -> `crate::physics`, `crate::player`, `crate::features`, `crate::WorldTime`
 //!
-//! These move out in a later pass once a generic body/gravity/world abstraction
-//! decouples them from Ambition content.
+//! It moves out once gravity (`crate::physics`) is in-crate (Stage 16 / S4–S5).
 
 // Re-export the extracted crate's modules so existing paths resolve unchanged.
 pub use ambition_platformer_runtime::{lifecycle, math, schedule, transit};
 
-// Still-local modules: the not-yet-extracted remainder.
+// Facade modules re-exporting extracted runtime surfaces (Stage 16 / S1–S2).
 pub mod body;
 pub mod collision;
+// Still-local: the not-yet-extracted remainder (orientation, until gravity moves).
 pub mod orientation;
 pub mod prelude;

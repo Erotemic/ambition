@@ -1,14 +1,25 @@
-//! Proto-runtime module for reusable platformer systems.
+//! Proto-runtime facade for reusable platformer systems.
 //!
-//! This is intentionally still inside `ambition_sandbox` while the plugin
-//! refactor is carving stable same-crate boundaries. Code in this subtree
-//! should be written as if it were already a future `platformer_runtime` crate:
-//! no imports from Ambition content, presentation, app assembly, or devtool
-//! modules.
+//! The import-clean lifecycle vocabulary and schedule sets now live in the
+//! standalone `ambition_platformer_runtime` crate (Stage 13 / Task K of
+//! `docs/planning/plugin_refactor/14_action_plan.md`). This module re-exports
+//! them unchanged so every `crate::platformer_runtime::{lifecycle, schedule}`
+//! path keeps resolving for sandbox callers.
+//!
+//! The not-yet-extracted remainder stays here because each still reaches back
+//! into the sandbox and is therefore NOT import-clean:
+//! - `collision` -> `crate::engine_core`
+//! - `orientation` -> `crate::physics`, `crate::player`, `crate::features`, `crate::WorldTime`
+//! - `transit` -> `crate::portal_pieces`
+//!
+//! These move out in a later pass once a generic body/gravity/world abstraction
+//! decouples them from Ambition content.
 
+// Re-export the extracted crate's modules so existing paths resolve unchanged.
+pub use ambition_platformer_runtime::{lifecycle, schedule};
+
+// Still-local modules: the not-yet-extracted remainder.
 pub mod collision;
-pub mod lifecycle;
 pub mod orientation;
 pub mod prelude;
-pub mod schedule;
 pub mod transit;

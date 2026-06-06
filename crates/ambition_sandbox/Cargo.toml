@@ -297,6 +297,12 @@ parry2d = "0.26"
 # (`features.rs`) needs `SfxId` to enqueue SFX-only events generically.
 # Headless / RL builds compile it but never play through it.
 ambition_sfx = { path = "../ambition_sfx" }
+# Reusable, content-free platformer runtime primitives (lifecycle vocabulary +
+# schedule sets). First real crate extracted from the proto-runtime
+# (`crate::platformer_runtime` is now a facade over this crate plus the
+# not-yet-extracted local modules collision/orientation/transit). See
+# docs/planning/plugin_refactor/14_action_plan.md Stage 13 / Task K.
+ambition_platformer_runtime = { path = "../ambition_platformer_runtime" }
 # 3D-cube OoT inventory/pause UI (bevy_lunex). Optional: only UI builds need it,
 # gated by `oot_inventory`; runtime-toggleable vs the Bevy-UI grid (#31).
 ambition_inventory_ui = { path = "../../submodules/ambition_inventory_ui", optional = true }

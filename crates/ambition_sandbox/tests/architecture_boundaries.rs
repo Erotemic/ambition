@@ -79,6 +79,93 @@ fn architecture_boundaries_platformer_runtime_stays_content_free() {
     );
 }
 
+#[test]
+fn architecture_boundaries_platformer_runtime_crate_is_extracted() {
+    // Stage 13 / Task K: the import-clean proto-runtime seams (lifecycle
+    // vocabulary + schedule sets) were extracted into the standalone
+    // `ambition_platformer_runtime` crate, which compiles without
+    // `ambition_sandbox`. Assert (a) the crate exists and is registered, (b) it
+    // does NOT depend on the sandbox, (c) the moved modules now live in the new
+    // crate (and not in the sandbox), and (d) the still-local remainder
+    // (collision / orientation / transit) is documented as not-yet-extracted
+    // because each still reaches back into the sandbox.
+    let root = repo_root();
+    let crate_root = root.join("crates/ambition_platformer_runtime");
+
+    // (a) The crate exists with the extracted modules.
+    assert!(
+        crate_root.join("Cargo.toml").exists(),
+        "ambition_platformer_runtime crate should exist at crates/ambition_platformer_runtime"
+    );
+    for rel in [
+        "src/lib.rs",
+        "src/prelude.rs",
+        "src/schedule.rs",
+        "src/lifecycle/mod.rs",
+        "src/lifecycle/markers.rs",
+        "src/lifecycle/spawn_ext.rs",
+        "src/lifecycle/cleanup.rs",
+    ] {
+        assert!(
+            crate_root.join(rel).exists(),
+            "extracted platformer-runtime crate should include {rel}"
+        );
+    }
+
+    // (b) The extracted crate must not depend on the sandbox (the whole point
+    //     of the extraction: it is reusable and content-free).
+    let crate_manifest =
+        fs::read_to_string(crate_root.join("Cargo.toml")).expect("read crate manifest");
+    // Scan dependency-bearing lines only (a `description` may name the sandbox
+    // as the crate it was extracted from). A real dep line would contain
+    // `ambition_sandbox =` or `ambition_sandbox.`.
+    let depends_on_sandbox = crate_manifest.lines().any(|line| {
+        let line = line.trim();
+        line.starts_with("ambition_sandbox =") || line.starts_with("ambition_sandbox.")
+    });
+    assert!(
+        !depends_on_sandbox,
+        "ambition_platformer_runtime must not depend on ambition_sandbox"
+    );
+
+    // (c) The moved modules no longer live in the sandbox; the sandbox's
+    //     platformer_runtime is a facade re-exporting the crate.
+    let sandbox_runtime = crate_src().join("platformer_runtime");
+    assert!(
+        !sandbox_runtime.join("schedule.rs").exists(),
+        "schedule.rs should have moved into the extracted crate"
+    );
+    assert!(
+        !sandbox_runtime.join("lifecycle").exists(),
+        "lifecycle/ should have moved into the extracted crate"
+    );
+    let facade = fs::read_to_string(sandbox_runtime.join("mod.rs")).expect("read facade mod.rs");
+    assert!(
+        facade.contains("ambition_platformer_runtime::{lifecycle, schedule}"),
+        "sandbox platformer_runtime facade should re-export the extracted crate's lifecycle + schedule"
+    );
+
+    // (d) The still-local remainder stays in the sandbox because it is not
+    //     import-clean; document the blocking dependency for each.
+    for (rel, blocking_dep) in [
+        ("collision.rs", "crate::engine_core"),
+        ("orientation.rs", "crate::physics"),
+        ("transit.rs", "crate::portal_pieces"),
+    ] {
+        let path = sandbox_runtime.join(rel);
+        assert!(
+            path.exists(),
+            "{rel} stays in the sandbox facade until its sandbox coupling is decoupled"
+        );
+        let text = fs::read_to_string(&path).expect("read remainder module");
+        assert!(
+            text.contains(blocking_dep),
+            "{rel} is documented as not-yet-extracted because it depends on {blocking_dep}; \
+if that dependency is gone, extract it into ambition_platformer_runtime and update this guardrail"
+        );
+    }
+}
+
 fn raw_commands_spawn_count(text: &str) -> usize {
     text.match_indices("commands.spawn(").count()
 }

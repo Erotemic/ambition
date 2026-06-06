@@ -292,7 +292,7 @@ fn portal_fit_gate_keys_on_the_opening_perpendicular_to_the_normal() {
 
 #[test]
 fn portals_teleport_a_fitting_actor_and_skip_an_oversized_one() {
-    use crate::features::ActorKinematics;
+    use crate::features::BodyKinematics;
     let mut app = App::new();
     app.add_message::<crate::audio::SfxMessage>();
     app.add_systems(Update, portal_transit_actors);
@@ -310,7 +310,7 @@ fn portals_teleport_a_fitting_actor_and_skip_an_oversized_one() {
     });
     let small = app
         .world_mut()
-        .spawn(ActorKinematics {
+        .spawn(BodyKinematics {
             pos: Vec2::new(20.0, 200.0),
             vel: Vec2::new(-100.0, 0.0),
             size: Vec2::new(24.0, 40.0),
@@ -319,7 +319,7 @@ fn portals_teleport_a_fitting_actor_and_skip_an_oversized_one() {
         .id();
     let big = app
         .world_mut()
-        .spawn(ActorKinematics {
+        .spawn(BodyKinematics {
             pos: Vec2::new(20.0, 200.0),
             vel: Vec2::new(-100.0, 0.0),
             size: Vec2::new(80.0, 200.0),
@@ -330,13 +330,13 @@ fn portals_teleport_a_fitting_actor_and_skip_an_oversized_one() {
     // transfers (centroid already on the plane).
     app.update();
     app.update();
-    let s = app.world().get::<ActorKinematics>(small).unwrap();
+    let s = app.world().get::<BodyKinematics>(small).unwrap();
     assert!(
         s.pos.x > 250.0,
         "a fitting actor transits out the orange portal, pos={:?}",
         s.pos
     );
-    let b = app.world().get::<ActorKinematics>(big).unwrap();
+    let b = app.world().get::<BodyKinematics>(big).unwrap();
     assert!(
         b.pos.x < 100.0,
         "an oversized actor does not fit and stays put, pos={:?}",
@@ -487,7 +487,7 @@ fn gravity_upright_angle_tracks_the_gravity_direction() {
 
 #[test]
 fn actors_get_an_aerial_roll_through_portals() {
-    use crate::features::ActorKinematics;
+    use crate::features::BodyKinematics;
     let mut app = App::new();
     app.add_message::<crate::audio::SfxMessage>();
     app.add_systems(Update, portal_transit_actors);
@@ -510,7 +510,7 @@ fn actors_get_an_aerial_roll_through_portals() {
     let actor = app
         .world_mut()
         .spawn((
-            ActorKinematics {
+            BodyKinematics {
                 pos: Vec2::new(200.0, 380.0),
                 vel: Vec2::new(0.0, 100.0),
                 size: Vec2::new(24.0, 40.0),

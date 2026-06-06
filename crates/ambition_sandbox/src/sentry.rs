@@ -7,7 +7,7 @@
 //!
 //! It fires through the same faction-aware projectile pool the volley uses
 //! (`EnemyProjectileState::spawn_with_faction(..., Player)`), so its bolts damage
-//! enemies/bosses and ignore the player. Bosses carry `BossKinematics`, but the
+//! enemies/bosses and ignore the player. Bosses carry `BodyKinematics`, but the
 //! sentry targets by `FeatureAabb` + `ActorFaction::Enemy`, so it shoots mobs
 //! (not bosses or the player). Pairs with the vortex: drop a sentry, vortex the
 //! mob onto it.

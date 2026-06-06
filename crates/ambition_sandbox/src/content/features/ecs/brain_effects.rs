@@ -1201,7 +1201,7 @@ mod tests {
     /// spawned entity so the ranged-projectile handler routes the
     /// fire through the lasersword path.
     type EnemyClusterBundle = (
-        super::super::enemy_clusters::ActorKinematics,
+        super::super::enemy_clusters::BodyKinematics,
         super::super::enemy_clusters::EnemyStatus,
         super::super::enemy_clusters::EnemyConfig,
         super::super::enemy_clusters::ActorMotionPath,
@@ -1511,7 +1511,7 @@ mod tests {
     // -----------------------------------------------------------
 
     use crate::content::features::bosses::{BossBehaviorProfile, GNU_TON_APPLE_OWNER_PREFIX};
-    use crate::content::features::ecs::boss_clusters::BossKinematics;
+    use crate::content::features::ecs::boss_clusters::BodyKinematics;
     use crate::content::features::ecs::boss_clusters::{
         BossClusterScratch, BossConfig, BossStatus,
     };
@@ -1526,7 +1526,7 @@ mod tests {
         }
     }
 
-    fn gnu_ton_boss_feature() -> (BossKinematics, BossConfig, BossStatus) {
+    fn gnu_ton_boss_feature() -> (BodyKinematics, BossConfig, BossStatus) {
         let aabb = ae::Aabb::new(ae::Vec2::new(500.0, 400.0), ae::Vec2::new(80.0, 80.0));
         let mut scratch = BossClusterScratch::new(
             "boss_gnu_ton",
@@ -1745,7 +1745,7 @@ mod tests {
     // tests in their own modules.
     // -----------------------------------------------------------
 
-    fn gradient_sentinel_boss_feature() -> (BossKinematics, BossConfig, BossStatus) {
+    fn gradient_sentinel_boss_feature() -> (BodyKinematics, BossConfig, BossStatus) {
         let aabb = ae::Aabb::new(ae::Vec2::new(640.0, 696.0), ae::Vec2::new(64.0, 80.0));
         let mut scratch = BossClusterScratch::new(
             "boss_gradient_sentinel",

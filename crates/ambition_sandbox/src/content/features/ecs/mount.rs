@@ -353,7 +353,7 @@ mod tests {
     use bevy::prelude::*;
 
     type EnemyClusterBundle = (
-        super::super::enemy_clusters::ActorKinematics,
+        super::super::enemy_clusters::BodyKinematics,
         super::super::enemy_clusters::EnemyStatus,
         super::super::enemy_clusters::EnemyConfig,
         super::super::enemy_clusters::ActorMotionPath,
@@ -386,11 +386,11 @@ mod tests {
     fn rider_kin(
         world: &bevy::prelude::World,
         e: bevy::prelude::Entity,
-    ) -> super::super::enemy_clusters::ActorKinematics {
+    ) -> super::super::enemy_clusters::BodyKinematics {
         *world
             .entity(e)
-            .get::<super::super::enemy_clusters::ActorKinematics>()
-            .expect("enemy entity has ActorKinematics")
+            .get::<super::super::enemy_clusters::BodyKinematics>()
+            .expect("enemy entity has BodyKinematics")
     }
 
     fn rider_surface(
@@ -446,7 +446,7 @@ mod tests {
         // Pre-poison rider velocity so the assertion that the sync
         // zeroes it isn't a no-op against the default.
         app.world_mut()
-            .get_mut::<crate::features::ActorKinematics>(rider)
+            .get_mut::<crate::features::BodyKinematics>(rider)
             .unwrap()
             .vel = ae::Vec2::new(500.0, -200.0);
         app.world_mut()

@@ -30,7 +30,14 @@ pub fn reset_ecs_room_features(
             &mut ActorCooldowns,
             Option<super::enemy_clusters::EnemyClusterQueryData>,
         ),
-        With<FeatureSimEntity>,
+        // Bosses are reset by the disjoint `bosses` query below. Both this
+        // query (via `EnemyClusterQueryData`) and the boss query take
+        // `&mut BodyKinematics` — now the unified component — so exclude
+        // bosses here so Bevy can prove the two queries never alias.
+        (
+            With<FeatureSimEntity>,
+            Without<super::boss_clusters::BossConfig>,
+        ),
     >,
     mut switches: Query<&mut SwitchOn, With<SwitchFeature>>,
     mut bosses: Query<

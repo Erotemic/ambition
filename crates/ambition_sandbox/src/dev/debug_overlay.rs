@@ -265,7 +265,7 @@ pub struct FeatureDebugQueries<'w, 's> {
         (
             &'static crate::features::ActorRuntime,
             &'static crate::features::FeatureAabb,
-            Option<&'static crate::features::ActorKinematics>,
+            Option<&'static crate::features::BodyKinematics>,
             Option<&'static crate::features::ActorAttackState>,
             Option<&'static crate::features::ActorSurfaceState>,
         ),

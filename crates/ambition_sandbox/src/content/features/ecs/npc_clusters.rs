@@ -3,7 +3,7 @@
 //!
 //! Dissolves the legacy `NpcRuntime` blob (held in `ActorRuntime::Npc`)
 //! into real ECS state, mirroring the enemy cluster pattern. NPCs share
-//! the actor-generic [`ActorKinematics`] / [`ActorSurfaceState`] /
+//! the actor-generic [`BodyKinematics`] / [`ActorSurfaceState`] /
 //! [`ActorMotionPath`] components with enemies; the NPC-specific config
 //! (identity, dialogue interactable, patrol/talk radii) and status
 //! (ai_mode / hit_flash / hostility / strikes) live in [`NpcConfig`] /
@@ -14,7 +14,7 @@ use bevy::prelude::Component;
 
 use super::super::enemies::ActorSurfaceState;
 use super::super::path_motion::PathMotion;
-use super::enemy_clusters::{ActorKinematics, ActorMotionPath};
+use super::enemy_clusters::{ActorMotionPath, BodyKinematics};
 use crate::engine_core as ae;
 use crate::engine_core::AabbExt;
 
@@ -43,7 +43,7 @@ pub struct NpcStatus {
 
 /// Mutable borrow of every component the NPC tick touches.
 pub struct NpcMut<'a> {
-    pub kin: &'a mut ActorKinematics,
+    pub kin: &'a mut BodyKinematics,
     pub surface: &'a mut ActorSurfaceState,
     pub motion: &'a mut ActorMotionPath,
     pub config: &'a mut NpcConfig,
@@ -53,7 +53,7 @@ pub struct NpcMut<'a> {
 #[derive(QueryData)]
 #[query_data(mutable)]
 pub struct NpcClusterQueryData {
-    pub kin: &'static mut ActorKinematics,
+    pub kin: &'static mut BodyKinematics,
     pub surface: &'static mut ActorSurfaceState,
     pub motion: &'static mut ActorMotionPath,
     pub config: &'static mut NpcConfig,
@@ -79,7 +79,7 @@ impl<'w, 's> NpcClusterQueryDataItem<'w, 's> {
 /// Owned aggregate for spawn construction / non-ECS callers.
 #[derive(Clone, Debug)]
 pub struct NpcClusterScratch {
-    pub kin: ActorKinematics,
+    pub kin: BodyKinematics,
     pub surface: ActorSurfaceState,
     pub motion: ActorMotionPath,
     pub config: NpcConfig,
@@ -118,7 +118,7 @@ impl NpcClusterScratch {
             .and_then(PathMotion::start_pos)
             .unwrap_or(authored_pos);
         Self {
-            kin: ActorKinematics {
+            kin: BodyKinematics {
                 pos,
                 vel: ae::Vec2::ZERO,
                 size: aabb.half_size() * 2.0,
@@ -161,7 +161,7 @@ impl NpcClusterScratch {
     pub fn into_components(
         self,
     ) -> (
-        ActorKinematics,
+        BodyKinematics,
         ActorSurfaceState,
         ActorMotionPath,
         NpcConfig,

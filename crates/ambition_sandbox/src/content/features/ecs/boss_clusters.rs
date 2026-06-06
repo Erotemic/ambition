@@ -3,10 +3,15 @@
 //!
 //! Dissolves the legacy `BossRuntime` blob (formerly held inside the
 //! monolithic `BossFeature` component) into real ECS state, following
-//! the enemy / NPC cluster pattern. The boss carries its own
-//! [`BossKinematics`] component (pos / size / facing) — deliberately
-//! NOT the shared `ActorKinematics`, so the single-per-encounter boss
-//! stays out of the enemy/NPC kinematics access pool. Boss-specific config
+//! the enemy / NPC cluster pattern. The boss carries the shared
+//! [`BodyKinematics`] component (pos / vel / size / facing) — the same
+//! component the player and enemies/NPCs use. Bosses float and never
+//! integrate `vel` themselves (the brain emits a fresh `desired_vel`
+//! each tick for `integrate_body`), so a boss simply leaves `vel` at
+//! `Vec2::ZERO`. A `&mut BodyKinematics` boss query is kept disjoint
+//! from player/enemy ones with `With<BossConfig>` / `Without<BossConfig>`
+//! filters (boss / enemy / player are mutually exclusive archetypes).
+//! Boss-specific config
 //! (identity, spawn anchor, brain, behavior profile) lives in
 //! [`BossConfig`]; mutable status (health, liveness, hit-flash,
 //! encounter phase, derived sprite metrics) lives in [`BossStatus`].
@@ -24,23 +29,7 @@ use crate::boss_encounter::BossEncounterPhase;
 use crate::engine_core as ae;
 use crate::engine_core::AabbExt;
 
-/// Boss-specific kinematic state (position / body size / facing).
-///
-/// Deliberately **not** the shared [`super::enemy_clusters::ActorKinematics`]:
-/// a single per-encounter boss never needs to share an enemy/NPC kinematics
-/// query, and giving it the shared component would make every enemy/NPC
-/// `&mut ActorKinematics` system conflict with the boss query (Bevy can't
-/// prove `With<EnemyConfig>` and `With<BossConfig>` archetypes disjoint). A
-/// dedicated component keeps the boss out of that access pool entirely.
-///
-/// No `vel` field: bosses float and the brain emits a fresh `desired_vel`
-/// each tick (consumed by `integrate_body`); velocity is never persisted.
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
-pub struct BossKinematics {
-    pub pos: ae::Vec2,
-    pub size: ae::Vec2,
-    pub facing: f32,
-}
+pub use super::enemy_clusters::BodyKinematics;
 
 /// Authored configuration + identity for a boss actor. Also serves as
 /// the boss marker component (see module docs).
@@ -75,7 +64,7 @@ pub struct BossStatus {
 /// Immutable borrow view over the boss clusters. Hosts the read-only
 /// geometry/identity helpers ported from `BossRuntime`.
 pub struct BossRef<'a> {
-    pub kin: &'a BossKinematics,
+    pub kin: &'a BodyKinematics,
     pub config: &'a BossConfig,
     pub status: &'a BossStatus,
 }
@@ -83,7 +72,7 @@ pub struct BossRef<'a> {
 /// Mutable borrow view over the boss clusters. Hosts the integration /
 /// profile-mutation helpers ported from `BossRuntime`.
 pub struct BossMut<'a> {
-    pub kin: &'a mut BossKinematics,
+    pub kin: &'a mut BodyKinematics,
     pub config: &'a mut BossConfig,
     pub status: &'a mut BossStatus,
 }
@@ -218,7 +207,7 @@ impl<'a> BossMut<'a> {
 #[derive(QueryData)]
 #[query_data(mutable)]
 pub struct BossClusterQueryData {
-    pub kin: &'static mut BossKinematics,
+    pub kin: &'static mut BodyKinematics,
     pub config: &'static mut BossConfig,
     pub status: &'static mut BossStatus,
 }
@@ -253,7 +242,7 @@ impl<'w, 's> BossClusterQueryDataItem<'w, 's> {
 
 #[derive(QueryData)]
 pub struct BossClusterRef {
-    pub kin: &'static BossKinematics,
+    pub kin: &'static BodyKinematics,
     pub config: &'static BossConfig,
     pub status: &'static BossStatus,
 }
@@ -272,7 +261,7 @@ impl<'w, 's> BossClusterRefItem<'w, 's> {
 /// the gnu_ton encounter setup). Mirrors the enemy/NPC scratch.
 #[derive(Clone, Debug)]
 pub struct BossClusterScratch {
-    pub kin: BossKinematics,
+    pub kin: BodyKinematics,
     pub config: BossConfig,
     pub status: BossStatus,
 }
@@ -294,8 +283,12 @@ impl BossClusterScratch {
         let canonical_id = canonical_boss_id_from(&name, &brain);
         let center = aabb.center();
         Self {
-            kin: BossKinematics {
+            kin: BodyKinematics {
                 pos: center,
+                // Bosses float; the brain emits a fresh `desired_vel` each
+                // tick (consumed by `integrate_body`), so `vel` is never
+                // integrated and stays `ZERO`.
+                vel: ae::Vec2::ZERO,
                 size: aabb.half_size() * 2.0,
                 facing: 1.0,
             },
@@ -333,7 +326,7 @@ impl BossClusterScratch {
     }
 
     /// The three authoritative components as a spawnable Bundle.
-    pub fn into_components(self) -> (BossKinematics, BossConfig, BossStatus) {
+    pub fn into_components(self) -> (BodyKinematics, BossConfig, BossStatus) {
         (self.kin, self.config, self.status)
     }
 }

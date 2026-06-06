@@ -91,7 +91,7 @@ pub use components::{
     PogoTargetVolumes, RespawnTimer, SandboxSolidContributor, StandTimer, SwitchFeature, SwitchOn,
 };
 pub use ecs::enemy_clusters::{
-    ActorKinematics, ActorMotionPath, EnemyConfig, EnemyMut, EnemyStatus,
+    ActorMotionPath, BodyKinematics, EnemyConfig, EnemyMut, EnemyStatus,
 };
 pub use ecs::npc_clusters::{NpcClusterScratch, NpcConfig, NpcMut, NpcStatus};
 pub use ecs::ActorSpriteData;
@@ -119,7 +119,7 @@ pub use ecs::{
     tick_and_despawn_hitboxes, tick_boss_brains_system, tick_gameplay_banner, update_ecs_actors,
     update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards,
     update_ecs_npcs, ActorRuntime, AppleRainSpawnState, BossClusterQueryData, BossClusterRef,
-    BossClusterScratch, BossConfig, BossKinematics, BossMut, BossRef, BossStatus, EyeBeamState,
+    BossClusterScratch, BossConfig, BossMut, BossRef, BossStatus, EyeBeamState,
     FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex, GradientCascadeState,
     HazardFeature, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime, MinimaTrapState,
     MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, OverfitVolleyState, RidingOn,

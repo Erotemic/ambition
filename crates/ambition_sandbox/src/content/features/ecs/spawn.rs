@@ -369,7 +369,7 @@ mod tests {
         app.update();
 
         let mut q = app.world_mut().query_filtered::<(
-            &crate::features::ActorKinematics,
+            &crate::features::BodyKinematics,
             &crate::features::EnemyConfig,
             &MountedSize,
         ), With<RidingOn>>();
@@ -409,7 +409,7 @@ mod tests {
         app.update();
 
         let mut q = app.world_mut().query_filtered::<(
-            &crate::features::ActorKinematics,
+            &crate::features::BodyKinematics,
             &crate::features::EnemyConfig,
             &MountedSize,
         ), With<RidingOn>>();

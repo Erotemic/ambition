@@ -276,7 +276,13 @@ pub fn apply_feature_hit_events(
             Option<&mut super::npc_clusters::NpcStatus>,
             Option<&super::npc_clusters::NpcConfig>,
         ),
-        With<FeatureSimEntity>,
+        // Bosses are handled by the disjoint `bosses` query; both take
+        // `&mut BodyKinematics` (the unified component), so exclude bosses
+        // here to keep the two queries provably non-aliasing.
+        (
+            With<FeatureSimEntity>,
+            Without<super::boss_clusters::BossConfig>,
+        ),
     >,
     mut bosses: Query<
         (

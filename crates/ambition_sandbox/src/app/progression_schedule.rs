@@ -33,7 +33,7 @@ impl Plugin for ProgressionSchedulePlugin {
                 // observable as `boss.alive = false`, and before player
                 // movement consumes `world.climbable_regions` in the next
                 // visual sync set.
-                crate::boss_encounter::gate_gnu_ton_arena_ladder,
+                crate::ambition_content::bosses::gate_gnu_ton_arena_ladder,
                 crate::features::sync_ecs_actors_with_save,
                 crate::features::sync_ecs_npc_actors_with_save,
                 crate::features::sync_ecs_bosses_with_save,

@@ -164,6 +164,11 @@ fn register_player_input_systems(app: &mut App) {
             // or gameplay-smoothed) wrote `SandboxSimState::time_scale`
             // this frame into `WorldTime` for downstream readers.
             crate::refresh_world_time,
+            // Mirror the freshly-snapshotted `WorldTime::sim_dt()` into the
+            // runtime crate's neutral `SimDt` so every downstream runtime
+            // system (gravity / zones / orient-roll) reads scaled dt without a
+            // sandbox dependency. Runs immediately after `refresh_world_time`.
+            crate::mirror_sim_dt_into_runtime,
             sync_live_player_dev_edits_system,
             apply_player_reset_input_system.run_if(gameplay_allowed),
             crate::ambition_content::bosses::emit_cut_rope_room_replay_after_dialogue_closes,

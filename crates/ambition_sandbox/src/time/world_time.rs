@@ -136,6 +136,23 @@ pub fn refresh_world_time(
     world_time.scaled_dt = raw * sim_state.time_scale;
 }
 
+/// Mirror [`WorldTime::sim_dt`] into the runtime crate's neutral
+/// [`ambition_platformer_runtime::time::SimDt`] resource each frame.
+///
+/// The platformer runtime crate is sandbox-dep-free, so its generic systems
+/// (gravity integration, oscillating / temporary zones, the orient-to-gravity
+/// roll) read scaled dt through `SimDt` rather than `WorldTime`. This host
+/// system is the inversion seam: it copies the already-scaled sim clock so the
+/// runtime's value is byte-identical to the sandbox's (pause / bullet-time feel
+/// preserved). Registered immediately AFTER [`refresh_world_time`] so every
+/// downstream runtime reader sees a current value.
+pub fn mirror_sim_dt_into_runtime(
+    world_time: Res<WorldTime>,
+    mut sim_dt: ResMut<ambition_platformer_runtime::time::SimDt>,
+) {
+    sim_dt.dt = world_time.sim_dt();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

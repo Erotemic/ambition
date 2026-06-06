@@ -16,4 +16,5 @@ pub mod lifecycle;
 pub mod math;
 pub mod prelude;
 pub mod schedule;
+pub mod time;
 pub mod transit;

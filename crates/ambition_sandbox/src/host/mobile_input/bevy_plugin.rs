@@ -117,6 +117,9 @@ impl Plugin for TouchControlsPlugin {
                         .before(crate::app::apply_menu_frame_to_cutscene_request)
                         .before(crate::pause_menu::pause_menu_toggle),
                     fold_to_control_frame
+                        // ControlFrame writer: join the input populate set so
+                        // the schedule pins it before the consume boundary.
+                        .in_set(crate::input::InputSet::Populate)
                         // Touch fold MUST run AFTER the keyboard
                         // fold (`populate_control_frame_from_actions`)
                         // so the OR-merge sees the keyboard's

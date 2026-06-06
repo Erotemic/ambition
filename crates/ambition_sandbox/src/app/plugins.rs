@@ -173,7 +173,9 @@ fn register_player_input_systems(app: &mut App) {
             apply_player_reset_input_system.run_if(gameplay_allowed),
             crate::ambition_content::bosses::emit_cut_rope_room_replay_after_dialogue_closes,
             apply_cut_rope_room_replay_request_system,
-            input_timer_system.run_if(gameplay_allowed),
+            input_timer_system
+                .run_if(gameplay_allowed)
+                .in_set(crate::input::InputSet::Populate),
             interaction_input_system.run_if(gameplay_allowed),
             // Portal-warped held movement input is registered by
             // `crate::portal::PortalPlugin` so the portal subsystem owns
@@ -898,7 +900,7 @@ pub(super) fn add_input_plugins(app: &mut App) {
             Update,
             (
                 populate_menu_control_frame_from_actions,
-                populate_control_frame_from_actions,
+                populate_control_frame_from_actions.in_set(crate::input::InputSet::Populate),
                 apply_menu_frame_to_cutscene_request,
                 dialog::dialog_pointer_input,
                 pause_menu::pause_menu_toggle,

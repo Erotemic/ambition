@@ -28,5 +28,20 @@ mod tests;
 #[cfg(feature = "input")]
 pub use actions::SandboxAction;
 pub use control::{ControlFrame, PlayerDashTriggerState};
+
+/// Schedule contract for the per-frame [`ControlFrame`] input window.
+///
+/// Every system that WRITES the `ControlFrame` resource (device populate,
+/// touch fold, portal movement-intent brackets, edge-derived flags) runs in
+/// [`InputSet::Populate`]; every system that READS `ControlFrame` to drive
+/// gameplay runs after it. The sandbox pins `Populate` before its gameplay
+/// consumer (`sync_local_player_input_frame`), so a writer can never "float"
+/// past the consume boundary and stamp stale input over the fresh frame — the
+/// regression that recently killed the Move axis.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub enum InputSet {
+    /// All `ControlFrame`-writing systems live here.
+    Populate,
+}
 pub use menu::{analog_to_dir, MenuControlFrame, MenuDir, MenuInputFrame, MenuInputState};
 pub use presets::{ActionKeys, KeyboardPreset, MovementKeys, PresetId, GAMEPAD_MAP};

@@ -184,6 +184,42 @@ pub struct BossBehaviorProfile {
     /// OverfitVolley eye beams from its eye instead of its body center.
     #[serde(default, with = "boss_vec2_required")]
     pub projectile_origin_offset: ae::Vec2,
+    /// Authored post-defeat reward. `None` (the default when the RON
+    /// row omits `reward:`) means the boss drops nothing; `DropChest`
+    /// spawns a reward chest at the given offset/size on defeat. This
+    /// is the data the legacy `BossProfile::<name>()` constructors used
+    /// to carry; it now rides on the behavior profile so the whole
+    /// boss is authored in one RON row.
+    #[serde(default)]
+    pub reward: BossRewardProfile,
+}
+
+/// Authored post-defeat reward for a boss. Parsed from the optional
+/// `reward:` field of each row in `assets/data/boss_profiles.ron`
+/// (defaults to `None` when the field is absent). The drop-chest
+/// geometry (`offset`, `size`) is in world pixels; `pickup` names the
+/// `PickupKind` granted on open.
+///
+/// This is the data the old `BossProfile::<name>()` constructors used
+/// to bake into core Rust; it now lives in the RON alongside the rest
+/// of the boss's behavior tuning so adding/retuning a reward is a
+/// content edit, not a code change.
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+pub enum BossRewardProfile {
+    None,
+    DropChest {
+        pickup: crate::interaction::PickupKind,
+        #[serde(with = "boss_vec2_required")]
+        offset: ae::Vec2,
+        #[serde(with = "boss_vec2_required")]
+        size: ae::Vec2,
+    },
+}
+
+impl Default for BossRewardProfile {
+    fn default() -> Self {
+        Self::None
+    }
 }
 
 /// Vec2 (de)serialization shims for `BossBehaviorProfile`. `bevy_math::Vec2`

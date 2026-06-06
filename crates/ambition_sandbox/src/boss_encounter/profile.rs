@@ -1,11 +1,17 @@
-use crate::engine_core as ae;
-
 /// Full authored profile for a boss encounter.
 ///
 /// This is the sandbox-side bridge from encounter progression to actual play.
 /// `crate::boss_encounter::BossEncounterSpec` remains the engine-owned state-machine input, while
 /// `BossProfile` owns the content-facing bundle: phase thresholds, movement,
 /// hitboxes, damage tuning, music, and rewards.
+///
+/// `BossProfile` is no longer authored via named Rust constructors —
+/// every named boss instance is DATA. The encounter numbers come from
+/// `assets/data/boss_encounters/<id>.ron` and the behavior + reward
+/// come from `assets/data/boss_profiles.ron`; `BossProfile::from_id`
+/// stitches the two registries together. The general type + the
+/// encounter system stay in core (they're the reusable pattern); only
+/// the per-boss instance data lives on disk.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BossProfile {
     pub id: String,
@@ -15,155 +21,30 @@ pub struct BossProfile {
     pub reward: BossRewardProfile,
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum BossRewardProfile {
-    None,
-    DropChest {
-        pickup: crate::interaction::PickupKind,
-        offset: ae::Vec2,
-        size: ae::Vec2,
-    },
-}
+/// `BossRewardProfile` is authored in `boss_profiles.ron` and parsed
+/// into `BossBehaviorProfile::reward`. Re-exported from its definition
+/// site (`content::features::bosses`) so existing
+/// `crate::boss_encounter::BossRewardProfile` call sites keep compiling.
+pub use crate::features::BossRewardProfile;
 
 impl BossProfile {
-    pub fn clockwork_warden() -> Self {
-        let encounter = crate::boss_encounter::BossEncounterSpec::clockwork_warden();
-        Self {
-            id: encounter.id.clone(),
-            display_name: encounter.name.clone(),
-            encounter,
-            behavior: crate::features::BossBehaviorProfile::clockwork_warden(),
-            reward: BossRewardProfile::None,
-        }
-    }
-
-    pub fn mockingbird() -> Self {
-        let encounter = crate::boss_encounter::BossEncounterSpec::mockingbird();
-        Self {
-            id: encounter.id.clone(),
-            display_name: encounter.name.clone(),
-            encounter,
-            behavior: crate::features::BossBehaviorProfile::mockingbird(),
-            reward: BossRewardProfile::DropChest {
-                pickup: crate::interaction::PickupKind::Custom("pirate_hoard".to_string()),
-                offset: ae::Vec2::new(0.0, 24.0),
-                size: ae::Vec2::new(56.0, 56.0),
-            },
-        }
-    }
-
-    /// GNU-ton — the giant GNU wildebeest with a scholar on its shoulders.
+    /// Assemble a boss profile from its canonical id by combining the
+    /// two data registries:
+    /// * encounter numbers from `boss_encounters/<id>.ron`
+    ///   (falling back to the in-memory default specs), and
+    /// * behavior + reward from `boss_profiles.ron`.
     ///
-    /// Phase 1: hands-only — player must dodge without dealing damage.
-    /// Phase 2+: head descends periodically (SpikeHalo windows) — the
-    /// player can deal damage during the head-down vulnerability period.
-    /// The arena needs to be wide (~640px) to give space for the hands.
-    pub fn gnu_ton() -> Self {
-        let encounter = crate::boss_encounter::BossEncounterSpec::gnu_ton();
-        Self {
+    /// Returns `None` if the id has no authored encounter spec.
+    pub fn from_id(id: &str) -> Option<Self> {
+        let encounter = default_boss_specs_by_id().get(id)?.clone();
+        let behavior = crate::features::BossBehaviorProfile::from_data(id);
+        Some(Self {
             id: encounter.id.clone(),
             display_name: encounter.name.clone(),
+            reward: behavior.reward.clone(),
+            behavior,
             encounter,
-            behavior: crate::features::BossBehaviorProfile::gnu_ton(),
-            reward: BossRewardProfile::DropChest {
-                pickup: crate::interaction::PickupKind::Custom("gnu_scroll".to_string()),
-                offset: ae::Vec2::new(0.0, 30.0),
-                size: ae::Vec2::new(52.0, 52.0),
-            },
-        }
-    }
-
-    pub fn smirking_behemoth_boss() -> Self {
-        let encounter = crate::boss_encounter::BossEncounterSpec::smirking_behemoth_boss();
-        Self {
-            id: encounter.id.clone(),
-            display_name: encounter.name.clone(),
-            encounter,
-            behavior: crate::features::BossBehaviorProfile::smirking_behemoth_boss(),
-            reward: BossRewardProfile::None,
-        }
-    }
-
-    /// Flying Spaghetti Monster — false-god boss (canon: Jon). Drops a noodly
-    /// relic chest on defeat.
-    pub fn flying_spaghetti_monster_boss() -> Self {
-        let encounter = crate::boss_encounter::BossEncounterSpec::flying_spaghetti_monster_boss();
-        Self {
-            id: encounter.id.clone(),
-            display_name: encounter.name.clone(),
-            encounter,
-            behavior: crate::features::BossBehaviorProfile::flying_spaghetti_monster_boss(),
-            reward: BossRewardProfile::DropChest {
-                pickup: crate::interaction::PickupKind::Custom("noodly_relic".to_string()),
-                offset: ae::Vec2::new(0.0, 24.0),
-                size: ae::Vec2::new(54.0, 54.0),
-            },
-        }
-    }
-
-    /// T-rex — grounded melee boss (canon: Jon). Drops a bone-relic chest.
-    pub fn trex_boss() -> Self {
-        let encounter = crate::boss_encounter::BossEncounterSpec::trex_boss();
-        Self {
-            id: encounter.id.clone(),
-            display_name: encounter.name.clone(),
-            encounter,
-            behavior: crate::features::BossBehaviorProfile::trex_boss(),
-            reward: BossRewardProfile::DropChest {
-                pickup: crate::interaction::PickupKind::Custom("trex_bone_relic".to_string()),
-                offset: ae::Vec2::new(0.0, 26.0),
-                size: ae::Vec2::new(56.0, 56.0),
-            },
-        }
-    }
-
-    /// Mode Collapse — a floating summoner boss. Drops a collapsed-relic chest.
-    pub fn mode_collapse_boss() -> Self {
-        let encounter = crate::boss_encounter::BossEncounterSpec::mode_collapse_boss();
-        Self {
-            id: encounter.id.clone(),
-            display_name: encounter.name.clone(),
-            encounter,
-            behavior: crate::features::BossBehaviorProfile::mode_collapse_boss(),
-            reward: BossRewardProfile::DropChest {
-                pickup: crate::interaction::PickupKind::Custom("collapsed_relic".to_string()),
-                offset: ae::Vec2::new(0.0, 24.0),
-                size: ae::Vec2::new(54.0, 54.0),
-            },
-        }
-    }
-
-    /// Exploding Gradient — a floating ranged-pressure boss. Drops a
-    /// divergence-shard chest.
-    pub fn exploding_gradient_boss() -> Self {
-        let encounter = crate::boss_encounter::BossEncounterSpec::exploding_gradient_boss();
-        Self {
-            id: encounter.id.clone(),
-            display_name: encounter.name.clone(),
-            encounter,
-            behavior: crate::features::BossBehaviorProfile::exploding_gradient_boss(),
-            reward: BossRewardProfile::DropChest {
-                pickup: crate::interaction::PickupKind::Custom("divergence_shard".to_string()),
-                offset: ae::Vec2::new(0.0, 24.0),
-                size: ae::Vec2::new(54.0, 54.0),
-            },
-        }
-    }
-
-    /// Overflow — an aerial melee dive-bomber. Drops a stack-frame relic chest.
-    pub fn overflow_boss() -> Self {
-        let encounter = crate::boss_encounter::BossEncounterSpec::overflow_boss();
-        Self {
-            id: encounter.id.clone(),
-            display_name: encounter.name.clone(),
-            encounter,
-            behavior: crate::features::BossBehaviorProfile::overflow_boss(),
-            reward: BossRewardProfile::DropChest {
-                pickup: crate::interaction::PickupKind::Custom("stack_frame_relic".to_string()),
-                offset: ae::Vec2::new(0.0, 24.0),
-                size: ae::Vec2::new(54.0, 54.0),
-            },
-        }
+        })
     }
 
     pub fn generic(id: impl Into<String>, display_name: impl Into<String>, max_hp: i32) -> Self {
@@ -184,66 +65,50 @@ impl BossProfile {
 
     pub fn for_encounter_id_or_name(id_or_name: &str) -> Option<Self> {
         let id = super::encounter_id_from_name(id_or_name);
-        AUTHORED_BOSS_PROFILES
-            .iter()
-            .find(|(key, _)| *key == id.as_str())
-            .map(|(_, ctor)| ctor())
+        Self::from_id(&id)
             // Legacy alias: pre-rename gradient_sentinel ids in saves still
             // resolve to the renamed `clockwork_warden` profile.
             .or_else(|| match id.as_str() {
-                "gradient_sentinel" => Some(Self::clockwork_warden()),
+                "gradient_sentinel" => Self::from_id("clockwork_warden"),
                 _ => None,
             })
     }
 }
 
-/// Table of authored boss profiles. Adding a new boss is a single
-/// row: write the `BossProfile::new_boss()` constructor, then append
-/// `("new_boss", BossProfile::new_boss)` here. The two helpers below
-/// (`for_encounter_id_or_name` + `default_boss_profiles`) walk this
-/// slice instead of carrying their own id-string match arms.
-const AUTHORED_BOSS_PROFILES: &[(&str, fn() -> BossProfile)] = &[
-    ("clockwork_warden", BossProfile::clockwork_warden),
-    ("mockingbird", BossProfile::mockingbird),
-    ("gnu_ton", BossProfile::gnu_ton),
-    (
-        "smirking_behemoth_boss",
-        BossProfile::smirking_behemoth_boss,
-    ),
-    (
-        "flying_spaghetti_monster_boss",
-        BossProfile::flying_spaghetti_monster_boss,
-    ),
-    ("trex_boss", BossProfile::trex_boss),
-    ("mode_collapse_boss", BossProfile::mode_collapse_boss),
-    (
-        "exploding_gradient_boss",
-        BossProfile::exploding_gradient_boss,
-    ),
-    ("overflow_boss", BossProfile::overflow_boss),
+/// Canonical boss ids that have an authored encounter + behavior.
+/// Adding a new boss is two data edits — a `boss_encounters/<id>.ron`
+/// file and a `boss_profiles.ron` row — plus appending its id here.
+pub const AUTHORED_BOSS_IDS: &[&str] = &[
+    "clockwork_warden",
+    "mockingbird",
+    "gnu_ton",
+    "smirking_behemoth_boss",
+    "flying_spaghetti_monster_boss",
+    "trex_boss",
+    "mode_collapse_boss",
+    "exploding_gradient_boss",
+    "overflow_boss",
 ];
 
+/// Default encounter specs keyed by id. Reads from disk
+/// (`boss_encounters/<id>.ron`) per ADR 0017; the on-disk RON is the
+/// authoritative numeric source. Authored ids without a RON file fall
+/// back to the in-memory default spec for that id so a fresh clone
+/// still boots before any RON has been written.
+fn default_boss_specs_by_id(
+) -> std::collections::BTreeMap<String, crate::boss_encounter::BossEncounterSpec> {
+    let mut specs: std::collections::BTreeMap<String, crate::boss_encounter::BossEncounterSpec> =
+        std::collections::BTreeMap::new();
+    for spec in super::specs::load_boss_specs_from_disk() {
+        specs.insert(spec.id.clone(), spec);
+    }
+    specs
+}
+
 pub fn default_boss_profiles() -> Vec<BossProfile> {
-    // Per ADR 0017 (Rust = behavior, RON = content): if a boss has
-    // an `assets/data/boss_encounters/<id>.ron`, it overrides the
-    // hardcoded `crate::boss_encounter::BossEncounterSpec::<id>()` constructor's numeric
-    // fields. The Rust profile constructor still owns the behavior
-    // wiring (`BossBehaviorProfile`, `BossRewardProfile`) — only the
-    // encounter-spec numbers come from disk.
-    let on_disk: std::collections::BTreeMap<String, crate::boss_encounter::BossEncounterSpec> =
-        super::specs::load_boss_specs_from_disk()
-            .into_iter()
-            .map(|s| (s.id.clone(), s))
-            .collect();
-    AUTHORED_BOSS_PROFILES
+    AUTHORED_BOSS_IDS
         .iter()
-        .map(|(_, ctor)| {
-            let mut profile = ctor();
-            if let Some(spec) = on_disk.get(&profile.id) {
-                profile.encounter = spec.clone();
-            }
-            profile
-        })
+        .filter_map(|id| BossProfile::from_id(id))
         .collect()
 }
 
@@ -254,6 +119,11 @@ mod tests {
     #[test]
     fn authored_profiles_have_unique_ids() {
         let profiles = default_boss_profiles();
+        assert_eq!(
+            profiles.len(),
+            AUTHORED_BOSS_IDS.len(),
+            "every authored boss id must resolve to a profile",
+        );
         let mut ids = std::collections::BTreeSet::new();
         for profile in profiles {
             assert!(
@@ -268,108 +138,60 @@ mod tests {
 
     #[test]
     fn mockingbird_profile_declares_reward_chest() {
-        let profile = BossProfile::mockingbird();
+        let profile = BossProfile::from_id("mockingbird").expect("mockingbird is authored");
         assert!(matches!(
             profile.reward,
             BossRewardProfile::DropChest { .. }
         ));
-    }
-
-    /// Smoke tests for the RON-overrides-hardcoded path: each boss
-    /// has a `boss_encounters/<id>.ron` on disk, so
-    /// `default_boss_profiles` must produce an encounter spec
-    /// equivalent to the hardcoded constructor (the per-field diff
-    /// is pinned in `specs::tests::load_boss_specs_from_disk_finds_*`).
-    /// These tests catch regressions where the RON drifts from the
-    /// constructor or where the override loop accidentally drops the
-    /// spec for a particular id.
-    #[track_caller]
-    fn assert_profile_matches(id: &str, hardcoded: crate::boss_encounter::BossEncounterSpec) {
-        let profile = default_boss_profiles()
-            .into_iter()
-            .find(|p| p.id == id)
-            .unwrap_or_else(|| panic!("{id} profile is registered"));
-        assert_eq!(profile.encounter, hardcoded);
-    }
-
-    #[test]
-    fn gnu_ton_profile_encounter_matches_hardcoded_constructor() {
-        assert_profile_matches(
-            "gnu_ton",
-            crate::boss_encounter::BossEncounterSpec::gnu_ton(),
-        );
-    }
-
-    #[test]
-    fn mockingbird_profile_encounter_matches_hardcoded_constructor() {
-        assert_profile_matches(
-            "mockingbird",
-            crate::boss_encounter::BossEncounterSpec::mockingbird(),
-        );
-    }
-
-    #[test]
-    fn smirking_behemoth_boss_profile_encounter_matches_hardcoded_constructor() {
-        assert_profile_matches(
-            "smirking_behemoth_boss",
-            crate::boss_encounter::BossEncounterSpec::smirking_behemoth_boss(),
-        );
-    }
-
-    #[test]
-    fn flying_spaghetti_monster_boss_profile_encounter_matches_hardcoded_constructor() {
-        assert_profile_matches(
-            "flying_spaghetti_monster_boss",
-            crate::boss_encounter::BossEncounterSpec::flying_spaghetti_monster_boss(),
-        );
     }
 
     #[test]
     fn flying_spaghetti_monster_boss_profile_declares_reward_chest() {
-        let profile = BossProfile::flying_spaghetti_monster_boss();
+        let profile = BossProfile::from_id("flying_spaghetti_monster_boss")
+            .expect("flying_spaghetti_monster_boss is authored");
         assert!(matches!(
             profile.reward,
             BossRewardProfile::DropChest { .. }
         ));
     }
 
+    /// The bosses that carried a `BossRewardProfile::None` in the old
+    /// constructors must still resolve to `None` from the RON (i.e. the
+    /// `reward:` field is absent / authored as `None`), and the ones
+    /// that dropped a chest must still drop a chest. Pins the reward
+    /// migration so the RON can't silently drop a chest.
     #[test]
-    fn trex_boss_profile_encounter_matches_hardcoded_constructor() {
-        assert_profile_matches(
+    fn reward_kinds_match_legacy_constructors() {
+        for id in ["clockwork_warden", "smirking_behemoth_boss"] {
+            let profile = BossProfile::from_id(id).unwrap();
+            assert!(
+                matches!(profile.reward, BossRewardProfile::None),
+                "{id} should have no reward chest",
+            );
+        }
+        for id in [
+            "mockingbird",
+            "gnu_ton",
+            "flying_spaghetti_monster_boss",
             "trex_boss",
-            crate::boss_encounter::BossEncounterSpec::trex_boss(),
-        );
-    }
-
-    #[test]
-    fn clockwork_warden_profile_encounter_matches_hardcoded_constructor() {
-        assert_profile_matches(
-            "clockwork_warden",
-            crate::boss_encounter::BossEncounterSpec::clockwork_warden(),
-        );
-    }
-
-    #[test]
-    fn mode_collapse_boss_profile_encounter_matches_hardcoded_constructor() {
-        assert_profile_matches(
             "mode_collapse_boss",
-            crate::boss_encounter::BossEncounterSpec::mode_collapse_boss(),
-        );
-    }
-
-    #[test]
-    fn exploding_gradient_boss_profile_encounter_matches_hardcoded_constructor() {
-        assert_profile_matches(
             "exploding_gradient_boss",
-            crate::boss_encounter::BossEncounterSpec::exploding_gradient_boss(),
-        );
+            "overflow_boss",
+        ] {
+            let profile = BossProfile::from_id(id).unwrap();
+            assert!(
+                matches!(profile.reward, BossRewardProfile::DropChest { .. }),
+                "{id} should drop a reward chest",
+            );
+        }
     }
 
+    /// Legacy gradient_sentinel ids in saves resolve to the renamed
+    /// clockwork_warden profile.
     #[test]
-    fn overflow_boss_profile_encounter_matches_hardcoded_constructor() {
-        assert_profile_matches(
-            "overflow_boss",
-            crate::boss_encounter::BossEncounterSpec::overflow_boss(),
-        );
+    fn gradient_sentinel_id_aliases_to_clockwork_warden() {
+        let profile = BossProfile::for_encounter_id_or_name("gradient_sentinel")
+            .expect("gradient_sentinel aliases to clockwork_warden");
+        assert_eq!(profile.id, "clockwork_warden");
     }
 }

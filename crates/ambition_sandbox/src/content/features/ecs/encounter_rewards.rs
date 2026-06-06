@@ -314,8 +314,10 @@ mod boss_reward_sync_tests {
             .set_boss("test_boss", PersistedEncounterState::Cleared);
         app.insert_resource(save);
         let mut reg = BossEncounterRegistry::default();
-        reg.profiles
-            .insert("test_boss".into(), BossProfile::mockingbird());
+        reg.profiles.insert(
+            "test_boss".into(),
+            BossProfile::from_id("mockingbird").expect("mockingbird is authored"),
+        );
         app.insert_resource(reg);
         app.insert_resource(TestWorld(ae::World::new(
             "t",

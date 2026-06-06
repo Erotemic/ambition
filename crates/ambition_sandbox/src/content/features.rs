@@ -69,7 +69,8 @@ pub use boss_attack_geometry::{
 };
 pub use bosses::{
     boss_special_for_profile, BossAttackProfile, BossBehaviorProfile, BossMovementProfile,
-    BossSpriteMetrics, GNU_TON_APPLE_OWNER_PREFIX, GRADIENT_SENTINEL_ENCOUNTER_ID,
+    BossRewardProfile, BossSpriteMetrics, GNU_TON_APPLE_OWNER_PREFIX,
+    GRADIENT_SENTINEL_ENCOUNTER_ID,
 };
 pub use bus::{
     apply_flag_effects, apply_gameplay_sfx_effects, apply_quest_effects, apply_switch_effects,

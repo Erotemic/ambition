@@ -238,7 +238,7 @@ mod tests {
             .unwrap();
         let kin = app
             .world()
-            .get::<crate::features::BossKinematics>(entity)
+            .get::<crate::features::BodyKinematics>(entity)
             .unwrap();
         let config = app
             .world()
@@ -261,7 +261,7 @@ mod tests {
         );
         let kin = app
             .world()
-            .get::<crate::features::BossKinematics>(entity)
+            .get::<crate::features::BodyKinematics>(entity)
             .unwrap();
         let config = app
             .world()

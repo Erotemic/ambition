@@ -8,13 +8,14 @@
 //! `GravityZone` (up-lift); the vortex is a *point* attractor — it lerps each
 //! enemy's position toward the singularity center, clamped by the normal
 //! collision step (`step_kinematic` resolves any wall the pull pushes into).
-//! Bosses carry `BossKinematics`, not `ActorKinematics`, so they're naturally
-//! immune; only grounded/aerial mobs (and peaceful NPCs, harmlessly) get pulled.
+//! Bosses share the unified `BodyKinematics` now, but the faction guard below
+//! (`ActorFaction::Boss != Enemy`) keeps them immune; only grounded/aerial mobs
+//! (and peaceful NPCs, harmlessly) match the `Enemy` faction and get pulled.
 
 use bevy::prelude::*;
 
 use crate::engine_core as ae;
-use crate::features::{ActorFaction, ActorKinematics, FeatureSimEntity, HeldItem};
+use crate::features::{ActorFaction, BodyKinematics, FeatureSimEntity, HeldItem};
 use crate::input::ControlFrame;
 use crate::player::{PlayerEntity, PlayerKinematics, PlayerMana, PrimaryPlayer};
 
@@ -92,7 +93,7 @@ pub fn update_vortex_wells(
     world_time: Res<crate::WorldTime>,
     mut commands: Commands,
     mut wells: Query<(Entity, &mut VortexWell)>,
-    mut actors: Query<(&mut ActorKinematics, &ActorFaction), With<FeatureSimEntity>>,
+    mut actors: Query<(&mut BodyKinematics, &ActorFaction), With<FeatureSimEntity>>,
 ) {
     let dt = world_time.scaled_dt;
     if dt <= 0.0 {
@@ -156,7 +157,7 @@ mod tests {
         app.world_mut()
             .spawn((
                 FeatureSimEntity,
-                ActorKinematics {
+                BodyKinematics {
                     pos,
                     vel: ae::Vec2::ZERO,
                     size: ae::Vec2::new(24.0, 40.0),
@@ -187,7 +188,7 @@ mod tests {
             .count();
         assert_eq!(well_count, 1, "one vortex well spawned");
         // The enemy moved closer to the well center.
-        let new_pos = app.world().get::<ActorKinematics>(enemy).unwrap().pos;
+        let new_pos = app.world().get::<BodyKinematics>(enemy).unwrap().pos;
         let new_dist = new_pos.distance(ae::Vec2::new(300.0, 100.0));
         assert!(
             new_dist < start_dist,
@@ -208,7 +209,7 @@ mod tests {
         app.world_mut()
             .resource_mut::<ControlFrame>()
             .attack_pressed = false;
-        let far_pos = app.world().get::<ActorKinematics>(far).unwrap().pos;
+        let far_pos = app.world().get::<BodyKinematics>(far).unwrap().pos;
         assert_eq!(
             far_pos.x, 900.0,
             "an enemy outside the radius is not pulled"

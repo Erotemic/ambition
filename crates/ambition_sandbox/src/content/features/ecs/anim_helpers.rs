@@ -12,7 +12,7 @@ use super::*;
 pub type ActorSpriteData = (
     &'static FeatureId,
     &'static ActorRuntime,
-    Option<&'static super::enemy_clusters::ActorKinematics>,
+    Option<&'static super::enemy_clusters::BodyKinematics>,
     Option<&'static super::enemy_clusters::EnemyStatus>,
     Option<&'static ActorAttackState>,
     Option<&'static super::enemy_clusters::EnemyConfig>,

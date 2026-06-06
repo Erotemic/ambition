@@ -9,7 +9,7 @@
 //! view struct rather than reconstructing a runtime scratchpad.
 //!
 //! Field → component map (see `dev/reviews/enemyruntime-ecs-inventory.md`):
-//! - pos/vel/size/facing      → [`ActorKinematics`]
+//! - pos/vel/size/facing      → [`BodyKinematics`]
 //! - on_ground/normal/gravity/air_jumps → [`ActorSurfaceState`] (component)
 //! - attack windup/active/cooldown/axis → [`ActorAttackState`] (component)
 //! - alive/respawn/hit_flash/ai_mode/health → [`EnemyStatus`]
@@ -26,15 +26,7 @@ use super::super::MAX_ENEMY_AIR_JUMPS;
 use crate::engine_core as ae;
 use crate::engine_core::AabbExt;
 
-/// Authoritative kinematic state (position / velocity / body size /
-/// facing). Mirrors the player's `PlayerKinematics`.
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
-pub struct ActorKinematics {
-    pub pos: ae::Vec2,
-    pub vel: ae::Vec2,
-    pub size: ae::Vec2,
-    pub facing: f32,
-}
+pub use crate::platformer_runtime::body::BodyKinematics;
 
 /// Liveness + per-tick status scalars: alive flag, respawn countdown,
 /// hit-flash timer, last-evaluated AI mode, and current health.
@@ -73,7 +65,7 @@ pub struct ActorMotionPath(pub Option<PathMotion>);
 /// reads naturally (`self.kin.pos`, `self.surface.on_ground`,
 /// `self.attack.cooldown`, `self.status.alive`, `self.config.archetype`).
 pub struct EnemyMut<'a> {
-    pub kin: &'a mut ActorKinematics,
+    pub kin: &'a mut BodyKinematics,
     pub status: &'a mut EnemyStatus,
     pub surface: &'a mut ActorSurfaceState,
     pub attack: &'a mut ActorAttackState,
@@ -84,7 +76,7 @@ pub struct EnemyMut<'a> {
 #[derive(QueryData)]
 #[query_data(mutable)]
 pub struct EnemyClusterQueryData {
-    pub kin: &'static mut ActorKinematics,
+    pub kin: &'static mut BodyKinematics,
     pub status: &'static mut EnemyStatus,
     pub surface: &'static mut ActorSurfaceState,
     pub attack: &'static mut ActorAttackState,
@@ -115,7 +107,7 @@ impl<'w, 's> EnemyClusterQueryDataItem<'w, 's> {
 /// the player's `PlayerClusterScratch`.
 #[derive(Clone, Debug)]
 pub struct EnemyClusterScratch {
-    pub kin: ActorKinematics,
+    pub kin: BodyKinematics,
     pub status: EnemyStatus,
     pub surface: ActorSurfaceState,
     pub attack: ActorAttackState,
@@ -153,7 +145,7 @@ impl EnemyClusterScratch {
             .default_size()
             .unwrap_or_else(|| aabb.half_size() * 2.0);
         Self {
-            kin: ActorKinematics {
+            kin: BodyKinematics {
                 pos,
                 vel: ae::Vec2::ZERO,
                 size,
@@ -203,7 +195,7 @@ impl EnemyClusterScratch {
     pub fn into_components(
         self,
     ) -> (
-        ActorKinematics,
+        BodyKinematics,
         EnemyStatus,
         EnemyConfig,
         ActorMotionPath,

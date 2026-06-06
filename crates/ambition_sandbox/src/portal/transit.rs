@@ -407,38 +407,28 @@ pub fn tick_portal_cooldowns(
 
 /// Teleport non-player actors (enemies / NPCs / bosses) through the portal
 /// pair, **size-gated** so only actors that fit the opening pass. Enemies / NPCs
-/// (`ActorKinematics`) carry their momentum through the rotation; bosses
-/// (`BossKinematics`, no velocity field) are repositioned out the exit. A short
-/// [`PortalTransitCooldown`] after each jump prevents ping-pong.
-/// Send EVERY non-player actor (enemies / NPCs via `ActorKinematics`, bosses via
-/// `BossKinematics`) through a portal with the SAME aperture / centroid-crossing
+/// carry their momentum through the rotation; bosses float and never persist
+/// velocity, so they are repositioned out the exit without a velocity write
+/// (a boss's `vel` is always `ZERO`). A short [`PortalTransitCooldown`] after
+/// each jump prevents ping-pong.
+///
+/// All non-player bodies share the unified [`crate::features::BodyKinematics`],
+/// so a single query drives them through the SAME aperture / centroid-crossing
 /// machine the player uses ([`transit_step`]) — the unification: a goblin or a
 /// boss now sinks into the carved opening and transfers when its centroid
 /// crosses, carrying momentum + a somersault roll, instead of instant-popping
-/// out the far side. Size-gated (big bosses can't fit a small opening) and
-/// latched by [`PortalTransitCooldown`] against ping-pong.
+/// out the far side. The optional `BossConfig` marker selects the no-velocity
+/// boss path; one query means no `&mut BodyKinematics` self-conflict.
 pub fn portal_transit_actors(
     mut commands: Commands,
     portals: Query<&PlacedPortal>,
-    mut actors: Query<
-        (
-            Entity,
-            &mut crate::features::ActorKinematics,
-            Option<&mut PortalTransit>,
-            Option<&mut ActorRoll>,
-            Option<&PortalTransitCooldown>,
-        ),
-        // Exclude bosses so this query and the boss query below have disjoint
-        // entity sets — both take `&mut ActorRoll` / `&mut PortalTransit`, so
-        // Bevy needs them proven non-overlapping.
-        Without<crate::features::BossKinematics>,
-    >,
-    mut bosses: Query<(
+    mut bodies: Query<(
         Entity,
-        &mut crate::features::BossKinematics,
+        &mut crate::features::BodyKinematics,
         Option<&mut PortalTransit>,
         Option<&mut ActorRoll>,
         Option<&PortalTransitCooldown>,
+        Option<&crate::features::BossConfig>,
     )>,
     gravity: Option<Res<crate::physics::GravityField>>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
@@ -449,8 +439,11 @@ pub fn portal_transit_actors(
     }
     let gravity_dir = gravity.map_or(Vec2::new(0.0, 1.0), |g| g.dir);
 
-    for (entity, kin, mut transit, mut roll, cooldown) in &mut actors {
+    for (entity, kin, mut transit, mut roll, cooldown, boss) in &mut bodies {
+        let is_boss = boss.is_some();
         let kin = kin.into_inner();
+        // Bosses have no persisted velocity (`vel` is always ZERO); enemies /
+        // NPCs carry their momentum through the rotation.
         let step = transit_step(
             kin.pos,
             kin.size,
@@ -460,38 +453,16 @@ pub fn portal_transit_actors(
             &all,
             gravity_dir,
         );
+        // Boss path writes position + roll only (no velocity), preserving the
+        // float-only boss behavior; enemies / NPCs also carry velocity.
+        let vel_out: Option<&mut Vec2> = if is_boss { None } else { Some(&mut kin.vel) };
         apply_actor_transit(
             &mut commands,
             entity,
             &mut sfx,
             step,
             Some(&mut kin.pos),
-            Some(&mut kin.vel),
-            roll.as_deref_mut(),
-            transit.as_deref_mut(),
-        );
-    }
-
-    for (entity, kin, mut transit, mut roll, cooldown) in &mut bosses {
-        // Bosses have no velocity field — feed ZERO and ignore the velocity the
-        // step computes; they reposition + roll only.
-        let kin = kin.into_inner();
-        let step = transit_step(
-            kin.pos,
-            kin.size,
-            Vec2::ZERO,
-            transit.as_deref().copied(),
-            cooldown.map_or(0.0, |c| c.0),
-            &all,
-            gravity_dir,
-        );
-        apply_actor_transit(
-            &mut commands,
-            entity,
-            &mut sfx,
-            step,
-            Some(&mut kin.pos),
-            None,
+            vel_out,
             roll.as_deref_mut(),
             transit.as_deref_mut(),
         );

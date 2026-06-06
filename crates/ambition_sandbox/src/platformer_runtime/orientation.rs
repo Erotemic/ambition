@@ -30,21 +30,24 @@ pub struct ActorRoll {
 const ACTOR_ROLL_SPEED: f32 = 8.0;
 
 /// Attach an [`ActorRoll`] to every body that can be reoriented — the player
-/// plus all non-player actors (enemies / NPCs via `ActorKinematics`, bosses via
-/// `BossKinematics`) — lazily, so no bundle needs to know about this module.
+/// plus all non-player actors (enemies / NPCs / bosses, all via the unified
+/// `BodyKinematics`) — lazily, so no bundle needs to know about this module.
 pub fn ensure_actor_roll(
     mut commands: Commands,
     player: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>, Without<ActorRoll>)>,
-    actors: Query<Entity, (With<crate::features::ActorKinematics>, Without<ActorRoll>)>,
-    bosses: Query<Entity, (With<crate::features::BossKinematics>, Without<ActorRoll>)>,
+    bodies: Query<
+        Entity,
+        (
+            With<crate::features::BodyKinematics>,
+            Without<PlayerEntity>,
+            Without<ActorRoll>,
+        ),
+    >,
 ) {
     for entity in &player {
         commands.entity(entity).insert(ActorRoll::default());
     }
-    for entity in &actors {
-        commands.entity(entity).insert(ActorRoll::default());
-    }
-    for entity in &bosses {
+    for entity in &bodies {
         commands.entity(entity).insert(ActorRoll::default());
     }
 }
@@ -60,8 +63,7 @@ pub fn update_actor_roll(
     mut rolls: Query<(
         &mut ActorRoll,
         Option<&PlayerKinematics>,
-        Option<&crate::features::ActorKinematics>,
-        Option<&crate::features::BossKinematics>,
+        Option<&crate::features::BodyKinematics>,
     )>,
 ) {
     let dt = time.sim_dt();
@@ -69,14 +71,13 @@ pub fn update_actor_roll(
         return;
     }
     let max_step = ACTOR_ROLL_SPEED * dt;
-    for (mut roll, pkin, akin, bkin) in &mut rolls {
+    for (mut roll, pkin, bkin) in &mut rolls {
         // Each body rights toward the gravity of the column IT is standing in
         // (localized): resolve from its own position, falling back to the
-        // player's field when position is unavailable.
-        let pos = pkin
-            .map(|k| k.pos)
-            .or_else(|| akin.map(|k| k.pos))
-            .or_else(|| bkin.map(|k| k.pos));
+        // player's field when position is unavailable. Player carries
+        // `PlayerKinematics`; enemies / NPCs / bosses carry the unified
+        // `BodyKinematics`.
+        let pos = pkin.map(|k| k.pos).or_else(|| bkin.map(|k| k.pos));
         let gravity_dir = match pos {
             Some(p) => gravity.dir_at(p),
             None => gravity.field_dir(),

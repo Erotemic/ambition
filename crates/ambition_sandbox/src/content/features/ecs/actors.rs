@@ -48,7 +48,7 @@ fn shark_charge_crashed_geometry(
 /// Marker for an actor entity. Both variants are payload-free — NPC and
 /// enemy state live entirely in ECS cluster components (`NpcConfig`/
 /// `NpcStatus` or `EnemyConfig`/`EnemyStatus` + the shared
-/// `ActorKinematics`/`ActorSurfaceState`/`ActorMotionPath`). The variant
+/// `BodyKinematics`/`ActorSurfaceState`/`ActorMotionPath`). The variant
 /// is just the disposition tag (peaceful vs hostile); the legacy
 /// `NpcRuntime`/`EnemyRuntime` blobs were dissolved into the clusters.
 /// A peaceful NPC flips to `Enemy` in place (`make_entity_enemy`) when
@@ -75,7 +75,7 @@ impl ActorRuntime {
 /// same entity.
 pub(crate) fn enemy_runtime_for_npc_combat(
     config: &super::npc_clusters::NpcConfig,
-    kin: &super::enemy_clusters::ActorKinematics,
+    kin: &super::enemy_clusters::BodyKinematics,
     surface: &ActorSurfaceState,
 ) -> super::enemy_clusters::EnemyClusterScratch {
     let brain_id = hostile_enemy_brain_for_npc(config);
@@ -254,17 +254,17 @@ pub fn sync_actor_poses_from_feature_aabbs(
             &FeatureAabb,
             &mut super::super::components::ActorPose,
             Option<&ActorRuntime>,
-            Option<&super::enemy_clusters::ActorKinematics>,
+            Option<&super::enemy_clusters::BodyKinematics>,
             Option<super::boss_clusters::BossClusterRef>,
         ),
         With<FeatureSimEntity>,
     >,
 ) {
     for (aabb, mut pose, actor, kin, boss) in &mut actors {
-        // Facing source: enemy clusters (ActorKinematics), NPC runtime,
+        // Facing source: enemy clusters (BodyKinematics), NPC runtime,
         // or boss runtime; default to the current pose facing.
         let facing = match actor {
-            // NPCs and enemies both carry the shared `ActorKinematics`
+            // NPCs and enemies both carry the shared `BodyKinematics`
             // component, so facing reads from `kin` for either marker.
             Some(ActorRuntime::Npc) | Some(ActorRuntime::Enemy) => {
                 kin.map(|k| k.facing).unwrap_or(pose.facing)
@@ -688,7 +688,7 @@ pub fn update_ecs_actors(
 
 /// Tick peaceful/hostile NPC actors. Split out from
 /// [`update_ecs_actors`] because NPCs carry the actor-generic
-/// [`ActorKinematics`] / [`ActorSurfaceState`] / [`ActorMotionPath`]
+/// [`BodyKinematics`] / [`ActorSurfaceState`] / [`ActorMotionPath`]
 /// components that the enemy cluster query *also* borrows mutably — a
 /// single query containing both `Option<EnemyClusterQueryData>` and
 /// `Option<NpcClusterQueryData>` would panic on conflicting access to

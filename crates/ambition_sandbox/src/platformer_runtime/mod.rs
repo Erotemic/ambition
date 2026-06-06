@@ -20,6 +20,7 @@
 pub use ambition_platformer_runtime::{lifecycle, math, schedule, transit};
 
 // Still-local modules: the not-yet-extracted remainder.
+pub mod body;
 pub mod collision;
 pub mod orientation;
 pub mod prelude;

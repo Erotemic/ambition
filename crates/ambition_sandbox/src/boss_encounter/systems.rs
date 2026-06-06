@@ -406,7 +406,7 @@ pub fn boss_phase_transition_feedback(
         (
             Entity,
             &crate::features::FeatureId,
-            &crate::features::BossKinematics,
+            &crate::features::BodyKinematics,
         ),
         With<crate::features::BossConfig>,
     >,

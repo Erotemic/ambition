@@ -40,7 +40,12 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 pub mod audio;
-pub mod controls;
+// The input-domain config (deadzones / trigger hysteresis / dash mode /
+// controller + keyboard-preset vocabulary) now lives in the `ambition_input`
+// crate so the dependency points DOWN (persistence -> ambition_input). Re-exported
+// as `controls` so existing `crate::persistence::settings::controls::…` and
+// `super::controls::…` paths resolve unchanged (ADR 0019).
+pub use ambition_input::settings as controls;
 pub mod gameplay;
 pub mod menu;
 pub mod model;

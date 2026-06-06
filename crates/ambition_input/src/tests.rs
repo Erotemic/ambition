@@ -1,5 +1,5 @@
 use super::*;
-use crate::persistence::settings::ControlSettings;
+use crate::settings::ControlSettings;
 
 #[test]
 fn analog_drift_below_deadzone_zeros_movement() {

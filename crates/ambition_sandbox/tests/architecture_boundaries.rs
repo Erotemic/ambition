@@ -199,6 +199,75 @@ fn architecture_boundaries_platformer_runtime_crate_is_extracted() {
     );
 }
 
+#[test]
+fn architecture_boundaries_input_crate_is_extracted() {
+    // ADR 0019: the device -> ControlFrame input layer (SandboxAction /
+    // ControlFrame / MenuControlFrame / keyboard+gamepad presets + the
+    // input-domain settings) was extracted into the standalone `ambition_input`
+    // crate, which compiles without `ambition_sandbox`. Assert (a) the crate
+    // exists with the moved modules, (b) it does NOT depend on the sandbox,
+    // (c) the modules no longer live in the sandbox and `crate::input` /
+    // `persistence::settings::controls` are facades over the crate.
+    let root = repo_root();
+    let crate_root = root.join("crates/ambition_input");
+
+    // (a) The crate exists with the extracted modules.
+    assert!(
+        crate_root.join("Cargo.toml").exists(),
+        "ambition_input crate should exist at crates/ambition_input"
+    );
+    for rel in [
+        "src/lib.rs",
+        "src/actions.rs",
+        "src/control.rs",
+        "src/menu.rs",
+        "src/presets.rs",
+        "src/settings.rs",
+    ] {
+        assert!(
+            crate_root.join(rel).exists(),
+            "extracted input crate should include {rel}"
+        );
+    }
+
+    // (b) The extracted crate must not depend on the sandbox (the whole point:
+    //     input is an upper sibling, decoupled from sandbox content).
+    let crate_manifest =
+        fs::read_to_string(crate_root.join("Cargo.toml")).expect("read input crate manifest");
+    let depends_on_sandbox = crate_manifest.lines().any(|line| {
+        let line = line.trim();
+        line.starts_with("ambition_sandbox =") || line.starts_with("ambition_sandbox.")
+    });
+    assert!(
+        !depends_on_sandbox,
+        "ambition_input must not depend on ambition_sandbox"
+    );
+
+    // (c) The moved modules no longer live in the sandbox; `crate::input` and
+    //     `persistence::settings::controls` are facades over the crate.
+    assert!(
+        !crate_src().join("input.rs").exists() && !crate_src().join("input").exists(),
+        "the input module should have moved into the ambition_input crate"
+    );
+    assert!(
+        !crate_src()
+            .join("persistence/settings/controls.rs")
+            .exists(),
+        "input-domain controls settings should have moved into the ambition_input crate"
+    );
+    let lib = fs::read_to_string(crate_src().join("lib.rs")).expect("read sandbox lib.rs");
+    assert!(
+        lib.contains("pub use ambition_input as input"),
+        "crate::input should be a facade re-exporting the ambition_input crate"
+    );
+    let settings_mod = fs::read_to_string(crate_src().join("persistence/settings/mod.rs"))
+        .expect("read persistence settings mod.rs");
+    assert!(
+        settings_mod.contains("pub use ambition_input::settings as controls"),
+        "persistence::settings::controls should re-export ambition_input::settings"
+    );
+}
+
 fn raw_commands_spawn_count(text: &str) -> usize {
     text.match_indices("commands.spawn(").count()
 }

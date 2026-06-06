@@ -1,3 +1,4 @@
+#[cfg(feature = "input")]
 use super::*;
 
 /// Logical player/sandbox inputs understood by the Bevy adapter layer.

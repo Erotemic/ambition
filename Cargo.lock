@@ -157,6 +157,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_input"
+version = "0.1.0"
+dependencies = [
+ "ambition_engine_core",
+ "bevy",
+ "leafwing-input-manager",
+ "serde",
+]
+
+[[package]]
 name = "ambition_inventory_ui"
 version = "0.1.0"
 dependencies = [
@@ -178,6 +188,7 @@ version = "0.2.0"
 dependencies = [
  "ambition_asset_manager",
  "ambition_engine_core",
+ "ambition_input",
  "ambition_inventory_ui",
  "ambition_platformer_runtime",
  "ambition_sfx",

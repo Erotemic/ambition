@@ -1,0 +1,42 @@
+[package]
+name = "ambition_input"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Device -> ControlFrame input layer for ambition: SandboxAction (leafwing), the per-frame ControlFrame / MenuControlFrame seams, keyboard/gamepad presets, and the input-domain settings (deadzones / trigger hysteresis / dash mode). The upper-sibling input abstraction (ADR 0019); decoupled from sandbox content so the input-ordering bug class cannot silently recur. See docs/planning/plugin_refactor/15_post_task_k_revision.md."
+
+[lib]
+# rlib only: a library consumed by ambition_sandbox. Packaging is the
+# consuming binary's responsibility.
+crate-type = ["rlib"]
+
+[features]
+# Mirrors the sandbox `input` feature: gates the leafwing `Actionlike`
+# surface (SandboxAction + the device->ControlFrame builders). Sim-only
+# builds use `ControlFrame` (always-available) on the seam instead.
+default = []
+input = ["dep:leafwing-input-manager"]
+
+[dependencies]
+# Input needs the windowing/input surface (KeyCode / GamepadButton) plus
+# Reflect + the ECS Resource/Component derives. `bevy_state` pulls the
+# input + reflect + ecs surface leafwing's derive macros expect, while
+# default-features=false keeps render/audio/asset out of this layer.
+# `bevy_input_focus` is the smallest feature that brings the `bevy_input`
+# surface (KeyCode / GamepadButton, used by the always-compiled keyboard
+# presets) into the bevy prelude. Render / audio / asset features are left
+# off so this input layer stays a thin sibling. (leafwing pulls a wider
+# surface transitively when the `input` feature is on, but this crate must
+# also compile WITHOUT leafwing for sim-only builds.)
+bevy = { version = "0.18.1", default-features = false, features = [
+    "bevy_input_focus",
+] }
+leafwing-input-manager = { version = "0.20", optional = true }
+
+# The content-free pure-logic foundation. Input maps the device-side
+# `ControlFrame` into `engine_core::InputState` (`ControlFrame::engine_input`),
+# so it depends DOWN on the foundation — never on ambition_sandbox.
+ambition_engine_core = { path = "../ambition_engine_core" }
+
+serde = { version = "1", features = ["derive"] }

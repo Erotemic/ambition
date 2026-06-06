@@ -120,7 +120,9 @@ impl LdtkProject {
         let mut kinematic_paths: Vec<KinematicPathSpec> = Vec::new();
         let mut props: Vec<PropSpec> = Vec::new();
         let mut ground_items: Vec<crate::rooms::GroundItemSpec> = Vec::new();
+        #[cfg(feature = "portal")]
         let mut portal_gun_spawns: Vec<crate::rooms::PortalGunSpawnSpec> = Vec::new();
+        #[cfg(feature = "portal")]
         let mut portals: Vec<crate::rooms::PortalSpec> = Vec::new();
         let mut shrines: Vec<crate::rooms::ShrineSpec> = Vec::new();
         let mut gravity_zones: Vec<crate::rooms::GravityZoneSpec> = Vec::new();
@@ -175,7 +177,9 @@ impl LdtkProject {
                         kinematic_paths.extend(emission.kinematic_paths);
                         props.extend(emission.props);
                         ground_items.extend(emission.ground_items);
+                        #[cfg(feature = "portal")]
                         portal_gun_spawns.extend(emission.portal_gun_spawns);
+                        #[cfg(feature = "portal")]
                         portals.extend(emission.portals);
                         shrines.extend(emission.shrines);
                         gravity_zones.extend(emission.gravity_zones);
@@ -266,7 +270,9 @@ impl LdtkProject {
             moving_platforms: resolved_moving_platforms,
             props,
             ground_items,
+            #[cfg(feature = "portal")]
             portal_gun_spawns,
+            #[cfg(feature = "portal")]
             portals,
             shrines,
             gravity_zones,
@@ -323,9 +329,11 @@ pub(super) struct RuntimeEntityEmission {
     pub(super) ground_items: Vec<crate::rooms::GroundItemSpec>,
     /// LDtk-authored portal-gun pickups. Most emit zero; `PortalGunSpawn` emits
     /// one. See [`crate::rooms::PortalGunSpawnSpec`].
+    #[cfg(feature = "portal")]
     pub(super) portal_gun_spawns: Vec<crate::rooms::PortalGunSpawnSpec>,
     /// LDtk-authored static portals. Most emit zero; `Portal` emits one. See
     /// [`crate::rooms::PortalSpec`].
+    #[cfg(feature = "portal")]
     pub(super) portals: Vec<crate::rooms::PortalSpec>,
     /// LDtk-authored heal/save shrines. Most emit zero; `ShrineSpawn` emits one.
     pub(super) shrines: Vec<crate::rooms::ShrineSpec>,
@@ -401,6 +409,7 @@ impl RuntimeEntityEmission {
         }
     }
 
+    #[cfg(feature = "portal_ldtk")]
     fn portal_gun_spawn(spec: crate::rooms::PortalGunSpawnSpec) -> Self {
         Self {
             portal_gun_spawns: vec![spec],
@@ -408,6 +417,7 @@ impl RuntimeEntityEmission {
         }
     }
 
+    #[cfg(feature = "portal_ldtk")]
     fn portal(spec: crate::rooms::PortalSpec) -> Self {
         Self {
             portals: vec![spec],
@@ -577,8 +587,22 @@ pub(super) fn entity_to_runtime(
         "NpcSpawn" => Ok(convert_npc_spawn(entity, name, min, size)),
         "PickupSpawn" => Ok(convert_pickup_spawn(entity, name, min, size)),
         "GroundItem" => convert_ground_item(entity, name, min, size),
+        // Portal-authored entities require the `portal_ldtk` feature. Per the
+        // refactor anti-goal ("do NOT make LDtk silently ignore portal-authored
+        // entities when portal is disabled — fail loudly"), a portal-OFF /
+        // portal_ldtk-OFF build returns an explicit conversion error here rather
+        // than dropping the entity.
+        #[cfg(feature = "portal_ldtk")]
         "PortalGunSpawn" => Ok(convert_portal_gun_spawn(entity, name, min, size)),
+        #[cfg(feature = "portal_ldtk")]
         "Portal" => convert_portal(entity, name, min, size),
+        #[cfg(not(feature = "portal_ldtk"))]
+        ident @ ("PortalGunSpawn" | "Portal") => Err(format!(
+            "portal-authored entity '{ident}' ('{}') encountered, but the portal \
+             LDtk converter is compiled out (enable the `portal_ldtk` cargo \
+             feature to author portal entities)",
+            entity.identifier
+        )),
         "ShrineSpawn" => Ok(convert_shrine(entity, name, min, size)),
         "GravityZone" => Ok(convert_gravity_zone(entity, name, min, size)),
         "ChestSpawn" => Ok(convert_chest_spawn(entity, name, min, size)),
@@ -799,6 +823,7 @@ fn convert_ground_item(
     ))
 }
 
+#[cfg(feature = "portal_ldtk")]
 fn convert_portal_gun_spawn(
     entity: &LdtkEntityInstance,
     name: String,
@@ -819,6 +844,7 @@ fn convert_portal_gun_spawn(
     })
 }
 
+#[cfg(feature = "portal_ldtk")]
 fn convert_portal(
     entity: &LdtkEntityInstance,
     name: String,

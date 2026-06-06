@@ -64,6 +64,7 @@ pub(super) fn spawn_ground_item(commands: &mut Commands, spec: &crate::rooms::Gr
     ));
 }
 
+#[cfg(feature = "portal")]
 pub(super) fn spawn_portal_gun_spawn(
     commands: &mut Commands,
     spec: &crate::rooms::PortalGunSpawnSpec,
@@ -79,6 +80,7 @@ pub(super) fn spawn_portal_gun_spawn(
     ));
 }
 
+#[cfg(feature = "portal")]
 pub(super) fn spawn_portal(commands: &mut Commands, spec: &crate::rooms::PortalSpec) {
     // Authored static portal: the same `Portal` component the gun fires, but
     // pre-placed and color-paired. Room-scoped so a transition despawns it and

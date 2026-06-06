@@ -24,6 +24,7 @@ use crate::features::HeldItem;
 use crate::input::ControlFrame;
 use crate::platformer_runtime::prelude::SpawnScopedExt;
 use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
+#[cfg(feature = "portal")]
 use crate::portal::PortalGun;
 
 /// Public schedule labels for held-item and ground-item simulation.
@@ -70,17 +71,28 @@ impl Plugin for ItemPickupSimulationPlugin {
                 // Resolve the live GravityField from zones + ambient after the
                 // FlipGravity switch and before ground_item_physics reads it.
                 crate::physics::resolve_active_gravity,
-                crate::portal::arm_portal_pickups,
                 pickup_held_item_system.run_if(crate::gameplay_allowed),
                 fire_held_ranged_system.run_if(crate::gameplay_allowed),
                 held_projectile_step.run_if(crate::gameplay_allowed),
                 crate::puppy_slug_gun::fire_puppy_slug_gun_system.run_if(crate::gameplay_allowed),
                 throw_held_item_system.run_if(crate::gameplay_allowed),
                 ground_item_physics.run_if(crate::gameplay_allowed),
-                // After portal_fire (registered by PortalSimulationPlugin) so
-                // picking up the gun does not also fire on the same Attack press.
-                // The pickup grant is Ambition inventory policy, so it lives in
-                // the content adapter.
+            )
+                .chain()
+                .in_set(crate::app::SandboxSet::PlayerSimulation)
+                .in_set(ItemPickupSet::CoreHeldItems),
+        );
+
+        // Portal-gun ground pickups: arming the LDtk-authored pickup and the
+        // Ambition inventory grant on Attack. Gated with the portal mechanic.
+        // `pickup_portal_gun_system` runs after `portal_fire` (registered by
+        // `PortalSimulationPlugin`) so grabbing the gun does not also fire on
+        // the same Attack press.
+        #[cfg(feature = "portal")]
+        app.add_systems(
+            Update,
+            (
+                crate::portal::arm_portal_pickups,
                 crate::ambition_content::portal::pickup_portal_gun_system
                     .run_if(crate::gameplay_allowed),
             )
@@ -288,16 +300,20 @@ pub fn unequip_held(
 pub fn pickup_held_item_system(
     mut control: ResMut<ControlFrame>,
     mut commands: Commands,
-    mut players: Query<
+    // One item at a time (Smash-style): can't grab a ground item while already
+    // holding one, or while holding the portal gun (portal builds only).
+    #[cfg(feature = "portal")] mut players: Query<
         (Entity, &PlayerKinematics, &mut ActionSet),
         (
             With<PlayerEntity>,
             With<PrimaryPlayer>,
-            // One item at a time (Smash-style): can't grab a ground item while
-            // already holding one, or while holding the portal gun.
             Without<HeldItem>,
             Without<PortalGun>,
         ),
+    >,
+    #[cfg(not(feature = "portal"))] mut players: Query<
+        (Entity, &PlayerKinematics, &mut ActionSet),
+        (With<PlayerEntity>, With<PrimaryPlayer>, Without<HeldItem>),
     >,
     grounds: Query<(Entity, &GroundItem)>,
     mut owned: Option<ResMut<crate::items::OwnedItems>>,

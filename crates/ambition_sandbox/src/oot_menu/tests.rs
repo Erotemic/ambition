@@ -188,6 +188,7 @@ fn grid_navigation_moves_the_cursor_while_open() {
     );
 }
 
+#[cfg(feature = "portal")]
 #[test]
 fn equipping_the_portal_gun_attaches_and_detaches_its_component() {
     let (mut app, player) = test_app();

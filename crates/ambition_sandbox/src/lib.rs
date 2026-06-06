@@ -89,6 +89,7 @@ pub mod oot_cube;
 pub mod oot_cube_app;
 pub(crate) mod persistence;
 pub mod physics;
+#[cfg(feature = "portal")]
 pub mod portal;
 pub mod portal_pieces;
 pub mod possession;

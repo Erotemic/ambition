@@ -89,7 +89,7 @@ pub fn draw_debug_overlay(
         crate::player::PrimaryPlayerOnly,
     >,
     feature_q: FeatureDebugQueries,
-    portals: Query<&crate::portal::PlacedPortal>,
+    #[cfg(feature = "portal")] portals: Query<&crate::portal::PlacedPortal>,
 ) {
     if !dev_state.debug_enabled() || !developer_tools.gizmos_enabled {
         return;
@@ -174,6 +174,7 @@ pub fn draw_debug_overlay(
             feature_q.held_projectiles.iter(),
             &developer_tools,
         );
+        #[cfg(feature = "portal")]
         draw_portals(&mut gizmos, world, portals.iter());
     }
 }
@@ -214,6 +215,7 @@ fn draw_held_projectiles<'a>(
 /// outward normal tick, so the portal's collision can be eyeballed in the
 /// debug overlay (it's otherwise invisible — only the thin sprite shows).
 #[cfg(feature = "input")]
+#[cfg(feature = "portal")]
 fn draw_portals<'a>(
     gizmos: &mut Gizmos,
     world: &ae::World,

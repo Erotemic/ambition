@@ -230,12 +230,19 @@ pub fn process_sandbox_reset_request(
 pub fn clear_transient_on_sandbox_reset(
     request: Res<SandboxResetRequested>,
     mut commands: Commands,
-    transient: Query<
+    #[cfg(feature = "portal")] transient: Query<
         Entity,
         Or<(
             With<crate::portal::PlacedPortal>,
             With<crate::portal::PortalShot>,
             With<crate::portal::PortalGunPickup>,
+            With<crate::item_pickup::GroundItem>,
+            With<crate::puppy_slug_gun::PuppySlugAlly>,
+        )>,
+    >,
+    #[cfg(not(feature = "portal"))] transient: Query<
+        Entity,
+        Or<(
             With<crate::item_pickup::GroundItem>,
             With<crate::puppy_slug_gun::PuppySlugAlly>,
         )>,
@@ -265,6 +272,7 @@ pub fn clear_transient_on_sandbox_reset(
         commands
             .entity(player)
             .remove::<crate::features::HeldItem>();
+        #[cfg(feature = "portal")]
         commands.entity(player).remove::<crate::portal::PortalGun>();
         // Clear any Mark/Recall mark too, so re-equipping after a reset can't
         // recall to a position from before the room was rebuilt.
@@ -348,9 +356,12 @@ mod tests {
                 crate::brain::ActionSet::default(),
                 crate::item_pickup::StashedActionSet(crate::brain::ActionSet::default()),
                 crate::features::HeldItem::new(crate::item_pickup::axe_spec()),
-                crate::portal::PortalGun::default(),
             ))
             .id();
+        #[cfg(feature = "portal")]
+        app.world_mut()
+            .entity_mut(player)
+            .insert(crate::portal::PortalGun::default());
 
         // No reset queued → nothing changes.
         app.update();
@@ -386,6 +397,7 @@ mod tests {
                 .is_none(),
             "held item removed from player"
         );
+        #[cfg(feature = "portal")]
         assert!(
             app.world()
                 .get::<crate::portal::PortalGun>(player)
@@ -466,7 +478,9 @@ mod tests {
             moving_platforms: Vec::new(),
             props: Vec::new(),
             ground_items: Vec::new(),
+            #[cfg(feature = "portal")]
             portal_gun_spawns: Vec::new(),
+            #[cfg(feature = "portal")]
             portals: Vec::new(),
             shrines: Vec::new(),
             gravity_zones: Vec::new(),

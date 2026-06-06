@@ -20,6 +20,28 @@ default = ["desktop_dev"]
 # gameplay plus inspector/devtools, mobile touch, and RL/test adapters.
 desktop_dev = ["visible", "desktop_platform", "dev_tools", "mobile_touch", "rl_sim", "falling_sand", "oot_inventory"]
 
+# Portal gun mechanic (the flagship player ability). Optional so non-portal
+# builds can compile out portal mechanics, portal rendering, and portal LDtk
+# conversion while keeping movement, world-query, room transitions, gravity, and
+# inventory infrastructure. Persona builds (`visible`, and therefore
+# `desktop_dev`/`android`, plus the web backbone) opt into the full portal stack
+# below so a normal build is behaviorally unchanged.
+#
+# `portal`        — portal simulation/mechanics + Ambition input/inventory glue.
+# `portal_render` — portal visual sync (needs the `visible` render pipeline).
+# `portal_ldtk`   — portal-authored LDtk entity conversion (needs `ldtk_runtime`).
+#                   When `portal_ldtk` is OFF, the LDtk converter fails loudly on
+#                   a `Portal` / `PortalGunSpawn` entity rather than silently
+#                   dropping it.
+portal = []
+# `portal_render` does NOT force `visible` on, so the web backbone
+# (`visible_web_base`, which mirrors `visible` rather than enabling it) can opt
+# into portal visuals without dragging in the desktop-only audio/ui/physics
+# subsystems. Personas that want portal rendering enable their own render
+# pipeline (`visible` / `visible_web_base`) alongside this flag.
+portal_render = ["portal"]
+portal_ldtk = ["portal", "ldtk_runtime"]
+
 
 # Desktop platform support mirrors Bevy's default platform collection: windowing,
 # desktop gamepads via gilrs, default font fallback, system info, and desktop
@@ -70,6 +92,9 @@ visible = [
     "audio",
     "ui",
     "physics_debris",
+    "portal",
+    "portal_render",
+    "portal_ldtk",
     "bevy/2d_bevy_render",
     "bevy/ui_bevy_render",
     "bevy/scene",
@@ -93,6 +118,9 @@ visible_web_base = [
     "ldtk_runtime",
     "input",
     "static_map",
+    "portal",
+    "portal_render",
+    "portal_ldtk",
     "bevy/2d_bevy_render",
     "bevy/ui_bevy_render",
     "bevy/scene",

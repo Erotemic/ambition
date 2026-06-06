@@ -8,4 +8,5 @@
 //! Stage 9 / Task H bootstraps this boundary with the portal adapters; Stage 11
 //! / Task J expands it to quests, bosses, worlds, music, and dialogue.
 
+#[cfg(feature = "portal")]
 pub mod portal;

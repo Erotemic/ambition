@@ -563,6 +563,7 @@ pub struct GroundItemSpec {
 /// [`crate::portal::PortalGunPickup`] (already armed, `arm_timer = 0`) at room
 /// load — the authored-placement home for the debug
 /// `spawn_debug_portal_gun_pickup_once`.
+#[cfg(feature = "portal")]
 #[derive(Clone, Debug, PartialEq)]
 pub struct PortalGunSpawnSpec {
     /// LDtk iid — stable across rebuilds for save/debug joins.
@@ -579,6 +580,7 @@ pub struct PortalGunSpawnSpec {
 /// load — pre-placed linked pairs (by complementary color) for the portal test
 /// lab, independent of the portal gun. The half-extent is the standard portal
 /// opening (derived from the normal), not the LDtk box size.
+#[cfg(feature = "portal")]
 #[derive(Clone, Debug, PartialEq)]
 pub struct PortalSpec {
     /// LDtk iid — stable across rebuilds for save/debug joins.
@@ -678,8 +680,10 @@ pub struct RoomSpec {
     /// [`GroundItemSpec`].
     pub ground_items: Vec<GroundItemSpec>,
     /// LDtk-authored portal-gun pickups. See [`PortalGunSpawnSpec`].
+    #[cfg(feature = "portal")]
     pub portal_gun_spawns: Vec<PortalGunSpawnSpec>,
     /// LDtk-authored static portals (pre-placed linked pairs). See [`PortalSpec`].
+    #[cfg(feature = "portal")]
     pub portals: Vec<PortalSpec>,
     /// LDtk-authored heal/save shrines. See [`ShrineSpec`].
     pub shrines: Vec<ShrineSpec>,

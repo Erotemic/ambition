@@ -1,3 +1,6 @@
+// Portal integration test: only built with the portal mechanic + RL stepping
+// API. Compiled out (empty test binary) when `portal` is disabled.
+#![cfg(all(feature = "portal", feature = "rl_sim"))]
 //! Room-level verification that the `portal_bridge` room actually lets the portal
 //! gun flagship cross an otherwise-impassable gap. The portal MECHANIC has 15 unit
 //! tests in `portal.rs`; this proves the LDtk content (PortalGunSpawn + walls +

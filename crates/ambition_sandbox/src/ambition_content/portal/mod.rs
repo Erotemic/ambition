@@ -15,9 +15,14 @@
 mod input_adapter;
 mod inventory_adapter;
 mod plugin;
+mod transit_adapter;
 
 pub use input_adapter::{pick_aim, portal_input_adapter_system};
 pub use inventory_adapter::{
     drop_portal_gun_system, equip_portal_gun, pickup_portal_gun_system, unequip_portal_gun,
 };
 pub use plugin::AmbitionPortalAdaptersPlugin;
+pub use transit_adapter::{
+    apply_movement_intent_to_control, sync_ground_items_to_transitable,
+    sync_movement_intent_from_control, sync_transitable_to_ground_items,
+};

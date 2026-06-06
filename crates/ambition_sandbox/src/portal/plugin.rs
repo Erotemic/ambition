@@ -8,7 +8,8 @@ use super::{
     clear_portals_on_reset, despawn_orphaned_portals, portal_fire_system, portal_projectile_step,
     portal_teleport_ground_items, portal_toggle_system, portal_transit_actors,
     portal_transit_system, publish_portal_carves, suppress_ledge_grab_during_transit,
-    tick_portal_cooldowns, warp_portal_input, BodyTeleported, SuppressWallAbilitiesInPortal,
+    tick_portal_cooldowns, warp_portal_input, BodyTeleported, PlayerMovementIntent,
+    SuppressWallAbilitiesInPortal,
 };
 use crate::platformer_runtime::orientation::{ensure_actor_roll, update_actor_roll};
 
@@ -44,6 +45,15 @@ impl Plugin for PortalSimulationPlugin {
         app.add_message::<PickUpPortalGun>();
         app.add_message::<PortalGunEquipped>();
         app.init_resource::<SuppressWallAbilitiesInPortal>();
+        // Content-agnostic movement intent: portal core's transit + input warp
+        // read/mutate this instead of the Ambition `ControlFrame`; the content
+        // input adapter (`crate::ambition_content::portal`) mirrors it to/from
+        // `ControlFrame` each frame.
+        app.init_resource::<PlayerMovementIntent>();
+        // Held-gun aim hint for the visible-build presentation, populated by the
+        // content input adapter; init here so presentation can read it without the
+        // Ambition input type even when the content adapter hasn't run yet.
+        app.init_resource::<super::PortalAimHint>();
 
         // PlacedPortal carves are published with the same early-world snapshot
         // cadence as the gravity-zone snapshot: the gravity mechanic

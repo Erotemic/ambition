@@ -57,15 +57,15 @@ pub use placement::{
 };
 pub use presentation::{
     load_portal_gun_art, sync_portal_body_pieces, sync_portal_disorientation_indicator,
-    sync_portal_mode_indicator, sync_portal_visuals, PortalBodyPiece, PortalDisorientIndicator,
-    PortalGunArt, PortalModeIndicator, PortalVisual,
+    sync_portal_mode_indicator, sync_portal_visuals, PortalAimHint, PortalBodyPiece,
+    PortalDisorientIndicator, PortalGunArt, PortalModeIndicator, PortalVisual,
 };
 pub use shot::{portal_fire_system, portal_projectile_step, PortalShot};
 pub use transit::{
     portal_teleport_ground_items, portal_transit_actors, portal_transit_system,
     publish_portal_carves, suppress_ledge_grab_during_transit, tick_portal_cooldowns,
-    warp_portal_input, BodyTeleported, PortalEmission, PortalInputWarp, PortalTransit,
-    SuppressWallAbilitiesInPortal,
+    warp_portal_input, BodyTeleported, PlayerMovementIntent, PortalEmission, PortalInputWarp,
+    PortalTransit, PortalTransitable, SuppressWallAbilitiesInPortal,
 };
 pub use types::{portal_half_extent, PlacedPortal, PortalTransitCooldown};
 

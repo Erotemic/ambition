@@ -19,7 +19,9 @@ use bevy::prelude::*;
 use crate::input::ControlFrame;
 use crate::player::affordances::{InteractVariant, NearestInteractable};
 use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
-use crate::portal::{DropPortalGun, FirePortalGun, PickUpPortalGun, PortalGun, TogglePortalGun};
+use crate::portal::{
+    DropPortalGun, FirePortalGun, PickUpPortalGun, PortalAimHint, PortalGun, TogglePortalGun,
+};
 
 /// Aim direction for a fired portal: right-stick aim, else movement axis, else
 /// straight ahead along facing. (Moved out of portal core so the core fire
@@ -48,6 +50,7 @@ pub fn portal_input_adapter_system(
         (&BodyKinematics, Option<&PortalGun>),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
+    mut aim_hint: Option<ResMut<PortalAimHint>>,
     mut fire: MessageWriter<FirePortalGun>,
     mut toggle: MessageWriter<TogglePortalGun>,
     mut drop: MessageWriter<DropPortalGun>,
@@ -67,6 +70,12 @@ pub fn portal_input_adapter_system(
     let Ok((kin, gun)) = players.single() else {
         return;
     };
+    // Publish the resolved aim for the visible-build held-gun presentation
+    // (`sync_portal_mode_indicator`), so portal presentation reads this hint
+    // instead of `ControlFrame`.
+    if let Some(aim_hint) = aim_hint.as_deref_mut() {
+        aim_hint.aim = pick_aim(&control, kin.facing);
+    }
     let holding_gun = gun.is_some();
 
     if control.attack_pressed {

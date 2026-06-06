@@ -25,7 +25,7 @@ use crate::assets::game_assets::{GameAssetConfig, GameAssets};
 use crate::content::banter::CombatBanterRegistry;
 use crate::presentation::character_sprites::{build_npc_sprite_asset, build_prop_sprite_asset};
 use crate::presentation::cutscene::{CutsceneLibrary, RoomCutsceneBindings};
-use crate::rooms::PortalRegistry;
+use crate::rooms::GatePortalRegistry;
 
 use super::banter::install_intro_banter;
 use super::cutscene::{install_intro_cutscenes, intro_room_cutscene_bindings};
@@ -152,12 +152,12 @@ pub(crate) fn install_intro_banter_system(
     installed.0 = true;
 }
 
-/// Register the intro portal in [`PortalRegistry`] so its lifecycle
+/// Register the intro portal in [`GatePortalRegistry`] so its lifecycle
 /// runs every frame and traversal is gated on `phase == On`. Runs
 /// once — guarded by [`IntroGatedZonesInstalled`].
 pub(crate) fn install_intro_gated_zones_system(
     mut installed: ResMut<IntroGatedZonesInstalled>,
-    registry: Option<ResMut<PortalRegistry>>,
+    registry: Option<ResMut<GatePortalRegistry>>,
 ) {
     if installed.0 {
         return;

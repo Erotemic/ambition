@@ -564,7 +564,7 @@ pub const PROP_KINDS_STATIC_UNTIL_MOVING: &[&str] = &["intro_cart"];
 ///
 /// Filtered with `Without<crate::rooms::PortalSprite>` so the gate
 /// ring + gate portal stay owned by the portal-presentation systems
-/// (which drive the animator from `PortalPhase` instead of a flat
+/// (which drive the animator from `GatePortalPhase` instead of a flat
 /// Idle row tick).
 ///
 /// Motion-gated props: a kind listed in [`PROP_KINDS_STATIC_UNTIL_MOVING`]

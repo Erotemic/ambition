@@ -14,7 +14,7 @@ use crate::portal_pieces as pp;
 
 use super::color::PortalColor;
 use super::transit::PortalTransit;
-use super::types::{find_portal, Portal, MIN_EXIT_SPEED};
+use super::types::{find_portal, PlacedPortal, MIN_EXIT_SPEED};
 
 /// Recursive, portal-aware raycast: cast from `origin` along `dir`, and if the
 /// ray crosses a portal face (entering from its front) before hitting a solid,
@@ -24,7 +24,7 @@ use super::types::{find_portal, Portal, MIN_EXIT_SPEED};
 /// by `max_depth` so two portals facing each other can't loop forever.
 pub fn raycast_through_portals(
     world: &ae::World,
-    portals: &[Portal],
+    portals: &[PlacedPortal],
     origin: Vec2,
     dir: Vec2,
     max_dist: f32,
@@ -44,7 +44,7 @@ pub fn raycast_through_portals(
             .unwrap_or(f32::INFINITY);
         // Nearest portal face the ray ENTERS (front side) before that solid —
         // across ALL placed pairs, each portal redirecting to its partner.
-        let mut nearest: Option<(f32, Portal, Portal)> = None;
+        let mut nearest: Option<(f32, PlacedPortal, PlacedPortal)> = None;
         for enter in portals {
             let Some(exit) = find_portal(portals, enter.color.partner()) else {
                 continue;
@@ -152,7 +152,7 @@ pub fn portal_facing_flips(n_in: Vec2, n_out: Vec2, gravity_dir: Vec2) -> bool {
 /// must fit; a floor / ceiling portal (vertical normal) gates on *width*. This
 /// keeps big bosses out of small portals while staying fully general — make a
 /// huge portal (or shrink the boss) and it passes.
-pub fn portal_fits(size: Vec2, portal: &Portal) -> bool {
+pub fn portal_fits(size: Vec2, portal: &PlacedPortal) -> bool {
     let normal_is_horizontal = portal.normal.x.abs() >= portal.normal.y.abs();
     let (opening, cross) = if normal_is_horizontal {
         (portal.half_extent.y * 2.0, size.y)
@@ -210,7 +210,7 @@ pub enum TransitStep {
 }
 
 /// Compute the transit step for a body. See [`TransitStep`]. `cooldown` is the
-/// body's post-jump latch (player gun cooldown / actor [`super::types::PortalCooldown`]);
+/// body's post-jump latch (player gun cooldown / actor [`super::types::PortalTransitCooldown`]);
 /// `gravity_dir` selects whether a transit tumbles or just turns around.
 pub fn transit_step(
     center: Vec2,
@@ -218,12 +218,12 @@ pub fn transit_step(
     vel: Vec2,
     transit: Option<PortalTransit>,
     cooldown: f32,
-    portals: &[Portal],
+    portals: &[PlacedPortal],
     gravity_dir: Vec2,
 ) -> TransitStep {
     let body = ae::Aabb::new(center, size * 0.5);
     // Resolve `(straddled, its linked exit)` for a color — both must be placed.
-    let pair_for = |c: PortalColor| -> Option<(Portal, Portal)> {
+    let pair_for = |c: PortalColor| -> Option<(PlacedPortal, PlacedPortal)> {
         Some((find_portal(portals, c)?, find_portal(portals, c.partner())?))
     };
     match transit {

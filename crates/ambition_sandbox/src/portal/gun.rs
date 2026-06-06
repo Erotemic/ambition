@@ -18,8 +18,6 @@ pub struct PortalGun {
     pub active: bool,
     /// Color the next `Attack` will place.
     pub next_color: PortalColor,
-    /// Seconds before another teleport is allowed (prevents ping-pong).
-    pub teleport_cooldown: f32,
 }
 
 impl Default for PortalGun {
@@ -27,7 +25,6 @@ impl Default for PortalGun {
         Self {
             active: true,
             next_color: PortalColor::Blue,
-            teleport_cooldown: 0.0,
         }
     }
 }

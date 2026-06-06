@@ -3,7 +3,8 @@ use bevy::prelude::{
 };
 
 use super::{
-    tick_portal_phase, ActiveRoomMetadata, PortalPhase, PortalRegistry, RoomMusicRequest, RoomSet,
+    tick_gate_portal_phase, ActiveRoomMetadata, GatePortalPhase, GatePortalRegistry,
+    RoomMusicRequest, RoomSet,
 };
 use crate::presentation::character_sprites::{CharacterAnim, CharacterAnimator};
 use crate::WorldTime;
@@ -12,7 +13,7 @@ use crate::WorldTime;
 /// `animate_characters` system skips them. Without this filter the
 /// generic NPC animator re-pins them to `Idle` every frame and
 /// clobbers the row that the portal-presentation systems request
-/// based on `PortalPhase`. The portal/ring systems own these
+/// based on `GatePortalPhase`. The portal/ring systems own these
 /// entities' animator request, frame tick, and atlas index.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PortalSprite;
@@ -55,7 +56,7 @@ pub fn sync_room_music_request(
 pub fn tick_portal_phases_system(
     world_time: Res<WorldTime>,
     save: Res<crate::persistence::save::SandboxSave>,
-    mut portals: ResMut<PortalRegistry>,
+    mut portals: ResMut<GatePortalRegistry>,
 ) {
     // Scaled dt — pause / hitstop / bullet-time naturally freezes
     // or slows the portal boot/shutdown sequence so the ring spin
@@ -66,7 +67,7 @@ pub fn tick_portal_phases_system(
     }
     for config in portals.portals.values_mut() {
         let switch_on = save.data().switch(&config.switch_id);
-        tick_portal_phase(&mut config.phase, switch_on, dt);
+        tick_gate_portal_phase(&mut config.phase, switch_on, dt);
     }
 }
 
@@ -78,7 +79,7 @@ pub fn tick_portal_phases_system(
 /// Runs each frame so re-spawned visuals (after a room reload)
 /// also get hidden.
 pub fn hide_portal_loading_zone_visuals(
-    portals: Res<PortalRegistry>,
+    portals: Res<GatePortalRegistry>,
     mut visuals: Query<(
         &crate::presentation::rendering::LoadingZoneVisual,
         &mut Visibility,
@@ -93,14 +94,14 @@ pub fn hide_portal_loading_zone_visuals(
 
 /// Hide the portal sprite while its phase is `Off`; show it
 /// otherwise. Matches entity by `FeatureName` against
-/// `PortalConfig::portal_sprite_name`.
+/// `GatePortalConfig::portal_sprite_name`.
 ///
 /// Presentation-only — gated by `cfg(feature = "ui")` callers via
 /// the Bevy plugin registration in `app/plugins.rs`. Headless skips
 /// the registration entirely.
 pub fn sync_portal_sprite_visibility(
     mut commands: Commands,
-    portals: Res<PortalRegistry>,
+    portals: Res<GatePortalRegistry>,
     mut sprites: Query<(
         Entity,
         &crate::features::FeatureName,
@@ -154,7 +155,7 @@ const RING_OPENING_SPIN_RAD_PER_SEC: f32 = 8.0;
 /// does for non-portal sprites.
 pub fn sync_portal_sprite_animation(
     world_time: Res<WorldTime>,
-    portals: Res<PortalRegistry>,
+    portals: Res<GatePortalRegistry>,
     mut sprites: Query<(
         &crate::features::FeatureName,
         &mut Sprite,
@@ -164,10 +165,10 @@ pub fn sync_portal_sprite_animation(
     let dt = world_time.scaled_dt;
     for config in portals.portals.values() {
         let target_anim = match config.phase {
-            PortalPhase::Off => continue,
-            PortalPhase::Opening { .. } => CharacterAnim::Idle,
-            PortalPhase::On => CharacterAnim::Walk,
-            PortalPhase::Closing { .. } => CharacterAnim::Run,
+            GatePortalPhase::Off => continue,
+            GatePortalPhase::Opening { .. } => CharacterAnim::Idle,
+            GatePortalPhase::On => CharacterAnim::Walk,
+            GatePortalPhase::Closing { .. } => CharacterAnim::Run,
         };
         for (name, mut sprite, mut animator) in &mut sprites {
             if name.0 != config.portal_sprite_name {
@@ -185,7 +186,7 @@ pub fn sync_portal_sprite_animation(
 pub fn sync_portal_ring_rotation_system(
     mut commands: Commands,
     world_time: Res<WorldTime>,
-    portals: Res<PortalRegistry>,
+    portals: Res<GatePortalRegistry>,
     mut rings: Query<(
         Entity,
         &crate::features::FeatureName,
@@ -199,7 +200,7 @@ pub fn sync_portal_ring_rotation_system(
     // freezes during pause — same world-clock the phase timer reads.
     let dt = world_time.scaled_dt;
     for config in portals.portals.values() {
-        let spinning = matches!(config.phase, PortalPhase::Opening { .. });
+        let spinning = matches!(config.phase, GatePortalPhase::Opening { .. });
         // Sheet mapping (see GATE_RING_SHEET):
         // - Idle = the slow always-on row (8f × 140ms)
         // - Walk = the fast `spin` row used during Opening (12f × 85ms)
@@ -222,7 +223,7 @@ pub fn sync_portal_ring_rotation_system(
             }
             if spinning {
                 tf.rotate_local_z(RING_OPENING_SPIN_RAD_PER_SEC * dt);
-            } else if !matches!(config.phase, PortalPhase::Closing { .. }) {
+            } else if !matches!(config.phase, GatePortalPhase::Closing { .. }) {
                 // Snap back to upright when fully Off or On — the
                 // boot beat is the only time the ring should look
                 // physically rotated. Closing keeps the last

@@ -6,7 +6,7 @@ use super::{
     portal_projectile_step, portal_teleport_ground_items, portal_toggle_system,
     portal_transit_actors, portal_transit_system, publish_portal_carves,
     reset_gravity_on_room_reset, suppress_ledge_grab_during_transit, tick_portal_cooldowns,
-    warp_portal_input, IntentionalTeleport, SuppressWallAbilitiesInPortal,
+    warp_portal_input, BodyTeleported, SuppressWallAbilitiesInPortal,
 };
 use crate::platformer_runtime::orientation::{ensure_actor_roll, update_actor_roll};
 
@@ -32,14 +32,14 @@ pub struct PortalSimulationPlugin;
 
 impl Plugin for PortalSimulationPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<IntentionalTeleport>();
+        app.add_message::<BodyTeleported>();
         app.init_resource::<SuppressWallAbilitiesInPortal>();
         app.init_resource::<crate::physics::GravityField>();
         app.init_resource::<crate::physics::BaseGravity>();
         app.init_resource::<crate::physics::GravityZones>();
 
         // Snapshot all gravity zones once per frame BEFORE actor integrators read
-        // them, so every body can resolve local gravity by position. Portal carves
+        // them, so every body can resolve local gravity by position. PlacedPortal carves
         // are published with the same early-world snapshot cadence.
         app.add_systems(
             Update,

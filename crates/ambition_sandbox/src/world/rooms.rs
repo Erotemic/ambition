@@ -101,7 +101,7 @@ impl LoadingZone {
 /// - off → on: Off→Opening, or Closing→Opening (resumes mid-close)
 /// - on → off: On→Closing, or Opening→Closing (interrupts mid-open)
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub enum PortalPhase {
+pub enum GatePortalPhase {
     #[default]
     Off,
     Opening {
@@ -113,7 +113,7 @@ pub enum PortalPhase {
     },
 }
 
-impl PortalPhase {
+impl GatePortalPhase {
     pub fn label(self) -> &'static str {
         match self {
             Self::Off => "off",
@@ -134,7 +134,7 @@ impl PortalPhase {
 
 /// One portal's configuration + live phase.
 #[derive(Clone, Debug)]
-pub struct PortalConfig {
+pub struct GatePortalConfig {
     /// The switch whose on/off state commands this portal's boot /
     /// shutdown sequence. Read from `save.data().switch(switch_id)`.
     pub switch_id: String,
@@ -145,7 +145,7 @@ pub struct PortalConfig {
     /// LDtk display name of the ring sprite entity. Used by the
     /// ring-spin visual flourish during `Opening`.
     pub ring_sprite_name: String,
-    pub phase: PortalPhase,
+    pub phase: GatePortalPhase,
 }
 
 /// Per-portal registry mapping `LoadingZone.id` → portal lifecycle.
@@ -160,11 +160,11 @@ pub struct PortalConfig {
 /// drives the boot/shutdown sequence — so the readiness check lives
 /// here, not in the switch system.
 #[derive(Resource, Default, Debug, Clone)]
-pub struct PortalRegistry {
-    pub portals: std::collections::HashMap<String, PortalConfig>,
+pub struct GatePortalRegistry {
+    pub portals: std::collections::HashMap<String, GatePortalConfig>,
 }
 
-impl PortalRegistry {
+impl GatePortalRegistry {
     pub fn register(
         &mut self,
         zone_id: impl Into<String>,
@@ -174,20 +174,20 @@ impl PortalRegistry {
     ) {
         self.portals.insert(
             zone_id.into(),
-            PortalConfig {
+            GatePortalConfig {
                 switch_id: switch_id.into(),
                 portal_sprite_name: portal_sprite_name.into(),
                 ring_sprite_name: ring_sprite_name.into(),
-                phase: PortalPhase::default(),
+                phase: GatePortalPhase::default(),
             },
         );
     }
 
-    pub fn phase(&self, zone_id: &str) -> PortalPhase {
+    pub fn phase(&self, zone_id: &str) -> GatePortalPhase {
         self.portals
             .get(zone_id)
             .map(|c| c.phase)
-            .unwrap_or(PortalPhase::Off)
+            .unwrap_or(GatePortalPhase::Off)
     }
 
     pub fn is_portal(&self, zone_id: &str) -> bool {
@@ -209,42 +209,42 @@ pub const PORTAL_OPENING_DURATION_SECS: f32 = 0.640;
 pub const PORTAL_CLOSING_DURATION_SECS: f32 = 0.640;
 
 /// Advance a portal phase one tick. Pure function — exposed so a
-/// system can call it without holding `&mut PortalConfig`.
-pub fn tick_portal_phase(phase: &mut PortalPhase, switch_on: bool, dt: f32) {
+/// system can call it without holding `&mut GatePortalConfig`.
+pub fn tick_gate_portal_phase(phase: &mut GatePortalPhase, switch_on: bool, dt: f32) {
     match phase {
-        PortalPhase::Off => {
+        GatePortalPhase::Off => {
             if switch_on {
-                *phase = PortalPhase::Opening { elapsed: 0.0 };
+                *phase = GatePortalPhase::Opening { elapsed: 0.0 };
             }
         }
-        PortalPhase::Opening { elapsed } => {
+        GatePortalPhase::Opening { elapsed } => {
             *elapsed += dt;
             if !switch_on {
                 // Interrupted mid-open — start closing from the same
                 // visual progress (so the player sees a smooth reverse,
                 // not a snap back to fully-open).
                 let opened_frac = (*elapsed / PORTAL_OPENING_DURATION_SECS).clamp(0.0, 1.0);
-                *phase = PortalPhase::Closing {
+                *phase = GatePortalPhase::Closing {
                     elapsed: PORTAL_CLOSING_DURATION_SECS * (1.0 - opened_frac),
                 };
             } else if *elapsed >= PORTAL_OPENING_DURATION_SECS {
-                *phase = PortalPhase::On;
+                *phase = GatePortalPhase::On;
             }
         }
-        PortalPhase::On => {
+        GatePortalPhase::On => {
             if !switch_on {
-                *phase = PortalPhase::Closing { elapsed: 0.0 };
+                *phase = GatePortalPhase::Closing { elapsed: 0.0 };
             }
         }
-        PortalPhase::Closing { elapsed } => {
+        GatePortalPhase::Closing { elapsed } => {
             *elapsed += dt;
             if switch_on {
                 let closed_frac = (*elapsed / PORTAL_CLOSING_DURATION_SECS).clamp(0.0, 1.0);
-                *phase = PortalPhase::Opening {
+                *phase = GatePortalPhase::Opening {
                     elapsed: PORTAL_OPENING_DURATION_SECS * (1.0 - closed_frac),
                 };
             } else if *elapsed >= PORTAL_CLOSING_DURATION_SECS {
-                *phase = PortalPhase::Off;
+                *phase = GatePortalPhase::Off;
             }
         }
     }
@@ -575,7 +575,7 @@ pub struct PortalGunSpawnSpec {
     pub half_extent: ae::Vec2,
 }
 
-/// LDtk-authored static portal. Resolves to a [`crate::portal::Portal`] at room
+/// LDtk-authored static portal. Resolves to a [`crate::portal::PlacedPortal`] at room
 /// load — pre-placed linked pairs (by complementary color) for the portal test
 /// lab, independent of the portal gun. The half-extent is the standard portal
 /// opening (derived from the normal), not the LDtk box size.
@@ -789,32 +789,32 @@ mod rooms_unit_tests {
 
     #[test]
     fn portal_phase_opens_holds_and_closes_with_the_switch() {
-        let mut p = PortalPhase::Off;
+        let mut p = GatePortalPhase::Off;
         assert!(!p.allows_traversal());
 
         // Switch on → starts opening.
-        tick_portal_phase(&mut p, true, 0.016);
-        assert!(matches!(p, PortalPhase::Opening { .. }));
+        tick_gate_portal_phase(&mut p, true, 0.016);
+        assert!(matches!(p, GatePortalPhase::Opening { .. }));
         assert!(!p.allows_traversal(), "not traversable while opening");
 
         // Hold the switch long enough to finish opening → On.
-        tick_portal_phase(&mut p, true, 100.0);
-        assert_eq!(p, PortalPhase::On);
+        tick_gate_portal_phase(&mut p, true, 100.0);
+        assert_eq!(p, GatePortalPhase::On);
         assert!(p.allows_traversal());
         assert!(p.portal_sprite_visible());
 
         // Switch off → closes.
-        tick_portal_phase(&mut p, false, 0.016);
-        assert!(matches!(p, PortalPhase::Closing { .. }));
+        tick_gate_portal_phase(&mut p, false, 0.016);
+        assert!(matches!(p, GatePortalPhase::Closing { .. }));
         assert!(!p.allows_traversal());
     }
 
     #[test]
     fn portal_interrupted_mid_open_reverses_to_closing() {
-        let mut p = PortalPhase::Off;
-        tick_portal_phase(&mut p, true, 0.05); // partway open
-        assert!(matches!(p, PortalPhase::Opening { .. }));
-        tick_portal_phase(&mut p, false, 0.016); // switch released mid-open
-        assert!(matches!(p, PortalPhase::Closing { .. }));
+        let mut p = GatePortalPhase::Off;
+        tick_gate_portal_phase(&mut p, true, 0.05); // partway open
+        assert!(matches!(p, GatePortalPhase::Opening { .. }));
+        tick_gate_portal_phase(&mut p, false, 0.016); // switch released mid-open
+        assert!(matches!(p, GatePortalPhase::Closing { .. }));
     }
 }

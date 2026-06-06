@@ -435,7 +435,7 @@ pub static VAULT_KEEPER_SHEET: LazyLock<CharacterSheetSpec> =
 /// We borrow `CharacterAnim::Walk` as the semantic slot for the
 /// `spin` row (same pattern as [`GATE_PORTAL_SHEET`]). The
 /// [`crate::rooms::sync_portal_ring_rotation_system`] requests
-/// `Walk` while `PortalPhase::Opening` is active and falls back to
+/// `Walk` while `GatePortalPhase::Opening` is active and falls back to
 /// `Idle` otherwise.
 const GATE_RING_TUNING: SheetTuning = SheetTuning::new(1.00, 2);
 pub static GATE_RING_SHEET: LazyLock<CharacterSheetSpec> =
@@ -445,7 +445,7 @@ pub static GATE_RING_SHEET: LazyLock<CharacterSheetSpec> =
 /// ring. Three rows authored in the source PNG
 /// (`interdimensional_gate_portal_spritesheet.yaml`): `opening`
 /// (8 frames × 80ms = 640ms one-shot), `stable` (8 × 110ms looping),
-/// `closing` (8 × 80ms one-shot). The portal's [`crate::rooms::PortalPhase`]
+/// `closing` (8 × 80ms one-shot). The portal's [`crate::rooms::GatePortalPhase`]
 /// state machine drives which row to play; this spec borrows
 /// existing `CharacterAnim` variants as semantic slots
 /// (Idle=opening so the default boot is visible, Walk=stable for

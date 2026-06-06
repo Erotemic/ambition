@@ -8,10 +8,10 @@
 //! small file instead of a multi-thousand-line module:
 //!
 //! - [`color`] — [`PortalColor`] and channel parse/display.
-//! - [`types`] — shared [`Portal`] body, geometry constants, and small helpers.
+//! - [`types`] — shared [`PlacedPortal`] body, geometry constants, and small helpers.
 //! - [`gun`] — the held [`PortalGun`] and its equip / toggle state.
 //! - [`pickup`] — the world [`PortalGunPickup`] and pickup/drop systems.
-//! - [`shot`] — the in-flight [`PortalProjectile`] and firing.
+//! - [`shot`] — the in-flight [`PortalShot`] and firing.
 //! - [`placement`] — portal-aware raycast, fit check, and the `transit_step`
 //!   decision machine.
 //! - [`transit`] — player/actor/item transit systems plus the carve / input
@@ -63,14 +63,14 @@ pub use presentation::{
     sync_portal_visuals, GravitySwitchVisual, GravityZoneVisual, PortalBodyPiece,
     PortalDisorientIndicator, PortalGunArt, PortalModeIndicator, PortalVisual,
 };
-pub use shot::{portal_fire_system, portal_projectile_step, PortalProjectile};
+pub use shot::{portal_fire_system, portal_projectile_step, PortalShot};
 pub use transit::{
     portal_teleport_ground_items, portal_transit_actors, portal_transit_system,
     publish_portal_carves, suppress_ledge_grab_during_transit, tick_portal_cooldowns,
-    warp_portal_input, PortalEmission, PortalInputWarp, PortalTransit,
+    warp_portal_input, BodyTeleported, PortalEmission, PortalInputWarp, PortalTransit,
     SuppressWallAbilitiesInPortal,
 };
-pub use types::{portal_half_extent, IntentionalTeleport, Portal, PortalCooldown};
+pub use types::{portal_half_extent, PlacedPortal, PortalTransitCooldown};
 
 pub use plugin::{PortalPlugin, PortalSimulationPlugin};
 pub use schedule::PortalSet;

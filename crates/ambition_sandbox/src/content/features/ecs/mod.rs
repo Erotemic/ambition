@@ -153,12 +153,12 @@ pub use view_index::{rebuild_feature_view_index, FeatureViewIndex};
 
 use damage::{begin_ecs_breakable_respawn, emit_breakable_destroyed};
 
-/// Marker for simulation-side feature entities spawned from the active room.
-/// They are deliberately separate from presentation `FeatureVisual` sprites;
-/// visible builds keep using the existing visual entities and look up live ECS
-/// state by `FeatureId`.
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct FeatureSimEntity;
+// `FeatureSimEntity` is a generic entity-marker queried by the reusable
+// mechanics, so its definition lives DOWN in
+// `ambition_platformer_runtime::markers` (ADR 0019). Re-exported here so all
+// existing `crate::content::features::ecs::FeatureSimEntity` call sites compile
+// unchanged.
+pub use ambition_platformer_runtime::markers::FeatureSimEntity;
 
 #[derive(Component, Clone, Debug)]
 pub struct HazardFeature {

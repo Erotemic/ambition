@@ -210,7 +210,17 @@ fn architecture_boundaries_portal_has_facade_plugin_and_schedule_files() {
         "portal/mod.rs",
         "portal/plugin.rs",
         "portal/schedule.rs",
-        "portal/implementation.rs",
+        // Stage 7 split the old monolithic `portal/implementation.rs` into
+        // responsibility submodules behind the facade.
+        "portal/color.rs",
+        "portal/types.rs",
+        "portal/gun.rs",
+        "portal/pickup.rs",
+        "portal/shot.rs",
+        "portal/placement.rs",
+        "portal/transit.rs",
+        "portal/lifecycle.rs",
+        "portal/presentation.rs",
     ];
 
     for rel in expected {

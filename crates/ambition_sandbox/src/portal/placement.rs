@@ -11,7 +11,7 @@ use crate::platformer_runtime::collision::{ray_aabb, raycast_solids};
 use crate::platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
 use crate::portal_pieces as pp;
 
-use super::color::PortalColor;
+use super::color::PortalChannel;
 use super::transit::PortalTransit;
 use super::types::{find_portal, PlacedPortal, MIN_EXIT_SPEED};
 
@@ -45,7 +45,7 @@ pub fn raycast_through_portals(
         // across ALL placed pairs, each portal redirecting to its partner.
         let mut nearest: Option<(f32, PlacedPortal, PlacedPortal)> = None;
         for enter in portals {
-            let Some(exit) = find_portal(portals, enter.color.partner()) else {
+            let Some(exit) = find_portal(portals, enter.channel.partner()) else {
                 continue;
             };
             // Only enter through the front of the face (moving into it).
@@ -163,12 +163,12 @@ pub enum TransitStep {
     Idle,
     /// Begin transit into this portal: insert [`PortalTransit`], play ENTER sfx.
     Begin {
-        color: PortalColor,
+        channel: PortalChannel,
         portal_pos: Vec2,
     },
     /// The centroid crossed: move the body to `pos`, set velocity `vel`, add
     /// `roll_delta` to its roll (the somersault), latch the cooldown, flip the
-    /// straddled portal to `exit_color`, mark crossed, play EXIT sfx. `warp_rot`
+    /// straddled portal to `exit_channel`, mark crossed, play EXIT sfx. `warp_rot`
     /// is the `(cos, sin)` portal map (same rotation applied to velocity) — the
     /// player layer warps the held movement input by it so the held direction
     /// keeps carrying the body OUT instead of fighting the warped velocity.
@@ -185,7 +185,7 @@ pub enum TransitStep {
         /// Outward normal of the exit portal — the direction the body emerges.
         /// Used by emission protection so held input can't cancel the emergence.
         exit_normal: Vec2,
-        exit_color: PortalColor,
+        exit_channel: PortalChannel,
         exit_pos: Vec2,
     },
     /// The body fully cleared the plane — remove [`PortalTransit`].
@@ -208,7 +208,7 @@ pub fn transit_step(
 ) -> TransitStep {
     let body = ae::Aabb::new(center, size * 0.5);
     // Resolve `(straddled, its linked exit)` for a color — both must be placed.
-    let pair_for = |c: PortalColor| -> Option<(PlacedPortal, PlacedPortal)> {
+    let pair_for = |c: PortalChannel| -> Option<(PlacedPortal, PlacedPortal)> {
         Some((find_portal(portals, c)?, find_portal(portals, c.partner())?))
     };
     match transit {
@@ -219,7 +219,7 @@ pub fn transit_step(
             // Begin into the first portal (across ALL pairs) the body is entering.
             for enter in portals {
                 // Need the partner placed, or there's no exit to transit to.
-                if find_portal(portals, enter.color.partner()).is_none() {
+                if find_portal(portals, enter.channel.partner()).is_none() {
                     continue;
                 }
                 if !portal_fits(size, enter) {
@@ -238,7 +238,7 @@ pub fn transit_step(
                     pp::front_distance(center, &frame) > 0.0 || vel.dot(enter.normal) < 0.0;
                 if entering && body.strict_intersects(capture) {
                     return TransitStep::Begin {
-                        color: enter.color,
+                        channel: enter.channel,
                         portal_pos: enter.pos,
                     };
                 }
@@ -274,7 +274,7 @@ pub fn transit_step(
                     facing_flip: portal_facing_flips(enter.normal, exit.normal, gravity_dir),
                     enter_normal: enter.normal,
                     exit_normal: exit.normal,
-                    exit_color: exit.color,
+                    exit_channel: exit.channel,
                     exit_pos: exit.pos,
                 };
             }

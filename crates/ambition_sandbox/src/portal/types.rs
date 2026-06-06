@@ -5,13 +5,13 @@ use bevy::prelude::*;
 
 use crate::portal_pieces::PortalFrame;
 
-use super::color::PortalColor;
+use super::color::PortalChannel;
 
-/// One placed portal. The pair is linked implicitly by `color` (one Blue +
-/// one Orange exist at most).
+/// One placed portal. The pair is linked implicitly by `channel` — two portals
+/// pair iff they share a channel (the gun's Blue/Orange, or an authored pair).
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PlacedPortal {
-    pub color: PortalColor,
+    pub channel: PortalChannel,
     /// World-space center (on the hit surface).
     pub pos: Vec2,
     /// Unit surface normal, pointing out of the wall into the room.
@@ -32,12 +32,12 @@ impl PlacedPortal {
     }
 }
 
-/// The placed portal of `color`, if any.
+/// The placed portal on `channel`, if any.
 pub(crate) fn find_portal<'a>(
     portals: impl IntoIterator<Item = &'a PlacedPortal>,
-    color: PortalColor,
+    channel: PortalChannel,
 ) -> Option<PlacedPortal> {
-    portals.into_iter().find(|p| p.color == color).copied()
+    portals.into_iter().find(|p| p.channel == channel).copied()
 }
 
 /// A portal opening is the SAME size in every orientation: a doorway

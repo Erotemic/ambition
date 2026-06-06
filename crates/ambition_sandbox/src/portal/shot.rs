@@ -8,17 +8,17 @@ use crate::platformer_runtime::prelude::SpawnScopedExt;
 use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
 use crate::GameWorld;
 
-use super::color::PortalColor;
+use super::color::PortalChannel;
 use super::gun::PortalGun;
 use super::messages::FirePortalGun;
 use super::types::{portal_half_extent, PlacedPortal, PORTAL_MAX_RANGE, PORTAL_SHOT_SPEED};
 
 /// An in-flight portal shot streaking toward a surface. On contact with a
-/// solid it opens a portal of `color`; if it travels too far / leaves the
-/// world it fizzles.
+/// solid it opens a portal on `channel`; if it travels too far / leaves the
+/// world it fizzles. The gun fires its `PortalGunColor` mapped to a channel.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PortalShot {
-    pub color: PortalColor,
+    pub channel: PortalChannel,
     pub pos: Vec2,
     pub vel: Vec2,
     pub traveled: f32,
@@ -59,7 +59,7 @@ pub fn portal_fire_system(
     });
     commands.spawn_room_scoped((
         PortalShot {
-            color: gun.next_color,
+            channel: gun.next_color.channel(),
             pos: kin.pos,
             vel: aim * PORTAL_SHOT_SPEED,
             traveled: 0.0,
@@ -87,7 +87,7 @@ pub fn portal_projectile_step(
         if let Some((hit, normal)) = raycast_solids(&world.0, proj.pos, proj.vel, step, true) {
             // Hit a wall — open (or replace) the portal of this color.
             for (entity, portal) in &portals {
-                if portal.color == proj.color {
+                if portal.channel == proj.channel {
                     commands.entity(entity).despawn();
                     sfx.write(crate::audio::SfxMessage::Play {
                         id: ambition_sfx::ids::PORTAL_CLOSE,
@@ -97,12 +97,12 @@ pub fn portal_projectile_step(
             }
             commands.spawn_room_scoped((
                 PlacedPortal {
-                    color: proj.color,
+                    channel: proj.channel,
                     pos: hit + normal * 2.0,
                     normal,
                     half_extent: portal_half_extent(normal),
                 },
-                Name::new(format!("Portal: {}", proj.color.name())),
+                Name::new(format!("Portal: {}", proj.channel.name())),
                 // Portals are per-room: a room transition despawns them, so they
                 // don't linger and reappear when you leave and come back (#41).
             ));

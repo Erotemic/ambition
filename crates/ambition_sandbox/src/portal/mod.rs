@@ -7,7 +7,8 @@
 //! (`crate::portal::X`) keep working while routine portal changes touch one
 //! small file instead of a multi-thousand-line module:
 //!
-//! - [`color`] — [`PortalColor`] and channel parse/display.
+//! - [`color`] — [`PortalGunColor`], [`PortalChannelColor`], and the unifying
+//!   [`PortalChannel`] (parse/display/pairing).
 //! - [`types`] — shared [`PlacedPortal`] body, geometry constants, and small helpers.
 //! - [`gun`] — the held [`PortalGun`] and its equip / toggle state.
 //! - [`pickup`] — the world [`PortalGunPickup`] and pickup/drop systems.
@@ -43,7 +44,7 @@ pub use crate::platformer_runtime::collision::raycast_solids;
 pub use crate::platformer_runtime::orientation::{ensure_actor_roll, update_actor_roll, ActorRoll};
 pub use crate::platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
 
-pub use color::PortalColor;
+pub use color::{PortalChannel, PortalChannelColor, PortalGunColor};
 pub use gun::{portal_dev_toggle_system, portal_toggle_system, PortalGun};
 pub use lifecycle::{
     clear_portals_on_reset, despawn_orphaned_portals, gravity_flip_switch_system,

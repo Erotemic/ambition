@@ -8,7 +8,7 @@ use bevy::prelude::*;
 
 use crate::player::{PlayerEntity, PrimaryPlayer};
 
-use super::color::PortalColor;
+use super::color::PortalGunColor;
 use super::messages::TogglePortalGun;
 
 /// Player-held portal gun state.
@@ -17,15 +17,15 @@ pub struct PortalGun {
     /// When false the gun ignores input (stand-in for "not equipped" until
     /// held-item equip exists).
     pub active: bool,
-    /// Color the next `Attack` will place.
-    pub next_color: PortalColor,
+    /// Gun color the next `Attack` will place.
+    pub next_color: PortalGunColor,
 }
 
 impl Default for PortalGun {
     fn default() -> Self {
         Self {
             active: true,
-            next_color: PortalColor::Blue,
+            next_color: PortalGunColor::Blue,
         }
     }
 }

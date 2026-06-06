@@ -100,3 +100,27 @@ Stage 6 did extract the genuinely-generic helpers:
 `portal_transform_velocity` -> `platformer_runtime::transit::rotate_velocity_between_normals`,
 and `ActorRoll` / `ensure_actor_roll` / `update_actor_roll` ->
 `platformer_runtime::orientation` (gravity-upright reflex, no portal dependency).
+
+## Stage 8 follow-up: `PortalColor` split — DONE
+
+Task G (Stage 8) deferred the `PortalColor` split as a genuine semantic redesign
+rather than a mechanical rename. It is now done. The single `PortalColor` enum is
+split into two distinct domain types plus a unifying channel:
+
+- `PortalGunColor` (Blue/Orange) — the gun's two-slot pair. Used by `PortalGun`,
+  the aim/mode indicator, and the gun's place-replace logic.
+- `PortalChannelColor` (Purple/Yellow/Teal/Red/Green/Magenta/Cyan/Rose) — the
+  authored channel pairs. Used by LDtk authoring (`convert_portal::from_name`)
+  and the gate registry (`rooms::PortalSpec.color`).
+- `PortalChannel { Gun(PortalGunColor), Authored(PortalChannelColor) }` — the
+  unifying pair-linking identity the shared core operates on (`Copy`/`Eq`/`Hash`,
+  so registry/`HashMap` usage is unchanged). Two portals pair iff same channel.
+
+`PlacedPortal`, `PortalShot`, `PortalTransit.straddling`, `TransitStep`,
+`find_portal`, `partner()`, the carve/registry, and `portal_teleport_ground_items`
+are all generic over `PortalChannel`. The gun maps `PortalGunColor -> Gun(..)` via
+`.channel()`; authoring maps `PortalChannelColor -> Authored(..)`. Gun colors and
+authored channel colors are distinct types at their boundaries; only the shared
+pairing/transit core is generic. This was a pure TYPE redesign — gun and authored
+pairs behave byte-identically (replay fixtures + scripted gameplay stayed green,
+no fixtures regenerated).

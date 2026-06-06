@@ -719,7 +719,7 @@ fn ldtk_authors_portal_gun_spawn() {
 #[cfg(feature = "portal_ldtk")]
 #[test]
 fn ldtk_authors_portal_lab_pairs() {
-    use crate::portal::PortalColor;
+    use crate::portal::PortalChannelColor;
     let project = LdtkProject::load_default_for_dev().expect("sandbox + intro LDtk should load");
     let room_set = project.to_room_set().expect("LDtk should compose");
     let portals: Vec<_> = room_set
@@ -744,14 +744,14 @@ fn ldtk_authors_portal_lab_pairs() {
     }
     // The four non-gun pairs the lab uses are all present.
     for color in [
-        PortalColor::Purple,
-        PortalColor::Yellow,
-        PortalColor::Teal,
-        PortalColor::Red,
-        PortalColor::Green,
-        PortalColor::Magenta,
-        PortalColor::Cyan,
-        PortalColor::Rose,
+        PortalChannelColor::Purple,
+        PortalChannelColor::Yellow,
+        PortalChannelColor::Teal,
+        PortalChannelColor::Red,
+        PortalChannelColor::Green,
+        PortalChannelColor::Magenta,
+        PortalChannelColor::Cyan,
+        PortalChannelColor::Rose,
     ] {
         assert!(
             portals.iter().any(|p| p.color == color),

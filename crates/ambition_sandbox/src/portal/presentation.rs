@@ -13,7 +13,7 @@ use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
 use crate::portal_pieces as pp;
 use crate::GameWorld;
 
-use super::color::PortalColor;
+use super::color::PortalGunColor;
 use super::gun::PortalGun;
 use super::lifecycle::GravityFlipSwitch;
 use super::pickup::PortalGunPickup;
@@ -290,8 +290,8 @@ pub fn sync_portal_mode_indicator(
     // The gun only ever fires its blue↔orange pair; orange art for orange, blue
     // for everything else.
     let image = match gun.next_color {
-        PortalColor::Orange => art.orange.clone(),
-        _ => art.blue.clone(),
+        PortalGunColor::Orange => art.orange.clone(),
+        PortalGunColor::Blue => art.blue.clone(),
     };
     let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
     // In the player's hand: just in front of the body at roughly hand height
@@ -380,7 +380,7 @@ pub fn sync_portal_visuals(
     }
     // In-flight portal shots: a small bright streak in the shot's color.
     for proj in &projectiles {
-        let color = proj.color.display().1;
+        let color = proj.channel.display().1;
         let translation = crate::config::world_to_bevy(&world.0, proj.pos, 9.5);
         commands.spawn((
             PortalVisual,
@@ -412,7 +412,7 @@ pub fn sync_portal_visuals(
         ));
     }
     for portal in &portals {
-        let (rim, core) = portal.color.display();
+        let (rim, core) = portal.channel.display();
         // A portal is a thin doorway seen in side profile (2D): a bar lying
         // ALONG the wall (perpendicular to the surface normal), thin in the
         // normal direction. `along` rotates with the normal, so a slanted
@@ -454,7 +454,7 @@ pub fn sync_portal_visuals(
         let label_translation = crate::config::world_to_bevy(&world.0, label_pos, 9.2);
         commands.spawn((
             PortalVisual,
-            Text2d::new(portal.color.name()),
+            Text2d::new(portal.channel.name()),
             TextFont {
                 font_size: 12.0,
                 ..default()

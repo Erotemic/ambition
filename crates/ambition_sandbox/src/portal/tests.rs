@@ -16,6 +16,14 @@ use super::types::MIN_EXIT_SPEED;
 use super::*;
 use crate::platformer_runtime::collision::raycast_solids;
 
+// Channel shorthands for the tests: the gun's pair (Blue/Orange) and two authored
+// pairs (Purple/Yellow). These map the old `PortalColor::X` literals onto the new
+// `PortalChannel` so the tests still pin byte-identical pairing/transit behavior.
+const BLUE: PortalChannel = PortalChannel::Gun(PortalGunColor::Blue);
+const ORANGE: PortalChannel = PortalChannel::Gun(PortalGunColor::Orange);
+const PURPLE: PortalChannel = PortalChannel::Authored(PortalChannelColor::Purple);
+const YELLOW: PortalChannel = PortalChannel::Authored(PortalChannelColor::Yellow);
+
 fn world_with_two_walls() -> GameWorld {
     // Left wall x[0,20], right wall x[380,400], both y[0,400].
     let blocks = vec![
@@ -48,10 +56,10 @@ fn spawn_player(app: &mut App, pos: Vec2, facing: f32) -> Entity {
         .id()
 }
 
-fn find_portal(app: &mut App, color: PortalColor) -> Option<PlacedPortal> {
+fn find_portal(app: &mut App, channel: PortalChannel) -> Option<PlacedPortal> {
     let mut q = app.world_mut().query::<&PlacedPortal>();
     let world = app.world();
-    q.iter(world).find(|p| p.color == color).copied()
+    q.iter(world).find(|p| p.channel == channel).copied()
 }
 
 fn set_control(app: &mut App, attack: bool, interact: bool) {
@@ -141,13 +149,13 @@ fn raycast_sees_through_a_portal_pair_and_recurses() {
     );
     let portals = vec![
         PlacedPortal {
-            color: PortalColor::Blue,
+            channel: BLUE,
             pos: Vec2::new(200.0, 380.0),
             normal: Vec2::new(0.0, -1.0),
             half_extent: portal_half_extent(Vec2::new(0.0, -1.0)),
         },
         PlacedPortal {
-            color: PortalColor::Orange,
+            channel: ORANGE,
             pos: Vec2::new(380.0, 200.0),
             normal: Vec2::new(-1.0, 0.0),
             half_extent: portal_half_extent(Vec2::new(-1.0, 0.0)),
@@ -223,13 +231,13 @@ fn in_flight_ground_item_travels_through_the_portal_pair() {
     app.add_systems(Update, portal_teleport_ground_items);
     // Blue portal facing right at x=20, orange facing left at x=380.
     app.world_mut().spawn(PlacedPortal {
-        color: PortalColor::Blue,
+        channel: BLUE,
         pos: Vec2::new(20.0, 200.0),
         normal: Vec2::new(1.0, 0.0),
         half_extent: portal_half_extent(Vec2::new(1.0, 0.0)),
     });
     app.world_mut().spawn(PlacedPortal {
-        color: PortalColor::Orange,
+        channel: ORANGE,
         pos: Vec2::new(380.0, 200.0),
         normal: Vec2::new(-1.0, 0.0),
         half_extent: portal_half_extent(Vec2::new(1.0, 0.0)),
@@ -261,7 +269,7 @@ fn in_flight_ground_item_travels_through_the_portal_pair() {
 #[test]
 fn portal_fit_gate_keys_on_the_opening_perpendicular_to_the_normal() {
     let wall = PlacedPortal {
-        color: PortalColor::Blue,
+        channel: BLUE,
         pos: Vec2::ZERO,
         normal: Vec2::new(1.0, 0.0),
         half_extent: portal_half_extent(Vec2::new(1.0, 0.0)),
@@ -273,7 +281,7 @@ fn portal_fit_gate_keys_on_the_opening_perpendicular_to_the_normal() {
     // A floor portal gates on WIDTH — same 92 opening, so the threshold
     // matches the wall's.
     let floor = PlacedPortal {
-        color: PortalColor::Orange,
+        channel: ORANGE,
         pos: Vec2::ZERO,
         normal: Vec2::new(0.0, -1.0),
         half_extent: portal_half_extent(Vec2::new(0.0, -1.0)),
@@ -289,13 +297,13 @@ fn portals_teleport_a_fitting_actor_and_skip_an_oversized_one() {
     app.add_message::<crate::audio::SfxMessage>();
     app.add_systems(Update, portal_transit_actors);
     app.world_mut().spawn(PlacedPortal {
-        color: PortalColor::Blue,
+        channel: BLUE,
         pos: Vec2::new(20.0, 200.0),
         normal: Vec2::new(1.0, 0.0),
         half_extent: portal_half_extent(Vec2::new(1.0, 0.0)),
     });
     app.world_mut().spawn(PlacedPortal {
-        color: PortalColor::Orange,
+        channel: ORANGE,
         pos: Vec2::new(380.0, 200.0),
         normal: Vec2::new(-1.0, 0.0),
         half_extent: portal_half_extent(Vec2::new(1.0, 0.0)),
@@ -339,18 +347,18 @@ fn portals_teleport_a_fitting_actor_and_skip_an_oversized_one() {
 #[test]
 fn n_pairs_transit_routes_to_the_matching_partner() {
     let he = portal_half_extent(Vec2::new(0.0, -1.0));
-    let floor = |color, x: f32| PlacedPortal {
-        color,
+    let floor = |channel, x: f32| PlacedPortal {
+        channel,
         pos: Vec2::new(x, 300.0),
         normal: Vec2::new(0.0, -1.0),
         half_extent: he,
     };
     // Two INDEPENDENT floor pairs placed at once.
     let portals = vec![
-        floor(PortalColor::Blue, 100.0),
-        floor(PortalColor::Orange, 200.0),
-        floor(PortalColor::Purple, 400.0),
-        floor(PortalColor::Yellow, 700.0),
+        floor(BLUE, 100.0),
+        floor(ORANGE, 200.0),
+        floor(PURPLE, 400.0),
+        floor(YELLOW, 700.0),
     ];
     // A body whose centroid has crossed the PURPLE plane transfers to YELLOW
     // (its partner) — never to the unrelated orange portal.
@@ -359,7 +367,7 @@ fn n_pairs_transit_routes_to_the_matching_partner() {
         Vec2::new(24.0, 40.0),
         Vec2::new(0.0, 50.0),
         Some(PortalTransit {
-            straddling: PortalColor::Purple,
+            straddling: PURPLE,
             crossed: false,
         }),
         0.0,
@@ -368,9 +376,9 @@ fn n_pairs_transit_routes_to_the_matching_partner() {
     );
     match step {
         TransitStep::Transfer {
-            exit_color, pos, ..
+            exit_channel, pos, ..
         } => {
-            assert_eq!(exit_color, PortalColor::Yellow, "purple links to yellow");
+            assert_eq!(exit_channel, YELLOW, "purple links to yellow");
             assert!(pos.x > 600.0, "emerges at the yellow portal, got {pos:?}");
         }
         other => panic!("expected a transfer to yellow, got {other:?}"),
@@ -488,13 +496,13 @@ fn actors_get_an_aerial_roll_through_portals() {
     // actors alike now tumble + reorient (the somersault is ported to the
     // aperture model and applied on the centroid transfer).
     app.world_mut().spawn(PlacedPortal {
-        color: PortalColor::Blue,
+        channel: BLUE,
         pos: Vec2::new(200.0, 380.0),
         normal: Vec2::new(0.0, -1.0),
         half_extent: portal_half_extent(Vec2::new(0.0, -1.0)),
     });
     app.world_mut().spawn(PlacedPortal {
-        color: PortalColor::Orange,
+        channel: ORANGE,
         pos: Vec2::new(380.0, 200.0),
         normal: Vec2::new(-1.0, 0.0),
         half_extent: portal_half_extent(Vec2::new(-1.0, 0.0)),
@@ -588,13 +596,13 @@ fn portal_pair_teleports_player_carrying_momentum() {
     app.add_systems(Update, portal_transit_system);
     // Blue on the left (facing right), orange on the right (facing left).
     app.world_mut().spawn(PlacedPortal {
-        color: PortalColor::Blue,
+        channel: BLUE,
         pos: Vec2::new(22.0, 200.0),
         normal: Vec2::new(1.0, 0.0),
         half_extent: portal_half_extent(Vec2::new(1.0, 0.0)),
     });
     app.world_mut().spawn(PlacedPortal {
-        color: PortalColor::Orange,
+        channel: ORANGE,
         pos: Vec2::new(378.0, 200.0),
         normal: Vec2::new(-1.0, 0.0),
         half_extent: portal_half_extent(Vec2::new(1.0, 0.0)),
@@ -723,7 +731,7 @@ fn wall_ability_suppression_reapplies_every_frame_against_the_loadout_reset() {
     // Transiting: even though the reset re-enables it first, the suppressor
     // re-applies every frame, so it stays disabled across MANY frames.
     app.world_mut().entity_mut(player).insert(PortalTransit {
-        straddling: PortalColor::Blue,
+        straddling: BLUE,
         crossed: false,
     });
     for _ in 0..5 {
@@ -796,13 +804,13 @@ fn a_gunless_player_transits_an_authored_pair() {
     app.add_systems(Update, portal_transit_system);
     let he = portal_half_extent(Vec2::new(0.0, -1.0));
     app.world_mut().spawn(PlacedPortal {
-        color: PortalColor::Purple,
+        channel: PURPLE,
         pos: Vec2::new(200.0, 300.0),
         normal: Vec2::new(0.0, -1.0),
         half_extent: he,
     });
     app.world_mut().spawn(PlacedPortal {
-        color: PortalColor::Yellow,
+        channel: YELLOW,
         pos: Vec2::new(600.0, 300.0),
         normal: Vec2::new(0.0, -1.0),
         half_extent: he,
@@ -864,13 +872,13 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
     app.add_systems(Update, (portal_transit_system, record_teleport).chain());
     // Two FLOOR portals (normal up): blue at x=200, orange at x=600.
     app.world_mut().spawn(PlacedPortal {
-        color: PortalColor::Blue,
+        channel: BLUE,
         pos: Vec2::new(200.0, 300.0),
         normal: Vec2::new(0.0, -1.0),
         half_extent: portal_half_extent(Vec2::new(0.0, -1.0)),
     });
     app.world_mut().spawn(PlacedPortal {
-        color: PortalColor::Orange,
+        channel: ORANGE,
         pos: Vec2::new(600.0, 300.0),
         normal: Vec2::new(0.0, -1.0),
         half_extent: portal_half_extent(Vec2::new(0.0, -1.0)),
@@ -945,13 +953,13 @@ fn partial_render_keeps_the_sprite_and_masks_the_through_slice() {
     app.add_systems(Update, sync_portal_body_pieces);
     // Floor pair so a body standing on the blue portal straddles its plane.
     app.world_mut().spawn(PlacedPortal {
-        color: PortalColor::Blue,
+        channel: BLUE,
         pos: Vec2::new(200.0, 300.0),
         normal: Vec2::new(0.0, -1.0),
         half_extent: portal_half_extent(Vec2::new(0.0, -1.0)),
     });
     app.world_mut().spawn(PlacedPortal {
-        color: PortalColor::Orange,
+        channel: ORANGE,
         pos: Vec2::new(300.0, 300.0),
         normal: Vec2::new(0.0, -1.0),
         half_extent: portal_half_extent(Vec2::new(0.0, -1.0)),
@@ -971,7 +979,7 @@ fn partial_render_keeps_the_sprite_and_masks_the_through_slice() {
             Sprite::from_color(Color::WHITE, Vec2::new(24.0, 40.0)),
             Visibility::Inherited,
             PortalTransit {
-                straddling: PortalColor::Blue,
+                straddling: BLUE,
                 crossed: false,
             },
         ))
@@ -1001,7 +1009,7 @@ fn portal_carve_is_transient_and_pair_gated() {
     let blue = app
         .world_mut()
         .spawn(PlacedPortal {
-            color: PortalColor::Blue,
+            channel: BLUE,
             pos: Vec2::new(200.0, 300.0),
             normal: Vec2::new(0.0, -1.0),
             half_extent: portal_half_extent(Vec2::new(0.0, -1.0)),
@@ -1018,7 +1026,7 @@ fn portal_carve_is_transient_and_pair_gated() {
     // Complete the pair — but with NO body transiting, still nothing carves
     // (so you can't wiggle into a wall pocket between crossings).
     app.world_mut().spawn(PlacedPortal {
-        color: PortalColor::Orange,
+        channel: ORANGE,
         pos: Vec2::new(600.0, 300.0),
         normal: Vec2::new(0.0, -1.0),
         half_extent: portal_half_extent(Vec2::new(0.0, -1.0)),
@@ -1034,7 +1042,7 @@ fn portal_carve_is_transient_and_pair_gated() {
     // A body transiting the blue portal carves EXACTLY that portal.
     let _ = blue;
     app.world_mut().spawn(PortalTransit {
-        straddling: PortalColor::Blue,
+        straddling: BLUE,
         crossed: false,
     });
     app.update();
@@ -1075,14 +1083,14 @@ fn portal_shot_travels_and_opens_a_portal_on_a_wall() {
         "firing spawns a traveling portal shot"
     );
     // No portal yet — it has to travel there.
-    assert!(find_portal(&mut app, PortalColor::Blue).is_none());
+    assert!(find_portal(&mut app, BLUE).is_none());
 
     // Let the shot fly into the left wall.
     set_control(&mut app, false, false);
     for _ in 0..40 {
         app.update();
     }
-    let blue = find_portal(&mut app, PortalColor::Blue);
+    let blue = find_portal(&mut app, BLUE);
     assert!(
         blue.is_some_and(|p| p.pos.x < 60.0 && p.normal.x > 0.5),
         "the shot should open a blue portal on the left wall, got {blue:?}"

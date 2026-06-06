@@ -260,7 +260,7 @@ authored_audio = ["dep:bevy_kira_audio"]
 web_audio = ["audio"]
 ui = ["dep:bevy_material_ui", "dep:bevy_yarnspinner"]
 physics_debris = ["dep:avian2d"]
-input = ["dep:leafwing-input-manager"]
+input = ["dep:leafwing-input-manager", "ambition_input/input"]
 # Mobile / Android touch input. Pulls `virtual_joystick` for the
 # on-screen sticks; the supporting Bevy systems live behind this feature
 # flag so desktop / gamepad / headless builds skip the touch path.
@@ -308,6 +308,13 @@ ambition_platformer_runtime = { path = "../ambition_platformer_runtime" }
 # body component). The build-time foundation; re-exported as `crate::engine_core`
 # from lib.rs (ADR 0019). See docs/planning/plugin_refactor/15_post_task_k_revision.md.
 ambition_engine_core = { path = "../ambition_engine_core" }
+# Device -> ControlFrame input layer (SandboxAction / ControlFrame / presets /
+# input-domain settings). Re-exported as `crate::input` from lib.rs (ADR 0019);
+# `crate::persistence::settings` re-exports its `settings` module so existing
+# `crate::persistence::settings::ControlSettings` paths resolve unchanged. The
+# sandbox `input` feature forwards to this crate's `input` feature. See
+# docs/planning/plugin_refactor/15_post_task_k_revision.md.
+ambition_input = { path = "../ambition_input" }
 # 3D-cube OoT inventory/pause UI (bevy_lunex). Optional: only UI builds need it,
 # gated by `oot_inventory`; runtime-toggleable vs the Bevy-UI grid (#31).
 ambition_inventory_ui = { path = "../../submodules/ambition_inventory_ui", optional = true }

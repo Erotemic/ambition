@@ -37,7 +37,10 @@ pub use ambition_engine_core as engine_core;
 pub mod grapple;
 pub mod gravity_grenade;
 pub mod headless;
-pub mod input;
+// The device -> ControlFrame input layer now lives in the `ambition_input`
+// crate (ADR 0019). Re-exported here as `crate::input` so all existing
+// `crate::input::{ControlFrame, SandboxAction, …}` paths resolve unchanged.
+pub use ambition_input as input;
 pub mod interaction;
 pub mod kinematic;
 pub mod platformer_runtime;

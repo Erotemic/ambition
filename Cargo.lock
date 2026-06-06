@@ -168,6 +168,7 @@ dependencies = [
 name = "ambition_platformer_runtime"
 version = "0.1.0"
 dependencies = [
+ "ambition_engine_core",
  "bevy",
 ]
 

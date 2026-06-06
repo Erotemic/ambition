@@ -1463,25 +1463,31 @@ fn cube_menu_open_routing(
 
     // inventory key: the shared open/close TOGGLE stays in `oot_menu_input` (it raises
     // `visible` + pauses for both backends); here we only point the cube at the Items
-    // page + seed the cursor whenever that key fires. Closing is handled there too —
-    // when the key closes the overlay this just sets a page that won't be shown.
+    // page + seed the cursor when that key OPENS the overlay.
     if menu.inventory {
-        // The overlay's `visible` is flipped by `oot_menu_input`; play open vs close
-        // off the state it WILL be in this frame (we observe the pre-flip value here,
-        // so a currently-hidden overlay is opening and a visible one is closing).
+        // The overlay's `visible` is flipped by `oot_menu_input`; we observe the
+        // PRE-flip value here, so a currently-hidden overlay is opening and a visible
+        // one is closing.
+        let closing = overlay.visible;
         play_ui(
             &mut sfx,
-            if overlay.visible {
+            if closing {
                 ambition_sfx::ids::UI_MENU_CLOSE
             } else {
                 ambition_sfx::ids::UI_MENU_OPEN
             },
         );
-        pages.active = Some(CubePage::Items);
-        system_nav.open_entry = None;
-        cursor.last_pointer_focus = None;
-        cursor.mark_keyboard(CubeFocus::Item(0));
-        map.open = false;
+        // Only re-seed the page/cursor when OPENING. On close, leave the active page
+        // alone so the fold-close animation plays out from whatever face was shown
+        // (re-seeding to Items here snapped the cube to the Items face mid-close — the
+        // "I" close-animation glitch).
+        if !closing {
+            pages.active = Some(CubePage::Items);
+            system_nav.open_entry = None;
+            cursor.last_pointer_focus = None;
+            cursor.mark_keyboard(CubeFocus::Item(0));
+            map.open = false;
+        }
         return;
     }
 
@@ -2357,6 +2363,162 @@ mod oot_cube_app_tests {
             assert!(
                 !visible(&app),
                 "the cube stays closed — pause_menu_navigate must not re-open it under the Cube backend"
+            );
+        }
+    }
+
+    /// Test stand-in for `pause_menu::sync_pause_menu`'s visibility rule (the real one
+    /// pulls in audio/library params we don't need here). Reproduces the SAME
+    /// `Paused && !inventory.visible` predicate WITHOUT an internal backend gate —
+    /// exactly like the production `sync_pause_menu`. The Cube-backend suppression is
+    /// supplied externally via the `run_if(pause_menu_ui_active)` at registration, so
+    /// this fixture exercises the real fix. Remove that `run_if` and this helper would
+    /// flash the root Visible on the Esc-close frame (the "Paused" flash bug).
+    fn pause_menu_root_visibility_for_test(
+        mode: Res<State<GameMode>>,
+        inventory: Res<crate::inventory::InventoryUiState>,
+        mut roots: Query<&mut Visibility, With<crate::pause_menu::PauseMenuRoot>>,
+    ) {
+        let visible = matches!(mode.get(), GameMode::Paused) && !inventory.visible;
+        for mut visibility in &mut roots {
+            *visibility = if visible {
+                Visibility::Visible
+            } else {
+                Visibility::Hidden
+            };
+        }
+    }
+
+    /// Bug 1 (full-chain repro): opening the cube from GAMEPLAY and pressing Esc to
+    /// close must stay closed AND must never let the old bevy-UI pause menu flash.
+    ///
+    /// Unlike `esc_close_stays_closed_with_pause_menu_in_schedule`, this fixture wires
+    /// BOTH the cube routing systems and the bevy-UI pause-menu systems (including
+    /// `pause_menu_toggle`, `oot_menu_input`, and the pause-menu visibility sync) into
+    /// one deterministic chain that forces the worst-case ordering, and drives Esc
+    /// through the leafwing action map so the `menu.start` + `menu.back` co-fire
+    /// exactly as in game. It asserts the close
+    /// sticks across several Paused frames and that the pause-menu root never becomes
+    /// `Visible` while the Cube backend is active (the "Paused" flash).
+    #[test]
+    fn esc_close_stays_closed_full_input_chain_no_pause_flash() {
+        use crate::input::SandboxAction;
+        use crate::pause_menu::PauseMenuRoot;
+        use crate::presentation::rendering::PlayerVisual;
+        use leafwing_input_manager::prelude::*;
+
+        let mut app = App::new();
+        app.add_plugins(bevy::state::app::StatesPlugin);
+        app.add_plugins(bevy::time::TimePlugin);
+        app.add_plugins(bevy::input::InputPlugin);
+        app.add_plugins(InputManagerPlugin::<SandboxAction>::default());
+        app.init_state::<GameMode>();
+        app.init_resource::<InventoryUiBackend>();
+        app.init_resource::<ActiveMenuPages<CubePage, CubeAction>>();
+        app.init_resource::<CubeCursor>();
+        app.init_resource::<CubeSystemNav>();
+        app.init_resource::<OwnedItems>();
+        app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
+        app.init_resource::<UserSettings>();
+        app.init_resource::<crate::inventory::InventoryUiState>();
+        app.init_resource::<crate::map_menu::MapMenuState>();
+        app.init_resource::<MenuControlFrame>();
+        app.init_resource::<crate::input::MenuInputState>();
+        app.init_resource::<crate::oot_menu::OotMenuState>();
+        app.init_resource::<crate::pause_menu::PauseMenuState>();
+        app.add_message::<PlayerHealRequested>();
+        app.add_message::<SfxMessage>();
+        app.add_message::<bevy::app::AppExit>();
+
+        // A stand-in pause-menu root so we can observe the "Paused" flash: if the
+        // old UI's visibility sync ever marks it Visible under the Cube backend, the
+        // assertion below trips.
+        app.world_mut().spawn((PauseMenuRoot, Visibility::Hidden));
+
+        // One deterministic chain that mirrors the real app's wiring AND forces the
+        // worst-case ordering for the flash: the bevy-UI pause-menu visibility sync
+        // runs AFTER the cube router has flipped `visible` false on the close frame.
+        // In that window `GameMode` is still `Paused` (the `Playing` transition lands
+        // next frame), so an UNGATED sync would mark the "Paused" root Visible — the
+        // flash. The `run_if(pause_menu_ui_active)` gate (the fix) keeps it inert under
+        // the Cube backend; removing that `run_if` makes the flash assertions fail.
+        app.add_systems(
+            Update,
+            (
+                crate::app::populate_menu_control_frame_from_actions,
+                cube_menu_open_routing,
+                cube_focus_nav,
+                crate::pause_menu::pause_menu_toggle,
+                crate::oot_menu::oot_menu_input,
+                pause_menu_root_visibility_for_test.run_if(crate::pause_menu::pause_menu_ui_active),
+            )
+                .chain(),
+        );
+        *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::Cube;
+
+        let mut map = InputMap::<SandboxAction>::default();
+        map.insert(SandboxAction::Start, KeyCode::Escape);
+        map.insert(SandboxAction::MenuBack, KeyCode::Escape);
+        app.world_mut().spawn((
+            PlayerVisual,
+            PlayerEntity,
+            PrimaryPlayer,
+            ActionSet::default(),
+            PlayerMana::default(),
+            ActionState::<SandboxAction>::default(),
+            map,
+        ));
+        app.update();
+
+        let press_esc = |app: &mut App, down: bool| {
+            let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+            if down {
+                keys.press(KeyCode::Escape);
+            } else {
+                keys.release(KeyCode::Escape);
+            }
+        };
+        let visible = |app: &App| {
+            app.world()
+                .resource::<crate::inventory::InventoryUiState>()
+                .visible
+        };
+        let pause_root_visible = |app: &mut App| {
+            app.world_mut()
+                .query_filtered::<&Visibility, With<PauseMenuRoot>>()
+                .iter(app.world())
+                .any(|v| matches!(v, Visibility::Visible))
+        };
+
+        // Open from gameplay (Playing → Paused).
+        press_esc(&mut app, true);
+        app.update();
+        press_esc(&mut app, false);
+        app.update();
+        assert!(visible(&app), "first Esc opens the cube");
+        assert!(
+            !pause_root_visible(&mut app),
+            "the old pause menu must stay hidden while the cube is open"
+        );
+
+        // Close it. Must STAY closed across the close frame + several idle frames,
+        // and the old pause menu must NEVER flash Visible.
+        press_esc(&mut app, true);
+        app.update();
+        assert!(
+            !pause_root_visible(&mut app),
+            "the old pause menu must not flash on the Esc-close frame (Cube backend)"
+        );
+        press_esc(&mut app, false);
+        app.update();
+        assert!(!visible(&app), "second Esc closes the cube");
+        for _ in 0..5 {
+            app.update();
+            assert!(!visible(&app), "the cube stays closed (no reopen)");
+            assert!(
+                !pause_root_visible(&mut app),
+                "the old pause menu never flashes under the Cube backend"
             );
         }
     }

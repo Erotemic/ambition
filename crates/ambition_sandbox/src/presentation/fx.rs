@@ -958,7 +958,7 @@ pub fn update_blink_preview(
     >,
     player_q: Query<
         (
-            &crate::player::PlayerKinematics,
+            &crate::player::BodyKinematics,
             &crate::player::PlayerAbilities,
             &crate::player::PlayerBlinkState,
         ),

@@ -657,7 +657,7 @@ pub fn cleanup_timers_system(
     mut dev_state: ResMut<crate::SandboxDevState>,
     mut player_q: Query<
         (
-            &crate::player::PlayerKinematics,
+            &crate::player::BodyKinematics,
             &crate::player::PlayerGroundState,
             &crate::player::PlayerDashState,
             &mut crate::player::PlayerAnimState,

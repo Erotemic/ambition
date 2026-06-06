@@ -26,7 +26,7 @@ use bevy::prelude::*;
 use crate::engine_core::{self as ae, AabbExt};
 use crate::features::HeldItem;
 use crate::input::ControlFrame;
-use crate::player::{PlayerEntity, PlayerKinematics, PlayerMana, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PlayerMana, PrimaryPlayer};
 
 /// Held-item id of the dive gauntlet.
 pub const DIVE_ID: &str = "dive";
@@ -86,7 +86,7 @@ pub fn fire_dive_system(
     control: Res<ControlFrame>,
     world: Option<Res<crate::GameWorld>>,
     mut players: Query<
-        (Entity, &mut PlayerKinematics, &HeldItem, &mut PlayerMana),
+        (Entity, &mut BodyKinematics, &HeldItem, &mut PlayerMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
@@ -170,6 +170,7 @@ pub fn fire_dive_system(
 mod tests {
     use super::*;
     use crate::brain::ActionSet;
+    use crate::player::PlayerBaseSize;
 
     fn test_app() -> App {
         let mut app = App::new();
@@ -186,12 +187,14 @@ mod tests {
             .spawn((
                 PlayerEntity,
                 PrimaryPlayer,
-                PlayerKinematics {
+                BodyKinematics {
                     pos: ae::Vec2::new(100.0, 100.0),
                     vel: ae::Vec2::ZERO,
                     size: ae::Vec2::new(24.0, 40.0),
-                    base_size: ae::Vec2::new(24.0, 40.0),
                     facing: 1.0,
+                },
+                PlayerBaseSize {
+                    base_size: ae::Vec2::new(24.0, 40.0),
                 },
                 ActionSet::default(),
                 HeldItem::new(spec),
@@ -221,7 +224,7 @@ mod tests {
             .attack_pressed = true;
         app.update();
         // No world → no walls → full lunge along facing (+x).
-        let pos = app.world().get::<PlayerKinematics>(player).unwrap().pos;
+        let pos = app.world().get::<BodyKinematics>(player).unwrap().pos;
         assert!(
             (pos.x - (100.0 + DIVE_LUNGE)).abs() < 0.01,
             "player lunged a full DIVE_LUNGE forward: {pos:?}"
@@ -266,7 +269,7 @@ mod tests {
             c.aim_y = 1.0; // dive straight down
         }
         app.update();
-        let pos = app.world().get::<PlayerKinematics>(player).unwrap().pos;
+        let pos = app.world().get::<BodyKinematics>(player).unwrap().pos;
         assert!(
             pos.y + 20.0 <= 200.0 + 1e-3,
             "downward dive embedded the body in the floor: bottom={}, floor top=200",
@@ -287,7 +290,7 @@ mod tests {
         app.update(); // no attack pressed
         assert_eq!(app.world().resource::<CapturedHits>().0.len(), 0);
         assert_eq!(
-            app.world().get::<PlayerKinematics>(player).unwrap().pos.x,
+            app.world().get::<BodyKinematics>(player).unwrap().pos.x,
             100.0,
             "no lunge without an attack press"
         );
@@ -314,7 +317,7 @@ mod tests {
             "no dive when mana < cost"
         );
         assert_eq!(
-            app.world().get::<PlayerKinematics>(player).unwrap().pos.x,
+            app.world().get::<BodyKinematics>(player).unwrap().pos.x,
             100.0,
             "and no lunge either"
         );

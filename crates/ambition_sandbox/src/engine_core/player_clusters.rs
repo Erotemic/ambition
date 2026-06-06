@@ -29,7 +29,8 @@ use crate::engine_core::Vec2;
 /// through a separate bridge module.
 pub struct PlayerClustersMut<'a> {
     pub abilities: &'a PlayerAbilities,
-    pub kinematics: &'a mut PlayerKinematics,
+    pub kinematics: &'a mut BodyKinematics,
+    pub base_size: &'a mut PlayerBaseSize,
     pub ground: &'a mut PlayerGroundState,
     pub wall: &'a mut PlayerWallState,
     pub jump: &'a mut PlayerJumpState,
@@ -55,7 +56,8 @@ pub struct PlayerClustersMut<'a> {
 #[query_data(mutable)]
 pub struct PlayerClusterQueryData {
     pub abilities: &'static PlayerAbilities,
-    pub kinematics: &'static mut PlayerKinematics,
+    pub kinematics: &'static mut BodyKinematics,
+    pub base_size: &'static mut PlayerBaseSize,
     pub ground: &'static mut PlayerGroundState,
     pub wall: &'static mut PlayerWallState,
     pub jump: &'static mut PlayerJumpState,
@@ -84,6 +86,7 @@ impl<'w, 's> PlayerClusterQueryDataItem<'w, 's> {
         PlayerClustersMut {
             abilities: &*self.abilities,
             kinematics: &mut *self.kinematics,
+            base_size: &mut *self.base_size,
             ground: &mut *self.ground,
             wall: &mut *self.wall,
             jump: &mut *self.jump,
@@ -117,31 +120,27 @@ impl PlayerAbilities {
 }
 
 /// Position, velocity, AABB size, and facing direction.
+///
+/// The player shares the unified [`BodyKinematics`] with enemies / NPCs /
+/// bosses. The player-only "base / standing body size" lives separately on
+/// [`PlayerBaseSize`] so the shared component stays minimal.
+pub use crate::platformer_runtime::body::BodyKinematics;
+
+/// The player's authored *standing* body size — the baseline the morph /
+/// crouch / slide stances and the sprite-scale math read from. Player-only;
+/// it is deliberately NOT part of the shared [`BodyKinematics`] (enemies and
+/// bosses have no stance-baseline concept), so it rides in its own component
+/// alongside the rest of the player clusters.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, PartialEq)]
-pub struct PlayerKinematics {
-    pub pos: Vec2,
-    pub vel: Vec2,
-    pub size: Vec2,
+pub struct PlayerBaseSize {
     pub base_size: Vec2,
-    pub facing: f32,
 }
 
-impl Default for PlayerKinematics {
+impl Default for PlayerBaseSize {
     fn default() -> Self {
-        let body = crate::engine_core::movement::default_player_body_size();
         Self {
-            pos: Vec2::ZERO,
-            vel: Vec2::ZERO,
-            size: body,
-            base_size: body,
-            facing: 1.0,
+            base_size: crate::engine_core::movement::default_player_body_size(),
         }
-    }
-}
-
-impl PlayerKinematics {
-    pub fn aabb(self) -> crate::engine_core::Aabb {
-        crate::engine_core::Aabb::new(self.pos, self.size * 0.5)
     }
 }
 
@@ -327,13 +326,13 @@ pub fn reset_player_clusters(clusters: &mut PlayerClustersMut<'_>, spawn: Vec2) 
     let dash_charges = abilities.dash_charge_count();
     let air_jumps = abilities.air_jump_count(DEFAULT_TUNING.air_jumps);
 
-    *clusters.kinematics = PlayerKinematics {
+    *clusters.kinematics = BodyKinematics {
         pos: spawn,
         vel: Vec2::ZERO,
         size: body,
-        base_size: body,
         facing: 1.0,
     };
+    *clusters.base_size = PlayerBaseSize { base_size: body };
     *clusters.ground = PlayerGroundState::default();
     *clusters.wall = PlayerWallState::default();
     *clusters.jump = PlayerJumpState {
@@ -512,7 +511,8 @@ impl PlayerComboTrace {
 #[derive(Clone)]
 pub struct PlayerClusterScratch {
     pub abilities: PlayerAbilities,
-    pub kinematics: PlayerKinematics,
+    pub kinematics: BodyKinematics,
+    pub base_size: PlayerBaseSize,
     pub ground: PlayerGroundState,
     pub wall: PlayerWallState,
     pub jump: PlayerJumpState,
@@ -548,13 +548,13 @@ impl PlayerClusterScratch {
         let air_jumps = abilities.air_jump_count(DEFAULT_TUNING.air_jumps);
         Self {
             abilities: PlayerAbilities { abilities },
-            kinematics: PlayerKinematics {
+            kinematics: BodyKinematics {
                 pos: spawn,
                 vel: Vec2::ZERO,
                 size: body,
-                base_size: body,
                 facing: 1.0,
             },
+            base_size: PlayerBaseSize { base_size: body },
             ground: PlayerGroundState::default(),
             wall: PlayerWallState::default(),
             jump: PlayerJumpState {
@@ -599,6 +599,7 @@ impl PlayerClusterScratch {
         PlayerClustersMut {
             abilities: &self.abilities,
             kinematics: &mut self.kinematics,
+            base_size: &mut self.base_size,
             ground: &mut self.ground,
             wall: &mut self.wall,
             jump: &mut self.jump,

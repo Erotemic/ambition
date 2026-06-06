@@ -292,7 +292,7 @@ pub fn pick_player_anim(
     combat: &crate::player::PlayerCombatState,
     blink_cam: &crate::player::PlayerBlinkCameraState,
     attack: Option<&crate::PlayerAttackState>,
-    kinematics: &crate::player::PlayerKinematics,
+    kinematics: &crate::player::BodyKinematics,
     ground: &crate::player::PlayerGroundState,
     wall: &crate::player::PlayerWallState,
     blink: &crate::player::PlayerBlinkState,
@@ -538,7 +538,7 @@ mod tests {
     /// Bundle of every cluster component `pick_player_anim` reads.
     /// Tests mutate just the fields relevant to the case under test.
     struct PickClusters {
-        kinematics: crate::player::PlayerKinematics,
+        kinematics: crate::player::BodyKinematics,
         ground: crate::player::PlayerGroundState,
         wall: crate::player::PlayerWallState,
         blink: crate::player::PlayerBlinkState,

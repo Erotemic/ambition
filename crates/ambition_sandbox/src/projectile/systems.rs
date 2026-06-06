@@ -27,7 +27,7 @@ pub fn update_projectiles(
     mut player_q: Query<
         (
             Entity,
-            &crate::player::PlayerKinematics,
+            &crate::player::BodyKinematics,
             &mut crate::projectile::PlayerProjectileState,
             &mut crate::player::PlayerAnimState,
         ),

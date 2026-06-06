@@ -9,7 +9,7 @@ use crate::engine_core::{self as ae, AabbExt};
 use crate::input::ControlFrame;
 use crate::platformer_runtime::orientation::ActorRoll;
 use crate::platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
-use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 use crate::portal_pieces as pp;
 
 use super::color::PortalChannel;
@@ -145,7 +145,7 @@ pub fn portal_transit_system(
     mut players: Query<
         (
             Entity,
-            &mut PlayerKinematics,
+            &mut BodyKinematics,
             Option<&mut PortalTransit>,
             Option<&mut ActorRoll>,
             Option<&PortalTransitCooldown>,

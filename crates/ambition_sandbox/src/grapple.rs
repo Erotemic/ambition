@@ -16,7 +16,7 @@ use bevy::prelude::*;
 use crate::engine_core as ae;
 use crate::features::HeldItem;
 use crate::input::ControlFrame;
-use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 
 /// The held-item id the Grapple ability grants.
 pub const GRAPPLE_ID: &str = "grapple";
@@ -39,7 +39,7 @@ pub fn grapple_system(
     mut players: Query<
         (
             Entity,
-            &mut PlayerKinematics,
+            &mut BodyKinematics,
             &HeldItem,
             Option<&mut crate::ability_cooldown::AbilityCooldown>,
         ),
@@ -110,6 +110,7 @@ pub fn grapple_system(
 mod tests {
     use super::*;
     use crate::brain::ActionSet;
+    use crate::player::PlayerBaseSize;
 
     fn world_with_right_wall() -> crate::GameWorld {
         // A solid wall at x[380,400], y[0,400]; open space to its left.
@@ -144,12 +145,14 @@ mod tests {
             .spawn((
                 PlayerEntity,
                 PrimaryPlayer,
-                PlayerKinematics {
+                BodyKinematics {
                     pos,
                     vel: ae::Vec2::ZERO,
                     size: ae::Vec2::new(24.0, 40.0),
-                    base_size: ae::Vec2::new(24.0, 40.0),
                     facing,
+                },
+                PlayerBaseSize {
+                    base_size: ae::Vec2::new(24.0, 40.0),
                 },
                 ActionSet::default(),
                 HeldItem::new(spec),
@@ -158,7 +161,7 @@ mod tests {
     }
 
     fn player_vel(app: &App, player: Entity) -> ae::Vec2 {
-        app.world().get::<PlayerKinematics>(player).unwrap().vel
+        app.world().get::<BodyKinematics>(player).unwrap().vel
     }
 
     #[test]

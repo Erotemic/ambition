@@ -17,7 +17,7 @@ use bevy::prelude::*;
 use crate::engine_core::{self as ae, AabbExt};
 use crate::features::HeldItem;
 use crate::input::ControlFrame;
-use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 
 /// The held-item id the Blink ability grants.
 pub const BLINK_ID: &str = "blink";
@@ -44,7 +44,7 @@ pub fn blink_system(
     mut players: Query<
         (
             Entity,
-            &mut PlayerKinematics,
+            &mut BodyKinematics,
             &HeldItem,
             Option<&mut crate::ability_cooldown::AbilityCooldown>,
         ),
@@ -150,6 +150,7 @@ pub fn blink_system(
 mod tests {
     use super::*;
     use crate::brain::ActionSet;
+    use crate::player::PlayerBaseSize;
 
     fn test_app() -> App {
         let mut app = App::new();
@@ -167,12 +168,14 @@ mod tests {
             .spawn((
                 PlayerEntity,
                 PrimaryPlayer,
-                PlayerKinematics {
+                BodyKinematics {
                     pos: ae::Vec2::new(300.0, 300.0),
                     vel: ae::Vec2::ZERO,
                     size: ae::Vec2::new(24.0, 40.0),
-                    base_size: ae::Vec2::new(24.0, 40.0),
                     facing,
+                },
+                PlayerBaseSize {
+                    base_size: ae::Vec2::new(24.0, 40.0),
                 },
                 ActionSet::default(),
                 HeldItem::new(spec),
@@ -181,7 +184,7 @@ mod tests {
     }
 
     fn player_pos(app: &App, player: Entity) -> ae::Vec2 {
-        app.world().get::<PlayerKinematics>(player).unwrap().pos
+        app.world().get::<BodyKinematics>(player).unwrap().pos
     }
 
     #[derive(bevy::prelude::Resource, Default)]

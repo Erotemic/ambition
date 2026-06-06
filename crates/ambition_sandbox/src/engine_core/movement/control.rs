@@ -13,7 +13,7 @@ use super::tuning::MovementTuning;
 #[allow(clippy::too_many_arguments)]
 pub fn handle_blink_clusters(
     world: &World,
-    kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
+    kinematics: &mut crate::engine_core::player_clusters::BodyKinematics,
     abilities: &crate::engine_core::player_clusters::PlayerAbilities,
     flight: &mut crate::engine_core::player_clusters::PlayerFlightState,
     wall: &mut crate::engine_core::player_clusters::PlayerWallState,
@@ -104,7 +104,7 @@ pub fn handle_blink_clusters(
 /// Cluster-ref attack handler used by `update_player_control_with_clusters`.
 pub fn handle_attacks_clusters(
     world: &World,
-    kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
+    kinematics: &mut crate::engine_core::player_clusters::BodyKinematics,
     abilities: &crate::engine_core::player_clusters::PlayerAbilities,
     ground: &mut crate::engine_core::player_clusters::PlayerGroundState,
     dash: &mut crate::engine_core::player_clusters::PlayerDashState,

@@ -116,7 +116,7 @@ pub fn apply_hitbox_damage(
     player_query: Query<
         (
             Entity,
-            &crate::player::PlayerKinematics,
+            &crate::player::BodyKinematics,
             &crate::player::PlayerOffense,
             &crate::player::PlayerDodgeState,
             &crate::player::PlayerShieldState,

@@ -11,7 +11,7 @@
 //! fire from the trace recorder diffing `body_mode` between snapshots,
 //! so this driver does not push events itself.
 //!
-//! Body-mode mutations happen directly on `PlayerKinematics` +
+//! Body-mode mutations happen directly on `BodyKinematics` +
 //! `PlayerBodyModeState` cluster components via
 //! `try_change_body_mode_clusters` — no `ae::Player` aggregate, no
 //! `engine_player_bridge` round-trip (both deleted 2026-05-28).
@@ -42,7 +42,8 @@ pub fn update_body_mode(
     world: Res<crate::GameWorld>,
     mut player_q: Query<
         (
-            &mut crate::player::PlayerKinematics,
+            &mut crate::player::BodyKinematics,
+            &crate::player::PlayerBaseSize,
             &mut crate::player::PlayerBodyModeState,
             &mut crate::player::PlayerJumpState,
             &crate::player::PlayerGroundState,
@@ -60,6 +61,7 @@ pub fn update_body_mode(
 ) {
     let Ok((
         mut kinematics,
+        base_size,
         mut body_mode_state,
         mut jump_state,
         ground,
@@ -118,6 +120,7 @@ pub fn update_body_mode(
             jump_state.ladder_drop_through_timer = ae::movement::ONE_WAY_DROP_THROUGH_GRACE;
             let _ = ae::try_change_body_mode_clusters(
                 &mut kinematics,
+                base_size,
                 &mut body_mode_state,
                 ae::BodyMode::Standing,
                 &world.0,
@@ -131,6 +134,7 @@ pub fn update_body_mode(
         if exit_via_jump || exit_via_dash || exit_via_lost_contact {
             let _ = ae::try_change_body_mode_clusters(
                 &mut kinematics,
+                base_size,
                 &mut body_mode_state,
                 ae::BodyMode::Standing,
                 &world.0,
@@ -161,6 +165,7 @@ pub fn update_body_mode(
     {
         let _ = ae::try_change_body_mode_clusters(
             &mut kinematics,
+            base_size,
             &mut body_mode_state,
             ae::BodyMode::Climbing,
             &world.0,
@@ -180,6 +185,7 @@ pub fn update_body_mode(
         if controls.jump_pressed || controls.up_pressed {
             let _ = ae::try_change_body_mode_clusters(
                 &mut kinematics,
+                base_size,
                 &mut body_mode_state,
                 ae::BodyMode::Standing,
                 &world.0,
@@ -194,6 +200,7 @@ pub fn update_body_mode(
     if on_ground && double_tap_down {
         let _ = ae::try_change_body_mode_clusters(
             &mut kinematics,
+            base_size,
             &mut body_mode_state,
             ae::BodyMode::MorphBall,
             &world.0,
@@ -214,6 +221,7 @@ pub fn update_body_mode(
 
     let _ = ae::try_change_body_mode_clusters(
         &mut kinematics,
+        base_size,
         &mut body_mode_state,
         target,
         &world.0,
@@ -228,9 +236,9 @@ mod tests {
     use crate::engine_core::Vec2;
     use crate::input::ControlFrame;
     use crate::player::{
-        PlayerBlinkState, PlayerBodyModeState, PlayerDashState, PlayerEntity,
-        PlayerEnvironmentContact, PlayerGroundState, PlayerInputFrame, PlayerInteractionState,
-        PlayerJumpState, PlayerKinematics, PlayerLedgeState, PlayerWallState, PrimaryPlayer,
+        BodyKinematics, PlayerBaseSize, PlayerBlinkState, PlayerBodyModeState, PlayerDashState,
+        PlayerEntity, PlayerEnvironmentContact, PlayerGroundState, PlayerInputFrame,
+        PlayerInteractionState, PlayerJumpState, PlayerLedgeState, PlayerWallState, PrimaryPlayer,
     };
     use bevy::prelude::{App, Entity, Update};
 
@@ -265,12 +273,14 @@ mod tests {
             .spawn((
                 PlayerEntity,
                 PrimaryPlayer,
-                PlayerKinematics {
+                BodyKinematics {
                     pos: world_spawn,
                     size: Vec2::new(30.0, 48.0),
-                    base_size: Vec2::new(30.0, 48.0),
                     facing: 1.0,
                     ..Default::default()
+                },
+                PlayerBaseSize {
+                    base_size: Vec2::new(30.0, 48.0),
                 },
                 PlayerGroundState {
                     on_ground: true,
@@ -332,7 +342,7 @@ mod tests {
             body_mode.body_mode = ae::BodyMode::MorphBall;
         }
         {
-            let mut kin = app.world_mut().get_mut::<PlayerKinematics>(player).unwrap();
+            let mut kin = app.world_mut().get_mut::<BodyKinematics>(player).unwrap();
             kin.size = Vec2::new(14.0, 14.0);
         }
         {
@@ -378,7 +388,7 @@ mod tests {
             body_mode.body_mode = ae::BodyMode::Climbing;
         }
         {
-            let mut kin = app.world_mut().get_mut::<PlayerKinematics>(player).unwrap();
+            let mut kin = app.world_mut().get_mut::<BodyKinematics>(player).unwrap();
             kin.pos = Vec2::new(210.0, 820.0);
         }
         {
@@ -386,7 +396,7 @@ mod tests {
                 .world()
                 .resource::<crate::GameWorld>()
                 .0
-                .climbable_at(app.world().get::<PlayerKinematics>(player).unwrap().aabb());
+                .climbable_at(app.world().get::<BodyKinematics>(player).unwrap().aabb());
             let mut env = app
                 .world_mut()
                 .get_mut::<PlayerEnvironmentContact>(player)
@@ -434,7 +444,7 @@ mod tests {
             body_mode.body_mode = ae::BodyMode::Climbing;
         }
         {
-            let mut kin = app.world_mut().get_mut::<PlayerKinematics>(player).unwrap();
+            let mut kin = app.world_mut().get_mut::<BodyKinematics>(player).unwrap();
             kin.pos = Vec2::new(210.0, 820.0);
         }
         {
@@ -442,7 +452,7 @@ mod tests {
                 .world()
                 .resource::<crate::GameWorld>()
                 .0
-                .climbable_at(app.world().get::<PlayerKinematics>(player).unwrap().aabb());
+                .climbable_at(app.world().get::<BodyKinematics>(player).unwrap().aabb());
             let mut env = app
                 .world_mut()
                 .get_mut::<PlayerEnvironmentContact>(player)
@@ -491,7 +501,7 @@ mod tests {
             body_mode.body_mode = ae::BodyMode::Climbing;
         }
         {
-            let mut kin = app.world_mut().get_mut::<PlayerKinematics>(player).unwrap();
+            let mut kin = app.world_mut().get_mut::<BodyKinematics>(player).unwrap();
             kin.pos = Vec2::new(210.0, 820.0);
             kin.vel = Vec2::new(0.0, -100.0);
         }
@@ -500,7 +510,7 @@ mod tests {
                 .world()
                 .resource::<crate::GameWorld>()
                 .0
-                .climbable_at(app.world().get::<PlayerKinematics>(player).unwrap().aabb());
+                .climbable_at(app.world().get::<BodyKinematics>(player).unwrap().aabb());
             let mut env = app
                 .world_mut()
                 .get_mut::<PlayerEnvironmentContact>(player)
@@ -561,7 +571,7 @@ mod tests {
             ground.on_ground = false;
         }
         {
-            let mut kin = app.world_mut().get_mut::<PlayerKinematics>(player).unwrap();
+            let mut kin = app.world_mut().get_mut::<BodyKinematics>(player).unwrap();
             kin.pos = Vec2::new(210.0, 820.0);
         }
         {
@@ -569,7 +579,7 @@ mod tests {
                 .world()
                 .resource::<crate::GameWorld>()
                 .0
-                .climbable_at(app.world().get::<PlayerKinematics>(player).unwrap().aabb());
+                .climbable_at(app.world().get::<BodyKinematics>(player).unwrap().aabb());
             let mut env = app
                 .world_mut()
                 .get_mut::<PlayerEnvironmentContact>(player)
@@ -645,7 +655,7 @@ mod tests {
             ));
         }
         {
-            let mut kin = app.world_mut().get_mut::<PlayerKinematics>(player).unwrap();
+            let mut kin = app.world_mut().get_mut::<BodyKinematics>(player).unwrap();
             kin.pos = Vec2::new(210.0, 820.0);
         }
         {
@@ -653,7 +663,7 @@ mod tests {
                 .world()
                 .resource::<crate::GameWorld>()
                 .0
-                .climbable_at(app.world().get::<PlayerKinematics>(player).unwrap().aabb());
+                .climbable_at(app.world().get::<BodyKinematics>(player).unwrap().aabb());
             let mut env = app
                 .world_mut()
                 .get_mut::<PlayerEnvironmentContact>(player)

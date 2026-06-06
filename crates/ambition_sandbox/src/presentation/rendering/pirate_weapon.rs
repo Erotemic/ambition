@@ -91,7 +91,7 @@ pub fn sync_pirate_weapon_visuals(
         Option<&crate::features::EnemyStatus>,
     )>,
     player_q: Query<
-        &crate::player::PlayerKinematics,
+        &crate::player::BodyKinematics,
         (
             With<crate::player::PlayerEntity>,
             With<crate::player::PrimaryPlayer>,

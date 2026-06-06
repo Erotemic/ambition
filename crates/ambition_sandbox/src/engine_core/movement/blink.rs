@@ -14,7 +14,7 @@ use super::tuning::MovementTuning;
 /// dash (timer), blink (cooldown, aim_offset, hold_*), and pushes
 /// blink ops + the BlinkEvent.
 pub fn complete_blink_clusters(
-    kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
+    kinematics: &mut crate::engine_core::player_clusters::BodyKinematics,
     flight: &mut crate::engine_core::player_clusters::PlayerFlightState,
     wall: &mut crate::engine_core::player_clusters::PlayerWallState,
     dash: &mut crate::engine_core::player_clusters::PlayerDashState,
@@ -69,7 +69,7 @@ pub fn complete_blink_clusters(
 /// `blink_through_soft_walls` ability gate.
 pub fn blink_destination_clusters(
     world: &World,
-    kinematics: &crate::engine_core::player_clusters::PlayerKinematics,
+    kinematics: &crate::engine_core::player_clusters::BodyKinematics,
     abilities: &crate::engine_core::player_clusters::PlayerAbilities,
     aim: Vec2,
     max_distance: f32,
@@ -88,7 +88,7 @@ pub fn blink_destination_clusters(
 /// Blink to a specific aim point, clamped to a collision-safe destination.
 pub fn blink_destination_to_point_clusters(
     world: &World,
-    kinematics: &crate::engine_core::player_clusters::PlayerKinematics,
+    kinematics: &crate::engine_core::player_clusters::BodyKinematics,
     abilities: &crate::engine_core::player_clusters::PlayerAbilities,
     target: Vec2,
 ) -> Vec2 {

@@ -42,7 +42,7 @@ pub const POGO_DETECTION_HALF_WIDTH: f32 = 24.0;
 /// (a few dozen at most per room).
 pub fn update_pogo_target_below(
     player: Query<
-        &crate::player::PlayerKinematics,
+        &crate::player::BodyKinematics,
         (
             With<crate::player::PlayerEntity>,
             With<crate::player::PrimaryPlayer>,

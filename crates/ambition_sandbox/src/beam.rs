@@ -23,7 +23,7 @@ use bevy::prelude::*;
 use crate::engine_core as ae;
 use crate::features::{ActorFaction, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime};
 use crate::input::ControlFrame;
-use crate::player::{PlayerEntity, PlayerKinematics, PlayerMana, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PlayerMana, PrimaryPlayer};
 
 /// Held-item id of the focus-beam gauntlet.
 pub const BEAM_ID: &str = "beam";
@@ -80,7 +80,7 @@ fn beam_geometry(aim: ae::Vec2, facing: f32) -> (ae::Vec2, ae::Vec2) {
 pub fn fire_beam_system(
     control: Res<ControlFrame>,
     mut players: Query<
-        (Entity, &HeldItem, &PlayerKinematics, &mut PlayerMana),
+        (Entity, &HeldItem, &BodyKinematics, &mut PlayerMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     mut commands: Commands,
@@ -128,6 +128,7 @@ pub fn fire_beam_system(
 mod tests {
     use super::*;
     use crate::brain::ActionSet;
+    use crate::player::PlayerBaseSize;
 
     fn test_app() -> App {
         let mut app = App::new();
@@ -143,12 +144,14 @@ mod tests {
             .spawn((
                 PlayerEntity,
                 PrimaryPlayer,
-                PlayerKinematics {
+                BodyKinematics {
                     pos: ae::Vec2::new(100.0, 100.0),
                     vel: ae::Vec2::ZERO,
                     size: ae::Vec2::new(24.0, 40.0),
-                    base_size: ae::Vec2::new(24.0, 40.0),
                     facing: 1.0,
+                },
+                PlayerBaseSize {
+                    base_size: ae::Vec2::new(24.0, 40.0),
                 },
                 ActionSet::default(),
                 HeldItem::new(spec),

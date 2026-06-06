@@ -27,7 +27,7 @@ use bevy::prelude::*;
 use crate::engine_core as ae;
 use crate::features::HeldItem;
 use crate::input::ControlFrame;
-use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 
 /// The held-item id the Mark/Recall ability grants (see `brain::action_set`
 /// `HELD_ITEMS` and `items::Item::held_item_id`).
@@ -57,7 +57,7 @@ pub fn mark_recall_system(
     mut players: Query<
         (
             Entity,
-            &mut PlayerKinematics,
+            &mut BodyKinematics,
             &HeldItem,
             Option<&mut PlayerMark>,
         ),
@@ -173,6 +173,7 @@ pub fn sync_mark_beacon_visual(
 mod tests {
     use super::*;
     use crate::brain::ActionSet;
+    use crate::player::PlayerBaseSize;
 
     fn test_app() -> App {
         let mut app = App::new();
@@ -190,12 +191,14 @@ mod tests {
             .spawn((
                 PlayerEntity,
                 PrimaryPlayer,
-                PlayerKinematics {
+                BodyKinematics {
                     pos,
                     vel: ae::Vec2::ZERO,
                     size: ae::Vec2::new(24.0, 40.0),
-                    base_size: ae::Vec2::new(24.0, 40.0),
                     facing: 1.0,
+                },
+                PlayerBaseSize {
+                    base_size: ae::Vec2::new(24.0, 40.0),
                 },
                 ActionSet::default(),
                 HeldItem::new(spec),
@@ -211,7 +214,7 @@ mod tests {
     }
 
     fn player_pos(app: &App, player: Entity) -> ae::Vec2 {
-        app.world().get::<PlayerKinematics>(player).unwrap().pos
+        app.world().get::<BodyKinematics>(player).unwrap().pos
     }
 
     #[derive(bevy::prelude::Resource, Default)]
@@ -236,7 +239,7 @@ mod tests {
         press(&mut app, true, false); // mark at (200,80) — no hit yet
         app.update();
         app.world_mut()
-            .get_mut::<PlayerKinematics>(player)
+            .get_mut::<BodyKinematics>(player)
             .unwrap()
             .pos = ae::Vec2::new(900.0, 50.0);
         press(&mut app, false, true); // recall -> shockwave at the mark
@@ -268,7 +271,7 @@ mod tests {
         );
         // Wander far away, then recall.
         app.world_mut()
-            .get_mut::<PlayerKinematics>(player)
+            .get_mut::<BodyKinematics>(player)
             .unwrap()
             .pos = ae::Vec2::new(900.0, 50.0);
         press(&mut app, false, true);
@@ -287,7 +290,7 @@ mod tests {
         press(&mut app, true, false);
         app.update(); // mark at (10,10)
         app.world_mut()
-            .get_mut::<PlayerKinematics>(player)
+            .get_mut::<BodyKinematics>(player)
             .unwrap()
             .pos = ae::Vec2::new(400.0, 20.0);
         press(&mut app, true, false);

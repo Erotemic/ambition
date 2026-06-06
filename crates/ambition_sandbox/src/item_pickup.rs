@@ -23,7 +23,7 @@ use crate::engine_core::{self as ae, AabbExt};
 use crate::features::HeldItem;
 use crate::input::ControlFrame;
 use crate::platformer_runtime::prelude::SpawnScopedExt;
-use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 #[cfg(feature = "portal")]
 use crate::portal::PortalGun;
 
@@ -303,7 +303,7 @@ pub fn pickup_held_item_system(
     // One item at a time (Smash-style): can't grab a ground item while already
     // holding one, or while holding the portal gun (portal builds only).
     #[cfg(feature = "portal")] mut players: Query<
-        (Entity, &PlayerKinematics, &mut ActionSet),
+        (Entity, &BodyKinematics, &mut ActionSet),
         (
             With<PlayerEntity>,
             With<PrimaryPlayer>,
@@ -312,7 +312,7 @@ pub fn pickup_held_item_system(
         ),
     >,
     #[cfg(not(feature = "portal"))] mut players: Query<
-        (Entity, &PlayerKinematics, &mut ActionSet),
+        (Entity, &BodyKinematics, &mut ActionSet),
         (With<PlayerEntity>, With<PrimaryPlayer>, Without<HeldItem>),
     >,
     grounds: Query<(Entity, &GroundItem)>,
@@ -368,7 +368,7 @@ pub fn throw_held_item_system(
     mut players: Query<
         (
             Entity,
-            &PlayerKinematics,
+            &BodyKinematics,
             &mut ActionSet,
             &HeldItem,
             Option<&StashedActionSet>,
@@ -521,7 +521,7 @@ pub(crate) fn held_shot_aim(control: &ControlFrame, facing: f32) -> Vec2 {
 pub fn fire_held_ranged_system(
     control: Res<ControlFrame>,
     mut commands: Commands,
-    players: Query<(&PlayerKinematics, &HeldItem), (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    players: Query<(&BodyKinematics, &HeldItem), (With<PlayerEntity>, With<PrimaryPlayer>)>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     if !control.attack_pressed || control.shield_held {
@@ -808,7 +808,7 @@ pub fn sync_held_item_visual(
     world: Res<crate::GameWorld>,
     art: Option<Res<ItemArt>>,
     visuals: Query<Entity, With<HeldItemVisual>>,
-    players: Query<(&PlayerKinematics, &HeldItem), (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    players: Query<(&BodyKinematics, &HeldItem), (With<PlayerEntity>, With<PrimaryPlayer>)>,
 ) {
     for entity in &visuals {
         commands.entity(entity).despawn();
@@ -919,18 +919,21 @@ pub fn sync_held_projectile_visuals(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::player::PlayerBaseSize;
 
     fn spawn_player(app: &mut App, pos: Vec2) -> Entity {
         app.world_mut()
             .spawn((
                 PlayerEntity,
                 PrimaryPlayer,
-                PlayerKinematics {
+                BodyKinematics {
                     pos,
                     vel: Vec2::ZERO,
                     size: Vec2::new(24.0, 40.0),
-                    base_size: Vec2::new(24.0, 40.0),
                     facing: 1.0,
+                },
+                PlayerBaseSize {
+                    base_size: Vec2::new(24.0, 40.0),
                 },
                 ActionSet::default(),
             ))

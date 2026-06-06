@@ -11,7 +11,7 @@ use bevy::prelude::*;
 use crate::engine_core::{self as ae, AabbExt};
 use crate::input::ControlFrame;
 use crate::platformer_runtime::orientation::ActorRoll;
-use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 use crate::portal_pieces as pp;
 use crate::GameWorld;
 
@@ -48,7 +48,7 @@ pub fn sync_portal_disorientation_indicator(
     world: Res<GameWorld>,
     existing: Query<Entity, With<PortalDisorientIndicator>>,
     player: Query<
-        (&PlayerKinematics, Has<PortalInputWarp>),
+        (&BodyKinematics, Has<PortalInputWarp>),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
 ) {
@@ -94,7 +94,7 @@ pub fn sync_portal_body_pieces(
     gravity: Option<Res<crate::physics::GravityField>>,
     mut player: Query<
         (
-            &PlayerKinematics,
+            &BodyKinematics,
             Option<&PortalTransit>,
             Option<&ActorRoll>,
             &Sprite,
@@ -218,7 +218,7 @@ pub fn sync_portal_mode_indicator(
     world: Res<GameWorld>,
     art: Option<Res<PortalGunArt>>,
     visuals: Query<Entity, With<PortalModeIndicator>>,
-    players: Query<(&PlayerKinematics, &PortalGun), (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    players: Query<(&BodyKinematics, &PortalGun), (With<PlayerEntity>, With<PrimaryPlayer>)>,
 ) {
     for entity in &visuals {
         commands.entity(entity).despawn();

@@ -264,7 +264,7 @@ pub fn resolve_active_gravity(
     base: Option<Res<BaseGravity>>,
     zones: Query<&GravityZone>,
     players: Query<
-        &crate::player::PlayerKinematics,
+        &crate::player::BodyKinematics,
         (
             With<crate::player::PlayerEntity>,
             With<crate::player::PrimaryPlayer>,
@@ -385,12 +385,14 @@ mod tests {
             .spawn((
                 crate::player::PlayerEntity,
                 crate::player::PrimaryPlayer,
-                crate::player::PlayerKinematics {
+                crate::player::BodyKinematics {
                     pos: Vec2::new(0.0, 0.0),
                     vel: Vec2::ZERO,
                     size: Vec2::new(24.0, 40.0),
-                    base_size: Vec2::new(24.0, 40.0),
                     facing: 1.0,
+                },
+                crate::player::PlayerBaseSize {
+                    base_size: Vec2::new(24.0, 40.0),
                 },
             ))
             .id();
@@ -408,7 +410,7 @@ mod tests {
 
         // Inside the zone → gravity points up.
         app.world_mut()
-            .get_mut::<crate::player::PlayerKinematics>(player)
+            .get_mut::<crate::player::BodyKinematics>(player)
             .unwrap()
             .pos = Vec2::new(200.0, 0.0);
         app.update();
@@ -419,7 +421,7 @@ mod tests {
 
         // Leave the zone → reverts to ambient down.
         app.world_mut()
-            .get_mut::<crate::player::PlayerKinematics>(player)
+            .get_mut::<crate::player::BodyKinematics>(player)
             .unwrap()
             .pos = Vec2::new(0.0, 0.0);
         app.update();

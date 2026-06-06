@@ -357,7 +357,7 @@ fn handle_settings_page_input(
     editable_tuning: &mut crate::dev::dev_tools::EditableMovementTuning,
     ldtk_reload: &mut LdtkHotReloadState,
     live_movement_refs: Option<(
-        &mut crate::player::PlayerKinematics,
+        &mut crate::player::BodyKinematics,
         &crate::player::PlayerAbilities,
         &mut crate::player::PlayerDashState,
         &mut crate::player::PlayerJumpState,

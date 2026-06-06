@@ -18,7 +18,7 @@ use bevy::prelude::*;
 
 use crate::input::ControlFrame;
 use crate::player::affordances::{InteractVariant, NearestInteractable};
-use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 use crate::portal::{DropPortalGun, FirePortalGun, PickUpPortalGun, PortalGun, TogglePortalGun};
 
 /// Aim direction for a fired portal: right-stick aim, else movement axis, else
@@ -45,7 +45,7 @@ pub fn portal_input_adapter_system(
     control: Res<ControlFrame>,
     nearest: Option<Res<NearestInteractable>>,
     players: Query<
-        (&PlayerKinematics, Option<&PortalGun>),
+        (&BodyKinematics, Option<&PortalGun>),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     mut fire: MessageWriter<FirePortalGun>,

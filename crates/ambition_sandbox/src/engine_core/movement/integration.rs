@@ -295,7 +295,7 @@ pub(super) fn integrate_velocity_clusters(
 /// scale x by `strafe_factor`, and clear transient flight flags.
 /// Suspends gravity by overwriting `vel.y` rather than accumulating.
 pub(super) fn integrate_climb_clusters(
-    kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
+    kinematics: &mut crate::engine_core::player_clusters::BodyKinematics,
     env_contact: &crate::engine_core::player_clusters::PlayerEnvironmentContact,
     flight: &mut crate::engine_core::player_clusters::PlayerFlightState,
     wall: &mut crate::engine_core::player_clusters::PlayerWallState,
@@ -329,7 +329,7 @@ pub(super) fn integrate_climb_clusters(
 /// bob phase when sticks are centered, hard clamp to the flight
 /// terminal speed. Clears fast-fall + wall-cling flags by mode.
 pub(super) fn integrate_flight_clusters(
-    kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
+    kinematics: &mut crate::engine_core::player_clusters::BodyKinematics,
     flight: &mut crate::engine_core::player_clusters::PlayerFlightState,
     wall: &mut crate::engine_core::player_clusters::PlayerWallState,
     input: InputState,
@@ -374,7 +374,7 @@ pub(super) fn integrate_flight_clusters(
 /// `WallCling` / `WallClimb` exactly once per engagement.
 ///
 pub(super) fn apply_wall_abilities_clusters(
-    kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
+    kinematics: &mut crate::engine_core::player_clusters::BodyKinematics,
     ground: &crate::engine_core::player_clusters::PlayerGroundState,
     wall: &mut crate::engine_core::player_clusters::PlayerWallState,
     abilities: &crate::engine_core::player_clusters::PlayerAbilities,

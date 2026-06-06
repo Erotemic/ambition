@@ -14,7 +14,7 @@ pub fn update_ecs_hazards(
     player: Query<
         (
             Entity,
-            &crate::player::PlayerKinematics,
+            &crate::player::BodyKinematics,
             &crate::player::PlayerOffense,
             &crate::player::PlayerDodgeState,
             &crate::player::PlayerShieldState,
@@ -106,8 +106,8 @@ pub fn update_ecs_hazards(
 mod tests {
     use super::*;
     use crate::player::{
-        PlayerCombatState, PlayerDodgeState, PlayerEntity, PlayerKinematics, PlayerOffense,
-        PlayerShieldState,
+        BodyKinematics, PlayerBaseSize, PlayerCombatState, PlayerDodgeState, PlayerEntity,
+        PlayerOffense, PlayerShieldState,
     };
     use bevy::prelude::{App, MessageReader, ResMut, Resource, Update};
 
@@ -123,12 +123,14 @@ mod tests {
     fn spawn_player(app: &mut App, pos: ae::Vec2) {
         app.world_mut().spawn((
             PlayerEntity,
-            PlayerKinematics {
+            BodyKinematics {
                 pos,
                 size: ae::Vec2::new(28.0, 46.0),
-                base_size: ae::Vec2::new(28.0, 46.0),
                 facing: 1.0,
                 ..Default::default()
+            },
+            PlayerBaseSize {
+                base_size: ae::Vec2::new(28.0, 46.0),
             },
             PlayerOffense::default(),
             PlayerDodgeState::default(),

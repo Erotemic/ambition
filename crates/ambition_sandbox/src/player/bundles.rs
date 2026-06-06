@@ -9,10 +9,11 @@ use super::components::{
     PlayerSafetyState, PlayerSlot, PlayerWallet, PrimaryPlayer,
 };
 use super::movement_components::{
-    PlayerAbilities, PlayerActionBuffer, PlayerBlinkState, PlayerBodyModeState, PlayerComboTrace,
-    PlayerDashState, PlayerDodgeState, PlayerEnvironmentContact, PlayerFlightState,
-    PlayerGroundState, PlayerJumpState, PlayerKinematics, PlayerLedgeState, PlayerLifetime,
-    PlayerMana, PlayerOffense, PlayerShieldState, PlayerWallState,
+    BodyKinematics, PlayerAbilities, PlayerActionBuffer, PlayerBaseSize, PlayerBlinkState,
+    PlayerBodyModeState, PlayerComboTrace, PlayerDashState, PlayerDodgeState,
+    PlayerEnvironmentContact, PlayerFlightState, PlayerGroundState, PlayerJumpState,
+    PlayerLedgeState, PlayerLifetime, PlayerMana, PlayerOffense, PlayerShieldState,
+    PlayerWallState,
 };
 use crate::brain::{ActionSet, ActorControl, Brain};
 use crate::features::{ActorFaction, ActorPose, FeatureAabb};
@@ -69,7 +70,7 @@ pub struct PlayerSimulationBundle {
     pub action_set: ActionSet,
     pub actor_control: ActorControl,
     /// Gameplay-space action origin / facing read model shared with
-    /// non-player actors. Synced from `PlayerKinematics`, not from any
+    /// non-player actors. Synced from `BodyKinematics`, not from any
     /// presentation `Transform`.
     pub actor_pose: ActorPose,
     // The 18 player cluster components. Authoritative player state —
@@ -77,7 +78,8 @@ pub struct PlayerSimulationBundle {
     // `PlayerClustersMut`. See `engine_core/player_clusters.rs` for
     // the per-cluster shape.
     pub abilities: PlayerAbilities,
-    pub kinematics: PlayerKinematics,
+    pub kinematics: BodyKinematics,
+    pub base_size: PlayerBaseSize,
     pub ground: PlayerGroundState,
     pub wall: PlayerWallState,
     pub jump: PlayerJumpState,
@@ -118,6 +120,7 @@ impl PlayerSimulationBundle {
         let ae::PlayerClusterScratch {
             abilities,
             kinematics,
+            base_size,
             ground,
             wall,
             jump,
@@ -167,6 +170,7 @@ impl PlayerSimulationBundle {
             ),
             abilities,
             kinematics,
+            base_size,
             ground,
             wall,
             jump,

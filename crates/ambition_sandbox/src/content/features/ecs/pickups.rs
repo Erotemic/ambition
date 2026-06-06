@@ -15,7 +15,7 @@ const PICKUP_MAGNET_SPEED: f32 = 340.0;
 /// pulled into overlap is collected the same frame.
 pub fn magnetize_pickups(
     time: Res<crate::WorldTime>,
-    players: Query<&crate::player::PlayerKinematics, With<crate::player::PrimaryPlayer>>,
+    players: Query<&crate::player::BodyKinematics, With<crate::player::PrimaryPlayer>>,
     mut pickups: Query<&mut FeatureAabb, (With<PickupFeature>, Without<Collected>)>,
 ) {
     let dt = time.scaled_dt;
@@ -35,7 +35,7 @@ pub fn magnetize_pickups(
 pub fn collect_ecs_pickups(
     mut commands: Commands,
     mut banner: ResMut<GameplayBanner>,
-    player: Query<(Entity, &crate::player::PlayerKinematics), With<crate::player::PlayerEntity>>,
+    player: Query<(Entity, &crate::player::BodyKinematics), With<crate::player::PlayerEntity>>,
     pickups: Query<
         (
             Entity,
@@ -133,7 +133,7 @@ pub fn collect_ecs_pickups(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::player::{PlayerEntity, PlayerHealRequested, PlayerKinematics};
+    use crate::player::{BodyKinematics, PlayerBaseSize, PlayerEntity, PlayerHealRequested};
     use bevy::prelude::{App, Update};
 
     fn player_at(app: &mut App, pos: ae::Vec2) -> bevy::prelude::Entity {
@@ -141,12 +141,14 @@ mod tests {
             .spawn((
                 PlayerEntity,
                 crate::player::PrimaryPlayer,
-                PlayerKinematics {
+                BodyKinematics {
                     pos,
                     size: ae::Vec2::new(28.0, 46.0),
-                    base_size: ae::Vec2::new(28.0, 46.0),
                     facing: 1.0,
                     ..Default::default()
+                },
+                PlayerBaseSize {
+                    base_size: ae::Vec2::new(28.0, 46.0),
                 },
             ))
             .id()
@@ -210,12 +212,14 @@ mod tests {
             .spawn((
                 PlayerEntity,
                 crate::player::PlayerWallet::default(),
-                PlayerKinematics {
+                BodyKinematics {
                     pos: center,
                     size: ae::Vec2::new(28.0, 46.0),
-                    base_size: ae::Vec2::new(28.0, 46.0),
                     facing: 1.0,
                     ..Default::default()
+                },
+                PlayerBaseSize {
+                    base_size: ae::Vec2::new(28.0, 46.0),
                 },
             ))
             .id();
@@ -256,12 +260,14 @@ mod tests {
         app.world_mut().spawn((
             PlayerEntity,
             crate::player::PlayerWallet::default(),
-            PlayerKinematics {
+            BodyKinematics {
                 pos: center,
                 size: ae::Vec2::new(28.0, 46.0),
-                base_size: ae::Vec2::new(28.0, 46.0),
                 facing: 1.0,
                 ..Default::default()
+            },
+            PlayerBaseSize {
+                base_size: ae::Vec2::new(28.0, 46.0),
             },
         ));
         app.world_mut().spawn((

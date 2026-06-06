@@ -14,7 +14,7 @@ use bevy::prelude::{App, IntoScheduleConfigs, Update, With};
 /// buffer is pre-filled so the system sees it as buffered on the first
 /// `app.update()` call.
 fn spawn_interaction_player(app: &mut App, player_pos: ae::Vec2) {
-    // The interaction system queries `PlayerKinematics` +
+    // The interaction system queries `BodyKinematics` +
     // `PlayerEntity` (and reads interact_buffer_timer);
     // `PlayerSimulationBundle` covers all of that.
     let mut scratch =

@@ -42,7 +42,7 @@ fn dummy_world() -> World {
 fn spawn_player(app: &mut App, pos: ae::Vec2, facing: f32) {
     // Spawn via `PlayerSimulationBundle` so the entity carries every
     // component the projectile system + visuals path queries
-    // (`PlayerKinematics`, `PlayerEntity`, `PrimaryPlayer`,
+    // (`BodyKinematics`, `PlayerEntity`, `PrimaryPlayer`,
     // `LocalPlayer`, `PlayerInputFrame`, the 17 other cluster
     // components, …) with no manual spawn-tuple list.
     let mut scratch = crate::player::primary_player_scratch(pos, ae::AbilitySet::sandbox_all());

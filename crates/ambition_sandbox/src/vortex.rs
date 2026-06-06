@@ -17,7 +17,7 @@ use bevy::prelude::*;
 use crate::engine_core as ae;
 use crate::features::{ActorFaction, BodyKinematics, FeatureSimEntity, HeldItem};
 use crate::input::ControlFrame;
-use crate::player::{PlayerEntity, PlayerKinematics, PlayerMana, PrimaryPlayer};
+use crate::player::{PlayerEntity, PlayerMana, PrimaryPlayer};
 
 /// Held-item id of the vortex gauntlet.
 pub const VORTEX_ID: &str = "vortex";
@@ -49,7 +49,7 @@ pub struct VortexWell {
 pub fn fire_vortex_system(
     control: Res<ControlFrame>,
     mut players: Query<
-        (&PlayerKinematics, &HeldItem, &mut PlayerMana),
+        (&BodyKinematics, &HeldItem, &mut PlayerMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     mut commands: Commands,
@@ -122,6 +122,7 @@ pub fn update_vortex_wells(
 mod tests {
     use super::*;
     use crate::brain::ActionSet;
+    use crate::player::PlayerBaseSize;
 
     fn test_app() -> App {
         let mut app = App::new();
@@ -140,12 +141,14 @@ mod tests {
         app.world_mut().spawn((
             PlayerEntity,
             PrimaryPlayer,
-            PlayerKinematics {
+            BodyKinematics {
                 pos: ae::Vec2::new(100.0, 100.0),
                 vel: ae::Vec2::ZERO,
                 size: ae::Vec2::new(24.0, 40.0),
-                base_size: ae::Vec2::new(24.0, 40.0),
                 facing: 1.0,
+            },
+            PlayerBaseSize {
+                base_size: ae::Vec2::new(24.0, 40.0),
             },
             ActionSet::default(),
             HeldItem::new(spec),

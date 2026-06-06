@@ -19,7 +19,7 @@ pub fn handle_jump_buffer_clusters(
     env_contact: &crate::engine_core::player_clusters::PlayerEnvironmentContact,
     abilities: &crate::engine_core::player_clusters::PlayerAbilities,
     body_mode: BodyMode,
-    kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
+    kinematics: &mut crate::engine_core::player_clusters::BodyKinematics,
     ground: &mut crate::engine_core::player_clusters::PlayerGroundState,
     wall: &mut crate::engine_core::player_clusters::PlayerWallState,
     jump_state: &mut crate::engine_core::player_clusters::PlayerJumpState,

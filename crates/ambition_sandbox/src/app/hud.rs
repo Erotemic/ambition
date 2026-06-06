@@ -29,7 +29,7 @@ pub(super) struct HudCameraParams<'w, 's> {
         'w,
         's,
         (
-            &'static crate::player::PlayerKinematics,
+            &'static crate::player::BodyKinematics,
             &'static crate::player::PlayerGroundState,
             &'static crate::player::PlayerWallState,
             &'static crate::player::PlayerDashState,

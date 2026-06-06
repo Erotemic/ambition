@@ -5,7 +5,7 @@
 //! sibling crate could reuse: kinematic player movement, AABB
 //! collision semantics, ability gates, ledge-grab probes, world
 //! collision/water/climbable region data, and the cluster components
-//! (`PlayerKinematics`, `PlayerGroundState`, …, `PlayerComboTrace`)
+//! (`BodyKinematics`, `PlayerGroundState`, …, `PlayerComboTrace`)
 //! that make up the player ECS entity.
 //!
 //! Sandbox-side concerns (LDtk entities, per-room authored Vecs,
@@ -58,18 +58,19 @@ pub use movement::{
     WALL_SLIDE_SPEED,
 };
 pub use player_clusters::{
-    refresh_movement_resources_clusters, reset_player_clusters,
+    refresh_movement_resources_clusters, reset_player_clusters, BodyKinematics,
     PlayerAbilities as EnginePlayerAbilities, PlayerActionBuffer as EnginePlayerActionBuffer,
-    PlayerBlinkState as EnginePlayerBlinkState, PlayerBodyModeState as EnginePlayerBodyModeState,
-    PlayerClusterQueryData, PlayerClusterQueryDataItem, PlayerClusterScratch, PlayerClustersMut,
+    PlayerBaseSize as EnginePlayerBaseSize, PlayerBlinkState as EnginePlayerBlinkState,
+    PlayerBodyModeState as EnginePlayerBodyModeState, PlayerClusterQueryData,
+    PlayerClusterQueryDataItem, PlayerClusterScratch, PlayerClustersMut,
     PlayerComboTrace as EnginePlayerComboTrace, PlayerDashState as EnginePlayerDashState,
     PlayerDodgeState as EnginePlayerDodgeState,
     PlayerEnvironmentContact as EnginePlayerEnvironmentContact,
     PlayerFlightState as EnginePlayerFlightState, PlayerGroundState as EnginePlayerGroundState,
-    PlayerJumpState as EnginePlayerJumpState, PlayerKinematics as EnginePlayerKinematics,
-    PlayerLedgeState as EnginePlayerLedgeState, PlayerLifetime as EnginePlayerLifetime,
-    PlayerMana as EnginePlayerMana, PlayerOffense as EnginePlayerOffense,
-    PlayerShieldState as EnginePlayerShieldState, PlayerWallState as EnginePlayerWallState,
+    PlayerJumpState as EnginePlayerJumpState, PlayerLedgeState as EnginePlayerLedgeState,
+    PlayerLifetime as EnginePlayerLifetime, PlayerMana as EnginePlayerMana,
+    PlayerOffense as EnginePlayerOffense, PlayerShieldState as EnginePlayerShieldState,
+    PlayerWallState as EnginePlayerWallState,
 };
 pub use player_state::{
     classify_safety_from_kinematics, try_change_body_mode_clusters, BodyMode, BodyShape,

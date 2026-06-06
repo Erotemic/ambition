@@ -9,7 +9,7 @@ use crate::content::features::BREAK_ON_STAND_SECONDS;
 pub fn update_ecs_breakables(
     mut commands: Commands,
     world_time: Res<WorldTime>,
-    player_body_q: Query<&crate::player::PlayerKinematics, With<crate::player::PlayerEntity>>,
+    player_body_q: Query<&crate::player::BodyKinematics, With<crate::player::PlayerEntity>>,
     mut banner: ResMut<GameplayBanner>,
     mut breakables: Query<
         (
@@ -90,7 +90,7 @@ mod breakable_tests {
     //! not. Drives sim time via a fixed WorldTime::scaled_dt.
     use super::*;
     use crate::interaction::{Breakable, BreakableCollision, BreakableTrigger};
-    use crate::player::{PlayerEntity, PlayerKinematics};
+    use crate::player::{BodyKinematics, PlayerBaseSize, PlayerEntity};
     use crate::world::physics::DebrisBurstMessage;
     use crate::WorldTime;
     use bevy::prelude::{App, Entity, Update};
@@ -130,12 +130,14 @@ mod breakable_tests {
         app.world_mut()
             .spawn((
                 PlayerEntity,
-                PlayerKinematics {
+                BodyKinematics {
                     pos,
                     size: ae::Vec2::new(28.0, 46.0),
-                    base_size: ae::Vec2::new(28.0, 46.0),
                     facing: 1.0,
                     ..Default::default()
+                },
+                PlayerBaseSize {
+                    base_size: ae::Vec2::new(28.0, 46.0),
                 },
             ))
             .id()

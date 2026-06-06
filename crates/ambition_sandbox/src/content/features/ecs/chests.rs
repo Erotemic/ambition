@@ -9,7 +9,7 @@ pub fn open_ecs_chests(
     mut banner: ResMut<GameplayBanner>,
     mut player: Query<
         (
-            &crate::player::PlayerKinematics,
+            &crate::player::BodyKinematics,
             &mut crate::player::PlayerInteractionState,
             &mut crate::player::PlayerAnimState,
         ),
@@ -86,7 +86,9 @@ mod chest_tests {
     //! a buffered interact over an overlapping, unopened chest inserts
     //! `Opened`; an unbuffered player or a non-overlapping chest does not.
     use super::*;
-    use crate::player::{PlayerAnimState, PlayerEntity, PlayerInteractionState, PlayerKinematics};
+    use crate::player::{
+        BodyKinematics, PlayerAnimState, PlayerBaseSize, PlayerEntity, PlayerInteractionState,
+    };
     use bevy::prelude::{App, Entity, Update};
 
     fn app() -> App {
@@ -103,12 +105,14 @@ mod chest_tests {
         app.world_mut()
             .spawn((
                 PlayerEntity,
-                PlayerKinematics {
+                BodyKinematics {
                     pos,
                     size: ae::Vec2::new(28.0, 46.0),
-                    base_size: ae::Vec2::new(28.0, 46.0),
                     facing: 1.0,
                     ..Default::default()
+                },
+                PlayerBaseSize {
+                    base_size: ae::Vec2::new(28.0, 46.0),
                 },
                 PlayerInteractionState {
                     interact_buffer_timer: if buffered { 0.5 } else { 0.0 },

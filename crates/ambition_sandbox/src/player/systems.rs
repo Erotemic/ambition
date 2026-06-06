@@ -7,7 +7,7 @@ use super::components::{
     PlayerInputFrame, PlayerSlot, PrimaryPlayer,
 };
 use super::events::PlayerHealRequested;
-use super::movement_components::{PlayerGroundState, PlayerKinematics};
+use super::movement_components::{BodyKinematics, PlayerGroundState};
 use crate::brain::{ActorControl, Brain, BrainSnapshot};
 #[cfg(test)]
 use crate::engine_core as ae;
@@ -45,7 +45,7 @@ pub fn sync_local_player_input_frame(
 /// The player, NPCs, enemies, and bosses should all expose action origins
 /// through gameplay pose data rather than presentation `Transform`s.
 pub fn sync_player_actor_poses(
-    mut players: Query<(&PlayerKinematics, &mut ActorPose), With<PlayerEntity>>,
+    mut players: Query<(&BodyKinematics, &mut ActorPose), With<PlayerEntity>>,
 ) {
     for (kin, mut pose) in &mut players {
         *pose = ActorPose::from_aabb(FeatureAabb::from_center_size(kin.pos, kin.size), kin.facing);
@@ -68,7 +68,7 @@ pub fn tick_player_brains(
     mut players: Query<(
         &PlayerSlot,
         &PlayerInputFrame,
-        &PlayerKinematics,
+        &BodyKinematics,
         &PlayerGroundState,
         &mut Brain,
         &mut ActorControl,

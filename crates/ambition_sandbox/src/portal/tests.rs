@@ -9,7 +9,7 @@ use crate::input::ControlFrame;
 use crate::physics::{gravity_upright_angle, GravityField};
 use crate::platformer_runtime::orientation::{update_actor_roll, ActorRoll};
 use crate::platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
-use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerBaseSize, PlayerEntity, PrimaryPlayer};
 use crate::GameWorld;
 
 use super::types::MIN_EXIT_SPEED;
@@ -43,12 +43,14 @@ fn spawn_player(app: &mut App, pos: Vec2, facing: f32) -> Entity {
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
-            PlayerKinematics {
+            BodyKinematics {
                 pos,
                 vel: Vec2::ZERO,
                 size: Vec2::new(24.0, 40.0),
-                base_size: Vec2::new(24.0, 40.0),
                 facing,
+            },
+            PlayerBaseSize {
+                base_size: Vec2::new(24.0, 40.0),
             },
             PortalGun::default(),
             ActionSet::default(),
@@ -74,7 +76,7 @@ fn fire_portal(app: &mut App) {
     let facing = {
         let mut q = app
             .world_mut()
-            .query_filtered::<&PlayerKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>();
+            .query_filtered::<&BodyKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>();
         q.iter(app.world()).next().map_or(1.0, |k| k.facing)
     };
     app.world_mut().write_message(FirePortalGun {
@@ -554,7 +556,7 @@ fn portal_pair_teleports_player_carrying_momentum() {
     });
     let player = spawn_player(&mut app, Vec2::new(22.0, 200.0), 1.0);
     app.world_mut()
-        .get_mut::<PlayerKinematics>(player)
+        .get_mut::<BodyKinematics>(player)
         .unwrap()
         .vel = Vec2::new(-100.0, 0.0);
     // Give the player a pre-set roll so we can prove the portal leaves the
@@ -566,7 +568,7 @@ fn portal_pair_teleports_player_carrying_momentum() {
     // centroid already across the plane and transfers the authoritative body.
     app.update();
     app.update();
-    let kin = *app.world().get::<PlayerKinematics>(player).unwrap();
+    let kin = *app.world().get::<BodyKinematics>(player).unwrap();
     assert!(
         kin.pos.x > 250.0,
         "player should have teleported to the orange (right) side, got {:?}",
@@ -765,12 +767,14 @@ fn a_gunless_player_transits_an_authored_pair() {
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
-            PlayerKinematics {
+            BodyKinematics {
                 pos: Vec2::new(200.0, 285.0),
                 vel: Vec2::ZERO,
                 size: Vec2::new(24.0, 40.0),
-                base_size: Vec2::new(24.0, 40.0),
                 facing: 1.0,
+            },
+            PlayerBaseSize {
+                base_size: Vec2::new(24.0, 40.0),
             },
             // No PortalGun on purpose.
         ))
@@ -783,12 +787,12 @@ fn a_gunless_player_transits_an_authored_pair() {
     );
     // Sink the centroid past the plane → transfer to the yellow partner.
     app.world_mut()
-        .get_mut::<PlayerKinematics>(player)
+        .get_mut::<BodyKinematics>(player)
         .unwrap()
         .pos
         .y = 305.0;
     app.update();
-    let pos = app.world().get::<PlayerKinematics>(player).unwrap().pos;
+    let pos = app.world().get::<BodyKinematics>(player).unwrap().pos;
     assert!(
         pos.x > 550.0,
         "transfers to the yellow portal without a gun, got {pos:?}"
@@ -841,7 +845,7 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
         "transit begins without an instant teleport"
     );
     assert!(
-        app.world().get::<PlayerKinematics>(player).unwrap().pos.x < 250.0,
+        app.world().get::<BodyKinematics>(player).unwrap().pos.x < 250.0,
         "still entry-side"
     );
     assert!(
@@ -852,7 +856,7 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
     // Push the centroid across the plane (as the integrator would as the body
     // sinks into the carved opening).
     app.world_mut()
-        .get_mut::<PlayerKinematics>(player)
+        .get_mut::<BodyKinematics>(player)
         .unwrap()
         .pos
         .y = 305.0;
@@ -863,7 +867,7 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
             .is_some_and(|t| t.crossed),
         "centroid crossing transfers the authoritative body"
     );
-    let pos = app.world().get::<PlayerKinematics>(player).unwrap().pos;
+    let pos = app.world().get::<BodyKinematics>(player).unwrap().pos;
     assert!(
         pos.x > 550.0,
         "authoritative body is now exit-side, got {pos:?}"
@@ -875,7 +879,7 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
 
     // Move clear of the exit plane → transit ends (re-armed via cooldown).
     app.world_mut()
-        .get_mut::<PlayerKinematics>(player)
+        .get_mut::<BodyKinematics>(player)
         .unwrap()
         .pos
         .y = 270.0;
@@ -914,12 +918,14 @@ fn partial_render_keeps_the_sprite_and_masks_the_through_slice() {
         .world_mut()
         .spawn((
             PlayerVisual,
-            PlayerKinematics {
+            BodyKinematics {
                 pos: Vec2::new(200.0, 295.0),
                 vel: Vec2::ZERO,
                 size: Vec2::new(24.0, 40.0),
-                base_size: Vec2::new(24.0, 40.0),
                 facing: 1.0,
+            },
+            PlayerBaseSize {
+                base_size: Vec2::new(24.0, 40.0),
             },
             Sprite::from_color(Color::WHITE, Vec2::new(24.0, 40.0)),
             Visibility::Inherited,

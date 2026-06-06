@@ -344,7 +344,7 @@ pub fn cmd_play_sfx(In(id_str): In<String>, mut sfx: MessageWriter<crate::audio:
 /// can verify the explosion pipeline without entering a boss room.
 pub fn cmd_spawn_fireworks(
     mut fireworks: MessageWriter<crate::presentation::fx::FireworksRequest>,
-    player_q: Query<&crate::player::PlayerKinematics, crate::player::PrimaryPlayerOnly>,
+    player_q: Query<&crate::player::BodyKinematics, crate::player::PrimaryPlayerOnly>,
 ) {
     let origin = player_q
         .single()

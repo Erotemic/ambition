@@ -461,18 +461,22 @@ fn portal_transit_roll_is_general_and_matches_on_screen_turn() {
 #[test]
 fn roll_eases_back_to_gravity_upright_in_air() {
     let mut app = App::new();
-    app.insert_resource(crate::WorldTime {
-        raw_dt: 1.0 / 60.0,
-        scaled_dt: 1.0 / 60.0,
-    });
+    app.insert_resource(ambition_platformer_runtime::time::SimDt { dt: 1.0 / 60.0 });
     app.init_resource::<GravityField>();
     app.add_systems(Update, update_actor_roll);
-    // Start rolled 180° (just exited a floor↔floor portal), airborne.
+    // Start rolled 180° (just exited a floor↔floor portal), airborne. The
+    // righting system reads each body's own position via BodyKinematics, so the
+    // test body carries one (the dual-arm query collapsed to a single
+    // With<BodyKinematics> in Stage 16 / S5).
     let player = app
         .world_mut()
         .spawn((
-            PlayerEntity,
-            PrimaryPlayer,
+            ambition_platformer_runtime::body::BodyKinematics {
+                pos: Vec2::ZERO,
+                vel: Vec2::ZERO,
+                size: Vec2::new(24.0, 40.0),
+                facing: 1.0,
+            },
             ActorRoll {
                 angle: std::f32::consts::PI,
             },

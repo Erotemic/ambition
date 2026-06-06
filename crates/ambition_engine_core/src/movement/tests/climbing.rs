@@ -3,9 +3,9 @@
 
 use super::super::*;
 use super::{step_scratch, test_world};
-use crate::engine_core::player_clusters::PlayerClusterScratch;
-use crate::engine_core::world::{Block, ClimbableKind, ClimbableRegion, ClimbableSpec};
-use crate::engine_core::{Aabb, AbilitySet, Vec2, World};
+use crate::player_clusters::PlayerClusterScratch;
+use crate::world::{Block, ClimbableKind, ClimbableRegion, ClimbableSpec};
+use crate::{Aabb, AbilitySet, Vec2, World};
 
 fn scratch_at(spawn: Vec2) -> PlayerClusterScratch {
     PlayerClusterScratch::new_with_abilities(spawn, AbilitySet::sandbox_all())
@@ -75,7 +75,7 @@ fn climbing_mode_suspends_gravity_and_drives_vertical_velocity() {
     let mut scratch = scratch_at(Vec2::new(400.0, 600.0));
     // Force the climbing mode + populate contact (sandbox-side
     // driver does this in production; tests do it directly).
-    scratch.body_mode.body_mode = crate::engine_core::player_state::BodyMode::Climbing;
+    scratch.body_mode.body_mode = crate::player_state::BodyMode::Climbing;
     scratch.env_contact.climbable = world.climbable_at(scratch.kinematics.aabb());
     // Push some y velocity into the player so the test can prove
     // that climbing replaces it (rather than just initializing
@@ -150,7 +150,7 @@ fn climbing_passes_through_solid_blocks_overlapping_ladder() {
     world.climbable_regions.push(ladder);
 
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(400.0, 700.0));
-    scratch.body_mode.body_mode = crate::engine_core::player_state::BodyMode::Climbing;
+    scratch.body_mode.body_mode = crate::player_state::BodyMode::Climbing;
     scratch.env_contact.climbable = world.climbable_at(scratch.kinematics.aabb());
     let initial_y = scratch.kinematics.pos.y;
     // Drive 60 frames at fixed-60Hz climb-up. With the
@@ -170,7 +170,7 @@ fn climbing_passes_through_solid_blocks_overlapping_ladder() {
             DEFAULT_TUNING,
         );
         // Re-set climbing in case any control branch flipped it.
-        scratch.body_mode.body_mode = crate::engine_core::player_state::BodyMode::Climbing;
+        scratch.body_mode.body_mode = crate::player_state::BodyMode::Climbing;
     }
     let dy = initial_y - scratch.kinematics.pos.y;
     // Expected motion: ~60 frames * 180 px/sec / 60 = 180 px.
@@ -212,7 +212,7 @@ fn climbing_player_still_collides_with_hazard_blocks_overlapping_ladder() {
     ));
 
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(400.0, 700.0));
-    scratch.body_mode.body_mode = crate::engine_core::player_state::BodyMode::Climbing;
+    scratch.body_mode.body_mode = crate::player_state::BodyMode::Climbing;
     scratch.env_contact.climbable = world.climbable_at(scratch.kinematics.aabb());
     let initial_pos = scratch.kinematics.pos;
     // Drive the climb upward toward the hazard.
@@ -233,7 +233,7 @@ fn climbing_player_still_collides_with_hazard_blocks_overlapping_ladder() {
             hazard_fired = true;
             break;
         }
-        scratch.body_mode.body_mode = crate::engine_core::player_state::BodyMode::Climbing;
+        scratch.body_mode.body_mode = crate::player_state::BodyMode::Climbing;
     }
     assert!(
         hazard_fired,
@@ -261,7 +261,7 @@ fn non_climbing_player_still_collides_with_solid_blocks_overlapping_ladder() {
     ));
 
     let mut scratch = scratch_at(Vec2::new(400.0, 480.0)); // below platform
-    scratch.body_mode.body_mode = crate::engine_core::player_state::BodyMode::Standing;
+    scratch.body_mode.body_mode = crate::player_state::BodyMode::Standing;
     // Aim downward to test horizontal sweep against the platform.
     scratch.kinematics.vel = Vec2::new(0.0, -2000.0);
     let pre_y = scratch.kinematics.pos.y;
@@ -300,7 +300,7 @@ fn climbing_mode_strafe_factor_caps_horizontal_input() {
         ClimbableSpec::default(),
     ));
     let mut scratch = scratch_at(Vec2::new(400.0, 600.0));
-    scratch.body_mode.body_mode = crate::engine_core::player_state::BodyMode::Climbing;
+    scratch.body_mode.body_mode = crate::player_state::BodyMode::Climbing;
     scratch.env_contact.climbable = world.climbable_at(scratch.kinematics.aabb());
 
     let _ = update_player_with_tuning_scratch(
@@ -344,7 +344,7 @@ fn ladder_jump_uses_jump_speed_without_leaving_climbing() {
         ClimbableSpec::default(),
     ));
     let mut scratch = scratch_at(Vec2::new(400.0, 620.0));
-    scratch.body_mode.body_mode = crate::engine_core::player_state::BodyMode::Climbing;
+    scratch.body_mode.body_mode = crate::player_state::BodyMode::Climbing;
     scratch.env_contact.climbable = world.climbable_at(scratch.kinematics.aabb());
     scratch.kinematics.vel = Vec2::new(0.0, 800.0);
 
@@ -364,7 +364,7 @@ fn ladder_jump_uses_jump_speed_without_leaving_climbing() {
 
     assert_eq!(
         scratch.body_mode.body_mode,
-        crate::engine_core::player_state::BodyMode::Climbing,
+        crate::player_state::BodyMode::Climbing,
         "ladder jump should keep the player in Climbing"
     );
     assert!(
@@ -390,7 +390,7 @@ fn down_jump_on_ladder_falls_off_without_regrabbing() {
         ClimbableSpec::default(),
     ));
     let mut scratch = scratch_at(Vec2::new(400.0, 620.0));
-    scratch.body_mode.body_mode = crate::engine_core::player_state::BodyMode::Standing;
+    scratch.body_mode.body_mode = crate::player_state::BodyMode::Standing;
     scratch.env_contact.climbable = world.climbable_at(scratch.kinematics.aabb());
     scratch.kinematics.vel = Vec2::new(0.0, -100.0);
 
@@ -411,7 +411,7 @@ fn down_jump_on_ladder_falls_off_without_regrabbing() {
 
     assert_eq!(
         scratch.body_mode.body_mode,
-        crate::engine_core::player_state::BodyMode::Standing,
+        crate::player_state::BodyMode::Standing,
         "down+jump on a ladder should not re-enter Climbing"
     );
     assert!(

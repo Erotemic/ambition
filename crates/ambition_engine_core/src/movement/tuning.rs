@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::engine_core::Vec2;
+use crate::Vec2;
 
 /// Default gravity sign (normal, downward). Used by `serde(default)` so tuning
 /// files baked before `gravity_sign` existed load as normal gravity.

@@ -303,6 +303,11 @@ ambition_sfx = { path = "../ambition_sfx" }
 # not-yet-extracted local modules collision/orientation/transit). See
 # docs/planning/plugin_refactor/14_action_plan.md Stage 13 / Task K.
 ambition_platformer_runtime = { path = "../ambition_platformer_runtime" }
+# ECS-native pure-logic core (geometry / movement / collision / player_state /
+# abilities / ledge_grab / world / player_clusters + the shared BodyKinematics
+# body component). The build-time foundation; re-exported as `crate::engine_core`
+# from lib.rs (ADR 0019). See docs/planning/plugin_refactor/15_post_task_k_revision.md.
+ambition_engine_core = { path = "../ambition_engine_core" }
 # 3D-cube OoT inventory/pause UI (bevy_lunex). Optional: only UI builds need it,
 # gated by `oot_inventory`; runtime-toggleable vs the Bevy-UI grid (#31).
 ambition_inventory_ui = { path = "../../submodules/ambition_inventory_ui", optional = true }

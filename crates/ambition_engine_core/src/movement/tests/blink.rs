@@ -3,9 +3,9 @@
 
 use super::super::*;
 use super::{step_scratch, test_world};
-use crate::engine_core::player_clusters::PlayerClusterScratch;
-use crate::engine_core::world::BlinkWallTier;
-use crate::engine_core::{AbilitySet, Vec2};
+use crate::player_clusters::PlayerClusterScratch;
+use crate::world::BlinkWallTier;
+use crate::{AbilitySet, Vec2};
 
 fn scratch_at(spawn: Vec2) -> PlayerClusterScratch {
     PlayerClusterScratch::new_with_abilities(spawn, AbilitySet::sandbox_all())
@@ -228,14 +228,12 @@ fn post_blink_grace_suspends_gravity_for_tiny_window() {
 fn blink_walls_can_be_passed_by_upgrade_without_allowing_solid_walls() {
     let mut world = test_world();
     world.blocks.clear();
-    world
-        .blocks
-        .push(crate::engine_core::world::Block::blink_wall(
-            "test soft blink membrane",
-            Vec2::new(220.0, 0.0),
-            Vec2::new(22.0, 300.0),
-            BlinkWallTier::Soft,
-        ));
+    world.blocks.push(crate::world::Block::blink_wall(
+        "test soft blink membrane",
+        Vec2::new(220.0, 0.0),
+        Vec2::new(22.0, 300.0),
+        BlinkWallTier::Soft,
+    ));
 
     let mut blocked_abilities = AbilitySet::basic();
     blocked_abilities.blink = true;

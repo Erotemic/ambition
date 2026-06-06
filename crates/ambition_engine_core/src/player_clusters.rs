@@ -8,17 +8,17 @@
 //!
 //! [`PlayerClustersMut`] is a struct-of-`&mut` view assembled from a
 //! `Query<PlayerClusterQueryData, …>::as_clusters_mut()` call; every
-//! engine entry point in `crate::engine_core::movement` takes one.
+//! engine entry point in `crate::movement` takes one.
 //! Tests that need a non-ECS scratchpad construct
 //! [`PlayerClusterScratch::new_with_abilities`] and re-borrow via
 //! `PlayerClusterScratch::as_mut`.
 
-use crate::engine_core::abilities::AbilitySet;
-use crate::engine_core::ledge_grab::LedgeGrabState;
-use crate::engine_core::movement::{ComboMark, BLINK_DISTANCE};
-use crate::engine_core::player_state::{BodyMode, ResourceMeter};
-use crate::engine_core::world::{ClimbableContact, WaterContact};
-use crate::engine_core::Vec2;
+use crate::abilities::AbilitySet;
+use crate::ledge_grab::LedgeGrabState;
+use crate::movement::{ComboMark, BLINK_DISTANCE};
+use crate::player_state::{BodyMode, ResourceMeter};
+use crate::world::{ClimbableContact, WaterContact};
+use crate::Vec2;
 
 /// Mutable cluster references aggregated for the engine
 /// `update_player_*_with_clusters` entry points.
@@ -119,12 +119,60 @@ impl PlayerAbilities {
     }
 }
 
-/// Position, velocity, AABB size, and facing direction.
+/// Position, velocity, AABB size, and facing direction of a body.
 ///
-/// The player shares the unified [`BodyKinematics`] with enemies / NPCs /
-/// bosses. The player-only "base / standing body size" lives separately on
+/// The foundational body state every controllable body in the platformer
+/// shares: the player, enemies/NPCs, and bosses all carry one. It replaces
+/// the three historical parallel types (`PlayerKinematics`,
+/// `ActorKinematics`, `BossKinematics`) so any code that operates on "a body"
+/// (orientation, transit, vortex, brain effects, …) holds ONE query instead
+/// of branching across three.
+///
+/// The player shares this unified component with enemies / NPCs / bosses. The
+/// player-only "base / standing body size" lives separately on
 /// [`PlayerBaseSize`] so the shared component stays minimal.
-pub use crate::platformer_runtime::body::BodyKinematics;
+///
+/// ## Query-conflict discipline
+///
+/// Because player, enemy, and boss entities all carry `BodyKinematics`, any
+/// single system that holds more than one `&mut BodyKinematics` query (or a
+/// `&mut` query alongside another that can alias the same entity) must make the
+/// queries provably disjoint with marker filters (player / enemy / boss are
+/// mutually exclusive archetypes). Handle the conflict with filters, never by
+/// re-splitting the component.
+///
+/// Bosses float and never integrate `vel` themselves (the brain emits a fresh
+/// `desired_vel` each tick for `integrate_body`), so a boss simply leaves
+/// `vel` at [`Vec2::ZERO`].
+#[derive(bevy_ecs::component::Component, Clone, Copy, Debug, PartialEq)]
+pub struct BodyKinematics {
+    pub pos: Vec2,
+    pub vel: Vec2,
+    pub size: Vec2,
+    pub facing: f32,
+}
+
+impl Default for BodyKinematics {
+    /// Player-flavored default (the only `::default()` callers are player
+    /// spawn helpers): a default-sized body at the origin, at rest, facing
+    /// right. Matches the pre-unification `PlayerKinematics::default`.
+    fn default() -> Self {
+        let body = crate::movement::default_player_body_size();
+        Self {
+            pos: Vec2::ZERO,
+            vel: Vec2::ZERO,
+            size: body,
+            facing: 1.0,
+        }
+    }
+}
+
+impl BodyKinematics {
+    /// The body's world-space AABB (centered on `pos`, half-extents `size/2`).
+    pub fn aabb(self) -> crate::Aabb {
+        crate::Aabb::new(self.pos, self.size * 0.5)
+    }
+}
 
 /// The player's authored *standing* body size — the baseline the morph /
 /// crouch / slide stances and the sprite-scale math read from. Player-only;
@@ -139,7 +187,7 @@ pub struct PlayerBaseSize {
 impl Default for PlayerBaseSize {
     fn default() -> Self {
         Self {
-            base_size: crate::engine_core::movement::default_player_body_size(),
+            base_size: crate::movement::default_player_body_size(),
         }
     }
 }
@@ -250,7 +298,7 @@ impl PlayerLedgeState {
 #[cfg(test)]
 mod ledge_knock_off_tests {
     use super::*;
-    use crate::engine_core::ledge_grab::LedgeContact;
+    use crate::ledge_grab::LedgeContact;
 
     fn hanging() -> LedgeGrabState {
         LedgeGrabState::hanging(LedgeContact {
@@ -316,9 +364,7 @@ impl PlayerShieldState {
 /// `PlayerAbilities` and incrementing the lifetime reset counter. The
 /// combo trace is wiped and a fresh `MovementOp::Reset` mark is pushed.
 pub fn reset_player_clusters(clusters: &mut PlayerClustersMut<'_>, spawn: Vec2) {
-    use crate::engine_core::movement::{
-        default_player_body_size, ComboMark, MovementOp, DEFAULT_TUNING,
-    };
+    use crate::movement::{default_player_body_size, ComboMark, MovementOp, DEFAULT_TUNING};
 
     let new_resets = clusters.lifetime.resets + 1;
     let abilities = clusters.abilities.abilities;
@@ -372,7 +418,7 @@ pub fn refresh_movement_resources_clusters(
     abilities: &PlayerAbilities,
     dash: &mut PlayerDashState,
     jump: &mut PlayerJumpState,
-    tuning: crate::engine_core::movement::MovementTuning,
+    tuning: crate::movement::MovementTuning,
 ) {
     dash.charges_available = abilities.abilities.dash_charge_count();
     jump.air_jumps_available = abilities.abilities.air_jump_count(tuning.air_jumps);
@@ -536,13 +582,8 @@ impl PlayerClusterScratch {
     /// with the given `AbilitySet` — same defaults as
     /// `Player::new_with_abilities` but without materializing the
     /// monolithic `Player` aggregate.
-    pub fn new_with_abilities(
-        spawn: Vec2,
-        abilities: crate::engine_core::abilities::AbilitySet,
-    ) -> Self {
-        use crate::engine_core::movement::{
-            default_player_body_size, BLINK_DISTANCE, DEFAULT_TUNING,
-        };
+    pub fn new_with_abilities(spawn: Vec2, abilities: crate::abilities::AbilitySet) -> Self {
+        use crate::movement::{default_player_body_size, BLINK_DISTANCE, DEFAULT_TUNING};
         let body = default_player_body_size();
         let dash_charges = abilities.dash_charge_count();
         let air_jumps = abilities.air_jump_count(DEFAULT_TUNING.air_jumps);

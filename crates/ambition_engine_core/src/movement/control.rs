@@ -1,5 +1,5 @@
-use crate::engine_core::world::World;
-use crate::engine_core::Vec2;
+use crate::world::World;
+use crate::Vec2;
 
 use super::events::FrameEvents;
 use super::input::InputState;
@@ -13,13 +13,13 @@ use super::tuning::MovementTuning;
 #[allow(clippy::too_many_arguments)]
 pub fn handle_blink_clusters(
     world: &World,
-    kinematics: &mut crate::engine_core::player_clusters::BodyKinematics,
-    abilities: &crate::engine_core::player_clusters::PlayerAbilities,
-    flight: &mut crate::engine_core::player_clusters::PlayerFlightState,
-    wall: &mut crate::engine_core::player_clusters::PlayerWallState,
-    dash: &mut crate::engine_core::player_clusters::PlayerDashState,
-    blink: &mut crate::engine_core::player_clusters::PlayerBlinkState,
-    combo_trace: &mut crate::engine_core::player_clusters::PlayerComboTrace,
+    kinematics: &mut crate::player_clusters::BodyKinematics,
+    abilities: &crate::player_clusters::PlayerAbilities,
+    flight: &mut crate::player_clusters::PlayerFlightState,
+    wall: &mut crate::player_clusters::PlayerWallState,
+    dash: &mut crate::player_clusters::PlayerDashState,
+    blink: &mut crate::player_clusters::PlayerBlinkState,
+    combo_trace: &mut crate::player_clusters::PlayerComboTrace,
     input: InputState,
     dt: f32,
     tuning: MovementTuning,
@@ -104,12 +104,12 @@ pub fn handle_blink_clusters(
 /// Cluster-ref attack handler used by `update_player_control_with_clusters`.
 pub fn handle_attacks_clusters(
     world: &World,
-    kinematics: &mut crate::engine_core::player_clusters::BodyKinematics,
-    abilities: &crate::engine_core::player_clusters::PlayerAbilities,
-    ground: &mut crate::engine_core::player_clusters::PlayerGroundState,
-    dash: &mut crate::engine_core::player_clusters::PlayerDashState,
-    jump_state: &mut crate::engine_core::player_clusters::PlayerJumpState,
-    combo_trace: &mut crate::engine_core::player_clusters::PlayerComboTrace,
+    kinematics: &mut crate::player_clusters::BodyKinematics,
+    abilities: &crate::player_clusters::PlayerAbilities,
+    ground: &mut crate::player_clusters::PlayerGroundState,
+    dash: &mut crate::player_clusters::PlayerDashState,
+    jump_state: &mut crate::player_clusters::PlayerJumpState,
+    combo_trace: &mut crate::player_clusters::PlayerComboTrace,
     input: InputState,
     tuning: MovementTuning,
     events: &mut FrameEvents,

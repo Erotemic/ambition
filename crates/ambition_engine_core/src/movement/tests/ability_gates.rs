@@ -3,8 +3,8 @@
 
 use super::super::*;
 use super::{step_scratch, test_world};
-use crate::engine_core::player_clusters::PlayerClusterScratch;
-use crate::engine_core::AbilitySet;
+use crate::player_clusters::PlayerClusterScratch;
+use crate::AbilitySet;
 
 fn scratch_with(abilities: AbilitySet, spawn: bevy_math::Vec2) -> PlayerClusterScratch {
     PlayerClusterScratch::new_with_abilities(spawn, abilities)

@@ -1,0 +1,22 @@
+[package]
+name = "ambition_engine_core"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "ECS-native, content-free pure-logic core (geometry / movement / collision / player_state / abilities / ledge_grab / world / player_clusters + the shared BodyKinematics body component) extracted from ambition_sandbox. The build-time foundation everything rebuilds against. See docs/planning/plugin_refactor/15_post_task_k_revision.md."
+
+[lib]
+# rlib only: the foundation library consumed by ambition_sandbox (and the
+# platformer runtime). Packaging is the consuming binary's responsibility.
+crate-type = ["rlib"]
+
+[dependencies]
+# Minimal foundation deps only. The ECS surface is just the `Component` derive
+# and `QueryData` derive (no Bundle / Commands / systems), so depend on
+# `bevy_ecs` directly rather than the full `bevy` umbrella to keep this crate's
+# compile time small — everything rebuilds against it.
+bevy_ecs = { version = "0.18.1", default-features = false }
+bevy_math = { version = "0.18.1", features = ["serialize"] }
+parry2d = "0.26"
+serde = { version = "1", features = ["derive"] }

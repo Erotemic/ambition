@@ -1,6 +1,6 @@
-use crate::engine_core::geometry::{Aabb, AabbExt};
-use crate::engine_core::world::{BlinkWallTier, BlockKind, World};
-use crate::engine_core::Vec2;
+use crate::geometry::{Aabb, AabbExt};
+use crate::world::{BlinkWallTier, BlockKind, World};
+use crate::Vec2;
 
 use super::events::{BlinkEvent, FrameEvents};
 use super::ops::MovementOp;
@@ -14,12 +14,12 @@ use super::tuning::MovementTuning;
 /// dash (timer), blink (cooldown, aim_offset, hold_*), and pushes
 /// blink ops + the BlinkEvent.
 pub fn complete_blink_clusters(
-    kinematics: &mut crate::engine_core::player_clusters::BodyKinematics,
-    flight: &mut crate::engine_core::player_clusters::PlayerFlightState,
-    wall: &mut crate::engine_core::player_clusters::PlayerWallState,
-    dash: &mut crate::engine_core::player_clusters::PlayerDashState,
-    blink: &mut crate::engine_core::player_clusters::PlayerBlinkState,
-    combo_trace: &mut crate::engine_core::player_clusters::PlayerComboTrace,
+    kinematics: &mut crate::player_clusters::BodyKinematics,
+    flight: &mut crate::player_clusters::PlayerFlightState,
+    wall: &mut crate::player_clusters::PlayerWallState,
+    dash: &mut crate::player_clusters::PlayerDashState,
+    blink: &mut crate::player_clusters::PlayerBlinkState,
+    combo_trace: &mut crate::player_clusters::PlayerComboTrace,
     from: Vec2,
     to: Vec2,
     precision: bool,
@@ -69,8 +69,8 @@ pub fn complete_blink_clusters(
 /// `blink_through_soft_walls` ability gate.
 pub fn blink_destination_clusters(
     world: &World,
-    kinematics: &crate::engine_core::player_clusters::BodyKinematics,
-    abilities: &crate::engine_core::player_clusters::PlayerAbilities,
+    kinematics: &crate::player_clusters::BodyKinematics,
+    abilities: &crate::player_clusters::PlayerAbilities,
     aim: Vec2,
     max_distance: f32,
 ) -> Vec2 {
@@ -88,8 +88,8 @@ pub fn blink_destination_clusters(
 /// Blink to a specific aim point, clamped to a collision-safe destination.
 pub fn blink_destination_to_point_clusters(
     world: &World,
-    kinematics: &crate::engine_core::player_clusters::BodyKinematics,
-    abilities: &crate::engine_core::player_clusters::PlayerAbilities,
+    kinematics: &crate::player_clusters::BodyKinematics,
+    abilities: &crate::player_clusters::PlayerAbilities,
     target: Vec2,
 ) -> Vec2 {
     blink_destination_to_point_internal(
@@ -106,7 +106,7 @@ fn blink_destination_internal(
     pos: Vec2,
     size: Vec2,
     facing: f32,
-    abilities: &crate::engine_core::abilities::AbilitySet,
+    abilities: &crate::abilities::AbilitySet,
     aim: Vec2,
     max_distance: f32,
 ) -> Vec2 {
@@ -118,7 +118,7 @@ fn blink_destination_to_point_internal(
     world: &World,
     start: Vec2,
     size: Vec2,
-    abilities: &crate::engine_core::abilities::AbilitySet,
+    abilities: &crate::abilities::AbilitySet,
     target: Vec2,
 ) -> Vec2 {
     let half = size * 0.5;
@@ -142,10 +142,7 @@ fn blink_destination_to_point_internal(
     last_free_blink_position_abilities(world, abilities, start, sweep_target, half)
 }
 
-fn blink_path_blocker_abilities(
-    abilities: &crate::engine_core::abilities::AbilitySet,
-    kind: BlockKind,
-) -> bool {
+fn blink_path_blocker_abilities(abilities: &crate::abilities::AbilitySet, kind: BlockKind) -> bool {
     match kind {
         BlockKind::Solid => true,
         BlockKind::BlinkWall { tier } => !abilities_can_blink_through(abilities, tier),
@@ -157,7 +154,7 @@ fn blink_path_blocker_abilities(
 
 fn last_free_blink_position_abilities(
     world: &World,
-    abilities: &crate::engine_core::abilities::AbilitySet,
+    abilities: &crate::abilities::AbilitySet,
     start: Vec2,
     target: Vec2,
     half: Vec2,
@@ -192,7 +189,7 @@ enum BlinkCollision {
 
 fn blink_collision_abilities(
     world: &World,
-    abilities: &crate::engine_core::abilities::AbilitySet,
+    abilities: &crate::abilities::AbilitySet,
     aabb: Aabb,
 ) -> BlinkCollision {
     let mut pass_through = false;
@@ -221,7 +218,7 @@ fn blink_collision_abilities(
 }
 
 fn abilities_can_blink_through(
-    abilities: &crate::engine_core::abilities::AbilitySet,
+    abilities: &crate::abilities::AbilitySet,
     tier: BlinkWallTier,
 ) -> bool {
     match tier {

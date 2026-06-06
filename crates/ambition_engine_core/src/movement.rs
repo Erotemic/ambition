@@ -14,14 +14,14 @@
 //!   `PlayerClusterScratch` instead of a `PlayerClustersMut` view
 //!
 //! Each entry point consumes an [`InputState`], mutates the player's
-//! cluster components through a [`crate::engine_core::PlayerClustersMut`]
+//! cluster components through a [`crate::PlayerClustersMut`]
 //! view, and returns [`FrameEvents`] for the Bevy layer to translate
 //! into particles, hitstop, sound, or debug overlays. Implementation
 //! details live in focused child modules so movement actions,
 //! simulation clocks, collision, velocity integration, and blink
 //! pathing can evolve independently.
 
-use crate::engine_core::world::World;
+use crate::world::World;
 
 mod blink;
 pub(crate) mod collision;
@@ -60,7 +60,7 @@ use collision::body_is_side_contact;
 /// All state lives on cluster components.
 pub fn update_player_control_with_clusters(
     world: &World,
-    clusters: &mut crate::engine_core::player_clusters::PlayerClustersMut<'_>,
+    clusters: &mut crate::player_clusters::PlayerClustersMut<'_>,
     input: InputState,
     control_dt: f32,
     tuning: MovementTuning,
@@ -69,7 +69,7 @@ pub fn update_player_control_with_clusters(
 
     // Reset on edge press, cluster-native.
     if input.reset_pressed && clusters.abilities.abilities.reset {
-        crate::engine_core::player_clusters::reset_player_clusters(clusters, world.spawn);
+        crate::player_clusters::reset_player_clusters(clusters, world.spawn);
         events.reset = true;
         return events;
     }
@@ -203,7 +203,7 @@ pub fn update_player_control_with_clusters(
 /// All state lives on cluster components.
 pub fn update_player_simulation_with_clusters(
     world: &World,
-    clusters: &mut crate::engine_core::player_clusters::PlayerClustersMut<'_>,
+    clusters: &mut crate::player_clusters::PlayerClustersMut<'_>,
     input: InputState,
     raw_dt: f32,
     tuning: MovementTuning,
@@ -225,7 +225,7 @@ pub fn update_player_simulation_with_clusters(
 
     // Drowning gate — cluster-native reset.
     if clusters.env_contact.water.is_some() && !clusters.abilities.abilities.swim {
-        crate::engine_core::player_clusters::reset_player_clusters(clusters, world.spawn);
+        crate::player_clusters::reset_player_clusters(clusters, world.spawn);
         events.hazard = true;
         events.reset = true;
         return events;
@@ -264,7 +264,7 @@ pub fn update_player_simulation_with_clusters(
         }
         if clusters.ground.on_ground {
             clusters.ground.coyote_timer = tuning.coyote_time;
-            crate::engine_core::player_clusters::refresh_movement_resources_clusters(
+            crate::player_clusters::refresh_movement_resources_clusters(
                 clusters.abilities,
                 clusters.dash,
                 clusters.jump,
@@ -275,13 +275,8 @@ pub fn update_player_simulation_with_clusters(
 
     // Active ledge-grab tick. Returns true if it consumed the frame
     // (the rest of the simulation phase short-circuits).
-    if crate::engine_core::ledge_grab::tick_active_ledge_grab_clusters(
-        clusters,
-        input,
-        dt,
-        tuning,
-        &mut events,
-    ) {
+    if crate::ledge_grab::tick_active_ledge_grab_clusters(clusters, input, dt, tuning, &mut events)
+    {
         return events;
     }
 
@@ -308,18 +303,13 @@ pub fn update_player_simulation_with_clusters(
     // Probe for a fresh ledge grab now that the integration step
     // settled the new position. Required for the auto-snap-on-fall
     // recovery path (slow drifts ignore this; fast falls latch).
-    crate::engine_core::ledge_grab::try_start_ledge_grab_clusters(
-        world,
-        clusters,
-        input,
-        &mut events,
-    );
+    crate::ledge_grab::try_start_ledge_grab_clusters(world, clusters, input, &mut events);
 
     // Hazard reset — cluster-native.
     if collision::touching_hazard_aabb(world, clusters.kinematics.aabb())
         || clusters.kinematics.pos.y > world.size.y + 200.0
     {
-        crate::engine_core::player_clusters::reset_player_clusters(clusters, world.spawn);
+        crate::player_clusters::reset_player_clusters(clusters, world.spawn);
         events.hazard = true;
         events.reset = true;
     }
@@ -337,7 +327,7 @@ fn dec(value: f32, dt: f32) -> f32 {
 /// gravity does not slow input).
 pub fn update_player_with_tuning_clusters(
     world: &World,
-    clusters: &mut crate::engine_core::player_clusters::PlayerClustersMut<'_>,
+    clusters: &mut crate::player_clusters::PlayerClustersMut<'_>,
     input: InputState,
     raw_dt: f32,
     tuning: MovementTuning,
@@ -360,7 +350,7 @@ pub fn update_player_with_tuning_clusters(
 /// need custom tuning knobs.
 pub fn update_player_clusters(
     world: &World,
-    clusters: &mut crate::engine_core::player_clusters::PlayerClustersMut<'_>,
+    clusters: &mut crate::player_clusters::PlayerClustersMut<'_>,
     input: InputState,
     raw_dt: f32,
 ) -> FrameEvents {
@@ -371,7 +361,7 @@ pub fn update_player_clusters(
 /// in-place and dispatches to `update_player_with_tuning_clusters`.
 pub fn update_player_with_tuning_scratch(
     world: &World,
-    scratch: &mut crate::engine_core::player_clusters::PlayerClusterScratch,
+    scratch: &mut crate::player_clusters::PlayerClusterScratch,
     input: InputState,
     raw_dt: f32,
     tuning: MovementTuning,
@@ -383,7 +373,7 @@ pub fn update_player_with_tuning_scratch(
 /// Convenience wrapper using `DEFAULT_TUNING`.
 pub fn update_player_scratch(
     world: &World,
-    scratch: &mut crate::engine_core::player_clusters::PlayerClusterScratch,
+    scratch: &mut crate::player_clusters::PlayerClusterScratch,
     input: InputState,
     raw_dt: f32,
 ) -> FrameEvents {
@@ -393,7 +383,7 @@ pub fn update_player_scratch(
 /// `PlayerClusterScratch`-based control-phase wrapper for tests.
 pub fn update_player_control_with_tuning_scratch(
     world: &World,
-    scratch: &mut crate::engine_core::player_clusters::PlayerClusterScratch,
+    scratch: &mut crate::player_clusters::PlayerClusterScratch,
     input: InputState,
     control_dt: f32,
     tuning: MovementTuning,
@@ -404,7 +394,7 @@ pub fn update_player_control_with_tuning_scratch(
 
 pub fn update_player_control_scratch(
     world: &World,
-    scratch: &mut crate::engine_core::player_clusters::PlayerClusterScratch,
+    scratch: &mut crate::player_clusters::PlayerClusterScratch,
     input: InputState,
     control_dt: f32,
 ) -> FrameEvents {
@@ -414,7 +404,7 @@ pub fn update_player_control_scratch(
 /// `PlayerClusterScratch`-based simulation-phase wrapper for tests.
 pub fn update_player_simulation_with_tuning_scratch(
     world: &World,
-    scratch: &mut crate::engine_core::player_clusters::PlayerClusterScratch,
+    scratch: &mut crate::player_clusters::PlayerClusterScratch,
     input: InputState,
     raw_dt: f32,
     tuning: MovementTuning,
@@ -425,7 +415,7 @@ pub fn update_player_simulation_with_tuning_scratch(
 
 pub fn update_player_simulation_scratch(
     world: &World,
-    scratch: &mut crate::engine_core::player_clusters::PlayerClusterScratch,
+    scratch: &mut crate::player_clusters::PlayerClusterScratch,
     input: InputState,
     raw_dt: f32,
 ) -> FrameEvents {

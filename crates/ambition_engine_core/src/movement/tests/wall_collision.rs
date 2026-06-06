@@ -4,10 +4,10 @@
 
 use super::super::*;
 use super::{step_scratch, test_world};
-use crate::engine_core::geometry::AabbExt;
-use crate::engine_core::player_clusters::PlayerClusterScratch;
-use crate::engine_core::world::Block;
-use crate::engine_core::{Aabb, AbilitySet, Vec2, World};
+use crate::geometry::AabbExt;
+use crate::player_clusters::PlayerClusterScratch;
+use crate::world::Block;
+use crate::{Aabb, AbilitySet, Vec2, World};
 
 fn scratch_with(abilities: AbilitySet, spawn: Vec2) -> PlayerClusterScratch {
     PlayerClusterScratch::new_with_abilities(spawn, abilities)

@@ -3,9 +3,9 @@
 
 use super::super::*;
 use super::{step_scratch, test_world};
-use crate::engine_core::geometry::AabbExt;
-use crate::engine_core::player_clusters::PlayerClusterScratch;
-use crate::engine_core::{AbilitySet, Vec2};
+use crate::geometry::AabbExt;
+use crate::player_clusters::PlayerClusterScratch;
+use crate::{AbilitySet, Vec2};
 
 fn scratch_with(abilities: AbilitySet, spawn: Vec2) -> PlayerClusterScratch {
     PlayerClusterScratch::new_with_abilities(spawn, abilities)
@@ -13,7 +13,7 @@ fn scratch_with(abilities: AbilitySet, spawn: Vec2) -> PlayerClusterScratch {
 
 #[test]
 fn flipped_gravity_makes_the_player_fall_up_and_stand_on_the_ceiling() {
-    use crate::engine_core::world::{Block, World};
+    use crate::world::{Block, World};
     let w = 800.0;
     let h = 600.0;
     let world = World {
@@ -60,7 +60,7 @@ fn sideways_gravity_pulls_the_player_along_x() {
     // the player accelerates +x and barely moves in y -- the same integrator that
     // handles down/up now handles sideways. (Standing ON the wall needs the P4
     // ground-sweep generalization; this pins the acceleration model.)
-    use crate::engine_core::world::{Block, World};
+    use crate::world::{Block, World};
     let world = World {
         name: "sideways gravity".to_string(),
         size: Vec2::new(2000.0, 600.0),
@@ -110,7 +110,7 @@ fn wall_walking_grounds_walks_and_jumps_off_a_side_wall() {
     // P4 — the flagship wall-walking slice: under RIGHTWARD gravity the player
     // falls onto the right wall, is grounded ON it, walks ALONG it (axis_x -> the
     // vertical move axis), and jumps OFF it (-x, opposite gravity).
-    use crate::engine_core::world::{Block, World};
+    use crate::world::{Block, World};
     let world = World {
         name: "wall walk".to_string(),
         size: Vec2::new(800.0, 600.0),
@@ -206,7 +206,7 @@ fn wall_walking_grounds_walks_and_jumps_off_a_side_wall() {
 fn one_way_platform_works_under_flipped_gravity() {
     // #55: under UP gravity the player falls up and lands on the one-way's BOTTOM
     // face (solid from the side you fall from, passable from the other).
-    use crate::engine_core::world::{Block, World};
+    use crate::world::{Block, World};
     let world = World {
         name: "flip one-way".to_string(),
         size: Vec2::new(800.0, 600.0),
@@ -449,9 +449,7 @@ fn pogo_bounce_records_orb_aabb_on_frame_events() {
     let orb_center = Vec2::new(700.0, 600.0);
     world
         .blocks
-        .push(crate::engine_core::world::Block::pogo_orb(
-            "orb", orb_center, 18.0,
-        ));
+        .push(crate::world::Block::pogo_orb("orb", orb_center, 18.0));
 
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
     // Place the player just above the orb so a downward pogo press hits it.
@@ -491,7 +489,7 @@ fn pogo_bounce_records_orb_aabb_on_frame_events() {
 fn pogo_does_not_trigger_on_plain_floor_or_door_solids() {
     let mut world = test_world();
     let floor_y = world.size.y - 48.0;
-    world.blocks.push(crate::engine_core::world::Block::solid(
+    world.blocks.push(crate::world::Block::solid(
         "door",
         Vec2::new(620.0, floor_y - 72.0),
         Vec2::new(64.0, 72.0),
@@ -520,13 +518,11 @@ fn pogo_does_not_trigger_on_plain_floor_or_door_solids() {
     assert!(events.pogo_hits.is_empty());
 
     let mut one_way_world = test_world();
-    one_way_world
-        .blocks
-        .push(crate::engine_core::world::Block::one_way(
-            "one-way",
-            Vec2::new(620.0, floor_y - 72.0),
-            Vec2::new(64.0, 72.0),
-        ));
+    one_way_world.blocks.push(crate::world::Block::one_way(
+        "one-way",
+        Vec2::new(620.0, floor_y - 72.0),
+        Vec2::new(64.0, 72.0),
+    ));
     let mut one_way_scratch = scratch_with(AbilitySet::sandbox_all(), one_way_world.spawn);
     one_way_scratch.kinematics.pos = Vec2::new(640.0, floor_y - 76.0);
     one_way_scratch.kinematics.vel = Vec2::ZERO;
@@ -549,14 +545,12 @@ fn pogo_does_not_trigger_on_plain_floor_or_door_solids() {
     assert!(one_way_events.pogo_hits.is_empty());
 
     let mut blink_world = test_world();
-    blink_world
-        .blocks
-        .push(crate::engine_core::world::Block::blink_wall(
-            "blink-wall",
-            Vec2::new(620.0, floor_y - 72.0),
-            Vec2::new(64.0, 72.0),
-            crate::engine_core::world::BlinkWallTier::Soft,
-        ));
+    blink_world.blocks.push(crate::world::Block::blink_wall(
+        "blink-wall",
+        Vec2::new(620.0, floor_y - 72.0),
+        Vec2::new(64.0, 72.0),
+        crate::world::BlinkWallTier::Soft,
+    ));
     let mut blink_scratch = scratch_with(AbilitySet::sandbox_all(), blink_world.spawn);
     blink_scratch.kinematics.pos = Vec2::new(640.0, floor_y - 76.0);
     blink_scratch.kinematics.vel = Vec2::ZERO;
@@ -579,14 +573,12 @@ fn pogo_does_not_trigger_on_plain_floor_or_door_solids() {
     assert!(blink_events.pogo_hits.is_empty());
 
     let mut rebound_world = test_world();
-    rebound_world
-        .blocks
-        .push(crate::engine_core::world::Block::rebound(
-            "rebound",
-            Vec2::new(622.0, floor_y - 72.0),
-            Vec2::new(36.0, 72.0),
-            Vec2::new(0.0, 180.0),
-        ));
+    rebound_world.blocks.push(crate::world::Block::rebound(
+        "rebound",
+        Vec2::new(622.0, floor_y - 72.0),
+        Vec2::new(36.0, 72.0),
+        Vec2::new(0.0, 180.0),
+    ));
     let mut rebound_scratch = scratch_with(AbilitySet::sandbox_all(), rebound_world.spawn);
     rebound_scratch.kinematics.pos = Vec2::new(640.0, floor_y - 76.0);
     rebound_scratch.kinematics.vel = Vec2::ZERO;
@@ -612,9 +604,7 @@ fn pogo_does_not_trigger_on_plain_floor_or_door_solids() {
     let orb_center = Vec2::new(640.0, floor_y - 8.0);
     orb_world
         .blocks
-        .push(crate::engine_core::world::Block::pogo_orb(
-            "orb", orb_center, 18.0,
-        ));
+        .push(crate::world::Block::pogo_orb("orb", orb_center, 18.0));
     let mut orb_scratch = scratch_with(AbilitySet::sandbox_all(), orb_world.spawn);
     orb_scratch.kinematics.pos = Vec2::new(orb_center.x, orb_center.y - 24.0);
     orb_scratch.kinematics.vel = Vec2::ZERO;

@@ -1,10 +1,10 @@
-use crate::engine_core::world::World;
+use crate::world::World;
 
 use super::events::FrameEvents;
 use super::input::InputState;
 use super::ops::MovementOp;
 use super::tuning::{MovementTuning, ONE_WAY_DROP_THROUGH_GRACE};
-use crate::engine_core::player_state::BodyMode;
+use crate::player_state::BodyMode;
 
 const LADDER_JUMP_BOOST_TIME: f32 = 0.10;
 
@@ -15,15 +15,15 @@ const LADDER_JUMP_BOOST_TIME: f32 = 0.10;
 /// coyote timer so the same press can't re-fire.
 pub fn handle_jump_buffer_clusters(
     world: &World,
-    action_buffer: &mut crate::engine_core::player_clusters::PlayerActionBuffer,
-    env_contact: &crate::engine_core::player_clusters::PlayerEnvironmentContact,
-    abilities: &crate::engine_core::player_clusters::PlayerAbilities,
+    action_buffer: &mut crate::player_clusters::PlayerActionBuffer,
+    env_contact: &crate::player_clusters::PlayerEnvironmentContact,
+    abilities: &crate::player_clusters::PlayerAbilities,
     body_mode: BodyMode,
-    kinematics: &mut crate::engine_core::player_clusters::BodyKinematics,
-    ground: &mut crate::engine_core::player_clusters::PlayerGroundState,
-    wall: &mut crate::engine_core::player_clusters::PlayerWallState,
-    jump_state: &mut crate::engine_core::player_clusters::PlayerJumpState,
-    combo_trace: &mut crate::engine_core::player_clusters::PlayerComboTrace,
+    kinematics: &mut crate::player_clusters::BodyKinematics,
+    ground: &mut crate::player_clusters::PlayerGroundState,
+    wall: &mut crate::player_clusters::PlayerWallState,
+    jump_state: &mut crate::player_clusters::PlayerJumpState,
+    combo_trace: &mut crate::player_clusters::PlayerComboTrace,
     input: InputState,
     tuning: MovementTuning,
     events: &mut FrameEvents,
@@ -69,10 +69,7 @@ pub fn handle_jump_buffer_clusters(
 
     if input.drop_through_pressed
         && ground.on_ground
-        && crate::engine_core::movement::collision::standing_on_one_way_aabb(
-            world,
-            kinematics.aabb(),
-        )
+        && crate::movement::collision::standing_on_one_way_aabb(world, kinematics.aabb())
     {
         action_buffer.jump = 0.0;
         ground.on_ground = false;

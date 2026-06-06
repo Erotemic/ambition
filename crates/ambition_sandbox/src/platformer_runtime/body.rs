@@ -23,41 +23,9 @@
 //! moves into the `ambition_platformer_runtime` crate in a later pass (finish
 //! cleanup first, extract later).
 
-use bevy::prelude::Component;
-
-use crate::engine_core::{Aabb, Vec2};
-
-/// Position, velocity, AABB size, and facing direction of a body.
-///
-/// Shared by the player, enemies/NPCs, and bosses. Bosses float and never
-/// integrate `vel` themselves (the brain emits a fresh `desired_vel` each tick
-/// for `integrate_body`), so a boss simply leaves `vel` at [`Vec2::ZERO`].
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
-pub struct BodyKinematics {
-    pub pos: Vec2,
-    pub vel: Vec2,
-    pub size: Vec2,
-    pub facing: f32,
-}
-
-impl Default for BodyKinematics {
-    /// Player-flavored default (the only `::default()` callers are player
-    /// spawn helpers): a default-sized body at the origin, at rest, facing
-    /// right. Matches the pre-unification `PlayerKinematics::default`.
-    fn default() -> Self {
-        let body = crate::engine_core::movement::default_player_body_size();
-        Self {
-            pos: Vec2::ZERO,
-            vel: Vec2::ZERO,
-            size: body,
-            facing: 1.0,
-        }
-    }
-}
-
-impl BodyKinematics {
-    /// The body's world-space AABB (centered on `pos`, half-extents `size/2`).
-    pub fn aabb(self) -> Aabb {
-        Aabb::new(self.pos, self.size * 0.5)
-    }
-}
+// [`BodyKinematics`] is the foundational body state engine_core's movement
+// operates on, so its definition lives in the foundation crate
+// (`ambition_engine_core`, below the runtime — see ADR 0019). Re-export it here
+// so every `crate::platformer_runtime::body::BodyKinematics` reference across
+// the sandbox keeps resolving unchanged.
+pub use crate::engine_core::BodyKinematics;

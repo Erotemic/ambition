@@ -1,4 +1,4 @@
-use crate::engine_core::Vec2;
+use crate::Vec2;
 
 /// Default standing movement collider width in world pixels.
 ///

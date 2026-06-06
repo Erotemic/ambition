@@ -3,11 +3,11 @@
 
 use super::super::*;
 use super::test_world;
-use crate::engine_core::player_clusters::PlayerClusterScratch;
-use crate::engine_core::Vec2;
+use crate::player_clusters::PlayerClusterScratch;
+use crate::Vec2;
 
 fn scratch_at(spawn: Vec2) -> PlayerClusterScratch {
-    PlayerClusterScratch::new_with_abilities(spawn, crate::engine_core::AbilitySet::sandbox_all())
+    PlayerClusterScratch::new_with_abilities(spawn, crate::AbilitySet::sandbox_all())
 }
 
 #[test]

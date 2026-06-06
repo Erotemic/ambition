@@ -1,5 +1,5 @@
-use crate::engine_core::geometry::Aabb;
-use crate::engine_core::Vec2;
+use crate::geometry::Aabb;
+use crate::Vec2;
 
 use super::MovementOp;
 
@@ -29,7 +29,7 @@ impl FrameEvents {
     /// to the cluster-side combo trace.
     pub fn op_clusters(
         &mut self,
-        combo_trace: &mut crate::engine_core::player_clusters::PlayerComboTrace,
+        combo_trace: &mut crate::player_clusters::PlayerComboTrace,
         op: MovementOp,
     ) {
         self.operations.push(op);

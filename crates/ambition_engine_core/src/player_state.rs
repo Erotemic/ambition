@@ -23,7 +23,7 @@
 //! systems (HUD, future per-mode physics) can keep the value as a
 //! component or resource.
 
-use crate::engine_core::Vec2;
+use crate::Vec2;
 use serde::{Deserialize, Serialize};
 
 /// Explicit movement / locomotion mode for the player.
@@ -91,12 +91,12 @@ impl LocomotionState {
     /// Project `LocomotionState` from cluster components. Mirrors the
     /// same priority order callers used to drive off of `&Player`.
     pub fn from_clusters(
-        ground: &crate::engine_core::player_clusters::PlayerGroundState,
-        wall: &crate::engine_core::player_clusters::PlayerWallState,
-        flight: &crate::engine_core::player_clusters::PlayerFlightState,
-        dash: &crate::engine_core::player_clusters::PlayerDashState,
-        blink: &crate::engine_core::player_clusters::PlayerBlinkState,
-        ledge: &crate::engine_core::player_clusters::PlayerLedgeState,
+        ground: &crate::player_clusters::PlayerGroundState,
+        wall: &crate::player_clusters::PlayerWallState,
+        flight: &crate::player_clusters::PlayerFlightState,
+        dash: &crate::player_clusters::PlayerDashState,
+        blink: &crate::player_clusters::PlayerBlinkState,
+        ledge: &crate::player_clusters::PlayerLedgeState,
     ) -> Self {
         if dash.timer > 0.0 {
             return LocomotionState::Dashing;
@@ -178,9 +178,7 @@ impl BodyMode {
 
     /// Read the player's authoritative body-mode field from cluster
     /// components.
-    pub fn from_clusters(
-        body_mode: &crate::engine_core::player_clusters::PlayerBodyModeState,
-    ) -> Self {
+    pub fn from_clusters(body_mode: &crate::player_clusters::PlayerBodyModeState) -> Self {
         body_mode.body_mode
     }
 
@@ -261,16 +259,11 @@ impl BodyShape {
     /// predicate but typically gate on `BlockKind::Solid` (cannot
     /// stand into a ceiling) and `BlockKind::OneWay` for stand-up
     /// inside a one-way ceiling.
-    pub fn fits_at<F>(
-        self,
-        center: Vec2,
-        world: &crate::engine_core::world::World,
-        predicate: F,
-    ) -> bool
+    pub fn fits_at<F>(self, center: Vec2, world: &crate::world::World, predicate: F) -> bool
     where
-        F: FnMut(&crate::engine_core::world::Block) -> bool,
+        F: FnMut(&crate::world::Block) -> bool,
     {
-        let aabb = crate::engine_core::geometry::Aabb::new(center, self.size * 0.5);
+        let aabb = crate::geometry::Aabb::new(center, self.size * 0.5);
         !world.body_overlaps_any(aabb, predicate)
     }
 }
@@ -298,15 +291,15 @@ impl BodyShape {
 /// leaves state unchanged) when the target shape doesn't fit in the
 /// current world geometry — e.g. a low ceiling rejecting a stand-up.
 pub fn try_change_body_mode_clusters<F>(
-    kinematics: &mut crate::engine_core::player_clusters::BodyKinematics,
-    base_size: &crate::engine_core::player_clusters::PlayerBaseSize,
-    body_mode_state: &mut crate::engine_core::player_clusters::PlayerBodyModeState,
+    kinematics: &mut crate::player_clusters::BodyKinematics,
+    base_size: &crate::player_clusters::PlayerBaseSize,
+    body_mode_state: &mut crate::player_clusters::PlayerBodyModeState,
     new_mode: BodyMode,
-    world: &crate::engine_core::world::World,
+    world: &crate::world::World,
     predicate: F,
 ) -> bool
 where
-    F: FnMut(&crate::engine_core::world::Block) -> bool,
+    F: FnMut(&crate::world::Block) -> bool,
 {
     if body_mode_state.body_mode == new_mode {
         return true;
@@ -366,15 +359,15 @@ impl PlayerSafetyVerdict {
 /// pos/vel/aabb directly so callers driving cluster components do not
 /// need to materialize an `ae::Player`.
 pub fn classify_safety_from_kinematics<F>(
-    pos: crate::engine_core::Vec2,
-    vel: crate::engine_core::Vec2,
-    aabb: crate::engine_core::Aabb,
-    world: &crate::engine_core::world::World,
+    pos: crate::Vec2,
+    vel: crate::Vec2,
+    aabb: crate::Aabb,
+    world: &crate::world::World,
     margin: f32,
     mut solid_predicate: F,
 ) -> PlayerSafetyVerdict
 where
-    F: FnMut(&crate::engine_core::world::Block) -> bool,
+    F: FnMut(&crate::world::Block) -> bool,
 {
     if !pos.x.is_finite() || !pos.y.is_finite() {
         return PlayerSafetyVerdict::PositionNonFinite;
@@ -382,7 +375,7 @@ where
     if !vel.x.is_finite() || !vel.y.is_finite() {
         return PlayerSafetyVerdict::VelocityNonFinite;
     }
-    use crate::engine_core::geometry::AabbExt;
+    use crate::geometry::AabbExt;
     if aabb.left() < -margin || aabb.right() > world.size.x + margin {
         return PlayerSafetyVerdict::OutsideWorldEnvelope { axis: 'x' };
     }
@@ -479,17 +472,14 @@ impl ResourceMeter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine_core::movement::default_player_body_size;
-    use crate::engine_core::world::{Block, BlockKind, World};
+    use crate::movement::default_player_body_size;
+    use crate::world::{Block, BlockKind, World};
 
-    fn scratch_at(pos: Vec2) -> crate::engine_core::PlayerClusterScratch {
-        crate::engine_core::PlayerClusterScratch::new_with_abilities(
-            pos,
-            crate::engine_core::AbilitySet::sandbox_all(),
-        )
+    fn scratch_at(pos: Vec2) -> crate::PlayerClusterScratch {
+        crate::PlayerClusterScratch::new_with_abilities(pos, crate::AbilitySet::sandbox_all())
     }
 
-    fn locomotion(s: &crate::engine_core::PlayerClusterScratch) -> LocomotionState {
+    fn locomotion(s: &crate::PlayerClusterScratch) -> LocomotionState {
         LocomotionState::from_clusters(&s.ground, &s.wall, &s.flight, &s.dash, &s.blink, &s.ledge)
     }
 
@@ -561,7 +551,7 @@ mod tests {
         // collision-safe stand-up case directly.
         let standing = BodyMode::Standing.shape(Vec2::new(28.0, 46.0));
         assert!(!standing.fits_at(Vec2::new(70.0, 65.0), &world, |b| {
-            matches!(b.kind, crate::engine_core::world::BlockKind::Solid)
+            matches!(b.kind, crate::world::BlockKind::Solid)
         }));
     }
 
@@ -686,7 +676,7 @@ mod tests {
             &mut s.body_mode,
             BodyMode::Crouching,
             &world,
-            |b| matches!(b.kind, crate::engine_core::world::BlockKind::Solid),
+            |b| matches!(b.kind, crate::world::BlockKind::Solid),
         );
         assert!(ok);
 
@@ -696,7 +686,7 @@ mod tests {
             &mut s.body_mode,
             BodyMode::Standing,
             &world,
-            |b| matches!(b.kind, crate::engine_core::world::BlockKind::Solid),
+            |b| matches!(b.kind, crate::world::BlockKind::Solid),
         );
         assert!(!stand_attempt);
         assert_eq!(s.body_mode.body_mode, BodyMode::Crouching);
@@ -789,7 +779,7 @@ mod tests {
     /// trip a CI test if they diverge.
     #[test]
     fn locomotion_from_clusters_matches_from_player_at_rest() {
-        use crate::engine_core::player_clusters::{
+        use crate::player_clusters::{
             PlayerBlinkState, PlayerDashState, PlayerFlightState, PlayerGroundState,
             PlayerLedgeState, PlayerWallState,
         };
@@ -821,7 +811,7 @@ mod tests {
 
     #[test]
     fn body_mode_from_clusters_reads_authoritative_field() {
-        use crate::engine_core::player_clusters::PlayerBodyModeState;
+        use crate::player_clusters::PlayerBodyModeState;
         let bm = PlayerBodyModeState {
             body_mode: BodyMode::Crouching,
         };

@@ -1,6 +1,6 @@
-use crate::engine_core::geometry::{Aabb, AabbExt};
-use crate::engine_core::world::{BlockKind, World};
-use crate::engine_core::Vec2;
+use crate::geometry::{Aabb, AabbExt};
+use crate::world::{BlockKind, World};
+use crate::Vec2;
 
 use super::tuning::MovementTuning;
 
@@ -19,14 +19,11 @@ fn is_solid_for_axis(kind: BlockKind, axis: Axis) -> bool {
 }
 
 fn block_passable_during_climb_clusters(
-    body_mode: &crate::engine_core::player_clusters::PlayerBodyModeState,
-    env_contact: &crate::engine_core::player_clusters::PlayerEnvironmentContact,
-    block: &crate::engine_core::world::Block,
+    body_mode: &crate::player_clusters::PlayerBodyModeState,
+    env_contact: &crate::player_clusters::PlayerEnvironmentContact,
+    block: &crate::world::Block,
 ) -> bool {
-    if !matches!(
-        body_mode.body_mode,
-        crate::engine_core::player_state::BodyMode::Climbing
-    ) {
+    if !matches!(body_mode.body_mode, crate::player_state::BodyMode::Climbing) {
         return false;
     }
     let Some(contact) = env_contact.climbable else {
@@ -54,10 +51,10 @@ pub(super) fn body_is_side_contact(body: Aabb, block: Aabb) -> bool {
 /// pre-existing penetrations.
 pub(super) fn sweep_player_x_clusters(
     world: &World,
-    kinematics: &mut crate::engine_core::player_clusters::BodyKinematics,
-    wall: &mut crate::engine_core::player_clusters::PlayerWallState,
-    body_mode: &crate::engine_core::player_clusters::PlayerBodyModeState,
-    env_contact: &crate::engine_core::player_clusters::PlayerEnvironmentContact,
+    kinematics: &mut crate::player_clusters::BodyKinematics,
+    wall: &mut crate::player_clusters::PlayerWallState,
+    body_mode: &crate::player_clusters::PlayerBodyModeState,
+    env_contact: &crate::player_clusters::PlayerEnvironmentContact,
     delta_x: f32,
 ) {
     let delta = Vec2::new(delta_x, 0.0);
@@ -115,10 +112,10 @@ pub(super) fn sweep_player_x_clusters(
 /// positional repair.
 pub(super) fn sweep_player_y_clusters(
     world: &World,
-    kinematics: &mut crate::engine_core::player_clusters::BodyKinematics,
-    ground: &mut crate::engine_core::player_clusters::PlayerGroundState,
-    body_mode: &crate::engine_core::player_clusters::PlayerBodyModeState,
-    env_contact: &crate::engine_core::player_clusters::PlayerEnvironmentContact,
+    kinematics: &mut crate::player_clusters::BodyKinematics,
+    ground: &mut crate::player_clusters::PlayerGroundState,
+    body_mode: &crate::player_clusters::PlayerBodyModeState,
+    env_contact: &crate::player_clusters::PlayerEnvironmentContact,
     delta_y: f32,
     prev_bottom: f32,
     drop_through: bool,
@@ -295,10 +292,10 @@ fn resolve_x_penetration(body: Aabb, block: Aabb, world_w: f32) -> Option<(f32, 
 /// contacts).
 fn resolve_axis_clusters(
     world: &World,
-    kinematics: &mut crate::engine_core::player_clusters::BodyKinematics,
-    wall: &mut crate::engine_core::player_clusters::PlayerWallState,
-    _body_mode: &crate::engine_core::player_clusters::PlayerBodyModeState,
-    _env_contact: &crate::engine_core::player_clusters::PlayerEnvironmentContact,
+    kinematics: &mut crate::player_clusters::BodyKinematics,
+    wall: &mut crate::player_clusters::PlayerWallState,
+    _body_mode: &crate::player_clusters::PlayerBodyModeState,
+    _env_contact: &crate::player_clusters::PlayerEnvironmentContact,
     axis: Axis,
 ) {
     let mut aabb = kinematics.aabb();
@@ -330,10 +327,10 @@ fn resolve_axis_clusters(
 /// teleport a clinging body to a wall's far edge.
 fn resolve_vertical_clusters(
     world: &World,
-    kinematics: &mut crate::engine_core::player_clusters::BodyKinematics,
-    ground: &mut crate::engine_core::player_clusters::PlayerGroundState,
-    _body_mode: &crate::engine_core::player_clusters::PlayerBodyModeState,
-    _env_contact: &crate::engine_core::player_clusters::PlayerEnvironmentContact,
+    kinematics: &mut crate::player_clusters::BodyKinematics,
+    ground: &mut crate::player_clusters::PlayerGroundState,
+    _body_mode: &crate::player_clusters::PlayerBodyModeState,
+    _env_contact: &crate::player_clusters::PlayerEnvironmentContact,
     prev_bottom: f32,
     drop_through: bool,
     gravity_dir: Vec2,
@@ -401,7 +398,7 @@ pub fn standing_on_one_way_aabb(world: &World, body: Aabb) -> bool {
 /// Tile-set-only hazard touch test. Cluster-aware callers
 /// pass `BodyKinematics::aabb()` directly without building an
 /// `ae::Player`.
-pub fn touching_hazard_aabb(world: &World, aabb: crate::engine_core::Aabb) -> bool {
+pub fn touching_hazard_aabb(world: &World, aabb: crate::Aabb) -> bool {
     world
         .blocks
         .iter()
@@ -409,7 +406,7 @@ pub fn touching_hazard_aabb(world: &World, aabb: crate::engine_core::Aabb) -> bo
 }
 
 /// Rebound impulse lookup for a body AABB.
-pub fn touching_rebound_aabb(world: &World, aabb: crate::engine_core::Aabb) -> Option<Vec2> {
+pub fn touching_rebound_aabb(world: &World, aabb: crate::Aabb) -> Option<Vec2> {
     world.blocks.iter().find_map(|b| match b.kind {
         BlockKind::Rebound { impulse } if aabb.strict_intersects(b.aabb) => Some(impulse),
         _ => None,
@@ -422,11 +419,11 @@ pub fn touching_rebound_aabb(world: &World, aabb: crate::engine_core::Aabb) -> O
 /// clears the ground flag.
 pub fn try_pogo_clusters(
     world: &World,
-    kinematics: &mut crate::engine_core::player_clusters::BodyKinematics,
-    abilities: &crate::engine_core::player_clusters::PlayerAbilities,
-    dash: &mut crate::engine_core::player_clusters::PlayerDashState,
-    jump_state: &mut crate::engine_core::player_clusters::PlayerJumpState,
-    ground: &mut crate::engine_core::player_clusters::PlayerGroundState,
+    kinematics: &mut crate::player_clusters::BodyKinematics,
+    abilities: &crate::player_clusters::PlayerAbilities,
+    dash: &mut crate::player_clusters::PlayerDashState,
+    jump_state: &mut crate::player_clusters::PlayerJumpState,
+    ground: &mut crate::player_clusters::PlayerGroundState,
     tuning: MovementTuning,
 ) -> Option<Aabb> {
     let feet = kinematics.aabb();
@@ -445,7 +442,7 @@ pub fn try_pogo_clusters(
             tuning.gravity_dir,
             tuning.pogo_speed,
         );
-        crate::engine_core::player_clusters::refresh_movement_resources_clusters(
+        crate::player_clusters::refresh_movement_resources_clusters(
             abilities, dash, jump_state, tuning,
         );
         ground.on_ground = false;

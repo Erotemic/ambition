@@ -1,6 +1,6 @@
-use crate::engine_core::geometry::AabbExt;
-use crate::engine_core::world::World;
-use crate::engine_core::Vec2;
+use crate::geometry::AabbExt;
+use crate::world::World;
+use crate::Vec2;
 
 /// Move `value` toward `target` by at most `delta`. Inlined from the
 /// removed `ae::scalar::approach`.
@@ -15,11 +15,7 @@ fn approach(value: f32, target: f32, delta: f32) -> f32 {
 /// Clamp the velocity component ALONG `gravity_dir` (the fall direction) to
 /// `cap`, leaving the perpendicular (movement) component untouched. The
 /// gravity-direction-relative form of `vel.y = vel.y.min(cap)`.
-fn cap_fall_speed(
-    vel: &mut crate::engine_core::Vec2,
-    gravity_dir: crate::engine_core::Vec2,
-    cap: f32,
-) {
+fn cap_fall_speed(vel: &mut crate::Vec2, gravity_dir: crate::Vec2, cap: f32) {
     let along = vel.dot(gravity_dir);
     if along > cap {
         *vel -= (along - cap) * gravity_dir;
@@ -29,11 +25,7 @@ fn cap_fall_speed(
 /// Launch the body at `speed` OPPOSITE `gravity_dir` (a jump / pogo / wall-kick
 /// vertical impulse), preserving the perpendicular (movement-axis) component.
 /// The gravity-direction-relative form of `vel.y = -speed * gravity_sign`.
-pub(super) fn set_jump_velocity(
-    vel: &mut crate::engine_core::Vec2,
-    gravity_dir: crate::engine_core::Vec2,
-    speed: f32,
-) {
+pub(super) fn set_jump_velocity(vel: &mut crate::Vec2, gravity_dir: crate::Vec2, speed: f32) {
     let perp = *vel - vel.dot(gravity_dir) * gravity_dir;
     *vel = perp - speed * gravity_dir;
 }
@@ -43,11 +35,11 @@ pub(super) fn set_jump_velocity(
 /// inverts under a gravity flip — screen `+X` under vertical gravity (down/up),
 /// screen `+Y` under horizontal gravity (wall-walking). `axis_x = +1` walks the
 /// player along this axis.
-pub(super) fn move_axis(gravity_dir: crate::engine_core::Vec2) -> crate::engine_core::Vec2 {
+pub(super) fn move_axis(gravity_dir: crate::Vec2) -> crate::Vec2 {
     if gravity_dir.x == 0.0 {
-        crate::engine_core::Vec2::new(1.0, 0.0)
+        crate::Vec2::new(1.0, 0.0)
     } else {
-        crate::engine_core::Vec2::new(0.0, 1.0)
+        crate::Vec2::new(0.0, 1.0)
     }
 }
 
@@ -64,13 +56,13 @@ use super::tuning::MovementTuning;
 /// bookkeeping. Reads and writes every relevant cluster directly.
 pub(super) fn integrate_velocity_clusters(
     world: &World,
-    clusters: &mut crate::engine_core::player_clusters::PlayerClustersMut<'_>,
+    clusters: &mut crate::player_clusters::PlayerClustersMut<'_>,
     input: InputState,
     dt: f32,
     tuning: MovementTuning,
     events: &mut FrameEvents,
 ) {
-    use crate::engine_core::player_state::BodyMode;
+    use crate::player_state::BodyMode;
 
     let climbing = clusters.body_mode.body_mode == BodyMode::Climbing
         && clusters.env_contact.climbable.is_some();
@@ -251,7 +243,7 @@ pub(super) fn integrate_velocity_clusters(
     }
 
     if clusters.ground.on_ground {
-        crate::engine_core::player_clusters::refresh_movement_resources_clusters(
+        crate::player_clusters::refresh_movement_resources_clusters(
             clusters.abilities,
             &mut *clusters.dash,
             &mut *clusters.jump,
@@ -270,7 +262,7 @@ pub(super) fn integrate_velocity_clusters(
             super::collision::touching_rebound_aabb(world, clusters.kinematics.aabb())
         {
             clusters.kinematics.vel = impulse;
-            crate::engine_core::player_clusters::refresh_movement_resources_clusters(
+            crate::player_clusters::refresh_movement_resources_clusters(
                 clusters.abilities,
                 &mut *clusters.dash,
                 &mut *clusters.jump,
@@ -295,11 +287,11 @@ pub(super) fn integrate_velocity_clusters(
 /// scale x by `strafe_factor`, and clear transient flight flags.
 /// Suspends gravity by overwriting `vel.y` rather than accumulating.
 pub(super) fn integrate_climb_clusters(
-    kinematics: &mut crate::engine_core::player_clusters::BodyKinematics,
-    env_contact: &crate::engine_core::player_clusters::PlayerEnvironmentContact,
-    flight: &mut crate::engine_core::player_clusters::PlayerFlightState,
-    wall: &mut crate::engine_core::player_clusters::PlayerWallState,
-    jump: &mut crate::engine_core::player_clusters::PlayerJumpState,
+    kinematics: &mut crate::player_clusters::BodyKinematics,
+    env_contact: &crate::player_clusters::PlayerEnvironmentContact,
+    flight: &mut crate::player_clusters::PlayerFlightState,
+    wall: &mut crate::player_clusters::PlayerWallState,
+    jump: &mut crate::player_clusters::PlayerJumpState,
     input: InputState,
     dt: f32,
     tuning: MovementTuning,
@@ -329,9 +321,9 @@ pub(super) fn integrate_climb_clusters(
 /// bob phase when sticks are centered, hard clamp to the flight
 /// terminal speed. Clears fast-fall + wall-cling flags by mode.
 pub(super) fn integrate_flight_clusters(
-    kinematics: &mut crate::engine_core::player_clusters::BodyKinematics,
-    flight: &mut crate::engine_core::player_clusters::PlayerFlightState,
-    wall: &mut crate::engine_core::player_clusters::PlayerWallState,
+    kinematics: &mut crate::player_clusters::BodyKinematics,
+    flight: &mut crate::player_clusters::PlayerFlightState,
+    wall: &mut crate::player_clusters::PlayerWallState,
     input: InputState,
     dt: f32,
     tuning: MovementTuning,
@@ -374,11 +366,11 @@ pub(super) fn integrate_flight_clusters(
 /// `WallCling` / `WallClimb` exactly once per engagement.
 ///
 pub(super) fn apply_wall_abilities_clusters(
-    kinematics: &mut crate::engine_core::player_clusters::BodyKinematics,
-    ground: &crate::engine_core::player_clusters::PlayerGroundState,
-    wall: &mut crate::engine_core::player_clusters::PlayerWallState,
-    abilities: &crate::engine_core::player_clusters::PlayerAbilities,
-    combo_trace: &mut crate::engine_core::player_clusters::PlayerComboTrace,
+    kinematics: &mut crate::player_clusters::BodyKinematics,
+    ground: &crate::player_clusters::PlayerGroundState,
+    wall: &mut crate::player_clusters::PlayerWallState,
+    abilities: &crate::player_clusters::PlayerAbilities,
+    combo_trace: &mut crate::player_clusters::PlayerComboTrace,
     input: InputState,
     tuning: MovementTuning,
     was_clinging: bool,

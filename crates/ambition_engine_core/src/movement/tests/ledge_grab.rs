@@ -3,9 +3,9 @@
 
 use super::super::*;
 use super::test_world;
-use crate::engine_core::player_clusters::PlayerClusterScratch;
-use crate::engine_core::world::{BlinkWallTier, Block};
-use crate::engine_core::{AbilitySet, Vec2};
+use crate::player_clusters::PlayerClusterScratch;
+use crate::world::{BlinkWallTier, Block};
+use crate::{AbilitySet, Vec2};
 
 fn scratch_with(abilities: AbilitySet, spawn: Vec2) -> PlayerClusterScratch {
     PlayerClusterScratch::new_with_abilities(spawn, abilities)
@@ -84,14 +84,14 @@ fn attack_press_from_hang_starts_getup_attack_and_fires_slash() {
     let mut abilities = AbilitySet::sandbox_all();
     abilities.ledge_grab = true;
     let mut scratch = scratch_with(abilities, Vec2::new(87.0, 119.0));
-    let contact = crate::engine_core::LedgeContact {
+    let contact = crate::LedgeContact {
         wall_normal_x: -1.0,
         anchor: Vec2::new(87.0, 119.0),
         climb_target: Vec2::new(118.0, 76.0),
     };
-    let mut state = crate::engine_core::LedgeGrabState::hanging(contact);
+    let mut state = crate::LedgeGrabState::hanging(contact);
     // Skip past the hang debounce so the input is accepted this tick.
-    state.elapsed = crate::engine_core::LEDGE_MIN_CLIMB_DELAY;
+    state.elapsed = crate::LEDGE_MIN_CLIMB_DELAY;
     scratch.ledge.grab = Some(state);
 
     let events = update_player_simulation_with_tuning_scratch(
@@ -116,10 +116,7 @@ fn attack_press_from_hang_starts_getup_attack_and_fires_slash() {
     );
     let new_state = scratch.ledge.grab.expect("getup-attack keeps ledge state");
     assert!(new_state.climbing, "state should be in getup transition");
-    assert_eq!(
-        new_state.getup_kind,
-        crate::engine_core::LedgeGetupKind::Attack
-    );
+    assert_eq!(new_state.getup_kind, crate::LedgeGetupKind::Attack);
     assert!(
         scratch.dodge.roll_timer > 0.0,
         "getup attack grants invuln frames via dodge_roll_timer"
@@ -132,15 +129,15 @@ fn active_ledge_grab_climb_finishes_inside_simulation_tick() {
     let mut abilities = AbilitySet::sandbox_all();
     abilities.ledge_grab = true;
     let mut scratch = scratch_with(abilities, Vec2::new(87.0, 119.0));
-    let contact = crate::engine_core::LedgeContact {
+    let contact = crate::LedgeContact {
         wall_normal_x: -1.0,
         anchor: Vec2::new(87.0, 119.0),
         climb_target: Vec2::new(118.0, 76.0),
     };
-    let mut state = crate::engine_core::LedgeGrabState::hanging(contact);
-    state.elapsed = crate::engine_core::LEDGE_MIN_CLIMB_DELAY;
+    let mut state = crate::LedgeGrabState::hanging(contact);
+    state.elapsed = crate::LEDGE_MIN_CLIMB_DELAY;
     state.climbing = true;
-    state.climb_elapsed = crate::engine_core::LEDGE_CLIMB_TIME;
+    state.climb_elapsed = crate::LEDGE_CLIMB_TIME;
     scratch.ledge.grab = Some(state);
 
     let events = update_player_simulation_with_tuning_scratch(

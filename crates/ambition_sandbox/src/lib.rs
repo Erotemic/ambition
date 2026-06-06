@@ -29,7 +29,11 @@ pub mod character_ai;
 pub mod combat;
 pub mod cutscene;
 pub mod debug_label;
-pub mod engine_core;
+// The pure-logic core lives in its own crate (`ambition_engine_core`, ADR
+// 0019 foundation). Re-export it under the historical `crate::engine_core`
+// path so every `crate::engine_core::X` reference and the `use
+// crate::engine_core as ae` alias across the sandbox resolve unchanged.
+pub use ambition_engine_core as engine_core;
 pub mod grapple;
 pub mod gravity_grenade;
 pub mod headless;

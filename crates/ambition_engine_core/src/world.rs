@@ -3,8 +3,8 @@
 //! The engine models room geometry as named blocks. The Bevy sandbox decides
 //! how to draw each block; the engine only cares about collision semantics.
 
-use crate::engine_core::geometry::{aabb_from_min_size, Aabb, AabbExt};
-use crate::engine_core::Vec2;
+use crate::geometry::{aabb_from_min_size, Aabb, AabbExt};
+use crate::Vec2;
 
 /// Upgrade tier required to blink through a blink wall.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -262,7 +262,7 @@ pub struct ClimbableContact {
 /// size / spawn / display name. Authored entities (hazards, pickups,
 /// chests, enemies, bosses, NPCs, switches, labels) live on the
 /// sandbox-side `RoomSpec` in per-family Vecs — see
-/// `crate::engine_core::rooms::RoomSpec` in `ambition_sandbox`. The engine has no
+/// `crate::rooms::RoomSpec` in `ambition_sandbox`. The engine has no
 /// authored-entity IR.
 #[derive(Clone, Debug)]
 pub struct World {

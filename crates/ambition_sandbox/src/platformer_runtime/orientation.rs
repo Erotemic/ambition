@@ -9,7 +9,7 @@
 use bevy::prelude::*;
 
 use crate::physics::gravity_upright_angle;
-use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 
 /// Shared "which way is down" body orientation, in render-space radians, applied
 /// to the body's sprite. The SAME component, righting system
@@ -62,7 +62,7 @@ pub fn update_actor_roll(
     gravity: crate::physics::GravityCtx,
     mut rolls: Query<(
         &mut ActorRoll,
-        Option<&PlayerKinematics>,
+        Option<&BodyKinematics>,
         Option<&crate::features::BodyKinematics>,
     )>,
 ) {
@@ -75,7 +75,7 @@ pub fn update_actor_roll(
         // Each body rights toward the gravity of the column IT is standing in
         // (localized): resolve from its own position, falling back to the
         // player's field when position is unavailable. Player carries
-        // `PlayerKinematics`; enemies / NPCs / bosses carry the unified
+        // `BodyKinematics`; enemies / NPCs / bosses carry the unified
         // `BodyKinematics`.
         let pos = pkin.map(|k| k.pos).or_else(|| bkin.map(|k| k.pos));
         let gravity_dir = match pos {

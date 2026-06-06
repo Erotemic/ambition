@@ -596,7 +596,7 @@ mod tests {
         {
             let mut q = app
                 .world_mut()
-                .query_filtered::<&mut crate::player::PlayerKinematics, With<crate::player::PlayerEntity>>(
+                .query_filtered::<&mut crate::player::BodyKinematics, With<crate::player::PlayerEntity>>(
                 );
             if let Ok(mut kin) = q.single_mut(app.world_mut()) {
                 kin.pos = ae::Vec2::new(1234.0, 1234.0);
@@ -611,8 +611,7 @@ mod tests {
         let expected_spawn = world.0.spawn;
         let mut q = app
             .world_mut()
-            .query_filtered::<&crate::player::PlayerKinematics, With<crate::player::PlayerEntity>>(
-            );
+            .query_filtered::<&crate::player::BodyKinematics, With<crate::player::PlayerEntity>>();
         let player_pos = q.single(app.world()).map(|k| k.pos).unwrap();
         assert_eq!(player_pos, expected_spawn);
     }

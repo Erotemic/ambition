@@ -23,7 +23,7 @@ use crate::enemy_projectile::{EnemyProjectileSpawn, EnemyProjectileState};
 use crate::engine_core as ae;
 use crate::features::HeldItem;
 use crate::input::ControlFrame;
-use crate::player::{PlayerEntity, PlayerKinematics, PlayerMana, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PlayerMana, PrimaryPlayer};
 use crate::projectile::ProjectileFaction;
 
 /// Held-item id of the meteor gauntlet.
@@ -83,7 +83,7 @@ fn meteor_strike_origins(
 pub fn fire_meteor_system(
     control: Res<ControlFrame>,
     mut players: Query<
-        (&PlayerKinematics, &HeldItem, &mut PlayerMana),
+        (&BodyKinematics, &HeldItem, &mut PlayerMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     mut projectiles: ResMut<EnemyProjectileState>,
@@ -128,6 +128,7 @@ pub fn fire_meteor_system(
 mod tests {
     use super::*;
     use crate::brain::ActionSet;
+    use crate::player::PlayerBaseSize;
 
     fn test_app() -> App {
         let mut app = App::new();
@@ -144,12 +145,14 @@ mod tests {
             .spawn((
                 PlayerEntity,
                 PrimaryPlayer,
-                PlayerKinematics {
+                BodyKinematics {
                     pos: ae::Vec2::new(100.0, 100.0),
                     vel: ae::Vec2::ZERO,
                     size: ae::Vec2::new(24.0, 40.0),
-                    base_size: ae::Vec2::new(24.0, 40.0),
                     facing: 1.0,
+                },
+                PlayerBaseSize {
+                    base_size: ae::Vec2::new(24.0, 40.0),
                 },
                 ActionSet::default(),
                 HeldItem::new(spec),

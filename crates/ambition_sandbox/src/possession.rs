@@ -16,7 +16,7 @@
 use bevy::prelude::*;
 
 use crate::input::ControlFrame;
-use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 
 /// Marker on the actor the player is currently possessing. Carries the latest
 /// player `ControlFrame`, synced each frame by [`sync_possession_input`] (which
@@ -76,7 +76,7 @@ pub fn possession_trigger_system(
     mut prev_down_interact: Local<bool>,
     mut state: ResMut<PossessionState>,
     mut commands: Commands,
-    mut players: Query<&mut PlayerKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    mut players: Query<&mut BodyKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     candidates: Query<
         (Entity, &crate::features::FeatureAabb),
         (
@@ -181,6 +181,7 @@ pub fn release_possession_if_target_lost(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::player::PlayerBaseSize;
 
     fn vec2(x: f32, y: f32) -> crate::engine_core::Vec2 {
         crate::engine_core::Vec2::new(x, y)
@@ -203,12 +204,14 @@ mod tests {
         app.world_mut().spawn((
             PlayerEntity,
             PrimaryPlayer,
-            PlayerKinematics {
+            BodyKinematics {
                 pos: vec2(0.0, 0.0),
                 vel: vec2(0.0, 0.0),
                 size: vec2(24.0, 40.0),
-                base_size: vec2(24.0, 40.0),
                 facing: 1.0,
+            },
+            PlayerBaseSize {
+                base_size: vec2(24.0, 40.0),
             },
         ));
     }
@@ -283,7 +286,7 @@ mod tests {
         // camera that was following the actor doesn't snap back to the old body.
         let player_pos = app
             .world_mut()
-            .query_filtered::<&PlayerKinematics, With<PlayerEntity>>()
+            .query_filtered::<&BodyKinematics, With<PlayerEntity>>()
             .single(app.world())
             .unwrap()
             .pos;

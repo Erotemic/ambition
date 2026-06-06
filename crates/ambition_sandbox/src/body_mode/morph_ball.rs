@@ -134,7 +134,7 @@ pub fn sync_morph_ball_visual(
     entities: Res<crate::presentation::rendering::SceneEntities>,
     player_q: Query<
         (
-            &crate::player::PlayerKinematics,
+            &crate::player::BodyKinematics,
             &crate::player::PlayerBodyModeState,
         ),
         crate::player::PrimaryPlayerOnly,

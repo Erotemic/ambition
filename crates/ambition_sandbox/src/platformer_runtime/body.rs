@@ -40,6 +40,21 @@ pub struct BodyKinematics {
     pub facing: f32,
 }
 
+impl Default for BodyKinematics {
+    /// Player-flavored default (the only `::default()` callers are player
+    /// spawn helpers): a default-sized body at the origin, at rest, facing
+    /// right. Matches the pre-unification `PlayerKinematics::default`.
+    fn default() -> Self {
+        let body = crate::engine_core::movement::default_player_body_size();
+        Self {
+            pos: Vec2::ZERO,
+            vel: Vec2::ZERO,
+            size: body,
+            facing: 1.0,
+        }
+    }
+}
+
 impl BodyKinematics {
     /// The body's world-space AABB (centered on `pos`, half-extents `size/2`).
     pub fn aabb(self) -> Aabb {

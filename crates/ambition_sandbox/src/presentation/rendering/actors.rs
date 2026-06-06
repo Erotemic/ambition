@@ -34,7 +34,8 @@ pub fn sync_visuals(
             &mut Transform,
             &mut Sprite,
             Option<&PlayerSpriteBaseline>,
-            &crate::player::PlayerKinematics,
+            &crate::player::BodyKinematics,
+            &crate::player::PlayerBaseSize,
             &crate::player::PlayerCombatState,
             Option<&crate::platformer_runtime::orientation::ActorRoll>,
         ),
@@ -47,7 +48,7 @@ pub fn sync_visuals(
     ecs_chest_states: Query<(&FeatureId, Option<&Opened>), With<ChestFeature>>,
     ecs_breakable_states: Query<(&FeatureId, &BreakableFeature)>,
 ) {
-    if let Ok((mut transform, mut sprite, baseline, body, player_combat, roll)) =
+    if let Ok((mut transform, mut sprite, baseline, body, base_size, player_combat, roll)) =
         player_query.get_mut(entities.player)
     {
         transform.translation = world_to_bevy(&world.0, body.pos, WORLD_Z_PLAYER);
@@ -78,10 +79,10 @@ pub fn sync_visuals(
             // startup collision so body-profile experiments remain visual.
             // Replace with authored body-profile rows once the generator emits
             // them — see PlayerSpriteBaseline doc.
-            let base_y = body.base_size.y.max(1.0);
+            let base_y = base_size.base_size.y.max(1.0);
             let stance_ratio_y = (body.size.y / base_y).clamp(0.1, 1.0);
-            let scale_x = body.base_size.x / baseline.standing_collision.x.max(1.0);
-            let scale_y = body.base_size.y / baseline.standing_collision.y.max(1.0);
+            let scale_x = base_size.base_size.x / baseline.standing_collision.x.max(1.0);
+            let scale_y = base_size.base_size.y / baseline.standing_collision.y.max(1.0);
             sprite.custom_size = Some(BVec2::new(
                 baseline.standing_render.x * scale_x,
                 baseline.standing_render.y * scale_y * stance_ratio_y,
@@ -378,7 +379,7 @@ pub fn animate_player(
             (
                 &mut Sprite,
                 &mut CharacterAnimator,
-                &crate::player::PlayerKinematics,
+                &crate::player::BodyKinematics,
                 &crate::player::PlayerGroundState,
                 &crate::player::PlayerWallState,
                 &crate::player::PlayerBlinkState,
@@ -1108,7 +1109,7 @@ pub fn apply_placeholder_sprites_override(
         Option<&SpriteOriginalState>,
         Option<&FeatureVisual>,
         Option<&PlayerVisual>,
-        Option<&crate::player::PlayerKinematics>,
+        Option<&crate::player::BodyKinematics>,
         Option<&crate::projectile::PlayerProjectileVisual>,
         Option<&crate::enemy_projectile::EnemyProjectileVisual>,
     )>,

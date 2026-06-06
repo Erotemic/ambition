@@ -134,13 +134,13 @@ pub struct PlayerIntent {
 /// primary player's facing direction. Runs after the input pipeline
 /// and the touch fold so it sees the final merged input.
 ///
-/// Reads facing from `PlayerKinematics` (the authoritative cluster)
+/// Reads facing from `BodyKinematics` (the authoritative cluster)
 /// so the intent and the affordances compute see exactly the same
 /// facing value within one frame.
 pub fn compute_player_intent(
     control_frame: Res<ControlFrame>,
     player_q: Query<
-        &crate::player::PlayerKinematics,
+        &crate::player::BodyKinematics,
         (
             With<crate::player::PlayerEntity>,
             With<crate::player::PrimaryPlayer>,

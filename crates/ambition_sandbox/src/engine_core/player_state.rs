@@ -298,7 +298,8 @@ impl BodyShape {
 /// leaves state unchanged) when the target shape doesn't fit in the
 /// current world geometry — e.g. a low ceiling rejecting a stand-up.
 pub fn try_change_body_mode_clusters<F>(
-    kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
+    kinematics: &mut crate::engine_core::player_clusters::BodyKinematics,
+    base_size: &crate::engine_core::player_clusters::PlayerBaseSize,
     body_mode_state: &mut crate::engine_core::player_clusters::PlayerBodyModeState,
     new_mode: BodyMode,
     world: &crate::engine_core::world::World,
@@ -310,7 +311,7 @@ where
     if body_mode_state.body_mode == new_mode {
         return true;
     }
-    let new_shape = new_mode.shape(kinematics.base_size);
+    let new_shape = new_mode.shape(base_size.base_size);
     let dy = (kinematics.size.y - new_shape.size.y) * 0.5;
     let new_center = Vec2::new(kinematics.pos.x, kinematics.pos.y + dy);
     if !new_shape.fits_at(new_center, world, predicate) {
@@ -608,6 +609,7 @@ mod tests {
 
         let ok = try_change_body_mode_clusters(
             &mut s.kinematics,
+            &s.base_size,
             &mut s.body_mode,
             BodyMode::Crouching,
             &world,
@@ -630,9 +632,10 @@ mod tests {
             Vec::new(),
         );
         let mut s = scratch_at(Vec2::new(100.0, 100.0));
-        let base = s.kinematics.base_size;
+        let base = s.base_size.base_size;
         try_change_body_mode_clusters(
             &mut s.kinematics,
+            &s.base_size,
             &mut s.body_mode,
             BodyMode::Crouching,
             &world,
@@ -640,6 +643,7 @@ mod tests {
         );
         try_change_body_mode_clusters(
             &mut s.kinematics,
+            &s.base_size,
             &mut s.body_mode,
             BodyMode::Crouching,
             &world,
@@ -647,6 +651,7 @@ mod tests {
         );
         let ok = try_change_body_mode_clusters(
             &mut s.kinematics,
+            &s.base_size,
             &mut s.body_mode,
             BodyMode::Standing,
             &world,
@@ -677,6 +682,7 @@ mod tests {
 
         let ok = try_change_body_mode_clusters(
             &mut s.kinematics,
+            &s.base_size,
             &mut s.body_mode,
             BodyMode::Crouching,
             &world,
@@ -686,6 +692,7 @@ mod tests {
 
         let stand_attempt = try_change_body_mode_clusters(
             &mut s.kinematics,
+            &s.base_size,
             &mut s.body_mode,
             BodyMode::Standing,
             &world,
@@ -708,6 +715,7 @@ mod tests {
         let size_before = s.kinematics.size;
         let ok = try_change_body_mode_clusters(
             &mut s.kinematics,
+            &s.base_size,
             &mut s.body_mode,
             BodyMode::Standing,
             &world,

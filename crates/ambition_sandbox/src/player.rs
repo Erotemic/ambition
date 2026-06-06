@@ -34,10 +34,11 @@ pub use components::{
 };
 pub use events::PlayerHealRequested;
 pub use movement_components::{
-    PlayerAbilities, PlayerActionBuffer, PlayerBlinkState, PlayerBodyModeState, PlayerComboTrace,
-    PlayerDashState, PlayerDodgeState, PlayerEnvironmentContact, PlayerFlightState,
-    PlayerGroundState, PlayerJumpState, PlayerKinematics, PlayerLedgeState, PlayerLifetime,
-    PlayerMana, PlayerOffense, PlayerShieldState, PlayerWallState,
+    BodyKinematics, PlayerAbilities, PlayerActionBuffer, PlayerBaseSize, PlayerBlinkState,
+    PlayerBodyModeState, PlayerComboTrace, PlayerDashState, PlayerDodgeState,
+    PlayerEnvironmentContact, PlayerFlightState, PlayerGroundState, PlayerJumpState,
+    PlayerLedgeState, PlayerLifetime, PlayerMana, PlayerOffense, PlayerShieldState,
+    PlayerWallState,
 };
 pub use queries::{primary_player_entity, sort_players_by_slot, PrimaryPlayerOnly};
 pub use systems::{

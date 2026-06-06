@@ -15,7 +15,7 @@ pub fn interact_ecs_actors_and_switches(
     mut banner: ResMut<GameplayBanner>,
     mut player: Query<
         (
-            &crate::player::PlayerKinematics,
+            &crate::player::BodyKinematics,
             &mut crate::player::PlayerInteractionState,
             &mut crate::player::PlayerAnimState,
         ),

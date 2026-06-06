@@ -741,7 +741,7 @@ pub enum ActionRequest {
     ///
     /// The variant intentionally omits `origin` and `facing` — the
     /// projectile EFFECTS consumer reads those from its
-    /// `PlayerKinematics` query (the authoritative source of player
+    /// `BodyKinematics` query (the authoritative source of player
     /// body position / facing), so dragging them through the
     /// message would just duplicate state and force the emit side
     /// to query Transform too.

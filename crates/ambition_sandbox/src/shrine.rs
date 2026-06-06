@@ -19,7 +19,7 @@ use std::hash::{Hash, Hasher};
 
 use crate::engine_core::{self as ae, AabbExt};
 use crate::input::ControlFrame;
-use crate::player::{PlayerEntity, PlayerHealth, PlayerKinematics, PlayerMana, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PlayerHealth, PlayerMana, PrimaryPlayer};
 use crate::presentation::character_sprites::{SheetRecord, SheetRegistry};
 
 /// A healing / save-point shrine the player can `Interact` with.
@@ -38,7 +38,7 @@ pub struct HealShrine {
 pub fn heal_save_shrine_system(
     control: Res<ControlFrame>,
     mut players: Query<
-        (&PlayerKinematics, &mut PlayerHealth, &mut PlayerMana),
+        (&BodyKinematics, &mut PlayerHealth, &mut PlayerMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     shrines: Query<&HealShrine>,
@@ -445,6 +445,7 @@ fn shrine_visual_key(shrine: &HealShrine) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::player::PlayerBaseSize;
 
     #[test]
     fn interacting_at_the_shrine_heals_to_full() {
@@ -460,12 +461,14 @@ mod tests {
             .spawn((
                 PlayerEntity,
                 PrimaryPlayer,
-                PlayerKinematics {
+                BodyKinematics {
                     pos: Vec2::new(100.0, 100.0),
                     vel: Vec2::ZERO,
                     size: Vec2::new(24.0, 40.0),
-                    base_size: Vec2::new(24.0, 40.0),
                     facing: 1.0,
+                },
+                PlayerBaseSize {
+                    base_size: Vec2::new(24.0, 40.0),
                 },
                 PlayerHealth::new(crate::actor::Health {
                     current: 1,
@@ -526,12 +529,14 @@ mod tests {
             .spawn((
                 PlayerEntity,
                 PrimaryPlayer,
-                PlayerKinematics {
+                BodyKinematics {
                     pos: Vec2::new(100.0, 100.0),
                     vel: Vec2::ZERO,
                     size: Vec2::new(24.0, 40.0),
-                    base_size: Vec2::new(24.0, 40.0),
                     facing: 1.0,
+                },
+                PlayerBaseSize {
+                    base_size: Vec2::new(24.0, 40.0),
                 },
                 PlayerHealth::new(crate::actor::Health {
                     current: 1,

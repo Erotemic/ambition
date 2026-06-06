@@ -839,16 +839,22 @@ impl Default for EditableMovementTuning {
 /// profile after resets / room loads rebuild the player from engine defaults.
 pub fn sync_developer_body_profile(
     developer: Res<DeveloperTools>,
-    mut player_q: Query<&mut crate::player::PlayerKinematics, crate::player::PrimaryPlayerOnly>,
+    mut player_q: Query<
+        (
+            &mut crate::player::BodyKinematics,
+            &mut crate::player::PlayerBaseSize,
+        ),
+        crate::player::PrimaryPlayerOnly,
+    >,
 ) {
     let desired = developer.player_body_profile.size();
-    if let Ok(mut kinematics) = player_q.single_mut() {
-        if (kinematics.base_size - desired).length_squared() > 0.01 {
+    if let Ok((mut kinematics, mut base_size)) = player_q.single_mut() {
+        if (base_size.base_size - desired).length_squared() > 0.01 {
             // Inline the body-profile resize directly on the cluster
-            // component (formerly `apply_player_body_profile(&mut Player, ...)`).
+            // components (formerly `apply_player_body_profile(&mut Player, ...)`).
             let new_size = developer.player_body_profile.size();
             let old_bottom = kinematics.pos.y + kinematics.size.y * 0.5;
-            kinematics.base_size = new_size;
+            base_size.base_size = new_size;
             kinematics.size = new_size;
             kinematics.pos.y = old_bottom - new_size.y * 0.5;
         }
@@ -856,14 +862,18 @@ pub fn sync_developer_body_profile(
 }
 
 /// Apply a player-body profile to the live player while keeping the feet planted.
-/// Callers pass the player's `PlayerKinematics` directly.
+/// Callers pass the player's `BodyKinematics` directly.
+///
+/// This updates the live collider `size` + `pos`; the player's authored
+/// standing baseline (`PlayerBaseSize`) is reconciled to the selected profile by
+/// [`sync_developer_body_profile`], which runs every frame, so the menu caller
+/// does not need to hold a `&mut PlayerBaseSize`.
 pub fn apply_player_body_profile(
-    kinematics: &mut crate::player::PlayerKinematics,
+    kinematics: &mut crate::player::BodyKinematics,
     profile: PlayerBodyProfile,
 ) {
     let new_size = profile.size();
     let old_bottom = kinematics.pos.y + kinematics.size.y * 0.5;
-    kinematics.base_size = new_size;
     kinematics.size = new_size;
     kinematics.pos.y = old_bottom - new_size.y * 0.5;
 }

@@ -7,7 +7,7 @@ use bevy::prelude::*;
 
 use crate::engine_core::{self as ae, AabbExt};
 use crate::physics::GravityField;
-use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 
 /// Reset gravity to the default (down) when the room resets, so a flipped /
 /// zoned room doesn't carry over.
@@ -47,7 +47,7 @@ pub struct GravityFlipSwitch {
 /// gravity zones override locally while the switch sets the room default.
 pub fn gravity_flip_switch_system(
     mut base: ResMut<crate::physics::BaseGravity>,
-    players: Query<&PlayerKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    players: Query<&BodyKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     mut switches: Query<&mut GravityFlipSwitch>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
@@ -76,18 +76,21 @@ pub fn gravity_flip_switch_system(
 mod tests {
     use super::*;
     use crate::physics::{BaseGravity, GravityField};
+    use crate::player::PlayerBaseSize;
 
     fn spawn_player(app: &mut App, pos: Vec2) -> Entity {
         app.world_mut()
             .spawn((
                 PlayerEntity,
                 PrimaryPlayer,
-                PlayerKinematics {
+                BodyKinematics {
                     pos,
                     vel: Vec2::ZERO,
                     size: Vec2::new(24.0, 40.0),
-                    base_size: Vec2::new(24.0, 40.0),
                     facing: 1.0,
+                },
+                PlayerBaseSize {
+                    base_size: Vec2::new(24.0, 40.0),
                 },
             ))
             .id()
@@ -116,7 +119,7 @@ mod tests {
 
         // Step onto the switch → flips up.
         app.world_mut()
-            .get_mut::<PlayerKinematics>(player)
+            .get_mut::<BodyKinematics>(player)
             .unwrap()
             .pos = Vec2::new(400.0, 100.0);
         app.update();
@@ -133,12 +136,12 @@ mod tests {
 
         // Leave, then re-enter → flips back down.
         app.world_mut()
-            .get_mut::<PlayerKinematics>(player)
+            .get_mut::<BodyKinematics>(player)
             .unwrap()
             .pos = Vec2::new(100.0, 100.0);
         app.update();
         app.world_mut()
-            .get_mut::<PlayerKinematics>(player)
+            .get_mut::<BodyKinematics>(player)
             .unwrap()
             .pos = Vec2::new(400.0, 100.0);
         app.update();

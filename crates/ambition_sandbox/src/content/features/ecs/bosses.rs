@@ -593,7 +593,7 @@ pub fn update_ecs_bosses(
     // preserved because there's only one player today.
     player_query: Query<
         (
-            &crate::player::PlayerKinematics,
+            &crate::player::BodyKinematics,
             &crate::player::PlayerOffense,
             &crate::player::PlayerDodgeState,
             &crate::player::PlayerShieldState,
@@ -614,7 +614,10 @@ pub fn update_ecs_bosses(
             &super::super::components::ActorTarget,
             Option<&crate::features::BossAnimationFrameSample>,
         ),
-        With<FeatureSimEntity>,
+        // The player carries the unified `BodyKinematics`, and `player_query`
+        // above reads it; exclude the player here so this `&mut BodyKinematics`
+        // boss query is provably disjoint from it.
+        (With<FeatureSimEntity>, Without<crate::player::PlayerEntity>),
     >,
 ) {
     // Sim clock: bosses must slow with bullet-time (ADR 0010); a

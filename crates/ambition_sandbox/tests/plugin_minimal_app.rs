@@ -22,8 +22,8 @@
 
 use ambition_sandbox::input::ControlFrame;
 use ambition_sandbox::player::{
-    LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerCombatState, PlayerEntity,
-    PlayerHealth, PlayerIdentityBundle, PlayerInteractionState, PlayerKinematics, PlayerSlot,
+    BodyKinematics, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerCombatState,
+    PlayerEntity, PlayerHealth, PlayerIdentityBundle, PlayerInteractionState, PlayerSlot,
     PrimaryPlayer,
 };
 use ambition_sandbox::rooms::RoomSet;
@@ -100,11 +100,11 @@ fn player_entity_carries_canonical_sim_components() {
     let mut app = minimal_sim_app();
     // Cluster-native (2026-05-28): `PlayerMovementAuthority` /
     // `PlayerBody` are gone. The canonical bundle now carries
-    // `PlayerKinematics` (size, pos, vel, facing, base_size) in their
+    // `BodyKinematics` (size, pos, vel, facing) in their
     // place — assert the bundle still spawns with non-degenerate
     // body geometry plus every presentation/state component.
     let mut q = app.world_mut().query_filtered::<(
-        &PlayerKinematics,
+        &BodyKinematics,
         &PlayerHealth,
         &PlayerCombatState,
         &PlayerAnimState,
@@ -126,7 +126,7 @@ fn player_entity_carries_canonical_sim_components() {
     );
     assert!(
         kinematics.size.x > 0.0 && kinematics.size.y > 0.0,
-        "PlayerKinematics size should be non-degenerate, got {:?}",
+        "BodyKinematics size should be non-degenerate, got {:?}",
         kinematics.size
     );
 }
@@ -249,7 +249,7 @@ fn non_gameplay_mode_zeroes_time_scale_and_skips_player_simulation() {
     let baseline_pos = {
         let mut q = app
             .world_mut()
-            .query_filtered::<&PlayerKinematics, With<PlayerEntity>>();
+            .query_filtered::<&BodyKinematics, With<PlayerEntity>>();
         q.single(app.world()).expect("player should exist").pos
     };
 
@@ -274,7 +274,7 @@ fn non_gameplay_mode_zeroes_time_scale_and_skips_player_simulation() {
     let paused_pos = {
         let mut q = app
             .world_mut()
-            .query_filtered::<&PlayerKinematics, With<PlayerEntity>>();
+            .query_filtered::<&BodyKinematics, With<PlayerEntity>>();
         q.single(app.world()).expect("player should exist").pos
     };
     assert_eq!(

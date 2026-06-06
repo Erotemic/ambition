@@ -37,7 +37,7 @@ pub fn sync_projectile_visuals(
     // render independently. Single-player behavior is unchanged.
     player_q: Query<
         (
-            &crate::player::PlayerKinematics,
+            &crate::player::BodyKinematics,
             &crate::projectile::PlayerProjectileState,
         ),
         With<crate::player::PlayerEntity>,

@@ -482,7 +482,7 @@ pub fn spawn_overfit_volley_from_special_messages(
     // Reading the target's player kinematics by Entity makes this
     // system multi-player ready — single-player behavior is preserved
     // because there's only one player today.
-    player_query: Query<&crate::player::PlayerKinematics, With<crate::player::PlayerEntity>>,
+    player_query: Query<&crate::player::BodyKinematics, With<crate::player::PlayerEntity>>,
     mut bosses: Query<
         (
             Entity,
@@ -611,7 +611,7 @@ const EYE_BEAM_OWNER_PREFIX: &str = "smirking_behemoth_eye_beam";
 pub fn spawn_eye_beam_from_special_messages(
     mut enemy_projectiles: ResMut<EnemyProjectileState>,
     mut messages: MessageReader<ActorActionMessage>,
-    player_query: Query<&crate::player::PlayerKinematics, With<crate::player::PlayerEntity>>,
+    player_query: Query<&crate::player::BodyKinematics, With<crate::player::PlayerEntity>>,
     mut bosses: Query<
         (
             Entity,
@@ -758,7 +758,7 @@ pub fn spawn_minima_trap_from_special_messages(
     // Per-boss target via `ActorTarget` (populated by
     // `select_actor_targets`); same multi-player-ready pattern as
     // the overfit-volley consumer above.
-    player_query: Query<&crate::player::PlayerKinematics, With<crate::player::PlayerEntity>>,
+    player_query: Query<&crate::player::BodyKinematics, With<crate::player::PlayerEntity>>,
     mut bosses: Query<
         (
             Entity,

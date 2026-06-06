@@ -26,7 +26,7 @@ use crate::features::{
     HitboxLifetime,
 };
 use crate::input::ControlFrame;
-use crate::player::{PlayerEntity, PlayerKinematics, PlayerMana, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PlayerMana, PrimaryPlayer};
 
 /// Held-item id of the shockwave gauntlet.
 pub const SHOCKWAVE_ID: &str = "shockwave";
@@ -51,7 +51,7 @@ const SHOCKWAVE_KNOCKBACK: f32 = 1.3;
 pub fn fire_shockwave_system(
     control: Res<ControlFrame>,
     mut players: Query<
-        (Entity, &HeldItem, &PlayerKinematics, &mut PlayerMana),
+        (Entity, &HeldItem, &BodyKinematics, &mut PlayerMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     mut actions: MessageWriter<ActorActionMessage>,
@@ -96,7 +96,7 @@ pub fn fire_shockwave_system(
 pub fn spawn_shockwave_from_special_messages(
     mut commands: Commands,
     mut messages: MessageReader<ActorActionMessage>,
-    players: Query<&PlayerKinematics, With<PlayerEntity>>,
+    players: Query<&BodyKinematics, With<PlayerEntity>>,
     features: Query<(&FeatureAabb, &ActorFaction), With<FeatureSimEntity>>,
 ) {
     for msg in messages.read() {
@@ -145,6 +145,7 @@ pub fn spawn_shockwave_from_special_messages(
 mod tests {
     use super::*;
     use crate::brain::ActionSet;
+    use crate::player::PlayerBaseSize;
 
     fn test_app() -> App {
         let mut app = App::new();
@@ -164,12 +165,14 @@ mod tests {
             .spawn((
                 PlayerEntity,
                 PrimaryPlayer,
-                PlayerKinematics {
+                BodyKinematics {
                     pos: ae::Vec2::new(100.0, 100.0),
                     vel: ae::Vec2::ZERO,
                     size: ae::Vec2::new(24.0, 40.0),
-                    base_size: ae::Vec2::new(24.0, 40.0),
                     facing: 1.0,
+                },
+                PlayerBaseSize {
+                    base_size: ae::Vec2::new(24.0, 40.0),
                 },
                 ActionSet::default(),
                 HeldItem::new(spec),

@@ -5,7 +5,7 @@ use bevy::prelude::*;
 
 use crate::platformer_runtime::collision::raycast_solids;
 use crate::platformer_runtime::prelude::SpawnScopedExt;
-use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 use crate::GameWorld;
 
 use super::color::PortalChannel;
@@ -31,7 +31,7 @@ pub struct PortalShot {
 /// made by the input adapter before it emits the intent.
 pub fn portal_fire_system(
     mut fires: MessageReader<FirePortalGun>,
-    players: Query<(&PlayerKinematics, &PortalGun), (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    players: Query<(&BodyKinematics, &PortalGun), (With<PlayerEntity>, With<PrimaryPlayer>)>,
     mut commands: Commands,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {

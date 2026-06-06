@@ -303,7 +303,7 @@ pub fn update_ecs_actors(
     player_query: Query<
         (
             bevy::prelude::Entity,
-            &crate::player::PlayerKinematics,
+            &crate::player::BodyKinematics,
             &crate::player::PlayerOffense,
             &crate::player::PlayerDodgeState,
             &crate::player::PlayerShieldState,
@@ -359,7 +359,11 @@ pub fn update_ecs_actors(
                 Option<&crate::possession::Possessed>,
             ),
         ),
-        With<FeatureSimEntity>,
+        // The player carries the unified `BodyKinematics` too, and
+        // `player_query` above reads it; exclude the player here so this
+        // `&mut BodyKinematics` actor query is provably disjoint from it
+        // (player / actor archetypes never overlap).
+        (With<FeatureSimEntity>, Without<crate::player::PlayerEntity>),
     >,
 ) {
     // Sim clock: enemies, NPCs, encounter mobs all advance on the

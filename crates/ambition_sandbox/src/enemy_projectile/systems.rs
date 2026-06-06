@@ -27,7 +27,7 @@ pub fn update_enemy_projectiles(
     player_body_q: Query<
         (
             Entity,
-            &crate::player::PlayerKinematics,
+            &crate::player::BodyKinematics,
             &crate::player::PlayerOffense,
             &crate::player::PlayerDodgeState,
             &crate::player::PlayerShieldState,
@@ -333,8 +333,8 @@ mod tests {
     #[test]
     fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
         use crate::player::{
-            PlayerCombatState, PlayerDodgeState, PlayerEntity, PlayerKinematics, PlayerOffense,
-            PlayerShieldState,
+            BodyKinematics, PlayerBaseSize, PlayerCombatState, PlayerDodgeState, PlayerEntity,
+            PlayerOffense, PlayerShieldState,
         };
         let mut app = App::new();
         app.insert_resource(crate::GameWorld(ae::World::new(
@@ -357,12 +357,14 @@ mod tests {
         let player_pos = ae::Vec2::new(200.0, 200.0);
         app.world_mut().spawn((
             PlayerEntity,
-            PlayerKinematics {
+            BodyKinematics {
                 pos: player_pos,
                 vel: ae::Vec2::ZERO,
                 size: ae::Vec2::new(24.0, 40.0),
-                base_size: ae::Vec2::new(24.0, 40.0),
                 facing: 1.0,
+            },
+            PlayerBaseSize {
+                base_size: ae::Vec2::new(24.0, 40.0),
             },
             PlayerOffense::default(),
             PlayerDodgeState::default(),

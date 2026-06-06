@@ -54,7 +54,7 @@ pub(super) fn body_is_side_contact(body: Aabb, block: Aabb) -> bool {
 /// pre-existing penetrations.
 pub(super) fn sweep_player_x_clusters(
     world: &World,
-    kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
+    kinematics: &mut crate::engine_core::player_clusters::BodyKinematics,
     wall: &mut crate::engine_core::player_clusters::PlayerWallState,
     body_mode: &crate::engine_core::player_clusters::PlayerBodyModeState,
     env_contact: &crate::engine_core::player_clusters::PlayerEnvironmentContact,
@@ -115,7 +115,7 @@ pub(super) fn sweep_player_x_clusters(
 /// positional repair.
 pub(super) fn sweep_player_y_clusters(
     world: &World,
-    kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
+    kinematics: &mut crate::engine_core::player_clusters::BodyKinematics,
     ground: &mut crate::engine_core::player_clusters::PlayerGroundState,
     body_mode: &crate::engine_core::player_clusters::PlayerBodyModeState,
     env_contact: &crate::engine_core::player_clusters::PlayerEnvironmentContact,
@@ -295,7 +295,7 @@ fn resolve_x_penetration(body: Aabb, block: Aabb, world_w: f32) -> Option<(f32, 
 /// contacts).
 fn resolve_axis_clusters(
     world: &World,
-    kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
+    kinematics: &mut crate::engine_core::player_clusters::BodyKinematics,
     wall: &mut crate::engine_core::player_clusters::PlayerWallState,
     _body_mode: &crate::engine_core::player_clusters::PlayerBodyModeState,
     _env_contact: &crate::engine_core::player_clusters::PlayerEnvironmentContact,
@@ -330,7 +330,7 @@ fn resolve_axis_clusters(
 /// teleport a clinging body to a wall's far edge.
 fn resolve_vertical_clusters(
     world: &World,
-    kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
+    kinematics: &mut crate::engine_core::player_clusters::BodyKinematics,
     ground: &mut crate::engine_core::player_clusters::PlayerGroundState,
     _body_mode: &crate::engine_core::player_clusters::PlayerBodyModeState,
     _env_contact: &crate::engine_core::player_clusters::PlayerEnvironmentContact,
@@ -382,7 +382,7 @@ fn resolve_vertical_clusters(
 }
 
 /// AABB-only variant of [`standing_on_one_way`]. Cluster-aware
-/// callers pass `PlayerKinematics::aabb()` directly.
+/// callers pass `BodyKinematics::aabb()` directly.
 pub fn standing_on_one_way_aabb(world: &World, body: Aabb) -> bool {
     for block in &world.blocks {
         if !matches!(block.kind, BlockKind::OneWay) {
@@ -399,7 +399,7 @@ pub fn standing_on_one_way_aabb(world: &World, body: Aabb) -> bool {
 }
 
 /// Tile-set-only hazard touch test. Cluster-aware callers
-/// pass `PlayerKinematics::aabb()` directly without building an
+/// pass `BodyKinematics::aabb()` directly without building an
 /// `ae::Player`.
 pub fn touching_hazard_aabb(world: &World, aabb: crate::engine_core::Aabb) -> bool {
     world
@@ -422,7 +422,7 @@ pub fn touching_rebound_aabb(world: &World, aabb: crate::engine_core::Aabb) -> O
 /// clears the ground flag.
 pub fn try_pogo_clusters(
     world: &World,
-    kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
+    kinematics: &mut crate::engine_core::player_clusters::BodyKinematics,
     abilities: &crate::engine_core::player_clusters::PlayerAbilities,
     dash: &mut crate::engine_core::player_clusters::PlayerDashState,
     jump_state: &mut crate::engine_core::player_clusters::PlayerJumpState,

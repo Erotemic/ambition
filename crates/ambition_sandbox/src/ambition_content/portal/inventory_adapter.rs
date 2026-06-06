@@ -22,7 +22,7 @@ use crate::engine_core::{self as ae, AabbExt};
 use crate::item_pickup::StashedActionSet;
 use crate::items::{Item, OwnedItems};
 use crate::platformer_runtime::prelude::SpawnScopedExt;
-use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerBaseSize, PlayerEntity, PrimaryPlayer};
 use crate::portal::{
     DropPortalGun, PickUpPortalGun, PortalGun, PortalGunEquipped, PortalGunPickup,
 };
@@ -68,7 +68,7 @@ pub fn drop_portal_gun_system(
     mut players: Query<
         (
             Entity,
-            &PlayerKinematics,
+            &BodyKinematics,
             &mut ActionSet,
             Option<&StashedActionSet>,
         ),
@@ -120,7 +120,7 @@ pub fn pickup_portal_gun_system(
     mut picks: MessageReader<PickUpPortalGun>,
     mut commands: Commands,
     mut players: Query<
-        (Entity, &PlayerKinematics, &mut ActionSet),
+        (Entity, &BodyKinematics, &mut ActionSet),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     already_have: Query<(), (With<PlayerEntity>, With<PrimaryPlayer>, With<PortalGun>)>,
@@ -192,12 +192,14 @@ mod tests {
             .spawn((
                 PlayerEntity,
                 PrimaryPlayer,
-                PlayerKinematics {
+                BodyKinematics {
                     pos,
                     vel: Vec2::ZERO,
                     size: Vec2::new(24.0, 40.0),
-                    base_size: Vec2::new(24.0, 40.0),
                     facing,
+                },
+                PlayerBaseSize {
+                    base_size: Vec2::new(24.0, 40.0),
                 },
                 PortalGun::default(),
                 ActionSet::default(),
@@ -217,12 +219,14 @@ mod tests {
             .spawn((
                 PlayerEntity,
                 PrimaryPlayer,
-                PlayerKinematics {
+                BodyKinematics {
                     pos: Vec2::new(50.0, 50.0),
                     vel: Vec2::ZERO,
                     size: Vec2::new(24.0, 40.0),
-                    base_size: Vec2::new(24.0, 40.0),
                     facing: 1.0,
+                },
+                PlayerBaseSize {
+                    base_size: Vec2::new(24.0, 40.0),
                 },
                 ActionSet::default(),
                 // No PortalGun yet — the single pickup item grants it.
@@ -290,7 +294,7 @@ mod tests {
                 .pos
         };
         app.world_mut()
-            .get_mut::<PlayerKinematics>(player)
+            .get_mut::<BodyKinematics>(player)
             .unwrap()
             .pos = pickup_pos;
 

@@ -211,8 +211,8 @@ mod tests {
     fn build_test_app() -> (App, Entity) {
         use crate::input::ControlFrame;
         use crate::player::{
-            PlayerBodyModeState, PlayerEntity, PlayerEnvironmentContact, PlayerGroundState,
-            PlayerKinematics, PlayerLedgeState, PrimaryPlayer,
+            BodyKinematics, PlayerBodyModeState, PlayerEntity, PlayerEnvironmentContact,
+            PlayerGroundState, PlayerLedgeState, PrimaryPlayer,
         };
 
         let mut app = App::new();
@@ -233,7 +233,7 @@ mod tests {
             .spawn((
                 PlayerEntity,
                 PrimaryPlayer,
-                PlayerKinematics::default(),
+                BodyKinematics::default(),
                 PlayerGroundState {
                     on_ground: true,
                     ..Default::default()
@@ -288,7 +288,7 @@ mod tests {
         // Side-stick (forward relative to right-facing) → SideSpecial.
         {
             let mut entity = app.world_mut().entity_mut(player_entity);
-            let mut kin = entity.get_mut::<crate::player::PlayerKinematics>().unwrap();
+            let mut kin = entity.get_mut::<crate::player::BodyKinematics>().unwrap();
             kin.facing = 1.0;
         }
         {
@@ -348,7 +348,7 @@ mod tests {
             ent.get_mut::<crate::player::PlayerGroundState>()
                 .unwrap()
                 .on_ground = false;
-            ent.get_mut::<crate::player::PlayerKinematics>()
+            ent.get_mut::<crate::player::BodyKinematics>()
                 .unwrap()
                 .facing = 1.0;
         }

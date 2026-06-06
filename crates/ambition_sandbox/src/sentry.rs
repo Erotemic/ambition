@@ -18,7 +18,7 @@ use crate::enemy_projectile::{EnemyProjectileSpawn, EnemyProjectileState};
 use crate::engine_core as ae;
 use crate::features::{ActorFaction, FeatureAabb, FeatureSimEntity, HeldItem};
 use crate::input::ControlFrame;
-use crate::player::{PlayerEntity, PlayerKinematics, PlayerMana, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PlayerMana, PrimaryPlayer};
 use crate::projectile::ProjectileFaction;
 
 /// Held-item id of the sentry gauntlet.
@@ -52,7 +52,7 @@ pub struct Sentry {
 pub fn fire_sentry_system(
     control: Res<ControlFrame>,
     mut players: Query<
-        (&PlayerKinematics, &HeldItem, &mut PlayerMana),
+        (&BodyKinematics, &HeldItem, &mut PlayerMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     mut commands: Commands,
@@ -157,6 +157,7 @@ pub fn update_sentries(
 mod tests {
     use super::*;
     use crate::brain::ActionSet;
+    use crate::player::PlayerBaseSize;
 
     fn test_app() -> App {
         let mut app = App::new();
@@ -176,12 +177,14 @@ mod tests {
         app.world_mut().spawn((
             PlayerEntity,
             PrimaryPlayer,
-            PlayerKinematics {
+            BodyKinematics {
                 pos: ae::Vec2::new(100.0, 100.0),
                 vel: ae::Vec2::ZERO,
                 size: ae::Vec2::new(24.0, 40.0),
-                base_size: ae::Vec2::new(24.0, 40.0),
                 facing: 1.0,
+            },
+            PlayerBaseSize {
+                base_size: ae::Vec2::new(24.0, 40.0),
             },
             ActionSet::default(),
             HeldItem::new(spec),

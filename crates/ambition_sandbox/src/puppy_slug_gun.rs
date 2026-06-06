@@ -18,7 +18,7 @@ use bevy::prelude::*;
 use crate::engine_core as ae;
 use crate::features::{ActorAggression, ActorFaction, HeldItem};
 use crate::input::ControlFrame;
-use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
+use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 
 /// Marks a summoned, player-allied puppy slug (so the cap can count them and a
 /// future system can manage them).
@@ -41,7 +41,7 @@ pub fn fire_puppy_slug_gun_system(
     control: Res<ControlFrame>,
     mut commands: Commands,
     mut next_id: Local<u64>,
-    players: Query<(&PlayerKinematics, &HeldItem), (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    players: Query<(&BodyKinematics, &HeldItem), (With<PlayerEntity>, With<PrimaryPlayer>)>,
     allies: Query<(), With<PuppySlugAlly>>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
@@ -95,6 +95,7 @@ mod tests {
     use super::*;
     use crate::brain::ActionSet;
     use crate::content::features::ActorFaction as Faction;
+    use crate::player::PlayerBaseSize;
 
     fn test_app() -> App {
         let mut app = App::new();
@@ -109,12 +110,14 @@ mod tests {
         app.world_mut().spawn((
             PlayerEntity,
             PrimaryPlayer,
-            PlayerKinematics {
+            BodyKinematics {
                 pos: ae::Vec2::new(100.0, 100.0),
                 vel: ae::Vec2::ZERO,
                 size: ae::Vec2::new(24.0, 40.0),
-                base_size: ae::Vec2::new(24.0, 40.0),
                 facing: 1.0,
+            },
+            PlayerBaseSize {
+                base_size: ae::Vec2::new(24.0, 40.0),
             },
             ActionSet::default(),
             HeldItem::new(spec),

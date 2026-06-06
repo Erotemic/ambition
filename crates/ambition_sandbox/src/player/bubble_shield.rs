@@ -111,7 +111,7 @@ pub fn sync_bubble_shield_visual(
     world: Res<crate::GameWorld>,
     player_q: Query<
         (
-            &crate::player::PlayerKinematics,
+            &crate::player::BodyKinematics,
             &crate::player::PlayerShieldState,
         ),
         crate::player::PrimaryPlayerOnly,

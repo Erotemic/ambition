@@ -8,7 +8,7 @@
 //! via `crate::*`.
 //!
 //! Player state is authoritative on the 18 player cluster components
-//! (`PlayerKinematics`, `PlayerGroundState`, …, `PlayerComboTrace`).
+//! (`BodyKinematics`, `PlayerGroundState`, …, `PlayerComboTrace`).
 //! Do not introduce a god-object runtime resource; add narrow resources or ECS
 //! components instead.
 //!

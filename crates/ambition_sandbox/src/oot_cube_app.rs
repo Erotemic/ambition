@@ -2330,7 +2330,7 @@ mod oot_cube_app_tests {
             PrimaryPlayer,
             ActionSet::default(),
             PlayerMana::default(),
-            crate::player::PlayerKinematics::default(),
+            crate::player::BodyKinematics::default(),
             crate::player::PlayerAbilities::default(),
             crate::player::PlayerDashState::default(),
             crate::player::PlayerJumpState::default(),

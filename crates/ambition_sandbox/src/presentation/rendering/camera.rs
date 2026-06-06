@@ -104,7 +104,8 @@ pub fn camera_follow(
     mut last_camera_room: Local<Option<String>>,
     player: Query<
         (
-            &crate::player::PlayerKinematics,
+            &crate::player::BodyKinematics,
+            &crate::player::PlayerBaseSize,
             &crate::player::PlayerBlinkCameraState,
         ),
         crate::player::PrimaryPlayerOnly,
@@ -124,7 +125,9 @@ pub fn camera_follow(
 
     let overview_scale = developer_tools.overview_camera_scale.max(1.0);
     let encounter_scale = encounter_registry.active_camera_zoom().max(1.0);
-    let Ok((mut player_body, blink_cam)) = player.single().map(|(b, bc)| (*b, *bc)) else {
+    let Ok((mut player_body, player_base_size, blink_cam)) =
+        player.single().map(|(b, bs, bc)| (*b, *bs, *bc))
+    else {
         return;
     };
     // Possession override: point the camera at the possessed actor's body
@@ -227,7 +230,7 @@ pub fn camera_follow(
     let (target, target_world) = if developer_tools.overview_camera {
         // Overview still follows the player — the zoom handles the wider view.
         // Previously locked to world center, making large rooms unnavigable in F5 mode.
-        let resize_offset = (player_body.base_size.y - player_body.size.y) * 0.5;
+        let resize_offset = (player_base_size.base_size.y - player_body.size.y) * 0.5;
         let target_world = ae::Vec2::new(player_body.pos.x, player_body.pos.y - resize_offset);
         camera_state.live_target_world = target_world;
         camera_state.target_initialized = true;
@@ -240,7 +243,7 @@ pub fn camera_follow(
         // `(base_size.y - size.y) * 0.5`. Cancelling that offset here gives the
         // camera a fixed virtual point — entering a slide mid-dash no longer
         // produces a 10px vertical pop.
-        let resize_offset = (player_body.base_size.y - player_body.size.y) * 0.5;
+        let resize_offset = (player_base_size.base_size.y - player_body.size.y) * 0.5;
         let mut desired_target_world =
             ae::Vec2::new(player_body.pos.x, player_body.pos.y - resize_offset);
         let (bias_x, bias_y) = user_settings.video.camera_framing.target_offset(

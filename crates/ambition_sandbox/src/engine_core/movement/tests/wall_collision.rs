@@ -515,7 +515,7 @@ fn sliding_along_the_ceiling_edge_does_not_teleport_across_the_room() {
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
     scratch.kinematics.size = Vec2::new(30.0, 48.0);
-    scratch.kinematics.base_size = Vec2::new(30.0, 48.0);
+    scratch.base_size.base_size = Vec2::new(30.0, 48.0);
     scratch.kinematics.pos = Vec2::new(1000.0, 56.01); // top ~= ceiling bottom (32)
     scratch.kinematics.vel = Vec2::new(-760.0, 0.0); // flying left, fast
     scratch.ground.on_ground = false;
@@ -564,7 +564,7 @@ fn ceiling_graze_x_sweep_does_not_teleport_body_to_the_far_edge() {
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
     scratch.kinematics.size = Vec2::new(30.0, 48.0);
-    scratch.kinematics.base_size = Vec2::new(30.0, 48.0);
+    scratch.base_size.base_size = Vec2::new(30.0, 48.0);
     scratch.kinematics.pos = Vec2::new(1000.9404, 56.01338);
     scratch.kinematics.vel = Vec2::new(-760.0, 1.6108618);
     let dt = 0.006874742_f32;

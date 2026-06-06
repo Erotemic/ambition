@@ -132,7 +132,9 @@ pub use time::camera_ease::{
     DEFAULT_CAMERA_ZOOM_SNAP_EPSILON,
 };
 pub use time::move_toward;
-pub use time::world_time::{refresh_world_time, ClockDomain, WorldTime};
+pub use time::world_time::{
+    mirror_sim_dt_into_runtime, refresh_world_time, ClockDomain, WorldTime,
+};
 
 /// Android shared-library entry point.
 ///

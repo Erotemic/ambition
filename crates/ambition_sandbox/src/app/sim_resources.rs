@@ -159,6 +159,11 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             // `Res<Time>::delta_secs()` for anything that should slow
             // / freeze when the world slows / freezes.
             .insert_resource(crate::WorldTime::default())
+            // Neutral runtime mirror of `WorldTime::sim_dt()` — the
+            // platformer-runtime crate's generic systems read scaled dt
+            // through this sandbox-free resource. Filled each frame by
+            // `mirror_sim_dt_into_runtime` right after `refresh_world_time`.
+            .insert_resource(ambition_platformer_runtime::time::SimDt::default())
             // Portal registry — per-portal lifecycle state machine
             // (Off / Opening / On / Closing). The portal itself owns
             // traversal readiness; the switch only commands the

@@ -74,8 +74,8 @@ pub fn add_simulation_plugins(app: &mut App) {
     app.add_plugins(crate::brain::BrainPlugin);
     register_player_input_systems(app);
     register_player_simulation_systems(app);
-    register_portal_systems(app);
-    register_item_pickup_systems(app);
+    app.add_plugins(crate::portal::PortalPlugin);
+    app.add_plugins(crate::item_pickup::ItemPickupSimulationPlugin);
     register_room_transition_systems(app);
     app.add_plugins(super::combat_schedule::CombatSchedulePlugin);
     register_presentation_sync_systems(app);
@@ -151,10 +151,9 @@ fn register_player_input_systems(app: &mut App) {
             apply_cut_rope_room_replay_request_system,
             input_timer_system.run_if(gameplay_allowed),
             interaction_input_system.run_if(gameplay_allowed),
-            // Portal-warp the held movement input after a crossing (the
-            // same-wall ping-pong fix) — runs on the finalized ControlFrame,
-            // before it is mirrored to the player's PlayerInputFrame below.
-            crate::portal::warp_portal_input.run_if(gameplay_allowed),
+            // Portal-warped held movement input is registered by
+            // `crate::portal::PortalPlugin` so the portal subsystem owns
+            // its input seam.
             // Per-player input migration (OVERNIGHT-TODO #17.5). Mirror
             // the now-final `Res<ControlFrame>` onto the local primary
             // player's `PlayerInputFrame` so simulation systems can
@@ -246,171 +245,9 @@ fn register_player_simulation_systems(app: &mut App) {
     );
 }
 
-/// Portal gun: grant + fire + toggle, then teleport. Teleport runs after the
-/// player simulation so it acts on this frame's integrated position; the rest
-/// run in the same `PlayerSimulation` set so a fire/toggle this frame is seen.
-fn register_portal_systems(app: &mut App) {
-    app.init_resource::<crate::portal::IntentionalTeleport>();
-    app.init_resource::<crate::portal::SuppressWallAbilitiesInPortal>();
-    app.init_resource::<crate::physics::GravityField>();
-    app.init_resource::<crate::physics::BaseGravity>();
-    app.init_resource::<crate::physics::GravityZones>();
-    // Snapshot all gravity zones once per frame BEFORE the actor integrators read
-    // them, so every body (enemies / NPCs / items / projectiles) can resolve its
-    // OWN local gravity by position (gravity is local in space, not one global).
-    app.add_systems(
-        Update,
-        (
-            // Slide oscillating columns, then snapshot, before the integrators read.
-            crate::physics::oscillate_gravity_zones,
-            crate::physics::collect_gravity_zones,
-            // Carve placed-portal apertures out of the host surface BEFORE the
-            // movement integrators build the augmented collision world, so a body
-            // can sink into a portal (the "feet in, feet out" transit).
-            crate::portal::publish_portal_carves,
-        )
-            .chain()
-            .before(SandboxSet::CoreSimulation),
-    );
-    app.add_systems(
-        Update,
-        (
-            crate::portal::drop_portal_gun_system.run_if(gameplay_allowed),
-            crate::portal::portal_toggle_system.run_if(gameplay_allowed),
-            crate::portal::portal_fire_system.run_if(gameplay_allowed),
-            crate::portal::portal_projectile_step.run_if(gameplay_allowed),
-            // Portals must not outlive their gun (the "destroyed" case).
-            crate::portal::despawn_orphaned_portals,
-            // Make sure the player can carry an aerial roll through portals.
-            crate::portal::ensure_actor_roll,
-        )
-            .chain()
-            .in_set(SandboxSet::PlayerSimulation),
-    );
-    // Suppress ledge-grab while transiting (so the carved aperture edges aren't
-    // grabbed) — must run BEFORE the movement integration probes for a grab.
-    app.add_systems(
-        Update,
-        crate::portal::suppress_ledge_grab_during_transit
-            .in_set(SandboxSet::PlayerSimulation)
-            .before(player_simulation_system)
-            .run_if(gameplay_allowed),
-    );
-    // Teleports MUST run after the player movement integration (and the ground
-    // item physics) — otherwise `player_simulation_system` re-integrates from
-    // the pre-teleport position and the jump is silently undone (that's the
-    // "I see the portals but can't walk through them" bug).
-    app.add_systems(
-        Update,
-        (
-            crate::portal::tick_portal_cooldowns,
-            crate::portal::portal_transit_system,
-            crate::portal::portal_teleport_ground_items,
-            crate::portal::portal_transit_actors,
-            // Ease the aerial roll the teleport just set (somersault to upright).
-            crate::portal::update_actor_roll,
-        )
-            .chain()
-            .in_set(SandboxSet::PlayerSimulation)
-            .after(player_simulation_system)
-            .after(crate::item_pickup::ground_item_physics)
-            .run_if(gameplay_allowed),
-    );
-}
-
-/// Held-item pickup/throw: spawn the debug axe, then pickup (Attack) and
-/// throw (Shield+Attack). In `PlayerSimulation` so it sees this frame's input.
-fn register_item_pickup_systems(app: &mut App) {
-    app.add_systems(
-        Update,
-        (
-            // Held-items, the portal gun, the heal/save shrine, and localized
-            // gravity zones are now ALL LDtk-authored (`GroundItem` /
-            // `PortalGunSpawn` / `ShrineSpawn` / `GravityZone`), spawned at room
-            // load via `spawn_room_feature_entities`; every debug near-player
-            // spawner is retired.
-            crate::shrine::heal_save_shrine_system.run_if(gameplay_allowed),
-            // Resolve the live GravityField from zones + ambient AFTER the
-            // FlipGravity Switch flips the ambient (in the encounter switch loop)
-            // and BEFORE ground_item_physics (below) reads it.
-            crate::physics::resolve_active_gravity,
-            crate::portal::arm_portal_pickups,
-            crate::item_pickup::pickup_held_item_system.run_if(gameplay_allowed),
-            // Fire the held gun-sword laser (after pickup so the grab press
-            // doesn't also fire on the same Attack), then throw, then physics.
-            crate::item_pickup::fire_held_ranged_system.run_if(gameplay_allowed),
-            crate::item_pickup::held_projectile_step.run_if(gameplay_allowed),
-            // Summon player-allied puppy slugs (plain Attack while holding the
-            // puppy-slug gun) — before throw so the gun isn't thrown instead.
-            crate::puppy_slug_gun::fire_puppy_slug_gun_system.run_if(gameplay_allowed),
-            crate::item_pickup::throw_held_item_system.run_if(gameplay_allowed),
-            crate::item_pickup::ground_item_physics.run_if(gameplay_allowed),
-            // After portal_fire (registered earlier) so picking up the gun
-            // doesn't also fire a portal on the same Attack press.
-            crate::portal::pickup_portal_gun_system.run_if(gameplay_allowed),
-        )
-            .chain()
-            .in_set(SandboxSet::PlayerSimulation),
-    );
-    // Bomb arming/detonation — a separate group (the chain above is at Bevy's
-    // tuple-arity limit). Runs after the held-item throw/physics above.
-    app.add_systems(
-        Update,
-        (
-            crate::bomb::arm_thrown_bombs.run_if(gameplay_allowed),
-            crate::bomb::tick_bomb_fuses.run_if(gameplay_allowed),
-            // Gravity grenade: thrown -> fuse -> opens a temporary up-gravity well
-            // (lifts enemies via localized gravity); tick the wells' lifetimes.
-            crate::gravity_grenade::arm_thrown_gravity_grenades.run_if(gameplay_allowed),
-            crate::gravity_grenade::tick_gravity_grenade_fuses.run_if(gameplay_allowed),
-            crate::physics::tick_temporary_zones.run_if(gameplay_allowed),
-        )
-            .chain()
-            .in_set(SandboxSet::PlayerSimulation)
-            .after(crate::item_pickup::ground_item_physics),
-    );
-    // Mark/Recall + Blink live in their own group (the held-item chain above is
-    // already at the `.chain()` tuple-size cap). Order isn't critical: these items
-    // are excluded from throw-on-attack, so `Attack` is free to drive them.
-    app.add_systems(
-        Update,
-        (
-            crate::mark_recall::mark_recall_system.run_if(gameplay_allowed),
-            crate::blink::blink_system.run_if(gameplay_allowed),
-            crate::grapple::grapple_system.run_if(gameplay_allowed),
-            // Shockwave gauntlet: plain Attack emits a ShockwaveSlam Special so
-            // the player wields the boss-style AOE (consumer in combat_schedule).
-            crate::shockwave::fire_shockwave_system.run_if(gameplay_allowed),
-            // Volley gauntlet: plain Attack fires a fan of player-faction bolts
-            // through the faction-aware projectile pool (the ranged wielded boss
-            // attack — `update_enemy_projectiles` routes them to enemies).
-            crate::volley::fire_volley_system.run_if(gameplay_allowed),
-            // Focus-beam gauntlet: plain Attack spawns an aimed line Hitbox of
-            // Player faction (the smirking_behemoth eye-beam, wielded).
-            crate::beam::fire_beam_system.run_if(gameplay_allowed),
-            // Vortex gauntlet: plain Attack spawns a point attractor that gathers
-            // enemies (no damage — pull-then-slam), then ages out.
-            crate::vortex::fire_vortex_system.run_if(gameplay_allowed),
-            crate::vortex::update_vortex_wells.run_if(gameplay_allowed),
-            // Sentry gauntlet: plain Attack deploys an auto-firing turret that
-            // shoots player-faction bolts at the nearest enemy, then expires.
-            crate::sentry::fire_sentry_system.run_if(gameplay_allowed),
-            crate::sentry::update_sentries.run_if(gameplay_allowed),
-            // Dive gauntlet: plain Attack lunges the player along the aim and
-            // cuts a one-shot damage corridor (the overflow boss's crash).
-            crate::dive::fire_dive_system.run_if(gameplay_allowed),
-            // Meteor gauntlet: plain Attack rains falling player-faction
-            // projectiles onto a zone ahead (GNU-ton's apple-rain, wielded).
-            crate::meteor::fire_meteor_system.run_if(gameplay_allowed),
-            // Shared movement-ability cooldown timer (scaled_dt, so pause /
-            // bullet-time slow it too).
-            crate::ability_cooldown::tick_ability_cooldown,
-        )
-            .chain()
-            .in_set(SandboxSet::PlayerSimulation)
-            .after(crate::item_pickup::ground_item_physics),
-    );
-}
+// Portal and held-item simulation schedules moved to
+// `crate::portal::PortalPlugin` and
+// `crate::item_pickup::ItemPickupSimulationPlugin`.
 
 /// Detection emits `RoomTransitionRequested`; apply consumes it and runs
 /// `load_room`; the feature-side `reset_ecs_room_features` system tears
@@ -425,8 +262,8 @@ fn register_room_transition_systems(app: &mut App) {
             crate::features::reset_ecs_room_features,
             crate::features::reset_ecs_npc_actors,
             crate::boss_encounter::reset_cut_rope_boss_arena_on_room_reset,
-            crate::portal::clear_portals_on_reset,
-            crate::portal::reset_gravity_on_room_reset,
+            // Portal room-reset cleanup is registered by
+            // `crate::portal::PortalPlugin`.
         )
             .chain()
             .in_set(SandboxSet::RoomTransition),
@@ -1044,11 +881,10 @@ pub(super) fn add_input_plugins(app: &mut App) {
                 #[cfg(feature = "oot_inventory")]
                 crate::oot_menu::oot_menu_input,
                 // The bevy-UI pause menu is INERT under the Cube backend (the cube
-                // owns pause/Esc/inventory). Every interaction system that runs/mutates
-                // while `Paused` is gated by `pause_menu_ui_active` so none of them can
-                // re-raise `InventoryUiState.visible` or mutate pause state behind the
-                // invisible cube (Bug 1). Under the Grid backend the condition is `true`
-                // and they behave exactly as before.
+                // renderer owns input). These pointer/drag/nav systems still run
+                // while `Paused`, so each is gated by `pause_menu_ui_active` so none
+                // can re-show the legacy menu underneath the cube (Bug 1: Esc reopen).
+                // Under the Grid backend the condition is `true`.
                 pause_menu::pause_menu_pointer_input.run_if(pause_menu::pause_menu_ui_active),
                 pause_menu::settings_slider_drag_input.run_if(pause_menu::pause_menu_ui_active),
                 pause_menu::settings_scrollbar_drag_input.run_if(pause_menu::pause_menu_ui_active),

@@ -4,7 +4,7 @@
 //! feature remains "add a RoomSpec Vec + add one loop in spawn.rs".
 
 use super::*;
-use crate::presentation::rendering::RoomScopedEntity;
+use crate::platformer_runtime::prelude::SpawnScopedExt;
 use bevy::prelude::Name;
 
 pub(super) fn spawn_hazard(
@@ -19,7 +19,7 @@ pub(super) fn spawn_hazard(
         authored.payload.clone(),
         paths,
     );
-    commands.spawn((
+    commands.spawn_room_scoped((
         Name::new(format!("Feature hazard: {}", authored.name)),
         FeatureSimEntity,
         RoomVisual,
@@ -35,7 +35,7 @@ pub(super) fn spawn_pickup(
     authored: &crate::rooms::Authored<crate::interaction::Pickup>,
 ) {
     let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
-    commands.spawn((
+    commands.spawn_room_scoped((
         Name::new(format!("Feature pickup: {}", authored.name)),
         PickupBundle::new(
             &authored.id,
@@ -53,9 +53,8 @@ pub(super) fn spawn_ground_item(commands: &mut Commands, spec: &crate::rooms::Gr
     let Some(held) = crate::brain::held_item_by_id(&spec.held_item) else {
         return;
     };
-    commands.spawn((
+    commands.spawn_room_scoped((
         Name::new(format!("Ground item: {}", spec.name)),
-        RoomScopedEntity,
         crate::item_pickup::GroundItem {
             spec: held,
             pos: spec.pos,
@@ -69,9 +68,8 @@ pub(super) fn spawn_portal_gun_spawn(
     commands: &mut Commands,
     spec: &crate::rooms::PortalGunSpawnSpec,
 ) {
-    commands.spawn((
+    commands.spawn_room_scoped((
         Name::new(format!("Portal gun pickup: {}", spec.name)),
-        RoomScopedEntity,
         crate::portal::PortalGunPickup {
             pos: spec.pos,
             half_extent: spec.half_extent,
@@ -85,7 +83,7 @@ pub(super) fn spawn_portal(commands: &mut Commands, spec: &crate::rooms::PortalS
     // Authored static portal: the same `Portal` component the gun fires, but
     // pre-placed and color-paired. Room-scoped so a transition despawns it and
     // the loader re-spawns it; never gun-owned, so it persists without a gun.
-    commands.spawn((
+    commands.spawn_room_scoped((
         Name::new(format!("Portal ({}): {}", spec.color.name(), spec.name)),
         crate::portal::Portal {
             color: spec.color,
@@ -93,14 +91,12 @@ pub(super) fn spawn_portal(commands: &mut Commands, spec: &crate::rooms::PortalS
             normal: spec.normal,
             half_extent: crate::portal::portal_half_extent(spec.normal),
         },
-        crate::presentation::rendering::RoomScopedEntity,
     ));
 }
 
 pub(super) fn spawn_shrine(commands: &mut Commands, spec: &crate::rooms::ShrineSpec) {
-    commands.spawn((
+    commands.spawn_room_scoped((
         Name::new(format!("Heal/save shrine: {}", spec.name)),
-        RoomScopedEntity,
         crate::shrine::HealShrine {
             pos: spec.pos,
             half_extent: spec.half_extent,
@@ -109,9 +105,8 @@ pub(super) fn spawn_shrine(commands: &mut Commands, spec: &crate::rooms::ShrineS
 }
 
 pub(super) fn spawn_gravity_zone(commands: &mut Commands, spec: &crate::rooms::GravityZoneSpec) {
-    let mut entity = commands.spawn((
+    let mut entity = commands.spawn_room_scoped((
         Name::new(format!("Gravity zone: {}", spec.name)),
-        RoomScopedEntity,
         crate::physics::GravityZone {
             aabb: crate::engine_core::Aabb::new(spec.center, spec.half_extent),
             dir: spec.dir,
@@ -135,7 +130,7 @@ pub(super) fn spawn_chest(
     authored: &crate::rooms::Authored<crate::interaction::Chest>,
 ) {
     let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
-    commands.spawn((
+    commands.spawn_room_scoped((
         Name::new(format!("Feature chest: {}", authored.name)),
         ChestBundle::new(
             &authored.id,
@@ -152,7 +147,7 @@ pub(super) fn spawn_breakable(
 ) {
     let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
     let breakable = &authored.payload;
-    let mut entity = commands.spawn((
+    let mut entity = commands.spawn_room_scoped((
         Name::new(format!("Feature breakable: {}", authored.name)),
         FeatureSimEntity,
         RoomVisual,

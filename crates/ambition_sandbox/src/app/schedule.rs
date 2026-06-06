@@ -1,9 +1,13 @@
 //! Sandbox simulation schedule: system sets and their explicit ordering.
 //!
-//! Single source of truth for which simulation phases exist and how they
-//! relate. Add new systems to one of these sets in `plugins.rs` via
-//! `.in_set(SandboxSet::…)` rather than pinning a fragile cross-system
-//! `.after(other_system)`.
+//! Single source of truth for the concrete sandbox app schedule.
+//!
+//! `crate::platformer_runtime::schedule::PlatformerRuntimeSet` names the
+//! reusable runtime vocabulary that future crates should depend on. `SandboxSet`
+//! is the app-level realization of that vocabulary, plus Ambition-specific tail
+//! phases. Add new systems through module-owned plugins and stable sets rather
+//! than pinning a fragile cross-system `.after(other_system)` in this file or in
+//! `plugins.rs`.
 
 use bevy::prelude::*;
 

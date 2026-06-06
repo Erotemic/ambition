@@ -3,7 +3,7 @@
 //! Fire a blue/orange portal pair onto solid surfaces, then travel between
 //! them carrying your momentum (Portal-style). This module is the
 //! self-contained mechanic: components + the three systems (fire / toggle /
-//! teleport) + a pure ray-vs-solids helper. It is deterministic (no RNG, no
+//! teleport) plus portal-aware ray traversal. It is deterministic (no RNG, no
 //! per-frame allocation in the hot path) so it runs identically in the
 //! headless sim.
 //!
@@ -26,9 +26,13 @@ use crate::engine_core::{self as ae, AabbExt};
 use crate::input::ControlFrame;
 use crate::item_pickup::StashedActionSet;
 use crate::physics::{gravity_upright_angle, GravityField, GravityZone};
+use crate::platformer_runtime::collision::ray_aabb;
+use crate::platformer_runtime::prelude::SpawnScopedExt;
 use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
 use crate::portal_pieces::{self as pp, PortalFrame};
 use crate::GameWorld;
+
+use crate::platformer_runtime::collision::raycast_solids;
 
 /// A portal's color. Portals are linked into PAIRS by complementary color (one
 /// of each), so several independent pairs can exist at once: the gun fires the
@@ -233,73 +237,9 @@ fn portal_exit_clearance(half_size: Vec2, exit_normal: Vec2) -> f32 {
 }
 
 // ---------------------------------------------------------------------------
-// Pure geometry — ray vs solid AABBs (slab method).
-
-/// Nearest solid surface hit by a ray from `origin` along `dir`. Returns the
-/// hit point and the outward face normal (pointing back toward the ray).
-pub fn raycast_solids(
-    world: &ae::World,
-    origin: Vec2,
-    dir: Vec2,
-    max_dist: f32,
-    include_one_way: bool,
-) -> Option<(Vec2, Vec2)> {
-    let dir = dir.normalize_or_zero();
-    if dir == Vec2::ZERO {
-        return None;
-    }
-    let mut best_t = max_dist;
-    let mut best_normal = Vec2::ZERO;
-    for block in &world.blocks {
-        // Portals adhere to one-way platforms too (#39); blink/dive pass through
-        // them, so they leave `include_one_way` off.
-        let hittable = matches!(
-            block.kind,
-            ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
-        ) || (include_one_way && matches!(block.kind, ae::BlockKind::OneWay));
-        if !hittable {
-            continue;
-        }
-        if let Some((t, n)) = ray_aabb(origin, dir, block.aabb) {
-            if t < best_t {
-                best_t = t;
-                best_normal = n;
-            }
-        }
-    }
-    if best_normal == Vec2::ZERO {
-        None
-    } else {
-        Some((origin + dir * best_t, best_normal))
-    }
-}
-
-/// Ray-vs-AABB. Returns `(t_near, face_normal)` for a forward hit (`t >= 0`).
-fn ray_aabb(origin: Vec2, dir: Vec2, aabb: ae::Aabb) -> Option<(f32, Vec2)> {
-    // 1/0 → ±inf is the intended slab-method behavior for axis-parallel rays.
-    let inv = Vec2::new(1.0 / dir.x, 1.0 / dir.y);
-    let tx1 = (aabb.min.x - origin.x) * inv.x;
-    let tx2 = (aabb.max.x - origin.x) * inv.x;
-    let ty1 = (aabb.min.y - origin.y) * inv.y;
-    let ty2 = (aabb.max.y - origin.y) * inv.y;
-    let tminx = tx1.min(tx2);
-    let tmaxx = tx1.max(tx2);
-    let tminy = ty1.min(ty2);
-    let tmaxy = ty1.max(ty2);
-    let t_near = tminx.max(tminy);
-    let t_far = tmaxx.min(tmaxy);
-    if t_near > t_far || t_far < 0.0 {
-        return None;
-    }
-    // The axis that produced t_near is the face we hit; its normal opposes
-    // the ray's travel on that axis.
-    let normal = if tminx > tminy {
-        Vec2::new(-dir.x.signum(), 0.0)
-    } else {
-        Vec2::new(0.0, -dir.y.signum())
-    };
-    Some((t_near.max(0.0), normal))
-}
+// Portal-aware geometry. Plain solid raycasts live in
+// `crate::platformer_runtime::collision`; this module keeps only the
+// portal-specific traversal and transform logic.
 
 /// Recursive, portal-aware raycast: cast from `origin` along `dir`, and if the
 /// ray crosses a portal face (entering from its front) before hitting a solid,
@@ -458,7 +398,7 @@ pub fn drop_portal_gun_system(
     }
     commands.entity(player).remove::<StashedActionSet>();
     let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
-    commands.spawn((
+    commands.spawn_room_scoped((
         PortalGunPickup {
             // Drop it a bit ahead and arm it after a short delay so this same
             // Attack press (and the immediately-overlapping next frame) can't
@@ -468,7 +408,6 @@ pub fn drop_portal_gun_system(
             arm_timer: 0.35,
         },
         Name::new("Portal gun pickup"),
-        crate::presentation::rendering::RoomScopedEntity,
     ));
     sfx.write(crate::audio::SfxMessage::Play {
         id: ambition_sfx::ids::PORTAL_FIZZLE,
@@ -616,7 +555,7 @@ pub fn portal_fire_system(
         id: ambition_sfx::ids::PORTAL_TRAVEL,
         pos: kin.pos,
     });
-    commands.spawn((
+    commands.spawn_room_scoped((
         PortalProjectile {
             color: gun.next_color,
             pos: kin.pos,
@@ -624,7 +563,6 @@ pub fn portal_fire_system(
             traveled: 0.0,
         },
         Name::new("Portal shot"),
-        crate::presentation::rendering::RoomScopedEntity,
     ));
 }
 
@@ -655,7 +593,7 @@ pub fn portal_projectile_step(
                     });
                 }
             }
-            commands.spawn((
+            commands.spawn_room_scoped((
                 Portal {
                     color: proj.color,
                     pos: hit + normal * 2.0,
@@ -665,7 +603,6 @@ pub fn portal_projectile_step(
                 Name::new(format!("Portal: {}", proj.color.name())),
                 // Portals are per-room: a room transition despawns them, so they
                 // don't linger and reappear when you leave and come back (#41).
-                crate::presentation::rendering::RoomScopedEntity,
             ));
             sfx.write(crate::audio::SfxMessage::Play {
                 id: ambition_sfx::ids::PORTAL_ATTACH,
@@ -3325,7 +3262,7 @@ mod tests {
         let scoped = {
             let mut q = app.world_mut().query_filtered::<(), (
                 With<Portal>,
-                With<crate::presentation::rendering::RoomScopedEntity>,
+                With<crate::platformer_runtime::lifecycle::RoomScopedEntity>,
             )>();
             q.iter(app.world()).count()
         };

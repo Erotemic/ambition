@@ -855,7 +855,7 @@ impl BossRewardChest {
 #[derive(Bundle)]
 pub struct FeatureLifecycleBundle {
     pub sim_entity: FeatureSimEntity,
-    pub room_scoped: crate::presentation::rendering::RoomScopedEntity,
+    pub room_scoped: crate::platformer_runtime::lifecycle::RoomScopedEntity,
     pub id: FeatureId,
     pub name: FeatureName,
     pub aabb: FeatureAabb,
@@ -865,7 +865,7 @@ impl FeatureLifecycleBundle {
     pub fn new(id: impl Into<String>, name: impl Into<String>, aabb: FeatureAabb) -> Self {
         Self {
             sim_entity: FeatureSimEntity,
-            room_scoped: crate::presentation::rendering::RoomScopedEntity,
+            room_scoped: crate::platformer_runtime::lifecycle::RoomScopedEntity,
             id: FeatureId(id.into()),
             name: FeatureName(name.into()),
             aabb,

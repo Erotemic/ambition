@@ -71,11 +71,12 @@ use crate::input::{MenuInputState, PlayerDashTriggerState};
 use crate::inventory;
 use crate::ldtk_world;
 use crate::pause_menu;
+use crate::platformer_runtime::lifecycle::RoomScopedEntity;
 use crate::presentation::fx::{self, vfx_spawn_messages, ParticleKind, VfxMessage};
 use crate::presentation::rendering::{
     animate_bosses, animate_characters, animate_player, camera_follow, spawn_room_visuals,
     sync_visuals, upgrade_boss_sprites, upgrade_enemy_sprites, upgrade_npc_sprites, HudText,
-    PlayerVisual, RoomScopedEntity, SceneEntities,
+    PlayerVisual, SceneEntities,
 };
 use crate::presentation::ui_fonts;
 use crate::rooms;

@@ -11,7 +11,7 @@
 //! bursts past its bounds and crashes into you. Defeat it, wield its crash
 //! yourself ("every boss a failed objective function, learn its attack").
 //!
-//! Mechanically it reuses two proven primitives: [`crate::portal::raycast_solids`]
+//! Mechanically it reuses two proven primitives: [`crate::platformer_runtime::collision::raycast_solids`]
 //! (the same wall-stop the blink uses, so the lunge never lands inside geometry)
 //! and a one-shot `Player`-faction [`crate::features::HitEvent`] over the dash
 //! corridor (a `PlayerSlash` source, so it damages enemies and spares the
@@ -116,10 +116,15 @@ pub fn fire_dive_system(
     // uses (or a down/diagonal dive embeds in the floor and trips the OOB detector).
     let half = kin.size * 0.5;
     let margin = (half.x * dir.x.abs() + half.y * dir.y.abs()) + 2.0;
-    let mut target = match world
-        .as_ref()
-        .and_then(|w| crate::portal::raycast_solids(&w.0, from, dir, DIVE_LUNGE + margin, false))
-    {
+    let mut target = match world.as_ref().and_then(|w| {
+        crate::platformer_runtime::collision::raycast_solids(
+            &w.0,
+            from,
+            dir,
+            DIVE_LUNGE + margin,
+            false,
+        )
+    }) {
         Some((hit, _normal)) => hit - dir * margin,
         None => from + dir * DIVE_LUNGE,
     };

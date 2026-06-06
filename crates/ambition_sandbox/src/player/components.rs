@@ -9,17 +9,12 @@ use bevy::prelude::*;
 
 use crate::input::ControlFrame;
 
-/// Marker for **a player entity** — there may eventually be more than
-/// one. Use this when a query wants every player regardless of locality
-/// or which slot they occupy.
-///
-/// The game currently spawns exactly one player, with `PlayerSlot(0)`,
-/// [`PrimaryPlayer`], and [`LocalPlayer`] all attached. Systems that
-/// want the camera/HUD/dev-tool target should filter on `PrimaryPlayer`
-/// (or use the helpers in [`crate::player::queries`]) rather than
-/// assuming the only `PlayerEntity` is *the* player.
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct PlayerEntity;
+// `PlayerEntity` and [`PrimaryPlayer`] are generic entity-marker components
+// queried by the reusable mechanics (portal, gravity, …), so their definitions
+// live DOWN in `ambition_platformer_runtime::markers` (ADR 0019). They are
+// re-exported here so all existing `crate::player::PlayerEntity` /
+// `PrimaryPlayer` call sites compile unchanged.
+pub use ambition_platformer_runtime::markers::{PlayerEntity, PrimaryPlayer};
 
 /// Per-player slot identifier. Slot `0` is the local primary player;
 /// future co-op / split-screen / network players will use slots
@@ -43,17 +38,6 @@ impl PlayerSlot {
         self.0
     }
 }
-
-/// Marks the player that the camera, HUD, dev tools, and pause menu
-/// follow by default. Exactly one entity in the world should carry
-/// this component; today every spawned player is also primary.
-///
-/// Distinct from [`LocalPlayer`] because in a future split-screen
-/// build the local players would each be `LocalPlayer` but only one
-/// would be `PrimaryPlayer` (e.g. the host's view in a guest-joined
-/// session).
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct PrimaryPlayer;
 
 /// Marks a player whose input comes from this machine's input devices
 /// (keyboard / gamepad / touch). In single-player today the local

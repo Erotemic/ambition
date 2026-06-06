@@ -31,8 +31,12 @@ use bevy::prelude::*;
 /// Marks the single body whose position drives the room's live gravity
 /// resolution (the active player). The runtime's `resolve_active_gravity`
 /// queries `(&BodyKinematics, With<PrimaryBody>)` so it stays content-free; the
-/// host (`ambition_sandbox`) adds this marker to its primary player entity. This
-/// is the inversion seam that lets the gravity runtime live in the crate without
-/// naming the sandbox's `PlayerEntity` / `PrimaryPlayer` markers.
+/// host (`ambition_sandbox`) adds this marker to its primary player entity.
+///
+/// Distinct from [`crate::markers::PrimaryPlayer`]: `PrimaryBody` is the
+/// gravity-relevant body, `PrimaryPlayer` is the presentation/HUD-followed
+/// player. The spawn bundle attaches both to the same entity today, but gravity
+/// filters only on `PrimaryBody` so it never depends on the player-specific
+/// marker.
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct PrimaryBody;

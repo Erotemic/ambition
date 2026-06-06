@@ -26,15 +26,14 @@ orientation.rs
                       kinematics; gravity-upright math takes a plain gravity dir
   destination:        ambition_platformer_runtime::orientation
   stage:              M3
-
-transit.rs
-  current blocker:    crate::portal_pieces (portal-map vector math)
-  extraction cond.:   pure portal-map / velocity-between-normals math moved into
-                      ambition_platformer_runtime::math (portal_pieces becomes a thin
-                      caller of, or is folded into, runtime math)
-  destination:        ambition_platformer_runtime::transit (or ::math)
-  stage:              M1
 ```
+
+Stage M1 (done): the pure portal-map vector math (`portal_rotation`, `rotate`,
+`portal_tangent`, `portal_map_vec`) moved to `ambition_platformer_runtime::math`;
+`crate::portal_pieces` re-exports it so its AABB/piece geometry and the other
+in-sandbox users keep compiling. `transit.rs` then became dependency-clean and
+moved into `ambition_platformer_runtime::transit`; the sandbox facade re-exports
+both. Its backlog entry is therefore removed.
 
 When a module's blocker is removed and it moves into the crate, delete its entry here
 and update the `platformer_runtime_crate_is_extracted` guardrail.

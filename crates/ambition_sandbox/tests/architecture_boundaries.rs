@@ -298,6 +298,93 @@ Move the binding into crate::ambition_content::portal (or extend the documented 
 }
 
 #[test]
+fn architecture_boundaries_named_content_registers_through_content_plugin() {
+    // Stage 11 / Task J: named Ambition content registration is owned by
+    // `crate::ambition_content::AmbitionContentPlugin`. Assert (a) the
+    // content boundary exists with the composer + per-content submodules,
+    // (b) the app assembly installs the content plugin, and (c) the named
+    // rosters are no longer constructed inline in `app/sim_resources.rs`.
+    let src_root = crate_src();
+
+    // (a) The content boundary owns the registration files.
+    let expected = [
+        "ambition_content/mod.rs",
+        "ambition_content/plugin.rs",
+        "ambition_content/quests/mod.rs",
+        "ambition_content/bosses/mod.rs",
+        "ambition_content/dialogue/mod.rs",
+        "ambition_content/items/mod.rs",
+    ];
+    for rel in expected {
+        assert!(
+            src_root.join(rel).exists(),
+            "named Ambition content boundary should include {rel}"
+        );
+    }
+
+    let plugin_text = fs::read_to_string(src_root.join("ambition_content/plugin.rs"))
+        .expect("read ambition_content/plugin.rs");
+    assert!(
+        plugin_text.contains("pub struct AmbitionContentPlugin"),
+        "ambition_content/plugin.rs should define AmbitionContentPlugin"
+    );
+    // The composer must actually compose the named-content registrations.
+    for needle in [
+        "AmbitionQuestContentPlugin",
+        "AmbitionBossContentPlugin",
+        "AmbitionDialogueContentPlugin",
+        "crate::intro::IntroPlugin",
+    ] {
+        assert!(
+            plugin_text.contains(needle),
+            "AmbitionContentPlugin should compose {needle}"
+        );
+    }
+
+    // (b) App assembly installs the content plugin instead of registering
+    //     named content directly.
+    let plugins_text =
+        fs::read_to_string(src_root.join("app/plugins.rs")).expect("read app/plugins.rs");
+    assert!(
+        plugins_text.contains("crate::ambition_content::AmbitionContentPlugin"),
+        "app/plugins.rs should install AmbitionContentPlugin"
+    );
+
+    // (c) The moved named-content rosters no longer get constructed inline in
+    //     the simulation-resources plugin; they flow through the content
+    //     boundary now. (Runtime music channels / empty registries populated
+    //     from LDtk are mechanic state, not named content, and stay put.)
+    let sim_resources_text = fs::read_to_string(src_root.join("app/sim_resources.rs"))
+        .expect("read app/sim_resources.rs");
+    let forbidden_inline = [
+        "QuestRegistry::default()",
+        "BossEncounterRegistry::default()",
+        "default_cutscene_library()",
+        "RoomCutsceneBindings::defaults()",
+        "install_boss_banter",
+        "install_pirate_banter",
+        "crate::intro::IntroPlugin",
+    ];
+    let violations = forbidden_inline
+        .into_iter()
+        .filter(|needle| sim_resources_text.contains(needle))
+        .collect::<Vec<_>>();
+    assert!(
+        violations.is_empty(),
+        "app/sim_resources.rs still constructs named content inline (should move behind \
+AmbitionContentPlugin): {violations:?}"
+    );
+
+    // The starter item roster moved into the content boundary; app/plugins.rs
+    // should no longer construct it inline.
+    assert!(
+        !plugins_text.contains("crate::items::OwnedItems::starter()"),
+        "app/plugins.rs should install the item roster via \
+crate::ambition_content::items::AmbitionItemRosterPlugin, not inline OwnedItems::starter()"
+    );
+}
+
+#[test]
 fn architecture_boundaries_portal_has_facade_plugin_and_schedule_files() {
     let src_root = crate_src();
     let expected = [

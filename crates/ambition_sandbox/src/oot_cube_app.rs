@@ -1420,8 +1420,22 @@ fn cube_menu_open_routing(
         // still reaches the nav systems for its own close / drill-out handling.
         menu.back = false;
         if overlay.visible {
-            play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_CLOSE);
-            close_cube_menu(&mut overlay, mode.get(), &mut next_mode);
+            // Fix 1: while the menu is open, Esc BACKS OUT one level when the cursor
+            // is inside a nested System screen (a drilled-in category / Radio /
+            // Developer entry, i.e. `open_entry.is_some()`); only at the top level
+            // does Esc CLOSE the whole menu. The restructure renamed `open_category`
+            // → `open_entry` but this Esc handler never consulted the nesting, so it
+            // always closed — the regression. Owning the drill-out HERE (instead of
+            // leaving it to `system_focus_nav`'s `menu.back`) is required because we
+            // consume the co-firing `menu.back` just above, so the nav systems can't
+            // see this Esc at all.
+            if system_nav.open_entry.is_some() {
+                play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_BACK);
+                close_system_entry(&mut system_nav, &mut cursor);
+            } else {
+                play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_CLOSE);
+                close_cube_menu(&mut overlay, mode.get(), &mut next_mode);
+            }
         } else if matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
             play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_OPEN);
             open_cube_menu(
@@ -2096,10 +2110,15 @@ mod oot_cube_app_tests {
     /// Faithful reproduction of the real app's input wiring: a leafwing player with
     /// Esc bound to BOTH `Start` (pause) and `MenuBack`, the menu-frame populate
     /// system, AND the cube routing — registered in the SAME default Update set so
-    /// the scheduler is free to order them as it does in the real app. Pressing Esc
-    /// twice (open, then close) must leave the cube CLOSED.
+    /// the scheduler is free to order them as it does in the real app.
+    ///
+    /// Fix 1 behaviour: while the menu is open, Esc BACKS OUT one level when inside a
+    /// nested System screen (`open_entry.is_some()`) and only CLOSES at the top level.
+    /// So from a drilled-in category: first Esc → back to the entry list (still open),
+    /// second Esc → close. There must be no double-trigger (Esc fires both
+    /// `menu.start` and `menu.back`).
     #[test]
-    fn esc_closes_the_open_cube_from_any_page_via_real_input() {
+    fn esc_backs_out_then_closes_the_cube_via_real_input() {
         use crate::input::SandboxAction;
         use crate::presentation::rendering::PlayerVisual;
         use leafwing_input_manager::prelude::*;
@@ -2173,9 +2192,10 @@ mod oot_cube_app_tests {
         app.update();
         assert!(visible(&app), "first Esc opens the cube");
 
-        // Drill INTO a System-page category (the page-dependent close path: inside a
-        // category `system_focus_nav` treats `menu.back` as "drill out", so the close
-        // must be owned by the start branch, not left to `menu.back`).
+        // Drill INTO a System-page category. The close path is page-dependent: inside
+        // a category Esc must BACK OUT one level (not close), and that drill-out is
+        // owned by the start branch (we consume the co-firing `menu.back` so the nav
+        // systems never see this Esc).
         app.world_mut()
             .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
             .active = Some(CubePage::System);
@@ -2183,12 +2203,26 @@ mod oot_cube_app_tests {
             Some(SystemMenuEntryId::Audio);
         app.world_mut().resource_mut::<CubeCursor>().focus = CubeFocus::System(0);
 
-        // Second Esc press → must CLOSE the cube.
+        // Second Esc press → backs OUT to the entry list (menu stays open).
         press_esc(&mut app, true);
         app.update();
         press_esc(&mut app, false);
         app.update();
-        assert!(!visible(&app), "second Esc closes the cube");
+        assert!(
+            visible(&app),
+            "second Esc (nested) backs out one level, keeping the menu open"
+        );
+        assert!(
+            app.world().resource::<CubeSystemNav>().open_entry.is_none(),
+            "second Esc drilled out of the open System entry"
+        );
+
+        // Third Esc press → now at the top level, CLOSES the cube.
+        press_esc(&mut app, true);
+        app.update();
+        press_esc(&mut app, false);
+        app.update();
+        assert!(!visible(&app), "third Esc (top level) closes the cube");
     }
 
     #[test]

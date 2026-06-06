@@ -192,6 +192,18 @@ pub struct BossBehaviorProfile {
     /// boss is authored in one RON row.
     #[serde(default)]
     pub reward: BossRewardProfile,
+    /// When `true`, ordinary player hits (slash / projectile) never damage
+    /// this boss — they only give honest local impact feedback when they
+    /// overlap the body hurtbox. The only kill condition is an environmental
+    /// rule authored elsewhere (e.g. the Smirking Behemoth's LDtk-authored
+    /// rope/anvil trap in `crate::ambition_content::bosses::cut_rope`).
+    ///
+    /// This is the data-driven inversion of the old `is_cut_rope_boss(id)`
+    /// check in core damage handling: core asks the boss's *data* whether it
+    /// is invulnerable to ordinary hits, instead of naming a specific boss,
+    /// so the dependency points content -> core, never the reverse.
+    #[serde(default)]
+    pub environmental_kill_only: bool,
 }
 
 /// Authored post-defeat reward for a boss. Parsed from the optional

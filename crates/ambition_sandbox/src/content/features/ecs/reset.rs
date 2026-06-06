@@ -13,7 +13,7 @@ pub fn reset_ecs_room_features(
     mut reset_requests: MessageReader<ResetRoomFeaturesEvent>,
     collected_pickups: Query<Entity, (With<FeatureSimEntity>, With<Collected>)>,
     opened_chests: Query<Entity, (With<FeatureSimEntity>, With<Opened>)>,
-    post_boss_npcs: Query<Entity, With<crate::boss_encounter::SmirkingBehemothVictoryNpc>>,
+    post_boss_npcs: Query<Entity, With<crate::features::PostBossNpc>>,
     mut breakables: Query<
         (Entity, &mut BreakableFeature, Option<&mut StandTimer>),
         With<FeatureSimEntity>,

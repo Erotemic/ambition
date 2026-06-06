@@ -82,7 +82,7 @@ pub struct YarnStateMirror(pub Arc<RwLock<YarnStateMirrorData>>);
 /// the data is small (flags/bosses/quests are short Vecs).
 pub fn refresh_yarn_state_mirror(
     save: Option<Res<SandboxSave>>,
-    cut_rope_heavy_object: Option<Res<crate::boss_encounter::CutRopeHeavyObjectCycle>>,
+    cut_rope_heavy_object: Option<Res<crate::ambition_content::bosses::CutRopeHeavyObjectCycle>>,
     inventory: Option<Res<crate::inventory::PlayerInventory>>,
     owned: Option<Res<crate::items::OwnedItems>>,
     wallet: Query<&crate::player::PlayerWallet, With<crate::player::PrimaryPlayer>>,
@@ -387,7 +387,7 @@ pub fn cmd_watch_cut_rope_video(mut effects: MessageWriter<SetFlagRequested>) {
 /// resource instead of resetting immediately; the simulation emits the real
 /// replay request once `DialogState` is inactive.
 pub fn cmd_reset_cut_rope_room(
-    mut pending: ResMut<crate::boss_encounter::PendingCutRopeRoomReplay>,
+    mut pending: ResMut<crate::ambition_content::bosses::PendingCutRopeRoomReplay>,
 ) {
     pending.requested = true;
     info!(

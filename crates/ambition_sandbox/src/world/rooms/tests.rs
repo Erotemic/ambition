@@ -93,7 +93,9 @@ fn spec_with(meta: RoomMetadata, id: &str) -> RoomSpec {
         moving_platforms: Vec::new(),
         props: Vec::new(),
         ground_items: Vec::new(),
+        #[cfg(feature = "portal")]
         portal_gun_spawns: Vec::new(),
+        #[cfg(feature = "portal")]
         portals: Vec::new(),
         shrines: Vec::new(),
         gravity_zones: Vec::new(),

@@ -1,3 +1,6 @@
+// Portal integration test: only built with the portal mechanic + RL stepping
+// API. Compiled out (empty test binary) when `portal` is disabled.
+#![cfg(all(feature = "portal", feature = "rl_sim"))]
 //! Room-level verification that the LDtk-authored `portal_lab` static portals are
 //! actually live and usable — i.e. a player who has NOT picked up the portal gun
 //! can walk onto an authored portal and be carried through it. (Jon hit "I still

@@ -128,13 +128,21 @@ pub fn record_frame_system(
         ),
         crate::player::PrimaryPlayerOnly,
     >,
-    mut teleported: MessageReader<crate::portal::BodyTeleported>,
+    #[cfg(feature = "portal")] mut teleported: MessageReader<crate::portal::BodyTeleported>,
 ) {
     // A portal jump this frame is an intentional teleport — tell the diff
     // detector so it doesn't flag the position snap and auto-dump. Only the
     // player's `portal_transit_system` emits `BodyTeleported`, so any message is
-    // the primary player crossing a portal.
-    buffer.expected_teleport = teleported.read().next().is_some();
+    // the primary player crossing a portal. With portal compiled out there are
+    // no teleports to expect.
+    #[cfg(feature = "portal")]
+    {
+        buffer.expected_teleport = teleported.read().next().is_some();
+    }
+    #[cfg(not(feature = "portal"))]
+    {
+        buffer.expected_teleport = false;
+    }
     let Ok((mut cluster_item, player_health, safety, input)) = player_q.single_mut() else {
         return;
     };

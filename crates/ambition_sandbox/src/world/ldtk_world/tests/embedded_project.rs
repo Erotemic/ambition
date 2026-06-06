@@ -696,6 +696,7 @@ fn ldtk_authors_gauntlet_ground_items() {
 
 /// `PortalGunSpawn` converts into `RoomSpec.portal_gun_spawns` — the authored
 /// home for the portal-gun pickup (replacing spawn_debug_portal_gun_pickup_once).
+#[cfg(feature = "portal_ldtk")]
 #[test]
 fn ldtk_authors_portal_gun_spawn() {
     let project = LdtkProject::load_default_for_dev().expect("sandbox + intro LDtk should load");
@@ -715,6 +716,7 @@ fn ldtk_authors_portal_gun_spawn() {
 /// The `portal_lab` test room authors its static portal pairs: 8 `Portal`
 /// entities (four complementary pairs, one per orientation test case), and each
 /// placed color has its partner placed (so every pair links).
+#[cfg(feature = "portal_ldtk")]
 #[test]
 fn ldtk_authors_portal_lab_pairs() {
     use crate::portal::PortalColor;

@@ -26,9 +26,11 @@ pub fn spawn_room_feature_entities(commands: &mut Commands, room: &crate::rooms:
     for ground_item in &room.ground_items {
         super::spawn_static::spawn_ground_item(commands, ground_item);
     }
+    #[cfg(feature = "portal")]
     for portal_gun in &room.portal_gun_spawns {
         super::spawn_static::spawn_portal_gun_spawn(commands, portal_gun);
     }
+    #[cfg(feature = "portal")]
     for portal in &room.portals {
         super::spawn_static::spawn_portal(commands, portal);
     }

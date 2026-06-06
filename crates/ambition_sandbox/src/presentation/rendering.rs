@@ -101,11 +101,26 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     .chain()
                     .after(actors::sync_visuals),
             )
-            // Load held-item / portal-gun prop sprites at startup.
-            .add_systems(Startup, crate::portal::load_portal_gun_art)
+            // Load held-item prop sprites at startup.
             .add_systems(Startup, crate::item_pickup::load_item_art)
-            // Portal gun: colored quad per placed portal (blue / orange) +
-            // the F7 dev off-switch (visible build only).
+            .add_systems(
+                Update,
+                (
+                    crate::item_pickup::sync_ground_item_visuals.after(actors::sync_visuals),
+                    crate::item_pickup::sync_held_item_visual.after(actors::sync_visuals),
+                    crate::item_pickup::sync_held_projectile_visuals.after(actors::sync_visuals),
+                    crate::shrine::sync_shrine_visual.after(actors::sync_visuals),
+                    crate::shrine::animate_shrine_visuals.after(actors::animate_props),
+                    crate::mark_recall::sync_mark_beacon_visual.after(actors::sync_visuals),
+                ),
+            );
+
+        // Portal-gun visuals (placed-portal quads, partial-transit pieces, the
+        // disorientation / mode indicators, gravity switch + zone visuals, and
+        // the F7 dev off-switch) only compile with the portal mechanic + its
+        // render feature.
+        #[cfg(feature = "portal_render")]
+        app.add_systems(Startup, crate::portal::load_portal_gun_art)
             .add_systems(
                 Update,
                 (
@@ -117,14 +132,8 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     crate::portal::sync_portal_disorientation_indicator.after(actors::sync_visuals),
                     crate::portal::sync_portal_mode_indicator.after(actors::sync_visuals),
                     crate::portal::portal_dev_toggle_system,
-                    crate::item_pickup::sync_ground_item_visuals.after(actors::sync_visuals),
-                    crate::item_pickup::sync_held_item_visual.after(actors::sync_visuals),
-                    crate::item_pickup::sync_held_projectile_visuals.after(actors::sync_visuals),
                     crate::portal::sync_gravity_switch_visual.after(actors::sync_visuals),
                     crate::portal::sync_gravity_zone_visual.after(actors::sync_visuals),
-                    crate::shrine::sync_shrine_visual.after(actors::sync_visuals),
-                    crate::shrine::animate_shrine_visuals.after(actors::animate_props),
-                    crate::mark_recall::sync_mark_beacon_visual.after(actors::sync_visuals),
                 ),
             );
     }

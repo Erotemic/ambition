@@ -158,8 +158,13 @@ pub(crate) fn apply_menu_action(
     match action {
         MenuAction::Equip(item) => {
             // The portal gun equips via its own component; other weapons via a
-            // HeldItemSpec. Bail early if the item is neither.
+            // HeldItemSpec. Bail early if the item is neither. With the portal
+            // mechanic compiled out, the Portal Gun roster slot still exists but
+            // has no equip path, so it behaves like an unwired weapon.
+            #[cfg(feature = "portal")]
             let is_portal_gun = item == Item::PortalGun;
+            #[cfg(not(feature = "portal"))]
+            let is_portal_gun = false;
             let held_spec = held_spec_for_item(item);
             if !is_portal_gun && held_spec.is_none() {
                 return;
@@ -169,8 +174,10 @@ pub(crate) fn apply_menu_action(
                 // portal gun) so we re-stash the true base, then equip the new one.
                 if stashed.is_some() {
                     unequip_held(commands, player, &mut action_set, stashed);
+                    #[cfg(feature = "portal")]
                     commands.entity(player).remove::<crate::portal::PortalGun>();
                 }
+                #[cfg(feature = "portal")]
                 if is_portal_gun {
                     crate::ambition_content::portal::equip_portal_gun(
                         commands,
@@ -180,6 +187,10 @@ pub(crate) fn apply_menu_action(
                 } else if let Some(spec) = held_spec {
                     equip_held_spec(commands, player, &mut action_set, spec);
                 }
+                #[cfg(not(feature = "portal"))]
+                if let Some(spec) = held_spec {
+                    equip_held_spec(commands, player, &mut action_set, spec);
+                }
                 owned.set_equipped(Some(item));
             }
         }
@@ -187,6 +198,7 @@ pub(crate) fn apply_menu_action(
             if let Ok((player, mut action_set, stashed)) = players.single_mut() {
                 // Detach both possible weapon front-ends (held item + portal gun).
                 unequip_held(commands, player, &mut action_set, stashed);
+                #[cfg(feature = "portal")]
                 commands.entity(player).remove::<crate::portal::PortalGun>();
             }
             owned.set_equipped(None);

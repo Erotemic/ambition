@@ -89,7 +89,7 @@ pub fn compute_player_affordances(
     intent: Res<PlayerIntent>,
     proximity: Res<NearestInteractable>,
     pogo: Res<PogoTargetBelow>,
-    player_q: Query<
+    #[cfg(feature = "portal")] player_q: Query<
         (
             &crate::player::PlayerGroundState,
             &crate::player::PlayerLedgeState,
@@ -102,13 +102,30 @@ pub fn compute_player_affordances(
             With<crate::player::PrimaryPlayer>,
         ),
     >,
+    #[cfg(not(feature = "portal"))] player_q: Query<
+        (
+            &crate::player::PlayerGroundState,
+            &crate::player::PlayerLedgeState,
+            &crate::player::PlayerBodyModeState,
+            &crate::player::PlayerEnvironmentContact,
+        ),
+        (
+            With<crate::player::PlayerEntity>,
+            With<crate::player::PrimaryPlayer>,
+        ),
+    >,
     mut affordances: ResMut<PlayerAffordances>,
 ) {
+    #[cfg(feature = "portal")]
     let Ok((ground, ledge, body_mode, env_contact, portal_gun)) = player_q.single() else {
         // No primary player yet (e.g. boot-up before
         // `setup_simulation_system` runs). Leave affordances at their
         // defaults; the HUD renders "Jump / Attack / Shield / Dash /
         // Interact / Special" which is the correct cold-start label.
+        return;
+    };
+    #[cfg(not(feature = "portal"))]
+    let Ok((ground, ledge, body_mode, env_contact)) = player_q.single() else {
         return;
     };
     let body = PlayerBodyView {
@@ -120,7 +137,10 @@ pub fn compute_player_affordances(
     let world = WorldView {
         nearest_interactable: proximity.0.clone(),
         pogo_target_below: pogo.0,
+        #[cfg(feature = "portal")]
         portal_gun_active: portal_gun.is_some_and(|g| g.active),
+        #[cfg(not(feature = "portal"))]
+        portal_gun_active: false,
     };
 
     let next = PlayerAffordances {

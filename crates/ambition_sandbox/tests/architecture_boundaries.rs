@@ -139,10 +139,25 @@ fn architecture_boundaries_platformer_runtime_crate_is_extracted() {
         !sandbox_runtime.join("lifecycle").exists(),
         "lifecycle/ should have moved into the extracted crate"
     );
+    // Stage M1: pure portal-map math + the body-transit velocity helper moved
+    // into the crate; transit.rs is gone from the sandbox and math/transit live
+    // in the crate.
+    assert!(
+        !sandbox_runtime.join("transit.rs").exists(),
+        "transit.rs should have moved into the extracted crate (Stage M1)"
+    );
+    assert!(
+        crate_root.join("src/math.rs").exists(),
+        "pure portal-map math should live in the extracted crate (Stage M1)"
+    );
+    assert!(
+        crate_root.join("src/transit.rs").exists(),
+        "transit.rs should live in the extracted crate (Stage M1)"
+    );
     let facade = fs::read_to_string(sandbox_runtime.join("mod.rs")).expect("read facade mod.rs");
     assert!(
-        facade.contains("ambition_platformer_runtime::{lifecycle, schedule}"),
-        "sandbox platformer_runtime facade should re-export the extracted crate's lifecycle + schedule"
+        facade.contains("ambition_platformer_runtime::{lifecycle, math, schedule, transit}"),
+        "sandbox platformer_runtime facade should re-export the extracted crate's lifecycle + math + schedule + transit"
     );
 
     // (d) The still-local remainder stays in the sandbox because it is not
@@ -150,7 +165,6 @@ fn architecture_boundaries_platformer_runtime_crate_is_extracted() {
     for (rel, blocking_dep) in [
         ("collision.rs", "crate::engine_core"),
         ("orientation.rs", "crate::physics"),
-        ("transit.rs", "crate::portal_pieces"),
     ] {
         let path = sandbox_runtime.join(rel);
         assert!(

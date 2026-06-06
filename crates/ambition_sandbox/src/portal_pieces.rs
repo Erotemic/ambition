@@ -22,6 +22,16 @@
 use crate::engine_core::{self as ae, AabbExt};
 use bevy::math::Vec2;
 
+// The pure portal-map vector math (orientation-between-two-normals transforms)
+// now lives in the content-free `ambition_platformer_runtime` crate. Re-export
+// it here so portal_pieces' AABB/piece geometry and every other in-sandbox user
+// (world_overlay, debug_overlay, portal/*) keep referencing
+// `crate::portal_pieces::{portal_rotation, rotate, portal_tangent,
+// portal_map_vec}` unchanged.
+pub use ambition_platformer_runtime::math::{
+    portal_map_vec, portal_rotation, portal_tangent, rotate,
+};
+
 /// An axis-aligned portal as the piece math sees it: where the doorway is, the
 /// outward surface normal, and the oriented opening half-extent. Decoupled from
 /// the ECS `Portal` component so this module stays pure and testable.
@@ -43,47 +53,6 @@ impl PortalFrame {
         let along = Vec2::new(-self.normal.y, self.normal.x);
         along.x.abs() * self.half_extent.x.abs() + along.y.abs() * self.half_extent.y.abs()
     }
-}
-
-/// The rotation `(cos, sin)` that maps the "into the entry portal" direction
-/// (`-n_in`) onto the "out of the exit portal" direction (`n_out`). This is the
-/// single rotation every portal transform (velocity, point, AABB) shares, so
-/// position and momentum always turn through the pair consistently.
-pub fn portal_rotation(n_in: Vec2, n_out: Vec2) -> (f32, f32) {
-    let u = -n_in;
-    let cos = u.dot(n_out);
-    let sin = u.x * n_out.y - u.y * n_out.x; // 2D cross (z component)
-    (cos, sin)
-}
-
-/// Apply a `(cos, sin)` rotation to a vector.
-pub fn rotate(v: Vec2, cs: (f32, f32)) -> Vec2 {
-    let (c, s) = cs;
-    Vec2::new(v.x * c - v.y * s, v.x * s + v.y * c)
-}
-
-/// The canonical along-surface **tangent** for a portal normal — the "second
-/// normal" that fixes which way is "along" the doorway: the normal rotated +90°.
-/// (floor → +x, ceiling → -x, right-wall → -y, left-wall → +y.) The portal map
-/// preserves the tangent component, so it does NOT mirror your along-surface
-/// direction the way a bare rotation would.
-pub fn portal_tangent(normal: Vec2) -> Vec2 {
-    Vec2::new(-normal.y, normal.x)
-}
-
-/// The IDEAL portal map for a free vector (velocity / spatial offset), given a
-/// consistent [`portal_tangent`]: the component going INTO the entry emerges OUT
-/// of the exit, and the along-surface (tangent) component is carried straight
-/// over. So falling right-and-down through two floor portals comes out
-/// right-and-up — you keep your horizontal direction — instead of the bare
-/// rotation's left-and-up mirror. This is one orthogonal map shared by velocity,
-/// position, AABB, input, and rays so they always agree.
-pub fn portal_map_vec(v: Vec2, n_in: Vec2, n_out: Vec2) -> Vec2 {
-    let t_in = portal_tangent(n_in);
-    let t_out = portal_tangent(n_out);
-    let into = -v.dot(n_in); // speed/offset INTO the entry → OUT of the exit
-    let along = v.dot(t_in); // along-surface component, preserved
-    into * n_out + along * t_out
 }
 
 /// Map a world point near `enter` to the corresponding point near `exit`: the

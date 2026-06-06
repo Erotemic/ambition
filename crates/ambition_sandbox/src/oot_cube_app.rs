@@ -1296,17 +1296,6 @@ fn cube_pointer_move(
     let Some(active_page) = pages.active else {
         return;
     };
-    // TEMPORARY (cube mouse-click diagnosis): log every Pointer<Move> that reaches
-    // this observer. If hover logs but click does NOT, the backend IS delivering
-    // pointer events and the click is lost in the press→release path (likely the
-    // hovered control entity being despawned/respawned by the per-frame face rebuild
-    // between press and release). If neither logs, the backend isn't emitting hits.
-    // Remove once the click path is fixed.
-    info!(
-        "[cube-move TEMP] Pointer<Move> entity={:?} resolves_control={}",
-        move_.entity,
-        controls.get(move_.entity).is_ok(),
-    );
     if let Ok(control) = controls.get(move_.entity) {
         if let Some(action) = control.action {
             let model = SystemMenuModel::build(
@@ -1352,18 +1341,6 @@ fn cube_pointer_click(
     mut system: SystemMenuParams,
 ) {
     let open = ui_state.as_deref().map(|s| s.visible).unwrap_or(false);
-    // TEMPORARY (cube mouse-click diagnosis): log every Pointer<Click> that reaches
-    // this observer, with the hit entity and whether it resolves to a control+action.
-    // If this NEVER logs while clicking the cube, the picking backend / hover-map
-    // isn't delivering clicks (look at the `[cube-pick TEMP]` backend log). If it
-    // logs `control=None`, the click landed on a non-control plane. Remove once fixed.
-    info!(
-        "[cube-click TEMP] Pointer<Click> entity={:?} backend_cube={} open={} resolves_control={}",
-        click.entity,
-        *backend == InventoryUiBackend::Cube,
-        open,
-        controls.get(click.entity).is_ok(),
-    );
     if *backend != InventoryUiBackend::Cube || !open {
         return;
     }

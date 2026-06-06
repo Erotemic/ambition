@@ -1,0 +1,304 @@
+From f3108ba2c7957e36e05d55c7a841efb869f008b6 2026-06-06T02:44:39Z
+Subject: Snapshot 0002 architecture boundary guardrails
+
+
+
+diff --git a/crates/ambition_sandbox/tests/architecture_boundaries.rs b/crates/ambition_sandbox/tests/architecture_boundaries.rs
+new file mode 100644
+index 0000000..0aa8aec
+--- /dev/null
++++ b/crates/ambition_sandbox/tests/architecture_boundaries.rs
+@@ -0,0 +1,159 @@
++use std::collections::BTreeMap;
++use std::fs;
++use std::path::{Path, PathBuf};
++
++fn repo_root() -> PathBuf {
++    Path::new(env!("CARGO_MANIFEST_DIR"))
++        .ancestors()
++        .nth(2)
++        .expect("crate lives under <repo>/crates/ambition_sandbox")
++        .to_path_buf()
++}
++
++fn crate_src() -> PathBuf {
++    Path::new(env!("CARGO_MANIFEST_DIR")).join("src")
++}
++
++fn collect_rs_files(root: &Path) -> Vec<PathBuf> {
++    let mut stack = vec![root.to_path_buf()];
++    let mut files = Vec::new();
++    while let Some(path) = stack.pop() {
++        let Ok(meta) = fs::metadata(&path) else {
++            continue;
++        };
++        if meta.is_dir() {
++            let mut entries = fs::read_dir(&path)
++                .expect("read directory")
++                .map(|entry| entry.expect("directory entry").path())
++                .collect::<Vec<_>>();
++            entries.sort();
++            stack.extend(entries.into_iter().rev());
++        } else if path.extension().is_some_and(|ext| ext == "rs") {
++            files.push(path);
++        }
++    }
++    files.sort();
++    files
++}
++
++#[test]
++fn architecture_boundaries_platformer_runtime_stays_content_free() {
++    let root = crate_src().join("platformer_runtime");
++    let forbidden = [
++        "crate::content",
++        "crate::ambition_content",
++        "crate::intro",
++        "crate::boss_encounter",
++        "crate::quest",
++        "crate::assets::sandbox_assets",
++        "crate::music",
++        "crate::portal",
++        "crate::items",
++        "crate::app",
++        "crate::dev",
++        "crate::presentation",
++    ];
++
++    let mut violations = Vec::new();
++    for file in collect_rs_files(&root) {
++        let text = fs::read_to_string(&file).expect("read rust source");
++        for needle in forbidden {
++            if text.contains(needle) {
++                violations.push(format!("{} imports or mentions {needle}", file.display()));
++            }
++        }
++    }
++
++    assert!(
++        violations.is_empty(),
++        "platformer_runtime must remain reusable and content-free:\n{}",
++        violations.join("\n")
++    );
++}
++
++fn raw_commands_spawn_count(text: &str) -> usize {
++    text.match_indices("commands.spawn(").count()
++}
++
++fn read_spawn_allowlist() -> BTreeMap<String, usize> {
++    let path = repo_root().join("docs/architecture/architecture-boundary-allowlist.txt");
++    let text = fs::read_to_string(&path).expect("read architecture boundary allowlist");
++    let mut allowlist = BTreeMap::new();
++    for (idx, line) in text.lines().enumerate() {
++        let line = line.trim();
++        if line.is_empty() || line.starts_with('#') {
++            continue;
++        }
++        let Some((path, count)) = line.split_once('=') else {
++            panic!("{}:{} expected path=count", path.display(), idx + 1);
++        };
++        let count = count
++            .parse::<usize>()
++            .unwrap_or_else(|_| panic!("{}:{} invalid count", path, idx + 1));
++        allowlist.insert(path.to_string(), count);
++    }
++    allowlist
++}
++
++#[test]
++fn architecture_boundaries_room_feature_spawns_do_not_add_raw_spawns() {
++    let src_root = crate_src();
++    let spawn_dir = src_root.join("content/features/ecs");
++    let allowlist = read_spawn_allowlist();
++    let mut violations = Vec::new();
++
++    for file in collect_rs_files(&spawn_dir) {
++        let Some(name) = file.file_name().and_then(|name| name.to_str()) else {
++            continue;
++        };
++        if !name.starts_with("spawn") {
++            continue;
++        }
++        let text = fs::read_to_string(&file).expect("read spawn source");
++        let rel = file
++            .strip_prefix(&src_root)
++            .expect("source file under src")
++            .to_string_lossy()
++            .replace('\\', "/");
++        let actual = raw_commands_spawn_count(&text);
++        let allowed = *allowlist.get(&rel).unwrap_or(&0);
++        if actual > allowed {
++            violations.push(format!(
++                "{rel} has {actual} raw commands.spawn calls; allowed {allowed}. Use SpawnScopedExt lifecycle helpers or update docs/architecture/architecture-boundary-allowlist.txt with justification."
++            ));
++        }
++    }
++
++    assert!(
++        violations.is_empty(),
++        "room-authored spawn modules gained raw spawn sites:\n{}",
++        violations.join("\n")
++    );
++}
++
++#[test]
++fn architecture_boundaries_app_plugins_does_not_reown_moved_subsystems() {
++    let path = crate_src().join("app/plugins.rs");
++    let text = fs::read_to_string(&path).expect("read app/plugins.rs");
++    let forbidden = [
++        "fn register_portal_systems",
++        "fn register_item_pickup_systems",
++        "crate::portal::portal_fire_system",
++        "crate::portal::portal_projectile_step",
++        "crate::portal::portal_transit_system",
++        "crate::item_pickup::pickup_held_item_system",
++        "crate::item_pickup::throw_held_item_system",
++        "crate::item_pickup::ground_item_physics",
++    ];
++
++    let violations = forbidden
++        .into_iter()
++        .filter(|needle| text.contains(needle))
++        .collect::<Vec<_>>();
++
++    assert!(
++        violations.is_empty(),
++        "app/plugins.rs reintroduced subsystem-owned registrations: {:?}",
++        violations
++    );
++}
+diff --git a/docs/adr/0019-pluginized-platformer-runtime.md b/docs/adr/0019-pluginized-platformer-runtime.md
+new file mode 100644
+index 0000000..1099aec
+--- /dev/null
++++ b/docs/adr/0019-pluginized-platformer-runtime.md
+@@ -0,0 +1,63 @@
++# ADR 0019: Pluginized platformer runtime via same-crate proto-boundaries
++
++## Status
++
++Accepted.
++
++## Context
++
++`ambition_sandbox` contains reusable platformer behavior, Ambition-specific
++content, presentation adapters, authoring adapters, and app assembly. That made
++feature work fast early on, but the central app plugin file and room lifecycle
++conventions are now carrying too much architectural meaning implicitly.
++
++The plugin refactor plan in `docs/planning/plugin_refactor/` proposes a staged
++move toward reusable platformer runtime modules, optional mechanics plugins,
++adapter/render/authoring plugins, and Ambition content plugins. The immediate
++risk is doing a large crate split before the dependency direction is visible and
++testable.
++
++## Decision
++
++Use same-crate proto-boundaries before extracting real crates.
++
++- `crate::platformer_runtime` is the canonical home for reusable runtime
++vocabulary that should eventually leave the sandbox crate.
++- Lifecycle markers and spawn helpers move there first because room-scoped
++lifetime bugs have already happened and because spawn policy is independent of
++Ambition content.
++- Schedule vocabulary may exist in `platformer_runtime` even while `SandboxSet`
++remains the concrete app schedule.
++- Subsystems should own their own Bevy plugin registration. The app composes
++plugins; it should not accumulate detailed system lists for every mechanic.
++- Architecture boundary tests should be simple and checked in early. They may be
++grep-style tests while the boundary is still being carved.
++
++## Consequences
++
++Positive:
++
++- Runtime code can be reviewed as if it were already a future crate.
++- Spawn call sites declare lifecycle policy with verbs such as
++`spawn_room_scoped` instead of remembering marker components manually.
++- `app/plugins.rs` can shrink over time as subsystems gain module-owned plugins.
++- Future crate extraction becomes mostly a dependency-boundary exercise instead
++of a behavioral rewrite.
++
++Tradeoffs:
++
++- Some compatibility re-exports remain temporarily, especially for
++`RoomScopedEntity` paths used by presentation and reset code.
++- Crude architecture tests can produce false positives and need explicit
++allowlist maintenance.
++- `SandboxSet` and `PlatformerRuntimeSet` coexist until the concrete app schedule
++can be mapped cleanly onto reusable runtime phases.
++
++## Validation
++
++```bash
++cargo test -p ambition_sandbox architecture_boundaries
++cargo test -p ambition_sandbox room_scoped
++cargo test -p ambition_sandbox portal_lab_usable
++cargo test -p ambition_sandbox gravity_room_reachability
++```
+diff --git a/docs/adr/README.md b/docs/adr/README.md
+index a9395df..23397d4 100644
+--- a/docs/adr/README.md
++++ b/docs/adr/README.md
+@@ -30,3 +30,4 @@ Use an ADR when a decision:
+ - [0016: Unify NPCs, enemies, hazards, and interactables as actor-like ECS data](0016-actor-unification.md)
+ - [0017: Rust holds behavior; RON authors content; LDtk authors space](0017-rust-behavior-ron-content-ldtk-space.md)
+ - [0018: Enemy cluster variation — per-actor jitter is mandatory at every brain-spawn site](0018-enemy-cluster-variation.md)
++- [0019: Pluginized platformer runtime via same-crate proto-boundaries](0019-pluginized-platformer-runtime.md)
+diff --git a/docs/architecture/architecture-boundaries.md b/docs/architecture/architecture-boundaries.md
+new file mode 100644
+index 0000000..49f9977
+--- /dev/null
++++ b/docs/architecture/architecture-boundaries.md
+@@ -0,0 +1,33 @@
++# Architecture boundary guardrails
++
++The plugin refactor uses a few intentionally simple tests to keep the new
++same-crate boundaries honest while the code is still in `ambition_sandbox`.
++These tests are not a substitute for rustc, but they give implementation agents
++fast feedback when a patch moves in the wrong architectural direction.
++
++## Current guardrails
++
++- `platformer_runtime/**` must not import Ambition content, app assembly,
++presentation, dev tools, portal, music, quest, or sandbox asset modules.
++- Room-authored spawn modules under `content/features/ecs/spawn*.rs` should not
++add new raw `commands.spawn(...)` calls. New room-authored spawn sites should use
++`SpawnScopedExt::spawn_room_scoped` or another explicit lifecycle helper.
++- `app/plugins.rs` should not regain portal or held-item subsystem registration
++helpers after those registrations moved into module-owned plugins.
++
++## Updating the allowlist
++
++The allowlist lives in
++`docs/architecture/architecture-boundary-allowlist.txt`. It records legacy raw
++spawn counts by source-relative path. Prefer reducing counts by migrating call
++sites to lifecycle helpers. Increase a count only when the raw spawn is
++intentional, non-room-authored, and documented in the review/commit.
++
++Run the guardrails with:
++
++```bash
++cargo test -p ambition_sandbox architecture_boundaries
++```
++
++When a boundary intentionally changes, update this document, the allowlist, and
++`tests/architecture_boundaries.rs` in the same patch so the new rule is visible.
+diff --git a/docs/architecture/architecture-boundary-allowlist.txt b/docs/architecture/architecture-boundary-allowlist.txt
+new file mode 100644
+index 0000000..d1435e4
+--- /dev/null
++++ b/docs/architecture/architecture-boundary-allowlist.txt
+@@ -0,0 +1,11 @@
++# Architecture guardrail allowlist.
++#
++# Format: source-relative-path=max_raw_commands_spawn_count
++#
++# These are known legacy raw spawn sites in room-feature spawn modules. New
++# room-authored spawns should use platformer_runtime lifecycle helpers instead
++# of increasing these counts.
++content/features/ecs/spawn.rs=0
++content/features/ecs/spawn_actors.rs=3
++content/features/ecs/spawn_mounts.rs=0
++content/features/ecs/spawn_static.rs=0

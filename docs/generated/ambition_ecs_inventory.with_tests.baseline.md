@@ -1,0 +1,14187 @@
+# Ambition Sandbox ECS inventory
+
+Generated from `crates/ambition_sandbox`.
+
+## Counts
+- Components: 253
+- Bundles: 8
+- Resources: 162
+- Messages: 19
+- Events: 0
+- Plugins: 41
+- Registrations: 1107
+- Unique Registration Identifiers: 845
+- System Like Functions: 581
+- Spawn Sites: 406
+- Registered Systems: 400
+- Module Summaries: 83
+- Non Ecs Items: 530
+- Migration Candidates High: 135
+- Migration Candidates Medium: 152
+- Architecture Items: 18
+- Message Channels: 27
+- Resource Access Entries: 163
+
+## Architecture summary by module
+
+| Module | ECS items | Components | Resources | Messages | Plugins | Registered systems | System-like fns | Spawns | Non-ECS items | Migration candidates |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `app` | 2 | 0 | 2 | 0 | 6 | 164 | 40 | 3 | 9 | 0 |
+| `content/features/ecs` | 36 | 29 | 7 | 0 | 0 | 115 | 96 | 98 | 13 | 12 |
+| `content/features` | 53 | 39 | 1 | 8 | 5 | 34 | 4 | 0 | 25 | 25 |
+| `presentation/rendering` | 24 | 23 | 1 | 0 | 2 | 39 | 48 | 31 | 6 | 0 |
+| `portal` | 19 | 16 | 3 | 0 | 1 | 38 | 31 | 44 | 3 | 0 |
+| `engine_core` | 18 | 18 | 0 | 0 | 0 | 0 | 0 | 0 | 36 | 36 |
+| `world/ldtk_world` | 21 | 8 | 12 | 0 | 2 | 9 | 10 | 1 | 21 | 21 |
+| `item_pickup` | 7 | 6 | 1 | 0 | 1 | 38 | 12 | 10 | 1 | 0 |
+| `brain` | 6 | 4 | 1 | 1 | 1 | 5 | 4 | 7 | 47 | 32 |
+| `persistence` | 3 | 1 | 2 | 0 | 1 | 6 | 14 | 0 | 44 | 28 |
+| `projectile` | 3 | 3 | 0 | 0 | 0 | 27 | 2 | 3 | 17 | 5 |
+| `player` | 19 | 15 | 1 | 1 | 0 | 10 | 10 | 21 | 0 | 0 |
+| `world/rooms` | 6 | 1 | 4 | 1 | 0 | 2 | 7 | 0 | 20 | 20 |
+| `host` | 12 | 6 | 6 | 0 | 4 | 15 | 19 | 7 | 9 | 0 |
+| `audio` | 11 | 0 | 10 | 1 | 3 | 14 | 13 | 1 | 10 | 0 |
+| `content` | 5 | 0 | 5 | 0 | 1 | 1 | 6 | 0 | 19 | 19 |
+| `boss_encounter` | 7 | 2 | 4 | 1 | 0 | 4 | 23 | 8 | 16 | 13 |
+| `player/affordances` | 5 | 0 | 5 | 0 | 1 | 5 | 5 | 1 | 13 | 13 |
+| `dev` | 9 | 1 | 8 | 0 | 2 | 8 | 15 | 1 | 19 | 4 |
+| `intro` | 5 | 0 | 5 | 0 | 1 | 15 | 7 | 0 | 1 | 0 |
+| `encounter` | 6 | 0 | 6 | 0 | 1 | 4 | 3 | 0 | 10 | 9 |
+| `oot_cube_app` | 4 | 1 | 3 | 0 | 0 | 15 | 18 | 8 | 2 | 0 |
+| `falling_sand` | 4 | 3 | 1 | 0 | 1 | 11 | 17 | 8 | 5 | 2 |
+| `music` | 15 | 0 | 15 | 0 | 0 | 0 | 2 | 0 | 12 | 0 |
+| `time` | 9 | 1 | 7 | 1 | 0 | 5 | 5 | 0 | 4 | 1 |
+| `inventory` | 11 | 8 | 3 | 0 | 0 | 2 | 8 | 13 | 2 | 1 |
+| `dialog` | 6 | 2 | 4 | 0 | 2 | 5 | 22 | 8 | 5 | 1 |
+| `pause_menu` | 12 | 11 | 1 | 0 | 0 | 0 | 17 | 14 | 2 | 0 |
+| `runtime` | 5 | 2 | 3 | 0 | 1 | 4 | 8 | 9 | 3 | 2 |
+| `map_menu` | 8 | 7 | 1 | 0 | 0 | 0 | 9 | 9 | 5 | 2 |
+| `presentation/fx` | 10 | 7 | 0 | 3 | 0 | 0 | 19 | 8 | 4 | 0 |
+| `save` | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 10 | 10 |
+| `world/physics` | 5 | 3 | 1 | 1 | 1 | 2 | 9 | 2 | 3 | 3 |
+| `oot_menu` | 6 | 4 | 2 | 0 | 0 | 3 | 7 | 9 | 1 | 0 |
+| `physics` | 6 | 3 | 3 | 0 | 0 | 3 | 4 | 4 | 0 | 0 |
+| `presentation/cutscene` | 6 | 1 | 5 | 0 | 1 | 3 | 4 | 13 | 1 | 0 |
+| `shrine` | 6 | 5 | 1 | 0 | 0 | 2 | 5 | 5 | 2 | 0 |
+| `enemy_projectile` | 3 | 1 | 2 | 0 | 0 | 3 | 5 | 13 | 1 | 1 |
+| `hud_overlay` | 6 | 6 | 0 | 0 | 0 | 1 | 3 | 9 | 0 | 0 |
+| `lib` | 5 | 0 | 4 | 1 | 0 | 0 | 0 | 0 | 2 | 2 |
+| `bomb` | 2 | 1 | 1 | 0 | 0 | 3 | 3 | 3 | 0 | 0 |
+| `dive` | 1 | 0 | 1 | 0 | 0 | 4 | 2 | 1 | 0 | 0 |
+| `mark_recall` | 3 | 2 | 1 | 0 | 0 | 2 | 3 | 2 | 0 | 0 |
+| `presentation/character_sprites` | 3 | 1 | 2 | 0 | 1 | 1 | 5 | 0 | 21 | 1 |
+| `quest` | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 5 | 5 |
+| `ability_cooldown` | 2 | 1 | 1 | 0 | 0 | 2 | 3 | 2 | 0 | 0 |
+| `actor` | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 4 |
+| `assets` | 4 | 0 | 4 | 0 | 1 | 0 | 1 | 0 | 6 | 0 |
+| `input` | 4 | 0 | 4 | 0 | 0 | 0 | 0 | 0 | 7 | 0 |
+| `presentation/screen_effects` | 2 | 1 | 1 | 0 | 1 | 2 | 2 | 0 | 3 | 0 |
+| `world/platforms` | 1 | 1 | 0 | 0 | 0 | 0 | 3 | 1 | 3 | 3 |
+| `blink` | 1 | 0 | 1 | 0 | 0 | 2 | 2 | 1 | 0 | 0 |
+| `body_mode` | 2 | 1 | 1 | 0 | 0 | 1 | 4 | 2 | 0 | 0 |
+| `cutscene` | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 3 |
+| `gravity_grenade` | 1 | 1 | 0 | 0 | 0 | 2 | 2 | 4 | 0 | 0 |
+| `interaction` | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 10 | 3 |
+| `inventory_persist` | 1 | 0 | 1 | 0 | 0 | 2 | 2 | 1 | 0 | 0 |
+| `platformer_runtime` | 3 | 3 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 0 |
+| `possession` | 2 | 1 | 1 | 0 | 0 | 1 | 5 | 2 | 0 | 0 |
+| `sentry` | 1 | 1 | 0 | 0 | 0 | 2 | 2 | 4 | 0 | 0 |
+| `shockwave` | 0 | 0 | 0 | 0 | 0 | 3 | 2 | 3 | 0 | 0 |
+| `vortex` | 1 | 1 | 0 | 0 | 0 | 2 | 2 | 3 | 0 | 0 |
+| `actor_control` | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 2 | 2 |
+| `combat_slots` | 1 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 4 | 1 |
+| `puppy_slug_gun` | 1 | 1 | 0 | 0 | 0 | 1 | 1 | 1 | 0 | 0 |
+| `ui_nav` | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 | 2 |
+| `beam` | 0 | 0 | 0 | 0 | 0 | 1 | 1 | 2 | 0 | 0 |
+| `combat` | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 1 |
+| `grapple` | 0 | 0 | 0 | 0 | 0 | 1 | 1 | 1 | 0 | 0 |
+| `items` | 1 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 3 | 0 |
+| `meteor` | 0 | 0 | 0 | 0 | 0 | 1 | 1 | 1 | 0 | 0 |
+| `presentation/ui_fonts` | 1 | 0 | 1 | 0 | 0 | 0 | 1 | 0 | 1 | 0 |
+| `volley` | 0 | 0 | 0 | 0 | 0 | 1 | 1 | 1 | 0 | 0 |
+| `bin` | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 | 0 |
+| `character_ai` | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 0 |
+| `debug_label` | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 2 | 0 |
+| `dialog_lint` | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| `headless` | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| `kinematic` | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 0 |
+| `oot_cube` | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 0 |
+| `portal_pieces` | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 0 |
+| `rl_sim` | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 5 | 0 |
+| `shop` | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+
+## Schedule and system-set map
+
+This section is derived from `add_systems` calls. Run conditions and ordering modifiers are separated from likely system functions when tree-sitter can identify the call structure.
+
+### `PostStartup` / `<no explicit set>` (2 systems)
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build`
+  - systems: `crate::dev::profiling::phase_mark`, `crate::dev::profiling::report_startup_phases`
+
+### `PostUpdate` / `<no explicit set>` (1 systems)
+- `crates/ambition_sandbox/src/host/mobile_input/bevy_plugin.rs:101` in `TouchControlsPlugin::build`
+  - systems: `drive_joystick_knob_from_axis`
+  - ordering: `JoystickSystems::UpdateUI`
+
+### `PreUpdate` / `<no explicit set>` (1 systems)
+- `crates/ambition_sandbox/src/host/platform/android.rs:45` in `AndroidPlatformPlugin::build`
+  - systems: `detect_android_suspend_state`
+
+### `RenderStartup` / `<no explicit set>` (1 systems)
+- `crates/ambition_sandbox/src/presentation/screen_effects.rs:53` in `ScreenEffectsPlugin::build`
+  - systems: `init_screen_effects_pipeline`
+
+### `Startup` / `<no explicit set>` (37 systems)
+- `crates/ambition_sandbox/src/app/plugins.rs:342` in `add_ldtk_runtime_plugin`
+  - systems: `ldtk_world::load_ldtk_asset_handle`, `spawn_ldtk_world_root`
+  - ordering: `setup_simulation_system`
+- `crates/ambition_sandbox/src/app/plugins.rs:482` in `install_presentation_resources_and_subplugins`
+  - systems: `ui_fonts::load_ui_fonts`
+- `crates/ambition_sandbox/src/app/plugins.rs:491` in `install_menu_setup_and_hotkeys`
+  - systems: `crate::dev::profiling::phase_mark`, `setup_presentation_system`, `crate::map_menu::populate_map_rooms`, `crate::map_menu::spawn_map_menu`
+  - ordering: `ui_fonts::load_ui_fonts`, `setup_simulation_system`
+- `crates/ambition_sandbox/src/app/plugins.rs:491` in `install_menu_setup_and_hotkeys`
+  - systems: `pause_menu::spawn_pause_menu`, `cfg`, `feature`, `inventory::spawn_inventory_panel`
+  - ordering: `setup_simulation_system`
+- `crates/ambition_sandbox/src/app/plugins.rs:563` in `install_menu_setup_and_hotkeys`
+  - systems: `crate::oot_menu::spawn_oot_menu`
+  - ordering: `setup_simulation_system`
+- `crates/ambition_sandbox/src/app/plugins.rs:845` in `add_input_plugins`
+  - systems: `attach_player_input_components`
+  - ordering: `setup_simulation_system`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build`
+  - systems: `crate::dev::profiling::phase_mark`, `data::load_data_asset_handle`, `setup_simulation_system`
+- `crates/ambition_sandbox/src/audio/bank_asset.rs:123` in `SfxBankAssetPlugin::build`
+  - systems: `kick_off_bank_load`
+- `crates/ambition_sandbox/src/audio/plugin.rs:40` in `SandboxAudioPlugin::build`
+  - systems: `crate::dev::profiling::phase_mark`, `crate::music::load_music_cues`
+  - ordering: `crate::app::setup_presentation_system`
+- `crates/ambition_sandbox/src/audio/web_unlock.rs:61` in `WebAudioUnlockPlugin::build`
+  - systems: `log_initial_lock_status`, `prime_unlock_for_native`
+- `crates/ambition_sandbox/src/content/character_catalog/mod.rs:117` in `CharacterCatalogPlugin::build`
+  - systems: `validate_catalog_on_startup`
+- `crates/ambition_sandbox/src/dev/fps_overlay.rs:70` in `FpsOverlayPlugin::build`
+  - systems: `spawn_fps_overlay`
+- `crates/ambition_sandbox/src/falling_sand.rs:165` in `FallingSandRoomPlugin::build`
+  - systems: `setup_particle_types`
+- `crates/ambition_sandbox/src/host/mobile_input/bevy_plugin.rs:101` in `TouchControlsPlugin::build`
+  - systems: `spawn_touch_buttons`, `spawn_touch_joysticks`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:82` in `install_cube_menu`
+  - systems: `spawn_cube_scrim`
+- `crates/ambition_sandbox/src/persistence.rs:24` in `PersistenceSchedulePlugin::build`
+  - systems: `settings::persistence::load_settings_at_startup`, `settings::persistence::load_developer_at_startup`, `save::load_save_at_startup`
+- `crates/ambition_sandbox/src/presentation/character_sprites/registry.rs:378` in `SheetRegistryPlugin::build`
+  - systems: `init_sheet_registry`
+- `crates/ambition_sandbox/src/presentation/rendering.rs:78` in `PlayerVisualSchedulePlugin::build`
+  - systems: `crate::item_pickup::load_item_art`
+- `crates/ambition_sandbox/src/presentation/rendering.rs:78` in `PlayerVisualSchedulePlugin::build`
+  - systems: `crate::portal::load_portal_gun_art`
+- `crates/ambition_sandbox/src/presentation/rendering.rs:78` in `PlayerVisualSchedulePlugin::build`
+  - systems: `crate::player::bubble_shield::build_bubble_shield_sprite`
+- `crates/ambition_sandbox/src/presentation/rendering.rs:78` in `PlayerVisualSchedulePlugin::build`
+  - systems: `crate::body_mode::build_morph_ball_sprite`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:27` in `fireball_damages_enemy_on_intersect`
+  - systems: `commands`, `crate::features::spawn_encounter_mob`
+
+### `Update` / `<no explicit set>` (356 systems)
+- `crates/ambition_sandbox/src/ability_cooldown.rs:81` in `cooldown_ticks_down_to_ready`
+  - systems: `tick_ability_cooldown`
+- `crates/ambition_sandbox/src/ability_cooldown.rs:123` in `first_use_inserts_and_allows_then_armed_use_is_blocked`
+  - systems: `use_once_system`
+- `crates/ambition_sandbox/src/app/plugins.rs:342` in `add_ldtk_runtime_plugin`
+  - systems: `ldtk_world::sync_ldtk_level_set`, `ldtk_world::sync_ldtk_world_transform`
+- `crates/ambition_sandbox/src/app/plugins.rs:491` in `install_menu_setup_and_hotkeys`
+  - systems: `crate::inventory_persist::restore_inventory_from_save`, `crate::inventory_persist::persist_inventory_to_save`
+- `crates/ambition_sandbox/src/app/plugins.rs:586` in `install_camera_and_debug_overlay_systems`
+  - systems: `crate::time::camera_ease::tick_camera_shake`, `camera_follow`, `debug_overlay::draw_debug_overlay`
+  - ordering: `animate_bosses`
+- `crates/ambition_sandbox/src/app/plugins.rs:599` in `install_fx_and_hud_systems`
+  - systems: `crate::hud_overlay::regen_player_mana`, `crate::hud_overlay::spawn_player_hud`, `crate::hud_overlay::update_player_hud`
+- `crates/ambition_sandbox/src/app/plugins.rs:599` in `install_fx_and_hud_systems`
+  - systems: `update_hud`, `crate::presentation::rendering::sync_boss_health_bar_overlay`, `dialog::sync_dialog_ui`, `crate::presentation::cutscene::sync_cutscene_ui`
+  - ordering: `windowing::window_mode_hotkeys`
+- `crates/ambition_sandbox/src/app/plugins.rs:599` in `install_fx_and_hud_systems`
+  - systems: `fx::update_particles`, `fx::update_explosions`, `fx::update_impacts`, `fx::update_slash_previews`, `fx::update_speech_bubbles`, `windowing::window_mode_hotkeys`
+  - ordering: `debug_overlay::draw_debug_overlay`
+- `crates/ambition_sandbox/src/app/plugins.rs:642` in `install_misc_visual_sync_systems`
+  - systems: `update_quest_panel`
+  - ordering: `dialog::sync_dialog_ui`
+- `crates/ambition_sandbox/src/app/plugins.rs:642` in `install_misc_visual_sync_systems`
+  - systems: `crate::map_menu::map_menu_pointer_dismiss`
+- `crates/ambition_sandbox/src/app/plugins.rs:642` in `install_misc_visual_sync_systems`
+  - systems: `crate::presentation::rendering::apply_placeholder_sprites_override`, `crate::presentation::rendering::apply_hide_sprites_override`
+  - ordering: `crate::enemy_projectile::sync_enemy_projectile_visuals`, `crate::projectile::sync_projectile_visuals`, `crate::player::bubble_shield::sync_bubble_shield_visual`, `crate::body_mode::sync_morph_ball_visual`, `sync_visuals`
+- `crates/ambition_sandbox/src/app/plugins.rs:642` in `install_misc_visual_sync_systems`
+  - systems: `crate::presentation::rendering::upgrade_npc_sprites`
+  - ordering: `sync_visuals`
+- `crates/ambition_sandbox/src/app/plugins.rs:642` in `install_misc_visual_sync_systems`
+  - systems: `crate::presentation::rendering::sync_lock_wall_visuals`
+  - ordering: `crate::encounter::update_encounters_from_world`
+- `crates/ambition_sandbox/src/app/plugins.rs:642` in `install_misc_visual_sync_systems`
+  - systems: `crate::presentation::rendering::sync_parallax_layers`
+  - ordering: `camera_follow`
+- `crates/ambition_sandbox/src/app/plugins.rs:642` in `install_misc_visual_sync_systems`
+  - systems: `crate::rooms::sync_portal_sprite_visibility`, `crate::rooms::sync_portal_sprite_animation`, `crate::rooms::sync_portal_ring_rotation_system`, `crate::rooms::hide_portal_loading_zone_visuals`
+  - ordering: `sync_visuals`
+- `crates/ambition_sandbox/src/app/plugins.rs:642` in `install_misc_visual_sync_systems`
+  - systems: `crate::boss_encounter::tick_boss_idle_barks`
+- `crates/ambition_sandbox/src/app/plugins.rs:642` in `install_misc_visual_sync_systems`
+  - systems: `crate::presentation::rendering::sync_health_overlays`
+  - ordering: `sync_visuals`
+- `crates/ambition_sandbox/src/app/plugins.rs:733` in `install_projectile_and_vfx_systems`
+  - systems: `vfx_spawn_messages`
+  - ordering: `fx::process_explosion_requests`
+- `crates/ambition_sandbox/src/app/plugins.rs:733` in `install_projectile_and_vfx_systems`
+  - systems: `crate::projectile::sync_projectile_visuals`, `crate::enemy_projectile::sync_enemy_projectile_visuals`
+  - ordering: `crate::projectile::update_projectiles`, `crate::enemy_projectile::update_enemy_projectiles`
+- `crates/ambition_sandbox/src/app/sim_systems.rs:790` in `suspended_frame_zeros_world_time_scaled_dt`
+  - systems: `apply_suspended_time_scale_system`, `crate::refresh_world_time`
+  - run if: `gameplay_suspended`
+- `crates/ambition_sandbox/src/app/sim_systems.rs:841` in `gameplay_frame_preserves_world_time_scaled_dt`
+  - systems: `apply_suspended_time_scale_system`, `crate::refresh_world_time`
+  - run if: `gameplay_suspended`
+- `crates/ambition_sandbox/src/audio/bank_asset.rs:123` in `SfxBankAssetPlugin::build`
+  - systems: `promote_loaded_sfx_bank`
+- `crates/ambition_sandbox/src/audio/environment.rs:360` in `detect_picks_up_player_water_contact_in_app`
+  - systems: `detect_audio_environment`
+- `crates/ambition_sandbox/src/audio/plugin.rs:40` in `SandboxAudioPlugin::build`
+  - systems: `start_default_music_when_ready`
+- `crates/ambition_sandbox/src/audio/web_unlock.rs:61` in `WebAudioUnlockPlugin::build`
+  - systems: `observe_unlock_gesture`
+- `crates/ambition_sandbox/src/beam.rs:136` in `test_app`
+  - systems: `fire_beam_system`
+- `crates/ambition_sandbox/src/blink.rs:154` in `test_app`
+  - systems: `blink_system`
+- `crates/ambition_sandbox/src/body_mode/mechanics.rs:262` in `build_body_mode_test_app`
+  - systems: `super::update_body_mode`
+- `crates/ambition_sandbox/src/bomb.rs:109` in `a_thrown_bomb_arms_but_a_resting_one_does_not`
+  - systems: `arm_thrown_bombs`
+- `crates/ambition_sandbox/src/bomb.rs:143` in `fuse_expiry_detonates_a_player_side_blast_and_despawns`
+  - systems: `tick_bomb_fuses`, `capture_hits`
+- `crates/ambition_sandbox/src/boss_encounter/gnu_ton.rs:222` in `gnu_ton_head_hurtbox_overlaps_the_body_envelope`
+  - systems: `crate::features::derive_boss_sprite_metrics`
+- `crates/ambition_sandbox/src/boss_encounter/gnu_ton.rs:292` in `make_app`
+  - systems: `gate_gnu_ton_arena_ladder`
+- `crates/ambition_sandbox/src/boss_encounter/systems.rs:498` in `dramatic_phase_change_kicks_the_camera_shake`
+  - systems: `boss_phase_transition_feedback`
+- `crates/ambition_sandbox/src/boss_encounter/systems.rs:523` in `non_dramatic_change_does_not_shake`
+  - systems: `boss_phase_transition_feedback`
+- `crates/ambition_sandbox/src/brain/mod.rs:495` in `emit_brain_action_messages_skips_entities_missing_components`
+  - systems: `emit_brain_action_messages`
+- `crates/ambition_sandbox/src/brain/mod.rs:534` in `emit_brain_action_messages_handles_many_actors`
+  - systems: `emit_brain_action_messages`
+- `crates/ambition_sandbox/src/brain/mod.rs:845` in `observe_brain_action_counter_sums_per_frame_messages`
+  - systems: `emit_brain_action_messages`, `observe_brain_action_counter`
+- `crates/ambition_sandbox/src/brain/mod.rs:884` in `emit_brain_action_messages_writes_one_message_per_request`
+  - systems: `emit_brain_action_messages`
+- `crates/ambition_sandbox/src/content/features/ecs/actors.rs:1213` in `sync_actor_pose_uses_feature_aabb_and_actor_facing`
+  - systems: `sync_actor_poses_from_feature_aabbs`
+- `crates/ambition_sandbox/src/content/features/ecs/aggression.rs:257` in `npc_flips_hostile_once_strikes_reach_the_threshold`
+  - systems: `apply_npc_stimuli`
+- `crates/ambition_sandbox/src/content/features/ecs/aggression.rs:273` in `npc_below_the_threshold_stays_peaceful`
+  - systems: `apply_npc_stimuli`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1235` in `build_app`
+  - systems: `spawn_enemy_projectiles_from_brain_actions`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1325` in `melee_message_starts_enemy_windup_and_cooldown`
+  - systems: `start_enemy_melee_from_brain_actions`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1392` in `melee_message_can_start_windup_for_dismounted_pirate_heavy`
+  - systems: `start_enemy_melee_from_brain_actions`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1456` in `melee_message_during_cooldown_is_dropped`
+  - systems: `start_enemy_melee_from_brain_actions`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1557` in `apple_rain_app`
+  - systems: `spawn_gnu_apple_rain_from_special_messages`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1799` in `overfit_volley_consumer_fires_bolts_at_seeded_samples_on_strike`
+  - systems: `spawn_overfit_volley_from_special_messages`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1855` in `overfit_volley_consumer_fires_once_per_strike_then_holds`
+  - systems: `spawn_overfit_volley_from_special_messages`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1895` in `minima_trap_consumer_spawns_world_hitbox_on_strike`
+  - systems: `spawn_minima_trap_from_special_messages`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1948` in `minima_trap_consumer_does_not_re_fire_during_strike`
+  - systems: `spawn_minima_trap_from_special_messages`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1993` in `saddle_point_consumer_spawns_initial_arm_then_toggles_axes`
+  - systems: `spawn_saddle_point_from_special_messages`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:2044` in `saddle_point_consumer_despawns_on_strike_end`
+  - systems: `spawn_saddle_point_from_special_messages`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:2090` in `minima_trap_spawned_minion_carries_encounter_mob_marker`
+  - systems: `spawn_minima_trap_from_special_messages`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:2144` in `gradient_cascade_spawned_minions_carry_encounter_mob_marker`
+  - systems: `spawn_gradient_cascade_minions_from_special_messages`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:2189` in `gradient_cascade_consumer_spawns_minion_entities_on_strike_edge`
+  - systems: `spawn_gradient_cascade_minions_from_special_messages`
+- `crates/ambition_sandbox/src/content/features/ecs/breakables.rs:110` in `app`
+  - systems: `update_ecs_breakables`
+- `crates/ambition_sandbox/src/content/features/ecs/chests.rs:98` in `app`
+  - systems: `open_ecs_chests`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1105` in `victim_side_enemy_body_hit_does_not_damage_features`
+  - systems: `apply_feature_hit_events`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1142` in `enemy_charge_crash_is_processed_as_enemy_damage`
+  - systems: `apply_feature_hit_events`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1191` in `player_slash_damages_and_can_kill_a_hostile_actor`
+  - systems: `apply_feature_hit_events`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1267` in `player_slash_shatters_a_breakable`
+  - systems: `apply_feature_hit_events`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1318` in `enemy_defeat_drops_a_collectible_currency_coin`
+  - systems: `c`, `drop_currency_coin`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1366` in `defeated_boss_drops_its_signature_ability`
+  - systems: `c`, `drop_ability_pickup`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1525` in `exploding_mite_blast_is_a_player_damaging_enemy_hitbox`
+  - systems: `c`, `spawn_death_explosion`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1552` in `dividing_mite_splits_into_two_hostile_offspring_on_death`
+  - systems: `c`, `spawn_split_offspring`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1577` in `enemy_health_drop_is_deterministic_and_spawns_a_heart`
+  - systems: `c`, `drop_health_pickup`
+- `crates/ambition_sandbox/src/content/features/ecs/encounter_rewards.rs:232` in `app`
+  - systems: `run_sync`
+- `crates/ambition_sandbox/src/content/features/ecs/encounter_rewards.rs:330` in `app`
+  - systems: `run_boss_sync`
+- `crates/ambition_sandbox/src/content/features/ecs/hazards.rs:160` in `app_with_hazard_system`
+  - systems: `update_ecs_hazards`, `record_hits`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:369` in `tick_and_despawn_drops_expired_hitboxes`
+  - systems: `tick_and_despawn_hitboxes`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:400` in `tick_and_despawn_keeps_live_hitboxes`
+  - systems: `tick_and_despawn_hitboxes`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:442` in `spawn_melee_hitbox_attaches_full_component_set`
+  - systems: `commands`, `store`, `is_some`, `entity`, `spawn_melee_hitbox`, `owner`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:506` in `player_faction_hitbox_emits_an_attacker_side_feature_hit`
+  - systems: `apply_hitbox_damage`, `capture_hits`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:557` in `player_faction_hitbox_only_fires_once`
+  - systems: `apply_hitbox_damage`, `capture_hits`
+- `crates/ambition_sandbox/src/content/features/ecs/interact.rs:186` in `buffered_interact_toggles_an_adjacent_switch`
+  - systems: `interact_ecs_actors_and_switches`
+- `crates/ambition_sandbox/src/content/features/ecs/mount.rs:417` in `sync_riders_to_mounts_snaps_rider_to_mount_offset`
+  - systems: `sync_riders_to_mounts`
+- `crates/ambition_sandbox/src/content/features/ecs/mount.rs:553` in `dead_mount_dissolves_link_keeping_records`
+  - systems: `enforce_mount_rider_link`
+- `crates/ambition_sandbox/src/content/features/ecs/mount.rs:597` in `reviving_mount_re_arms_rider_to_mounted_brain`
+  - systems: `enforce_mount_rider_link`
+- `crates/ambition_sandbox/src/content/features/ecs/mount.rs:642` in `dead_rider_does_not_disturb_mount_records`
+  - systems: `enforce_mount_rider_link`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:178` in `collect_marks_only_the_overlapping_pickup`
+  - systems: `collect_ecs_pickups`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:205` in `currency_pickup_credits_the_player_wallet`
+  - systems: `collect_ecs_pickups`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:253` in `collecting_an_ability_pickup_grants_it_to_the_catalog`
+  - systems: `collect_ecs_pickups`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:297` in `collect_is_a_noop_with_no_player`
+  - systems: `collect_ecs_pickups`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:314` in `nearby_pickups_drift_toward_the_player`
+  - systems: `magnetize_pickups`
+- `crates/ambition_sandbox/src/content/features/ecs/reset.rs:226` in `app`
+  - systems: `reset_ecs_room_features`
+- `crates/ambition_sandbox/src/content/features/ecs/save_sync.rs:227` in `switches_restore_their_on_state_from_the_save`
+  - systems: `sync_ecs_switches_from_save`
+- `crates/ambition_sandbox/src/content/features/ecs/spawn.rs:125` in `encounter_mob_brain_is_per_archetype_melee_brute`
+  - systems: `commands`, `spawn_encounter_mob`, `to_string`
+- `crates/ambition_sandbox/src/content/features/ecs/spawn.rs:152` in `boss_spawn_attaches_brain_components`
+  - systems: `commands`, `authored`, `to_string`, `name`, `aabb`, `payload`, `spawn_boss`
+- `crates/ambition_sandbox/src/content/features/ecs/spawn.rs:232` in `encounter_mob_spawns_with_brain_components`
+  - systems: `commands`, `spawn_encounter_mob`, `to_string`
+- `crates/ambition_sandbox/src/content/features/ecs/spawn.rs:321` in `shark_composite_mount_brain_stays_skirmisher`
+  - systems: `commands`, `authored`, `to_string`, `name`, `aabb`, `payload`, `spawn_composite_mount_rider`
+- `crates/ambition_sandbox/src/content/features/ecs/spawn.rs:353` in `pirate_raider_shark_rider_keeps_compact_dismounted_size`
+  - systems: `commands`, `authored`, `to_string`, `name`, `aabb`, `payload`, `spawn_composite_mount_rider`
+- `crates/ambition_sandbox/src/content/features/ecs/spawn.rs:393` in `pirate_heavy_shark_rider_keeps_compact_dismounted_size`
+  - systems: `commands`, `authored`, `to_string`, `name`, `aabb`, `payload`, `spawn_composite_mount_rider`
+- `crates/ambition_sandbox/src/content/features/ecs/target_volumes.rs:136` in `derive_pogo_target_volumes_copies_damageable_by_default`
+  - systems: `derive_pogo_target_volumes`
+- `crates/ambition_sandbox/src/content/features/ecs/target_volumes.rs:157` in `derive_pogo_target_volumes_respects_disabled_policy`
+  - systems: `derive_pogo_target_volumes`
+- `crates/ambition_sandbox/src/content/features/ecs/targeting.rs:118` in `target_points_at_only_player_when_one_present`
+  - systems: `select_actor_targets`
+- `crates/ambition_sandbox/src/content/features/ecs/targeting.rs:145` in `target_picks_nearest_when_two_players_present`
+  - systems: `select_actor_targets`
+- `crates/ambition_sandbox/src/content/features/ecs/targeting.rs:171` in `passive_aggression_targets_self_not_player`
+  - systems: `select_actor_targets`
+- `crates/ambition_sandbox/src/content/features/ecs/targeting.rs:208` in `retaliating_actor_tracks_nearest_player`
+  - systems: `select_actor_targets`
+- `crates/ambition_sandbox/src/content/features/ecs/targeting.rs:226` in `no_players_leaves_target_unchanged`
+  - systems: `select_actor_targets`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:64` in `peaceful_actor_damageable_volume_derives_pogo_overlay`
+  - systems: `refresh_actor_damageable_volumes`, `derive_pogo_target_volumes`, `rebuild_feature_ecs_world_overlay`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:108` in `overlay_uses_published_pogo_volumes_instead_of_boss_body_aabb`
+  - systems: `rebuild_feature_ecs_world_overlay`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:141` in `ecs_overlay_ignores_broken_breakables`
+  - systems: `rebuild_feature_ecs_world_overlay`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:177` in `interact_buffered_opens_adjacent_chest`
+  - systems: `open_ecs_chests`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:221` in `interact_buffered_does_not_open_distant_chest`
+  - systems: `open_ecs_chests`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:255` in `interact_does_not_reopen_already_opened_chest`
+  - systems: `open_ecs_chests`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:309` in `interact_buffered_starts_npc_dialogue`
+  - systems: `interact_ecs_actors_and_switches`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:344` in `feature_view_index_reflects_same_frame_pickup_collection`
+  - systems: `rebuild_feature_view_index`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:395` in `feature_view_index_first_write_wins_on_duplicate_ids`
+  - systems: `rebuild_feature_view_index`
+- `crates/ambition_sandbox/src/dev/fps_overlay.rs:70` in `FpsOverlayPlugin::build`
+  - systems: `sync_fps_overlay_state_from_settings`, `toggle_fps_overlay_on_f3`, `update_fps_overlay_text`, `update_fps_overlay_visibility`
+- `crates/ambition_sandbox/src/dev/profiling.rs:170` in `phase_mark_appends_to_resource`
+  - systems: `phase_mark`
+- `crates/ambition_sandbox/src/dev/profiling.rs:181` in `report_runs_once_even_if_called_twice`
+  - systems: `report_startup_phases`
+- `crates/ambition_sandbox/src/dialog/yarn_bindings.rs:190` in `YarnBindingsPlugin::build`
+  - systems: `clear_yarn_presentation_cue`, `refresh_yarn_state_mirror`
+- `crates/ambition_sandbox/src/dialog/yarn_bindings.rs:589` in `refresh_mirrors_player_inventory_into_the_snapshot`
+  - systems: `refresh_yarn_state_mirror`
+- `crates/ambition_sandbox/src/dialog/yarn_bridge.rs:66` in `YarnBridgePlugin::build`
+  - systems: `spawn_dialogue_runner`
+  - run if: `YarnProject`
+- `crates/ambition_sandbox/src/dialog/yarn_bridge.rs:70` in `YarnBridgePlugin::build`
+  - systems: `dispatch_pending_dialog_requests`
+- `crates/ambition_sandbox/src/dive.rs:174` in `test_app`
+  - systems: `fire_dive_system`
+- `crates/ambition_sandbox/src/dive.rs:212` in `dive_lunges_the_player_forward_and_cuts_a_corridor`
+  - systems: `capture_hits`
+  - ordering: `fire_dive_system`
+- `crates/ambition_sandbox/src/dive.rs:280` in `no_dive_without_attack_or_item`
+  - systems: `capture_hits`
+  - ordering: `fire_dive_system`
+- `crates/ambition_sandbox/src/dive.rs:295` in `dive_costs_mana_and_is_blocked_when_empty`
+  - systems: `capture_hits`
+  - ordering: `fire_dive_system`
+- `crates/ambition_sandbox/src/enemy_projectile/systems.rs:271` in `player_faction_shot_damages_an_overlapping_enemy_and_expires`
+  - systems: `update_enemy_projectiles`, `capture_hits`
+- `crates/ambition_sandbox/src/enemy_projectile/systems.rs:355` in `a_parried_enemy_shot_flips_to_player_faction_and_reverses`
+  - systems: `update_enemy_projectiles`
+- `crates/ambition_sandbox/src/falling_sand.rs:165` in `FallingSandRoomPlugin::build`
+  - systems: `log_falling_sand_diagnostics`
+- `crates/ambition_sandbox/src/grapple.rs:138` in `test_app`
+  - systems: `grapple_system`
+- `crates/ambition_sandbox/src/gravity_grenade.rs:108` in `a_thrown_grenade_arms_but_a_resting_one_does_not`
+  - systems: `arm_thrown_gravity_grenades`
+- `crates/ambition_sandbox/src/gravity_grenade.rs:133` in `fuse_expiry_opens_a_temporary_up_well_and_despawns`
+  - systems: `tick_gravity_grenade_fuses`
+- `crates/ambition_sandbox/src/host/mobile_input/bevy_plugin.rs:101` in `TouchControlsPlugin::build`
+  - systems: `tag_virtual_joystick_root`, `sync_touch_visibility_from_settings`, `sync_touch_ui_visibility`, `read_joystick_messages`, `update_buttons_from_interactions`, `fold_to_menu_control_frame`, `fold_to_control_frame`
+  - ordering: `crate::pause_menu::pause_menu_toggle`, `crate::app::apply_menu_frame_to_cutscene_request`, `crate::app::populate_menu_control_frame_from_actions`, `crate::app::player_control_system`, `crate::app::populate_control_frame_from_actions`
+- `crates/ambition_sandbox/src/host/platform/android.rs:46` in `AndroidPlatformPlugin::build`
+  - systems: `apply_android_suspend_to_game_mode`
+- `crates/ambition_sandbox/src/host/platform/android.rs:48` in `AndroidPlatformPlugin::build`
+  - systems: `audio_lifecycle::apply_android_suspend_to_audio`
+- `crates/ambition_sandbox/src/hud_overlay.rs:222` in `mana_regenerates_over_time_but_clamps_to_max`
+  - systems: `regen_player_mana`
+- `crates/ambition_sandbox/src/intro/plugin.rs:81` in `IntroPlugin::build`
+  - systems: `install_intro_cutscenes_system`, `load_intro_npc_sprites_system`, `load_intro_prop_sprites_system`, `install_intro_banter_system`, `install_intro_gated_zones_system`, `super::route_state::emit_intro_flag_chains`, `super::route_state::sync_intro_flag_gated_lock_walls`
+- `crates/ambition_sandbox/src/intro/route_state.rs:358` in `emit_chains_promotes_bob_survey_to_private_marks`
+  - systems: `super::emit_intro_flag_chains`, `apply_flag_effects`
+- `crates/ambition_sandbox/src/intro/route_state.rs:416` in `cartography_quest_advances_through_alice_bob_p5`
+  - systems: `super::emit_intro_flag_chains`, `apply_flag_effects`, `apply_quest_effects`, `apply_quest_advance_events`
+- `crates/ambition_sandbox/src/intro/route_state.rs:499` in `emit_chains_promotes_p5_to_route_memory`
+  - systems: `super::emit_intro_flag_chains`, `apply_flag_effects`
+- `crates/ambition_sandbox/src/inventory/effects.rs:44` in `app`
+  - systems: `use_one_health_potion`, `record_heals`
+- `crates/ambition_sandbox/src/inventory_persist.rs:82` in `app_with`
+  - systems: `restore_inventory_from_save`, `persist_inventory_to_save`
+- `crates/ambition_sandbox/src/item_pickup.rs:907` in `attack_picks_up_axe_and_grants_its_swing_then_throw_restores`
+  - systems: `pickup_held_item_system`, `throw_held_item_system`
+- `crates/ambition_sandbox/src/item_pickup.rs:975` in `gunsword_pickup_swaps_to_ranged_and_attack_fires_a_bolt`
+  - systems: `pickup_held_item_system`, `fire_held_ranged_system`
+- `crates/ambition_sandbox/src/item_pickup.rs:1027` in `pickup_consumes_the_attack_press`
+  - systems: `pickup_held_item_system`
+- `crates/ambition_sandbox/src/item_pickup.rs:1052` in `fireball_shot_is_tagged_to_explode_unlike_a_plain_bolt`
+  - systems: `fire_held_ranged_system`
+- `crates/ambition_sandbox/src/item_pickup.rs:1109` in `a_plain_ranged_bolt_does_not_explode`
+  - systems: `fire_held_ranged_system`
+- `crates/ambition_sandbox/src/item_pickup.rs:1141` in `thrown_item_arcs_and_settles_on_the_floor`
+  - systems: `ground_item_physics`
+- `crates/ambition_sandbox/src/item_pickup.rs:1172` in `javelin_is_thrown_on_plain_attack_use`
+  - systems: `pickup_held_item_system`, `throw_held_item_system`
+- `crates/ambition_sandbox/src/mark_recall.rs:183` in `test_app`
+  - systems: `mark_recall_system`
+- `crates/ambition_sandbox/src/meteor.rs:137` in `test_app`
+  - systems: `fire_meteor_system`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:82` in `install_cube_menu`
+  - systems: `cube_menu_open_routing`, `cube_focus_nav`, `republish_cube_pages`, `gate_cube_menu`, `toggle_inventory_backend`, `retarget_cube_scrim`, `fade_cube_scrim`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1764` in `open_app`
+  - systems: `cube_menu_open_routing`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1861` in `nav_app`
+  - systems: `cube_focus_nav`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1896` in `system_nav_app`
+  - systems: `cube_focus_nav`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:2128` in `esc_closes_the_open_cube_from_any_page_via_real_input`
+  - systems: `crate::app::populate_menu_control_frame_from_actions`, `crate::oot_menu::oot_menu_input`, `cube_menu_open_routing`, `cube_focus_nav`
+- `crates/ambition_sandbox/src/oot_menu/tests.rs:36` in `test_app`
+  - systems: `oot_menu_input`, `record_heals`
+- `crates/ambition_sandbox/src/persistence.rs:24` in `PersistenceSchedulePlugin::build`
+  - systems: `settings::persistence::save_settings_on_change`, `settings::persistence::save_developer_on_change`, `save::autosave_sandbox_save`
+- `crates/ambition_sandbox/src/physics.rs:382` in `gravity_zone_overrides_ambient_while_inside_then_reverts`
+  - systems: `resolve_active_gravity`
+- `crates/ambition_sandbox/src/physics.rs:492` in `collect_gravity_zones_snapshots_the_components`
+  - systems: `collect_gravity_zones`
+- `crates/ambition_sandbox/src/physics.rs:508` in `oscillating_zone_slides_horizontally_over_time`
+  - systems: `oscillate_gravity_zones`
+- `crates/ambition_sandbox/src/player/affordances/mod.rs:156` in `AffordancesPlugin::build`
+  - systems: `detect_active_input_method`
+- `crates/ambition_sandbox/src/player/components.rs:656` in `targeted_heal_routes_to_named_entity_not_primary`
+  - systems: `apply_player_heal_requests`
+- `crates/ambition_sandbox/src/player/components.rs:705` in `untargeted_heal_routes_to_primary`
+  - systems: `apply_player_heal_requests`
+- `crates/ambition_sandbox/src/player/systems.rs:271` in `player_projectile_release_emits_ranged_bolt_action_message_end_to_end`
+  - systems: `sync_local_player_input_frame`, `tick_player_brains`, `emit_brain_action_messages`
+- `crates/ambition_sandbox/src/player/systems.rs:344` in `player_attack_press_emits_swipe_action_message_end_to_end`
+  - systems: `sync_local_player_input_frame`, `tick_player_brains`, `emit_brain_action_messages`
+- `crates/ambition_sandbox/src/player/systems.rs:406` in `player_brain_seam_translates_control_frame_to_actor_control`
+  - systems: `sync_local_player_input_frame`, `tick_player_brains`
+- `crates/ambition_sandbox/src/portal.rs:2439` in `in_flight_ground_item_travels_through_the_portal_pair`
+  - systems: `portal_teleport_ground_items`
+- `crates/ambition_sandbox/src/portal.rs:2506` in `portals_teleport_a_fitting_actor_and_skip_an_oversized_one`
+  - systems: `portal_transit_actors`
+- `crates/ambition_sandbox/src/portal.rs:2662` in `roll_eases_back_to_gravity_upright_in_air`
+  - systems: `update_actor_roll`
+- `crates/ambition_sandbox/src/portal.rs:2701` in `actors_get_an_aerial_roll_through_portals`
+  - systems: `portal_transit_actors`
+- `crates/ambition_sandbox/src/portal.rs:2749` in `gravity_switch_flips_on_entry_and_rearms_on_exit`
+  - systems: `gravity_flip_switch_system`
+- `crates/ambition_sandbox/src/portal.rs:2803` in `picking_up_the_portal_gun_activates_it`
+  - systems: `pickup_portal_gun_system`
+- `crates/ambition_sandbox/src/portal.rs:2853` in `dropped_portal_gun_arms_before_it_can_be_regrabbed`
+  - systems: `drop_portal_gun_system`, `arm_portal_pickups`, `pickup_portal_gun_system`
+- `crates/ambition_sandbox/src/portal.rs:2927` in `portal_pair_teleports_player_carrying_momentum`
+  - systems: `portal_transit_system`
+- `crates/ambition_sandbox/src/portal.rs:2977` in `portal_input_warp_transforms_held_input_then_clears`
+  - systems: `warp_portal_input`
+- `crates/ambition_sandbox/src/portal.rs:3038` in `wall_ability_suppression_reapplies_every_frame_against_the_loadout_reset`
+  - systems: `reenable_ledge_grab`, `suppress_ledge_grab_during_transit`
+- `crates/ambition_sandbox/src/portal.rs:3096` in `emission_guard_strips_input_pushing_back_into_the_exit_wall`
+  - systems: `warp_portal_input`
+- `crates/ambition_sandbox/src/portal.rs:3133` in `a_gunless_player_transits_an_authored_pair`
+  - systems: `portal_transit_system`
+- `crates/ambition_sandbox/src/portal.rs:3188` in `transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears`
+  - systems: `portal_transit_system`
+- `crates/ambition_sandbox/src/portal.rs:3269` in `partial_render_keeps_the_sprite_and_masks_the_through_slice`
+  - systems: `sync_portal_body_pieces`
+- `crates/ambition_sandbox/src/portal.rs:3323` in `portal_carve_is_transient_and_pair_gated`
+  - systems: `publish_portal_carves`
+- `crates/ambition_sandbox/src/portal.rs:3385` in `portal_shot_travels_and_opens_a_portal_on_a_wall`
+  - systems: `portal_fire_system`, `portal_projectile_step`
+- `crates/ambition_sandbox/src/possession.rs:198` in `trigger_app`
+  - systems: `possession_trigger_system`
+- `crates/ambition_sandbox/src/presentation/rendering.rs:78` in `PlayerVisualSchedulePlugin::build`
+  - systems: `crate::portal::sync_portal_visuals`, `crate::portal::sync_portal_body_pieces`, `crate::portal::sync_portal_disorientation_indicator`, `crate::portal::sync_portal_mode_indicator`, `crate::portal::portal_dev_toggle_system`, `crate::item_pickup::sync_ground_item_visuals`, `crate::item_pickup::sync_held_item_visual`, `crate::item_pickup::sync_held_projectile_visuals`, `crate::portal::sync_gravity_switch_visual`, `crate::portal::sync_gravity_zone_visual`, `crate::shrine::sync_shrine_visual`, `crate::shrine::animate_shrine_visuals`, `crate::mark_recall::sync_mark_beacon_visual`
+  - ordering: `actors::sync_visuals`, `actors::animate_props`
+- `crates/ambition_sandbox/src/presentation/rendering.rs:78` in `PlayerVisualSchedulePlugin::build`
+  - systems: `crate::player::bubble_shield::spawn_bubble_shield_visual`, `crate::player::bubble_shield::sync_bubble_shield_visual`
+  - ordering: `actors::sync_visuals`
+- `crates/ambition_sandbox/src/presentation/rendering.rs:78` in `PlayerVisualSchedulePlugin::build`
+  - systems: `crate::body_mode::spawn_morph_ball_visual`, `crate::body_mode::sync_morph_ball_visual`
+  - ordering: `actors::sync_visuals`
+- `crates/ambition_sandbox/src/presentation/screen_effects.rs:43` in `ScreenEffectsPlugin::build`
+  - systems: `sync_screen_effect_settings_from_video_settings`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:117` in `fireball_bounces_off_floor_in_system`
+  - systems: `crate::player::sync_local_player_input_frame`, `crate::player::tick_player_brains`, `crate::brain::emit_player_projectile_tick_messages`, `update_projectiles`, `crate::features::apply_feature_hit_events`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:199` in `fireball_bounces_off_one_way_platform_in_system`
+  - systems: `crate::player::sync_local_player_input_frame`, `crate::player::tick_player_brains`, `crate::brain::emit_player_projectile_tick_messages`, `update_projectiles`, `crate::features::apply_feature_hit_events`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:282` in `fireball_passes_through_one_way_from_below_in_system`
+  - systems: `crate::player::sync_local_player_input_frame`, `crate::player::tick_player_brains`, `crate::brain::emit_player_projectile_tick_messages`, `update_projectiles`, `crate::features::apply_feature_hit_events`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:362` in `hadouken_expires_on_solid_in_system`
+  - systems: `crate::player::sync_local_player_input_frame`, `crate::player::tick_player_brains`, `crate::brain::emit_player_projectile_tick_messages`, `update_projectiles`, `crate::features::apply_feature_hit_events`
+- `crates/ambition_sandbox/src/projectile/tests/mod.rs:80` in `min_app`
+  - systems: `crate::player::sync_local_player_input_frame`, `crate::player::tick_player_brains`, `crate::brain::emit_player_projectile_tick_messages`, `update_projectiles`, `crate::features::apply_feature_hit_events`
+- `crates/ambition_sandbox/src/puppy_slug_gun.rs:103` in `test_app`
+  - systems: `fire_puppy_slug_gun_system`
+- `crates/ambition_sandbox/src/runtime/reset.rs:329` in `sandbox_reset_clears_portals_held_items_and_summons`
+  - systems: `clear_transient_on_sandbox_reset`
+- `crates/ambition_sandbox/src/runtime/reset.rs:488` in `min_app`
+  - systems: `process_sandbox_reset_request`
+- `crates/ambition_sandbox/src/sentry.rs:170` in `test_app`
+  - systems: `fire_sentry_system`, `update_sentries`
+- `crates/ambition_sandbox/src/shockwave.rs:154` in `test_app`
+  - systems: `fire_shockwave_system`, `spawn_shockwave_from_special_messages`
+- `crates/ambition_sandbox/src/shockwave.rs:260` in `an_actor_emitting_shockwave_gets_an_aoe_of_its_own_faction`
+  - systems: `spawn_shockwave_from_special_messages`
+- `crates/ambition_sandbox/src/shrine.rs:456` in `interacting_at_the_shrine_heals_to_full`
+  - systems: `heal_save_shrine_system`
+- `crates/ambition_sandbox/src/shrine.rs:523` in `no_heal_without_interact_or_when_not_touching`
+  - systems: `heal_save_shrine_system`
+- `crates/ambition_sandbox/src/time/time_control.rs:439` in `solo_grant_writes_requested_clock_scale`
+  - systems: `apply_clock_scale_requests`
+- `crates/ambition_sandbox/src/time/time_control.rs:460` in `rl_regime_denies_blocks_the_scale_change`
+  - systems: `apply_clock_scale_requests`
+- `crates/ambition_sandbox/src/time/time_control.rs:488` in `wall_clock_grant_does_not_mutate_target`
+  - systems: `apply_clock_scale_requests`
+- `crates/ambition_sandbox/src/time/time_control.rs:512` in `smoother_ramps_sim_state_time_scale_toward_target`
+  - systems: `apply_clock_scale_requests`, `smooth_sim_clock_toward_target_system`
+- `crates/ambition_sandbox/src/volley.rs:109` in `test_app`
+  - systems: `fire_volley_system`
+- `crates/ambition_sandbox/src/vortex.rs:133` in `test_app`
+  - systems: `fire_vortex_system`, `update_vortex_wells`
+- `crates/ambition_sandbox/src/world/physics.rs:118` in `AmbitionPhysicsPlugin::build`
+  - systems: `update_physics_debris_lifetimes`, `complete_pending_physics_despawns`
+- `crates/ambition_sandbox/src/world/rooms/tests.rs:152` in `sync_room_music_request_mirrors_metadata_music_track`
+  - systems: `sync_room_music_request`
+- `crates/ambition_sandbox/src/world/rooms/tests.rs:199` in `sync_active_room_metadata_publishes_active_value`
+  - systems: `sync_active_room_metadata`
+
+### `Update` / `AffordancesSystemSet::Compute` (4 systems)
+- `crates/ambition_sandbox/src/player/affordances/mod.rs:156` in `AffordancesPlugin::build`
+  - systems: `compute_player_intent`, `update_nearest_interactable`, `update_pogo_target_below`, `compute_player_affordances`
+
+### `Update` / `SandboxSet::Combat` (18 systems)
+- `crates/ambition_sandbox/src/app/combat_schedule.rs:23` in `CombatSchedulePlugin::build`
+  - systems: `attack_advance_system`, `crate::features::spawn_enemy_projectiles_from_brain_actions`, `crate::features::start_enemy_melee_from_brain_actions`, `crate::features::spawn_gnu_apple_rain_from_special_messages`, `crate::features::spawn_overfit_volley_from_special_messages`, `crate::features::spawn_eye_beam_from_special_messages`, `crate::features::spawn_minima_trap_from_special_messages`, `crate::features::spawn_saddle_point_from_special_messages`, `crate::features::spawn_gradient_cascade_minions_from_special_messages`, `crate::shockwave::spawn_shockwave_from_special_messages`, `crate::projectile::update_projectiles`, `crate::enemy_projectile::update_enemy_projectiles`, `crate::features::apply_hitbox_damage`, `crate::features::tick_and_despawn_hitboxes`, `crate::features::apply_feature_hit_events`, `crate::boss_encounter::tick_cut_rope_boss_arena`, `crate::boss_encounter::sync_cut_rope_boss_arena_prop_visuals`, `crate::features::enforce_mount_rider_link`
+  - run if: `gameplay_allowed`
+
+### `Update` / `SandboxSet::CoreSimulation` (36 systems)
+- `crates/ambition_sandbox/src/app/plugins.rs:491` in `install_menu_setup_and_hotkeys`
+  - systems: `dialog::dialog_input`, `handle_ldtk_hot_reload`, `handle_debug_hotkeys`, `dev_tools::sync_developer_body_profile`, `crate::trace::handle_trace_hotkey`, `crate::map_menu::handle_map_menu_hotkeys`
+  - ordering: `SandboxSet::CoreSimulation`
+- `crates/ambition_sandbox/src/app/plugins.rs:491` in `install_menu_setup_and_hotkeys`
+  - systems: `pause_menu::sync_pause_menu`, `pause_menu::sync_settings_panel_rows`, `cfg`, `feature`, `inventory`, `::sync_inventory_panel`, `crate::map_menu::sync_map_menu`
+  - ordering: `SandboxSet::CoreSimulation`
+- `crates/ambition_sandbox/src/app/plugins.rs:733` in `install_projectile_and_vfx_systems`
+  - systems: `fx::process_fireworks_requests`, `fx::tick_firework_sequences`, `fx::process_explosion_requests`
+  - ordering: `vfx_spawn_messages`, `SandboxSet::CoreSimulation`
+- `crates/ambition_sandbox/src/app/plugins.rs:765` in `install_projectile_and_vfx_systems`
+  - systems: `fx::update_blink_preview`
+  - ordering: `SandboxSet::CoreSimulation`
+- `crates/ambition_sandbox/src/app/plugins.rs:811` in `add_physics_debris_plugins`
+  - systems: `physics_spawn_debris_messages`
+  - ordering: `SandboxSet::CoreSimulation`
+- `crates/ambition_sandbox/src/app/plugins.rs:845` in `add_input_plugins`
+  - systems: `sync_preset_input_map`
+  - ordering: `SandboxSet::CoreSimulation`
+- `crates/ambition_sandbox/src/app/plugins.rs:845` in `add_input_plugins`
+  - systems: `populate_menu_control_frame_from_actions`, `populate_control_frame_from_actions`, `apply_menu_frame_to_cutscene_request`, `dialog::dialog_pointer_input`, `pause_menu::pause_menu_toggle`, `cfg`, `feature`, `inventory`, `::inventory_input`, `crate`, `::oot_menu::oot_menu_input`, `pause_menu::pause_menu_pointer_input`, `pause_menu::settings_slider_drag_input`, `pause_menu::settings_scrollbar_drag_input`, `::inventory_pointer_input`, `::oot_menu::oot_menu_pointer_input`, `pause_menu::pause_menu_navigate`
+  - ordering: `SandboxSet::CoreSimulation`
+
+### `Update` / `SandboxSet::FeatureViewSync` (2 systems)
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:460` in `feature_view_index_reflects_same_frame_reset_spawn`
+  - systems: `fake_reset_system`, `rebuild_feature_view_index`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:509` in `presentation_visual_sync_runs_after_feature_view_sync`
+  - identifiers: `SandboxSet::FeatureViewSync`, `SandboxSet::PresentationVisualSync`
+
+### `Update` / `SandboxSet::LdtkRuntimeSpine` (6 systems)
+- `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/plugin.rs:38` in `LdtkRuntimeSpinePlugin::build`
+  - systems: `sync_plugin_spawned_ambition_entities`, `super::systems::rebuild_ldtk_runtime_spine_index`, `super::systems::rebuild_ldtk_runtime_solid_index`, `super::systems::rebuild_ldtk_runtime_one_way_index`, `super::systems::rebuild_ldtk_runtime_damage_index`, `super::parity::check_ldtk_runtime_spine_parity`
+
+### `Update` / `SandboxSet::PlayerInput` (18 systems)
+- `crates/ambition_sandbox/src/app/plugins.rs:132` in `register_player_input_systems`
+  - systems: `apply_suspended_time_scale_system`, `crate::time::time_control::emit_player_time_intent_system`, `crate::time::time_control::apply_clock_scale_requests`, `crate::time::time_control::smooth_sim_clock_toward_target_system`, `crate::refresh_world_time`, `sync_live_player_dev_edits_system`, `apply_player_reset_input_system`, `crate::boss_encounter::emit_cut_rope_room_replay_after_dialogue_closes`, `apply_cut_rope_room_replay_request_system`, `input_timer_system`, `interaction_input_system`, `crate::player::sync_local_player_input_frame`, `crate::body_mode::update_body_mode`, `crate::player::tick_player_brains`, `crate::player::sync_player_actor_poses`, `crate::brain::emit_brain_action_messages`, `crate::brain::emit_player_projectile_tick_messages`, `crate::brain::observe_brain_action_counter`
+  - run if: `gameplay_suspended`, `gameplay_allowed`
+
+### `Update` / `SandboxSet::PlayerSimulation` (7 systems)
+- `crates/ambition_sandbox/src/app/plugins.rs:226` in `register_player_simulation_systems`
+  - systems: `clear_sandbox_reset_this_frame`, `crate::possession::possession_trigger_system`, `crate::possession::release_possession_if_target_lost`, `crate::possession::sync_possession_input`, `player_control_system`, `player_simulation_system`, `apply_player_hit_events`
+  - run if: `gameplay_allowed`, `crate::possession::not_possessing`
+
+### `Update` / `SandboxSet::PresentationSync` (2 systems)
+- `crates/ambition_sandbox/src/app/plugins.rs:279` in `register_presentation_sync_systems`
+  - systems: `crate::player::write_player_ecs_components`, `cleanup_timers_system`
+
+### `Update` / `SandboxSet::PresentationVisualSync` (0 systems)
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:509` in `presentation_visual_sync_runs_after_feature_view_sync`
+  - identifiers: `SandboxSet::FeatureViewSync`, `SandboxSet::PresentationVisualSync`
+
+### `Update` / `SandboxSet::Progression` (19 systems)
+- `crates/ambition_sandbox/src/app/progression_schedule.rs:21` in `ProgressionSchedulePlugin::build`
+  - systems: `crate::boss_encounter::update_boss_encounters`, `crate::boss_encounter::boss_phase_transition_feedback`, `crate::boss_encounter::spawn_cut_rope_victory_npc`, `crate::boss_encounter::gate_gnu_ton_arena_ladder`, `crate::features::sync_ecs_actors_with_save`, `crate::features::sync_ecs_npc_actors_with_save`, `crate::features::sync_ecs_bosses_with_save`, `crate::content::quest::push_room_entered_quest_events`, `crate::content::quest::apply_quest_advance_events`, `crate::content::quest::grant_quest_completion_rewards`, `crate::rooms::sync_active_room_metadata`, `crate::rooms::sync_room_music_request`, `crate::rooms::tick_portal_phases_system`, `crate::map_menu::track_room_visits`, `crate::map_menu::sync_map_from_save`, `crate::dev::dev_tools::sync_player_stats_with_inspector`
+- `crates/ambition_sandbox/src/app/progression_schedule.rs:67` in `ProgressionSchedulePlugin::build`
+  - systems: `crate::content::quest::populate_quest_registry`, `crate::boss_encounter::populate_boss_encounter_registry`, `crate::encounter::populate_encounter_registry`
+
+### `Update` / `SandboxSet::ResetProcessing` (2 systems)
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:460` in `feature_view_index_reflects_same_frame_reset_spawn`
+  - systems: `fake_reset_system`, `rebuild_feature_view_index`
+
+### `Update` / `SandboxSet::RoomTransition` (6 systems)
+- `crates/ambition_sandbox/src/app/plugins.rs:256` in `register_room_transition_systems`
+  - systems: `detect_room_transition_system`, `ensure_requested_room_parallax_system`, `apply_room_transition_system`, `crate::features::reset_ecs_room_features`, `crate::features::reset_ecs_npc_actors`, `crate::boss_encounter::reset_cut_rope_boss_arena_on_room_reset`
+  - run if: `gameplay_allowed`
+
+### `Update` / `SandboxSet::Trace` (1 systems)
+- `crates/ambition_sandbox/src/dev/trace/plugin.rs:21` in `TraceSchedulePlugin::build`
+  - systems: `super::flush_pending_dump`
+  - ordering: `super::record_frame_system`
+
+### `Update` / `crate::app::SandboxSet::CoreSimulation` (9 systems)
+- `crates/ambition_sandbox/src/audio/plugin.rs:40` in `SandboxAudioPlugin::build`
+  - systems: `crate::music::drive_music_director`
+  - ordering: `crate::app::SandboxSet::CoreSimulation`
+- `crates/ambition_sandbox/src/audio/plugin.rs:40` in `SandboxAudioPlugin::build`
+  - systems: `detect_audio_environment`, `smooth_audio_environment`, `apply_audio_environment`
+  - ordering: `crate::app::SandboxSet::CoreSimulation`
+- `crates/ambition_sandbox/src/audio/plugin.rs:40` in `SandboxAudioPlugin::build`
+  - systems: `audio_play_sfx_messages`
+  - ordering: `crate::app::SandboxSet::CoreSimulation`
+- `crates/ambition_sandbox/src/oot_menu.rs:45` in `install_oot_menu_visuals`
+  - systems: `sync_oot_menu`
+  - ordering: `crate::app::SandboxSet::CoreSimulation`
+- `crates/ambition_sandbox/src/portal.rs:52` in `PortalSimulationPlugin::build`
+  - systems: `crate::physics::oscillate_gravity_zones`, `crate::physics::collect_gravity_zones`, `publish_portal_carves`
+  - ordering: `crate::app::SandboxSet::CoreSimulation`
+
+### `Update` / `crate::app::SandboxSet::Cutscene` (3 systems)
+- `crates/ambition_sandbox/src/presentation/cutscene.rs:569` in `CutsceneSchedulePlugin::build`
+  - systems: `auto_trigger_room_cutscenes`, `drain_cutscene_triggers`, `tick_active_cutscene`
+
+### `Update` / `crate::app::SandboxSet::EncounterSimulation` (4 systems)
+- `crates/ambition_sandbox/src/encounter.rs:52` in `EncounterSimulationSchedulePlugin::build`
+  - systems: `crate::world::platforms::sync_moving_platform`, `update_encounters_from_world`, `crate::features::apply_gameplay_banner_requests`, `crate::features::tick_gameplay_banner`
+
+### `Update` / `crate::app::SandboxSet::FeatureCollection` (3 systems)
+- `crates/ambition_sandbox/src/content/features.rs:228` in `FeatureCollectionSchedulePlugin::build`
+  - systems: `magnetize_pickups`, `collect_ecs_pickups`, `crate::player::apply_player_heal_requests`
+
+### `Update` / `crate::app::SandboxSet::FeatureInteraction` (6 systems)
+- `crates/ambition_sandbox/src/content/features.rs:257` in `FeatureInteractionSchedulePlugin::build`
+  - systems: `interact_ecs_actors_and_switches`, `open_ecs_chests`, `update_ecs_breakables`, `update_ecs_falling_chests`, `sync_ecs_switches_from_save`, `crate::encounter::rebuild_encounter_switch_index`
+
+### `Update` / `crate::app::SandboxSet::FeatureViewSync` (1 systems)
+- `crates/ambition_sandbox/src/content/features.rs:286` in `FeatureViewSyncSchedulePlugin::build`
+  - systems: `rebuild_feature_view_index`
+
+### `Update` / `crate::app::SandboxSet::GameplayEffects` (8 systems)
+- `crates/ambition_sandbox/src/content/features/bus.rs:80` in `GameplayEffectsSchedulePlugin::build`
+  - systems: `apply_flag_effects`, `apply_quest_effects`, `apply_switch_effects`, `super::ecs::apply_npc_stimuli`, `super::ecs::apply_actor_stimuli`, `apply_gameplay_sfx_effects`
+- `crates/ambition_sandbox/src/falling_sand.rs:165` in `FallingSandRoomPlugin::build`
+  - systems: `capture_falling_sand_switch_interactions`, `sync_falling_sand_switch_visuals`
+
+### `Update` / `crate::app::SandboxSet::PlayerInput` (1 systems)
+- `crates/ambition_sandbox/src/portal.rs:63` in `PortalSimulationPlugin::build`
+  - systems: `warp_portal_input`
+  - run if: `crate::gameplay_allowed`
+  - ordering: `crate::player::sync_local_player_input_frame`, `crate::app::interaction_input_system`
+
+### `Update` / `crate::app::SandboxSet::PlayerSimulation` (40 systems)
+- `crates/ambition_sandbox/src/item_pickup.rs:39` in `ItemPickupSimulationPlugin::build`
+  - systems: `crate::shrine::heal_save_shrine_system`, `crate::physics::resolve_active_gravity`, `crate::portal::arm_portal_pickups`, `pickup_held_item_system`, `fire_held_ranged_system`, `held_projectile_step`, `crate::puppy_slug_gun::fire_puppy_slug_gun_system`, `throw_held_item_system`, `ground_item_physics`, `crate::portal::pickup_portal_gun_system`
+  - run if: `crate::gameplay_allowed`
+- `crates/ambition_sandbox/src/item_pickup.rs:64` in `ItemPickupSimulationPlugin::build`
+  - systems: `crate::bomb::arm_thrown_bombs`, `crate::bomb::tick_bomb_fuses`, `crate::gravity_grenade::arm_thrown_gravity_grenades`, `crate::gravity_grenade::tick_gravity_grenade_fuses`, `crate::physics::tick_temporary_zones`
+  - run if: `crate::gameplay_allowed`
+  - ordering: `ground_item_physics`
+- `crates/ambition_sandbox/src/item_pickup.rs:82` in `ItemPickupSimulationPlugin::build`
+  - systems: `crate::mark_recall::mark_recall_system`, `crate::blink::blink_system`, `crate::grapple::grapple_system`, `crate::shockwave::fire_shockwave_system`, `crate::volley::fire_volley_system`, `crate::beam::fire_beam_system`, `crate::vortex::fire_vortex_system`, `crate::vortex::update_vortex_wells`, `crate::sentry::fire_sentry_system`, `crate::sentry::update_sentries`, `crate::dive::fire_dive_system`, `crate::meteor::fire_meteor_system`, `crate::ability_cooldown::tick_ability_cooldown`
+  - run if: `crate::gameplay_allowed`
+  - ordering: `ground_item_physics`
+- `crates/ambition_sandbox/src/portal.rs:72` in `PortalSimulationPlugin::build`
+  - systems: `drop_portal_gun_system`, `portal_toggle_system`, `portal_fire_system`, `portal_projectile_step`, `despawn_orphaned_portals`, `ensure_actor_roll`
+  - run if: `crate::gameplay_allowed`
+- `crates/ambition_sandbox/src/portal.rs:98` in `PortalSimulationPlugin::build`
+  - systems: `suppress_ledge_grab_during_transit`
+  - run if: `crate::gameplay_allowed`
+  - ordering: `crate::app::player_simulation_system`
+- `crates/ambition_sandbox/src/portal.rs:108` in `PortalSimulationPlugin::build`
+  - systems: `tick_portal_cooldowns`, `portal_transit_system`, `portal_teleport_ground_items`, `portal_transit_actors`, `update_actor_roll`
+  - run if: `crate::gameplay_allowed`
+  - ordering: `crate::item_pickup::ground_item_physics`, `crate::app::player_simulation_system`
+
+### `Update` / `crate::app::SandboxSet::PresentationVisualSync` (18 systems)
+- `crates/ambition_sandbox/src/presentation/rendering.rs:155` in `PresentationVisualAnimationPlugin::build`
+  - systems: `features::spawn_dynamic_feature_visuals`, `actors::sync_visuals`, `actors::apply_gnu_ton_body_z`, `actors::upgrade_enemy_sprites`, `actors::upgrade_boss_sprites`, `deep_dream::attach_puppy_slug_deep_dream_overlays`, `hit_flash::attach_hit_flash_overlays`, `actors::animate_player`, `actors::animate_characters`, `deep_dream::sync_puppy_slug_deep_dream_overlays`, `deep_dream::cleanup_puppy_slug_deep_dream_overlays`, `hit_flash::sync_hit_flash_overlays`, `hit_flash::cleanup_hit_flash_overlays`, `actors::animate_props`, `actors::animate_bosses`, `actors::manage_gradient_lane_visual`, `actors::sync_gnu_ton_hands`, `pirate_weapon::sync_pirate_weapon_visuals`
+  - ordering: `crate::map_menu::handle_map_menu_hotkeys`
+
+### `Update` / `crate::app::SandboxSet::ResetProcessing` (2 systems)
+- `crates/ambition_sandbox/src/runtime/reset.rs:287` in `SandboxResetSchedulePlugin::build`
+  - systems: `clear_transient_on_sandbox_reset`, `process_sandbox_reset_request`
+
+### `Update` / `crate::app::SandboxSet::RoomTransition` (2 systems)
+- `crates/ambition_sandbox/src/portal.rs:88` in `PortalSimulationPlugin::build`
+  - systems: `clear_portals_on_reset`, `reset_gravity_on_room_reset`
+  - ordering: `crate::boss_encounter::reset_cut_rope_boss_arena_on_room_reset`
+
+### `Update` / `crate::app::SandboxSet::WorldPrep` (25 systems)
+- `crates/ambition_sandbox/src/content/features.rs:160` in `WorldPrepSchedulePlugin::build`
+  - systems: `crate::ldtk_world::poll_ldtk_file_changes`, `derive_boss_sprite_metrics`, `refresh_actor_damageable_volumes`, `refresh_boss_damageable_volumes`, `refresh_breakable_damageable_volumes`, `derive_pogo_target_volumes`, `rebuild_feature_ecs_world_overlay`, `update_ecs_hazards`, `select_actor_targets`, `update_ecs_actors`, `update_ecs_npcs`, `sync_riders_to_mounts`, `sync_boss_encounter_phase`, `tick_boss_brains_system`, `crate::boss_encounter::steer_cut_rope_boss_under_anvil`, `update_ecs_bosses`, `sync_boss_actor_components`, `sync_actor_poses_from_feature_aabbs`
+- `crates/ambition_sandbox/src/falling_sand.rs:165` in `FallingSandRoomPlugin::build`
+  - systems: `sync_falling_sand_room_state`, `seed_falling_sand_room_boundaries`, `sync_falling_sand_spout_nozzles`, `emit_falling_sand_spouts`, `animate_falling_sand_stream_particles`, `project_particles_to_movement_world`, `grant_room_swim_controls`
+
+### `Update` / `crate::player::affordances::AffordancesSystemSet::Compute` (2 systems)
+- `crates/ambition_sandbox/src/host/mobile_input/bevy_plugin.rs:101` in `TouchControlsPlugin::build`
+  - systems: `render_touch_button_text`, `sync_button_pressed_visual`
+  - ordering: `crate::player::affordances::AffordancesSystemSet::Compute`, `update_button_pressed_from_actions`, `update_button_glyph_from_active_input`, `update_button_verb_from_affordances`
+
+### `bevy::prelude::Update` / `<no explicit set>` (5 systems)
+- `crates/ambition_sandbox/src/blink.rs:195` in `blink_emits_a_player_side_shockwave_at_arrival`
+  - systems: `capture_hits`
+  - ordering: `blink_system`
+- `crates/ambition_sandbox/src/mark_recall.rs:231` in `recall_emits_a_player_side_shockwave_at_the_mark`
+  - systems: `capture_hits`
+  - ordering: `mark_recall_system`
+- `crates/ambition_sandbox/src/world/ldtk_world/tests/kinematic_paths.rs:493` in `damage_volume_path_id_resolves_through_room_spec_kinematic_paths`
+  - systems: `commands`, `crate::features::spawn_room_feature_entities`, `room`
+
+## Message bus
+
+| Message | Registered | Producers | Consumers |
+|---|---:|---:|---:|
+| `SfxMessage` | 59 | 71 | 1 |
+| `VfxMessage` | 33 | 37 | 1 |
+| `HitEvent` | 19 | 14 | 9 |
+| `ActorActionMessage` | 25 | 5 | 13 |
+| `PlayerHealRequested` | 16 | 13 | 3 |
+| `ResetRoomFeaturesEvent` | 2 | 4 | 6 |
+| `DebrisBurstMessage` | 14 | 7 | 1 |
+| `SetFlagRequested` | 23 | 7 | 1 |
+| `SpawnParticleSignal` | 0 | 5 | 0 |
+| `ExplosionRequest` | 1 | 3 | 1 |
+| `PlayerDiedMessage` | 1 | 3 | 1 |
+| `FireworksRequest` | 1 | 2 | 1 |
+| `RoomTransitionRequested` | 1 | 1 | 2 |
+| `SwitchActivated` | 3 | 1 | 2 |
+| `ActorStimulus` | 12 | 0 | 2 |
+| `AppExit` | 0 | 2 | 0 |
+| `ClockScaleRequest` | 5 | 1 | 1 |
+| `CutRopeRoomReplayRequested` | 1 | 1 | 1 |
+| `FeatureHitEvent` | 0 | 1 | 1 |
+| `GameplayBannerRequested` | 1 | 1 | 1 |
+| `QuestAdvanceRequested` | 4 | 1 | 1 |
+| `AppLifecycle` | 0 | 0 | 1 |
+| `GameplaySfxRequested` | 1 | 0 | 1 |
+| `MouseWheel` | 0 | 0 | 1 |
+| `VirtualJoystickMessage<MobileStick>` | 0 | 0 | 1 |
+| `WindowFocused` | 0 | 0 | 1 |
+| `WindowOccluded` | 0 | 0 | 1 |
+
+### `ActorActionMessage`
+- registered at: `crates/ambition_sandbox/src/boss_encounter/systems.rs:494`, `crates/ambition_sandbox/src/boss_encounter/systems.rs:519`, `crates/ambition_sandbox/src/brain/mod.rs:278`, `crates/ambition_sandbox/src/brain/mod.rs:494`, `crates/ambition_sandbox/src/brain/mod.rs:533`, `crates/ambition_sandbox/src/brain/mod.rs:843`, `crates/ambition_sandbox/src/brain/mod.rs:883`, `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1232`
+- written by:
+  - `boss_phase_transition_feedback (crates/ambition_sandbox/src/boss_encounter/systems.rs:395)`
+  - `emit_brain_action_messages (crates/ambition_sandbox/src/brain/mod.rs:352)`
+  - `emit_player_projectile_tick_messages (crates/ambition_sandbox/src/brain/mod.rs:383)`
+  - `tick_boss_brains_system (crates/ambition_sandbox/src/content/features/ecs/bosses.rs:393)`
+  - `fire_shockwave_system (crates/ambition_sandbox/src/shockwave.rs:51)`
+- read by:
+  - `attack_advance_system (crates/ambition_sandbox/src/app/sim_systems.rs:424)`
+  - `observe_brain_action_counter (crates/ambition_sandbox/src/brain/mod.rs:420)`
+  - `log_brain_action_messages (crates/ambition_sandbox/src/brain/mod.rs:435)`
+  - `spawn_enemy_projectiles_from_brain_actions (crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:63)`
+  - `start_enemy_melee_from_brain_actions (crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:169)`
+  - `spawn_gnu_apple_rain_from_special_messages (crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:280)`
+  - `spawn_overfit_volley_from_special_messages (crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:476)`
+  - `spawn_eye_beam_from_special_messages (crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:611)`
+  - `spawn_minima_trap_from_special_messages (crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:755)`
+  - `spawn_saddle_point_from_special_messages (crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:906)`
+  - `spawn_gradient_cascade_minions_from_special_messages (crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1067)`
+  - `update_projectiles (crates/ambition_sandbox/src/projectile/systems.rs:19)`
+  - ... 1 more
+
+### `ActorStimulus`
+- registered at: `crates/ambition_sandbox/src/app/sim_resources.rs:38`, `crates/ambition_sandbox/src/content/features/ecs/aggression.rs:256`, `crates/ambition_sandbox/src/content/features/ecs/aggression.rs:272`, `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1104`, `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1141`, `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1190`, `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1266`, `crates/ambition_sandbox/src/projectile/tests/collision.rs:115`
+- read by:
+  - `apply_npc_stimuli (crates/ambition_sandbox/src/content/features/ecs/aggression.rs:25)`
+  - `apply_actor_stimuli (crates/ambition_sandbox/src/content/features/ecs/aggression.rs:114)`
+
+### `AppExit`
+- written by:
+  - `pause_menu_navigate (crates/ambition_sandbox/src/pause_menu/input.rs:61)`
+  - `handle_top_input (crates/ambition_sandbox/src/pause_menu/input.rs:205)`
+
+### `AppLifecycle`
+- read by:
+  - `detect_android_suspend_state (crates/ambition_sandbox/src/host/platform/android.rs:78)`
+
+### `ClockScaleRequest`
+- registered at: `crates/ambition_sandbox/src/app/sim_resources.rs:38`, `crates/ambition_sandbox/src/time/time_control.rs:439`, `crates/ambition_sandbox/src/time/time_control.rs:460`, `crates/ambition_sandbox/src/time/time_control.rs:488`, `crates/ambition_sandbox/src/time/time_control.rs:512`
+- written by:
+  - `emit_player_time_intent_system (crates/ambition_sandbox/src/time/time_control.rs:278)`
+- read by:
+  - `apply_clock_scale_requests (crates/ambition_sandbox/src/time/time_control.rs:222)`
+
+### `CutRopeRoomReplayRequested`
+- registered at: `crates/ambition_sandbox/src/app/sim_resources.rs:38`
+- written by:
+  - `emit_cut_rope_room_replay_after_dialogue_closes (crates/ambition_sandbox/src/boss_encounter/cut_rope.rs:126)`
+- read by:
+  - `apply_cut_rope_room_replay_request_system (crates/ambition_sandbox/src/app/sim_systems.rs:274)`
+
+### `DebrisBurstMessage`
+- registered at: `crates/ambition_sandbox/src/app/sim_resources.rs:38`, `crates/ambition_sandbox/src/content/features/ecs/breakables.rs:109`, `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1103`, `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1140`, `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1189`, `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1265`, `crates/ambition_sandbox/src/content/features/ecs/hazards.rs:159`, `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:504`
+- written by:
+  - `tick_cut_rope_boss_arena (crates/ambition_sandbox/src/boss_encounter/cut_rope.rs:369)`
+  - `update_ecs_actors (crates/ambition_sandbox/src/content/features/ecs/actors.rs:283)`
+  - `update_ecs_bosses (crates/ambition_sandbox/src/content/features/ecs/bosses.rs:573)`
+  - `update_ecs_breakables (crates/ambition_sandbox/src/content/features/ecs/breakables.rs:9)`
+  - `emit_breakable_destroyed (crates/ambition_sandbox/src/content/features/ecs/damage.rs:1036)`
+  - `update_ecs_hazards (crates/ambition_sandbox/src/content/features/ecs/hazards.rs:8)`
+  - `apply_hitbox_damage (crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:110)`
+- read by:
+  - `physics_spawn_debris_messages (crates/ambition_sandbox/src/world/physics.rs:101)`
+
+### `ExplosionRequest`
+- registered at: `crates/ambition_sandbox/src/app/sim_resources.rs:38`
+- written by:
+  - `tick_cut_rope_boss_arena (crates/ambition_sandbox/src/boss_encounter/cut_rope.rs:369)`
+  - `pulse_waiting_rope_explosions (crates/ambition_sandbox/src/boss_encounter/cut_rope.rs:638)`
+  - `tick_firework_sequences (crates/ambition_sandbox/src/presentation/fx.rs:286)`
+- read by:
+  - `process_explosion_requests (crates/ambition_sandbox/src/presentation/fx.rs:191)`
+
+### `FeatureHitEvent`
+- written by:
+  - `attack_advance_system (crates/ambition_sandbox/src/app/sim_systems.rs:424)`
+- read by:
+  - `apply_player_hit_events (crates/ambition_sandbox/src/app/sim_systems.rs:533)`
+
+### `FireworksRequest`
+- registered at: `crates/ambition_sandbox/src/app/sim_resources.rs:38`
+- written by:
+  - `tick_cut_rope_boss_arena (crates/ambition_sandbox/src/boss_encounter/cut_rope.rs:369)`
+  - `cmd_spawn_fireworks (crates/ambition_sandbox/src/dialog/yarn_bindings.rs:345)`
+- read by:
+  - `process_fireworks_requests (crates/ambition_sandbox/src/presentation/fx.rs:235)`
+
+### `GameplayBannerRequested`
+- registered at: `crates/ambition_sandbox/src/app/sim_resources.rs:38`
+- written by:
+  - `update_encounters_from_world (crates/ambition_sandbox/src/encounter/systems.rs:44)`
+- read by:
+  - `apply_gameplay_banner_requests (crates/ambition_sandbox/src/content/features/ecs/banner.rs:15)`
+
+### `GameplaySfxRequested`
+- registered at: `crates/ambition_sandbox/src/app/sim_resources.rs:38`
+- read by:
+  - `apply_gameplay_sfx_effects (crates/ambition_sandbox/src/content/features/bus.rs:55)`
+
+### `HitEvent`
+- registered at: `crates/ambition_sandbox/src/app/sim_resources.rs:38`, `crates/ambition_sandbox/src/blink.rs:152`, `crates/ambition_sandbox/src/bomb.rs:136`, `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1099`, `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1136`, `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1185`, `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1261`, `crates/ambition_sandbox/src/content/features/ecs/hazards.rs:156`
+- written by:
+  - `player_control_phase (crates/ambition_sandbox/src/app/phases.rs:67)`
+  - `advance_attack (crates/ambition_sandbox/src/app/world_flow.rs:966)`
+  - `blink_system (crates/ambition_sandbox/src/blink.rs:40)`
+  - `tick_bomb_fuses (crates/ambition_sandbox/src/bomb.rs:52)`
+  - `update_ecs_actors (crates/ambition_sandbox/src/content/features/ecs/actors.rs:283)`
+  - `update_ecs_bosses (crates/ambition_sandbox/src/content/features/ecs/bosses.rs:573)`
+  - `update_ecs_hazards (crates/ambition_sandbox/src/content/features/ecs/hazards.rs:8)`
+  - `apply_hitbox_damage (crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:110)`
+  - `fire_dive_system (crates/ambition_sandbox/src/dive.rs:85)`
+  - `update_enemy_projectiles (crates/ambition_sandbox/src/enemy_projectile/systems.rs:22)`
+  - `emit_fireball_explosion (crates/ambition_sandbox/src/item_pickup.rs:429)`
+  - `held_projectile_step (crates/ambition_sandbox/src/item_pickup.rs:532)`
+  - ... 2 more
+- read by:
+  - `capture_hits (crates/ambition_sandbox/src/blink.rs:184)`
+  - `capture_hits (crates/ambition_sandbox/src/bomb.rs:129)`
+  - `tick_cut_rope_boss_arena (crates/ambition_sandbox/src/boss_encounter/cut_rope.rs:369)`
+  - `apply_feature_hit_events (crates/ambition_sandbox/src/content/features/ecs/damage.rs:246)`
+  - `record_hits (crates/ambition_sandbox/src/content/features/ecs/hazards.rs:117)`
+  - `capture_hits (crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:488)`
+  - `capture_hits (crates/ambition_sandbox/src/dive.rs:201)`
+  - `capture_hits (crates/ambition_sandbox/src/enemy_projectile/systems.rs:237)`
+  - `capture_hits (crates/ambition_sandbox/src/mark_recall.rs:220)`
+
+### `MouseWheel`
+- read by:
+  - `populate_menu_control_frame_from_actions (crates/ambition_sandbox/src/app/input_systems.rs:125)`
+
+### `PlayerDiedMessage`
+- registered at: `crates/ambition_sandbox/src/app/sim_resources.rs:38`
+- written by:
+  - `apply_player_hit_events (crates/ambition_sandbox/src/app/sim_systems.rs:533)`
+  - `death_respawn_player (crates/ambition_sandbox/src/app/world_flow.rs:587)`
+  - `handle_player_damage_events (crates/ambition_sandbox/src/app/world_flow.rs:642)`
+- read by:
+  - `update_encounters_from_world (crates/ambition_sandbox/src/encounter/systems.rs:44)`
+
+### `PlayerHealRequested`
+- registered at: `crates/ambition_sandbox/src/app/sim_resources.rs:38`, `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:174`, `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:201`, `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:249`, `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:293`, `crates/ambition_sandbox/src/enemy_projectile/systems.rs:268`, `crates/ambition_sandbox/src/enemy_projectile/systems.rs:353`, `crates/ambition_sandbox/src/inventory/effects.rs:43`
+- written by:
+  - `collect_ecs_pickups (crates/ambition_sandbox/src/content/features/ecs/pickups.rs:35)`
+  - `update_enemy_projectiles (crates/ambition_sandbox/src/enemy_projectile/systems.rs:22)`
+  - `apply_item_effect (crates/ambition_sandbox/src/inventory/effects.rs:3)`
+  - `use_one_health_potion (crates/ambition_sandbox/src/inventory/effects.rs:33)`
+  - `inventory_input (crates/ambition_sandbox/src/inventory/input.rs:7)`
+  - `handle_item_tab_input (crates/ambition_sandbox/src/inventory/input.rs:70)`
+  - `cube_focus_nav (crates/ambition_sandbox/src/oot_cube_app.rs:526)`
+  - `system_focus_nav (crates/ambition_sandbox/src/oot_cube_app.rs:765)`
+  - `dispatch_cube_action (crates/ambition_sandbox/src/oot_cube_app.rs:1074)`
+  - `cube_pointer_click (crates/ambition_sandbox/src/oot_cube_app.rs:1317)`
+  - `oot_menu_input (crates/ambition_sandbox/src/oot_menu/input.rs:26)`
+  - `dispatch_item_confirm (crates/ambition_sandbox/src/oot_menu/input.rs:136)`
+  - ... 1 more
+- read by:
+  - `record_heals (crates/ambition_sandbox/src/inventory/effects.rs:29)`
+  - `record_heals (crates/ambition_sandbox/src/oot_menu/tests.rs:22)`
+  - `apply_player_heal_requests (crates/ambition_sandbox/src/player/systems.rs:142)`
+
+### `QuestAdvanceRequested`
+- registered at: `crates/ambition_sandbox/src/app/sim_resources.rs:38`, `crates/ambition_sandbox/src/content/features/ecs/interact.rs:165`, `crates/ambition_sandbox/src/content/features/ecs/tests.rs:277`, `crates/ambition_sandbox/src/intro/route_state.rs:410`
+- written by:
+  - `interact_ecs_actors_and_switches (crates/ambition_sandbox/src/content/features/ecs/interact.rs:12)`
+- read by:
+  - `apply_quest_effects (crates/ambition_sandbox/src/content/features/bus.rs:25)`
+
+### `ResetRoomFeaturesEvent`
+- registered at: `crates/ambition_sandbox/src/app/sim_resources.rs:38`, `crates/ambition_sandbox/src/content/features/ecs/reset.rs:225`
+- written by:
+  - `player_control_phase (crates/ambition_sandbox/src/app/phases.rs:67)`
+  - `player_simulation_phase (crates/ambition_sandbox/src/app/phases.rs:174)`
+  - `apply_player_reset_input_system (crates/ambition_sandbox/src/app/sim_systems.rs:207)`
+  - `apply_cut_rope_room_replay_request_system (crates/ambition_sandbox/src/app/sim_systems.rs:274)`
+- read by:
+  - `reset_cut_rope_boss_arena_on_room_reset (crates/ambition_sandbox/src/boss_encounter/cut_rope.rs:314)`
+  - `tick_cut_rope_boss_arena (crates/ambition_sandbox/src/boss_encounter/cut_rope.rs:369)`
+  - `reset_ecs_room_features (crates/ambition_sandbox/src/content/features/ecs/reset.rs:11)`
+  - `reset_ecs_npc_actors (crates/ambition_sandbox/src/content/features/ecs/reset.rs:163)`
+  - `reset_gravity_on_room_reset (crates/ambition_sandbox/src/portal.rs:926)`
+  - `clear_portals_on_reset (crates/ambition_sandbox/src/portal.rs:1575)`
+
+### `RoomTransitionRequested`
+- registered at: `crates/ambition_sandbox/src/app/sim_resources.rs:38`
+- written by:
+  - `detect_room_transition_system (crates/ambition_sandbox/src/app/sim_systems.rs:359)`
+- read by:
+  - `ensure_requested_room_parallax_system (crates/ambition_sandbox/src/app/world_flow.rs:209)`
+  - `apply_room_transition_system (crates/ambition_sandbox/src/app/world_flow.rs:231)`
+
+### `SetFlagRequested`
+- registered at: `crates/ambition_sandbox/src/app/sim_resources.rs:38`, `crates/ambition_sandbox/src/content/features/ecs/chests.rs:95`, `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1100`, `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1137`, `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1186`, `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1262`, `crates/ambition_sandbox/src/content/features/ecs/interact.rs:164`, `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:177`
+- written by:
+  - `open_ecs_chests (crates/ambition_sandbox/src/content/features/ecs/chests.rs:7)`
+  - `interact_ecs_actors_and_switches (crates/ambition_sandbox/src/content/features/ecs/interact.rs:12)`
+  - `collect_ecs_pickups (crates/ambition_sandbox/src/content/features/ecs/pickups.rs:35)`
+  - `cmd_set_flag (crates/ambition_sandbox/src/dialog/yarn_bindings.rs:207)`
+  - `cmd_clear_flag (crates/ambition_sandbox/src/dialog/yarn_bindings.rs:212)`
+  - `cmd_watch_cut_rope_video (crates/ambition_sandbox/src/dialog/yarn_bindings.rs:372)`
+  - `emit_intro_flag_chains (crates/ambition_sandbox/src/intro/route_state.rs:63)`
+- read by:
+  - `apply_flag_effects (crates/ambition_sandbox/src/content/features/bus.rs:11)`
+
+### `SfxMessage`
+- registered at: `crates/ambition_sandbox/src/app/sim_resources.rs:38`, `crates/ambition_sandbox/src/beam.rs:134`, `crates/ambition_sandbox/src/blink.rs:150`, `crates/ambition_sandbox/src/bomb.rs:137`, `crates/ambition_sandbox/src/boss_encounter/systems.rs:493`, `crates/ambition_sandbox/src/boss_encounter/systems.rs:518`, `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1233`, `crates/ambition_sandbox/src/content/features/ecs/breakables.rs:107`
+- written by:
+  - `player_control_phase (crates/ambition_sandbox/src/app/phases.rs:67)`
+  - `player_simulation_phase (crates/ambition_sandbox/src/app/phases.rs:174)`
+  - `apply_player_reset_input_system (crates/ambition_sandbox/src/app/sim_systems.rs:207)`
+  - `apply_cut_rope_room_replay_request_system (crates/ambition_sandbox/src/app/sim_systems.rs:274)`
+  - `attack_advance_system (crates/ambition_sandbox/src/app/sim_systems.rs:424)`
+  - `apply_player_hit_events (crates/ambition_sandbox/src/app/sim_systems.rs:533)`
+  - `reset_sandbox (crates/ambition_sandbox/src/app/world_flow.rs:42)`
+  - `load_room (crates/ambition_sandbox/src/app/world_flow.rs:83)`
+  - `handle_player_events (crates/ambition_sandbox/src/app/world_flow.rs:416)`
+  - `death_respawn_player (crates/ambition_sandbox/src/app/world_flow.rs:587)`
+  - `handle_player_damage_events (crates/ambition_sandbox/src/app/world_flow.rs:642)`
+  - `safe_respawn_player (crates/ambition_sandbox/src/app/world_flow.rs:741)`
+  - ... 59 more
+- read by:
+  - `audio_play_sfx_messages (crates/ambition_sandbox/src/audio/runtime.rs:52)`
+
+### `SpawnParticleSignal`
+- written by:
+  - `seed_falling_sand_room_boundaries (crates/ambition_sandbox/src/falling_sand.rs:340)`
+  - `emit_wall_rect (crates/ambition_sandbox/src/falling_sand.rs:434)`
+  - `emit_particle_rect (crates/ambition_sandbox/src/falling_sand.rs:445)`
+  - `emit_falling_sand_spouts (crates/ambition_sandbox/src/falling_sand.rs:611)`
+  - `emit_spout (crates/ambition_sandbox/src/falling_sand.rs:726)`
+
+### `SwitchActivated`
+- registered at: `crates/ambition_sandbox/src/app/sim_resources.rs:38`, `crates/ambition_sandbox/src/content/features/ecs/interact.rs:166`, `crates/ambition_sandbox/src/content/features/ecs/tests.rs:278`
+- written by:
+  - `interact_ecs_actors_and_switches (crates/ambition_sandbox/src/content/features/ecs/interact.rs:12)`
+- read by:
+  - `apply_switch_effects (crates/ambition_sandbox/src/content/features/bus.rs:38)`
+  - `capture_falling_sand_switch_interactions (crates/ambition_sandbox/src/falling_sand.rs:472)`
+
+### `VfxMessage`
+- registered at: `crates/ambition_sandbox/src/app/sim_resources.rs:38`, `crates/ambition_sandbox/src/blink.rs:151`, `crates/ambition_sandbox/src/bomb.rs:138`, `crates/ambition_sandbox/src/boss_encounter/systems.rs:495`, `crates/ambition_sandbox/src/boss_encounter/systems.rs:520`, `crates/ambition_sandbox/src/content/features/ecs/breakables.rs:108`, `crates/ambition_sandbox/src/content/features/ecs/chests.rs:97`, `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1102`
+- written by:
+  - `player_control_phase (crates/ambition_sandbox/src/app/phases.rs:67)`
+  - `player_simulation_phase (crates/ambition_sandbox/src/app/phases.rs:174)`
+  - `apply_player_reset_input_system (crates/ambition_sandbox/src/app/sim_systems.rs:207)`
+  - `apply_cut_rope_room_replay_request_system (crates/ambition_sandbox/src/app/sim_systems.rs:274)`
+  - `attack_advance_system (crates/ambition_sandbox/src/app/sim_systems.rs:424)`
+  - `apply_player_hit_events (crates/ambition_sandbox/src/app/sim_systems.rs:533)`
+  - `reset_sandbox (crates/ambition_sandbox/src/app/world_flow.rs:42)`
+  - `load_room (crates/ambition_sandbox/src/app/world_flow.rs:83)`
+  - `handle_player_events (crates/ambition_sandbox/src/app/world_flow.rs:416)`
+  - `death_respawn_player (crates/ambition_sandbox/src/app/world_flow.rs:587)`
+  - `handle_player_damage_events (crates/ambition_sandbox/src/app/world_flow.rs:642)`
+  - `safe_respawn_player (crates/ambition_sandbox/src/app/world_flow.rs:741)`
+  - ... 25 more
+- read by:
+  - `vfx_spawn_messages (crates/ambition_sandbox/src/presentation/fx.rs:367)`
+
+### `VirtualJoystickMessage<MobileStick>`
+- read by:
+  - `read_joystick_messages (crates/ambition_sandbox/src/host/mobile_input/bevy_plugin.rs:1075)`
+
+### `WindowFocused`
+- read by:
+  - `detect_android_suspend_state (crates/ambition_sandbox/src/host/platform/android.rs:78)`
+
+### `WindowOccluded`
+- read by:
+  - `detect_android_suspend_state (crates/ambition_sandbox/src/host/platform/android.rs:78)`
+
+## Resource access hotspots
+
+| Resource | Mut writers | Readers |
+|---|---:|---:|
+| `SandboxSave` | 15 | 20 |
+| `NextState<GameMode>` | 13 | 0 |
+| `GameplayBanner` | 12 | 0 |
+| `OwnedItems` | 11 | 4 |
+| `InventoryUiState` | 9 | 11 |
+| `DialogState` | 9 | 2 |
+| `EnemyProjectileState` | 9 | 2 |
+| `UserSettings` | 8 | 21 |
+| `QuestRegistry` | 8 | 3 |
+| `SandboxSimState` | 8 | 3 |
+| `GameWorld` | 7 | 60 |
+| `ControlFrame` | 6 | 28 |
+| `BossEncounterRegistry` | 6 | 4 |
+| `MapMenuState` | 6 | 2 |
+| `BossEncounterMusicRequest` | 6 | 0 |
+| `CapturedHits` | 6 | 0 |
+| `Assets<TextureAtlasLayout>` | 5 | 27 |
+| `AudioLibrary` | 5 | 5 |
+| `FallingSandRoomState` | 5 | 4 |
+| `PauseMenuState` | 5 | 3 |
+| `CutsceneTriggerQueue` | 5 | 0 |
+| `GameplayTraceBuffer` | 5 | 0 |
+| `MovingPlatformSet` | 4 | 9 |
+| `SandboxDevState` | 4 | 6 |
+| `CubeSystemNav` | 4 | 2 |
+| `PlayerInventory` | 4 | 2 |
+| `ActiveMenuPages<CubePage, CubeAction>` | 4 | 1 |
+| `CubeCursor` | 4 | 1 |
+| `EncounterMusicRequest` | 4 | 0 |
+| `RoomSet` | 3 | 40 |
+| `GameAssets` | 3 | 13 |
+| `Assets<Image>` | 3 | 12 |
+| `DeveloperTools` | 3 | 12 |
+| `MenuControlFrame` | 3 | 8 |
+| `Assets<KiraAudioSource>` | 3 | 7 |
+| `EncounterRegistry` | 3 | 3 |
+| `MusicPlaybackState` | 3 | 3 |
+| `CameraShakeState` | 3 | 1 |
+| `CutsceneAdvanceRequest` | 3 | 1 |
+| `SandboxResetThisFrame` | 3 | 0 |
+
+### Mutable resource writers
+- `SandboxSave`
+  - `apply_cut_rope_room_replay_request_system (crates/ambition_sandbox/src/app/sim_systems.rs:274)`
+  - `update_boss_encounters (crates/ambition_sandbox/src/boss_encounter/systems.rs:55)`
+  - `apply_flag_effects (crates/ambition_sandbox/src/content/features/bus.rs:11)`
+  - `apply_quest_advance_events (crates/ambition_sandbox/src/content/quest.rs:286)`
+  - `grant_quest_completion_rewards (crates/ambition_sandbox/src/content/quest.rs:326)`
+  - `dispatch_pending_dialog_requests (crates/ambition_sandbox/src/dialog/yarn_bridge.rs:112)`
+  - `update_encounters_from_world (crates/ambition_sandbox/src/encounter/systems.rs:44)`
+  - `capture_falling_sand_switch_interactions (crates/ambition_sandbox/src/falling_sand.rs:472)`
+  - `persist_inventory_to_save (crates/ambition_sandbox/src/inventory_persist.rs:49)`
+  - `track_room_visits (crates/ambition_sandbox/src/map_menu/systems.rs:5)`
+  - ... 5 more
+- `NextState<GameMode>`
+  - `interact_ecs_actors_and_switches (crates/ambition_sandbox/src/content/features/ecs/interact.rs:12)`
+  - `dialog_pointer_input (crates/ambition_sandbox/src/dialog/systems.rs:14)`
+  - `dialog_input (crates/ambition_sandbox/src/dialog/systems.rs:102)`
+  - `dispatch_pending_dialog_requests (crates/ambition_sandbox/src/dialog/yarn_bridge.rs:112)`
+  - `on_dialogue_completed (crates/ambition_sandbox/src/dialog/yarn_bridge.rs:304)`
+  - `apply_android_suspend_to_game_mode (crates/ambition_sandbox/src/host/platform/android.rs:139)`
+  - `inventory_input (crates/ambition_sandbox/src/inventory/input.rs:7)`
+  - `inventory_pointer_input (crates/ambition_sandbox/src/inventory/pointer.rs:13)`
+  - `cube_menu_open_routing (crates/ambition_sandbox/src/oot_cube_app.rs:1395)`
+  - `oot_menu_input (crates/ambition_sandbox/src/oot_menu/input.rs:26)`
+  - ... 3 more
+- `GameplayBanner`
+  - `apply_player_hit_events (crates/ambition_sandbox/src/app/sim_systems.rs:533)`
+  - `tick_cut_rope_boss_arena (crates/ambition_sandbox/src/boss_encounter/cut_rope.rs:369)`
+  - `update_boss_encounters (crates/ambition_sandbox/src/boss_encounter/systems.rs:55)`
+  - `tick_gameplay_banner (crates/ambition_sandbox/src/content/features/ecs/banner.rs:6)`
+  - `apply_gameplay_banner_requests (crates/ambition_sandbox/src/content/features/ecs/banner.rs:15)`
+  - `update_ecs_breakables (crates/ambition_sandbox/src/content/features/ecs/breakables.rs:9)`
+  - `open_ecs_chests (crates/ambition_sandbox/src/content/features/ecs/chests.rs:7)`
+  - `apply_feature_hit_events (crates/ambition_sandbox/src/content/features/ecs/damage.rs:246)`
+  - `interact_ecs_actors_and_switches (crates/ambition_sandbox/src/content/features/ecs/interact.rs:12)`
+  - `collect_ecs_pickups (crates/ambition_sandbox/src/content/features/ecs/pickups.rs:35)`
+  - ... 2 more
+- `OwnedItems`
+  - `collect_ecs_pickups (crates/ambition_sandbox/src/content/features/ecs/pickups.rs:35)`
+  - `cmd_give_item (crates/ambition_sandbox/src/dialog/yarn_bindings.rs:224)`
+  - `cmd_buy_item (crates/ambition_sandbox/src/dialog/yarn_bindings.rs:261)`
+  - `cmd_sell_item (crates/ambition_sandbox/src/dialog/yarn_bindings.rs:282)`
+  - `restore_inventory_from_save (crates/ambition_sandbox/src/inventory_persist.rs:25)`
+  - `pickup_held_item_system (crates/ambition_sandbox/src/item_pickup.rs:261)`
+  - `throw_held_item_system (crates/ambition_sandbox/src/item_pickup.rs:322)`
+  - `cube_focus_nav (crates/ambition_sandbox/src/oot_cube_app.rs:526)`
+  - `cube_pointer_click (crates/ambition_sandbox/src/oot_cube_app.rs:1317)`
+  - `oot_menu_input (crates/ambition_sandbox/src/oot_menu/input.rs:26)`
+  - ... 1 more
+- `InventoryUiState`
+  - `inventory_input (crates/ambition_sandbox/src/inventory/input.rs:7)`
+  - `inventory_pointer_input (crates/ambition_sandbox/src/inventory/pointer.rs:13)`
+  - `cube_focus_nav (crates/ambition_sandbox/src/oot_cube_app.rs:526)`
+  - `cube_pointer_click (crates/ambition_sandbox/src/oot_cube_app.rs:1317)`
+  - `cube_menu_open_routing (crates/ambition_sandbox/src/oot_cube_app.rs:1395)`
+  - `oot_menu_input (crates/ambition_sandbox/src/oot_menu/input.rs:26)`
+  - `oot_menu_pointer_input (crates/ambition_sandbox/src/oot_menu/input.rs:224)`
+  - `pause_menu_toggle (crates/ambition_sandbox/src/pause_menu/input.rs:11)`
+  - `pause_menu_navigate (crates/ambition_sandbox/src/pause_menu/input.rs:61)`
+- `DialogState`
+  - `handle_ldtk_hot_reload (crates/ambition_sandbox/src/app/dev_runtime.rs:92)`
+  - `apply_room_transition_system (crates/ambition_sandbox/src/app/world_flow.rs:231)`
+  - `interact_ecs_actors_and_switches (crates/ambition_sandbox/src/content/features/ecs/interact.rs:12)`
+  - `dialog_pointer_input (crates/ambition_sandbox/src/dialog/systems.rs:14)`
+  - `dialog_input (crates/ambition_sandbox/src/dialog/systems.rs:102)`
+  - `dispatch_pending_dialog_requests (crates/ambition_sandbox/src/dialog/yarn_bridge.rs:112)`
+  - `on_present_line (crates/ambition_sandbox/src/dialog/yarn_bridge.rs:231)`
+  - `on_present_options (crates/ambition_sandbox/src/dialog/yarn_bridge.rs:283)`
+  - `on_dialogue_completed (crates/ambition_sandbox/src/dialog/yarn_bridge.rs:304)`
+- `EnemyProjectileState`
+  - `spawn_enemy_projectiles_from_brain_actions (crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:63)`
+  - `spawn_gnu_apple_rain_from_special_messages (crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:280)`
+  - `spawn_overfit_volley_from_special_messages (crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:476)`
+  - `spawn_eye_beam_from_special_messages (crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:611)`
+  - `reset_ecs_room_features (crates/ambition_sandbox/src/content/features/ecs/reset.rs:11)`
+  - `update_enemy_projectiles (crates/ambition_sandbox/src/enemy_projectile/systems.rs:22)`
+  - `fire_meteor_system (crates/ambition_sandbox/src/meteor.rs:83)`
+  - `update_sentries (crates/ambition_sandbox/src/sentry.rs:91)`
+  - `fire_volley_system (crates/ambition_sandbox/src/volley.rs:41)`
+- `UserSettings`
+  - `toggle_fps_overlay_on_f3 (crates/ambition_sandbox/src/dev/fps_overlay.rs:126)`
+  - `cube_focus_nav (crates/ambition_sandbox/src/oot_cube_app.rs:526)`
+  - `cube_pointer_click (crates/ambition_sandbox/src/oot_cube_app.rs:1317)`
+  - `republish_cube_pages (crates/ambition_sandbox/src/oot_cube_app.rs:1616)`
+  - `pause_menu_navigate (crates/ambition_sandbox/src/pause_menu/input.rs:61)`
+  - `settings_slider_drag_input (crates/ambition_sandbox/src/pause_menu/ui.rs:906)`
+  - `load_settings_at_startup (crates/ambition_sandbox/src/persistence/settings/persistence.rs:104)`
+  - `load_settings_at_startup (crates/ambition_sandbox/src/persistence/settings/persistence.rs:139)`
+- `QuestRegistry`
+  - `update_boss_encounters (crates/ambition_sandbox/src/boss_encounter/systems.rs:55)`
+  - `apply_flag_effects (crates/ambition_sandbox/src/content/features/bus.rs:11)`
+  - `apply_quest_effects (crates/ambition_sandbox/src/content/features/bus.rs:25)`
+  - `populate_quest_registry (crates/ambition_sandbox/src/content/quest.rs:227)`
+  - `push_room_entered_quest_events (crates/ambition_sandbox/src/content/quest.rs:271)`
+  - `apply_quest_advance_events (crates/ambition_sandbox/src/content/quest.rs:286)`
+  - `update_encounters_from_world (crates/ambition_sandbox/src/encounter/systems.rs:44)`
+  - `process_sandbox_reset_request (crates/ambition_sandbox/src/runtime/reset.rs:96)`
+- `SandboxSimState`
+  - `handle_ldtk_hot_reload (crates/ambition_sandbox/src/app/dev_runtime.rs:92)`
+  - `apply_suspended_time_scale_system (crates/ambition_sandbox/src/app/sim_systems.rs:76)`
+  - `input_timer_system (crates/ambition_sandbox/src/app/sim_systems.rs:92)`
+  - `apply_player_reset_input_system (crates/ambition_sandbox/src/app/sim_systems.rs:207)`
+  - `apply_cut_rope_room_replay_request_system (crates/ambition_sandbox/src/app/sim_systems.rs:274)`
+  - `apply_player_hit_events (crates/ambition_sandbox/src/app/sim_systems.rs:533)`
+  - `apply_room_transition_system (crates/ambition_sandbox/src/app/world_flow.rs:231)`
+  - `smooth_sim_clock_toward_target_system (crates/ambition_sandbox/src/time/time_control.rs:326)`
+- `GameWorld`
+  - `handle_ldtk_hot_reload (crates/ambition_sandbox/src/app/dev_runtime.rs:92)`
+  - `apply_room_transition_system (crates/ambition_sandbox/src/app/world_flow.rs:231)`
+  - `gate_gnu_ton_arena_ladder (crates/ambition_sandbox/src/boss_encounter/gnu_ton.rs:69)`
+  - `update_encounters_from_world (crates/ambition_sandbox/src/encounter/systems.rs:44)`
+  - `project_particles_to_movement_world (crates/ambition_sandbox/src/falling_sand.rs:859)`
+  - `sync_intro_flag_gated_lock_walls (crates/ambition_sandbox/src/intro/route_state.rs:146)`
+  - `process_sandbox_reset_request (crates/ambition_sandbox/src/runtime/reset.rs:96)`
+- `ControlFrame`
+  - `populate_control_frame_from_actions (crates/ambition_sandbox/src/app/input_systems.rs:44)`
+  - `input_timer_system (crates/ambition_sandbox/src/app/sim_systems.rs:92)`
+  - `apply_player_reset_input_system (crates/ambition_sandbox/src/app/sim_systems.rs:207)`
+  - `fold_to_control_frame (crates/ambition_sandbox/src/host/mobile_input/menu_bridge.rs:49)`
+  - `pickup_held_item_system (crates/ambition_sandbox/src/item_pickup.rs:261)`
+  - `warp_portal_input (crates/ambition_sandbox/src/portal.rs:1521)`
+- `BossEncounterRegistry`
+  - `apply_cut_rope_room_replay_request_system (crates/ambition_sandbox/src/app/sim_systems.rs:274)`
+  - `tick_cut_rope_boss_arena (crates/ambition_sandbox/src/boss_encounter/cut_rope.rs:369)`
+  - `populate_boss_encounter_registry (crates/ambition_sandbox/src/boss_encounter/systems.rs:9)`
+  - `update_boss_encounters (crates/ambition_sandbox/src/boss_encounter/systems.rs:55)`
+  - `apply_feature_hit_events (crates/ambition_sandbox/src/content/features/ecs/damage.rs:246)`
+  - `process_sandbox_reset_request (crates/ambition_sandbox/src/runtime/reset.rs:96)`
+- `MapMenuState`
+  - `handle_map_menu_hotkeys (crates/ambition_sandbox/src/map_menu/input.rs:9)`
+  - `map_menu_pointer_dismiss (crates/ambition_sandbox/src/map_menu/pointer.rs:7)`
+  - `track_room_visits (crates/ambition_sandbox/src/map_menu/systems.rs:5)`
+  - `sync_map_from_save (crates/ambition_sandbox/src/map_menu/systems.rs:21)`
+  - `populate_map_rooms (crates/ambition_sandbox/src/map_menu/systems.rs:37)`
+  - `cube_menu_open_routing (crates/ambition_sandbox/src/oot_cube_app.rs:1395)`
+- `BossEncounterMusicRequest`
+  - `apply_cut_rope_room_replay_request_system (crates/ambition_sandbox/src/app/sim_systems.rs:274)`
+  - `apply_encounter_music (crates/ambition_sandbox/src/audio/runtime.rs:95)`
+  - `tick_cut_rope_boss_arena (crates/ambition_sandbox/src/boss_encounter/cut_rope.rs:369)`
+  - `update_boss_encounters (crates/ambition_sandbox/src/boss_encounter/systems.rs:55)`
+  - `apply_feature_hit_events (crates/ambition_sandbox/src/content/features/ecs/damage.rs:246)`
+  - `drive_music_director (crates/ambition_sandbox/src/music/director.rs:29)`
+- `CapturedHits`
+  - `capture_hits (crates/ambition_sandbox/src/blink.rs:184)`
+  - `capture_hits (crates/ambition_sandbox/src/bomb.rs:129)`
+  - `capture_hits (crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:488)`
+  - `capture_hits (crates/ambition_sandbox/src/dive.rs:201)`
+  - `capture_hits (crates/ambition_sandbox/src/enemy_projectile/systems.rs:237)`
+  - `capture_hits (crates/ambition_sandbox/src/mark_recall.rs:220)`
+- `Assets<TextureAtlasLayout>`
+  - `setup_presentation_system (crates/ambition_sandbox/src/app/setup_systems.rs:72)`
+  - `setup_presentation_system (crates/ambition_sandbox/src/app/setup_systems.rs:158)`
+  - `load_intro_npc_sprites_system (crates/ambition_sandbox/src/intro/plugin.rs:179)`
+  - `load_intro_prop_sprites_system (crates/ambition_sandbox/src/intro/plugin.rs:227)`
+  - `sync_shrine_visual (crates/ambition_sandbox/src/shrine.rs:134)`
+- `AudioLibrary`
+  - `promote_loaded_sfx_bank (crates/ambition_sandbox/src/audio/bank_asset.rs:171)`
+  - `apply_encounter_music (crates/ambition_sandbox/src/audio/runtime.rs:95)`
+  - `start_default_music_when_ready (crates/ambition_sandbox/src/audio/runtime.rs:559)`
+  - `drive_music_director (crates/ambition_sandbox/src/music/director.rs:29)`
+  - `pause_menu_navigate (crates/ambition_sandbox/src/pause_menu/input.rs:61)`
+- `FallingSandRoomState`
+  - `sync_falling_sand_room_state (crates/ambition_sandbox/src/falling_sand.rs:302)`
+  - `seed_falling_sand_room_boundaries (crates/ambition_sandbox/src/falling_sand.rs:340)`
+  - `capture_falling_sand_switch_interactions (crates/ambition_sandbox/src/falling_sand.rs:472)`
+  - `emit_falling_sand_spouts (crates/ambition_sandbox/src/falling_sand.rs:611)`
+  - `grant_room_swim_controls (crates/ambition_sandbox/src/falling_sand.rs:1008)`
+- `PauseMenuState`
+  - `pause_menu_toggle (crates/ambition_sandbox/src/pause_menu/input.rs:11)`
+  - `pause_menu_navigate (crates/ambition_sandbox/src/pause_menu/input.rs:61)`
+  - `pause_menu_pointer_input (crates/ambition_sandbox/src/pause_menu/pointer.rs:12)`
+  - `settings_slider_drag_input (crates/ambition_sandbox/src/pause_menu/ui.rs:906)`
+  - `settings_scrollbar_drag_input (crates/ambition_sandbox/src/pause_menu/ui.rs:955)`
+- `CutsceneTriggerQueue`
+  - `tick_cut_rope_boss_arena (crates/ambition_sandbox/src/boss_encounter/cut_rope.rs:369)`
+  - `update_boss_encounters (crates/ambition_sandbox/src/boss_encounter/systems.rs:55)`
+  - `apply_feature_hit_events (crates/ambition_sandbox/src/content/features/ecs/damage.rs:246)`
+  - `auto_trigger_room_cutscenes (crates/ambition_sandbox/src/presentation/cutscene.rs:168)`
+  - `drain_cutscene_triggers (crates/ambition_sandbox/src/presentation/cutscene.rs:196)`
+- `GameplayTraceBuffer`
+  - `flush_pending_dump (crates/ambition_sandbox/src/dev/trace/systems.rs:58)`
+  - `handle_trace_hotkey (crates/ambition_sandbox/src/dev/trace/systems.rs:89)`
+  - `record_frame_system (crates/ambition_sandbox/src/dev/trace/systems.rs:113)`
+  - `update_encounters_from_world (crates/ambition_sandbox/src/encounter/systems.rs:44)`
+  - `update_projectiles (crates/ambition_sandbox/src/projectile/systems.rs:19)`
+- `MovingPlatformSet`
+  - `handle_ldtk_hot_reload (crates/ambition_sandbox/src/app/dev_runtime.rs:92)`
+  - `setup_simulation_system (crates/ambition_sandbox/src/app/setup_systems.rs:32)`
+  - `apply_room_transition_system (crates/ambition_sandbox/src/app/world_flow.rs:231)`
+  - `sync_moving_platform (crates/ambition_sandbox/src/world/platforms.rs:420)`
+- `SandboxDevState`
+  - `handle_debug_hotkeys (crates/ambition_sandbox/src/app/dev_runtime.rs:33)`
+  - `handle_ldtk_hot_reload (crates/ambition_sandbox/src/app/dev_runtime.rs:92)`
+  - `cleanup_timers_system (crates/ambition_sandbox/src/app/sim_systems.rs:655)`
+  - `apply_room_transition_system (crates/ambition_sandbox/src/app/world_flow.rs:231)`
+- `CubeSystemNav`
+  - `cube_focus_nav (crates/ambition_sandbox/src/oot_cube_app.rs:526)`
+  - `cube_pointer_click (crates/ambition_sandbox/src/oot_cube_app.rs:1317)`
+  - `cube_menu_open_routing (crates/ambition_sandbox/src/oot_cube_app.rs:1395)`
+  - `republish_cube_pages (crates/ambition_sandbox/src/oot_cube_app.rs:1616)`
+- `PlayerInventory`
+  - `grant_quest_completion_rewards (crates/ambition_sandbox/src/content/quest.rs:326)`
+  - `cmd_give_item (crates/ambition_sandbox/src/dialog/yarn_bindings.rs:224)`
+  - `use_one_health_potion (crates/ambition_sandbox/src/inventory/effects.rs:33)`
+  - `inventory_input (crates/ambition_sandbox/src/inventory/input.rs:7)`
+- `ActiveMenuPages<CubePage, CubeAction>`
+  - `cube_focus_nav (crates/ambition_sandbox/src/oot_cube_app.rs:526)`
+  - `cube_pointer_click (crates/ambition_sandbox/src/oot_cube_app.rs:1317)`
+  - `cube_menu_open_routing (crates/ambition_sandbox/src/oot_cube_app.rs:1395)`
+  - `republish_cube_pages (crates/ambition_sandbox/src/oot_cube_app.rs:1616)`
+- `CubeCursor`
+  - `cube_focus_nav (crates/ambition_sandbox/src/oot_cube_app.rs:526)`
+  - `cube_pointer_move (crates/ambition_sandbox/src/oot_cube_app.rs:1277)`
+  - `cube_pointer_click (crates/ambition_sandbox/src/oot_cube_app.rs:1317)`
+  - `cube_menu_open_routing (crates/ambition_sandbox/src/oot_cube_app.rs:1395)`
+- `EncounterMusicRequest`
+  - `apply_encounter_music (crates/ambition_sandbox/src/audio/runtime.rs:95)`
+  - `update_encounters_from_world (crates/ambition_sandbox/src/encounter/systems.rs:44)`
+  - `drive_music_director (crates/ambition_sandbox/src/music/director.rs:29)`
+  - `process_sandbox_reset_request (crates/ambition_sandbox/src/runtime/reset.rs:96)`
+- `RoomSet`
+  - `handle_ldtk_hot_reload (crates/ambition_sandbox/src/app/dev_runtime.rs:92)`
+  - `apply_room_transition_system (crates/ambition_sandbox/src/app/world_flow.rs:231)`
+  - `process_sandbox_reset_request (crates/ambition_sandbox/src/runtime/reset.rs:96)`
+
+## Non-ECS Rust data/model inventory
+
+These are Rust structs/enums/unions that do not derive Component, Bundle, Resource, Message, or Event. The priority is heuristic: it is meant to highlight likely legacy/domain state that may deserve an ECS migration review, not to make a semantic claim.
+
+- Total non-ECS items: 530
+- High/medium migration candidates: 287
+- Bevy architecture marker types: 18
+
+### Bevy architecture marker types
+- `SandboxEventWriters` (struct, `crates/ambition_sandbox/src/app/feedback.rs:37`; derives SystemParam)
+- `CombatRoomReset` (struct, `crates/ambition_sandbox/src/app/feedback.rs:50`; derives SystemParam)
+- `SandboxQueues` (struct, `crates/ambition_sandbox/src/app/feedback.rs:88`; derives SystemParam)
+- `ProgressionResources` (struct, `crates/ambition_sandbox/src/app/feedback.rs:113`; derives SystemParam)
+- `HudCameraParams` (struct, `crates/ambition_sandbox/src/app/hud.rs:26`; derives SystemParam)
+- `SandboxSet` (enum, `crates/ambition_sandbox/src/app/schedule.rs:28`; derives Clone, Copy, Debug, Eq, Hash, PartialEq, SystemSet)
+- `FeatureHitWriters` (struct, `crates/ambition_sandbox/src/content/features/ecs/damage.rs:38`; derives SystemParam)
+- `FeatureDebugQueries` (struct, `crates/ambition_sandbox/src/dev/debug_overlay.rs:249`; derives SystemParam)
+- `MusicLayerChannels` (struct, `crates/ambition_sandbox/src/music/channels.rs:61`; derives SystemParam)
+- `SystemMenuParams` (struct, `crates/ambition_sandbox/src/oot_cube_app.rs:168`; derives SystemParam)
+- `SystemMenuSnapshotParams` (struct, `crates/ambition_sandbox/src/oot_cube_app.rs:282`; derives SystemParam)
+- `DevToggleParams` (struct, `crates/ambition_sandbox/src/pause_menu/model.rs:9`; derives SystemParam)
+- `DevToggleView` (struct, `crates/ambition_sandbox/src/pause_menu/model.rs:20`; derives SystemParam)
+- `GravityCtx` (struct, `crates/ambition_sandbox/src/physics.rs:219`; derives SystemParam)
+- `PlatformerRuntimeSet` (enum, `crates/ambition_sandbox/src/platformer_runtime/schedule.rs:11`; derives Clone, Copy, Debug, Eq, Hash, PartialEq, SystemSet)
+- `AffordancesSystemSet` (enum, `crates/ambition_sandbox/src/player/affordances/mod.rs:144`; derives Clone, Copy, Debug, Eq, Hash, PartialEq, SystemSet)
+- `GameMode` (enum, `crates/ambition_sandbox/src/runtime/game_mode.rs:30`; derives Clone, Copy, Debug, Default, Eq, Hash, PartialEq, Reflect, States)
+- `ResetPlayState` (struct, `crates/ambition_sandbox/src/runtime/reset.rs:69`; derives SystemParam)
+
+### High/medium migration candidates
+| Priority | Score | Item | Kind | Location | Reasons |
+|---|---:|---|---|---|---|
+| high | 5 | `BossEncounterPhase` | enum | `crates/ambition_sandbox/src/boss_encounter/spec_types.rs:23` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `BossEncounterSpec` | struct | `crates/ambition_sandbox/src/boss_encounter/spec_types.rs:76` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `BiteSpec` | struct | `crates/ambition_sandbox/src/brain/action_set.rs:672` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `HeldItemSpec` | struct | `crates/ambition_sandbox/src/brain/action_set.rs:94` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `HeldUseBehavior` | enum | `crates/ambition_sandbox/src/brain/action_set.rs:69` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `LungeSpec` | struct | `crates/ambition_sandbox/src/brain/action_set.rs:638` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `MeleeActionSpec` | enum | `crates/ambition_sandbox/src/brain/action_set.rs:363` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `MoveStyleSpec` | enum | `crates/ambition_sandbox/src/brain/action_set.rs:459` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `PunchSpec` | struct | `crates/ambition_sandbox/src/brain/action_set.rs:682` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `RangedActionSpec` | enum | `crates/ambition_sandbox/src/brain/action_set.rs:381` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `SlamSpec` | struct | `crates/ambition_sandbox/src/brain/action_set.rs:661` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `SpecialActionSpec` | enum | `crates/ambition_sandbox/src/brain/action_set.rs:480` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `SwipeSpec` | struct | `crates/ambition_sandbox/src/brain/action_set.rs:618` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `BossAttackPattern` | enum | `crates/ambition_sandbox/src/brain/boss_pattern.rs:200` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `BossAttackProfile` | enum | `crates/ambition_sandbox/src/brain/boss_pattern.rs:251` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `BossMacroTuning` | struct | `crates/ambition_sandbox/src/brain/boss_pattern.rs:562` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `BossMovementProfile` | enum | `crates/ambition_sandbox/src/brain/boss_pattern.rs:51` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `BossPattern` | struct | `crates/ambition_sandbox/src/brain/boss_pattern.rs:188` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `BossPatternStep` | enum | `crates/ambition_sandbox/src/brain/boss_pattern.rs:171` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 7 | `ActionSetPreset` | struct | `crates/ambition_sandbox/src/content/character_catalog/entry.rs:208` | game/domain path; stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `BrainPreset` | enum | `crates/ambition_sandbox/src/content/character_catalog/entry.rs:92` | game/domain path; serialized data; value-like runtime data; public API |
+| high | 5 | `CharacterBodyKind` | enum | `crates/ambition_sandbox/src/content/character_catalog/entry.rs:26` | game/domain path; serialized data; value-like runtime data; public API |
+| high | 7 | `CharacterCatalogData` | struct | `crates/ambition_sandbox/src/content/character_catalog/entry.rs:222` | game/domain path; stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 7 | `CharacterCatalogEntry` | struct | `crates/ambition_sandbox/src/content/character_catalog/entry.rs:54` | game/domain path; stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `CharacterTier` | enum | `crates/ambition_sandbox/src/content/character_catalog/entry.rs:18` | game/domain path; serialized data; value-like runtime data; public API |
+| high | 5 | `CompositionLayer` | struct | `crates/ambition_sandbox/src/content/character_catalog/entry.rs:42` | game/domain path; serialized data; value-like runtime data; public API |
+| high | 5 | `MeleePreset` | enum | `crates/ambition_sandbox/src/content/character_catalog/entry.rs:149` | game/domain path; serialized data; value-like runtime data; public API |
+| high | 5 | `MoveStylePreset` | enum | `crates/ambition_sandbox/src/content/character_catalog/entry.rs:136` | game/domain path; serialized data; value-like runtime data; public API |
+| high | 5 | `RangedPreset` | enum | `crates/ambition_sandbox/src/content/character_catalog/entry.rs:191` | game/domain path; serialized data; value-like runtime data; public API |
+| high | 7 | `SpecialPreset` | enum | `crates/ambition_sandbox/src/content/character_catalog/entry.rs:200` | game/domain path; stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 6 | `CharacterCatalogPlugin` | struct | `crates/ambition_sandbox/src/content/character_catalog/mod.rs:111` | game/domain path; stateful/domain-style name; value-like runtime data; public API |
+| high | 7 | `AudioSpec` | struct | `crates/ambition_sandbox/src/content/data.rs:67` | game/domain path; stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 7 | `MusicSpec` | struct | `crates/ambition_sandbox/src/content/data.rs:184` | game/domain path; stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 7 | `MusicTrackSpec` | struct | `crates/ambition_sandbox/src/content/data.rs:115` | game/domain path; stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 7 | `SfxSpec` | struct | `crates/ambition_sandbox/src/content/data.rs:156` | game/domain path; stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `SoundCueKey` | enum | `crates/ambition_sandbox/src/content/data.rs:133` | game/domain path; serialized data; value-like runtime data; public API |
+| high | 7 | `WaveformSpec` | enum | `crates/ambition_sandbox/src/content/data.rs:148` | game/domain path; stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `WorldPrepSchedulePlugin` | struct | `crates/ambition_sandbox/src/content/features.rs:155` | game/domain path; stateful/domain-style name; public API |
+| high | 8 | `BossVolumeContext` | struct | `crates/ambition_sandbox/src/content/features/boss_attack_geometry.rs:177` | game/domain path; feature model outside content/features/ecs; stateful/domain-style name; public API |
+| high | 10 | `BossBehaviorProfile` | struct | `crates/ambition_sandbox/src/content/features/bosses.rs:137` | game/domain path; feature model outside content/features/ecs; stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 9 | `BossSpriteMetrics` | struct | `crates/ambition_sandbox/src/content/features/bosses.rs:643` | game/domain path; feature model outside content/features/ecs; stateful/domain-style name; value-like runtime data; public API |
+| high | 6 | `GameplayEffectsSchedulePlugin` | struct | `crates/ambition_sandbox/src/content/features/bus.rs:76` | game/domain path; feature model outside content/features/ecs; public API |
+| high | 7 | `AggressionMode` | enum | `crates/ambition_sandbox/src/content/features/components.rs:551` | game/domain path; feature model outside content/features/ecs; value-like runtime data; public API |
+| high | 7 | `AggressionTarget` | enum | `crates/ambition_sandbox/src/content/features/components.rs:564` | game/domain path; feature model outside content/features/ecs; value-like runtime data; public API |
+| high | 5 | `BossClusterQueryData` | struct | `crates/ambition_sandbox/src/content/features/ecs/boss_clusters.rs:220` | game/domain path; stateful/domain-style name; public API |
+| high | 5 | `BossClusterRef` | struct | `crates/ambition_sandbox/src/content/features/ecs/boss_clusters.rs:255` | game/domain path; stateful/domain-style name; public API |
+| high | 6 | `BossClusterScratch` | struct | `crates/ambition_sandbox/src/content/features/ecs/boss_clusters.rs:274` | game/domain path; stateful/domain-style name; value-like runtime data; public API |
+| high | 5 | `BossMut` | struct | `crates/ambition_sandbox/src/content/features/ecs/boss_clusters.rs:85` | game/domain path; stateful/domain-style name; public API |
+| high | 5 | `BossRef` | struct | `crates/ambition_sandbox/src/content/features/ecs/boss_clusters.rs:77` | game/domain path; stateful/domain-style name; public API |
+| high | 5 | `EnemyClusterQueryData` | struct | `crates/ambition_sandbox/src/content/features/ecs/enemy_clusters.rs:86` | game/domain path; stateful/domain-style name; public API |
+| high | 6 | `EnemyClusterScratch` | struct | `crates/ambition_sandbox/src/content/features/ecs/enemy_clusters.rs:117` | game/domain path; stateful/domain-style name; value-like runtime data; public API |
+| high | 5 | `EnemyMut` | struct | `crates/ambition_sandbox/src/content/features/ecs/enemy_clusters.rs:75` | game/domain path; stateful/domain-style name; public API |
+| high | 5 | `NpcClusterQueryData` | struct | `crates/ambition_sandbox/src/content/features/ecs/npc_clusters.rs:55` | game/domain path; stateful/domain-style name; public API |
+| high | 6 | `NpcClusterScratch` | struct | `crates/ambition_sandbox/src/content/features/ecs/npc_clusters.rs:81` | game/domain path; stateful/domain-style name; value-like runtime data; public API |
+| high | 9 | `ActorSpawnState` | struct | `crates/ambition_sandbox/src/content/features/enemies.rs:34` | game/domain path; feature model outside content/features/ecs; stateful/domain-style name; value-like runtime data; public API |
+| high | 10 | `EnemyArchetype` | enum | `crates/ambition_sandbox/src/content/features/enemies.rs:102` | game/domain path; feature model outside content/features/ecs; stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 10 | `EnemyArchetypeSpec` | struct | `crates/ambition_sandbox/src/content/features/enemies.rs:223` | game/domain path; feature model outside content/features/ecs; stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 10 | `EnemyBrainTemplate` | enum | `crates/ambition_sandbox/src/content/features/enemies.rs:292` | game/domain path; feature model outside content/features/ecs; stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 9 | `EnemyRespawnPolicy` | enum | `crates/ambition_sandbox/src/content/features/enemies.rs:82` | game/domain path; feature model outside content/features/ecs; stateful/domain-style name; value-like runtime data; public API |
+| high | 7 | `FeatureCombatTuning` | struct | `crates/ambition_sandbox/src/content/features/events.rs:38` | game/domain path; feature model outside content/features/ecs; value-like runtime data; public API |
+| high | 7 | `FeatureView` | struct | `crates/ambition_sandbox/src/content/features/events.rs:19` | game/domain path; feature model outside content/features/ecs; value-like runtime data; public API |
+| high | 7 | `FeatureVisualKind` | enum | `crates/ambition_sandbox/src/content/features/events.rs:4` | game/domain path; feature model outside content/features/ecs; value-like runtime data; public API |
+| high | 7 | `HitKnockback` | struct | `crates/ambition_sandbox/src/content/features/events.rs:74` | game/domain path; feature model outside content/features/ecs; value-like runtime data; public API |
+| high | 7 | `HitMode` | enum | `crates/ambition_sandbox/src/content/features/events.rs:59` | game/domain path; feature model outside content/features/ecs; value-like runtime data; public API |
+| high | 7 | `HitSource` | enum | `crates/ambition_sandbox/src/content/features/events.rs:222` | game/domain path; feature model outside content/features/ecs; value-like runtime data; public API |
+| high | 7 | `HitTarget` | enum | `crates/ambition_sandbox/src/content/features/events.rs:280` | game/domain path; feature model outside content/features/ecs; value-like runtime data; public API |
+| high | 9 | `NpcDialogueRequest` | struct | `crates/ambition_sandbox/src/content/features/events.rs:200` | game/domain path; feature model outside content/features/ecs; stateful/domain-style name; value-like runtime data; public API |
+| high | 9 | `HazardRuntime` | struct | `crates/ambition_sandbox/src/content/features/hazards.rs:4` | game/domain path; feature model outside content/features/ecs; stateful/domain-style name; value-like runtime data; public API |
+| high | 7 | `PathMotion` | struct | `crates/ambition_sandbox/src/content/features/path_motion.rs:4` | game/domain path; feature model outside content/features/ecs; value-like runtime data; public API |
+| high | 5 | `EncounterMobSpec` | struct | `crates/ambition_sandbox/src/encounter/spec.rs:7` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `EncounterSpec` | struct | `crates/ambition_sandbox/src/encounter/spec.rs:71` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `EncounterWaveSpec` | struct | `crates/ambition_sandbox/src/encounter/spec.rs:44` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `LockWallSpec` | struct | `crates/ambition_sandbox/src/encounter/spec.rs:53` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 7 | `AbilitySet` | struct | `crates/ambition_sandbox/src/engine_core/abilities.rs:20` | game/domain path; stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 6 | `LedgeGrabState` | struct | `crates/ambition_sandbox/src/engine_core/ledge_grab.rs:161` | game/domain path; stateful/domain-style name; value-like runtime data; public API |
+| high | 6 | `InputState` | struct | `crates/ambition_sandbox/src/engine_core/movement/input.rs:6` | game/domain path; stateful/domain-style name; value-like runtime data; public API |
+| high | 5 | `LedgeMomentumTuning` | struct | `crates/ambition_sandbox/src/engine_core/movement/tuning.rs:124` | game/domain path; serialized data; value-like runtime data; public API |
+| high | 5 | `MovementTuning` | struct | `crates/ambition_sandbox/src/engine_core/movement/tuning.rs:187` | game/domain path; serialized data; value-like runtime data; public API |
+| high | 5 | `PlayerClusterQueryData` | struct | `crates/ambition_sandbox/src/engine_core/player_clusters.rs:56` | game/domain path; stateful/domain-style name; public API |
+| high | 6 | `PlayerClusterScratch` | struct | `crates/ambition_sandbox/src/engine_core/player_clusters.rs:513` | game/domain path; stateful/domain-style name; value-like runtime data; public API |
+| high | 5 | `PlayerClustersMut` | struct | `crates/ambition_sandbox/src/engine_core/player_clusters.rs:30` | game/domain path; stateful/domain-style name; public API |
+| high | 5 | `BodyMode` | enum | `crates/ambition_sandbox/src/engine_core/player_state.rs:147` | game/domain path; serialized data; value-like runtime data; public API |
+| high | 7 | `LocomotionState` | enum | `crates/ambition_sandbox/src/engine_core/player_state.rs:40` | game/domain path; stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 6 | `PlayerSafetyVerdict` | enum | `crates/ambition_sandbox/src/engine_core/player_state.rs:329` | game/domain path; stateful/domain-style name; value-like runtime data; public API |
+| high | 5 | `ResourceMeter` | struct | `crates/ambition_sandbox/src/engine_core/player_state.rs:404` | game/domain path; serialized data; value-like runtime data; public API |
+| high | 6 | `ClimbableSpec` | struct | `crates/ambition_sandbox/src/engine_core/world.rs:200` | game/domain path; stateful/domain-style name; value-like runtime data; public API |
+| high | 6 | `WaterVolumeSpec` | struct | `crates/ambition_sandbox/src/engine_core/world.rs:109` | game/domain path; stateful/domain-style name; value-like runtime data; public API |
+| high | 6 | `World` | struct | `crates/ambition_sandbox/src/engine_core/world.rs:268` | game/domain path; stateful/domain-style name; value-like runtime data; public API |
+| high | 5 | `AudioSettings` | struct | `crates/ambition_sandbox/src/persistence/settings/audio.rs:10` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `ControlSettings` | struct | `crates/ambition_sandbox/src/persistence/settings/controls.rs:264` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `ControllerProfileId` | enum | `crates/ambition_sandbox/src/persistence/settings/controls.rs:172` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `GameplaySettings` | struct | `crates/ambition_sandbox/src/persistence/settings/gameplay.rs:102` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `ScreenShaderSettings` | struct | `crates/ambition_sandbox/src/persistence/settings/video.rs:278` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `VideoSettings` | struct | `crates/ambition_sandbox/src/persistence/settings/video.rs:546` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 6 | `PlayerBodyView` | struct | `crates/ambition_sandbox/src/player/affordances/resolvers.rs:23` | game/domain path; stateful/domain-style name; value-like runtime data; public API |
+| high | 6 | `WorldView` | struct | `crates/ambition_sandbox/src/player/affordances/resolvers.rs:37` | game/domain path; stateful/domain-style name; value-like runtime data; public API |
+| high | 6 | `SpecialVariant` | enum | `crates/ambition_sandbox/src/player/affordances/variants.rs:280` | game/domain path; stateful/domain-style name; value-like runtime data; public API |
+| high | 5 | `QuestSpec` | struct | `crates/ambition_sandbox/src/quest.rs:109` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `QuestStepCondition` | enum | `crates/ambition_sandbox/src/quest.rs:60` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `QuestStepSpec` | struct | `crates/ambition_sandbox/src/quest.rs:91` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `PersistedBossDefeat` | struct | `crates/ambition_sandbox/src/save.rs:69` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `PersistedEncounter` | struct | `crates/ambition_sandbox/src/save.rs:18` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `PersistedEncounterState` | enum | `crates/ambition_sandbox/src/save.rs:24` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `PersistedQuest` | struct | `crates/ambition_sandbox/src/save.rs:85` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `PersistedQuestState` | enum | `crates/ambition_sandbox/src/save.rs:96` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 5 | `SandboxSaveData` | struct | `crates/ambition_sandbox/src/save.rs:172` | stateful/domain-style name; serialized data; value-like runtime data; public API |
+| high | 6 | `LdtkRuntimeRole` | enum | `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/components.rs:49` | game/domain path; stateful/domain-style name; value-like runtime data; public API |
+| high | 6 | `LdtkRuntimeDamageVolume` | struct | `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/indices.rs:160` | game/domain path; stateful/domain-style name; value-like runtime data; public API |
+| high | 6 | `LdtkRuntimeOneWayPlatform` | struct | `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/indices.rs:121` | game/domain path; stateful/domain-style name; value-like runtime data; public API |
+| high | 6 | `LdtkRuntimeSolid` | struct | `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/indices.rs:77` | game/domain path; stateful/domain-style name; value-like runtime data; public API |
+| high | 6 | `LdtkRuntimeSpineEntity` | struct | `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/indices.rs:20` | game/domain path; stateful/domain-style name; value-like runtime data; public API |
+| high | 5 | `LdtkRuntimeSpinePlugin` | struct | `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/plugin.rs:34` | game/domain path; stateful/domain-style name; public API |
+| high | 6 | `RuntimeEntityEmission` | struct | `crates/ambition_sandbox/src/world/ldtk_world/conversion.rs:304` | game/domain path; stateful/domain-style name; value-like runtime data; public API |
+| high | 5 | `LdtkEntityInstance` | struct | `crates/ambition_sandbox/src/world/ldtk_world/project.rs:77` | game/domain path; serialized data; value-like runtime data; public API |
+| high | 5 | `LdtkFieldInstance` | struct | `crates/ambition_sandbox/src/world/ldtk_world/project.rs:91` | game/domain path; serialized data; value-like runtime data; public API |
+| high | 5 | `LdtkLayerInstance` | struct | `crates/ambition_sandbox/src/world/ldtk_world/project.rs:47` | game/domain path; serialized data; value-like runtime data; public API |
+| high | 5 | `LdtkLevel` | struct | `crates/ambition_sandbox/src/world/ldtk_world/project.rs:29` | game/domain path; serialized data; value-like runtime data; public API |
+| high | 5 | `LdtkProject` | struct | `crates/ambition_sandbox/src/world/ldtk_world/project.rs:15` | game/domain path; serialized data; value-like runtime data; public API |
+| high | 6 | `LdtkSurfaceSpec` | struct | `crates/ambition_sandbox/src/world/ldtk_world/surfaces.rs:69` | game/domain path; stateful/domain-style name; value-like runtime data; public API |
+| high | 6 | `MovingPlatformSpec` | struct | `crates/ambition_sandbox/src/world/platforms.rs:20` | game/domain path; stateful/domain-style name; value-like runtime data; public API |
+
+_... 167 additional candidates are present in JSON._
+
+### Complete non-ECS item index by module
+#### `actor` (9 items)
+- `ActorKind` (enum, `crates/ambition_sandbox/src/actor.rs:11`, priority medium, score 4; derives Clone, Copy, Debug, Eq, Hash, PartialEq)
+- `DamageTeam` (enum, `crates/ambition_sandbox/src/actor.rs:33`, priority low, score 2; derives Clone, Copy, Debug, Eq, Hash, PartialEq)
+- `Actor` (struct, `crates/ambition_sandbox/src/actor.rs:55`, priority medium, score 4; derives Clone, Debug, PartialEq)
+- `Health` (struct, `crates/ambition_sandbox/src/actor.rs:80`, priority low, score 2; derives Clone, Copy, Debug, Eq, PartialEq)
+- `RespawnPolicy` (enum, `crates/ambition_sandbox/src/actor.rs:131`, priority low, score 2; derives Clone, Copy, Debug, Default, PartialEq)
+- `KinematicPath` (struct, `crates/ambition_sandbox/src/actor.rs:146`, priority low, score 2; derives Clone, Debug, PartialEq)
+- `KinematicPathMode` (enum, `crates/ambition_sandbox/src/actor.rs:170`, priority low, score 2; derives Clone, Copy, Debug, Eq, PartialEq)
+- `EnemyBrain` (enum, `crates/ambition_sandbox/src/actor.rs:181`, priority medium, score 4; derives Clone, Debug, PartialEq)
+- `BossBrain` (enum, `crates/ambition_sandbox/src/actor.rs:192`, priority medium, score 4; derives Clone, Debug, PartialEq)
+
+#### `actor_control` (2 items)
+- `ActorFireRequest` (struct, `crates/ambition_sandbox/src/actor_control.rs:59`, priority medium, score 4; derives Clone, Copy, Debug, PartialEq)
+- `ActorControlFrame` (struct, `crates/ambition_sandbox/src/actor_control.rs:76`, priority medium, score 4; derives Clone, Copy, Debug, Default, PartialEq)
+
+#### `app` (9 items)
+- `CombatSchedulePlugin` (struct, `crates/ambition_sandbox/src/app/combat_schedule.rs:19`, priority low, score 1)
+- `LdtkReloadTransaction` (struct, `crates/ambition_sandbox/src/app/dev_runtime.rs:187`, priority low, score 1)
+- `PhaseOutcome` (enum, `crates/ambition_sandbox/src/app/feedback.rs:129`, priority low, score 1)
+- `LedgePlatformCarry` (enum, `crates/ambition_sandbox/src/app/phases.rs:28`, priority low, score 2; derives Clone, Copy, Debug, Eq, PartialEq)
+- `SandboxSimulationPlugin` (struct, `crates/ambition_sandbox/src/app/plugins.rs:956`, priority low, score 1)
+- `SandboxLdtkPlugin` (struct, `crates/ambition_sandbox/src/app/plugins.rs:967`, priority low, score 1)
+- `SandboxPresentationPlugin` (struct, `crates/ambition_sandbox/src/app/plugins.rs:977`, priority low, score 1)
+- `ProgressionSchedulePlugin` (struct, `crates/ambition_sandbox/src/app/progression_schedule.rs:17`, priority low, score 1)
+- `SandboxSimulationResourcesPlugin` (struct, `crates/ambition_sandbox/src/app/sim_resources.rs:34`, priority low, score 1)
+
+#### `assets` (6 items)
+- `EntitySprite` (enum, `crates/ambition_sandbox/src/assets/game_assets.rs:148`, priority low, score 0; derives Clone, Copy, Debug, Eq, Hash, PartialEq)
+- `EntitySpriteSet` (struct, `crates/ambition_sandbox/src/assets/game_assets.rs:422`, priority low, score 2; derives Clone, Default)
+- `ParallaxTheme` (enum, `crates/ambition_sandbox/src/assets/game_assets.rs:442`, priority low, score 0; derives Clone, Copy, Debug, Eq, Hash, PartialEq)
+- `ParallaxLayerAsset` (enum, `crates/ambition_sandbox/src/assets/game_assets.rs:552`, priority low, score 0; derives Clone, Copy, Debug, Eq, Hash, PartialEq)
+- `ParallaxLayerSet` (struct, `crates/ambition_sandbox/src/assets/game_assets.rs:589`, priority low, score 2; derives Clone, Default)
+- `AmbitionAssetSourcePlugin` (struct, `crates/ambition_sandbox/src/assets/sandbox_assets/embedded.rs:200`, priority low, score -1)
+
+#### `audio` (10 items)
+- `SfxBankAsset` (struct, `crates/ambition_sandbox/src/audio/bank_asset.rs:47`, priority low, score -1; derives Asset, TypePath)
+- `SfxBankLoader` (struct, `crates/ambition_sandbox/src/audio/bank_asset.rs:52`, priority low, score 0; derives Default, TypePath)
+- `SfxBankLoaderError` (enum, `crates/ambition_sandbox/src/audio/bank_asset.rs:55`, priority low, score -1; derives Debug)
+- `SfxBankAssetPlugin` (struct, `crates/ambition_sandbox/src/audio/bank_asset.rs:119`, priority low, score -1)
+- `AudioEnvironmentMode` (enum, `crates/ambition_sandbox/src/audio/environment.rs:53`, priority low, score 0; derives Clone, Copy, Debug, Default, Eq, PartialEq)
+- `SandboxAudioPlugin` (struct, `crates/ambition_sandbox/src/audio/plugin.rs:36`, priority low, score -1)
+- `SoundCue` (enum, `crates/ambition_sandbox/src/audio/runtime.rs:137`, priority low, score 0; derives Clone, Copy, Debug, Eq, Hash, PartialEq)
+- `TrackSource` (struct, `crates/ambition_sandbox/src/audio/runtime.rs:208`, priority low, score -1; derives Clone)
+- `MusicTrackRuntime` (struct, `crates/ambition_sandbox/src/audio/runtime.rs:215`, priority low, score 2; derives Clone)
+- `WebAudioUnlockPlugin` (struct, `crates/ambition_sandbox/src/audio/web_unlock.rs:57`, priority low, score -1)
+
+#### `bin` (8 items)
+- `Lcg` (struct, `crates/ambition_sandbox/src/bin/rl_random_walker.rs:29`, priority low, score 0)
+- `RandomPolicy` (struct, `crates/ambition_sandbox/src/bin/rl_random_walker.rs:66`, priority low, score 0)
+- `RunStats` (struct, `crates/ambition_sandbox/src/bin/rl_random_walker.rs:160`, priority low, score 1; derives Clone, Copy, Default)
+- `Lcg` (struct, `crates/ambition_sandbox/src/bin/rl_smoke.rs:28`, priority low, score 0)
+- `RoomReport` (struct, `crates/ambition_sandbox/src/bin/rl_smoke.rs:147`, priority low, score 2; derives Debug)
+- `RecordedControls` (struct, `crates/ambition_sandbox/src/bin/trace_replay.rs:47`, priority low, score 1; derives Clone, Copy, Debug, Default)
+- `RecordedPos` (struct, `crates/ambition_sandbox/src/bin/trace_replay.rs:66`, priority low, score 1; derives Clone, Copy, Debug)
+- `RecordedFrame` (struct, `crates/ambition_sandbox/src/bin/trace_replay.rs:72`, priority low, score 1; derives Clone, Copy, Debug)
+
+#### `boss_encounter` (16 items)
+- `BossIdleBarkState` (struct, `crates/ambition_sandbox/src/boss_encounter/banter.rs:121`, priority medium, score 4; derives Default)
+- `CutRopeHeavyObjectKind` (enum, `crates/ambition_sandbox/src/boss_encounter/cut_rope.rs:68`, priority low, score 1; derives Clone, Copy, Debug, Eq, PartialEq)
+- `BossDamageOutcome` (struct, `crates/ambition_sandbox/src/boss_encounter/damage.rs:11`, priority medium, score 4; derives Clone, Copy, Debug)
+- `GnuTonLadderGate` (struct, `crates/ambition_sandbox/src/boss_encounter/gnu_ton.rs:49`, priority low, score 2; derives Default)
+- `BossProfile` (struct, `crates/ambition_sandbox/src/boss_encounter/profile.rs:10`, priority medium, score 4; derives Clone, Debug, PartialEq)
+- `BossRewardProfile` (enum, `crates/ambition_sandbox/src/boss_encounter/profile.rs:19`, priority medium, score 4; derives Clone, Debug, PartialEq)
+- `BossEncounterPhase` (enum, `crates/ambition_sandbox/src/boss_encounter/spec_types.rs:23`, priority high, score 5; derives Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)
+- `BossEncounterSpec` (struct, `crates/ambition_sandbox/src/boss_encounter/spec_types.rs:76`, priority high, score 5; derives Clone, Debug, Deserialize, PartialEq, Serialize)
+- `BossEncounterState` (struct, `crates/ambition_sandbox/src/boss_encounter/spec_types.rs:352`, priority medium, score 4; derives Clone, Debug, PartialEq)
+- `BossEncounterEvent` (enum, `crates/ambition_sandbox/src/boss_encounter/spec_types.rs:549`, priority medium, score 4; derives Clone, Debug, PartialEq)
+- `BossAnim` (enum, `crates/ambition_sandbox/src/boss_encounter/sprites.rs:20`, priority medium, score 4; derives Clone, Copy, Debug, Eq, PartialEq)
+- `AnimRow` (struct, `crates/ambition_sandbox/src/boss_encounter/sprites.rs:31`, priority low, score 2; derives Clone, Copy, Debug)
+- `BossSheetSpec` (struct, `crates/ambition_sandbox/src/boss_encounter/sprites.rs:43`, priority medium, score 4; derives Clone, Copy, Debug)
+- `BossSpriteAsset` (struct, `crates/ambition_sandbox/src/boss_encounter/sprites.rs:410`, priority medium, score 4; derives Clone)
+- `BossAnimDrivePhase` (enum, `crates/ambition_sandbox/src/boss_encounter/sprites.rs:924`, priority medium, score 4; derives Clone, Copy, Debug, Eq, PartialEq)
+- `BossAnimState` (struct, `crates/ambition_sandbox/src/boss_encounter/sprites.rs:936`, priority medium, score 4; derives Clone, Copy, Debug)
+
+#### `brain` (47 items)
+- `HeldUseBehavior` (enum, `crates/ambition_sandbox/src/brain/action_set.rs:69`, priority high, score 5; derives Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq)
+- `HeldItemSpec` (struct, `crates/ambition_sandbox/src/brain/action_set.rs:94`, priority high, score 5; derives Clone, Debug, Default, Deserialize, PartialEq)
+- `MeleeActionSpec` (enum, `crates/ambition_sandbox/src/brain/action_set.rs:363`, priority high, score 5; derives Clone, Copy, Debug, Deserialize, PartialEq)
+- `RangedActionSpec` (enum, `crates/ambition_sandbox/src/brain/action_set.rs:381`, priority high, score 5; derives Clone, Copy, Debug, Deserialize, PartialEq)
+- `MoveStyleSpec` (enum, `crates/ambition_sandbox/src/brain/action_set.rs:459`, priority high, score 5; derives Clone, Copy, Debug, Default, Deserialize, PartialEq)
+- `SpecialActionSpec` (enum, `crates/ambition_sandbox/src/brain/action_set.rs:480`, priority high, score 5; derives Clone, Copy, Debug, Deserialize, PartialEq, Serialize)
+- `SwipeSpec` (struct, `crates/ambition_sandbox/src/brain/action_set.rs:618`, priority high, score 5; derives Clone, Copy, Debug, Deserialize, PartialEq)
+- `LungeSpec` (struct, `crates/ambition_sandbox/src/brain/action_set.rs:638`, priority high, score 5; derives Clone, Copy, Debug, Deserialize, PartialEq)
+- `SlamSpec` (struct, `crates/ambition_sandbox/src/brain/action_set.rs:661`, priority high, score 5; derives Clone, Copy, Debug, Deserialize, PartialEq)
+- `BiteSpec` (struct, `crates/ambition_sandbox/src/brain/action_set.rs:672`, priority high, score 5; derives Clone, Copy, Debug, Deserialize, PartialEq)
+- `PunchSpec` (struct, `crates/ambition_sandbox/src/brain/action_set.rs:682`, priority high, score 5; derives Clone, Copy, Debug, Deserialize, PartialEq)
+- `ActionRequest` (enum, `crates/ambition_sandbox/src/brain/action_set.rs:710`, priority medium, score 4; derives Clone, Copy, Debug, PartialEq)
+- `BossMovementProfile` (enum, `crates/ambition_sandbox/src/brain/boss_pattern.rs:51`, priority high, score 5; derives Clone, Debug, Deserialize, PartialEq)
+- `BossPatternStep` (enum, `crates/ambition_sandbox/src/brain/boss_pattern.rs:171`, priority high, score 5; derives Clone, Debug, Deserialize, PartialEq)
+- `BossPattern` (struct, `crates/ambition_sandbox/src/brain/boss_pattern.rs:188`, priority high, score 5; derives Clone, Debug, Default, Deserialize, PartialEq)
+- `BossAttackPattern` (enum, `crates/ambition_sandbox/src/brain/boss_pattern.rs:200`, priority high, score 5; derives Clone, Debug, Deserialize, PartialEq)
+- `BossAttackProfile` (enum, `crates/ambition_sandbox/src/brain/boss_pattern.rs:251`, priority high, score 5; derives Clone, Debug, Deserialize, PartialEq)
+- `BossPatternCfg` (struct, `crates/ambition_sandbox/src/brain/boss_pattern.rs:336`, priority medium, score 4; derives Clone, Debug)
+- `BossPatternState` (struct, `crates/ambition_sandbox/src/brain/boss_pattern.rs:463`, priority medium, score 4; derives Clone, Copy, Debug, Default)
+- `CyclePhase` (enum, `crates/ambition_sandbox/src/brain/boss_pattern.rs:501`, priority low, score 2; derives Clone, Copy, Debug, Default, Eq, PartialEq)
+- `BossMacroState` (enum, `crates/ambition_sandbox/src/brain/boss_pattern.rs:528`, priority medium, score 4; derives Clone, Copy, Debug, PartialEq)
+- `BossMacroTuning` (struct, `crates/ambition_sandbox/src/brain/boss_pattern.rs:562`, priority high, score 5; derives Clone, Copy, Debug, Deserialize, PartialEq)
+- `BossPatternContext` (struct, `crates/ambition_sandbox/src/brain/boss_pattern.rs:670`, priority medium, score 4; derives Clone, Copy, Debug)
+- `BrainPlugin` (struct, `crates/ambition_sandbox/src/brain/mod.rs:274`, priority low, score 2; derives Default)
+- `SpecificAction` (enum, `crates/ambition_sandbox/src/brain/smash/action.rs:36`, priority medium, score 4; derives Clone, Copy, Debug, PartialEq)
+- `DifficultyProfile` (struct, `crates/ambition_sandbox/src/brain/smash/difficulty.rs:26`, priority medium, score 4; derives Clone, Copy, Debug)
+- `SmashCfg` (struct, `crates/ambition_sandbox/src/brain/smash/mod.rs:48`, priority low, score 2; derives Clone, Copy, Debug)
+- `SmashState` (struct, `crates/ambition_sandbox/src/brain/smash/mod.rs:112`, priority medium, score 4; derives Clone, Copy, Debug, Default)
+- `BroadMode` (enum, `crates/ambition_sandbox/src/brain/smash/mode.rs:14`, priority low, score 2; derives Clone, Copy, Debug, Default, Eq, Hash, PartialEq)
+- `ObservationFrame` (struct, `crates/ambition_sandbox/src/brain/smash/observation.rs:21`, priority low, score 2; derives Clone, Copy, Debug)
+- `CrowdingSignal` (struct, `crates/ambition_sandbox/src/brain/smash/observation.rs:71`, priority low, score 2; derives Clone, Copy, Debug, Default)
+- `TerrainAwareness` (struct, `crates/ambition_sandbox/src/brain/smash/observation.rs:116`, priority low, score 2; derives Clone, Copy, Debug, Default)
+- `BrainSnapshot` (struct, `crates/ambition_sandbox/src/brain/snapshot.rs:34`, priority low, score 2; derives Clone, Copy, Debug)
+- `WallContact` (struct, `crates/ambition_sandbox/src/brain/snapshot.rs:109`, priority low, score 2; derives Clone, Copy, Debug)
+- `StateMachineCfg` (enum, `crates/ambition_sandbox/src/brain/state_machine.rs:27`, priority medium, score 4; derives Clone, Debug)
+- `PatrolCfg` (struct, `crates/ambition_sandbox/src/brain/state_machine.rs:152`, priority low, score 2; derives Clone, Copy, Debug)
+- `PatrolState` (struct, `crates/ambition_sandbox/src/brain/state_machine.rs:186`, priority medium, score 4; derives Clone, Copy, Debug, Default)
+- `WandererCfg` (struct, `crates/ambition_sandbox/src/brain/state_machine.rs:266`, priority low, score 2; derives Clone, Copy, Debug)
+- `WandererState` (struct, `crates/ambition_sandbox/src/brain/state_machine.rs:300`, priority medium, score 4; derives Clone, Debug, Default)
+- `MeleeBruteCfg` (struct, `crates/ambition_sandbox/src/brain/state_machine.rs:368`, priority low, score 2; derives Clone, Copy, Debug)
+- `MeleeBruteState` (struct, `crates/ambition_sandbox/src/brain/state_machine.rs:392`, priority medium, score 4; derives Clone, Copy, Debug, Default)
+- `SkirmisherCfg` (struct, `crates/ambition_sandbox/src/brain/state_machine.rs:436`, priority low, score 2; derives Clone, Copy, Debug)
+- `SkirmisherState` (struct, `crates/ambition_sandbox/src/brain/state_machine.rs:464`, priority medium, score 4; derives Clone, Copy, Debug, Default)
+- `SniperCfg` (struct, `crates/ambition_sandbox/src/brain/state_machine.rs:574`, priority low, score 2; derives Clone, Copy, Debug)
+- `SniperState` (struct, `crates/ambition_sandbox/src/brain/state_machine.rs:589`, priority medium, score 4; derives Clone, Copy, Debug, Default)
+- `SharkCfg` (struct, `crates/ambition_sandbox/src/brain/state_machine.rs:626`, priority low, score 2; derives Clone, Copy, Debug)
+- `SharkState` (struct, `crates/ambition_sandbox/src/brain/state_machine.rs:640`, priority medium, score 4; derives Clone, Copy, Debug, Default)
+
+#### `character_ai` (4 items)
+- `CharacterAiMode` (enum, `crates/ambition_sandbox/src/character_ai.rs:27`, priority low, score 2; derives Clone, Copy, Debug, Default, Eq, PartialEq)
+- `CharacterAiIntent` (enum, `crates/ambition_sandbox/src/character_ai.rs:76`, priority low, score 2; derives Clone, Copy, Debug, Default, PartialEq)
+- `CharacterAiOutput` (struct, `crates/ambition_sandbox/src/character_ai.rs:91`, priority low, score 2; derives Clone, Copy, Debug, Default, PartialEq)
+- `CharacterAiSnapshot` (struct, `crates/ambition_sandbox/src/character_ai.rs:107`, priority low, score 2; derives Clone, Copy, Debug)
+
+#### `combat` (9 items)
+- `DamageKind` (enum, `crates/ambition_sandbox/src/combat.rs:15`, priority low, score 2; derives Clone, Copy, Debug, Eq, Hash, PartialEq)
+- `Damage` (struct, `crates/ambition_sandbox/src/combat.rs:27`, priority low, score 2; derives Clone, Copy, Debug, PartialEq)
+- `Hitbox` (struct, `crates/ambition_sandbox/src/combat.rs:58`, priority low, score 2; derives Clone, Debug, PartialEq)
+- `Hurtbox` (struct, `crates/ambition_sandbox/src/combat.rs:80`, priority low, score 2; derives Clone, Debug, PartialEq)
+- `DamageVolume` (struct, `crates/ambition_sandbox/src/combat.rs:105`, priority low, score 2; derives Clone, Debug, PartialEq)
+- `AttackIntent` (enum, `crates/ambition_sandbox/src/combat.rs:146`, priority low, score 2; derives Clone, Copy, Debug, Eq, Hash, PartialEq)
+- `AttackPhase` (enum, `crates/ambition_sandbox/src/combat.rs:180`, priority low, score 2; derives Clone, Copy, Debug, Eq, Hash, PartialEq)
+- `AttackSpec` (struct, `crates/ambition_sandbox/src/combat.rs:199`, priority medium, score 4; derives Clone, Copy, Debug, PartialEq)
+- `AttackView` (struct, `crates/ambition_sandbox/src/combat.rs:262`, priority low, score 2; derives Clone, Copy, Debug)
+
+#### `combat_slots` (4 items)
+- `SlotKind` (enum, `crates/ambition_sandbox/src/combat_slots.rs:33`, priority low, score 2; derives Clone, Copy, Debug, Eq, Hash, PartialEq)
+- `CombatSlot` (struct, `crates/ambition_sandbox/src/combat_slots.rs:42`, priority low, score 2; derives Clone, Debug)
+- `CombatSlotBoard` (struct, `crates/ambition_sandbox/src/combat_slots.rs:66`, priority low, score 2; derives Clone, Debug, Default)
+- `SlotRequest` (struct, `crates/ambition_sandbox/src/combat_slots.rs:152`, priority medium, score 4; derives Clone, Debug)
+
+#### `content` (19 items)
+- `CharacterTier` (enum, `crates/ambition_sandbox/src/content/character_catalog/entry.rs:18`, priority high, score 5; derives Clone, Copy, Debug, Deserialize, Eq, PartialEq)
+- `CharacterBodyKind` (enum, `crates/ambition_sandbox/src/content/character_catalog/entry.rs:26`, priority high, score 5; derives Clone, Copy, Debug, Deserialize, Eq, PartialEq)
+- `CompositionLayer` (struct, `crates/ambition_sandbox/src/content/character_catalog/entry.rs:42`, priority high, score 5; derives Clone, Debug, Deserialize)
+- `CharacterCatalogEntry` (struct, `crates/ambition_sandbox/src/content/character_catalog/entry.rs:54`, priority high, score 7; derives Clone, Debug, Deserialize)
+- `BrainPreset` (enum, `crates/ambition_sandbox/src/content/character_catalog/entry.rs:92`, priority high, score 5; derives Clone, Debug, Deserialize, PartialEq)
+- `MoveStylePreset` (enum, `crates/ambition_sandbox/src/content/character_catalog/entry.rs:136`, priority high, score 5; derives Clone, Copy, Debug, Default, Deserialize, PartialEq)
+- `MeleePreset` (enum, `crates/ambition_sandbox/src/content/character_catalog/entry.rs:149`, priority high, score 5; derives Clone, Copy, Debug, Deserialize, PartialEq)
+- `RangedPreset` (enum, `crates/ambition_sandbox/src/content/character_catalog/entry.rs:191`, priority high, score 5; derives Clone, Copy, Debug, Deserialize, PartialEq)
+- `SpecialPreset` (enum, `crates/ambition_sandbox/src/content/character_catalog/entry.rs:200`, priority high, score 7; derives Clone, Copy, Debug, Deserialize, PartialEq)
+- `ActionSetPreset` (struct, `crates/ambition_sandbox/src/content/character_catalog/entry.rs:208`, priority high, score 7; derives Clone, Debug, Deserialize, PartialEq)
+- `CharacterCatalogData` (struct, `crates/ambition_sandbox/src/content/character_catalog/entry.rs:222`, priority high, score 7; derives Clone, Debug, Deserialize)
+- `CharacterCatalogPlugin` (struct, `crates/ambition_sandbox/src/content/character_catalog/mod.rs:111`, priority high, score 6; derives Default)
+- `ContentValidationReport` (struct, `crates/ambition_sandbox/src/content/content_validation.rs:14`, priority medium, score 4; derives Clone, Debug, Default, Eq, PartialEq)
+- `AudioSpec` (struct, `crates/ambition_sandbox/src/content/data.rs:67`, priority high, score 7; derives Clone, Debug, Deserialize)
+- `MusicTrackSpec` (struct, `crates/ambition_sandbox/src/content/data.rs:115`, priority high, score 7; derives Clone, Debug, Deserialize)
+- `SoundCueKey` (enum, `crates/ambition_sandbox/src/content/data.rs:133`, priority high, score 5; derives Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq)
+- `WaveformSpec` (enum, `crates/ambition_sandbox/src/content/data.rs:148`, priority high, score 7; derives Clone, Copy, Debug, Deserialize, Serialize)
+- `SfxSpec` (struct, `crates/ambition_sandbox/src/content/data.rs:156`, priority high, score 7; derives Clone, Copy, Debug, Deserialize)
+- `MusicSpec` (struct, `crates/ambition_sandbox/src/content/data.rs:184`, priority high, score 7; derives Clone, Copy, Debug, Deserialize)
+
+#### `content/features` (25 items)
+- `WorldPrepSchedulePlugin` (struct, `crates/ambition_sandbox/src/content/features.rs:155`, priority high, score 5)
+- `FeatureCollectionSchedulePlugin` (struct, `crates/ambition_sandbox/src/content/features.rs:223`, priority medium, score 3)
+- `FeatureInteractionSchedulePlugin` (struct, `crates/ambition_sandbox/src/content/features.rs:252`, priority medium, score 3)
+- `FeatureViewSyncSchedulePlugin` (struct, `crates/ambition_sandbox/src/content/features.rs:281`, priority medium, score 3)
+- `BossVolumeContext` (struct, `crates/ambition_sandbox/src/content/features/boss_attack_geometry.rs:177`, priority high, score 8)
+- `BossBehaviorProfile` (struct, `crates/ambition_sandbox/src/content/features/bosses.rs:137`, priority high, score 10; derives Clone, Debug, Deserialize, PartialEq)
+- `BossSpriteMetrics` (struct, `crates/ambition_sandbox/src/content/features/bosses.rs:643`, priority high, score 9; derives Clone, Debug, Default)
+- `GameplayEffectsSchedulePlugin` (struct, `crates/ambition_sandbox/src/content/features/bus.rs:76`, priority high, score 6)
+- `AggressionMode` (enum, `crates/ambition_sandbox/src/content/features/components.rs:551`, priority high, score 7; derives Clone, Copy, Debug, Eq, PartialEq)
+- `AggressionTarget` (enum, `crates/ambition_sandbox/src/content/features/components.rs:564`, priority high, score 7; derives Clone, Copy, Debug, Eq, PartialEq)
+- `ActorSpawnState` (struct, `crates/ambition_sandbox/src/content/features/enemies.rs:34`, priority high, score 9; derives Clone, Copy, Debug, PartialEq)
+- `EnemyRespawnPolicy` (enum, `crates/ambition_sandbox/src/content/features/enemies.rs:82`, priority high, score 9; derives Clone, Copy, Debug, Eq, PartialEq)
+- `EnemyArchetype` (enum, `crates/ambition_sandbox/src/content/features/enemies.rs:102`, priority high, score 10; derives Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq)
+- `EnemyArchetypeSpec` (struct, `crates/ambition_sandbox/src/content/features/enemies.rs:223`, priority high, score 10; derives Clone, Debug, Deserialize)
+- `EnemyBrainTemplate` (enum, `crates/ambition_sandbox/src/content/features/enemies.rs:292`, priority high, score 10; derives Clone, Copy, Debug, Deserialize, PartialEq)
+- `FeatureVisualKind` (enum, `crates/ambition_sandbox/src/content/features/events.rs:4`, priority high, score 7; derives Clone, Copy, Debug, Eq, PartialEq)
+- `FeatureView` (struct, `crates/ambition_sandbox/src/content/features/events.rs:19`, priority high, score 7; derives Clone, Copy, Debug)
+- `FeatureCombatTuning` (struct, `crates/ambition_sandbox/src/content/features/events.rs:38`, priority high, score 7; derives Clone, Copy, Debug)
+- `HitMode` (enum, `crates/ambition_sandbox/src/content/features/events.rs:59`, priority high, score 7; derives Clone, Copy, Debug, Default, Eq, PartialEq)
+- `HitKnockback` (struct, `crates/ambition_sandbox/src/content/features/events.rs:74`, priority high, score 7; derives Clone, Copy, Debug, PartialEq)
+- `NpcDialogueRequest` (struct, `crates/ambition_sandbox/src/content/features/events.rs:200`, priority high, score 9; derives Clone, Debug, Eq, PartialEq)
+- `HitSource` (enum, `crates/ambition_sandbox/src/content/features/events.rs:222`, priority high, score 7; derives Clone, Debug, PartialEq)
+- `HitTarget` (enum, `crates/ambition_sandbox/src/content/features/events.rs:280`, priority high, score 7; derives Clone, Copy, Debug, Default, Eq, PartialEq)
+- `HazardRuntime` (struct, `crates/ambition_sandbox/src/content/features/hazards.rs:4`, priority high, score 9; derives Clone, Debug)
+- `PathMotion` (struct, `crates/ambition_sandbox/src/content/features/path_motion.rs:4`, priority high, score 7; derives Clone, Debug)
+
+#### `content/features/ecs` (13 items)
+- `BossRef` (struct, `crates/ambition_sandbox/src/content/features/ecs/boss_clusters.rs:77`, priority high, score 5)
+- `BossMut` (struct, `crates/ambition_sandbox/src/content/features/ecs/boss_clusters.rs:85`, priority high, score 5)
+- `BossClusterQueryData` (struct, `crates/ambition_sandbox/src/content/features/ecs/boss_clusters.rs:220`, priority high, score 5; derives QueryData)
+- `BossClusterRef` (struct, `crates/ambition_sandbox/src/content/features/ecs/boss_clusters.rs:255`, priority high, score 5; derives QueryData)
+- `BossClusterScratch` (struct, `crates/ambition_sandbox/src/content/features/ecs/boss_clusters.rs:274`, priority high, score 6; derives Clone, Debug)
+- `NpcHitTarget` (struct, `crates/ambition_sandbox/src/content/features/ecs/damage.rs:536`, priority low, score 2)
+- `EnemyMut` (struct, `crates/ambition_sandbox/src/content/features/ecs/enemy_clusters.rs:75`, priority high, score 5)
+- `EnemyClusterQueryData` (struct, `crates/ambition_sandbox/src/content/features/ecs/enemy_clusters.rs:86`, priority high, score 5; derives QueryData)
+- `EnemyClusterScratch` (struct, `crates/ambition_sandbox/src/content/features/ecs/enemy_clusters.rs:117`, priority high, score 6; derives Clone, Debug)
+- `HitboxAnchor` (enum, `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:63`, priority medium, score 4; derives Clone, Copy, Debug)
+- `NpcMut` (struct, `crates/ambition_sandbox/src/content/features/ecs/npc_clusters.rs:45`, priority medium, score 3)
+- `NpcClusterQueryData` (struct, `crates/ambition_sandbox/src/content/features/ecs/npc_clusters.rs:55`, priority high, score 5; derives QueryData)
+- `NpcClusterScratch` (struct, `crates/ambition_sandbox/src/content/features/ecs/npc_clusters.rs:81`, priority high, score 6; derives Clone, Debug)
+
+#### `cutscene` (4 items)
+- `CutsceneBeat` (enum, `crates/ambition_sandbox/src/cutscene.rs:17`, priority medium, score 3; derives Clone, Debug, Deserialize, PartialEq, Serialize)
+- `CutsceneScript` (struct, `crates/ambition_sandbox/src/cutscene.rs:53`, priority medium, score 3; derives Clone, Debug, Deserialize, PartialEq, Serialize)
+- `CutsceneRuntime` (struct, `crates/ambition_sandbox/src/cutscene.rs:81`, priority medium, score 4; derives Clone, Debug, PartialEq)
+- `CutsceneEvent` (enum, `crates/ambition_sandbox/src/cutscene.rs:177`, priority low, score 2; derives Clone, Debug, PartialEq)
+
+#### `debug_label` (2 items)
+- `DebugLabel` (struct, `crates/ambition_sandbox/src/debug_label.rs:13`, priority low, score 2; derives Clone, Debug, PartialEq)
+- `DebugLabelKind` (enum, `crates/ambition_sandbox/src/debug_label.rs:30`, priority low, score 2; derives Clone, Copy, Debug, Eq, Hash, PartialEq)
+
+#### `dev` (19 items)
+- `PlayerBodyProfile` (enum, `crates/ambition_sandbox/src/dev/dev_tools.rs:19`, priority medium, score 3; derives Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Reflect, Serialize)
+- `MovementProfile` (enum, `crates/ambition_sandbox/src/dev/dev_tools.rs:58`, priority medium, score 3; derives Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Reflect, Serialize)
+- `DebugViewMode` (enum, `crates/ambition_sandbox/src/dev/dev_tools.rs:157`, priority low, score 1; derives Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Reflect, Serialize)
+- `DebugArtMode` (enum, `crates/ambition_sandbox/src/dev/dev_tools.rs:221`, priority low, score 1; derives Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Reflect, Serialize)
+- `PlayerStatsSyncSnapshot` (struct, `crates/ambition_sandbox/src/dev/dev_tools.rs:976`, priority low, score 2; derives Default)
+- `FpsOverlayPlugin` (struct, `crates/ambition_sandbox/src/dev/fps_overlay.rs:60`, priority low, score -1)
+- `DumpPayload` (struct, `crates/ambition_sandbox/src/dev/trace/dump.rs:11`, priority low, score -1; derives Debug, Serialize)
+- `TracePoint` (struct, `crates/ambition_sandbox/src/dev/trace/model.rs:7`, priority low, score 1; derives Clone, Copy, Debug, Default, Serialize)
+- `TraceAabb` (struct, `crates/ambition_sandbox/src/dev/trace/model.rs:19`, priority low, score 1; derives Clone, Copy, Debug, Default, Serialize)
+- `ControlFrameTrace` (struct, `crates/ambition_sandbox/src/dev/trace/model.rs:34`, priority low, score 1; derives Clone, Copy, Debug, Default, Serialize)
+- `PlayerTraceState` (struct, `crates/ambition_sandbox/src/dev/trace/model.rs:81`, priority medium, score 3; derives Clone, Debug, Serialize)
+- `CollisionTraceShape` (struct, `crates/ambition_sandbox/src/dev/trace/model.rs:120`, priority low, score 1; derives Clone, Debug, Serialize)
+- `MovingPlatformTraceState` (struct, `crates/ambition_sandbox/src/dev/trace/model.rs:128`, priority medium, score 3; derives Clone, Debug, Serialize)
+- `GameplayTraceFrame` (struct, `crates/ambition_sandbox/src/dev/trace/model.rs:148`, priority low, score 1; derives Clone, Debug, Serialize)
+- `GameplayTraceEvent` (enum, `crates/ambition_sandbox/src/dev/trace/model.rs:165`, priority low, score 1; derives Clone, Debug, Serialize)
+- `DumpReason` (enum, `crates/ambition_sandbox/src/dev/trace/model.rs:304`, priority low, score 1; derives Clone, Debug, Serialize)
+- `OobReason` (enum, `crates/ambition_sandbox/src/dev/trace/model.rs:338`, priority low, score 1; derives Clone, Debug, Serialize)
+- `PreviousFrameSnapshot` (struct, `crates/ambition_sandbox/src/dev/trace/model.rs:371`, priority low, score 0; derives Clone, Debug)
+- `TraceSchedulePlugin` (struct, `crates/ambition_sandbox/src/dev/trace/plugin.rs:17`, priority low, score -1)
+
+#### `dialog` (5 items)
+- `DialogChoice` (struct, `crates/ambition_sandbox/src/dialog/content.rs:30`, priority low, score 2; derives Clone, Debug, Default, PartialEq)
+- `DialogHoverUpdate` (struct, `crates/ambition_sandbox/src/dialog/systems.rs:191`, priority low, score 1; derives Clone, Copy, Debug, PartialEq)
+- `YarnStateMirrorData` (struct, `crates/ambition_sandbox/src/dialog/yarn_bindings.rs:56`, priority medium, score 4; derives Clone, Debug, Default)
+- `YarnBindingsPlugin` (struct, `crates/ambition_sandbox/src/dialog/yarn_bindings.rs:184`, priority low, score 1)
+- `YarnBridgePlugin` (struct, `crates/ambition_sandbox/src/dialog/yarn_bridge.rs:53`, priority low, score 1)
+
+#### `dialog_lint` (1 items)
+- `CommandCall` (struct, `crates/ambition_sandbox/src/dialog_lint.rs:73`, priority low, score 0)
+
+#### `encounter` (10 items)
+- `EncounterSimulationSchedulePlugin` (struct, `crates/ambition_sandbox/src/encounter.rs:47`, priority medium, score 3)
+- `EncounterEvent` (enum, `crates/ambition_sandbox/src/encounter/events.rs:5`, priority medium, score 4; derives Clone, Debug, PartialEq)
+- `SwitchActivation` (struct, `crates/ambition_sandbox/src/encounter/registry.rs:68`, priority low, score 2; derives Clone, Debug, Default, Eq, PartialEq)
+- `EncounterMobSpec` (struct, `crates/ambition_sandbox/src/encounter/spec.rs:7`, priority high, score 5; derives Clone, Debug, Deserialize, PartialEq, Serialize)
+- `EncounterWaveSpec` (struct, `crates/ambition_sandbox/src/encounter/spec.rs:44`, priority high, score 5; derives Clone, Debug, Deserialize, PartialEq, Serialize)
+- `LockWallSpec` (struct, `crates/ambition_sandbox/src/encounter/spec.rs:53`, priority high, score 5; derives Clone, Debug, Deserialize, PartialEq, Serialize)
+- `EncounterSpec` (struct, `crates/ambition_sandbox/src/encounter/spec.rs:71`, priority high, score 5; derives Clone, Debug, Deserialize, PartialEq, Serialize)
+- `EncounterPhase` (enum, `crates/ambition_sandbox/src/encounter/state.rs:17`, priority medium, score 4; derives Clone, Copy, Debug, Default, PartialEq)
+- `EncounterRun` (struct, `crates/ambition_sandbox/src/encounter/state.rs:89`, priority medium, score 4; derives Clone, Debug, Default)
+- `EncounterSwitchLink` (struct, `crates/ambition_sandbox/src/encounter/switches.rs:6`, priority medium, score 4; derives Clone, Debug, Eq, PartialEq)
+
+#### `enemy_projectile` (1 items)
+- `EnemyProjectileSpawn` (struct, `crates/ambition_sandbox/src/enemy_projectile/state.rs:14`, priority medium, score 4; derives Clone, Debug)
+
+#### `engine_core` (36 items)
+- `AbilitySet` (struct, `crates/ambition_sandbox/src/engine_core/abilities.rs:20`, priority high, score 7; derives Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)
+- `AabbSweepHit` (struct, `crates/ambition_sandbox/src/engine_core/geometry.rs:35`, priority medium, score 4; derives Clone, Copy, Debug, PartialEq)
+- `LedgeContact` (struct, `crates/ambition_sandbox/src/engine_core/ledge_grab.rs:101`, priority medium, score 4; derives Clone, Copy, Debug, PartialEq)
+- `LedgeGetupKind` (enum, `crates/ambition_sandbox/src/engine_core/ledge_grab.rs:120`, priority medium, score 4; derives Clone, Copy, Debug, Eq, PartialEq)
+- `LedgeGrabQuality` (enum, `crates/ambition_sandbox/src/engine_core/ledge_grab.rs:144`, priority medium, score 4; derives Clone, Copy, Debug, Eq, PartialEq)
+- `LedgeGrabState` (struct, `crates/ambition_sandbox/src/engine_core/ledge_grab.rs:161`, priority high, score 6; derives Clone, Copy, Debug, PartialEq)
+- `BlinkCollision` (enum, `crates/ambition_sandbox/src/engine_core/movement/blink.rs:187`, priority medium, score 3; derives Clone, Copy, Debug, Eq, PartialEq)
+- `Axis` (enum, `crates/ambition_sandbox/src/engine_core/movement/collision.rs:8`, priority medium, score 3; derives Clone, Copy)
+- `BlinkEvent` (struct, `crates/ambition_sandbox/src/engine_core/movement/events.rs:8`, priority medium, score 4; derives Clone, Copy, Debug, PartialEq)
+- `FrameEvents` (struct, `crates/ambition_sandbox/src/engine_core/movement/events.rs:16`, priority medium, score 4; derives Clone, Debug, Default)
+- `InputState` (struct, `crates/ambition_sandbox/src/engine_core/movement/input.rs:6`, priority high, score 6; derives Clone, Copy, Debug, Default)
+- `MovementOp` (enum, `crates/ambition_sandbox/src/engine_core/movement/ops.rs:8`, priority medium, score 4; derives Clone, Copy, Debug, Eq, PartialEq)
+- `ComboMark` (struct, `crates/ambition_sandbox/src/engine_core/movement/ops.rs:103`, priority medium, score 4; derives Clone, Debug)
+- `LedgeMomentumTuning` (struct, `crates/ambition_sandbox/src/engine_core/movement/tuning.rs:124`, priority high, score 5; derives Clone, Copy, Debug, Deserialize, Serialize)
+- `MovementTuning` (struct, `crates/ambition_sandbox/src/engine_core/movement/tuning.rs:187`, priority high, score 5; derives Clone, Copy, Debug, Deserialize, Serialize)
+- `PlayerClustersMut` (struct, `crates/ambition_sandbox/src/engine_core/player_clusters.rs:30`, priority high, score 5)
+- `PlayerClusterQueryData` (struct, `crates/ambition_sandbox/src/engine_core/player_clusters.rs:56`, priority high, score 5; derives QueryData)
+- `PlayerClusterScratch` (struct, `crates/ambition_sandbox/src/engine_core/player_clusters.rs:513`, priority high, score 6; derives Clone)
+- `LocomotionState` (enum, `crates/ambition_sandbox/src/engine_core/player_state.rs:40`, priority high, score 7; derives Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)
+- `BodyMode` (enum, `crates/ambition_sandbox/src/engine_core/player_state.rs:147`, priority high, score 5; derives Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)
+- `BodyShape` (struct, `crates/ambition_sandbox/src/engine_core/player_state.rs:253`, priority medium, score 4; derives Clone, Copy, Debug, PartialEq)
+- `PlayerSafetyVerdict` (enum, `crates/ambition_sandbox/src/engine_core/player_state.rs:329`, priority high, score 6; derives Clone, Copy, Debug, PartialEq)
+- `ResourceMeter` (struct, `crates/ambition_sandbox/src/engine_core/player_state.rs:404`, priority high, score 5; derives Clone, Copy, Debug, Deserialize, PartialEq, Serialize)
+- `BlinkWallTier` (enum, `crates/ambition_sandbox/src/engine_core/world.rs:11`, priority medium, score 4; derives Clone, Copy, Debug, Eq, PartialEq)
+- `BlockKind` (enum, `crates/ambition_sandbox/src/engine_core/world.rs:20`, priority medium, score 4; derives Clone, Copy, Debug, PartialEq)
+- `Block` (struct, `crates/ambition_sandbox/src/engine_core/world.rs:50`, priority medium, score 4; derives Clone, Debug)
+- `WaterVolumeSpec` (struct, `crates/ambition_sandbox/src/engine_core/world.rs:109`, priority high, score 6; derives Clone, Copy, Debug, PartialEq)
+- `WaterKind` (enum, `crates/ambition_sandbox/src/engine_core/world.rs:140`, priority medium, score 4; derives Clone, Copy, Debug, Eq, PartialEq)
+- `WaterRegion` (struct, `crates/ambition_sandbox/src/engine_core/world.rs:151`, priority medium, score 4; derives Clone, Debug, PartialEq)
+- `WaterContact` (struct, `crates/ambition_sandbox/src/engine_core/world.rs:168`, priority medium, score 4; derives Clone, Copy, Debug, PartialEq)
+- `ClimbableKind` (enum, `crates/ambition_sandbox/src/engine_core/world.rs:185`, priority medium, score 4; derives Clone, Copy, Debug, Eq, PartialEq)
+- `ClimbableSpec` (struct, `crates/ambition_sandbox/src/engine_core/world.rs:200`, priority high, score 6; derives Clone, Copy, Debug, PartialEq)
+- `ClimbableRegion` (struct, `crates/ambition_sandbox/src/engine_core/world.rs:223`, priority medium, score 4; derives Clone, Debug, PartialEq)
+- `ClimbableContact` (struct, `crates/ambition_sandbox/src/engine_core/world.rs:244`, priority medium, score 4; derives Clone, Copy, Debug, PartialEq)
+- `World` (struct, `crates/ambition_sandbox/src/engine_core/world.rs:268`, priority high, score 6; derives Clone, Debug)
+- `SweepHit` (struct, `crates/ambition_sandbox/src/engine_core/world.rs:287`, priority medium, score 4; derives Clone, Copy, Debug)
+
+#### `falling_sand` (5 items)
+- `SwimSnapshot` (struct, `crates/ambition_sandbox/src/falling_sand.rs:96`, priority low, score 1; derives Clone, Copy, Debug)
+- `FallingSandSpoutState` (struct, `crates/ambition_sandbox/src/falling_sand.rs:102`, priority medium, score 3; derives Clone, Copy, Debug, Default, Eq, PartialEq)
+- `FallingSandRoomPlugin` (struct, `crates/ambition_sandbox/src/falling_sand.rs:161`, priority medium, score 3)
+- `ProjectionScratch` (struct, `crates/ambition_sandbox/src/falling_sand.rs:841`, priority low, score 1; derives Default)
+- `MaterialKind` (enum, `crates/ambition_sandbox/src/falling_sand.rs:1168`, priority low, score 1; derives Clone, Copy, Debug, Eq, Hash, PartialEq)
+
+#### `headless` (1 items)
+- `HeadlessReport` (struct, `crates/ambition_sandbox/src/headless.rs:32`, priority low, score 2; derives Clone, Debug)
+
+#### `host` (9 items)
+- `MobileStick` (enum, `crates/ambition_sandbox/src/host/mobile_input/bevy_plugin.rs:23`, priority low, score 0; derives Clone, Debug, Default, Eq, Hash, PartialEq, Reflect)
+- `TouchControlsPlugin` (struct, `crates/ambition_sandbox/src/host/mobile_input/bevy_plugin.rs:97`, priority low, score -1)
+- `TouchActionSpec` (struct, `crates/ambition_sandbox/src/host/mobile_input/layout.rs:59`, priority low, score 2; derives Clone, Copy, Debug)
+- `TouchButton` (struct, `crates/ambition_sandbox/src/host/mobile_input/state.rs:15`, priority low, score 0; derives Clone, Copy, Debug, Default, Eq, PartialEq)
+- `TouchInputState` (struct, `crates/ambition_sandbox/src/host/mobile_input/state.rs:57`, priority low, score 2; derives Clone, Copy, Debug, Default)
+- `PlatformPlugin` (struct, `crates/ambition_sandbox/src/host/platform.rs:18`, priority low, score -1)
+- `AndroidPlatformPlugin` (struct, `crates/ambition_sandbox/src/host/platform/android.rs:38`, priority low, score -1)
+- `DesktopPlatformPlugin` (struct, `crates/ambition_sandbox/src/host/platform/desktop.rs:10`, priority low, score -1)
+- `DisplayModeKind` (enum, `crates/ambition_sandbox/src/host/windowing.rs:14`, priority low, score 0; derives Clone, Copy, Debug, Eq, PartialEq)
+
+#### `input` (7 items)
+- `SandboxAction` (enum, `crates/ambition_sandbox/src/input/actions.rs:20`, priority low, score 2; derives Actionlike, Clone, Copy, Debug, Eq, Hash, PartialEq, Reflect)
+- `MenuInputFrame` (struct, `crates/ambition_sandbox/src/input/menu.rs:7`, priority low, score 2; derives Clone, Copy, Debug, Default, Eq, PartialEq)
+- `MenuDir` (enum, `crates/ambition_sandbox/src/input/menu.rs:107`, priority low, score 2; derives Clone, Copy, Debug, Eq, PartialEq)
+- `PresetId` (enum, `crates/ambition_sandbox/src/input/presets.rs:15`, priority low, score 2; derives Clone, Copy, Debug, Eq, PartialEq)
+- `MovementKeys` (struct, `crates/ambition_sandbox/src/input/presets.rs:23`, priority low, score 2; derives Clone, Copy, Debug)
+- `ActionKeys` (struct, `crates/ambition_sandbox/src/input/presets.rs:31`, priority low, score 2; derives Clone, Copy, Debug)
+- `KeyboardPreset` (struct, `crates/ambition_sandbox/src/input/presets.rs:51`, priority low, score 2; derives Clone, Copy, Debug)
+
+#### `interaction` (10 items)
+- `Interactable` (struct, `crates/ambition_sandbox/src/interaction.rs:12`, priority low, score 2; derives Clone, Debug, PartialEq)
+- `InteractionKind` (enum, `crates/ambition_sandbox/src/interaction.rs:41`, priority low, score 2; derives Clone, Debug, PartialEq)
+- `Pickup` (struct, `crates/ambition_sandbox/src/interaction.rs:71`, priority low, score 2; derives Clone, Debug, PartialEq)
+- `PickupKind` (enum, `crates/ambition_sandbox/src/interaction.rs:91`, priority medium, score 3; derives Clone, Debug, Deserialize, PartialEq, Serialize)
+- `Chest` (struct, `crates/ambition_sandbox/src/interaction.rs:101`, priority low, score 2; derives Clone, Debug, PartialEq)
+- `ChestState` (enum, `crates/ambition_sandbox/src/interaction.rs:120`, priority medium, score 4; derives Clone, Copy, Debug, Eq, PartialEq)
+- `BreakableTrigger` (enum, `crates/ambition_sandbox/src/interaction.rs:132`, priority low, score 2; derives Clone, Copy, Debug, Default, Eq, PartialEq)
+- `BreakableCollision` (enum, `crates/ambition_sandbox/src/interaction.rs:160`, priority low, score 2; derives Clone, Copy, Debug, Default, Eq, PartialEq)
+- `Breakable` (struct, `crates/ambition_sandbox/src/interaction.rs:185`, priority low, score 2; derives Clone, Debug, PartialEq)
+- `BreakableState` (enum, `crates/ambition_sandbox/src/interaction.rs:226`, priority medium, score 4; derives Clone, Copy, Debug, Eq, PartialEq)
+
+#### `intro` (1 items)
+- `IntroPlugin` (struct, `crates/ambition_sandbox/src/intro/plugin.rs:77`, priority low, score 1)
+
+#### `inventory` (2 items)
+- `ItemKind` (enum, `crates/ambition_sandbox/src/inventory/model.rs:5`, priority low, score 2; derives Clone, Copy, Debug, Eq, Hash, PartialEq)
+- `InventoryTab` (enum, `crates/ambition_sandbox/src/inventory/model.rs:65`, priority medium, score 4; derives Clone, Copy, Debug, Default, Eq, Hash, PartialEq)
+
+#### `item_pickup` (1 items)
+- `ItemPickupSimulationPlugin` (struct, `crates/ambition_sandbox/src/item_pickup.rs:35`, priority low, score 1)
+
+#### `items` (3 items)
+- `ItemCategory` (enum, `crates/ambition_sandbox/src/items.rs:36`, priority low, score 2; derives Clone, Copy, Debug, Eq, Hash, PartialEq)
+- `Item` (enum, `crates/ambition_sandbox/src/items.rs:65`, priority low, score 2; derives Clone, Copy, Debug, Eq, Hash, PartialEq)
+- `ItemMeta` (struct, `crates/ambition_sandbox/src/items.rs:103`, priority low, score 0)
+
+#### `kinematic` (3 items)
+- `KinematicTuning` (struct, `crates/ambition_sandbox/src/kinematic.rs:38`, priority low, score 2; derives Clone, Copy, Debug)
+- `KinematicInputs` (struct, `crates/ambition_sandbox/src/kinematic.rs:49`, priority low, score 2; derives Clone, Copy, Debug, Default)
+- `KinematicBody` (struct, `crates/ambition_sandbox/src/kinematic.rs:63`, priority low, score 2; derives Clone, Copy, Debug)
+
+#### `lib` (2 items)
+- `SafePositionContext` (struct, `crates/ambition_sandbox/src/lib.rs:209`, priority medium, score 4; derives Clone, Copy, Debug)
+- `PlayerAttackState` (struct, `crates/ambition_sandbox/src/lib.rs:335`, priority medium, score 4; derives Clone, Debug)
+
+#### `map_menu` (5 items)
+- `MapRoomNode` (struct, `crates/ambition_sandbox/src/map_menu/model.rs:19`, priority medium, score 4; derives Clone, Debug)
+- `MapRoomBoxKind` (enum, `crates/ambition_sandbox/src/map_menu/ui.rs:30`, priority medium, score 4; derives Clone, Copy, Debug, Eq, Hash, PartialEq)
+- `RoomVisual` (struct, `crates/ambition_sandbox/src/map_menu/ui.rs:163`, priority low, score 2)
+- `RoomLabel` (struct, `crates/ambition_sandbox/src/map_menu/ui.rs:174`, priority low, score 2)
+- `MapLabelStyle` (enum, `crates/ambition_sandbox/src/map_menu/ui.rs:426`, priority low, score 1; derives Clone, Copy, Eq, PartialEq)
+
+#### `music` (12 items)
+- `MusicCueSpec` (struct, `crates/ambition_sandbox/src/music/catalog.rs:5`, priority low, score 2; derives Clone, Debug)
+- `MusicSectionSpec` (struct, `crates/ambition_sandbox/src/music/catalog.rs:41`, priority low, score 2; derives Clone, Debug)
+- `MusicLayerSpec` (struct, `crates/ambition_sandbox/src/music/catalog.rs:55`, priority low, score 2; derives Clone, Debug)
+- `MusicLayerSourceSpec` (struct, `crates/ambition_sandbox/src/music/catalog.rs:61`, priority low, score 2; derives Clone, Debug)
+- `MusicStateSpec` (struct, `crates/ambition_sandbox/src/music/catalog.rs:67`, priority low, score 2; derives Clone, Debug)
+- `MusicLayerGainSpec` (struct, `crates/ambition_sandbox/src/music/catalog.rs:74`, priority low, score 2; derives Clone, Debug)
+- `EncounterMusicBinding` (struct, `crates/ambition_sandbox/src/music/catalog.rs:80`, priority low, score 2; derives Clone, Debug)
+- `MusicSourceKey` (struct, `crates/ambition_sandbox/src/music/catalog.rs:273`, priority low, score 0; derives Clone, Debug, Eq, Hash, PartialEq)
+- `MusicBank` (enum, `crates/ambition_sandbox/src/music/channels.rs:30`, priority low, score 0; derives Clone, Copy, Debug, Eq, PartialEq)
+- `MusicDirectorMode` (enum, `crates/ambition_sandbox/src/music/state.rs:4`, priority low, score 0; derives Clone, Copy, Debug, Eq, PartialEq)
+- `PendingMusicStateTransition` (struct, `crates/ambition_sandbox/src/music/state.rs:55`, priority low, score 2; derives Clone, Debug)
+- `AdaptiveCueDirective` (enum, `crates/ambition_sandbox/src/music/state.rs:61`, priority low, score 0; derives Clone, Debug, PartialEq)
+
+#### `oot_cube` (4 items)
+- `CubePage` (enum, `crates/ambition_sandbox/src/oot_cube.rs:152`, priority low, score 2; derives Clone, Copy, Debug, Eq, Hash, PartialEq)
+- `CubeFocus` (enum, `crates/ambition_sandbox/src/oot_cube.rs:173`, priority low, score 2; derives Clone, Copy, Debug, Eq, Hash, PartialEq)
+- `CubeAction` (enum, `crates/ambition_sandbox/src/oot_cube.rs:201`, priority low, score 2; derives Clone, Copy, Debug, Eq, PartialEq)
+- `SystemRow` (enum, `crates/ambition_sandbox/src/oot_cube.rs:415`, priority low, score 2; derives Clone, Copy, Debug, Eq, PartialEq)
+
+#### `oot_cube_app` (2 items)
+- `FocusSource` (enum, `crates/ambition_sandbox/src/oot_cube_app.rs:118`, priority low, score 1; derives Clone, Copy, Debug, Default, Eq, PartialEq)
+- `SpatialMove` (enum, `crates/ambition_sandbox/src/oot_cube_app.rs:952`, priority low, score 0)
+
+#### `oot_menu` (1 items)
+- `MenuAction` (enum, `crates/ambition_sandbox/src/oot_menu/effects.rs:10`, priority low, score 2; derives Clone, Copy, Debug, Eq, PartialEq)
+
+#### `pause_menu` (2 items)
+- `PauseMenuPage` (enum, `crates/ambition_sandbox/src/pause_menu/model.rs:149`, priority low, score 2; derives Clone, Copy, Debug, Default, Eq, PartialEq)
+- `RowRender` (struct, `crates/ambition_sandbox/src/pause_menu/ui.rs:643`, priority low, score 0)
+
+#### `persistence` (44 items)
+- `PersistenceSchedulePlugin` (struct, `crates/ambition_sandbox/src/persistence.rs:19`, priority low, score 1)
+- `AudioSettings` (struct, `crates/ambition_sandbox/src/persistence/settings/audio.rs:10`, priority high, score 5; derives Clone, Copy, Debug, Deserialize, PartialEq, Serialize)
+- `MenuTapMode` (enum, `crates/ambition_sandbox/src/persistence/settings/controls.rs:26`, priority medium, score 3; derives Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)
+- `MenuPointerPress` (enum, `crates/ambition_sandbox/src/persistence/settings/controls.rs:77`, priority low, score 2; derives Clone, Copy, Debug, Eq, PartialEq)
+- `DashInputMode` (enum, `crates/ambition_sandbox/src/persistence/settings/controls.rs:130`, priority medium, score 3; derives Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)
+- `ControllerProfileId` (enum, `crates/ambition_sandbox/src/persistence/settings/controls.rs:172`, priority high, score 5; derives Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)
+- `ProfileFilterDefaults` (struct, `crates/ambition_sandbox/src/persistence/settings/controls.rs:195`, priority medium, score 4; derives Clone, Copy, Debug, PartialEq)
+- `ControlSettings` (struct, `crates/ambition_sandbox/src/persistence/settings/controls.rs:264`, priority high, score 5; derives Clone, Copy, Debug, Deserialize, PartialEq, Serialize)
+- `TriggerEdgeState` (enum, `crates/ambition_sandbox/src/persistence/settings/controls.rs:389`, priority medium, score 4; derives Clone, Copy, Debug, Default, Eq, PartialEq)
+- `Difficulty` (enum, `crates/ambition_sandbox/src/persistence/settings/gameplay.rs:11`, priority medium, score 3; derives Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)
+- `AssistMode` (enum, `crates/ambition_sandbox/src/persistence/settings/gameplay.rs:77`, priority medium, score 3; derives Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)
+- `GameplaySettings` (struct, `crates/ambition_sandbox/src/persistence/settings/gameplay.rs:102`, priority high, score 5; derives Clone, Copy, Debug, Deserialize, PartialEq, Serialize)
+- `SettingsCategoryId` (enum, `crates/ambition_sandbox/src/persistence/settings/menu.rs:35`, priority medium, score 4; derives Clone, Copy, Debug, Eq, Hash, PartialEq)
+- `SettingsOptionId` (enum, `crates/ambition_sandbox/src/persistence/settings/menu.rs:72`, priority medium, score 4; derives Clone, Copy, Debug, Eq, Hash, PartialEq)
+- `SettingsOptionKind` (enum, `crates/ambition_sandbox/src/persistence/settings/menu.rs:111`, priority medium, score 4; derives Clone, Copy, Debug, PartialEq)
+- `SettingsOption` (struct, `crates/ambition_sandbox/src/persistence/settings/menu.rs:131`, priority medium, score 4; derives Clone, Debug, PartialEq)
+- `SettingsCategory` (struct, `crates/ambition_sandbox/src/persistence/settings/menu.rs:141`, priority medium, score 4; derives Clone, Debug, PartialEq)
+- `SettingsMenuModel` (struct, `crates/ambition_sandbox/src/persistence/settings/menu.rs:149`, priority medium, score 4; derives Clone, Debug, PartialEq)
+- `SettingsPage` (enum, `crates/ambition_sandbox/src/persistence/settings/model.rs:33`, priority medium, score 4; derives Clone, Copy, Debug, Default, Eq, PartialEq)
+- `DevToggleSnapshot` (struct, `crates/ambition_sandbox/src/persistence/settings/model.rs:500`, priority low, score 2; derives Clone, Copy, Debug, Default, Eq, PartialEq)
+- `SettingsAction` (enum, `crates/ambition_sandbox/src/persistence/settings/model.rs:548`, priority medium, score 4; derives Clone, Copy, Debug, Eq, PartialEq)
+- `SettingsOutcome` (enum, `crates/ambition_sandbox/src/persistence/settings/model.rs:560`, priority medium, score 4; derives Clone, Copy, Debug, Eq, PartialEq)
+- `PageNavRow` (struct, `crates/ambition_sandbox/src/persistence/settings/model.rs:571`, priority low, score 0)
+- `DevToggleId` (enum, `crates/ambition_sandbox/src/persistence/settings/system_menu.rs:49`, priority low, score 2; derives Clone, Copy, Debug, Eq, Hash, PartialEq)
+- `LocaleId` (enum, `crates/ambition_sandbox/src/persistence/settings/system_menu.rs:149`, priority low, score 2; derives Clone, Copy, Debug, Eq, Hash, PartialEq)
+- `SystemMenuEntryId` (enum, `crates/ambition_sandbox/src/persistence/settings/system_menu.rs:187`, priority low, score 2; derives Clone, Copy, Debug, Eq, Hash, PartialEq)
+- `SystemOptionId` (enum, `crates/ambition_sandbox/src/persistence/settings/system_menu.rs:231`, priority low, score 2; derives Clone, Copy, Debug, Eq, Hash, PartialEq)
+- `SystemMenuAction` (enum, `crates/ambition_sandbox/src/persistence/settings/system_menu.rs:242`, priority low, score 2; derives Clone, Copy, Debug, Eq, Hash, PartialEq)
+- `SystemMenuTarget` (enum, `crates/ambition_sandbox/src/persistence/settings/system_menu.rs:249`, priority low, score 2; derives Clone, Debug, PartialEq)
+- `RadioRow` (struct, `crates/ambition_sandbox/src/persistence/settings/system_menu.rs:265`, priority low, score 2; derives Clone, Debug, PartialEq)
+- `LocaleRow` (struct, `crates/ambition_sandbox/src/persistence/settings/system_menu.rs:275`, priority low, score 2; derives Clone, Debug, PartialEq)
+- `DevRow` (struct, `crates/ambition_sandbox/src/persistence/settings/system_menu.rs:284`, priority low, score 2; derives Clone, Debug, PartialEq)
+- `SystemMenuEntry` (struct, `crates/ambition_sandbox/src/persistence/settings/system_menu.rs:293`, priority low, score 2; derives Clone, Debug, PartialEq)
+- `SystemMenuModel` (struct, `crates/ambition_sandbox/src/persistence/settings/system_menu.rs:303`, priority medium, score 4; derives Clone, Debug, PartialEq)
+- `RadioSnapshot` (struct, `crates/ambition_sandbox/src/persistence/settings/system_menu.rs:312`, priority low, score 2; derives Clone, Debug, Default, PartialEq)
+- `DevSnapshot` (struct, `crates/ambition_sandbox/src/persistence/settings/system_menu.rs:323`, priority low, score 2; derives Clone, Debug, Default, PartialEq)
+- `FlashIntensity` (enum, `crates/ambition_sandbox/src/persistence/settings/video.rs:15`, priority medium, score 3; derives Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)
+- `ColorblindMode` (enum, `crates/ambition_sandbox/src/persistence/settings/video.rs:64`, priority medium, score 3; derives Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)
+- `CameraZoomPreset` (enum, `crates/ambition_sandbox/src/persistence/settings/video.rs:110`, priority medium, score 3; derives Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)
+- `CameraAspectPolicy` (enum, `crates/ambition_sandbox/src/persistence/settings/video.rs:175`, priority medium, score 3; derives Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)
+- `CameraFramingPreset` (enum, `crates/ambition_sandbox/src/persistence/settings/video.rs:211`, priority medium, score 3; derives Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)
+- `ScreenShaderSettings` (struct, `crates/ambition_sandbox/src/persistence/settings/video.rs:278`, priority high, score 5; derives Clone, Debug, Deserialize, PartialEq, Serialize)
+- `VideoSettings` (struct, `crates/ambition_sandbox/src/persistence/settings/video.rs:546`, priority high, score 5; derives Clone, Debug, Deserialize, PartialEq, Serialize)
+- `SerializableDisplayMode` (enum, `crates/ambition_sandbox/src/persistence/settings/video.rs:602`, priority medium, score 3; derives Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)
+
+#### `player/affordances` (13 items)
+- `InputMethod` (enum, `crates/ambition_sandbox/src/player/affordances/devices.rs:40`, priority medium, score 4; derives Clone, Copy, Debug, Default, Eq, Hash, PartialEq)
+- `GamepadKind` (enum, `crates/ambition_sandbox/src/player/affordances/devices.rs:56`, priority medium, score 4; derives Clone, Copy, Debug, Default, Eq, Hash, PartialEq)
+- `Aim` (enum, `crates/ambition_sandbox/src/player/affordances/intent.rs:29`, priority medium, score 4; derives Clone, Copy, Debug, Default, Eq, Hash, PartialEq)
+- `AffordancesPlugin` (struct, `crates/ambition_sandbox/src/player/affordances/mod.rs:152`, priority medium, score 3)
+- `PlayerBodyView` (struct, `crates/ambition_sandbox/src/player/affordances/resolvers.rs:23`, priority high, score 6; derives Clone, Copy, Debug, Default, PartialEq)
+- `WorldView` (struct, `crates/ambition_sandbox/src/player/affordances/resolvers.rs:37`, priority high, score 6; derives Clone, Debug, Default, PartialEq)
+- `IconId` (enum, `crates/ambition_sandbox/src/player/affordances/variants.rs:39`, priority medium, score 4; derives Clone, Copy, Debug, Eq, PartialEq)
+- `AttackVariant` (enum, `crates/ambition_sandbox/src/player/affordances/variants.rs:46`, priority medium, score 4; derives Clone, Copy, Debug, Default, Eq, PartialEq)
+- `JumpVariant` (enum, `crates/ambition_sandbox/src/player/affordances/variants.rs:111`, priority medium, score 4; derives Clone, Copy, Debug, Default, Eq, PartialEq)
+- `ShieldVariant` (enum, `crates/ambition_sandbox/src/player/affordances/variants.rs:144`, priority medium, score 4; derives Clone, Copy, Debug, Default, Eq, PartialEq)
+- `DashVariant` (enum, `crates/ambition_sandbox/src/player/affordances/variants.rs:169`, priority medium, score 4; derives Clone, Copy, Debug, Default, Eq, PartialEq)
+- `InteractVariant` (enum, `crates/ambition_sandbox/src/player/affordances/variants.rs:198`, priority medium, score 4; derives Clone, Debug, Default, Eq, PartialEq)
+- `SpecialVariant` (enum, `crates/ambition_sandbox/src/player/affordances/variants.rs:280`, priority high, score 6; derives Clone, Copy, Debug, Default, Eq, PartialEq)
+
+#### `portal` (3 items)
+- `PortalSimulationPlugin` (struct, `crates/ambition_sandbox/src/portal.rs:40`, priority low, score 1)
+- `PortalColor` (enum, `crates/ambition_sandbox/src/portal.rs:132`, priority low, score 2; derives Clone, Copy, Debug, Eq, Hash, PartialEq)
+- `TransitStep` (enum, `crates/ambition_sandbox/src/portal.rs:1106`, priority low, score 2; derives Clone, Copy, Debug)
+
+#### `portal_pieces` (3 items)
+- `PortalFrame` (struct, `crates/ambition_sandbox/src/portal_pieces.rs:29`, priority low, score 2; derives Clone, Copy, Debug, PartialEq)
+- `ThroughPiece` (struct, `crates/ambition_sandbox/src/portal_pieces.rs:166`, priority low, score 2; derives Clone, Copy, Debug)
+- `BodyPieces` (struct, `crates/ambition_sandbox/src/portal_pieces.rs:179`, priority low, score 2; derives Clone, Copy, Debug)
+
+#### `presentation/character_sprites` (21 items)
+- `CharacterAnim` (enum, `crates/ambition_sandbox/src/presentation/character_sprites/anim.rs:16`, priority low, score 0; derives Clone, Copy, Debug, Eq, PartialEq)
+- `EnemyAnimState` (struct, `crates/ambition_sandbox/src/presentation/character_sprites/anim.rs:469`, priority low, score 2; derives Clone, Copy, Debug)
+- `NpcAnimState` (struct, `crates/ambition_sandbox/src/presentation/character_sprites/anim.rs:505`, priority low, score 2; derives Clone, Copy, Debug)
+- `PickClusters` (struct, `crates/ambition_sandbox/src/presentation/character_sprites/anim.rs:540`, priority low, score 0)
+- `CharacterSpriteAsset` (struct, `crates/ambition_sandbox/src/presentation/character_sprites/assets.rs:47`, priority low, score 0; derives Clone)
+- `SheetRecord` (struct, `crates/ambition_sandbox/src/presentation/character_sprites/registry.rs:70`, priority low, score 1; derives Clone, Debug, Deserialize)
+- `SheetTuningSpec` (struct, `crates/ambition_sandbox/src/presentation/character_sprites/registry.rs:116`, priority medium, score 3; derives Clone, Copy, Debug, Deserialize)
+- `BodyMetrics` (struct, `crates/ambition_sandbox/src/presentation/character_sprites/registry.rs:157`, priority low, score 1; derives Clone, Debug, Deserialize)
+- `AnimationMetrics` (struct, `crates/ambition_sandbox/src/presentation/character_sprites/registry.rs:185`, priority low, score 1; derives Clone, Debug, Default, Deserialize)
+- `AnimationBox` (struct, `crates/ambition_sandbox/src/presentation/character_sprites/registry.rs:209`, priority low, score 1; derives Clone, Debug, Default, Deserialize)
+- `AnimationBoxFrame` (struct, `crates/ambition_sandbox/src/presentation/character_sprites/registry.rs:242`, priority low, score 1; derives Clone, Debug, Default, Deserialize)
+- `PixelRect` (struct, `crates/ambition_sandbox/src/presentation/character_sprites/registry.rs:256`, priority low, score 1; derives Clone, Copy, Debug, Deserialize, PartialEq)
+- `NamedPixelRect` (struct, `crates/ambition_sandbox/src/presentation/character_sprites/registry.rs:269`, priority low, score 1; derives Clone, Debug, Deserialize, PartialEq)
+- `PixelPoint` (struct, `crates/ambition_sandbox/src/presentation/character_sprites/registry.rs:289`, priority low, score 1; derives Clone, Copy, Debug, Deserialize)
+- `NormPoint` (struct, `crates/ambition_sandbox/src/presentation/character_sprites/registry.rs:295`, priority low, score 1; derives Clone, Copy, Debug, Deserialize)
+- `SheetRow` (struct, `crates/ambition_sandbox/src/presentation/character_sprites/registry.rs:301`, priority low, score 1; derives Clone, Debug, Deserialize)
+- `FrameRect` (struct, `crates/ambition_sandbox/src/presentation/character_sprites/registry.rs:312`, priority low, score 1; derives Clone, Debug, Deserialize)
+- `SheetRegistryPlugin` (struct, `crates/ambition_sandbox/src/presentation/character_sprites/registry.rs:374`, priority low, score 1)
+- `AnimRow` (struct, `crates/ambition_sandbox/src/presentation/character_sprites/sheets.rs:36`, priority low, score 0; derives Clone, Debug)
+- `CharacterSheetSpec` (struct, `crates/ambition_sandbox/src/presentation/character_sprites/sheets.rs:72`, priority low, score 2; derives Clone, Debug)
+- `SheetTuning` (struct, `crates/ambition_sandbox/src/presentation/character_sprites/sheets.rs:104`, priority low, score -2)
+
+#### `presentation/cutscene` (1 items)
+- `CutsceneSchedulePlugin` (struct, `crates/ambition_sandbox/src/presentation/cutscene.rs:565`, priority low, score -1)
+
+#### `presentation/fx` (4 items)
+- `FireworkBurstSpec` (struct, `crates/ambition_sandbox/src/presentation/fx.rs:55`, priority low, score 2; derives Clone, Copy, Debug)
+- `PendingSpeechBubble` (struct, `crates/ambition_sandbox/src/presentation/fx.rs:77`, priority low, score -2)
+- `ParticleKind` (enum, `crates/ambition_sandbox/src/presentation/fx.rs:106`, priority low, score 0; derives Clone, Copy, Debug, Eq, PartialEq)
+- `ExplosionKind` (enum, `crates/ambition_sandbox/src/presentation/fx.rs:113`, priority low, score 0; derives Clone, Copy, Debug, Eq, PartialEq)
+
+#### `presentation/rendering` (6 items)
+- `PlayerVisualSchedulePlugin` (struct, `crates/ambition_sandbox/src/presentation/rendering.rs:73`, priority low, score 1)
+- `PresentationVisualAnimationPlugin` (struct, `crates/ambition_sandbox/src/presentation/rendering.rs:148`, priority low, score -1)
+- `CameraViewState` (struct, `crates/ambition_sandbox/src/presentation/rendering/camera.rs:47`, priority low, score 1)
+- `PuppySlugDeepDreamMaterial` (struct, `crates/ambition_sandbox/src/presentation/rendering/deep_dream.rs:56`, priority low, score 0; derives AsBindGroup, Asset, Clone, Debug, TypePath)
+- `HitFlashMaterial` (struct, `crates/ambition_sandbox/src/presentation/rendering/hit_flash.rs:73`, priority low, score 0; derives AsBindGroup, Asset, Clone, Debug, TypePath)
+- `RuntimeParallaxLayerSpec` (struct, `crates/ambition_sandbox/src/presentation/rendering/parallax.rs:31`, priority low, score 1; derives Clone, Copy)
+
+#### `presentation/screen_effects` (3 items)
+- `ScreenEffectsPlugin` (struct, `crates/ambition_sandbox/src/presentation/screen_effects.rs:39`, priority low, score -1)
+- `ScreenEffectsLabel` (struct, `crates/ambition_sandbox/src/presentation/screen_effects.rs:68`, priority low, score -1; derives Clone, Debug, Eq, Hash, PartialEq, RenderLabel)
+- `ScreenEffectsNode` (struct, `crates/ambition_sandbox/src/presentation/screen_effects.rs:71`, priority low, score -1; derives Default)
+
+#### `presentation/ui_fonts` (1 items)
+- `UiFontWeight` (enum, `crates/ambition_sandbox/src/presentation/ui_fonts.rs:56`, priority low, score 0; derives Clone, Copy, Debug)
+
+#### `projectile` (17 items)
+- `ProjectileFaction` (enum, `crates/ambition_sandbox/src/projectile/body.rs:18`, priority low, score 2; derives Clone, Copy, Debug, Default, Eq, Hash, PartialEq)
+- `InFlightProjectile` (struct, `crates/ambition_sandbox/src/projectile/body.rs:40`, priority low, score 2; derives Clone, Debug)
+- `ProjectileBody` (struct, `crates/ambition_sandbox/src/projectile/body.rs:49`, priority low, score 2; derives Clone, Copy, Debug, PartialEq)
+- `ProjectileSolidHit` (enum, `crates/ambition_sandbox/src/projectile/body.rs:208`, priority low, score 2; derives Clone, Copy, Debug, Eq, PartialEq)
+- `WorldHitPolicy` (enum, `crates/ambition_sandbox/src/projectile/collision.rs:18`, priority medium, score 4; derives Clone, Copy, Debug, Eq, PartialEq)
+- `WorldHitOutcome` (enum, `crates/ambition_sandbox/src/projectile/collision.rs:34`, priority medium, score 4; derives Clone, Copy, Debug, PartialEq)
+- `MotionSample` (struct, `crates/ambition_sandbox/src/projectile/motion_input.rs:10`, priority low, score 2; derives Clone, Copy, Debug, PartialEq)
+- `MotionDirection` (enum, `crates/ambition_sandbox/src/projectile/motion_input.rs:20`, priority low, score 2; derives Clone, Copy, Debug, Eq, Hash, PartialEq)
+- `MotionInputBuffer` (struct, `crates/ambition_sandbox/src/projectile/motion_input.rs:62`, priority low, score 2; derives Clone, Debug)
+- `ProjectileSpawner` (struct, `crates/ambition_sandbox/src/projectile/spawn.rs:11`, priority low, score 2; derives Clone, Copy, Debug, PartialEq)
+- `SpawnFailure` (enum, `crates/ambition_sandbox/src/projectile/spawn.rs:61`, priority low, score 2; derives Clone, Copy, Debug, Eq, PartialEq)
+- `ProjectileKind` (enum, `crates/ambition_sandbox/src/projectile/spec.rs:21`, priority medium, score 3; derives Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)
+- `ProjectileSpec` (struct, `crates/ambition_sandbox/src/projectile/spec.rs:108`, priority medium, score 4; derives Clone, Copy, Debug, PartialEq)
+- `FireballChargeTuning` (struct, `crates/ambition_sandbox/src/projectile/spec.rs:137`, priority low, score 2; derives Clone, Copy, Debug, PartialEq)
+- `ProjectileUnlocks` (struct, `crates/ambition_sandbox/src/projectile/state.rs:44`, priority low, score 2; derives Clone, Copy, Debug, Eq, PartialEq)
+- `ProjectileTraceEvent` (enum, `crates/ambition_sandbox/src/projectile/state.rs:75`, priority low, score 2; derives Clone, Copy, Debug, PartialEq)
+- `PlayerProjectileTickInfo` (struct, `crates/ambition_sandbox/src/projectile/systems.rs:335`, priority medium, score 3; derives Clone, Copy, Debug, Default)
+
+#### `quest` (5 items)
+- `QuestAdvanceEvent` (enum, `crates/ambition_sandbox/src/quest.rs:29`, priority medium, score 4; derives Clone, Debug, Eq, PartialEq)
+- `QuestStepCondition` (enum, `crates/ambition_sandbox/src/quest.rs:60`, priority high, score 5; derives Clone, Debug, Deserialize, Eq, PartialEq, Serialize)
+- `QuestStepSpec` (struct, `crates/ambition_sandbox/src/quest.rs:91`, priority high, score 5; derives Clone, Debug, Deserialize, Eq, PartialEq, Serialize)
+- `QuestSpec` (struct, `crates/ambition_sandbox/src/quest.rs:109`, priority high, score 5; derives Clone, Debug, Deserialize, Eq, PartialEq, Serialize)
+- `QuestState` (struct, `crates/ambition_sandbox/src/quest.rs:134`, priority medium, score 4; derives Clone, Debug, Eq, PartialEq)
+
+#### `rl_sim` (5 items)
+- `AgentAction` (struct, `crates/ambition_sandbox/src/rl_sim/action.rs:14`, priority low, score 2; derives Clone, Copy, Debug, Default)
+- `AgentObservation` (struct, `crates/ambition_sandbox/src/rl_sim/observation.rs:9`, priority low, score 2; derives Clone, Debug)
+- `SandboxSimOptions` (struct, `crates/ambition_sandbox/src/rl_sim/options.rs:5`, priority low, score 2; derives Clone, Debug, Default)
+- `TimestepMode` (enum, `crates/ambition_sandbox/src/rl_sim/options.rs:42`, priority low, score 2; derives Clone, Copy, Debug, Default)
+- `SandboxSim` (struct, `crates/ambition_sandbox/src/rl_sim/runtime.rs:31`, priority low, score 1)
+
+#### `runtime` (3 items)
+- `SandboxResetSchedulePlugin` (struct, `crates/ambition_sandbox/src/runtime/reset.rs:283`, priority low, score 1)
+- `SimulationSetup` (struct, `crates/ambition_sandbox/src/runtime/setup.rs:56`, priority medium, score 3)
+- `PresentationSetup` (struct, `crates/ambition_sandbox/src/runtime/setup.rs:69`, priority medium, score 3)
+
+#### `save` (10 items)
+- `PersistedEncounter` (struct, `crates/ambition_sandbox/src/save.rs:18`, priority high, score 5; derives Clone, Debug, Deserialize, Eq, PartialEq, Serialize)
+- `PersistedEncounterState` (enum, `crates/ambition_sandbox/src/save.rs:24`, priority high, score 5; derives Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)
+- `PersistedSwitch` (struct, `crates/ambition_sandbox/src/save.rs:50`, priority medium, score 3; derives Clone, Debug, Deserialize, Eq, PartialEq, Serialize)
+- `PersistedBossDefeat` (struct, `crates/ambition_sandbox/src/save.rs:69`, priority high, score 5; derives Clone, Debug, Deserialize, Eq, PartialEq, Serialize)
+- `PersistedQuest` (struct, `crates/ambition_sandbox/src/save.rs:85`, priority high, score 5; derives Clone, Debug, Deserialize, Eq, PartialEq, Serialize)
+- `PersistedQuestState` (enum, `crates/ambition_sandbox/src/save.rs:96`, priority high, score 5; derives Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)
+- `PersistedFlag` (struct, `crates/ambition_sandbox/src/save.rs:118`, priority medium, score 3; derives Clone, Debug, Deserialize, Eq, PartialEq, Serialize)
+- `PersistedDialogVisit` (struct, `crates/ambition_sandbox/src/save.rs:134`, priority medium, score 3; derives Clone, Debug, Deserialize, Eq, PartialEq, Serialize)
+- `PersistedItem` (struct, `crates/ambition_sandbox/src/save.rs:151`, priority medium, score 3; derives Clone, Debug, Deserialize, Eq, PartialEq, Serialize)
+- `SandboxSaveData` (struct, `crates/ambition_sandbox/src/save.rs:172`, priority high, score 5; derives Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)
+
+#### `shop` (1 items)
+- `ShopTx` (enum, `crates/ambition_sandbox/src/shop.rs:16`, priority low, score 2; derives Clone, Copy, Debug, Eq, PartialEq)
+
+#### `shrine` (2 items)
+- `ShrineVisualMode` (enum, `crates/ambition_sandbox/src/shrine.rs:93`, priority low, score 1; derives Clone, Copy, Debug, Default, Eq, PartialEq)
+- `ShrineVisualSource` (enum, `crates/ambition_sandbox/src/shrine.rs:115`, priority low, score 2; derives Clone)
+
+#### `time` (4 items)
+- `ClockRequester` (enum, `crates/ambition_sandbox/src/time/time_control.rs:82`, priority medium, score 3)
+- `Permission` (enum, `crates/ambition_sandbox/src/time/time_control.rs:108`, priority low, score 1)
+- `Regime` (enum, `crates/ambition_sandbox/src/time/time_control.rs:126`, priority low, score 1)
+- `ClockDomain` (enum, `crates/ambition_sandbox/src/time/world_time.rs:25`, priority low, score 2; derives Clone, Copy, Debug, Eq, Hash, PartialEq)
+
+#### `ui_nav` (8 items)
+- `DragScrollState` (struct, `crates/ambition_sandbox/src/ui_nav/drag.rs:9`, priority medium, score 4; derives Clone, Copy, Debug, Default, PartialEq)
+- `ListCursor` (struct, `crates/ambition_sandbox/src/ui_nav/list.rs:54`, priority low, score 2; derives Clone, Copy, Debug, Default, Eq, PartialEq)
+- `ScrollWindow` (struct, `crates/ambition_sandbox/src/ui_nav/list.rs:170`, priority low, score 2; derives Clone, Copy, Debug, Default, Eq, PartialEq)
+- `WindowedList` (struct, `crates/ambition_sandbox/src/ui_nav/list.rs:249`, priority low, score 2; derives Clone, Copy, Debug, Eq, PartialEq)
+- `MenuFocusOwner` (enum, `crates/ambition_sandbox/src/ui_nav/pointer.rs:7`, priority low, score 2; derives Clone, Copy, Debug, Eq, PartialEq)
+- `MenuFocusState` (struct, `crates/ambition_sandbox/src/ui_nav/pointer.rs:25`, priority medium, score 4; derives Clone, Copy, Debug, Eq, PartialEq)
+- `RowPointerOutcome` (enum, `crates/ambition_sandbox/src/ui_nav/pointer.rs:52`, priority low, score 2; derives Clone, Copy, Debug, Eq, PartialEq)
+- `RowPointerUpdate` (struct, `crates/ambition_sandbox/src/ui_nav/pointer.rs:64`, priority low, score 2; derives Clone, Copy, Debug, Eq, PartialEq)
+
+#### `world/ldtk_world` (21 items)
+- `LdtkValidationReport` (struct, `crates/ambition_sandbox/src/world/ldtk_world.rs:72`, priority medium, score 4; derives Clone, Debug, Default)
+- `LdtkAreaBounds` (struct, `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/asset.rs:62`, priority medium, score 4; derives Clone, Copy, Debug)
+- `LdtkRuntimeRole` (enum, `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/components.rs:49`, priority high, score 6; derives Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)
+- `LdtkRuntimeSpineEntity` (struct, `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/indices.rs:20`, priority high, score 6; derives Clone, Debug, PartialEq)
+- `LdtkRuntimeSolid` (struct, `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/indices.rs:77`, priority high, score 6; derives Clone, Debug, PartialEq)
+- `LdtkRuntimeOneWayPlatform` (struct, `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/indices.rs:121`, priority high, score 6; derives Clone, Debug, PartialEq)
+- `LdtkRuntimeDamageVolume` (struct, `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/indices.rs:160`, priority high, score 6; derives Clone, Debug, PartialEq)
+- `AmbitionLdtkRegistrationPlugin` (struct, `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/plugin.rs:12`, priority medium, score 3)
+- `LdtkRuntimeSpinePlugin` (struct, `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/plugin.rs:34`, priority high, score 5)
+- `RuntimeEntityEmission` (struct, `crates/ambition_sandbox/src/world/ldtk_world/conversion.rs:304`, priority high, score 6; derives Clone, Debug, Default)
+- `LdtkProject` (struct, `crates/ambition_sandbox/src/world/ldtk_world/project.rs:15`, priority high, score 5; derives Clone, Debug, Deserialize)
+- `LdtkLevel` (struct, `crates/ambition_sandbox/src/world/ldtk_world/project.rs:29`, priority high, score 5; derives Clone, Debug, Deserialize)
+- `LdtkLayerInstance` (struct, `crates/ambition_sandbox/src/world/ldtk_world/project.rs:47`, priority high, score 5; derives Clone, Debug, Deserialize)
+- `LdtkEntityInstance` (struct, `crates/ambition_sandbox/src/world/ldtk_world/project.rs:77`, priority high, score 5; derives Clone, Debug, Deserialize)
+- `LdtkFieldInstance` (struct, `crates/ambition_sandbox/src/world/ldtk_world/project.rs:91`, priority high, score 5; derives Clone, Debug, Deserialize)
+- `SurfaceCollision` (enum, `crates/ambition_sandbox/src/world/ldtk_world/surfaces.rs:14`, priority medium, score 4; derives Clone, Copy, Debug, Default, Eq, PartialEq)
+- `SurfaceBreakability` (enum, `crates/ambition_sandbox/src/world/ldtk_world/surfaces.rs:30`, priority medium, score 4; derives Clone, Copy, Debug, Default, Eq, PartialEq)
+- `SurfaceContact` (enum, `crates/ambition_sandbox/src/world/ldtk_world/surfaces.rs:40`, priority medium, score 4; derives Clone, Copy, Debug, Default, PartialEq)
+- `SurfaceRespawn` (enum, `crates/ambition_sandbox/src/world/ldtk_world/surfaces.rs:53`, priority medium, score 4; derives Clone, Copy, Debug, Default, PartialEq)
+- `LdtkSurfaceSpec` (struct, `crates/ambition_sandbox/src/world/ldtk_world/surfaces.rs:69`, priority high, score 6; derives Clone, Debug, PartialEq)
+- `SurfaceCompiled` (struct, `crates/ambition_sandbox/src/world/ldtk_world/surfaces.rs:111`, priority medium, score 4; derives Clone, Debug, Default)
+
+#### `world/physics` (3 items)
+- `PhysicsDebrisCue` (enum, `crates/ambition_sandbox/src/world/physics.rs:76`, priority medium, score 4; derives Clone, Copy, Debug, Eq, PartialEq)
+- `AmbitionPhysicsPlugin` (struct, `crates/ambition_sandbox/src/world/physics.rs:113`, priority medium, score 3)
+- `DebrisRecipe` (struct, `crates/ambition_sandbox/src/world/physics.rs:304`, priority medium, score 3; derives Clone, Copy, Debug)
+
+#### `world/platforms` (3 items)
+- `MovingPlatformSpec` (struct, `crates/ambition_sandbox/src/world/platforms.rs:20`, priority high, score 6; derives Clone, Debug, PartialEq)
+- `MovingPlatformState` (struct, `crates/ambition_sandbox/src/world/platforms.rs:88`, priority high, score 6; derives Clone, Debug, PartialEq)
+- `MovingPlatformMotion` (enum, `crates/ambition_sandbox/src/world/platforms.rs:97`, priority medium, score 3; derives Clone, Debug, PartialEq)
+
+#### `world/rooms` (20 items)
+- `LoadingZoneActivation` (enum, `crates/ambition_sandbox/src/world/rooms.rs:28`, priority medium, score 4; derives Clone, Copy, Debug, Eq, PartialEq)
+- `LoadingZone` (struct, `crates/ambition_sandbox/src/world/rooms.rs:59`, priority medium, score 4; derives Clone, Debug)
+- `PortalPhase` (enum, `crates/ambition_sandbox/src/world/rooms.rs:104`, priority medium, score 4; derives Clone, Copy, Debug, Default, PartialEq)
+- `PortalConfig` (struct, `crates/ambition_sandbox/src/world/rooms.rs:137`, priority high, score 6; derives Clone, Debug)
+- `RoomVisualProfile` (struct, `crates/ambition_sandbox/src/world/rooms.rs:290`, priority high, score 6; derives Clone, Debug, Default, Eq, PartialEq)
+- `RoomMetadata` (struct, `crates/ambition_sandbox/src/world/rooms.rs:340`, priority high, score 6; derives Clone, Debug, Default, Eq, PartialEq)
+- `CameraClampMode` (enum, `crates/ambition_sandbox/src/world/rooms.rs:378`, priority medium, score 4; derives Clone, Copy, Debug, Default, Eq, PartialEq)
+- `CameraZoneSpec` (struct, `crates/ambition_sandbox/src/world/rooms.rs:408`, priority high, score 6; derives Clone, Debug, PartialEq)
+- `KinematicPathSpec` (struct, `crates/ambition_sandbox/src/world/rooms.rs:434`, priority high, score 6; derives Clone, Debug, PartialEq)
+- `PropSpec` (struct, `crates/ambition_sandbox/src/world/rooms.rs:520`, priority high, score 6; derives Clone, Debug, PartialEq)
+- `GroundItemSpec` (struct, `crates/ambition_sandbox/src/world/rooms.rs:547`, priority high, score 6; derives Clone, Debug, PartialEq)
+- `PortalGunSpawnSpec` (struct, `crates/ambition_sandbox/src/world/rooms.rs:567`, priority high, score 6; derives Clone, Debug, PartialEq)
+- `PortalSpec` (struct, `crates/ambition_sandbox/src/world/rooms.rs:583`, priority high, score 6; derives Clone, Debug, PartialEq)
+- `ShrineSpec` (struct, `crates/ambition_sandbox/src/world/rooms.rs:600`, priority high, score 6; derives Clone, Debug, PartialEq)
+- `GravityZoneSpec` (struct, `crates/ambition_sandbox/src/world/rooms.rs:616`, priority high, score 6; derives Clone, Debug, PartialEq)
+- `Authored` (struct, `crates/ambition_sandbox/src/world/rooms.rs:642`, priority medium, score 4; derives Clone, Debug, PartialEq)
+- `RoomSpec` (struct, `crates/ambition_sandbox/src/world/rooms.rs:662`, priority high, score 6; derives Clone, Debug)
+- `TransitionEdge` (struct, `crates/ambition_sandbox/src/world/rooms.rs:703`, priority medium, score 3; derives Clone, Debug)
+- `RoomLink` (struct, `crates/ambition_sandbox/src/world/rooms.rs:714`, priority high, score 6; derives Clone, Debug)
+- `RoomTransition` (struct, `crates/ambition_sandbox/src/world/rooms.rs:724`, priority high, score 6; derives Clone, Debug)
+
+## Components
+- `crates/ambition_sandbox/src/ability_cooldown.rs`
+  - `AbilityCooldown` (struct, line 15)
+- `crates/ambition_sandbox/src/body_mode/morph_ball.rs`
+  - `MorphBallVisual` (struct, line 30)
+- `crates/ambition_sandbox/src/bomb.rs`
+  - `BombFuse` (struct, line 30)
+- `crates/ambition_sandbox/src/boss_encounter/cut_rope.rs`
+  - `SmirkingBehemothVictoryNpc` (struct, line 299)
+- `crates/ambition_sandbox/src/boss_encounter/sprites.rs`
+  - `BossAnimator` (struct, line 835)
+- `crates/ambition_sandbox/src/brain/action_set.rs`
+  - `ActionSet` (struct, line 28)
+- `crates/ambition_sandbox/src/brain/boss_pattern.rs`
+  - `BossAttackState` (struct, line 705)
+- `crates/ambition_sandbox/src/brain/mod.rs`
+  - `Brain` (enum, line 128)
+  - `ActorControl` (struct, line 259)
+- `crates/ambition_sandbox/src/content/features/boss_attack_geometry.rs`
+  - `BossAnimationFrameSample` (struct, line 204)
+- `crates/ambition_sandbox/src/content/features/components.rs`
+  - `FeatureId` (struct, line 15)
+  - `FeatureName` (struct, line 29)
+  - `FeatureAabb` (struct, line 43)
+  - `ActorPose` (struct, line 83)
+  - `PersistKey` (struct, line 124)
+  - `PickupFeature` (struct, line 138)
+  - `Collected` (struct, line 154)
+  - `ChestFeature` (struct, line 158)
+  - `Opened` (struct, line 174)
+  - `FallingChest` (struct, line 178)
+  - `BreakableFeature` (struct, line 190)
+  - `RespawnTimer` (struct, line 206)
+  - `StandTimer` (struct, line 210)
+  - `SandboxSolidContributor` (struct, line 215)
+  - `DamageableVolumes` (struct, line 225)
+  - `PogoPolicy` (enum, line 248)
+  - `PogoTargetVolumes` (struct, line 263)
+  - `PogoTargetContributor` (struct, line 273)
+  - `SwitchFeature` (struct, line 284)
+  - `SwitchOn` (struct, line 296)
+  - `ActorIdentity` (struct, line 305)
+  - `ActorDisposition` (enum, line 338)
+  - `ActorFaction` (enum, line 364)
+  - `ActorTarget` (struct, line 419)
+  - `CombatKit` (struct, line 442)
+  - `ActorAggression` (struct, line 490)
+  - `ActorHealth` (struct, line 577)
+  - `ActorAttackState` (struct, line 604)
+  - `ActorCombatState` (struct, line 658)
+  - `ActorIntent` (struct, line 701)
+  - `ActorCooldowns` (struct, line 719)
+  - `BossPatternTimer` (struct, line 728)
+  - `BossPhase` (enum, line 743)
+  - `BossDeathAnimation` (struct, line 771)
+  - `EncounterMob` (struct, line 803)
+  - `EncounterRewardChest` (struct, line 817)
+  - `BossRewardChest` (struct, line 831)
+- `crates/ambition_sandbox/src/content/features/ecs/actors.rs`
+  - `ActorRuntime` (enum, line 57)
+- `crates/ambition_sandbox/src/content/features/ecs/boss_clusters.rs`
+  - `BossKinematics` (struct, line 39)
+  - `BossConfig` (struct, line 48)
+  - `BossStatus` (struct, line 60)
+- `crates/ambition_sandbox/src/content/features/ecs/bosses.rs`
+  - `BossSpriteMetricsApplied` (struct, line 43)
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs`
+  - `AppleRainSpawnState` (struct, line 216)
+  - `OverfitVolleyState` (struct, line 388)
+  - `EyeBeamState` (struct, line 407)
+  - `MinimaTrapState` (struct, line 417)
+  - `SaddlePointState` (struct, line 428)
+  - `GradientCascadeState` (struct, line 446)
+- `crates/ambition_sandbox/src/content/features/ecs/enemy_clusters.rs`
+  - `ActorKinematics` (struct, line 32)
+  - `EnemyStatus` (struct, line 42)
+  - `EnemyConfig` (struct, line 54)
+  - `ActorMotionPath` (struct, line 68)
+- `crates/ambition_sandbox/src/content/features/ecs/held_items.rs`
+  - `HeldItem` (struct, line 14)
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs`
+  - `Hitbox` (struct, line 47)
+  - `HitboxLifetime` (struct, line 76)
+  - `HitboxHits` (struct, line 85)
+- `crates/ambition_sandbox/src/content/features/ecs/mod.rs`
+  - `FeatureSimEntity` (struct, line 161)
+  - `HazardFeature` (struct, line 164)
+- `crates/ambition_sandbox/src/content/features/ecs/mount.rs`
+  - `Mountable` (struct, line 40)
+  - `MountSlot` (struct, line 52)
+  - `RidingOn` (struct, line 65)
+  - `MountedBrainCache` (struct, line 81)
+  - `Mounted` (struct, line 91)
+  - `MountedSize` (struct, line 100)
+- `crates/ambition_sandbox/src/content/features/ecs/npc_clusters.rs`
+  - `NpcConfig` (struct, line 23)
+  - `NpcStatus` (struct, line 37)
+- `crates/ambition_sandbox/src/content/features/enemies.rs`
+  - `ActorSurfaceState` (struct, line 48)
+- `crates/ambition_sandbox/src/dev/fps_overlay.rs`
+  - `FpsOverlayText` (struct, line 51)
+- `crates/ambition_sandbox/src/dialog/ui.rs`
+  - `DialogOverlayRoot` (struct, line 12)
+  - `DialogChoiceSlot` (struct, line 15)
+- `crates/ambition_sandbox/src/enemy_projectile/visuals.rs`
+  - `EnemyProjectileVisual` (struct, line 15)
+- `crates/ambition_sandbox/src/engine_core/player_clusters.rs`
+  - `PlayerAbilities` (struct, line 109)
+  - `PlayerKinematics` (struct, line 121)
+  - `PlayerGroundState` (struct, line 151)
+  - `PlayerWallState` (struct, line 161)
+  - `PlayerJumpState` (struct, line 175)
+  - `PlayerDashState` (struct, line 186)
+  - `PlayerFlightState` (struct, line 194)
+  - `PlayerBlinkState` (struct, line 204)
+  - `PlayerLedgeState` (struct, line 228)
+  - `PlayerDodgeState` (struct, line 298)
+  - `PlayerShieldState` (struct, line 305)
+  - `PlayerBodyModeState` (struct, line 384)
+  - `PlayerEnvironmentContact` (struct, line 390)
+  - `PlayerMana` (struct, line 398)
+  - `PlayerOffense` (struct, line 412)
+  - `PlayerActionBuffer` (struct, line 428)
+  - `PlayerLifetime` (struct, line 480)
+  - `PlayerComboTrace` (struct, line 490)
+- `crates/ambition_sandbox/src/falling_sand.rs`
+  - `FallingSandMaterialVisual` (struct, line 143)
+  - `FallingSandStreamParticle` (struct, line 149)
+  - `FallingSandSpoutNozzle` (struct, line 157)
+- `crates/ambition_sandbox/src/gravity_grenade.rs`
+  - `GravityGrenadeFuse` (struct, line 31)
+- `crates/ambition_sandbox/src/host/mobile_input/bevy_plugin.rs`
+  - `MobileTouchUiRoot` (struct, line 85)
+  - `TouchActionLabel` (struct, line 594)
+  - `ButtonVerb` (enum, line 604)
+  - `ButtonGlyph` (struct, line 717)
+  - `ButtonPressed` (struct, line 723)
+- `crates/ambition_sandbox/src/host/mobile_input/layout.rs`
+  - `TouchActionButton` (enum, line 17)
+- `crates/ambition_sandbox/src/hud_overlay.rs`
+  - `PlayerHudRoot` (struct, line 25)
+  - `HealthFill` (struct, line 29)
+  - `ManaFill` (struct, line 32)
+  - `HealthLabel` (struct, line 35)
+  - `ManaLabel` (struct, line 38)
+  - `MoneyLabel` (struct, line 41)
+- `crates/ambition_sandbox/src/inventory/model.rs`
+  - `InventoryRoot` (struct, line 219)
+  - `InventoryTitleText` (struct, line 222)
+  - `InventoryTabButton` (struct, line 225)
+  - `InventoryBackButton` (struct, line 230)
+  - `InventoryItemRow` (struct, line 233)
+  - `InventoryDescriptionText` (struct, line 238)
+  - `InventoryStatusText` (struct, line 241)
+  - `InventoryTabContentText` (struct, line 244)
+- `crates/ambition_sandbox/src/item_pickup.rs`
+  - `GroundItem` (struct, line 113)
+  - `StashedActionSet` (struct, line 170)
+  - `HeldProjectile` (struct, line 386)
+  - `GroundItemVisual` (struct, line 654)
+  - `HeldItemVisual` (struct, line 758)
+  - `HeldProjectileVisual` (struct, line 822)
+- `crates/ambition_sandbox/src/map_menu/ui.rs`
+  - `MapMenuRoot` (struct, line 15)
+  - `MapMenuCanvas` (struct, line 18)
+  - `MapMenuStatus` (struct, line 21)
+  - `MinimapRoot` (struct, line 24)
+  - `MinimapCanvas` (struct, line 27)
+  - `MapRoomBox` (struct, line 44)
+  - `MapRoomLabel` (struct, line 56)
+- `crates/ambition_sandbox/src/mark_recall.rs`
+  - `PlayerMark` (struct, line 45)
+  - `MarkBeaconVisual` (struct, line 132)
+- `crates/ambition_sandbox/src/oot_cube_app.rs`
+  - `CubeScrim` (struct, line 65)
+- `crates/ambition_sandbox/src/oot_menu/ui.rs`
+  - `OotMenuRoot` (struct, line 16)
+  - `OotSlot` (struct, line 20)
+  - `OotDetailText` (struct, line 27)
+  - `OotBackButton` (struct, line 31)
+- `crates/ambition_sandbox/src/pause_menu/model.rs`
+  - `PauseMenuRoot` (struct, line 27)
+  - `PauseMenuTopPanel` (struct, line 30)
+  - `PauseMenuSettingsPanel` (struct, line 33)
+  - `SettingsRowSlot` (struct, line 38)
+  - `SettingsRowLabel` (struct, line 45)
+  - `SettingsRowSliderTrack` (struct, line 53)
+  - `SettingsRowSliderFill` (struct, line 60)
+  - `SettingsScrollbarTrack` (struct, line 68)
+  - `SettingsScrollbarThumb` (struct, line 73)
+  - `PauseMenuItem` (enum, line 76)
+- `crates/ambition_sandbox/src/pause_menu/ui.rs`
+  - `SettingsTitle` (struct, line 301)
+- `crates/ambition_sandbox/src/persistence/settings/model.rs`
+  - `SettingsItem` (enum, line 72)
+- `crates/ambition_sandbox/src/physics.rs`
+  - `GravityZone` (struct, line 88)
+  - `OscillatingZone` (struct, line 118)
+  - `TemporaryZone` (struct, line 135)
+- `crates/ambition_sandbox/src/platformer_runtime/lifecycle/markers.rs`
+  - `RoomScopedEntity` (struct, line 9)
+  - `RunScopedEntity` (struct, line 17)
+  - `PersistentEntity` (struct, line 24)
+- `crates/ambition_sandbox/src/player/bubble_shield.rs`
+  - `BubbleShieldVisual` (struct, line 27)
+- `crates/ambition_sandbox/src/player/components.rs`
+  - `PlayerEntity` (struct, line 22)
+  - `PlayerSlot` (struct, line 35)
+  - `PrimaryPlayer` (struct, line 56)
+  - `LocalPlayer` (struct, line 64)
+  - `PlayerInputFrame` (struct, line 84)
+  - `PlayerHealth` (struct, line 95)
+  - `PlayerWallet` (struct, line 129)
+  - `PlayerCombatState` (struct, line 159)
+  - `ActivePlayerAttack` (struct, line 199)
+  - `PlayerAnimState` (struct, line 220)
+  - `PlayerInteractionState` (struct, line 263)
+  - `PlayerBlinkCameraState` (struct, line 342)
+  - `PlayerPlatformRideState` (struct, line 389)
+  - `PlayerSafetyState` (struct, line 405)
+- `crates/ambition_sandbox/src/portal.rs`
+  - `PortalGun` (struct, line 230)
+  - `Portal` (struct, line 253)
+  - `PortalGunPickup` (struct, line 489)
+  - `PortalProjectile` (struct, line 672)
+  - `GravityFlipSwitch` (struct, line 819)
+  - `GravityZoneVisual` (struct, line 870)
+  - `ActorRoll` (struct, line 951)
+  - `PortalTransit` (struct, line 1054)
+  - `PortalInputWarp` (struct, line 1492)
+  - `PortalEmission` (struct, line 1509)
+  - `PortalCooldown` (struct, line 1674)
+  - `PortalVisual` (struct, line 1873)
+  - `PortalBodyPiece` (struct, line 1878)
+  - `PortalDisorientIndicator` (struct, line 1883)
+  - `PortalModeIndicator` (struct, line 2048)
+  - `GravitySwitchVisual` (struct, line 2111)
+- `crates/ambition_sandbox/src/possession.rs`
+  - `Possessed` (struct, line 31)
+- `crates/ambition_sandbox/src/presentation/character_sprites/animator.rs`
+  - `CharacterAnimator` (struct, line 16)
+- `crates/ambition_sandbox/src/presentation/cutscene.rs`
+  - `CutsceneOverlayRoot` (struct, line 359)
+- `crates/ambition_sandbox/src/presentation/fx.rs`
+  - `ParticleVisual` (struct, line 19)
+  - `ImpactVisual` (struct, line 32)
+  - `ExplosionVisual` (struct, line 40)
+  - `FireworkSequence` (struct, line 47)
+  - `SlashPreviewVisual` (struct, line 63)
+  - `SpeechBubbleVisual` (struct, line 69)
+  - `BlinkPreviewVisual` (struct, line 99)
+- `crates/ambition_sandbox/src/presentation/rendering/actors.rs`
+  - `BoundFeatureKind` (struct, line 183)
+  - `GnuTonBodyLayer` (struct, line 620)
+  - `GnuTonHandsLayer` (struct, line 627)
+  - `GradientLaneVisual` (struct, line 987)
+  - `SpriteOriginalState` (struct, line 1084)
+- `crates/ambition_sandbox/src/presentation/rendering/deep_dream.rs`
+  - `PuppySlugDeepDreamSource` (struct, line 80)
+  - `PuppySlugDeepDreamOverlay` (struct, line 87)
+- `crates/ambition_sandbox/src/presentation/rendering/foreground.rs`
+  - `ForegroundParallax` (struct, line 22)
+- `crates/ambition_sandbox/src/presentation/rendering/health.rs`
+  - `BossHealthBarOverlayVisual` (struct, line 19)
+- `crates/ambition_sandbox/src/presentation/rendering/hit_flash.rs`
+  - `HitFlashSource` (struct, line 101)
+  - `HitFlashOverlay` (struct, line 107)
+- `crates/ambition_sandbox/src/presentation/rendering/parallax.rs`
+  - `ParallaxLayerVisual` (struct, line 19)
+- `crates/ambition_sandbox/src/presentation/rendering/pirate_weapon.rs`
+  - `PirateWeaponVisual` (struct, line 30)
+- `crates/ambition_sandbox/src/presentation/rendering/primitives.rs`
+  - `PlayerVisual` (struct, line 20)
+  - `PlayerSpriteBaseline` (struct, line 35)
+  - `HudText` (struct, line 41)
+  - `QuestPanelText` (struct, line 48)
+  - `RoomVisual` (struct, line 64)
+  - `LockWallVisual` (struct, line 75)
+  - `FeatureVisual` (struct, line 80)
+  - `PropVisual` (struct, line 90)
+  - `LoadingZoneVisual` (struct, line 106)
+  - `HealthOverlayVisual` (struct, line 111)
+- `crates/ambition_sandbox/src/presentation/screen_effects.rs`
+  - `ScreenEffectSettings` (struct, line 183)
+- `crates/ambition_sandbox/src/projectile/state.rs`
+  - `PlayerProjectileState` (struct, line 16)
+- `crates/ambition_sandbox/src/projectile/visuals.rs`
+  - `PlayerProjectileVisual` (struct, line 11)
+  - `PlayerChargeVisual` (struct, line 18)
+- `crates/ambition_sandbox/src/puppy_slug_gun.rs`
+  - `PuppySlugAlly` (struct, line 26)
+- `crates/ambition_sandbox/src/runtime/camera_layers.rs`
+  - `MainCamera` (struct, line 28)
+  - `FrontHudCamera` (struct, line 32)
+- `crates/ambition_sandbox/src/sentry.rs`
+  - `Sentry` (struct, line 43)
+- `crates/ambition_sandbox/src/shrine.rs`
+  - `HealShrine` (struct, line 27)
+  - `ShrineVisual` (struct, line 80)
+  - `ShrineVisualKey` (struct, line 83)
+  - `ShrineVisualAnim` (struct, line 86)
+  - `ShrineVisualAtlas` (struct, line 100)
+- `crates/ambition_sandbox/src/time/time_control.rs`
+  - `ProperTimeScale` (struct, line 48)
+- `crates/ambition_sandbox/src/vortex.rs`
+  - `VortexWell` (struct, line 40)
+- `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/asset.rs`
+  - `SandboxLdtkWorldRoot` (struct, line 49)
+  - `IntroLdtkWorldRoot` (struct, line 55)
+  - `CutRopeLdtkWorldRoot` (struct, line 59)
+- `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/components.rs`
+  - `AmbitionLdtkMarker` (struct, line 18)
+  - `AmbitionLdtkEntity` (struct, line 21)
+  - `LdtkSolid` (struct, line 103)
+  - `LdtkOneWayPlatform` (struct, line 118)
+  - `LdtkDamageVolume` (struct, line 130)
+- `crates/ambition_sandbox/src/world/physics.rs`
+  - `PhysicsRoomEntity` (struct, line 54)
+  - `PendingPhysicsDespawn` (struct, line 62)
+  - `PhysicsDebris` (struct, line 70)
+- `crates/ambition_sandbox/src/world/platforms.rs`
+  - `MovingPlatformVisual` (struct, line 384)
+- `crates/ambition_sandbox/src/world/rooms/systems.rs`
+  - `PortalSprite` (struct, line 18)
+
+## Bundles
+- `crates/ambition_sandbox/src/content/features/components.rs`
+  - `FeatureLifecycleBundle` (struct, line 856)
+  - `FeatureRenderedBundle` (struct, line 882)
+  - `PickupBundle` (struct, line 902)
+  - `ChestBundle` (struct, line 923)
+  - `EnemyActorBundle` (struct, line 947)
+- `crates/ambition_sandbox/src/player/bundles.rs`
+  - `PlayerIdentityBundle` (struct, line 30)
+  - `PlayerSimulationBundle` (struct, line 45)
+- `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/components.rs`
+  - `AmbitionLdtkMarkerBundle` (struct, line 11)
+
+## Resources
+- `crates/ambition_sandbox/src/ability_cooldown.rs`
+  - `UseLog` (struct, line 106)
+- `crates/ambition_sandbox/src/app/resources.rs`
+  - `StartRoomOverride` (struct, line 30)
+  - `SandboxResetThisFrame` (struct, line 44)
+- `crates/ambition_sandbox/src/assets/game_assets.rs`
+  - `GameAssetConfig` (struct, line 80)
+  - `GameAssets` (struct, line 636)
+- `crates/ambition_sandbox/src/assets/loading.rs`
+  - `SandboxAssetCollection` (struct, line 19)
+- `crates/ambition_sandbox/src/assets/sandbox_assets/mod.rs`
+  - `SandboxAssetCatalog` (struct, line 86)
+- `crates/ambition_sandbox/src/audio/bank_asset.rs`
+  - `PendingSfxBankHandle` (struct, line 117)
+- `crates/ambition_sandbox/src/audio/environment.rs`
+  - `AudioEnvironment` (struct, line 75)
+- `crates/ambition_sandbox/src/audio/render.rs`
+  - `SfxBankHandleCache` (struct, line 23)
+- `crates/ambition_sandbox/src/audio/runtime.rs`
+  - `MusicChannel` (struct, line 9)
+  - `SfxChannel` (struct, line 13)
+  - `AudioLibrary` (struct, line 234)
+  - `RadioStationState` (struct, line 246)
+  - `MusicPlaybackState` (struct, line 513)
+  - `DefaultMusicStarted` (struct, line 539)
+- `crates/ambition_sandbox/src/audio/web_unlock.rs`
+  - `AudioUnlockState` (struct, line 49)
+- `crates/ambition_sandbox/src/blink.rs`
+  - `CapturedHits` (struct, line 182)
+- `crates/ambition_sandbox/src/body_mode/morph_ball.rs`
+  - `MorphBallSprite` (struct, line 22)
+- `crates/ambition_sandbox/src/bomb.rs`
+  - `CapturedHits` (struct, line 127)
+- `crates/ambition_sandbox/src/boss_encounter/cut_rope.rs`
+  - `PendingCutRopeRoomReplay` (struct, line 63)
+  - `CutRopeHeavyObjectCycle` (struct, line 99)
+  - `CutRopeBossArenaState` (struct, line 355)
+- `crates/ambition_sandbox/src/boss_encounter/registry.rs`
+  - `BossEncounterRegistry` (struct, line 8)
+- `crates/ambition_sandbox/src/brain/mod.rs`
+  - `BrainActionCounter` (struct, line 410)
+- `crates/ambition_sandbox/src/combat_slots.rs`
+  - `CombatSlotsRes` (struct, line 395)
+- `crates/ambition_sandbox/src/content/banter.rs`
+  - `CombatBanterRegistry` (struct, line 32)
+- `crates/ambition_sandbox/src/content/character_catalog/mod.rs`
+  - `CharacterCatalog` (struct, line 51)
+- `crates/ambition_sandbox/src/content/data.rs`
+  - `SandboxDataSpec` (struct, line 24)
+  - `SandboxDataAsset` (struct, line 38)
+- `crates/ambition_sandbox/src/content/features/ecs/encounter_rewards.rs`
+  - `TestWorld` (struct, line 279)
+  - `TestAnchors` (struct, line 281)
+- `crates/ambition_sandbox/src/content/features/ecs/hazards.rs`
+  - `HitLog` (struct, line 115)
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs`
+  - `SpawnedHitbox` (struct, line 436)
+  - `CapturedHits` (struct, line 486)
+- `crates/ambition_sandbox/src/content/features/ecs/overlay.rs`
+  - `FeatureEcsWorldOverlay` (struct, line 15)
+- `crates/ambition_sandbox/src/content/features/ecs/view_index.rs`
+  - `FeatureViewIndex` (struct, line 21)
+- `crates/ambition_sandbox/src/content/features/events.rs`
+  - `GameplayBanner` (struct, line 154)
+- `crates/ambition_sandbox/src/content/quest.rs`
+  - `QuestRegistry` (struct, line 37)
+- `crates/ambition_sandbox/src/dev/dev_tools.rs`
+  - `DeveloperTools` (struct, line 254)
+  - `EditableAbilitySet` (struct, line 554)
+  - `EditableMovementTuning` (struct, line 658)
+  - `EditablePlayerStats` (struct, line 937)
+- `crates/ambition_sandbox/src/dev/fps_overlay.rs`
+  - `FpsOverlayState` (struct, line 34)
+- `crates/ambition_sandbox/src/dev/profiling.rs`
+  - `StartupProfiler` (struct, line 52)
+  - `StartupProfiler` (struct, line 127)
+- `crates/ambition_sandbox/src/dev/trace/buffer.rs`
+  - `GameplayTraceBuffer` (struct, line 5)
+- `crates/ambition_sandbox/src/dialog/runtime.rs`
+  - `DialogState` (struct, line 45)
+- `crates/ambition_sandbox/src/dialog/yarn_bindings.rs`
+  - `YarnStateMirror` (struct, line 77)
+  - `YarnPresentationCue` (struct, line 164)
+- `crates/ambition_sandbox/src/dialog/yarn_bridge.rs`
+  - `DialogueRunnerEntity` (struct, line 51)
+- `crates/ambition_sandbox/src/dive.rs`
+  - `CapturedHits` (struct, line 199)
+- `crates/ambition_sandbox/src/encounter/music.rs`
+  - `EncounterMusicRequest` (struct, line 10)
+  - `BossEncounterMusicRequest` (struct, line 33)
+- `crates/ambition_sandbox/src/encounter/registry.rs`
+  - `EncounterRegistry` (struct, line 12)
+- `crates/ambition_sandbox/src/encounter/state.rs`
+  - `EncounterState` (struct, line 104)
+- `crates/ambition_sandbox/src/encounter/switches.rs`
+  - `EncounterSwitchIndex` (struct, line 16)
+  - `SwitchActivationQueue` (struct, line 74)
+- `crates/ambition_sandbox/src/enemy_projectile/state.rs`
+  - `EnemyProjectileState` (struct, line 36)
+- `crates/ambition_sandbox/src/enemy_projectile/systems.rs`
+  - `CapturedHits` (struct, line 235)
+- `crates/ambition_sandbox/src/falling_sand.rs`
+  - `FallingSandRoomState` (struct, line 72)
+- `crates/ambition_sandbox/src/host/mobile_input/bevy_plugin.rs`
+  - `MobileTouchState` (struct, line 33)
+  - `MenuTouchGestureState` (struct, line 43)
+  - `TouchControlsVisible` (struct, line 64)
+  - `TouchButtonEdges` (struct, line 411)
+- `crates/ambition_sandbox/src/host/platform/android.rs`
+  - `AndroidSuspendState` (struct, line 55)
+- `crates/ambition_sandbox/src/host/windowing.rs`
+  - `DisplayModeState` (struct, line 32)
+- `crates/ambition_sandbox/src/input/control.rs`
+  - `ControlFrame` (struct, line 20)
+  - `PlayerDashTriggerState` (struct, line 244)
+- `crates/ambition_sandbox/src/input/menu.rs`
+  - `MenuControlFrame` (struct, line 32)
+  - `MenuInputState` (struct, line 97)
+- `crates/ambition_sandbox/src/intro/plugin.rs`
+  - `IntroSpritesInstalled` (struct, line 56)
+  - `IntroPropSpritesInstalled` (struct, line 63)
+  - `IntroCutscenesInstalled` (struct, line 67)
+  - `IntroBanterInstalled` (struct, line 71)
+  - `IntroGatedZonesInstalled` (struct, line 75)
+- `crates/ambition_sandbox/src/inventory/effects.rs`
+  - `HealCount` (struct, line 27)
+- `crates/ambition_sandbox/src/inventory/model.rs`
+  - `PlayerInventory` (struct, line 105)
+  - `InventoryUiState` (struct, line 157)
+- `crates/ambition_sandbox/src/inventory_persist.rs`
+  - `InventoryRestored` (struct, line 20)
+- `crates/ambition_sandbox/src/item_pickup.rs`
+  - `ItemArt` (struct, line 684)
+- `crates/ambition_sandbox/src/items.rs`
+  - `OwnedItems` (struct, line 456)
+- `crates/ambition_sandbox/src/lib.rs`
+  - `GameWorld` (struct, line 250)
+  - `MovingPlatformSet` (struct, line 263)
+  - `SandboxSimState` (struct, line 287)
+  - `SandboxDevState` (struct, line 303)
+- `crates/ambition_sandbox/src/map_menu/model.rs`
+  - `MapMenuState` (struct, line 26)
+- `crates/ambition_sandbox/src/mark_recall.rs`
+  - `CapturedHits` (struct, line 218)
+- `crates/ambition_sandbox/src/music/catalog.rs`
+  - `MusicCueCatalog` (struct, line 90)
+  - `LoadedMusicCueAssets` (struct, line 255)
+- `crates/ambition_sandbox/src/music/channels.rs`
+  - `MusicLayer0AChannel` (struct, line 4)
+  - `MusicLayer1AChannel` (struct, line 6)
+  - `MusicLayer2AChannel` (struct, line 8)
+  - `MusicLayer3AChannel` (struct, line 10)
+  - `MusicLayer4AChannel` (struct, line 12)
+  - `MusicLayer5AChannel` (struct, line 14)
+  - `MusicLayer0BChannel` (struct, line 17)
+  - `MusicLayer1BChannel` (struct, line 19)
+  - `MusicLayer2BChannel` (struct, line 21)
+  - `MusicLayer3BChannel` (struct, line 23)
+  - `MusicLayer4BChannel` (struct, line 25)
+  - `MusicLayer5BChannel` (struct, line 27)
+- `crates/ambition_sandbox/src/music/state.rs`
+  - `MusicDirectorState` (struct, line 14)
+- `crates/ambition_sandbox/src/oot_cube_app.rs`
+  - `InventoryUiBackend` (enum, line 49)
+  - `CubeCursor` (struct, line 130)
+  - `CubeSystemNav` (struct, line 155)
+- `crates/ambition_sandbox/src/oot_menu/state.rs`
+  - `OotMenuState` (struct, line 21)
+- `crates/ambition_sandbox/src/oot_menu/tests.rs`
+  - `HealLog` (struct, line 20)
+- `crates/ambition_sandbox/src/pause_menu/model.rs`
+  - `PauseMenuState` (struct, line 166)
+- `crates/ambition_sandbox/src/persistence/save.rs`
+  - `SandboxSave` (struct, line 30)
+- `crates/ambition_sandbox/src/persistence/settings/mod.rs`
+  - `UserSettings` (struct, line 92)
+- `crates/ambition_sandbox/src/physics.rs`
+  - `GravityField` (struct, line 32)
+  - `BaseGravity` (struct, line 69)
+  - `GravityZones` (struct, line 101)
+- `crates/ambition_sandbox/src/player/affordances/devices.rs`
+  - `ActiveInputMethod` (struct, line 76)
+- `crates/ambition_sandbox/src/player/affordances/intent.rs`
+  - `PlayerIntent` (struct, line 129)
+- `crates/ambition_sandbox/src/player/affordances/interactable_proximity.rs`
+  - `NearestInteractable` (struct, line 28)
+- `crates/ambition_sandbox/src/player/affordances/mod.rs`
+  - `PlayerAffordances` (struct, line 74)
+- `crates/ambition_sandbox/src/player/affordances/pogo_proximity.rs`
+  - `PogoTargetBelow` (struct, line 25)
+- `crates/ambition_sandbox/src/player/bubble_shield.rs`
+  - `BubbleShieldSprite` (struct, line 21)
+- `crates/ambition_sandbox/src/portal.rs`
+  - `IntentionalTeleport` (struct, line 812)
+  - `SuppressWallAbilitiesInPortal` (struct, line 1293)
+  - `PortalGunArt` (struct, line 2033)
+- `crates/ambition_sandbox/src/possession.rs`
+  - `PossessionState` (struct, line 38)
+- `crates/ambition_sandbox/src/presentation/character_sprites/assets.rs`
+  - `CharacterSpriteAssets` (struct, line 57)
+- `crates/ambition_sandbox/src/presentation/character_sprites/registry.rs`
+  - `SheetRegistry` (struct, line 327)
+- `crates/ambition_sandbox/src/presentation/cutscene.rs`
+  - `CutsceneLibrary` (struct, line 18)
+  - `ActiveCutscene` (struct, line 34)
+  - `CutsceneTriggerQueue` (struct, line 135)
+  - `RoomCutsceneBindings` (struct, line 140)
+  - `CutsceneAdvanceRequest` (struct, line 241)
+- `crates/ambition_sandbox/src/presentation/rendering/primitives.rs`
+  - `SceneEntities` (struct, line 13)
+- `crates/ambition_sandbox/src/presentation/screen_effects.rs`
+  - `ScreenEffectsPipeline` (struct, line 129)
+- `crates/ambition_sandbox/src/presentation/ui_fonts.rs`
+  - `UiFonts` (struct, line 16)
+- `crates/ambition_sandbox/src/runtime/camera_layers.rs`
+  - `MainCameraEntity` (struct, line 37)
+- `crates/ambition_sandbox/src/runtime/reset.rs`
+  - `SandboxResetRequested` (struct, line 79)
+- `crates/ambition_sandbox/src/runtime/setup.rs`
+  - `SfxBankResource` (struct, line 215)
+- `crates/ambition_sandbox/src/shrine.rs`
+  - `ShrineActivationPulse` (struct, line 110)
+- `crates/ambition_sandbox/src/time/camera_ease.rs`
+  - `CameraEaseState` (struct, line 16)
+  - `CameraEaseTuning` (struct, line 58)
+  - `CameraShakeState` (struct, line 89)
+- `crates/ambition_sandbox/src/time/feel.rs`
+  - `SandboxFeelTuning` (struct, line 13)
+- `crates/ambition_sandbox/src/time/time_control.rs`
+  - `RegimePolicy` (struct, line 135)
+  - `RequestedClockScale` (struct, line 195)
+- `crates/ambition_sandbox/src/time/world_time.rs`
+  - `WorldTime` (struct, line 55)
+- `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/asset.rs`
+  - `SandboxLdtkAsset` (struct, line 12)
+  - `IntroLdtkAsset` (struct, line 20)
+  - `CutRopeLdtkAsset` (struct, line 24)
+  - `LdtkRuntimeIndex` (struct, line 88)
+- `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/indices.rs`
+  - `LdtkRuntimeSpineStats` (struct, line 10)
+  - `LdtkRuntimeSpineIndex` (struct, line 41)
+  - `LdtkRuntimeSolidIndex` (struct, line 99)
+  - `LdtkRuntimeOneWayIndex` (struct, line 138)
+  - `LdtkRuntimeDamageIndex` (struct, line 177)
+- `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/parity.rs`
+  - `LdtkRuntimeSpineParity` (struct, line 18)
+- `crates/ambition_sandbox/src/world/ldtk_world/hot_reload.rs`
+  - `LdtkHotReloadState` (struct, line 21)
+- `crates/ambition_sandbox/src/world/ldtk_world/project.rs`
+  - `SandboxLdtkProject` (struct, line 26)
+- `crates/ambition_sandbox/src/world/physics.rs`
+  - `PhysicsSandboxSettings` (struct, line 35)
+- `crates/ambition_sandbox/src/world/rooms.rs`
+  - `PortalRegistry` (struct, line 163)
+  - `RoomMusicRequest` (struct, line 263)
+  - `ActiveRoomMetadata` (struct, line 274)
+  - `RoomSet` (struct, line 756)
+
+## Messages
+- `crates/ambition_sandbox/src/audio/runtime.rs`
+  - `SfxMessage` (enum, line 16)
+- `crates/ambition_sandbox/src/boss_encounter/cut_rope.rs`
+  - `CutRopeRoomReplayRequested` (struct, line 57)
+- `crates/ambition_sandbox/src/brain/mod.rs`
+  - `ActorActionMessage` (struct, line 303)
+- `crates/ambition_sandbox/src/content/features/events.rs`
+  - `ActorStimulus` (enum, line 91)
+  - `SetFlagRequested` (struct, line 115)
+  - `QuestAdvanceRequested` (struct, line 122)
+  - `SwitchActivated` (struct, line 129)
+  - `GameplaySfxRequested` (struct, line 137)
+  - `ResetRoomFeaturesEvent` (struct, line 147)
+  - `GameplayBannerRequested` (struct, line 185)
+  - `HitEvent` (struct, line 311)
+- `crates/ambition_sandbox/src/lib.rs`
+  - `PlayerDiedMessage` (struct, line 198)
+- `crates/ambition_sandbox/src/player/events.rs`
+  - `PlayerHealRequested` (struct, line 14)
+- `crates/ambition_sandbox/src/presentation/fx.rs`
+  - `ExplosionRequest` (struct, line 149)
+  - `FireworksRequest` (struct, line 217)
+  - `VfxMessage` (enum, line 327)
+- `crates/ambition_sandbox/src/time/time_control.rs`
+  - `ClockScaleRequest` (struct, line 173)
+- `crates/ambition_sandbox/src/world/physics.rs`
+  - `DebrisBurstMessage` (struct, line 92)
+- `crates/ambition_sandbox/src/world/rooms.rs`
+  - `RoomTransitionRequested` (struct, line 739)
+
+## Events
+- None found.
+
+## Plugins
+- `crates/ambition_sandbox/src/app/combat_schedule.rs`
+  - `CombatSchedulePlugin` (line 21)
+- `crates/ambition_sandbox/src/app/plugins.rs`
+  - `SandboxSimulationPlugin` (line 958)
+  - `SandboxLdtkPlugin` (line 969)
+  - `SandboxPresentationPlugin` (line 979)
+- `crates/ambition_sandbox/src/app/progression_schedule.rs`
+  - `ProgressionSchedulePlugin` (line 19)
+- `crates/ambition_sandbox/src/app/sim_resources.rs`
+  - `SandboxSimulationResourcesPlugin` (line 36)
+- `crates/ambition_sandbox/src/assets/sandbox_assets/embedded.rs`
+  - `AmbitionAssetSourcePlugin` (line 210)
+- `crates/ambition_sandbox/src/audio/bank_asset.rs`
+  - `SfxBankAssetPlugin` (line 121)
+- `crates/ambition_sandbox/src/audio/plugin.rs`
+  - `SandboxAudioPlugin` (line 38)
+- `crates/ambition_sandbox/src/audio/web_unlock.rs`
+  - `WebAudioUnlockPlugin` (line 59)
+- `crates/ambition_sandbox/src/brain/mod.rs`
+  - `BrainPlugin` (line 276)
+- `crates/ambition_sandbox/src/content/character_catalog/mod.rs`
+  - `CharacterCatalogPlugin` (line 113)
+- `crates/ambition_sandbox/src/content/features.rs`
+  - `WorldPrepSchedulePlugin` (line 157)
+  - `FeatureCollectionSchedulePlugin` (line 225)
+  - `FeatureInteractionSchedulePlugin` (line 254)
+  - `FeatureViewSyncSchedulePlugin` (line 283)
+- `crates/ambition_sandbox/src/content/features/bus.rs`
+  - `GameplayEffectsSchedulePlugin` (line 78)
+- `crates/ambition_sandbox/src/dev/fps_overlay.rs`
+  - `FpsOverlayPlugin` (line 62)
+- `crates/ambition_sandbox/src/dev/trace/plugin.rs`
+  - `TraceSchedulePlugin` (line 19)
+- `crates/ambition_sandbox/src/dialog/yarn_bindings.rs`
+  - `YarnBindingsPlugin` (line 186)
+- `crates/ambition_sandbox/src/dialog/yarn_bridge.rs`
+  - `YarnBridgePlugin` (line 55)
+- `crates/ambition_sandbox/src/encounter.rs`
+  - `EncounterSimulationSchedulePlugin` (line 49)
+- `crates/ambition_sandbox/src/falling_sand.rs`
+  - `FallingSandRoomPlugin` (line 163)
+- `crates/ambition_sandbox/src/host/mobile_input/bevy_plugin.rs`
+  - `TouchControlsPlugin` (line 99)
+- `crates/ambition_sandbox/src/host/platform.rs`
+  - `PlatformPlugin` (line 20)
+- `crates/ambition_sandbox/src/host/platform/android.rs`
+  - `AndroidPlatformPlugin` (line 40)
+- `crates/ambition_sandbox/src/host/platform/desktop.rs`
+  - `DesktopPlatformPlugin` (line 12)
+- `crates/ambition_sandbox/src/intro/plugin.rs`
+  - `IntroPlugin` (line 79)
+- `crates/ambition_sandbox/src/item_pickup.rs`
+  - `ItemPickupSimulationPlugin` (line 37)
+- `crates/ambition_sandbox/src/persistence.rs`
+  - `PersistenceSchedulePlugin` (line 21)
+- `crates/ambition_sandbox/src/player/affordances/mod.rs`
+  - `AffordancesPlugin` (line 154)
+- `crates/ambition_sandbox/src/portal.rs`
+  - `PortalSimulationPlugin` (line 42)
+- `crates/ambition_sandbox/src/presentation/character_sprites/registry.rs`
+  - `SheetRegistryPlugin` (line 376)
+- `crates/ambition_sandbox/src/presentation/cutscene.rs`
+  - `CutsceneSchedulePlugin` (line 567)
+- `crates/ambition_sandbox/src/presentation/rendering.rs`
+  - `PlayerVisualSchedulePlugin` (line 75)
+  - `PresentationVisualAnimationPlugin` (line 150)
+- `crates/ambition_sandbox/src/presentation/screen_effects.rs`
+  - `ScreenEffectsPlugin` (line 41)
+- `crates/ambition_sandbox/src/runtime/reset.rs`
+  - `SandboxResetSchedulePlugin` (line 285)
+- `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/plugin.rs`
+  - `AmbitionLdtkRegistrationPlugin` (line 14)
+  - `LdtkRuntimeSpinePlugin` (line 36)
+- `crates/ambition_sandbox/src/world/physics.rs`
+  - `AmbitionPhysicsPlugin` (line 116)
+
+## Registrations
+- `crates/ambition_sandbox/src/ability_cooldown.rs:77` in `cooldown_ticks_down_to_ready` - `insert_resource` on/with `crate::WorldTime { scaled_dt: 0.1, ..Default::default() }`
+  - `crate::WorldTime`
+  - `scaled_dt`
+  - `app`
+- `crates/ambition_sandbox/src/ability_cooldown.rs:81` in `cooldown_ticks_down_to_ready` - `add_systems` on/with `Update`
+  - systems: `tick_ability_cooldown`
+  - `tick_ability_cooldown`
+- `crates/ambition_sandbox/src/ability_cooldown.rs:122` in `first_use_inserts_and_allows_then_armed_use_is_blocked` - `init_resource` on/with `<none>`
+  - `app`
+  - `UseLog`
+- `crates/ambition_sandbox/src/ability_cooldown.rs:123` in `first_use_inserts_and_allows_then_armed_use_is_blocked` - `add_systems` on/with `Update`
+  - systems: `use_once_system`
+  - `use_once_system`
+- `crates/ambition_sandbox/src/app/cli.rs:143` in `run_visible` - `add_plugins` on/with `DefaultPlugins.set(WindowPlugin { primary_window: Some(Window { title: "Ambition - Tangent Space Sandbox (Bevy)".into(), resolution: WindowResolution::new(WI...`
+  - `DefaultPlugins`
+  - `set`
+  - `WindowPlugin`
+  - `primary_window`
+  - `Some`
+  - `Window`
+  - `title`
+  - `resolution`
+  - `WINDOW_W`
+  - `WINDOW_H`
+  - `resizable`
+  - `resize_constraints`
+  - `WindowResizeConstraints`
+  - `min_width`
+  - `min_height`
+  - `app`
+- `crates/ambition_sandbox/src/app/cli.rs:160` in `run_visible` - `insert_resource` on/with `asset_config`
+  - `asset_config`
+  - `app`
+- `crates/ambition_sandbox/src/app/cli.rs:161` in `run_visible` - `add_plugins` on/with `( SandboxSimulationPlugin, SandboxLdtkPlugin, SandboxPresentationPlugin, )`
+  - `SandboxSimulationPlugin`
+  - `SandboxLdtkPlugin`
+  - `SandboxPresentationPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/cli.rs:168` in `run_visible` - `add_plugins` on/with `crate::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(active_profile)`
+  - `crate::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile`
+  - `active_profile`
+  - `app`
+- `crates/ambition_sandbox/src/app/cli.rs:195` in `run_web` - `add_plugins` on/with `DefaultPlugins.set(WindowPlugin { primary_window: Some(Window { title: "Ambition - Tangent Space Sandbox (Web)".into(), // The canvas selector matches `<canv...`
+  - `DefaultPlugins`
+  - `set`
+  - `WindowPlugin`
+  - `primary_window`
+  - `Some`
+  - `Window`
+  - `title`
+  - `canvas`
+  - `to_string`
+  - `fit_canvas_to_parent`
+  - `prevent_default_event_handling`
+  - `app`
+- `crates/ambition_sandbox/src/app/cli.rs:235` in `run_web` - `insert_resource` on/with `asset_config`
+  - `asset_config`
+  - `app`
+- `crates/ambition_sandbox/src/app/cli.rs:236` in `run_web` - `add_plugins` on/with `( SandboxSimulationPlugin, SandboxLdtkPlugin, SandboxPresentationPlugin, )`
+  - `SandboxSimulationPlugin`
+  - `SandboxLdtkPlugin`
+  - `SandboxPresentationPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/cli.rs:243` in `run_web` - `add_plugins` on/with `crate::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(active_profile)`
+  - `crate::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile`
+  - `active_profile`
+  - `app`
+- `crates/ambition_sandbox/src/app/combat_schedule.rs:23` in `CombatSchedulePlugin::build` - `add_systems` on/with `Update`
+  - systems: `attack_advance_system`, `crate::features::spawn_enemy_projectiles_from_brain_actions`, `crate::features::start_enemy_melee_from_brain_actions`, `crate::features::spawn_gnu_apple_rain_from_special_messages`, `crate::features::spawn_overfit_volley_from_special_messages`, `crate::features::spawn_eye_beam_from_special_messages`, `crate::features::spawn_minima_trap_from_special_messages`, `crate::features::spawn_saddle_point_from_special_messages`, `crate::features::spawn_gradient_cascade_minions_from_special_messages`, `crate::shockwave::spawn_shockwave_from_special_messages`, `crate::projectile::update_projectiles`, `crate::enemy_projectile::update_enemy_projectiles`, `crate::features::apply_hitbox_damage`, `crate::features::tick_and_despawn_hitboxes`, `crate::features::apply_feature_hit_events`, `crate::boss_encounter::tick_cut_rope_boss_arena`, `crate::boss_encounter::sync_cut_rope_boss_arena_prop_visuals`, `crate::features::enforce_mount_rider_link`
+  - sets: `SandboxSet::Combat`
+  - run if: `gameplay_allowed`
+  - `attack_advance_system`
+  - `gameplay_allowed`
+  - `crate::features::spawn_enemy_projectiles_from_brain_actions`
+  - `crate::features::start_enemy_melee_from_brain_actions`
+  - `crate::features::spawn_gnu_apple_rain_from_special_messages`
+  - `crate::features::spawn_overfit_volley_from_special_messages`
+  - `crate::features::spawn_eye_beam_from_special_messages`
+  - `crate::features::spawn_minima_trap_from_special_messages`
+  - `crate::features::spawn_saddle_point_from_special_messages`
+  - `crate::features::spawn_gradient_cascade_minions_from_special_messages`
+  - `crate::shockwave::spawn_shockwave_from_special_messages`
+  - `crate::projectile::update_projectiles`
+  - `crate::enemy_projectile::update_enemy_projectiles`
+  - `crate::features::apply_hitbox_damage`
+  - `crate::features::tick_and_despawn_hitboxes`
+  - `crate::features::apply_feature_hit_events`
+  - `crate::boss_encounter::tick_cut_rope_boss_arena`
+  - `crate::boss_encounter::sync_cut_rope_boss_arena_prop_visuals`
+  - `crate::features::enforce_mount_rider_link`
+  - `SandboxSet::Combat`
+- `crates/ambition_sandbox/src/app/plugins.rs:50` in `add_simulation_plugins` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::shrine::ShrineActivationPulse`
+- `crates/ambition_sandbox/src/app/plugins.rs:52` in `add_simulation_plugins` - `add_plugins` on/with `super::sim_resources::SandboxSimulationResourcesPlugin`
+  - `super::sim_resources::SandboxSimulationResourcesPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:65` in `add_simulation_plugins` - `add_plugins` on/with `crate::dialog::yarn_spinner_plugin()`
+  - `crate::dialog::yarn_spinner_plugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:66` in `add_simulation_plugins` - `add_plugins` on/with `crate::dialog::YarnBridgePlugin`
+  - `crate::dialog::YarnBridgePlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:67` in `add_simulation_plugins` - `add_plugins` on/with `crate::dialog::YarnBindingsPlugin`
+  - `crate::dialog::YarnBindingsPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:70` in `add_simulation_plugins` - `add_plugins` on/with `crate::features::WorldPrepSchedulePlugin`
+  - `crate::features::WorldPrepSchedulePlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:74` in `add_simulation_plugins` - `add_plugins` on/with `crate::brain::BrainPlugin`
+  - `crate::brain::BrainPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:77` in `add_simulation_plugins` - `add_plugins` on/with `crate::portal::PortalSimulationPlugin`
+  - `crate::portal::PortalSimulationPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:78` in `add_simulation_plugins` - `add_plugins` on/with `crate::item_pickup::ItemPickupSimulationPlugin`
+  - `crate::item_pickup::ItemPickupSimulationPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:80` in `add_simulation_plugins` - `add_plugins` on/with `super::combat_schedule::CombatSchedulePlugin`
+  - `super::combat_schedule::CombatSchedulePlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:82` in `add_simulation_plugins` - `add_plugins` on/with `crate::features::FeatureCollectionSchedulePlugin`
+  - `crate::features::FeatureCollectionSchedulePlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:83` in `add_simulation_plugins` - `add_plugins` on/with `crate::features::FeatureInteractionSchedulePlugin`
+  - `crate::features::FeatureInteractionSchedulePlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:84` in `add_simulation_plugins` - `add_plugins` on/with `ldtk_world::LdtkRuntimeSpinePlugin`
+  - `ldtk_world::LdtkRuntimeSpinePlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:85` in `add_simulation_plugins` - `add_plugins` on/with `crate::encounter::EncounterSimulationSchedulePlugin`
+  - `crate::encounter::EncounterSimulationSchedulePlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:86` in `add_simulation_plugins` - `add_plugins` on/with `crate::presentation::cutscene::CutsceneSchedulePlugin`
+  - `crate::presentation::cutscene::CutsceneSchedulePlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:87` in `add_simulation_plugins` - `add_plugins` on/with `crate::features::GameplayEffectsSchedulePlugin`
+  - `crate::features::GameplayEffectsSchedulePlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:88` in `add_simulation_plugins` - `add_plugins` on/with `super::progression_schedule::ProgressionSchedulePlugin`
+  - `super::progression_schedule::ProgressionSchedulePlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:89` in `add_simulation_plugins` - `add_plugins` on/with `crate::features::FeatureViewSyncSchedulePlugin`
+  - `crate::features::FeatureViewSyncSchedulePlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:90` in `add_simulation_plugins` - `add_plugins` on/with `crate::runtime::reset::SandboxResetSchedulePlugin`
+  - `crate::runtime::reset::SandboxResetSchedulePlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:91` in `add_simulation_plugins` - `add_plugins` on/with `crate::trace::TraceSchedulePlugin`
+  - `crate::trace::TraceSchedulePlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:97` in `add_simulation_plugins` - `add_plugins` on/with `crate::player::affordances::AffordancesPlugin`
+  - `crate::player::affordances::AffordancesPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:132` in `register_player_input_systems` - `add_systems` on/with `Update`
+  - systems: `apply_suspended_time_scale_system`, `crate::time::time_control::emit_player_time_intent_system`, `crate::time::time_control::apply_clock_scale_requests`, `crate::time::time_control::smooth_sim_clock_toward_target_system`, `crate::refresh_world_time`, `sync_live_player_dev_edits_system`, `apply_player_reset_input_system`, `crate::boss_encounter::emit_cut_rope_room_replay_after_dialogue_closes`, `apply_cut_rope_room_replay_request_system`, `input_timer_system`, `interaction_input_system`, `crate::player::sync_local_player_input_frame`, `crate::body_mode::update_body_mode`, `crate::player::tick_player_brains`, `crate::player::sync_player_actor_poses`, `crate::brain::emit_brain_action_messages`, `crate::brain::emit_player_projectile_tick_messages`, `crate::brain::observe_brain_action_counter`
+  - sets: `SandboxSet::PlayerInput`
+  - run if: `gameplay_suspended`, `gameplay_allowed`
+  - `apply_suspended_time_scale_system`
+  - `gameplay_suspended`
+  - `crate::time::time_control::emit_player_time_intent_system`
+  - `gameplay_allowed`
+  - `crate::time::time_control::apply_clock_scale_requests`
+  - `crate::time::time_control::smooth_sim_clock_toward_target_system`
+  - `crate::refresh_world_time`
+  - `sync_live_player_dev_edits_system`
+  - `apply_player_reset_input_system`
+  - `crate::boss_encounter::emit_cut_rope_room_replay_after_dialogue_closes`
+  - `apply_cut_rope_room_replay_request_system`
+  - `input_timer_system`
+  - `interaction_input_system`
+  - `crate::player::sync_local_player_input_frame`
+  - `crate::body_mode::update_body_mode`
+  - `crate::player::tick_player_brains`
+  - `crate::player::sync_player_actor_poses`
+  - `crate::brain::emit_brain_action_messages`
+  - `crate::brain::emit_player_projectile_tick_messages`
+  - `crate::brain::observe_brain_action_counter`
+  - `SandboxSet::PlayerInput`
+- `crates/ambition_sandbox/src/app/plugins.rs:224` in `register_player_simulation_systems` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::app::SandboxResetThisFrame`
+- `crates/ambition_sandbox/src/app/plugins.rs:225` in `register_player_simulation_systems` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::possession::PossessionState`
+- `crates/ambition_sandbox/src/app/plugins.rs:226` in `register_player_simulation_systems` - `add_systems` on/with `Update`
+  - systems: `clear_sandbox_reset_this_frame`, `crate::possession::possession_trigger_system`, `crate::possession::release_possession_if_target_lost`, `crate::possession::sync_possession_input`, `player_control_system`, `player_simulation_system`, `apply_player_hit_events`
+  - sets: `SandboxSet::PlayerSimulation`
+  - run if: `gameplay_allowed`, `crate::possession::not_possessing`
+  - `clear_sandbox_reset_this_frame`
+  - `crate::possession::possession_trigger_system`
+  - `gameplay_allowed`
+  - `crate::possession::release_possession_if_target_lost`
+  - `crate::possession::sync_possession_input`
+  - `player_control_system`
+  - `crate::possession::not_possessing`
+  - `player_simulation_system`
+  - `apply_player_hit_events`
+  - `SandboxSet::PlayerSimulation`
+- `crates/ambition_sandbox/src/app/plugins.rs:256` in `register_room_transition_systems` - `add_systems` on/with `Update`
+  - systems: `detect_room_transition_system`, `ensure_requested_room_parallax_system`, `apply_room_transition_system`, `crate::features::reset_ecs_room_features`, `crate::features::reset_ecs_npc_actors`, `crate::boss_encounter::reset_cut_rope_boss_arena_on_room_reset`
+  - sets: `SandboxSet::RoomTransition`
+  - run if: `gameplay_allowed`
+  - `detect_room_transition_system`
+  - `gameplay_allowed`
+  - `ensure_requested_room_parallax_system`
+  - `apply_room_transition_system`
+  - `crate::features::reset_ecs_room_features`
+  - `crate::features::reset_ecs_npc_actors`
+  - `crate::boss_encounter::reset_cut_rope_boss_arena_on_room_reset`
+  - `SandboxSet::RoomTransition`
+- `crates/ambition_sandbox/src/app/plugins.rs:279` in `register_presentation_sync_systems` - `add_systems` on/with `Update`
+  - systems: `crate::player::write_player_ecs_components`, `cleanup_timers_system`
+  - sets: `SandboxSet::PresentationSync`
+  - `crate::player::write_player_ecs_components`
+  - `cleanup_timers_system`
+  - `SandboxSet::PresentationSync`
+- `crates/ambition_sandbox/src/app/plugins.rs:342` in `add_ldtk_runtime_plugin` - `add_systems` on/with `Update`
+  - systems: `ldtk_world::sync_ldtk_level_set`, `ldtk_world::sync_ldtk_world_transform`
+  - `ldtk_world::sync_ldtk_level_set`
+  - `ldtk_world::sync_ldtk_world_transform`
+- `crates/ambition_sandbox/src/app/plugins.rs:342` in `add_ldtk_runtime_plugin` - `add_systems` on/with `Startup`
+  - systems: `ldtk_world::load_ldtk_asset_handle`, `spawn_ldtk_world_root`
+  - `ldtk_world::load_ldtk_asset_handle`
+  - `spawn_ldtk_world_root`
+  - `setup_simulation_system`
+- `crates/ambition_sandbox/src/app/plugins.rs:342` in `add_ldtk_runtime_plugin` - `add_plugins` on/with `ldtk_world::AmbitionLdtkRegistrationPlugin`
+  - `ldtk_world::AmbitionLdtkRegistrationPlugin`
+  - `app`
+  - `LdtkPlugin`
+  - `init_collection`
+  - `loading::SandboxAssetCollection`
+- `crates/ambition_sandbox/src/app/plugins.rs:342` in `add_ldtk_runtime_plugin` - `add_plugins` on/with `LdtkPlugin`
+  - `LdtkPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:439` in `add_presentation_plugins` - `add_plugins` on/with `crate::persistence::PersistenceSchedulePlugin`
+  - `crate::persistence::PersistenceSchedulePlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:441` in `add_presentation_plugins` - `add_plugins` on/with `crate::presentation::rendering::PresentationVisualAnimationPlugin`
+  - `crate::presentation::rendering::PresentationVisualAnimationPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:445` in `add_presentation_plugins` - `add_plugins` on/with `crate::presentation::rendering::PlayerVisualSchedulePlugin`
+  - `crate::presentation::rendering::PlayerVisualSchedulePlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:453` in `install_presentation_resources_and_subplugins` - `insert_resource` on/with `windowing::DisplayModeState::default()`
+  - `app`
+  - `ClearColor`
+  - `Color::srgb`
+- `crates/ambition_sandbox/src/app/plugins.rs:453` in `install_presentation_resources_and_subplugins` - `insert_resource` on/with `ClearColor(Color::srgb(0.020, 0.024, 0.035))`
+  - `ClearColor`
+  - `Color::srgb`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:463` in `install_presentation_resources_and_subplugins` - `add_plugins` on/with `crate::host::platform::PlatformPlugin`
+  - `crate::host::platform::PlatformPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:464` in `install_presentation_resources_and_subplugins` - `add_plugins` on/with `crate::presentation::screen_effects::ScreenEffectsPlugin`
+  - `crate::presentation::screen_effects::ScreenEffectsPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:469` in `install_presentation_resources_and_subplugins` - `add_plugins` on/with `crate::presentation::character_sprites::SheetRegistryPlugin`
+  - `crate::presentation::character_sprites::SheetRegistryPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:477` in `install_presentation_resources_and_subplugins` - `add_plugins` on/with `crate::falling_sand::FallingSandRoomPlugin`
+  - `crate::falling_sand::FallingSandRoomPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:480` in `install_presentation_resources_and_subplugins` - `add_plugins` on/with `crate::dev::fps_overlay::FpsOverlayPlugin`
+  - `crate::dev::fps_overlay::FpsOverlayPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:482` in `install_presentation_resources_and_subplugins` - `add_systems` on/with `Startup`
+  - systems: `ui_fonts::load_ui_fonts`
+  - `ui_fonts::load_ui_fonts`
+- `crates/ambition_sandbox/src/app/plugins.rs:491` in `install_menu_setup_and_hotkeys` - `add_systems` on/with `Update`
+  - systems: `dialog::dialog_input`, `handle_ldtk_hot_reload`, `handle_debug_hotkeys`, `dev_tools::sync_developer_body_profile`, `crate::trace::handle_trace_hotkey`, `crate::map_menu::handle_map_menu_hotkeys`
+  - sets: `SandboxSet::CoreSimulation`
+  - `dialog::dialog_input`
+  - `handle_ldtk_hot_reload`
+  - `handle_debug_hotkeys`
+  - `dev_tools::sync_developer_body_profile`
+  - `crate::trace::handle_trace_hotkey`
+  - `crate::map_menu::handle_map_menu_hotkeys`
+  - `SandboxSet::CoreSimulation`
+- `crates/ambition_sandbox/src/app/plugins.rs:491` in `install_menu_setup_and_hotkeys` - `add_systems` on/with `Startup`
+  - systems: `crate::dev::profiling::phase_mark`, `setup_presentation_system`, `crate::map_menu::populate_map_rooms`, `crate::map_menu::spawn_map_menu`
+  - `crate::dev::profiling::phase_mark`
+  - `setup_presentation_system`
+  - `crate::map_menu::populate_map_rooms`
+  - `crate::map_menu::spawn_map_menu`
+  - `setup_simulation_system`
+  - `ui_fonts::load_ui_fonts`
+- `crates/ambition_sandbox/src/app/plugins.rs:491` in `install_menu_setup_and_hotkeys` - `add_systems` on/with `Update`
+  - systems: `pause_menu::sync_pause_menu`, `pause_menu::sync_settings_panel_rows`, `cfg`, `feature`, `inventory`, `::sync_inventory_panel`, `crate::map_menu::sync_map_menu`
+  - sets: `SandboxSet::CoreSimulation`
+  - `pause_menu::sync_pause_menu`
+  - `pause_menu::sync_settings_panel_rows`
+  - `cfg`
+  - `feature`
+  - `inventory`
+  - `::sync_inventory_panel`
+  - `crate::map_menu::sync_map_menu`
+  - `SandboxSet::CoreSimulation`
+- `crates/ambition_sandbox/src/app/plugins.rs:491` in `install_menu_setup_and_hotkeys` - `add_systems` on/with `Startup`
+  - systems: `pause_menu::spawn_pause_menu`, `cfg`, `feature`, `inventory::spawn_inventory_panel`
+  - `pause_menu::spawn_pause_menu`
+  - `cfg`
+  - `feature`
+  - `inventory::spawn_inventory_panel`
+  - `setup_simulation_system`
+- `crates/ambition_sandbox/src/app/plugins.rs:491` in `install_menu_setup_and_hotkeys` - `add_systems` on/with `Update`
+  - systems: `crate::inventory_persist::restore_inventory_from_save`, `crate::inventory_persist::persist_inventory_to_save`
+  - `crate::inventory_persist::restore_inventory_from_save`
+  - `crate::inventory_persist::persist_inventory_to_save`
+- `crates/ambition_sandbox/src/app/plugins.rs:491` in `install_menu_setup_and_hotkeys` - `init_resource` on/with `<none>`
+  - `app`
+  - `inventory::PlayerInventory::starter`
+  - `crate::items::OwnedItems::starter`
+  - `crate::inventory_persist::InventoryRestored`
+- `crates/ambition_sandbox/src/app/plugins.rs:491` in `install_menu_setup_and_hotkeys` - `insert_resource` on/with `crate::items::OwnedItems::starter()`
+  - `crate::items::OwnedItems::starter`
+  - `app`
+  - `inventory::PlayerInventory::starter`
+- `crates/ambition_sandbox/src/app/plugins.rs:491` in `install_menu_setup_and_hotkeys` - `insert_resource` on/with `inventory::PlayerInventory::starter()`
+  - `inventory::PlayerInventory::starter`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:491` in `install_menu_setup_and_hotkeys` - `insert_resource` on/with `inventory::InventoryUiState::default()`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:491` in `install_menu_setup_and_hotkeys` - `insert_resource` on/with `pause_menu::PauseMenuState::default()`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:563` in `install_menu_setup_and_hotkeys` - `add_systems` on/with `Startup`
+  - systems: `crate::oot_menu::spawn_oot_menu`
+  - `crate::oot_menu::spawn_oot_menu`
+  - `setup_simulation_system`
+- `crates/ambition_sandbox/src/app/plugins.rs:586` in `install_camera_and_debug_overlay_systems` - `add_systems` on/with `Update`
+  - systems: `crate::time::camera_ease::tick_camera_shake`, `camera_follow`, `debug_overlay::draw_debug_overlay`
+  - `crate::time::camera_ease::tick_camera_shake`
+  - `camera_follow`
+  - `debug_overlay::draw_debug_overlay`
+  - `animate_bosses`
+- `crates/ambition_sandbox/src/app/plugins.rs:599` in `install_fx_and_hud_systems` - `add_systems` on/with `Update`
+  - systems: `crate::hud_overlay::regen_player_mana`, `crate::hud_overlay::spawn_player_hud`, `crate::hud_overlay::update_player_hud`
+  - `crate::hud_overlay::regen_player_mana`
+  - `crate::hud_overlay::spawn_player_hud`
+  - `crate::hud_overlay::update_player_hud`
+- `crates/ambition_sandbox/src/app/plugins.rs:599` in `install_fx_and_hud_systems` - `add_systems` on/with `Update`
+  - systems: `update_hud`, `crate::presentation::rendering::sync_boss_health_bar_overlay`, `dialog::sync_dialog_ui`, `crate::presentation::cutscene::sync_cutscene_ui`
+  - `update_hud`
+  - `crate::presentation::rendering::sync_boss_health_bar_overlay`
+  - `dialog::sync_dialog_ui`
+  - `crate::presentation::cutscene::sync_cutscene_ui`
+  - `windowing::window_mode_hotkeys`
+- `crates/ambition_sandbox/src/app/plugins.rs:599` in `install_fx_and_hud_systems` - `add_systems` on/with `Update`
+  - systems: `fx::update_particles`, `fx::update_explosions`, `fx::update_impacts`, `fx::update_slash_previews`, `fx::update_speech_bubbles`, `windowing::window_mode_hotkeys`
+  - `fx::update_particles`
+  - `fx::update_explosions`
+  - `fx::update_impacts`
+  - `fx::update_slash_previews`
+  - `fx::update_speech_bubbles`
+  - `windowing::window_mode_hotkeys`
+  - `debug_overlay::draw_debug_overlay`
+- `crates/ambition_sandbox/src/app/plugins.rs:642` in `install_misc_visual_sync_systems` - `add_systems` on/with `Update`
+  - systems: `update_quest_panel`
+  - `update_quest_panel`
+  - `dialog::sync_dialog_ui`
+- `crates/ambition_sandbox/src/app/plugins.rs:642` in `install_misc_visual_sync_systems` - `add_systems` on/with `Update`
+  - systems: `crate::map_menu::map_menu_pointer_dismiss`
+  - `crate::map_menu::map_menu_pointer_dismiss`
+- `crates/ambition_sandbox/src/app/plugins.rs:642` in `install_misc_visual_sync_systems` - `add_systems` on/with `Update`
+  - systems: `crate::presentation::rendering::apply_placeholder_sprites_override`, `crate::presentation::rendering::apply_hide_sprites_override`
+  - `crate::presentation::rendering::apply_placeholder_sprites_override`
+  - `crate::presentation::rendering::apply_hide_sprites_override`
+  - `sync_visuals`
+  - `crate::body_mode::sync_morph_ball_visual`
+  - `crate::player::bubble_shield::sync_bubble_shield_visual`
+  - `crate::projectile::sync_projectile_visuals`
+  - `crate::enemy_projectile::sync_enemy_projectile_visuals`
+- `crates/ambition_sandbox/src/app/plugins.rs:642` in `install_misc_visual_sync_systems` - `add_systems` on/with `Update`
+  - systems: `crate::presentation::rendering::upgrade_npc_sprites`
+  - `crate::presentation::rendering::upgrade_npc_sprites`
+  - `sync_visuals`
+- `crates/ambition_sandbox/src/app/plugins.rs:642` in `install_misc_visual_sync_systems` - `add_systems` on/with `Update`
+  - systems: `crate::presentation::rendering::sync_lock_wall_visuals`
+  - `crate::presentation::rendering::sync_lock_wall_visuals`
+  - `crate::encounter::update_encounters_from_world`
+- `crates/ambition_sandbox/src/app/plugins.rs:642` in `install_misc_visual_sync_systems` - `add_systems` on/with `Update`
+  - systems: `crate::presentation::rendering::sync_parallax_layers`
+  - `crate::presentation::rendering::sync_parallax_layers`
+  - `camera_follow`
+- `crates/ambition_sandbox/src/app/plugins.rs:642` in `install_misc_visual_sync_systems` - `add_systems` on/with `Update`
+  - systems: `crate::rooms::sync_portal_sprite_visibility`, `crate::rooms::sync_portal_sprite_animation`, `crate::rooms::sync_portal_ring_rotation_system`, `crate::rooms::hide_portal_loading_zone_visuals`
+  - `crate::rooms::sync_portal_sprite_visibility`
+  - `crate::rooms::sync_portal_sprite_animation`
+  - `crate::rooms::sync_portal_ring_rotation_system`
+  - `crate::rooms::hide_portal_loading_zone_visuals`
+  - `sync_visuals`
+- `crates/ambition_sandbox/src/app/plugins.rs:642` in `install_misc_visual_sync_systems` - `add_systems` on/with `Update`
+  - systems: `crate::boss_encounter::tick_boss_idle_barks`
+  - `crate::boss_encounter::tick_boss_idle_barks`
+- `crates/ambition_sandbox/src/app/plugins.rs:642` in `install_misc_visual_sync_systems` - `add_systems` on/with `Update`
+  - systems: `crate::presentation::rendering::sync_health_overlays`
+  - `crate::presentation::rendering::sync_health_overlays`
+  - `sync_visuals`
+- `crates/ambition_sandbox/src/app/plugins.rs:733` in `install_projectile_and_vfx_systems` - `add_systems` on/with `Update`
+  - systems: `vfx_spawn_messages`
+  - `vfx_spawn_messages`
+  - `fx::process_explosion_requests`
+- `crates/ambition_sandbox/src/app/plugins.rs:733` in `install_projectile_and_vfx_systems` - `add_systems` on/with `Update`
+  - systems: `fx::process_fireworks_requests`, `fx::tick_firework_sequences`, `fx::process_explosion_requests`
+  - sets: `SandboxSet::CoreSimulation`
+  - `fx::process_fireworks_requests`
+  - `fx::tick_firework_sequences`
+  - `fx::process_explosion_requests`
+  - `SandboxSet::CoreSimulation`
+  - `vfx_spawn_messages`
+- `crates/ambition_sandbox/src/app/plugins.rs:733` in `install_projectile_and_vfx_systems` - `add_systems` on/with `Update`
+  - systems: `crate::projectile::sync_projectile_visuals`, `crate::enemy_projectile::sync_enemy_projectile_visuals`
+  - `crate::projectile::sync_projectile_visuals`
+  - `crate::projectile::update_projectiles`
+  - `crate::enemy_projectile::sync_enemy_projectile_visuals`
+  - `crate::enemy_projectile::update_enemy_projectiles`
+- `crates/ambition_sandbox/src/app/plugins.rs:765` in `install_projectile_and_vfx_systems` - `add_systems` on/with `Update`
+  - systems: `fx::update_blink_preview`
+  - sets: `SandboxSet::CoreSimulation`
+  - `fx::update_blink_preview`
+  - `SandboxSet::CoreSimulation`
+- `crates/ambition_sandbox/src/app/plugins.rs:777` in `add_dev_tools_plugins` - `add_plugins` on/with `WorldInspectorPlugin::new().run_if(dev_tools::world_inspector_visible)`
+  - run if: `dev_tools::inspector_visible`, `dev_tools::world_inspector_visible`
+  - `dev_tools::world_inspector_visible`
+  - `app`
+  - `dev_tools::inspector_visible`
+- `crates/ambition_sandbox/src/app/plugins.rs:777` in `add_dev_tools_plugins` - `add_plugins` on/with `ResourceInspectorPlugin::<SandboxFeelTuning>::default() .run_if(dev_tools::inspector_visible)`
+  - run if: `dev_tools::inspector_visible`
+  - `dev_tools::inspector_visible`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:777` in `add_dev_tools_plugins` - `add_plugins` on/with `ResourceInspectorPlugin::<EditablePlayerStats>::default() .run_if(dev_tools::inspector_visible)`
+  - run if: `dev_tools::inspector_visible`
+  - `dev_tools::inspector_visible`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:777` in `add_dev_tools_plugins` - `add_plugins` on/with `ResourceInspectorPlugin::<EditableMovementTuning>::default() .run_if(dev_tools::inspector_visible)`
+  - run if: `dev_tools::inspector_visible`
+  - `dev_tools::inspector_visible`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:777` in `add_dev_tools_plugins` - `add_plugins` on/with `ResourceInspectorPlugin::<EditableAbilitySet>::default() .run_if(dev_tools::inspector_visible)`
+  - run if: `dev_tools::inspector_visible`
+  - `dev_tools::inspector_visible`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:777` in `add_dev_tools_plugins` - `add_plugins` on/with `ResourceInspectorPlugin::<DeveloperTools>::default() .run_if(dev_tools::inspector_visible)`
+  - run if: `dev_tools::inspector_visible`
+  - `dev_tools::inspector_visible`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:777` in `add_dev_tools_plugins` - `add_plugins` on/with `EguiPlugin::default()`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:811` in `add_physics_debris_plugins` - `add_systems` on/with `Update`
+  - systems: `physics_spawn_debris_messages`
+  - sets: `SandboxSet::CoreSimulation`
+  - `physics_spawn_debris_messages`
+  - `SandboxSet::CoreSimulation`
+- `crates/ambition_sandbox/src/app/plugins.rs:811` in `add_physics_debris_plugins` - `add_plugins` on/with `physics::AmbitionPhysicsPlugin`
+  - `physics::AmbitionPhysicsPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:831` in `add_ui_plugins` - `add_plugins` on/with `MaterialUiPlugin`
+  - `MaterialUiPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:845` in `add_input_plugins` - `add_systems` on/with `Update`
+  - systems: `sync_preset_input_map`
+  - sets: `SandboxSet::CoreSimulation`
+  - `sync_preset_input_map`
+  - `SandboxSet::CoreSimulation`
+- `crates/ambition_sandbox/src/app/plugins.rs:845` in `add_input_plugins` - `add_systems` on/with `Update`
+  - systems: `populate_menu_control_frame_from_actions`, `populate_control_frame_from_actions`, `apply_menu_frame_to_cutscene_request`, `dialog::dialog_pointer_input`, `pause_menu::pause_menu_toggle`, `cfg`, `feature`, `inventory`, `::inventory_input`, `crate`, `::oot_menu::oot_menu_input`, `pause_menu::pause_menu_pointer_input`, `pause_menu::settings_slider_drag_input`, `pause_menu::settings_scrollbar_drag_input`, `::inventory_pointer_input`, `::oot_menu::oot_menu_pointer_input`, `pause_menu::pause_menu_navigate`
+  - sets: `SandboxSet::CoreSimulation`
+  - `populate_menu_control_frame_from_actions`
+  - `populate_control_frame_from_actions`
+  - `apply_menu_frame_to_cutscene_request`
+  - `dialog::dialog_pointer_input`
+  - `pause_menu::pause_menu_toggle`
+  - `cfg`
+  - `feature`
+  - `inventory`
+  - `::inventory_input`
+  - `crate`
+  - `::oot_menu::oot_menu_input`
+  - `pause_menu::pause_menu_pointer_input`
+  - `pause_menu::settings_slider_drag_input`
+  - `pause_menu::settings_scrollbar_drag_input`
+  - `::inventory_pointer_input`
+  - `::oot_menu::oot_menu_pointer_input`
+  - `pause_menu::pause_menu_navigate`
+  - `SandboxSet::CoreSimulation`
+- `crates/ambition_sandbox/src/app/plugins.rs:845` in `add_input_plugins` - `add_systems` on/with `Startup`
+  - systems: `attach_player_input_components`
+  - `attach_player_input_components`
+  - `setup_simulation_system`
+- `crates/ambition_sandbox/src/app/plugins.rs:845` in `add_input_plugins` - `add_plugins` on/with `InputManagerPlugin::<SandboxAction>::default()`
+  - `app`
+  - `MenuInputState`
+  - `MenuControlFrame`
+  - `PlayerDashTriggerState`
+- `crates/ambition_sandbox/src/app/plugins.rs:845` in `add_input_plugins` - `init_resource` on/with `<none>`
+  - `app`
+  - `MenuInputState`
+  - `MenuControlFrame`
+  - `PlayerDashTriggerState`
+- `crates/ambition_sandbox/src/app/plugins.rs:845` in `add_input_plugins` - `init_resource` on/with `<none>`
+  - `app`
+  - `MenuInputState`
+  - `MenuControlFrame`
+- `crates/ambition_sandbox/src/app/plugins.rs:845` in `add_input_plugins` - `init_resource` on/with `<none>`
+  - `app`
+  - `MenuInputState`
+- `crates/ambition_sandbox/src/app/plugins.rs:923` in `add_mobile_touch_plugin` - `add_plugins` on/with `crate::host::mobile_input::bevy_plugin::TouchControlsPlugin`
+  - `crate::host::mobile_input::bevy_plugin::TouchControlsPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/plugins.rs:938` in `add_audio_plugins` - `add_plugins` on/with `crate::audio::SandboxAudioPlugin`
+  - `crate::audio::SandboxAudioPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/progression_schedule.rs:21` in `ProgressionSchedulePlugin::build` - `add_systems` on/with `Update`
+  - systems: `crate::boss_encounter::update_boss_encounters`, `crate::boss_encounter::boss_phase_transition_feedback`, `crate::boss_encounter::spawn_cut_rope_victory_npc`, `crate::boss_encounter::gate_gnu_ton_arena_ladder`, `crate::features::sync_ecs_actors_with_save`, `crate::features::sync_ecs_npc_actors_with_save`, `crate::features::sync_ecs_bosses_with_save`, `crate::content::quest::push_room_entered_quest_events`, `crate::content::quest::apply_quest_advance_events`, `crate::content::quest::grant_quest_completion_rewards`, `crate::rooms::sync_active_room_metadata`, `crate::rooms::sync_room_music_request`, `crate::rooms::tick_portal_phases_system`, `crate::map_menu::track_room_visits`, `crate::map_menu::sync_map_from_save`, `crate::dev::dev_tools::sync_player_stats_with_inspector`
+  - sets: `SandboxSet::Progression`
+  - `crate::boss_encounter::update_boss_encounters`
+  - `crate::boss_encounter::boss_phase_transition_feedback`
+  - `crate::boss_encounter::spawn_cut_rope_victory_npc`
+  - `crate::boss_encounter::gate_gnu_ton_arena_ladder`
+  - `crate::features::sync_ecs_actors_with_save`
+  - `crate::features::sync_ecs_npc_actors_with_save`
+  - `crate::features::sync_ecs_bosses_with_save`
+  - `crate::content::quest::push_room_entered_quest_events`
+  - `crate::content::quest::apply_quest_advance_events`
+  - `crate::content::quest::grant_quest_completion_rewards`
+  - `crate::rooms::sync_active_room_metadata`
+  - `crate::rooms::sync_room_music_request`
+  - `crate::rooms::tick_portal_phases_system`
+  - `crate::map_menu::track_room_visits`
+  - `crate::map_menu::sync_map_from_save`
+  - `crate::dev::dev_tools::sync_player_stats_with_inspector`
+  - `SandboxSet::Progression`
+- `crates/ambition_sandbox/src/app/progression_schedule.rs:67` in `ProgressionSchedulePlugin::build` - `add_systems` on/with `Update`
+  - systems: `crate::content::quest::populate_quest_registry`, `crate::boss_encounter::populate_boss_encounter_registry`, `crate::encounter::populate_encounter_registry`
+  - sets: `SandboxSet::Progression`
+  - `crate::content::quest::populate_quest_registry`
+  - `crate::boss_encounter::populate_boss_encounter_registry`
+  - `crate::encounter::populate_encounter_registry`
+  - `SandboxSet::Progression`
+- `crates/ambition_sandbox/src/app/resources.rs:117` in `init_sandbox_resources` - `insert_resource` on/with `crate::persistence::settings::UserSettings::default()`
+  - `app`
+  - `ldtk_world::SandboxLdtkProject`
+  - `ldtk_project`
+  - `GameWorld`
+  - `active_world`
+  - `room_set`
+  - `ldtk_index`
+  - `ldtk_world::LdtkHotReloadState::from_catalog`
+  - `sandbox_catalog`
+  - `LdtkSettings`
+  - `level_background`
+  - `LevelBackground::Nonexistent`
+  - `int_grid_rendering`
+  - `IntGridRendering::Invisible`
+  - `sandbox_data`
+  - `crate::inventory::PlayerInventory::starter`
+  - `editable_abilities`
+  - `editable_tuning`
+  - `ControlFrame`
+- `crates/ambition_sandbox/src/app/resources.rs:117` in `init_sandbox_resources` - `init_resource` on/with `<none>`
+  - `app`
+  - `ldtk_world::SandboxLdtkProject`
+  - `ldtk_project`
+  - `GameWorld`
+  - `active_world`
+  - `room_set`
+  - `ldtk_index`
+  - `ldtk_world::LdtkHotReloadState::from_catalog`
+  - `sandbox_catalog`
+  - `LdtkSettings`
+  - `level_background`
+  - `LevelBackground::Nonexistent`
+  - `int_grid_rendering`
+  - `IntGridRendering::Invisible`
+  - `sandbox_data`
+  - `crate::inventory::PlayerInventory::starter`
+  - `editable_abilities`
+  - `editable_tuning`
+  - `ControlFrame`
+- `crates/ambition_sandbox/src/app/resources.rs:117` in `init_sandbox_resources` - `insert_resource` on/with `editable_tuning`
+  - `editable_tuning`
+  - `app`
+  - `ldtk_world::SandboxLdtkProject`
+  - `ldtk_project`
+  - `GameWorld`
+  - `active_world`
+  - `room_set`
+  - `ldtk_index`
+  - `ldtk_world::LdtkHotReloadState::from_catalog`
+  - `sandbox_catalog`
+  - `LdtkSettings`
+  - `level_background`
+  - `LevelBackground::Nonexistent`
+  - `int_grid_rendering`
+  - `IntGridRendering::Invisible`
+  - `sandbox_data`
+  - `crate::inventory::PlayerInventory::starter`
+  - `editable_abilities`
+- `crates/ambition_sandbox/src/app/resources.rs:117` in `init_sandbox_resources` - `insert_resource` on/with `editable_abilities`
+  - `editable_abilities`
+  - `app`
+  - `ldtk_world::SandboxLdtkProject`
+  - `ldtk_project`
+  - `GameWorld`
+  - `active_world`
+  - `room_set`
+  - `ldtk_index`
+  - `ldtk_world::LdtkHotReloadState::from_catalog`
+  - `sandbox_catalog`
+  - `LdtkSettings`
+  - `level_background`
+  - `LevelBackground::Nonexistent`
+  - `int_grid_rendering`
+  - `IntGridRendering::Invisible`
+  - `sandbox_data`
+  - `crate::inventory::PlayerInventory::starter`
+- `crates/ambition_sandbox/src/app/resources.rs:117` in `init_sandbox_resources` - `insert_resource` on/with `crate::inventory::PlayerInventory::starter()`
+  - `crate::inventory::PlayerInventory::starter`
+  - `app`
+  - `ldtk_world::SandboxLdtkProject`
+  - `ldtk_project`
+  - `GameWorld`
+  - `active_world`
+  - `room_set`
+  - `ldtk_index`
+  - `ldtk_world::LdtkHotReloadState::from_catalog`
+  - `sandbox_catalog`
+  - `LdtkSettings`
+  - `level_background`
+  - `LevelBackground::Nonexistent`
+  - `int_grid_rendering`
+  - `IntGridRendering::Invisible`
+  - `sandbox_data`
+- `crates/ambition_sandbox/src/app/resources.rs:117` in `init_sandbox_resources` - `insert_resource` on/with `SandboxFeelTuning::default()`
+  - `app`
+  - `ldtk_world::SandboxLdtkProject`
+  - `ldtk_project`
+  - `GameWorld`
+  - `active_world`
+  - `room_set`
+  - `ldtk_index`
+  - `ldtk_world::LdtkHotReloadState::from_catalog`
+  - `sandbox_catalog`
+  - `LdtkSettings`
+  - `level_background`
+  - `LevelBackground::Nonexistent`
+  - `int_grid_rendering`
+  - `IntGridRendering::Invisible`
+  - `sandbox_data`
+- `crates/ambition_sandbox/src/app/resources.rs:117` in `init_sandbox_resources` - `insert_resource` on/with `EditablePlayerStats::default()`
+  - `app`
+  - `ldtk_world::SandboxLdtkProject`
+  - `ldtk_project`
+  - `GameWorld`
+  - `active_world`
+  - `room_set`
+  - `ldtk_index`
+  - `ldtk_world::LdtkHotReloadState::from_catalog`
+  - `sandbox_catalog`
+  - `LdtkSettings`
+  - `level_background`
+  - `LevelBackground::Nonexistent`
+  - `int_grid_rendering`
+  - `IntGridRendering::Invisible`
+  - `sandbox_data`
+- `crates/ambition_sandbox/src/app/resources.rs:117` in `init_sandbox_resources` - `insert_resource` on/with `DeveloperTools::default()`
+  - `app`
+  - `ldtk_world::SandboxLdtkProject`
+  - `ldtk_project`
+  - `GameWorld`
+  - `active_world`
+  - `room_set`
+  - `ldtk_index`
+  - `ldtk_world::LdtkHotReloadState::from_catalog`
+  - `sandbox_catalog`
+  - `LdtkSettings`
+  - `level_background`
+  - `LevelBackground::Nonexistent`
+  - `int_grid_rendering`
+  - `IntGridRendering::Invisible`
+  - `sandbox_data`
+- `crates/ambition_sandbox/src/app/resources.rs:117` in `init_sandbox_resources` - `insert_resource` on/with `sandbox_catalog`
+  - `sandbox_catalog`
+  - `app`
+  - `ldtk_world::SandboxLdtkProject`
+  - `ldtk_project`
+  - `GameWorld`
+  - `active_world`
+  - `room_set`
+  - `ldtk_index`
+  - `ldtk_world::LdtkHotReloadState::from_catalog`
+  - `LdtkSettings`
+  - `level_background`
+  - `LevelBackground::Nonexistent`
+  - `int_grid_rendering`
+  - `IntGridRendering::Invisible`
+  - `sandbox_data`
+- `crates/ambition_sandbox/src/app/resources.rs:117` in `init_sandbox_resources` - `insert_resource` on/with `sandbox_data`
+  - `sandbox_data`
+  - `app`
+  - `ldtk_world::SandboxLdtkProject`
+  - `ldtk_project`
+  - `GameWorld`
+  - `active_world`
+  - `room_set`
+  - `ldtk_index`
+  - `ldtk_world::LdtkHotReloadState::from_catalog`
+  - `sandbox_catalog`
+  - `LdtkSettings`
+  - `level_background`
+  - `LevelBackground::Nonexistent`
+  - `int_grid_rendering`
+  - `IntGridRendering::Invisible`
+- `crates/ambition_sandbox/src/app/resources.rs:117` in `init_sandbox_resources` - `insert_resource` on/with `LdtkSettings { // Ambition still renders runtime rooms for now; let bevy_ecs_ldtk // own level/entity lifecycle without also drawing LDtk background // recta...`
+  - `LdtkSettings`
+  - `level_background`
+  - `LevelBackground::Nonexistent`
+  - `int_grid_rendering`
+  - `IntGridRendering::Invisible`
+  - `app`
+  - `ldtk_world::SandboxLdtkProject`
+  - `ldtk_project`
+  - `GameWorld`
+  - `active_world`
+  - `room_set`
+  - `ldtk_index`
+  - `ldtk_world::LdtkHotReloadState::from_catalog`
+  - `sandbox_catalog`
+- `crates/ambition_sandbox/src/app/resources.rs:117` in `init_sandbox_resources` - `insert_resource` on/with `physics::PhysicsSandboxSettings::default()`
+  - `app`
+  - `ldtk_world::SandboxLdtkProject`
+  - `ldtk_project`
+  - `GameWorld`
+  - `active_world`
+  - `room_set`
+  - `ldtk_index`
+  - `ldtk_world::LdtkHotReloadState::from_catalog`
+  - `sandbox_catalog`
+- `crates/ambition_sandbox/src/app/resources.rs:117` in `init_sandbox_resources` - `insert_resource` on/with `ldtk_world::LdtkRuntimeSpineParity::default()`
+  - `app`
+  - `ldtk_world::SandboxLdtkProject`
+  - `ldtk_project`
+  - `GameWorld`
+  - `active_world`
+  - `room_set`
+  - `ldtk_index`
+  - `ldtk_world::LdtkHotReloadState::from_catalog`
+  - `sandbox_catalog`
+- `crates/ambition_sandbox/src/app/resources.rs:117` in `init_sandbox_resources` - `insert_resource` on/with `ldtk_world::LdtkRuntimeDamageIndex::default()`
+  - `app`
+  - `ldtk_world::SandboxLdtkProject`
+  - `ldtk_project`
+  - `GameWorld`
+  - `active_world`
+  - `room_set`
+  - `ldtk_index`
+  - `ldtk_world::LdtkHotReloadState::from_catalog`
+  - `sandbox_catalog`
+- `crates/ambition_sandbox/src/app/resources.rs:117` in `init_sandbox_resources` - `insert_resource` on/with `ldtk_world::LdtkRuntimeOneWayIndex::default()`
+  - `app`
+  - `ldtk_world::SandboxLdtkProject`
+  - `ldtk_project`
+  - `GameWorld`
+  - `active_world`
+  - `room_set`
+  - `ldtk_index`
+  - `ldtk_world::LdtkHotReloadState::from_catalog`
+  - `sandbox_catalog`
+- `crates/ambition_sandbox/src/app/resources.rs:117` in `init_sandbox_resources` - `insert_resource` on/with `ldtk_world::LdtkRuntimeSolidIndex::default()`
+  - `app`
+  - `ldtk_world::SandboxLdtkProject`
+  - `ldtk_project`
+  - `GameWorld`
+  - `active_world`
+  - `room_set`
+  - `ldtk_index`
+  - `ldtk_world::LdtkHotReloadState::from_catalog`
+  - `sandbox_catalog`
+- `crates/ambition_sandbox/src/app/resources.rs:117` in `init_sandbox_resources` - `insert_resource` on/with `ldtk_world::LdtkRuntimeSpineIndex::default()`
+  - `app`
+  - `ldtk_world::SandboxLdtkProject`
+  - `ldtk_project`
+  - `GameWorld`
+  - `active_world`
+  - `room_set`
+  - `ldtk_index`
+  - `ldtk_world::LdtkHotReloadState::from_catalog`
+  - `sandbox_catalog`
+- `crates/ambition_sandbox/src/app/resources.rs:117` in `init_sandbox_resources` - `insert_resource` on/with `ldtk_world::LdtkRuntimeSpineStats::default()`
+  - `app`
+  - `ldtk_world::SandboxLdtkProject`
+  - `ldtk_project`
+  - `GameWorld`
+  - `active_world`
+  - `room_set`
+  - `ldtk_index`
+  - `ldtk_world::LdtkHotReloadState::from_catalog`
+  - `sandbox_catalog`
+- `crates/ambition_sandbox/src/app/resources.rs:117` in `init_sandbox_resources` - `insert_resource` on/with `ldtk_world::LdtkHotReloadState::from_catalog( &sandbox_catalog, )`
+  - `ldtk_world::LdtkHotReloadState::from_catalog`
+  - `sandbox_catalog`
+  - `app`
+  - `ldtk_world::SandboxLdtkProject`
+  - `ldtk_project`
+  - `GameWorld`
+  - `active_world`
+  - `room_set`
+  - `ldtk_index`
+- `crates/ambition_sandbox/src/app/resources.rs:117` in `init_sandbox_resources` - `insert_resource` on/with `ldtk_index`
+  - `ldtk_index`
+  - `app`
+  - `ldtk_world::SandboxLdtkProject`
+  - `ldtk_project`
+  - `GameWorld`
+  - `active_world`
+  - `room_set`
+- `crates/ambition_sandbox/src/app/resources.rs:117` in `init_sandbox_resources` - `insert_resource` on/with `room_set`
+  - `room_set`
+  - `app`
+  - `ldtk_world::SandboxLdtkProject`
+  - `ldtk_project`
+  - `GameWorld`
+  - `active_world`
+- `crates/ambition_sandbox/src/app/resources.rs:117` in `init_sandbox_resources` - `insert_resource` on/with `rooms::ActiveRoomMetadata::default()`
+  - `app`
+  - `ldtk_world::SandboxLdtkProject`
+  - `ldtk_project`
+  - `GameWorld`
+  - `active_world`
+- `crates/ambition_sandbox/src/app/resources.rs:117` in `init_sandbox_resources` - `insert_resource` on/with `GameWorld(active_world)`
+  - `GameWorld`
+  - `active_world`
+  - `app`
+  - `ldtk_world::SandboxLdtkProject`
+  - `ldtk_project`
+- `crates/ambition_sandbox/src/app/resources.rs:117` in `init_sandbox_resources` - `insert_resource` on/with `ldtk_world::SandboxLdtkProject(ldtk_project.clone())`
+  - `ldtk_world::SandboxLdtkProject`
+  - `ldtk_project`
+  - `app`
+- `crates/ambition_sandbox/src/app/schedule.rs:124` in `configure_sandbox_sets` - `configure_sets` on/with `Update`
+  - sets: `SandboxSet::WorldPrep`, `SandboxSet::PlayerInput`, `SandboxSet::PlayerSimulation`, `SandboxSet::RoomTransition`, `SandboxSet::Combat`, `SandboxSet::PresentationSync`, `SandboxSet::CoreSimulation`
+  - `SandboxSet::WorldPrep`
+  - `SandboxSet::PlayerInput`
+  - `SandboxSet::PlayerSimulation`
+  - `SandboxSet::RoomTransition`
+  - `SandboxSet::Combat`
+  - `SandboxSet::PresentationSync`
+  - `SandboxSet::CoreSimulation`
+  - `app`
+- `crates/ambition_sandbox/src/app/schedule.rs:147` in `configure_sandbox_sets` - `configure_sets` on/with `Update`
+  - sets: `SandboxSet::PresentationVisualSync`, `SandboxSet::FeatureViewSync`, `SandboxSet::CoreSimulation`, `SandboxSet::FeatureCollection`, `SandboxSet::FeatureInteraction`, `SandboxSet::LdtkRuntimeSpine`, `SandboxSet::EncounterSimulation`, `SandboxSet::Cutscene`, `SandboxSet::GameplayEffects`, `SandboxSet::Progression`, `SandboxSet::ResetProcessing`, `SandboxSet::Trace`
+  - `SandboxSet::PresentationVisualSync`
+  - `SandboxSet::FeatureViewSync`
+  - `app`
+  - `SandboxSet::CoreSimulation`
+  - `SandboxSet::FeatureCollection`
+  - `SandboxSet::FeatureInteraction`
+  - `SandboxSet::LdtkRuntimeSpine`
+  - `SandboxSet::EncounterSimulation`
+  - `SandboxSet::Cutscene`
+  - `SandboxSet::GameplayEffects`
+  - `SandboxSet::Progression`
+  - `SandboxSet::ResetProcessing`
+  - `SandboxSet::Trace`
+- `crates/ambition_sandbox/src/app/schedule.rs:147` in `configure_sandbox_sets` - `configure_sets` on/with `Update`
+  - sets: `SandboxSet::Trace`, `SandboxSet::CoreSimulation`, `SandboxSet::FeatureCollection`, `SandboxSet::FeatureInteraction`, `SandboxSet::LdtkRuntimeSpine`, `SandboxSet::EncounterSimulation`, `SandboxSet::Cutscene`, `SandboxSet::GameplayEffects`, `SandboxSet::Progression`, `SandboxSet::ResetProcessing`, `SandboxSet::FeatureViewSync`
+  - `SandboxSet::Trace`
+  - `SandboxSet::CoreSimulation`
+  - `app`
+  - `SandboxSet::FeatureCollection`
+  - `SandboxSet::FeatureInteraction`
+  - `SandboxSet::LdtkRuntimeSpine`
+  - `SandboxSet::EncounterSimulation`
+  - `SandboxSet::Cutscene`
+  - `SandboxSet::GameplayEffects`
+  - `SandboxSet::Progression`
+  - `SandboxSet::ResetProcessing`
+  - `SandboxSet::FeatureViewSync`
+- `crates/ambition_sandbox/src/app/schedule.rs:147` in `configure_sandbox_sets` - `configure_sets` on/with `Update`
+  - sets: `SandboxSet::CoreSimulation`, `SandboxSet::FeatureCollection`, `SandboxSet::FeatureInteraction`, `SandboxSet::LdtkRuntimeSpine`, `SandboxSet::EncounterSimulation`, `SandboxSet::Cutscene`, `SandboxSet::GameplayEffects`, `SandboxSet::Progression`, `SandboxSet::ResetProcessing`, `SandboxSet::FeatureViewSync`
+  - `SandboxSet::CoreSimulation`
+  - `SandboxSet::FeatureCollection`
+  - `SandboxSet::FeatureInteraction`
+  - `SandboxSet::LdtkRuntimeSpine`
+  - `SandboxSet::EncounterSimulation`
+  - `SandboxSet::Cutscene`
+  - `SandboxSet::GameplayEffects`
+  - `SandboxSet::Progression`
+  - `SandboxSet::ResetProcessing`
+  - `SandboxSet::FeatureViewSync`
+  - `app`
+- `crates/ambition_sandbox/src/app/setup_systems.rs:154` in `setup_presentation_system` - `insert_resource` on/with `game_assets`
+  - `game_assets`
+  - `commands`
+- `crates/ambition_sandbox/src/app/setup_systems.rs:188` in `setup_presentation_system` - `insert_resource` on/with `game_assets`
+  - `game_assets`
+  - `commands`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::runtime::reset::SandboxResetRequested::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+  - `crate::content::character_catalog::CharacterCatalogPlugin`
+  - `crate::dev::profiling::phase_mark`
+  - `data::load_data_asset_handle`
+  - `setup_simulation_system`
+  - `crate::dev::profiling::report_startup_phases`
+  - `crate::presentation::cutscene::default_cutscene_library`
+  - `crate::presentation::cutscene::RoomCutsceneBindings::defaults`
+  - `reg`
+  - `crate::boss_encounter::install_boss_banter`
+  - `crate::content::banter::install_pirate_banter`
+  - `crate::intro::IntroPlugin`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::presentation::rendering::CameraViewState::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+  - `crate::content::character_catalog::CharacterCatalogPlugin`
+  - `crate::dev::profiling::phase_mark`
+  - `data::load_data_asset_handle`
+  - `setup_simulation_system`
+  - `crate::dev::profiling::report_startup_phases`
+  - `crate::presentation::cutscene::default_cutscene_library`
+  - `crate::presentation::cutscene::RoomCutsceneBindings::defaults`
+  - `reg`
+  - `crate::boss_encounter::install_boss_banter`
+  - `crate::content::banter::install_pirate_banter`
+  - `crate::intro::IntroPlugin`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::time::camera_ease::CameraShakeState::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+  - `crate::content::character_catalog::CharacterCatalogPlugin`
+  - `crate::dev::profiling::phase_mark`
+  - `data::load_data_asset_handle`
+  - `setup_simulation_system`
+  - `crate::dev::profiling::report_startup_phases`
+  - `crate::presentation::cutscene::default_cutscene_library`
+  - `crate::presentation::cutscene::RoomCutsceneBindings::defaults`
+  - `reg`
+  - `crate::boss_encounter::install_boss_banter`
+  - `crate::content::banter::install_pirate_banter`
+  - `crate::intro::IntroPlugin`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::CameraEaseTuning::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+  - `crate::content::character_catalog::CharacterCatalogPlugin`
+  - `crate::dev::profiling::phase_mark`
+  - `data::load_data_asset_handle`
+  - `setup_simulation_system`
+  - `crate::dev::profiling::report_startup_phases`
+  - `crate::presentation::cutscene::default_cutscene_library`
+  - `crate::presentation::cutscene::RoomCutsceneBindings::defaults`
+  - `reg`
+  - `crate::boss_encounter::install_boss_banter`
+  - `crate::content::banter::install_pirate_banter`
+  - `crate::intro::IntroPlugin`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::CameraEaseState::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+  - `crate::content::character_catalog::CharacterCatalogPlugin`
+  - `crate::dev::profiling::phase_mark`
+  - `data::load_data_asset_handle`
+  - `setup_simulation_system`
+  - `crate::dev::profiling::report_startup_phases`
+  - `crate::presentation::cutscene::default_cutscene_library`
+  - `crate::presentation::cutscene::RoomCutsceneBindings::defaults`
+  - `reg`
+  - `crate::boss_encounter::install_boss_banter`
+  - `crate::content::banter::install_pirate_banter`
+  - `crate::intro::IntroPlugin`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::map_menu::MapMenuState::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+  - `crate::content::character_catalog::CharacterCatalogPlugin`
+  - `crate::dev::profiling::phase_mark`
+  - `data::load_data_asset_handle`
+  - `setup_simulation_system`
+  - `crate::dev::profiling::report_startup_phases`
+  - `crate::presentation::cutscene::default_cutscene_library`
+  - `crate::presentation::cutscene::RoomCutsceneBindings::defaults`
+  - `reg`
+  - `crate::boss_encounter::install_boss_banter`
+  - `crate::content::banter::install_pirate_banter`
+  - `crate::intro::IntroPlugin`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::boss_encounter::BossEncounterRegistry::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+  - `crate::content::character_catalog::CharacterCatalogPlugin`
+  - `crate::dev::profiling::phase_mark`
+  - `data::load_data_asset_handle`
+  - `setup_simulation_system`
+  - `crate::dev::profiling::report_startup_phases`
+  - `crate::presentation::cutscene::default_cutscene_library`
+  - `crate::presentation::cutscene::RoomCutsceneBindings::defaults`
+  - `reg`
+  - `crate::boss_encounter::install_boss_banter`
+  - `crate::content::banter::install_pirate_banter`
+  - `crate::intro::IntroPlugin`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `add_plugins` on/with `crate::intro::IntroPlugin`
+  - `crate::intro::IntroPlugin`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+  - `crate::content::character_catalog::CharacterCatalogPlugin`
+  - `crate::dev::profiling::phase_mark`
+  - `data::load_data_asset_handle`
+  - `setup_simulation_system`
+  - `crate::dev::profiling::report_startup_phases`
+  - `crate::presentation::cutscene::default_cutscene_library`
+  - `crate::presentation::cutscene::RoomCutsceneBindings::defaults`
+  - `reg`
+  - `crate::boss_encounter::install_boss_banter`
+  - `crate::content::banter::install_pirate_banter`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::rooms::PortalRegistry::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+  - `crate::content::character_catalog::CharacterCatalogPlugin`
+  - `crate::dev::profiling::phase_mark`
+  - `data::load_data_asset_handle`
+  - `setup_simulation_system`
+  - `crate::dev::profiling::report_startup_phases`
+  - `crate::presentation::cutscene::default_cutscene_library`
+  - `crate::presentation::cutscene::RoomCutsceneBindings::defaults`
+  - `reg`
+  - `crate::boss_encounter::install_boss_banter`
+  - `crate::content::banter::install_pirate_banter`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::WorldTime::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+  - `crate::content::character_catalog::CharacterCatalogPlugin`
+  - `crate::dev::profiling::phase_mark`
+  - `data::load_data_asset_handle`
+  - `setup_simulation_system`
+  - `crate::dev::profiling::report_startup_phases`
+  - `crate::presentation::cutscene::default_cutscene_library`
+  - `crate::presentation::cutscene::RoomCutsceneBindings::defaults`
+  - `reg`
+  - `crate::boss_encounter::install_boss_banter`
+  - `crate::content::banter::install_pirate_banter`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `{ let mut reg = crate::content::banter::CombatBanterRegistry::default(); crate::boss_encounter::install_boss_banter(&mut reg); crate::content::banter::instal...`
+  - `reg`
+  - `crate::boss_encounter::install_boss_banter`
+  - `crate::content::banter::install_pirate_banter`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+  - `crate::content::character_catalog::CharacterCatalogPlugin`
+  - `crate::dev::profiling::phase_mark`
+  - `data::load_data_asset_handle`
+  - `setup_simulation_system`
+  - `crate::dev::profiling::report_startup_phases`
+  - `crate::presentation::cutscene::default_cutscene_library`
+  - `crate::presentation::cutscene::RoomCutsceneBindings::defaults`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::presentation::cutscene::RoomCutsceneBindings::defaults()`
+  - `crate::presentation::cutscene::RoomCutsceneBindings::defaults`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+  - `crate::content::character_catalog::CharacterCatalogPlugin`
+  - `crate::dev::profiling::phase_mark`
+  - `data::load_data_asset_handle`
+  - `setup_simulation_system`
+  - `crate::dev::profiling::report_startup_phases`
+  - `crate::presentation::cutscene::default_cutscene_library`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::presentation::cutscene::CutsceneAdvanceRequest::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+  - `crate::content::character_catalog::CharacterCatalogPlugin`
+  - `crate::dev::profiling::phase_mark`
+  - `data::load_data_asset_handle`
+  - `setup_simulation_system`
+  - `crate::dev::profiling::report_startup_phases`
+  - `crate::presentation::cutscene::default_cutscene_library`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::presentation::cutscene::CutsceneTriggerQueue::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+  - `crate::content::character_catalog::CharacterCatalogPlugin`
+  - `crate::dev::profiling::phase_mark`
+  - `data::load_data_asset_handle`
+  - `setup_simulation_system`
+  - `crate::dev::profiling::report_startup_phases`
+  - `crate::presentation::cutscene::default_cutscene_library`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::presentation::cutscene::ActiveCutscene::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+  - `crate::content::character_catalog::CharacterCatalogPlugin`
+  - `crate::dev::profiling::phase_mark`
+  - `data::load_data_asset_handle`
+  - `setup_simulation_system`
+  - `crate::dev::profiling::report_startup_phases`
+  - `crate::presentation::cutscene::default_cutscene_library`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::presentation::cutscene::default_cutscene_library()`
+  - `crate::presentation::cutscene::default_cutscene_library`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+  - `crate::content::character_catalog::CharacterCatalogPlugin`
+  - `crate::dev::profiling::phase_mark`
+  - `data::load_data_asset_handle`
+  - `setup_simulation_system`
+  - `crate::dev::profiling::report_startup_phases`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::content::quest::QuestRegistry::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+  - `crate::content::character_catalog::CharacterCatalogPlugin`
+  - `crate::dev::profiling::phase_mark`
+  - `data::load_data_asset_handle`
+  - `setup_simulation_system`
+  - `crate::dev::profiling::report_startup_phases`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::persistence::save::SandboxSave::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+  - `crate::content::character_catalog::CharacterCatalogPlugin`
+  - `crate::dev::profiling::phase_mark`
+  - `data::load_data_asset_handle`
+  - `setup_simulation_system`
+  - `crate::dev::profiling::report_startup_phases`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::rooms::RoomMusicRequest::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+  - `crate::content::character_catalog::CharacterCatalogPlugin`
+  - `crate::dev::profiling::phase_mark`
+  - `data::load_data_asset_handle`
+  - `setup_simulation_system`
+  - `crate::dev::profiling::report_startup_phases`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::encounter::BossEncounterMusicRequest::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+  - `crate::content::character_catalog::CharacterCatalogPlugin`
+  - `crate::dev::profiling::phase_mark`
+  - `data::load_data_asset_handle`
+  - `setup_simulation_system`
+  - `crate::dev::profiling::report_startup_phases`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::encounter::EncounterMusicRequest::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+  - `crate::content::character_catalog::CharacterCatalogPlugin`
+  - `crate::dev::profiling::phase_mark`
+  - `data::load_data_asset_handle`
+  - `setup_simulation_system`
+  - `crate::dev::profiling::report_startup_phases`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::encounter::EncounterSwitchIndex::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+  - `crate::content::character_catalog::CharacterCatalogPlugin`
+  - `crate::dev::profiling::phase_mark`
+  - `data::load_data_asset_handle`
+  - `setup_simulation_system`
+  - `crate::dev::profiling::report_startup_phases`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::encounter::SwitchActivationQueue::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+  - `crate::content::character_catalog::CharacterCatalogPlugin`
+  - `crate::dev::profiling::phase_mark`
+  - `data::load_data_asset_handle`
+  - `setup_simulation_system`
+  - `crate::dev::profiling::report_startup_phases`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::encounter::EncounterRegistry::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+  - `crate::content::character_catalog::CharacterCatalogPlugin`
+  - `crate::dev::profiling::phase_mark`
+  - `data::load_data_asset_handle`
+  - `setup_simulation_system`
+  - `crate::dev::profiling::report_startup_phases`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::encounter::EncounterState::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+  - `crate::content::character_catalog::CharacterCatalogPlugin`
+  - `crate::dev::profiling::phase_mark`
+  - `data::load_data_asset_handle`
+  - `setup_simulation_system`
+  - `crate::dev::profiling::report_startup_phases`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::combat_slots::CombatSlotsRes::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+  - `crate::content::character_catalog::CharacterCatalogPlugin`
+  - `crate::dev::profiling::phase_mark`
+  - `data::load_data_asset_handle`
+  - `setup_simulation_system`
+  - `crate::dev::profiling::report_startup_phases`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::enemy_projectile::EnemyProjectileState::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+  - `crate::content::character_catalog::CharacterCatalogPlugin`
+  - `crate::dev::profiling::phase_mark`
+  - `data::load_data_asset_handle`
+  - `setup_simulation_system`
+  - `crate::dev::profiling::report_startup_phases`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `add_systems` on/with `PostStartup`
+  - systems: `crate::dev::profiling::phase_mark`, `crate::dev::profiling::report_startup_phases`
+  - `crate::dev::profiling::phase_mark`
+  - `crate::dev::profiling::report_startup_phases`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `add_systems` on/with `Startup`
+  - systems: `crate::dev::profiling::phase_mark`, `data::load_data_asset_handle`, `setup_simulation_system`
+  - `crate::dev::profiling::phase_mark`
+  - `data::load_data_asset_handle`
+  - `setup_simulation_system`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `add_plugins` on/with `crate::content::character_catalog::CharacterCatalogPlugin`
+  - `crate::content::character_catalog::CharacterCatalogPlugin`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `add_plugins` on/with `RonAssetPlugin::<data::SandboxDataSpec>::new(&["ron"])`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::features::FeatureViewIndex::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::features::FeatureEcsWorldOverlay::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::boss_encounter::PendingCutRopeRoomReplay::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::boss_encounter::CutRopeHeavyObjectCycle::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::boss_encounter::CutRopeBossArenaState::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::features::GameplayBanner::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::SandboxDevState::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::SandboxSimState::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::MovingPlatformSet::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::dialog::DialogState::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::trace::GameplayTraceBuffer::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::dev::profiling::StartupProfiler::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+  - `register_type`
+  - `GameMode`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::time::time_control::RequestedClockScale::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `insert_resource` on/with `crate::time::time_control::RegimePolicy::default()`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+  - `crate::time::time_control::ClockScaleRequest`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+  - `crate::rooms::RoomTransitionRequested`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+  - `crate::player::PlayerHealRequested`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+  - `crate::features::GameplayBannerRequested`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+  - `crate::boss_encounter::CutRopeRoomReplayRequested`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+  - `crate::features::ResetRoomFeaturesEvent`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+  - `crate::features::ActorStimulus`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+  - `crate::features::HitEvent`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+  - `crate::features::GameplaySfxRequested`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+  - `crate::features::SwitchActivated`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+  - `crate::features::QuestAdvanceRequested`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+  - `crate::features::SetFlagRequested`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+  - `PlayerDiedMessage`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+  - `DebrisBurstMessage`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+  - `FireworksRequest`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+  - `ExplosionRequest`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+  - `VfxMessage`
+- `crates/ambition_sandbox/src/app/sim_resources.rs:38` in `SandboxSimulationResourcesPlugin::build` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/app/sim_systems.rs:772` in `suspended_frame_zeros_world_time_scaled_dt` - `add_plugins` on/with `StatesPlugin`
+  - `StatesPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/sim_systems.rs:774` in `suspended_frame_zeros_world_time_scaled_dt` - `insert_resource` on/with `SandboxSimState { time_scale: 1.0, ..Default::default() }`
+  - `SandboxSimState`
+  - `time_scale`
+  - `app`
+- `crates/ambition_sandbox/src/app/sim_systems.rs:778` in `suspended_frame_zeros_world_time_scaled_dt` - `insert_resource` on/with `RequestedClockScale { sim_clock: 1.0, ..Default::default() }`
+  - `RequestedClockScale`
+  - `sim_clock`
+  - `app`
+- `crates/ambition_sandbox/src/app/sim_systems.rs:782` in `suspended_frame_zeros_world_time_scaled_dt` - `insert_resource` on/with `WorldTime { raw_dt: 0.016, scaled_dt: 0.016, }`
+  - `WorldTime`
+  - `raw_dt`
+  - `scaled_dt`
+  - `app`
+- `crates/ambition_sandbox/src/app/sim_systems.rs:786` in `suspended_frame_zeros_world_time_scaled_dt` - `insert_resource` on/with `Time::<()>::default()`
+  - `app`
+- `crates/ambition_sandbox/src/app/sim_systems.rs:790` in `suspended_frame_zeros_world_time_scaled_dt` - `add_systems` on/with `Update`
+  - systems: `apply_suspended_time_scale_system`, `crate::refresh_world_time`
+  - run if: `gameplay_suspended`
+  - `apply_suspended_time_scale_system`
+  - `gameplay_suspended`
+  - `crate::refresh_world_time`
+- `crates/ambition_sandbox/src/app/sim_systems.rs:834` in `gameplay_frame_preserves_world_time_scaled_dt` - `add_plugins` on/with `StatesPlugin`
+  - `StatesPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/app/sim_systems.rs:836` in `gameplay_frame_preserves_world_time_scaled_dt` - `insert_resource` on/with `SandboxSimState::default()`
+  - `app`
+- `crates/ambition_sandbox/src/app/sim_systems.rs:837` in `gameplay_frame_preserves_world_time_scaled_dt` - `insert_resource` on/with `RequestedClockScale::default()`
+  - `app`
+- `crates/ambition_sandbox/src/app/sim_systems.rs:838` in `gameplay_frame_preserves_world_time_scaled_dt` - `insert_resource` on/with `WorldTime::default()`
+  - `app`
+- `crates/ambition_sandbox/src/app/sim_systems.rs:839` in `gameplay_frame_preserves_world_time_scaled_dt` - `insert_resource` on/with `Time::<()>::default()`
+  - `app`
+- `crates/ambition_sandbox/src/app/sim_systems.rs:841` in `gameplay_frame_preserves_world_time_scaled_dt` - `add_systems` on/with `Update`
+  - systems: `apply_suspended_time_scale_system`, `crate::refresh_world_time`
+  - run if: `gameplay_suspended`
+  - `apply_suspended_time_scale_system`
+  - `gameplay_suspended`
+  - `crate::refresh_world_time`
+- `crates/ambition_sandbox/src/assets/sandbox_assets/tests/embedded_core.rs:45` in `ambition_asset_source_plugin_installs_under_static_core_assets` - `add_plugins` on/with `bevy::asset::AssetPlugin::default()`
+  - `app`
+- `crates/ambition_sandbox/src/assets/sandbox_assets/tests/embedded_core.rs:48` in `ambition_asset_source_plugin_installs_under_static_core_assets` - `add_plugins` on/with `AmbitionAssetSourcePlugin::for_profile( AssetProfile::WebStatic, )`
+  - `AmbitionAssetSourcePlugin::for_profile`
+  - `AssetProfile::WebStatic`
+  - `app`
+- `crates/ambition_sandbox/src/audio/bank_asset.rs:123` in `SfxBankAssetPlugin::build` - `add_systems` on/with `Update`
+  - systems: `promote_loaded_sfx_bank`
+  - `promote_loaded_sfx_bank`
+- `crates/ambition_sandbox/src/audio/bank_asset.rs:123` in `SfxBankAssetPlugin::build` - `add_systems` on/with `Startup`
+  - systems: `kick_off_bank_load`
+  - `kick_off_bank_load`
+- `crates/ambition_sandbox/src/audio/bank_asset.rs:165` in `kick_off_bank_load` - `insert_resource` on/with `PendingSfxBankHandle(handle)`
+  - `PendingSfxBankHandle`
+  - `handle`
+  - `commands`
+- `crates/ambition_sandbox/src/audio/bank_asset.rs:203` in `promote_loaded_sfx_bank` - `insert_resource` on/with `SfxBankResource(provider)`
+  - `SfxBankResource`
+  - `provider`
+  - `commands`
+- `crates/ambition_sandbox/src/audio/environment.rs:352` in `detect_picks_up_player_water_contact_in_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `AudioEnvironment`
+- `crates/ambition_sandbox/src/audio/environment.rs:360` in `detect_picks_up_player_water_contact_in_app` - `add_systems` on/with `Update`
+  - systems: `detect_audio_environment`
+  - `detect_audio_environment`
+- `crates/ambition_sandbox/src/audio/plugin.rs:40` in `SandboxAudioPlugin::build` - `add_systems` on/with `Update`
+  - systems: `crate::music::drive_music_director`
+  - sets: `crate::app::SandboxSet::CoreSimulation`
+  - `crate::music::drive_music_director`
+  - `crate::app::SandboxSet::CoreSimulation`
+- `crates/ambition_sandbox/src/audio/plugin.rs:40` in `SandboxAudioPlugin::build` - `add_systems` on/with `Update`
+  - systems: `detect_audio_environment`, `smooth_audio_environment`, `apply_audio_environment`
+  - sets: `crate::app::SandboxSet::CoreSimulation`
+  - `detect_audio_environment`
+  - `smooth_audio_environment`
+  - `apply_audio_environment`
+  - `crate::app::SandboxSet::CoreSimulation`
+- `crates/ambition_sandbox/src/audio/plugin.rs:40` in `SandboxAudioPlugin::build` - `add_systems` on/with `Update`
+  - systems: `audio_play_sfx_messages`
+  - sets: `crate::app::SandboxSet::CoreSimulation`
+  - `audio_play_sfx_messages`
+  - `crate::app::SandboxSet::CoreSimulation`
+- `crates/ambition_sandbox/src/audio/plugin.rs:40` in `SandboxAudioPlugin::build` - `add_systems` on/with `Update`
+  - systems: `start_default_music_when_ready`
+  - `start_default_music_when_ready`
+- `crates/ambition_sandbox/src/audio/plugin.rs:40` in `SandboxAudioPlugin::build` - `add_systems` on/with `Startup`
+  - systems: `crate::dev::profiling::phase_mark`, `crate::music::load_music_cues`
+  - `crate::dev::profiling::phase_mark`
+  - `crate::music::load_music_cues`
+  - `crate::app::setup_presentation_system`
+- `crates/ambition_sandbox/src/audio/plugin.rs:40` in `SandboxAudioPlugin::build` - `init_resource` on/with `<none>`
+  - `app`
+  - `KiraAudioPlugin`
+  - `super::SfxBankAssetPlugin`
+  - `super::WebAudioUnlockPlugin`
+  - `super::RadioStationState`
+  - `super::SfxBankHandleCache`
+  - `AudioEnvironment`
+  - `DefaultMusicStarted`
+- `crates/ambition_sandbox/src/audio/plugin.rs:40` in `SandboxAudioPlugin::build` - `init_resource` on/with `<none>`
+  - `app`
+  - `KiraAudioPlugin`
+  - `super::SfxBankAssetPlugin`
+  - `super::WebAudioUnlockPlugin`
+  - `super::RadioStationState`
+  - `super::SfxBankHandleCache`
+  - `AudioEnvironment`
+- `crates/ambition_sandbox/src/audio/plugin.rs:40` in `SandboxAudioPlugin::build` - `init_resource` on/with `<none>`
+  - `app`
+  - `KiraAudioPlugin`
+  - `super::SfxBankAssetPlugin`
+  - `super::WebAudioUnlockPlugin`
+  - `super::RadioStationState`
+  - `super::SfxBankHandleCache`
+- `crates/ambition_sandbox/src/audio/plugin.rs:40` in `SandboxAudioPlugin::build` - `init_resource` on/with `<none>`
+  - `app`
+  - `KiraAudioPlugin`
+  - `super::SfxBankAssetPlugin`
+  - `super::WebAudioUnlockPlugin`
+  - `super::RadioStationState`
+- `crates/ambition_sandbox/src/audio/plugin.rs:40` in `SandboxAudioPlugin::build` - `add_plugins` on/with `super::WebAudioUnlockPlugin`
+  - `super::WebAudioUnlockPlugin`
+  - `app`
+  - `KiraAudioPlugin`
+  - `super::SfxBankAssetPlugin`
+- `crates/ambition_sandbox/src/audio/plugin.rs:40` in `SandboxAudioPlugin::build` - `add_plugins` on/with `super::SfxBankAssetPlugin`
+  - `super::SfxBankAssetPlugin`
+  - `app`
+  - `KiraAudioPlugin`
+- `crates/ambition_sandbox/src/audio/plugin.rs:40` in `SandboxAudioPlugin::build` - `add_plugins` on/with `KiraAudioPlugin`
+  - `KiraAudioPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/audio/web_unlock.rs:61` in `WebAudioUnlockPlugin::build` - `add_systems` on/with `Update`
+  - systems: `observe_unlock_gesture`
+  - `observe_unlock_gesture`
+- `crates/ambition_sandbox/src/audio/web_unlock.rs:61` in `WebAudioUnlockPlugin::build` - `add_systems` on/with `Startup`
+  - systems: `log_initial_lock_status`, `prime_unlock_for_native`
+  - `log_initial_lock_status`
+  - `prime_unlock_for_native`
+- `crates/ambition_sandbox/src/audio/web_unlock.rs:61` in `WebAudioUnlockPlugin::build` - `init_resource` on/with `<none>`
+  - `app`
+  - `AudioUnlockState`
+- `crates/ambition_sandbox/src/beam.rs:134` in `test_app` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::audio::SfxMessage`
+- `crates/ambition_sandbox/src/beam.rs:135` in `test_app` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/beam.rs:136` in `test_app` - `add_systems` on/with `Update`
+  - systems: `fire_beam_system`
+  - `fire_beam_system`
+- `crates/ambition_sandbox/src/blink.rs:150` in `test_app` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::audio::SfxMessage`
+- `crates/ambition_sandbox/src/blink.rs:151` in `test_app` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::presentation::fx::VfxMessage`
+- `crates/ambition_sandbox/src/blink.rs:152` in `test_app` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::features::HitEvent`
+- `crates/ambition_sandbox/src/blink.rs:153` in `test_app` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/blink.rs:154` in `test_app` - `add_systems` on/with `Update`
+  - systems: `blink_system`
+  - `blink_system`
+- `crates/ambition_sandbox/src/blink.rs:194` in `blink_emits_a_player_side_shockwave_at_arrival` - `init_resource` on/with `<none>`
+  - `app`
+  - `CapturedHits`
+- `crates/ambition_sandbox/src/blink.rs:195` in `blink_emits_a_player_side_shockwave_at_arrival` - `add_systems` on/with `bevy::prelude::Update`
+  - systems: `capture_hits`
+  - `capture_hits`
+  - `blink_system`
+- `crates/ambition_sandbox/src/blink.rs:243` in `downward_blink_does_not_embed_in_the_floor` - `insert_resource` on/with `crate::GameWorld(ae::World::new( "test", ae::Vec2::new(600.0, 600.0), ae::Vec2::new(300.0, 300.0), vec![ae::Block::solid( "floor", ae::Vec2::new(0.0, 350.0),...`
+  - `crate::GameWorld`
+  - `vec`
+  - `ae`
+  - `Block`
+  - `solid`
+  - `app`
+- `crates/ambition_sandbox/src/body_mode/mechanics.rs:260` in `build_body_mode_test_app` - `insert_resource` on/with `crate::GameWorld(open_world())`
+  - `crate::GameWorld`
+  - `open_world`
+  - `app`
+- `crates/ambition_sandbox/src/body_mode/mechanics.rs:262` in `build_body_mode_test_app` - `add_systems` on/with `Update`
+  - systems: `super::update_body_mode`
+  - `super::update_body_mode`
+- `crates/ambition_sandbox/src/body_mode/morph_ball.rs:93` in `build_morph_ball_sprite` - `insert_resource` on/with `MorphBallSprite { handle }`
+  - `MorphBallSprite`
+  - `handle`
+  - `commands`
+- `crates/ambition_sandbox/src/bomb.rs:109` in `a_thrown_bomb_arms_but_a_resting_one_does_not` - `add_systems` on/with `Update`
+  - systems: `arm_thrown_bombs`
+  - `arm_thrown_bombs`
+- `crates/ambition_sandbox/src/bomb.rs:136` in `fuse_expiry_detonates_a_player_side_blast_and_despawns` - `add_message` on/with `<none>`
+  - `app`
+  - `HitEvent`
+- `crates/ambition_sandbox/src/bomb.rs:137` in `fuse_expiry_detonates_a_player_side_blast_and_despawns` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::audio::SfxMessage`
+- `crates/ambition_sandbox/src/bomb.rs:138` in `fuse_expiry_detonates_a_player_side_blast_and_despawns` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::presentation::fx::VfxMessage`
+- `crates/ambition_sandbox/src/bomb.rs:139` in `fuse_expiry_detonates_a_player_side_blast_and_despawns` - `init_resource` on/with `<none>`
+  - `app`
+  - `CapturedHits`
+- `crates/ambition_sandbox/src/bomb.rs:142` in `fuse_expiry_detonates_a_player_side_blast_and_despawns` - `insert_resource` on/with `wt`
+  - `wt`
+  - `app`
+- `crates/ambition_sandbox/src/bomb.rs:143` in `fuse_expiry_detonates_a_player_side_blast_and_despawns` - `add_systems` on/with `Update`
+  - systems: `tick_bomb_fuses`, `capture_hits`
+  - `tick_bomb_fuses`
+  - `capture_hits`
+- `crates/ambition_sandbox/src/boss_encounter/gnu_ton.rs:213` in `gnu_ton_head_hurtbox_overlaps_the_body_envelope` - `add_plugins` on/with `crate::presentation::character_sprites::SheetRegistryPlugin`
+  - `crate::presentation::character_sprites::SheetRegistryPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/boss_encounter/gnu_ton.rs:222` in `gnu_ton_head_hurtbox_overlaps_the_body_envelope` - `add_systems` on/with `Update`
+  - systems: `crate::features::derive_boss_sprite_metrics`
+  - `crate::features::derive_boss_sprite_metrics`
+- `crates/ambition_sandbox/src/boss_encounter/gnu_ton.rs:291` in `make_app` - `insert_resource` on/with `world`
+  - `world`
+  - `app`
+- `crates/ambition_sandbox/src/boss_encounter/gnu_ton.rs:292` in `make_app` - `add_systems` on/with `Update`
+  - systems: `gate_gnu_ton_arena_ladder`
+  - `gate_gnu_ton_arena_ladder`
+- `crates/ambition_sandbox/src/boss_encounter/systems.rs:493` in `dramatic_phase_change_kicks_the_camera_shake` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::audio::SfxMessage`
+- `crates/ambition_sandbox/src/boss_encounter/systems.rs:494` in `dramatic_phase_change_kicks_the_camera_shake` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::brain::ActorActionMessage`
+- `crates/ambition_sandbox/src/boss_encounter/systems.rs:495` in `dramatic_phase_change_kicks_the_camera_shake` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::presentation::fx::VfxMessage`
+- `crates/ambition_sandbox/src/boss_encounter/systems.rs:496` in `dramatic_phase_change_kicks_the_camera_shake` - `init_resource` on/with `<none>`
+  - `app`
+  - `CameraShakeState`
+- `crates/ambition_sandbox/src/boss_encounter/systems.rs:497` in `dramatic_phase_change_kicks_the_camera_shake` - `insert_resource` on/with `registry_with_boss(BossEncounterPhase::Phase1)`
+  - `registry_with_boss`
+  - `BossEncounterPhase::Phase1`
+  - `app`
+- `crates/ambition_sandbox/src/boss_encounter/systems.rs:498` in `dramatic_phase_change_kicks_the_camera_shake` - `add_systems` on/with `Update`
+  - systems: `boss_phase_transition_feedback`
+  - `boss_phase_transition_feedback`
+- `crates/ambition_sandbox/src/boss_encounter/systems.rs:518` in `non_dramatic_change_does_not_shake` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::audio::SfxMessage`
+- `crates/ambition_sandbox/src/boss_encounter/systems.rs:519` in `non_dramatic_change_does_not_shake` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::brain::ActorActionMessage`
+- `crates/ambition_sandbox/src/boss_encounter/systems.rs:520` in `non_dramatic_change_does_not_shake` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::presentation::fx::VfxMessage`
+- `crates/ambition_sandbox/src/boss_encounter/systems.rs:521` in `non_dramatic_change_does_not_shake` - `init_resource` on/with `<none>`
+  - `app`
+  - `CameraShakeState`
+- `crates/ambition_sandbox/src/boss_encounter/systems.rs:522` in `non_dramatic_change_does_not_shake` - `insert_resource` on/with `registry_with_boss(BossEncounterPhase::Intro)`
+  - `registry_with_boss`
+  - `BossEncounterPhase::Intro`
+  - `app`
+- `crates/ambition_sandbox/src/boss_encounter/systems.rs:523` in `non_dramatic_change_does_not_shake` - `add_systems` on/with `Update`
+  - systems: `boss_phase_transition_feedback`
+  - `boss_phase_transition_feedback`
+- `crates/ambition_sandbox/src/brain/mod.rs:278` in `BrainPlugin::build` - `add_message` on/with `<none>`
+  - `app`
+  - `ActorActionMessage`
+- `crates/ambition_sandbox/src/brain/mod.rs:279` in `BrainPlugin::build` - `init_resource` on/with `<none>`
+  - `app`
+  - `BrainActionCounter`
+- `crates/ambition_sandbox/src/brain/mod.rs:494` in `emit_brain_action_messages_skips_entities_missing_components` - `add_message` on/with `<none>`
+  - `app`
+  - `ActorActionMessage`
+- `crates/ambition_sandbox/src/brain/mod.rs:495` in `emit_brain_action_messages_skips_entities_missing_components` - `add_systems` on/with `Update`
+  - systems: `emit_brain_action_messages`
+  - `emit_brain_action_messages`
+- `crates/ambition_sandbox/src/brain/mod.rs:533` in `emit_brain_action_messages_handles_many_actors` - `add_message` on/with `<none>`
+  - `app`
+  - `ActorActionMessage`
+- `crates/ambition_sandbox/src/brain/mod.rs:534` in `emit_brain_action_messages_handles_many_actors` - `add_systems` on/with `Update`
+  - systems: `emit_brain_action_messages`
+  - `emit_brain_action_messages`
+- `crates/ambition_sandbox/src/brain/mod.rs:580` in `brain_plugin_registers_message_and_counter_resource` - `add_plugins` on/with `BrainPlugin`
+  - `BrainPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/brain/mod.rs:843` in `observe_brain_action_counter_sums_per_frame_messages` - `add_message` on/with `<none>`
+  - `app`
+  - `ActorActionMessage`
+- `crates/ambition_sandbox/src/brain/mod.rs:844` in `observe_brain_action_counter_sums_per_frame_messages` - `init_resource` on/with `<none>`
+  - `app`
+  - `BrainActionCounter`
+- `crates/ambition_sandbox/src/brain/mod.rs:845` in `observe_brain_action_counter_sums_per_frame_messages` - `add_systems` on/with `Update`
+  - systems: `emit_brain_action_messages`, `observe_brain_action_counter`
+  - `emit_brain_action_messages`
+  - `observe_brain_action_counter`
+- `crates/ambition_sandbox/src/brain/mod.rs:883` in `emit_brain_action_messages_writes_one_message_per_request` - `add_message` on/with `<none>`
+  - `app`
+  - `ActorActionMessage`
+- `crates/ambition_sandbox/src/brain/mod.rs:884` in `emit_brain_action_messages_writes_one_message_per_request` - `add_systems` on/with `Update`
+  - systems: `emit_brain_action_messages`
+  - `emit_brain_action_messages`
+- `crates/ambition_sandbox/src/content/character_catalog/mod.rs:116` in `CharacterCatalogPlugin::build` - `insert_resource` on/with `catalog`
+  - `catalog`
+  - `app`
+- `crates/ambition_sandbox/src/content/character_catalog/mod.rs:117` in `CharacterCatalogPlugin::build` - `add_systems` on/with `Startup`
+  - systems: `validate_catalog_on_startup`
+  - `validate_catalog_on_startup`
+- `crates/ambition_sandbox/src/content/character_catalog/mod.rs:495` in `plugin_inserts_resource_and_validates` - `add_plugins` on/with `MinimalPlugins`
+  - `MinimalPlugins`
+  - `app`
+- `crates/ambition_sandbox/src/content/character_catalog/mod.rs:496` in `plugin_inserts_resource_and_validates` - `add_plugins` on/with `CharacterCatalogPlugin`
+  - `CharacterCatalogPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/content/data.rs:60` in `load_data_asset_handle` - `insert_resource` on/with `SandboxDataAsset(asset_server.load(path))`
+  - `SandboxDataAsset`
+  - `asset_server`
+  - `path`
+  - `commands`
+- `crates/ambition_sandbox/src/content/features/bus.rs:80` in `GameplayEffectsSchedulePlugin::build` - `add_systems` on/with `Update`
+  - systems: `apply_flag_effects`, `apply_quest_effects`, `apply_switch_effects`, `super::ecs::apply_npc_stimuli`, `super::ecs::apply_actor_stimuli`, `apply_gameplay_sfx_effects`
+  - sets: `crate::app::SandboxSet::GameplayEffects`
+  - `apply_flag_effects`
+  - `apply_quest_effects`
+  - `apply_switch_effects`
+  - `super::ecs::apply_npc_stimuli`
+  - `super::ecs::apply_actor_stimuli`
+  - `apply_gameplay_sfx_effects`
+  - `crate::app::SandboxSet::GameplayEffects`
+- `crates/ambition_sandbox/src/content/features/ecs/actors.rs:1213` in `sync_actor_pose_uses_feature_aabb_and_actor_facing` - `add_systems` on/with `Update`
+  - systems: `sync_actor_poses_from_feature_aabbs`
+  - `sync_actor_poses_from_feature_aabbs`
+- `crates/ambition_sandbox/src/content/features/ecs/aggression.rs:256` in `npc_flips_hostile_once_strikes_reach_the_threshold` - `add_message` on/with `<none>`
+  - `app`
+  - `ActorStimulus`
+- `crates/ambition_sandbox/src/content/features/ecs/aggression.rs:257` in `npc_flips_hostile_once_strikes_reach_the_threshold` - `add_systems` on/with `Update`
+  - systems: `apply_npc_stimuli`
+  - `apply_npc_stimuli`
+- `crates/ambition_sandbox/src/content/features/ecs/aggression.rs:272` in `npc_below_the_threshold_stays_peaceful` - `add_message` on/with `<none>`
+  - `app`
+  - `ActorStimulus`
+- `crates/ambition_sandbox/src/content/features/ecs/aggression.rs:273` in `npc_below_the_threshold_stays_peaceful` - `add_systems` on/with `Update`
+  - systems: `apply_npc_stimuli`
+  - `apply_npc_stimuli`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1231` in `build_app` - `add_plugins` on/with `MinimalPlugins`
+  - `MinimalPlugins`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1232` in `build_app` - `add_message` on/with `<none>`
+  - `app`
+  - `ActorActionMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1233` in `build_app` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1234` in `build_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `EnemyProjectileState`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1235` in `build_app` - `add_systems` on/with `Update`
+  - systems: `spawn_enemy_projectiles_from_brain_actions`
+  - `spawn_enemy_projectiles_from_brain_actions`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1322` in `melee_message_starts_enemy_windup_and_cooldown` - `add_plugins` on/with `MinimalPlugins`
+  - `MinimalPlugins`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1323` in `melee_message_starts_enemy_windup_and_cooldown` - `add_message` on/with `<none>`
+  - `app`
+  - `ActorActionMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1324` in `melee_message_starts_enemy_windup_and_cooldown` - `init_resource` on/with `<none>`
+  - `app`
+  - `SandboxFeelTuning`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1325` in `melee_message_starts_enemy_windup_and_cooldown` - `add_systems` on/with `Update`
+  - systems: `start_enemy_melee_from_brain_actions`
+  - `start_enemy_melee_from_brain_actions`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1389` in `melee_message_can_start_windup_for_dismounted_pirate_heavy` - `add_plugins` on/with `MinimalPlugins`
+  - `MinimalPlugins`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1390` in `melee_message_can_start_windup_for_dismounted_pirate_heavy` - `add_message` on/with `<none>`
+  - `app`
+  - `ActorActionMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1391` in `melee_message_can_start_windup_for_dismounted_pirate_heavy` - `init_resource` on/with `<none>`
+  - `app`
+  - `SandboxFeelTuning`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1392` in `melee_message_can_start_windup_for_dismounted_pirate_heavy` - `add_systems` on/with `Update`
+  - systems: `start_enemy_melee_from_brain_actions`
+  - `start_enemy_melee_from_brain_actions`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1453` in `melee_message_during_cooldown_is_dropped` - `add_plugins` on/with `MinimalPlugins`
+  - `MinimalPlugins`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1454` in `melee_message_during_cooldown_is_dropped` - `add_message` on/with `<none>`
+  - `app`
+  - `ActorActionMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1455` in `melee_message_during_cooldown_is_dropped` - `init_resource` on/with `<none>`
+  - `app`
+  - `SandboxFeelTuning`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1456` in `melee_message_during_cooldown_is_dropped` - `add_systems` on/with `Update`
+  - systems: `start_enemy_melee_from_brain_actions`
+  - `start_enemy_melee_from_brain_actions`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1543` in `apple_rain_app` - `add_plugins` on/with `MinimalPlugins`
+  - `MinimalPlugins`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1544` in `apple_rain_app` - `add_message` on/with `<none>`
+  - `app`
+  - `ActorActionMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1545` in `apple_rain_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `EnemyProjectileState`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1546` in `apple_rain_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `WorldTime`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1556` in `apple_rain_app` - `insert_resource` on/with `GameWorld(arena)`
+  - `GameWorld`
+  - `arena`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1557` in `apple_rain_app` - `add_systems` on/with `Update`
+  - systems: `spawn_gnu_apple_rain_from_special_messages`
+  - `spawn_gnu_apple_rain_from_special_messages`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1783` in `overfit_volley_consumer_fires_bolts_at_seeded_samples_on_strike` - `add_plugins` on/with `MinimalPlugins`
+  - `MinimalPlugins`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1784` in `overfit_volley_consumer_fires_bolts_at_seeded_samples_on_strike` - `add_message` on/with `<none>`
+  - `app`
+  - `ActorActionMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1785` in `overfit_volley_consumer_fires_bolts_at_seeded_samples_on_strike` - `init_resource` on/with `<none>`
+  - `app`
+  - `EnemyProjectileState`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1786` in `overfit_volley_consumer_fires_bolts_at_seeded_samples_on_strike` - `init_resource` on/with `<none>`
+  - `app`
+  - `WorldTime`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1799` in `overfit_volley_consumer_fires_bolts_at_seeded_samples_on_strike` - `add_systems` on/with `Update`
+  - systems: `spawn_overfit_volley_from_special_messages`
+  - `spawn_overfit_volley_from_special_messages`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1848` in `overfit_volley_consumer_fires_once_per_strike_then_holds` - `add_plugins` on/with `MinimalPlugins`
+  - `MinimalPlugins`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1849` in `overfit_volley_consumer_fires_once_per_strike_then_holds` - `add_message` on/with `<none>`
+  - `app`
+  - `ActorActionMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1850` in `overfit_volley_consumer_fires_once_per_strike_then_holds` - `init_resource` on/with `<none>`
+  - `app`
+  - `EnemyProjectileState`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1851` in `overfit_volley_consumer_fires_once_per_strike_then_holds` - `init_resource` on/with `<none>`
+  - `app`
+  - `WorldTime`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1855` in `overfit_volley_consumer_fires_once_per_strike_then_holds` - `add_systems` on/with `Update`
+  - systems: `spawn_overfit_volley_from_special_messages`
+  - `spawn_overfit_volley_from_special_messages`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1889` in `minima_trap_consumer_spawns_world_hitbox_on_strike` - `add_plugins` on/with `MinimalPlugins`
+  - `MinimalPlugins`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1890` in `minima_trap_consumer_spawns_world_hitbox_on_strike` - `add_message` on/with `<none>`
+  - `app`
+  - `ActorActionMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1891` in `minima_trap_consumer_spawns_world_hitbox_on_strike` - `init_resource` on/with `<none>`
+  - `app`
+  - `WorldTime`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1895` in `minima_trap_consumer_spawns_world_hitbox_on_strike` - `add_systems` on/with `Update`
+  - systems: `spawn_minima_trap_from_special_messages`
+  - `spawn_minima_trap_from_special_messages`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1942` in `minima_trap_consumer_does_not_re_fire_during_strike` - `add_plugins` on/with `MinimalPlugins`
+  - `MinimalPlugins`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1943` in `minima_trap_consumer_does_not_re_fire_during_strike` - `add_message` on/with `<none>`
+  - `app`
+  - `ActorActionMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1944` in `minima_trap_consumer_does_not_re_fire_during_strike` - `init_resource` on/with `<none>`
+  - `app`
+  - `WorldTime`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1948` in `minima_trap_consumer_does_not_re_fire_during_strike` - `add_systems` on/with `Update`
+  - systems: `spawn_minima_trap_from_special_messages`
+  - `spawn_minima_trap_from_special_messages`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1987` in `saddle_point_consumer_spawns_initial_arm_then_toggles_axes` - `add_plugins` on/with `MinimalPlugins`
+  - `MinimalPlugins`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1988` in `saddle_point_consumer_spawns_initial_arm_then_toggles_axes` - `add_message` on/with `<none>`
+  - `app`
+  - `ActorActionMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1989` in `saddle_point_consumer_spawns_initial_arm_then_toggles_axes` - `init_resource` on/with `<none>`
+  - `app`
+  - `WorldTime`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1993` in `saddle_point_consumer_spawns_initial_arm_then_toggles_axes` - `add_systems` on/with `Update`
+  - systems: `spawn_saddle_point_from_special_messages`
+  - `spawn_saddle_point_from_special_messages`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:2038` in `saddle_point_consumer_despawns_on_strike_end` - `add_plugins` on/with `MinimalPlugins`
+  - `MinimalPlugins`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:2039` in `saddle_point_consumer_despawns_on_strike_end` - `add_message` on/with `<none>`
+  - `app`
+  - `ActorActionMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:2040` in `saddle_point_consumer_despawns_on_strike_end` - `init_resource` on/with `<none>`
+  - `app`
+  - `WorldTime`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:2044` in `saddle_point_consumer_despawns_on_strike_end` - `add_systems` on/with `Update`
+  - systems: `spawn_saddle_point_from_special_messages`
+  - `spawn_saddle_point_from_special_messages`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:2084` in `minima_trap_spawned_minion_carries_encounter_mob_marker` - `add_plugins` on/with `MinimalPlugins`
+  - `MinimalPlugins`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:2085` in `minima_trap_spawned_minion_carries_encounter_mob_marker` - `add_message` on/with `<none>`
+  - `app`
+  - `ActorActionMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:2086` in `minima_trap_spawned_minion_carries_encounter_mob_marker` - `init_resource` on/with `<none>`
+  - `app`
+  - `WorldTime`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:2090` in `minima_trap_spawned_minion_carries_encounter_mob_marker` - `add_systems` on/with `Update`
+  - systems: `spawn_minima_trap_from_special_messages`
+  - `spawn_minima_trap_from_special_messages`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:2138` in `gradient_cascade_spawned_minions_carry_encounter_mob_marker` - `add_plugins` on/with `MinimalPlugins`
+  - `MinimalPlugins`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:2139` in `gradient_cascade_spawned_minions_carry_encounter_mob_marker` - `add_message` on/with `<none>`
+  - `app`
+  - `ActorActionMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:2140` in `gradient_cascade_spawned_minions_carry_encounter_mob_marker` - `init_resource` on/with `<none>`
+  - `app`
+  - `WorldTime`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:2144` in `gradient_cascade_spawned_minions_carry_encounter_mob_marker` - `add_systems` on/with `Update`
+  - systems: `spawn_gradient_cascade_minions_from_special_messages`
+  - `spawn_gradient_cascade_minions_from_special_messages`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:2183` in `gradient_cascade_consumer_spawns_minion_entities_on_strike_edge` - `add_plugins` on/with `MinimalPlugins`
+  - `MinimalPlugins`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:2184` in `gradient_cascade_consumer_spawns_minion_entities_on_strike_edge` - `add_message` on/with `<none>`
+  - `app`
+  - `ActorActionMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:2185` in `gradient_cascade_consumer_spawns_minion_entities_on_strike_edge` - `init_resource` on/with `<none>`
+  - `app`
+  - `WorldTime`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:2189` in `gradient_cascade_consumer_spawns_minion_entities_on_strike_edge` - `add_systems` on/with `Update`
+  - systems: `spawn_gradient_cascade_minions_from_special_messages`
+  - `spawn_gradient_cascade_minions_from_special_messages`
+- `crates/ambition_sandbox/src/content/features/ecs/breakables.rs:102` in `app` - `insert_resource` on/with `GameplayBanner::default()`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/breakables.rs:103` in `app` - `insert_resource` on/with `WorldTime { raw_dt: 0.1, scaled_dt: 0.1, }`
+  - `WorldTime`
+  - `raw_dt`
+  - `scaled_dt`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/breakables.rs:107` in `app` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/breakables.rs:108` in `app` - `add_message` on/with `<none>`
+  - `app`
+  - `VfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/breakables.rs:109` in `app` - `add_message` on/with `<none>`
+  - `app`
+  - `DebrisBurstMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/breakables.rs:110` in `app` - `add_systems` on/with `Update`
+  - systems: `update_ecs_breakables`
+  - `update_ecs_breakables`
+- `crates/ambition_sandbox/src/content/features/ecs/chests.rs:94` in `app` - `insert_resource` on/with `GameplayBanner::default()`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/chests.rs:95` in `app` - `add_message` on/with `<none>`
+  - `app`
+  - `SetFlagRequested`
+- `crates/ambition_sandbox/src/content/features/ecs/chests.rs:96` in `app` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/chests.rs:97` in `app` - `add_message` on/with `<none>`
+  - `app`
+  - `VfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/chests.rs:98` in `app` - `add_systems` on/with `Update`
+  - systems: `open_ecs_chests`
+  - `open_ecs_chests`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1098` in `victim_side_enemy_body_hit_does_not_damage_features` - `insert_resource` on/with `GameplayBanner::default()`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1099` in `victim_side_enemy_body_hit_does_not_damage_features` - `add_message` on/with `<none>`
+  - `app`
+  - `HitEvent`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1100` in `victim_side_enemy_body_hit_does_not_damage_features` - `add_message` on/with `<none>`
+  - `app`
+  - `SetFlagRequested`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1101` in `victim_side_enemy_body_hit_does_not_damage_features` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1102` in `victim_side_enemy_body_hit_does_not_damage_features` - `add_message` on/with `<none>`
+  - `app`
+  - `VfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1103` in `victim_side_enemy_body_hit_does_not_damage_features` - `add_message` on/with `<none>`
+  - `app`
+  - `DebrisBurstMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1104` in `victim_side_enemy_body_hit_does_not_damage_features` - `add_message` on/with `<none>`
+  - `app`
+  - `ActorStimulus`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1105` in `victim_side_enemy_body_hit_does_not_damage_features` - `add_systems` on/with `Update`
+  - systems: `apply_feature_hit_events`
+  - `apply_feature_hit_events`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1135` in `enemy_charge_crash_is_processed_as_enemy_damage` - `insert_resource` on/with `GameplayBanner::default()`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1136` in `enemy_charge_crash_is_processed_as_enemy_damage` - `add_message` on/with `<none>`
+  - `app`
+  - `HitEvent`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1137` in `enemy_charge_crash_is_processed_as_enemy_damage` - `add_message` on/with `<none>`
+  - `app`
+  - `SetFlagRequested`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1138` in `enemy_charge_crash_is_processed_as_enemy_damage` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1139` in `enemy_charge_crash_is_processed_as_enemy_damage` - `add_message` on/with `<none>`
+  - `app`
+  - `VfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1140` in `enemy_charge_crash_is_processed_as_enemy_damage` - `add_message` on/with `<none>`
+  - `app`
+  - `DebrisBurstMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1141` in `enemy_charge_crash_is_processed_as_enemy_damage` - `add_message` on/with `<none>`
+  - `app`
+  - `ActorStimulus`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1142` in `enemy_charge_crash_is_processed_as_enemy_damage` - `add_systems` on/with `Update`
+  - systems: `apply_feature_hit_events`
+  - `apply_feature_hit_events`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1184` in `player_slash_damages_and_can_kill_a_hostile_actor` - `insert_resource` on/with `GameplayBanner::default()`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1185` in `player_slash_damages_and_can_kill_a_hostile_actor` - `add_message` on/with `<none>`
+  - `app`
+  - `HitEvent`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1186` in `player_slash_damages_and_can_kill_a_hostile_actor` - `add_message` on/with `<none>`
+  - `app`
+  - `SetFlagRequested`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1187` in `player_slash_damages_and_can_kill_a_hostile_actor` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1188` in `player_slash_damages_and_can_kill_a_hostile_actor` - `add_message` on/with `<none>`
+  - `app`
+  - `VfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1189` in `player_slash_damages_and_can_kill_a_hostile_actor` - `add_message` on/with `<none>`
+  - `app`
+  - `DebrisBurstMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1190` in `player_slash_damages_and_can_kill_a_hostile_actor` - `add_message` on/with `<none>`
+  - `app`
+  - `ActorStimulus`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1191` in `player_slash_damages_and_can_kill_a_hostile_actor` - `add_systems` on/with `Update`
+  - systems: `apply_feature_hit_events`
+  - `apply_feature_hit_events`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1260` in `player_slash_shatters_a_breakable` - `insert_resource` on/with `GameplayBanner::default()`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1261` in `player_slash_shatters_a_breakable` - `add_message` on/with `<none>`
+  - `app`
+  - `HitEvent`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1262` in `player_slash_shatters_a_breakable` - `add_message` on/with `<none>`
+  - `app`
+  - `SetFlagRequested`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1263` in `player_slash_shatters_a_breakable` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1264` in `player_slash_shatters_a_breakable` - `add_message` on/with `<none>`
+  - `app`
+  - `VfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1265` in `player_slash_shatters_a_breakable` - `add_message` on/with `<none>`
+  - `app`
+  - `DebrisBurstMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1266` in `player_slash_shatters_a_breakable` - `add_message` on/with `<none>`
+  - `app`
+  - `ActorStimulus`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1267` in `player_slash_shatters_a_breakable` - `add_systems` on/with `Update`
+  - systems: `apply_feature_hit_events`
+  - `apply_feature_hit_events`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1318` in `enemy_defeat_drops_a_collectible_currency_coin` - `add_systems` on/with `Update`
+  - systems: `c`, `drop_currency_coin`
+  - `c`
+  - `drop_currency_coin`
+  - `ENEMY_BOUNTY`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1366` in `defeated_boss_drops_its_signature_ability` - `add_systems` on/with `Update`
+  - systems: `c`, `drop_ability_pickup`
+  - `c`
+  - `drop_ability_pickup`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1525` in `exploding_mite_blast_is_a_player_damaging_enemy_hitbox` - `add_systems` on/with `Update`
+  - systems: `c`, `spawn_death_explosion`
+  - `c`
+  - `spawn_death_explosion`
+  - `Entity::PLACEHOLDER`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1552` in `dividing_mite_splits_into_two_hostile_offspring_on_death` - `add_systems` on/with `Update`
+  - systems: `c`, `spawn_split_offspring`
+  - `c`
+  - `spawn_split_offspring`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1577` in `enemy_health_drop_is_deterministic_and_spawns_a_heart` - `add_systems` on/with `Update`
+  - systems: `c`, `drop_health_pickup`
+  - `c`
+  - `drop_health_pickup`
+  - `ae::Vec2::ZERO`
+  - `ENEMY_HEALTH_DROP`
+- `crates/ambition_sandbox/src/content/features/ecs/encounter_rewards.rs:230` in `app` - `insert_resource` on/with `SandboxSave::default()`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/encounter_rewards.rs:231` in `app` - `insert_resource` on/with `cleared_registry()`
+  - `cleared_registry`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/encounter_rewards.rs:232` in `app` - `add_systems` on/with `Update`
+  - systems: `run_sync`
+  - `run_sync`
+- `crates/ambition_sandbox/src/content/features/ecs/encounter_rewards.rs:315` in `app` - `insert_resource` on/with `save`
+  - `save`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/encounter_rewards.rs:319` in `app` - `insert_resource` on/with `reg`
+  - `reg`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/encounter_rewards.rs:320` in `app` - `insert_resource` on/with `TestWorld(ae::World::new( "t", ae::Vec2::new(400.0, 400.0), ae::Vec2::new(50.0, 50.0), Vec::new(), ))`
+  - `TestWorld`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/encounter_rewards.rs:326` in `app` - `insert_resource` on/with `TestAnchors(vec![( "test_boss".into(), ae::Vec2::new(200.0, 100.0), )])`
+  - `TestAnchors`
+  - `vec`
+  - `ae`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/encounter_rewards.rs:330` in `app` - `add_systems` on/with `Update`
+  - systems: `run_boss_sync`
+  - `run_boss_sync`
+- `crates/ambition_sandbox/src/content/features/ecs/hazards.rs:154` in `app_with_hazard_system` - `insert_resource` on/with `crate::WorldTime::default()`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/hazards.rs:155` in `app_with_hazard_system` - `init_resource` on/with `<none>`
+  - `app`
+  - `HitLog`
+- `crates/ambition_sandbox/src/content/features/ecs/hazards.rs:156` in `app_with_hazard_system` - `add_message` on/with `<none>`
+  - `app`
+  - `HitEvent`
+- `crates/ambition_sandbox/src/content/features/ecs/hazards.rs:157` in `app_with_hazard_system` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/hazards.rs:158` in `app_with_hazard_system` - `add_message` on/with `<none>`
+  - `app`
+  - `VfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/hazards.rs:159` in `app_with_hazard_system` - `add_message` on/with `<none>`
+  - `app`
+  - `DebrisBurstMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/hazards.rs:160` in `app_with_hazard_system` - `add_systems` on/with `Update`
+  - systems: `update_ecs_hazards`, `record_hits`
+  - `update_ecs_hazards`
+  - `record_hits`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:355` in `make_app_with_sim_dt` - `add_plugins` on/with `MinimalPlugins`
+  - `MinimalPlugins`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:356` in `make_app_with_sim_dt` - `init_resource` on/with `<none>`
+  - `app`
+  - `WorldTime`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:369` in `tick_and_despawn_drops_expired_hitboxes` - `add_systems` on/with `Update`
+  - systems: `tick_and_despawn_hitboxes`
+  - `tick_and_despawn_hitboxes`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:400` in `tick_and_despawn_keeps_live_hitboxes` - `add_systems` on/with `Update`
+  - systems: `tick_and_despawn_hitboxes`
+  - `tick_and_despawn_hitboxes`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:439` in `spawn_melee_hitbox_attaches_full_component_set` - `add_plugins` on/with `MinimalPlugins`
+  - `MinimalPlugins`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:440` in `spawn_melee_hitbox_attaches_full_component_set` - `init_resource` on/with `<none>`
+  - `app`
+  - `SpawnedHitbox`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:442` in `spawn_melee_hitbox_attaches_full_component_set` - `add_systems` on/with `Update`
+  - systems: `commands`, `store`, `is_some`, `entity`, `spawn_melee_hitbox`, `owner`
+  - `commands`
+  - `store`
+  - `SpawnedHitbox`
+  - `is_some`
+  - `entity`
+  - `spawn_melee_hitbox`
+  - `owner`
+  - `ActorFaction::Enemy`
+  - `Some`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:501` in `player_faction_hitbox_emits_an_attacker_side_feature_hit` - `add_message` on/with `<none>`
+  - `app`
+  - `HitEvent`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:502` in `player_faction_hitbox_emits_an_attacker_side_feature_hit` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:503` in `player_faction_hitbox_emits_an_attacker_side_feature_hit` - `add_message` on/with `<none>`
+  - `app`
+  - `VfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:504` in `player_faction_hitbox_emits_an_attacker_side_feature_hit` - `add_message` on/with `<none>`
+  - `app`
+  - `DebrisBurstMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:505` in `player_faction_hitbox_emits_an_attacker_side_feature_hit` - `init_resource` on/with `<none>`
+  - `app`
+  - `CapturedHits`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:506` in `player_faction_hitbox_emits_an_attacker_side_feature_hit` - `add_systems` on/with `Update`
+  - systems: `apply_hitbox_damage`, `capture_hits`
+  - `apply_hitbox_damage`
+  - `capture_hits`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:552` in `player_faction_hitbox_only_fires_once` - `add_message` on/with `<none>`
+  - `app`
+  - `HitEvent`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:553` in `player_faction_hitbox_only_fires_once` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:554` in `player_faction_hitbox_only_fires_once` - `add_message` on/with `<none>`
+  - `app`
+  - `VfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:555` in `player_faction_hitbox_only_fires_once` - `add_message` on/with `<none>`
+  - `app`
+  - `DebrisBurstMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:556` in `player_faction_hitbox_only_fires_once` - `init_resource` on/with `<none>`
+  - `app`
+  - `CapturedHits`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:557` in `player_faction_hitbox_only_fires_once` - `add_systems` on/with `Update`
+  - systems: `apply_hitbox_damage`, `capture_hits`
+  - `apply_hitbox_damage`
+  - `capture_hits`
+- `crates/ambition_sandbox/src/content/features/ecs/interact.rs:161` in `buffered_interact_toggles_an_adjacent_switch` - `insert_resource` on/with `GameplayBanner::default()`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/interact.rs:162` in `buffered_interact_toggles_an_adjacent_switch` - `insert_resource` on/with `crate::dialog::DialogState::default()`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/interact.rs:163` in `buffered_interact_toggles_an_adjacent_switch` - `insert_resource` on/with `NextState::<crate::GameMode>::default()`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/interact.rs:164` in `buffered_interact_toggles_an_adjacent_switch` - `add_message` on/with `<none>`
+  - `app`
+  - `SetFlagRequested`
+- `crates/ambition_sandbox/src/content/features/ecs/interact.rs:165` in `buffered_interact_toggles_an_adjacent_switch` - `add_message` on/with `<none>`
+  - `app`
+  - `QuestAdvanceRequested`
+- `crates/ambition_sandbox/src/content/features/ecs/interact.rs:166` in `buffered_interact_toggles_an_adjacent_switch` - `add_message` on/with `<none>`
+  - `app`
+  - `SwitchActivated`
+- `crates/ambition_sandbox/src/content/features/ecs/interact.rs:167` in `buffered_interact_toggles_an_adjacent_switch` - `add_message` on/with `<none>`
+  - `app`
+  - `VfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/interact.rs:186` in `buffered_interact_toggles_an_adjacent_switch` - `add_systems` on/with `Update`
+  - systems: `interact_ecs_actors_and_switches`
+  - `interact_ecs_actors_and_switches`
+- `crates/ambition_sandbox/src/content/features/ecs/mount.rs:408` in `build_app` - `add_plugins` on/with `MinimalPlugins`
+  - `MinimalPlugins`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/mount.rs:417` in `sync_riders_to_mounts_snaps_rider_to_mount_offset` - `add_systems` on/with `Update`
+  - systems: `sync_riders_to_mounts`
+  - `sync_riders_to_mounts`
+- `crates/ambition_sandbox/src/content/features/ecs/mount.rs:553` in `dead_mount_dissolves_link_keeping_records` - `add_systems` on/with `Update`
+  - systems: `enforce_mount_rider_link`
+  - `enforce_mount_rider_link`
+- `crates/ambition_sandbox/src/content/features/ecs/mount.rs:597` in `reviving_mount_re_arms_rider_to_mounted_brain` - `add_systems` on/with `Update`
+  - systems: `enforce_mount_rider_link`
+  - `enforce_mount_rider_link`
+- `crates/ambition_sandbox/src/content/features/ecs/mount.rs:642` in `dead_rider_does_not_disturb_mount_records` - `add_systems` on/with `Update`
+  - systems: `enforce_mount_rider_link`
+  - `enforce_mount_rider_link`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:173` in `collect_marks_only_the_overlapping_pickup` - `insert_resource` on/with `GameplayBanner::default()`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:174` in `collect_marks_only_the_overlapping_pickup` - `add_message` on/with `<none>`
+  - `app`
+  - `PlayerHealRequested`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:175` in `collect_marks_only_the_overlapping_pickup` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:176` in `collect_marks_only_the_overlapping_pickup` - `add_message` on/with `<none>`
+  - `app`
+  - `VfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:177` in `collect_marks_only_the_overlapping_pickup` - `add_message` on/with `<none>`
+  - `app`
+  - `SetFlagRequested`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:178` in `collect_marks_only_the_overlapping_pickup` - `add_systems` on/with `Update`
+  - systems: `collect_ecs_pickups`
+  - `collect_ecs_pickups`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:200` in `currency_pickup_credits_the_player_wallet` - `insert_resource` on/with `GameplayBanner::default()`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:201` in `currency_pickup_credits_the_player_wallet` - `add_message` on/with `<none>`
+  - `app`
+  - `PlayerHealRequested`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:202` in `currency_pickup_credits_the_player_wallet` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:203` in `currency_pickup_credits_the_player_wallet` - `add_message` on/with `<none>`
+  - `app`
+  - `VfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:204` in `currency_pickup_credits_the_player_wallet` - `add_message` on/with `<none>`
+  - `app`
+  - `SetFlagRequested`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:205` in `currency_pickup_credits_the_player_wallet` - `add_systems` on/with `Update`
+  - systems: `collect_ecs_pickups`
+  - `collect_ecs_pickups`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:247` in `collecting_an_ability_pickup_grants_it_to_the_catalog` - `insert_resource` on/with `GameplayBanner::default()`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:248` in `collecting_an_ability_pickup_grants_it_to_the_catalog` - `insert_resource` on/with `crate::items::OwnedItems::default()`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:249` in `collecting_an_ability_pickup_grants_it_to_the_catalog` - `add_message` on/with `<none>`
+  - `app`
+  - `PlayerHealRequested`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:250` in `collecting_an_ability_pickup_grants_it_to_the_catalog` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:251` in `collecting_an_ability_pickup_grants_it_to_the_catalog` - `add_message` on/with `<none>`
+  - `app`
+  - `VfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:252` in `collecting_an_ability_pickup_grants_it_to_the_catalog` - `add_message` on/with `<none>`
+  - `app`
+  - `SetFlagRequested`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:253` in `collecting_an_ability_pickup_grants_it_to_the_catalog` - `add_systems` on/with `Update`
+  - systems: `collect_ecs_pickups`
+  - `collect_ecs_pickups`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:292` in `collect_is_a_noop_with_no_player` - `insert_resource` on/with `GameplayBanner::default()`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:293` in `collect_is_a_noop_with_no_player` - `add_message` on/with `<none>`
+  - `app`
+  - `PlayerHealRequested`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:294` in `collect_is_a_noop_with_no_player` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:295` in `collect_is_a_noop_with_no_player` - `add_message` on/with `<none>`
+  - `app`
+  - `VfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:296` in `collect_is_a_noop_with_no_player` - `add_message` on/with `<none>`
+  - `app`
+  - `SetFlagRequested`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:297` in `collect_is_a_noop_with_no_player` - `add_systems` on/with `Update`
+  - systems: `collect_ecs_pickups`
+  - `collect_ecs_pickups`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:310` in `nearby_pickups_drift_toward_the_player` - `insert_resource` on/with `crate::WorldTime { scaled_dt: 0.1, ..Default::default() }`
+  - `crate::WorldTime`
+  - `scaled_dt`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:314` in `nearby_pickups_drift_toward_the_player` - `add_systems` on/with `Update`
+  - systems: `magnetize_pickups`
+  - `magnetize_pickups`
+- `crates/ambition_sandbox/src/content/features/ecs/reset.rs:223` in `app` - `insert_resource` on/with `EnemyProjectileState::default()`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/reset.rs:224` in `app` - `insert_resource` on/with `CombatSlotsRes::default()`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/reset.rs:225` in `app` - `add_message` on/with `<none>`
+  - `app`
+  - `ResetRoomFeaturesEvent`
+- `crates/ambition_sandbox/src/content/features/ecs/reset.rs:226` in `app` - `add_systems` on/with `Update`
+  - systems: `reset_ecs_room_features`
+  - `reset_ecs_room_features`
+- `crates/ambition_sandbox/src/content/features/ecs/save_sync.rs:226` in `switches_restore_their_on_state_from_the_save` - `insert_resource` on/with `save`
+  - `save`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/save_sync.rs:227` in `switches_restore_their_on_state_from_the_save` - `add_systems` on/with `Update`
+  - systems: `sync_ecs_switches_from_save`
+  - `sync_ecs_switches_from_save`
+- `crates/ambition_sandbox/src/content/features/ecs/spawn.rs:125` in `encounter_mob_brain_is_per_archetype_melee_brute` - `add_systems` on/with `Update`
+  - systems: `commands`, `spawn_encounter_mob`, `to_string`
+  - `commands`
+  - `spawn_encounter_mob`
+  - `to_string`
+  - `crate::actor::EnemyBrain::Custom`
+- `crates/ambition_sandbox/src/content/features/ecs/spawn.rs:152` in `boss_spawn_attaches_brain_components` - `add_systems` on/with `Update`
+  - systems: `commands`, `authored`, `to_string`, `name`, `aabb`, `payload`, `spawn_boss`
+  - `commands`
+  - `authored`
+  - `crate::rooms::Authored`
+  - `to_string`
+  - `name`
+  - `aabb`
+  - `payload`
+  - `crate::actor::BossBrain::Dormant`
+  - `spawn_boss`
+- `crates/ambition_sandbox/src/content/features/ecs/spawn.rs:232` in `encounter_mob_spawns_with_brain_components` - `add_systems` on/with `Update`
+  - systems: `commands`, `spawn_encounter_mob`, `to_string`
+  - `commands`
+  - `spawn_encounter_mob`
+  - `to_string`
+  - `crate::actor::EnemyBrain::Custom`
+- `crates/ambition_sandbox/src/content/features/ecs/spawn.rs:321` in `shark_composite_mount_brain_stays_skirmisher` - `add_systems` on/with `Update`
+  - systems: `commands`, `authored`, `to_string`, `name`, `aabb`, `payload`, `spawn_composite_mount_rider`
+  - `commands`
+  - `authored`
+  - `crate::rooms::Authored`
+  - `to_string`
+  - `name`
+  - `aabb`
+  - `payload`
+  - `crate::actor::EnemyBrain::Custom`
+  - `spawn_composite_mount_rider`
+  - `EnemyArchetype::PirateOnShark`
+- `crates/ambition_sandbox/src/content/features/ecs/spawn.rs:353` in `pirate_raider_shark_rider_keeps_compact_dismounted_size` - `add_systems` on/with `Update`
+  - systems: `commands`, `authored`, `to_string`, `name`, `aabb`, `payload`, `spawn_composite_mount_rider`
+  - `commands`
+  - `authored`
+  - `crate::rooms::Authored`
+  - `to_string`
+  - `name`
+  - `aabb`
+  - `payload`
+  - `crate::actor::EnemyBrain::Custom`
+  - `spawn_composite_mount_rider`
+  - `EnemyArchetype::PirateOnShark`
+- `crates/ambition_sandbox/src/content/features/ecs/spawn.rs:393` in `pirate_heavy_shark_rider_keeps_compact_dismounted_size` - `add_systems` on/with `Update`
+  - systems: `commands`, `authored`, `to_string`, `name`, `aabb`, `payload`, `spawn_composite_mount_rider`
+  - `commands`
+  - `authored`
+  - `crate::rooms::Authored`
+  - `to_string`
+  - `name`
+  - `aabb`
+  - `payload`
+  - `crate::actor::EnemyBrain::Custom`
+  - `spawn_composite_mount_rider`
+  - `EnemyArchetype::PirateHeavyOnShark`
+- `crates/ambition_sandbox/src/content/features/ecs/target_volumes.rs:136` in `derive_pogo_target_volumes_copies_damageable_by_default` - `add_systems` on/with `Update`
+  - systems: `derive_pogo_target_volumes`
+  - `derive_pogo_target_volumes`
+- `crates/ambition_sandbox/src/content/features/ecs/target_volumes.rs:157` in `derive_pogo_target_volumes_respects_disabled_policy` - `add_systems` on/with `Update`
+  - systems: `derive_pogo_target_volumes`
+  - `derive_pogo_target_volumes`
+- `crates/ambition_sandbox/src/content/features/ecs/targeting.rs:118` in `target_points_at_only_player_when_one_present` - `add_systems` on/with `Update`
+  - systems: `select_actor_targets`
+  - `select_actor_targets`
+- `crates/ambition_sandbox/src/content/features/ecs/targeting.rs:145` in `target_picks_nearest_when_two_players_present` - `add_systems` on/with `Update`
+  - systems: `select_actor_targets`
+  - `select_actor_targets`
+- `crates/ambition_sandbox/src/content/features/ecs/targeting.rs:171` in `passive_aggression_targets_self_not_player` - `add_systems` on/with `Update`
+  - systems: `select_actor_targets`
+  - `select_actor_targets`
+- `crates/ambition_sandbox/src/content/features/ecs/targeting.rs:208` in `retaliating_actor_tracks_nearest_player` - `add_systems` on/with `Update`
+  - systems: `select_actor_targets`
+  - `select_actor_targets`
+- `crates/ambition_sandbox/src/content/features/ecs/targeting.rs:226` in `no_players_leaves_target_unchanged` - `add_systems` on/with `Update`
+  - systems: `select_actor_targets`
+  - `select_actor_targets`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:52` in `peaceful_actor_damageable_volume_derives_pogo_overlay` - `insert_resource` on/with `FeatureEcsWorldOverlay::default()`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:64` in `peaceful_actor_damageable_volume_derives_pogo_overlay` - `add_systems` on/with `Update`
+  - systems: `refresh_actor_damageable_volumes`, `derive_pogo_target_volumes`, `rebuild_feature_ecs_world_overlay`
+  - `refresh_actor_damageable_volumes`
+  - `derive_pogo_target_volumes`
+  - `rebuild_feature_ecs_world_overlay`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:97` in `overlay_uses_published_pogo_volumes_instead_of_boss_body_aabb` - `insert_resource` on/with `FeatureEcsWorldOverlay::default()`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:108` in `overlay_uses_published_pogo_volumes_instead_of_boss_body_aabb` - `add_systems` on/with `Update`
+  - systems: `rebuild_feature_ecs_world_overlay`
+  - `rebuild_feature_ecs_world_overlay`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:133` in `ecs_overlay_ignores_broken_breakables` - `insert_resource` on/with `FeatureEcsWorldOverlay::default()`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:141` in `ecs_overlay_ignores_broken_breakables` - `add_systems` on/with `Update`
+  - systems: `rebuild_feature_ecs_world_overlay`
+  - `rebuild_feature_ecs_world_overlay`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:159` in `interact_buffered_opens_adjacent_chest` - `insert_resource` on/with `GameplayBanner::default()`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:160` in `interact_buffered_opens_adjacent_chest` - `add_message` on/with `<none>`
+  - `app`
+  - `SetFlagRequested`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:161` in `interact_buffered_opens_adjacent_chest` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:162` in `interact_buffered_opens_adjacent_chest` - `add_message` on/with `<none>`
+  - `app`
+  - `VfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:177` in `interact_buffered_opens_adjacent_chest` - `add_systems` on/with `Update`
+  - systems: `open_ecs_chests`
+  - `open_ecs_chests`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:203` in `interact_buffered_does_not_open_distant_chest` - `insert_resource` on/with `GameplayBanner::default()`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:204` in `interact_buffered_does_not_open_distant_chest` - `add_message` on/with `<none>`
+  - `app`
+  - `SetFlagRequested`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:205` in `interact_buffered_does_not_open_distant_chest` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:206` in `interact_buffered_does_not_open_distant_chest` - `add_message` on/with `<none>`
+  - `app`
+  - `VfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:221` in `interact_buffered_does_not_open_distant_chest` - `add_systems` on/with `Update`
+  - systems: `open_ecs_chests`
+  - `open_ecs_chests`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:236` in `interact_does_not_reopen_already_opened_chest` - `insert_resource` on/with `GameplayBanner::default()`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:237` in `interact_does_not_reopen_already_opened_chest` - `add_message` on/with `<none>`
+  - `app`
+  - `SetFlagRequested`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:238` in `interact_does_not_reopen_already_opened_chest` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:239` in `interact_does_not_reopen_already_opened_chest` - `add_message` on/with `<none>`
+  - `app`
+  - `VfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:255` in `interact_does_not_reopen_already_opened_chest` - `add_systems` on/with `Update`
+  - systems: `open_ecs_chests`
+  - `open_ecs_chests`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:271` in `interact_buffered_starts_npc_dialogue` - `add_plugins` on/with `StatesPlugin`
+  - `StatesPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:274` in `interact_buffered_starts_npc_dialogue` - `insert_resource` on/with `GameplayBanner::default()`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:275` in `interact_buffered_starts_npc_dialogue` - `insert_resource` on/with `crate::dialog::DialogState::default()`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:276` in `interact_buffered_starts_npc_dialogue` - `add_message` on/with `<none>`
+  - `app`
+  - `SetFlagRequested`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:277` in `interact_buffered_starts_npc_dialogue` - `add_message` on/with `<none>`
+  - `app`
+  - `QuestAdvanceRequested`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:278` in `interact_buffered_starts_npc_dialogue` - `add_message` on/with `<none>`
+  - `app`
+  - `SwitchActivated`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:279` in `interact_buffered_starts_npc_dialogue` - `add_message` on/with `<none>`
+  - `app`
+  - `VfxMessage`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:309` in `interact_buffered_starts_npc_dialogue` - `add_systems` on/with `Update`
+  - systems: `interact_ecs_actors_and_switches`
+  - `interact_ecs_actors_and_switches`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:330` in `feature_view_index_reflects_same_frame_pickup_collection` - `insert_resource` on/with `FeatureViewIndex::default()`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:344` in `feature_view_index_reflects_same_frame_pickup_collection` - `add_systems` on/with `Update`
+  - systems: `rebuild_feature_view_index`
+  - `rebuild_feature_view_index`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:375` in `feature_view_index_first_write_wins_on_duplicate_ids` - `insert_resource` on/with `FeatureViewIndex::default()`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:395` in `feature_view_index_first_write_wins_on_duplicate_ids` - `add_systems` on/with `Update`
+  - systems: `rebuild_feature_view_index`
+  - `rebuild_feature_view_index`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:446` in `feature_view_index_reflects_same_frame_reset_spawn` - `insert_resource` on/with `FeatureViewIndex::default()`
+  - `app`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:460` in `feature_view_index_reflects_same_frame_reset_spawn` - `add_systems` on/with `Update`
+  - systems: `fake_reset_system`, `rebuild_feature_view_index`
+  - sets: `SandboxSet::ResetProcessing`, `SandboxSet::FeatureViewSync`
+  - `fake_reset_system`
+  - `SandboxSet::ResetProcessing`
+  - `rebuild_feature_view_index`
+  - `SandboxSet::FeatureViewSync`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:509` in `presentation_visual_sync_runs_after_feature_view_sync` - `add_systems` on/with `Update`
+  - sets: `SandboxSet::FeatureViewSync`, `SandboxSet::PresentationVisualSync`
+  - `SandboxSet::FeatureViewSync`
+  - `SandboxSet::PresentationVisualSync`
+- `crates/ambition_sandbox/src/content/features.rs:160` in `WorldPrepSchedulePlugin::build` - `add_systems` on/with `Update`
+  - systems: `crate::ldtk_world::poll_ldtk_file_changes`, `derive_boss_sprite_metrics`, `refresh_actor_damageable_volumes`, `refresh_boss_damageable_volumes`, `refresh_breakable_damageable_volumes`, `derive_pogo_target_volumes`, `rebuild_feature_ecs_world_overlay`, `update_ecs_hazards`, `select_actor_targets`, `update_ecs_actors`, `update_ecs_npcs`, `sync_riders_to_mounts`, `sync_boss_encounter_phase`, `tick_boss_brains_system`, `crate::boss_encounter::steer_cut_rope_boss_under_anvil`, `update_ecs_bosses`, `sync_boss_actor_components`, `sync_actor_poses_from_feature_aabbs`
+  - sets: `crate::app::SandboxSet::WorldPrep`
+  - `crate::ldtk_world::poll_ldtk_file_changes`
+  - `derive_boss_sprite_metrics`
+  - `refresh_actor_damageable_volumes`
+  - `refresh_boss_damageable_volumes`
+  - `refresh_breakable_damageable_volumes`
+  - `derive_pogo_target_volumes`
+  - `rebuild_feature_ecs_world_overlay`
+  - `update_ecs_hazards`
+  - `select_actor_targets`
+  - `update_ecs_actors`
+  - `update_ecs_npcs`
+  - `sync_riders_to_mounts`
+  - `sync_boss_encounter_phase`
+  - `tick_boss_brains_system`
+  - `crate::boss_encounter::steer_cut_rope_boss_under_anvil`
+  - `update_ecs_bosses`
+  - `sync_boss_actor_components`
+  - `sync_actor_poses_from_feature_aabbs`
+  - `crate::app::SandboxSet::WorldPrep`
+- `crates/ambition_sandbox/src/content/features.rs:228` in `FeatureCollectionSchedulePlugin::build` - `add_systems` on/with `Update`
+  - systems: `magnetize_pickups`, `collect_ecs_pickups`, `crate::player::apply_player_heal_requests`
+  - sets: `crate::app::SandboxSet::FeatureCollection`
+  - `magnetize_pickups`
+  - `collect_ecs_pickups`
+  - `crate::player::apply_player_heal_requests`
+  - `crate::app::SandboxSet::FeatureCollection`
+- `crates/ambition_sandbox/src/content/features.rs:257` in `FeatureInteractionSchedulePlugin::build` - `add_systems` on/with `Update`
+  - systems: `interact_ecs_actors_and_switches`, `open_ecs_chests`, `update_ecs_breakables`, `update_ecs_falling_chests`, `sync_ecs_switches_from_save`, `crate::encounter::rebuild_encounter_switch_index`
+  - sets: `crate::app::SandboxSet::FeatureInteraction`
+  - `interact_ecs_actors_and_switches`
+  - `open_ecs_chests`
+  - `update_ecs_breakables`
+  - `update_ecs_falling_chests`
+  - `sync_ecs_switches_from_save`
+  - `crate::encounter::rebuild_encounter_switch_index`
+  - `crate::app::SandboxSet::FeatureInteraction`
+- `crates/ambition_sandbox/src/content/features.rs:286` in `FeatureViewSyncSchedulePlugin::build` - `add_systems` on/with `Update`
+  - systems: `rebuild_feature_view_index`
+  - sets: `crate::app::SandboxSet::FeatureViewSync`
+  - `rebuild_feature_view_index`
+  - `crate::app::SandboxSet::FeatureViewSync`
+- `crates/ambition_sandbox/src/dev/fps_overlay.rs:68` in `FpsOverlayPlugin::build` - `add_plugins` on/with `FrameTimeDiagnosticsPlugin::default()`
+  - `app`
+- `crates/ambition_sandbox/src/dev/fps_overlay.rs:70` in `FpsOverlayPlugin::build` - `add_systems` on/with `Update`
+  - systems: `sync_fps_overlay_state_from_settings`, `toggle_fps_overlay_on_f3`, `update_fps_overlay_text`, `update_fps_overlay_visibility`
+  - `sync_fps_overlay_state_from_settings`
+  - `toggle_fps_overlay_on_f3`
+  - `update_fps_overlay_text`
+  - `update_fps_overlay_visibility`
+- `crates/ambition_sandbox/src/dev/fps_overlay.rs:70` in `FpsOverlayPlugin::build` - `add_systems` on/with `Startup`
+  - systems: `spawn_fps_overlay`
+  - `spawn_fps_overlay`
+- `crates/ambition_sandbox/src/dev/fps_overlay.rs:70` in `FpsOverlayPlugin::build` - `init_resource` on/with `<none>`
+  - `app`
+  - `FpsOverlayState`
+- `crates/ambition_sandbox/src/dev/profiling.rs:169` in `phase_mark_appends_to_resource` - `insert_resource` on/with `StartupProfiler::default()`
+  - `app`
+- `crates/ambition_sandbox/src/dev/profiling.rs:170` in `phase_mark_appends_to_resource` - `add_systems` on/with `Update`
+  - systems: `phase_mark`
+  - `phase_mark`
+- `crates/ambition_sandbox/src/dev/profiling.rs:180` in `report_runs_once_even_if_called_twice` - `insert_resource` on/with `StartupProfiler::default()`
+  - `app`
+- `crates/ambition_sandbox/src/dev/profiling.rs:181` in `report_runs_once_even_if_called_twice` - `add_systems` on/with `Update`
+  - systems: `report_startup_phases`
+  - `report_startup_phases`
+- `crates/ambition_sandbox/src/dev/trace/plugin.rs:21` in `TraceSchedulePlugin::build` - `add_systems` on/with `Update`
+  - systems: `super::flush_pending_dump`
+  - sets: `SandboxSet::Trace`
+  - `super::record_frame_system`
+  - `super::flush_pending_dump`
+  - `SandboxSet::Trace`
+- `crates/ambition_sandbox/src/dialog/yarn_bindings.rs:188` in `YarnBindingsPlugin::build` - `init_resource` on/with `<none>`
+  - `app`
+  - `YarnStateMirror`
+- `crates/ambition_sandbox/src/dialog/yarn_bindings.rs:189` in `YarnBindingsPlugin::build` - `init_resource` on/with `<none>`
+  - `app`
+  - `YarnPresentationCue`
+- `crates/ambition_sandbox/src/dialog/yarn_bindings.rs:190` in `YarnBindingsPlugin::build` - `add_systems` on/with `Update`
+  - systems: `clear_yarn_presentation_cue`, `refresh_yarn_state_mirror`
+  - `clear_yarn_presentation_cue`
+  - `refresh_yarn_state_mirror`
+- `crates/ambition_sandbox/src/dialog/yarn_bindings.rs:587` in `refresh_mirrors_player_inventory_into_the_snapshot` - `init_resource` on/with `<none>`
+  - `app`
+  - `YarnStateMirror`
+- `crates/ambition_sandbox/src/dialog/yarn_bindings.rs:588` in `refresh_mirrors_player_inventory_into_the_snapshot` - `insert_resource` on/with `PlayerInventory::starter()`
+  - `PlayerInventory::starter`
+  - `app`
+- `crates/ambition_sandbox/src/dialog/yarn_bindings.rs:589` in `refresh_mirrors_player_inventory_into_the_snapshot` - `add_systems` on/with `Update`
+  - systems: `refresh_yarn_state_mirror`
+  - `refresh_yarn_state_mirror`
+- `crates/ambition_sandbox/src/dialog/yarn_bridge.rs:66` in `YarnBridgePlugin::build` - `add_systems` on/with `Update`
+  - systems: `spawn_dialogue_runner`
+  - run if: `YarnProject`
+  - `spawn_dialogue_runner`
+  - `YarnProject`
+- `crates/ambition_sandbox/src/dialog/yarn_bridge.rs:70` in `YarnBridgePlugin::build` - `add_systems` on/with `Update`
+  - systems: `dispatch_pending_dialog_requests`
+  - `dispatch_pending_dialog_requests`
+- `crates/ambition_sandbox/src/dialog/yarn_bridge.rs:98` in `spawn_dialogue_runner` - `insert_resource` on/with `DialogueRunnerEntity(entity)`
+  - `DialogueRunnerEntity`
+  - `entity`
+  - `commands`
+- `crates/ambition_sandbox/src/dive.rs:171` in `test_app` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::audio::SfxMessage`
+- `crates/ambition_sandbox/src/dive.rs:172` in `test_app` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::features::HitEvent`
+- `crates/ambition_sandbox/src/dive.rs:173` in `test_app` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/dive.rs:174` in `test_app` - `add_systems` on/with `Update`
+  - systems: `fire_dive_system`
+  - `fire_dive_system`
+- `crates/ambition_sandbox/src/dive.rs:211` in `dive_lunges_the_player_forward_and_cuts_a_corridor` - `init_resource` on/with `<none>`
+  - `app`
+  - `CapturedHits`
+- `crates/ambition_sandbox/src/dive.rs:212` in `dive_lunges_the_player_forward_and_cuts_a_corridor` - `add_systems` on/with `Update`
+  - systems: `capture_hits`
+  - `capture_hits`
+  - `fire_dive_system`
+- `crates/ambition_sandbox/src/dive.rs:248` in `downward_dive_does_not_embed_in_the_floor` - `insert_resource` on/with `crate::GameWorld(ae::World::new( "test", ae::Vec2::new(600.0, 600.0), ae::Vec2::new(100.0, 100.0), vec![ae::Block::solid( "floor", ae::Vec2::new(0.0, 200.0),...`
+  - `crate::GameWorld`
+  - `vec`
+  - `ae`
+  - `Block`
+  - `solid`
+  - `app`
+- `crates/ambition_sandbox/src/dive.rs:279` in `no_dive_without_attack_or_item` - `init_resource` on/with `<none>`
+  - `app`
+  - `CapturedHits`
+- `crates/ambition_sandbox/src/dive.rs:280` in `no_dive_without_attack_or_item` - `add_systems` on/with `Update`
+  - systems: `capture_hits`
+  - `capture_hits`
+  - `fire_dive_system`
+- `crates/ambition_sandbox/src/dive.rs:294` in `dive_costs_mana_and_is_blocked_when_empty` - `init_resource` on/with `<none>`
+  - `app`
+  - `CapturedHits`
+- `crates/ambition_sandbox/src/dive.rs:295` in `dive_costs_mana_and_is_blocked_when_empty` - `add_systems` on/with `Update`
+  - systems: `capture_hits`
+  - `capture_hits`
+  - `fire_dive_system`
+- `crates/ambition_sandbox/src/encounter.rs:52` in `EncounterSimulationSchedulePlugin::build` - `add_systems` on/with `Update`
+  - systems: `crate::world::platforms::sync_moving_platform`, `update_encounters_from_world`, `crate::features::apply_gameplay_banner_requests`, `crate::features::tick_gameplay_banner`
+  - sets: `crate::app::SandboxSet::EncounterSimulation`
+  - `crate::world::platforms::sync_moving_platform`
+  - `update_encounters_from_world`
+  - `crate::features::apply_gameplay_banner_requests`
+  - `crate::features::tick_gameplay_banner`
+  - `crate::app::SandboxSet::EncounterSimulation`
+- `crates/ambition_sandbox/src/enemy_projectile/systems.rs:251` in `player_faction_shot_damages_an_overlapping_enemy_and_expires` - `insert_resource` on/with `crate::GameWorld(ae::World::new( "phys", ae::Vec2::new(800.0, 800.0), ae::Vec2::new(400.0, 400.0), vec![ae::Block::solid( "floor", ae::Vec2::new(0.0, 780.0),...`
+  - `crate::GameWorld`
+  - `vec`
+  - `ae`
+  - `Block`
+  - `solid`
+  - `app`
+- `crates/ambition_sandbox/src/enemy_projectile/systems.rs:261` in `player_faction_shot_damages_an_overlapping_enemy_and_expires` - `insert_resource` on/with `crate::WorldTime { raw_dt: 1.0 / 60.0, scaled_dt: 1.0 / 60.0, }`
+  - `crate::WorldTime`
+  - `raw_dt`
+  - `scaled_dt`
+  - `app`
+- `crates/ambition_sandbox/src/enemy_projectile/systems.rs:265` in `player_faction_shot_damages_an_overlapping_enemy_and_expires` - `add_message` on/with `<none>`
+  - `app`
+  - `HitEvent`
+- `crates/ambition_sandbox/src/enemy_projectile/systems.rs:266` in `player_faction_shot_damages_an_overlapping_enemy_and_expires` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/enemy_projectile/systems.rs:267` in `player_faction_shot_damages_an_overlapping_enemy_and_expires` - `add_message` on/with `<none>`
+  - `app`
+  - `VfxMessage`
+- `crates/ambition_sandbox/src/enemy_projectile/systems.rs:268` in `player_faction_shot_damages_an_overlapping_enemy_and_expires` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::player::PlayerHealRequested`
+- `crates/ambition_sandbox/src/enemy_projectile/systems.rs:269` in `player_faction_shot_damages_an_overlapping_enemy_and_expires` - `init_resource` on/with `<none>`
+  - `app`
+  - `EnemyProjectileState`
+- `crates/ambition_sandbox/src/enemy_projectile/systems.rs:270` in `player_faction_shot_damages_an_overlapping_enemy_and_expires` - `init_resource` on/with `<none>`
+  - `app`
+  - `CapturedHits`
+- `crates/ambition_sandbox/src/enemy_projectile/systems.rs:271` in `player_faction_shot_damages_an_overlapping_enemy_and_expires` - `add_systems` on/with `Update`
+  - systems: `update_enemy_projectiles`, `capture_hits`
+  - `update_enemy_projectiles`
+  - `capture_hits`
+- `crates/ambition_sandbox/src/enemy_projectile/systems.rs:340` in `a_parried_enemy_shot_flips_to_player_faction_and_reverses` - `insert_resource` on/with `crate::GameWorld(ae::World::new( "phys", ae::Vec2::new(800.0, 800.0), ae::Vec2::new(400.0, 400.0), vec![], ))`
+  - `crate::GameWorld`
+  - `vec`
+  - `app`
+- `crates/ambition_sandbox/src/enemy_projectile/systems.rs:346` in `a_parried_enemy_shot_flips_to_player_faction_and_reverses` - `insert_resource` on/with `crate::WorldTime { raw_dt: 1.0 / 60.0, scaled_dt: 1.0 / 60.0, }`
+  - `crate::WorldTime`
+  - `raw_dt`
+  - `scaled_dt`
+  - `app`
+- `crates/ambition_sandbox/src/enemy_projectile/systems.rs:350` in `a_parried_enemy_shot_flips_to_player_faction_and_reverses` - `add_message` on/with `<none>`
+  - `app`
+  - `HitEvent`
+- `crates/ambition_sandbox/src/enemy_projectile/systems.rs:351` in `a_parried_enemy_shot_flips_to_player_faction_and_reverses` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/enemy_projectile/systems.rs:352` in `a_parried_enemy_shot_flips_to_player_faction_and_reverses` - `add_message` on/with `<none>`
+  - `app`
+  - `VfxMessage`
+- `crates/ambition_sandbox/src/enemy_projectile/systems.rs:353` in `a_parried_enemy_shot_flips_to_player_faction_and_reverses` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::player::PlayerHealRequested`
+- `crates/ambition_sandbox/src/enemy_projectile/systems.rs:354` in `a_parried_enemy_shot_flips_to_player_faction_and_reverses` - `init_resource` on/with `<none>`
+  - `app`
+  - `EnemyProjectileState`
+- `crates/ambition_sandbox/src/enemy_projectile/systems.rs:355` in `a_parried_enemy_shot_flips_to_player_faction_and_reverses` - `add_systems` on/with `Update`
+  - systems: `update_enemy_projectiles`
+  - `update_enemy_projectiles`
+- `crates/ambition_sandbox/src/falling_sand.rs:165` in `FallingSandRoomPlugin::build` - `add_systems` on/with `Update`
+  - systems: `log_falling_sand_diagnostics`
+  - `log_falling_sand_diagnostics`
+- `crates/ambition_sandbox/src/falling_sand.rs:165` in `FallingSandRoomPlugin::build` - `add_systems` on/with `Update`
+  - systems: `capture_falling_sand_switch_interactions`, `sync_falling_sand_switch_visuals`
+  - sets: `crate::app::SandboxSet::GameplayEffects`
+  - `capture_falling_sand_switch_interactions`
+  - `sync_falling_sand_switch_visuals`
+  - `crate::app::SandboxSet::GameplayEffects`
+- `crates/ambition_sandbox/src/falling_sand.rs:165` in `FallingSandRoomPlugin::build` - `add_systems` on/with `Update`
+  - systems: `sync_falling_sand_room_state`, `seed_falling_sand_room_boundaries`, `sync_falling_sand_spout_nozzles`, `emit_falling_sand_spouts`, `animate_falling_sand_stream_particles`, `project_particles_to_movement_world`, `grant_room_swim_controls`
+  - sets: `crate::app::SandboxSet::WorldPrep`
+  - `sync_falling_sand_room_state`
+  - `seed_falling_sand_room_boundaries`
+  - `sync_falling_sand_spout_nozzles`
+  - `emit_falling_sand_spouts`
+  - `animate_falling_sand_stream_particles`
+  - `project_particles_to_movement_world`
+  - `grant_room_swim_controls`
+  - `crate::app::SandboxSet::WorldPrep`
+- `crates/ambition_sandbox/src/falling_sand.rs:165` in `FallingSandRoomPlugin::build` - `add_systems` on/with `Startup`
+  - systems: `setup_particle_types`
+  - `setup_particle_types`
+- `crates/ambition_sandbox/src/falling_sand.rs:165` in `FallingSandRoomPlugin::build` - `add_plugins` on/with `FallingSandPlugin::default() .with_chunk_size(64) .with_map_size(32)`
+  - `with_chunk_size`
+  - `with_map_size`
+  - `app`
+  - `FallingSandRoomState`
+- `crates/ambition_sandbox/src/falling_sand.rs:165` in `FallingSandRoomPlugin::build` - `init_resource` on/with `<none>`
+  - `app`
+  - `FallingSandRoomState`
+- `crates/ambition_sandbox/src/grapple.rs:132` in `test_app` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::audio::SfxMessage`
+- `crates/ambition_sandbox/src/grapple.rs:133` in `test_app` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::presentation::fx::VfxMessage`
+- `crates/ambition_sandbox/src/grapple.rs:134` in `test_app` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/grapple.rs:136` in `test_app` - `insert_resource` on/with `w`
+  - `w`
+  - `app`
+- `crates/ambition_sandbox/src/grapple.rs:138` in `test_app` - `add_systems` on/with `Update`
+  - systems: `grapple_system`
+  - `grapple_system`
+- `crates/ambition_sandbox/src/gravity_grenade.rs:108` in `a_thrown_grenade_arms_but_a_resting_one_does_not` - `add_systems` on/with `Update`
+  - systems: `arm_thrown_gravity_grenades`
+  - `arm_thrown_gravity_grenades`
+- `crates/ambition_sandbox/src/gravity_grenade.rs:128` in `fuse_expiry_opens_a_temporary_up_well_and_despawns` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::audio::SfxMessage`
+- `crates/ambition_sandbox/src/gravity_grenade.rs:129` in `fuse_expiry_opens_a_temporary_up_well_and_despawns` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::presentation::fx::VfxMessage`
+- `crates/ambition_sandbox/src/gravity_grenade.rs:132` in `fuse_expiry_opens_a_temporary_up_well_and_despawns` - `insert_resource` on/with `wt`
+  - `wt`
+  - `app`
+- `crates/ambition_sandbox/src/gravity_grenade.rs:133` in `fuse_expiry_opens_a_temporary_up_well_and_despawns` - `add_systems` on/with `Update`
+  - systems: `tick_gravity_grenade_fuses`
+  - `tick_gravity_grenade_fuses`
+- `crates/ambition_sandbox/src/headless.rs:125` in `run_headless` - `add_plugins` on/with `MinimalPlugins`
+  - `MinimalPlugins`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:126` in `run_headless` - `add_plugins` on/with `AssetPlugin::default()`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:127` in `run_headless` - `add_plugins` on/with `ImagePlugin::default()`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:128` in `run_headless` - `add_plugins` on/with `TransformPlugin`
+  - `TransformPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:129` in `run_headless` - `add_plugins` on/with `StatesPlugin`
+  - `StatesPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:133` in `run_headless` - `add_plugins` on/with `SandboxSimulationPlugin`
+  - `SandboxSimulationPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:205` in `sim_emits_sfx_reset_when_control_frame_requests_reset` - `add_plugins` on/with `MinimalPlugins`
+  - `MinimalPlugins`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:206` in `sim_emits_sfx_reset_when_control_frame_requests_reset` - `add_plugins` on/with `AssetPlugin::default()`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:207` in `sim_emits_sfx_reset_when_control_frame_requests_reset` - `add_plugins` on/with `ImagePlugin::default()`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:208` in `sim_emits_sfx_reset_when_control_frame_requests_reset` - `add_plugins` on/with `TransformPlugin`
+  - `TransformPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:209` in `sim_emits_sfx_reset_when_control_frame_requests_reset` - `add_plugins` on/with `StatesPlugin`
+  - `StatesPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:212` in `sim_emits_sfx_reset_when_control_frame_requests_reset` - `add_plugins` on/with `crate::app::SandboxSimulationPlugin`
+  - `crate::app::SandboxSimulationPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:247` in `sim_completes_60_ticks_with_counter_intact` - `add_plugins` on/with `MinimalPlugins`
+  - `MinimalPlugins`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:248` in `sim_completes_60_ticks_with_counter_intact` - `add_plugins` on/with `AssetPlugin::default()`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:249` in `sim_completes_60_ticks_with_counter_intact` - `add_plugins` on/with `ImagePlugin::default()`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:250` in `sim_completes_60_ticks_with_counter_intact` - `add_plugins` on/with `TransformPlugin`
+  - `TransformPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:251` in `sim_completes_60_ticks_with_counter_intact` - `add_plugins` on/with `StatesPlugin`
+  - `StatesPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:253` in `sim_completes_60_ticks_with_counter_intact` - `add_plugins` on/with `crate::app::SandboxSimulationPlugin`
+  - `crate::app::SandboxSimulationPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:281` in `sim_includes_brain_plugin_registration` - `add_plugins` on/with `MinimalPlugins`
+  - `MinimalPlugins`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:282` in `sim_includes_brain_plugin_registration` - `add_plugins` on/with `AssetPlugin::default()`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:283` in `sim_includes_brain_plugin_registration` - `add_plugins` on/with `ImagePlugin::default()`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:284` in `sim_includes_brain_plugin_registration` - `add_plugins` on/with `TransformPlugin`
+  - `TransformPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:285` in `sim_includes_brain_plugin_registration` - `add_plugins` on/with `StatesPlugin`
+  - `StatesPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:287` in `sim_includes_brain_plugin_registration` - `add_plugins` on/with `crate::app::SandboxSimulationPlugin`
+  - `crate::app::SandboxSimulationPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:312` in `sim_accumulates_messages_across_repeated_attacks` - `add_plugins` on/with `MinimalPlugins`
+  - `MinimalPlugins`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:313` in `sim_accumulates_messages_across_repeated_attacks` - `add_plugins` on/with `AssetPlugin::default()`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:314` in `sim_accumulates_messages_across_repeated_attacks` - `add_plugins` on/with `ImagePlugin::default()`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:315` in `sim_accumulates_messages_across_repeated_attacks` - `add_plugins` on/with `TransformPlugin`
+  - `TransformPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:316` in `sim_accumulates_messages_across_repeated_attacks` - `add_plugins` on/with `StatesPlugin`
+  - `StatesPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:318` in `sim_accumulates_messages_across_repeated_attacks` - `add_plugins` on/with `crate::app::SandboxSimulationPlugin`
+  - `crate::app::SandboxSimulationPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:349` in `sim_spawns_player_with_brain_and_action_set` - `add_plugins` on/with `MinimalPlugins`
+  - `MinimalPlugins`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:350` in `sim_spawns_player_with_brain_and_action_set` - `add_plugins` on/with `AssetPlugin::default()`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:351` in `sim_spawns_player_with_brain_and_action_set` - `add_plugins` on/with `ImagePlugin::default()`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:352` in `sim_spawns_player_with_brain_and_action_set` - `add_plugins` on/with `TransformPlugin`
+  - `TransformPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:353` in `sim_spawns_player_with_brain_and_action_set` - `add_plugins` on/with `StatesPlugin`
+  - `StatesPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:355` in `sim_spawns_player_with_brain_and_action_set` - `add_plugins` on/with `crate::app::SandboxSimulationPlugin`
+  - `crate::app::SandboxSimulationPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:384` in `sim_emits_action_messages_when_player_attacks` - `add_plugins` on/with `MinimalPlugins`
+  - `MinimalPlugins`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:385` in `sim_emits_action_messages_when_player_attacks` - `add_plugins` on/with `AssetPlugin::default()`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:386` in `sim_emits_action_messages_when_player_attacks` - `add_plugins` on/with `ImagePlugin::default()`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:387` in `sim_emits_action_messages_when_player_attacks` - `add_plugins` on/with `TransformPlugin`
+  - `TransformPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:388` in `sim_emits_action_messages_when_player_attacks` - `add_plugins` on/with `StatesPlugin`
+  - `StatesPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/headless.rs:390` in `sim_emits_action_messages_when_player_attacks` - `add_plugins` on/with `crate::app::SandboxSimulationPlugin`
+  - `crate::app::SandboxSimulationPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/host/mobile_input/bevy_plugin.rs:101` in `TouchControlsPlugin::build` - `add_systems` on/with `PostUpdate`
+  - systems: `drive_joystick_knob_from_axis`
+  - `drive_joystick_knob_from_axis`
+  - `JoystickSystems::UpdateUI`
+- `crates/ambition_sandbox/src/host/mobile_input/bevy_plugin.rs:101` in `TouchControlsPlugin::build` - `add_systems` on/with `Update`
+  - systems: `render_touch_button_text`, `sync_button_pressed_visual`
+  - sets: `crate::player::affordances::AffordancesSystemSet::Compute`
+  - `update_button_verb_from_affordances`
+  - `crate::player::affordances::AffordancesSystemSet::Compute`
+  - `update_button_glyph_from_active_input`
+  - `update_button_pressed_from_actions`
+  - `render_touch_button_text`
+  - `sync_button_pressed_visual`
+- `crates/ambition_sandbox/src/host/mobile_input/bevy_plugin.rs:101` in `TouchControlsPlugin::build` - `add_systems` on/with `Update`
+  - systems: `tag_virtual_joystick_root`, `sync_touch_visibility_from_settings`, `sync_touch_ui_visibility`, `read_joystick_messages`, `update_buttons_from_interactions`, `fold_to_menu_control_frame`, `fold_to_control_frame`
+  - `tag_virtual_joystick_root`
+  - `sync_touch_visibility_from_settings`
+  - `sync_touch_ui_visibility`
+  - `read_joystick_messages`
+  - `update_buttons_from_interactions`
+  - `fold_to_menu_control_frame`
+  - `crate::app::populate_menu_control_frame_from_actions`
+  - `crate::app::apply_menu_frame_to_cutscene_request`
+  - `crate::pause_menu::pause_menu_toggle`
+  - `fold_to_control_frame`
+  - `crate::app::populate_control_frame_from_actions`
+  - `crate::app::player_control_system`
+- `crates/ambition_sandbox/src/host/mobile_input/bevy_plugin.rs:101` in `TouchControlsPlugin::build` - `add_systems` on/with `Startup`
+  - systems: `spawn_touch_buttons`, `spawn_touch_joysticks`
+  - `spawn_touch_buttons`
+  - `spawn_touch_joysticks`
+- `crates/ambition_sandbox/src/host/mobile_input/bevy_plugin.rs:101` in `TouchControlsPlugin::build` - `insert_resource` on/with `TouchControlsVisible::default()`
+  - `app`
+- `crates/ambition_sandbox/src/host/mobile_input/bevy_plugin.rs:101` in `TouchControlsPlugin::build` - `insert_resource` on/with `TouchButtonEdges::default()`
+  - `app`
+- `crates/ambition_sandbox/src/host/mobile_input/bevy_plugin.rs:101` in `TouchControlsPlugin::build` - `insert_resource` on/with `MenuTouchGestureState::default()`
+  - `app`
+- `crates/ambition_sandbox/src/host/mobile_input/bevy_plugin.rs:101` in `TouchControlsPlugin::build` - `insert_resource` on/with `MobileTouchState::default()`
+  - `app`
+- `crates/ambition_sandbox/src/host/mobile_input/bevy_plugin.rs:101` in `TouchControlsPlugin::build` - `add_plugins` on/with `VirtualJoystickPlugin::<MobileStick>::default()`
+  - `app`
+- `crates/ambition_sandbox/src/host/platform/android.rs:44` in `AndroidPlatformPlugin::build` - `init_resource` on/with `<none>`
+  - `_app`
+  - `AndroidSuspendState`
+- `crates/ambition_sandbox/src/host/platform/android.rs:45` in `AndroidPlatformPlugin::build` - `add_systems` on/with `PreUpdate`
+  - systems: `detect_android_suspend_state`
+  - `detect_android_suspend_state`
+- `crates/ambition_sandbox/src/host/platform/android.rs:46` in `AndroidPlatformPlugin::build` - `add_systems` on/with `Update`
+  - systems: `apply_android_suspend_to_game_mode`
+  - `apply_android_suspend_to_game_mode`
+- `crates/ambition_sandbox/src/host/platform/android.rs:48` in `AndroidPlatformPlugin::build` - `add_systems` on/with `Update`
+  - systems: `audio_lifecycle::apply_android_suspend_to_audio`
+  - `audio_lifecycle::apply_android_suspend_to_audio`
+- `crates/ambition_sandbox/src/host/platform.rs:23` in `PlatformPlugin::build` - `add_plugins` on/with `android::AndroidPlatformPlugin`
+  - `android::AndroidPlatformPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/host/platform.rs:26` in `PlatformPlugin::build` - `add_plugins` on/with `desktop::DesktopPlatformPlugin`
+  - `desktop::DesktopPlatformPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/hud_overlay.rs:218` in `mana_regenerates_over_time_but_clamps_to_max` - `insert_resource` on/with `crate::WorldTime { raw_dt: 1.0, scaled_dt: 1.0, }`
+  - `crate::WorldTime`
+  - `raw_dt`
+  - `scaled_dt`
+  - `app`
+- `crates/ambition_sandbox/src/hud_overlay.rs:222` in `mana_regenerates_over_time_but_clamps_to_max` - `add_systems` on/with `Update`
+  - systems: `regen_player_mana`
+  - `regen_player_mana`
+- `crates/ambition_sandbox/src/intro/plugin.rs:81` in `IntroPlugin::build` - `add_systems` on/with `Update`
+  - systems: `install_intro_cutscenes_system`, `load_intro_npc_sprites_system`, `load_intro_prop_sprites_system`, `install_intro_banter_system`, `install_intro_gated_zones_system`, `super::route_state::emit_intro_flag_chains`, `super::route_state::sync_intro_flag_gated_lock_walls`
+  - `install_intro_cutscenes_system`
+  - `load_intro_npc_sprites_system`
+  - `load_intro_prop_sprites_system`
+  - `install_intro_banter_system`
+  - `install_intro_gated_zones_system`
+  - `super::route_state::emit_intro_flag_chains`
+  - `super::route_state::sync_intro_flag_gated_lock_walls`
+- `crates/ambition_sandbox/src/intro/plugin.rs:81` in `IntroPlugin::build` - `init_resource` on/with `<none>`
+  - `app`
+  - `IntroSpritesInstalled`
+  - `IntroPropSpritesInstalled`
+  - `IntroCutscenesInstalled`
+  - `IntroBanterInstalled`
+  - `IntroGatedZonesInstalled`
+- `crates/ambition_sandbox/src/intro/plugin.rs:81` in `IntroPlugin::build` - `init_resource` on/with `<none>`
+  - `app`
+  - `IntroSpritesInstalled`
+  - `IntroPropSpritesInstalled`
+  - `IntroCutscenesInstalled`
+  - `IntroBanterInstalled`
+- `crates/ambition_sandbox/src/intro/plugin.rs:81` in `IntroPlugin::build` - `init_resource` on/with `<none>`
+  - `app`
+  - `IntroSpritesInstalled`
+  - `IntroPropSpritesInstalled`
+  - `IntroCutscenesInstalled`
+- `crates/ambition_sandbox/src/intro/plugin.rs:81` in `IntroPlugin::build` - `init_resource` on/with `<none>`
+  - `app`
+  - `IntroSpritesInstalled`
+  - `IntroPropSpritesInstalled`
+- `crates/ambition_sandbox/src/intro/plugin.rs:81` in `IntroPlugin::build` - `init_resource` on/with `<none>`
+  - `app`
+  - `IntroSpritesInstalled`
+- `crates/ambition_sandbox/src/intro/route_state.rs:355` in `emit_chains_promotes_bob_survey_to_private_marks` - `insert_resource` on/with `SandboxSave::default()`
+  - `app`
+- `crates/ambition_sandbox/src/intro/route_state.rs:356` in `emit_chains_promotes_bob_survey_to_private_marks` - `insert_resource` on/with `QuestRegistry::default()`
+  - `app`
+- `crates/ambition_sandbox/src/intro/route_state.rs:357` in `emit_chains_promotes_bob_survey_to_private_marks` - `add_message` on/with `<none>`
+  - `app`
+  - `SetFlagRequested`
+- `crates/ambition_sandbox/src/intro/route_state.rs:358` in `emit_chains_promotes_bob_survey_to_private_marks` - `add_systems` on/with `Update`
+  - systems: `super::emit_intro_flag_chains`, `apply_flag_effects`
+  - `super::emit_intro_flag_chains`
+  - `apply_flag_effects`
+- `crates/ambition_sandbox/src/intro/route_state.rs:400` in `cartography_quest_advances_through_alice_bob_p5` - `insert_resource` on/with `SandboxSave::default()`
+  - `app`
+- `crates/ambition_sandbox/src/intro/route_state.rs:408` in `cartography_quest_advances_through_alice_bob_p5` - `insert_resource` on/with `registry`
+  - `registry`
+  - `app`
+- `crates/ambition_sandbox/src/intro/route_state.rs:409` in `cartography_quest_advances_through_alice_bob_p5` - `add_message` on/with `<none>`
+  - `app`
+  - `SetFlagRequested`
+- `crates/ambition_sandbox/src/intro/route_state.rs:410` in `cartography_quest_advances_through_alice_bob_p5` - `add_message` on/with `<none>`
+  - `app`
+  - `QuestAdvanceRequested`
+- `crates/ambition_sandbox/src/intro/route_state.rs:416` in `cartography_quest_advances_through_alice_bob_p5` - `add_systems` on/with `Update`
+  - systems: `super::emit_intro_flag_chains`, `apply_flag_effects`, `apply_quest_effects`, `apply_quest_advance_events`
+  - `super::emit_intro_flag_chains`
+  - `apply_flag_effects`
+  - `apply_quest_effects`
+  - `apply_quest_advance_events`
+- `crates/ambition_sandbox/src/intro/route_state.rs:496` in `emit_chains_promotes_p5_to_route_memory` - `insert_resource` on/with `SandboxSave::default()`
+  - `app`
+- `crates/ambition_sandbox/src/intro/route_state.rs:497` in `emit_chains_promotes_p5_to_route_memory` - `insert_resource` on/with `QuestRegistry::default()`
+  - `app`
+- `crates/ambition_sandbox/src/intro/route_state.rs:498` in `emit_chains_promotes_p5_to_route_memory` - `add_message` on/with `<none>`
+  - `app`
+  - `SetFlagRequested`
+- `crates/ambition_sandbox/src/intro/route_state.rs:499` in `emit_chains_promotes_p5_to_route_memory` - `add_systems` on/with `Update`
+  - systems: `super::emit_intro_flag_chains`, `apply_flag_effects`
+  - `super::emit_intro_flag_chains`
+  - `apply_flag_effects`
+- `crates/ambition_sandbox/src/inventory/effects.rs:42` in `app` - `init_resource` on/with `<none>`
+  - `app`
+  - `HealCount`
+- `crates/ambition_sandbox/src/inventory/effects.rs:43` in `app` - `add_message` on/with `<none>`
+  - `app`
+  - `PlayerHealRequested`
+- `crates/ambition_sandbox/src/inventory/effects.rs:44` in `app` - `add_systems` on/with `Update`
+  - systems: `use_one_health_potion`, `record_heals`
+  - `use_one_health_potion`
+  - `record_heals`
+- `crates/ambition_sandbox/src/inventory/effects.rs:53` in `using_a_health_potion_decrements_it_and_emits_a_heal` - `insert_resource` on/with `inv`
+  - `inv`
+  - `app`
+- `crates/ambition_sandbox/src/inventory/effects.rs:68` in `using_a_health_potion_with_none_left_is_a_noop` - `insert_resource` on/with `PlayerInventory::default()`
+  - `app`
+- `crates/ambition_sandbox/src/inventory_persist.rs:79` in `app_with` - `insert_resource` on/with `save`
+  - `save`
+  - `app`
+- `crates/ambition_sandbox/src/inventory_persist.rs:80` in `app_with` - `insert_resource` on/with `owned`
+  - `owned`
+  - `app`
+- `crates/ambition_sandbox/src/inventory_persist.rs:81` in `app_with` - `init_resource` on/with `<none>`
+  - `app`
+  - `InventoryRestored`
+- `crates/ambition_sandbox/src/inventory_persist.rs:82` in `app_with` - `add_systems` on/with `Update`
+  - systems: `restore_inventory_from_save`, `persist_inventory_to_save`
+  - `restore_inventory_from_save`
+  - `persist_inventory_to_save`
+- `crates/ambition_sandbox/src/item_pickup.rs:39` in `ItemPickupSimulationPlugin::build` - `add_systems` on/with `Update`
+  - systems: `crate::shrine::heal_save_shrine_system`, `crate::physics::resolve_active_gravity`, `crate::portal::arm_portal_pickups`, `pickup_held_item_system`, `fire_held_ranged_system`, `held_projectile_step`, `crate::puppy_slug_gun::fire_puppy_slug_gun_system`, `throw_held_item_system`, `ground_item_physics`, `crate::portal::pickup_portal_gun_system`
+  - sets: `crate::app::SandboxSet::PlayerSimulation`
+  - run if: `crate::gameplay_allowed`
+  - `crate::shrine::heal_save_shrine_system`
+  - `crate::gameplay_allowed`
+  - `crate::physics::resolve_active_gravity`
+  - `crate::portal::arm_portal_pickups`
+  - `pickup_held_item_system`
+  - `fire_held_ranged_system`
+  - `held_projectile_step`
+  - `crate::puppy_slug_gun::fire_puppy_slug_gun_system`
+  - `throw_held_item_system`
+  - `ground_item_physics`
+  - `crate::portal::pickup_portal_gun_system`
+  - `crate::app::SandboxSet::PlayerSimulation`
+- `crates/ambition_sandbox/src/item_pickup.rs:64` in `ItemPickupSimulationPlugin::build` - `add_systems` on/with `Update`
+  - systems: `crate::bomb::arm_thrown_bombs`, `crate::bomb::tick_bomb_fuses`, `crate::gravity_grenade::arm_thrown_gravity_grenades`, `crate::gravity_grenade::tick_gravity_grenade_fuses`, `crate::physics::tick_temporary_zones`
+  - sets: `crate::app::SandboxSet::PlayerSimulation`
+  - run if: `crate::gameplay_allowed`
+  - `crate::bomb::arm_thrown_bombs`
+  - `crate::gameplay_allowed`
+  - `crate::bomb::tick_bomb_fuses`
+  - `crate::gravity_grenade::arm_thrown_gravity_grenades`
+  - `crate::gravity_grenade::tick_gravity_grenade_fuses`
+  - `crate::physics::tick_temporary_zones`
+  - `crate::app::SandboxSet::PlayerSimulation`
+  - `ground_item_physics`
+- `crates/ambition_sandbox/src/item_pickup.rs:82` in `ItemPickupSimulationPlugin::build` - `add_systems` on/with `Update`
+  - systems: `crate::mark_recall::mark_recall_system`, `crate::blink::blink_system`, `crate::grapple::grapple_system`, `crate::shockwave::fire_shockwave_system`, `crate::volley::fire_volley_system`, `crate::beam::fire_beam_system`, `crate::vortex::fire_vortex_system`, `crate::vortex::update_vortex_wells`, `crate::sentry::fire_sentry_system`, `crate::sentry::update_sentries`, `crate::dive::fire_dive_system`, `crate::meteor::fire_meteor_system`, `crate::ability_cooldown::tick_ability_cooldown`
+  - sets: `crate::app::SandboxSet::PlayerSimulation`
+  - run if: `crate::gameplay_allowed`
+  - `crate::mark_recall::mark_recall_system`
+  - `crate::gameplay_allowed`
+  - `crate::blink::blink_system`
+  - `crate::grapple::grapple_system`
+  - `crate::shockwave::fire_shockwave_system`
+  - `crate::volley::fire_volley_system`
+  - `crate::beam::fire_beam_system`
+  - `crate::vortex::fire_vortex_system`
+  - `crate::vortex::update_vortex_wells`
+  - `crate::sentry::fire_sentry_system`
+  - `crate::sentry::update_sentries`
+  - `crate::dive::fire_dive_system`
+  - `crate::meteor::fire_meteor_system`
+  - `crate::ability_cooldown::tick_ability_cooldown`
+  - `crate::app::SandboxSet::PlayerSimulation`
+  - `ground_item_physics`
+- `crates/ambition_sandbox/src/item_pickup.rs:698` in `load_item_art` - `insert_resource` on/with `ItemArt { axe: assets.load("sprites/props/axe.png"), javelin: assets.load("sprites/props/javelin.png"), gunsword: assets.load("sprites/props/gunsword.png"), ...`
+  - `ItemArt`
+  - `axe`
+  - `assets`
+  - `javelin`
+  - `gunsword`
+  - `gauntlets`
+  - `commands`
+- `crates/ambition_sandbox/src/item_pickup.rs:906` in `attack_picks_up_axe_and_grants_its_swing_then_throw_restores` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/item_pickup.rs:907` in `attack_picks_up_axe_and_grants_its_swing_then_throw_restores` - `add_systems` on/with `Update`
+  - systems: `pickup_held_item_system`, `throw_held_item_system`
+  - `pickup_held_item_system`
+  - `throw_held_item_system`
+- `crates/ambition_sandbox/src/item_pickup.rs:973` in `gunsword_pickup_swaps_to_ranged_and_attack_fires_a_bolt` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::audio::SfxMessage`
+- `crates/ambition_sandbox/src/item_pickup.rs:974` in `gunsword_pickup_swaps_to_ranged_and_attack_fires_a_bolt` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/item_pickup.rs:975` in `gunsword_pickup_swaps_to_ranged_and_attack_fires_a_bolt` - `add_systems` on/with `Update`
+  - systems: `pickup_held_item_system`, `fire_held_ranged_system`
+  - `pickup_held_item_system`
+  - `fire_held_ranged_system`
+- `crates/ambition_sandbox/src/item_pickup.rs:1026` in `pickup_consumes_the_attack_press` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/item_pickup.rs:1027` in `pickup_consumes_the_attack_press` - `add_systems` on/with `Update`
+  - systems: `pickup_held_item_system`
+  - `pickup_held_item_system`
+- `crates/ambition_sandbox/src/item_pickup.rs:1050` in `fireball_shot_is_tagged_to_explode_unlike_a_plain_bolt` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::audio::SfxMessage`
+- `crates/ambition_sandbox/src/item_pickup.rs:1051` in `fireball_shot_is_tagged_to_explode_unlike_a_plain_bolt` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/item_pickup.rs:1052` in `fireball_shot_is_tagged_to_explode_unlike_a_plain_bolt` - `add_systems` on/with `Update`
+  - systems: `fire_held_ranged_system`
+  - `fire_held_ranged_system`
+- `crates/ambition_sandbox/src/item_pickup.rs:1107` in `a_plain_ranged_bolt_does_not_explode` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::audio::SfxMessage`
+- `crates/ambition_sandbox/src/item_pickup.rs:1108` in `a_plain_ranged_bolt_does_not_explode` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/item_pickup.rs:1109` in `a_plain_ranged_bolt_does_not_explode` - `add_systems` on/with `Update`
+  - systems: `fire_held_ranged_system`
+  - `fire_held_ranged_system`
+- `crates/ambition_sandbox/src/item_pickup.rs:1131` in `thrown_item_arcs_and_settles_on_the_floor` - `insert_resource` on/with `crate::GameWorld(ae::World::new( "phys", Vec2::new(400.0, 400.0), Vec2::new(200.0, 360.0), blocks, ))`
+  - `crate::GameWorld`
+  - `blocks`
+  - `app`
+- `crates/ambition_sandbox/src/item_pickup.rs:1137` in `thrown_item_arcs_and_settles_on_the_floor` - `insert_resource` on/with `crate::WorldTime { raw_dt: 1.0 / 60.0, scaled_dt: 1.0 / 60.0, }`
+  - `crate::WorldTime`
+  - `raw_dt`
+  - `scaled_dt`
+  - `app`
+- `crates/ambition_sandbox/src/item_pickup.rs:1141` in `thrown_item_arcs_and_settles_on_the_floor` - `add_systems` on/with `Update`
+  - systems: `ground_item_physics`
+  - `ground_item_physics`
+- `crates/ambition_sandbox/src/item_pickup.rs:1171` in `javelin_is_thrown_on_plain_attack_use` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/item_pickup.rs:1172` in `javelin_is_thrown_on_plain_attack_use` - `add_systems` on/with `Update`
+  - systems: `pickup_held_item_system`, `throw_held_item_system`
+  - `pickup_held_item_system`
+  - `throw_held_item_system`
+- `crates/ambition_sandbox/src/mark_recall.rs:179` in `test_app` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::audio::SfxMessage`
+- `crates/ambition_sandbox/src/mark_recall.rs:180` in `test_app` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::presentation::fx::VfxMessage`
+- `crates/ambition_sandbox/src/mark_recall.rs:181` in `test_app` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::features::HitEvent`
+- `crates/ambition_sandbox/src/mark_recall.rs:182` in `test_app` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/mark_recall.rs:183` in `test_app` - `add_systems` on/with `Update`
+  - systems: `mark_recall_system`
+  - `mark_recall_system`
+- `crates/ambition_sandbox/src/mark_recall.rs:230` in `recall_emits_a_player_side_shockwave_at_the_mark` - `init_resource` on/with `<none>`
+  - `app`
+  - `CapturedHits`
+- `crates/ambition_sandbox/src/mark_recall.rs:231` in `recall_emits_a_player_side_shockwave_at_the_mark` - `add_systems` on/with `bevy::prelude::Update`
+  - systems: `capture_hits`
+  - `capture_hits`
+  - `mark_recall_system`
+- `crates/ambition_sandbox/src/meteor.rs:134` in `test_app` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::audio::SfxMessage`
+- `crates/ambition_sandbox/src/meteor.rs:135` in `test_app` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/meteor.rs:136` in `test_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `EnemyProjectileState`
+- `crates/ambition_sandbox/src/meteor.rs:137` in `test_app` - `add_systems` on/with `Update`
+  - systems: `fire_meteor_system`
+  - `fire_meteor_system`
+- `crates/ambition_sandbox/src/music/director/loader.rs:26` in `load_music_cues` - `insert_resource` on/with `catalog`
+  - `catalog`
+  - `commands`
+- `crates/ambition_sandbox/src/music/director/loader.rs:27` in `load_music_cues` - `insert_resource` on/with `LoadedMusicCueAssets { sources }`
+  - `LoadedMusicCueAssets`
+  - `sources`
+  - `commands`
+- `crates/ambition_sandbox/src/music/director/loader.rs:28` in `load_music_cues` - `insert_resource` on/with `MusicDirectorState::default()`
+  - `commands`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:76` in `install_cube_menu` - `insert_resource` on/with `CubeMenuConfig { draw_nav_arrows: false, pickable_controls: true, ..Default::default() }`
+  - `CubeMenuConfig`
+  - `draw_nav_arrows`
+  - `pickable_controls`
+  - `app`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:82` in `install_cube_menu` - `add_systems` on/with `Update`
+  - systems: `cube_menu_open_routing`, `cube_focus_nav`, `republish_cube_pages`, `gate_cube_menu`, `toggle_inventory_backend`, `retarget_cube_scrim`, `fade_cube_scrim`
+  - `cube_menu_open_routing`
+  - `cube_focus_nav`
+  - `republish_cube_pages`
+  - `gate_cube_menu`
+  - `toggle_inventory_backend`
+  - `retarget_cube_scrim`
+  - `fade_cube_scrim`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:82` in `install_cube_menu` - `add_systems` on/with `Startup`
+  - systems: `spawn_cube_scrim`
+  - `spawn_cube_scrim`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:82` in `install_cube_menu` - `add_plugins` on/with `CubeMenuPlugin::<CubePage, CubeAction>::default()`
+  - `app`
+  - `InventoryUiBackend`
+  - `ActiveMenuPages`
+  - `CubePage`
+  - `CubeAction`
+  - `CubeCursor`
+  - `CubeSystemNav`
+  - `AmbitionInventoryUiPlugin`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:82` in `install_cube_menu` - `add_plugins` on/with `AmbitionInventoryUiPlugin`
+  - `AmbitionInventoryUiPlugin`
+  - `app`
+  - `InventoryUiBackend`
+  - `ActiveMenuPages`
+  - `CubePage`
+  - `CubeAction`
+  - `CubeCursor`
+  - `CubeSystemNav`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:82` in `install_cube_menu` - `init_resource` on/with `<none>`
+  - `app`
+  - `InventoryUiBackend`
+  - `ActiveMenuPages`
+  - `CubePage`
+  - `CubeAction`
+  - `CubeCursor`
+  - `CubeSystemNav`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:82` in `install_cube_menu` - `init_resource` on/with `<none>`
+  - `app`
+  - `InventoryUiBackend`
+  - `ActiveMenuPages`
+  - `CubePage`
+  - `CubeAction`
+  - `CubeCursor`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:82` in `install_cube_menu` - `init_resource` on/with `<none>`
+  - `app`
+  - `InventoryUiBackend`
+  - `ActiveMenuPages`
+  - `CubePage`
+  - `CubeAction`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:82` in `install_cube_menu` - `init_resource` on/with `<none>`
+  - `app`
+  - `InventoryUiBackend`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1716` in `click_app` - `add_plugins` on/with `bevy::state::app::StatesPlugin`
+  - `bevy::state::app::StatesPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1718` in `click_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `InventoryUiBackend`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1719` in `click_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `ActiveMenuPages`
+  - `CubePage`
+  - `CubeAction`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1720` in `click_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `CubeCursor`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1721` in `click_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `CubeSystemNav`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1722` in `click_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `OwnedItems`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1723` in `click_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::dev::dev_tools::DeveloperTools`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1724` in `click_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::runtime::reset::SandboxResetRequested`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1725` in `click_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `UserSettings`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1726` in `click_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::inventory::InventoryUiState`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1727` in `click_app` - `add_message` on/with `<none>`
+  - `app`
+  - `PlayerHealRequested`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1728` in `click_app` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1749` in `open_app` - `add_plugins` on/with `bevy::state::app::StatesPlugin`
+  - `bevy::state::app::StatesPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1751` in `open_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `InventoryUiBackend`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1752` in `open_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `ActiveMenuPages`
+  - `CubePage`
+  - `CubeAction`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1753` in `open_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `CubeCursor`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1754` in `open_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `CubeSystemNav`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1755` in `open_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `OwnedItems`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1756` in `open_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::dev::dev_tools::DeveloperTools`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1757` in `open_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::runtime::reset::SandboxResetRequested`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1758` in `open_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `UserSettings`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1759` in `open_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::inventory::InventoryUiState`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1760` in `open_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::map_menu::MapMenuState`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1761` in `open_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `MenuControlFrame`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1762` in `open_app` - `add_message` on/with `<none>`
+  - `app`
+  - `PlayerHealRequested`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1763` in `open_app` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1764` in `open_app` - `add_systems` on/with `Update`
+  - systems: `cube_menu_open_routing`
+  - `cube_menu_open_routing`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1847` in `nav_app` - `add_plugins` on/with `bevy::state::app::StatesPlugin`
+  - `bevy::state::app::StatesPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1849` in `nav_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `InventoryUiBackend`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1850` in `nav_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `ActiveMenuPages`
+  - `CubePage`
+  - `CubeAction`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1851` in `nav_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `CubeCursor`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1852` in `nav_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `CubeSystemNav`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1853` in `nav_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `OwnedItems`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1854` in `nav_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::dev::dev_tools::DeveloperTools`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1855` in `nav_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::runtime::reset::SandboxResetRequested`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1856` in `nav_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `UserSettings`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1857` in `nav_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::inventory::InventoryUiState`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1858` in `nav_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `MenuControlFrame`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1859` in `nav_app` - `add_message` on/with `<none>`
+  - `app`
+  - `PlayerHealRequested`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1860` in `nav_app` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1861` in `nav_app` - `add_systems` on/with `Update`
+  - systems: `cube_focus_nav`
+  - `cube_focus_nav`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1881` in `system_nav_app` - `add_plugins` on/with `bevy::state::app::StatesPlugin`
+  - `bevy::state::app::StatesPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1883` in `system_nav_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `InventoryUiBackend`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1884` in `system_nav_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `ActiveMenuPages`
+  - `CubePage`
+  - `CubeAction`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1885` in `system_nav_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `CubeCursor`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1886` in `system_nav_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `CubeSystemNav`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1887` in `system_nav_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `OwnedItems`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1888` in `system_nav_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::dev::dev_tools::DeveloperTools`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1889` in `system_nav_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::runtime::reset::SandboxResetRequested`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1890` in `system_nav_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `UserSettings`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1891` in `system_nav_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::inventory::InventoryUiState`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1892` in `system_nav_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::map_menu::MapMenuState`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1893` in `system_nav_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `MenuControlFrame`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1894` in `system_nav_app` - `add_message` on/with `<none>`
+  - `app`
+  - `PlayerHealRequested`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1895` in `system_nav_app` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1896` in `system_nav_app` - `add_systems` on/with `Update`
+  - systems: `cube_focus_nav`
+  - `cube_focus_nav`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1922` in `press_bumper` - `insert_resource` on/with `frame`
+  - `frame`
+  - `app`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:2036` in `system_edge_left_moves_inward_to_the_row_list` - `insert_resource` on/with `frame`
+  - `frame`
+  - `app`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:2058` in `system_row_horizontal_moves_to_the_edge_buttons` - `insert_resource` on/with `frame`
+  - `frame`
+  - `app`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:2108` in `esc_closes_the_open_cube_from_any_page_via_real_input` - `add_plugins` on/with `bevy::state::app::StatesPlugin`
+  - `bevy::state::app::StatesPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:2109` in `esc_closes_the_open_cube_from_any_page_via_real_input` - `add_plugins` on/with `bevy::time::TimePlugin`
+  - `bevy::time::TimePlugin`
+  - `app`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:2110` in `esc_closes_the_open_cube_from_any_page_via_real_input` - `add_plugins` on/with `bevy::input::InputPlugin`
+  - `bevy::input::InputPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:2111` in `esc_closes_the_open_cube_from_any_page_via_real_input` - `add_plugins` on/with `InputManagerPlugin::<SandboxAction>::default()`
+  - `app`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:2113` in `esc_closes_the_open_cube_from_any_page_via_real_input` - `init_resource` on/with `<none>`
+  - `app`
+  - `InventoryUiBackend`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:2114` in `esc_closes_the_open_cube_from_any_page_via_real_input` - `init_resource` on/with `<none>`
+  - `app`
+  - `ActiveMenuPages`
+  - `CubePage`
+  - `CubeAction`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:2115` in `esc_closes_the_open_cube_from_any_page_via_real_input` - `init_resource` on/with `<none>`
+  - `app`
+  - `CubeCursor`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:2116` in `esc_closes_the_open_cube_from_any_page_via_real_input` - `init_resource` on/with `<none>`
+  - `app`
+  - `CubeSystemNav`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:2117` in `esc_closes_the_open_cube_from_any_page_via_real_input` - `init_resource` on/with `<none>`
+  - `app`
+  - `OwnedItems`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:2118` in `esc_closes_the_open_cube_from_any_page_via_real_input` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::dev::dev_tools::DeveloperTools`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:2119` in `esc_closes_the_open_cube_from_any_page_via_real_input` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::runtime::reset::SandboxResetRequested`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:2120` in `esc_closes_the_open_cube_from_any_page_via_real_input` - `init_resource` on/with `<none>`
+  - `app`
+  - `UserSettings`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:2121` in `esc_closes_the_open_cube_from_any_page_via_real_input` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::inventory::InventoryUiState`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:2122` in `esc_closes_the_open_cube_from_any_page_via_real_input` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::map_menu::MapMenuState`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:2123` in `esc_closes_the_open_cube_from_any_page_via_real_input` - `init_resource` on/with `<none>`
+  - `app`
+  - `MenuControlFrame`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:2124` in `esc_closes_the_open_cube_from_any_page_via_real_input` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::input::MenuInputState`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:2125` in `esc_closes_the_open_cube_from_any_page_via_real_input` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::oot_menu::OotMenuState`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:2126` in `esc_closes_the_open_cube_from_any_page_via_real_input` - `add_message` on/with `<none>`
+  - `app`
+  - `PlayerHealRequested`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:2127` in `esc_closes_the_open_cube_from_any_page_via_real_input` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:2128` in `esc_closes_the_open_cube_from_any_page_via_real_input` - `add_systems` on/with `Update`
+  - systems: `crate::app::populate_menu_control_frame_from_actions`, `crate::oot_menu::oot_menu_input`, `cube_menu_open_routing`, `cube_focus_nav`
+  - `crate::app::populate_menu_control_frame_from_actions`
+  - `crate::oot_menu::oot_menu_input`
+  - `cube_menu_open_routing`
+  - `cube_focus_nav`
+- `crates/ambition_sandbox/src/oot_menu/tests.rs:28` in `test_app` - `add_plugins` on/with `bevy::state::app::StatesPlugin`
+  - `bevy::state::app::StatesPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/oot_menu/tests.rs:30` in `test_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `OwnedItems`
+- `crates/ambition_sandbox/src/oot_menu/tests.rs:31` in `test_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `OotMenuState`
+- `crates/ambition_sandbox/src/oot_menu/tests.rs:32` in `test_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `InventoryUiState`
+- `crates/ambition_sandbox/src/oot_menu/tests.rs:33` in `test_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `MenuControlFrame`
+- `crates/ambition_sandbox/src/oot_menu/tests.rs:34` in `test_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `HealLog`
+- `crates/ambition_sandbox/src/oot_menu/tests.rs:35` in `test_app` - `add_message` on/with `<none>`
+  - `app`
+  - `PlayerHealRequested`
+- `crates/ambition_sandbox/src/oot_menu/tests.rs:36` in `test_app` - `add_systems` on/with `Update`
+  - systems: `oot_menu_input`, `record_heals`
+  - `oot_menu_input`
+  - `record_heals`
+- `crates/ambition_sandbox/src/oot_menu/tests.rs:54` in `press` - `insert_resource` on/with `frame`
+  - `frame`
+  - `app`
+- `crates/ambition_sandbox/src/oot_menu.rs:45` in `install_oot_menu_visuals` - `add_systems` on/with `Update`
+  - systems: `sync_oot_menu`
+  - sets: `crate::app::SandboxSet::CoreSimulation`
+  - `sync_oot_menu`
+  - `crate::app::SandboxSet::CoreSimulation`
+- `crates/ambition_sandbox/src/oot_menu.rs:45` in `install_oot_menu_visuals` - `init_resource` on/with `<none>`
+  - `app`
+  - `OotMenuState`
+- `crates/ambition_sandbox/src/persistence.rs:24` in `PersistenceSchedulePlugin::build` - `add_systems` on/with `Update`
+  - systems: `settings::persistence::save_settings_on_change`, `settings::persistence::save_developer_on_change`, `save::autosave_sandbox_save`
+  - `settings::persistence::save_settings_on_change`
+  - `settings::persistence::save_developer_on_change`
+  - `save::autosave_sandbox_save`
+- `crates/ambition_sandbox/src/persistence.rs:24` in `PersistenceSchedulePlugin::build` - `add_systems` on/with `Startup`
+  - systems: `settings::persistence::load_settings_at_startup`, `settings::persistence::load_developer_at_startup`, `save::load_save_at_startup`
+  - `settings::persistence::load_settings_at_startup`
+  - `settings::persistence::load_developer_at_startup`
+  - `save::load_save_at_startup`
+- `crates/ambition_sandbox/src/physics.rs:380` in `gravity_zone_overrides_ambient_while_inside_then_reverts` - `init_resource` on/with `<none>`
+  - `app`
+  - `GravityField`
+- `crates/ambition_sandbox/src/physics.rs:381` in `gravity_zone_overrides_ambient_while_inside_then_reverts` - `init_resource` on/with `<none>`
+  - `app`
+  - `BaseGravity`
+- `crates/ambition_sandbox/src/physics.rs:382` in `gravity_zone_overrides_ambient_while_inside_then_reverts` - `add_systems` on/with `Update`
+  - systems: `resolve_active_gravity`
+  - `resolve_active_gravity`
+- `crates/ambition_sandbox/src/physics.rs:491` in `collect_gravity_zones_snapshots_the_components` - `init_resource` on/with `<none>`
+  - `app`
+  - `GravityZones`
+- `crates/ambition_sandbox/src/physics.rs:492` in `collect_gravity_zones_snapshots_the_components` - `add_systems` on/with `Update`
+  - systems: `collect_gravity_zones`
+  - `collect_gravity_zones`
+- `crates/ambition_sandbox/src/physics.rs:504` in `oscillating_zone_slides_horizontally_over_time` - `insert_resource` on/with `crate::WorldTime { scaled_dt: 0.1, ..Default::default() }`
+  - `crate::WorldTime`
+  - `scaled_dt`
+  - `app`
+- `crates/ambition_sandbox/src/physics.rs:508` in `oscillating_zone_slides_horizontally_over_time` - `add_systems` on/with `Update`
+  - systems: `oscillate_gravity_zones`
+  - `oscillate_gravity_zones`
+- `crates/ambition_sandbox/src/player/affordances/mod.rs:156` in `AffordancesPlugin::build` - `add_systems` on/with `Update`
+  - systems: `detect_active_input_method`
+  - `detect_active_input_method`
+- `crates/ambition_sandbox/src/player/affordances/mod.rs:156` in `AffordancesPlugin::build` - `add_systems` on/with `Update`
+  - systems: `compute_player_intent`, `update_nearest_interactable`, `update_pogo_target_below`, `compute_player_affordances`
+  - sets: `AffordancesSystemSet::Compute`
+  - `compute_player_intent`
+  - `update_nearest_interactable`
+  - `update_pogo_target_below`
+  - `compute_player_affordances`
+  - `AffordancesSystemSet::Compute`
+- `crates/ambition_sandbox/src/player/affordances/mod.rs:156` in `AffordancesPlugin::build` - `init_resource` on/with `<none>`
+  - `app`
+  - `PlayerIntent`
+  - `NearestInteractable`
+  - `PogoTargetBelow`
+  - `PlayerAffordances`
+  - `ActiveInputMethod`
+- `crates/ambition_sandbox/src/player/affordances/mod.rs:156` in `AffordancesPlugin::build` - `init_resource` on/with `<none>`
+  - `app`
+  - `PlayerIntent`
+  - `NearestInteractable`
+  - `PogoTargetBelow`
+  - `PlayerAffordances`
+- `crates/ambition_sandbox/src/player/affordances/mod.rs:156` in `AffordancesPlugin::build` - `init_resource` on/with `<none>`
+  - `app`
+  - `PlayerIntent`
+  - `NearestInteractable`
+  - `PogoTargetBelow`
+- `crates/ambition_sandbox/src/player/affordances/mod.rs:156` in `AffordancesPlugin::build` - `init_resource` on/with `<none>`
+  - `app`
+  - `PlayerIntent`
+  - `NearestInteractable`
+- `crates/ambition_sandbox/src/player/affordances/mod.rs:156` in `AffordancesPlugin::build` - `init_resource` on/with `<none>`
+  - `app`
+  - `PlayerIntent`
+- `crates/ambition_sandbox/src/player/affordances/mod.rs:203` in `build_test_app` - `add_plugins` on/with `AffordancesPlugin`
+  - `AffordancesPlugin`
+  - `app`
+  - `ControlFrame`
+  - `bevy::input::ButtonInput`
+  - `KeyCode`
+  - `bevy::input::touch::Touches`
+- `crates/ambition_sandbox/src/player/affordances/mod.rs:203` in `build_test_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `ControlFrame`
+  - `bevy::input::ButtonInput`
+  - `KeyCode`
+  - `bevy::input::touch::Touches`
+- `crates/ambition_sandbox/src/player/affordances/mod.rs:203` in `build_test_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `ControlFrame`
+  - `bevy::input::ButtonInput`
+  - `KeyCode`
+- `crates/ambition_sandbox/src/player/affordances/mod.rs:203` in `build_test_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `ControlFrame`
+- `crates/ambition_sandbox/src/player/bubble_shield.rs:76` in `build_bubble_shield_sprite` - `insert_resource` on/with `BubbleShieldSprite { handle }`
+  - `BubbleShieldSprite`
+  - `handle`
+  - `commands`
+- `crates/ambition_sandbox/src/player/components.rs:655` in `targeted_heal_routes_to_named_entity_not_primary` - `add_message` on/with `<none>`
+  - `app`
+  - `PlayerHealRequested`
+- `crates/ambition_sandbox/src/player/components.rs:656` in `targeted_heal_routes_to_named_entity_not_primary` - `add_systems` on/with `Update`
+  - systems: `apply_player_heal_requests`
+  - `apply_player_heal_requests`
+- `crates/ambition_sandbox/src/player/components.rs:704` in `untargeted_heal_routes_to_primary` - `add_message` on/with `<none>`
+  - `app`
+  - `PlayerHealRequested`
+- `crates/ambition_sandbox/src/player/components.rs:705` in `untargeted_heal_routes_to_primary` - `add_systems` on/with `Update`
+  - systems: `apply_player_heal_requests`
+  - `apply_player_heal_requests`
+- `crates/ambition_sandbox/src/player/systems.rs:253` in `player_projectile_release_emits_ranged_bolt_action_message_end_to_end` - `init_resource` on/with `<none>`
+  - `app`
+  - `ControlFrame`
+- `crates/ambition_sandbox/src/player/systems.rs:254` in `player_projectile_release_emits_ranged_bolt_action_message_end_to_end` - `add_message` on/with `<none>`
+  - `app`
+  - `ActorActionMessage`
+- `crates/ambition_sandbox/src/player/systems.rs:271` in `player_projectile_release_emits_ranged_bolt_action_message_end_to_end` - `add_systems` on/with `Update`
+  - systems: `sync_local_player_input_frame`, `tick_player_brains`, `emit_brain_action_messages`
+  - `sync_local_player_input_frame`
+  - `tick_player_brains`
+  - `emit_brain_action_messages`
+- `crates/ambition_sandbox/src/player/systems.rs:323` in `player_attack_press_emits_swipe_action_message_end_to_end` - `init_resource` on/with `<none>`
+  - `app`
+  - `ControlFrame`
+- `crates/ambition_sandbox/src/player/systems.rs:324` in `player_attack_press_emits_swipe_action_message_end_to_end` - `add_message` on/with `<none>`
+  - `app`
+  - `ActorActionMessage`
+- `crates/ambition_sandbox/src/player/systems.rs:344` in `player_attack_press_emits_swipe_action_message_end_to_end` - `add_systems` on/with `Update`
+  - systems: `sync_local_player_input_frame`, `tick_player_brains`, `emit_brain_action_messages`
+  - `sync_local_player_input_frame`
+  - `tick_player_brains`
+  - `emit_brain_action_messages`
+- `crates/ambition_sandbox/src/player/systems.rs:386` in `player_brain_seam_translates_control_frame_to_actor_control` - `init_resource` on/with `<none>`
+  - `app`
+  - `ControlFrame`
+- `crates/ambition_sandbox/src/player/systems.rs:406` in `player_brain_seam_translates_control_frame_to_actor_control` - `add_systems` on/with `Update`
+  - systems: `sync_local_player_input_frame`, `tick_player_brains`
+  - `sync_local_player_input_frame`
+  - `tick_player_brains`
+- `crates/ambition_sandbox/src/portal.rs:44` in `PortalSimulationPlugin::build` - `init_resource` on/with `<none>`
+  - `app`
+  - `IntentionalTeleport`
+- `crates/ambition_sandbox/src/portal.rs:45` in `PortalSimulationPlugin::build` - `init_resource` on/with `<none>`
+  - `app`
+  - `SuppressWallAbilitiesInPortal`
+- `crates/ambition_sandbox/src/portal.rs:46` in `PortalSimulationPlugin::build` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::physics::GravityField`
+- `crates/ambition_sandbox/src/portal.rs:47` in `PortalSimulationPlugin::build` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::physics::BaseGravity`
+- `crates/ambition_sandbox/src/portal.rs:48` in `PortalSimulationPlugin::build` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::physics::GravityZones`
+- `crates/ambition_sandbox/src/portal.rs:52` in `PortalSimulationPlugin::build` - `add_systems` on/with `Update`
+  - systems: `crate::physics::oscillate_gravity_zones`, `crate::physics::collect_gravity_zones`, `publish_portal_carves`
+  - sets: `crate::app::SandboxSet::CoreSimulation`
+  - `crate::physics::oscillate_gravity_zones`
+  - `crate::physics::collect_gravity_zones`
+  - `publish_portal_carves`
+  - `crate::app::SandboxSet::CoreSimulation`
+- `crates/ambition_sandbox/src/portal.rs:63` in `PortalSimulationPlugin::build` - `add_systems` on/with `Update`
+  - systems: `warp_portal_input`
+  - sets: `crate::app::SandboxSet::PlayerInput`
+  - run if: `crate::gameplay_allowed`
+  - `warp_portal_input`
+  - `crate::app::SandboxSet::PlayerInput`
+  - `crate::app::interaction_input_system`
+  - `crate::player::sync_local_player_input_frame`
+  - `crate::gameplay_allowed`
+- `crates/ambition_sandbox/src/portal.rs:72` in `PortalSimulationPlugin::build` - `add_systems` on/with `Update`
+  - systems: `drop_portal_gun_system`, `portal_toggle_system`, `portal_fire_system`, `portal_projectile_step`, `despawn_orphaned_portals`, `ensure_actor_roll`
+  - sets: `crate::app::SandboxSet::PlayerSimulation`
+  - run if: `crate::gameplay_allowed`
+  - `drop_portal_gun_system`
+  - `crate::gameplay_allowed`
+  - `portal_toggle_system`
+  - `portal_fire_system`
+  - `portal_projectile_step`
+  - `despawn_orphaned_portals`
+  - `ensure_actor_roll`
+  - `crate::app::SandboxSet::PlayerSimulation`
+- `crates/ambition_sandbox/src/portal.rs:88` in `PortalSimulationPlugin::build` - `add_systems` on/with `Update`
+  - systems: `clear_portals_on_reset`, `reset_gravity_on_room_reset`
+  - sets: `crate::app::SandboxSet::RoomTransition`
+  - `clear_portals_on_reset`
+  - `reset_gravity_on_room_reset`
+  - `crate::app::SandboxSet::RoomTransition`
+  - `crate::boss_encounter::reset_cut_rope_boss_arena_on_room_reset`
+- `crates/ambition_sandbox/src/portal.rs:98` in `PortalSimulationPlugin::build` - `add_systems` on/with `Update`
+  - systems: `suppress_ledge_grab_during_transit`
+  - sets: `crate::app::SandboxSet::PlayerSimulation`
+  - run if: `crate::gameplay_allowed`
+  - `suppress_ledge_grab_during_transit`
+  - `crate::app::SandboxSet::PlayerSimulation`
+  - `crate::app::player_simulation_system`
+  - `crate::gameplay_allowed`
+- `crates/ambition_sandbox/src/portal.rs:108` in `PortalSimulationPlugin::build` - `add_systems` on/with `Update`
+  - systems: `tick_portal_cooldowns`, `portal_transit_system`, `portal_teleport_ground_items`, `portal_transit_actors`, `update_actor_roll`
+  - sets: `crate::app::SandboxSet::PlayerSimulation`
+  - run if: `crate::gameplay_allowed`
+  - `tick_portal_cooldowns`
+  - `portal_transit_system`
+  - `portal_teleport_ground_items`
+  - `portal_transit_actors`
+  - `update_actor_roll`
+  - `crate::app::SandboxSet::PlayerSimulation`
+  - `crate::app::player_simulation_system`
+  - `crate::item_pickup::ground_item_physics`
+  - `crate::gameplay_allowed`
+- `crates/ambition_sandbox/src/portal.rs:2040` in `load_portal_gun_art` - `insert_resource` on/with `PortalGunArt { blue: assets.load("sprites/props/portal_gun_blue.png"), orange: assets.load("sprites/props/portal_gun_orange.png"), }`
+  - `PortalGunArt`
+  - `blue`
+  - `assets`
+  - `orange`
+  - `commands`
+- `crates/ambition_sandbox/src/portal.rs:2439` in `in_flight_ground_item_travels_through_the_portal_pair` - `add_systems` on/with `Update`
+  - systems: `portal_teleport_ground_items`
+  - `portal_teleport_ground_items`
+- `crates/ambition_sandbox/src/portal.rs:2505` in `portals_teleport_a_fitting_actor_and_skip_an_oversized_one` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::audio::SfxMessage`
+- `crates/ambition_sandbox/src/portal.rs:2506` in `portals_teleport_a_fitting_actor_and_skip_an_oversized_one` - `add_systems` on/with `Update`
+  - systems: `portal_transit_actors`
+  - `portal_transit_actors`
+- `crates/ambition_sandbox/src/portal.rs:2657` in `roll_eases_back_to_gravity_upright_in_air` - `insert_resource` on/with `crate::WorldTime { raw_dt: 1.0 / 60.0, scaled_dt: 1.0 / 60.0, }`
+  - `crate::WorldTime`
+  - `raw_dt`
+  - `scaled_dt`
+  - `app`
+- `crates/ambition_sandbox/src/portal.rs:2661` in `roll_eases_back_to_gravity_upright_in_air` - `init_resource` on/with `<none>`
+  - `app`
+  - `GravityField`
+- `crates/ambition_sandbox/src/portal.rs:2662` in `roll_eases_back_to_gravity_upright_in_air` - `add_systems` on/with `Update`
+  - systems: `update_actor_roll`
+  - `update_actor_roll`
+- `crates/ambition_sandbox/src/portal.rs:2700` in `actors_get_an_aerial_roll_through_portals` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::audio::SfxMessage`
+- `crates/ambition_sandbox/src/portal.rs:2701` in `actors_get_an_aerial_roll_through_portals` - `add_systems` on/with `Update`
+  - systems: `portal_transit_actors`
+  - `portal_transit_actors`
+- `crates/ambition_sandbox/src/portal.rs:2746` in `gravity_switch_flips_on_entry_and_rearms_on_exit` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::audio::SfxMessage`
+- `crates/ambition_sandbox/src/portal.rs:2747` in `gravity_switch_flips_on_entry_and_rearms_on_exit` - `init_resource` on/with `<none>`
+  - `app`
+  - `GravityField`
+- `crates/ambition_sandbox/src/portal.rs:2748` in `gravity_switch_flips_on_entry_and_rearms_on_exit` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::physics::BaseGravity`
+- `crates/ambition_sandbox/src/portal.rs:2749` in `gravity_switch_flips_on_entry_and_rearms_on_exit` - `add_systems` on/with `Update`
+  - systems: `gravity_flip_switch_system`
+  - `gravity_flip_switch_system`
+- `crates/ambition_sandbox/src/portal.rs:2801` in `picking_up_the_portal_gun_activates_it` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::audio::SfxMessage`
+- `crates/ambition_sandbox/src/portal.rs:2802` in `picking_up_the_portal_gun_activates_it` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/portal.rs:2803` in `picking_up_the_portal_gun_activates_it` - `add_systems` on/with `Update`
+  - systems: `pickup_portal_gun_system`
+  - `pickup_portal_gun_system`
+- `crates/ambition_sandbox/src/portal.rs:2847` in `dropped_portal_gun_arms_before_it_can_be_regrabbed` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::audio::SfxMessage`
+- `crates/ambition_sandbox/src/portal.rs:2848` in `dropped_portal_gun_arms_before_it_can_be_regrabbed` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/portal.rs:2849` in `dropped_portal_gun_arms_before_it_can_be_regrabbed` - `insert_resource` on/with `crate::WorldTime { raw_dt: 1.0 / 60.0, scaled_dt: 1.0 / 60.0, }`
+  - `crate::WorldTime`
+  - `raw_dt`
+  - `scaled_dt`
+  - `app`
+- `crates/ambition_sandbox/src/portal.rs:2853` in `dropped_portal_gun_arms_before_it_can_be_regrabbed` - `add_systems` on/with `Update`
+  - systems: `drop_portal_gun_system`, `arm_portal_pickups`, `pickup_portal_gun_system`
+  - `drop_portal_gun_system`
+  - `arm_portal_pickups`
+  - `pickup_portal_gun_system`
+- `crates/ambition_sandbox/src/portal.rs:2925` in `portal_pair_teleports_player_carrying_momentum` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::audio::SfxMessage`
+- `crates/ambition_sandbox/src/portal.rs:2926` in `portal_pair_teleports_player_carrying_momentum` - `insert_resource` on/with `crate::WorldTime::default()`
+  - `app`
+- `crates/ambition_sandbox/src/portal.rs:2927` in `portal_pair_teleports_player_carrying_momentum` - `add_systems` on/with `Update`
+  - systems: `portal_transit_system`
+  - `portal_transit_system`
+- `crates/ambition_sandbox/src/portal.rs:2976` in `portal_input_warp_transforms_held_input_then_clears` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/portal.rs:2977` in `portal_input_warp_transforms_held_input_then_clears` - `add_systems` on/with `Update`
+  - systems: `warp_portal_input`
+  - `warp_portal_input`
+- `crates/ambition_sandbox/src/portal.rs:3030` in `wall_ability_suppression_reapplies_every_frame_against_the_loadout_reset` - `init_resource` on/with `<none>`
+  - `app`
+  - `SuppressWallAbilitiesInPortal`
+- `crates/ambition_sandbox/src/portal.rs:3038` in `wall_ability_suppression_reapplies_every_frame_against_the_loadout_reset` - `add_systems` on/with `Update`
+  - systems: `reenable_ledge_grab`, `suppress_ledge_grab_during_transit`
+  - `reenable_ledge_grab`
+  - `suppress_ledge_grab_during_transit`
+- `crates/ambition_sandbox/src/portal.rs:3095` in `emission_guard_strips_input_pushing_back_into_the_exit_wall` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/portal.rs:3096` in `emission_guard_strips_input_pushing_back_into_the_exit_wall` - `add_systems` on/with `Update`
+  - systems: `warp_portal_input`
+  - `warp_portal_input`
+- `crates/ambition_sandbox/src/portal.rs:3131` in `a_gunless_player_transits_an_authored_pair` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::audio::SfxMessage`
+- `crates/ambition_sandbox/src/portal.rs:3132` in `a_gunless_player_transits_an_authored_pair` - `insert_resource` on/with `crate::WorldTime::default()`
+  - `app`
+- `crates/ambition_sandbox/src/portal.rs:3133` in `a_gunless_player_transits_an_authored_pair` - `add_systems` on/with `Update`
+  - systems: `portal_transit_system`
+  - `portal_transit_system`
+- `crates/ambition_sandbox/src/portal.rs:3185` in `transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::audio::SfxMessage`
+- `crates/ambition_sandbox/src/portal.rs:3186` in `transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears` - `insert_resource` on/with `crate::WorldTime::default()`
+  - `app`
+- `crates/ambition_sandbox/src/portal.rs:3187` in `transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears` - `init_resource` on/with `<none>`
+  - `app`
+  - `IntentionalTeleport`
+- `crates/ambition_sandbox/src/portal.rs:3188` in `transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears` - `add_systems` on/with `Update`
+  - systems: `portal_transit_system`
+  - `portal_transit_system`
+- `crates/ambition_sandbox/src/portal.rs:3268` in `partial_render_keeps_the_sprite_and_masks_the_through_slice` - `insert_resource` on/with `world_with_two_walls()`
+  - `world_with_two_walls`
+  - `app`
+- `crates/ambition_sandbox/src/portal.rs:3269` in `partial_render_keeps_the_sprite_and_masks_the_through_slice` - `add_systems` on/with `Update`
+  - systems: `sync_portal_body_pieces`
+  - `sync_portal_body_pieces`
+- `crates/ambition_sandbox/src/portal.rs:3322` in `portal_carve_is_transient_and_pair_gated` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::features::FeatureEcsWorldOverlay`
+- `crates/ambition_sandbox/src/portal.rs:3323` in `portal_carve_is_transient_and_pair_gated` - `add_systems` on/with `Update`
+  - systems: `publish_portal_carves`
+  - `publish_portal_carves`
+- `crates/ambition_sandbox/src/portal.rs:3378` in `portal_shot_travels_and_opens_a_portal_on_a_wall` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::audio::SfxMessage`
+- `crates/ambition_sandbox/src/portal.rs:3379` in `portal_shot_travels_and_opens_a_portal_on_a_wall` - `insert_resource` on/with `world_with_two_walls()`
+  - `world_with_two_walls`
+  - `app`
+- `crates/ambition_sandbox/src/portal.rs:3380` in `portal_shot_travels_and_opens_a_portal_on_a_wall` - `insert_resource` on/with `crate::WorldTime { raw_dt: 1.0 / 60.0, scaled_dt: 1.0 / 60.0, }`
+  - `crate::WorldTime`
+  - `raw_dt`
+  - `scaled_dt`
+  - `app`
+- `crates/ambition_sandbox/src/portal.rs:3384` in `portal_shot_travels_and_opens_a_portal_on_a_wall` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/portal.rs:3385` in `portal_shot_travels_and_opens_a_portal_on_a_wall` - `add_systems` on/with `Update`
+  - systems: `portal_fire_system`, `portal_projectile_step`
+  - `portal_fire_system`
+  - `portal_projectile_step`
+- `crates/ambition_sandbox/src/possession.rs:192` in `trigger_app` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/possession.rs:193` in `trigger_app` - `insert_resource` on/with `crate::WorldTime { raw_dt: 1.0, scaled_dt: 1.0, }`
+  - `crate::WorldTime`
+  - `raw_dt`
+  - `scaled_dt`
+  - `app`
+- `crates/ambition_sandbox/src/possession.rs:197` in `trigger_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `PossessionState`
+- `crates/ambition_sandbox/src/possession.rs:198` in `trigger_app` - `add_systems` on/with `Update`
+  - systems: `possession_trigger_system`
+  - `possession_trigger_system`
+- `crates/ambition_sandbox/src/presentation/character_sprites/registry.rs:378` in `SheetRegistryPlugin::build` - `add_systems` on/with `Startup`
+  - systems: `init_sheet_registry`
+  - `init_sheet_registry`
+- `crates/ambition_sandbox/src/presentation/character_sprites/registry.rs:378` in `SheetRegistryPlugin::build` - `init_resource` on/with `<none>`
+  - `app`
+  - `SheetRegistry`
+- `crates/ambition_sandbox/src/presentation/cutscene.rs:569` in `CutsceneSchedulePlugin::build` - `add_systems` on/with `Update`
+  - systems: `auto_trigger_room_cutscenes`, `drain_cutscene_triggers`, `tick_active_cutscene`
+  - sets: `crate::app::SandboxSet::Cutscene`
+  - `auto_trigger_room_cutscenes`
+  - `drain_cutscene_triggers`
+  - `tick_active_cutscene`
+  - `crate::app::SandboxSet::Cutscene`
+- `crates/ambition_sandbox/src/presentation/rendering/deep_dream.rs:41` in `add_puppy_slug_deep_dream_material_plugin` - `add_plugins` on/with `Material2dPlugin::<PuppySlugDeepDreamMaterial>::default()`
+  - `app`
+- `crates/ambition_sandbox/src/presentation/rendering/hit_flash.rs:64` in `add_hit_flash_material_plugin` - `add_plugins` on/with `Material2dPlugin::<HitFlashMaterial>::default()`
+  - `app`
+- `crates/ambition_sandbox/src/presentation/rendering.rs:78` in `PlayerVisualSchedulePlugin::build` - `add_systems` on/with `Update`
+  - systems: `crate::portal::sync_portal_visuals`, `crate::portal::sync_portal_body_pieces`, `crate::portal::sync_portal_disorientation_indicator`, `crate::portal::sync_portal_mode_indicator`, `crate::portal::portal_dev_toggle_system`, `crate::item_pickup::sync_ground_item_visuals`, `crate::item_pickup::sync_held_item_visual`, `crate::item_pickup::sync_held_projectile_visuals`, `crate::portal::sync_gravity_switch_visual`, `crate::portal::sync_gravity_zone_visual`, `crate::shrine::sync_shrine_visual`, `crate::shrine::animate_shrine_visuals`, `crate::mark_recall::sync_mark_beacon_visual`
+  - `crate::portal::sync_portal_visuals`
+  - `actors::sync_visuals`
+  - `crate::portal::sync_portal_body_pieces`
+  - `crate::portal::sync_portal_disorientation_indicator`
+  - `crate::portal::sync_portal_mode_indicator`
+  - `crate::portal::portal_dev_toggle_system`
+  - `crate::item_pickup::sync_ground_item_visuals`
+  - `crate::item_pickup::sync_held_item_visual`
+  - `crate::item_pickup::sync_held_projectile_visuals`
+  - `crate::portal::sync_gravity_switch_visual`
+  - `crate::portal::sync_gravity_zone_visual`
+  - `crate::shrine::sync_shrine_visual`
+  - `crate::shrine::animate_shrine_visuals`
+  - `actors::animate_props`
+  - `crate::mark_recall::sync_mark_beacon_visual`
+- `crates/ambition_sandbox/src/presentation/rendering.rs:78` in `PlayerVisualSchedulePlugin::build` - `add_systems` on/with `Startup`
+  - systems: `crate::item_pickup::load_item_art`
+  - `crate::item_pickup::load_item_art`
+- `crates/ambition_sandbox/src/presentation/rendering.rs:78` in `PlayerVisualSchedulePlugin::build` - `add_systems` on/with `Startup`
+  - systems: `crate::portal::load_portal_gun_art`
+  - `crate::portal::load_portal_gun_art`
+- `crates/ambition_sandbox/src/presentation/rendering.rs:78` in `PlayerVisualSchedulePlugin::build` - `add_systems` on/with `Update`
+  - systems: `crate::player::bubble_shield::spawn_bubble_shield_visual`, `crate::player::bubble_shield::sync_bubble_shield_visual`
+  - `crate::player::bubble_shield::spawn_bubble_shield_visual`
+  - `crate::player::bubble_shield::sync_bubble_shield_visual`
+  - `actors::sync_visuals`
+- `crates/ambition_sandbox/src/presentation/rendering.rs:78` in `PlayerVisualSchedulePlugin::build` - `add_systems` on/with `Startup`
+  - systems: `crate::player::bubble_shield::build_bubble_shield_sprite`
+  - `crate::player::bubble_shield::build_bubble_shield_sprite`
+- `crates/ambition_sandbox/src/presentation/rendering.rs:78` in `PlayerVisualSchedulePlugin::build` - `add_systems` on/with `Update`
+  - systems: `crate::body_mode::spawn_morph_ball_visual`, `crate::body_mode::sync_morph_ball_visual`
+  - `crate::body_mode::spawn_morph_ball_visual`
+  - `crate::body_mode::sync_morph_ball_visual`
+  - `actors::sync_visuals`
+- `crates/ambition_sandbox/src/presentation/rendering.rs:78` in `PlayerVisualSchedulePlugin::build` - `add_systems` on/with `Startup`
+  - systems: `crate::body_mode::build_morph_ball_sprite`
+  - `crate::body_mode::build_morph_ball_sprite`
+- `crates/ambition_sandbox/src/presentation/rendering.rs:155` in `PresentationVisualAnimationPlugin::build` - `add_systems` on/with `Update`
+  - systems: `features::spawn_dynamic_feature_visuals`, `actors::sync_visuals`, `actors::apply_gnu_ton_body_z`, `actors::upgrade_enemy_sprites`, `actors::upgrade_boss_sprites`, `deep_dream::attach_puppy_slug_deep_dream_overlays`, `hit_flash::attach_hit_flash_overlays`, `actors::animate_player`, `actors::animate_characters`, `deep_dream::sync_puppy_slug_deep_dream_overlays`, `deep_dream::cleanup_puppy_slug_deep_dream_overlays`, `hit_flash::sync_hit_flash_overlays`, `hit_flash::cleanup_hit_flash_overlays`, `actors::animate_props`, `actors::animate_bosses`, `actors::manage_gradient_lane_visual`, `actors::sync_gnu_ton_hands`, `pirate_weapon::sync_pirate_weapon_visuals`
+  - sets: `crate::app::SandboxSet::PresentationVisualSync`
+  - `features::spawn_dynamic_feature_visuals`
+  - `actors::sync_visuals`
+  - `actors::apply_gnu_ton_body_z`
+  - `actors::upgrade_enemy_sprites`
+  - `actors::upgrade_boss_sprites`
+  - `deep_dream::attach_puppy_slug_deep_dream_overlays`
+  - `hit_flash::attach_hit_flash_overlays`
+  - `actors::animate_player`
+  - `actors::animate_characters`
+  - `deep_dream::sync_puppy_slug_deep_dream_overlays`
+  - `deep_dream::cleanup_puppy_slug_deep_dream_overlays`
+  - `hit_flash::sync_hit_flash_overlays`
+  - `hit_flash::cleanup_hit_flash_overlays`
+  - `actors::animate_props`
+  - `actors::animate_bosses`
+  - `actors::manage_gradient_lane_visual`
+  - `actors::sync_gnu_ton_hands`
+  - `pirate_weapon::sync_pirate_weapon_visuals`
+  - `crate::app::SandboxSet::PresentationVisualSync`
+  - `crate::map_menu::handle_map_menu_hotkeys`
+- `crates/ambition_sandbox/src/presentation/screen_effects.rs:43` in `ScreenEffectsPlugin::build` - `add_systems` on/with `Update`
+  - systems: `sync_screen_effect_settings_from_video_settings`
+  - `sync_screen_effect_settings_from_video_settings`
+- `crates/ambition_sandbox/src/presentation/screen_effects.rs:43` in `ScreenEffectsPlugin::build` - `add_plugins` on/with `( ExtractComponentPlugin::<ScreenEffectSettings>::default(), UniformComponentPlugin::<ScreenEffectSettings>::default(), )`
+  - `app`
+- `crates/ambition_sandbox/src/presentation/screen_effects.rs:53` in `ScreenEffectsPlugin::build` - `add_systems` on/with `RenderStartup`
+  - systems: `init_screen_effects_pipeline`
+  - `init_screen_effects_pipeline`
+- `crates/ambition_sandbox/src/presentation/screen_effects.rs:172` in `init_screen_effects_pipeline` - `insert_resource` on/with `ScreenEffectsPipeline { layout, sampler, pipeline_id, }`
+  - `ScreenEffectsPipeline`
+  - `layout`
+  - `sampler`
+  - `pipeline_id`
+  - `commands`
+- `crates/ambition_sandbox/src/presentation/ui_fonts.rs:83` in `load_ui_fonts` - `insert_resource` on/with `UiFonts::default()`
+  - `commands`
+- `crates/ambition_sandbox/src/presentation/ui_fonts.rs:131` in `load_ui_fonts` - `insert_resource` on/with `UiFonts { regular, semibold, mono, }`
+  - `UiFonts`
+  - `regular`
+  - `semibold`
+  - `mono`
+  - `commands`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:27` in `fireball_damages_enemy_on_intersect` - `add_systems` on/with `Startup`
+  - systems: `commands`, `crate::features::spawn_encounter_mob`
+  - `commands`
+  - `crate::features::spawn_encounter_mob`
+  - `crate::actor::EnemyBrain::Custom`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:92` in `fireball_bounces_off_floor_in_system` - `insert_resource` on/with `Time::<()>::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:93` in `fireball_bounces_off_floor_in_system` - `insert_resource` on/with `crate::WorldTime::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:105` in `fireball_bounces_off_floor_in_system` - `insert_resource` on/with `GameWorld(world.clone())`
+  - `GameWorld`
+  - `world`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:106` in `fireball_bounces_off_floor_in_system` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:107` in `fireball_bounces_off_floor_in_system` - `insert_resource` on/with `crate::persistence::settings::UserSettings::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:108` in `fireball_bounces_off_floor_in_system` - `insert_resource` on/with `GameplayTraceBuffer::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:109` in `fireball_bounces_off_floor_in_system` - `insert_resource` on/with `GameplayBanner::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:110` in `fireball_bounces_off_floor_in_system` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:111` in `fireball_bounces_off_floor_in_system` - `add_message` on/with `<none>`
+  - `app`
+  - `VfxMessage`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:112` in `fireball_bounces_off_floor_in_system` - `add_message` on/with `<none>`
+  - `app`
+  - `DebrisBurstMessage`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:113` in `fireball_bounces_off_floor_in_system` - `add_message` on/with `<none>`
+  - `app`
+  - `SetFlagRequested`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:114` in `fireball_bounces_off_floor_in_system` - `add_message` on/with `<none>`
+  - `app`
+  - `HitEvent`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:115` in `fireball_bounces_off_floor_in_system` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::features::ActorStimulus`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:116` in `fireball_bounces_off_floor_in_system` - `add_plugins` on/with `crate::brain::BrainPlugin`
+  - `crate::brain::BrainPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:117` in `fireball_bounces_off_floor_in_system` - `add_systems` on/with `Update`
+  - systems: `crate::player::sync_local_player_input_frame`, `crate::player::tick_player_brains`, `crate::brain::emit_player_projectile_tick_messages`, `update_projectiles`, `crate::features::apply_feature_hit_events`
+  - `crate::player::sync_local_player_input_frame`
+  - `crate::player::tick_player_brains`
+  - `crate::brain::emit_player_projectile_tick_messages`
+  - `update_projectiles`
+  - `crate::features::apply_feature_hit_events`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:174` in `fireball_bounces_off_one_way_platform_in_system` - `insert_resource` on/with `Time::<()>::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:175` in `fireball_bounces_off_one_way_platform_in_system` - `insert_resource` on/with `crate::WorldTime::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:186` in `fireball_bounces_off_one_way_platform_in_system` - `insert_resource` on/with `GameWorld(world.clone())`
+  - `GameWorld`
+  - `world`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:188` in `fireball_bounces_off_one_way_platform_in_system` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:189` in `fireball_bounces_off_one_way_platform_in_system` - `insert_resource` on/with `crate::persistence::settings::UserSettings::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:190` in `fireball_bounces_off_one_way_platform_in_system` - `insert_resource` on/with `GameplayTraceBuffer::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:191` in `fireball_bounces_off_one_way_platform_in_system` - `insert_resource` on/with `GameplayBanner::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:192` in `fireball_bounces_off_one_way_platform_in_system` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:193` in `fireball_bounces_off_one_way_platform_in_system` - `add_message` on/with `<none>`
+  - `app`
+  - `VfxMessage`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:194` in `fireball_bounces_off_one_way_platform_in_system` - `add_message` on/with `<none>`
+  - `app`
+  - `DebrisBurstMessage`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:195` in `fireball_bounces_off_one_way_platform_in_system` - `add_message` on/with `<none>`
+  - `app`
+  - `SetFlagRequested`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:196` in `fireball_bounces_off_one_way_platform_in_system` - `add_message` on/with `<none>`
+  - `app`
+  - `HitEvent`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:197` in `fireball_bounces_off_one_way_platform_in_system` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::features::ActorStimulus`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:198` in `fireball_bounces_off_one_way_platform_in_system` - `add_plugins` on/with `crate::brain::BrainPlugin`
+  - `crate::brain::BrainPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:199` in `fireball_bounces_off_one_way_platform_in_system` - `add_systems` on/with `Update`
+  - systems: `crate::player::sync_local_player_input_frame`, `crate::player::tick_player_brains`, `crate::brain::emit_player_projectile_tick_messages`, `update_projectiles`, `crate::features::apply_feature_hit_events`
+  - `crate::player::sync_local_player_input_frame`
+  - `crate::player::tick_player_brains`
+  - `crate::brain::emit_player_projectile_tick_messages`
+  - `update_projectiles`
+  - `crate::features::apply_feature_hit_events`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:257` in `fireball_passes_through_one_way_from_below_in_system` - `insert_resource` on/with `Time::<()>::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:258` in `fireball_passes_through_one_way_from_below_in_system` - `insert_resource` on/with `crate::WorldTime::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:269` in `fireball_passes_through_one_way_from_below_in_system` - `insert_resource` on/with `GameWorld(world.clone())`
+  - `GameWorld`
+  - `world`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:271` in `fireball_passes_through_one_way_from_below_in_system` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:272` in `fireball_passes_through_one_way_from_below_in_system` - `insert_resource` on/with `crate::persistence::settings::UserSettings::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:273` in `fireball_passes_through_one_way_from_below_in_system` - `insert_resource` on/with `GameplayTraceBuffer::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:274` in `fireball_passes_through_one_way_from_below_in_system` - `insert_resource` on/with `GameplayBanner::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:275` in `fireball_passes_through_one_way_from_below_in_system` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:276` in `fireball_passes_through_one_way_from_below_in_system` - `add_message` on/with `<none>`
+  - `app`
+  - `VfxMessage`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:277` in `fireball_passes_through_one_way_from_below_in_system` - `add_message` on/with `<none>`
+  - `app`
+  - `DebrisBurstMessage`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:278` in `fireball_passes_through_one_way_from_below_in_system` - `add_message` on/with `<none>`
+  - `app`
+  - `SetFlagRequested`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:279` in `fireball_passes_through_one_way_from_below_in_system` - `add_message` on/with `<none>`
+  - `app`
+  - `HitEvent`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:280` in `fireball_passes_through_one_way_from_below_in_system` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::features::ActorStimulus`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:281` in `fireball_passes_through_one_way_from_below_in_system` - `add_plugins` on/with `crate::brain::BrainPlugin`
+  - `crate::brain::BrainPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:282` in `fireball_passes_through_one_way_from_below_in_system` - `add_systems` on/with `Update`
+  - systems: `crate::player::sync_local_player_input_frame`, `crate::player::tick_player_brains`, `crate::brain::emit_player_projectile_tick_messages`, `update_projectiles`, `crate::features::apply_feature_hit_events`
+  - `crate::player::sync_local_player_input_frame`
+  - `crate::player::tick_player_brains`
+  - `crate::brain::emit_player_projectile_tick_messages`
+  - `update_projectiles`
+  - `crate::features::apply_feature_hit_events`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:337` in `hadouken_expires_on_solid_in_system` - `insert_resource` on/with `Time::<()>::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:338` in `hadouken_expires_on_solid_in_system` - `insert_resource` on/with `crate::WorldTime::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:349` in `hadouken_expires_on_solid_in_system` - `insert_resource` on/with `GameWorld(world.clone())`
+  - `GameWorld`
+  - `world`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:351` in `hadouken_expires_on_solid_in_system` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:352` in `hadouken_expires_on_solid_in_system` - `insert_resource` on/with `crate::persistence::settings::UserSettings::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:353` in `hadouken_expires_on_solid_in_system` - `insert_resource` on/with `GameplayTraceBuffer::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:354` in `hadouken_expires_on_solid_in_system` - `insert_resource` on/with `GameplayBanner::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:355` in `hadouken_expires_on_solid_in_system` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:356` in `hadouken_expires_on_solid_in_system` - `add_message` on/with `<none>`
+  - `app`
+  - `VfxMessage`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:357` in `hadouken_expires_on_solid_in_system` - `add_message` on/with `<none>`
+  - `app`
+  - `DebrisBurstMessage`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:358` in `hadouken_expires_on_solid_in_system` - `add_message` on/with `<none>`
+  - `app`
+  - `SetFlagRequested`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:359` in `hadouken_expires_on_solid_in_system` - `add_message` on/with `<none>`
+  - `app`
+  - `HitEvent`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:360` in `hadouken_expires_on_solid_in_system` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::features::ActorStimulus`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:361` in `hadouken_expires_on_solid_in_system` - `add_plugins` on/with `crate::brain::BrainPlugin`
+  - `crate::brain::BrainPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/collision.rs:362` in `hadouken_expires_on_solid_in_system` - `add_systems` on/with `Update`
+  - systems: `crate::player::sync_local_player_input_frame`, `crate::player::tick_player_brains`, `crate::brain::emit_player_projectile_tick_messages`, `update_projectiles`, `crate::features::apply_feature_hit_events`
+  - `crate::player::sync_local_player_input_frame`
+  - `crate::player::tick_player_brains`
+  - `crate::brain::emit_player_projectile_tick_messages`
+  - `update_projectiles`
+  - `crate::features::apply_feature_hit_events`
+- `crates/ambition_sandbox/src/projectile/tests/mod.rs:58` in `min_app` - `insert_resource` on/with `Time::<()>::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/mod.rs:59` in `min_app` - `insert_resource` on/with `crate::WorldTime::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/mod.rs:60` in `min_app` - `insert_resource` on/with `GameWorld(dummy_world())`
+  - `GameWorld`
+  - `dummy_world`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/mod.rs:61` in `min_app` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/mod.rs:62` in `min_app` - `insert_resource` on/with `crate::persistence::settings::UserSettings::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/mod.rs:63` in `min_app` - `insert_resource` on/with `GameplayTraceBuffer::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/mod.rs:64` in `min_app` - `insert_resource` on/with `GameplayBanner::default()`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/mod.rs:73` in `min_app` - `add_message` on/with `<none>`
+  - `app`
+  - `SfxMessage`
+- `crates/ambition_sandbox/src/projectile/tests/mod.rs:74` in `min_app` - `add_message` on/with `<none>`
+  - `app`
+  - `VfxMessage`
+- `crates/ambition_sandbox/src/projectile/tests/mod.rs:75` in `min_app` - `add_message` on/with `<none>`
+  - `app`
+  - `DebrisBurstMessage`
+- `crates/ambition_sandbox/src/projectile/tests/mod.rs:76` in `min_app` - `add_message` on/with `<none>`
+  - `app`
+  - `SetFlagRequested`
+- `crates/ambition_sandbox/src/projectile/tests/mod.rs:77` in `min_app` - `add_message` on/with `<none>`
+  - `app`
+  - `HitEvent`
+- `crates/ambition_sandbox/src/projectile/tests/mod.rs:78` in `min_app` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::features::ActorStimulus`
+- `crates/ambition_sandbox/src/projectile/tests/mod.rs:79` in `min_app` - `add_plugins` on/with `crate::brain::BrainPlugin`
+  - `crate::brain::BrainPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/projectile/tests/mod.rs:80` in `min_app` - `add_systems` on/with `Update`
+  - systems: `crate::player::sync_local_player_input_frame`, `crate::player::tick_player_brains`, `crate::brain::emit_player_projectile_tick_messages`, `update_projectiles`, `crate::features::apply_feature_hit_events`
+  - `crate::player::sync_local_player_input_frame`
+  - `crate::player::tick_player_brains`
+  - `crate::brain::emit_player_projectile_tick_messages`
+  - `update_projectiles`
+  - `crate::features::apply_feature_hit_events`
+- `crates/ambition_sandbox/src/puppy_slug_gun.rs:101` in `test_app` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::audio::SfxMessage`
+- `crates/ambition_sandbox/src/puppy_slug_gun.rs:102` in `test_app` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/puppy_slug_gun.rs:103` in `test_app` - `add_systems` on/with `Update`
+  - systems: `fire_puppy_slug_gun_system`
+  - `fire_puppy_slug_gun_system`
+- `crates/ambition_sandbox/src/rl_sim/runtime.rs:84` in `new_with_options` - `add_plugins` on/with `MinimalPlugins`
+  - `MinimalPlugins`
+  - `app`
+- `crates/ambition_sandbox/src/rl_sim/runtime.rs:85` in `new_with_options` - `add_plugins` on/with `AssetPlugin::default()`
+  - `app`
+- `crates/ambition_sandbox/src/rl_sim/runtime.rs:86` in `new_with_options` - `add_plugins` on/with `ImagePlugin::default()`
+  - `app`
+- `crates/ambition_sandbox/src/rl_sim/runtime.rs:87` in `new_with_options` - `add_plugins` on/with `TransformPlugin`
+  - `TransformPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/rl_sim/runtime.rs:88` in `new_with_options` - `add_plugins` on/with `StatesPlugin`
+  - `StatesPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/rl_sim/runtime.rs:94` in `new_with_options` - `insert_resource` on/with `StartRoomOverride(room_id)`
+  - `StartRoomOverride`
+  - `room_id`
+  - `app`
+- `crates/ambition_sandbox/src/rl_sim/runtime.rs:96` in `new_with_options` - `add_plugins` on/with `SandboxSimulationPlugin`
+  - `SandboxSimulationPlugin`
+  - `app`
+- `crates/ambition_sandbox/src/rl_sim/runtime.rs:111` in `new_with_options` - `insert_resource` on/with `TimeUpdateStrategy::ManualDuration( std::time::Duration::from_secs_f32(dt), )`
+  - `TimeUpdateStrategy::ManualDuration`
+  - `std::time::Duration::from_secs_f32`
+  - `dt`
+  - `app`
+- `crates/ambition_sandbox/src/rl_sim/runtime.rs:135` in `set_timestep` - `insert_resource` on/with `TimeUpdateStrategy::ManualDuration( std::time::Duration::from_secs_f32(dt), )`
+  - `TimeUpdateStrategy::ManualDuration`
+  - `std::time::Duration::from_secs_f32`
+  - `dt`
+  - `app`
+- `crates/ambition_sandbox/src/rl_sim/runtime.rs:140` in `set_timestep` - `insert_resource` on/with `TimeUpdateStrategy::Automatic`
+  - `TimeUpdateStrategy::Automatic`
+  - `app`
+- `crates/ambition_sandbox/src/runtime/reset.rs:287` in `SandboxResetSchedulePlugin::build` - `add_systems` on/with `Update`
+  - systems: `clear_transient_on_sandbox_reset`, `process_sandbox_reset_request`
+  - sets: `crate::app::SandboxSet::ResetProcessing`
+  - `clear_transient_on_sandbox_reset`
+  - `process_sandbox_reset_request`
+  - `crate::app::SandboxSet::ResetProcessing`
+- `crates/ambition_sandbox/src/runtime/reset.rs:328` in `sandbox_reset_clears_portals_held_items_and_summons` - `insert_resource` on/with `SandboxResetRequested::default()`
+  - `app`
+- `crates/ambition_sandbox/src/runtime/reset.rs:329` in `sandbox_reset_clears_portals_held_items_and_summons` - `add_systems` on/with `Update`
+  - systems: `clear_transient_on_sandbox_reset`
+  - `clear_transient_on_sandbox_reset`
+- `crates/ambition_sandbox/src/runtime/reset.rs:425` in `min_app` - `insert_resource` on/with `SandboxResetRequested::default()`
+  - `app`
+- `crates/ambition_sandbox/src/runtime/reset.rs:426` in `min_app` - `insert_resource` on/with `SandboxSave::default()`
+  - `app`
+- `crates/ambition_sandbox/src/runtime/reset.rs:427` in `min_app` - `insert_resource` on/with `EncounterRegistry::default()`
+  - `app`
+- `crates/ambition_sandbox/src/runtime/reset.rs:428` in `min_app` - `insert_resource` on/with `BossEncounterRegistry::default()`
+  - `app`
+- `crates/ambition_sandbox/src/runtime/reset.rs:429` in `min_app` - `insert_resource` on/with `QuestRegistry::default()`
+  - `app`
+- `crates/ambition_sandbox/src/runtime/reset.rs:430` in `min_app` - `insert_resource` on/with `EncounterMusicRequest::default()`
+  - `app`
+- `crates/ambition_sandbox/src/runtime/reset.rs:431` in `min_app` - `insert_resource` on/with `crate::features::GameplayBanner::default()`
+  - `app`
+- `crates/ambition_sandbox/src/runtime/reset.rs:452` in `min_app` - `insert_resource` on/with `crate::world::physics::PhysicsSandboxSettings::default()`
+  - `app`
+- `crates/ambition_sandbox/src/runtime/reset.rs:453` in `min_app` - `insert_resource` on/with `crate::MovingPlatformSet::default()`
+  - `app`
+- `crates/ambition_sandbox/src/runtime/reset.rs:454` in `min_app` - `insert_resource` on/with `crate::SandboxSimState::default()`
+  - `app`
+- `crates/ambition_sandbox/src/runtime/reset.rs:455` in `min_app` - `insert_resource` on/with `crate::SandboxDevState::default()`
+  - `app`
+- `crates/ambition_sandbox/src/runtime/reset.rs:456` in `min_app` - `insert_resource` on/with `GameWorld(world.clone())`
+  - `GameWorld`
+  - `world`
+  - `app`
+- `crates/ambition_sandbox/src/runtime/reset.rs:482` in `min_app` - `insert_resource` on/with `crate::rooms::RoomSet::from_parts( "test", vec![room_spec], Vec::new(), )`
+  - sets: `crate::rooms::RoomSet::from_parts`
+  - `crate::rooms::RoomSet::from_parts`
+  - `vec`
+  - `room_spec`
+  - `app`
+- `crates/ambition_sandbox/src/runtime/reset.rs:487` in `min_app` - `insert_resource` on/with `EditableMovementTuning::default()`
+  - `app`
+- `crates/ambition_sandbox/src/runtime/reset.rs:488` in `min_app` - `add_systems` on/with `Update`
+  - systems: `process_sandbox_reset_request`
+  - `process_sandbox_reset_request`
+- `crates/ambition_sandbox/src/runtime/setup.rs:154` in `simulation_world` - `insert_resource` on/with `SceneEntities { player, hud: Entity::PLACEHOLDER, quest_panel: Entity::PLACEHOLDER, }`
+  - `SceneEntities`
+  - `player`
+  - `hud`
+  - `Entity::PLACEHOLDER`
+  - `quest_panel`
+  - `commands`
+- `crates/ambition_sandbox/src/runtime/setup.rs:193` in `presentation_world` - `insert_resource` on/with `audio_library`
+  - `audio_library`
+  - `commands`
+- `crates/ambition_sandbox/src/runtime/setup.rs:194` in `presentation_world` - `insert_resource` on/with `music_state`
+  - `music_state`
+  - `commands`
+- `crates/ambition_sandbox/src/runtime/setup.rs:197` in `presentation_world` - `insert_resource` on/with `SfxBankResource(std::sync::Arc::new(provider))`
+  - `SfxBankResource`
+  - `provider`
+  - `commands`
+- `crates/ambition_sandbox/src/runtime/setup.rs:366` in `presentation_world_inner` - `insert_resource` on/with `crate::runtime::camera_layers::MainCameraEntity(main_camera)`
+  - `crate::runtime::camera_layers::MainCameraEntity`
+  - `main_camera`
+  - `commands`
+- `crates/ambition_sandbox/src/runtime/setup.rs:475` in `presentation_world_inner` - `insert_resource` on/with `SceneEntities { player, hud, quest_panel, }`
+  - `SceneEntities`
+  - `player`
+  - `hud`
+  - `quest_panel`
+  - `commands`
+- `crates/ambition_sandbox/src/sentry.rs:163` in `test_app` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::audio::SfxMessage`
+- `crates/ambition_sandbox/src/sentry.rs:164` in `test_app` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/sentry.rs:165` in `test_app` - `insert_resource` on/with `crate::WorldTime { raw_dt: 0.1, scaled_dt: 0.1, }`
+  - `crate::WorldTime`
+  - `raw_dt`
+  - `scaled_dt`
+  - `app`
+- `crates/ambition_sandbox/src/sentry.rs:169` in `test_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `EnemyProjectileState`
+- `crates/ambition_sandbox/src/sentry.rs:170` in `test_app` - `add_systems` on/with `Update`
+  - systems: `fire_sentry_system`, `update_sentries`
+  - `fire_sentry_system`
+  - `update_sentries`
+- `crates/ambition_sandbox/src/shockwave.rs:151` in `test_app` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::audio::SfxMessage`
+- `crates/ambition_sandbox/src/shockwave.rs:152` in `test_app` - `add_message` on/with `<none>`
+  - `app`
+  - `ActorActionMessage`
+- `crates/ambition_sandbox/src/shockwave.rs:153` in `test_app` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/shockwave.rs:154` in `test_app` - `add_systems` on/with `Update`
+  - systems: `fire_shockwave_system`, `spawn_shockwave_from_special_messages`
+  - `fire_shockwave_system`
+  - `spawn_shockwave_from_special_messages`
+- `crates/ambition_sandbox/src/shockwave.rs:259` in `an_actor_emitting_shockwave_gets_an_aoe_of_its_own_faction` - `add_message` on/with `<none>`
+  - `app`
+  - `ActorActionMessage`
+- `crates/ambition_sandbox/src/shockwave.rs:260` in `an_actor_emitting_shockwave_gets_an_aoe_of_its_own_faction` - `add_systems` on/with `Update`
+  - systems: `spawn_shockwave_from_special_messages`
+  - `spawn_shockwave_from_special_messages`
+- `crates/ambition_sandbox/src/shrine.rs:452` in `interacting_at_the_shrine_heals_to_full` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::audio::SfxMessage`
+- `crates/ambition_sandbox/src/shrine.rs:453` in `interacting_at_the_shrine_heals_to_full` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/shrine.rs:454` in `interacting_at_the_shrine_heals_to_full` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::persistence::save::SandboxSave`
+- `crates/ambition_sandbox/src/shrine.rs:455` in `interacting_at_the_shrine_heals_to_full` - `init_resource` on/with `<none>`
+  - `app`
+  - `ShrineActivationPulse`
+- `crates/ambition_sandbox/src/shrine.rs:456` in `interacting_at_the_shrine_heals_to_full` - `add_systems` on/with `Update`
+  - systems: `heal_save_shrine_system`
+  - `heal_save_shrine_system`
+- `crates/ambition_sandbox/src/shrine.rs:519` in `no_heal_without_interact_or_when_not_touching` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::audio::SfxMessage`
+- `crates/ambition_sandbox/src/shrine.rs:520` in `no_heal_without_interact_or_when_not_touching` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/shrine.rs:521` in `no_heal_without_interact_or_when_not_touching` - `init_resource` on/with `<none>`
+  - `app`
+  - `crate::persistence::save::SandboxSave`
+- `crates/ambition_sandbox/src/shrine.rs:522` in `no_heal_without_interact_or_when_not_touching` - `init_resource` on/with `<none>`
+  - `app`
+  - `ShrineActivationPulse`
+- `crates/ambition_sandbox/src/shrine.rs:523` in `no_heal_without_interact_or_when_not_touching` - `add_systems` on/with `Update`
+  - systems: `heal_save_shrine_system`
+  - `heal_save_shrine_system`
+- `crates/ambition_sandbox/src/time/time_control.rs:439` in `solo_grant_writes_requested_clock_scale` - `add_systems` on/with `Update`
+  - systems: `apply_clock_scale_requests`
+  - `apply_clock_scale_requests`
+- `crates/ambition_sandbox/src/time/time_control.rs:439` in `solo_grant_writes_requested_clock_scale` - `insert_resource` on/with `RequestedClockScale::default()`
+  - `app`
+  - `ClockScaleRequest`
+- `crates/ambition_sandbox/src/time/time_control.rs:439` in `solo_grant_writes_requested_clock_scale` - `insert_resource` on/with `RegimePolicy::default()`
+  - `app`
+  - `ClockScaleRequest`
+- `crates/ambition_sandbox/src/time/time_control.rs:439` in `solo_grant_writes_requested_clock_scale` - `add_message` on/with `<none>`
+  - `app`
+  - `ClockScaleRequest`
+- `crates/ambition_sandbox/src/time/time_control.rs:460` in `rl_regime_denies_blocks_the_scale_change` - `add_systems` on/with `Update`
+  - systems: `apply_clock_scale_requests`
+  - `apply_clock_scale_requests`
+- `crates/ambition_sandbox/src/time/time_control.rs:460` in `rl_regime_denies_blocks_the_scale_change` - `insert_resource` on/with `RequestedClockScale::default()`
+  - `app`
+  - `ClockScaleRequest`
+  - `RegimePolicy`
+  - `regime`
+  - `Regime::RLDeterministic`
+- `crates/ambition_sandbox/src/time/time_control.rs:460` in `rl_regime_denies_blocks_the_scale_change` - `insert_resource` on/with `RegimePolicy { regime: Regime::RLDeterministic, }`
+  - `RegimePolicy`
+  - `regime`
+  - `Regime::RLDeterministic`
+  - `app`
+  - `ClockScaleRequest`
+- `crates/ambition_sandbox/src/time/time_control.rs:460` in `rl_regime_denies_blocks_the_scale_change` - `add_message` on/with `<none>`
+  - `app`
+  - `ClockScaleRequest`
+- `crates/ambition_sandbox/src/time/time_control.rs:488` in `wall_clock_grant_does_not_mutate_target` - `add_systems` on/with `Update`
+  - systems: `apply_clock_scale_requests`
+  - `apply_clock_scale_requests`
+- `crates/ambition_sandbox/src/time/time_control.rs:488` in `wall_clock_grant_does_not_mutate_target` - `insert_resource` on/with `RequestedClockScale::default()`
+  - `app`
+  - `ClockScaleRequest`
+- `crates/ambition_sandbox/src/time/time_control.rs:488` in `wall_clock_grant_does_not_mutate_target` - `insert_resource` on/with `RegimePolicy::default()`
+  - `app`
+  - `ClockScaleRequest`
+- `crates/ambition_sandbox/src/time/time_control.rs:488` in `wall_clock_grant_does_not_mutate_target` - `add_message` on/with `<none>`
+  - `app`
+  - `ClockScaleRequest`
+- `crates/ambition_sandbox/src/time/time_control.rs:512` in `smoother_ramps_sim_state_time_scale_toward_target` - `add_systems` on/with `Update`
+  - systems: `apply_clock_scale_requests`, `smooth_sim_clock_toward_target_system`
+  - `apply_clock_scale_requests`
+  - `smooth_sim_clock_toward_target_system`
+- `crates/ambition_sandbox/src/time/time_control.rs:512` in `smoother_ramps_sim_state_time_scale_toward_target` - `insert_resource` on/with `Time::<()>::default()`
+  - `app`
+  - `ClockScaleRequest`
+- `crates/ambition_sandbox/src/time/time_control.rs:512` in `smoother_ramps_sim_state_time_scale_toward_target` - `insert_resource` on/with `SandboxFeelTuning::default()`
+  - `app`
+  - `ClockScaleRequest`
+- `crates/ambition_sandbox/src/time/time_control.rs:512` in `smoother_ramps_sim_state_time_scale_toward_target` - `insert_resource` on/with `SandboxSimState::default()`
+  - `app`
+  - `ClockScaleRequest`
+- `crates/ambition_sandbox/src/time/time_control.rs:512` in `smoother_ramps_sim_state_time_scale_toward_target` - `insert_resource` on/with `RequestedClockScale::default()`
+  - `app`
+  - `ClockScaleRequest`
+- `crates/ambition_sandbox/src/time/time_control.rs:512` in `smoother_ramps_sim_state_time_scale_toward_target` - `insert_resource` on/with `RegimePolicy::default()`
+  - `app`
+  - `ClockScaleRequest`
+- `crates/ambition_sandbox/src/time/time_control.rs:512` in `smoother_ramps_sim_state_time_scale_toward_target` - `add_message` on/with `<none>`
+  - `app`
+  - `ClockScaleRequest`
+- `crates/ambition_sandbox/src/volley.rs:106` in `test_app` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::audio::SfxMessage`
+- `crates/ambition_sandbox/src/volley.rs:107` in `test_app` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/volley.rs:108` in `test_app` - `init_resource` on/with `<none>`
+  - `app`
+  - `EnemyProjectileState`
+- `crates/ambition_sandbox/src/volley.rs:109` in `test_app` - `add_systems` on/with `Update`
+  - systems: `fire_volley_system`
+  - `fire_volley_system`
+- `crates/ambition_sandbox/src/vortex.rs:127` in `test_app` - `add_message` on/with `<none>`
+  - `app`
+  - `crate::audio::SfxMessage`
+- `crates/ambition_sandbox/src/vortex.rs:128` in `test_app` - `insert_resource` on/with `ControlFrame::default()`
+  - `app`
+- `crates/ambition_sandbox/src/vortex.rs:129` in `test_app` - `insert_resource` on/with `crate::WorldTime { raw_dt: 0.016, scaled_dt: 0.016, }`
+  - `crate::WorldTime`
+  - `raw_dt`
+  - `scaled_dt`
+  - `app`
+- `crates/ambition_sandbox/src/vortex.rs:133` in `test_app` - `add_systems` on/with `Update`
+  - systems: `fire_vortex_system`, `update_vortex_wells`
+  - `fire_vortex_system`
+  - `update_vortex_wells`
+- `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/asset.rs:32` in `load_ldtk_asset_handle` - `insert_resource` on/with `SandboxLdtkAsset(asset_server.load(asset_path))`
+  - `SandboxLdtkAsset`
+  - `asset_server`
+  - `asset_path`
+  - `commands`
+- `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/asset.rs:36` in `load_ldtk_asset_handle` - `insert_resource` on/with `IntroLdtkAsset( asset_server.load("ambition/worlds/intro.ldtk"), )`
+  - `IntroLdtkAsset`
+  - `asset_server`
+  - `commands`
+- `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/asset.rs:39` in `load_ldtk_asset_handle` - `insert_resource` on/with `CutRopeLdtkAsset( asset_server.load("ambition/worlds/you_have_to_cut_the_rope.ldtk"), )`
+  - `CutRopeLdtkAsset`
+  - `asset_server`
+  - `commands`
+- `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/plugin.rs:38` in `LdtkRuntimeSpinePlugin::build` - `add_systems` on/with `Update`
+  - systems: `sync_plugin_spawned_ambition_entities`, `super::systems::rebuild_ldtk_runtime_spine_index`, `super::systems::rebuild_ldtk_runtime_solid_index`, `super::systems::rebuild_ldtk_runtime_one_way_index`, `super::systems::rebuild_ldtk_runtime_damage_index`, `super::parity::check_ldtk_runtime_spine_parity`
+  - sets: `SandboxSet::LdtkRuntimeSpine`
+  - `sync_plugin_spawned_ambition_entities`
+  - `super::systems::rebuild_ldtk_runtime_spine_index`
+  - `super::systems::rebuild_ldtk_runtime_solid_index`
+  - `super::systems::rebuild_ldtk_runtime_one_way_index`
+  - `super::systems::rebuild_ldtk_runtime_damage_index`
+  - `super::parity::check_ldtk_runtime_spine_parity`
+  - `SandboxSet::LdtkRuntimeSpine`
+- `crates/ambition_sandbox/src/world/ldtk_world/tests/kinematic_paths.rs:493` in `damage_volume_path_id_resolves_through_room_spec_kinematic_paths` - `add_systems` on/with `bevy::prelude::Update`
+  - systems: `commands`, `crate::features::spawn_room_feature_entities`, `room`
+  - `commands`
+  - `crate::features::spawn_room_feature_entities`
+  - `room`
+- `crates/ambition_sandbox/src/world/physics.rs:118` in `AmbitionPhysicsPlugin::build` - `add_systems` on/with `Update`
+  - systems: `update_physics_debris_lifetimes`, `complete_pending_physics_despawns`
+  - `update_physics_debris_lifetimes`
+  - `complete_pending_physics_despawns`
+- `crates/ambition_sandbox/src/world/physics.rs:118` in `AmbitionPhysicsPlugin::build` - `add_plugins` on/with `PhysicsPlugins::default()`
+  - `app`
+  - `Gravity`
+  - `SANDBOX_GRAVITY`
+- `crates/ambition_sandbox/src/world/physics.rs:118` in `AmbitionPhysicsPlugin::build` - `insert_resource` on/with `Gravity(BVec2::new(0.0, -SANDBOX_GRAVITY))`
+  - `Gravity`
+  - `SANDBOX_GRAVITY`
+  - `app`
+- `crates/ambition_sandbox/src/world/physics.rs:118` in `AmbitionPhysicsPlugin::build` - `insert_resource` on/with `PhysicsSandboxSettings::default()`
+  - `app`
+- `crates/ambition_sandbox/src/world/rooms/tests.rs:144` in `sync_room_music_request_mirrors_metadata_music_track` - `insert_resource` on/with `ActiveRoomMetadata(RoomMetadata { biome: Some("cave".into()), music_track: Some("cave_loop".into()), ambient_profile: None, visual_theme: None, visual_profil...`
+  - `ActiveRoomMetadata`
+  - `RoomMetadata`
+  - `biome`
+  - `Some`
+  - `music_track`
+  - `ambient_profile`
+  - `None`
+  - `visual_theme`
+  - `visual_profile`
+  - `app`
+- `crates/ambition_sandbox/src/world/rooms/tests.rs:151` in `sync_room_music_request_mirrors_metadata_music_track` - `insert_resource` on/with `RoomMusicRequest::default()`
+  - `app`
+- `crates/ambition_sandbox/src/world/rooms/tests.rs:152` in `sync_room_music_request_mirrors_metadata_music_track` - `add_systems` on/with `Update`
+  - systems: `sync_room_music_request`
+  - `sync_room_music_request`
+- `crates/ambition_sandbox/src/world/rooms/tests.rs:197` in `sync_active_room_metadata_publishes_active_value` - `insert_resource` on/with `set`
+  - `set`
+  - `app`
+- `crates/ambition_sandbox/src/world/rooms/tests.rs:198` in `sync_active_room_metadata_publishes_active_value` - `insert_resource` on/with `ActiveRoomMetadata::default()`
+  - `app`
+- `crates/ambition_sandbox/src/world/rooms/tests.rs:199` in `sync_active_room_metadata_publishes_active_value` - `add_systems` on/with `Update`
+  - systems: `sync_active_room_metadata`
+  - `sync_active_room_metadata`
+
+## System-like function definitions
+- `crates/ambition_sandbox/src/ability_cooldown.rs`
+  - `pub try_use_ability` (line 33)
+    - Commands
+  - `pub tick_ability_cooldown` (line 58)
+    - reads WorldTime; 1 queries
+  - `use_once_system` (line 108)
+    - Commands; writes UseLog; 1 queries
+- `crates/ambition_sandbox/src/app/dev_runtime.rs`
+  - `pub handle_debug_hotkeys` (line 33)
+    - writes SandboxDevState, DeveloperTools; reads ButtonInput<KeyCode>
+  - `pub sync_preset_input_map` (line 69)
+    - reads SandboxDevState, SceneEntities; 1 queries
+  - `pub handle_ldtk_hot_reload` (line 92)
+    - Commands; writes GameWorld, RoomSet, SandboxDevState, SandboxSimState, DialogState, LdtkRuntimeIndex; reads ButtonInput<KeyCode>, EditableMovementTuning, PhysicsSandboxSettings, GameAssets, SandboxAssetCatalog; 2 queries
+  - `pub reload_ldtk_world_from_disk` (line 243)
+    - Commands; 1 queries
+- `crates/ambition_sandbox/src/app/hud.rs`
+  - `pub update_hud` (line 67)
+    - reads SandboxDevState, State<GameMode>, GameWorld, RoomSet, DisplayModeState, DeveloperTools; 2 queries
+  - `pub update_quest_panel` (line 316)
+    - reads QuestRegistry, UserSettings, SceneEntities; 1 queries
+- `crates/ambition_sandbox/src/app/input_systems.rs`
+  - `pub attach_player_input_components` (line 21)
+    - Commands; reads SandboxDevState, SceneEntities
+  - `pub populate_control_frame_from_actions` (line 44)
+    - writes ControlFrame, PlayerDashTriggerState, CutsceneAdvanceRequest; reads State<GameMode>, UserSettings, ActiveCutscene, Time; 1 queries
+  - `pub populate_menu_control_frame_from_actions` (line 125)
+    - writes MenuControlFrame, MenuInputState; reads Time, UserSettings; reads messages MouseWheel; 1 queries
+  - `pub apply_menu_frame_to_cutscene_request` (line 188)
+    - writes CutsceneAdvanceRequest; reads Time, MenuControlFrame, ActiveCutscene
+- `crates/ambition_sandbox/src/app/phases.rs`
+  - `pub player_control_phase` (line 67)
+    - writes messages SfxMessage, VfxMessage, ResetRoomFeaturesEvent, HitEvent
+  - `pub player_simulation_phase` (line 174)
+    - writes messages SfxMessage, VfxMessage, ResetRoomFeaturesEvent
+- `crates/ambition_sandbox/src/app/player_tick.rs`
+  - `pub clear_sandbox_reset_this_frame` (line 60)
+    - writes SandboxResetThisFrame
+  - `pub player_control_system` (line 75)
+    - writes SandboxResetThisFrame; reads Time, GameWorld, EditableMovementTuning, SandboxFeelTuning; 1 queries
+  - `pub player_simulation_system` (line 157)
+    - writes SandboxResetThisFrame, CameraShakeState; reads Time, GameWorld, EditableMovementTuning, SandboxFeelTuning, GravityField; 1 queries
+- `crates/ambition_sandbox/src/app/plugins.rs`
+  - `pub spawn_ldtk_world_root` (line 368)
+    - Commands; reads AssetServer, LdtkRuntimeIndex, RoomSet, SandboxLdtkAsset, IntroLdtkAsset, CutRopeLdtkAsset
+- `crates/ambition_sandbox/src/app/setup_systems.rs`
+  - `pub setup_simulation_system` (line 32)
+    - Commands; writes MovingPlatformSet; reads GameWorld, RoomSet, SandboxDataAsset, SandboxLdtkAsset, SandboxAssetCollection, AssetServer
+  - `pub setup_presentation_system` (line 72)
+    - Commands; writes Assets<KiraAudioSource>, Assets<TextureAtlasLayout>, StartupProfiler; reads GameWorld, RoomSet, SandboxDataSpec, SandboxAssetCatalog, PhysicsSandboxSettings, AssetServer
+  - `pub setup_presentation_system` (line 158)
+    - Commands; writes Assets<TextureAtlasLayout>; reads GameWorld, RoomSet, SandboxDataSpec, SandboxAssetCatalog, PhysicsSandboxSettings, AssetServer
+- `crates/ambition_sandbox/src/app/sim_systems.rs`
+  - `pub sync_live_player_dev_edits_system` (line 30)
+    - reads EditableMovementTuning, EditableAbilitySet; 1 queries
+  - `pub apply_suspended_time_scale_system` (line 76)
+    - writes SandboxSimState, RequestedClockScale
+  - `pub input_timer_system` (line 92)
+    - writes SandboxSimState, ControlFrame; reads Time, SandboxFeelTuning; 1 queries
+  - `pub interaction_input_system` (line 152)
+    - reads Time, SandboxFeelTuning, ControlFrame; 1 queries
+  - `pub apply_player_reset_input_system` (line 207)
+    - writes ControlFrame, SandboxSimState; reads GameWorld, EditableMovementTuning, SandboxFeelTuning; writes messages ResetRoomFeaturesEvent, SfxMessage, VfxMessage; 1 queries
+  - `pub apply_cut_rope_room_replay_request_system` (line 274)
+    - writes SandboxSimState, BossEncounterRegistry, SandboxSave, BossEncounterMusicRequest; reads GameWorld, EditableMovementTuning, SandboxFeelTuning; writes messages ResetRoomFeaturesEvent, SfxMessage, VfxMessage; reads messages CutRopeRoomReplayRequested; 1 queries
+  - `pub detect_room_transition_system` (line 359)
+    - reads RoomSet, SandboxSimState, PortalRegistry; writes messages RoomTransitionRequested; 1 queries
+  - `pub attack_advance_system` (line 424)
+    - reads Time, GameWorld, MovingPlatformSet, EditableMovementTuning, SandboxFeelTuning, FeatureEcsWorldOverlay; writes messages FeatureHitEvent, SfxMessage, VfxMessage; reads messages ActorActionMessage; 1 queries
+  - `pub apply_player_hit_events` (line 533)
+    - writes SandboxSimState, GameplayBanner; reads GameWorld, ControlFrame, MovingPlatformSet, EditableMovementTuning, SandboxFeelTuning, UserSettings; writes messages PlayerDiedMessage, SfxMessage, VfxMessage; reads messages FeatureHitEvent; 2 queries
+  - `pub cleanup_timers_system` (line 655)
+    - writes SandboxDevState; reads Time; 1 queries
+- `crates/ambition_sandbox/src/app/world_flow.rs`
+  - `pub reset_sandbox` (line 42)
+    - writes messages SfxMessage, VfxMessage
+  - `pub load_room` (line 83)
+    - Commands; writes messages SfxMessage, VfxMessage; 1 queries
+  - `pub ensure_requested_room_parallax_system` (line 209)
+    - writes GameAssets; reads RoomSet, SandboxAssetCatalog, AssetServer; reads messages RoomTransitionRequested
+  - `pub apply_room_transition_system` (line 231)
+    - Commands; writes GameWorld, RoomSet, SandboxDevState, SandboxSimState, MovingPlatformSet, DialogState; reads EditableMovementTuning, SandboxFeelTuning, PhysicsSandboxSettings, GameAssets; reads messages RoomTransitionRequested; 2 queries
+  - `pub handle_player_events` (line 416)
+    - writes messages SfxMessage, VfxMessage
+  - `pub death_respawn_player` (line 587)
+    - writes messages SfxMessage, VfxMessage, PlayerDiedMessage
+  - `pub handle_player_damage_events` (line 642)
+    - writes messages SfxMessage, VfxMessage, PlayerDiedMessage
+  - `pub safe_respawn_player` (line 741)
+    - writes messages SfxMessage, VfxMessage
+  - `pub apply_player_knockback` (line 769)
+    - writes messages SfxMessage, VfxMessage
+  - `pub start_attack` (line 884)
+    - writes messages SfxMessage, VfxMessage
+  - `pub advance_attack` (line 966)
+    - writes messages SfxMessage, VfxMessage, HitEvent
+- `crates/ambition_sandbox/src/assets/game_assets.rs`
+  - `pub load_game_assets` (line 687)
+    - reads Assets<TextureAtlasLayout>
+- `crates/ambition_sandbox/src/audio/bank_asset.rs`
+  - `kick_off_bank_load` (line 139)
+    - Commands; reads AssetServer, SandboxAssetCatalog, SfxBankResource
+  - `promote_loaded_sfx_bank` (line 171)
+    - Commands; writes AudioLibrary, Assets<KiraAudioSource>; reads PendingSfxBankHandle, Assets<SfxBankAsset>, SfxBankResource, Assets<KiraAudioSource>
+- `crates/ambition_sandbox/src/audio/environment.rs`
+  - `pub detect_audio_environment` (line 154)
+    - writes AudioEnvironment; 1 queries
+  - `pub smooth_audio_environment` (line 178)
+    - writes AudioEnvironment; reads WorldTime
+  - `pub apply_audio_environment` (line 202)
+    - reads UserSettings, AudioEnvironment, AudioChannel<MusicChannel>, AudioChannel<SfxChannel>
+- `crates/ambition_sandbox/src/audio/render.rs`
+  - `pub handle_for` (line 29)
+    - reads Assets<KiraAudioSource>
+- `crates/ambition_sandbox/src/audio/runtime.rs`
+  - `pub audio_play_sfx_messages` (line 52)
+    - writes SfxBankHandleCache, Assets<KiraAudioSource>; reads AudioLibrary, AudioChannel<SfxChannel>, SfxBankResource, Assets<KiraAudioSource>; reads messages SfxMessage
+  - `pub apply_encounter_music` (line 95)
+    - writes AudioLibrary, MusicPlaybackState, EncounterMusicRequest, BossEncounterMusicRequest; reads AssetServer, AudioChannel<MusicChannel>, RoomMusicRequest, SandboxDataSpec
+  - `pub new` (line 281)
+    - reads Assets<KiraAudioSource>
+  - `pub refresh_sfx_from_bank` (line 382)
+    - reads Assets<KiraAudioSource>
+  - `pub start_default_music_when_ready` (line 559)
+    - writes DefaultMusicStarted, AudioLibrary; reads AudioUnlockState, AssetServer, MusicPlaybackState, AudioChannel<MusicChannel>
+- `crates/ambition_sandbox/src/audio/web_unlock.rs`
+  - `prime_unlock_for_native` (line 90)
+    - writes AudioUnlockState
+  - `observe_unlock_gesture` (line 107)
+    - writes AudioUnlockState; reads ButtonInput<KeyCode>, ButtonInput<MouseButton>, Touches
+- `crates/ambition_sandbox/src/beam.rs`
+  - `pub fire_beam_system` (line 80)
+    - Commands; reads ControlFrame; writes messages SfxMessage; 1 queries
+- `crates/ambition_sandbox/src/blink.rs`
+  - `pub blink_system` (line 40)
+    - Commands; reads ControlFrame, GameWorld; writes messages SfxMessage, VfxMessage, HitEvent; 1 queries
+  - `capture_hits` (line 184)
+    - writes CapturedHits; reads messages HitEvent
+- `crates/ambition_sandbox/src/body_mode/mechanics.rs`
+  - `pub update_body_mode` (line 41)
+    - reads GameWorld; 1 queries
+- `crates/ambition_sandbox/src/body_mode/morph_ball.rs`
+  - `pub build_morph_ball_sprite` (line 91)
+    - Commands; writes Assets<Image>; reads Assets<Image>
+  - `pub spawn_morph_ball_visual` (line 101)
+    - Commands; reads MorphBallSprite; 1 queries
+  - `pub sync_morph_ball_visual` (line 132)
+    - reads GameWorld, SceneEntities; 3 queries
+- `crates/ambition_sandbox/src/bomb.rs`
+  - `pub arm_thrown_bombs` (line 37)
+    - Commands; 1 queries
+  - `pub tick_bomb_fuses` (line 52)
+    - Commands; reads WorldTime; writes messages HitEvent, SfxMessage, VfxMessage; 1 queries
+  - `capture_hits` (line 129)
+    - writes CapturedHits; reads messages HitEvent
+- `crates/ambition_sandbox/src/boss_encounter/banter.rs`
+  - `pub tick_boss_idle_barks` (line 135)
+    - reads WorldTime, CombatBanterRegistry; writes messages VfxMessage; 1 queries
+- `crates/ambition_sandbox/src/boss_encounter/cut_rope.rs`
+  - `pub emit_cut_rope_room_replay_after_dialogue_closes` (line 126)
+    - writes PendingCutRopeRoomReplay; reads DialogState; writes messages CutRopeRoomReplayRequested
+  - `pub spawn_cut_rope_victory_npc` (line 177)
+    - Commands; reads RoomSet, BossEncounterRegistry, SandboxSave; 2 queries
+  - `spawn_victory_npc_entity` (line 236)
+    - Commands
+  - `pub reset_cut_rope_boss_arena_on_room_reset` (line 314)
+    - writes CutRopeBossArenaState, CutRopeHeavyObjectCycle; reads RoomSet, GameAssets; reads messages ResetRoomFeaturesEvent; 1 queries
+  - `pub tick_cut_rope_boss_arena` (line 369)
+    - writes CutRopeBossArenaState, BossEncounterRegistry, BossEncounterMusicRequest, CutsceneTriggerQueue, GameplayBanner; reads WorldTime, RoomSet, CutRopeHeavyObjectCycle; writes messages SfxMessage, VfxMessage, ExplosionRequest, FireworksRequest, DebrisBurstMessage; reads messages HitEvent, ResetRoomFeaturesEvent; 1 queries
+  - `pub sync_cut_rope_boss_arena_prop_visuals` (line 560)
+    - reads RoomSet, CutRopeBossArenaState, CutRopeHeavyObjectCycle, GameAssets; 1 queries
+  - `pub steer_cut_rope_boss_under_anvil` (line 595)
+    - reads CutRopeBossArenaState; 1 queries
+  - `pulse_waiting_rope_explosions` (line 638)
+    - writes messages ExplosionRequest
+  - `sync_cut_rope_prop_visuals` (line 678)
+    - 1 queries
+- `crates/ambition_sandbox/src/boss_encounter/gnu_ton.rs`
+  - `pub gate_gnu_ton_arena_ladder` (line 69)
+    - writes GameWorld; 1 queries
+- `crates/ambition_sandbox/src/boss_encounter/sprites.rs`
+  - `pub load_boss_sprite_in` (line 687)
+    - reads Assets<TextureAtlasLayout>
+  - `pub load_mockingbird_sprite_in` (line 705)
+    - reads Assets<TextureAtlasLayout>
+  - `pub load_gnu_ton_sprite_in` (line 722)
+    - reads Assets<TextureAtlasLayout>
+  - `pub load_smirking_behemoth_sprite_in` (line 736)
+    - reads Assets<TextureAtlasLayout>
+  - `pub load_flying_spaghetti_sprite_in` (line 752)
+    - reads Assets<TextureAtlasLayout>
+  - `pub load_trex_boss_sprite_in` (line 768)
+    - reads Assets<TextureAtlasLayout>
+  - `pub load_gnu_ton_body_sprite_in` (line 779)
+    - reads Assets<TextureAtlasLayout>
+  - `pub load_gnu_ton_hands_sprite_in` (line 795)
+    - reads Assets<TextureAtlasLayout>
+  - `load_named_boss_sprite_via_catalog` (line 809)
+    - reads Assets<TextureAtlasLayout>
+- `crates/ambition_sandbox/src/boss_encounter/systems.rs`
+  - `pub populate_boss_encounter_registry` (line 9)
+    - writes BossEncounterRegistry; reads SandboxSave
+  - `pub update_boss_encounters` (line 55)
+    - Commands; writes BossEncounterRegistry, GameplayBanner, SandboxSave, BossEncounterMusicRequest, QuestRegistry, CutsceneTriggerQueue; reads WorldTime, RoomSet, GameWorld; 2 queries
+  - `pub boss_phase_transition_feedback` (line 395)
+    - writes CameraShakeState; reads BossEncounterRegistry; writes messages SfxMessage, ActorActionMessage, VfxMessage; 1 queries
+- `crates/ambition_sandbox/src/brain/mod.rs`
+  - `pub emit_brain_action_messages` (line 352)
+    - writes messages ActorActionMessage; 1 queries
+  - `pub emit_player_projectile_tick_messages` (line 383)
+    - writes messages ActorActionMessage; 1 queries
+  - `pub observe_brain_action_counter` (line 420)
+    - writes BrainActionCounter; reads messages ActorActionMessage
+  - `pub log_brain_action_messages` (line 435)
+    - reads messages ActorActionMessage
+- `crates/ambition_sandbox/src/content/character_catalog/mod.rs`
+  - `pub validate_catalog_on_startup` (line 123)
+    - reads CharacterCatalog
+- `crates/ambition_sandbox/src/content/data.rs`
+  - `pub load_data_asset_handle` (line 51)
+    - Commands; reads AssetServer, SandboxAssetCatalog
+- `crates/ambition_sandbox/src/content/features/bus.rs`
+  - `pub apply_flag_effects` (line 11)
+    - writes SandboxSave, QuestRegistry; reads messages SetFlagRequested
+  - `pub apply_quest_effects` (line 25)
+    - writes QuestRegistry; reads messages QuestAdvanceRequested
+  - `pub apply_switch_effects` (line 38)
+    - writes SwitchActivationQueue; writes messages SfxMessage; reads messages SwitchActivated
+  - `pub apply_gameplay_sfx_effects` (line 55)
+    - writes messages SfxMessage; reads messages GameplaySfxRequested
+- `crates/ambition_sandbox/src/content/features/ecs/actors.rs`
+  - `pub make_entity_enemy` (line 168)
+    - Commands
+  - `pub sync_actor_poses_from_feature_aabbs` (line 251)
+    - 1 queries
+  - `pub update_ecs_actors` (line 283)
+    - Commands; writes CombatSlotsRes; reads WorldTime, GameWorld, MovingPlatformSet, SandboxFeelTuning, FeatureEcsWorldOverlay; writes messages SfxMessage, VfxMessage, DebrisBurstMessage, HitEvent; 3 queries
+  - `pub update_ecs_npcs` (line 698)
+    - reads WorldTime, GameWorld, MovingPlatformSet, FeatureEcsWorldOverlay; 1 queries
+- `crates/ambition_sandbox/src/content/features/ecs/aggression.rs`
+  - `pub apply_npc_stimuli` (line 25)
+    - Commands; reads messages ActorStimulus; 1 queries
+  - `pub apply_actor_stimuli` (line 114)
+    - Commands; reads messages ActorStimulus; 1 queries
+- `crates/ambition_sandbox/src/content/features/ecs/anim_helpers.rs`
+  - `pub ecs_npc_name` (line 23)
+    - 1 queries
+  - `pub ecs_enemy_sprite_override` (line 37)
+    - 1 queries
+  - `pub ecs_enemy_name` (line 58)
+    - 1 queries
+  - `pub ecs_enemy_anim_state` (line 72)
+    - 1 queries
+  - `pub ecs_npc_anim_state` (line 102)
+    - 1 queries
+  - `pub ecs_chest_opened` (line 129)
+    - 1 queries
+  - `pub ecs_breakable_state` (line 140)
+    - 1 queries
+  - `pub ecs_boss_name` (line 150)
+    - 1 queries
+  - `pub ecs_boss_anim_state_and_entity` (line 245)
+    - 1 queries
+  - `pub ecs_boss_animation_frame_sample` (line 278)
+    - 1 queries
+  - `pub ecs_boss_anim_state` (line 353)
+    - 1 queries
+- `crates/ambition_sandbox/src/content/features/ecs/banner.rs`
+  - `pub tick_gameplay_banner` (line 6)
+    - writes GameplayBanner; reads WorldTime
+  - `pub apply_gameplay_banner_requests` (line 15)
+    - writes GameplayBanner; reads messages GameplayBannerRequested
+- `crates/ambition_sandbox/src/content/features/ecs/bosses.rs`
+  - `pub sync_boss_actor_components` (line 93)
+    - 1 queries
+  - `pub derive_boss_sprite_metrics` (line 214)
+    - Commands; reads SheetRegistry; 1 queries
+  - `pub sync_boss_encounter_phase` (line 340)
+    - reads BossEncounterRegistry; 1 queries
+  - `pub tick_boss_brains_system` (line 393)
+    - reads WorldTime, GameWorld, MovingPlatformSet, FeatureEcsWorldOverlay; writes messages ActorActionMessage; 1 queries
+  - `pub update_ecs_bosses` (line 573)
+    - reads WorldTime, GameWorld, MovingPlatformSet, FeatureEcsWorldOverlay; writes messages SfxMessage, VfxMessage, DebrisBurstMessage, HitEvent; 2 queries
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs`
+  - `pub spawn_enemy_projectiles_from_brain_actions` (line 63)
+    - writes EnemyProjectileState; writes messages SfxMessage; reads messages ActorActionMessage; 3 queries
+  - `pub start_enemy_melee_from_brain_actions` (line 169)
+    - reads SandboxFeelTuning; reads messages ActorActionMessage; 1 queries
+  - `pub spawn_gnu_apple_rain_from_special_messages` (line 280)
+    - writes EnemyProjectileState; reads WorldTime, GameWorld; reads messages ActorActionMessage; 1 queries
+  - `pub spawn_overfit_volley_from_special_messages` (line 476)
+    - writes EnemyProjectileState; reads WorldTime; reads messages ActorActionMessage; 2 queries
+  - `pub spawn_eye_beam_from_special_messages` (line 611)
+    - writes EnemyProjectileState; reads messages ActorActionMessage; 2 queries
+  - `pub spawn_minima_trap_from_special_messages` (line 755)
+    - Commands; reads messages ActorActionMessage; 2 queries
+  - `pub spawn_saddle_point_from_special_messages` (line 906)
+    - Commands; reads WorldTime; reads messages ActorActionMessage; 1 queries
+  - `pub spawn_gradient_cascade_minions_from_special_messages` (line 1067)
+    - Commands; reads messages ActorActionMessage; 1 queries
+- `crates/ambition_sandbox/src/content/features/ecs/breakables.rs`
+  - `pub update_ecs_breakables` (line 9)
+    - Commands; writes GameplayBanner; reads WorldTime; writes messages SfxMessage, VfxMessage, DebrisBurstMessage; 2 queries
+- `crates/ambition_sandbox/src/content/features/ecs/chests.rs`
+  - `pub open_ecs_chests` (line 7)
+    - Commands; writes GameplayBanner; writes messages SetFlagRequested, SfxMessage, VfxMessage; 2 queries
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs`
+  - `pub drop_currency_coin` (line 80)
+    - Commands
+  - `spawn_death_explosion` (line 107)
+    - Commands
+  - `spawn_split_offspring` (line 134)
+    - Commands
+  - `pub drop_health_pickup` (line 153)
+    - Commands
+  - `pub drop_ability_pickup` (line 224)
+    - Commands
+  - `pub apply_feature_hit_events` (line 246)
+    - writes GameplayBanner, …, BossEncounterRegistry, BossEncounterMusicRequest, CutsceneTriggerQueue; reads CombatBanterRegistry; reads messages HitEvent; 5 queries
+  - `pub ecs_hit_event_hits_breakable` (line 939)
+    - 1 queries
+  - `pub ecs_hit_event_hits_actor` (line 952)
+    - 1 queries
+  - `pub ecs_hit_event_hits_boss` (line 975)
+    - 1 queries
+  - `pub begin_ecs_breakable_respawn` (line 1025)
+    - Commands
+  - `pub emit_breakable_destroyed` (line 1036)
+    - writes messages SfxMessage, VfxMessage, DebrisBurstMessage
+- `crates/ambition_sandbox/src/content/features/ecs/encounter_rewards.rs`
+  - `pub clear_encounter_reward_ecs` (line 15)
+    - Commands; 1 queries
+  - `pub sync_encounter_reward_chests_ecs` (line 36)
+    - Commands; 1 queries
+  - `pub sync_boss_reward_chests_ecs` (line 95)
+    - Commands; 1 queries
+  - `run_sync` (line 216)
+    - Commands; reads SandboxSave, EncounterRegistry; 1 queries
+  - `run_boss_sync` (line 283)
+    - Commands; reads SandboxSave, BossEncounterRegistry, TestWorld, TestAnchors; 1 queries
+- `crates/ambition_sandbox/src/content/features/ecs/falling_chest.rs`
+  - `pub update_ecs_falling_chests` (line 13)
+    - Commands; reads WorldTime, GameWorld; 1 queries
+- `crates/ambition_sandbox/src/content/features/ecs/hazards.rs`
+  - `pub update_ecs_hazards` (line 8)
+    - reads WorldTime; writes messages SfxMessage, VfxMessage, DebrisBurstMessage, HitEvent; 2 queries
+  - `record_hits` (line 117)
+    - writes HitLog; reads messages HitEvent
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs`
+  - `pub apply_hitbox_damage` (line 110)
+    - writes messages SfxMessage, VfxMessage, DebrisBurstMessage, HitEvent; 3 queries
+  - `pub tick_and_despawn_hitboxes` (line 253)
+    - Commands; reads WorldTime; 1 queries
+  - `pub spawn_melee_hitbox` (line 270)
+    - Commands
+  - `capture_hits` (line 488)
+    - writes CapturedHits; reads messages HitEvent
+- `crates/ambition_sandbox/src/content/features/ecs/interact.rs`
+  - `pub interact_ecs_actors_and_switches` (line 12)
+    - writes DialogState, NextState<GameMode>, GameplayBanner; writes messages SetFlagRequested, QuestAdvanceRequested, SwitchActivated, VfxMessage; 3 queries
+- `crates/ambition_sandbox/src/content/features/ecs/mount.rs`
+  - `pub sync_riders_to_mounts` (line 114)
+    - 2 queries
+  - `pub enforce_mount_rider_link` (line 207)
+    - Commands; 2 queries
+- `crates/ambition_sandbox/src/content/features/ecs/overlay.rs`
+  - `pub rebuild_feature_ecs_world_overlay` (line 25)
+    - writes FeatureEcsWorldOverlay; 3 queries
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs`
+  - `pub magnetize_pickups` (line 16)
+    - reads WorldTime; 2 queries
+  - `pub collect_ecs_pickups` (line 35)
+    - Commands; writes GameplayBanner, OwnedItems; writes messages PlayerHealRequested, SfxMessage, VfxMessage, SetFlagRequested; 3 queries
+- `crates/ambition_sandbox/src/content/features/ecs/reset.rs`
+  - `pub reset_ecs_room_features` (line 11)
+    - Commands; writes EnemyProjectileState, CombatSlotsRes; reads messages ResetRoomFeaturesEvent; 8 queries
+  - `pub reset_ecs_npc_actors` (line 163)
+    - reads messages ResetRoomFeaturesEvent; 1 queries
+- `crates/ambition_sandbox/src/content/features/ecs/save_sync.rs`
+  - `pub sync_ecs_actors_with_save` (line 15)
+    - reads SandboxSave; 1 queries
+  - `pub sync_ecs_npc_actors_with_save` (line 76)
+    - Commands; reads SandboxSave; 1 queries
+  - `pub sync_ecs_bosses_with_save` (line 159)
+    - reads SandboxSave; 1 queries
+  - `pub sync_ecs_switches_from_save` (line 202)
+    - reads SandboxSave; 1 queries
+- `crates/ambition_sandbox/src/content/features/ecs/spawn.rs`
+  - `pub spawn_room_feature_entities` (line 15)
+    - Commands
+  - `pub spawn_encounter_mob` (line 62)
+    - Commands
+  - `pub despawn_encounter_mobs` (line 74)
+    - Commands; 1 queries
+- `crates/ambition_sandbox/src/content/features/ecs/spawn_actors.rs`
+  - `pub spawn_boss` (line 13)
+    - Commands
+  - `pub spawn_runtime_minion` (line 190)
+    - Commands
+  - `pub spawn_enemy` (line 258)
+    - Commands
+  - `pub spawn_solo_enemy` (line 289)
+    - Commands
+  - `pub spawn_interactable` (line 331)
+    - Commands
+  - `pub spawn_encounter_mob` (line 404)
+    - Commands
+  - `pub despawn_encounter_mobs` (line 461)
+    - Commands; 1 queries
+- `crates/ambition_sandbox/src/content/features/ecs/spawn_mounts.rs`
+  - `pub spawn_composite_mount_rider` (line 36)
+    - Commands
+- `crates/ambition_sandbox/src/content/features/ecs/spawn_static.rs`
+  - `pub spawn_hazard` (line 10)
+    - Commands
+  - `pub spawn_pickup` (line 33)
+    - Commands
+  - `pub spawn_ground_item` (line 49)
+    - Commands
+  - `pub spawn_portal_gun_spawn` (line 67)
+    - Commands
+  - `pub spawn_portal` (line 82)
+    - Commands
+  - `pub spawn_shrine` (line 97)
+    - Commands
+  - `pub spawn_gravity_zone` (line 107)
+    - Commands
+  - `pub spawn_chest` (line 128)
+    - Commands
+  - `pub spawn_breakable` (line 144)
+    - Commands
+- `crates/ambition_sandbox/src/content/features/ecs/target_volumes.rs`
+  - `pub refresh_actor_damageable_volumes` (line 18)
+    - 1 queries
+  - `pub refresh_boss_damageable_volumes` (line 51)
+    - 1 queries
+  - `pub refresh_breakable_damageable_volumes` (line 81)
+    - 1 queries
+  - `pub derive_pogo_target_volumes` (line 105)
+    - 1 queries
+- `crates/ambition_sandbox/src/content/features/ecs/targeting.rs`
+  - `pub select_actor_targets` (line 37)
+    - 2 queries
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs`
+  - `fake_reset_system` (line 429)
+    - Commands; 1 queries
+- `crates/ambition_sandbox/src/content/features/ecs/view_index.rs`
+  - `pub rebuild_feature_view_index` (line 90)
+    - writes FeatureViewIndex; 7 queries
+- `crates/ambition_sandbox/src/content/quest.rs`
+  - `pub populate_quest_registry` (line 227)
+    - writes QuestRegistry; reads SandboxSave
+  - `pub push_room_entered_quest_events` (line 271)
+    - writes QuestRegistry; reads RoomSet
+  - `pub apply_quest_advance_events` (line 286)
+    - writes QuestRegistry, SandboxSave
+  - `pub grant_quest_completion_rewards` (line 326)
+    - writes SandboxSave, PlayerInventory, GameplayBanner; reads QuestRegistry
+- `crates/ambition_sandbox/src/dev/debug_overlay.rs`
+  - `pub draw_debug_overlay` (line 64)
+    - reads GameWorld, SandboxDevState, MovingPlatformSet, DeveloperTools, RoomSet, LdtkRuntimeSpineIndex; 4 queries
+- `crates/ambition_sandbox/src/dev/dev_tools.rs`
+  - `pub inspector_visible` (line 502)
+    - reads DeveloperTools
+  - `pub world_inspector_visible` (line 547)
+    - reads DeveloperTools
+  - `pub sync_developer_body_profile` (line 840)
+    - reads DeveloperTools; 1 queries
+  - `pub sync_player_stats_with_inspector` (line 992)
+    - writes EditablePlayerStats; 2 queries
+- `crates/ambition_sandbox/src/dev/fps_overlay.rs`
+  - `spawn_fps_overlay` (line 89)
+    - Commands; reads FpsOverlayState, UiFonts
+  - `toggle_fps_overlay_on_f3` (line 126)
+    - writes UserSettings; reads ButtonInput<KeyCode>
+  - `sync_fps_overlay_state_from_settings` (line 135)
+    - writes FpsOverlayState; reads UserSettings
+  - `update_fps_overlay_text` (line 194)
+    - reads DiagnosticsStore; 1 queries
+  - `update_fps_overlay_visibility` (line 216)
+    - reads FpsOverlayState; 1 queries
+- `crates/ambition_sandbox/src/dev/profiling.rs`
+  - `pub report_startup_phases` (line 90)
+    - writes StartupProfiler
+  - `pub report_startup_phases` (line 150)
+    - writes StartupProfiler
+- `crates/ambition_sandbox/src/dev/trace/systems.rs`
+  - `pub flush_pending_dump` (line 58)
+    - writes GameplayTraceBuffer
+  - `pub handle_trace_hotkey` (line 89)
+    - writes GameplayTraceBuffer; reads ButtonInput<KeyCode>
+  - `pub record_frame_system` (line 113)
+    - writes GameplayTraceBuffer; reads SandboxSimState, MovingPlatformSet, GameWorld, Time, RoomSet, State<GameMode>; 1 queries
+- `crates/ambition_sandbox/src/dialog/systems.rs`
+  - `pub dialog_pointer_input` (line 14)
+    - writes DialogState, NextState<GameMode>; reads State<GameMode>; 2 queries
+  - `pub dialog_input` (line 102)
+    - writes DialogState, NextState<GameMode>; reads MenuControlFrame, State<GameMode>
+- `crates/ambition_sandbox/src/dialog/ui.rs`
+  - `pub sync_dialog_ui` (line 19)
+    - Commands; reads DialogState, UiFonts; 1 queries
+- `crates/ambition_sandbox/src/dialog/yarn_bindings.rs`
+  - `pub refresh_yarn_state_mirror` (line 83)
+    - reads SandboxSave, CutRopeHeavyObjectCycle, PlayerInventory, OwnedItems, YarnStateMirror; 1 queries
+  - `pub clear_yarn_presentation_cue` (line 177)
+    - writes YarnPresentationCue
+  - `pub cmd_set_flag` (line 207)
+    - writes messages SetFlagRequested
+  - `pub cmd_clear_flag` (line 212)
+    - writes messages SetFlagRequested
+  - `pub cmd_give_item` (line 224)
+    - writes PlayerInventory, OwnedItems
+  - `pub cmd_buy_item` (line 261)
+    - writes OwnedItems; 1 queries
+  - `pub cmd_sell_item` (line 282)
+    - writes OwnedItems; 1 queries
+  - `pub cmd_spawn_chest` (line 325)
+  - `pub cmd_play_sfx` (line 335)
+    - writes messages SfxMessage
+  - `pub cmd_spawn_fireworks` (line 345)
+    - writes messages FireworksRequest; 1 queries
+  - `pub cmd_camera_zoom` (line 360)
+  - `pub cmd_watch_cut_rope_video` (line 372)
+    - writes messages SetFlagRequested
+  - `pub cmd_reset_cut_rope_room` (line 389)
+    - writes PendingCutRopeRoomReplay
+  - `pub register_commands` (line 503)
+    - Commands
+- `crates/ambition_sandbox/src/dialog/yarn_bridge.rs`
+  - `spawn_dialogue_runner` (line 85)
+    - Commands; reads YarnProject, YarnStateMirror, DialogueRunnerEntity
+  - `dispatch_pending_dialog_requests` (line 112)
+    - writes DialogState, SandboxSave, NextState<GameMode>; reads DialogueRunnerEntity; 1 queries
+  - `on_present_line` (line 231)
+    - writes DialogState, YarnPresentationCue
+  - `on_present_options` (line 283)
+    - writes DialogState
+  - `on_dialogue_completed` (line 304)
+    - writes DialogState, NextState<GameMode>
+- `crates/ambition_sandbox/src/dive.rs`
+  - `pub fire_dive_system` (line 85)
+    - reads ControlFrame, GameWorld; writes messages SfxMessage, HitEvent; 1 queries
+  - `capture_hits` (line 201)
+    - writes CapturedHits; reads messages HitEvent
+- `crates/ambition_sandbox/src/encounter/switches.rs`
+  - `pub rebuild_encounter_switch_index` (line 47)
+    - writes EncounterSwitchIndex; 1 queries
+- `crates/ambition_sandbox/src/encounter/systems.rs`
+  - `pub populate_encounter_registry` (line 13)
+    - writes EncounterRegistry; reads SandboxSave, SandboxLdtkProject
+  - `pub update_encounters_from_world` (line 44)
+    - Commands; writes EncounterRegistry, SandboxSave, SwitchActivationQueue, GameplayTraceBuffer, GameWorld, EncounterMusicRequest; reads WorldTime, EncounterSwitchIndex, RoomSet; writes messages GameplayBannerRequested; reads messages PlayerDiedMessage; 3 queries
+- `crates/ambition_sandbox/src/enemy_projectile/systems.rs`
+  - `pub update_enemy_projectiles` (line 22)
+    - writes EnemyProjectileState; reads WorldTime, GameWorld; writes messages HitEvent, SfxMessage, VfxMessage, PlayerHealRequested; 3 queries
+  - `capture_hits` (line 237)
+    - writes CapturedHits; reads messages HitEvent
+- `crates/ambition_sandbox/src/enemy_projectile/visuals.rs`
+  - `pub sync_enemy_projectile_visuals` (line 100)
+    - Commands; reads AssetServer, GameWorld, EnemyProjectileState; 1 queries
+  - `spawn_lasersword_visual` (line 148)
+    - Commands
+  - `spawn_apple_visual` (line 170)
+    - Commands
+- `crates/ambition_sandbox/src/falling_sand.rs`
+  - `setup_particle_types` (line 209)
+    - Commands
+  - `sync_falling_sand_room_state` (line 302)
+    - Commands; writes FallingSandRoomState; reads RoomSet, GameWorld, SandboxSave; 1 queries
+  - `seed_falling_sand_room_boundaries` (line 340)
+    - writes FallingSandRoomState; reads RoomSet; writes messages SpawnParticleSignal
+  - `emit_wall_rect` (line 434)
+    - writes messages SpawnParticleSignal
+  - `emit_particle_rect` (line 445)
+    - writes messages SpawnParticleSignal
+  - `capture_falling_sand_switch_interactions` (line 472)
+    - writes FallingSandRoomState, SandboxSave; reads RoomSet; reads messages SwitchActivated
+  - `sync_falling_sand_switch_visuals` (line 519)
+    - reads FallingSandRoomState, RoomSet; 1 queries
+  - `sync_falling_sand_spout_nozzles` (line 544)
+    - Commands; reads RoomSet, FallingSandRoomState; 1 queries
+  - `emit_falling_sand_spouts` (line 611)
+    - Commands; writes FallingSandRoomState; reads RoomSet; writes messages SpawnParticleSignal
+  - `emit_spout` (line 726)
+    - writes messages SpawnParticleSignal
+  - `spawn_stream_particles` (line 754)
+    - Commands
+  - `animate_falling_sand_stream_particles` (line 799)
+    - Commands; reads RoomSet, Time; 1 queries
+  - `project_particles_to_movement_world` (line 859)
+    - Commands; writes GameWorld; reads RoomSet, FallingSandRoomState; 2 queries
+  - `grant_room_swim_controls` (line 1008)
+    - writes FallingSandRoomState; reads RoomSet; 1 queries
+  - `log_falling_sand_diagnostics` (line 1050)
+    - reads Time, FallingSandRoomState, RoomSet; 7 queries
+  - `clear_material_visuals` (line 1201)
+    - Commands; 1 queries
+  - `sync_material_visuals` (line 1210)
+    - Commands; 1 queries
+- `crates/ambition_sandbox/src/grapple.rs`
+  - `pub grapple_system` (line 35)
+    - Commands; reads ControlFrame, GameWorld; writes messages SfxMessage, VfxMessage; 1 queries
+- `crates/ambition_sandbox/src/gravity_grenade.rs`
+  - `pub arm_thrown_gravity_grenades` (line 38)
+    - Commands; 1 queries
+  - `pub tick_gravity_grenade_fuses` (line 53)
+    - Commands; reads WorldTime; writes messages SfxMessage, VfxMessage; 1 queries
+- `crates/ambition_sandbox/src/host/mobile_input/bevy_plugin.rs`
+  - `spawn_touch_joysticks` (line 206)
+    - Commands; writes Assets<Image>; reads Assets<Image>
+  - `tag_virtual_joystick_root` (line 276)
+    - Commands; 1 queries
+  - `sync_touch_ui_visibility` (line 375)
+    - reads TouchControlsVisible; 1 queries
+  - `sync_touch_visibility_from_settings` (line 397)
+    - writes TouchControlsVisible; reads UserSettings
+  - `spawn_touch_buttons` (line 430)
+    - Commands
+  - `pub update_button_verb_from_affordances` (line 631)
+    - reads PlayerAffordances; 1 queries
+  - `pub render_touch_button_text` (line 687)
+    - 1 queries
+  - `pub update_button_glyph_from_active_input` (line 747)
+    - reads ActiveInputMethod, UserSettings; 1 queries
+  - `pub update_button_pressed_from_actions` (line 779)
+    - reads MobileTouchState; 2 queries
+  - `pub sync_button_pressed_visual` (line 821)
+    - 1 queries
+  - `update_buttons_from_interactions` (line 870)
+    - writes MobileTouchState, TouchButtonEdges; reads Touches, ButtonInput<MouseButton>; 2 queries
+  - `drive_joystick_knob_from_axis` (line 970)
+    - reads ControlFrame; 3 queries
+  - `read_joystick_messages` (line 1075)
+    - writes MobileTouchState; reads messages VirtualJoystickMessage<MobileStick>
+- `crates/ambition_sandbox/src/host/mobile_input/menu_bridge.rs`
+  - `pub fold_to_control_frame` (line 49)
+    - writes ControlFrame; reads State<GameMode>, ActiveCutscene, MobileTouchState
+  - `pub fold_to_menu_control_frame` (line 132)
+    - writes MenuTouchGestureState, MenuControlFrame; reads Time, State<GameMode>, MobileTouchState, Touches, ButtonInput<MouseButton>, UserSettings; 1 queries
+- `crates/ambition_sandbox/src/host/platform/android.rs`
+  - `detect_android_suspend_state` (line 78)
+    - writes AndroidSuspendState; reads messages AppLifecycle, WindowFocused, WindowOccluded
+  - `apply_android_suspend_to_game_mode` (line 139)
+    - writes NextState<GameMode>; reads AndroidSuspendState, State<GameMode>
+  - `pub apply_android_suspend_to_audio` (line 170)
+    - reads AndroidSuspendState, AudioChannel<MusicChannel>, AudioChannel<SfxChannel>
+- `crates/ambition_sandbox/src/host/windowing.rs`
+  - `pub window_mode_hotkeys` (line 69)
+    - writes DisplayModeState; reads ButtonInput<KeyCode>; 1 queries
+- `crates/ambition_sandbox/src/hud_overlay.rs`
+  - `pub regen_player_mana` (line 47)
+    - reads WorldTime; 1 queries
+  - `pub spawn_player_hud` (line 61)
+    - Commands; 2 queries
+  - `pub update_player_hud` (line 156)
+    - 6 queries
+- `crates/ambition_sandbox/src/intro/plugin.rs`
+  - `pub install_intro_cutscenes_system` (line 114)
+    - writes IntroCutscenesInstalled, CutsceneLibrary, RoomCutsceneBindings
+  - `pub install_intro_banter_system` (line 141)
+    - writes IntroBanterInstalled, CombatBanterRegistry
+  - `pub install_intro_gated_zones_system` (line 158)
+    - writes IntroGatedZonesInstalled, PortalRegistry
+  - `pub load_intro_npc_sprites_system` (line 179)
+    - writes IntroSpritesInstalled, Assets<TextureAtlasLayout>, GameAssets; reads GameAssetConfig, AssetServer, SandboxAssetCatalog, Assets<TextureAtlasLayout>
+  - `pub load_intro_prop_sprites_system` (line 227)
+    - writes IntroPropSpritesInstalled, Assets<TextureAtlasLayout>, GameAssets; reads GameAssetConfig, AssetServer, SandboxAssetCatalog, Assets<TextureAtlasLayout>
+- `crates/ambition_sandbox/src/intro/route_state.rs`
+  - `pub emit_intro_flag_chains` (line 63)
+    - reads SandboxSave; writes messages SetFlagRequested
+  - `pub sync_intro_flag_gated_lock_walls` (line 146)
+    - writes GameWorld; reads SandboxLdtkProject, RoomSet, SandboxSave
+- `crates/ambition_sandbox/src/inventory/effects.rs`
+  - `pub apply_item_effect` (line 3)
+    - writes messages PlayerHealRequested
+  - `record_heals` (line 29)
+    - writes HealCount; reads messages PlayerHealRequested
+  - `use_one_health_potion` (line 33)
+    - writes PlayerInventory; writes messages PlayerHealRequested
+- `crates/ambition_sandbox/src/inventory/input.rs`
+  - `pub inventory_input` (line 7)
+    - writes InventoryUiState, NextState<GameMode>, PlayerInventory; reads MenuControlFrame, State<GameMode>; writes messages PlayerHealRequested
+  - `handle_item_tab_input` (line 70)
+    - writes messages PlayerHealRequested
+- `crates/ambition_sandbox/src/inventory/pointer.rs`
+  - `pub inventory_pointer_input` (line 13)
+    - writes NextState<GameMode>, InventoryUiState; reads State<GameMode>, UserSettings; 3 queries
+- `crates/ambition_sandbox/src/inventory/ui.rs`
+  - `pub spawn_inventory_panel` (line 8)
+    - Commands
+  - `pub sync_inventory_panel` (line 264)
+    - reads InventoryUiState, PlayerInventory, MapMenuState, QuestRegistry, RoomSet; 2 queries
+- `crates/ambition_sandbox/src/inventory_persist.rs`
+  - `pub restore_inventory_from_save` (line 25)
+    - writes InventoryRestored, OwnedItems; reads SandboxSave; 1 queries
+  - `pub persist_inventory_to_save` (line 49)
+    - writes SandboxSave; reads InventoryRestored, OwnedItems; 1 queries
+- `crates/ambition_sandbox/src/item_pickup.rs`
+  - `pub ground_item_physics` (line 127)
+    - reads WorldTime, GameWorld; 1 queries
+  - `pub equip_held_spec` (line 227)
+    - Commands
+  - `pub unequip_held` (line 246)
+    - Commands
+  - `pub pickup_held_item_system` (line 261)
+    - Commands; writes ControlFrame, OwnedItems; 2 queries
+  - `pub throw_held_item_system` (line 322)
+    - Commands; writes OwnedItems; reads ControlFrame; 1 queries
+  - `emit_fireball_explosion` (line 429)
+    - writes messages HitEvent, SfxMessage, VfxMessage
+  - `pub fire_held_ranged_system` (line 478)
+    - Commands; reads ControlFrame; writes messages SfxMessage; 1 queries
+  - `pub held_projectile_step` (line 532)
+    - Commands; reads WorldTime, GameWorld; writes messages HitEvent, SfxMessage, VfxMessage; 5 queries
+  - `pub load_item_art` (line 693)
+    - Commands; reads AssetServer
+  - `pub sync_ground_item_visuals` (line 724)
+    - Commands; reads GameWorld, ItemArt; 2 queries
+  - `pub sync_held_item_visual` (line 762)
+    - Commands; reads ControlFrame, GameWorld, ItemArt; 2 queries
+  - `pub sync_held_projectile_visuals` (line 831)
+    - Commands; reads AssetServer, GameWorld; 2 queries
+- `crates/ambition_sandbox/src/map_menu/input.rs`
+  - `pub handle_map_menu_hotkeys` (line 9)
+    - writes MapMenuState; reads ButtonInput<KeyCode>, MenuControlFrame, InventoryUiBackend
+- `crates/ambition_sandbox/src/map_menu/pointer.rs`
+  - `pub map_menu_pointer_dismiss` (line 7)
+    - writes MapMenuState; 1 queries
+- `crates/ambition_sandbox/src/map_menu/systems.rs`
+  - `pub track_room_visits` (line 5)
+    - writes MapMenuState, SandboxSave; reads RoomSet
+  - `pub sync_map_from_save` (line 21)
+    - writes MapMenuState; reads SandboxSave
+  - `pub populate_map_rooms` (line 37)
+    - writes MapMenuState; reads SandboxLdtkProject
+- `crates/ambition_sandbox/src/map_menu/ui.rs`
+  - `pub spawn_map_menu` (line 58)
+    - Commands
+  - `pub sync_map_menu` (line 180)
+    - Commands; reads MapMenuState, RoomSet; 7 queries
+  - `reconcile_label` (line 327)
+    - Commands; 1 queries
+  - `spawn_room_box` (line 385)
+    - Commands
+- `crates/ambition_sandbox/src/mark_recall.rs`
+  - `pub mark_recall_system` (line 54)
+    - Commands; reads ControlFrame; writes messages SfxMessage, VfxMessage, HitEvent; 1 queries
+  - `pub sync_mark_beacon_visual` (line 144)
+    - Commands; reads GameWorld, AssetServer; 2 queries
+  - `capture_hits` (line 220)
+    - writes CapturedHits; reads messages HitEvent
+- `crates/ambition_sandbox/src/meteor.rs`
+  - `pub fire_meteor_system` (line 83)
+    - writes EnemyProjectileState; reads ControlFrame; writes messages SfxMessage; 1 queries
+- `crates/ambition_sandbox/src/music/director.rs`
+  - `pub drive_music_director` (line 29)
+    - writes MusicDirectorState, EncounterMusicRequest, BossEncounterMusicRequest, AudioLibrary, MusicPlaybackState; reads Time, MusicCueCatalog, LoadedMusicCueAssets, EncounterRegistry, RoomMusicRequest, AudioChannel<MusicChannel>
+- `crates/ambition_sandbox/src/music/director/loader.rs`
+  - `pub load_music_cues` (line 4)
+    - Commands; reads AssetServer
+- `crates/ambition_sandbox/src/oot_cube_app.rs`
+  - `play_ui` (line 38)
+    - writes messages SfxMessage
+  - `spawn_cube_scrim` (line 447)
+    - Commands
+  - `retarget_cube_scrim` (line 474)
+    - Commands; reads MainCameraEntity; 1 queries
+  - `fade_cube_scrim` (line 500)
+    - reads CubeOpenState; 1 queries
+  - `cube_focus_nav` (line 526)
+    - Commands; writes CubeCursor, CubeSystemNav, ActiveMenuPages<CubePage, CubeAction>, InventoryUiState, OwnedItems, UserSettings; reads InventoryUiBackend, MenuControlFrame, InventoryUiState; writes messages PlayerHealRequested, SfxMessage
+  - `emit_move_sfx` (line 747)
+    - writes messages SfxMessage
+  - `system_focus_nav` (line 765)
+    - Commands; writes messages PlayerHealRequested, SfxMessage
+  - `apply_system_option_step` (line 941)
+    - writes messages SfxMessage
+  - `turn_page_seeded` (line 1044)
+    - writes messages SfxMessage
+  - `turn_page` (line 1058)
+    - writes messages SfxMessage
+  - `dispatch_cube_action` (line 1074)
+    - Commands; writes messages PlayerHealRequested, SfxMessage
+  - `apply_system_option` (line 1166)
+    - writes messages SfxMessage
+  - `cube_pointer_move` (line 1277)
+    - writes CubeCursor; reads ActiveMenuPages<CubePage, CubeAction>, CubeSystemNav, UserSettings; writes messages SfxMessage; 1 queries
+  - `cube_pointer_click` (line 1317)
+    - Commands; writes InventoryUiState, ActiveMenuPages<CubePage, CubeAction>, CubeCursor, CubeSystemNav, OwnedItems, UserSettings; reads InventoryUiBackend; writes messages PlayerHealRequested, SfxMessage; 1 queries
+  - `cube_menu_open_routing` (line 1395)
+    - writes MenuControlFrame, InventoryUiState, NextState<GameMode>, ActiveMenuPages<CubePage, CubeAction>, CubeCursor, CubeSystemNav; reads InventoryUiBackend, State<GameMode>; writes messages SfxMessage
+  - `toggle_inventory_backend` (line 1539)
+    - writes InventoryUiBackend; reads ButtonInput<KeyCode>
+  - `gate_cube_menu` (line 1555)
+    - writes CubeOpenState; reads InventoryUiBackend, InventoryUiState; 2 queries
+  - `republish_cube_pages` (line 1616)
+    - writes UserSettings, CubeSystemNav, ActiveMenuPages<CubePage, CubeAction>; reads InventoryUiBackend, InventoryUiState, OwnedItems, UserSettings, CubeCursor, CubeSystemNav
+- `crates/ambition_sandbox/src/oot_menu/input.rs`
+  - `pub oot_menu_input` (line 26)
+    - Commands; writes OotMenuState, InventoryUiState, NextState<GameMode>, OwnedItems; reads MenuControlFrame, InventoryUiBackend, State<GameMode>; writes messages PlayerHealRequested
+  - `pub dispatch_item_confirm` (line 136)
+    - Commands; writes messages PlayerHealRequested
+  - `pub apply_menu_action` (line 150)
+    - Commands; writes messages PlayerHealRequested
+  - `pub oot_menu_pointer_input` (line 224)
+    - writes NextState<GameMode>, OotMenuState, InventoryUiState; reads State<GameMode>, UserSettings; 2 queries
+- `crates/ambition_sandbox/src/oot_menu/tests.rs`
+  - `record_heals` (line 22)
+    - writes HealLog; reads messages PlayerHealRequested
+- `crates/ambition_sandbox/src/oot_menu/ui.rs`
+  - `pub spawn_oot_menu` (line 73)
+    - Commands
+  - `pub sync_oot_menu` (line 230)
+    - reads OotMenuState, InventoryUiState, InventoryUiBackend, OwnedItems; 3 queries
+- `crates/ambition_sandbox/src/pause_menu/input.rs`
+  - `pub pause_menu_toggle` (line 11)
+    - writes NextState<GameMode>, PauseMenuState, InventoryUiState; reads MenuControlFrame, State<GameMode>, InventoryUiBackend; writes messages SfxMessage
+  - `pub pause_menu_navigate` (line 61)
+    - writes PauseMenuState, NextState<GameMode>, InventoryUiState, DisplayModeState, UserSettings, SandboxResetRequested; reads MenuControlFrame, State<GameMode>, AssetServer, AudioChannel<MusicChannel>; writes messages AppExit; 1 queries
+  - `handle_top_input` (line 205)
+    - writes messages AppExit
+  - `handle_settings_page_input` (line 339)
+    - 1 queries
+- `crates/ambition_sandbox/src/pause_menu/pointer.rs`
+  - `pub pause_menu_pointer_input` (line 12)
+    - writes PauseMenuState; reads State<GameMode>, InventoryUiState, UserSettings, AudioLibrary; 2 queries
+- `crates/ambition_sandbox/src/pause_menu/ui.rs`
+  - `pub spawn_pause_menu` (line 6)
+    - Commands
+  - `spawn_settings_row_slot` (line 213)
+    - Commands
+  - `pub sync_pause_menu` (line 312)
+    - reads State<GameMode>, PauseMenuState, InventoryUiState, AudioLibrary, MusicPlaybackState; 4 queries
+  - `pub sync_pause_menu` (line 390)
+    - reads State<GameMode>, PauseMenuState, InventoryUiState; 4 queries
+  - `pub sync_settings_panel_rows` (line 447)
+    - reads State<GameMode>, PauseMenuState, InventoryUiState, UserSettings, AudioLibrary, MusicPlaybackState; 6 queries
+  - `apply_visible_rows` (line 651)
+    - 4 queries
+  - `hide_all_rows` (line 776)
+    - 2 queries
+  - `hide_scrollbar` (line 815)
+    - 1 queries
+  - `update_scrollbar` (line 835)
+    - 1 queries
+  - `apply_page_visibility` (line 881)
+    - 2 queries
+  - `pub settings_slider_drag_input` (line 906)
+    - writes PauseMenuState, UserSettings; reads State<GameMode>, InventoryUiState; 1 queries
+  - `pub settings_scrollbar_drag_input` (line 955)
+    - writes PauseMenuState; reads State<GameMode>, InventoryUiState, AudioLibrary; 1 queries
+- `crates/ambition_sandbox/src/persistence/save.rs`
+  - `pub load_save_at_startup` (line 94)
+    - writes SandboxSave
+  - `pub autosave_sandbox_save` (line 111)
+    - reads SandboxSave
+  - `pub load_save_at_startup` (line 130)
+    - writes SandboxSave
+  - `pub autosave_sandbox_save` (line 134)
+    - reads SandboxSave
+- `crates/ambition_sandbox/src/persistence/settings/model.rs`
+  - `pub apply_action` (line 672)
+    - 1 queries
+  - `pub apply_display_mode` (line 1242)
+    - 1 queries
+- `crates/ambition_sandbox/src/persistence/settings/persistence.rs`
+  - `pub load_settings_at_startup` (line 104)
+    - writes UserSettings
+  - `pub save_settings_on_change` (line 121)
+    - reads UserSettings
+  - `pub load_settings_at_startup` (line 139)
+    - writes UserSettings
+  - `pub save_settings_on_change` (line 143)
+    - reads UserSettings
+  - `pub load_developer_at_startup` (line 196)
+    - writes DeveloperTools
+  - `pub save_developer_on_change` (line 212)
+    - reads DeveloperTools
+  - `pub load_developer_at_startup` (line 227)
+    - writes DeveloperTools
+  - `pub save_developer_on_change` (line 230)
+    - reads DeveloperTools
+- `crates/ambition_sandbox/src/physics.rs`
+  - `pub collect_gravity_zones` (line 108)
+    - writes GravityZones; 1 queries
+  - `pub tick_temporary_zones` (line 142)
+    - Commands; reads WorldTime; 1 queries
+  - `pub oscillate_gravity_zones` (line 158)
+    - reads WorldTime; 1 queries
+  - `pub resolve_active_gravity` (line 263)
+    - writes GravityField; reads BaseGravity; 2 queries
+- `crates/ambition_sandbox/src/platformer_runtime/lifecycle/cleanup.rs`
+  - `pub despawn_scoped_entity` (line 8)
+    - Commands
+- `crates/ambition_sandbox/src/player/affordances/devices.rs`
+  - `pub detect_active_input_method` (line 91)
+    - writes ActiveInputMethod; reads ButtonInput<KeyCode>, Touches
+- `crates/ambition_sandbox/src/player/affordances/intent.rs`
+  - `pub compute_player_intent` (line 140)
+    - writes PlayerIntent; reads ControlFrame; 1 queries
+- `crates/ambition_sandbox/src/player/affordances/interactable_proximity.rs`
+  - `pub update_nearest_interactable` (line 40)
+    - writes NearestInteractable; 4 queries
+- `crates/ambition_sandbox/src/player/affordances/mod.rs`
+  - `pub compute_player_affordances` (line 88)
+    - writes PlayerAffordances; reads PlayerIntent, NearestInteractable, PogoTargetBelow; 1 queries
+- `crates/ambition_sandbox/src/player/affordances/pogo_proximity.rs`
+  - `pub update_pogo_target_below` (line 43)
+    - writes PogoTargetBelow; 3 queries
+- `crates/ambition_sandbox/src/player/bubble_shield.rs`
+  - `pub build_bubble_shield_sprite` (line 74)
+    - Commands; writes Assets<Image>; reads Assets<Image>
+  - `pub spawn_bubble_shield_visual` (line 80)
+    - Commands; reads BubbleShieldSprite; 1 queries
+  - `pub sync_bubble_shield_visual` (line 110)
+    - reads GameWorld; 2 queries
+- `crates/ambition_sandbox/src/player/queries.rs`
+  - `pub primary_player_entity` (line 43)
+    - 1 queries
+  - `pub sort_players_by_slot` (line 55)
+    - 1 queries
+- `crates/ambition_sandbox/src/player/systems.rs`
+  - `pub sync_local_player_input_frame` (line 32)
+    - reads ControlFrame; 1 queries
+  - `pub sync_player_actor_poses` (line 47)
+    - 1 queries
+  - `pub tick_player_brains` (line 67)
+    - 1 queries
+  - `pub write_player_ecs_components` (line 126)
+    - 1 queries
+  - `pub apply_player_heal_requests` (line 142)
+    - reads messages PlayerHealRequested; 2 queries
+- `crates/ambition_sandbox/src/portal.rs`
+  - `pub arm_portal_pickups` (line 506)
+    - reads WorldTime; 1 queries
+  - `pub drop_portal_gun_system` (line 522)
+    - Commands; reads ControlFrame; writes messages SfxMessage; 1 queries
+  - `pub pickup_portal_gun_system` (line 575)
+    - Commands; writes OwnedItems; reads ControlFrame; writes messages SfxMessage; 4 queries
+  - `pub equip_portal_gun` (line 643)
+    - Commands
+  - `pub unequip_portal_gun` (line 655)
+    - Commands
+  - `pub portal_fire_system` (line 682)
+    - Commands; reads ControlFrame; writes messages SfxMessage; 1 queries
+  - `pub portal_projectile_step` (line 724)
+    - Commands; reads WorldTime, GameWorld; writes messages SfxMessage; 2 queries
+  - `pub portal_toggle_system` (line 785)
+    - reads ControlFrame, NearestInteractable; 1 queries
+  - `pub gravity_flip_switch_system` (line 836)
+    - writes BaseGravity; writes messages SfxMessage; 2 queries
+  - `pub sync_gravity_zone_visual` (line 874)
+    - Commands; reads GameWorld; 2 queries
+  - `pub reset_gravity_on_room_reset` (line 926)
+    - writes GravityField, BaseGravity; reads messages ResetRoomFeaturesEvent
+  - `pub ensure_actor_roll` (line 964)
+    - Commands; 3 queries
+  - `pub update_actor_roll` (line 986)
+    - reads WorldTime; 1 queries
+  - `pub publish_portal_carves` (line 1070)
+    - writes FeatureEcsWorldOverlay; 2 queries
+  - `pub suppress_ledge_grab_during_transit` (line 1316)
+    - reads SuppressWallAbilitiesInPortal; 1 queries
+  - `pub portal_transit_system` (line 1343)
+    - Commands; writes IntentionalTeleport; reads WorldTime, ControlFrame, GravityField; writes messages SfxMessage; 2 queries
+  - `pub warp_portal_input` (line 1521)
+    - Commands; writes ControlFrame; reads WorldTime; 1 queries
+  - `pub clear_portals_on_reset` (line 1575)
+    - Commands; reads messages ResetRoomFeaturesEvent; 2 queries
+  - `pub despawn_orphaned_portals` (line 1599)
+    - Commands; 4 queries
+  - `pub portal_dev_toggle_system` (line 1623)
+    - reads ButtonInput<KeyCode>; 1 queries
+  - `pub portal_teleport_ground_items` (line 1638)
+    - 2 queries
+  - `pub tick_portal_cooldowns` (line 1677)
+    - Commands; reads WorldTime; 1 queries
+  - `pub portal_transit_actors` (line 1722)
+    - Commands; reads GravityField; writes messages SfxMessage; 3 queries
+  - `apply_actor_transit` (line 1808)
+    - Commands; writes messages SfxMessage
+  - `pub sync_portal_disorientation_indicator` (line 1890)
+    - Commands; reads GameWorld; 2 queries
+  - `pub sync_portal_body_pieces` (line 1933)
+    - Commands; reads GameWorld, GravityField; 3 queries
+  - `pub load_portal_gun_art` (line 2039)
+    - Commands; reads AssetServer
+  - `pub sync_portal_mode_indicator` (line 2059)
+    - Commands; reads ControlFrame, GameWorld, PortalGunArt; 2 queries
+  - `pub sync_gravity_switch_visual` (line 2115)
+    - Commands; reads GameWorld, GravityField; 2 queries
+  - `pub sync_portal_visuals` (line 2145)
+    - Commands; reads GameWorld, PortalGunArt; 4 queries
+  - `reenable_ledge_grab` (line 3033)
+    - 1 queries
+- `crates/ambition_sandbox/src/possession.rs`
+  - `pub possession_active` (line 43)
+    - reads PossessionState
+  - `pub not_possessing` (line 49)
+    - reads PossessionState
+  - `pub possession_trigger_system` (line 72)
+    - Commands; writes PossessionState; reads ControlFrame, WorldTime; 5 queries
+  - `pub sync_possession_input` (line 162)
+    - reads ControlFrame; 1 queries
+  - `pub release_possession_if_target_lost` (line 170)
+    - writes PossessionState; 1 queries
+- `crates/ambition_sandbox/src/presentation/character_sprites/assets.rs`
+  - `pub load_character_sprites_in` (line 204)
+    - reads Assets<TextureAtlasLayout>
+  - `build_optional_via_catalog` (line 298)
+    - reads Assets<TextureAtlasLayout>
+  - `pub build_npc_sprite_asset` (line 332)
+    - reads Assets<TextureAtlasLayout>
+  - `pub build_prop_sprite_asset` (line 347)
+    - reads Assets<TextureAtlasLayout>
+- `crates/ambition_sandbox/src/presentation/character_sprites/registry.rs`
+  - `init_sheet_registry` (line 383)
+    - writes SheetRegistry
+- `crates/ambition_sandbox/src/presentation/cutscene.rs`
+  - `pub auto_trigger_room_cutscenes` (line 168)
+    - writes CutsceneTriggerQueue; reads RoomCutsceneBindings, RoomSet
+  - `pub drain_cutscene_triggers` (line 196)
+    - writes CutsceneTriggerQueue, ActiveCutscene; reads CutsceneLibrary, SandboxSave
+  - `pub tick_active_cutscene` (line 258)
+    - writes ActiveCutscene, CutsceneAdvanceRequest, SandboxSave; reads Time
+  - `pub sync_cutscene_ui` (line 372)
+    - Commands; reads ActiveCutscene, CutsceneAdvanceRequest, UiFonts; 1 queries
+- `crates/ambition_sandbox/src/presentation/fx.rs`
+  - `pub process_explosion_requests` (line 191)
+    - writes messages VfxMessage, SfxMessage; reads messages ExplosionRequest
+  - `pub process_fireworks_requests` (line 235)
+    - Commands; reads messages FireworksRequest
+  - `pub tick_firework_sequences` (line 286)
+    - Commands; reads WorldTime; writes messages ExplosionRequest; 1 queries
+  - `pub vfx_spawn_messages` (line 367)
+    - Commands; reads GameWorld, GameAssets; reads messages VfxMessage; 1 queries
+  - `spawn_explosion` (line 439)
+    - Commands
+  - `make_room_for_speech_bubble` (line 484)
+    - 1 queries
+  - `pub update_speech_bubbles` (line 594)
+    - Commands; reads Time, GameWorld; 1 queries
+  - `pub update_explosions` (line 626)
+    - Commands; reads Time, GameWorld; 1 queries
+  - `pub update_particles` (line 656)
+    - Commands; reads Time, GameWorld; 1 queries
+  - `pub update_impacts` (line 687)
+    - Commands; reads Time, GameWorld; 1 queries
+  - `pub update_slash_previews` (line 709)
+    - Commands; reads Time; 1 queries
+  - `pub spawn_speech_bubble` (line 726)
+    - Commands
+  - `pub spawn_slash_preview` (line 767)
+    - Commands
+  - `pub spawn_impact` (line 782)
+    - Commands
+  - `pub spawn_reset_effects` (line 795)
+    - Commands
+  - `pub spawn_burst` (line 827)
+    - Commands
+  - `pub spawn_dust` (line 874)
+    - Commands
+  - `pub spawn_blink_effects` (line 897)
+    - Commands
+  - `pub update_blink_preview` (line 948)
+    - Commands; reads Time, GameWorld, MovingPlatformSet, State<GameMode>, SceneEntities; 3 queries
+- `crates/ambition_sandbox/src/presentation/rendering/actors.rs`
+  - `pub sync_visuals` (line 27)
+    - reads GameWorld, SceneEntities, GameAssets, FeatureViewIndex; 4 queries
+  - `state_aware_entity_sprite` (line 150)
+    - 2 queries
+  - `pub upgrade_enemy_sprites` (line 204)
+    - Commands; reads GameAssets, Assets<Image>, FeatureViewIndex; 2 queries
+  - `pub upgrade_npc_sprites` (line 319)
+    - Commands; reads GameAssets, Assets<Image>, FeatureViewIndex; 2 queries
+  - `pub animate_player` (line 371)
+    - reads WorldTime, SceneEntities, GravityField; 2 queries
+  - `pub animate_characters` (line 481)
+    - reads WorldTime; 2 queries
+  - `pub animate_props` (line 576)
+    - reads WorldTime; 1 queries
+  - `pub upgrade_boss_sprites` (line 644)
+    - Commands; reads GameAssets, Assets<Image>; 2 queries
+  - `pub apply_gnu_ton_body_z` (line 826)
+    - 1 queries
+  - `pub sync_gnu_ton_hands` (line 836)
+    - 2 queries
+  - `pub animate_bosses` (line 858)
+    - Commands; reads WorldTime; 2 queries
+  - `pub apply_hide_sprites_override` (line 936)
+    - reads DeveloperTools; 1 queries
+  - `pub manage_gradient_lane_visual` (line 1002)
+    - Commands; reads GameWorld; 2 queries
+  - `pub apply_placeholder_sprites_override` (line 1101)
+    - Commands; reads DeveloperTools, FeatureViewIndex; 1 queries
+- `crates/ambition_sandbox/src/presentation/rendering/camera.rs`
+  - `pub camera_follow` (line 93)
+    - writes CameraEaseState, CameraViewState; reads GameWorld, RoomSet, Time, DeveloperTools, EncounterRegistry, UserSettings; 4 queries
+- `crates/ambition_sandbox/src/presentation/rendering/deep_dream.rs`
+  - `pub attach_puppy_slug_deep_dream_overlays` (line 96)
+    - Commands; writes Assets<Mesh>, Assets<PuppySlugDeepDreamMaterial>; reads Assets<TextureAtlasLayout>, Assets<Image>, Assets<Mesh>, Assets<PuppySlugDeepDreamMaterial>; 2 queries
+  - `pub sync_puppy_slug_deep_dream_overlays` (line 171)
+    - writes Assets<PuppySlugDeepDreamMaterial>; reads WorldTime, DeveloperTools, Assets<TextureAtlasLayout>, Assets<Image>, Assets<PuppySlugDeepDreamMaterial>; 2 queries
+  - `pub cleanup_puppy_slug_deep_dream_overlays` (line 276)
+    - Commands; 2 queries
+  - `puppy_slug_seed` (line 288)
+    - 1 queries
+  - `current_sprite_uv_rect` (line 324)
+    - reads Assets<TextureAtlasLayout>, Assets<Image>
+- `crates/ambition_sandbox/src/presentation/rendering/features.rs`
+  - `pub spawn_dynamic_feature_visuals` (line 25)
+    - Commands; reads GameWorld, GameAssets; 4 queries
+- `crates/ambition_sandbox/src/presentation/rendering/foreground.rs`
+  - `pub spawn_room_foreground_parallax` (line 32)
+    - Commands
+  - `pub sync_foreground_parallax` (line 77)
+    - 3 queries
+- `crates/ambition_sandbox/src/presentation/rendering/health.rs`
+  - `pub sync_boss_health_bar_overlay` (line 27)
+    - Commands; reads UiFonts; 2 queries
+  - `pub sync_health_overlays` (line 134)
+    - Commands; reads GameWorld, SandboxDevState, DeveloperTools; 5 queries
+  - `spawn_health_overlay` (line 223)
+    - Commands
+- `crates/ambition_sandbox/src/presentation/rendering/hit_flash.rs`
+  - `pub attach_hit_flash_overlays` (line 115)
+    - Commands; writes Assets<Mesh>, Assets<HitFlashMaterial>; reads Assets<TextureAtlasLayout>, Assets<Image>, Assets<Mesh>, Assets<HitFlashMaterial>; 1 queries
+  - `pub sync_hit_flash_overlays` (line 203)
+    - Commands; writes Assets<HitFlashMaterial>; reads Assets<TextureAtlasLayout>, Assets<Image>, Assets<HitFlashMaterial>; 5 queries
+  - `pub cleanup_hit_flash_overlays` (line 284)
+    - Commands; 2 queries
+  - `hit_flash_secs_for_source` (line 314)
+    - 3 queries
+  - `current_sprite_uv_rect` (line 380)
+    - reads Assets<TextureAtlasLayout>, Assets<Image>
+- `crates/ambition_sandbox/src/presentation/rendering/parallax.rs`
+  - `pub spawn_parallax_layers` (line 65)
+    - Commands
+  - `pub sync_parallax_layers` (line 108)
+    - 2 queries
+- `crates/ambition_sandbox/src/presentation/rendering/pirate_weapon.rs`
+  - `pub sync_pirate_weapon_visuals` (line 82)
+    - Commands; reads AssetServer, GameWorld; 3 queries
+- `crates/ambition_sandbox/src/presentation/rendering/primitives.rs`
+  - `pub spawn_world_label` (line 170)
+    - Commands
+- `crates/ambition_sandbox/src/presentation/rendering/world.rs`
+  - `pub spawn_room_visuals` (line 24)
+    - Commands
+  - `pub spawn_room_prop` (line 147)
+    - Commands
+  - `spawn_water_region` (line 197)
+    - Commands
+  - `spawn_climbable_region` (line 238)
+    - Commands
+  - `pub spawn_grid` (line 292)
+    - Commands
+  - `pub spawn_block` (line 329)
+    - Commands
+  - `pub spawn_loading_zone` (line 398)
+    - Commands
+  - `spawn_authored_basic` (line 447)
+    - Commands
+  - `spawn_composite_visuals` (line 485)
+    - Commands
+  - `spawn_authored_hazard` (line 556)
+    - Commands
+  - `spawn_authored_chest` (line 574)
+    - Commands
+  - `spawn_authored_interactable` (line 601)
+    - Commands
+  - `pub sync_lock_wall_visuals` (line 677)
+    - Commands; reads GameWorld, GameAssets; 1 queries
+- `crates/ambition_sandbox/src/presentation/screen_effects.rs`
+  - `init_screen_effects_pipeline` (line 135)
+    - Commands; reads RenderDevice, AssetServer, FullscreenShader, PipelineCache
+  - `sync_screen_effect_settings_from_video_settings` (line 262)
+    - reads UserSettings, Time; 1 queries
+- `crates/ambition_sandbox/src/presentation/ui_fonts.rs`
+  - `pub load_ui_fonts` (line 73)
+    - Commands; reads AssetServer, SandboxAssetCatalog
+- `crates/ambition_sandbox/src/projectile/systems.rs`
+  - `pub update_projectiles` (line 19)
+    - writes GameplayTraceBuffer; reads WorldTime, GameWorld, PlayerProjectileState, UserSettings; writes messages HitEvent, SfxMessage, VfxMessage; reads messages ActorActionMessage; 4 queries
+- `crates/ambition_sandbox/src/projectile/visuals.rs`
+  - `pub sync_projectile_visuals` (line 31)
+    - Commands; reads GameWorld, GameAssets; 3 queries
+- `crates/ambition_sandbox/src/puppy_slug_gun.rs`
+  - `pub fire_puppy_slug_gun_system` (line 40)
+    - Commands; reads ControlFrame; writes messages SfxMessage; 2 queries
+- `crates/ambition_sandbox/src/runtime/game_mode.rs`
+  - `pub gameplay_allowed` (line 17)
+    - reads State<GameMode>
+  - `pub gameplay_suspended` (line 25)
+    - reads State<GameMode>
+- `crates/ambition_sandbox/src/runtime/reset.rs`
+  - `pub process_sandbox_reset_request` (line 96)
+    - Commands; writes SandboxResetRequested, SandboxSave, EncounterRegistry, BossEncounterRegistry, QuestRegistry, EncounterMusicRequest; reads EditableMovementTuning, GameAssets; 2 queries
+  - `pub clear_transient_on_sandbox_reset` (line 230)
+    - Commands; reads SandboxResetRequested; 2 queries
+- `crates/ambition_sandbox/src/runtime/setup.rs`
+  - `pub simulation_world` (line 97)
+    - Commands
+  - `pub presentation_world` (line 172)
+    - Commands; reads Assets<KiraAudioSource>
+  - `pub presentation_world` (line 202)
+    - Commands
+  - `presentation_world_inner` (line 314)
+    - Commands
+- `crates/ambition_sandbox/src/sentry.rs`
+  - `pub fire_sentry_system` (line 52)
+    - Commands; reads ControlFrame; writes messages SfxMessage; 1 queries
+  - `pub update_sentries` (line 91)
+    - Commands; writes EnemyProjectileState; reads WorldTime; writes messages SfxMessage; 2 queries
+- `crates/ambition_sandbox/src/shockwave.rs`
+  - `pub fire_shockwave_system` (line 51)
+    - reads ControlFrame; writes messages ActorActionMessage, SfxMessage; 1 queries
+  - `pub spawn_shockwave_from_special_messages` (line 96)
+    - Commands; reads messages ActorActionMessage; 2 queries
+- `crates/ambition_sandbox/src/shrine.rs`
+  - `pub heal_save_shrine_system` (line 38)
+    - writes SandboxSave, ShrineActivationPulse; reads ControlFrame; writes messages SfxMessage; 2 queries
+  - `pub sync_shrine_visual` (line 134)
+    - Commands; writes Assets<TextureAtlasLayout>; reads GameWorld, AssetServer, SheetRegistry, Assets<TextureAtlasLayout>; 4 queries
+  - `pub animate_shrine_visuals` (line 226)
+    - writes ShrineActivationPulse; reads WorldTime; 1 queries
+  - `shrine_visual_source` (line 294)
+    - reads Assets<TextureAtlasLayout>
+  - `shrine_visual_source_from_record` (line 317)
+    - reads Assets<TextureAtlasLayout>
+- `crates/ambition_sandbox/src/time/camera_ease.rs`
+  - `pub tick_camera_shake` (line 120)
+    - writes CameraShakeState; reads Time
+- `crates/ambition_sandbox/src/time/time_control.rs`
+  - `pub apply_clock_scale_requests` (line 222)
+    - writes RequestedClockScale; reads RegimePolicy; reads messages ClockScaleRequest
+  - `pub emit_player_time_intent_system` (line 278)
+    - reads SandboxDevState, SandboxFeelTuning; writes messages ClockScaleRequest; 1 queries
+  - `pub smooth_sim_clock_toward_target_system` (line 326)
+    - writes SandboxSimState; reads RequestedClockScale, SandboxFeelTuning, Time
+- `crates/ambition_sandbox/src/time/world_time.rs`
+  - `pub refresh_world_time` (line 129)
+    - writes WorldTime; reads Time, SandboxSimState
+- `crates/ambition_sandbox/src/volley.rs`
+  - `pub fire_volley_system` (line 41)
+    - writes EnemyProjectileState; reads ControlFrame; writes messages SfxMessage; 1 queries
+- `crates/ambition_sandbox/src/vortex.rs`
+  - `pub fire_vortex_system` (line 48)
+    - Commands; reads ControlFrame; writes messages SfxMessage; 1 queries
+  - `pub update_vortex_wells` (line 91)
+    - Commands; reads WorldTime; 2 queries
+- `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/asset.rs`
+  - `pub load_ldtk_asset_handle` (line 26)
+    - Commands; reads AssetServer
+  - `pub sync_ldtk_level_set` (line 164)
+    - writes LdtkRuntimeIndex; reads RoomSet; 1 queries
+  - `pub sync_ldtk_world_transform` (line 219)
+    - reads RoomSet; 1 queries
+- `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/parity.rs`
+  - `pub check_ldtk_runtime_spine_parity` (line 63)
+    - writes LdtkRuntimeSpineParity; reads GameWorld, LdtkRuntimeSolidIndex, LdtkRuntimeOneWayIndex, LdtkRuntimeDamageIndex
+- `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/plugin.rs`
+  - `pub sync_plugin_spawned_ambition_entities` (line 54)
+    - Commands; writes LdtkRuntimeSpineStats; 1 queries
+- `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime/systems.rs`
+  - `pub rebuild_ldtk_runtime_solid_index` (line 22)
+    - writes LdtkRuntimeSolidIndex; reads RoomSet, LdtkRuntimeIndex; 1 queries
+  - `pub rebuild_ldtk_runtime_one_way_index` (line 66)
+    - writes LdtkRuntimeOneWayIndex; reads RoomSet, LdtkRuntimeIndex; 1 queries
+  - `pub rebuild_ldtk_runtime_damage_index` (line 107)
+    - writes LdtkRuntimeDamageIndex; reads RoomSet, LdtkRuntimeIndex; 1 queries
+  - `pub rebuild_ldtk_runtime_spine_index` (line 148)
+    - writes LdtkRuntimeSpineIndex; reads RoomSet, LdtkRuntimeIndex; 1 queries
+- `crates/ambition_sandbox/src/world/ldtk_world/hot_reload.rs`
+  - `pub poll_ldtk_file_changes` (line 124)
+    - writes LdtkHotReloadState; reads Time
+- `crates/ambition_sandbox/src/world/physics.rs`
+  - `pub physics_spawn_debris_messages` (line 101)
+    - Commands; reads GameWorld, PhysicsSandboxSettings; reads messages DebrisBurstMessage
+  - `pub update_physics_debris_lifetimes` (line 133)
+    - Commands; reads Time, PhysicsSandboxSettings; 1 queries
+  - `pub complete_pending_physics_despawns` (line 157)
+    - Commands; reads Time; 1 queries
+  - `pub retire_physics_entity` (line 175)
+    - Commands
+  - `pub retire_physics_entity` (line 187)
+    - Commands
+  - `pub spawn_static_collider_for_block` (line 193)
+    - Commands
+  - `pub spawn_static_collider_for_block` (line 217)
+    - Commands
+  - `pub spawn_debris_burst` (line 228)
+    - Commands
+  - `spawn_debris_piece` (line 270)
+    - Commands
+- `crates/ambition_sandbox/src/world/platforms.rs`
+  - `pub spawn_moving_platform` (line 388)
+    - Commands
+  - `pub spawn_moving_platforms` (line 408)
+    - Commands
+  - `pub sync_moving_platform` (line 420)
+    - Commands; writes MovingPlatformSet; reads GameWorld, RoomSet; 1 queries
+- `crates/ambition_sandbox/src/world/rooms/systems.rs`
+  - `pub sync_active_room_metadata` (line 25)
+    - writes ActiveRoomMetadata; reads RoomSet
+  - `pub sync_room_music_request` (line 36)
+    - writes RoomMusicRequest; reads ActiveRoomMetadata
+  - `pub tick_portal_phases_system` (line 55)
+    - writes PortalRegistry; reads WorldTime, SandboxSave
+  - `pub hide_portal_loading_zone_visuals` (line 80)
+    - reads PortalRegistry; 1 queries
+  - `pub sync_portal_sprite_visibility` (line 101)
+    - Commands; reads PortalRegistry; 1 queries
+  - `pub sync_portal_sprite_animation` (line 155)
+    - reads WorldTime, PortalRegistry; 1 queries
+  - `pub sync_portal_ring_rotation_system` (line 185)
+    - Commands; reads WorldTime, PortalRegistry; 1 queries
+
+## Entity archetype evidence / spawn sites
+Static analysis cannot know every runtime entity instance. This section lists spawn sites and the bundle/component/type identifiers found in each spawn expression.
+- `crates/ambition_sandbox/src/ability_cooldown.rs:82`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`, `AbilityCooldown`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+    - `AbilityCooldown`
+    - `remaining`
+- `crates/ambition_sandbox/src/ability_cooldown.rs:124`
+  - matched ECS items: `PlayerEntity`
+  - identifiers:
+    - `PlayerEntity`
+- `crates/ambition_sandbox/src/app/plugins.rs:388`
+  - name label: `"LDtk Runtime Spine Root (sandbox.ldtk)"`
+  - matched ECS items: `ldtk_world::SandboxLdtkWorldRoot`
+  - identifiers:
+    - `bevy_ecs_ldtk::prelude::LdtkWorldBundle`
+    - `ldtk_handle`
+    - `level_set`
+    - `initial_level_set`
+    - `ldtk_world::SandboxLdtkWorldRoot`
+- `crates/ambition_sandbox/src/app/plugins.rs:410`
+  - name label: `"LDtk Runtime Spine Root (intro.ldtk)"`
+  - matched ECS items: `ldtk_world::IntroLdtkWorldRoot`
+  - identifiers:
+    - `bevy_ecs_ldtk::prelude::LdtkWorldBundle`
+    - `ldtk_handle`
+    - `intro_handle`
+    - `level_set`
+    - `initial_level_set`
+    - `ldtk_world::IntroLdtkWorldRoot`
+- `crates/ambition_sandbox/src/app/plugins.rs:424`
+  - name label: `"LDtk Runtime Spine Root (you_have_to_cut_the_rope.ldtk)"`
+  - matched ECS items: `ldtk_world::CutRopeLdtkWorldRoot`
+  - identifiers:
+    - `bevy_ecs_ldtk::prelude::LdtkWorldBundle`
+    - `ldtk_handle`
+    - `cut_rope_handle`
+    - `level_set`
+    - `initial_level_set`
+    - `ldtk_world::CutRopeLdtkWorldRoot`
+- `crates/ambition_sandbox/src/audio/environment.rs:355`
+  - matched ECS items: `crate::player::PlayerEntity`, `crate::player::PrimaryPlayer`
+  - identifiers:
+    - `crate::player::PlayerEntity`
+    - `crate::player::PrimaryPlayer`
+- `crates/ambition_sandbox/src/beam.rs:104`
+  - name label: `"Focus Beam"`
+  - matched ECS items: `Hitbox`, `HitboxLifetime`
+  - identifiers:
+    - `Hitbox`
+    - `owner`
+    - `entity`
+    - `source`
+    - `ActorFaction::Player`
+    - `anchor`
+    - `HitboxAnchor::World`
+    - `center`
+    - `kin`
+    - `pos`
+    - `offset`
+    - `half_extent`
+    - `damage`
+    - `BEAM_DAMAGE`
+    - `knockback_strength`
+    - `BEAM_KNOCKBACK`
+    - `HitboxLifetime`
+    - `remaining_s`
+    - `BEAM_LIFETIME_S`
+- `crates/ambition_sandbox/src/beam.rs:142`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`, `PlayerKinematics`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+    - `PlayerKinematics`
+    - `pos`
+    - `vel`
+    - `ae::Vec2::ZERO`
+    - `size`
+    - `base_size`
+    - `facing`
+    - `spec`
+- `crates/ambition_sandbox/src/blink.rs:160`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`, `PlayerKinematics`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+    - `PlayerKinematics`
+    - `pos`
+    - `vel`
+    - `ae::Vec2::ZERO`
+    - `size`
+    - `base_size`
+    - `facing`
+    - `spec`
+- `crates/ambition_sandbox/src/body_mode/mechanics.rs:263`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`, `PlayerKinematics`, `PlayerGroundState`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+    - `PlayerKinematics`
+    - `pos`
+    - `world_spawn`
+    - `size`
+    - `base_size`
+    - `facing`
+    - `PlayerGroundState`
+    - `on_ground`
+- `crates/ambition_sandbox/src/body_mode/morph_ball.rs:115`
+  - name label: `"Morph Ball Visual"`
+  - matched ECS items: `MorphBallVisual`
+  - identifiers:
+    - `image`
+    - `sprite`
+    - `handle`
+    - `custom_size`
+    - `Some`
+    - `Transform::from_xyz`
+    - `crate::config::WORLD_Z_PLAYER`
+    - `Visibility::Hidden`
+    - `MorphBallVisual`
+- `crates/ambition_sandbox/src/bomb.rs:110`
+  - identifiers:
+    - `bomb_ground`
+- `crates/ambition_sandbox/src/bomb.rs:114`
+  - identifiers:
+    - `bomb_ground`
+    - `ae::Vec2::ZERO`
+- `crates/ambition_sandbox/src/bomb.rs:144`
+  - matched ECS items: `BombFuse`
+  - identifiers:
+    - `bomb_ground`
+    - `ae::Vec2::ZERO`
+    - `BombFuse`
+    - `timer`
+- `crates/ambition_sandbox/src/boss_encounter/cut_rope.rs:265`
+  - name label: `"Post-boss NPC: Smirking Behemoth victory"`
+  - matched ECS items: `SmirkingBehemothVictoryNpc`, `EnemyActorBundle`
+  - identifiers:
+    - `SmirkingBehemothVictoryNpc`
+    - `EnemyActorBundle`
+    - `base`
+    - `CUT_ROPE_VICTORY_NPC_ID`
+    - `CUT_ROPE_VICTORY_NPC_NAME`
+    - `FeatureAabb::from_aabb`
+    - `aabb`
+    - `identity`
+    - `disposition`
+    - `faction`
+    - `crate::features::ActorFaction::Npc`
+    - `target`
+    - `pose`
+    - `ActorPose::from_aabb`
+    - `facing`
+    - `combat_kit`
+    - `aggression`
+    - `crate::features::ActorAggression::passive`
+    - `health`
+    - `combat`
+    - `intent`
+    - `cooldowns`
+    - `damageable_volumes`
+    - `pogo_policy`
+    - `PogoPolicy::FromDamageable`
+    - `pogo_target_volumes`
+    - `ActorRuntime::Npc`
+    - `cluster_bundle`
+    - `brain`
+    - `crate::brain::ActionSet::peaceful`
+- `crates/ambition_sandbox/src/boss_encounter/gnu_ton.rs:214`
+  - matched ECS items: `crate::features::FeatureSimEntity`
+  - identifiers:
+    - `crate::features::FeatureSimEntity`
+    - `spawn_gnu_ton_runtime`
+    - `into_components`
+- `crates/ambition_sandbox/src/boss_encounter/gnu_ton.rs:314`
+  - identifiers:
+    - `spawn_gnu_ton_runtime`
+    - `into_components`
+- `crates/ambition_sandbox/src/boss_encounter/gnu_ton.rs:328`
+  - identifiers:
+    - `spawn_gnu_ton_runtime`
+    - `into_components`
+- `crates/ambition_sandbox/src/boss_encounter/gnu_ton.rs:362`
+  - identifiers:
+    - `spawn_gnu_ton_runtime`
+    - `into_components`
+- `crates/ambition_sandbox/src/boss_encounter/gnu_ton.rs:385`
+  - identifiers:
+    - `spawn_gnu_ton_runtime`
+    - `into_components`
+- `crates/ambition_sandbox/src/boss_encounter/gnu_ton.rs:438`
+  - identifiers:
+    - `spawn_gnu_ton_runtime`
+    - `into_components`
+- `crates/ambition_sandbox/src/boss_encounter/gnu_ton.rs:472`
+  - identifiers:
+    - `spawn_gnu_ton_runtime`
+    - `into_components`
+- `crates/ambition_sandbox/src/brain/mod.rs:497`
+  - identifiers:
+    - `Brain::stand_still`
+- `crates/ambition_sandbox/src/brain/mod.rs:506`
+  - identifiers:
+    - `Brain::stand_still`
+    - `ActionSet::peaceful`
+- `crates/ambition_sandbox/src/brain/mod.rs:542`
+  - matched ECS items: `ActorControl`, `crate::features::ActorPose`
+  - identifiers:
+    - `Brain::stand_still`
+    - `ActorControl`
+    - `frame`
+    - `actions`
+    - `crate::features::ActorPose`
+    - `center`
+    - `i`
+    - `feet`
+    - `facing`
+- `crates/ambition_sandbox/src/brain/mod.rs:604`
+  - identifiers:
+    - `Brain::stand_still`
+- `crates/ambition_sandbox/src/brain/mod.rs:761`
+  - expression: `()`
+- `crates/ambition_sandbox/src/brain/mod.rs:855`
+  - matched ECS items: `ActorControl`
+  - identifiers:
+    - `Brain::StateMachine`
+    - `StateMachineCfg::MeleeBrute`
+    - `cfg`
+    - `MeleeBruteCfg::STRIKER_DEFAULT`
+    - `state`
+    - `ActorControl`
+    - `frame`
+    - `actions`
+- `crates/ambition_sandbox/src/brain/mod.rs:892`
+  - matched ECS items: `ActorControl`, `crate::features::ActorPose`
+  - identifiers:
+    - `Brain::StateMachine`
+    - `StateMachineCfg::MeleeBrute`
+    - `cfg`
+    - `MeleeBruteCfg::STRIKER_DEFAULT`
+    - `state`
+    - `ActorControl`
+    - `frame`
+    - `actions`
+    - `crate::features::ActorPose`
+    - `center`
+    - `feet`
+    - `facing`
+- `crates/ambition_sandbox/src/content/features/ecs/actors.rs:1217`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `FeatureAabb::from_center_size`
+    - `ActorRuntime::Enemy`
+    - `enemy`
+    - `into_components`
+- `crates/ambition_sandbox/src/content/features/ecs/aggression.rs:223`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `FeatureAabb::from_center_size`
+    - `aabb`
+    - `center`
+    - `half_size`
+    - `ActorRuntime::Npc`
+    - `ActorAggression::retaliates_when_hit`
+    - `crate::content::features::NPC_HOSTILE_STRIKE_THRESHOLD`
+    - `bundle`
+    - `identity`
+    - `disposition`
+    - `health`
+    - `combat`
+    - `intent`
+    - `cooldowns`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:329`
+  - identifiers:
+    - `EnemyProjectileSpawn`
+    - `origin`
+    - `spawn_x`
+    - `spawn_y`
+    - `dir`
+    - `speed`
+    - `spawn_speed`
+    - `damage`
+    - `max_lifetime`
+    - `APPLE_RAIN_LIFETIME`
+    - `half_extent`
+    - `APPLE_RAIN_HALF_EXTENT`
+    - `owner_id`
+    - `format`
+    - `content`
+    - `features`
+    - `bosses`
+    - `GNU_TON_APPLE_OWNER_PREFIX`
+    - `boss`
+    - `config`
+    - `gravity`
+    - `APPLE_RAIN_GRAVITY`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:576`
+  - identifiers:
+    - `EnemyProjectileSpawn`
+    - `origin`
+    - `dir`
+    - `speed`
+    - `shot_speed`
+    - `damage`
+    - `max_lifetime`
+    - `OVERFIT_VOLLEY_BOLT_LIFETIME`
+    - `half_extent`
+    - `OVERFIT_VOLLEY_BOLT_HALF_EXTENT`
+    - `owner_id`
+    - `format`
+    - `OVERFIT_VOLLEY_OWNER_PREFIX`
+    - `boss`
+    - `config`
+    - `gravity`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:712`
+  - identifiers:
+    - `EnemyProjectileSpawn`
+    - `origin`
+    - `beam_origin`
+    - `dir`
+    - `speed`
+    - `shot_speed`
+    - `max`
+    - `damage`
+    - `max_lifetime`
+    - `lifetime_s`
+    - `half_extent`
+    - `half_x`
+    - `half_y`
+    - `owner_id`
+    - `format`
+    - `EYE_BEAM_OWNER_PREFIX`
+    - `boss`
+    - `config`
+    - `gravity`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:822`
+  - matched ECS items: `Hitbox`, `HitboxLifetime`
+  - identifiers:
+    - `Hitbox`
+    - `owner`
+    - `entity`
+    - `source`
+    - `ActorFaction::Boss`
+    - `anchor`
+    - `HitboxAnchor::World`
+    - `center`
+    - `pit_center`
+    - `half_extent`
+    - `hx`
+    - `hy`
+    - `damage`
+    - `knockback_strength`
+    - `MINIMA_TRAP_KNOCKBACK`
+    - `HitboxLifetime`
+    - `remaining_s`
+    - `hazard_duration_s`
+    - `max`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:972`
+  - matched ECS items: `Hitbox`, `HitboxLifetime`
+  - identifiers:
+    - `Hitbox`
+    - `owner`
+    - `entity`
+    - `source`
+    - `ActorFaction::Boss`
+    - `anchor`
+    - `HitboxAnchor::World`
+    - `center`
+    - `boss`
+    - `kin`
+    - `pos`
+    - `half_extent`
+    - `he_x`
+    - `he_y`
+    - `damage`
+    - `knockback_strength`
+    - `SADDLE_POINT_KNOCKBACK`
+    - `HitboxLifetime`
+    - `remaining_s`
+    - `period`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1255`
+  - identifiers:
+    - `enemy_actor`
+    - `enemy`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1286`
+  - identifiers:
+    - `actor_runtime`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1339`
+  - identifiers:
+    - `enemy_actor`
+    - `enemy`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1409`
+  - identifiers:
+    - `enemy_actor`
+    - `enemy`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1471`
+  - identifiers:
+    - `enemy_actor`
+    - `enemy`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1579`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `gnu_ton_boss_feature`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1615`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `gnu_ton_boss_feature`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1675`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `feature`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1708`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `feature`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1806`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `state`
+    - `gradient_sentinel_boss_feature`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1859`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `state`
+    - `gradient_sentinel_boss_feature`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1896`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `gradient_sentinel_boss_feature`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1949`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `gradient_sentinel_boss_feature`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:1994`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `gradient_sentinel_boss_feature`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:2045`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `gradient_sentinel_boss_feature`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:2091`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `gradient_sentinel_boss_feature`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:2145`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `gradient_sentinel_boss_feature`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:2192`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `gradient_sentinel_boss_feature`
+- `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs:2239`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `gnu_ton_boss_feature`
+- `crates/ambition_sandbox/src/content/features/ecs/breakables.rs:118`
+  - matched ECS items: `FeatureSimEntity`, `StandTimer`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `FeatureAabb::from_center_size`
+    - `center`
+    - `b`
+    - `StandTimer`
+    - `stand`
+- `crates/ambition_sandbox/src/content/features/ecs/breakables.rs:130`
+  - matched ECS items: `PlayerEntity`, `PlayerKinematics`
+  - identifiers:
+    - `PlayerEntity`
+    - `PlayerKinematics`
+    - `pos`
+    - `size`
+    - `base_size`
+    - `facing`
+- `crates/ambition_sandbox/src/content/features/ecs/chests.rs:103`
+  - matched ECS items: `PlayerEntity`, `PlayerKinematics`, `PlayerInteractionState`
+  - identifiers:
+    - `PlayerEntity`
+    - `PlayerKinematics`
+    - `pos`
+    - `size`
+    - `base_size`
+    - `facing`
+    - `PlayerInteractionState`
+    - `interact_buffer_timer`
+    - `buffered`
+- `crates/ambition_sandbox/src/content/features/ecs/chests.rs:123`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `FeatureAabb::from_center_size`
+    - `pos`
+    - `None`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:81`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `format`
+    - `FeatureAabb::from_center_size`
+    - `pos`
+    - `crate::interaction::PickupKind::Currency`
+    - `amount`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:108`
+  - matched ECS items: `crate::features::Hitbox`, `crate::features::HitboxLifetime`
+  - identifiers:
+    - `crate::features::Hitbox`
+    - `owner`
+    - `source`
+    - `crate::features::ActorFaction::Enemy`
+    - `anchor`
+    - `crate::features::HitboxAnchor::World`
+    - `center`
+    - `pos`
+    - `half_extent`
+    - `ae::Vec2::splat`
+    - `EXPLODER_BLAST_HALF`
+    - `damage`
+    - `EXPLODER_BLAST_DAMAGE`
+    - `knockback_strength`
+    - `EXPLODER_BLAST_KNOCKBACK`
+    - `crate::features::HitboxLifetime`
+    - `remaining_s`
+    - `EXPLODER_BLAST_LIFETIME_S`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:154`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `format`
+    - `FeatureAabb::from_center_size`
+    - `pos`
+    - `crate::interaction::PickupKind::Health`
+    - `amount`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:231`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `format`
+    - `ability_name`
+    - `to_string`
+    - `FeatureAabb::from_center_size`
+    - `pos`
+    - `crate::interaction::PickupKind::Ability`
+    - `ability_id`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:674`
+  - matched ECS items: `crate::item_pickup::GroundItem`
+  - identifiers:
+    - `crate::item_pickup::GroundItem`
+    - `spec`
+    - `pos`
+    - `em`
+    - `kin`
+    - `vel`
+    - `ae::Vec2::ZERO`
+    - `half_extent`
+    - `ae::Vec2::splat`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:905`
+  - matched ECS items: `crate::item_pickup::GroundItem`
+  - identifiers:
+    - `crate::item_pickup::GroundItem`
+    - `spec`
+    - `pos`
+    - `boss`
+    - `kin`
+    - `vel`
+    - `ae::Vec2::ZERO`
+    - `half_extent`
+    - `ae::Vec2::splat`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1078`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `FeatureAabb::from_center_size`
+    - `aabb`
+    - `center`
+    - `half_size`
+    - `ActorRuntime::Enemy`
+    - `enemy`
+    - `into_components`
+    - `identity`
+    - `disposition`
+    - `health`
+    - `combat`
+    - `intent`
+    - `cooldowns`
+- `crates/ambition_sandbox/src/content/features/ecs/damage.rs:1270`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `FeatureAabb::from_center_size`
+    - `aabb`
+    - `center`
+    - `half_size`
+- `crates/ambition_sandbox/src/content/features/ecs/encounter_rewards.rs:73`
+  - name label: `format!("Encounter reward chest: {encounter_id}")`
+  - matched ECS items: `FeatureSimEntity`, `RoomVisual`
+  - identifiers:
+    - `format`
+    - `FeatureSimEntity`
+    - `RoomVisual`
+    - `chest_id`
+    - `FeatureAabb::from_center_size`
+    - `chest_pos`
+    - `chest_size`
+    - `Some`
+    - `spec`
+    - `reward`
+    - `encounter_id`
+- `crates/ambition_sandbox/src/content/features/ecs/encounter_rewards.rs:161`
+  - name label: `format!("Boss reward chest: {encounter_id}")`
+  - matched ECS items: `FeatureSimEntity`, `RoomVisual`
+  - identifiers:
+    - `format`
+    - `FeatureSimEntity`
+    - `RoomVisual`
+    - `chest_id`
+    - `FeatureAabb::from_center_size`
+    - `chest_pos`
+    - `size`
+    - `Some`
+    - `pickup`
+    - `encounter_id`
+- `crates/ambition_sandbox/src/content/features/ecs/hazards.rs:124`
+  - matched ECS items: `PlayerEntity`, `PlayerKinematics`
+  - identifiers:
+    - `PlayerEntity`
+    - `PlayerKinematics`
+    - `pos`
+    - `size`
+    - `base_size`
+    - `facing`
+- `crates/ambition_sandbox/src/content/features/ecs/hazards.rs:144`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `FeatureAabb::from_center_size`
+    - `pos`
+    - `hazard`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:280`
+  - matched ECS items: `Hitbox`, `HitboxLifetime`
+  - identifiers:
+    - `Hitbox`
+    - `owner`
+    - `source`
+    - `anchor`
+    - `HitboxAnchor::FollowOwner`
+    - `local_offset`
+    - `half_extent`
+    - `damage`
+    - `knockback_strength`
+    - `HitboxLifetime`
+    - `remaining_s`
+    - `active_s`
+    - `max`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:370`
+  - matched ECS items: `Hitbox`, `HitboxLifetime`
+  - identifiers:
+    - `Hitbox`
+    - `owner`
+    - `dummy_entity`
+    - `source`
+    - `ActorFaction::Enemy`
+    - `anchor`
+    - `HitboxAnchor::FollowOwner`
+    - `local_offset`
+    - `ae::Vec2::ZERO`
+    - `half_extent`
+    - `damage`
+    - `knockback_strength`
+    - `HitboxLifetime`
+    - `remaining_s`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:401`
+  - matched ECS items: `Hitbox`, `HitboxLifetime`
+  - identifiers:
+    - `Hitbox`
+    - `owner`
+    - `dummy_entity`
+    - `source`
+    - `ActorFaction::Enemy`
+    - `anchor`
+    - `HitboxAnchor::FollowOwner`
+    - `local_offset`
+    - `ae::Vec2::ZERO`
+    - `half_extent`
+    - `damage`
+    - `knockback_strength`
+    - `HitboxLifetime`
+    - `remaining_s`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:507`
+  - expression: `crate::features::FeatureAabb::new( ae::Vec2::new(100.0, 100.0), ae::Vec2::new(12.0, 16.0), )`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:514`
+  - matched ECS items: `Hitbox`, `HitboxLifetime`
+  - identifiers:
+    - `Hitbox`
+    - `owner`
+    - `source`
+    - `ActorFaction::Player`
+    - `anchor`
+    - `HitboxAnchor::World`
+    - `center`
+    - `half_extent`
+    - `damage`
+    - `knockback_strength`
+    - `HitboxLifetime`
+    - `remaining_s`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:558`
+  - identifiers:
+    - `ae::Vec2::ZERO`
+    - `ae::Vec2::splat`
+- `crates/ambition_sandbox/src/content/features/ecs/hitbox.rs:565`
+  - matched ECS items: `Hitbox`, `HitboxLifetime`
+  - identifiers:
+    - `Hitbox`
+    - `owner`
+    - `source`
+    - `ActorFaction::Player`
+    - `anchor`
+    - `HitboxAnchor::World`
+    - `center`
+    - `ae::Vec2::ZERO`
+    - `half_extent`
+    - `ae::Vec2::splat`
+    - `damage`
+    - `knockback_strength`
+    - `HitboxLifetime`
+    - `remaining_s`
+- `crates/ambition_sandbox/src/content/features/ecs/interact.rs:154`
+  - identifiers:
+    - `bundle`
+- `crates/ambition_sandbox/src/content/features/ecs/interact.rs:170`
+  - matched ECS items: `FeatureSimEntity`, `SwitchOn`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `FeatureAabb::from_center_size`
+    - `center`
+    - `crate::encounter::SwitchActivation`
+    - `action`
+    - `target_encounter`
+    - `SwitchOn`
+- `crates/ambition_sandbox/src/content/features/ecs/mount.rs:421`
+  - matched ECS items: `Mountable`, `MountSlot`
+  - identifiers:
+    - `hostile`
+    - `mount_pos`
+    - `mount_size`
+    - `FeatureAabb::from_center_size`
+    - `Mountable`
+    - `rider_offset`
+    - `MountSlot`
+    - `rider`
+    - `None`
+- `crates/ambition_sandbox/src/content/features/ecs/mount.rs:438`
+  - matched ECS items: `RidingOn`
+  - identifiers:
+    - `hostile`
+    - `rider_start`
+    - `rider_size`
+    - `FeatureAabb::from_center_size`
+    - `RidingOn`
+    - `mount`
+- `crates/ambition_sandbox/src/content/features/ecs/mount.rs:507`
+  - matched ECS items: `Mountable`, `MountSlot`
+  - identifiers:
+    - `mount_actor`
+    - `Mountable`
+    - `rider_offset`
+    - `MountSlot`
+    - `rider`
+    - `None`
+- `crates/ambition_sandbox/src/content/features/ecs/mount.rs:524`
+  - matched ECS items: `MountedBrainCache`, `Mounted`, `RidingOn`
+  - identifiers:
+    - `rider_actor`
+    - `FeatureAabb::from_center_size`
+    - `rider_pos`
+    - `rider_size`
+    - `mounted_brain`
+    - `mounted_action_set`
+    - `MountedBrainCache`
+    - `brain`
+    - `action_set`
+    - `Mounted`
+    - `RidingOn`
+    - `mount`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:140`
+  - matched ECS items: `PlayerEntity`, `crate::player::PrimaryPlayer`, `PlayerKinematics`
+  - identifiers:
+    - `PlayerEntity`
+    - `crate::player::PrimaryPlayer`
+    - `PlayerKinematics`
+    - `pos`
+    - `size`
+    - `base_size`
+    - `facing`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:156`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `FeatureAabb::from_center_size`
+    - `pos`
+    - `crate::interaction::PickupKind::Health`
+    - `amount`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:208`
+  - matched ECS items: `PlayerEntity`, `PlayerKinematics`
+  - identifiers:
+    - `PlayerEntity`
+    - `PlayerKinematics`
+    - `pos`
+    - `center`
+    - `size`
+    - `base_size`
+    - `facing`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:222`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `FeatureAabb::from_center_size`
+    - `center`
+    - `crate::interaction::PickupKind::Currency`
+    - `amount`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:256`
+  - matched ECS items: `PlayerEntity`, `PlayerKinematics`
+  - identifiers:
+    - `PlayerEntity`
+    - `PlayerKinematics`
+    - `pos`
+    - `center`
+    - `size`
+    - `base_size`
+    - `facing`
+- `crates/ambition_sandbox/src/content/features/ecs/pickups.rs:267`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `FeatureAabb::from_center_size`
+    - `center`
+    - `crate::interaction::PickupKind::Ability`
+    - `ability_id`
+    - `to_string`
+- `crates/ambition_sandbox/src/content/features/ecs/reset.rs:233`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `b`
+- `crates/ambition_sandbox/src/content/features/ecs/reset.rs:241`
+  - matched ECS items: `FeatureSimEntity`, `Opened`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `Opened`
+- `crates/ambition_sandbox/src/content/features/ecs/reset.rs:242`
+  - matched ECS items: `FeatureSimEntity`, `Collected`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `Collected`
+- `crates/ambition_sandbox/src/content/features/ecs/reset.rs:265`
+  - matched ECS items: `FeatureSimEntity`, `Opened`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `Opened`
+- `crates/ambition_sandbox/src/content/features/ecs/save_sync.rs:231`
+  - matched ECS items: `SwitchOn`
+  - identifiers:
+    - `SwitchOn`
+- `crates/ambition_sandbox/src/content/features/ecs/save_sync.rs:239`
+  - matched ECS items: `SwitchOn`
+  - identifiers:
+    - `SwitchOn`
+- `crates/ambition_sandbox/src/content/features/ecs/spawn_actors.rs:110`
+  - name label: `format!("Feature boss: {}", authored.name)`
+  - matched ECS items: `FeatureSimEntity`, `RoomVisual`, `BossPatternTimer`
+  - identifiers:
+    - `format`
+    - `authored`
+    - `name`
+    - `FeatureSimEntity`
+    - `RoomVisual`
+    - `feature_aabb`
+    - `BossPatternTimer`
+    - `initial_phase`
+    - `super::ActorFaction::Boss`
+    - `ActorPose::from_aabb`
+    - `boss_facing`
+    - `PogoPolicy::FromDamageable`
+    - `boss_components`
+- `crates/ambition_sandbox/src/content/features/ecs/spawn_actors.rs:228`
+  - name label: `format!("Runtime minion: {name}")`
+  - identifiers:
+    - `format`
+    - `name`
+    - `feature_aabb`
+    - `identity`
+    - `disposition`
+    - `faction`
+    - `ActorPose::from_aabb`
+    - `facing`
+    - `combat_kit`
+    - `aggression`
+    - `health`
+    - `combat`
+    - `intent`
+    - `cooldowns`
+    - `actor`
+    - `cluster_bundle`
+    - `encounter_id`
+    - `brain_component`
+    - `action_set`
+- `crates/ambition_sandbox/src/content/features/ecs/spawn_actors.rs:304`
+  - name label: `format!("Feature actor enemy: {}", authored.name)`
+  - identifiers:
+    - `format`
+    - `authored`
+    - `name`
+    - `feature_aabb`
+    - `identity`
+    - `disposition`
+    - `super::ActorFaction::Enemy`
+    - `ActorPose::from_aabb`
+    - `facing`
+    - `combat_kit`
+    - `super::ActorAggression::hostile_to_player`
+    - `health`
+    - `combat`
+    - `intent`
+    - `cooldowns`
+    - `actor`
+    - `cluster_bundle`
+    - `brain`
+    - `action_set`
+- `crates/ambition_sandbox/src/content/features/ecs/spawn_actors.rs:361`
+  - name label: `format!("Feature actor npc: {}", authored.name)`
+  - identifiers:
+    - `format`
+    - `authored`
+    - `name`
+    - `feature_aabb`
+    - `identity`
+    - `disposition`
+    - `super::ActorFaction::Npc`
+    - `ActorPose::from_aabb`
+    - `facing`
+    - `combat_kit`
+    - `super::ActorAggression::retaliates_when_hit`
+    - `super::super::NPC_HOSTILE_STRIKE_THRESHOLD`
+    - `health`
+    - `combat`
+    - `intent`
+    - `cooldowns`
+    - `ActorRuntime::Npc`
+    - `cluster_bundle`
+    - `brain`
+    - `crate::brain::ActionSet::peaceful`
+- `crates/ambition_sandbox/src/content/features/ecs/spawn_actors.rs:386`
+  - name label: `format!("Feature switch: {}", authored.name)`
+  - matched ECS items: `FeatureSimEntity`, `RoomVisual`, `SwitchOn`
+  - identifiers:
+    - `format`
+    - `authored`
+    - `name`
+    - `FeatureSimEntity`
+    - `RoomVisual`
+    - `feature_aabb`
+    - `activation`
+    - `SwitchOn`
+- `crates/ambition_sandbox/src/content/features/ecs/spawn_actors.rs:431`
+  - name label: `format!("Encounter mob: {id}")`
+  - identifiers:
+    - `format`
+    - `feature_aabb`
+    - `identity`
+    - `disposition`
+    - `super::ActorFaction::Enemy`
+    - `ActorPose::from_aabb`
+    - `facing`
+    - `combat_kit`
+    - `super::ActorAggression::hostile_to_player`
+    - `health`
+    - `combat`
+    - `intent`
+    - `cooldowns`
+    - `actor`
+    - `cluster_bundle`
+    - `encounter_id`
+    - `brain`
+    - `action_set`
+- `crates/ambition_sandbox/src/content/features/ecs/spawn_mounts.rs:153`
+  - name label: `format!("Feature actor mount: {mount_name}")`
+  - matched ECS items: `super::Mountable`
+  - identifiers:
+    - `format`
+    - `mount_id`
+    - `mount_name`
+    - `mount_feature_aabb`
+    - `m_identity`
+    - `m_disposition`
+    - `super::ActorFaction::Enemy`
+    - `ActorPose::from_aabb`
+    - `mount_facing`
+    - `mount_combat_kit`
+    - `super::ActorAggression::hostile_to_player`
+    - `m_health`
+    - `m_combat`
+    - `m_intent`
+    - `m_cooldowns`
+    - `mount_actor`
+    - `mount_cluster_bundle`
+    - `mount_brain`
+    - `mount_action_set`
+    - `super::Mountable`
+    - `rider_offset`
+- `crates/ambition_sandbox/src/content/features/ecs/spawn_mounts.rs:196`
+  - name label: `format!("Feature actor rider: {rider_variant_name}")`
+  - matched ECS items: `super::Mounted`, `super::MountedSize`, `super::RidingOn`
+  - identifiers:
+    - `format`
+    - `rider_id`
+    - `rider_variant_name`
+    - `rider_feature_aabb`
+    - `r_identity`
+    - `r_disposition`
+    - `super::ActorFaction::Enemy`
+    - `ActorPose::from_aabb`
+    - `rider_facing`
+    - `rider_combat_kit`
+    - `super::ActorAggression::hostile_to_player`
+    - `r_health`
+    - `r_combat`
+    - `r_intent`
+    - `r_cooldowns`
+    - `rider_actor`
+    - `rider_cluster_bundle`
+    - `rider_brain`
+    - `rider_action_set`
+    - `mounted_brain_cache`
+    - `super::Mounted`
+    - `super::MountedSize`
+    - `mounted_size`
+    - `super::RidingOn`
+    - `mount`
+    - `mount_entity`
+- `crates/ambition_sandbox/src/content/features/ecs/target_volumes.rs:129`
+  - matched ECS items: `DamageableVolumes`
+  - identifiers:
+    - `DamageableVolumes`
+    - `volumes`
+    - `vec`
+    - `aabb`
+    - `PogoPolicy::FromDamageable`
+- `crates/ambition_sandbox/src/content/features/ecs/target_volumes.rs:148`
+  - matched ECS items: `DamageableVolumes`, `PogoTargetVolumes`
+  - identifiers:
+    - `DamageableVolumes`
+    - `volumes`
+    - `vec`
+    - `aabb`
+    - `PogoPolicy::Disabled`
+    - `PogoTargetVolumes`
+- `crates/ambition_sandbox/src/content/features/ecs/targeting.rs:95`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `FeatureAabb::from_center_size`
+    - `pos`
+    - `ActorAggression::hostile_to_player`
+- `crates/ambition_sandbox/src/content/features/ecs/targeting.rs:108`
+  - matched ECS items: `PlayerEntity`, `PlayerSlot`, `PrimaryPlayer`
+  - identifiers:
+    - `PlayerEntity`
+    - `PlayerSlot`
+    - `PrimaryPlayer`
+    - `dummy_player_body`
+- `crates/ambition_sandbox/src/content/features/ecs/targeting.rs:130`
+  - matched ECS items: `PlayerEntity`, `PlayerSlot`, `PrimaryPlayer`
+  - identifiers:
+    - `PlayerEntity`
+    - `PlayerSlot`
+    - `PrimaryPlayer`
+    - `dummy_player_body`
+- `crates/ambition_sandbox/src/content/features/ecs/targeting.rs:136`
+  - matched ECS items: `PlayerEntity`, `PlayerSlot`
+  - identifiers:
+    - `PlayerEntity`
+    - `PlayerSlot`
+    - `dummy_player_body`
+- `crates/ambition_sandbox/src/content/features/ecs/targeting.rs:155`
+  - matched ECS items: `PlayerEntity`, `PlayerSlot`, `PrimaryPlayer`
+  - identifiers:
+    - `PlayerEntity`
+    - `PlayerSlot`
+    - `PrimaryPlayer`
+    - `dummy_player_body`
+- `crates/ambition_sandbox/src/content/features/ecs/targeting.rs:162`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `FeatureAabb::from_center_size`
+    - `actor_pos`
+    - `ActorAggression::passive`
+- `crates/ambition_sandbox/src/content/features/ecs/targeting.rs:184`
+  - matched ECS items: `PlayerEntity`, `PlayerSlot`, `PrimaryPlayer`
+  - identifiers:
+    - `PlayerEntity`
+    - `PlayerSlot`
+    - `PrimaryPlayer`
+    - `dummy_player_body`
+- `crates/ambition_sandbox/src/content/features/ecs/targeting.rs:196`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `FeatureAabb::from_center_size`
+    - `ActorAggression::retaliates_when_hit`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:26`
+  - identifiers:
+    - `bundle`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:53`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `FeatureAabb::from_center_size`
+    - `center`
+    - `size`
+    - `ActorRuntime::Npc`
+    - `npc`
+    - `into_components`
+    - `PogoPolicy::FromDamageable`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:98`
+  - matched ECS items: `FeatureSimEntity`, `PogoTargetVolumes`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `FeatureAabb::from_aabb`
+    - `boss_body`
+    - `boss`
+    - `into_components`
+    - `PogoTargetVolumes`
+    - `volumes`
+    - `vec`
+    - `pogo_hurtbox`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:134`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `FeatureAabb::from_center_size`
+    - `ae::Vec2::ZERO`
+    - `breakable`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:166`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `None`
+    - `FeatureAabb::from_center_size`
+    - `center`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:210`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `None`
+    - `FeatureAabb::from_center_size`
+    - `chest_pos`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:243`
+  - matched ECS items: `FeatureSimEntity`, `Opened`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `None`
+    - `FeatureAabb::from_center_size`
+    - `center`
+    - `Opened`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:300`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `FeatureAabb::from_center_size`
+    - `center`
+    - `ActorRuntime::Npc`
+    - `npc`
+    - `into_components`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:331`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `FeatureAabb::from_center_size`
+    - `center`
+    - `crate::interaction::PickupKind::Health`
+    - `amount`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:377`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `FeatureAabb::from_center_size`
+    - `pos`
+    - `crate::interaction::PickupKind::Health`
+    - `amount`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:388`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `FeatureAabb::from_center_size`
+    - `pos`
+    - `None`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:433`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `FeatureAabb::from_center_size`
+    - `crate::interaction::PickupKind::Health`
+    - `amount`
+- `crates/ambition_sandbox/src/content/features/ecs/tests.rs:449`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `FeatureAabb::from_center_size`
+    - `ae::Vec2::ZERO`
+    - `crate::interaction::PickupKind::Health`
+    - `amount`
+- `crates/ambition_sandbox/src/dev/fps_overlay.rs:100`
+  - name label: `"FPS Overlay"`
+  - matched ECS items: `FpsOverlayText`
+  - identifiers:
+    - `font`
+    - `TextColor`
+    - `Color::srgba`
+    - `Node`
+    - `position_type`
+    - `PositionType::Absolute`
+    - `right`
+    - `Val::Px`
+    - `bottom`
+    - `state`
+    - `visible`
+    - `Visibility::Inherited`
+    - `Visibility::Hidden`
+    - `FpsOverlayText`
+- `crates/ambition_sandbox/src/dialog/ui.rs:78`
+  - name label: `"Dialogue Overlay Root"`
+  - matched ECS items: `DialogOverlayRoot`
+  - identifiers:
+    - `Node`
+    - `position_type`
+    - `PositionType::Absolute`
+    - `left`
+    - `Val::Px`
+    - `right`
+    - `top`
+    - `bottom`
+    - `padding`
+    - `UiRect::all`
+    - `justify_content`
+    - `JustifyContent::FlexEnd`
+    - `align_items`
+    - `AlignItems::Center`
+    - `ZIndex`
+    - `DialogOverlayRoot`
+- `crates/ambition_sandbox/src/dialog/ui.rs:96`
+  - name label: `"Dialogue Overlay Panel"`
+  - identifiers:
+    - `Node`
+    - `width`
+    - `Val::Percent`
+    - `max_width`
+    - `Val::Px`
+    - `max_height`
+    - `padding`
+    - `UiRect::all`
+    - `flex_direction`
+    - `FlexDirection::Column`
+    - `row_gap`
+    - `border`
+    - `border_radius`
+    - `BorderRadius::all`
+    - `BackgroundColor`
+    - `Color::srgba`
+    - `BorderColor::all`
+- `crates/ambition_sandbox/src/dialog/ui.rs:113`
+  - identifiers:
+    - `title`
+    - `dialog_font`
+    - `UiFontWeight::Semibold`
+    - `TextColor`
+    - `Color::srgba`
+- `crates/ambition_sandbox/src/dialog/ui.rs:118`
+  - identifiers:
+    - `body`
+    - `dialog_font`
+    - `UiFontWeight::Regular`
+    - `TextColor`
+    - `Color::srgba`
+- `crates/ambition_sandbox/src/dialog/ui.rs:152`
+  - identifiers:
+    - `DIALOG_CONTINUE_HINT`
+    - `dialog_font`
+    - `UiFontWeight::Regular`
+    - `TextColor`
+    - `Color::srgba`
+- `crates/ambition_sandbox/src/dialog/ui.rs:180`
+  - name label: `format!("Dialogue choice {index}: {label}")`
+  - matched ECS items: `DialogChoiceSlot`
+  - identifiers:
+    - `Button`
+    - `Node`
+    - `width`
+    - `Val::Percent`
+    - `min_height`
+    - `Val::Px`
+    - `padding`
+    - `UiRect::axes`
+    - `align_items`
+    - `AlignItems::Center`
+    - `justify_content`
+    - `JustifyContent::FlexStart`
+    - `border_radius`
+    - `BorderRadius::all`
+    - `BackgroundColor`
+    - `bg`
+    - `DialogChoiceSlot`
+    - `index`
+    - `format`
+- `crates/ambition_sandbox/src/dialog/ui.rs:197`
+  - identifiers:
+    - `format`
+    - `dialog_font`
+    - `UiFontWeight::Regular`
+    - `TextColor`
+    - `fg`
+- `crates/ambition_sandbox/src/dialog/yarn_bridge.rs:97`
+  - identifiers:
+    - `runner`
+- `crates/ambition_sandbox/src/dive.rs:180`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`, `PlayerKinematics`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+    - `PlayerKinematics`
+    - `pos`
+    - `vel`
+    - `ae::Vec2::ZERO`
+    - `size`
+    - `base_size`
+    - `facing`
+    - `spec`
+- `crates/ambition_sandbox/src/enemy_projectile/state.rs:114`
+  - identifiers:
+    - `spawn_request`
+- `crates/ambition_sandbox/src/enemy_projectile/state.rs:125`
+  - identifiers:
+    - `spawn_request`
+- `crates/ambition_sandbox/src/enemy_projectile/state.rs:132`
+  - identifiers:
+    - `spawn_request`
+- `crates/ambition_sandbox/src/enemy_projectile/state.rs:144`
+  - identifiers:
+    - `EnemyProjectileSpawn`
+    - `origin`
+    - `ae::Vec2::ZERO`
+    - `dir`
+    - `speed`
+    - `damage`
+    - `max_lifetime`
+    - `half_extent`
+    - `owner_id`
+    - `gravity`
+- `crates/ambition_sandbox/src/enemy_projectile/state.rs:163`
+  - identifiers:
+    - `spawn_request`
+- `crates/ambition_sandbox/src/enemy_projectile/state.rs:172`
+  - identifiers:
+    - `spawn_request`
+- `crates/ambition_sandbox/src/enemy_projectile/state.rs:173`
+  - identifiers:
+    - `spawn_request`
+- `crates/ambition_sandbox/src/enemy_projectile/systems.rs:274`
+  - matched ECS items: `crate::features::FeatureSimEntity`, `crate::features::ActorCombatState`
+  - identifiers:
+    - `crate::features::FeatureSimEntity`
+    - `enemy_pos`
+    - `crate::features::ActorDisposition::Hostile`
+    - `crate::features::ActorCombatState`
+    - `alive`
+    - `hit_flash`
+    - `strike_count`
+    - `attack_windup_timer`
+    - `attack_timer`
+    - `training_dummy`
+- `crates/ambition_sandbox/src/enemy_projectile/systems.rs:358`
+  - matched ECS items: `PlayerEntity`, `PlayerKinematics`, `PlayerShieldState`
+  - identifiers:
+    - `PlayerEntity`
+    - `PlayerKinematics`
+    - `pos`
+    - `player_pos`
+    - `vel`
+    - `ae::Vec2::ZERO`
+    - `size`
+    - `base_size`
+    - `facing`
+    - `PlayerShieldState`
+    - `active`
+    - `parry_window_timer`
+- `crates/ambition_sandbox/src/enemy_projectile/systems.rs:379`
+  - identifiers:
+    - `EnemyProjectileSpawn`
+    - `origin`
+    - `player_pos`
+    - `dir`
+    - `incoming`
+    - `normalize`
+    - `speed`
+    - `damage`
+    - `max_lifetime`
+    - `half_extent`
+    - `owner_id`
+    - `gravity`
+- `crates/ambition_sandbox/src/enemy_projectile/visuals.rs:134`
+  - name label: `"Enemy projectile"`
+  - matched ECS items: `EnemyProjectileVisual`
+  - identifiers:
+    - `sprite`
+    - `Transform::from_translation`
+    - `translation`
+    - `EnemyProjectileVisual`
+- `crates/ambition_sandbox/src/enemy_projectile/visuals.rs:155`
+  - name label: `"Lasersword projectile"`
+  - matched ECS items: `EnemyProjectileVisual`
+  - identifiers:
+    - `sprite`
+    - `anchor`
+    - `translation`
+    - `rotation`
+    - `scale`
+    - `Vec3::ONE`
+    - `EnemyProjectileVisual`
+- `crates/ambition_sandbox/src/enemy_projectile/visuals.rs:181`
+  - name label: `"GNU-ton apple"`
+  - matched ECS items: `EnemyProjectileVisual`
+  - identifiers:
+    - `sprite`
+    - `Transform::from_translation`
+    - `translation`
+    - `EnemyProjectileVisual`
+- `crates/ambition_sandbox/src/falling_sand.rs:221`
+  - name label: `"falling sand chunk loader (static, origin)"`
+  - identifiers:
+    - `ChunkLoader`
+    - `Transform::from_xyz`
+- `crates/ambition_sandbox/src/falling_sand.rs:228`
+  - name label: `"particle type: ambition sand"`
+  - identifiers:
+    - `TYPE_SAND`
+    - `ColorProfile::palette`
+    - `vec`
+    - `Srgba`
+    - `hex`
+    - `expect`
+    - `IVec2`
+    - `Density`
+- `crates/ambition_sandbox/src/falling_sand.rs:249`
+  - name label: `"particle type: ambition water"`
+  - identifiers:
+    - `TYPE_WATER`
+    - `ColorProfile::palette`
+    - `vec`
+    - `Srgba`
+    - `hex`
+    - `expect`
+    - `IVec2`
+    - `Density`
+- `crates/ambition_sandbox/src/falling_sand.rs:274`
+  - name label: `"particle type: ambition static wall"`
+  - identifiers:
+    - `TYPE_WALL`
+    - `ColorProfile::palette`
+    - `vec`
+    - `Srgba`
+    - `hex`
+    - `expect`
+- `crates/ambition_sandbox/src/falling_sand.rs:283`
+  - name label: `"particle type: ambition oil"`
+  - identifiers:
+    - `TYPE_OIL`
+    - `ColorProfile::palette`
+    - `vec`
+    - `Srgba`
+    - `hex`
+    - `expect`
+    - `IVec2`
+    - `Density`
+- `crates/ambition_sandbox/src/falling_sand.rs:597`
+  - name label: `format!("falling sand open spout {id}")`
+  - matched ECS items: `FallingSandSpoutNozzle`, `crate::presentation::rendering::RoomVisual`
+  - identifiers:
+    - `format`
+    - `Sprite::from_color`
+    - `color`
+    - `width`
+    - `Transform::from_translation`
+    - `crate::config::world_to_bevy`
+    - `room`
+    - `world`
+    - `x`
+    - `y`
+    - `crate::config::WORLD_Z_FX`
+    - `FallingSandSpoutNozzle`
+    - `crate::presentation::rendering::RoomVisual`
+- `crates/ambition_sandbox/src/falling_sand.rs:780`
+  - name label: `format!("falling sand stream {kind:?}")`
+  - matched ECS items: `FallingSandStreamParticle`, `crate::presentation::rendering::RoomVisual`
+  - identifiers:
+    - `format`
+    - `Sprite::from_color`
+    - `kind`
+    - `stream_color`
+    - `size`
+    - `Transform::from_translation`
+    - `crate::config::world_to_bevy`
+    - `world`
+    - `world_pos`
+    - `crate::config::WORLD_Z_FX`
+    - `FallingSandStreamParticle`
+    - `vel`
+    - `age`
+    - `lifetime`
+    - `crate::presentation::rendering::RoomVisual`
+- `crates/ambition_sandbox/src/falling_sand.rs:1232`
+  - name label: `format!( "falling sand projected {kind:?} tile {}:{}", tile.0, tile.1 )`
+  - matched ECS items: `FallingSandMaterialVisual`, `crate::presentation::rendering::RoomVisual`
+  - identifiers:
+    - `format`
+    - `tile`
+    - `Sprite::from_color`
+    - `kind`
+    - `visual_color`
+    - `Vec2::splat`
+    - `TILE_SIZE`
+    - `Transform::from_translation`
+    - `crate::config::world_to_bevy`
+    - `world`
+    - `center`
+    - `crate::config::WORLD_Z_PLAYER`
+    - `FallingSandMaterialVisual`
+    - `crate::presentation::rendering::RoomVisual`
+- `crates/ambition_sandbox/src/grapple.rs:144`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`, `PlayerKinematics`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+    - `PlayerKinematics`
+    - `pos`
+    - `vel`
+    - `ae::Vec2::ZERO`
+    - `size`
+    - `base_size`
+    - `facing`
+    - `spec`
+- `crates/ambition_sandbox/src/gravity_grenade.rs:69`
+  - name label: `"Gravity well (grenade)"`
+  - matched ECS items: `GravityZone`, `TemporaryZone`
+  - identifiers:
+    - `GravityZone`
+    - `aabb`
+    - `ground`
+    - `pos`
+    - `WELL_HALF`
+    - `dir`
+    - `TemporaryZone`
+    - `remaining`
+    - `WELL_DURATION_SECS`
+- `crates/ambition_sandbox/src/gravity_grenade.rs:109`
+  - identifiers:
+    - `grenade_ground`
+- `crates/ambition_sandbox/src/gravity_grenade.rs:113`
+  - identifiers:
+    - `grenade_ground`
+    - `ae::Vec2::ZERO`
+- `crates/ambition_sandbox/src/gravity_grenade.rs:135`
+  - matched ECS items: `GravityGrenadeFuse`
+  - identifiers:
+    - `grenade_ground`
+    - `GravityGrenadeFuse`
+    - `timer`
+    - `GRAVITY_GRENADE_FUSE_SECS`
+- `crates/ambition_sandbox/src/host/mobile_input/bevy_plugin.rs:445`
+  - name label: `"MobileTouchActionBezel"`
+  - matched ECS items: `MobileTouchUiRoot`
+  - identifiers:
+    - `Node`
+    - `width`
+    - `Val::Px`
+    - `ACTION_BEZEL_W`
+    - `height`
+    - `ACTION_BEZEL_H`
+    - `position_type`
+    - `PositionType::Absolute`
+    - `right`
+    - `bottom`
+    - `border_radius`
+    - `BorderRadius::all`
+    - `BackgroundColor`
+    - `Color::srgba`
+    - `MobileTouchUiRoot`
+- `crates/ambition_sandbox/src/host/mobile_input/bevy_plugin.rs:459`
+  - name label: `"MobileTouchActionCluster"`
+  - matched ECS items: `MobileTouchUiRoot`
+  - identifiers:
+    - `Node`
+    - `width`
+    - `Val::Px`
+    - `ACTION_CLUSTER_W`
+    - `height`
+    - `ACTION_CLUSTER_H`
+    - `position_type`
+    - `PositionType::Absolute`
+    - `right`
+    - `ACTION_CLUSTER_MARGIN`
+    - `bottom`
+    - `MobileTouchUiRoot`
+- `crates/ambition_sandbox/src/host/mobile_input/bevy_plugin.rs:489`
+  - name label: `"MobileTouchMenuRow"`
+  - matched ECS items: `MobileTouchUiRoot`
+  - identifiers:
+    - `Node`
+    - `width`
+    - `Val::Px`
+    - `MENU_ROW_W`
+    - `height`
+    - `position_type`
+    - `PositionType::Absolute`
+    - `right`
+    - `MENU_ROW_MARGIN`
+    - `top`
+    - `flex_direction`
+    - `FlexDirection::Row`
+    - `justify_content`
+    - `JustifyContent::FlexEnd`
+    - `align_items`
+    - `AlignItems::Center`
+    - `MobileTouchUiRoot`
+- `crates/ambition_sandbox/src/host/mobile_input/bevy_plugin.rs:528`
+  - name label: `format!("Touch{label}")`
+  - matched ECS items: `ButtonPressed`
+  - identifiers:
+    - `Button`
+    - `Node`
+    - `width`
+    - `Val::Px`
+    - `size`
+    - `height`
+    - `position_type`
+    - `PositionType::Absolute`
+    - `left`
+    - `top`
+    - `align_items`
+    - `AlignItems::Center`
+    - `justify_content`
+    - `JustifyContent::Center`
+    - `border_radius`
+    - `BorderRadius::all`
+    - `BackgroundColor`
+    - `Color::srgba`
+    - `BorderColor::all`
+    - `action`
+    - `ButtonPressed`
+    - `format`
+- `crates/ambition_sandbox/src/host/mobile_input/bevy_plugin.rs:553`
+  - matched ECS items: `TouchActionLabel`, `ButtonGlyph`
+  - identifiers:
+    - `label`
+    - `TextFont`
+    - `font_size`
+    - `TextColor`
+    - `Color::srgb`
+    - `TextLayout::new_with_justify`
+    - `Justify::Center`
+    - `TouchActionLabel`
+    - `action`
+    - `ButtonVerb::Static`
+    - `ButtonGlyph`
+    - `Cow::Borrowed`
+- `crates/ambition_sandbox/src/host/mobile_input/bevy_plugin.rs:839`
+  - name label: `format!("Touch{label}")`
+  - identifiers:
+    - `Button`
+    - `Node`
+    - `width`
+    - `Val::Px`
+    - `height`
+    - `margin`
+    - `UiRect::all`
+    - `align_items`
+    - `AlignItems::Center`
+    - `justify_content`
+    - `JustifyContent::Center`
+    - `BackgroundColor`
+    - `Color::srgba`
+    - `action`
+    - `format`
+- `crates/ambition_sandbox/src/host/mobile_input/bevy_plugin.rs:855`
+  - identifiers:
+    - `label`
+    - `TextFont`
+    - `font_size`
+    - `TextColor`
+    - `Color::srgb`
+- `crates/ambition_sandbox/src/hud_overlay.rs:87`
+  - name label: `"Player HUD"`
+  - matched ECS items: `PlayerHudRoot`
+  - identifiers:
+    - `PlayerHudRoot`
+    - `Node`
+    - `position_type`
+    - `PositionType::Absolute`
+    - `left`
+    - `Val::Px`
+    - `top`
+    - `flex_direction`
+    - `FlexDirection::Column`
+    - `row_gap`
+- `crates/ambition_sandbox/src/hud_overlay.rs:104`
+  - identifiers:
+    - `bar_node`
+    - `BackgroundColor`
+    - `track`
+- `crates/ambition_sandbox/src/hud_overlay.rs:106`
+  - matched ECS items: `HealthFill`
+  - identifiers:
+    - `HealthFill`
+    - `fill_node`
+    - `BackgroundColor`
+    - `Color::srgb`
+- `crates/ambition_sandbox/src/hud_overlay.rs:111`
+  - matched ECS items: `HealthLabel`
+  - identifiers:
+    - `HealthLabel`
+    - `overlay_label`
+    - `TextFont`
+    - `font_size`
+    - `TextColor`
+    - `Color::srgb`
+- `crates/ambition_sandbox/src/hud_overlay.rs:123`
+  - identifiers:
+    - `bar_node`
+    - `BackgroundColor`
+    - `track`
+- `crates/ambition_sandbox/src/hud_overlay.rs:125`
+  - matched ECS items: `ManaFill`
+  - identifiers:
+    - `ManaFill`
+    - `fill_node`
+    - `BackgroundColor`
+    - `Color::srgb`
+- `crates/ambition_sandbox/src/hud_overlay.rs:130`
+  - matched ECS items: `ManaLabel`
+  - identifiers:
+    - `ManaLabel`
+    - `overlay_label`
+    - `TextFont`
+    - `font_size`
+    - `TextColor`
+    - `Color::srgb`
+- `crates/ambition_sandbox/src/hud_overlay.rs:142`
+  - matched ECS items: `MoneyLabel`
+  - identifiers:
+    - `MoneyLabel`
+    - `TextFont`
+    - `font_size`
+    - `TextColor`
+    - `Color::srgb`
+- `crates/ambition_sandbox/src/hud_overlay.rs:223`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+- `crates/ambition_sandbox/src/inventory/ui.rs:9`
+  - name label: `"Adventure menu root"`
+  - matched ECS items: `InventoryRoot`
+  - identifiers:
+    - `Node`
+    - `position_type`
+    - `PositionType::Absolute`
+    - `width`
+    - `Val::Percent`
+    - `height`
+    - `justify_content`
+    - `JustifyContent::Center`
+    - `align_items`
+    - `AlignItems::Center`
+    - `padding`
+    - `UiRect::all`
+    - `Val::Px`
+    - `BackgroundColor`
+    - `Color::srgba`
+    - `ZIndex`
+    - `Visibility::Hidden`
+    - `InventoryRoot`
+- `crates/ambition_sandbox/src/inventory/ui.rs:28`
+  - name label: `"Adventure menu panel"`
+  - identifiers:
+    - `Node`
+    - `width`
+    - `Val::Px`
+    - `max_width`
+    - `Val::Percent`
+    - `max_height`
+    - `padding`
+    - `UiRect::all`
+    - `flex_direction`
+    - `FlexDirection::Column`
+    - `row_gap`
+    - `BackgroundColor`
+    - `Color::srgba`
+- `crates/ambition_sandbox/src/inventory/ui.rs:45`
+  - name label: `"Adventure menu header"`
+  - identifiers:
+    - `Node`
+    - `width`
+    - `Val::Percent`
+    - `flex_direction`
+    - `FlexDirection::Row`
+    - `align_items`
+    - `AlignItems::Center`
+    - `column_gap`
+    - `Val::Px`
+- `crates/ambition_sandbox/src/inventory/ui.rs:59`
+  - name label: `"Adventure menu top back button"`
+  - matched ECS items: `InventoryBackButton`
+  - identifiers:
+    - `Button`
+    - `Node`
+    - `min_width`
+    - `Val::Px`
+    - `min_height`
+    - `padding`
+    - `UiRect::axes`
+    - `justify_content`
+    - `JustifyContent::Center`
+    - `align_items`
+    - `AlignItems::Center`
+    - `BackgroundColor`
+    - `Color::srgba`
+    - `TextFont`
+    - `font_size`
+    - `TextColor`
+    - `InventoryBackButton`
+- `crates/ambition_sandbox/src/inventory/ui.rs:83`
+  - name label: `"Adventure menu title"`
+  - matched ECS items: `InventoryTitleText`
+  - identifiers:
+    - `Node`
+    - `flex_grow`
+    - `justify_content`
+    - `JustifyContent::Center`
+    - `TextFont`
+    - `font_size`
+    - `TextColor`
+    - `Color::srgba`
+    - `InventoryTitleText`
+- `crates/ambition_sandbox/src/inventory/ui.rs:102`
+  - name label: `"Adventure menu tab bar"`
+  - identifiers:
+    - `Node`
+    - `width`
+    - `Val::Percent`
+    - `flex_direction`
+    - `FlexDirection::Row`
+    - `column_gap`
+    - `Val::Px`
+- `crates/ambition_sandbox/src/inventory/ui.rs:116`
+  - name label: `format!("Adventure tab: {}", tab.label())`
+  - matched ECS items: `InventoryTabButton`
+  - identifiers:
+    - `Button`
+    - `Node`
+    - `flex_grow`
+    - `min_height`
+    - `Val::Px`
+    - `padding`
+    - `UiRect::axes`
+    - `justify_content`
+    - `JustifyContent::Center`
+    - `align_items`
+    - `AlignItems::Center`
+    - `BackgroundColor`
+    - `Color::NONE`
+    - `tab`
+    - `label`
+    - `TextFont`
+    - `font_size`
+    - `TextColor`
+    - `Color::srgba`
+    - `InventoryTabButton`
+    - `format`
+- `crates/ambition_sandbox/src/inventory/ui.rs:142`
+  - name label: `format!("Inventory row: {}", kind.label())`
+  - matched ECS items: `InventoryItemRow`
+  - identifiers:
+    - `Button`
+    - `Node`
+    - `width`
+    - `Val::Percent`
+    - `min_height`
+    - `Val::Px`
+    - `padding`
+    - `UiRect::axes`
+    - `justify_content`
+    - `JustifyContent::SpaceBetween`
+    - `align_items`
+    - `AlignItems::Center`
+    - `BackgroundColor`
+    - `Color::NONE`
+    - `TextFont`
+    - `font_size`
+    - `TextColor`
+    - `Color::srgba`
+    - `InventoryItemRow`
+    - `kind`
+    - `format`
+    - `label`
+- `crates/ambition_sandbox/src/inventory/ui.rs:167`
+  - name label: `"Adventure menu tab content"`
+  - matched ECS items: `InventoryTabContentText`
+  - identifiers:
+    - `Node`
+    - `width`
+    - `Val::Percent`
+    - `min_height`
+    - `Val::Px`
+    - `padding`
+    - `UiRect::all`
+    - `BackgroundColor`
+    - `Color::srgba`
+    - `TextFont`
+    - `font_size`
+    - `TextColor`
+    - `InventoryTabContentText`
+- `crates/ambition_sandbox/src/inventory/ui.rs:188`
+  - name label: `"Inventory description"`
+  - matched ECS items: `InventoryDescriptionText`
+  - identifiers:
+    - `Node`
+    - `margin`
+    - `UiRect::top`
+    - `Val::Px`
+    - `TextFont`
+    - `font_size`
+    - `TextColor`
+    - `Color::srgba`
+    - `InventoryDescriptionText`
+- `crates/ambition_sandbox/src/inventory/ui.rs:206`
+  - name label: `"Adventure menu footer"`
+  - identifiers:
+    - `Node`
+    - `width`
+    - `Val::Percent`
+    - `flex_direction`
+    - `FlexDirection::Row`
+    - `column_gap`
+    - `Val::Px`
+    - `align_items`
+    - `AlignItems::Center`
+- `crates/ambition_sandbox/src/inventory/ui.rs:220`
+  - name label: `"Adventure menu back button"`
+  - matched ECS items: `InventoryBackButton`
+  - identifiers:
+    - `Button`
+    - `Node`
+    - `min_width`
+    - `Val::Px`
+    - `min_height`
+    - `padding`
+    - `UiRect::axes`
+    - `justify_content`
+    - `JustifyContent::Center`
+    - `align_items`
+    - `AlignItems::Center`
+    - `BackgroundColor`
+    - `Color::srgba`
+    - `TextFont`
+    - `font_size`
+    - `TextColor`
+    - `InventoryBackButton`
+- `crates/ambition_sandbox/src/inventory/ui.rs:244`
+  - name label: `"Adventure menu status"`
+  - matched ECS items: `InventoryStatusText`
+  - identifiers:
+    - `Node`
+    - `flex_grow`
+    - `TextFont`
+    - `font_size`
+    - `TextColor`
+    - `Color::srgba`
+    - `InventoryStatusText`
+- `crates/ambition_sandbox/src/inventory_persist.rs:86`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`, `PlayerWallet`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+    - `PlayerWallet`
+    - `balance`
+    - `wallet`
+- `crates/ambition_sandbox/src/item_pickup.rs:747`
+  - name label: `"Ground item visual"`
+  - matched ECS items: `GroundItemVisual`
+  - identifiers:
+    - `GroundItemVisual`
+    - `sprite`
+    - `Transform::from_translation`
+    - `translation`
+- `crates/ambition_sandbox/src/item_pickup.rs:812`
+  - name label: `"Held item visual"`
+  - matched ECS items: `HeldItemVisual`
+  - identifiers:
+    - `HeldItemVisual`
+    - `sprite`
+    - `Transform::from_translation`
+    - `translation`
+    - `with_rotation`
+    - `rotation`
+- `crates/ambition_sandbox/src/item_pickup.rs:848`
+  - name label: `"Fireball shot"`
+  - matched ECS items: `HeldProjectileVisual`
+  - identifiers:
+    - `HeldProjectileVisual`
+    - `image`
+    - `fireball`
+    - `custom_size`
+    - `Some`
+    - `Vec2::splat`
+    - `Transform::from_translation`
+    - `translation`
+- `crates/ambition_sandbox/src/item_pickup.rs:862`
+  - name label: `"Gun-sword laser shot"`
+  - matched ECS items: `HeldProjectileVisual`
+  - identifiers:
+    - `HeldProjectileVisual`
+    - `sprite`
+    - `anchor`
+    - `translation`
+    - `rotation`
+    - `scale`
+    - `Vec3::ONE`
+- `crates/ambition_sandbox/src/item_pickup.rs:881`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`, `PlayerKinematics`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+    - `PlayerKinematics`
+    - `pos`
+    - `vel`
+    - `Vec2::ZERO`
+    - `size`
+    - `base_size`
+    - `facing`
+- `crates/ambition_sandbox/src/item_pickup.rs:910`
+  - matched ECS items: `GroundItem`
+  - identifiers:
+    - `GroundItem`
+    - `spec`
+    - `axe_spec`
+    - `pos`
+    - `vel`
+    - `Vec2::ZERO`
+    - `half_extent`
+    - `Vec2::splat`
+    - `PICKUP_HALF`
+- `crates/ambition_sandbox/src/item_pickup.rs:986`
+  - matched ECS items: `GroundItem`
+  - identifiers:
+    - `GroundItem`
+    - `spec`
+    - `gunsword_spec`
+    - `pos`
+    - `vel`
+    - `Vec2::ZERO`
+    - `half_extent`
+    - `Vec2::splat`
+    - `PICKUP_HALF`
+- `crates/ambition_sandbox/src/item_pickup.rs:1029`
+  - matched ECS items: `GroundItem`
+  - identifiers:
+    - `GroundItem`
+    - `spec`
+    - `gunsword_spec`
+    - `pos`
+    - `vel`
+    - `Vec2::ZERO`
+    - `half_extent`
+    - `Vec2::splat`
+    - `PICKUP_HALF`
+- `crates/ambition_sandbox/src/item_pickup.rs:1142`
+  - matched ECS items: `GroundItem`
+  - identifiers:
+    - `GroundItem`
+    - `spec`
+    - `axe_spec`
+    - `pos`
+    - `vel`
+    - `half_extent`
+    - `Vec2::splat`
+    - `PICKUP_HALF`
+- `crates/ambition_sandbox/src/item_pickup.rs:1174`
+  - matched ECS items: `GroundItem`
+  - identifiers:
+    - `GroundItem`
+    - `spec`
+    - `javelin_spec`
+    - `pos`
+    - `vel`
+    - `Vec2::ZERO`
+    - `half_extent`
+    - `Vec2::splat`
+    - `PICKUP_HALF`
+- `crates/ambition_sandbox/src/map_menu/ui.rs:59`
+  - name label: `"Map menu root"`
+  - matched ECS items: `MapMenuRoot`
+  - identifiers:
+    - `Button`
+    - `Node`
+    - `position_type`
+    - `PositionType::Absolute`
+    - `left`
+    - `Val::Percent`
+    - `top`
+    - `margin`
+    - `UiRect`
+    - `Val::Px`
+    - `MAP_PANEL_WIDTH`
+    - `MAP_PANEL_HEIGHT`
+    - `width`
+    - `height`
+    - `padding`
+    - `UiRect::all`
+    - `MAP_PADDING`
+    - `flex_direction`
+    - `FlexDirection::Column`
+    - `row_gap`
+    - `BackgroundColor`
+    - `Color::srgba`
+    - `BorderColor::all`
+    - `ZIndex`
+    - `Visibility::Hidden`
+    - `MapMenuRoot`
+- `crates/ambition_sandbox/src/map_menu/ui.rs:86`
+  - name label: `"Map title"`
+  - identifiers:
+    - `TextFont`
+    - `font_size`
+    - `TextColor`
+    - `Color::srgba`
+- `crates/ambition_sandbox/src/map_menu/ui.rs:97`
+  - name label: `"Map status"`
+  - matched ECS items: `MapMenuStatus`
+  - identifiers:
+    - `TextFont`
+    - `font_size`
+    - `TextColor`
+    - `Color::srgba`
+    - `MapMenuStatus`
+- `crates/ambition_sandbox/src/map_menu/ui.rs:109`
+  - name label: `"Map canvas"`
+  - matched ECS items: `MapMenuCanvas`
+  - identifiers:
+    - `Node`
+    - `position_type`
+    - `PositionType::Relative`
+    - `width`
+    - `Val::Percent`
+    - `flex_grow`
+    - `BackgroundColor`
+    - `Color::srgba`
+    - `MapMenuCanvas`
+- `crates/ambition_sandbox/src/map_menu/ui.rs:124`
+  - name label: `"Minimap root"`
+  - matched ECS items: `MinimapRoot`
+  - identifiers:
+    - `Node`
+    - `position_type`
+    - `PositionType::Absolute`
+    - `right`
+    - `Val::Px`
+    - `top`
+    - `width`
+    - `MINIMAP_WIDTH`
+    - `height`
+    - `MINIMAP_HEIGHT`
+    - `padding`
+    - `UiRect::all`
+    - `MINIMAP_PADDING`
+    - `BackgroundColor`
+    - `Color::srgba`
+    - `BorderColor::all`
+    - `ZIndex`
+    - `Visibility::Hidden`
+    - `MinimapRoot`
+- `crates/ambition_sandbox/src/map_menu/ui.rs:143`
+  - name label: `"Minimap canvas"`
+  - matched ECS items: `MinimapCanvas`
+  - identifiers:
+    - `Node`
+    - `position_type`
+    - `PositionType::Relative`
+    - `width`
+    - `Val::Percent`
+    - `height`
+    - `MinimapCanvas`
+- `crates/ambition_sandbox/src/map_menu/ui.rs:355`
+  - matched ECS items: `MapRoomLabel`
+  - identifiers:
+    - `label`
+    - `text`
+    - `TextFont`
+    - `font_size`
+    - `TextColor`
+    - `Color::srgba`
+    - `MapRoomLabel`
+- `crates/ambition_sandbox/src/map_menu/ui.rs:394`
+  - name label: `format!("MapRoom {}", room_id)`
+  - matched ECS items: `MapRoomBox`
+  - identifiers:
+    - `node`
+    - `BackgroundColor`
+    - `visual`
+    - `color`
+    - `BorderColor::all`
+    - `border`
+    - `MapRoomBox`
+    - `room_id`
+    - `kind`
+    - `current_label`
+    - `label`
+    - `l`
+    - `text`
+    - `current_font_size`
+    - `font_size`
+    - `unwrap_or`
+    - `format`
+- `crates/ambition_sandbox/src/map_menu/ui.rs:410`
+  - matched ECS items: `MapRoomLabel`
+  - identifiers:
+    - `text`
+    - `TextFont`
+    - `font_size`
+    - `TextColor`
+    - `Color::srgba`
+    - `MapRoomLabel`
+- `crates/ambition_sandbox/src/mark_recall.rs:163`
+  - name label: `"Mark beacon visual"`
+  - matched ECS items: `MarkBeaconVisual`
+  - identifiers:
+    - `MarkBeaconVisual`
+    - `sprite`
+    - `Transform::from_translation`
+    - `translation`
+- `crates/ambition_sandbox/src/mark_recall.rs:189`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`, `PlayerKinematics`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+    - `PlayerKinematics`
+    - `pos`
+    - `vel`
+    - `ae::Vec2::ZERO`
+    - `size`
+    - `base_size`
+    - `facing`
+    - `spec`
+- `crates/ambition_sandbox/src/meteor.rs:143`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`, `PlayerKinematics`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+    - `PlayerKinematics`
+    - `pos`
+    - `vel`
+    - `ae::Vec2::ZERO`
+    - `size`
+    - `base_size`
+    - `facing`
+    - `spec`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:448`
+  - name label: `"Cube readability scrim"`
+  - matched ECS items: `CubeScrim`
+  - identifiers:
+    - `CubeScrim`
+    - `Node`
+    - `position_type`
+    - `PositionType::Absolute`
+    - `left`
+    - `Val::Px`
+    - `top`
+    - `width`
+    - `Val::Percent`
+    - `height`
+    - `BackgroundColor`
+    - `Color::srgba`
+    - `GlobalZIndex`
+    - `Pickable::IGNORE`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1734`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1770`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1783`
+  - identifiers:
+    - `AmbitionMenuControl`
+    - `CubeAction`
+    - `kind`
+    - `ambition_inventory_ui::MenuControlKind::OptionToggle`
+    - `action`
+    - `Some`
+    - `focus`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1815`
+  - identifiers:
+    - `AmbitionMenuControl`
+    - `CubeAction`
+    - `kind`
+    - `ambition_inventory_ui::MenuControlKind::OptionToggle`
+    - `action`
+    - `Some`
+    - `focus`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1869`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:1905`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+- `crates/ambition_sandbox/src/oot_cube_app.rs:2144`
+  - matched ECS items: `PlayerVisual`, `PlayerEntity`, `PrimaryPlayer`
+  - identifiers:
+    - `PlayerVisual`
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+- `crates/ambition_sandbox/src/oot_menu/tests.rs:37`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+- `crates/ambition_sandbox/src/oot_menu/ui.rs:74`
+  - name label: `"OoT item menu root"`
+  - matched ECS items: `OotMenuRoot`
+  - identifiers:
+    - `Node`
+    - `position_type`
+    - `PositionType::Absolute`
+    - `width`
+    - `Val::Percent`
+    - `height`
+    - `justify_content`
+    - `JustifyContent::Center`
+    - `align_items`
+    - `AlignItems::Center`
+    - `padding`
+    - `UiRect::all`
+    - `Val::Px`
+    - `BackgroundColor`
+    - `Color::srgba`
+    - `ZIndex`
+    - `Visibility::Hidden`
+    - `OotMenuRoot`
+- `crates/ambition_sandbox/src/oot_menu/ui.rs:93`
+  - name label: `"OoT item menu panel"`
+  - identifiers:
+    - `Node`
+    - `width`
+    - `Val::Px`
+    - `max_width`
+    - `Val::Percent`
+    - `max_height`
+    - `padding`
+    - `UiRect::all`
+    - `flex_direction`
+    - `FlexDirection::Column`
+    - `row_gap`
+    - `align_items`
+    - `AlignItems::Center`
+    - `BackgroundColor`
+    - `Color::srgba`
+- `crates/ambition_sandbox/src/oot_menu/ui.rs:112`
+  - name label: `"OoT item menu header"`
+  - identifiers:
+    - `Node`
+    - `width`
+    - `Val::Percent`
+    - `flex_direction`
+    - `FlexDirection::Row`
+    - `align_items`
+    - `AlignItems::Center`
+    - `justify_content`
+    - `JustifyContent::SpaceBetween`
+- `crates/ambition_sandbox/src/oot_menu/ui.rs:126`
+  - name label: `"OoT item menu title"`
+  - identifiers:
+    - `TextFont`
+    - `font_size`
+    - `TextColor`
+    - `Color::srgba`
+- `crates/ambition_sandbox/src/oot_menu/ui.rs:139`
+  - name label: `"OoT item menu back button"`
+  - matched ECS items: `OotBackButton`
+  - identifiers:
+    - `Button`
+    - `Node`
+    - `min_width`
+    - `Val::Px`
+    - `min_height`
+    - `justify_content`
+    - `JustifyContent::Center`
+    - `align_items`
+    - `AlignItems::Center`
+    - `padding`
+    - `UiRect::axes`
+    - `BackgroundColor`
+    - `Color::srgba`
+    - `TextFont`
+    - `font_size`
+    - `TextColor`
+    - `OotBackButton`
+- `crates/ambition_sandbox/src/oot_menu/ui.rs:164`
+  - name label: `"OoT item grid"`
+  - identifiers:
+    - `Node`
+    - `display`
+    - `Display::Grid`
+    - `grid_template_columns`
+    - `vec`
+    - `RepeatedGridTrack`
+    - `flex`
+    - `ITEM_GRID_COLS`
+    - `grid_template_rows`
+    - `ITEM_GRID_ROWS`
+    - `column_gap`
+    - `Val::Px`
+    - `row_gap`
+    - `width`
+    - `Val::Percent`
+- `crates/ambition_sandbox/src/oot_menu/ui.rs:181`
+  - name label: `format!("OoT slot: {}", item.display_name())`
+  - matched ECS items: `OotSlot`
+  - identifiers:
+    - `Button`
+    - `Node`
+    - `min_width`
+    - `Val::Px`
+    - `SLOT_MIN_W`
+    - `min_height`
+    - `SLOT_MIN_H`
+    - `justify_content`
+    - `JustifyContent::Center`
+    - `align_items`
+    - `AlignItems::Center`
+    - `padding`
+    - `UiRect::all`
+    - `BackgroundColor`
+    - `slot_bg`
+    - `item`
+    - `display_name`
+    - `TextFont`
+    - `font_size`
+    - `TextColor`
+    - `slot_fg`
+    - `OotSlot`
+    - `format`
+- `crates/ambition_sandbox/src/oot_menu/ui.rs:207`
+  - name label: `"OoT item menu detail text"`
+  - matched ECS items: `OotDetailText`
+  - identifiers:
+    - `Node`
+    - `width`
+    - `Val::Percent`
+    - `min_height`
+    - `Val::Px`
+    - `padding`
+    - `UiRect::all`
+    - `BackgroundColor`
+    - `Color::srgba`
+    - `TextFont`
+    - `font_size`
+    - `TextColor`
+    - `OotDetailText`
+- `crates/ambition_sandbox/src/pause_menu/ui.rs:22`
+  - name label: `"Pause menu"`
+  - matched ECS items: `PauseMenuRoot`
+  - identifiers:
+    - `Node`
+    - `position_type`
+    - `PositionType::Absolute`
+    - `width`
+    - `Val::Percent`
+    - `height`
+    - `justify_content`
+    - `JustifyContent::Center`
+    - `align_items`
+    - `AlignItems::Center`
+    - `padding`
+    - `UiRect::all`
+    - `Val::Px`
+    - `IS_MOBILE`
+    - `BackgroundColor`
+    - `Color::srgba`
+    - `ZIndex`
+    - `Visibility::Hidden`
+    - `PauseMenuRoot`
+- `crates/ambition_sandbox/src/pause_menu/ui.rs:41`
+  - name label: `"Pause panel — top"`
+  - matched ECS items: `PauseMenuTopPanel`
+  - identifiers:
+    - `Node`
+    - `width`
+    - `Val::Percent`
+    - `IS_MOBILE`
+    - `max_width`
+    - `max_panel_pct`
+    - `max_height`
+    - `padding`
+    - `UiRect::all`
+    - `Val::Px`
+    - `panel_padding`
+    - `flex_direction`
+    - `FlexDirection::Column`
+    - `row_gap`
+    - `top_panel_gap`
+    - `align_items`
+    - `AlignItems::Center`
+    - `BackgroundColor`
+    - `Color::srgba`
+    - `BorderColor::all`
+    - `PauseMenuTopPanel`
+- `crates/ambition_sandbox/src/pause_menu/ui.rs:61`
+  - name label: `"Pause title"`
+  - identifiers:
+    - `TextFont`
+    - `font_size`
+    - `title_font`
+    - `TextColor`
+    - `Color::srgba`
+- `crates/ambition_sandbox/src/pause_menu/ui.rs:76`
+  - name label: `format!("Pause item: {label}")`
+  - identifiers:
+    - `Button`
+    - `Node`
+    - `width`
+    - `Val::Percent`
+    - `min_height`
+    - `Val::Px`
+    - `item_height`
+    - `padding`
+    - `UiRect::axes`
+    - `item_pad_h`
+    - `item_pad_v`
+    - `justify_content`
+    - `JustifyContent::Center`
+    - `align_items`
+    - `AlignItems::Center`
+    - `BackgroundColor`
+    - `Color::NONE`
+    - `label`
+    - `TextFont`
+    - `font_size`
+    - `item_font`
+    - `TextColor`
+    - `Color::srgba`
+    - `item`
+    - `format`
+- `crates/ambition_sandbox/src/pause_menu/ui.rs:101`
+  - name label: `"Pause panel — settings"`
+  - matched ECS items: `PauseMenuSettingsPanel`
+  - identifiers:
+    - `Node`
+    - `width`
+    - `Val::Percent`
+    - `IS_MOBILE`
+    - `max_width`
+    - `settings_max_pct`
+    - `max_height`
+    - `padding`
+    - `UiRect::all`
+    - `Val::Px`
+    - `panel_padding`
+    - `flex_direction`
+    - `FlexDirection::Column`
+    - `row_gap`
+    - `settings_panel_gap`
+    - `align_items`
+    - `AlignItems::Center`
+    - `display`
+    - `Display::None`
+    - `BackgroundColor`
+    - `Color::srgba`
+    - `BorderColor::all`
+    - `PauseMenuSettingsPanel`
+- `crates/ambition_sandbox/src/pause_menu/ui.rs:122`
+  - name label: `"Settings title"`
+  - matched ECS items: `SettingsTitle`
+  - identifiers:
+    - `TextFont`
+    - `font_size`
+    - `TextColor`
+    - `Color::srgba`
+    - `SettingsTitle`
+- `crates/ambition_sandbox/src/pause_menu/ui.rs:139`
+  - name label: `"Settings rows + scrollbar"`
+  - identifiers:
+    - `Node`
+    - `width`
+    - `Val::Percent`
+    - `flex_direction`
+    - `FlexDirection::Row`
+    - `align_items`
+    - `AlignItems::Stretch`
+    - `column_gap`
+    - `Val::Px`
+- `crates/ambition_sandbox/src/pause_menu/ui.rs:153`
+  - name label: `"Settings rows"`
+  - identifiers:
+    - `Node`
+    - `flex_grow`
+    - `flex_direction`
+    - `FlexDirection::Column`
+    - `row_gap`
+    - `Val::Px`
+- `crates/ambition_sandbox/src/pause_menu/ui.rs:176`
+  - name label: `"Settings scrollbar track"`
+  - matched ECS items: `SettingsScrollbarTrack`
+  - identifiers:
+    - `Node`
+    - `width`
+    - `Val::Px`
+    - `scrollbar_w`
+    - `height`
+    - `Val::Percent`
+    - `padding`
+    - `UiRect::all`
+    - `BackgroundColor`
+    - `Color::srgba`
+    - `BorderColor::all`
+    - `SettingsScrollbarTrack`
+- `crates/ambition_sandbox/src/pause_menu/ui.rs:194`
+  - name label: `"Settings scrollbar thumb"`
+  - matched ECS items: `SettingsScrollbarThumb`
+  - identifiers:
+    - `Node`
+    - `width`
+    - `Val::Percent`
+    - `height`
+    - `position_type`
+    - `PositionType::Absolute`
+    - `left`
+    - `Val::Px`
+    - `top`
+    - `BackgroundColor`
+    - `Color::srgba`
+    - `SettingsScrollbarThumb`
+- `crates/ambition_sandbox/src/pause_menu/ui.rs:224`
+  - name label: `format!("Settings row slot {index}")`
+  - matched ECS items: `SettingsRowSlot`
+  - identifiers:
+    - `Button`
+    - `Node`
+    - `width`
+    - `Val::Percent`
+    - `min_height`
+    - `Val::Px`
+    - `row_height`
+    - `padding`
+    - `UiRect::axes`
+    - `row_pad_v`
+    - `flex_direction`
+    - `FlexDirection::Column`
+    - `justify_content`
+    - `JustifyContent::Center`
+    - `align_items`
+    - `AlignItems::Center`
+    - `row_gap`
+    - `IS_MOBILE`
+    - `display`
+    - `Display::None`
+    - `BackgroundColor`
+    - `Color::NONE`
+    - `Visibility::Hidden`
+    - `SettingsRowSlot`
+    - `index`
+    - `format`
+- `crates/ambition_sandbox/src/pause_menu/ui.rs:246`
+  - name label: `format!("Settings row label {index}")`
+  - matched ECS items: `SettingsRowLabel`
+  - identifiers:
+    - `TextFont`
+    - `font_size`
+    - `row_font`
+    - `TextColor`
+    - `Color::srgba`
+    - `SettingsRowLabel`
+    - `index`
+    - `format`
+- `crates/ambition_sandbox/src/pause_menu/ui.rs:264`
+  - name label: `format!("Settings row slider track {index}")`
+  - matched ECS items: `SettingsRowSliderTrack`
+  - identifiers:
+    - `Node`
+    - `width`
+    - `Val::Percent`
+    - `height`
+    - `Val::Px`
+    - `slider_h`
+    - `display`
+    - `Display::None`
+    - `padding`
+    - `UiRect::all`
+    - `border`
+    - `BackgroundColor`
+    - `Color::srgba`
+    - `BorderColor::all`
+    - `SettingsRowSliderTrack`
+    - `index`
+    - `format`
+- `crates/ambition_sandbox/src/pause_menu/ui.rs:282`
+  - name label: `format!("Settings row slider fill {index}")`
+  - matched ECS items: `SettingsRowSliderFill`
+  - identifiers:
+    - `Node`
+    - `width`
+    - `Val::Percent`
+    - `height`
+    - `BackgroundColor`
+    - `Color::srgba`
+    - `SettingsRowSliderFill`
+    - `index`
+    - `format`
+- `crates/ambition_sandbox/src/physics.rs:383`
+  - matched ECS items: `crate::player::PlayerEntity`, `crate::player::PrimaryPlayer`, `crate::player::PlayerKinematics`
+  - identifiers:
+    - `crate::player::PlayerEntity`
+    - `crate::player::PrimaryPlayer`
+    - `crate::player::PlayerKinematics`
+    - `pos`
+    - `vel`
+    - `Vec2::ZERO`
+    - `size`
+    - `base_size`
+    - `facing`
+- `crates/ambition_sandbox/src/physics.rs:397`
+  - matched ECS items: `GravityZone`
+  - identifiers:
+    - `GravityZone`
+    - `aabb`
+    - `dir`
+- `crates/ambition_sandbox/src/physics.rs:493`
+  - matched ECS items: `GravityZone`
+  - identifiers:
+    - `GravityZone`
+    - `aabb`
+    - `dir`
+- `crates/ambition_sandbox/src/physics.rs:510`
+  - matched ECS items: `GravityZone`, `OscillatingZone`
+  - identifiers:
+    - `GravityZone`
+    - `aabb`
+    - `base`
+    - `dir`
+    - `OscillatingZone`
+    - `base_center`
+    - `half`
+    - `amplitude_x`
+    - `freq`
+    - `phase`
+- `crates/ambition_sandbox/src/platformer_runtime/lifecycle/spawn_ext.rs:20`
+  - identifiers:
+    - `bundle`
+- `crates/ambition_sandbox/src/platformer_runtime/lifecycle/spawn_ext.rs:26`
+  - identifiers:
+    - `bundle`
+- `crates/ambition_sandbox/src/platformer_runtime/lifecycle/spawn_ext.rs:32`
+  - identifiers:
+    - `bundle`
+- `crates/ambition_sandbox/src/player/affordances/mod.rs:211`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`, `PlayerGroundState`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+    - `PlayerGroundState`
+    - `on_ground`
+- `crates/ambition_sandbox/src/player/bubble_shield.rs:92`
+  - name label: `"Bubble Shield Visual"`
+  - matched ECS items: `BubbleShieldVisual`
+  - identifiers:
+    - `image`
+    - `sprite`
+    - `handle`
+    - `custom_size`
+    - `Some`
+    - `color`
+    - `Color::srgba`
+    - `Transform::from_xyz`
+    - `crate::config::WORLD_Z_PLAYER`
+    - `Visibility::Hidden`
+    - `BubbleShieldVisual`
+- `crates/ambition_sandbox/src/player/components.rs:461`
+  - matched ECS items: `PlayerEntity`, `PlayerSlot`, `PrimaryPlayer`
+  - identifiers:
+    - `PlayerEntity`
+    - `PlayerSlot`
+    - `PrimaryPlayer`
+- `crates/ambition_sandbox/src/player/components.rs:470`
+  - matched ECS items: `PlayerEntity`, `PlayerSlot`
+  - identifiers:
+    - `PlayerEntity`
+    - `PlayerSlot`
+- `crates/ambition_sandbox/src/player/components.rs:511`
+  - matched ECS items: `PlayerEntity`, `PlayerSlot`, `PrimaryPlayer`
+  - identifiers:
+    - `PlayerEntity`
+    - `PlayerSlot`
+    - `PrimaryPlayer`
+    - `p1_initial`
+- `crates/ambition_sandbox/src/player/components.rs:520`
+  - matched ECS items: `PlayerEntity`, `PlayerSlot`
+  - identifiers:
+    - `PlayerEntity`
+    - `PlayerSlot`
+    - `p2_initial`
+- `crates/ambition_sandbox/src/player/components.rs:565`
+  - matched ECS items: `PlayerEntity`, `PlayerSlot`, `PrimaryPlayer`
+  - identifiers:
+    - `PlayerEntity`
+    - `PlayerSlot`
+    - `PrimaryPlayer`
+- `crates/ambition_sandbox/src/player/components.rs:567`
+  - matched ECS items: `PlayerEntity`, `PlayerSlot`
+  - identifiers:
+    - `PlayerEntity`
+    - `PlayerSlot`
+- `crates/ambition_sandbox/src/player/components.rs:588`
+  - matched ECS items: `PlayerEntity`, `PlayerSlot`, `PrimaryPlayer`
+  - identifiers:
+    - `PlayerEntity`
+    - `PlayerSlot`
+    - `PrimaryPlayer`
+- `crates/ambition_sandbox/src/player/components.rs:590`
+  - matched ECS items: `PlayerEntity`, `PlayerSlot`
+  - identifiers:
+    - `PlayerEntity`
+    - `PlayerSlot`
+- `crates/ambition_sandbox/src/player/components.rs:591`
+  - matched ECS items: `PlayerEntity`, `PlayerSlot`
+  - identifiers:
+    - `PlayerEntity`
+    - `PlayerSlot`
+- `crates/ambition_sandbox/src/player/components.rs:607`
+  - matched ECS items: `PlayerEntity`, `PlayerSlot`, `ActivePlayerAttack`
+  - identifiers:
+    - `PlayerEntity`
+    - `PlayerSlot`
+    - `ActivePlayerAttack`
+    - `Some`
+    - `attack_spec`
+- `crates/ambition_sandbox/src/player/components.rs:615`
+  - matched ECS items: `PlayerEntity`, `PlayerSlot`, `ActivePlayerAttack`
+  - identifiers:
+    - `PlayerEntity`
+    - `PlayerSlot`
+    - `ActivePlayerAttack`
+    - `Some`
+    - `attack_spec`
+- `crates/ambition_sandbox/src/player/components.rs:658`
+  - matched ECS items: `PlayerEntity`, `PlayerSlot`, `PrimaryPlayer`
+  - identifiers:
+    - `PlayerEntity`
+    - `PlayerSlot`
+    - `PrimaryPlayer`
+    - `crate::actor::Health`
+    - `current`
+    - `max`
+    - `invulnerable`
+- `crates/ambition_sandbox/src/player/components.rs:671`
+  - matched ECS items: `PlayerEntity`, `PlayerSlot`
+  - identifiers:
+    - `PlayerEntity`
+    - `PlayerSlot`
+    - `crate::actor::Health`
+    - `current`
+    - `max`
+    - `invulnerable`
+- `crates/ambition_sandbox/src/player/components.rs:707`
+  - matched ECS items: `PlayerEntity`, `PlayerSlot`, `PrimaryPlayer`
+  - identifiers:
+    - `PlayerEntity`
+    - `PlayerSlot`
+    - `PrimaryPlayer`
+    - `crate::actor::Health`
+    - `current`
+    - `max`
+    - `invulnerable`
+- `crates/ambition_sandbox/src/player/components.rs:720`
+  - matched ECS items: `PlayerEntity`, `PlayerSlot`
+  - identifiers:
+    - `PlayerEntity`
+    - `PlayerSlot`
+    - `crate::actor::Health`
+    - `current`
+    - `max`
+    - `invulnerable`
+- `crates/ambition_sandbox/src/player/components.rs:753`
+  - matched ECS items: `PlayerEntity`, `PlayerSlot`, `PrimaryPlayer`
+  - identifiers:
+    - `PlayerEntity`
+    - `PlayerSlot`
+    - `PrimaryPlayer`
+- `crates/ambition_sandbox/src/player/components.rs:762`
+  - matched ECS items: `PlayerEntity`, `PlayerSlot`
+  - identifiers:
+    - `PlayerEntity`
+    - `PlayerSlot`
+- `crates/ambition_sandbox/src/player/systems.rs:269`
+  - identifiers:
+    - `bundle`
+    - `Transform::from_xyz`
+- `crates/ambition_sandbox/src/player/systems.rs:342`
+  - identifiers:
+    - `bundle`
+    - `Transform::from_xyz`
+- `crates/ambition_sandbox/src/player/systems.rs:405`
+  - identifiers:
+    - `bundle`
+- `crates/ambition_sandbox/src/portal.rs:892`
+  - name label: `"Gravity zone visual"`
+  - matched ECS items: `GravityZoneVisual`
+  - identifiers:
+    - `GravityZoneVisual`
+    - `Sprite::from_color`
+    - `color`
+    - `size`
+    - `Transform::from_translation`
+    - `translation`
+- `crates/ambition_sandbox/src/portal.rs:915`
+  - name label: `"Gravity zone direction band"`
+  - matched ECS items: `GravityZoneVisual`
+  - identifiers:
+    - `GravityZoneVisual`
+    - `Sprite::from_color`
+    - `band_color`
+    - `band_size`
+    - `Transform::from_translation`
+    - `band_translation`
+- `crates/ambition_sandbox/src/portal.rs:1912`
+  - name label: `"Portal disorientation indicator"`
+  - matched ECS items: `PortalDisorientIndicator`
+  - identifiers:
+    - `PortalDisorientIndicator`
+    - `TextFont`
+    - `font_size`
+    - `TextColor`
+    - `Color::srgb`
+    - `Transform::from_translation`
+    - `translation`
+- `crates/ambition_sandbox/src/portal.rs:1998`
+  - name label: `"Portal body copy (exit)"`
+  - matched ECS items: `PortalBodyPiece`
+  - identifiers:
+    - `PortalBodyPiece`
+    - `exit_sprite`
+    - `Transform::from_translation`
+    - `exit_translation`
+    - `with_rotation`
+    - `Quat::from_rotation_z`
+    - `exit_roll`
+- `crates/ambition_sandbox/src/portal.rs:2010`
+  - name label: `"Portal mask (entry, through-wall)"`
+  - matched ECS items: `PortalBodyPiece`
+  - identifiers:
+    - `PortalBodyPiece`
+    - `Sprite::from_color`
+    - `mask_color`
+    - `hidden`
+    - `half_size`
+    - `Transform::from_translation`
+    - `translation`
+- `crates/ambition_sandbox/src/portal.rs:2022`
+  - name label: `"Portal mask (exit, not-yet-emerged)"`
+  - matched ECS items: `PortalBodyPiece`
+  - identifiers:
+    - `PortalBodyPiece`
+    - `Sprite::from_color`
+    - `mask_color`
+    - `hidden`
+    - `half_size`
+    - `Transform::from_translation`
+    - `translation`
+- `crates/ambition_sandbox/src/portal.rs:2096`
+  - name label: `"Held portal gun"`
+  - matched ECS items: `PortalModeIndicator`
+  - identifiers:
+    - `PortalModeIndicator`
+    - `image`
+    - `custom_size`
+    - `Some`
+    - `PORTAL_GUN_DISPLAY`
+    - `flip_y`
+    - `aim`
+    - `x`
+    - `Transform::from_translation`
+    - `translation`
+    - `with_rotation`
+    - `Quat::from_rotation_z`
+    - `angle`
+- `crates/ambition_sandbox/src/portal.rs:2133`
+  - name label: `"Gravity switch visual"`
+  - matched ECS items: `GravitySwitchVisual`
+  - identifiers:
+    - `GravitySwitchVisual`
+    - `Sprite::from_color`
+    - `color`
+    - `sw`
+    - `half_extent`
+    - `Transform::from_translation`
+    - `translation`
+- `crates/ambition_sandbox/src/portal.rs:2161`
+  - name label: `"Portal shot visual"`
+  - matched ECS items: `PortalVisual`
+  - identifiers:
+    - `PortalVisual`
+    - `Sprite::from_color`
+    - `color`
+    - `Transform::from_translation`
+    - `translation`
+- `crates/ambition_sandbox/src/portal.rs:2183`
+  - name label: `"Portal gun pickup visual"`
+  - matched ECS items: `PortalVisual`
+  - identifiers:
+    - `PortalVisual`
+    - `sprite`
+    - `Transform::from_translation`
+    - `translation`
+- `crates/ambition_sandbox/src/portal.rs:2211`
+  - name label: `"Portal visual (rim)"`
+  - matched ECS items: `PortalVisual`
+  - identifiers:
+    - `PortalVisual`
+    - `Sprite::from_color`
+    - `rim`
+    - `length`
+    - `PORTAL_VISUAL_THICKNESS`
+    - `Transform::from_translation`
+    - `rim_translation`
+    - `with_rotation`
+    - `rotation`
+- `crates/ambition_sandbox/src/portal.rs:2217`
+  - name label: `"Portal visual (core)"`
+  - matched ECS items: `PortalVisual`
+  - identifiers:
+    - `PortalVisual`
+    - `Sprite::from_color`
+    - `core`
+    - `length`
+    - `PORTAL_VISUAL_THICKNESS`
+    - `Transform::from_translation`
+    - `core_translation`
+    - `with_rotation`
+    - `rotation`
+- `crates/ambition_sandbox/src/portal.rs:2231`
+  - name label: `"Portal label"`
+  - matched ECS items: `PortalVisual`
+  - identifiers:
+    - `PortalVisual`
+    - `portal`
+    - `color`
+    - `name`
+    - `TextFont`
+    - `font_size`
+    - `TextColor`
+    - `core`
+    - `Transform::from_translation`
+    - `label_translation`
+- `crates/ambition_sandbox/src/portal.rs:2264`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`, `PlayerKinematics`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+    - `PlayerKinematics`
+    - `pos`
+    - `vel`
+    - `Vec2::ZERO`
+    - `size`
+    - `base_size`
+    - `facing`
+- `crates/ambition_sandbox/src/portal.rs:2441`
+  - matched ECS items: `Portal`
+  - identifiers:
+    - `Portal`
+    - `color`
+    - `PortalColor::Blue`
+    - `pos`
+    - `normal`
+    - `half_extent`
+    - `portal_half_extent`
+- `crates/ambition_sandbox/src/portal.rs:2447`
+  - matched ECS items: `Portal`
+  - identifiers:
+    - `Portal`
+    - `color`
+    - `PortalColor::Orange`
+    - `pos`
+    - `normal`
+    - `half_extent`
+    - `portal_half_extent`
+- `crates/ambition_sandbox/src/portal.rs:2454`
+  - matched ECS items: `GroundItem`
+  - identifiers:
+    - `GroundItem`
+    - `spec`
+    - `crate::item_pickup::axe_spec`
+    - `pos`
+    - `vel`
+    - `half_extent`
+    - `Vec2::splat`
+- `crates/ambition_sandbox/src/portal.rs:2507`
+  - matched ECS items: `Portal`
+  - identifiers:
+    - `Portal`
+    - `color`
+    - `PortalColor::Blue`
+    - `pos`
+    - `normal`
+    - `half_extent`
+    - `portal_half_extent`
+- `crates/ambition_sandbox/src/portal.rs:2513`
+  - matched ECS items: `Portal`
+  - identifiers:
+    - `Portal`
+    - `color`
+    - `PortalColor::Orange`
+    - `pos`
+    - `normal`
+    - `half_extent`
+    - `portal_half_extent`
+- `crates/ambition_sandbox/src/portal.rs:2519`
+  - matched ECS items: `ActorKinematics`
+  - identifiers:
+    - `ActorKinematics`
+    - `pos`
+    - `vel`
+    - `size`
+    - `facing`
+- `crates/ambition_sandbox/src/portal.rs:2528`
+  - matched ECS items: `ActorKinematics`
+  - identifiers:
+    - `ActorKinematics`
+    - `pos`
+    - `vel`
+    - `size`
+    - `facing`
+- `crates/ambition_sandbox/src/portal.rs:2664`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`, `ActorRoll`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+    - `ActorRoll`
+    - `angle`
+    - `std::f32::consts::PI`
+- `crates/ambition_sandbox/src/portal.rs:2706`
+  - matched ECS items: `Portal`
+  - identifiers:
+    - `Portal`
+    - `color`
+    - `PortalColor::Blue`
+    - `pos`
+    - `normal`
+    - `half_extent`
+    - `portal_half_extent`
+- `crates/ambition_sandbox/src/portal.rs:2712`
+  - matched ECS items: `Portal`
+  - identifiers:
+    - `Portal`
+    - `color`
+    - `PortalColor::Orange`
+    - `pos`
+    - `normal`
+    - `half_extent`
+    - `portal_half_extent`
+- `crates/ambition_sandbox/src/portal.rs:2718`
+  - matched ECS items: `ActorKinematics`
+  - identifiers:
+    - `ActorKinematics`
+    - `pos`
+    - `vel`
+    - `size`
+    - `facing`
+- `crates/ambition_sandbox/src/portal.rs:2751`
+  - matched ECS items: `GravityFlipSwitch`
+  - identifiers:
+    - `GravityFlipSwitch`
+    - `pos`
+    - `half_extent`
+    - `armed`
+- `crates/ambition_sandbox/src/portal.rs:2804`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`, `PlayerKinematics`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+    - `PlayerKinematics`
+    - `pos`
+    - `vel`
+    - `Vec2::ZERO`
+    - `size`
+    - `base_size`
+    - `facing`
+- `crates/ambition_sandbox/src/portal.rs:2820`
+  - matched ECS items: `PortalGunPickup`
+  - identifiers:
+    - `PortalGunPickup`
+    - `pos`
+    - `half_extent`
+    - `Vec2::splat`
+    - `arm_timer`
+- `crates/ambition_sandbox/src/portal.rs:2929`
+  - matched ECS items: `Portal`
+  - identifiers:
+    - `Portal`
+    - `color`
+    - `PortalColor::Blue`
+    - `pos`
+    - `normal`
+    - `half_extent`
+    - `portal_half_extent`
+- `crates/ambition_sandbox/src/portal.rs:2935`
+  - matched ECS items: `Portal`
+  - identifiers:
+    - `Portal`
+    - `color`
+    - `PortalColor::Orange`
+    - `pos`
+    - `normal`
+    - `half_extent`
+    - `portal_half_extent`
+- `crates/ambition_sandbox/src/portal.rs:2979`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`, `PortalInputWarp`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+    - `PortalInputWarp`
+    - `n_in`
+    - `n_out`
+    - `anchor`
+- `crates/ambition_sandbox/src/portal.rs:3042`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+- `crates/ambition_sandbox/src/portal.rs:3098`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`, `PortalEmission`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+    - `PortalEmission`
+    - `exit_normal`
+    - `timer`
+- `crates/ambition_sandbox/src/portal.rs:3135`
+  - matched ECS items: `Portal`
+  - identifiers:
+    - `Portal`
+    - `color`
+    - `PortalColor::Purple`
+    - `pos`
+    - `normal`
+    - `half_extent`
+    - `he`
+- `crates/ambition_sandbox/src/portal.rs:3141`
+  - matched ECS items: `Portal`
+  - identifiers:
+    - `Portal`
+    - `color`
+    - `PortalColor::Yellow`
+    - `pos`
+    - `normal`
+    - `half_extent`
+    - `he`
+- `crates/ambition_sandbox/src/portal.rs:3147`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`, `PlayerKinematics`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+    - `PlayerKinematics`
+    - `pos`
+    - `vel`
+    - `Vec2::ZERO`
+    - `size`
+    - `base_size`
+    - `facing`
+- `crates/ambition_sandbox/src/portal.rs:3190`
+  - matched ECS items: `Portal`
+  - identifiers:
+    - `Portal`
+    - `color`
+    - `PortalColor::Blue`
+    - `pos`
+    - `normal`
+    - `half_extent`
+    - `portal_half_extent`
+- `crates/ambition_sandbox/src/portal.rs:3196`
+  - matched ECS items: `Portal`
+  - identifiers:
+    - `Portal`
+    - `color`
+    - `PortalColor::Orange`
+    - `pos`
+    - `normal`
+    - `half_extent`
+    - `portal_half_extent`
+- `crates/ambition_sandbox/src/portal.rs:3271`
+  - matched ECS items: `Portal`
+  - identifiers:
+    - `Portal`
+    - `color`
+    - `PortalColor::Blue`
+    - `pos`
+    - `normal`
+    - `half_extent`
+    - `portal_half_extent`
+- `crates/ambition_sandbox/src/portal.rs:3277`
+  - matched ECS items: `Portal`
+  - identifiers:
+    - `Portal`
+    - `color`
+    - `PortalColor::Orange`
+    - `pos`
+    - `normal`
+    - `half_extent`
+    - `portal_half_extent`
+- `crates/ambition_sandbox/src/portal.rs:3284`
+  - matched ECS items: `PlayerVisual`, `PlayerKinematics`, `PortalTransit`
+  - identifiers:
+    - `PlayerVisual`
+    - `PlayerKinematics`
+    - `pos`
+    - `vel`
+    - `Vec2::ZERO`
+    - `size`
+    - `base_size`
+    - `facing`
+    - `Sprite::from_color`
+    - `Color::WHITE`
+    - `Visibility::Inherited`
+    - `PortalTransit`
+    - `straddling`
+    - `PortalColor::Blue`
+    - `crossed`
+- `crates/ambition_sandbox/src/portal.rs:3325`
+  - matched ECS items: `Portal`
+  - identifiers:
+    - `Portal`
+    - `color`
+    - `PortalColor::Blue`
+    - `pos`
+    - `normal`
+    - `half_extent`
+    - `portal_half_extent`
+- `crates/ambition_sandbox/src/portal.rs:3344`
+  - matched ECS items: `Portal`
+  - identifiers:
+    - `Portal`
+    - `color`
+    - `PortalColor::Orange`
+    - `pos`
+    - `normal`
+    - `half_extent`
+    - `portal_half_extent`
+- `crates/ambition_sandbox/src/portal.rs:3360`
+  - matched ECS items: `PortalTransit`
+  - identifiers:
+    - `PortalTransit`
+    - `straddling`
+    - `PortalColor::Blue`
+    - `crossed`
+- `crates/ambition_sandbox/src/possession.rs:203`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`, `PlayerKinematics`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+    - `PlayerKinematics`
+    - `pos`
+    - `vec2`
+    - `vel`
+    - `size`
+    - `base_size`
+    - `facing`
+- `crates/ambition_sandbox/src/possession.rs:217`
+  - matched ECS items: `crate::features::FeatureSimEntity`
+  - identifiers:
+    - `crate::features::FeatureSimEntity`
+    - `pos`
+    - `vec2`
+    - `crate::features::ActorFaction::Enemy`
+- `crates/ambition_sandbox/src/presentation/cutscene.rs:413`
+  - name label: `"Cutscene Overlay Root"`
+  - matched ECS items: `CutsceneOverlayRoot`
+  - identifiers:
+    - `Node`
+    - `position_type`
+    - `PositionType::Absolute`
+    - `left`
+    - `Val::Px`
+    - `right`
+    - `top`
+    - `bottom`
+    - `padding`
+    - `UiRect::all`
+    - `flex_direction`
+    - `FlexDirection::Column`
+    - `justify_content`
+    - `JustifyContent::SpaceBetween`
+    - `align_items`
+    - `AlignItems::Center`
+    - `ZIndex`
+    - `CutsceneOverlayRoot`
+- `crates/ambition_sandbox/src/presentation/cutscene.rs:436`
+  - name label: `"Cutscene Banner"`
+  - identifiers:
+    - `Node`
+    - `max_width`
+    - `Val::Px`
+    - `padding`
+    - `UiRect::axes`
+    - `border`
+    - `UiRect::all`
+    - `border_radius`
+    - `BorderRadius::all`
+    - `BackgroundColor`
+    - `Color::srgba`
+    - `BorderColor::all`
+- `crates/ambition_sandbox/src/presentation/cutscene.rs:449`
+  - identifiers:
+    - `banner_text`
+    - `cutscene_font`
+    - `crate::presentation::ui_fonts::UiFontWeight::Semibold`
+    - `TextColor`
+    - `Color::srgba`
+- `crates/ambition_sandbox/src/presentation/cutscene.rs:458`
+  - expression: `Node::default()`
+- `crates/ambition_sandbox/src/presentation/cutscene.rs:465`
+  - name label: `"Cutscene Dialogue Panel"`
+  - identifiers:
+    - `Node`
+    - `width`
+    - `Val::Percent`
+    - `max_width`
+    - `Val::Px`
+    - `padding`
+    - `UiRect::all`
+    - `flex_direction`
+    - `FlexDirection::Column`
+    - `row_gap`
+    - `border`
+    - `border_radius`
+    - `BorderRadius::all`
+    - `BackgroundColor`
+    - `Color::srgba`
+    - `BorderColor::all`
+- `crates/ambition_sandbox/src/presentation/cutscene.rs:481`
+  - identifiers:
+    - `speaker`
+    - `cutscene_font`
+    - `crate::presentation::ui_fonts::UiFontWeight::Semibold`
+    - `TextColor`
+    - `Color::srgba`
+- `crates/ambition_sandbox/src/presentation/cutscene.rs:486`
+  - identifiers:
+    - `text`
+    - `cutscene_font`
+    - `crate::presentation::ui_fonts::UiFontWeight::Regular`
+    - `TextColor`
+    - `Color::srgba`
+- `crates/ambition_sandbox/src/presentation/cutscene.rs:491`
+  - identifiers:
+    - `cutscene_font`
+    - `crate::presentation::ui_fonts::UiFontWeight::Regular`
+    - `TextColor`
+    - `Color::srgba`
+- `crates/ambition_sandbox/src/presentation/cutscene.rs:503`
+  - expression: `Node::default()`
+- `crates/ambition_sandbox/src/presentation/cutscene.rs:512`
+  - name label: `"Cutscene Skip Progress"`
+  - matched ECS items: `CutsceneOverlayRoot`
+  - identifiers:
+    - `Node`
+    - `position_type`
+    - `PositionType::Absolute`
+    - `right`
+    - `Val::Px`
+    - `bottom`
+    - `width`
+    - `flex_direction`
+    - `FlexDirection::Column`
+    - `row_gap`
+    - `ZIndex`
+    - `CutsceneOverlayRoot`
+- `crates/ambition_sandbox/src/presentation/cutscene.rs:528`
+  - identifiers:
+    - `format`
+    - `cutscene_font`
+    - `crate::presentation::ui_fonts::UiFontWeight::Regular`
+    - `TextColor`
+    - `Color::srgba`
+- `crates/ambition_sandbox/src/presentation/cutscene.rs:533`
+  - identifiers:
+    - `Node`
+    - `width`
+    - `Val::Percent`
+    - `height`
+    - `Val::Px`
+    - `border_radius`
+    - `BorderRadius::all`
+    - `BackgroundColor`
+    - `Color::srgba`
+- `crates/ambition_sandbox/src/presentation/cutscene.rs:543`
+  - identifiers:
+    - `Node`
+    - `width`
+    - `Val::Percent`
+    - `fill_pct`
+    - `height`
+    - `border_radius`
+    - `BorderRadius::all`
+    - `Val::Px`
+    - `BackgroundColor`
+    - `Color::srgba`
+- `crates/ambition_sandbox/src/presentation/fx.rs:274`
+  - name label: `"Firework explosion sequence"`
+  - matched ECS items: `FireworkSequence`
+  - identifiers:
+    - `FireworkSequence`
+    - `origin`
+    - `request`
+    - `age`
+    - `next_index`
+    - `schedule`
+- `crates/ambition_sandbox/src/presentation/fx.rs:471`
+  - name label: `format!("VFX explosion: {:?}", kind)`
+  - matched ECS items: `ExplosionVisual`
+  - identifiers:
+    - `format`
+    - `kind`
+    - `sprite`
+    - `Transform::from_translation`
+    - `world_to_bevy`
+    - `world`
+    - `pos`
+    - `WORLD_Z_FX`
+    - `animator`
+    - `ExplosionVisual`
+    - `age`
+    - `duration`
+- `crates/ambition_sandbox/src/presentation/fx.rs:748`
+  - name label: `format!("Speech bubble: {text}")`
+  - matched ECS items: `SpeechBubbleVisual`
+  - identifiers:
+    - `bubble_text`
+    - `TextFont`
+    - `font_size`
+    - `color`
+    - `transform`
+    - `SpeechBubbleVisual`
+    - `pos`
+    - `age`
+    - `duration`
+    - `stack_offset`
+    - `target_stack_offset`
+    - `format`
+- `crates/ambition_sandbox/src/presentation/fx.rs:769`
+  - matched ECS items: `SlashPreviewVisual`
+  - identifiers:
+    - `Sprite::from_color`
+    - `Color::srgba`
+    - `size`
+    - `x`
+    - `y`
+    - `Transform::from_translation`
+    - `world_to_bevy`
+    - `world`
+    - `hitbox`
+    - `center`
+    - `WORLD_Z_FX`
+    - `SlashPreviewVisual`
+    - `age`
+    - `duration`
+- `crates/ambition_sandbox/src/presentation/fx.rs:783`
+  - matched ECS items: `ImpactVisual`
+  - identifiers:
+    - `Sprite::from_color`
+    - `Color::srgba`
+    - `BVec2::splat`
+    - `Transform::from_translation`
+    - `world_to_bevy`
+    - `world`
+    - `pos`
+    - `WORLD_Z_FX`
+    - `ImpactVisual`
+    - `age`
+    - `duration`
+    - `radius`
+- `crates/ambition_sandbox/src/presentation/fx.rs:845`
+  - matched ECS items: `ParticleVisual`
+  - identifiers:
+    - `Sprite::from_color`
+    - `rgba`
+    - `color_rgba`
+    - `BVec2::splat`
+    - `radius`
+    - `Transform::from_translation`
+    - `world_to_bevy`
+    - `world`
+    - `pos`
+    - `WORLD_Z_FX`
+    - `ParticleVisual`
+    - `kind`
+    - `vel`
+    - `age`
+    - `lifetime`
+    - `gravity`
+    - `ParticleKind::Spark`
+    - `ParticleKind::Dust`
+    - `ParticleKind::Shard`
+    - `drag`
+- `crates/ambition_sandbox/src/presentation/fx.rs:879`
+  - matched ECS items: `ParticleVisual`
+  - identifiers:
+    - `Sprite::from_color`
+    - `Color::srgba`
+    - `BVec2::splat`
+    - `radius`
+    - `Transform::from_translation`
+    - `world_to_bevy`
+    - `world`
+    - `pos`
+    - `WORLD_Z_FX`
+    - `ParticleVisual`
+    - `kind`
+    - `ParticleKind::Dust`
+    - `vel`
+    - `lateral`
+    - `upward`
+    - `age`
+    - `lifetime`
+    - `i`
+    - `rgba`
+    - `gravity`
+    - `drag`
+- `crates/ambition_sandbox/src/presentation/fx.rs:1041`
+  - matched ECS items: `BlinkPreviewVisual`
+  - identifiers:
+    - `Sprite::from_color`
+    - `color`
+    - `BVec2::splat`
+    - `ember_size`
+    - `max`
+    - `Transform::from_translation`
+    - `world_to_bevy`
+    - `world`
+    - `target`
+    - `offset`
+    - `WORLD_Z_FX`
+    - `BlinkPreviewVisual`
+    - `angle_offset`
+- `crates/ambition_sandbox/src/presentation/rendering/actors.rs:807`
+  - matched ECS items: `GnuTonHandsLayer`
+  - identifiers:
+    - `hands_sprite`
+    - `anchor`
+    - `GnuTonHandsLayer`
+    - `Transform::from_xyz`
+    - `GNU_TON_HANDS_Z`
+    - `GNU_TON_BODY_Z`
+- `crates/ambition_sandbox/src/presentation/rendering/actors.rs:1066`
+  - name label: `"Gradient Lane visual"`
+  - matched ECS items: `super::primitives::RoomVisual`, `GradientLaneVisual`
+  - identifiers:
+    - `color`
+    - `custom_size`
+    - `Some`
+    - `size`
+    - `Transform::from_translation`
+    - `world_to_bevy`
+    - `world`
+    - `center`
+    - `GRADIENT_LANE_VISUAL_Z`
+    - `super::primitives::RoomVisual`
+    - `GradientLaneVisual`
+    - `owner`
+- `crates/ambition_sandbox/src/presentation/rendering/deep_dream.rs:143`
+  - name label: `format!("Puppy Slug Deep Dream Overlay: {}", visual.id)`
+  - matched ECS items: `PuppySlugDeepDreamOverlay`, `RoomVisual`
+  - identifiers:
+    - `Mesh2d`
+    - `mesh`
+    - `MeshMaterial2d`
+    - `material`
+    - `overlay_transform`
+    - `Visibility::Visible`
+    - `PuppySlugDeepDreamOverlay`
+    - `source`
+    - `source_entity`
+    - `RoomVisual`
+    - `format`
+    - `visual`
+- `crates/ambition_sandbox/src/presentation/rendering/features.rs:75`
+  - name label: `format!("Encounter mob: {}", config.name)`
+  - matched ECS items: `FeatureVisual`, `RoomVisual`
+  - identifiers:
+    - `sprite`
+    - `Transform::from_translation`
+    - `world_to_bevy`
+    - `world`
+    - `aabb`
+    - `center`
+    - `feature_z`
+    - `kind`
+    - `format`
+    - `config`
+    - `name`
+    - `FeatureVisual`
+    - `as_str`
+    - `to_string`
+    - `RoomVisual`
+- `crates/ambition_sandbox/src/presentation/rendering/features.rs:105`
+  - name label: `format!("Post-boss NPC: {}", name.0.as_str())`
+  - matched ECS items: `FeatureVisual`, `RoomVisual`
+  - identifiers:
+    - `sprite`
+    - `Transform::from_translation`
+    - `world_to_bevy`
+    - `world`
+    - `aabb`
+    - `center`
+    - `feature_z`
+    - `kind`
+    - `format`
+    - `name`
+    - `as_str`
+    - `FeatureVisual`
+    - `to_string`
+    - `RoomVisual`
+- `crates/ambition_sandbox/src/presentation/rendering/features.rs:130`
+  - name label: `format!("Reward chest: {}", id.as_str())`
+  - matched ECS items: `FeatureVisual`, `RoomVisual`
+  - identifiers:
+    - `sprite`
+    - `Transform::from_translation`
+    - `world_to_bevy`
+    - `world`
+    - `aabb`
+    - `center`
+    - `feature_z`
+    - `FeatureVisualKind::Chest`
+    - `format`
+    - `as_str`
+    - `FeatureVisual`
+    - `to_string`
+    - `RoomVisual`
+- `crates/ambition_sandbox/src/presentation/rendering/foreground.rs:59`
+  - name label: `format!("Foreground parallax: {:?}", sprite_key)`
+  - matched ECS items: `ForegroundParallax`, `RoomVisual`
+  - identifiers:
+    - `sprite`
+    - `Transform::from_xyz`
+    - `room_center`
+    - `x`
+    - `y`
+    - `FOREGROUND_Z`
+    - `ForegroundParallax`
+    - `factor`
+    - `foreground_parallax_factor`
+    - `sprite_key`
+    - `RoomVisual`
+    - `format`
+- `crates/ambition_sandbox/src/presentation/rendering/health.rs:63`
+  - name label: `"Boss Health Overlay Root"`
+  - matched ECS items: `BossHealthBarOverlayVisual`
+  - identifiers:
+    - `Node`
+    - `position_type`
+    - `PositionType::Absolute`
+    - `left`
+    - `Val::Px`
+    - `right`
+    - `top`
+    - `justify_content`
+    - `JustifyContent::Center`
+    - `align_items`
+    - `AlignItems::FlexStart`
+    - `ZIndex`
+    - `BossHealthBarOverlayVisual`
+- `crates/ambition_sandbox/src/presentation/rendering/health.rs:79`
+  - name label: `format!("Boss Health Panel: {boss_name}")`
+  - identifiers:
+    - `Node`
+    - `width`
+    - `Val::Px`
+    - `min_height`
+    - `padding`
+    - `UiRect::axes`
+    - `flex_direction`
+    - `FlexDirection::Column`
+    - `row_gap`
+    - `border`
+    - `UiRect::all`
+    - `border_radius`
+    - `BorderRadius::all`
+    - `BackgroundColor`
+    - `Color::srgba`
+    - `BorderColor::all`
+    - `format`
+- `crates/ambition_sandbox/src/presentation/rendering/health.rs:95`
+  - identifiers:
+    - `boss_name`
+    - `to_string`
+    - `font`
+    - `UiFontWeight::Semibold`
+    - `TextColor`
+    - `Color::srgba`
+- `crates/ambition_sandbox/src/presentation/rendering/health.rs:100`
+  - name label: `format!("Boss Health Track: {boss_name}")`
+  - identifiers:
+    - `Node`
+    - `width`
+    - `Val::Percent`
+    - `height`
+    - `Val::Px`
+    - `border`
+    - `UiRect::all`
+    - `border_radius`
+    - `BorderRadius::all`
+    - `overflow`
+    - `Overflow::clip`
+    - `BackgroundColor`
+    - `Color::srgba`
+    - `BorderColor::all`
+    - `format`
+- `crates/ambition_sandbox/src/presentation/rendering/health.rs:115`
+  - name label: `format!("Boss Health Fill: {boss_name}")`
+  - identifiers:
+    - `Node`
+    - `width`
+    - `Val::Percent`
+    - `fill_percent`
+    - `height`
+    - `BackgroundColor`
+    - `Color::srgba`
+    - `format`
+- `crates/ambition_sandbox/src/presentation/rendering/health.rs:125`
+  - identifiers:
+    - `hp_text`
+    - `font`
+    - `UiFontWeight::Regular`
+    - `TextColor`
+    - `Color::srgba`
+- `crates/ambition_sandbox/src/presentation/rendering/health.rs:240`
+  - name label: `format!("Health bar bg: {name}")`
+  - matched ECS items: `HealthOverlayVisual`
+  - identifiers:
+    - `Sprite::from_color`
+    - `Color::srgba`
+    - `width`
+    - `height`
+    - `Transform::from_translation`
+    - `world_to_bevy`
+    - `world`
+    - `center_x`
+    - `y`
+    - `WORLD_Z_PLAYER`
+    - `format`
+    - `HealthOverlayVisual`
+- `crates/ambition_sandbox/src/presentation/rendering/health.rs:254`
+  - name label: `format!("Health bar fill: {name}")`
+  - matched ECS items: `HealthOverlayVisual`
+  - identifiers:
+    - `Sprite::from_color`
+    - `fill_color`
+    - `fill_w`
+    - `height`
+    - `Transform::from_translation`
+    - `world_to_bevy`
+    - `world`
+    - `left`
+    - `y`
+    - `WORLD_Z_PLAYER`
+    - `format`
+    - `HealthOverlayVisual`
+- `crates/ambition_sandbox/src/presentation/rendering/health.rs:265`
+  - name label: `format!("Health label: {name}")`
+  - matched ECS items: `HealthOverlayVisual`
+  - identifiers:
+    - `text`
+    - `TextFont`
+    - `font_size`
+    - `TextColor`
+    - `Color::srgba`
+    - `Transform::from_translation`
+    - `world_to_bevy`
+    - `world`
+    - `center_x`
+    - `y`
+    - `WORLD_Z_PLAYER`
+    - `format`
+    - `HealthOverlayVisual`
+- `crates/ambition_sandbox/src/presentation/rendering/hit_flash.rs:163`
+  - name label: `"HitFlash Overlay"`
+  - matched ECS items: `HitFlashOverlay`
+  - identifiers:
+    - `Mesh2d`
+    - `mesh`
+    - `MeshMaterial2d`
+    - `material`
+    - `overlay_transform`
+    - `Visibility::Visible`
+    - `HitFlashOverlay`
+    - `source`
+    - `source_entity`
+- `crates/ambition_sandbox/src/presentation/rendering/parallax.rs:89`
+  - name label: `format!( "Background parallax layer: {} {}", theme.key(), spec.asset.key() )`
+  - matched ECS items: `ParallaxLayerVisual`, `RoomVisual`
+  - identifiers:
+    - `sprite`
+    - `Transform::from_translation`
+    - `spec`
+    - `z`
+    - `ParallaxLayerVisual`
+    - `factor`
+    - `Vec2::splat`
+    - `travel`
+    - `x`
+    - `y`
+    - `world_size`
+    - `world`
+    - `size`
+    - `max`
+    - `RoomVisual`
+    - `format`
+    - `theme`
+    - `key`
+    - `asset`
+- `crates/ambition_sandbox/src/presentation/rendering/pirate_weapon.rs:169`
+  - name label: `"Pirate gun-sword"`
+  - matched ECS items: `PirateWeaponVisual`
+  - identifiers:
+    - `sprite`
+    - `Anchor`
+    - `anchor_x_norm`
+    - `anchor_y_norm`
+    - `translation`
+    - `rotation`
+    - `Quat::from_rotation_z`
+    - `bevy_angle`
+    - `scale`
+    - `Vec3::ONE`
+    - `PirateWeaponVisual`
+- `crates/ambition_sandbox/src/presentation/rendering/primitives.rs:177`
+  - name label: `format!("World label: {text}")`
+  - matched ECS items: `RoomVisual`
+  - identifiers:
+    - `text`
+    - `to_string`
+    - `TextFont`
+    - `font_size`
+    - `TextColor`
+    - `Color::srgba`
+    - `Transform::from_translation`
+    - `world_to_bevy`
+    - `world`
+    - `pos`
+    - `WORLD_Z_PLAYER`
+    - `format`
+    - `RoomVisual`
+- `crates/ambition_sandbox/src/presentation/rendering/world.rs:158`
+  - name label: `format!("Prop: {}", prop.name)`
+  - matched ECS items: `RoomVisual`, `PropVisual`
+  - identifiers:
+    - `Transform::from_translation`
+    - `translation`
+    - `format`
+    - `prop`
+    - `name`
+    - `RoomVisual`
+    - `PropVisual`
+    - `kind`
+- `crates/ambition_sandbox/src/presentation/rendering/world.rs:208`
+  - name label: `format!("Water body ({:?})", region.kind)`
+  - matched ECS items: `RoomVisual`
+  - identifiers:
+    - `Sprite::from_color`
+    - `body_color`
+    - `render`
+    - `Transform::from_translation`
+    - `world_to_bevy`
+    - `world`
+    - `region`
+    - `aabb`
+    - `center`
+    - `body_z`
+    - `format`
+    - `kind`
+    - `RoomVisual`
+- `crates/ambition_sandbox/src/presentation/rendering/world.rs:225`
+  - name label: `format!("Water surface ({:?})", region.kind)`
+  - matched ECS items: `RoomVisual`
+  - identifiers:
+    - `Sprite::from_color`
+    - `strip_color`
+    - `strip_size`
+    - `Transform::from_translation`
+    - `world_to_bevy`
+    - `world`
+    - `strip_center`
+    - `WORLD_Z_PLAYER`
+    - `format`
+    - `region`
+    - `kind`
+    - `RoomVisual`
+- `crates/ambition_sandbox/src/presentation/rendering/world.rs:265`
+  - name label: `format!("Climbable body ({:?})", region.kind)`
+  - matched ECS items: `RoomVisual`
+  - identifiers:
+    - `Sprite::from_color`
+    - `body_color`
+    - `render`
+    - `Transform::from_translation`
+    - `world_to_bevy`
+    - `world`
+    - `region`
+    - `aabb`
+    - `center`
+    - `body_z`
+    - `format`
+    - `kind`
+    - `RoomVisual`
+- `crates/ambition_sandbox/src/presentation/rendering/world.rs:281`
+  - name label: `format!("Climbable rung ({:?})", region.kind)`
+  - matched ECS items: `RoomVisual`
+  - identifiers:
+    - `Sprite::from_color`
+    - `rung_color`
+    - `rung_size`
+    - `Transform::from_translation`
+    - `world_to_bevy`
+    - `world`
+    - `center`
+    - `body_z`
+    - `format`
+    - `region`
+    - `kind`
+    - `RoomVisual`
+- `crates/ambition_sandbox/src/presentation/rendering/world.rs:297`
+  - matched ECS items: `RoomVisual`
+  - identifiers:
+    - `Sprite::from_color`
+    - `grid_color`
+    - `world`
+    - `size`
+    - `y`
+    - `Transform::from_translation`
+    - `world_to_bevy`
+    - `center`
+    - `RoomVisual`
+- `crates/ambition_sandbox/src/presentation/rendering/world.rs:307`
+  - matched ECS items: `RoomVisual`
+  - identifiers:
+    - `Sprite::from_color`
+    - `grid_color`
+    - `world`
+    - `size`
+    - `x`
+    - `Transform::from_translation`
+    - `world_to_bevy`
+    - `center`
+    - `RoomVisual`
+- `crates/ambition_sandbox/src/presentation/rendering/world.rs:389`
+  - name label: `format!("Block: {}", block.name)`
+  - matched ECS items: `RoomVisual`
+  - identifiers:
+    - `sprite`
+    - `Transform::from_translation`
+    - `world_to_bevy`
+    - `world`
+    - `block`
+    - `aabb`
+    - `center`
+    - `WORLD_Z_BLOCK`
+    - `format`
+    - `name`
+    - `RoomVisual`
+- `crates/ambition_sandbox/src/presentation/rendering/world.rs:422`
+  - name label: `format!("Loading zone: {}", zone.name)`
+  - matched ECS items: `crate::presentation::rendering::primitives::LoadingZoneVisual`, `RoomVisual`
+  - identifiers:
+    - `sprite`
+    - `Transform::from_translation`
+    - `world_to_bevy`
+    - `world`
+    - `zone`
+    - `aabb`
+    - `center`
+    - `WORLD_Z_BLOCK`
+    - `format`
+    - `name`
+    - `crate::presentation::rendering::primitives::LoadingZoneVisual`
+    - `RoomVisual`
+- `crates/ambition_sandbox/src/presentation/rendering/world.rs:463`
+  - name label: `format!("Room entity: {}", name)`
+  - matched ECS items: `FeatureVisual`, `RoomVisual`
+  - identifiers:
+    - `sprite`
+    - `Transform::from_translation`
+    - `world_to_bevy`
+    - `world`
+    - `aabb`
+    - `center`
+    - `feature_z`
+    - `kind`
+    - `format`
+    - `name`
+    - `FeatureVisual`
+    - `to_string`
+    - `RoomVisual`
+- `crates/ambition_sandbox/src/presentation/rendering/world.rs:720`
+  - name label: `format!("LockWall: {}", block.name)`
+  - matched ECS items: `LockWallVisual`, `RoomVisual`
+  - identifiers:
+    - `sprite`
+    - `Transform::from_translation`
+    - `world_to_bevy`
+    - `world`
+    - `block`
+    - `aabb`
+    - `center`
+    - `WORLD_Z_BLOCK`
+    - `format`
+    - `name`
+    - `LockWallVisual`
+    - `block_name`
+    - `RoomVisual`
+- `crates/ambition_sandbox/src/projectile/tests/mod.rs:53`
+  - identifiers:
+    - `bundle`
+- `crates/ambition_sandbox/src/projectile/visuals.rs:86`
+  - name label: `"Player projectile charge indicator"`
+  - matched ECS items: `PlayerChargeVisual`
+  - identifiers:
+    - `Sprite::from_color`
+    - `Color::srgba`
+    - `alpha`
+    - `render_size`
+    - `x`
+    - `y`
+    - `Transform::from_translation`
+    - `crate::config::world_to_bevy`
+    - `world`
+    - `charge_pos`
+    - `crate::config::WORLD_Z_PLAYER`
+    - `PlayerChargeVisual`
+- `crates/ambition_sandbox/src/projectile/visuals.rs:130`
+  - name label: `match body.kind { crate::projectile::ProjectileKind::Fireball => "Player projectile: fireball", crate::projectile::Pr...`
+  - matched ECS items: `PlayerProjectileVisual`
+  - identifiers:
+    - `sprite`
+    - `Transform::from_translation`
+    - `crate::config::world_to_bevy`
+    - `world`
+    - `body`
+    - `pos`
+    - `crate::config::WORLD_Z_PLAYER`
+    - `PlayerProjectileVisual`
+    - `kind`
+    - `crate::projectile::ProjectileKind::Fireball`
+    - `crate::projectile::ProjectileKind::Hadouken`
+    - `crate::projectile::ProjectileKind::HadoukenSuper`
+- `crates/ambition_sandbox/src/puppy_slug_gun.rs:109`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`, `PlayerKinematics`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+    - `PlayerKinematics`
+    - `pos`
+    - `vel`
+    - `ae::Vec2::ZERO`
+    - `size`
+    - `base_size`
+    - `facing`
+    - `spec`
+- `crates/ambition_sandbox/src/runtime/reset.rs:331`
+  - matched ECS items: `crate::item_pickup::GroundItem`
+  - identifiers:
+    - `crate::item_pickup::GroundItem`
+    - `spec`
+    - `crate::item_pickup::axe_spec`
+    - `pos`
+    - `ae::Vec2::ZERO`
+    - `vel`
+    - `half_extent`
+    - `ae::Vec2::splat`
+- `crates/ambition_sandbox/src/runtime/reset.rs:340`
+  - matched ECS items: `crate::puppy_slug_gun::PuppySlugAlly`
+  - identifiers:
+    - `crate::puppy_slug_gun::PuppySlugAlly`
+- `crates/ambition_sandbox/src/runtime/reset.rs:344`
+  - matched ECS items: `crate::player::PlayerEntity`, `crate::item_pickup::StashedActionSet`
+  - identifiers:
+    - `crate::player::PlayerEntity`
+    - `crate::item_pickup::StashedActionSet`
+    - `crate::item_pickup::axe_spec`
+- `crates/ambition_sandbox/src/runtime/reset.rs:446`
+  - identifiers:
+    - `crate::player::PlayerSimulationBundle::from_scratch`
+    - `initial`
+    - `health`
+- `crates/ambition_sandbox/src/runtime/setup.rs:141`
+  - matched ECS items: `PlayerVisual`
+  - identifiers:
+    - `Transform::from_translation`
+    - `world_to_bevy`
+    - `world`
+    - `WORLD_Z_PLAYER`
+    - `PlayerVisual`
+    - `crate::player::PlayerSimulationBundle::from_scratch`
+    - `initial_scratch`
+- `crates/ambition_sandbox/src/runtime/setup.rs:335`
+  - name label: `"Main Camera"`
+  - matched ECS items: `crate::runtime::camera_layers::MainCamera`
+  - identifiers:
+    - `crate::runtime::camera_layers::MainCamera`
+- `crates/ambition_sandbox/src/runtime/setup.rs:351`
+  - name label: `"Front HUD Camera"`
+  - matched ECS items: `crate::runtime::camera_layers::FrontHudCamera`
+  - identifiers:
+    - `order`
+    - `clear_color`
+    - `ClearColorConfig::None`
+    - `crate::runtime::camera_layers::FrontHudCamera`
+    - `IsDefaultUiCamera`
+    - `bevy::camera::visibility::RenderLayers::layer`
+    - `crate::runtime::camera_layers::FRONT_HUD_LAYER`
+- `crates/ambition_sandbox/src/runtime/setup.rs:426`
+  - name label: `"Debug HUD"`
+  - matched ECS items: `HudText`
+  - identifiers:
+    - `ui_fonts`
+    - `fonts`
+    - `text_font`
+    - `UiFontWeight::Monospace`
+    - `unwrap_or`
+    - `TextFont`
+    - `font_size`
+    - `TextColor`
+    - `Color::srgba`
+    - `Node`
+    - `position_type`
+    - `PositionType::Absolute`
+    - `left`
+    - `Val::Px`
+    - `top`
+    - `max_width`
+    - `HudText`
+- `crates/ambition_sandbox/src/runtime/setup.rs:450`
+  - name label: `"Quest Panel"`
+  - matched ECS items: `QuestPanelText`
+  - identifiers:
+    - `ui_fonts`
+    - `fonts`
+    - `text_font`
+    - `UiFontWeight::Monospace`
+    - `unwrap_or`
+    - `TextFont`
+    - `font_size`
+    - `TextColor`
+    - `Color::srgba`
+    - `Node`
+    - `position_type`
+    - `PositionType::Absolute`
+    - `right`
+    - `Val::Px`
+    - `top`
+    - `max_width`
+    - `QuestPanelText`
+- `crates/ambition_sandbox/src/sentry.rs:73`
+  - name label: `"Sentry turret"`
+  - matched ECS items: `Sentry`
+  - identifiers:
+    - `Sentry`
+    - `pos`
+    - `kin`
+    - `remaining_s`
+    - `SENTRY_LIFETIME_S`
+    - `fire_cooldown`
+- `crates/ambition_sandbox/src/sentry.rs:176`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`, `PlayerKinematics`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+    - `PlayerKinematics`
+    - `pos`
+    - `vel`
+    - `ae::Vec2::ZERO`
+    - `size`
+    - `base_size`
+    - `facing`
+    - `spec`
+- `crates/ambition_sandbox/src/sentry.rs:197`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `ActorFaction::Enemy`
+- `crates/ambition_sandbox/src/sentry.rs:231`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `ActorFaction::Enemy`
+- `crates/ambition_sandbox/src/shockwave.rs:126`
+  - name label: `"Shockwave AOE"`
+  - matched ECS items: `Hitbox`, `HitboxLifetime`
+  - identifiers:
+    - `Hitbox`
+    - `owner`
+    - `msg`
+    - `actor`
+    - `source`
+    - `faction`
+    - `anchor`
+    - `HitboxAnchor::World`
+    - `center`
+    - `half_extent`
+    - `half_extent_x`
+    - `half_extent_y`
+    - `damage`
+    - `knockback_strength`
+    - `knockback`
+    - `HitboxLifetime`
+    - `remaining_s`
+    - `lifetime_s`
+- `crates/ambition_sandbox/src/shockwave.rs:163`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`, `PlayerKinematics`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+    - `PlayerKinematics`
+    - `pos`
+    - `vel`
+    - `ae::Vec2::ZERO`
+    - `size`
+    - `base_size`
+    - `facing`
+    - `spec`
+- `crates/ambition_sandbox/src/shockwave.rs:261`
+  - matched ECS items: `FeatureSimEntity`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `ActorFaction::Enemy`
+- `crates/ambition_sandbox/src/shrine.rs:199`
+  - name label: `"Shrine visual"`
+  - matched ECS items: `ShrineVisual`, `ShrineVisualKey`, `crate::presentation::rendering::RoomVisual`
+  - identifiers:
+    - `ShrineVisual`
+    - `ShrineVisualKey`
+    - `key`
+    - `shrine_visual_atlas`
+    - `source`
+    - `sprite`
+    - `Transform::from_translation`
+    - `translation`
+    - `crate::presentation::rendering::RoomVisual`
+- `crates/ambition_sandbox/src/shrine.rs:458`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`, `PlayerKinematics`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+    - `PlayerKinematics`
+    - `pos`
+    - `vel`
+    - `Vec2::ZERO`
+    - `size`
+    - `base_size`
+    - `facing`
+    - `crate::actor::Health`
+    - `current`
+    - `max`
+    - `invulnerable`
+- `crates/ambition_sandbox/src/shrine.rs:484`
+  - matched ECS items: `HealShrine`
+  - identifiers:
+    - `HealShrine`
+    - `pos`
+    - `half_extent`
+- `crates/ambition_sandbox/src/shrine.rs:524`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`, `PlayerKinematics`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+    - `PlayerKinematics`
+    - `pos`
+    - `vel`
+    - `Vec2::ZERO`
+    - `size`
+    - `base_size`
+    - `facing`
+    - `crate::actor::Health`
+    - `current`
+    - `max`
+    - `invulnerable`
+- `crates/ambition_sandbox/src/shrine.rs:545`
+  - matched ECS items: `HealShrine`
+  - identifiers:
+    - `HealShrine`
+    - `pos`
+    - `half_extent`
+- `crates/ambition_sandbox/src/volley.rs:115`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`, `PlayerKinematics`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+    - `PlayerKinematics`
+    - `pos`
+    - `vel`
+    - `ae::Vec2::ZERO`
+    - `size`
+    - `base_size`
+    - `facing`
+    - `spec`
+- `crates/ambition_sandbox/src/vortex.rs:74`
+  - name label: `"Vortex singularity"`
+  - matched ECS items: `VortexWell`
+  - identifiers:
+    - `VortexWell`
+    - `center`
+    - `remaining_s`
+    - `VORTEX_LIFETIME_S`
+- `crates/ambition_sandbox/src/vortex.rs:139`
+  - matched ECS items: `PlayerEntity`, `PrimaryPlayer`, `PlayerKinematics`
+  - identifiers:
+    - `PlayerEntity`
+    - `PrimaryPlayer`
+    - `PlayerKinematics`
+    - `pos`
+    - `vel`
+    - `ae::Vec2::ZERO`
+    - `size`
+    - `base_size`
+    - `facing`
+    - `spec`
+- `crates/ambition_sandbox/src/vortex.rs:156`
+  - matched ECS items: `FeatureSimEntity`, `ActorKinematics`
+  - identifiers:
+    - `FeatureSimEntity`
+    - `ActorKinematics`
+    - `pos`
+    - `vel`
+    - `ae::Vec2::ZERO`
+    - `size`
+    - `facing`
+    - `ActorFaction::Enemy`
+- `crates/ambition_sandbox/src/world/ldtk_world/conversion.rs:572`
+  - identifiers:
+    - `min`
+    - `size`
+- `crates/ambition_sandbox/src/world/physics.rs:206`
+  - name label: `format!("Physics collider: {}", block.name)`
+  - matched ECS items: `RoomVisual`, `PhysicsRoomEntity`
+  - identifiers:
+    - `RigidBody::Static`
+    - `Collider::rectangle`
+    - `size`
+    - `x`
+    - `y`
+    - `Transform::from_translation`
+    - `world_to_bevy`
+    - `world`
+    - `block`
+    - `aabb`
+    - `center`
+    - `STATIC_COLLIDER_Z`
+    - `format`
+    - `name`
+    - `RoomVisual`
+    - `PhysicsRoomEntity`
+- `crates/ambition_sandbox/src/world/physics.rs:280`
+  - name label: `"Physics debris"`
+  - matched ECS items: `PhysicsDebris`, `RoomVisual`, `PhysicsRoomEntity`
+  - identifiers:
+    - `Sprite::from_color`
+    - `color`
+    - `size`
+    - `Transform::from_translation`
+    - `world_to_bevy`
+    - `world`
+    - `pos`
+    - `DEBRIS_Z`
+    - `RigidBody::Dynamic`
+    - `Collider::rectangle`
+    - `x`
+    - `max`
+    - `y`
+    - `LinearVelocity`
+    - `velocity`
+    - `AngularVelocity`
+    - `angular_velocity`
+    - `PhysicsDebris`
+    - `lifetime`
+    - `RoomVisual`
+    - `PhysicsRoomEntity`
+- `crates/ambition_sandbox/src/world/platforms.rs:394`
+  - name label: `format!("Moving platform {index}: {}", platform.name)`
+  - matched ECS items: `MovingPlatformVisual`, `RoomVisual`
+  - identifiers:
+    - `Sprite::from_color`
+    - `Color::srgba`
+    - `platform`
+    - `size`
+    - `x`
+    - `y`
+    - `Transform::from_translation`
+    - `world_to_bevy`
+    - `world`
+    - `pos`
+    - `WORLD_Z_BLOCK`
+    - `format`
+    - `name`
+    - `MovingPlatformVisual`
+    - `index`
+    - `RoomVisual`
+

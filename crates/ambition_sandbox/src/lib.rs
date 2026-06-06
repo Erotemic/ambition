@@ -35,6 +35,7 @@ pub mod headless;
 pub mod input;
 pub mod interaction;
 pub mod kinematic;
+pub mod platformer_runtime;
 pub mod player;
 pub mod quest;
 #[cfg(feature = "rl_sim")]

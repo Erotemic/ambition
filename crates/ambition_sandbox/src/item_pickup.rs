@@ -22,8 +22,110 @@ use crate::brain::{ActionSet, HeldItemSpec, HeldUseBehavior, MeleeActionSpec, Sw
 use crate::engine_core::{self as ae, AabbExt};
 use crate::features::HeldItem;
 use crate::input::ControlFrame;
+use crate::platformer_runtime::prelude::SpawnScopedExt;
 use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
 use crate::portal::PortalGun;
+
+/// Public schedule labels for held-item and ground-item simulation.
+///
+/// Other modules should order against these sets rather than concrete system
+/// functions. That keeps cross-subsystem dependencies stable while item pickup
+/// continues moving out of `app/plugins.rs`.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum ItemPickupSet {
+    /// Held-item pickup/use/throw plus ground-item physics.
+    CoreHeldItems,
+    /// Bombs, gravity grenades, and other effects armed by thrown items.
+    ThrownItemEffects,
+    /// Wielded movement/combat abilities and ability cooldown maintenance.
+    WieldedAbilities,
+}
+
+/// Module-local plugin for held-item, pickup, thrown-item, and wielded-item
+/// simulation systems.
+///
+/// The app installs this plugin, but the item module owns the registration and
+/// ordering details for item behavior.
+pub struct ItemPickupSimulationPlugin;
+
+impl Plugin for ItemPickupSimulationPlugin {
+    fn build(&self, app: &mut App) {
+        app.configure_sets(
+            Update,
+            (
+                ItemPickupSet::CoreHeldItems,
+                ItemPickupSet::ThrownItemEffects,
+                ItemPickupSet::WieldedAbilities,
+            )
+                .chain()
+                .in_set(crate::app::SandboxSet::PlayerSimulation),
+        );
+
+        app.add_systems(
+            Update,
+            (
+                // Held-items, the portal gun, the heal/save shrine, and localized
+                // gravity zones are LDtk-authored room entities.
+                crate::shrine::heal_save_shrine_system.run_if(crate::gameplay_allowed),
+                // Resolve the live GravityField from zones + ambient after the
+                // FlipGravity switch and before ground_item_physics reads it.
+                crate::physics::resolve_active_gravity,
+                crate::portal::arm_portal_pickups,
+                pickup_held_item_system.run_if(crate::gameplay_allowed),
+                fire_held_ranged_system.run_if(crate::gameplay_allowed),
+                held_projectile_step.run_if(crate::gameplay_allowed),
+                crate::puppy_slug_gun::fire_puppy_slug_gun_system.run_if(crate::gameplay_allowed),
+                throw_held_item_system.run_if(crate::gameplay_allowed),
+                ground_item_physics.run_if(crate::gameplay_allowed),
+                // After portal_fire (registered by PortalSimulationPlugin) so
+                // picking up the gun does not also fire on the same Attack press.
+                crate::portal::pickup_portal_gun_system.run_if(crate::gameplay_allowed),
+            )
+                .chain()
+                .in_set(crate::app::SandboxSet::PlayerSimulation)
+                .in_set(ItemPickupSet::CoreHeldItems),
+        );
+
+        // Bombs and gravity grenades run after the held-item throw/physics group.
+        app.add_systems(
+            Update,
+            (
+                crate::bomb::arm_thrown_bombs.run_if(crate::gameplay_allowed),
+                crate::bomb::tick_bomb_fuses.run_if(crate::gameplay_allowed),
+                crate::gravity_grenade::arm_thrown_gravity_grenades.run_if(crate::gameplay_allowed),
+                crate::gravity_grenade::tick_gravity_grenade_fuses.run_if(crate::gameplay_allowed),
+                crate::physics::tick_temporary_zones.run_if(crate::gameplay_allowed),
+            )
+                .chain()
+                .in_set(crate::app::SandboxSet::PlayerSimulation)
+                .in_set(ItemPickupSet::ThrownItemEffects),
+        );
+
+        // Wielded movement/combat items live in their own group to avoid the
+        // chained tuple arity cap in the core held-item group.
+        app.add_systems(
+            Update,
+            (
+                crate::mark_recall::mark_recall_system.run_if(crate::gameplay_allowed),
+                crate::blink::blink_system.run_if(crate::gameplay_allowed),
+                crate::grapple::grapple_system.run_if(crate::gameplay_allowed),
+                crate::shockwave::fire_shockwave_system.run_if(crate::gameplay_allowed),
+                crate::volley::fire_volley_system.run_if(crate::gameplay_allowed),
+                crate::beam::fire_beam_system.run_if(crate::gameplay_allowed),
+                crate::vortex::fire_vortex_system.run_if(crate::gameplay_allowed),
+                crate::vortex::update_vortex_wells.run_if(crate::gameplay_allowed),
+                crate::sentry::fire_sentry_system.run_if(crate::gameplay_allowed),
+                crate::sentry::update_sentries.run_if(crate::gameplay_allowed),
+                crate::dive::fire_dive_system.run_if(crate::gameplay_allowed),
+                crate::meteor::fire_meteor_system.run_if(crate::gameplay_allowed),
+                crate::ability_cooldown::tick_ability_cooldown,
+            )
+                .chain()
+                .in_set(crate::app::SandboxSet::PlayerSimulation)
+                .in_set(ItemPickupSet::WieldedAbilities),
+        );
+    }
+}
 
 const PICKUP_HALF: f32 = 18.0;
 const THROW_AHEAD: f32 = 48.0;
@@ -282,7 +384,7 @@ pub fn throw_held_item_system(
     let throw_pos = kin.pos + Vec2::new(facing * THROW_AHEAD, 0.0);
     commands.entity(player).remove::<HeldItem>();
     commands.entity(player).remove::<StashedActionSet>();
-    commands.spawn((
+    commands.spawn_room_scoped((
         GroundItem {
             spec,
             pos: throw_pos,
@@ -291,7 +393,6 @@ pub fn throw_held_item_system(
             half_extent: Vec2::splat(PICKUP_HALF),
         },
         Name::new("Ground item: thrown"),
-        crate::presentation::rendering::RoomScopedEntity,
     ));
 }
 
@@ -425,7 +526,7 @@ pub fn fire_held_ranged_system(
     } else {
         0.0
     };
-    commands.spawn((
+    commands.spawn_room_scoped((
         HeldProjectile {
             pos: origin,
             vel: dir * ranged.speed(),
@@ -434,7 +535,6 @@ pub fn fire_held_ranged_system(
             explode_half,
         },
         Name::new("Held ranged shot"),
-        crate::presentation::rendering::RoomScopedEntity,
     ));
     // A Fireball whooshes out (reusing the dash whoosh) rather than the gun-sword
     // laser zap, so it doesn't *sound* like a sword either; a bespoke ignite SFX
@@ -538,9 +638,9 @@ pub fn held_projectile_step(
         }
         // Solid wall in this step → impact + expire (Fireball detonates here too).
         let step = (proj.vel * dt).length().max(1.0);
-        if let Some((hit_pos, _normal)) =
-            crate::portal::raycast_solids(&world.0, proj.pos, proj.vel, step, false)
-        {
+        if let Some((hit_pos, _normal)) = crate::platformer_runtime::collision::raycast_solids(
+            &world.0, proj.pos, proj.vel, step, false,
+        ) {
             if proj.explode_half > 0.0 {
                 emit_fireball_explosion(
                     hit_pos,

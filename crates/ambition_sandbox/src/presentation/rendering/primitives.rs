@@ -7,6 +7,8 @@ use bevy::prelude::*;
 use crate::config::{world_to_bevy, WORLD_Z_BLOCK, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
 use crate::features::FeatureVisualKind;
 
+pub use crate::platformer_runtime::lifecycle::RoomScopedEntity;
+
 #[derive(Resource)]
 pub struct SceneEntities {
     pub player: Entity,
@@ -45,19 +47,9 @@ pub struct HudText;
 #[derive(Component)]
 pub struct QuestPanelText;
 
-/// Lifetime-scope marker: tags an entity as "lifetime is scoped to
-/// the current room." The room-load and sandbox-reset paths despawn
-/// every `RoomScopedEntity` (with optional `PhysicsRoomEntity`
-/// teardown) before swapping in the new room's entities.
-///
-/// Separate from [`RoomVisual`] so simulation-only entities (e.g.
-/// future headless-mode features, AI scratch entities) can share the
-/// room lifecycle without being treated as rendered visuals by the
-/// presentation sync systems. Every `RoomVisual` automatically pulls
-/// in a `RoomScopedEntity` via `#[require]`, so existing spawn sites
-/// keep their lifecycle behavior unchanged.
-#[derive(Component, Default)]
-pub struct RoomScopedEntity;
+// Runtime-owned lifetime-scope marker. Re-exported here for compatibility with
+// existing presentation and reset call sites while the marker's canonical home
+// moves to `crate::platformer_runtime::lifecycle`.
 
 /// Rendering marker: tags an entity as "rendered as part of the
 /// current room." Presentation systems (`sync_visuals`,

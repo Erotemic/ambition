@@ -1,0 +1,423 @@
+From 8ee437734099f2a8643c05407c0d4bfaab184e6f Mon Sep 17 00:00:00 2001
+From: Refactor Agent <agent@example.com>
+Date: Sat, 6 Jun 2026 02:58:00 +0000
+Subject: [PATCH] Snapshot 0005 split portal facade plugin schedule
+
+---
+ crates/ambition_sandbox/src/app/plugins.rs    |   8 +-
+ .../{portal.rs => portal/implementation.rs}   |  96 +-------------
+ crates/ambition_sandbox/src/portal/mod.rs     |  16 +++
+ crates/ambition_sandbox/src/portal/plugin.rs  | 123 ++++++++++++++++++
+ .../ambition_sandbox/src/portal/schedule.rs   |  22 ++++
+ .../tests/architecture_boundaries.rs          |  41 +++++-
+ docs/architecture/architecture-boundaries.md  |   5 +
+ 7 files changed, 211 insertions(+), 100 deletions(-)
+ rename crates/ambition_sandbox/src/{portal.rs => portal/implementation.rs} (97%)
+ create mode 100644 crates/ambition_sandbox/src/portal/mod.rs
+ create mode 100644 crates/ambition_sandbox/src/portal/plugin.rs
+ create mode 100644 crates/ambition_sandbox/src/portal/schedule.rs
+
+diff --git a/crates/ambition_sandbox/src/app/plugins.rs b/crates/ambition_sandbox/src/app/plugins.rs
+index 242a55b..35c9b0d 100644
+--- a/crates/ambition_sandbox/src/app/plugins.rs
++++ b/crates/ambition_sandbox/src/app/plugins.rs
+@@ -74,7 +74,7 @@ pub fn add_simulation_plugins(app: &mut App) {
+     app.add_plugins(crate::brain::BrainPlugin);
+     register_player_input_systems(app);
+     register_player_simulation_systems(app);
+-    app.add_plugins(crate::portal::PortalSimulationPlugin);
++    app.add_plugins(crate::portal::PortalPlugin);
+     app.add_plugins(crate::item_pickup::ItemPickupSimulationPlugin);
+     register_room_transition_systems(app);
+     app.add_plugins(super::combat_schedule::CombatSchedulePlugin);
+@@ -152,7 +152,7 @@ fn register_player_input_systems(app: &mut App) {
+             input_timer_system.run_if(gameplay_allowed),
+             interaction_input_system.run_if(gameplay_allowed),
+             // Portal-warped held movement input is registered by
+-            // `crate::portal::PortalSimulationPlugin` so the portal subsystem owns
++            // `crate::portal::PortalPlugin` so the portal subsystem owns
+             // its input seam.
+             // Per-player input migration (OVERNIGHT-TODO #17.5). Mirror
+             // the now-final `Res<ControlFrame>` onto the local primary
+@@ -246,7 +246,7 @@ fn register_player_simulation_systems(app: &mut App) {
+ }
+ 
+ // Portal and held-item simulation schedules moved to
+-// `crate::portal::PortalSimulationPlugin` and
++// `crate::portal::PortalPlugin` and
+ // `crate::item_pickup::ItemPickupSimulationPlugin`.
+ 
+ /// Detection emits `RoomTransitionRequested`; apply consumes it and runs
+@@ -263,7 +263,7 @@ fn register_room_transition_systems(app: &mut App) {
+             crate::features::reset_ecs_npc_actors,
+             crate::boss_encounter::reset_cut_rope_boss_arena_on_room_reset,
+             // Portal room-reset cleanup is registered by
+-            // `crate::portal::PortalSimulationPlugin`.
++            // `crate::portal::PortalPlugin`.
+         )
+             .chain()
+             .in_set(SandboxSet::RoomTransition),
+diff --git a/crates/ambition_sandbox/src/portal.rs b/crates/ambition_sandbox/src/portal/implementation.rs
+similarity index 97%
+rename from crates/ambition_sandbox/src/portal.rs
+rename to crates/ambition_sandbox/src/portal/implementation.rs
+index 4f5898f..36cc994 100644
+--- a/crates/ambition_sandbox/src/portal.rs
++++ b/crates/ambition_sandbox/src/portal/implementation.rs
+@@ -32,101 +32,7 @@ use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
+ use crate::portal_pieces::{self as pp, PortalFrame};
+ use crate::GameWorld;
+ 
+-// Compatibility shim while callers migrate to platformer_runtime::collision.
+-pub use crate::platformer_runtime::collision::raycast_solids;
+-
+-/// Module-local plugin for portal simulation systems and resources.
+-///
+-/// This keeps portal-owned scheduling with the portal mechanic instead of
+-/// growing `app/plugins.rs` as a central registry. App assembly still decides
+-/// whether to install the plugin.
+-pub struct PortalSimulationPlugin;
+-
+-impl Plugin for PortalSimulationPlugin {
+-    fn build(&self, app: &mut App) {
+-        app.init_resource::<IntentionalTeleport>();
+-        app.init_resource::<SuppressWallAbilitiesInPortal>();
+-        app.init_resource::<crate::physics::GravityField>();
+-        app.init_resource::<crate::physics::BaseGravity>();
+-        app.init_resource::<crate::physics::GravityZones>();
+-
+-        // Snapshot all gravity zones once per frame BEFORE actor integrators read
+-        // them, so every body can resolve local gravity by position.
+-        app.add_systems(
+-            Update,
+-            (
+-                crate::physics::oscillate_gravity_zones,
+-                crate::physics::collect_gravity_zones,
+-                publish_portal_carves,
+-            )
+-                .chain()
+-                .before(crate::app::SandboxSet::CoreSimulation),
+-        );
+-
+-        app.add_systems(
+-            Update,
+-            warp_portal_input
+-                .in_set(crate::app::SandboxSet::PlayerInput)
+-                .after(crate::app::interaction_input_system)
+-                .before(crate::player::sync_local_player_input_frame)
+-                .run_if(crate::gameplay_allowed),
+-        );
+-
+-        app.add_systems(
+-            Update,
+-            (
+-                drop_portal_gun_system.run_if(crate::gameplay_allowed),
+-                portal_toggle_system.run_if(crate::gameplay_allowed),
+-                portal_fire_system.run_if(crate::gameplay_allowed),
+-                portal_projectile_step.run_if(crate::gameplay_allowed),
+-                // Portals must not outlive their gun (the "destroyed" case).
+-                despawn_orphaned_portals,
+-                // Make sure the player can carry an aerial roll through portals.
+-                ensure_actor_roll,
+-            )
+-                .chain()
+-                .in_set(crate::app::SandboxSet::PlayerSimulation),
+-        );
+-
+-        app.add_systems(
+-            Update,
+-            (clear_portals_on_reset, reset_gravity_on_room_reset)
+-                .chain()
+-                .in_set(crate::app::SandboxSet::RoomTransition)
+-                .after(crate::boss_encounter::reset_cut_rope_boss_arena_on_room_reset),
+-        );
+-
+-        // Suppress ledge-grab while transiting so the carved aperture edges are
+-        // not grabbed before movement integration probes for a ledge.
+-        app.add_systems(
+-            Update,
+-            suppress_ledge_grab_during_transit
+-                .in_set(crate::app::SandboxSet::PlayerSimulation)
+-                .before(crate::app::player_simulation_system)
+-                .run_if(crate::gameplay_allowed),
+-        );
+-
+-        // Teleports run after player and ground-item integration so this frame's
+-        // integrated body positions are what cross the portal. Order against
+-        // the item subsystem's public set instead of its concrete physics
+-        // function.
+-        app.add_systems(
+-            Update,
+-            (
+-                tick_portal_cooldowns,
+-                portal_transit_system,
+-                portal_teleport_ground_items,
+-                portal_transit_actors,
+-                update_actor_roll,
+-            )
+-                .chain()
+-                .in_set(crate::app::SandboxSet::PlayerSimulation)
+-                .after(crate::app::player_simulation_system)
+-                .after(crate::item_pickup::ItemPickupSet::CoreHeldItems)
+-                .run_if(crate::gameplay_allowed),
+-        );
+-    }
+-}
++use crate::platformer_runtime::collision::raycast_solids;
+ 
+ /// A portal's color. Portals are linked into PAIRS by complementary color (one
+ /// of each), so several independent pairs can exist at once: the gun fires the
+diff --git a/crates/ambition_sandbox/src/portal/mod.rs b/crates/ambition_sandbox/src/portal/mod.rs
+new file mode 100644
+index 0000000..6468aef
+--- /dev/null
++++ b/crates/ambition_sandbox/src/portal/mod.rs
+@@ -0,0 +1,16 @@
++//! Portal mechanic facade.
++//!
++//! The implementation is still largely the original portal vertical-slice code,
++//! but the module now has explicit seams for plugin registration, schedule
++//! vocabulary, and implementation details. This keeps `app/plugins.rs` from
++//! owning portal internals and gives future extraction patches stable files to
++//! split further.
++
++mod implementation;
++mod plugin;
++mod schedule;
++
++pub use crate::platformer_runtime::collision::raycast_solids;
++pub use implementation::*;
++pub use plugin::{PortalPlugin, PortalSimulationPlugin};
++pub use schedule::PortalSet;
+diff --git a/crates/ambition_sandbox/src/portal/plugin.rs b/crates/ambition_sandbox/src/portal/plugin.rs
+new file mode 100644
+index 0000000..6c603ef
+--- /dev/null
++++ b/crates/ambition_sandbox/src/portal/plugin.rs
+@@ -0,0 +1,123 @@
++use bevy::prelude::*;
++
++use super::implementation::{
++    clear_portals_on_reset, despawn_orphaned_portals, drop_portal_gun_system,
++    ensure_actor_roll, portal_fire_system, portal_projectile_step, portal_teleport_ground_items,
++    portal_toggle_system, portal_transit_actors, portal_transit_system, publish_portal_carves,
++    reset_gravity_on_room_reset, suppress_ledge_grab_during_transit, tick_portal_cooldowns,
++    update_actor_roll, warp_portal_input, IntentionalTeleport, SuppressWallAbilitiesInPortal,
++};
++use super::schedule::PortalSet;
++
++/// Top-level portal mechanic plugin.
++///
++/// This is the public plugin app assembly should install. It currently delegates
++/// to the simulation plugin, leaving room for future render, authoring, and
++/// debug adapters to become independent subplugins.
++pub struct PortalPlugin;
++
++impl Plugin for PortalPlugin {
++    fn build(&self, app: &mut App) {
++        app.add_plugins(PortalSimulationPlugin);
++    }
++}
++
++/// Module-local plugin for portal simulation systems and resources.
++///
++/// This keeps portal-owned scheduling with the portal mechanic instead of
++/// growing `app/plugins.rs` as a central registry. App assembly still decides
++/// whether to install the top-level [`PortalPlugin`].
++pub struct PortalSimulationPlugin;
++
++impl Plugin for PortalSimulationPlugin {
++    fn build(&self, app: &mut App) {
++        app.init_resource::<IntentionalTeleport>();
++        app.init_resource::<SuppressWallAbilitiesInPortal>();
++        app.init_resource::<crate::physics::GravityField>();
++        app.init_resource::<crate::physics::BaseGravity>();
++        app.init_resource::<crate::physics::GravityZones>();
++
++        // Snapshot all gravity zones once per frame BEFORE actor integrators read
++        // them, so every body can resolve local gravity by position. Portal carves
++        // are published with the same early-world snapshot cadence.
++        app.add_systems(
++            Update,
++            (
++                crate::physics::oscillate_gravity_zones,
++                crate::physics::collect_gravity_zones,
++                publish_portal_carves,
++            )
++                .chain()
++                .in_set(PortalSet::GravityAndCarves)
++                .before(crate::app::SandboxSet::CoreSimulation),
++        );
++
++        app.add_systems(
++            Update,
++            warp_portal_input
++                .in_set(PortalSet::InputWarp)
++                .in_set(crate::app::SandboxSet::PlayerInput)
++                .after(crate::app::interaction_input_system)
++                .before(crate::player::sync_local_player_input_frame)
++                .run_if(crate::gameplay_allowed),
++        );
++
++        app.add_systems(
++            Update,
++            (
++                drop_portal_gun_system.run_if(crate::gameplay_allowed),
++                portal_toggle_system.run_if(crate::gameplay_allowed),
++                portal_fire_system.run_if(crate::gameplay_allowed),
++                portal_projectile_step.run_if(crate::gameplay_allowed),
++                // Portals must not outlive their gun (the "destroyed" case).
++                despawn_orphaned_portals,
++                // Make sure the player can carry an aerial roll through portals.
++                ensure_actor_roll,
++            )
++                .chain()
++                .in_set(PortalSet::WeaponAndProjectiles)
++                .in_set(crate::app::SandboxSet::PlayerSimulation),
++        );
++
++        app.add_systems(
++            Update,
++            (clear_portals_on_reset, reset_gravity_on_room_reset)
++                .chain()
++                .in_set(PortalSet::RoomReset)
++                .in_set(crate::app::SandboxSet::RoomTransition)
++                .after(crate::boss_encounter::reset_cut_rope_boss_arena_on_room_reset),
++        );
++
++        // Suppress ledge-grab while transiting so the carved aperture edges are
++        // not grabbed before movement integration probes for a ledge.
++        app.add_systems(
++            Update,
++            suppress_ledge_grab_during_transit
++                .in_set(PortalSet::TransitGuards)
++                .in_set(crate::app::SandboxSet::PlayerSimulation)
++                .before(crate::app::player_simulation_system)
++                .run_if(crate::gameplay_allowed),
++        );
++
++        // Teleports run after player and ground-item integration so this frame's
++        // integrated body positions are what cross the portal. Order against
++        // the item subsystem's public set instead of its concrete physics
++        // function.
++        app.add_systems(
++            Update,
++            (
++                tick_portal_cooldowns,
++                portal_transit_system,
++                portal_teleport_ground_items,
++                portal_transit_actors,
++                update_actor_roll,
++            )
++                .chain()
++                .in_set(PortalSet::Transit)
++                .in_set(crate::app::SandboxSet::PlayerSimulation)
++                .after(crate::app::player_simulation_system)
++                .after(crate::item_pickup::ItemPickupSet::CoreHeldItems)
++                .run_if(crate::gameplay_allowed),
++        );
++    }
++}
+diff --git a/crates/ambition_sandbox/src/portal/schedule.rs b/crates/ambition_sandbox/src/portal/schedule.rs
+new file mode 100644
+index 0000000..7b79715
+--- /dev/null
++++ b/crates/ambition_sandbox/src/portal/schedule.rs
+@@ -0,0 +1,22 @@
++use bevy::prelude::*;
++
++/// Portal-owned schedule labels.
++///
++/// These labels are intentionally local to the portal subsystem. External
++/// systems should order against them only when they have a real semantic
++/// dependency on portal behavior; otherwise use the broader app-level sets.
++#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
++pub enum PortalSet {
++    /// Snapshot gravity zones and publish portal collision carves.
++    GravityAndCarves,
++    /// Input rewrites that happen before the player input frame is synced.
++    InputWarp,
++    /// Fire, toggle, projectile, and ownership maintenance systems.
++    WeaponAndProjectiles,
++    /// Reset-time portal and gravity cleanup.
++    RoomReset,
++    /// Temporary ability suppression while crossing a portal aperture.
++    TransitGuards,
++    /// Portal cooldown, body transit, item transit, and actor roll updates.
++    Transit,
++}
+diff --git a/crates/ambition_sandbox/tests/architecture_boundaries.rs b/crates/ambition_sandbox/tests/architecture_boundaries.rs
+index 3f4d2d9..04e6163 100644
+--- a/crates/ambition_sandbox/tests/architecture_boundaries.rs
++++ b/crates/ambition_sandbox/tests/architecture_boundaries.rs
+@@ -183,7 +183,7 @@ fn architecture_boundaries_non_portal_mechanics_use_runtime_raycast_seam() {
+ 
+ #[test]
+ fn architecture_boundaries_portal_orders_against_item_set_not_function() {
+-    let text = fs::read_to_string(crate_src().join("portal.rs")).expect("read portal source");
++    let text = fs::read_to_string(crate_src().join("portal/plugin.rs")).expect("read portal plugin source");
+     assert!(
+         !text.contains("after(crate::item_pickup::ground_item_physics)"),
+         "portal should order against crate::item_pickup::ItemPickupSet, not the concrete ground_item_physics function"
+@@ -193,3 +193,42 @@ fn architecture_boundaries_portal_orders_against_item_set_not_function() {
+         "portal transit should document its dependency on the held-item/ground-item simulation set"
+     );
+ }
++
++#[test]
++fn architecture_boundaries_portal_has_facade_plugin_and_schedule_files() {
++    let src_root = crate_src();
++    let expected = [
++        "portal/mod.rs",
++        "portal/plugin.rs",
++        "portal/schedule.rs",
++        "portal/implementation.rs",
++    ];
++
++    for rel in expected {
++        assert!(
++            src_root.join(rel).exists(),
++            "portal module split should include {rel}"
++        );
++    }
++
++    assert!(
++        !src_root.join("portal.rs").exists(),
++        "remove crates/ambition_sandbox/src/portal.rs after applying the overlay so Rust does not see both portal.rs and portal/mod.rs"
++    );
++
++    let mod_text = fs::read_to_string(src_root.join("portal/mod.rs")).expect("read portal facade");
++    assert!(
++        mod_text.contains("pub use plugin::{PortalPlugin, PortalSimulationPlugin}"),
++        "portal facade should re-export the top-level and simulation portal plugins"
++    );
++    assert!(
++        mod_text.contains("pub use schedule::PortalSet"),
++        "portal facade should expose portal-owned schedule vocabulary"
++    );
++
++    let plugin_text = fs::read_to_string(src_root.join("portal/plugin.rs")).expect("read portal plugin");
++    assert!(
++        plugin_text.contains("PortalSet::Transit"),
++        "portal plugin should label transit systems with PortalSet"
++    );
++}
+diff --git a/docs/architecture/architecture-boundaries.md b/docs/architecture/architecture-boundaries.md
+index 2627185..b812dd1 100644
+--- a/docs/architecture/architecture-boundaries.md
++++ b/docs/architecture/architecture-boundaries.md
+@@ -18,6 +18,11 @@ helpers after those registrations moved into module-owned plugins.
+   for plain solid raycasts instead of importing the portal mechanic.
+ - Cross-subsystem ordering should prefer public `SystemSet` labels, such as
+   `ItemPickupSet`, rather than concrete function references.
++- The portal mechanic should remain a facade module at `src/portal/` with
++  plugin registration in `portal/plugin.rs`, schedule labels in
++  `portal/schedule.rs`, and implementation details behind `portal/implementation.rs`.
++  Remove the legacy `src/portal.rs` file when applying overlays that introduce
++  this split.
+ 
+ ## Updating the allowlist
+ 
+-- 
+2.47.3
+

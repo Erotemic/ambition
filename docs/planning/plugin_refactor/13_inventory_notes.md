@@ -8,24 +8,24 @@ From the current reported run:
 
 ```json
 {
-  "architecture_items": 15,
+  "architecture_items": 18,
   "bundles": 8,
-  "components": 251,
+  "components": 253,
   "events": 0,
   "message_channels": 27,
   "messages": 19,
   "migration_candidates_high": 135,
-  "migration_candidates_medium": 151,
-  "module_summaries": 81,
-  "non_ecs_items": 506,
-  "plugins": 39,
+  "migration_candidates_medium": 152,
+  "module_summaries": 82,
+  "non_ecs_items": 521,
+  "plugins": 41,
   "registered_systems": 368,
-  "registrations": 348,
+  "registrations": 352,
   "resource_access_entries": 156,
   "resources": 149,
-  "spawn_sites": 209,
-  "system_like_functions": 565,
-  "unique_registration_identifiers": 638
+  "spawn_sites": 198,
+  "system_like_functions": 566,
+  "unique_registration_identifiers": 647
 }
 ```
 
@@ -63,6 +63,7 @@ app/plugins.rs registrations should decrease.
 Portal-owned systems should move into portal plugin registration.
 Raw room-local spawn sites should decrease or become lifecycle-helper calls.
 Generic helpers imported from portal should go to zero outside portal.
+The first extracted generic helper is `platformer_runtime::collision::raycast_solids`.
 Ambition-specific item/quest/boss/world references should migrate into ambition_content.
 Rendering/audio/devtool imports should leave headless/runtime layers.
 ```

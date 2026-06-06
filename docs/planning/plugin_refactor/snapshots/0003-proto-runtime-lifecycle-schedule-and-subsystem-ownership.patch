@@ -1,0 +1,914 @@
+From 19c491b457b3e6f0d4cd707f583fac9390bc3652 2026-06-06T02:44:43Z
+Subject: Snapshot 0003 proto runtime lifecycle schedule and subsystem ownership
+
+
+
+diff --git a/crates/ambition_sandbox/src/app.rs b/crates/ambition_sandbox/src/app.rs
+index b0ddf40..f4a2dbb 100644
+--- a/crates/ambition_sandbox/src/app.rs
++++ b/crates/ambition_sandbox/src/app.rs
+@@ -72,10 +72,11 @@ use crate::inventory;
+ use crate::ldtk_world;
+ use crate::pause_menu;
+ use crate::presentation::fx::{self, vfx_spawn_messages, ParticleKind, VfxMessage};
++use crate::platformer_runtime::lifecycle::RoomScopedEntity;
+ use crate::presentation::rendering::{
+     animate_bosses, animate_characters, animate_player, camera_follow, spawn_room_visuals,
+     sync_visuals, upgrade_boss_sprites, upgrade_enemy_sprites, upgrade_npc_sprites, HudText,
+-    PlayerVisual, RoomScopedEntity, SceneEntities,
++    PlayerVisual, SceneEntities,
+ };
+ use crate::presentation::ui_fonts;
+ use crate::rooms;
+diff --git a/crates/ambition_sandbox/src/app/plugins.rs b/crates/ambition_sandbox/src/app/plugins.rs
+index 7420162..242a55b 100644
+--- a/crates/ambition_sandbox/src/app/plugins.rs
++++ b/crates/ambition_sandbox/src/app/plugins.rs
+@@ -74,8 +74,8 @@ pub fn add_simulation_plugins(app: &mut App) {
+     app.add_plugins(crate::brain::BrainPlugin);
+     register_player_input_systems(app);
+     register_player_simulation_systems(app);
+-    register_portal_systems(app);
+-    register_item_pickup_systems(app);
++    app.add_plugins(crate::portal::PortalSimulationPlugin);
++    app.add_plugins(crate::item_pickup::ItemPickupSimulationPlugin);
+     register_room_transition_systems(app);
+     app.add_plugins(super::combat_schedule::CombatSchedulePlugin);
+     register_presentation_sync_systems(app);
+@@ -151,10 +151,9 @@ fn register_player_input_systems(app: &mut App) {
+             apply_cut_rope_room_replay_request_system,
+             input_timer_system.run_if(gameplay_allowed),
+             interaction_input_system.run_if(gameplay_allowed),
+-            // Portal-warp the held movement input after a crossing (the
+-            // same-wall ping-pong fix) — runs on the finalized ControlFrame,
+-            // before it is mirrored to the player's PlayerInputFrame below.
+-            crate::portal::warp_portal_input.run_if(gameplay_allowed),
++            // Portal-warped held movement input is registered by
++            // `crate::portal::PortalSimulationPlugin` so the portal subsystem owns
++            // its input seam.
+             // Per-player input migration (OVERNIGHT-TODO #17.5). Mirror
+             // the now-final `Res<ControlFrame>` onto the local primary
+             // player's `PlayerInputFrame` so simulation systems can
+@@ -246,171 +245,9 @@ fn register_player_simulation_systems(app: &mut App) {
+     );
+ }
+ 
+-/// Portal gun: grant + fire + toggle, then teleport. Teleport runs after the
+-/// player simulation so it acts on this frame's integrated position; the rest
+-/// run in the same `PlayerSimulation` set so a fire/toggle this frame is seen.
+-fn register_portal_systems(app: &mut App) {
+-    app.init_resource::<crate::portal::IntentionalTeleport>();
+-    app.init_resource::<crate::portal::SuppressWallAbilitiesInPortal>();
+-    app.init_resource::<crate::physics::GravityField>();
+-    app.init_resource::<crate::physics::BaseGravity>();
+-    app.init_resource::<crate::physics::GravityZones>();
+-    // Snapshot all gravity zones once per frame BEFORE the actor integrators read
+-    // them, so every body (enemies / NPCs / items / projectiles) can resolve its
+-    // OWN local gravity by position (gravity is local in space, not one global).
+-    app.add_systems(
+-        Update,
+-        (
+-            // Slide oscillating columns, then snapshot, before the integrators read.
+-            crate::physics::oscillate_gravity_zones,
+-            crate::physics::collect_gravity_zones,
+-            // Carve placed-portal apertures out of the host surface BEFORE the
+-            // movement integrators build the augmented collision world, so a body
+-            // can sink into a portal (the "feet in, feet out" transit).
+-            crate::portal::publish_portal_carves,
+-        )
+-            .chain()
+-            .before(SandboxSet::CoreSimulation),
+-    );
+-    app.add_systems(
+-        Update,
+-        (
+-            crate::portal::drop_portal_gun_system.run_if(gameplay_allowed),
+-            crate::portal::portal_toggle_system.run_if(gameplay_allowed),
+-            crate::portal::portal_fire_system.run_if(gameplay_allowed),
+-            crate::portal::portal_projectile_step.run_if(gameplay_allowed),
+-            // Portals must not outlive their gun (the "destroyed" case).
+-            crate::portal::despawn_orphaned_portals,
+-            // Make sure the player can carry an aerial roll through portals.
+-            crate::portal::ensure_actor_roll,
+-        )
+-            .chain()
+-            .in_set(SandboxSet::PlayerSimulation),
+-    );
+-    // Suppress ledge-grab while transiting (so the carved aperture edges aren't
+-    // grabbed) — must run BEFORE the movement integration probes for a grab.
+-    app.add_systems(
+-        Update,
+-        crate::portal::suppress_ledge_grab_during_transit
+-            .in_set(SandboxSet::PlayerSimulation)
+-            .before(player_simulation_system)
+-            .run_if(gameplay_allowed),
+-    );
+-    // Teleports MUST run after the player movement integration (and the ground
+-    // item physics) — otherwise `player_simulation_system` re-integrates from
+-    // the pre-teleport position and the jump is silently undone (that's the
+-    // "I see the portals but can't walk through them" bug).
+-    app.add_systems(
+-        Update,
+-        (
+-            crate::portal::tick_portal_cooldowns,
+-            crate::portal::portal_transit_system,
+-            crate::portal::portal_teleport_ground_items,
+-            crate::portal::portal_transit_actors,
+-            // Ease the aerial roll the teleport just set (somersault to upright).
+-            crate::portal::update_actor_roll,
+-        )
+-            .chain()
+-            .in_set(SandboxSet::PlayerSimulation)
+-            .after(player_simulation_system)
+-            .after(crate::item_pickup::ground_item_physics)
+-            .run_if(gameplay_allowed),
+-    );
+-}
+-
+-/// Held-item pickup/throw: spawn the debug axe, then pickup (Attack) and
+-/// throw (Shield+Attack). In `PlayerSimulation` so it sees this frame's input.
+-fn register_item_pickup_systems(app: &mut App) {
+-    app.add_systems(
+-        Update,
+-        (
+-            // Held-items, the portal gun, the heal/save shrine, and localized
+-            // gravity zones are now ALL LDtk-authored (`GroundItem` /
+-            // `PortalGunSpawn` / `ShrineSpawn` / `GravityZone`), spawned at room
+-            // load via `spawn_room_feature_entities`; every debug near-player
+-            // spawner is retired.
+-            crate::shrine::heal_save_shrine_system.run_if(gameplay_allowed),
+-            // Resolve the live GravityField from zones + ambient AFTER the
+-            // FlipGravity Switch flips the ambient (in the encounter switch loop)
+-            // and BEFORE ground_item_physics (below) reads it.
+-            crate::physics::resolve_active_gravity,
+-            crate::portal::arm_portal_pickups,
+-            crate::item_pickup::pickup_held_item_system.run_if(gameplay_allowed),
+-            // Fire the held gun-sword laser (after pickup so the grab press
+-            // doesn't also fire on the same Attack), then throw, then physics.
+-            crate::item_pickup::fire_held_ranged_system.run_if(gameplay_allowed),
+-            crate::item_pickup::held_projectile_step.run_if(gameplay_allowed),
+-            // Summon player-allied puppy slugs (plain Attack while holding the
+-            // puppy-slug gun) — before throw so the gun isn't thrown instead.
+-            crate::puppy_slug_gun::fire_puppy_slug_gun_system.run_if(gameplay_allowed),
+-            crate::item_pickup::throw_held_item_system.run_if(gameplay_allowed),
+-            crate::item_pickup::ground_item_physics.run_if(gameplay_allowed),
+-            // After portal_fire (registered earlier) so picking up the gun
+-            // doesn't also fire a portal on the same Attack press.
+-            crate::portal::pickup_portal_gun_system.run_if(gameplay_allowed),
+-        )
+-            .chain()
+-            .in_set(SandboxSet::PlayerSimulation),
+-    );
+-    // Bomb arming/detonation — a separate group (the chain above is at Bevy's
+-    // tuple-arity limit). Runs after the held-item throw/physics above.
+-    app.add_systems(
+-        Update,
+-        (
+-            crate::bomb::arm_thrown_bombs.run_if(gameplay_allowed),
+-            crate::bomb::tick_bomb_fuses.run_if(gameplay_allowed),
+-            // Gravity grenade: thrown -> fuse -> opens a temporary up-gravity well
+-            // (lifts enemies via localized gravity); tick the wells' lifetimes.
+-            crate::gravity_grenade::arm_thrown_gravity_grenades.run_if(gameplay_allowed),
+-            crate::gravity_grenade::tick_gravity_grenade_fuses.run_if(gameplay_allowed),
+-            crate::physics::tick_temporary_zones.run_if(gameplay_allowed),
+-        )
+-            .chain()
+-            .in_set(SandboxSet::PlayerSimulation)
+-            .after(crate::item_pickup::ground_item_physics),
+-    );
+-    // Mark/Recall + Blink live in their own group (the held-item chain above is
+-    // already at the `.chain()` tuple-size cap). Order isn't critical: these items
+-    // are excluded from throw-on-attack, so `Attack` is free to drive them.
+-    app.add_systems(
+-        Update,
+-        (
+-            crate::mark_recall::mark_recall_system.run_if(gameplay_allowed),
+-            crate::blink::blink_system.run_if(gameplay_allowed),
+-            crate::grapple::grapple_system.run_if(gameplay_allowed),
+-            // Shockwave gauntlet: plain Attack emits a ShockwaveSlam Special so
+-            // the player wields the boss-style AOE (consumer in combat_schedule).
+-            crate::shockwave::fire_shockwave_system.run_if(gameplay_allowed),
+-            // Volley gauntlet: plain Attack fires a fan of player-faction bolts
+-            // through the faction-aware projectile pool (the ranged wielded boss
+-            // attack — `update_enemy_projectiles` routes them to enemies).
+-            crate::volley::fire_volley_system.run_if(gameplay_allowed),
+-            // Focus-beam gauntlet: plain Attack spawns an aimed line Hitbox of
+-            // Player faction (the smirking_behemoth eye-beam, wielded).
+-            crate::beam::fire_beam_system.run_if(gameplay_allowed),
+-            // Vortex gauntlet: plain Attack spawns a point attractor that gathers
+-            // enemies (no damage — pull-then-slam), then ages out.
+-            crate::vortex::fire_vortex_system.run_if(gameplay_allowed),
+-            crate::vortex::update_vortex_wells.run_if(gameplay_allowed),
+-            // Sentry gauntlet: plain Attack deploys an auto-firing turret that
+-            // shoots player-faction bolts at the nearest enemy, then expires.
+-            crate::sentry::fire_sentry_system.run_if(gameplay_allowed),
+-            crate::sentry::update_sentries.run_if(gameplay_allowed),
+-            // Dive gauntlet: plain Attack lunges the player along the aim and
+-            // cuts a one-shot damage corridor (the overflow boss's crash).
+-            crate::dive::fire_dive_system.run_if(gameplay_allowed),
+-            // Meteor gauntlet: plain Attack rains falling player-faction
+-            // projectiles onto a zone ahead (GNU-ton's apple-rain, wielded).
+-            crate::meteor::fire_meteor_system.run_if(gameplay_allowed),
+-            // Shared movement-ability cooldown timer (scaled_dt, so pause /
+-            // bullet-time slow it too).
+-            crate::ability_cooldown::tick_ability_cooldown,
+-        )
+-            .chain()
+-            .in_set(SandboxSet::PlayerSimulation)
+-            .after(crate::item_pickup::ground_item_physics),
+-    );
+-}
++// Portal and held-item simulation schedules moved to
++// `crate::portal::PortalSimulationPlugin` and
++// `crate::item_pickup::ItemPickupSimulationPlugin`.
+ 
+ /// Detection emits `RoomTransitionRequested`; apply consumes it and runs
+ /// `load_room`; the feature-side `reset_ecs_room_features` system tears
+@@ -425,8 +262,8 @@ fn register_room_transition_systems(app: &mut App) {
+             crate::features::reset_ecs_room_features,
+             crate::features::reset_ecs_npc_actors,
+             crate::boss_encounter::reset_cut_rope_boss_arena_on_room_reset,
+-            crate::portal::clear_portals_on_reset,
+-            crate::portal::reset_gravity_on_room_reset,
++            // Portal room-reset cleanup is registered by
++            // `crate::portal::PortalSimulationPlugin`.
+         )
+             .chain()
+             .in_set(SandboxSet::RoomTransition),
+diff --git a/crates/ambition_sandbox/src/app/schedule.rs b/crates/ambition_sandbox/src/app/schedule.rs
+index b8bd56d..7c82efe 100644
+--- a/crates/ambition_sandbox/src/app/schedule.rs
++++ b/crates/ambition_sandbox/src/app/schedule.rs
+@@ -1,9 +1,13 @@
+ //! Sandbox simulation schedule: system sets and their explicit ordering.
+ //!
+-//! Single source of truth for which simulation phases exist and how they
+-//! relate. Add new systems to one of these sets in `plugins.rs` via
+-//! `.in_set(SandboxSet::…)` rather than pinning a fragile cross-system
+-//! `.after(other_system)`.
++//! Single source of truth for the concrete sandbox app schedule.
++//!
++//! `crate::platformer_runtime::schedule::PlatformerRuntimeSet` names the
++//! reusable runtime vocabulary that future crates should depend on. `SandboxSet`
++//! is the app-level realization of that vocabulary, plus Ambition-specific tail
++//! phases. Add new systems through module-owned plugins and stable sets rather
++//! than pinning a fragile cross-system `.after(other_system)` in this file or in
++//! `plugins.rs`.
+ 
+ use bevy::prelude::*;
+ 
+diff --git a/crates/ambition_sandbox/src/content/features/components.rs b/crates/ambition_sandbox/src/content/features/components.rs
+index b921a88..f16e476 100644
+--- a/crates/ambition_sandbox/src/content/features/components.rs
++++ b/crates/ambition_sandbox/src/content/features/components.rs
+@@ -855,7 +855,7 @@ impl BossRewardChest {
+ #[derive(Bundle)]
+ pub struct FeatureLifecycleBundle {
+     pub sim_entity: FeatureSimEntity,
+-    pub room_scoped: crate::presentation::rendering::RoomScopedEntity,
++    pub room_scoped: crate::platformer_runtime::lifecycle::RoomScopedEntity,
+     pub id: FeatureId,
+     pub name: FeatureName,
+     pub aabb: FeatureAabb,
+@@ -865,7 +865,7 @@ impl FeatureLifecycleBundle {
+     pub fn new(id: impl Into<String>, name: impl Into<String>, aabb: FeatureAabb) -> Self {
+         Self {
+             sim_entity: FeatureSimEntity,
+-            room_scoped: crate::presentation::rendering::RoomScopedEntity,
++            room_scoped: crate::platformer_runtime::lifecycle::RoomScopedEntity,
+             id: FeatureId(id.into()),
+             name: FeatureName(name.into()),
+             aabb,
+diff --git a/crates/ambition_sandbox/src/content/features/ecs/spawn_static.rs b/crates/ambition_sandbox/src/content/features/ecs/spawn_static.rs
+index e635de0..0129408 100644
+--- a/crates/ambition_sandbox/src/content/features/ecs/spawn_static.rs
++++ b/crates/ambition_sandbox/src/content/features/ecs/spawn_static.rs
+@@ -4,7 +4,7 @@
+ //! feature remains "add a RoomSpec Vec + add one loop in spawn.rs".
+ 
+ use super::*;
+-use crate::presentation::rendering::RoomScopedEntity;
++use crate::platformer_runtime::prelude::SpawnScopedExt;
+ use bevy::prelude::Name;
+ 
+ pub(super) fn spawn_hazard(
+@@ -19,7 +19,7 @@ pub(super) fn spawn_hazard(
+         authored.payload.clone(),
+         paths,
+     );
+-    commands.spawn((
++    commands.spawn_room_scoped((
+         Name::new(format!("Feature hazard: {}", authored.name)),
+         FeatureSimEntity,
+         RoomVisual,
+@@ -35,7 +35,7 @@ pub(super) fn spawn_pickup(
+     authored: &crate::rooms::Authored<crate::interaction::Pickup>,
+ ) {
+     let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
+-    commands.spawn((
++    commands.spawn_room_scoped((
+         Name::new(format!("Feature pickup: {}", authored.name)),
+         PickupBundle::new(
+             &authored.id,
+@@ -53,9 +53,8 @@ pub(super) fn spawn_ground_item(commands: &mut Commands, spec: &crate::rooms::Gr
+     let Some(held) = crate::brain::held_item_by_id(&spec.held_item) else {
+         return;
+     };
+-    commands.spawn((
++    commands.spawn_room_scoped((
+         Name::new(format!("Ground item: {}", spec.name)),
+-        RoomScopedEntity,
+         crate::item_pickup::GroundItem {
+             spec: held,
+             pos: spec.pos,
+@@ -69,9 +68,8 @@ pub(super) fn spawn_portal_gun_spawn(
+     commands: &mut Commands,
+     spec: &crate::rooms::PortalGunSpawnSpec,
+ ) {
+-    commands.spawn((
++    commands.spawn_room_scoped((
+         Name::new(format!("Portal gun pickup: {}", spec.name)),
+-        RoomScopedEntity,
+         crate::portal::PortalGunPickup {
+             pos: spec.pos,
+             half_extent: spec.half_extent,
+@@ -85,7 +83,7 @@ pub(super) fn spawn_portal(commands: &mut Commands, spec: &crate::rooms::PortalS
+     // Authored static portal: the same `Portal` component the gun fires, but
+     // pre-placed and color-paired. Room-scoped so a transition despawns it and
+     // the loader re-spawns it; never gun-owned, so it persists without a gun.
+-    commands.spawn((
++    commands.spawn_room_scoped((
+         Name::new(format!("Portal ({}): {}", spec.color.name(), spec.name)),
+         crate::portal::Portal {
+             color: spec.color,
+@@ -93,14 +91,12 @@ pub(super) fn spawn_portal(commands: &mut Commands, spec: &crate::rooms::PortalS
+             normal: spec.normal,
+             half_extent: crate::portal::portal_half_extent(spec.normal),
+         },
+-        crate::presentation::rendering::RoomScopedEntity,
+     ));
+ }
+ 
+ pub(super) fn spawn_shrine(commands: &mut Commands, spec: &crate::rooms::ShrineSpec) {
+-    commands.spawn((
++    commands.spawn_room_scoped((
+         Name::new(format!("Heal/save shrine: {}", spec.name)),
+-        RoomScopedEntity,
+         crate::shrine::HealShrine {
+             pos: spec.pos,
+             half_extent: spec.half_extent,
+@@ -109,9 +105,8 @@ pub(super) fn spawn_shrine(commands: &mut Commands, spec: &crate::rooms::ShrineS
+ }
+ 
+ pub(super) fn spawn_gravity_zone(commands: &mut Commands, spec: &crate::rooms::GravityZoneSpec) {
+-    let mut entity = commands.spawn((
++    let mut entity = commands.spawn_room_scoped((
+         Name::new(format!("Gravity zone: {}", spec.name)),
+-        RoomScopedEntity,
+         crate::physics::GravityZone {
+             aabb: crate::engine_core::Aabb::new(spec.center, spec.half_extent),
+             dir: spec.dir,
+@@ -135,7 +130,7 @@ pub(super) fn spawn_chest(
+     authored: &crate::rooms::Authored<crate::interaction::Chest>,
+ ) {
+     let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
+-    commands.spawn((
++    commands.spawn_room_scoped((
+         Name::new(format!("Feature chest: {}", authored.name)),
+         ChestBundle::new(
+             &authored.id,
+@@ -152,7 +147,7 @@ pub(super) fn spawn_breakable(
+ ) {
+     let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
+     let breakable = &authored.payload;
+-    let mut entity = commands.spawn((
++    let mut entity = commands.spawn_room_scoped((
+         Name::new(format!("Feature breakable: {}", authored.name)),
+         FeatureSimEntity,
+         RoomVisual,
+diff --git a/crates/ambition_sandbox/src/item_pickup.rs b/crates/ambition_sandbox/src/item_pickup.rs
+index 458344c..8b73e19 100644
+--- a/crates/ambition_sandbox/src/item_pickup.rs
++++ b/crates/ambition_sandbox/src/item_pickup.rs
+@@ -22,9 +22,87 @@ use crate::brain::{ActionSet, HeldItemSpec, HeldUseBehavior, MeleeActionSpec, Sw
+ use crate::engine_core::{self as ae, AabbExt};
+ use crate::features::HeldItem;
+ use crate::input::ControlFrame;
++use crate::platformer_runtime::prelude::SpawnScopedExt;
+ use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
+ use crate::portal::PortalGun;
+ 
++
++/// Module-local plugin for held-item, pickup, thrown-item, and wielded-item
++/// simulation systems.
++///
++/// The app installs this plugin, but the item module owns the registration and
++/// ordering details for item behavior.
++pub struct ItemPickupSimulationPlugin;
++
++impl Plugin for ItemPickupSimulationPlugin {
++    fn build(&self, app: &mut App) {
++        app.add_systems(
++            Update,
++            (
++                // Held-items, the portal gun, the heal/save shrine, and localized
++                // gravity zones are LDtk-authored room entities.
++                crate::shrine::heal_save_shrine_system.run_if(crate::gameplay_allowed),
++                // Resolve the live GravityField from zones + ambient after the
++                // FlipGravity switch and before ground_item_physics reads it.
++                crate::physics::resolve_active_gravity,
++                crate::portal::arm_portal_pickups,
++                pickup_held_item_system.run_if(crate::gameplay_allowed),
++                fire_held_ranged_system.run_if(crate::gameplay_allowed),
++                held_projectile_step.run_if(crate::gameplay_allowed),
++                crate::puppy_slug_gun::fire_puppy_slug_gun_system.run_if(crate::gameplay_allowed),
++                throw_held_item_system.run_if(crate::gameplay_allowed),
++                ground_item_physics.run_if(crate::gameplay_allowed),
++                // After portal_fire (registered by PortalSimulationPlugin) so
++                // picking up the gun does not also fire on the same Attack press.
++                crate::portal::pickup_portal_gun_system.run_if(crate::gameplay_allowed),
++            )
++                .chain()
++                .in_set(crate::app::SandboxSet::PlayerSimulation),
++        );
++
++        // Bombs and gravity grenades run after the held-item throw/physics group.
++        app.add_systems(
++            Update,
++            (
++                crate::bomb::arm_thrown_bombs.run_if(crate::gameplay_allowed),
++                crate::bomb::tick_bomb_fuses.run_if(crate::gameplay_allowed),
++                crate::gravity_grenade::arm_thrown_gravity_grenades
++                    .run_if(crate::gameplay_allowed),
++                crate::gravity_grenade::tick_gravity_grenade_fuses
++                    .run_if(crate::gameplay_allowed),
++                crate::physics::tick_temporary_zones.run_if(crate::gameplay_allowed),
++            )
++                .chain()
++                .in_set(crate::app::SandboxSet::PlayerSimulation)
++                .after(ground_item_physics),
++        );
++
++        // Wielded movement/combat items live in their own group to avoid the
++        // chained tuple arity cap in the core held-item group.
++        app.add_systems(
++            Update,
++            (
++                crate::mark_recall::mark_recall_system.run_if(crate::gameplay_allowed),
++                crate::blink::blink_system.run_if(crate::gameplay_allowed),
++                crate::grapple::grapple_system.run_if(crate::gameplay_allowed),
++                crate::shockwave::fire_shockwave_system.run_if(crate::gameplay_allowed),
++                crate::volley::fire_volley_system.run_if(crate::gameplay_allowed),
++                crate::beam::fire_beam_system.run_if(crate::gameplay_allowed),
++                crate::vortex::fire_vortex_system.run_if(crate::gameplay_allowed),
++                crate::vortex::update_vortex_wells.run_if(crate::gameplay_allowed),
++                crate::sentry::fire_sentry_system.run_if(crate::gameplay_allowed),
++                crate::sentry::update_sentries.run_if(crate::gameplay_allowed),
++                crate::dive::fire_dive_system.run_if(crate::gameplay_allowed),
++                crate::meteor::fire_meteor_system.run_if(crate::gameplay_allowed),
++                crate::ability_cooldown::tick_ability_cooldown,
++            )
++                .chain()
++                .in_set(crate::app::SandboxSet::PlayerSimulation)
++                .after(ground_item_physics),
++        );
++    }
++}
++
+ const PICKUP_HALF: f32 = 18.0;
+ const THROW_AHEAD: f32 = 48.0;
+ 
+@@ -282,7 +360,7 @@ pub fn throw_held_item_system(
+     let throw_pos = kin.pos + Vec2::new(facing * THROW_AHEAD, 0.0);
+     commands.entity(player).remove::<HeldItem>();
+     commands.entity(player).remove::<StashedActionSet>();
+-    commands.spawn((
++    commands.spawn_room_scoped((
+         GroundItem {
+             spec,
+             pos: throw_pos,
+@@ -291,7 +369,6 @@ pub fn throw_held_item_system(
+             half_extent: Vec2::splat(PICKUP_HALF),
+         },
+         Name::new("Ground item: thrown"),
+-        crate::presentation::rendering::RoomScopedEntity,
+     ));
+ }
+ 
+@@ -425,7 +502,7 @@ pub fn fire_held_ranged_system(
+     } else {
+         0.0
+     };
+-    commands.spawn((
++    commands.spawn_room_scoped((
+         HeldProjectile {
+             pos: origin,
+             vel: dir * ranged.speed(),
+@@ -434,7 +511,6 @@ pub fn fire_held_ranged_system(
+             explode_half,
+         },
+         Name::new("Held ranged shot"),
+-        crate::presentation::rendering::RoomScopedEntity,
+     ));
+     // A Fireball whooshes out (reusing the dash whoosh) rather than the gun-sword
+     // laser zap, so it doesn't *sound* like a sword either; a bespoke ignite SFX
+diff --git a/crates/ambition_sandbox/src/lib.rs b/crates/ambition_sandbox/src/lib.rs
+index 4d2d76e..d6f25ed 100644
+--- a/crates/ambition_sandbox/src/lib.rs
++++ b/crates/ambition_sandbox/src/lib.rs
+@@ -36,6 +36,7 @@ pub mod input;
+ pub mod interaction;
+ pub mod kinematic;
+ pub mod player;
++pub mod platformer_runtime;
+ pub mod quest;
+ #[cfg(feature = "rl_sim")]
+ pub mod rl_sim;
+diff --git a/crates/ambition_sandbox/src/platformer_runtime/lifecycle/cleanup.rs b/crates/ambition_sandbox/src/platformer_runtime/lifecycle/cleanup.rs
+new file mode 100644
+index 0000000..3b92d26
+--- /dev/null
++++ b/crates/ambition_sandbox/src/platformer_runtime/lifecycle/cleanup.rs
+@@ -0,0 +1,10 @@
++use bevy::prelude::*;
++
++/// Despawn a scoped entity without encoding the scope in the caller.
++///
++/// This small helper gives cleanup call sites a runtime-owned verb to grow from.
++/// Presentation/physics adapters can still wrap it when they need extra teardown
++/// before despawning a room-scoped entity.
++pub fn despawn_scoped_entity(commands: &mut Commands, entity: Entity) {
++    commands.entity(entity).despawn();
++}
+diff --git a/crates/ambition_sandbox/src/platformer_runtime/lifecycle/markers.rs b/crates/ambition_sandbox/src/platformer_runtime/lifecycle/markers.rs
+new file mode 100644
+index 0000000..9c850dd
+--- /dev/null
++++ b/crates/ambition_sandbox/src/platformer_runtime/lifecycle/markers.rs
+@@ -0,0 +1,24 @@
++use bevy::prelude::*;
++
++/// Lifetime-scope marker: despawn when the current authored room is unloaded.
++///
++/// This marker is deliberately runtime-owned so simulation-only entities and
++/// rendered room visuals can share the same lifecycle policy without depending
++/// on presentation modules.
++#[derive(Component, Default)]
++pub struct RoomScopedEntity;
++
++/// Lifetime-scope marker: despawn when the current gameplay run/session ends,
++/// but survive room transitions.
++///
++/// No cleanup pass consumes this marker yet; it establishes the vocabulary for
++/// the refactor branch that splits sandbox reset, run reset, and room unload.
++#[derive(Component, Default)]
++pub struct RunScopedEntity;
++
++/// Explicit marker for entities that intentionally survive room and run resets.
++///
++/// This is mostly documentation in ECS form. Use `spawn_persistent` when a raw
++/// `commands.spawn` would make lifecycle intent unclear.
++#[derive(Component, Default)]
++pub struct PersistentEntity;
+diff --git a/crates/ambition_sandbox/src/platformer_runtime/lifecycle/mod.rs b/crates/ambition_sandbox/src/platformer_runtime/lifecycle/mod.rs
+new file mode 100644
+index 0000000..138fe43
+--- /dev/null
++++ b/crates/ambition_sandbox/src/platformer_runtime/lifecycle/mod.rs
+@@ -0,0 +1,15 @@
++//! Lifecycle vocabulary for entities spawned by reusable platformer systems.
++//!
++//! The public API is the helper verb (`spawn_room_scoped`,
++//! `spawn_run_scoped`, `spawn_persistent`) rather than the marker component
++//! convention. Marker components remain public because existing cleanup queries
++//! and tests need to name them, but new spawn sites should prefer
++//! [`SpawnScopedExt`].
++
++mod cleanup;
++mod markers;
++mod spawn_ext;
++
++pub use cleanup::despawn_scoped_entity;
++pub use markers::{PersistentEntity, RoomScopedEntity, RunScopedEntity};
++pub use spawn_ext::SpawnScopedExt;
+diff --git a/crates/ambition_sandbox/src/platformer_runtime/lifecycle/spawn_ext.rs b/crates/ambition_sandbox/src/platformer_runtime/lifecycle/spawn_ext.rs
+new file mode 100644
+index 0000000..9f92c19
+--- /dev/null
++++ b/crates/ambition_sandbox/src/platformer_runtime/lifecycle/spawn_ext.rs
+@@ -0,0 +1,36 @@
++use bevy::prelude::*;
++
++use super::{PersistentEntity, RoomScopedEntity, RunScopedEntity};
++
++/// Spawn helpers that make entity lifecycle policy part of the call site.
++pub trait SpawnScopedExt {
++    /// Spawn an entity whose lifetime is scoped to the active authored room.
++    fn spawn_room_scoped<B: Bundle>(&mut self, bundle: B) -> EntityCommands<'_>;
++
++    /// Spawn an entity whose lifetime is scoped to the active gameplay run.
++    fn spawn_run_scoped<B: Bundle>(&mut self, bundle: B) -> EntityCommands<'_>;
++
++    /// Spawn an entity that intentionally survives room and run lifecycle
++    /// cleanup. Prefer this over raw `spawn` when persistence is a design fact.
++    fn spawn_persistent<B: Bundle>(&mut self, bundle: B) -> EntityCommands<'_>;
++}
++
++impl<'w, 's> SpawnScopedExt for Commands<'w, 's> {
++    fn spawn_room_scoped<B: Bundle>(&mut self, bundle: B) -> EntityCommands<'_> {
++        let mut entity = self.spawn(bundle);
++        entity.insert(RoomScopedEntity);
++        entity
++    }
++
++    fn spawn_run_scoped<B: Bundle>(&mut self, bundle: B) -> EntityCommands<'_> {
++        let mut entity = self.spawn(bundle);
++        entity.insert(RunScopedEntity);
++        entity
++    }
++
++    fn spawn_persistent<B: Bundle>(&mut self, bundle: B) -> EntityCommands<'_> {
++        let mut entity = self.spawn(bundle);
++        entity.insert(PersistentEntity);
++        entity
++    }
++}
+diff --git a/crates/ambition_sandbox/src/platformer_runtime/mod.rs b/crates/ambition_sandbox/src/platformer_runtime/mod.rs
+new file mode 100644
+index 0000000..ffc3377
+--- /dev/null
++++ b/crates/ambition_sandbox/src/platformer_runtime/mod.rs
+@@ -0,0 +1,11 @@
++//! Proto-runtime module for reusable platformer systems.
++//!
++//! This is intentionally still inside `ambition_sandbox` while the plugin
++//! refactor is carving stable same-crate boundaries. Code in this subtree
++//! should be written as if it were already a future `platformer_runtime` crate:
++//! no imports from Ambition content, presentation, app assembly, or devtool
++//! modules.
++
++pub mod lifecycle;
++pub mod prelude;
++pub mod schedule;
+diff --git a/crates/ambition_sandbox/src/platformer_runtime/prelude.rs b/crates/ambition_sandbox/src/platformer_runtime/prelude.rs
+new file mode 100644
+index 0000000..70f7ef7
+--- /dev/null
++++ b/crates/ambition_sandbox/src/platformer_runtime/prelude.rs
+@@ -0,0 +1,6 @@
++//! Convenience imports for proto-runtime call sites.
++
++pub use super::lifecycle::{
++    despawn_scoped_entity, PersistentEntity, RoomScopedEntity, RunScopedEntity, SpawnScopedExt,
++};
++pub use super::schedule::PlatformerRuntimeSet;
+diff --git a/crates/ambition_sandbox/src/platformer_runtime/schedule.rs b/crates/ambition_sandbox/src/platformer_runtime/schedule.rs
+new file mode 100644
+index 0000000..caa6546
+--- /dev/null
++++ b/crates/ambition_sandbox/src/platformer_runtime/schedule.rs
+@@ -0,0 +1,24 @@
++//! Runtime schedule vocabulary that is independent of Ambition content.
++//!
++//! `SandboxSet` remains the concrete app schedule for now. These labels document
++//! the future crate-level concepts and give new runtime modules names that do
++//! not depend on app assembly details.
++
++use bevy::prelude::*;
++
++/// Generic platformer runtime phases.
++#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
++pub enum PlatformerRuntimeSet {
++    /// Build or refresh world-derived runtime inputs before actors tick.
++    WorldPrep,
++    /// Translate input/control intent into actor control frames.
++    ControlInput,
++    /// Integrate actors, held items, projectiles, and other gameplay bodies.
++    ActorSimulation,
++    /// Handle room unload/load, room-scoped cleanup, and authored room respawn.
++    RoomLifecycle,
++    /// Resolve damage, hitboxes, combat intents, and gameplay consequences.
++    Combat,
++    /// Publish simulation state to presentation-facing mirrors/caches.
++    PresentationSync,
++}
+diff --git a/crates/ambition_sandbox/src/portal.rs b/crates/ambition_sandbox/src/portal.rs
+index fb4c6ed..030d492 100644
+--- a/crates/ambition_sandbox/src/portal.rs
++++ b/crates/ambition_sandbox/src/portal.rs
+@@ -24,12 +24,105 @@ use bevy::prelude::*;
+ use crate::brain::ActionSet;
+ use crate::engine_core::{self as ae, AabbExt};
+ use crate::input::ControlFrame;
++use crate::platformer_runtime::prelude::SpawnScopedExt;
+ use crate::item_pickup::StashedActionSet;
+ use crate::physics::{gravity_upright_angle, GravityField, GravityZone};
+ use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
+ use crate::portal_pieces::{self as pp, PortalFrame};
+ use crate::GameWorld;
+ 
++
++/// Module-local plugin for portal simulation systems and resources.
++///
++/// This keeps portal-owned scheduling with the portal mechanic instead of
++/// growing `app/plugins.rs` as a central registry. App assembly still decides
++/// whether to install the plugin.
++pub struct PortalSimulationPlugin;
++
++impl Plugin for PortalSimulationPlugin {
++    fn build(&self, app: &mut App) {
++        app.init_resource::<IntentionalTeleport>();
++        app.init_resource::<SuppressWallAbilitiesInPortal>();
++        app.init_resource::<crate::physics::GravityField>();
++        app.init_resource::<crate::physics::BaseGravity>();
++        app.init_resource::<crate::physics::GravityZones>();
++
++        // Snapshot all gravity zones once per frame BEFORE actor integrators read
++        // them, so every body can resolve local gravity by position.
++        app.add_systems(
++            Update,
++            (
++                crate::physics::oscillate_gravity_zones,
++                crate::physics::collect_gravity_zones,
++                publish_portal_carves,
++            )
++                .chain()
++                .before(crate::app::SandboxSet::CoreSimulation),
++        );
++
++        app.add_systems(
++            Update,
++            warp_portal_input
++                .in_set(crate::app::SandboxSet::PlayerInput)
++                .after(crate::app::interaction_input_system)
++                .before(crate::player::sync_local_player_input_frame)
++                .run_if(crate::gameplay_allowed),
++        );
++
++        app.add_systems(
++            Update,
++            (
++                drop_portal_gun_system.run_if(crate::gameplay_allowed),
++                portal_toggle_system.run_if(crate::gameplay_allowed),
++                portal_fire_system.run_if(crate::gameplay_allowed),
++                portal_projectile_step.run_if(crate::gameplay_allowed),
++                // Portals must not outlive their gun (the "destroyed" case).
++                despawn_orphaned_portals,
++                // Make sure the player can carry an aerial roll through portals.
++                ensure_actor_roll,
++            )
++                .chain()
++                .in_set(crate::app::SandboxSet::PlayerSimulation),
++        );
++
++        app.add_systems(
++            Update,
++            (clear_portals_on_reset, reset_gravity_on_room_reset)
++                .chain()
++                .in_set(crate::app::SandboxSet::RoomTransition)
++                .after(crate::boss_encounter::reset_cut_rope_boss_arena_on_room_reset),
++        );
++
++        // Suppress ledge-grab while transiting so the carved aperture edges are
++        // not grabbed before movement integration probes for a ledge.
++        app.add_systems(
++            Update,
++            suppress_ledge_grab_during_transit
++                .in_set(crate::app::SandboxSet::PlayerSimulation)
++                .before(crate::app::player_simulation_system)
++                .run_if(crate::gameplay_allowed),
++        );
++
++        // Teleports run after player and ground-item integration so this frame's
++        // integrated body positions are what cross the portal.
++        app.add_systems(
++            Update,
++            (
++                tick_portal_cooldowns,
++                portal_transit_system,
++                portal_teleport_ground_items,
++                portal_transit_actors,
++                update_actor_roll,
++            )
++                .chain()
++                .in_set(crate::app::SandboxSet::PlayerSimulation)
++                .after(crate::app::player_simulation_system)
++                .after(crate::item_pickup::ground_item_physics)
++                .run_if(crate::gameplay_allowed),
++        );
++    }
++}
++
+ /// A portal's color. Portals are linked into PAIRS by complementary color (one
+ /// of each), so several independent pairs can exist at once: the gun fires the
+ /// **Blue↔Orange** pair, and authored test rooms place other pairs
+@@ -458,7 +551,7 @@ pub fn drop_portal_gun_system(
+     }
+     commands.entity(player).remove::<StashedActionSet>();
+     let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
+-    commands.spawn((
++    commands.spawn_room_scoped((
+         PortalGunPickup {
+             // Drop it a bit ahead and arm it after a short delay so this same
+             // Attack press (and the immediately-overlapping next frame) can't
+@@ -468,7 +561,6 @@ pub fn drop_portal_gun_system(
+             arm_timer: 0.35,
+         },
+         Name::new("Portal gun pickup"),
+-        crate::presentation::rendering::RoomScopedEntity,
+     ));
+     sfx.write(crate::audio::SfxMessage::Play {
+         id: ambition_sfx::ids::PORTAL_FIZZLE,
+@@ -616,7 +708,7 @@ pub fn portal_fire_system(
+         id: ambition_sfx::ids::PORTAL_TRAVEL,
+         pos: kin.pos,
+     });
+-    commands.spawn((
++    commands.spawn_room_scoped((
+         PortalProjectile {
+             color: gun.next_color,
+             pos: kin.pos,
+@@ -624,7 +716,6 @@ pub fn portal_fire_system(
+             traveled: 0.0,
+         },
+         Name::new("Portal shot"),
+-        crate::presentation::rendering::RoomScopedEntity,
+     ));
+ }
+ 
+@@ -655,7 +746,7 @@ pub fn portal_projectile_step(
+                     });
+                 }
+             }
+-            commands.spawn((
++            commands.spawn_room_scoped((
+                 Portal {
+                     color: proj.color,
+                     pos: hit + normal * 2.0,
+@@ -665,7 +756,6 @@ pub fn portal_projectile_step(
+                 Name::new(format!("Portal: {}", proj.color.name())),
+                 // Portals are per-room: a room transition despawns them, so they
+                 // don't linger and reappear when you leave and come back (#41).
+-                crate::presentation::rendering::RoomScopedEntity,
+             ));
+             sfx.write(crate::audio::SfxMessage::Play {
+                 id: ambition_sfx::ids::PORTAL_ATTACH,
+@@ -3325,7 +3415,7 @@ mod tests {
+         let scoped = {
+             let mut q = app.world_mut().query_filtered::<(), (
+                 With<Portal>,
+-                With<crate::presentation::rendering::RoomScopedEntity>,
++                With<crate::platformer_runtime::lifecycle::RoomScopedEntity>,
+             )>();
+             q.iter(app.world()).count()
+         };
+diff --git a/crates/ambition_sandbox/src/presentation/rendering/primitives.rs b/crates/ambition_sandbox/src/presentation/rendering/primitives.rs
+index ab2937b..7b7f0a4 100644
+--- a/crates/ambition_sandbox/src/presentation/rendering/primitives.rs
++++ b/crates/ambition_sandbox/src/presentation/rendering/primitives.rs
+@@ -7,6 +7,8 @@ use bevy::prelude::*;
+ use crate::config::{world_to_bevy, WORLD_Z_BLOCK, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
+ use crate::features::FeatureVisualKind;
+ 
++pub use crate::platformer_runtime::lifecycle::RoomScopedEntity;
++
+ #[derive(Resource)]
+ pub struct SceneEntities {
+     pub player: Entity,
+@@ -45,19 +47,9 @@ pub struct HudText;
+ #[derive(Component)]
+ pub struct QuestPanelText;
+ 
+-/// Lifetime-scope marker: tags an entity as "lifetime is scoped to
+-/// the current room." The room-load and sandbox-reset paths despawn
+-/// every `RoomScopedEntity` (with optional `PhysicsRoomEntity`
+-/// teardown) before swapping in the new room's entities.
+-///
+-/// Separate from [`RoomVisual`] so simulation-only entities (e.g.
+-/// future headless-mode features, AI scratch entities) can share the
+-/// room lifecycle without being treated as rendered visuals by the
+-/// presentation sync systems. Every `RoomVisual` automatically pulls
+-/// in a `RoomScopedEntity` via `#[require]`, so existing spawn sites
+-/// keep their lifecycle behavior unchanged.
+-#[derive(Component, Default)]
+-pub struct RoomScopedEntity;
++// Runtime-owned lifetime-scope marker. Re-exported here for compatibility with
++// existing presentation and reset call sites while the marker's canonical home
++// moves to `crate::platformer_runtime::lifecycle`.
+ 
+ /// Rendering marker: tags an entity as "rendered as part of the
+ /// current room." Presentation systems (`sync_visuals`,
+diff --git a/crates/ambition_sandbox/src/runtime/reset.rs b/crates/ambition_sandbox/src/runtime/reset.rs
+index 79c6e71..7ab6d91 100644
+--- a/crates/ambition_sandbox/src/runtime/reset.rs
++++ b/crates/ambition_sandbox/src/runtime/reset.rs
+@@ -57,7 +57,8 @@ use crate::boss_encounter::BossEncounterRegistry;
+ use crate::content::quest::QuestRegistry;
+ use crate::encounter::{EncounterMusicRequest, EncounterRegistry};
+ use crate::persistence::save::SandboxSave;
+-use crate::presentation::rendering::{spawn_room_visuals, RoomScopedEntity};
++use crate::platformer_runtime::lifecycle::RoomScopedEntity;
++use crate::presentation::rendering::spawn_room_visuals;
+ use crate::rooms::RoomSet;
+ use crate::world::physics;
+ use crate::world::platforms;

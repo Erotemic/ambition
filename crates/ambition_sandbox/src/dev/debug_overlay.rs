@@ -89,7 +89,7 @@ pub fn draw_debug_overlay(
         crate::player::PrimaryPlayerOnly,
     >,
     feature_q: FeatureDebugQueries,
-    portals: Query<&crate::portal::Portal>,
+    portals: Query<&crate::portal::PlacedPortal>,
 ) {
     if !dev_state.debug_enabled() || !developer_tools.gizmos_enabled {
         return;
@@ -217,7 +217,7 @@ fn draw_held_projectiles<'a>(
 fn draw_portals<'a>(
     gizmos: &mut Gizmos,
     world: &ae::World,
-    portals: impl Iterator<Item = &'a crate::portal::Portal>,
+    portals: impl Iterator<Item = &'a crate::portal::PlacedPortal>,
 ) {
     for portal in portals {
         let color = portal.color.display().0.with_alpha(0.95);

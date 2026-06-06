@@ -17,6 +17,6 @@ pub enum PortalSet {
     RoomReset,
     /// Temporary ability suppression while crossing a portal aperture.
     TransitGuards,
-    /// Portal cooldown, body transit, item transit, and actor roll updates.
+    /// PlacedPortal cooldown, body transit, item transit, and actor roll updates.
     Transit,
 }

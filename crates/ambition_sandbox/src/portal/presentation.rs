@@ -18,9 +18,9 @@ use super::gun::PortalGun;
 use super::lifecycle::GravityFlipSwitch;
 use super::pickup::PortalGunPickup;
 use super::placement::{pick_aim, portal_facing_flips, somersault_roll};
-use super::shot::PortalProjectile;
+use super::shot::PortalShot;
 use super::transit::{PortalInputWarp, PortalTransit};
-use super::types::{find_portal, Portal, PORTAL_VISUAL_THICKNESS};
+use super::types::{find_portal, PlacedPortal, PORTAL_VISUAL_THICKNESS};
 
 /// Marks the visual for a [`GravityZone`].
 #[derive(Component)]
@@ -78,7 +78,7 @@ pub fn sync_gravity_zone_visual(
     }
 }
 
-/// Marks a sprite entity that visualizes a [`Portal`]. Rebuilt each frame from
+/// Marks a sprite entity that visualizes a [`PlacedPortal`]. Rebuilt each frame from
 /// the sim portals, so it never drifts.
 #[derive(Component)]
 pub struct PortalVisual;
@@ -145,7 +145,7 @@ pub fn sync_portal_body_pieces(
     mut commands: Commands,
     world: Res<GameWorld>,
     pieces: Query<Entity, With<PortalBodyPiece>>,
-    portals: Query<&Portal>,
+    portals: Query<&PlacedPortal>,
     gravity: Option<Res<crate::physics::GravityField>>,
     mut player: Query<
         (
@@ -171,7 +171,7 @@ pub fn sync_portal_body_pieces(
     let Some(transit) = transit else {
         return;
     };
-    let all: Vec<Portal> = portals.iter().copied().collect();
+    let all: Vec<PlacedPortal> = portals.iter().copied().collect();
     let (Some(enter_portal), Some(exit_portal)) = (
         find_portal(&all, transit.straddling),
         find_portal(&all, transit.straddling.partner()),
@@ -358,9 +358,9 @@ pub fn sync_portal_visuals(
     world: Res<GameWorld>,
     art: Option<Res<PortalGunArt>>,
     visuals: Query<Entity, With<PortalVisual>>,
-    portals: Query<&Portal>,
+    portals: Query<&PlacedPortal>,
     pickups: Query<&PortalGunPickup>,
-    projectiles: Query<&PortalProjectile>,
+    projectiles: Query<&PortalShot>,
 ) {
     for entity in &visuals {
         commands.entity(entity).despawn();

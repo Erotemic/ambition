@@ -10,7 +10,7 @@ use super::color::PortalColor;
 /// One placed portal. The pair is linked implicitly by `color` (one Blue +
 /// one Orange exist at most).
 #[derive(Component, Clone, Copy, Debug)]
-pub struct Portal {
+pub struct PlacedPortal {
     pub color: PortalColor,
     /// World-space center (on the hit surface).
     pub pos: Vec2,
@@ -20,7 +20,7 @@ pub struct Portal {
     pub half_extent: Vec2,
 }
 
-impl Portal {
+impl PlacedPortal {
     /// The pure-geometry frame this portal presents to [`crate::portal_pieces`]
     /// (the Core invariant math: piece decomposition, carve, portal map).
     pub fn frame(&self) -> PortalFrame {
@@ -34,9 +34,9 @@ impl Portal {
 
 /// The placed portal of `color`, if any.
 pub(crate) fn find_portal<'a>(
-    portals: impl IntoIterator<Item = &'a Portal>,
+    portals: impl IntoIterator<Item = &'a PlacedPortal>,
     color: PortalColor,
-) -> Option<Portal> {
+) -> Option<PlacedPortal> {
     portals.into_iter().find(|p| p.color == color).copied()
 }
 
@@ -49,7 +49,7 @@ pub(crate) fn find_portal<'a>(
 pub(crate) const PORTAL_OPENING_HALF: f32 = 46.0;
 pub(crate) const PORTAL_THICKNESS_HALF: f32 = 9.0;
 pub(crate) const PORTAL_MAX_RANGE: f32 = 6000.0;
-/// Portal shot travel speed (px/s) — fast, but slow enough to see the streak.
+/// PlacedPortal shot travel speed (px/s) — fast, but slow enough to see the streak.
 pub(crate) const PORTAL_SHOT_SPEED: f32 = 1900.0;
 pub(crate) const TELEPORT_COOLDOWN_S: f32 = 0.25;
 /// Floor on exit speed so a slow walk into a portal still pops you out the
@@ -85,14 +85,8 @@ pub(crate) fn portal_exit_clearance(half_size: Vec2, exit_normal: Vec2) -> f32 {
     half_size.dot(exit_normal.abs()) + PORTAL_THICKNESS_HALF + 3.0
 }
 
-/// One-frame flag: set true the frame the player teleports through a portal,
-/// so the trace position-delta detector treats it as an *intentional* teleport
-/// and doesn't auto-dump. Read + cleared by the gameplay-trace system.
-#[derive(Resource, Default)]
-pub struct IntentionalTeleport(pub bool);
-
 /// Per-actor cooldown after a portal jump, so an actor that pops out of the
 /// exit doesn't immediately re-enter and ping-pong. Inserted on teleport and
 /// ticked down by [`super::transit::tick_portal_cooldowns`].
 #[derive(Component, Clone, Copy, Debug)]
-pub struct PortalCooldown(pub f32);
+pub struct PortalTransitCooldown(pub f32);

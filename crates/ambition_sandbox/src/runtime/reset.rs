@@ -233,8 +233,8 @@ pub fn clear_transient_on_sandbox_reset(
     transient: Query<
         Entity,
         Or<(
-            With<crate::portal::Portal>,
-            With<crate::portal::PortalProjectile>,
+            With<crate::portal::PlacedPortal>,
+            With<crate::portal::PortalShot>,
             With<crate::portal::PortalGunPickup>,
             With<crate::item_pickup::GroundItem>,
             With<crate::puppy_slug_gun::PuppySlugAlly>,

@@ -13,12 +13,23 @@ use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
 use crate::portal_pieces as pp;
 
 use super::color::PortalColor;
-use super::gun::PortalGun;
 use super::placement::{transit_step, TransitStep};
 use super::types::{
-    find_portal, portal_exit_clearance, IntentionalTeleport, Portal, PortalCooldown,
-    TELEPORT_COOLDOWN_S,
+    find_portal, portal_exit_clearance, PlacedPortal, PortalTransitCooldown, TELEPORT_COOLDOWN_S,
 };
+
+/// Semantic transit message: a body's authoritative position just snapped to a
+/// portal's exit (the centroid crossed). Replaces the old one-frame
+/// `IntentionalTeleport` resource flag — consumers (the gameplay trace
+/// position-delta detector) read this instead of polling a shared mutable flag,
+/// so portal transit no longer owns trace simulation state. Carries the
+/// teleported entity so a consumer can scope to a specific body (e.g. the
+/// primary player).
+#[derive(Message, Clone, Copy, Debug)]
+pub struct BodyTeleported {
+    /// The body whose position snapped to a portal exit this frame.
+    pub body: Entity,
+}
 
 /// Per-player transit state: the aperture latch / centroid-crossing machine
 /// that replaces "touch = teleport". A body is mid-transit while any part of it
@@ -43,12 +54,12 @@ pub struct PortalTransit {
 /// edges); gating the carve on active transit closes that. Pair-gated — a lone
 /// portal never carves.
 pub fn publish_portal_carves(
-    portals: Query<&Portal>,
+    portals: Query<&PlacedPortal>,
     transits: Query<&PortalTransit>,
     mut overlay: ResMut<crate::features::FeatureEcsWorldOverlay>,
 ) {
     overlay.portal_carves.clear();
-    let all: Vec<Portal> = portals.iter().copied().collect();
+    let all: Vec<PlacedPortal> = portals.iter().copied().collect();
     // Carve each portal a body is actively transiting (deduped), but only if its
     // pair partner is placed — a lone portal must never open a bottomless hole.
     let mut carved: Vec<PortalColor> = Vec::new();
@@ -120,51 +131,40 @@ pub fn suppress_ledge_grab_during_transit(
 /// shared [`transit_step`] machine: the body physically sinks into the carved
 /// opening (the movement integrator does that), transfers when the centroid
 /// crosses (carrying momentum + a somersault roll), and clears on trailing-edge
-/// out. The transfer's position snap is flagged as an intentional teleport so
-/// the trace detector doesn't auto-dump on it.
+/// out. The transfer's position snap emits a [`BodyTeleported`] message so the
+/// trace detector treats it as intentional and doesn't auto-dump on it.
+///
+/// Transiting an existing placed portal pair is INDEPENDENT of holding the
+/// [`PortalGun`](super::gun::PortalGun) — the gun creates/replaces portals, but once a pair exists any
+/// body crosses it (the authored test lab already proves this for gate pairs;
+/// here it extends to player-placed pairs). The anti-ping-pong cooldown lives on
+/// the BODY ([`PortalTransitCooldown`]), not on the gun.
 pub fn portal_transit_system(
-    time: Res<crate::WorldTime>,
     control: Option<Res<ControlFrame>>,
     mut commands: Commands,
     mut players: Query<
         (
             Entity,
             &mut PlayerKinematics,
-            // The gun is OPTIONAL: authored portals (the test lab) work without
-            // ever picking it up. It only carries the anti-ping-pong cooldown; a
-            // `PortalCooldown` component is the gun-less fallback latch.
-            Option<&mut PortalGun>,
             Option<&mut PortalTransit>,
             Option<&mut ActorRoll>,
-            Option<&PortalCooldown>,
+            Option<&PortalTransitCooldown>,
         ),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
-    portals: Query<&Portal>,
+    portals: Query<&PlacedPortal>,
     gravity: Option<Res<crate::physics::GravityField>>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
-    mut intentional: Option<ResMut<IntentionalTeleport>>,
+    mut teleported: MessageWriter<BodyTeleported>,
 ) {
-    // Default to "no teleport this frame"; set true below on a centroid transfer.
-    if let Some(flag) = intentional.as_deref_mut() {
-        flag.0 = false;
-    }
-    let dt = time.sim_dt();
-    let Ok((entity, mut kin, mut gun, mut transit, mut roll, cooldown)) = players.single_mut()
-    else {
+    let Ok((entity, mut kin, mut transit, mut roll, cooldown)) = players.single_mut() else {
         return;
     };
-    if let Some(gun) = gun.as_deref_mut() {
-        if gun.teleport_cooldown > 0.0 {
-            gun.teleport_cooldown = (gun.teleport_cooldown - dt).max(0.0);
-        }
-    }
-    // Latch from the gun (if held) OR the fallback `PortalCooldown` component.
-    let cooldown_now = gun
-        .as_deref()
-        .map_or(0.0, |g| g.teleport_cooldown)
-        .max(cooldown.map_or(0.0, |c| c.0));
-    let all: Vec<Portal> = portals.iter().copied().collect();
+    // The transit cooldown is a BODY latch (`PortalTransitCooldown`), ticked by
+    // `tick_portal_cooldowns`; gun-independent so a gun-less player can't
+    // ping-pong through an authored pair.
+    let cooldown_now = cooldown.map_or(0.0, |c| c.0);
+    let all: Vec<PlacedPortal> = portals.iter().copied().collect();
     let gravity_dir = gravity.map_or(Vec2::new(0.0, 1.0), |g| g.dir);
     let step = transit_step(
         kin.pos,
@@ -205,14 +205,11 @@ pub fn portal_transit_system(
             if let Some(roll) = roll.as_deref_mut() {
                 roll.angle += roll_delta;
             }
-            if let Some(gun) = gun.as_deref_mut() {
-                gun.teleport_cooldown = TELEPORT_COOLDOWN_S;
-            }
-            // Always set the component latch too, so a gun-less player can't
-            // ping-pong through an authored pair.
+            // Latch the body's transit cooldown so it can't ping-pong back
+            // through the pair it just crossed — gun-independent.
             commands
                 .entity(entity)
-                .insert(PortalCooldown(TELEPORT_COOLDOWN_S));
+                .insert(PortalTransitCooldown(TELEPORT_COOLDOWN_S));
             // Protect the emergence: for a short window the held input can't push
             // back INTO the exit wall (so physics carries the body out — Jon's
             // "don't let input cancel the portal emission").
@@ -239,9 +236,7 @@ pub fn portal_transit_system(
                 t.crossed = true;
                 t.straddling = exit_color;
             }
-            if let Some(flag) = intentional.as_deref_mut() {
-                flag.0 = true;
-            }
+            teleported.write(BodyTeleported { body: entity });
             sfx.write(crate::audio::SfxMessage::Play {
                 id: ambition_sfx::ids::PORTAL_EXIT,
                 pos: exit_pos,
@@ -357,7 +352,7 @@ pub fn warp_portal_input(
 /// ignored (only `vel != ZERO` items teleport), and a teleported item pops out
 /// clear of the exit portal so it doesn't immediately re-enter.
 pub fn portal_teleport_ground_items(
-    portals: Query<&Portal>,
+    portals: Query<&PlacedPortal>,
     mut items: Query<&mut crate::item_pickup::GroundItem>,
 ) {
     let blue = portals
@@ -388,11 +383,11 @@ pub fn portal_teleport_ground_items(
     }
 }
 
-/// Tick down (and clear) per-actor [`PortalCooldown`]s.
+/// Tick down (and clear) per-actor [`PortalTransitCooldown`]s.
 pub fn tick_portal_cooldowns(
     time: Res<crate::WorldTime>,
     mut commands: Commands,
-    mut cooldowns: Query<(Entity, &mut PortalCooldown)>,
+    mut cooldowns: Query<(Entity, &mut PortalTransitCooldown)>,
 ) {
     let dt = time.sim_dt();
     if dt <= 0.0 {
@@ -401,7 +396,7 @@ pub fn tick_portal_cooldowns(
     for (entity, mut cooldown) in &mut cooldowns {
         cooldown.0 -= dt;
         if cooldown.0 <= 0.0 {
-            commands.entity(entity).remove::<PortalCooldown>();
+            commands.entity(entity).remove::<PortalTransitCooldown>();
         }
     }
 }
@@ -410,24 +405,24 @@ pub fn tick_portal_cooldowns(
 /// pair, **size-gated** so only actors that fit the opening pass. Enemies / NPCs
 /// (`ActorKinematics`) carry their momentum through the rotation; bosses
 /// (`BossKinematics`, no velocity field) are repositioned out the exit. A short
-/// [`PortalCooldown`] after each jump prevents ping-pong.
+/// [`PortalTransitCooldown`] after each jump prevents ping-pong.
 /// Send EVERY non-player actor (enemies / NPCs via `ActorKinematics`, bosses via
 /// `BossKinematics`) through a portal with the SAME aperture / centroid-crossing
 /// machine the player uses ([`transit_step`]) — the unification: a goblin or a
 /// boss now sinks into the carved opening and transfers when its centroid
 /// crosses, carrying momentum + a somersault roll, instead of instant-popping
 /// out the far side. Size-gated (big bosses can't fit a small opening) and
-/// latched by [`PortalCooldown`] against ping-pong.
+/// latched by [`PortalTransitCooldown`] against ping-pong.
 pub fn portal_transit_actors(
     mut commands: Commands,
-    portals: Query<&Portal>,
+    portals: Query<&PlacedPortal>,
     mut actors: Query<
         (
             Entity,
             &mut crate::features::ActorKinematics,
             Option<&mut PortalTransit>,
             Option<&mut ActorRoll>,
-            Option<&PortalCooldown>,
+            Option<&PortalTransitCooldown>,
         ),
         // Exclude bosses so this query and the boss query below have disjoint
         // entity sets — both take `&mut ActorRoll` / `&mut PortalTransit`, so
@@ -439,12 +434,12 @@ pub fn portal_transit_actors(
         &mut crate::features::BossKinematics,
         Option<&mut PortalTransit>,
         Option<&mut ActorRoll>,
-        Option<&PortalCooldown>,
+        Option<&PortalTransitCooldown>,
     )>,
     gravity: Option<Res<crate::physics::GravityField>>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
-    let all: Vec<Portal> = portals.iter().copied().collect();
+    let all: Vec<PlacedPortal> = portals.iter().copied().collect();
     if all.is_empty() {
         return;
     }
@@ -500,7 +495,7 @@ pub fn portal_transit_actors(
 }
 
 /// Apply a [`TransitStep`] to a non-player actor: the ECS-side of the shared
-/// machine (insert / mutate / remove `PortalTransit`, latch `PortalCooldown`,
+/// machine (insert / mutate / remove `PortalTransit`, latch `PortalTransitCooldown`,
 /// move the body, somersault its roll, play sfx). `vel` is `None` for bodies
 /// without a velocity field (bosses).
 #[allow(clippy::too_many_arguments)]
@@ -551,7 +546,7 @@ fn apply_actor_transit(
             }
             commands
                 .entity(entity)
-                .insert(PortalCooldown(TELEPORT_COOLDOWN_S));
+                .insert(PortalTransitCooldown(TELEPORT_COOLDOWN_S));
             sfx.write(crate::audio::SfxMessage::Play {
                 id: ambition_sfx::ids::PORTAL_EXIT,
                 pos: exit_pos,

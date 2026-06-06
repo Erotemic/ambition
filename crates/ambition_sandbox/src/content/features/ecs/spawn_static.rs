@@ -85,7 +85,7 @@ pub(super) fn spawn_portal(commands: &mut Commands, spec: &crate::rooms::PortalS
     // the loader re-spawns it; never gun-owned, so it persists without a gun.
     commands.spawn_room_scoped((
         Name::new(format!("Portal ({}): {}", spec.color.name(), spec.name)),
-        crate::portal::Portal {
+        crate::portal::PlacedPortal {
             color: spec.color,
             pos: spec.pos,
             normal: spec.normal,

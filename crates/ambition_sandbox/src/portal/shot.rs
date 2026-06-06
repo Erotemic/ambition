@@ -1,4 +1,4 @@
-//! The in-flight [`PortalProjectile`]: firing a shot and stepping it until it
+//! The in-flight [`PortalShot`]: firing a shot and stepping it until it
 //! lands on a solid (opening a portal) or fizzles.
 
 use bevy::prelude::*;
@@ -12,13 +12,13 @@ use crate::GameWorld;
 use super::color::PortalColor;
 use super::gun::PortalGun;
 use super::placement::pick_aim;
-use super::types::{portal_half_extent, Portal, PORTAL_MAX_RANGE, PORTAL_SHOT_SPEED};
+use super::types::{portal_half_extent, PlacedPortal, PORTAL_MAX_RANGE, PORTAL_SHOT_SPEED};
 
 /// An in-flight portal shot streaking toward a surface. On contact with a
 /// solid it opens a portal of `color`; if it travels too far / leaves the
 /// world it fizzles.
 #[derive(Component, Clone, Copy, Debug)]
-pub struct PortalProjectile {
+pub struct PortalShot {
     pub color: PortalColor,
     pub pos: Vec2,
     pub vel: Vec2,
@@ -58,7 +58,7 @@ pub fn portal_fire_system(
         pos: kin.pos,
     });
     commands.spawn_room_scoped((
-        PortalProjectile {
+        PortalShot {
             color: gun.next_color,
             pos: kin.pos,
             vel: aim * PORTAL_SHOT_SPEED,
@@ -74,8 +74,8 @@ pub fn portal_projectile_step(
     time: Res<crate::WorldTime>,
     world: Res<GameWorld>,
     mut commands: Commands,
-    mut projectiles: Query<(Entity, &mut PortalProjectile)>,
-    portals: Query<(Entity, &Portal)>,
+    mut projectiles: Query<(Entity, &mut PortalShot)>,
+    portals: Query<(Entity, &PlacedPortal)>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     let dt = time.sim_dt();
@@ -96,7 +96,7 @@ pub fn portal_projectile_step(
                 }
             }
             commands.spawn_room_scoped((
-                Portal {
+                PlacedPortal {
                     color: proj.color,
                     pos: hit + normal * 2.0,
                     normal,

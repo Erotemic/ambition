@@ -181,7 +181,7 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             // switch state each frame. Empty by default; IntroPlugin
             // registers the intro_portal_zone → intro_portal_switch
             // hookup.
-            .insert_resource(crate::rooms::PortalRegistry::default())
+            .insert_resource(crate::rooms::GatePortalRegistry::default())
             // Intro story content plugin. Extends CutsceneLibrary +
             // RoomCutsceneBindings (always) and GameAssets.characters.npcs
             // (visible builds only — the sprite installer is a no-op in

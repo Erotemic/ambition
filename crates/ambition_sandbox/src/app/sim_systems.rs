@@ -14,7 +14,7 @@ use crate::dev::dev_tools::{self, EditableAbilitySet, EditableMovementTuning};
 use crate::features::{self, FeatureEcsWorldOverlay, GameplayBanner, HitEvent as FeatureHitEvent};
 use crate::input::ControlFrame;
 use crate::presentation::fx::VfxMessage;
-use crate::rooms::{LoadingZoneActivation, PortalRegistry, RoomSet, RoomTransitionRequested};
+use crate::rooms::{GatePortalRegistry, LoadingZoneActivation, RoomSet, RoomTransitionRequested};
 use crate::time::feel::SandboxFeelTuning;
 use crate::{
     GameWorld, MovingPlatformSet, PlayerDiedMessage, SafePositionContext, SandboxSimState,
@@ -359,7 +359,7 @@ pub fn apply_cut_rope_room_replay_request_system(
 pub fn detect_room_transition_system(
     room_set: Res<RoomSet>,
     sim_state: Res<SandboxSimState>,
-    portals: Res<PortalRegistry>,
+    portals: Res<GatePortalRegistry>,
     mut transition_writer: MessageWriter<RoomTransitionRequested>,
     mut player_q: Query<
         (

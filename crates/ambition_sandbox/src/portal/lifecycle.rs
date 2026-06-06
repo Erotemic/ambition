@@ -10,17 +10,17 @@ use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
 
 use super::gun::PortalGun;
 use super::pickup::PortalGunPickup;
-use super::shot::PortalProjectile;
-use super::types::Portal;
+use super::shot::PortalShot;
+use super::types::{PlacedPortal, PortalTransitCooldown};
 
-/// Despawn all portals when the room resets / transitions, and clear the
-/// gun's teleport cooldown — portals are per-room, so stale ones from a
-/// previous room must not linger and teleport the player unexpectedly.
+/// Despawn all portals when the room resets / transitions, and clear any body's
+/// transit cooldown — portals are per-room, so stale ones from a previous room
+/// must not linger and teleport the player unexpectedly.
 pub fn clear_portals_on_reset(
     mut commands: Commands,
     mut resets: MessageReader<crate::features::ResetRoomFeaturesEvent>,
-    portals: Query<Entity, With<Portal>>,
-    mut guns: Query<&mut PortalGun>,
+    portals: Query<Entity, With<PlacedPortal>>,
+    cooldowns: Query<Entity, With<PortalTransitCooldown>>,
 ) {
     if resets.read().next().is_none() {
         return;
@@ -28,8 +28,8 @@ pub fn clear_portals_on_reset(
     for entity in &portals {
         commands.entity(entity).despawn();
     }
-    for mut gun in &mut guns {
-        gun.teleport_cooldown = 0.0;
+    for entity in &cooldowns {
+        commands.entity(entity).remove::<PortalTransitCooldown>();
     }
 }
 
@@ -44,8 +44,8 @@ pub fn despawn_orphaned_portals(
     mut commands: Commands,
     guns: Query<(), With<PortalGun>>,
     pickups: Query<(), With<PortalGunPickup>>,
-    portals: Query<(Entity, &Portal)>,
-    shots: Query<Entity, With<PortalProjectile>>,
+    portals: Query<(Entity, &PlacedPortal)>,
+    shots: Query<Entity, With<PortalShot>>,
 ) {
     if !guns.is_empty() || !pickups.is_empty() {
         return;

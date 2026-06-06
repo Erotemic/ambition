@@ -587,8 +587,11 @@ pub struct PortalSpec {
     pub id: String,
     /// LDtk display name (editor-facing / entity naming only).
     pub name: String,
-    /// Portal color (its partner color is the linked exit).
-    pub color: crate::portal::PortalColor,
+    /// Authored channel color (its partner color is the linked exit). Authored
+    /// portals are never gun colors — only [`PortalChannelColor`] is authorable.
+    ///
+    /// [`PortalChannelColor`]: crate::portal::PortalChannelColor
+    pub color: crate::portal::PortalChannelColor,
     /// World-space center of the portal face (on the host surface).
     pub pos: ae::Vec2,
     /// Outward surface normal (axis-aligned), pointing into the room.

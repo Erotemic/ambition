@@ -51,7 +51,7 @@ pub fn despawn_orphaned_portals(
         return;
     }
     for (entity, portal) in &portals {
-        if portal.color.is_gun_pair() {
+        if portal.channel.is_gun_pair() {
             commands.entity(entity).despawn();
         }
     }

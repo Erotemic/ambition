@@ -855,7 +855,7 @@ fn convert_portal(
     // surface the portal sits on (up = floor, down = ceiling, left = right-wall,
     // right = left-wall — y is down in world space). The box center is the face.
     let color_str = field_string(entity, "color").unwrap_or_default();
-    let color = crate::portal::PortalColor::from_name(&color_str)
+    let color = crate::portal::PortalChannelColor::from_name(&color_str)
         .ok_or_else(|| format!("Portal '{name}' has unknown color '{color_str}'"))?;
     let normal = match field_string(entity, "normal").as_deref().map(str::trim) {
         Some("down") => ae::Vec2::new(0.0, 1.0),

@@ -12,7 +12,7 @@ use crate::platformer_runtime::transit::rotate_velocity_between_normals as porta
 use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
 use crate::portal_pieces as pp;
 
-use super::color::PortalColor;
+use super::color::PortalChannel;
 use super::placement::{transit_step, TransitStep};
 use super::types::{
     find_portal, portal_exit_clearance, PlacedPortal, PortalTransitCooldown, TELEPORT_COOLDOWN_S,
@@ -38,9 +38,9 @@ pub struct BodyTeleported {
 /// body fully clears the plane.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PortalTransit {
-    /// Color of the portal whose plane the body currently straddles — the entry
+    /// Channel of the portal whose plane the body currently straddles — the entry
     /// before the centroid crosses, the exit after.
-    pub straddling: PortalColor,
+    pub straddling: PortalChannel,
     /// True once the centroid crossed the entry plane (authoritative body now
     /// on the exit side).
     pub crossed: bool,
@@ -62,7 +62,7 @@ pub fn publish_portal_carves(
     let all: Vec<PlacedPortal> = portals.iter().copied().collect();
     // Carve each portal a body is actively transiting (deduped), but only if its
     // pair partner is placed — a lone portal must never open a bottomless hole.
-    let mut carved: Vec<PortalColor> = Vec::new();
+    let mut carved: Vec<PortalChannel> = Vec::new();
     for t in &transits {
         if carved.contains(&t.straddling) {
             continue;
@@ -177,9 +177,12 @@ pub fn portal_transit_system(
     );
     match step {
         TransitStep::Idle | TransitStep::Continue => {}
-        TransitStep::Begin { color, portal_pos } => {
+        TransitStep::Begin {
+            channel,
+            portal_pos,
+        } => {
             commands.entity(entity).insert(PortalTransit {
-                straddling: color,
+                straddling: channel,
                 crossed: false,
             });
             sfx.write(crate::audio::SfxMessage::Play {
@@ -194,7 +197,7 @@ pub fn portal_transit_system(
             facing_flip,
             enter_normal,
             exit_normal,
-            exit_color,
+            exit_channel,
             exit_pos,
         } => {
             kin.pos = pos;
@@ -234,7 +237,7 @@ pub fn portal_transit_system(
             }
             if let Some(t) = transit.as_deref_mut() {
                 t.crossed = true;
-                t.straddling = exit_color;
+                t.straddling = exit_channel;
             }
             teleported.write(BodyTeleported { body: entity });
             sfx.write(crate::audio::SfxMessage::Play {
@@ -355,13 +358,14 @@ pub fn portal_teleport_ground_items(
     portals: Query<&PlacedPortal>,
     mut items: Query<&mut crate::item_pickup::GroundItem>,
 ) {
+    use super::color::PortalGunColor;
     let blue = portals
         .iter()
-        .find(|p| p.color == PortalColor::Blue)
+        .find(|p| p.channel == PortalGunColor::Blue.channel())
         .copied();
     let orange = portals
         .iter()
-        .find(|p| p.color == PortalColor::Orange)
+        .find(|p| p.channel == PortalGunColor::Orange.channel())
         .copied();
     let (Some(blue), Some(orange)) = (blue, orange) else {
         return;
@@ -511,9 +515,12 @@ fn apply_actor_transit(
 ) {
     match step {
         TransitStep::Idle | TransitStep::Continue => {}
-        TransitStep::Begin { color, portal_pos } => {
+        TransitStep::Begin {
+            channel,
+            portal_pos,
+        } => {
             commands.entity(entity).insert(PortalTransit {
-                straddling: color,
+                straddling: channel,
                 crossed: false,
             });
             sfx.write(crate::audio::SfxMessage::Play {
@@ -527,7 +534,7 @@ fn apply_actor_transit(
             pos: new_pos,
             vel: new_vel,
             roll_delta,
-            exit_color,
+            exit_channel,
             exit_pos,
             ..
         } => {
@@ -542,7 +549,7 @@ fn apply_actor_transit(
             }
             if let Some(t) = transit {
                 t.crossed = true;
-                t.straddling = exit_color;
+                t.straddling = exit_channel;
             }
             commands
                 .entity(entity)

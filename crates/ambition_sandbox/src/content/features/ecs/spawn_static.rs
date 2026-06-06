@@ -88,7 +88,7 @@ pub(super) fn spawn_portal(commands: &mut Commands, spec: &crate::rooms::PortalS
     commands.spawn_room_scoped((
         Name::new(format!("Portal ({}): {}", spec.color.name(), spec.name)),
         crate::portal::PlacedPortal {
-            color: spec.color,
+            channel: spec.color.channel(),
             pos: spec.pos,
             normal: spec.normal,
             half_extent: crate::portal::portal_half_extent(spec.normal),

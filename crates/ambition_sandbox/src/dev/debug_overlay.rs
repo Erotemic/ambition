@@ -222,7 +222,7 @@ fn draw_portals<'a>(
     portals: impl Iterator<Item = &'a crate::portal::PlacedPortal>,
 ) {
     for portal in portals {
-        let color = portal.color.display().0.with_alpha(0.95);
+        let color = portal.channel.display().0.with_alpha(0.95);
         draw_aabb(
             gizmos,
             world,

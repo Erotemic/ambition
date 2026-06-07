@@ -22,10 +22,12 @@
 //! * **nav** ([`grid_menu_nav`]) — up/down/left/right move the focus cursor over
 //!   the active page's controls (Items = 6×4 grid, System = the row list);
 //!   `select` dispatches the focused control's action; `back` pops/closes.
-//! * **render** ([`grid_menu_republish_view`]) — each frame the active tab's
-//!   already-built [`MenuPageModel`] (from the shared `ActiveMenuPages`, which the
-//!   cube's `republish_kaleidoscope_pages` fills for BOTH backends) is rendered by
-//!   `spawn_bevy_ui_menu`. Re-render only when the model/tab/drill/cursor changes.
+//! * **render** ([`grid_menu_republish_view`]) — each frame the ACTIVE TAB's
+//!   [`MenuPageModel`] is built from the SAME backend-agnostic builder the cube uses
+//!   (`build_inventory_pages`) and rendered by `spawn_bevy_ui_menu` (the grid renders
+//!   its OWN tab, not the cube's `pages.active`). The cube's page-turn EDGE controls
+//!   (`MenuPageAction::ChangePage`) are stripped — the tab bar replaces them. Re-render
+//!   only when the model/tab/drill/cursor changes.
 //! * **pointer** ([`grid_menu_pointer_*`]) — clicking a tagged control dispatches
 //!   its action (entity-independent press→release so a rebuild can't drop a
 //!   click); clicking a tab switches; hover moves the cursor.
@@ -113,6 +115,38 @@ struct ViewKey {
 /// The active tab's [`MenuPage`].
 fn tab_page(active_tab: usize) -> MenuPage {
     MenuPage::ALL[active_tab.min(MenuPage::ALL.len() - 1)]
+}
+
+/// Which menu-open input fired, so BOTH backends route the SAME entry key to the
+/// SAME landing tab/page. See [`pause_entry_target`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum PauseEntrySource {
+    /// Esc / Start (the pause button) → the System face.
+    Pause,
+    /// The dedicated inventory key → the Items (Inventory) tab.
+    Inventory,
+    /// The dedicated map key → the Map tab.
+    Map,
+}
+
+/// THE single mapping from a menu-open input to the page/tab it should land on.
+/// Used by both the Grid backend ([`grid_menu_open_routing`]) and the cube
+/// (`kaleidoscope_menu_open_routing`) so the entry key sets the SAME target tab in
+/// either presentation: Esc/Start → System, inventory key → Items, map key → Map.
+///
+/// Note: this governs only the ENTRY key's target. In-menu bumper switches still
+/// "remember last tab" independently (the entry key overrides that on open).
+pub(crate) fn pause_entry_target(source: PauseEntrySource) -> MenuPage {
+    match source {
+        PauseEntrySource::Pause => MenuPage::System,
+        PauseEntrySource::Inventory => MenuPage::Items,
+        PauseEntrySource::Map => MenuPage::Map,
+    }
+}
+
+/// The [`MenuPage::ALL`] index of a page (for seeding `active_tab`).
+fn tab_index_of(page: MenuPage) -> usize {
+    MenuPage::ALL.iter().position(|p| *p == page).unwrap_or(0)
 }
 
 /// The tab specs (page id + label) drawn left→right, matching [`MenuPage::ALL`].
@@ -212,7 +246,10 @@ pub(crate) fn grid_menu_open_routing(
                 close_grid_unified_menu(&mut overlay, mode.get(), &mut next_mode);
             }
         } else if matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
+            // Esc/Start opens on the System face (the shared entry→tab mapping),
+            // NOT the remembered tab — the pause button targets System.
             play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_OPEN);
+            tab_state.active_tab = tab_index_of(pause_entry_target(PauseEntrySource::Pause));
             open_grid_unified_menu(
                 tab_state.active_tab,
                 &mut overlay,
@@ -225,17 +262,14 @@ pub(crate) fn grid_menu_open_routing(
         return;
     }
 
-    // Inventory key: open ON the Inventory tab (and remember it), or close.
+    // Inventory key: open ON the Inventory tab (the shared entry→tab mapping), or close.
     if menu.inventory {
         if overlay.visible {
             play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_CLOSE);
             close_grid_unified_menu(&mut overlay, mode.get(), &mut next_mode);
         } else if matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
             play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_OPEN);
-            tab_state.active_tab = MenuPage::ALL
-                .iter()
-                .position(|p| *p == MenuPage::Items)
-                .unwrap();
+            tab_state.active_tab = tab_index_of(pause_entry_target(PauseEntrySource::Inventory));
             open_grid_unified_menu(
                 tab_state.active_tab,
                 &mut overlay,
@@ -248,13 +282,10 @@ pub(crate) fn grid_menu_open_routing(
         return;
     }
 
-    // Map key: open on the Map tab.
+    // Map key: open on the Map tab (the shared entry→tab mapping).
     if menu.map && matches!(mode.get(), GameMode::Playing | GameMode::Paused) && !overlay.visible {
         play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_OPEN);
-        tab_state.active_tab = MenuPage::ALL
-            .iter()
-            .position(|p| *p == MenuPage::Map)
-            .unwrap();
+        tab_state.active_tab = tab_index_of(pause_entry_target(PauseEntrySource::Map));
         open_grid_unified_menu(
             tab_state.active_tab,
             &mut overlay,
@@ -465,6 +496,7 @@ pub(crate) fn grid_menu_republish_view(
     backend: Res<InventoryUiBackend>,
     overlay: Res<crate::inventory::InventoryUiState>,
     pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
+    owned: Res<OwnedItems>,
     cursor: Res<KaleidoscopeCursor>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
@@ -488,6 +520,13 @@ pub(crate) fn grid_menu_republish_view(
     }
     tab_state.was_open = true;
 
+    // RENDER THE GRID'S TAB, not the shared `pages.active` (which the cube drives).
+    // The grid builds the active tab's `MenuPageModel` from the SAME backend-agnostic
+    // builder the cube uses (`build_inventory_pages`), then renders THE PAGE WHOSE
+    // `id == grid tab` — so switching tabs actually switches the body. Building here
+    // (instead of fishing the cube's `pages.pages` out by id) makes the grid
+    // self-sufficient: it does not depend on the cube's republish ordering/gating,
+    // which was why the body could lag a tab behind / always read Items.
     let active_page = tab_page(tab_state.active_tab);
     let key = ViewKey {
         tab: tab_state.active_tab,
@@ -500,19 +539,34 @@ pub(crate) fn grid_menu_republish_view(
     }
     tab_state.last_key = Some(key);
 
-    // Find the active tab's built model in the shared page set (fall back to the
-    // first page if the set hasn't been built yet this frame).
-    let Some(page) = pages
-        .pages
+    let model = system.model(&settings);
+    // The System window-start follows the cursor (the grid has no independent scroll
+    // override yet), exactly as the cube derives it when no drag/wheel override is set.
+    let window_start = if active_page == MenuPage::System {
+        let rows = crate::menu::model::system_rows(&model, system_nav.open_entry);
+        crate::menu::model::system_effective_window_start(&rows, cursor.focus(), None)
+    } else {
+        0
+    };
+    let built = crate::menu::model::build_inventory_pages(
+        &owned,
+        owned.equipped(),
+        cursor.focus(),
+        &settings,
+        &system.radio_snapshot(),
+        &system.dev_snapshot(),
+        window_start,
+        system_nav.open_entry,
+    );
+    let Some(page) = built
         .iter()
         .find(|p| p.id == active_page)
-        .or_else(|| pages.pages.first())
+        .or_else(|| built.first())
     else {
         return;
     };
 
     // The cursor's focus key, so the renderer highlights the right control.
-    let model = system.model(&settings);
     let focused = cursor_focus_key(
         page,
         active_page,
@@ -521,6 +575,23 @@ pub(crate) fn grid_menu_republish_view(
         system_nav.open_entry,
     );
 
+    // BUG 2: strip the cube's page-turn EDGE controls (`MenuPageAction::ChangePage`).
+    // The page builders bake `< Prev` / `> Next` edge buttons for the cube; the flat
+    // tabbed renderer replaces them with the tab bar, so they must NOT be drawn (they
+    // leaked in as "< Items" / "> Quest" flashes, and keyboard/gamepad nav could land
+    // on them). The flat backend filters them out before handing the model to the
+    // engine renderer.
+    let mut page = page.clone();
+    page.nodes.retain(|n| {
+        !matches!(
+            n,
+            MenuNode::Control {
+                action: Some(MenuPageAction::ChangePage(_)),
+                ..
+            }
+        )
+    });
+
     // Despawn the previous tree before respawning (entity-independent dispatch on
     // the pointer side tolerates the respawn between press + release).
     for e in &roots {
@@ -528,7 +599,6 @@ pub(crate) fn grid_menu_republish_view(
     }
 
     let tabs = tab_specs();
-    let page = page.clone();
     let active_tab = tab_state.active_tab;
     commands.queue(move |world: &mut World| {
         let view = BevyUiMenuView {
@@ -748,38 +818,21 @@ mod tests {
             .visible
     }
 
-    /// Open (backend=Grid) shows the Inventory tab; `page_right` bumper switches to
-    /// System; bumping past the end wraps back to Inventory.
+    /// The inventory key opens ON the Inventory tab; `page_right` bumper cycles
+    /// Inventory -> Map -> ... and wraps back to Inventory.
     #[test]
     fn open_shows_inventory_then_bumper_cycles_tabs_with_wraparound() {
         let mut app = grid_app();
-        // Open via Esc/Start.
-        set_frame(&mut app, |f| f.start = true);
-        app.update();
-        assert!(is_open(&app), "Start opens the unified menu");
-        // The inventory key opens ON Inventory; Esc opens on the remembered tab
-        // (Inventory by default), so either way the first tab is Inventory.
+        // Open via the inventory key → lands on Items (the entry→tab mapping).
         set_frame(&mut app, |f| f.inventory = true);
         app.update();
-        // (inventory key toggles; re-open)
-        set_frame(&mut app, |f| f.inventory = true);
-        app.update();
-        assert!(is_open(&app));
+        assert!(is_open(&app), "inventory key opens the unified menu");
         assert_eq!(
             active_tab(&app),
             MenuPage::Items,
-            "default tab is Inventory"
+            "inventory key → Inventory tab"
         );
 
-        // Bumper right: Inventory -> System -> Map -> Quest -> Inventory (wrap).
-        for expected in [
-            MenuPage::Map,
-            MenuPage::Quest,
-            MenuPage::Items,
-            MenuPage::Map,
-        ] {
-            let _ = expected; // sequence checked below
-        }
         set_frame(&mut app, |f| f.page_right = true);
         app.update();
         // MenuPage::ALL = [Items, Map, Quest, System]; +1 from Items = Map.
@@ -797,8 +850,10 @@ mod tests {
     #[test]
     fn bumper_reaches_system_tab() {
         let mut app = grid_app();
-        set_frame(&mut app, |f| f.start = true);
+        // Open on Items via the inventory key, then bump rightwards to System.
+        set_frame(&mut app, |f| f.inventory = true);
         app.update();
+        assert_eq!(active_tab(&app), MenuPage::Items);
         // Bump until System (index 3 in ALL).
         let sys_idx = MenuPage::ALL
             .iter()
@@ -842,13 +897,12 @@ mod tests {
     #[test]
     fn system_select_drills_and_dispatches() {
         let mut app = grid_app();
+        // Esc opens directly on the System tab (the entry→tab mapping).
         set_frame(&mut app, |f| f.start = true);
         app.update();
-        // Switch to System tab.
-        let sys_idx = MenuPage::ALL
-            .iter()
-            .position(|p| *p == MenuPage::System)
-            .unwrap();
+        assert_eq!(active_tab(&app), MenuPage::System, "Esc opens on System");
+        // (no bumping needed — Esc already lands on System)
+        let sys_idx = 0usize;
         for _ in 0..sys_idx {
             set_frame(&mut app, |f| f.page_right = true);
             app.update();
@@ -879,16 +933,10 @@ mod tests {
     #[test]
     fn system_quit_dispatches_app_exit() {
         let mut app = grid_app();
+        // Esc opens directly on System (the entry→tab mapping).
         set_frame(&mut app, |f| f.start = true);
         app.update();
-        let sys_idx = MenuPage::ALL
-            .iter()
-            .position(|p| *p == MenuPage::System)
-            .unwrap();
-        for _ in 0..sys_idx {
-            set_frame(&mut app, |f| f.page_right = true);
-            app.update();
-        }
+        assert_eq!(active_tab(&app), MenuPage::System);
         let settings = app.world().resource::<UserSettings>().clone();
         let model = SystemMenuModel::build(&settings, &Default::default(), &Default::default());
         let rows = system_rows(&model, None);
@@ -1053,5 +1101,261 @@ mod tests {
             matching,
             "the focus key addresses a tagged control the renderer drew"
         );
+    }
+
+    // ----- Phase C2b bug-fix coverage --------------------------------------
+
+    use ambition_menu::render::bevy_ui::BevyUiMenuTab;
+    use ambition_menu::AmbitionMenuControl;
+    use bevy::camera::NormalizedRenderTarget;
+    use bevy::picking::backend::HitData;
+    use bevy::picking::events::{Pointer, Press, Release};
+    use bevy::picking::pointer::{Location, PointerId};
+
+    fn pointer_location() -> Location {
+        Location {
+            target: NormalizedRenderTarget::None {
+                width: 1,
+                height: 1,
+            },
+            position: Vec2::ZERO,
+        }
+    }
+
+    /// Fire a `Pointer<Press>` whose hit/target is `entity`, arming the grid press
+    /// observer (entity-independent capture).
+    fn fire_press(app: &mut App, entity: Entity) {
+        app.world_mut().trigger(Pointer::new(
+            PointerId::Mouse,
+            pointer_location(),
+            Press {
+                button: bevy::picking::pointer::PointerButton::Primary,
+                hit: HitData::new(entity, 0.0, None, None),
+            },
+            entity,
+        ));
+        app.update();
+    }
+
+    /// Fire a `Pointer<Release>` whose hit/target is `entity` (which may have been
+    /// respawned by a republish between press and release).
+    fn fire_release(app: &mut App, entity: Entity) {
+        app.world_mut().trigger(Pointer::new(
+            PointerId::Mouse,
+            pointer_location(),
+            Release {
+                button: bevy::picking::pointer::PointerButton::Primary,
+                hit: HitData::new(entity, 0.0, None, None),
+            },
+            entity,
+        ));
+        app.update();
+    }
+
+    /// A render-capable harness: the open/nav systems PLUS `grid_menu_republish_view`
+    /// and the pointer observers, so a test can drive the actual spawned `bevy_ui`
+    /// control/tab entities (the body the user sees).
+    fn render_app() -> App {
+        let mut app = grid_app();
+        app.add_systems(Update, grid_menu_republish_view);
+        app.add_observer(grid_menu_pointer_press);
+        app.add_observer(grid_menu_pointer_release);
+        app
+    }
+
+    /// Collect the actions of the spawned `AmbitionMenuControl` entities (the body
+    /// the flat renderer actually drew this frame).
+    fn rendered_actions(app: &mut App) -> Vec<MenuPageAction> {
+        let mut q = app
+            .world_mut()
+            .query::<&AmbitionMenuControl<MenuPageAction>>();
+        q.iter(app.world())
+            .filter_map(|c| c.action)
+            .collect::<Vec<_>>()
+    }
+
+    fn switch_to_tab(app: &mut App, page: MenuPage) {
+        // Clear any held input bits so the open/nav systems don't re-toggle / re-nav
+        // the menu while we settle the tab (the real app rebuilds the frame each tick).
+        set_frame(app, |_| {});
+        app.world_mut()
+            .resource_mut::<GridMenuTabState>()
+            .active_tab = tab_index_of(page);
+        // republish builds the tree via `commands.queue`, so it materializes one
+        // update later; two updates guarantees the spawn applied.
+        app.update();
+        app.update();
+    }
+
+    /// BUG 1: switching the grid tab to System makes the RENDERED model BE the
+    /// System page — the spawned controls carry System actions, NOT Items' Equip/Use.
+    #[test]
+    fn switching_tab_renders_that_pages_model() {
+        let mut app = render_app();
+        // Own an item so Items has an Equip action to distinguish from System.
+        let axe = Item::from_index(1).unwrap();
+        app.world_mut().resource_mut::<OwnedItems>().grant(axe, 1);
+        set_frame(&mut app, |f| f.inventory = true);
+        app.update();
+        set_frame(&mut app, |_| {}); // release the key so it doesn't re-toggle
+        app.update();
+        // On Items, an Equip action is present; no System action.
+        let items_actions = rendered_actions(&mut app);
+        assert!(
+            items_actions
+                .iter()
+                .any(|a| matches!(a, MenuPageAction::Equip(_))),
+            "Items tab renders an Equip control"
+        );
+
+        // Switch to System: the body must now carry System drill/option actions and
+        // NO Items Equip/Use.
+        switch_to_tab(&mut app, MenuPage::System);
+        let system_actions = rendered_actions(&mut app);
+        assert!(
+            system_actions.iter().any(|a| matches!(
+                a,
+                MenuPageAction::OpenSystemEntry(_)
+                    | MenuPageAction::System(_)
+                    | MenuPageAction::SystemOption(_)
+                    | MenuPageAction::SystemAction(_)
+            )),
+            "System tab renders System controls, got {system_actions:?}"
+        );
+        assert!(
+            !system_actions
+                .iter()
+                .any(|a| matches!(a, MenuPageAction::Equip(_) | MenuPageAction::Use(_))),
+            "System tab body is NOT the Items page"
+        );
+    }
+
+    /// BUG 2: the flat renderer NEVER draws the cube's page-turn EDGE controls
+    /// (`MenuPageAction::ChangePage`) — the tab bar replaces them.
+    #[test]
+    fn flat_renderer_skips_page_turn_edge_controls() {
+        let mut app = render_app();
+        set_frame(&mut app, |f| f.inventory = true);
+        app.update();
+        set_frame(&mut app, |_| {});
+        app.update();
+        for page in MenuPage::ALL {
+            switch_to_tab(&mut app, page);
+            let actions = rendered_actions(&mut app);
+            assert!(
+                !actions
+                    .iter()
+                    .any(|a| matches!(a, MenuPageAction::ChangePage(_))),
+                "{page:?} tab: no ChangePage edge controls drawn, got {actions:?}"
+            );
+        }
+    }
+
+    /// BUG 4 (pointer): a `Pointer<Press>`+`Release` on a tab entity switches the
+    /// active tab; on an item control it dispatches the control's action (equip).
+    #[test]
+    fn pointer_press_release_switches_tab_and_dispatches_item() {
+        let mut app = render_app();
+        let axe = Item::from_index(1).unwrap();
+        app.world_mut().resource_mut::<OwnedItems>().grant(axe, 1);
+        set_frame(&mut app, |f| f.inventory = true);
+        app.update();
+        set_frame(&mut app, |_| {});
+        app.update();
+        assert_eq!(active_tab(&app), MenuPage::Items);
+
+        // Find the System tab entity and click it.
+        let sys_tab = {
+            let mut q = app.world_mut().query::<(Entity, &BevyUiMenuTab)>();
+            q.iter(app.world())
+                .find(|(_, t)| t.index == tab_index_of(MenuPage::System))
+                .map(|(e, _)| e)
+                .expect("System tab entity spawned")
+        };
+        fire_press(&mut app, sys_tab);
+        fire_release(&mut app, sys_tab);
+        app.update();
+        assert_eq!(
+            active_tab(&app),
+            MenuPage::System,
+            "clicking the System tab switched tabs"
+        );
+
+        // Back to Items, then click the Axe item control → it equips.
+        switch_to_tab(&mut app, MenuPage::Items);
+        let axe_ctrl = {
+            let mut q = app
+                .world_mut()
+                .query::<(Entity, &AmbitionMenuControl<MenuPageAction>)>();
+            q.iter(app.world())
+                .find(|(_, c)| matches!(c.action, Some(MenuPageAction::Equip(i)) if i == axe))
+                .map(|(e, _)| e)
+                .expect("Axe equip control spawned")
+        };
+        fire_press(&mut app, axe_ctrl);
+        fire_release(&mut app, axe_ctrl);
+        app.update();
+        assert_eq!(
+            app.world().resource::<OwnedItems>().equipped(),
+            Some(axe),
+            "clicking the item equipped it through dispatch_menu_action"
+        );
+    }
+
+    /// BUG 5: an Esc open→close is exactly ONE toggle — no immediate reopen. Drive
+    /// the routing with two SEPARATE Esc rising edges and assert open then closed.
+    #[test]
+    fn esc_open_then_close_is_one_toggle() {
+        let mut app = grid_app();
+        // First Esc: open.
+        set_frame(&mut app, |f| f.start = true);
+        app.update();
+        assert!(is_open(&app), "first Esc opens");
+        // Release Esc (so the next press is a fresh rising edge).
+        set_frame(&mut app, |_| {});
+        app.update();
+        assert!(is_open(&app), "menu stays open while Esc is released");
+        // Second Esc: close (and NOT reopen on the same press across frames).
+        set_frame(&mut app, |f| f.start = true);
+        app.update();
+        app.update(); // a held multi-frame Start must not re-open.
+        assert!(!is_open(&app), "second Esc closes and does NOT reopen");
+    }
+
+    /// BUG 6: the entry→tab mapping is one place and maps each open key correctly.
+    #[test]
+    fn pause_entry_target_maps_each_source() {
+        assert_eq!(
+            pause_entry_target(PauseEntrySource::Inventory),
+            MenuPage::Items
+        );
+        assert_eq!(
+            pause_entry_target(PauseEntrySource::Pause),
+            MenuPage::System
+        );
+        assert_eq!(pause_entry_target(PauseEntrySource::Map), MenuPage::Map);
+    }
+
+    /// BUG 6 (routing): the entry key sets the active tab per the mapping —
+    /// inventory→Items, Esc→System, map→Map.
+    #[test]
+    fn open_routing_lands_on_mapped_tab() {
+        // Inventory key → Items.
+        let mut app = grid_app();
+        set_frame(&mut app, |f| f.inventory = true);
+        app.update();
+        assert_eq!(active_tab(&app), MenuPage::Items);
+
+        // Esc → System.
+        let mut app = grid_app();
+        set_frame(&mut app, |f| f.start = true);
+        app.update();
+        assert_eq!(active_tab(&app), MenuPage::System);
+
+        // Map key → Map.
+        let mut app = grid_app();
+        set_frame(&mut app, |f| f.map = true);
+        app.update();
+        assert_eq!(active_tab(&app), MenuPage::Map);
     }
 }

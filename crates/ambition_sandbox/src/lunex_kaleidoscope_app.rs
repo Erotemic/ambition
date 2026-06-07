@@ -391,8 +391,10 @@ impl SystemMenuParams<'_> {
     }
 
     /// Build the live radio snapshot for the SYSTEM IR (empty under no `audio` /
-    /// when the radio resources are absent).
-    fn radio_snapshot(&self) -> RadioSnapshot {
+    /// when the radio resources are absent). `pub(crate)` so the Grid backend's
+    /// republish can build the System page directly from the same snapshot the cube
+    /// uses (one model, two renderers).
+    pub(crate) fn radio_snapshot(&self) -> RadioSnapshot {
         #[cfg(feature = "audio")]
         if let (Some(library), Some(music_state)) =
             (self.library.as_deref(), self.music_state.as_deref())
@@ -402,8 +404,9 @@ impl SystemMenuParams<'_> {
         RadioSnapshot::default()
     }
 
-    /// Build the live developer-toggle snapshot for the SYSTEM IR.
-    fn dev_snapshot(&self) -> DevSnapshot {
+    /// Build the live developer-toggle snapshot for the SYSTEM IR. `pub(crate)` for
+    /// the same reason as [`Self::radio_snapshot`].
+    pub(crate) fn dev_snapshot(&self) -> DevSnapshot {
         dev_snapshot(DevToggleRead {
             dev: &self.dev_tools,
             dev_state: &self.dev_state,
@@ -1639,8 +1642,13 @@ fn kaleidoscope_menu_open_routing(
             }
         } else if matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
             play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_OPEN);
+            // SHARED entry→tab mapping: Esc/Start lands on the System face. Same
+            // `pause_entry_target` the Grid backend uses, so the two presentations
+            // agree on what each open key targets.
             open_kaleidoscope_menu(
-                MenuPage::System,
+                crate::menu::grid_backend::pause_entry_target(
+                    crate::menu::grid_backend::PauseEntrySource::Pause,
+                ),
                 &mut overlay,
                 mode.get(),
                 &mut next_mode,
@@ -1674,7 +1682,9 @@ fn kaleidoscope_menu_open_routing(
         // (re-seeding to Items here snapped the cube to the Items face mid-close — the
         // "I" close-animation glitch).
         if !closing {
-            pages.active = Some(MenuPage::Items);
+            pages.active = Some(crate::menu::grid_backend::pause_entry_target(
+                crate::menu::grid_backend::PauseEntrySource::Inventory,
+            ));
             system_nav.open_entry = None;
             cursor.last_pointer_focus = None;
             cursor.mark_keyboard(MenuFocus::Item(0));
@@ -1685,13 +1695,16 @@ fn kaleidoscope_menu_open_routing(
 
     // map key: open on the Map page (suppressing the standalone map panel).
     if menu.map && matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
+        let map_page = crate::menu::grid_backend::pause_entry_target(
+            crate::menu::grid_backend::PauseEntrySource::Map,
+        );
         if overlay.visible {
-            pages.active = Some(MenuPage::Map);
+            pages.active = Some(map_page);
             cursor.mark_keyboard(MenuFocus::EdgeLeft);
         } else {
             play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_OPEN);
             open_kaleidoscope_menu(
-                MenuPage::Map,
+                map_page,
                 &mut overlay,
                 mode.get(),
                 &mut next_mode,

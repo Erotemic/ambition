@@ -32,35 +32,57 @@ fallback and record it, don't stop.
 
 ---
 
-## 2. Target architecture (three layers)
+## 2. Target architecture (engine crate + game content)
+
+The three layers below split cleanly into a REUSABLE ENGINE (the renamed
+`ambition_menu` crate) and GAME CONTENT (`ambition_sandbox::menu`). The seam is
+**empirically validated**, not speculative: we will have TWO real presentations
+(cube + bevy_ui) of ONE `MenuPageModel`, which is exactly the "two landed use
+cases" bar for generalizing. Discipline: generalize ONLY what the two
+presentations + our one game actually exercise — no custom-control-kind trait, no
+pluggable-category system, no second-game speculative knobs.
 
 ```
-CONTENT (backend-agnostic, the source of truth)
-  • MenuPage { Inventory, System, Map, Quest }              (menu_model.rs)
-  • page builders -> MenuPageModel<MenuPage, MenuPageAction>(menu_model.rs)
-  • SystemMenuModel / SettingsMenuModel / apply_settings_option (persistence/settings)
-  • MenuPageAction vocabulary (Equip/Use/ChangePage/System*/OpenSystemEntry/…)
+ENGINE  →  crate `ambition_menu`  (rename of `ambition_inventory_ui`; ships MenuPlugin)
+  PRIMITIVES   MenuPageModel<PageId, Action>, MenuNode, MenuControlKind,
+               MenuVisualState, MenuFocusKey, scrollbar/text/dynamic-text.   (generic)
+  RENDERERS    kaleidoscope (bevy_lunex cube)  +  bevy_ui (flat/tabbed).      ← two real consumers
+               Swapped by InventoryUiBackend. Each renders ANY MenuPageModel.
+  INTERACTION  cursor / focus / tab-switch / nav over a MenuPageModel; routes a
+               selected control's Action back to the game's dispatch callback.  (generic)
+  SETTINGS-IR FRAMEWORK  SettingsOption / SettingsOptionKind (Toggle/Cycle/Slider/
+               Action) + the "render a settings tree" machinery + the SystemMenu
+               TREE shape.  (the game-agnostic SHAPE of a settings menu)
+  CONTENT SEAM the game provides: {PageId/Action types, page builders → MenuPageModel,
+               a dispatch callback, a settings provider (its option list + apply fn)}.
+               Optionally a few BASIC option helpers ship here (volume slider,
+               display-mode cycle) a game MAY reuse.
 
-INTERACTION (shared)
-  • the action DISPATCHER: dispatch_menu_action(MenuPageAction, …)  ← shared by both backends
-  • a cursor over the active page's controls (focus / select / back / tab-switch)
-
-PRESENTATION (per-backend, swapped by InventoryUiBackend)
-  • Kaleidoscope: 3D cube faces                (lunex_kaleidoscope_app.rs + ambition_inventory_ui)
-  • Grid (NEW):  flat bevy_ui tab bar + list   (replaces bevy_ui_grid_menu + the pause_menu top page/settings)
+CONTENT  →  `ambition_sandbox::menu`  (Ambition's concrete menu; plugs into the engine)
+  • MenuPage { Inventory, System, Map, Quest } + MenuPageAction vocabulary.
+  • page builders -> MenuPageModel<MenuPage, MenuPageAction> (items / system / map / quest).
+  • dispatch_menu_action — the game's action handler (equip/use/apply-setting/quit/…).
+  • Ambition's settings IR: SettingsOptionId + apply_settings_option + the concrete
+    SystemMenuModel entries (Radio/Video/Audio/Controls/Gameplay/Language/Reset*/Quit).
+  • item-grid content; reads UserSettings; the plugin wiring that hands all the
+    above to the engine's MenuPlugin.
 ```
 
-Key realization from the codebase: the **page model and the dispatcher are
-already backend-agnostic** (they live in `menu_model.rs` / the settings IR and only
-*happen* to be consumed by the cube today). The redesign makes the bevy_ui grid a
-**second consumer** of the same models, and deletes the bespoke grid/pause-menu
-content code.
+A new game would depend on `ambition_menu`, get both renderers + nav + the
+settings framework for free, and supply its OWN `PageId`/`Action` + settings
+options (its own IR) — reusing whatever basic option helpers we ship. Content
+stays content; presentation is reusable. That is the north star.
 
-Naming note: `dispatch_kaleidoscope_action` should be renamed
-`dispatch_menu_action` and moved to a backend-neutral location (a new
-`crate::menu` module, or `menu_model.rs` next to the page builders) so both
-backends call it. Keep `MenuPage`/`MenuFocus`/`MenuPageAction` (already neutral
-from the earlier rename).
+Key realization that makes this safe NOW: the page model + the renderers are
+ALREADY generic (the cube proves it); adding the bevy_ui renderer as a SECOND
+consumer of the same model *validates* the engine/content seam rather than
+guessing at it.
+
+Naming/move note: `dispatch_kaleidoscope_action` → `dispatch_menu_action` (game
+side, in `sandbox::menu`). The crate `ambition_inventory_ui` is RENAMED
+`ambition_menu` and becomes the engine (primitives + BOTH renderers + nav +
+settings framework + MenuPlugin). `MenuPage`/`MenuFocus`/`MenuPageAction` stay as
+the game's types (already neutral from the earlier rename).
 
 ---
 
@@ -281,89 +303,119 @@ menu code is scattered across SEVEN of them with no shared home:
 - `persistence/settings/{menu.rs, system_menu.rs}` — the backend-agnostic IR,
   buried inside the persistence layer.
 
-Plus the external renderer crate `ambition_inventory_ui` (the bevy_lunex cube
-renderer). Four bevy_ui menu surfaces + a cube + a content model + a buried IR.
+Plus the crate `ambition_inventory_ui` — which is ALSO mis-placed/mis-named: it
+already holds a GENERIC menu model + the cube renderer (it is the menu *engine*,
+not "inventory ui"). Four bevy_ui menu surfaces + a cube + a content model + a
+buried IR + a mis-named engine crate.
 
-### Proposed target — one `crate::menu/` subtree (proto-boundary, future crate)
-Following the plugin-refactor pattern (carve a stable same-crate boundary FIRST,
-extract a real `ambition_menu` crate LATER), consolidate everything menu under one
-module so an agent finds all of it in one place and the layers are explicit:
+### Proposed target — ENGINE crate `ambition_menu` + game content `sandbox::menu`
+We have enough information to find the clean crate/plugin seam NOW (not "module
+now, crate later"), because the bevy_ui renderer becomes a SECOND real consumer of
+the same `MenuPageModel` — two presentations empirically validate the
+engine/content boundary (§2). So:
 
+**ENGINE — rename the crate `ambition_inventory_ui` → `ambition_menu`.** It owns
+the game-agnostic engine and ships a `MenuPlugin`:
 ```
-crate::menu/                       MenuPlugin owns the whole menu; lib.rs gains ONE `mod menu;`
-  mod.rs            — MenuPlugin, InventoryUiBackend (the A/B seam), kaleidoscope_backend_active
-                      run-condition, the single open/close routing owner (Esc/Start/inventory).
-  model.rs          — MenuPage, MenuFocus, MenuPageAction, the page builders.        [was menu_model.rs]
-  dispatch.rs       — dispatch_menu_action — the shared action handler.              [from lunex_kaleidoscope_app.rs]
-  cursor.rs         — shared menu/overlay state: visibility, active tab, focus,
-                      drill stack, opened_from_pause.                                 [absorbs InventoryUiState]
-  input.rs          — menu-side MenuControlFrame population/consumption glue.
-  ir/               — the backend-agnostic settings + menu-tree IR (single source of truth)
-    mod.rs
-    settings.rs     — SettingsMenuModel / SettingsOption / SettingsOptionId /
-                      apply_settings_option / settings_menu_model.                    [was persistence/settings/menu.rs]
-    system.rs       — SystemMenuModel / SystemMenuEntryId / SystemMenuAction.         [was persistence/settings/system_menu.rs]
-  backends/
-    grid/           — the unified bevy_ui flat/tabbed presentation.                   [replaces bevy_ui_grid_menu/ +
-      mod.rs                                                                            pause_menu/ + inventory.rs adventure menu]
-      ui.rs         — tab bar + active-page body.
-      input.rs      — grid nav + bumper tab-switch.
-      state.rs      — grid-only view state (scroll/selection).
-    kaleidoscope/   — the 3D cube presentation host, SPLIT out of the 3.7k-line file. [was lunex_kaleidoscope_app.rs]
-      mod.rs        — KaleidoscopeBackendPlugin, the cube open/close gate + wiring.
-      nav.rs        — kaleidoscope_focus_nav / system_focus_nav.
-      pointer.rs    — pointer press/move/release observers.
-      render_sync.rs— fade / scrim / focus-visuals / scrollbar / republish.
-      cursor.rs     — KaleidoscopeCursor (cube-spatial cursor) if not fully shared.
-  map.rs            — the Map tab/view content.                                       [folds in map_menu/]
+ambition_menu/ (crate)
+  src/lib.rs        — MenuPlugin + the CONTENT-SEAM contract (the trait/config a game
+                      implements: page builders, dispatch callback, settings provider).
+  src/model.rs      — MenuPageModel<PageId, Action>, MenuNode, MenuControlKind,
+                      MenuVisualState, MenuFocusKey, scrollbar/text/dynamic-text.   (already here)
+  src/render/
+    kaleidoscope.rs — bevy_lunex 3D-cube renderer.                                  (already here, was kaleidoscope.rs)
+    bevy_ui.rs      — NEW flat/tabbed bevy_ui renderer (built in Phase C, IN the crate).
+  src/nav.rs        — generic cursor / focus / tab-switch over a MenuPageModel;
+                      routes a selected control's Action to the game's dispatch callback.
+  src/settings_ir.rs— SETTINGS-IR FRAMEWORK: SettingsOption / SettingsOptionKind +
+                      the SystemMenu TREE shape + the "render a settings tree"
+                      machinery + a few BASIC option helpers a game MAY reuse.   (generic SHAPE only)
+  src/backend.rs    — InventoryUiBackend (which renderer is active) + the A/B seam.
 ```
+
+**CONTENT — `ambition_sandbox::menu`** (Ambition's concrete menu; plugs into the
+engine via the content-seam contract):
+```
+crate::menu/         lib.rs gains ONE `mod menu;`; this is the ONLY menu code in the game crate
+  mod.rs            — the plugin WIRING: install ambition_menu::MenuPlugin with Ambition's
+                      content (page builders + dispatch + settings provider); the open/close
+                      routing owner (Esc/Start/inventory); the `\` backend-toggle input.
+  model.rs          — MenuPage{Inventory,System,Map,Quest}, MenuFocus, MenuPageAction +
+                      the page builders (items/system/map/quest).                   [was menu_model.rs]
+  dispatch.rs       — dispatch_menu_action — Ambition's action handler.             [from lunex app]
+  ir.rs (or ir/)    — Ambition's CONCRETE settings: SettingsOptionId +
+                      apply_settings_option + settings_menu_model + the concrete
+                      SystemMenuModel entries (Radio/Video/.../Quit). Built ON the
+                      engine's SettingsOption/Kind framework types.                  [was persistence/settings/{menu,system_menu}.rs]
+  map.rs            — the Map tab content.                                           [folds in map_menu/]
+```
+(Game-specific overlay coordination — `opened_from_pause`, GameMode integration —
+lives in `menu/mod.rs`; the *generic* cursor/focus state lives in the engine's
+`nav`.)
 
 Stays put (NOT moved):
-- `ambition_inventory_ui` crate — the external bevy_lunex CUBE RENDERER; the
-  kaleidoscope backend host uses it. (It's already a clean crate boundary.)
-- `crate::inventory/` — the gameplay item DATA + effects (`OwnedItems`, item
-  model, use-a-potion effects). That's content/gameplay, not menu chrome. Only
-  `InventoryUiState` (overlay state) moves out, into `menu::cursor`.
-- `persistence/settings/{model.rs (UserSettings), audio.rs, video.rs,
-  gameplay.rs, persistence.rs, platform_paths.rs}` — the raw settings DATA + disk
-  persistence. `menu::ir::settings` depends on `UserSettings` (reads/writes it);
-  the IR is the menu's VIEW of that data and belongs with the menu.
+- `crate::inventory/` — gameplay item DATA + effects (`OwnedItems`, item model,
+  use-a-potion). Content/gameplay, not menu chrome. (Only `InventoryUiState`'s
+  generic overlay bits inform the engine cursor; its game coordination is in
+  `menu/mod.rs`.)
+- `persistence/settings/{model.rs (UserSettings), audio.rs, video.rs, gameplay.rs,
+  persistence.rs, platform_paths.rs}` — raw settings DATA + disk persistence.
+  `menu::ir` reads/writes `UserSettings`; the IR is the menu's VIEW of it.
 
-### Old → new path map (for the move commit)
+GENERIC-vs-CONCRETE split rule for the settings IR: the TYPES that describe the
+shape of any settings menu (`SettingsOption`, `SettingsOptionKind`, the SystemMenu
+tree node types) move to the engine (`ambition_menu::settings_ir`); Ambition's
+CONCRETE option ids, value labels, `apply_settings_option`, and the concrete
+SystemMenu entry roster stay in `sandbox::menu::ir`.
+
+### Old → new map
 | Old | New |
 |---|---|
-| `menu_model.rs` | `menu/model.rs` |
-| `lunex_kaleidoscope_app.rs` | `menu/backends/kaleidoscope/` (split into files) |
-| `bevy_ui_grid_menu/` | `menu/backends/grid/` (rebuilt into the tabbed view) |
-| `pause_menu/` | DELETED → absorbed into `menu/backends/grid/` + `menu/ir/` |
-| `inventory.rs` (adventure menu) | DELETED → absorbed into `menu/backends/grid/` |
-| `map_menu/` | `menu/map.rs` (Map tab) |
-| `persistence/settings/menu.rs` | `menu/ir/settings.rs` |
-| `persistence/settings/system_menu.rs` | `menu/ir/system.rs` |
-| `InventoryUiState` (in `inventory.rs`) | `menu::cursor` |
-| `dispatch_kaleidoscope_action` (in lunex app) | `menu::dispatch::dispatch_menu_action` |
+| crate `ambition_inventory_ui` | crate `ambition_menu` (rename; becomes the engine) |
+| `ambition_inventory_ui/src/kaleidoscope.rs` | `ambition_menu/src/render/kaleidoscope.rs` |
+| (NEW bevy_ui renderer) | `ambition_menu/src/render/bevy_ui.rs` |
+| generic `SettingsOption`/`Kind` + SystemMenu tree TYPES | `ambition_menu/src/settings_ir.rs` |
+| `InventoryUiBackend` (in lunex app) | `ambition_menu/src/backend.rs` |
+| `menu_model.rs` | `sandbox::menu/model.rs` |
+| `dispatch_kaleidoscope_action` | `sandbox::menu/dispatch.rs::dispatch_menu_action` |
+| `persistence/settings/menu.rs` (concrete) | `sandbox::menu/ir.rs` (concrete; types → engine) |
+| `persistence/settings/system_menu.rs` (concrete) | `sandbox::menu/ir.rs` (concrete; node types → engine) |
+| `bevy_ui_grid_menu/` | DELETED → the engine's `bevy_ui.rs` renders the shared model |
+| `pause_menu/` | DELETED → absorbed (System tab renders the IR) |
+| `inventory.rs` (adventure menu) | DELETED → absorbed into the tabbed bevy_ui renderer |
+| `lunex_kaleidoscope_app.rs` | DELETED → cube renderer is the engine; its game glue → `sandbox::menu/mod.rs` |
+| `map_menu/` | `sandbox::menu/map.rs` |
 
-Net effect on `lib.rs`: ~7 top-level menu modules collapse to ONE `mod menu;`.
+Net: ~7 top-level game menu modules collapse to ONE `mod menu;`, and the renderers
++ framework live in the reusable `ambition_menu` crate.
 
 ### Judgment calls — ALL RESOLVED (2026-06-07, confirmed by Jon)
-1. **IR home** → ✅ **`menu/ir/`** (menu owns its content model). `persistence/
-   settings/` keeps the raw `UserSettings` + disk layer; `menu/ir/settings.rs`
-   depends on it.
-2. **`map_menu/`** → ✅ **`menu/map.rs`** (it's a menu surface → the Map tab).
-3. **`InventoryUiState`** → ✅ **`menu::cursor`** (menu overlay state, read only by
-   menu code).
-4. **Crate vs module now** → ✅ **`crate::menu` MODULE now** (proto-boundary);
-   extract an `ambition_menu` crate LATER once decoupled (plugin-refactor cadence).
+1. **IR home** → ✅ generic SHAPE types → `ambition_menu::settings_ir`; Ambition's
+   concrete options/apply/entries → `sandbox::menu::ir`. `persistence/settings/`
+   keeps raw `UserSettings` + disk.
+2. **`map_menu/`** → ✅ **`sandbox::menu/map.rs`** (the Map tab).
+3. **`InventoryUiState`** → ✅ generic cursor in the engine; game overlay
+   coordination in `sandbox::menu/mod.rs`.
+4. **Crate vs module — SUPERSEDED** → ✅ **find the crate/plugin seam NOW.** The
+   engine is the renamed `ambition_menu` crate (primitives + BOTH renderers + nav +
+   settings framework + MenuPlugin); `sandbox::menu` is content-only. Justified
+   because two real presentations validate the seam (§2). Discipline: no
+   speculative generalization beyond what the two renderers + one game exercise.
 
 ### Sequencing (fold into the §7 phases)
-The big moves ride WITH the refactor, not as a separate churn pass:
-- **Phase A** also moves the IR: `persistence/settings/{menu,system_menu}.rs` →
-  `menu/ir/{settings,system}.rs` (pure `git mv` + path updates; behavior-neutral).
-- **Phase B** creates `menu/mod.rs` + `menu/dispatch.rs`, moves `menu_model.rs` →
-  `menu/model.rs`, `InventoryUiState` → `menu/cursor.rs`.
-- **Phase C** builds `menu/backends/grid/` (the new tabbed view).
-- **Phase D** deletes `pause_menu/` + `inventory.rs` adventure menu + old grid
-  content; splits `lunex_kaleidoscope_app.rs` into `menu/backends/kaleidoscope/`;
-  folds `map_menu/` → `menu/map.rs`.
-- Keep each move a behavior-neutral `git mv` + path-update commit, separate from
-  the logic commits, so a regression bisects cleanly.
+Behavior-neutral `git mv`/rename commits ride WITH the refactor, separate from
+logic commits so regressions bisect cleanly:
+- **Phase 0 (new):** rename crate `ambition_inventory_ui` → `ambition_menu`
+  (Cargo.toml package name + the `dep:` in `ambition_sandbox` + all `use`/path refs;
+  `git mv kaleidoscope.rs render/kaleidoscope.rs`). Pure rename, green build.
+- **Phase A:** move the generic settings TYPES into `ambition_menu::settings_ir`;
+  move Ambition's concrete settings into `sandbox::menu::ir`; add Quit to the IR.
+- **Phase B:** create `sandbox::menu` (`mod.rs`+`model.rs`+`dispatch.rs`), move
+  `menu_model.rs` → `menu/model.rs`, `dispatch_kaleidoscope_action` →
+  `menu::dispatch`. Move `InventoryUiBackend` into the engine.
+- **Phase C:** build the bevy_ui flat/tabbed renderer IN `ambition_menu::render::
+  bevy_ui` (the second real consumer that validates the seam).
+- **Phase D:** delete `pause_menu/`, `inventory.rs` adventure menu, `bevy_ui_grid_
+  menu/`, and `lunex_kaleidoscope_app.rs` (its renderer is now the engine; its game
+  glue moved to `sandbox::menu/mod.rs`); fold `map_menu/` → `menu/map.rs`.
+- **Phase E:** input parity + the cube back/select-fire fix (§6).

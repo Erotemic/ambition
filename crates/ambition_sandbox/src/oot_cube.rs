@@ -413,6 +413,7 @@ fn detail_lines(owned: &OwnedItems, equipped: Option<Item>, item: Item) -> Vec<S
 /// until their host data is wired). The renderer consumes these via
 /// `ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>`. `focus` highlights the items page's
 /// cursor and selects the detail-panel item.
+#[allow(clippy::too_many_arguments)]
 pub fn build_inventory_pages(
     owned: &OwnedItems,
     equipped: Option<Item>,
@@ -420,6 +421,9 @@ pub fn build_inventory_pages(
     settings: &UserSettings,
     radio: &RadioSnapshot,
     dev: &DevSnapshot,
+    // The effective System scroll-window start (Features C/D). Drives which System
+    // rows render + the scrollbar thumb position.
+    system_window_start: usize,
     open_entry: Option<SystemMenuEntryId>,
 ) -> Vec<MenuPageModel<KaleidoscopePage, KaleidoscopeAction>> {
     vec![
@@ -434,7 +438,7 @@ pub fn build_inventory_pages(
             "QUEST",
             "Quest status + key items from save data (host data TODO).",
         ),
-        build_system_page(settings, radio, dev, focus, open_entry),
+        build_system_page(settings, radio, dev, focus, system_window_start, open_entry),
     ]
 }
 
@@ -660,13 +664,17 @@ const SYSTEM_DESC_WRAP_COLS: usize = 60;
 /// At/under this count the whole list shows; over it, the window follows the
 /// cursor (same mechanic as the Bevy-UI pause menu's `RADIO_VISIBLE_ROWS`). Sized
 /// for large, finger-readable rows that still leave room for the bottom panel.
-const SYSTEM_VISIBLE_ROWS: usize = 7;
+pub const SYSTEM_VISIBLE_ROWS: usize = 7;
 
-/// The first visible System row for a given focus — the System face's scroll-window
-/// START. The face's STRUCTURE (which rows render) depends on this, so the republish
-/// keys off it (not the raw cursor): a hover that stays inside the window does NOT
-/// shift it, so it does NOT rebuild the face (which would drop a `Pointer<Click>`);
-/// a keyboard move PAST the window edge DOES shift it, so the window still scrolls.
+/// The largest valid scroll-window START for a list of `total` rows: the last
+/// position that still fills the visible window (so the bottom row is reachable
+/// without overscrolling past the end). `0` when the list fits.
+pub fn system_max_window_start(total: usize) -> usize {
+    total.saturating_sub(SYSTEM_VISIBLE_ROWS)
+}
+
+/// The cursor-derived scroll-window START (the window that keeps the focused row
+/// visible). The default when no explicit scroll override is in effect.
 pub fn system_window_start(rows: &[SystemRow], focus: KaleidoscopeFocus) -> usize {
     let focused = system_focus_index(focus, rows.len());
     if rows.len() <= SYSTEM_VISIBLE_ROWS {
@@ -675,30 +683,49 @@ pub fn system_window_start(rows: &[SystemRow], focus: KaleidoscopeFocus) -> usiz
     crate::ui_nav::visible_window_start(focused, rows.len(), SYSTEM_VISIBLE_ROWS)
 }
 
-/// The visible window of System rows for the current cursor + a scroll indicator.
+/// The EFFECTIVE scroll-window START for the System face (Features C/D).
 ///
-/// `rows` is the full ordered row list ([`system_rows`]); `focused` is the cursor's
-/// ABSOLUTE index into it. When the list fits ([`SYSTEM_VISIBLE_ROWS`]) the whole
-/// list shows with no indicator. When it overflows, the window follows the cursor
-/// (reusing the pause menu's [`crate::ui_nav::visible_window_start`]) so rows above /
-/// below scroll into view as the cursor passes the visible edge. Returns the
-/// windowed `(absolute_index, row)` slice plus an `"n/total"` indicator string the
-/// title appends so it's clear there is more off-screen.
+/// When the host holds an explicit scroll override (set by a scrollbar drag or the
+/// mouse wheel), that override — clamped into `[0, system_max_window_start]` — wins,
+/// so the visible window scrolls INDEPENDENTLY of the keyboard selection. With no
+/// override (`None`) it falls back to the cursor-following window
+/// ([`system_window_start`]). The face's STRUCTURE (which rows render) depends only
+/// on this start, so the republish keys off it: a hover that does not shift the
+/// window does NOT rebuild the face (which would drop a `Pointer<Click>`).
+pub fn system_effective_window_start(
+    rows: &[SystemRow],
+    focus: KaleidoscopeFocus,
+    scroll_override: Option<usize>,
+) -> usize {
+    if rows.len() <= SYSTEM_VISIBLE_ROWS {
+        return 0;
+    }
+    match scroll_override {
+        Some(start) => start.min(system_max_window_start(rows.len())),
+        None => system_window_start(rows, focus),
+    }
+}
+
+/// The visible window of System rows for an explicit window START + a scroll
+/// indicator. When the list fits ([`SYSTEM_VISIBLE_ROWS`]) the whole list shows
+/// with no indicator. When it overflows, the `start` (the effective scroll
+/// position) selects the visible slice. Returns the windowed `(absolute_index,
+/// row)` slice plus an `"n/total"` indicator string (1-based first-visible row).
 fn system_visible_window(
     rows: &[SystemRow],
-    focused: usize,
+    start: usize,
 ) -> (Vec<(usize, SystemRow)>, Option<String>) {
     let total = rows.len();
     if total <= SYSTEM_VISIBLE_ROWS {
         let slice = rows.iter().copied().enumerate().collect();
         return (slice, None);
     }
-    let start = crate::ui_nav::visible_window_start(focused, total, SYSTEM_VISIBLE_ROWS);
+    let start = start.min(system_max_window_start(total));
     let end = (start + SYSTEM_VISIBLE_ROWS).min(total);
     let slice = (start..end).map(|i| (i, rows[i])).collect();
-    // 1-based "position/total" indicator (e.g. "13/26") so the cursor's place in the
-    // full list is legible even though only a window renders.
-    let indicator = format!("{}/{}", focused + 1, total);
+    // 1-based "first-visible/total" indicator (e.g. "8/26") so the scroll position in
+    // the full list is legible even though only a window renders.
+    let indicator = format!("{}/{}", start + 1, total);
     (slice, Some(indicator))
 }
 
@@ -714,6 +741,9 @@ pub fn build_system_page(
     radio: &RadioSnapshot,
     dev: &DevSnapshot,
     focus: KaleidoscopeFocus,
+    // The EFFECTIVE scroll-window start (cursor-derived OR a drag/wheel override —
+    // see [`system_effective_window_start`]). Drives which rows render + the thumb.
+    window_start: usize,
     open_entry: Option<SystemMenuEntryId>,
 ) -> MenuPageModel<KaleidoscopePage, KaleidoscopeAction> {
     let sys_model = SystemMenuModel::build(settings, radio, dev);
@@ -723,12 +753,12 @@ pub fn build_system_page(
         MenuColor::rgba(0.03, 0.04, 0.10, 0.96),
     );
     let rows = system_rows(&sys_model, open_entry);
-    let focused = system_focus_index(focus, rows.len());
+    let _ = focus;
     // Fix 3/4: long screens (Radio ~26, Developer ~15) become a windowed scroll
-    // list — only the visible window of rows is rendered, the window follows the
-    // cursor, and the title gains an "n/total" scroll indicator. Short screens show
-    // every row with no indicator (unchanged).
-    let (window, indicator) = system_visible_window(&rows, focused);
+    // list — only the visible window of rows is rendered, the window is the
+    // effective scroll position, and the title gains an "n/total" scroll indicator.
+    // Short screens show every row with no indicator (unchanged).
+    let (window, indicator) = system_visible_window(&rows, window_start);
 
     let title = match open_entry {
         None => "SYSTEM".to_string(),
@@ -783,9 +813,68 @@ pub fn build_system_page(
         );
     }
 
+    // Feature C: a draggable scrollbar appears only when the list overflows the
+    // visible window. The full-height track is one `Scrollbar` control (draggable
+    // via the lib's pointer-drag observers → `MenuScrollDragged`); a thumb panel on
+    // top reflects the current scroll fraction + window size. The host applies the
+    // emitted drag fraction to the scroll position (`KaleidoscopeScroll`).
+    let total = rows.len();
+    if total > SYSTEM_VISIBLE_ROWS {
+        add_system_scrollbar(&mut model, window_start, total);
+    }
+
     add_system_detail_panel(&mut model);
     add_edge_buttons(&mut model, KaleidoscopePage::System);
     model
+}
+
+/// Vertical scrollbar track rect for the System list (right of [`SYSTEM_LIST_RECT`]).
+const SYSTEM_SCROLLBAR_RECT: MenuRect = MenuRect {
+    x: 86.0,
+    y: 20.0,
+    w: 3.0,
+    h: 52.0,
+};
+
+/// Feature C: author the System face's draggable scrollbar. The TRACK is a
+/// `MenuControlKind::Scrollbar` control (the lib tags it draggable + emits the
+/// neutral drag fraction); the THUMB is a brighter panel sized to the visible
+/// fraction and positioned by the current `window_start`, so the thumb both shows
+/// the scroll position and is the visible grab target. No action: dragging it is
+/// the interaction, not a click.
+fn add_system_scrollbar(
+    model: &mut MenuPageModel<KaleidoscopePage, KaleidoscopeAction>,
+    window_start: usize,
+    total: usize,
+) {
+    let track = SYSTEM_SCROLLBAR_RECT;
+    // The full-height track: the draggable Scrollbar control.
+    model.control(
+        track,
+        MenuControlKind::Scrollbar,
+        "",
+        None,
+        false,
+        false,
+        None,
+    );
+    // Thumb height = visible fraction of the list (min 12% so it stays grabbable);
+    // thumb top = scroll fraction of the remaining track travel.
+    let visible_frac = (SYSTEM_VISIBLE_ROWS as f32 / total as f32).clamp(0.12, 1.0);
+    let max_start = system_max_window_start(total).max(1) as f32;
+    let scroll_frac = (window_start as f32 / max_start).clamp(0.0, 1.0);
+    let thumb_h = track.h * visible_frac;
+    let thumb_y = track.y + (track.h - thumb_h) * scroll_frac;
+    model.panel(
+        MenuRect {
+            x: track.x,
+            y: thumb_y,
+            w: track.w,
+            h: thumb_h,
+        },
+        MenuColor::rgba(0.98, 0.82, 0.36, 0.95),
+        None,
+    );
 }
 
 /// The System face's BOTTOM detail panel: the focused option's label (its current
@@ -1082,6 +1171,7 @@ mod tests {
             &RadioSnapshot::default(),
             &DevSnapshot::default(),
             focus,
+            0,
             None,
         );
         let entries = page
@@ -1144,6 +1234,7 @@ mod tests {
             &RadioSnapshot::default(),
             &DevSnapshot::default(),
             focus,
+            0,
             Some(SystemMenuEntryId::Video),
         );
         let options: Vec<_> = page
@@ -1309,11 +1400,17 @@ mod tests {
             stations: (0..26).map(|i| (i, format!("Station {i}"))).collect(),
             active: Some(0),
         };
+        let focus = KaleidoscopeFocus::System(13);
+        let sys_model = SystemMenuModel::build(&settings, &radio, &DevSnapshot::default());
+        let rows = system_rows(&sys_model, Some(SystemMenuEntryId::Radio));
+        // Cursor-derived window (no override) keeps the focused station in view.
+        let window_start = system_window_start(&rows, focus);
         let page = build_system_page(
             &settings,
             &radio,
             &DevSnapshot::default(),
-            KaleidoscopeFocus::System(13),
+            focus,
+            window_start,
             Some(SystemMenuEntryId::Radio),
         );
         let option_rows = page

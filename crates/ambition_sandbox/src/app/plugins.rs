@@ -710,6 +710,10 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
         crate::bevy_ui_grid_menu::install_grid_menu_visuals(app);
         // 3D-cube inventory frontend (#31), runtime-toggleable vs the grid above.
         crate::lunex_kaleidoscope_app::install_kaleidoscope_menu(app);
+        // Unified flat tabbed menu (Phase C2b): the `InventoryUiBackend::Grid`
+        // presentation of the SAME page model + dispatcher. Gated to `backend ==
+        // Grid`; the cube stays the untouched fallback. `\` flips between them.
+        crate::menu::grid_backend::install_grid_unified_menu(app);
     }
 }
 
@@ -1025,8 +1029,16 @@ pub(super) fn add_input_plugins(app: &mut App) {
                 // `oot_inventory` feature is on, otherwise the legacy 3-tab menu.
                 #[cfg(not(feature = "oot_inventory"))]
                 inventory::inventory_input,
+                // The OLD bevy-UI item grid is INERT under the unified Grid backend
+                // (Phase C2b): that backend owns open/close + nav + dispatch. It still
+                // runs under the Cube backend (where it owns only the shared inventory
+                // open toggle the cube relies on).
                 #[cfg(feature = "oot_inventory")]
-                crate::bevy_ui_grid_menu::grid_menu_input,
+                crate::bevy_ui_grid_menu::grid_menu_input.run_if(
+                    bevy::ecs::schedule::common_conditions::not(
+                        crate::menu::grid_backend::grid_backend_active,
+                    ),
+                ),
                 // The bevy-UI pause menu is INERT under the Cube backend (the cube
                 // renderer owns input). These pointer/drag/nav systems still run
                 // while `Paused`, so each is gated by `pause_menu_ui_active` so none
@@ -1038,7 +1050,11 @@ pub(super) fn add_input_plugins(app: &mut App) {
                 #[cfg(not(feature = "oot_inventory"))]
                 inventory::inventory_pointer_input,
                 #[cfg(feature = "oot_inventory")]
-                crate::bevy_ui_grid_menu::grid_menu_pointer_input,
+                crate::bevy_ui_grid_menu::grid_menu_pointer_input.run_if(
+                    bevy::ecs::schedule::common_conditions::not(
+                        crate::menu::grid_backend::grid_backend_active,
+                    ),
+                ),
                 pause_menu::pause_menu_navigate.run_if(pause_menu::pause_menu_ui_active),
             )
                 .chain()

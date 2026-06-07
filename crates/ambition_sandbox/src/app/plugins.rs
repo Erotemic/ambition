@@ -757,6 +757,7 @@ fn install_fx_and_hud_systems(app: &mut App) {
         (
             update_hud,
             crate::presentation::rendering::sync_boss_health_bar_overlay,
+            dialog::dialog_reveal_tick,
             dialog::sync_dialog_ui,
             crate::presentation::cutscene::sync_cutscene_ui,
         )

@@ -49,6 +49,79 @@ fn selected_option_starts_at_zero() {
 }
 
 #[test]
+fn confirm_while_typing_reveals_the_full_line_first() {
+    let mut s = DialogState::default();
+    s.start("guide", "Guide");
+    s.start_revealing_line("Hello world".to_string());
+    s.tick_reveal(0.01);
+    assert!(!s.line_reveal_complete());
+
+    s.confirm_or_advance();
+
+    assert!(s.line_reveal_complete());
+    assert_eq!(s.body(), "Hello world");
+    assert!(!s.pending_advance);
+}
+
+#[test]
+fn confirm_after_line_complete_advances_when_no_options_exist() {
+    let mut s = DialogState::default();
+    s.start("guide", "Guide");
+    s.start_revealing_line("Hello world".to_string());
+    s.reveal_full_line();
+
+    s.confirm_or_advance();
+
+    assert!(s.pending_advance);
+    assert!(!s.runner_done_pending_close);
+}
+
+#[test]
+fn confirm_with_options_preserves_option_selection() {
+    let mut s = DialogState::default();
+    s.start("guide", "Guide");
+    s.start_revealing_line("Pick one".to_string());
+    s.reveal_full_line();
+    s.current_options = vec![
+        DialogChoice {
+            label: "A".to_string(),
+            ..Default::default()
+        },
+        DialogChoice {
+            label: "B".to_string(),
+            ..Default::default()
+        },
+    ];
+    s.selected_option = 1;
+
+    s.confirm_or_advance();
+
+    assert_eq!(s.pending_select, Some(1));
+    assert!(!s.pending_advance);
+}
+
+#[test]
+fn typewriter_reveal_respects_multibyte_char_boundaries() {
+    let mut s = DialogState::default();
+    s.start("guide", "Guide");
+    // 'é' is two bytes; a reveal that used the char COUNT as a byte
+    // INDEX would slice mid-codepoint and panic. Tick incrementally
+    // and assert every partial reveal is a valid char-boundary prefix
+    // — speed-independent (works regardless of the tuned chars/sec).
+    s.start_revealing_line("éclair".to_string());
+    for _ in 0..100 {
+        let partial = s.body();
+        assert!(
+            "éclair".starts_with(&partial),
+            "partial reveal must be a char-boundary prefix, got {partial:?}",
+        );
+        s.tick_reveal(0.01);
+    }
+    // And it fully reveals eventually.
+    assert_eq!(s.body(), "éclair");
+}
+
+#[test]
 fn visible_dialog_window_keeps_selected_option_in_range() {
     assert_eq!(visible_window_start(0, 8, DIALOG_VISIBLE_OPTIONS), 0);
     assert_eq!(visible_window_start(4, 8, DIALOG_VISIBLE_OPTIONS), 2);

@@ -9,6 +9,8 @@
 //! - [`systems::dialog_input`] / [`systems::dialog_pointer_input`] —
 //!   player-input translators that write `pending_*` request fields
 //!   on `DialogState`.
+//! - [`systems::dialog_reveal_tick`] — presentation timer that
+//!   advances the visible substring of the current line.
 //! - [`ui::sync_dialog_ui`] — renderer (poll-based, reads
 //!   `DialogState`).
 //! - [`yarn_bridge`] — observers + dispatch that route runner
@@ -33,7 +35,7 @@ pub(crate) use content::known_dialogue_ids;
 )]
 pub use content::DialogChoice;
 pub use runtime::DialogState;
-pub use systems::{dialog_input, dialog_pointer_input};
+pub use systems::{dialog_input, dialog_pointer_input, dialog_reveal_tick};
 pub use ui::sync_dialog_ui;
 #[cfg(feature = "ui")]
 pub use yarn_bindings::YarnBindingsPlugin;

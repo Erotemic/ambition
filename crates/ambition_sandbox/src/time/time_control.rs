@@ -603,6 +603,11 @@ mod tests {
             // Music director (track switching, fades) is wall-clock;
             // music should not slow in bullet-time.
             ("music/director.rs", "music timing is wall-clock by design"),
+            // Dialogue typewriter reveal is presentation timing: the
+            // visible substring advances on the wall clock so text
+            // doesn't crawl during bullet-time / hitstop. Yarn still
+            // owns the line/option state machine.
+            ("dialog/systems.rs", "typewriter reveal is wall-clock presentation timing"),
             // Camera smoothing is wall-clock so glide responsiveness
             // stays consistent. Switch to scaled if bullet-time camera
             // feel is desired.

@@ -10,6 +10,27 @@ use crate::ui_nav::{apply_vertical_scroll, resolve_selectable_row_interaction};
 #[cfg(feature = "input")]
 use bevy::window::PrimaryWindow;
 
+/// Advance the active dialogue line's typewriter reveal.
+///
+/// This is presentation only: Yarn still owns the line/option state
+/// machine, while the Bevy side owns the timing of what substring is
+/// visible right now.
+pub fn dialog_reveal_tick(time: Res<Time>, mut dialogue: ResMut<DialogState>) {
+    if !dialogue.active() || dialogue.current_line.is_empty() {
+        return;
+    }
+    if dialogue.line_reveal_complete() {
+        if dialogue.current_options.is_empty()
+            && !dialogue.runner_done_pending_close
+            && !dialogue.pending_advance
+        {
+            dialogue.pending_advance = true;
+        }
+        return;
+    }
+    dialogue.tick_reveal(time.delta_secs());
+}
+
 #[cfg(feature = "input")]
 pub fn dialog_pointer_input(
     mut dialogue: ResMut<DialogState>,

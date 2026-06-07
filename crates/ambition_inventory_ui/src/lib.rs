@@ -132,7 +132,24 @@ pub enum MenuNode<Action> {
         selected: bool,
         important: bool,
         action: Option<Action>,
+        /// Scrollbar thumb geometry, as fractions `0..=1` of the track (Fix 1).
+        /// Only meaningful for a [`MenuControlKind::Scrollbar`] control: `start` is
+        /// the thumb's top as a fraction of the track height, `size` its height as a
+        /// fraction. `None` (every non-scrollbar control) draws no thumb. The host
+        /// computes these from its visible/total/window-start; the renderer draws a
+        /// dim full-height track with a brighter thumb child at this geometry.
+        thumb: Option<ScrollThumb>,
     },
+}
+
+/// Scrollbar thumb geometry as track fractions (Fix 1). Both in `0..=1`: `start`
+/// is the thumb top (fraction of track height from the top), `size` the thumb
+/// height (visible / total). A `size >= 1.0` means the list fits and no thumb is
+/// needed; the host only emits a thumb when the list actually scrolls.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ScrollThumb {
+    pub start: f32,
+    pub size: f32,
 }
 
 impl<Action> MenuNode<Action> {
@@ -274,6 +291,30 @@ impl<PageId, Action> MenuPageModel<PageId, Action> {
             selected,
             important,
             action,
+            thumb: None,
+        });
+    }
+
+    /// Emit a draggable scrollbar control (Fix 1): a [`MenuControlKind::Scrollbar`]
+    /// occupying `rect` (the full track), carrying the thumb geometry the renderer
+    /// draws on top of the dim track. `thumb_start` / `thumb_size` are track
+    /// fractions in `0..=1` (top / height). The host computes them from its own
+    /// visible/total/window-start; the renderer owns the track+thumb visuals + the
+    /// drag interaction. No `action`: dragging the track IS the interaction.
+    pub fn scrollbar(&mut self, rect: MenuRect, thumb_start: f32, thumb_size: f32) {
+        self.nodes.push(MenuNode::Control {
+            rect,
+            kind: MenuControlKind::Scrollbar,
+            label: String::new(),
+            detail: None,
+            icon: None,
+            selected: false,
+            important: false,
+            action: None,
+            thumb: Some(ScrollThumb {
+                start: thumb_start,
+                size: thumb_size,
+            }),
         });
     }
 

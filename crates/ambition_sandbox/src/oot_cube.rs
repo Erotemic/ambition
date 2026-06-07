@@ -649,8 +649,10 @@ const SYSTEM_TITLE_SIZE: f32 = 4.2;
 /// Row label font (larger than the items grid's ~1.5; touch-readable).
 const SYSTEM_ROW_FONT: f32 = 2.3;
 /// Max touch-sized row height; the actual height clamps to this so a sparse
-/// category does not produce absurdly tall rows.
-const SYSTEM_ROW_MAX_H: f32 = 8.5;
+/// category does not produce absurdly tall rows. Fix 2: bumped from 8.5 so the 6
+/// visible rows are noticeably taller (bigger touch targets + bigger Rh-relative
+/// font) while 6 rows + title + bottom panel still fit the face.
+const SYSTEM_ROW_MAX_H: f32 = 10.5;
 /// Description wrap width inside the wider bottom panel.
 const SYSTEM_DESC_WRAP_COLS: usize = 60;
 /// Max System rows shown at once before the list becomes a windowed scroll list
@@ -658,8 +660,9 @@ const SYSTEM_DESC_WRAP_COLS: usize = 60;
 /// otherwise cram every row into the list rect, producing unreadably thin rows.
 /// At/under this count the whole list shows; over it, the window follows the
 /// cursor (same mechanic as the Bevy-UI pause menu's `RADIO_VISIBLE_ROWS`). Sized
-/// for large, finger-readable rows that still leave room for the bottom panel.
-pub const SYSTEM_VISIBLE_ROWS: usize = 7;
+/// for large, finger-readable rows that still leave room for the bottom panel: 6
+/// rows give each a noticeably bigger touch target + font than the old 7.
+pub const SYSTEM_VISIBLE_ROWS: usize = 6;
 
 /// The largest valid scroll-window START for a list of `total` rows: the last
 /// position that still fills the visible window (so the bottom row is reachable
@@ -831,45 +834,31 @@ const SYSTEM_SCROLLBAR_RECT: MenuRect = MenuRect {
     h: 52.0,
 };
 
-/// Feature C: author the System face's draggable scrollbar. The TRACK is a
-/// `MenuControlKind::Scrollbar` control (the lib tags it draggable + emits the
-/// neutral drag fraction); the THUMB is a brighter panel sized to the visible
-/// fraction and positioned by the current `window_start`, so the thumb both shows
-/// the scroll position and is the visible grab target. No action: dragging it is
-/// the interaction, not a click.
+/// Feature C / Fix 1: author the System face's draggable scrollbar. Emitted as ONE
+/// `MenuPageModel::scrollbar` node: the lib draws a DIM full-height track with a
+/// BRIGHT thumb child sized to the visible fraction and positioned by the current
+/// `window_start`. The thumb both shows the scroll position and is the visible grab
+/// target; the lib's pointer-drag observers turn a drag on the track into the neutral
+/// `MenuScrollDragged` fraction. The host computes the thumb geometry (it knows
+/// visible-count / total / window-start); the lib owns the track+thumb visuals.
 fn add_system_scrollbar(
     model: &mut MenuPageModel<MenuPage, MenuPageAction>,
     window_start: usize,
     total: usize,
 ) {
-    let track = SYSTEM_SCROLLBAR_RECT;
-    // The full-height track: the draggable Scrollbar control.
-    model.control(
-        track,
-        MenuControlKind::Scrollbar,
-        "",
-        None,
-        false,
-        false,
-        None,
-    );
-    // Thumb height = visible fraction of the list (min 12% so it stays grabbable);
-    // thumb top = scroll fraction of the remaining track travel.
-    let visible_frac = (SYSTEM_VISIBLE_ROWS as f32 / total as f32).clamp(0.12, 1.0);
+    let (thumb_start, thumb_size) = system_scrollbar_thumb(window_start, total);
+    model.scrollbar(SYSTEM_SCROLLBAR_RECT, thumb_start, thumb_size);
+}
+
+/// Fix 1: the System scrollbar thumb geometry as track fractions `0..=1`.
+/// `size` = visible rows / total rows (how much of the list is on screen); `start` =
+/// scroll position as a fraction of the remaining window travel (0 = top window, 1 =
+/// bottom window). Pure so it is headlessly unit-testable.
+pub fn system_scrollbar_thumb(window_start: usize, total: usize) -> (f32, f32) {
+    let size = (SYSTEM_VISIBLE_ROWS as f32 / total as f32).clamp(0.0, 1.0);
     let max_start = system_max_window_start(total).max(1) as f32;
-    let scroll_frac = (window_start as f32 / max_start).clamp(0.0, 1.0);
-    let thumb_h = track.h * visible_frac;
-    let thumb_y = track.y + (track.h - thumb_h) * scroll_frac;
-    model.panel(
-        MenuRect {
-            x: track.x,
-            y: thumb_y,
-            w: track.w,
-            h: thumb_h,
-        },
-        MenuColor::rgba(0.98, 0.82, 0.36, 0.95),
-        None,
-    );
+    let start = (window_start as f32 / max_start).clamp(0.0, 1.0);
+    (start, size)
 }
 
 /// The System face's BOTTOM detail panel: the focused option's label (its current
@@ -1183,9 +1172,10 @@ mod tests {
             .count();
         // Radio + Video + Audio + Controls + Gameplay + Language always drill in
         // (6 rows; Shaders is no longer a top-level entry — it rides under Video).
-        // Reset All Settings is always present but is an Action (no drill). The
-        // System face renders the first SYSTEM_VISIBLE_ROWS (7) rows: the 6 drill
-        // entries + the Reset All Settings action, so exactly 6 drill rows show.
+        // Reset All Settings is always present but is an Action (no drill). The 7
+        // top-level rows (6 drill entries + the Reset All Settings action) now
+        // overflow the SYSTEM_VISIBLE_ROWS (6) window (Fix 2); the first window still
+        // shows all 6 drill entries, so exactly 6 drill rows are emitted.
         let expected_drill = 6;
         assert_eq!(
             entries, expected_drill,
@@ -1475,6 +1465,105 @@ mod tests {
             has_focused,
             "the focused station scrolls into the visible window"
         );
+    }
+
+    #[test]
+    fn scrollbar_thumb_geometry_reflects_window_and_total() {
+        // Fix 1: thumb size = visible/total; start = window fraction of travel.
+        // 26-row list, 6 visible: size = 6/26 ≈ 0.2308.
+        let total = 26usize;
+        let (start_top, size) = system_scrollbar_thumb(0, total);
+        assert!(
+            (size - SYSTEM_VISIBLE_ROWS as f32 / total as f32).abs() < 1e-4,
+            "thumb size = visible/total: {size}"
+        );
+        assert!(
+            size < 1.0,
+            "an overflowing list scrolls (thumb < full track)"
+        );
+        assert!(
+            (start_top - 0.0).abs() < 1e-4,
+            "top window → thumb at the top"
+        );
+
+        // Bottom window → thumb at the bottom (start == 1.0).
+        let max = system_max_window_start(total);
+        let (start_bottom, _) = system_scrollbar_thumb(max, total);
+        assert!(
+            (start_bottom - 1.0).abs() < 1e-4,
+            "bottom window → thumb start 1.0: {start_bottom}"
+        );
+
+        // A mid window lands between.
+        let (start_mid, _) = system_scrollbar_thumb(max / 2, total);
+        assert!(
+            start_mid > 0.0 && start_mid < 1.0,
+            "mid window → thumb mid-track: {start_mid}"
+        );
+    }
+
+    #[test]
+    fn long_system_page_emits_one_scrollbar_node_with_thumb() {
+        // Fix 1: a long Radio screen emits exactly one Scrollbar control carrying the
+        // thumb geometry (the lib draws the track + thumb from it).
+        let settings = UserSettings::default();
+        let radio = RadioSnapshot {
+            stations: (0..26).map(|i| (i, format!("Station {i}"))).collect(),
+            active: Some(0),
+        };
+        let page = build_system_page(
+            &settings,
+            &radio,
+            &DevSnapshot::default(),
+            MenuFocus::System(0),
+            0,
+            Some(SystemMenuEntryId::Radio),
+        );
+        let thumbs: Vec<_> = page
+            .nodes
+            .iter()
+            .filter_map(|n| match n {
+                ambition_inventory_ui::MenuNode::Control {
+                    kind: MenuControlKind::Scrollbar,
+                    thumb: Some(t),
+                    ..
+                } => Some(*t),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(thumbs.len(), 1, "exactly one scrollbar node with a thumb");
+        assert!(thumbs[0].size < 1.0, "thumb shows the list scrolls");
+        assert!(
+            (thumbs[0].start - 0.0).abs() < 1e-4,
+            "top window → thumb top"
+        );
+
+        // A short screen emits NO scrollbar node. A 3-station Radio screen (3 rows +
+        // Back = 4) fits inside SYSTEM_VISIBLE_ROWS, so no scrollbar is drawn. (The
+        // TOP-LEVEL entry list has 7 rows and now overflows the 6-row window — Fix 2 —
+        // so it is no longer a valid "fits" case; drill into a short screen instead.)
+        let short_radio = RadioSnapshot {
+            stations: (0..3).map(|i| (i, format!("Station {i}"))).collect(),
+            active: Some(0),
+        };
+        let short_page = build_system_page(
+            &settings,
+            &short_radio,
+            &DevSnapshot::default(),
+            MenuFocus::System(0),
+            0,
+            Some(SystemMenuEntryId::Radio),
+        );
+        let any_scrollbar = short_page.nodes.iter().any(|n| {
+            matches!(
+                n,
+                ambition_inventory_ui::MenuNode::Control {
+                    kind: MenuControlKind::Scrollbar,
+                    ..
+                }
+            )
+        });
+        assert!(!any_scrollbar, "a fitting list draws no scrollbar");
     }
 
     #[test]

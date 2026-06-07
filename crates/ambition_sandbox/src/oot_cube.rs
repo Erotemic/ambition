@@ -26,8 +26,8 @@
 //!   [`EDGE_RIGHT_RECT`]) OUTSIDE the grid, exactly like the demo.
 
 use ambition_inventory_ui::{
-    InventoryItemNode, InventorySlotId, ItemsOnlyPageSpec, MenuColor, MenuControlKind,
-    MenuPageModel, MenuRect, MenuTextAlign,
+    InventoryItemNode, ItemsOnlyPageSpec, MenuColor, MenuControlKind, MenuPageModel, MenuRect,
+    MenuTextAlign,
 };
 
 use crate::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
@@ -83,6 +83,25 @@ const LABEL_WRAP_COLS: usize = 10;
 /// Max lines of a wrapped item name shown in a cell.
 const LABEL_MAX_LINES: usize = 2;
 
+/// Detail-panel dynamic-text slots. The detail panel's CONTENT is cursor-dependent
+/// but its LAYOUT is fixed, so the panel emits a fixed set of [`MenuDynamicText`]
+/// slots (spawned empty) that the in-place updater
+/// (`crate::lunex_kaleidoscope_app::kaleidoscope_sync_detail_text`) rewrites from
+/// the live cursor — no face rebuild, so a hover never drops a `Pointer<Click>`.
+///
+/// Items face: slot 0 is the "SELECTED" header, slots `1..=DETAIL_VISIBLE_TOTAL`
+/// are the wrapped name/description/status lines.
+pub const ITEMS_DETAIL_BODY_SLOT0: u32 = 1;
+/// Total body lines reserved on the Items detail panel (name + blank + desc +
+/// blank + status, capped by [`DETAIL_VISIBLE_LINES`]).
+pub const ITEMS_DETAIL_BODY_LINES: u32 = 12;
+/// System face bottom panel: slot 100 is the focused row's label, slots
+/// `101..` are its wrapped description lines.
+pub const SYSTEM_DETAIL_LABEL_SLOT: u32 = 100;
+pub const SYSTEM_DETAIL_BODY_SLOT0: u32 = 101;
+/// Description lines reserved on the System bottom panel.
+pub const SYSTEM_DETAIL_BODY_LINES: u32 = 3;
+
 impl KaleidoscopePage {
     /// The neighbouring page when turning the ring left/right (wraps), matching
     /// [`KaleidoscopePage::ALL`] order.
@@ -115,14 +134,16 @@ impl KaleidoscopePage {
 fn add_edge_buttons(
     model: &mut MenuPageModel<KaleidoscopePage, KaleidoscopeAction>,
     page: KaleidoscopePage,
-    focus: KaleidoscopeFocus,
 ) {
+    // `selected: false` — the focus highlight is applied IN PLACE from the live
+    // cursor (`kaleidoscope_sync_focus_visuals`), not baked here, so a hover does
+    // not rebuild the face (which would drop a `Pointer<Click>`).
     model.control(
         EDGE_LEFT_RECT,
         MenuControlKind::Action,
         format!("<\n{}", page_label(page.on_viewer_left())),
         Some("turn cube left".to_string()),
-        focus == KaleidoscopeFocus::EdgeLeft,
+        false,
         false,
         Some(KaleidoscopeAction::ChangePage(page.on_viewer_left())),
     );
@@ -131,7 +152,7 @@ fn add_edge_buttons(
         MenuControlKind::Action,
         format!(">\n{}", page_label(page.on_viewer_right())),
         Some("turn cube right".to_string()),
-        focus == KaleidoscopeFocus::EdgeRight,
+        false,
         false,
         Some(KaleidoscopeAction::ChangePage(page.on_viewer_right())),
     );
@@ -252,16 +273,14 @@ fn cell_label(name: &str) -> String {
 pub fn items_spec(
     owned: &OwnedItems,
     equipped: Option<Item>,
-    focus: KaleidoscopeFocus,
 ) -> ItemsOnlyPageSpec<KaleidoscopePage, KaleidoscopeAction> {
-    let selected = match focus {
-        KaleidoscopeFocus::Item(idx) => Item::from_index(idx),
-        _ => None,
-    };
     let mut spec = ItemsOnlyPageSpec::new(KaleidoscopePage::Items, "ITEMS")
         .with_grid(ITEM_GRID_ROWS, ITEM_GRID_COLS)
         .with_grid_rect(GRID_RECT);
-    spec.selected_slot = selected.map(|i| InventorySlotId(i.index()));
+    // No baked `selected_slot`: the focus highlight is applied IN PLACE from the
+    // live cursor (`kaleidoscope_sync_focus_visuals`), so a hover does not rebuild
+    // the items face (which would drop a `Pointer<Click>`).
+    spec.selected_slot = None;
     spec.cells = Item::ALL
         .into_iter()
         .map(|item| {
@@ -304,23 +323,23 @@ pub fn items_spec(
 pub fn build_items_page(
     owned: &OwnedItems,
     equipped: Option<Item>,
-    focus: KaleidoscopeFocus,
 ) -> MenuPageModel<KaleidoscopePage, KaleidoscopeAction> {
-    let mut model = items_spec(owned, equipped, focus).into_page_model();
-    add_detail_panel(&mut model, owned, equipped, focus);
-    add_edge_buttons(&mut model, KaleidoscopePage::Items, focus);
+    let mut model = items_spec(owned, equipped).into_page_model();
+    add_detail_panel(&mut model);
+    add_edge_buttons(&mut model, KaleidoscopePage::Items);
     model
 }
 
 /// Render the single right-hand detail panel for the focused item: its name and
 /// wrapped description. This is the demo's "SELECTED" panel — exactly ONE detail
 /// region for the whole page, not one per cell.
-fn add_detail_panel(
-    model: &mut MenuPageModel<KaleidoscopePage, KaleidoscopeAction>,
-    owned: &OwnedItems,
-    equipped: Option<Item>,
-    focus: KaleidoscopeFocus,
-) {
+///
+/// The panel's CONTENT is cursor-dependent, so it is emitted as fixed, empty
+/// [`MenuDynamicText`] slots; the in-place updater
+/// (`crate::lunex_kaleidoscope_app::kaleidoscope_sync_detail_text`) fills them
+/// from the live cursor each time it moves — no rebuild, so a hover never drops a
+/// click. See [`items_detail_slot_text`] for the slot→string mapping.
+fn add_detail_panel(model: &mut MenuPageModel<KaleidoscopePage, KaleidoscopeAction>) {
     model.panel(
         DETAIL_PANEL_RECT,
         MenuColor::rgba(0.035, 0.046, 0.105, 0.96),
@@ -334,17 +353,36 @@ fn add_detail_panel(
         MenuTextAlign::Center,
         MenuColor::rgba(1.0, 0.84, 0.38, 1.0),
     );
-    let item = Item::from_index(focus.item_index()).unwrap_or(Item::ALL[0]);
-    for (line_idx, line) in detail_lines(owned, equipped, item).into_iter().enumerate() {
-        model.text(
+    for line_idx in 0..ITEMS_DETAIL_BODY_LINES {
+        model.dynamic_text(
+            ITEMS_DETAIL_BODY_SLOT0 + line_idx,
             79.6,
             28.5 + line_idx as f32 * 3.2,
             1.55,
-            line,
             MenuTextAlign::Center,
             MenuColor::rgba(0.88, 0.94, 1.0, 0.96),
         );
     }
+}
+
+/// The Items detail-panel text keyed by dynamic-text slot, for the focused item.
+/// Empty slots (lines beyond the item's text) map to `""` so a previously longer
+/// description is cleared in place. This is the in-place equivalent of the old
+/// baked detail panel.
+pub fn items_detail_slot_text(
+    owned: &OwnedItems,
+    equipped: Option<Item>,
+    focus: KaleidoscopeFocus,
+) -> Vec<(u32, String)> {
+    let item = Item::from_index(focus.item_index()).unwrap_or(Item::ALL[0]);
+    let lines = detail_lines(owned, equipped, item);
+    (0..ITEMS_DETAIL_BODY_LINES)
+        .map(|i| {
+            let slot = ITEMS_DETAIL_BODY_SLOT0 + i;
+            let text = lines.get(i as usize).cloned().unwrap_or_default();
+            (slot, text)
+        })
+        .collect()
 }
 
 /// The wrapped detail-panel lines for an item: its name, a blank, the wrapped
@@ -385,18 +423,16 @@ pub fn build_inventory_pages(
     open_entry: Option<SystemMenuEntryId>,
 ) -> Vec<MenuPageModel<KaleidoscopePage, KaleidoscopeAction>> {
     vec![
-        build_items_page(owned, equipped, focus),
+        build_items_page(owned, equipped),
         placeholder_page(
             KaleidoscopePage::Map,
             "MAP",
             "Area map: discovered rooms, anchors, portal markers (host data TODO).",
-            focus,
         ),
         placeholder_page(
             KaleidoscopePage::Quest,
             "QUEST",
             "Quest status + key items from save data (host data TODO).",
-            focus,
         ),
         build_system_page(settings, radio, dev, focus, open_entry),
     ]
@@ -626,6 +662,19 @@ const SYSTEM_DESC_WRAP_COLS: usize = 60;
 /// for large, finger-readable rows that still leave room for the bottom panel.
 const SYSTEM_VISIBLE_ROWS: usize = 7;
 
+/// The first visible System row for a given focus — the System face's scroll-window
+/// START. The face's STRUCTURE (which rows render) depends on this, so the republish
+/// keys off it (not the raw cursor): a hover that stays inside the window does NOT
+/// shift it, so it does NOT rebuild the face (which would drop a `Pointer<Click>`);
+/// a keyboard move PAST the window edge DOES shift it, so the window still scrolls.
+pub fn system_window_start(rows: &[SystemRow], focus: KaleidoscopeFocus) -> usize {
+    let focused = system_focus_index(focus, rows.len());
+    if rows.len() <= SYSTEM_VISIBLE_ROWS {
+        return 0;
+    }
+    crate::ui_nav::visible_window_start(focused, rows.len(), SYSTEM_VISIBLE_ROWS)
+}
+
 /// The visible window of System rows for the current cursor + a scroll indicator.
 ///
 /// `rows` is the full ordered row list ([`system_rows`]); `focused` is the cursor's
@@ -721,14 +770,21 @@ pub fn build_system_page(
             // No per-row detail hint: the focused option's description now lives
             // in the dedicated BOTTOM panel, so the tall rows stay uncluttered.
             None,
-            *abs_idx == focused,
+            // `selected: false` — the row highlight is applied IN PLACE from the
+            // live cursor (`kaleidoscope_sync_focus_visuals`), so hovering a row
+            // does not rebuild the face. `abs_idx` is unused for highlight now but
+            // still anchors the row's action to its absolute list index.
+            {
+                let _ = abs_idx;
+                false
+            },
             false,
             system_row_action(&sys_model, *row),
         );
     }
 
-    add_system_detail_panel(&mut model, &sys_model, &rows, focused);
-    add_edge_buttons(&mut model, KaleidoscopePage::System, focus);
+    add_system_detail_panel(&mut model);
+    add_edge_buttons(&mut model, KaleidoscopePage::System);
     model
 }
 
@@ -736,18 +792,47 @@ pub fn build_system_page(
 /// state) plus a wrapped description. A wide, short panel along the bottom (the
 /// items page keeps its right-side panel; the System face moves it down so the
 /// option column can be centered + enlarged).
-fn add_system_detail_panel(
-    model: &mut MenuPageModel<KaleidoscopePage, KaleidoscopeAction>,
-    sys_model: &SystemMenuModel,
-    rows: &[SystemRow],
-    focused: usize,
-) {
+/// The System face's BOTTOM detail panel. Its CONTENT (focused row's label +
+/// description) is cursor-dependent, so it is emitted as fixed, empty
+/// [`MenuDynamicText`] slots filled in place by
+/// `crate::lunex_kaleidoscope_app::kaleidoscope_sync_detail_text`
+/// (see [`system_detail_slot_text`]) — no rebuild on hover, so the click survives.
+fn add_system_detail_panel(model: &mut MenuPageModel<KaleidoscopePage, KaleidoscopeAction>) {
     model.panel(
         SYSTEM_DESC_RECT,
         MenuColor::rgba(0.035, 0.046, 0.105, 0.96),
         None,
     );
     let cx = SYSTEM_DESC_RECT.x + SYSTEM_DESC_RECT.w * 0.5;
+    // Header: the focused row's label (filled in place).
+    model.dynamic_text(
+        SYSTEM_DETAIL_LABEL_SLOT,
+        cx,
+        SYSTEM_DESC_RECT.y + 4.0,
+        2.4,
+        MenuTextAlign::Center,
+        MenuColor::rgba(1.0, 0.84, 0.38, 1.0),
+    );
+    for line_idx in 0..SYSTEM_DETAIL_BODY_LINES {
+        model.dynamic_text(
+            SYSTEM_DETAIL_BODY_SLOT0 + line_idx,
+            cx,
+            SYSTEM_DESC_RECT.y + 8.5 + line_idx as f32 * 3.0,
+            SYSTEM_ROW_FONT * 0.78,
+            MenuTextAlign::Center,
+            MenuColor::rgba(0.88, 0.94, 1.0, 0.96),
+        );
+    }
+}
+
+/// The System bottom-panel text keyed by dynamic-text slot, for the focused row.
+/// The in-place equivalent of the old baked bottom panel; empty slots clear stale
+/// lines from a previously longer description.
+pub fn system_detail_slot_text(
+    sys_model: &SystemMenuModel,
+    rows: &[SystemRow],
+    focused: usize,
+) -> Vec<(u32, String)> {
     let (label, description) = rows
         .get(focused)
         .map(|row| {
@@ -757,35 +842,21 @@ fn add_system_detail_panel(
             )
         })
         .unwrap_or_else(|| ("System".to_string(), "System options.".to_string()));
-    // Header: the focused row's label (its live value), then the wrapped
-    // description below it inside the bottom band.
-    model.text(
-        cx,
-        SYSTEM_DESC_RECT.y + 4.0,
-        2.4,
-        &label,
-        MenuTextAlign::Center,
-        MenuColor::rgba(1.0, 0.84, 0.38, 1.0),
-    );
+    let mut out = vec![(SYSTEM_DETAIL_LABEL_SLOT, label)];
     let mut lines = wrap_text(&description, SYSTEM_DESC_WRAP_COLS);
-    lines.truncate(3);
-    for (line_idx, line) in lines.into_iter().enumerate() {
-        model.text(
-            cx,
-            SYSTEM_DESC_RECT.y + 8.5 + line_idx as f32 * 3.0,
-            SYSTEM_ROW_FONT * 0.78,
-            line,
-            MenuTextAlign::Center,
-            MenuColor::rgba(0.88, 0.94, 1.0, 0.96),
-        );
+    lines.truncate(SYSTEM_DETAIL_BODY_LINES as usize);
+    for i in 0..SYSTEM_DETAIL_BODY_LINES {
+        let slot = SYSTEM_DETAIL_BODY_SLOT0 + i;
+        let text = lines.get(i as usize).cloned().unwrap_or_default();
+        out.push((slot, text));
     }
+    out
 }
 
 fn placeholder_page(
     page: KaleidoscopePage,
     title: &str,
     body: &str,
-    focus: KaleidoscopeFocus,
 ) -> MenuPageModel<KaleidoscopePage, KaleidoscopeAction> {
     let mut model = MenuPageModel::new(page, title, MenuColor::rgba(0.03, 0.04, 0.10, 0.96));
     model.text(
@@ -804,11 +875,10 @@ fn placeholder_page(
         MenuTextAlign::Center,
         MenuColor::rgba(0.85, 0.92, 1.0, 0.9),
     );
-    // Placeholder pages keep the edge buttons AND honour the live cursor focus, so
-    // landing on an edge button after a page turn (Fix 1) highlights it. Only the
-    // EdgeLeft/EdgeRight focuses matter here; an item/system focus simply leaves both
-    // edge buttons un-highlighted (harmless — the placeholder has no other controls).
-    add_edge_buttons(&mut model, page, focus);
+    // Placeholder pages keep the edge buttons; their focus highlight is applied in
+    // place from the live cursor (`kaleidoscope_sync_focus_visuals`), so landing on
+    // an edge button after a page turn (Fix 1) highlights it without a rebuild.
+    add_edge_buttons(&mut model, page);
     model
 }
 
@@ -869,7 +939,7 @@ mod tests {
     #[test]
     fn items_face_wires_all_24_slots_from_our_catalog() {
         let owned = OwnedItems::default();
-        let spec = items_spec(&owned, None, KaleidoscopeFocus::default());
+        let spec = items_spec(&owned, None);
         assert_eq!(
             spec.cells.len(),
             crate::items::ITEM_COUNT,
@@ -886,7 +956,7 @@ mod tests {
     fn owned_and_equipped_flags_reflect_inventory_state() {
         let mut owned = OwnedItems::default();
         owned.grant(Item::Blink, 1);
-        let spec = items_spec(&owned, Some(Item::Blink), KaleidoscopeFocus::default());
+        let spec = items_spec(&owned, Some(Item::Blink));
         let blink = &spec.cells[Item::Blink.index()];
         assert!(blink.owned, "granted item reads owned");
         assert!(blink.equipped, "equipped item reads equipped");
@@ -919,7 +989,7 @@ mod tests {
         // Items with authored art emit an `icon` on their grid control; items
         // without art carry `None` (the lib then renders the text label).
         let owned = OwnedItems::default();
-        let page = build_items_page(&owned, None, KaleidoscopeFocus::default());
+        let page = build_items_page(&owned, None);
         // Item-grid controls are emitted in catalog slot order, so the icon list
         // lines up 1:1 with `Item::ALL`.
         let icons: Vec<Option<String>> = page
@@ -958,7 +1028,7 @@ mod tests {
         // Regression for the "24 overlapping descriptions" mush: NO grid cell may
         // carry the full item description as its detail text.
         let owned = OwnedItems::default();
-        let page = build_items_page(&owned, None, KaleidoscopeFocus::Item(Item::Blink.index()));
+        let page = build_items_page(&owned, None);
         for node in &page.nodes {
             if let ambition_inventory_ui::MenuNode::Control {
                 detail: Some(d),
@@ -974,14 +1044,31 @@ mod tests {
                 }
             }
         }
-        // The detail panel DOES render the focused item's description text.
-        let has_desc = page.nodes.iter().any(|n| matches!(
-            n,
-            ambition_inventory_ui::MenuNode::Text { text, .. } if Item::Blink.description().contains(text.as_str()) && !text.is_empty()
-        ));
+        // The detail panel is now cursor-INDEPENDENT page data: it reserves a fixed
+        // set of EMPTY dynamic-text slots (filled in place from the live cursor),
+        // so the page itself never bakes the description (a hover would otherwise
+        // rebuild the face and drop a `Pointer<Click>` — the deferred Bug 2).
+        let has_dynamic_slots = page
+            .nodes
+            .iter()
+            .filter(|n| matches!(n, ambition_inventory_ui::MenuNode::DynamicText { .. }))
+            .count();
         assert!(
-            has_desc,
-            "detail panel renders the focused item's description"
+            has_dynamic_slots >= ITEMS_DETAIL_BODY_LINES as usize,
+            "items detail panel reserves dynamic-text slots for in-place fill"
+        );
+        // The in-place text for a focused item renders its description (this is what
+        // `kaleidoscope_sync_detail_text` writes into the dynamic slots each move).
+        let slot_text =
+            items_detail_slot_text(&owned, None, KaleidoscopeFocus::Item(Item::Blink.index()));
+        let joined: String = slot_text
+            .iter()
+            .map(|(_, s)| s.as_str())
+            .collect::<Vec<_>>()
+            .join(" ");
+        assert!(
+            joined.contains(Item::Blink.description()),
+            "focused item's description is supplied by the in-place detail slots: {joined:?}"
         );
     }
 
@@ -1121,12 +1208,14 @@ mod tests {
     }
 
     #[test]
-    fn map_and_quest_edge_buttons_are_focusable_and_highlight() {
+    fn map_and_quest_edge_buttons_are_focusable() {
         // Fix 1: placeholder pages (Map / Quest) build real, focusable L/R edge
-        // buttons that highlight from the live cursor focus — previously they were
-        // hard-wired to `KaleidoscopeFocus::Item(0)` so they could never highlight.
+        // buttons. The focus HIGHLIGHT is now applied in place from the live cursor
+        // (`kaleidoscope_sync_focus_visuals`) rather than baked into the page data,
+        // so the page only needs to emit the two clickable edge controls; landing on
+        // one after a page turn highlights it without a rebuild.
         for page in [KaleidoscopePage::Map, KaleidoscopePage::Quest] {
-            let model = placeholder_page(page, "T", "body", KaleidoscopeFocus::EdgeLeft);
+            let model = placeholder_page(page, "T", "body");
             // Both edge buttons exist as Action controls with a ChangePage action.
             let edges: Vec<_> = model
                 .nodes
@@ -1143,15 +1232,20 @@ mod tests {
                 })
                 .collect();
             assert_eq!(edges.len(), 2, "{page:?} has both L/R edge buttons");
-            // With EdgeLeft focus, exactly the LEFT edge button reads selected.
-            let left_selected = model.nodes.iter().any(|n| matches!(
-                n,
-                ambition_inventory_ui::MenuNode::Control { rect, selected: true, action: Some(KaleidoscopeAction::ChangePage(_)), .. }
-                    if rect.x < 10.0
-            ));
+            // The page data is cursor-independent: NO edge button is baked selected.
+            let any_baked_selected = model.nodes.iter().any(|n| {
+                matches!(
+                    n,
+                    ambition_inventory_ui::MenuNode::Control {
+                        selected: true,
+                        action: Some(KaleidoscopeAction::ChangePage(_)),
+                        ..
+                    }
+                )
+            });
             assert!(
-                left_selected,
-                "{page:?} left edge button highlights on EdgeLeft focus"
+                !any_baked_selected,
+                "{page:?} edge highlight is applied in place, not baked"
             );
         }
     }
@@ -1239,20 +1333,21 @@ mod tests {
             option_rows, SYSTEM_VISIBLE_ROWS,
             "a long Radio screen renders only the visible window of station rows"
         );
-        // The window includes the focused station (index 13).
+        // The window includes the focused station (index 13). The highlight itself
+        // is applied IN PLACE from the live cursor (not baked as `selected`), so the
+        // page only needs to RENDER the focused row inside the window.
         let has_focused = page.nodes.iter().any(|n| {
             matches!(
                 n,
                 ambition_inventory_ui::MenuNode::Control {
                     action: Some(KaleidoscopeAction::SystemOption(SystemOptionId::Radio(13))),
-                    selected: true,
                     ..
                 }
             )
         });
         assert!(
             has_focused,
-            "the focused station is the selected windowed row"
+            "the focused station scrolls into the visible window"
         );
     }
 
@@ -1269,7 +1364,7 @@ mod tests {
             KaleidoscopePage::System
         );
         let owned = OwnedItems::default();
-        let page = build_items_page(&owned, None, KaleidoscopeFocus::default());
+        let page = build_items_page(&owned, None);
         let left = page.nodes.iter().find_map(|n| match n {
             ambition_inventory_ui::MenuNode::Control {
                 action: Some(KaleidoscopeAction::ChangePage(p)),

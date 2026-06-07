@@ -36,8 +36,8 @@ use bevy::ecs::relationship::RelatedSpawnerCommands;
 use bevy::prelude::*;
 
 use crate::{
-    AmbitionMenuControl, AmbitionMenuRoot, MenuColor, MenuControlKind, MenuNode,
-    MenuPageModel, MenuRect, MenuTextAlign, MenuVisualState, ScrollThumb,
+    AmbitionMenuControl, AmbitionMenuRoot, MenuColor, MenuControlKind, MenuNode, MenuPageModel,
+    MenuRect, MenuTextAlign, MenuVisualState, ScrollThumb,
 };
 
 /// Root marker for a spawned flat `bevy_ui` menu tree.
@@ -69,6 +69,9 @@ pub struct BevyUiMenuBody;
 pub struct BevyUiMenuTab {
     pub index: usize,
     pub active: bool,
+    /// Fix 4: keyboard focus is currently on THIS tab (the tab bar has focus and the
+    /// cursor is on it). Drawn with a focus ring distinct from the active highlight.
+    pub focused: bool,
 }
 
 /// Flag on the single focused control entity (the cursor).
@@ -124,6 +127,11 @@ pub struct BevyUiMenuView<'a, PageId, Action> {
     /// A control whose derived [`MenuFocusKey`](crate::MenuFocusKey) equals this is
     /// drawn focused + flagged with [`BevyUiMenuFocused`]. `None` focuses nothing.
     pub focused: Option<crate::MenuFocusKey>,
+    /// Fix 4: when keyboard focus is on the TAB BAR (not the body), the index of the
+    /// tab the cursor is on. Drawn with a distinct focus ring so the user can see which
+    /// tab UP/LEFT/RIGHT will act on. `None` = focus is in the body (the normal case);
+    /// the active tab is still highlighted via [`BevyUiMenuTab::active`].
+    pub focused_tab: Option<usize>,
 }
 
 /// Convert a renderer-neutral [`MenuColor`] into a Bevy [`Color`].
@@ -173,12 +181,29 @@ fn control_bg(kind: MenuControlKind, focused: bool, selected: bool, important: b
     if matches!(kind, MenuControlKind::Scrollbar) {
         return Color::srgba(0.10, 0.11, 0.16, 0.92);
     }
-    if focused || selected {
-        Color::srgba(0.85, 0.70, 0.20, 0.96)
-    } else if important {
-        Color::srgba(0.20, 0.30, 0.50, 0.96)
-    } else {
-        Color::srgba(0.09, 0.12, 0.26, 0.96)
+    // Fix 2: HIGHLIGHTED (cursor/hover) and SELECTED (equipped/active setting) must
+    // read DISTINCT, mirroring the cube's `control_color(kind, selected, important)`
+    // intent: selected is a warm accent, highlighted is the bright cursor color, and
+    // the two together are the brightest. The cube distinguishes selected by color;
+    // the flat backend additionally distinguishes the cursor (the cube does that with
+    // a separate focus-ring system, which the flat renderer folds into the bg here).
+    match (focused, selected) {
+        // Highlighted AND selected → the brightest warm gold (the cursor sits on the
+        // active item/setting).
+        (true, true) => Color::srgba(0.99, 0.82, 0.34, 0.98),
+        // Highlighted only (cursor/hover) → warm gold cursor color.
+        (true, false) => Color::srgba(0.85, 0.70, 0.20, 0.96),
+        // Selected only (equipped item / active setting, cursor elsewhere) → a muted
+        // teal/blue accent, clearly different from the gold cursor.
+        (false, true) => Color::srgba(0.16, 0.42, 0.46, 0.96),
+        // Plain.
+        (false, false) => {
+            if important {
+                Color::srgba(0.20, 0.30, 0.50, 0.96)
+            } else {
+                Color::srgba(0.09, 0.12, 0.26, 0.96)
+            }
+        }
     }
 }
 
@@ -231,10 +256,11 @@ where
                 align_items: AlignItems::Center,
                 ..default()
             },
-            // FULLY OPAQUE backdrop. The flat Grid menu is the simple fallback for
-            // the 3D cube, so it draws a solid screen — no see-through (which also
-            // sidesteps the transparency confusion entirely).
-            BackgroundColor(Color::srgb(0.03, 0.04, 0.07)),
+            // Fix 1: TRANSLUCENT scrim. The despawn bug that blanked the body (which
+            // forced an opaque workaround) is fixed, so the menu can dim-and-show the
+            // world behind it again. A 0.55 alpha black darkens the gameplay enough to
+            // read the panel while keeping the scene visible.
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.55)),
             // On top of the gameplay HUD so the menu's buttons get the pointer.
             GlobalZIndex(1000),
             BevyUiMenuRoot,
@@ -252,15 +278,12 @@ where
                 flex_direction: FlexDirection::Column,
                 ..default()
             },
-            // SOLID opaque window background. The model's `page.background` is
-            // (near-)transparent because the cube's 3D face is itself opaque — but
-            // the flat renderer has nothing behind the panel, so relying on it left
-            // the whole menu see-through (dark content invisible over the dimmed
-            // game). Use a fixed opaque panel so the body content is visible.
-            // Solid opaque window panel (the model's `page.background` is
-            // near-transparent — the cube's 3D face is opaque, so the model never
-            // needed a solid panel; the flat renderer supplies one).
-            BackgroundColor(Color::srgb(0.10, 0.12, 0.18)),
+            // Fix 1: TRANSLUCENT dark window. A near-opaque (0.90) dark panel keeps the
+            // body content crisply readable while letting a hint of the dimmed world
+            // bleed through the window — the "translucent dark window" look. (The model's
+            // own `page.background` is near-transparent for the cube's opaque 3D face;
+            // the flat renderer supplies this panel so content has a backing.)
+            BackgroundColor(Color::srgba(0.07, 0.09, 0.14, 0.90)),
             BevyUiMenuPanel,
             Name::new("menu panel"),
         ))
@@ -280,6 +303,7 @@ where
                 .with_children(|bar| {
                     for (i, tab) in view.tabs.iter().enumerate() {
                         let active = i == active_tab;
+                        let tab_focused = view.focused_tab == Some(i);
                         let bg = if active {
                             Color::srgba(0.85, 0.70, 0.20, 0.98)
                         } else {
@@ -290,6 +314,17 @@ where
                         } else {
                             Color::srgba(0.85, 0.90, 0.98, 0.98)
                         };
+                        // Fix 4: a tab the keyboard cursor sits on gets a bright focus
+                        // ring (a border) so the user sees which tab UP/LEFT/RIGHT acts
+                        // on, distinct from the active tab's filled highlight.
+                        let (border, border_color) = if tab_focused {
+                            (
+                                UiRect::all(Val::Px(3.0)),
+                                Color::srgba(0.99, 0.82, 0.34, 1.0),
+                            )
+                        } else {
+                            (UiRect::ZERO, Color::NONE)
+                        };
                         bar.spawn((
                             Button,
                             Node {
@@ -297,10 +332,16 @@ where
                                 height: Val::Percent(100.0),
                                 justify_content: JustifyContent::Center,
                                 align_items: AlignItems::Center,
+                                border,
                                 ..default()
                             },
                             BackgroundColor(bg),
-                            BevyUiMenuTab { index: i, active },
+                            BorderColor::all(border_color),
+                            BevyUiMenuTab {
+                                index: i,
+                                active,
+                                focused: tab_focused,
+                            },
                             Name::new(format!("tab[{i}]")),
                         ))
                         .with_children(|btn| {
@@ -488,7 +529,9 @@ fn spawn_control<Action>(
     } else {
         control_bg(kind, focused, selected, important)
     };
-    let label_color = if focused || selected {
+    // Black text only on the bright gold highlight; the muted teal selected-only bg
+    // is dark, so it keeps light text (Fix 2: selected ≠ highlighted, incl. text).
+    let label_color = if focused {
         Color::BLACK
     } else {
         Color::srgba(0.90, 0.94, 1.0, 0.98)
@@ -683,6 +726,7 @@ mod tests {
                 active_tab,
                 page: &page,
                 focused,
+                focused_tab: None,
             };
             let mut commands = world.commands();
             spawn_bevy_ui_menu(&mut commands, &view);
@@ -701,6 +745,51 @@ mod tests {
         assert_eq!(tabs.len(), 4, "one button per tab");
         let active: Vec<usize> = tabs.iter().filter(|t| t.active).map(|t| t.index).collect();
         assert_eq!(active, vec![1], "exactly the active tab is flagged");
+    }
+
+    #[test]
+    fn selected_and_highlighted_are_distinct_colors() {
+        // Fix 2: highlighted (cursor/hover), selected (equipped/active), and the two
+        // together must all read as DIFFERENT control backgrounds.
+        let k = MenuControlKind::Item;
+        let highlighted = control_bg(k, true, false, false);
+        let selected = control_bg(k, false, true, false);
+        let both = control_bg(k, true, true, false);
+        let plain = control_bg(k, false, false, false);
+        assert_ne!(highlighted, selected, "highlighted ≠ selected");
+        assert_ne!(highlighted, both, "highlighted ≠ selected+highlighted");
+        assert_ne!(selected, both, "selected ≠ selected+highlighted");
+        assert_ne!(selected, plain, "selected ≠ plain");
+        assert_ne!(highlighted, plain, "highlighted ≠ plain");
+    }
+
+    #[test]
+    fn focused_tab_is_flagged_on_the_tab_button() {
+        // Fix 4: when the view reports a focused tab (keyboard on the tab bar), that
+        // tab button carries `focused: true` and no other does.
+        let mut app = build_app();
+        let (page, _) = sample_page();
+        let tabs = tab_set();
+        app.world_mut().commands().queue(move |world: &mut World| {
+            let view = BevyUiMenuView {
+                tabs: &tabs,
+                active_tab: 0,
+                page: &page,
+                focused: None,
+                focused_tab: Some(2),
+            };
+            let mut commands = world.commands();
+            spawn_bevy_ui_menu(&mut commands, &view);
+        });
+        app.update();
+
+        let mut q = app.world_mut().query::<&BevyUiMenuTab>();
+        let focused: Vec<usize> = q
+            .iter(app.world())
+            .filter(|t| t.focused)
+            .map(|t| t.index)
+            .collect();
+        assert_eq!(focused, vec![2], "exactly the focused tab is flagged");
     }
 
     #[test]
@@ -784,6 +873,7 @@ mod tests {
                 active_tab: 1,
                 page: &page,
                 focused: None,
+                focused_tab: None,
             };
             let mut commands = world.commands();
             spawn_bevy_ui_menu(&mut commands, &view);
@@ -828,6 +918,7 @@ mod tests {
                 active_tab: 0,
                 page: &page,
                 focused: None,
+                focused_tab: None,
             };
             let assets = world.get_resource::<AssetServer>().cloned();
             let mut commands = world.commands();
@@ -867,6 +958,7 @@ mod tests {
                 active_tab: 0,
                 page: &page,
                 focused: None,
+                focused_tab: None,
             };
             let mut commands = world.commands();
             spawn_bevy_ui_menu(&mut commands, &view);

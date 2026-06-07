@@ -45,6 +45,9 @@ pub const DEV_BUILD: bool = cfg!(feature = "dev_tools");
 /// place that touches `DeveloperTools`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum DevToggleId {
+    // Global dev flags (sourced from `SandboxDevState`, not `DeveloperTools`).
+    DebugOverlay,
+    SlowMotion,
     // Inspectors.
     Inspector,
     WorldInspector,
@@ -64,12 +67,19 @@ pub enum DevToggleId {
     DebugArtMode,
     PlayerBodyProfile,
     MovementProfile,
+    // LDtk hot-reload (sourced from `LdtkHotReloadState`, not `DeveloperTools`).
+    LdtkAutoApply,
 }
 
 impl DevToggleId {
-    /// Every developer toggle/cycle, grouped Inspectors → Debug Visuals → Camera
-    /// → Profiles, in display order.
-    pub const ALL: [Self; 15] = [
+    /// Every developer toggle/cycle, grouped Global Flags → Inspectors → Debug
+    /// Visuals → Camera → Profiles → LDtk, in display order. The first two
+    /// (DebugOverlay/SlowMotion) and the trailing LdtkAutoApply are sourced from
+    /// `SandboxDevState` / `LdtkHotReloadState` (not `DeveloperTools`); they mirror
+    /// the pause-menu Developer page's F1 / F2 / F12 rows.
+    pub const ALL: [Self; 18] = [
+        Self::DebugOverlay,
+        Self::SlowMotion,
         Self::Inspector,
         Self::WorldInspector,
         Self::Gizmos,
@@ -85,15 +95,18 @@ impl DevToggleId {
         Self::DebugArtMode,
         Self::PlayerBodyProfile,
         Self::MovementProfile,
+        Self::LdtkAutoApply,
     ];
 
     pub fn label(self) -> &'static str {
         match self {
+            Self::DebugOverlay => "Debug Overlay (F1)",
+            Self::SlowMotion => "Slow Motion (F2)",
             Self::Inspector => "Inspector",
             Self::WorldInspector => "World Inspector",
             Self::Gizmos => "Gizmos",
             Self::ShowHud => "Debug HUD",
-            Self::ShowHitboxes => "Player Hitbox",
+            Self::ShowHitboxes => "Custom Hitboxes",
             Self::HideSprites => "Hide Sprites",
             Self::PlaceholderSprites => "Placeholder Art",
             Self::FillDebugBoxes => "Fill Debug Boxes",
@@ -104,16 +117,19 @@ impl DevToggleId {
             Self::DebugArtMode => "Art Mode",
             Self::PlayerBodyProfile => "Body Profile",
             Self::MovementProfile => "Movement Profile",
+            Self::LdtkAutoApply => "LDtk Auto-Reload (F12)",
         }
     }
 
     pub fn description(self) -> &'static str {
         match self {
+            Self::DebugOverlay => "Toggle the F1 debug overlay (state, timers, gizmos).",
+            Self::SlowMotion => "Toggle F2 slow-motion for inspecting fast motion.",
             Self::Inspector => "Show the reflected resource inspector windows.",
             Self::WorldInspector => "Show the full-world entity/resource inspector.",
             Self::Gizmos => "Master switch for Bevy gizmo overlays.",
             Self::ShowHud => "Toggle the debug HUD overlay.",
-            Self::ShowHitboxes => "Draw the player's collision hitbox gizmo.",
+            Self::ShowHitboxes => "Draw the custom feature + player collision hitboxes.",
             Self::HideSprites => "Suppress sprite rendering so only gizmos show.",
             Self::PlaceholderSprites => "Replace textured sprites with sized rectangles.",
             Self::FillDebugBoxes => "Fill gizmo AABBs with a translucent tint.",
@@ -124,6 +140,7 @@ impl DevToggleId {
             Self::DebugArtMode => "Cycle the debug art preset.",
             Self::PlayerBodyProfile => "Cycle the player body-size feel preset.",
             Self::MovementProfile => "Cycle the movement tuning preset.",
+            Self::LdtkAutoApply => "Auto-apply LDtk file changes on hot reload (F12).",
         }
     }
 
@@ -350,11 +367,14 @@ impl DevSnapshot {
     }
 }
 
-/// The curated settings-option ids surfaced by each settings category on the
-/// SYSTEM face. This is intentionally a SUBSET of the full settings IR: only the
-/// options that have real `UserSettings` fields + effects today are listed (the
-/// pure-`[new]` ones — VSync, Brightness, etc. — are omitted until their fields
-/// land; see `TODO.md`). Order matches the target tree.
+/// The settings-option ids surfaced by each settings category on the SYSTEM
+/// face, in pause-menu page order. This now mirrors the OLD pause menu's pages
+/// 1:1 for the player-facing set (Phase C1 parity): Video carries the basic
+/// display/camera/accessibility rows plus the whole shader subpage; Controls
+/// carries every stick/trigger/dash/menu row; Gameplay carries
+/// difficulty/assist/damage plus the HUD + trace toggles. Nothing the pause
+/// menu shows is dropped here, so the System face is at full parity once the
+/// pause menu is deleted.
 fn curated_options(id: SystemMenuEntryId) -> &'static [SettingsOptionId] {
     match id {
         // Video carries its basic rows PLUS the whole shader subpage appended
@@ -364,8 +384,12 @@ fn curated_options(id: SystemMenuEntryId) -> &'static [SettingsOptionId] {
         // exposes is reachable here.
         SystemMenuEntryId::Video => &[
             SettingsOptionId::DisplayMode,
-            SettingsOptionId::ShowFps,
             SettingsOptionId::CameraZoom,
+            SettingsOptionId::CameraAspect,
+            SettingsOptionId::CameraFraming,
+            SettingsOptionId::Flashes,
+            SettingsOptionId::Colorblind,
+            SettingsOptionId::ShowFps,
             SettingsOptionId::ShaderStrength,
             SettingsOptionId::ShaderCrtStrength,
             SettingsOptionId::ShaderCrtScanlines,
@@ -395,12 +419,26 @@ fn curated_options(id: SystemMenuEntryId) -> &'static [SettingsOptionId] {
         ],
         SystemMenuEntryId::Controls => &[
             SettingsOptionId::KeyboardPreset,
-            SettingsOptionId::TouchControls,
-            SettingsOptionId::DashInputMode,
+            SettingsOptionId::ControllerProfile,
             SettingsOptionId::LeftStickDeadzone,
+            SettingsOptionId::RightStickDeadzone,
+            SettingsOptionId::TriggerPress,
+            SettingsOptionId::TriggerRelease,
+            SettingsOptionId::DpadMenuNav,
+            SettingsOptionId::InvertAimY,
+            SettingsOptionId::DashInputMode,
+            SettingsOptionId::TouchControls,
+            SettingsOptionId::MenuTapMode,
             SettingsOptionId::ResetControlFiltering,
         ],
-        SystemMenuEntryId::Gameplay => &[SettingsOptionId::DebugHud, SettingsOptionId::QuestHud],
+        SystemMenuEntryId::Gameplay => &[
+            SettingsOptionId::Difficulty,
+            SettingsOptionId::Assist,
+            SettingsOptionId::PlayerDamage,
+            SettingsOptionId::DebugHud,
+            SettingsOptionId::QuestHud,
+            SettingsOptionId::TraceAutoDump,
+        ],
         _ => &[],
     }
 }
@@ -654,13 +692,18 @@ mod tests {
             panic!("video drills into a settings screen");
         };
         let ids: Vec<_> = options.iter().map(|o| o.id).collect();
-        // The basic Video rows lead the screen; the shader subpage follows.
+        // The basic Video rows lead the screen (now the FULL player-facing set in
+        // pause-menu page order); the shader subpage follows.
         assert_eq!(
-            &ids[..3],
+            &ids[..7],
             &[
                 SettingsOptionId::DisplayMode,
-                SettingsOptionId::ShowFps,
                 SettingsOptionId::CameraZoom,
+                SettingsOptionId::CameraAspect,
+                SettingsOptionId::CameraFraming,
+                SettingsOptionId::Flashes,
+                SettingsOptionId::Colorblind,
+                SettingsOptionId::ShowFps,
             ]
         );
     }
@@ -686,8 +729,12 @@ mod tests {
                 !matches!(
                     id,
                     SettingsOptionId::DisplayMode
-                        | SettingsOptionId::ShowFps
                         | SettingsOptionId::CameraZoom
+                        | SettingsOptionId::CameraAspect
+                        | SettingsOptionId::CameraFraming
+                        | SettingsOptionId::Flashes
+                        | SettingsOptionId::Colorblind
+                        | SettingsOptionId::ShowFps
                 )
             })
             .collect();
@@ -719,11 +766,100 @@ mod tests {
             ]
         );
         // Each shader option carries a live slider value label (e.g. "0%") so the
-        // cube renders the same control the grid does. (The leading basic Video
-        // rows are a cycle/toggle/cycle, so only the shader tail is checked.)
-        for o in options.iter().skip(3) {
+        // cube renders the same control the grid does. (The leading 7 basic Video
+        // rows are cycles/toggles, so only the shader tail is checked.)
+        for o in options.iter().skip(7) {
             assert!(matches!(o.kind, SettingsOptionKind::Slider { .. }));
         }
+    }
+
+    /// Pull the curated settings-option ids for a category off a built model.
+    fn screen_ids(model: &SystemMenuModel, id: SystemMenuEntryId) -> Vec<SettingsOptionId> {
+        let SystemMenuTarget::Settings(options) = &model.entry(id).unwrap().target else {
+            panic!("{id:?} drills into a settings screen");
+        };
+        options.iter().map(|o| o.id).collect()
+    }
+
+    #[test]
+    fn system_screens_surface_every_player_facing_setting() {
+        let model = SystemMenuModel::build(
+            &UserSettings::default(),
+            &RadioSnapshot::default(),
+            &DevSnapshot::default(),
+        );
+        // Video: the full basic player-facing set (display/camera/accessibility/FPS)
+        // — every row the old pause-menu Video page shows (shaders ride after).
+        let video = screen_ids(&model, SystemMenuEntryId::Video);
+        for id in [
+            SettingsOptionId::DisplayMode,
+            SettingsOptionId::CameraZoom,
+            SettingsOptionId::CameraAspect,
+            SettingsOptionId::CameraFraming,
+            SettingsOptionId::Flashes,
+            SettingsOptionId::Colorblind,
+            SettingsOptionId::ShowFps,
+        ] {
+            assert!(video.contains(&id), "Video screen is missing {id:?}");
+        }
+        // Audio: the full set.
+        let audio = screen_ids(&model, SystemMenuEntryId::Audio);
+        for id in [
+            SettingsOptionId::MasterVolume,
+            SettingsOptionId::MusicVolume,
+            SettingsOptionId::SfxVolume,
+            SettingsOptionId::Mute,
+        ] {
+            assert!(audio.contains(&id), "Audio screen is missing {id:?}");
+        }
+        // Controls: every stick/trigger/dash/menu row the pause menu shows.
+        let controls = screen_ids(&model, SystemMenuEntryId::Controls);
+        for id in [
+            SettingsOptionId::KeyboardPreset,
+            SettingsOptionId::ControllerProfile,
+            SettingsOptionId::LeftStickDeadzone,
+            SettingsOptionId::RightStickDeadzone,
+            SettingsOptionId::TriggerPress,
+            SettingsOptionId::TriggerRelease,
+            SettingsOptionId::DpadMenuNav,
+            SettingsOptionId::InvertAimY,
+            SettingsOptionId::DashInputMode,
+            SettingsOptionId::TouchControls,
+            SettingsOptionId::MenuTapMode,
+            SettingsOptionId::ResetControlFiltering,
+        ] {
+            assert!(controls.contains(&id), "Controls screen is missing {id:?}");
+        }
+        // Gameplay: difficulty/assist/damage plus the HUD + trace toggles.
+        let gameplay = screen_ids(&model, SystemMenuEntryId::Gameplay);
+        for id in [
+            SettingsOptionId::Difficulty,
+            SettingsOptionId::Assist,
+            SettingsOptionId::PlayerDamage,
+            SettingsOptionId::DebugHud,
+            SettingsOptionId::QuestHud,
+            SettingsOptionId::TraceAutoDump,
+        ] {
+            assert!(gameplay.contains(&id), "Gameplay screen is missing {id:?}");
+        }
+    }
+
+    #[test]
+    fn developer_screen_surfaces_the_three_extra_resource_toggles() {
+        // The F1/F2/F12 rows (sourced from SandboxDevState / LdtkHotReloadState, not
+        // DeveloperTools) are now part of the Developer screen vocabulary.
+        for id in [
+            DevToggleId::DebugOverlay,
+            DevToggleId::SlowMotion,
+            DevToggleId::LdtkAutoApply,
+        ] {
+            assert!(
+                DevToggleId::ALL.contains(&id),
+                "{id:?} is a surfaced Developer toggle"
+            );
+            assert!(!id.is_cycle(), "{id:?} is a toggle, not a cycle");
+        }
+        assert_eq!(DevToggleId::ALL.len(), 18);
     }
 
     #[test]

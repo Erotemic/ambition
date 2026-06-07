@@ -249,6 +249,10 @@ struct KaleidoscopeScroll {
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct SystemMenuParams<'w> {
     dev_tools: ResMut<'w, crate::dev::dev_tools::DeveloperTools>,
+    // The Developer screen also reaches the F1/F2 global flags + F12 LDtk
+    // auto-reload, which live on these two resources (not `DeveloperTools`).
+    dev_state: ResMut<'w, crate::SandboxDevState>,
+    ldtk_reload: ResMut<'w, crate::ldtk_world::LdtkHotReloadState>,
     reset: ResMut<'w, crate::runtime::reset::SandboxResetRequested>,
     // Movement tuning is derived from the active movement profile, so a
     // Reset All Settings must restore it to match the reset DeveloperTools
@@ -318,7 +322,15 @@ impl SystemMenuParams<'_> {
                 }
             }
             SystemOptionId::Dev(id) => {
-                apply_dev_toggle(&mut self.dev_tools, id, 0);
+                apply_dev_toggle(
+                    DevToggleWrite {
+                        dev: &mut self.dev_tools,
+                        dev_state: &mut self.dev_state,
+                        ldtk_reload: &mut self.ldtk_reload,
+                    },
+                    id,
+                    0,
+                );
                 if id.is_cycle() {
                     ambition_sfx::ids::UI_SLIDER_TICK
                 } else {
@@ -333,7 +345,15 @@ impl SystemMenuParams<'_> {
     fn step_option(&mut self, opt: SystemOptionId, dir: i32) -> Option<ambition_sfx::SfxId> {
         match opt {
             SystemOptionId::Dev(id) if id.is_cycle() => {
-                apply_dev_toggle(&mut self.dev_tools, id, dir);
+                apply_dev_toggle(
+                    DevToggleWrite {
+                        dev: &mut self.dev_tools,
+                        dev_state: &mut self.dev_state,
+                        ldtk_reload: &mut self.ldtk_reload,
+                    },
+                    id,
+                    dir,
+                );
                 Some(ambition_sfx::ids::UI_SLIDER_TICK)
             }
             _ => None,
@@ -375,7 +395,11 @@ impl SystemMenuParams<'_> {
 
     /// Build the live developer-toggle snapshot for the SYSTEM IR.
     fn dev_snapshot(&self) -> DevSnapshot {
-        dev_snapshot(&self.dev_tools)
+        dev_snapshot(DevToggleRead {
+            dev: &self.dev_tools,
+            dev_state: &self.dev_state,
+            ldtk_reload: &self.ldtk_reload,
+        })
     }
 
     /// Build the live SYSTEM model from current settings + held resources.
@@ -400,6 +424,8 @@ struct GameModeIo<'w> {
 #[derive(bevy::ecs::system::SystemParam)]
 struct SystemMenuSnapshotParams<'w> {
     dev_tools: Res<'w, crate::dev::dev_tools::DeveloperTools>,
+    dev_state: Res<'w, crate::SandboxDevState>,
+    ldtk_reload: Res<'w, crate::ldtk_world::LdtkHotReloadState>,
     #[cfg(feature = "audio")]
     library: Option<Res<'w, crate::audio::AudioLibrary>>,
     #[cfg(feature = "audio")]
@@ -423,13 +449,19 @@ impl SystemMenuSnapshotParams<'_> {
 
     /// Build the live developer-toggle snapshot for the SYSTEM IR.
     fn dev_snapshot(&self) -> DevSnapshot {
-        dev_snapshot(&self.dev_tools)
+        dev_snapshot(DevToggleRead {
+            dev: &self.dev_tools,
+            dev_state: &self.dev_state,
+            ldtk_reload: &self.ldtk_reload,
+        })
     }
 
     /// True when any radio/dev resource changed this frame (so the cube republishes
     /// the System face to reflect an auditioned station / toggled dev flag).
     fn is_changed(&self) -> bool {
-        let mut changed = self.dev_tools.is_changed();
+        let mut changed = self.dev_tools.is_changed()
+            || self.dev_state.is_changed()
+            || self.ldtk_reload.is_changed();
         #[cfg(feature = "audio")]
         {
             changed = changed
@@ -468,11 +500,36 @@ fn radio_snapshot_from(
     RadioSnapshot { stations, active }
 }
 
+/// The set of resources the Developer screen reads/writes. The dev-toggle path
+/// spans THREE resources: most toggles live on `DeveloperTools`, but the F1/F2
+/// global flags live on [`SandboxDevState`] and the F12 LDtk hot-reload toggle
+/// lives on [`LdtkHotReloadState`] — mirroring the pause-menu Developer page,
+/// which aggregates the same three. Bundled so [`dev_snapshot`] /
+/// [`apply_dev_toggle`] stay single-source for every Developer row.
+struct DevToggleRead<'a> {
+    dev: &'a crate::dev::dev_tools::DeveloperTools,
+    dev_state: &'a crate::SandboxDevState,
+    ldtk_reload: &'a crate::ldtk_world::LdtkHotReloadState,
+}
+
+struct DevToggleWrite<'a> {
+    dev: &'a mut crate::dev::dev_tools::DeveloperTools,
+    dev_state: &'a mut crate::SandboxDevState,
+    ldtk_reload: &'a mut crate::ldtk_world::LdtkHotReloadState,
+}
+
 /// Read every developer toggle/cycle into a [`DevSnapshot`] for the SYSTEM IR. The
-/// single place mapping `DeveloperTools` fields onto [`DevToggleId`]s for display.
-fn dev_snapshot(dev: &crate::dev::dev_tools::DeveloperTools) -> DevSnapshot {
+/// single place mapping the three dev resources onto [`DevToggleId`]s for display.
+fn dev_snapshot(ctx: DevToggleRead<'_>) -> DevSnapshot {
     use DevToggleId as D;
+    let dev = ctx.dev;
     let mut values = Vec::with_capacity(DevToggleId::ALL.len());
+    // Global dev flags (SandboxDevState) — the F1/F2 rows.
+    values.push(DevSnapshot::toggle(
+        D::DebugOverlay,
+        ctx.dev_state.debug_enabled(),
+    ));
+    values.push(DevSnapshot::toggle(D::SlowMotion, ctx.dev_state.slowmo));
     values.push(DevSnapshot::toggle(D::Inspector, dev.inspector_visible));
     values.push(DevSnapshot::toggle(
         D::WorldInspector,
@@ -480,7 +537,10 @@ fn dev_snapshot(dev: &crate::dev::dev_tools::DeveloperTools) -> DevSnapshot {
     ));
     values.push(DevSnapshot::toggle(D::Gizmos, dev.gizmos_enabled));
     values.push(DevSnapshot::toggle(D::ShowHud, dev.show_hud));
-    values.push(DevSnapshot::toggle(D::ShowHitboxes, dev.show_player_hitbox));
+    values.push(DevSnapshot::toggle(
+        D::ShowHitboxes,
+        dev.show_feature_hitboxes,
+    ));
     values.push(DevSnapshot::toggle(D::HideSprites, dev.hide_sprites));
     values.push(DevSnapshot::toggle(
         D::PlaceholderSprites,
@@ -506,6 +566,11 @@ fn dev_snapshot(dev: &crate::dev::dev_tools::DeveloperTools) -> DevSnapshot {
         D::MovementProfile,
         dev.movement_profile.label(),
     ));
+    // LDtk hot-reload (LdtkHotReloadState) — the F12 row.
+    values.push(DevSnapshot::toggle(
+        D::LdtkAutoApply,
+        ctx.ldtk_reload.auto_apply,
+    ));
     DevSnapshot { values }
 }
 
@@ -513,14 +578,26 @@ fn dev_snapshot(dev: &crate::dev::dev_tools::DeveloperTools) -> DevSnapshot {
 /// direction for cycles (`<0` prev, otherwise next); toggles flip regardless. This
 /// is the single place that mutates `DeveloperTools` from the cube, so the dev
 /// menu and the inspector stay in lock-step on field semantics.
-fn apply_dev_toggle(dev: &mut crate::dev::dev_tools::DeveloperTools, id: DevToggleId, dir: i32) {
+fn apply_dev_toggle(ctx: DevToggleWrite<'_>, id: DevToggleId, dir: i32) {
     use DevToggleId as D;
+    let dev = ctx.dev;
     match id {
+        // Global dev flags — F1/F2, on `SandboxDevState` (mirrors the pause menu's
+        // `SettingsItem::DebugOverlay` / `SlowMotion` arms).
+        D::DebugOverlay => ctx.dev_state.debug = !ctx.dev_state.debug,
+        D::SlowMotion => ctx.dev_state.slowmo = !ctx.dev_state.slowmo,
         D::Inspector => dev.inspector_visible = !dev.inspector_visible,
         D::WorldInspector => dev.world_inspector_visible = !dev.world_inspector_visible,
         D::Gizmos => dev.gizmos_enabled = !dev.gizmos_enabled,
         D::ShowHud => dev.show_hud = !dev.show_hud,
-        D::ShowHitboxes => dev.show_player_hitbox = !dev.show_player_hitbox,
+        // Mirror the pause menu's `ShowHitboxes` arm exactly: mark the debug view
+        // custom and flip BOTH the feature- and player-hitbox flags together.
+        D::ShowHitboxes => {
+            dev.mark_debug_view_custom();
+            let next = !dev.show_feature_hitboxes;
+            dev.show_feature_hitboxes = next;
+            dev.show_player_hitbox = next;
+        }
         D::HideSprites => dev.hide_sprites = !dev.hide_sprites,
         D::PlaceholderSprites => dev.placeholder_sprites = !dev.placeholder_sprites,
         D::FillDebugBoxes => dev.fill_debug_boxes = !dev.fill_debug_boxes,
@@ -554,6 +631,16 @@ fn apply_dev_toggle(dev: &mut crate::dev::dev_tools::DeveloperTools, id: DevTogg
             } else {
                 dev.movement_profile.next()
             };
+        }
+        // LDtk auto-reload — F12, on `LdtkHotReloadState` (mirrors the pause
+        // menu's `SettingsItem::LdtkAutoApply` arm, including the status line).
+        D::LdtkAutoApply => {
+            let r = &mut *ctx.ldtk_reload;
+            r.auto_apply = !r.auto_apply;
+            r.last_status = format!(
+                "LDtk auto-apply {}",
+                if r.auto_apply { "enabled" } else { "disabled" }
+            );
         }
     }
 }
@@ -2037,6 +2124,103 @@ mod lunex_kaleidoscope_app_tests {
     use bevy::picking::events::{Move, Pointer, Press, Release};
     use bevy::picking::pointer::{Location, PointerId};
 
+    // ---- Phase C1: the three extra dev toggles span three resources ----------
+
+    /// Dispatching the F1/F2/F12 Developer rows flips the right resource:
+    /// `DebugOverlay` → `SandboxDevState::debug`, `SlowMotion` →
+    /// `SandboxDevState::slowmo`, `LdtkAutoApply` → `LdtkHotReloadState::auto_apply`
+    /// — none of which live on `DeveloperTools`. Driven through the real
+    /// `apply_dev_toggle` path so the cube and pause menu can't drift.
+    #[test]
+    fn extra_dev_toggles_flip_their_non_developer_resources() {
+        let mut dev = crate::dev::dev_tools::DeveloperTools::default();
+        let mut dev_state = crate::SandboxDevState::default();
+        let mut ldtk_reload = crate::ldtk_world::LdtkHotReloadState::default();
+
+        let debug_before = dev_state.debug;
+        let slowmo_before = dev_state.slowmo;
+        let auto_before = ldtk_reload.auto_apply;
+
+        for id in [
+            DevToggleId::DebugOverlay,
+            DevToggleId::SlowMotion,
+            DevToggleId::LdtkAutoApply,
+        ] {
+            apply_dev_toggle(
+                DevToggleWrite {
+                    dev: &mut dev,
+                    dev_state: &mut dev_state,
+                    ldtk_reload: &mut ldtk_reload,
+                },
+                id,
+                0,
+            );
+        }
+
+        assert_eq!(
+            dev_state.debug, !debug_before,
+            "F1 flips SandboxDevState.debug"
+        );
+        assert_eq!(
+            dev_state.slowmo, !slowmo_before,
+            "F2 flips SandboxDevState.slowmo"
+        );
+        assert_eq!(
+            ldtk_reload.auto_apply, !auto_before,
+            "F12 flips LdtkHotReloadState.auto_apply"
+        );
+        // The snapshot mirrors the live state for all three (no field drift).
+        let snap = dev_snapshot(DevToggleRead {
+            dev: &dev,
+            dev_state: &dev_state,
+            ldtk_reload: &ldtk_reload,
+        });
+        let read = |id: DevToggleId| snap.values.iter().find(|(d, _, _)| *d == id).unwrap().1;
+        assert_eq!(read(DevToggleId::DebugOverlay), dev_state.debug);
+        assert_eq!(read(DevToggleId::SlowMotion), dev_state.slowmo);
+        assert_eq!(read(DevToggleId::LdtkAutoApply), ldtk_reload.auto_apply);
+    }
+
+    /// ShowHitboxes from the System menu toggles the SAME field(s) the pause menu
+    /// does: BOTH `show_feature_hitboxes` and `show_player_hitbox`, and the
+    /// snapshot reads `show_feature_hitboxes` (matching the pause menu's source).
+    #[test]
+    fn show_hitboxes_toggles_feature_and_player_fields_like_pause() {
+        let mut dev = crate::dev::dev_tools::DeveloperTools::default();
+        let mut dev_state = crate::SandboxDevState::default();
+        let mut ldtk_reload = crate::ldtk_world::LdtkHotReloadState::default();
+        dev.show_feature_hitboxes = false;
+        dev.show_player_hitbox = false;
+
+        apply_dev_toggle(
+            DevToggleWrite {
+                dev: &mut dev,
+                dev_state: &mut dev_state,
+                ldtk_reload: &mut ldtk_reload,
+            },
+            DevToggleId::ShowHitboxes,
+            0,
+        );
+        assert!(dev.show_feature_hitboxes, "feature hitboxes flip on");
+        assert!(
+            dev.show_player_hitbox,
+            "player hitbox flips together (pause-menu parity)"
+        );
+
+        let snap = dev_snapshot(DevToggleRead {
+            dev: &dev,
+            dev_state: &dev_state,
+            ldtk_reload: &ldtk_reload,
+        });
+        let on = snap
+            .values
+            .iter()
+            .find(|(d, _, _)| *d == DevToggleId::ShowHitboxes)
+            .unwrap()
+            .1;
+        assert!(on, "snapshot reads show_feature_hitboxes, now ON");
+    }
+
     // ---- Fix 1: back-edge seeding --------------------------------------------
 
     #[test]
@@ -2066,6 +2250,8 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<KaleidoscopePointerPress>();
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<crate::SandboxDevState>();
+        app.init_resource::<crate::ldtk_world::LdtkHotReloadState>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
         app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
@@ -2107,6 +2293,8 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<KaleidoscopePointerPress>();
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<crate::SandboxDevState>();
+        app.init_resource::<crate::ldtk_world::LdtkHotReloadState>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
         app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
@@ -2218,6 +2406,8 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<KaleidoscopePointerPress>();
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<crate::SandboxDevState>();
+        app.init_resource::<crate::ldtk_world::LdtkHotReloadState>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
         app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
@@ -2256,6 +2446,8 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<KaleidoscopePointerPress>();
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<crate::SandboxDevState>();
+        app.init_resource::<crate::ldtk_world::LdtkHotReloadState>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
         app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
@@ -2664,6 +2856,8 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<KaleidoscopePointerPress>();
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<crate::SandboxDevState>();
+        app.init_resource::<crate::ldtk_world::LdtkHotReloadState>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
         app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
@@ -2793,6 +2987,8 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<KaleidoscopePointerPress>();
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<crate::SandboxDevState>();
+        app.init_resource::<crate::ldtk_world::LdtkHotReloadState>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
         app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
@@ -2949,6 +3145,8 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<KaleidoscopePointerPress>();
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<crate::SandboxDevState>();
+        app.init_resource::<crate::ldtk_world::LdtkHotReloadState>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
         app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
@@ -3139,6 +3337,8 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<KaleidoscopePointerPress>();
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<crate::SandboxDevState>();
+        app.init_resource::<crate::ldtk_world::LdtkHotReloadState>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
         app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
@@ -3339,6 +3539,8 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<KaleidoscopePointerPress>();
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<crate::SandboxDevState>();
+        app.init_resource::<crate::ldtk_world::LdtkHotReloadState>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
         app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
@@ -3381,13 +3583,22 @@ mod lunex_kaleidoscope_app_tests {
         app
     }
 
-    /// The live Developer row count for the scroll fixture (16 toggles + Back).
+    /// The live Developer row count for the scroll fixture (18 toggles + Back).
     fn scroll_total_rows(app: &App) -> usize {
         let settings = app.world().resource::<UserSettings>();
         let dev = app
             .world()
             .resource::<crate::dev::dev_tools::DeveloperTools>();
-        let model = SystemMenuModel::build(settings, &RadioSnapshot::default(), &dev_snapshot(dev));
+        let dev_state = app.world().resource::<crate::SandboxDevState>();
+        let ldtk_reload = app
+            .world()
+            .resource::<crate::ldtk_world::LdtkHotReloadState>();
+        let snap = dev_snapshot(DevToggleRead {
+            dev,
+            dev_state,
+            ldtk_reload,
+        });
+        let model = SystemMenuModel::build(settings, &RadioSnapshot::default(), &snap);
         system_rows(&model, Some(SystemMenuEntryId::Developer)).len()
     }
 
@@ -3787,6 +3998,8 @@ mod lunex_kaleidoscope_app_tests {
         owned.grant(owned_item, 1);
         app.insert_resource(owned);
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<crate::SandboxDevState>();
+        app.init_resource::<crate::ldtk_world::LdtkHotReloadState>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
         app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();

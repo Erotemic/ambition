@@ -9,7 +9,10 @@
 //! `dev/journals/oot-cube-integration-plan.md`.
 
 use ambition_inventory_ui::kaleidoscope::{KaleidoscopeMenuConfig, KaleidoscopeMenuPlugin};
-use ambition_inventory_ui::{ActiveMenuPages, AmbitionInventoryUiPlugin, AmbitionMenuControl};
+use ambition_inventory_ui::{
+    ActiveMenuPages, AmbitionInventoryUiPlugin, AmbitionMenuControl, MenuDynamicText,
+    MenuDynamicTextContent, MenuVisualState,
+};
 use bevy::prelude::*;
 
 use crate::audio::SfxMessage;
@@ -17,8 +20,8 @@ use crate::engine_core::Vec2;
 use crate::input::MenuControlFrame;
 use crate::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use crate::oot_cube::{
-    build_inventory_pages, system_rows, KaleidoscopeAction, KaleidoscopeFocus, KaleidoscopePage,
-    SystemRow,
+    build_inventory_pages, items_detail_slot_text, system_detail_slot_text, system_rows,
+    system_window_start, KaleidoscopeAction, KaleidoscopeFocus, KaleidoscopePage, SystemRow,
 };
 use crate::oot_menu::effects::MenuAction;
 use crate::oot_menu::input::{dispatch_item_confirm, MenuEffectManaQuery, MenuEffectPlayers};
@@ -99,6 +102,12 @@ pub fn install_kaleidoscope_menu(app: &mut App) {
                 // inventory) so the highlight + detail panel reflect this frame's move.
                 kaleidoscope_focus_nav,
                 republish_kaleidoscope_pages,
+                // The focus HIGHLIGHT and the detail-panel TEXT now update IN PLACE
+                // from the live cursor (no face rebuild), so a mouse move no longer
+                // despawns the hovered control between a pointer press and release —
+                // the deferred Bug 2 (clicks were dropped on the entity-id mismatch).
+                kaleidoscope_sync_focus_visuals,
+                kaleidoscope_sync_detail_text,
                 gate_kaleidoscope_menu,
                 toggle_inventory_backend,
                 retarget_kaleidoscope_scrim,
@@ -1676,6 +1685,107 @@ fn gate_kaleidoscope_menu(
     }
 }
 
+/// Apply the focus HIGHLIGHT in place: set each live control's [`MenuVisualState`]
+/// from the live cursor (the lib's `sync_control_focus_visuals` then recolors it),
+/// WITHOUT touching `ActiveMenuPages`. This is what lets a mouse move re-highlight a
+/// control without a face rebuild — the rebuild used to despawn the hovered control
+/// between a pointer press and release, dropping `Pointer<Click>` (deferred Bug 2).
+///
+/// A control's focus identity is the inverse of [`focus_for_action`], so the cursor
+/// (keyboard OR pointer) and the highlighted control always agree — keyboard select
+/// keeps working identically.
+fn kaleidoscope_sync_focus_visuals(
+    backend: Res<InventoryUiBackend>,
+    cursor: Res<KaleidoscopeCursor>,
+    pages: Res<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>,
+    system_nav: Res<KaleidoscopeSystemNav>,
+    settings: Res<UserSettings>,
+    snapshot: SystemMenuSnapshotParams,
+    mut controls: Query<(
+        &AmbitionMenuControl<KaleidoscopeAction>,
+        &mut MenuVisualState,
+    )>,
+) {
+    if *backend != InventoryUiBackend::LunexKaleidoscope {
+        return;
+    }
+    let Some(active_page) = pages.active else {
+        return;
+    };
+    let model = SystemMenuModel::build(
+        &settings,
+        &snapshot.radio_snapshot(),
+        &snapshot.dev_snapshot(),
+    );
+    for (control, mut vis) in &mut controls {
+        let Some(action) = control.action else {
+            continue;
+        };
+        let focus = focus_for_action(action, active_page, &model, system_nav.open_entry);
+        let focused = focus == cursor.focus;
+        // Change-detection friendly: only write when the flags actually flip, so the
+        // lib's `Changed<MenuVisualState>` recolor stays cheap.
+        if vis.focused != focused || vis.selected != focused {
+            vis.focused = focused;
+            vis.selected = focused;
+        }
+    }
+}
+
+/// Fill the detail-panel's dynamic text IN PLACE from the live cursor (Items face
+/// right panel + System face bottom panel), writing [`MenuDynamicTextContent`] by
+/// slot. The page data itself is cursor-INDEPENDENT, so the cursor-dependent detail
+/// text updates without a face rebuild — the lib's `apply_dynamic_text` copies the
+/// content into the `Text3d`.
+fn kaleidoscope_sync_detail_text(
+    backend: Res<InventoryUiBackend>,
+    owned: Option<Res<OwnedItems>>,
+    cursor: Res<KaleidoscopeCursor>,
+    pages: Res<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>,
+    system_nav: Res<KaleidoscopeSystemNav>,
+    settings: Res<UserSettings>,
+    snapshot: SystemMenuSnapshotParams,
+    mut texts: Query<(&MenuDynamicText, &mut MenuDynamicTextContent)>,
+) {
+    if *backend != InventoryUiBackend::LunexKaleidoscope {
+        return;
+    }
+    let Some(owned) = owned else {
+        return;
+    };
+    let Some(active_page) = pages.active else {
+        return;
+    };
+    // Build the slot→string map for whichever face's detail panel is live. Only the
+    // active page carries dynamic-text slots, so a single map covers the panel.
+    let slot_text: Vec<(u32, String)> = match active_page {
+        KaleidoscopePage::Items => items_detail_slot_text(&owned, owned.equipped(), cursor.focus),
+        KaleidoscopePage::System => {
+            let model = SystemMenuModel::build(
+                &settings,
+                &snapshot.radio_snapshot(),
+                &snapshot.dev_snapshot(),
+            );
+            let rows = system_rows(&model, system_nav.open_entry);
+            let focused = match cursor.focus {
+                KaleidoscopeFocus::System(idx) => idx.min(rows.len().saturating_sub(1)),
+                _ => 0,
+            };
+            system_detail_slot_text(&model, &rows, focused)
+        }
+        // Placeholder faces (Map / Quest) have no dynamic detail panel.
+        _ => Vec::new(),
+    };
+    for (dynamic, mut content) in &mut texts {
+        if let Some((_, text)) = slot_text.iter().find(|(slot, _)| *slot == dynamic.slot) {
+            // Change-detection friendly: only rewrite when the string differs.
+            if content.0 != *text {
+                content.0 = text.clone();
+            }
+        }
+    }
+}
+
 /// Republish the cube's faces from our live inventory + the focus cursor (the
 /// host-owned data seam — the cube renderer treats `ActiveMenuPages` as read-only).
 ///
@@ -1703,13 +1813,7 @@ fn republish_kaleidoscope_pages(
     snapshot: SystemMenuSnapshotParams,
     mut pages: ResMut<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>,
     mut was_open: Local<bool>,
-    mut last: Local<
-        Option<(
-            KaleidoscopeFocus,
-            Option<KaleidoscopePage>,
-            Option<SystemMenuEntryId>,
-        )>,
-    >,
+    mut last: Local<Option<(usize, Option<KaleidoscopePage>, Option<SystemMenuEntryId>)>>,
 ) {
     if *backend != InventoryUiBackend::LunexKaleidoscope {
         return;
@@ -1721,14 +1825,32 @@ fn republish_kaleidoscope_pages(
     let just_opened = open && !*was_open;
     *was_open = open;
 
-    // The drill-down state is part of the page key, so drilling into/out of a
-    // System entry republishes the (now different) System rows.
-    let key = (cursor.focus, pages.active, system_nav.open_entry);
+    // Deferred Bug 2 fix: the page key keys off the System scroll-window START, NOT
+    // the raw `cursor.focus`. A cursor-only move (mouse OR keyboard) no longer
+    // rebuilds the face — the highlight (`kaleidoscope_sync_focus_visuals`) and the
+    // detail text (`kaleidoscope_sync_detail_text`) update IN PLACE. Without this, a
+    // `Pointer<Move>` between a press and release despawned the hovered control and
+    // Bevy dropped the `Pointer<Click>`. Only a focus change that SHIFTS the System
+    // scroll window changes the rendered rows, so only that needs a rebuild; the
+    // drill-down state is also keyed so drilling in/out republishes the new rows.
+    let window_start = if pages.active == Some(KaleidoscopePage::System) {
+        let model = SystemMenuModel::build(
+            &settings,
+            &snapshot.radio_snapshot(),
+            &snapshot.dev_snapshot(),
+        );
+        let rows = system_rows(&model, system_nav.open_entry);
+        system_window_start(&rows, cursor.focus)
+    } else {
+        0
+    };
+    let key = (window_start, pages.active, system_nav.open_entry);
     // Republish on: catalog change, settings change (so a toggled setting's label
     // updates immediately), radio/dev change (so an auditioned station or toggled
     // dev flag updates), first publish, menu-open (textures that loaded after the
-    // initial build get picked up), cursor move, page change, or a System drill
-    // in/out. The open case fixes icons rendering blank until the first rotate.
+    // initial build get picked up), page change, a System scroll-window shift, or a
+    // System drill in/out. The open case fixes icons rendering blank until the first
+    // rotate.
     let dirty = owned.is_changed()
         || settings.is_changed()
         || snapshot.is_changed()
@@ -2629,6 +2751,240 @@ mod lunex_kaleidoscope_app_tests {
             app.world().resource::<KaleidoscopeCursor>().last_pointer_focus,
             None,
             "opening the cube clears stale pointer hover state so parked hover cannot select immediately"
+        );
+    }
+
+    // ---- Bug 2: click/tap activation survives a hover-driven republish ---------
+    //
+    // Root cause (now fixed): a `Pointer<Move>` changed `cursor.focus`, which the
+    // republish baked into its dirty key, so it rewrote `ActiveMenuPages`; the lib's
+    // `rebuild_cube_faces` then despawned + respawned every control. When that
+    // happened BETWEEN a pointer press and release, Bevy dropped the `Pointer<Click>`
+    // (the press entity no longer existed), so clicking a control did NOTHING while
+    // mouse-over highlight worked. The fix moves the highlight + detail text in place
+    // (no rebuild on a cursor-only move). These tests reproduce the drop and assert
+    // the click now dispatches.
+
+    /// A faithful stand-in for the lib's `rebuild_cube_faces`: whenever
+    /// `ActiveMenuPages` is `Changed` (which the OLD republish did on every cursor
+    /// move), despawn every `AmbitionMenuControl` and respawn the actionable controls
+    /// from `pages.pages`. This reproduces the exact entity-id churn that dropped the
+    /// click — the real renderer is too heavy to run headless.
+    fn fake_rebuild_cube_faces(
+        mut commands: Commands,
+        pages: Res<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>,
+        existing: Query<Entity, With<AmbitionMenuControl<KaleidoscopeAction>>>,
+        mut built: Local<bool>,
+    ) {
+        if !pages.is_changed() && *built {
+            return;
+        }
+        *built = true;
+        for entity in &existing {
+            commands.entity(entity).despawn();
+        }
+        for page in &pages.pages {
+            for node in &page.nodes {
+                if let ambition_inventory_ui::MenuNode::Control {
+                    kind,
+                    action: Some(action),
+                    ..
+                } = node
+                {
+                    commands.spawn((
+                        AmbitionMenuControl::<KaleidoscopeAction> {
+                            kind: *kind,
+                            action: Some(action.clone()),
+                            focus: ambition_inventory_ui::MenuFocusKey::default(),
+                        },
+                        MenuVisualState::default(),
+                    ));
+                }
+            }
+        }
+    }
+
+    /// A full Bug-2 fixture: the REAL republish + in-place highlight/detail systems +
+    /// the `fake_rebuild` (mirroring the lib) + the real pointer observers, on the
+    /// given active page. Drives the genuine despawn-on-republish path.
+    fn bug2_app(active: KaleidoscopePage) -> App {
+        let mut app = App::new();
+        app.add_plugins(bevy::state::app::StatesPlugin);
+        app.init_state::<GameMode>();
+        app.init_resource::<InventoryUiBackend>();
+        app.init_resource::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>();
+        app.init_resource::<KaleidoscopeCursor>();
+        app.init_resource::<KaleidoscopeSystemNav>();
+        app.init_resource::<OwnedItems>();
+        app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
+        app.init_resource::<UserSettings>();
+        app.init_resource::<crate::inventory::InventoryUiState>();
+        app.add_message::<PlayerHealRequested>();
+        app.add_message::<SfxMessage>();
+        app.add_systems(
+            Update,
+            (
+                republish_kaleidoscope_pages,
+                kaleidoscope_sync_focus_visuals,
+                kaleidoscope_sync_detail_text,
+                fake_rebuild_cube_faces,
+            )
+                .chain(),
+        );
+        app.add_observer(kaleidoscope_pointer_move);
+        app.add_observer(kaleidoscope_pointer_click);
+        *app.world_mut().resource_mut::<InventoryUiBackend>() =
+            InventoryUiBackend::LunexKaleidoscope;
+        app.world_mut()
+            .resource_mut::<crate::inventory::InventoryUiState>()
+            .visible = true;
+        app.world_mut()
+            .resource_mut::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>()
+            .active = Some(active);
+        app.world_mut().spawn((
+            PlayerEntity,
+            PrimaryPlayer,
+            ActionSet::default(),
+            PlayerMana::default(),
+        ));
+        // First update: republish builds the page data, fake_rebuild spawns controls.
+        app.update();
+        app
+    }
+
+    /// The live control entity carrying `action` (the one the renderer spawned).
+    fn control_entity(app: &mut App, action: KaleidoscopeAction) -> Entity {
+        let mut q = app
+            .world_mut()
+            .query::<(Entity, &AmbitionMenuControl<KaleidoscopeAction>)>();
+        q.iter(app.world())
+            .find(|(_, c)| c.action.as_ref() == Some(&action))
+            .map(|(e, _)| e)
+            .unwrap_or_else(|| panic!("no live control for {action:?}"))
+    }
+
+    fn pointer_location() -> Location {
+        Location {
+            target: NormalizedRenderTarget::None {
+                width: 1,
+                height: 1,
+            },
+            position: Vec2::ZERO,
+        }
+    }
+
+    /// Reproduce Bug 2: hover-move onto `move_to` (this used to rebuild the face and
+    /// despawn the control under the cursor), then click the ORIGINAL `click_target`
+    /// entity captured before the move.
+    fn hover_then_click(
+        app: &mut App,
+        move_to: KaleidoscopeAction,
+        click_target: KaleidoscopeAction,
+    ) {
+        // Capture the control entity to click BEFORE the hover (this is the entity a
+        // real pointer press would have latched onto).
+        let target = control_entity(app, click_target);
+        // A move onto a different control: changes `cursor.focus`. Pre-fix this made
+        // the republish rewrite pages → fake_rebuild despawns `target`.
+        let move_target = control_entity(app, move_to);
+        app.world_mut().trigger(Pointer::new(
+            PointerId::Mouse,
+            pointer_location(),
+            Move {
+                hit: HitData::new(move_target, 0.0, None, None),
+                delta: Vec2::new(2.0, 0.0),
+            },
+            move_target,
+        ));
+        app.update();
+        // Now click the ORIGINAL target entity. If it was despawned by a rebuild, the
+        // observer's `controls.get` fails and the click is dropped (the bug).
+        app.world_mut().trigger(Pointer::new(
+            PointerId::Mouse,
+            pointer_location(),
+            Click {
+                button: bevy::picking::pointer::PointerButton::Primary,
+                hit: HitData::new(target, 0.0, None, None),
+                duration: Duration::ZERO,
+            },
+            target,
+        ));
+        app.update();
+    }
+
+    #[test]
+    fn bug2_item_equip_click_survives_a_hover_republish() {
+        let mut app = bug2_app(KaleidoscopePage::Items);
+        // Two owned, equippable (held-item) weapons so both an equip target and a
+        // distinct hover target exist as live controls.
+        {
+            let mut owned = app.world_mut().resource_mut::<OwnedItems>();
+            owned.grant(Item::Blink, 1);
+            owned.grant(Item::Axe, 1);
+        }
+        app.update();
+        assert!(
+            !app.world()
+                .resource::<OwnedItems>()
+                .is_equipped(Item::Blink),
+            "precondition: Blink not equipped yet"
+        );
+        // Hover Axe (moves focus → old rebuild), then click Blink (was despawned).
+        hover_then_click(
+            &mut app,
+            KaleidoscopeAction::Equip(Item::Axe),
+            KaleidoscopeAction::Equip(Item::Blink),
+        );
+        assert!(
+            app.world()
+                .resource::<OwnedItems>()
+                .is_equipped(Item::Blink),
+            "clicking an item after a hover-move must still equip it (Bug 2)"
+        );
+    }
+
+    #[test]
+    fn bug2_page_turn_click_survives_a_hover_republish() {
+        let mut app = bug2_app(KaleidoscopePage::Items);
+        app.update();
+        let target_page = KaleidoscopePage::Items.on_viewer_right();
+        // Hover the LEFT edge (moves focus), then click the RIGHT edge (page turn).
+        hover_then_click(
+            &mut app,
+            KaleidoscopeAction::ChangePage(KaleidoscopePage::Items.on_viewer_left()),
+            KaleidoscopeAction::ChangePage(target_page),
+        );
+        assert_eq!(
+            app.world()
+                .resource::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>()
+                .active,
+            Some(target_page),
+            "clicking a page-turn edge after a hover-move must still turn the page (Bug 2)"
+        );
+    }
+
+    #[test]
+    fn bug2_system_row_click_survives_a_hover_republish() {
+        let mut app = bug2_app(KaleidoscopePage::System);
+        app.update();
+        assert!(
+            app.world()
+                .resource::<KaleidoscopeSystemNav>()
+                .open_entry
+                .is_none(),
+            "precondition: no System entry open"
+        );
+        // Hover the Video entry (moves focus), then click the Audio entry (drill in).
+        hover_then_click(
+            &mut app,
+            KaleidoscopeAction::OpenSystemEntry(SystemMenuEntryId::Video),
+            KaleidoscopeAction::OpenSystemEntry(SystemMenuEntryId::Audio),
+        );
+        assert_eq!(
+            app.world().resource::<KaleidoscopeSystemNav>().open_entry,
+            Some(SystemMenuEntryId::Audio),
+            "clicking a System row after a hover-move must still drill in (Bug 2)"
         );
     }
 }

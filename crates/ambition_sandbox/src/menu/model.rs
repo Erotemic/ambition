@@ -1238,8 +1238,8 @@ mod tests {
             &options[..3],
             &[
                 SettingsOptionId::DisplayMode,
-                SettingsOptionId::ShowFps,
                 SettingsOptionId::CameraZoom,
+                SettingsOptionId::CameraAspect,
             ]
         );
         // Shaders are reachable under Video: the FULL row list (pre-window) carries
@@ -1260,13 +1260,18 @@ mod tests {
             );
         }
 
-        // The FPS Overlay row's label reflects the ON state we set above.
-        let has_on = page.nodes.iter().any(|n| matches!(
-            n,
-            ambition_menu::MenuNode::Control { action: Some(MenuPageAction::System(SettingsOptionId::ShowFps)), label, .. }
-                if label.contains("ON")
-        ));
-        assert!(has_on, "FPS Overlay row reflects the current ON state");
+        // The FPS Overlay row reflects the ON state we set above. ShowFps now sits
+        // past the first visible window (the full player-facing Video set leads the
+        // screen), so verify the live label off the IR rather than the windowed page.
+        let video_entry = sys_model.entry(SystemMenuEntryId::Video).unwrap();
+        let crate::menu::ir::system::SystemMenuTarget::Settings(opts) = &video_entry.target else {
+            panic!("video drills into a settings screen");
+        };
+        let fps = opts
+            .iter()
+            .find(|o| o.id == SettingsOptionId::ShowFps)
+            .expect("ShowFps is on the Video screen");
+        assert_eq!(fps.value_label, "ON", "FPS Overlay reflects the ON state");
 
         // A Back row drills out to the entry list. The Video screen now overflows
         // the visible window (24 rows), so Back is the LAST row in the full list

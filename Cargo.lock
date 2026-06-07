@@ -1451,6 +1451,8 @@ dependencies = [
 [[package]]
 name = "bevy_lunex"
 version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a3513a4c810e9f28819905fb205385f3010e0648b5bdde66ec18453e60f4d56"
 dependencies = [
  "bevy_app",
  "bevy_asset",

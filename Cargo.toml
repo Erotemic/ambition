@@ -3,14 +3,17 @@ members = [
     "crates/ambition_asset_manager",
     "crates/ambition_engine_core",
     "crates/ambition_input",
+    "crates/ambition_inventory_ui",
     "crates/ambition_platformer_runtime",
     "crates/ambition_sandbox",
     "crates/ambition_sfx",
     "crates/ambition_sfx_bank",
 ]
-# The inventory-UI submodule is its own workspace; exclude it so a path dep on it
-# (ambition_sandbox -> ambition_inventory_ui, #31) doesn't trip "multiple workspace
-# roots in the same workspace".
+# The inventory-UI submodule is its own workspace (it carries the bevy_lunex
+# demos + vendored upstream); exclude it so it doesn't trip "multiple workspace
+# roots in the same workspace". The game's menu crate now lives at
+# crates/ambition_inventory_ui (de-vendored from the submodule); the submodule is
+# demo-only.
 exclude = ["submodules/ambition_inventory_ui"]
 resolver = "2"
 

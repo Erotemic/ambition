@@ -1,0 +1,14 @@
+[package]
+name = "ambition_inventory_ui"
+version = "0.1.0"
+edition = "2021"
+description = "Reusable Bevy inventory/menu UI data model and interaction primitives."
+license = "MIT OR Apache-2.0"
+publish = false
+
+[dependencies]
+bevy = "0.18.1"
+# 3D OoT-style cube renderer (`kaleidoscope.rs`, #31). Pulls bevy_rich_text3d /
+# Text3d transitively. Sourced from crates.io 0.6 (de-vendored from the
+# ambition_inventory_ui submodule, which now only carries demos).
+bevy_lunex = "0.6"

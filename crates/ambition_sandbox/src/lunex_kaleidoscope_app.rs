@@ -20,8 +20,9 @@ use crate::engine_core::Vec2;
 use crate::input::MenuControlFrame;
 use crate::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use crate::oot_cube::{
-    build_inventory_pages, items_detail_slot_text, system_detail_slot_text, system_rows,
-    system_window_start, KaleidoscopeAction, KaleidoscopeFocus, KaleidoscopePage, SystemRow,
+    build_inventory_pages, items_detail_slot_text, system_detail_slot_text,
+    system_effective_window_start, system_max_window_start, system_rows, KaleidoscopeAction,
+    KaleidoscopeFocus, KaleidoscopePage, SystemRow, SYSTEM_VISIBLE_ROWS,
 };
 use crate::oot_menu::effects::MenuAction;
 use crate::oot_menu::input::{dispatch_item_confirm, MenuEffectManaQuery, MenuEffectPlayers};
@@ -87,6 +88,8 @@ pub fn install_kaleidoscope_menu(app: &mut App) {
         .init_resource::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>()
         .init_resource::<KaleidoscopeCursor>()
         .init_resource::<KaleidoscopeSystemNav>()
+        .init_resource::<KaleidoscopeScroll>()
+        .init_resource::<KaleidoscopePointerPress>()
         .add_plugins(AmbitionInventoryUiPlugin)
         .add_plugins(KaleidoscopeMenuPlugin::<KaleidoscopePage, KaleidoscopeAction>::default())
         .add_systems(Startup, spawn_kaleidoscope_scrim)
@@ -101,6 +104,11 @@ pub fn install_kaleidoscope_menu(app: &mut App) {
                 // Nav first (mutates the cursor), then republish (reads the cursor +
                 // inventory) so the highlight + detail panel reflect this frame's move.
                 kaleidoscope_focus_nav,
+                // Features C/D: scroll the System window INDEPENDENTLY of selection.
+                // The wheel (D) + the scrollbar-drag signal (C) set the scroll
+                // override BEFORE republish so the new window renders this frame.
+                kaleidoscope_scroll_wheel,
+                kaleidoscope_apply_scroll_drag,
                 republish_kaleidoscope_pages,
                 // The focus HIGHLIGHT and the detail-panel TEXT now update IN PLACE
                 // from the live cursor (no face rebuild), so a mouse move no longer
@@ -115,6 +123,7 @@ pub fn install_kaleidoscope_menu(app: &mut App) {
             )
                 .chain(),
         )
+        .add_observer(kaleidoscope_pointer_press)
         .add_observer(kaleidoscope_pointer_move)
         .add_observer(kaleidoscope_pointer_click);
 }
@@ -164,6 +173,40 @@ impl KaleidoscopeCursor {
 #[derive(Resource, Default)]
 struct KaleidoscopeSystemNav {
     open_entry: Option<SystemMenuEntryId>,
+}
+
+/// Feature E: how far (screen pixels) a pointer may travel between press and release
+/// before the press is treated as a DRAG (cancelling the would-be click). A clean tap
+/// stays under this; a press-then-drag-away exceeds it and does NOT activate. Touch is
+/// a pointer in Bevy, so this same threshold governs touch taps vs touch drags.
+const KALEIDOSCOPE_TAP_DRAG_THRESHOLD: f32 = 12.0;
+
+/// Feature E: the in-flight pointer press, so a press-then-drag-away can be CANCELLED
+/// (no activation) while a clean tap still activates. Set on `Pointer<Press>`, marked
+/// `cancelled` once the pointer travels past [`KALEIDOSCOPE_TAP_DRAG_THRESHOLD`] from
+/// the press origin (a drag, not a tap), and consumed by the click observer. Mouse OR
+/// touch — both arrive through the same pointer events, so this is mouse-testable.
+#[derive(Resource, Default)]
+struct KaleidoscopePointerPress {
+    /// The entity the active press landed on, if any.
+    entity: Option<Entity>,
+    /// Screen position the press started at.
+    origin: Vec2,
+    /// True once the pointer dragged past the tap threshold (cancels the click).
+    cancelled: bool,
+}
+
+/// Host-owned, SELECTION-INDEPENDENT scroll position for the System face's windowed
+/// list (Features C/D). `None` = the window follows the keyboard/pointer cursor
+/// (the historical behaviour); `Some(start)` = an explicit scroll override set by a
+/// scrollbar DRAG (Feature C, via the lib's neutral [`ambition_inventory_ui::kaleidoscope::MenuScrollDragged`]
+/// signal) or the MOUSE WHEEL (Feature D). Keyboard navigation clears the override so
+/// the window resumes following the cursor. This is the host-side meaning of the
+/// lib's backend-agnostic scroll signal — the lib never knows about rows/window_start.
+#[derive(Resource, Default)]
+struct KaleidoscopeScroll {
+    /// Explicit System scroll-window start, or `None` to follow the cursor.
+    system_window_start: Option<usize>,
 }
 
 /// All the live resources the broadened SYSTEM screens need to READ a snapshot
@@ -547,6 +590,9 @@ fn kaleidoscope_focus_nav(
     menu: Res<MenuControlFrame>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
+    // Features C/D: keyboard navigation CLEARS the explicit scroll override so the
+    // System window resumes following the selection cursor (the wheel/drag set it).
+    mut scroll: ResMut<KaleidoscopeScroll>,
     mut pages: ResMut<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>,
     // Single mutable access to the overlay state — also read `.visible` from it (a
     // separate `Res<InventoryUiState>` would be a B0002 conflict with this `ResMut`).
@@ -619,6 +665,12 @@ fn kaleidoscope_focus_nav(
     // between rows, LEFT/RIGHT at the column edges turn the page (or step a
     // value), and SELECT applies the focused option.
     if active_page == KaleidoscopePage::System {
+        // Features C/D: a keyboard move/select takes the selection cursor back over
+        // from the wheel/scrollbar — drop any explicit scroll override so the window
+        // snaps to follow the cursor again.
+        if dx != 0 || dy != 0 || menu.select {
+            scroll.system_window_start = None;
+        }
         system_focus_nav(
             &menu,
             dx,
@@ -1309,6 +1361,30 @@ fn focus_for_action(
     }
 }
 
+/// Feature E: record the start of a pointer press on a cube control so a
+/// press-then-drag-away can be CANCELLED (no activation). Stores the pressed entity
+/// + the press origin; `kaleidoscope_pointer_move` marks it cancelled once the
+/// pointer drags past the tap threshold, and `kaleidoscope_pointer_click` honours
+/// that. Mouse OR touch (same `Pointer<Press>` path).
+fn kaleidoscope_pointer_press(
+    press: On<Pointer<Press>>,
+    backend: Res<InventoryUiBackend>,
+    ui_state: Option<Res<crate::inventory::InventoryUiState>>,
+    controls: Query<&AmbitionMenuControl<KaleidoscopeAction>>,
+    mut state: ResMut<KaleidoscopePointerPress>,
+) {
+    let open = ui_state.map(|s| s.visible).unwrap_or(false);
+    if *backend != InventoryUiBackend::LunexKaleidoscope || !open {
+        return;
+    }
+    // Only arm the tap-guard for real controls (so a press on decoration is a no-op).
+    if controls.get(press.entity).is_ok() {
+        state.entity = Some(press.entity);
+        state.origin = press.pointer_location.position;
+        state.cancelled = false;
+    }
+}
+
 /// Pointer motion (mouse/touch) over a cube control: move the focus cursor to it.
 /// We listen to `Pointer<Move>` instead of `Pointer<Over>` so a menu that opens
 /// under a parked mouse does not immediately select whatever is already under the
@@ -1330,8 +1406,20 @@ fn kaleidoscope_pointer_move(
     settings: Res<UserSettings>,
     snapshot: SystemMenuSnapshotParams,
     mut cursor: ResMut<KaleidoscopeCursor>,
+    // Feature E: a press in flight is cancelled (no click) once the pointer drags
+    // past the tap threshold from its press origin.
+    mut press: ResMut<KaleidoscopePointerPress>,
     mut sfx: MessageWriter<SfxMessage>,
 ) {
+    // Feature E: if a press is active and the pointer has now travelled past the tap
+    // threshold, this is a DRAG — mark the press cancelled so the eventual click does
+    // not activate the control.
+    if press.entity.is_some()
+        && !press.cancelled
+        && move_.pointer_location.position.distance(press.origin) > KALEIDOSCOPE_TAP_DRAG_THRESHOLD
+    {
+        press.cancelled = true;
+    }
     let Some(active_page) = pages.active else {
         return;
     };
@@ -1378,9 +1466,19 @@ fn kaleidoscope_pointer_click(
     mut heals: MessageWriter<PlayerHealRequested>,
     mut sfx: MessageWriter<SfxMessage>,
     mut system: SystemMenuParams,
+    // Feature E: the in-flight press; a click is cancelled if the press dragged away.
+    mut press: ResMut<KaleidoscopePointerPress>,
 ) {
     let open = ui_state.as_deref().map(|s| s.visible).unwrap_or(false);
     if *backend != InventoryUiBackend::LunexKaleidoscope || !open {
+        return;
+    }
+    // Feature E: a press-then-drag-away cancels activation (a clean tap activates).
+    // Consume the press guard either way so the next press starts fresh.
+    let cancelled = press.cancelled && press.entity == Some(click.entity);
+    press.entity = None;
+    press.cancelled = false;
+    if cancelled {
         return;
     }
     if let Ok(control) = controls.get(click.entity) {
@@ -1811,6 +1909,10 @@ fn republish_kaleidoscope_pages(
     // here; the mutators take the `ResMut` `SystemMenuParams` in separate systems,
     // so no B0002. Audio resources are absent under no `audio` (the bundle cfgs out).
     snapshot: SystemMenuSnapshotParams,
+    // Read-only here; the mutators (`kaleidoscope_focus_nav`, `kaleidoscope_scroll_wheel`,
+    // `kaleidoscope_apply_scroll_drag`) take `ResMut<KaleidoscopeScroll>` in separate
+    // systems, so this `Res` is not a B0002 conflict. Inserted at startup so it never panics.
+    scroll: Res<KaleidoscopeScroll>,
     mut pages: ResMut<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>,
     mut was_open: Local<bool>,
     mut last: Local<Option<(usize, Option<KaleidoscopePage>, Option<SystemMenuEntryId>)>>,
@@ -1840,7 +1942,11 @@ fn republish_kaleidoscope_pages(
             &snapshot.dev_snapshot(),
         );
         let rows = system_rows(&model, system_nav.open_entry);
-        system_window_start(&rows, cursor.focus)
+        // The EFFECTIVE window start: an explicit drag/wheel override wins (Features
+        // C/D), otherwise it follows the cursor. Keying the rebuild off this means a
+        // wheel/drag scroll rebuilds the windowed rows, while a cursor-only move
+        // inside the window still does not (preserving A's click fix).
+        system_effective_window_start(&rows, cursor.focus, scroll.system_window_start)
     } else {
         0
     };
@@ -1870,9 +1976,118 @@ fn republish_kaleidoscope_pages(
         &settings,
         &snapshot.radio_snapshot(),
         &snapshot.dev_snapshot(),
+        window_start,
         system_nav.open_entry,
     );
     pages.active = Some(active);
+}
+
+/// The live System row count for the current drill-down state (0 outside the System
+/// face). Shared by the wheel + drag scroll appliers to clamp the scroll position.
+fn system_row_count(
+    pages: &ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>,
+    system_nav: &KaleidoscopeSystemNav,
+    settings: &UserSettings,
+    snapshot: &SystemMenuSnapshotParams,
+) -> usize {
+    if pages.active != Some(KaleidoscopePage::System) {
+        return 0;
+    }
+    let model = SystemMenuModel::build(
+        settings,
+        &snapshot.radio_snapshot(),
+        &snapshot.dev_snapshot(),
+    );
+    system_rows(&model, system_nav.open_entry).len()
+}
+
+/// Feature D: the MOUSE WHEEL scrolls the System window (the visible rows), NOT the
+/// keyboard selection. Each wheel notch moves the scroll override by one row,
+/// clamped to `[0, system_max_window_start]`. The cursor/selection is untouched — a
+/// later keyboard move clears the override and the window snaps back to the cursor.
+/// Only acts on a scrollable System list (more rows than fit); a short list ignores
+/// the wheel. Mouse OR touchpad scroll both arrive as `MouseWheel`.
+fn kaleidoscope_scroll_wheel(
+    backend: Res<InventoryUiBackend>,
+    ui_state: Option<Res<crate::inventory::InventoryUiState>>,
+    pages: Res<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>,
+    system_nav: Res<KaleidoscopeSystemNav>,
+    settings: Res<UserSettings>,
+    snapshot: SystemMenuSnapshotParams,
+    cursor: Res<KaleidoscopeCursor>,
+    mut scroll: ResMut<KaleidoscopeScroll>,
+    mut wheel: MessageReader<bevy::input::mouse::MouseWheel>,
+) {
+    let open = ui_state.map(|s| s.visible).unwrap_or(false);
+    if *backend != InventoryUiBackend::LunexKaleidoscope || !open {
+        wheel.clear();
+        return;
+    }
+    // Sum this frame's wheel deltas into integer row steps (wheel up = scroll up).
+    let mut steps = 0i32;
+    for ev in wheel.read() {
+        steps += if ev.y > 0.0 {
+            -1
+        } else if ev.y < 0.0 {
+            1
+        } else {
+            0
+        };
+    }
+    if steps == 0 {
+        return;
+    }
+    let total = system_row_count(&pages, &system_nav, &settings, &snapshot);
+    if total <= SYSTEM_VISIBLE_ROWS {
+        return; // nothing to scroll
+    }
+    let max = system_max_window_start(total) as i32;
+    // Seed from the effective start so the first wheel notch moves relative to what
+    // is currently shown (cursor-derived window) rather than jumping to 0.
+    let model = SystemMenuModel::build(
+        &settings,
+        &snapshot.radio_snapshot(),
+        &snapshot.dev_snapshot(),
+    );
+    let rows = system_rows(&model, system_nav.open_entry);
+    let current =
+        system_effective_window_start(&rows, cursor.focus, scroll.system_window_start) as i32;
+    let next = (current + steps).clamp(0, max) as usize;
+    scroll.system_window_start = Some(next);
+}
+
+/// Feature C: apply the lib's backend-agnostic scrollbar-drag signal
+/// ([`ambition_inventory_ui::kaleidoscope::MenuScrollDragged`]) to the host scroll
+/// position. The lib emits a neutral `0..=1` fraction (0 = top, 1 = bottom); the host
+/// maps it across the scrollable range to a window-start row. Selection-independent,
+/// like the wheel (Feature D): only the visible window moves.
+fn kaleidoscope_apply_scroll_drag(
+    backend: Res<InventoryUiBackend>,
+    ui_state: Option<Res<crate::inventory::InventoryUiState>>,
+    pages: Res<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>,
+    system_nav: Res<KaleidoscopeSystemNav>,
+    settings: Res<UserSettings>,
+    snapshot: SystemMenuSnapshotParams,
+    mut scroll: ResMut<KaleidoscopeScroll>,
+    mut dragged: MessageReader<ambition_inventory_ui::kaleidoscope::MenuScrollDragged>,
+) {
+    let open = ui_state.map(|s| s.visible).unwrap_or(false);
+    if *backend != InventoryUiBackend::LunexKaleidoscope || !open {
+        dragged.clear();
+        return;
+    }
+    // Use the LAST drag fraction this frame (the freshest pointer position).
+    let Some(fraction) = dragged.read().last().map(|d| d.fraction.clamp(0.0, 1.0)) else {
+        return;
+    };
+    let total = system_row_count(&pages, &system_nav, &settings, &snapshot);
+    if total <= SYSTEM_VISIBLE_ROWS {
+        return;
+    }
+    let max = system_max_window_start(total);
+    // Map the 0..=1 track fraction onto 0..=max window-start rows (round to nearest).
+    let start = (fraction * max as f32).round() as usize;
+    scroll.system_window_start = Some(start.min(max));
 }
 
 #[cfg(test)]
@@ -1927,6 +2142,8 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>();
         app.init_resource::<KaleidoscopeCursor>();
         app.init_resource::<KaleidoscopeSystemNav>();
+        app.init_resource::<KaleidoscopeScroll>();
+        app.init_resource::<KaleidoscopePointerPress>();
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
@@ -1934,6 +2151,10 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<crate::inventory::InventoryUiState>();
         app.add_message::<PlayerHealRequested>();
         app.add_message::<SfxMessage>();
+        // Feature E: the tap/drag-cancel guard needs the press + move observers in
+        // addition to the click observer.
+        app.add_observer(kaleidoscope_pointer_press);
+        app.add_observer(kaleidoscope_pointer_move);
         app.add_observer(kaleidoscope_pointer_click);
         *app.world_mut().resource_mut::<InventoryUiBackend>() =
             InventoryUiBackend::LunexKaleidoscope;
@@ -1961,6 +2182,8 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>();
         app.init_resource::<KaleidoscopeCursor>();
         app.init_resource::<KaleidoscopeSystemNav>();
+        app.init_resource::<KaleidoscopeScroll>();
+        app.init_resource::<KaleidoscopePointerPress>();
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
@@ -2060,6 +2283,8 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>();
         app.init_resource::<KaleidoscopeCursor>();
         app.init_resource::<KaleidoscopeSystemNav>();
+        app.init_resource::<KaleidoscopeScroll>();
+        app.init_resource::<KaleidoscopePointerPress>();
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
@@ -2095,6 +2320,8 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>();
         app.init_resource::<KaleidoscopeCursor>();
         app.init_resource::<KaleidoscopeSystemNav>();
+        app.init_resource::<KaleidoscopeScroll>();
+        app.init_resource::<KaleidoscopePointerPress>();
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
@@ -2349,6 +2576,8 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>();
         app.init_resource::<KaleidoscopeCursor>();
         app.init_resource::<KaleidoscopeSystemNav>();
+        app.init_resource::<KaleidoscopeScroll>();
+        app.init_resource::<KaleidoscopePointerPress>();
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
@@ -2475,6 +2704,8 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>();
         app.init_resource::<KaleidoscopeCursor>();
         app.init_resource::<KaleidoscopeSystemNav>();
+        app.init_resource::<KaleidoscopeScroll>();
+        app.init_resource::<KaleidoscopePointerPress>();
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
@@ -2628,6 +2859,8 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>();
         app.init_resource::<KaleidoscopeCursor>();
         app.init_resource::<KaleidoscopeSystemNav>();
+        app.init_resource::<KaleidoscopeScroll>();
+        app.init_resource::<KaleidoscopePointerPress>();
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
@@ -2815,6 +3048,8 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>();
         app.init_resource::<KaleidoscopeCursor>();
         app.init_resource::<KaleidoscopeSystemNav>();
+        app.init_resource::<KaleidoscopeScroll>();
+        app.init_resource::<KaleidoscopePointerPress>();
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
@@ -2985,6 +3220,293 @@ mod lunex_kaleidoscope_app_tests {
             app.world().resource::<KaleidoscopeSystemNav>().open_entry,
             Some(SystemMenuEntryId::Audio),
             "clicking a System row after a hover-move must still drill in (Bug 2)"
+        );
+    }
+
+    // ---- Features C/D/E: scroll position + tap/drag cancel --------------------
+
+    /// A System fixture drilled into Developer (16 toggles + Back = a list LONGER
+    /// than `SYSTEM_VISIBLE_ROWS`, so it is scrollable) running the real scroll
+    /// chain: keyboard nav, the mouse-wheel scroller, the scrollbar-drag applier,
+    /// and the page republish. No audio resources needed (dev toggles overflow).
+    fn scroll_app() -> App {
+        let mut app = App::new();
+        app.add_plugins(bevy::state::app::StatesPlugin);
+        app.init_state::<GameMode>();
+        app.init_resource::<InventoryUiBackend>();
+        app.init_resource::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>();
+        app.init_resource::<KaleidoscopeCursor>();
+        app.init_resource::<KaleidoscopeSystemNav>();
+        app.init_resource::<KaleidoscopeScroll>();
+        app.init_resource::<KaleidoscopePointerPress>();
+        app.init_resource::<OwnedItems>();
+        app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
+        app.init_resource::<UserSettings>();
+        app.init_resource::<crate::inventory::InventoryUiState>();
+        app.init_resource::<crate::map_menu::MapMenuState>();
+        app.init_resource::<MenuControlFrame>();
+        app.add_message::<PlayerHealRequested>();
+        app.add_message::<SfxMessage>();
+        app.add_message::<bevy::input::mouse::MouseWheel>();
+        app.add_message::<ambition_inventory_ui::kaleidoscope::MenuScrollDragged>();
+        app.add_systems(
+            Update,
+            (
+                kaleidoscope_focus_nav,
+                kaleidoscope_scroll_wheel,
+                kaleidoscope_apply_scroll_drag,
+                republish_kaleidoscope_pages,
+            )
+                .chain(),
+        );
+        *app.world_mut().resource_mut::<InventoryUiBackend>() =
+            InventoryUiBackend::LunexKaleidoscope;
+        app.world_mut()
+            .resource_mut::<crate::inventory::InventoryUiState>()
+            .visible = true;
+        app.world_mut()
+            .resource_mut::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>()
+            .active = Some(KaleidoscopePage::System);
+        app.world_mut()
+            .resource_mut::<KaleidoscopeSystemNav>()
+            .open_entry = Some(SystemMenuEntryId::Developer);
+        app.world_mut().resource_mut::<KaleidoscopeCursor>().focus = KaleidoscopeFocus::System(0);
+        app.world_mut().spawn((
+            PlayerEntity,
+            PrimaryPlayer,
+            ActionSet::default(),
+            PlayerMana::default(),
+        ));
+        app.update();
+        app
+    }
+
+    /// The live Developer row count for the scroll fixture (16 toggles + Back).
+    fn scroll_total_rows(app: &App) -> usize {
+        let settings = app.world().resource::<UserSettings>();
+        let dev = app
+            .world()
+            .resource::<crate::dev::dev_tools::DeveloperTools>();
+        let model = SystemMenuModel::build(settings, &RadioSnapshot::default(), &dev_snapshot(dev));
+        system_rows(&model, Some(SystemMenuEntryId::Developer)).len()
+    }
+
+    /// Feature D: the mouse wheel scrolls the System window (window_start) WITHOUT
+    /// moving the keyboard selection cursor.
+    #[test]
+    fn mouse_wheel_scrolls_window_not_selection() {
+        let mut app = scroll_app();
+        let total = scroll_total_rows(&app);
+        assert!(
+            total > SYSTEM_VISIBLE_ROWS,
+            "fixture list must overflow: {total}"
+        );
+
+        let cursor_before = app.world().resource::<KaleidoscopeCursor>().focus;
+        assert_eq!(
+            app.world()
+                .resource::<KaleidoscopeScroll>()
+                .system_window_start,
+            None,
+            "starts following the cursor (no override)"
+        );
+
+        // Wheel DOWN three notches (negative y = scroll down).
+        for _ in 0..3 {
+            app.world_mut()
+                .resource_mut::<Messages<bevy::input::mouse::MouseWheel>>()
+                .write(bevy::input::mouse::MouseWheel {
+                    unit: bevy::input::mouse::MouseScrollUnit::Line,
+                    x: 0.0,
+                    y: -1.0,
+                    window: Entity::PLACEHOLDER,
+                });
+            app.update();
+        }
+
+        let scroll = app
+            .world()
+            .resource::<KaleidoscopeScroll>()
+            .system_window_start;
+        assert_eq!(
+            scroll,
+            Some(3),
+            "three wheel-down notches scroll the window to row 3"
+        );
+        assert_eq!(
+            app.world().resource::<KaleidoscopeCursor>().focus,
+            cursor_before,
+            "the wheel must NOT move the selection cursor (Feature D)"
+        );
+    }
+
+    /// Feature C: applying a scrollbar drag fraction (the lib's neutral signal) moves
+    /// the window_start proportionally across the scrollable range.
+    #[test]
+    fn scrollbar_drag_fraction_sets_window_start_proportionally() {
+        let mut app = scroll_app();
+        let total = scroll_total_rows(&app);
+        let max = system_max_window_start(total);
+        assert!(max > 0, "fixture must be scrollable");
+
+        let cursor_before = app.world().resource::<KaleidoscopeCursor>().focus;
+
+        // Drag to the BOTTOM of the track (fraction 1.0) -> window_start == max.
+        app.world_mut()
+            .resource_mut::<Messages<ambition_inventory_ui::kaleidoscope::MenuScrollDragged>>()
+            .write(ambition_inventory_ui::kaleidoscope::MenuScrollDragged { fraction: 1.0 });
+        app.update();
+        assert_eq!(
+            app.world()
+                .resource::<KaleidoscopeScroll>()
+                .system_window_start,
+            Some(max),
+            "fraction 1.0 scrolls to the bottom (Feature C)"
+        );
+
+        // Drag to the MIDDLE (fraction 0.5) -> ~half the range.
+        app.world_mut()
+            .resource_mut::<Messages<ambition_inventory_ui::kaleidoscope::MenuScrollDragged>>()
+            .write(ambition_inventory_ui::kaleidoscope::MenuScrollDragged { fraction: 0.5 });
+        app.update();
+        let expected_mid = (0.5 * max as f32).round() as usize;
+        assert_eq!(
+            app.world()
+                .resource::<KaleidoscopeScroll>()
+                .system_window_start,
+            Some(expected_mid),
+            "fraction 0.5 maps to the middle of the range"
+        );
+        assert_eq!(
+            app.world().resource::<KaleidoscopeCursor>().focus,
+            cursor_before,
+            "a scrollbar drag does not move the selection cursor"
+        );
+    }
+
+    /// Feature C/D: a keyboard move after a wheel/drag scroll CLEARS the override so
+    /// the window snaps back to following the selection cursor.
+    #[test]
+    fn keyboard_nav_clears_the_scroll_override() {
+        let mut app = scroll_app();
+        // Establish an override via a wheel notch.
+        app.world_mut()
+            .resource_mut::<Messages<bevy::input::mouse::MouseWheel>>()
+            .write(bevy::input::mouse::MouseWheel {
+                unit: bevy::input::mouse::MouseScrollUnit::Line,
+                x: 0.0,
+                y: -1.0,
+                window: Entity::PLACEHOLDER,
+            });
+        app.update();
+        assert!(
+            app.world()
+                .resource::<KaleidoscopeScroll>()
+                .system_window_start
+                .is_some(),
+            "wheel set an override"
+        );
+
+        // A DOWN keypress moves the cursor and clears the override.
+        let mut frame = MenuControlFrame::default();
+        frame.down = true;
+        app.insert_resource(frame);
+        app.update();
+        assert_eq!(
+            app.world()
+                .resource::<KaleidoscopeScroll>()
+                .system_window_start,
+            None,
+            "keyboard nav resumes cursor-follow scrolling (Features C/D)"
+        );
+    }
+
+    // ---- Feature E: tap activates, drag-away cancels --------------------------
+
+    /// Build a control + fire a Press at `press_pos`, a Move at `move_pos`, then a
+    /// Click — exactly the mouse/touch sequence Bevy picking produces. Returns the
+    /// `KaleidoscopeSystemNav.open_entry` after, so the test can see whether the
+    /// click's drill-in action fired (activated) or was cancelled.
+    fn press_move_click(app: &mut App, press_pos: Vec2, move_pos: Vec2) -> Entity {
+        use bevy::picking::events::{Move, Press};
+        let entity = app
+            .world_mut()
+            .spawn(AmbitionMenuControl::<KaleidoscopeAction> {
+                kind: ambition_inventory_ui::MenuControlKind::OptionToggle,
+                action: Some(KaleidoscopeAction::OpenSystemEntry(
+                    SystemMenuEntryId::Video,
+                )),
+                focus: ambition_inventory_ui::MenuFocusKey::default(),
+            })
+            .id();
+        let loc = |p: Vec2| Location {
+            target: NormalizedRenderTarget::None {
+                width: 1,
+                height: 1,
+            },
+            position: p,
+        };
+        app.world_mut().trigger(Pointer::new(
+            PointerId::Mouse,
+            loc(press_pos),
+            Press {
+                button: bevy::picking::pointer::PointerButton::Primary,
+                hit: HitData::new(entity, 0.0, None, None),
+            },
+            entity,
+        ));
+        app.world_mut().trigger(Pointer::new(
+            PointerId::Mouse,
+            loc(move_pos),
+            Move {
+                hit: HitData::new(entity, 0.0, None, None),
+                delta: move_pos - press_pos,
+            },
+            entity,
+        ));
+        app.world_mut().trigger(Pointer::new(
+            PointerId::Mouse,
+            loc(move_pos),
+            Click {
+                button: bevy::picking::pointer::PointerButton::Primary,
+                hit: HitData::new(entity, 0.0, None, None),
+                duration: Duration::ZERO,
+            },
+            entity,
+        ));
+        app.update();
+        entity
+    }
+
+    /// Feature E: a clean tap (press + tiny move + release under the drag threshold)
+    /// ACTIVATES the control; a press + drag-away beyond the threshold CANCELS it.
+    #[test]
+    fn tap_activates_drag_away_cancels() {
+        // Clean tap: tiny move -> drill into Video.
+        let (mut app, _player) = click_app();
+        // The control's drill-in action needs an active System page for the click
+        // dispatch to resolve OpenSystemEntry against the live model.
+        app.world_mut()
+            .resource_mut::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>()
+            .active = Some(KaleidoscopePage::System);
+        press_move_click(&mut app, Vec2::new(10.0, 10.0), Vec2::new(12.0, 11.0));
+        assert_eq!(
+            app.world().resource::<KaleidoscopeSystemNav>().open_entry,
+            Some(SystemMenuEntryId::Video),
+            "a clean tap activates the control (Feature E)"
+        );
+
+        // Drag away: a large move past the threshold -> NO activation.
+        let (mut app, _player) = click_app();
+        app.world_mut()
+            .resource_mut::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>()
+            .active = Some(KaleidoscopePage::System);
+        press_move_click(&mut app, Vec2::new(10.0, 10.0), Vec2::new(200.0, 200.0));
+        assert_eq!(
+            app.world().resource::<KaleidoscopeSystemNav>().open_entry,
+            None,
+            "a press-then-drag-away is cancelled, not activated (Feature E)"
         );
     }
 }

@@ -139,7 +139,7 @@ pub fn install_kaleidoscope_menu(app: &mut App) {
         )
         .add_observer(kaleidoscope_pointer_press)
         .add_observer(kaleidoscope_pointer_move)
-        .add_observer(kaleidoscope_pointer_click);
+        .add_observer(kaleidoscope_pointer_release);
 }
 
 /// Which input source currently owns the cube cursor. Mirrors the grid's
@@ -182,7 +182,7 @@ impl KaleidoscopeCursor {
 /// open category's option rows + a Back row are shown. Mirrors the Bevy-UI pause
 /// menu's settings page stack. `republish_kaleidoscope_pages` feeds this into
 /// `build_system_page`, and changing it republishes (the System cursor resets to
-/// row 0). B0002-safe: only `kaleidoscope_focus_nav` / `kaleidoscope_pointer_click` mutate it (both
+/// row 0). B0002-safe: only `kaleidoscope_focus_nav` / `kaleidoscope_pointer_release` mutate it (both
 /// `ResMut`); `republish_kaleidoscope_pages` reads it as `Res`.
 #[derive(Resource, Default)]
 struct KaleidoscopeSystemNav {
@@ -204,6 +204,12 @@ const KALEIDOSCOPE_TAP_DRAG_THRESHOLD: f32 = 12.0;
 struct KaleidoscopePointerPress {
     /// The entity the active press landed on, if any.
     entity: Option<Entity>,
+    /// The ACTION the pressed control carries, captured at press time. Dispatch on
+    /// RELEASE uses THIS (not the release entity), so a face rebuild that despawns +
+    /// respawns the control between press and release cannot drop the click — the
+    /// historical `Pointer<Click>` failure (press/release must resolve to the SAME
+    /// entity, which the rebuilding perspective cube routinely broke).
+    action: Option<KaleidoscopeAction>,
     /// Screen position the press started at.
     origin: Vec2,
     /// True once the pointer dragged past the tap threshold (cancels the click).
@@ -228,7 +234,7 @@ struct KaleidoscopeScroll {
 /// / pointer observer stay within Bevy's 16-param ceiling. The radio resources are
 /// `audio`-gated; `DeveloperTools` + `SandboxResetRequested` are always present
 /// (inserted at startup), so accessing them never panics. Held mutably here; the
-/// two consumers (`kaleidoscope_focus_nav`, `kaleidoscope_pointer_click`) are separate systems so
+/// two consumers (`kaleidoscope_focus_nav`, `kaleidoscope_pointer_release`) are separate systems so
 /// there is no B0002 conflict, and `republish_kaleidoscope_pages` reads its own `Res`
 /// copies (`SystemMenuSnapshotParams`) in a third system.
 #[derive(bevy::ecs::system::SystemParam)]
@@ -1378,7 +1384,7 @@ fn focus_for_action(
 /// Feature E: record the start of a pointer press on a cube control so a
 /// press-then-drag-away can be CANCELLED (no activation). Stores the pressed entity
 /// + the press origin; `kaleidoscope_pointer_move` marks it cancelled once the
-/// pointer drags past the tap threshold, and `kaleidoscope_pointer_click` honours
+/// pointer drags past the tap threshold, and `kaleidoscope_pointer_release` honours
 /// that. Mouse OR touch (same `Pointer<Press>` path).
 fn kaleidoscope_pointer_press(
     press: On<Pointer<Press>>,
@@ -1392,8 +1398,11 @@ fn kaleidoscope_pointer_press(
         return;
     }
     // Only arm the tap-guard for real controls (so a press on decoration is a no-op).
-    if controls.get(press.entity).is_ok() {
+    if let Ok(control) = controls.get(press.entity) {
         state.entity = Some(press.entity);
+        // Capture the action NOW so RELEASE can dispatch it entity-independently
+        // (survives a face rebuild between press and release).
+        state.action = control.action;
         state.origin = press.pointer_location.position;
         state.cancelled = false;
     }
@@ -1462,13 +1471,27 @@ fn kaleidoscope_pointer_move(
     }
 }
 
-/// Pointer click (mouse/touch) on a cube control: dispatch its `KaleidoscopeAction`.
+/// Pointer release (mouse/touch) anywhere: dispatch the action ARMED at press time.
+///
+/// This replaces the old `On<Pointer<Click>>` observer. Bevy's compound
+/// `Pointer<Click>` only fires when press AND release resolve to the SAME entity
+/// within a threshold — but the perspective cube despawns + respawns controls on
+/// every hover-driven republish, so the press entity is routinely gone by release
+/// and the click silently never fired (mouse-clicks did NOTHING in the GUI). The
+/// proven demo (`oot_pause_demo::input::pointer_hit_test`) dispatches from cursor +
+/// mouse button, entity-independently; we do the equivalent: arm the action on
+/// `Pointer<Press>` (stored in [`KaleidoscopePointerPress`]) and dispatch THAT
+/// stored action on RELEASE, regardless of which entity the release lands on. A
+/// rebuild between press and release can no longer drop the activation.
+///
+/// Feature E (tap vs drag) is preserved: if the press dragged past the threshold
+/// (`kaleidoscope_pointer_move` set `cancelled`), the release does NOT activate. The
+/// guard is consumed either way so the next press starts fresh.
 #[allow(clippy::too_many_arguments)]
-fn kaleidoscope_pointer_click(
-    click: On<Pointer<Click>>,
+fn kaleidoscope_pointer_release(
+    _release: On<Pointer<Release>>,
     backend: Res<InventoryUiBackend>,
     mut ui_state: Option<ResMut<crate::inventory::InventoryUiState>>,
-    controls: Query<&AmbitionMenuControl<KaleidoscopeAction>>,
     mut pages: ResMut<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
@@ -1480,54 +1503,57 @@ fn kaleidoscope_pointer_click(
     mut heals: MessageWriter<PlayerHealRequested>,
     mut sfx: MessageWriter<SfxMessage>,
     mut system: SystemMenuParams,
-    // Feature E: the in-flight press; a click is cancelled if the press dragged away.
+    // Feature E: the in-flight press; activation uses the action stored at press time.
     mut press: ResMut<KaleidoscopePointerPress>,
 ) {
     let open = ui_state.as_deref().map(|s| s.visible).unwrap_or(false);
     if *backend != InventoryUiBackend::LunexKaleidoscope || !open {
         return;
     }
-    // Feature E: a press-then-drag-away cancels activation (a clean tap activates).
-    // Consume the press guard either way so the next press starts fresh.
-    let cancelled = press.cancelled && press.entity == Some(click.entity);
+    // Consume the press guard (whatever happens, the next press starts fresh). A
+    // release with no armed press, a drag-away cancel, or a press on a control with
+    // no action all fall through to "no activation".
+    let armed = press.entity.is_some();
+    let cancelled = press.cancelled;
+    let action = press.action;
     press.entity = None;
+    press.action = None;
     press.cancelled = false;
-    if cancelled {
+    if !armed || cancelled {
         return;
     }
-    if let Ok(control) = controls.get(click.entity) {
-        if let Some(action) = control.action {
-            if let Some(active_page) = pages.active {
-                let model = system.model(&settings);
-                let next = focus_for_action(action, active_page, &model, system_nav.open_entry);
-                cursor.focus = next;
-                cursor.owner = FocusSource::Pointer;
-                cursor.last_pointer_focus = Some(next);
-            }
-            let mut close_menu = false;
-            // Clicks route through the SAME `dispatch_kaleidoscope_action` as the keyboard
-            // select path, so the action sounds (equip/use/rotate/toggle/...) live in
-            // one place and are identical for pointer + keyboard.
-            dispatch_kaleidoscope_action(
-                action,
-                &mut pages,
-                &mut system_nav,
-                &mut cursor,
-                &mut owned,
-                &mut settings,
-                &mut close_menu,
-                &mut commands,
-                &mut players,
-                &mut mana_q,
-                &mut heals,
-                &mut sfx,
-                &mut system,
-            );
-            if close_menu {
-                if let Some(ui_state) = ui_state.as_deref_mut() {
-                    ui_state.visible = false;
-                }
-            }
+    let Some(action) = action else {
+        return;
+    };
+    if let Some(active_page) = pages.active {
+        let model = system.model(&settings);
+        let next = focus_for_action(action, active_page, &model, system_nav.open_entry);
+        cursor.focus = next;
+        cursor.owner = FocusSource::Pointer;
+        cursor.last_pointer_focus = Some(next);
+    }
+    let mut close_menu = false;
+    // Releases route through the SAME `dispatch_kaleidoscope_action` as the keyboard
+    // select path, so the action sounds (equip/use/rotate/toggle/...) live in
+    // one place and are identical for pointer + keyboard.
+    dispatch_kaleidoscope_action(
+        action,
+        &mut pages,
+        &mut system_nav,
+        &mut cursor,
+        &mut owned,
+        &mut settings,
+        &mut close_menu,
+        &mut commands,
+        &mut players,
+        &mut mana_q,
+        &mut heals,
+        &mut sfx,
+        &mut system,
+    );
+    if close_menu {
+        if let Some(ui_state) = ui_state.as_deref_mut() {
+            ui_state.visible = false;
         }
     }
 }
@@ -1910,12 +1936,12 @@ fn republish_kaleidoscope_pages(
     backend: Res<InventoryUiBackend>,
     ui_state: Option<Res<crate::inventory::InventoryUiState>>,
     owned: Option<Res<OwnedItems>>,
-    // Read-only here. The mutators (`kaleidoscope_focus_nav`, `kaleidoscope_pointer_click`) take
+    // Read-only here. The mutators (`kaleidoscope_focus_nav`, `kaleidoscope_pointer_release`) take
     // `ResMut<UserSettings>` in SEPARATE systems, so this `Res` is not a B0002
     // conflict; `UserSettings` is inserted at startup so the `Res` never panics.
     settings: Res<UserSettings>,
     cursor: Res<KaleidoscopeCursor>,
-    // Read-only here; the mutators (`kaleidoscope_focus_nav`, `kaleidoscope_pointer_click`) take
+    // Read-only here; the mutators (`kaleidoscope_focus_nav`, `kaleidoscope_pointer_release`) take
     // `ResMut<KaleidoscopeSystemNav>` in SEPARATE systems/observers, so this `Res` is not a
     // B0002 conflict. Inserted at startup (`init_resource`) so it never panics.
     system_nav: Res<KaleidoscopeSystemNav>,
@@ -2110,7 +2136,7 @@ mod lunex_kaleidoscope_app_tests {
     //! systems / observers exactly as the app wires them.
     //!
     //! * Fix 1 — [`back_edge_focus`] lands the cursor on the "back" edge button.
-    //! * Fix 4 — `kaleidoscope_pointer_click` dispatches System-page clicks (drill in,
+    //! * Fix 4 — `kaleidoscope_pointer_release` dispatches System-page clicks (drill in,
     //!   apply an option, Close) at parity with keyboard select.
     use super::*;
     use crate::brain::ActionSet;
@@ -2118,9 +2144,8 @@ mod lunex_kaleidoscope_app_tests {
     use crate::player::{PlayerEntity, PlayerMana, PrimaryPlayer};
     use bevy::camera::NormalizedRenderTarget;
     use bevy::picking::backend::HitData;
-    use bevy::picking::events::{Click, Move, Pointer};
+    use bevy::picking::events::{Move, Pointer, Press, Release};
     use bevy::picking::pointer::{Location, PointerId};
-    use core::time::Duration;
 
     // ---- Fix 1: back-edge seeding --------------------------------------------
 
@@ -2166,10 +2191,10 @@ mod lunex_kaleidoscope_app_tests {
         app.add_message::<PlayerHealRequested>();
         app.add_message::<SfxMessage>();
         // Feature E: the tap/drag-cancel guard needs the press + move observers in
-        // addition to the click observer.
+        // addition to the release-dispatch observer.
         app.add_observer(kaleidoscope_pointer_press);
         app.add_observer(kaleidoscope_pointer_move);
-        app.add_observer(kaleidoscope_pointer_click);
+        app.add_observer(kaleidoscope_pointer_release);
         *app.world_mut().resource_mut::<InventoryUiBackend>() =
             InventoryUiBackend::LunexKaleidoscope;
         app.world_mut()
@@ -2224,8 +2249,9 @@ mod lunex_kaleidoscope_app_tests {
         app
     }
 
-    /// Spawn a cube control carrying `action` and fire a real `Pointer<Click>` at it,
-    /// exactly as Bevy picking would.
+    /// Spawn a cube control carrying `action` and drive a real press→release on it,
+    /// exactly as Bevy picking + the new release-dispatch path would (no compound
+    /// `Pointer<Click>`, which never fires reliably in the GUI).
     fn click_control(app: &mut App, action: KaleidoscopeAction) {
         let entity = app
             .world_mut()
@@ -2235,8 +2261,8 @@ mod lunex_kaleidoscope_app_tests {
                 focus: ambition_inventory_ui::MenuFocusKey::default(),
             })
             .id();
-        // The observer only reads `click.entity`; any render target works for the
-        // location, so the simplest no-render target keeps the fixture minimal.
+        // The handlers read the location for the tap/drag guard; any render target
+        // works, so the simplest no-render target keeps the fixture minimal.
         let location = Location {
             target: NormalizedRenderTarget::None {
                 width: 1,
@@ -2244,17 +2270,25 @@ mod lunex_kaleidoscope_app_tests {
             },
             position: Vec2::ZERO,
         };
-        let click = Pointer::new(
+        // Press ARMS the action; release DISPATCHES the stored action.
+        app.world_mut().trigger(Pointer::new(
             PointerId::Mouse,
-            location,
-            Click {
+            location.clone(),
+            bevy::picking::events::Press {
                 button: bevy::picking::pointer::PointerButton::Primary,
                 hit: HitData::new(entity, 0.0, None, None),
-                duration: Duration::ZERO,
             },
             entity,
-        );
-        app.world_mut().trigger(click);
+        ));
+        app.world_mut().trigger(Pointer::new(
+            PointerId::Mouse,
+            location,
+            Release {
+                button: bevy::picking::pointer::PointerButton::Primary,
+                hit: HitData::new(entity, 0.0, None, None),
+            },
+            entity,
+        ));
         app.update();
     }
 
@@ -3081,8 +3115,9 @@ mod lunex_kaleidoscope_app_tests {
             )
                 .chain(),
         );
+        app.add_observer(kaleidoscope_pointer_press);
         app.add_observer(kaleidoscope_pointer_move);
-        app.add_observer(kaleidoscope_pointer_click);
+        app.add_observer(kaleidoscope_pointer_release);
         *app.world_mut().resource_mut::<InventoryUiBackend>() =
             InventoryUiBackend::LunexKaleidoscope;
         app.world_mut()
@@ -3123,19 +3158,32 @@ mod lunex_kaleidoscope_app_tests {
         }
     }
 
-    /// Reproduce Bug 2: hover-move onto `move_to` (this used to rebuild the face and
-    /// despawn the control under the cursor), then click the ORIGINAL `click_target`
-    /// entity captured before the move.
+    /// Reproduce Bug 2 on the NEW release-dispatch path: PRESS the original
+    /// `click_target` (arming its action), then hover-move onto `move_to` (which
+    /// rebuilds the face and DESPAWNS the pressed control), then RELEASE. The action
+    /// must still dispatch because it was captured at press time — entity-independent.
+    ///
+    /// Under the OLD `Pointer<Click>` path this dropped the activation: the press
+    /// entity was gone by release, so the compound click never resolved.
     fn hover_then_click(
         app: &mut App,
         move_to: KaleidoscopeAction,
         click_target: KaleidoscopeAction,
     ) {
-        // Capture the control entity to click BEFORE the hover (this is the entity a
-        // real pointer press would have latched onto).
+        // The entity a real pointer press latches onto, captured BEFORE the rebuild.
         let target = control_entity(app, click_target);
-        // A move onto a different control: changes `cursor.focus`. Pre-fix this made
-        // the republish rewrite pages → fake_rebuild despawns `target`.
+        // 1. PRESS the target: arms the action in `KaleidoscopePointerPress`.
+        app.world_mut().trigger(Pointer::new(
+            PointerId::Mouse,
+            pointer_location(),
+            Press {
+                button: bevy::picking::pointer::PointerButton::Primary,
+                hit: HitData::new(target, 0.0, None, None),
+            },
+            target,
+        ));
+        // 2. Hover-move onto a different control: changes `cursor.focus`, which the
+        //    republish bakes into pages → fake_rebuild despawns `target`.
         let move_target = control_entity(app, move_to);
         app.world_mut().trigger(Pointer::new(
             PointerId::Mouse,
@@ -3147,15 +3195,15 @@ mod lunex_kaleidoscope_app_tests {
             move_target,
         ));
         app.update();
-        // Now click the ORIGINAL target entity. If it was despawned by a rebuild, the
-        // observer's `controls.get` fails and the click is dropped (the bug).
+        // 3. RELEASE. The release entity (`target`) may now be despawned, but the
+        //    handler dispatches the action STORED at press time, not the release
+        //    entity — so the activation survives the rebuild (the fix).
         app.world_mut().trigger(Pointer::new(
             PointerId::Mouse,
             pointer_location(),
-            Click {
+            Release {
                 button: bevy::picking::pointer::PointerButton::Primary,
                 hit: HitData::new(target, 0.0, None, None),
-                duration: Duration::ZERO,
             },
             target,
         ));
@@ -3439,11 +3487,10 @@ mod lunex_kaleidoscope_app_tests {
     // ---- Feature E: tap activates, drag-away cancels --------------------------
 
     /// Build a control + fire a Press at `press_pos`, a Move at `move_pos`, then a
-    /// Click — exactly the mouse/touch sequence Bevy picking produces. Returns the
+    /// Release — exactly the mouse/touch sequence Bevy picking produces. Returns the
     /// `KaleidoscopeSystemNav.open_entry` after, so the test can see whether the
-    /// click's drill-in action fired (activated) or was cancelled.
+    /// release's drill-in action fired (activated) or was cancelled by a drag.
     fn press_move_click(app: &mut App, press_pos: Vec2, move_pos: Vec2) -> Entity {
-        use bevy::picking::events::{Move, Press};
         let entity = app
             .world_mut()
             .spawn(AmbitionMenuControl::<KaleidoscopeAction> {
@@ -3482,10 +3529,9 @@ mod lunex_kaleidoscope_app_tests {
         app.world_mut().trigger(Pointer::new(
             PointerId::Mouse,
             loc(move_pos),
-            Click {
+            Release {
                 button: bevy::picking::pointer::PointerButton::Primary,
                 hit: HitData::new(entity, 0.0, None, None),
-                duration: Duration::ZERO,
             },
             entity,
         ));
@@ -3521,6 +3567,148 @@ mod lunex_kaleidoscope_app_tests {
             app.world().resource::<KaleidoscopeSystemNav>().open_entry,
             None,
             "a press-then-drag-away is cancelled, not activated (Feature E)"
+        );
+    }
+
+    /// Spawn a real control carrying `action` and fire a `Pointer<Press>` on it
+    /// (arming the guard via the real press handler), returning its entity.
+    fn arm_press(app: &mut App, action: KaleidoscopeAction) -> Entity {
+        let entity = app
+            .world_mut()
+            .spawn(AmbitionMenuControl::<KaleidoscopeAction> {
+                kind: ambition_inventory_ui::MenuControlKind::OptionToggle,
+                action: Some(action),
+                focus: ambition_inventory_ui::MenuFocusKey::default(),
+            })
+            .id();
+        let location = Location {
+            target: NormalizedRenderTarget::None {
+                width: 1,
+                height: 1,
+            },
+            position: Vec2::ZERO,
+        };
+        app.world_mut().trigger(Pointer::new(
+            PointerId::Mouse,
+            location,
+            Press {
+                button: bevy::picking::pointer::PointerButton::Primary,
+                hit: HitData::new(entity, 0.0, None, None),
+            },
+            entity,
+        ));
+        app.update();
+        entity
+    }
+
+    /// Fire a `Pointer<Release>` whose hit/target is `entity` (which may be despawned).
+    fn fire_release(app: &mut App, entity: Entity) {
+        let location = Location {
+            target: NormalizedRenderTarget::None {
+                width: 1,
+                height: 1,
+            },
+            position: Vec2::ZERO,
+        };
+        app.world_mut().trigger(Pointer::new(
+            PointerId::Mouse,
+            location,
+            Release {
+                button: bevy::picking::pointer::PointerButton::Primary,
+                hit: HitData::new(entity, 0.0, None, None),
+            },
+            entity,
+        ));
+        app.update();
+    }
+
+    /// THE KEY TEST. The GUI failure exactly: a press is armed on a control, then the
+    /// perspective cube REBUILDS its faces (despawns + respawns every control) BEFORE
+    /// the release lands. With the old `Pointer<Click>` observer this dropped the
+    /// activation (press/release no longer resolved to the same live entity). The new
+    /// release-dispatch path stores the action at PRESS time, so it survives the
+    /// rebuild: the release still equips the item.
+    #[test]
+    fn release_dispatch_survives_a_control_rebuild_between_press_and_release() {
+        let (mut app, _player) = click_app();
+        {
+            let mut owned = app.world_mut().resource_mut::<OwnedItems>();
+            owned.grant(Item::Blink, 1);
+        }
+        app.world_mut()
+            .resource_mut::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>()
+            .active = Some(KaleidoscopePage::Items);
+        app.update();
+        assert!(
+            !app.world()
+                .resource::<OwnedItems>()
+                .is_equipped(Item::Blink),
+            "precondition: Blink not equipped yet"
+        );
+
+        // 1. Arm a press on the Blink control.
+        let pressed = arm_press(&mut app, KaleidoscopeAction::Equip(Item::Blink));
+        assert_eq!(
+            app.world().resource::<KaleidoscopePointerPress>().action,
+            Some(KaleidoscopeAction::Equip(Item::Blink)),
+            "the press armed the control's action in the guard"
+        );
+
+        // 2. Simulate a face rebuild: despawn EVERY control (incl. the pressed one)
+        //    and respawn a fresh one with a NEW entity id, exactly like the cube does
+        //    on a hover-driven republish.
+        {
+            let to_despawn: Vec<Entity> = app
+                .world_mut()
+                .query_filtered::<Entity, With<AmbitionMenuControl<KaleidoscopeAction>>>()
+                .iter(app.world())
+                .collect();
+            for e in to_despawn {
+                app.world_mut().entity_mut(e).despawn();
+            }
+            app.world_mut()
+                .spawn(AmbitionMenuControl::<KaleidoscopeAction> {
+                    kind: ambition_inventory_ui::MenuControlKind::OptionToggle,
+                    action: Some(KaleidoscopeAction::Equip(Item::Blink)),
+                    focus: ambition_inventory_ui::MenuFocusKey::default(),
+                });
+        }
+        assert!(
+            app.world().get_entity(pressed).is_err(),
+            "the pressed entity is gone after the rebuild (this is what broke Pointer<Click>)"
+        );
+
+        // 3. Release on the now-DEAD pressed entity. The handler dispatches the action
+        //    stored at press time, not the release entity — so it still equips.
+        fire_release(&mut app, pressed);
+        assert!(
+            app.world()
+                .resource::<OwnedItems>()
+                .is_equipped(Item::Blink),
+            "release dispatches the action armed at press time even after the control \
+             was despawned + respawned between press and release (the GUI mouse-click fix)"
+        );
+    }
+
+    /// A plain press→release on a live control activates (the common case).
+    #[test]
+    fn press_then_release_equips_an_item() {
+        let (mut app, _player) = click_app();
+        {
+            let mut owned = app.world_mut().resource_mut::<OwnedItems>();
+            owned.grant(Item::Blink, 1);
+        }
+        app.world_mut()
+            .resource_mut::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>()
+            .active = Some(KaleidoscopePage::Items);
+        app.update();
+        let entity = arm_press(&mut app, KaleidoscopeAction::Equip(Item::Blink));
+        fire_release(&mut app, entity);
+        assert!(
+            app.world()
+                .resource::<OwnedItems>()
+                .is_equipped(Item::Blink),
+            "a clean press→release on an item control equips it"
         );
     }
 

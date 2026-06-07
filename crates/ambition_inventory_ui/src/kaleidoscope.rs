@@ -859,28 +859,27 @@ mod fade_tests {
             .resource_mut::<KaleidoscopeOpenState>()
             .amount = 0.5;
         app.update();
-        let a = app
-            .world()
-            .resource::<Assets<StandardMaterial>>()
-            .get(id)
-            .unwrap()
-            .base_color
-            .alpha();
-        assert!((a - 0.4).abs() < 1e-4, "half-open alpha = {a}");
+        let mat = |app: &App| {
+            app.world()
+                .resource::<Assets<StandardMaterial>>()
+                .get(id)
+                .unwrap()
+                .clone()
+        };
+        let m = mat(&app);
+        assert!((m.base_color.alpha() - 0.4).abs() < 1e-4, "half-open alpha");
+        // Mid-fade stays Blend so the cross-fade is visible.
+        assert_eq!(m.alpha_mode, AlphaMode::Blend, "mid-fade must be Blend");
 
         // Fully open: alpha = base_alpha.
         app.world_mut()
             .resource_mut::<KaleidoscopeOpenState>()
             .amount = 1.0;
         app.update();
-        let a = app
-            .world()
-            .resource::<Assets<StandardMaterial>>()
-            .get(id)
-            .unwrap()
-            .base_color
-            .alpha();
-        assert!((a - 0.8).abs() < 1e-4, "open alpha = {a}");
+        let m = mat(&app);
+        assert!((m.base_color.alpha() - 0.8).abs() < 1e-4, "open alpha");
+        // Settled-open must be OPAQUE (depth-writing) to avoid z-fight flicker.
+        assert_eq!(m.alpha_mode, AlphaMode::Opaque, "settled-open must be Opaque");
 
         // Folded shut: fully transparent.
         app.world_mut()
@@ -1634,9 +1633,37 @@ fn fade_kaleidoscope_materials(
     faded: Query<(&KaleidoscopeFade, &MeshMaterial3d<StandardMaterial>)>,
 ) {
     let amount = state.amount.clamp(0.0, 1.0);
+    // Once fully open, render the layered planes OPAQUE so the GPU depth test (not an
+    // unstable back-to-front transparent sort) resolves the per-face depth bands
+    // (DEPTH_BACKGROUND..DEPTH_SELECTION). With `AlphaMode::Blend`, StandardMaterial
+    // disables depth-write, so coplanar lines / icons / scrollbars stop being ordered
+    // by depth and z-fight — flickering as the ring rotates. Blend is therefore used
+    // ONLY while the fold is mid-transition (`amount < 1`), where the cross-fade is
+    // wanted and the motion hides any transient sort wobble. `ease_fold_amount` snaps
+    // `amount` to exactly its target within 0.002, so a settled-open menu reliably
+    // hits `amount == 1.0` (no asymptotic limbo that would strand it in Blend).
+    let target_mode = if amount >= 1.0 {
+        AlphaMode::Opaque
+    } else {
+        AlphaMode::Blend
+    };
     for (fade, material) in &faded {
-        if let Some(mat) = materials.get_mut(&material.0) {
-            mat.base_color.set_alpha(fade.base_alpha * amount);
+        let target_alpha = fade.base_alpha * amount;
+        // Read first; only invalidate (and re-extract) the asset when the mode or
+        // alpha actually needs to change — this avoids thrashing every material every
+        // frame while the menu sits open or shut. It also corrects materials freshly
+        // (re)spawned THIS frame by `rebuild_cube_faces` / `sync_control_focus_visuals`
+        // (which always create Blend at full base alpha): PostUpdate runs after them,
+        // so a republish-while-open flips the new planes straight to Opaque with no
+        // one-frame flicker.
+        let needs = materials.get(&material.0).is_some_and(|m| {
+            m.alpha_mode != target_mode || (m.base_color.alpha() - target_alpha).abs() > 1.0e-4
+        });
+        if needs {
+            if let Some(mat) = materials.get_mut(&material.0) {
+                mat.alpha_mode = target_mode;
+                mat.base_color.set_alpha(target_alpha);
+            }
         }
     }
 }

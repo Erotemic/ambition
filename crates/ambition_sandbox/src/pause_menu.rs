@@ -60,17 +60,21 @@ mod tests;
 /// `pause_menu_navigate` already sits at Bevy's 16-param ceiling — adding a 17th param
 /// makes it an invalid system. Returns `true` (menu active) whenever the cube backend
 /// is absent or set to `Grid`, exactly mirroring `pause_menu_toggle`'s inline guard.
+///
+/// Phase C2b update: under `oot_inventory` BOTH backends now own a real pause menu
+/// (the cube + the unified Grid tabbed menu), so the legacy bevy-UI pause menu must
+/// be inert for EITHER backend. It therefore returns `true` only when `oot_inventory`
+/// is OFF (no replacement menu exists). Under `oot_inventory` it always returns
+/// `false` — the active backend's own menu (cube or Grid) owns pause/Esc/inventory.
 #[cfg(feature = "input")]
 pub fn pause_menu_ui_active(
-    #[cfg(feature = "oot_inventory")] kaleidoscope_backend: Option<
+    #[cfg(feature = "oot_inventory")] _kaleidoscope_backend: Option<
         Res<crate::lunex_kaleidoscope_app::InventoryUiBackend>,
     >,
 ) -> bool {
     #[cfg(feature = "oot_inventory")]
     {
-        !kaleidoscope_backend
-            .map(|b| *b == crate::lunex_kaleidoscope_app::InventoryUiBackend::LunexKaleidoscope)
-            .unwrap_or(false)
+        false
     }
     #[cfg(not(feature = "oot_inventory"))]
     {

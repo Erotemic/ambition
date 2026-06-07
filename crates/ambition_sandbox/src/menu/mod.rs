@@ -19,6 +19,11 @@
 /// cube backend and any future menu frontend. See [`dispatch`].
 #[cfg(feature = "oot_inventory")]
 pub mod dispatch;
+/// The unified flat tabbed menu — the `InventoryUiBackend::Grid` presentation
+/// (Phase C2b). Ambition's wiring of the engine `bevy_ui` renderer; the flat analog
+/// of the cube backend, sharing the page model + dispatcher + cursor.
+#[cfg(feature = "oot_inventory")]
+pub mod grid_backend;
 pub mod ir;
 pub mod map;
 #[cfg(feature = "oot_inventory")]

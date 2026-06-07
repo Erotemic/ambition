@@ -120,7 +120,11 @@ pub fn install_kaleidoscope_menu(app: &mut App) {
                 // override BEFORE republish so the new window renders this frame.
                 kaleidoscope_scroll_wheel,
                 kaleidoscope_apply_scroll_drag,
-                republish_kaleidoscope_pages.run_if(kaleidoscope_backend_active),
+                // Republish runs for BOTH backends: it only writes the shared
+                // `ActiveMenuPages` (which page models are built from the live
+                // cursor/inventory/settings). The Grid backend (Phase C2b) reads
+                // the same built pages, so the model is one source of truth.
+                republish_kaleidoscope_pages,
                 // The focus HIGHLIGHT and the detail-panel TEXT now update IN PLACE
                 // from the live cursor (no face rebuild), so a mouse move no longer
                 // despawns the hovered control between a pointer press and release —
@@ -183,6 +187,11 @@ impl KaleidoscopeCursor {
     pub(crate) fn mark_keyboard(&mut self, focus: MenuFocus) {
         self.focus = focus;
         self.owner = FocusSource::Keyboard;
+    }
+
+    /// The cursor's current logical focus (shared by both backends).
+    pub(crate) fn focus(&self) -> MenuFocus {
+        self.focus
     }
 }
 
@@ -403,7 +412,7 @@ impl SystemMenuParams<'_> {
     }
 
     /// Build the live SYSTEM model from current settings + held resources.
-    fn model(&self, settings: &UserSettings) -> SystemMenuModel {
+    pub(crate) fn model(&self, settings: &UserSettings) -> SystemMenuModel {
         SystemMenuModel::build(settings, &self.radio_snapshot(), &self.dev_snapshot())
     }
 }
@@ -1000,7 +1009,7 @@ fn emit_move_sfx(
 /// menu. Mutations go through [`apply_system_option`] so persistence stays in one
 /// place.
 #[allow(clippy::too_many_arguments)]
-fn system_focus_nav(
+pub(crate) fn system_focus_nav(
     menu: &MenuControlFrame,
     dx: i32,
     dy: i32,
@@ -1154,7 +1163,10 @@ fn is_value_setting(option: SettingsOptionId, settings: &UserSettings) -> bool {
 }
 
 /// The `MenuPageAction` a System row dispatches on select.
-fn system_row_action_for(model: &SystemMenuModel, row: SystemRow) -> Option<MenuPageAction> {
+pub(crate) fn system_row_action_for(
+    model: &SystemMenuModel,
+    row: SystemRow,
+) -> Option<MenuPageAction> {
     match row {
         SystemRow::Entry(id) => match model.entry(id).map(|e| &e.target) {
             Some(crate::persistence::settings::SystemMenuTarget::Action(action)) => {
@@ -1205,7 +1217,7 @@ enum SpatialMove {
 /// Port of the demo's `MockDemo::move_spatial` for the items grid + flanking
 /// arrows. Pure (no ECS) so it's unit-testable and easy to reason about. See
 /// [`kaleidoscope_focus_nav`] for the rule list.
-fn move_spatial(focus: MenuFocus, dx: i32, dy: i32, _page: MenuPage) -> SpatialMove {
+pub(crate) fn move_spatial(focus: MenuFocus, dx: i32, dy: i32, _page: MenuPage) -> SpatialMove {
     let cols = ITEM_GRID_COLS as i32;
     let rows = ITEM_GRID_ROWS as i32;
 
@@ -1257,7 +1269,7 @@ fn move_spatial(focus: MenuFocus, dx: i32, dy: i32, _page: MenuPage) -> SpatialM
 
 /// The `MenuPageAction` for an owned item slot, or `None` if the slot is empty/unowned
 /// (so confirming an empty cell is a no-op, matching the grid backend).
-fn owned_item_action(owned: &OwnedItems, idx: usize) -> Option<MenuPageAction> {
+pub(crate) fn owned_item_action(owned: &OwnedItems, idx: usize) -> Option<MenuPageAction> {
     let item = Item::from_index(idx)?;
     if !owned.has(item) {
         return None;
@@ -1325,7 +1337,7 @@ pub(crate) fn rotate_sfx(from: Option<MenuPage>, to: MenuPage) -> ambition_sfx::
 /// hover/click and the keyboard cursor share one model. `Equip`/`Use` carry the
 /// item (→ its slot); `ChangePage` is an edge arrow — left vs right is decided by
 /// whether its target is the active page's viewer-left neighbour.
-fn focus_for_action(
+pub(crate) fn focus_for_action(
     action: MenuPageAction,
     active_page: MenuPage,
     model: &SystemMenuModel,

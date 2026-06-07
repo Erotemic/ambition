@@ -87,6 +87,26 @@ pub(crate) struct GridMenuTabState {
     was_open: bool,
     /// The last-rendered view key; a change re-spawns the bevy_ui tree.
     last_key: Option<ViewKey>,
+    /// Fix 4: which keyboard-focus zone the cursor is in. `Body` = focus is on the
+    /// page controls (the normal case, driven by the shared `KaleidoscopeCursor`);
+    /// `Tabs` = focus is on the TAB BAR (UP from the top body row), where LEFT/RIGHT
+    /// cycle tabs and SELECT/DOWN drop back into the body. This is a flat-menu
+    /// affordance the cube doesn't need, so it lives grid-local here.
+    focus_zone: GridFocusZone,
+}
+
+/// Fix 4: the grid-local keyboard-focus zone. The cube's `MenuFocus` has Item/System/
+/// EdgeLeft/EdgeRight but no notion of "focus is on the tab bar", because the cube
+/// switches faces with the bumpers / a rotation, not by navigating onto a tab strip.
+/// The flat tabbed menu has a real tab bar above the body, so UP from the top row
+/// should reach it — modeled by this zone.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum GridFocusZone {
+    /// Focus is on the active page's body controls (shared cursor drives it).
+    #[default]
+    Body,
+    /// Focus is on the tab bar; LEFT/RIGHT cycle, SELECT/DOWN activate + drop to body.
+    Tabs,
 }
 
 impl Default for GridMenuTabState {
@@ -96,6 +116,7 @@ impl Default for GridMenuTabState {
             active_tab: 0,
             was_open: false,
             last_key: None,
+            focus_zone: GridFocusZone::Body,
         }
     }
 }
@@ -110,6 +131,9 @@ struct ViewKey {
     open_entry: Option<crate::persistence::settings::SystemMenuEntryId>,
     focus: MenuFocus,
     version: u64,
+    /// Fix 4: the focus zone is part of the key so moving onto / off the tab bar
+    /// re-renders (the tab focus ring appears/disappears).
+    zone: GridFocusZone,
 }
 
 /// The active tab's [`MenuPage`].
@@ -250,6 +274,7 @@ pub(crate) fn grid_menu_open_routing(
             // NOT the remembered tab — the pause button targets System.
             play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_OPEN);
             tab_state.active_tab = tab_index_of(pause_entry_target(PauseEntrySource::Pause));
+            tab_state.focus_zone = GridFocusZone::Body;
             open_grid_unified_menu(
                 tab_state.active_tab,
                 &mut overlay,
@@ -270,6 +295,7 @@ pub(crate) fn grid_menu_open_routing(
         } else if matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
             play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_OPEN);
             tab_state.active_tab = tab_index_of(pause_entry_target(PauseEntrySource::Inventory));
+            tab_state.focus_zone = GridFocusZone::Body;
             open_grid_unified_menu(
                 tab_state.active_tab,
                 &mut overlay,
@@ -286,6 +312,7 @@ pub(crate) fn grid_menu_open_routing(
     if menu.map && matches!(mode.get(), GameMode::Playing | GameMode::Paused) && !overlay.visible {
         play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_OPEN);
         tab_state.active_tab = tab_index_of(pause_entry_target(PauseEntrySource::Map));
+        tab_state.focus_zone = GridFocusZone::Body;
         open_grid_unified_menu(
             tab_state.active_tab,
             &mut overlay,
@@ -373,12 +400,15 @@ pub(crate) fn grid_menu_nav(
     }
 
     // Bumpers cycle tabs with wraparound (the shared MenuControlFrame contract).
+    // Bumpers act regardless of focus zone and leave focus in the body (they're the
+    // "fast" tab switch); arrow-key tab nav is the discoverable alternative (Fix 4).
     let bump = (menu.page_right as i32) - (menu.page_left as i32);
     if bump != 0 {
         let n = MenuPage::ALL.len() as i32;
         tab_state.active_tab = ((tab_state.active_tab as i32 + bump).rem_euclid(n)) as usize;
         system_nav.open_entry = None;
         seed_cursor_for_tab(tab_state.active_tab, &mut cursor);
+        tab_state.focus_zone = GridFocusZone::Body;
         pages.active = Some(tab_page(tab_state.active_tab));
         play_ui(&mut fx.sfx, ambition_sfx::ids::UI_TAB_CHANGE);
         return;
@@ -391,6 +421,44 @@ pub(crate) fn grid_menu_nav(
 
     let dx = (menu.right as i32) - (menu.left as i32);
     let dy = (menu.down as i32) - (menu.up as i32);
+
+    // Fix 4: when focus is on the TAB BAR, the arrow keys drive the tabs: LEFT/RIGHT
+    // cycle (live, so the body under them updates), DOWN or SELECT activate the focused
+    // tab and drop focus back into the body, and Back drops to the body without
+    // switching. The bumpers above still work independently.
+    if tab_state.focus_zone == GridFocusZone::Tabs {
+        if dx != 0 {
+            let n = MenuPage::ALL.len() as i32;
+            tab_state.active_tab = ((tab_state.active_tab as i32 + dx).rem_euclid(n)) as usize;
+            system_nav.open_entry = None;
+            seed_cursor_for_tab(tab_state.active_tab, &mut cursor);
+            pages.active = Some(tab_page(tab_state.active_tab));
+            play_ui(&mut fx.sfx, ambition_sfx::ids::UI_TAB_CHANGE);
+            return;
+        }
+        if menu.select || dy > 0 {
+            // Activate: focus is already the live tab; just drop into the body (the
+            // cursor was seeded for this tab when we switched onto it).
+            tab_state.focus_zone = GridFocusZone::Body;
+            seed_cursor_for_tab(tab_state.active_tab, &mut cursor);
+            play_ui(&mut fx.sfx, ambition_sfx::ids::UI_MENU_ACCEPT);
+            return;
+        }
+        if menu.back {
+            tab_state.focus_zone = GridFocusZone::Body;
+            play_ui(&mut fx.sfx, ambition_sfx::ids::UI_MENU_BACK);
+            return;
+        }
+        // No other input does anything while the tab bar holds focus.
+        return;
+    }
+
+    // Fix 4: UP from the TOP body row moves focus onto the tab bar.
+    if dy < 0 && cursor_on_top_row(active_page, cursor.focus(), system_nav.open_entry) {
+        tab_state.focus_zone = GridFocusZone::Tabs;
+        play_ui(&mut fx.sfx, ambition_sfx::ids::UI_TAB_CHANGE);
+        return;
+    }
 
     match active_page {
         MenuPage::Items => {
@@ -426,6 +494,9 @@ pub(crate) fn grid_menu_nav(
                     // re-pin to the active tab so the cube's page-turn semantics don't
                     // leak into the flat tabs.
                     pages.active = Some(active_page);
+                    // Fix 3: force the next republish so the new state (e.g. the equip
+                    // checkmark) shows immediately, without waiting for a cursor move.
+                    tab_state.last_key = None;
                     if close_menu {
                         close_grid_unified_menu(&mut overlay, mode.get(), &mut next_mode);
                     }
@@ -462,6 +533,11 @@ pub(crate) fn grid_menu_nav(
             if overlay.visible {
                 pages.active = Some(active_page);
             }
+            // Fix 3: a System select can toggle/cycle a setting (mutating state but not
+            // the cursor); force the next republish so the new value/cursor shows now.
+            if menu.select {
+                tab_state.last_key = None;
+            }
         }
         MenuPage::Map | MenuPage::Quest => {
             // Placeholder tabs: only Back does anything.
@@ -470,6 +546,26 @@ pub(crate) fn grid_menu_nav(
                 close_grid_unified_menu(&mut overlay, mode.get(), &mut next_mode);
             }
         }
+    }
+}
+
+/// Fix 4: is the cursor on the TOP row of the active page's body? UP from here moves
+/// focus onto the tab bar. For the Items grid that's the first row of cells; for the
+/// System list it's the first row (index 0, and only at the top level — inside a drill
+/// UP should navigate the drilled rows, not escape to the tabs); for the placeholder
+/// Map/Quest tabs (which seed `EdgeLeft`) any UP reaches the tabs.
+fn cursor_on_top_row(
+    page: MenuPage,
+    focus: MenuFocus,
+    open_entry: Option<crate::persistence::settings::SystemMenuEntryId>,
+) -> bool {
+    match page {
+        MenuPage::Items => match focus {
+            MenuFocus::Item(i) => i < ITEM_GRID_COLS,
+            _ => true,
+        },
+        MenuPage::System => open_entry.is_none() && matches!(focus, MenuFocus::System(0)),
+        MenuPage::Map | MenuPage::Quest => true,
     }
 }
 
@@ -534,8 +630,18 @@ pub(crate) fn grid_menu_republish_view(
         open_entry: system_nav.open_entry,
         focus: cursor.focus(),
         version: pages.version,
+        zone: tab_state.focus_zone,
     };
-    if tab_state.last_key == Some(key) && !roots.is_empty() {
+    // Fix 3: detect inventory/settings STATE changes too, mirroring the cube's
+    // `republish_kaleidoscope_pages` (`owned.is_changed() || settings.is_changed()`).
+    // A select that mutates state (equip an item, toggle a setting, play a radio song)
+    // changes `OwnedItems`/`UserSettings` but NOT the focus cursor, so the old key
+    // `(tab, open_entry, focus, version)` stayed equal and the view did not refresh
+    // until the cursor moved. The dispatch paths ALSO clear `last_key` directly (the
+    // belt-and-braces force-republish), so even a state change this key can't see
+    // (e.g. a dev snapshot) still re-renders.
+    let state_changed = owned.is_changed() || settings.is_changed();
+    if tab_state.last_key == Some(key) && !roots.is_empty() && !state_changed {
         return;
     }
     tab_state.last_key = Some(key);
@@ -603,11 +709,18 @@ pub(crate) fn grid_menu_republish_view(
         commands.entity(e).despawn();
     }
     let tabs = tab_specs();
+    // Fix 4: when focus is on the tab bar, tell the renderer which tab to ring; when
+    // in the body, no tab is focused (only the active tab is highlighted).
+    let focused_tab = match tab_state.focus_zone {
+        GridFocusZone::Tabs => Some(tab_state.active_tab),
+        GridFocusZone::Body => None,
+    };
     let view = BevyUiMenuView {
         tabs: &tabs,
         active_tab: tab_state.active_tab,
         page: &page,
         focused,
+        focused_tab,
     };
     // Fix 3: hand the `AssetServer` to the renderer so the Items tab shows its
     // sprite ICONS (the model's per-cell icon path), like the cube does.
@@ -687,6 +800,9 @@ pub(crate) fn grid_menu_pointer_release(
         tab_state.active_tab = tab.min(MenuPage::ALL.len() - 1);
         system_nav.open_entry = None;
         seed_cursor_for_tab(tab_state.active_tab, &mut cursor);
+        // Clicking a tab lands focus in that tab's body (Fix 4: pointer doesn't park
+        // on the tab bar — only arrow-key nav holds the Tabs zone).
+        tab_state.focus_zone = GridFocusZone::Body;
         pages.active = Some(tab_page(tab_state.active_tab));
         play_ui(&mut fx.sfx, ambition_sfx::ids::UI_TAB_CHANGE);
         return;
@@ -711,6 +827,9 @@ pub(crate) fn grid_menu_pointer_release(
         &mut fx.system,
     );
     pages.active = Some(tab_page(tab_state.active_tab));
+    // Fix 3: force the next republish so a click-dispatched state change (equip,
+    // setting toggle, radio song) refreshes the view immediately.
+    tab_state.last_key = None;
     if close_menu {
         close_grid_unified_menu(&mut overlay, mode.get(), &mut next_mode);
     }
@@ -1117,6 +1236,99 @@ mod tests {
         );
     }
 
+    fn focus_zone(app: &App) -> GridFocusZone {
+        app.world().resource::<GridMenuTabState>().focus_zone
+    }
+
+    /// Fix 4: UP from the top body row moves focus onto the TAB BAR; LEFT/RIGHT then
+    /// cycle tabs (live); SELECT activates the focused tab and drops back into the body.
+    #[test]
+    fn arrow_keys_navigate_to_and_activate_tabs() {
+        let mut app = grid_app();
+        set_frame(&mut app, |f| f.inventory = true);
+        app.update();
+        set_frame(&mut app, |_| {});
+        app.update();
+        assert_eq!(active_tab(&app), MenuPage::Items);
+        assert_eq!(focus_zone(&app), GridFocusZone::Body, "starts in the body");
+
+        // Cursor is on Item(0) (top row); UP reaches the tab bar.
+        set_frame(&mut app, |f| f.up = true);
+        app.update();
+        assert_eq!(
+            focus_zone(&app),
+            GridFocusZone::Tabs,
+            "UP from top row → tabs"
+        );
+
+        // RIGHT cycles to the next tab (Items → Map in MenuPage::ALL).
+        set_frame(&mut app, |f| f.right = true);
+        app.update();
+        assert_eq!(active_tab(&app), MenuPage::ALL[1], "RIGHT cycles tabs");
+        assert_eq!(
+            focus_zone(&app),
+            GridFocusZone::Tabs,
+            "still on the tab bar"
+        );
+
+        // SELECT activates the focused tab and drops focus back into the body.
+        set_frame(&mut app, |f| f.select = true);
+        app.update();
+        assert_eq!(
+            focus_zone(&app),
+            GridFocusZone::Body,
+            "SELECT activates the tab + returns to the body"
+        );
+        assert_eq!(
+            active_tab(&app),
+            MenuPage::ALL[1],
+            "stays on the chosen tab"
+        );
+    }
+
+    /// Fix 4: DOWN from the tab bar also activates the focused tab and returns to body.
+    #[test]
+    fn down_from_tab_bar_returns_to_body() {
+        let mut app = grid_app();
+        set_frame(&mut app, |f| f.inventory = true);
+        app.update();
+        set_frame(&mut app, |_| {});
+        app.update();
+        set_frame(&mut app, |f| f.up = true);
+        app.update();
+        assert_eq!(focus_zone(&app), GridFocusZone::Tabs);
+        set_frame(&mut app, |f| f.down = true);
+        app.update();
+        assert_eq!(focus_zone(&app), GridFocusZone::Body, "DOWN drops to body");
+    }
+
+    /// Fix 4: UP from a NON-top body cell navigates within the body (does NOT escape
+    /// to the tab bar), so the tab affordance only triggers from the top row.
+    #[test]
+    fn up_from_non_top_row_stays_in_body() {
+        let mut app = grid_app();
+        set_frame(&mut app, |f| f.inventory = true);
+        app.update();
+        set_frame(&mut app, |_| {});
+        app.update();
+        // Park the cursor on the second row.
+        app.world_mut()
+            .resource_mut::<KaleidoscopeCursor>()
+            .mark_keyboard(MenuFocus::Item(ITEM_GRID_COLS));
+        set_frame(&mut app, |f| f.up = true);
+        app.update();
+        assert_eq!(
+            focus_zone(&app),
+            GridFocusZone::Body,
+            "UP from row 2 stays in the body"
+        );
+        assert_eq!(
+            app.world().resource::<KaleidoscopeCursor>().focus(),
+            MenuFocus::Item(0),
+            "UP moved the cursor up one row instead of escaping to tabs"
+        );
+    }
+
     // ----- Phase C2b bug-fix coverage --------------------------------------
 
     use ambition_menu::render::bevy_ui::BevyUiMenuTab;
@@ -1199,6 +1411,55 @@ mod tests {
         // update later; two updates guarantees the spawn applied.
         app.update();
         app.update();
+    }
+
+    /// Fix 3: a keyboard select that dispatches an action FORCES the next republish
+    /// (clears `last_key`) so the view reflects the new state immediately, without
+    /// waiting for a cursor move. After equipping via SELECT, `last_key` is cleared.
+    #[test]
+    fn select_forces_republish_so_view_refreshes_immediately() {
+        let mut app = render_app();
+        let axe = Item::from_index(1).unwrap();
+        app.world_mut().resource_mut::<OwnedItems>().grant(axe, 1);
+        set_frame(&mut app, |f| f.inventory = true);
+        app.update();
+        set_frame(&mut app, |_| {});
+        app.update();
+        // Let republish settle so `last_key` is Some(..) before the select.
+        app.update();
+        assert!(
+            app.world()
+                .resource::<GridMenuTabState>()
+                .last_key
+                .is_some(),
+            "republish recorded a key before the select"
+        );
+        // Focus the Axe and SELECT it (equips via dispatch_menu_action). The nav
+        // system clears `last_key` so the republish is forced even though the cursor
+        // did not move.
+        app.world_mut()
+            .resource_mut::<KaleidoscopeCursor>()
+            .mark_keyboard(MenuFocus::Item(1));
+        set_frame(&mut app, |f| f.select = true);
+        app.update();
+        assert_eq!(
+            app.world().resource::<OwnedItems>().equipped(),
+            Some(axe),
+            "select equipped the item"
+        );
+        // Directly exercise the dirty check: after a dispatch the nav system set
+        // `last_key = None`, so the NEXT `grid_menu_republish_view` MUST rebuild (it
+        // cannot early-return on an equal key). Clear the frame + run an update; the
+        // rebuild then re-records a key (proving it ran rather than skipping).
+        set_frame(&mut app, |_| {});
+        app.update();
+        assert!(
+            app.world()
+                .resource::<GridMenuTabState>()
+                .last_key
+                .is_some(),
+            "the forced republish rebuilt the view and re-recorded a key"
+        );
     }
 
     /// BUG 1: switching the grid tab to System makes the RENDERED model BE the

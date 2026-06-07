@@ -18,10 +18,7 @@ use ambition_menu::{
 use bevy::prelude::*;
 
 use crate::audio::SfxMessage;
-use crate::bevy_ui_grid_menu::effects::MenuAction;
-use crate::bevy_ui_grid_menu::input::{
-    dispatch_item_confirm, MenuEffectManaQuery, MenuEffectPlayers,
-};
+use crate::bevy_ui_grid_menu::input::{MenuEffectManaQuery, MenuEffectPlayers};
 use crate::engine_core::Vec2;
 use crate::input::MenuControlFrame;
 use crate::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
@@ -44,7 +41,7 @@ use crate::player::PlayerHealRequested;
 /// `Play`), so `Vec2::ZERO` keeps menu sounds audible at full volume. If the id
 /// isn't packed into the runtime bank yet the play just no-ops (safe).
 #[inline]
-fn play_ui(sfx: &mut MessageWriter<SfxMessage>, id: ambition_sfx::SfxId) {
+pub(crate) fn play_ui(sfx: &mut MessageWriter<SfxMessage>, id: ambition_sfx::SfxId) {
     sfx.write(SfxMessage::Play {
         id,
         pos: Vec2::ZERO,
@@ -172,7 +169,7 @@ enum FocusSource {
 /// rules; [`republish_kaleidoscope_pages`] republishes the page model whenever its
 /// SEMANTIC focus changes so the highlight + detail panel follow it.
 #[derive(Resource, Default)]
-struct KaleidoscopeCursor {
+pub(crate) struct KaleidoscopeCursor {
     focus: MenuFocus,
     /// Which input source last moved the cursor (keyboard nav vs pointer hover).
     owner: FocusSource,
@@ -183,7 +180,7 @@ struct KaleidoscopeCursor {
 
 impl KaleidoscopeCursor {
     /// Keyboard/gamepad nav took the cursor to `focus` (claims ownership).
-    fn mark_keyboard(&mut self, focus: MenuFocus) {
+    pub(crate) fn mark_keyboard(&mut self, focus: MenuFocus) {
         self.focus = focus;
         self.owner = FocusSource::Keyboard;
     }
@@ -197,8 +194,8 @@ impl KaleidoscopeCursor {
 /// row 0). B0002-safe: only `kaleidoscope_focus_nav` / `kaleidoscope_pointer_release` mutate it (both
 /// `ResMut`); `republish_kaleidoscope_pages` reads it as `Res`.
 #[derive(Resource, Default)]
-struct KaleidoscopeSystemNav {
-    open_entry: Option<SystemMenuEntryId>,
+pub(crate) struct KaleidoscopeSystemNav {
+    pub(crate) open_entry: Option<SystemMenuEntryId>,
 }
 
 /// Feature E: how far (screen pixels) a pointer may travel between press and release
@@ -250,7 +247,7 @@ struct KaleidoscopeScroll {
 /// there is no B0002 conflict, and `republish_kaleidoscope_pages` reads its own `Res`
 /// copies (`SystemMenuSnapshotParams`) in a third system.
 #[derive(bevy::ecs::system::SystemParam)]
-struct SystemMenuParams<'w> {
+pub(crate) struct SystemMenuParams<'w> {
     dev_tools: ResMut<'w, crate::dev::dev_tools::DeveloperTools>,
     reset: ResMut<'w, crate::runtime::reset::SandboxResetRequested>,
     // Movement tuning is derived from the active movement profile, so a
@@ -279,7 +276,7 @@ impl SystemMenuParams<'_> {
     /// Radio auditions a station (keeps the menu open); Locale is a no-op stub
     /// (only English exists); Dev toggles/cycles mutate `DeveloperTools`.
     /// Returns the SFX id to play for feedback.
-    fn apply_option(&mut self, opt: SystemOptionId) -> ambition_sfx::SfxId {
+    pub(crate) fn apply_option(&mut self, opt: SystemOptionId) -> ambition_sfx::SfxId {
         match opt {
             SystemOptionId::Radio(index) => {
                 #[cfg(feature = "audio")]
@@ -343,7 +340,7 @@ impl SystemMenuParams<'_> {
         }
     }
 
-    fn request_reset(&mut self) {
+    pub(crate) fn request_reset(&mut self) {
         self.reset.request();
     }
 
@@ -354,7 +351,7 @@ impl SystemMenuParams<'_> {
     /// stays coherent. The cube dispatch holds no live player kinematics here, so
     /// the live-movement refs are `None` (the pause menu also passes `None` when
     /// it has no live player to poke); the persisted resources still reset fully.
-    fn reset_all_settings(&mut self, settings: &mut UserSettings) {
+    pub(crate) fn reset_all_settings(&mut self, settings: &mut UserSettings) {
         *settings = UserSettings::default();
         *self.dev_tools = crate::dev::dev_tools::DeveloperTools::default();
         crate::dev::dev_tools::apply_movement_profile(
@@ -859,7 +856,7 @@ fn kaleidoscope_focus_nav(
         };
         if let Some(action) = action {
             let mut close_menu = false;
-            dispatch_kaleidoscope_action(
+            crate::menu::dispatch::dispatch_menu_action(
                 action,
                 &mut pages,
                 &mut system_nav,
@@ -1024,7 +1021,7 @@ fn system_focus_nav(
     if menu.select {
         if let Some(action) = system_row_action_for(&model, current) {
             let mut close_menu = false;
-            dispatch_kaleidoscope_action(
+            crate::menu::dispatch::dispatch_menu_action(
                 action,
                 pages,
                 system_nav,
@@ -1086,7 +1083,10 @@ fn system_row_action_for(model: &SystemMenuModel, row: SystemRow) -> Option<Menu
 
 /// Drill OUT of an open System entry back to the entry list, resetting the cursor
 /// to the first row so the highlight lands sensibly.
-fn close_system_entry(system_nav: &mut KaleidoscopeSystemNav, cursor: &mut KaleidoscopeCursor) {
+pub(crate) fn close_system_entry(
+    system_nav: &mut KaleidoscopeSystemNav,
+    cursor: &mut KaleidoscopeCursor,
+) {
     system_nav.open_entry = None;
     cursor.mark_keyboard(MenuFocus::System(0));
 }
@@ -1188,7 +1188,7 @@ fn owned_item_action(owned: &OwnedItems, idx: usize) -> Option<MenuPageAction> {
 /// targets `to.on_viewer_left()` and the RIGHT targets `to.on_viewer_right()`; we pick
 /// whichever points back at `from`. When `from` is unknown (first open) we default to
 /// the left edge button so there is always a highlighted control.
-fn back_edge_focus(from: Option<MenuPage>, to: MenuPage) -> MenuFocus {
+pub(crate) fn back_edge_focus(from: Option<MenuPage>, to: MenuPage) -> MenuFocus {
     match from {
         Some(from) if to.on_viewer_right() == from => MenuFocus::EdgeRight,
         Some(from) if to.on_viewer_left() == from => MenuFocus::EdgeLeft,
@@ -1224,170 +1224,14 @@ fn turn_page(
     }
 }
 
-/// Dispatch a [`MenuPageAction`]. Item Equip/Use reuse the grid's shared
-/// [`dispatch_item_confirm`] (no portal/equip/heal duplication); page-change sets
-/// the active page so the lib rotates that face to the camera.
-#[allow(clippy::too_many_arguments)]
-fn dispatch_kaleidoscope_action(
-    action: MenuPageAction,
-    pages: &mut ActiveMenuPages<MenuPage, MenuPageAction>,
-    system_nav: &mut KaleidoscopeSystemNav,
-    cursor: &mut KaleidoscopeCursor,
-    owned: &mut OwnedItems,
-    settings: &mut UserSettings,
-    close_menu: &mut bool,
-    commands: &mut Commands,
-    players: &mut MenuEffectPlayers,
-    mana_q: &mut MenuEffectManaQuery,
-    heals: &mut MessageWriter<PlayerHealRequested>,
-    sfx: &mut MessageWriter<SfxMessage>,
-    system: &mut SystemMenuParams,
-) {
-    match action {
-        MenuPageAction::Equip(item) | MenuPageAction::Use(item) => {
-            let decided = dispatch_item_confirm(item, owned, commands, players, mana_q, heals);
-            // Pick the confirm sound from the RESOLVED action so equip/unequip/use
-            // are distinct, and a no-op (not owned / nothing to do) gives error feedback.
-            let id = match decided {
-                MenuAction::Equip(_) => ambition_sfx::ids::UI_MENU_EQUIP,
-                MenuAction::Unequip(_) => ambition_sfx::ids::UI_MENU_UNEQUIP,
-                MenuAction::UseConsumable(_) => ambition_sfx::ids::UI_MENU_ACCEPT,
-                MenuAction::Inspect(_) | MenuAction::NotOwned(_) => {
-                    ambition_sfx::ids::UI_MENU_ERROR
-                }
-            };
-            play_ui(sfx, id);
-            info!("cube action: {:?} \u{2192} {:?}", item, decided);
-        }
-        MenuPageAction::ChangePage(page) => {
-            let from = pages.active;
-            play_ui(sfx, rotate_sfx(from, page));
-            pages.active = Some(page);
-            // Fix 1: land the cursor on the new page's "back" edge button — the one
-            // that turns BACK toward the page we came from — so an immediate select /
-            // rotate goes home and the arriving control is highlighted.
-            cursor.mark_keyboard(back_edge_focus(from, page));
-            info!("cube page \u{2192} {:?}", page);
-        }
-        MenuPageAction::System(option) => {
-            apply_system_option(option, settings, close_menu, sfx);
-        }
-        MenuPageAction::SystemOption(opt) => {
-            // Radio / Language / Developer screen options apply against their live
-            // resource (radio auditions + keeps the menu open; dev toggles mutate
-            // DeveloperTools). The menu never closes from these.
-            let id = system.apply_option(opt);
-            play_ui(sfx, id);
-            info!("cube system option: {:?}", opt);
-        }
-        MenuPageAction::SystemAction(SystemMenuAction::ResetSandbox) => {
-            // Immediate, no-confirm: queue the reset and fold the menu shut.
-            system.request_reset();
-            *close_menu = true;
-            play_ui(sfx, ambition_sfx::ids::UI_MENU_ACCEPT);
-            info!("cube system action: reset sandbox");
-        }
-        MenuPageAction::SystemAction(SystemMenuAction::Quit) => {
-            // Immediate: request application exit and fold the menu shut. Mirrors
-            // the old pause-menu Quit row (which is removed in a later phase).
-            commands.write_message(bevy::app::AppExit::Success);
-            *close_menu = true;
-            play_ui(sfx, ambition_sfx::ids::UI_MENU_ACCEPT);
-            info!("cube system action: quit to desktop");
-        }
-        MenuPageAction::SystemAction(SystemMenuAction::ResetAllSettings) => {
-            // Immediate, no-confirm: reset every persisted settings/dev resource
-            // (the same set the pause menu's ResetAllSettings restores), then fold
-            // the menu shut. The close also unpauses (the reset-pause fix).
-            // `save_settings_on_change` then persists the defaulted `UserSettings`.
-            system.reset_all_settings(settings);
-            *close_menu = true;
-            play_ui(sfx, ambition_sfx::ids::UI_MENU_ACCEPT);
-            info!("cube system action: reset all settings");
-        }
-        MenuPageAction::OpenSystemEntry(entry) => {
-            // Drill INTO an entry: show its screen rows, land the cursor on the
-            // first row. The republish picks up the new drill state + cursor.
-            play_ui(sfx, ambition_sfx::ids::UI_TAB_CHANGE);
-            system_nav.open_entry = Some(entry);
-            cursor.mark_keyboard(MenuFocus::System(0));
-            info!("cube system entry \u{2192} {:?}", entry);
-        }
-        MenuPageAction::CloseSystemEntry => {
-            play_ui(sfx, ambition_sfx::ids::UI_MENU_BACK);
-            close_system_entry(system_nav, cursor);
-            info!("cube system entry \u{2192} (list)");
-        }
-    }
-}
-
 /// The directional page-turn sound for a rotation `from` → `to`: rotating to the
 /// page that sits on the viewer-LEFT of `from` plays the left rotate, otherwise the
 /// right rotate. When `from` is unknown (first publish) defaults to the right rotate.
-fn rotate_sfx(from: Option<MenuPage>, to: MenuPage) -> ambition_sfx::SfxId {
+pub(crate) fn rotate_sfx(from: Option<MenuPage>, to: MenuPage) -> ambition_sfx::SfxId {
     match from {
         Some(from) if from.on_viewer_left() == to => ambition_sfx::ids::UI_MENU_ROTATE,
         _ => ambition_sfx::ids::UI_MENU_ROTATE,
     }
-}
-
-/// Apply a System-face option (SELECT/confirm) by mutating `UserSettings` through
-/// the shared settings IR ([`apply_settings_option`]): toggles flip, cycles +
-/// sliders advance one step (confirm = next), and `Close` folds the menu. The SFX
-/// is chosen from the option's IR `kind` (toggle on/off, slider tick, close).
-/// Persistence is NOT re-implemented here: the existing `save_settings_on_change`
-/// system writes `settings.ron` whenever `UserSettings` changes, so mutating the
-/// resource is the whole job.
-fn apply_system_option(
-    option: SettingsOptionId,
-    settings: &mut UserSettings,
-    close_menu: &mut bool,
-    sfx: &mut MessageWriter<SfxMessage>,
-) {
-    // Resolve the option's kind BEFORE mutating, so a toggle reports its NEW state
-    // and a slider/cycle gets a tick. `Close` is the only kind that folds the menu.
-    let kind = settings_menu_model(settings)
-        .categories
-        .iter()
-        .flat_map(|c| c.options.iter())
-        .find(|o| o.id == option)
-        .map(|o| o.kind)
-        .unwrap_or(SettingsOptionKind::Action);
-
-    // Confirm advances like Next (dir 0 == next/toggle/up in the IR).
-    let closed = apply_settings_option(option, 0, settings);
-    if closed {
-        *close_menu = true;
-        play_ui(sfx, ambition_sfx::ids::UI_MENU_CLOSE);
-        info!("cube system option: {:?}", option);
-        return;
-    }
-
-    match kind {
-        SettingsOptionKind::Toggle(_) => {
-            // Read the now-current state from the rebuilt model for the on/off SFX.
-            let on = settings_menu_model(settings)
-                .categories
-                .iter()
-                .flat_map(|c| c.options.iter())
-                .find(|o| o.id == option)
-                .map(|o| matches!(o.kind, SettingsOptionKind::Toggle(true)))
-                .unwrap_or(false);
-            play_ui(
-                sfx,
-                if on {
-                    ambition_sfx::ids::UI_TOGGLE_ON
-                } else {
-                    ambition_sfx::ids::UI_TOGGLE_OFF
-                },
-            );
-        }
-        SettingsOptionKind::Cycle { .. } | SettingsOptionKind::Slider { .. } => {
-            play_ui(sfx, ambition_sfx::ids::UI_SLIDER_TICK);
-        }
-        SettingsOptionKind::Action => {}
-    }
-    info!("cube system option: {:?}", option);
 }
 
 /// Map a control's `MenuPageAction` back to the cursor focus it represents, so pointer
@@ -1596,10 +1440,10 @@ fn kaleidoscope_pointer_release(
         cursor.last_pointer_focus = Some(next);
     }
     let mut close_menu = false;
-    // Releases route through the SAME `dispatch_kaleidoscope_action` as the keyboard
+    // Releases route through the SAME `crate::menu::dispatch::dispatch_menu_action` as the keyboard
     // select path, so the action sounds (equip/use/rotate/toggle/...) live in
     // one place and are identical for pointer + keyboard.
-    dispatch_kaleidoscope_action(
+    crate::menu::dispatch::dispatch_menu_action(
         action,
         &mut pages,
         &mut system_nav,

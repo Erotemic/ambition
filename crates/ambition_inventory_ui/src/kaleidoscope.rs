@@ -31,6 +31,7 @@ use crate::{
     ActiveMenuPages, AmbitionMenuControl, AmbitionMenuPage, AmbitionMenuRoot, MenuColor,
     MenuControlKind, MenuCubeGeometry, MenuDynamicText, MenuDynamicTextContent, MenuFocusKey,
     MenuNode, MenuOpenCloseStyle, MenuPageModel, MenuRect, MenuTextAlign, MenuVisualState,
+    ScrollThumb,
 };
 
 // Depth bands on each Lunex face (more negative = closer to the pause camera).
@@ -50,6 +51,10 @@ const DEPTH_EDGE: f32 = -0.68;
 // planes at the same depth z-fight (the GPU depth test is undefined for equal
 // depths), which read as the scrollbar flickering as the ring rotates.
 const DEPTH_SCROLLBAR: f32 = -0.44;
+// The scrollbar THUMB sits a hair in front of its track so the two solid planes
+// never share a depth (equal depths z-fight under the GPU depth test → flicker as
+// the ring rotates). Same dedicated-band reasoning as DEPTH_SCROLLBAR vs the panel.
+const DEPTH_SCROLLBAR_THUMB: f32 = -0.46;
 // Item icons sit in front of their cell's action plane (DEPTH_ACTION) but behind
 // the text band (DEPTH_TEXT_TOP), so a sprite covers the cell yet any overlaid
 // hint text still reads on top of it.
@@ -901,9 +906,11 @@ mod fade_tests {
     use super::{fade_kaleidoscope_materials, KaleidoscopeFade, KaleidoscopeOpenState};
     use bevy::prelude::*;
 
-    /// Feature B smoke test: the open `amount` drives a tagged material's base-color
-    /// alpha to `base_alpha * amount`. Runs the real `fade_kaleidoscope_materials`
-    /// system over a minimal world (no rendering) so the logic is exercised headlessly.
+    /// Fix 3 contract: a SOLID (untextured) plane is `Opaque` at FULL alpha at ALL
+    /// open amounts — it never fades. Drawing solids Opaque the whole time (not just
+    /// when settled) keeps the per-face depth bands resolved by the GPU depth test, so
+    /// coplanar panels/lines never z-fight as the cube folds open/closed (the
+    /// open/close flicker). The fold geometry + the scrim carry the transition.
     #[test]
     fn amount_drives_material_alpha() {
         let mut app = App::new();
@@ -923,11 +930,6 @@ mod fade_tests {
         app.world_mut()
             .spawn((KaleidoscopeFade { base_alpha: 0.8 }, MeshMaterial3d(handle)));
 
-        // Half-open: alpha = 0.8 * 0.5.
-        app.world_mut()
-            .resource_mut::<KaleidoscopeOpenState>()
-            .amount = 0.5;
-        app.update();
         let mat = |app: &App| {
             app.world()
                 .resource::<Assets<StandardMaterial>>()
@@ -935,38 +937,45 @@ mod fade_tests {
                 .unwrap()
                 .clone()
         };
-        let m = mat(&app);
-        assert!((m.base_color.alpha() - 0.4).abs() < 1e-4, "half-open alpha");
-        // Mid-fade stays Blend so the cross-fade is visible.
-        assert_eq!(m.alpha_mode, AlphaMode::Blend, "mid-fade must be Blend");
 
-        // Fully open: alpha = base_alpha.
+        // Mid-fold: a solid stays Opaque at full base alpha (does NOT fade).
+        app.world_mut()
+            .resource_mut::<KaleidoscopeOpenState>()
+            .amount = 0.5;
+        app.update();
+        let m = mat(&app);
+        assert!(
+            (m.base_color.alpha() - 0.8).abs() < 1e-4,
+            "solid keeps base alpha mid-fold"
+        );
+        assert_eq!(
+            m.alpha_mode,
+            AlphaMode::Opaque,
+            "solid is Opaque at every amount (no z-fight during the fold)"
+        );
+
+        // Fully open: still Opaque at base_alpha.
         app.world_mut()
             .resource_mut::<KaleidoscopeOpenState>()
             .amount = 1.0;
         app.update();
         let m = mat(&app);
         assert!((m.base_color.alpha() - 0.8).abs() < 1e-4, "open alpha");
-        // Settled-open must be OPAQUE (depth-writing) to avoid z-fight flicker.
-        assert_eq!(
-            m.alpha_mode,
-            AlphaMode::Opaque,
-            "settled-open must be Opaque"
-        );
+        assert_eq!(m.alpha_mode, AlphaMode::Opaque, "open solid is Opaque");
 
-        // Folded shut: fully transparent.
+        // Folded shut: a solid is STILL Opaque at base alpha (it pops with the fold
+        // geometry + scrim rather than cross-fading).
         app.world_mut()
             .resource_mut::<KaleidoscopeOpenState>()
             .amount = 0.0;
         app.update();
-        let a = app
-            .world()
-            .resource::<Assets<StandardMaterial>>()
-            .get(id)
-            .unwrap()
-            .base_color
-            .alpha();
-        assert!(a.abs() < 1e-4, "closed alpha = {a}");
+        let m = mat(&app);
+        assert!(
+            (m.base_color.alpha() - 0.8).abs() < 1e-4,
+            "solid keeps base alpha when shut = {}",
+            m.base_color.alpha()
+        );
+        assert_eq!(m.alpha_mode, AlphaMode::Opaque, "shut solid is Opaque");
     }
 
     /// A TEXTURED plane (text glyph atlas / item icon — any material with a
@@ -995,21 +1004,46 @@ mod fade_tests {
         app.world_mut()
             .spawn((KaleidoscopeFade { base_alpha: 1.0 }, MeshMaterial3d(handle)));
 
-        // Fully open.
+        let mat = |app: &App| {
+            app.world()
+                .resource::<Assets<StandardMaterial>>()
+                .get(id)
+                .unwrap()
+                .clone()
+        };
+
+        // Fully open: Blend, alpha = base_alpha.
         app.world_mut()
             .resource_mut::<KaleidoscopeOpenState>()
             .amount = 1.0;
         app.update();
-        let mode = app
-            .world()
-            .resource::<Assets<StandardMaterial>>()
-            .get(id)
-            .unwrap()
-            .alpha_mode;
+        let m = mat(&app);
         assert_eq!(
-            mode,
+            m.alpha_mode,
             AlphaMode::Blend,
             "textured plane must stay Blend when open (Opaque would draw transparent texels as squares)"
+        );
+        assert!(
+            (m.base_color.alpha() - 1.0).abs() < 1e-4,
+            "open textured alpha"
+        );
+
+        // Fix 3: a textured plane cross-fades — its alpha tracks `amount` (so text /
+        // icons fade in/out with the fold even though solids do not).
+        app.world_mut()
+            .resource_mut::<KaleidoscopeOpenState>()
+            .amount = 0.5;
+        app.update();
+        let m = mat(&app);
+        assert_eq!(
+            m.alpha_mode,
+            AlphaMode::Blend,
+            "textured stays Blend mid-fold"
+        );
+        assert!(
+            (m.base_color.alpha() - 0.5).abs() < 1e-4,
+            "textured alpha tracks amount = {}",
+            m.base_color.alpha()
         );
     }
 }
@@ -1088,6 +1122,42 @@ mod scrollbar_tests {
             (fractions[1] - 0.5).abs() < 1e-4,
             "drag to mid = {}",
             fractions[1]
+        );
+    }
+}
+
+#[cfg(test)]
+mod scrollbar_thumb_tests {
+    use super::scrollbar_thumb_layout;
+    use crate::ScrollThumb;
+
+    /// Fix 1: the lib maps the host's thumb fractions onto a track-relative
+    /// `(y, size)`: size = visible fraction (floored grabbable), y rides the
+    /// remaining travel so a top window sits at 0 and a bottom window flush with the
+    /// track bottom (`y + size == 1`).
+    #[test]
+    fn thumb_layout_tracks_start_and_size() {
+        // 6/26 visible, top window.
+        let size = 6.0 / 26.0;
+        let (y_top, s) = scrollbar_thumb_layout(ScrollThumb { start: 0.0, size });
+        assert!((s - size).abs() < 1e-4, "size = visible fraction");
+        assert!(y_top.abs() < 1e-4, "top window → thumb at the top");
+
+        // Bottom window: thumb flush with the track bottom.
+        let (y_bot, s) = scrollbar_thumb_layout(ScrollThumb { start: 1.0, size });
+        assert!(
+            (y_bot + s - 1.0).abs() < 1e-4,
+            "bottom window → thumb at bottom"
+        );
+
+        // A tiny visible fraction is floored to a grabbable minimum (8%).
+        let (_, s_min) = scrollbar_thumb_layout(ScrollThumb {
+            start: 0.0,
+            size: 0.01,
+        });
+        assert!(
+            (s_min - 0.08).abs() < 1e-4,
+            "thumb floored grabbable: {s_min}"
         );
     }
 }
@@ -1185,6 +1255,7 @@ fn render_page_model<PageId, Action>(
                 selected,
                 important,
                 action,
+                thumb,
             } => spawn_control(
                 ui,
                 materials,
@@ -1198,6 +1269,7 @@ fn render_page_model<PageId, Action>(
                 *selected,
                 *important,
                 action.clone(),
+                *thumb,
                 active,
             ),
         }
@@ -1359,6 +1431,7 @@ fn spawn_control<Action>(
     selected: bool,
     important: bool,
     action: Option<Action>,
+    thumb: Option<ScrollThumb>,
     active: bool,
 ) where
     Action: Clone + Send + Sync + 'static,
@@ -1368,8 +1441,12 @@ fn spawn_control<Action>(
     // dim disabled colour, and keep it pickable for drag (see below).
     let is_scrollbar = matches!(kind, MenuControlKind::Scrollbar);
     let disabled = action.is_none() && !is_scrollbar;
+    // The scrollbar TRACK is drawn DIM (Fix 1): it's the full-height channel behind
+    // the brighter thumb, so it must not read as the solid bright blob it used to.
     let color = if disabled {
         disabled_control_color()
+    } else if is_scrollbar {
+        scrollbar_track_color()
     } else {
         control_color(kind, selected, important)
     };
@@ -1433,6 +1510,16 @@ fn spawn_control<Action>(
     // (the `is_scrollbar` exception to the `disabled` IGNORE rule).
     if is_scrollbar {
         entity.insert(MenuScrollbar::default());
+        // Fix 1: draw the bright THUMB as a child of the dim track, sized + positioned
+        // by the host-supplied fractions. Only when the list actually scrolls
+        // (`size < 1`); a full-size thumb means the list fits, so no thumb is drawn.
+        if let Some(thumb) = thumb {
+            if thumb.size < 1.0 {
+                entity.with_children(|children| {
+                    spawn_scrollbar_thumb(children, materials, thumb, active);
+                });
+            }
+        }
     }
     // Disabled controls never participate in picking. Enabled controls are pickable
     // only when the host wants Bevy picking (`pickable_controls`); a host with its
@@ -1486,10 +1573,13 @@ fn spawn_control<Action>(
             }
             return;
         }
-        let main_size = if matches!(kind, MenuControlKind::Item) {
-            20.0
-        } else {
-            22.0
+        let main_size = match kind {
+            MenuControlKind::Item => 20.0,
+            // System option rows want a noticeably bigger label than a generic
+            // action button (Fix 2): the System face shows few, tall rows, so a
+            // larger Rh-relative font keeps them readable + centered.
+            MenuControlKind::OptionToggle => 34.0,
+            _ => 22.0,
         };
         spawn_text(
             children,
@@ -1518,6 +1608,56 @@ fn spawn_control<Action>(
             );
         }
     });
+}
+
+/// Fix 1: render the bright scrollbar THUMB as a child of the dim track. The
+/// thumb's geometry is given as track fractions (`0..=1`); since it is a child of
+/// the track plane, its `window` layout is relative to the track (0..100%), so the
+/// thumb spans the full track width with `y = start*100%` and `height = size*100%`.
+/// It sits a hair in front of the track ([`DEPTH_SCROLLBAR_THUMB`]) so the two solid
+/// planes never z-fight. `Pickable::IGNORE`: the track owns the drag.
+fn spawn_scrollbar_thumb(
+    ui: &mut ChildSpawnerCommands,
+    materials: &mut Assets<StandardMaterial>,
+    thumb: ScrollThumb,
+    active: bool,
+) {
+    let (y, size) = scrollbar_thumb_layout(thumb);
+    let color = scrollbar_thumb_color();
+    let base_alpha = color.alpha();
+    let material = materials.add(StandardMaterial {
+        base_color: fade_color(color, base_alpha),
+        alpha_mode: AlphaMode::Blend,
+        cull_mode: None,
+        unlit: true,
+        ..default()
+    });
+    ui.spawn((
+        Name::new("scrollbar thumb"),
+        KaleidoscopeFade { base_alpha },
+        UiLayout::window()
+            .x(Rl(0.0))
+            .y(Rl(y * 100.0))
+            .width(Rl(100.0))
+            .height(Rh(size * 100.0))
+            .anchor(Anchor::TOP_LEFT)
+            .pack(),
+        UiDepth::Set(page_depth(DEPTH_SCROLLBAR_THUMB, active)),
+        UiMeshPlane3d,
+        MeshMaterial3d(material),
+        Pickable::IGNORE,
+    ));
+}
+
+/// Fix 1: clamp the host thumb fractions into the renderable `(y, size)` track
+/// fractions. `size` is floored to a grabbable minimum (8%) and capped at the full
+/// track; `y` (the thumb top) is positioned across the REMAINING travel
+/// (`1 - size`) so the thumb never overflows the track bottom. Pure for testing.
+fn scrollbar_thumb_layout(thumb: ScrollThumb) -> (f32, f32) {
+    let start = thumb.start.clamp(0.0, 1.0);
+    let size = thumb.size.clamp(0.08, 1.0);
+    let y = (start * (1.0 - size)).clamp(0.0, 1.0 - size);
+    (y, size)
 }
 
 /// Render an item's icon as a textured plane inside a control cell.
@@ -1770,17 +1910,20 @@ fn fade_kaleidoscope_materials(
     //     (DEPTH_BACKGROUND..DEPTH_SELECTION) are resolved by the GPU depth test
     //     instead of an unstable back-to-front transparent sort — no flicker.
     //   * TEXTURED planes (the Text3d glyph atlas, item icons — anything with a
-    //     `base_color_texture`) -> `Blend`. Their texture is mostly transparent;
-    //     drawing it Opaque renders the transparent texels as the base-colour box
-    //     (the "text is just squares" / "icons look weird" regression). They stay
-    //     Blend and depth-TEST against the opaque panels behind them (Bevy's
-    //     transparent pass tests depth even though it doesn't write it), so the few
-    //     transparent layers sort correctly over the solid background.
-    // While the fold is mid-transition (`amount < 1`) EVERYTHING is Blend so the
-    // whole cube cross-fades in/out together (Feature B); the per-element split only
-    // kicks in once settled. `ease_fold_amount` snaps `amount` to its target within
-    // 0.002, so a settled-open menu reliably hits `amount == 1.0`.
-    let settled = amount >= 1.0;
+    //     `base_color_texture`) -> `Blend`, alpha = `base_alpha * amount` so they
+    //     cross-fade with the fold. Their texture is mostly transparent; drawing it
+    //     Opaque renders the transparent texels as the base-colour box (the "text is
+    //     just squares" / "icons look weird" regression). They stay Blend and
+    //     depth-TEST against the opaque panels behind them (Bevy's transparent pass
+    //     tests depth even though it doesn't write it), so the few transparent layers
+    //     sort correctly over the solid background.
+    // Fix 3 (open/close flicker): the per-element rule applies at ALL amounts — there
+    // is no "everything Blend while folding" branch any more. During the open/close
+    // fold, coplanar SOLID panels/lines drawn Blend z-fight as the cube rotates in
+    // (the remaining flicker). Keeping solids Opaque (depth-writing) the WHOLE time
+    // resolves the depth bands by the GPU depth test, so they never z-fight. Solids
+    // therefore do NOT fade — they pop in/out with the fold geometry + the scrim,
+    // which already carry the transition. Only TEXTURED planes cross-fade by `amount`.
     for (fade, material) in &faded {
         // Copy the few fields out so the immutable read ends before any get_mut.
         let Some((textured, cur_mode, cur_alpha)) = materials.get(&material.0).map(|m| {
@@ -1792,10 +1935,8 @@ fn fade_kaleidoscope_materials(
         }) else {
             continue;
         };
-        let (target_mode, target_alpha) = if !settled {
+        let (target_mode, target_alpha) = if textured {
             (AlphaMode::Blend, fade.base_alpha * amount)
-        } else if textured {
-            (AlphaMode::Blend, fade.base_alpha)
         } else {
             (AlphaMode::Opaque, fade.base_alpha)
         };
@@ -1932,6 +2073,17 @@ fn control_color(kind: MenuControlKind, selected: bool, important: bool) -> Colo
 
 fn disabled_control_color() -> Color {
     Color::srgba(0.040, 0.045, 0.075, 0.72)
+}
+
+/// Fix 1: the DIM scrollbar track (the full-height channel the thumb rides in). Much
+/// darker than the old solid yellow so the bright thumb reads as the grab handle.
+fn scrollbar_track_color() -> Color {
+    Color::srgba(0.10, 0.09, 0.04, 0.55)
+}
+
+/// Fix 1: the BRIGHT scrollbar thumb (the grab handle / scroll-position indicator).
+fn scrollbar_thumb_color() -> Color {
+    Color::srgba(0.98, 0.82, 0.36, 0.95)
 }
 
 fn menu_color(color: MenuColor) -> Color {

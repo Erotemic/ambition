@@ -503,6 +503,7 @@ pub(crate) fn grid_menu_republish_view(
     system: SystemMenuParams,
     mut tab_state: ResMut<GridMenuTabState>,
     roots: Query<Entity, With<BevyUiMenuRoot>>,
+    assets: Option<Res<AssetServer>>,
     mut commands: Commands,
 ) {
     let active = *backend == InventoryUiBackend::Grid && overlay.visible;
@@ -592,31 +593,29 @@ pub(crate) fn grid_menu_republish_view(
         )
     });
 
-    // Despawn the previous tree before respawning (entity-independent dispatch on
-    // the pointer side tolerates the respawn between press + release).
+    // Despawn the previous tree, then respawn ON THE SAME command buffer so both
+    // land in the same flush. (The old code despawned here but deferred the spawn
+    // into a `commands.queue(world.commands())` closure that flushed LATER, leaving
+    // a one-frame gap with no body content — the menu body looked empty and only
+    // flashed its content for the frame a respawn happened to land. Spawning
+    // directly with the system's own `Commands` closes that gap.)
     for e in &roots {
         commands.entity(e).despawn();
     }
-
     let tabs = tab_specs();
-    let active_tab = tab_state.active_tab;
-    commands.queue(move |world: &mut World| {
-        let view = BevyUiMenuView {
-            tabs: &tabs,
-            active_tab,
-            page: &page,
-            focused,
-        };
-        // Fix 3: hand the `AssetServer` to the renderer so the Items tab shows its
-        // sprite ICONS (the model's per-cell icon path), like the cube does.
-        let assets = world.get_resource::<AssetServer>().cloned();
-        let mut commands = world.commands();
-        ambition_menu::render::bevy_ui::spawn_bevy_ui_menu_with_assets(
-            &mut commands,
-            &view,
-            assets.as_ref(),
-        );
-    });
+    let view = BevyUiMenuView {
+        tabs: &tabs,
+        active_tab: tab_state.active_tab,
+        page: &page,
+        focused,
+    };
+    // Fix 3: hand the `AssetServer` to the renderer so the Items tab shows its
+    // sprite ICONS (the model's per-cell icon path), like the cube does.
+    ambition_menu::render::bevy_ui::spawn_bevy_ui_menu_with_assets(
+        &mut commands,
+        &view,
+        assets.as_deref(),
+    );
 }
 
 /// Pointer/touch: a press on a tagged control or tab captures the intent;
@@ -641,16 +640,24 @@ pub(crate) fn grid_menu_pointer_press(
     tabs: Query<&BevyUiMenuTab>,
     mut state: ResMut<GridPointerPress>,
 ) {
+    let e = press.entity;
     if *backend != InventoryUiBackend::Grid || !overlay.visible {
         return;
     }
-    let e = press.entity;
-    state.action = None;
-    state.tab = None;
+    // A single click emits a `Pointer<Press>` for EVERY entity under the cursor —
+    // the interactive tab/control PLUS its panel/scrim/window ancestors. Only an
+    // interactive hit may SET the capture; a non-interactive hit must NOT clobber
+    // it (the bug: a later scrim/window press reset the captured tab to None, so the
+    // release saw nothing). The capture is cleared by the release that consumes it,
+    // so each click starts fresh.
     if let Ok(tab) = tabs.get(e) {
         state.tab = Some(tab.index);
+        state.action = None;
     } else if let Ok(ctrl) = controls.get(e) {
-        state.action = ctrl.action;
+        if let Some(action) = ctrl.action {
+            state.action = Some(action);
+            state.tab = None;
+        }
     }
 }
 

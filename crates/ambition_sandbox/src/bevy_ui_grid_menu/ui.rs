@@ -243,10 +243,13 @@ pub fn sync_grid_menu(
     >,
     mut detail: Query<&mut Text, (With<GridDetailText>, Without<GridSlot>)>,
 ) {
-    let grid_backend = backend
-        .map(|b| *b == crate::lunex_kaleidoscope_app::InventoryUiBackend::Grid)
-        .unwrap_or(true);
-    let visible = overlay.visible && grid_backend;
+    // SUPERSEDED: the new tabbed bevy_ui menu (`crate::menu::grid_backend`) is now the
+    // Grid backend's frontend. This old text-only grid must NEVER render — it was
+    // showing through the new renderer's (transparent) body as the persistent
+    // "Items panel with text only". This whole module is removed in the Phase D
+    // cleanup; until then keep it permanently hidden.
+    let _ = (&backend, &overlay);
+    let visible = false;
     for mut vis in &mut roots {
         *vis = if visible {
             Visibility::Visible

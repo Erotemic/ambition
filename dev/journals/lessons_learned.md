@@ -1197,3 +1197,28 @@ Common thread: both passed because the check re-encoded the code's own (wrong) a
 **When you can't see the result (headless env, user runtime-tests), do NOT iterate by speculation.** Two moves would have saved hours, every time:
 1. **Diff against the known-good version first.** The proven demo (`/home/joncrall/code/ambition_inventory_ui`) and the pre-regression worktree (`cbc4ae8`) had the working render scheme, the working highlight semantics, and the working *manual* click path. Each fix became obvious the moment I diffed instead of guessed. The user explicitly said "check the submodule" twice before I did.
 2. **Reproduce the bug in a headless test before fixing.** All four bugs were headless-testable (material alpha mode by element; focus-flag survival under rebuild ordering; click dispatch surviving a press→rebuild→release). A failing test that mirrors the *real* wiring is the only way to know a GUI fix landed without the GUI. "Compiles + existing tests pass" proved nothing here — the existing click tests fired a synthetic `Pointer<Click>` that doesn't fire in the real app, so they were green while the feature was broken (see the 2026-06-03 "a check that mirrors the thing it verifies" entry — same trap).
+
+## 2026-06-07: "Renders for one frame, then vanishes" — a second bevy_ui backend reused the cube's `AmbitionMenuPage` marker, and the cube's rebuild despawned its body
+
+**Date:** 2026-06-07. **Context:** building a flat bevy_ui "Grid" menu as a SECOND presentation of the same `MenuPageModel` the 3D "kaleidoscope" cube renders (one content model, two interchangeable backends). The grid's panel + tab bar showed, but the BODY content (item cells / System rows) was invisible — and only *flashed* in for a frame during navigation. Hours.
+
+### Symptom
+The centered panel + tab bar rendered fine and persisted; the body was empty. Headless logs PROVED the renderer was correct: `[grid-render] rendered=System nodes=15 find_ok=true`, and nav/click/dispatch all worked. At idle the republish ran exactly ONCE (3 prints over several seconds) — so NOT an every-frame rebuild. Yet the body was empty, and tabbing made the correct content flash for ~1 frame.
+
+### What it was NOT (the empirical bisection that finally worked)
+Many rounds went into the wrong layer; the decisive moves were cheap, blunt tests:
+- **Picking** (couldn't click anything): the build lacked the `bevy/ui_picking` feature — bevy_ui nodes generate NO pointer hits without it (the cube has its own custom 3D backend, so it worked regardless). Add the feature. (Separately: a click emits a `Pointer<Press>` for EVERY entity under the cursor — the tab PLUS its scrim/window ancestors — and the handler reset the capture to `None` on each, so a later ancestor press wiped the tab before release. Only SET the capture on an interactive hit; never clobber it on a non-interactive one.)
+- **Color**: the model's `page.background` is (near-)transparent because the cube's 3D face is itself opaque; the flat renderer needs its OWN solid panel. Forced opaque → still empty → ruled color out.
+- **Position**: dropped a bright opaque debug box into the body + bright debug colors on scrim/panel. Magenta scrim + cyan panel + tabs all rendered, body EMPTY, and the debug box ALSO only flashed → not a containing-block/position bug.
+- **Lifecycle gap**: the republish despawned the old root immediately but spawned the new tree via a *deferred* `commands.queue(world.commands())` closure (a later flush) — a real 1-frame gap, fixed by spawning on the same command buffer. But content STILL vanished, and idle = one republish → not an every-frame rebuild.
+
+### Root cause (the user's "feels like an ordering issue" was right)
+The engine renderer tagged the flat menu's body with `AmbitionMenuPage` — the SAME ECS marker the cube's faces carry. The cube's `rebuild_cube_faces` does `for e in faces: Query<Entity, With<AmbitionMenuPage>> { commands.entity(e).despawn() }` whenever the shared `ActiveMenuPages` changes. The grid had UN-GATED `republish_kaleidoscope_pages` to run for BOTH backends (so both render the same model), so the cube's rebuild fired and **despawned the grid's `AmbitionMenuPage`-tagged body and all its content children** — while the panel + tab bar (no `AmbitionMenuPage`) survived. Exactly the symptom.
+
+### Fix
+The flat body uses only its OWN marker (`BevyUiMenuBody`), NOT `AmbitionMenuPage`, so the cube's despawn-by-marker query can't reap it. (Belt-and-suspenders not taken: gate the cube's republish/rebuild off in Grid mode.)
+
+### Takeaway
+- **Two presentations of one content model must NOT share the ECS *marker* components that either backend's despawn/rebuild systems query.** A `for e in Query<With<SharedMarker>> { despawn }` in backend A silently reaps backend B's entities that reuse `SharedMarker`. Give each presentation distinct markers; reserve shared components for genuinely shared interactive *data*, and audit every `despawn`/`remove_*` keyed on them.
+- **"Renders correctly for one frame, then vanishes" is a DESPAWN smell, not a render bug.** When content is provably built (logs/tests) and isn't rebuilt every frame (idle is quiet), stop staring at the renderer — grep every `despawn`/`remove_*`/`Query<…, With<X>>` for the components your entity carries and find who reaps it.
+- **Blunt empirical bisection beats code-reading when you can't see the result.** Bright opaque debug colors per layer + a single debug box + an idle-log frequency check isolated render-vs-color-vs-position-vs-lifecycle-vs-ownership in ~3 rounds, after many rounds of reasoning. Reach for the crayon earlier. (Related: the de-vendor/headless saga two entries up — same "diff/repro-empirically, don't speculate" lesson.)

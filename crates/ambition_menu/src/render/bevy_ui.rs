@@ -47,6 +47,11 @@ use crate::{
 #[derive(Component, Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct BevyUiMenuRoot;
 
+/// Marker for the centered, fixed-size panel (the menu "window") that holds the
+/// tab bar + body, sitting in the middle of the full-screen scrim root.
+#[derive(Component, Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct BevyUiMenuPanel;
+
 /// Marker for the tab-bar row container.
 #[derive(Component, Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct BevyUiMenuTabBar;
@@ -180,10 +185,15 @@ fn control_bg(kind: MenuControlKind, focused: bool, selected: bool, important: b
 /// Spawn the flat tabbed menu under a fresh [`BevyUiMenuRoot`] and return its
 /// entity. The host should despawn the previous root before respawning on change.
 ///
-/// Layout: a full-screen absolute root, a tab-bar row at the top, then the page
-/// body filling the rest. The body draws the page's nodes by absolute percent
-/// rect so it matches the model's authored layout (the same rects the cube uses),
-/// while the tab bar uses flex so tabs share the width evenly.
+/// Layout: a full-screen absolute root acting as a centered scrim (so clicks
+/// outside the panel land on the scrim, not the world), with a centered,
+/// fixed-size PANEL holding a tab-bar row at the top then the page body filling
+/// the rest. The panel is roughly where/size the kaleidoscope cube renders — a
+/// window in the middle of the screen, NOT a full-screen layout. The body draws
+/// the page's nodes by absolute percent rect (percent of the PANEL) so it matches
+/// the model's authored layout, while the tab bar uses flex so tabs share the
+/// panel width evenly. A high [`GlobalZIndex`] keeps the menu on top so its
+/// `bevy_ui` buttons receive `Interaction`/picking before anything underneath.
 pub fn spawn_bevy_ui_menu<PageId, Action>(
     commands: &mut Commands,
     view: &BevyUiMenuView<PageId, Action>,
@@ -193,16 +203,21 @@ where
     Action: Clone + Send + Sync + 'static,
 {
     let active_tab = view.active_tab.min(view.tabs.len().saturating_sub(1));
+    // Full-screen scrim: centers the panel and dims/blocks the world behind it.
     let root = commands
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
-                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
                 ..default()
             },
-            BackgroundColor(to_color(view.page.background)),
+            // A translucent backdrop scrim behind the centered panel.
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.55)),
+            // On top of the gameplay HUD so the menu's buttons get the pointer.
+            GlobalZIndex(1000),
             BevyUiMenuRoot,
             AmbitionMenuRoot,
             Name::new("bevy_ui menu root"),
@@ -210,68 +225,84 @@ where
         .id();
 
     commands.entity(root).with_children(|root| {
-        // --- Tab bar ---------------------------------------------------------
+        // --- Centered fixed-size panel (the window) --------------------------
         root.spawn((
             Node {
-                width: Val::Percent(100.0),
-                height: Val::Px(44.0),
-                flex_direction: FlexDirection::Row,
+                width: Val::Percent(64.0),
+                height: Val::Percent(74.0),
+                flex_direction: FlexDirection::Column,
                 ..default()
             },
-            BevyUiMenuTabBar,
-            Name::new("menu tab bar"),
+            BackgroundColor(to_color(view.page.background)),
+            BevyUiMenuPanel,
+            Name::new("menu panel"),
         ))
-        .with_children(|bar| {
-            for (i, tab) in view.tabs.iter().enumerate() {
-                let active = i == active_tab;
-                let bg = if active {
-                    Color::srgba(0.85, 0.70, 0.20, 0.98)
-                } else {
-                    Color::srgba(0.10, 0.13, 0.22, 0.94)
-                };
-                let label_color = if active {
-                    Color::BLACK
-                } else {
-                    Color::srgba(0.85, 0.90, 0.98, 0.98)
-                };
-                bar.spawn((
-                    Button,
+        .with_children(|panel| {
+            // --- Tab bar ---------------------------------------------------------
+            panel
+                .spawn((
                     Node {
-                        flex_grow: 1.0,
-                        height: Val::Percent(100.0),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
+                        width: Val::Percent(100.0),
+                        height: Val::Px(44.0),
+                        flex_direction: FlexDirection::Row,
                         ..default()
                     },
-                    BackgroundColor(bg),
-                    BevyUiMenuTab { index: i, active },
-                    Name::new(format!("tab[{i}]")),
+                    BevyUiMenuTabBar,
+                    Name::new("menu tab bar"),
                 ))
-                .with_children(|btn| {
-                    btn.spawn((Text::new(tab.label.clone()), TextColor(label_color)));
+                .with_children(|bar| {
+                    for (i, tab) in view.tabs.iter().enumerate() {
+                        let active = i == active_tab;
+                        let bg = if active {
+                            Color::srgba(0.85, 0.70, 0.20, 0.98)
+                        } else {
+                            Color::srgba(0.10, 0.13, 0.22, 0.94)
+                        };
+                        let label_color = if active {
+                            Color::BLACK
+                        } else {
+                            Color::srgba(0.85, 0.90, 0.98, 0.98)
+                        };
+                        bar.spawn((
+                            Button,
+                            Node {
+                                flex_grow: 1.0,
+                                height: Val::Percent(100.0),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                ..default()
+                            },
+                            BackgroundColor(bg),
+                            BevyUiMenuTab { index: i, active },
+                            Name::new(format!("tab[{i}]")),
+                        ))
+                        .with_children(|btn| {
+                            btn.spawn((Text::new(tab.label.clone()), TextColor(label_color)));
+                        });
+                    }
                 });
-            }
-        });
 
-        // --- Active page body -----------------------------------------------
-        root.spawn((
-            Node {
-                width: Val::Percent(100.0),
-                flex_grow: 1.0,
-                position_type: PositionType::Relative,
-                ..default()
-            },
-            BevyUiMenuBody,
-            AmbitionMenuPage {
-                id: view.page.id.clone(),
-                active: true,
-            },
-            Name::new("menu body"),
-        ))
-        .with_children(|body| {
-            for node in &view.page.nodes {
-                spawn_node(body, node, view.focused);
-            }
+            // --- Active page body -----------------------------------------------
+            panel
+                .spawn((
+                    Node {
+                        width: Val::Percent(100.0),
+                        flex_grow: 1.0,
+                        position_type: PositionType::Relative,
+                        ..default()
+                    },
+                    BevyUiMenuBody,
+                    AmbitionMenuPage {
+                        id: view.page.id.clone(),
+                        active: true,
+                    },
+                    Name::new("menu body"),
+                ))
+                .with_children(|body| {
+                    for node in &view.page.nodes {
+                        spawn_node(body, node, view.focused);
+                    }
+                });
         });
     });
 

@@ -15,10 +15,13 @@ pub fn pause_menu_toggle(
     mut state: ResMut<PauseMenuState>,
     mut inventory: ResMut<InventoryUiState>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
-    // Fix 3: under the 3D-cube inventory backend, `Esc`/pause is owned by
-    // `lunex_kaleidoscope_app::kaleidoscope_menu_open_routing` (opens the cube on the System page /
-    // closes it). Bail here so the GameMode toggle never double-fires. `Option` keeps
-    // this safe when the `oot_inventory` feature (and its backend resource) is absent.
+    // Fix 3: under EITHER `oot_inventory` backend, `Esc`/pause is owned by that
+    // backend's own open routing — the 3D cube's
+    // `lunex_kaleidoscope_app::kaleidoscope_menu_open_routing` OR the flat Grid's
+    // `menu::grid_backend::grid_menu_open_routing` (each opens/closes its menu on Esc).
+    // Bail here for BOTH so the GameMode toggle never double-fires (the close-then-
+    // reopen "Esc echo" bug). `Option` keeps this safe when the `oot_inventory`
+    // feature (and its backend resource) is absent.
     #[cfg(feature = "oot_inventory")] kaleidoscope_backend: Option<
         Res<crate::lunex_kaleidoscope_app::InventoryUiBackend>,
     >,
@@ -26,11 +29,9 @@ pub fn pause_menu_toggle(
     if !menu.start {
         return;
     }
+    // Any `oot_inventory` backend (cube OR grid) owns its own Esc/pause routing.
     #[cfg(feature = "oot_inventory")]
-    if kaleidoscope_backend
-        .map(|b| *b == crate::lunex_kaleidoscope_app::InventoryUiBackend::LunexKaleidoscope)
-        .unwrap_or(false)
-    {
+    if kaleidoscope_backend.is_some() {
         return;
     }
     match mode.get() {

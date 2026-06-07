@@ -185,6 +185,7 @@ impl LocaleId {
 pub enum SystemMenuEntryId {
     Radio,
     Video,
+    Shaders,
     Audio,
     Controls,
     Gameplay,
@@ -200,6 +201,7 @@ impl SystemMenuEntryId {
         match self {
             Self::Radio => "Radio",
             Self::Video => "Video",
+            Self::Shaders => "Shaders",
             Self::Audio => "Audio",
             Self::Controls => "Controls",
             Self::Gameplay => "Gameplay",
@@ -213,6 +215,7 @@ impl SystemMenuEntryId {
         match self {
             Self::Radio => "Pick the sandbox radio station (music plays as you browse).",
             Self::Video => "Display mode, FPS overlay, and camera zoom.",
+            Self::Shaders => "Whole-screen CRT / film-grain / glitch post-process strengths.",
             Self::Audio => "Master / music / SFX volume and mute.",
             Self::Controls => "Touch overlay, dash input, and stick deadzone.",
             Self::Gameplay => "Debug and quest HUD overlays.",
@@ -345,6 +348,31 @@ fn curated_options(id: SystemMenuEntryId) -> &'static [SettingsOptionId] {
             SettingsOptionId::ShowFps,
             SettingsOptionId::CameraZoom,
         ],
+        // The full Shaders subpage — every shader the pause menu's
+        // `Video > Shaders` page exposes — so the cube's System face shows the
+        // same shader controls as the grid (stage 3b parity).
+        SystemMenuEntryId::Shaders => &[
+            SettingsOptionId::ShaderStrength,
+            SettingsOptionId::ShaderCrtStrength,
+            SettingsOptionId::ShaderCrtScanlines,
+            SettingsOptionId::ShaderCrtMask,
+            SettingsOptionId::ShaderCrtCurvature,
+            SettingsOptionId::ShaderCrtBloom,
+            SettingsOptionId::ShaderCrtChroma,
+            SettingsOptionId::ShaderFilmGrainStrength,
+            SettingsOptionId::ShaderFilmGrainSize,
+            SettingsOptionId::ShaderFilmGrainFps,
+            SettingsOptionId::ShaderFilmGrainLumaBias,
+            SettingsOptionId::ShaderRobotDeathStrength,
+            SettingsOptionId::ShaderRobotStatic,
+            SettingsOptionId::ShaderRobotTear,
+            SettingsOptionId::ShaderRobotDesaturate,
+            SettingsOptionId::ShaderRobotScanlines,
+            SettingsOptionId::ShaderUnderwaterStrength,
+            SettingsOptionId::ShaderUnderwaterDistortion,
+            SettingsOptionId::ShaderDeepDreamStrength,
+            SettingsOptionId::ShaderVignetteStrength,
+        ],
         SystemMenuEntryId::Audio => &[
             SettingsOptionId::MasterVolume,
             SettingsOptionId::MusicVolume,
@@ -352,9 +380,11 @@ fn curated_options(id: SystemMenuEntryId) -> &'static [SettingsOptionId] {
             SettingsOptionId::Mute,
         ],
         SystemMenuEntryId::Controls => &[
+            SettingsOptionId::KeyboardPreset,
             SettingsOptionId::TouchControls,
             SettingsOptionId::DashInputMode,
             SettingsOptionId::LeftStickDeadzone,
+            SettingsOptionId::ResetControlFiltering,
         ],
         SystemMenuEntryId::Gameplay => &[SettingsOptionId::DebugHud, SettingsOptionId::QuestHud],
         _ => &[],
@@ -412,6 +442,7 @@ impl SystemMenuModel {
 
         // Settings categories (curated subsets).
         entries.push(settings_entry(SystemMenuEntryId::Video));
+        entries.push(settings_entry(SystemMenuEntryId::Shaders));
         entries.push(settings_entry(SystemMenuEntryId::Audio));
         entries.push(settings_entry(SystemMenuEntryId::Controls));
         entries.push(settings_entry(SystemMenuEntryId::Gameplay));
@@ -496,10 +527,11 @@ mod tests {
         let ids: Vec<_> = model.entries.iter().map(|e| e.id).collect();
         // The non-dev prefix is always present in this fixed order.
         assert_eq!(
-            &ids[..6],
+            &ids[..7],
             &[
                 SystemMenuEntryId::Radio,
                 SystemMenuEntryId::Video,
+                SystemMenuEntryId::Shaders,
                 SystemMenuEntryId::Audio,
                 SystemMenuEntryId::Controls,
                 SystemMenuEntryId::Gameplay,
@@ -508,7 +540,7 @@ mod tests {
         );
         if DEV_BUILD {
             assert_eq!(
-                &ids[6..],
+                &ids[7..],
                 &[
                     SystemMenuEntryId::Developer,
                     SystemMenuEntryId::ResetSandbox
@@ -517,7 +549,7 @@ mod tests {
         } else {
             assert_eq!(
                 ids.len(),
-                6,
+                7,
                 "non-dev builds omit Developer + Reset Sandbox"
             );
         }
@@ -543,6 +575,67 @@ mod tests {
                 SettingsOptionId::CameraZoom,
             ]
         );
+    }
+
+    #[test]
+    fn shaders_screen_reaches_every_shader_option() {
+        let model = SystemMenuModel::build(
+            &UserSettings::default(),
+            &RadioSnapshot::default(),
+            &DevSnapshot::default(),
+        );
+        let shaders = model.entry(SystemMenuEntryId::Shaders).unwrap();
+        let SystemMenuTarget::Settings(options) = &shaders.target else {
+            panic!("shaders drills into a settings screen");
+        };
+        let ids: Vec<_> = options.iter().map(|o| o.id).collect();
+        // The whole `Video > Shaders` pause-menu subpage is reachable on the cube.
+        assert_eq!(
+            ids,
+            vec![
+                SettingsOptionId::ShaderStrength,
+                SettingsOptionId::ShaderCrtStrength,
+                SettingsOptionId::ShaderCrtScanlines,
+                SettingsOptionId::ShaderCrtMask,
+                SettingsOptionId::ShaderCrtCurvature,
+                SettingsOptionId::ShaderCrtBloom,
+                SettingsOptionId::ShaderCrtChroma,
+                SettingsOptionId::ShaderFilmGrainStrength,
+                SettingsOptionId::ShaderFilmGrainSize,
+                SettingsOptionId::ShaderFilmGrainFps,
+                SettingsOptionId::ShaderFilmGrainLumaBias,
+                SettingsOptionId::ShaderRobotDeathStrength,
+                SettingsOptionId::ShaderRobotStatic,
+                SettingsOptionId::ShaderRobotTear,
+                SettingsOptionId::ShaderRobotDesaturate,
+                SettingsOptionId::ShaderRobotScanlines,
+                SettingsOptionId::ShaderUnderwaterStrength,
+                SettingsOptionId::ShaderUnderwaterDistortion,
+                SettingsOptionId::ShaderDeepDreamStrength,
+                SettingsOptionId::ShaderVignetteStrength,
+            ]
+        );
+        // Each one carries a live slider value label (e.g. "0%") so the cube
+        // renders the same control the grid does.
+        for o in options {
+            assert!(matches!(o.kind, SettingsOptionKind::Slider { .. }));
+        }
+    }
+
+    #[test]
+    fn controls_screen_reaches_keyboard_preset_and_reset() {
+        let model = SystemMenuModel::build(
+            &UserSettings::default(),
+            &RadioSnapshot::default(),
+            &DevSnapshot::default(),
+        );
+        let controls = model.entry(SystemMenuEntryId::Controls).unwrap();
+        let SystemMenuTarget::Settings(options) = &controls.target else {
+            panic!("controls drills into a settings screen");
+        };
+        let ids: Vec<_> = options.iter().map(|o| o.id).collect();
+        assert!(ids.contains(&SettingsOptionId::KeyboardPreset));
+        assert!(ids.contains(&SettingsOptionId::ResetControlFiltering));
     }
 
     #[test]

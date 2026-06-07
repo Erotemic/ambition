@@ -1181,14 +1181,13 @@ mod tests {
                 )
             })
             .count();
-        // Radio + Video + Audio + Controls + Gameplay + Language always drill in;
-        // Developer also drills in only in dev builds (Reset Sandbox is an Action,
-        // not OpenSystemEntry).
-        let expected_drill = if crate::persistence::settings::system_menu::DEV_BUILD {
-            7
-        } else {
-            6
-        };
+        // Radio + Video + Shaders + Audio + Controls + Gameplay + Language always
+        // drill in (7 rows); Developer also drills in only in dev builds, but the
+        // System face only renders SYSTEM_VISIBLE_ROWS (7) at once, so in a dev
+        // build the 9-entry list (incl. Reset Sandbox, an Action) scrolls and the
+        // first window shows exactly those 7 leading drill rows. Either way the
+        // count of visible drill rows is 7.
+        let expected_drill = SYSTEM_VISIBLE_ROWS;
         assert_eq!(
             entries, expected_drill,
             "one drill row per non-action entry"

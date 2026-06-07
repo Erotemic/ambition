@@ -106,6 +106,9 @@ mod shared_ir_parity {
             SettingsOptionKind::Cycle { .. } | SettingsOptionKind::Slider { .. } => {
                 format!("{}: {}  < / >", opt.label, opt.value_label)
             }
+            // A valueless action row (e.g. "Reset Filter Defaults") reads as a
+            // bare label.
+            SettingsOptionKind::Action if opt.value_label.is_empty() => opt.label.clone(),
             SettingsOptionKind::Toggle(_) | SettingsOptionKind::Action => {
                 format!("{}: {}", opt.label, opt.value_label)
             }
@@ -129,7 +132,19 @@ mod shared_ir_parity {
         s2.controls.right_stick_deadzone = 0.6;
         s2.controls.trigger_release_threshold = 0.9;
 
-        vec![UserSettings::default(), s1, s2]
+        // Stage 3b: exercise the migrated shaders + keyboard preset across live,
+        // non-default values so the cycle wrap and shader clamps are covered.
+        let mut s3 = UserSettings::default();
+        s3.controls.keyboard_preset_index = 3; // last preset; +1 wraps to 0
+        s3.video.shaders.strength = 0.5;
+        s3.video.shaders.crt_strength = 0.9; // near clamp ceiling
+        s3.video.shaders.crt_scanlines = 0.05;
+        s3.video.shaders.film_grain_size = 8.0; // range ceiling
+        s3.video.shaders.film_grain_fps = 60.0; // range ceiling
+        s3.video.shaders.deep_dream_strength = 0.0; // exercise the auto-arm side-effect
+        s3.video.shaders.vignette_strength = 0.95;
+
+        vec![UserSettings::default(), s1, s2, s3]
     }
 
     /// Every mapped pause row's id is one the IR model actually builds, so the
@@ -249,8 +264,10 @@ mod shared_ir_parity {
                             &mut settings,
                             &mut display_state,
                             &mut windows,
-                            // keyboard_preset_count: irrelevant for mapped rows
-                            // (KeyboardPreset is not mapped).
+                            // keyboard_preset_count: the fixed
+                            // `KeyboardPreset::presets().len()`. KeyboardPreset is
+                            // now a mapped row that routes through the shared IR,
+                            // which wraps modulo the same count, so this matches.
                             4,
                             &mut dev_state,
                             &mut developer,

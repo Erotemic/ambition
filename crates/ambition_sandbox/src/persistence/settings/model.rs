@@ -10,7 +10,7 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy::window::{MonitorSelection, VideoModeSelection, WindowMode};
 
-use super::video::{FlashIntensity, ScreenShaderSettings};
+use super::video::FlashIntensity;
 use super::UserSettings;
 use crate::dev::dev_tools::{
     apply_movement_profile, apply_player_body_profile, DebugArtMode, DebugViewMode, DeveloperTools,
@@ -195,7 +195,29 @@ impl SettingsItem {
             Self::MusicVolume => Id::MusicVolume,
             Self::SfxVolume => Id::SfxVolume,
             Self::Mute => Id::Mute,
+            // Video > Shaders.
+            Self::ShaderStrength => Id::ShaderStrength,
+            Self::ShaderCrtStrength => Id::ShaderCrtStrength,
+            Self::ShaderCrtScanlines => Id::ShaderCrtScanlines,
+            Self::ShaderCrtMask => Id::ShaderCrtMask,
+            Self::ShaderCrtCurvature => Id::ShaderCrtCurvature,
+            Self::ShaderCrtBloom => Id::ShaderCrtBloom,
+            Self::ShaderCrtChroma => Id::ShaderCrtChroma,
+            Self::ShaderFilmGrainStrength => Id::ShaderFilmGrainStrength,
+            Self::ShaderFilmGrainSize => Id::ShaderFilmGrainSize,
+            Self::ShaderFilmGrainFps => Id::ShaderFilmGrainFps,
+            Self::ShaderFilmGrainLumaBias => Id::ShaderFilmGrainLumaBias,
+            Self::ShaderRobotDeathStrength => Id::ShaderRobotDeathStrength,
+            Self::ShaderRobotStatic => Id::ShaderRobotStatic,
+            Self::ShaderRobotTear => Id::ShaderRobotTear,
+            Self::ShaderRobotDesaturate => Id::ShaderRobotDesaturate,
+            Self::ShaderRobotScanlines => Id::ShaderRobotScanlines,
+            Self::ShaderUnderwaterStrength => Id::ShaderUnderwaterStrength,
+            Self::ShaderUnderwaterDistortion => Id::ShaderUnderwaterDistortion,
+            Self::ShaderDeepDreamStrength => Id::ShaderDeepDreamStrength,
+            Self::ShaderVignetteStrength => Id::ShaderVignetteStrength,
             // Controls.
+            Self::KeyboardPreset => Id::KeyboardPreset,
             Self::ControllerProfile => Id::ControllerProfile,
             Self::LeftStickDeadzone => Id::LeftStickDeadzone,
             Self::RightStickDeadzone => Id::RightStickDeadzone,
@@ -206,6 +228,7 @@ impl SettingsItem {
             Self::DashInputMode => Id::DashInputMode,
             Self::TouchControls => Id::TouchControls,
             Self::MenuTapMode => Id::MenuTapMode,
+            Self::ResetControlFiltering => Id::ResetControlFiltering,
             // Gameplay.
             Self::Difficulty => Id::Difficulty,
             Self::Assist => Id::Assist,
@@ -382,86 +405,35 @@ impl SettingsItem {
             | Self::PlayerDamageMultiplier
             | Self::DebugHud
             | Self::QuestHud
-            | Self::TraceAutoDump => {
+            | Self::TraceAutoDump
+            // Stage 3b: the whole Shaders subpage + KeyboardPreset +
+            // ResetControlFiltering now map to the shared IR too.
+            | Self::ShaderStrength
+            | Self::ShaderCrtStrength
+            | Self::ShaderCrtScanlines
+            | Self::ShaderCrtMask
+            | Self::ShaderCrtCurvature
+            | Self::ShaderCrtBloom
+            | Self::ShaderCrtChroma
+            | Self::ShaderFilmGrainStrength
+            | Self::ShaderFilmGrainSize
+            | Self::ShaderFilmGrainFps
+            | Self::ShaderFilmGrainLumaBias
+            | Self::ShaderRobotDeathStrength
+            | Self::ShaderRobotStatic
+            | Self::ShaderRobotTear
+            | Self::ShaderRobotDesaturate
+            | Self::ShaderRobotScanlines
+            | Self::ShaderUnderwaterStrength
+            | Self::ShaderUnderwaterDistortion
+            | Self::ShaderDeepDreamStrength
+            | Self::ShaderVignetteStrength
+            | Self::KeyboardPreset
+            | Self::ResetControlFiltering => {
                 debug_assert!(self.shared_option_id().is_some());
                 unreachable!("shared-IR rows handled by pause_label_from_shared above")
             }
             Self::ResetAllSettings => "Reset All Settings to Defaults".into(),
-
-            Self::ShaderStrength => {
-                format_shader_percent("Shader Strength", settings.video.shaders.strength)
-            }
-            Self::ShaderCrtStrength => {
-                format_shader_percent("CRT Strength", settings.video.shaders.crt_strength)
-            }
-            Self::ShaderCrtScanlines => {
-                format_shader_percent("CRT Scanlines", settings.video.shaders.crt_scanlines)
-            }
-            Self::ShaderCrtMask => {
-                format_shader_percent("CRT Phosphor Mask", settings.video.shaders.crt_mask)
-            }
-            Self::ShaderCrtCurvature => {
-                format_shader_percent("CRT Curvature", settings.video.shaders.crt_curvature)
-            }
-            Self::ShaderCrtBloom => {
-                format_shader_percent("CRT Bloom", settings.video.shaders.crt_bloom)
-            }
-            Self::ShaderCrtChroma => {
-                format_shader_percent("CRT Chroma Split", settings.video.shaders.crt_chroma)
-            }
-            Self::ShaderFilmGrainStrength => format_shader_percent(
-                "Film Grain Strength",
-                settings.video.shaders.film_grain_strength,
-            ),
-            Self::ShaderFilmGrainSize => format_cycle(
-                "Film Grain Size",
-                format!("{:.0}px", settings.video.shaders.film_grain_size),
-            ),
-            Self::ShaderFilmGrainFps => format_cycle(
-                "Film Grain Rate",
-                format!("{:.0} fps", settings.video.shaders.film_grain_fps),
-            ),
-            Self::ShaderFilmGrainLumaBias => format_shader_percent(
-                "Film Grain Luma Bias",
-                settings.video.shaders.film_grain_luma_bias,
-            ),
-            Self::ShaderRobotDeathStrength => format_shader_percent(
-                "Robot Death Strength",
-                settings.video.shaders.robot_death_strength,
-            ),
-            Self::ShaderRobotStatic => {
-                format_shader_percent("Robot Static", settings.video.shaders.robot_static)
-            }
-            Self::ShaderRobotTear => {
-                format_shader_percent("Robot Tear", settings.video.shaders.robot_tear)
-            }
-            Self::ShaderRobotDesaturate => {
-                format_shader_percent("Robot Desaturate", settings.video.shaders.robot_desaturate)
-            }
-            Self::ShaderRobotScanlines => {
-                format_shader_percent("Robot Scanlines", settings.video.shaders.robot_scanlines)
-            }
-            Self::ShaderUnderwaterStrength => format_shader_percent(
-                "Underwater Strength",
-                settings.video.shaders.underwater_strength,
-            ),
-            Self::ShaderUnderwaterDistortion => format_shader_percent(
-                "Underwater Distortion",
-                settings.video.shaders.underwater_distortion,
-            ),
-            Self::ShaderDeepDreamStrength => format_shader_percent(
-                "Deep Dream Strength",
-                settings.video.shaders.deep_dream_strength,
-            ),
-            Self::ShaderVignetteStrength => format_shader_percent(
-                "Vignette Strength",
-                settings.video.shaders.vignette_strength,
-            ),
-
-            Self::KeyboardPreset => {
-                format_cycle("Keyboard Preset", settings.controls.keyboard_preset_index)
-            }
-            Self::ResetControlFiltering => "Reset Filter Defaults".into(),
 
             Self::GameplayFlashes => {
                 format_cycle("Flashes (gameplay)", settings.video.flashes.label())
@@ -519,6 +491,10 @@ pub(crate) fn pause_label_from_shared(
         SettingsOptionKind::Cycle { .. } | SettingsOptionKind::Slider { .. } => {
             format_cycle(&opt.label, opt.value_label)
         }
+        // An action row with no value (e.g. "Reset Filter Defaults") reads as a
+        // bare label — no trailing "`: `" — matching the pause menu's static
+        // action-row labels.
+        SettingsOptionKind::Action if opt.value_label.is_empty() => opt.label,
         SettingsOptionKind::Toggle(_) | SettingsOptionKind::Action => {
             format!("{}: {}", opt.label, opt.value_label)
         }
@@ -540,14 +516,6 @@ fn on_off(value: bool) -> &'static str {
 /// (e.g. an enum's `label()` method) pass through directly.
 fn format_cycle(label: &str, value: impl std::fmt::Display) -> String {
     format!("{label}: {value}  < / >")
-}
-
-/// `Label: NN%  < / >` — the shared format for every 0..1 shader slider
-/// row. Pulled out of the 17 near-identical `Shader*` arms in
-/// [`SettingsItem::label_with_dev`] so adding a new shader slider is a
-/// one-line label change rather than a five-line `format!` boilerplate.
-fn format_shader_percent(label: &str, value: f32) -> String {
-    format_cycle(label, format!("{}%", ScreenShaderSettings::percent(value)))
 }
 
 /// `Label: on|off` — the shared format for every two-state toggle row
@@ -700,20 +668,11 @@ fn apply_cycle<T: Copy>(action: SettingsAction, field: &mut T, prev: fn(T) -> T,
     };
 }
 
-/// Resolve a slider-style `Prev` / `Next` press into a signed step.
-/// Confirm is treated as Next so a tap-without-direction still nudges.
-fn nudge_delta(action: SettingsAction, step: f32) -> f32 {
-    match action {
-        SettingsAction::Prev => -step,
-        SettingsAction::Next | SettingsAction::Confirm => step,
-    }
-}
-
 /// Convert a pause-menu `SettingsAction` into the shared IR's signed step
 /// direction (`-1` prev, `+1` next, `0` confirm/activate). Mirrors how
 /// `apply_settings_option` reads `dir`: `<0` steps down, otherwise up, and `0`
 /// (Confirm) advances like Next — matching the pause menu's own
-/// `apply_cycle` / `nudge_delta` "Confirm behaves like Next" rule.
+/// `apply_cycle` "Confirm behaves like Next" rule.
 fn settings_dir(action: SettingsAction) -> i32 {
     match action {
         SettingsAction::Prev => -1,
@@ -747,6 +706,10 @@ fn page_nav_label(item: SettingsItem) -> Option<&'static str> {
 /// `display_state` and `windows` are only required for the display-
 /// mode row because applying the change touches the live primary
 /// window.
+///
+/// `_keyboard_preset_count` is retained for call-site compatibility but no
+/// longer read: as of stage 3b `KeyboardPreset` routes through the shared IR,
+/// which wraps the index modulo the fixed `KeyboardPreset::presets().len()`.
 #[allow(clippy::too_many_arguments)]
 pub fn apply_action(
     item: SettingsItem,
@@ -754,7 +717,7 @@ pub fn apply_action(
     settings: &mut UserSettings,
     display_state: &mut DisplayModeState,
     windows: &mut Query<&mut Window, With<PrimaryWindow>>,
-    keyboard_preset_count: usize,
+    _keyboard_preset_count: usize,
     dev_state: &mut SandboxDevState,
     developer: &mut DeveloperTools,
     editable_tuning: &mut EditableMovementTuning,
@@ -826,134 +789,6 @@ pub fn apply_action(
             FlashIntensity::next,
         ),
 
-        SettingsItem::KeyboardPreset => {
-            if keyboard_preset_count == 0 {
-                return SettingsOutcome::Stay;
-            }
-            let len = keyboard_preset_count;
-            settings.controls.keyboard_preset_index = match action {
-                SettingsAction::Prev => (settings.controls.keyboard_preset_index + len - 1) % len,
-                SettingsAction::Next | SettingsAction::Confirm => {
-                    (settings.controls.keyboard_preset_index + 1) % len
-                }
-            };
-        }
-        SettingsItem::ResetControlFiltering => {
-            if matches!(action, SettingsAction::Confirm) {
-                settings.controls.reset_filtering_to_defaults();
-            }
-        }
-
-        SettingsItem::ShaderStrength => settings
-            .video
-            .shaders
-            .nudge_strength(nudge_delta(action, ScreenShaderSettings::UNIT_STEP)),
-        SettingsItem::ShaderCrtStrength => nudge_shader_unit(
-            action,
-            &mut settings.video.shaders.crt_strength,
-            ScreenShaderSettings::UNIT_STEP,
-        ),
-        SettingsItem::ShaderCrtScanlines => nudge_shader_unit(
-            action,
-            &mut settings.video.shaders.crt_scanlines,
-            ScreenShaderSettings::FINE_STEP,
-        ),
-        SettingsItem::ShaderCrtMask => nudge_shader_unit(
-            action,
-            &mut settings.video.shaders.crt_mask,
-            ScreenShaderSettings::FINE_STEP,
-        ),
-        SettingsItem::ShaderCrtCurvature => nudge_shader_unit(
-            action,
-            &mut settings.video.shaders.crt_curvature,
-            ScreenShaderSettings::FINE_STEP,
-        ),
-        SettingsItem::ShaderCrtBloom => nudge_shader_unit(
-            action,
-            &mut settings.video.shaders.crt_bloom,
-            ScreenShaderSettings::FINE_STEP,
-        ),
-        SettingsItem::ShaderCrtChroma => nudge_shader_unit(
-            action,
-            &mut settings.video.shaders.crt_chroma,
-            ScreenShaderSettings::FINE_STEP,
-        ),
-        SettingsItem::ShaderFilmGrainStrength => nudge_shader_unit(
-            action,
-            &mut settings.video.shaders.film_grain_strength,
-            ScreenShaderSettings::FINE_STEP,
-        ),
-        SettingsItem::ShaderFilmGrainSize => nudge_shader_range(
-            action,
-            &mut settings.video.shaders.film_grain_size,
-            ScreenShaderSettings::GRAIN_SIZE_STEP,
-            1.0,
-            8.0,
-        ),
-        SettingsItem::ShaderFilmGrainFps => nudge_shader_range(
-            action,
-            &mut settings.video.shaders.film_grain_fps,
-            ScreenShaderSettings::GRAIN_FPS_STEP,
-            1.0,
-            60.0,
-        ),
-        SettingsItem::ShaderFilmGrainLumaBias => nudge_shader_unit(
-            action,
-            &mut settings.video.shaders.film_grain_luma_bias,
-            ScreenShaderSettings::FINE_STEP,
-        ),
-        SettingsItem::ShaderRobotDeathStrength => nudge_shader_unit(
-            action,
-            &mut settings.video.shaders.robot_death_strength,
-            ScreenShaderSettings::UNIT_STEP,
-        ),
-        SettingsItem::ShaderRobotStatic => nudge_shader_unit(
-            action,
-            &mut settings.video.shaders.robot_static,
-            ScreenShaderSettings::FINE_STEP,
-        ),
-        SettingsItem::ShaderRobotTear => nudge_shader_unit(
-            action,
-            &mut settings.video.shaders.robot_tear,
-            ScreenShaderSettings::FINE_STEP,
-        ),
-        SettingsItem::ShaderRobotDesaturate => nudge_shader_unit(
-            action,
-            &mut settings.video.shaders.robot_desaturate,
-            ScreenShaderSettings::FINE_STEP,
-        ),
-        SettingsItem::ShaderRobotScanlines => nudge_shader_unit(
-            action,
-            &mut settings.video.shaders.robot_scanlines,
-            ScreenShaderSettings::FINE_STEP,
-        ),
-        SettingsItem::ShaderUnderwaterStrength => nudge_shader_unit(
-            action,
-            &mut settings.video.shaders.underwater_strength,
-            ScreenShaderSettings::UNIT_STEP,
-        ),
-        SettingsItem::ShaderUnderwaterDistortion => nudge_shader_unit(
-            action,
-            &mut settings.video.shaders.underwater_distortion,
-            ScreenShaderSettings::FINE_STEP,
-        ),
-        SettingsItem::ShaderDeepDreamStrength => {
-            nudge_shader_unit(
-                action,
-                &mut settings.video.shaders.deep_dream_strength,
-                ScreenShaderSettings::UNIT_STEP,
-            );
-            if settings.video.shaders.deep_dream_strength > 0.001
-                && settings.video.shaders.strength <= 0.001
-            {
-                settings.video.shaders.strength = 1.0;
-            }
-        }
-        SettingsItem::ShaderVignetteStrength => nudge_shader_unit(
-            action,
-            &mut settings.video.shaders.vignette_strength,
-            ScreenShaderSettings::FINE_STEP,
-        ),
         SettingsItem::DebugOverlay => apply_toggle(action, || {
             dev_state.debug = !dev_state.debug;
         }),
@@ -1077,7 +912,30 @@ pub fn apply_action(
         | SettingsItem::PlayerDamageMultiplier
         | SettingsItem::DebugHud
         | SettingsItem::QuestHud
-        | SettingsItem::TraceAutoDump => {
+        | SettingsItem::TraceAutoDump
+        // Stage 3b migrations.
+        | SettingsItem::ShaderStrength
+        | SettingsItem::ShaderCrtStrength
+        | SettingsItem::ShaderCrtScanlines
+        | SettingsItem::ShaderCrtMask
+        | SettingsItem::ShaderCrtCurvature
+        | SettingsItem::ShaderCrtBloom
+        | SettingsItem::ShaderCrtChroma
+        | SettingsItem::ShaderFilmGrainStrength
+        | SettingsItem::ShaderFilmGrainSize
+        | SettingsItem::ShaderFilmGrainFps
+        | SettingsItem::ShaderFilmGrainLumaBias
+        | SettingsItem::ShaderRobotDeathStrength
+        | SettingsItem::ShaderRobotStatic
+        | SettingsItem::ShaderRobotTear
+        | SettingsItem::ShaderRobotDesaturate
+        | SettingsItem::ShaderRobotScanlines
+        | SettingsItem::ShaderUnderwaterStrength
+        | SettingsItem::ShaderUnderwaterDistortion
+        | SettingsItem::ShaderDeepDreamStrength
+        | SettingsItem::ShaderVignetteStrength
+        | SettingsItem::KeyboardPreset
+        | SettingsItem::ResetControlFiltering => {
             debug_assert!(item.shared_option_id().is_some());
             unreachable!("shared-IR rows applied via apply_settings_option above")
         }
@@ -1195,24 +1053,6 @@ impl SettingsItem {
         settings.controls.clamp_all();
         settings.gameplay.clamp_all();
         true
-    }
-}
-
-fn nudge_shader_unit(action: SettingsAction, value: &mut f32, step: f32) {
-    match action {
-        SettingsAction::Prev => ScreenShaderSettings::nudge_unit(value, -step),
-        SettingsAction::Next | SettingsAction::Confirm => {
-            ScreenShaderSettings::nudge_unit(value, step);
-        }
-    }
-}
-
-fn nudge_shader_range(action: SettingsAction, value: &mut f32, step: f32, min: f32, max: f32) {
-    match action {
-        SettingsAction::Prev => ScreenShaderSettings::nudge_range(value, -step, min, max),
-        SettingsAction::Next | SettingsAction::Confirm => {
-            ScreenShaderSettings::nudge_range(value, step, min, max);
-        }
     }
 }
 
@@ -1403,13 +1243,6 @@ mod model_logic_tests {
         assert_eq!(v, 10);
         apply_cycle(SettingsAction::Confirm, &mut v, dec, inc);
         assert_eq!(v, 11, "Confirm advances like Next");
-    }
-
-    #[test]
-    fn nudge_delta_signs_match_direction() {
-        assert_eq!(nudge_delta(SettingsAction::Next, 0.25), 0.25);
-        assert_eq!(nudge_delta(SettingsAction::Confirm, 0.25), 0.25);
-        assert_eq!(nudge_delta(SettingsAction::Prev, 0.25), -0.25);
     }
 
     #[test]

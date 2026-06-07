@@ -251,6 +251,10 @@ struct KaleidoscopeScroll {
 struct SystemMenuParams<'w> {
     dev_tools: ResMut<'w, crate::dev::dev_tools::DeveloperTools>,
     reset: ResMut<'w, crate::runtime::reset::SandboxResetRequested>,
+    // Movement tuning is derived from the active movement profile, so a
+    // Reset All Settings must restore it to match the reset DeveloperTools
+    // defaults (mirrors the pause menu's `ResetAllSettings`).
+    editable_tuning: ResMut<'w, crate::dev::dev_tools::EditableMovementTuning>,
     // The radio resources are `Option`-wrapped so the System nav stays B0002-safe
     // and never panics when audio is off / a fixture omits them: a missing radio
     // resource simply disables station audition (the rows still render). Gated on
@@ -339,6 +343,23 @@ impl SystemMenuParams<'_> {
 
     fn request_reset(&mut self) {
         self.reset.request();
+    }
+
+    /// Reset every persisted settings/dev resource back to defaults — the same
+    /// reset the pause menu's `SettingsItem::ResetAllSettings` performs: restore
+    /// `UserSettings` + `DeveloperTools` to defaults, then re-derive the editable
+    /// movement tuning from the (now-default) movement profile so dependent state
+    /// stays coherent. The cube dispatch holds no live player kinematics here, so
+    /// the live-movement refs are `None` (the pause menu also passes `None` when
+    /// it has no live player to poke); the persisted resources still reset fully.
+    fn reset_all_settings(&mut self, settings: &mut UserSettings) {
+        *settings = UserSettings::default();
+        *self.dev_tools = crate::dev::dev_tools::DeveloperTools::default();
+        crate::dev::dev_tools::apply_movement_profile(
+            &mut self.editable_tuning,
+            self.dev_tools.movement_profile,
+            None,
+        );
     }
 
     /// Build the live radio snapshot for the SYSTEM IR (empty under no `audio` /
@@ -1264,6 +1285,16 @@ fn dispatch_kaleidoscope_action(
             play_ui(sfx, ambition_sfx::ids::UI_MENU_ACCEPT);
             info!("cube system action: reset sandbox");
         }
+        MenuPageAction::SystemAction(SystemMenuAction::ResetAllSettings) => {
+            // Immediate, no-confirm: reset every persisted settings/dev resource
+            // (the same set the pause menu's ResetAllSettings restores), then fold
+            // the menu shut. The close also unpauses (the reset-pause fix).
+            // `save_settings_on_change` then persists the defaulted `UserSettings`.
+            system.reset_all_settings(settings);
+            *close_menu = true;
+            play_ui(sfx, ambition_sfx::ids::UI_MENU_ACCEPT);
+            info!("cube system action: reset all settings");
+        }
         MenuPageAction::OpenSystemEntry(entry) => {
             // Drill INTO an entry: show its screen rows, land the cursor on the
             // first row. The republish picks up the new drill state + cursor.
@@ -1385,6 +1416,9 @@ fn focus_for_action(
             let entry = match action {
                 MenuPageAction::SystemAction(SystemMenuAction::ResetSandbox) => {
                     SystemMenuEntryId::ResetSandbox
+                }
+                MenuPageAction::SystemAction(SystemMenuAction::ResetAllSettings) => {
+                    SystemMenuEntryId::ResetAllSettings
                 }
                 _ => return MenuFocus::System(0),
             };
@@ -2178,6 +2212,7 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
+        app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
         app.init_resource::<crate::inventory::InventoryUiState>();
         app.add_message::<PlayerHealRequested>();
@@ -2218,6 +2253,7 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
+        app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
         app.init_resource::<crate::inventory::InventoryUiState>();
         app.init_resource::<crate::map_menu::MapMenuState>();
@@ -2328,6 +2364,7 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
+        app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
         app.init_resource::<crate::inventory::InventoryUiState>();
         app.init_resource::<MenuControlFrame>();
@@ -2365,6 +2402,7 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
+        app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
         app.init_resource::<crate::inventory::InventoryUiState>();
         app.init_resource::<crate::map_menu::MapMenuState>();
@@ -2568,6 +2606,64 @@ mod lunex_kaleidoscope_app_tests {
     }
 
     #[test]
+    fn reset_all_settings_action_resets_settings_and_closes() {
+        // The cube's System menu surfaces Reset All Settings as a top-level Action
+        // entry; dispatching it resets every persisted settings/dev resource to
+        // defaults (the same set the pause menu's ResetAllSettings restores) and
+        // folds the menu shut (close, which also unpauses).
+        let (mut app, _player) = click_app();
+        app.world_mut()
+            .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+            .active = Some(MenuPage::System);
+
+        // The IR surfaces Reset All Settings as an always-present Action entry.
+        let model = SystemMenuModel::build(
+            &UserSettings::default(),
+            &RadioSnapshot::default(),
+            &DevSnapshot::default(),
+        );
+        assert!(
+            model.entry(SystemMenuEntryId::ResetAllSettings).is_some(),
+            "Reset All Settings is surfaced as a top-level entry"
+        );
+
+        // Mutate persisted resources away from their defaults.
+        app.world_mut()
+            .resource_mut::<UserSettings>()
+            .audio
+            .master_volume = 0.123;
+        app.world_mut()
+            .resource_mut::<crate::dev::dev_tools::DeveloperTools>()
+            .inspector_visible = true;
+
+        // Dispatch Reset All Settings through the real pointer release/dispatch path.
+        click_control(
+            &mut app,
+            MenuPageAction::SystemAction(SystemMenuAction::ResetAllSettings),
+        );
+
+        // UserSettings + DeveloperTools are back to defaults.
+        assert_eq!(
+            *app.world().resource::<UserSettings>(),
+            UserSettings::default(),
+            "Reset All Settings restores UserSettings to defaults"
+        );
+        assert!(
+            !app.world()
+                .resource::<crate::dev::dev_tools::DeveloperTools>()
+                .inspector_visible,
+            "Reset All Settings restores DeveloperTools to defaults"
+        );
+        // The cube folds shut (same close as Reset Sandbox).
+        assert!(
+            !app.world()
+                .resource::<crate::inventory::InventoryUiState>()
+                .visible,
+            "Reset All Settings closes the cube"
+        );
+    }
+
+    #[test]
     fn system_edge_left_moves_inward_to_the_row_list() {
         let mut app = system_nav_app(MenuFocus::EdgeLeft);
         let mut frame = MenuControlFrame::default();
@@ -2665,6 +2761,7 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
+        app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
         app.init_resource::<crate::inventory::InventoryUiState>();
         app.init_resource::<crate::map_menu::MapMenuState>();
@@ -2793,6 +2890,7 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
+        app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
         app.init_resource::<crate::inventory::InventoryUiState>();
         app.init_resource::<crate::map_menu::MapMenuState>();
@@ -2948,6 +3046,7 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
+        app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
         app.init_resource::<crate::inventory::InventoryUiState>();
         app.init_resource::<crate::map_menu::MapMenuState>();
@@ -3137,6 +3236,7 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
+        app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
         app.init_resource::<crate::inventory::InventoryUiState>();
         app.add_message::<PlayerHealRequested>();
@@ -3336,6 +3436,7 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
+        app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
         app.init_resource::<crate::inventory::InventoryUiState>();
         app.init_resource::<crate::map_menu::MapMenuState>();
@@ -3783,6 +3884,7 @@ mod lunex_kaleidoscope_app_tests {
         app.insert_resource(owned);
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
+        app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
         app.init_resource::<crate::inventory::InventoryUiState>();
         app.add_message::<SfxMessage>();

@@ -33,14 +33,12 @@ use super::UserSettings;
 /// renderer's selection cursor / dispatched action without allocation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum SettingsCategoryId {
+    /// Display mode, camera, flashes, colorblind, FPS overlay — and the whole
+    /// shader / post-process stack, appended after the basic rows. Shaders live
+    /// UNDER Video (not a sibling category) so both frontends agree: the pause
+    /// menu drills `Video > Shaders` as a subpage, and the cube's single-level
+    /// System drill surfaces them flat in the Video screen after the basic rows.
     Video,
-    /// The whole-screen shader / post-process stack. A *dedicated* category
-    /// (rather than rows appended onto Video) because the pause menu already
-    /// models it as its own `Video > Shaders` subpage: ~20 sliders that would
-    /// otherwise swamp the half-dozen Video rows. A first-class category reads
-    /// cleanly in BOTH frontends — the cube's System face shows a "Shaders"
-    /// drill-in row beside Video/Audio/..., mirroring the pause-menu subpage.
-    Shaders,
     Audio,
     Controls,
     Gameplay,
@@ -48,19 +46,12 @@ pub enum SettingsCategoryId {
 
 impl SettingsCategoryId {
     /// Every category, in display order.
-    pub const ALL: [Self; 5] = [
-        Self::Video,
-        Self::Shaders,
-        Self::Audio,
-        Self::Controls,
-        Self::Gameplay,
-    ];
+    pub const ALL: [Self; 4] = [Self::Video, Self::Audio, Self::Controls, Self::Gameplay];
 
     /// Display name, matching `SettingsPage::title` in the pause menu.
     pub fn label(self) -> &'static str {
         match self {
             Self::Video => "Video",
-            Self::Shaders => "Shaders",
             Self::Audio => "Audio",
             Self::Controls => "Controls",
             Self::Gameplay => "Gameplay",
@@ -70,8 +61,7 @@ impl SettingsCategoryId {
     /// One-line category description (shown when a category row is focused).
     pub fn description(self) -> &'static str {
         match self {
-            Self::Video => "Display mode, camera, flashes, colorblind, FPS overlay.",
-            Self::Shaders => "Whole-screen CRT / film-grain / glitch post-process strengths.",
+            Self::Video => "Display mode, camera, flashes, colorblind, FPS, shaders.",
             Self::Audio => "Master / music / SFX volume and mute.",
             Self::Controls => "Sticks, triggers, dash, touch, and menu input.",
             Self::Gameplay => "Difficulty, assist, damage, and HUD overlays.",
@@ -315,7 +305,7 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
     ];
     let (di, dc) = enum_index(&display_all, display_kind);
 
-    let video = SettingsCategory {
+    let mut video = SettingsCategory {
         id: SettingsCategoryId::Video,
         label: SettingsCategoryId::Video.label().to_string(),
         options: vec![
@@ -391,164 +381,164 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
         ],
     };
 
-    // Shaders: the whole `Video > Shaders` pause-menu subpage, ported 1:1. Each
-    // row is a slider with the SAME step the pause menu nudges by
+    // Shaders: the whole `Video > Shaders` pause-menu subpage, ported 1:1 and
+    // appended to the Video category (shaders live UNDER Video, not as a sibling).
+    // Each row is a slider with the SAME step the pause menu nudges by
     // (UNIT_STEP 0.10 / FINE_STEP 0.05; grain size/fps use their own ranges) and
     // the SAME value label (`ScreenShaderSettings::percent`, or `px` / `fps`).
     use super::video::ScreenShaderSettings as Shdr;
     let s = &v.shaders;
-    let shaders = SettingsCategory {
-        id: SettingsCategoryId::Shaders,
-        label: SettingsCategoryId::Shaders.label().to_string(),
-        options: vec![
-            shader_unit_slider(
-                SettingsOptionId::ShaderStrength,
-                "Shader Strength",
-                s.strength,
-                Shdr::UNIT_STEP,
-                "Global multiplier for the whole shader stack (0% = off).",
-            ),
-            shader_unit_slider(
-                SettingsOptionId::ShaderCrtStrength,
-                "CRT Strength",
-                s.crt_strength,
-                Shdr::UNIT_STEP,
-                "Overall CRT treatment strength.",
-            ),
-            shader_unit_slider(
-                SettingsOptionId::ShaderCrtScanlines,
-                "CRT Scanlines",
-                s.crt_scanlines,
-                Shdr::FINE_STEP,
-                "CRT beam scanline darkening.",
-            ),
-            shader_unit_slider(
-                SettingsOptionId::ShaderCrtMask,
-                "CRT Phosphor Mask",
-                s.crt_mask,
-                Shdr::FINE_STEP,
-                "CRT RGB phosphor mask intensity.",
-            ),
-            shader_unit_slider(
-                SettingsOptionId::ShaderCrtCurvature,
-                "CRT Curvature",
-                s.crt_curvature,
-                Shdr::FINE_STEP,
-                "CRT screen-curvature warp amount.",
-            ),
-            shader_unit_slider(
-                SettingsOptionId::ShaderCrtBloom,
-                "CRT Bloom",
-                s.crt_bloom,
-                Shdr::FINE_STEP,
-                "CRT local glow / bloom.",
-            ),
-            shader_unit_slider(
-                SettingsOptionId::ShaderCrtChroma,
-                "CRT Chroma Split",
-                s.crt_chroma,
-                Shdr::FINE_STEP,
-                "CRT chromatic-aberration split.",
-            ),
-            shader_unit_slider(
-                SettingsOptionId::ShaderFilmGrainStrength,
-                "Film Grain Strength",
-                s.film_grain_strength,
-                Shdr::FINE_STEP,
-                "Film-grain noise strength.",
-            ),
-            slider(
-                SettingsOptionId::ShaderFilmGrainSize,
-                "Film Grain Size",
-                s.film_grain_size,
-                1.0,
-                8.0,
-                Shdr::GRAIN_SIZE_STEP,
-                format!("{:.0}px", s.film_grain_size),
-                "Output pixels per film-grain cell.",
-            ),
-            slider(
-                SettingsOptionId::ShaderFilmGrainFps,
-                "Film Grain Rate",
-                s.film_grain_fps,
-                1.0,
-                60.0,
-                Shdr::GRAIN_FPS_STEP,
-                format!("{:.0} fps", s.film_grain_fps),
-                "How often the film-grain seed changes.",
-            ),
-            shader_unit_slider(
-                SettingsOptionId::ShaderFilmGrainLumaBias,
-                "Film Grain Luma Bias",
-                s.film_grain_luma_bias,
-                Shdr::FINE_STEP,
-                "Bias film grain toward darker / brighter areas.",
-            ),
-            shader_unit_slider(
-                SettingsOptionId::ShaderRobotDeathStrength,
-                "Robot Death Strength",
-                s.robot_death_strength,
-                Shdr::UNIT_STEP,
-                "Robot-death static / glitch strength.",
-            ),
-            shader_unit_slider(
-                SettingsOptionId::ShaderRobotStatic,
-                "Robot Static",
-                s.robot_static,
-                Shdr::FINE_STEP,
-                "Robot-death static noise amount.",
-            ),
-            shader_unit_slider(
-                SettingsOptionId::ShaderRobotTear,
-                "Robot Tear",
-                s.robot_tear,
-                Shdr::FINE_STEP,
-                "Robot-death horizontal tearing.",
-            ),
-            shader_unit_slider(
-                SettingsOptionId::ShaderRobotDesaturate,
-                "Robot Desaturate",
-                s.robot_desaturate,
-                Shdr::FINE_STEP,
-                "Robot-death desaturation.",
-            ),
-            shader_unit_slider(
-                SettingsOptionId::ShaderRobotScanlines,
-                "Robot Scanlines",
-                s.robot_scanlines,
-                Shdr::FINE_STEP,
-                "Robot-death scanline overlay.",
-            ),
-            shader_unit_slider(
-                SettingsOptionId::ShaderUnderwaterStrength,
-                "Underwater Strength",
-                s.underwater_strength,
-                Shdr::UNIT_STEP,
-                "Underwater ripple / tint strength.",
-            ),
-            shader_unit_slider(
-                SettingsOptionId::ShaderUnderwaterDistortion,
-                "Underwater Distortion",
-                s.underwater_distortion,
-                Shdr::FINE_STEP,
-                "Underwater displacement amount.",
-            ),
-            shader_unit_slider(
-                SettingsOptionId::ShaderDeepDreamStrength,
-                "Deep Dream Strength",
-                s.deep_dream_strength,
-                Shdr::UNIT_STEP,
-                "Full-screen deep-dream reference view strength.",
-            ),
-            shader_unit_slider(
-                SettingsOptionId::ShaderVignetteStrength,
-                "Vignette Strength",
-                s.vignette_strength,
-                Shdr::FINE_STEP,
-                "Edge-darkening vignette strength.",
-            ),
-        ],
-    };
+    let shader_options: Vec<SettingsOption> = vec![
+        shader_unit_slider(
+            SettingsOptionId::ShaderStrength,
+            "Shader Strength",
+            s.strength,
+            Shdr::UNIT_STEP,
+            "Global multiplier for the whole shader stack (0% = off).",
+        ),
+        shader_unit_slider(
+            SettingsOptionId::ShaderCrtStrength,
+            "CRT Strength",
+            s.crt_strength,
+            Shdr::UNIT_STEP,
+            "Overall CRT treatment strength.",
+        ),
+        shader_unit_slider(
+            SettingsOptionId::ShaderCrtScanlines,
+            "CRT Scanlines",
+            s.crt_scanlines,
+            Shdr::FINE_STEP,
+            "CRT beam scanline darkening.",
+        ),
+        shader_unit_slider(
+            SettingsOptionId::ShaderCrtMask,
+            "CRT Phosphor Mask",
+            s.crt_mask,
+            Shdr::FINE_STEP,
+            "CRT RGB phosphor mask intensity.",
+        ),
+        shader_unit_slider(
+            SettingsOptionId::ShaderCrtCurvature,
+            "CRT Curvature",
+            s.crt_curvature,
+            Shdr::FINE_STEP,
+            "CRT screen-curvature warp amount.",
+        ),
+        shader_unit_slider(
+            SettingsOptionId::ShaderCrtBloom,
+            "CRT Bloom",
+            s.crt_bloom,
+            Shdr::FINE_STEP,
+            "CRT local glow / bloom.",
+        ),
+        shader_unit_slider(
+            SettingsOptionId::ShaderCrtChroma,
+            "CRT Chroma Split",
+            s.crt_chroma,
+            Shdr::FINE_STEP,
+            "CRT chromatic-aberration split.",
+        ),
+        shader_unit_slider(
+            SettingsOptionId::ShaderFilmGrainStrength,
+            "Film Grain Strength",
+            s.film_grain_strength,
+            Shdr::FINE_STEP,
+            "Film-grain noise strength.",
+        ),
+        slider(
+            SettingsOptionId::ShaderFilmGrainSize,
+            "Film Grain Size",
+            s.film_grain_size,
+            1.0,
+            8.0,
+            Shdr::GRAIN_SIZE_STEP,
+            format!("{:.0}px", s.film_grain_size),
+            "Output pixels per film-grain cell.",
+        ),
+        slider(
+            SettingsOptionId::ShaderFilmGrainFps,
+            "Film Grain Rate",
+            s.film_grain_fps,
+            1.0,
+            60.0,
+            Shdr::GRAIN_FPS_STEP,
+            format!("{:.0} fps", s.film_grain_fps),
+            "How often the film-grain seed changes.",
+        ),
+        shader_unit_slider(
+            SettingsOptionId::ShaderFilmGrainLumaBias,
+            "Film Grain Luma Bias",
+            s.film_grain_luma_bias,
+            Shdr::FINE_STEP,
+            "Bias film grain toward darker / brighter areas.",
+        ),
+        shader_unit_slider(
+            SettingsOptionId::ShaderRobotDeathStrength,
+            "Robot Death Strength",
+            s.robot_death_strength,
+            Shdr::UNIT_STEP,
+            "Robot-death static / glitch strength.",
+        ),
+        shader_unit_slider(
+            SettingsOptionId::ShaderRobotStatic,
+            "Robot Static",
+            s.robot_static,
+            Shdr::FINE_STEP,
+            "Robot-death static noise amount.",
+        ),
+        shader_unit_slider(
+            SettingsOptionId::ShaderRobotTear,
+            "Robot Tear",
+            s.robot_tear,
+            Shdr::FINE_STEP,
+            "Robot-death horizontal tearing.",
+        ),
+        shader_unit_slider(
+            SettingsOptionId::ShaderRobotDesaturate,
+            "Robot Desaturate",
+            s.robot_desaturate,
+            Shdr::FINE_STEP,
+            "Robot-death desaturation.",
+        ),
+        shader_unit_slider(
+            SettingsOptionId::ShaderRobotScanlines,
+            "Robot Scanlines",
+            s.robot_scanlines,
+            Shdr::FINE_STEP,
+            "Robot-death scanline overlay.",
+        ),
+        shader_unit_slider(
+            SettingsOptionId::ShaderUnderwaterStrength,
+            "Underwater Strength",
+            s.underwater_strength,
+            Shdr::UNIT_STEP,
+            "Underwater ripple / tint strength.",
+        ),
+        shader_unit_slider(
+            SettingsOptionId::ShaderUnderwaterDistortion,
+            "Underwater Distortion",
+            s.underwater_distortion,
+            Shdr::FINE_STEP,
+            "Underwater displacement amount.",
+        ),
+        shader_unit_slider(
+            SettingsOptionId::ShaderDeepDreamStrength,
+            "Deep Dream Strength",
+            s.deep_dream_strength,
+            Shdr::UNIT_STEP,
+            "Full-screen deep-dream reference view strength.",
+        ),
+        shader_unit_slider(
+            SettingsOptionId::ShaderVignetteStrength,
+            "Vignette Strength",
+            s.vignette_strength,
+            Shdr::FINE_STEP,
+            "Edge-darkening vignette strength.",
+        ),
+    ];
+    // Shaders live UNDER Video: append the 20 shader rows after the basic Video
+    // rows so the single screen carries both (no separate Shaders category).
+    video.options.extend(shader_options);
 
     let audio = SettingsCategory {
         id: SettingsCategoryId::Audio,
@@ -770,7 +760,7 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
     };
 
     SettingsMenuModel {
-        categories: vec![video, shaders, audio, controls, gameplay],
+        categories: vec![video, audio, controls, gameplay],
     }
 }
 

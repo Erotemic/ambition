@@ -310,21 +310,27 @@ class SideRobotGenerator:
             p.near_leg_lower = 85 - back_lift * knee_tuck + forward_lift * heel_kick
             p.eye_squint = 0.08 + bounce * 0.12
         elif animation == "jump":
-            arc = math.sin(t * math.pi)
-            lift = ease_in_out_sine(arc)
-            p.root_y = -18.0 * lift
-            p.root_x = 2.0 * t
-            p.body_tilt = -4.0 + 4.0 * t
-            p.head_tilt = -2.0 - 2.0 * lift
-            p.far_arm_upper = 165 - 18 * lift
-            p.far_arm_lower = 142 - 10 * lift
-            p.near_arm_upper = 8 + 18 * lift
-            p.near_arm_lower = 8 + 12 * lift
-            p.far_leg_upper = 128
-            p.far_leg_lower = 78
-            p.near_leg_upper = 88
-            p.near_leg_lower = 62
-            p.eye_squint = 0.08
+            # Quick squat-to-spring jump. The old version started airborne,
+            # which made the action read as a float. This keeps an obvious
+            # crouch on the first frames, a push-off beat in the middle, then
+            # a compact airborne silhouette.
+            preload = 1.0 - smoothstep(clamp(t / 0.24, 0.0, 1.0))
+            launch = smoothstep(clamp((t - 0.14) / 0.24, 0.0, 1.0))
+            air = smoothstep(clamp((t - 0.34) / 0.32, 0.0, 1.0))
+            tuck = smoothstep(clamp((t - 0.46) / 0.18, 0.0, 1.0)) * (1.0 - 0.60 * smoothstep(clamp((t - 0.82) / 0.18, 0.0, 1.0)))
+            p.root_y = 5.0 * preload - 19.0 * air
+            p.root_x = 0.6 + 2.2 * air
+            p.body_tilt = -12.0 * preload - 3.0 * launch + 4.0 * air
+            p.head_tilt = -5.0 * preload - 2.0 * air
+            p.far_arm_upper = 164.0 - 14.0 * air
+            p.far_arm_lower = 150.0 - 10.0 * air
+            p.near_arm_upper = 14.0 + 12.0 * air
+            p.near_arm_lower = 10.0 + 10.0 * air
+            p.far_leg_upper = 88.0 - 12.0 * tuck
+            p.far_leg_lower = 118.0 + 30.0 * tuck
+            p.near_leg_upper = 74.0 - 10.0 * tuck
+            p.near_leg_lower = 104.0 + 24.0 * tuck
+            p.eye_squint = 0.08 + 0.05 * air
         elif animation == "fall":
             p.root_y = -10.0 + 10.0 * t
             p.body_tilt = 5.0 + 5.0 * t
@@ -499,21 +505,24 @@ class SideRobotGenerator:
             p.near_leg_lower = 48.0
             p.eye_squint = 0.22 * impact
         elif animation == "roll":
-            spin = t * 360.0
-            tuck = math.sin(t * math.pi)
-            p.root_x = -8.0 + 18.0 * t
-            p.root_y = 6.0 + 2.0 * math.sin(t * math.tau)
-            p.body_tilt = -32.0 + spin
-            p.head_tilt = -26.0 + spin * 0.88
-            p.far_arm_upper = 184.0 + 18.0 * tuck
-            p.far_arm_lower = 188.0 + 10.0 * tuck
-            p.near_arm_upper = -20.0 - 18.0 * tuck
-            p.near_arm_lower = -28.0 - 10.0 * tuck
-            p.far_leg_upper = 150.0 - 28.0 * tuck
-            p.far_leg_lower = 42.0 + 24.0 * tuck
-            p.near_leg_upper = 106.0 - 22.0 * tuck
-            p.near_leg_lower = 34.0 + 28.0 * tuck
-            p.eye_squint = 0.26
+            crouch = smoothstep(clamp(t / 0.14, 0.0, 1.0))
+            recover = smoothstep(clamp((t - 0.78) / 0.22, 0.0, 1.0))
+            spin = smoothstep(clamp((t - 0.08) / 0.80, 0.0, 1.0))
+            tuck = smoothstep(clamp((t - 0.08) / 0.18, 0.0, 1.0)) * (1.0 - 0.35 * recover)
+            p.root_x = -7.0 + 20.0 * smoothstep(t)
+            p.root_y = 5.0 + 3.0 * math.sin(t * math.pi) - 2.0 * tuck + 1.6 * recover
+            p.body_tilt = -16.0 * crouch + 8.0 * recover
+            p.head_tilt = -8.0 * crouch + 4.0 * recover
+            p.far_arm_upper = 168.0 + 24.0 * tuck - 10.0 * recover
+            p.far_arm_lower = 152.0 + 28.0 * tuck - 14.0 * recover
+            p.near_arm_upper = 36.0 - 30.0 * tuck - 4.0 * recover
+            p.near_arm_lower = 14.0 - 24.0 * tuck - 6.0 * recover
+            p.far_leg_upper = 98.0 - 14.0 * tuck + 8.0 * recover
+            p.far_leg_lower = 180.0 - 48.0 * tuck + 10.0 * recover
+            p.near_leg_upper = 72.0 - 10.0 * tuck + 8.0 * recover
+            p.near_leg_lower = 20.0 - 6.0 * tuck + 14.0 * recover
+            p.whole_body_rotation = -360.0 * spin
+            p.eye_squint = 0.22 + 0.10 * tuck
         elif animation == "slide":
             skid = smoothstep(clamp(t / 0.35, 0.0, 1.0))
             p.root_x = 4.0 + 10.0 * t
@@ -753,16 +762,17 @@ class SideRobotGenerator:
             wind = smoothstep(clamp(t / 0.85, 0.0, 1.0))
             p.root_x = -3.0 * wind
             p.root_y = 1.5 * wind
-            p.body_tilt = -22.0 * wind
-            p.head_tilt = -6.0 * wind
-            p.far_arm_upper = 168.0 + 6.0 * wind
-            p.far_arm_lower = 152.0 + 4.0 * wind
-            p.near_arm_upper = 22.0 - 14.0 * wind
-            p.near_arm_lower = 14.0 - 10.0 * wind
-            p.far_leg_upper = 124.0 + 6.0 * wind
-            p.far_leg_lower = 78.0 + 4.0 * wind
-            p.near_leg_upper = 86.0 - 18.0 * wind
-            p.near_leg_lower = 60.0 - 12.0 * wind
+            p.body_tilt = -18.0 * wind
+            p.head_tilt = -8.0 * wind
+            p.far_arm_upper = 170.0 + 4.0 * wind
+            p.far_arm_lower = 156.0 + 4.0 * wind
+            p.near_arm_upper = 28.0 - 20.0 * wind
+            p.near_arm_lower = 18.0 - 16.0 * wind
+            # Keep both knees reading forward for a right-facing crouch-start.
+            p.far_leg_upper = 108.0 + 10.0 * wind
+            p.far_leg_lower = 54.0 + 6.0 * wind
+            p.near_leg_upper = 78.0 - 8.0 * wind
+            p.near_leg_lower = 118.0 - 18.0 * wind
             p.eye_squint = 0.18 + 0.18 * wind
         elif animation == "land_hard":
             # Heavier counterpart to "land". Big squash on impact, slow rebound,
@@ -771,16 +781,16 @@ class SideRobotGenerator:
             dust = math.sin(t * math.pi)
             p.root_y = 11.0 * impact - 1.0 * dust
             p.body_bob = 6.0 * impact
-            p.body_tilt = -12.0 * impact
-            p.head_tilt = -8.0 * impact
-            p.far_arm_upper = 158.0 - 22.0 * impact
-            p.far_arm_lower = 138.0 - 18.0 * impact
-            p.near_arm_upper = 12.0 + 38.0 * impact
-            p.near_arm_lower = 2.0 + 28.0 * impact
-            p.far_leg_upper = 142.0 - 4.0 * impact
-            p.far_leg_lower = 36.0
-            p.near_leg_upper = 102.0 - 6.0 * impact
-            p.near_leg_lower = 30.0
+            p.body_tilt = -14.0 * impact
+            p.head_tilt = -9.0 * impact
+            p.far_arm_upper = 150.0 - 14.0 * impact
+            p.far_arm_lower = 136.0 - 12.0 * impact
+            p.near_arm_upper = 18.0 + 32.0 * impact
+            p.near_arm_lower = 10.0 + 24.0 * impact
+            p.far_leg_upper = 112.0 + 6.0 * impact
+            p.far_leg_lower = 30.0 + 4.0 * impact
+            p.near_leg_upper = 82.0 + 6.0 * impact
+            p.near_leg_lower = 22.0 + 6.0 * impact
             p.eye_squint = 0.42 * impact + 0.10
         elif animation == "land_recovery":
             # Rise back to neutral after a (hard) landing: legs unfold, torso
@@ -788,16 +798,16 @@ class SideRobotGenerator:
             rise = smoothstep(t)
             p.root_y = 6.0 * (1.0 - rise)
             p.body_bob = 3.0 * (1.0 - rise)
-            p.body_tilt = -8.0 * (1.0 - rise)
-            p.head_tilt = -4.0 * (1.0 - rise)
-            p.far_arm_upper = 158.0 + 10.0 * rise * 0.2
-            p.far_arm_lower = 142.0 + 6.0 * rise * 0.2
-            p.near_arm_upper = 26.0 - 6.0 * rise
-            p.near_arm_lower = 12.0 - 4.0 * rise
-            p.far_leg_upper = 132.0 - 22.0 * rise
-            p.far_leg_lower = 56.0 + 38.0 * rise
-            p.near_leg_upper = 96.0 - 22.0 * rise
-            p.near_leg_lower = 50.0 + 36.0 * rise
+            p.body_tilt = -10.0 * (1.0 - rise)
+            p.head_tilt = -5.0 * (1.0 - rise)
+            p.far_arm_upper = 148.0 + 10.0 * rise
+            p.far_arm_lower = 134.0 + 8.0 * rise
+            p.near_arm_upper = 32.0 - 14.0 * rise
+            p.near_arm_lower = 18.0 - 10.0 * rise
+            p.far_leg_upper = 114.0 - 10.0 * rise
+            p.far_leg_lower = 34.0 + 58.0 * rise
+            p.near_leg_upper = 84.0 - 12.0 * rise
+            p.near_leg_lower = 26.0 + 58.0 * rise
             p.eye_squint = 0.20 * (1.0 - rise)
         elif animation == "wall_grab":
             # Pinned-against-wall hold. Both arms locked straight out
@@ -811,41 +821,44 @@ class SideRobotGenerator:
             # body tilts ~22° into the wall, near leg pulled up high
             # so a bent knee crosses the body silhouette.
             breathe = math.sin(t * math.tau)
-            p.root_x = 9.0 + breathe * 0.6
-            p.root_y = -2.0 + breathe * 0.8
-            p.body_tilt = 22.0 + breathe * 1.4
-            p.head_tilt = 10.0 + breathe * 0.8
-            # Arms straight forward + slightly down (slammed onto wall).
-            p.far_arm_upper = 92.0 + breathe * 1.2
-            p.far_arm_lower = 88.0 + breathe * 1.0
-            p.near_arm_upper = 88.0 - breathe * 1.2
-            p.near_arm_lower = 84.0 - breathe * 1.0
-            # Near leg pulled up high (knee bent across body), far leg
-            # extended down to plant against the wall. Creates the
-            # "frog-on-glass" silhouette that reads as wall-cling.
-            p.far_leg_upper = 130.0 + breathe * 1.8
-            p.far_leg_lower = 64.0 - breathe * 1.4
-            p.near_leg_upper = 36.0 - breathe * 1.8
-            p.near_leg_lower = 28.0 + breathe * 1.4
+            p.root_x = 10.2 + breathe * 0.5
+            p.root_y = -11.0 + breathe * 0.8
+            p.body_tilt = 12.0 + breathe * 1.0
+            p.head_tilt = -8.0 + breathe * 0.6
+            p.head_look = -0.85
+            p.head_dx = -3.8
+            p.head_dy = -1.5
+            # Both hands now actually grip the wall ahead of the player.
+            p.far_arm_upper = -18.0 + breathe * 1.4
+            p.far_arm_lower = 10.0 + breathe * 1.0
+            p.near_arm_upper = -30.0 - breathe * 1.4
+            p.near_arm_lower = 4.0 - breathe * 1.0
+            # Player-right leg braces on the wall; the back leg stays folded
+            # under the body with a forward knee rather than reversing.
+            p.far_leg_upper = 52.0 + breathe * 1.8
+            p.far_leg_lower = 16.0 + breathe * 1.2
+            p.near_leg_upper = 102.0 + breathe * 1.5
+            p.near_leg_lower = 176.0 - breathe * 1.0
             p.eye_squint = 0.18
         elif animation == "ledge_climb":
             # Slow, deliberate haul-up against an overhead grip. Arms remain
             # locked overhead; the body pulls upward in two pump phases while
             # the legs scuff at the wall below for traction.
             pump = math.sin(t * math.tau)
-            haul = smoothstep(clamp(t / 0.8, 0.0, 1.0))
-            p.root_x = -2.0 - 0.4 * pump
-            p.root_y = -8.0 + 5.0 * haul + 0.8 * pump
-            p.body_tilt = -9.0 + pump * 1.6
-            p.head_tilt = -5.0 + pump * 1.0
-            p.far_arm_upper = 198.0 - 6.0 * haul
-            p.far_arm_lower = 206.0 - 4.0 * haul
-            p.near_arm_upper = -54.0 + 6.0 * haul
-            p.near_arm_lower = -58.0 + 4.0 * haul
-            p.far_leg_upper = 124.0 + pump * 6.0
-            p.far_leg_lower = 88.0 - pump * 5.0
-            p.near_leg_upper = 90.0 - pump * 6.0
-            p.near_leg_lower = 78.0 + pump * 5.0
+            haul = smoothstep(clamp(t / 0.82, 0.0, 1.0))
+            p.root_x = 6.0 + 0.8 * haul - 0.5 * pump
+            p.root_y = -12.0 + 8.0 * haul + 0.8 * pump
+            p.body_tilt = -14.0 + 12.0 * haul + pump * 1.5
+            p.head_tilt = -8.0 + 6.0 * haul + pump * 0.8
+            # Both arms reach toward the ledge on the player's front/right.
+            p.far_arm_upper = -30.0 + 18.0 * haul
+            p.far_arm_lower = -10.0 + 26.0 * haul
+            p.near_arm_upper = -44.0 + 16.0 * haul
+            p.near_arm_lower = -18.0 + 24.0 * haul
+            p.far_leg_upper = 98.0 + pump * 5.0 - 6.0 * haul
+            p.far_leg_lower = 176.0 - pump * 6.0 - 12.0 * haul
+            p.near_leg_upper = 72.0 - pump * 4.0 + 4.0 * haul
+            p.near_leg_lower = 18.0 + pump * 4.0 + 8.0 * haul
             p.eye_squint = 0.30
         elif animation == "float_glide":
             # Sustained aerial float (Peach/Kirby-style). Body stays close to
@@ -876,18 +889,18 @@ class SideRobotGenerator:
             # under-the-ledge crouch to upright over the duration.
             mantle = smoothstep(t)
             pop = smoothstep(clamp((t - 0.45) / 0.55, 0.0, 1.0))
-            p.root_x = -2.0 + 6.0 * mantle
-            p.root_y = -8.0 + 8.0 * mantle - 2.0 * pop
-            p.body_tilt = -10.0 + 18.0 * mantle - 8.0 * pop
-            p.head_tilt = -5.0 + 9.0 * mantle - 4.0 * pop
-            p.far_arm_upper = lerp(200.0, 158.0, mantle)
-            p.far_arm_lower = lerp(208.0, 144.0, mantle)
-            p.near_arm_upper = lerp(-52.0, 28.0, mantle)
-            p.near_arm_lower = lerp(-56.0, 12.0, mantle)
-            p.far_leg_upper = lerp(122.0, 108.0, mantle)
-            p.far_leg_lower = lerp(92.0, 96.0, mantle)
-            p.near_leg_upper = lerp(92.0, 72.0, mantle)
-            p.near_leg_lower = lerp(76.0, 88.0, mantle)
+            p.root_x = 5.0 + 7.0 * mantle
+            p.root_y = -10.0 + 10.0 * mantle - 2.0 * pop
+            p.body_tilt = -14.0 + 20.0 * mantle - 8.0 * pop
+            p.head_tilt = -8.0 + 10.0 * mantle - 4.0 * pop
+            p.far_arm_upper = lerp(-28.0, 150.0, mantle)
+            p.far_arm_lower = lerp(-8.0, 132.0, mantle)
+            p.near_arm_upper = lerp(-42.0, 18.0, mantle)
+            p.near_arm_lower = lerp(-18.0, 8.0, mantle)
+            p.far_leg_upper = lerp(102.0, 106.0, mantle)
+            p.far_leg_lower = lerp(176.0, 94.0, mantle)
+            p.near_leg_upper = lerp(72.0, 70.0, mantle)
+            p.near_leg_lower = lerp(18.0, 86.0, mantle)
             p.eye_squint = 0.26 - 0.10 * mantle
         elif animation == "ledge_roll":
             # Smash-Bros style ledge roll: tumble onto the platform.
@@ -902,32 +915,24 @@ class SideRobotGenerator:
             # invuln pose — the tuck keeps the silhouette small and
             # round to read "rolling = not a target."
             swing = smoothstep(clamp(t / 0.18, 0.0, 1.0))
-            tuck = smoothstep(clamp((t - 0.18) / 0.37, 0.0, 1.0))
-            untuck = smoothstep(clamp((t - 0.55) / 0.30, 0.0, 1.0))
-            stand = smoothstep(clamp((t - 0.85) / 0.15, 0.0, 1.0))
-            # Body rolls forward across the platform: root_x rides
-            # the full ~32 px from anchor side to climb_target side.
-            p.root_x = -2.0 + 32.0 * smoothstep(t)
-            # Vertical bob — up during swing, dips through tuck (low
-            # tumble), rises through untuck and stand.
-            p.root_y = -8.0 + 6.0 * swing - 2.0 * tuck + 4.0 * untuck + 6.0 * stand
-            # Body spins forward 360°: visualised as steep tilt that
-            # passes through horizontal at the mid-tuck.
-            spin = 360.0 * smoothstep(clamp(t / 0.85, 0.0, 1.0))
-            p.body_tilt = -10.0 + 0.5 * spin - 170.0 * stand
-            p.head_tilt = -5.0 + 0.3 * spin - 100.0 * stand
-            # Tucked limbs: arms hug close to the chest, legs fold in.
-            tight = max(tuck, 0.7 * untuck)
-            p.far_arm_upper = lerp(200.0, 48.0, swing) + 8.0 * tight
-            p.far_arm_lower = lerp(208.0, 32.0, swing) + 6.0 * tight
-            p.near_arm_upper = lerp(-52.0, 14.0, swing) - 12.0 * tight
-            p.near_arm_lower = lerp(-56.0, 6.0, swing) - 14.0 * tight
-            # Legs swing up, tuck under, extend forward, plant.
-            p.far_leg_upper = lerp(122.0, 64.0, swing) + 4.0 * tight + 18.0 * stand
-            p.far_leg_lower = lerp(92.0, 32.0, swing) + 6.0 * tight + 26.0 * stand
-            p.near_leg_upper = lerp(92.0, 78.0, swing) - 14.0 * tight + 28.0 * stand
-            p.near_leg_lower = lerp(76.0, 28.0, swing) - 16.0 * tight + 30.0 * stand
-            p.eye_squint = 0.30 + 0.18 * tuck - 0.10 * stand
+            tuck = smoothstep(clamp((t - 0.14) / 0.24, 0.0, 1.0))
+            stand = smoothstep(clamp((t - 0.82) / 0.18, 0.0, 1.0))
+            roll_spin = smoothstep(clamp((t - 0.08) / 0.76, 0.0, 1.0))
+            tight = tuck * (1.0 - 0.55 * stand)
+            p.root_x = 4.0 + 26.0 * smoothstep(t)
+            p.root_y = -8.0 + 4.0 * swing - 6.0 * tight + 6.0 * stand
+            p.body_tilt = -16.0 * (1.0 - stand)
+            p.head_tilt = -8.0 * (1.0 - stand)
+            p.far_arm_upper = lerp(-30.0, 164.0, tight) + 10.0 * stand
+            p.far_arm_lower = lerp(-8.0, 148.0, tight) + 12.0 * stand
+            p.near_arm_upper = lerp(-42.0, 26.0, swing) - 26.0 * tight - 10.0 * stand
+            p.near_arm_lower = lerp(-18.0, 12.0, swing) - 22.0 * tight - 8.0 * stand
+            p.far_leg_upper = lerp(102.0, 104.0, stand) - 18.0 * tight
+            p.far_leg_lower = lerp(176.0, 94.0, stand) - 48.0 * tight
+            p.near_leg_upper = lerp(72.0, 70.0, stand) - 12.0 * tight
+            p.near_leg_lower = lerp(18.0, 84.0, stand) - 8.0 * tight
+            p.whole_body_rotation = -360.0 * roll_spin
+            p.eye_squint = 0.28 + 0.16 * tight - 0.10 * stand
         elif animation == "ledge_getup_attack":
             # Swing-onto-platform attack: the player vaults up while
             # slashing in a single continuous motion. Engine fires
@@ -948,25 +953,25 @@ class SideRobotGenerator:
             # Body rises from below-the-lip to standing, same arc as
             # the regular getup but with a forward thrust at the
             # strike peak.
-            p.root_x = -2.0 + 7.0 * mantle + 3.0 * strike - 1.5 * recover
-            p.root_y = -8.0 + 9.0 * mantle - 2.5 * strike
-            p.body_tilt = -10.0 + 16.0 * mantle - 6.0 * strike + 2.0 * recover
-            p.head_tilt = -5.0 + 8.0 * mantle - 4.0 * strike
-            # Far arm starts overhead-grip, transitions to chest-side
-            # over the mantle so it can pump back during recovery.
-            p.far_arm_upper = lerp(200.0, 162.0, mantle) + 8.0 * recover
-            p.far_arm_lower = lerp(208.0, 148.0, mantle) + 6.0 * recover
+            p.root_x = 5.0 + 7.0 * mantle + 3.0 * strike - 1.5 * recover
+            p.root_y = -10.0 + 10.0 * mantle - 2.5 * strike
+            p.body_tilt = -14.0 + 18.0 * mantle - 8.0 * strike + 2.0 * recover
+            p.head_tilt = -7.0 + 9.0 * mantle - 4.0 * strike
+            # Far arm starts on the front/right ledge, then drops into the
+            # balance/back-swing role as the slash comes through.
+            p.far_arm_upper = lerp(-28.0, 152.0, mantle) + 8.0 * recover
+            p.far_arm_lower = lerp(-8.0, 136.0, mantle) + 6.0 * recover
             # Near (sword) arm: cocks high-back during wind, whips
             # forward over the lip during strike, settles into a
             # combat-ready guard during recovery.
-            p.near_arm_upper = lerp(-52.0, 12.0, mantle) - 36.0 * wind + 86.0 * strike - 28.0 * recover
-            p.near_arm_lower = lerp(-56.0, 0.0, mantle) - 30.0 * wind + 78.0 * strike - 22.0 * recover
+            p.near_arm_upper = lerp(-46.0, 18.0, mantle) - 30.0 * wind + 86.0 * strike - 28.0 * recover
+            p.near_arm_lower = lerp(-18.0, 4.0, mantle) - 24.0 * wind + 78.0 * strike - 22.0 * recover
             # Legs mantle up; near leg drives forward at the strike
             # peak (committed weight transfer).
-            p.far_leg_upper = lerp(122.0, 110.0, mantle) + 10.0 * strike
-            p.far_leg_lower = lerp(92.0, 96.0, mantle) + 6.0 * strike
-            p.near_leg_upper = lerp(92.0, 70.0, mantle) - 14.0 * wind + 8.0 * strike
-            p.near_leg_lower = lerp(76.0, 86.0, mantle) - 12.0 * wind + 6.0 * strike
+            p.far_leg_upper = lerp(102.0, 106.0, mantle) + 10.0 * strike
+            p.far_leg_lower = lerp(176.0, 94.0, mantle) + 6.0 * strike
+            p.near_leg_upper = lerp(72.0, 68.0, mantle) - 10.0 * wind + 8.0 * strike
+            p.near_leg_lower = lerp(18.0, 84.0, mantle) - 8.0 * wind + 6.0 * strike
             # Slash overlay: peaks mid-strike (frame 4-5), trails into
             # recovery. The "side" direction matches the engine's
             # `AttackIntent::Forward` projection used for ledge-getup
@@ -1028,9 +1033,9 @@ class SideRobotGenerator:
             recover = smoothstep(clamp((t - 0.66) / 0.34, 0.0, 1.0))
             sink = max(0.65 * crouch, thrust, 0.55 * (1.0 - recover) * crouch)
             p.root_y = 9.0 * sink
-            p.body_bob = 3.0 * sink
-            p.body_tilt = -4.0 * crouch + 2.0 * thrust
-            p.head_tilt = -2.0 * crouch + 1.0 * thrust
+            p.body_bob = 4.0 * sink
+            p.body_tilt = -8.0 * crouch + 4.0 * thrust
+            p.head_tilt = -4.0 * crouch + 2.0 * thrust
             # Far arm tucked back for balance during the kneel.
             p.far_arm_upper = 178.0 + 6.0 * crouch
             p.far_arm_lower = 168.0 + 6.0 * crouch
@@ -1041,11 +1046,11 @@ class SideRobotGenerator:
             p.near_arm_upper = lerp(38.0, 4.0, thrust) - 10.0 * recover
             p.near_arm_lower = lerp(46.0, -4.0, thrust) - 12.0 * recover
             # Kneeling support: far leg folds high knee + heel tight.
-            p.far_leg_upper = 150.0 + 6.0 * crouch
-            p.far_leg_lower = 32.0 + 4.0 * crouch
+            p.far_leg_upper = 98.0 + 4.0 * crouch
+            p.far_leg_lower = 184.0 - 10.0 * recover
             # Front leg planted forward, bent.
-            p.near_leg_upper = 110.0 + 6.0 * crouch
-            p.near_leg_lower = 34.0 + 6.0 * crouch
+            p.near_leg_upper = 74.0 + 6.0 * crouch
+            p.near_leg_lower = 18.0 + 8.0 * crouch + 14.0 * recover
             p.slash = max(0.25, crouch, thrust)
             p.slash_arc = thrust
             p.slash_dir = "low_poke"
@@ -1474,7 +1479,7 @@ class SideRobotGenerator:
                 resolved.putalpha(a)
                 base.alpha_composite(resolved)
 
-    def _draw_rigid_head(self, img: Image.Image, center: Point, spec: BotSpec, pal: Dict[str, Color], S: float, angle: float, blink_closed: bool, squint: float, dead: bool) -> None:
+    def _draw_rigid_head(self, img: Image.Image, center: Point, spec: BotSpec, pal: Dict[str, Color], S: float, angle: float, blink_closed: bool, squint: float, dead: bool, look: float = 1.0) -> None:
         # Draw in head-local coordinates, then rotate/paste the full layer.  This
         # preserves the older in-repo rigid 2.5D-head idea while remaining pure 2D.
         pad = int(math.ceil(48 * S))
@@ -1486,8 +1491,9 @@ class SideRobotGenerator:
         head_h = spec.head_h * S
 
         # Antenna is part of the rigid head layer.
-        ant_base = (cx - 8 * S, cy - head_h * 0.50)
-        ant_tip = (cx - 12 * S, cy - head_h * 0.50 - spec.antenna_h * S)
+        look = clamp(float(look), -1.0, 1.0)
+        ant_base = (cx - 8 * S * look, cy - head_h * 0.50)
+        ant_tip = (cx - 12 * S * look, cy - head_h * 0.50 - spec.antenna_h * S)
         d.line([ant_base, ant_tip], fill=pal["outline"], width=max(1, int(1.7 * S)))
         d.ellipse(_bbox(ant_tip, 6.4 * S, 6.4 * S), fill=pal["accent"], outline=pal["outline"], width=max(1, int(1.0 * S)))
 
@@ -1506,7 +1512,7 @@ class SideRobotGenerator:
         hd.rounded_rectangle((inner[0] + 8 * S, cy + 1 * S, inner[2] - 2 * S, inner[3] - 3 * S), radius=7 * S, fill=_with_alpha(pal["shell_side"], 190))
         layer.alpha_composite(detail)
 
-        visor_center = (cx + 7.0 * S, cy - 1.0 * S)
+        visor_center = (cx + 7.0 * S * look, cy - 1.0 * S)
         visor_h = spec.visor_h * S
         if blink_closed:
             visor_h = max(2.0 * S, visor_h * 0.22)
@@ -1741,7 +1747,13 @@ class SideRobotGenerator:
                     fill=(255, 255, 240, int(240 * flame)),
                 )
 
-        character_img = img if animation not in {"blink_out", "blink_in"} else Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        # Draw the actor on its own transparent layer first.  Some
+        # animations apply a whole-body layer rotation (roll / ledge_roll);
+        # drawing directly onto the base canvas and then rotating caused the
+        # unrotated body to remain behind the rotated copy, which read as a
+        # duplicate torso.  Keeping the actor isolated also avoids
+        # alpha-compositing the canvas onto itself for non-teleport rows.
+        character_img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         character_draw = ImageDraw.Draw(character_img)
 
         # Stable body reference. Death moves to a lying pose without scaling.
@@ -1756,7 +1768,10 @@ class SideRobotGenerator:
         body_y_offset = lerp(39 * S * vscale, 11 * S, collapse)
         head_y_offset = lerp(68 * S * vscale, 15 * S, collapse)
         body_center = (root_x + lerp(0, 12 * S, collapse), ground_y - body_y_offset + p.body_bob * S)
-        head_center = (root_x + lerp(12 * S, 34 * S, collapse), ground_y - head_y_offset + p.body_bob * S * 0.4)
+        head_center = (
+            root_x + lerp(12 * S, 34 * S, collapse) + p.head_dx * S,
+            ground_y - head_y_offset + p.body_bob * S * 0.4 + p.head_dy * S,
+        )
         body_angle = p.body_tilt
         head_angle = p.head_tilt
 
@@ -1766,7 +1781,10 @@ class SideRobotGenerator:
             # reads better when the knees carry the motion rather than an
             # extra bounce layered on top.
             body_center = (root_x + lerp(0, 12 * S, collapse), ground_y - body_y_offset)
-            head_center = (root_x + lerp(12 * S, 34 * S, collapse), ground_y - head_y_offset)
+            head_center = (
+                root_x + lerp(12 * S, 34 * S, collapse) + p.head_dx * S,
+                ground_y - head_y_offset + p.head_dy * S,
+            )
             hip_far = (body_center[0] - 7 * S, body_center[1] + 10 * S * vscale)
             hip_near = (body_center[0] + 8 * S, body_center[1] + 10 * S * vscale)
         else:
@@ -1823,38 +1841,89 @@ class SideRobotGenerator:
             pelvis_draw = (pelvis_center, pelvis_w, pelvis_h)
         elif animation in {"walk", "run"}:
             # Apply the same authored ankle-target baseline more broadly to the
-            # side-view robot lane so non-player robots stop reading as two
-            # opposed sticks.  The torso motion still comes from
-            # `pose_for_animation`; only the leg solve changes here.
+            # side-view robot lane, but scale it from this rig's own leg length
+            # instead of copying the compact-player coordinates.  That keeps
+            # non-player robot legs visually the same length while improving
+            # the contact/down/passing/up read.
             idx = frame_index % 8
             foot_w = 12 * S
             foot_h = 6 * S
-            if animation == "run":
-                far_ax = (-13.2, -10.0, -4.5, 0.2, 1.8, -2.1, -7.1, -11.4)
-                far_ay = (23.4, 23.9, 22.6, 19.1, 22.8, 23.9, 23.5, 23.0)
-                near_ax = (11.4, 8.1, 3.4, 0.0, -0.9, 2.7, 7.4, 11.7)
-                near_ay = (22.9, 23.8, 23.4, 22.9, 23.2, 23.7, 22.2, 19.0)
-                far_shift = (-2.3, -1.8, -0.8, 0.5, 1.6, 1.1, 0.1, -1.1)
-                near_shift = (2.0, 1.3, 0.2, -1.3, -1.9, -1.3, -0.4, 1.0)
-                foot_tilt = (-8, -5, -2, 3, 8, 5, 2, -3)
-            else:
-                far_ax = (-12.5, -9.6, -4.3, 0.0, 1.4, -1.9, -6.8, -10.9)
-                far_ay = (23.3, 23.6, 22.3, 19.6, 22.7, 23.6, 23.2, 22.8)
-                near_ax = (10.9, 7.8, 3.2, 0.0, -0.7, 2.5, 7.0, 10.8)
-                near_ay = (22.8, 23.5, 23.1, 22.8, 23.1, 23.4, 22.0, 19.4)
-                far_shift = (-2.0, -1.5, -0.7, 0.4, 1.4, 1.0, 0.1, -0.9)
-                near_shift = (1.8, 1.1, 0.1, -1.1, -1.6, -1.1, -0.3, 0.9)
-                foot_tilt = (-6, -4, -2, 2, 6, 4, 2, -2)
+            leg_len = (spec.leg_upper + spec.leg_lower) * S
+            stride = leg_len * (0.42 if animation == "run" else 0.36)
+            base_drop = leg_len * (0.86 if animation == "run" else 0.88)
+            far_x = (-1.00, -0.76, -0.36, -0.06, 0.12, -0.18, -0.58, -0.90)
+            near_x = (0.92, 0.68, 0.30, 0.04, -0.08, 0.20, 0.62, 0.94)
+            far_lift = (0.00, 0.00, 0.05, 0.14, 0.00, 0.02, 0.08, 0.02)
+            near_lift = (0.00, 0.02, 0.08, 0.02, 0.00, 0.00, 0.05, 0.14)
+            far_shift = (-2.0, -1.5, -0.7, 0.4, 1.4, 1.0, 0.1, -0.9)
+            near_shift = (1.8, 1.1, 0.1, -1.1, -1.6, -1.1, -0.3, 0.9)
+            foot_tilt = (-8, -5, -2, 3, 8, 5, 2, -3) if animation == "run" else (-6, -4, -2, 2, 6, 4, 2, -2)
 
-            ankle = (body_center[0] + far_ax[idx] * S, body_center[1] + far_ay[idx] * S)
+            ankle = (body_center[0] + far_x[idx] * stride, hip_far[1] + base_drop - far_lift[idx] * leg_len)
             knee, _a1, _a2 = self._solve_leg_ik(hip_far, ankle, spec.leg_upper * S, spec.leg_lower * S, bend_sign=1.0)
             foot_center = (ankle[0] + (foot_w * 0.34) + far_shift[idx] * S, ankle[1] + 2.0 * S)
             player_right_leg = (hip_far, knee, ankle, pal["shell_side"], foot_center, foot_w, foot_h, foot_tilt[idx] + body_angle * 0.10)
 
-            ankle = (body_center[0] + near_ax[idx] * S, body_center[1] + near_ay[idx] * S)
+            ankle = (body_center[0] + near_x[idx] * stride, hip_near[1] + base_drop - near_lift[idx] * leg_len)
             knee, _a1, _a2 = self._solve_leg_ik(hip_near, ankle, spec.leg_upper * S, spec.leg_lower * S, bend_sign=1.0)
             foot_center = (ankle[0] + (foot_w * 0.34) + near_shift[idx] * S, ankle[1] + 2.0 * S)
             player_left_leg = (hip_near, knee, ankle, pal["shell"], foot_center, foot_w, foot_h, -foot_tilt[(idx + 4) % 8] + body_angle * 0.10)
+        elif animation in {"attack_down", "dash_startup", "jump", "land_hard"}:
+            # These poses read best when they inherit the same forward-knee
+            # baseline as the improved walk/run cycle.  Use explicit ankle
+            # targets so the player-right leg never flips its knee backward.
+            foot_w = 12 * S
+            foot_h = 6 * S
+            if animation == "attack_down":
+                idx = frame_index % 8
+                far_ax = (-6.2, -6.5, -6.8, -7.2, -7.1, -6.8, -6.5, -6.2)
+                far_ay = (23.5, 23.8, 24.0, 24.2, 24.1, 23.9, 23.7, 23.5)
+                near_ax = (5.2, 5.8, 6.5, 7.2, 7.4, 6.9, 6.0, 5.4)
+                near_ay = (23.0, 23.1, 23.3, 23.5, 23.7, 23.6, 23.3, 23.1)
+                far_shift = (-1.7, -1.6, -1.4, -1.2, -1.1, -1.2, -1.4, -1.6)
+                near_shift = (1.1, 1.2, 1.2, 1.3, 1.4, 1.3, 1.2, 1.1)
+                foot_tilt_far = (-5, -5, -4, -3, -3, -4, -5, -5)
+                foot_tilt_near = (-3, -2, -1, 0, 1, 0, -1, -2)
+            elif animation == "dash_startup":
+                idx = frame_index % 4
+                far_ax = (-7.8, -8.2, -8.8, -9.4)
+                far_ay = (23.2, 23.6, 23.9, 24.2)
+                near_ax = (7.0, 6.4, 5.8, 5.1)
+                near_ay = (22.9, 23.1, 23.4, 23.7)
+                far_shift = (-1.6, -1.5, -1.3, -1.1)
+                near_shift = (1.5, 1.2, 0.8, 0.5)
+                foot_tilt_far = (-5, -5, -4, -4)
+                foot_tilt_near = (-4, -4, -3, -3)
+            elif animation == "jump":
+                idx = frame_index % 6
+                far_ax = (-7.0, -6.2, -7.8, -3.4, -1.8, -2.6)
+                far_ay = (24.0, 24.6, 22.8, 18.2, 17.2, 18.4)
+                near_ax = (6.0, 5.2, 7.2, 3.6, 4.6, 3.2)
+                near_ay = (23.5, 24.1, 22.2, 17.8, 18.0, 18.6)
+                far_shift = (-1.5, -1.4, -1.0, -0.4, -0.2, -0.6)
+                near_shift = (1.2, 1.0, 1.4, 0.8, 1.0, 0.8)
+                foot_tilt_far = (-5, -6, -4, -2, -1, -2)
+                foot_tilt_near = (-4, -5, -3, -1, -1, -1)
+            else:  # land_hard
+                idx = frame_index % 8
+                far_ax = (-6.0, -5.7, -5.5, -5.6, -5.9, -6.3, -6.7, -6.9)
+                far_ay = (23.0, 23.6, 24.1, 23.9, 23.7, 23.5, 23.3, 23.1)
+                near_ax = (5.0, 5.4, 5.8, 5.6, 5.2, 5.0, 5.2, 5.5)
+                near_ay = (22.8, 23.3, 23.8, 23.6, 23.4, 23.2, 23.0, 22.8)
+                far_shift = (-1.5, -1.3, -1.2, -1.2, -1.3, -1.4, -1.5, -1.6)
+                near_shift = (1.0, 1.1, 1.2, 1.2, 1.1, 1.0, 1.0, 1.1)
+                foot_tilt_far = (-5, -4, -3, -3, -4, -4, -5, -5)
+                foot_tilt_near = (-4, -3, -2, -2, -3, -3, -4, -4)
+
+            ankle = (body_center[0] + far_ax[idx] * S, body_center[1] + far_ay[idx] * S)
+            knee, _a1, _a2 = self._solve_leg_ik(hip_far, ankle, spec.leg_upper * S, spec.leg_lower * S, bend_sign=1.0)
+            foot_center = (ankle[0] + (foot_w * 0.34) + far_shift[idx] * S, ankle[1] + 2.0 * S)
+            player_right_leg = (hip_far, knee, ankle, pal["shell_side"], foot_center, foot_w, foot_h, foot_tilt_far[idx] + body_angle * 0.10)
+
+            ankle = (body_center[0] + near_ax[idx] * S, body_center[1] + near_ay[idx] * S)
+            knee, _a1, _a2 = self._solve_leg_ik(hip_near, ankle, spec.leg_upper * S, spec.leg_lower * S, bend_sign=1.0)
+            foot_center = (ankle[0] + (foot_w * 0.34) + near_shift[idx] * S, ankle[1] + 2.0 * S)
+            player_left_leg = (hip_near, knee, ankle, pal["shell"], foot_center, foot_w, foot_h, foot_tilt_near[idx] + body_angle * 0.10)
         else:
             # Keep the non-walk geometry the same, but assign explicit semantic
             # labels so the draw order is unambiguous.
@@ -1874,7 +1943,7 @@ class SideRobotGenerator:
 
         # Desired z-order, from back to front:
         #   player-left-arm, player-left-leg, pelvis, player-right-leg,
-        #   torso, player-right-arm, head.
+        #   torso, head, player-right-arm.
         self._draw_robot_arm(character_img, character_draw, player_left_arm[0], player_left_arm[1], player_left_arm[2], player_left_arm[3], spec, pal, S, outline, p.slash, p.slash_arc, p.slash_dir)
 
         if player_left_leg is not None:
@@ -1899,8 +1968,12 @@ class SideRobotGenerator:
         # Archetype accessories sit over the base body but under the front arm/head.
         self._draw_archetype_accessories(character_img, character_draw, spec, pal, S, root_x, ground_y, body_center, head_center)
 
+        self._draw_rigid_head(character_img, head_center, spec, pal, S, head_angle, p.blink, p.eye_squint, p.dead, p.head_look)
         self._draw_robot_arm(character_img, character_draw, player_right_arm[0], player_right_arm[1], player_right_arm[2], player_right_arm[3], spec, pal, S, outline)
-        self._draw_rigid_head(character_img, head_center, spec, pal, S, head_angle, p.blink, p.eye_squint, p.dead)
+
+        if abs(p.whole_body_rotation) > 1e-4:
+            roll_center = (body_center[0] + 2.0 * S, body_center[1] + 4.0 * S)
+            character_img = character_img.rotate(p.whole_body_rotation, resample=RESAMPLING.BICUBIC, center=roll_center)
 
         if animation in {"blink_out", "blink_in"}:
             self._composite_teleport_actor(img, character_img, animation, frame_index, frame_count, S)

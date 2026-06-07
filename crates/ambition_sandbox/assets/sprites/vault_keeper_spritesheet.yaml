@@ -13,7 +13,7 @@ tags:
 - humanoid
 - vault
 sheet_tuning: null
-frame_width: 99
+frame_width: 93
 frame_height: 116
 label_width: 112
 border: 4
@@ -59,7 +59,7 @@ crop:
   source_frame_width: 128
   source_frame_height: 128
   offset:
-    x: 2
+    x: 0
     y: 0
   enabled: true
   padding_px: 2
@@ -69,49 +69,49 @@ animations:
     - index: 0
       x: 116
       y: 4
-      w: 99
+      w: 93
       h: 116
       duration_ms: 120
     - index: 1
-      x: 219
+      x: 213
       y: 4
-      w: 99
+      w: 93
       h: 116
       duration_ms: 120
     - index: 2
-      x: 322
+      x: 310
       y: 4
-      w: 99
+      w: 93
       h: 116
       duration_ms: 120
     - index: 3
-      x: 425
+      x: 407
       y: 4
-      w: 99
+      w: 93
       h: 116
       duration_ms: 120
     - index: 4
-      x: 528
+      x: 504
       y: 4
-      w: 99
+      w: 93
       h: 116
       duration_ms: 120
     - index: 5
-      x: 631
+      x: 601
       y: 4
-      w: 99
+      w: 93
       h: 116
       duration_ms: 120
     - index: 6
-      x: 734
+      x: 698
       y: 4
-      w: 99
+      w: 93
       h: 116
       duration_ms: 120
     - index: 7
-      x: 837
+      x: 795
       y: 4
-      w: 99
+      w: 93
       h: 116
       duration_ms: 120
     duration_ms: 120
@@ -120,49 +120,49 @@ animations:
     - index: 0
       x: 116
       y: 124
-      w: 99
+      w: 93
       h: 116
       duration_ms: 100
     - index: 1
-      x: 219
+      x: 213
       y: 124
-      w: 99
+      w: 93
       h: 116
       duration_ms: 100
     - index: 2
-      x: 322
+      x: 310
       y: 124
-      w: 99
+      w: 93
       h: 116
       duration_ms: 100
     - index: 3
-      x: 425
+      x: 407
       y: 124
-      w: 99
+      w: 93
       h: 116
       duration_ms: 100
     - index: 4
-      x: 528
+      x: 504
       y: 124
-      w: 99
+      w: 93
       h: 116
       duration_ms: 100
     - index: 5
-      x: 631
+      x: 601
       y: 124
-      w: 99
+      w: 93
       h: 116
       duration_ms: 100
     - index: 6
-      x: 734
+      x: 698
       y: 124
-      w: 99
+      w: 93
       h: 116
       duration_ms: 100
     - index: 7
-      x: 837
+      x: 795
       y: 124
-      w: 99
+      w: 93
       h: 116
       duration_ms: 100
     duration_ms: 100
@@ -171,37 +171,37 @@ animations:
     - index: 0
       x: 116
       y: 244
-      w: 99
+      w: 93
       h: 116
       duration_ms: 100
     - index: 1
-      x: 219
+      x: 213
       y: 244
-      w: 99
+      w: 93
       h: 116
       duration_ms: 100
     - index: 2
-      x: 322
+      x: 310
       y: 244
-      w: 99
+      w: 93
       h: 116
       duration_ms: 100
     - index: 3
-      x: 425
+      x: 407
       y: 244
-      w: 99
+      w: 93
       h: 116
       duration_ms: 100
     - index: 4
-      x: 528
+      x: 504
       y: 244
-      w: 99
+      w: 93
       h: 116
       duration_ms: 100
     - index: 5
-      x: 631
+      x: 601
       y: 244
-      w: 99
+      w: 93
       h: 116
       duration_ms: 100
     duration_ms: 100
@@ -210,80 +210,80 @@ animations:
     - index: 0
       x: 116
       y: 364
-      w: 99
+      w: 93
       h: 116
       duration_ms: 95
     - index: 1
-      x: 219
+      x: 213
       y: 364
-      w: 99
+      w: 93
       h: 116
       duration_ms: 95
     - index: 2
-      x: 322
+      x: 310
       y: 364
-      w: 99
+      w: 93
       h: 116
       duration_ms: 95
     - index: 3
-      x: 425
+      x: 407
       y: 364
-      w: 99
+      w: 93
       h: 116
       duration_ms: 95
     - index: 4
-      x: 528
+      x: 504
       y: 364
-      w: 99
+      w: 93
       h: 116
       duration_ms: 95
     - index: 5
-      x: 631
+      x: 601
       y: 364
-      w: 99
+      w: 93
       h: 116
       duration_ms: 95
     duration_ms: 95
 body_metrics:
-  frame_width: 99
+  frame_width: 93
   frame_height: 116
   body_pixel_bbox:
-    x: 3
+    x: 0
     y: 1
-    w: 92
+    w: 88
     h: 112
   feet_pixel:
-    x: 48.5
+    x: 43.5
     y: 112.0
   feet_anchor_norm:
-    x: -0.01010101010101011
+    x: -0.03225806451612906
     y: -0.4655172413793104
   animations:
     idle:
       hurtbox:
         bbox:
-          x: 3
+          x: 0
           y: 0
-          w: 92
+          w: 89
           h: 113
     walk:
       hurtbox:
         bbox:
-          x: 2
+          x: 0
           y: 0
-          w: 95
-          h: 113
+          w: 91
+          h: 110
     talk:
       hurtbox:
         bbox:
-          x: 2
+          x: 0
           y: 1
-          w: 95
+          w: 90
           h: 113
     interact:
       hurtbox:
         bbox:
-          x: 3
+          x: 0
           y: 1
-          w: 93
+          w: 90
           h: 113

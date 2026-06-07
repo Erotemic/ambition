@@ -72,6 +72,18 @@ class Pose:
     dash: float = 0.0
     collapse: float = 0.0
     dead: bool = False
+    # +1.0 = facing toward screen-right (default), -1.0 = turned back toward
+    # screen-left. Intermediate values softly slide the visor + antenna inside
+    # the rigid head shell so wall / ledge poses can glance backward.
+    head_look: float = 1.0
+    # Optional local offsets for the rigid head anchor, expressed in unscaled
+    # sprite pixels.
+    head_dx: float = 0.0
+    head_dy: float = 0.0
+    # Additional post-pose rotation, applied to the fully assembled actor layer.
+    # Used for tuck-and-roll motions so the entire silhouette rotates around its
+    # approximate center of mass rather than only spinning the head/body parts.
+    whole_body_rotation: float = 0.0
 
 
 class Robot25DGenerator:

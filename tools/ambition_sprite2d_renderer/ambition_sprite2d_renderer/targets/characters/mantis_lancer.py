@@ -49,11 +49,7 @@ ACTOR_METADATA = {
     "capabilities": {
         "traversal": {
             "walk": True,
-            "jump": {
-                "height_px": None,
-                "distance_px": None,
-                "source": "mantis_pounce_animation",
-            },
+            "jump": {"height_px": None, "distance_px": None, "source": "mantis_pounce_animation"},
             "climb": True,
             "crawl": None,
             "fly": None,
@@ -76,64 +72,28 @@ ACTOR_METADATA = {
         "action.melee.primary": {
             "animation": "stab",
             "events": [
-                {
-                    "t": 0.36,
-                    "event": "hitbox_active_start",
-                    "source": "mantis_lancer.stab",
-                },
-                {
-                    "t": 0.60,
-                    "event": "hitbox_active_end",
-                    "source": "mantis_lancer.stab",
-                },
+                {"t": 0.36, "event": "hitbox_active_start", "source": "mantis_lancer.stab"},
+                {"t": 0.60, "event": "hitbox_active_end", "source": "mantis_lancer.stab"},
             ],
         },
         "action.melee.sweep": {
             "animation": "slash",
             "events": [
-                {
-                    "t": 0.30,
-                    "event": "hitbox_active_start",
-                    "source": "mantis_lancer.slash",
-                },
-                {
-                    "t": 0.62,
-                    "event": "hitbox_active_end",
-                    "source": "mantis_lancer.slash",
-                },
+                {"t": 0.30, "event": "hitbox_active_start", "source": "mantis_lancer.slash"},
+                {"t": 0.62, "event": "hitbox_active_end", "source": "mantis_lancer.slash"},
             ],
         },
-        "action.special.pounce": {
-            "animation": "pounce",
-            "events": [
-                {"t": 0.40, "event": "leap_commit", "source": "mantis_lancer.pounce"}
-            ],
-        },
+        "action.special.pounce": {"animation": "pounce", "events": [{"t": 0.40, "event": "leap_commit", "source": "mantis_lancer.pounce"}]},
         "damage.hit": {"animation": "hurt", "events": []},
         "lifecycle.death": {"animation": "death", "events": []},
     },
     "sockets": {
         "head": {"source": "mantis_lancer.geometry", "point": {"x": 144.0, "y": 58.0}},
-        "thorax": {
-            "source": "mantis_lancer.geometry",
-            "point": {"x": 112.0, "y": 96.0},
-        },
-        "blade_l": {
-            "source": "mantis_lancer.geometry",
-            "point": {"x": 95.0, "y": 102.0},
-        },
-        "blade_r": {
-            "source": "mantis_lancer.geometry",
-            "point": {"x": 172.0, "y": 100.0},
-        },
-        "blade_tip": {
-            "source": "mantis_lancer.geometry",
-            "point": {"x": 210.0, "y": 88.0},
-        },
-        "pounce_origin": {
-            "source": "mantis_lancer.geometry",
-            "point": {"x": 124.0, "y": 170.0},
-        },
+        "thorax": {"source": "mantis_lancer.geometry", "point": {"x": 112.0, "y": 96.0}},
+        "blade_l": {"source": "mantis_lancer.geometry", "point": {"x": 95.0, "y": 102.0}},
+        "blade_r": {"source": "mantis_lancer.geometry", "point": {"x": 172.0, "y": 100.0}},
+        "blade_tip": {"source": "mantis_lancer.geometry", "point": {"x": 210.0, "y": 88.0}},
+        "pounce_origin": {"source": "mantis_lancer.geometry", "point": {"x": 124.0, "y": 170.0}},
     },
     "tags": ["enemy", "insectoid", "lancer"],
 }
@@ -349,50 +309,22 @@ def _rot_local(x: float, y: float, deg: float) -> Point:
     return (x * c - y * s, x * s + y * c)
 
 
-def _poly(
-    draw: ImageDraw.ImageDraw,
-    pts: Sequence[Point],
-    fill: RGBA,
-    outline: RGBA = OUTLINE,
-    width: float = 1.0,
-) -> None:
+def _poly(draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
     ipts = [_pt(p) for p in pts]
     draw.polygon(ipts, fill=fill)
     if outline and width > 0:
-        draw.line(
-            ipts + [ipts[0]], fill=outline, width=max(1, _s(width)), joint="curve"
-        )
+        draw.line(ipts + [ipts[0]], fill=outline, width=max(1, _s(width)), joint="curve")
 
 
-def _line(
-    draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, width: float = 1.0
-) -> None:
+def _line(draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, width: float = 1.0) -> None:
     draw.line([_pt(p) for p in pts], fill=fill, width=max(1, _s(width)), joint="curve")
 
 
-def _ellipse(
-    draw: ImageDraw.ImageDraw,
-    cx: float,
-    cy: float,
-    rx: float,
-    ry: float,
-    fill: RGBA,
-    outline: RGBA = OUTLINE,
-    width: float = 1.0,
-) -> None:
-    draw.ellipse(
-        _box(cx, cy, rx, ry), fill=fill, outline=outline, width=max(1, _s(width))
-    )
+def _ellipse(draw: ImageDraw.ImageDraw, cx: float, cy: float, rx: float, ry: float, fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
+    draw.ellipse(_box(cx, cy, rx, ry), fill=fill, outline=outline, width=max(1, _s(width)))
 
 
-def _circle(
-    draw: ImageDraw.ImageDraw,
-    c: Point,
-    r: float,
-    fill: RGBA,
-    outline: RGBA = OUTLINE,
-    width: float = 1.0,
-) -> None:
+def _circle(draw: ImageDraw.ImageDraw, c: Point, r: float, fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
     _ellipse(draw, c[0], c[1], r, r, fill, outline, width)
 
 
@@ -402,11 +334,7 @@ def _downsample(img: Image.Image) -> Image.Image:
 
 class MantisLancerRenderer:
     def render_frame(self, anim: str, frame_idx: int, nframes: int) -> Image.Image:
-        img = Image.new(
-            "RGBA",
-            (WORK_FRAME_SIZE[0] * SUPER, WORK_FRAME_SIZE[1] * SUPER),
-            (0, 0, 0, 0),
-        )
+        img = Image.new("RGBA", (WORK_FRAME_SIZE[0] * SUPER, WORK_FRAME_SIZE[1] * SUPER), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img, "RGBA")
         pose = Pose(anim, frame_idx, nframes)
 
@@ -420,7 +348,7 @@ class MantisLancerRenderer:
             rx, ry = _rot_local(x, y, global_tilt)
             return (root[0] + rx, root[1] + ry)
 
-        self._draw_shadow(draw, P, pose)
+        # No baked ground drop shadow; the scene renderer owns contact shadows.
         self._draw_back_leg(draw, P, pose)
         self._draw_abdomen(draw, P, pose)
         self._draw_body(draw, P, pose)
@@ -436,93 +364,43 @@ class MantisLancerRenderer:
 
     def _draw_shadow(self, draw: ImageDraw.ImageDraw, P, pose: Pose) -> None:
         c = P(-2, 14)
-        _ellipse(
-            draw,
-            c[0],
-            c[1],
-            54 + pose.airborne * 6,
-            11 - pose.bob * 0.08,
-            SHADOW,
-            outline=(0, 0, 0, 0),
-            width=0,
-        )
+        _ellipse(draw, c[0], c[1], 54 + pose.airborne * 6, 11 - pose.bob * 0.08, SHADOW, outline=(0, 0, 0, 0), width=0)
 
     def _draw_abdomen(self, draw: ImageDraw.ImageDraw, P, pose: Pose) -> None:
         belly = [
-            P(-78, -86 + pose.abdomen_lift),
-            P(-104, -74 + pose.abdomen_lift),
-            P(-114, -46 + pose.abdomen_lift),
-            P(-100, -20),
-            P(-72, -8),
-            P(-42, -20),
-            P(-34, -50),
-            P(-48, -76 + pose.abdomen_lift),
+            P(-78, -86 + pose.abdomen_lift), P(-104, -74 + pose.abdomen_lift), P(-114, -46 + pose.abdomen_lift),
+            P(-100, -20), P(-72, -8), P(-42, -20), P(-34, -50), P(-48, -76 + pose.abdomen_lift)
         ]
         _poly(draw, belly, CHITIN_DARK, OUTLINE, 1.5)
-        highlight = [
-            P(-90, -66 + pose.abdomen_lift),
-            P(-106, -58 + pose.abdomen_lift),
-            P(-102, -40 + pose.abdomen_lift),
-            P(-82, -34),
-        ]
+        highlight = [P(-90, -66 + pose.abdomen_lift), P(-106, -58 + pose.abdomen_lift), P(-102, -40 + pose.abdomen_lift), P(-82, -34)]
         _poly(draw, highlight, CHITIN, OUTLINE, 0.8)
         for off in (-94, -82, -70, -58):
-            _line(
-                draw,
-                [P(off, -68 + pose.abdomen_lift * 0.6), P(off + 4, -22)],
-                CHITIN_LIGHT,
-                0.7,
-            )
-        stinger = [
-            P(-112, -52 + pose.abdomen_lift),
-            P(-136, -60 + pose.abdomen_lift),
-            P(-126, -40 + pose.abdomen_lift),
-        ]
+            _line(draw, [P(off, -68 + pose.abdomen_lift * 0.6), P(off + 4, -22)], CHITIN_LIGHT, 0.7)
+        stinger = [P(-112, -52 + pose.abdomen_lift), P(-136, -60 + pose.abdomen_lift), P(-126, -40 + pose.abdomen_lift)]
         _poly(draw, stinger, BONE, OUTLINE, 0.8)
 
     def _draw_body(self, draw: ImageDraw.ImageDraw, P, pose: Pose) -> None:
         thorax = [
-            P(-36, -104 - pose.crouch),
-            P(18, -128 - pose.crouch),
-            P(52, -106 - pose.crouch),
-            P(58, -72),
-            P(30, -42),
-            P(-12, -38),
-            P(-44, -62),
+            P(-36, -104 - pose.crouch), P(18, -128 - pose.crouch), P(52, -106 - pose.crouch),
+            P(58, -72), P(30, -42), P(-12, -38), P(-44, -62)
         ]
         _poly(draw, thorax, CHITIN, OUTLINE, 1.7)
-        plate = [
-            P(-22, -102 - pose.crouch),
-            P(14, -118 - pose.crouch),
-            P(40, -102 - pose.crouch),
-            P(36, -72),
-            P(8, -54),
-            P(-20, -68),
-        ]
+        plate = [P(-22, -102 - pose.crouch), P(14, -118 - pose.crouch), P(40, -102 - pose.crouch), P(36, -72), P(8, -54), P(-20, -68)]
         _poly(draw, plate, CHITIN_LIGHT, OUTLINE, 1.1)
         _line(draw, [P(-8, -106 - pose.crouch), P(6, -54)], CHITIN_DARK, 1.0)
         flank = [P(-18, -72), P(8, -78), P(22, -58), P(4, -40), P(-18, -44)]
         _poly(draw, flank, ACCENT, OUTLINE, 0.9)
 
     def _draw_head(self, draw: ImageDraw.ImageDraw, P, pose: Pose) -> None:
-        hx, hy = P(
-            62 + pose.stab_extension * 0.35, -108 - pose.crouch + pose.head_tilt * 0.18
-        )
+        hx, hy = P(62 + pose.stab_extension * 0.35, -108 - pose.crouch + pose.head_tilt * 0.18)
         head = [
-            (hx - 18, hy - 12),
-            (hx + 8, hy - 20),
-            (hx + 34, hy - 10),
-            (hx + 42, hy + 4),
-            (hx + 26, hy + 16),
-            (hx - 2, hy + 18),
-            (hx - 18, hy + 8),
+            (hx - 18, hy - 12), (hx + 8, hy - 20), (hx + 34, hy - 10), (hx + 42, hy + 4),
+            (hx + 26, hy + 16), (hx - 2, hy + 18), (hx - 18, hy + 8)
         ]
         _poly(draw, head, CHITIN_LIGHT, OUTLINE, 1.2)
         crest = [
-            (hx - 6, hy - 18),
-            (hx + 16, hy - 36 + pose.crest_sway * 0.2),
-            (hx + 34, hy - 22),
-            (hx + 14, hy - 8),
+            (hx - 6, hy - 18), (hx + 16, hy - 36 + pose.crest_sway * 0.2), (hx + 34, hy - 22),
+            (hx + 14, hy - 8)
         ]
         _poly(draw, crest, ACCENT, OUTLINE, 0.9)
         if pose.x_eyes:
@@ -533,43 +411,20 @@ class MantisLancerRenderer:
         else:
             _ellipse(draw, hx + 10, hy + 0, 6, 4, EYE, EYE_HOT, 0.8)
             _line(draw, [(hx + 2, hy - 6), (hx + 16, hy - 2)], OUTLINE, 0.8)
-        upper_jaw = [
-            (hx + 16, hy + 6),
-            (hx + 38, hy + 8),
-            (hx + 48, hy + 2),
-            (hx + 34, hy + 14),
-        ]
-        lower_jaw = [
-            (hx + 16, hy + 10),
-            (hx + 34, hy + 18 + pose.mouth_open * 10),
-            (hx + 44, hy + 14),
-            (hx + 28, hy + 20 + pose.mouth_open * 8),
-        ]
+        upper_jaw = [(hx + 16, hy + 6), (hx + 38, hy + 8), (hx + 48, hy + 2), (hx + 34, hy + 14)]
+        lower_jaw = [(hx + 16, hy + 10), (hx + 34, hy + 18 + pose.mouth_open * 10), (hx + 44, hy + 14), (hx + 28, hy + 20 + pose.mouth_open * 8)]
         _poly(draw, upper_jaw, BONE, OUTLINE, 0.8)
         _poly(draw, lower_jaw, BONE, OUTLINE, 0.8)
         for dy in (-6, 4):
             _line(draw, [(hx + 10, hy + dy), (hx + 2, hy + dy - 12)], BONE, 0.7)
 
-    def _draw_leg(
-        self,
-        draw: ImageDraw.ImageDraw,
-        hip: Point,
-        knee: Point,
-        ankle: Point,
-        toe: Point,
-        front: bool,
-    ) -> None:
+    def _draw_leg(self, draw: ImageDraw.ImageDraw, hip: Point, knee: Point, ankle: Point, toe: Point, front: bool) -> None:
         base = CHITIN if front else CHITIN_DARK
         _line(draw, [hip, knee], base, 7.2 if front else 6.8)
         _line(draw, [knee, ankle], base, 6.4 if front else 6.0)
         _line(draw, [hip, knee, ankle], OUTLINE, 2.0)
         _ellipse(draw, knee[0], knee[1], 6.5, 8.0, CHITIN_LIGHT, OUTLINE, 1.0)
-        shin_plate = [
-            (knee[0] - 5, knee[1]),
-            (ankle[0] - 3, ankle[1] - 6),
-            (ankle[0] + 6, ankle[1] + 2),
-            (knee[0] + 4, knee[1] + 4),
-        ]
+        shin_plate = [(knee[0] - 5, knee[1]), (ankle[0] - 3, ankle[1] - 6), (ankle[0] + 6, ankle[1] + 2), (knee[0] + 4, knee[1] + 4)]
         _poly(draw, shin_plate, CHITIN_LIGHT if front else CHITIN, OUTLINE, 0.8)
         _line(draw, [ankle, toe], BONE, 2.4)
         _line(draw, [ankle, toe], OUTLINE, 1.0)
@@ -591,15 +446,7 @@ class MantisLancerRenderer:
         toe = P(40 + pose.front_leg * 0.12, 16 - pose.front_foot_lift)
         self._draw_leg(draw, hip, knee, ankle, toe, front=True)
 
-    def _draw_blade_arm(
-        self,
-        draw: ImageDraw.ImageDraw,
-        shoulder: Point,
-        elbow: Point,
-        wrist: Point,
-        blade_tip: Point,
-        front: bool,
-    ) -> None:
+    def _draw_blade_arm(self, draw: ImageDraw.ImageDraw, shoulder: Point, elbow: Point, wrist: Point, blade_tip: Point, front: bool) -> None:
         limb = CHITIN_LIGHT if front else CHITIN
         _line(draw, [shoulder, elbow], limb, 7.2 if front else 6.4)
         _line(draw, [elbow, wrist], limb, 6.6 if front else 5.8)
@@ -625,48 +472,25 @@ class MantisLancerRenderer:
         shoulder = P(2, -102 - pose.crouch * 0.3)
         elbow = P(12 + pose.back_blade * 0.10, -70 + pose.back_blade * 0.16)
         wrist = P(30 + pose.back_blade * 0.18, -48 + pose.back_blade * 0.18)
-        tip = P(
-            70 + pose.back_blade * 0.40 + pose.stab_extension * 0.18,
-            -64 + pose.back_blade * 0.08,
-        )
+        tip = P(70 + pose.back_blade * 0.40 + pose.stab_extension * 0.18, -64 + pose.back_blade * 0.08)
         self._draw_blade_arm(draw, shoulder, elbow, wrist, tip, front=False)
 
     def _draw_front_blade(self, draw: ImageDraw.ImageDraw, P, pose: Pose) -> None:
         shoulder = P(24, -112 - pose.crouch * 0.3)
-        elbow = P(
-            36 + pose.front_blade * 0.10 + pose.stab_extension * 0.12,
-            -80 + pose.front_blade * 0.18,
-        )
-        wrist = P(
-            56 + pose.front_blade * 0.22 + pose.stab_extension * 0.30,
-            -64 + pose.front_blade * 0.16,
-        )
-        tip = P(
-            112 + pose.front_blade * 0.44 + pose.stab_extension * 0.70,
-            -72 + pose.front_blade * 0.10,
-        )
+        elbow = P(36 + pose.front_blade * 0.10 + pose.stab_extension * 0.12, -80 + pose.front_blade * 0.18)
+        wrist = P(56 + pose.front_blade * 0.22 + pose.stab_extension * 0.30, -64 + pose.front_blade * 0.16)
+        tip = P(112 + pose.front_blade * 0.44 + pose.stab_extension * 0.70, -72 + pose.front_blade * 0.10)
         self._draw_blade_arm(draw, shoulder, elbow, wrist, tip, front=True)
 
     def _draw_slash_fx(self, draw: ImageDraw.ImageDraw, P, pose: Pose) -> None:
         cx, cy = P(84, -76)
         box = (_s(cx - 92), _s(cy - 72), _s(cx + 92), _s(cy + 72))
-        draw.arc(
-            box, 182, 332, fill=(*ACCENT[:3], 136), width=_s(5.0 + pose.slash_arc * 2.0)
-        )
+        draw.arc(box, 182, 332, fill=(*ACCENT[:3], 136), width=_s(5.0 + pose.slash_arc * 2.0))
         draw.arc(box, 196, 320, fill=(255, 240, 210, 110), width=_s(2.0))
 
     def _draw_pounce_fx(self, draw: ImageDraw.ImageDraw, P, pose: Pose) -> None:
         c = P(-24, 9)
-        _ellipse(
-            draw,
-            c[0],
-            c[1],
-            18 + pose.airborne * 8,
-            6 + pose.airborne * 2,
-            (*ACCENT[:3], 80),
-            outline=(0, 0, 0, 0),
-            width=0,
-        )
+        _ellipse(draw, c[0], c[1], 18 + pose.airborne * 8, 6 + pose.airborne * 2, (*ACCENT[:3], 80), outline=(0, 0, 0, 0), width=0)
         for dx in (-18, -6, 10):
             shard = [P(-18 + dx, 8), P(-10 + dx, 0), P(-2 + dx, 8)]
             _poly(draw, shard, (*ACCENT_LIGHT[:3], 160), (*ACCENT[:3], 140), 0.5)
@@ -680,13 +504,11 @@ def _write_yaml(path: Path) -> None:
         "rows:",
     ]
     for name, frames, ms in ROWS:
-        lines.extend(
-            [
-                f"  - name: {name}",
-                f"    frames: {frames}",
-                f"    frame_ms: {ms}",
-            ]
-        )
+        lines.extend([
+            f"  - name: {name}",
+            f"    frames: {frames}",
+            f"    frame_ms: {ms}",
+        ])
     path.write_text("\n".join(lines) + "\n")
 
 
@@ -697,8 +519,8 @@ def _write_ron(path: Path) -> None:
     ron = [
         "(",
         f'    target: "{TARGET_BASENAME}",',
-        f"    frame_width: {FRAME_SIZE[0]},",
-        f"    frame_height: {FRAME_SIZE[1]},",
+        f'    frame_width: {FRAME_SIZE[0]},',
+        f'    frame_height: {FRAME_SIZE[1]},',
         "    rows: [",
         *row_lines,
         "    ],",
@@ -746,7 +568,6 @@ def render(out_dir: str | Path, **opts):
     runtime-compatible YAML+RON shape). See `bear_mauler.render` for
     the full rationale — same conversion."""
     from ...tackon_sheet import build_sheet
-
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     renderer = MantisLancerRenderer()
@@ -760,25 +581,14 @@ def render(out_dir: str | Path, **opts):
         actor_metadata=ACTOR_METADATA,
     )
     return [
-        outputs["spritesheet"],
-        outputs["yaml"],
-        outputs["ron"],
-        outputs["actor"],
-        outputs["preview"],
-        outputs["canonical"],
-        outputs["canonical_transparent"],
+        outputs["spritesheet"], outputs["yaml"], outputs["ron"],
+        outputs["actor"], outputs["preview"], outputs["canonical"], outputs["canonical_transparent"],
     ]
 
 
 def main(argv: List[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Render a side-profile mantis lancer enemy spritesheet."
-    )
-    parser.add_argument(
-        "--out-dir",
-        type=Path,
-        default=Path(__file__).resolve().parents[2] / "generated" / TARGET_BASENAME,
-    )
+    parser = argparse.ArgumentParser(description="Render a side-profile mantis lancer enemy spritesheet.")
+    parser.add_argument("--out-dir", type=Path, default=Path(__file__).resolve().parents[2] / "generated" / TARGET_BASENAME)
     args = parser.parse_args(argv)
     for path in render(args.out_dir):
         print(path)

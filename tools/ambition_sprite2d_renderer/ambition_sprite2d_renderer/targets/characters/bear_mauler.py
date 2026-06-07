@@ -16,60 +16,37 @@ from typing import List, Sequence, Tuple
 
 from PIL import Image, ImageDraw
 
-ACTOR_METADATA = {
-    "actor": {"character_id": "npc_bear_mauler", "display_name": "Bear Mauler"},
-    "body": {
-        "body_plan": "Quadruped",
-        "body_kind": "Wide",
-        "mass_class": "Heavy",
-        "traits": ["enemy", "beast", "no_hands", "bear", "mauler"],
-        "locomotion_hint": "Walk",
-    },
-    "capabilities": {
-        "traversal": {
-            "walk": True,
-            "jump": None,
-            "climb": None,
-            "fly": None,
-            "swim": None,
-            "crawl": None,
-            "use_lifts": None,
-            "door_access": [],
-        },
-        "interactions": {"talk": None, "trade": None, "carry": None, "open_doors": []},
-    },
-    "brain": {"default_preset": "melee_brute_brute"},
-    "actions": {"default_preset": "beast_bite"},
-    "visual": {"default_pose": "idle"},
-    "tags": ["enemy", "beast", "no_hands", "bear", "mauler"],
-    "sockets": {
-        "mouth": {"source": "explicit.profile.beast", "point": {"x": 96.0, "y": 54.0}},
-        "tail_tip": {
-            "source": "explicit.profile.beast",
-            "point": {"x": 28.0, "y": 66.0},
-        },
-        "center": {"source": "explicit.profile.beast", "point": {"x": 64.0, "y": 64.0}},
-    },
-    "animation_bindings": {
-        "default": {"animation": "idle", "events": []},
-        "locomotion.walk": {"animation": "walk", "events": []},
-        "action.melee.primary": {
-            "animation": "bite",
-            "events": [
-                {
-                    "t": 0.35,
-                    "event": "hitbox_active_start",
-                    "source": "explicit.profile.beast",
-                },
-                {
-                    "t": 0.58,
-                    "event": "hitbox_active_end",
-                    "source": "explicit.profile.beast",
-                },
-            ],
-        },
-    },
-}
+ACTOR_METADATA = {'actor': {'character_id': 'npc_bear_mauler', 'display_name': 'Bear Mauler'},
+ 'body': {'body_plan': 'Quadruped',
+          'body_kind': 'Wide',
+          'mass_class': 'Heavy',
+          'traits': ['enemy', 'beast', 'no_hands', 'bear', 'mauler'],
+          'locomotion_hint': 'Walk'},
+ 'capabilities': {'traversal': {'walk': True,
+                                'jump': None,
+                                'climb': None,
+                                'fly': None,
+                                'swim': None,
+                                'crawl': None,
+                                'use_lifts': None,
+                                'door_access': []},
+                  'interactions': {'talk': None, 'trade': None, 'carry': None, 'open_doors': []}},
+ 'brain': {'default_preset': 'melee_brute_brute'},
+ 'actions': {'default_preset': 'beast_bite'},
+ 'visual': {'default_pose': 'idle'},
+ 'tags': ['enemy', 'beast', 'no_hands', 'bear', 'mauler'],
+ 'sockets': {'mouth': {'source': 'explicit.profile.beast', 'point': {'x': 96.0, 'y': 54.0}},
+             'tail_tip': {'source': 'explicit.profile.beast', 'point': {'x': 28.0, 'y': 66.0}},
+             'center': {'source': 'explicit.profile.beast', 'point': {'x': 64.0, 'y': 64.0}}},
+ 'animation_bindings': {'default': {'animation': 'idle', 'events': []},
+                        'locomotion.walk': {'animation': 'walk', 'events': []},
+                        'action.melee.primary': {'animation': 'bite',
+                                                 'events': [{'t': 0.35,
+                                                             'event': 'hitbox_active_start',
+                                                             'source': 'explicit.profile.beast'},
+                                                            {'t': 0.58,
+                                                             'event': 'hitbox_active_end',
+                                                             'source': 'explicit.profile.beast'}]}}}
 
 
 RGBA = Tuple[int, int, int, int]
@@ -288,50 +265,22 @@ def _rot_local(x: float, y: float, deg: float) -> Point:
     return (x * c - y * s, x * s + y * c)
 
 
-def _poly(
-    draw: ImageDraw.ImageDraw,
-    pts: Sequence[Point],
-    fill: RGBA,
-    outline: RGBA = OUTLINE,
-    width: float = 1.0,
-) -> None:
+def _poly(draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
     ipts = [_pt(p) for p in pts]
     draw.polygon(ipts, fill=fill)
     if outline and width > 0:
-        draw.line(
-            ipts + [ipts[0]], fill=outline, width=max(1, _s(width)), joint="curve"
-        )
+        draw.line(ipts + [ipts[0]], fill=outline, width=max(1, _s(width)), joint="curve")
 
 
-def _line(
-    draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, width: float = 1.0
-) -> None:
+def _line(draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, width: float = 1.0) -> None:
     draw.line([_pt(p) for p in pts], fill=fill, width=max(1, _s(width)), joint="curve")
 
 
-def _ellipse(
-    draw: ImageDraw.ImageDraw,
-    cx: float,
-    cy: float,
-    rx: float,
-    ry: float,
-    fill: RGBA,
-    outline: RGBA = OUTLINE,
-    width: float = 1.0,
-) -> None:
-    draw.ellipse(
-        _box(cx, cy, rx, ry), fill=fill, outline=outline, width=max(1, _s(width))
-    )
+def _ellipse(draw: ImageDraw.ImageDraw, cx: float, cy: float, rx: float, ry: float, fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
+    draw.ellipse(_box(cx, cy, rx, ry), fill=fill, outline=outline, width=max(1, _s(width)))
 
 
-def _circle(
-    draw: ImageDraw.ImageDraw,
-    c: Point,
-    r: float,
-    fill: RGBA,
-    outline: RGBA = OUTLINE,
-    width: float = 1.0,
-) -> None:
+def _circle(draw: ImageDraw.ImageDraw, c: Point, r: float, fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
     _ellipse(draw, c[0], c[1], r, r, fill, outline, width)
 
 
@@ -341,25 +290,18 @@ def _downsample(img: Image.Image) -> Image.Image:
 
 class BearMaulerRenderer:
     def render_frame(self, anim: str, frame_idx: int, nframes: int) -> Image.Image:
-        img = Image.new(
-            "RGBA",
-            (WORK_FRAME_SIZE[0] * SUPER, WORK_FRAME_SIZE[1] * SUPER),
-            (0, 0, 0, 0),
-        )
+        img = Image.new("RGBA", (WORK_FRAME_SIZE[0] * SUPER, WORK_FRAME_SIZE[1] * SUPER), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img, "RGBA")
         pose = Pose(anim, frame_idx, nframes)
 
-        root = (
-            WORK_FRAME_SIZE[0] * 0.42 + pose.root_x,
-            WORK_FRAME_SIZE[1] * 0.78 + pose.root_y + pose.bob,
-        )
+        root = (WORK_FRAME_SIZE[0] * 0.42 + pose.root_x, WORK_FRAME_SIZE[1] * 0.78 + pose.root_y + pose.bob)
         tilt = pose.lean
 
         def P(x: float, y: float) -> Point:
             rx, ry = _rot_local(x, y, tilt)
             return (root[0] + rx, root[1] + ry)
 
-        self._draw_shadow(draw, P)
+        # No baked ground drop shadow; the scene renderer owns contact shadows.
         self._draw_far_limbs(draw, P, pose)
         self._draw_body(draw, P, pose)
         self._draw_head(draw, P, pose)
@@ -377,37 +319,11 @@ class BearMaulerRenderer:
         _ellipse(draw, c[0], c[1], 62, 12, SHADOW, outline=(0, 0, 0, 0), width=0)
 
     def _draw_body(self, draw, P, pose):
-        back = [
-            P(-76, -70),
-            P(-42, -111 - pose.hump),
-            P(22, -119 - pose.hump),
-            P(72, -92),
-            P(90, -58),
-            P(66, -28),
-            P(8, -20),
-            P(-58, -28),
-            P(-92, -48),
-        ]
+        back = [P(-76, -70), P(-42, -111 - pose.hump), P(22, -119 - pose.hump), P(72, -92), P(90, -58), P(66, -28), P(8, -20), P(-58, -28), P(-92, -48)]
         _poly(draw, back, FUR_DARK, OUTLINE, 1.8)
-        barrel = [
-            P(-64, -68),
-            P(-28, -99 - pose.hump * 0.7),
-            P(38, -97),
-            P(78, -68),
-            P(68, -36),
-            P(16, -26),
-            P(-48, -34),
-            P(-78, -52),
-        ]
+        barrel = [P(-64, -68), P(-28, -99 - pose.hump * 0.7), P(38, -97), P(78, -68), P(68, -36), P(16, -26), P(-48, -34), P(-78, -52)]
         _poly(draw, barrel, FUR, OUTLINE, 1.4)
-        flank = [
-            P(-36, -66),
-            P(-6, -82),
-            P(40, -74),
-            P(54, -52),
-            P(26, -38),
-            P(-26, -44),
-        ]
+        flank = [P(-36, -66), P(-6, -82), P(40, -74), P(54, -52), P(26, -38), P(-26, -44)]
         _poly(draw, flank, FUR_LIGHT, OUTLINE, 0.9)
         _line(draw, [P(-34, -82), P(-20, -44)], FUR_DARK, 0.9)
         _line(draw, [P(22, -78), P(34, -42)], FUR_DARK, 0.9)
@@ -415,41 +331,16 @@ class BearMaulerRenderer:
 
     def _draw_head(self, draw, P, pose):
         hx, hy = P(82 + pose.neck_extend, -92 + pose.head_tilt * 0.12)
-        neck = [
-            P(44, -90),
-            P(72 + pose.neck_extend * 0.3, -104),
-            P(84 + pose.neck_extend * 0.2, -72),
-            P(46, -62),
-        ]
+        neck = [P(44, -90), P(72 + pose.neck_extend * 0.3, -104), P(84 + pose.neck_extend * 0.2, -72), P(46, -62)]
         _poly(draw, neck, FUR_DARK, OUTLINE, 1.0)
-        head = [
-            (hx - 28, hy - 20),
-            (hx + 12, hy - 26),
-            (hx + 42, hy - 12),
-            (hx + 48, hy + 8),
-            (hx + 20, hy + 22),
-            (hx - 22, hy + 18),
-            (hx - 34, hy - 2),
-        ]
+        head = [(hx - 28, hy - 20), (hx + 12, hy - 26), (hx + 42, hy - 12), (hx + 48, hy + 8), (hx + 20, hy + 22), (hx - 22, hy + 18), (hx - 34, hy - 2)]
         _poly(draw, head, FUR, OUTLINE, 1.3)
         _circle(draw, (hx - 18, hy - 20), 9, FUR_DARK, OUTLINE, 1.0)
         _circle(draw, (hx + 8, hy - 24), 8, FUR_DARK, OUTLINE, 1.0)
-        snout = [
-            (hx + 14, hy - 4),
-            (hx + 54, hy - 1),
-            (hx + 68, hy + 8),
-            (hx + 52, hy + 18),
-            (hx + 16, hy + 16),
-        ]
+        snout = [(hx + 14, hy - 4), (hx + 54, hy - 1), (hx + 68, hy + 8), (hx + 52, hy + 18), (hx + 16, hy + 16)]
         _poly(draw, snout, MUZZLE, OUTLINE, 1.0)
         lower_drop = pose.jaw_open * 20.0
-        lower = [
-            (hx + 18, hy + 14),
-            (hx + 48, hy + 18 + lower_drop),
-            (hx + 62, hy + 14 + lower_drop),
-            (hx + 48, hy + 25 + lower_drop),
-            (hx + 18, hy + 23),
-        ]
+        lower = [(hx + 18, hy + 14), (hx + 48, hy + 18 + lower_drop), (hx + 62, hy + 14 + lower_drop), (hx + 48, hy + 25 + lower_drop), (hx + 18, hy + 23)]
         _poly(draw, lower, MUZZLE_DARK, OUTLINE, 0.8)
         _circle(draw, (hx + 58, hy + 6), 5, NOSE, OUTLINE, 0.6)
         if pose.x_eyes:
@@ -461,12 +352,7 @@ class BearMaulerRenderer:
             _ellipse(draw, hx + 7, hy - 4, 5, 3.5, EYE, EYE_HOT, 0.7)
             _circle(draw, (hx + 8, hy - 4), 1.3, OUTLINE, OUTLINE, 0.4)
         for x in (34, 44, 54):
-            _line(
-                draw,
-                [(hx + x, hy + 13), (hx + x - 3, hy + 19 + lower_drop * 0.2)],
-                CLAW,
-                0.7,
-            )
+            _line(draw, [(hx + x, hy + 13), (hx + x - 3, hy + 19 + lower_drop * 0.2)], CLAW, 0.7)
 
     def _limb_points(self, P, kind, phase, lift):
         if kind == "near_fore":
@@ -494,68 +380,20 @@ class BearMaulerRenderer:
         _line(draw, [upper, joint], base, width)
         _line(draw, [joint, paw], base, width - 1.0)
         _line(draw, [upper, joint, paw], OUTLINE, 2.0 if front else 1.4)
-        _ellipse(
-            draw,
-            joint[0],
-            joint[1],
-            7.0 if front else 5.8,
-            8.0 if front else 6.4,
-            hi,
-            OUTLINE,
-            0.9,
-        )
-        _ellipse(
-            draw,
-            paw[0],
-            paw[1],
-            13.0 if front else 10.0,
-            6.0 if front else 5.0,
-            base,
-            OUTLINE,
-            1.0,
-        )
+        _ellipse(draw, joint[0], joint[1], 7.0 if front else 5.8, 8.0 if front else 6.4, hi, OUTLINE, 0.9)
+        _ellipse(draw, paw[0], paw[1], 13.0 if front else 10.0, 6.0 if front else 5.0, base, OUTLINE, 1.0)
         for dy in (-3, 0, 3):
-            _line(
-                draw,
-                [(paw[0] + 8, paw[1] + dy), (paw[0] + 18, paw[1] + dy - 1)],
-                CLAW,
-                1.2 if front else 0.9,
-            )
+            _line(draw, [(paw[0] + 8, paw[1] + dy), (paw[0] + 18, paw[1] + dy - 1)], CLAW, 1.2 if front else 0.9)
         if is_fore and front:
-            _line(
-                draw,
-                [(paw[0] - 6, paw[1] - 5), (paw[0] + 6, paw[1] - 5)],
-                FUR_LIGHT,
-                0.9,
-            )
+            _line(draw, [(paw[0] - 6, paw[1] - 5), (paw[0] + 6, paw[1] - 5)], FUR_LIGHT, 0.9)
 
     def _draw_far_limbs(self, draw, P, pose):
-        self._draw_limb(
-            draw,
-            *self._limb_points(P, "far_hind", pose.far_hind, pose.far_hind_lift),
-            front=False,
-            is_fore=False,
-        )
-        self._draw_limb(
-            draw,
-            *self._limb_points(P, "far_fore", pose.far_fore, pose.far_fore_lift),
-            front=False,
-            is_fore=True,
-        )
+        self._draw_limb(draw, *self._limb_points(P, "far_hind", pose.far_hind, pose.far_hind_lift), front=False, is_fore=False)
+        self._draw_limb(draw, *self._limb_points(P, "far_fore", pose.far_fore, pose.far_fore_lift), front=False, is_fore=True)
 
     def _draw_near_limbs(self, draw, P, pose):
-        self._draw_limb(
-            draw,
-            *self._limb_points(P, "near_hind", pose.near_hind, pose.near_hind_lift),
-            front=True,
-            is_fore=False,
-        )
-        self._draw_limb(
-            draw,
-            *self._limb_points(P, "near_fore", pose.near_fore, pose.near_fore_lift),
-            front=True,
-            is_fore=True,
-        )
+        self._draw_limb(draw, *self._limb_points(P, "near_hind", pose.near_hind, pose.near_hind_lift), front=True, is_fore=False)
+        self._draw_limb(draw, *self._limb_points(P, "near_fore", pose.near_fore, pose.near_fore_lift), front=True, is_fore=True)
 
     def _draw_swipe_fx(self, draw, P, pose):
         cx, cy = P(88, -34)
@@ -565,69 +403,26 @@ class BearMaulerRenderer:
 
     def _draw_slam_fx(self, draw, P, pose):
         c = P(62, 12)
-        _ellipse(
-            draw,
-            c[0],
-            c[1],
-            34 + pose.slam_arc * 10,
-            6 + pose.slam_arc * 2,
-            DUST,
-            outline=(0, 0, 0, 0),
-            width=0,
-        )
+        _ellipse(draw, c[0], c[1], 34 + pose.slam_arc * 10, 6 + pose.slam_arc * 2, DUST, outline=(0, 0, 0, 0), width=0)
         for dx in (-22, -8, 8, 22):
-            _poly(
-                draw,
-                [P(62 + dx, 9), P(70 + dx, -2), P(78 + dx, 9)],
-                (220, 180, 130, 155),
-                (160, 110, 80, 130),
-                0.5,
-            )
+            _poly(draw, [P(62 + dx, 9), P(70 + dx, -2), P(78 + dx, 9)], (220, 180, 130, 155), (160, 110, 80, 130), 0.5)
 
     def _draw_dust(self, draw, P, pose):
         for dx, dy, rx in [(-48, 14, 8), (-20, 16, 10), (28, 15, 9)]:
             c = P(dx, dy)
-            _ellipse(
-                draw,
-                c[0],
-                c[1],
-                rx + pose.dust * 7,
-                4 + pose.dust * 3,
-                DUST,
-                outline=(0, 0, 0, 0),
-                width=0,
-            )
+            _ellipse(draw, c[0], c[1], rx + pose.dust * 7, 4 + pose.dust * 3, DUST, outline=(0, 0, 0, 0), width=0)
 
 
 def _write_yaml(path: Path) -> None:
-    lines = [
-        f"target: {TARGET_BASENAME}",
-        f"frame_width: {FRAME_SIZE[0]}",
-        f"frame_height: {FRAME_SIZE[1]}",
-        "rows:",
-    ]
+    lines = [f"target: {TARGET_BASENAME}", f"frame_width: {FRAME_SIZE[0]}", f"frame_height: {FRAME_SIZE[1]}", "rows:"]
     for name, frames, ms in ROWS:
-        lines.extend(
-            [f"  - name: {name}", f"    frames: {frames}", f"    frame_ms: {ms}"]
-        )
+        lines.extend([f"  - name: {name}", f"    frames: {frames}", f"    frame_ms: {ms}"])
     path.write_text("\n".join(lines) + "\n")
 
 
 def _write_ron(path: Path) -> None:
-    row_lines = [
-        f'        (name: "{name}", frames: {frames}, frame_ms: {ms}),'
-        for name, frames, ms in ROWS
-    ]
-    ron = [
-        "(",
-        f'    target: "{TARGET_BASENAME}",',
-        f"    frame_width: {FRAME_SIZE[0]},",
-        f"    frame_height: {FRAME_SIZE[1]},",
-        "    rows: [",
-        *row_lines,
-        "    ],",
-        ")",
-    ]
+    row_lines = [f'        (name: "{name}", frames: {frames}, frame_ms: {ms}),' for name, frames, ms in ROWS]
+    ron = ["(", f'    target: "{TARGET_BASENAME}",', f'    frame_width: {FRAME_SIZE[0]},', f'    frame_height: {FRAME_SIZE[1]},', "    rows: [", *row_lines, "    ],", ")"]
     path.write_text("\n".join(ron) + "\n")
 
 
@@ -679,7 +474,6 @@ def render(out_dir: str | Path, **opts):
     use, but discovery routes through here.
     """
     from ...tackon_sheet import build_sheet
-
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     renderer = BearMaulerRenderer()
@@ -692,24 +486,14 @@ def render(out_dir: str | Path, **opts):
         auto_crop=True,
     )
     return [
-        outputs["spritesheet"],
-        outputs["yaml"],
-        outputs["ron"],
-        outputs["preview"],
-        outputs["canonical"],
-        outputs["canonical_transparent"],
+        outputs["spritesheet"], outputs["yaml"], outputs["ron"],
+        outputs["preview"], outputs["canonical"], outputs["canonical_transparent"],
     ]
 
 
 def main(argv: List[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Render a corrected four-limbed side-profile bear mauler enemy spritesheet."
-    )
-    parser.add_argument(
-        "--out-dir",
-        type=Path,
-        default=Path(__file__).resolve().parents[2] / "generated" / TARGET_BASENAME,
-    )
+    parser = argparse.ArgumentParser(description="Render a corrected four-limbed side-profile bear mauler enemy spritesheet.")
+    parser.add_argument("--out-dir", type=Path, default=Path(__file__).resolve().parents[2] / "generated" / TARGET_BASENAME)
     args = parser.parse_args(argv)
     for path in render(args.out_dir):
         print(path)

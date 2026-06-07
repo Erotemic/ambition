@@ -574,7 +574,7 @@ body_metrics:
           x: 11
           y: 0
           w: 73
-          h: 105
+          h: 106
     interact:
       hurtbox:
         bbox:

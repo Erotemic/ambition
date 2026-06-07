@@ -243,10 +243,10 @@ body_metrics:
     x: 12
     y: 18
     w: 132
-    h: 90
+    h: 87
   feet_pixel:
     x: 78.0
-    y: 108.0
+    y: 105.0
   feet_anchor_norm:
     x: -0.054286
-    y: -0.260563
+    y: -0.239437

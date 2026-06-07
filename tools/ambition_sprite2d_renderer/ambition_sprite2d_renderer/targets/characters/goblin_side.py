@@ -743,7 +743,7 @@ class SideGoblinGenerator:
         ground_y = (101.0 + p.root_y) * S
         root_x = (60.0 + p.root_x) * S
         d = ImageDraw.Draw(img)
-        d.ellipse((root_x - 26 * S, ground_y - 5 * S, root_x + (31 + 13 * p.collapse) * S, ground_y + 6 * S), fill=(0, 0, 0, int(30 * (1 - 0.28 * p.collapse))))
+        # No baked ground drop shadow; the scene renderer owns contact shadows.
 
         if animation == "blink_out":
             self._draw_blink_out_fx(img, root_x, ground_y, S, frame_index, frame_count, pal)
@@ -773,29 +773,23 @@ class SideGoblinGenerator:
         # into opposed sticks while preserving rigid shin/thigh lengths.
         if animation in {"walk", "run"}:
             idx = frame_index % 8
-            if animation == "run":
-                far_ax = (-10.2, -8.0, -3.7, 0.0, 1.1, -1.5, -5.6, -9.0)
-                far_ay = (21.0, 21.4, 20.4, 18.4, 20.8, 21.6, 21.1, 20.8)
-                near_ax = (9.0, 6.4, 2.7, 0.0, -0.5, 1.9, 5.8, 9.2)
-                near_ay = (20.7, 21.5, 21.1, 20.6, 20.9, 21.4, 19.9, 18.6)
-                far_shift = (-1.8, -1.4, -0.6, 0.4, 1.1, 0.8, 0.0, -0.8)
-                near_shift = (1.6, 1.0, 0.1, -0.9, -1.3, -0.9, -0.2, 0.8)
-                foot_tilt = (-7, -4, -2, 3, 7, 4, 2, -3)
-            else:
-                far_ax = (-9.4, -7.2, -3.3, 0.0, 0.9, -1.4, -5.2, -8.5)
-                far_ay = (20.9, 21.1, 20.1, 18.7, 20.8, 21.4, 20.9, 20.6)
-                near_ax = (8.3, 5.9, 2.5, 0.0, -0.4, 1.7, 5.4, 8.4)
-                near_ay = (20.6, 21.2, 20.9, 20.6, 20.8, 21.2, 19.8, 18.8)
-                far_shift = (-1.5, -1.2, -0.5, 0.3, 1.0, 0.7, 0.0, -0.7)
-                near_shift = (1.4, 0.9, 0.1, -0.7, -1.1, -0.8, -0.2, 0.7)
-                foot_tilt = (-5, -3, -1, 2, 5, 3, 1, -2)
+            leg_len = (spec.leg_upper + spec.leg_lower) * S
+            stride = leg_len * (0.42 if animation == "run" else 0.36)
+            base_drop = leg_len * (0.86 if animation == "run" else 0.88)
+            far_x = (-1.00, -0.76, -0.36, -0.06, 0.12, -0.18, -0.58, -0.90)
+            near_x = (0.92, 0.68, 0.30, 0.04, -0.08, 0.20, 0.62, 0.94)
+            far_lift = (0.00, 0.00, 0.05, 0.14, 0.00, 0.02, 0.08, 0.02)
+            near_lift = (0.00, 0.02, 0.08, 0.02, 0.00, 0.00, 0.05, 0.14)
+            far_shift = (-1.5, -1.2, -0.5, 0.3, 1.0, 0.7, 0.0, -0.7)
+            near_shift = (1.4, 0.9, 0.1, -0.7, -1.1, -0.8, -0.2, 0.7)
+            foot_tilt = (-7, -4, -2, 3, 7, 4, 2, -3) if animation == "run" else (-5, -3, -1, 2, 5, 3, 1, -2)
 
             leg_draws = []
-            for name, hip, ax, ay, tint, foot_shift, foot_angle in [
-                ("front_dark", hip_far, far_ax[idx], far_ay[idx], pal["skin_shadow"], far_shift[idx], foot_tilt[idx]),
-                ("back_light", hip_near, near_ax[idx], near_ay[idx], pal["skin"], near_shift[idx], -foot_tilt[(idx + 4) % 8]),
+            for name, hip, xnorm, lift, tint, foot_shift, foot_angle in [
+                ("front_dark", hip_far, far_x[idx], far_lift[idx], pal["skin_shadow"], far_shift[idx], foot_tilt[idx]),
+                ("back_light", hip_near, near_x[idx], near_lift[idx], pal["skin"], near_shift[idx], -foot_tilt[(idx + 4) % 8]),
             ]:
-                ankle = (body_center[0] + ax * S, body_center[1] + ay * S)
+                ankle = (body_center[0] + xnorm * stride, hip[1] + base_drop - lift * leg_len)
                 knee, _a1, _a2 = self._solve_leg_ik(hip, ankle, spec.leg_upper * S, spec.leg_lower * S, bend_sign=1.0)
                 foot_center = (ankle[0] + spec.foot_w * 0.32 * S + foot_shift * S, ankle[1] + 2.0 * S)
                 leg_draws.append((0 if name == "back_light" else 1, hip, knee, ankle, tint, foot_center, foot_angle))

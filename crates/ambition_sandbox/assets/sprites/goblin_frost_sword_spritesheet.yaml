@@ -342,13 +342,13 @@ body_metrics:
     x: 10
     y: 6
     w: 84
-    h: 85
+    h: 78
   feet_pixel:
     x: 51.5
-    y: 90.0
+    y: 83.0
   feet_anchor_norm:
     x: -0.027522935779816515
-    y: -0.32568807339449546
+    y: -0.26146788990825687
   animations:
     idle:
       hurtbox:
@@ -356,35 +356,35 @@ body_metrics:
           x: 10
           y: 6
           w: 84
-          h: 85
+          h: 79
     walk:
       hurtbox:
         bbox:
           x: 9
           y: 6
           w: 88
-          h: 85
+          h: 78
     run:
       hurtbox:
         bbox:
           x: 9
           y: 6
           w: 89
-          h: 85
+          h: 78
     slash:
       hurtbox:
         bbox:
           x: 7
           y: 5
           w: 102
-          h: 86
+          h: 79
     hit:
       hurtbox:
         bbox:
           x: 2
           y: 2
           w: 79
-          h: 91
+          h: 84
     death:
       hurtbox:
         bbox:

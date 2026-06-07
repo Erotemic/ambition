@@ -358,38 +358,7 @@ class NinjaSideGenerator:
             p.eye_squint = 0.65
         return p
 
-    def _clamp_leg_target(self, hip: Point, ankle: Point, upper_len: float, lower_len: float, pad: float = 0.8) -> Point:
-        dx = ankle[0] - hip[0]
-        dy = ankle[1] - hip[1]
-        dist = math.hypot(dx, dy)
-        min_reach = abs(upper_len - lower_len) + 0.001
-        max_reach = max(min_reach + 0.001, upper_len + lower_len - pad)
-        if dist == 0.0:
-            return (hip[0] + min_reach, hip[1])
-        if dist < min_reach:
-            scale = min_reach / dist
-            return (hip[0] + dx * scale, hip[1] + dy * scale)
-        if dist > max_reach:
-            scale = max_reach / dist
-            return (hip[0] + dx * scale, hip[1] + dy * scale)
-        return ankle
-
-    def _solve_leg_ik(self, hip: Point, ankle: Point, upper_len: float, lower_len: float, bend_sign: float = 1.0) -> Tuple[Point, float, float]:
-        dx = ankle[0] - hip[0]
-        dy = ankle[1] - hip[1]
-        dist = math.hypot(dx, dy)
-        min_reach = abs(upper_len - lower_len) + 0.001
-        max_reach = max(min_reach + 0.001, upper_len + lower_len - 0.001)
-        dist = clamp(dist, min_reach, max_reach)
-        base = math.degrees(math.atan2(dy, dx))
-        cos_off = clamp((upper_len * upper_len + dist * dist - lower_len * lower_len) / (2.0 * upper_len * dist), -1.0, 1.0)
-        off = math.degrees(math.acos(cos_off))
-        a1 = base - bend_sign * off
-        knee = add(hip, vec(upper_len, a1))
-        a2 = math.degrees(math.atan2(ankle[1] - knee[1], ankle[0] - knee[0]))
-        return knee, a1, a2
-
-    def _draw_shadow(self, draw: ImageDraw.ImageDraw, center: Point, w: float, h: float, color: Color) -> None:
+    def _draw_smoke_crescent(self, draw: ImageDraw.ImageDraw, center: Point, w: float, h: float, color: Color) -> None:
         x, y = center
         draw.ellipse((x - w / 2.0, y - h / 2.0, x + w / 2.0, y + h / 2.0), fill=color)
 
@@ -435,7 +404,7 @@ class NinjaSideGenerator:
         d.polygon([base_r, mid_r, tip, (mid_r[0] + nx * 0.7, mid_r[1] + ny * 0.7)], fill=shade)
         d.line([base_l, tip], fill=edge, width=1)
 
-    def _draw_ninja(self, img: Image.Image, spec: NinjaSpec, p: NinjaPose, scale: float, animation: str | None = None, frame_index: int = 0) -> None:
+    def _draw_ninja(self, img: Image.Image, spec: NinjaSpec, p: NinjaPose, scale: float) -> None:
         d = ImageDraw.Draw(img, "RGBA")
         pal = self._palette(spec)
         S = scale
@@ -466,7 +435,7 @@ class NinjaSideGenerator:
         # intentional VFX and stay.
         if p.dash > 0.0:
             for i, alpha in enumerate((72, 44, 25)):
-                self._draw_shadow(
+                self._draw_smoke_crescent(
                     d,
                     sp((50.0 - i * 12.0, 75.0 + i * 5.0 + p.root_y * 0.3)),
                     sc(30.0 + i * 8.0),
@@ -561,58 +530,16 @@ class NinjaSideGenerator:
             ankle = add(knee, vec(spec.leg_lower, lower + p.torso_tilt * 0.05))
             return start, knee, ankle
 
-        def walk_leg_pose(is_near: bool) -> Tuple[Point, Point, Point, Point, float]:
-            idx = frame_index % 8
-            if animation == "run":
-                far_ax = (-11.6, -8.9, -4.0, -0.3, 1.4, -1.7, -6.4, -10.4)
-                far_ay = (21.2, 22.0, 20.8, 17.8, 21.0, 22.1, 21.5, 21.1)
-                near_ax = (10.4, 7.4, 3.2, 0.2, -0.8, 2.2, 6.8, 10.6)
-                near_ay = (20.8, 22.1, 21.4, 20.9, 21.1, 21.8, 20.2, 17.9)
-                far_shift = (-1.7, -1.3, -0.6, 0.4, 1.2, 0.9, 0.1, -0.8)
-                near_shift = (1.5, 1.0, 0.1, -1.0, -1.4, -1.0, -0.2, 0.8)
-                foot_tilt = (-8, -5, -2, 3, 8, 5, 2, -3)
-            else:
-                far_ax = (-10.6, -8.0, -3.7, -0.2, 1.2, -1.5, -5.8, -9.6)
-                far_ay = (21.0, 21.6, 20.6, 18.2, 20.9, 21.8, 21.3, 20.9)
-                near_ax = (9.5, 6.7, 3.0, 0.2, -0.7, 2.0, 6.3, 9.7)
-                near_ay = (20.7, 21.8, 21.2, 20.8, 21.0, 21.6, 20.1, 18.4)
-                far_shift = (-1.5, -1.1, -0.5, 0.4, 1.1, 0.8, 0.1, -0.7)
-                near_shift = (1.4, 0.9, 0.1, -0.8, -1.2, -0.8, -0.2, 0.7)
-                foot_tilt = (-6, -4, -2, 2, 6, 4, 2, -2)
-
-            start = (hip[0] + (spec.hip_w * 0.28 if is_near else -spec.hip_w * 0.28), hip[1] + 1.0)
-            if is_near:
-                ankle = (hip[0] + near_ax[idx], hip[1] + near_ay[idx])
-                ankle = self._clamp_leg_target(start, ankle, spec.leg_upper, spec.leg_lower)
-                knee, _a1, _a2 = self._solve_leg_ik(start, ankle, spec.leg_upper, spec.leg_lower, bend_sign=1.0)
-                foot_center = (ankle[0] + 4.3 + near_shift[idx], ankle[1] + 2.5)
-                foot_angle = -foot_tilt[(idx + 4) % 8]
-            else:
-                ankle = (hip[0] + far_ax[idx], hip[1] + far_ay[idx])
-                ankle = self._clamp_leg_target(start, ankle, spec.leg_upper, spec.leg_lower)
-                knee, _a1, _a2 = self._solve_leg_ik(start, ankle, spec.leg_upper, spec.leg_lower, bend_sign=1.0)
-                foot_center = (ankle[0] - 4.3 + far_shift[idx], ankle[1] + 2.5)
-                foot_angle = foot_tilt[idx]
-            return start, knee, ankle, foot_center, foot_angle
-
-        if animation in {"walk", "run"}:
-            far_hip, far_knee, far_ankle, far_foot_center, far_foot_angle = walk_leg_pose(False)
-            near_hip, near_knee, near_ankle, near_foot_center, near_foot_angle = walk_leg_pose(True)
-        else:
-            far_hip, far_knee, far_ankle = leg_points(False)
-            near_hip, near_knee, near_ankle = leg_points(True)
-            far_foot_center = (far_ankle[0] - 4.3, far_ankle[1] + 2.5)
-            near_foot_center = (near_ankle[0] + 4.3, near_ankle[1] + 2.5)
-            far_foot_angle = -7.0
-            near_foot_angle = 7.0
+        far_hip, far_knee, far_ankle = leg_points(False)
+        near_hip, near_knee, near_ankle = leg_points(True)
         limb(far_hip, far_knee, far_ankle, spec.leg_radius, col("cloth_dark"), col("outline"))
         limb(near_hip, near_knee, near_ankle, spec.leg_radius, col("cloth"), col("outline"))
-        for foot_center, foot_angle, fill in ((far_foot_center, far_foot_angle, col("wrap")), (near_foot_center, near_foot_angle, col("armor_dark"))):
+        for ankle, sign, fill in ((far_ankle, -1.0, col("wrap")), (near_ankle, 1.0, col("armor_dark"))):
             draw_rotated_ellipse(
                 img,
-                sp(foot_center),
+                sp((ankle[0] + sign * 4.3, ankle[1] + 2.5)),
                 (sc(spec.foot_w), sc(spec.foot_h)),
-                foot_angle,
+                7.0 * sign,
                 fill,
                 col("outline"),
                 sc(1.1),
@@ -841,6 +768,6 @@ class NinjaSideGenerator:
         high = Image.new("RGBA", (w * ss, h * ss), background or (0, 0, 0, 0))
         scale = (w / 128.0) * ss
         pose = self.pose_for_animation(animation, frame_index, frame_count, spec)
-        self._draw_ninja(high, spec, pose, scale, animation=animation, frame_index=frame_index)
+        self._draw_ninja(high, spec, pose, scale)
         resample = RESAMPLING.NEAREST if downsample == "nearest" else RESAMPLING.LANCZOS
         return high.resize(size, resample)

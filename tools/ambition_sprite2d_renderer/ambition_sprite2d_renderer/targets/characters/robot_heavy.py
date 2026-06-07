@@ -18,83 +18,51 @@ from PIL import Image, ImageDraw
 
 from ...tackon_sheet import build_sheet
 
-ACTOR_METADATA = {
-    "actor": {"character_id": "npc_robot_heavy", "display_name": "Robot Heavy"},
-    "body": {
-        "body_plan": "HumanoidBiped",
-        "body_kind": "Wide",
-        "mass_class": "Heavy",
-        "traits": ["robot", "enemy", "heavy"],
-        "locomotion_hint": "Walk",
-    },
-    "capabilities": {
-        "traversal": {
-            "walk": True,
-            "jump": {
-                "height_px": 24.0,
-                "distance_px": 48.0,
-                "source": "explicit.profile.robot",
-            },
-            "climb": None,
-            "fly": None,
-            "swim": None,
-            "crawl": None,
-            "use_lifts": True,
-            "door_access": ["public"],
-        },
-        "interactions": {
-            "talk": True,
-            "trade": None,
-            "carry": None,
-            "open_doors": ["public"],
-        },
-    },
-    "brain": {"default_preset": "melee_brute_brute"},
-    "actions": {"default_preset": "brute_lunge"},
-    "visual": {"default_pose": "idle"},
-    "tags": ["robot", "enemy", "heavy"],
-    "sockets": {
-        "head": {"source": "explicit.profile.robot", "point": {"x": 64.0, "y": 24.0}},
-        "chest": {"source": "explicit.profile.robot", "point": {"x": 64.0, "y": 54.0}},
-        "hand_l": {"source": "explicit.profile.robot", "point": {"x": 48.0, "y": 64.0}},
-        "hand_r": {"source": "explicit.profile.robot", "point": {"x": 80.0, "y": 64.0}},
-        "muzzle": {"source": "explicit.profile.robot", "point": {"x": 90.0, "y": 58.0}},
-        "projectile_origin": {
-            "source": "explicit.profile.robot",
-            "point": {"x": 90.0, "y": 58.0},
-        },
-    },
-    "animation_bindings": {
-        "default": {"animation": "idle", "events": []},
-        "locomotion.walk": {"animation": "walk", "events": []},
-        "locomotion.run": {"animation": "run", "events": []},
-        "action.melee.primary": {
-            "animation": "slash",
-            "events": [
-                {
-                    "t": 0.35,
-                    "event": "hitbox_active_start",
-                    "source": "explicit.profile.robot",
-                },
-                {
-                    "t": 0.55,
-                    "event": "hitbox_active_end",
-                    "source": "explicit.profile.robot",
-                },
-            ],
-        },
-        "action.ranged.primary": {
-            "animation": "shoot",
-            "events": [
-                {
-                    "t": 0.5,
-                    "event": "projectile_release",
-                    "source": "explicit.profile.robot",
-                }
-            ],
-        },
-    },
-}
+ACTOR_METADATA = {'actor': {'character_id': 'npc_robot_heavy', 'display_name': 'Robot Heavy'},
+ 'body': {'body_plan': 'HumanoidBiped',
+          'body_kind': 'Wide',
+          'mass_class': 'Heavy',
+          'traits': ['robot', 'enemy', 'heavy'],
+          'locomotion_hint': 'Walk'},
+ 'capabilities': {'traversal': {'walk': True,
+                                'jump': {'height_px': 24.0,
+                                         'distance_px': 48.0,
+                                         'source': 'explicit.profile.robot'},
+                                'climb': None,
+                                'fly': None,
+                                'swim': None,
+                                'crawl': None,
+                                'use_lifts': True,
+                                'door_access': ['public']},
+                  'interactions': {'talk': True,
+                                   'trade': None,
+                                   'carry': None,
+                                   'open_doors': ['public']}},
+ 'brain': {'default_preset': 'melee_brute_brute'},
+ 'actions': {'default_preset': 'brute_lunge'},
+ 'visual': {'default_pose': 'idle'},
+ 'tags': ['robot', 'enemy', 'heavy'],
+ 'sockets': {'head': {'source': 'explicit.profile.robot', 'point': {'x': 64.0, 'y': 24.0}},
+             'chest': {'source': 'explicit.profile.robot', 'point': {'x': 64.0, 'y': 54.0}},
+             'hand_l': {'source': 'explicit.profile.robot', 'point': {'x': 48.0, 'y': 64.0}},
+             'hand_r': {'source': 'explicit.profile.robot', 'point': {'x': 80.0, 'y': 64.0}},
+             'muzzle': {'source': 'explicit.profile.robot', 'point': {'x': 90.0, 'y': 58.0}},
+             'projectile_origin': {'source': 'explicit.profile.robot',
+                                   'point': {'x': 90.0, 'y': 58.0}}},
+ 'animation_bindings': {'default': {'animation': 'idle', 'events': []},
+                        'locomotion.walk': {'animation': 'walk', 'events': []},
+                        'locomotion.run': {'animation': 'run', 'events': []},
+                        'action.melee.primary': {'animation': 'slash',
+                                                 'events': [{'t': 0.35,
+                                                             'event': 'hitbox_active_start',
+                                                             'source': 'explicit.profile.robot'},
+                                                            {'t': 0.55,
+                                                             'event': 'hitbox_active_end',
+                                                             'source': 'explicit.profile.robot'}]},
+                        'action.ranged.primary': {'animation': 'shoot',
+                                                  'events': [{'t': 0.5,
+                                                              'event': 'projectile_release',
+                                                              'source': 'explicit.profile.robot'}]}}}
 
 
 RGBA = Tuple[int, int, int, int]
@@ -428,50 +396,22 @@ def _rot_local(x: float, y: float, deg: float) -> Point:
     return (x * c - y * s, x * s + y * c)
 
 
-def _poly(
-    draw: ImageDraw.ImageDraw,
-    pts: Sequence[Point],
-    fill: RGBA,
-    outline: RGBA = OUTLINE,
-    width: float = 1.0,
-) -> None:
+def _poly(draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
     ipts = [_pt(p) for p in pts]
     draw.polygon(ipts, fill=fill)
     if outline and width > 0:
-        draw.line(
-            ipts + [ipts[0]], fill=outline, width=max(1, _s(width)), joint="curve"
-        )
+        draw.line(ipts + [ipts[0]], fill=outline, width=max(1, _s(width)), joint="curve")
 
 
-def _line(
-    draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, width: float = 1.0
-) -> None:
+def _line(draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, width: float = 1.0) -> None:
     draw.line([_pt(p) for p in pts], fill=fill, width=max(1, _s(width)), joint="curve")
 
 
-def _ellipse(
-    draw: ImageDraw.ImageDraw,
-    cx: float,
-    cy: float,
-    rx: float,
-    ry: float,
-    fill: RGBA,
-    outline: RGBA = OUTLINE,
-    width: float = 1.0,
-) -> None:
-    draw.ellipse(
-        _box(cx, cy, rx, ry), fill=fill, outline=outline, width=max(1, _s(width))
-    )
+def _ellipse(draw: ImageDraw.ImageDraw, cx: float, cy: float, rx: float, ry: float, fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
+    draw.ellipse(_box(cx, cy, rx, ry), fill=fill, outline=outline, width=max(1, _s(width)))
 
 
-def _circle(
-    draw: ImageDraw.ImageDraw,
-    c: Point,
-    r: float,
-    fill: RGBA,
-    outline: RGBA = OUTLINE,
-    width: float = 1.0,
-) -> None:
+def _circle(draw: ImageDraw.ImageDraw, c: Point, r: float, fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
     _ellipse(draw, c[0], c[1], r, r, fill, outline, width)
 
 
@@ -498,11 +438,7 @@ class RobotHeavyRenderer:
         self.spec = spec
 
     def render_frame(self, anim: str, frame_idx: int, nframes: int) -> Image.Image:
-        img = Image.new(
-            "RGBA",
-            (WORK_FRAME_SIZE[0] * SUPER, WORK_FRAME_SIZE[1] * SUPER),
-            (0, 0, 0, 0),
-        )
+        img = Image.new("RGBA", (WORK_FRAME_SIZE[0] * SUPER, WORK_FRAME_SIZE[1] * SUPER), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img, "RGBA")
         pose = Pose(anim, frame_idx, nframes)
         spec = self.spec
@@ -517,7 +453,7 @@ class RobotHeavyRenderer:
             rx, ry = _rot_local(x, y, global_tilt)
             return (root[0] + rx, root[1] + ry)
 
-        self._draw_shadow(draw, P, pose)
+        # No baked ground drop shadow; the scene renderer owns contact shadows.
         self._draw_backpack(draw, P, pose)
         self._draw_back_leg(draw, P, pose)
         self._draw_back_arm(draw, P, pose)
@@ -532,16 +468,7 @@ class RobotHeavyRenderer:
 
     def _draw_shadow(self, draw: ImageDraw.ImageDraw, P, pose: Pose) -> None:
         c = P(0, 15)
-        _ellipse(
-            draw,
-            c[0],
-            c[1],
-            56 + abs(pose.lean) * 0.2,
-            12 - pose.bob * 0.08,
-            GROUND_SHADOW,
-            outline=(0, 0, 0, 0),
-            width=0,
-        )
+        _ellipse(draw, c[0], c[1], 56 + abs(pose.lean) * 0.2, 12 - pose.bob * 0.08, GROUND_SHADOW, outline=(0, 0, 0, 0), width=0)
 
     def _draw_backpack(self, draw: ImageDraw.ImageDraw, P, pose: Pose) -> None:
         spec = self.spec
@@ -552,23 +479,9 @@ class RobotHeavyRenderer:
             _poly(draw, left, spec.plate_dark, OUTLINE, 1.1)
             _poly(draw, right, spec.plate_dark, OUTLINE, 1.1)
             for dx in (-26, 26):
-                _line(
-                    draw,
-                    [P(dx, -136), P(dx, -154 - pose.vent_burst * 10)],
-                    spec.glow_hot,
-                    1.0,
-                )
+                _line(draw, [P(dx, -136), P(dx, -154 - pose.vent_burst * 10)], spec.glow_hot, 1.0)
                 smoke = P(dx + sx * 0.3, -158 - pose.vent_burst * 10)
-                _ellipse(
-                    draw,
-                    smoke[0],
-                    smoke[1],
-                    6 + pose.vent_burst * 8,
-                    8 + pose.vent_burst * 10,
-                    SMOKE,
-                    outline=(0, 0, 0, 0),
-                    width=0,
-                )
+                _ellipse(draw, smoke[0], smoke[1], 6 + pose.vent_burst * 8, 8 + pose.vent_burst * 10, SMOKE, outline=(0, 0, 0, 0), width=0)
         elif spec.backpack_style == "furnace":
             box = [P(-24, -134), P(24, -134), P(28, -92), P(-28, -92)]
             _poly(draw, box, spec.plate_dark, OUTLINE, 1.2)
@@ -576,66 +489,25 @@ class RobotHeavyRenderer:
             _poly(draw, vent, spec.glow, OUTLINE, 1.0)
             _line(draw, [P(-18, -112), P(18, -112)], spec.glow_hot, 1.0)
             smoke = P(0, -148 - pose.vent_burst * 12)
-            _ellipse(
-                draw,
-                smoke[0],
-                smoke[1],
-                10 + pose.vent_burst * 9,
-                11 + pose.vent_burst * 12,
-                SMOKE,
-                outline=(0, 0, 0, 0),
-                width=0,
-            )
+            _ellipse(draw, smoke[0], smoke[1], 10 + pose.vent_burst * 9, 11 + pose.vent_burst * 12, SMOKE, outline=(0, 0, 0, 0), width=0)
         else:  # coil
             frame = [P(-28, -134), P(28, -134), P(28, -108), P(-28, -108)]
             _poly(draw, frame, spec.plate_dark, OUTLINE, 1.1)
             for dx in (-18, 0, 18):
                 _line(draw, [P(dx, -132), P(dx, -110)], spec.glow, 1.2)
-            arc_box = (
-                _s(P(0, -121)[0] - 28),
-                _s(P(0, -121)[1] - 18),
-                _s(P(0, -121)[0] + 28),
-                _s(P(0, -121)[1] + 18),
-            )
+            arc_box = (_s(P(0, -121)[0] - 28), _s(P(0, -121)[1] - 18), _s(P(0, -121)[0] + 28), _s(P(0, -121)[1] + 18))
             draw.arc(arc_box, 200, 340, fill=(*spec.glow[:3], 150), width=_s(2.5))
             draw.arc(arc_box, 20, 160, fill=(*spec.glow[:3], 120), width=_s(2.0))
 
-    def _draw_leg(
-        self,
-        draw: ImageDraw.ImageDraw,
-        hip: Point,
-        knee: Point,
-        ankle: Point,
-        foot_dir: int,
-        front: bool,
-    ) -> None:
+    def _draw_leg(self, draw: ImageDraw.ImageDraw, hip: Point, knee: Point, ankle: Point, foot_dir: int, front: bool) -> None:
         spec = self.spec
         line_w = (7.6 if front else 7.0) * spec.leg_scale
         plate_fill = spec.shell_mid if front else spec.shell_dark
-        _line(
-            draw,
-            [hip, knee],
-            spec.metal if hasattr(spec, "metal") else STEEL_DARK,
-            line_w,
-        )
+        _line(draw, [hip, knee], spec.metal if hasattr(spec, 'metal') else STEEL_DARK, line_w)
         _line(draw, [knee, ankle], STEEL_DARK, line_w - 0.6)
         _line(draw, [hip, knee, ankle], OUTLINE, 2.0)
-        _ellipse(
-            draw,
-            knee[0],
-            knee[1],
-            8 * spec.leg_scale,
-            9 * spec.leg_scale,
-            spec.plate,
-            OUTLINE,
-            1.0,
-        )
-        shin = _rect_poly(
-            ((knee[0] + ankle[0]) * 0.5, (knee[1] + ankle[1]) * 0.5),
-            16 * spec.leg_scale,
-            34 * spec.leg_scale,
-            foot_dir * 4.0,
-        )
+        _ellipse(draw, knee[0], knee[1], 8 * spec.leg_scale, 9 * spec.leg_scale, spec.plate, OUTLINE, 1.0)
+        shin = _rect_poly(((knee[0] + ankle[0]) * 0.5, (knee[1] + ankle[1]) * 0.5), 16 * spec.leg_scale, 34 * spec.leg_scale, foot_dir * 4.0)
         _poly(draw, shin, plate_fill, OUTLINE, 1.1)
         foot = [
             (ankle[0] - 10 * spec.foot_scale, ankle[1] - 6),
@@ -644,12 +516,7 @@ class RobotHeavyRenderer:
             (ankle[0] - 9 * spec.foot_scale, ankle[1] + 6),
         ]
         _poly(draw, foot, spec.shell_dark if front else spec.plate_dark, OUTLINE, 1.2)
-        _line(
-            draw,
-            [(ankle[0] - 4, ankle[1] - 4), (ankle[0] + 8 * foot_dir, ankle[1] - 4)],
-            spec.accent,
-            0.8,
-        )
+        _line(draw, [(ankle[0] - 4, ankle[1] - 4), (ankle[0] + 8 * foot_dir, ankle[1] - 4)], spec.accent, 0.8)
 
     def _draw_back_leg(self, draw: ImageDraw.ImageDraw, P, pose: Pose) -> None:
         hip = P(-22, -40)
@@ -668,42 +535,13 @@ class RobotHeavyRenderer:
         sw = 52.0 * spec.shoulder_scale
         bw = 44.0 * spec.body_scale
         top_y = -122.0
-        chest = [
-            P(-sw, top_y),
-            P(-42, -154),
-            P(42, -154),
-            P(sw, top_y),
-            P(48, -68),
-            P(0, -28),
-            P(-48, -68),
-        ]
+        chest = [P(-sw, top_y), P(-42, -154), P(42, -154), P(sw, top_y), P(48, -68), P(0, -28), P(-48, -68)]
         _poly(draw, chest, spec.shell_dark, OUTLINE, 1.8)
-        shoulder_bar = [
-            P(-sw + 4, -128),
-            P(sw - 4, -128),
-            P(sw - 10, -108),
-            P(-sw + 10, -108),
-        ]
+        shoulder_bar = [P(-sw + 4, -128), P(sw - 4, -128), P(sw - 10, -108), P(-sw + 10, -108)]
         _poly(draw, shoulder_bar, spec.plate_dark, OUTLINE, 1.2)
-        belly = [
-            P(-bw, -118),
-            P(-34, -142),
-            P(34, -142),
-            P(bw, -118),
-            P(40, -70),
-            P(0, -36),
-            P(-40, -70),
-        ]
+        belly = [P(-bw, -118), P(-34, -142), P(34, -142), P(bw, -118), P(40, -70), P(0, -36), P(-40, -70)]
         _poly(draw, belly, spec.shell_mid, OUTLINE, 1.5)
-        center = [
-            P(-26, -118),
-            P(-18, -134),
-            P(18, -134),
-            P(26, -118),
-            P(22, -78),
-            P(0, -54),
-            P(-22, -78),
-        ]
+        center = [P(-26, -118), P(-18, -134), P(18, -134), P(26, -118), P(22, -78), P(0, -54), P(-22, -78)]
         _poly(draw, center, spec.plate, OUTLINE, 1.2)
         _line(draw, [P(0, -134), P(0, -54)], spec.plate_dark, 1.0)
         _line(draw, [P(-18, -108), P(-6, -92)], spec.shell_light, 0.8)
@@ -718,49 +556,13 @@ class RobotHeavyRenderer:
         hips = [P(-50, -38), P(50, -38), P(44, -16), P(-44, -16)]
         _poly(draw, hips, spec.accent, OUTLINE, 1.2)
         if spec.belt_fins:
-            _poly(
-                draw,
-                [P(-48, -38), P(-62, -24), P(-46, -20)],
-                spec.plate_dark,
-                OUTLINE,
-                0.8,
-            )
-            _poly(
-                draw,
-                [P(48, -38), P(62, -24), P(46, -20)],
-                spec.plate_dark,
-                OUTLINE,
-                0.8,
-            )
+            _poly(draw, [P(-48, -38), P(-62, -24), P(-46, -20)], spec.plate_dark, OUTLINE, 0.8)
+            _poly(draw, [P(48, -38), P(62, -24), P(46, -20)], spec.plate_dark, OUTLINE, 0.8)
         if spec.shoulder_pods:
-            _poly(
-                draw,
-                [
-                    P(-sw - 6, -136),
-                    P(-sw + 12, -152),
-                    P(-sw + 24, -126),
-                    P(-sw + 4, -116),
-                ],
-                spec.plate,
-                OUTLINE,
-                1.0,
-            )
-            _poly(
-                draw,
-                [P(sw - 24, -126), P(sw - 12, -152), P(sw + 6, -136), P(sw - 4, -116)],
-                spec.plate,
-                OUTLINE,
-                1.0,
-            )
+            _poly(draw, [P(-sw - 6, -136), P(-sw + 12, -152), P(-sw + 24, -126), P(-sw + 4, -116)], spec.plate, OUTLINE, 1.0)
+            _poly(draw, [P(sw - 24, -126), P(sw - 12, -152), P(sw + 6, -136), P(sw - 4, -116)], spec.plate, OUTLINE, 1.0)
 
-    def _draw_arm(
-        self,
-        draw: ImageDraw.ImageDraw,
-        shoulder: Point,
-        elbow: Point,
-        hand: Point,
-        front: bool,
-    ) -> None:
+    def _draw_arm(self, draw: ImageDraw.ImageDraw, shoulder: Point, elbow: Point, hand: Point, front: bool) -> None:
         spec = self.spec
         metal = STEEL if front else STEEL_DARK
         shell = spec.plate if front else spec.plate_dark
@@ -768,22 +570,8 @@ class RobotHeavyRenderer:
         _line(draw, [shoulder, elbow], metal, arm_w)
         _line(draw, [elbow, hand], metal, arm_w - 0.8)
         _line(draw, [shoulder, elbow, hand], OUTLINE, 2.0)
-        _ellipse(
-            draw,
-            elbow[0],
-            elbow[1],
-            8.5 * spec.arm_scale,
-            9.0 * spec.arm_scale,
-            shell,
-            OUTLINE,
-            1.0,
-        )
-        fore = _rect_poly(
-            ((elbow[0] + hand[0]) * 0.5, (elbow[1] + hand[1]) * 0.5),
-            17 * spec.arm_scale,
-            30 * spec.arm_scale,
-            6 if front else -8,
-        )
+        _ellipse(draw, elbow[0], elbow[1], 8.5 * spec.arm_scale, 9.0 * spec.arm_scale, shell, OUTLINE, 1.0)
+        fore = _rect_poly(((elbow[0] + hand[0]) * 0.5, (elbow[1] + hand[1]) * 0.5), 17 * spec.arm_scale, 30 * spec.arm_scale, 6 if front else -8)
         _poly(draw, fore, spec.shell_mid if front else spec.shell_dark, OUTLINE, 1.0)
         _circle(draw, hand, 6.8 * spec.arm_scale, spec.rust, OUTLINE, 1.0)
 
@@ -793,23 +581,14 @@ class RobotHeavyRenderer:
         hand = P(-44 + pose.back_arm * 0.18, -56 + pose.back_arm * 0.14)
         self._draw_arm(draw, shoulder, elbow, hand, front=False)
 
-    def _draw_front_arm_and_weapon(
-        self, draw: ImageDraw.ImageDraw, P, pose: Pose
-    ) -> None:
+    def _draw_front_arm_and_weapon(self, draw: ImageDraw.ImageDraw, P, pose: Pose) -> None:
         shoulder = P(50 * self.spec.shoulder_scale, -116)
-        elbow = P(
-            60 + pose.front_arm * 0.10,
-            -90 + pose.front_arm * 0.18 + pose.weapon_shift_y * 0.12,
-        )
-        hand = P(
-            32 + pose.front_arm * 0.23 + pose.weapon_shift_x, -104 + pose.weapon_shift_y
-        )
+        elbow = P(60 + pose.front_arm * 0.10, -90 + pose.front_arm * 0.18 + pose.weapon_shift_y * 0.12)
+        hand = P(32 + pose.front_arm * 0.23 + pose.weapon_shift_x, -104 + pose.weapon_shift_y)
         self._draw_arm(draw, shoulder, elbow, hand, front=True)
         self._draw_weapon(draw, hand, pose.weapon_angle + pose.lean)
 
-    def _draw_weapon(
-        self, draw: ImageDraw.ImageDraw, hand: Point, angle: float
-    ) -> None:
+    def _draw_weapon(self, draw: ImageDraw.ImageDraw, hand: Point, angle: float) -> None:
         spec = self.spec
         scale = spec.weapon_scale
 
@@ -832,14 +611,7 @@ class RobotHeavyRenderer:
                 spike2 = [tr(x, 10), tr(x + 4, 22), tr(x + 8, 10)]
                 _poly(draw, spike2, STEEL, OUTLINE, 0.7)
         elif spec.weapon_style == "pile":
-            head = [
-                tr(92, -14),
-                tr(126, -14),
-                tr(138, 0),
-                tr(126, 14),
-                tr(92, 14),
-                tr(104, 0),
-            ]
+            head = [tr(92, -14), tr(126, -14), tr(138, 0), tr(126, 14), tr(92, 14), tr(104, 0)]
             _poly(draw, head, spec.plate_dark, OUTLINE, 1.2)
             piston = [tr(82, -8), tr(102, -8), tr(112, 0), tr(102, 8), tr(82, 8)]
             _poly(draw, piston, spec.glow, OUTLINE, 1.0)
@@ -852,12 +624,7 @@ class RobotHeavyRenderer:
             coil_r = [tr(96, 10), tr(88, 28), tr(76, 10)]
             _poly(draw, coil_l, spec.accent, OUTLINE, 0.8)
             _poly(draw, coil_r, spec.accent, OUTLINE, 0.8)
-            arc_box = (
-                _s(tr(118, 0)[0] - 18),
-                _s(tr(118, 0)[1] - 22),
-                _s(tr(118, 0)[0] + 18),
-                _s(tr(118, 0)[1] + 22),
-            )
+            arc_box = (_s(tr(118, 0)[0] - 18), _s(tr(118, 0)[1] - 22), _s(tr(118, 0)[0] + 18), _s(tr(118, 0)[1] + 22))
             draw.arc(arc_box, 250, 110, fill=(*spec.glow[:3], 180), width=_s(2.2))
             draw.arc(arc_box, 70, 290, fill=(*spec.glow_hot[:3], 120), width=_s(1.6))
 
@@ -865,22 +632,9 @@ class RobotHeavyRenderer:
         spec = self.spec
         hx, hy = P(0, -172 + pose.head_tilt * 0.18)
         if spec.head_style == "mono":
-            head = [
-                (hx - 32, hy - 12),
-                (hx - 22, hy - 34),
-                (hx + 24, hy - 34),
-                (hx + 34, hy - 8),
-                (hx + 24, hy + 18),
-                (hx - 24, hy + 18),
-                (hx - 34, hy - 4),
-            ]
+            head = [(hx - 32, hy - 12), (hx - 22, hy - 34), (hx + 24, hy - 34), (hx + 34, hy - 8), (hx + 24, hy + 18), (hx - 24, hy + 18), (hx - 34, hy - 4)]
             _poly(draw, head, spec.shell_mid, OUTLINE, 1.4)
-            brow = [
-                (hx - 22, hy - 8),
-                (hx + 24, hy - 8),
-                (hx + 18, hy + 2),
-                (hx - 18, hy + 2),
-            ]
+            brow = [(hx - 22, hy - 8), (hx + 24, hy - 8), (hx + 18, hy + 2), (hx - 18, hy + 2)]
             _poly(draw, brow, spec.plate_dark, OUTLINE, 1.0)
             if pose.x_eyes:
                 _line(draw, [(hx - 5, hy - 3), (hx + 5, hy + 7)], spec.glow_hot, 1.2)
@@ -890,92 +644,26 @@ class RobotHeavyRenderer:
             else:
                 _ellipse(draw, hx + 3, hy + 2, 9, 5, spec.glow, spec.glow_hot, 0.8)
         elif spec.head_style == "visor":
-            head = [
-                (hx - 30, hy - 10),
-                (hx - 18, hy - 32),
-                (hx + 20, hy - 32),
-                (hx + 32, hy - 10),
-                (hx + 22, hy + 20),
-                (hx - 22, hy + 20),
-            ]
+            head = [(hx - 30, hy - 10), (hx - 18, hy - 32), (hx + 20, hy - 32), (hx + 32, hy - 10), (hx + 22, hy + 20), (hx - 22, hy + 20)]
             _poly(draw, head, spec.shell_mid, OUTLINE, 1.4)
-            visor = [
-                (hx - 18, hy - 4),
-                (hx + 18, hy - 4),
-                (hx + 14, hy + 8),
-                (hx - 14, hy + 8),
-            ]
-            _poly(
-                draw,
-                visor,
-                spec.glow if not pose.blink else spec.glow_hot,
-                OUTLINE,
-                1.0,
-            )
+            visor = [(hx - 18, hy - 4), (hx + 18, hy - 4), (hx + 14, hy + 8), (hx - 14, hy + 8)]
+            _poly(draw, visor, spec.glow if not pose.blink else spec.glow_hot, OUTLINE, 1.0)
             _line(draw, [(hx - 16, hy + 1), (hx + 16, hy + 1)], spec.glow_hot, 0.8)
         else:
-            head = [
-                (hx - 28, hy - 10),
-                (hx - 18, hy - 34),
-                (hx + 18, hy - 34),
-                (hx + 28, hy - 10),
-                (hx + 24, hy + 18),
-                (hx - 24, hy + 18),
-            ]
+            head = [(hx - 28, hy - 10), (hx - 18, hy - 34), (hx + 18, hy - 34), (hx + 28, hy - 10), (hx + 24, hy + 18), (hx - 24, hy + 18)]
             _poly(draw, head, spec.shell_mid, OUTLINE, 1.4)
             if pose.x_eyes:
                 for ex in (-9, 9):
-                    _line(
-                        draw,
-                        [(hx + ex - 4, hy - 2), (hx + ex + 4, hy + 6)],
-                        spec.glow_hot,
-                        1.0,
-                    )
-                    _line(
-                        draw,
-                        [(hx + ex - 4, hy + 6), (hx + ex + 4, hy - 2)],
-                        spec.glow_hot,
-                        1.0,
-                    )
+                    _line(draw, [(hx + ex - 4, hy - 2), (hx + ex + 4, hy + 6)], spec.glow_hot, 1.0)
+                    _line(draw, [(hx + ex - 4, hy + 6), (hx + ex + 4, hy - 2)], spec.glow_hot, 1.0)
             else:
                 if pose.blink:
-                    _line(
-                        draw, [(hx - 15, hy + 1), (hx - 3, hy + 1)], spec.glow_hot, 1.0
-                    )
-                    _line(
-                        draw, [(hx + 3, hy + 1), (hx + 15, hy + 1)], spec.glow_hot, 1.0
-                    )
+                    _line(draw, [(hx - 15, hy + 1), (hx - 3, hy + 1)], spec.glow_hot, 1.0)
+                    _line(draw, [(hx + 3, hy + 1), (hx + 15, hy + 1)], spec.glow_hot, 1.0)
                 else:
-                    _poly(
-                        draw,
-                        [
-                            (hx - 17, hy - 2),
-                            (hx - 2, hy - 2),
-                            (hx - 4, hy + 6),
-                            (hx - 16, hy + 5),
-                        ],
-                        spec.glow,
-                        spec.glow_hot,
-                        0.6,
-                    )
-                    _poly(
-                        draw,
-                        [
-                            (hx + 2, hy - 2),
-                            (hx + 17, hy - 2),
-                            (hx + 16, hy + 5),
-                            (hx + 4, hy + 6),
-                        ],
-                        spec.glow,
-                        spec.glow_hot,
-                        0.6,
-                    )
-        jaw = [
-            (hx - 16, hy + 16),
-            (hx + 16, hy + 16),
-            (hx + 12, hy + 28),
-            (hx - 12, hy + 28),
-        ]
+                    _poly(draw, [(hx - 17, hy - 2), (hx - 2, hy - 2), (hx - 4, hy + 6), (hx - 16, hy + 5)], spec.glow, spec.glow_hot, 0.6)
+                    _poly(draw, [(hx + 2, hy - 2), (hx + 17, hy - 2), (hx + 16, hy + 5), (hx + 4, hy + 6)], spec.glow, spec.glow_hot, 0.6)
+        jaw = [(hx - 16, hy + 16), (hx + 16, hy + 16), (hx + 12, hy + 28), (hx - 12, hy + 28)]
         _poly(draw, jaw, spec.plate, OUTLINE, 1.0)
         if self.spec.antenna:
             _line(draw, [(hx + 12, hy - 28), (hx + 20, hy - 44)], STEEL, 1.2)
@@ -985,21 +673,10 @@ class RobotHeavyRenderer:
         spec = self.spec
         cx, cy = P(36, -84)
         box = (_s(cx - 102), _s(cy - 94), _s(cx + 96), _s(cy + 94))
-        draw.arc(
-            box, 204, 338, fill=(*spec.glow[:3], 130), width=_s(6.0 + pose.impact * 2.0)
-        )
+        draw.arc(box, 204, 338, fill=(*spec.glow[:3], 130), width=_s(6.0 + pose.impact * 2.0))
         draw.arc(box, 220, 324, fill=(255, 255, 255, 98), width=_s(2.0))
         ground = P(58, 12)
-        _ellipse(
-            draw,
-            ground[0],
-            ground[1],
-            28 + pose.impact * 12,
-            6 + pose.impact * 2,
-            (*spec.glow[:3], 70),
-            outline=(0, 0, 0, 0),
-            width=0,
-        )
+        _ellipse(draw, ground[0], ground[1], 28 + pose.impact * 12, 6 + pose.impact * 2, (*spec.glow[:3], 70), outline=(0, 0, 0, 0), width=0)
         for dx in (-18, -4, 10, 22):
             spark = [P(52 + dx, 6), P(58 + dx, -4), P(66 + dx, 4)]
             _poly(draw, spark, spec.glow_hot, spec.glow, 0.5)
@@ -1009,9 +686,7 @@ def render(out_dir: str | Path, variant: str = "bastion", **opts) -> List[Path]:
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     if variant not in VARIANTS:
-        raise ValueError(
-            f"unknown variant {variant!r}; choices: {', '.join(sorted(VARIANTS))}"
-        )
+        raise ValueError(f"unknown variant {variant!r}; choices: {', '.join(sorted(VARIANTS))}")
     spec = VARIANTS[variant]
     renderer = RobotHeavyRenderer(spec)
     outputs = build_sheet(
@@ -1024,12 +699,8 @@ def render(out_dir: str | Path, variant: str = "bastion", **opts) -> List[Path]:
         auto_crop=True,
     )
     return [
-        outputs["spritesheet"],
-        outputs["yaml"],
-        outputs["ron"],
-        outputs["preview"],
-        outputs["canonical"],
-        outputs["canonical_transparent"],
+        outputs["spritesheet"], outputs["yaml"], outputs["ron"],
+        outputs["preview"], outputs["canonical"], outputs["canonical_transparent"],
     ]
 
 
@@ -1041,17 +712,9 @@ def render_many(out_dir: str | Path, variants: Iterable[str]) -> Dict[str, List[
 
 
 def main(argv: List[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Render one or more heavy robot sprite variants."
-    )
-    parser.add_argument(
-        "--variant", choices=sorted(list(VARIANTS.keys()) + ["all"]), default="bastion"
-    )
-    parser.add_argument(
-        "--out-dir",
-        type=Path,
-        default=Path(__file__).resolve().parents[2] / "generated" / TARGET_BASENAME,
-    )
+    parser = argparse.ArgumentParser(description="Render one or more heavy robot sprite variants.")
+    parser.add_argument("--variant", choices=sorted(list(VARIANTS.keys()) + ["all"]), default="bastion")
+    parser.add_argument("--out-dir", type=Path, default=Path(__file__).resolve().parents[2] / "generated" / TARGET_BASENAME)
     args = parser.parse_args(argv)
 
     if args.variant == "all":

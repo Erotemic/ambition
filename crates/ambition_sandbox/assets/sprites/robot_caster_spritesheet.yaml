@@ -606,14 +606,14 @@ body_metrics:
           x: 21
           y: 0
           w: 80
-          h: 105
+          h: 106
     run:
       hurtbox:
         bbox:
           x: 21
           y: 0
           w: 81
-          h: 105
+          h: 106
     aim:
       hurtbox:
         bbox:

@@ -3,7 +3,7 @@
 //! This is the placeholder/native renderer: plain Bevy UI nodes laid out as a
 //! CSS grid, with text labels standing in for item icons until art exists. It
 //! reads the same [`OwnedItems`] + [`GridMenuState`] a future 3D-cube renderer
-//! (submodule `ambition_inventory_ui`) would consume, so swapping renderers does
+//! (submodule `ambition_menu`) would consume, so swapping renderers does
 //! not touch the catalog or the input/effects logic.
 
 use bevy::prelude::*;

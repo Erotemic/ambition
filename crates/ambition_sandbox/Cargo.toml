@@ -277,9 +277,9 @@ falling_sand = ["dep:bevy_falling_sand"]
 # over the always-on `crate::items` catalog, so it is an easy-to-cut seam: drop
 # this feature and the legacy 3-tab adventure menu takes over. Needs `ui` (Bevy
 # UI nodes) + `input` (MenuControlFrame). No new dependencies — the 3D OoT cube
-# renderer (submodule `ambition_inventory_ui` + bevy_lunex) is a separate,
+# renderer (submodule `ambition_menu` + bevy_lunex) is a separate,
 # heavier follow-up.
-oot_inventory = ["ui", "input", "dep:ambition_inventory_ui"]
+oot_inventory = ["ui", "input", "dep:ambition_menu"]
 
 # Bevy/Tracy per-system profiling. Off by default because it pulls
 # `tracing-tracy` and instruments every Bevy system, increasing binary
@@ -319,7 +319,7 @@ ambition_input = { path = "../ambition_input" }
 # gated by `oot_inventory`; runtime-toggleable vs the Bevy-UI grid (#31).
 # De-vendored from the submodule into a normal repo crate so it can be edited
 # without the submodule commit + gitlink-bump dance.
-ambition_inventory_ui = { path = "../ambition_inventory_ui", optional = true }
+ambition_menu = { path = "../ambition_menu", optional = true }
 # Logical asset catalog + per-profile source resolution. Bevy + sfx
 # features so the sandbox can format `AssetPath` strings through the
 # catalog and (in a follow-up) route the SFX bank bytes through the

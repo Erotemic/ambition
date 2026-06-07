@@ -1,5 +1,5 @@
 //! Game-side hookup for the 3D-cube OoT pause menu (#31): adds the lib's reusable
-//! cube renderer ([`ambition_inventory_ui::kaleidoscope::KaleidoscopeMenuPlugin`]) and feeds it our
+//! cube renderer ([`ambition_menu::kaleidoscope::KaleidoscopeMenuPlugin`]) and feeds it our
 //! live 24-item inventory (via [`crate::menu_model`]). Runtime-toggleable vs the
 //! existing Bevy-UI grid through [`InventoryUiBackend`].
 //!
@@ -8,10 +8,10 @@
 //! during play. Routing nav/selection input to it is the next step — see
 //! `dev/journals/oot-cube-integration-plan.md`.
 
-use ambition_inventory_ui::kaleidoscope::{
+use ambition_menu::kaleidoscope::{
     rebuild_cube_faces, KaleidoscopeFocusVisuals, KaleidoscopeMenuConfig, KaleidoscopeMenuPlugin,
 };
-use ambition_inventory_ui::{
+use ambition_menu::{
     ActiveMenuPages, AmbitionInventoryUiPlugin, AmbitionMenuControl, MenuDynamicText,
     MenuDynamicTextContent, MenuVisualState,
 };
@@ -231,7 +231,7 @@ struct KaleidoscopePointerPress {
 /// Host-owned, SELECTION-INDEPENDENT scroll position for the System face's windowed
 /// list (Features C/D). `None` = the window follows the keyboard/pointer cursor
 /// (the historical behaviour); `Some(start)` = an explicit scroll override set by a
-/// scrollbar DRAG (Feature C, via the lib's neutral [`ambition_inventory_ui::kaleidoscope::MenuScrollDragged`]
+/// scrollbar DRAG (Feature C, via the lib's neutral [`ambition_menu::kaleidoscope::MenuScrollDragged`]
 /// signal) or the MOUSE WHEEL (Feature D). Keyboard navigation clears the override so
 /// the window resumes following the cursor. This is the host-side meaning of the
 /// lib's backend-agnostic scroll signal — the lib never knows about rows/window_start.
@@ -623,7 +623,7 @@ fn retarget_kaleidoscope_scrim(
 /// Fade the dim-scrim's alpha with the cube's eased open `amount`, so the world
 /// dims in/out exactly with the fold. Fully transparent when the cube is shut.
 fn fade_kaleidoscope_scrim(
-    open_state: Res<ambition_inventory_ui::kaleidoscope::KaleidoscopeOpenState>,
+    open_state: Res<ambition_menu::kaleidoscope::KaleidoscopeOpenState>,
     mut scrim: Query<&mut BackgroundColor, With<KaleidoscopeScrim>>,
 ) {
     let alpha = open_state.amount.clamp(0.0, 1.0) * SCRIM_PEAK_ALPHA;
@@ -1825,12 +1825,12 @@ fn toggle_inventory_backend(
 fn gate_kaleidoscope_menu(
     backend: Res<InventoryUiBackend>,
     ui_state: Option<Res<crate::inventory::InventoryUiState>>,
-    mut open_state: ResMut<ambition_inventory_ui::kaleidoscope::KaleidoscopeOpenState>,
+    mut open_state: ResMut<ambition_menu::kaleidoscope::KaleidoscopeOpenState>,
     mut cameras: Query<(
         &mut Camera,
-        Has<ambition_inventory_ui::kaleidoscope::KaleidoscopePauseCamera>,
+        Has<ambition_menu::kaleidoscope::KaleidoscopePauseCamera>,
     )>,
-    mut rings: Query<&mut Visibility, With<ambition_inventory_ui::kaleidoscope::MenuRing>>,
+    mut rings: Query<&mut Visibility, With<ambition_menu::kaleidoscope::MenuRing>>,
     mut last_show: Local<Option<bool>>,
 ) {
     let open = ui_state.map(|s| s.visible).unwrap_or(false);
@@ -2134,7 +2134,7 @@ fn kaleidoscope_scroll_wheel(
 }
 
 /// Feature C: apply the lib's backend-agnostic scrollbar-drag signal
-/// ([`ambition_inventory_ui::kaleidoscope::MenuScrollDragged`]) to the host scroll
+/// ([`ambition_menu::kaleidoscope::MenuScrollDragged`]) to the host scroll
 /// position. The lib emits a neutral `0..=1` fraction (0 = top, 1 = bottom); the host
 /// maps it across the scrollable range to a window-start row. Selection-independent,
 /// like the wheel (Feature D): only the visible window moves.
@@ -2146,7 +2146,7 @@ fn kaleidoscope_apply_scroll_drag(
     settings: Res<UserSettings>,
     snapshot: SystemMenuSnapshotParams,
     mut scroll: ResMut<KaleidoscopeScroll>,
-    mut dragged: MessageReader<ambition_inventory_ui::kaleidoscope::MenuScrollDragged>,
+    mut dragged: MessageReader<ambition_menu::kaleidoscope::MenuScrollDragged>,
 ) {
     let open = ui_state.map(|s| s.visible).unwrap_or(false);
     if *backend != InventoryUiBackend::LunexKaleidoscope || !open {
@@ -2286,9 +2286,9 @@ mod lunex_kaleidoscope_app_tests {
         let entity = app
             .world_mut()
             .spawn(AmbitionMenuControl::<MenuPageAction> {
-                kind: ambition_inventory_ui::MenuControlKind::OptionToggle,
+                kind: ambition_menu::MenuControlKind::OptionToggle,
                 action: Some(action),
-                focus: ambition_inventory_ui::MenuFocusKey::default(),
+                focus: ambition_menu::MenuFocusKey::default(),
             })
             .id();
         // The handlers read the location for the tap/drag guard; any render target
@@ -2326,9 +2326,9 @@ mod lunex_kaleidoscope_app_tests {
         let entity = app
             .world_mut()
             .spawn(AmbitionMenuControl::<MenuPageAction> {
-                kind: ambition_inventory_ui::MenuControlKind::OptionToggle,
+                kind: ambition_menu::MenuControlKind::OptionToggle,
                 action: Some(action),
-                focus: ambition_inventory_ui::MenuFocusKey::default(),
+                focus: ambition_menu::MenuFocusKey::default(),
             })
             .id();
         let location = Location {
@@ -3203,7 +3203,7 @@ mod lunex_kaleidoscope_app_tests {
         }
         for page in &pages.pages {
             for node in &page.nodes {
-                if let ambition_inventory_ui::MenuNode::Control {
+                if let ambition_menu::MenuNode::Control {
                     kind,
                     action: Some(action),
                     ..
@@ -3213,7 +3213,7 @@ mod lunex_kaleidoscope_app_tests {
                         AmbitionMenuControl::<MenuPageAction> {
                             kind: *kind,
                             action: Some(action.clone()),
-                            focus: ambition_inventory_ui::MenuFocusKey::default(),
+                            focus: ambition_menu::MenuFocusKey::default(),
                         },
                         MenuVisualState::default(),
                     ));
@@ -3446,7 +3446,7 @@ mod lunex_kaleidoscope_app_tests {
         app.add_message::<PlayerHealRequested>();
         app.add_message::<SfxMessage>();
         app.add_message::<bevy::input::mouse::MouseWheel>();
-        app.add_message::<ambition_inventory_ui::kaleidoscope::MenuScrollDragged>();
+        app.add_message::<ambition_menu::kaleidoscope::MenuScrollDragged>();
         app.add_systems(
             Update,
             (
@@ -3551,8 +3551,8 @@ mod lunex_kaleidoscope_app_tests {
 
         // Drag to the BOTTOM of the track (fraction 1.0) -> window_start == max.
         app.world_mut()
-            .resource_mut::<Messages<ambition_inventory_ui::kaleidoscope::MenuScrollDragged>>()
-            .write(ambition_inventory_ui::kaleidoscope::MenuScrollDragged { fraction: 1.0 });
+            .resource_mut::<Messages<ambition_menu::kaleidoscope::MenuScrollDragged>>()
+            .write(ambition_menu::kaleidoscope::MenuScrollDragged { fraction: 1.0 });
         app.update();
         assert_eq!(
             app.world()
@@ -3564,8 +3564,8 @@ mod lunex_kaleidoscope_app_tests {
 
         // Drag to the MIDDLE (fraction 0.5) -> ~half the range.
         app.world_mut()
-            .resource_mut::<Messages<ambition_inventory_ui::kaleidoscope::MenuScrollDragged>>()
-            .write(ambition_inventory_ui::kaleidoscope::MenuScrollDragged { fraction: 0.5 });
+            .resource_mut::<Messages<ambition_menu::kaleidoscope::MenuScrollDragged>>()
+            .write(ambition_menu::kaleidoscope::MenuScrollDragged { fraction: 0.5 });
         app.update();
         let expected_mid = (0.5 * max as f32).round() as usize;
         assert_eq!(
@@ -3629,9 +3629,9 @@ mod lunex_kaleidoscope_app_tests {
         let entity = app
             .world_mut()
             .spawn(AmbitionMenuControl::<MenuPageAction> {
-                kind: ambition_inventory_ui::MenuControlKind::OptionToggle,
+                kind: ambition_menu::MenuControlKind::OptionToggle,
                 action: Some(MenuPageAction::OpenSystemEntry(SystemMenuEntryId::Video)),
-                focus: ambition_inventory_ui::MenuFocusKey::default(),
+                focus: ambition_menu::MenuFocusKey::default(),
             })
             .id();
         let loc = |p: Vec2| Location {
@@ -3709,9 +3709,9 @@ mod lunex_kaleidoscope_app_tests {
         let entity = app
             .world_mut()
             .spawn(AmbitionMenuControl::<MenuPageAction> {
-                kind: ambition_inventory_ui::MenuControlKind::OptionToggle,
+                kind: ambition_menu::MenuControlKind::OptionToggle,
                 action: Some(action),
-                focus: ambition_inventory_ui::MenuFocusKey::default(),
+                focus: ambition_menu::MenuFocusKey::default(),
             })
             .id();
         let location = Location {
@@ -3801,9 +3801,9 @@ mod lunex_kaleidoscope_app_tests {
             }
             app.world_mut()
                 .spawn(AmbitionMenuControl::<MenuPageAction> {
-                    kind: ambition_inventory_ui::MenuControlKind::OptionToggle,
+                    kind: ambition_menu::MenuControlKind::OptionToggle,
                     action: Some(MenuPageAction::Equip(Item::Blink)),
-                    focus: ambition_inventory_ui::MenuFocusKey::default(),
+                    focus: ambition_menu::MenuFocusKey::default(),
                 });
         }
         assert!(
@@ -3862,7 +3862,7 @@ mod lunex_kaleidoscope_app_tests {
     /// the writer raises is consumed one frame too late — and the writer is
     /// change-detection-gated, so it never re-raises it. The highlight never shows.
     fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
-        use ambition_inventory_ui::kaleidoscope::{
+        use ambition_menu::kaleidoscope::{
             sync_control_focus_visuals, sync_selection_corner_visuals,
         };
         // The icon asset loads (`AssetServer::load`) need the IO task pool.
@@ -3900,8 +3900,8 @@ mod lunex_kaleidoscope_app_tests {
         // it directly (the plugin's `setup_cube` would also add a Camera3d we don't
         // need headlessly).
         app.world_mut().spawn((
-            ambition_inventory_ui::AmbitionMenuRoot,
-            ambition_inventory_ui::kaleidoscope::MenuRing,
+            ambition_menu::AmbitionMenuRoot,
+            ambition_menu::kaleidoscope::MenuRing,
             Transform::default(),
             Visibility::Visible,
         ));
@@ -3919,7 +3919,7 @@ mod lunex_kaleidoscope_app_tests {
         // scheduled BEFORE the writer (the regression hazard).
         app.add_systems(
             Update,
-            ambition_inventory_ui::kaleidoscope::rebuild_cube_faces::<MenuPage, MenuPageAction>,
+            ambition_menu::kaleidoscope::rebuild_cube_faces::<MenuPage, MenuPageAction>,
         );
         if writer_first {
             // The FIX: republish + the host focus writer run AFTER the lib rebuild (so
@@ -3935,10 +3935,7 @@ mod lunex_kaleidoscope_app_tests {
                 )
                     .chain()
                     .after(
-                        ambition_inventory_ui::kaleidoscope::rebuild_cube_faces::<
-                            MenuPage,
-                            MenuPageAction,
-                        >,
+                        ambition_menu::kaleidoscope::rebuild_cube_faces::<MenuPage, MenuPageAction>,
                     ),
             );
             app.add_systems(

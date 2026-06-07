@@ -1,5 +1,5 @@
 //! The data seam between Ambition's live 24-item inventory and the reusable
-//! `ambition_inventory_ui` 3D-cube OoT pause menu (#31).
+//! `ambition_menu` 3D-cube OoT pause menu (#31).
 //!
 //! The game owns the item state (`crate::items`); this module builds the cube's
 //! page MODELS from it via the lib's host-data seam (`ItemsOnlyPageSpec`, which is
@@ -25,7 +25,7 @@
 //! * the L/R page-turn buttons live in the *side margins* ([`EDGE_LEFT_RECT`] /
 //!   [`EDGE_RIGHT_RECT`]) OUTSIDE the grid, exactly like the demo.
 
-use ambition_inventory_ui::{
+use ambition_menu::{
     InventoryItemNode, ItemsOnlyPageSpec, MenuColor, MenuControlKind, MenuPageModel, MenuRect,
     MenuTextAlign,
 };
@@ -1069,7 +1069,7 @@ mod tests {
             .nodes
             .iter()
             .filter_map(|n| match n {
-                ambition_inventory_ui::MenuNode::Control {
+                ambition_menu::MenuNode::Control {
                     kind: MenuControlKind::Item,
                     icon,
                     ..
@@ -1103,7 +1103,7 @@ mod tests {
         let owned = OwnedItems::default();
         let page = build_items_page(&owned, None);
         for node in &page.nodes {
-            if let ambition_inventory_ui::MenuNode::Control {
+            if let ambition_menu::MenuNode::Control {
                 detail: Some(d),
                 kind,
                 ..
@@ -1124,7 +1124,7 @@ mod tests {
         let has_dynamic_slots = page
             .nodes
             .iter()
-            .filter(|n| matches!(n, ambition_inventory_ui::MenuNode::DynamicText { .. }))
+            .filter(|n| matches!(n, ambition_menu::MenuNode::DynamicText { .. }))
             .count();
         assert!(
             has_dynamic_slots >= ITEMS_DETAIL_BODY_LINES as usize,
@@ -1163,7 +1163,7 @@ mod tests {
             .filter(|n| {
                 matches!(
                     n,
-                    ambition_inventory_ui::MenuNode::Control {
+                    ambition_menu::MenuNode::Control {
                         action: Some(MenuPageAction::OpenSystemEntry(_)),
                         ..
                     }
@@ -1185,7 +1185,7 @@ mod tests {
         let has_setting = page.nodes.iter().any(|n| {
             matches!(
                 n,
-                ambition_inventory_ui::MenuNode::Control {
+                ambition_menu::MenuNode::Control {
                     action: Some(MenuPageAction::System(_)),
                     ..
                 }
@@ -1196,7 +1196,7 @@ mod tests {
         let has_edges = page.nodes.iter().any(|n| {
             matches!(
                 n,
-                ambition_inventory_ui::MenuNode::Control {
+                ambition_menu::MenuNode::Control {
                     action: Some(MenuPageAction::ChangePage(_)),
                     ..
                 }
@@ -1223,7 +1223,7 @@ mod tests {
             .nodes
             .iter()
             .filter_map(|n| match n {
-                ambition_inventory_ui::MenuNode::Control {
+                ambition_menu::MenuNode::Control {
                     action: Some(MenuPageAction::System(o)),
                     ..
                 } => Some(*o),
@@ -1263,7 +1263,7 @@ mod tests {
         // The FPS Overlay row's label reflects the ON state we set above.
         let has_on = page.nodes.iter().any(|n| matches!(
             n,
-            ambition_inventory_ui::MenuNode::Control { action: Some(MenuPageAction::System(SettingsOptionId::ShowFps)), label, .. }
+            ambition_menu::MenuNode::Control { action: Some(MenuPageAction::System(SettingsOptionId::ShowFps)), label, .. }
                 if label.contains("ON")
         ));
         assert!(has_on, "FPS Overlay row reflects the current ON state");
@@ -1289,7 +1289,7 @@ mod tests {
         let has_back = page_end.nodes.iter().any(|n| {
             matches!(
                 n,
-                ambition_inventory_ui::MenuNode::Control {
+                ambition_menu::MenuNode::Control {
                     action: Some(MenuPageAction::CloseSystemEntry),
                     ..
                 }
@@ -1333,7 +1333,7 @@ mod tests {
                 .filter(|n| {
                     matches!(
                         n,
-                        ambition_inventory_ui::MenuNode::Control {
+                        ambition_menu::MenuNode::Control {
                             kind: MenuControlKind::Action,
                             action: Some(MenuPageAction::ChangePage(_)),
                             ..
@@ -1346,7 +1346,7 @@ mod tests {
             let any_baked_selected = model.nodes.iter().any(|n| {
                 matches!(
                     n,
-                    ambition_inventory_ui::MenuNode::Control {
+                    ambition_menu::MenuNode::Control {
                         selected: true,
                         action: Some(MenuPageAction::ChangePage(_)),
                         ..
@@ -1438,7 +1438,7 @@ mod tests {
             .filter(|n| {
                 matches!(
                     n,
-                    ambition_inventory_ui::MenuNode::Control {
+                    ambition_menu::MenuNode::Control {
                         action: Some(MenuPageAction::SystemOption(_)),
                         ..
                     }
@@ -1455,7 +1455,7 @@ mod tests {
         let has_focused = page.nodes.iter().any(|n| {
             matches!(
                 n,
-                ambition_inventory_ui::MenuNode::Control {
+                ambition_menu::MenuNode::Control {
                     action: Some(MenuPageAction::SystemOption(SystemOptionId::Radio(13))),
                     ..
                 }
@@ -1523,7 +1523,7 @@ mod tests {
             .nodes
             .iter()
             .filter_map(|n| match n {
-                ambition_inventory_ui::MenuNode::Control {
+                ambition_menu::MenuNode::Control {
                     kind: MenuControlKind::Scrollbar,
                     thumb: Some(t),
                     ..
@@ -1557,7 +1557,7 @@ mod tests {
         let any_scrollbar = short_page.nodes.iter().any(|n| {
             matches!(
                 n,
-                ambition_inventory_ui::MenuNode::Control {
+                ambition_menu::MenuNode::Control {
                     kind: MenuControlKind::Scrollbar,
                     ..
                 }
@@ -1575,7 +1575,7 @@ mod tests {
         let owned = OwnedItems::default();
         let page = build_items_page(&owned, None);
         let left = page.nodes.iter().find_map(|n| match n {
-            ambition_inventory_ui::MenuNode::Control {
+            ambition_menu::MenuNode::Control {
                 action: Some(MenuPageAction::ChangePage(p)),
                 rect,
                 ..

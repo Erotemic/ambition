@@ -167,7 +167,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ambition_inventory_ui"
+name = "ambition_menu"
 version = "0.1.0"
 dependencies = [
  "bevy",
@@ -189,7 +189,7 @@ dependencies = [
  "ambition_asset_manager",
  "ambition_engine_core",
  "ambition_input",
- "ambition_inventory_ui",
+ "ambition_menu",
  "ambition_platformer_runtime",
  "ambition_sfx",
  "avian2d",

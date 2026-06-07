@@ -18,14 +18,14 @@ use crate::ui_nav::MenuFocusState;
 /// `(row, col)`. Navigation wraps within the row (left/right) and column
 /// (up/down), matching the OoT item subscreen's wrap-around feel.
 #[derive(Resource, Default)]
-pub struct OotMenuState {
+pub struct GridMenuState {
     /// Selected slot index, `0..ITEM_COUNT`.
     pub cursor: usize,
     /// True when opened from the pause menu (vs. directly from gameplay), so we
     /// know whether to return to `Playing` or `Paused` on close.
     pub opened_from_pause: bool,
     /// Set by the pointer system when a tap should confirm the current slot;
-    /// consumed by `oot_menu_input` the same frame.
+    /// consumed by `grid_menu_input` the same frame.
     pub pointer_confirm: bool,
     /// Row "armed" by a prior tap under tap-then-confirm policy.
     pub pointer_armed: Option<usize>,
@@ -35,7 +35,7 @@ pub struct OotMenuState {
     pub status: String,
 }
 
-impl OotMenuState {
+impl GridMenuState {
     /// Reset cursor/interaction state for a fresh open. Visibility is set by the
     /// caller on [`crate::inventory::InventoryUiState`].
     pub fn open(&mut self, opened_from_pause: bool) {
@@ -94,7 +94,7 @@ mod tests {
 
     #[test]
     fn cursor_decodes_to_grid_and_back() {
-        let mut s = OotMenuState::default();
+        let mut s = GridMenuState::default();
         s.set_cursor(0);
         assert_eq!(s.grid(), (0, 0));
         s.set_cursor(7);
@@ -106,7 +106,7 @@ mod tests {
 
     #[test]
     fn horizontal_nav_wraps_within_the_row() {
-        let mut s = OotMenuState::default();
+        let mut s = GridMenuState::default();
         s.set_cursor(0); // row 0, col 0
         s.move_cursor(-1, 0); // wrap to col 5 of row 0
         assert_eq!(s.grid(), (0, 5));
@@ -116,7 +116,7 @@ mod tests {
 
     #[test]
     fn vertical_nav_wraps_within_the_column() {
-        let mut s = OotMenuState::default();
+        let mut s = GridMenuState::default();
         s.set_cursor(2); // row 0, col 2
         s.move_cursor(0, -1); // wrap to bottom row, same column
         assert_eq!(s.grid(), (3, 2));
@@ -126,7 +126,7 @@ mod tests {
 
     #[test]
     fn diagonal_and_zero_moves_behave() {
-        let mut s = OotMenuState::default();
+        let mut s = GridMenuState::default();
         s.set_cursor(7); // (1,1)
         assert!(s.move_cursor(1, 1)); // (2,2)
         assert_eq!(s.grid(), (2, 2));
@@ -135,7 +135,7 @@ mod tests {
 
     #[test]
     fn open_resets_cursor_and_records_pause_origin() {
-        let mut s = OotMenuState::default();
+        let mut s = GridMenuState::default();
         s.set_cursor(10);
         s.pointer_armed = Some(3);
         s.open(true);

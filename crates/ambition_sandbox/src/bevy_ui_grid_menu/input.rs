@@ -3,8 +3,8 @@
 use bevy::prelude::*;
 
 use super::effects::{self, MenuAction};
-use super::state::OotMenuState;
-use super::ui::{OotBackButton, OotSlot};
+use super::state::GridMenuState;
+use super::ui::{GridBackButton, GridSlot};
 use crate::brain::ActionSet;
 use crate::game_mode::GameMode;
 use crate::input::MenuControlFrame;
@@ -21,15 +21,15 @@ const MANA_CELL_RESTORE: f32 = 40.0;
 /// Toggle, navigate, and confirm the OoT item grid via the semantic menu frame.
 ///
 /// Visibility lives in the shared `InventoryUiState.visible` flag (see
-/// [`OotMenuState`]) so the pause menu's existing suppression keeps working.
+/// [`GridMenuState`]) so the pause menu's existing suppression keeps working.
 #[allow(clippy::too_many_arguments)]
-pub fn oot_menu_input(
+pub fn grid_menu_input(
     menu: Res<MenuControlFrame>,
     // When the Cube backend renders the inventory, it owns navigation / confirm via
     // `kaleidoscope_focus_nav`; the grid still owns the shared open/close toggle (the
     // Inventory button) so the menu can be opened regardless of backend.
     backend: Option<Res<crate::lunex_kaleidoscope_app::InventoryUiBackend>>,
-    mut state: ResMut<OotMenuState>,
+    mut state: ResMut<GridMenuState>,
     mut overlay: ResMut<crate::inventory::InventoryUiState>,
     mode: Res<State<GameMode>>,
     mut next_mode: ResMut<NextState<GameMode>>,
@@ -41,7 +41,7 @@ pub fn oot_menu_input(
 ) {
     if menu.inventory {
         if overlay.visible {
-            close_oot_menu(&mut state, &mut overlay, mode.get(), &mut next_mode);
+            close_grid_menu(&mut state, &mut overlay, mode.get(), &mut next_mode);
         } else if matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
             overlay.visible = true;
             state.open(matches!(mode.get(), GameMode::Paused));
@@ -70,7 +70,7 @@ pub fn oot_menu_input(
     }
 
     if menu.back || menu.start {
-        close_oot_menu(&mut state, &mut overlay, mode.get(), &mut next_mode);
+        close_grid_menu(&mut state, &mut overlay, mode.get(), &mut next_mode);
         return;
     }
 
@@ -220,8 +220,8 @@ pub(crate) fn apply_menu_action(
 }
 
 /// Close + restore the prior game mode (mirrors the legacy adventure menu).
-pub(super) fn close_oot_menu(
-    state: &mut OotMenuState,
+pub(super) fn close_grid_menu(
+    state: &mut GridMenuState,
     overlay: &mut crate::inventory::InventoryUiState,
     mode: &GameMode,
     next_mode: &mut NextState<GameMode>,
@@ -237,14 +237,14 @@ pub(super) fn close_oot_menu(
 /// Mouse / touch input for the grid. Slot taps route through the same
 /// `MenuTapMode::resolve_press` policy the adventure menu uses, so touch users
 /// get select-then-tap by default while mouse/desktop can confirm immediately.
-pub fn oot_menu_pointer_input(
+pub fn grid_menu_pointer_input(
     mode: Res<State<GameMode>>,
     mut next_mode: ResMut<NextState<GameMode>>,
-    mut state: ResMut<OotMenuState>,
+    mut state: ResMut<GridMenuState>,
     mut overlay: ResMut<crate::inventory::InventoryUiState>,
     user_settings: Res<crate::persistence::settings::UserSettings>,
-    slots: Query<(&Interaction, &OotSlot), Changed<Interaction>>,
-    back_buttons: Query<&Interaction, (With<OotBackButton>, Changed<Interaction>)>,
+    slots: Query<(&Interaction, &GridSlot), Changed<Interaction>>,
+    back_buttons: Query<&Interaction, (With<GridBackButton>, Changed<Interaction>)>,
 ) {
     if !overlay.visible {
         return;
@@ -252,7 +252,7 @@ pub fn oot_menu_pointer_input(
 
     for interaction in &back_buttons {
         if matches!(interaction, Interaction::Pressed) {
-            close_oot_menu(&mut state, &mut overlay, mode.get(), &mut next_mode);
+            close_grid_menu(&mut state, &mut overlay, mode.get(), &mut next_mode);
             return;
         }
     }

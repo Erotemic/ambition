@@ -705,9 +705,9 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
     {
         app.add_systems(
             Startup,
-            crate::oot_menu::spawn_oot_menu.after(setup_simulation_system),
+            crate::bevy_ui_grid_menu::spawn_grid_menu.after(setup_simulation_system),
         );
-        crate::oot_menu::install_oot_menu_visuals(app);
+        crate::bevy_ui_grid_menu::install_grid_menu_visuals(app);
         // 3D-cube inventory frontend (#31), runtime-toggleable vs the grid above.
         crate::lunex_kaleidoscope_app::install_kaleidoscope_menu(app);
     }
@@ -1026,7 +1026,7 @@ pub(super) fn add_input_plugins(app: &mut App) {
                 #[cfg(not(feature = "oot_inventory"))]
                 inventory::inventory_input,
                 #[cfg(feature = "oot_inventory")]
-                crate::oot_menu::oot_menu_input,
+                crate::bevy_ui_grid_menu::grid_menu_input,
                 // The bevy-UI pause menu is INERT under the Cube backend (the cube
                 // renderer owns input). These pointer/drag/nav systems still run
                 // while `Paused`, so each is gated by `pause_menu_ui_active` so none
@@ -1038,7 +1038,7 @@ pub(super) fn add_input_plugins(app: &mut App) {
                 #[cfg(not(feature = "oot_inventory"))]
                 inventory::inventory_pointer_input,
                 #[cfg(feature = "oot_inventory")]
-                crate::oot_menu::oot_menu_pointer_input,
+                crate::bevy_ui_grid_menu::grid_menu_pointer_input,
                 pause_menu::pause_menu_navigate.run_if(pause_menu::pause_menu_ui_active),
             )
                 .chain()

@@ -1,12 +1,12 @@
 //! End-to-end ECS tests for the OoT menu input system: open/close, grid
 //! navigation, equip/unequip (attaching a real `HeldItem` + swapping the
-//! `ActionSet`), and consumable use — driven through `oot_menu_input` exactly
+//! `ActionSet`), and consumable use — driven through `grid_menu_input` exactly
 //! as the input chain drives it.
 
 use bevy::prelude::*;
 
-use super::input::oot_menu_input;
-use super::state::OotMenuState;
+use super::input::grid_menu_input;
+use super::state::GridMenuState;
 use crate::brain::ActionSet;
 use crate::features::HeldItem;
 use crate::game_mode::GameMode;
@@ -28,12 +28,12 @@ fn test_app() -> (App, Entity) {
     app.add_plugins(bevy::state::app::StatesPlugin);
     app.init_state::<GameMode>();
     app.init_resource::<OwnedItems>();
-    app.init_resource::<OotMenuState>();
+    app.init_resource::<GridMenuState>();
     app.init_resource::<InventoryUiState>();
     app.init_resource::<MenuControlFrame>();
     app.init_resource::<HealLog>();
     app.add_message::<PlayerHealRequested>();
-    app.add_systems(Update, (oot_menu_input, record_heals).chain());
+    app.add_systems(Update, (grid_menu_input, record_heals).chain());
     let player = app
         .world_mut()
         .spawn((
@@ -86,7 +86,7 @@ fn equipping_a_weapon_attaches_a_held_item_and_swaps_the_action_set() {
     app.update();
 
     // Move cursor to the Axe slot and confirm.
-    app.world_mut().resource_mut::<OotMenuState>().cursor = Item::Axe.index();
+    app.world_mut().resource_mut::<GridMenuState>().cursor = Item::Axe.index();
     press(&mut app, |f| f.select = true);
     app.update();
 
@@ -121,7 +121,7 @@ fn confirming_an_equipped_weapon_unequips_it() {
         .grant(Item::Axe, 1);
     press(&mut app, |f| f.inventory = true);
     app.update();
-    app.world_mut().resource_mut::<OotMenuState>().cursor = Item::Axe.index();
+    app.world_mut().resource_mut::<GridMenuState>().cursor = Item::Axe.index();
     press(&mut app, |f| f.select = true);
     app.update(); // equip
     assert!(app.world().get::<HeldItem>(player).is_some());
@@ -148,7 +148,7 @@ fn using_a_health_cell_spends_it_and_emits_a_heal() {
     press(&mut app, |f| f.inventory = true);
     app.update();
 
-    app.world_mut().resource_mut::<OotMenuState>().cursor = Item::HealthCell.index();
+    app.world_mut().resource_mut::<GridMenuState>().cursor = Item::HealthCell.index();
     press(&mut app, |f| f.select = true);
     app.update();
 
@@ -169,12 +169,12 @@ fn grid_navigation_moves_the_cursor_while_open() {
     let (mut app, _player) = test_app();
     press(&mut app, |f| f.inventory = true);
     app.update();
-    assert_eq!(app.world().resource::<OotMenuState>().cursor, 0);
+    assert_eq!(app.world().resource::<GridMenuState>().cursor, 0);
 
     press(&mut app, |f| f.right = true);
     app.update();
     assert_eq!(
-        app.world().resource::<OotMenuState>().cursor,
+        app.world().resource::<GridMenuState>().cursor,
         1,
         "right moves one slot along the row"
     );
@@ -182,7 +182,7 @@ fn grid_navigation_moves_the_cursor_while_open() {
     press(&mut app, |f| f.down = true);
     app.update();
     assert_eq!(
-        app.world().resource::<OotMenuState>().cursor,
+        app.world().resource::<GridMenuState>().cursor,
         1 + crate::items::ITEM_GRID_COLS,
         "down moves one full row"
     );
@@ -199,7 +199,7 @@ fn equipping_the_portal_gun_attaches_and_detaches_its_component() {
     app.update();
 
     // PortalGun is grid slot 0; confirm it.
-    app.world_mut().resource_mut::<OotMenuState>().cursor = Item::PortalGun.index();
+    app.world_mut().resource_mut::<GridMenuState>().cursor = Item::PortalGun.index();
     press(&mut app, |f| f.select = true);
     app.update();
     assert!(
@@ -234,7 +234,7 @@ fn confirming_an_unowned_slot_does_nothing() {
     // Axe NOT granted.
     press(&mut app, |f| f.inventory = true);
     app.update();
-    app.world_mut().resource_mut::<OotMenuState>().cursor = Item::Axe.index();
+    app.world_mut().resource_mut::<GridMenuState>().cursor = Item::Axe.index();
     press(&mut app, |f| f.select = true);
     app.update();
     assert!(

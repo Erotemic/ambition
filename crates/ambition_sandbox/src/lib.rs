@@ -68,6 +68,8 @@ pub(crate) mod content;
 pub(crate) mod dev;
 pub(crate) mod dialog;
 // Test-only (`#![cfg(test)]`): static arity lint for the Yarn dialogue commands.
+#[cfg(feature = "oot_inventory")]
+pub mod bevy_ui_grid_menu;
 mod dialog_lint;
 pub(crate) mod encounter;
 pub(crate) mod enemy_projectile;
@@ -84,17 +86,15 @@ pub(crate) mod map_menu;
 pub mod mark_recall;
 pub mod mechanics;
 pub(crate) mod music;
-#[cfg(feature = "oot_inventory")]
-pub mod oot_menu;
 pub(crate) mod pause_menu;
 // 3D-cube OoT pause menu (#31): the data seam wiring our 24-item inventory into
 // the reusable `ambition_inventory_ui` cube model. Renderer promotion pending.
 pub mod dive;
 #[cfg(feature = "oot_inventory")]
 pub mod lunex_kaleidoscope_app;
-pub mod meteor;
 #[cfg(feature = "oot_inventory")]
-pub mod oot_cube;
+pub mod menu_model;
+pub mod meteor;
 pub(crate) mod persistence;
 pub mod physics;
 #[cfg(feature = "portal")]

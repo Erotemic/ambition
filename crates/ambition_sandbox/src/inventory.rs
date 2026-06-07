@@ -12,7 +12,7 @@
 //! and decrements the stack.
 //!
 //! When the `oot_inventory` feature is on, the OoT 6×4 grid menu
-//! ([`crate::oot_menu`]) takes over the Inventory button and renders the
+//! ([`crate::bevy_ui_grid_menu`]) takes over the Inventory button and renders the
 //! always-on [`crate::items`] catalog instead. This legacy adventure-menu UI is
 //! then unused (kept as the fallback renderer), so its UI fns/fields are
 //! dead-code-allowed under that feature. The data model here (`ItemKind`,

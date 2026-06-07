@@ -14,7 +14,12 @@
 
 use bevy::prelude::{App, Component, Message, Plugin, Resource};
 
-pub mod kaleidoscope;
+pub mod render;
+
+/// Back-compat re-export: the cube renderer moved to [`render::kaleidoscope`]
+/// during the Phase-0 restructure. Existing `ambition_menu::kaleidoscope::*`
+/// import paths keep resolving through this shim.
+pub use render::kaleidoscope;
 
 /// A normalized page-space rectangle.
 ///

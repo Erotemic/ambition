@@ -1181,13 +1181,12 @@ mod tests {
                 )
             })
             .count();
-        // Radio + Video + Shaders + Audio + Controls + Gameplay + Language always
-        // drill in (7 rows); Developer also drills in only in dev builds, but the
-        // System face only renders SYSTEM_VISIBLE_ROWS (7) at once, so in a dev
-        // build the 9-entry list (incl. Reset Sandbox, an Action) scrolls and the
-        // first window shows exactly those 7 leading drill rows. Either way the
-        // count of visible drill rows is 7.
-        let expected_drill = SYSTEM_VISIBLE_ROWS;
+        // Radio + Video + Audio + Controls + Gameplay + Language always drill in
+        // (6 rows; Shaders is no longer a top-level entry — it rides under Video).
+        // Reset All Settings is always present but is an Action (no drill). The
+        // System face renders the first SYSTEM_VISIBLE_ROWS (7) rows: the 6 drill
+        // entries + the Reset All Settings action, so exactly 6 drill rows show.
+        let expected_drill = 6;
         assert_eq!(
             entries, expected_drill,
             "one drill row per non-action entry"
@@ -1241,15 +1240,35 @@ mod tests {
                 _ => None,
             })
             .collect();
-        // The cube's Video screen is the curated subset.
+        // The cube's Video screen leads with the basic Video rows; the shader
+        // subpage now rides under Video, so the full screen overflows the visible
+        // window — the first window shows the 3 basic rows then the leading shader
+        // sliders.
         assert_eq!(
-            options,
-            vec![
+            &options[..3],
+            &[
                 SettingsOptionId::DisplayMode,
                 SettingsOptionId::ShowFps,
                 SettingsOptionId::CameraZoom,
             ]
         );
+        // Shaders are reachable under Video: the FULL row list (pre-window) carries
+        // every shader option as a Setting row.
+        let sys_model = SystemMenuModel::build(
+            &settings,
+            &RadioSnapshot::default(),
+            &DevSnapshot::default(),
+        );
+        let all_rows = system_rows(&sys_model, Some(SystemMenuEntryId::Video));
+        for shader in [
+            SettingsOptionId::ShaderStrength,
+            SettingsOptionId::ShaderVignetteStrength,
+        ] {
+            assert!(
+                all_rows.contains(&SystemRow::Setting(shader)),
+                "{shader:?} is reachable under Video"
+            );
+        }
 
         // The FPS Overlay row's label reflects the ON state we set above.
         let has_on = page.nodes.iter().any(|n| matches!(
@@ -1259,8 +1278,25 @@ mod tests {
         ));
         assert!(has_on, "FPS Overlay row reflects the current ON state");
 
-        // A Back row (CloseSystemEntry) drills out to the entry list.
-        let has_back = page.nodes.iter().any(|n| {
+        // A Back row drills out to the entry list. The Video screen now overflows
+        // the visible window (24 rows), so Back is the LAST row in the full list
+        // rather than always on the first window; assert it via the row list.
+        assert_eq!(
+            all_rows.last(),
+            Some(&SystemRow::Back),
+            "an open entry ends with a Back row"
+        );
+        // Scrolling to the end brings the Back row into the rendered window.
+        let end_start = system_max_window_start(all_rows.len());
+        let page_end = build_system_page(
+            &settings,
+            &RadioSnapshot::default(),
+            &DevSnapshot::default(),
+            MenuFocus::System(all_rows.len() - 1),
+            end_start,
+            Some(SystemMenuEntryId::Video),
+        );
+        let has_back = page_end.nodes.iter().any(|n| {
             matches!(
                 n,
                 ambition_inventory_ui::MenuNode::Control {
@@ -1269,7 +1305,7 @@ mod tests {
                 }
             )
         });
-        assert!(has_back, "an open entry shows a Back row");
+        assert!(has_back, "scrolling to the end renders the Back row");
     }
 
     #[test]

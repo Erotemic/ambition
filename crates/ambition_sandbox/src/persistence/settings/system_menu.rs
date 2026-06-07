@@ -185,11 +185,13 @@ impl LocaleId {
 pub enum SystemMenuEntryId {
     Radio,
     Video,
-    Shaders,
     Audio,
     Controls,
     Gameplay,
     Language,
+    /// Reset every persisted settings/dev resource back to defaults. Always
+    /// present (mirrors the pause menu's Top-page `ResetAllSettings`).
+    ResetAllSettings,
     /// Dev-build only.
     Developer,
     /// Dev-build only.
@@ -201,11 +203,11 @@ impl SystemMenuEntryId {
         match self {
             Self::Radio => "Radio",
             Self::Video => "Video",
-            Self::Shaders => "Shaders",
             Self::Audio => "Audio",
             Self::Controls => "Controls",
             Self::Gameplay => "Gameplay",
             Self::Language => "Language",
+            Self::ResetAllSettings => "Reset All Settings",
             Self::Developer => "Developer",
             Self::ResetSandbox => "Reset Sandbox",
         }
@@ -214,12 +216,12 @@ impl SystemMenuEntryId {
     pub fn description(self) -> &'static str {
         match self {
             Self::Radio => "Pick the sandbox radio station (music plays as you browse).",
-            Self::Video => "Display mode, FPS overlay, and camera zoom.",
-            Self::Shaders => "Whole-screen CRT / film-grain / glitch post-process strengths.",
+            Self::Video => "Display, FPS, camera zoom, and the shader / post-process stack.",
             Self::Audio => "Master / music / SFX volume and mute.",
             Self::Controls => "Touch overlay, dash input, and stick deadzone.",
             Self::Gameplay => "Debug and quest HUD overlays.",
             Self::Language => "Interface language (English only for now).",
+            Self::ResetAllSettings => "Restore every setting and developer tool to its default.",
             Self::Developer => "Developer inspectors, debug visuals, and feel profiles.",
             Self::ResetSandbox => "Wipe the save and respawn at the start room.",
         }
@@ -243,6 +245,9 @@ pub enum SystemOptionId {
 pub enum SystemMenuAction {
     /// Wipe the save and respawn at the start room, then close the menu.
     ResetSandbox,
+    /// Reset every persisted settings/dev resource to defaults, then close the
+    /// menu. Mirrors the pause menu's `SettingsItem::ResetAllSettings`.
+    ResetAllSettings,
 }
 
 /// What a top-level [`SystemMenuEntry`] does when selected.
@@ -343,15 +348,15 @@ impl DevSnapshot {
 /// land; see `TODO.md`). Order matches the target tree.
 fn curated_options(id: SystemMenuEntryId) -> &'static [SettingsOptionId] {
     match id {
+        // Video carries its basic rows PLUS the whole shader subpage appended
+        // after them — shaders live UNDER Video (the cube's single-level System
+        // drill surfaces them flat in this one screen, mirroring the pause menu's
+        // `Video > Shaders` subpage). Every shader the pause menu's Shaders page
+        // exposes is reachable here.
         SystemMenuEntryId::Video => &[
             SettingsOptionId::DisplayMode,
             SettingsOptionId::ShowFps,
             SettingsOptionId::CameraZoom,
-        ],
-        // The full Shaders subpage — every shader the pause menu's
-        // `Video > Shaders` page exposes — so the cube's System face shows the
-        // same shader controls as the grid (stage 3b parity).
-        SystemMenuEntryId::Shaders => &[
             SettingsOptionId::ShaderStrength,
             SettingsOptionId::ShaderCrtStrength,
             SettingsOptionId::ShaderCrtScanlines,
@@ -440,9 +445,9 @@ impl SystemMenuModel {
             target: SystemMenuTarget::Radio(radio_rows),
         });
 
-        // Settings categories (curated subsets).
+        // Settings categories (curated subsets). Shaders are no longer a sibling
+        // entry: they ride UNDER Video (see `curated_options`).
         entries.push(settings_entry(SystemMenuEntryId::Video));
-        entries.push(settings_entry(SystemMenuEntryId::Shaders));
         entries.push(settings_entry(SystemMenuEntryId::Audio));
         entries.push(settings_entry(SystemMenuEntryId::Controls));
         entries.push(settings_entry(SystemMenuEntryId::Gameplay));
@@ -463,6 +468,19 @@ impl SystemMenuModel {
             label: SystemMenuEntryId::Language.label().to_string(),
             description: SystemMenuEntryId::Language.description().to_string(),
             target: SystemMenuTarget::Language(locale_rows),
+        });
+
+        // Reset All Settings: an immediate Action entry, ALWAYS present (it
+        // mirrors the pause menu's Top-page `ResetAllSettings`, which is not
+        // dev-gated). Placed just before the dev-only entries so it sits near
+        // Reset Sandbox.
+        entries.push(SystemMenuEntry {
+            id: SystemMenuEntryId::ResetAllSettings,
+            label: SystemMenuEntryId::ResetAllSettings.label().to_string(),
+            description: SystemMenuEntryId::ResetAllSettings
+                .description()
+                .to_string(),
+            target: SystemMenuTarget::Action(SystemMenuAction::ResetAllSettings),
         });
 
         // Developer + Reset Sandbox: DEV-BUILD GATED.
@@ -525,17 +543,19 @@ mod tests {
             &DevSnapshot::default(),
         );
         let ids: Vec<_> = model.entries.iter().map(|e| e.id).collect();
-        // The non-dev prefix is always present in this fixed order.
+        // The non-dev prefix is always present in this fixed order. Shaders is no
+        // longer a top-level entry (it rides under Video); Reset All Settings is
+        // always present (it mirrors the pause menu's non-dev-gated reset).
         assert_eq!(
             &ids[..7],
             &[
                 SystemMenuEntryId::Radio,
                 SystemMenuEntryId::Video,
-                SystemMenuEntryId::Shaders,
                 SystemMenuEntryId::Audio,
                 SystemMenuEntryId::Controls,
                 SystemMenuEntryId::Gameplay,
                 SystemMenuEntryId::Language,
+                SystemMenuEntryId::ResetAllSettings,
             ]
         );
         if DEV_BUILD {
@@ -556,6 +576,23 @@ mod tests {
     }
 
     #[test]
+    fn reset_all_settings_is_an_always_present_action_entry() {
+        let model = SystemMenuModel::build(
+            &UserSettings::default(),
+            &RadioSnapshot::default(),
+            &DevSnapshot::default(),
+        );
+        let entry = model
+            .entry(SystemMenuEntryId::ResetAllSettings)
+            .expect("Reset All Settings is always surfaced");
+        assert_eq!(
+            entry.target,
+            SystemMenuTarget::Action(SystemMenuAction::ResetAllSettings),
+            "Reset All Settings fires an immediate action (no screen)"
+        );
+    }
+
+    #[test]
     fn video_screen_is_the_curated_subset() {
         let model = SystemMenuModel::build(
             &UserSettings::default(),
@@ -567,9 +604,10 @@ mod tests {
             panic!("video drills into a settings screen");
         };
         let ids: Vec<_> = options.iter().map(|o| o.id).collect();
+        // The basic Video rows lead the screen; the shader subpage follows.
         assert_eq!(
-            ids,
-            vec![
+            &ids[..3],
+            &[
                 SettingsOptionId::DisplayMode,
                 SettingsOptionId::ShowFps,
                 SettingsOptionId::CameraZoom,
@@ -584,14 +622,29 @@ mod tests {
             &RadioSnapshot::default(),
             &DevSnapshot::default(),
         );
-        let shaders = model.entry(SystemMenuEntryId::Shaders).unwrap();
-        let SystemMenuTarget::Settings(options) = &shaders.target else {
-            panic!("shaders drills into a settings screen");
+        // Shaders now live UNDER Video (flat, after the basic Video rows) — there
+        // is no separate Shaders entry. Assert every shader option is reachable on
+        // the Video screen, in pause-menu order.
+        let video = model.entry(SystemMenuEntryId::Video).unwrap();
+        let SystemMenuTarget::Settings(options) = &video.target else {
+            panic!("video drills into a settings screen");
         };
-        let ids: Vec<_> = options.iter().map(|o| o.id).collect();
-        // The whole `Video > Shaders` pause-menu subpage is reachable on the cube.
+        let shader_ids: Vec<_> = options
+            .iter()
+            .map(|o| o.id)
+            .filter(|id| {
+                !matches!(
+                    id,
+                    SettingsOptionId::DisplayMode
+                        | SettingsOptionId::ShowFps
+                        | SettingsOptionId::CameraZoom
+                )
+            })
+            .collect();
+        // The whole `Video > Shaders` pause-menu subpage is reachable on the cube,
+        // now nested under Video.
         assert_eq!(
-            ids,
+            shader_ids,
             vec![
                 SettingsOptionId::ShaderStrength,
                 SettingsOptionId::ShaderCrtStrength,
@@ -615,9 +668,10 @@ mod tests {
                 SettingsOptionId::ShaderVignetteStrength,
             ]
         );
-        // Each one carries a live slider value label (e.g. "0%") so the cube
-        // renders the same control the grid does.
-        for o in options {
+        // Each shader option carries a live slider value label (e.g. "0%") so the
+        // cube renders the same control the grid does. (The leading basic Video
+        // rows are a cycle/toggle/cycle, so only the shader tail is checked.)
+        for o in options.iter().skip(3) {
             assert!(matches!(o.kind, SettingsOptionKind::Slider { .. }));
         }
     }

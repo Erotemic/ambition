@@ -259,3 +259,109 @@ regenerate fixtures).
   menu, but maybe not all — defer").
 - Map/Quest real content (stubs only).
 - A formal `MenuBackend` trait (the enum + shared models is the chosen seam).
+
+---
+
+## 10. Directory reorganization — consolidate ALL menu code under `crate::menu`
+
+### The problem (agent-navigability)
+`ambition_sandbox/src/lib.rs` is a flat list of ~60 top-level modules, and the
+menu code is scattered across SEVEN of them with no shared home:
+- `menu_model.rs` — backend-agnostic content/page model (just renamed).
+- `lunex_kaleidoscope_app.rs` — the 3D cube backend host (one ~3.7k-line file).
+- `bevy_ui_grid_menu/` — the "Grid" bevy_ui inventory (just renamed from oot_menu).
+- `pause_menu/` — the Paused list + the `SettingsItem` settings UI.
+- `inventory.rs` — a THIRD bevy_ui menu (the legacy Items/Map/Quests "adventure
+  menu", feature-swapped with the grid).
+- `map_menu/` — a standalone Map view.
+- `persistence/settings/{menu.rs, system_menu.rs}` — the backend-agnostic IR,
+  buried inside the persistence layer.
+
+Plus the external renderer crate `ambition_inventory_ui` (the bevy_lunex cube
+renderer). Four bevy_ui menu surfaces + a cube + a content model + a buried IR.
+
+### Proposed target — one `crate::menu/` subtree (proto-boundary, future crate)
+Following the plugin-refactor pattern (carve a stable same-crate boundary FIRST,
+extract a real `ambition_menu` crate LATER), consolidate everything menu under one
+module so an agent finds all of it in one place and the layers are explicit:
+
+```
+crate::menu/                       MenuPlugin owns the whole menu; lib.rs gains ONE `mod menu;`
+  mod.rs            — MenuPlugin, InventoryUiBackend (the A/B seam), kaleidoscope_backend_active
+                      run-condition, the single open/close routing owner (Esc/Start/inventory).
+  model.rs          — MenuPage, MenuFocus, MenuPageAction, the page builders.        [was menu_model.rs]
+  dispatch.rs       — dispatch_menu_action — the shared action handler.              [from lunex_kaleidoscope_app.rs]
+  cursor.rs         — shared menu/overlay state: visibility, active tab, focus,
+                      drill stack, opened_from_pause.                                 [absorbs InventoryUiState]
+  input.rs          — menu-side MenuControlFrame population/consumption glue.
+  ir/               — the backend-agnostic settings + menu-tree IR (single source of truth)
+    mod.rs
+    settings.rs     — SettingsMenuModel / SettingsOption / SettingsOptionId /
+                      apply_settings_option / settings_menu_model.                    [was persistence/settings/menu.rs]
+    system.rs       — SystemMenuModel / SystemMenuEntryId / SystemMenuAction.         [was persistence/settings/system_menu.rs]
+  backends/
+    grid/           — the unified bevy_ui flat/tabbed presentation.                   [replaces bevy_ui_grid_menu/ +
+      mod.rs                                                                            pause_menu/ + inventory.rs adventure menu]
+      ui.rs         — tab bar + active-page body.
+      input.rs      — grid nav + bumper tab-switch.
+      state.rs      — grid-only view state (scroll/selection).
+    kaleidoscope/   — the 3D cube presentation host, SPLIT out of the 3.7k-line file. [was lunex_kaleidoscope_app.rs]
+      mod.rs        — KaleidoscopeBackendPlugin, the cube open/close gate + wiring.
+      nav.rs        — kaleidoscope_focus_nav / system_focus_nav.
+      pointer.rs    — pointer press/move/release observers.
+      render_sync.rs— fade / scrim / focus-visuals / scrollbar / republish.
+      cursor.rs     — KaleidoscopeCursor (cube-spatial cursor) if not fully shared.
+  map.rs            — the Map tab/view content.                                       [folds in map_menu/]
+```
+
+Stays put (NOT moved):
+- `ambition_inventory_ui` crate — the external bevy_lunex CUBE RENDERER; the
+  kaleidoscope backend host uses it. (It's already a clean crate boundary.)
+- `crate::inventory/` — the gameplay item DATA + effects (`OwnedItems`, item
+  model, use-a-potion effects). That's content/gameplay, not menu chrome. Only
+  `InventoryUiState` (overlay state) moves out, into `menu::cursor`.
+- `persistence/settings/{model.rs (UserSettings), audio.rs, video.rs,
+  gameplay.rs, persistence.rs, platform_paths.rs}` — the raw settings DATA + disk
+  persistence. `menu::ir::settings` depends on `UserSettings` (reads/writes it);
+  the IR is the menu's VIEW of that data and belongs with the menu.
+
+### Old → new path map (for the move commit)
+| Old | New |
+|---|---|
+| `menu_model.rs` | `menu/model.rs` |
+| `lunex_kaleidoscope_app.rs` | `menu/backends/kaleidoscope/` (split into files) |
+| `bevy_ui_grid_menu/` | `menu/backends/grid/` (rebuilt into the tabbed view) |
+| `pause_menu/` | DELETED → absorbed into `menu/backends/grid/` + `menu/ir/` |
+| `inventory.rs` (adventure menu) | DELETED → absorbed into `menu/backends/grid/` |
+| `map_menu/` | `menu/map.rs` (Map tab) |
+| `persistence/settings/menu.rs` | `menu/ir/settings.rs` |
+| `persistence/settings/system_menu.rs` | `menu/ir/system.rs` |
+| `InventoryUiState` (in `inventory.rs`) | `menu::cursor` |
+| `dispatch_kaleidoscope_action` (in lunex app) | `menu::dispatch::dispatch_menu_action` |
+
+Net effect on `lib.rs`: ~7 top-level menu modules collapse to ONE `mod menu;`.
+
+### Judgment calls flagged for confirmation (I picked a default for each)
+1. **IR home** → `menu/ir/` (menu owns its content model). *Alt:* leave in
+   `persistence/settings/` for settings-cohesion. **Default: move to `menu/ir/`.**
+2. **`map_menu/`** → fold into `menu/map.rs` as the Map tab. *Alt:* keep standalone
+   if it's a gameplay world-map rather than a menu page. **Default: fold in** (it's
+   input/model/pointer/ui — a menu surface).
+3. **`InventoryUiState`** → `menu::cursor`. *Alt:* leave in `inventory/`.
+   **Default: move** (it's menu overlay state, read only by menu code).
+4. **Crate vs module now** → `crate::menu` MODULE now (proto-boundary), extract an
+   `ambition_menu` crate LATER once decoupled (matches the plugin-refactor cadence).
+   **Default: module now.**
+
+### Sequencing (fold into the §7 phases)
+The big moves ride WITH the refactor, not as a separate churn pass:
+- **Phase A** also moves the IR: `persistence/settings/{menu,system_menu}.rs` →
+  `menu/ir/{settings,system}.rs` (pure `git mv` + path updates; behavior-neutral).
+- **Phase B** creates `menu/mod.rs` + `menu/dispatch.rs`, moves `menu_model.rs` →
+  `menu/model.rs`, `InventoryUiState` → `menu/cursor.rs`.
+- **Phase C** builds `menu/backends/grid/` (the new tabbed view).
+- **Phase D** deletes `pause_menu/` + `inventory.rs` adventure menu + old grid
+  content; splits `lunex_kaleidoscope_app.rs` into `menu/backends/kaleidoscope/`;
+  folds `map_menu/` → `menu/map.rs`.
+- Keep each move a behavior-neutral `git mv` + path-update commit, separate from
+  the logic commits, so a regression bisects cleanly.

@@ -354,6 +354,16 @@ impl SystemMenuParams<'_> {
     }
 }
 
+/// Read the current game mode + queue the next one, bundled into ONE [`SystemParam`]
+/// so the nav system / pointer observer that need to UNPAUSE on a close-via-action
+/// (e.g. Reset Sandbox) stay within Bevy's 16-param ceiling. Threaded into
+/// [`close_kaleidoscope_menu`] via [`Self::mode`] + [`Self::next_mode`].
+#[derive(bevy::ecs::system::SystemParam)]
+struct GameModeIo<'w> {
+    state: Res<'w, State<crate::runtime::game_mode::GameMode>>,
+    next: ResMut<'w, NextState<crate::runtime::game_mode::GameMode>>,
+}
+
 /// Resources `republish_kaleidoscope_pages` reads (immutably) to snapshot the radio + dev
 /// state into the SYSTEM IR. Separate `Res` bundle so it never conflicts with the
 /// mutable `SystemMenuParams` (different systems).
@@ -617,6 +627,11 @@ fn kaleidoscope_focus_nav(
     // Single mutable access to the overlay state — also read `.visible` from it (a
     // separate `Res<InventoryUiState>` would be a B0002 conflict with this `ResMut`).
     mut overlay: ResMut<crate::inventory::InventoryUiState>,
+    // A close-via-action (e.g. Reset Sandbox) must restore `GameMode::Playing` exactly
+    // like the canonical Esc-close — so thread the game mode through to
+    // `close_kaleidoscope_menu` instead of bare `overlay.visible = false`. Bundled into
+    // one `SystemParam` to stay under Bevy's 16-param ceiling.
+    mut mode_io: GameModeIo,
     mut owned: ResMut<OwnedItems>,
     mut settings: ResMut<UserSettings>,
     mut commands: Commands,
@@ -699,6 +714,8 @@ fn kaleidoscope_focus_nav(
             &mut system_nav,
             &mut pages,
             &mut overlay,
+            mode_io.state.get(),
+            &mut mode_io.next,
             &mut settings,
             active_page,
             &mut owned,
@@ -833,7 +850,8 @@ fn kaleidoscope_focus_nav(
                 &mut system,
             );
             if close_menu {
-                overlay.visible = false;
+                // A close-via-action must unpause exactly like the canonical Esc-close.
+                close_kaleidoscope_menu(&mut overlay, mode_io.state.get(), &mut mode_io.next);
             }
         } else {
             // Selecting an empty / unowned item slot is a no-op: error feedback.
@@ -881,6 +899,8 @@ fn system_focus_nav(
     system_nav: &mut KaleidoscopeSystemNav,
     pages: &mut ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>,
     overlay: &mut crate::inventory::InventoryUiState,
+    mode: &crate::runtime::game_mode::GameMode,
+    next_mode: &mut NextState<crate::runtime::game_mode::GameMode>,
     settings: &mut UserSettings,
     active_page: KaleidoscopePage,
     owned: &mut OwnedItems,
@@ -995,7 +1015,8 @@ fn system_focus_nav(
                 system,
             );
             if close_menu {
-                overlay.visible = false;
+                // A close-via-action must unpause exactly like the canonical Esc-close.
+                close_kaleidoscope_menu(overlay, mode, next_mode);
             }
         }
         return;
@@ -1492,6 +1513,10 @@ fn kaleidoscope_pointer_release(
     _release: On<Pointer<Release>>,
     backend: Res<InventoryUiBackend>,
     mut ui_state: Option<ResMut<crate::inventory::InventoryUiState>>,
+    // A close-via-action (e.g. Reset Sandbox) must restore `GameMode::Playing` exactly
+    // like the canonical Esc-close — so route the close through `close_kaleidoscope_menu`.
+    // Bundled into one `SystemParam` to stay under Bevy's 16-param ceiling.
+    mut mode_io: GameModeIo,
     mut pages: ResMut<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
@@ -1553,7 +1578,8 @@ fn kaleidoscope_pointer_release(
     );
     if close_menu {
         if let Some(ui_state) = ui_state.as_deref_mut() {
-            ui_state.visible = false;
+            // A close-via-action must unpause exactly like the canonical Esc-close.
+            close_kaleidoscope_menu(ui_state, mode_io.state.get(), &mut mode_io.next);
         }
     }
 }
@@ -1737,8 +1763,9 @@ fn open_kaleidoscope_menu(
 }
 
 /// Close the cube overlay (Esc while open), restoring `GameMode::Playing` when the
-/// cube was opened directly from gameplay (matching `close_oot_menu`).
-#[cfg(feature = "input")]
+/// cube was opened directly from gameplay (matching `close_oot_menu`). Also used by the
+/// close-via-action paths (`kaleidoscope_focus_nav` / `system_focus_nav` /
+/// `kaleidoscope_pointer_release`) so an action-triggered close unpauses identically.
 fn close_kaleidoscope_menu(
     overlay: &mut crate::inventory::InventoryUiState,
     mode: &crate::runtime::game_mode::GameMode,
@@ -2528,6 +2555,53 @@ mod lunex_kaleidoscope_app_tests {
                 .resource::<crate::inventory::InventoryUiState>()
                 .visible,
             "auditioning a station keeps the cube open"
+        );
+    }
+
+    #[test]
+    fn reset_sandbox_action_closes_and_unpauses() {
+        // Reset Sandbox closes the cube via a dispatched action (`close_menu = true`).
+        // When the menu was opened from gameplay (paused, not opened-from-pause), the
+        // action-close must ALSO restore `GameMode::Playing` — exactly like a normal
+        // Esc-close — instead of leaving the sim paused with the menu hidden. Before the
+        // fix the close path only did `ui_state.visible = false`, so this stayed Paused.
+        let (mut app, _player) = click_app();
+        app.world_mut()
+            .resource_mut::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>()
+            .active = Some(KaleidoscopePage::System);
+        // Open the menu from gameplay: paused, but NOT nested under the pause menu.
+        app.world_mut()
+            .resource_mut::<crate::inventory::InventoryUiState>()
+            .opened_from_pause = false;
+        app.world_mut()
+            .resource_mut::<NextState<GameMode>>()
+            .set(GameMode::Paused);
+        app.update();
+        assert_eq!(
+            *app.world().resource::<State<GameMode>>().get(),
+            GameMode::Paused,
+            "precondition: menu opened from gameplay leaves the sim paused"
+        );
+
+        // Dispatch Reset Sandbox through the real pointer release/dispatch path.
+        click_control(
+            &mut app,
+            KaleidoscopeAction::SystemAction(SystemMenuAction::ResetSandbox),
+        );
+
+        assert!(
+            !app.world()
+                .resource::<crate::inventory::InventoryUiState>()
+                .visible,
+            "Reset Sandbox hides the cube"
+        );
+        // The action-close set NextState(Playing); apply the transition and confirm the
+        // sim is unpaused (the bug left it stuck on Paused).
+        app.update();
+        assert_eq!(
+            *app.world().resource::<State<GameMode>>().get(),
+            GameMode::Playing,
+            "Reset Sandbox closes the menu AND unpauses (back to Playing)"
         );
     }
 

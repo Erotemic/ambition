@@ -1467,22 +1467,10 @@ fn cube_menu_open_routing(
                 close_system_entry(&mut system_nav, &mut cursor);
             } else {
                 play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_CLOSE);
-                // TEMP esc-diag (remove once the Esc-Esc reopen is confirmed fixed):
-                info!(
-                    "[esc-diag] router CLOSE (start={} mode={:?})",
-                    menu.start,
-                    mode.get()
-                );
                 close_cube_menu(&mut overlay, mode.get(), &mut next_mode);
             }
         } else if matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
             play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_OPEN);
-            // TEMP esc-diag (remove once the Esc-Esc reopen is confirmed fixed):
-            info!(
-                "[esc-diag] router OPEN (start={} mode={:?})",
-                menu.start,
-                mode.get()
-            );
             open_cube_menu(
                 CubePage::System,
                 &mut overlay,

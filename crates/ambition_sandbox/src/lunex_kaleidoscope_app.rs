@@ -8,7 +8,9 @@
 //! during play. Routing nav/selection input to it is the next step — see
 //! `dev/journals/oot-cube-integration-plan.md`.
 
-use ambition_inventory_ui::kaleidoscope::{KaleidoscopeMenuConfig, KaleidoscopeMenuPlugin};
+use ambition_inventory_ui::kaleidoscope::{
+    rebuild_cube_faces, KaleidoscopeFocusVisuals, KaleidoscopeMenuConfig, KaleidoscopeMenuPlugin,
+};
 use ambition_inventory_ui::{
     ActiveMenuPages, AmbitionInventoryUiPlugin, AmbitionMenuControl, MenuDynamicText,
     MenuDynamicTextContent, MenuVisualState,
@@ -121,7 +123,19 @@ pub fn install_kaleidoscope_menu(app: &mut App) {
                 retarget_kaleidoscope_scrim,
                 fade_kaleidoscope_scrim,
             )
-                .chain(),
+                .chain()
+                // CURSOR-HIGHLIGHT fix: the lib renders the focus highlight (material
+                // recolour + white selection corners) from `MenuVisualState` via the
+                // `Changed`-gated `KaleidoscopeFocusVisuals` readers. Run this chain —
+                // which includes the `kaleidoscope_sync_focus_visuals` WRITER — AFTER
+                // `rebuild_cube_faces` (so a republish that respawns the controls can't
+                // wipe the flags the writer set) and BEFORE the lib readers (so they see
+                // the flipped flags the same frame). Without these edges the writer and
+                // the rebuild/readers were unordered: a republish-driven rebuild reset
+                // `MenuVisualState` after the write and/or the readers ran first, so the
+                // highlight never appeared (keyboard nav + mouse hover both went dark).
+                .after(rebuild_cube_faces::<KaleidoscopePage, KaleidoscopeAction>)
+                .before(KaleidoscopeFocusVisuals),
         )
         .add_observer(kaleidoscope_pointer_press)
         .add_observer(kaleidoscope_pointer_move)
@@ -3508,5 +3522,304 @@ mod lunex_kaleidoscope_app_tests {
             None,
             "a press-then-drag-away is cancelled, not activated (Feature E)"
         );
+    }
+
+    // ---- CURSOR HIGHLIGHT regression -----------------------------------------
+
+    /// Build an app with the real lib cube plugin so `rebuild_cube_faces` spawns
+    /// REAL controls (with their `MenuVisualState`, `KaleidoscopeControlStyle`, and
+    /// HIDDEN `SelectionCorner` children), wire the sandbox focus writer + the lib
+    /// focus readers, publish the Items page with one owned item, and grant that item.
+    fn highlight_app(owned_item: Item) -> App {
+        highlight_app_ordered(owned_item, true)
+    }
+
+    /// `writer_first = true` mirrors a correctly-ordered chain (writer before the
+    /// lib `Changed` readers). `writer_first = false` reproduces the REAL app's
+    /// hazard: the lib readers (added by the plugin as plain unordered `Update`
+    /// systems) can run BEFORE the sandbox writer, so the `Changed<MenuVisualState>`
+    /// the writer raises is consumed one frame too late — and the writer is
+    /// change-detection-gated, so it never re-raises it. The highlight never shows.
+    fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
+        use ambition_inventory_ui::kaleidoscope::{
+            sync_control_focus_visuals, sync_selection_corner_visuals,
+        };
+        // The icon asset loads (`AssetServer::load`) need the IO task pool.
+        bevy::tasks::IoTaskPool::get_or_init(Default::default);
+        let mut app = App::new();
+        app.add_plugins(bevy::asset::AssetPlugin::default());
+        app.init_asset::<StandardMaterial>();
+        app.init_asset::<Mesh>();
+        app.init_asset::<Image>();
+        app.add_plugins(bevy::state::app::StatesPlugin);
+        app.init_state::<GameMode>();
+        // Resources the host systems read.
+        app.init_resource::<InventoryUiBackend>();
+        app.init_resource::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>();
+        app.init_resource::<KaleidoscopeCursor>();
+        app.init_resource::<KaleidoscopeSystemNav>();
+        app.init_resource::<KaleidoscopeScroll>();
+        app.init_resource::<KaleidoscopePointerPress>();
+        let mut owned = OwnedItems::default();
+        owned.grant(owned_item, 1);
+        app.insert_resource(owned);
+        app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
+        app.init_resource::<UserSettings>();
+        app.init_resource::<crate::inventory::InventoryUiState>();
+        app.add_message::<SfxMessage>();
+        *app.world_mut().resource_mut::<InventoryUiBackend>() =
+            InventoryUiBackend::LunexKaleidoscope;
+        app.world_mut()
+            .resource_mut::<crate::inventory::InventoryUiState>()
+            .visible = true;
+
+        // The lib's ring root that `rebuild_cube_faces` parents faces under. We spawn
+        // it directly (the plugin's `setup_cube` would also add a Camera3d we don't
+        // need headlessly).
+        app.world_mut().spawn((
+            ambition_inventory_ui::AmbitionMenuRoot,
+            ambition_inventory_ui::kaleidoscope::MenuRing,
+            Transform::default(),
+            Visibility::Visible,
+        ));
+        app.insert_resource(KaleidoscopeMenuConfig {
+            draw_nav_arrows: false,
+            pickable_controls: true,
+            ..Default::default()
+        });
+
+        // Wire it like the REAL app does. The sandbox writer lives in its own chain;
+        // the lib `Changed<MenuVisualState>` readers + the rebuild are added as plain,
+        // UNORDERED `Update` systems (exactly as `KaleidoscopeMenuPlugin::build` adds
+        // them). `writer_first` forces the writer to run before the readers (the fixed
+        // ordering); `!writer_first` leaves them unordered so the readers may be
+        // scheduled BEFORE the writer (the regression hazard).
+        app.add_systems(
+            Update,
+            ambition_inventory_ui::kaleidoscope::rebuild_cube_faces::<
+                KaleidoscopePage,
+                KaleidoscopeAction,
+            >,
+        );
+        if writer_first {
+            // The FIX: republish + the host focus writer run AFTER the lib rebuild (so
+            // the writer always writes to the freshly (re)spawned controls), and the
+            // lib `Changed` readers run AFTER the writer (so they see the flipped flags
+            // the same frame). This is the ordering `install_kaleidoscope_menu` +
+            // `KaleidoscopeMenuPlugin` declare on the real app.
+            app.add_systems(
+                Update,
+                (
+                    republish_kaleidoscope_pages,
+                    kaleidoscope_sync_focus_visuals,
+                )
+                    .chain()
+                    .after(
+                        ambition_inventory_ui::kaleidoscope::rebuild_cube_faces::<
+                            KaleidoscopePage,
+                            KaleidoscopeAction,
+                        >,
+                    ),
+            );
+            app.add_systems(
+                Update,
+                (sync_control_focus_visuals, sync_selection_corner_visuals)
+                    .after(kaleidoscope_sync_focus_visuals),
+            );
+        } else {
+            // The REGRESSION wiring: nothing orders the host writer against the lib
+            // rebuild, so `rebuild_cube_faces` can despawn+respawn controls (resetting
+            // `MenuVisualState` to focused:false) AFTER the writer flipped them, and the
+            // `Changed` readers run before the writer. The highlight is dropped.
+            app.add_systems(
+                Update,
+                (
+                    republish_kaleidoscope_pages,
+                    kaleidoscope_sync_focus_visuals,
+                )
+                    .chain(),
+            );
+            app.add_systems(
+                Update,
+                (sync_control_focus_visuals, sync_selection_corner_visuals)
+                    .before(kaleidoscope_sync_focus_visuals),
+            );
+        }
+
+        // Publish the Items page (one frame to spawn the controls/corners).
+        app.world_mut()
+            .resource_mut::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>()
+            .active = Some(KaleidoscopePage::Items);
+        let pages = build_inventory_pages(
+            &app.world().resource::<OwnedItems>().clone(),
+            None,
+            KaleidoscopeFocus::Item(owned_item.index()),
+            &app.world().resource::<UserSettings>().clone(),
+            &RadioSnapshot::default(),
+            &DevSnapshot::default(),
+            0,
+            None,
+        );
+        app.world_mut()
+            .resource_mut::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>()
+            .replace_pages(pages, KaleidoscopePage::Items);
+        app.update();
+        app
+    }
+
+    /// REGRESSION pin: setting the cursor onto an owned item's focus must (a) flip
+    /// that control's `MenuVisualState.focused`, (b) make its `SelectionCorner`
+    /// children VISIBLE, and (c) leave a non-focused control's corners HIDDEN.
+    #[test]
+    fn cursor_focus_highlights_the_control_and_reveals_its_corners() {
+        let item = Item::PortalGun;
+        let mut app = highlight_app(item);
+        set_focus_and_step(&mut app, item, 1);
+        assert_highlight_visible(&mut app, item);
+    }
+
+    /// REGRESSION reproduction: when the host republishes (a hover, a late texture
+    /// load, an inventory change — all common in-game), `rebuild_cube_faces` despawns
+    /// and respawns every control with a fresh `MenuVisualState { focused: false }`.
+    /// With the UN-ordered wiring (lib rebuild + `Changed` readers added as plain
+    /// `Update` systems, nothing ordering them against the host focus writer), that
+    /// rebuild can run AFTER the writer flipped the focus flag, wiping it — and the
+    /// `Changed` readers run before the writer — so the corners never show. The FIXED
+    /// ordering (`cursor_focus_*`) keeps the writer after the rebuild and the readers
+    /// after the writer, so the highlight survives a same-frame republish.
+    #[test]
+    fn republish_during_focus_keeps_the_highlight_under_fixed_ordering() {
+        let item = Item::PortalGun;
+
+        // Fixed ordering: a republish on the focus frame must NOT drop the highlight.
+        let mut fixed = highlight_app_ordered(item, /* writer_first */ true);
+        force_republish_and_focus(&mut fixed, item);
+        assert_highlight_visible(&mut fixed, item);
+
+        // Un-ordered (regression) wiring: the same republish drops it.
+        let mut broken = highlight_app_ordered(item, /* writer_first */ false);
+        force_republish_and_focus(&mut broken, item);
+        let focus = KaleidoscopeFocus::Item(item.index());
+        let model = SystemMenuModel::build(
+            &broken.world().resource::<UserSettings>().clone(),
+            &RadioSnapshot::default(),
+            &DevSnapshot::default(),
+        );
+        let world = broken.world_mut();
+        let mut q = world.query::<(&AmbitionMenuControl<KaleidoscopeAction>, &MenuVisualState)>();
+        let highlighted = q.iter(world).any(|(c, vis)| {
+            c.action
+                .map(|a| focus_for_action(a, KaleidoscopePage::Items, &model, None) == focus)
+                .unwrap_or(false)
+                && vis.focused
+        });
+        assert!(
+            !highlighted,
+            "documents the regression: un-ordered wiring drops the highlight when a \
+             republish rebuilds the controls on the focus frame"
+        );
+    }
+
+    /// Set the cursor onto `item` AND force a host republish the same frame (bump the
+    /// page version so `rebuild_cube_faces` despawns+respawns the controls), then run
+    /// one frame — exactly the in-game hover / texture-load / inventory-change churn.
+    fn force_republish_and_focus(app: &mut App, item: Item) {
+        app.world_mut().resource_mut::<KaleidoscopeCursor>().focus =
+            KaleidoscopeFocus::Item(item.index());
+        // Mark the inventory changed so `republish_kaleidoscope_pages` rebuilds.
+        app.world_mut().resource_mut::<OwnedItems>().set_changed();
+        app.update();
+    }
+
+    /// Set the cursor onto `item`'s focus and run `frames` updates.
+    fn set_focus_and_step(app: &mut App, item: Item, frames: usize) {
+        let focus = KaleidoscopeFocus::Item(item.index());
+        app.world_mut().resource_mut::<KaleidoscopeCursor>().focus = focus;
+        for _ in 0..frames {
+            app.update();
+        }
+    }
+
+    /// Assert the highlight is visible for `item`: (a) its control's
+    /// `MenuVisualState.focused`, (b) its corners Visible, (c) others' corners Hidden.
+    fn assert_highlight_visible(app: &mut App, item: Item) {
+        let focus = KaleidoscopeFocus::Item(item.index());
+        // Find the control whose action maps to the focused item.
+        let active_page = KaleidoscopePage::Items;
+        let model = SystemMenuModel::build(
+            &app.world().resource::<UserSettings>().clone(),
+            &RadioSnapshot::default(),
+            &DevSnapshot::default(),
+        );
+        let world = app.world_mut();
+        let mut focused_control = None;
+        let mut other_control = None;
+        let mut q = world.query::<(
+            Entity,
+            &AmbitionMenuControl<KaleidoscopeAction>,
+            &MenuVisualState,
+        )>();
+        let rows: Vec<(Entity, bool, bool)> = q
+            .iter(world)
+            .filter_map(|(e, c, vis)| {
+                let action = c.action?;
+                let f = focus_for_action(action, active_page, &model, None);
+                Some((e, f == focus, vis.focused))
+            })
+            .collect();
+        for (e, is_focused, vis_focused) in rows {
+            if is_focused {
+                focused_control = Some((e, vis_focused));
+            } else if other_control.is_none() {
+                other_control = Some(e);
+            }
+        }
+        let (focused_entity, vis_focused) =
+            focused_control.expect("a control maps to the focused item");
+        assert!(
+            vis_focused,
+            "(a) the focused control's MenuVisualState.focused must be true"
+        );
+
+        // (b) the focused control's selection corners are VISIBLE.
+        let corners_visible = corner_visibilities(world, focused_entity);
+        assert!(
+            !corners_visible.is_empty(),
+            "the focused control must have SelectionCorner children"
+        );
+        assert!(
+            corners_visible.iter().all(|v| *v == Visibility::Visible),
+            "(b) focused control's corners must be Visible, got {corners_visible:?}"
+        );
+
+        // (c) a non-focused control's corners stay HIDDEN.
+        let other = other_control.expect("a non-focused control exists");
+        let other_corners = corner_visibilities(world, other);
+        assert!(
+            other_corners.iter().all(|v| *v == Visibility::Hidden),
+            "(c) non-focused control's corners must be Hidden, got {other_corners:?}"
+        );
+    }
+
+    /// Collect the `Visibility` of the `SelectionCorner`-style children of a control.
+    /// Corners are the lib's hidden bracket meshes; identify them as children that are
+    /// neither text nor icon (they carry a `UiMeshPlane3d` + `Visibility` and no
+    /// `Text3d`). We match on the lib-set Name "selection corner".
+    fn corner_visibilities(world: &mut World, control: Entity) -> Vec<Visibility> {
+        let children: Vec<Entity> = world
+            .get::<Children>(control)
+            .map(|c| c.iter().collect())
+            .unwrap_or_default();
+        children
+            .into_iter()
+            .filter(|&c| {
+                world
+                    .get::<Name>(c)
+                    .map(|n| n.as_str() == "selection corner")
+                    .unwrap_or(false)
+            })
+            .filter_map(|c| world.get::<Visibility>(c).copied())
+            .collect()
     }
 }

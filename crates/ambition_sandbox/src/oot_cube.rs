@@ -8,7 +8,7 @@
 //!
 //! This gives the "wire us up to use it" part: our `Item::ALL` (already 24 in OoT
 //! grid order) → the cube's items page, with owned/equipped/selected reflected and
-//! a host-defined [`KaleidoscopeAction`] emitted back to the game.
+//! a host-defined [`MenuPageAction`] emitted back to the game.
 //!
 //! ## Items-page layout (matches `ambition_mock_demo`)
 //!
@@ -20,7 +20,7 @@
 //!
 //! * the grid sits in the left/centre (panel rect [`GRID_RECT`]), each cell shows a
 //!   short, wrapped item name and a one-word action hint (Equip/Use/...),
-//! * the [`DETAIL_PANEL_RECT`] on the right shows the [`KaleidoscopeFocus`]ed item's name +
+//! * the [`DETAIL_PANEL_RECT`] on the right shows the [`MenuFocus`]ed item's name +
 //!   wrapped description (filled by `lunex_kaleidoscope_app::kaleidoscope_sync_detail_panel`),
 //! * the L/R page-turn buttons live in the *side margins* ([`EDGE_LEFT_RECT`] /
 //!   [`EDGE_RIGHT_RECT`]) OUTSIDE the grid, exactly like the demo.
@@ -102,11 +102,11 @@ pub const SYSTEM_DETAIL_BODY_SLOT0: u32 = 101;
 /// Description lines reserved on the System bottom panel.
 pub const SYSTEM_DETAIL_BODY_LINES: u32 = 3;
 
-impl KaleidoscopePage {
+impl MenuPage {
     /// The neighbouring page when turning the ring left/right (wraps), matching
-    /// [`KaleidoscopePage::ALL`] order.
-    pub fn neighbor(self, dir: isize) -> KaleidoscopePage {
-        let all = KaleidoscopePage::ALL;
+    /// [`MenuPage::ALL`] order.
+    pub fn neighbor(self, dir: isize) -> MenuPage {
+        let all = MenuPage::ALL;
         let cur = all.iter().position(|p| *p == self).unwrap_or(0);
         let next = (cur as isize + dir).rem_euclid(all.len() as isize) as usize;
         all[next]
@@ -117,12 +117,12 @@ impl KaleidoscopePage {
     /// inside-the-cube convention as the demo's `page_on_viewer_left`
     /// (`from_index(index + 1)`): pressing the LEFT affordance rotates the ring
     /// left, which brings the RIGHT-neighbour (`+1` in ring order) to the front.
-    pub fn on_viewer_left(self) -> KaleidoscopePage {
+    pub fn on_viewer_left(self) -> MenuPage {
         self.neighbor(1)
     }
 
     /// The page to the viewer's RIGHT (rotates to front when turning RIGHT).
-    pub fn on_viewer_right(self) -> KaleidoscopePage {
+    pub fn on_viewer_right(self) -> MenuPage {
         self.neighbor(-1)
     }
 }
@@ -130,11 +130,8 @@ impl KaleidoscopePage {
 /// Append the Left/Right edge page-turn buttons to a page model. Emitted as real
 /// `Action` controls so Bevy picking + directional focus can dispatch them. The
 /// LEFT button turns the cube left → brings the viewer-left page to front
-/// ([`KaleidoscopePage::on_viewer_left`]); mirrors the demo's `add_edge_buttons`.
-fn add_edge_buttons(
-    model: &mut MenuPageModel<KaleidoscopePage, KaleidoscopeAction>,
-    page: KaleidoscopePage,
-) {
+/// ([`MenuPage::on_viewer_left`]); mirrors the demo's `add_edge_buttons`.
+fn add_edge_buttons(model: &mut MenuPageModel<MenuPage, MenuPageAction>, page: MenuPage) {
     // `selected: false` — the focus highlight is applied IN PLACE from the live
     // cursor (`kaleidoscope_sync_focus_visuals`), not baked here, so a hover does
     // not rebuild the face (which would drop a `Pointer<Click>`).
@@ -145,7 +142,7 @@ fn add_edge_buttons(
         Some("turn cube left".to_string()),
         false,
         false,
-        Some(KaleidoscopeAction::ChangePage(page.on_viewer_left())),
+        Some(MenuPageAction::ChangePage(page.on_viewer_left())),
     );
     model.control(
         EDGE_RIGHT_RECT,
@@ -154,35 +151,35 @@ fn add_edge_buttons(
         Some("turn cube right".to_string()),
         false,
         false,
-        Some(KaleidoscopeAction::ChangePage(page.on_viewer_right())),
+        Some(MenuPageAction::ChangePage(page.on_viewer_right())),
     );
 }
 
-fn page_label(page: KaleidoscopePage) -> &'static str {
+fn page_label(page: MenuPage) -> &'static str {
     match page {
-        KaleidoscopePage::Items => "Items",
-        KaleidoscopePage::Map => "Map",
-        KaleidoscopePage::Quest => "Quest",
-        KaleidoscopePage::System => "System",
+        MenuPage::Items => "Items",
+        MenuPage::Map => "Map",
+        MenuPage::Quest => "Quest",
+        MenuPage::System => "System",
     }
 }
 
 /// The cube faces (pages). `Items` is wired live from our inventory; the rest
 /// mirror OoT's subscreen tabs as host-data-driven placeholders for now.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum KaleidoscopePage {
+pub enum MenuPage {
     Items,
     Map,
     Quest,
     System,
 }
 
-impl KaleidoscopePage {
-    pub const ALL: [KaleidoscopePage; 4] = [
-        KaleidoscopePage::Items,
-        KaleidoscopePage::Map,
-        KaleidoscopePage::Quest,
-        KaleidoscopePage::System,
+impl MenuPage {
+    pub const ALL: [MenuPage; 4] = [
+        MenuPage::Items,
+        MenuPage::Map,
+        MenuPage::Quest,
+        MenuPage::System,
     ];
 }
 
@@ -191,7 +188,7 @@ impl KaleidoscopePage {
 /// demo's `MockAction`-as-selection, and the unit of [`crate::lunex_kaleidoscope_app`]'s
 /// directional navigation (`move_spatial`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum KaleidoscopeFocus {
+pub enum MenuFocus {
     EdgeLeft,
     EdgeRight,
     Item(usize),
@@ -199,18 +196,18 @@ pub enum KaleidoscopeFocus {
     System(usize),
 }
 
-impl Default for KaleidoscopeFocus {
+impl Default for MenuFocus {
     fn default() -> Self {
-        KaleidoscopeFocus::Item(0)
+        MenuFocus::Item(0)
     }
 }
 
-impl KaleidoscopeFocus {
+impl MenuFocus {
     /// The item slot index this focus refers to, clamped into range. Edge buttons
     /// report slot 0 so callers always have a valid item to describe.
     pub fn item_index(self) -> usize {
         match self {
-            KaleidoscopeFocus::Item(idx) => idx.min(crate::items::ITEM_COUNT - 1),
+            MenuFocus::Item(idx) => idx.min(crate::items::ITEM_COUNT - 1),
             _ => 0,
         }
     }
@@ -219,10 +216,10 @@ impl KaleidoscopeFocus {
 /// Actions the cube emits back to the game (the host consumes these — the cube
 /// never mutates item state itself, matching the existing `oot_menu` seam).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum KaleidoscopeAction {
+pub enum MenuPageAction {
     Equip(Item),
     Use(Item),
-    ChangePage(KaleidoscopePage),
+    ChangePage(MenuPage),
     /// A settings toggle/cycle/slider on a drilled-in System SETTINGS screen. The
     /// host applies it by mutating `UserSettings` through the shared settings IR
     /// (`apply_settings_option`), which the existing `save_settings_on_change`
@@ -273,8 +270,8 @@ fn cell_label(name: &str) -> String {
 pub fn items_spec(
     owned: &OwnedItems,
     equipped: Option<Item>,
-) -> ItemsOnlyPageSpec<KaleidoscopePage, KaleidoscopeAction> {
-    let mut spec = ItemsOnlyPageSpec::new(KaleidoscopePage::Items, "ITEMS")
+) -> ItemsOnlyPageSpec<MenuPage, MenuPageAction> {
+    let mut spec = ItemsOnlyPageSpec::new(MenuPage::Items, "ITEMS")
         .with_grid(ITEM_GRID_ROWS, ITEM_GRID_COLS)
         .with_grid_rect(GRID_RECT);
     // No baked `selected_slot`: the focus highlight is applied IN PLACE from the
@@ -305,9 +302,9 @@ pub fn items_spec(
             if owns {
                 // Held-item weapons/abilities equip; everything else "uses".
                 let (action, label) = if item.held_item_id().is_some() {
-                    (KaleidoscopeAction::Equip(item), "Equip")
+                    (MenuPageAction::Equip(item), "Equip")
                 } else {
-                    (KaleidoscopeAction::Use(item), "Use")
+                    (MenuPageAction::Use(item), "Use")
                 };
                 node = node.action(action).action_label(label);
             }
@@ -318,15 +315,15 @@ pub fn items_spec(
 }
 
 /// The Items cube face, built from our live inventory. Lays out the grid, the
-/// right-hand detail panel for the [`KaleidoscopeFocus`]ed item, and the flanking
+/// right-hand detail panel for the [`MenuFocus`]ed item, and the flanking
 /// page-turn buttons — matching the demo's `add_items_page` structure.
 pub fn build_items_page(
     owned: &OwnedItems,
     equipped: Option<Item>,
-) -> MenuPageModel<KaleidoscopePage, KaleidoscopeAction> {
+) -> MenuPageModel<MenuPage, MenuPageAction> {
     let mut model = items_spec(owned, equipped).into_page_model();
     add_detail_panel(&mut model);
-    add_edge_buttons(&mut model, KaleidoscopePage::Items);
+    add_edge_buttons(&mut model, MenuPage::Items);
     model
 }
 
@@ -339,7 +336,7 @@ pub fn build_items_page(
 /// (`crate::lunex_kaleidoscope_app::kaleidoscope_sync_detail_text`) fills them
 /// from the live cursor each time it moves — no rebuild, so a hover never drops a
 /// click. See [`items_detail_slot_text`] for the slot→string mapping.
-fn add_detail_panel(model: &mut MenuPageModel<KaleidoscopePage, KaleidoscopeAction>) {
+fn add_detail_panel(model: &mut MenuPageModel<MenuPage, MenuPageAction>) {
     model.panel(
         DETAIL_PANEL_RECT,
         MenuColor::rgba(0.035, 0.046, 0.105, 0.96),
@@ -372,7 +369,7 @@ fn add_detail_panel(model: &mut MenuPageModel<KaleidoscopePage, KaleidoscopeActi
 pub fn items_detail_slot_text(
     owned: &OwnedItems,
     equipped: Option<Item>,
-    focus: KaleidoscopeFocus,
+    focus: MenuFocus,
 ) -> Vec<(u32, String)> {
     let item = Item::from_index(focus.item_index()).unwrap_or(Item::ALL[0]);
     let lines = detail_lines(owned, equipped, item);
@@ -411,13 +408,13 @@ fn detail_lines(owned: &OwnedItems, equipped: Option<Item>, item: Item) -> Vec<S
 
 /// Build every cube face from our inventory (Items live, the rest placeholders
 /// until their host data is wired). The renderer consumes these via
-/// `ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>`. `focus` highlights the items page's
+/// `ActiveMenuPages<MenuPage, MenuPageAction>`. `focus` highlights the items page's
 /// cursor and selects the detail-panel item.
 #[allow(clippy::too_many_arguments)]
 pub fn build_inventory_pages(
     owned: &OwnedItems,
     equipped: Option<Item>,
-    focus: KaleidoscopeFocus,
+    focus: MenuFocus,
     settings: &UserSettings,
     radio: &RadioSnapshot,
     dev: &DevSnapshot,
@@ -425,16 +422,16 @@ pub fn build_inventory_pages(
     // rows render + the scrollbar thumb position.
     system_window_start: usize,
     open_entry: Option<SystemMenuEntryId>,
-) -> Vec<MenuPageModel<KaleidoscopePage, KaleidoscopeAction>> {
+) -> Vec<MenuPageModel<MenuPage, MenuPageAction>> {
     vec![
         build_items_page(owned, equipped),
         placeholder_page(
-            KaleidoscopePage::Map,
+            MenuPage::Map,
             "MAP",
             "Area map: discovered rooms, anchors, portal markers (host data TODO).",
         ),
         placeholder_page(
-            KaleidoscopePage::Quest,
+            MenuPage::Quest,
             "QUEST",
             "Quest status + key items from save data (host data TODO).",
         ),
@@ -445,15 +442,15 @@ pub fn build_inventory_pages(
 /// Index of the focused System row, clamped to the live row count. Non-System
 /// focuses (e.g. a stale items cursor) default to the first row so callers always
 /// have a valid row to describe in the detail panel.
-fn system_focus_index(focus: KaleidoscopeFocus, row_count: usize) -> usize {
+fn system_focus_index(focus: MenuFocus, row_count: usize) -> usize {
     let max = row_count.saturating_sub(1);
     match focus {
-        KaleidoscopeFocus::System(idx) => idx.min(max),
+        MenuFocus::System(idx) => idx.min(max),
         _ => 0,
     }
 }
 
-/// One System-face row. The cube's `KaleidoscopeFocus::System` cursor is an index into the
+/// One System-face row. The cube's `MenuFocus::System` cursor is an index into the
 /// currently-displayed row list: the top-level [`SystemMenuEntry`] list when no
 /// entry is open, or the open entry's screen rows + a Back row otherwise. Carries
 /// the shared SYSTEM-menu IR ids so the cube (and later the pause menu) draw from
@@ -610,17 +607,15 @@ fn system_row_description(model: &SystemMenuModel, row: SystemRow) -> String {
 }
 
 /// The action a System row dispatches on select.
-fn system_row_action(model: &SystemMenuModel, row: SystemRow) -> Option<KaleidoscopeAction> {
+fn system_row_action(model: &SystemMenuModel, row: SystemRow) -> Option<MenuPageAction> {
     match row {
         SystemRow::Entry(id) => match model.entry(id).map(|e| &e.target) {
-            Some(SystemMenuTarget::Action(action)) => {
-                Some(KaleidoscopeAction::SystemAction(*action))
-            }
-            _ => Some(KaleidoscopeAction::OpenSystemEntry(id)),
+            Some(SystemMenuTarget::Action(action)) => Some(MenuPageAction::SystemAction(*action)),
+            _ => Some(MenuPageAction::OpenSystemEntry(id)),
         },
-        SystemRow::Setting(o) => Some(KaleidoscopeAction::System(o)),
-        SystemRow::Option(o) => Some(KaleidoscopeAction::SystemOption(o)),
-        SystemRow::Back => Some(KaleidoscopeAction::CloseSystemEntry),
+        SystemRow::Setting(o) => Some(MenuPageAction::System(o)),
+        SystemRow::Option(o) => Some(MenuPageAction::SystemOption(o)),
+        SystemRow::Back => Some(MenuPageAction::CloseSystemEntry),
     }
 }
 
@@ -675,7 +670,7 @@ pub fn system_max_window_start(total: usize) -> usize {
 
 /// The cursor-derived scroll-window START (the window that keeps the focused row
 /// visible). The default when no explicit scroll override is in effect.
-pub fn system_window_start(rows: &[SystemRow], focus: KaleidoscopeFocus) -> usize {
+pub fn system_window_start(rows: &[SystemRow], focus: MenuFocus) -> usize {
     let focused = system_focus_index(focus, rows.len());
     if rows.len() <= SYSTEM_VISIBLE_ROWS {
         return 0;
@@ -694,7 +689,7 @@ pub fn system_window_start(rows: &[SystemRow], focus: KaleidoscopeFocus) -> usiz
 /// window does NOT rebuild the face (which would drop a `Pointer<Click>`).
 pub fn system_effective_window_start(
     rows: &[SystemRow],
-    focus: KaleidoscopeFocus,
+    focus: MenuFocus,
     scroll_override: Option<usize>,
 ) -> usize {
     if rows.len() <= SYSTEM_VISIBLE_ROWS {
@@ -740,15 +735,15 @@ pub fn build_system_page(
     settings: &UserSettings,
     radio: &RadioSnapshot,
     dev: &DevSnapshot,
-    focus: KaleidoscopeFocus,
+    focus: MenuFocus,
     // The EFFECTIVE scroll-window start (cursor-derived OR a drag/wheel override —
     // see [`system_effective_window_start`]). Drives which rows render + the thumb.
     window_start: usize,
     open_entry: Option<SystemMenuEntryId>,
-) -> MenuPageModel<KaleidoscopePage, KaleidoscopeAction> {
+) -> MenuPageModel<MenuPage, MenuPageAction> {
     let sys_model = SystemMenuModel::build(settings, radio, dev);
     let mut model = MenuPageModel::new(
-        KaleidoscopePage::System,
+        MenuPage::System,
         "SYSTEM",
         MenuColor::rgba(0.03, 0.04, 0.10, 0.96),
     );
@@ -824,7 +819,7 @@ pub fn build_system_page(
     }
 
     add_system_detail_panel(&mut model);
-    add_edge_buttons(&mut model, KaleidoscopePage::System);
+    add_edge_buttons(&mut model, MenuPage::System);
     model
 }
 
@@ -843,7 +838,7 @@ const SYSTEM_SCROLLBAR_RECT: MenuRect = MenuRect {
 /// the scroll position and is the visible grab target. No action: dragging it is
 /// the interaction, not a click.
 fn add_system_scrollbar(
-    model: &mut MenuPageModel<KaleidoscopePage, KaleidoscopeAction>,
+    model: &mut MenuPageModel<MenuPage, MenuPageAction>,
     window_start: usize,
     total: usize,
 ) {
@@ -886,7 +881,7 @@ fn add_system_scrollbar(
 /// [`MenuDynamicText`] slots filled in place by
 /// `crate::lunex_kaleidoscope_app::kaleidoscope_sync_detail_text`
 /// (see [`system_detail_slot_text`]) — no rebuild on hover, so the click survives.
-fn add_system_detail_panel(model: &mut MenuPageModel<KaleidoscopePage, KaleidoscopeAction>) {
+fn add_system_detail_panel(model: &mut MenuPageModel<MenuPage, MenuPageAction>) {
     model.panel(
         SYSTEM_DESC_RECT,
         MenuColor::rgba(0.035, 0.046, 0.105, 0.96),
@@ -943,10 +938,10 @@ pub fn system_detail_slot_text(
 }
 
 fn placeholder_page(
-    page: KaleidoscopePage,
+    page: MenuPage,
     title: &str,
     body: &str,
-) -> MenuPageModel<KaleidoscopePage, KaleidoscopeAction> {
+) -> MenuPageModel<MenuPage, MenuPageAction> {
     let mut model = MenuPageModel::new(page, title, MenuColor::rgba(0.03, 0.04, 0.10, 0.96));
     model.text(
         50.0,
@@ -1148,8 +1143,7 @@ mod tests {
         );
         // The in-place text for a focused item renders its description (this is what
         // `kaleidoscope_sync_detail_text` writes into the dynamic slots each move).
-        let slot_text =
-            items_detail_slot_text(&owned, None, KaleidoscopeFocus::Item(Item::Blink.index()));
+        let slot_text = items_detail_slot_text(&owned, None, MenuFocus::Item(Item::Blink.index()));
         let joined: String = slot_text
             .iter()
             .map(|(_, s)| s.as_str())
@@ -1164,7 +1158,7 @@ mod tests {
     #[test]
     fn system_page_top_level_shows_entry_list() {
         let settings = UserSettings::default();
-        let focus = KaleidoscopeFocus::System(0);
+        let focus = MenuFocus::System(0);
         // No entry open -> the top-level view is the SYSTEM entry list.
         let page = build_system_page(
             &settings,
@@ -1181,7 +1175,7 @@ mod tests {
                 matches!(
                     n,
                     ambition_inventory_ui::MenuNode::Control {
-                        action: Some(KaleidoscopeAction::OpenSystemEntry(_)),
+                        action: Some(MenuPageAction::OpenSystemEntry(_)),
                         ..
                     }
                 )
@@ -1204,7 +1198,7 @@ mod tests {
             matches!(
                 n,
                 ambition_inventory_ui::MenuNode::Control {
-                    action: Some(KaleidoscopeAction::System(_)),
+                    action: Some(MenuPageAction::System(_)),
                     ..
                 }
             )
@@ -1215,7 +1209,7 @@ mod tests {
             matches!(
                 n,
                 ambition_inventory_ui::MenuNode::Control {
-                    action: Some(KaleidoscopeAction::ChangePage(_)),
+                    action: Some(MenuPageAction::ChangePage(_)),
                     ..
                 }
             )
@@ -1227,7 +1221,7 @@ mod tests {
     fn system_page_drilled_into_video_shows_curated_options_and_back() {
         let mut settings = UserSettings::default();
         settings.video.show_fps = true;
-        let focus = KaleidoscopeFocus::System(0);
+        let focus = MenuFocus::System(0);
         // Drill into Video -> its curated options (from the SYSTEM IR) + a Back row.
         let page = build_system_page(
             &settings,
@@ -1242,7 +1236,7 @@ mod tests {
             .iter()
             .filter_map(|n| match n {
                 ambition_inventory_ui::MenuNode::Control {
-                    action: Some(KaleidoscopeAction::System(o)),
+                    action: Some(MenuPageAction::System(o)),
                     ..
                 } => Some(*o),
                 _ => None,
@@ -1261,7 +1255,7 @@ mod tests {
         // The FPS Overlay row's label reflects the ON state we set above.
         let has_on = page.nodes.iter().any(|n| matches!(
             n,
-            ambition_inventory_ui::MenuNode::Control { action: Some(KaleidoscopeAction::System(SettingsOptionId::ShowFps)), label, .. }
+            ambition_inventory_ui::MenuNode::Control { action: Some(MenuPageAction::System(SettingsOptionId::ShowFps)), label, .. }
                 if label.contains("ON")
         ));
         assert!(has_on, "FPS Overlay row reflects the current ON state");
@@ -1271,7 +1265,7 @@ mod tests {
             matches!(
                 n,
                 ambition_inventory_ui::MenuNode::Control {
-                    action: Some(KaleidoscopeAction::CloseSystemEntry),
+                    action: Some(MenuPageAction::CloseSystemEntry),
                     ..
                 }
             )
@@ -1305,7 +1299,7 @@ mod tests {
         // (`kaleidoscope_sync_focus_visuals`) rather than baked into the page data,
         // so the page only needs to emit the two clickable edge controls; landing on
         // one after a page turn highlights it without a rebuild.
-        for page in [KaleidoscopePage::Map, KaleidoscopePage::Quest] {
+        for page in [MenuPage::Map, MenuPage::Quest] {
             let model = placeholder_page(page, "T", "body");
             // Both edge buttons exist as Action controls with a ChangePage action.
             let edges: Vec<_> = model
@@ -1316,7 +1310,7 @@ mod tests {
                         n,
                         ambition_inventory_ui::MenuNode::Control {
                             kind: MenuControlKind::Action,
-                            action: Some(KaleidoscopeAction::ChangePage(_)),
+                            action: Some(MenuPageAction::ChangePage(_)),
                             ..
                         }
                     )
@@ -1329,7 +1323,7 @@ mod tests {
                     n,
                     ambition_inventory_ui::MenuNode::Control {
                         selected: true,
-                        action: Some(KaleidoscopeAction::ChangePage(_)),
+                        action: Some(MenuPageAction::ChangePage(_)),
                         ..
                     }
                 )
@@ -1400,7 +1394,7 @@ mod tests {
             stations: (0..26).map(|i| (i, format!("Station {i}"))).collect(),
             active: Some(0),
         };
-        let focus = KaleidoscopeFocus::System(13);
+        let focus = MenuFocus::System(13);
         let sys_model = SystemMenuModel::build(&settings, &radio, &DevSnapshot::default());
         let rows = system_rows(&sys_model, Some(SystemMenuEntryId::Radio));
         // Cursor-derived window (no override) keeps the focused station in view.
@@ -1420,7 +1414,7 @@ mod tests {
                 matches!(
                     n,
                     ambition_inventory_ui::MenuNode::Control {
-                        action: Some(KaleidoscopeAction::SystemOption(_)),
+                        action: Some(MenuPageAction::SystemOption(_)),
                         ..
                     }
                 )
@@ -1437,7 +1431,7 @@ mod tests {
             matches!(
                 n,
                 ambition_inventory_ui::MenuNode::Control {
-                    action: Some(KaleidoscopeAction::SystemOption(SystemOptionId::Radio(13))),
+                    action: Some(MenuPageAction::SystemOption(SystemOptionId::Radio(13))),
                     ..
                 }
             )
@@ -1452,19 +1446,13 @@ mod tests {
     fn viewer_left_button_turns_to_the_right_neighbor() {
         // Pressing LEFT rotates the cube left, bringing the +1 ring neighbour to
         // front (matches the demo's page_on_viewer_left = index + 1).
-        assert_eq!(
-            KaleidoscopePage::Items.on_viewer_left(),
-            KaleidoscopePage::Map
-        );
-        assert_eq!(
-            KaleidoscopePage::Items.on_viewer_right(),
-            KaleidoscopePage::System
-        );
+        assert_eq!(MenuPage::Items.on_viewer_left(), MenuPage::Map);
+        assert_eq!(MenuPage::Items.on_viewer_right(), MenuPage::System);
         let owned = OwnedItems::default();
         let page = build_items_page(&owned, None);
         let left = page.nodes.iter().find_map(|n| match n {
             ambition_inventory_ui::MenuNode::Control {
-                action: Some(KaleidoscopeAction::ChangePage(p)),
+                action: Some(MenuPageAction::ChangePage(p)),
                 rect,
                 ..
             } if rect.x < 10.0 => Some(*p),
@@ -1472,7 +1460,7 @@ mod tests {
         });
         assert_eq!(
             left,
-            Some(KaleidoscopePage::Map),
+            Some(MenuPage::Map),
             "left edge button turns to viewer-left page"
         );
     }

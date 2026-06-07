@@ -34,6 +34,13 @@ use super::UserSettings;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum SettingsCategoryId {
     Video,
+    /// The whole-screen shader / post-process stack. A *dedicated* category
+    /// (rather than rows appended onto Video) because the pause menu already
+    /// models it as its own `Video > Shaders` subpage: ~20 sliders that would
+    /// otherwise swamp the half-dozen Video rows. A first-class category reads
+    /// cleanly in BOTH frontends — the cube's System face shows a "Shaders"
+    /// drill-in row beside Video/Audio/..., mirroring the pause-menu subpage.
+    Shaders,
     Audio,
     Controls,
     Gameplay,
@@ -41,12 +48,19 @@ pub enum SettingsCategoryId {
 
 impl SettingsCategoryId {
     /// Every category, in display order.
-    pub const ALL: [Self; 4] = [Self::Video, Self::Audio, Self::Controls, Self::Gameplay];
+    pub const ALL: [Self; 5] = [
+        Self::Video,
+        Self::Shaders,
+        Self::Audio,
+        Self::Controls,
+        Self::Gameplay,
+    ];
 
     /// Display name, matching `SettingsPage::title` in the pause menu.
     pub fn label(self) -> &'static str {
         match self {
             Self::Video => "Video",
+            Self::Shaders => "Shaders",
             Self::Audio => "Audio",
             Self::Controls => "Controls",
             Self::Gameplay => "Gameplay",
@@ -57,6 +71,7 @@ impl SettingsCategoryId {
     pub fn description(self) -> &'static str {
         match self {
             Self::Video => "Display mode, camera, flashes, colorblind, FPS overlay.",
+            Self::Shaders => "Whole-screen CRT / film-grain / glitch post-process strengths.",
             Self::Audio => "Master / music / SFX volume and mute.",
             Self::Controls => "Sticks, triggers, dash, touch, and menu input.",
             Self::Gameplay => "Difficulty, assist, damage, and HUD overlays.",
@@ -78,12 +93,34 @@ pub enum SettingsOptionId {
     Flashes,
     Colorblind,
     ShowFps,
+    // Shaders (the whole `Video > Shaders` subpage from the pause menu).
+    ShaderStrength,
+    ShaderCrtStrength,
+    ShaderCrtScanlines,
+    ShaderCrtMask,
+    ShaderCrtCurvature,
+    ShaderCrtBloom,
+    ShaderCrtChroma,
+    ShaderFilmGrainStrength,
+    ShaderFilmGrainSize,
+    ShaderFilmGrainFps,
+    ShaderFilmGrainLumaBias,
+    ShaderRobotDeathStrength,
+    ShaderRobotStatic,
+    ShaderRobotTear,
+    ShaderRobotDesaturate,
+    ShaderRobotScanlines,
+    ShaderUnderwaterStrength,
+    ShaderUnderwaterDistortion,
+    ShaderDeepDreamStrength,
+    ShaderVignetteStrength,
     // Audio.
     MasterVolume,
     MusicVolume,
     SfxVolume,
     Mute,
     // Controls.
+    KeyboardPreset,
     ControllerProfile,
     LeftStickDeadzone,
     RightStickDeadzone,
@@ -94,6 +131,7 @@ pub enum SettingsOptionId {
     DashInputMode,
     TouchControls,
     MenuTapMode,
+    ResetControlFiltering,
     // Gameplay.
     Difficulty,
     Assist,
@@ -220,6 +258,35 @@ fn percent_label(value: f32) -> String {
     format!("{}%", AudioSettings::percent(value))
 }
 
+/// `"NN%"` for a shader unit value, using the shader-specific percent rounding
+/// (`ScreenShaderSettings::percent`, distinct from the audio one) so the IR's
+/// value label is byte-identical to the pause menu's `format_shader_percent`.
+fn shader_percent_label(value: f32) -> String {
+    format!("{}%", super::video::ScreenShaderSettings::percent(value))
+}
+
+/// A 0..=1 shader-strength slider row. Replicates the pause menu's
+/// `format_shader_percent` value label and the `nudge_unit` (clamp 0..1) step,
+/// so the migrated `Shader*` rows behave identically in both frontends.
+fn shader_unit_slider(
+    id: SettingsOptionId,
+    label: &str,
+    value: f32,
+    step: f32,
+    description: &str,
+) -> SettingsOption {
+    slider(
+        id,
+        label,
+        value,
+        0.0,
+        1.0,
+        step,
+        shader_percent_label(value),
+        description,
+    )
+}
+
 /// Position of `value` within `all` (defaulting to 0 if missing), for the
 /// `Cycle { index, count }` dot strip.
 fn enum_index<T: PartialEq + Copy>(all: &[T], value: T) -> (usize, usize) {
@@ -324,6 +391,165 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
         ],
     };
 
+    // Shaders: the whole `Video > Shaders` pause-menu subpage, ported 1:1. Each
+    // row is a slider with the SAME step the pause menu nudges by
+    // (UNIT_STEP 0.10 / FINE_STEP 0.05; grain size/fps use their own ranges) and
+    // the SAME value label (`ScreenShaderSettings::percent`, or `px` / `fps`).
+    use super::video::ScreenShaderSettings as Shdr;
+    let s = &v.shaders;
+    let shaders = SettingsCategory {
+        id: SettingsCategoryId::Shaders,
+        label: SettingsCategoryId::Shaders.label().to_string(),
+        options: vec![
+            shader_unit_slider(
+                SettingsOptionId::ShaderStrength,
+                "Shader Strength",
+                s.strength,
+                Shdr::UNIT_STEP,
+                "Global multiplier for the whole shader stack (0% = off).",
+            ),
+            shader_unit_slider(
+                SettingsOptionId::ShaderCrtStrength,
+                "CRT Strength",
+                s.crt_strength,
+                Shdr::UNIT_STEP,
+                "Overall CRT treatment strength.",
+            ),
+            shader_unit_slider(
+                SettingsOptionId::ShaderCrtScanlines,
+                "CRT Scanlines",
+                s.crt_scanlines,
+                Shdr::FINE_STEP,
+                "CRT beam scanline darkening.",
+            ),
+            shader_unit_slider(
+                SettingsOptionId::ShaderCrtMask,
+                "CRT Phosphor Mask",
+                s.crt_mask,
+                Shdr::FINE_STEP,
+                "CRT RGB phosphor mask intensity.",
+            ),
+            shader_unit_slider(
+                SettingsOptionId::ShaderCrtCurvature,
+                "CRT Curvature",
+                s.crt_curvature,
+                Shdr::FINE_STEP,
+                "CRT screen-curvature warp amount.",
+            ),
+            shader_unit_slider(
+                SettingsOptionId::ShaderCrtBloom,
+                "CRT Bloom",
+                s.crt_bloom,
+                Shdr::FINE_STEP,
+                "CRT local glow / bloom.",
+            ),
+            shader_unit_slider(
+                SettingsOptionId::ShaderCrtChroma,
+                "CRT Chroma Split",
+                s.crt_chroma,
+                Shdr::FINE_STEP,
+                "CRT chromatic-aberration split.",
+            ),
+            shader_unit_slider(
+                SettingsOptionId::ShaderFilmGrainStrength,
+                "Film Grain Strength",
+                s.film_grain_strength,
+                Shdr::FINE_STEP,
+                "Film-grain noise strength.",
+            ),
+            slider(
+                SettingsOptionId::ShaderFilmGrainSize,
+                "Film Grain Size",
+                s.film_grain_size,
+                1.0,
+                8.0,
+                Shdr::GRAIN_SIZE_STEP,
+                format!("{:.0}px", s.film_grain_size),
+                "Output pixels per film-grain cell.",
+            ),
+            slider(
+                SettingsOptionId::ShaderFilmGrainFps,
+                "Film Grain Rate",
+                s.film_grain_fps,
+                1.0,
+                60.0,
+                Shdr::GRAIN_FPS_STEP,
+                format!("{:.0} fps", s.film_grain_fps),
+                "How often the film-grain seed changes.",
+            ),
+            shader_unit_slider(
+                SettingsOptionId::ShaderFilmGrainLumaBias,
+                "Film Grain Luma Bias",
+                s.film_grain_luma_bias,
+                Shdr::FINE_STEP,
+                "Bias film grain toward darker / brighter areas.",
+            ),
+            shader_unit_slider(
+                SettingsOptionId::ShaderRobotDeathStrength,
+                "Robot Death Strength",
+                s.robot_death_strength,
+                Shdr::UNIT_STEP,
+                "Robot-death static / glitch strength.",
+            ),
+            shader_unit_slider(
+                SettingsOptionId::ShaderRobotStatic,
+                "Robot Static",
+                s.robot_static,
+                Shdr::FINE_STEP,
+                "Robot-death static noise amount.",
+            ),
+            shader_unit_slider(
+                SettingsOptionId::ShaderRobotTear,
+                "Robot Tear",
+                s.robot_tear,
+                Shdr::FINE_STEP,
+                "Robot-death horizontal tearing.",
+            ),
+            shader_unit_slider(
+                SettingsOptionId::ShaderRobotDesaturate,
+                "Robot Desaturate",
+                s.robot_desaturate,
+                Shdr::FINE_STEP,
+                "Robot-death desaturation.",
+            ),
+            shader_unit_slider(
+                SettingsOptionId::ShaderRobotScanlines,
+                "Robot Scanlines",
+                s.robot_scanlines,
+                Shdr::FINE_STEP,
+                "Robot-death scanline overlay.",
+            ),
+            shader_unit_slider(
+                SettingsOptionId::ShaderUnderwaterStrength,
+                "Underwater Strength",
+                s.underwater_strength,
+                Shdr::UNIT_STEP,
+                "Underwater ripple / tint strength.",
+            ),
+            shader_unit_slider(
+                SettingsOptionId::ShaderUnderwaterDistortion,
+                "Underwater Distortion",
+                s.underwater_distortion,
+                Shdr::FINE_STEP,
+                "Underwater displacement amount.",
+            ),
+            shader_unit_slider(
+                SettingsOptionId::ShaderDeepDreamStrength,
+                "Deep Dream Strength",
+                s.deep_dream_strength,
+                Shdr::UNIT_STEP,
+                "Full-screen deep-dream reference view strength.",
+            ),
+            shader_unit_slider(
+                SettingsOptionId::ShaderVignetteStrength,
+                "Vignette Strength",
+                s.vignette_strength,
+                Shdr::FINE_STEP,
+                "Edge-darkening vignette strength.",
+            ),
+        ],
+    };
+
     let audio = SettingsCategory {
         id: SettingsCategoryId::Audio,
         label: SettingsCategoryId::Audio.label().to_string(),
@@ -371,6 +597,22 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
         id: SettingsCategoryId::Controls,
         label: SettingsCategoryId::Controls.label().to_string(),
         options: vec![
+            {
+                // The pause menu labels this with the raw preset index and cycles
+                // it modulo `KeyboardPreset::presets().len()` (a fixed 4). Model it
+                // as a Cycle over that fixed count, with the index itself as the
+                // value label — byte-identical to the pause menu's
+                // `format_cycle("Keyboard Preset", keyboard_preset_index)`.
+                let count = ambition_input::KeyboardPreset::presets().len();
+                cycle(
+                    SettingsOptionId::KeyboardPreset,
+                    "Keyboard Preset",
+                    &c.keyboard_preset_index.to_string(),
+                    c.keyboard_preset_index.min(count.saturating_sub(1)),
+                    count,
+                    "Active keyboard key-binding preset.",
+                )
+            },
             {
                 let (i, n) = enum_index(&ControllerProfileId::ALL, c.controller_profile);
                 cycle(
@@ -462,6 +704,16 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                     "Single- vs double-tap behaviour in menus.",
                 )
             },
+            // An Action row: restores deadzone / trigger / repeat values to their
+            // defaults on confirm only (Prev/Next are no-ops), matching the pause
+            // menu's `ResetControlFiltering` arm.
+            SettingsOption {
+                id: SettingsOptionId::ResetControlFiltering,
+                label: "Reset Filter Defaults".to_string(),
+                value_label: String::new(),
+                kind: SettingsOptionKind::Action,
+                description: "Restore stick/trigger/repeat filtering to defaults.".to_string(),
+            },
         ],
     };
 
@@ -518,7 +770,7 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
     };
 
     SettingsMenuModel {
-        categories: vec![video, audio, controls, gameplay],
+        categories: vec![video, shaders, audio, controls, gameplay],
     }
 }
 
@@ -547,7 +799,7 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
     use super::gameplay::Difficulty;
     use super::video::{
         CameraAspectPolicy, CameraFramingPreset, ColorblindMode, FlashIntensity,
-        SerializableDisplayMode,
+        ScreenShaderSettings, SerializableDisplayMode,
     };
     use crate::host::windowing::DisplayModeKind;
 
@@ -589,6 +841,104 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
         SettingsOptionId::Colorblind => cyc!(settings.video.colorblind, ColorblindMode),
         SettingsOptionId::ShowFps => tog!(settings.video.show_fps),
 
+        // Shaders. Each nudge replicates the pause menu's `nudge_shader_unit` /
+        // `nudge_shader_range` with the SAME step (UNIT_STEP / FINE_STEP, or the
+        // grain ranges). Confirm (dir 0) steps up, matching the pause menu's
+        // "Confirm behaves like Next" rule.
+        SettingsOptionId::ShaderStrength => settings
+            .video
+            .shaders
+            .nudge_strength(s * ScreenShaderSettings::UNIT_STEP),
+        SettingsOptionId::ShaderCrtStrength => ScreenShaderSettings::nudge_unit(
+            &mut settings.video.shaders.crt_strength,
+            s * ScreenShaderSettings::UNIT_STEP,
+        ),
+        SettingsOptionId::ShaderCrtScanlines => ScreenShaderSettings::nudge_unit(
+            &mut settings.video.shaders.crt_scanlines,
+            s * ScreenShaderSettings::FINE_STEP,
+        ),
+        SettingsOptionId::ShaderCrtMask => ScreenShaderSettings::nudge_unit(
+            &mut settings.video.shaders.crt_mask,
+            s * ScreenShaderSettings::FINE_STEP,
+        ),
+        SettingsOptionId::ShaderCrtCurvature => ScreenShaderSettings::nudge_unit(
+            &mut settings.video.shaders.crt_curvature,
+            s * ScreenShaderSettings::FINE_STEP,
+        ),
+        SettingsOptionId::ShaderCrtBloom => ScreenShaderSettings::nudge_unit(
+            &mut settings.video.shaders.crt_bloom,
+            s * ScreenShaderSettings::FINE_STEP,
+        ),
+        SettingsOptionId::ShaderCrtChroma => ScreenShaderSettings::nudge_unit(
+            &mut settings.video.shaders.crt_chroma,
+            s * ScreenShaderSettings::FINE_STEP,
+        ),
+        SettingsOptionId::ShaderFilmGrainStrength => ScreenShaderSettings::nudge_unit(
+            &mut settings.video.shaders.film_grain_strength,
+            s * ScreenShaderSettings::FINE_STEP,
+        ),
+        SettingsOptionId::ShaderFilmGrainSize => ScreenShaderSettings::nudge_range(
+            &mut settings.video.shaders.film_grain_size,
+            s * ScreenShaderSettings::GRAIN_SIZE_STEP,
+            1.0,
+            8.0,
+        ),
+        SettingsOptionId::ShaderFilmGrainFps => ScreenShaderSettings::nudge_range(
+            &mut settings.video.shaders.film_grain_fps,
+            s * ScreenShaderSettings::GRAIN_FPS_STEP,
+            1.0,
+            60.0,
+        ),
+        SettingsOptionId::ShaderFilmGrainLumaBias => ScreenShaderSettings::nudge_unit(
+            &mut settings.video.shaders.film_grain_luma_bias,
+            s * ScreenShaderSettings::FINE_STEP,
+        ),
+        SettingsOptionId::ShaderRobotDeathStrength => ScreenShaderSettings::nudge_unit(
+            &mut settings.video.shaders.robot_death_strength,
+            s * ScreenShaderSettings::UNIT_STEP,
+        ),
+        SettingsOptionId::ShaderRobotStatic => ScreenShaderSettings::nudge_unit(
+            &mut settings.video.shaders.robot_static,
+            s * ScreenShaderSettings::FINE_STEP,
+        ),
+        SettingsOptionId::ShaderRobotTear => ScreenShaderSettings::nudge_unit(
+            &mut settings.video.shaders.robot_tear,
+            s * ScreenShaderSettings::FINE_STEP,
+        ),
+        SettingsOptionId::ShaderRobotDesaturate => ScreenShaderSettings::nudge_unit(
+            &mut settings.video.shaders.robot_desaturate,
+            s * ScreenShaderSettings::FINE_STEP,
+        ),
+        SettingsOptionId::ShaderRobotScanlines => ScreenShaderSettings::nudge_unit(
+            &mut settings.video.shaders.robot_scanlines,
+            s * ScreenShaderSettings::FINE_STEP,
+        ),
+        SettingsOptionId::ShaderUnderwaterStrength => ScreenShaderSettings::nudge_unit(
+            &mut settings.video.shaders.underwater_strength,
+            s * ScreenShaderSettings::UNIT_STEP,
+        ),
+        SettingsOptionId::ShaderUnderwaterDistortion => ScreenShaderSettings::nudge_unit(
+            &mut settings.video.shaders.underwater_distortion,
+            s * ScreenShaderSettings::FINE_STEP,
+        ),
+        SettingsOptionId::ShaderDeepDreamStrength => {
+            ScreenShaderSettings::nudge_unit(
+                &mut settings.video.shaders.deep_dream_strength,
+                s * ScreenShaderSettings::UNIT_STEP,
+            );
+            // Pause-menu side-effect: enabling deep-dream while the global
+            // strength is off auto-arms the master strength so the effect shows.
+            if settings.video.shaders.deep_dream_strength > 0.001
+                && settings.video.shaders.strength <= 0.001
+            {
+                settings.video.shaders.strength = 1.0;
+            }
+        }
+        SettingsOptionId::ShaderVignetteStrength => ScreenShaderSettings::nudge_unit(
+            &mut settings.video.shaders.vignette_strength,
+            s * ScreenShaderSettings::FINE_STEP,
+        ),
+
         SettingsOptionId::MasterVolume => {
             settings.audio.nudge_master(s * AudioSettings::VOLUME_STEP)
         }
@@ -596,6 +946,20 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
         SettingsOptionId::SfxVolume => settings.audio.nudge_sfx(s * AudioSettings::VOLUME_STEP),
         SettingsOptionId::Mute => settings.audio.toggle_mute(),
 
+        SettingsOptionId::KeyboardPreset => {
+            // Cycle the preset index modulo the fixed preset count, matching the
+            // pause menu's `keyboard_preset_count`-driven wrap (count is always
+            // `KeyboardPreset::presets().len()`).
+            let len = ambition_input::KeyboardPreset::presets().len();
+            if len != 0 {
+                let cur = settings.controls.keyboard_preset_index;
+                settings.controls.keyboard_preset_index = if dir < 0 {
+                    (cur + len - 1) % len
+                } else {
+                    (cur + 1) % len
+                };
+            }
+        }
         SettingsOptionId::ControllerProfile => {
             cyc!(settings.controls.controller_profile, ControllerProfileId)
         }
@@ -622,6 +986,13 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
         SettingsOptionId::DashInputMode => cyc!(settings.controls.dash_input_mode, DashInputMode),
         SettingsOptionId::TouchControls => tog!(settings.controls.touch_controls_visible),
         SettingsOptionId::MenuTapMode => cyc!(settings.controls.menu_tap_mode, MenuTapMode),
+        SettingsOptionId::ResetControlFiltering => {
+            // Confirm-only (dir 0): a stray prev/next nudge must NOT wipe the
+            // user's filtering, matching the pause menu's Confirm-gated arm.
+            if dir == 0 {
+                settings.controls.reset_filtering_to_defaults();
+            }
+        }
 
         SettingsOptionId::Difficulty => cyc!(settings.gameplay.difficulty, Difficulty),
         SettingsOptionId::Assist => {

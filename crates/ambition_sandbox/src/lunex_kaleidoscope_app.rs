@@ -270,6 +270,9 @@ pub(crate) struct SystemMenuParams<'w> {
     // auto-reload, which live on these two resources (not `DeveloperTools`).
     dev_state: ResMut<'w, crate::SandboxDevState>,
     ldtk_reload: ResMut<'w, crate::ldtk_world::LdtkHotReloadState>,
+    // The active menu frontend, mutated by the Developer "Menu Backend" row (the
+    // in-menu `\` toggle). Always present (inserted at startup).
+    backend: ResMut<'w, InventoryUiBackend>,
     reset: ResMut<'w, crate::runtime::reset::SandboxResetRequested>,
     // Movement tuning is derived from the active movement profile, so a
     // Reset All Settings must restore it to match the reset DeveloperTools
@@ -293,6 +296,15 @@ pub(crate) struct SystemMenuParams<'w> {
 }
 
 impl SystemMenuParams<'_> {
+    /// The active inventory frontend. Read it from HERE (not a separate
+    /// `Res<InventoryUiBackend>` param) in any system that also holds
+    /// `SystemMenuParams` — this bundle owns the resource (mutably, for the
+    /// Developer "Menu Backend" row), so a duplicate `Res` access in the same
+    /// system would be a Bevy B0002 conflict.
+    pub(crate) fn backend(&self) -> InventoryUiBackend {
+        *self.backend
+    }
+
     /// Apply a non-settings System screen option against its live resource.
     /// Radio auditions a station (keeps the menu open); Locale is a no-op stub
     /// (only English exists); Dev toggles/cycles mutate `DeveloperTools`.
@@ -344,6 +356,7 @@ impl SystemMenuParams<'_> {
                         dev: &mut self.dev_tools,
                         dev_state: &mut self.dev_state,
                         ldtk_reload: &mut self.ldtk_reload,
+                        backend: &mut self.backend,
                     },
                     id,
                     0,
@@ -367,6 +380,7 @@ impl SystemMenuParams<'_> {
                         dev: &mut self.dev_tools,
                         dev_state: &mut self.dev_state,
                         ldtk_reload: &mut self.ldtk_reload,
+                        backend: &mut self.backend,
                     },
                     id,
                     dir,
@@ -419,6 +433,7 @@ impl SystemMenuParams<'_> {
             dev: &self.dev_tools,
             dev_state: &self.dev_state,
             ldtk_reload: &self.ldtk_reload,
+            backend: *self.backend,
         })
     }
 
@@ -446,6 +461,7 @@ struct SystemMenuSnapshotParams<'w> {
     dev_tools: Res<'w, crate::dev::dev_tools::DeveloperTools>,
     dev_state: Res<'w, crate::SandboxDevState>,
     ldtk_reload: Res<'w, crate::ldtk_world::LdtkHotReloadState>,
+    backend: Res<'w, InventoryUiBackend>,
     #[cfg(feature = "audio")]
     library: Option<Res<'w, crate::audio::AudioLibrary>>,
     #[cfg(feature = "audio")]
@@ -473,6 +489,7 @@ impl SystemMenuSnapshotParams<'_> {
             dev: &self.dev_tools,
             dev_state: &self.dev_state,
             ldtk_reload: &self.ldtk_reload,
+            backend: *self.backend,
         })
     }
 
@@ -530,12 +547,16 @@ struct DevToggleRead<'a> {
     dev: &'a crate::dev::dev_tools::DeveloperTools,
     dev_state: &'a crate::SandboxDevState,
     ldtk_reload: &'a crate::ldtk_world::LdtkHotReloadState,
+    // The Menu Backend row mirrors the `\` hotkey; its value label is the active
+    // frontend (Grid / Cube), read from `InventoryUiBackend`.
+    backend: InventoryUiBackend,
 }
 
 struct DevToggleWrite<'a> {
     dev: &'a mut crate::dev::dev_tools::DeveloperTools,
     dev_state: &'a mut crate::SandboxDevState,
     ldtk_reload: &'a mut crate::ldtk_world::LdtkHotReloadState,
+    backend: &'a mut InventoryUiBackend,
 }
 
 /// Read every developer toggle/cycle into a [`DevSnapshot`] for the SYSTEM IR. The
@@ -590,6 +611,15 @@ fn dev_snapshot(ctx: DevToggleRead<'_>) -> DevSnapshot {
     values.push(DevSnapshot::toggle(
         D::LdtkAutoApply,
         ctx.ldtk_reload.auto_apply,
+    ));
+    // Menu frontend (InventoryUiBackend) — the `\`-hotkey row, a cycle whose value
+    // label is the active frontend name.
+    values.push(DevSnapshot::cycle(
+        D::MenuBackend,
+        match ctx.backend {
+            InventoryUiBackend::Grid => "Grid",
+            InventoryUiBackend::LunexKaleidoscope => "Cube",
+        },
     ));
     DevSnapshot { values }
 }
@@ -661,6 +691,14 @@ fn apply_dev_toggle(ctx: DevToggleWrite<'_>, id: DevToggleId, dir: i32) {
                 "LDtk auto-apply {}",
                 if r.auto_apply { "enabled" } else { "disabled" }
             );
+        }
+        // Cycle the menu frontend — the in-menu equivalent of the `\` hotkey
+        // (`toggle_inventory_backend`). Only two states, so direction is moot; flip.
+        D::MenuBackend => {
+            *ctx.backend = match *ctx.backend {
+                InventoryUiBackend::Grid => InventoryUiBackend::LunexKaleidoscope,
+                InventoryUiBackend::LunexKaleidoscope => InventoryUiBackend::Grid,
+            };
         }
     }
 }
@@ -753,7 +791,6 @@ fn fade_kaleidoscope_scrim(
 /// page; `back` closes the menu. The republish runs after this in the chain.
 #[allow(clippy::too_many_arguments)]
 fn kaleidoscope_focus_nav(
-    backend: Res<InventoryUiBackend>,
     menu: Res<MenuControlFrame>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
@@ -778,7 +815,9 @@ fn kaleidoscope_focus_nav(
     mut sfx: MessageWriter<SfxMessage>,
     mut system: SystemMenuParams,
 ) {
-    if *backend != InventoryUiBackend::LunexKaleidoscope || !overlay.visible {
+    // Read the backend from `system` (the bundle owns it); a separate `Res` here
+    // would be a B0002 conflict with that `ResMut`.
+    if system.backend() != InventoryUiBackend::LunexKaleidoscope || !overlay.visible {
         return;
     }
     // The Esc/pause toggle (`menu.start`) is owned ENTIRELY by
@@ -1516,7 +1555,6 @@ fn kaleidoscope_pointer_move(
 #[allow(clippy::too_many_arguments)]
 fn kaleidoscope_pointer_release(
     _release: On<Pointer<Release>>,
-    backend: Res<InventoryUiBackend>,
     mut ui_state: Option<ResMut<crate::inventory::InventoryUiState>>,
     // A close-via-action (e.g. Reset Sandbox) must restore `GameMode::Playing` exactly
     // like the canonical Esc-close — so route the close through `close_kaleidoscope_menu`.
@@ -1537,7 +1575,9 @@ fn kaleidoscope_pointer_release(
     mut press: ResMut<KaleidoscopePointerPress>,
 ) {
     let open = ui_state.as_deref().map(|s| s.visible).unwrap_or(false);
-    if *backend != InventoryUiBackend::LunexKaleidoscope || !open {
+    // Read the backend from `system` (it owns the resource); a separate `Res` here
+    // would be a B0002 conflict with that `ResMut`.
+    if system.backend() != InventoryUiBackend::LunexKaleidoscope || !open {
         return;
     }
     // Consume the press guard (whatever happens, the next press starts fresh). A
@@ -2182,6 +2222,7 @@ mod lunex_kaleidoscope_app_tests {
         let mut dev = crate::dev::dev_tools::DeveloperTools::default();
         let mut dev_state = crate::SandboxDevState::default();
         let mut ldtk_reload = crate::ldtk_world::LdtkHotReloadState::default();
+        let mut backend = InventoryUiBackend::default();
 
         let debug_before = dev_state.debug;
         let slowmo_before = dev_state.slowmo;
@@ -2197,6 +2238,7 @@ mod lunex_kaleidoscope_app_tests {
                     dev: &mut dev,
                     dev_state: &mut dev_state,
                     ldtk_reload: &mut ldtk_reload,
+                    backend: &mut backend,
                 },
                 id,
                 0,
@@ -2220,11 +2262,71 @@ mod lunex_kaleidoscope_app_tests {
             dev: &dev,
             dev_state: &dev_state,
             ldtk_reload: &ldtk_reload,
+            backend: InventoryUiBackend::default(),
         });
         let read = |id: DevToggleId| snap.values.iter().find(|(d, _, _)| *d == id).unwrap().1;
         assert_eq!(read(DevToggleId::DebugOverlay), dev_state.debug);
         assert_eq!(read(DevToggleId::SlowMotion), dev_state.slowmo);
         assert_eq!(read(DevToggleId::LdtkAutoApply), ldtk_reload.auto_apply);
+    }
+
+    /// The Developer "Menu Backend" row exists and dispatching it cycles
+    /// `InventoryUiBackend` (Grid ↔ Cube) — the in-menu equivalent of the `\`
+    /// hotkey, wired through the shared `apply_dev_toggle` path so BOTH backends can
+    /// trigger it. Its snapshot value label reflects the active frontend.
+    #[test]
+    fn menu_backend_dev_row_cycles_inventory_backend() {
+        // The row is part of the Developer vocabulary and is a cycle (shows a label).
+        assert!(DevToggleId::ALL.contains(&DevToggleId::MenuBackend));
+        assert!(DevToggleId::MenuBackend.is_cycle());
+
+        let mut dev = crate::dev::dev_tools::DeveloperTools::default();
+        let mut dev_state = crate::SandboxDevState::default();
+        let mut ldtk_reload = crate::ldtk_world::LdtkHotReloadState::default();
+        let mut backend = InventoryUiBackend::Grid;
+
+        // The snapshot label reflects the live backend.
+        let label = |b: InventoryUiBackend| {
+            dev_snapshot(DevToggleRead {
+                dev: &dev,
+                dev_state: &dev_state,
+                ldtk_reload: &ldtk_reload,
+                backend: b,
+            })
+            .values
+            .iter()
+            .find(|(d, _, _)| *d == DevToggleId::MenuBackend)
+            .unwrap()
+            .2
+            .clone()
+        };
+        assert_eq!(label(InventoryUiBackend::Grid), "Grid");
+        assert_eq!(label(InventoryUiBackend::LunexKaleidoscope), "Cube");
+
+        // Dispatching the row flips the backend Grid → Cube …
+        apply_dev_toggle(
+            DevToggleWrite {
+                dev: &mut dev,
+                dev_state: &mut dev_state,
+                ldtk_reload: &mut ldtk_reload,
+                backend: &mut backend,
+            },
+            DevToggleId::MenuBackend,
+            0,
+        );
+        assert_eq!(backend, InventoryUiBackend::LunexKaleidoscope);
+        // … and back Cube → Grid.
+        apply_dev_toggle(
+            DevToggleWrite {
+                dev: &mut dev,
+                dev_state: &mut dev_state,
+                ldtk_reload: &mut ldtk_reload,
+                backend: &mut backend,
+            },
+            DevToggleId::MenuBackend,
+            0,
+        );
+        assert_eq!(backend, InventoryUiBackend::Grid);
     }
 
     /// ShowHitboxes from the System menu toggles the SAME field(s) the pause menu
@@ -2237,12 +2339,14 @@ mod lunex_kaleidoscope_app_tests {
         let mut ldtk_reload = crate::ldtk_world::LdtkHotReloadState::default();
         dev.show_feature_hitboxes = false;
         dev.show_player_hitbox = false;
+        let mut backend = InventoryUiBackend::default();
 
         apply_dev_toggle(
             DevToggleWrite {
                 dev: &mut dev,
                 dev_state: &mut dev_state,
                 ldtk_reload: &mut ldtk_reload,
+                backend: &mut backend,
             },
             DevToggleId::ShowHitboxes,
             0,
@@ -2257,6 +2361,7 @@ mod lunex_kaleidoscope_app_tests {
             dev: &dev,
             dev_state: &dev_state,
             ldtk_reload: &ldtk_reload,
+            backend: InventoryUiBackend::default(),
         });
         let on = snap
             .values
@@ -3654,10 +3759,12 @@ mod lunex_kaleidoscope_app_tests {
         let ldtk_reload = app
             .world()
             .resource::<crate::ldtk_world::LdtkHotReloadState>();
+        let backend = *app.world().resource::<InventoryUiBackend>();
         let snap = dev_snapshot(DevToggleRead {
             dev,
             dev_state,
             ldtk_reload,
+            backend,
         });
         let model = SystemMenuModel::build(settings, &RadioSnapshot::default(), &snap);
         system_rows(&model, Some(SystemMenuEntryId::Developer)).len()

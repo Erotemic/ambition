@@ -115,6 +115,13 @@ pub struct GameplaySettings {
     pub quest_hud_visible: bool,
     /// Whether the trace recorder dumps automatically on OOB / death.
     pub trace_auto_dump: bool,
+    /// Suppress ALL gameplay AND menu input while the OS window is not focused.
+    /// Default OFF (the user is unsure it's needed); a guard against
+    /// foreground/background input bleed from another running game. When ON, the
+    /// input population systems clear their frames whenever `Window.focused` is
+    /// false (see `app::input_systems`).
+    #[serde(default)]
+    pub pause_input_when_unfocused: bool,
 }
 
 fn default_debug_hud_visible() -> bool {
@@ -134,6 +141,7 @@ impl Default for GameplaySettings {
             debug_hud_visible: default_debug_hud_visible(),
             quest_hud_visible: default_quest_hud_visible(),
             trace_auto_dump: true,
+            pause_input_when_unfocused: false,
         }
     }
 }

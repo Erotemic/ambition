@@ -129,6 +129,9 @@ pub enum SettingsOptionId {
     DebugHud,
     QuestHud,
     TraceAutoDump,
+    /// Suppress gameplay + menu input while the OS window is unfocused (opt-in
+    /// guard against background input bleed). Default OFF.
+    PauseInputUnfocused,
     // Menu-level action (not under any category).
     Close,
 }
@@ -764,6 +767,12 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                 g.trace_auto_dump,
                 "Automatically dump traces on key events.",
             ),
+            toggle(
+                SettingsOptionId::PauseInputUnfocused,
+                "Pause Input When Unfocused",
+                g.pause_input_when_unfocused,
+                "Ignore gameplay + menu input while the window is in the background.",
+            ),
         ],
     };
 
@@ -1002,6 +1011,9 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
         SettingsOptionId::DebugHud => tog!(settings.gameplay.debug_hud_visible),
         SettingsOptionId::QuestHud => tog!(settings.gameplay.quest_hud_visible),
         SettingsOptionId::TraceAutoDump => tog!(settings.gameplay.trace_auto_dump),
+        SettingsOptionId::PauseInputUnfocused => {
+            tog!(settings.gameplay.pause_input_when_unfocused)
+        }
 
         SettingsOptionId::Close => return true,
     }

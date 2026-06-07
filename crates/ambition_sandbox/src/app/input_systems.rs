@@ -13,6 +13,28 @@ use crate::input::{
 use crate::presentation::rendering::PlayerVisual;
 use crate::SandboxDevState;
 
+/// Item 3 (optional guard): whether input should be SUPPRESSED this frame because
+/// the "Pause input when window unfocused" setting is ON and the OS window is not
+/// focused. Default OFF, so this returns `false` and nothing changes unless the
+/// player opts in. When ON, it returns `true` while no window is focused, and the
+/// input population systems clear their frames (same shape as the existing
+/// pause/dialogue/cutscene suppression). Reading `Window.focused` keeps the gate
+/// minimal — it never touches the leafwing `ActionState`, so the input abstraction
+/// is untouched; only the device-agnostic frames are zeroed.
+#[cfg(feature = "input")]
+fn input_suppressed_by_unfocus(
+    settings: &crate::persistence::settings::UserSettings,
+    window_focus: impl IntoIterator<Item = bool>,
+) -> bool {
+    if !settings.gameplay.pause_input_when_unfocused {
+        return false;
+    }
+    // Suppress when NO window reports focus. A missing window (headless / between
+    // frames) is treated as "not focused" only when the guard is enabled, which is
+    // the safe direction for this opt-in.
+    !window_focus.into_iter().any(|focused| focused)
+}
+
 /// The menu-nav CONSUMERS of [`MenuControlFrame`].
 ///
 /// Both inventory backends' directional nav — the bevy_ui Grid
@@ -63,7 +85,16 @@ pub fn populate_control_frame_from_actions(
     cutscene: Res<crate::presentation::cutscene::ActiveCutscene>,
     mut cutscene_request: ResMut<crate::presentation::cutscene::CutsceneAdvanceRequest>,
     time: Res<Time>,
+    windows: Query<&Window>,
 ) {
+    // Optional unfocus guard: clear gameplay input while the window is unfocused
+    // (and the setting is on). Reset the dash edge too so the post-refocus re-press
+    // starts clean, mirroring the pause path.
+    if input_suppressed_by_unfocus(&user_settings, windows.iter().map(|w| w.focused)) {
+        dash_state.edge = crate::persistence::settings::TriggerEdgeState::default();
+        *frame = ControlFrame::default();
+        return;
+    }
     if matches!(mode.get(), GameMode::Dialogue) {
         // Dialogue is a UI state: gameplay input is suppressed, but the
         // underlying `ActionState` must remain intact so a held arrow/D-pad
@@ -142,8 +173,18 @@ pub fn populate_menu_control_frame_from_actions(
     mut menu_input_state: ResMut<MenuInputState>,
     user_settings: Res<crate::persistence::settings::UserSettings>,
     mut mouse_wheel: MessageReader<MouseWheel>,
+    windows: Query<&Window>,
 ) {
     let mut next = MenuControlFrame::default();
+
+    // Optional unfocus guard: leave the menu frame cleared while the window is
+    // unfocused (and the setting is on). Drain the wheel so a buffered scroll
+    // doesn't fire on refocus.
+    if input_suppressed_by_unfocus(&user_settings, windows.iter().map(|w| w.focused)) {
+        mouse_wheel.clear();
+        *menu_frame = next;
+        return;
+    }
 
     if let Ok(actions) = player_input.single() {
         let edge_up = actions.just_pressed(&SandboxAction::MenuNavigateUp);
@@ -218,5 +259,34 @@ pub fn apply_menu_frame_to_cutscene_request(
             cutscene_request.skip_cutscene = true;
             cutscene_request.skip_hold_seconds = 0.0;
         }
+    }
+}
+
+#[cfg(all(test, feature = "input"))]
+mod focus_gate_tests {
+    use super::input_suppressed_by_unfocus;
+    use crate::persistence::settings::UserSettings;
+
+    #[test]
+    fn unfocus_gate_is_off_by_default() {
+        let settings = UserSettings::default();
+        assert!(!settings.gameplay.pause_input_when_unfocused);
+        // With the setting OFF, input is never suppressed regardless of focus.
+        assert!(!input_suppressed_by_unfocus(&settings, [false]));
+        assert!(!input_suppressed_by_unfocus(&settings, [true]));
+        assert!(!input_suppressed_by_unfocus(&settings, std::iter::empty()));
+    }
+
+    #[test]
+    fn unfocus_gate_suppresses_only_when_on_and_no_window_focused() {
+        let mut settings = UserSettings::default();
+        settings.gameplay.pause_input_when_unfocused = true;
+        // Some window focused → not suppressed.
+        assert!(!input_suppressed_by_unfocus(&settings, [false, true]));
+        assert!(!input_suppressed_by_unfocus(&settings, [true]));
+        // No window focused → suppressed.
+        assert!(input_suppressed_by_unfocus(&settings, [false, false]));
+        // No window at all (headless) → suppressed (safe direction for the opt-in).
+        assert!(input_suppressed_by_unfocus(&settings, std::iter::empty()));
     }
 }

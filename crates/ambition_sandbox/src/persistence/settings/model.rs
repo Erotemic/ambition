@@ -138,6 +138,7 @@ pub enum SettingsItem {
     DebugHud,
     QuestHud,
     TraceAutoDump,
+    PauseInputUnfocused,
 
     // Developer page (F-key equivalents).
     DebugOverlay,
@@ -238,6 +239,7 @@ impl SettingsItem {
             Self::DebugHud => Id::DebugHud,
             Self::QuestHud => Id::QuestHud,
             Self::TraceAutoDump => Id::TraceAutoDump,
+            Self::PauseInputUnfocused => Id::PauseInputUnfocused,
             // Everything else is pause-menu-specific (see doc comment).
             _ => return None,
         })
@@ -318,6 +320,7 @@ impl SettingsItem {
                 Self::DebugHud,
                 Self::QuestHud,
                 Self::TraceAutoDump,
+                Self::PauseInputUnfocused,
                 Self::Back,
             ],
             SettingsPage::Developer => &[
@@ -408,6 +411,7 @@ impl SettingsItem {
             | Self::DebugHud
             | Self::QuestHud
             | Self::TraceAutoDump
+            | Self::PauseInputUnfocused
             // Stage 3b: the whole Shaders subpage + KeyboardPreset +
             // ResetControlFiltering now map to the shared IR too.
             | Self::ShaderStrength
@@ -915,6 +919,7 @@ pub fn apply_action(
         | SettingsItem::DebugHud
         | SettingsItem::QuestHud
         | SettingsItem::TraceAutoDump
+        | SettingsItem::PauseInputUnfocused
         // Stage 3b migrations.
         | SettingsItem::ShaderStrength
         | SettingsItem::ShaderCrtStrength

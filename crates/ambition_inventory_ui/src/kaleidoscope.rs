@@ -62,12 +62,28 @@ const FONT_FAMILY: &str = "DejaVu Sans";
 #[derive(Component)]
 pub struct MenuRing;
 
+/// System set for the lib's in-place focus-visual readers
+/// ([`sync_control_focus_visuals`] + [`sync_selection_corner_visuals`]), both gated on
+/// `Changed<MenuVisualState>`.
+///
+/// These readers turn the host's `MenuVisualState` (which the host writes from its
+/// ECS focus cursor) into the on-screen cursor — the material recolour and the white
+/// selection corners. For the highlight to appear the host's writer MUST run BEFORE
+/// this set (so the flags it flips are seen the same frame). The lib already orders
+/// this set AFTER [`rebuild_cube_faces`] so a republish that respawns the controls
+/// can't wipe the flags after the writer set them; the host completes the ordering by
+/// running its writer `.before(KaleidoscopeFocusVisuals)`. Without that edge the
+/// `Changed` readers can run before the writer and a republish-driven rebuild can
+/// reset `MenuVisualState` after the write — the "cursor highlight is gone" regression.
+#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct KaleidoscopeFocusVisuals;
+
 /// Marks a selection corner-bracket piece (child of a control). Spawned hidden on
 /// every focusable cell; [`sync_selection_corner_visuals`] shows the focused
 /// control's corners and hides the rest, so the keyboard/gamepad cursor and pointer
 /// hover have a clear in-place indicator without rebuilding the face.
 #[derive(Component)]
-struct SelectionCorner;
+pub struct SelectionCorner;
 
 /// Non-generic style metadata stashed on each interactive control so a
 /// non-generic system ([`sync_control_focus_visuals`]) can recolor the control's
@@ -305,10 +321,22 @@ where
             // Make ECS-driven focus / hover visible (the host moves focus in ECS
             // without rebuilding the face). The demo drives its own look + rebuilds
             // on nav, so this is gated to the Bevy-picking (game) configuration.
-            app.add_systems(Update, sync_control_focus_visuals);
-            // Reveal the focused control's selection corners in place (the prominent
-            // cursor indicator; the build is cursor-independent so it can't be baked).
-            app.add_systems(Update, sync_selection_corner_visuals);
+            //
+            // Both readers live in the public [`KaleidoscopeFocusVisuals`] set, ordered
+            // AFTER `rebuild_cube_faces` so a republish that respawns the controls can't
+            // wipe the host writer's focus flags after they're set. The host runs its
+            // `MenuVisualState` writer `.before(KaleidoscopeFocusVisuals)`; without that
+            // edge the `Changed` readers could run before the writer (and a rebuild
+            // could reset the flags afterwards) — the "cursor highlight gone" bug.
+            app.configure_sets(
+                Update,
+                KaleidoscopeFocusVisuals.after(rebuild_cube_faces::<PageId, Action>),
+            );
+            app.add_systems(
+                Update,
+                (sync_control_focus_visuals, sync_selection_corner_visuals)
+                    .in_set(KaleidoscopeFocusVisuals),
+            );
             // Feature C: draggable scrollbar. Keep each scrollbar track's screen
             // extent fresh (projection), and observe pointer drags on a scrollbar
             // to emit the neutral `MenuScrollDragged` fraction the host applies.
@@ -520,7 +548,7 @@ fn cube_3d_picking(
 ///
 /// Non-generic (keyed off [`KaleidoscopeControlStyle`]) so it doesn't need the host's
 /// `Action`. Only changed states write a new material handle (cheap, idempotent).
-fn sync_control_focus_visuals(
+pub fn sync_control_focus_visuals(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut controls: Query<
         (
@@ -564,7 +592,7 @@ fn sync_control_focus_visuals(
 /// were baked from `selected` at build time, but the build is now cursor-independent
 /// (so clicks survive press->release), so the cursor visual is applied at runtime.
 /// Reacts to `Changed<MenuVisualState>` like [`sync_control_focus_visuals`].
-fn sync_selection_corner_visuals(
+pub fn sync_selection_corner_visuals(
     controls: Query<(&MenuVisualState, &Children), Changed<MenuVisualState>>,
     mut corners: Query<&mut Visibility, With<SelectionCorner>>,
 ) {
@@ -585,7 +613,7 @@ fn sync_selection_corner_visuals(
 }
 
 /// Rebuild the ring's faces whenever the host's published pages change.
-fn rebuild_cube_faces<PageId, Action>(
+pub fn rebuild_cube_faces<PageId, Action>(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,

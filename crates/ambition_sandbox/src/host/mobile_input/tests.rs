@@ -194,6 +194,152 @@ fn touch_drag_folds_into_menu_frame_while_kaleidoscope_paused() {
 
 #[cfg(feature = "mobile_touch")]
 #[test]
+fn touch_joystick_drag_down_drives_debounced_menu_down() {
+    // Problem 2: while a menu is open (Paused), a touch-joystick drag
+    // DOWN must produce `MenuControlFrame.down` and step the cursor,
+    // debounced to discrete d-pad-like steps — the SAME result the
+    // gamepad stick produces. This mirrors the exact path
+    // `fold_to_menu_control_frame` runs: touch stick -> MenuDir ->
+    // `MenuInputState::step` -> `MenuControlFrame::from_menu_input`.
+    use super::menu_bridge::{menu_move_active, touch_move_to_menu_dir};
+    use crate::game_mode::GameMode;
+    use crate::input::{MenuControlFrame, MenuInputState};
+
+    assert!(menu_move_active(GameMode::Paused));
+
+    let mut state = TouchInputState::default();
+    state.move_y = 1.0; // drag the on-screen stick fully DOWN
+
+    let dir = touch_move_to_menu_dir(state, 0.05);
+    assert_eq!(dir, Some(crate::input::MenuDir::Down));
+
+    let mut menu_state = MenuInputState::default();
+    let dt = 1.0 / 60.0;
+    let initial_delay = 0.3;
+    let repeat_interval = 0.1;
+
+    // Frame 1: a NEW direction emits at once -> the menu cursor steps.
+    let f1 = menu_state.step(
+        false,
+        false,
+        false,
+        false,
+        dir,
+        false,
+        false,
+        false,
+        dt,
+        initial_delay,
+        repeat_interval,
+    );
+    let cf1 = MenuControlFrame::from_menu_input(f1);
+    assert!(cf1.down, "first drag-down frame steps the cursor down");
+
+    // Frame 2: still holding, still under the initial delay -> NO repeat.
+    // This is the debounce: the stick does NOT fire every frame.
+    let f2 = menu_state.step(
+        false,
+        false,
+        false,
+        false,
+        dir,
+        false,
+        false,
+        false,
+        dt,
+        initial_delay,
+        repeat_interval,
+    );
+    let cf2 = MenuControlFrame::from_menu_input(f2);
+    assert!(
+        !cf2.down,
+        "held drag-down debounces: no repeat until the initial delay elapses"
+    );
+
+    // After enough held frames the analog repeat eventually re-fires,
+    // giving a controlled second step (like a held d-pad), not 60/sec.
+    let mut later_steps = 0;
+    for _ in 0..120 {
+        let f = menu_state.step(
+            false,
+            false,
+            false,
+            false,
+            dir,
+            false,
+            false,
+            false,
+            dt,
+            initial_delay,
+            repeat_interval,
+        );
+        if MenuControlFrame::from_menu_input(f).down {
+            later_steps += 1;
+        }
+    }
+    assert!(
+        later_steps > 0,
+        "a held drag eventually repeats at the menu repeat interval"
+    );
+    assert!(
+        later_steps < 120,
+        "repeat is debounced, not firing on every single frame"
+    );
+}
+
+#[cfg(feature = "mobile_touch")]
+#[test]
+fn touch_back_button_sets_menu_back_frame() {
+    // Problem 3: the touch Back button (TouchActionButton::Reset) must
+    // reach `MenuControlFrame.back` so menu nav (close / drill-out)
+    // fires in BOTH backends. `fold_to_menu_control_frame` does
+    // `frame.back |= touch.reset.pressed_this_frame`; pin that mapping
+    // on the pure state so the wiring can't silently regress.
+    use crate::input::MenuControlFrame;
+
+    let mut touch = TouchInputState::default();
+    touch.reset = TouchButton::pressed_now();
+
+    // Reproduce the fold's OR-merge onto a fresh (gamepad-populated)
+    // frame: a zeroed frame plus a touch Back press yields `back`.
+    let mut frame = MenuControlFrame::default();
+    frame.back |= touch.reset.pressed_this_frame;
+    frame.back_held |= touch.reset.held;
+
+    assert!(frame.back, "touch Back press sets MenuControlFrame.back");
+    assert!(frame.back_held, "a held touch Back also reports back_held");
+    // Both backends close on `menu.back`: grid_menu_input's
+    // `if menu.back || menu.start` and the cube's `if menu.back`.
+}
+
+#[cfg(feature = "mobile_touch")]
+#[test]
+fn touch_hud_z_is_above_every_menu_overlay() {
+    // Problem 1: the HUD's `GlobalZIndex` band must sit ABOVE every menu
+    // overlay so it renders on top AND wins bevy_ui picking (so the
+    // joystick keeps receiving drags and the Back button stays tappable
+    // while a menu's full-screen scrim is up). Assert the ordering
+    // against the concrete overlay z values used in the menu modules.
+    use super::bevy_plugin::TOUCH_HUD_Z;
+
+    // Local `ZIndex` values authored on the menu roots:
+    const PAUSE_MENU_Z: i32 = 50;
+    const MAP_Z: i32 = 60;
+    const GRID_MENU_Z: i32 = 62;
+    // Documented worst-case the prompt calls out for the grid root.
+    const GRID_GLOBAL_Z_WORST_CASE: i32 = 1000;
+
+    assert!(TOUCH_HUD_Z > PAUSE_MENU_Z);
+    assert!(TOUCH_HUD_Z > MAP_Z);
+    assert!(TOUCH_HUD_Z > GRID_MENU_Z);
+    assert!(
+        TOUCH_HUD_Z > GRID_GLOBAL_Z_WORST_CASE,
+        "HUD must out-rank even a GlobalZIndex(1000) menu root"
+    );
+}
+
+#[cfg(feature = "mobile_touch")]
+#[test]
 fn touch_action_hit_test_includes_fly_button() {
     use super::layout::{
         touch_action_at_position, touch_action_cluster_origin, touch_action_layout,

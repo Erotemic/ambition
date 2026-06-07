@@ -1027,7 +1027,7 @@ body_metrics:
           x: 18
           y: 0
           w: 83
-          h: 105
+          h: 104
     run:
       hurtbox:
         bbox:
@@ -1040,7 +1040,7 @@ body_metrics:
         bbox:
           x: 20
           y: 0
-          w: 82
+          w: 81
           h: 103
     fall:
       hurtbox:
@@ -1117,8 +1117,8 @@ body_metrics:
         bbox:
           x: 0
           y: 0
-          w: 117
-          h: 110
+          w: 128
+          h: 128
     land:
       hurtbox:
         bbox:

@@ -96,14 +96,13 @@ sockets, and validator-friendly pose data.
 
 ## Side-view walk-cycle baseline
 
-The side-view biped lanes now share one authored walk/run philosophy: an
+The side-facing biped lanes now share one authored walk/run philosophy: an
 8-frame contact/down/passing/up loop driven by ankle targets, with the knee
 solved by a two-bone IK pass and an explicit near/far limb draw order. This
 produces planted feet, cleaner silhouettes, and more stable depth reads than
 the older direct-angle-only leg swing.
 
-See `walk_cycle_baseline.md` for the practical recipe and the list of targets
-that currently use it.
+See `walk_cycle_baseline.md` for the practical recipe, the target list, and the warning that mostly-front-facing rigs such as ninja should not borrow this side-profile treatment.
 
 ## Package standards
 

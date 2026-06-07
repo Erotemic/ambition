@@ -61,10 +61,12 @@ print_help() {
 force_regen=0
 list_targets=0
 target_name=""
+make_gifs=0
 while [ "$#" -gt 0 ]; do
     case "$1" in
         -h|--help) print_help; exit 0 ;;
         --force|-f) force_regen=1; shift ;;
+        --gif|--gifs) make_gifs=1; shift ;;
         --list|--list-targets) list_targets=1; shift ;;
         --target|-t)
             if [ "$#" -lt 2 ] || [ -z "${2:-}" ]; then
@@ -88,6 +90,11 @@ done
 
 if [ "$list_targets" -eq 1 ] && [ -n "$target_name" ]; then
     echo "--list and --target are mutually exclusive" >&2
+    exit 2
+fi
+
+if [ "$make_gifs" -eq 1 ] && [ -z "$target_name" ]; then
+    echo "--gif requires --target <name>" >&2
     exit 2
 fi
 
@@ -127,6 +134,10 @@ regen_one_target() {
 
     echo "==> sprite target: $target → $dest_root"
     (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer publish "$target" --dest-root "$dest_root")
+    if [ "$make_gifs" -eq 1 ]; then
+        echo "==> animation GIFs: $target → $renderer_dir/generated/gifs/$target"
+        (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer gifs "$target")
+    fi
 }
 
 if [ "$list_targets" -eq 1 ]; then

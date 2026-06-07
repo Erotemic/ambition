@@ -60,7 +60,7 @@ crop:
   source_frame_width: 128
   source_frame_height: 128
   offset:
-    x: 8
+    x: 3
     y: 18
   enabled: true
   padding_px: 2
@@ -265,15 +265,15 @@ body_metrics:
         bbox:
           x: 3
           y: 3
-          w: 77
+          w: 76
           h: 86
     walk:
       hurtbox:
         bbox:
-          x: 2
+          x: 3
           y: 2
-          w: 79
-          h: 87
+          w: 78
+          h: 85
     talk:
       hurtbox:
         bbox:
@@ -286,5 +286,5 @@ body_metrics:
         bbox:
           x: 3
           y: 4
-          w: 78
+          w: 77
           h: 85

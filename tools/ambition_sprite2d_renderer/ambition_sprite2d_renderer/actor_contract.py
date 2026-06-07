@@ -13,7 +13,6 @@ runtime loader. Every field is intentionally optional or inferred: generated
 characters can be zombies with no hands, props with no traversal, bosses with
 bespoke sheets, or humanoids with conventional locomotion rows.
 """
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -21,6 +20,7 @@ from functools import lru_cache
 from pathlib import Path
 import re
 from typing import Any, Dict, Iterable, Mapping, MutableMapping, Sequence
+
 
 
 # ---- Tiny RON emitter -------------------------------------------------------
@@ -81,7 +81,7 @@ def _ron_atom(value: Any, indent: int = 0) -> str:
         lines = ["{"]
         for key in sorted(value.values):
             lines.append(
-                f'{" " * child}"{_ron_escape(str(key))}": {_ron_atom(value.values[key], child)},'
+                f"{' ' * child}\"{_ron_escape(str(key))}\": {_ron_atom(value.values[key], child)},"
             )
         lines.append(f"{pad}}}")
         return "\n".join(lines)
@@ -122,6 +122,7 @@ def to_ron(value: RonStruct) -> str:
     )
 
 
+
 # ---- Catalog defaults --------------------------------------------------------
 #
 # The Python renderer can run as a standalone package, so the actor contract
@@ -129,7 +130,6 @@ def to_ron(value: RonStruct) -> str:
 # catalog is the best source of existing character identity / default brain /
 # action-set tags.  Use it as a soft enrichment layer.  Hand-authored YAML /
 # module metadata still wins.
-
 
 @dataclass(frozen=True)
 class CatalogProfile:
@@ -145,14 +145,7 @@ class CatalogProfile:
 
 def _repo_root() -> Path | None:
     for parent in Path(__file__).resolve().parents:
-        if (
-            parent
-            / "crates"
-            / "ambition_sandbox"
-            / "assets"
-            / "data"
-            / "character_catalog.ron"
-        ).exists():
+        if (parent / "crates" / "ambition_sandbox" / "assets" / "data" / "character_catalog.ron").exists():
             return parent
     return None
 
@@ -161,14 +154,7 @@ def _catalog_path() -> Path | None:
     root = _repo_root()
     if root is None:
         return None
-    path = (
-        root
-        / "crates"
-        / "ambition_sandbox"
-        / "assets"
-        / "data"
-        / "character_catalog.ron"
-    )
+    path = root / "crates" / "ambition_sandbox" / "assets" / "data" / "character_catalog.ron"
     return path if path.exists() else None
 
 
@@ -225,9 +211,7 @@ def _load_catalog_profiles() -> dict[str, CatalogProfile]:
     return profiles
 
 
-def _catalog_profile_for(
-    stem: str, explicit_character_id: str | None = None
-) -> CatalogProfile | None:
+def _catalog_profile_for(stem: str, explicit_character_id: str | None = None) -> CatalogProfile | None:
     profiles = _load_catalog_profiles()
     if explicit_character_id and explicit_character_id in profiles:
         return profiles[explicit_character_id]
@@ -270,9 +254,7 @@ def actor_sidecar_path_for_image(image_path: str | Path) -> Path:
 
 
 def _humanize(stem: str) -> str:
-    return " ".join(
-        part.capitalize() for part in stem.replace("npc_", "").split("_") if part
-    )
+    return " ".join(part.capitalize() for part in stem.replace("npc_", "").split("_") if part)
 
 
 def _as_mapping(value: Any) -> Dict[str, Any]:
@@ -314,9 +296,7 @@ def _first_present(rows: Iterable[str], candidates: Sequence[str]) -> str | None
     return None
 
 
-def _character_id_for(
-    stem: str, target: str | None, explicit: str | None = None
-) -> str:
+def _character_id_for(stem: str, target: str | None, explicit: str | None = None) -> str:
     if explicit:
         return explicit
     if stem in BASE_CHARACTER_IDS:
@@ -325,18 +305,12 @@ def _character_id_for(
         return stem
     # Base adapter config sheets keep their short IDs. Named/configured
     # characters become catalog-style NPC IDs by default.
-    if (
-        target
-        and stem == target
-        and target in {"robot", "goblin", "sandbag", "ninja", "boss"}
-    ):
+    if target and stem == target and target in {"robot", "goblin", "sandbag", "ninja", "boss"}:
         return stem
     return f"npc_{stem}"
 
 
-def _derive_body_plan(
-    stem: str, target: str | None, tags: Sequence[str], rows: Sequence[str]
-) -> str | None:
+def _derive_body_plan(stem: str, target: str | None, tags: Sequence[str], rows: Sequence[str]) -> str | None:
     hay = " ".join([stem, target or "", *tags]).lower()
     if "boss" in hay or stem in {"boss", "gnu_ton_boss", "mockingbird_boss"}:
         return "BossMultipart"
@@ -353,9 +327,7 @@ def _derive_body_plan(
     return None
 
 
-def _derive_body_kind(
-    body_plan: str | None, stem: str, tags: Sequence[str]
-) -> str | None:
+def _derive_body_kind(body_plan: str | None, stem: str, tags: Sequence[str]) -> str | None:
     hay = " ".join([stem, *(tags or [])]).lower()
     if body_plan == "BossMultipart":
         return "Wide"
@@ -370,9 +342,7 @@ def _derive_body_kind(
     return None
 
 
-def _derive_locomotion(
-    rows: Sequence[str], body_plan: str | None, target: str | None
-) -> str | None:
+def _derive_locomotion(rows: Sequence[str], body_plan: str | None, target: str | None) -> str | None:
     row_set = set(rows)
     if body_plan == "Flyer" or {"fly", "hover", "float_glide"} & row_set:
         return "Fly"
@@ -382,6 +352,18 @@ def _derive_locomotion(
         return "BossKinematic"
     if {"walk", "run", "side_walk", "shamble", "stable"} & row_set:
         return "Walk"
+    return None
+
+
+def _derive_facing_policy(stem: str, target: str | None, tags: Sequence[str]) -> str | None:
+    """Best-effort visual angle hint for renderer-emitted actor sidecars."""
+    hay = " ".join([stem, target or "", *tags]).lower()
+    if target == "ninja" or "ninja" in hay:
+        return "three_quarter_front_right"
+    if target in {"robot", "goblin", "toon"}:
+        return "side_right_three_quarter"
+    if any(word in hay for word in ("pirate", "viking", "statesman", "hermit", "galwah")):
+        return "side_right_three_quarter"
     return None
 
 
@@ -412,9 +394,7 @@ def _derive_animation_bindings(rows: Sequence[str]) -> Dict[str, RonStruct]:
     if ranged:
         bindings["action.ranged.primary"] = struct(
             animation=ranged,
-            events=[
-                struct(t=0.5, event="projectile_release", source="renderer_default")
-            ],
+            events=[struct(t=0.5, event="projectile_release", source="renderer_default")],
         )
     if "talk" in rows:
         bindings["interaction.talk"] = struct(animation="talk", events=[])
@@ -433,14 +413,7 @@ def _point(x: float, y: float) -> RonStruct:
     return struct(x=float(x), y=float(y))
 
 
-def _socket(
-    *,
-    source: str,
-    x: float,
-    y: float,
-    animation: str | None = None,
-    frame: int | None = None,
-) -> RonStruct:
+def _socket(*, source: str, x: float, y: float, animation: str | None = None, frame: int | None = None) -> RonStruct:
     return struct(
         source=source,
         animation=animation,
@@ -449,16 +422,12 @@ def _socket(
     )
 
 
-def _bbox_from_manifest(
-    manifest: Mapping[str, Any],
-) -> tuple[float, float, float, float] | None:
+def _bbox_from_manifest(manifest: Mapping[str, Any]) -> tuple[float, float, float, float] | None:
     bm = manifest.get("body_metrics")
     if not isinstance(bm, Mapping):
         return None
     bbox = bm.get("body_pixel_bbox")
-    if not isinstance(bbox, Mapping) or not all(
-        k in bbox for k in ("x", "y", "w", "h")
-    ):
+    if not isinstance(bbox, Mapping) or not all(k in bbox for k in ("x", "y", "w", "h")):
         return None
     return (float(bbox["x"]), float(bbox["y"]), float(bbox["w"]), float(bbox["h"]))
 
@@ -477,9 +446,7 @@ def _normalize_socket_value(value: Any) -> RonStruct | Any:
     return _mapping_to_struct(data)
 
 
-def _iter_frame_anchors(
-    manifest: Mapping[str, Any],
-) -> Iterable[tuple[str | None, int | None, str, Mapping[str, Any]]]:
+def _iter_frame_anchors(manifest: Mapping[str, Any]) -> Iterable[tuple[str | None, int | None, str, Mapping[str, Any]]]:
     """Yield anchors exposed by sheet rect metadata.
 
     `tackon_sheet.build_sheet` already carries per-frame anchor maps through to
@@ -505,12 +472,7 @@ def _iter_frame_anchors(
                 continue
             for name, pos in anchors.items():
                 if isinstance(pos, Mapping) and "x" in pos and "y" in pos:
-                    yield (
-                        str(animation) if animation else None,
-                        frame_index,
-                        str(name),
-                        pos,
-                    )
+                    yield (str(animation) if animation else None, frame_index, str(name), pos)
 
 
 def _derive_sockets(
@@ -540,89 +502,34 @@ def _derive_sockets(
         cx = x + w * 0.5
         top = y
         bottom = y + h
-        sockets.setdefault(
-            "center",
-            _socket(source="body_metrics.body_pixel_bbox", x=cx, y=y + h * 0.5),
-        )
-        sockets.setdefault(
-            "root", _socket(source="body_metrics.body_pixel_bbox", x=cx, y=bottom)
-        )
-        sockets.setdefault(
-            "head", _socket(source="body_metrics.body_pixel_bbox", x=cx, y=top)
-        )
-        sockets.setdefault(
-            "chest", _socket(source="heuristic.body_bbox", x=cx, y=y + h * 0.38)
-        )
+        sockets.setdefault("center", _socket(source="body_metrics.body_pixel_bbox", x=cx, y=y + h * 0.5))
+        sockets.setdefault("root", _socket(source="body_metrics.body_pixel_bbox", x=cx, y=bottom))
+        sockets.setdefault("head", _socket(source="body_metrics.body_pixel_bbox", x=cx, y=top))
+        sockets.setdefault("chest", _socket(source="heuristic.body_bbox", x=cx, y=y + h * 0.38))
 
-        hay = " ".join(
-            [stem, target or "", held_item or "", action_preset or "", *tags]
-        ).lower()
+        hay = " ".join([stem, target or "", held_item or "", action_preset or "", *tags]).lower()
         row_set = set(rows)
         traits = set(str(t).lower() for t in tags)
-        no_hands = bool(
-            {"no_hands", "prop", "portrait"} & traits
-            or body_plan in {"Crawler", "Flyer", "PropActor"}
-        )
+        no_hands = bool({"no_hands", "prop", "portrait"} & traits or body_plan in {"Crawler", "Flyer", "PropActor"})
         if body_plan == "HumanoidBiped" and not no_hands:
-            sockets.setdefault(
-                "hand_l",
-                _socket(source="heuristic.body_bbox", x=x + w * 0.28, y=y + h * 0.48),
-            )
-            sockets.setdefault(
-                "hand_r",
-                _socket(source="heuristic.body_bbox", x=x + w * 0.72, y=y + h * 0.48),
-            )
-        if any(
-            word in hay
-            for word in (
-                "zombie",
-                "ghoul",
-                "slug",
-                "shark",
-                "bear",
-                "raptor",
-                "trex",
-                "bite",
-            )
-        ):
-            sockets.setdefault(
-                "mouth",
-                _socket(source="heuristic.body_bbox", x=x + w * 0.68, y=y + h * 0.30),
-            )
-        if (
-            held_item in {"bow", "staff", "gun"}
-            or {"shoot", "aim", "cast", "spike_halo"} & row_set
-        ):
+            sockets.setdefault("hand_l", _socket(source="heuristic.body_bbox", x=x + w * 0.28, y=y + h * 0.48))
+            sockets.setdefault("hand_r", _socket(source="heuristic.body_bbox", x=x + w * 0.72, y=y + h * 0.48))
+        if any(word in hay for word in ("zombie", "ghoul", "slug", "shark", "bear", "raptor", "trex", "bite")):
+            sockets.setdefault("mouth", _socket(source="heuristic.body_bbox", x=x + w * 0.68, y=y + h * 0.30))
+        if held_item in {"bow", "staff", "gun"} or {"shoot", "aim", "cast", "spike_halo"} & row_set:
             fallback = "hand_r" if "hand_r" in sockets else "center"
             base = sockets.get(fallback)
             if isinstance(base, RonStruct):
                 p = base.fields.get("point")
                 if isinstance(p, RonStruct):
-                    sockets.setdefault(
-                        "muzzle",
-                        _socket(
-                            source=f"heuristic.{fallback}",
-                            x=float(p.fields["x"]),
-                            y=float(p.fields["y"]),
-                        ),
-                    )
+                    sockets.setdefault("muzzle", _socket(source=f"heuristic.{fallback}", x=float(p.fields["x"]), y=float(p.fields["y"])))
                     sockets.setdefault("projectile_origin", sockets["muzzle"])
-        if held_item or (
-            {"slash", "attack_side", "bite", "floor_slam", "side_sweep", "stomp"}
-            & row_set
-        ):
+        if held_item or ({"slash", "attack_side", "bite", "floor_slam", "side_sweep", "stomp"} & row_set):
             if "hand_r" in sockets:
                 hand = sockets["hand_r"].fields.get("point")
                 if isinstance(hand, RonStruct):
                     sockets.setdefault("weapon_grip", sockets["hand_r"])
-                    sockets.setdefault(
-                        "weapon_tip",
-                        _socket(
-                            source="heuristic.hand_r",
-                            x=float(hand.fields["x"]) + w * 0.35,
-                            y=float(hand.fields["y"]),
-                        ),
-                    )
+                    sockets.setdefault("weapon_tip", _socket(source="heuristic.hand_r", x=float(hand.fields["x"]) + w * 0.35, y=float(hand.fields["y"])))
             elif "mouth" in sockets:
                 sockets.setdefault("weapon_tip", sockets["mouth"])
 
@@ -638,13 +545,7 @@ def _derive_sockets(
     return sockets
 
 
-def _derive_presets(
-    target: str | None,
-    archetype: str | None,
-    role: str | None,
-    tags: Sequence[str],
-    held_item: str | None,
-) -> tuple[str | None, str | None]:
+def _derive_presets(target: str | None, archetype: str | None, role: str | None, tags: Sequence[str], held_item: str | None) -> tuple[str | None, str | None]:
     words = {str(x).lower() for x in [target, archetype, role, held_item, *tags] if x}
     if "training_dummy" in words or target == "sandbag":
         return "stand_still", "sandbag_punch"
@@ -653,12 +554,7 @@ def _derive_presets(
     if "enemy" in words or target in {"goblin", "ninja"}:
         if held_item in {"bow", "staff"} or "ranger" in words or "shaman" in words:
             return "skirmisher_ranger", "ranger_arrow"
-        if (
-            "brute" in words
-            or "hammer" in words
-            or "guardian" in words
-            or "heavy" in words
-        ):
+        if "brute" in words or "hammer" in words or "guardian" in words or "heavy" in words:
             return "melee_brute_brute", "brute_lunge"
         return "melee_brute_striker", "striker_swipe"
     if target == "robot" and ("runner" in words or "guardian" in words):
@@ -668,19 +564,12 @@ def _derive_presets(
 
 def _traversal_defaults(rows: Sequence[str], body_plan: str | None) -> Dict[str, Any]:
     row_set = set(rows)
-    walk = bool(
-        {"walk", "run", "side_walk", "shamble", "stable"} & row_set
-        or body_plan in {"HumanoidBiped", "Crawler"}
-    )
+    walk = bool({"walk", "run", "side_walk", "shamble", "stable"} & row_set or body_plan in {"HumanoidBiped", "Crawler"})
     fly = bool(body_plan == "Flyer" or {"fly", "hover", "float_glide"} & row_set)
     return {
         "walk": walk if walk else None,
-        "jump": {"height_px": None, "distance_px": None, "source": "animation_rows"}
-        if {"jump", "wall_jump"} & row_set
-        else None,
-        "climb": True
-        if {"climb", "ledge_climb", "ledge_grab", "wall_grab"} & row_set
-        else None,
+        "jump": {"height_px": None, "distance_px": None, "source": "animation_rows"} if {"jump", "wall_jump"} & row_set else None,
+        "climb": True if {"climb", "ledge_climb", "ledge_grab", "wall_grab"} & row_set else None,
         "fly": True if fly else None,
         "swim": True if "swim" in row_set else None,
         "crawl": None,
@@ -693,9 +582,7 @@ def _traversal(rows: Sequence[str], body_plan: str | None) -> RonStruct:
     return _capability_override_struct(_traversal_defaults(rows, body_plan))
 
 
-def _interaction_defaults(
-    rows: Sequence[str], stem: str, tags: Sequence[str]
-) -> Dict[str, Any]:
+def _interaction_defaults(rows: Sequence[str], stem: str, tags: Sequence[str]) -> Dict[str, Any]:
     hay = " ".join([stem, *tags]).lower()
     return {
         "talk": True if "talk" in rows else None,
@@ -709,9 +596,7 @@ def _interactions(rows: Sequence[str], stem: str, tags: Sequence[str]) -> RonStr
     return _capability_override_struct(_interaction_defaults(rows, stem, tags))
 
 
-def _derive_collision(
-    body_override: Mapping[str, Any], manifest: Mapping[str, Any], body_plan: str | None
-) -> Any:
+def _derive_collision(body_override: Mapping[str, Any], manifest: Mapping[str, Any], body_plan: str | None) -> Any:
     explicit = body_override.get("collision")
     if isinstance(explicit, Mapping):
         return some(_mapping_to_struct(explicit))
@@ -721,19 +606,15 @@ def _derive_collision(
     if bbox is None or body_plan == "BossMultipart":
         return None
     _, _, w, h = bbox
-    return some(
-        struct(
-            w_px=w,
-            h_px=h,
-            source="sheet.body_metrics.body_pixel_bbox",
-            confidence="derived",
-        )
-    )
+    return some(struct(
+        w_px=w,
+        h_px=h,
+        source="sheet.body_metrics.body_pixel_bbox",
+        confidence="derived",
+    ))
 
 
-def _derive_hurtbox(
-    body_override: Mapping[str, Any], collision: Any, body_plan: str | None
-) -> Any:
+def _derive_hurtbox(body_override: Mapping[str, Any], collision: Any, body_plan: str | None) -> Any:
     explicit = body_override.get("hurtbox")
     if isinstance(explicit, Mapping):
         return some(_mapping_to_struct(explicit))
@@ -749,12 +630,7 @@ def _derive_hurtbox(
     return None
 
 
-def _derive_mass_class(
-    body_override: Mapping[str, Any],
-    body_plan: str | None,
-    body_kind: str | None,
-    tags: Sequence[str],
-) -> str | None:
+def _derive_mass_class(body_override: Mapping[str, Any], body_plan: str | None, body_kind: str | None, tags: Sequence[str]) -> str | None:
     explicit = body_override.get("mass_class")
     if explicit:
         return str(explicit)
@@ -793,56 +669,31 @@ def _missing_information(
 ) -> list[str]:
     missing: list[str] = []
     if collision is None:
-        missing.append(
-            "collision: not authored or derivable; engine should fall back to LDtk AABB"
-        )
+        missing.append("collision: not authored or derivable; engine should fall back to LDtk AABB")
     if hurtbox is None and body_plan not in {"PropActor", "BossMultipart"}:
         missing.append("hurtbox: not authored; fallback to collision/body metrics")
 
-    wants_melee = _binding_has(animation_bindings, "action.melee") or bool(
-        action_preset and action_preset not in {"peaceful", "ranger_arrow"}
-    )
-    if wants_melee and not _has_any(
-        sockets, ("weapon_tip", "hand_r", "mouth", "center")
-    ):
-        missing.append(
-            "melee origin socket: no weapon_tip/hand_r/mouth/center socket available; action must use a geometry fallback"
-        )
+    wants_melee = _binding_has(animation_bindings, "action.melee") or bool(action_preset and action_preset not in {"peaceful", "ranger_arrow"})
+    if wants_melee and not _has_any(sockets, ("weapon_tip", "hand_r", "mouth", "center")):
+        missing.append("melee origin socket: no weapon_tip/hand_r/mouth/center socket available; action must use a geometry fallback")
 
-    wants_ranged = _binding_has(animation_bindings, "action.ranged") or bool(
-        action_preset and action_preset in {"ranger_arrow", "boss_bolt"}
-    )
-    if wants_ranged and not _has_any(
-        sockets, ("muzzle", "projectile_origin", "hand_r", "center")
-    ):
-        missing.append(
-            "ranged origin socket: no muzzle/projectile_origin/hand_r/center socket available; action must use a body fallback"
-        )
+    wants_ranged = _binding_has(animation_bindings, "action.ranged") or bool(action_preset and action_preset in {"ranger_arrow", "boss_bolt"})
+    if wants_ranged and not _has_any(sockets, ("muzzle", "projectile_origin", "hand_r", "center")):
+        missing.append("ranged origin socket: no muzzle/projectile_origin/hand_r/center socket available; action must use a body fallback")
 
-    trav = (
-        capabilities.fields.get("traversal")
-        if isinstance(capabilities, RonStruct)
-        else None
-    )
+    trav = capabilities.fields.get("traversal") if isinstance(capabilities, RonStruct) else None
     if isinstance(trav, RonSome) and isinstance(trav.value, RonStruct):
         jump = trav.value.fields.get("jump")
         if isinstance(jump, RonSome) and isinstance(jump.value, RonStruct):
-            if (
-                jump.value.fields.get("height_px") is None
-                or jump.value.fields.get("distance_px") is None
-            ):
-                missing.append(
-                    "jump numbers: traversal jump is present but height_px/distance_px are not measured"
-                )
+            if jump.value.fields.get("height_px") is None or jump.value.fields.get("distance_px") is None:
+                missing.append("jump numbers: traversal jump is present but height_px/distance_px are not measured")
 
     missing.extend(str(x) for x in (authoring_missing or []))
     # Preserve order but collapse duplicates from profile + explicit authoring.
     return list(dict.fromkeys(missing))
 
 
-def _profile_defaults(
-    stem: str, target: str | None, job_data: Mapping[str, Any], tags: Sequence[str]
-) -> Dict[str, Any]:
+def _profile_defaults(stem: str, target: str | None, job_data: Mapping[str, Any], tags: Sequence[str]) -> Dict[str, Any]:
     """Return sparse family defaults used before hand-authored overrides.
 
     This is intentionally conservative: it enriches recurring character families
@@ -854,12 +705,7 @@ def _profile_defaults(
     role = str(job_data.get("role") or "").lower()
     held = str(job_data.get("held_item") or "").lower()
     hay = " ".join([stem, target or "", archetype, role, held, *tags]).lower()
-    out: Dict[str, Any] = {
-        "body": {},
-        "capabilities": {"traversal": {}, "interactions": {}},
-        "sockets": {},
-        "animation_bindings": {},
-    }
+    out: Dict[str, Any] = {"body": {}, "capabilities": {"traversal": {}, "interactions": {}}, "sockets": {}, "animation_bindings": {}}
 
     def traits(*items: str) -> None:
         cur = list(out["body"].get("traits") or [])
@@ -868,26 +714,13 @@ def _profile_defaults(
                 cur.append(item)
         out["body"]["traits"] = cur
 
-    if target in {"robot", "goblin", "toon", "ninja"} or any(
-        w in hay
-        for w in (
-            "viking",
-            "pirate",
-            "statesman",
-            "creator",
-            "lord",
-            "hermit",
-            "galwah",
-        )
-    ):
+    if target in {"robot", "goblin", "toon", "ninja"} or any(w in hay for w in ("viking", "pirate", "statesman", "creator", "lord", "hermit", "galwah")):
         out["body"].setdefault("body_plan", "HumanoidBiped")
         out["body"].setdefault("body_kind", "Standard")
         out["capabilities"]["traversal"].setdefault("walk", True)
     if target == "robot" or "robot" in hay:
         traits("robot")
-        out["capabilities"]["traversal"].setdefault(
-            "jump", {"height_px": None, "distance_px": None, "source": "robot_profile"}
-        )
+        out["capabilities"]["traversal"].setdefault("jump", {"height_px": None, "distance_px": None, "source": "robot_profile"})
         out["capabilities"]["traversal"].setdefault("use_lifts", True)
     if target == "goblin" or "goblin" in hay:
         traits("enemy", "goblin")
@@ -897,21 +730,11 @@ def _profile_defaults(
         out["capabilities"]["interactions"].setdefault("talk", True)
         out["capabilities"]["interactions"].setdefault("trade", True)
     if target == "sandbag" or "sandbag" in hay:
-        out["body"].update(
-            {
-                "body_plan": "TrainingDummy",
-                "body_kind": "Standard",
-                "mass_class": "Static",
-            }
-        )
+        out["body"].update({"body_plan": "TrainingDummy", "body_kind": "Standard", "mass_class": "Static"})
         traits("training")
-        out["capabilities"]["traversal"].update(
-            {"walk": False, "jump": None, "climb": None, "fly": None}
-        )
+        out["capabilities"]["traversal"].update({"walk": False, "jump": None, "climb": None, "fly": None})
     if "boss" in hay or target == "boss":
-        out["body"].update(
-            {"body_plan": "BossMultipart", "body_kind": "Wide", "mass_class": "Boss"}
-        )
+        out["body"].update({"body_plan": "BossMultipart", "body_kind": "Wide", "mass_class": "Boss"})
         traits("boss")
         out["capabilities"]["traversal"].setdefault("walk", False)
     if any(w in hay for w in ("shark", "flying", "mockingbird")):
@@ -923,20 +746,15 @@ def _profile_defaults(
         traits("crawler", "no_hands")
         out["capabilities"]["traversal"].setdefault("walk", True)
     if any(w in hay for w in ("portrait", "house", "prop")):
-        out["body"].update(
-            {"body_plan": "PropActor", "body_kind": "PropLike", "mass_class": "Static"}
-        )
+        out["body"].update({"body_plan": "PropActor", "body_kind": "PropLike", "mass_class": "Static"})
         traits("prop", "no_hands")
-        out["capabilities"]["traversal"].update(
-            {"walk": False, "jump": None, "climb": None, "fly": None}
-        )
+        out["capabilities"]["traversal"].update({"walk": False, "jump": None, "climb": None, "fly": None})
     if role == "enemy" or "enemy" in tags:
         traits("enemy")
     # Action bindings are only emitted when the sheet actually contains a row
     # for them; profile data can influence action presets/capabilities but should
     # not invent an animation row that the renderer did not draw.
     return out
-
 
 def _normalize_authoring_block(block: Mapping[str, Any] | None) -> Dict[str, Any]:
     return dict(block or {})
@@ -954,6 +772,7 @@ def _mapping_to_struct_map(values: Mapping[str, Any]) -> RonMap:
     return ron_map(converted)
 
 
+
 def _capability_override_struct(value: Mapping[str, Any]) -> RonStruct:
     fields = {}
     for key, item in value.items():
@@ -967,16 +786,13 @@ def _capability_override_struct(value: Mapping[str, Any]) -> RonStruct:
             fields[key] = some(item)
     return struct(**fields)
 
-
 def _mapping_to_struct(value: Mapping[str, Any]) -> RonStruct:
     fields = {}
     for key, item in value.items():
         if isinstance(item, Mapping):
             fields[key] = _mapping_to_struct(item)
         elif isinstance(item, list):
-            fields[key] = [
-                _mapping_to_struct(x) if isinstance(x, Mapping) else x for x in item
-            ]
+            fields[key] = [_mapping_to_struct(x) if isinstance(x, Mapping) else x for x in item]
         else:
             fields[key] = item
     return struct(**fields)
@@ -1006,25 +822,15 @@ def build_actor_contract(
     authoring = dict(authoring or {})
     actor_block = _normalize_authoring_block(authoring.get("actor"))
     rows = _rows_from_manifest(manifest)
-    explicit_character_id = actor_block.get("character_id") or authoring.get(
-        "character_id"
-    )
+    explicit_character_id = actor_block.get("character_id") or authoring.get("character_id")
     catalog_profile = _catalog_profile_for(stem, explicit_character_id)
-    tags = list(
-        dict.fromkeys(
-            [
-                *(job_data.get("tags") or []),
-                *((catalog_profile.tags if catalog_profile else ()) or ()),
-                *(actor_block.get("tags") or authoring.get("tags") or []),
-            ]
-        )
-    )
+    tags = list(dict.fromkeys([
+        *(job_data.get("tags") or []),
+        *((catalog_profile.tags if catalog_profile else ()) or ()),
+        *(actor_block.get("tags") or authoring.get("tags") or []),
+    ]))
     profile = _profile_defaults(stem, target, job_data, tags)
-    character_id = (
-        explicit_character_id
-        or (catalog_profile.character_id if catalog_profile else None)
-        or _character_id_for(stem, target, None)
-    )
+    character_id = explicit_character_id or (catalog_profile.character_id if catalog_profile else None) or _character_id_for(stem, target, None)
     display_name = (
         actor_block.get("display_name")
         or authoring.get("display_name")
@@ -1033,22 +839,10 @@ def build_actor_contract(
         or _humanize(stem)
     )
 
-    body_override = _deep_merge(
-        _as_mapping(profile.get("body")), _as_mapping(authoring.get("body"))
-    )
-    body_plan = (
-        actor_block.get("body_plan")
-        or body_override.get("body_plan")
-        or _derive_body_plan(stem, target, tags, rows)
-    )
-    body_kind = (
-        body_override.get("body_kind")
-        or (catalog_profile.body_kind if catalog_profile else None)
-        or _derive_body_kind(body_plan, stem, tags)
-    )
-    locomotion = body_override.get("locomotion_hint") or _derive_locomotion(
-        rows, body_plan, target
-    )
+    body_override = _deep_merge(_as_mapping(profile.get("body")), _as_mapping(authoring.get("body")))
+    body_plan = actor_block.get("body_plan") or body_override.get("body_plan") or _derive_body_plan(stem, target, tags, rows)
+    body_kind = body_override.get("body_kind") or (catalog_profile.body_kind if catalog_profile else None) or _derive_body_kind(body_plan, stem, tags)
+    locomotion = body_override.get("locomotion_hint") or _derive_locomotion(rows, body_plan, target)
 
     brain_preset, action_preset = _derive_presets(
         target,
@@ -1060,30 +854,14 @@ def build_actor_contract(
     if catalog_profile is not None:
         brain_preset = catalog_profile.default_brain or brain_preset
         action_preset = catalog_profile.default_action_set or action_preset
-    explicit_brain = _as_mapping(authoring.get("brain")).get(
-        "default_preset"
-    ) or authoring.get("brain")
-    explicit_actions = _as_mapping(authoring.get("actions")).get(
-        "default_preset"
-    ) or authoring.get("actions")
-    resolved_brain = (
-        str(explicit_brain or brain_preset)
-        if (explicit_brain or brain_preset)
-        else None
-    )
-    resolved_action = (
-        str(explicit_actions or action_preset)
-        if (explicit_actions or action_preset)
-        else None
-    )
+    explicit_brain = _as_mapping(authoring.get("brain")).get("default_preset") or authoring.get("brain")
+    explicit_actions = _as_mapping(authoring.get("actions")).get("default_preset") or authoring.get("actions")
+    resolved_brain = str(explicit_brain or brain_preset) if (explicit_brain or brain_preset) else None
+    resolved_action = str(explicit_actions or action_preset) if (explicit_actions or action_preset) else None
 
     anim_bindings = _derive_animation_bindings(rows)
-    anim_bindings = _deep_merge(
-        anim_bindings, _as_mapping(profile.get("animation_bindings"))
-    )
-    anim_bindings = _deep_merge(
-        anim_bindings, _as_mapping(authoring.get("animation_bindings"))
-    )
+    anim_bindings = _deep_merge(anim_bindings, _as_mapping(profile.get("animation_bindings")))
+    anim_bindings = _deep_merge(anim_bindings, _as_mapping(authoring.get("animation_bindings")))
 
     sockets = _derive_sockets(
         manifest,
@@ -1121,27 +899,21 @@ def build_actor_contract(
     )
 
     visual_override = _as_mapping(authoring.get("visual"))
+    facing_policy = visual_override.get("facing_policy") or _derive_facing_policy(stem, target, tags)
     visual = struct(
         sheet_id=visual_override.get("sheet_id", stem),
         spritesheet=visual_override.get("spritesheet", image),
         sheet_manifest=visual_override.get("sheet_manifest", sheet_manifest),
-        default_pose=some(
-            visual_override.get("default_pose")
-            or _first_present(rows, IDLE_CANDIDATES)
-            or (rows[0] if rows else "")
-        ),
-        facing_policy=visual_override.get("facing_policy", None),
+        default_pose=some(visual_override.get("default_pose") or _first_present(rows, IDLE_CANDIDATES) or (rows[0] if rows else "")),
+        facing_policy=some(facing_policy) if facing_policy else None,
+        coordinate_system=some(struct(origin="top_left", x_axis="right", y_axis="down", units="pixels")),
+        up_axis=some("negative_y"),
         scale=visual_override.get("scale", None),
     )
 
     collision = _derive_collision(body_override, manifest, body_plan)
     hurtbox = _derive_hurtbox(body_override, collision, body_plan)
-    mass_class = _derive_mass_class(
-        body_override,
-        body_plan,
-        body_kind,
-        [*tags, *list(body_override.get("traits") or [])],
-    )
+    mass_class = _derive_mass_class(body_override, body_plan, body_kind, [*tags, *list(body_override.get("traits") or [])])
     body = struct(
         body_kind=some(body_kind) if body_kind else None,
         body_plan=some(body_plan) if body_plan else None,
@@ -1149,9 +921,7 @@ def build_actor_contract(
         hurtbox=hurtbox,
         mass_class=some(mass_class) if mass_class else None,
         locomotion_hint=some(locomotion) if locomotion else None,
-        body_metrics_source=some("sheet.body_metrics")
-        if manifest.get("body_metrics")
-        else None,
+        body_metrics_source=some("sheet.body_metrics") if manifest.get("body_metrics") else None,
         traits=list(dict.fromkeys(body_override.get("traits") or [])),
     )
     missing = _missing_information(
@@ -1170,33 +940,26 @@ def build_actor_contract(
         character_id=character_id,
         actor_id=actor_block.get("actor_id", None),
         display_name=some(str(display_name)) if display_name else None,
-        provenance=some(
-            struct(
-                surface=job_data.get("surface", "adapter" if job_data else "tackon"),
-                renderer_target=target or stem,
-                output_stem=stem,
-                seed=job_data.get("seed", None),
-                archetype=job_data.get("archetype", None),
-                variant=job_data.get("variant", None),
-                held_item=job_data.get("held_item", None),
-                source_config=job_data.get("source_config", None),
-            )
-        ),
+        provenance=some(struct(
+            surface=job_data.get("surface", "adapter" if job_data else "tackon"),
+            renderer_target=target or stem,
+            output_stem=stem,
+            seed=job_data.get("seed", None),
+            archetype=job_data.get("archetype", None),
+            variant=job_data.get("variant", None),
+            held_item=job_data.get("held_item", None),
+            source_config=job_data.get("source_config", None),
+        )),
         visual=some(visual),
         body=some(body),
         capabilities=some(capabilities),
-        brain=some(
-            struct(default_preset=some(resolved_brain) if resolved_brain else None)
-        ),
-        actions=some(
-            struct(default_preset=some(resolved_action) if resolved_action else None)
-        ),
+        brain=some(struct(default_preset=some(resolved_brain) if resolved_brain else None)),
+        actions=some(struct(default_preset=some(resolved_action) if resolved_action else None)),
         animation_bindings=_mapping_to_struct_map(anim_bindings),
         sockets=_mapping_to_struct_map(sockets),
         tags=tags,
         missing_information=missing,
     )
-
 
 def write_actor_contract(path: str | Path, contract: RonStruct) -> Path:
     out = Path(path)

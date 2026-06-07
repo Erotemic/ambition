@@ -535,13 +535,13 @@ body_metrics:
     x: 20
     y: 21
     w: 89
-    h: 88
+    h: 82
   feet_pixel:
     x: 64.0
-    y: 108.0
+    y: 102.0
   feet_anchor_norm:
     x: 0.02892561983471076
-    y: -0.3503937007874016
+    y: -0.3031496062992126
   animations:
     idle:
       hurtbox:
@@ -549,49 +549,49 @@ body_metrics:
           x: 20
           y: 21
           w: 89
-          h: 88
+          h: 83
     walk:
       hurtbox:
         bbox:
           x: 19
           y: 21
           w: 93
-          h: 88
+          h: 82
     run:
       hurtbox:
         bbox:
           x: 19
           y: 21
           w: 93
-          h: 88
+          h: 82
     jump:
       hurtbox:
         bbox:
           x: 18
           y: 2
           w: 74
-          h: 107
+          h: 99
     fall:
       hurtbox:
         bbox:
           x: 16
           y: 11
           w: 76
-          h: 96
+          h: 90
     slash:
       hurtbox:
         bbox:
           x: 16
           y: 20
           w: 105
-          h: 89
+          h: 83
     hit:
       hurtbox:
         bbox:
           x: 12
           y: 15
           w: 80
-          h: 96
+          h: 90
     death:
       hurtbox:
         bbox:
@@ -605,18 +605,18 @@ body_metrics:
           x: 2
           y: 7
           w: 114
-          h: 101
+          h: 98
     blink_in:
       hurtbox:
         bbox:
           x: 9
           y: 17
           w: 112
-          h: 92
+          h: 88
     dash:
       hurtbox:
         bbox:
           x: 4
           y: 18
           w: 96
-          h: 91
+          h: 80

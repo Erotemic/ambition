@@ -1,7 +1,7 @@
 # Side-view walk-cycle baseline
 
 This note records the current "good" baseline for the side-view biped lanes
-(`robot_side`, `goblin_side`, `toon_side`, and `ninja_side`) so future tweaks do
+(`robot_side`, `goblin_side`, and `toon_side`) so future tweaks do
 not regress back to the old opposed-stick feeling.
 
 ## Why this cycle reads better
@@ -74,15 +74,36 @@ Target-specific tuning:
 - bounce / torso lean from the target's existing pose code
 - shoe/foot drawing style
 
+Do **not** copy literal ankle coordinates from one target to another. The
+compact player robot has intentionally short legs and a lowered body anchor, so
+its numeric offsets are not valid for goblins, toons, or standard
+robots. Translate the concept instead: express stride, lift, and planted ankle
+drop as proportions of the current rig's `leg_upper + leg_lower` length.
+
 This is intentional. The baseline should keep the motion language coherent
-without flattening the personality of each renderer.
+without flattening the personality of each renderer or changing a character's
+leg proportions.
 
 ## Files using this baseline
 
 - `targets/characters/robot_side.py`
 - `targets/characters/goblin_side.py`
 - `targets/characters/toon_side.py`
-- `targets/characters/ninja_side.py`
+Ninja is intentionally **not** listed here: its renderer is mostly front-facing
+with only a slight rightward tilt, so this side-profile leg treatment makes the
+feet and knees read incorrectly there. If/when we add forward/back-facing
+locomotion, it should get its own walk-cycle baseline rather than borrowing this
+side-view one.
 
 If a future side-view humanoid is added, start by copying one of those walk/run
 implementations instead of reviving the older direct-angle-only pattern.
+
+## Related metadata
+
+Generated actor sidecars (`*_actor.ron`) now include a best-effort visual
+`facing_policy` plus a pixel coordinate-system note (`origin=top_left`,
+`x_axis=right`, `y_axis=down`, `up_axis=negative_y`). They also already expose
+`feet`, `root`, `center`, `head`, `chest`, and heuristic humanoid hand sockets
+when body metrics are available. Those sockets are derived/fallback data, not a
+replacement for hand-authored per-frame sockets where exact weapon grip or foot
+contact is needed.

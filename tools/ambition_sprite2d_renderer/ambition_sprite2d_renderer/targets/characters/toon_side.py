@@ -2157,7 +2157,7 @@ class ToonSideGenerator:
             sign = 1.0 if is_near else -1.0
             upper = p.near_leg_upper if is_near else p.far_leg_upper
             lower = p.near_leg_lower if is_near else p.far_leg_lower
-            hip_spread = (spec.hip_w * 0.26 if spec.outfit in {"general_uniform", "storm_uniform"} else 2.2) * S
+            hip_spread = (spec.hip_w * 0.26 if spec.outfit in {"general_uniform", "storm_uniform"} else max(3.8, spec.hip_w * 0.18)) * S
             hip = (hip_center[0] + sign * hip_spread, hip_center[1] + 3.0 * S)
             knee = add(hip, vec(spec.leg_upper * S, upper + p.torso_tilt * 0.08))
             ankle = add(knee, vec(spec.leg_lower * S, lower + p.torso_tilt * 0.08))
@@ -2165,33 +2165,27 @@ class ToonSideGenerator:
 
         def walk_leg_pose(is_near: bool):
             idx = frame_index % 8
-            if animation == "run":
-                far_ax = (-10.7, -8.3, -3.8, -0.4, 1.5, -1.6, -6.0, -9.6)
-                far_ay = (21.4, 22.0, 20.9, 17.4, 21.0, 22.0, 21.4, 21.0)
-                near_ax = (9.6, 6.9, 3.1, 0.2, -0.8, 2.2, 6.4, 9.7)
-                near_ay = (21.0, 22.1, 21.5, 21.0, 21.1, 21.8, 20.1, 17.5)
-                far_shift = (-1.6, -1.2, -0.5, 0.5, 1.2, 0.8, 0.1, -0.7)
-                near_shift = (1.5, 1.0, 0.1, -1.0, -1.4, -1.0, -0.2, 0.8)
-                foot_tilt = (-7, -5, -2, 3, 7, 5, 2, -3)
-            else:
-                far_ax = (-9.8, -7.5, -3.5, -0.2, 1.2, -1.3, -5.5, -8.9)
-                far_ay = (21.2, 21.7, 20.6, 18.0, 20.8, 21.8, 21.3, 20.9)
-                near_ax = (8.8, 6.2, 2.8, 0.2, -0.6, 1.9, 5.9, 9.0)
-                near_ay = (20.9, 21.8, 21.3, 20.8, 21.0, 21.6, 20.0, 18.1)
-                far_shift = (-1.4, -1.0, -0.4, 0.4, 1.0, 0.7, 0.1, -0.6)
-                near_shift = (1.3, 0.9, 0.1, -0.8, -1.2, -0.8, -0.2, 0.7)
-                foot_tilt = (-6, -4, -1, 2, 6, 4, 1, -2)
+            leg_len = (spec.leg_upper + spec.leg_lower) * S
+            stride = leg_len * (0.42 if animation == "run" else 0.36)
+            base_drop = leg_len * (0.86 if animation == "run" else 0.88)
+            far_x = (-1.00, -0.76, -0.36, -0.06, 0.12, -0.18, -0.58, -0.90)
+            near_x = (0.92, 0.68, 0.30, 0.04, -0.08, 0.20, 0.62, 0.94)
+            far_lift = (0.00, 0.00, 0.05, 0.14, 0.00, 0.02, 0.08, 0.02)
+            near_lift = (0.00, 0.02, 0.08, 0.02, 0.00, 0.00, 0.05, 0.14)
+            far_shift = (-1.4, -1.0, -0.4, 0.4, 1.0, 0.7, 0.1, -0.6)
+            near_shift = (1.3, 0.9, 0.1, -0.8, -1.2, -0.8, -0.2, 0.7)
+            foot_tilt = (-7, -5, -2, 3, 7, 5, 2, -3) if animation == "run" else (-6, -4, -1, 2, 6, 4, 1, -2)
 
-            hip_spread = (spec.hip_w * 0.26 if spec.outfit in {"general_uniform", "storm_uniform"} else 2.2) * S
+            hip_spread = (spec.hip_w * 0.26 if spec.outfit in {"general_uniform", "storm_uniform"} else max(3.8, spec.hip_w * 0.18)) * S
             hip = (hip_center[0] + (hip_spread if is_near else -hip_spread), hip_center[1] + 3.0 * S)
             if is_near:
-                ankle = (hip_center[0] + near_ax[idx] * S, hip_center[1] + near_ay[idx] * S)
+                ankle = (hip_center[0] + near_x[idx] * stride, hip[1] + base_drop - near_lift[idx] * leg_len)
                 ankle = self._clamp_leg_target(hip, ankle, spec.leg_upper * S, spec.leg_lower * S)
                 knee, _a1, _a2 = self._solve_leg_ik(hip, ankle, spec.leg_upper * S, spec.leg_lower * S, bend_sign=1.0)
                 foot_center = (ankle[0] + spec.foot_w * 0.28 * S + near_shift[idx] * S, ankle[1] + 2.0 * S)
                 foot_angle = -foot_tilt[(idx + 4) % 8] + p.torso_tilt * 0.10
             else:
-                ankle = (hip_center[0] + far_ax[idx] * S, hip_center[1] + far_ay[idx] * S)
+                ankle = (hip_center[0] + far_x[idx] * stride, hip[1] + base_drop - far_lift[idx] * leg_len)
                 ankle = self._clamp_leg_target(hip, ankle, spec.leg_upper * S, spec.leg_lower * S)
                 knee, _a1, _a2 = self._solve_leg_ik(hip, ankle, spec.leg_upper * S, spec.leg_lower * S, bend_sign=1.0)
                 foot_center = (ankle[0] + spec.foot_w * 0.25 * S + far_shift[idx] * S, ankle[1] + 2.0 * S)
@@ -2307,53 +2301,52 @@ class ToonSideGenerator:
             ], fill=pal["outline"])
             _paste_rotated_local(img, layer, disc_center, angle)
 
-        # far limbs first
+        # Side-view depth semantics for right-facing toon rigs:
+        # screen-right limb = player-left/back limb (darker, behind),
+        # screen-left limb  = player-right/front limb (lighter, in front).
         if animation in {"walk", "run"}:
-            far_hip, far_knee, far_ankle, far_foot_center, far_foot_angle = walk_leg_pose(False)
-            near_hip, near_knee, near_ankle, near_foot_center, near_foot_angle = walk_leg_pose(True)
+            front_hip, front_knee, front_ankle, front_foot_center, front_foot_angle = walk_leg_pose(False)
+            back_hip, back_knee, back_ankle, back_foot_center, back_foot_angle = walk_leg_pose(True)
         else:
-            far_hip, far_knee, far_ankle = leg_points(False)
-            near_hip, near_knee, near_ankle = leg_points(True)
-            far_foot_center = (far_ankle[0] + spec.foot_w * 0.25 * S, far_ankle[1] + 2.0 * S)
-            far_foot_angle = -2.0 + p.torso_tilt * 0.08
-            near_foot_center = (near_ankle[0] + spec.foot_w * 0.28 * S, near_ankle[1] + 2.0 * S)
-            near_foot_angle = 2.0 + p.torso_tilt * 0.10
-        far_tint = _scale_color(pal["outfit_dark"], 0.93)
-        draw_capsule(d, far_hip, far_knee, spec.leg_radius * 0.92 * S, far_tint, pal["outline"], 1.1 * S)
-        draw_capsule(d, far_knee, far_ankle, spec.leg_radius * 0.88 * S, far_tint, pal["outline"], 1.1 * S)
-        draw_rotated_rounded_rect(img, far_foot_center, (spec.foot_w * S, spec.foot_h * S), far_foot_angle, spec.foot_h * 0.48 * S, pal["shoe"], pal["outline"], 1.0 * S)
-        far_shoulder, far_elbow, far_hand = arm_points(False)
-        draw_capsule(d, far_shoulder, far_elbow, spec.arm_radius * 0.92 * S, far_tint, pal["outline"], 1.1 * S)
-        draw_capsule(d, far_elbow, far_hand, spec.arm_radius * 0.88 * S, far_tint, pal["outline"], 1.1 * S)
-        draw_armband(far_shoulder, far_elbow, scale=0.88, include_insignia=False)
-        draw_uniform_cuff(far_elbow, far_hand, scale=0.88)
-        # Keep sleeves uniform-colored, but hands skin-toned. The far hand is
-        # drawn before the torso so it still sits behind the body volume.
-        draw_skin_hand(far_hand, scale=0.90, outline_width=0.9)
+            front_hip, front_knee, front_ankle = leg_points(False)
+            back_hip, back_knee, back_ankle = leg_points(True)
+            front_foot_center = (front_ankle[0] + spec.foot_w * 0.25 * S, front_ankle[1] + 2.0 * S)
+            front_foot_angle = -2.0 + p.torso_tilt * 0.08
+            back_foot_center = (back_ankle[0] + spec.foot_w * 0.28 * S, back_ankle[1] + 2.0 * S)
+            back_foot_angle = 2.0 + p.torso_tilt * 0.10
+
+        back_tint = _scale_color(pal["outfit_dark"], 0.93)
+        front_tint = pal["outfit"]
+        draw_capsule(d, back_hip, back_knee, spec.leg_radius * 0.92 * S, back_tint, pal["outline"], 1.1 * S)
+        draw_capsule(d, back_knee, back_ankle, spec.leg_radius * 0.88 * S, back_tint, pal["outline"], 1.1 * S)
+        draw_rotated_rounded_rect(img, back_foot_center, (spec.foot_w * S, spec.foot_h * S), back_foot_angle, spec.foot_h * 0.48 * S, pal["shoe"], pal["outline"], 1.0 * S)
+        back_shoulder, back_elbow, back_hand = arm_points(True)
+        draw_capsule(d, back_shoulder, back_elbow, spec.arm_radius * 0.92 * S, back_tint, pal["outline"], 1.1 * S)
+        draw_capsule(d, back_elbow, back_hand, spec.arm_radius * 0.88 * S, back_tint, pal["outline"], 1.1 * S)
+        draw_armband(back_shoulder, back_elbow, scale=0.88, include_insignia=False)
+        draw_uniform_cuff(back_elbow, back_hand, scale=0.88)
+        draw_skin_hand(back_hand, scale=0.90, outline_width=0.9)
 
         # torso/head core silhouette
         self._draw_torso(img, torso_center, spec, pal, S, p)
         self._draw_head(img, head_center, spec, pal, S, p)
 
-        # near limbs and props
-        near_tint = pal["outfit"]
-        draw_capsule(d, near_hip, near_knee, spec.leg_radius * S, near_tint, pal["outline"], 1.15 * S)
-        draw_capsule(d, near_knee, near_ankle, spec.leg_radius * 0.96 * S, near_tint, pal["outline"], 1.15 * S)
-        draw_rotated_rounded_rect(img, near_foot_center, (spec.foot_w * S, spec.foot_h * S), near_foot_angle, spec.foot_h * 0.48 * S, pal["shoe"], pal["outline"], 1.0 * S)
-        near_shoulder, near_elbow, near_hand = arm_points(True)
+        # front limbs and props
+        draw_capsule(d, front_hip, front_knee, spec.leg_radius * S, front_tint, pal["outline"], 1.15 * S)
+        draw_capsule(d, front_knee, front_ankle, spec.leg_radius * 0.96 * S, front_tint, pal["outline"], 1.15 * S)
+        draw_rotated_rounded_rect(img, front_foot_center, (spec.foot_w * S, spec.foot_h * S), front_foot_angle, spec.foot_h * 0.48 * S, pal["shoe"], pal["outline"], 1.0 * S)
+        front_shoulder, front_elbow, front_hand = arm_points(False)
         sleeve_fill = pal["outfit"] if spec.outfit in {"poncho", "keeper_robe", "long_coat", "general_uniform", "storm_uniform", "banyan", "eavesdrop_cloak", "field_jacket", "cinched_field_jacket", "formal_robe", "judicial_robe", "vest_over_shirt", "tabard", "cinched_tabard"} else pal["skin"]
-        draw_capsule(d, near_shoulder, near_elbow, spec.arm_radius * S, sleeve_fill, pal["outline"], 1.1 * S)
-        draw_capsule(d, near_elbow, near_hand, spec.arm_radius * 0.95 * S, sleeve_fill, pal["outline"], 1.1 * S)
-        draw_armband(near_shoulder, near_elbow, scale=1.0, include_insignia=True)
-        draw_uniform_cuff(near_elbow, near_hand, scale=1.0)
+        draw_capsule(d, front_shoulder, front_elbow, spec.arm_radius * S, sleeve_fill, pal["outline"], 1.1 * S)
+        draw_capsule(d, front_elbow, front_hand, spec.arm_radius * 0.95 * S, sleeve_fill, pal["outline"], 1.1 * S)
+        draw_armband(front_shoulder, front_elbow, scale=1.0, include_insignia=True)
+        draw_uniform_cuff(front_elbow, front_hand, scale=1.0)
 
-        prop_angle = p.near_arm_lower + p.torso_tilt * 0.10 + (14.0 if p.prop_swing > 0 else 0.0)
-        self._draw_prop(img, near_hand, spec, pal, S, prop_angle)
-        # Draw the near hand last so the baton/prop reads as being held by a
-        # skin-toned hand instead of painting over it.
-        draw_skin_hand(near_hand, scale=1.0, outline_width=1.0)
+        prop_angle = p.far_arm_lower + p.torso_tilt * 0.10 + (14.0 if p.prop_swing > 0 else 0.0)
+        self._draw_prop(img, front_hand, spec, pal, S, prop_angle)
+        draw_skin_hand(front_hand, scale=1.0, outline_width=1.0)
         if p.slash > 0.0:
-            d.arc((near_hand[0] - 4 * S, near_hand[1] - 28 * S, near_hand[0] + 42 * S, near_hand[1] + 16 * S), start=-70, end=35, fill=with_alpha(pal["accent"], 160), width=max(1, int(2.5 * S)))
+            d.arc((front_hand[0] - 4 * S, front_hand[1] - 28 * S, front_hand[0] + 42 * S, front_hand[1] + 16 * S), start=-70, end=35, fill=with_alpha(pal["accent"], 160), width=max(1, int(2.5 * S)))
         if p.hit > 0.0:
             for off in [(-5, -10), (4, -14), (10, -6)]:
                 d.line([(head_center[0] + off[0]*S, head_center[1] + off[1]*S), (head_center[0] + (off[0]+3)*S, head_center[1] + (off[1]-4)*S)], fill=with_alpha(pal["accent"], 180), width=max(1, int(1.2 * S)))

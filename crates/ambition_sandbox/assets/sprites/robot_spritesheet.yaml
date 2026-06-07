@@ -1415,21 +1415,21 @@ body_metrics:
           x: 28
           y: 0
           w: 76
-          h: 106
+          h: 105
     run:
       hurtbox:
         bbox:
           x: 27
           y: 0
           w: 78
-          h: 105
+          h: 106
     jump:
       hurtbox:
         bbox:
           x: 25
           y: 0
-          w: 80
-          h: 104
+          w: 79
+          h: 99
     fall:
       hurtbox:
         bbox:
@@ -1475,9 +1475,9 @@ body_metrics:
     dash:
       hurtbox:
         bbox:
-          x: 11
+          x: 13
           y: 0
-          w: 98
+          w: 96
           h: 99
     hover:
       hurtbox:
@@ -1498,42 +1498,42 @@ body_metrics:
         bbox:
           x: 20
           y: 0
-          w: 82
-          h: 105
+          w: 81
+          h: 96
     land_hard:
       hurtbox:
         bbox:
-          x: 26
+          x: 27
           y: 0
-          w: 77
-          h: 116
+          w: 75
+          h: 110
     land_recovery:
       hurtbox:
         bbox:
           x: 25
           y: 0
           w: 77
-          h: 111
+          h: 109
     wall_grab:
       hurtbox:
         bbox:
-          x: 49
+          x: 51
           y: 0
-          w: 68
-          h: 100
+          w: 61
+          h: 85
     ledge_climb:
       hurtbox:
         bbox:
-          x: 21
+          x: 38
           y: 0
-          w: 77
-          h: 102
+          w: 71
+          h: 94
     ledge_getup:
       hurtbox:
         bbox:
-          x: 22
+          x: 37
           y: 0
-          w: 84
+          w: 77
           h: 103
     float_glide:
       hurtbox:
@@ -1562,14 +1562,14 @@ body_metrics:
           x: 22
           y: 0
           w: 106
-          h: 112
+          h: 107
     air_neutral:
       hurtbox:
         bbox:
           x: 22
           y: 0
           w: 106
-          h: 101
+          h: 100
     air_forward:
       hurtbox:
         bbox:
@@ -1601,14 +1601,14 @@ body_metrics:
     ledge_roll:
       hurtbox:
         bbox:
-          x: 22
+          x: 26
           y: 0
-          w: 106
-          h: 111
+          w: 102
+          h: 114
     ledge_getup_attack:
       hurtbox:
         bbox:
-          x: 22
+          x: 37
           y: 0
-          w: 106
-          h: 104
+          w: 91
+          h: 102

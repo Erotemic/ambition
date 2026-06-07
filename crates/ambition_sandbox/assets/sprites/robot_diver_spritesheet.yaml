@@ -580,7 +580,7 @@ body_metrics:
           x: 15
           y: 0
           w: 80
-          h: 109
+          h: 114
     fall:
       hurtbox:
         bbox:

@@ -16,66 +16,38 @@ from typing import List, Sequence, Tuple
 
 from PIL import Image, ImageDraw
 
-ACTOR_METADATA = {
-    "actor": {"character_id": "npc_weird_hermit", "display_name": "Weird Hermit"},
-    "body": {
-        "body_plan": "HumanoidBiped",
-        "body_kind": "Standard",
-        "mass_class": "Medium",
-        "traits": ["story", "humanoid", "story", "hermit"],
-        "locomotion_hint": "Walk",
-    },
-    "capabilities": {
-        "traversal": {
-            "walk": True,
-            "jump": None,
-            "climb": None,
-            "fly": None,
-            "swim": None,
-            "crawl": None,
-            "use_lifts": True,
-            "door_access": ["public"],
-        },
-        "interactions": {
-            "talk": True,
-            "trade": None,
-            "carry": None,
-            "open_doors": ["public"],
-        },
-    },
-    "brain": {"default_preset": "patrol_peaceful"},
-    "actions": {"default_preset": "peaceful"},
-    "visual": {"default_pose": "idle"},
-    "tags": ["story", "humanoid", "story", "hermit"],
-    "sockets": {
-        "head": {
-            "source": "explicit.profile.humanoid",
-            "point": {"x": 64.0, "y": 24.0},
-        },
-        "chest": {
-            "source": "explicit.profile.humanoid",
-            "point": {"x": 64.0, "y": 54.0},
-        },
-        "hand_l": {
-            "source": "explicit.profile.humanoid",
-            "point": {"x": 48.0, "y": 64.0},
-        },
-        "hand_r": {
-            "source": "explicit.profile.humanoid",
-            "point": {"x": 80.0, "y": 64.0},
-        },
-        "speech_bubble": {
-            "source": "explicit.profile.humanoid",
-            "point": {"x": 64.0, "y": 8.0},
-        },
-    },
-    "animation_bindings": {
-        "default": {"animation": "idle", "events": []},
-        "locomotion.walk": {"animation": "walk", "events": []},
-        "interaction.talk": {"animation": "talk", "events": []},
-        "interaction.use": {"animation": "interact", "events": []},
-    },
-}
+ACTOR_METADATA = {'actor': {'character_id': 'npc_weird_hermit', 'display_name': 'Weird Hermit'},
+ 'body': {'body_plan': 'HumanoidBiped',
+          'body_kind': 'Standard',
+          'mass_class': 'Medium',
+          'traits': ['story', 'humanoid', 'story', 'hermit'],
+          'locomotion_hint': 'Walk'},
+ 'capabilities': {'traversal': {'walk': True,
+                                'jump': None,
+                                'climb': None,
+                                'fly': None,
+                                'swim': None,
+                                'crawl': None,
+                                'use_lifts': True,
+                                'door_access': ['public']},
+                  'interactions': {'talk': True,
+                                   'trade': None,
+                                   'carry': None,
+                                   'open_doors': ['public']}},
+ 'brain': {'default_preset': 'patrol_peaceful'},
+ 'actions': {'default_preset': 'peaceful'},
+ 'visual': {'default_pose': 'idle'},
+ 'tags': ['story', 'humanoid', 'story', 'hermit'],
+ 'sockets': {'head': {'source': 'explicit.profile.humanoid', 'point': {'x': 64.0, 'y': 24.0}},
+             'chest': {'source': 'explicit.profile.humanoid', 'point': {'x': 64.0, 'y': 54.0}},
+             'hand_l': {'source': 'explicit.profile.humanoid', 'point': {'x': 48.0, 'y': 64.0}},
+             'hand_r': {'source': 'explicit.profile.humanoid', 'point': {'x': 80.0, 'y': 64.0}},
+             'speech_bubble': {'source': 'explicit.profile.humanoid',
+                               'point': {'x': 64.0, 'y': 8.0}}},
+ 'animation_bindings': {'default': {'animation': 'idle', 'events': []},
+                        'locomotion.walk': {'animation': 'walk', 'events': []},
+                        'interaction.talk': {'animation': 'talk', 'events': []},
+                        'interaction.use': {'animation': 'interact', 'events': []}}}
 
 
 RGBA = Tuple[int, int, int, int]
@@ -298,50 +270,22 @@ def _rot_local(x: float, y: float, deg: float) -> Point:
     return (x * c - y * s, x * s + y * c)
 
 
-def _poly(
-    draw: ImageDraw.ImageDraw,
-    pts: Sequence[Point],
-    fill: RGBA,
-    outline: RGBA = OUTLINE,
-    width: float = 1.0,
-) -> None:
+def _poly(draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
     ipts = [_pt(p) for p in pts]
     draw.polygon(ipts, fill=fill)
     if outline and width > 0:
-        draw.line(
-            ipts + [ipts[0]], fill=outline, width=max(1, _s(width)), joint="curve"
-        )
+        draw.line(ipts + [ipts[0]], fill=outline, width=max(1, _s(width)), joint="curve")
 
 
-def _line(
-    draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, width: float = 1.0
-) -> None:
+def _line(draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, width: float = 1.0) -> None:
     draw.line([_pt(p) for p in pts], fill=fill, width=max(1, _s(width)), joint="curve")
 
 
-def _ellipse(
-    draw: ImageDraw.ImageDraw,
-    cx: float,
-    cy: float,
-    rx: float,
-    ry: float,
-    fill: RGBA,
-    outline: RGBA = OUTLINE,
-    width: float = 1.0,
-) -> None:
-    draw.ellipse(
-        _box(cx, cy, rx, ry), fill=fill, outline=outline, width=max(1, _s(width))
-    )
+def _ellipse(draw: ImageDraw.ImageDraw, cx: float, cy: float, rx: float, ry: float, fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
+    draw.ellipse(_box(cx, cy, rx, ry), fill=fill, outline=outline, width=max(1, _s(width)))
 
 
-def _circle(
-    draw: ImageDraw.ImageDraw,
-    c: Point,
-    r: float,
-    fill: RGBA,
-    outline: RGBA = OUTLINE,
-    width: float = 1.0,
-) -> None:
+def _circle(draw: ImageDraw.ImageDraw, c: Point, r: float, fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
     _ellipse(draw, c[0], c[1], r, r, fill, outline, width)
 
 
@@ -351,24 +295,17 @@ def _downsample(img: Image.Image) -> Image.Image:
 
 class WeirdHermitRenderer:
     def render_frame(self, anim: str, frame_idx: int, nframes: int) -> Image.Image:
-        img = Image.new(
-            "RGBA",
-            (WORK_FRAME_SIZE[0] * SUPER, WORK_FRAME_SIZE[1] * SUPER),
-            (0, 0, 0, 0),
-        )
+        img = Image.new("RGBA", (WORK_FRAME_SIZE[0] * SUPER, WORK_FRAME_SIZE[1] * SUPER), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img, "RGBA")
         pose = Pose(anim, frame_idx, nframes)
-        root = (
-            WORK_FRAME_SIZE[0] * 0.43 + pose.root_x,
-            WORK_FRAME_SIZE[1] * 0.80 + pose.root_y + pose.bob,
-        )
+        root = (WORK_FRAME_SIZE[0] * 0.43 + pose.root_x, WORK_FRAME_SIZE[1] * 0.80 + pose.root_y + pose.bob)
         global_tilt = pose.lean
 
         def P(x: float, y: float) -> Point:
             rx, ry = _rot_local(x, y, global_tilt)
             return (root[0] + rx, root[1] + ry)
 
-        self._draw_shadow(draw, P, pose)
+        # No baked ground drop shadow; the scene renderer owns contact shadows.
         self._draw_far_leg(draw, P, pose)
         self._draw_far_arm(draw, P, pose)
         self._draw_torso(draw, P, pose)
@@ -390,14 +327,8 @@ class WeirdHermitRenderer:
     def _draw_torso(self, draw, P, pose):
         # Long hunched torso with sloped shoulders and pot belly.
         torso = [
-            P(-30, -122 - pose.crouch),
-            P(8, -150 - pose.crouch),
-            P(38, -128 - pose.crouch),
-            P(48, -82),
-            P(38, -44),
-            P(4, -32),
-            P(-28, -48),
-            P(-42, -88),
+            P(-30, -122 - pose.crouch), P(8, -150 - pose.crouch), P(38, -128 - pose.crouch),
+            P(48, -82), P(38, -44), P(4, -32), P(-28, -48), P(-42, -88)
         ]
         _poly(draw, torso, SKIN, OUTLINE, 1.6)
         belly = [P(-6, -94), P(28, -90), P(40, -66), P(28, -48), P(0, -52), P(-12, -72)]
@@ -406,14 +337,7 @@ class WeirdHermitRenderer:
         _poly(draw, chest_mark, SKIN_SHADOW, OUTLINE, 0.6)
         _ellipse(draw, *P(20, -98), 3.0, 4.0, SKIN_SHADOW, OUTLINE, 0.5)
         # Shorts / loincloth, angled around the crouch.
-        shorts = [
-            P(-24, -45),
-            P(42, -44),
-            P(52, -20),
-            P(20, -7),
-            P(-18, -16),
-            P(-34, -32),
-        ]
+        shorts = [P(-24, -45), P(42, -44), P(52, -20), P(20, -7), P(-18, -16), P(-34, -32)]
         _poly(draw, shorts, SHORTS, OUTLINE, 1.2)
         _line(draw, [P(-18, -40), P(36, -40)], SHORTS_HI, 0.9)
         _line(draw, [P(14, -38), P(18, -10)], SHORTS_HI, 0.8)
@@ -421,56 +345,20 @@ class WeirdHermitRenderer:
     def _draw_head(self, draw, P, pose):
         hx, hy = P(12, -158 - pose.crouch * 0.35 + pose.head_tilt * 0.14)
         # Floppy cloth cap / head rag.
-        cap = [
-            (hx - 16, hy - 34),
-            (hx + 2, hy - 48),
-            (hx + 36, hy - 42),
-            (hx + 55 + pose.cap_swing * 0.25, hy - 24),
-            (hx + 42 + pose.cap_swing * 0.45, hy - 6),
-            (hx + 18, hy - 22),
-        ]
+        cap = [(hx - 16, hy - 34), (hx + 2, hy - 48), (hx + 36, hy - 42), (hx + 55 + pose.cap_swing * 0.25, hy - 24), (hx + 42 + pose.cap_swing * 0.45, hy - 6), (hx + 18, hy - 22)]
         _poly(draw, cap, CLOTH, OUTLINE, 1.0)
-        flap = [
-            (hx + 34, hy - 34),
-            (hx + 78 + pose.cap_swing * 0.35, hy - 40),
-            (hx + 72 + pose.cap_swing * 0.5, hy - 10),
-            (hx + 38, hy - 8),
-        ]
+        flap = [(hx + 34, hy - 34), (hx + 78 + pose.cap_swing * 0.35, hy - 40), (hx + 72 + pose.cap_swing * 0.5, hy - 10), (hx + 38, hy - 8)]
         _poly(draw, flap, CLOTH_SHADOW, OUTLINE, 1.0)
-        head = [
-            (hx - 22, hy - 28),
-            (hx + 12, hy - 36),
-            (hx + 38, hy - 18),
-            (hx + 40, hy + 10),
-            (hx + 18, hy + 32),
-            (hx - 12, hy + 26),
-            (hx - 30, hy + 0),
-        ]
+        head = [(hx - 22, hy - 28), (hx + 12, hy - 36), (hx + 38, hy - 18), (hx + 40, hy + 10), (hx + 18, hy + 32), (hx - 12, hy + 26), (hx - 30, hy + 0)]
         _poly(draw, head, SKIN, OUTLINE, 1.3)
         # Long nose and sagging face are the primary read.
-        nose = [
-            (hx + 18, hy - 8),
-            (hx + 62, hy - 6),
-            (hx + 74, hy + 2),
-            (hx + 54, hy + 10),
-            (hx + 20, hy + 6),
-        ]
+        nose = [(hx + 18, hy - 8), (hx + 62, hy - 6), (hx + 74, hy + 2), (hx + 54, hy + 10), (hx + 20, hy + 6)]
         _poly(draw, nose, NOSE, OUTLINE, 1.0)
         _circle(draw, (hx + 61, hy + 2), 2.2, OUTLINE, OUTLINE, 0.4)
-        chin = [
-            (hx + 10, hy + 18),
-            (hx + 38, hy + 20 + pose.jaw * 18),
-            (hx + 26, hy + 38 + pose.jaw * 14),
-            (hx + 4, hy + 30),
-        ]
+        chin = [(hx + 10, hy + 18), (hx + 38, hy + 20 + pose.jaw * 18), (hx + 26, hy + 38 + pose.jaw * 14), (hx + 4, hy + 30)]
         _poly(draw, chin, SKIN_SHADOW, OUTLINE, 0.8)
         # Moustache, brows, eye.
-        _line(
-            draw,
-            [(hx + 20, hy + 8), (hx + 36, hy + 16), (hx + 50, hy + 12)],
-            MOUSTACHE,
-            2.3,
-        )
+        _line(draw, [(hx + 20, hy + 8), (hx + 36, hy + 16), (hx + 50, hy + 12)], MOUSTACHE, 2.3)
         _line(draw, [(hx + 20, hy + 10), (hx + 31, hy + 23)], MOUSTACHE, 1.8)
         _line(draw, [(hx - 8, hy - 15), (hx + 10, hy - 18)], OUTLINE, 1.3)
         if pose.x_eyes:
@@ -491,16 +379,7 @@ class WeirdHermitRenderer:
         _line(draw, [shoulder, elbow], skin, 7.5 if front else 6.0)
         _line(draw, [elbow, hand], skin, 6.8 if front else 5.4)
         _line(draw, [shoulder, elbow, hand], OUTLINE, 1.8 if front else 1.3)
-        _ellipse(
-            draw,
-            elbow[0],
-            elbow[1],
-            6.5 if front else 5.0,
-            8.0 if front else 6.0,
-            skin,
-            OUTLINE,
-            0.8,
-        )
+        _ellipse(draw, elbow[0], elbow[1], 6.5 if front else 5.0, 8.0 if front else 6.0, skin, OUTLINE, 0.8)
         _circle(draw, hand, 5.2 if front else 4.2, skin, OUTLINE, 0.8)
         # Four long creepy fingers, anchored at the hand.
         for idx, dy in enumerate((-6, -2, 2, 6)):
@@ -512,20 +391,13 @@ class WeirdHermitRenderer:
 
     def _draw_near_arm(self, draw, P, pose):
         shoulder = P(28, -112)
-        elbow = P(
-            42 + pose.near_arm * 0.10 + pose.near_reach * 0.22,
-            -76 + pose.near_arm * 0.18,
-        )
-        hand = P(
-            54 + pose.near_arm * 0.20 + pose.near_reach, -47 + pose.near_arm * 0.14
-        )
+        elbow = P(42 + pose.near_arm * 0.10 + pose.near_reach * 0.22, -76 + pose.near_arm * 0.18)
+        hand = P(54 + pose.near_arm * 0.20 + pose.near_reach, -47 + pose.near_arm * 0.14)
         self._draw_arm(draw, shoulder, elbow, hand, True, pose.near_reach)
 
     def _draw_far_arm(self, draw, P, pose):
         shoulder = P(4, -112)
-        elbow = P(
-            12 + pose.far_arm * 0.10 + pose.far_reach * 0.16, -78 + pose.far_arm * 0.14
-        )
+        elbow = P(12 + pose.far_arm * 0.10 + pose.far_reach * 0.16, -78 + pose.far_arm * 0.14)
         hand = P(24 + pose.far_arm * 0.16 + pose.far_reach, -54 + pose.far_arm * 0.12)
         self._draw_arm(draw, shoulder, elbow, hand, False, pose.far_reach)
 
@@ -534,30 +406,11 @@ class WeirdHermitRenderer:
         _line(draw, [hip, knee], skin, 9.0 if front else 7.2)
         _line(draw, [knee, foot], skin, 8.0 if front else 6.4)
         _line(draw, [hip, knee, foot], OUTLINE, 1.9 if front else 1.3)
-        _ellipse(
-            draw,
-            knee[0],
-            knee[1],
-            7.0 if front else 5.6,
-            9.0 if front else 7.0,
-            skin,
-            OUTLINE,
-            0.8,
-        )
-        toes = [
-            (foot[0] - 12, foot[1] + 3),
-            (foot[0] + 22, foot[1] + 1),
-            (foot[0] + 26, foot[1] + 7),
-            (foot[0] - 10, foot[1] + 8),
-        ]
+        _ellipse(draw, knee[0], knee[1], 7.0 if front else 5.6, 9.0 if front else 7.0, skin, OUTLINE, 0.8)
+        toes = [(foot[0] - 12, foot[1] + 3), (foot[0] + 22, foot[1] + 1), (foot[0] + 26, foot[1] + 7), (foot[0] - 10, foot[1] + 8)]
         _poly(draw, toes, skin, OUTLINE, 0.9)
         for dx in (8, 15, 22):
-            _line(
-                draw,
-                [(foot[0] + dx, foot[1] + 3), (foot[0] + dx + 4, foot[1] + 7)],
-                OUTLINE,
-                0.6,
-            )
+            _line(draw, [(foot[0] + dx, foot[1] + 3), (foot[0] + dx + 4, foot[1] + 7)], OUTLINE, 0.6)
 
     def _draw_near_leg(self, draw, P, pose):
         hip = P(30, -22)
@@ -573,15 +426,8 @@ class WeirdHermitRenderer:
 
     def _draw_jab_fx(self, draw, P, pose):
         c = P(108 + pose.near_reach * 0.35, -48)
-        _line(
-            draw, [(c[0] - 14, c[1]), (c[0] + 18, c[1] - 2)], (255, 235, 180, 115), 2.0
-        )
-        _line(
-            draw,
-            [(c[0] - 6, c[1] - 8), (c[0] + 12, c[1] - 14)],
-            (255, 235, 180, 80),
-            1.1,
-        )
+        _line(draw, [(c[0] - 14, c[1]), (c[0] + 18, c[1] - 2)], (255, 235, 180, 115), 2.0)
+        _line(draw, [(c[0] - 6, c[1] - 8), (c[0] + 12, c[1] - 14)], (255, 235, 180, 80), 1.1)
 
     def _draw_grab_fx(self, draw, P, pose):
         c = P(104 + pose.near_reach * 0.25, -52)
@@ -590,26 +436,10 @@ class WeirdHermitRenderer:
 
     def _draw_sneeze_fx(self, draw, P, pose):
         origin = P(74, -154)
-        for i, (dx, dy, r) in enumerate(
-            [(24, -5, 10), (42, -10, 14), (61, -5, 18), (82, 4, 13)]
-        ):
+        for i, (dx, dy, r) in enumerate([(24, -5, 10), (42, -10, 14), (61, -5, 18), (82, 4, 13)]):
             alpha = int(80 + pose.sneeze * 65 - i * 10)
-            _ellipse(
-                draw,
-                origin[0] + dx,
-                origin[1] + dy,
-                r,
-                r * 0.7,
-                (*CURSE[:3], max(0, alpha)),
-                outline=(0, 0, 0, 0),
-                width=0,
-            )
-        _line(
-            draw,
-            [(origin[0] + 12, origin[1] + 2), (origin[0] + 78, origin[1] - 4)],
-            (*CURSE[:3], 130),
-            2.0,
-        )
+            _ellipse(draw, origin[0] + dx, origin[1] + dy, r, r * 0.7, (*CURSE[:3], max(0, alpha)), outline=(0, 0, 0, 0), width=0)
+        _line(draw, [(origin[0] + 12, origin[1] + 2), (origin[0] + 78, origin[1] - 4)], (*CURSE[:3], 130), 2.0)
 
 
 def _write_yaml(path: Path) -> None:
@@ -647,16 +477,12 @@ def _write_ron(path: Path) -> None:
     # Vec<SheetRecord>-shaped RON so the runtime + record_index can
     # consume the file without special-casing weird_hermit.
     fw, fh = FRAME_SIZE
-    out_lines = [
-        "[",
-        "(",
-        f'    target: "{TARGET_BASENAME}",',
-        f'    image: "{TARGET_BASENAME}_spritesheet.png",',
-        "    label_width: 0,",
-        f"    frame_width: {fw},",
-        f"    frame_height: {fh},",
-        "    rows: [",
-    ]
+    out_lines = ["[", "(", f'    target: "{TARGET_BASENAME}",',
+                 f'    image: "{TARGET_BASENAME}_spritesheet.png",',
+                 "    label_width: 0,",
+                 f"    frame_width: {fw},",
+                 f"    frame_height: {fh},",
+                 "    rows: ["]
     for row_index, (name, frames, ms) in enumerate(ROWS):
         out_lines.append("        (")
         out_lines.append(f'            animation: "{name}",')
@@ -718,14 +544,8 @@ def render(out_dir: str | Path, **opts) -> List[Path]:
 
 
 def main(argv: List[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Render a side-profile weird hermit enemy spritesheet."
-    )
-    parser.add_argument(
-        "--out-dir",
-        type=Path,
-        default=Path(__file__).resolve().parents[2] / "generated" / TARGET_BASENAME,
-    )
+    parser = argparse.ArgumentParser(description="Render a side-profile weird hermit enemy spritesheet.")
+    parser.add_argument("--out-dir", type=Path, default=Path(__file__).resolve().parents[2] / "generated" / TARGET_BASENAME)
     args = parser.parse_args(argv)
     for path in render(args.out_dir):
         print(path)

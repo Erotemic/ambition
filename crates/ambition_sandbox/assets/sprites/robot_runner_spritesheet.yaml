@@ -306,9 +306,9 @@ body_metrics:
     dash:
       hurtbox:
         bbox:
-          x: 4
+          x: 6
           y: 0
-          w: 97
+          w: 95
           h: 99
     wall_jump:
       hurtbox:

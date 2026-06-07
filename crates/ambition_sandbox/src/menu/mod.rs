@@ -15,6 +15,10 @@
 //!   the cube System face renders. Reads `crate::persistence::settings`.
 //! - [`map`] — the Map tab content (was `crate::map_menu`).
 
+/// Backend-agnostic action dispatcher (`dispatch_menu_action`); shared by the
+/// cube backend and any future menu frontend. See [`dispatch`].
+#[cfg(feature = "oot_inventory")]
+pub mod dispatch;
 pub mod ir;
 pub mod map;
 #[cfg(feature = "oot_inventory")]

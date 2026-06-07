@@ -26,8 +26,9 @@
 //!   `runner.start_node` / `stop` / `select_option` /
 //!   `continue_in_next_update` against the live runner entity.
 //!   Visit count increments here too (one per `start` call).
-//!   The bridge no longer auto-continues after `PresentLine`; the
-//!   player now advances once the reveal finishes.
+//!   The bridge only auto-continues on explicit `lastline`
+//!   markers, so options can appear immediately while plain lines
+//!   still wait for player confirm.
 //! - **Runner → UI**: three observers translate the runner's
 //!   lifecycle events into `DialogState` writes:
 //!   - [`on_present_line`] — `current_speaker`, `current_line`, and
@@ -178,6 +179,8 @@ fn dispatch_pending_dialog_requests(
         state.current_line.clear();
         state.current_speaker.clear();
         state.line_reveal = crate::dialog::runtime::LineRevealState::default();
+        state.line_last_before_options = false;
+        state.options_reveal = crate::dialog::runtime::OptionsRevealState::default();
         info!(
             target: "ambition_sandbox::dialog::yarn",
             "start_node({dialogue_id}) — runner advancing next tick",
@@ -198,6 +201,8 @@ fn dispatch_pending_dialog_requests(
             state.current_line.clear();
             state.current_speaker.clear();
             state.line_reveal = crate::dialog::runtime::LineRevealState::default();
+            state.line_last_before_options = false;
+            state.options_reveal = crate::dialog::runtime::OptionsRevealState::default();
             state.current_options.clear();
             state.yarn_option_ids.clear();
             state.selected_option = 0;
@@ -224,6 +229,8 @@ fn dispatch_pending_dialog_requests(
         state.current_options.clear();
         state.yarn_option_ids.clear();
         state.selected_option = 0;
+        state.line_last_before_options = false;
+        state.options_reveal = crate::dialog::runtime::OptionsRevealState::default();
         state.runner_done_pending_close = false;
         if let Some(next_mode) = next_mode.as_deref_mut() {
             next_mode.set(crate::game_mode::GameMode::Playing);
@@ -243,9 +250,11 @@ fn on_present_line(
     let new_text = event.line.text_without_character_name();
     state.current_speaker = new_speaker;
     state.start_revealing_line(new_text);
+    state.set_line_last_before_options(event.line.is_last_line_before_options());
     // Drop stale options from the previous beat. The new beat's
     // options arrive via `PresentOptions`.
     state.current_options.clear();
+    state.options_reveal = crate::dialog::runtime::OptionsRevealState::default();
     state.yarn_option_ids.clear();
     state.selected_option = 0;
     // Markup cue capture for [shout] / [whisper] hooks.
@@ -276,6 +285,7 @@ fn on_present_options(event: On<PresentOptions>, mut state: ResMut<DialogState>)
         });
         state.yarn_option_ids.push(option.id);
     }
+    state.reveal_full_options();
     state.selected_option = 0;
 }
 
@@ -299,6 +309,8 @@ fn on_dialogue_completed(
     state.current_options.clear();
     state.yarn_option_ids.clear();
     state.selected_option = 0;
+    state.line_last_before_options = false;
+    state.options_reveal = crate::dialog::runtime::OptionsRevealState::default();
     if let Some(next_mode) = next_mode.as_deref_mut() {
         next_mode.set(crate::game_mode::GameMode::Playing);
     }

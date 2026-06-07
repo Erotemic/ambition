@@ -92,12 +92,34 @@ fn confirm_with_options_preserves_option_selection() {
             ..Default::default()
         },
     ];
+    s.reveal_full_options();
     s.selected_option = 1;
 
     s.confirm_or_advance();
 
     assert_eq!(s.pending_select, Some(1));
     assert!(!s.pending_advance);
+}
+
+#[test]
+fn options_are_visible_immediately() {
+    let mut s = DialogState::default();
+    s.start("guide", "Guide");
+    s.start_revealing_line("Pick one".to_string());
+    s.reveal_full_line();
+    s.current_options = vec![
+        DialogChoice {
+            label: "A".to_string(),
+            ..Default::default()
+        },
+        DialogChoice {
+            label: "B".to_string(),
+            ..Default::default()
+        },
+    ];
+    s.reveal_full_options();
+
+    assert_eq!(s.options().len(), 2);
 }
 
 #[test]

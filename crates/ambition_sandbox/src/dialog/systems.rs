@@ -19,8 +19,12 @@ pub fn dialog_reveal_tick(time: Res<Time>, mut dialogue: ResMut<DialogState>) {
     if !dialogue.active() || dialogue.current_line.is_empty() {
         return;
     }
-    if dialogue.line_reveal_complete() {
-        if dialogue.current_options.is_empty()
+    if !dialogue.line_reveal_complete() {
+        dialogue.tick_reveal(time.delta_secs());
+        return;
+    }
+    if dialogue.current_options.is_empty() {
+        if dialogue.line_last_before_options()
             && !dialogue.runner_done_pending_close
             && !dialogue.pending_advance
         {
@@ -28,7 +32,9 @@ pub fn dialog_reveal_tick(time: Res<Time>, mut dialogue: ResMut<DialogState>) {
         }
         return;
     }
-    dialogue.tick_reveal(time.delta_secs());
+    if !dialogue.options_reveal_complete() {
+        dialogue.tick_options_reveal(time.delta_secs());
+    }
 }
 
 #[cfg(feature = "input")]

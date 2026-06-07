@@ -666,7 +666,7 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                 pause_menu::sync_settings_panel_rows,
                 #[cfg(not(feature = "oot_inventory"))]
                 inventory::sync_inventory_panel,
-                crate::map_menu::sync_map_menu,
+                crate::menu::map::sync_map_menu,
             )
                 .after(SandboxSet::CoreSimulation),
         )
@@ -676,8 +676,8 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                 crate::dev::profiling::phase_mark("before_setup_presentation"),
                 setup_presentation_system,
                 crate::dev::profiling::phase_mark("after_setup_presentation"),
-                crate::map_menu::populate_map_rooms,
-                crate::map_menu::spawn_map_menu,
+                crate::menu::map::populate_map_rooms,
+                crate::menu::map::spawn_map_menu,
                 crate::dev::profiling::phase_mark("after_map_menu_spawn"),
             )
                 .chain()
@@ -692,7 +692,7 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                 handle_debug_hotkeys,
                 dev_tools::sync_developer_body_profile,
                 crate::trace::handle_trace_hotkey,
-                crate::map_menu::handle_map_menu_hotkeys,
+                crate::menu::map::handle_map_menu_hotkeys,
             )
                 .chain()
                 .after(SandboxSet::CoreSimulation),
@@ -859,7 +859,7 @@ fn install_misc_visual_sync_systems(app: &mut App) {
             .after(crate::enemy_projectile::sync_enemy_projectile_visuals),
     )
     // Mouse / touch dismissal for the map menu.
-    .add_systems(Update, crate::map_menu::map_menu_pointer_dismiss)
+    .add_systems(Update, crate::menu::map::map_menu_pointer_dismiss)
     // Quest panel runs alongside the verbose HUD.
     .add_systems(Update, update_quest_panel.after(dialog::sync_dialog_ui));
 }

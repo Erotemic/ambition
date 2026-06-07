@@ -82,7 +82,6 @@ pub(crate) mod inventory;
 pub mod inventory_persist;
 pub mod item_pickup;
 pub mod items;
-pub(crate) mod map_menu;
 pub mod mark_recall;
 pub mod mechanics;
 pub(crate) mod music;
@@ -92,8 +91,9 @@ pub(crate) mod pause_menu;
 pub mod dive;
 #[cfg(feature = "oot_inventory")]
 pub mod lunex_kaleidoscope_app;
-#[cfg(feature = "oot_inventory")]
-pub mod menu_model;
+// Unified menu content (model + concrete settings IR + Map tab). See
+// `docs/planning/unified_tabbed_menu.md` §10.
+pub mod menu;
 pub mod meteor;
 pub(crate) mod persistence;
 pub mod physics;

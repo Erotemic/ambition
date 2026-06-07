@@ -50,8 +50,8 @@ impl Plugin for ProgressionSchedulePlugin {
                 // before `detect_room_transition_system` runs (which
                 // is in CoreSimulation, ordered after Progression).
                 crate::rooms::tick_portal_phases_system,
-                crate::map_menu::track_room_visits,
-                crate::map_menu::sync_map_from_save,
+                crate::menu::map::track_room_visits,
+                crate::menu::map::sync_map_from_save,
                 crate::dev::dev_tools::sync_player_stats_with_inspector,
             )
                 .chain()

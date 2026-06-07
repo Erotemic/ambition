@@ -47,11 +47,9 @@ pub mod audio;
 // `super::controls::…` paths resolve unchanged (ADR 0019).
 pub use ambition_input::settings as controls;
 pub mod gameplay;
-pub mod menu;
 pub mod model;
 pub mod persistence;
 pub mod platform_paths;
-pub mod system_menu;
 pub mod video;
 
 pub use audio::AudioSettings;
@@ -61,10 +59,12 @@ pub use controls::{
 };
 pub use gameplay::{AssistMode, GameplaySettings};
 // Public IR surface used by renderers (the cube today; the pause menu migrates
-// onto it next). `SettingsCategory` / `SettingsMenuModel` are reachable via the
-// `menu` submodule directly; only the names renderers currently name are
-// re-exported here to keep this convenience list warning-free.
-pub use menu::{
+// onto it next). The IR now lives in `crate::menu::ir`; these re-exports keep
+// the historical `crate::persistence::settings::{SettingsOption, …}` paths
+// resolving so external callers don't churn. `SettingsCategory` /
+// `SettingsMenuModel` are reachable via `crate::menu::ir::settings` directly;
+// only the names renderers currently name are re-exported here.
+pub use crate::menu::ir::settings::{
     apply_settings_option, settings_menu_model, SettingsOption, SettingsOptionId,
     SettingsOptionKind,
 };
@@ -73,11 +73,12 @@ pub use model::{
     SettingsOutcome, SettingsPage,
 };
 // The SYSTEM-menu IR layer (cube System face; the pause menu migrates onto it
-// later). Sits on top of the settings IR above.
-// Only the names the cube currently uses are re-exported here (matching the
-// settings-IR convenience list above); the rest of the IR vocabulary (`DevRow`,
-// `LocaleId`, `RadioRow`, …) is reachable via the `system_menu` submodule.
-pub use system_menu::{
+// later). Sits on top of the settings IR above; now lives in
+// `crate::menu::ir::system`. Only the names the cube currently uses are
+// re-exported here (matching the settings-IR convenience list above); the rest
+// of the IR vocabulary (`DevRow`, `LocaleId`, `RadioRow`, …) is reachable via
+// `crate::menu::ir::system` directly.
+pub use crate::menu::ir::system::{
     DevSnapshot, DevToggleId, RadioSnapshot, SystemMenuAction, SystemMenuEntryId, SystemMenuModel,
     SystemMenuTarget, SystemOptionId,
 };

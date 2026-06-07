@@ -264,7 +264,7 @@ pub fn spawn_inventory_panel(mut commands: Commands) {
 pub fn sync_inventory_panel(
     state: Res<InventoryUiState>,
     inventory: Res<PlayerInventory>,
-    map: Res<crate::map_menu::MapMenuState>,
+    map: Res<crate::menu::map::MapMenuState>,
     quests: Res<crate::content::quest::QuestRegistry>,
     room_set: Res<crate::rooms::RoomSet>,
     mut roots: Query<&mut Visibility, With<InventoryRoot>>,
@@ -428,7 +428,7 @@ pub fn sync_inventory_panel(
 
 fn map_tab_text(
     state: &InventoryUiState,
-    map: &crate::map_menu::MapMenuState,
+    map: &crate::menu::map::MapMenuState,
     room_set: &crate::rooms::RoomSet,
 ) -> String {
     let current = room_set.active_spec().id.as_str();

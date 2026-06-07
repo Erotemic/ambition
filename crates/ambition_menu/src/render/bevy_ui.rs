@@ -202,6 +202,23 @@ where
     PageId: Clone + Send + Sync + 'static,
     Action: Clone + Send + Sync + 'static,
 {
+    spawn_bevy_ui_menu_with_assets(commands, view, None)
+}
+
+/// Like [`spawn_bevy_ui_menu`], but with an optional [`AssetServer`] so item cells
+/// can render their ICON image (Fix 3). When `assets` is `None` (e.g. a headless
+/// test on `MinimalPlugins` with no `AssetPlugin`), icons fall back to the label —
+/// the cube renderer is unaffected. The host (which always has an `AssetServer`)
+/// calls this so the Grid's Items tab shows the same sprite icons the cube does.
+pub fn spawn_bevy_ui_menu_with_assets<PageId, Action>(
+    commands: &mut Commands,
+    view: &BevyUiMenuView<PageId, Action>,
+    assets: Option<&AssetServer>,
+) -> Entity
+where
+    PageId: Clone + Send + Sync + 'static,
+    Action: Clone + Send + Sync + 'static,
+{
     let active_tab = view.active_tab.min(view.tabs.len().saturating_sub(1));
     // Full-screen scrim: centers the panel and dims/blocks the world behind it.
     let root = commands
@@ -300,7 +317,7 @@ where
                 ))
                 .with_children(|body| {
                     for node in &view.page.nodes {
-                        spawn_node(body, node, view.focused);
+                        spawn_node(body, node, view.focused, assets);
                     }
                 });
         });
@@ -314,6 +331,7 @@ fn spawn_node<Action>(
     body: &mut RelatedSpawnerCommands<ChildOf>,
     node: &MenuNode<Action>,
     focused: Option<crate::MenuFocusKey>,
+    assets: Option<&AssetServer>,
 ) where
     Action: Clone + Send + Sync + 'static,
 {
@@ -384,14 +402,24 @@ fn spawn_node<Action>(
             kind,
             label,
             detail: _,
-            icon: _,
+            icon,
             selected,
             important,
             action,
             thumb,
         } => {
             spawn_control(
-                body, *rect, *kind, label, *selected, *important, action, *thumb, focused,
+                body,
+                *rect,
+                *kind,
+                label,
+                icon.as_deref(),
+                *selected,
+                *important,
+                action,
+                *thumb,
+                focused,
+                assets,
             );
         }
     }
@@ -405,11 +433,13 @@ fn spawn_control<Action>(
     rect: MenuRect,
     kind: MenuControlKind,
     label: &str,
+    icon: Option<&str>,
     selected: bool,
     important: bool,
     action: &Option<Action>,
     thumb: Option<ScrollThumb>,
     focused_key: Option<crate::MenuFocusKey>,
+    assets: Option<&AssetServer>,
 ) where
     Action: Clone + Send + Sync + 'static,
 {
@@ -446,7 +476,34 @@ fn spawn_control<Action>(
         Name::new(if is_scrollbar { "scrollbar" } else { "control" }),
     ));
 
-    if !label.is_empty() {
+    // Fix 3: an item cell with an icon renders the sprite ICON (an `ImageNode`)
+    // instead of a bare label, matching the cube's `spawn_icon`. The icon is tinted
+    // by the cell's state the same way: dim when disabled (un-owned), warm when
+    // selected, white otherwise. Falls back to the label when there is no icon or no
+    // `AssetServer` (headless tests). The detail/name still lives in the detail panel.
+    let icon_handle = icon
+        .zip(assets)
+        .map(|(path, server)| server.load::<Image>(path.to_string()));
+    if let Some(handle) = icon_handle {
+        let tint = if disabled {
+            Color::srgba(0.55, 0.58, 0.66, 0.55)
+        } else if focused || selected {
+            Color::srgb(1.0, 0.95, 0.78)
+        } else {
+            Color::WHITE
+        };
+        control.with_children(|c| {
+            c.spawn((
+                ImageNode::new(handle).with_color(tint),
+                Node {
+                    width: Val::Percent(78.0),
+                    height: Val::Percent(78.0),
+                    ..default()
+                },
+                Name::new("item icon"),
+            ));
+        });
+    } else if !label.is_empty() {
         control.with_children(|c| {
             c.spawn((Text::new(label.to_string()), TextColor(label_color)));
         });
@@ -703,6 +760,87 @@ mod tests {
             thumb_q.iter(app.world()).count(),
             0,
             "a non-scrolling list draws no thumb"
+        );
+    }
+
+    #[test]
+    fn item_cell_with_icon_spawns_an_image_node() {
+        // Fix 3: an owned item cell carrying an icon path renders an `ImageNode`
+        // (the sprite icon) when an `AssetServer` is available, like the cube does.
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_plugins(bevy::asset::AssetPlugin::default())
+            .init_asset::<Image>();
+
+        let mut page: MenuPageModel<Page, Action> =
+            MenuPageModel::new(Page::Inventory, "Inventory", MenuColor::BLUE_PANEL);
+        page.control_with_icon(
+            MenuRect::new(10.0, 20.0, 12.0, 12.0),
+            MenuControlKind::Item,
+            "Health",
+            None,
+            Some("items/health.png"),
+            false,
+            false,
+            Some(Action::Equip),
+        );
+        let tabs = tab_set();
+        app.world_mut().commands().queue(move |world: &mut World| {
+            let view = BevyUiMenuView {
+                tabs: &tabs,
+                active_tab: 0,
+                page: &page,
+                focused: None,
+            };
+            let assets = world.get_resource::<AssetServer>().cloned();
+            let mut commands = world.commands();
+            spawn_bevy_ui_menu_with_assets(&mut commands, &view, assets.as_ref());
+        });
+        app.update();
+
+        let mut icon_q = app.world_mut().query::<&ImageNode>();
+        assert_eq!(
+            icon_q.iter(app.world()).count(),
+            1,
+            "an item cell with an icon spawns one ImageNode"
+        );
+    }
+
+    #[test]
+    fn item_cell_without_assets_falls_back_to_label() {
+        // With no AssetServer (the cube/headless path), an icon cell still renders
+        // its label and NO ImageNode — the renderer degrades gracefully.
+        let mut app = build_app();
+        let mut page: MenuPageModel<Page, Action> =
+            MenuPageModel::new(Page::Inventory, "Inventory", MenuColor::BLUE_PANEL);
+        page.control_with_icon(
+            MenuRect::new(10.0, 20.0, 12.0, 12.0),
+            MenuControlKind::Item,
+            "Health",
+            None,
+            Some("items/health.png"),
+            false,
+            false,
+            Some(Action::Equip),
+        );
+        let tabs = tab_set();
+        app.world_mut().commands().queue(move |world: &mut World| {
+            let view = BevyUiMenuView {
+                tabs: &tabs,
+                active_tab: 0,
+                page: &page,
+                focused: None,
+            };
+            let mut commands = world.commands();
+            spawn_bevy_ui_menu(&mut commands, &view);
+        });
+        app.update();
+
+        let mut icon_q = app.world_mut().query::<&ImageNode>();
+        assert_eq!(
+            icon_q.iter(app.world()).count(),
+            0,
+            "no assets → no ImageNode"
         );
     }
 

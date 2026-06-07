@@ -149,6 +149,15 @@ pub struct MenuScrollbar {
     pub track_top_y: f32,
     /// Track height in screen pixels (must be > 0 for the drag to map).
     pub track_height: f32,
+    /// Fix 1: the pointer currently pressing this track, if any. Set on
+    /// [`Pointer<Press>`], cleared on [`Pointer<Release>`]. While `Some`, the
+    /// manual [`scrollbar_press_drag`] tracker emits [`MenuScrollDragged`] for the
+    /// pointer's live position each frame. This is the robust fallback for the cube
+    /// (the custom 3D picking backend does not reliably drive the picking core's
+    /// `Pointer<Drag>` continuity, so we track press + move ourselves on a path that
+    /// only needs the `Pointer<Press>`/`Pointer<Release>` events — which DO fire
+    /// through the custom backend, exactly like `Pointer<Click>` does).
+    pub pressed_by: Option<PointerId>,
 }
 
 impl Default for MenuScrollbar {
@@ -156,6 +165,7 @@ impl Default for MenuScrollbar {
         Self {
             track_top_y: 0.0,
             track_height: 0.0,
+            pressed_by: None,
         }
     }
 }
@@ -349,6 +359,14 @@ where
             app.add_systems(Update, project_scrollbar_tracks);
             app.add_observer(scrollbar_drag_start);
             app.add_observer(scrollbar_drag);
+            // Fix 1: the manual press+move tracker (the robust path for the cube's
+            // custom picking backend). `Pointer<Press>`/`Pointer<Release>` mark the
+            // track pressed; `scrollbar_press_drag` then emits `MenuScrollDragged`
+            // for the pointer's live position each frame while pressed — so dragging
+            // the thumb scrolls even where `Pointer<Drag>` continuity doesn't reach.
+            app.add_observer(scrollbar_press);
+            app.add_observer(scrollbar_release);
+            app.add_systems(Update, scrollbar_press_drag.after(project_scrollbar_tracks));
         }
         // Feature B: cross-fade the whole cube (faces/controls/text/icons) with the
         // open/close fold `amount`, so it fades in/out like the scrim instead of
@@ -1050,10 +1068,13 @@ mod fade_tests {
 
 #[cfg(test)]
 mod scrollbar_tests {
-    use super::{scrollbar_drag, scrollbar_drag_start, MenuScrollDragged, MenuScrollbar};
+    use super::{
+        scrollbar_drag, scrollbar_drag_start, scrollbar_press, scrollbar_press_drag,
+        scrollbar_release, MenuScrollDragged, MenuScrollbar,
+    };
     use bevy::camera::NormalizedRenderTarget;
-    use bevy::picking::events::{Drag, DragStart, Pointer};
-    use bevy::picking::pointer::{Location, PointerButton, PointerId};
+    use bevy::picking::events::{Drag, DragStart, Pointer, Press, Release};
+    use bevy::picking::pointer::{Location, PointerButton, PointerId, PointerLocation};
     use bevy::prelude::*;
 
     fn location(y: f32) -> Location {
@@ -1083,6 +1104,7 @@ mod scrollbar_tests {
             .spawn(MenuScrollbar {
                 track_top_y: 100.0,
                 track_height: 200.0,
+                ..Default::default()
             })
             .id();
 
@@ -1122,6 +1144,108 @@ mod scrollbar_tests {
             (fractions[1] - 0.5).abs() < 1e-4,
             "drag to mid = {}",
             fractions[1]
+        );
+    }
+
+    /// Fix 1: the manual press+move tracker (the path the CUBE actually uses, since
+    /// `Pointer<Drag>` continuity doesn't reach through the custom 3D picking
+    /// backend). A `Pointer<Press>` marks the track held; while held, the live
+    /// pointer position emits a proportional `MenuScrollDragged` each frame; a
+    /// `Pointer<Release>` ends it. Drives the real lib observers + system.
+    #[test]
+    fn press_and_move_on_scrollbar_emits_proportional_fraction() {
+        let mut app = App::new();
+        app.add_message::<MenuScrollDragged>();
+        app.add_observer(scrollbar_press);
+        app.add_observer(scrollbar_release);
+        app.add_systems(Update, scrollbar_press_drag);
+
+        // The pointer whose live position the tracker reads each frame.
+        let pointer = app
+            .world_mut()
+            .spawn((PointerId::Mouse, PointerLocation::new(location(100.0))))
+            .id();
+
+        // Track spans screen y in [100, 300] (top 100, height 200).
+        let bar = app
+            .world_mut()
+            .spawn(MenuScrollbar {
+                track_top_y: 100.0,
+                track_height: 200.0,
+                ..Default::default()
+            })
+            .id();
+
+        let drain = |app: &mut App| -> Vec<f32> {
+            app.world_mut()
+                .resource_mut::<Messages<MenuScrollDragged>>()
+                .drain()
+                .map(|m| m.fraction)
+                .collect()
+        };
+
+        // Press at the top of the track -> the press observer emits fraction 0 and
+        // marks the track held.
+        app.world_mut().trigger(Pointer::new(
+            PointerId::Mouse,
+            location(100.0),
+            Press {
+                button: PointerButton::Primary,
+                hit: bevy::picking::backend::HitData::new(bar, 0.0, None, None),
+            },
+            bar,
+        ));
+        let press = drain(&mut app);
+        assert_eq!(press.len(), 1, "press emits exactly one fraction");
+        assert!((press[0] - 0.0).abs() < 1e-4, "press at top = {}", press[0]);
+        assert_eq!(
+            app.world().get::<MenuScrollbar>(bar).unwrap().pressed_by,
+            Some(PointerId::Mouse),
+            "press marks the track held"
+        );
+
+        // Move the live pointer to the middle of the track; the manual tracker emits
+        // fraction 0.5 each frame while held (no `Pointer<Drag>` needed).
+        *app.world_mut().get_mut::<PointerLocation>(pointer).unwrap() =
+            PointerLocation::new(location(200.0));
+        let _ = drain(&mut app); // clear the press message before the tracked frame
+        app.update();
+        let tracked = drain(&mut app);
+        assert!(
+            !tracked.is_empty(),
+            "the held tracker emits while pressed: {tracked:?}"
+        );
+        assert!(
+            (tracked.last().unwrap() - 0.5).abs() < 1e-4,
+            "tracked move to mid = {}",
+            tracked.last().unwrap()
+        );
+
+        // Release ends the held state.
+        app.world_mut().trigger(Pointer::new(
+            PointerId::Mouse,
+            location(300.0),
+            Release {
+                button: PointerButton::Primary,
+                hit: bevy::picking::backend::HitData::new(bar, 0.0, None, None),
+            },
+            bar,
+        ));
+        assert_eq!(
+            app.world().get::<MenuScrollbar>(bar).unwrap().pressed_by,
+            None,
+            "release clears the held pointer"
+        );
+
+        // Move again after release -> the tracker must NOT emit.
+        *app.world_mut().get_mut::<PointerLocation>(pointer).unwrap() =
+            PointerLocation::new(location(150.0));
+        let _ = drain(&mut app);
+        app.update();
+        let after_release = drain(&mut app);
+        assert!(
+            after_release.is_empty(),
+            "no fractions after release: {after_release:?}"
         );
     }
 }
@@ -2023,6 +2147,64 @@ fn scrollbar_drag(
 ) {
     if let Ok(bar) = bars.get(drag.entity) {
         if let Some(fraction) = scrollbar_fraction(bar, drag.pointer_location.position.y) {
+            out.write(MenuScrollDragged { fraction });
+        }
+    }
+}
+
+/// Fix 1: a press on the scrollbar marks the track as held by that pointer (and
+/// jumps the scroll to the pressed position). `Pointer<Press>` fires through the
+/// cube's custom picking backend exactly like `Pointer<Click>` does, so this is the
+/// reliable entry the manual drag tracker keys off of (the `Pointer<Drag>`
+/// observers above only fire when the picking core's drag continuity reaches the
+/// cube, which the custom backend doesn't guarantee — both paths emit the same
+/// `MenuScrollDragged` fraction, so having both is safe).
+fn scrollbar_press(
+    press: On<Pointer<Press>>,
+    mut bars: Query<&mut MenuScrollbar>,
+    mut out: MessageWriter<MenuScrollDragged>,
+) {
+    if let Ok(mut bar) = bars.get_mut(press.entity) {
+        bar.pressed_by = Some(press.pointer_id);
+        if let Some(fraction) = scrollbar_fraction(&bar, press.pointer_location.position.y) {
+            out.write(MenuScrollDragged { fraction });
+        }
+    }
+}
+
+/// Fix 1: releasing the pointer ends the manual scrollbar drag. We clear the press
+/// state on EVERY scrollbar for this pointer (a release can land off the thumb, so
+/// we can't rely on `release.entity` being the track).
+fn scrollbar_release(release: On<Pointer<Release>>, mut bars: Query<&mut MenuScrollbar>) {
+    for mut bar in &mut bars {
+        if bar.pressed_by == Some(release.pointer_id) {
+            bar.pressed_by = None;
+        }
+    }
+}
+
+/// Fix 1: while a scrollbar track is held (`pressed_by`), emit the neutral
+/// `MenuScrollDragged` fraction for the holding pointer's LIVE position each frame.
+/// This is the manual press+move tracker that makes click-and-drag work on the cube
+/// (mouse AND touch — both arrive as a `PointerLocation`) where the picking core's
+/// `Pointer<Drag>` events don't reach through the custom 3D backend.
+fn scrollbar_press_drag(
+    pointers: Query<(&PointerId, &PointerLocation)>,
+    bars: Query<&MenuScrollbar>,
+    mut out: MessageWriter<MenuScrollDragged>,
+) {
+    for bar in &bars {
+        let Some(held) = bar.pressed_by else {
+            continue;
+        };
+        let Some((_, loc)) = pointers
+            .iter()
+            .find(|(id, _)| **id == held)
+            .and_then(|(id, loc)| loc.location().map(|l| (id, l)))
+        else {
+            continue;
+        };
+        if let Some(fraction) = scrollbar_fraction(bar, loc.position.y) {
             out.write(MenuScrollDragged { fraction });
         }
     }

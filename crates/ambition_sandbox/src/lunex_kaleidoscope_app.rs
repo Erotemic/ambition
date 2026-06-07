@@ -1366,6 +1366,8 @@ pub(crate) fn focus_for_action(
             }
         }
         MenuPageAction::System(option) => system_row(SystemRow::Setting(option)),
+        // Fix 2: a ◀ / ▶ step zone lands the cursor on its parent value row.
+        MenuPageAction::SystemStep(option, _) => system_row(SystemRow::Setting(option)),
         MenuPageAction::SystemOption(opt) => system_row(SystemRow::Option(opt)),
         MenuPageAction::SystemAction(_) => {
             // An Action entry sits at top level; find its entry row.

@@ -225,6 +225,12 @@ pub enum MenuPageAction {
     /// (`apply_settings_option`), which the existing `save_settings_on_change`
     /// system then persists — no parallel persistence path.
     System(SettingsOptionId),
+    /// Fix 2: a DIRECTIONAL step on a value-style System SETTINGS row (Slider/Cycle),
+    /// for touch/mouse users. The `i32` is the step direction (`-1` decrease / `+1`
+    /// increase) the host applies via `apply_settings_option(option, dir, …)` — the
+    /// same path the keyboard's LEFT/RIGHT already drives. Emitted by the ◀ / ▶ click
+    /// zones flanking the row (plain `System` confirm/select still steps +1).
+    SystemStep(SettingsOptionId, i32),
     /// A non-settings System screen option (radio station / locale / dev toggle).
     /// Applied host-side against the matching live resource.
     SystemOption(SystemOptionId),
@@ -513,6 +519,20 @@ fn setting_entry(model: &SystemMenuModel, id: SettingsOptionId) -> Option<Settin
         SystemMenuTarget::Settings(options) => options.iter().find(|o| o.id == id).cloned(),
         _ => None,
     })
+}
+
+/// Fix 2: whether a settings row is a value-style control (Slider/Cycle), i.e. one
+/// that the keyboard steps with LEFT/RIGHT and so should get flanking ◀ / ▶ touch
+/// click zones. Toggles and Actions are select-only and get no step zones.
+fn is_value_setting_row(model: &SystemMenuModel, id: SettingsOptionId) -> bool {
+    setting_entry(model, id)
+        .map(|o| {
+            matches!(
+                o.kind,
+                SettingsOptionKind::Cycle { .. } | SettingsOptionKind::Slider { .. }
+            )
+        })
+        .unwrap_or(false)
 }
 
 /// The display label for a non-settings screen option (radio / locale / dev).
@@ -809,6 +829,46 @@ pub fn build_system_page(
             false,
             system_row_action(&sys_model, *row),
         );
+
+        // Fix 2: a value-style row (Slider/Cycle) gets two flanking pickable click
+        // zones so TOUCH/MOUSE users can step both ways (the keyboard already does
+        // via LEFT/RIGHT). The ◀ zone dispatches a -1 step, the ▶ zone a +1 step,
+        // through the same `apply_settings_option(option, dir, …)` IR path. They sit
+        // INSIDE the row's left/right edges (so they overlay the row, not the
+        // neighbours); spawned AFTER the row, they win the perspective pick over it.
+        if let SystemRow::Setting(option) = *row {
+            if is_value_setting_row(&sys_model, option) {
+                let zone_w = (SYSTEM_LIST_RECT.w * 0.16).min(11.0);
+                model.control(
+                    MenuRect {
+                        x: SYSTEM_LIST_RECT.x,
+                        y,
+                        w: zone_w,
+                        h: row_h,
+                    },
+                    MenuControlKind::OptionChoice,
+                    "\u{25C0}", // ◀
+                    None,
+                    false,
+                    false,
+                    Some(MenuPageAction::SystemStep(option, -1)),
+                );
+                model.control(
+                    MenuRect {
+                        x: SYSTEM_LIST_RECT.x + SYSTEM_LIST_RECT.w - zone_w,
+                        y,
+                        w: zone_w,
+                        h: row_h,
+                    },
+                    MenuControlKind::OptionChoice,
+                    "\u{25B6}", // ▶
+                    None,
+                    false,
+                    false,
+                    Some(MenuPageAction::SystemStep(option, 1)),
+                );
+            }
+        }
     }
 
     // Feature C: a draggable scrollbar appears only when the list overflows the
@@ -1203,6 +1263,77 @@ mod tests {
             )
         });
         assert!(has_edges, "System page keeps the L/R edge buttons");
+    }
+
+    #[test]
+    fn value_rows_get_decrease_and_increase_click_zones() {
+        // Fix 2: a drilled-in Video screen has value rows (Slider/Cycle, e.g. Camera
+        // Zoom). Each such row in the visible window gets a ◀ (dir -1) + ▶ (dir +1)
+        // click zone so touch/mouse users can step both ways.
+        let settings = UserSettings::default();
+        let page = build_system_page(
+            &settings,
+            &RadioSnapshot::default(),
+            &DevSnapshot::default(),
+            MenuFocus::System(0),
+            0,
+            Some(SystemMenuEntryId::Video),
+        );
+        let steps: Vec<(SettingsOptionId, i32)> = page
+            .nodes
+            .iter()
+            .filter_map(|n| match n {
+                ambition_menu::MenuNode::Control {
+                    action: Some(MenuPageAction::SystemStep(o, dir)),
+                    ..
+                } => Some((*o, *dir)),
+                _ => None,
+            })
+            .collect();
+        assert!(
+            !steps.is_empty(),
+            "a value-style settings screen emits step zones"
+        );
+        // Every step zone is exactly -1 or +1.
+        assert!(
+            steps.iter().all(|(_, d)| *d == -1 || *d == 1),
+            "step zones carry dir -1 or +1: {steps:?}"
+        );
+        // Every option that has a step zone has BOTH a decrease (-1) and increase (+1).
+        let sys_model = SystemMenuModel::build(
+            &settings,
+            &RadioSnapshot::default(),
+            &DevSnapshot::default(),
+        );
+        let mut value_opts: Vec<SettingsOptionId> = Vec::new();
+        for (o, _) in &steps {
+            if !value_opts.contains(o) {
+                value_opts.push(*o);
+            }
+        }
+        for opt in value_opts {
+            assert!(
+                is_value_setting_row(&sys_model, opt),
+                "{opt:?} with a step zone is a value (Slider/Cycle) row"
+            );
+            assert!(
+                steps.contains(&(opt, -1)),
+                "{opt:?} has a decrease (dir -1) zone"
+            );
+            assert!(
+                steps.contains(&(opt, 1)),
+                "{opt:?} has an increase (dir +1) zone"
+            );
+        }
+        // A non-value row (DisplayMode is a Cycle, but a pure Toggle like ShowFps is
+        // NOT a value row in the keyboard's LEFT/RIGHT sense the way Slider/Cycle are)
+        // never gets a step zone unless it is genuinely a value kind.
+        assert!(
+            !steps
+                .iter()
+                .any(|(o, _)| !is_value_setting_row(&sys_model, *o)),
+            "only value rows get step zones"
+        );
     }
 
     #[test]

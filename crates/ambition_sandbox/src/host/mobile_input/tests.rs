@@ -143,6 +143,57 @@ fn touch_move_to_menu_dir_applies_deadzone() {
 
 #[cfg(feature = "mobile_touch")]
 #[test]
+fn axis_override_drives_knob_only_during_gameplay() {
+    // Problem 1: while a menu is open the gameplay axis is ~0 (touch is
+    // routed to the menu frame), so the knob-drive override must NOT
+    // run — otherwise it snaps the knob to center even as the player
+    // drags it to navigate the menu. During gameplay the override DOES
+    // run so the knob mirrors the move axis.
+    use super::bevy_plugin::axis_override_drives_knob;
+    use crate::game_mode::GameMode;
+
+    assert!(
+        axis_override_drives_knob(GameMode::Playing),
+        "gameplay: knob should mirror the move axis"
+    );
+    assert!(
+        !axis_override_drives_knob(GameMode::Paused),
+        "pause / inventory grid / kaleidoscope cube: knob follows the live drag, not the zeroed axis"
+    );
+    assert!(
+        !axis_override_drives_knob(GameMode::Dialogue),
+        "dialogue menu: knob follows the live drag, not the zeroed axis"
+    );
+}
+
+#[cfg(feature = "mobile_touch")]
+#[test]
+fn touch_drag_folds_into_menu_frame_while_kaleidoscope_paused() {
+    // Problem 2: the 3D kaleidoscope cube opens in `GameMode::Paused`,
+    // exactly like the bevy_ui grid menu. The touch->MenuControlFrame
+    // fold keys off `Paused` (via `menu_move_active`), so a joystick
+    // drag in `Paused` produces an Up/Down menu direction the same way
+    // it does for the grid. This pins that the kaleidoscope's `Paused`
+    // mode is covered by the menu-active gate (no separate state to
+    // miss).
+    use super::menu_bridge::{menu_move_active, touch_move_to_menu_dir};
+    use crate::game_mode::GameMode;
+    use crate::input::MenuDir;
+
+    // Kaleidoscope (and grid) open in Paused -> menu fold is active.
+    assert!(menu_move_active(GameMode::Paused));
+    assert!(menu_move_active(GameMode::Dialogue));
+    assert!(!menu_move_active(GameMode::Playing));
+
+    // A downward stick drag while Paused maps to MenuDir::Down (the
+    // cube cursor moves), identical to the grid menu.
+    let mut state = TouchInputState::default();
+    state.move_y = 1.0;
+    assert_eq!(touch_move_to_menu_dir(state, 0.05), Some(MenuDir::Down));
+}
+
+#[cfg(feature = "mobile_touch")]
+#[test]
 fn touch_action_hit_test_includes_fly_button() {
     use super::layout::{
         touch_action_at_position, touch_action_cluster_origin, touch_action_layout,

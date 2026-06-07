@@ -955,6 +955,31 @@ fn set_button_held(edges: &mut TouchButtonEdges, action: TouchActionButton, held
     }
 }
 
+/// Decide whether `drive_joystick_knob_from_axis` should override the
+/// knob position with the gameplay MOVE axis this frame.
+///
+/// The override mirrors the gameplay axis onto the knob so the stick
+/// doubles as an input display for keyboard / gamepad. But while a
+/// menu is open (pause / inventory grid / 3D kaleidoscope cube /
+/// dialogue) the touch input is routed to the semantic
+/// `MenuControlFrame`, NOT the gameplay `ControlFrame` (see
+/// `fold_to_control_frame`, which early-returns unless
+/// `allows_gameplay()`). The gameplay axis is therefore ~0 during a
+/// menu, so applying the override would snap the knob back to center
+/// even as the player drags it to navigate the menu.
+///
+/// When a menu is open we return `false` and let `virtual_joystick`'s
+/// own `update_ui` keep the knob on the live touch / mouse drag, so
+/// the knob visibly follows the finger during menu navigation.
+pub fn axis_override_drives_knob(mode: crate::game_mode::GameMode) -> bool {
+    // Only mirror the gameplay axis onto the knob while gameplay owns
+    // input. `allows_gameplay()` is true only in `GameMode::Playing`;
+    // `Paused` (pause menu, inventory grid, kaleidoscope cube) and
+    // `Dialogue` all open menus that consume the stick via the menu
+    // frame instead.
+    mode.allows_gameplay()
+}
+
 /// Mirror keyboard / gamepad axis input onto the on-screen joystick
 /// knob's visual position, so the touch HUD doubles as an input
 /// display for non-touch devices.
@@ -967,15 +992,30 @@ fn set_button_held(edges: &mut TouchButtonEdges, action: TouchActionButton, held
 /// derived from `ControlFrame.axis_x` / `axis_y`, using the same
 /// circle-bounded math the crate's `update_ui` uses.
 ///
+/// While a MENU is open (`!allows_gameplay()`), the whole override is
+/// skipped (see [`axis_override_drives_knob`]): touch is routed to the
+/// menu frame, so the gameplay axis is ~0 and overriding would snap
+/// the knob to center. Skipping lets `virtual_joystick`'s `update_ui`
+/// keep the knob on the live drag so it follows the finger as the
+/// player navigates the menu.
+///
 /// Convention: `ControlFrame.axis_*` already follows the sim's
 /// +Y-down convention, which matches Bevy UI's +Y-down `Node.top`
 /// axis, so no Y inversion is needed here.
 fn drive_joystick_knob_from_axis(
+    mode: Res<State<crate::game_mode::GameMode>>,
     control_frame: Res<ControlFrame>,
     joystick_q: Query<(&VirtualJoystickState, &Children), With<VirtualJoystickNode<MobileStick>>>,
     base_q: Query<&ComputedNode, With<VirtualJoystickUIBackground>>,
     mut knob_q: Query<(&mut Node, &ComputedNode), With<VirtualJoystickUIKnob>>,
 ) {
+    // While a menu is open the gameplay axis is ~0 (touch is routed to
+    // the menu frame). Skip the override entirely so `virtual_joystick`'s
+    // `update_ui` keeps the knob on the live drag and it follows the
+    // finger during menu navigation.
+    if !axis_override_drives_knob(*mode.get()) {
+        return;
+    }
     // Treat axes inside ±1e-3 as "no input." Below this the knob must
     // snap to the base's center regardless of any active or stale
     // `state.touch_state`: on Android the crate occasionally holds a

@@ -219,7 +219,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
             )
                 .chain()
                 .in_set(crate::app::SandboxSet::PresentationVisualSync)
-                .after(crate::map_menu::handle_map_menu_hotkeys),
+                .after(crate::menu::map::handle_map_menu_hotkeys),
         );
     }
 }

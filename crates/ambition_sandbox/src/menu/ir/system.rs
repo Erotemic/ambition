@@ -6,7 +6,7 @@
 //! station list, a language picker, or the developer toggles) or fires an
 //! immediate [`SystemMenuAction`] (Reset Sandbox).
 //!
-//! It sits ON TOP of the existing [`super::menu::SettingsMenuModel`]: settings
+//! It sits ON TOP of the existing [`super::settings::SettingsMenuModel`]: settings
 //! screens reuse that IR's [`SettingsOption`]s and [`apply_settings_option`]
 //! verbatim, so the cube and the pause menu can never drift on a setting's value
 //! label / control kind / mutation. The new screens (Radio / Language /
@@ -30,8 +30,8 @@
 //! build [`SystemMenuModel::build`] omits them entirely, so there are no dead
 //! rows and no references to dev-only code.
 
-use super::menu::{settings_menu_model, SettingsOption, SettingsOptionId, SettingsOptionKind};
-use super::UserSettings;
+use super::settings::{settings_menu_model, SettingsOption, SettingsOptionId, SettingsOptionKind};
+use crate::persistence::settings::UserSettings;
 
 /// True in builds that ship the developer tooling. Matches the gate used by the
 /// rest of the sandbox dev surface (`DeveloperTools` inspector, dev hotkeys), so
@@ -192,6 +192,10 @@ pub enum SystemMenuEntryId {
     /// Reset every persisted settings/dev resource back to defaults. Always
     /// present (mirrors the pause menu's Top-page `ResetAllSettings`).
     ResetAllSettings,
+    /// Quit the application to the desktop. Always present, immediate action
+    /// (no drill screen), placed after Reset All Settings. Mirrors the pause
+    /// menu's Top-page `Quit` (which is removed in a later phase).
+    Quit,
     /// Dev-build only.
     Developer,
     /// Dev-build only.
@@ -208,6 +212,7 @@ impl SystemMenuEntryId {
             Self::Gameplay => "Gameplay",
             Self::Language => "Language",
             Self::ResetAllSettings => "Reset All Settings",
+            Self::Quit => "Quit to Desktop",
             Self::Developer => "Developer",
             Self::ResetSandbox => "Reset Sandbox",
         }
@@ -222,6 +227,7 @@ impl SystemMenuEntryId {
             Self::Gameplay => "Debug and quest HUD overlays.",
             Self::Language => "Interface language (English only for now).",
             Self::ResetAllSettings => "Restore every setting and developer tool to its default.",
+            Self::Quit => "Exit the game and return to the desktop.",
             Self::Developer => "Developer inspectors, debug visuals, and feel profiles.",
             Self::ResetSandbox => "Wipe the save and respawn at the start room.",
         }
@@ -248,6 +254,9 @@ pub enum SystemMenuAction {
     /// Reset every persisted settings/dev resource to defaults, then close the
     /// menu. Mirrors the pause menu's `SettingsItem::ResetAllSettings`.
     ResetAllSettings,
+    /// Quit the application to the desktop (writes `AppExit::Success`), then
+    /// close the menu. Mirrors the pause menu's Top-page `Quit`.
+    Quit,
 }
 
 /// What a top-level [`SystemMenuEntry`] does when selected.
@@ -483,6 +492,15 @@ impl SystemMenuModel {
             target: SystemMenuTarget::Action(SystemMenuAction::ResetAllSettings),
         });
 
+        // Quit to Desktop: always present, immediate action, placed right after
+        // Reset All Settings (and before the dev-only entries).
+        entries.push(SystemMenuEntry {
+            id: SystemMenuEntryId::Quit,
+            label: SystemMenuEntryId::Quit.label().to_string(),
+            description: SystemMenuEntryId::Quit.description().to_string(),
+            target: SystemMenuTarget::Action(SystemMenuAction::Quit),
+        });
+
         // Developer + Reset Sandbox: DEV-BUILD GATED.
         if DEV_BUILD {
             let dev_rows: Vec<DevRow> = DevToggleId::ALL
@@ -544,10 +562,11 @@ mod tests {
         );
         let ids: Vec<_> = model.entries.iter().map(|e| e.id).collect();
         // The non-dev prefix is always present in this fixed order. Shaders is no
-        // longer a top-level entry (it rides under Video); Reset All Settings is
-        // always present (it mirrors the pause menu's non-dev-gated reset).
+        // longer a top-level entry (it rides under Video); Reset All Settings and
+        // Quit to Desktop are always present (Quit sits right after Reset All
+        // Settings, before the dev-only entries).
         assert_eq!(
-            &ids[..7],
+            &ids[..8],
             &[
                 SystemMenuEntryId::Radio,
                 SystemMenuEntryId::Video,
@@ -556,11 +575,12 @@ mod tests {
                 SystemMenuEntryId::Gameplay,
                 SystemMenuEntryId::Language,
                 SystemMenuEntryId::ResetAllSettings,
+                SystemMenuEntryId::Quit,
             ]
         );
         if DEV_BUILD {
             assert_eq!(
-                &ids[7..],
+                &ids[8..],
                 &[
                     SystemMenuEntryId::Developer,
                     SystemMenuEntryId::ResetSandbox
@@ -569,7 +589,7 @@ mod tests {
         } else {
             assert_eq!(
                 ids.len(),
-                7,
+                8,
                 "non-dev builds omit Developer + Reset Sandbox"
             );
         }
@@ -590,6 +610,36 @@ mod tests {
             SystemMenuTarget::Action(SystemMenuAction::ResetAllSettings),
             "Reset All Settings fires an immediate action (no screen)"
         );
+    }
+
+    #[test]
+    fn quit_is_an_always_present_action_entry_after_reset_all() {
+        let model = SystemMenuModel::build(
+            &UserSettings::default(),
+            &RadioSnapshot::default(),
+            &DevSnapshot::default(),
+        );
+        let entry = model
+            .entry(SystemMenuEntryId::Quit)
+            .expect("Quit to Desktop is always surfaced");
+        assert_eq!(entry.label, "Quit to Desktop");
+        assert_eq!(
+            entry.target,
+            SystemMenuTarget::Action(SystemMenuAction::Quit),
+            "Quit fires an immediate action (no screen)"
+        );
+        // Quit sits immediately after Reset All Settings.
+        let reset_pos = model
+            .entries
+            .iter()
+            .position(|e| e.id == SystemMenuEntryId::ResetAllSettings)
+            .unwrap();
+        let quit_pos = model
+            .entries
+            .iter()
+            .position(|e| e.id == SystemMenuEntryId::Quit)
+            .unwrap();
+        assert_eq!(quit_pos, reset_pos + 1);
     }
 
     #[test]

@@ -12,8 +12,8 @@
 //! ## Why an IR
 //!
 //! Two settings surfaces exist in the sandbox: the bevy-UI pause menu
-//! (`crate::pause_menu`, which reads [`super::model::SettingsItem`]) and the
-//! 3D OoT cube's System face (`crate::menu_model`). They used to each re-author
+//! (`crate::pause_menu`, which reads [`crate::persistence::settings::model::SettingsItem`]) and the
+//! 3D OoT cube's System face (`crate::menu::model`). They used to each re-author
 //! the option set, so they drifted. This IR is the shared source of truth the
 //! cube renders from (the pause menu migrates onto it as a follow-up).
 //!
@@ -25,9 +25,9 @@
 //! helpers (`audio.nudge_*`, `CameraZoomPreset::next`/`prev`, the bool toggles)
 //! are reused verbatim — this module adds no parallel persistence path.
 
-use super::audio::AudioSettings;
-use super::video::CameraZoomPreset;
-use super::UserSettings;
+use crate::persistence::settings::audio::AudioSettings;
+use crate::persistence::settings::video::CameraZoomPreset;
+use crate::persistence::settings::UserSettings;
 
 /// Stable identity of a settings category. `Copy` so it can ride inside a
 /// renderer's selection cursor / dispatched action without allocation.
@@ -252,7 +252,10 @@ fn percent_label(value: f32) -> String {
 /// (`ScreenShaderSettings::percent`, distinct from the audio one) so the IR's
 /// value label is byte-identical to the pause menu's `format_shader_percent`.
 fn shader_percent_label(value: f32) -> String {
-    format!("{}%", super::video::ScreenShaderSettings::percent(value))
+    format!(
+        "{}%",
+        crate::persistence::settings::video::ScreenShaderSettings::percent(value)
+    )
 }
 
 /// A 0..=1 shader-strength slider row. Replicates the pause menu's
@@ -287,10 +290,12 @@ fn enum_index<T: PartialEq + Copy>(all: &[T], value: T) -> (usize, usize) {
 /// is the single source of truth for the option set / grouping / value labels;
 /// every renderer reads from here so they cannot drift.
 pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
-    use super::controls::{ControllerProfileId, DashInputMode, MenuTapMode};
-    use super::gameplay::Difficulty;
-    use super::video::{CameraAspectPolicy, CameraFramingPreset, ColorblindMode, FlashIntensity};
     use crate::host::windowing::DisplayModeKind;
+    use crate::persistence::settings::controls::{ControllerProfileId, DashInputMode, MenuTapMode};
+    use crate::persistence::settings::gameplay::Difficulty;
+    use crate::persistence::settings::video::{
+        CameraAspectPolicy, CameraFramingPreset, ColorblindMode, FlashIntensity,
+    };
 
     let v = &settings.video;
     let a = &settings.audio;
@@ -386,7 +391,7 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
     // Each row is a slider with the SAME step the pause menu nudges by
     // (UNIT_STEP 0.10 / FINE_STEP 0.05; grain size/fps use their own ranges) and
     // the SAME value label (`ScreenShaderSettings::percent`, or `px` / `fps`).
-    use super::video::ScreenShaderSettings as Shdr;
+    use crate::persistence::settings::video::ScreenShaderSettings as Shdr;
     let s = &v.shaders;
     let shader_options: Vec<SettingsOption> = vec![
         shader_unit_slider(
@@ -725,7 +730,10 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
             toggle(
                 SettingsOptionId::Assist,
                 "Assist",
-                matches!(g.assist, super::gameplay::AssistMode::On),
+                matches!(
+                    g.assist,
+                    crate::persistence::settings::gameplay::AssistMode::On
+                ),
                 "Aim/traversal assists for accessibility.",
             ),
             slider(
@@ -734,7 +742,7 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                 g.player_damage_multiplier,
                 0.25,
                 4.0,
-                super::gameplay::GameplaySettings::DAMAGE_STEP,
+                crate::persistence::settings::gameplay::GameplaySettings::DAMAGE_STEP,
                 format!("x{:.2}", g.player_damage_multiplier),
                 "Scale the damage the player deals.",
             ),
@@ -785,13 +793,13 @@ pub fn close_menu_option() -> SettingsOption {
 /// so the caller can fold the menu shut (the only outcome a renderer can't
 /// express by re-reading the model).
 pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut UserSettings) -> bool {
-    use super::controls::{ControllerProfileId, DashInputMode, MenuTapMode};
-    use super::gameplay::Difficulty;
-    use super::video::{
+    use crate::host::windowing::DisplayModeKind;
+    use crate::persistence::settings::controls::{ControllerProfileId, DashInputMode, MenuTapMode};
+    use crate::persistence::settings::gameplay::Difficulty;
+    use crate::persistence::settings::video::{
         CameraAspectPolicy, CameraFramingPreset, ColorblindMode, FlashIntensity,
         ScreenShaderSettings, SerializableDisplayMode,
     };
-    use crate::host::windowing::DisplayModeKind;
 
     // Cycle helper: dir<0 -> prev, otherwise next (confirm advances like next).
     macro_rules! cyc {
@@ -816,9 +824,9 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
         SettingsOptionId::DisplayMode => {
             let cur = DisplayModeKind::from(settings.video.display_mode);
             let next = if dir < 0 {
-                super::model::prev_display_mode(cur)
+                crate::persistence::settings::model::prev_display_mode(cur)
             } else {
-                super::model::next_display_mode(cur)
+                crate::persistence::settings::model::next_display_mode(cur)
             };
             settings.video.display_mode = SerializableDisplayMode::from(next);
         }
@@ -988,9 +996,9 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
         SettingsOptionId::Assist => {
             settings.gameplay.assist = settings.gameplay.assist.toggle();
         }
-        SettingsOptionId::PlayerDamage => settings
-            .gameplay
-            .nudge_player_damage(s * super::gameplay::GameplaySettings::DAMAGE_STEP),
+        SettingsOptionId::PlayerDamage => settings.gameplay.nudge_player_damage(
+            s * crate::persistence::settings::gameplay::GameplaySettings::DAMAGE_STEP,
+        ),
         SettingsOptionId::DebugHud => tog!(settings.gameplay.debug_hud_visible),
         SettingsOptionId::QuestHud => tog!(settings.gameplay.quest_hud_visible),
         SettingsOptionId::TraceAutoDump => tog!(settings.gameplay.trace_auto_dump),

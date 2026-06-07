@@ -160,27 +160,29 @@ impl SettingsItem {
     /// Map a pause-menu row to its shared-IR option, if the option is one the
     /// IR models. This is the single bridge between the pause menu's
     /// `SettingsItem` vocabulary and the renderer-agnostic
-    /// [`SettingsOptionId`](super::menu::SettingsOptionId): rows that map are
+    /// [`SettingsOptionId`](crate::menu::ir::settings::SettingsOptionId): rows that map are
     /// labelled / valued / applied through the shared IR
-    /// ([`settings_menu_model`](super::menu::settings_menu_model) /
-    /// [`apply_settings_option`](super::menu::apply_settings_option)) so the
+    /// ([`settings_menu_model`](crate::menu::ir::settings::settings_menu_model) /
+    /// [`apply_settings_option`](crate::menu::ir::settings::apply_settings_option)) so the
     /// pause menu and the 3D cube cannot drift on the surface they share.
     ///
     /// Rows that return `None` are pause-menu-specific (the IR does not model
     /// them) and keep their own label/apply handling:
-    ///   - the whole Video > Shaders subpage (`Shader*`, `OpenShaders`),
-    ///   - `KeyboardPreset`, `ResetControlFiltering`, `ResetAllSettings`,
-    ///   - the page-opener rows (`OpenVideo` etc.), `Back`,
-    ///   - the entire Developer page,
+    ///   - the page-opener rows (`OpenVideo`, `OpenShaders`, … ) + `Back`,
+    ///   - the action rows `ResetAllSettings`,
+    ///   - the entire Developer page (rendered through `DevToggleSnapshot`; the
+    ///     cube renders the matching dev toggles via the IR's `DevToggleId`
+    ///     screen — see `unified_tabbed_menu_settings_diff.md` for the
+    ///     row-by-row diff),
     ///   - `GameplayFlashes` (a *second* surface on `video.flashes` with the
     ///     distinct label "Flashes (gameplay)"; the IR exposes the field once
     ///     as `Flashes`).
     ///
-    // TODO(stage 3b): extend the shared IR to cover Shaders / KeyboardPreset /
-    // the reset actions so those rows can route through it too, then this map
-    // shrinks to just the page-nav + developer rows.
-    pub fn shared_option_id(self) -> Option<super::menu::SettingsOptionId> {
-        use super::menu::SettingsOptionId as Id;
+    /// (The whole `Video > Shaders` subpage, `KeyboardPreset`, and
+    /// `ResetControlFiltering` ALL map to the IR now — added in stage 3b — so
+    /// they are no longer in the `None` set.)
+    pub fn shared_option_id(self) -> Option<crate::menu::ir::settings::SettingsOptionId> {
+        use crate::menu::ir::settings::SettingsOptionId as Id;
         Some(match self {
             // Video.
             Self::DisplayMode => Id::DisplayMode,
@@ -457,16 +459,16 @@ impl SettingsItem {
     }
 }
 
-/// Find a built [`SettingsOption`](super::menu::SettingsOption) by id in the
+/// Find a built [`SettingsOption`](crate::menu::ir::settings::SettingsOption) by id in the
 /// live shared-IR model. The id space is exhaustively built by
-/// [`settings_menu_model`](super::menu::settings_menu_model) for every
+/// [`settings_menu_model`](crate::menu::ir::settings::settings_menu_model) for every
 /// category option, so any id a [`SettingsItem`] maps to is present (the only
 /// id not produced by the model is `Close`, which no pause row maps to).
 fn shared_option(
-    id: super::menu::SettingsOptionId,
+    id: crate::menu::ir::settings::SettingsOptionId,
     settings: &UserSettings,
-) -> super::menu::SettingsOption {
-    let model = super::menu::settings_menu_model(settings);
+) -> crate::menu::ir::settings::SettingsOption {
+    let model = crate::menu::ir::settings::settings_menu_model(settings);
     model
         .categories
         .iter()
@@ -482,10 +484,10 @@ fn shared_option(
 /// option's `kind` so cycle/slider rows still read "Label: value  < / >" and
 /// toggle/action rows read "Label: value", matching the menu's UX shape.
 pub(crate) fn pause_label_from_shared(
-    id: super::menu::SettingsOptionId,
+    id: crate::menu::ir::settings::SettingsOptionId,
     settings: &UserSettings,
 ) -> String {
-    use super::menu::SettingsOptionKind;
+    use crate::menu::ir::settings::SettingsOptionKind;
     let opt = shared_option(id, settings);
     match opt.kind {
         SettingsOptionKind::Cycle { .. } | SettingsOptionKind::Slider { .. } => {
@@ -745,8 +747,8 @@ pub fn apply_action(
     // needs the live primary-window poke, which the pause menu still owns and
     // runs after the field update.
     if let Some(id) = item.shared_option_id() {
-        super::menu::apply_settings_option(id, settings_dir(action), settings);
-        if matches!(id, super::menu::SettingsOptionId::DisplayMode) {
+        crate::menu::ir::settings::apply_settings_option(id, settings_dir(action), settings);
+        if matches!(id, crate::menu::ir::settings::SettingsOptionId::DisplayMode) {
             let mode: DisplayModeKind = settings.video.display_mode.into();
             apply_display_mode(mode, display_state, windows);
         }

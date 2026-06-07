@@ -116,7 +116,7 @@ pub struct ProgressionResources<'w> {
     pub cutscene_request: Res<'w, crate::presentation::cutscene::CutsceneAdvanceRequest>,
     pub bosses: Res<'w, crate::boss_encounter::BossEncounterRegistry>,
     pub encounters: Res<'w, crate::encounter::EncounterRegistry>,
-    pub map: Res<'w, crate::map_menu::MapMenuState>,
+    pub map: Res<'w, crate::menu::map::MapMenuState>,
     pub banner: Res<'w, crate::features::GameplayBanner>,
 }
 

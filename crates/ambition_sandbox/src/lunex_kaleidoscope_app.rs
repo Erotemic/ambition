@@ -1,6 +1,6 @@
 //! Game-side hookup for the 3D-cube OoT pause menu (#31): adds the lib's reusable
 //! cube renderer ([`ambition_menu::kaleidoscope::KaleidoscopeMenuPlugin`]) and feeds it our
-//! live 24-item inventory (via [`crate::menu_model`]). Runtime-toggleable vs the
+//! live 24-item inventory (via [`crate::menu::model`]). Runtime-toggleable vs the
 //! existing Bevy-UI grid through [`InventoryUiBackend`].
 //!
 //! The cube is pause-gated ([`gate_kaleidoscope_menu`]): its order-8 `Camera3d` + ring are
@@ -25,7 +25,7 @@ use crate::bevy_ui_grid_menu::input::{
 use crate::engine_core::Vec2;
 use crate::input::MenuControlFrame;
 use crate::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
-use crate::menu_model::{
+use crate::menu::model::{
     build_inventory_pages, items_detail_slot_text, system_detail_slot_text,
     system_effective_window_start, system_max_window_start, system_rows, MenuFocus, MenuPage,
     MenuPageAction, SystemRow, SYSTEM_VISIBLE_ROWS,
@@ -86,7 +86,7 @@ struct KaleidoscopeScrim;
 /// Wire the 3D-cube menu into the app: the lib plugins + our page-feed system.
 pub fn install_kaleidoscope_menu(app: &mut App) {
     // The game uses Bevy picking on the cube controls AND draws its own real L/R
-    // edge buttons (see `menu_model::add_edge_buttons`), so it inserts its own
+    // edge buttons (see `menu::model::add_edge_buttons`), so it inserts its own
     // `KaleidoscopeMenuConfig` (lib overlay defaults, but `draw_nav_arrows = false` so the
     // decorative arrows don't double-draw and `pickable_controls = true` so
     // `Pointer<*>` events fire) BEFORE the plugin (which only inserts a default
@@ -1287,6 +1287,14 @@ fn dispatch_kaleidoscope_action(
             play_ui(sfx, ambition_sfx::ids::UI_MENU_ACCEPT);
             info!("cube system action: reset sandbox");
         }
+        MenuPageAction::SystemAction(SystemMenuAction::Quit) => {
+            // Immediate: request application exit and fold the menu shut. Mirrors
+            // the old pause-menu Quit row (which is removed in a later phase).
+            commands.write_message(bevy::app::AppExit::Success);
+            *close_menu = true;
+            play_ui(sfx, ambition_sfx::ids::UI_MENU_ACCEPT);
+            info!("cube system action: quit to desktop");
+        }
         MenuPageAction::SystemAction(SystemMenuAction::ResetAllSettings) => {
             // Immediate, no-confirm: reset every persisted settings/dev resource
             // (the same set the pause menu's ResetAllSettings restores), then fold
@@ -1422,6 +1430,7 @@ fn focus_for_action(
                 MenuPageAction::SystemAction(SystemMenuAction::ResetAllSettings) => {
                     SystemMenuEntryId::ResetAllSettings
                 }
+                MenuPageAction::SystemAction(SystemMenuAction::Quit) => SystemMenuEntryId::Quit,
                 _ => return MenuFocus::System(0),
             };
             system_row(SystemRow::Entry(entry))
@@ -1641,7 +1650,7 @@ fn kaleidoscope_menu_open_routing(
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
-    mut map: ResMut<crate::map_menu::MapMenuState>,
+    mut map: ResMut<crate::menu::map::MapMenuState>,
     mut sfx: MessageWriter<SfxMessage>,
     // Tracks last frame's `menu.start` so we only act on its RISING edge (below).
     mut last_start: Local<bool>,
@@ -1766,7 +1775,7 @@ fn open_kaleidoscope_menu(
     pages: &mut ActiveMenuPages<MenuPage, MenuPageAction>,
     cursor: &mut KaleidoscopeCursor,
     system_nav: &mut KaleidoscopeSystemNav,
-    map: &mut crate::map_menu::MapMenuState,
+    map: &mut crate::menu::map::MapMenuState,
 ) {
     use crate::runtime::game_mode::GameMode;
     overlay.visible = true;
@@ -2258,7 +2267,7 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
         app.init_resource::<crate::inventory::InventoryUiState>();
-        app.init_resource::<crate::map_menu::MapMenuState>();
+        app.init_resource::<crate::menu::map::MapMenuState>();
         app.init_resource::<MenuControlFrame>();
         app.add_message::<PlayerHealRequested>();
         app.add_message::<SfxMessage>();
@@ -2407,7 +2416,7 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
         app.init_resource::<crate::inventory::InventoryUiState>();
-        app.init_resource::<crate::map_menu::MapMenuState>();
+        app.init_resource::<crate::menu::map::MapMenuState>();
         app.init_resource::<MenuControlFrame>();
         app.add_message::<PlayerHealRequested>();
         app.add_message::<SfxMessage>();
@@ -2666,6 +2675,55 @@ mod lunex_kaleidoscope_app_tests {
     }
 
     #[test]
+    fn quit_action_writes_app_exit_and_closes() {
+        // The cube's System menu surfaces Quit to Desktop as a top-level Action
+        // entry; dispatching it writes `AppExit::Success` and folds the menu shut.
+        let (mut app, _player) = click_app();
+        app.add_message::<bevy::app::AppExit>();
+        app.world_mut()
+            .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+            .active = Some(MenuPage::System);
+
+        // The IR surfaces Quit as an always-present Action entry.
+        let model = SystemMenuModel::build(
+            &UserSettings::default(),
+            &RadioSnapshot::default(),
+            &DevSnapshot::default(),
+        );
+        assert_eq!(
+            model.entry(SystemMenuEntryId::Quit).map(|e| &e.target),
+            Some(&crate::persistence::settings::SystemMenuTarget::Action(
+                SystemMenuAction::Quit
+            )),
+            "Quit is surfaced as a top-level Action entry"
+        );
+
+        // Dispatch Quit through the real pointer release/dispatch path.
+        click_control(
+            &mut app,
+            MenuPageAction::SystemAction(SystemMenuAction::Quit),
+        );
+
+        // An AppExit::Success was written.
+        let messages = app.world().resource::<Messages<bevy::app::AppExit>>();
+        let mut reader = messages.get_cursor();
+        let exits: Vec<_> = reader.read(messages).collect();
+        assert_eq!(
+            exits,
+            vec![&bevy::app::AppExit::Success],
+            "Quit dispatches a single AppExit::Success"
+        );
+
+        // The cube folds shut (same close as the other immediate actions).
+        assert!(
+            !app.world()
+                .resource::<crate::inventory::InventoryUiState>()
+                .visible,
+            "Quit closes the cube"
+        );
+    }
+
+    #[test]
     fn system_edge_left_moves_inward_to_the_row_list() {
         let mut app = system_nav_app(MenuFocus::EdgeLeft);
         let mut frame = MenuControlFrame::default();
@@ -2766,7 +2824,7 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
         app.init_resource::<crate::inventory::InventoryUiState>();
-        app.init_resource::<crate::map_menu::MapMenuState>();
+        app.init_resource::<crate::menu::map::MapMenuState>();
         app.init_resource::<MenuControlFrame>();
         app.init_resource::<crate::input::MenuInputState>();
         app.init_resource::<crate::bevy_ui_grid_menu::GridMenuState>();
@@ -2895,7 +2953,7 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
         app.init_resource::<crate::inventory::InventoryUiState>();
-        app.init_resource::<crate::map_menu::MapMenuState>();
+        app.init_resource::<crate::menu::map::MapMenuState>();
         app.init_resource::<MenuControlFrame>();
         app.init_resource::<crate::input::MenuInputState>();
         app.init_resource::<crate::bevy_ui_grid_menu::GridMenuState>();
@@ -3051,7 +3109,7 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
         app.init_resource::<crate::inventory::InventoryUiState>();
-        app.init_resource::<crate::map_menu::MapMenuState>();
+        app.init_resource::<crate::menu::map::MapMenuState>();
         app.init_resource::<MenuControlFrame>();
         app.init_resource::<crate::input::MenuInputState>();
         app.init_resource::<crate::bevy_ui_grid_menu::GridMenuState>();
@@ -3441,7 +3499,7 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
         app.init_resource::<crate::inventory::InventoryUiState>();
-        app.init_resource::<crate::map_menu::MapMenuState>();
+        app.init_resource::<crate::menu::map::MapMenuState>();
         app.init_resource::<MenuControlFrame>();
         app.add_message::<PlayerHealRequested>();
         app.add_message::<SfxMessage>();

@@ -178,7 +178,7 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             // encounter registry are registered by
             // `crate::ambition_content::AmbitionContentPlugin` (Stage 11 /
             // Task J).
-            .insert_resource(crate::map_menu::MapMenuState::default())
+            .insert_resource(crate::menu::map::MapMenuState::default())
             .insert_resource(crate::CameraEaseState::default())
             .insert_resource(crate::CameraEaseTuning::default())
             .insert_resource(crate::time::camera_ease::CameraShakeState::default())

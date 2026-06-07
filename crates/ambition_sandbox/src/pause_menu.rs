@@ -62,14 +62,14 @@ mod tests;
 /// is absent or set to `Grid`, exactly mirroring `pause_menu_toggle`'s inline guard.
 #[cfg(feature = "input")]
 pub fn pause_menu_ui_active(
-    #[cfg(feature = "oot_inventory")] cube_backend: Option<
-        Res<crate::oot_cube_app::InventoryUiBackend>,
+    #[cfg(feature = "oot_inventory")] kaleidoscope_backend: Option<
+        Res<crate::lunex_kaleidoscope_app::InventoryUiBackend>,
     >,
 ) -> bool {
     #[cfg(feature = "oot_inventory")]
     {
-        !cube_backend
-            .map(|b| *b == crate::oot_cube_app::InventoryUiBackend::Cube)
+        !kaleidoscope_backend
+            .map(|b| *b == crate::lunex_kaleidoscope_app::InventoryUiBackend::LunexKaleidoscope)
             .unwrap_or(false)
     }
     #[cfg(not(feature = "oot_inventory"))]

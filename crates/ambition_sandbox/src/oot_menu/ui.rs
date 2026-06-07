@@ -234,7 +234,7 @@ pub fn sync_oot_menu(
     // renders the inventory, so the bevy_ui grid must stay hidden (otherwise it
     // flashes behind the order-8 cube on open). `Option<Res>` so the grid still works
     // if the cube hookup is ever absent.
-    backend: Option<Res<crate::oot_cube_app::InventoryUiBackend>>,
+    backend: Option<Res<crate::lunex_kaleidoscope_app::InventoryUiBackend>>,
     owned: Res<OwnedItems>,
     mut roots: Query<&mut Visibility, With<OotMenuRoot>>,
     mut slots: Query<
@@ -244,7 +244,7 @@ pub fn sync_oot_menu(
     mut detail: Query<&mut Text, (With<OotDetailText>, Without<OotSlot>)>,
 ) {
     let grid_backend = backend
-        .map(|b| *b == crate::oot_cube_app::InventoryUiBackend::Grid)
+        .map(|b| *b == crate::lunex_kaleidoscope_app::InventoryUiBackend::Grid)
         .unwrap_or(true);
     let visible = overlay.visible && grid_backend;
     for mut vis in &mut roots {

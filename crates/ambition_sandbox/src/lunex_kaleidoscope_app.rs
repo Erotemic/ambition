@@ -1,14 +1,14 @@
 //! Game-side hookup for the 3D-cube OoT pause menu (#31): adds the lib's reusable
-//! cube renderer ([`ambition_inventory_ui::cube::CubeMenuPlugin`]) and feeds it our
+//! cube renderer ([`ambition_inventory_ui::kaleidoscope::KaleidoscopeMenuPlugin`]) and feeds it our
 //! live 24-item inventory (via [`crate::oot_cube`]). Runtime-toggleable vs the
 //! existing Bevy-UI grid through [`InventoryUiBackend`].
 //!
-//! The cube is pause-gated ([`gate_cube_menu`]): its order-8 `Camera3d` + ring are
+//! The cube is pause-gated ([`gate_kaleidoscope_menu`]): its order-8 `Camera3d` + ring are
 //! only active while the inventory is open, so it never clears the screen to black
 //! during play. Routing nav/selection input to it is the next step — see
 //! `dev/journals/oot-cube-integration-plan.md`.
 
-use ambition_inventory_ui::cube::{CubeMenuConfig, CubeMenuPlugin};
+use ambition_inventory_ui::kaleidoscope::{KaleidoscopeMenuConfig, KaleidoscopeMenuPlugin};
 use ambition_inventory_ui::{ActiveMenuPages, AmbitionInventoryUiPlugin, AmbitionMenuControl};
 use bevy::prelude::*;
 
@@ -17,7 +17,8 @@ use crate::engine_core::Vec2;
 use crate::input::MenuControlFrame;
 use crate::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use crate::oot_cube::{
-    build_inventory_pages, system_rows, CubeAction, CubeFocus, CubePage, SystemRow,
+    build_inventory_pages, system_rows, KaleidoscopeAction, KaleidoscopeFocus, KaleidoscopePage,
+    SystemRow,
 };
 use crate::oot_menu::effects::MenuAction;
 use crate::oot_menu::input::{dispatch_item_confirm, MenuEffectManaQuery, MenuEffectPlayers};
@@ -43,13 +44,13 @@ fn play_ui(sfx: &mut MessageWriter<SfxMessage>, id: ambition_sfx::SfxId) {
 }
 
 /// Which inventory frontend renders. Runtime toggle (both compiled in); defaults to
-/// the 3D `Cube` (#31), with `\` flipping to the proven Bevy-UI `Grid` (see
-/// [`toggle_inventory_backend`]).
+/// the 3D `LunexKaleidoscope` (#31), with `\` flipping to the proven Bevy-UI `Grid`
+/// (see [`toggle_inventory_backend`]).
 #[derive(Resource, Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum InventoryUiBackend {
     Grid,
     #[default]
-    Cube,
+    LunexKaleidoscope,
 }
 
 /// Peak opacity of the readability dim-scrim (black) when the cube is fully open.
@@ -62,30 +63,30 @@ const SCRIM_PEAK_ALPHA: f32 = 0.7;
 
 /// Marks the full-screen readability dim-scrim node (game overlay only).
 #[derive(Component)]
-struct CubeScrim;
+struct KaleidoscopeScrim;
 
 /// Wire the 3D-cube menu into the app: the lib plugins + our page-feed system.
-pub fn install_cube_menu(app: &mut App) {
+pub fn install_kaleidoscope_menu(app: &mut App) {
     // The game uses Bevy picking on the cube controls AND draws its own real L/R
     // edge buttons (see `oot_cube::add_edge_buttons`), so it inserts its own
-    // `CubeMenuConfig` (lib overlay defaults, but `draw_nav_arrows = false` so the
+    // `KaleidoscopeMenuConfig` (lib overlay defaults, but `draw_nav_arrows = false` so the
     // decorative arrows don't double-draw and `pickable_controls = true` so
     // `Pointer<*>` events fire) BEFORE the plugin (which only inserts a default
     // if the host hasn't).
-    if !app.world().contains_resource::<CubeMenuConfig>() {
-        app.insert_resource(CubeMenuConfig {
+    if !app.world().contains_resource::<KaleidoscopeMenuConfig>() {
+        app.insert_resource(KaleidoscopeMenuConfig {
             draw_nav_arrows: false,
             pickable_controls: true,
             ..Default::default()
         });
     }
     app.init_resource::<InventoryUiBackend>()
-        .init_resource::<ActiveMenuPages<CubePage, CubeAction>>()
-        .init_resource::<CubeCursor>()
-        .init_resource::<CubeSystemNav>()
+        .init_resource::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>()
+        .init_resource::<KaleidoscopeCursor>()
+        .init_resource::<KaleidoscopeSystemNav>()
         .add_plugins(AmbitionInventoryUiPlugin)
-        .add_plugins(CubeMenuPlugin::<CubePage, CubeAction>::default())
-        .add_systems(Startup, spawn_cube_scrim)
+        .add_plugins(KaleidoscopeMenuPlugin::<KaleidoscopePage, KaleidoscopeAction>::default())
+        .add_systems(Startup, spawn_kaleidoscope_scrim)
         .add_systems(
             Update,
             (
@@ -93,20 +94,20 @@ pub fn install_cube_menu(app: &mut App) {
                 // (pause/Esc, inventory, map) open the cube on the matching page
                 // instead of the old Bevy-UI menus. Runs before nav so the page is
                 // set the same frame the cube opens.
-                cube_menu_open_routing,
+                kaleidoscope_menu_open_routing,
                 // Nav first (mutates the cursor), then republish (reads the cursor +
                 // inventory) so the highlight + detail panel reflect this frame's move.
-                cube_focus_nav,
-                republish_cube_pages,
-                gate_cube_menu,
+                kaleidoscope_focus_nav,
+                republish_kaleidoscope_pages,
+                gate_kaleidoscope_menu,
                 toggle_inventory_backend,
-                retarget_cube_scrim,
-                fade_cube_scrim,
+                retarget_kaleidoscope_scrim,
+                fade_kaleidoscope_scrim,
             )
                 .chain(),
         )
-        .add_observer(cube_pointer_move)
-        .add_observer(cube_pointer_click);
+        .add_observer(kaleidoscope_pointer_move)
+        .add_observer(kaleidoscope_pointer_click);
 }
 
 /// Which input source currently owns the cube cursor. Mirrors the grid's
@@ -123,22 +124,22 @@ enum FocusSource {
 
 /// The directional-focus cursor for the items page: which item slot or edge
 /// (page-turn) button the cursor sits on. Mirrors the demo's selection state
-/// (`MockDemo::selected`). [`cube_focus_nav`] moves it with `move_spatial`-style
-/// rules; [`republish_cube_pages`] republishes the page model whenever its
+/// (`MockDemo::selected`). [`kaleidoscope_focus_nav`] moves it with `move_spatial`-style
+/// rules; [`republish_kaleidoscope_pages`] republishes the page model whenever its
 /// SEMANTIC focus changes so the highlight + detail panel follow it.
 #[derive(Resource, Default)]
-struct CubeCursor {
-    focus: CubeFocus,
+struct KaleidoscopeCursor {
+    focus: KaleidoscopeFocus,
     /// Which input source last moved the cursor (keyboard nav vs pointer hover).
     owner: FocusSource,
     /// The last focus the POINTER moved over. A parked mouse should not count as a
     /// selection; only actual pointer motion can change the cursor here.
-    last_pointer_focus: Option<CubeFocus>,
+    last_pointer_focus: Option<KaleidoscopeFocus>,
 }
 
-impl CubeCursor {
+impl KaleidoscopeCursor {
     /// Keyboard/gamepad nav took the cursor to `focus` (claims ownership).
-    fn mark_keyboard(&mut self, focus: CubeFocus) {
+    fn mark_keyboard(&mut self, focus: KaleidoscopeFocus) {
         self.focus = focus;
         self.owner = FocusSource::Keyboard;
     }
@@ -147,12 +148,12 @@ impl CubeCursor {
 /// Drill-down state for the System face. `None` = the top-level category list is
 /// shown (Video / Audio / Controls / Gameplay + Close Menu); `Some(category)` = the
 /// open category's option rows + a Back row are shown. Mirrors the Bevy-UI pause
-/// menu's settings page stack. `republish_cube_pages` feeds this into
+/// menu's settings page stack. `republish_kaleidoscope_pages` feeds this into
 /// `build_system_page`, and changing it republishes (the System cursor resets to
-/// row 0). B0002-safe: only `cube_focus_nav` / `cube_pointer_click` mutate it (both
-/// `ResMut`); `republish_cube_pages` reads it as `Res`.
+/// row 0). B0002-safe: only `kaleidoscope_focus_nav` / `kaleidoscope_pointer_click` mutate it (both
+/// `ResMut`); `republish_kaleidoscope_pages` reads it as `Res`.
 #[derive(Resource, Default)]
-struct CubeSystemNav {
+struct KaleidoscopeSystemNav {
     open_entry: Option<SystemMenuEntryId>,
 }
 
@@ -161,8 +162,8 @@ struct CubeSystemNav {
 /// / pointer observer stay within Bevy's 16-param ceiling. The radio resources are
 /// `audio`-gated; `DeveloperTools` + `SandboxResetRequested` are always present
 /// (inserted at startup), so accessing them never panics. Held mutably here; the
-/// two consumers (`cube_focus_nav`, `cube_pointer_click`) are separate systems so
-/// there is no B0002 conflict, and `republish_cube_pages` reads its own `Res`
+/// two consumers (`kaleidoscope_focus_nav`, `kaleidoscope_pointer_click`) are separate systems so
+/// there is no B0002 conflict, and `republish_kaleidoscope_pages` reads its own `Res`
 /// copies (`SystemMenuSnapshotParams`) in a third system.
 #[derive(bevy::ecs::system::SystemParam)]
 struct SystemMenuParams<'w> {
@@ -281,7 +282,7 @@ impl SystemMenuParams<'_> {
     }
 }
 
-/// Resources `republish_cube_pages` reads (immutably) to snapshot the radio + dev
+/// Resources `republish_kaleidoscope_pages` reads (immutably) to snapshot the radio + dev
 /// state into the SYSTEM IR. Separate `Res` bundle so it never conflicts with the
 /// mutable `SystemMenuParams` (different systems).
 #[derive(bevy::ecs::system::SystemParam)]
@@ -450,12 +451,12 @@ fn apply_dev_toggle(dev: &mut crate::dev::dev_tools::DeveloperTools, id: DevTogg
 /// The scrim DIMS THE WORLD, so it must render BEHIND the order-8 cube. Since the
 /// default UI camera is now the order-9 [`FrontHudCamera`] (which draws in front of
 /// the cube), the scrim is explicitly retargeted onto the order-0 main camera via
-/// [`retarget_cube_scrim`] (the `MainCameraEntity` resource isn't guaranteed to
+/// [`retarget_kaleidoscope_scrim`] (the `MainCameraEntity` resource isn't guaranteed to
 /// exist yet at this Startup point, so the target is attached from an Update guard).
-/// [`fade_cube_scrim`] drives its alpha.
-fn spawn_cube_scrim(mut commands: Commands) {
+/// [`fade_kaleidoscope_scrim`] drives its alpha.
+fn spawn_kaleidoscope_scrim(mut commands: Commands) {
     commands.spawn((
-        CubeScrim,
+        KaleidoscopeScrim,
         Name::new("Cube readability scrim"),
         Node {
             position_type: PositionType::Absolute,
@@ -480,10 +481,10 @@ fn spawn_cube_scrim(mut commands: Commands) {
 /// resource exist (Startup ordering between them is not guaranteed, so this Update
 /// guard does it on the first frame both are present). `Option<Res<_>>` keeps it
 /// B0002-safe and never panics on an uninserted resource.
-fn retarget_cube_scrim(
+fn retarget_kaleidoscope_scrim(
     mut commands: Commands,
     main_camera: Option<Res<crate::runtime::camera_layers::MainCameraEntity>>,
-    scrim: Query<Entity, (With<CubeScrim>, Without<UiTargetCamera>)>,
+    scrim: Query<Entity, (With<KaleidoscopeScrim>, Without<UiTargetCamera>)>,
     mut done: Local<bool>,
 ) {
     if *done {
@@ -506,9 +507,9 @@ fn retarget_cube_scrim(
 
 /// Fade the dim-scrim's alpha with the cube's eased open `amount`, so the world
 /// dims in/out exactly with the fold. Fully transparent when the cube is shut.
-fn fade_cube_scrim(
-    open_state: Res<ambition_inventory_ui::cube::CubeOpenState>,
-    mut scrim: Query<&mut BackgroundColor, With<CubeScrim>>,
+fn fade_kaleidoscope_scrim(
+    open_state: Res<ambition_inventory_ui::kaleidoscope::KaleidoscopeOpenState>,
+    mut scrim: Query<&mut BackgroundColor, With<KaleidoscopeScrim>>,
 ) {
     let alpha = open_state.amount.clamp(0.0, 1.0) * SCRIM_PEAK_ALPHA;
     for mut bg in &mut scrim {
@@ -518,7 +519,7 @@ fn fade_cube_scrim(
 
 /// Directional focus navigation for the cube (keyboard / gamepad), porting the
 /// demo's `MockDemo::move_spatial` (`crates/ambition_mock_demo/src/app/state.rs`).
-/// The cursor lives on the [`CubeCursor`] resource as a [`CubeFocus`], and the
+/// The cursor lives on the [`KaleidoscopeCursor`] resource as a [`KaleidoscopeFocus`], and the
 /// 6×4 item grid is flanked by two edge (page-turn) buttons. The exact rules
 /// (user spec) honoured here:
 ///
@@ -529,15 +530,15 @@ fn fade_cube_scrim(
 ///    click).
 /// 4. From the leftmost / rightmost column, LEFT/RIGHT moves onto the arrow.
 ///
-/// `select` on an item dispatches its `CubeAction`; `select` on an arrow turns the
+/// `select` on an item dispatches its `KaleidoscopeAction`; `select` on an arrow turns the
 /// page; `back` closes the menu. The republish runs after this in the chain.
 #[allow(clippy::too_many_arguments)]
-fn cube_focus_nav(
+fn kaleidoscope_focus_nav(
     backend: Res<InventoryUiBackend>,
     menu: Res<MenuControlFrame>,
-    mut cursor: ResMut<CubeCursor>,
-    mut system_nav: ResMut<CubeSystemNav>,
-    mut pages: ResMut<ActiveMenuPages<CubePage, CubeAction>>,
+    mut cursor: ResMut<KaleidoscopeCursor>,
+    mut system_nav: ResMut<KaleidoscopeSystemNav>,
+    mut pages: ResMut<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>,
     // Single mutable access to the overlay state — also read `.visible` from it (a
     // separate `Res<InventoryUiState>` would be a B0002 conflict with this `ResMut`).
     mut overlay: ResMut<crate::inventory::InventoryUiState>,
@@ -550,14 +551,14 @@ fn cube_focus_nav(
     mut sfx: MessageWriter<SfxMessage>,
     mut system: SystemMenuParams,
 ) {
-    if *backend != InventoryUiBackend::Cube || !overlay.visible {
+    if *backend != InventoryUiBackend::LunexKaleidoscope || !overlay.visible {
         return;
     }
     // The Esc/pause toggle (`menu.start`) is owned ENTIRELY by
-    // `cube_menu_open_routing` (close the cube / drill out of a System category /
+    // `kaleidoscope_menu_open_routing` (close the cube / drill out of a System category /
     // restore GameMode). Esc co-fires `menu.back`, and this nav system (and the
     // `system_focus_nav` it calls) closes on `menu.back` below — so without bailing
-    // here a single Esc would CLOSE the cube HERE and then `cube_menu_open_routing`
+    // here a single Esc would CLOSE the cube HERE and then `kaleidoscope_menu_open_routing`
     // would see `!visible` and RE-OPEN it (the Esc-Esc reopen bug). The router was
     // meant to consume `menu.back` before this system, but the chain order is no
     // longer guaranteed once these systems join multiple sets, so make the router the
@@ -608,7 +609,7 @@ fn cube_focus_nav(
     // The System face is an interactive option list: UP/DOWN move the cursor
     // between rows, LEFT/RIGHT at the column edges turn the page (or step a
     // value), and SELECT applies the focused option.
-    if active_page == CubePage::System {
+    if active_page == KaleidoscopePage::System {
         system_focus_nav(
             &menu,
             dx,
@@ -633,7 +634,7 @@ fn cube_focus_nav(
     // Other non-items faces (Map / Quest placeholders) respond to horizontal page
     // turns; arrows rotate, landing the cursor on the new page's back-edge button
     // (Fix 1). The L/R bumpers (Fix 2) are already handled above for every face.
-    if active_page != CubePage::Items {
+    if active_page != KaleidoscopePage::Items {
         // Placeholder faces (Map / Quest) have only the two edge buttons and no centre
         // content. LEFT/RIGHT move BETWEEN the edges when stepping INWARD; only stepping
         // OUTWARD past an edge rotates the page — the same arrow/edge rule as the items
@@ -641,15 +642,19 @@ fn cube_focus_nav(
         // right-from-the-left-edge jumped to the next page instead of the right edge.)
         if dx != 0 {
             match cursor.focus {
-                CubeFocus::EdgeLeft if dx > 0 => cursor.mark_keyboard(CubeFocus::EdgeRight),
-                CubeFocus::EdgeLeft => turn_page_seeded(
+                KaleidoscopeFocus::EdgeLeft if dx > 0 => {
+                    cursor.mark_keyboard(KaleidoscopeFocus::EdgeRight)
+                }
+                KaleidoscopeFocus::EdgeLeft => turn_page_seeded(
                     &mut pages,
                     &mut cursor,
                     active_page.on_viewer_left(),
                     &mut sfx,
                 ),
-                CubeFocus::EdgeRight if dx < 0 => cursor.mark_keyboard(CubeFocus::EdgeLeft),
-                CubeFocus::EdgeRight => turn_page_seeded(
+                KaleidoscopeFocus::EdgeRight if dx < 0 => {
+                    cursor.mark_keyboard(KaleidoscopeFocus::EdgeLeft)
+                }
+                KaleidoscopeFocus::EdgeRight => turn_page_seeded(
                     &mut pages,
                     &mut cursor,
                     active_page.on_viewer_right(),
@@ -657,22 +662,22 @@ fn cube_focus_nav(
                 ),
                 // Cursor not yet on an edge — seed onto the edge for the pressed direction.
                 _ => cursor.mark_keyboard(if dx < 0 {
-                    CubeFocus::EdgeLeft
+                    KaleidoscopeFocus::EdgeLeft
                 } else {
-                    CubeFocus::EdgeRight
+                    KaleidoscopeFocus::EdgeRight
                 }),
             }
         }
         if menu.select {
             // The only selectable controls on a placeholder are the edge buttons.
             match cursor.focus {
-                CubeFocus::EdgeLeft => turn_page_seeded(
+                KaleidoscopeFocus::EdgeLeft => turn_page_seeded(
                     &mut pages,
                     &mut cursor,
                     active_page.on_viewer_left(),
                     &mut sfx,
                 ),
-                CubeFocus::EdgeRight => turn_page_seeded(
+                KaleidoscopeFocus::EdgeRight => turn_page_seeded(
                     &mut pages,
                     &mut cursor,
                     active_page.on_viewer_right(),
@@ -702,11 +707,11 @@ fn cube_focus_nav(
                 turn_page(&mut pages, active_page.on_viewer_left(), &mut sfx);
                 // Land the cursor on the new face's right arrow (so pressing back
                 // toward centre re-enters the grid) — demo's turn_page_from_edge.
-                cursor.mark_keyboard(CubeFocus::EdgeRight);
+                cursor.mark_keyboard(KaleidoscopeFocus::EdgeRight);
             }
             SpatialMove::TurnRight => {
                 turn_page(&mut pages, active_page.on_viewer_right(), &mut sfx);
-                cursor.mark_keyboard(CubeFocus::EdgeLeft);
+                cursor.mark_keyboard(KaleidoscopeFocus::EdgeLeft);
             }
         }
     }
@@ -719,15 +724,19 @@ fn cube_focus_nav(
 
     if menu.select {
         let action = match cursor.focus {
-            CubeFocus::EdgeLeft => Some(CubeAction::ChangePage(active_page.on_viewer_left())),
-            CubeFocus::EdgeRight => Some(CubeAction::ChangePage(active_page.on_viewer_right())),
-            CubeFocus::Item(idx) => owned_item_action(&owned, idx),
+            KaleidoscopeFocus::EdgeLeft => {
+                Some(KaleidoscopeAction::ChangePage(active_page.on_viewer_left()))
+            }
+            KaleidoscopeFocus::EdgeRight => Some(KaleidoscopeAction::ChangePage(
+                active_page.on_viewer_right(),
+            )),
+            KaleidoscopeFocus::Item(idx) => owned_item_action(&owned, idx),
             // System focus is handled by the System branch above; never reached here.
-            CubeFocus::System(_) => None,
+            KaleidoscopeFocus::System(_) => None,
         };
         if let Some(action) = action {
             let mut close_menu = false;
-            dispatch_cube_action(
+            dispatch_kaleidoscope_action(
                 action,
                 &mut pages,
                 &mut system_nav,
@@ -767,10 +776,10 @@ fn cube_focus_nav(
 /// it compares the pre-frame focus to the post-frame focus, not "did a system run".
 fn emit_move_sfx(
     sfx: &mut MessageWriter<SfxMessage>,
-    focus_before: CubeFocus,
-    focus_after: CubeFocus,
-    page_before: Option<CubePage>,
-    page_after: Option<CubePage>,
+    focus_before: KaleidoscopeFocus,
+    focus_after: KaleidoscopeFocus,
+    page_before: Option<KaleidoscopePage>,
+    page_after: Option<KaleidoscopePage>,
 ) {
     if page_before == page_after && focus_before != focus_after {
         play_ui(sfx, ambition_sfx::ids::UI_MENU_MOVE);
@@ -787,12 +796,12 @@ fn system_focus_nav(
     menu: &MenuControlFrame,
     dx: i32,
     dy: i32,
-    cursor: &mut CubeCursor,
-    system_nav: &mut CubeSystemNav,
-    pages: &mut ActiveMenuPages<CubePage, CubeAction>,
+    cursor: &mut KaleidoscopeCursor,
+    system_nav: &mut KaleidoscopeSystemNav,
+    pages: &mut ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>,
     overlay: &mut crate::inventory::InventoryUiState,
     settings: &mut UserSettings,
-    active_page: CubePage,
+    active_page: KaleidoscopePage,
     owned: &mut OwnedItems,
     commands: &mut Commands,
     players: &mut MenuEffectPlayers,
@@ -812,38 +821,38 @@ fn system_focus_nav(
     // Normalise the cursor onto a System row (it may arrive as an items/edge focus
     // after a page turn).
     let mut row = match cursor.focus {
-        CubeFocus::System(idx) => (idx as i32).min(count - 1),
+        KaleidoscopeFocus::System(idx) => (idx as i32).min(count - 1),
         _ => 0,
     };
 
     if dy != 0 {
         row = (row + dy).clamp(0, count - 1);
-        cursor.mark_keyboard(CubeFocus::System(row as usize));
+        cursor.mark_keyboard(KaleidoscopeFocus::System(row as usize));
     }
 
     let current = rows[row.max(0).min(count - 1) as usize];
 
     if dx != 0 {
         match cursor.focus {
-            CubeFocus::EdgeLeft => {
+            KaleidoscopeFocus::EdgeLeft => {
                 if dx > 0 {
                     // Move inward from the page-turn button into the row list.
-                    cursor.mark_keyboard(CubeFocus::System(0));
+                    cursor.mark_keyboard(KaleidoscopeFocus::System(0));
                 } else {
                     // Moving further outward from the edge still rotates the cube.
                     turn_page(pages, active_page.on_viewer_left(), sfx);
-                    cursor.mark_keyboard(CubeFocus::System(0));
+                    cursor.mark_keyboard(KaleidoscopeFocus::System(0));
                 }
             }
-            CubeFocus::EdgeRight => {
+            KaleidoscopeFocus::EdgeRight => {
                 if dx < 0 {
-                    cursor.mark_keyboard(CubeFocus::System(0));
+                    cursor.mark_keyboard(KaleidoscopeFocus::System(0));
                 } else {
                     turn_page(pages, active_page.on_viewer_right(), sfx);
-                    cursor.mark_keyboard(CubeFocus::System(0));
+                    cursor.mark_keyboard(KaleidoscopeFocus::System(0));
                 }
             }
-            CubeFocus::System(_) | CubeFocus::Item(_) => {
+            KaleidoscopeFocus::System(_) | KaleidoscopeFocus::Item(_) => {
                 // LEFT/RIGHT step value rows in place (settings cycles/sliders, dev
                 // cycles); otherwise use the horizontal affordance to move onto the
                 // edge buttons.
@@ -864,9 +873,9 @@ fn system_focus_nav(
                 };
                 if !stepped {
                     if dx < 0 {
-                        cursor.mark_keyboard(CubeFocus::EdgeLeft);
+                        cursor.mark_keyboard(KaleidoscopeFocus::EdgeLeft);
                     } else {
-                        cursor.mark_keyboard(CubeFocus::EdgeRight);
+                        cursor.mark_keyboard(KaleidoscopeFocus::EdgeRight);
                     }
                 }
             }
@@ -889,7 +898,7 @@ fn system_focus_nav(
     if menu.select {
         if let Some(action) = system_row_action_for(&model, current) {
             let mut close_menu = false;
-            dispatch_cube_action(
+            dispatch_kaleidoscope_action(
                 action,
                 pages,
                 system_nav,
@@ -933,26 +942,26 @@ fn is_value_setting(option: SettingsOptionId, settings: &UserSettings) -> bool {
         .unwrap_or(false)
 }
 
-/// The `CubeAction` a System row dispatches on select.
-fn system_row_action_for(model: &SystemMenuModel, row: SystemRow) -> Option<CubeAction> {
+/// The `KaleidoscopeAction` a System row dispatches on select.
+fn system_row_action_for(model: &SystemMenuModel, row: SystemRow) -> Option<KaleidoscopeAction> {
     match row {
         SystemRow::Entry(id) => match model.entry(id).map(|e| &e.target) {
             Some(crate::persistence::settings::SystemMenuTarget::Action(action)) => {
-                Some(CubeAction::SystemAction(*action))
+                Some(KaleidoscopeAction::SystemAction(*action))
             }
-            _ => Some(CubeAction::OpenSystemEntry(id)),
+            _ => Some(KaleidoscopeAction::OpenSystemEntry(id)),
         },
-        SystemRow::Setting(o) => Some(CubeAction::System(o)),
-        SystemRow::Option(o) => Some(CubeAction::SystemOption(o)),
-        SystemRow::Back => Some(CubeAction::CloseSystemEntry),
+        SystemRow::Setting(o) => Some(KaleidoscopeAction::System(o)),
+        SystemRow::Option(o) => Some(KaleidoscopeAction::SystemOption(o)),
+        SystemRow::Back => Some(KaleidoscopeAction::CloseSystemEntry),
     }
 }
 
 /// Drill OUT of an open System entry back to the entry list, resetting the cursor
 /// to the first row so the highlight lands sensibly.
-fn close_system_entry(system_nav: &mut CubeSystemNav, cursor: &mut CubeCursor) {
+fn close_system_entry(system_nav: &mut KaleidoscopeSystemNav, cursor: &mut KaleidoscopeCursor) {
     system_nav.open_entry = None;
-    cursor.mark_keyboard(CubeFocus::System(0));
+    cursor.mark_keyboard(KaleidoscopeFocus::System(0));
 }
 
 /// Apply a signed LEFT/RIGHT step to a value-style System option (slider up/down,
@@ -972,7 +981,7 @@ fn apply_system_option_step(
 /// Outcome of a spatial cursor move on the items page.
 enum SpatialMove {
     /// The cursor moves to a new focus (item or arrow) on the same page.
-    Focus(CubeFocus),
+    Focus(KaleidoscopeFocus),
     /// The cursor was on the left arrow and pressed further left → rotate left.
     TurnLeft,
     /// The cursor was on the right arrow and pressed further right → rotate right.
@@ -981,68 +990,75 @@ enum SpatialMove {
 
 /// Port of the demo's `MockDemo::move_spatial` for the items grid + flanking
 /// arrows. Pure (no ECS) so it's unit-testable and easy to reason about. See
-/// [`cube_focus_nav`] for the rule list.
-fn move_spatial(focus: CubeFocus, dx: i32, dy: i32, _page: CubePage) -> SpatialMove {
+/// [`kaleidoscope_focus_nav`] for the rule list.
+fn move_spatial(
+    focus: KaleidoscopeFocus,
+    dx: i32,
+    dy: i32,
+    _page: KaleidoscopePage,
+) -> SpatialMove {
     let cols = ITEM_GRID_COLS as i32;
     let rows = ITEM_GRID_ROWS as i32;
 
     // Rule 3: on an arrow, moving further OUTWARD rotates the page; UP/DOWN never
     // reach/leave an arrow (rule 2); moving INWARD enters the adjacent column.
     match focus {
-        CubeFocus::EdgeLeft => {
+        KaleidoscopeFocus::EdgeLeft => {
             if dx < 0 {
                 return SpatialMove::TurnLeft;
             }
             if dx > 0 {
                 // Rule 1: enter the LEFTMOST item column (col 0), keep the row band.
-                return SpatialMove::Focus(CubeFocus::Item(0));
+                return SpatialMove::Focus(KaleidoscopeFocus::Item(0));
             }
             // Up/Down on an arrow: stay put (rule 2).
             return SpatialMove::Focus(focus);
         }
-        CubeFocus::EdgeRight => {
+        KaleidoscopeFocus::EdgeRight => {
             if dx > 0 {
                 return SpatialMove::TurnRight;
             }
             if dx < 0 {
                 // Rule 1: enter the RIGHTMOST item column.
-                return SpatialMove::Focus(CubeFocus::Item((cols - 1) as usize));
+                return SpatialMove::Focus(KaleidoscopeFocus::Item((cols - 1) as usize));
             }
             return SpatialMove::Focus(focus);
         }
-        CubeFocus::Item(idx) => {
+        KaleidoscopeFocus::Item(idx) => {
             let idx = idx as i32;
             let row = idx / cols;
             let col = idx % cols;
             // Rule 4: stepping off the left/right column lands on the arrow.
             if dx < 0 && col == 0 {
-                return SpatialMove::Focus(CubeFocus::EdgeLeft);
+                return SpatialMove::Focus(KaleidoscopeFocus::EdgeLeft);
             }
             if dx > 0 && col == cols - 1 {
-                return SpatialMove::Focus(CubeFocus::EdgeRight);
+                return SpatialMove::Focus(KaleidoscopeFocus::EdgeRight);
             }
             // Rule 2: UP/DOWN stays within the columns (never reaches an arrow).
             let next_col = (col + dx).clamp(0, cols - 1);
             let next_row = (row + dy).clamp(0, rows - 1);
-            SpatialMove::Focus(CubeFocus::Item((next_row * cols + next_col) as usize))
+            SpatialMove::Focus(KaleidoscopeFocus::Item(
+                (next_row * cols + next_col) as usize,
+            ))
         }
         // `move_spatial` is only invoked on the Items face; a System focus here
         // would be a logic error — re-enter the grid at slot 0 to stay safe.
-        CubeFocus::System(_) => SpatialMove::Focus(CubeFocus::Item(0)),
+        KaleidoscopeFocus::System(_) => SpatialMove::Focus(KaleidoscopeFocus::Item(0)),
     }
 }
 
-/// The `CubeAction` for an owned item slot, or `None` if the slot is empty/unowned
+/// The `KaleidoscopeAction` for an owned item slot, or `None` if the slot is empty/unowned
 /// (so confirming an empty cell is a no-op, matching the grid backend).
-fn owned_item_action(owned: &OwnedItems, idx: usize) -> Option<CubeAction> {
+fn owned_item_action(owned: &OwnedItems, idx: usize) -> Option<KaleidoscopeAction> {
     let item = Item::from_index(idx)?;
     if !owned.has(item) {
         return None;
     }
     Some(if item.held_item_id().is_some() {
-        CubeAction::Equip(item)
+        KaleidoscopeAction::Equip(item)
     } else {
-        CubeAction::Use(item)
+        KaleidoscopeAction::Use(item)
     })
 }
 
@@ -1052,20 +1068,20 @@ fn owned_item_action(owned: &OwnedItems, idx: usize) -> Option<CubeAction> {
 /// targets `to.on_viewer_left()` and the RIGHT targets `to.on_viewer_right()`; we pick
 /// whichever points back at `from`. When `from` is unknown (first open) we default to
 /// the left edge button so there is always a highlighted control.
-fn back_edge_focus(from: Option<CubePage>, to: CubePage) -> CubeFocus {
+fn back_edge_focus(from: Option<KaleidoscopePage>, to: KaleidoscopePage) -> KaleidoscopeFocus {
     match from {
-        Some(from) if to.on_viewer_right() == from => CubeFocus::EdgeRight,
-        Some(from) if to.on_viewer_left() == from => CubeFocus::EdgeLeft,
-        _ => CubeFocus::EdgeLeft,
+        Some(from) if to.on_viewer_right() == from => KaleidoscopeFocus::EdgeRight,
+        Some(from) if to.on_viewer_left() == from => KaleidoscopeFocus::EdgeLeft,
+        _ => KaleidoscopeFocus::EdgeLeft,
     }
 }
 
 /// Set the active page (the lib rotates that face to the camera), landing the cursor
 /// on the new page's back-edge button (Fix 1) via [`back_edge_focus`].
 fn turn_page_seeded(
-    pages: &mut ActiveMenuPages<CubePage, CubeAction>,
-    cursor: &mut CubeCursor,
-    page: CubePage,
+    pages: &mut ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>,
+    cursor: &mut KaleidoscopeCursor,
+    page: KaleidoscopePage,
     sfx: &mut MessageWriter<SfxMessage>,
 ) {
     let from = pages.active;
@@ -1077,8 +1093,8 @@ fn turn_page_seeded(
 /// directional rotate SFX only when the page ACTUALLY changes (so re-selecting the
 /// current page is silent).
 fn turn_page(
-    pages: &mut ActiveMenuPages<CubePage, CubeAction>,
-    page: CubePage,
+    pages: &mut ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>,
+    page: KaleidoscopePage,
     sfx: &mut MessageWriter<SfxMessage>,
 ) {
     if pages.active != Some(page) {
@@ -1088,15 +1104,15 @@ fn turn_page(
     }
 }
 
-/// Dispatch a [`CubeAction`]. Item Equip/Use reuse the grid's shared
+/// Dispatch a [`KaleidoscopeAction`]. Item Equip/Use reuse the grid's shared
 /// [`dispatch_item_confirm`] (no portal/equip/heal duplication); page-change sets
 /// the active page so the lib rotates that face to the camera.
 #[allow(clippy::too_many_arguments)]
-fn dispatch_cube_action(
-    action: CubeAction,
-    pages: &mut ActiveMenuPages<CubePage, CubeAction>,
-    system_nav: &mut CubeSystemNav,
-    cursor: &mut CubeCursor,
+fn dispatch_kaleidoscope_action(
+    action: KaleidoscopeAction,
+    pages: &mut ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>,
+    system_nav: &mut KaleidoscopeSystemNav,
+    cursor: &mut KaleidoscopeCursor,
     owned: &mut OwnedItems,
     settings: &mut UserSettings,
     close_menu: &mut bool,
@@ -1108,7 +1124,7 @@ fn dispatch_cube_action(
     system: &mut SystemMenuParams,
 ) {
     match action {
-        CubeAction::Equip(item) | CubeAction::Use(item) => {
+        KaleidoscopeAction::Equip(item) | KaleidoscopeAction::Use(item) => {
             let decided = dispatch_item_confirm(item, owned, commands, players, mana_q, heals);
             // Pick the confirm sound from the RESOLVED action so equip/unequip/use
             // are distinct, and a no-op (not owned / nothing to do) gives error feedback.
@@ -1123,7 +1139,7 @@ fn dispatch_cube_action(
             play_ui(sfx, id);
             info!("cube action: {:?} \u{2192} {:?}", item, decided);
         }
-        CubeAction::ChangePage(page) => {
+        KaleidoscopeAction::ChangePage(page) => {
             let from = pages.active;
             play_ui(sfx, rotate_sfx(from, page));
             pages.active = Some(page);
@@ -1133,10 +1149,10 @@ fn dispatch_cube_action(
             cursor.mark_keyboard(back_edge_focus(from, page));
             info!("cube page \u{2192} {:?}", page);
         }
-        CubeAction::System(option) => {
+        KaleidoscopeAction::System(option) => {
             apply_system_option(option, settings, close_menu, sfx);
         }
-        CubeAction::SystemOption(opt) => {
+        KaleidoscopeAction::SystemOption(opt) => {
             // Radio / Language / Developer screen options apply against their live
             // resource (radio auditions + keeps the menu open; dev toggles mutate
             // DeveloperTools). The menu never closes from these.
@@ -1144,22 +1160,22 @@ fn dispatch_cube_action(
             play_ui(sfx, id);
             info!("cube system option: {:?}", opt);
         }
-        CubeAction::SystemAction(SystemMenuAction::ResetSandbox) => {
+        KaleidoscopeAction::SystemAction(SystemMenuAction::ResetSandbox) => {
             // Immediate, no-confirm: queue the reset and fold the menu shut.
             system.request_reset();
             *close_menu = true;
             play_ui(sfx, ambition_sfx::ids::UI_MENU_ACCEPT);
             info!("cube system action: reset sandbox");
         }
-        CubeAction::OpenSystemEntry(entry) => {
+        KaleidoscopeAction::OpenSystemEntry(entry) => {
             // Drill INTO an entry: show its screen rows, land the cursor on the
             // first row. The republish picks up the new drill state + cursor.
             play_ui(sfx, ambition_sfx::ids::UI_TAB_CHANGE);
             system_nav.open_entry = Some(entry);
-            cursor.mark_keyboard(CubeFocus::System(0));
+            cursor.mark_keyboard(KaleidoscopeFocus::System(0));
             info!("cube system entry \u{2192} {:?}", entry);
         }
-        CubeAction::CloseSystemEntry => {
+        KaleidoscopeAction::CloseSystemEntry => {
             play_ui(sfx, ambition_sfx::ids::UI_MENU_BACK);
             close_system_entry(system_nav, cursor);
             info!("cube system entry \u{2192} (list)");
@@ -1170,7 +1186,7 @@ fn dispatch_cube_action(
 /// The directional page-turn sound for a rotation `from` → `to`: rotating to the
 /// page that sits on the viewer-LEFT of `from` plays the left rotate, otherwise the
 /// right rotate. When `from` is unknown (first publish) defaults to the right rotate.
-fn rotate_sfx(from: Option<CubePage>, to: CubePage) -> ambition_sfx::SfxId {
+fn rotate_sfx(from: Option<KaleidoscopePage>, to: KaleidoscopePage) -> ambition_sfx::SfxId {
     match from {
         Some(from) if from.on_viewer_left() == to => ambition_sfx::ids::UI_MENU_ROTATE_LEFT,
         _ => ambition_sfx::ids::UI_MENU_ROTATE_RIGHT,
@@ -1236,16 +1252,16 @@ fn apply_system_option(
     info!("cube system option: {:?}", option);
 }
 
-/// Map a control's `CubeAction` back to the cursor focus it represents, so pointer
+/// Map a control's `KaleidoscopeAction` back to the cursor focus it represents, so pointer
 /// hover/click and the keyboard cursor share one model. `Equip`/`Use` carry the
 /// item (→ its slot); `ChangePage` is an edge arrow — left vs right is decided by
 /// whether its target is the active page's viewer-left neighbour.
 fn focus_for_action(
-    action: CubeAction,
-    active_page: CubePage,
+    action: KaleidoscopeAction,
+    active_page: KaleidoscopePage,
     model: &SystemMenuModel,
     open_entry: Option<SystemMenuEntryId>,
-) -> CubeFocus {
+) -> KaleidoscopeFocus {
     // System rows are positional: the focus index is the action's row in the
     // currently-displayed System row list (the entry list, or an open entry's
     // screen rows + Back), so hover/click and the keyboard cursor agree on the row.
@@ -1254,31 +1270,33 @@ fn focus_for_action(
             .iter()
             .position(|r| *r == want)
             .unwrap_or(0);
-        CubeFocus::System(idx)
+        KaleidoscopeFocus::System(idx)
     };
     match action {
-        CubeAction::Equip(item) | CubeAction::Use(item) => CubeFocus::Item(item.index()),
-        CubeAction::ChangePage(target) => {
+        KaleidoscopeAction::Equip(item) | KaleidoscopeAction::Use(item) => {
+            KaleidoscopeFocus::Item(item.index())
+        }
+        KaleidoscopeAction::ChangePage(target) => {
             if target == active_page.on_viewer_left() {
-                CubeFocus::EdgeLeft
+                KaleidoscopeFocus::EdgeLeft
             } else {
-                CubeFocus::EdgeRight
+                KaleidoscopeFocus::EdgeRight
             }
         }
-        CubeAction::System(option) => system_row(SystemRow::Setting(option)),
-        CubeAction::SystemOption(opt) => system_row(SystemRow::Option(opt)),
-        CubeAction::SystemAction(_) => {
+        KaleidoscopeAction::System(option) => system_row(SystemRow::Setting(option)),
+        KaleidoscopeAction::SystemOption(opt) => system_row(SystemRow::Option(opt)),
+        KaleidoscopeAction::SystemAction(_) => {
             // An Action entry sits at top level; find its entry row.
             let entry = match action {
-                CubeAction::SystemAction(SystemMenuAction::ResetSandbox) => {
+                KaleidoscopeAction::SystemAction(SystemMenuAction::ResetSandbox) => {
                     SystemMenuEntryId::ResetSandbox
                 }
-                _ => return CubeFocus::System(0),
+                _ => return KaleidoscopeFocus::System(0),
             };
             system_row(SystemRow::Entry(entry))
         }
-        CubeAction::OpenSystemEntry(entry) => system_row(SystemRow::Entry(entry)),
-        CubeAction::CloseSystemEntry => system_row(SystemRow::Back),
+        KaleidoscopeAction::OpenSystemEntry(entry) => system_row(SystemRow::Entry(entry)),
+        KaleidoscopeAction::CloseSystemEntry => system_row(SystemRow::Back),
     }
 }
 
@@ -1295,14 +1313,14 @@ fn focus_for_action(
 /// 2. **Pointer-vs-keyboard ownership.** The pointer only re-claims the cursor when
 ///    it moves onto a genuinely different control. This fixes "can't move away from
 ///    the hovered option."
-fn cube_pointer_move(
+fn kaleidoscope_pointer_move(
     move_: On<Pointer<Move>>,
-    controls: Query<&AmbitionMenuControl<CubeAction>>,
-    pages: Res<ActiveMenuPages<CubePage, CubeAction>>,
-    system_nav: Res<CubeSystemNav>,
+    controls: Query<&AmbitionMenuControl<KaleidoscopeAction>>,
+    pages: Res<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>,
+    system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
     snapshot: SystemMenuSnapshotParams,
-    mut cursor: ResMut<CubeCursor>,
+    mut cursor: ResMut<KaleidoscopeCursor>,
     mut sfx: MessageWriter<SfxMessage>,
 ) {
     let Some(active_page) = pages.active else {
@@ -1333,16 +1351,16 @@ fn cube_pointer_move(
     }
 }
 
-/// Pointer click (mouse/touch) on a cube control: dispatch its `CubeAction`.
+/// Pointer click (mouse/touch) on a cube control: dispatch its `KaleidoscopeAction`.
 #[allow(clippy::too_many_arguments)]
-fn cube_pointer_click(
+fn kaleidoscope_pointer_click(
     click: On<Pointer<Click>>,
     backend: Res<InventoryUiBackend>,
     mut ui_state: Option<ResMut<crate::inventory::InventoryUiState>>,
-    controls: Query<&AmbitionMenuControl<CubeAction>>,
-    mut pages: ResMut<ActiveMenuPages<CubePage, CubeAction>>,
-    mut cursor: ResMut<CubeCursor>,
-    mut system_nav: ResMut<CubeSystemNav>,
+    controls: Query<&AmbitionMenuControl<KaleidoscopeAction>>,
+    mut pages: ResMut<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>,
+    mut cursor: ResMut<KaleidoscopeCursor>,
+    mut system_nav: ResMut<KaleidoscopeSystemNav>,
     mut owned: ResMut<OwnedItems>,
     mut settings: ResMut<UserSettings>,
     mut commands: Commands,
@@ -1353,7 +1371,7 @@ fn cube_pointer_click(
     mut system: SystemMenuParams,
 ) {
     let open = ui_state.as_deref().map(|s| s.visible).unwrap_or(false);
-    if *backend != InventoryUiBackend::Cube || !open {
+    if *backend != InventoryUiBackend::LunexKaleidoscope || !open {
         return;
     }
     if let Ok(control) = controls.get(click.entity) {
@@ -1366,10 +1384,10 @@ fn cube_pointer_click(
                 cursor.last_pointer_focus = Some(next);
             }
             let mut close_menu = false;
-            // Clicks route through the SAME `dispatch_cube_action` as the keyboard
+            // Clicks route through the SAME `dispatch_kaleidoscope_action` as the keyboard
             // select path, so the action sounds (equip/use/rotate/toggle/...) live in
             // one place and are identical for pointer + keyboard.
-            dispatch_cube_action(
+            dispatch_kaleidoscope_action(
                 action,
                 &mut pages,
                 &mut system_nav,
@@ -1396,39 +1414,39 @@ fn cube_pointer_click(
 /// Fix 3: route the game's menu-open inputs to the CUBE when it is the active
 /// backend, opening it on the page that matches the requested menu:
 ///
-/// * pause / `Esc` (`menu.start`) → open on [`CubePage::System`] (replacing the old
+/// * pause / `Esc` (`menu.start`) → open on [`KaleidoscopePage::System`] (replacing the old
 ///   pause/system menu); pressing it again while the cube is open CLOSES the cube.
-/// * inventory key (`menu.inventory`) → open on [`CubePage::Items`].
-/// * map key (`menu.map`) → open on [`CubePage::Map`].
+/// * inventory key (`menu.inventory`) → open on [`KaleidoscopePage::Items`].
+/// * map key (`menu.map`) → open on [`KaleidoscopePage::Map`].
 ///
 /// Opening pauses the sim (`GameMode::Paused`) and raises `InventoryUiState.visible`,
 /// exactly like the inventory open path — which makes the existing pause-menu UI
 /// auto-suppress (`Paused && !inventory.visible`). The old `pause_menu_toggle` and
 /// `handle_map_menu_hotkeys` are gated to no-op under the Cube backend (see their
-/// `cube_backend_active` guards), so nothing double-fires the `GameMode` toggle and
+/// `kaleidoscope_backend_active` guards), so nothing double-fires the `GameMode` toggle and
 /// the map panel never opens behind the cube.
 ///
-/// `Esc`-to-close is owned HERE (not by `cube_focus_nav`'s `menu.back`) so the close
-/// also restores `GameMode::Playing`; the routing runs before `cube_focus_nav`, and
+/// `Esc`-to-close is owned HERE (not by `kaleidoscope_focus_nav`'s `menu.back`) so the close
+/// also restores `GameMode::Playing`; the routing runs before `kaleidoscope_focus_nav`, and
 /// consuming the open/close intent keeps the two from fighting over the same frame.
 #[cfg(feature = "input")]
 #[allow(clippy::too_many_arguments)]
-fn cube_menu_open_routing(
+fn kaleidoscope_menu_open_routing(
     backend: Res<InventoryUiBackend>,
     mut menu: ResMut<MenuControlFrame>,
     mut overlay: ResMut<crate::inventory::InventoryUiState>,
     mode: Res<State<crate::runtime::game_mode::GameMode>>,
     mut next_mode: ResMut<NextState<crate::runtime::game_mode::GameMode>>,
-    mut pages: ResMut<ActiveMenuPages<CubePage, CubeAction>>,
-    mut cursor: ResMut<CubeCursor>,
-    mut system_nav: ResMut<CubeSystemNav>,
+    mut pages: ResMut<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>,
+    mut cursor: ResMut<KaleidoscopeCursor>,
+    mut system_nav: ResMut<KaleidoscopeSystemNav>,
     mut map: ResMut<crate::map_menu::MapMenuState>,
     mut sfx: MessageWriter<SfxMessage>,
     // Tracks last frame's `menu.start` so we only act on its RISING edge (below).
     mut last_start: Local<bool>,
 ) {
     use crate::runtime::game_mode::GameMode;
-    if *backend != InventoryUiBackend::Cube {
+    if *backend != InventoryUiBackend::LunexKaleidoscope {
         return;
     }
 
@@ -1446,7 +1464,7 @@ fn cube_menu_open_routing(
     if start_edge {
         // Esc binds to BOTH `pause` (→ `menu.start`) AND `MenuBack` (→ `menu.back`),
         // so a single Esc sets both bits. This system OWNS the Esc open/close toggle;
-        // consume the duplicate `back` so the later `cube_focus_nav` / `system_focus_nav`
+        // consume the duplicate `back` so the later `kaleidoscope_focus_nav` / `system_focus_nav`
         // in the chain can't act on the same Esc (e.g. immediately re-close what we just
         // opened, or drill out of a System category instead of closing). `back` from a
         // NON-Esc source (Backspace / gamepad East) never co-occurs with `start`, so it
@@ -1467,12 +1485,12 @@ fn cube_menu_open_routing(
                 close_system_entry(&mut system_nav, &mut cursor);
             } else {
                 play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_CLOSE);
-                close_cube_menu(&mut overlay, mode.get(), &mut next_mode);
+                close_kaleidoscope_menu(&mut overlay, mode.get(), &mut next_mode);
             }
         } else if matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
             play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_OPEN);
-            open_cube_menu(
-                CubePage::System,
+            open_kaleidoscope_menu(
+                KaleidoscopePage::System,
                 &mut overlay,
                 mode.get(),
                 &mut next_mode,
@@ -1506,10 +1524,10 @@ fn cube_menu_open_routing(
         // (re-seeding to Items here snapped the cube to the Items face mid-close — the
         // "I" close-animation glitch).
         if !closing {
-            pages.active = Some(CubePage::Items);
+            pages.active = Some(KaleidoscopePage::Items);
             system_nav.open_entry = None;
             cursor.last_pointer_focus = None;
-            cursor.mark_keyboard(CubeFocus::Item(0));
+            cursor.mark_keyboard(KaleidoscopeFocus::Item(0));
             map.open = false;
         }
         return;
@@ -1518,12 +1536,12 @@ fn cube_menu_open_routing(
     // map key: open on the Map page (suppressing the standalone map panel).
     if menu.map && matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
         if overlay.visible {
-            pages.active = Some(CubePage::Map);
-            cursor.mark_keyboard(CubeFocus::EdgeLeft);
+            pages.active = Some(KaleidoscopePage::Map);
+            cursor.mark_keyboard(KaleidoscopeFocus::EdgeLeft);
         } else {
             play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_OPEN);
-            open_cube_menu(
-                CubePage::Map,
+            open_kaleidoscope_menu(
+                KaleidoscopePage::Map,
                 &mut overlay,
                 mode.get(),
                 &mut next_mode,
@@ -1542,14 +1560,14 @@ fn cube_menu_open_routing(
 /// panel stays shut so it can't render behind the cube.
 #[cfg(feature = "input")]
 #[allow(clippy::too_many_arguments)]
-fn open_cube_menu(
-    page: CubePage,
+fn open_kaleidoscope_menu(
+    page: KaleidoscopePage,
     overlay: &mut crate::inventory::InventoryUiState,
     mode: &crate::runtime::game_mode::GameMode,
     next_mode: &mut NextState<crate::runtime::game_mode::GameMode>,
-    pages: &mut ActiveMenuPages<CubePage, CubeAction>,
-    cursor: &mut CubeCursor,
-    system_nav: &mut CubeSystemNav,
+    pages: &mut ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>,
+    cursor: &mut KaleidoscopeCursor,
+    system_nav: &mut KaleidoscopeSystemNav,
     map: &mut crate::map_menu::MapMenuState,
 ) {
     use crate::runtime::game_mode::GameMode;
@@ -1560,9 +1578,9 @@ fn open_cube_menu(
     system_nav.open_entry = None;
     cursor.last_pointer_focus = None;
     cursor.mark_keyboard(match page {
-        CubePage::Items => CubeFocus::Item(0),
-        CubePage::System => CubeFocus::System(0),
-        CubePage::Map | CubePage::Quest => CubeFocus::EdgeLeft,
+        KaleidoscopePage::Items => KaleidoscopeFocus::Item(0),
+        KaleidoscopePage::System => KaleidoscopeFocus::System(0),
+        KaleidoscopePage::Map | KaleidoscopePage::Quest => KaleidoscopeFocus::EdgeLeft,
     });
     // Never leave the standalone map panel open underneath the cube.
     map.open = false;
@@ -1574,7 +1592,7 @@ fn open_cube_menu(
 /// Close the cube overlay (Esc while open), restoring `GameMode::Playing` when the
 /// cube was opened directly from gameplay (matching `close_oot_menu`).
 #[cfg(feature = "input")]
-fn close_cube_menu(
+fn close_kaleidoscope_menu(
     overlay: &mut crate::inventory::InventoryUiState,
     mode: &crate::runtime::game_mode::GameMode,
     next_mode: &mut NextState<crate::runtime::game_mode::GameMode>,
@@ -1595,8 +1613,8 @@ fn toggle_inventory_backend(
 ) {
     if keys.just_pressed(KeyCode::Backslash) {
         *backend = match *backend {
-            InventoryUiBackend::Grid => InventoryUiBackend::Cube,
-            InventoryUiBackend::Cube => InventoryUiBackend::Grid,
+            InventoryUiBackend::Grid => InventoryUiBackend::LunexKaleidoscope,
+            InventoryUiBackend::LunexKaleidoscope => InventoryUiBackend::Grid,
         };
         info!("inventory backend → {:?}", *backend);
     }
@@ -1605,19 +1623,19 @@ fn toggle_inventory_backend(
 /// Pause-gate the cube: its order-8 `Camera3d` clears the whole screen every frame,
 /// so it must be active only while the inventory is open (and the Cube backend is
 /// selected). Off otherwise → the lower-order game cameras render normally.
-fn gate_cube_menu(
+fn gate_kaleidoscope_menu(
     backend: Res<InventoryUiBackend>,
     ui_state: Option<Res<crate::inventory::InventoryUiState>>,
-    mut open_state: ResMut<ambition_inventory_ui::cube::CubeOpenState>,
+    mut open_state: ResMut<ambition_inventory_ui::kaleidoscope::KaleidoscopeOpenState>,
     mut cameras: Query<(
         &mut Camera,
-        Has<ambition_inventory_ui::cube::CubePauseCamera>,
+        Has<ambition_inventory_ui::kaleidoscope::KaleidoscopePauseCamera>,
     )>,
-    mut rings: Query<&mut Visibility, With<ambition_inventory_ui::cube::MenuRing>>,
+    mut rings: Query<&mut Visibility, With<ambition_inventory_ui::kaleidoscope::MenuRing>>,
     mut last_show: Local<Option<bool>>,
 ) {
     let open = ui_state.map(|s| s.visible).unwrap_or(false);
-    let show = *backend == InventoryUiBackend::Cube && open;
+    let show = *backend == InventoryUiBackend::LunexKaleidoscope && open;
     if *last_show != Some(show) {
         info!(
             "cube gate: show={show} backend={:?} menu_open={open}",
@@ -1626,7 +1644,7 @@ fn gate_cube_menu(
         *last_show = Some(show);
     }
     // Drive the lib's open/close fold: it eases `amount` toward this target each
-    // frame (see `animate_cube_open`). We gate the camera/visibility off the eased
+    // frame (see `animate_kaleidoscope_open`). We gate the camera/visibility off the eased
     // AMOUNT (not the binary `show`) so the close-fold animation stays on-screen
     // until the cube has fully folded shut.
     open_state.target = if show { 1.0 } else { 0.0 };
@@ -1641,8 +1659,8 @@ fn gate_cube_menu(
     // None). This is the configuration we previously avoided (sole-camera) to dodge
     // the 2D/3D share bug — but that bug's real cause was the camera-drag (now fixed
     // via With<Camera2d>) plus an MSAA mismatch (now matched), so it's worth a try.
-    for (mut cam, is_cube) in &mut cameras {
-        if is_cube && cam.is_active != shown {
+    for (mut cam, is_kaleidoscope) in &mut cameras {
+        if is_kaleidoscope && cam.is_active != shown {
             cam.is_active = shown;
         }
     }
@@ -1661,33 +1679,39 @@ fn gate_cube_menu(
 /// Republish the cube's faces from our live inventory + the focus cursor (the
 /// host-owned data seam — the cube renderer treats `ActiveMenuPages` as read-only).
 ///
-/// Runs after [`cube_focus_nav`] in the chain so this frame's cursor move is
+/// Runs after [`kaleidoscope_focus_nav`] in the chain so this frame's cursor move is
 /// reflected in the rebuilt page (highlight + detail panel). To avoid an infinite
 /// rebuild loop (writing `pages.pages` marks the resource changed), it republishes
 /// only when something it depends on actually changed: the inventory, the focus
 /// cursor, the active page, the just-opened edge, or the very first publish.
-fn republish_cube_pages(
+fn republish_kaleidoscope_pages(
     backend: Res<InventoryUiBackend>,
     ui_state: Option<Res<crate::inventory::InventoryUiState>>,
     owned: Option<Res<OwnedItems>>,
-    // Read-only here. The mutators (`cube_focus_nav`, `cube_pointer_click`) take
+    // Read-only here. The mutators (`kaleidoscope_focus_nav`, `kaleidoscope_pointer_click`) take
     // `ResMut<UserSettings>` in SEPARATE systems, so this `Res` is not a B0002
     // conflict; `UserSettings` is inserted at startup so the `Res` never panics.
     settings: Res<UserSettings>,
-    cursor: Res<CubeCursor>,
-    // Read-only here; the mutators (`cube_focus_nav`, `cube_pointer_click`) take
-    // `ResMut<CubeSystemNav>` in SEPARATE systems/observers, so this `Res` is not a
+    cursor: Res<KaleidoscopeCursor>,
+    // Read-only here; the mutators (`kaleidoscope_focus_nav`, `kaleidoscope_pointer_click`) take
+    // `ResMut<KaleidoscopeSystemNav>` in SEPARATE systems/observers, so this `Res` is not a
     // B0002 conflict. Inserted at startup (`init_resource`) so it never panics.
-    system_nav: Res<CubeSystemNav>,
+    system_nav: Res<KaleidoscopeSystemNav>,
     // The radio + developer snapshots feed the broadened SYSTEM screens. Read-only
     // here; the mutators take the `ResMut` `SystemMenuParams` in separate systems,
     // so no B0002. Audio resources are absent under no `audio` (the bundle cfgs out).
     snapshot: SystemMenuSnapshotParams,
-    mut pages: ResMut<ActiveMenuPages<CubePage, CubeAction>>,
+    mut pages: ResMut<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>,
     mut was_open: Local<bool>,
-    mut last: Local<Option<(CubeFocus, Option<CubePage>, Option<SystemMenuEntryId>)>>,
+    mut last: Local<
+        Option<(
+            KaleidoscopeFocus,
+            Option<KaleidoscopePage>,
+            Option<SystemMenuEntryId>,
+        )>,
+    >,
 ) {
-    if *backend != InventoryUiBackend::Cube {
+    if *backend != InventoryUiBackend::LunexKaleidoscope {
         return;
     }
     let Some(owned) = owned else {
@@ -1716,7 +1740,7 @@ fn republish_cube_pages(
     }
     *last = Some(key);
 
-    let active = pages.active.unwrap_or(CubePage::Items);
+    let active = pages.active.unwrap_or(KaleidoscopePage::Items);
     pages.pages = build_inventory_pages(
         &owned,
         owned.equipped(),
@@ -1730,12 +1754,12 @@ fn republish_cube_pages(
 }
 
 #[cfg(test)]
-mod oot_cube_app_tests {
+mod lunex_kaleidoscope_app_tests {
     //! Behaviour tests for the cube's interaction seams, driven through the real
     //! systems / observers exactly as the app wires them.
     //!
     //! * Fix 1 — [`back_edge_focus`] lands the cursor on the "back" edge button.
-    //! * Fix 4 — `cube_pointer_click` dispatches System-page clicks (drill in,
+    //! * Fix 4 — `kaleidoscope_pointer_click` dispatches System-page clicks (drill in,
     //!   apply an option, Close) at parity with keyboard select.
     use super::*;
     use crate::brain::ActionSet;
@@ -1753,13 +1777,22 @@ mod oot_cube_app_tests {
     fn back_edge_lands_opposite_the_direction_travelled() {
         // Turning RIGHT brings the viewer-right page to front; to go BACK you turn
         // left, so the cursor lands on the LEFT edge button — and vice-versa.
-        let from = CubePage::Items;
+        let from = KaleidoscopePage::Items;
         let right = from.on_viewer_right();
-        assert_eq!(back_edge_focus(Some(from), right), CubeFocus::EdgeLeft);
+        assert_eq!(
+            back_edge_focus(Some(from), right),
+            KaleidoscopeFocus::EdgeLeft
+        );
         let left = from.on_viewer_left();
-        assert_eq!(back_edge_focus(Some(from), left), CubeFocus::EdgeRight);
+        assert_eq!(
+            back_edge_focus(Some(from), left),
+            KaleidoscopeFocus::EdgeRight
+        );
         // First open (no prior page) defaults to a highlighted left edge button.
-        assert_eq!(back_edge_focus(None, CubePage::Map), CubeFocus::EdgeLeft);
+        assert_eq!(
+            back_edge_focus(None, KaleidoscopePage::Map),
+            KaleidoscopeFocus::EdgeLeft
+        );
     }
 
     // ---- Fix 4: System-page pointer clicks -----------------------------------
@@ -1769,9 +1802,9 @@ mod oot_cube_app_tests {
         app.add_plugins(bevy::state::app::StatesPlugin);
         app.init_state::<GameMode>();
         app.init_resource::<InventoryUiBackend>();
-        app.init_resource::<ActiveMenuPages<CubePage, CubeAction>>();
-        app.init_resource::<CubeCursor>();
-        app.init_resource::<CubeSystemNav>();
+        app.init_resource::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>();
+        app.init_resource::<KaleidoscopeCursor>();
+        app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
@@ -1779,8 +1812,9 @@ mod oot_cube_app_tests {
         app.init_resource::<crate::inventory::InventoryUiState>();
         app.add_message::<PlayerHealRequested>();
         app.add_message::<SfxMessage>();
-        app.add_observer(cube_pointer_click);
-        *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::Cube;
+        app.add_observer(kaleidoscope_pointer_click);
+        *app.world_mut().resource_mut::<InventoryUiBackend>() =
+            InventoryUiBackend::LunexKaleidoscope;
         app.world_mut()
             .resource_mut::<crate::inventory::InventoryUiState>()
             .visible = true;
@@ -1802,9 +1836,9 @@ mod oot_cube_app_tests {
         app.add_plugins(bevy::state::app::StatesPlugin);
         app.init_state::<GameMode>();
         app.init_resource::<InventoryUiBackend>();
-        app.init_resource::<ActiveMenuPages<CubePage, CubeAction>>();
-        app.init_resource::<CubeCursor>();
-        app.init_resource::<CubeSystemNav>();
+        app.init_resource::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>();
+        app.init_resource::<KaleidoscopeCursor>();
+        app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
@@ -1814,9 +1848,10 @@ mod oot_cube_app_tests {
         app.init_resource::<MenuControlFrame>();
         app.add_message::<PlayerHealRequested>();
         app.add_message::<SfxMessage>();
-        app.add_systems(Update, cube_menu_open_routing);
-        app.add_observer(cube_pointer_move);
-        *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::Cube;
+        app.add_systems(Update, kaleidoscope_menu_open_routing);
+        app.add_observer(kaleidoscope_pointer_move);
+        *app.world_mut().resource_mut::<InventoryUiBackend>() =
+            InventoryUiBackend::LunexKaleidoscope;
         app.world_mut()
             .resource_mut::<crate::inventory::InventoryUiState>()
             .visible = false;
@@ -1832,10 +1867,10 @@ mod oot_cube_app_tests {
 
     /// Spawn a cube control carrying `action` and fire a real `Pointer<Click>` at it,
     /// exactly as Bevy picking would.
-    fn click_control(app: &mut App, action: CubeAction) {
+    fn click_control(app: &mut App, action: KaleidoscopeAction) {
         let entity = app
             .world_mut()
-            .spawn(AmbitionMenuControl::<CubeAction> {
+            .spawn(AmbitionMenuControl::<KaleidoscopeAction> {
                 kind: ambition_inventory_ui::MenuControlKind::OptionToggle,
                 action: Some(action),
                 focus: ambition_inventory_ui::MenuFocusKey::default(),
@@ -1864,10 +1899,10 @@ mod oot_cube_app_tests {
         app.update();
     }
 
-    fn move_control(app: &mut App, action: CubeAction) {
+    fn move_control(app: &mut App, action: KaleidoscopeAction) {
         let entity = app
             .world_mut()
-            .spawn(AmbitionMenuControl::<CubeAction> {
+            .spawn(AmbitionMenuControl::<KaleidoscopeAction> {
                 kind: ambition_inventory_ui::MenuControlKind::OptionToggle,
                 action: Some(action),
                 focus: ambition_inventory_ui::MenuFocusKey::default(),
@@ -1900,9 +1935,9 @@ mod oot_cube_app_tests {
         app.add_plugins(bevy::state::app::StatesPlugin);
         app.init_state::<GameMode>();
         app.init_resource::<InventoryUiBackend>();
-        app.init_resource::<ActiveMenuPages<CubePage, CubeAction>>();
-        app.init_resource::<CubeCursor>();
-        app.init_resource::<CubeSystemNav>();
+        app.init_resource::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>();
+        app.init_resource::<KaleidoscopeCursor>();
+        app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
@@ -1911,14 +1946,15 @@ mod oot_cube_app_tests {
         app.init_resource::<MenuControlFrame>();
         app.add_message::<PlayerHealRequested>();
         app.add_message::<SfxMessage>();
-        app.add_systems(Update, cube_focus_nav);
-        *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::Cube;
+        app.add_systems(Update, kaleidoscope_focus_nav);
+        *app.world_mut().resource_mut::<InventoryUiBackend>() =
+            InventoryUiBackend::LunexKaleidoscope;
         app.world_mut()
             .resource_mut::<crate::inventory::InventoryUiState>()
             .visible = true;
         app.world_mut()
-            .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
-            .active = Some(CubePage::Items);
+            .resource_mut::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>()
+            .active = Some(KaleidoscopePage::Items);
         app.world_mut().spawn((
             PlayerEntity,
             PrimaryPlayer,
@@ -1929,14 +1965,14 @@ mod oot_cube_app_tests {
         app
     }
 
-    fn system_nav_app(focus: CubeFocus) -> App {
+    fn system_nav_app(focus: KaleidoscopeFocus) -> App {
         let mut app = App::new();
         app.add_plugins(bevy::state::app::StatesPlugin);
         app.init_state::<GameMode>();
         app.init_resource::<InventoryUiBackend>();
-        app.init_resource::<ActiveMenuPages<CubePage, CubeAction>>();
-        app.init_resource::<CubeCursor>();
-        app.init_resource::<CubeSystemNav>();
+        app.init_resource::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>();
+        app.init_resource::<KaleidoscopeCursor>();
+        app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
@@ -1946,15 +1982,16 @@ mod oot_cube_app_tests {
         app.init_resource::<MenuControlFrame>();
         app.add_message::<PlayerHealRequested>();
         app.add_message::<SfxMessage>();
-        app.add_systems(Update, cube_focus_nav);
-        *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::Cube;
+        app.add_systems(Update, kaleidoscope_focus_nav);
+        *app.world_mut().resource_mut::<InventoryUiBackend>() =
+            InventoryUiBackend::LunexKaleidoscope;
         app.world_mut()
             .resource_mut::<crate::inventory::InventoryUiState>()
             .visible = true;
         app.world_mut()
-            .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
-            .active = Some(CubePage::System);
-        app.world_mut().resource_mut::<CubeCursor>().focus = focus;
+            .resource_mut::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>()
+            .active = Some(KaleidoscopePage::System);
+        app.world_mut().resource_mut::<KaleidoscopeCursor>().focus = focus;
         app.world_mut().spawn((
             PlayerEntity,
             PrimaryPlayer,
@@ -1982,16 +2019,16 @@ mod oot_cube_app_tests {
         press_bumper(&mut app, true);
         assert_eq!(
             app.world()
-                .resource::<ActiveMenuPages<CubePage, CubeAction>>()
+                .resource::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>()
                 .active,
-            Some(CubePage::Items.on_viewer_right()),
+            Some(KaleidoscopePage::Items.on_viewer_right()),
             "right bumper rotates to the viewer-right page (Fix 2)"
         );
         // The cursor lands on the new page's back-edge button (Fix 1): arriving from
         // the right edge means the LEFT edge button turns back home.
         assert_eq!(
-            app.world().resource::<CubeCursor>().focus,
-            CubeFocus::EdgeLeft,
+            app.world().resource::<KaleidoscopeCursor>().focus,
+            KaleidoscopeFocus::EdgeLeft,
             "cursor seeds onto the back (left) edge button"
         );
     }
@@ -2002,14 +2039,14 @@ mod oot_cube_app_tests {
         press_bumper(&mut app, false);
         assert_eq!(
             app.world()
-                .resource::<ActiveMenuPages<CubePage, CubeAction>>()
+                .resource::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>()
                 .active,
-            Some(CubePage::Items.on_viewer_left()),
+            Some(KaleidoscopePage::Items.on_viewer_left()),
             "left bumper rotates to the viewer-left page (Fix 2)"
         );
         assert_eq!(
-            app.world().resource::<CubeCursor>().focus,
-            CubeFocus::EdgeRight,
+            app.world().resource::<KaleidoscopeCursor>().focus,
+            KaleidoscopeFocus::EdgeRight,
             "cursor seeds onto the back (right) edge button"
         );
     }
@@ -2018,15 +2055,19 @@ mod oot_cube_app_tests {
     fn clicking_a_system_entry_drills_in() {
         let (mut app, _player) = click_app();
         app.world_mut()
-            .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
-            .active = Some(CubePage::System);
-        assert!(app.world().resource::<CubeSystemNav>().open_entry.is_none());
+            .resource_mut::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>()
+            .active = Some(KaleidoscopePage::System);
+        assert!(app
+            .world()
+            .resource::<KaleidoscopeSystemNav>()
+            .open_entry
+            .is_none());
         click_control(
             &mut app,
-            CubeAction::OpenSystemEntry(SystemMenuEntryId::Audio),
+            KaleidoscopeAction::OpenSystemEntry(SystemMenuEntryId::Audio),
         );
         assert_eq!(
-            app.world().resource::<CubeSystemNav>().open_entry,
+            app.world().resource::<KaleidoscopeSystemNav>().open_entry,
             Some(SystemMenuEntryId::Audio),
             "clicking a System entry drills into it (Fix 4)"
         );
@@ -2036,11 +2077,16 @@ mod oot_cube_app_tests {
     fn clicking_a_system_setting_applies_it() {
         let (mut app, _player) = click_app();
         app.world_mut()
-            .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
-            .active = Some(CubePage::System);
-        app.world_mut().resource_mut::<CubeSystemNav>().open_entry = Some(SystemMenuEntryId::Video);
+            .resource_mut::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>()
+            .active = Some(KaleidoscopePage::System);
+        app.world_mut()
+            .resource_mut::<KaleidoscopeSystemNav>()
+            .open_entry = Some(SystemMenuEntryId::Video);
         let before = app.world().resource::<UserSettings>().video.show_fps;
-        click_control(&mut app, CubeAction::System(SettingsOptionId::ShowFps));
+        click_control(
+            &mut app,
+            KaleidoscopeAction::System(SettingsOptionId::ShowFps),
+        );
         let after = app.world().resource::<UserSettings>().video.show_fps;
         assert_ne!(before, after, "clicking a setting toggles it (Fix 4)");
     }
@@ -2049,12 +2095,17 @@ mod oot_cube_app_tests {
     fn clicking_back_drills_out_to_the_entry_list() {
         let (mut app, _player) = click_app();
         app.world_mut()
-            .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
-            .active = Some(CubePage::System);
-        app.world_mut().resource_mut::<CubeSystemNav>().open_entry = Some(SystemMenuEntryId::Audio);
-        click_control(&mut app, CubeAction::CloseSystemEntry);
+            .resource_mut::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>()
+            .active = Some(KaleidoscopePage::System);
+        app.world_mut()
+            .resource_mut::<KaleidoscopeSystemNav>()
+            .open_entry = Some(SystemMenuEntryId::Audio);
+        click_control(&mut app, KaleidoscopeAction::CloseSystemEntry);
         assert!(
-            app.world().resource::<CubeSystemNav>().open_entry.is_none(),
+            app.world()
+                .resource::<KaleidoscopeSystemNav>()
+                .open_entry
+                .is_none(),
             "clicking Back drills out to the entry list (Fix 4)"
         );
     }
@@ -2066,10 +2117,15 @@ mod oot_cube_app_tests {
         // no-ops, but the menu must still stay open.
         let (mut app, _player) = click_app();
         app.world_mut()
-            .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
-            .active = Some(CubePage::System);
-        app.world_mut().resource_mut::<CubeSystemNav>().open_entry = Some(SystemMenuEntryId::Radio);
-        click_control(&mut app, CubeAction::SystemOption(SystemOptionId::Radio(0)));
+            .resource_mut::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>()
+            .active = Some(KaleidoscopePage::System);
+        app.world_mut()
+            .resource_mut::<KaleidoscopeSystemNav>()
+            .open_entry = Some(SystemMenuEntryId::Radio);
+        click_control(
+            &mut app,
+            KaleidoscopeAction::SystemOption(SystemOptionId::Radio(0)),
+        );
         assert!(
             app.world()
                 .resource::<crate::inventory::InventoryUiState>()
@@ -2080,65 +2136,67 @@ mod oot_cube_app_tests {
 
     #[test]
     fn system_edge_left_moves_inward_to_the_row_list() {
-        let mut app = system_nav_app(CubeFocus::EdgeLeft);
+        let mut app = system_nav_app(KaleidoscopeFocus::EdgeLeft);
         let mut frame = MenuControlFrame::default();
         frame.right = true;
         app.insert_resource(frame);
         app.update();
 
         assert_eq!(
-            app.world().resource::<CubeCursor>().focus,
-            CubeFocus::System(0),
+            app.world().resource::<KaleidoscopeCursor>().focus,
+            KaleidoscopeFocus::System(0),
             "moving right from the < Items button enters the System row list instead of rotating"
         );
         assert_eq!(
             app.world()
-                .resource::<ActiveMenuPages<CubePage, CubeAction>>()
+                .resource::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>()
                 .active,
-            Some(CubePage::System),
+            Some(KaleidoscopePage::System),
             "the cube stays on the System face while moving into the rows"
         );
     }
 
     #[test]
     fn system_row_horizontal_moves_to_the_edge_buttons() {
-        let mut app = system_nav_app(CubeFocus::System(1));
+        let mut app = system_nav_app(KaleidoscopeFocus::System(1));
         let mut frame = MenuControlFrame::default();
         frame.left = true;
         app.insert_resource(frame);
         app.update();
 
         assert_eq!(
-            app.world().resource::<CubeCursor>().focus,
-            CubeFocus::EdgeLeft,
+            app.world().resource::<KaleidoscopeCursor>().focus,
+            KaleidoscopeFocus::EdgeLeft,
             "horizontal motion from a row should land on the left edge button"
         );
     }
 
     #[test]
-    fn pointer_motion_selects_a_cube_control() {
+    fn pointer_motion_selects_a_kaleidoscope_control() {
         let mut app = open_app();
         app.world_mut()
             .resource_mut::<crate::inventory::InventoryUiState>()
             .visible = true;
         app.world_mut()
-            .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
-            .active = Some(CubePage::Items);
-        app.world_mut().resource_mut::<CubeCursor>().focus = CubeFocus::EdgeRight;
+            .resource_mut::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>()
+            .active = Some(KaleidoscopePage::Items);
+        app.world_mut().resource_mut::<KaleidoscopeCursor>().focus = KaleidoscopeFocus::EdgeRight;
 
         move_control(
             &mut app,
-            CubeAction::ChangePage(CubePage::Items.on_viewer_left()),
+            KaleidoscopeAction::ChangePage(KaleidoscopePage::Items.on_viewer_left()),
         );
 
         assert_eq!(
-            app.world().resource::<CubeCursor>().focus,
-            CubeFocus::EdgeLeft,
+            app.world().resource::<KaleidoscopeCursor>().focus,
+            KaleidoscopeFocus::EdgeLeft,
             "actual pointer motion updates the cube cursor"
         );
         assert_eq!(
-            app.world().resource::<CubeCursor>().last_pointer_focus,
-            Some(CubeFocus::EdgeLeft),
+            app.world()
+                .resource::<KaleidoscopeCursor>()
+                .last_pointer_focus,
+            Some(KaleidoscopeFocus::EdgeLeft),
             "the hovered focus is remembered for later move dedup"
         );
     }
@@ -2154,7 +2212,7 @@ mod oot_cube_app_tests {
     /// second Esc → close. There must be no double-trigger (Esc fires both
     /// `menu.start` and `menu.back`).
     #[test]
-    fn esc_backs_out_then_closes_the_cube_via_real_input() {
+    fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
         use crate::input::SandboxAction;
         use crate::presentation::rendering::PlayerVisual;
         use leafwing_input_manager::prelude::*;
@@ -2166,9 +2224,9 @@ mod oot_cube_app_tests {
         app.add_plugins(InputManagerPlugin::<SandboxAction>::default());
         app.init_state::<GameMode>();
         app.init_resource::<InventoryUiBackend>();
-        app.init_resource::<ActiveMenuPages<CubePage, CubeAction>>();
-        app.init_resource::<CubeCursor>();
-        app.init_resource::<CubeSystemNav>();
+        app.init_resource::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>();
+        app.init_resource::<KaleidoscopeCursor>();
+        app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
@@ -2185,12 +2243,13 @@ mod oot_cube_app_tests {
             (
                 crate::app::populate_menu_control_frame_from_actions,
                 crate::oot_menu::oot_menu_input,
-                cube_menu_open_routing,
-                cube_focus_nav,
+                kaleidoscope_menu_open_routing,
+                kaleidoscope_focus_nav,
             )
                 .chain(),
         );
-        *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::Cube;
+        *app.world_mut().resource_mut::<InventoryUiBackend>() =
+            InventoryUiBackend::LunexKaleidoscope;
 
         // Esc → both Start (pause) and MenuBack, exactly like the keyboard preset.
         let mut map = InputMap::<SandboxAction>::default();
@@ -2233,10 +2292,12 @@ mod oot_cube_app_tests {
         // owned by the start branch (we consume the co-firing `menu.back` so the nav
         // systems never see this Esc).
         app.world_mut()
-            .resource_mut::<ActiveMenuPages<CubePage, CubeAction>>()
-            .active = Some(CubePage::System);
-        app.world_mut().resource_mut::<CubeSystemNav>().open_entry = Some(SystemMenuEntryId::Audio);
-        app.world_mut().resource_mut::<CubeCursor>().focus = CubeFocus::System(0);
+            .resource_mut::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>()
+            .active = Some(KaleidoscopePage::System);
+        app.world_mut()
+            .resource_mut::<KaleidoscopeSystemNav>()
+            .open_entry = Some(SystemMenuEntryId::Audio);
+        app.world_mut().resource_mut::<KaleidoscopeCursor>().focus = KaleidoscopeFocus::System(0);
 
         // Second Esc press → backs OUT to the entry list (menu stays open).
         press_esc(&mut app, true);
@@ -2248,7 +2309,10 @@ mod oot_cube_app_tests {
             "second Esc (nested) backs out one level, keeping the menu open"
         );
         assert!(
-            app.world().resource::<CubeSystemNav>().open_entry.is_none(),
+            app.world()
+                .resource::<KaleidoscopeSystemNav>()
+                .open_entry
+                .is_none(),
             "second Esc drilled out of the open System entry"
         );
 
@@ -2286,9 +2350,9 @@ mod oot_cube_app_tests {
         app.add_plugins(InputManagerPlugin::<SandboxAction>::default());
         app.init_state::<GameMode>();
         app.init_resource::<InventoryUiBackend>();
-        app.init_resource::<ActiveMenuPages<CubePage, CubeAction>>();
-        app.init_resource::<CubeCursor>();
-        app.init_resource::<CubeSystemNav>();
+        app.init_resource::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>();
+        app.init_resource::<KaleidoscopeCursor>();
+        app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
@@ -2315,18 +2379,19 @@ mod oot_cube_app_tests {
             (
                 crate::app::populate_menu_control_frame_from_actions,
                 crate::oot_menu::oot_menu_input,
-                cube_menu_open_routing,
+                kaleidoscope_menu_open_routing,
                 // Exactly as registered in the real app (`app/plugins.rs`): gated by
                 // `pause_menu_ui_active` so it is inert under the Cube backend. This
                 // run-condition IS the Bug 1 fix; the assertions below would fail if it
                 // were removed (the navigate system would re-raise `visible`).
                 crate::pause_menu::pause_menu_navigate
                     .run_if(crate::pause_menu::pause_menu_ui_active),
-                cube_focus_nav,
+                kaleidoscope_focus_nav,
             )
                 .chain(),
         );
-        *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::Cube;
+        *app.world_mut().resource_mut::<InventoryUiBackend>() =
+            InventoryUiBackend::LunexKaleidoscope;
 
         let mut map = InputMap::<SandboxAction>::default();
         map.insert(SandboxAction::Start, KeyCode::Escape);
@@ -2438,9 +2503,9 @@ mod oot_cube_app_tests {
         app.add_plugins(InputManagerPlugin::<SandboxAction>::default());
         app.init_state::<GameMode>();
         app.init_resource::<InventoryUiBackend>();
-        app.init_resource::<ActiveMenuPages<CubePage, CubeAction>>();
-        app.init_resource::<CubeCursor>();
-        app.init_resource::<CubeSystemNav>();
+        app.init_resource::<ActiveMenuPages<KaleidoscopePage, KaleidoscopeAction>>();
+        app.init_resource::<KaleidoscopeCursor>();
+        app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<OwnedItems>();
         app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
         app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
@@ -2471,15 +2536,16 @@ mod oot_cube_app_tests {
             Update,
             (
                 crate::app::populate_menu_control_frame_from_actions,
-                cube_menu_open_routing,
-                cube_focus_nav,
+                kaleidoscope_menu_open_routing,
+                kaleidoscope_focus_nav,
                 crate::pause_menu::pause_menu_toggle,
                 crate::oot_menu::oot_menu_input,
                 pause_menu_root_visibility_for_test.run_if(crate::pause_menu::pause_menu_ui_active),
             )
                 .chain(),
         );
-        *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::Cube;
+        *app.world_mut().resource_mut::<InventoryUiBackend>() =
+            InventoryUiBackend::LunexKaleidoscope;
 
         let mut map = InputMap::<SandboxAction>::default();
         map.insert(SandboxAction::Start, KeyCode::Escape);
@@ -2548,11 +2614,11 @@ mod oot_cube_app_tests {
     }
 
     #[test]
-    fn opening_the_cube_clears_stale_pointer_hover_state() {
+    fn opening_the_kaleidoscope_clears_stale_pointer_hover_state() {
         let mut app = open_app();
         app.world_mut()
-            .resource_mut::<CubeCursor>()
-            .last_pointer_focus = Some(CubeFocus::Item(7));
+            .resource_mut::<KaleidoscopeCursor>()
+            .last_pointer_focus = Some(KaleidoscopeFocus::Item(7));
         app.world_mut().resource_mut::<MenuControlFrame>().start = true;
         app.world_mut()
             .resource_mut::<crate::inventory::InventoryUiState>()
@@ -2560,7 +2626,7 @@ mod oot_cube_app_tests {
         app.update();
 
         assert_eq!(
-            app.world().resource::<CubeCursor>().last_pointer_focus,
+            app.world().resource::<KaleidoscopeCursor>().last_pointer_focus,
             None,
             "opening the cube clears stale pointer hover state so parked hover cannot select immediately"
         );

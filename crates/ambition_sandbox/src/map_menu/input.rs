@@ -11,23 +11,23 @@ pub fn handle_map_menu_hotkeys(
     menu: Res<MenuControlFrame>,
     mut map: ResMut<MapMenuState>,
     // Fix 3: under the 3D-cube inventory backend, the map key opens the cube on its
-    // Map page (`oot_cube_app::cube_menu_open_routing`) instead of this standalone
+    // Map page (`lunex_kaleidoscope_app::kaleidoscope_menu_open_routing`) instead of this standalone
     // panel, so suppress the `menu.map` open here. The `M`/`N`/zoom keys still drive
     // the panel directly for users who toggle back to the Grid backend.
-    #[cfg(feature = "oot_inventory")] cube_backend: Option<
-        Res<crate::oot_cube_app::InventoryUiBackend>,
+    #[cfg(feature = "oot_inventory")] kaleidoscope_backend: Option<
+        Res<crate::lunex_kaleidoscope_app::InventoryUiBackend>,
     >,
 ) {
     use bevy::input::keyboard::KeyCode;
     #[cfg(feature = "oot_inventory")]
-    let cube = cube_backend
-        .map(|b| *b == crate::oot_cube_app::InventoryUiBackend::Cube)
+    let kaleidoscope = kaleidoscope_backend
+        .map(|b| *b == crate::lunex_kaleidoscope_app::InventoryUiBackend::LunexKaleidoscope)
         .unwrap_or(false);
     #[cfg(not(feature = "oot_inventory"))]
-    let cube = false;
+    let kaleidoscope = false;
     // The `menu.map` intent routes to the cube under the Cube backend; the `M` key
     // keeps toggling the standalone panel so it stays reachable for debugging.
-    if keys.just_pressed(KeyCode::KeyM) || (menu.map && !cube) {
+    if keys.just_pressed(KeyCode::KeyM) || (menu.map && !kaleidoscope) {
         map.toggle_open();
     }
     if keys.just_pressed(KeyCode::KeyN) {

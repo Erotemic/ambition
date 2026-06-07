@@ -26,9 +26,9 @@ const MANA_CELL_RESTORE: f32 = 40.0;
 pub fn oot_menu_input(
     menu: Res<MenuControlFrame>,
     // When the Cube backend renders the inventory, it owns navigation / confirm via
-    // `cube_focus_nav`; the grid still owns the shared open/close toggle (the
+    // `kaleidoscope_focus_nav`; the grid still owns the shared open/close toggle (the
     // Inventory button) so the menu can be opened regardless of backend.
-    backend: Option<Res<crate::oot_cube_app::InventoryUiBackend>>,
+    backend: Option<Res<crate::lunex_kaleidoscope_app::InventoryUiBackend>>,
     mut state: ResMut<OotMenuState>,
     mut overlay: ResMut<crate::inventory::InventoryUiState>,
     mode: Res<State<GameMode>>,
@@ -60,10 +60,10 @@ pub fn oot_menu_input(
     // The Cube frontend owns navigation / confirm / back while it's active; the grid
     // only kept the shared open toggle above. Bail before grid nav so the two
     // frontends don't both act on the same frame's input.
-    let cube_active = backend
-        .map(|b| *b == crate::oot_cube_app::InventoryUiBackend::Cube)
+    let kaleidoscope_active = backend
+        .map(|b| *b == crate::lunex_kaleidoscope_app::InventoryUiBackend::LunexKaleidoscope)
         .unwrap_or(false);
-    if cube_active {
+    if kaleidoscope_active {
         state.pointer_confirm = false;
         state.pointer_armed = None;
         return;

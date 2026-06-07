@@ -69,6 +69,11 @@ pub enum DevToggleId {
     MovementProfile,
     // LDtk hot-reload (sourced from `LdtkHotReloadState`, not `DeveloperTools`).
     LdtkAutoApply,
+    // Menu frontend (sourced from `InventoryUiBackend`, not `DeveloperTools`): the
+    // in-menu equivalent of the `\` hotkey, cycling Grid ↔ Cube. A toggle (two
+    // states) so SELECT flips it; works from BOTH backends since the Developer
+    // screen is shared.
+    MenuBackend,
 }
 
 impl DevToggleId {
@@ -77,7 +82,7 @@ impl DevToggleId {
     /// (DebugOverlay/SlowMotion) and the trailing LdtkAutoApply are sourced from
     /// `SandboxDevState` / `LdtkHotReloadState` (not `DeveloperTools`); they mirror
     /// the pause-menu Developer page's F1 / F2 / F12 rows.
-    pub const ALL: [Self; 18] = [
+    pub const ALL: [Self; 19] = [
         Self::DebugOverlay,
         Self::SlowMotion,
         Self::Inspector,
@@ -96,6 +101,7 @@ impl DevToggleId {
         Self::PlayerBodyProfile,
         Self::MovementProfile,
         Self::LdtkAutoApply,
+        Self::MenuBackend,
     ];
 
     pub fn label(self) -> &'static str {
@@ -118,6 +124,7 @@ impl DevToggleId {
             Self::PlayerBodyProfile => "Body Profile",
             Self::MovementProfile => "Movement Profile",
             Self::LdtkAutoApply => "LDtk Auto-Reload (F12)",
+            Self::MenuBackend => "Menu Backend",
         }
     }
 
@@ -141,6 +148,9 @@ impl DevToggleId {
             Self::PlayerBodyProfile => "Cycle the player body-size feel preset.",
             Self::MovementProfile => "Cycle the movement tuning preset.",
             Self::LdtkAutoApply => "Auto-apply LDtk file changes on hot reload (F12).",
+            Self::MenuBackend => {
+                "Switch the menu frontend: Grid (flat) or Cube (3D). Same as the \\ key."
+            }
         }
     }
 
@@ -153,6 +163,9 @@ impl DevToggleId {
                 | Self::DebugArtMode
                 | Self::PlayerBodyProfile
                 | Self::MovementProfile
+                // MenuBackend cycles Grid ↔ Cube so its value label (the active
+                // frontend name) shows in the row, like the other cycles.
+                | Self::MenuBackend
         )
     }
 }
@@ -438,6 +451,7 @@ fn curated_options(id: SystemMenuEntryId) -> &'static [SettingsOptionId] {
             SettingsOptionId::DebugHud,
             SettingsOptionId::QuestHud,
             SettingsOptionId::TraceAutoDump,
+            SettingsOptionId::PauseInputUnfocused,
         ],
         _ => &[],
     }
@@ -859,7 +873,7 @@ mod tests {
             );
             assert!(!id.is_cycle(), "{id:?} is a toggle, not a cycle");
         }
-        assert_eq!(DevToggleId::ALL.len(), 18);
+        assert_eq!(DevToggleId::ALL.len(), 19);
     }
 
     #[test]

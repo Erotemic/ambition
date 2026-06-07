@@ -154,6 +154,36 @@ struct ViewKey {
     window_start: usize,
 }
 
+/// The OLD bevy_ui menu SFX ids, used by the flat Grid backend instead of the
+/// cube's kaleidoscope-specific `ui.menu.*` family. The cube ([`crate::lunex_kaleidoscope_app`])
+/// keeps its own `UI_MENU_OPEN/CLOSE/ACCEPT/BACK/ERROR/ROTATE` sounds (authored for
+/// the 3D OoT cube); the flat Grid is the descendant of the legacy bevy_ui menus
+/// (`crate::pause_menu` etc.), so it should sound like them. These map each Grid
+/// event onto the generic / legacy `ui.*` ids:
+///
+/// | event             | cube id (was)       | old-menu id (now)   |
+/// |-------------------|---------------------|---------------------|
+/// | open              | `UI_MENU_OPEN`      | `UI_PAUSE_OPEN`     |
+/// | close             | `UI_MENU_CLOSE`     | `UI_PAUSE_CLOSE`    |
+/// | select / confirm  | `UI_MENU_ACCEPT`    | `UI_ACCEPT`         |
+/// | back / cancel     | `UI_MENU_BACK`      | `UI_BACK`           |
+/// | error             | `UI_MENU_ERROR`     | `UI_ERROR`          |
+/// | tab / page change | `UI_TAB_CHANGE`     | `UI_TAB_CHANGE`     |
+///
+/// `UI_TAB_CHANGE` is a generic id the OLD menus and the cube share, so it is NOT
+/// swapped (only the genuinely cube-specific `ui.menu.*` ids change).
+mod grid_sfx {
+    use ambition_sfx::ids;
+    use ambition_sfx::SfxId;
+
+    pub const OPEN: SfxId = ids::UI_PAUSE_OPEN;
+    pub const CLOSE: SfxId = ids::UI_PAUSE_CLOSE;
+    pub const ACCEPT: SfxId = ids::UI_ACCEPT;
+    pub const BACK: SfxId = ids::UI_BACK;
+    pub const ERROR: SfxId = ids::UI_ERROR;
+    pub const TAB_CHANGE: SfxId = ids::UI_TAB_CHANGE;
+}
+
 /// The active tab's [`MenuPage`].
 fn tab_page(active_tab: usize) -> MenuPage {
     MenuPage::ALL[active_tab.min(MenuPage::ALL.len() - 1)]
@@ -280,20 +310,20 @@ pub(crate) fn grid_menu_open_routing(
         menu.back = false;
         if overlay.visible {
             if system_nav.open_entry.is_some() {
-                play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_BACK);
+                play_ui(&mut sfx, grid_sfx::BACK);
                 system_nav.open_entry = None;
                 // Drilling out changes the row set; drop the scroll override so the
                 // window snaps to the (re-seeded) cursor rather than a stale offset.
                 tab_state.system_window_start = None;
                 cursor.mark_keyboard(MenuFocus::System(0));
             } else {
-                play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_CLOSE);
+                play_ui(&mut sfx, grid_sfx::CLOSE);
                 close_grid_unified_menu(&mut overlay, mode.get(), &mut next_mode);
             }
         } else if matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
             // Esc/Start opens on the System face (the shared entry→tab mapping),
             // NOT the remembered tab — the pause button targets System.
-            play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_OPEN);
+            play_ui(&mut sfx, grid_sfx::OPEN);
             tab_state.active_tab = tab_index_of(pause_entry_target(PauseEntrySource::Pause));
             tab_state.focus_zone = GridFocusZone::Body;
             open_grid_unified_menu(
@@ -311,10 +341,10 @@ pub(crate) fn grid_menu_open_routing(
     // Inventory key: open ON the Inventory tab (the shared entry→tab mapping), or close.
     if menu.inventory {
         if overlay.visible {
-            play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_CLOSE);
+            play_ui(&mut sfx, grid_sfx::CLOSE);
             close_grid_unified_menu(&mut overlay, mode.get(), &mut next_mode);
         } else if matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
-            play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_OPEN);
+            play_ui(&mut sfx, grid_sfx::OPEN);
             tab_state.active_tab = tab_index_of(pause_entry_target(PauseEntrySource::Inventory));
             tab_state.focus_zone = GridFocusZone::Body;
             open_grid_unified_menu(
@@ -331,7 +361,7 @@ pub(crate) fn grid_menu_open_routing(
 
     // Map key: open on the Map tab (the shared entry→tab mapping).
     if menu.map && matches!(mode.get(), GameMode::Playing | GameMode::Paused) && !overlay.visible {
-        play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_OPEN);
+        play_ui(&mut sfx, grid_sfx::OPEN);
         tab_state.active_tab = tab_index_of(pause_entry_target(PauseEntrySource::Map));
         tab_state.focus_zone = GridFocusZone::Body;
         open_grid_unified_menu(
@@ -400,7 +430,6 @@ pub(crate) fn close_grid_unified_menu(
 #[cfg(feature = "input")]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn grid_menu_nav(
-    backend: Res<InventoryUiBackend>,
     menu: Res<MenuControlFrame>,
     mut tab_state: ResMut<GridMenuTabState>,
     mut cursor: ResMut<KaleidoscopeCursor>,
@@ -411,7 +440,9 @@ pub(crate) fn grid_menu_nav(
     mut next_mode: ResMut<NextState<crate::runtime::game_mode::GameMode>>,
     mut fx: MenuDispatchParams,
 ) {
-    if *backend != InventoryUiBackend::Grid || !overlay.visible {
+    // Read the backend from `fx.system` (it owns the resource); a separate `Res`
+    // here would be a B0002 conflict with that `ResMut`.
+    if fx.system.backend() != InventoryUiBackend::Grid || !overlay.visible {
         return;
     }
     // The Esc/Start toggle is owned by `grid_menu_open_routing`; bail so a single Esc
@@ -432,7 +463,7 @@ pub(crate) fn grid_menu_nav(
         seed_cursor_for_tab(tab_state.active_tab, &mut cursor);
         tab_state.focus_zone = GridFocusZone::Body;
         pages.active = Some(tab_page(tab_state.active_tab));
-        play_ui(&mut fx.sfx, ambition_sfx::ids::UI_TAB_CHANGE);
+        play_ui(&mut fx.sfx, grid_sfx::TAB_CHANGE);
         return;
     }
 
@@ -456,7 +487,7 @@ pub(crate) fn grid_menu_nav(
             tab_state.system_window_start = None;
             seed_cursor_for_tab(tab_state.active_tab, &mut cursor);
             pages.active = Some(tab_page(tab_state.active_tab));
-            play_ui(&mut fx.sfx, ambition_sfx::ids::UI_TAB_CHANGE);
+            play_ui(&mut fx.sfx, grid_sfx::TAB_CHANGE);
             return;
         }
         if menu.select || dy > 0 {
@@ -464,12 +495,12 @@ pub(crate) fn grid_menu_nav(
             // cursor was seeded for this tab when we switched onto it).
             tab_state.focus_zone = GridFocusZone::Body;
             seed_cursor_for_tab(tab_state.active_tab, &mut cursor);
-            play_ui(&mut fx.sfx, ambition_sfx::ids::UI_MENU_ACCEPT);
+            play_ui(&mut fx.sfx, grid_sfx::ACCEPT);
             return;
         }
         if menu.back {
             tab_state.focus_zone = GridFocusZone::Body;
-            play_ui(&mut fx.sfx, ambition_sfx::ids::UI_MENU_BACK);
+            play_ui(&mut fx.sfx, grid_sfx::BACK);
             return;
         }
         // No other input does anything while the tab bar holds focus.
@@ -479,7 +510,7 @@ pub(crate) fn grid_menu_nav(
     // Fix 4: UP from the TOP body row moves focus onto the tab bar.
     if dy < 0 && cursor_on_top_row(active_page, cursor.focus(), system_nav.open_entry) {
         tab_state.focus_zone = GridFocusZone::Tabs;
-        play_ui(&mut fx.sfx, ambition_sfx::ids::UI_TAB_CHANGE);
+        play_ui(&mut fx.sfx, grid_sfx::TAB_CHANGE);
         return;
     }
 
@@ -490,7 +521,7 @@ pub(crate) fn grid_menu_nav(
                 cursor.mark_keyboard(next);
             }
             if menu.back {
-                play_ui(&mut fx.sfx, ambition_sfx::ids::UI_MENU_CLOSE);
+                play_ui(&mut fx.sfx, grid_sfx::CLOSE);
                 close_grid_unified_menu(&mut overlay, mode.get(), &mut next_mode);
                 return;
             }
@@ -524,7 +555,7 @@ pub(crate) fn grid_menu_nav(
                         close_grid_unified_menu(&mut overlay, mode.get(), &mut next_mode);
                     }
                 } else {
-                    play_ui(&mut fx.sfx, ambition_sfx::ids::UI_MENU_ERROR);
+                    play_ui(&mut fx.sfx, grid_sfx::ERROR);
                 }
             }
         }
@@ -571,7 +602,7 @@ pub(crate) fn grid_menu_nav(
         MenuPage::Map | MenuPage::Quest => {
             // Placeholder tabs: only Back does anything.
             if menu.back {
-                play_ui(&mut fx.sfx, ambition_sfx::ids::UI_MENU_CLOSE);
+                play_ui(&mut fx.sfx, grid_sfx::CLOSE);
                 close_grid_unified_menu(&mut overlay, mode.get(), &mut next_mode);
             }
         }
@@ -618,7 +649,6 @@ fn move_items_cursor(focus: MenuFocus, dx: i32, dy: i32) -> MenuFocus {
 /// the Grid and cube draw the SAME model. Despawn + respawn only on a dirty key.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn grid_menu_republish_view(
-    backend: Res<InventoryUiBackend>,
     overlay: Res<crate::inventory::InventoryUiState>,
     pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
     owned: Res<OwnedItems>,
@@ -631,7 +661,9 @@ pub(crate) fn grid_menu_republish_view(
     assets: Option<Res<AssetServer>>,
     mut commands: Commands,
 ) {
-    let active = *backend == InventoryUiBackend::Grid && overlay.visible;
+    // Read the backend from `system` (it owns the resource); a separate `Res` here
+    // would be a B0002 conflict with that `ResMut`.
+    let active = system.backend() == InventoryUiBackend::Grid && overlay.visible;
     if !active {
         // Tear the tree down when not the active+open backend, and forget the key so
         // a reopen always rebuilds.
@@ -789,7 +821,6 @@ fn grid_system_row_count(
 /// the cursor. Only a scrollable System list reacts; a short list ignores the wheel.
 #[cfg(feature = "input")]
 pub(crate) fn grid_menu_scroll_wheel(
-    backend: Res<InventoryUiBackend>,
     overlay: Res<crate::inventory::InventoryUiState>,
     mut tab_state: ResMut<GridMenuTabState>,
     system_nav: Res<KaleidoscopeSystemNav>,
@@ -798,7 +829,9 @@ pub(crate) fn grid_menu_scroll_wheel(
     system: SystemMenuParams,
     mut wheel: MessageReader<bevy::input::mouse::MouseWheel>,
 ) {
-    if *backend != InventoryUiBackend::Grid || !overlay.visible {
+    // Backend read from `system` (it owns the resource); a separate `Res` would
+    // B0002-conflict with that `ResMut`.
+    if system.backend() != InventoryUiBackend::Grid || !overlay.visible {
         wheel.clear();
         return;
     }
@@ -842,7 +875,6 @@ pub(crate) fn grid_menu_scroll_wheel(
 /// the scrollable range to a window-start row. Selection-independent, like the wheel.
 #[cfg(feature = "input")]
 pub(crate) fn grid_menu_apply_scroll_drag(
-    backend: Res<InventoryUiBackend>,
     overlay: Res<crate::inventory::InventoryUiState>,
     mut tab_state: ResMut<GridMenuTabState>,
     system_nav: Res<KaleidoscopeSystemNav>,
@@ -850,7 +882,9 @@ pub(crate) fn grid_menu_apply_scroll_drag(
     system: SystemMenuParams,
     mut dragged: MessageReader<ambition_menu::render::kaleidoscope::MenuScrollDragged>,
 ) {
-    if *backend != InventoryUiBackend::Grid || !overlay.visible {
+    // Backend read from `system` (it owns the resource); a separate `Res` would
+    // B0002-conflict with that `ResMut`.
+    if system.backend() != InventoryUiBackend::Grid || !overlay.visible {
         dragged.clear();
         return;
     }
@@ -919,7 +953,6 @@ pub(crate) fn grid_menu_pointer_press(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn grid_menu_pointer_release(
     _release: On<Pointer<Release>>,
-    backend: Res<InventoryUiBackend>,
     mut state: ResMut<GridPointerPress>,
     mut tab_state: ResMut<GridMenuTabState>,
     mut cursor: ResMut<KaleidoscopeCursor>,
@@ -930,7 +963,9 @@ pub(crate) fn grid_menu_pointer_release(
     mut next_mode: ResMut<NextState<crate::runtime::game_mode::GameMode>>,
     mut fx: MenuDispatchParams,
 ) {
-    if *backend != InventoryUiBackend::Grid || !overlay.visible {
+    // Backend read from `fx.system` (it owns the resource); a separate `Res` would
+    // B0002-conflict with that `ResMut`.
+    if fx.system.backend() != InventoryUiBackend::Grid || !overlay.visible {
         state.action = None;
         state.tab = None;
         return;
@@ -944,7 +979,7 @@ pub(crate) fn grid_menu_pointer_release(
         // on the tab bar — only arrow-key nav holds the Tabs zone).
         tab_state.focus_zone = GridFocusZone::Body;
         pages.active = Some(tab_page(tab_state.active_tab));
-        play_ui(&mut fx.sfx, ambition_sfx::ids::UI_TAB_CHANGE);
+        play_ui(&mut fx.sfx, grid_sfx::TAB_CHANGE);
         return;
     }
     let Some(action) = state.action.take() else {
@@ -989,7 +1024,6 @@ pub(crate) fn grid_menu_pointer_release(
 /// through the press/release observers), so click-to-select keeps working.
 pub(crate) fn grid_menu_pointer_hover(
     over: On<Pointer<Over>>,
-    backend: Res<InventoryUiBackend>,
     overlay: Res<crate::inventory::InventoryUiState>,
     active_input: Res<crate::input::ActiveInputKind>,
     controls: Query<&AmbitionMenuControl<MenuPageAction>>,
@@ -999,7 +1033,9 @@ pub(crate) fn grid_menu_pointer_hover(
     system_nav: Res<KaleidoscopeSystemNav>,
     mut cursor: ResMut<KaleidoscopeCursor>,
 ) {
-    if *backend != InventoryUiBackend::Grid || !overlay.visible {
+    // Backend read from `system` (it owns the resource); a separate `Res` would
+    // B0002-conflict with that `ResMut`.
+    if system.backend() != InventoryUiBackend::Grid || !overlay.visible {
         return;
     }
     // Only a genuine mouse move (which set active=Mouse) may move the cursor;

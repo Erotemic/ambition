@@ -996,7 +996,21 @@ pub(super) fn add_input_plugins(app: &mut App) {
     app.init_resource::<MenuInputState>()
         .init_resource::<MenuControlFrame>()
         .init_resource::<PlayerDashTriggerState>()
+        .init_resource::<crate::input::ActiveInputKind>()
         .add_plugins(InputManagerPlugin::<SandboxAction>::default())
+        // Track which input source is CURRENTLY active (last to produce
+        // GENUINE input). This gates the menu mouse-hover handlers so a
+        // rebuild-induced `Pointer<Over>` under a stationary mouse can't
+        // snap the cursor back while the player navigates with the
+        // keyboard / gamepad / touch. Runs in the input populate set so
+        // the value is fresh before this frame's menu consumers + before
+        // the hover observers fire on rebuilt controls. The detector
+        // covers keyboard / mouse / gamepad; the touch fold in the
+        // mobile_input plugin flips it to `Touch` itself.
+        .add_systems(
+            Update,
+            crate::input::update_active_input_kind.in_set(crate::input::InputSet::Populate),
+        )
         .add_systems(
             Startup,
             attach_player_input_components.after(setup_simulation_system),

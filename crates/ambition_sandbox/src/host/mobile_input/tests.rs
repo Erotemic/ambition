@@ -1,5 +1,61 @@
 use super::state::{apply_deadzone, fold_touch_into_control_frame, TouchButton, TouchInputState};
 
+/// Run the REAL `fold_to_menu_control_frame` system in a minimal App: a
+/// touch-joystick-down while a menu is open (Paused) must yield
+/// `MenuControlFrame.down` AND flip `ActiveInputKind` to `Touch`, so the
+/// on-screen joystick is a first-class menu nav source whose use does not
+/// get suppressed by the mouse hover-gate (Bug 2). Exercises the actual
+/// system wiring, not just the pure `touch_move_to_menu_dir` helper.
+#[cfg(feature = "input")]
+#[test]
+fn fold_system_touch_down_sets_menu_down_and_active_touch() {
+    use super::bevy_plugin::{MenuTouchGestureState, MobileTouchState};
+    use super::menu_bridge::fold_to_menu_control_frame;
+    use crate::game_mode::GameMode;
+    use crate::input::{ActiveInputKind, MenuControlFrame};
+    use bevy::input::touch::Touches;
+    use bevy::input::ButtonInput;
+    use bevy::prelude::*;
+    use bevy::state::app::StatesPlugin;
+    use bevy::time::Time;
+
+    let mut app = App::new();
+    app.add_plugins(StatesPlugin);
+    app.insert_state(GameMode::Paused);
+    app.init_resource::<Time>();
+    app.init_resource::<Touches>();
+    app.init_resource::<ButtonInput<MouseButton>>();
+    app.init_resource::<MobileTouchState>();
+    app.init_resource::<MenuTouchGestureState>();
+    app.init_resource::<MenuControlFrame>();
+    app.init_resource::<crate::persistence::settings::UserSettings>();
+    // Start the active-input marker on Keyboard so the flip to Touch is
+    // unambiguous (not a no-op from a default that already equals Touch).
+    app.insert_resource(ActiveInputKind::Keyboard);
+    app.add_systems(Update, fold_to_menu_control_frame);
+
+    // Drag the on-screen Move stick fully DOWN (gameplay +Y is down).
+    app.world_mut().resource_mut::<MobileTouchState>().0.move_y = 1.0;
+
+    app.update();
+
+    let frame = *app.world().resource::<MenuControlFrame>();
+    assert!(
+        frame.down,
+        "a touch-joystick-down while Paused steps the menu cursor DOWN"
+    );
+    assert!(
+        !frame.up && !frame.left && !frame.right,
+        "only the DOWN intent is produced"
+    );
+    let active = *app.world().resource::<ActiveInputKind>();
+    assert_eq!(
+        active,
+        ActiveInputKind::Touch,
+        "using the touch joystick marks Touch as the active input source"
+    );
+}
+
 #[test]
 fn deadzone_kills_sub_threshold_input() {
     let (x, y) = apply_deadzone(0.05, 0.05, 0.10);

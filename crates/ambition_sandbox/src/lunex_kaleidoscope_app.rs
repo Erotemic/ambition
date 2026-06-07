@@ -98,6 +98,11 @@ pub fn install_kaleidoscope_menu(app: &mut App) {
     app.init_resource::<InventoryUiBackend>()
         .init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
         .init_resource::<KaleidoscopeCursor>()
+        // The pointer-move hover handler reads `ActiveInputKind`. The input
+        // plugin (`add_input_plugins`) also inits it; init here too so the cube
+        // stays self-sufficient even in input-feature-off / cube-only builds
+        // (`init_resource` is idempotent).
+        .init_resource::<crate::input::ActiveInputKind>()
         .init_resource::<KaleidoscopeSystemNav>()
         .init_resource::<KaleidoscopeScroll>()
         .init_resource::<KaleidoscopePointerPress>()
@@ -114,7 +119,10 @@ pub fn install_kaleidoscope_menu(app: &mut App) {
                 kaleidoscope_menu_open_routing.run_if(kaleidoscope_backend_active),
                 // Nav first (mutates the cursor), then republish (reads the cursor +
                 // inventory) so the highlight + detail panel reflect this frame's move.
-                kaleidoscope_focus_nav,
+                // Joins `MenuNavConsume` so the touch-joystick fold (mobile_input)
+                // pins `.before(MenuNavConsume)` and lands its directional intent
+                // in `MenuControlFrame` before this consumes it (Bug 2).
+                kaleidoscope_focus_nav.in_set(crate::app::MenuNavConsume),
                 // Features C/D: scroll the System window INDEPENDENTLY of selection.
                 // The wheel (D) + the scrollbar-drag signal (C) set the scroll
                 // override BEFORE republish so the new window renders this frame.
@@ -1434,6 +1442,7 @@ fn kaleidoscope_pointer_move(
     pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
+    active_input: Res<crate::input::ActiveInputKind>,
     snapshot: SystemMenuSnapshotParams,
     mut cursor: ResMut<KaleidoscopeCursor>,
     // Feature E: a press in flight is cancelled (no click) once the pointer drags
@@ -1443,12 +1452,22 @@ fn kaleidoscope_pointer_move(
 ) {
     // Feature E: if a press is active and the pointer has now travelled past the tap
     // threshold, this is a DRAG — mark the press cancelled so the eventual click does
-    // not activate the control.
+    // not activate the control. (This drag-cancel runs regardless of the active-input
+    // gate below: a touch/pen drag must still cancel a tap.)
     if press.entity.is_some()
         && !press.cancelled
         && move_.pointer_location.position.distance(press.origin) > KALEIDOSCOPE_TAP_DRAG_THRESHOLD
     {
         press.cancelled = true;
+    }
+    // Hover-select is gated on a GENUINE mouse being the active source. A cube
+    // republish respawns controls under a stationary mouse and fires `Pointer<Move>`
+    // for the new control; without this gate the cursor snaps back to the mouse on
+    // every keyboard/gamepad/touch directional move. A real mouse move sets
+    // active=Mouse (see `update_active_input_kind`) so hovering still works; clicks
+    // are unaffected (separate press/release observers).
+    if *active_input != crate::input::ActiveInputKind::Mouse {
+        return;
     }
     let Some(active_page) = pages.active else {
         return;
@@ -2272,6 +2291,7 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<InventoryUiBackend>();
         app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
         app.init_resource::<KaleidoscopeCursor>();
+        app.init_resource::<crate::input::ActiveInputKind>();
         app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<KaleidoscopeScroll>();
         app.init_resource::<KaleidoscopePointerPress>();
@@ -2315,6 +2335,7 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<InventoryUiBackend>();
         app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
         app.init_resource::<KaleidoscopeCursor>();
+        app.init_resource::<crate::input::ActiveInputKind>();
         app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<KaleidoscopeScroll>();
         app.init_resource::<KaleidoscopePointerPress>();
@@ -2391,6 +2412,12 @@ mod lunex_kaleidoscope_app_tests {
     }
 
     fn move_control(app: &mut App, action: MenuPageAction) {
+        // A `Pointer<Move>` models a GENUINE mouse motion, which sets the active
+        // input source to Mouse — the state under which `kaleidoscope_pointer_move`
+        // is allowed to move the cursor (the hover-gate). Insert it so harnesses
+        // that don't otherwise init the resource still exercise the hover path.
+        app.world_mut()
+            .insert_resource(crate::input::ActiveInputKind::Mouse);
         let entity = app
             .world_mut()
             .spawn(AmbitionMenuControl::<MenuPageAction> {
@@ -2428,6 +2455,7 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<InventoryUiBackend>();
         app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
         app.init_resource::<KaleidoscopeCursor>();
+        app.init_resource::<crate::input::ActiveInputKind>();
         app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<KaleidoscopeScroll>();
         app.init_resource::<KaleidoscopePointerPress>();
@@ -2468,6 +2496,7 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<InventoryUiBackend>();
         app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
         app.init_resource::<KaleidoscopeCursor>();
+        app.init_resource::<crate::input::ActiveInputKind>();
         app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<KaleidoscopeScroll>();
         app.init_resource::<KaleidoscopePointerPress>();
@@ -2878,6 +2907,7 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<InventoryUiBackend>();
         app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
         app.init_resource::<KaleidoscopeCursor>();
+        app.init_resource::<crate::input::ActiveInputKind>();
         app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<KaleidoscopeScroll>();
         app.init_resource::<KaleidoscopePointerPress>();
@@ -3009,6 +3039,7 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<InventoryUiBackend>();
         app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
         app.init_resource::<KaleidoscopeCursor>();
+        app.init_resource::<crate::input::ActiveInputKind>();
         app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<KaleidoscopeScroll>();
         app.init_resource::<KaleidoscopePointerPress>();
@@ -3167,6 +3198,7 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<InventoryUiBackend>();
         app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
         app.init_resource::<KaleidoscopeCursor>();
+        app.init_resource::<crate::input::ActiveInputKind>();
         app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<KaleidoscopeScroll>();
         app.init_resource::<KaleidoscopePointerPress>();
@@ -3359,6 +3391,7 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<InventoryUiBackend>();
         app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
         app.init_resource::<KaleidoscopeCursor>();
+        app.init_resource::<crate::input::ActiveInputKind>();
         app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<KaleidoscopeScroll>();
         app.init_resource::<KaleidoscopePointerPress>();
@@ -3561,6 +3594,7 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<InventoryUiBackend>();
         app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
         app.init_resource::<KaleidoscopeCursor>();
+        app.init_resource::<crate::input::ActiveInputKind>();
         app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<KaleidoscopeScroll>();
         app.init_resource::<KaleidoscopePointerPress>();
@@ -4018,6 +4052,7 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<InventoryUiBackend>();
         app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
         app.init_resource::<KaleidoscopeCursor>();
+        app.init_resource::<crate::input::ActiveInputKind>();
         app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<KaleidoscopeScroll>();
         app.init_resource::<KaleidoscopePointerPress>();

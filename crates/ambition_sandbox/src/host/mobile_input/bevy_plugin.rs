@@ -134,7 +134,15 @@ impl Plugin for TouchControlsPlugin {
                     fold_to_menu_control_frame
                         .after(crate::app::populate_menu_control_frame_from_actions)
                         .before(crate::app::apply_menu_frame_to_cutscene_request)
-                        .before(crate::pause_menu::pause_menu_toggle),
+                        .before(crate::pause_menu::pause_menu_toggle)
+                        // Bug 2: the touch joystick must reach
+                        // `MenuControlFrame.up/down/left/right` BEFORE the
+                        // menu nav consumers read it, or the frame is consumed
+                        // (and reset next frame) before the stick fold lands —
+                        // so the on-screen joystick never moved either menu's
+                        // cursor. Pin the fold ahead of BOTH backends' nav
+                        // (Grid + cube) via the shared `MenuNavConsume` set.
+                        .before(crate::app::MenuNavConsume),
                     fold_to_control_frame
                         // ControlFrame writer: join the input populate set so
                         // the schedule pins it before the consume boundary.

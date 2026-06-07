@@ -17,6 +17,7 @@ use bevy::prelude::*;
 use leafwing_input_manager::prelude::*;
 
 mod actions;
+mod active_input;
 mod control;
 mod menu;
 mod presets;
@@ -27,6 +28,7 @@ mod tests;
 
 #[cfg(feature = "input")]
 pub use actions::SandboxAction;
+pub use active_input::{update_active_input_kind, ActiveInputKind};
 pub use control::{ControlFrame, PlayerDashTriggerState};
 
 /// Schedule contract for the per-frame [`ControlFrame`] input window.

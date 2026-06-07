@@ -13,6 +13,19 @@ use crate::input::{
 use crate::presentation::rendering::PlayerVisual;
 use crate::SandboxDevState;
 
+/// The menu-nav CONSUMERS of [`MenuControlFrame`].
+///
+/// Both inventory backends' directional nav — the bevy_ui Grid
+/// (`grid_menu_nav`) and the 3D cube (`kaleidoscope_focus_nav`) — join
+/// this set so any writer that must land in the frame BEFORE it is
+/// consumed (notably the touch-joystick fold in the mobile_input plugin)
+/// can pin `.before(MenuNavConsume)` without naming each backend's
+/// private system. Without that ordering the touch stick reached the
+/// frame only after the consumers had already read (and reset) it, so
+/// the on-screen joystick never moved either menu's cursor (Bug 2).
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct MenuNavConsume;
+
 /// Presentation-side companion to `setup_simulation_system`: attach
 /// leafwing's `ActionState` and the active preset's `InputMap` to the
 /// player entity. Sim-only setup spawns the player without these so the

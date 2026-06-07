@@ -37,7 +37,7 @@
 use bevy::prelude::*;
 
 use ambition_menu::render::bevy_ui::{
-    spawn_bevy_ui_menu, BevyUiMenuRoot, BevyUiMenuTab, BevyUiMenuTabSpec, BevyUiMenuView,
+    BevyUiMenuRoot, BevyUiMenuTab, BevyUiMenuTabSpec, BevyUiMenuView,
 };
 use ambition_menu::{ActiveMenuPages, AmbitionMenuControl, MenuFocusKey, MenuNode, MenuRect};
 
@@ -607,8 +607,15 @@ pub(crate) fn grid_menu_republish_view(
             page: &page,
             focused,
         };
+        // Fix 3: hand the `AssetServer` to the renderer so the Items tab shows its
+        // sprite ICONS (the model's per-cell icon path), like the cube does.
+        let assets = world.get_resource::<AssetServer>().cloned();
         let mut commands = world.commands();
-        spawn_bevy_ui_menu(&mut commands, &view);
+        ambition_menu::render::bevy_ui::spawn_bevy_ui_menu_with_assets(
+            &mut commands,
+            &view,
+            assets.as_ref(),
+        );
     });
 }
 

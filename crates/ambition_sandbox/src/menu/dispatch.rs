@@ -78,6 +78,14 @@ pub(crate) fn dispatch_menu_action(
         MenuPageAction::System(option) => {
             apply_system_option(option, settings, close_menu, sfx);
         }
+        MenuPageAction::SystemStep(option, dir) => {
+            // Fix 2: a ◀ / ▶ click zone on a value row steps the setting in the given
+            // direction through the SAME IR path the keyboard LEFT/RIGHT uses. Value
+            // rows never close the menu, so we ignore the `closed` result.
+            let _ = apply_settings_option(option, dir, settings);
+            play_ui(sfx, ambition_sfx::ids::UI_SLIDER_TICK);
+            info!("cube system step: {:?} dir {}", option, dir);
+        }
         MenuPageAction::SystemOption(opt) => {
             // Radio / Language / Developer screen options apply against their live
             // resource (radio auditions + keeps the menu open; dev toggles mutate

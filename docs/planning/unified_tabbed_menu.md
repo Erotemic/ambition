@@ -81,9 +81,13 @@ from the earlier rename).
     level closes the menu → `GameMode::Playing` (respecting `opened_from_pause`).
   - Inside a System drill, `Back` pops the drill one level; at the System tab's
     top level, `Back` closes the menu (same as any tab).
-- **Map/Quest:** placeholder pages (reuse the cube's `placeholder_page` content)
-  — present as tabs in both backends so the tab set matches; show a "coming soon"
-  body. No gameplay wiring (deferred; they're not well-formed yet).
+- **Map/Quest:** PAUSE-MENU tabs only (100% a pause feature — NOT shown in-game).
+  Placeholder pages (reuse the cube's `placeholder_page` content) — present as
+  tabs in both backends so the tab set matches; show a "coming soon" body. No
+  gameplay wiring (deferred; they're not well-formed yet). A future in-world
+  **mini-map / quest HUD** is a SEPARATE presentation/HUD concern (off by
+  default), explicitly NOT part of this menu and not built here — don't conflate
+  the pause Map/Quest tabs with any in-game overlay.
 - **Inventory tab:** the 6×4 item grid (the existing `build_items_page` content)
   rendered in bevy_ui for the grid backend; equip/use via the shared dispatcher.
 - **System tab:** renders `SystemMenuModel` (the IR) — the SAME entries the cube

@@ -13,7 +13,7 @@
 //!
 //! Two settings surfaces exist in the sandbox: the bevy-UI pause menu
 //! (`crate::pause_menu`, which reads [`super::model::SettingsItem`]) and the
-//! 3D OoT cube's System face (`crate::oot_cube`). They used to each re-author
+//! 3D OoT cube's System face (`crate::menu_model`). They used to each re-author
 //! the option set, so they drifted. This IR is the shared source of truth the
 //! cube renders from (the pause menu migrates onto it as a follow-up).
 //!

@@ -924,7 +924,7 @@ fn item_detail<Action>(cell: &InventoryItemNode<Action>) -> Option<String> {
 /// resources.
 ///
 /// Ambition can implement this over a temporary adapter struct that borrows
-/// `OwnedItems` and `OotMenuState`; the UI crate does not need to depend on
+/// `OwnedItems` and `GridMenuState`; the UI crate does not need to depend on
 /// those types.
 pub trait ItemsOnlyMenuAdapter {
     type PageId;

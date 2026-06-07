@@ -2,33 +2,33 @@
 //!
 //! This is the placeholder/native renderer: plain Bevy UI nodes laid out as a
 //! CSS grid, with text labels standing in for item icons until art exists. It
-//! reads the same [`OwnedItems`] + [`OotMenuState`] a future 3D-cube renderer
+//! reads the same [`OwnedItems`] + [`GridMenuState`] a future 3D-cube renderer
 //! (submodule `ambition_inventory_ui`) would consume, so swapping renderers does
 //! not touch the catalog or the input/effects logic.
 
 use bevy::prelude::*;
 
-use super::state::OotMenuState;
+use super::state::GridMenuState;
 use crate::items::{Item, ItemCategory, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 
 /// Root overlay node (fullscreen dim + centered panel). Toggled by visibility.
 #[derive(Component)]
-pub struct OotMenuRoot;
+pub struct GridMenuRoot;
 
 /// One of the 24 grid slots. Carries which catalog item it represents.
 #[derive(Component, Clone, Copy)]
-pub struct OotSlot {
+pub struct GridSlot {
     pub item: Item,
 }
 
 /// The single multi-line detail/footer text (name + description + status), kept
 /// as one entity so it stays disjoint from the slots' `&mut Text` query.
 #[derive(Component)]
-pub struct OotDetailText;
+pub struct GridDetailText;
 
 /// Back / close button.
 #[derive(Component)]
-pub struct OotBackButton;
+pub struct GridBackButton;
 
 // Touch-friendly slot sizing — large enough to tap on a phone.
 const SLOT_MIN_W: f32 = 88.0;
@@ -70,7 +70,7 @@ fn slot_label(item: Item, count: u32, equipped: bool) -> String {
     s
 }
 
-pub fn spawn_oot_menu(mut commands: Commands) {
+pub fn spawn_grid_menu(mut commands: Commands) {
     let root = commands
         .spawn((
             Node {
@@ -85,7 +85,7 @@ pub fn spawn_oot_menu(mut commands: Commands) {
             BackgroundColor(Color::srgba(0.02, 0.03, 0.06, 0.86)),
             ZIndex(62),
             Visibility::Hidden,
-            OotMenuRoot,
+            GridMenuRoot,
             Name::new("OoT item menu root"),
         ))
         .id();
@@ -154,7 +154,7 @@ pub fn spawn_oot_menu(mut commands: Commands) {
                 ..default()
             },
             TextColor(Color::srgba(0.90, 0.95, 1.0, 0.98)),
-            OotBackButton,
+            GridBackButton,
             Name::new("OoT item menu back button"),
         ))
         .id();
@@ -196,7 +196,7 @@ pub fn spawn_oot_menu(mut commands: Commands) {
                     ..default()
                 },
                 TextColor(slot_fg(false, false)),
-                OotSlot { item },
+                GridSlot { item },
                 Name::new(format!("OoT slot: {}", item.display_name())),
             ))
             .id();
@@ -219,7 +219,7 @@ pub fn spawn_oot_menu(mut commands: Commands) {
                 ..default()
             },
             TextColor(Color::srgba(0.85, 0.90, 0.98, 0.98)),
-            OotDetailText,
+            GridDetailText,
             Name::new("OoT item menu detail text"),
         ))
         .id();
@@ -227,8 +227,8 @@ pub fn spawn_oot_menu(mut commands: Commands) {
 }
 
 /// Mirror state + ownership into the grid visuals every frame.
-pub fn sync_oot_menu(
-    state: Res<OotMenuState>,
+pub fn sync_grid_menu(
+    state: Res<GridMenuState>,
     overlay: Res<crate::inventory::InventoryUiState>,
     // The grid is one of two inventory frontends; when the Cube backend is active it
     // renders the inventory, so the bevy_ui grid must stay hidden (otherwise it
@@ -236,12 +236,12 @@ pub fn sync_oot_menu(
     // if the cube hookup is ever absent.
     backend: Option<Res<crate::lunex_kaleidoscope_app::InventoryUiBackend>>,
     owned: Res<OwnedItems>,
-    mut roots: Query<&mut Visibility, With<OotMenuRoot>>,
+    mut roots: Query<&mut Visibility, With<GridMenuRoot>>,
     mut slots: Query<
-        (&OotSlot, &mut BackgroundColor, &mut Text, &mut TextColor),
-        Without<OotDetailText>,
+        (&GridSlot, &mut BackgroundColor, &mut Text, &mut TextColor),
+        Without<GridDetailText>,
     >,
-    mut detail: Query<&mut Text, (With<OotDetailText>, Without<OotSlot>)>,
+    mut detail: Query<&mut Text, (With<GridDetailText>, Without<GridSlot>)>,
 ) {
     let grid_backend = backend
         .map(|b| *b == crate::lunex_kaleidoscope_app::InventoryUiBackend::Grid)

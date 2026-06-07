@@ -26,6 +26,8 @@
 //!   `runner.start_node` / `stop` / `select_option` /
 //!   `continue_in_next_update` against the live runner entity.
 //!   Visit count increments here too (one per `start` call).
+//!   The bridge no longer auto-continues after `PresentLine`; the
+//!   player now advances once the reveal finishes.
 //! - **Runner → UI**: three observers translate the runner's
 //!   lifecycle events into `DialogState` writes:
 //!   - [`on_present_line`] — `current_speaker`, `current_line`, and
@@ -175,6 +177,7 @@ fn dispatch_pending_dialog_requests(
         // Reset the accumulator for the new conversation.
         state.current_line.clear();
         state.current_speaker.clear();
+        state.line_reveal = crate::dialog::runtime::LineRevealState::default();
         info!(
             target: "ambition_sandbox::dialog::yarn",
             "start_node({dialogue_id}) — runner advancing next tick",
@@ -194,16 +197,16 @@ fn dispatch_pending_dialog_requests(
             // Reset the body + option accumulator for the next beat.
             state.current_line.clear();
             state.current_speaker.clear();
+            state.line_reveal = crate::dialog::runtime::LineRevealState::default();
             state.current_options.clear();
             state.yarn_option_ids.clear();
             state.selected_option = 0;
         }
     }
 
-    // continue (auto-advance after PresentLine, OR manual advance
-    // on a no-option line). Note: `runner_done_pending_close`
-    // takes precedence — if the runner already finished, don't
-    // try to continue it.
+    // continue (manual advance on a no-option line). Note:
+    // `runner_done_pending_close` takes precedence — if the runner
+    // already finished, don't try to continue it.
     if std::mem::take(&mut state.pending_advance) {
         if !state.runner_done_pending_close && runner.is_running() {
             runner.continue_in_next_update();
@@ -233,43 +236,18 @@ fn on_present_line(
     mut state: ResMut<DialogState>,
     mut cue: ResMut<YarnPresentationCue>,
 ) {
-    // Accumulate consecutive lines into the body so a Yarn node
-    // structured as
-    //
-    //   Speaker: Line A
-    //   Speaker: Line B
-    //   -> Option 1
-    //   -> Option 2
-    //
-    // shows up as ONE page (Line A, then Line B, then the two
-    // options) instead of three separate frames each requiring a
-    // Continue press. The bridge auto-advances after every
-    // `PresentLine`; the runner emits whichever event comes next
-    // (line, options, or completion) without the player having to
-    // confirm between them.
-    //
-    // Multi-speaker is handled by separating the latest speaker
-    // into its own paragraph: when the new speaker differs from
-    // the last one, we prefix a paragraph break.
+    // PresentLine is now the hand-off point for the typewriter
+    // reveal. Store the raw line text here; the UI reads the
+    // visible substring from DialogState each frame.
     let new_speaker = event.line.character_name().unwrap_or("").to_string();
     let new_text = event.line.text_without_character_name();
-    if state.current_line.is_empty() {
-        state.current_line = new_text;
-    } else {
-        // Append with a paragraph break.
-        state.current_line.push_str("\n\n");
-        state.current_line.push_str(&new_text);
-    }
     state.current_speaker = new_speaker;
+    state.start_revealing_line(new_text);
     // Drop stale options from the previous beat. The new beat's
     // options arrive via `PresentOptions`.
     state.current_options.clear();
     state.yarn_option_ids.clear();
     state.selected_option = 0;
-    // Auto-advance: the dispatcher will call
-    // `runner.continue_in_next_update()` next tick so we receive
-    // the next event without a player Continue press.
-    state.pending_advance = true;
     // Markup cue capture for [shout] / [whisper] hooks.
     for attr in &event.line.attributes {
         match attr.name.as_str() {

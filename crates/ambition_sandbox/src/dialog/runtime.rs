@@ -14,7 +14,8 @@
 //!   bridge system reads it, increments `dialog_visit_count` in
 //!   save, and calls `runner.start_node(id)`.
 //! - Runner triggers `PresentLine` → bridge observer writes
-//!   `current_speaker` + `current_line`.
+//!   `current_speaker` + `current_line`; the reveal tick exposes
+//!   it to the UI over time.
 //! - Runner triggers `PresentOptions` → bridge observer writes
 //!   `current_options` + `yarn_option_ids`.
 //! - Player input → `state.confirm_or_advance()` stashes
@@ -63,6 +64,12 @@ pub struct DialogState {
     pub(in crate::dialog) current_speaker: String,
     /// Latest line text (with character-name prefix stripped).
     pub(in crate::dialog) current_line: String,
+    /// Typewriter reveal state for the current line.
+    pub(in crate::dialog) line_reveal: LineRevealState,
+    /// Whether the line was marked by Yarn as the last line before
+    /// an options block. This is the explicit "auto-advance into
+    /// options" signal, so plain lines still require a confirm.
+    pub(in crate::dialog) line_last_before_options: bool,
     /// Latest options from `PresentOptions`. Empty when the
     /// player is reading a non-branching line.
     pub(in crate::dialog) current_options: Vec<DialogChoice>,
@@ -110,6 +117,25 @@ pub struct DialogState {
     pub(in crate::dialog) runner_done_pending_close: bool,
 }
 
+#[derive(Clone, Debug)]
+pub(in crate::dialog) struct LineRevealState {
+    full_line_byte_ends: Vec<usize>,
+    revealed_chars: usize,
+    elapsed_s: f32,
+    chars_per_second: f32,
+}
+
+impl Default for LineRevealState {
+    fn default() -> Self {
+        Self {
+            full_line_byte_ends: Vec::new(),
+            revealed_chars: 0,
+            elapsed_s: 0.0,
+            chars_per_second: 225.0,
+        }
+    }
+}
+
 impl DialogState {
     /// Begin a conversation with the named Yarn node. Activates the
     /// UI immediately (so the player sees the dialog box even on
@@ -124,6 +150,8 @@ impl DialogState {
         self.npc_name = npc_name.to_string();
         self.current_speaker.clear();
         self.current_line.clear();
+        self.line_reveal = LineRevealState::default();
+        self.line_last_before_options = false;
         self.current_options.clear();
         #[cfg(feature = "ui")]
         self.yarn_option_ids.clear();
@@ -147,6 +175,8 @@ impl DialogState {
         self.pending_close = true;
         self.current_speaker.clear();
         self.current_line.clear();
+        self.line_reveal = LineRevealState::default();
+        self.line_last_before_options = false;
         self.current_options.clear();
         #[cfg(feature = "ui")]
         self.yarn_option_ids.clear();
@@ -183,8 +213,37 @@ impl DialogState {
             // frame.
             String::new()
         } else {
-            self.current_line.clone()
+            self.visible_line().to_string()
         }
+    }
+
+    pub(in crate::dialog) fn start_revealing_line(&mut self, text: String) {
+        self.current_line = text;
+        self.line_reveal = LineRevealState::from_line(&self.current_line);
+    }
+
+    pub(in crate::dialog) fn tick_reveal(&mut self, delta_s: f32) {
+        self.line_reveal.tick(delta_s, &self.current_line);
+    }
+
+    pub(in crate::dialog) fn reveal_full_line(&mut self) {
+        self.line_reveal.reveal_full_line(&self.current_line);
+    }
+
+    pub(in crate::dialog) fn line_reveal_complete(&self) -> bool {
+        self.line_reveal.complete(&self.current_line)
+    }
+
+    pub(in crate::dialog) fn visible_line(&self) -> &str {
+        self.line_reveal.visible_line(&self.current_line)
+    }
+
+    pub(in crate::dialog) fn set_line_last_before_options(&mut self, is_last: bool) {
+        self.line_last_before_options = is_last;
+    }
+
+    pub(in crate::dialog) fn line_last_before_options(&self) -> bool {
+        self.line_last_before_options
     }
 
     pub fn options(&self) -> &[DialogChoice] {
@@ -218,6 +277,10 @@ impl DialogState {
     /// value (legacy `if closed { next_mode.set(Playing) }`) get
     /// their game-mode transition from the observer instead.
     pub(in crate::dialog) fn confirm_or_advance(&mut self) -> bool {
+        if !self.line_reveal_complete() {
+            self.reveal_full_line();
+            return false;
+        }
         if self.runner_done_pending_close {
             // Runner already finished; this press dismisses the
             // final accumulated text and closes the dialog.
@@ -233,5 +296,60 @@ impl DialogState {
             );
         }
         false
+    }
+}
+
+impl LineRevealState {
+    fn from_line(line: &str) -> Self {
+        // Precompute safe byte ends for each revealed character.
+        // Unicode grapheme segmentation would be better long-term,
+        // but char boundaries are a safe incremental step for the
+        // typewriter effect.
+        let mut full_line_byte_ends = Vec::with_capacity(line.chars().count() + 1);
+        full_line_byte_ends.push(0);
+        for (idx, ch) in line.char_indices() {
+            full_line_byte_ends.push(idx + ch.len_utf8());
+        }
+        Self {
+            full_line_byte_ends,
+            revealed_chars: 0,
+            elapsed_s: 0.0,
+            chars_per_second: 225.0,
+        }
+    }
+
+    fn tick(&mut self, delta_s: f32, line: &str) {
+        if line.is_empty() || self.complete(line) {
+            self.revealed_chars = self.full_line_byte_ends.len().saturating_sub(1);
+            return;
+        }
+        self.elapsed_s = (self.elapsed_s + delta_s.max(0.0)).max(0.0);
+        // Future extension points:
+        // - punctuation pauses
+        // - metadata-based speed like `#slow`, `#fast`, `#instant`
+        // - optional typing cursor / continue indicator
+        let chars = (self.elapsed_s * self.chars_per_second).floor() as usize;
+        self.revealed_chars = chars.min(self.full_line_byte_ends.len().saturating_sub(1));
+    }
+
+    fn reveal_full_line(&mut self, line: &str) {
+        self.elapsed_s = 0.0;
+        self.revealed_chars = self.full_line_byte_ends.len().saturating_sub(1);
+        if line.is_empty() {
+            self.revealed_chars = 0;
+        }
+    }
+
+    fn complete(&self, line: &str) -> bool {
+        line.is_empty() || self.revealed_chars >= self.full_line_byte_ends.len().saturating_sub(1)
+    }
+
+    fn visible_line<'a>(&self, line: &'a str) -> &'a str {
+        let end = self
+            .full_line_byte_ends
+            .get(self.revealed_chars)
+            .copied()
+            .unwrap_or_else(|| line.len());
+        &line[..end]
     }
 }

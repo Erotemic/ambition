@@ -45,6 +45,11 @@ const DEPTH_ACTION: f32 = -0.50;
 // ring rotates). See `is_edge_button_rect`.
 const DEPTH_EDGE_BUTTON: f32 = -0.58;
 const DEPTH_EDGE: f32 = -0.68;
+// The draggable scrollbar (Feature C) gets its OWN band so it never shares a
+// depth plane with the large list/system panel it overlays — two solid opaque
+// planes at the same depth z-fight (the GPU depth test is undefined for equal
+// depths), which read as the scrollbar flickering as the ring rotates.
+const DEPTH_SCROLLBAR: f32 = -0.44;
 // Item icons sit in front of their cell's action plane (DEPTH_ACTION) but behind
 // the text band (DEPTH_TEXT_TOP), so a sprite covers the cell yet any overlaid
 // hint text still reads on top of it.
@@ -56,6 +61,13 @@ const FONT_FAMILY: &str = "DejaVu Sans";
 /// Marks the rotating ring root that holds the cube faces.
 #[derive(Component)]
 pub struct MenuRing;
+
+/// Marks a selection corner-bracket piece (child of a control). Spawned hidden on
+/// every focusable cell; [`sync_selection_corner_visuals`] shows the focused
+/// control's corners and hides the rest, so the keyboard/gamepad cursor and pointer
+/// hover have a clear in-place indicator without rebuilding the face.
+#[derive(Component)]
+struct SelectionCorner;
 
 /// Non-generic style metadata stashed on each interactive control so a
 /// non-generic system ([`sync_control_focus_visuals`]) can recolor the control's
@@ -294,6 +306,9 @@ where
             // without rebuilding the face). The demo drives its own look + rebuilds
             // on nav, so this is gated to the Bevy-picking (game) configuration.
             app.add_systems(Update, sync_control_focus_visuals);
+            // Reveal the focused control's selection corners in place (the prominent
+            // cursor indicator; the build is cursor-independent so it can't be baked).
+            app.add_systems(Update, sync_selection_corner_visuals);
             // Feature C: draggable scrollbar. Keep each scrollbar track's screen
             // extent fresh (projection), and observe pointer drags on a scrollbar
             // to emit the neutral `MenuScrollDragged` fraction the host applies.
@@ -540,6 +555,32 @@ fn sync_control_focus_visuals(
             unlit: true,
             ..default()
         }));
+    }
+}
+
+/// Reveal the FOCUSED control's selection corner-brackets and hide everyone else's,
+/// in place, from each control's live [`MenuVisualState`]. This is the prominent
+/// cursor indicator (the recolor alone is too subtle): pre-click-fix the corners
+/// were baked from `selected` at build time, but the build is now cursor-independent
+/// (so clicks survive press->release), so the cursor visual is applied at runtime.
+/// Reacts to `Changed<MenuVisualState>` like [`sync_control_focus_visuals`].
+fn sync_selection_corner_visuals(
+    controls: Query<(&MenuVisualState, &Children), Changed<MenuVisualState>>,
+    mut corners: Query<&mut Visibility, With<SelectionCorner>>,
+) {
+    for (vis, children) in &controls {
+        let target = if vis.focused || vis.selected || vis.hovered {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
+        for &child in children {
+            if let Ok(mut visibility) = corners.get_mut(child) {
+                if *visibility != target {
+                    *visibility = target;
+                }
+            }
+        }
     }
 }
 
@@ -879,7 +920,11 @@ mod fade_tests {
         let m = mat(&app);
         assert!((m.base_color.alpha() - 0.8).abs() < 1e-4, "open alpha");
         // Settled-open must be OPAQUE (depth-writing) to avoid z-fight flicker.
-        assert_eq!(m.alpha_mode, AlphaMode::Opaque, "settled-open must be Opaque");
+        assert_eq!(
+            m.alpha_mode,
+            AlphaMode::Opaque,
+            "settled-open must be Opaque"
+        );
 
         // Folded shut: fully transparent.
         app.world_mut()
@@ -894,6 +939,50 @@ mod fade_tests {
             .base_color
             .alpha();
         assert!(a.abs() < 1e-4, "closed alpha = {a}");
+    }
+
+    /// A TEXTURED plane (text glyph atlas / item icon — any material with a
+    /// `base_color_texture`) must STAY `Blend` when the menu is fully open, even
+    /// though solid planes go `Opaque`. Drawing a mostly-transparent texture Opaque
+    /// renders its transparent texels as the base-colour box — the "text is just
+    /// squares" / "icons look weird" regression. Pins the per-element split.
+    #[test]
+    fn textured_planes_stay_blend_when_open() {
+        let mut app = App::new();
+        app.add_plugins(AssetPlugin::default());
+        app.init_asset::<StandardMaterial>();
+        app.init_resource::<KaleidoscopeOpenState>();
+        app.add_systems(Update, fade_kaleidoscope_materials);
+
+        let handle = app
+            .world_mut()
+            .resource_mut::<Assets<StandardMaterial>>()
+            .add(StandardMaterial {
+                base_color: Color::WHITE,
+                base_color_texture: Some(Handle::<Image>::default()),
+                alpha_mode: AlphaMode::Blend,
+                ..default()
+            });
+        let id = handle.id();
+        app.world_mut()
+            .spawn((KaleidoscopeFade { base_alpha: 1.0 }, MeshMaterial3d(handle)));
+
+        // Fully open.
+        app.world_mut()
+            .resource_mut::<KaleidoscopeOpenState>()
+            .amount = 1.0;
+        app.update();
+        let mode = app
+            .world()
+            .resource::<Assets<StandardMaterial>>()
+            .get(id)
+            .unwrap()
+            .alpha_mode;
+        assert_eq!(
+            mode,
+            AlphaMode::Blend,
+            "textured plane must stay Blend when open (Opaque would draw transparent texels as squares)"
+        );
     }
 }
 
@@ -1272,7 +1361,10 @@ fn spawn_control<Action>(
     // Edge page-turn buttons (the narrow flanking L/R controls) live in their own
     // depth band so they don't z-fight with the item-grid action planes (both would
     // otherwise resolve to DEPTH_ACTION and flicker as the ring rotates).
-    let control_depth = if action.is_some() && is_edge_button_rect(rect) {
+    let control_depth = if is_scrollbar {
+        // Dedicated band — never coplanar with the panel it overlays (no z-fight).
+        DEPTH_SCROLLBAR
+    } else if action.is_some() && is_edge_button_rect(rect) {
         DEPTH_EDGE_BUTTON
     } else {
         panel_depth(rect, action.is_some())
@@ -1337,7 +1429,11 @@ fn spawn_control<Action>(
         Color::WHITE
     };
     entity.with_children(|children| {
-        if selected && draw_corners {
+        // Spawn the selection corners on every focusable (actionable, non-scrollbar)
+        // cell, but HIDDEN — `sync_selection_corner_visuals` reveals the focused
+        // control's set in place. (Pre-click-fix this was baked from `selected`; the
+        // build is now cursor-independent so the cursor visual is applied at runtime.)
+        if draw_corners && !disabled && !is_scrollbar {
             spawn_selection_corners(children, materials, active);
         }
         if let Some(icon_handle) = icon_handle {
@@ -1478,6 +1574,11 @@ fn spawn_corner_piece(
     });
     ui.spawn((
         Name::new("selection corner"),
+        SelectionCorner,
+        // Start hidden; `sync_selection_corner_visuals` reveals the corners of the
+        // focused control in place (the page is built cursor-independent so clicks
+        // survive — see the click-fix — so the cursor visual can't be baked here).
+        Visibility::Hidden,
         KaleidoscopeFade { base_alpha },
         UiLayout::window()
             .x(Rl(x))
@@ -1633,33 +1734,50 @@ fn fade_kaleidoscope_materials(
     faded: Query<(&KaleidoscopeFade, &MeshMaterial3d<StandardMaterial>)>,
 ) {
     let amount = state.amount.clamp(0.0, 1.0);
-    // Once fully open, render the layered planes OPAQUE so the GPU depth test (not an
-    // unstable back-to-front transparent sort) resolves the per-face depth bands
-    // (DEPTH_BACKGROUND..DEPTH_SELECTION). With `AlphaMode::Blend`, StandardMaterial
-    // disables depth-write, so coplanar lines / icons / scrollbars stop being ordered
-    // by depth and z-fight — flickering as the ring rotates. Blend is therefore used
-    // ONLY while the fold is mid-transition (`amount < 1`), where the cross-fade is
-    // wanted and the motion hides any transient sort wobble. `ease_fold_amount` snaps
-    // `amount` to exactly its target within 0.002, so a settled-open menu reliably
-    // hits `amount == 1.0` (no asymptotic limbo that would strand it in Blend).
-    let target_mode = if amount >= 1.0 {
-        AlphaMode::Opaque
-    } else {
-        AlphaMode::Blend
-    };
+    // Restore the proven pre-Feature-B per-element alpha scheme once the fold is
+    // fully open, so the cube stops z-fighting WITHOUT turning text/icons into
+    // squares:
+    //   * SOLID planes (panels, lines, borders, selection corners, scrollbar) ->
+    //     `Opaque`. Opaque writes depth, so the per-face depth bands
+    //     (DEPTH_BACKGROUND..DEPTH_SELECTION) are resolved by the GPU depth test
+    //     instead of an unstable back-to-front transparent sort — no flicker.
+    //   * TEXTURED planes (the Text3d glyph atlas, item icons — anything with a
+    //     `base_color_texture`) -> `Blend`. Their texture is mostly transparent;
+    //     drawing it Opaque renders the transparent texels as the base-colour box
+    //     (the "text is just squares" / "icons look weird" regression). They stay
+    //     Blend and depth-TEST against the opaque panels behind them (Bevy's
+    //     transparent pass tests depth even though it doesn't write it), so the few
+    //     transparent layers sort correctly over the solid background.
+    // While the fold is mid-transition (`amount < 1`) EVERYTHING is Blend so the
+    // whole cube cross-fades in/out together (Feature B); the per-element split only
+    // kicks in once settled. `ease_fold_amount` snaps `amount` to its target within
+    // 0.002, so a settled-open menu reliably hits `amount == 1.0`.
+    let settled = amount >= 1.0;
     for (fade, material) in &faded {
-        let target_alpha = fade.base_alpha * amount;
-        // Read first; only invalidate (and re-extract) the asset when the mode or
-        // alpha actually needs to change — this avoids thrashing every material every
-        // frame while the menu sits open or shut. It also corrects materials freshly
-        // (re)spawned THIS frame by `rebuild_cube_faces` / `sync_control_focus_visuals`
-        // (which always create Blend at full base alpha): PostUpdate runs after them,
-        // so a republish-while-open flips the new planes straight to Opaque with no
-        // one-frame flicker.
-        let needs = materials.get(&material.0).is_some_and(|m| {
-            m.alpha_mode != target_mode || (m.base_color.alpha() - target_alpha).abs() > 1.0e-4
-        });
-        if needs {
+        // Copy the few fields out so the immutable read ends before any get_mut.
+        let Some((textured, cur_mode, cur_alpha)) = materials.get(&material.0).map(|m| {
+            (
+                m.base_color_texture.is_some(),
+                m.alpha_mode,
+                m.base_color.alpha(),
+            )
+        }) else {
+            continue;
+        };
+        let (target_mode, target_alpha) = if !settled {
+            (AlphaMode::Blend, fade.base_alpha * amount)
+        } else if textured {
+            (AlphaMode::Blend, fade.base_alpha)
+        } else {
+            (AlphaMode::Opaque, fade.base_alpha)
+        };
+        // Only invalidate (and re-extract) the asset when the mode or alpha actually
+        // needs to change — avoids thrashing every material every frame while the
+        // menu sits open or shut, and corrects planes freshly (re)spawned THIS frame
+        // by rebuild_cube_faces / sync_control_focus_visuals (which always create
+        // Blend): PostUpdate runs after them, so a republish-while-open settles the
+        // new planes with no one-frame flicker.
+        if cur_mode != target_mode || (cur_alpha - target_alpha).abs() > 1.0e-4 {
             if let Some(mat) = materials.get_mut(&material.0) {
                 mat.alpha_mode = target_mode;
                 mat.base_color.set_alpha(target_alpha);

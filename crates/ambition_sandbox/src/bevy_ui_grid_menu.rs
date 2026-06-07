@@ -20,7 +20,7 @@
 //! The current renderer is native Bevy UI (text labels stand in for item icons
 //! until art exists). The data model (`OwnedItems` + `GridMenuState`) is renderer-
 //! independent on purpose: the heavier 3D OoT "cube" renderer in the
-//! `ambition_inventory_ui` submodule (vendored `bevy_lunex`) can later consume
+//! `ambition_menu` submodule (vendored `bevy_lunex`) can later consume
 //! the same state without touching the catalog or input/effects. See that
 //! submodule's `DESIGN-OOT-DEMO.md`.
 

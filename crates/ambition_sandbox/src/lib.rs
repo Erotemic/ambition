@@ -88,7 +88,7 @@ pub mod mechanics;
 pub(crate) mod music;
 pub(crate) mod pause_menu;
 // 3D-cube OoT pause menu (#31): the data seam wiring our 24-item inventory into
-// the reusable `ambition_inventory_ui` cube model. Renderer promotion pending.
+// the reusable `ambition_menu` cube model. Renderer promotion pending.
 pub mod dive;
 #[cfg(feature = "oot_inventory")]
 pub mod lunex_kaleidoscope_app;

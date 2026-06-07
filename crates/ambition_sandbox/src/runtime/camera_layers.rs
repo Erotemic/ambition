@@ -5,7 +5,7 @@
 //! * order 0  — [`MainCamera`] (`Camera2d`): the gameplay world (sprites on the
 //!   default `RenderLayers::layer(0)`), plus the cube's dim-scrim (explicitly
 //!   retargeted to it via `UiTargetCamera`).
-//! * order 8  — the cube-menu `Camera3d` (`ambition_inventory_ui::kaleidoscope::KaleidoscopePauseCamera`).
+//! * order 8  — the cube-menu `Camera3d` (`ambition_menu::kaleidoscope::KaleidoscopePauseCamera`).
 //! * order 9  — [`FrontHudCamera`] (`Camera2d`, `clear_color: None`): the DEFAULT UI
 //!   camera, so the HUD / FPS / debug / control overlays draw IN FRONT of the cube.
 //!

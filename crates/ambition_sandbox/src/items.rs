@@ -2,7 +2,7 @@
 //!
 //! Jon's design call (2026-06-03): the inventory menu is modeled on the
 //! Ocarina-of-Time "Select Item" subscreen, which is a **6 × 4 = 24-slot grid**
-//! (`submodules/ambition_inventory_ui/DESIGN-OOT-DEMO.md`: "The Items page uses a
+//! (`submodules/ambition_menu/DESIGN-OOT-DEMO.md`: "The Items page uses a
 //! 6 × 4 item grid based on OoT's inventory slot order"). That slot count is not
 //! just a UI detail — **24 is the finite number of distinct pickup items in this
 //! game.** Every collectible/equippable/usable item the player can ever hold maps

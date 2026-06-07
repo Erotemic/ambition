@@ -528,3 +528,7 @@ right perspective, but it could make a good boss.
 
 The Mongols would be another faction? As an exception? Genghis Khan is the
 boss? Probably need to watch CCWH #17.
+
+Yuclid might be a boss who really hates when you go through portals (breaks
+Eucliean space rules is the joke), maybe a topologist comes to help you, to
+teach you to cut and stitch the manifolds.

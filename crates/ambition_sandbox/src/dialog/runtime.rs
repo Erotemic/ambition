@@ -17,7 +17,8 @@
 //!   `current_speaker` + `current_line`; the reveal tick exposes
 //!   it to the UI over time.
 //! - Runner triggers `PresentOptions` → bridge observer writes
-//!   `current_options` + `yarn_option_ids`.
+//!   `current_options` + `yarn_option_ids`; the options reveal tick
+//!   exposes them one at a time.
 //! - Player input → `state.confirm_or_advance()` stashes
 //!   `pending_select` or `pending_advance`; the dispatch system
 //!   calls `runner.select_option(id)` or
@@ -73,6 +74,8 @@ pub struct DialogState {
     /// Latest options from `PresentOptions`. Empty when the
     /// player is reading a non-branching line.
     pub(in crate::dialog) current_options: Vec<DialogChoice>,
+    /// Typewriter reveal state for the current options list.
+    pub(in crate::dialog) options_reveal: OptionsRevealState,
     /// Parallel-index Yarn option ids, used by the dispatch
     /// system to call `runner.select_option(...)`.
     #[cfg(feature = "ui")]
@@ -103,10 +106,10 @@ pub struct DialogState {
     /// `runner.select_option(yarn_option_ids[i])`.
     pub(in crate::dialog) pending_select: Option<usize>,
     /// Pending request: `true` until a dispatch system drains it
-    /// and calls `runner.continue_in_next_update()`. Set EITHER by
-    /// the player confirming a no-option line OR by the bridge
-    /// auto-advancing after a `PresentLine` (so the player sees
-    /// `line + options` together without a Continue press between).
+    /// and calls `runner.continue_in_next_update()`. Set by the
+    /// player confirming a plain line, or by the reveal tick when a
+    /// line explicitly marked as `lastline` finishes and needs to
+    /// hand off to an options block immediately.
     pub(in crate::dialog) pending_advance: bool,
     /// Set by the `DialogueCompleted` observer when the runner
     /// finishes a node chain but `current_line` still has text to
@@ -131,7 +134,7 @@ impl Default for LineRevealState {
             full_line_byte_ends: Vec::new(),
             revealed_chars: 0,
             elapsed_s: 0.0,
-            chars_per_second: 225.0,
+            chars_per_second: 112.5,
         }
     }
 }
@@ -153,6 +156,7 @@ impl DialogState {
         self.line_reveal = LineRevealState::default();
         self.line_last_before_options = false;
         self.current_options.clear();
+        self.options_reveal = OptionsRevealState::default();
         #[cfg(feature = "ui")]
         self.yarn_option_ids.clear();
         self.selected_option = 0;
@@ -178,6 +182,7 @@ impl DialogState {
         self.line_reveal = LineRevealState::default();
         self.line_last_before_options = false;
         self.current_options.clear();
+        self.options_reveal = OptionsRevealState::default();
         #[cfg(feature = "ui")]
         self.yarn_option_ids.clear();
         self.pointer_armed = None;
@@ -246,8 +251,32 @@ impl DialogState {
         self.line_last_before_options
     }
 
+    pub(in crate::dialog) fn start_revealing_options(&mut self) {
+        self.options_reveal = OptionsRevealState::from_count(
+            self.current_options.len(),
+            self.line_reveal.chars_per_second,
+        );
+    }
+
+    pub(in crate::dialog) fn tick_options_reveal(&mut self, delta_s: f32) {
+        self.options_reveal
+            .tick(delta_s, self.current_options.len());
+    }
+
+    pub(in crate::dialog) fn reveal_full_options(&mut self) {
+        self.options_reveal.reveal_full(self.current_options.len());
+    }
+
+    pub(in crate::dialog) fn options_reveal_complete(&self) -> bool {
+        self.options_reveal.complete(self.current_options.len())
+    }
+
     pub fn options(&self) -> &[DialogChoice] {
-        &self.current_options
+        let visible = self
+            .options_reveal
+            .visible_count
+            .min(self.current_options.len());
+        &self.current_options[..visible]
     }
 
     pub fn selected_option(&self) -> usize {
@@ -279,6 +308,10 @@ impl DialogState {
     pub(in crate::dialog) fn confirm_or_advance(&mut self) -> bool {
         if !self.line_reveal_complete() {
             self.reveal_full_line();
+            return false;
+        }
+        if !self.options_reveal_complete() {
+            self.reveal_full_options();
             return false;
         }
         if self.runner_done_pending_close {
@@ -314,7 +347,7 @@ impl LineRevealState {
             full_line_byte_ends,
             revealed_chars: 0,
             elapsed_s: 0.0,
-            chars_per_second: 225.0,
+            chars_per_second: 112.5,
         }
     }
 
@@ -351,5 +384,56 @@ impl LineRevealState {
             .copied()
             .unwrap_or_else(|| line.len());
         &line[..end]
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(in crate::dialog) struct OptionsRevealState {
+    visible_count: usize,
+    elapsed_s: f32,
+    options_per_second: f32,
+}
+
+impl Default for OptionsRevealState {
+    fn default() -> Self {
+        Self {
+            visible_count: 0,
+            elapsed_s: 0.0,
+            options_per_second: 1.0,
+        }
+    }
+}
+
+impl OptionsRevealState {
+    fn from_count(count: usize, line_chars_per_second: f32) -> Self {
+        // Keep the options cadence tied to the current dialog pace:
+        // the faster the line typewriter runs, the faster choices
+        // populate. At the current 112.5 chars/sec pace this works
+        // out to 2.5 options/sec.
+        let options_per_second = (line_chars_per_second / 45.0).max(1.0);
+        Self {
+            visible_count: 0,
+            elapsed_s: 0.0,
+            options_per_second: if count == 0 { 1.0 } else { options_per_second },
+        }
+    }
+
+    fn tick(&mut self, delta_s: f32, total_count: usize) {
+        if total_count == 0 || self.complete(total_count) {
+            self.visible_count = total_count;
+            return;
+        }
+        self.elapsed_s = (self.elapsed_s + delta_s.max(0.0)).max(0.0);
+        let visible = (self.elapsed_s * self.options_per_second).floor() as usize;
+        self.visible_count = visible.min(total_count);
+    }
+
+    fn reveal_full(&mut self, total_count: usize) {
+        self.visible_count = total_count;
+        self.elapsed_s = 0.0;
+    }
+
+    fn complete(&self, total_count: usize) -> bool {
+        self.visible_count >= total_count
     }
 }

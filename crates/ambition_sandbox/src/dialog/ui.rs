@@ -2,7 +2,6 @@ use bevy::log::info;
 use bevy::prelude::*;
 
 use crate::presentation::ui_fonts::{UiFontWeight, UiFonts};
-use crate::ui_nav::{decorate_windowed_label, visible_window_start};
 
 pub(in crate::dialog) const DIALOG_VISIBLE_OPTIONS: usize = 4;
 const DIALOG_CONTINUE_HINT: &str =
@@ -81,10 +80,10 @@ pub fn sync_dialog_ui(
                 position_type: PositionType::Absolute,
                 left: Val::Px(0.0),
                 right: Val::Px(0.0),
-                top: Val::Px(0.0),
+                top: Val::Percent(15.0),
                 bottom: Val::Px(0.0),
-                padding: UiRect::all(Val::Px(14.0)),
-                justify_content: JustifyContent::FlexEnd,
+                padding: UiRect::axes(Val::Px(18.0), Val::Px(18.0)),
+                justify_content: JustifyContent::FlexStart,
                 align_items: AlignItems::Center,
                 ..default()
             },
@@ -96,13 +95,13 @@ pub fn sync_dialog_ui(
             root.spawn((
                 Node {
                     width: Val::Percent(100.0),
-                    max_width: Val::Px(960.0),
+                    max_width: Val::Px(1080.0),
                     max_height: Val::Percent(94.0),
-                    padding: UiRect::all(Val::Px(14.0)),
+                    padding: UiRect::all(Val::Px(18.0)),
                     flex_direction: FlexDirection::Column,
-                    row_gap: Val::Px(5.0),
+                    row_gap: Val::Px(7.0),
                     border: UiRect::all(Val::Px(2.0)),
-                    border_radius: BorderRadius::all(Val::Px(20.0)),
+                    border_radius: BorderRadius::all(Val::Px(24.0)),
                     ..default()
                 },
                 BackgroundColor(Color::srgba(0.025, 0.030, 0.045, 0.95)),
@@ -112,31 +111,20 @@ pub fn sync_dialog_ui(
             .with_children(|parent| {
                 parent.spawn((
                     Text::new(title),
-                    dialog_font(20.0, UiFontWeight::Semibold),
+                    dialog_font(24.0, UiFontWeight::Semibold),
                     TextColor(Color::srgba(0.82, 0.94, 1.00, 1.0)),
                 ));
                 parent.spawn((
                     Text::new(body),
-                    dialog_font(16.0, UiFontWeight::Regular),
+                    dialog_font(20.0, UiFontWeight::Regular),
                     TextColor(Color::srgba(0.93, 0.96, 1.00, 1.0)),
                 ));
                 if !options.is_empty() {
-                    let total = options.len();
-                    let start = visible_window_start(selected, total, DIALOG_VISIBLE_OPTIONS);
-                    let end = (start + DIALOG_VISIBLE_OPTIONS).min(total);
-                    for idx in start..end {
-                        let option = &options[idx];
-                        let label = decorate_windowed_label(
-                            option.label.to_string(),
-                            idx,
-                            selected,
-                            total,
-                            DIALOG_VISIBLE_OPTIONS,
-                        );
+                    for (idx, option) in options.iter().enumerate() {
                         spawn_dialog_choice_row(
                             parent,
                             idx,
-                            &label,
+                            &option.label,
                             idx == selected,
                             selected_marker,
                             &dialog_font,
@@ -151,7 +139,7 @@ pub fn sync_dialog_ui(
                 // they can press Confirm to advance / close.
                 parent.spawn((
                     Text::new(DIALOG_CONTINUE_HINT),
-                    dialog_font(12.0, UiFontWeight::Regular),
+                    dialog_font(14.0, UiFontWeight::Regular),
                     TextColor(Color::srgba(0.66, 0.76, 0.88, 0.96)),
                 ));
             });
@@ -182,8 +170,8 @@ fn spawn_dialog_choice_row(
             Button,
             Node {
                 width: Val::Percent(100.0),
-                min_height: Val::Px(38.0),
-                padding: UiRect::axes(Val::Px(14.0), Val::Px(6.0)),
+                min_height: Val::Px(46.0),
+                padding: UiRect::axes(Val::Px(16.0), Val::Px(8.0)),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::FlexStart,
                 border_radius: BorderRadius::all(Val::Px(12.0)),
@@ -196,7 +184,7 @@ fn spawn_dialog_choice_row(
         .with_children(|row| {
             row.spawn((
                 Text::new(format!("{marker} {label}")),
-                dialog_font(16.0, UiFontWeight::Regular),
+                dialog_font(20.0, UiFontWeight::Regular),
                 TextColor(fg),
             ));
         });

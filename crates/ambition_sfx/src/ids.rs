@@ -60,7 +60,11 @@ pub const HAZARD_ELECTRIC_LOOP: SfxId = SfxId::from_static("hazard.electric.loop
 pub const HAZARD_SAW_LOOP: SfxId = SfxId::from_static("hazard.saw.loop");
 
 // UI
-pub const UI_MENU_MOVE: SfxId = SfxId::from_static("ui.menu.move");
+//pub const UI_MENU_MOVE: SfxId = SfxId::from_static("ui.menu.move");
+// Test to see if the move icon sounds better than the original move version:
+// yes it is much better as of 2026-06-07, not sure if we need separate icon sounds
+pub const UI_MENU_MOVE: SfxId = SfxId::from_static("ui.menu.move_icon"); 
+
 pub const UI_MENU_ACCEPT: SfxId = SfxId::from_static("ui.menu.accept");
 pub const UI_MENU_BACK: SfxId = SfxId::from_static("ui.menu.back");
 pub const UI_TAB_CHANGE: SfxId = SfxId::from_static("ui.tab.change");
@@ -74,6 +78,7 @@ pub const UI_ERROR: SfxId = SfxId::from_static("ui.error");
 // into the runtime bank yet the play just no-ops, so wiring them is always safe.
 pub const UI_MENU_OPEN: SfxId = SfxId::from_static("ui.menu.open");
 pub const UI_MENU_CLOSE: SfxId = SfxId::from_static("ui.menu.close");
+pub const UI_MENU_ROTATE: SfxId = SfxId::from_static("ui.menu.rotate");
 pub const UI_MENU_ROTATE_LEFT: SfxId = SfxId::from_static("ui.menu.rotate_left");
 pub const UI_MENU_ROTATE_RIGHT: SfxId = SfxId::from_static("ui.menu.rotate_right");
 pub const UI_MENU_EQUIP: SfxId = SfxId::from_static("ui.menu.equip");

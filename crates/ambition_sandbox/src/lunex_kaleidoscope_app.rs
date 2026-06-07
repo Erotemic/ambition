@@ -1269,8 +1269,8 @@ fn dispatch_kaleidoscope_action(
 /// right rotate. When `from` is unknown (first publish) defaults to the right rotate.
 fn rotate_sfx(from: Option<KaleidoscopePage>, to: KaleidoscopePage) -> ambition_sfx::SfxId {
     match from {
-        Some(from) if from.on_viewer_left() == to => ambition_sfx::ids::UI_MENU_ROTATE_LEFT,
-        _ => ambition_sfx::ids::UI_MENU_ROTATE_RIGHT,
+        Some(from) if from.on_viewer_left() == to => ambition_sfx::ids::UI_MENU_ROTATE,
+        _ => ambition_sfx::ids::UI_MENU_ROTATE,
     }
 }
 

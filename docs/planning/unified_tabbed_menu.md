@@ -341,17 +341,15 @@ Stays put (NOT moved):
 
 Net effect on `lib.rs`: ~7 top-level menu modules collapse to ONE `mod menu;`.
 
-### Judgment calls flagged for confirmation (I picked a default for each)
-1. **IR home** → `menu/ir/` (menu owns its content model). *Alt:* leave in
-   `persistence/settings/` for settings-cohesion. **Default: move to `menu/ir/`.**
-2. **`map_menu/`** → fold into `menu/map.rs` as the Map tab. *Alt:* keep standalone
-   if it's a gameplay world-map rather than a menu page. **Default: fold in** (it's
-   input/model/pointer/ui — a menu surface).
-3. **`InventoryUiState`** → `menu::cursor`. *Alt:* leave in `inventory/`.
-   **Default: move** (it's menu overlay state, read only by menu code).
-4. **Crate vs module now** → `crate::menu` MODULE now (proto-boundary), extract an
-   `ambition_menu` crate LATER once decoupled (matches the plugin-refactor cadence).
-   **Default: module now.**
+### Judgment calls — ALL RESOLVED (2026-06-07, confirmed by Jon)
+1. **IR home** → ✅ **`menu/ir/`** (menu owns its content model). `persistence/
+   settings/` keeps the raw `UserSettings` + disk layer; `menu/ir/settings.rs`
+   depends on it.
+2. **`map_menu/`** → ✅ **`menu/map.rs`** (it's a menu surface → the Map tab).
+3. **`InventoryUiState`** → ✅ **`menu::cursor`** (menu overlay state, read only by
+   menu code).
+4. **Crate vs module now** → ✅ **`crate::menu` MODULE now** (proto-boundary);
+   extract an `ambition_menu` crate LATER once decoupled (plugin-refactor cadence).
 
 ### Sequencing (fold into the §7 phases)
 The big moves ride WITH the refactor, not as a separate churn pass:

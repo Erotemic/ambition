@@ -87,6 +87,13 @@ pub struct BevyUiMenuFocused;
 pub struct BevyUiMenuScrollbar {
     /// The thumb geometry the host computed (track fractions in `0..=1`).
     pub thumb: ScrollThumb,
+    /// The pointer currently pressing this track, if any. Set on `Pointer<Press>`,
+    /// cleared on `Pointer<Release>`. While `Some`, [`bevy_ui_scrollbar_press_drag`]
+    /// emits [`MenuScrollDragged`] for the pointer's live position each frame — the
+    /// robust press+move fallback mirroring the cube's `MenuScrollbar::pressed_by`,
+    /// so a click-and-drag scrolls even if the picking core's `Pointer<Drag>`
+    /// continuity hiccups. Both paths emit the same fraction, so having both is safe.
+    pub pressed_by: Option<bevy::picking::pointer::PointerId>,
 }
 
 /// Marker for the scrollbar thumb child (the grab handle / position indicator).
@@ -598,7 +605,10 @@ fn spawn_control<Action>(
             start: 0.0,
             size: 1.0,
         });
-        control.insert(BevyUiMenuScrollbar { thumb });
+        control.insert(BevyUiMenuScrollbar {
+            thumb,
+            pressed_by: None,
+        });
         // Only draw a thumb when the list actually scrolls (`size < 1`); a
         // full-size thumb means the list fits, same rule as the cube.
         if thumb.size < 1.0 {
@@ -631,6 +641,130 @@ fn scrollbar_thumb_layout(thumb: ScrollThumb) -> (f32, f32) {
     let size = thumb.size.clamp(0.08, 1.0);
     let travel = (1.0 - size).max(0.0);
     (start * travel, size)
+}
+
+/// Feature C (flat backend): map a pointer's vertical SCREEN position over a
+/// scrollbar track's screen rect into the neutral `0..=1` drag fraction (0 = top,
+/// 1 = bottom). `None` if the track has no measured height yet. Mirrors the cube's
+/// [`crate::render::kaleidoscope`] `scrollbar_fraction`, but reads the track rect
+/// from `bevy_ui`'s `ComputedNode`/`GlobalTransform` (2D, no camera projection).
+fn bevy_ui_scrollbar_fraction(
+    computed: &ComputedNode,
+    transform: &GlobalTransform,
+    pointer_y: f32,
+) -> Option<f32> {
+    // `ComputedNode::size()` is in PHYSICAL pixels; scale to logical to match the
+    // pointer location (which the picking core reports in logical/window pixels).
+    let height = computed.size().y * computed.inverse_scale_factor;
+    let center_y = transform.translation().y;
+    let top_y = center_y - height * 0.5;
+    scrollbar_fraction_from_rect(top_y, height, pointer_y)
+}
+
+/// The pure track-rect → fraction mapping shared by the `bevy_ui` scrollbar
+/// observers. `None` if the track has no measured height yet. 0 = top edge,
+/// 1 = bottom edge; clamped.
+fn scrollbar_fraction_from_rect(
+    track_top_y: f32,
+    track_height: f32,
+    pointer_y: f32,
+) -> Option<f32> {
+    if track_height <= f32::EPSILON {
+        return None;
+    }
+    Some(((pointer_y - track_top_y) / track_height).clamp(0.0, 1.0))
+}
+
+/// Feature C: a press that lands on the `bevy_ui` scrollbar marks the track held by
+/// that pointer (so [`bevy_ui_scrollbar_press_drag`] tracks the live position) and
+/// immediately jumps the scroll to the pressed position (emits the neutral
+/// fraction). Mirrors the cube's `scrollbar_press`.
+fn bevy_ui_scrollbar_press(
+    press: On<Pointer<Press>>,
+    mut bars: Query<(&mut BevyUiMenuScrollbar, &ComputedNode, &GlobalTransform)>,
+    mut out: MessageWriter<crate::render::kaleidoscope::MenuScrollDragged>,
+) {
+    if let Ok((mut bar, computed, transform)) = bars.get_mut(press.entity) {
+        bar.pressed_by = Some(press.pointer_id);
+        if let Some(fraction) =
+            bevy_ui_scrollbar_fraction(computed, transform, press.pointer_location.position.y)
+        {
+            out.write(crate::render::kaleidoscope::MenuScrollDragged { fraction });
+        }
+    }
+}
+
+/// Feature C: while dragging on the `bevy_ui` scrollbar, emit the neutral fraction
+/// for the pointer's current position. `bevy_ui` picking drives `Pointer<Drag>`
+/// reliably (unlike the cube's custom 3D backend), so this is the primary path; the
+/// press+move tracker below is belt-and-braces.
+fn bevy_ui_scrollbar_drag(
+    drag: On<Pointer<Drag>>,
+    bars: Query<(&BevyUiMenuScrollbar, &ComputedNode, &GlobalTransform)>,
+    mut out: MessageWriter<crate::render::kaleidoscope::MenuScrollDragged>,
+) {
+    if let Ok((_, computed, transform)) = bars.get(drag.entity) {
+        if let Some(fraction) =
+            bevy_ui_scrollbar_fraction(computed, transform, drag.pointer_location.position.y)
+        {
+            out.write(crate::render::kaleidoscope::MenuScrollDragged { fraction });
+        }
+    }
+}
+
+/// Feature C: releasing the pointer ends the manual scrollbar drag on every track
+/// held by that pointer (a release can land off the thumb). Mirrors the cube's
+/// `scrollbar_release`.
+fn bevy_ui_scrollbar_release(
+    release: On<Pointer<Release>>,
+    mut bars: Query<&mut BevyUiMenuScrollbar>,
+) {
+    for mut bar in &mut bars {
+        if bar.pressed_by == Some(release.pointer_id) {
+            bar.pressed_by = None;
+        }
+    }
+}
+
+/// Feature C: while a `bevy_ui` scrollbar track is held (`pressed_by`), emit the
+/// neutral fraction for the holding pointer's LIVE position each frame — the manual
+/// press+move tracker mirroring the cube's `scrollbar_press_drag`.
+fn bevy_ui_scrollbar_press_drag(
+    pointers: Query<(
+        &bevy::picking::pointer::PointerId,
+        &bevy::picking::pointer::PointerLocation,
+    )>,
+    bars: Query<(&BevyUiMenuScrollbar, &ComputedNode, &GlobalTransform)>,
+    mut out: MessageWriter<crate::render::kaleidoscope::MenuScrollDragged>,
+) {
+    for (bar, computed, transform) in &bars {
+        let Some(held) = bar.pressed_by else {
+            continue;
+        };
+        let Some(loc) = pointers
+            .iter()
+            .find(|(id, _)| **id == held)
+            .and_then(|(_, loc)| loc.location())
+        else {
+            continue;
+        };
+        if let Some(fraction) = bevy_ui_scrollbar_fraction(computed, transform, loc.position.y) {
+            out.write(crate::render::kaleidoscope::MenuScrollDragged { fraction });
+        }
+    }
+}
+
+/// Install the flat `bevy_ui` scrollbar drag handling (Feature C): registers the
+/// neutral [`MenuScrollDragged`](crate::render::kaleidoscope::MenuScrollDragged)
+/// message (idempotent if already added by the cube) and the press/drag/release
+/// observers + press-drag tracker. The HOST applies the emitted fraction to its own
+/// scroll window (mirroring the cube's `kaleidoscope_apply_scroll_drag`).
+pub fn install_bevy_ui_menu_scroll(app: &mut App) {
+    app.add_message::<crate::render::kaleidoscope::MenuScrollDragged>();
+    app.add_observer(bevy_ui_scrollbar_press);
+    app.add_observer(bevy_ui_scrollbar_drag);
+    app.add_observer(bevy_ui_scrollbar_release);
+    app.add_systems(Update, bevy_ui_scrollbar_press_drag);
 }
 
 #[cfg(test)]
@@ -994,5 +1128,21 @@ mod tests {
             size: 0.0,
         });
         assert!(h >= 0.08 - 1e-6);
+    }
+
+    /// Feature C: the pure track-rect → fraction mapping the `bevy_ui` scrollbar
+    /// observers use. A pointer at the track top is 0, mid is 0.5, bottom is 1; off
+    /// the ends clamps; a zero-height (unmeasured) track yields `None`.
+    #[test]
+    fn scrollbar_fraction_maps_pointer_into_track() {
+        // Track spans screen y in [100, 300] (top 100, height 200).
+        assert_eq!(scrollbar_fraction_from_rect(100.0, 200.0, 100.0), Some(0.0));
+        assert_eq!(scrollbar_fraction_from_rect(100.0, 200.0, 200.0), Some(0.5));
+        assert_eq!(scrollbar_fraction_from_rect(100.0, 200.0, 300.0), Some(1.0));
+        // Off the ends clamps into 0..=1.
+        assert_eq!(scrollbar_fraction_from_rect(100.0, 200.0, 50.0), Some(0.0));
+        assert_eq!(scrollbar_fraction_from_rect(100.0, 200.0, 999.0), Some(1.0));
+        // An unmeasured track (no layout pass yet) yields None.
+        assert_eq!(scrollbar_fraction_from_rect(0.0, 0.0, 50.0), None);
     }
 }

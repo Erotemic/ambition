@@ -49,7 +49,9 @@ use crate::lunex_kaleidoscope_app::{
     focus_for_action, owned_item_action, play_ui, system_focus_nav, InventoryUiBackend,
     KaleidoscopeCursor, KaleidoscopeSystemNav, SystemMenuParams,
 };
-use crate::menu::model::{MenuFocus, MenuPage, MenuPageAction};
+use crate::menu::model::{
+    system_max_window_start, MenuFocus, MenuPage, MenuPageAction, SYSTEM_VISIBLE_ROWS,
+};
 use crate::persistence::settings::{SystemMenuModel, UserSettings};
 use crate::player::PlayerHealRequested;
 
@@ -93,6 +95,16 @@ pub(crate) struct GridMenuTabState {
     /// cycle tabs and SELECT/DOWN drop back into the body. This is a flat-menu
     /// affordance the cube doesn't need, so it lives grid-local here.
     focus_zone: GridFocusZone,
+    /// SELECTION-INDEPENDENT scroll position for the System tab's windowed list,
+    /// mirroring the cube's `KaleidoscopeScroll::system_window_start`. `None` = the
+    /// window follows the keyboard/pointer cursor (the historical behaviour, which
+    /// made HOVERING scroll the list); `Some(start)` = an explicit scroll override
+    /// set by the MOUSE WHEEL ([`grid_menu_scroll_wheel`]) or a scrollbar DRAG
+    /// ([`grid_menu_apply_scroll_drag`], via the engine's neutral `MenuScrollDragged`
+    /// signal). Keyboard navigation CLEARS the override so the window resumes
+    /// following the cursor. With an override active, hover (cursor-follow) no longer
+    /// forces the window — the override wins — so hovering rows stops scrolling.
+    system_window_start: Option<usize>,
 }
 
 /// Fix 4: the grid-local keyboard-focus zone. The cube's `MenuFocus` has Item/System/
@@ -117,6 +129,7 @@ impl Default for GridMenuTabState {
             was_open: false,
             last_key: None,
             focus_zone: GridFocusZone::Body,
+            system_window_start: None,
         }
     }
 }
@@ -134,6 +147,11 @@ struct ViewKey {
     /// Fix 4: the focus zone is part of the key so moving onto / off the tab bar
     /// re-renders (the tab focus ring appears/disappears).
     zone: GridFocusZone,
+    /// The EFFECTIVE System scroll-window start (override or cursor-derived). Keying
+    /// the rebuild off this — rather than the raw `focus` alone — means a wheel/drag
+    /// scroll rebuilds the windowed rows while a cursor-only move inside the window
+    /// still does not (preserving the click-drop fix), mirroring the cube's republish.
+    window_start: usize,
 }
 
 /// The active tab's [`MenuPage`].
@@ -264,6 +282,9 @@ pub(crate) fn grid_menu_open_routing(
             if system_nav.open_entry.is_some() {
                 play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_BACK);
                 system_nav.open_entry = None;
+                // Drilling out changes the row set; drop the scroll override so the
+                // window snaps to the (re-seeded) cursor rather than a stale offset.
+                tab_state.system_window_start = None;
                 cursor.mark_keyboard(MenuFocus::System(0));
             } else {
                 play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_CLOSE);
@@ -407,6 +428,7 @@ pub(crate) fn grid_menu_nav(
         let n = MenuPage::ALL.len() as i32;
         tab_state.active_tab = ((tab_state.active_tab as i32 + bump).rem_euclid(n)) as usize;
         system_nav.open_entry = None;
+        tab_state.system_window_start = None;
         seed_cursor_for_tab(tab_state.active_tab, &mut cursor);
         tab_state.focus_zone = GridFocusZone::Body;
         pages.active = Some(tab_page(tab_state.active_tab));
@@ -431,6 +453,7 @@ pub(crate) fn grid_menu_nav(
             let n = MenuPage::ALL.len() as i32;
             tab_state.active_tab = ((tab_state.active_tab as i32 + dx).rem_euclid(n)) as usize;
             system_nav.open_entry = None;
+            tab_state.system_window_start = None;
             seed_cursor_for_tab(tab_state.active_tab, &mut cursor);
             pages.active = Some(tab_page(tab_state.active_tab));
             play_ui(&mut fx.sfx, ambition_sfx::ids::UI_TAB_CHANGE);
@@ -506,6 +529,12 @@ pub(crate) fn grid_menu_nav(
             }
         }
         MenuPage::System => {
+            // Features C/D: a keyboard move/select takes the selection cursor back
+            // over from the wheel/scrollbar — drop any explicit scroll override so the
+            // window snaps to follow the cursor again (the cube's clear-on-keyboard rule).
+            if dx != 0 || dy != 0 || menu.select {
+                tab_state.system_window_start = None;
+            }
             // Reuse the cube's System row nav (drill in/out, value-step, select →
             // dispatch, back → drill-out/close): identical behavior + one dispatcher.
             system_focus_nav(
@@ -625,12 +654,28 @@ pub(crate) fn grid_menu_republish_view(
     // self-sufficient: it does not depend on the cube's republish ordering/gating,
     // which was why the body could lag a tab behind / always read Items.
     let active_page = tab_page(tab_state.active_tab);
+    let model = system.model(&settings);
+    // The EFFECTIVE System window start: an explicit wheel/drag override wins
+    // (Features C/D), otherwise it follows the cursor — exactly the cube's rule via
+    // the shared `system_effective_window_start`. Hovering moves the cursor but, with
+    // an override set, does NOT shift the window, so hovering no longer scrolls.
+    let window_start = if active_page == MenuPage::System {
+        let rows = crate::menu::model::system_rows(&model, system_nav.open_entry);
+        crate::menu::model::system_effective_window_start(
+            &rows,
+            cursor.focus(),
+            tab_state.system_window_start,
+        )
+    } else {
+        0
+    };
     let key = ViewKey {
         tab: tab_state.active_tab,
         open_entry: system_nav.open_entry,
         focus: cursor.focus(),
         version: pages.version,
         zone: tab_state.focus_zone,
+        window_start,
     };
     // Fix 3: detect inventory/settings STATE changes too, mirroring the cube's
     // `republish_kaleidoscope_pages` (`owned.is_changed() || settings.is_changed()`).
@@ -646,15 +691,6 @@ pub(crate) fn grid_menu_republish_view(
     }
     tab_state.last_key = Some(key);
 
-    let model = system.model(&settings);
-    // The System window-start follows the cursor (the grid has no independent scroll
-    // override yet), exactly as the cube derives it when no drag/wheel override is set.
-    let window_start = if active_page == MenuPage::System {
-        let rows = crate::menu::model::system_rows(&model, system_nav.open_entry);
-        crate::menu::model::system_effective_window_start(&rows, cursor.focus(), None)
-    } else {
-        0
-    };
     let built = crate::menu::model::build_inventory_pages(
         &owned,
         owned.equipped(),
@@ -731,6 +767,109 @@ pub(crate) fn grid_menu_republish_view(
     );
 }
 
+/// The live System row count for the Grid's current drill-down state (0 outside the
+/// System tab). Shared by the wheel + drag scroll appliers to clamp the override,
+/// mirroring the cube's `system_row_count`.
+fn grid_system_row_count(
+    active_page: MenuPage,
+    system_nav: &KaleidoscopeSystemNav,
+    model: &SystemMenuModel,
+) -> usize {
+    if active_page != MenuPage::System {
+        return 0;
+    }
+    crate::menu::model::system_rows(model, system_nav.open_entry).len()
+}
+
+/// Feature D (Grid): the MOUSE WHEEL scrolls the System window (the visible rows),
+/// NOT the keyboard selection — the direct mirror of the cube's
+/// `kaleidoscope_scroll_wheel`. Each wheel notch moves the scroll override by one
+/// row, clamped to `[0, system_max_window_start]`. The cursor/selection is
+/// untouched; a later keyboard move clears the override and the window snaps back to
+/// the cursor. Only a scrollable System list reacts; a short list ignores the wheel.
+#[cfg(feature = "input")]
+pub(crate) fn grid_menu_scroll_wheel(
+    backend: Res<InventoryUiBackend>,
+    overlay: Res<crate::inventory::InventoryUiState>,
+    mut tab_state: ResMut<GridMenuTabState>,
+    system_nav: Res<KaleidoscopeSystemNav>,
+    settings: Res<UserSettings>,
+    cursor: Res<KaleidoscopeCursor>,
+    system: SystemMenuParams,
+    mut wheel: MessageReader<bevy::input::mouse::MouseWheel>,
+) {
+    if *backend != InventoryUiBackend::Grid || !overlay.visible {
+        wheel.clear();
+        return;
+    }
+    // Sum this frame's wheel deltas into integer row steps (wheel up = scroll up).
+    let mut steps = 0i32;
+    for ev in wheel.read() {
+        steps += if ev.y > 0.0 {
+            -1
+        } else if ev.y < 0.0 {
+            1
+        } else {
+            0
+        };
+    }
+    if steps == 0 {
+        return;
+    }
+    let active_page = tab_page(tab_state.active_tab);
+    let model = system.model(&settings);
+    let total = grid_system_row_count(active_page, &system_nav, &model);
+    if total <= SYSTEM_VISIBLE_ROWS {
+        return; // nothing to scroll
+    }
+    let max = system_max_window_start(total) as i32;
+    // Seed from the effective start so the first notch moves relative to what is
+    // currently shown (cursor-derived window) rather than jumping to 0.
+    let rows = crate::menu::model::system_rows(&model, system_nav.open_entry);
+    let current = crate::menu::model::system_effective_window_start(
+        &rows,
+        cursor.focus(),
+        tab_state.system_window_start,
+    ) as i32;
+    let next = (current + steps).clamp(0, max) as usize;
+    tab_state.system_window_start = Some(next);
+}
+
+/// Feature C (Grid): apply the engine's backend-agnostic scrollbar-drag signal
+/// (`ambition_menu::render::kaleidoscope::MenuScrollDragged`, emitted by the
+/// `bevy_ui` scrollbar observers) to the Grid's scroll override — the mirror of the
+/// cube's `kaleidoscope_apply_scroll_drag`. The neutral `0..=1` fraction maps across
+/// the scrollable range to a window-start row. Selection-independent, like the wheel.
+#[cfg(feature = "input")]
+pub(crate) fn grid_menu_apply_scroll_drag(
+    backend: Res<InventoryUiBackend>,
+    overlay: Res<crate::inventory::InventoryUiState>,
+    mut tab_state: ResMut<GridMenuTabState>,
+    system_nav: Res<KaleidoscopeSystemNav>,
+    settings: Res<UserSettings>,
+    system: SystemMenuParams,
+    mut dragged: MessageReader<ambition_menu::render::kaleidoscope::MenuScrollDragged>,
+) {
+    if *backend != InventoryUiBackend::Grid || !overlay.visible {
+        dragged.clear();
+        return;
+    }
+    // Use the LAST drag fraction this frame (the freshest pointer position).
+    let Some(fraction) = dragged.read().last().map(|d| d.fraction.clamp(0.0, 1.0)) else {
+        return;
+    };
+    let active_page = tab_page(tab_state.active_tab);
+    let model = system.model(&settings);
+    let total = grid_system_row_count(active_page, &system_nav, &model);
+    if total <= SYSTEM_VISIBLE_ROWS {
+        return;
+    }
+    let max = system_max_window_start(total);
+    // Map the 0..=1 track fraction onto 0..=max window-start rows (round to nearest).
+    let start = (fraction * max as f32).round() as usize;
+    tab_state.system_window_start = Some(start.min(max));
+}
+
 /// Pointer/touch: a press on a tagged control or tab captures the intent;
 /// [`grid_menu_pointer_release`] dispatches on release using the CAPTURED action
 /// (entity-independent), so a republish that despawns + respawns the control between
@@ -799,6 +938,7 @@ pub(crate) fn grid_menu_pointer_release(
     if let Some(tab) = state.tab.take() {
         tab_state.active_tab = tab.min(MenuPage::ALL.len() - 1);
         system_nav.open_entry = None;
+        tab_state.system_window_start = None;
         seed_cursor_for_tab(tab_state.active_tab, &mut cursor);
         // Clicking a tab lands focus in that tab's body (Fix 4: pointer doesn't park
         // on the tab bar — only arrow-key nav holds the Tabs zone).
@@ -907,6 +1047,21 @@ pub(crate) fn install_grid_unified_menu(app: &mut App) {
         Update,
         grid_menu_republish_view.after(crate::app::SandboxSet::CoreSimulation),
     );
+    // Features C/D: the wheel + scrollbar-drag scroll appliers run BEFORE republish so
+    // a scroll set this frame rebuilds the windowed rows the same frame. The drag
+    // signal comes from the engine's `bevy_ui` scrollbar observers
+    // (`install_bevy_ui_menu_scroll`), which also registers the `MenuScrollDragged`
+    // message the applier reads.
+    #[cfg(feature = "input")]
+    {
+        ambition_menu::render::bevy_ui::install_bevy_ui_menu_scroll(app);
+        app.add_systems(
+            Update,
+            (grid_menu_scroll_wheel, grid_menu_apply_scroll_drag)
+                .run_if(grid_backend_active)
+                .before(grid_menu_republish_view),
+        );
+    }
     #[cfg(feature = "input")]
     app.add_observer(grid_menu_pointer_press)
         .add_observer(grid_menu_pointer_release)
@@ -1738,6 +1893,200 @@ mod tests {
             app.world().resource::<KaleidoscopeCursor>().focus(),
             MenuFocus::Item(other.index()),
             "with active=Mouse a genuine hover moves the cursor"
+        );
+    }
+
+    // ---- Features C/D: Grid independent scroll (mouse wheel + scrollbar drag) ----
+
+    /// A Grid harness opened on the System tab, drilled into the long Developer list,
+    /// with the wheel + drag scroll appliers wired exactly as `install_grid_unified_menu`
+    /// orders them (before republish). Mirrors the cube's `scroll_app`.
+    fn scroll_grid_app() -> App {
+        let mut app = grid_app();
+        app.add_message::<bevy::input::mouse::MouseWheel>();
+        app.add_message::<ambition_menu::render::kaleidoscope::MenuScrollDragged>();
+        app.add_systems(
+            Update,
+            (grid_menu_scroll_wheel, grid_menu_apply_scroll_drag).before(grid_menu_nav),
+        );
+        // Open on the System tab, drilled into Developer (the long, scrollable list).
+        app.world_mut()
+            .resource_mut::<crate::inventory::InventoryUiState>()
+            .visible = true;
+        {
+            let mut ts = app.world_mut().resource_mut::<GridMenuTabState>();
+            ts.active_tab = tab_index_of(MenuPage::System);
+            ts.system_window_start = None;
+        }
+        app.world_mut()
+            .resource_mut::<KaleidoscopeSystemNav>()
+            .open_entry = Some(SystemMenuEntryId::Developer);
+        app.world_mut()
+            .resource_mut::<KaleidoscopeCursor>()
+            .mark_keyboard(MenuFocus::System(0));
+        app.update();
+        app
+    }
+
+    /// The live Developer-drill row count (built the SAME way the scroll appliers do,
+    /// via `SystemMenuParams::model`), so the test clamps against the real range.
+    fn grid_scroll_total_rows(app: &mut App) -> usize {
+        use bevy::ecs::system::RunSystemOnce;
+        app.world_mut()
+            .run_system_once(
+                |settings: Res<UserSettings>,
+                 system_nav: Res<KaleidoscopeSystemNav>,
+                 system: SystemMenuParams| {
+                    let model = system.model(&settings);
+                    grid_system_row_count(MenuPage::System, &system_nav, &model)
+                },
+            )
+            .unwrap()
+    }
+
+    fn grid_window_start(app: &App) -> Option<usize> {
+        app.world()
+            .resource::<GridMenuTabState>()
+            .system_window_start
+    }
+
+    /// Feature D: a `MouseWheel` down over the System tab advances the scroll override
+    /// (window_start) but NOT the selection cursor; clamped at the ends.
+    #[test]
+    fn grid_mouse_wheel_scrolls_window_not_selection() {
+        let mut app = scroll_grid_app();
+        let total = grid_scroll_total_rows(&mut app);
+        assert!(
+            total > SYSTEM_VISIBLE_ROWS,
+            "fixture must overflow: {total}"
+        );
+        let max = system_max_window_start(total);
+
+        let cursor_before = app.world().resource::<KaleidoscopeCursor>().focus();
+        assert_eq!(grid_window_start(&app), None, "starts following the cursor");
+
+        // Three wheel-down notches → window_start == 3, cursor unchanged.
+        for _ in 0..3 {
+            app.world_mut()
+                .resource_mut::<Messages<bevy::input::mouse::MouseWheel>>()
+                .write(bevy::input::mouse::MouseWheel {
+                    unit: bevy::input::mouse::MouseScrollUnit::Line,
+                    x: 0.0,
+                    y: -1.0,
+                    window: Entity::PLACEHOLDER,
+                });
+            app.update();
+        }
+        assert_eq!(
+            grid_window_start(&app),
+            Some(3),
+            "three wheel-down notches scroll the window to row 3"
+        );
+        assert_eq!(
+            app.world().resource::<KaleidoscopeCursor>().focus(),
+            cursor_before,
+            "the wheel must NOT move the selection cursor (Feature D)"
+        );
+
+        // Many more notches clamp at the bottom (system_max_window_start).
+        for _ in 0..100 {
+            app.world_mut()
+                .resource_mut::<Messages<bevy::input::mouse::MouseWheel>>()
+                .write(bevy::input::mouse::MouseWheel {
+                    unit: bevy::input::mouse::MouseScrollUnit::Line,
+                    x: 0.0,
+                    y: -1.0,
+                    window: Entity::PLACEHOLDER,
+                });
+            app.update();
+        }
+        assert_eq!(
+            grid_window_start(&app),
+            Some(max),
+            "the wheel clamps at the bottom of the range"
+        );
+    }
+
+    /// Feature C/D: with a scroll override active, a HOVER/cursor-follow does NOT change
+    /// the window (the override wins → hovering no longer scrolls); a keyboard move
+    /// CLEARS the override so the window resumes following the cursor.
+    #[test]
+    fn grid_override_survives_hover_and_clears_on_keyboard() {
+        let mut app = scroll_grid_app();
+
+        // Establish an override via a wheel notch.
+        app.world_mut()
+            .resource_mut::<Messages<bevy::input::mouse::MouseWheel>>()
+            .write(bevy::input::mouse::MouseWheel {
+                unit: bevy::input::mouse::MouseScrollUnit::Line,
+                x: 0.0,
+                y: -1.0,
+                window: Entity::PLACEHOLDER,
+            });
+        app.update();
+        assert_eq!(grid_window_start(&app), Some(1), "wheel set an override");
+
+        // A hover (cursor-follow) moves the CURSOR but, with the override set, the
+        // EFFECTIVE window stays at the override — hovering does not scroll the list.
+        *app.world_mut()
+            .resource_mut::<crate::input::ActiveInputKind>() = crate::input::ActiveInputKind::Mouse;
+        app.world_mut()
+            .resource_mut::<KaleidoscopeCursor>()
+            .mark_keyboard(MenuFocus::System(0));
+        app.update();
+        assert_eq!(
+            grid_window_start(&app),
+            Some(1),
+            "the override survives a hover — hovering does not scroll"
+        );
+
+        // A DOWN keypress moves the cursor and CLEARS the override.
+        set_frame(&mut app, |f| f.down = true);
+        app.update();
+        assert_eq!(
+            grid_window_start(&app),
+            None,
+            "keyboard nav resumes cursor-follow scrolling (Features C/D)"
+        );
+    }
+
+    /// Feature C: applying the engine's neutral `MenuScrollDragged` fraction (the
+    /// scrollbar-drag signal) sets the Grid override proportionally across the range —
+    /// the Grid equivalent of the cube's drag test.
+    #[test]
+    fn grid_scrollbar_drag_fraction_sets_window_start_proportionally() {
+        let mut app = scroll_grid_app();
+        let total = grid_scroll_total_rows(&mut app);
+        let max = system_max_window_start(total);
+        assert!(max > 0, "fixture must be scrollable");
+
+        let cursor_before = app.world().resource::<KaleidoscopeCursor>().focus();
+
+        // Drag to the BOTTOM of the track (fraction 1.0) → window_start == max.
+        app.world_mut()
+            .resource_mut::<Messages<ambition_menu::render::kaleidoscope::MenuScrollDragged>>()
+            .write(ambition_menu::render::kaleidoscope::MenuScrollDragged { fraction: 1.0 });
+        app.update();
+        assert_eq!(
+            grid_window_start(&app),
+            Some(max),
+            "fraction 1.0 scrolls to the bottom (Feature C)"
+        );
+
+        // Drag to the MIDDLE (fraction 0.5) → ~half the range.
+        app.world_mut()
+            .resource_mut::<Messages<ambition_menu::render::kaleidoscope::MenuScrollDragged>>()
+            .write(ambition_menu::render::kaleidoscope::MenuScrollDragged { fraction: 0.5 });
+        app.update();
+        assert_eq!(
+            grid_window_start(&app),
+            Some((0.5 * max as f32).round() as usize),
+            "fraction 0.5 maps to the middle of the range"
+        );
+        assert_eq!(
+            app.world().resource::<KaleidoscopeCursor>().focus(),
+            cursor_before,
+            "a scrollbar drag does not move the selection cursor"
         );
     }
 }

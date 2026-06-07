@@ -10,13 +10,7 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy::window::{MonitorSelection, VideoModeSelection, WindowMode};
 
-use super::audio::AudioSettings;
-use super::controls::{ControllerProfileId, DashInputMode, MenuTapMode};
-use super::gameplay::{Difficulty, GameplaySettings};
-use super::video::{
-    CameraAspectPolicy, CameraFramingPreset, CameraZoomPreset, ColorblindMode, FlashIntensity,
-    ScreenShaderSettings, SerializableDisplayMode,
-};
+use super::video::{FlashIntensity, ScreenShaderSettings};
 use super::UserSettings;
 use crate::dev::dev_tools::{
     apply_movement_profile, apply_player_body_profile, DebugArtMode, DebugViewMode, DeveloperTools,
@@ -163,6 +157,67 @@ pub enum SettingsItem {
 }
 
 impl SettingsItem {
+    /// Map a pause-menu row to its shared-IR option, if the option is one the
+    /// IR models. This is the single bridge between the pause menu's
+    /// `SettingsItem` vocabulary and the renderer-agnostic
+    /// [`SettingsOptionId`](super::menu::SettingsOptionId): rows that map are
+    /// labelled / valued / applied through the shared IR
+    /// ([`settings_menu_model`](super::menu::settings_menu_model) /
+    /// [`apply_settings_option`](super::menu::apply_settings_option)) so the
+    /// pause menu and the 3D cube cannot drift on the surface they share.
+    ///
+    /// Rows that return `None` are pause-menu-specific (the IR does not model
+    /// them) and keep their own label/apply handling:
+    ///   - the whole Video > Shaders subpage (`Shader*`, `OpenShaders`),
+    ///   - `KeyboardPreset`, `ResetControlFiltering`, `ResetAllSettings`,
+    ///   - the page-opener rows (`OpenVideo` etc.), `Back`,
+    ///   - the entire Developer page,
+    ///   - `GameplayFlashes` (a *second* surface on `video.flashes` with the
+    ///     distinct label "Flashes (gameplay)"; the IR exposes the field once
+    ///     as `Flashes`).
+    ///
+    // TODO(stage 3b): extend the shared IR to cover Shaders / KeyboardPreset /
+    // the reset actions so those rows can route through it too, then this map
+    // shrinks to just the page-nav + developer rows.
+    pub fn shared_option_id(self) -> Option<super::menu::SettingsOptionId> {
+        use super::menu::SettingsOptionId as Id;
+        Some(match self {
+            // Video.
+            Self::DisplayMode => Id::DisplayMode,
+            Self::CameraZoom => Id::CameraZoom,
+            Self::CameraAspect => Id::CameraAspect,
+            Self::CameraFraming => Id::CameraFraming,
+            Self::Flashes => Id::Flashes,
+            Self::Colorblind => Id::Colorblind,
+            Self::ShowFps => Id::ShowFps,
+            // Audio.
+            Self::MasterVolume => Id::MasterVolume,
+            Self::MusicVolume => Id::MusicVolume,
+            Self::SfxVolume => Id::SfxVolume,
+            Self::Mute => Id::Mute,
+            // Controls.
+            Self::ControllerProfile => Id::ControllerProfile,
+            Self::LeftStickDeadzone => Id::LeftStickDeadzone,
+            Self::RightStickDeadzone => Id::RightStickDeadzone,
+            Self::TriggerPress => Id::TriggerPress,
+            Self::TriggerRelease => Id::TriggerRelease,
+            Self::DpadMenuNav => Id::DpadMenuNav,
+            Self::InvertAimY => Id::InvertAimY,
+            Self::DashInputMode => Id::DashInputMode,
+            Self::TouchControls => Id::TouchControls,
+            Self::MenuTapMode => Id::MenuTapMode,
+            // Gameplay.
+            Self::Difficulty => Id::Difficulty,
+            Self::Assist => Id::Assist,
+            Self::PlayerDamageMultiplier => Id::PlayerDamage,
+            Self::DebugHud => Id::DebugHud,
+            Self::QuestHud => Id::QuestHud,
+            Self::TraceAutoDump => Id::TraceAutoDump,
+            // Everything else is pause-menu-specific (see doc comment).
+            _ => return None,
+        })
+    }
+
     pub fn rows_for(page: SettingsPage) -> &'static [Self] {
         match page {
             SettingsPage::Top => &[
@@ -282,6 +337,13 @@ impl SettingsItem {
         if let Some(label) = page_nav_label(self) {
             return label.into();
         }
+        // Stage 3a: rows that map to a shared-IR option derive their label +
+        // value text from `settings_menu_model` so the pause menu and the cube
+        // cannot drift on that surface. The pause menu's own `< / >` cycle
+        // decoration is re-applied here from the option's `kind`.
+        if let Some(id) = self.shared_option_id() {
+            return pause_label_from_shared(id, settings);
+        }
         match self {
             Self::OpenVideo
             | Self::OpenShaders
@@ -290,22 +352,42 @@ impl SettingsItem {
             | Self::OpenGameplay
             | Self::OpenDeveloper
             | Self::Back => unreachable!("page-nav rows handled by page_nav_label above"),
+            // Rows that map to a shared-IR option are handled by
+            // `pause_label_from_shared` via the early `return` above; listing
+            // them here (rather than a `_` wildcard) keeps the match exhaustive
+            // so a *new* unmapped row can't silently fall through unlabelled.
+            Self::DisplayMode
+            | Self::CameraZoom
+            | Self::CameraAspect
+            | Self::CameraFraming
+            | Self::Flashes
+            | Self::Colorblind
+            | Self::ShowFps
+            | Self::MasterVolume
+            | Self::MusicVolume
+            | Self::SfxVolume
+            | Self::Mute
+            | Self::ControllerProfile
+            | Self::LeftStickDeadzone
+            | Self::RightStickDeadzone
+            | Self::TriggerPress
+            | Self::TriggerRelease
+            | Self::DpadMenuNav
+            | Self::InvertAimY
+            | Self::DashInputMode
+            | Self::TouchControls
+            | Self::MenuTapMode
+            | Self::Difficulty
+            | Self::Assist
+            | Self::PlayerDamageMultiplier
+            | Self::DebugHud
+            | Self::QuestHud
+            | Self::TraceAutoDump => {
+                debug_assert!(self.shared_option_id().is_some());
+                unreachable!("shared-IR rows handled by pause_label_from_shared above")
+            }
             Self::ResetAllSettings => "Reset All Settings to Defaults".into(),
 
-            Self::DisplayMode => format_cycle(
-                "Display Mode",
-                DisplayModeKind::from(settings.video.display_mode).label(),
-            ),
-            Self::CameraZoom => format_cycle("Camera View", settings.video.camera_zoom.label()),
-            Self::CameraAspect => {
-                format_cycle("Camera Aspect", settings.video.camera_aspect.label())
-            }
-            Self::CameraFraming => {
-                format_cycle("Camera Framing", settings.video.camera_framing.label())
-            }
-            Self::Flashes => format_cycle("Flashes", settings.video.flashes.label()),
-            Self::Colorblind => format_cycle("Colorblind", settings.video.colorblind.label()),
-            Self::ShowFps => format_toggle("FPS Overlay", settings.video.show_fps),
             Self::ShaderStrength => {
                 format_shader_percent("Shader Strength", settings.video.shaders.strength)
             }
@@ -376,61 +458,13 @@ impl SettingsItem {
                 settings.video.shaders.vignette_strength,
             ),
 
-            Self::MasterVolume => {
-                format_audio_percent("Master Volume", settings.audio.master_volume)
-            }
-            Self::MusicVolume => format_audio_percent("Music Volume", settings.audio.music_volume),
-            Self::SfxVolume => format_audio_percent("SFX Volume", settings.audio.sfx_volume),
-            Self::Mute => format!(
-                "Mute: {}",
-                if settings.audio.muted { "muted" } else { "off" }
-            ),
-
             Self::KeyboardPreset => {
                 format_cycle("Keyboard Preset", settings.controls.keyboard_preset_index)
             }
-            Self::ControllerProfile => {
-                format_cycle("Controller", settings.controls.controller_profile.label())
-            }
-            Self::LeftStickDeadzone => {
-                format_audio_percent("L-Stick Deadzone", settings.controls.left_stick_deadzone)
-            }
-            Self::RightStickDeadzone => {
-                format_audio_percent("R-Stick Deadzone", settings.controls.right_stick_deadzone)
-            }
-            Self::TriggerPress => {
-                format_audio_percent("Trigger Press", settings.controls.trigger_press_threshold)
-            }
-            Self::TriggerRelease => format_audio_percent(
-                "Trigger Release",
-                settings.controls.trigger_release_threshold,
-            ),
-            Self::DpadMenuNav => {
-                format_toggle("D-Pad Menu Nav", settings.controls.dpad_menu_navigation)
-            }
-            Self::InvertAimY => format_toggle("Invert Aim Y", settings.controls.invert_aim_y),
-            Self::DashInputMode => {
-                format_cycle("Dash Input", settings.controls.dash_input_mode.label())
-            }
-            Self::TouchControls => {
-                format_toggle("Touch Overlay", settings.controls.touch_controls_visible)
-            }
-            Self::MenuTapMode => format_cycle("Menu Tap", settings.controls.menu_tap_mode.label()),
             Self::ResetControlFiltering => "Reset Filter Defaults".into(),
 
-            Self::Difficulty => format_cycle("Difficulty", settings.gameplay.difficulty.label()),
-            Self::Assist => format!("Assist: {}", settings.gameplay.assist.label()),
-            Self::PlayerDamageMultiplier => format_cycle(
-                "Player Damage",
-                format!("x{:.2}", settings.gameplay.player_damage_multiplier),
-            ),
             Self::GameplayFlashes => {
                 format_cycle("Flashes (gameplay)", settings.video.flashes.label())
-            }
-            Self::DebugHud => format_toggle("Debug HUD", settings.gameplay.debug_hud_visible),
-            Self::QuestHud => format_toggle("Quest HUD", settings.gameplay.quest_hud_visible),
-            Self::TraceAutoDump => {
-                format_toggle("Trace Auto-Dump", settings.gameplay.trace_auto_dump)
             }
 
             Self::DebugOverlay => format_toggle("Debug Overlay (F1)", dev.debug_overlay),
@@ -447,6 +481,46 @@ impl SettingsItem {
             Self::PlayerBodyProfile => format_cycle("Player Body", dev.player_body_profile.label()),
             Self::MovementProfile => format_cycle("Movement Profile", dev.movement_profile.label()),
             Self::LdtkAutoApply => format_toggle("LDtk Auto-Reload (F12)", dev.ldtk_auto_apply),
+        }
+    }
+}
+
+/// Find a built [`SettingsOption`](super::menu::SettingsOption) by id in the
+/// live shared-IR model. The id space is exhaustively built by
+/// [`settings_menu_model`](super::menu::settings_menu_model) for every
+/// category option, so any id a [`SettingsItem`] maps to is present (the only
+/// id not produced by the model is `Close`, which no pause row maps to).
+fn shared_option(
+    id: super::menu::SettingsOptionId,
+    settings: &UserSettings,
+) -> super::menu::SettingsOption {
+    let model = super::menu::settings_menu_model(settings);
+    model
+        .categories
+        .iter()
+        .flat_map(|c| c.options.iter())
+        .find(|o| o.id == id)
+        .cloned()
+        .unwrap_or_else(|| panic!("shared IR has no option for {id:?}"))
+}
+
+/// Render a shared-IR option as a pause-menu row label. The label + value text
+/// come verbatim from the IR (single source of truth shared with the cube);
+/// the pause menu's own `< / >` cycle decoration is re-applied here from the
+/// option's `kind` so cycle/slider rows still read "Label: value  < / >" and
+/// toggle/action rows read "Label: value", matching the menu's UX shape.
+pub(crate) fn pause_label_from_shared(
+    id: super::menu::SettingsOptionId,
+    settings: &UserSettings,
+) -> String {
+    use super::menu::SettingsOptionKind;
+    let opt = shared_option(id, settings);
+    match opt.kind {
+        SettingsOptionKind::Cycle { .. } | SettingsOptionKind::Slider { .. } => {
+            format_cycle(&opt.label, opt.value_label)
+        }
+        SettingsOptionKind::Toggle(_) | SettingsOptionKind::Action => {
+            format!("{}: {}", opt.label, opt.value_label)
         }
     }
 }
@@ -474,14 +548,6 @@ fn format_cycle(label: &str, value: impl std::fmt::Display) -> String {
 /// one-line label change rather than a five-line `format!` boilerplate.
 fn format_shader_percent(label: &str, value: f32) -> String {
     format_cycle(label, format!("{}%", ScreenShaderSettings::percent(value)))
-}
-
-/// `Label: NN%  < / >` — same shape as [`format_shader_percent`] but
-/// using [`AudioSettings::percent`] (also clamping to 0..1 but at the
-/// audio settings layer). Used by the volume sliders and the controller
-/// deadzone / trigger threshold rows.
-fn format_audio_percent(label: &str, value: f32) -> String {
-    format_cycle(label, format!("{}%", AudioSettings::percent(value)))
 }
 
 /// `Label: on|off` — the shared format for every two-state toggle row
@@ -643,6 +709,19 @@ fn nudge_delta(action: SettingsAction, step: f32) -> f32 {
     }
 }
 
+/// Convert a pause-menu `SettingsAction` into the shared IR's signed step
+/// direction (`-1` prev, `+1` next, `0` confirm/activate). Mirrors how
+/// `apply_settings_option` reads `dir`: `<0` steps down, otherwise up, and `0`
+/// (Confirm) advances like Next — matching the pause menu's own
+/// `apply_cycle` / `nudge_delta` "Confirm behaves like Next" rule.
+fn settings_dir(action: SettingsAction) -> i32 {
+    match action {
+        SettingsAction::Prev => -1,
+        SettingsAction::Next => 1,
+        SettingsAction::Confirm => 0,
+    }
+}
+
 /// Look up the `SettingsOutcome` for a page-navigation row, if `item`
 /// is one of those rows. Non-navigation items return `None` so the
 /// main `apply_action` match can dispatch them.
@@ -697,6 +776,19 @@ pub fn apply_action(
             return outcome;
         }
     }
+    // Stage 3a: rows that map to a shared-IR option apply through the shared
+    // `apply_settings_option` so the pause menu and the cube mutate
+    // `UserSettings` identically. The IR is field-only; `DisplayMode` also
+    // needs the live primary-window poke, which the pause menu still owns and
+    // runs after the field update.
+    if let Some(id) = item.shared_option_id() {
+        super::menu::apply_settings_option(id, settings_dir(action), settings);
+        if matches!(id, super::menu::SettingsOptionId::DisplayMode) {
+            let mode: DisplayModeKind = settings.video.display_mode.into();
+            apply_display_mode(mode, display_state, windows);
+        }
+        return SettingsOutcome::Stay;
+    }
     match item {
         // Page-navigation rows handled by `page_nav_outcome` above.
         SettingsItem::OpenVideo
@@ -723,56 +815,16 @@ pub fn apply_action(
             }
         }
 
-        SettingsItem::DisplayMode => {
-            let current: DisplayModeKind = settings.video.display_mode.into();
-            let next = match action {
-                SettingsAction::Prev => prev_display_mode(current),
-                SettingsAction::Next | SettingsAction::Confirm => next_display_mode(current),
-            };
-            apply_display_mode(next, display_state, windows);
-            settings.video.display_mode = SerializableDisplayMode::from(next);
-        }
-        SettingsItem::CameraZoom => apply_cycle(
-            action,
-            &mut settings.video.camera_zoom,
-            CameraZoomPreset::prev,
-            CameraZoomPreset::next,
-        ),
-        SettingsItem::CameraAspect => apply_cycle(
-            action,
-            &mut settings.video.camera_aspect,
-            CameraAspectPolicy::prev,
-            CameraAspectPolicy::next,
-        ),
-        SettingsItem::CameraFraming => apply_cycle(
-            action,
-            &mut settings.video.camera_framing,
-            CameraFramingPreset::prev,
-            CameraFramingPreset::next,
-        ),
-        SettingsItem::Flashes | SettingsItem::GameplayFlashes => apply_cycle(
+        // `GameplayFlashes` is a *second* surface on `video.flashes` (label
+        // "Flashes (gameplay)") that the shared IR does not model; the IR
+        // exposes the field once as `Flashes`, which is migrated. Keep this
+        // arm so the gameplay-page row still nudges the same field.
+        SettingsItem::GameplayFlashes => apply_cycle(
             action,
             &mut settings.video.flashes,
             FlashIntensity::prev,
             FlashIntensity::next,
         ),
-        SettingsItem::Colorblind => apply_cycle(
-            action,
-            &mut settings.video.colorblind,
-            ColorblindMode::prev,
-            ColorblindMode::next,
-        ),
-
-        SettingsItem::MasterVolume => settings
-            .audio
-            .nudge_master(nudge_delta(action, AudioSettings::VOLUME_STEP)),
-        SettingsItem::MusicVolume => settings
-            .audio
-            .nudge_music(nudge_delta(action, AudioSettings::VOLUME_STEP)),
-        SettingsItem::SfxVolume => settings
-            .audio
-            .nudge_sfx(nudge_delta(action, AudioSettings::VOLUME_STEP)),
-        SettingsItem::Mute => apply_toggle(action, || settings.audio.toggle_mute()),
 
         SettingsItem::KeyboardPreset => {
             if keyboard_preset_count == 0 {
@@ -786,78 +838,12 @@ pub fn apply_action(
                 }
             };
         }
-        SettingsItem::ControllerProfile => apply_cycle(
-            action,
-            &mut settings.controls.controller_profile,
-            ControllerProfileId::prev,
-            ControllerProfileId::next,
-        ),
-        SettingsItem::LeftStickDeadzone => {
-            settings.controls.left_stick_deadzone =
-                (settings.controls.left_stick_deadzone + nudge_delta(action, 0.02)).clamp(0.0, 0.6);
-        }
-        SettingsItem::RightStickDeadzone => {
-            settings.controls.right_stick_deadzone = (settings.controls.right_stick_deadzone
-                + nudge_delta(action, 0.02))
-            .clamp(0.0, 0.6);
-        }
-        SettingsItem::TriggerPress => {
-            settings.controls.trigger_press_threshold = (settings.controls.trigger_press_threshold
-                + nudge_delta(action, 0.05))
-            .clamp(0.05, 1.0);
-            settings.controls.clamp_all();
-        }
-        SettingsItem::TriggerRelease => {
-            settings.controls.trigger_release_threshold =
-                (settings.controls.trigger_release_threshold + nudge_delta(action, 0.05))
-                    .clamp(0.0, 0.95);
-            settings.controls.clamp_all();
-        }
-        SettingsItem::DpadMenuNav => apply_toggle(action, || {
-            settings.controls.dpad_menu_navigation = !settings.controls.dpad_menu_navigation;
-        }),
-        SettingsItem::InvertAimY => apply_toggle(action, || {
-            settings.controls.invert_aim_y = !settings.controls.invert_aim_y;
-        }),
-        SettingsItem::DashInputMode => apply_cycle(
-            action,
-            &mut settings.controls.dash_input_mode,
-            DashInputMode::prev,
-            DashInputMode::next,
-        ),
-        SettingsItem::TouchControls => apply_toggle(action, || {
-            settings.controls.touch_controls_visible = !settings.controls.touch_controls_visible;
-        }),
-        SettingsItem::MenuTapMode => apply_cycle(
-            action,
-            &mut settings.controls.menu_tap_mode,
-            MenuTapMode::prev,
-            MenuTapMode::next,
-        ),
         SettingsItem::ResetControlFiltering => {
             if matches!(action, SettingsAction::Confirm) {
                 settings.controls.reset_filtering_to_defaults();
             }
         }
 
-        SettingsItem::Difficulty => apply_cycle(
-            action,
-            &mut settings.gameplay.difficulty,
-            Difficulty::prev,
-            Difficulty::next,
-        ),
-        SettingsItem::Assist => apply_toggle(action, || {
-            settings.gameplay.assist = settings.gameplay.assist.toggle();
-        }),
-        SettingsItem::PlayerDamageMultiplier => settings
-            .gameplay
-            .nudge_player_damage(nudge_delta(action, GameplaySettings::DAMAGE_STEP)),
-        SettingsItem::DebugHud => apply_toggle(action, || {
-            settings.gameplay.debug_hud_visible = !settings.gameplay.debug_hud_visible;
-        }),
-        SettingsItem::ShowFps => apply_toggle(action, || {
-            settings.video.show_fps = !settings.video.show_fps;
-        }),
         SettingsItem::ShaderStrength => settings
             .video
             .shaders
@@ -968,23 +954,6 @@ pub fn apply_action(
             &mut settings.video.shaders.vignette_strength,
             ScreenShaderSettings::FINE_STEP,
         ),
-        SettingsItem::QuestHud => {
-            if matches!(
-                action,
-                SettingsAction::Confirm | SettingsAction::Next | SettingsAction::Prev
-            ) {
-                settings.gameplay.quest_hud_visible = !settings.gameplay.quest_hud_visible;
-            }
-        }
-        SettingsItem::TraceAutoDump => {
-            if matches!(
-                action,
-                SettingsAction::Confirm | SettingsAction::Next | SettingsAction::Prev
-            ) {
-                settings.gameplay.trace_auto_dump = !settings.gameplay.trace_auto_dump;
-            }
-        }
-
         SettingsItem::DebugOverlay => apply_toggle(action, || {
             dev_state.debug = !dev_state.debug;
         }),
@@ -1077,6 +1046,41 @@ pub fn apply_action(
                 }
             );
         }),
+
+        // Rows that map to a shared-IR option are applied via
+        // `apply_settings_option` through the early `return` above; listed
+        // explicitly (not a `_` wildcard) so a new unmapped row can't silently
+        // become a no-op.
+        SettingsItem::DisplayMode
+        | SettingsItem::CameraZoom
+        | SettingsItem::CameraAspect
+        | SettingsItem::CameraFraming
+        | SettingsItem::Flashes
+        | SettingsItem::Colorblind
+        | SettingsItem::ShowFps
+        | SettingsItem::MasterVolume
+        | SettingsItem::MusicVolume
+        | SettingsItem::SfxVolume
+        | SettingsItem::Mute
+        | SettingsItem::ControllerProfile
+        | SettingsItem::LeftStickDeadzone
+        | SettingsItem::RightStickDeadzone
+        | SettingsItem::TriggerPress
+        | SettingsItem::TriggerRelease
+        | SettingsItem::DpadMenuNav
+        | SettingsItem::InvertAimY
+        | SettingsItem::DashInputMode
+        | SettingsItem::TouchControls
+        | SettingsItem::MenuTapMode
+        | SettingsItem::Difficulty
+        | SettingsItem::Assist
+        | SettingsItem::PlayerDamageMultiplier
+        | SettingsItem::DebugHud
+        | SettingsItem::QuestHud
+        | SettingsItem::TraceAutoDump => {
+            debug_assert!(item.shared_option_id().is_some());
+            unreachable!("shared-IR rows applied via apply_settings_option above")
+        }
     }
     SettingsOutcome::Stay
 }

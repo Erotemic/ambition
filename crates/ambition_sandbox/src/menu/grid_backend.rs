@@ -836,10 +836,22 @@ pub(crate) fn grid_menu_pointer_release(
 }
 
 /// Hover: move the cursor onto the hovered control (so keyboard + pointer agree).
+///
+/// Gated on `ActiveInputKind == Mouse`: the menu republishes (despawn +
+/// respawn its controls) on every cursor move, and a fresh control spawning
+/// under a STATIONARY mouse makes `bevy_ui` picking fire a `Pointer<Over>`. If
+/// this handler reacted to that while the player was on the keyboard / gamepad /
+/// touch, it would snap the cursor straight back to the mouse on every
+/// directional move (the recurring "can't move away from the hovered option"
+/// bug). A GENUINE mouse move sets `ActiveInputKind = Mouse` first (see
+/// `update_active_input_kind`), so real hovering still works; only the
+/// rebuild-induced `Over` is ignored. Mouse CLICKS are NOT gated (they go
+/// through the press/release observers), so click-to-select keeps working.
 pub(crate) fn grid_menu_pointer_hover(
     over: On<Pointer<Over>>,
     backend: Res<InventoryUiBackend>,
     overlay: Res<crate::inventory::InventoryUiState>,
+    active_input: Res<crate::input::ActiveInputKind>,
     controls: Query<&AmbitionMenuControl<MenuPageAction>>,
     settings: Res<UserSettings>,
     system: SystemMenuParams,
@@ -848,6 +860,11 @@ pub(crate) fn grid_menu_pointer_hover(
     mut cursor: ResMut<KaleidoscopeCursor>,
 ) {
     if *backend != InventoryUiBackend::Grid || !overlay.visible {
+        return;
+    }
+    // Only a genuine mouse move (which set active=Mouse) may move the cursor;
+    // a rebuild-induced `Over` while on keyboard/gamepad/touch is ignored.
+    if *active_input != crate::input::ActiveInputKind::Mouse {
         return;
     }
     let Ok(ctrl) = controls.get(over.entity) else {
@@ -866,13 +883,22 @@ pub(crate) fn grid_menu_pointer_hover(
 /// (`install_kaleidoscope_menu`) so `\` flips between them at runtime.
 pub(crate) fn install_grid_unified_menu(app: &mut App) {
     app.init_resource::<GridMenuTabState>()
-        .init_resource::<GridPointerPress>();
+        .init_resource::<GridPointerPress>()
+        // The pointer-hover observer reads `ActiveInputKind`; the input plugin
+        // also inits it, but init here too so the Grid backend is self-sufficient
+        // (`init_resource` is idempotent).
+        .init_resource::<crate::input::ActiveInputKind>();
     #[cfg(feature = "input")]
     app.add_systems(
         Update,
         (
             grid_menu_open_routing.run_if(grid_backend_active),
-            grid_menu_nav.run_if(grid_backend_active),
+            grid_menu_nav
+                .run_if(grid_backend_active)
+                // Join the shared menu-nav consume set so the touch-joystick
+                // fold (mobile_input) can pin `.before(MenuNavConsume)` and
+                // land its directional intent before this reads the frame.
+                .in_set(crate::app::MenuNavConsume),
         )
             .chain()
             .before(crate::app::SandboxSet::CoreSimulation),
@@ -920,9 +946,11 @@ mod tests {
         app.init_resource::<MenuControlFrame>();
         app.init_resource::<GridMenuTabState>();
         app.init_resource::<GridPointerPress>();
+        app.init_resource::<crate::input::ActiveInputKind>();
         app.add_message::<PlayerHealRequested>();
         app.add_message::<SfxMessage>();
         app.add_message::<bevy::app::AppExit>();
+        app.add_observer(grid_menu_pointer_hover);
         app.add_systems(Update, (grid_menu_open_routing, grid_menu_nav).chain());
         *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::Grid;
         app.world_mut().spawn((
@@ -1632,5 +1660,84 @@ mod tests {
         set_frame(&mut app, |f| f.map = true);
         app.update();
         assert_eq!(active_tab(&app), MenuPage::Map);
+    }
+
+    /// Spawn a hoverable control and fire a `Pointer<Over>` at it (the exact
+    /// event a republish synthesizes under a stationary mouse).
+    fn hover_control(app: &mut App, action: MenuPageAction) {
+        use bevy::camera::NormalizedRenderTarget;
+        use bevy::picking::backend::HitData;
+        use bevy::picking::events::{Over, Pointer};
+        use bevy::picking::pointer::{Location, PointerId};
+
+        let entity = app
+            .world_mut()
+            .spawn(AmbitionMenuControl::<MenuPageAction> {
+                kind: ambition_menu::MenuControlKind::OptionToggle,
+                action: Some(action),
+                focus: ambition_menu::MenuFocusKey::default(),
+            })
+            .id();
+        let location = Location {
+            target: NormalizedRenderTarget::None {
+                width: 1,
+                height: 1,
+            },
+            position: bevy::prelude::Vec2::ZERO,
+        };
+        // The observer fires SYNCHRONOUSLY here; no `app.update()` (which would
+        // re-run `grid_menu_open_routing` and reseed the cursor) is needed or
+        // wanted between the trigger and the assertion.
+        app.world_mut().trigger(Pointer::new(
+            PointerId::Mouse,
+            location,
+            Over {
+                hit: HitData::new(entity, 0.0, None, None),
+            },
+            entity,
+        ));
+    }
+
+    /// Bug 1 (snap-back): `grid_menu_pointer_hover` must IGNORE a `Pointer<Over>`
+    /// (the event a republish fires under a stationary mouse) while the active
+    /// input source is NOT the mouse, and HONOR it once a genuine mouse move has
+    /// set `ActiveInputKind = Mouse`. Without the gate, every arrow-key move
+    /// rebuilt the menu → fired `Over` → snapped the cursor back to the mouse.
+    #[test]
+    fn hover_is_gated_on_active_input_being_mouse() {
+        use crate::input::ActiveInputKind;
+        use crate::items::Item;
+
+        let mut app = grid_app();
+        // Open the menu so the hover handler's `overlay.visible` guard passes.
+        set_frame(&mut app, |f| f.inventory = true);
+        app.update();
+
+        // Park the keyboard cursor on a known item, then drop the active source
+        // onto Keyboard — the exact state during arrow-key navigation.
+        let parked = MenuFocus::Item(Item::ALL[0].index());
+        app.world_mut()
+            .resource_mut::<KaleidoscopeCursor>()
+            .mark_keyboard(parked);
+        *app.world_mut().resource_mut::<ActiveInputKind>() = ActiveInputKind::Keyboard;
+
+        // A republish-style `Over` on a DIFFERENT item must NOT move the cursor.
+        let other = Item::ALL[1];
+        hover_control(&mut app, MenuPageAction::Equip(other));
+        assert_eq!(
+            app.world().resource::<KaleidoscopeCursor>().focus(),
+            parked,
+            "an Over while on the keyboard is ignored — no snap-back"
+        );
+
+        // Now a GENUINE mouse move would set active=Mouse; the same Over then
+        // takes ownership and moves the cursor onto the hovered item.
+        *app.world_mut().resource_mut::<ActiveInputKind>() = ActiveInputKind::Mouse;
+        hover_control(&mut app, MenuPageAction::Equip(other));
+        assert_eq!(
+            app.world().resource::<KaleidoscopeCursor>().focus(),
+            MenuFocus::Item(other.index()),
+            "with active=Mouse a genuine hover moves the cursor"
+        );
     }
 }

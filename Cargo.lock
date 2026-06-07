@@ -162,6 +162,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_engine_core",
  "bevy",
+ "bevy_window",
  "leafwing-input-manager",
  "serde",
 ]

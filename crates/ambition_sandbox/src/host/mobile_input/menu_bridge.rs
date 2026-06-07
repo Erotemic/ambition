@@ -129,6 +129,7 @@ pub fn fold_to_control_frame(
 /// menu is active. One-finger drags outside the fixed touch-control
 /// regions still map to menu scroll/navigation, and the same drag
 /// path accepts a pressed left mouse button for desktop testing.
+#[allow(clippy::too_many_arguments)]
 pub fn fold_to_menu_control_frame(
     time: Res<Time>,
     mode: Res<State<crate::game_mode::GameMode>>,
@@ -139,6 +140,7 @@ pub fn fold_to_menu_control_frame(
     user_settings: Res<crate::persistence::settings::UserSettings>,
     mut gesture: ResMut<MenuTouchGestureState>,
     mut frame: ResMut<MenuControlFrame>,
+    mut active_input: ResMut<crate::input::ActiveInputKind>,
 ) {
     // Touch menu input is always live while the plugin is installed; the
     // `touch_controls_visible` setting only hides the overlay, not the input.
@@ -148,6 +150,24 @@ pub fn fold_to_menu_control_frame(
     frame.back_held |= touch.reset.held;
     frame.select |= touch.jump.pressed_this_frame || touch.interact.pressed_this_frame;
     frame.select_held |= touch.jump.held || touch.interact.held;
+
+    // The on-screen joystick / touch buttons are a FIRST-CLASS menu nav source:
+    // any genuine touch input this frame marks `ActiveInputKind = Touch`. This
+    // keeps the mouse hover-gate from being the active source while a finger is
+    // driving the menu, and is the symmetric counterpart to the keyboard /
+    // mouse / gamepad detector. A motionless stick + no buttons leaves the
+    // marker untouched (last-writer-wins), so it does not stomp keyboard/gamepad.
+    let stick_mag = (touch.move_x * touch.move_x + touch.move_y * touch.move_y).sqrt();
+    let touch_button_active = touch.start.pressed_this_frame
+        || touch.reset.pressed_this_frame
+        || touch.reset.held
+        || touch.jump.pressed_this_frame
+        || touch.jump.held
+        || touch.interact.pressed_this_frame
+        || touch.interact.held;
+    if stick_mag > user_settings.controls.left_stick_deadzone || touch_button_active {
+        active_input.mark(crate::input::ActiveInputKind::Touch);
+    }
 
     if menu_move_active(*mode.get()) {
         let analog_dir = touch_move_to_menu_dir(touch, user_settings.controls.left_stick_deadzone);

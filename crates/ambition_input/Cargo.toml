@@ -31,7 +31,17 @@ input = ["dep:leafwing-input-manager"]
 # also compile WITHOUT leafwing for sim-only builds.)
 bevy = { version = "0.18.1", default-features = false, features = [
     "bevy_input_focus",
+    # `gamepad` (light: just turns on `bevy_input/gamepad`) lets the
+    # active-input detector read connected pads to flip `ActiveInputKind`
+    # to Gamepad. Without it the `Gamepad` component is configured out.
+    "gamepad",
 ] }
+# `bevy_window` is ALREADY a transitive dep (via `bevy_input_focus`), but the
+# `bevy` facade only re-exports `bevy::window` when the `bevy_window` feature is
+# on — which would also drag in `bevy_image`/`bevy_a11y`. Depending on the
+# already-built `bevy_window` crate directly keeps this layer thin while giving
+# the active-input detector the `CursorMoved` message it needs.
+bevy_window = { version = "0.18.1", default-features = false }
 leafwing-input-manager = { version = "0.20", optional = true }
 
 # The content-free pure-logic foundation. Input maps the device-side

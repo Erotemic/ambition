@@ -114,7 +114,7 @@ pub use hud::update_quest_panel;
 #[cfg(feature = "input")]
 pub use input_systems::{
     apply_menu_frame_to_cutscene_request, populate_control_frame_from_actions,
-    populate_menu_control_frame_from_actions,
+    populate_menu_control_frame_from_actions, MenuNavConsume,
 };
 pub use player_tick::{
     clear_sandbox_reset_this_frame, player_control_system, player_simulation_system,

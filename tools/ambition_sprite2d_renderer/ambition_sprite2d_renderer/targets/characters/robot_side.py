@@ -45,22 +45,12 @@ def _with_alpha(color: Color, alpha: int) -> Color:
 
 
 def _bbox(center: Point, w: float, h: float) -> Tuple[float, float, float, float]:
-    return (
-        center[0] - w / 2.0,
-        center[1] - h / 2.0,
-        center[0] + w / 2.0,
-        center[1] + h / 2.0,
-    )
+    return (center[0] - w / 2.0, center[1] - h / 2.0, center[0] + w / 2.0, center[1] + h / 2.0)
 
 
-def _paste_rotated_local(
-    base: Image.Image, layer: Image.Image, center: Point, angle: float
-) -> None:
+def _paste_rotated_local(base: Image.Image, layer: Image.Image, center: Point, angle: float) -> None:
     rotated = layer.rotate(angle, resample=RESAMPLING.BICUBIC, expand=True)
-    base.alpha_composite(
-        rotated,
-        (int(center[0] - rotated.width / 2), int(center[1] - rotated.height / 2)),
-    )
+    base.alpha_composite(rotated, (int(center[0] - rotated.width / 2), int(center[1] - rotated.height / 2)))
 
 
 class SideRobotGenerator:
@@ -104,13 +94,9 @@ class SideRobotGenerator:
         rng = random.Random(seed)
         scale = 1.0
         key = str(archetype or "").lower()
-        if archetype in {"guardian", "heavy_guardian"} or any(
-            token in key for token in ["marshal", "iron", "warden"]
-        ):
+        if archetype in {"guardian", "heavy_guardian"} or any(token in key for token in ["marshal", "iron", "warden"]):
             scale = 1.08
-        elif archetype in {"runner", "scout_runner"} or any(
-            token in key for token in ["pulse", "captain"]
-        ):
+        elif archetype in {"runner", "scout_runner"} or any(token in key for token in ["pulse", "captain"]):
             scale = 0.96
         elif archetype in {"diver", "swimmer"}:
             scale = 0.99
@@ -140,9 +126,7 @@ class SideRobotGenerator:
             head_w=(41 + rng.uniform(-1.0, 1.0)) * scale,
             head_h=(34 + rng.uniform(-1.0, 1.0)) * scale,
             body_w=(26 + rng.uniform(-0.8, 0.8)) * scale,
-            body_h=(25 + rng.uniform(-0.8, 0.8))
-            * scale
-            * (0.90 if player_compact else 1.0),
+            body_h=(25 + rng.uniform(-0.8, 0.8)) * scale * (0.90 if player_compact else 1.0),
             arm_upper=(13.6 + rng.uniform(-0.4, 0.7)) * scale * limb_scale,
             arm_lower=(11.5 + rng.uniform(-0.4, 0.5)) * scale * limb_scale,
             leg_upper=(13.4 + rng.uniform(-0.4, 0.6)) * scale * leg_scale,
@@ -150,21 +134,7 @@ class SideRobotGenerator:
             visor_w=(23.5 + rng.uniform(-0.6, 0.6)) * scale,
             visor_h=(12.0 + rng.uniform(-0.4, 0.4)) * scale,
             antenna_h=(12.0 + rng.uniform(-0.8, 0.8)) * scale,
-            blade_len=(30.0 + rng.uniform(-1.0, 2.0))
-            * scale
-            * (
-                1.12
-                if (
-                    archetype in {"guardian", "heavy_guardian"}
-                    or any(token in key for token in ["marshal", "iron", "warden"])
-                )
-                else 0.94
-                if (
-                    archetype in {"runner", "scout_runner"}
-                    or any(token in key for token in ["pulse", "captain"])
-                )
-                else 1.0
-            ),
+            blade_len=(30.0 + rng.uniform(-1.0, 2.0)) * scale * (1.12 if (archetype in {"guardian", "heavy_guardian"} or any(token in key for token in ["marshal", "iron", "warden"])) else 0.94 if (archetype in {"runner", "scout_runner"} or any(token in key for token in ["pulse", "captain"])) else 1.0),
             vertical_scale=vertical_scale,
         )
 
@@ -251,9 +221,7 @@ class SideRobotGenerator:
             pal["shell_side"] = _rgba("#E7E7F3")
         return pal
 
-    def pose_for_animation(
-        self, animation: str, frame_index: int, frame_count: int
-    ) -> Pose:
+    def pose_for_animation(self, animation: str, frame_index: int, frame_count: int) -> Pose:
         p = Pose()
         t = 0.0 if frame_count <= 1 else frame_index / float(frame_count - 1)
         wave = math.sin(t * math.tau)
@@ -501,9 +469,7 @@ class SideRobotGenerator:
             p.near_arm_upper = 28.0 - wave * 5.0
             p.eye_squint = 0.06 + 0.12 * mouth_like
         elif animation == "block":
-            brace = smoothstep(clamp(t / 0.30, 0.0, 1.0)) * (
-                1.0 - 0.25 * smoothstep(clamp((t - 0.65) / 0.35, 0.0, 1.0))
-            )
+            brace = smoothstep(clamp(t / 0.30, 0.0, 1.0)) * (1.0 - 0.25 * smoothstep(clamp((t - 0.65) / 0.35, 0.0, 1.0)))
             p.root_x = -2.0 * brace
             p.body_tilt = -10.0 * brace
             p.head_tilt = -3.0 * brace
@@ -581,9 +547,7 @@ class SideRobotGenerator:
             p.near_leg_lower = 46.0 - max(0.0, -stride) * 9.0
             p.eye_squint = 0.16
         elif animation == "pickup":
-            bend = smoothstep(clamp(t / 0.55, 0.0, 1.0)) * (
-                1.0 - 0.35 * smoothstep(clamp((t - 0.60) / 0.40, 0.0, 1.0))
-            )
+            bend = smoothstep(clamp(t / 0.55, 0.0, 1.0)) * (1.0 - 0.35 * smoothstep(clamp((t - 0.60) / 0.40, 0.0, 1.0)))
             lift = smoothstep(clamp((t - 0.42) / 0.45, 0.0, 1.0))
             p.root_y = 4.0 * bend - 3.0 * lift
             p.body_tilt = -18.0 * bend + 6.0 * lift
@@ -995,12 +959,8 @@ class SideRobotGenerator:
             # Near (sword) arm: cocks high-back during wind, whips
             # forward over the lip during strike, settles into a
             # combat-ready guard during recovery.
-            p.near_arm_upper = (
-                lerp(-52.0, 12.0, mantle) - 36.0 * wind + 86.0 * strike - 28.0 * recover
-            )
-            p.near_arm_lower = (
-                lerp(-56.0, 0.0, mantle) - 30.0 * wind + 78.0 * strike - 22.0 * recover
-            )
+            p.near_arm_upper = lerp(-52.0, 12.0, mantle) - 36.0 * wind + 86.0 * strike - 28.0 * recover
+            p.near_arm_lower = lerp(-56.0, 0.0, mantle) - 30.0 * wind + 78.0 * strike - 22.0 * recover
             # Legs mantle up; near leg drives forward at the strike
             # peak (committed weight transfer).
             p.far_leg_upper = lerp(122.0, 110.0, mantle) + 10.0 * strike
@@ -1199,18 +1159,8 @@ class SideRobotGenerator:
             p.eye_squint = 0.24 + thrust * 0.18
         return p
 
-    def _draw_archetype_accessories(
-        self,
-        img: Image.Image,
-        d: ImageDraw.ImageDraw,
-        spec: BotSpec,
-        pal: Dict[str, Color],
-        S: float,
-        root_x: float,
-        ground_y: float,
-        body_center: Point,
-        head_center: Point,
-    ) -> None:
+
+    def _draw_archetype_accessories(self, img: Image.Image, d: ImageDraw.ImageDraw, spec: BotSpec, pal: Dict[str, Color], S: float, root_x: float, ground_y: float, body_center: Point, head_center: Point) -> None:
         """Draw small silhouette-level NPC variant reads after the base robot.
 
         These are intentionally additive and keyed only by archetype so review
@@ -1222,547 +1172,197 @@ class SideRobotGenerator:
         glow = pal["visor_glow"]
         if any(token in name for token in ["drift", "dj", "lofi", "radio"]):
             # DJ headphones, transmitter antenna, and a tiny waveform panel.
-            d.arc(
-                (
-                    head_center[0] - 27 * S,
-                    head_center[1] - 21 * S,
-                    head_center[0] + 29 * S,
-                    head_center[1] + 22 * S,
-                ),
-                start=190,
-                end=350,
-                fill=accent,
-                width=max(1, int(2.0 * S)),
-            )
-            d.ellipse(
-                (
-                    head_center[0] - 30 * S,
-                    head_center[1] - 4 * S,
-                    head_center[0] - 20 * S,
-                    head_center[1] + 10 * S,
-                ),
-                fill=pal["metal"],
-                outline=outline,
-                width=max(1, int(1 * S)),
-            )
-            d.ellipse(
-                (
-                    head_center[0] + 24 * S,
-                    head_center[1] - 4 * S,
-                    head_center[0] + 34 * S,
-                    head_center[1] + 10 * S,
-                ),
-                fill=pal["metal"],
-                outline=outline,
-                width=max(1, int(1 * S)),
-            )
-            d.rounded_rectangle(
-                (
-                    body_center[0] - 30 * S,
-                    body_center[1] - 6 * S,
-                    body_center[0] - 18 * S,
-                    body_center[1] + 18 * S,
-                ),
-                radius=3 * S,
-                fill=_with_alpha(accent, 130),
-                outline=outline,
-                width=max(1, int(1 * S)),
-            )
+            d.arc((head_center[0] - 27*S, head_center[1] - 21*S, head_center[0] + 29*S, head_center[1] + 22*S), start=190, end=350, fill=accent, width=max(1, int(2.0*S)))
+            d.ellipse((head_center[0] - 30*S, head_center[1] - 4*S, head_center[0] - 20*S, head_center[1] + 10*S), fill=pal["metal"], outline=outline, width=max(1, int(1*S)))
+            d.ellipse((head_center[0] + 24*S, head_center[1] - 4*S, head_center[0] + 34*S, head_center[1] + 10*S), fill=pal["metal"], outline=outline, width=max(1, int(1*S)))
+            d.rounded_rectangle((body_center[0] - 30*S, body_center[1] - 6*S, body_center[0] - 18*S, body_center[1] + 18*S), radius=3*S, fill=_with_alpha(accent, 130), outline=outline, width=max(1, int(1*S)))
             for i, h in enumerate([4, 9, 6, 12]):
-                x = body_center[0] - (26 - i * 2.8) * S
-                d.line(
-                    [(x, body_center[1] + 11 * S), (x, body_center[1] + (11 - h) * S)],
-                    fill=glow,
-                    width=max(1, int(1.2 * S)),
-                )
+                x = body_center[0] - (26 - i*2.8)*S
+                d.line([(x, body_center[1] + 11*S), (x, body_center[1] + (11-h)*S)], fill=glow, width=max(1, int(1.2*S)))
         elif any(token in name for token in ["pulse", "captain", "voyage"]):
             # Officer cap and comet-tail speed pennants.
-            d.rounded_rectangle(
-                (
-                    head_center[0] - 18 * S,
-                    head_center[1] - 29 * S,
-                    head_center[0] + 18 * S,
-                    head_center[1] - 21 * S,
-                ),
-                radius=4 * S,
-                fill=accent,
-                outline=outline,
-                width=max(1, int(1 * S)),
-            )
-            d.polygon(
-                [
-                    (head_center[0] + 2 * S, head_center[1] - 31 * S),
-                    (head_center[0] + 12 * S, head_center[1] - 42 * S),
-                    (head_center[0] + 21 * S, head_center[1] - 28 * S),
-                ],
-                fill=glow,
-                outline=outline,
-            )
-            for y in (ground_y - 22 * S, ground_y - 14 * S, ground_y - 6 * S):
-                d.line(
-                    [(root_x - 23 * S, y), (root_x - 44 * S, y - 3 * S)],
-                    fill=_with_alpha(accent, 120),
-                    width=max(1, int(1.5 * S)),
-                )
+            d.rounded_rectangle((head_center[0] - 18*S, head_center[1] - 29*S, head_center[0] + 18*S, head_center[1] - 21*S), radius=4*S, fill=accent, outline=outline, width=max(1, int(1*S)))
+            d.polygon([(head_center[0] + 2*S, head_center[1] - 31*S), (head_center[0] + 12*S, head_center[1] - 42*S), (head_center[0] + 21*S, head_center[1] - 28*S)], fill=glow, outline=outline)
+            for y in (ground_y - 22*S, ground_y - 14*S, ground_y - 6*S):
+                d.line([(root_x - 23*S, y), (root_x - 44*S, y - 3*S)], fill=_with_alpha(accent, 120), width=max(1, int(1.5*S)))
         elif any(token in name for token in ["tech", "disrupt"]):
             # Oversized smart-glasses + lanyard badge + laptop slab.
-            d.rounded_rectangle(
-                (
-                    head_center[0] - 18 * S,
-                    head_center[1] - 9 * S,
-                    head_center[0] + 24 * S,
-                    head_center[1] + 4 * S,
-                ),
-                radius=3 * S,
-                fill=_with_alpha(glow, 210),
-                outline=outline,
-                width=max(1, int(1 * S)),
-            )
-            d.line(
-                [
-                    (body_center[0] + 2 * S, body_center[1] - 7 * S),
-                    (body_center[0] + 8 * S, body_center[1] + 13 * S),
-                ],
-                fill=accent,
-                width=max(1, int(2 * S)),
-            )
-            d.rounded_rectangle(
-                (
-                    body_center[0] + 3 * S,
-                    body_center[1] + 10 * S,
-                    body_center[0] + 15 * S,
-                    body_center[1] + 20 * S,
-                ),
-                radius=2 * S,
-                fill=pal["metal"],
-                outline=outline,
-                width=max(1, int(0.8 * S)),
-            )
-            d.rounded_rectangle(
-                (
-                    body_center[0] - 31 * S,
-                    body_center[1] - 4 * S,
-                    body_center[0] - 19 * S,
-                    body_center[1] + 18 * S,
-                ),
-                radius=2 * S,
-                fill=_rgba("#2B3348"),
-                outline=outline,
-                width=max(1, int(1 * S)),
-            )
+            d.rounded_rectangle((head_center[0] - 18*S, head_center[1] - 9*S, head_center[0] + 24*S, head_center[1] + 4*S), radius=3*S, fill=_with_alpha(glow, 210), outline=outline, width=max(1, int(1*S)))
+            d.line([(body_center[0] + 2*S, body_center[1] - 7*S), (body_center[0] + 8*S, body_center[1] + 13*S)], fill=accent, width=max(1, int(2*S)))
+            d.rounded_rectangle((body_center[0] + 3*S, body_center[1] + 10*S, body_center[0] + 15*S, body_center[1] + 20*S), radius=2*S, fill=pal["metal"], outline=outline, width=max(1, int(0.8*S)))
+            d.rounded_rectangle((body_center[0] - 31*S, body_center[1] - 4*S, body_center[0] - 19*S, body_center[1] + 18*S), radius=2*S, fill=_rgba("#2B3348"), outline=outline, width=max(1, int(1*S)))
         elif any(token in name for token in ["dino", "saur", "liberator"]):
             # Dinosaur crest, tail flag, and fossil-bone badge.
             for dx in (-10, 1, 12):
-                d.polygon(
-                    [
-                        (head_center[0] + dx * S, head_center[1] - 28 * S),
-                        (head_center[0] + (dx + 6) * S, head_center[1] - 42 * S),
-                        (head_center[0] + (dx + 12) * S, head_center[1] - 28 * S),
-                    ],
-                    fill=accent,
-                    outline=outline,
-                )
-            d.arc(
-                (root_x - 43 * S, ground_y - 40 * S, root_x - 9 * S, ground_y - 2 * S),
-                start=215,
-                end=338,
-                fill=accent,
-                width=max(1, int(3 * S)),
-            )
-            d.ellipse(
-                (
-                    body_center[0] + 8 * S,
-                    body_center[1] - 1 * S,
-                    body_center[0] + 18 * S,
-                    body_center[1] + 9 * S,
-                ),
-                fill=_rgba("#F3E8C8"),
-                outline=outline,
-                width=max(1, int(0.8 * S)),
-            )
+                d.polygon([(head_center[0] + dx*S, head_center[1] - 28*S), (head_center[0] + (dx+6)*S, head_center[1] - 42*S), (head_center[0] + (dx+12)*S, head_center[1] - 28*S)], fill=accent, outline=outline)
+            d.arc((root_x - 43*S, ground_y - 40*S, root_x - 9*S, ground_y - 2*S), start=215, end=338, fill=accent, width=max(1, int(3*S)))
+            d.ellipse((body_center[0] + 8*S, body_center[1] - 1*S, body_center[0] + 18*S, body_center[1] + 9*S), fill=_rgba("#F3E8C8"), outline=outline, width=max(1, int(0.8*S)))
         elif any(token in name for token in ["env", "advocate", "solace"]):
             # Leaf collar and seed-pod satchel.
             for dx, rot in [(-18, -1), (-5, 1), (8, -1), (20, 1)]:
-                d.ellipse(
-                    (
-                        body_center[0] + dx * S - 5 * S,
-                        body_center[1] - 17 * S,
-                        body_center[0] + dx * S + 7 * S,
-                        body_center[1] - 5 * S,
-                    ),
-                    fill=_with_alpha(accent, 170),
-                    outline=outline,
-                    width=max(1, int(0.7 * S)),
-                )
-            d.rounded_rectangle(
-                (
-                    body_center[0] - 30 * S,
-                    body_center[1] - 2 * S,
-                    body_center[0] - 18 * S,
-                    body_center[1] + 18 * S,
-                ),
-                radius=5 * S,
-                fill=_with_alpha(glow, 150),
-                outline=outline,
-                width=max(1, int(1 * S)),
-            )
+                d.ellipse((body_center[0] + dx*S - 5*S, body_center[1] - 17*S, body_center[0] + dx*S + 7*S, body_center[1] - 5*S), fill=_with_alpha(accent, 170), outline=outline, width=max(1, int(0.7*S)))
+            d.rounded_rectangle((body_center[0] - 30*S, body_center[1] - 2*S, body_center[0] - 18*S, body_center[1] + 18*S), radius=5*S, fill=_with_alpha(glow, 150), outline=outline, width=max(1, int(1*S)))
         elif any(token in name for token in ["iron", "marshal", "military"]):
             # Red cap, epaulettes, and command sash.
-            d.rounded_rectangle(
-                (
-                    head_center[0] - 19 * S,
-                    head_center[1] - 29 * S,
-                    head_center[0] + 20 * S,
-                    head_center[1] - 21 * S,
-                ),
-                radius=3 * S,
-                fill=accent,
-                outline=outline,
-                width=max(1, int(1 * S)),
-            )
-            d.rectangle(
-                (
-                    head_center[0] - 8 * S,
-                    head_center[1] - 34 * S,
-                    head_center[0] + 8 * S,
-                    head_center[1] - 29 * S,
-                ),
-                fill=pal["metal"],
-                outline=outline,
-                width=max(1, int(0.8 * S)),
-            )
+            d.rounded_rectangle((head_center[0] - 19*S, head_center[1] - 29*S, head_center[0] + 20*S, head_center[1] - 21*S), radius=3*S, fill=accent, outline=outline, width=max(1, int(1*S)))
+            d.rectangle((head_center[0] - 8*S, head_center[1] - 34*S, head_center[0] + 8*S, head_center[1] - 29*S), fill=pal["metal"], outline=outline, width=max(1, int(0.8*S)))
             for sx in (-1, 1):
-                d.rounded_rectangle(
-                    (
-                        body_center[0] + sx * 14 * S - 8 * S,
-                        body_center[1] - 14 * S,
-                        body_center[0] + sx * 14 * S + 8 * S,
-                        body_center[1] - 5 * S,
-                    ),
-                    radius=3 * S,
-                    fill=pal["metal"],
-                    outline=outline,
-                    width=max(1, int(1 * S)),
-                )
-            d.line(
-                [
-                    (body_center[0] - 16 * S, body_center[1] - 12 * S),
-                    (body_center[0] + 17 * S, body_center[1] + 16 * S),
-                ],
-                fill=accent,
-                width=max(1, int(3 * S)),
-            )
+                d.rounded_rectangle((body_center[0] + sx*14*S - 8*S, body_center[1] - 14*S, body_center[0] + sx*14*S + 8*S, body_center[1] - 5*S), radius=3*S, fill=pal["metal"], outline=outline, width=max(1, int(1*S)))
+            d.line([(body_center[0] - 16*S, body_center[1] - 12*S), (body_center[0] + 17*S, body_center[1] + 16*S)], fill=accent, width=max(1, int(3*S)))
         elif any(token in name for token in ["moonlit", "canal", "noct"]):
             # Crescent antenna, dock lantern, and watery half-cloak.
-            d.arc(
-                (
-                    head_center[0] - 4 * S,
-                    head_center[1] - 40 * S,
-                    head_center[0] + 25 * S,
-                    head_center[1] - 15 * S,
-                ),
-                start=80,
-                end=270,
-                fill=glow,
-                width=max(1, int(2 * S)),
-            )
-            d.rounded_rectangle(
-                (
-                    body_center[0] - 31 * S,
-                    body_center[1] - 6 * S,
-                    body_center[0] - 19 * S,
-                    body_center[1] + 16 * S,
-                ),
-                radius=4 * S,
-                fill=_rgba("#24304F"),
-                outline=outline,
-                width=max(1, int(1 * S)),
-            )
-            d.ellipse(
-                (
-                    body_center[0] - 28 * S,
-                    body_center[1] - 2 * S,
-                    body_center[0] - 22 * S,
-                    body_center[1] + 5 * S,
-                ),
-                fill=glow,
-            )
-            for yy in (ground_y - 10 * S, ground_y - 4 * S):
-                d.arc(
-                    (root_x - 30 * S, yy - 5 * S, root_x + 26 * S, yy + 8 * S),
-                    start=190,
-                    end=350,
-                    fill=_with_alpha(accent, 120),
-                    width=max(1, int(1 * S)),
-                )
+            d.arc((head_center[0] - 4*S, head_center[1] - 40*S, head_center[0] + 25*S, head_center[1] - 15*S), start=80, end=270, fill=glow, width=max(1, int(2*S)))
+            d.rounded_rectangle((body_center[0] - 31*S, body_center[1] - 6*S, body_center[0] - 19*S, body_center[1] + 16*S), radius=4*S, fill=_rgba("#24304F"), outline=outline, width=max(1, int(1*S)))
+            d.ellipse((body_center[0] - 28*S, body_center[1] - 2*S, body_center[0] - 22*S, body_center[1] + 5*S), fill=glow)
+            for yy in (ground_y - 10*S, ground_y - 4*S):
+                d.arc((root_x - 30*S, yy - 5*S, root_x + 26*S, yy + 8*S), start=190, end=350, fill=_with_alpha(accent, 120), width=max(1, int(1*S)))
         elif any(token in name for token in ["glass", "warden", "canopy"]):
             # Glass antler branches and translucent cloak triangle.
             for sx in (-1, 1):
-                base = (head_center[0] + sx * 12 * S, head_center[1] - 23 * S)
-                d.line(
-                    [base, (base[0] + sx * 13 * S, base[1] - 17 * S)],
-                    fill=glow,
-                    width=max(1, int(2 * S)),
-                )
-                d.line(
-                    [
-                        (base[0] + sx * 7 * S, base[1] - 9 * S),
-                        (base[0] + sx * 18 * S, base[1] - 13 * S),
-                    ],
-                    fill=glow,
-                    width=max(1, int(1.3 * S)),
-                )
-            d.polygon(
-                [
-                    (body_center[0] - 25 * S, body_center[1] - 7 * S),
-                    (body_center[0] + 25 * S, body_center[1] - 7 * S),
-                    (body_center[0] + 2 * S, body_center[1] + 28 * S),
-                ],
-                fill=_with_alpha(glow, 64),
-                outline=_with_alpha(accent, 150),
-            )
+                base = (head_center[0] + sx*12*S, head_center[1] - 23*S)
+                d.line([base, (base[0] + sx*13*S, base[1] - 17*S)], fill=glow, width=max(1, int(2*S)))
+                d.line([(base[0] + sx*7*S, base[1] - 9*S), (base[0] + sx*18*S, base[1] - 13*S)], fill=glow, width=max(1, int(1.3*S)))
+            d.polygon([(body_center[0] - 25*S, body_center[1] - 7*S), (body_center[0] + 25*S, body_center[1] - 7*S), (body_center[0] + 2*S, body_center[1] + 28*S)], fill=_with_alpha(glow, 64), outline=_with_alpha(accent, 150))
         elif name in {"guardian", "heavy_guardian"}:
             # Broad shoulder guard + hip plate reads as a defensive NPC even in idle.
-            d.rounded_rectangle(
-                (
-                    body_center[0] - 24 * S,
-                    body_center[1] - 14 * S,
-                    body_center[0] - 7 * S,
-                    body_center[1] - 3 * S,
-                ),
-                radius=4 * S,
-                fill=pal["metal"],
-                outline=outline,
-                width=max(1, int(1.0 * S)),
-            )
-            d.rounded_rectangle(
-                (
-                    body_center[0] + 11 * S,
-                    body_center[1] - 14 * S,
-                    body_center[0] + 28 * S,
-                    body_center[1] - 3 * S,
-                ),
-                radius=4 * S,
-                fill=pal["metal"],
-                outline=outline,
-                width=max(1, int(1.0 * S)),
-            )
-            d.rounded_rectangle(
-                (
-                    body_center[0] - 23 * S,
-                    body_center[1] + 3 * S,
-                    body_center[0] + 24 * S,
-                    body_center[1] + 12 * S,
-                ),
-                radius=3 * S,
-                fill=_with_alpha(accent, 185),
-                outline=outline,
-                width=max(1, int(0.9 * S)),
-            )
+            d.rounded_rectangle((body_center[0] - 24*S, body_center[1] - 14*S, body_center[0] - 7*S, body_center[1] - 3*S), radius=4*S, fill=pal["metal"], outline=outline, width=max(1, int(1.0*S)))
+            d.rounded_rectangle((body_center[0] + 11*S, body_center[1] - 14*S, body_center[0] + 28*S, body_center[1] - 3*S), radius=4*S, fill=pal["metal"], outline=outline, width=max(1, int(1.0*S)))
+            d.rounded_rectangle((body_center[0] - 23*S, body_center[1] + 3*S, body_center[0] + 24*S, body_center[1] + 12*S), radius=3*S, fill=_with_alpha(accent, 185), outline=outline, width=max(1, int(0.9*S)))
         elif name in {"runner", "scout_runner"}:
             # Thin antenna fin and ankle streamers.
-            d.polygon(
-                [
-                    (head_center[0] - 13 * S, head_center[1] - 29 * S),
-                    (head_center[0] + 3 * S, head_center[1] - 42 * S),
-                    (head_center[0] - 1 * S, head_center[1] - 27 * S),
-                ],
-                fill=accent,
-                outline=outline,
-            )
-            for y in (ground_y - 14 * S, ground_y - 7 * S):
-                d.line(
-                    [(root_x - 24 * S, y), (root_x - 42 * S, y + 3 * S)],
-                    fill=_with_alpha(accent, 145),
-                    width=max(1, int(1.6 * S)),
-                )
+            d.polygon([(head_center[0] - 13*S, head_center[1] - 29*S), (head_center[0] + 3*S, head_center[1] - 42*S), (head_center[0] - 1*S, head_center[1] - 27*S)], fill=accent, outline=outline)
+            for y in (ground_y - 14*S, ground_y - 7*S):
+                d.line([(root_x - 24*S, y), (root_x - 42*S, y + 3*S)], fill=_with_alpha(accent, 145), width=max(1, int(1.6*S)))
         elif name in {"diver", "swimmer"}:
             # Bubble helmet ring and fin-like boots.
-            d.ellipse(
-                (
-                    head_center[0] - 27 * S,
-                    head_center[1] - 24 * S,
-                    head_center[0] + 30 * S,
-                    head_center[1] + 22 * S,
-                ),
-                outline=_with_alpha(glow, 120),
-                width=max(1, int(1.6 * S)),
-            )
-            for x in (root_x - 12 * S, root_x + 11 * S):
-                d.polygon(
-                    [
-                        (x, ground_y - 2 * S),
-                        (x + 16 * S, ground_y + 5 * S),
-                        (x - 2 * S, ground_y + 7 * S),
-                    ],
-                    fill=_with_alpha(accent, 160),
-                    outline=outline,
-                )
+            d.ellipse((head_center[0] - 27*S, head_center[1] - 24*S, head_center[0] + 30*S, head_center[1] + 22*S), outline=_with_alpha(glow, 120), width=max(1, int(1.6*S)))
+            for x in (root_x - 12*S, root_x + 11*S):
+                d.polygon([(x, ground_y - 2*S), (x + 16*S, ground_y + 5*S), (x - 2*S, ground_y + 7*S)], fill=_with_alpha(accent, 160), outline=outline)
         elif name in {"caster", "radio_mage"}:
             # Floating tuning halo and spell mote.
-            d.arc(
-                (
-                    head_center[0] - 23 * S,
-                    head_center[1] - 34 * S,
-                    head_center[0] + 25 * S,
-                    head_center[1] - 9 * S,
-                ),
-                start=190,
-                end=350,
-                fill=_with_alpha(accent, 180),
-                width=max(1, int(1.6 * S)),
-            )
-            d.ellipse(
-                (
-                    head_center[0] + 25 * S,
-                    head_center[1] - 26 * S,
-                    head_center[0] + 33 * S,
-                    head_center[1] - 18 * S,
-                ),
-                fill=_with_alpha(glow, 210),
-                outline=outline,
-            )
+            d.arc((head_center[0] - 23*S, head_center[1] - 34*S, head_center[0] + 25*S, head_center[1] - 9*S), start=190, end=350, fill=_with_alpha(accent, 180), width=max(1, int(1.6*S)))
+            d.ellipse((head_center[0] + 25*S, head_center[1] - 26*S, head_center[0] + 33*S, head_center[1] - 18*S), fill=_with_alpha(glow, 210), outline=outline)
         elif name in {"engineer", "field_mechanic"}:
             # Backpack battery and little wrench badge.
-            d.rounded_rectangle(
-                (
-                    body_center[0] - 29 * S,
-                    body_center[1] - 7 * S,
-                    body_center[0] - 19 * S,
-                    body_center[1] + 19 * S,
-                ),
-                radius=3 * S,
-                fill=pal["metal"],
-                outline=outline,
-                width=max(1, int(1.0 * S)),
-            )
-            d.line(
-                [
-                    (body_center[0] + 13 * S, body_center[1] - 4 * S),
-                    (body_center[0] + 26 * S, body_center[1] + 8 * S),
-                ],
-                fill=accent,
-                width=max(1, int(2 * S)),
-            )
-            d.ellipse(
-                (
-                    body_center[0] + 23 * S,
-                    body_center[1] + 5 * S,
-                    body_center[0] + 29 * S,
-                    body_center[1] + 11 * S,
-                ),
-                outline=outline,
-                width=max(1, int(1 * S)),
-            )
+            d.rounded_rectangle((body_center[0] - 29*S, body_center[1] - 7*S, body_center[0] - 19*S, body_center[1] + 19*S), radius=3*S, fill=pal["metal"], outline=outline, width=max(1, int(1.0*S)))
+            d.line([(body_center[0] + 13*S, body_center[1] - 4*S), (body_center[0] + 26*S, body_center[1] + 8*S)], fill=accent, width=max(1, int(2*S)))
+            d.ellipse((body_center[0] + 23*S, body_center[1] + 5*S, body_center[0] + 29*S, body_center[1] + 11*S), outline=outline, width=max(1, int(1*S)))
         elif name in {"medic", "field_medic"}:
             # Cross badge and soft backpack pack.
-            d.rounded_rectangle(
-                (
-                    body_center[0] - 28 * S,
-                    body_center[1] - 6 * S,
-                    body_center[0] - 18 * S,
-                    body_center[1] + 17 * S,
-                ),
-                radius=3 * S,
-                fill=_with_alpha(accent, 130),
-                outline=outline,
-                width=max(1, int(1.0 * S)),
-            )
-            bx, by = body_center[0] + 8 * S, body_center[1] + 1 * S
-            d.rounded_rectangle(
-                (bx - 8 * S, by - 2 * S, bx + 8 * S, by + 3 * S),
-                radius=1.5 * S,
-                fill=accent,
-            )
-            d.rounded_rectangle(
-                (bx - 2 * S, by - 8 * S, bx + 3 * S, by + 8 * S),
-                radius=1.5 * S,
-                fill=accent,
-            )
+            d.rounded_rectangle((body_center[0] - 28*S, body_center[1] - 6*S, body_center[0] - 18*S, body_center[1] + 17*S), radius=3*S, fill=_with_alpha(accent, 130), outline=outline, width=max(1, int(1.0*S)))
+            bx, by = body_center[0] + 8*S, body_center[1] + 1*S
+            d.rounded_rectangle((bx - 8*S, by - 2*S, bx + 8*S, by + 3*S), radius=1.5*S, fill=accent)
+            d.rounded_rectangle((bx - 2*S, by - 8*S, bx + 3*S, by + 8*S), radius=1.5*S, fill=accent)
         elif name in {"miner", "cavern_miner"}:
             # Headlamp + tool roll.
-            d.rounded_rectangle(
-                (
-                    head_center[0] - 18 * S,
-                    head_center[1] - 25 * S,
-                    head_center[0] + 16 * S,
-                    head_center[1] - 18 * S,
-                ),
-                radius=3 * S,
-                fill=pal["metal"],
-                outline=outline,
-                width=max(1, int(1.0 * S)),
-            )
-            d.ellipse(
-                (
-                    head_center[0] + 5 * S,
-                    head_center[1] - 29 * S,
-                    head_center[0] + 15 * S,
-                    head_center[1] - 19 * S,
-                ),
-                fill=glow,
-                outline=outline,
-                width=max(1, int(0.8 * S)),
-            )
-            d.polygon(
-                [
-                    (head_center[0] + 14 * S, head_center[1] - 26 * S),
-                    (head_center[0] + 45 * S, head_center[1] - 34 * S),
-                    (head_center[0] + 45 * S, head_center[1] - 16 * S),
-                ],
-                fill=_with_alpha(glow, 42),
-            )
+            d.rounded_rectangle((head_center[0] - 18*S, head_center[1] - 25*S, head_center[0] + 16*S, head_center[1] - 18*S), radius=3*S, fill=pal["metal"], outline=outline, width=max(1, int(1.0*S)))
+            d.ellipse((head_center[0] + 5*S, head_center[1] - 29*S, head_center[0] + 15*S, head_center[1] - 19*S), fill=glow, outline=outline, width=max(1, int(0.8*S)))
+            d.polygon([(head_center[0] + 14*S, head_center[1] - 26*S), (head_center[0] + 45*S, head_center[1] - 34*S), (head_center[0] + 45*S, head_center[1] - 16*S)], fill=_with_alpha(glow, 42))
         elif name in {"archivist", "map_keeper"}:
             # Scroll satchel and paper tab.
-            d.rounded_rectangle(
-                (
-                    body_center[0] - 30 * S,
-                    body_center[1] - 4 * S,
-                    body_center[0] - 17 * S,
-                    body_center[1] + 17 * S,
-                ),
-                radius=3 * S,
-                fill=_with_alpha(accent, 160),
-                outline=outline,
-                width=max(1, int(1.0 * S)),
-            )
-            d.rectangle(
-                (
-                    body_center[0] - 28 * S,
-                    body_center[1] - 2 * S,
-                    body_center[0] - 18 * S,
-                    body_center[1] + 4 * S,
-                ),
-                fill=_rgba("#F3E8C8"),
-                outline=outline,
-                width=max(1, int(0.7 * S)),
-            )
+            d.rounded_rectangle((body_center[0] - 30*S, body_center[1] - 4*S, body_center[0] - 17*S, body_center[1] + 17*S), radius=3*S, fill=_with_alpha(accent, 160), outline=outline, width=max(1, int(1.0*S)))
+            d.rectangle((body_center[0] - 28*S, body_center[1] - 2*S, body_center[0] - 18*S, body_center[1] + 4*S), fill=_rgba("#F3E8C8"), outline=outline, width=max(1, int(0.7*S)))
 
-    def _leg_chain(
-        self, hip: Point, upper_len: float, lower_len: float, a1: float, a2: float
-    ) -> Tuple[Point, Point]:
+    def _leg_chain(self, hip: Point, upper_len: float, lower_len: float, a1: float, a2: float) -> Tuple[Point, Point]:
         knee = add(hip, vec(upper_len, a1))
         ankle = add(knee, vec(lower_len, a2))
         return knee, ankle
 
-    def _draw_shadow(
-        self, img: Image.Image, ground_y: float, x: float, width: float, alpha: int
-    ) -> None:
-        d = ImageDraw.Draw(img)
-        d.ellipse(
-            (x - width / 2, ground_y - 5, x + width / 2, ground_y + 6),
-            fill=(0, 0, 0, alpha),
-        )
+    def _solve_leg_ik(self, hip: Point, ankle: Point, upper_len: float, lower_len: float, bend_sign: float = 1.0) -> Tuple[Point, float, float]:
+        """Solve a simple two-bone leg toward an ankle target.
 
-    def _draw_blink_out_fx(
-        self,
-        img: Image.Image,
-        root_x: float,
-        ground_y: float,
-        S: float,
-        frame_index: int,
-        frame_count: int,
-    ) -> None:
+        `bend_sign=+1` keeps the knee pitched toward screen-right / facing-forward
+        for the right-facing robot silhouette.
+        """
+        dx = ankle[0] - hip[0]
+        dy = ankle[1] - hip[1]
+        dist = math.hypot(dx, dy)
+        min_reach = abs(upper_len - lower_len) + 0.001
+        max_reach = max(min_reach + 0.001, upper_len + lower_len - 0.001)
+        dist = clamp(dist, min_reach, max_reach)
+        base = math.degrees(math.atan2(dy, dx))
+        cos_off = clamp((upper_len * upper_len + dist * dist - lower_len * lower_len) / (2.0 * upper_len * dist), -1.0, 1.0)
+        off = math.degrees(math.acos(cos_off))
+        a1 = base - bend_sign * off
+        knee = add(hip, vec(upper_len, a1))
+        a2 = math.degrees(math.atan2(ankle[1] - knee[1], ankle[0] - knee[0]))
+        return knee, a1, a2
+
+    def _sample_cycle(self, samples: Tuple[float, ...], phase: float) -> float:
+        count = len(samples)
+        if count == 0:
+            return 0.0
+        phase = (phase % 1.0) * count
+        i0 = int(math.floor(phase)) % count
+        i1 = (i0 + 1) % count
+        frac = phase - math.floor(phase)
+        return lerp(samples[i0], samples[i1], frac)
+
+    def _player_compact_stride_layout(self, animation: str, phase: float, body_center: Point, ground_y: float, S: float) -> Dict[str, Tuple[Point, Point, float, float, Color, float]]:
+        """Hand-tuned crossover gait for the compact player robot.
+
+        The smart-house walk works because the feet pass through the middle of
+        the stride instead of staying locked to wide lanes. The compact robot
+        keeps knees, so we only borrow that crossover timing and use explicit
+        foot targets to avoid the previous out-of-whack foot placements.
+        """
+        is_run = animation == "run"
+        if is_run:
+            far_x = (-9.6, -5.2, 0.8, 6.2, 8.8, 5.0, -0.8, -6.8)
+            far_lift = (0.0, 0.0, 1.6, 0.5, 0.0, 4.6, 2.6, 0.7)
+            near_x = (10.8, 6.1, 0.2, -5.8, -7.8, -4.0, 1.8, 7.6)
+            near_lift = (0.0, 3.4, 5.5, 0.7, 0.0, 0.0, 1.2, 0.4)
+            pelvis_w = 12.0
+            pelvis_h = 7.5
+            foot_tilt = -7.0
+        else:
+            far_x = (-8.0, -4.5, 0.4, 4.6, 6.0, 3.6, -1.0, -5.8)
+            far_lift = (0.0, 0.0, 0.9, 0.3, 0.0, 3.1, 1.3, 0.3)
+            near_x = (9.2, 4.9, 0.2, -4.2, -5.4, -2.9, 1.4, 6.2)
+            near_lift = (0.0, 2.0, 3.2, 0.3, 0.0, 0.0, 0.8, 0.2)
+            pelvis_w = 11.0
+            pelvis_h = 7.0
+            foot_tilt = -5.0
+
+        foot_w = 12.0 * S
+        foot_h = 6.0 * S
+        lane_far = -1.8
+        lane_near = 2.0
+        phase = phase % 1.0
+        far_fc = (body_center[0] + self._sample_cycle(far_x, phase) * S, ground_y - 2.0 * S - self._sample_cycle(far_lift, phase) * S)
+        near_fc = (body_center[0] + self._sample_cycle(near_x, phase) * S, ground_y - 2.0 * S - self._sample_cycle(near_lift, phase) * S)
+        far_ankle = (far_fc[0] - foot_w * 0.34 - lane_far * S, far_fc[1] - 2.0 * S)
+        near_ankle = (near_fc[0] - foot_w * 0.34 - lane_near * S, near_fc[1] - 2.0 * S)
+        pelvis_center = (body_center[0] + 0.8 * S, body_center[1] + 10.0 * S)
+        return {
+            "far": (far_ankle, far_fc, foot_w, foot_h, foot_tilt, lane_far),
+            "near": (near_ankle, near_fc, foot_w, foot_h, foot_tilt, lane_near),
+            "pelvis": (pelvis_center, (pelvis_w * S, pelvis_h * S)),
+        }
+
+    def _draw_leg_from_ik(self, img: Image.Image, d: ImageDraw.ImageDraw, hip: Point, ankle: Point, foot_center: Point, foot_size: Tuple[float, float], foot_angle: float, tint: Color, outline_color: Color, outline: float, upper_len: float, lower_len: float, pixel_scale: float, bend_sign: float = 1.0) -> None:
+        # Keep a small persistent bend so the compact robot never reads as if
+        # the shin telescopes longer in the crossover frames.
+        dx = ankle[0] - hip[0]
+        dy = ankle[1] - hip[1]
+        dist = math.hypot(dx, dy)
+        max_reach = max(1.0, upper_len + lower_len - 1.8 * pixel_scale)
+        if dist > max_reach and dist > 1e-5:
+            scale = max_reach / dist
+            clamped_ankle = (hip[0] + dx * scale, hip[1] + dy * scale)
+            shift = (clamped_ankle[0] - ankle[0], clamped_ankle[1] - ankle[1])
+            ankle = clamped_ankle
+            foot_center = (foot_center[0] + shift[0], foot_center[1] + shift[1])
+        knee, _a1, _a2 = self._solve_leg_ik(hip, ankle, upper_len, lower_len, bend_sign)
+        draw_capsule(d, hip, knee, 2.9 * pixel_scale, tint, outline_color, outline * 0.65)
+        draw_capsule(d, knee, ankle, 2.7 * pixel_scale, tint, outline_color, outline * 0.65)
+        draw_rotated_rounded_rect(img, foot_center, foot_size, foot_angle, 3.0 * pixel_scale, tint, outline_color, outline * 0.7)
+
+    def _draw_shadow(self, img: Image.Image, ground_y: float, x: float, width: float, alpha: int) -> None:
+        d = ImageDraw.Draw(img)
+        d.ellipse((x - width / 2, ground_y - 5, x + width / 2, ground_y + 6), fill=(0, 0, 0, alpha))
+
+    def _draw_blink_out_fx(self, img: Image.Image, root_x: float, ground_y: float, S: float, frame_index: int, frame_count: int) -> None:
         d = ImageDraw.Draw(img)
         t = 0.0 if frame_count <= 1 else frame_index / float(frame_count - 1)
         charge = smoothstep(clamp(t / 0.56, 0.0, 1.0))
@@ -1779,9 +1379,7 @@ class SideRobotGenerator:
         ]:
             rx, ry = 8.0 * S * rscale, 14.0 * S * rscale
             box = (source_x - rx, mid_y - ry - 4 * S, source_x + rx, mid_y + ry - 4 * S)
-            d.ellipse(
-                box, outline=_with_alpha(energy, alpha), width=max(1, int(1.3 * S))
-            )
+            d.ellipse(box, outline=_with_alpha(energy, alpha), width=max(1, int(1.3 * S)))
 
         # Vertical slivers and shard sparks make the disappearance read like teleportation.
         for i, dx in enumerate((-10, -4, 3, 10)):
@@ -1789,16 +1387,8 @@ class SideRobotGenerator:
             alpha = int((90 - i * 14) * max(charge, burst))
             if alpha > 0:
                 x = source_x + dx * S
-                d.line(
-                    [(x, mid_y - height / 2), (x + 6 * S, mid_y + height / 2)],
-                    fill=_with_alpha(accent, alpha),
-                    width=max(1, int(1.7 * S)),
-                )
-                d.line(
-                    [(x + 2 * S, mid_y - height / 2), (x - 4 * S, mid_y + height / 2)],
-                    fill=_with_alpha(energy, max(20, alpha - 24)),
-                    width=max(1, int(0.9 * S)),
-                )
+                d.line([(x, mid_y - height / 2), (x + 6 * S, mid_y + height / 2)], fill=_with_alpha(accent, alpha), width=max(1, int(1.7 * S)))
+                d.line([(x + 2 * S, mid_y - height / 2), (x - 4 * S, mid_y + height / 2)], fill=_with_alpha(energy, max(20, alpha - 24)), width=max(1, int(0.9 * S)))
 
         for i in range(4):
             frac = i / 3.0 if 3 else 0.0
@@ -1806,34 +1396,13 @@ class SideRobotGenerator:
             sy = mid_y - 12 * S - frac * 7 * S
             ex = sx + (6 + i * 2) * S
             ey = sy - (8 + i * 2) * S
-            d.line(
-                [(sx, sy), (ex, ey)],
-                fill=_with_alpha(energy, int(65 * max(charge, burst))),
-                width=max(1, int(1.0 * S)),
-            )
+            d.line([(sx, sy), (ex, ey)], fill=_with_alpha(energy, int(65 * max(charge, burst))), width=max(1, int(1.0 * S)))
 
         ripple_alpha = int(80 * max(charge, burst))
         if ripple_alpha > 0:
-            d.ellipse(
-                (
-                    source_x - 18 * S,
-                    ground_y - 7 * S,
-                    source_x + 16 * S,
-                    ground_y + 1 * S,
-                ),
-                outline=_with_alpha(accent, ripple_alpha),
-                width=max(1, int(1.0 * S)),
-            )
+            d.ellipse((source_x - 18 * S, ground_y - 7 * S, source_x + 16 * S, ground_y + 1 * S), outline=_with_alpha(accent, ripple_alpha), width=max(1, int(1.0 * S)))
 
-    def _draw_blink_in_fx(
-        self,
-        img: Image.Image,
-        root_x: float,
-        ground_y: float,
-        S: float,
-        frame_index: int,
-        frame_count: int,
-    ) -> None:
+    def _draw_blink_in_fx(self, img: Image.Image, root_x: float, ground_y: float, S: float, frame_index: int, frame_count: int) -> None:
         d = ImageDraw.Draw(img)
         t = 0.0 if frame_count <= 1 else frame_index / float(frame_count - 1)
         appear = smoothstep(clamp(t / 0.60, 0.0, 1.0))
@@ -1849,41 +1418,19 @@ class SideRobotGenerator:
         ]:
             rx, ry = 8.5 * S * rscale, 14.0 * S * rscale
             box = (dest_x - rx, mid_y - ry - 4 * S, dest_x + rx, mid_y + ry - 4 * S)
-            d.ellipse(
-                box, outline=_with_alpha(energy, alpha), width=max(1, int(1.3 * S))
-            )
+            d.ellipse(box, outline=_with_alpha(energy, alpha), width=max(1, int(1.3 * S)))
 
         for i, dx in enumerate((-14, -7, 0, 8, 14)):
             height = (30.0 - i * 2.6 + 7.0 * (1.0 - settle)) * S
             alpha = int((95 - i * 12) * max(0.18, 1.0 - t * 0.42))
             x = dest_x + dx * S
-            d.line(
-                [(x, mid_y - height / 2), (dest_x, mid_y)],
-                fill=_with_alpha(accent, alpha),
-                width=max(1, int(1.6 * S)),
-            )
-            d.line(
-                [(x, mid_y + height / 2), (dest_x + 2 * S, mid_y - 2 * S)],
-                fill=_with_alpha(energy, max(15, alpha - 18)),
-                width=max(1, int(0.9 * S)),
-            )
+            d.line([(x, mid_y - height / 2), (dest_x, mid_y)], fill=_with_alpha(accent, alpha), width=max(1, int(1.6 * S)))
+            d.line([(x, mid_y + height / 2), (dest_x + 2 * S, mid_y - 2 * S)], fill=_with_alpha(energy, max(15, alpha - 18)), width=max(1, int(0.9 * S)))
 
         ripple_alpha = int(78 * max(0.18, 1.0 - t * 0.35))
-        d.ellipse(
-            (dest_x - 18 * S, ground_y - 7 * S, dest_x + 16 * S, ground_y + 1 * S),
-            outline=_with_alpha(energy, ripple_alpha),
-            width=max(1, int(1.0 * S)),
-        )
+        d.ellipse((dest_x - 18 * S, ground_y - 7 * S, dest_x + 16 * S, ground_y + 1 * S), outline=_with_alpha(energy, ripple_alpha), width=max(1, int(1.0 * S)))
 
-    def _composite_teleport_actor(
-        self,
-        base: Image.Image,
-        actor: Image.Image,
-        animation: str,
-        frame_index: int,
-        frame_count: int,
-        S: float,
-    ) -> None:
+    def _composite_teleport_actor(self, base: Image.Image, actor: Image.Image, animation: str, frame_index: int, frame_count: int, S: float) -> None:
         alpha_bbox = actor.getchannel("A").getbbox()
         if alpha_bbox is None:
             return
@@ -1896,21 +1443,13 @@ class SideRobotGenerator:
                 strip = actor.crop((x, y1, min(x + slice_w, x2), y2))
                 if strip.getchannel("A").getbbox() is None:
                     continue
-                frac = (
-                    0.5
-                    if x2 == x1
-                    else ((x + slice_w * 0.5) - x1) / float(max(1, x2 - x1))
-                )
-                dx = (frac - 0.5) * (22.0 * S * progress) + math.sin(
-                    frac * math.pi * 7.0 + progress * 7.0
-                ) * 1.8 * S * progress
+                frac = 0.5 if x2 == x1 else ((x + slice_w * 0.5) - x1) / float(max(1, x2 - x1))
+                dx = (frac - 0.5) * (22.0 * S * progress) + math.sin(frac * math.pi * 7.0 + progress * 7.0) * 1.8 * S * progress
                 dy = -(5.0 + abs(frac - 0.5) * 18.0) * S * progress
                 alpha_scale = max(0.06, 1.0 - 0.88 * progress)
                 if progress > 0.35 and (i + int(progress * 10)) % 3 == 0:
                     alpha_scale *= 0.35
-                a = strip.getchannel("A").point(
-                    lambda v, s=alpha_scale: max(0, min(255, int(v * s)))
-                )
+                a = strip.getchannel("A").point(lambda v, s=alpha_scale: max(0, min(255, int(v * s))))
                 strip.putalpha(a)
                 base.alpha_composite(strip, (int(x + dx), int(y1 + dy)))
         else:
@@ -1919,42 +1458,23 @@ class SideRobotGenerator:
                 strip = actor.crop((x, y1, min(x + slice_w, x2), y2))
                 if strip.getchannel("A").getbbox() is None:
                     continue
-                frac = (
-                    0.5
-                    if x2 == x1
-                    else ((x + slice_w * 0.5) - x1) / float(max(1, x2 - x1))
-                )
+                frac = 0.5 if x2 == x1 else ((x + slice_w * 0.5) - x1) / float(max(1, x2 - x1))
                 dx = (frac - 0.5) * (24.0 * S * (1.0 - progress))
                 dy = -(3.0 + abs(frac - 0.5) * 16.0) * S * (1.0 - progress)
                 alpha_scale = min(1.0, 0.18 + 0.94 * progress)
                 if progress < 0.45 and (i + frame_index) % 4 == 0:
                     alpha_scale *= 0.55
-                a = strip.getchannel("A").point(
-                    lambda v, s=alpha_scale: max(0, min(255, int(v * s)))
-                )
+                a = strip.getchannel("A").point(lambda v, s=alpha_scale: max(0, min(255, int(v * s))))
                 strip.putalpha(a)
                 base.alpha_composite(strip, (int(x + dx), int(y1 + dy)))
             full_alpha = smoothstep(clamp((progress - 0.34) / 0.66, 0.0, 1.0))
             if full_alpha > 0:
                 resolved = actor.copy()
-                a = resolved.getchannel("A").point(
-                    lambda v, s=full_alpha: max(0, min(255, int(v * s)))
-                )
+                a = resolved.getchannel("A").point(lambda v, s=full_alpha: max(0, min(255, int(v * s))))
                 resolved.putalpha(a)
                 base.alpha_composite(resolved)
 
-    def _draw_rigid_head(
-        self,
-        img: Image.Image,
-        center: Point,
-        spec: BotSpec,
-        pal: Dict[str, Color],
-        S: float,
-        angle: float,
-        blink_closed: bool,
-        squint: float,
-        dead: bool,
-    ) -> None:
+    def _draw_rigid_head(self, img: Image.Image, center: Point, spec: BotSpec, pal: Dict[str, Color], S: float, angle: float, blink_closed: bool, squint: float, dead: bool) -> None:
         # Draw in head-local coordinates, then rotate/paste the full layer.  This
         # preserves the older in-repo rigid 2.5D-head idea while remaining pure 2D.
         pad = int(math.ceil(48 * S))
@@ -1969,27 +1489,22 @@ class SideRobotGenerator:
         ant_base = (cx - 8 * S, cy - head_h * 0.50)
         ant_tip = (cx - 12 * S, cy - head_h * 0.50 - spec.antenna_h * S)
         d.line([ant_base, ant_tip], fill=pal["outline"], width=max(1, int(1.7 * S)))
-        d.ellipse(
-            _bbox(ant_tip, 6.4 * S, 6.4 * S),
-            fill=pal["accent"],
-            outline=pal["outline"],
-            width=max(1, int(1.0 * S)),
-        )
+        d.ellipse(_bbox(ant_tip, 6.4 * S, 6.4 * S), fill=pal["accent"], outline=pal["outline"], width=max(1, int(1.0 * S)))
 
         outer = _bbox((cx, cy), head_w + 2 * outline, head_h + 2 * outline)
         inner = _bbox((cx, cy), head_w, head_h)
         d.rounded_rectangle(outer, radius=9 * S + outline, fill=pal["outline"])
         d.rounded_rectangle(inner, radius=9 * S, fill=pal["shell_top"])
-        d.rounded_rectangle(
-            (inner[0] + 4 * S, inner[1] + 3 * S, inner[2] - 5 * S, cy - 1 * S),
-            radius=7 * S,
-            fill=_with_alpha((255, 255, 255, 255), 205),
-        )
-        d.rounded_rectangle(
-            (inner[0] + 8 * S, cy + 1 * S, inner[2] - 2 * S, inner[3] - 3 * S),
-            radius=7 * S,
-            fill=_with_alpha(pal["shell_side"], 190),
-        )
+
+        # Semi-transparent head highlights/shadows must be alpha-composited
+        # over the opaque head base.  Drawing translucent fills directly onto
+        # the layer replaces the destination alpha and leaves the mouth/shadow
+        # area partially transparent after rotation/compositing.
+        detail = Image.new("RGBA", layer.size, (0, 0, 0, 0))
+        hd = ImageDraw.Draw(detail)
+        hd.rounded_rectangle((inner[0] + 4 * S, inner[1] + 3 * S, inner[2] - 5 * S, cy - 1 * S), radius=7 * S, fill=_with_alpha((255, 255, 255, 255), 205))
+        hd.rounded_rectangle((inner[0] + 8 * S, cy + 1 * S, inner[2] - 2 * S, inner[3] - 3 * S), radius=7 * S, fill=_with_alpha(pal["shell_side"], 190))
+        layer.alpha_composite(detail)
 
         visor_center = (cx + 7.0 * S, cy - 1.0 * S)
         visor_h = spec.visor_h * S
@@ -1997,33 +1512,18 @@ class SideRobotGenerator:
             visor_h = max(2.0 * S, visor_h * 0.22)
         else:
             visor_h *= max(0.35, 1.0 - squint * 0.50)
-        vouter = _bbox(
-            visor_center, spec.visor_w * S + outline * 0.6, visor_h + outline * 0.6
-        )
+        vouter = _bbox(visor_center, spec.visor_w * S + outline * 0.6, visor_h + outline * 0.6)
         vinner = _bbox(visor_center, spec.visor_w * S, visor_h)
         d.rounded_rectangle(vouter, radius=4 * S + outline * 0.25, fill=pal["outline"])
         d.rounded_rectangle(vinner, radius=4 * S, fill=pal["visor"])
         if dead:
             x, y = visor_center
             r = 4.0 * S
-            d.line(
-                [(x - r, y - r), (x + r, y + r)],
-                fill=pal["visor_glow"],
-                width=max(1, int(1.3 * S)),
-            )
-            d.line(
-                [(x - r, y + r), (x + r, y - r)],
-                fill=pal["visor_glow"],
-                width=max(1, int(1.3 * S)),
-            )
+            d.line([(x - r, y - r), (x + r, y + r)], fill=pal["visor_glow"], width=max(1, int(1.3 * S)))
+            d.line([(x - r, y + r), (x + r, y - r)], fill=pal["visor_glow"], width=max(1, int(1.3 * S)))
         elif not blink_closed:
             for ex in (-4.0, 4.0):
-                d.ellipse(
-                    _bbox(
-                        (visor_center[0] + ex * S, visor_center[1]), 3.0 * S, 6.0 * S
-                    ),
-                    fill=pal["visor_glow"],
-                )
+                d.ellipse(_bbox((visor_center[0] + ex * S, visor_center[1]), 3.0 * S, 6.0 * S), fill=pal["visor_glow"])
 
         _paste_rotated_local(img, layer, center, angle)
 
@@ -2031,54 +1531,30 @@ class SideRobotGenerator:
     # Each entry: (blade_base_deg, blade_sweep_deg, (arc_box_dx0, dy0, dx1, dy1)*S, arc_start, arc_end).
     # blade_base + slash_arc*blade_sweep is fed to vec() for the blade tip;
     # the arc box is relative to the hand position.
-    _SLASH_DIR_TABLE: Dict[
-        str, Tuple[float, float, Tuple[float, float, float, float], float, float]
-    ] = {
-        "side": (-18.0, 52.0, (-5.0, -34.0, 42.0, 20.0), -70.0, 42.0),
-        "up": (80.0, -200.0, (-32.0, -52.0, 32.0, 8.0), 200.0, 350.0),
-        "down": (-110.0, 200.0, (-22.0, -10.0, 42.0, 52.0), -30.0, 130.0),
-        "back": (162.0, -52.0, (-42.0, -34.0, 5.0, 20.0), 138.0, 250.0),
-        "air_neutral": (30.0, 340.0, (-32.0, -32.0, 32.0, 32.0), 0.0, 360.0),
-        "air_forward": (-55.0, 130.0, (-8.0, -30.0, 48.0, 28.0), -90.0, 70.0),
-        "air_back": (235.0, -130.0, (-48.0, -30.0, 8.0, 28.0), 110.0, 270.0),
-        "air_down": (75.0, 30.0, (-16.0, -4.0, 16.0, 42.0), 60.0, 120.0),
-        "air_up": (-105.0, -30.0, (-16.0, -42.0, 16.0, 4.0), -120.0, -60.0),
+    _SLASH_DIR_TABLE: Dict[str, Tuple[float, float, Tuple[float, float, float, float], float, float]] = {
+        "side":         (-18.0,  52.0, ( -5.0, -34.0,  42.0,  20.0),  -70.0,   42.0),
+        "up":           ( 80.0, -200.0, (-32.0, -52.0,  32.0,   8.0),  200.0,  350.0),
+        "down":         (-110.0, 200.0, (-22.0, -10.0,  42.0,  52.0),  -30.0,  130.0),
+        "back":         (162.0,  -52.0, (-42.0, -34.0,   5.0,  20.0),  138.0,  250.0),
+        "air_neutral":  ( 30.0,  340.0, (-32.0, -32.0,  32.0,  32.0),    0.0,  360.0),
+        "air_forward":  (-55.0,  130.0, ( -8.0, -30.0,  48.0,  28.0),  -90.0,   70.0),
+        "air_back":     (235.0, -130.0, (-48.0, -30.0,   8.0,  28.0),  110.0,  270.0),
+        "air_down":     ( 75.0,   30.0, (-16.0,  -4.0,  16.0,  42.0),   60.0,  120.0),
+        "air_up":       (-105.0, -30.0, (-16.0, -42.0,  16.0,   4.0), -120.0,  -60.0),
         # Kneeling forward poke (Marth/Lucina down-tilt). Blade stays
         # nearly horizontal, tips up slightly through the thrust as the
         # body drops. Short, low arc visual ahead of the hand.
-        "low_poke": (-4.0, -16.0, (-2.0, -8.0, 36.0, 8.0), -28.0, 18.0),
+        "low_poke":     ( -4.0, -16.0, ( -2.0,  -8.0,  36.0,   8.0),  -28.0,   18.0),
     }
 
-    def _draw_robot_arm(
-        self,
-        img: Image.Image,
-        d: ImageDraw.ImageDraw,
-        shoulder: Point,
-        a1: float,
-        a2: float,
-        tint: Color,
-        spec: BotSpec,
-        pal: Dict[str, Color],
-        S: float,
-        outline: float,
-        slash: float = 0.0,
-        slash_arc: float = 0.0,
-        slash_dir: str = "side",
-    ) -> Point:
+    def _draw_robot_arm(self, img: Image.Image, d: ImageDraw.ImageDraw, shoulder: Point, a1: float, a2: float, tint: Color, spec: BotSpec, pal: Dict[str, Color], S: float, outline: float, slash: float = 0.0, slash_arc: float = 0.0, slash_dir: str = "side") -> Point:
         elbow = add(shoulder, vec(spec.arm_upper * S, a1))
         hand = add(elbow, vec(spec.arm_lower * S, a2))
         draw_capsule(d, shoulder, elbow, 2.7 * S, tint, pal["outline"], outline * 0.65)
         draw_capsule(d, elbow, hand, 2.5 * S, tint, pal["outline"], outline * 0.65)
-        d.ellipse(
-            (hand[0] - 4 * S, hand[1] - 4 * S, hand[0] + 4 * S, hand[1] + 4 * S),
-            fill=tint,
-            outline=pal["outline"],
-            width=max(1, int(outline * 0.65)),
-        )
+        d.ellipse((hand[0] - 4 * S, hand[1] - 4 * S, hand[0] + 4 * S, hand[1] + 4 * S), fill=tint, outline=pal["outline"], width=max(1, int(outline * 0.65)))
         if slash:
-            blade_base, blade_sweep, arc_rel, arc_start, arc_end = (
-                self._SLASH_DIR_TABLE.get(slash_dir, self._SLASH_DIR_TABLE["side"])
-            )
+            blade_base, blade_sweep, arc_rel, arc_start, arc_end = self._SLASH_DIR_TABLE.get(slash_dir, self._SLASH_DIR_TABLE["side"])
             blade_angle = blade_base + slash_arc * blade_sweep
             tip = add(hand, vec(spec.blade_len * S, blade_angle))
             d.line([hand, tip], fill=pal["outline"], width=max(1, int(4.0 * S)))
@@ -2090,25 +1566,10 @@ class SideRobotGenerator:
                     hand[0] + arc_rel[2] * S,
                     hand[1] + arc_rel[3] * S,
                 )
-                d.arc(
-                    arc_box,
-                    start=arc_start,
-                    end=arc_end,
-                    fill=(12, 235, 255, 170),
-                    width=max(1, int(2.4 * S)),
-                )
+                d.arc(arc_box, start=arc_start, end=arc_end, fill=(12, 235, 255, 170), width=max(1, int(2.4 * S)))
         return hand
 
-    def _render_highres(
-        self,
-        spec: BotSpec,
-        animation: str,
-        frame_index: int,
-        frame_count: int,
-        size: Tuple[int, int],
-        background: Optional[Color],
-        scale: int,
-    ) -> Image.Image:
+    def _render_highres(self, spec: BotSpec, animation: str, frame_index: int, frame_count: int, size: Tuple[int, int], background: Optional[Color], scale: int) -> Image.Image:
         W, H = size[0] * scale, size[1] * scale
         bg = (0, 0, 0, 0) if background is None else background
         img = Image.new("RGBA", (W, H), bg)
@@ -2131,46 +1592,19 @@ class SideRobotGenerator:
         if p.dash:
             for i in range(4):
                 y = (49 + i * 12 + math.sin(frame_index + i) * 2) * S
-                d.line(
-                    [(14 * S, y), ((43 - i * 3) * S, y - 2 * S)],
-                    fill=(12, 235, 255, 90),
-                    width=max(1, int(1.6 * S)),
-                )
+                d.line([(14 * S, y), ((43 - i * 3) * S, y - 2 * S)], fill=(12, 235, 255, 90), width=max(1, int(1.6 * S)))
         if animation == "swim":
             for i in range(4):
                 x = (24 + i * 18 + math.sin(frame_index + i) * 2) * S
                 y = (83 + i % 2 * 6) * S
-                d.arc(
-                    (x, y, x + 18 * S, y + 9 * S),
-                    start=180,
-                    end=358,
-                    fill=(89, 210, 255, 92),
-                    width=max(1, int(1.1 * S)),
-                )
+                d.arc((x, y, x + 18 * S, y + 9 * S), start=180, end=358, fill=(89, 210, 255, 92), width=max(1, int(1.1 * S)))
         if animation == "interact":
-            pulse = math.sin(
-                (0.0 if frame_count <= 1 else frame_index / float(frame_count - 1))
-                * math.pi
-            )
+            pulse = math.sin((0.0 if frame_count <= 1 else frame_index / float(frame_count - 1)) * math.pi)
             if pulse > 0.05:
-                d.line(
-                    [(94 * S, 49 * S), (107 * S, 42 * S)],
-                    fill=(255, 241, 150, int(140 * pulse)),
-                    width=max(1, int(1.5 * S)),
-                )
-                d.line(
-                    [(96 * S, 61 * S), (112 * S, 61 * S)],
-                    fill=(255, 241, 150, int(140 * pulse)),
-                    width=max(1, int(1.5 * S)),
-                )
+                d.line([(94 * S, 49 * S), (107 * S, 42 * S)], fill=(255, 241, 150, int(140 * pulse)), width=max(1, int(1.5 * S)))
+                d.line([(96 * S, 61 * S), (112 * S, 61 * S)], fill=(255, 241, 150, int(140 * pulse)), width=max(1, int(1.5 * S)))
         if animation == "block":
-            d.rounded_rectangle(
-                (31 * S, 43 * S, 43 * S, 85 * S),
-                radius=4 * S,
-                fill=(197, 205, 232, 165),
-                outline=pal["outline"],
-                width=max(1, int(1.0 * S)),
-            )
+            d.rounded_rectangle((31 * S, 43 * S, 43 * S, 85 * S), radius=4 * S, fill=(197, 205, 232, 165), outline=pal["outline"], width=max(1, int(1.0 * S)))
 
         # Review-only action FX. These are intentionally simple read-at-a-glance
         # effects that make the generated sheet useful before Rust selects rows.
@@ -2182,130 +1616,59 @@ class SideRobotGenerator:
                 ry = (2.2 + i * 0.7) * S
                 alpha = int(86 * impact * (1.0 - i * 0.18))
                 if alpha > 0:
-                    d.arc(
-                        (root_x - rx, ground_y - ry, root_x + rx, ground_y + ry),
-                        start=190,
-                        end=350,
-                        fill=_with_alpha(pal["accent"], alpha),
-                        width=max(1, int(1.1 * S)),
-                    )
+                    d.arc((root_x - rx, ground_y - ry, root_x + rx, ground_y + ry), start=190, end=350, fill=_with_alpha(pal["accent"], alpha), width=max(1, int(1.1 * S)))
         if animation in {"slide", "roll"}:
             for i in range(4):
                 alpha = 70 - i * 13
                 x0 = (28 - i * 8) * S
                 y = (96 + i * 3) * S
-                d.line(
-                    [(x0, y), (x0 - (16 + i * 3) * S, y + 4 * S)],
-                    fill=(210, 206, 190, alpha),
-                    width=max(1, int(1.2 * S)),
-                )
+                d.line([(x0, y), (x0 - (16 + i * 3) * S, y + 4 * S)], fill=(210, 206, 190, alpha), width=max(1, int(1.2 * S)))
         if animation == "pickup":
             lift_t = 0.0 if frame_count <= 1 else frame_index / float(frame_count - 1)
             obj_y = (93 - 36 * smoothstep(clamp((lift_t - 0.30) / 0.55, 0.0, 1.0))) * S
             obj_x = (91 - 8 * smoothstep(clamp(lift_t / 0.55, 0.0, 1.0))) * S
-            d.rounded_rectangle(
-                (obj_x - 5 * S, obj_y - 5 * S, obj_x + 5 * S, obj_y + 5 * S),
-                radius=2 * S,
-                fill=_with_alpha(pal["accent"], 200),
-                outline=pal["outline"],
-                width=max(1, int(0.8 * S)),
-            )
+            d.rounded_rectangle((obj_x - 5 * S, obj_y - 5 * S, obj_x + 5 * S, obj_y + 5 * S), radius=2 * S, fill=_with_alpha(pal["accent"], 200), outline=pal["outline"], width=max(1, int(0.8 * S)))
         if animation == "throw":
             throw_t = 0.0 if frame_count <= 1 else frame_index / float(frame_count - 1)
             if throw_t > 0.18:
                 arc_t = smoothstep(clamp((throw_t - 0.18) / 0.74, 0.0, 1.0))
                 obj_x = (73 + 45 * arc_t) * S
                 obj_y = (52 - 18 * math.sin(arc_t * math.pi) + 18 * arc_t) * S
-                d.ellipse(
-                    (obj_x - 4 * S, obj_y - 4 * S, obj_x + 4 * S, obj_y + 4 * S),
-                    fill=_with_alpha(pal["accent"], 210),
-                    outline=pal["outline"],
-                    width=max(1, int(0.8 * S)),
-                )
-                d.arc(
-                    (66 * S, 34 * S, 126 * S, 85 * S),
-                    start=205,
-                    end=314,
-                    fill=_with_alpha(pal["accent"], 78),
-                    width=max(1, int(1.0 * S)),
-                )
+                d.ellipse((obj_x - 4 * S, obj_y - 4 * S, obj_x + 4 * S, obj_y + 4 * S), fill=_with_alpha(pal["accent"], 210), outline=pal["outline"], width=max(1, int(0.8 * S)))
+                d.arc((66 * S, 34 * S, 126 * S, 85 * S), start=205, end=314, fill=_with_alpha(pal["accent"], 78), width=max(1, int(1.0 * S)))
         if animation in {"aim", "shoot"}:
             tx, ty = 111 * S, 51 * S
             a = 110 if animation == "aim" else 170
-            d.ellipse(
-                (tx - 6 * S, ty - 6 * S, tx + 6 * S, ty + 6 * S),
-                outline=_with_alpha(pal["visor_glow"], a),
-                width=max(1, int(1.0 * S)),
-            )
-            d.line(
-                [(tx - 9 * S, ty), (tx - 3 * S, ty)],
-                fill=_with_alpha(pal["visor_glow"], a),
-                width=max(1, int(0.9 * S)),
-            )
-            d.line(
-                [(tx + 3 * S, ty), (tx + 9 * S, ty)],
-                fill=_with_alpha(pal["visor_glow"], a),
-                width=max(1, int(0.9 * S)),
-            )
+            d.ellipse((tx - 6 * S, ty - 6 * S, tx + 6 * S, ty + 6 * S), outline=_with_alpha(pal["visor_glow"], a), width=max(1, int(1.0 * S)))
+            d.line([(tx - 9 * S, ty), (tx - 3 * S, ty)], fill=_with_alpha(pal["visor_glow"], a), width=max(1, int(0.9 * S)))
+            d.line([(tx + 3 * S, ty), (tx + 9 * S, ty)], fill=_with_alpha(pal["visor_glow"], a), width=max(1, int(0.9 * S)))
         if animation == "shoot":
-            flash = 1.0 - smoothstep(
-                clamp(
-                    (0.0 if frame_count <= 1 else frame_index / float(frame_count - 1))
-                    / 0.50,
-                    0.0,
-                    1.0,
-                )
-            )
+            flash = 1.0 - smoothstep(clamp((0.0 if frame_count <= 1 else frame_index / float(frame_count - 1)) / 0.50, 0.0, 1.0))
             if flash > 0.05:
                 mx, my = 96 * S, 54 * S
-                d.polygon(
-                    [
-                        (mx, my),
-                        (mx + 22 * S * flash, my - 7 * S),
-                        (mx + 18 * S * flash, my + 6 * S),
-                    ],
-                    fill=(255, 238, 126, int(205 * flash)),
-                )
+                d.polygon([(mx, my), (mx + 22 * S * flash, my - 7 * S), (mx + 18 * S * flash, my + 6 * S)], fill=(255, 238, 126, int(205 * flash)))
         if animation in {"charge", "cast"}:
             spell_t = 0.0 if frame_count <= 1 else frame_index / float(frame_count - 1)
             radius = (11 + 13 * smoothstep(spell_t)) * S
             cx = (92 if animation == "charge" else 98) * S
             cy = (57 if animation == "charge" else 45) * S
             alpha = 90 + int(70 * (0.5 + 0.5 * math.sin(spell_t * math.tau * 3.0)))
-            d.ellipse(
-                (cx - radius, cy - radius, cx + radius, cy + radius),
-                outline=_with_alpha(pal["accent"], alpha),
-                width=max(1, int(1.5 * S)),
-            )
-            d.ellipse(
-                (cx - 3 * S, cy - 3 * S, cx + 3 * S, cy + 3 * S),
-                fill=_with_alpha(pal["visor_glow"], alpha),
-            )
+            d.ellipse((cx - radius, cy - radius, cx + radius, cy + radius), outline=_with_alpha(pal["accent"], alpha), width=max(1, int(1.5 * S)))
+            d.ellipse((cx - 3 * S, cy - 3 * S, cx + 3 * S, cy + 3 * S), fill=_with_alpha(pal["visor_glow"], alpha))
         if animation == "celebrate":
-            for i, (dx, dy) in enumerate(
-                [(-20, -35), (0, -41), (21, -34), (33, -20), (-30, -18)]
-            ):
+            for i, (dx, dy) in enumerate([(-20, -35), (0, -41), (21, -34), (33, -20), (-30, -18)]):
                 phase = (frame_index + i) % max(1, frame_count)
                 alpha = 80 + int(90 * (phase / max(1, frame_count - 1)))
                 x = root_x + dx * S
                 y = ground_y + dy * S + phase * 1.4 * S
                 color = pal["accent"] if i % 2 else pal["visor_glow"]
-                d.rectangle(
-                    (x - 2 * S, y - 2 * S, x + 2 * S, y + 2 * S),
-                    fill=_with_alpha(color, min(210, alpha)),
-                )
+                d.rectangle((x - 2 * S, y - 2 * S, x + 2 * S, y + 2 * S), fill=_with_alpha(color, min(210, alpha)))
         if animation == "sleep":
             for i in range(3):
-                zt = ((frame_index + i * 2) % max(1, frame_count)) / max(
-                    1, frame_count - 1
-                )
+                zt = ((frame_index + i * 2) % max(1, frame_count)) / max(1, frame_count - 1)
                 x = (83 + i * 8) * S
                 y = (42 - zt * 24) * S
-                d.text(
-                    (x, y),
-                    "Z",
-                    fill=_with_alpha(pal["visor_glow"], int(150 * (1.0 - zt * 0.45))),
-                )
+                d.text((x, y), "Z", fill=_with_alpha(pal["visor_glow"], int(150 * (1.0 - zt * 0.45))))
         if animation == "hover":
             # 2026-05-29: doubled the jet plume length and added a
             # bright white-hot inner core so the fly pose reads as
@@ -2323,27 +1686,11 @@ class SideRobotGenerator:
             hover_body_x = root_x + lerp(0.0, 12 * S, p.collapse)
             hover_body_y = ground_y - lerp(39 * S, 11 * S, p.collapse) + p.body_bob * S
             jet_hips = (
-                (
-                    hover_body_x - 6 * S,
-                    hover_body_y + 11 * S,
-                    p.far_leg_upper,
-                    p.far_leg_lower,
-                    -2.0,
-                    flame_l,
-                ),
-                (
-                    hover_body_x + 8 * S,
-                    hover_body_y + 10 * S,
-                    p.near_leg_upper,
-                    p.near_leg_lower,
-                    3.0,
-                    flame_r,
-                ),
+                (hover_body_x - 6 * S, hover_body_y + 11 * S, p.far_leg_upper, p.far_leg_lower, -2.0, flame_l),
+                (hover_body_x + 8 * S, hover_body_y + 10 * S, p.near_leg_upper, p.near_leg_lower, 3.0, flame_r),
             )
             for hx, hy, a1, a2, foot_shift, flame in jet_hips:
-                _, ankle = self._leg_chain(
-                    (hx, hy), spec.leg_upper * S, spec.leg_lower * S, a1, a2
-                )
+                _, ankle = self._leg_chain((hx, hy), spec.leg_upper * S, spec.leg_lower * S, a1, a2)
                 foot_w = 12 * S
                 foot_cx = ankle[0] + (foot_w * 0.34) + foot_shift * S
                 foot_cy = min(ground_y - 2 * S, ankle[1] + 2 * S)
@@ -2394,11 +1741,7 @@ class SideRobotGenerator:
                     fill=(255, 255, 240, int(240 * flame)),
                 )
 
-        character_img = (
-            img
-            if animation not in {"blink_out", "blink_in"}
-            else Image.new("RGBA", (W, H), (0, 0, 0, 0))
-        )
+        character_img = img if animation not in {"blink_out", "blink_in"} else Image.new("RGBA", (W, H), (0, 0, 0, 0))
         character_draw = ImageDraw.Draw(character_img)
 
         # Stable body reference. Death moves to a lying pose without scaling.
@@ -2412,140 +1755,155 @@ class SideRobotGenerator:
         vscale = max(0.3, float(spec.vertical_scale))
         body_y_offset = lerp(39 * S * vscale, 11 * S, collapse)
         head_y_offset = lerp(68 * S * vscale, 15 * S, collapse)
-        body_center = (
-            root_x + lerp(0, 12 * S, collapse),
-            ground_y - body_y_offset + p.body_bob * S,
-        )
-        head_center = (
-            root_x + lerp(12 * S, 34 * S, collapse),
-            ground_y - head_y_offset + p.body_bob * S * 0.4,
-        )
+        body_center = (root_x + lerp(0, 12 * S, collapse), ground_y - body_y_offset + p.body_bob * S)
+        head_center = (root_x + lerp(12 * S, 34 * S, collapse), ground_y - head_y_offset + p.body_bob * S * 0.4)
         body_angle = p.body_tilt
         head_angle = p.head_tilt
 
-        hip_far = (body_center[0] - 6 * S, body_center[1] + 11 * S * vscale)
-        hip_near = (body_center[0] + 8 * S, body_center[1] + 10 * S * vscale)
+        player_compact_walk = "player_compact" in str(spec.archetype or "").lower() and animation in {"walk", "run"}
+        if player_compact_walk:
+            # Keep the torso/hips steadier for the compact player.  The walk
+            # reads better when the knees carry the motion rather than an
+            # extra bounce layered on top.
+            body_center = (root_x + lerp(0, 12 * S, collapse), ground_y - body_y_offset)
+            head_center = (root_x + lerp(12 * S, 34 * S, collapse), ground_y - head_y_offset)
+            hip_far = (body_center[0] - 7 * S, body_center[1] + 10 * S * vscale)
+            hip_near = (body_center[0] + 8 * S, body_center[1] + 10 * S * vscale)
+        else:
+            hip_far = (body_center[0] - 6 * S, body_center[1] + 11 * S * vscale)
+            hip_near = (body_center[0] + 8 * S, body_center[1] + 10 * S * vscale)
         shoulder_far = (body_center[0] - 8 * S, body_center[1] - 8 * S * vscale)
         shoulder_near = (body_center[0] + 9 * S, body_center[1] - 8 * S * vscale)
 
-        # Legs sit below the torso. Far/near tints preserve side-view depth.
-        for hip, a1, a2, tint, foot_shift in [
-            (hip_far, p.far_leg_upper, p.far_leg_lower, pal["shell_side"], -2.0),
-            (hip_near, p.near_leg_upper, p.near_leg_lower, pal["shell"], 3.0),
-        ]:
-            knee, ankle = self._leg_chain(
-                hip, spec.leg_upper * S, spec.leg_lower * S, a1, a2
-            )
-            draw_capsule(
-                character_draw, hip, knee, 2.9 * S, tint, pal["outline"], outline * 0.65
-            )
-            draw_capsule(
-                character_draw,
-                knee,
-                ankle,
-                2.7 * S,
-                tint,
-                pal["outline"],
-                outline * 0.65,
-            )
+        player_right_leg = None
+        player_left_leg = None
+        pelvis_draw = None
+        if player_compact_walk:
+            # Classical 8-pose contact/down/passing/up cycle for the compact
+            # player.  We keep the authored ankle targets exactly as-is here;
+            # this pass only makes the semantic limb labels and z-order explicit.
+            idx = frame_index % 8
+            if animation == "run":
+                far_ax = (-12.0, -9.2, -4.2, 0.2, 1.6, -1.8, -6.6, -10.5)
+                far_ay = (23.0, 23.4, 22.2, 19.4, 22.4, 23.5, 23.1, 22.7)
+                near_ax = (10.5, 7.6, 3.2, 0.0, -0.8, 2.4, 6.9, 10.8)
+                near_ay = (22.6, 23.5, 23.2, 22.7, 23.0, 23.4, 22.0, 19.2)
+                far_shift = (-2.1, -1.7, -0.8, 0.5, 1.5, 1.0, 0.1, -1.0)
+                near_shift = (1.9, 1.2, 0.2, -1.2, -1.8, -1.3, -0.4, 0.9)
+                foot_tilt = (-8, -5, -2, 3, 8, 5, 2, -3)
+                pelvis_w, pelvis_h = 13.0 * S, 7.5 * S
+            else:
+                far_ax = (-11.4, -8.8, -4.0, 0.0, 1.2, -1.8, -6.2, -10.0)
+                far_ay = (23.0, 23.2, 22.0, 19.8, 22.5, 23.3, 22.9, 22.6)
+                near_ax = (9.8, 7.0, 3.0, 0.0, -0.6, 2.2, 6.4, 10.0)
+                near_ay = (22.6, 23.3, 22.9, 22.6, 23.0, 23.2, 21.8, 19.7)
+                far_shift = (-1.8, -1.4, -0.6, 0.4, 1.3, 0.9, 0.0, -0.8)
+                near_shift = (1.7, 1.0, 0.1, -1.0, -1.5, -1.0, -0.3, 0.8)
+                foot_tilt = (-6, -4, -2, 2, 6, 4, 2, -2)
+                pelvis_w, pelvis_h = 12.0 * S, 7.0 * S
+
+            # Semantic mapping for a right-facing, slightly camera-tilted player:
+            # - player-right arm = lighter arm on screen-left
+            # - player-left arm  = darker arm on screen-right
+            # - player-right leg = darker leg on screen-left
+            # - player-left leg  = lighter leg on screen-right
+            ankle = (body_center[0] + far_ax[idx] * S, body_center[1] + far_ay[idx] * S)
+            knee, _a1, _a2 = self._solve_leg_ik(hip_far, ankle, spec.leg_upper * S, spec.leg_lower * S, bend_sign=1.0)
+            foot_w = 12.0 * S
+            foot_h = 6.0 * S
+            foot_center = (ankle[0] + foot_w * 0.34 + far_shift[idx] * S, ankle[1] + 2.0 * S)
+            player_right_leg = (hip_far, knee, ankle, pal["shell_side"], foot_center, foot_w, foot_h, foot_tilt[idx] + body_angle * 0.10)
+
+            ankle = (body_center[0] + near_ax[idx] * S, body_center[1] + near_ay[idx] * S)
+            knee, _a1, _a2 = self._solve_leg_ik(hip_near, ankle, spec.leg_upper * S, spec.leg_lower * S, bend_sign=1.0)
+            foot_center = (ankle[0] + foot_w * 0.34 + near_shift[idx] * S, ankle[1] + 2.0 * S)
+            player_left_leg = (hip_near, knee, ankle, pal["shell"], foot_center, foot_w, foot_h, -foot_tilt[(idx + 4) % 8] + body_angle * 0.10)
+
+            pelvis_center = (body_center[0] + 0.8 * S, body_center[1] + 10.0 * S)
+            pelvis_draw = (pelvis_center, pelvis_w, pelvis_h)
+        elif animation in {"walk", "run"}:
+            # Apply the same authored ankle-target baseline more broadly to the
+            # side-view robot lane so non-player robots stop reading as two
+            # opposed sticks.  The torso motion still comes from
+            # `pose_for_animation`; only the leg solve changes here.
+            idx = frame_index % 8
             foot_w = 12 * S
             foot_h = 6 * S
-            foot_center = (
-                ankle[0] + (foot_w * 0.34) + foot_shift * S,
-                min(ground_y - 2 * S, ankle[1] + 2 * S),
-            )
-            draw_rotated_rounded_rect(
-                character_img,
-                foot_center,
-                (foot_w, foot_h),
-                -4 + body_angle * 0.10,
-                3 * S,
-                tint,
-                pal["outline"],
-                outline * 0.7,
-            )
+            if animation == "run":
+                far_ax = (-13.2, -10.0, -4.5, 0.2, 1.8, -2.1, -7.1, -11.4)
+                far_ay = (23.4, 23.9, 22.6, 19.1, 22.8, 23.9, 23.5, 23.0)
+                near_ax = (11.4, 8.1, 3.4, 0.0, -0.9, 2.7, 7.4, 11.7)
+                near_ay = (22.9, 23.8, 23.4, 22.9, 23.2, 23.7, 22.2, 19.0)
+                far_shift = (-2.3, -1.8, -0.8, 0.5, 1.6, 1.1, 0.1, -1.1)
+                near_shift = (2.0, 1.3, 0.2, -1.3, -1.9, -1.3, -0.4, 1.0)
+                foot_tilt = (-8, -5, -2, 3, 8, 5, 2, -3)
+            else:
+                far_ax = (-12.5, -9.6, -4.3, 0.0, 1.4, -1.9, -6.8, -10.9)
+                far_ay = (23.3, 23.6, 22.3, 19.6, 22.7, 23.6, 23.2, 22.8)
+                near_ax = (10.9, 7.8, 3.2, 0.0, -0.7, 2.5, 7.0, 10.8)
+                near_ay = (22.8, 23.5, 23.1, 22.8, 23.1, 23.4, 22.0, 19.4)
+                far_shift = (-2.0, -1.5, -0.7, 0.4, 1.4, 1.0, 0.1, -0.9)
+                near_shift = (1.8, 1.1, 0.1, -1.1, -1.6, -1.1, -0.3, 0.9)
+                foot_tilt = (-6, -4, -2, 2, 6, 4, 2, -2)
 
-        # Far/back arm first so it disappears correctly behind the body.
-        self._draw_robot_arm(
-            character_img,
-            character_draw,
-            shoulder_far,
-            p.far_arm_upper,
-            p.far_arm_lower,
-            pal["shell_side"],
-            spec,
-            pal,
-            S,
-            outline,
-        )
+            ankle = (body_center[0] + far_ax[idx] * S, body_center[1] + far_ay[idx] * S)
+            knee, _a1, _a2 = self._solve_leg_ik(hip_far, ankle, spec.leg_upper * S, spec.leg_lower * S, bend_sign=1.0)
+            foot_center = (ankle[0] + (foot_w * 0.34) + far_shift[idx] * S, ankle[1] + 2.0 * S)
+            player_right_leg = (hip_far, knee, ankle, pal["shell_side"], foot_center, foot_w, foot_h, foot_tilt[idx] + body_angle * 0.10)
 
-        # Body and rigid head.
-        draw_rotated_rounded_rect(
-            character_img,
-            body_center,
-            (spec.body_w * S, spec.body_h * S),
-            body_angle,
-            7 * S,
-            pal["shell"],
-            pal["outline"],
-            outline,
-        )
-        draw_rotated_rounded_rect(
-            character_img,
-            (body_center[0] + 3 * S, body_center[1] - 1 * S),
-            (10 * S, 9 * S),
-            body_angle,
-            2.5 * S,
-            pal["accent"],
-            pal["outline"],
-            outline * 0.45,
-        )
-        self._draw_rigid_head(
-            character_img,
-            head_center,
-            spec,
-            pal,
-            S,
-            head_angle,
-            p.blink,
-            p.eye_squint,
-            p.dead,
-        )
+            ankle = (body_center[0] + near_ax[idx] * S, body_center[1] + near_ay[idx] * S)
+            knee, _a1, _a2 = self._solve_leg_ik(hip_near, ankle, spec.leg_upper * S, spec.leg_lower * S, bend_sign=1.0)
+            foot_center = (ankle[0] + (foot_w * 0.34) + near_shift[idx] * S, ankle[1] + 2.0 * S)
+            player_left_leg = (hip_near, knee, ankle, pal["shell"], foot_center, foot_w, foot_h, -foot_tilt[(idx + 4) % 8] + body_angle * 0.10)
+        else:
+            # Keep the non-walk geometry the same, but assign explicit semantic
+            # labels so the draw order is unambiguous.
+            knee, ankle = self._leg_chain(hip_far, spec.leg_upper * S, spec.leg_lower * S, p.far_leg_upper, p.far_leg_lower)
+            foot_w = 12 * S
+            foot_h = 6 * S
+            foot_center = (ankle[0] + (foot_w * 0.34) - 2.0 * S, min(ground_y - 2 * S, ankle[1] + 2 * S))
+            player_right_leg = (hip_far, knee, ankle, pal["shell_side"], foot_center, foot_w, foot_h, -4 + body_angle * 0.10)
 
-        # Archetype accessories sit over the base body but under the front hand.
-        self._draw_archetype_accessories(
-            character_img,
-            character_draw,
-            spec,
-            pal,
-            S,
-            root_x,
-            ground_y,
-            body_center,
-            head_center,
-        )
+            knee, ankle = self._leg_chain(hip_near, spec.leg_upper * S, spec.leg_lower * S, p.near_leg_upper, p.near_leg_lower)
+            foot_center = (ankle[0] + (foot_w * 0.34) + 3.0 * S, min(ground_y - 2 * S, ankle[1] + 2 * S))
+            player_left_leg = (hip_near, knee, ankle, pal["shell"], foot_center, foot_w, foot_h, -4 + body_angle * 0.10)
 
-        # Near/front arm and weapon after the torso/head.
-        self._draw_robot_arm(
-            character_img,
-            character_draw,
-            shoulder_near,
-            p.near_arm_upper,
-            p.near_arm_lower,
-            pal["shell"],
-            spec,
-            pal,
-            S,
-            outline,
-            p.slash,
-            p.slash_arc,
-            p.slash_dir,
-        )
+        # Explicit semantic limb mapping for the right-facing player view.
+        player_left_arm = (shoulder_near, p.near_arm_upper, p.near_arm_lower, pal["shell_side"])
+        player_right_arm = (shoulder_far, p.far_arm_upper, p.far_arm_lower, pal["shell"])
+
+        # Desired z-order, from back to front:
+        #   player-left-arm, player-left-leg, pelvis, player-right-leg,
+        #   torso, player-right-arm, head.
+        self._draw_robot_arm(character_img, character_draw, player_left_arm[0], player_left_arm[1], player_left_arm[2], player_left_arm[3], spec, pal, S, outline, p.slash, p.slash_arc, p.slash_dir)
+
+        if player_left_leg is not None:
+            hip, knee, ankle, tint, foot_center, foot_w, foot_h, foot_angle = player_left_leg
+            draw_capsule(character_draw, hip, knee, 2.9 * S, tint, pal["outline"], outline * 0.65)
+            draw_capsule(character_draw, knee, ankle, 2.7 * S, tint, pal["outline"], outline * 0.65)
+            draw_rotated_rounded_rect(character_img, foot_center, (foot_w, foot_h), foot_angle, 3.0 * S, tint, pal["outline"], outline * 0.7)
+
+        if pelvis_draw is not None:
+            pelvis_center, pelvis_w, pelvis_h = pelvis_draw
+            draw_rotated_rounded_rect(character_img, pelvis_center, (pelvis_w, pelvis_h), body_angle * 0.25, 3.0 * S, pal["shell_side"], pal["outline"], outline * 0.7)
+
+        if player_right_leg is not None:
+            hip, knee, ankle, tint, foot_center, foot_w, foot_h, foot_angle = player_right_leg
+            draw_capsule(character_draw, hip, knee, 2.9 * S, tint, pal["outline"], outline * 0.65)
+            draw_capsule(character_draw, knee, ankle, 2.7 * S, tint, pal["outline"], outline * 0.65)
+            draw_rotated_rounded_rect(character_img, foot_center, (foot_w, foot_h), foot_angle, 3.0 * S, tint, pal["outline"], outline * 0.7)
+
+        draw_rotated_rounded_rect(character_img, body_center, (spec.body_w * S, spec.body_h * S), body_angle, 7 * S, pal["shell"], pal["outline"], outline)
+        draw_rotated_rounded_rect(character_img, (body_center[0] + 3 * S, body_center[1] - 1 * S), (10 * S, 9 * S), body_angle, 2.5 * S, pal["accent"], pal["outline"], outline * 0.45)
+
+        # Archetype accessories sit over the base body but under the front arm/head.
+        self._draw_archetype_accessories(character_img, character_draw, spec, pal, S, root_x, ground_y, body_center, head_center)
+
+        self._draw_robot_arm(character_img, character_draw, player_right_arm[0], player_right_arm[1], player_right_arm[2], player_right_arm[3], spec, pal, S, outline)
+        self._draw_rigid_head(character_img, head_center, spec, pal, S, head_angle, p.blink, p.eye_squint, p.dead)
 
         if animation in {"blink_out", "blink_in"}:
-            self._composite_teleport_actor(
-                img, character_img, animation, frame_index, frame_count, S
-            )
+            self._composite_teleport_actor(img, character_img, animation, frame_index, frame_count, S)
         else:
             img.alpha_composite(character_img)
 
@@ -2562,14 +1920,6 @@ class SideRobotGenerator:
         supersample: int = 4,
         downsample: str = "lanczos",
     ) -> Image.Image:
-        high = self._render_highres(
-            spec,
-            animation,
-            frame_index,
-            frame_count,
-            size,
-            background,
-            max(1, int(supersample)),
-        )
+        high = self._render_highres(spec, animation, frame_index, frame_count, size, background, max(1, int(supersample)))
         resample = RESAMPLING.NEAREST if downsample == "nearest" else RESAMPLING.LANCZOS
         return high.resize(size, resample)

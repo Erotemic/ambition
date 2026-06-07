@@ -16,6 +16,25 @@ use super::state::TouchInputState;
 use crate::input::{ControlFrame, KeyboardPreset, MenuInputState, SandboxAction};
 use crate::ui_nav::DragScrollState;
 
+/// Global z-band for the on-screen touch HUD (joystick + action /
+/// menu buttons + bezel).
+///
+/// The touch HUD must render ABOVE every menu overlay AND win bevy_ui
+/// picking against them, so the on-screen joystick keeps receiving
+/// drags (which feed `MenuControlFrame` via `fold_to_menu_control_frame`)
+/// and the action / Back buttons stay tappable while a menu is open.
+///
+/// Menu overlays sit at much lower stacking values: the OoT item grid
+/// root uses local `ZIndex(62)`, the pause menu `ZIndex(50)`, the map
+/// `ZIndex(60)`, and even the documented worst-case grid `GlobalZIndex(1000)`.
+/// A `GlobalZIndex` establishes a global stacking context, so this single
+/// high band lifts the whole HUD above any of them regardless of where the
+/// menu roots live in the hierarchy. Picking in bevy_ui resolves
+/// front-to-back by the same global stacking order, so a higher
+/// `GlobalZIndex` here also means the HUD wins the pointer over a
+/// full-screen menu scrim — the scrim no longer swallows HUD input.
+pub const TOUCH_HUD_Z: i32 = 5000;
+
 /// Joystick id. The `virtual_joystick` plugin is generic over a
 /// user-supplied id type; this enum picks Move (left stick) and
 /// Aim (right stick).
@@ -287,7 +306,16 @@ fn tag_virtual_joystick_root(
     >,
 ) {
     for entity in &query {
-        cmd.entity(entity).insert(MobileTouchUiRoot);
+        // Lift the joystick into the HUD z-band along with the marker.
+        // Without this the `virtual_joystick` root sits at the default
+        // z (0) and a full-screen menu overlay/scrim renders on top of it
+        // AND eats its pointer events, so dragging the on-screen stick
+        // produces no `VirtualJoystickMessage` while a menu is open and
+        // `fold_to_menu_control_frame` never sees a stick direction. The
+        // high `GlobalZIndex` is the fix that makes the joystick a real
+        // menu-nav source over the grid AND the cube.
+        cmd.entity(entity)
+            .insert((MobileTouchUiRoot, GlobalZIndex(TOUCH_HUD_Z)));
     }
 }
 
@@ -456,6 +484,9 @@ fn spawn_touch_buttons(mut cmd: Commands) {
             ..default()
         },
         BackgroundColor(Color::srgba(0.04, 0.05, 0.08, 0.18)),
+        // High global z-band so the HUD renders above every menu overlay
+        // AND wins bevy_ui picking over a full-screen menu scrim.
+        GlobalZIndex(TOUCH_HUD_Z),
         Name::new("MobileTouchActionBezel"),
         MobileTouchUiRoot,
     ));
@@ -468,6 +499,9 @@ fn spawn_touch_buttons(mut cmd: Commands) {
             bottom: Val::Px(ACTION_CLUSTER_MARGIN),
             ..default()
         },
+        // Above any menu overlay so the action buttons stay tappable while
+        // a menu is open. `GlobalZIndex` also wins picking over the scrim.
+        GlobalZIndex(TOUCH_HUD_Z),
         Name::new("MobileTouchActionCluster"),
         MobileTouchUiRoot,
     ))
@@ -501,6 +535,11 @@ fn spawn_touch_buttons(mut cmd: Commands) {
             align_items: AlignItems::Center,
             ..default()
         },
+        // Above any menu overlay: the always-available "Back" lives here
+        // and must reach `MenuControlFrame.back` even while a menu's
+        // full-screen scrim is up. `GlobalZIndex` lifts it above the scrim
+        // for both render order and picking.
+        GlobalZIndex(TOUCH_HUD_Z),
         Name::new("MobileTouchMenuRow"),
         MobileTouchUiRoot,
     ))

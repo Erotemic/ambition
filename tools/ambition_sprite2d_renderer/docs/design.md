@@ -94,6 +94,17 @@ The robot target demonstrates the desired direction; future goblin and sandbag
 work should migrate toward named sockets, consistent face guides, weapon
 sockets, and validator-friendly pose data.
 
+## Side-view walk-cycle baseline
+
+The side-view biped lanes now share one authored walk/run philosophy: an
+8-frame contact/down/passing/up loop driven by ankle targets, with the knee
+solved by a two-bone IK pass and an explicit near/far limb draw order. This
+produces planted feet, cleaner silhouettes, and more stable depth reads than
+the older direct-angle-only leg swing.
+
+See `walk_cycle_baseline.md` for the practical recipe and the list of targets
+that currently use it.
+
 ## Package standards
 
 - Keep target code under `ambition_sprite2d_renderer/targets/<category>/`

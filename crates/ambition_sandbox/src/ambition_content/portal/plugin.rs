@@ -43,8 +43,11 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
             Update,
             drop_portal_gun_system
                 .run_if(crate::gameplay_allowed)
-                .in_set(PortalSet::WeaponAndProjectiles)
-                .in_set(crate::app::SandboxSet::PlayerSimulation),
+                // `PortalSet::WeaponAndProjectiles` is wired
+                // `.in_set(PlayerSimulation)` in `wire_portal_schedule`, so the
+                // parent placement is already implied — a direct
+                // `.in_set(PlayerSimulation)` would be a redundant hierarchy edge.
+                .in_set(PortalSet::WeaponAndProjectiles),
         );
 
         // --- Movement-intent bracketing around portal core's input warp ---
@@ -73,16 +76,25 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
             Update,
             sync_movement_intent_from_control
                 .run_if(crate::gameplay_allowed)
+                // `PortalSet::InputWarp` is wired `.in_set(PlayerInput)` (and
+                // `.before(sync_local_player_input_frame)`) in
+                // `wire_portal_schedule`, so the parent placement + consume window
+                // are already implied — a direct `.in_set(PlayerInput)` would be a
+                // redundant hierarchy edge.
                 .in_set(PortalSet::InputWarp)
-                .in_set(crate::app::SandboxSet::PlayerInput)
                 .before(warp_portal_input),
         );
         app.add_systems(
             Update,
             apply_movement_intent_to_control
                 .run_if(crate::gameplay_allowed)
+                // `PortalSet::InputWarp` already places this in `PlayerInput`
+                // (see `wire_portal_schedule`), so a direct
+                // `.in_set(PlayerInput)` would be a redundant hierarchy edge.
+                // `InputSet::Populate` is a SEPARATE set (NOT nested under
+                // `PlayerInput`), so it stays — it pins this write-back inside the
+                // `Populate.before(sync_local_player_input_frame)` consume window.
                 .in_set(PortalSet::InputWarp)
-                .in_set(crate::app::SandboxSet::PlayerInput)
                 .in_set(crate::input::InputSet::Populate)
                 .after(warp_portal_input)
                 .before(crate::player::sync_local_player_input_frame),

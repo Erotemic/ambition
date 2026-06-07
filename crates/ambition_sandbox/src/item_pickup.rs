@@ -79,7 +79,10 @@ impl Plugin for ItemPickupSimulationPlugin {
                 ground_item_physics.run_if(crate::gameplay_allowed),
             )
                 .chain()
-                .in_set(crate::app::SandboxSet::PlayerSimulation)
+                // `ItemPickupSet::CoreHeldItems` is configured
+                // `.in_set(PlayerSimulation)` above, so the parent placement is
+                // already implied — a direct `.in_set(PlayerSimulation)` here
+                // would be a redundant hierarchy edge.
                 .in_set(ItemPickupSet::CoreHeldItems),
         );
 
@@ -97,7 +100,8 @@ impl Plugin for ItemPickupSimulationPlugin {
                     .run_if(crate::gameplay_allowed),
             )
                 .chain()
-                .in_set(crate::app::SandboxSet::PlayerSimulation)
+                // Parent `PlayerSimulation` already implied via
+                // `ItemPickupSet::CoreHeldItems` (configured above).
                 .in_set(ItemPickupSet::CoreHeldItems),
         );
 
@@ -112,7 +116,8 @@ impl Plugin for ItemPickupSimulationPlugin {
                 crate::physics::tick_temporary_zones.run_if(crate::gameplay_allowed),
             )
                 .chain()
-                .in_set(crate::app::SandboxSet::PlayerSimulation)
+                // Parent `PlayerSimulation` already implied via
+                // `ItemPickupSet::ThrownItemEffects` (configured above).
                 .in_set(ItemPickupSet::ThrownItemEffects),
         );
 
@@ -136,7 +141,8 @@ impl Plugin for ItemPickupSimulationPlugin {
                 crate::ability_cooldown::tick_ability_cooldown,
             )
                 .chain()
-                .in_set(crate::app::SandboxSet::PlayerSimulation)
+                // Parent `PlayerSimulation` already implied via
+                // `ItemPickupSet::WieldedAbilities` (configured above).
                 .in_set(ItemPickupSet::WieldedAbilities),
         );
     }

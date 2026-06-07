@@ -331,7 +331,7 @@ fn presentation_world_inner(
     // UI camera is now the dedicated FRONT camera below (order 9), so all bevy_ui
     // draws IN FRONT of the order-8 cube-menu `Camera3d`. The cube's dim-scrim is the
     // one exception and is explicitly retargeted back to this camera (see
-    // `oot_cube_app::spawn_cube_scrim`) so it stays BEHIND the cube.
+    // `lunex_kaleidoscope_app::spawn_kaleidoscope_scrim`) so it stays BEHIND the cube.
     let main_camera = commands
         .spawn((
             Camera2d,

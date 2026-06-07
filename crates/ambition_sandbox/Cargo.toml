@@ -97,6 +97,11 @@ visible = [
     "portal_ldtk",
     "bevy/2d_bevy_render",
     "bevy/ui_bevy_render",
+    # Generate picking hits for bevy_ui nodes so the flat menu's tab bar and
+    # control buttons receive `Pointer<*>` events (the cube uses its own custom
+    # 3D picking backend; bevy_ui has none without this feature, so mouse/touch
+    # clicks on the bevy_ui Grid menu silently do nothing).
+    "bevy/ui_picking",
     "bevy/scene",
     "bevy/png",
 ]
@@ -123,6 +128,7 @@ visible_web_base = [
     "portal_ldtk",
     "bevy/2d_bevy_render",
     "bevy/ui_bevy_render",
+    "bevy/ui_picking",
     "bevy/scene",
     "bevy/png",
 ]

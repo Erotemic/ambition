@@ -36,7 +36,7 @@ use bevy::ecs::relationship::RelatedSpawnerCommands;
 use bevy::prelude::*;
 
 use crate::{
-    AmbitionMenuControl, AmbitionMenuPage, AmbitionMenuRoot, MenuColor, MenuControlKind, MenuNode,
+    AmbitionMenuControl, AmbitionMenuRoot, MenuColor, MenuControlKind, MenuNode,
     MenuPageModel, MenuRect, MenuTextAlign, MenuVisualState, ScrollThumb,
 };
 
@@ -231,8 +231,10 @@ where
                 align_items: AlignItems::Center,
                 ..default()
             },
-            // A translucent backdrop scrim behind the centered panel.
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.55)),
+            // FULLY OPAQUE backdrop. The flat Grid menu is the simple fallback for
+            // the 3D cube, so it draws a solid screen — no see-through (which also
+            // sidesteps the transparency confusion entirely).
+            BackgroundColor(Color::srgb(0.03, 0.04, 0.07)),
             // On top of the gameplay HUD so the menu's buttons get the pointer.
             GlobalZIndex(1000),
             BevyUiMenuRoot,
@@ -250,7 +252,15 @@ where
                 flex_direction: FlexDirection::Column,
                 ..default()
             },
-            BackgroundColor(to_color(view.page.background)),
+            // SOLID opaque window background. The model's `page.background` is
+            // (near-)transparent because the cube's 3D face is itself opaque — but
+            // the flat renderer has nothing behind the panel, so relying on it left
+            // the whole menu see-through (dark content invisible over the dimmed
+            // game). Use a fixed opaque panel so the body content is visible.
+            // Solid opaque window panel (the model's `page.background` is
+            // near-transparent — the cube's 3D face is opaque, so the model never
+            // needed a solid panel; the flat renderer supplies one).
+            BackgroundColor(Color::srgb(0.10, 0.12, 0.18)),
             BevyUiMenuPanel,
             Name::new("menu panel"),
         ))
@@ -308,11 +318,14 @@ where
                         position_type: PositionType::Relative,
                         ..default()
                     },
+                    // NOTE: deliberately NOT tagged `AmbitionMenuPage`. That marker
+                    // is the CUBE's face marker, and the cube's `rebuild_cube_faces`
+                    // system despawns every `AmbitionMenuPage` entity whenever the
+                    // shared `ActiveMenuPages` changes — which was despawning THIS
+                    // flat body (and all its content children) out from under us,
+                    // leaving an empty panel that only flashed content on respawn.
+                    // The flat renderer uses its own `BevyUiMenuBody` marker only.
                     BevyUiMenuBody,
-                    AmbitionMenuPage {
-                        id: view.page.id.clone(),
-                        active: true,
-                    },
                     Name::new("menu body"),
                 ))
                 .with_children(|body| {
@@ -324,6 +337,26 @@ where
     });
 
     root
+}
+
+// Draw-order layers mirroring the cube's depth bands. The flat renderer uses
+// bevy_ui sibling order otherwise, which paints a later background Panel ON TOP of
+// earlier text/controls (the model relies on the cube's depth field to sort). A
+// per-node `ZIndex` restores back-to-front order: panels behind, controls above,
+// text/labels on top.
+const LAYER_CONTROL: i32 = 10;
+const LAYER_TEXT: i32 = 20;
+
+/// Background panels sort by size, like the cube's DEPTH_BACKGROUND / LARGE_PANEL /
+/// CARD bands: a near-full-page panel is the furthest back, a small card nearer.
+fn panel_layer(rect: &MenuRect) -> i32 {
+    if rect.w > 98.0 && rect.h > 98.0 {
+        0
+    } else if rect.w > 40.0 || rect.h > 35.0 {
+        1
+    } else {
+        2
+    }
 }
 
 /// Spawn one [`MenuNode`] into the body container.
@@ -340,6 +373,7 @@ fn spawn_node<Action>(
             body.spawn((
                 node_from_rect(*rect),
                 BackgroundColor(to_color(*color)),
+                ZIndex(panel_layer(rect)),
                 Name::new("panel"),
             ));
         }
@@ -365,6 +399,7 @@ fn spawn_node<Action>(
                     ..default()
                 },
                 TextLayout::new_with_justify(to_justify(*align)),
+                ZIndex(LAYER_TEXT),
                 Name::new("text"),
             ));
         }
@@ -394,6 +429,7 @@ fn spawn_node<Action>(
                 TextLayout::new_with_justify(to_justify(*align)),
                 crate::MenuDynamicText { slot: *slot },
                 crate::MenuDynamicTextContent(String::new()),
+                ZIndex(LAYER_TEXT),
                 Name::new("dynamic text"),
             ));
         }
@@ -462,6 +498,7 @@ fn spawn_control<Action>(
         Button,
         node_from_rect(rect),
         BackgroundColor(bg),
+        ZIndex(LAYER_CONTROL),
         AmbitionMenuControl {
             kind,
             action: action.clone(),

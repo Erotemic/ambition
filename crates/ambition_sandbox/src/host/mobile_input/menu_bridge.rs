@@ -149,11 +149,7 @@ pub fn fold_to_menu_control_frame(
     frame.select |= touch.jump.pressed_this_frame || touch.interact.pressed_this_frame;
     frame.select_held |= touch.jump.held || touch.interact.held;
 
-    let menu_mode = matches!(
-        mode.get(),
-        crate::game_mode::GameMode::Dialogue | crate::game_mode::GameMode::Paused
-    );
-    if menu_mode {
+    if menu_move_active(*mode.get()) {
         let analog_dir = touch_move_to_menu_dir(touch, user_settings.controls.left_stick_deadzone);
         let input = gesture.stick_input.step(
             false,
@@ -197,6 +193,22 @@ pub fn fold_to_menu_control_frame(
     let menu_pos = touch_pos.or(mouse_pos);
 
     frame.scroll_y += gesture.drag_scroll.update(menu_pos, 30.0, 3.0, 5.0);
+}
+
+/// Is a menu open such that the touch joystick should fold into menu
+/// Up/Down/Left/Right navigation?
+///
+/// True in every mode that opens a menu over the sim: `Paused` (the
+/// pause menu, the bevy_ui inventory GRID, AND the 3D kaleidoscope
+/// CUBE all live in `Paused`) and `Dialogue`. The kaleidoscope cube
+/// has no separate game mode — it opens in `Paused` exactly like the
+/// grid — so keying on `Paused` here is what lets the on-screen
+/// joystick drive the cube's cursor the same way it drives the grid.
+pub fn menu_move_active(mode: crate::game_mode::GameMode) -> bool {
+    matches!(
+        mode,
+        crate::game_mode::GameMode::Dialogue | crate::game_mode::GameMode::Paused
+    )
 }
 
 /// Convert the touch move stick into a `MenuDir` for menu navigation.

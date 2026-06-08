@@ -70,8 +70,8 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
     )>,
     held_items: Query<&super::HeldItem>,
     // A possessed actor fires player-faction shots (the faction-aware pool then
-    // routes them at the enemies, not the player) — `crate::possession`.
-    possessed: Query<(), bevy::prelude::With<crate::possession::Possessed>>,
+    // routes them at the enemies, not the player) — `crate::abilities::traversal::possession`.
+    possessed: Query<(), bevy::prelude::With<crate::abilities::traversal::possession::Possessed>>,
 ) {
     for msg in messages.read() {
         let ActionRequest::Ranged {

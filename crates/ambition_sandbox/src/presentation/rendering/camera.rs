@@ -112,7 +112,7 @@ pub fn camera_follow(
     >,
     // While possessing, the camera follows the possessed actor (so the player
     // can see the body they're driving), resolved from its FeatureAabb.
-    possession: Res<crate::possession::PossessionState>,
+    possession: Res<crate::abilities::traversal::possession::PossessionState>,
     feature_aabbs: Query<&crate::features::FeatureAabb>,
     windows: Query<&Window, With<PrimaryWindow>>,
     // `With<Camera2d>` (not `With<Camera>`): the #31 cube pause menu adds a 3D

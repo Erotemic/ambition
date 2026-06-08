@@ -1,7 +1,7 @@
 //! Sentry — a player-wielded **deployable turret**. `Attack` drops a stationary
 //! sentry that auto-fires player-faction bolts at the nearest enemy in range on
 //! a cadence, for a few seconds, then expires. It fills a gap in the kit: the
-//! puppy-slug summon (`crate::puppy_slug_gun`) is *passive* (the slugs just
+//! puppy-slug summon (`crate::abilities::thrown::puppy_slug_gun`) is *passive* (the slugs just
 //! wander), and every other wielded ability is a one-shot the player aims — the
 //! sentry is the first thing the player deploys that **autonomously attacks**.
 //!

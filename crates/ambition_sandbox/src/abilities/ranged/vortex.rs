@@ -2,7 +2,7 @@
 //! point and it drags nearby enemies toward it for a moment. Distinct from
 //! every other wielded attack (which deal damage / teleport): the vortex deals
 //! *no* damage — it **gathers** a scattered group so the player can follow up
-//! with an AOE (`crate::shockwave` / `crate::beam`) or a volley. Pull-then-slam.
+//! with an AOE (`crate::abilities::ranged::shockwave` / `crate::abilities::ranged::beam`) or a volley. Pull-then-slam.
 //!
 //! Distinct from the gravity grenade too: that spawns a *directional*
 //! `GravityZone` (up-lift); the vortex is a *point* attractor — it lerps each

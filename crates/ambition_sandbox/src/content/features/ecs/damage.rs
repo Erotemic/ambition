@@ -186,34 +186,34 @@ fn boss_reward_ability(boss_id: &str) -> Option<&'static str> {
 /// the player picks it up and wields that boss's own attack (the "every boss a
 /// failed objective function, learn its attack" loop). Distinct from
 /// [`boss_reward_ability`], which grants catalog abilities; these are held-item
-/// gauntlets (`crate::shockwave` / `crate::volley`) the player grabs off the
+/// gauntlets (`crate::abilities::ranged::shockwave` / `crate::abilities::ranged::volley`) the player grabs off the
 /// ground. Keyed so the attack matches the boss: the grounded T-Rex's **stomp**
 /// drops the Shockwave slam; the flitting Mockingbird's spread drops the Volley.
 fn boss_signature_gauntlet(boss_id: &str) -> Option<&'static str> {
     match boss_id {
-        "trex_boss" => Some(crate::shockwave::SHOCKWAVE_ID),
-        "mockingbird" => Some(crate::volley::VOLLEY_ID),
+        "trex_boss" => Some(crate::abilities::ranged::shockwave::SHOCKWAVE_ID),
+        "mockingbird" => Some(crate::abilities::ranged::volley::VOLLEY_ID),
         // The smirking_behemoth's signature tell is a focused eye beam — drop
         // the focus-beam gauntlet so the player wields that same line attack.
         // NOTE: keyed on the REAL behavior id `smirking_behemoth_boss` (what
         // `boss.config.behavior.id` actually is). A bare `smirking_behemoth`
         // silently never matched, so the beam drop never fired in-game; the
         // `boss_reward_lookups_key_on_real_behavior_ids` test guards this.
-        "smirking_behemoth_boss" => Some(crate::beam::BEAM_ID),
+        "smirking_behemoth_boss" => Some(crate::abilities::ranged::beam::BEAM_ID),
         // Mode Collapse converges a diverse population onto one mode — drop the
         // Vortex, a singularity that gathers a scattered mob to a single point.
-        "mode_collapse_boss" => Some(crate::vortex::VORTEX_ID),
+        "mode_collapse_boss" => Some(crate::abilities::ranged::vortex::VORTEX_ID),
         // The Exploding Gradient sprays runaway values outward — drop the
         // Sentry, a deployed turret that auto-sprays the room for you.
-        "exploding_gradient_boss" => Some(crate::sentry::SENTRY_ID),
+        "exploding_gradient_boss" => Some(crate::abilities::ranged::sentry::SENTRY_ID),
         // Overflow is an aerial dive-bomber that bursts its bounds and crashes
         // into you — drop the Dive, its lunging crash, to close and cut a line.
-        "overflow_boss" => Some(crate::dive::DIVE_ID),
+        "overflow_boss" => Some(crate::abilities::traversal::dive::DIVE_ID),
         // GNU-ton rains apples from its descending head — drop the Meteor, an
         // overhead area-rain, so you call the same storm down on a zone. (It
         // also grants Fireball via `boss_reward_ability`; a major boss, like
         // the T-Rex, drops both an ability and a wielded gauntlet.)
-        "gnu_ton" => Some(crate::meteor::METEOR_ID),
+        "gnu_ton" => Some(crate::abilities::ranged::meteor::METEOR_ID),
         _ => None,
     }
 }
@@ -1401,38 +1401,38 @@ mod tests {
         // dropped GroundItem is actually pick-up-able.
         assert_eq!(
             boss_signature_gauntlet("trex_boss"),
-            Some(crate::shockwave::SHOCKWAVE_ID)
+            Some(crate::abilities::ranged::shockwave::SHOCKWAVE_ID)
         );
         assert_eq!(
             boss_signature_gauntlet("mockingbird"),
-            Some(crate::volley::VOLLEY_ID)
+            Some(crate::abilities::ranged::volley::VOLLEY_ID)
         );
         // The eye-beam boss drops the focus beam — wield its signature line
         // attack. Keyed on the REAL behavior id (`smirking_behemoth_boss`).
         assert_eq!(
             boss_signature_gauntlet("smirking_behemoth_boss"),
-            Some(crate::beam::BEAM_ID)
+            Some(crate::abilities::ranged::beam::BEAM_ID)
         );
         // The three data-driven bosses each arm the player with a thematic kit:
         // Mode Collapse -> the gathering Vortex; Exploding Gradient -> the
         // spraying Sentry; Overflow -> the lunging Dive.
         assert_eq!(
             boss_signature_gauntlet("mode_collapse_boss"),
-            Some(crate::vortex::VORTEX_ID)
+            Some(crate::abilities::ranged::vortex::VORTEX_ID)
         );
         assert_eq!(
             boss_signature_gauntlet("exploding_gradient_boss"),
-            Some(crate::sentry::SENTRY_ID)
+            Some(crate::abilities::ranged::sentry::SENTRY_ID)
         );
         assert_eq!(
             boss_signature_gauntlet("overflow_boss"),
-            Some(crate::dive::DIVE_ID)
+            Some(crate::abilities::traversal::dive::DIVE_ID)
         );
         // GNU-ton's apple-rain becomes the wielded Meteor (it also grants
         // Fireball as a catalog ability — a dual drop, like the T-Rex).
         assert_eq!(
             boss_signature_gauntlet("gnu_ton"),
-            Some(crate::meteor::METEOR_ID)
+            Some(crate::abilities::ranged::meteor::METEOR_ID)
         );
         for boss in [
             "trex_boss",
@@ -1507,23 +1507,23 @@ mod tests {
         let g = |b: BossBehaviorProfile| boss_signature_gauntlet(&b.id);
         assert_eq!(
             g(BossBehaviorProfile::smirking_behemoth_boss()),
-            Some(crate::beam::BEAM_ID)
+            Some(crate::abilities::ranged::beam::BEAM_ID)
         );
         assert_eq!(
             g(BossBehaviorProfile::mode_collapse_boss()),
-            Some(crate::vortex::VORTEX_ID)
+            Some(crate::abilities::ranged::vortex::VORTEX_ID)
         );
         assert_eq!(
             g(BossBehaviorProfile::exploding_gradient_boss()),
-            Some(crate::sentry::SENTRY_ID)
+            Some(crate::abilities::ranged::sentry::SENTRY_ID)
         );
         assert_eq!(
             g(BossBehaviorProfile::overflow_boss()),
-            Some(crate::dive::DIVE_ID)
+            Some(crate::abilities::traversal::dive::DIVE_ID)
         );
         assert_eq!(
             g(BossBehaviorProfile::gnu_ton()),
-            Some(crate::meteor::METEOR_ID)
+            Some(crate::abilities::ranged::meteor::METEOR_ID)
         );
     }
 

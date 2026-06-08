@@ -1,8 +1,8 @@
 //! Focus Beam — a player-wielded **directional line attack**: a long, thin,
 //! aimed [`Hitbox`] that damages every enemy along its length.
 //!
-//! This is the third wielded boss-style attack, alongside [`crate::shockwave`]
-//! (a centered AOE) and [`crate::volley`] (a ranged fan). Where the shockwave
+//! This is the third wielded boss-style attack, alongside [`crate::abilities::ranged::shockwave`]
+//! (a centered AOE) and [`crate::abilities::ranged::volley`] (a ranged fan). Where the shockwave
 //! slams a compact box at the player's feet, the beam reaches *forward* along
 //! the aim as a long thin box — a single readable lance that skewers a line of
 //! enemies. It is the **smirking_behemoth** (the eye-beam boss) signature

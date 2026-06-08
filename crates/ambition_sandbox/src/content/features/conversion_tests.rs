@@ -104,7 +104,7 @@ mod conversion_tests {
         // "Possess" → drive right: axis_x = 1 scaled to a real walk speed.
         for _ in 0..60 {
             npc.as_mut().integrate_velocity(
-                1.0 * crate::possession::POSSESSED_MOVE_SPEED,
+                1.0 * crate::abilities::traversal::possession::POSSESSED_MOVE_SPEED,
                 &world,
                 0.016,
                 1.0,

@@ -423,7 +423,12 @@ fn architecture_boundaries_app_plugins_does_not_reown_moved_subsystems() {
 #[test]
 fn architecture_boundaries_non_portal_mechanics_use_runtime_raycast_seam() {
     let src_root = crate_src();
-    let checked_files = ["blink.rs", "dive.rs", "grapple.rs", "item_pickup.rs"];
+    let checked_files = [
+        "abilities/traversal/blink.rs",
+        "abilities/traversal/dive.rs",
+        "abilities/traversal/grapple.rs",
+        "item_pickup.rs",
+    ];
     let mut violations = Vec::new();
 
     for rel in checked_files {

@@ -434,7 +434,7 @@ pub fn boss_phase_transition_feedback(
             });
             // The transition is now a dodge-able GAMEPLAY beat, not just feel: the
             // boss emits a `ShockwaveSlam` Special through the SAME actor-generic
-            // consumer the player's shockwave gauntlet uses (`crate::shockwave`).
+            // consumer the player's shockwave gauntlet uses (`crate::abilities::ranged::shockwave`).
             // Resolved as the boss's own faction (`ActorFaction::Boss`), so the
             // shared `apply_hitbox_damage` lands it on the player — the literal
             // "player and boss fire the same attack" unification, in-game.

@@ -237,14 +237,14 @@ pub fn clear_transient_on_sandbox_reset(
             With<crate::portal::PortalShot>,
             With<crate::portal::PortalGunPickup>,
             With<crate::item_pickup::GroundItem>,
-            With<crate::puppy_slug_gun::PuppySlugAlly>,
+            With<crate::abilities::thrown::puppy_slug_gun::PuppySlugAlly>,
         )>,
     >,
     #[cfg(not(feature = "portal"))] transient: Query<
         Entity,
         Or<(
             With<crate::item_pickup::GroundItem>,
-            With<crate::puppy_slug_gun::PuppySlugAlly>,
+            With<crate::abilities::thrown::puppy_slug_gun::PuppySlugAlly>,
         )>,
     >,
     mut players: Query<
@@ -278,7 +278,7 @@ pub fn clear_transient_on_sandbox_reset(
         // recall to a position from before the room was rebuilt.
         commands
             .entity(player)
-            .remove::<crate::mark_recall::PlayerMark>();
+            .remove::<crate::abilities::traversal::mark_recall::PlayerMark>();
     }
 }
 
@@ -347,7 +347,7 @@ mod tests {
             .id();
         let ally = app
             .world_mut()
-            .spawn(crate::puppy_slug_gun::PuppySlugAlly)
+            .spawn(crate::abilities::thrown::puppy_slug_gun::PuppySlugAlly)
             .id();
         let player = app
             .world_mut()
@@ -387,7 +387,7 @@ mod tests {
         );
         assert!(
             app.world()
-                .get::<crate::puppy_slug_gun::PuppySlugAlly>(ally)
+                .get::<crate::abilities::thrown::puppy_slug_gun::PuppySlugAlly>(ally)
                 .is_none(),
             "summoned ally despawned on reset"
         );

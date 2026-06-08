@@ -2,7 +2,7 @@
 //! enemies, fired through the now faction-aware shared projectile pool
 //! (`EnemyProjectileState::spawn_with_faction`).
 //!
-//! This is the ranged counterpart to `crate::shockwave` (the wielded AOE). The
+//! This is the ranged counterpart to `crate::abilities::ranged::shockwave` (the wielded AOE). The
 //! pool used to be faction-segregated — `update_enemy_projectiles` only ever
 //! damaged the player — so a player-fired bolt in it would hit the player. Now
 //! the body's `ProjectileFaction` routes its damage: a `Player` shot damages

@@ -48,7 +48,7 @@ impl EnemyProjectileState {
     /// Spawn a projectile of a chosen `faction` into the shared in-flight pool.
     /// A `Player`-faction body is stamped so `update_enemy_projectiles` routes
     /// its damage to enemies/bosses instead of the player — the substrate for a
-    /// player wielding a boss-style ranged attack (`crate::volley`). Enemy
+    /// player wielding a boss-style ranged attack (`crate::abilities::ranged::volley`). Enemy
     /// faction reproduces [`Self::spawn`] exactly.
     pub fn spawn_with_faction(
         &mut self,

@@ -587,7 +587,7 @@ pub enum SpecialActionSpec {
     /// Actor-generic ground-slam AOE: a World-anchored damage box at the
     /// emitting actor's position, tagged with the **emitter's** faction. A boss
     /// uses it to damage the player; the player wields it (via
-    /// `crate::shockwave`) to damage enemies — the same `Hitbox` primitive and
+    /// `crate::abilities::ranged::shockwave`) to damage enemies — the same `Hitbox` primitive and
     /// `apply_hitbox_damage` system, differing only by faction. This is the
     /// first attack authored to be actor-generic from the start (the older
     /// specials above are still boss-query-coupled; migrating them is the

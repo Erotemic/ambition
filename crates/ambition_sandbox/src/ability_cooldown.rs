@@ -2,7 +2,7 @@
 //! deliberate verbs instead of spammable teleports.
 //!
 //! Stored as a per-player [`AbilityCooldown`] component, lazily inserted on first
-//! use (like [`crate::mark_recall::PlayerMark`]), so it stays per-player for the
+//! use (like [`crate::abilities::traversal::mark_recall::PlayerMark`]), so it stays per-player for the
 //! future multiplayer split. A single shared timer is fine: the player only holds
 //! one ability at a time, so only the equipped ability's cooldown is ever in play.
 

@@ -216,7 +216,7 @@ pub fn apply_hitbox_damage(
                 }
             }
             // Player-faction hitbox (a wielded boss-style AOE — see
-            // `crate::shockwave`): damage the enemies/bosses it overlaps by
+            // `crate::abilities::ranged::shockwave`): damage the enemies/bosses it overlaps by
             // emitting ONE attacker-side Volume `HitEvent` that
             // `apply_feature_hit_events` resolves against every overlapping
             // actor + boss. This is the player end of the same primitive a boss

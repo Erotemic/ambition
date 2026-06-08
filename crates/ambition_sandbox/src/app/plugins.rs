@@ -84,6 +84,13 @@ pub fn add_simulation_plugins(app: &mut App) {
     app.add_plugins(crate::brain::BrainPlugin);
     register_player_input_systems(app);
     register_player_simulation_systems(app);
+    // Ambition's player ability / weapon kit (blink, dive, grapple,
+    // possession, beam, meteor, …). The 14 abilities are mostly pure-logic
+    // modules driven from combat / item-pickup / projectile code; this
+    // umbrella plugin owns the only Bevy `App` state any of them register
+    // today (possession's `PossessionState` resource). A sibling of the
+    // mechanic plugins below.
+    app.add_plugins(crate::abilities::AmbitionAbilitiesPlugin);
     // Gravity-zone mechanic (Stage 6 follow-up): the gravity zones / switches
     // that flip ambient gravity + their per-frame snapshot. Owns its own
     // resources + scheduling; installed alongside the other mechanic plugins and
@@ -348,7 +355,12 @@ fn register_player_input_systems(app: &mut App) {
 /// `PlayerInputFrame` for player-specific verbs (the polarity flip).
 fn register_player_simulation_systems(app: &mut App) {
     app.init_resource::<crate::app::SandboxResetThisFrame>();
-    app.init_resource::<crate::possession::PossessionState>();
+    // `PossessionState` is now initialized by
+    // `crate::abilities::AmbitionAbilitiesPlugin` (installed in
+    // `add_simulation_plugins`). The possession *systems* below stay chained
+    // here because they are interleaved with the player control / simulation
+    // tick (`not_possessing` run conditions inside this `.chain()`); lifting
+    // them would change execution order.
     app.add_systems(
         Update,
         (
@@ -357,12 +369,13 @@ fn register_player_simulation_systems(app: &mut App) {
             // input sync run before the player tick so the possessed actor reads
             // fresh input; the player's own control is gated OFF while possessing
             // so the same input doesn't drive both bodies.
-            crate::possession::possession_trigger_system.run_if(gameplay_allowed),
-            crate::possession::release_possession_if_target_lost,
-            crate::possession::sync_possession_input,
+            crate::abilities::traversal::possession::possession_trigger_system
+                .run_if(gameplay_allowed),
+            crate::abilities::traversal::possession::release_possession_if_target_lost,
+            crate::abilities::traversal::possession::sync_possession_input,
             player_control_system
                 .run_if(gameplay_allowed)
-                .run_if(crate::possession::not_possessing),
+                .run_if(crate::abilities::traversal::possession::not_possessing),
             player_simulation_system.run_if(gameplay_allowed),
             apply_player_hit_events.run_if(gameplay_allowed),
         )

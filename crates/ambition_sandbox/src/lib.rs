@@ -34,8 +34,6 @@ pub mod debug_label;
 // path so every `crate::engine_core::X` reference and the `use
 // crate::engine_core as ae` alias across the sandbox resolve unchanged.
 pub use ambition_engine_core as engine_core;
-pub mod grapple;
-pub mod gravity_grenade;
 pub mod headless;
 // The device -> ControlFrame input layer now lives in the `ambition_input`
 // crate (ADR 0019). Re-exported here as `crate::input` so all existing
@@ -54,12 +52,10 @@ pub mod save;
 // term shape carves the reusable ones (`presentation`, `time`, `dev`,
 // `world`, `persistence`) into the future `ambition` framework crate, and
 // leaves the sandbox-specific ones (`content`, sandbox `assets`) behind.
+pub mod abilities;
 pub mod ability_cooldown;
 pub(crate) mod assets;
-pub mod beam;
-pub mod blink;
 pub(crate) mod body_mode;
-pub mod bomb;
 pub(crate) mod boss_encounter;
 pub(crate) mod brain;
 pub(crate) mod combat_slots;
@@ -80,35 +76,26 @@ pub(crate) mod inventory;
 pub mod inventory_persist;
 pub mod item_pickup;
 pub mod items;
-pub mod mark_recall;
 pub mod mechanics;
 pub(crate) mod music;
 // 3D-cube OoT pause menu (#31): the data seam wiring our 24-item inventory into
 // the reusable `ambition_menu` cube model. Renderer promotion pending.
-pub mod dive;
 pub mod lunex_kaleidoscope_app;
 // Unified menu content (model + concrete settings IR + Map tab). See
 // `docs/planning/unified_tabbed_menu.md` §10.
 pub mod menu;
-pub mod meteor;
 pub(crate) mod persistence;
 pub mod physics;
 #[cfg(feature = "portal")]
 pub mod portal;
 pub mod portal_pieces;
-pub mod possession;
 pub(crate) mod presentation;
 pub(crate) mod projectile;
-pub mod puppy_slug_gun;
 pub(crate) mod runtime;
-pub mod sentry;
-pub mod shockwave;
 pub mod shop;
 pub mod shrine;
 pub(crate) mod time;
 pub(crate) mod ui_nav;
-pub mod volley;
-pub mod vortex;
 pub(crate) mod world;
 
 // Public re-exports double as the external API: `features`, `rooms`,

@@ -74,7 +74,8 @@ impl Plugin for ItemPickupSimulationPlugin {
                 pickup_held_item_system.run_if(crate::gameplay_allowed),
                 fire_held_ranged_system.run_if(crate::gameplay_allowed),
                 held_projectile_step.run_if(crate::gameplay_allowed),
-                crate::puppy_slug_gun::fire_puppy_slug_gun_system.run_if(crate::gameplay_allowed),
+                crate::abilities::thrown::puppy_slug_gun::fire_puppy_slug_gun_system
+                    .run_if(crate::gameplay_allowed),
                 throw_held_item_system.run_if(crate::gameplay_allowed),
                 ground_item_physics.run_if(crate::gameplay_allowed),
             )
@@ -109,10 +110,12 @@ impl Plugin for ItemPickupSimulationPlugin {
         app.add_systems(
             Update,
             (
-                crate::bomb::arm_thrown_bombs.run_if(crate::gameplay_allowed),
-                crate::bomb::tick_bomb_fuses.run_if(crate::gameplay_allowed),
-                crate::gravity_grenade::arm_thrown_gravity_grenades.run_if(crate::gameplay_allowed),
-                crate::gravity_grenade::tick_gravity_grenade_fuses.run_if(crate::gameplay_allowed),
+                crate::abilities::ranged::bomb::arm_thrown_bombs.run_if(crate::gameplay_allowed),
+                crate::abilities::ranged::bomb::tick_bomb_fuses.run_if(crate::gameplay_allowed),
+                crate::abilities::thrown::gravity_grenade::arm_thrown_gravity_grenades
+                    .run_if(crate::gameplay_allowed),
+                crate::abilities::thrown::gravity_grenade::tick_gravity_grenade_fuses
+                    .run_if(crate::gameplay_allowed),
                 crate::physics::tick_temporary_zones.run_if(crate::gameplay_allowed),
             )
                 .chain()
@@ -126,18 +129,26 @@ impl Plugin for ItemPickupSimulationPlugin {
         app.add_systems(
             Update,
             (
-                crate::mark_recall::mark_recall_system.run_if(crate::gameplay_allowed),
-                crate::blink::blink_system.run_if(crate::gameplay_allowed),
-                crate::grapple::grapple_system.run_if(crate::gameplay_allowed),
-                crate::shockwave::fire_shockwave_system.run_if(crate::gameplay_allowed),
-                crate::volley::fire_volley_system.run_if(crate::gameplay_allowed),
-                crate::beam::fire_beam_system.run_if(crate::gameplay_allowed),
-                crate::vortex::fire_vortex_system.run_if(crate::gameplay_allowed),
-                crate::vortex::update_vortex_wells.run_if(crate::gameplay_allowed),
-                crate::sentry::fire_sentry_system.run_if(crate::gameplay_allowed),
-                crate::sentry::update_sentries.run_if(crate::gameplay_allowed),
-                crate::dive::fire_dive_system.run_if(crate::gameplay_allowed),
-                crate::meteor::fire_meteor_system.run_if(crate::gameplay_allowed),
+                crate::abilities::traversal::mark_recall::mark_recall_system
+                    .run_if(crate::gameplay_allowed),
+                crate::abilities::traversal::blink::blink_system.run_if(crate::gameplay_allowed),
+                crate::abilities::traversal::grapple::grapple_system
+                    .run_if(crate::gameplay_allowed),
+                crate::abilities::ranged::shockwave::fire_shockwave_system
+                    .run_if(crate::gameplay_allowed),
+                crate::abilities::ranged::volley::fire_volley_system
+                    .run_if(crate::gameplay_allowed),
+                crate::abilities::ranged::beam::fire_beam_system.run_if(crate::gameplay_allowed),
+                crate::abilities::ranged::vortex::fire_vortex_system
+                    .run_if(crate::gameplay_allowed),
+                crate::abilities::ranged::vortex::update_vortex_wells
+                    .run_if(crate::gameplay_allowed),
+                crate::abilities::ranged::sentry::fire_sentry_system
+                    .run_if(crate::gameplay_allowed),
+                crate::abilities::ranged::sentry::update_sentries.run_if(crate::gameplay_allowed),
+                crate::abilities::traversal::dive::fire_dive_system.run_if(crate::gameplay_allowed),
+                crate::abilities::ranged::meteor::fire_meteor_system
+                    .run_if(crate::gameplay_allowed),
                 crate::ability_cooldown::tick_ability_cooldown,
             )
                 .chain()

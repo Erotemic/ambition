@@ -41,7 +41,7 @@ pub fn update_enemy_projectiles(
     // A successful parry heals the player a little (a reason to parry, not dodge).
     mut heals: MessageWriter<crate::player::PlayerHealRequested>,
     // Enemy/boss targets for PLAYER-faction shots (a wielded ranged boss
-    // attack, `crate::volley`). Same shapes the held-projectile + feature-damage
+    // attack, `crate::abilities::ranged::volley`). Same shapes the held-projectile + feature-damage
     // overlap helpers use. Enemy-faction shots ignore these and hit the player.
     ecs_actors: Query<
         (
@@ -243,7 +243,7 @@ mod tests {
     /// The faction-aware routing keystone: a **Player**-faction shot in the
     /// shared pool damages the enemy it overlaps (a PlayerProjectile hit, NOT an
     /// EnemyProjectile one) and expires on contact — the substrate for the
-    /// wielded ranged boss attack (`crate::volley`). The enemy-faction path is
+    /// wielded ranged boss attack (`crate::abilities::ranged::volley`). The enemy-faction path is
     /// unchanged (covered by the existing boss-special consumer tests).
     #[test]
     fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {

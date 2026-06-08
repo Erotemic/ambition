@@ -353,10 +353,10 @@ pub fn update_ecs_actors(
             // `Possessed` is nested with the cluster data (not a new top-level
             // tuple field) to stay within Bevy's query-tuple arity: when set,
             // the actor is driven from the player's input instead of its brain
-            // (`crate::possession`).
+            // (`crate::abilities::traversal::possession`).
             (
                 Option<super::enemy_clusters::EnemyClusterQueryData>,
-                Option<&crate::possession::Possessed>,
+                Option<&crate::abilities::traversal::possession::Possessed>,
             ),
         ),
         // The player carries the unified `BodyKinematics` too, and
@@ -521,7 +521,7 @@ pub fn update_ecs_actors(
                     // `desired_vel` is a direction (the player's input axis); the
                     // enemy integration approaches it directly, so scale it to a
                     // real speed or the possessed body crawls at ~1 px/s.
-                    bf.desired_vel *= crate::possession::POSSESSED_MOVE_SPEED;
+                    bf.desired_vel *= crate::abilities::traversal::possession::POSSESSED_MOVE_SPEED;
                     bf
                 } else if let Some(brain_ref) = brain.as_deref_mut() {
                     let crowding = crowding_by_id.get(&em.config.id).copied();
@@ -721,7 +721,7 @@ pub fn update_ecs_npcs(
             // Possession: when present, the player drives this NPC's body
             // through its own control frame (the unification flex on a
             // peaceful actor) instead of its brain.
-            Option<&crate::possession::Possessed>,
+            Option<&crate::abilities::traversal::possession::Possessed>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -767,7 +767,7 @@ pub fn update_ecs_npcs(
                 npc.kin.facing = bf.facing;
             }
             npc.integrate_velocity(
-                bf.desired_vel.x * crate::possession::POSSESSED_MOVE_SPEED,
+                bf.desired_vel.x * crate::abilities::traversal::possession::POSSESSED_MOVE_SPEED,
                 &feature_world,
                 dt,
                 gravity_sign,

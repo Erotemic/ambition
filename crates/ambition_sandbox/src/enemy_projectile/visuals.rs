@@ -111,18 +111,24 @@ pub fn sync_enemy_projectile_visuals(
     let lasersword_texture = asset_server.load(LASERSWORD_SHEET_PATH);
     for projectile in &state.bodies {
         let body = &projectile.body;
-        let render_size = bevy::math::Vec2::new(
-            (body.half_extent.x * 2.0).max(8.0),
-            (body.half_extent.y * 2.0).max(8.0),
+        let render_size =
+            bevy::math::Vec2::new((body.kin.size.x).max(8.0), (body.kin.size.y).max(8.0));
+        let translation = crate::config::world_to_bevy(
+            &world.0,
+            body.kin.pos,
+            crate::config::WORLD_Z_PLAYER + 1.8,
         );
-        let translation =
-            crate::config::world_to_bevy(&world.0, body.pos, crate::config::WORLD_Z_PLAYER + 1.8);
         if is_apple_owner(&projectile.owner_id) {
             spawn_apple_visual(&mut commands, &apple_texture, translation, render_size);
             continue;
         }
         if is_lasersword_owner(&projectile.owner_id) {
-            spawn_lasersword_visual(&mut commands, &lasersword_texture, translation, body.vel);
+            spawn_lasersword_visual(
+                &mut commands,
+                &lasersword_texture,
+                translation,
+                body.kin.vel,
+            );
             continue;
         }
         // Hostile orange-red: readable against the sky-blue background
@@ -130,7 +136,7 @@ pub fn sync_enemy_projectile_visuals(
         // yellow of player fireballs.
         let tint = Color::srgba(1.0, 0.45, 0.18, 0.95);
         let mut sprite = Sprite::from_color(tint, render_size);
-        sprite.flip_x = body.vel.x < 0.0;
+        sprite.flip_x = body.kin.vel.x < 0.0;
         commands.spawn((
             sprite,
             Transform::from_translation(translation),

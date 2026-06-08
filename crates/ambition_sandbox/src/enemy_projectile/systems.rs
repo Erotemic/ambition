@@ -72,7 +72,7 @@ pub fn update_enemy_projectiles(
 
     for mut shot in bodies {
         // Localized gravity: resolve from the shot's own position.
-        let gravity_sign = gravity.sign_at(shot.body.pos);
+        let gravity_sign = gravity.sign_at(shot.body.kin.pos);
         let alive = shot.body.tick(dt, gravity_sign);
         if !alive {
             continue;
@@ -84,12 +84,12 @@ pub fn update_enemy_projectiles(
         // overlap helpers so the hit-check matches what `apply_feature_hit_events`
         // applies (incl. multi-part boss hurtboxes). Enemy-faction shots fall to
         // the existing player-damage path below, byte-identical.
-        if shot.body.faction == crate::projectile::ProjectileFaction::Player {
+        if shot.body.game.faction == crate::projectile::ProjectileFaction::Player {
             let hit_event = HitEvent {
                 volume: shot.body.aabb(),
-                damage: shot.body.damage.max(1),
+                damage: shot.body.game.damage.max(1),
                 source: HitSource::PlayerProjectile {
-                    kind: shot.body.kind,
+                    kind: shot.body.game.kind,
                 },
                 attacker: None,
                 target: HitTarget::Volume,
@@ -101,13 +101,18 @@ pub fn update_enemy_projectiles(
                 || crate::features::ecs_hit_event_hits_boss(&hit_event, &ecs_bosses)
             {
                 hit_events.write(hit_event);
-                sfx.write(SfxMessage::Hit { pos: shot.body.pos });
-                vfx.write(VfxMessage::Impact { pos: shot.body.pos });
+                sfx.write(SfxMessage::Hit {
+                    pos: shot.body.kin.pos,
+                });
+                vfx.write(VfxMessage::Impact {
+                    pos: shot.body.kin.pos,
+                });
                 continue;
             }
             // No feature hit this tick — fall through to world collision (shared).
             match resolve_world_collision(
-                &mut shot.body,
+                &mut shot.body.kin,
+                &mut shot.body.game,
                 &world.0,
                 WorldHitPolicy::EnemyExpireOnAnyContact,
             ) {
@@ -140,13 +145,15 @@ pub fn update_enemy_projectiles(
             // the boss's own attack at it. Checked before the vulnerability gate
             // because parrying is exactly the "not vulnerable, act instead" case.
             if shield.parrying() {
-                shot.body.faction = crate::projectile::ProjectileFaction::Player;
-                shot.body.vel = -shot.body.vel * PROJECTILE_REFLECT_SPEED_SCALE;
+                shot.body.game.faction = crate::projectile::ProjectileFaction::Player;
+                shot.body.kin.vel = -shot.body.kin.vel * PROJECTILE_REFLECT_SPEED_SCALE;
                 sfx.write(SfxMessage::Play {
                     id: ambition_sfx::ids::WORLD_ROCK_HIT,
-                    pos: shot.body.pos,
+                    pos: shot.body.kin.pos,
                 });
-                vfx.write(VfxMessage::Impact { pos: shot.body.pos });
+                vfx.write(VfxMessage::Impact {
+                    pos: shot.body.kin.pos,
+                });
                 // Reward the timed deflect with a little health.
                 heals.write(crate::player::PlayerHealRequested::new(PARRY_HEAL));
                 reflected = true;
@@ -157,19 +164,19 @@ pub fn update_enemy_projectiles(
             if !vulnerable {
                 continue;
             }
-            let knock_dir = (kin.pos.x - shot.body.pos.x).signum();
+            let knock_dir = (kin.pos.x - shot.body.kin.pos.x).signum();
             let knock_dir = if knock_dir.abs() < 0.001 {
                 1.0
             } else {
                 knock_dir
             };
             let impact_pos = ae::Vec2::new(
-                (kin.pos.x + shot.body.pos.x) * 0.5,
-                (kin.pos.y + shot.body.pos.y) * 0.5,
+                (kin.pos.x + shot.body.kin.pos.x) * 0.5,
+                (kin.pos.y + shot.body.kin.pos.y) * 0.5,
             );
             hit_events.write(HitEvent {
                 volume: shot.body.aabb(),
-                damage: shot.body.damage.max(1),
+                damage: shot.body.game.damage.max(1),
                 source: HitSource::EnemyProjectile,
                 attacker: None,
                 // Enemy projectiles iterate every player; the first
@@ -182,13 +189,17 @@ pub fn update_enemy_projectiles(
                 knockback: Some(HitKnockback {
                     dir: knock_dir,
                     strength: 0.85,
-                    source_pos: shot.body.pos,
+                    source_pos: shot.body.kin.pos,
                     impact_pos,
                 }),
                 ignored_targets: Vec::new(),
             });
-            sfx.write(SfxMessage::Hit { pos: shot.body.pos });
-            vfx.write(VfxMessage::Impact { pos: shot.body.pos });
+            sfx.write(SfxMessage::Hit {
+                pos: shot.body.kin.pos,
+            });
+            vfx.write(VfxMessage::Impact {
+                pos: shot.body.kin.pos,
+            });
             hit_any_player = true;
             break;
         }
@@ -208,7 +219,8 @@ pub fn update_enemy_projectiles(
         // don't sail through floors and confuse the spatial read
         // (OVERNIGHT-TODO #17.7).
         match resolve_world_collision(
-            &mut shot.body,
+            &mut shot.body.kin,
+            &mut shot.body.game,
             &world.0,
             WorldHitPolicy::EnemyExpireOnAnyContact,
         ) {
@@ -397,18 +409,18 @@ mod tests {
         assert_eq!(state.bodies.len(), 1, "the parried bolt stays in flight");
         let body = &state.bodies[0].body;
         assert_eq!(
-            body.faction,
+            body.game.faction,
             crate::projectile::ProjectileFaction::Player,
             "parry flips the bolt to the player's faction"
         );
         assert!(
-            body.vel.x > 0.0,
+            body.kin.vel.x > 0.0,
             "reversed: it now travels back toward the enemy (was -x)"
         );
         assert!(
-            body.vel.length() > 300.0,
+            body.kin.vel.length() > 300.0,
             "reflected with a speed boost, was 300 now {}",
-            body.vel.length()
+            body.kin.vel.length()
         );
     }
 }

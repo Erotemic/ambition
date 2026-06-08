@@ -78,7 +78,7 @@ impl EnemyProjectileState {
         // Enemy projectiles travel in a straight line (no bouncing —
         // a bouncing volley reads as a pinball and confuses the
         // player about the hostile path).
-        body.bounces_remaining = 0;
+        body.game.bounces_remaining = 0;
         self.bodies.push(crate::projectile::InFlightProjectile {
             body,
             owner_id: request.owner_id,
@@ -114,7 +114,7 @@ mod tests {
         state.spawn(spawn_request(120.0, 1));
         assert_eq!(state.bodies.len(), 1);
         assert_eq!(
-            state.bodies[0].body.faction,
+            state.bodies[0].body.game.faction,
             crate::projectile::ProjectileFaction::Enemy
         );
     }
@@ -135,7 +135,7 @@ mod tests {
         // first contact. `from_spec` would normally give Fireball
         // two bounces, but `EnemyProjectileState::spawn` zeroes the
         // counter so the engine sees the no-bounce policy.
-        assert_eq!(state.bodies[0].body.bounces_remaining, 0);
+        assert_eq!(state.bodies[0].body.game.bounces_remaining, 0);
     }
 
     #[test]
@@ -153,7 +153,7 @@ mod tests {
         });
         // A zero-length direction would NaN the initial_velocity; spawn
         // defaults to (1, 0) so the projectile has a sensible direction.
-        let vel = state.bodies[0].body.vel;
+        let vel = state.bodies[0].body.kin.vel;
         assert!(vel.x > 0.0 && vel.y == 0.0, "got {vel:?}");
     }
 
@@ -162,8 +162,8 @@ mod tests {
         let mut state = EnemyProjectileState::default();
         state.spawn(spawn_request(0.0, 0));
         let body = &state.bodies[0].body;
-        assert!(body.vel.length() >= 1.0, "speed clamped to >= 1.0");
-        assert!(body.damage >= 1, "damage clamped to >= 1");
+        assert!(body.kin.vel.length() >= 1.0, "speed clamped to >= 1.0");
+        assert!(body.game.damage >= 1, "damage clamped to >= 1");
     }
 
     #[test]

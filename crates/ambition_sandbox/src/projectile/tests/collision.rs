@@ -51,8 +51,8 @@ fn fireball_damages_enemy_on_intersect() {
         let mut body = crate::projectile::ProjectileBody::from_spec(spec);
         // Override velocity / pos so the next tick definitely
         // overlaps the enemy AABB regardless of arc tuning.
-        body.pos = ae::Vec2::new(395.0, 300.0);
-        body.vel = ae::Vec2::new(50.0, 0.0);
+        body.kin.pos = ae::Vec2::new(395.0, 300.0);
+        body.kin.vel = ae::Vec2::new(50.0, 0.0);
         state.bodies.push(InFlightProjectile {
             body,
             owner_id: String::new(),
@@ -138,9 +138,9 @@ fn fireball_bounces_off_floor_in_system() {
             1.0,
         );
         let mut body = crate::projectile::ProjectileBody::from_spec(spec);
-        body.pos = ae::Vec2::new(500.0, 395.0);
-        body.vel = ae::Vec2::new(60.0, 240.0);
-        starting_bounces = body.bounces_remaining;
+        body.kin.pos = ae::Vec2::new(500.0, 395.0);
+        body.kin.vel = ae::Vec2::new(60.0, 240.0);
+        starting_bounces = body.game.bounces_remaining;
         assert!(starting_bounces > 0);
         state.bodies.push(InFlightProjectile {
             body,
@@ -157,11 +157,11 @@ fn fireball_bounces_off_floor_in_system() {
     );
     let body = &state.bodies[0].body;
     assert!(
-        body.vel.y < 0.0,
+        body.kin.vel.y < 0.0,
         "post-bounce vy must be upward; got {}",
-        body.vel.y
+        body.kin.vel.y
     );
-    assert_eq!(body.bounces_remaining, starting_bounces - 1);
+    assert_eq!(body.game.bounces_remaining, starting_bounces - 1);
 }
 
 /// Same scenario as `fireball_bounces_off_floor_in_system`, but the
@@ -219,9 +219,9 @@ fn fireball_bounces_off_one_way_platform_in_system() {
             1.0,
         );
         let mut body = crate::projectile::ProjectileBody::from_spec(spec);
-        body.pos = ae::Vec2::new(500.0, 395.0);
-        body.vel = ae::Vec2::new(60.0, 240.0);
-        starting_bounces = body.bounces_remaining;
+        body.kin.pos = ae::Vec2::new(500.0, 395.0);
+        body.kin.vel = ae::Vec2::new(60.0, 240.0);
+        starting_bounces = body.game.bounces_remaining;
         assert!(starting_bounces > 0);
         state.bodies.push(InFlightProjectile {
             body,
@@ -238,11 +238,11 @@ fn fireball_bounces_off_one_way_platform_in_system() {
     );
     let body = &state.bodies[0].body;
     assert!(
-        body.vel.y < 0.0,
+        body.kin.vel.y < 0.0,
         "post-bounce vy must be upward; got {}",
-        body.vel.y
+        body.kin.vel.y
     );
-    assert_eq!(body.bounces_remaining, starting_bounces - 1);
+    assert_eq!(body.game.bounces_remaining, starting_bounces - 1);
 }
 
 /// A fireball flying horizontally beneath a thin one-way platform
@@ -304,8 +304,8 @@ fn fireball_passes_through_one_way_from_below_in_system() {
         // Centre the body inside the platform's y-range so the
         // contact is unambiguously a side / overlap, not a top
         // landing. Velocity is purely horizontal.
-        body.pos = ae::Vec2::new(500.0, 404.0);
-        body.vel = ae::Vec2::new(360.0, 0.0);
+        body.kin.pos = ae::Vec2::new(500.0, 404.0);
+        body.kin.vel = ae::Vec2::new(360.0, 0.0);
         state.bodies.push(InFlightProjectile {
             body,
             owner_id: String::new(),
@@ -321,9 +321,9 @@ fn fireball_passes_through_one_way_from_below_in_system() {
     );
     let body = &state.bodies[0].body;
     assert!(
-        body.vel.x > 0.0,
+        body.kin.vel.x > 0.0,
         "horizontal velocity should be unchanged after passthrough; got {}",
-        body.vel.x
+        body.kin.vel.x
     );
 }
 
@@ -381,8 +381,8 @@ fn hadouken_expires_on_solid_in_system() {
             1.0,
         );
         let mut body = crate::projectile::ProjectileBody::from_spec(spec);
-        body.pos = ae::Vec2::new(595.0, 300.0);
-        body.vel = ae::Vec2::new(520.0, 0.0);
+        body.kin.pos = ae::Vec2::new(595.0, 300.0);
+        body.kin.vel = ae::Vec2::new(520.0, 0.0);
         state.bodies.push(InFlightProjectile {
             body,
             owner_id: String::new(),

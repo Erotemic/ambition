@@ -17,16 +17,21 @@
 //! ## Submodules
 //! - [`spec`] — [`ProjectileKind`], [`ProjectileSpec`], charge tuning
 //!   (authored intent).
-//! - [`body`] — [`ProjectileBody`] (per-frame motion + solid/one-way
-//!   resolution), [`ProjectileFaction`], [`InFlightProjectile`],
+//! - [`body`] — the kinematic/gameplay split: [`ProjectileGameplay`]
+//!   (per-frame motion + solid/one-way resolution over a
+//!   [`ambition_engine_core::BodyKinematics`]), the [`ProjectileBody`]
+//!   composite, [`ProjectileFaction`], [`InFlightProjectile`],
 //!   [`ProjectileSolidHit`].
-//! - [`collision`] — [`resolve_world_collision`] (body-vs-world scan,
-//!   dispatched on a per-faction [`WorldHitPolicy`]).
+//! - [`collision`] — [`resolve_world_collision`] (body-vs-world scan over
+//!   the split kinematic + gameplay halves, dispatched on a per-faction
+//!   [`WorldHitPolicy`]).
 
 pub mod body;
 pub mod collision;
 pub mod spec;
 
-pub use body::{InFlightProjectile, ProjectileBody, ProjectileFaction, ProjectileSolidHit};
+pub use body::{
+    InFlightProjectile, ProjectileBody, ProjectileFaction, ProjectileGameplay, ProjectileSolidHit,
+};
 pub use collision::{resolve_world_collision, WorldHitOutcome, WorldHitPolicy};
 pub use spec::{FireballChargeTuning, ProjectileKind, ProjectileSpec};

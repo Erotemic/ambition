@@ -178,7 +178,7 @@ mod tests {
         assert!(
             pool.bodies
                 .iter()
-                .all(|b| b.body.faction == ProjectileFaction::Player),
+                .all(|b| b.body.game.faction == ProjectileFaction::Player),
             "meteors are player-faction (damage enemies, spare the player)"
         );
     }

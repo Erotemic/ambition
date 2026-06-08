@@ -47,8 +47,8 @@ mod engine_tests;
 // sandbox as a thin consumer.
 pub use ambition_platformer_runtime::projectile::{
     resolve_world_collision, FireballChargeTuning, InFlightProjectile, ProjectileBody,
-    ProjectileFaction, ProjectileKind, ProjectileSolidHit, ProjectileSpec, WorldHitOutcome,
-    WorldHitPolicy,
+    ProjectileFaction, ProjectileGameplay, ProjectileKind, ProjectileSolidHit, ProjectileSpec,
+    WorldHitOutcome, WorldHitPolicy,
 };
 
 // Sandbox-specific spawn helpers (player input gesture buffer + cooldown meter)

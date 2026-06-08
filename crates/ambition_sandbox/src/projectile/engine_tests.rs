@@ -153,11 +153,11 @@ fn fireball_arcs_downward() {
         body.tick(0.016, 1.0);
     }
     assert!(
-        body.pos.y > 0.0,
+        body.kin.pos.y > 0.0,
         "fireball should arc downward, got {}",
-        body.pos.y
+        body.kin.pos.y
     );
-    assert!(body.pos.x > 0.0);
+    assert!(body.kin.pos.x > 0.0);
 }
 
 #[test]
@@ -172,8 +172,8 @@ fn hadouken_travels_straight_horizontally() {
     for _ in 0..30 {
         body.tick(0.016, 1.0);
     }
-    assert!(body.pos.y.abs() < 1e-3);
-    assert!(body.pos.x > 0.0);
+    assert!(body.kin.pos.y.abs() < 1e-3);
+    assert!(body.kin.pos.x > 0.0);
 }
 
 fn block_aabb(min: Vec2, size: Vec2) -> Aabb {
@@ -196,18 +196,18 @@ fn fireball_bounces_off_floor_top() {
     // Force the body downward so the contact is unambiguously
     // "from above" (test the geometric branch independent of
     // whatever the spec's gravity has done so far).
-    body.vel = Vec2::new(200.0, 240.0);
-    body.pos = Vec2::new(150.0, 195.0);
-    let starting_bounces = body.bounces_remaining;
+    body.kin.vel = Vec2::new(200.0, 240.0);
+    body.kin.pos = Vec2::new(150.0, 195.0);
+    let starting_bounces = body.game.bounces_remaining;
     let floor = block_aabb(Vec2::new(0.0, 200.0), Vec2::new(400.0, 32.0));
     assert!(starting_bounces > 0, "fireball must spawn with bounces");
     let outcome = body.resolve_solid_hit(floor);
     assert_eq!(outcome, ProjectileSolidHit::Bounced);
-    assert_eq!(body.bounces_remaining, starting_bounces - 1);
+    assert_eq!(body.game.bounces_remaining, starting_bounces - 1);
     assert!(
-        body.vel.y < 0.0,
+        body.kin.vel.y < 0.0,
         "vy must reflect upward after a floor bounce; got {}",
-        body.vel.y
+        body.kin.vel.y
     );
     // Body bottom edge must now be at or above the block top.
     assert!(body.aabb().bottom() <= floor.top() + 1.0);
@@ -227,8 +227,8 @@ fn fireball_expires_on_non_floor_contact() {
     let mut body = ProjectileBody::from_spec(spec);
     // Side wall: body center is to the LEFT of the block center.
     // Side contact never bounces in this model.
-    body.pos = Vec2::new(180.0, 100.0);
-    body.vel = Vec2::new(360.0, 60.0);
+    body.kin.pos = Vec2::new(180.0, 100.0);
+    body.kin.vel = Vec2::new(360.0, 60.0);
     let wall = block_aabb(Vec2::new(190.0, 0.0), Vec2::new(32.0, 400.0));
     let outcome = body.resolve_solid_hit(wall);
     assert_eq!(outcome, ProjectileSolidHit::Expired);
@@ -245,9 +245,9 @@ fn fireball_expires_when_bounce_budget_exhausted() {
         1.0,
     );
     let mut body = ProjectileBody::from_spec(spec);
-    body.bounces_remaining = 0;
-    body.vel = Vec2::new(200.0, 240.0);
-    body.pos = Vec2::new(150.0, 195.0);
+    body.game.bounces_remaining = 0;
+    body.kin.vel = Vec2::new(200.0, 240.0);
+    body.kin.pos = Vec2::new(150.0, 195.0);
     let floor = block_aabb(Vec2::new(0.0, 200.0), Vec2::new(400.0, 32.0));
     let outcome = body.resolve_solid_hit(floor);
     assert_eq!(outcome, ProjectileSolidHit::Expired);
@@ -266,14 +266,14 @@ fn fireball_bounces_off_one_way_platform_top() {
         1.0,
     );
     let mut body = ProjectileBody::from_spec(spec);
-    body.vel = Vec2::new(200.0, 240.0);
-    body.pos = Vec2::new(150.0, 195.0);
-    let starting_bounces = body.bounces_remaining;
+    body.kin.vel = Vec2::new(200.0, 240.0);
+    body.kin.pos = Vec2::new(150.0, 195.0);
+    let starting_bounces = body.game.bounces_remaining;
     let platform = block_aabb(Vec2::new(0.0, 200.0), Vec2::new(400.0, 8.0));
     let outcome = body.resolve_one_way_hit(platform);
     assert_eq!(outcome, ProjectileSolidHit::Bounced);
-    assert_eq!(body.bounces_remaining, starting_bounces - 1);
-    assert!(body.vel.y < 0.0);
+    assert_eq!(body.game.bounces_remaining, starting_bounces - 1);
+    assert!(body.kin.vel.y < 0.0);
     assert!(body.aabb().bottom() <= platform.top() + 1.0);
 }
 
@@ -291,17 +291,17 @@ fn fireball_passes_through_one_way_on_non_top_contact() {
     );
     let mut body = ProjectileBody::from_spec(spec);
     // From below, moving upward — not a landing.
-    body.pos = Vec2::new(150.0, 220.0);
-    body.vel = Vec2::new(200.0, -240.0);
-    let bounces_before = body.bounces_remaining;
-    let pos_before = body.pos;
-    let vel_before = body.vel;
+    body.kin.pos = Vec2::new(150.0, 220.0);
+    body.kin.vel = Vec2::new(200.0, -240.0);
+    let bounces_before = body.game.bounces_remaining;
+    let pos_before = body.kin.pos;
+    let vel_before = body.kin.vel;
     let platform = block_aabb(Vec2::new(0.0, 200.0), Vec2::new(400.0, 8.0));
     let outcome = body.resolve_one_way_hit(platform);
     assert_eq!(outcome, ProjectileSolidHit::Passthrough);
-    assert_eq!(body.bounces_remaining, bounces_before);
-    assert_eq!(body.pos, pos_before);
-    assert_eq!(body.vel, vel_before);
+    assert_eq!(body.game.bounces_remaining, bounces_before);
+    assert_eq!(body.kin.pos, pos_before);
+    assert_eq!(body.kin.vel, vel_before);
 }
 
 /// A fireball with no bounce budget left passes through a one-way
@@ -316,9 +316,9 @@ fn fireball_with_no_bounces_passes_through_one_way_top() {
         1.0,
     );
     let mut body = ProjectileBody::from_spec(spec);
-    body.bounces_remaining = 0;
-    body.vel = Vec2::new(200.0, 240.0);
-    body.pos = Vec2::new(150.0, 195.0);
+    body.game.bounces_remaining = 0;
+    body.kin.vel = Vec2::new(200.0, 240.0);
+    body.kin.pos = Vec2::new(150.0, 195.0);
     let platform = block_aabb(Vec2::new(0.0, 200.0), Vec2::new(400.0, 8.0));
     let outcome = body.resolve_one_way_hit(platform);
     assert_eq!(outcome, ProjectileSolidHit::Passthrough);
@@ -336,7 +336,7 @@ fn hadouken_expires_on_first_solid_hit() {
         1.0,
     );
     let mut body = ProjectileBody::from_spec(spec);
-    assert_eq!(body.bounces_remaining, 0);
+    assert_eq!(body.game.bounces_remaining, 0);
     let wall = block_aabb(Vec2::new(60.0, 0.0), Vec2::new(32.0, 400.0));
     let outcome = body.resolve_solid_hit(wall);
     assert_eq!(outcome, ProjectileSolidHit::Expired);
@@ -561,7 +561,7 @@ fn from_spec_defaults_faction_to_player() {
         1.0,
     );
     let body = ProjectileBody::from_spec(spec);
-    assert_eq!(body.faction, ProjectileFaction::Player);
+    assert_eq!(body.game.faction, ProjectileFaction::Player);
 }
 
 #[test]
@@ -573,8 +573,8 @@ fn from_spec_with_faction_carries_enemy_tag_through_to_body() {
         1.0,
     );
     let body = ProjectileBody::from_spec_with_faction(spec, ProjectileFaction::Enemy);
-    assert_eq!(body.faction, ProjectileFaction::Enemy);
+    assert_eq!(body.game.faction, ProjectileFaction::Enemy);
     // All other body fields land as if `from_spec` had been called.
-    assert_eq!(body.kind, ProjectileKind::Fireball);
-    assert_eq!(body.pos, Vec2::ZERO);
+    assert_eq!(body.game.kind, ProjectileKind::Fireball);
+    assert_eq!(body.kin.pos, Vec2::ZERO);
 }

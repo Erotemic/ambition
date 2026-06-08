@@ -1678,10 +1678,10 @@ mod tests {
         let pad = 14.0; // matches APPLE_RAIN_HALF_EXTENT.x
         for spawn in &projectiles.bodies {
             assert!(
-                spawn.body.pos.x <= self_aabb.min.x - pad + 1e-3
-                    || spawn.body.pos.x >= self_aabb.max.x + pad - 1e-3,
+                spawn.body.kin.pos.x <= self_aabb.min.x - pad + 1e-3
+                    || spawn.body.kin.pos.x >= self_aabb.max.x + pad - 1e-3,
                 "apple at x={} fell inside boss aabb [{},{}] +/- {}",
-                spawn.body.pos.x,
+                spawn.body.kin.pos.x,
                 self_aabb.min.x,
                 self_aabb.max.x,
                 pad,
@@ -1711,11 +1711,11 @@ mod tests {
         let any_left = projectiles
             .bodies
             .iter()
-            .any(|s| s.body.pos.x < boss_x - 100.0);
+            .any(|s| s.body.kin.pos.x < boss_x - 100.0);
         let any_right = projectiles
             .bodies
             .iter()
-            .any(|s| s.body.pos.x > boss_x + 100.0);
+            .any(|s| s.body.kin.pos.x > boss_x + 100.0);
         assert!(
             any_left && any_right,
             "expected apples on both sides of boss; got {} apples",

@@ -13,9 +13,9 @@ fn tap_release_fires_one_fireball() {
     tap_projectile(&mut app);
     let state = crate::projectile::tests::projectile_state_ref(&app);
     assert_eq!(state.bodies.len(), 1);
-    assert_eq!(state.bodies[0].body.kind, ProjectileKind::Fireball);
+    assert_eq!(state.bodies[0].body.game.kind, ProjectileKind::Fireball);
     // Tap-release is below the medium threshold → tier 0.
-    assert_eq!(state.bodies[0].body.kind, ProjectileKind::Fireball);
+    assert_eq!(state.bodies[0].body.game.kind, ProjectileKind::Fireball);
 }
 
 /// Pressing without releasing is "still charging" — no body
@@ -76,18 +76,18 @@ fn held_release_after_medium_threshold_fires_charged_fireball() {
     let state = crate::projectile::tests::projectile_state_ref(&app);
     assert_eq!(state.bodies.len(), 1);
     let body = &state.bodies[0].body;
-    assert_eq!(body.kind, ProjectileKind::Fireball);
+    assert_eq!(body.game.kind, ProjectileKind::Fireball);
     // Tier-1 size scaling is 1.4x on baseline half-extent (12, 9)
     // → at least 16x12 — meaningfully bigger than tier 0.
     let baseline = crate::projectile::ProjectileKind::Fireball.half_extent();
     assert!(
-        body.half_extent.x > baseline.x * 1.2,
+        body.half_extent().x > baseline.x * 1.2,
         "charged fireball must be visibly larger; got {:?} vs baseline {:?}",
-        body.half_extent,
+        body.half_extent(),
         baseline
     );
     // Tier-1 damage scaling is 2x baseline (1) = 2.
-    assert!(body.damage >= 2);
+    assert!(body.game.damage >= 2);
 }
 
 /// Grace QCF (Down → Right) + press fires a regular Hadouken
@@ -114,7 +114,7 @@ fn grace_qcf_then_press_fires_hadouken_immediately() {
     app.update();
     let state = crate::projectile::tests::projectile_state_ref(&app);
     assert_eq!(state.bodies.len(), 1);
-    assert_eq!(state.bodies[0].body.kind, ProjectileKind::Hadouken);
+    assert_eq!(state.bodies[0].body.game.kind, ProjectileKind::Hadouken);
 }
 
 #[test]
@@ -142,7 +142,10 @@ fn full_qcf_then_press_fires_hadouken_super() {
     app.update();
     let state = crate::projectile::tests::projectile_state_ref(&app);
     assert_eq!(state.bodies.len(), 1);
-    assert_eq!(state.bodies[0].body.kind, ProjectileKind::HadoukenSuper);
+    assert_eq!(
+        state.bodies[0].body.game.kind,
+        ProjectileKind::HadoukenSuper
+    );
 }
 
 #[test]
@@ -172,7 +175,10 @@ fn half_circle_still_fires_hadouken_super() {
     app.update();
     let state = crate::projectile::tests::projectile_state_ref(&app);
     assert_eq!(state.bodies.len(), 1);
-    assert_eq!(state.bodies[0].body.kind, ProjectileKind::HadoukenSuper);
+    assert_eq!(
+        state.bodies[0].body.game.kind,
+        ProjectileKind::HadoukenSuper
+    );
 }
 
 #[test]

@@ -15,6 +15,9 @@
 
 use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
+use ambition_engine_core::BodyKinematics;
+
+use super::body::ProjectileGameplay;
 
 /// Per-faction world-collision policy for projectile bodies.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -44,18 +47,26 @@ pub enum WorldHitOutcome {
     Continue,
 }
 
-/// Resolve a projectile body against the world's blocks for this
-/// tick, dispatching on the per-faction collision policy.
+/// Resolve a projectile against the world's blocks for this tick,
+/// dispatching on the per-faction collision policy.
 ///
-/// The body is mutably borrowed because `PlayerBouncing` may decrement
-/// `bounces_remaining` via `body.resolve_solid_hit` / `resolve_one_way_hit`;
+/// Operates on the SPLIT halves — the kinematic [`BodyKinematics`] and the
+/// projectile [`ProjectileGameplay`] (Stage 19 Phase 3a) — so the same
+/// resolver drives a still-`Vec`-pooled `ProjectileBody` (whose `.kin` /
+/// `.game` fields are passed in) and, after the ECS migration, a projectile
+/// *entity* carrying the two as separate components.
+///
+/// The halves are mutably borrowed because `PlayerBouncing` may decrement
+/// `bounces_remaining` / reposition the body via
+/// `game.resolve_solid_hit` / `resolve_one_way_hit`;
 /// `EnemyExpireOnAnyContact` only reads.
 pub fn resolve_world_collision(
-    body: &mut crate::projectile::ProjectileBody,
+    kin: &mut BodyKinematics,
+    game: &mut ProjectileGameplay,
     world: &ae::World,
     policy: WorldHitPolicy,
 ) -> WorldHitOutcome {
-    let aabb = body.aabb();
+    let aabb = kin.aabb();
     match policy {
         WorldHitPolicy::PlayerBouncing => {
             // Solids first so a fireball overlapping both kinds in the
@@ -68,12 +79,12 @@ pub fn resolve_world_collision(
                 ) && block.aabb.strict_intersects(aabb)
             });
             if let Some(block) = solid_hit {
-                return match body.resolve_solid_hit(block.aabb) {
+                return match game.resolve_solid_hit(kin, block.aabb) {
                     crate::projectile::ProjectileSolidHit::Bounced => {
-                        WorldHitOutcome::Bounced { pos: body.pos }
+                        WorldHitOutcome::Bounced { pos: kin.pos }
                     }
                     crate::projectile::ProjectileSolidHit::Expired => {
-                        WorldHitOutcome::Expired { pos: body.pos }
+                        WorldHitOutcome::Expired { pos: kin.pos }
                     }
                     crate::projectile::ProjectileSolidHit::Passthrough => WorldHitOutcome::Continue,
                 };
@@ -85,9 +96,9 @@ pub fn resolve_world_collision(
                 if !block.aabb.strict_intersects(aabb) {
                     continue;
                 }
-                let result = body.resolve_one_way_hit(block.aabb);
+                let result = game.resolve_one_way_hit(kin, block.aabb);
                 if matches!(result, crate::projectile::ProjectileSolidHit::Bounced) {
-                    return WorldHitOutcome::Bounced { pos: body.pos };
+                    return WorldHitOutcome::Bounced { pos: kin.pos };
                 }
                 // Passthrough on a one-way: keep scanning in case
                 // another one-way overlap qualifies as a top-landing.
@@ -103,7 +114,7 @@ pub fn resolve_world_collision(
                 ) && block.aabb.strict_intersects(aabb)
             });
             if any_hit {
-                WorldHitOutcome::Expired { pos: body.pos }
+                WorldHitOutcome::Expired { pos: kin.pos }
             } else {
                 WorldHitOutcome::Continue
             }
@@ -141,7 +152,7 @@ mod tests {
             charge_tier: 0,
         };
         let mut body = crate::projectile::ProjectileBody::from_spec_with_faction(spec, faction);
-        body.bounces_remaining = 0; // baseline: no bouncing
+        body.game.bounces_remaining = 0; // baseline: no bouncing
         body
     }
 
@@ -156,8 +167,12 @@ mod tests {
             crate::projectile::ProjectileFaction::Enemy,
             ae::Vec2::new(100.0, 100.0),
         );
-        let outcome =
-            resolve_world_collision(&mut body, &world, WorldHitPolicy::EnemyExpireOnAnyContact);
+        let outcome = resolve_world_collision(
+            &mut body.kin,
+            &mut body.game,
+            &world,
+            WorldHitPolicy::EnemyExpireOnAnyContact,
+        );
         assert!(matches!(outcome, WorldHitOutcome::Expired { .. }));
     }
 
@@ -175,8 +190,12 @@ mod tests {
             crate::projectile::ProjectileFaction::Enemy,
             ae::Vec2::new(100.0, 100.0),
         );
-        let outcome =
-            resolve_world_collision(&mut body, &world, WorldHitPolicy::EnemyExpireOnAnyContact);
+        let outcome = resolve_world_collision(
+            &mut body.kin,
+            &mut body.game,
+            &world,
+            WorldHitPolicy::EnemyExpireOnAnyContact,
+        );
         assert!(matches!(outcome, WorldHitOutcome::Expired { .. }));
     }
 
@@ -192,7 +211,12 @@ mod tests {
             ae::Vec2::new(100.0, 100.0),
         );
         // bounces_remaining = 0 (Hadouken)
-        let outcome = resolve_world_collision(&mut body, &world, WorldHitPolicy::PlayerBouncing);
+        let outcome = resolve_world_collision(
+            &mut body.kin,
+            &mut body.game,
+            &world,
+            WorldHitPolicy::PlayerBouncing,
+        );
         assert!(matches!(outcome, WorldHitOutcome::Expired { .. }));
     }
 
@@ -210,7 +234,12 @@ mod tests {
             crate::projectile::ProjectileFaction::Player,
             ae::Vec2::new(100.0, 100.0),
         );
-        let outcome = resolve_world_collision(&mut body, &world, WorldHitPolicy::PlayerBouncing);
+        let outcome = resolve_world_collision(
+            &mut body.kin,
+            &mut body.game,
+            &world,
+            WorldHitPolicy::PlayerBouncing,
+        );
         assert!(matches!(outcome, WorldHitOutcome::Continue));
     }
 
@@ -220,9 +249,9 @@ mod tests {
     /// `resolve_one_way_hit` doc promises. (TODO #123 bounce case.)
     fn falling_player_projectile(pos: ae::Vec2, bounces: u8) -> crate::projectile::ProjectileBody {
         let mut body = straight_projectile(crate::projectile::ProjectileFaction::Player, pos);
-        body.pos = pos;
-        body.vel = ae::Vec2::new(0.0, 80.0); // downward (world y-down)
-        body.bounces_remaining = bounces;
+        body.kin.pos = pos;
+        body.kin.vel = ae::Vec2::new(0.0, 80.0); // downward (world y-down)
+        body.game.bounces_remaining = bounces;
         body
     }
 
@@ -236,13 +265,24 @@ mod tests {
         );
         // Falling onto the platform top, overlapping it from above.
         let mut body = falling_player_projectile(ae::Vec2::new(100.0, 94.0), 2);
-        let outcome = resolve_world_collision(&mut body, &world, WorldHitPolicy::PlayerBouncing);
+        let outcome = resolve_world_collision(
+            &mut body.kin,
+            &mut body.game,
+            &world,
+            WorldHitPolicy::PlayerBouncing,
+        );
         assert!(
             matches!(outcome, WorldHitOutcome::Bounced { .. }),
             "fireball should skip off a one-way top like a floor; got {outcome:?}"
         );
-        assert_eq!(body.bounces_remaining, 1, "a bounce should be consumed");
-        assert!(body.vel.y < 0.0, "bounce should reflect velocity upward");
+        assert_eq!(
+            body.game.bounces_remaining, 1,
+            "a bounce should be consumed"
+        );
+        assert!(
+            body.kin.vel.y < 0.0,
+            "bounce should reflect velocity upward"
+        );
     }
 
     #[test]
@@ -259,15 +299,20 @@ mod tests {
             crate::projectile::ProjectileFaction::Player,
             ae::Vec2::new(100.0, 106.0),
         );
-        body.vel = ae::Vec2::new(0.0, -80.0); // upward
-        body.bounces_remaining = 2;
-        let outcome = resolve_world_collision(&mut body, &world, WorldHitPolicy::PlayerBouncing);
+        body.kin.vel = ae::Vec2::new(0.0, -80.0); // upward
+        body.game.bounces_remaining = 2;
+        let outcome = resolve_world_collision(
+            &mut body.kin,
+            &mut body.game,
+            &world,
+            WorldHitPolicy::PlayerBouncing,
+        );
         assert!(
             matches!(outcome, WorldHitOutcome::Continue),
             "a one-way is non-solid from below; got {outcome:?}"
         );
         assert_eq!(
-            body.bounces_remaining, 2,
+            body.game.bounces_remaining, 2,
             "passthrough must not spend a bounce"
         );
     }
@@ -282,12 +327,17 @@ mod tests {
             ae::Vec2::new(50.0, 50.0),
         );
         let mut body = falling_player_projectile(ae::Vec2::new(100.0, 48.0), 2);
-        let outcome = resolve_world_collision(&mut body, &world, WorldHitPolicy::PlayerBouncing);
+        let outcome = resolve_world_collision(
+            &mut body.kin,
+            &mut body.game,
+            &world,
+            WorldHitPolicy::PlayerBouncing,
+        );
         assert!(
             matches!(outcome, WorldHitOutcome::Bounced { .. }),
             "fireball with budget should skip off a solid floor; got {outcome:?}"
         );
-        assert_eq!(body.bounces_remaining, 1);
+        assert_eq!(body.game.bounces_remaining, 1);
     }
 
     #[test]
@@ -301,7 +351,12 @@ mod tests {
             crate::projectile::ProjectileFaction::Player,
             ae::Vec2::new(100.0, 100.0),
         );
-        let outcome = resolve_world_collision(&mut body, &world, WorldHitPolicy::PlayerBouncing);
+        let outcome = resolve_world_collision(
+            &mut body.kin,
+            &mut body.game,
+            &world,
+            WorldHitPolicy::PlayerBouncing,
+        );
         assert!(matches!(outcome, WorldHitOutcome::Continue));
     }
 }

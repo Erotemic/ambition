@@ -120,10 +120,12 @@ pub fn update_projectiles(
         let mut still_alive = Vec::with_capacity(state.bodies.len());
         let mut bodies = std::mem::take(&mut state.bodies);
         for mut p in bodies.drain(..) {
-            let gravity_sign = gravity.sign_at(p.body.pos);
+            let gravity_sign = gravity.sign_at(p.body.kin.pos);
             let alive = p.body.tick(dt, gravity_sign);
             if !alive {
-                events.push(ProjectileTraceEvent::Expired { kind: p.body.kind });
+                events.push(ProjectileTraceEvent::Expired {
+                    kind: p.body.game.kind,
+                });
                 continue;
             }
 
@@ -136,8 +138,10 @@ pub fn update_projectiles(
             // shot = one damage event = one damage application.
             let hit_event = HitEvent {
                 volume: p.body.aabb(),
-                damage: p.body.damage,
-                source: HitSource::PlayerProjectile { kind: p.body.kind },
+                damage: p.body.game.damage,
+                source: HitSource::PlayerProjectile {
+                    kind: p.body.game.kind,
+                },
                 attacker: Some(player_entity),
                 target: crate::features::HitTarget::Volume,
                 mode: crate::features::HitMode::Knockback,
@@ -150,10 +154,12 @@ pub fn update_projectiles(
             let ecs_boss_hit = crate::features::ecs_hit_event_hits_boss(&hit_event, &ecs_bosses);
             if ecs_breakable_hit || ecs_actor_hit || ecs_boss_hit {
                 feature_damage.write(hit_event);
-                sfx.write(SfxMessage::Hit { pos: p.body.pos });
+                sfx.write(SfxMessage::Hit {
+                    pos: p.body.kin.pos,
+                });
                 events.push(ProjectileTraceEvent::Hit {
-                    kind: p.body.kind,
-                    damage: p.body.damage,
+                    kind: p.body.game.kind,
+                    damage: p.body.game.damage,
                 });
                 continue;
             }
@@ -165,7 +171,12 @@ pub fn update_projectiles(
             // `bounces_remaining > 0`) bounce off floors and pass through
             // one-way platforms unless landing-from-above; Hadouken (0
             // bounces) expires on the first solid hit.
-            match resolve_world_collision(&mut p.body, &world.0, WorldHitPolicy::PlayerBouncing) {
+            match resolve_world_collision(
+                &mut p.body.kin,
+                &mut p.body.game,
+                &world.0,
+                WorldHitPolicy::PlayerBouncing,
+            ) {
                 WorldHitOutcome::Bounced { pos } => {
                     sfx.write(SfxMessage::Hit { pos });
                     still_alive.push(p);
@@ -173,8 +184,8 @@ pub fn update_projectiles(
                 }
                 WorldHitOutcome::Expired { pos } => {
                     events.push(ProjectileTraceEvent::Hit {
-                        kind: p.body.kind,
-                        damage: p.body.damage,
+                        kind: p.body.game.kind,
+                        damage: p.body.game.damage,
                     });
                     vfx.write(VfxMessage::Impact { pos });
                     continue;

@@ -221,7 +221,7 @@ mod tests {
         assert!(
             pool.bodies
                 .iter()
-                .all(|b| b.body.faction == ProjectileFaction::Player),
+                .all(|b| b.body.game.faction == ProjectileFaction::Player),
             "sentry bolts are player-faction (damage enemies, not the player)"
         );
     }

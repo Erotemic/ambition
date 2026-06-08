@@ -99,14 +99,12 @@ pub fn sync_projectile_visuals(
         }
         for projectile in &state.bodies {
             let body = &projectile.body;
-            let render_size = bevy::math::Vec2::new(
-                (body.half_extent.x * 2.0).max(8.0),
-                (body.half_extent.y * 2.0).max(8.0),
-            );
+            let render_size =
+                bevy::math::Vec2::new((body.kin.size.x).max(8.0), (body.kin.size.y).max(8.0));
             // Hadouken tint (cooler / blue-shifted) vs Fireball (warmer
             // orange). The tint applies whether or not the textured sprite
             // loads; a missing texture falls through to a colored quad.
-            let tint = match body.kind {
+            let tint = match body.game.kind {
                 crate::projectile::ProjectileKind::Fireball => Color::srgba(1.0, 0.74, 0.30, 0.95),
                 crate::projectile::ProjectileKind::Hadouken => Color::srgba(0.45, 0.78, 1.0, 0.96),
                 // Stronger tint for the Super so the player can see at a
@@ -126,16 +124,16 @@ pub fn sync_projectile_visuals(
             };
             // Flip the sprite to face travel direction so a leftward
             // fireball doesn't look upside-down.
-            sprite.flip_x = body.vel.x < 0.0;
+            sprite.flip_x = body.kin.vel.x < 0.0;
             commands.spawn((
                 sprite,
                 Transform::from_translation(crate::config::world_to_bevy(
                     &world.0,
-                    body.pos,
+                    body.kin.pos,
                     crate::config::WORLD_Z_PLAYER + 2.0,
                 )),
                 PlayerProjectileVisual,
-                Name::new(match body.kind {
+                Name::new(match body.game.kind {
                     crate::projectile::ProjectileKind::Fireball => "Player projectile: fireball",
                     crate::projectile::ProjectileKind::Hadouken => "Player projectile: hadouken",
                     crate::projectile::ProjectileKind::HadoukenSuper => {

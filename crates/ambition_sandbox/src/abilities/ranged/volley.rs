@@ -151,14 +151,14 @@ mod tests {
             state
                 .bodies
                 .iter()
-                .all(|b| b.body.faction == ProjectileFaction::Player),
+                .all(|b| b.body.game.faction == ProjectileFaction::Player),
             "the wielded volley fires player-faction bolts"
         );
         // The bolts fan out — not all the same direction.
         let dirs: Vec<f32> = state
             .bodies
             .iter()
-            .map(|b| b.body.vel.y.atan2(b.body.vel.x))
+            .map(|b| b.body.kin.vel.y.atan2(b.body.kin.vel.x))
             .collect();
         assert!(
             dirs.windows(2).any(|w| (w[0] - w[1]).abs() > 1e-3),

@@ -2,7 +2,7 @@
 
 use crate::engine_core::Vec2;
 
-use super::spec::{ProjectileKind, ProjectileSpec};
+use super::{ProjectileKind, ProjectileSpec};
 use crate::engine_core::ResourceMeter;
 
 /// Spawner state. Owns the per-projectile cooldown timer and a

@@ -1,9 +1,9 @@
 use crate::engine_core::Vec2;
 
-use super::body::{ProjectileBody, ProjectileFaction, ProjectileSolidHit};
 use super::motion_input::{MotionDirection, MotionInputBuffer};
 use super::spawn::{ProjectileSpawner, SpawnFailure};
-use super::spec::{FireballChargeTuning, ProjectileKind, ProjectileSpec};
+use super::{FireballChargeTuning, ProjectileKind, ProjectileSpec};
+use super::{ProjectileBody, ProjectileFaction, ProjectileSolidHit};
 use crate::engine_core::{aabb_from_min_size, Aabb, AabbExt};
 
 #[test]

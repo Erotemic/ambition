@@ -7,7 +7,7 @@
 use bevy::prelude::*;
 
 use crate::engine_core as ae;
-use crate::projectile::spec::ProjectileKind;
+use crate::projectile::ProjectileKind;
 
 use super::super::systems::update_projectiles;
 use super::{

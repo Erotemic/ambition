@@ -20,6 +20,7 @@ pub mod markers;
 pub mod math;
 pub mod orientation;
 pub mod prelude;
+pub mod projectile;
 pub mod schedule;
 pub mod time;
 pub mod transit;

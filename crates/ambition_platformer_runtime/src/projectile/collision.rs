@@ -1,17 +1,20 @@
 //! Shared world-block collision resolver for player + enemy projectiles.
 //!
-//! Both `crate::projectile::update_projectiles` and
-//! `crate::enemy_projectile::update_enemy_projectiles` previously
-//! re-implemented the "did this projectile body hit a solid /
-//! blink-wall / one-way platform this frame?" scan. They differ only
-//! in how the outcome is routed (player bounces off floors, enemy
-//! shots expire on any solid contact) — the scan itself is
+//! Both the player projectile update loop and the enemy-projectile
+//! update loop previously re-implemented the "did this projectile body
+//! hit a solid / blink-wall / one-way platform this frame?" scan. They
+//! differ only in how the outcome is routed (player bounces off floors,
+//! enemy shots expire on any solid contact) — the scan itself is
 //! identical and faction-dispatched here so a new projectile family
 //! (boss volleys, traps, reflected shots) can pick a policy by tag
-//! rather than copying a 40-line loop (OVERNIGHT-TODO #17.7).
+//! rather than copying a 40-line loop. This is the reusable,
+//! game-agnostic projectile-vs-world resolver: it operates only on an
+//! `ambition_engine_core::World` and a [`ProjectileBody`], so any
+//! platformer can drive it. Spawn/damage routing stays in the consuming
+//! game.
 
-use crate::engine_core as ae;
-use crate::engine_core::AabbExt;
+use ambition_engine_core as ae;
+use ambition_engine_core::AabbExt;
 
 /// Per-faction world-collision policy for projectile bodies.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

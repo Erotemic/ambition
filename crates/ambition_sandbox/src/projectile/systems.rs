@@ -4,9 +4,9 @@
 use crate::engine_core as ae;
 use bevy::prelude::*;
 
-use super::collision::{resolve_world_collision, WorldHitOutcome, WorldHitPolicy};
 use super::diagnostics::log_press_diagnostics;
 use super::state::{PlayerProjectileState, ProjectileTraceEvent};
+use super::{resolve_world_collision, WorldHitOutcome, WorldHitPolicy};
 use crate::audio::SfxMessage;
 use crate::features::{
     ActorCombatState, ActorDisposition, BossClusterRef, BossConfig, BreakableFeature, FeatureAabb,

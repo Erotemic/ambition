@@ -1,10 +1,10 @@
 //! Per-frame projectile state plus the engine-side floor/wall
 //! resolution (`ProjectileBody::resolve_solid_hit`).
 
-use crate::engine_core::Vec2;
+use ambition_engine_core::Vec2;
 
 use super::spec::{ProjectileKind, ProjectileSpec};
-use crate::engine_core::{aabb_from_min_size, Aabb, AabbExt};
+use ambition_engine_core::{aabb_from_min_size, Aabb, AabbExt};
 
 /// Which side of the combat faction a projectile belongs to.
 ///

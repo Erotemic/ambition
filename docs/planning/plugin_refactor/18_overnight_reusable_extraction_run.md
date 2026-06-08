@@ -164,7 +164,7 @@ Added as run slices: **T10** menu host move, **T11** combat/actor/items consolid
 | Item | Est | Actual | Commit | Status / notes |
 |---|---|---|---|---|
 | T1 ambition_time | 40m | — | — | next |
-| T2 ambition_projectile | 50m | — | — | |
+| T2 projectile primitive → runtime | 50m | ~35m | `f315cf8e` | DONE — `projectile/{body,collision,spec}.rs` (brain-free physics primitive) `git mv`→`ambition_platformer_runtime/src/projectile/`; new `projectile/mod.rs` + lib/prelude re-exports; `crate::engine_core::…`→`ambition_engine_core::…`; the 1 `enemy_projectile` ref was a comment only (inverted/genericized). Grew the runtime crate per the Stage-16 lesson (NO new crate). Sandbox `projectile/mod.rs` keeps `mod systems/state/spawn/motion_input/visuals/diagnostics` (the brain-coupled player SPAWN) + `pub use ambition_platformer_runtime::projectile::*` facade → zero call-site churn; `crate::enemy_projectile` consumes the same primitive through the facade unchanged. Body/collision/spec inline tests rode along (34 runtime tests); spawn/QCF/integration tests (`engine_tests.rs`, `tests/`) stayed sandbox-side. serde added to runtime Cargo (ProjectileKind derive). All gates green. |
 | T3 ambition_music | 35m | — | — | conditional |
 | T4 portal P | 40m | — | — | |
 | T5 portal Q | 50m | — | — | |

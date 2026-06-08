@@ -289,6 +289,70 @@ def write_json(path: Path, data: dict[str, object]) -> None:
     path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+
+def yaml_scalar(value: object) -> str:
+    text = str(value)
+    if text == '' or any(ch in text for ch in ':#{}[]&,*?|<>!=%@`') or text.strip() != text:
+        escaped = text.replace('\\', '\\\\').replace('"', '\\"')
+        return f'"{escaped}"'
+    return text
+
+
+def patch_yaml_top_level_scalars(text: str, updates: dict[str, object], *, after_key: str | None = None) -> str:
+    """Patch simple top-level YAML scalar keys while preserving the file body."""
+    lines = text.splitlines()
+    found: set[str] = set()
+    out: list[str] = []
+
+    for line in lines:
+        key_match = None
+        for key in updates:
+            if line.startswith(f'{key}:'):
+                key_match = key
+                break
+        if key_match is None:
+            out.append(line)
+        else:
+            out.append(f'{key_match}: {yaml_scalar(updates[key_match])}')
+            found.add(key_match)
+
+    missing = [(key, value) for key, value in updates.items() if key not in found]
+    if missing:
+        insert_at = None
+        if after_key is not None:
+            for idx, line in enumerate(out):
+                if line.startswith(f'{after_key}:'):
+                    insert_at = idx + 1
+                    break
+        new_lines = [f'{key}: {yaml_scalar(value)}' for key, value in missing]
+        if insert_at is None:
+            if out and out[-1].strip():
+                out.append('')
+            out.extend(new_lines)
+        else:
+            out[insert_at:insert_at] = new_lines
+
+    return '\n'.join(out).rstrip() + '\n'
+
+
+def update_agent_manifest(meta: dict[str, str]) -> None:
+    """Refresh manifest generation metadata alongside the JSON indexes."""
+    manifest = ROOT / '.agent' / 'manifest.yaml'
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    if manifest.exists():
+        text = manifest.read_text(encoding='utf-8')
+    else:
+        text = 'schema_version: 4\n'
+    updates = {
+        'generated_from_commit': meta['generated_from_commit'],
+        'generated_at': meta['generated_at'],
+        'generator': meta['generator'],
+    }
+    manifest.write_text(
+        patch_yaml_top_level_scalars(text, updates, after_key='schema_version'),
+        encoding='utf-8',
+    )
+
 def main() -> int:
     files = iter_files()
     INDEX_DIR.mkdir(parents=True, exist_ok=True)
@@ -300,7 +364,8 @@ def main() -> int:
     write_json(INDEX_DIR / "tool_index.json", build_tool_index())
     write_json(INDEX_DIR / "archive_index.json", build_archive_index())
     write_json(INDEX_DIR / "doc_health.json", build_doc_health(files))
-    print("generated .agent indexes")
+    update_agent_manifest(generated_meta())
+    print("generated .agent indexes and manifest")
     return 0
 
 

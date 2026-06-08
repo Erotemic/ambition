@@ -584,6 +584,82 @@ Move the binding into crate::ambition_content::portal (or extend the documented 
 }
 
 #[test]
+fn architecture_boundaries_portal_core_does_not_name_host_world_or_reset() {
+    // Stage 19 Phase 2: the portal API-decoupling seams. Portal CORE
+    // (non-test, non-render-gated) must no longer name the host's concrete
+    // collision world, its feature-overlay carve sink, the Ambition room-reset
+    // event, or the Ambition input frame — those moved behind portal-owned
+    // resources/messages bridged by `crate::ambition_content::portal`:
+    //
+    //   * Seam 1 — carve output is the portal-owned `PortalCarves` resource; the
+    //     Ambition `bridge_portal_carves` copies it into `FeatureEcsWorldOverlay`.
+    //   * Seam 2 — the shot stepper is a pure `step_portal_shot` over
+    //     `SolidWorldQuery`; the `Res<GameWorld>` read lives in the Ambition
+    //     `portal_projectile_step` adapter.
+    //   * Seam 3 — the core fire system consumes a generic `PortalFireIntent`;
+    //     the Ambition `resolve_portal_fire_intent` maps the gesture to it.
+    //   * Seam 4 — reset is the portal-owned `ClearPortals` message; the Ambition
+    //     `bridge_room_reset_to_clear_portals` emits it from
+    //     `ResetRoomFeaturesEvent`.
+    //
+    // `presentation.rs` is render-gated (Phase 5 territory) and still reads
+    // `GameWorld` for its visuals, so it is excluded; `tests.rs` legitimately
+    // builds host fixtures and drives the full content+core chain, so it is
+    // excluded too.
+    //
+    // NOTE (tracked residue, NOT a freedom yet): `gun.rs` + `transit.rs` still
+    // name `crate::player` (the color-toggle, ledge-grab suppression, and
+    // input-warp systems query the primary player). Those player couplings are
+    // outside Phase 2's five seams and are deferred — so `crate::player` is
+    // intentionally NOT asserted-against here.
+    let root = crate_src().join("portal");
+    let forbidden = [
+        "crate::features",
+        "crate::GameWorld",
+        "Res<GameWorld>",
+        "FeatureEcsWorldOverlay",
+        "ResetRoomFeaturesEvent",
+        "crate::input::ControlFrame",
+    ];
+
+    let mut violations = Vec::new();
+    for file in collect_rs_files(&root) {
+        let name = file.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        // Render-gated presentation + the test module are out of scope for the
+        // Phase 2 core-freedom assertion.
+        if name == "tests.rs" || name == "presentation.rs" {
+            continue;
+        }
+        let text = fs::read_to_string(&file).expect("read portal source");
+        for (idx, raw) in text.lines().enumerate() {
+            let line = raw.trim();
+            // Comments legitimately reference these names while documenting the
+            // seam (e.g. "core never names FeatureEcsWorldOverlay").
+            if line.starts_with("//") || line.starts_with("/*") || line.starts_with('*') {
+                continue;
+            }
+            for needle in forbidden {
+                if line.contains(needle) {
+                    violations.push(format!(
+                        "{}:{} portal core still names host concept `{needle}`: {line}",
+                        file.display(),
+                        idx + 1
+                    ));
+                }
+            }
+        }
+    }
+
+    assert!(
+        violations.is_empty(),
+        "portal core must reach the host collision world / carve sink / room-reset / input \
+through portal-owned resources & messages bridged by crate::ambition_content::portal \
+(Stage 19 Phase 2). Move the binding into the content adapter:\n{}",
+        violations.join("\n")
+    );
+}
+
+#[test]
 fn architecture_boundaries_music_director_is_content_agnostic() {
     // Stage 18 T3: the music director machinery (track switching, crossfade,
     // adaptive layering) is content-agnostic. It must not reach into Ambition

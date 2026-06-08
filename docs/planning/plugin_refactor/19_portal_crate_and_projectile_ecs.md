@@ -144,7 +144,63 @@ Landed, identical-sim. What shipped:
   `scripted_gameplay`, `replay_fixture_regression` (ZERO divergence), `portal_bridge_reachability`,
   `portal_lab_usable` all green.
 
-**Phase 2 — Portal API decoupling (the 7 leaks).**
+**Phase 2 — Portal API decoupling (the 7 leaks). ✅ DONE (2026-06-08).**
+
+### Phase 2 — Progress / status (2026-06-08)
+Landed as five isolated, identical-sim commits (one per seam). Each: zero replay
+divergence; `architecture_boundaries` + `scripted_gameplay` + `portal_bridge_reachability`
++ `portal_lab_usable` + `--lib` (1428) all green.
+
+- **Seam 1 — carve output (CLEAN).** `publish_portal_carves` now writes a
+  portal-owned `PortalCarves { holes: Vec<ae::Aabb> }` resource instead of
+  `FeatureEcsWorldOverlay.portal_carves`. New Ambition bridge
+  `ambition_content/portal/carve_adapter.rs::bridge_portal_carves` copies it into
+  the overlay each frame in `PortalSet::Carves` after `publish_portal_carves`
+  (before `CoreSimulation` consumes the overlay), publish order preserved. Portal
+  core no longer names `FeatureEcsWorldOverlay`. Commit `eea53902`.
+- **Seam 2 — world seam (CLEAN).** The `Res<GameWorld>`-reading shot stepper moved
+  to `ambition_content/portal/shot_adapter.rs::portal_projectile_step`. Portal core
+  keeps a pure `step_portal_shot(&PortalShot, &PortalShotWorld<impl SolidWorldQuery>, dt)
+  -> PortalShotStep`. **`SolidWorldQuery` wiring:** `GameWorld(pub ae::World)` and
+  `ae::World: SolidWorldQuery` (Stage 16 adapter) — the adapter passes `&world.0`,
+  no new impl needed. **`is_portal_placeable(hit, normal) -> bool`** hook added in
+  `portal/shot.rs`, defaults `true` (no-op; future LDtk no-portal flag is a data
+  change). Adapter runs `.after(portal_fire_system)`, preserving toggle→fire→step.
+  Commit `eeb89273`.
+- **Seam 3 — fire intent (CLEAN).** Core `portal_fire_system` consumes a generic
+  `PortalFireIntent { origin, dir, channel }`; new resolver
+  `ambition_content/portal/fire_adapter.rs::resolve_portal_fire_intent` maps the
+  `FirePortalGun` gesture → intent (origin from the primary player's body, dir from
+  the aim, channel from the held gun, gun-active gating), in `PortalSet::InputAdapter`
+  after the input adapter / before `WeaponAndProjectiles`. Core fire path no longer
+  names player/gun/inventory. Commit `43d30de5`.
+- **Seam 4 — reset (CLEAN).** Core `clear_portals_on_reset` consumes a portal-owned
+  `ClearPortals` message; new bridge
+  `ambition_content/portal/reset_adapter.rs::bridge_room_reset_to_clear_portals`
+  emits it from `ResetRoomFeaturesEvent` in `PortalSet::RoomReset` before
+  `clear_portals_on_reset`. Core no longer names `ResetRoomFeaturesEvent`. Commit
+  `f07f2e81`.
+- **Seam 5 — body refs (CLEAN).** Repointed the last `crate::player::BodyKinematics`
+  in core (`presentation.rs`) to `ambition_platformer_runtime::body::BodyKinematics`
+  (`transit.rs` already did in Phase 1). Commit `411b5414`.
+
+**Tightened guard:** new `architecture_boundaries_portal_core_does_not_name_host_world_or_reset`
+asserts portal core (non-test, non-`presentation.rs`) names none of
+`crate::features` / `crate::GameWorld` / `Res<GameWorld>` / `FeatureEcsWorldOverlay`
+/ `ResetRoomFeaturesEvent` / `crate::input::ControlFrame`.
+
+**Residue (deferred, noted per the don't-force rule):**
+- `crate::player` still appears in core `gun.rs` (color-toggle + dev-toggle query
+  the primary player's `PortalGun`) and `transit.rs` (`suppress_ledge_grab_during_transit`,
+  `warp_portal_input` query the primary player). These are OUTSIDE Phase 2's five
+  seams (toggle / ledge-grab suppression / input-warp), so the new guard does NOT
+  assert `crate::player` freedom yet; decouple in a later phase.
+- `ambition_sfx` stays in core (`portal_transit`, `portal_fire_system`,
+  `portal_projectile_step` emit `SfxMessage`) — sfx decoupling is explicitly Phase 5.
+- `presentation.rs` (render-gated) still reads `Res<GameWorld>` + `crate::player`
+  markers — Phase 5 / render territory; excluded from the goal check.
+
+#### Original Phase-2 leak list (for reference):
 - **Carve output** → portal-owned `PortalCarves` resource + an Ambition bridge into
   `FeatureEcsWorldOverlay` (portal owns the carve geometry; Ambition owns how carves
   alter its collision representation).

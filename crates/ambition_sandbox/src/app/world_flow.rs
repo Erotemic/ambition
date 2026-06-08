@@ -23,6 +23,18 @@ use super::setup_systems::*;
 #[allow(unused_imports)]
 use super::*;
 
+/// Bundle of the two room-reset clock/sim resources, so systems that
+/// already sit near Bevy's 16-SystemParam limit (e.g.
+/// [`apply_room_transition_system`]) can take both in one slot. The
+/// sim-clock `time_scale` (time-owned [`crate::time::clock_state::ClockState`])
+/// and the room-transition cooldown (sim-owned [`crate::SandboxSimState`])
+/// are reset together on every room load / death / respawn.
+#[derive(bevy::ecs::system::SystemParam)]
+pub(super) struct RoomClock<'w> {
+    pub sim_state: ResMut<'w, crate::SandboxSimState>,
+    pub clock: ResMut<'w, crate::time::clock_state::ClockState>,
+}
+
 pub(super) fn sandbox_dt(hitstop_timer: f32, time_scale: f32, frame_dt: f32) -> f32 {
     if hitstop_timer > 0.0 {
         0.0
@@ -45,6 +57,7 @@ pub(super) fn reset_sandbox(
     vfx: &mut MessageWriter<VfxMessage>,
     clusters: &mut ae::PlayerClustersMut<'_>,
     sim_state: &mut crate::SandboxSimState,
+    clock: &mut crate::time::clock_state::ClockState,
     safety: &mut crate::player::PlayerSafetyState,
     attack: &mut Option<crate::PlayerAttackState>,
     anim: &mut crate::player::PlayerAnimState,
@@ -64,7 +77,7 @@ pub(super) fn reset_sandbox(
     );
     clusters.mana.meter.refill_full();
     safety.last_safe_pos = world.spawn;
-    sim_state.time_scale = 1.0;
+    clock.time_scale = 1.0;
     sim_state.room_transition_cooldown = 0.0;
     *attack = None;
     anim.reset();
@@ -87,6 +100,7 @@ pub(super) fn load_room(
     clusters: &mut ae::PlayerClustersMut<'_>,
     dev_state: &mut crate::SandboxDevState,
     sim_state: &mut crate::SandboxSimState,
+    clock: &mut crate::time::clock_state::ClockState,
     safety: &mut crate::player::PlayerSafetyState,
     moving_platforms: &mut Vec<crate::world::platforms::MovingPlatformState>,
     dialogue: &mut crate::dialog::DialogState,
@@ -153,7 +167,7 @@ pub(super) fn load_room(
     combat.damage_invuln_timer = 0.0;
     combat.hitstun_timer = 0.0;
     safety.last_safe_pos = clusters.kinematics.pos;
-    sim_state.time_scale = 1.0;
+    clock.time_scale = 1.0;
     interaction.down_tap_timer = 0.0;
     *moving_platforms = platforms::moving_platforms_for_room(&spec);
     features::spawn_room_feature_entities(commands, &spec);
@@ -245,7 +259,7 @@ pub fn apply_room_transition_system(
     mut world: ResMut<GameWorld>,
     mut room_set: ResMut<rooms::RoomSet>,
     mut dev_state: ResMut<crate::SandboxDevState>,
-    mut sim_state: ResMut<crate::SandboxSimState>,
+    mut room_clock: RoomClock,
     mut moving_platforms: ResMut<crate::MovingPlatformSet>,
     mut dialogue: ResMut<crate::dialog::DialogState>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
@@ -284,7 +298,8 @@ pub fn apply_room_transition_system(
             &mut event_writers.vfx,
             &mut clusters,
             &mut dev_state,
-            &mut sim_state,
+            &mut room_clock.sim_state,
+            &mut room_clock.clock,
             &mut safety,
             &mut moving_platforms.0,
             &mut dialogue,
@@ -591,6 +606,7 @@ pub(super) fn death_respawn_player(
     died: &mut MessageWriter<PlayerDiedMessage>,
     clusters: &mut ae::PlayerClustersMut<'_>,
     sim_state: &mut crate::SandboxSimState,
+    clock: &mut crate::time::clock_state::ClockState,
     safety: &mut crate::player::PlayerSafetyState,
     banner: &mut features::GameplayBanner,
     player_health: Option<&mut crate::player::PlayerHealth>,
@@ -610,7 +626,7 @@ pub(super) fn death_respawn_player(
     );
     clusters.mana.meter.refill_full();
     safety.last_safe_pos = world.spawn;
-    sim_state.time_scale = 1.0;
+    clock.time_scale = 1.0;
     sim_state.room_transition_cooldown = 0.0;
     anim.reset();
     combat.reset();
@@ -647,6 +663,7 @@ pub(super) fn handle_player_damage_events(
     died: &mut MessageWriter<PlayerDiedMessage>,
     clusters: &mut ae::PlayerClustersMut<'_>,
     sim_state: &mut crate::SandboxSimState,
+    clock: &mut crate::time::clock_state::ClockState,
     safety: &mut crate::player::PlayerSafetyState,
     banner: &mut features::GameplayBanner,
     mut player_health: Option<&mut crate::player::PlayerHealth>,
@@ -712,6 +729,7 @@ pub(super) fn handle_player_damage_events(
             died,
             clusters,
             sim_state,
+            clock,
             safety,
             banner,
             player_health,
@@ -726,7 +744,7 @@ pub(super) fn handle_player_damage_events(
     match damage.mode {
         features::HitMode::SafeRespawn => {
             safe_respawn_player(
-                sfx, vfx, clusters, sim_state, safety, combat, tuning, feel, impact_pos,
+                sfx, vfx, clusters, clock, safety, combat, tuning, feel, impact_pos,
             );
         }
         features::HitMode::Knockback => {
@@ -742,7 +760,7 @@ pub(super) fn safe_respawn_player(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
     clusters: &mut ae::PlayerClustersMut<'_>,
-    sim_state: &mut crate::SandboxSimState,
+    clock: &mut crate::time::clock_state::ClockState,
     safety: &crate::player::PlayerSafetyState,
     combat: &mut crate::player::PlayerCombatState,
     tuning: ae::MovementTuning,
@@ -761,7 +779,7 @@ pub(super) fn safe_respawn_player(
     combat.hitstun_timer = 0.0;
     combat.hitstop_timer = 0.0;
     combat.flash_timer = feel.reset_flash_time;
-    sim_state.time_scale = 1.0;
+    clock.time_scale = 1.0;
     sfx.write(SfxMessage::Reset { pos: to });
     vfx.write(VfxMessage::ResetEffects { from, to });
 }

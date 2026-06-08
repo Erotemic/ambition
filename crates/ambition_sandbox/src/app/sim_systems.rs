@@ -57,7 +57,7 @@ pub fn sync_live_player_dev_edits_system(
 }
 
 /// While gameplay is suspended (paused, dialogue, room transition,
-/// cutscene), force `SandboxSimState::time_scale` AND the
+/// cutscene), force `ClockState::time_scale` AND the
 /// `RequestedClockScale` target (a private resource in
 /// `crate::time::time_control`) to 0 so any presentation system that
 /// scales an animation by `time_scale * dt` freezes — and so the
@@ -74,10 +74,10 @@ pub fn sync_live_player_dev_edits_system(
 /// hitstop / bullet-time / blink-hold / dev slowmo intent, so this
 /// system intentionally does nothing when gameplay is allowed.
 pub fn apply_suspended_time_scale_system(
-    mut sim_state: ResMut<SandboxSimState>,
+    mut clock: ResMut<crate::time::clock_state::ClockState>,
     mut target: ResMut<crate::time::time_control::RequestedClockScale>,
 ) {
-    sim_state.time_scale = 0.0;
+    clock.time_scale = 0.0;
     target.sim_clock = 0.0;
 }
 
@@ -210,6 +210,7 @@ pub fn apply_player_reset_input_system(
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     mut sim_state: ResMut<SandboxSimState>,
+    mut clock: ResMut<crate::time::clock_state::ClockState>,
     mut reset_room_features: MessageWriter<features::ResetRoomFeaturesEvent>,
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,
@@ -253,6 +254,7 @@ pub fn apply_player_reset_input_system(
         &mut vfx_writer,
         &mut clusters,
         &mut sim_state,
+        &mut clock,
         &mut safety,
         &mut attack.0,
         &mut anim,
@@ -277,6 +279,7 @@ pub fn apply_cut_rope_room_replay_request_system(
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     mut sim_state: ResMut<SandboxSimState>,
+    mut clock: ResMut<crate::time::clock_state::ClockState>,
     mut boss_registry: ResMut<crate::boss_encounter::BossEncounterRegistry>,
     mut save: Option<ResMut<crate::persistence::save::SandboxSave>>,
     mut boss_music: Option<ResMut<crate::encounter::BossEncounterMusicRequest>>,
@@ -326,6 +329,7 @@ pub fn apply_cut_rope_room_replay_request_system(
         &mut vfx_writer,
         &mut clusters,
         &mut sim_state,
+        &mut clock,
         &mut safety,
         &mut attack.0,
         &mut anim,
@@ -539,6 +543,7 @@ pub fn apply_player_hit_events(
     user_settings: Res<crate::persistence::settings::UserSettings>,
     feature_ecs_overlay: Res<FeatureEcsWorldOverlay>,
     mut sim_state: ResMut<SandboxSimState>,
+    mut clock: ResMut<crate::time::clock_state::ClockState>,
     mut banner: ResMut<GameplayBanner>,
     mut hit_events: MessageReader<FeatureHitEvent>,
     mut died_writer: MessageWriter<PlayerDiedMessage>,
@@ -622,6 +627,7 @@ pub fn apply_player_hit_events(
             &mut died_writer,
             &mut clusters,
             &mut sim_state,
+            &mut clock,
             &mut safety,
             &mut banner,
             player_health.map(|h| h.into_inner()),
@@ -771,10 +777,7 @@ mod suspended_time_tests {
         let mut app = App::new();
         app.add_plugins(StatesPlugin);
         app.insert_state(GameMode::Paused);
-        app.insert_resource(SandboxSimState {
-            time_scale: 1.0,
-            ..Default::default()
-        });
+        app.insert_resource(crate::time::clock_state::ClockState { time_scale: 1.0 });
         app.insert_resource(RequestedClockScale {
             sim_clock: 1.0,
             ..Default::default()
@@ -801,12 +804,14 @@ mod suspended_time_tests {
         app.world_mut().resource_mut::<Time>().advance_by(frame);
         app.update();
 
-        let sim = app.world().resource::<SandboxSimState>();
+        let clock = app
+            .world()
+            .resource::<crate::time::clock_state::ClockState>();
         let target = app.world().resource::<RequestedClockScale>();
         let wt = app.world().resource::<WorldTime>();
         assert_eq!(
-            sim.time_scale, 0.0,
-            "suspended frame must zero sim_state.time_scale"
+            clock.time_scale, 0.0,
+            "suspended frame must zero ClockState.time_scale"
         );
         assert_eq!(
             target.sim_clock, 0.0,
@@ -833,7 +838,7 @@ mod suspended_time_tests {
         let mut app = App::new();
         app.add_plugins(StatesPlugin);
         app.insert_state(GameMode::Playing);
-        app.insert_resource(SandboxSimState::default());
+        app.insert_resource(crate::time::clock_state::ClockState::default());
         app.insert_resource(RequestedClockScale::default());
         app.insert_resource(WorldTime::default());
         app.insert_resource(Time::<()>::default());

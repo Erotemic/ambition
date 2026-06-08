@@ -87,13 +87,11 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
         // Clone the resources record_simulation_frame needs as owned
         // values so the immutable borrow on `sim` ends before we take
         // the mutable cluster borrow below. ae::World + Vec<...> + the
-        // SandboxSimState resource are all `Clone`, so this is cheap
+        // ClockState resource are all `Clone`, so this is cheap
         // for a once-per-tick trace dump.
-        let (sim_state, control_frame, active_area, mode_label, moving_platforms, game_world) = {
+        let (clock, control_frame, active_area, mode_label, moving_platforms, game_world) = {
             let world_ref = sim.world();
-            let sim_state = world_ref
-                .resource::<ambition_sandbox::SandboxSimState>()
-                .clone();
+            let clock = *world_ref.resource::<ambition_sandbox::ClockState>();
             let control_frame = *world_ref.resource::<ControlFrame>();
             let room_set = world_ref.resource::<RoomSet>();
             let game_mode = world_ref.resource::<State<GameModeState>>();
@@ -102,7 +100,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
             let active_area = room_set.active_spec().id.clone();
             let mode_label = format!("{:?}", game_mode.get());
             (
-                sim_state,
+                clock,
                 control_frame,
                 active_area,
                 mode_label,
@@ -141,7 +139,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
         record_simulation_frame(
             &mut buffer,
             &clusters,
-            &sim_state,
+            &clock,
             &safety,
             &game_world,
             control_frame,

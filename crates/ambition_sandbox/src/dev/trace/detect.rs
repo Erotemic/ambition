@@ -175,7 +175,7 @@ fn nearby_collision(world: &ae::World, player_pos: ae::Vec2) -> Vec<CollisionTra
 #[allow(clippy::too_many_arguments)]
 pub fn build_frame(
     clusters: &ae::PlayerClustersMut<'_>,
-    sim_state: &crate::SandboxSimState,
+    clock: &crate::time::clock_state::ClockState,
     safety: &crate::player::PlayerSafetyState,
     world: &ae::World,
     controls: ControlFrame,
@@ -194,7 +194,7 @@ pub fn build_frame(
         tick,
         real_dt,
         sim_dt,
-        time_scale: sim_state.time_scale,
+        time_scale: clock.time_scale,
         game_mode: game_mode.into(),
         active_area: active_area.into(),
         world_size: world.size.into(),

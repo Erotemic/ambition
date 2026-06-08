@@ -6,7 +6,7 @@ use super::*;
 pub fn record_simulation_frame(
     buffer: &mut GameplayTraceBuffer,
     clusters: &ae::PlayerClustersMut<'_>,
-    sim_state: &crate::SandboxSimState,
+    clock: &crate::time::clock_state::ClockState,
     safety: &crate::player::PlayerSafetyState,
     world: &ae::World,
     controls: ControlFrame,
@@ -27,7 +27,7 @@ pub fn record_simulation_frame(
     );
     let frame = build_frame(
         clusters,
-        sim_state,
+        clock,
         safety,
         world,
         controls,
@@ -112,7 +112,7 @@ pub fn handle_trace_hotkey(
 /// was clinging to a wall.
 pub fn record_frame_system(
     mut buffer: ResMut<GameplayTraceBuffer>,
-    sim_state: Res<crate::SandboxSimState>,
+    clock: Res<crate::time::clock_state::ClockState>,
     platform_set: Res<crate::MovingPlatformSet>,
     world: Res<GameWorld>,
     time: Res<Time>,
@@ -151,7 +151,7 @@ pub fn record_frame_system(
     let clusters = cluster_item.as_clusters_mut();
     let control_frame = input.frame;
     let real_dt = time.delta_secs();
-    let sim_dt = real_dt * sim_state.time_scale;
+    let sim_dt = real_dt * clock.time_scale;
     let active_area = rooms
         .as_ref()
         .map(|r| r.active_spec().id.clone())
@@ -188,7 +188,7 @@ pub fn record_frame_system(
     record_simulation_frame(
         &mut buffer,
         &clusters,
-        &sim_state,
+        &clock,
         safety,
         &augmented_world,
         control_frame,

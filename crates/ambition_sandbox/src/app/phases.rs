@@ -70,6 +70,7 @@ pub(super) fn player_control_phase(
     world: &ae::World,
     clusters: &mut ae::PlayerClustersMut<'_>,
     sim_state: &mut crate::SandboxSimState,
+    clock: &mut crate::time::clock_state::ClockState,
     safety: &mut crate::player::PlayerSafetyState,
     moving_platforms: &[crate::world::platforms::MovingPlatformState],
     attack: &mut Option<crate::PlayerAttackState>,
@@ -109,6 +110,7 @@ pub(super) fn player_control_phase(
             vfx_writer,
             clusters,
             sim_state,
+            clock,
             safety,
             attack,
             anim,
@@ -177,6 +179,7 @@ pub(super) fn player_simulation_phase(
     clusters: &mut ae::PlayerClustersMut<'_>,
     dev_state: &crate::SandboxDevState,
     sim_state: &mut crate::SandboxSimState,
+    clock: &mut crate::time::clock_state::ClockState,
     safety: &mut crate::player::PlayerSafetyState,
     moving_platforms: &mut [crate::world::platforms::MovingPlatformState],
     attack: &mut Option<crate::PlayerAttackState>,
@@ -203,7 +206,7 @@ pub(super) fn player_simulation_phase(
     // tests + tuning hooks still compile, even though the smoothing
     // is no longer driven from here.
     let _ = dev_state; // intentional: the dev slowmo intent is consumed by the time-control pipeline.
-    let sim_dt = sandbox_dt(combat.hitstop_timer, sim_state.time_scale, frame_dt);
+    let sim_dt = sandbox_dt(combat.hitstop_timer, clock.time_scale, frame_dt);
 
     let player_aabb_pre = clusters.kinematics.aabb();
     let player_size_pre = clusters.kinematics.size;
@@ -312,6 +315,7 @@ pub(super) fn player_simulation_phase(
             vfx_writer,
             clusters,
             sim_state,
+            clock,
             safety,
             attack,
             anim,

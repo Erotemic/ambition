@@ -96,6 +96,7 @@ pub struct SandboxQueues<'w> {
     pub physics_settings: Res<'w, crate::world::physics::PhysicsSandboxSettings>,
     pub moving_platforms: ResMut<'w, crate::MovingPlatformSet>,
     pub sim_state: ResMut<'w, crate::SandboxSimState>,
+    pub clock: ResMut<'w, crate::time::clock_state::ClockState>,
     pub dev_state: ResMut<'w, crate::SandboxDevState>,
 }
 

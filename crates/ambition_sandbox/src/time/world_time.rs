@@ -6,8 +6,8 @@
 use bevy::prelude::{Res, ResMut, Resource, Time};
 
 use crate::player::components::PlayerSlot;
+use crate::time::clock_state::ClockState;
 use crate::time::time_control::ProperTimeScale;
-use crate::SandboxSimState;
 
 /// ADR 0010 vocabulary — the named clocks gameplay code can read.
 ///
@@ -56,7 +56,7 @@ pub struct WorldTime {
     /// Wall-clock dt from Bevy's `Time` resource. Unscaled — for
     /// UI / debug only. Legacy alias for [`WorldTime::wall_dt`].
     pub raw_dt: f32,
-    /// `raw_dt * SandboxSimState::time_scale`. The canonical
+    /// `raw_dt * ClockState::time_scale`. The canonical
     /// dt for gameplay + world-anchored animation timers. Zero
     /// while paused (`time_scale == 0`). Legacy alias for
     /// [`WorldTime::sim_dt`].
@@ -123,17 +123,17 @@ impl WorldTime {
     }
 }
 
-/// Refresh [`WorldTime`] from `Time × SandboxSimState::time_scale`.
+/// Refresh [`WorldTime`] from `Time × ClockState::time_scale`.
 /// Registered early in the Update schedule so every downstream
 /// system sees a current value.
 pub fn refresh_world_time(
     time: Res<Time>,
-    sim_state: Res<SandboxSimState>,
+    clock: Res<ClockState>,
     mut world_time: ResMut<WorldTime>,
 ) {
     let raw = time.delta_secs();
     world_time.raw_dt = raw;
-    world_time.scaled_dt = raw * sim_state.time_scale;
+    world_time.scaled_dt = raw * clock.time_scale;
 }
 
 /// Mirror [`WorldTime::sim_dt`] into the runtime crate's neutral

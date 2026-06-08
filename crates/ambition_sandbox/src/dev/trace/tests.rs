@@ -173,7 +173,7 @@ fn record_frame_with_oob_pushes_event_and_requests_dump() {
     let clusters = scratch.as_mut();
     let frame = build_frame(
         &clusters,
-        &crate::SandboxSimState::default(),
+        &crate::time::clock_state::ClockState::default(),
         &crate::player::PlayerSafetyState::default(),
         &world,
         ControlFrame::default(),
@@ -203,7 +203,7 @@ fn write_dump_writes_two_files() {
     let clusters = scratch.as_mut();
     let frame = build_frame(
         &clusters,
-        &crate::SandboxSimState::default(),
+        &crate::time::clock_state::ClockState::default(),
         &crate::player::PlayerSafetyState::default(),
         &world,
         ControlFrame::default(),
@@ -427,7 +427,7 @@ fn frame_includes_moving_platform_state() {
     let clusters = scratch.as_mut();
     let frame = build_frame(
         &clusters,
-        &crate::SandboxSimState::default(),
+        &crate::time::clock_state::ClockState::default(),
         &crate::player::PlayerSafetyState::default(),
         &world,
         ControlFrame::default(),

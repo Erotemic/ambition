@@ -115,6 +115,7 @@ pub use time::camera_ease::{
     CameraEaseState, CameraEaseTuning, DEFAULT_CAMERA_ZOOM_IN_RATE, DEFAULT_CAMERA_ZOOM_OUT_RATE,
     DEFAULT_CAMERA_ZOOM_SNAP_EPSILON,
 };
+pub use time::clock_state::ClockState;
 pub use time::move_toward;
 pub use time::world_time::{
     mirror_sim_dt_into_runtime, refresh_world_time, ClockDomain, WorldTime,
@@ -270,22 +271,23 @@ pub struct MovingPlatformSet(pub Vec<world::platforms::MovingPlatformState>);
 ///   as `crate::player::PlayerSafetyState` since 2026-05-19
 ///   (OVERNIGHT-TODO #17.9) — a future co-op build keeps each
 ///   player's safe spot independent.
-/// - `time_scale` — **global shared-world** (hitstop / bullet-time /
-///   pause should affect everyone). Stays on the resource.
 /// - `room_transition_cooldown` — **global shared-world** today
 ///   because the whole party shares one active room. If a future
 ///   build splits rooms per-player this would need to move per-room
 ///   or per-player.
+///
+/// The sim-clock `time_scale` used to live here too; it moved to the
+/// time-owned [`crate::time::clock_state::ClockState`] resource (Stage 18
+/// T1a) because it belongs to the TIME domain, not this room-state
+/// grab-bag.
 #[derive(Resource, Clone, Copy, Debug)]
 pub struct SandboxSimState {
-    pub time_scale: f32,
     pub room_transition_cooldown: f32,
 }
 
 impl Default for SandboxSimState {
     fn default() -> Self {
         Self {
-            time_scale: 1.0,
             room_transition_cooldown: 0.0,
         }
     }

@@ -18,9 +18,10 @@
 use bevy::prelude::*;
 
 use crate::player::components::{PlayerCombatState, PlayerSlot, PrimaryPlayer};
+use crate::time::clock_state::ClockState;
 use crate::time::feel::SandboxFeelTuning;
+use crate::ClockDomain;
 use crate::SandboxDevState;
-use crate::{ClockDomain, SandboxSimState};
 
 /// ADR 0011 — per-entity proper-time scale.
 ///
@@ -327,16 +328,15 @@ pub fn smooth_sim_clock_toward_target_system(
     target: Res<RequestedClockScale>,
     feel: Res<SandboxFeelTuning>,
     time: Res<Time>,
-    mut sim_state: ResMut<SandboxSimState>,
+    mut clock: ResMut<ClockState>,
 ) {
     let frame_dt = time.delta_secs();
-    let rate = if target.sim_clock < sim_state.time_scale {
+    let rate = if target.sim_clock < clock.time_scale {
         feel.time_ramp_down_rate
     } else {
         feel.time_ramp_up_rate
     };
-    sim_state.time_scale =
-        crate::move_toward(sim_state.time_scale, target.sim_clock, rate * frame_dt);
+    clock.time_scale = crate::move_toward(clock.time_scale, target.sim_clock, rate * frame_dt);
 }
 
 #[cfg(test)]
@@ -512,7 +512,7 @@ mod tests {
         app.add_message::<ClockScaleRequest>()
             .insert_resource(RegimePolicy::default())
             .insert_resource(RequestedClockScale::default())
-            .insert_resource(SandboxSimState::default())
+            .insert_resource(ClockState::default())
             .insert_resource(SandboxFeelTuning::default())
             .insert_resource(Time::<()>::default())
             .add_systems(
@@ -538,14 +538,14 @@ mod tests {
             app.update();
         }
 
-        let sim = app.world().resource::<SandboxSimState>();
+        let clock = app.world().resource::<ClockState>();
         // SandboxFeelTuning::time_ramp_down_rate is 6.0 (units/s).
         // 30 frames * 16ms = 480ms => deltas of ~2.88 units, way
         // past the (1.0 -> 0.125) gap of 0.875.
         assert!(
-            (sim.time_scale - 0.125).abs() < 1e-4,
+            (clock.time_scale - 0.125).abs() < 1e-4,
             "expected sim time_scale ~= 0.125 after ramp; got {}",
-            sim.time_scale,
+            clock.time_scale,
         );
     }
 

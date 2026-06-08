@@ -64,6 +64,7 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             .add_message::<crate::time::time_control::ClockScaleRequest>()
             .insert_resource(crate::time::time_control::RegimePolicy::default())
             .insert_resource(crate::time::time_control::RequestedClockScale::default())
+            .insert_resource(crate::time::clock_state::ClockState::default())
             .register_type::<GameMode>()
             // StartupProfiler captures wall-clock at each marked phase so a
             // PostStartup report prints "where did the first frame's

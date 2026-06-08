@@ -7,6 +7,7 @@
 //! pull a single coherent `time/` module without untangling lib.rs.
 
 pub mod camera_ease;
+pub mod clock_state;
 pub mod feel;
 pub mod time_control;
 pub mod world_time;

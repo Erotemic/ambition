@@ -901,6 +901,8 @@ fn kaleidoscope_focus_nav(
             &mut heals,
             &mut sfx,
             &mut system,
+            // The cube turns its face on LEFT/RIGHT at the row edges.
+            true,
         );
         return;
     }
@@ -1078,6 +1080,12 @@ pub(crate) fn system_focus_nav(
     heals: &mut MessageWriter<PlayerHealRequested>,
     sfx: &mut MessageWriter<SfxMessage>,
     system: &mut SystemMenuParams,
+    // The cube turns its face when LEFT/RIGHT walks off the row list onto the
+    // page-turn edge buttons; the flat Grid switches pages with its TAB BAR, never
+    // by edge arrows, so it passes `false` — System-row LEFT/RIGHT then only steps
+    // value rows and is otherwise inert (it can never reach an edge or `turn_page`,
+    // which used to leak the cube's rotate-SFX + a one-frame face flip into Grid mode).
+    allow_page_turn: bool,
 ) {
     let focus_before = cursor.focus;
     let page_before = pages.active;
@@ -1104,8 +1112,10 @@ pub(crate) fn system_focus_nav(
     if dx != 0 {
         match cursor.focus {
             MenuFocus::EdgeLeft => {
-                if dx > 0 {
-                    // Move inward from the page-turn button into the row list.
+                if dx > 0 || !allow_page_turn {
+                    // Move inward from the page-turn button into the row list. With
+                    // page-turns disabled (Grid) an edge focus is never reachable, but
+                    // normalise defensively to a row rather than rotating.
                     cursor.mark_keyboard(MenuFocus::System(0));
                 } else {
                     // Moving further outward from the edge still rotates the cube.
@@ -1114,7 +1124,7 @@ pub(crate) fn system_focus_nav(
                 }
             }
             MenuFocus::EdgeRight => {
-                if dx < 0 {
+                if dx < 0 || !allow_page_turn {
                     cursor.mark_keyboard(MenuFocus::System(0));
                 } else {
                     turn_page(pages, active_page.on_viewer_right(), sfx);
@@ -1124,7 +1134,8 @@ pub(crate) fn system_focus_nav(
             MenuFocus::System(_) | MenuFocus::Item(_) => {
                 // LEFT/RIGHT step value rows in place (settings cycles/sliders, dev
                 // cycles); otherwise use the horizontal affordance to move onto the
-                // edge buttons.
+                // edge buttons (cube only — the Grid switches pages via its tab bar,
+                // so a non-value step there is simply inert).
                 let stepped = match current {
                     SystemRow::Setting(o) if is_value_setting(o, settings) => {
                         apply_system_option_step(o, dx, settings, sfx);
@@ -1140,7 +1151,7 @@ pub(crate) fn system_focus_nav(
                     }
                     _ => false,
                 };
-                if !stepped {
+                if !stepped && allow_page_turn {
                     if dx < 0 {
                         cursor.mark_keyboard(MenuFocus::EdgeLeft);
                     } else {

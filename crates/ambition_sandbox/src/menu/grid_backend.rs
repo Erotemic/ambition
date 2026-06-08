@@ -587,9 +587,14 @@ pub(crate) fn grid_menu_nav(
                 &mut fx.heals,
                 &mut fx.sfx,
                 &mut fx.system,
+                // Grid switches pages via the TAB BAR — never the cube's edge
+                // page-turn. Passing `false` keeps System-row LEFT/RIGHT from walking
+                // onto an edge and firing `turn_page` (the cube rotate-SFX + a
+                // one-frame face flip that leaked into Grid mode).
+                false,
             );
-            // Keep the tab pinned: a value-step's edge case in `system_focus_nav` can
-            // turn the cube page; the flat tabs ignore that.
+            // Belt-and-braces: keep the shared page pointer on this tab (republish also
+            // aligns it). With `allow_page_turn=false` the nav can no longer move it.
             if overlay.visible {
                 pages.active = Some(active_page);
             }
@@ -1216,6 +1221,63 @@ mod tests {
             app.update();
         }
         assert_eq!(active_tab(&app), MenuPage::System);
+    }
+
+    /// Regression: on the System tab, hammering LEFT/RIGHT must NEVER turn the cube's
+    /// page or land the shared cursor on a page-turn edge. The Grid switches pages via
+    /// the tab bar only; previously LEFT/RIGHT on a non-value System row walked onto
+    /// `EdgeLeft`/`EdgeRight` and the next press fired the cube's `turn_page`
+    /// (rotate-SFX + a one-frame face flip leaking into Grid mode). `allow_page_turn=false`.
+    #[test]
+    fn system_tab_left_right_never_turns_the_page() {
+        let mut app = grid_app();
+        // Open + reach the System tab.
+        set_frame(&mut app, |f| f.inventory = true);
+        app.update();
+        let sys_idx = MenuPage::ALL
+            .iter()
+            .position(|p| *p == MenuPage::System)
+            .unwrap();
+        for _ in 0..sys_idx {
+            set_frame(&mut app, |f| f.page_right = true);
+            app.update();
+        }
+        assert_eq!(active_tab(&app), MenuPage::System);
+        let page_before = app
+            .world()
+            .resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+            .active;
+
+        // Hammer LEFT then RIGHT many times — enough to reach an edge under the old
+        // (leaky) behaviour and then "turn the page" on the following press.
+        for i in 0..8 {
+            let go_left = i % 2 == 0;
+            set_frame(&mut app, |f| {
+                if go_left {
+                    f.left = true;
+                } else {
+                    f.right = true;
+                }
+            });
+            app.update();
+            let focus = app.world().resource::<KaleidoscopeCursor>().focus();
+            assert!(
+                !matches!(focus, MenuFocus::EdgeLeft | MenuFocus::EdgeRight),
+                "step {i}: Grid System nav must not land on a page-turn edge, got {focus:?}",
+            );
+            assert_eq!(
+                active_tab(&app),
+                MenuPage::System,
+                "step {i}: the Grid tab must stay on System",
+            );
+            assert_eq!(
+                app.world()
+                    .resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+                    .active,
+                page_before,
+                "step {i}: the shared page must not turn under Grid LEFT/RIGHT",
+            );
+        }
     }
 
     /// Selecting an item control equips it (via the shared dispatcher → equip path).

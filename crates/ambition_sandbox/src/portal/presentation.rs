@@ -9,8 +9,9 @@
 use bevy::prelude::*;
 
 use crate::engine_core::{self as ae, AabbExt};
+use crate::platformer_runtime::body::BodyKinematics;
 use crate::platformer_runtime::orientation::ActorRoll;
-use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use crate::player::{PlayerEntity, PrimaryPlayer};
 use crate::portal::pieces as pp;
 use crate::GameWorld;
 

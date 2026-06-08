@@ -777,6 +777,73 @@ fn architecture_boundaries_gravity_zone_mechanic_left_portal() {
 }
 
 #[test]
+fn architecture_boundaries_abilities_live_under_abilities_layer() {
+    // Stage 17 (content/ability boundary run): the 14 loose player ability /
+    // weapon mechanics that used to clutter the crate root each got one clear
+    // home under `crate::abilities/{traversal,ranged,thrown}/`, composed behind a
+    // single `AmbitionAbilitiesPlugin`. This guard locks in the navigability win:
+    //   (1) none of the 14 names may exist as a loose `src/<name>.rs` at the root,
+    //       and each must exist under `src/abilities/`; and
+    //   (2) the abilities layer is registered as exactly one plugin
+    //       (`crate::abilities::AmbitionAbilitiesPlugin`) in `app/plugins.rs`.
+    // If anyone re-adds `src/blink.rs` (or a sibling) at the root, or wires the
+    // abilities individually instead of through the umbrella plugin, this fails.
+    let src_root = crate_src();
+
+    // 14 ability modules, each mapped to its destination subdir under abilities/.
+    let abilities: [(&str, &str); 14] = [
+        ("blink", "traversal"),
+        ("dive", "traversal"),
+        ("grapple", "traversal"),
+        ("possession", "traversal"),
+        ("mark_recall", "traversal"),
+        ("beam", "ranged"),
+        ("meteor", "ranged"),
+        ("shockwave", "ranged"),
+        ("vortex", "ranged"),
+        ("volley", "ranged"),
+        ("bomb", "ranged"),
+        ("sentry", "ranged"),
+        ("gravity_grenade", "thrown"),
+        ("puppy_slug_gun", "thrown"),
+    ];
+
+    let mut violations = Vec::new();
+    for (name, subdir) in abilities {
+        // (1a) No loose ability file at the crate root.
+        if src_root.join(format!("{name}.rs")).exists() {
+            violations.push(format!(
+                "ability {name} must live under src/abilities/, not the crate root (Stage 17)"
+            ));
+        }
+        // (1b) The ability now lives under src/abilities/<subdir>/<name>.rs.
+        let home = src_root.join(format!("abilities/{subdir}/{name}.rs"));
+        if !home.exists() {
+            violations.push(format!(
+                "ability {name} must live under src/abilities/{subdir}/{name}.rs (Stage 17)"
+            ));
+        }
+    }
+
+    assert!(
+        violations.is_empty(),
+        "the 14 player abilities must live under src/abilities/, not the crate root:\n{}",
+        violations.join("\n")
+    );
+
+    // (2) The abilities layer is registered as exactly one plugin: the umbrella
+    //     `AmbitionAbilitiesPlugin`. The 14 abilities compose through it, so
+    //     `app/plugins.rs` adds that one plugin (no per-ability re-wiring).
+    let plugins_text =
+        fs::read_to_string(src_root.join("app/plugins.rs")).expect("read app/plugins.rs");
+    assert!(
+        plugins_text.contains("crate::abilities::AmbitionAbilitiesPlugin"),
+        "app/plugins.rs should compose the ability layer through the single \
+crate::abilities::AmbitionAbilitiesPlugin (Stage 17)"
+    );
+}
+
+#[test]
 fn architecture_boundaries_portal_has_facade_plugin_and_schedule_files() {
     let src_root = crate_src();
     let expected = [

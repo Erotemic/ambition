@@ -1,7 +1,6 @@
 # Stage 17: Content / ability boundary run (autonomous)
 
-**Status:** PROPOSED — awaiting eyeball approval, then executed in its entirety
-autonomously.
+**Status:** DONE (2026-06-08) — executed autonomously across S1–S6 (see §9 log).
 **Author intent:** make the repo easier for new agents to navigate and pull
 named content out of the reusable core. This is **Phase 1** of the content-crate
 path (draw the boundaries *inside* `ambition_sandbox` via Bevy plugins); the crate
@@ -211,14 +210,28 @@ Never regenerate replay fixtures. `cargo fmt -p ambition_sandbox` before each co
 
 ## 9. Definition of done / live log
 
-Done when S1–S6 are committed, every gate green, the 14 ability files + `intro/` are
-in their homes, the root is ~46 `.rs` files, and the new guards pass.
+**DONE (2026-06-08).** All of S1–S6 committed, every gate green (including the final
+`--no-default-features --features visible` Phase-1 persona build), the 14 ability files
+live under `crate::abilities/{traversal,ranged,thrown}/` behind `AmbitionAbilitiesPlugin`,
+`intro/` lives in `crate::ambition_content::intro`, the crate root is **47** `.rs` files
+(down from 61: 14 abilities moved out; `intro/` was already a directory), and the new
+guard (`architecture_boundaries_abilities_live_under_abilities_layer`) passes alongside
+the existing 12.
+
+**Ability registration reality:** 13 of the 14 abilities register **nothing** with the
+Bevy `App` — they are pure-logic modules invoked from combat / item-pickup / projectile
+systems. Only `traversal::possession` owns `App` state (its `PossessionState` resource,
+init'd by `AmbitionAbilitiesPlugin`; the possession *systems* stay chained in
+`register_player_simulation_systems` to preserve interleaved run-condition ordering). So
+`AmbitionAbilitiesPlugin` is **intentionally thin** — one `init_resource` today — and
+exists primarily as the single composition point the guard enforces and that future
+ability plugins fold into.
 
 | Slice | Est | Actual | Commit | Notes |
 |---|---|---|---|---|
-| S1 traversal abilities | 25m | — | — | |
-| S2 ranged abilities | 25m | — | — | |
-| S3 thrown abilities | 15m | — | — | |
-| S4 intro → content | 30m | ~15m | (this commit) | clean move, no inversion; updated boundary guard needles |
-| S5 guards | 20m | — | — | |
-| S6 docs | 10m | — | — | |
+| S1 traversal abilities | 25m | ~consolidated | `425b3210` | S1–S3 landed as ONE commit (the three ability moves were mechanically uniform and gated together) |
+| S2 ranged abilities | 25m | ~consolidated | `425b3210` | (consolidated into S1's commit) |
+| S3 thrown abilities | 15m | ~consolidated | `425b3210` | (consolidated into S1's commit) |
+| S4 intro → content | 30m | ~15m | `9ce0585d` | clean move, no inversion; updated boundary guard needles |
+| S5 guards | 20m | ~15m | (this commit) | new `..._abilities_live_under_abilities_layer` guard: 14 names absent at root + present under `abilities/`, and `AmbitionAbilitiesPlugin` registered in `app/plugins.rs` |
+| S6 docs | 10m | ~10m | (this commit) | this doc → DONE; README/backlog had no natural Stage-17 checkbox (left untouched per "don't invent"); memory updated |

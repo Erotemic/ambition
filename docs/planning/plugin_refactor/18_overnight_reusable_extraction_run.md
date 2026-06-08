@@ -172,6 +172,14 @@ Added as run slices: **T10** menu host move, **T11** combat/actor/items consolid
 | T7 mod.rs normalize | 40m | — | — | after extractions |
 | T8 brain nav pass | 45m | — | — | structural only |
 | T9 guards + docs | 25m | — | — | last |
+| T10 kaleidoscope→menu | — | ~10m | `c9352d08` | DONE — `lunex_kaleidoscope_app.rs`→`menu/kaleidoscope_app.rs` (8 sites) |
+| T11 combat/actor/items consolidation | — | ~35m | `b3df018f` | DONE — 9 root files→`combat/`,`actor/`,`items/` mod.rs dirs; `crate::shop` facade kept for Yarn bindings; 3 architecture_boundaries path guards retargeted |
+| T12 presentation/portal/persistence home moves | — | ~30m | `c9352d08` | DONE — `portal_pieces.rs`→`portal/pieces.rs`, `cutscene.rs`→`presentation/cutscene/script.rs` (existing player→`cutscene/mod.rs`), `hud_overlay.rs`→`presentation/hud.rs`, `save.rs`→`persistence/save_data.rs`; `crate::save` facade kept; time-guard cutscene allowlist path fixed. cutscene/save targets suffixed (collision-free) since the doc's literal paths already host distinct modules |
+
+**Root `.rs` count: 29 → 15** after T10/T11/T12 (removed the 14 relocated files;
+remaining roots are the documented "stay at root" set plus `kinematic.rs` /
+`falling_sand.rs`, deferred to T13 / T14, and the `lib.rs` / `main.rs` /
+`headless.rs` entries).
 
 ## Follow-ups (deferred — need owner / later run)
 - Enemy-AI *behavior* improvements (feel — owner must watch).

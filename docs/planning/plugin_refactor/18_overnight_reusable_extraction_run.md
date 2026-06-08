@@ -163,7 +163,7 @@ Added as run slices: **T10** menu host move, **T11** combat/actor/items consolid
 
 | Item | Est | Actual | Commit | Status / notes |
 |---|---|---|---|---|
-| T1 ambition_time | 40m | — | — | next |
+| T1 ambition_time | 40m | ~75m | `bf729e1c` + `4104ba0a` | DONE (both steps) — **T1a** (`bf729e1c`): the entanglement was incidental. `time_scale` lived on the 2-field `SandboxSimState` god-struct (with `room_transition_cooldown`) but belongs to the TIME domain, so it moved to a new time-owned `crate::time::clock_state::ClockState { time_scale: f32 }`. Writers retargeted: the smoother, the suspended-frame zero, and reset/room-load/death/respawn (`reset_sandbox`, `load_room`, `death_respawn_player`, `safe_respawn_player`, `handle_player_damage_events`, `runtime::reset`). Readers retargeted: `refresh_world_time` (the WorldTime producer) + the dev/trace recorder (`build_frame`/`record_simulation_frame`/headless bin). `apply_room_transition_system` was at the 16-SystemParam limit, so the two reset resources are bundled in a small `RoomClock` SystemParam. **T1b** (`4104ba0a`): extracted the generic time vocabulary + producer into the reusable Layer-0 crate `crates/ambition_time/` — `WorldTime` + dt accessors (sim/wall/player/entity/dt_for), `ClockDomain`, `ClockState`, `ProperTimeScale`, `refresh_world_time`, and a documented `TimePlugin` (`app.add_plugins(TimePlugin)` → installs `ClockState`+`WorldTime`+the producer). The player-slot coupling was generalized to a crate-owned `ClockObserver(u8)` so the crate carries no game player type. **Stayed sandbox-side** (consume via the `crate::time` facade): the time-control POLICY (`Regime`/`Permission`/`ClockRequester`/`RegimePolicy`/`RequestedClockScale`/`apply_clock_scale_requests`/`emit_player_time_intent_system`/the feel-tuned smoother — all reference `PlayerSlot`/`PlayerBlinkState`/`SandboxFeelTuning`), `camera_ease`, `feel`, and `mirror_sim_dt_into_runtime` (bridge to the sibling runtime crate). Sandbox keeps its precise schedule wiring of `refresh_world_time` (not delegated to `TimePlugin`). Facade re-exports cover ~42 inbound sites with zero churn. New `architecture_boundaries_time_crate_is_extracted` guard (dep direction + content-freedom + TimePlugin + facades). **replay_fixture_regression: ZERO divergence after BOTH steps.** Gates: ambition_time build + 9 tests; sandbox build (incl. `--features visible`), lib 1428, architecture_boundaries 14, scripted_gameplay 3, movement_axis 2 — all green. The mid-run DEFERRED note below is now SUPERSEDED. |
 | T2 projectile primitive → runtime | 50m | ~35m | `f315cf8e` | DONE — `projectile/{body,collision,spec}.rs` (brain-free physics primitive) `git mv`→`ambition_platformer_runtime/src/projectile/`; new `projectile/mod.rs` + lib/prelude re-exports; `crate::engine_core::…`→`ambition_engine_core::…`; the 1 `enemy_projectile` ref was a comment only (inverted/genericized). Grew the runtime crate per the Stage-16 lesson (NO new crate). Sandbox `projectile/mod.rs` keeps `mod systems/state/spawn/motion_input/visuals/diagnostics` (the brain-coupled player SPAWN) + `pub use ambition_platformer_runtime::projectile::*` facade → zero call-site churn; `crate::enemy_projectile` consumes the same primitive through the facade unchanged. Body/collision/spec inline tests rode along (34 runtime tests); spawn/QCF/integration tests (`engine_tests.rs`, `tests/`) stayed sandbox-side. serde added to runtime Cargo (ProjectileKind derive). All gates green. |
 | T3 ambition_music | 35m | — | — | conditional |
 | T4 portal P | 40m | — | — | |
@@ -186,7 +186,7 @@ remaining roots are the documented "stay at root" set plus `kinematic.rs` /
 
 | Entangled | Why | Essential/incidental | Penalty | Verdict |
 |---|---|---|---|---|
-| time→`SandboxSimState` | `WorldTime` producer reads `time_scale`, stored in the `SandboxSimState` god-struct | **Incidental** (`time_scale` belongs to time, not a 2-field grab-bag; per-player ClockDomain is real but lives in the *policy*) | **LOW** — move 1 `f32` out (6 writes + few reads); identical-sim gate proves dt unchanged | **DECOUPLE + extract (T1, now active)** |
+| time→`SandboxSimState` | `WorldTime` producer reads `time_scale`, stored in the `SandboxSimState` god-struct | **Incidental** (`time_scale` belongs to time, not a 2-field grab-bag; per-player ClockDomain is real but lives in the *policy*) | **LOW** — move 1 `f32` out (6 writes + few reads); identical-sim gate proves dt unchanged | **DONE** — DECOUPLED (T1a) + crate EXTRACTED (T1b), zero replay divergence |
 | music→`encounter`/`content` | director picks boss tracks by referencing content | **Incidental** (generic director vs. content track-map) | **MODERATE** — invert to play-by-id API | decouple if night allows |
 | falling_sand→`rooms`/`config` | CA sim woven with room chunk-loading | **Partly essential** (room bounds genuinely needed) | **HIGH** (1305 LOC interwoven) | document, defer |
 | brain centrality | used by actors/content/projectile | **Essential by design** (universal-brain seam) | extracting it fights the architecture | keep central; get named behaviors out instead |
@@ -197,9 +197,13 @@ A full-coupling recheck (the first pass under-counted — it missed `SandboxSimS
 `player`/content refs) reclassified three "extraction" candidates as NOT cleanly
 extractable tonight. Deferred with the seam each needs (design tasks, not mechanical
 moves — doing them blind overnight would risk core regressions):
-- **T1 `ambition_time` — DEFERRED.** `WorldTime` couples to `crate::SandboxSimState`
-  (central sim state, reads `time_scale`) + player clocks. Needs a generic time-source
-  seam (crate owns `WorldTime`+`ProperTimeScale`+dt math; sandbox feeds via a producer).
+- **T1 `ambition_time` — SUPERSEDED (now DONE, see Progress table).** The earlier
+  recheck called this deferred, but the coupling was incidental: `time_scale` was just
+  a field on the `SandboxSimState` god-struct, not a real time↔sim entanglement. T1a
+  moved it to a time-owned `ClockState`; T1b then extracted the generic vocabulary +
+  producer into `ambition_time` (the `ClockObserver(u8)` seam decoupled the player-slot
+  type; the policy/camera-ease/feel stayed sandbox-side via the facade). Zero replay
+  divergence both steps.
 - **T3 `ambition_music` — DEFERRED.** Couples to `crate::encounter`+`crate::content`
   (track-per-boss) — named-content entanglement; needs a generic director vs. roster split.
 - **T14 `ambition_falling_sand` — DEFERRED.** Heavy coupling (config 15, rooms 10, …) —

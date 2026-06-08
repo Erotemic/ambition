@@ -9,8 +9,12 @@
 
 use bevy::prelude::*;
 
-use crate::portal::{portal_teleport_ground_items, portal_transit, warp_portal_input, PortalSet};
+use crate::portal::{
+    portal_teleport_ground_items, portal_transit, publish_portal_carves, warp_portal_input,
+    PortalSet,
+};
 
+use super::carve_adapter::bridge_portal_carves;
 use super::input_adapter::portal_input_adapter_system;
 use super::inventory_adapter::drop_portal_gun_system;
 use super::transit_adapter::{
@@ -24,6 +28,17 @@ pub struct AmbitionPortalAdaptersPlugin;
 
 impl Plugin for AmbitionPortalAdaptersPlugin {
     fn build(&self, app: &mut App) {
+        // Bridge portal-owned carves → the host collision overlay. Runs in
+        // `PortalSet::Carves` (which is `.before(CoreSimulation)`), after
+        // `publish_portal_carves` fills `PortalCarves`, so the overlay sees the
+        // same carves the same frame the in-core write used to produce.
+        app.add_systems(
+            Update,
+            bridge_portal_carves
+                .in_set(PortalSet::Carves)
+                .after(publish_portal_carves),
+        );
+
         // Translate this frame's ControlFrame into portal intents BEFORE the
         // core weapon/projectile consumers (ordered via PortalSet::InputAdapter
         // in the portal plugin).

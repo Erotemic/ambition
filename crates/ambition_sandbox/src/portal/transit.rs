@@ -59,6 +59,20 @@ pub struct PortalTransit {
     pub crossed: bool,
 }
 
+/// Portal-owned output of [`publish_portal_carves`]: the aperture rectangles to
+/// carve OUT of the host surface this frame, in publish order. Portal core writes
+/// the geometry here; an Ambition bridge
+/// (`crate::ambition_content::portal::bridge_portal_carves`) copies it into the
+/// host's `FeatureEcsWorldOverlay.portal_carves` each frame, ordered identically,
+/// so the collision world sees the same carves the same frame. Portal core thus
+/// never names `FeatureEcsWorldOverlay` — it owns the carve geometry, Ambition
+/// owns how a carve alters its collision representation.
+#[derive(Resource, Clone, Debug, Default)]
+pub struct PortalCarves {
+    /// Aperture rectangles to carve this frame, in publish order.
+    pub holes: Vec<ae::Aabb>,
+}
+
 /// Carve placed-portal apertures out of the host surface — but ONLY a portal a
 /// transiting body currently occupies (its `PortalTransit.straddling`), so the
 /// opening exists exactly while a body is passing through and re-seals the
@@ -66,12 +80,15 @@ pub struct PortalTransit {
 /// host wall (you could wiggle into the solid wall / ledge-grab the carved
 /// edges); gating the carve on active transit closes that. Pair-gated — a lone
 /// portal never carves.
+///
+/// Writes the carve geometry into the portal-owned [`PortalCarves`] resource (not
+/// the host overlay); the Ambition bridge copies it into the collision overlay.
 pub fn publish_portal_carves(
     portals: Query<&PlacedPortal>,
     transits: Query<&PortalTransit>,
-    mut overlay: ResMut<crate::features::FeatureEcsWorldOverlay>,
+    mut carves: ResMut<PortalCarves>,
 ) {
-    overlay.portal_carves.clear();
+    carves.holes.clear();
     let all: Vec<PlacedPortal> = portals.iter().copied().collect();
     // Carve each portal a body is actively transiting (deduped), but only if its
     // pair partner is placed — a lone portal must never open a bottomless hole.
@@ -86,7 +103,7 @@ pub fn publish_portal_carves(
         if find_portal(&all, t.straddling.partner()).is_none() {
             continue;
         }
-        overlay.portal_carves.push(pp::carve_hole(&enter.frame()));
+        carves.holes.push(pp::carve_hole(&enter.frame()));
         carved.push(t.straddling);
     }
 }

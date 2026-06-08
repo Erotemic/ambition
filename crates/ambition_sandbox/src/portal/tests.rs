@@ -1046,7 +1046,10 @@ fn partial_render_keeps_the_sprite_and_masks_the_through_slice() {
 #[test]
 fn portal_carve_is_transient_and_pair_gated() {
     let mut app = App::new();
-    app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
+    // Carve output is now the portal-owned `PortalCarves` resource (Phase 2
+    // Seam 1); the Ambition bridge copies it into the host overlay. Portal core
+    // (and this core test) reads the portal-owned resource directly.
+    app.init_resource::<crate::portal::PortalCarves>();
     app.add_systems(Update, publish_portal_carves);
     // A lone portal must NOT carve (no exit → no bottomless hole).
     let blue = app
@@ -1061,8 +1064,8 @@ fn portal_carve_is_transient_and_pair_gated() {
     app.update();
     assert!(
         app.world()
-            .resource::<crate::features::FeatureEcsWorldOverlay>()
-            .portal_carves
+            .resource::<crate::portal::PortalCarves>()
+            .holes
             .is_empty(),
         "a lone portal does not carve"
     );
@@ -1077,8 +1080,8 @@ fn portal_carve_is_transient_and_pair_gated() {
     app.update();
     assert!(
         app.world()
-            .resource::<crate::features::FeatureEcsWorldOverlay>()
-            .portal_carves
+            .resource::<crate::portal::PortalCarves>()
+            .holes
             .is_empty(),
         "a placed pair with no body transiting stays solid (no walk-in pocket)"
     );
@@ -1091,8 +1094,8 @@ fn portal_carve_is_transient_and_pair_gated() {
     app.update();
     assert_eq!(
         app.world()
-            .resource::<crate::features::FeatureEcsWorldOverlay>()
-            .portal_carves
+            .resource::<crate::portal::PortalCarves>()
+            .holes
             .len(),
         1,
         "only the portal a body is passing through is carved"

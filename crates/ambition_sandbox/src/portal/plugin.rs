@@ -8,7 +8,7 @@ use super::{
     clear_portals_on_reset, despawn_orphaned_portals, portal_fire_system, portal_projectile_step,
     portal_teleport_ground_items, portal_toggle_system, portal_transit, publish_portal_carves,
     suppress_ledge_grab_during_transit, tick_portal_cooldowns, warp_portal_input, BodyTeleported,
-    PlayerMovementIntent, PortalBodyTransited, SuppressWallAbilitiesInPortal,
+    PlayerMovementIntent, PortalBodyTransited, PortalCarves, SuppressWallAbilitiesInPortal,
 };
 use crate::platformer_runtime::orientation::{ensure_actor_roll, update_actor_roll};
 
@@ -48,6 +48,10 @@ impl Plugin for PortalSimulationPlugin {
         app.add_message::<PickUpPortalGun>();
         app.add_message::<PortalGunEquipped>();
         app.init_resource::<SuppressWallAbilitiesInPortal>();
+        // Portal-owned carve output. `publish_portal_carves` writes the aperture
+        // geometry here; the Ambition bridge copies it into the host collision
+        // overlay each frame (portal core never names `FeatureEcsWorldOverlay`).
+        app.init_resource::<PortalCarves>();
         // Content-agnostic movement intent: portal core's transit + input warp
         // read/mutate this instead of the Ambition `ControlFrame`; the content
         // input adapter (`crate::ambition_content::portal`) mirrors it to/from

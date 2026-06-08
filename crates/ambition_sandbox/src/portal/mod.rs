@@ -82,8 +82,8 @@ pub use shot::{portal_fire_system, portal_projectile_step, PortalShot};
 pub use transit::{
     portal_teleport_ground_items, portal_transit, publish_portal_carves,
     suppress_ledge_grab_during_transit, tick_portal_cooldowns, warp_portal_input, BodyTeleported,
-    PlayerMovementIntent, PortalBody, PortalBodyTransited, PortalEmission, PortalInputWarp,
-    PortalPolicy, PortalTransit, PortalTransitable, SuppressWallAbilitiesInPortal,
+    PlayerMovementIntent, PortalBody, PortalBodyTransited, PortalCarves, PortalEmission,
+    PortalInputWarp, PortalPolicy, PortalTransit, PortalTransitable, SuppressWallAbilitiesInPortal,
 };
 pub use types::{portal_half_extent, PlacedPortal, PortalTransitCooldown};
 

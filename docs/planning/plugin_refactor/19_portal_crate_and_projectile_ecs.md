@@ -56,6 +56,19 @@ projectiles get it in Phase 3). Dependency points strictly DOWN (portal →
 (Phase-3 detail: when projectiles become entities, their kinematic state should BE the
 lower-crate body component so the same marker-based transit just works on them.)
 
+**`PortalPolicy` describes HOW a body participates in transit — not WHAT it is**
+(DECIDED). No `Player` / `Boss` / `Projectile` / `EnemyFaction` may leak into it; those
+are object identities the crate must not know. Policy fields are behavioral/physical:
+how the body fits the aperture, whether it re-orients, its transit-cooldown behavior,
+etc. Ambition maps its game identities → policy when it tags the entity.
+
+**Orientation (DECIDED):** **velocity rotation is part of transit for almost
+everything** — going through a portal pair rotates the velocity vector by the pair
+transform; that lives in the core transit and is on by default. The **optional** part
+is **actor re-orientation** (rotating the body's facing / up-vector / sprite frame to
+the exit aperture) — that's a `PortalPolicy` flag (a player/enemy re-orients; a
+free-tumbling fireball or apple just has its velocity rotated and keeps flying).
+
 ## The projectile ECS-migration prerequisite
 "Make fireballs transit portals" requires projectiles to be **entities** (you can't
 add `PortalBody` to a `Vec` element). Today:
@@ -95,14 +108,28 @@ adds the marker + policy to the player and actor entities (they already carry
 `BodyKinematics`). Drop `BossConfig` from transit (fold its mass/size into
 `PortalPolicy`). Identical-sim — same aperture/centroid result, one code path.
 
-**Phase 2 — Portal API decoupling (the 7 leaks).** Carve output → portal-owned
-`PortalCarves` resource + an Ambition bridge into `FeatureEcsWorldOverlay`. World →
-a generic collision-world seam (trait/query), not `crate::GameWorld`. Fire → a generic
-fire-intent (origin+dir+channel) the Ambition input/inventory adapter emits, not
-`FirePortalGun`-implies-primary-player-held-gun. Reset → portal exposes a `clear
-portals` API; Ambition calls it on room reset (portal stops reading
-`ResetRoomFeaturesEvent`). `BodyKinematics` refs → `ambition_engine_core` (lower
-crate). Identical-sim.
+**Phase 2 — Portal API decoupling (the 7 leaks).**
+- **Carve output** → portal-owned `PortalCarves` resource + an Ambition bridge into
+  `FeatureEcsWorldOverlay` (portal owns the carve geometry; Ambition owns how carves
+  alter its collision representation).
+- **World seam (DECIDED): use the existing `ambition_platformer_runtime::SolidWorldQuery`** —
+  do NOT invent a new trait. The shot/raycast core becomes a **pure helper** over
+  `SolidWorldQuery` (+ aperture math); Ambition owns the Bevy adapter system that reads
+  `Res<GameWorld>` and calls the helper. So `portal_shot_step`/`portal_projectile_step`
+  hold no `Res<GameWorld>` — the crate stays ECS-light pure logic, the sandbox wires it.
+  - **Solid ≠ portal-placeable (DECIDED):** the world seam distinguishes "blocks
+    movement/raycast" from "accepts a portal." A surface can stop a body/ray yet reject
+    a portal. **Default: every solid surface accepts portals.** A future LDtk tile will
+    mark some surfaces non-portal-accepting — its exact representation is **deferred
+    until we have a concrete example** of a solid-but-no-portal surface. For now, model
+    the seam as `is_portal_placeable(surface) -> bool` defaulting to `true` (a no-op
+    hook), so adding the LDtk flag later is a data change, not an API change.
+- **Fire** → a generic fire-intent (origin + dir + channel) the Ambition input/inventory
+  adapter emits, not `FirePortalGun`-implies-primary-player-held-gun.
+- **Reset** → portal exposes a `clear portals` API; Ambition calls it on room reset
+  (portal stops reading `ResetRoomFeaturesEvent`).
+- **`BodyKinematics` refs** → `ambition_engine_core`/`ambition_platformer_runtime`
+  (lower crate). Identical-sim throughout.
 
 **Phase 3 — Projectile ECS migration (the big enabling refactor).** Split
 `ProjectileBody` → kinematic body + projectile gameplay; in-flight bodies → entities;

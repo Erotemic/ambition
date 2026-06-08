@@ -1,4 +1,7 @@
-//! Universal brain interface — see
+//! Universal brain interface — **see `brain/README.md` for the
+//! navigability map** (where enemy / NPC / boss / player AI lives,
+//! the per-tick data flow, and the 12-file layout). Read that before
+//! touching enemy AI. Also see
 //! [`docs/systems/brain-driver.md`](../../../docs/systems/brain-driver.md)
 //! for the overview and
 //! [`docs/recipes/extending-brains-and-action-sets.md`](../../../docs/recipes/extending-brains-and-action-sets.md)

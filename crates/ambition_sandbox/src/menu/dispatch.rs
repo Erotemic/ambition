@@ -14,14 +14,13 @@ use bevy::prelude::*;
 use ambition_menu::ActiveMenuPages;
 
 use crate::audio::SfxMessage;
-use crate::bevy_ui_grid_menu::effects::MenuAction;
-use crate::bevy_ui_grid_menu::input::{
-    dispatch_item_confirm, MenuEffectManaQuery, MenuEffectPlayers,
-};
 use crate::items::OwnedItems;
 use crate::lunex_kaleidoscope_app::{
     back_edge_focus, close_system_entry, play_ui, rotate_sfx, KaleidoscopeCursor,
     KaleidoscopeSystemNav, SystemMenuParams,
+};
+use crate::menu::effects::{
+    dispatch_item_confirm, MenuAction, MenuEffectManaQuery, MenuEffectPlayers,
 };
 use crate::menu::model::{MenuFocus, MenuPage, MenuPageAction};
 use crate::persistence::settings::{

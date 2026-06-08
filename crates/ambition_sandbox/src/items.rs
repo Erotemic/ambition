@@ -9,7 +9,7 @@
 //! to exactly one of these 24 slots, in a fixed grid order.
 //!
 //! This module is the source of truth for that set. It is deliberately
-//! presentation-independent: the OoT grid menu ([`crate::bevy_ui_grid_menu`], behind the
+//! presentation-independent: the unified tabbed menu ([`crate::menu`], behind the
 //! `oot_inventory` feature) renders it, but pickups, dialogue (`<<give_item>>` /
 //! `inventory_has`), and the equip path all read/write [`OwnedItems`] here. The
 //! menu can be cut without touching this catalog.

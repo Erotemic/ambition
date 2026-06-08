@@ -68,8 +68,6 @@ pub(crate) mod content;
 pub(crate) mod dev;
 pub(crate) mod dialog;
 // Test-only (`#![cfg(test)]`): static arity lint for the Yarn dialogue commands.
-#[cfg(feature = "oot_inventory")]
-pub mod bevy_ui_grid_menu;
 mod dialog_lint;
 pub(crate) mod encounter;
 pub(crate) mod enemy_projectile;

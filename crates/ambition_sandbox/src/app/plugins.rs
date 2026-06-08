@@ -698,17 +698,12 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                 .after(SandboxSet::CoreSimulation),
         );
 
-    // OoT item-grid menu (easy-to-cut seam): spawn its overlay + sync its
-    // visuals. The input systems are swapped in the input chain below. When the
-    // feature is off, the legacy adventure menu handles the Inventory button.
+    // OoT item-grid menu (easy-to-cut seam): the two presentation backends below.
+    // When the feature is off, the legacy adventure menu handles the Inventory
+    // button.
     #[cfg(feature = "oot_inventory")]
     {
-        app.add_systems(
-            Startup,
-            crate::bevy_ui_grid_menu::spawn_grid_menu.after(setup_simulation_system),
-        );
-        crate::bevy_ui_grid_menu::install_grid_menu_visuals(app);
-        // 3D-cube inventory frontend (#31), runtime-toggleable vs the grid above.
+        // 3D-cube inventory frontend (#31), runtime-toggleable vs the grid below.
         crate::lunex_kaleidoscope_app::install_kaleidoscope_menu(app);
         // Unified flat tabbed menu (Phase C2b): the `InventoryUiBackend::Grid`
         // presentation of the SAME page model + dispatcher. Gated to `backend ==
@@ -1043,16 +1038,6 @@ pub(super) fn add_input_plugins(app: &mut App) {
                 // `oot_inventory` feature is on, otherwise the legacy 3-tab menu.
                 #[cfg(not(feature = "oot_inventory"))]
                 inventory::inventory_input,
-                // The OLD bevy-UI item grid is INERT under the unified Grid backend
-                // (Phase C2b): that backend owns open/close + nav + dispatch. It still
-                // runs under the Cube backend (where it owns only the shared inventory
-                // open toggle the cube relies on).
-                #[cfg(feature = "oot_inventory")]
-                crate::bevy_ui_grid_menu::grid_menu_input.run_if(
-                    bevy::ecs::schedule::common_conditions::not(
-                        crate::menu::grid_backend::grid_backend_active,
-                    ),
-                ),
                 // The bevy-UI pause menu is INERT under the Cube backend (the cube
                 // renderer owns input). These pointer/drag/nav systems still run
                 // while `Paused`, so each is gated by `pause_menu_ui_active` so none
@@ -1063,12 +1048,6 @@ pub(super) fn add_input_plugins(app: &mut App) {
                 pause_menu::settings_scrollbar_drag_input.run_if(pause_menu::pause_menu_ui_active),
                 #[cfg(not(feature = "oot_inventory"))]
                 inventory::inventory_pointer_input,
-                #[cfg(feature = "oot_inventory")]
-                crate::bevy_ui_grid_menu::grid_menu_pointer_input.run_if(
-                    bevy::ecs::schedule::common_conditions::not(
-                        crate::menu::grid_backend::grid_backend_active,
-                    ),
-                ),
                 pause_menu::pause_menu_navigate.run_if(pause_menu::pause_menu_ui_active),
             )
                 .chain()

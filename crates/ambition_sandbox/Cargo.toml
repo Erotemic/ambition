@@ -301,6 +301,13 @@ ambition_sfx = { path = "../ambition_sfx" }
 # not-yet-extracted local modules collision/orientation/transit). See
 # docs/planning/plugin_refactor/14_action_plan.md Stage 13 / Task K.
 ambition_platformer_runtime = { path = "../ambition_platformer_runtime" }
+# Reusable, content-free time vocabulary + producer (WorldTime / ClockState /
+# ClockDomain / ProperTimeScale / named-clock dt accessors / TimePlugin). The
+# `crate::time` module is a facade re-exporting these; the sandbox keeps the
+# game-specific time-control POLICY (Regime / requester table / feel-tuned
+# smoother), camera-ease, and feel modules on top. ADR 0010/0011. See
+# docs/planning/plugin_refactor/18_overnight_reusable_extraction_run.md (T1b).
+ambition_time = { path = "../ambition_time" }
 # ECS-native pure-logic core (geometry / movement / collision / player_state /
 # abilities / ledge_grab / world / player_clusters + the shared BodyKinematics
 # body component). The build-time foundation; re-exported as `crate::engine_core`

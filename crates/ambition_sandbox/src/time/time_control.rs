@@ -23,55 +23,10 @@ use crate::time::feel::SandboxFeelTuning;
 use crate::ClockDomain;
 use crate::SandboxDevState;
 
-/// ADR 0011 — per-entity proper-time scale.
-///
-/// An entity with `ProperTimeScale(2.0)` ticks at twice the world's
-/// sim rate; an entity with `ProperTimeScale(0.5)` ticks at half.
-/// Default (and the SP-everywhere assumption today) is `1.0`, in
-/// which case [`crate::WorldTime::entity_dt`] returns sim_dt
-/// unchanged.
-///
-/// This is the seam for two future mechanics:
-///
-/// - **MP bullet-time** (ADR 0011 §Two time-control operations) —
-///   one player boosts their proper time without slowing other
-///   players' clocks. `BoostEntityProperTime(p, factor)` sets this
-///   component on the player entity.
-/// - **Special relativity** (ADR 0011 §Galilean→SR ladder) — a
-///   future room metric computes this from velocity via the Lorentz
-///   factor `γ(v) = 1 / √(1 − v²/c²)`. The integrator already reads
-///   per-entity proper-time scale, so adding SR is a data change.
-///
-/// Most entities never carry this component; `entity_dt` defaults
-/// to `ProperTimeScale::ONE` (i.e., `sim_dt`) when it's missing so
-/// the change is invisible until something opts in.
-#[derive(Component, Copy, Clone, Debug, PartialEq)]
-pub struct ProperTimeScale(pub f32);
-
-impl Default for ProperTimeScale {
-    fn default() -> Self {
-        Self::ONE
-    }
-}
-
-impl ProperTimeScale {
-    /// The everywhere-default scale. Returned by lookups for entities
-    /// that have no [`ProperTimeScale`] component.
-    pub const ONE: ProperTimeScale = ProperTimeScale(1.0);
-
-    /// Read the scalar value.
-    pub fn value(self) -> f32 {
-        self.0
-    }
-
-    /// Resolve an `Option<&ProperTimeScale>` lookup, defaulting to
-    /// [`Self::ONE`] when missing. Convenience for animator + AI
-    /// systems that query `Option<&ProperTimeScale>` so they don't
-    /// require every entity to carry the component.
-    pub fn or_default(opt: Option<&ProperTimeScale>) -> ProperTimeScale {
-        opt.copied().unwrap_or(Self::ONE)
-    }
-}
+/// ADR 0011 — per-entity proper-time scale. Now lives in the reusable
+/// `ambition_time` crate (Stage 18 T1b); re-exported here so the historic
+/// `crate::time::time_control::ProperTimeScale` path keeps resolving.
+pub use ambition_time::ProperTimeScale;
 
 /// Who is asking for a clock change. Encoded as data so a policy
 /// table can grant/deny based on identity without hard-coding which
@@ -372,7 +327,7 @@ mod tests {
         ] {
             for domain in [
                 ClockDomain::SimClock,
-                ClockDomain::PlayerClock(PlayerSlot::PRIMARY),
+                ClockDomain::PlayerClock(ambition_time::ClockObserver::PRIMARY),
                 ClockDomain::WallClock,
             ] {
                 assert_eq!(

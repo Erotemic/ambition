@@ -890,3 +890,99 @@ fn architecture_boundaries_portal_has_facade_plugin_and_schedule_files() {
         "portal plugin should label transit systems with PortalSet"
     );
 }
+
+#[test]
+fn architecture_boundaries_time_crate_is_extracted() {
+    // Stage 18 / T1b: the generic time vocabulary + producer (WorldTime /
+    // ClockState / ClockDomain / ProperTimeScale / the named-clock dt
+    // accessors / TimePlugin) was extracted into the standalone
+    // `ambition_time` crate. Assert (a) the crate exists and is registered,
+    // (b) it does NOT depend on the sandbox (it is the reusable, content-free
+    // time layer — a different game must be able to drop it in), (c) it
+    // exposes a `TimePlugin`, and (d) the sandbox's time modules are now
+    // facades re-exporting the crate's types while keeping the game-specific
+    // time-control policy / camera-ease / feel on top.
+    let root = repo_root();
+    let crate_root = root.join("crates/ambition_time");
+
+    // (a) The crate exists and is wired into the workspace.
+    assert!(
+        crate_root.join("Cargo.toml").exists(),
+        "ambition_time crate should exist at crates/ambition_time"
+    );
+    assert!(
+        crate_root.join("src/lib.rs").exists(),
+        "ambition_time should have a src/lib.rs"
+    );
+    let workspace_manifest =
+        fs::read_to_string(root.join("Cargo.toml")).expect("read workspace manifest");
+    assert!(
+        workspace_manifest.contains("crates/ambition_time"),
+        "ambition_time must be a registered workspace member"
+    );
+
+    // (b) The extracted crate must not depend on the sandbox.
+    let crate_manifest =
+        fs::read_to_string(crate_root.join("Cargo.toml")).expect("read ambition_time manifest");
+    let depends_on_sandbox = crate_manifest.lines().any(|line| {
+        let line = line.trim();
+        line.starts_with("ambition_sandbox =") || line.starts_with("ambition_sandbox.")
+    });
+    assert!(
+        !depends_on_sandbox,
+        "ambition_time must not depend on ambition_sandbox (it is the reusable time layer)"
+    );
+
+    // (b') The crate must stay content-free: no source line may reference the
+    //      sandbox crate by path.
+    for file in collect_rs_files(&crate_root.join("src")) {
+        let text = fs::read_to_string(&file).expect("read ambition_time source");
+        for (lineno, line) in text.lines().enumerate() {
+            // Skip doc/comment lines: the crate docs legitimately say it was
+            // "extracted from ambition_sandbox". Only real code references
+            // (a `use` / path) would violate the boundary.
+            let trimmed = line.trim_start();
+            if trimmed.starts_with("//") || trimmed.starts_with("*") {
+                continue;
+            }
+            assert!(
+                !line.contains("ambition_sandbox"),
+                "ambition_time must stay content-free; {}:{} references ambition_sandbox",
+                file.display(),
+                lineno + 1,
+            );
+        }
+    }
+
+    // (c) The crate exposes a drop-in TimePlugin (the north-star composition
+    //     handle for a different game).
+    let lib_text = fs::read_to_string(crate_root.join("src/lib.rs")).expect("read time lib.rs");
+    assert!(
+        lib_text.contains("pub struct TimePlugin")
+            && lib_text.contains("impl Plugin for TimePlugin"),
+        "ambition_time should expose a TimePlugin"
+    );
+
+    // (d) The sandbox-side time modules are facades over the crate.
+    let sandbox_time = crate_src().join("time");
+    let world_time = fs::read_to_string(sandbox_time.join("world_time.rs"))
+        .expect("read sandbox time/world_time.rs facade");
+    assert!(
+        world_time.contains("pub use ambition_time::"),
+        "sandbox time/world_time.rs should re-export ambition_time types"
+    );
+    let clock_state = fs::read_to_string(sandbox_time.join("clock_state.rs"))
+        .expect("read sandbox time/clock_state.rs facade");
+    assert!(
+        clock_state.contains("pub use ambition_time::ClockState"),
+        "sandbox time/clock_state.rs should re-export ambition_time::ClockState"
+    );
+    // The game-specific policy (Regime / requester table) + presentation stay
+    // sandbox-side.
+    for stay in ["time_control.rs", "camera_ease.rs", "feel.rs"] {
+        assert!(
+            sandbox_time.join(stay).exists(),
+            "sandbox time/{stay} (game-specific policy / presentation) must stay sandbox-side"
+        );
+    }
+}

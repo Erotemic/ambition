@@ -1,0 +1,18 @@
+[package]
+name = "ambition_time"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Reusable, content-free time vocabulary + producer (WorldTime / ClockState / named-clock dt accessors / TimePlugin) extracted from ambition_sandbox. ADR 0010/0011."
+
+[lib]
+# rlib only: consumed by ambition_sandbox (and any future game that wants a
+# bullet-time / hitstop / pause-aware named-clock dt system).
+crate-type = ["rlib"]
+
+[dependencies]
+# Only the ECS surface is needed: Resource / Component / System / Plugin /
+# Time (via bevy::prelude). No render, audio, windowing, or asset features —
+# this crate must stay reusable and headless.
+bevy = { version = "0.18.1", default-features = false }

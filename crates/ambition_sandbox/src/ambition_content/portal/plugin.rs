@@ -10,13 +10,14 @@
 use bevy::prelude::*;
 
 use crate::portal::{
-    portal_teleport_ground_items, portal_transit, publish_portal_carves, warp_portal_input,
-    PortalSet,
+    portal_fire_system, portal_teleport_ground_items, portal_transit, publish_portal_carves,
+    warp_portal_input, PortalSet,
 };
 
 use super::carve_adapter::bridge_portal_carves;
 use super::input_adapter::portal_input_adapter_system;
 use super::inventory_adapter::drop_portal_gun_system;
+use super::shot_adapter::portal_projectile_step;
 use super::transit_adapter::{
     apply_movement_intent_to_control, sync_ground_items_to_transitable,
     sync_movement_intent_from_control, sync_transitable_to_ground_items,
@@ -37,6 +38,18 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
             bridge_portal_carves
                 .in_set(PortalSet::Carves)
                 .after(publish_portal_carves),
+        );
+
+        // Advance in-flight portal shots against the concrete `GameWorld` (the
+        // world-seam adapter, Phase 2 Seam 2). Runs in the weapon set after the
+        // core fire system, preserving the old `toggle → fire → step` order; the
+        // pure decision lives in `crate::portal::step_portal_shot`.
+        app.add_systems(
+            Update,
+            portal_projectile_step
+                .run_if(crate::gameplay_allowed)
+                .in_set(PortalSet::WeaponAndProjectiles)
+                .after(portal_fire_system),
         );
 
         // Translate this frame's ControlFrame into portal intents BEFORE the

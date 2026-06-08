@@ -5,7 +5,7 @@ use super::messages::{
 };
 use super::schedule::PortalSet;
 use super::{
-    clear_portals_on_reset, despawn_orphaned_portals, portal_fire_system, portal_projectile_step,
+    clear_portals_on_reset, despawn_orphaned_portals, portal_fire_system,
     portal_teleport_ground_items, portal_toggle_system, portal_transit, publish_portal_carves,
     suppress_ledge_grab_during_transit, tick_portal_cooldowns, warp_portal_input, BodyTeleported,
     PlayerMovementIntent, PortalBodyTransited, PortalCarves, SuppressWallAbilitiesInPortal,
@@ -100,13 +100,15 @@ impl Plugin for PortalSimulationPlugin {
             Update,
             PortalSet::WeaponMaintenance.after(PortalSet::WeaponAndProjectiles),
         );
+        // `portal_projectile_step` (the GameWorld-reading shot stepper) moved to
+        // the Ambition adapter `crate::ambition_content::portal::portal_projectile_step`
+        // (Phase 2 Seam 2): portal core keeps only the pure `step_portal_shot`
+        // helper over `SolidWorldQuery`. The adapter is registered
+        // `.after(portal_fire_system)` in this same set, preserving the
+        // `toggle → fire → step` order.
         app.add_systems(
             Update,
-            (
-                portal_toggle_system,
-                portal_fire_system,
-                portal_projectile_step,
-            )
+            (portal_toggle_system, portal_fire_system)
                 .chain()
                 .in_set(PortalSet::WeaponAndProjectiles),
         );

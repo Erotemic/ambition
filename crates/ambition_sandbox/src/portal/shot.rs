@@ -1,12 +1,18 @@
 //! The in-flight [`PortalShot`]: firing a shot and stepping it until it
 //! lands on a solid (opening a portal) or fizzles.
+//!
+//! World access is captured through the reusable
+//! [`SolidWorldQuery`](crate::platformer_runtime::collision::SolidWorldQuery)
+//! seam — the pure [`step_portal_shot`] helper raycasts against it (plus a
+//! world-bounds rectangle) and decides the outcome, so portal core never reads
+//! the concrete `Res<GameWorld>`. The Bevy adapter that owns `GameWorld` lives in
+//! `crate::ambition_content::portal` and calls the helper.
 
 use bevy::prelude::*;
 
-use crate::platformer_runtime::collision::raycast_solids;
+use crate::platformer_runtime::collision::{raycast_solids, SolidWorldQuery};
 use crate::platformer_runtime::prelude::SpawnScopedExt;
 use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
-use crate::GameWorld;
 
 use super::color::PortalChannel;
 use super::gun::PortalGun;
@@ -68,64 +74,92 @@ pub fn portal_fire_system(
     ));
 }
 
-/// Advance portal shots; open a portal on solid contact (the bright warping
-/// whoosh) or fizzle past max range / out of bounds (the rejection buzz).
-pub fn portal_projectile_step(
-    time: Res<crate::WorldTime>,
-    world: Res<GameWorld>,
-    mut commands: Commands,
-    mut projectiles: Query<(Entity, &mut PortalShot)>,
-    portals: Query<(Entity, &PlacedPortal)>,
-    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
-) {
-    let dt = time.sim_dt();
-    if dt <= 0.0 {
-        return;
-    }
-    for (proj_entity, mut proj) in &mut projectiles {
-        let step = (proj.vel * dt).length().max(1.0);
-        if let Some((hit, normal)) = raycast_solids(&world.0, proj.pos, proj.vel, step, true) {
-            // Hit a wall — open (or replace) the portal of this color.
-            for (entity, portal) in &portals {
-                if portal.channel == proj.channel {
-                    commands.entity(entity).despawn();
-                    sfx.write(ambition_sfx::SfxMessage::Play {
-                        id: ambition_sfx::ids::PORTAL_CLOSE,
-                        pos: hit,
-                    });
-                }
-            }
-            commands.spawn_room_scoped((
-                PlacedPortal {
-                    channel: proj.channel,
-                    pos: hit + normal * 2.0,
-                    normal,
-                    half_extent: portal_half_extent(normal),
-                },
-                Name::new(format!("Portal: {}", proj.channel.name())),
-                // Portals are per-room: a room transition despawns them, so they
-                // don't linger and reappear when you leave and come back (#41).
-            ));
-            sfx.write(ambition_sfx::SfxMessage::Play {
-                id: ambition_sfx::ids::PORTAL_ATTACH,
-                pos: hit,
-            });
-            commands.entity(proj_entity).despawn();
-            continue;
+/// World access for the pure portal-shot step: the solid surfaces the shot's
+/// ray can hit, plus the world bounds it fizzles past. The host supplies a
+/// concrete value (its `GameWorld`) via the Ambition adapter; portal core's
+/// [`step_portal_shot`] reasons about it through this seam, never `GameWorld`.
+///
+/// `solids` is the reusable
+/// [`SolidWorldQuery`](crate::platformer_runtime::collision::SolidWorldQuery)
+/// surface (Stage 16); `size` is the world rectangle (origin at `(0,0)`) the
+/// shot fizzles 64px outside of.
+pub struct PortalShotWorld<'a, W: SolidWorldQuery + ?Sized> {
+    /// The solid surfaces the shot's raycast adheres to (one-way platforms
+    /// included — portal placement sticks to them).
+    pub solids: &'a W,
+    /// World extent (max corner; min is `(0,0)`). The shot fizzles 64px outside.
+    pub size: Vec2,
+}
+
+/// Whether a surface the shot hit accepts a portal. The world seam distinguishes
+/// "blocks the ray" (every [`SolidWorldQuery`] surface) from "accepts a portal":
+/// a surface can stop the shot yet reject a portal. **Default: every solid
+/// surface accepts portals** — so this is a no-op hook today. A future LDtk
+/// no-portal tile will refine it (a data change, not an API change); its exact
+/// representation is deferred until a concrete solid-but-no-portal surface
+/// exists. `hit` is the contact point, `normal` the surface outward normal.
+#[inline]
+pub fn is_portal_placeable(_hit: Vec2, _normal: Vec2) -> bool {
+    true
+}
+
+/// Outcome of advancing one [`PortalShot`] by `dt` against the world seam. The
+/// pure decision; the Bevy adapter applies it (spawns/despawns entities, plays
+/// sfx). Keeps portal core's shot logic free of `Res<GameWorld>` and of ECS
+/// entity bookkeeping.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum PortalShotStep {
+    /// Still flying: advance to `pos` and add `traveled_delta` to the odometer.
+    Travel { pos: Vec2, traveled_delta: f32 },
+    /// Hit a portal-placeable surface: open (or replace) a portal of `channel`
+    /// at `pos` with `normal`; despawn the shot.
+    Place {
+        channel: PortalChannel,
+        pos: Vec2,
+        normal: Vec2,
+        /// The raw contact point (for the close/attach sfx position).
+        hit: Vec2,
+    },
+    /// Fizzled (past max range / out of bounds, or hit a non-placeable surface):
+    /// despawn the shot. `pos` is where the buzz plays.
+    Fizzle { pos: Vec2 },
+}
+
+/// Advance one portal shot one tick against the world seam and decide its
+/// outcome — the pure heart of `portal_projectile_step`, free of ECS and of the
+/// concrete `GameWorld`. A solid contact on a [`is_portal_placeable`] surface
+/// places the portal; a contact on a non-placeable surface fizzles; otherwise
+/// the shot travels until it passes max range or leaves the world bounds.
+pub fn step_portal_shot<W: SolidWorldQuery + ?Sized>(
+    shot: &PortalShot,
+    world: &PortalShotWorld<'_, W>,
+    dt: f32,
+) -> PortalShotStep {
+    let step = (shot.vel * dt).length().max(1.0);
+    if let Some((hit, normal)) = raycast_solids(world.solids, shot.pos, shot.vel, step, true) {
+        if is_portal_placeable(hit, normal) {
+            return PortalShotStep::Place {
+                channel: shot.channel,
+                pos: hit + normal * 2.0,
+                normal,
+                hit,
+            };
         }
-        let delta = proj.vel * dt;
-        proj.pos += delta;
-        proj.traveled += step;
-        let oob = proj.pos.x < -64.0
-            || proj.pos.y < -64.0
-            || proj.pos.x > world.0.size.x + 64.0
-            || proj.pos.y > world.0.size.y + 64.0;
-        if proj.traveled > PORTAL_MAX_RANGE || oob {
-            sfx.write(ambition_sfx::SfxMessage::Play {
-                id: ambition_sfx::ids::PORTAL_INVALID,
-                pos: proj.pos,
-            });
-            commands.entity(proj_entity).despawn();
+        // Hit a solid that rejects a portal — the shot dies on it (no portal).
+        return PortalShotStep::Fizzle { pos: hit };
+    }
+    let pos = shot.pos + shot.vel * dt;
+    let traveled = shot.traveled + step;
+    let oob = pos.x < -64.0
+        || pos.y < -64.0
+        || pos.x > world.size.x + 64.0
+        || pos.y > world.size.y + 64.0;
+    if traveled > PORTAL_MAX_RANGE || oob {
+        PortalShotStep::Fizzle { pos }
+    } else {
+        PortalShotStep::Travel {
+            pos,
+            traveled_delta: step,
         }
     }
 }

@@ -78,7 +78,10 @@ pub use presentation::{
     sync_portal_mode_indicator, sync_portal_visuals, PortalAimHint, PortalBodyPiece,
     PortalDisorientIndicator, PortalGunArt, PortalModeIndicator, PortalVisual,
 };
-pub use shot::{portal_fire_system, portal_projectile_step, PortalShot};
+pub use shot::{
+    is_portal_placeable, portal_fire_system, step_portal_shot, PortalShot, PortalShotStep,
+    PortalShotWorld,
+};
 pub use transit::{
     portal_teleport_ground_items, portal_transit, publish_portal_carves,
     suppress_ledge_grab_during_transit, tick_portal_cooldowns, warp_portal_input, BodyTeleported,

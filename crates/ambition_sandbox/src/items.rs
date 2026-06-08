@@ -9,8 +9,8 @@
 //! to exactly one of these 24 slots, in a fixed grid order.
 //!
 //! This module is the source of truth for that set. It is deliberately
-//! presentation-independent: the unified tabbed menu ([`crate::menu`], behind the
-//! `oot_inventory` feature) renders it, but pickups, dialogue (`<<give_item>>` /
+//! presentation-independent: the unified tabbed menu ([`crate::menu`]) renders
+//! it, but pickups, dialogue (`<<give_item>>` /
 //! `inventory_has`), and the equip path all read/write [`OwnedItems`] here. The
 //! menu can be cut without touching this catalog.
 //!
@@ -481,10 +481,10 @@ impl Item {
 /// items it is 0 or 1, for [`ItemCategory::Consumable`] it is a stack size.
 /// `equipped` is the currently-equipped [`ItemCategory::Weapon`] slot, if any.
 ///
-/// This is the single source of truth the OoT menu, pickups, dialogue, and the
-/// equip path share. The legacy [`crate::inventory::PlayerInventory`] is kept in
-/// sync one-way (here → there) for the three overlapping items so the old menu
-/// still displays correct counts when the `oot_inventory` feature is off.
+/// This is the single source of truth the unified menu, pickups, dialogue, and
+/// the equip path share. The legacy [`crate::inventory::PlayerInventory`] is kept
+/// in sync one-way (here → there) for the three overlapping items so any consumer
+/// of that data model still displays correct counts.
 #[derive(Resource, Clone, Debug)]
 pub struct OwnedItems {
     counts: [u32; ITEM_COUNT],

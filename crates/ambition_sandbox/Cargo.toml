@@ -18,7 +18,7 @@ default = ["desktop_dev"]
 
 # Full desktop sandbox. This is the regular `cargo run` experience: visible
 # gameplay plus inspector/devtools, mobile touch, and RL/test adapters.
-desktop_dev = ["visible", "desktop_platform", "dev_tools", "mobile_touch", "rl_sim", "falling_sand", "oot_inventory"]
+desktop_dev = ["visible", "desktop_platform", "dev_tools", "mobile_touch", "rl_sim", "falling_sand"]
 
 # Portal gun mechanic (the flagship player ability). Optional so non-portal
 # builds can compile out portal mechanics, portal rendering, and portal LDtk
@@ -279,14 +279,6 @@ mobile_touch = ["input", "dep:virtual_joystick"]
 # for now while the bevy_falling_sand render feature is validated there.
 falling_sand = ["dep:bevy_falling_sand"]
 
-# OoT-style 6x4 item-grid inventory menu (`crate::oot_menu`). Pure presentation
-# over the always-on `crate::items` catalog, so it is an easy-to-cut seam: drop
-# this feature and the legacy 3-tab adventure menu takes over. Needs `ui` (Bevy
-# UI nodes) + `input` (MenuControlFrame). No new dependencies — the 3D OoT cube
-# renderer (submodule `ambition_menu` + bevy_lunex) is a separate,
-# heavier follow-up.
-oot_inventory = ["ui", "input", "dep:ambition_menu"]
-
 # Bevy/Tracy per-system profiling. Off by default because it pulls
 # `tracing-tracy` and instruments every Bevy system, increasing binary
 # size and runtime overhead. Build with `cargo run --features profile`
@@ -321,11 +313,11 @@ ambition_engine_core = { path = "../ambition_engine_core" }
 # sandbox `input` feature forwards to this crate's `input` feature. See
 # docs/planning/plugin_refactor/15_post_task_k_revision.md.
 ambition_input = { path = "../ambition_input" }
-# 3D-cube OoT inventory/pause UI (bevy_lunex). Optional: only UI builds need it,
-# gated by `oot_inventory`; runtime-toggleable vs the Bevy-UI grid (#31).
-# De-vendored from the submodule into a normal repo crate so it can be edited
-# without the submodule commit + gitlink-bump dance.
-ambition_menu = { path = "../ambition_menu", optional = true }
+# 3D-cube OoT inventory/pause UI (bevy_lunex). The unified menu (cube + grid) is
+# the one menu, compiled unconditionally (Phase D2); runtime-toggleable cube vs
+# the Bevy-UI grid (#31). De-vendored from the submodule into a normal repo crate
+# so it can be edited without the submodule commit + gitlink-bump dance.
+ambition_menu = { path = "../ambition_menu" }
 # Logical asset catalog + per-profile source resolution. Bevy + sfx
 # features so the sandbox can format `AssetPath` strings through the
 # catalog and (in a follow-up) route the SFX bank bytes through the

@@ -32,8 +32,6 @@
 //!   its action (entity-independent press→release so a rebuild can't drop a
 //!   click); clicking a tab switches; hover moves the cursor.
 
-#![cfg(feature = "oot_inventory")]
-
 use bevy::prelude::*;
 
 use ambition_menu::render::bevy_ui::{

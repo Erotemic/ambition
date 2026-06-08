@@ -506,7 +506,7 @@ mod dispatch_parity {
 
     /// Dispatch parity: a ChangePage action sets the same active page on both
     /// backends.
-    #[test]
+    ///
     /// Page-change is the ONE action whose effect is DELIBERATELY asymmetric, and
     /// this test pins that asymmetry so it can't drift silently:
     ///
@@ -588,6 +588,7 @@ mod dispatch_parity {
             .quest_hud_visible;
 
         assert_ne!(grid_after, grid_before, "grid toggled the setting");
+        assert_ne!(cube_after, cube_before, "cube toggled the setting");
         assert_eq!(
             grid_after, cube_after,
             "both backends land the same toggled value through apply_settings_option"

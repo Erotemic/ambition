@@ -18,8 +18,11 @@
 //! - [`transit`] — player/actor/item transit systems plus the carve / input
 //!   guards.
 //! - [`lifecycle`] — portal orphan cleanup and room-reset portal clearing.
-//! - [`presentation`] — visible-build visual sync (registered by the
-//!   presentation plugin).
+//! - `presentation` — visible-build visual sync (sprites, rings, body pieces,
+//!   disorientation FX). Render-only: compiled and re-exported **exclusively**
+//!   behind the `portal_render` feature, and registered by the presentation
+//!   plugin. The portal *simulation* (every module above) builds without it, so
+//!   portal core is render-independent.
 //!
 //! It stays deterministic (no RNG, no per-frame allocation in the hot path) so
 //! it runs identically in the headless sim.
@@ -35,6 +38,11 @@ mod pickup;
 pub mod pieces;
 mod placement;
 mod plugin;
+/// Portal presentation (sprites, rings, body pieces, disorientation FX). Render
+/// only — compiled and registered exclusively behind the `portal_render` feature
+/// so portal *simulation* (transit, placement, lifecycle, carve, pieces
+/// geometry) builds without any render-facing systems or components.
+#[cfg(feature = "portal_render")]
 mod presentation;
 mod schedule;
 mod shot;
@@ -49,7 +57,12 @@ pub use crate::platformer_runtime::orientation::{ensure_actor_roll, update_actor
 pub use crate::platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
 
 pub use color::{PortalChannel, PortalChannelColor, PortalGunColor};
-pub use gun::{portal_dev_toggle_system, portal_toggle_system, PortalGun};
+/// The `F7` dev off-switch is only wired by the render layer (visible build), so
+/// its re-export rides the same feature even though the system itself is
+/// render-free (generic Bevy keyboard input).
+#[cfg(feature = "portal_render")]
+pub use gun::portal_dev_toggle_system;
+pub use gun::{portal_toggle_system, PortalGun};
 pub use lifecycle::{clear_portals_on_reset, despawn_orphaned_portals};
 pub use messages::{
     DropPortalGun, FirePortalGun, PickUpPortalGun, PortalGunEquipped, TogglePortalGun,
@@ -59,6 +72,7 @@ pub use placement::{
     portal_facing_flips, portal_fits, portal_transit_roll, raycast_through_portals,
     somersault_roll, transit_step, TransitStep,
 };
+#[cfg(feature = "portal_render")]
 pub use presentation::{
     load_portal_gun_art, sync_portal_body_pieces, sync_portal_disorientation_indicator,
     sync_portal_mode_indicator, sync_portal_visuals, PortalAimHint, PortalBodyPiece,

@@ -51,8 +51,11 @@ impl Plugin for PortalSimulationPlugin {
         // `ControlFrame` each frame.
         app.init_resource::<PlayerMovementIntent>();
         // Held-gun aim hint for the visible-build presentation, populated by the
-        // content input adapter; init here so presentation can read it without the
-        // Ambition input type even when the content adapter hasn't run yet.
+        // content input adapter; init only with the render feature so portal
+        // *simulation* carries no render-only resource. The content input adapter
+        // writes it via `Option<ResMut<PortalAimHint>>`, so it no-ops cleanly when
+        // the render layer (and thus this resource) is absent.
+        #[cfg(feature = "portal_render")]
         app.init_resource::<super::PortalAimHint>();
 
         // Portal systems are registered `.in_set(PortalSet::X)` with only

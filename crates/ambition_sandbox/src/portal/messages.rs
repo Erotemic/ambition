@@ -64,6 +64,15 @@ pub struct DropPortalGun;
 #[derive(Message, Clone, Copy, Debug)]
 pub struct PickUpPortalGun;
 
+/// Intent: clear all placed portals and any body's transit cooldown — the
+/// portal-owned reset signal. Portal core consumes this instead of reading the
+/// Ambition `ResetRoomFeaturesEvent`; the room-reset adapter
+/// (`crate::ambition_content::portal::bridge_room_reset_to_clear_portals`) emits
+/// it when a room resets / transitions, so portal core never names the Ambition
+/// reset event.
+#[derive(Message, Clone, Copy, Debug)]
+pub struct ClearPortals;
+
 /// Outcome: the primary player just acquired a portal gun (via a world pickup).
 /// The inventory adapter listens for this to reflect ownership / equipped state
 /// into the Ambition item roster — portal core never touches that roster.

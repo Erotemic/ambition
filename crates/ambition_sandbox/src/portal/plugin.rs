@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
 use super::messages::{
-    DropPortalGun, FirePortalGun, PickUpPortalGun, PortalFireIntent, PortalGunEquipped,
-    TogglePortalGun,
+    ClearPortals, DropPortalGun, FirePortalGun, PickUpPortalGun, PortalFireIntent,
+    PortalGunEquipped, TogglePortalGun,
 };
 use super::schedule::PortalSet;
 use super::{
@@ -50,6 +50,9 @@ impl Plugin for PortalSimulationPlugin {
         app.add_message::<TogglePortalGun>();
         app.add_message::<DropPortalGun>();
         app.add_message::<PickUpPortalGun>();
+        // Portal-owned reset signal; the Ambition room-reset adapter emits it
+        // from `ResetRoomFeaturesEvent` so core never names that event.
+        app.add_message::<ClearPortals>();
         app.add_message::<PortalGunEquipped>();
         app.init_resource::<SuppressWallAbilitiesInPortal>();
         // Portal-owned carve output. `publish_portal_carves` writes the aperture

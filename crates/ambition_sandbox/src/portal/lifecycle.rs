@@ -8,16 +8,20 @@
 use bevy::prelude::*;
 
 use super::gun::PortalGun;
+use super::messages::ClearPortals;
 use super::pickup::PortalGunPickup;
 use super::shot::PortalShot;
 use super::types::{PlacedPortal, PortalTransitCooldown};
 
-/// Despawn all portals when the room resets / transitions, and clear any body's
-/// transit cooldown — portals are per-room, so stale ones from a previous room
-/// must not linger and teleport the player unexpectedly.
+/// Despawn all portals on a [`ClearPortals`] signal, and clear any body's transit
+/// cooldown — portals are per-room, so stale ones from a previous room must not
+/// linger and teleport the player unexpectedly. Portal core consumes the
+/// portal-owned `ClearPortals` message; the Ambition room-reset adapter
+/// (`crate::ambition_content::portal::bridge_room_reset_to_clear_portals`) emits
+/// it from `ResetRoomFeaturesEvent`, so core never names the Ambition reset.
 pub fn clear_portals_on_reset(
     mut commands: Commands,
-    mut resets: MessageReader<crate::features::ResetRoomFeaturesEvent>,
+    mut resets: MessageReader<ClearPortals>,
     portals: Query<Entity, With<PlacedPortal>>,
     cooldowns: Query<Entity, With<PortalTransitCooldown>>,
 ) {

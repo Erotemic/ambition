@@ -10,14 +10,15 @@
 use bevy::prelude::*;
 
 use crate::portal::{
-    portal_fire_system, portal_teleport_ground_items, portal_transit, publish_portal_carves,
-    warp_portal_input, PortalSet,
+    clear_portals_on_reset, portal_fire_system, portal_teleport_ground_items, portal_transit,
+    publish_portal_carves, warp_portal_input, PortalSet,
 };
 
 use super::carve_adapter::bridge_portal_carves;
 use super::fire_adapter::resolve_portal_fire_intent;
 use super::input_adapter::portal_input_adapter_system;
 use super::inventory_adapter::drop_portal_gun_system;
+use super::reset_adapter::bridge_room_reset_to_clear_portals;
 use super::shot_adapter::portal_projectile_step;
 use super::transit_adapter::{
     apply_movement_intent_to_control, sync_ground_items_to_transitable,
@@ -51,6 +52,16 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .run_if(crate::gameplay_allowed)
                 .in_set(PortalSet::WeaponAndProjectiles)
                 .after(portal_fire_system),
+        );
+
+        // Bridge the Ambition room-reset event → the portal-owned `ClearPortals`
+        // signal (Phase 2 Seam 4), before `clear_portals_on_reset` consumes it in
+        // the same `PortalSet::RoomReset` frame.
+        app.add_systems(
+            Update,
+            bridge_room_reset_to_clear_portals
+                .in_set(PortalSet::RoomReset)
+                .before(clear_portals_on_reset),
         );
 
         // Translate this frame's ControlFrame into portal intents BEFORE the

@@ -602,7 +602,7 @@ mod tests {
             ("presentation/screen_effects.rs", "screen-effect shader modulation is wall-clock by design"),
             // Music director (track switching, fades) is wall-clock;
             // music should not slow in bullet-time.
-            ("music/director.rs", "music timing is wall-clock by design"),
+            ("music/director/mod.rs", "music timing is wall-clock by design"),
             // Dialogue typewriter reveal is presentation timing: the
             // visible substring advances on the wall clock so text
             // doesn't crawl during bullet-time / hitstop. Yarn still

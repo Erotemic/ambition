@@ -9,16 +9,40 @@
 
 use bevy::prelude::*;
 
+use super::color::PortalChannel;
+
 /// Intent: fire the held portal gun this frame along `aim` (already resolved to
 /// a world-space direction by the input adapter — right-stick aim, else
-/// movement axis, else facing). Portal core spawns the shot of the gun's
-/// current color. The shield-gated "this is actually a drop gesture" decision
-/// is made by the adapter, so a `FirePortalGun` here is always a genuine fire.
+/// movement axis, else facing). The Ambition resolver
+/// (`crate::ambition_content::portal::resolve_portal_fire_intent`) turns this
+/// player-and-gun-implying gesture into a generic [`PortalFireIntent`] that the
+/// portal core spawns a shot from. The shield-gated "this is actually a drop
+/// gesture" decision is made by the input adapter, so a `FirePortalGun` here is
+/// always a genuine fire.
 #[derive(Message, Clone, Copy, Debug)]
 pub struct FirePortalGun {
-    /// World-space aim direction for the shot (need not be normalized; core
-    /// normalizes and ignores a zero vector).
+    /// World-space aim direction for the shot (need not be normalized; the
+    /// resolver normalizes and ignores a zero vector).
     pub aim: Vec2,
+}
+
+/// Generic fire intent the portal core consumes to place/replace a portal: a
+/// shot of `channel` from `origin` along `dir`. It drops the "primary player +
+/// held `PortalGun`" assumption of [`FirePortalGun`] — anything (a replay, an AI,
+/// a future emitter that isn't the player) can place a portal by emitting this.
+/// The Ambition resolver maps `FirePortalGun` (gesture) → this (origin/dir from
+/// the primary player's body, channel from the held gun's current color), so
+/// behavior is identical; portal core never reaches for the player / gun /
+/// inventory.
+#[derive(Message, Clone, Copy, Debug)]
+pub struct PortalFireIntent {
+    /// World-space spawn point of the shot.
+    pub origin: Vec2,
+    /// World-space fire direction (need not be normalized; core normalizes and
+    /// ignores a zero vector).
+    pub dir: Vec2,
+    /// Which portal channel the shot opens on contact.
+    pub channel: PortalChannel,
 }
 
 /// Intent: toggle which color the held portal gun will place next. The adapter

@@ -1,7 +1,8 @@
 use bevy::prelude::*;
 
 use super::messages::{
-    DropPortalGun, FirePortalGun, PickUpPortalGun, PortalGunEquipped, TogglePortalGun,
+    DropPortalGun, FirePortalGun, PickUpPortalGun, PortalFireIntent, PortalGunEquipped,
+    TogglePortalGun,
 };
 use super::schedule::PortalSet;
 use super::{
@@ -43,6 +44,9 @@ impl Plugin for PortalSimulationPlugin {
         // inventory adapters (crate::ambition_content::portal) write these; core
         // consumes them, staying content-agnostic.
         app.add_message::<FirePortalGun>();
+        // Generic fire intent the core fire system consumes (origin/dir/channel);
+        // the Ambition resolver maps `FirePortalGun` → this from the player + gun.
+        app.add_message::<PortalFireIntent>();
         app.add_message::<TogglePortalGun>();
         app.add_message::<DropPortalGun>();
         app.add_message::<PickUpPortalGun>();

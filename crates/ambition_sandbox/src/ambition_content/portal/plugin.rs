@@ -15,6 +15,7 @@ use crate::portal::{
 };
 
 use super::carve_adapter::bridge_portal_carves;
+use super::fire_adapter::resolve_portal_fire_intent;
 use super::input_adapter::portal_input_adapter_system;
 use super::inventory_adapter::drop_portal_gun_system;
 use super::shot_adapter::portal_projectile_step;
@@ -61,6 +62,22 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .run_if(crate::gameplay_allowed)
                 .in_set(PortalSet::InputAdapter)
                 .in_set(crate::app::SandboxSet::PlayerSimulation),
+        );
+
+        // Resolve the `FirePortalGun` gesture → the generic `PortalFireIntent`
+        // (origin from the player's body, dir from the aim, channel from the held
+        // gun) the core fire system consumes (Phase 2 Seam 3). Runs after the
+        // input adapter (which emits `FirePortalGun`) and, being in
+        // `PortalSet::InputAdapter`, before `PortalSet::WeaponAndProjectiles`
+        // (where `portal_fire_system` reads the intent) — same frame, identical
+        // behavior to the old in-core player+gun read.
+        app.add_systems(
+            Update,
+            resolve_portal_fire_intent
+                .run_if(crate::gameplay_allowed)
+                .in_set(PortalSet::InputAdapter)
+                .in_set(crate::app::SandboxSet::PlayerSimulation)
+                .after(portal_input_adapter_system),
         );
 
         // The drop consumer touches Ambition item state (StashedActionSet), so

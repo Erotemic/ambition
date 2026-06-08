@@ -1113,11 +1113,15 @@ fn portal_shot_travels_and_opens_a_portal_on_a_wall() {
     });
     app.insert_resource(ControlFrame::default());
     app.add_message::<FirePortalGun>();
-    // The GameWorld-reading shot stepper is now the Ambition world-seam adapter
-    // (Phase 2 Seam 2); portal core keeps only the pure `step_portal_shot` helper.
+    // The `FirePortalGun` gesture is resolved into the generic `PortalFireIntent`
+    // by the Ambition resolver (Phase 2 Seam 3) before the core fire system reads
+    // it; the GameWorld-reading shot stepper is the Ambition world-seam adapter
+    // (Phase 2 Seam 2). Portal core keeps the pure `step_portal_shot` helper.
+    app.add_message::<crate::portal::PortalFireIntent>();
     app.add_systems(
         Update,
         (
+            crate::ambition_content::portal::resolve_portal_fire_intent,
             portal_fire_system,
             crate::ambition_content::portal::portal_projectile_step,
         )

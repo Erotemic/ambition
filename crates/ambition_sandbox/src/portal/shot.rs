@@ -12,11 +12,9 @@ use bevy::prelude::*;
 
 use crate::platformer_runtime::collision::{raycast_solids, SolidWorldQuery};
 use crate::platformer_runtime::prelude::SpawnScopedExt;
-use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 
 use super::color::PortalChannel;
-use super::gun::PortalGun;
-use super::messages::FirePortalGun;
+use super::messages::PortalFireIntent;
 use super::types::{portal_half_extent, PlacedPortal, PORTAL_MAX_RANGE, PORTAL_SHOT_SPEED};
 
 /// An in-flight portal shot streaking toward a surface. On contact with a
@@ -30,44 +28,40 @@ pub struct PortalShot {
     pub traveled: f32,
 }
 
-/// On a [`FirePortalGun`] intent, fire a portal *shot* of the gun's current
-/// color along the message's aim direction. The shot travels (see
+/// On a generic [`PortalFireIntent`], fire a portal *shot* of the intent's
+/// `channel` from `origin` along `dir`. The shot travels (see
 /// `portal_projectile_step`) so the player sees its path before it lands and
-/// opens a portal. The shield-gated "this is a drop, not a fire" decision is
-/// made by the input adapter before it emits the intent.
+/// opens a portal. Portal core no longer reaches for the primary player or the
+/// held gun — the Ambition resolver
+/// (`crate::ambition_content::portal::resolve_portal_fire_intent`) produces the
+/// intent from the player's body + the gun's color, so a replay or AI can place
+/// a portal by emitting the same intent.
 pub fn portal_fire_system(
-    mut fires: MessageReader<FirePortalGun>,
-    players: Query<(&BodyKinematics, &PortalGun), (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    mut fires: MessageReader<PortalFireIntent>,
     mut commands: Commands,
     mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
 ) {
     let Some(fire) = fires.read().last().copied() else {
         return;
     };
-    let Ok((kin, gun)) = players.single() else {
-        return;
-    };
-    if !gun.active {
-        return;
-    }
-    let aim = fire.aim.normalize_or_zero();
-    if aim == Vec2::ZERO {
+    let dir = fire.dir.normalize_or_zero();
+    if dir == Vec2::ZERO {
         return;
     }
     // Punchy fire blast + the airy travel whizz.
     sfx.write(ambition_sfx::SfxMessage::Play {
         id: ambition_sfx::ids::PORTAL_FIRE,
-        pos: kin.pos,
+        pos: fire.origin,
     });
     sfx.write(ambition_sfx::SfxMessage::Play {
         id: ambition_sfx::ids::PORTAL_TRAVEL,
-        pos: kin.pos,
+        pos: fire.origin,
     });
     commands.spawn_room_scoped((
         PortalShot {
-            channel: gun.next_color.channel(),
-            pos: kin.pos,
-            vel: aim * PORTAL_SHOT_SPEED,
+            channel: fire.channel,
+            pos: fire.origin,
+            vel: dir * PORTAL_SHOT_SPEED,
             traveled: 0.0,
         },
         Name::new("Portal shot"),

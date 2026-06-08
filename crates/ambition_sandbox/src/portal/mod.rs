@@ -65,7 +65,8 @@ pub use gun::portal_dev_toggle_system;
 pub use gun::{portal_toggle_system, PortalGun};
 pub use lifecycle::{clear_portals_on_reset, despawn_orphaned_portals};
 pub use messages::{
-    DropPortalGun, FirePortalGun, PickUpPortalGun, PortalGunEquipped, TogglePortalGun,
+    DropPortalGun, FirePortalGun, PickUpPortalGun, PortalFireIntent, PortalGunEquipped,
+    TogglePortalGun,
 };
 pub use pickup::{arm_portal_pickups, PortalGunPickup};
 pub use placement::{

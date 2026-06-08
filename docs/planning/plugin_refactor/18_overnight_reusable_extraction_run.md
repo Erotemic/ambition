@@ -182,7 +182,25 @@ remaining roots are the documented "stay at root" set plus `kinematic.rs` /
 `falling_sand.rs`, deferred to T13 / T14, and the `lib.rs` / `main.rs` /
 `headless.rs` entries).
 
+## Coupling findings + deferrals (recorded mid-run 2026-06-08)
+
+A full-coupling recheck (the first pass under-counted — it missed `SandboxSimState`/
+`player`/content refs) reclassified three "extraction" candidates as NOT cleanly
+extractable tonight. Deferred with the seam each needs (design tasks, not mechanical
+moves — doing them blind overnight would risk core regressions):
+- **T1 `ambition_time` — DEFERRED.** `WorldTime` couples to `crate::SandboxSimState`
+  (central sim state, reads `time_scale`) + player clocks. Needs a generic time-source
+  seam (crate owns `WorldTime`+`ProperTimeScale`+dt math; sandbox feeds via a producer).
+- **T3 `ambition_music` — DEFERRED.** Couples to `crate::encounter`+`crate::content`
+  (track-per-boss) — named-content entanglement; needs a generic director vs. roster split.
+- **T14 `ambition_falling_sand` — DEFERRED.** Heavy coupling (config 15, rooms 10, …) —
+  needs room/config inversion first.
+
+CLEAN extractions that landed: **T13 kinematic** + **T2 projectile primitive** →
+`ambition_platformer_runtime` (both `engine_core`-only).
+
 ## Follow-ups (deferred — need owner / later run)
+- Time/music/falling-sand crate extractions — need the generic seams above.
 - Enemy-AI *behavior* improvements (feel — owner must watch).
 - Phase 3: promote `ambition_content` to a crate, retarget assets, rename
   `ambition_sandbox` → shell (`ambition_app`/`ambition_game`).

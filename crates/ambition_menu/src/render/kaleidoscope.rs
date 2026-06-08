@@ -83,6 +83,32 @@ pub struct MenuRing;
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct KaleidoscopeFocusVisuals;
 
+/// System set holding the cube's per-frame RENDER + render-adjacent systems
+/// ([`rebuild_cube_faces`], [`animate_cube_ring`], [`apply_dynamic_text`],
+/// [`fade_kaleidoscope_materials`], the [`KaleidoscopeFocusVisuals`] readers,
+/// [`project_scrollbar_tracks`], [`scrollbar_press_drag`]). The `PreUpdate`-schedule
+/// half of cube rendering (the 3D picking backend) lives in [`KaleidoscopeRenderPre`].
+///
+/// By default this set always runs (the demo/tests render the cube every frame).
+/// Hosts that swap the cube for another presentation may `.run_if(...)` this set (and
+/// [`KaleidoscopeRenderPre`]) to disable cube rendering when the cube is NOT the active
+/// backend — a clean "only the active backend renders" invariant. Gating the set is
+/// purely a CPU optimisation: the cube input systems already self-gate, so gating
+/// render off when no cube is shown changes nothing visible.
+///
+/// [`KaleidoscopeFocusVisuals`] is a MEMBER of this set, so gating the set also gates
+/// the focus-visual readers — while still preserving their `.after(rebuild_cube_faces)`
+/// ordering edge (membership composes with, and does not drop, ordering constraints).
+#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct KaleidoscopeRender;
+
+/// The `PreUpdate`-schedule companion to [`KaleidoscopeRender`], holding the cube's 3D
+/// picking backend ([`cube_3d_picking`]). Separate because a Bevy system set cannot
+/// span two schedules; hosts gate BOTH to fully disable cube rendering. Same default
+/// (always runs) and the same `.run_if(...)` gating story as [`KaleidoscopeRender`].
+#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct KaleidoscopeRenderPre;
+
 /// Marks a selection corner-bracket piece (child of a control). Spawned hidden on
 /// every focusable cell; [`sync_selection_corner_visuals`] shows the focused
 /// control's corners and hides the rest, so the keyboard/gamepad cursor and pointer
@@ -332,7 +358,12 @@ where
             .resource::<KaleidoscopeMenuConfig>()
             .pickable_controls
         {
-            app.add_systems(PreUpdate, cube_3d_picking.in_set(PickingSystems::Backend));
+            app.add_systems(
+                PreUpdate,
+                cube_3d_picking
+                    .in_set(PickingSystems::Backend)
+                    .in_set(KaleidoscopeRenderPre),
+            );
             // Make ECS-driven focus / hover visible (the host moves focus in ECS
             // without rebuilding the face). The demo drives its own look + rebuilds
             // on nav, so this is gated to the Bevy-picking (game) configuration.
@@ -345,7 +376,13 @@ where
             // could reset the flags afterwards) — the "cursor highlight gone" bug.
             app.configure_sets(
                 Update,
-                KaleidoscopeFocusVisuals.after(rebuild_cube_faces::<PageId, Action>),
+                KaleidoscopeFocusVisuals
+                    .after(rebuild_cube_faces::<PageId, Action>)
+                    // Member of the gateable render set: when the host gates
+                    // `KaleidoscopeRender` off (another backend is active) the focus-
+                    // visual readers stop too, while the `.after(rebuild_cube_faces)`
+                    // edge above is preserved (membership composes with ordering).
+                    .in_set(KaleidoscopeRender),
             );
             app.add_systems(
                 Update,
@@ -356,7 +393,7 @@ where
             // extent fresh (projection), and observe pointer drags on a scrollbar
             // to emit the neutral `MenuScrollDragged` fraction the host applies.
             app.add_message::<MenuScrollDragged>();
-            app.add_systems(Update, project_scrollbar_tracks);
+            app.add_systems(Update, project_scrollbar_tracks.in_set(KaleidoscopeRender));
             app.add_observer(scrollbar_drag_start);
             app.add_observer(scrollbar_drag);
             // Fix 1: the manual press+move tracker (the robust path for the cube's
@@ -366,7 +403,12 @@ where
             // the thumb scrolls even where `Pointer<Drag>` continuity doesn't reach.
             app.add_observer(scrollbar_press);
             app.add_observer(scrollbar_release);
-            app.add_systems(Update, scrollbar_press_drag.after(project_scrollbar_tracks));
+            app.add_systems(
+                Update,
+                scrollbar_press_drag
+                    .after(project_scrollbar_tracks)
+                    .in_set(KaleidoscopeRender),
+            );
         }
         // Feature B: cross-fade the whole cube (faces/controls/text/icons) with the
         // open/close fold `amount`, so it fades in/out like the scrim instead of
@@ -374,7 +416,10 @@ where
         // swap a control's material handle this frame) so the fade always lands on
         // the live material; ordered after the animate step (Update) that advances
         // `amount`. Cheap: it only mutates the base-color alpha on existing assets.
-        app.add_systems(PostUpdate, fade_kaleidoscope_materials);
+        app.add_systems(
+            PostUpdate,
+            fade_kaleidoscope_materials.in_set(KaleidoscopeRender),
+        );
         app.add_systems(Startup, setup_cube)
             .add_systems(
                 Update,
@@ -382,7 +427,8 @@ where
                     rebuild_cube_faces::<PageId, Action>,
                     animate_cube_ring::<PageId, Action>,
                 )
-                    .chain(),
+                    .chain()
+                    .in_set(KaleidoscopeRender),
             )
             // In-place dynamic text (the host-filled detail panel). Runs after a
             // rebuild so freshly spawned dynamic lines pick up the host's content
@@ -390,7 +436,9 @@ where
             // rebuild needed for cursor-dependent text.
             .add_systems(
                 Update,
-                apply_dynamic_text.after(rebuild_cube_faces::<PageId, Action>),
+                apply_dynamic_text
+                    .after(rebuild_cube_faces::<PageId, Action>)
+                    .in_set(KaleidoscopeRender),
             );
     }
 }

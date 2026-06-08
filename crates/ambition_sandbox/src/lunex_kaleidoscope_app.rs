@@ -10,6 +10,7 @@
 
 use ambition_menu::kaleidoscope::{
     rebuild_cube_faces, KaleidoscopeFocusVisuals, KaleidoscopeMenuConfig, KaleidoscopeMenuPlugin,
+    KaleidoscopeRender, KaleidoscopeRenderPre,
 };
 use ambition_menu::{
     ActiveMenuPages, AmbitionInventoryUiPlugin, AmbitionMenuControl, MenuDynamicText,
@@ -106,8 +107,28 @@ pub fn install_kaleidoscope_menu(app: &mut App) {
         .init_resource::<KaleidoscopeScroll>()
         .init_resource::<KaleidoscopePointerPress>()
         .add_plugins(AmbitionInventoryUiPlugin)
-        .add_plugins(KaleidoscopeMenuPlugin::<MenuPage, MenuPageAction>::default())
-        .add_systems(Startup, spawn_kaleidoscope_scrim)
+        .add_plugins(KaleidoscopeMenuPlugin::<MenuPage, MenuPageAction>::default());
+    // Phase D3a: "only the active backend renders." The lib registers the cube's
+    // per-frame RENDER systems in the gateable `KaleidoscopeRender` /
+    // `KaleidoscopeRenderPre` sets; gate them on `kaleidoscope_backend_active` so the
+    // 3D cube stops churning (rebuild/animate/fade/scrollbar-project/picking/focus
+    // visuals) when the flat Grid is the active frontend. The cube's INPUT systems
+    // already self-gate; this completes the invariant for rendering. `KaleidoscopeRender`
+    // spans both Update and PostUpdate (the fade runs in PostUpdate), so configure it
+    // in BOTH; `KaleidoscopeRenderPre` is the PreUpdate picking half.
+    app.configure_sets(
+        Update,
+        KaleidoscopeRender.run_if(kaleidoscope_backend_active),
+    )
+    .configure_sets(
+        PostUpdate,
+        KaleidoscopeRender.run_if(kaleidoscope_backend_active),
+    )
+    .configure_sets(
+        PreUpdate,
+        KaleidoscopeRenderPre.run_if(kaleidoscope_backend_active),
+    );
+    app.add_systems(Startup, spawn_kaleidoscope_scrim)
         .add_systems(
             Update,
             (
@@ -127,11 +148,13 @@ pub fn install_kaleidoscope_menu(app: &mut App) {
                 // override BEFORE republish so the new window renders this frame.
                 kaleidoscope_scroll_wheel,
                 kaleidoscope_apply_scroll_drag,
-                // Republish runs for BOTH backends: it only writes the shared
-                // `ActiveMenuPages` (which page models are built from the live
-                // cursor/inventory/settings). The Grid backend (Phase C2b) reads
-                // the same built pages, so the model is one source of truth.
-                republish_kaleidoscope_pages,
+                // Phase D3a: republish builds the cube's `ActiveMenuPages` model and
+                // is now gated to the cube backend. The Grid backend builds its OWN
+                // model via `build_inventory_pages` and never reads `pages.pages`; with
+                // the cube render set gated off in Grid mode nothing consumes
+                // `ActiveMenuPages`, so freezing republish there is inert. (The Grid
+                // still re-renders via its own dirty signals.)
+                republish_kaleidoscope_pages.run_if(kaleidoscope_backend_active),
                 // The focus HIGHLIGHT and the detail-panel TEXT now update IN PLACE
                 // from the live cursor (no face rebuild), so a mouse move no longer
                 // despawns the hovered control between a pointer press and release —
@@ -140,8 +163,11 @@ pub fn install_kaleidoscope_menu(app: &mut App) {
                 kaleidoscope_sync_detail_text.run_if(kaleidoscope_backend_active),
                 gate_kaleidoscope_menu,
                 toggle_inventory_backend,
-                retarget_kaleidoscope_scrim,
-                fade_kaleidoscope_scrim,
+                // Phase D3a: the readability dim-scrim is cube-only; gate both its
+                // retarget and per-frame fade to the cube backend. (`spawn_kaleidoscope_scrim`
+                // is Startup, so it stays ungated — the node just sits transparent.)
+                retarget_kaleidoscope_scrim.run_if(kaleidoscope_backend_active),
+                fade_kaleidoscope_scrim.run_if(kaleidoscope_backend_active),
             )
                 .chain()
                 // CURSOR-HIGHLIGHT fix: the lib renders the focus highlight (material
@@ -4125,5 +4151,53 @@ mod lunex_kaleidoscope_app_tests {
             })
             .filter_map(|c| world.get::<Visibility>(c).copied())
             .collect()
+    }
+
+    /// Phase D3a: the cube's render set (`KaleidoscopeRender`) is gated by the host on
+    /// `kaleidoscope_backend_active`. Wire the SAME `configure_sets` the host uses, drop a
+    /// sentinel render system into the set, and prove it does NOT run when the Grid
+    /// backend is active (so the cube stops churning) but DOES run under the cube
+    /// backend. This pins the host gating without needing a full cube app.
+    #[test]
+    fn render_set_is_gated_off_under_the_grid_backend() {
+        #[derive(Resource, Default)]
+        struct RenderRan(u32);
+
+        fn build(backend: InventoryUiBackend) -> App {
+            let mut app = App::new();
+            app.init_resource::<InventoryUiBackend>();
+            app.init_resource::<RenderRan>();
+            *app.world_mut().resource_mut::<InventoryUiBackend>() = backend;
+            // Exactly the host's gating from `install_kaleidoscope_menu`.
+            app.configure_sets(
+                Update,
+                KaleidoscopeRender.run_if(kaleidoscope_backend_active),
+            );
+            // A stand-in for the lib's cube render systems (rebuild/animate/fade…),
+            // which all live in `KaleidoscopeRender`.
+            app.add_systems(
+                Update,
+                (|mut ran: ResMut<RenderRan>| ran.0 += 1).in_set(KaleidoscopeRender),
+            );
+            app
+        }
+
+        let mut grid = build(InventoryUiBackend::Grid);
+        grid.update();
+        grid.update();
+        assert_eq!(
+            grid.world().resource::<RenderRan>().0,
+            0,
+            "cube render set must NOT run when the Grid backend is active"
+        );
+
+        let mut cube = build(InventoryUiBackend::LunexKaleidoscope);
+        cube.update();
+        cube.update();
+        assert_eq!(
+            cube.world().resource::<RenderRan>().0,
+            2,
+            "cube render set runs every frame when the cube backend is active"
+        );
     }
 }

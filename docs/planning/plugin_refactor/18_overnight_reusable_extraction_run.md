@@ -182,6 +182,15 @@ remaining roots are the documented "stay at root" set plus `kinematic.rs` /
 `falling_sand.rs`, deferred to T13 / T14, and the `lib.rs` / `main.rs` /
 `headless.rs` entries).
 
+## Entanglement interrogation (owner: "is the coupling for a good reason? penalty to fix?")
+
+| Entangled | Why | Essential/incidental | Penalty | Verdict |
+|---|---|---|---|---|
+| time→`SandboxSimState` | `WorldTime` producer reads `time_scale`, stored in the `SandboxSimState` god-struct | **Incidental** (`time_scale` belongs to time, not a 2-field grab-bag; per-player ClockDomain is real but lives in the *policy*) | **LOW** — move 1 `f32` out (6 writes + few reads); identical-sim gate proves dt unchanged | **DECOUPLE + extract (T1, now active)** |
+| music→`encounter`/`content` | director picks boss tracks by referencing content | **Incidental** (generic director vs. content track-map) | **MODERATE** — invert to play-by-id API | decouple if night allows |
+| falling_sand→`rooms`/`config` | CA sim woven with room chunk-loading | **Partly essential** (room bounds genuinely needed) | **HIGH** (1305 LOC interwoven) | document, defer |
+| brain centrality | used by actors/content/projectile | **Essential by design** (universal-brain seam) | extracting it fights the architecture | keep central; get named behaviors out instead |
+
 ## Coupling findings + deferrals (recorded mid-run 2026-06-08)
 
 A full-coupling recheck (the first pass under-counted — it missed `SandboxSimState`/

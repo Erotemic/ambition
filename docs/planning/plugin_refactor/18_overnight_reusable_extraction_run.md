@@ -126,6 +126,39 @@ Never regenerate replay fixtures. `cargo fmt` before each commit.
 
 ---
 
+## Loose root-file organization (owner asked: where do these go?)
+
+Classification of the remaining single-file root modules → most-elegant home. The
+rule: **clear domain → its own `mod.rs` dir; lives-with-X → move into X; reusable +
+uncoupled → extract; genuinely top-level/small/entry → stay.** Moves use
+`git mv` + import-rewrite + the full gate, like the abilities slice.
+
+**Consolidate into a domain module (root files → one `<domain>/` dir):**
+- **`combat/`** ← `combat.rs`→`combat/mod.rs`, `combat_slots.rs`→`combat/slots.rs`
+- **`actor/`** ← `actor.rs`→`actor/mod.rs`, `actor_control.rs`→`actor/control.rs`, `character_ai.rs`→`actor/ai.rs`
+- **`items/`** ← `items.rs`→`items/mod.rs`, `item_pickup.rs`→`items/pickup.rs`, `shop.rs`→`items/shop.rs`, `inventory_persist.rs`→`items/persist.rs`
+
+**Move into an existing home:**
+- `lunex_kaleidoscope_app.rs` (4203 L — the biggest file in the crate; the cube menu host) → **`menu/kaleidoscope_app.rs`** (it IS menu code; huge nav win)
+- `portal_pieces.rs` (portal Core invariant) → **`portal/pieces.rs`**
+- `cutscene.rs` → **`presentation/cutscene/`**; `hud_overlay.rs` → **`presentation/hud.rs`**
+- `save.rs` → **`persistence/save.rs`**
+
+**Extract to a reusable crate:**
+- `kinematic.rs` (417 L, generic kinematic body, **zero coupling**) → `ambition_platformer_runtime::kinematic`
+- `falling_sand.rs` (1305 L, self-contained CA sim, only presentation/persistence/save) → its own `ambition_falling_sand` crate (a drop-in sim plugin) — strong "reusable systems for agents" candidate
+
+**Stay at root (genuinely top-level / small / entry — moving would add noise):**
+- `config.rs` (constants), `physics.rs` (facade shim), `debug_label.rs` (52 L generic),
+  `headless.rs` (bin entry), `dialog_lint.rs` (dev lint — could → `dev/`),
+  `interaction.rs` (generic interactable kit — candidate for a future `mechanics/`),
+  `quest.rs` (→ `content/` later), `shrine.rs` (→ `world/` later), `ability_cooldown.rs`
+  (→ `abilities/` — small, low priority)
+
+Added as run slices: **T10** menu host move, **T11** combat/actor/items consolidation,
+**T12** presentation+portal+persistence home moves, **T13** `kinematic`→runtime,
+**T14** `ambition_falling_sand` crate.
+
 ## Progress (live)
 
 | Item | Est | Actual | Commit | Status / notes |

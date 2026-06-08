@@ -83,6 +83,7 @@ pub enum SettingsOptionId {
     Flashes,
     Colorblind,
     ShowFps,
+    FramePacing,
     // Shaders (the whole `Video > Shaders` subpage from the pause menu).
     ShaderStrength,
     ShaderCrtStrength,
@@ -385,6 +386,12 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                 "FPS Overlay",
                 v.show_fps,
                 "Toggle the on-screen frames-per-second counter.",
+            ),
+            toggle(
+                SettingsOptionId::FramePacing,
+                "Frame Pacing",
+                v.frame_pacing,
+                "Cap the frame rate to the display refresh to save battery and heat (recommended on mobile).",
             ),
         ],
     };
@@ -847,6 +854,7 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
         SettingsOptionId::Flashes => cyc!(settings.video.flashes, FlashIntensity),
         SettingsOptionId::Colorblind => cyc!(settings.video.colorblind, ColorblindMode),
         SettingsOptionId::ShowFps => tog!(settings.video.show_fps),
+        SettingsOptionId::FramePacing => tog!(settings.video.frame_pacing),
 
         // Shaders. Each nudge replicates the pause menu's `nudge_shader_unit` /
         // `nudge_shader_range` with the SAME step (UNIT_STEP / FINE_STEP, or the

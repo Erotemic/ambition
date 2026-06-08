@@ -617,6 +617,10 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     // Lightweight FPS / frame-time overlay. ON by default on wasm,
     // OFF on desktop; F3 toggles. See `crate::fps_overlay`.
     app.add_plugins(crate::dev::fps_overlay::FpsOverlayPlugin);
+    // Frame pacing / battery saver — caps to the display refresh when the Video
+    // setting is ON (default). Visible-only (the limiter lives in the render app).
+    #[cfg(feature = "frame_pacing")]
+    app.add_plugins(crate::host::framepace::FramePacePlugin);
 
     app.add_systems(Startup, ui_fonts::load_ui_fonts);
 }

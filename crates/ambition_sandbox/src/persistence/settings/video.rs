@@ -563,6 +563,13 @@ pub struct VideoSettings {
     /// which mirrors this flag into `FpsOverlayState::visible`.
     #[serde(default = "default_show_fps")]
     pub show_fps: bool,
+    /// Frame pacing (battery saver). When ON, the renderer caps to the display
+    /// refresh rate (`bevy_framepace::Limiter::Auto`) instead of rendering as fast
+    /// as possible — a big battery/heat win on mobile. ON by default. Only takes
+    /// effect in visible builds with the `frame_pacing` feature (the limiter lives
+    /// in the render app); the flag still persists everywhere.
+    #[serde(default = "default_frame_pacing")]
+    pub frame_pacing: bool,
     #[serde(default)]
     pub shaders: ScreenShaderSettings,
 }
@@ -577,6 +584,7 @@ impl Default for VideoSettings {
             flashes: FlashIntensity::default(),
             colorblind: ColorblindMode::default(),
             show_fps: default_show_fps(),
+            frame_pacing: default_frame_pacing(),
             shaders: ScreenShaderSettings::default(),
         }
     }
@@ -592,6 +600,12 @@ impl VideoSettings {
 /// `serde(default = "...")` can reference it for round-tripping older
 /// `settings.ron` files that pre-date this field.
 fn default_show_fps() -> bool {
+    true
+}
+
+/// Default for `VideoSettings::frame_pacing`. ON by default to save battery on
+/// mobile (the renderer caps to the display refresh instead of free-running).
+fn default_frame_pacing() -> bool {
     true
 }
 

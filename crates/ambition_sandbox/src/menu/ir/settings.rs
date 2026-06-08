@@ -298,7 +298,7 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
     use crate::persistence::settings::controls::{ControllerProfileId, DashInputMode, MenuTapMode};
     use crate::persistence::settings::gameplay::Difficulty;
     use crate::persistence::settings::video::{
-        CameraAspectPolicy, CameraFramingPreset, ColorblindMode, FlashIntensity,
+        CameraAspectPolicy, CameraFramingPreset, ColorblindMode, FlashIntensity, FramePaceCap,
     };
 
     let v = &settings.video;
@@ -387,12 +387,17 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                 v.show_fps,
                 "Toggle the on-screen frames-per-second counter.",
             ),
-            toggle(
-                SettingsOptionId::FramePacing,
-                "Frame Pacing",
-                v.frame_pacing,
-                "Cap the frame rate to the display refresh to save battery and heat (recommended on mobile).",
-            ),
+            {
+                let (i, n) = enum_index(&FramePaceCap::ALL, v.frame_cap);
+                cycle(
+                    SettingsOptionId::FramePacing,
+                    "Frame Cap",
+                    v.frame_cap.label(),
+                    i,
+                    n,
+                    "Cap the frame rate to save battery/heat (auto = display refresh; or 120/60/30/24).",
+                )
+            },
         ],
     };
 
@@ -813,7 +818,7 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
     use crate::persistence::settings::controls::{ControllerProfileId, DashInputMode, MenuTapMode};
     use crate::persistence::settings::gameplay::Difficulty;
     use crate::persistence::settings::video::{
-        CameraAspectPolicy, CameraFramingPreset, ColorblindMode, FlashIntensity,
+        CameraAspectPolicy, CameraFramingPreset, ColorblindMode, FlashIntensity, FramePaceCap,
         ScreenShaderSettings, SerializableDisplayMode,
     };
 
@@ -854,7 +859,7 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
         SettingsOptionId::Flashes => cyc!(settings.video.flashes, FlashIntensity),
         SettingsOptionId::Colorblind => cyc!(settings.video.colorblind, ColorblindMode),
         SettingsOptionId::ShowFps => tog!(settings.video.show_fps),
-        SettingsOptionId::FramePacing => tog!(settings.video.frame_pacing),
+        SettingsOptionId::FramePacing => cyc!(settings.video.frame_cap, FramePaceCap),
 
         // Shaders. Each nudge replicates the pause menu's `nudge_shader_unit` /
         // `nudge_shader_range` with the SAME step (UNIT_STEP / FINE_STEP, or the

@@ -403,6 +403,7 @@ fn curated_options(id: SystemMenuEntryId) -> &'static [SettingsOptionId] {
             SettingsOptionId::Flashes,
             SettingsOptionId::Colorblind,
             SettingsOptionId::ShowFps,
+            SettingsOptionId::FramePacing,
             SettingsOptionId::ShaderStrength,
             SettingsOptionId::ShaderCrtStrength,
             SettingsOptionId::ShaderCrtScanlines,
@@ -749,6 +750,7 @@ mod tests {
                         | SettingsOptionId::Flashes
                         | SettingsOptionId::Colorblind
                         | SettingsOptionId::ShowFps
+                        | SettingsOptionId::FramePacing
                 )
             })
             .collect();
@@ -780,9 +782,9 @@ mod tests {
             ]
         );
         // Each shader option carries a live slider value label (e.g. "0%") so the
-        // cube renders the same control the grid does. (The leading 7 basic Video
+        // cube renders the same control the grid does. (The leading 8 basic Video
         // rows are cycles/toggles, so only the shader tail is checked.)
-        for o in options.iter().skip(7) {
+        for o in options.iter().skip(8) {
             assert!(matches!(o.kind, SettingsOptionKind::Slider { .. }));
         }
     }

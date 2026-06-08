@@ -57,6 +57,77 @@ impl FlashIntensity {
     }
 }
 
+/// Frame-rate cap (battery saver). `Auto` paces to the display refresh rate; the
+/// `Hz*` variants cap to a fixed frame rate (lower = more battery/heat savings);
+/// `Off` renders unthrottled. Drives `bevy_framepace`'s limiter in visible builds
+/// via `crate::host::framepace`. Default `Auto` (on, paced) for battery life.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FramePaceCap {
+    #[default]
+    Auto,
+    Hz120,
+    Hz60,
+    Hz30,
+    Hz24,
+    Off,
+}
+
+impl FramePaceCap {
+    pub const ALL: [Self; 6] = [
+        Self::Auto,
+        Self::Hz120,
+        Self::Hz60,
+        Self::Hz30,
+        Self::Hz24,
+        Self::Off,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::Hz120 => "120",
+            Self::Hz60 => "60",
+            Self::Hz30 => "30",
+            Self::Hz24 => "24",
+            Self::Off => "off",
+        }
+    }
+
+    /// Fixed target frame rate when this is a numeric cap. `Auto`/`Off` return
+    /// `None` (they map to the limiter's Auto/Off modes, not a fixed rate).
+    pub fn target_fps(self) -> Option<f64> {
+        match self {
+            Self::Hz120 => Some(120.0),
+            Self::Hz60 => Some(60.0),
+            Self::Hz30 => Some(30.0),
+            Self::Hz24 => Some(24.0),
+            Self::Auto | Self::Off => None,
+        }
+    }
+
+    pub fn next(self) -> Self {
+        match self {
+            Self::Auto => Self::Hz120,
+            Self::Hz120 => Self::Hz60,
+            Self::Hz60 => Self::Hz30,
+            Self::Hz30 => Self::Hz24,
+            Self::Hz24 => Self::Off,
+            Self::Off => Self::Auto,
+        }
+    }
+
+    pub fn prev(self) -> Self {
+        match self {
+            Self::Auto => Self::Off,
+            Self::Hz120 => Self::Auto,
+            Self::Hz60 => Self::Hz120,
+            Self::Hz30 => Self::Hz60,
+            Self::Hz24 => Self::Hz30,
+            Self::Off => Self::Hz24,
+        }
+    }
+}
+
 /// Colorblind accessibility mode. The full palette remap is future work;
 /// for now the setting is a resource so HUD/debug can show it and
 /// future render systems can consult it.
@@ -563,13 +634,12 @@ pub struct VideoSettings {
     /// which mirrors this flag into `FpsOverlayState::visible`.
     #[serde(default = "default_show_fps")]
     pub show_fps: bool,
-    /// Frame pacing (battery saver). When ON, the renderer caps to the display
-    /// refresh rate (`bevy_framepace::Limiter::Auto`) instead of rendering as fast
-    /// as possible — a big battery/heat win on mobile. ON by default. Only takes
-    /// effect in visible builds with the `frame_pacing` feature (the limiter lives
-    /// in the render app); the flag still persists everywhere.
-    #[serde(default = "default_frame_pacing")]
-    pub frame_pacing: bool,
+    /// Frame-rate cap (battery saver). `Auto` paces to the display refresh; the
+    /// `Hz*` variants cap to 24/30/60/120 fps; `Off` is unthrottled. Default `Auto`.
+    /// Only takes effect in visible builds with the `frame_pacing` feature (the
+    /// limiter lives in the render app); the value still persists everywhere.
+    #[serde(default)]
+    pub frame_cap: FramePaceCap,
     #[serde(default)]
     pub shaders: ScreenShaderSettings,
 }
@@ -584,7 +654,7 @@ impl Default for VideoSettings {
             flashes: FlashIntensity::default(),
             colorblind: ColorblindMode::default(),
             show_fps: default_show_fps(),
-            frame_pacing: default_frame_pacing(),
+            frame_cap: FramePaceCap::default(),
             shaders: ScreenShaderSettings::default(),
         }
     }
@@ -600,12 +670,6 @@ impl VideoSettings {
 /// `serde(default = "...")` can reference it for round-tripping older
 /// `settings.ron` files that pre-date this field.
 fn default_show_fps() -> bool {
-    true
-}
-
-/// Default for `VideoSettings::frame_pacing`. ON by default to save battery on
-/// mobile (the renderer caps to the display refresh instead of free-running).
-fn default_frame_pacing() -> bool {
     true
 }
 

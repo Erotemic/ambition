@@ -1,10 +1,9 @@
 //! Frame pacing (battery saver) — wires [`bevy_framepace`] to the Video setting
-//! [`crate::persistence::settings::video::VideoSettings::frame_pacing`].
+//! [`crate::persistence::settings::video::VideoSettings::frame_cap`].
 //!
-//! With pacing ON ([`Limiter::Auto`]), the renderer sleeps to match the display
-//! refresh rate instead of free-running as fast as the hardware allows — a large
-//! battery/heat win on mobile. With it OFF ([`Limiter::Off`]) the app renders
-//! unthrottled (useful for benchmarking).
+//! `Auto` ([`Limiter::Auto`]) sleeps to match the display refresh rate; `120/60/30/24`
+//! cap to a fixed rate ([`Limiter::from_framerate`]) for deeper battery/heat savings;
+//! `Off` ([`Limiter::Off`]) renders unthrottled (benchmarking). See [`FramePaceCap`].
 //!
 //! This whole module is gated behind the `frame_pacing` feature because the
 //! limiter lives in the render sub-app; headless builds have no render app and
@@ -14,6 +13,7 @@
 use bevy::prelude::*;
 use bevy_framepace::{FramepacePlugin, FramepaceSettings, Limiter};
 
+use crate::persistence::settings::video::FramePaceCap;
 use crate::persistence::settings::UserSettings;
 
 /// Installs `bevy_framepace` and keeps its limiter mirrored to the Video setting.
@@ -26,21 +26,25 @@ impl Plugin for FramePacePlugin {
     }
 }
 
-/// Mirror `UserSettings::video::frame_pacing` into `bevy_framepace`'s limiter
+/// Mirror `UserSettings::video::frame_cap` into `bevy_framepace`'s limiter
 /// whenever settings change. `Auto` caps to the display refresh (battery saver);
 /// `Off` renders unthrottled.
 fn sync_framepace_from_settings(
     settings: Res<UserSettings>,
     mut framepace: ResMut<FramepaceSettings>,
 ) {
-    // Only react when settings actually change (toggle from the Video menu, or
-    // the initial load) — pacing isn't a per-frame decision.
+    // Only react when settings actually change (cycle from the Video menu, or the
+    // initial load) — pacing isn't a per-frame decision.
     if !settings.is_changed() {
         return;
     }
-    framepace.limiter = if settings.video.frame_pacing {
-        Limiter::Auto
-    } else {
-        Limiter::Off
+    framepace.limiter = match settings.video.frame_cap {
+        FramePaceCap::Auto => Limiter::Auto,
+        FramePaceCap::Off => Limiter::Off,
+        // 120/60/30/24 → a fixed-rate limiter.
+        cap => match cap.target_fps() {
+            Some(fps) => Limiter::from_framerate(fps),
+            None => Limiter::Auto,
+        },
     };
 }

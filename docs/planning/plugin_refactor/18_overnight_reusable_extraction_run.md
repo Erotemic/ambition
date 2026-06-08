@@ -1,6 +1,36 @@
 # Stage 18: Overnight reusable-crate extraction run
 
-**Status:** IN PROGRESS (started 2026-06-08 evening). Autonomous long run on `main`.
+**Status:** RUN COMPLETE for the night (2026-06-08). 17 commits on `main`, every
+one fully gated; HEAD green (sandbox lib 1428, boundaries 15, scripted_gameplay 3,
+replay zero-divergence, ambition_time 9, runtime 34, `--features visible` builds).
+
+**What landed:**
+- **Structure:** `normalize_rust_crate.py` + 29 files → `mod.rs` layout (`6e662aa8`);
+  root-file reorg — abilities layer, combat/actor/items domains, menu/portal/
+  presentation/persistence homes — **crate root 61 → 15 `.rs` files**
+  (`425b3210`,`b3df018f`,`c9352d08`).
+- **Reusable extractions (clean):** `kinematic` (`6806e5e5`) + projectile physics
+  primitive (`7044ea10`) → `ambition_platformer_runtime`; **`ambition_time` crate**
+  with `TimePlugin` (`bf729e1c` decouple `time_scale` from the `SandboxSimState`
+  god-struct → `4104ba0a` extract) — the headline: an "incidental" entanglement,
+  decoupled + extracted with **zero replay divergence**.
+- **Decoupling-in-place:** music director made content-agnostic via a neutral
+  `MusicIntent` seam (`4215fc82`); portal **render-separated** so sim compiles without
+  `portal_render` (`47a3dcc8`); portal core confirmed free of `ControlFrame`/`GroundItem`
+  (`5d67ac67`).
+- **Method proven:** interrogate each entanglement (essential vs incidental + penalty),
+  decouple the incidental, lean on the identical-sim harness to be bold. New boundary
+  guards lock every new seam (15 total).
+
+**Deferred (need a focused / owner-watched run):**
+- **T6 portal crate** — P+Q done (render-independent + ControlFrame/GroundItem-free),
+  but portal core still couples to `features`(11)/`player`(7)/`GameWorld`(3)/
+  `ambition_content`(13)/`app`(2)/`brain`(1) — each needs the same interrogate+decouple
+  pass before a crate. Portal is the flagship; best done watched.
+- **time `time_control` policy, music crate, falling_sand** — see the entanglement
+  table; each needs a deliberate generic seam.
+- **Original goal line below retained for context.**
+
 **Goal:** factor serious *reusable* code out of `ambition_sandbox` into reusable
 crates/plugins, plus structural cleanups — working through as many backlog items as
 the night allows. Each item is an independent, build-green, fully-gated commit.

@@ -218,7 +218,7 @@ mod tests {
         assert_eq!(*disposition, ActorDisposition::Hostile);
         assert!(health.alive());
         assert!(combat.alive);
-        assert_eq!(intent.mode(), crate::character_ai::CharacterAiMode::Chase);
+        assert_eq!(intent.mode(), crate::actor::ai::CharacterAiMode::Chase);
         assert_eq!(cooldowns.attack_cooldown, 0.0);
         assert!(kit.can_ranged(None));
         assert_eq!(aggression.mode, AggressionMode::HostileToPlayer);
@@ -517,7 +517,7 @@ mod tests {
             terrain: None,
             air_jumps_remaining: 0,
         };
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         brain.tick_with_actions(&actions, &snapshot, &mut frame);
         assert!(
             frame.melee_pressed,

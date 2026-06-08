@@ -109,7 +109,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     // The Ambition portal adapters (AmbitionPortalAdaptersPlugin) are now
     // installed by `crate::ambition_content::AmbitionContentPlugin` above so
     // all Ambition content lives in one composer.
-    app.add_plugins(crate::item_pickup::ItemPickupSimulationPlugin);
+    app.add_plugins(crate::items::pickup::ItemPickupSimulationPlugin);
     register_room_transition_systems(app);
     app.add_plugins(super::combat_schedule::CombatSchedulePlugin);
     register_presentation_sync_systems(app);
@@ -218,7 +218,7 @@ fn wire_portal_schedule(app: &mut App) {
         PortalSet::Transit
             .in_set(SandboxSet::PlayerSimulation)
             .after(crate::app::player_simulation_system)
-            .after(crate::item_pickup::ItemPickupSet::CoreHeldItems)
+            .after(crate::items::pickup::ItemPickupSet::CoreHeldItems)
             .run_if(crate::gameplay_allowed),
     );
 }
@@ -386,7 +386,7 @@ fn register_player_simulation_systems(app: &mut App) {
 
 // Portal and held-item simulation schedules moved to
 // `crate::portal::PortalPlugin` and
-// `crate::item_pickup::ItemPickupSimulationPlugin`.
+// `crate::items::pickup::ItemPickupSimulationPlugin`.
 
 /// Detection emits `RoomTransitionRequested`; apply consumes it and runs
 /// `load_room`; the feature-side `reset_ecs_room_features` system tears
@@ -633,15 +633,15 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
     app.add_plugins(crate::ambition_content::items::AmbitionItemRosterPlugin);
     app.insert_resource(inventory::InventoryUiState::default())
         .insert_resource(inventory::PlayerInventory::starter())
-        .init_resource::<crate::inventory_persist::InventoryRestored>()
+        .init_resource::<crate::items::persist::InventoryRestored>()
         // Persist the inventory + wallet across save/load: restore the saved set
         // once the player exists, then mirror live changes back into the save
         // (the existing autosave writes the dirtied save to disk).
         .add_systems(
             Update,
             (
-                crate::inventory_persist::restore_inventory_from_save,
-                crate::inventory_persist::persist_inventory_to_save,
+                crate::items::persist::restore_inventory_from_save,
+                crate::items::persist::persist_inventory_to_save,
             )
                 .chain(),
         )

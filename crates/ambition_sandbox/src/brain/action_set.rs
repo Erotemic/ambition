@@ -1,6 +1,6 @@
 //! `ActionSet` — per-entity capability.
 //!
-//! A brain emits abstract intent into [`crate::actor_control::ActorControlFrame`]
+//! A brain emits abstract intent into [`crate::actor::control::ActorControlFrame`]
 //! (`melee_pressed = true`, `fire = Some(dir)`). The actor's
 //! `ActionSet` translates that intent into a concrete effect
 //! (`spawn a Swipe hitbox`, `launch a Rock projectile`). Two actors
@@ -837,7 +837,7 @@ impl ActionRequest {
 /// simultaneously fires and lunges).
 pub fn resolve(
     actions: &ActionSet,
-    frame: &crate::actor_control::ActorControlFrame,
+    frame: &crate::actor::control::ActorControlFrame,
     origin: ae::Vec2,
 ) -> Vec<ActionRequest> {
     let mut out = Vec::with_capacity(2);
@@ -1005,10 +1005,10 @@ mod tests {
             (true, true, true, 3),
         ];
         for (melee, fire, special, expected) in cases {
-            let mut frame = crate::actor_control::ActorControlFrame::neutral();
+            let mut frame = crate::actor::control::ActorControlFrame::neutral();
             frame.melee_pressed = melee;
             frame.fire = if fire {
-                Some(crate::actor_control::ActorFireRequest {
+                Some(crate::actor::control::ActorFireRequest {
                     dir: ae::Vec2::new(1.0, 0.0),
                     speed: 0.0,
                 })
@@ -1042,7 +1042,7 @@ mod tests {
             special: Some(SpecialActionSpec::BubbleShield),
             move_style: MoveStyleSpec::Walk,
         };
-        let frame = crate::actor_control::ActorControlFrame::neutral();
+        let frame = crate::actor::control::ActorControlFrame::neutral();
         assert!(!frame.wants_any_action());
         let reqs = resolve(&actions, &frame, ae::Vec2::ZERO);
         assert!(reqs.is_empty());
@@ -1061,9 +1061,9 @@ mod tests {
             }),
             ..Default::default()
         };
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         frame.melee_pressed = true;
-        frame.fire = Some(crate::actor_control::ActorFireRequest {
+        frame.fire = Some(crate::actor::control::ActorFireRequest {
             dir: ae::Vec2::new(1.0, 0.0),
             speed: 0.0,
         });
@@ -1082,7 +1082,7 @@ mod tests {
             melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
             ..Default::default()
         };
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         frame.melee_pressed = true;
         frame.facing = 1.0;
         frame.attack_axis = ae::Vec2::new(0.0, -1.0); // up-tilt
@@ -1103,9 +1103,9 @@ mod tests {
         // even under arbitrary brain input. Pins the "ActionSet
         // is the authority on capability" invariant.
         let actions = ActionSet::peaceful();
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         frame.melee_pressed = true;
-        frame.fire = Some(crate::actor_control::ActorFireRequest {
+        frame.fire = Some(crate::actor::control::ActorFireRequest {
             dir: ae::Vec2::new(1.0, 0.0),
             speed: 0.0,
         });
@@ -1159,7 +1159,7 @@ mod tests {
             melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
             ..Default::default()
         };
-        let frame = crate::actor_control::ActorControlFrame::neutral();
+        let frame = crate::actor::control::ActorControlFrame::neutral();
         let reqs = resolve(&actions, &frame, ae::Vec2::ZERO);
         assert!(reqs.is_empty());
     }
@@ -1170,7 +1170,7 @@ mod tests {
             melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
             ..Default::default()
         };
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         frame.melee_pressed = true;
         frame.facing = 1.0;
         let reqs = resolve(&actions, &frame, ae::Vec2::new(10.0, 5.0));
@@ -1196,7 +1196,7 @@ mod tests {
         // even if a possessor presses melee while inhabiting one,
         // it has no melee capability and nothing fires.
         let actions = ActionSet::peaceful();
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         frame.melee_pressed = true;
         let reqs = resolve(&actions, &frame, ae::Vec2::ZERO);
         assert!(reqs.is_empty());
@@ -1215,7 +1215,7 @@ mod tests {
             melee: Some(MeleeActionSpec::Lunge(LungeSpec::BRUTE_DEFAULT)),
             ..Default::default()
         };
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         frame.melee_pressed = true;
         frame.facing = 1.0;
         let g = resolve(&goblin, &frame, ae::Vec2::ZERO);
@@ -1240,8 +1240,8 @@ mod tests {
             }),
             ..Default::default()
         };
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
-        frame.fire = Some(crate::actor_control::ActorFireRequest {
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
+        frame.fire = Some(crate::actor::control::ActorFireRequest {
             dir: ae::Vec2::new(1.0, 0.0),
             speed: 0.0, // placeholder; speed comes from ActionSet
         });
@@ -1500,9 +1500,9 @@ mod tests {
             special: Some(SpecialActionSpec::BossSpotlight),
             move_style: MoveStyleSpec::Float,
         };
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         frame.melee_pressed = true;
-        frame.fire = Some(crate::actor_control::ActorFireRequest {
+        frame.fire = Some(crate::actor::control::ActorFireRequest {
             dir: ae::Vec2::new(0.0, -1.0),
             speed: 0.0,
         });

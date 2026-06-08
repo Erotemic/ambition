@@ -427,7 +427,7 @@ fn architecture_boundaries_non_portal_mechanics_use_runtime_raycast_seam() {
         "abilities/traversal/blink.rs",
         "abilities/traversal/dive.rs",
         "abilities/traversal/grapple.rs",
-        "item_pickup.rs",
+        "items/pickup.rs",
     ];
     let mut violations = Vec::new();
 
@@ -462,7 +462,7 @@ fn architecture_boundaries_portal_orders_against_item_set_not_function() {
         if line.starts_with("//") || line.starts_with("/*") || line.starts_with('*') {
             return false;
         }
-        line.contains("crate::item_pickup")
+        line.contains("crate::items::pickup")
     });
     assert!(
         !names_item_set_in_code,
@@ -472,11 +472,11 @@ fn architecture_boundaries_portal_orders_against_item_set_not_function() {
     let wiring = fs::read_to_string(crate_src().join("app/plugins.rs"))
         .expect("read sandbox plugins source");
     assert!(
-        !wiring.contains("after(crate::item_pickup::ground_item_physics)"),
-        "the host should order PortalSet::Transit against crate::item_pickup::ItemPickupSet, not the concrete ground_item_physics function"
+        !wiring.contains("after(crate::items::pickup::ground_item_physics)"),
+        "the host should order PortalSet::Transit against crate::items::pickup::ItemPickupSet, not the concrete ground_item_physics function"
     );
     assert!(
-        wiring.contains("crate::item_pickup::ItemPickupSet::CoreHeldItems"),
+        wiring.contains("crate::items::pickup::ItemPickupSet::CoreHeldItems"),
         "the sandbox portal wiring should order PortalSet::Transit on the held-item/ground-item simulation set"
     );
 }
@@ -514,7 +514,7 @@ fn architecture_boundaries_portal_core_does_not_import_ambition_content_roster()
         // glue. (The `crate::item_pickup::ItemPickupSet` schedule label remains
         // allowlisted below — it is an ordering label, not a content concept.)
         "crate::input::ControlFrame",
-        "crate::item_pickup::GroundItem",
+        "crate::items::pickup::GroundItem",
     ];
 
     // ALLOWLIST — genuinely-shared low-level couplings that remain in portal
@@ -529,14 +529,14 @@ fn architecture_boundaries_portal_core_does_not_import_ambition_content_roster()
     // the content-agnostic `PlayerMovementIntent` / `PortalTransitable` /
     // `PortalAimHint`, and those names are now hard-forbidden above.)
     let allow = |line: &str, is_test: bool| -> bool {
-        line.contains("crate::item_pickup::ItemPickupSet")
-            || line.contains("crate::item_pickup::axe_spec") // test fixture only
+        line.contains("crate::items::pickup::ItemPickupSet")
+            || line.contains("crate::items::pickup::axe_spec") // test fixture only
             // Portal-core tests (tests.rs) legitimately build the Ambition
             // `GroundItem` fixture and drive the full content+core transit chain
             // through the `crate::ambition_content::portal` adapters; those names
             // are NOT used in non-test core code (asserted by the absence of
             // hits in every other file).
-            || (is_test && line.contains("crate::item_pickup::GroundItem"))
+            || (is_test && line.contains("crate::items::pickup::GroundItem"))
             // tests.rs drives the warp through the full content+core chain on the
             // `ControlFrame` surface (the content adapter mirrors it to/from the
             // movement intent); core (non-test) code reads `PlayerMovementIntent`.

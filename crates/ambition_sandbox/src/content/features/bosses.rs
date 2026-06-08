@@ -1408,7 +1408,7 @@ mod scripted_pattern_tests {
         let mut attack_state = BossAttackState::default();
         let dt = 1.0 / 60.0;
         for _ in 0..600 {
-            let mut frame = crate::actor_control::ActorControlFrame::neutral();
+            let mut frame = crate::actor::control::ActorControlFrame::neutral();
             tick_boss_pattern(
                 &cfg,
                 &mut state,

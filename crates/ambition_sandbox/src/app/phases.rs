@@ -66,7 +66,7 @@ pub(super) fn ledge_platform_carry(
 /// `Return` if the engine asked for a sandbox reset.
 pub(super) fn player_control_phase(
     player_entity: bevy::prelude::Entity,
-    actor_control: crate::actor_control::ActorControlFrame,
+    actor_control: crate::actor::control::ActorControlFrame,
     world: &ae::World,
     clusters: &mut ae::PlayerClustersMut<'_>,
     sim_state: &mut crate::SandboxSimState,
@@ -172,7 +172,7 @@ pub(super) fn player_control_phase(
 /// This phase observes the smoothed `sim_state.time_scale` set by
 /// the PlayerInput pipeline.
 pub(super) fn player_simulation_phase(
-    actor_control: crate::actor_control::ActorControlFrame,
+    actor_control: crate::actor::control::ActorControlFrame,
     world: &ae::World,
     clusters: &mut ae::PlayerClustersMut<'_>,
     dev_state: &crate::SandboxDevState,

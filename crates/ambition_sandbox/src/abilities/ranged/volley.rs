@@ -60,7 +60,7 @@ pub fn fire_volley_system(
     if !mana.meter.try_spend(VOLLEY_MANA_COST) {
         return;
     }
-    let aim = crate::item_pickup::held_shot_aim(&control, kin.facing);
+    let aim = crate::items::pickup::held_shot_aim(&control, kin.facing);
     if aim == ae::Vec2::ZERO {
         return;
     }

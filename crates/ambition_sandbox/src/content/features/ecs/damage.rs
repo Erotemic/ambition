@@ -678,7 +678,7 @@ fn apply_actor_hit(
                     // wield (e.g. a pirate's gun-sword), via the existing pickup path.
                     if let Some(spec) = em.config.archetype.held_item_spec() {
                         writers.commands.spawn((
-                            crate::item_pickup::GroundItem {
+                            crate::items::pickup::GroundItem {
                                 spec,
                                 pos: em.kin.pos + ae::Vec2::new(-14.0, 0.0),
                                 vel: ae::Vec2::ZERO,
@@ -911,7 +911,7 @@ fn apply_boss_hit(
         if let Some(gauntlet_id) = boss_signature_gauntlet(&boss.config.behavior.id) {
             if let Some(spec) = crate::brain::held_item_by_id(gauntlet_id) {
                 writers.commands.spawn((
-                    crate::item_pickup::GroundItem {
+                    crate::items::pickup::GroundItem {
                         spec,
                         // Offset from the ability pickup so the two drops don't stack.
                         pos: boss.kin.pos + ae::Vec2::new(36.0, 0.0),

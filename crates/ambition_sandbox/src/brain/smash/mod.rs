@@ -14,7 +14,7 @@
 //!    probability, aim accuracy. Easier enemies "see late" and drop
 //!    actions; harder enemies commit + aim cleanly.
 //! 5. **Emit inputs**: translate the action into an
-//!    [`crate::actor_control::ActorControlFrame`] the integration pipeline consumes.
+//!    [`crate::actor::control::ActorControlFrame`] the integration pipeline consumes.
 //!
 //! Every stage is a pure function of the previous one's output plus
 //! [`SmashCfg`] / [`SmashState`]. This makes the pipeline trivially
@@ -160,9 +160,9 @@ pub fn tick_smash(
     state: &mut SmashState,
     actions: &ActionSet,
     snapshot: &BrainSnapshot,
-    out: &mut crate::actor_control::ActorControlFrame,
+    out: &mut crate::actor::control::ActorControlFrame,
 ) {
-    *out = crate::actor_control::ActorControlFrame::neutral();
+    *out = crate::actor::control::ActorControlFrame::neutral();
     if !snapshot.alive {
         state.mode = BroadMode::Idle;
         return;
@@ -281,7 +281,7 @@ mod tests {
         let mut state = SmashState::default();
         let actions = ActionSet::peaceful();
         let snap = snap_with_target_at_x(2000.0);
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
         assert_eq!(
             frame.desired_vel.x, 0.0,
@@ -297,7 +297,7 @@ mod tests {
         let actions = ActionSet::peaceful();
         // Target at 300 px — inside aggro (460), outside engage (70).
         let snap = snap_with_target_at_x(300.0);
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
         assert!(
             frame.desired_vel.x > 0.0,
@@ -322,7 +322,7 @@ mod tests {
         // regression where provoked NPCs approached, then held range
         // without ever swinging when the player was beside them.
         let snap = snap_with_target_at_x(20.0);
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
         assert!(frame.melee_pressed, "point-blank melee actor should swing");
     }
@@ -360,7 +360,7 @@ mod tests {
         let mut state = SmashState::default();
         let actions = ranged_actions();
         let snap = snap_with_target_at_x(300.0);
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
         assert!(
             frame.fire.is_some(),
@@ -387,7 +387,7 @@ mod tests {
             ..ranged_actions()
         };
         let snap = snap_with_target_at_x(20.0); // inside attack_range
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
         assert!(frame.melee_pressed, "in-reach actor swings");
         assert!(frame.fire.is_none(), "does not fire ranged in melee reach");
@@ -403,11 +403,11 @@ mod tests {
         let mut snap = snap_with_target_at_x(300.0);
         snap.dt = 0.2;
 
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
         assert!(frame.fire.is_some(), "first tick fires");
 
-        let mut frame2 = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame2 = crate::actor::control::ActorControlFrame::neutral();
         tick_smash(&cfg, &mut state, &actions, &snap, &mut frame2);
         assert!(frame2.fire.is_none(), "still on cooldown → no second shot");
         assert!(
@@ -418,7 +418,7 @@ mod tests {
         // Advance past the cadence; it fires again.
         let mut fired_again = false;
         for _ in 0..((RANGED_COOLDOWN_S / snap.dt) as usize + 2) {
-            let mut f = crate::actor_control::ActorControlFrame::neutral();
+            let mut f = crate::actor::control::ActorControlFrame::neutral();
             tick_smash(&cfg, &mut state, &actions, &snap, &mut f);
             if f.fire.is_some() {
                 fired_again = true;
@@ -444,7 +444,7 @@ mod tests {
         let mut state = SmashState::default();
         let actions = ActionSet::peaceful(); // no ranged → dash, not a poke
         let snap = snap_with_target_at_x(300.0);
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
         assert!(
             frame.desired_vel.x > 200.0,
@@ -464,7 +464,7 @@ mod tests {
         let mut state = SmashState::default();
         let actions = ActionSet::peaceful();
         let snap = snap_with_target_at_x(120.0);
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
         assert!(
             frame.desired_vel.x > 0.0 && frame.desired_vel.x < 200.0,
@@ -485,7 +485,7 @@ mod tests {
         let mut state = SmashState::default();
         let actions = ActionSet::peaceful();
         let snap = snap_with_target_at_x(300.0);
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
         assert!(
             frame.desired_vel.x > 0.0 && frame.desired_vel.x < 200.0,
@@ -501,7 +501,7 @@ mod tests {
         let actions = ActionSet::peaceful();
         let mut snap = snap_with_target_at_x(100.0);
         snap.alive = false;
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         // Pre-poison: if `tick_smash` early-returns without writing,
         // the assertion below would catch a leak from the caller's
         // pre-existing frame state.

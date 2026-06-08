@@ -44,7 +44,7 @@ impl<'a> NpcMut<'a> {
         // World gravity sign (+1 down / -1 up) so NPCs fall the way the player
         // does when gravity flips.
         gravity_sign: f32,
-    ) -> crate::actor_control::ActorControlFrame {
+    ) -> crate::actor::control::ActorControlFrame {
         self.status.hit_flash = (self.status.hit_flash - dt).max(0.0);
 
         let snapshot = crate::brain::BrainSnapshot {
@@ -68,7 +68,7 @@ impl<'a> NpcMut<'a> {
             terrain: None,
             air_jumps_remaining: 0,
         };
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         brain.tick(&snapshot, &mut frame);
 
         self.status.ai_mode = match brain {
@@ -77,9 +77,9 @@ impl<'a> NpcMut<'a> {
                 ..
             }) => state.mode,
             crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::StandStill) => {
-                crate::character_ai::CharacterAiMode::Idle
+                crate::actor::ai::CharacterAiMode::Idle
             }
-            _ => crate::character_ai::CharacterAiMode::Idle,
+            _ => crate::actor::ai::CharacterAiMode::Idle,
         };
 
         if frame.facing.abs() > 0.001 {
@@ -88,7 +88,7 @@ impl<'a> NpcMut<'a> {
 
         if matches!(
             self.status.ai_mode,
-            crate::character_ai::CharacterAiMode::Patrol
+            crate::actor::ai::CharacterAiMode::Patrol
         ) {
             if let Some(motion) = &mut self.motion.0 {
                 let old = self.kin.pos;
@@ -106,7 +106,7 @@ impl<'a> NpcMut<'a> {
 
         if matches!(
             self.status.ai_mode,
-            crate::character_ai::CharacterAiMode::Patrol
+            crate::actor::ai::CharacterAiMode::Patrol
         ) && prev_vel_x.abs() > 1.0
             && self.kin.vel.x.abs() < 0.01
         {
@@ -115,7 +115,7 @@ impl<'a> NpcMut<'a> {
 
         if matches!(
             self.status.ai_mode,
-            crate::character_ai::CharacterAiMode::Chase
+            crate::actor::ai::CharacterAiMode::Chase
         ) {
             let dx = target_pos.x - self.kin.pos.x;
             if dx.abs() > 4.0 {

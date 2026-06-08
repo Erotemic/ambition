@@ -55,7 +55,7 @@ pub(super) fn spawn_ground_item(commands: &mut Commands, spec: &crate::rooms::Gr
     };
     commands.spawn_room_scoped((
         Name::new(format!("Ground item: {}", spec.name)),
-        crate::item_pickup::GroundItem {
+        crate::items::pickup::GroundItem {
             spec: held,
             pos: spec.pos,
             vel: crate::engine_core::Vec2::ZERO,

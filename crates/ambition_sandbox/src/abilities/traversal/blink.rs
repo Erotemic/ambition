@@ -66,7 +66,7 @@ pub fn blink_system(
     }
     // Aim exactly like the ranged held items (right-stick aim, else movement,
     // else facing), so the blink goes where the player is pointing.
-    let dir = crate::item_pickup::held_shot_aim(&control, kin.facing).normalize_or_zero();
+    let dir = crate::items::pickup::held_shot_aim(&control, kin.facing).normalize_or_zero();
     if dir == ae::Vec2::ZERO {
         return;
     }

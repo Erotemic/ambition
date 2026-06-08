@@ -21,11 +21,9 @@
 // into these modules. Everything else stays `pub(crate)` so the compiler
 // can tell us what's actually depended on from outside.
 pub mod actor;
-pub mod actor_control;
 pub mod ambition_content;
 pub mod app;
 pub mod audio;
-pub mod character_ai;
 pub mod combat;
 pub mod cutscene;
 pub mod debug_label;
@@ -58,7 +56,6 @@ pub(crate) mod assets;
 pub(crate) mod body_mode;
 pub(crate) mod boss_encounter;
 pub(crate) mod brain;
-pub(crate) mod combat_slots;
 pub(crate) mod config;
 pub(crate) mod content;
 pub(crate) mod dev;
@@ -72,9 +69,11 @@ pub(crate) mod falling_sand;
 pub(crate) mod host;
 pub mod hud_overlay;
 pub(crate) mod inventory;
-pub mod inventory_persist;
-pub mod item_pickup;
 pub mod items;
+// Facade re-export: the Yarn dialogue bindings (owned by a parallel agent)
+// still resolve buy/sell via `crate::shop`. Keep the path alive after the
+// items/ consolidation so that module needs no churn.
+pub use items::shop;
 pub mod mechanics;
 pub(crate) mod music;
 // 3D-cube OoT pause menu (#31): the data seam wiring our 24-item inventory into
@@ -91,7 +90,6 @@ pub mod portal_pieces;
 pub(crate) mod presentation;
 pub(crate) mod projectile;
 pub(crate) mod runtime;
-pub mod shop;
 pub mod shrine;
 pub(crate) mod time;
 pub(crate) mod ui_nav;

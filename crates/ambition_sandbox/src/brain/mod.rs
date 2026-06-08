@@ -6,7 +6,7 @@
 //!
 //! Every controllable actor in the sandbox carries a [`Brain`]. The
 //! brain reads a [`BrainSnapshot`] each tick and writes intent into
-//! `crate::actor_control::ActorControlFrame`. The simulation half (collision, cooldowns,
+//! `crate::actor::control::ActorControlFrame`. The simulation half (collision, cooldowns,
 //! effects) consumes the frame uniformly — same code path for
 //! players, NPCs, enemies, bosses, and (future) RL agents.
 //!
@@ -165,7 +165,7 @@ impl Brain {
     pub fn tick(
         &mut self,
         snapshot: &BrainSnapshot,
-        out: &mut crate::actor_control::ActorControlFrame,
+        out: &mut crate::actor::control::ActorControlFrame,
     ) {
         match self {
             Brain::Player(slot) => player::tick_player_brain(*slot, snapshot, out),
@@ -181,7 +181,7 @@ impl Brain {
         &mut self,
         actions: &action_set::ActionSet,
         snapshot: &BrainSnapshot,
-        out: &mut crate::actor_control::ActorControlFrame,
+        out: &mut crate::actor::control::ActorControlFrame,
     ) {
         match self {
             Brain::Player(slot) => player::tick_player_brain(*slot, snapshot, out),
@@ -256,7 +256,7 @@ impl Brain {
 /// component (rather than a field on `Brain`) so brain swaps don't
 /// disturb the frame's value mid-tick.
 #[derive(Component, Clone, Copy, Debug, Default)]
-pub struct ActorControl(pub crate::actor_control::ActorControlFrame);
+pub struct ActorControl(pub crate::actor::control::ActorControlFrame);
 
 /// Module-local Bevy plugin: registers the universal-brain
 /// message channel + counter resource. Use this in place of the
@@ -532,7 +532,7 @@ mod tests {
         let mut app = App::new();
         app.add_message::<ActorActionMessage>();
         app.add_systems(Update, emit_brain_action_messages);
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         frame.melee_pressed = true;
         let actions = ActionSet {
             melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
@@ -565,7 +565,7 @@ mod tests {
         // the EFFECTS consumer that reads it before any
         // brain tick has run won't spuriously fire actions.
         let ac = ActorControl::default();
-        assert_eq!(ac.0, crate::actor_control::ActorControlFrame::neutral());
+        assert_eq!(ac.0, crate::actor::control::ActorControlFrame::neutral());
         assert!(!ac.0.wants_any_action());
     }
 
@@ -667,7 +667,7 @@ mod tests {
                 snap.target_pos = ae::Vec2::new(100.0 + (i as f32) * 0.5, 0.0);
                 snap.sim_time = (i as f32) / 60.0;
                 snap.dt = 1.0 / 60.0;
-                let mut frame = crate::actor_control::ActorControlFrame::neutral();
+                let mut frame = crate::actor::control::ActorControlFrame::neutral();
                 brain.tick(&snap, &mut frame);
                 // No NaN propagation.
                 assert!(frame.desired_vel.x.is_finite());
@@ -689,8 +689,8 @@ mod tests {
             state: MeleeBruteState::default(),
         });
         let mut b = a.clone();
-        let mut frame_a = crate::actor_control::ActorControlFrame::neutral();
-        let mut frame_b = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame_a = crate::actor::control::ActorControlFrame::neutral();
+        let mut frame_b = crate::actor::control::ActorControlFrame::neutral();
         a.tick(&snap, &mut frame_a);
         b.tick(&snap, &mut frame_b);
         assert_eq!(frame_a, frame_b, "same brain + same snapshot → same frame");
@@ -826,7 +826,7 @@ mod tests {
     fn brain_tick_dispatches_through_enum() {
         // A StandStill brain should produce a neutral frame.
         let mut b = Brain::StateMachine(StateMachineCfg::StandStill);
-        let mut out = crate::actor_control::ActorControlFrame::neutral();
+        let mut out = crate::actor::control::ActorControlFrame::neutral();
         out.melee_pressed = true; // pre-poisoned
         b.tick(&BrainSnapshot::idle(), &mut out);
         assert!(!out.melee_pressed);
@@ -850,7 +850,7 @@ mod tests {
             melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
             ..Default::default()
         };
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         frame.melee_pressed = true;
         app.world_mut().spawn((
             Brain::StateMachine(StateMachineCfg::MeleeBrute {
@@ -882,7 +882,7 @@ mod tests {
         let mut app = App::new();
         app.add_message::<ActorActionMessage>();
         app.add_systems(Update, emit_brain_action_messages);
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         frame.melee_pressed = true;
         frame.facing = 1.0;
         let actions = ActionSet {
@@ -950,7 +950,7 @@ mod tests {
         snap.target_pos = ae::Vec2::new(200.0, 0.0); // inside aggro 320
         snap.sim_time = 5.0; // past fire_cooldown_s 0.8
 
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         brain.tick(&snap, &mut frame);
         assert!(
             frame.fire.is_some(),
@@ -996,8 +996,8 @@ mod tests {
         snap.actor_pos = ae::Vec2::ZERO;
         snap.target_pos = ae::Vec2::new(20.0, 0.0); // in attack range
 
-        let mut frame_a = crate::actor_control::ActorControlFrame::neutral();
-        let mut frame_b = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame_a = crate::actor::control::ActorControlFrame::neutral();
+        let mut frame_b = crate::actor::control::ActorControlFrame::neutral();
         brain_a.tick(&snap, &mut frame_a);
         brain_b.tick(&snap, &mut frame_b);
         assert!(frame_a.melee_pressed);

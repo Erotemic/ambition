@@ -2,7 +2,7 @@
 //!
 //! The snapshot is what every brain backend (player, state-machine,
 //! and eventually scripted / remote / RL) sees. Brains write into a
-//! mutable [`crate::actor_control::ActorControlFrame`]; the snapshot stays immutable
+//! mutable [`crate::actor::control::ActorControlFrame`]; the snapshot stays immutable
 //! per-tick so the same brain function is safe to call against a
 //! single set of inputs (deterministic for tests + replay).
 //!
@@ -12,7 +12,7 @@
 //!   read off the actor's own ECS components by the brain-driver
 //!   system.
 //! - **Combat timers**: cooldown / windup / active / recover / stun.
-//!   Mirror of [`crate::character_ai::CharacterAiSnapshot`] fields so existing pure
+//!   Mirror of [`crate::actor::ai::CharacterAiSnapshot`] fields so existing pure
 //!   evaluators slot in unchanged.
 //! - **Target**: the actor's current "look at" target (player for
 //!   most NPCs/enemies; some bosses target a specific anchor). Filled
@@ -149,7 +149,7 @@ impl BrainSnapshot {
     /// Build the engine-side AI snapshot from this brain snapshot
     /// plus per-template aggro/attack ranges. The state-machine
     /// brain templates use the existing
-    /// [`crate::character_ai::evaluate_character_ai_output`] for their idle / patrol
+    /// [`crate::actor::ai::evaluate_character_ai_output`] for their idle / patrol
     /// / chase / attack decisions; this helper threads the fields
     /// through without copy-pasting in each tick fn.
     pub fn to_character_ai_snapshot(
@@ -157,8 +157,8 @@ impl BrainSnapshot {
         aggro_radius: f32,
         attack_range: f32,
         patrol_enabled: bool,
-    ) -> crate::character_ai::CharacterAiSnapshot {
-        crate::character_ai::CharacterAiSnapshot {
+    ) -> crate::actor::ai::CharacterAiSnapshot {
+        crate::actor::ai::CharacterAiSnapshot {
             actor_pos: self.actor_pos,
             player_pos: self.target_pos,
             aggro_radius,

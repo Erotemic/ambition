@@ -49,7 +49,7 @@ pub struct SandboxEventWriters<'w> {
 #[derive(SystemParam)]
 pub struct CombatRoomReset<'w> {
     pub enemy_projectiles: ResMut<'w, crate::enemy_projectile::EnemyProjectileState>,
-    pub slot_board: ResMut<'w, crate::combat_slots::CombatSlotsRes>,
+    pub slot_board: ResMut<'w, crate::combat::slots::CombatSlotsRes>,
     pub feature_overlay: Res<'w, crate::features::FeatureEcsWorldOverlay>,
     pub gravity: ResMut<'w, crate::physics::GravityField>,
     pub base_gravity: ResMut<'w, crate::physics::BaseGravity>,

@@ -473,11 +473,11 @@ impl EnemyArchetype {
 
     /// Slot kind this archetype requests from the combat slot board.
     /// Used by the per-frame slot allocator.
-    pub(super) fn slot_kind(self) -> crate::combat_slots::SlotKind {
+    pub(super) fn slot_kind(self) -> crate::combat::slots::SlotKind {
         if self.is_aerial() {
-            crate::combat_slots::SlotKind::Aerial
+            crate::combat::slots::SlotKind::Aerial
         } else {
-            crate::combat_slots::SlotKind::Melee
+            crate::combat::slots::SlotKind::Melee
         }
     }
 
@@ -583,11 +583,11 @@ impl<'a> EnemyMut<'a> {
         nearest_neighbor: Option<ae::Vec2>,
         dt: f32,
         _is_mounted: bool,
-        frame: crate::actor_control::ActorControlFrame,
+        frame: crate::actor::control::ActorControlFrame,
         // Sign of world gravity (+1 down / -1 up) from `GravityField`, so the
         // enemy falls + jumps the way the player does when gravity flips.
         gravity_sign: f32,
-    ) -> crate::actor_control::ActorControlFrame {
+    ) -> crate::actor::control::ActorControlFrame {
         self.status.hit_flash = (self.status.hit_flash - dt).max(0.0);
         if !self.status.alive {
             self.status.respawn_timer = (self.status.respawn_timer - dt).max(0.0);
@@ -600,8 +600,8 @@ impl<'a> EnemyMut<'a> {
                 self.kin.vel = ae::Vec2::ZERO;
                 self.status.hit_flash = 0.24;
             }
-            self.status.ai_mode = crate::character_ai::CharacterAiMode::Dead;
-            return crate::actor_control::ActorControlFrame::neutral();
+            self.status.ai_mode = crate::actor::ai::CharacterAiMode::Dead;
+            return crate::actor::control::ActorControlFrame::neutral();
         }
 
         self.attack.tick(dt, tuning.enemy_attack_active);
@@ -619,8 +619,8 @@ impl<'a> EnemyMut<'a> {
             crate::actor::EnemyBrain::Guard { leash_radius } => *leash_radius,
             _ => self.config.archetype.aggro_radius(),
         };
-        let ai = crate::character_ai::evaluate_character_ai_output(
-            crate::character_ai::CharacterAiSnapshot {
+        let ai =
+            crate::actor::ai::evaluate_character_ai_output(crate::actor::ai::CharacterAiSnapshot {
                 actor_pos: self.kin.pos,
                 player_pos: target_pos,
                 aggro_radius: effective_aggro_radius,
@@ -632,8 +632,7 @@ impl<'a> EnemyMut<'a> {
                 alive: self.status.alive,
                 patrol_enabled: !self.config.archetype.is_sandbag()
                     && !matches!(self.config.brain, crate::actor::EnemyBrain::Passive),
-            },
-        );
+            });
         self.status.ai_mode = ai.mode;
 
         let is_aerial = self.surface.gravity_scale <= 0.001;
@@ -701,7 +700,7 @@ impl<'a> EnemyMut<'a> {
             }
 
             if !is_aerial
-                && matches!(ai.intent, crate::character_ai::CharacterAiIntent::Patrol)
+                && matches!(ai.intent, crate::actor::ai::CharacterAiIntent::Patrol)
                 && prev_vel_x.abs() > 1.0
                 && self.kin.vel.x.abs() < 0.01
             {
@@ -714,7 +713,7 @@ impl<'a> EnemyMut<'a> {
         }
 
         if frame.fire.is_some() {
-            self.status.ai_mode = crate::character_ai::CharacterAiMode::Attack;
+            self.status.ai_mode = crate::actor::ai::CharacterAiMode::Attack;
         }
         frame
     }
@@ -942,7 +941,7 @@ impl<'a> EnemyMut<'a> {
             } else {
                 1.0
             };
-        self.status.ai_mode = crate::character_ai::CharacterAiMode::Telegraph;
+        self.status.ai_mode = crate::actor::ai::CharacterAiMode::Telegraph;
         self.attack.pending_axis = if attack_axis.length_squared() > 0.01 {
             attack_axis.normalize_or_zero()
         } else {
@@ -996,7 +995,7 @@ impl<'a> EnemyMut<'a> {
         *self.attack = ActorAttackState::default();
         self.status.respawn_timer = 0.0;
         self.status.hit_flash = 0.0;
-        self.status.ai_mode = crate::character_ai::CharacterAiMode::Idle;
+        self.status.ai_mode = crate::actor::ai::CharacterAiMode::Idle;
         self.kin.facing = -1.0;
         *self.surface = ActorSurfaceState {
             on_ground: false,

@@ -35,7 +35,7 @@ pub struct EnemyStatus {
     pub alive: bool,
     pub respawn_timer: f32,
     pub hit_flash: f32,
-    pub ai_mode: crate::character_ai::CharacterAiMode,
+    pub ai_mode: crate::actor::ai::CharacterAiMode,
     pub health: crate::actor::Health,
 }
 
@@ -155,7 +155,7 @@ impl EnemyClusterScratch {
                 alive: true,
                 respawn_timer: 0.0,
                 hit_flash: 0.0,
-                ai_mode: crate::character_ai::CharacterAiMode::Idle,
+                ai_mode: crate::actor::ai::CharacterAiMode::Idle,
                 health: crate::actor::Health::new(archetype.max_health()),
             },
             surface: ActorSurfaceState {

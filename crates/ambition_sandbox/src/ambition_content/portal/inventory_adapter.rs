@@ -19,7 +19,7 @@ use bevy::prelude::*;
 
 use crate::brain::ActionSet;
 use crate::engine_core::{self as ae, AabbExt};
-use crate::item_pickup::StashedActionSet;
+use crate::items::pickup::StashedActionSet;
 use crate::items::{Item, OwnedItems};
 use crate::platformer_runtime::prelude::SpawnScopedExt;
 use crate::player::{BodyKinematics, PlayerBaseSize, PlayerEntity, PrimaryPlayer};

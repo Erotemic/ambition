@@ -121,7 +121,7 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             .insert_resource(crate::enemy_projectile::EnemyProjectileState::default())
             // Anti-clump attack slot arbitration. Default layout: 3
             // melee ring slots + 3 aerial arc slots around the player.
-            .insert_resource(crate::combat_slots::CombatSlotsRes::default())
+            .insert_resource(crate::combat::slots::CombatSlotsRes::default())
             // Encounter system. The legacy single-encounter `EncounterState`
             // resource stays for backwards-compat tests; the live
             // multi-encounter store is `EncounterRegistry`, populated

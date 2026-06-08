@@ -4,7 +4,7 @@
 //! inventory drop adapter into the portal subsystem's schedule sets so the
 //! reusable portal core consumes intents the same frame they are produced. The
 //! pickup adapter is registered alongside the held-item simulation (in
-//! `crate::item_pickup`) because it must run last in that set, after the core
+//! `crate::items::pickup`) because it must run last in that set, after the core
 //! fire system, so picking up the gun doesn't also fire on the same press.
 
 use bevy::prelude::*;

@@ -63,7 +63,7 @@ impl Plugin for PortalSimulationPlugin {
         // (called right after `add_plugins(PortalPlugin)` in
         // `add_simulation_plugins`). This lets `crate::portal` avoid naming
         // `SandboxSet`, `crate::app::*` systems, `crate::gameplay_allowed`,
-        // `crate::item_pickup::ItemPickupSet`, or `crate::ambition_content::*`
+        // `crate::items::pickup::ItemPickupSet`, or `crate::ambition_content::*`
         // so it can become a standalone crate. The execution order is identical:
         // the same edges are simply declared from the other side of the seam.
 

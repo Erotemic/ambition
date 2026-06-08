@@ -86,7 +86,7 @@ pub fn apply_npc_stimuli(
 
         let mut hostile = enemy_runtime_for_npc_combat(&npc.config, &npc.kin, &npc.surface);
         if source.is_some() {
-            hostile.status.ai_mode = crate::character_ai::CharacterAiMode::Chase;
+            hostile.status.ai_mode = crate::actor::ai::CharacterAiMode::Chase;
         }
         let (brain, action_set) = super::brain_builders::aggressive_brain_and_action_set_for_enemy(
             &hostile.config,

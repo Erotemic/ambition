@@ -105,7 +105,7 @@ pub fn fire_dive_system(
         return;
     }
     let dir = dive_dir(
-        crate::item_pickup::held_shot_aim(&control, kin.facing),
+        crate::items::pickup::held_shot_aim(&control, kin.facing),
         kin.facing,
     )
     .normalize_or_zero();

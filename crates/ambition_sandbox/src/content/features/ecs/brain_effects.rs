@@ -1368,10 +1368,7 @@ mod tests {
             attack.cooldown,
         );
         assert!(
-            matches!(
-                status.ai_mode,
-                crate::character_ai::CharacterAiMode::Telegraph
-            ),
+            matches!(status.ai_mode, crate::actor::ai::CharacterAiMode::Telegraph),
             "ai_mode should flip to Telegraph; got {:?}",
             status.ai_mode,
         );
@@ -1435,10 +1432,7 @@ mod tests {
             "explicit melee message should start dismounted PirateHeavy windup"
         );
         assert!(
-            matches!(
-                status.ai_mode,
-                crate::character_ai::CharacterAiMode::Telegraph
-            ),
+            matches!(status.ai_mode, crate::actor::ai::CharacterAiMode::Telegraph),
             "dismounted PirateHeavy should telegraph her melee attack"
         );
     }

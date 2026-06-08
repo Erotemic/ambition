@@ -35,7 +35,7 @@ pub struct NpcConfig {
 /// hostility flag, and accumulated strike count.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct NpcStatus {
-    pub ai_mode: crate::character_ai::CharacterAiMode,
+    pub ai_mode: crate::actor::ai::CharacterAiMode,
     pub hit_flash: f32,
     pub hostile: bool,
     pub strikes: i32,
@@ -140,7 +140,7 @@ impl NpcClusterScratch {
                 talk_radius: super::super::npcs::NPC_TALK_RADIUS,
             },
             status: NpcStatus {
-                ai_mode: crate::character_ai::CharacterAiMode::Idle,
+                ai_mode: crate::actor::ai::CharacterAiMode::Idle,
                 hit_flash: 0.0,
                 hostile: false,
                 strikes: 0,

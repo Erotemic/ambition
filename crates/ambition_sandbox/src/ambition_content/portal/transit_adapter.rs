@@ -18,14 +18,14 @@
 //!   transit.
 //!
 //! [`ControlFrame`]: crate::input::ControlFrame
-//! [`GroundItem`]: crate::item_pickup::GroundItem
+//! [`GroundItem`]: crate::items::pickup::GroundItem
 //! [`PlayerMovementIntent`]: crate::portal::PlayerMovementIntent
 //! [`PortalTransitable`]: crate::portal::PortalTransitable
 
 use bevy::prelude::*;
 
 use crate::input::ControlFrame;
-use crate::item_pickup::GroundItem;
+use crate::items::pickup::GroundItem;
 use crate::player::{PlayerEntity, PrimaryPlayer};
 use crate::portal::{PlayerMovementIntent, PortalTransitable};
 

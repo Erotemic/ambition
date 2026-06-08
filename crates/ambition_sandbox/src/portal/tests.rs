@@ -231,7 +231,7 @@ fn in_flight_ground_item_travels_through_the_portal_pair() {
     use crate::ambition_content::portal::{
         sync_ground_items_to_transitable, sync_transitable_to_ground_items,
     };
-    use crate::item_pickup::GroundItem;
+    use crate::items::pickup::GroundItem;
     let mut app = App::new();
     // The content adapter brackets the core teleport: attach + sync the
     // PortalTransitable body before, mirror it back to GroundItem after.
@@ -261,7 +261,7 @@ fn in_flight_ground_item_travels_through_the_portal_pair() {
     let item = app
         .world_mut()
         .spawn(GroundItem {
-            spec: crate::item_pickup::axe_spec(),
+            spec: crate::items::pickup::axe_spec(),
             pos: Vec2::new(20.0, 200.0),
             vel: Vec2::new(-300.0, 0.0),
             half_extent: Vec2::splat(12.0),

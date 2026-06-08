@@ -5,6 +5,8 @@
 //! here lets tests and future headless validators reason about combat without a
 //! renderer.
 
+pub(crate) mod slots;
+
 use crate::actor::{DamageTeam, KinematicPath, RespawnPolicy};
 use crate::engine_core::Vec2;
 use crate::engine_core::{Aabb, AabbExt};

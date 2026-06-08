@@ -537,7 +537,7 @@ pub struct PropSpec {
 
 /// LDtk-authored held item resting on the ground, pick-up-able with `Attack`.
 ///
-/// Resolved to a [`crate::item_pickup::GroundItem`] at room load by looking
+/// Resolved to a [`crate::items::pickup::GroundItem`] at room load by looking
 /// `held_item` up in the brain held-item registry
 /// (`crate::brain::held_item_by_id`). This is the authored-placement home for
 /// the gauntlet / weapon pickups that the debug `spawn_debug_ground_items_once`

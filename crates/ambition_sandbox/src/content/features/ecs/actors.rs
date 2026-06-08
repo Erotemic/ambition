@@ -218,7 +218,7 @@ pub(crate) fn npc_component_snapshot(
         ActorDisposition::Peaceful,
         ActorHealth::new(crate::actor::Health::new(1)),
         ActorCombatState::peaceful(status.strikes, status.hit_flash),
-        ActorIntent::new(crate::character_ai::CharacterAiMode::Idle),
+        ActorIntent::new(crate::actor::ai::CharacterAiMode::Idle),
         ActorCooldowns::default(),
     )
 }
@@ -288,7 +288,7 @@ pub fn update_ecs_actors(
     platform_set: Res<crate::MovingPlatformSet>,
     feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,
     overlay: Res<FeatureEcsWorldOverlay>,
-    mut slot_board: ResMut<crate::combat_slots::CombatSlotsRes>,
+    mut slot_board: ResMut<crate::combat::slots::CombatSlotsRes>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
     mut vfx: MessageWriter<crate::presentation::fx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
@@ -387,7 +387,7 @@ pub fn update_ecs_actors(
     // The slot board is per-target (player) and arbitrates which
     // enemies are allowed to commit to an attack this tick; the
     // others hold at the outer ring. This is the anti-clump layer.
-    let mut requests: Vec<(String, ae::Vec2, crate::combat_slots::SlotKind)> = Vec::new();
+    let mut requests: Vec<(String, ae::Vec2, crate::combat::slots::SlotKind)> = Vec::new();
     for (_, _, actor, _, _, _, _, _, _, _, _, _, _, _, (clusters, _)) in &actors {
         if matches!(actor, ActorRuntime::Enemy) {
             if let Some(c) = clusters {
@@ -401,15 +401,15 @@ pub fn update_ecs_actors(
             }
         }
     }
-    let slot_requests: Vec<crate::combat_slots::SlotRequest> = requests
+    let slot_requests: Vec<crate::combat::slots::SlotRequest> = requests
         .iter()
-        .map(|(id, pos, kind)| crate::combat_slots::SlotRequest {
+        .map(|(id, pos, kind)| crate::combat::slots::SlotRequest {
             actor_id: id.as_str(),
             actor_pos: *pos,
             kind: *kind,
         })
         .collect();
-    crate::combat_slots::assign_slots(&mut slot_board.0, player_pos, &slot_requests);
+    crate::combat::slots::assign_slots(&mut slot_board.0, player_pos, &slot_requests);
 
     // Per-kind holding-position fallback for actors that didn't win a
     // slot (see `compute_holding_positions`).
@@ -514,7 +514,7 @@ pub fn update_ecs_actors(
                     // brain uses — so it moves/attacks via its own update path.
                     let crowding = crowding_by_id.get(&em.config.id).copied();
                     let snapshot = build_enemy_brain_snapshot(&em, target_pos, crowding, dt);
-                    let mut bf = crate::actor_control::ActorControlFrame::neutral();
+                    let mut bf = crate::actor::control::ActorControlFrame::neutral();
                     crate::brain::player::tick_player_brain_from_control(
                         &p.control, &snapshot, &mut bf,
                     );
@@ -526,13 +526,13 @@ pub fn update_ecs_actors(
                 } else if let Some(brain_ref) = brain.as_deref_mut() {
                     let crowding = crowding_by_id.get(&em.config.id).copied();
                     let snapshot = build_enemy_brain_snapshot(&em, target_pos, crowding, dt);
-                    let mut bf = crate::actor_control::ActorControlFrame::neutral();
+                    let mut bf = crate::actor::control::ActorControlFrame::neutral();
                     let peaceful = crate::brain::ActionSet::peaceful();
                     let actions = action_set.unwrap_or(&peaceful);
                     brain_ref.tick_with_actions(actions, &snapshot, &mut bf);
                     bf
                 } else {
-                    crate::actor_control::ActorControlFrame::neutral()
+                    crate::actor::control::ActorControlFrame::neutral()
                 };
                 let body_contact_damage_enabled = !brain.as_deref().is_some_and(crate::brain::Brain::is_player)
                         // A POSSESSED actor is on your side — its body never hurts
@@ -568,7 +568,7 @@ pub fn update_ecs_actors(
                         knockback: None,
                         ignored_targets: Vec::new(),
                     });
-                    frame = crate::actor_control::ActorControlFrame::neutral();
+                    frame = crate::actor::control::ActorControlFrame::neutral();
                 }
                 aabb.center = em.kin.pos;
                 aabb.half_size = em.kin.size * 0.5;
@@ -761,7 +761,7 @@ pub fn update_ecs_npcs(
             // is a harmless no-op on it.
             let mut snapshot = crate::brain::BrainSnapshot::idle();
             snapshot.actor_facing = npc.kin.facing;
-            let mut bf = crate::actor_control::ActorControlFrame::neutral();
+            let mut bf = crate::actor::control::ActorControlFrame::neutral();
             crate::brain::player::tick_player_brain_from_control(&p.control, &snapshot, &mut bf);
             if bf.facing.abs() > 0.001 {
                 npc.kin.facing = bf.facing;
@@ -825,7 +825,7 @@ pub fn update_ecs_npcs(
 /// far apart. Returns the position of each actor's nearest same-kind
 /// neighbor; actors with no same-kind peer are absent from the map.
 fn compute_nearest_neighbors(
-    requests: &[(String, ae::Vec2, crate::combat_slots::SlotKind)],
+    requests: &[(String, ae::Vec2, crate::combat::slots::SlotKind)],
 ) -> std::collections::HashMap<String, ae::Vec2> {
     let mut neighbor_by_id: std::collections::HashMap<String, ae::Vec2> =
         std::collections::HashMap::new();
@@ -854,12 +854,12 @@ fn compute_nearest_neighbors(
 /// of a kind shared one slot's holding point and visually clumped. Pure
 /// over the board + per-tick requests so it is unit-testable.
 fn compute_holding_positions(
-    board: &crate::combat_slots::CombatSlotBoard,
-    requests: &[(String, ae::Vec2, crate::combat_slots::SlotKind)],
+    board: &crate::combat::slots::CombatSlotBoard,
+    requests: &[(String, ae::Vec2, crate::combat::slots::SlotKind)],
     player_pos: ae::Vec2,
 ) -> std::collections::HashMap<String, ae::Vec2> {
     let mut unassigned_by_kind: std::collections::HashMap<
-        crate::combat_slots::SlotKind,
+        crate::combat::slots::SlotKind,
         Vec<&str>,
     > = std::collections::HashMap::new();
     for (id, _pos, kind) in requests {
@@ -902,7 +902,7 @@ fn compute_holding_positions(
 /// over the per-tick slot requests `(id, pos, kind)` so it is
 /// unit-testable in isolation from the actor tick.
 fn compute_crowding_by_id(
-    requests: &[(String, ae::Vec2, crate::combat_slots::SlotKind)],
+    requests: &[(String, ae::Vec2, crate::combat::slots::SlotKind)],
 ) -> std::collections::HashMap<String, crate::brain::CrowdingSignal> {
     const CROWDING_RADIUS_PX: f32 = 80.0;
     const AERIAL_CROWDING_RADIUS_PX: f32 = 220.0;
@@ -911,7 +911,7 @@ fn compute_crowding_by_id(
     for (id_a, pos_a, kind_a) in requests {
         let mut count: u8 = 0;
         let mut centroid = ae::Vec2::ZERO;
-        let aerial = *kind_a == crate::combat_slots::SlotKind::Aerial;
+        let aerial = *kind_a == crate::combat::slots::SlotKind::Aerial;
         let radius = if aerial {
             AERIAL_CROWDING_RADIUS_PX
         } else {
@@ -921,7 +921,7 @@ fn compute_crowding_by_id(
             if id_a == id_b {
                 continue;
             }
-            if aerial && *kind_b != crate::combat_slots::SlotKind::Aerial {
+            if aerial && *kind_b != crate::combat::slots::SlotKind::Aerial {
                 continue;
             }
             if pos_a.distance_squared(*pos_b) <= radius * radius {
@@ -1064,7 +1064,7 @@ mod tests {
 
     #[test]
     fn nearest_neighbor_is_same_kind_and_closest() {
-        use crate::combat_slots::SlotKind;
+        use crate::combat::slots::SlotKind;
         let reqs = vec![
             ("a".to_string(), ae::Vec2::new(0.0, 0.0), SlotKind::Melee),
             ("b".to_string(), ae::Vec2::new(10.0, 0.0), SlotKind::Melee), // closest to a
@@ -1085,7 +1085,7 @@ mod tests {
 
     #[test]
     fn unassigned_actors_spread_across_distinct_holding_positions() {
-        use crate::combat_slots::{assign_slots, CombatSlotBoard, SlotKind, SlotRequest};
+        use crate::combat::slots::{assign_slots, CombatSlotBoard, SlotKind, SlotRequest};
         // 2 melee slots, 4 melee actors → 2 win slots, 2 are leftover.
         let mut board = CombatSlotBoard::new(2, 80.0, 0, 0.0, 0.0);
         let target = ae::Vec2::ZERO;
@@ -1135,7 +1135,7 @@ mod tests {
 
     #[test]
     fn crowding_pushes_clustered_ground_actors_apart() {
-        use crate::combat_slots::SlotKind;
+        use crate::combat::slots::SlotKind;
         let reqs = vec![
             ("a".to_string(), ae::Vec2::new(0.0, 0.0), SlotKind::Melee),
             ("b".to_string(), ae::Vec2::new(20.0, 0.0), SlotKind::Melee), // within 80px
@@ -1159,7 +1159,7 @@ mod tests {
 
     #[test]
     fn crowding_ignores_actors_outside_the_radius() {
-        use crate::combat_slots::SlotKind;
+        use crate::combat::slots::SlotKind;
         let reqs = vec![
             ("a".to_string(), ae::Vec2::new(0.0, 0.0), SlotKind::Melee),
             ("b".to_string(), ae::Vec2::new(500.0, 0.0), SlotKind::Melee), // > 80px
@@ -1172,7 +1172,7 @@ mod tests {
 
     #[test]
     fn aerial_actors_crowd_at_a_wider_radius_than_ground() {
-        use crate::combat_slots::SlotKind;
+        use crate::combat::slots::SlotKind;
         // 150px apart: outside the 80px ground radius but inside the 220px
         // aerial radius. Two flyers crowd; two ground actors at the same
         // spacing do not.

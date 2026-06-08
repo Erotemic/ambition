@@ -236,14 +236,14 @@ pub fn clear_transient_on_sandbox_reset(
             With<crate::portal::PlacedPortal>,
             With<crate::portal::PortalShot>,
             With<crate::portal::PortalGunPickup>,
-            With<crate::item_pickup::GroundItem>,
+            With<crate::items::pickup::GroundItem>,
             With<crate::abilities::thrown::puppy_slug_gun::PuppySlugAlly>,
         )>,
     >,
     #[cfg(not(feature = "portal"))] transient: Query<
         Entity,
         Or<(
-            With<crate::item_pickup::GroundItem>,
+            With<crate::items::pickup::GroundItem>,
             With<crate::abilities::thrown::puppy_slug_gun::PuppySlugAlly>,
         )>,
     >,
@@ -251,7 +251,7 @@ pub fn clear_transient_on_sandbox_reset(
         (
             Entity,
             &mut crate::brain::ActionSet,
-            Option<&crate::item_pickup::StashedActionSet>,
+            Option<&crate::items::pickup::StashedActionSet>,
         ),
         With<crate::player::PlayerEntity>,
     >,
@@ -268,7 +268,7 @@ pub fn clear_transient_on_sandbox_reset(
         }
         commands
             .entity(player)
-            .remove::<crate::item_pickup::StashedActionSet>();
+            .remove::<crate::items::pickup::StashedActionSet>();
         commands
             .entity(player)
             .remove::<crate::features::HeldItem>();
@@ -338,8 +338,8 @@ mod tests {
 
         let ground = app
             .world_mut()
-            .spawn(crate::item_pickup::GroundItem {
-                spec: crate::item_pickup::axe_spec(),
+            .spawn(crate::items::pickup::GroundItem {
+                spec: crate::items::pickup::axe_spec(),
                 pos: ae::Vec2::ZERO,
                 vel: ae::Vec2::ZERO,
                 half_extent: ae::Vec2::splat(18.0),
@@ -354,8 +354,8 @@ mod tests {
             .spawn((
                 crate::player::PlayerEntity,
                 crate::brain::ActionSet::default(),
-                crate::item_pickup::StashedActionSet(crate::brain::ActionSet::default()),
-                crate::features::HeldItem::new(crate::item_pickup::axe_spec()),
+                crate::items::pickup::StashedActionSet(crate::brain::ActionSet::default()),
+                crate::features::HeldItem::new(crate::items::pickup::axe_spec()),
             ))
             .id();
         #[cfg(feature = "portal")]
@@ -367,7 +367,7 @@ mod tests {
         app.update();
         assert!(app
             .world()
-            .get::<crate::item_pickup::GroundItem>(ground)
+            .get::<crate::items::pickup::GroundItem>(ground)
             .is_some());
         assert!(app
             .world()
@@ -381,7 +381,7 @@ mod tests {
         app.update();
         assert!(
             app.world()
-                .get::<crate::item_pickup::GroundItem>(ground)
+                .get::<crate::items::pickup::GroundItem>(ground)
                 .is_none(),
             "ground item despawned on reset"
         );
@@ -406,7 +406,7 @@ mod tests {
         );
         assert!(
             app.world()
-                .get::<crate::item_pickup::StashedActionSet>(player)
+                .get::<crate::items::pickup::StashedActionSet>(player)
                 .is_none(),
             "stashed action set cleared"
         );

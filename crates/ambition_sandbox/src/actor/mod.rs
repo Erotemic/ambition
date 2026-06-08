@@ -4,6 +4,9 @@
 //! vocabulary for enemies, bosses, NPCs, moving hazards, and other authored
 //! entities before any one feature grows a bespoke sandbox-only system.
 
+pub mod ai;
+pub mod control;
+
 use crate::engine_core::Vec2;
 
 /// Coarse category for room entities that have identity or behavior.

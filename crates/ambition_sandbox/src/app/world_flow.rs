@@ -834,7 +834,7 @@ pub(super) fn apply_player_knockback(
 /// The hitstun gate is applied to the FINAL `InputState` so every
 /// verb is zeroed uniformly.
 pub(super) fn engine_input_from_actor_control(
-    actor: crate::actor_control::ActorControlFrame,
+    actor: crate::actor::control::ActorControlFrame,
     feel: SandboxFeelTuning,
     hitstun_timer: f32,
     control_dt: f32,
@@ -887,7 +887,7 @@ pub(super) fn start_attack(
     clusters: &mut ae::PlayerClustersMut<'_>,
     attack: &mut Option<crate::PlayerAttackState>,
     anim: &mut crate::player::PlayerAnimState,
-    actor: crate::actor_control::ActorControlFrame,
+    actor: crate::actor::control::ActorControlFrame,
     // When the player is holding a melee weapon (axe etc.), its `ActionSet`
     // melee spec re-tunes the swing (timing / reach / damage) so the held item
     // *replaces* the default attack instead of merely gating it.

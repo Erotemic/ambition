@@ -13,7 +13,7 @@
 use bevy::prelude::*;
 
 use crate::engine_core as ae;
-use crate::item_pickup::GroundItem;
+use crate::items::pickup::GroundItem;
 use crate::physics::{GravityZone, TemporaryZone};
 
 /// Held-item id the gravity grenade grants.

@@ -57,7 +57,7 @@ pub fn grapple_system(
     if held.spec.id != GRAPPLE_ID {
         return;
     }
-    let dir = crate::item_pickup::held_shot_aim(&control, kin.facing);
+    let dir = crate::items::pickup::held_shot_aim(&control, kin.facing);
     if dir == ae::Vec2::ZERO {
         return;
     }

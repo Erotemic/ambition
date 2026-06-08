@@ -184,10 +184,7 @@ mod conversion_tests {
                 .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016, 1.0);
         }
         assert!(
-            matches!(
-                npc.status.ai_mode,
-                crate::character_ai::CharacterAiMode::Chase
-            ),
+            matches!(npc.status.ai_mode, crate::actor::ai::CharacterAiMode::Chase),
             "expected Chase mode (NPC interprets as hold-and-face), got {:?}",
             npc.status.ai_mode
         );
@@ -227,8 +224,7 @@ mod conversion_tests {
         );
         assert!(matches!(
             npc.status.ai_mode,
-            crate::character_ai::CharacterAiMode::Idle
-                | crate::character_ai::CharacterAiMode::Chase
+            crate::actor::ai::CharacterAiMode::Idle | crate::actor::ai::CharacterAiMode::Chase
         ));
     }
 
@@ -295,8 +291,8 @@ mod conversion_tests {
             npc.as_mut()
                 .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016, 1.0);
             match npc.status.ai_mode {
-                crate::character_ai::CharacterAiMode::Patrol => patrol_ticks += 1,
-                crate::character_ai::CharacterAiMode::Chase => chase_ticks += 1,
+                crate::actor::ai::CharacterAiMode::Patrol => patrol_ticks += 1,
+                crate::actor::ai::CharacterAiMode::Chase => chase_ticks += 1,
                 _ => {}
             }
         }
@@ -507,7 +503,7 @@ mod conversion_tests {
         // requesting rightward motion at chase speed — the test
         // verifies the integration step blocks the body against
         // the wall, not just the steering code that picks velocity.
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         frame.desired_vel = ae::Vec2::new(enemy.config.archetype.chase_speed(), 0.0);
         for _ in 0..120 {
             enemy.as_mut().update(
@@ -577,7 +573,7 @@ mod conversion_tests {
         // Drive directly with a brain-shaped frame requesting
         // rightward patrol motion — the test verifies the
         // integration step blocks the body against the wall.
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         frame.desired_vel = ae::Vec2::new(enemy.config.archetype.patrol_speed(), 0.0);
         for _ in 0..120 {
             enemy.as_mut().update(

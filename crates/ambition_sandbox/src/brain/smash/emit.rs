@@ -1,7 +1,7 @@
 //! Stage 5 — emit inputs.
 //!
 //! Translates a [`SpecificAction`] into the matching
-//! [`crate::actor_control::ActorControlFrame`] fields. This is the only stage that
+//! [`crate::actor::control::ActorControlFrame`] fields. This is the only stage that
 //! knows the integration pipeline's frame schema — everything
 //! upstream stays vocabulary-pure.
 
@@ -38,7 +38,7 @@ const DASH_SPEED_PX_S: f32 = 260.0;
 pub fn emit_inputs(
     action: SpecificAction,
     obs: &ObservationFrame,
-    out: &mut crate::actor_control::ActorControlFrame,
+    out: &mut crate::actor::control::ActorControlFrame,
 ) {
     // Facing is set unconditionally toward the target (when one
     // exists) so even Idle mid-engagement faces the threat.
@@ -83,7 +83,7 @@ pub fn emit_inputs(
         }
         SpecificAction::RangedAttack { dir } => {
             if dir.length_squared() > 1e-6 {
-                out.fire = Some(crate::actor_control::ActorFireRequest {
+                out.fire = Some(crate::actor::control::ActorFireRequest {
                     dir,
                     // Speed routed through ActionSet at resolve time;
                     // emit a placeholder here.
@@ -133,7 +133,7 @@ mod tests {
 
     #[test]
     fn walk_emits_desired_vel_along_dir() {
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         emit_inputs(
             SpecificAction::Walk { dir: 1.0 },
             &obs_at(300.0),
@@ -142,7 +142,7 @@ mod tests {
         assert!(frame.desired_vel.x > 0.0);
         assert_eq!(frame.desired_vel.y, 0.0);
         assert!(frame.facing > 0.0);
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         emit_inputs(
             SpecificAction::Walk { dir: -1.0 },
             &obs_at(300.0),
@@ -154,7 +154,7 @@ mod tests {
 
     #[test]
     fn melee_attack_sets_melee_pressed_and_attack_axis() {
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         emit_inputs(
             SpecificAction::MeleeAttack {
                 dir: ae::Vec2::new(1.0, 0.0),
@@ -169,7 +169,7 @@ mod tests {
 
     #[test]
     fn ranged_attack_sets_fire_with_dir() {
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         emit_inputs(
             SpecificAction::RangedAttack {
                 dir: ae::Vec2::new(0.0, -1.0),
@@ -187,14 +187,14 @@ mod tests {
 
     #[test]
     fn jump_emits_jump_pressed_edge() {
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         emit_inputs(SpecificAction::Jump, &obs_at(200.0), &mut frame);
         assert!(frame.jump_pressed);
     }
 
     #[test]
     fn idle_zeros_desired_vel_but_keeps_facing() {
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         // Target on the left → expect actor to face left.
         emit_inputs(SpecificAction::Idle, &obs_at(-200.0), &mut frame);
         assert_eq!(frame.desired_vel, ae::Vec2::ZERO);

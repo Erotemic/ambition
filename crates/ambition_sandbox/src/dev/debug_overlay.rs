@@ -201,7 +201,7 @@ pub fn draw_debug_overlay(
 fn draw_held_projectiles<'a>(
     gizmos: &mut Gizmos,
     world: &ae::World,
-    projectiles: impl Iterator<Item = &'a crate::item_pickup::HeldProjectile>,
+    projectiles: impl Iterator<Item = &'a crate::items::pickup::HeldProjectile>,
     developer_tools: &DeveloperTools,
 ) {
     let contact_color = Color::srgba(0.35, 0.85, 1.00, 0.90); // light blue (player-side)
@@ -320,7 +320,7 @@ pub struct FeatureDebugQueries<'w, 's> {
     /// read as "hitting before it touches the visible box". Lives in
     /// this bundle (not a top-level param) to keep `draw_debug_overlay`
     /// under Bevy's 16-system-param ceiling.
-    pub held_projectiles: Query<'w, 's, &'static crate::item_pickup::HeldProjectile>,
+    pub held_projectiles: Query<'w, 's, &'static crate::items::pickup::HeldProjectile>,
 }
 
 fn draw_room_bounds(gizmos: &mut Gizmos, world: &ae::World) {

@@ -101,7 +101,7 @@ pub fn fire_meteor_system(
     if !mana.meter.try_spend(METEOR_MANA_COST) {
         return;
     }
-    let aim = crate::item_pickup::held_shot_aim(&control, kin.facing);
+    let aim = crate::items::pickup::held_shot_aim(&control, kin.facing);
     for origin in meteor_strike_origins(kin.pos, aim, kin.facing) {
         projectiles.spawn_with_faction(
             EnemyProjectileSpawn {

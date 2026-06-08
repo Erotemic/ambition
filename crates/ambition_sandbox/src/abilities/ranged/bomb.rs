@@ -13,7 +13,7 @@ use bevy::prelude::*;
 
 use crate::engine_core as ae;
 use crate::features::{HitEvent, HitMode, HitSource, HitTarget};
-use crate::item_pickup::GroundItem;
+use crate::items::pickup::GroundItem;
 
 /// Held-item id the bomb grants.
 pub const BOMB_ID: &str = "bomb";

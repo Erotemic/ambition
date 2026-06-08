@@ -19,7 +19,7 @@
 use bevy::prelude::*;
 
 use crate::brain::ActionSet;
-use crate::item_pickup::{equip_held_spec, held_spec_for_item, unequip_held, StashedActionSet};
+use crate::items::pickup::{equip_held_spec, held_spec_for_item, unequip_held, StashedActionSet};
 use crate::items::{Item, ItemCategory, OwnedItems};
 use crate::player::{PlayerEntity, PlayerHealRequested, PlayerMana, PrimaryPlayer};
 

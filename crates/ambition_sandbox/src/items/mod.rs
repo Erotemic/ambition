@@ -22,6 +22,10 @@
 //! shows "every item you could ever have," OoT-style, with un-acquired entries
 //! dimmed.
 
+pub mod persist;
+pub mod pickup;
+pub mod shop;
+
 use bevy::prelude::Resource;
 
 /// Number of item slots — the OoT item subscreen's 6 × 4 grid, and therefore the
@@ -386,7 +390,7 @@ impl Item {
 
     /// For [`ItemCategory::Weapon`] items, the `HeldItem` id whose `ActionSet` the
     /// player gains on equip (resolved via [`crate::brain::held_item_by_id`] or a
-    /// dedicated `*_spec` in [`crate::item_pickup`]). `None` for non-equippables
+    /// dedicated `*_spec` in [`crate::items::pickup`]). `None` for non-equippables
     /// and for weapons whose held-item wiring is not built yet.
     pub fn held_item_id(self) -> Option<&'static str> {
         // PortalGun equips via its own `PortalGun` component (handled specially
@@ -400,7 +404,7 @@ impl Item {
     /// `None` and fall back to the text label.
     ///
     /// The set of available sprites is the same `sprites/props/` art used for
-    /// ground/held items ([`crate::item_pickup::ItemArt`] / `GAUNTLET_PROP_IDS`):
+    /// ground/held items ([`crate::items::pickup::ItemArt`] / `GAUNTLET_PROP_IDS`):
     /// the three physical weapons (axe/javelin/gunsword), the portal gun, and the
     /// abstract gauntlet abilities that have a generated icon. This is a deliberate,
     /// explicit map (not a derived lookup) so a missing sprite is a visible `None`

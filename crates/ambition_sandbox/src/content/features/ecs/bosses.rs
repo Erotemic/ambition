@@ -62,13 +62,13 @@ pub(crate) fn boss_component_snapshot(
     ActorCooldowns,
 ) {
     let mode = if !boss.status.alive {
-        crate::character_ai::CharacterAiMode::Dead
+        crate::actor::ai::CharacterAiMode::Dead
     } else if attack_state.active_profile.is_some() {
-        crate::character_ai::CharacterAiMode::Attack
+        crate::actor::ai::CharacterAiMode::Attack
     } else if attack_state.telegraph_profile.is_some() {
-        crate::character_ai::CharacterAiMode::Telegraph
+        crate::actor::ai::CharacterAiMode::Telegraph
     } else {
-        crate::character_ai::CharacterAiMode::Chase
+        crate::actor::ai::CharacterAiMode::Chase
     };
     (
         ActorIdentity::new(boss.config.id.clone(), boss.config.name.clone()),
@@ -415,7 +415,7 @@ pub fn tick_boss_brains_system(
         if !boss.status.alive {
             // Dead boss: zero out frame + attack state so any
             // downstream consumer sees a coherent "no intent".
-            control.0 = crate::actor_control::ActorControlFrame::neutral();
+            control.0 = crate::actor::control::ActorControlFrame::neutral();
             attack_state.clear();
             continue;
         }
@@ -424,7 +424,7 @@ pub fn tick_boss_brains_system(
             // Boss has a non-BossPattern brain (test fixture). Leave
             // ActorControl + BossAttackState neutral so a future
             // brain swap doesn't leak stale intent.
-            control.0 = crate::actor_control::ActorControlFrame::neutral();
+            control.0 = crate::actor::control::ActorControlFrame::neutral();
             attack_state.clear();
             continue;
         };
@@ -443,7 +443,7 @@ pub fn tick_boss_brains_system(
             front_wall_clearance,
             dt,
         };
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
         tick_boss_pattern(cfg, state, &ctx, &mut frame, &mut attack_state);
 
         // Boss-side Special direct-write: the Gradient Sentinel has

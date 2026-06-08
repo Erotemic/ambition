@@ -67,7 +67,7 @@ pub fn fire_vortex_system(
     if !mana.meter.try_spend(VORTEX_MANA_COST) {
         return;
     }
-    let mut aim = crate::item_pickup::held_shot_aim(&control, kin.facing);
+    let mut aim = crate::items::pickup::held_shot_aim(&control, kin.facing);
     if aim == ae::Vec2::ZERO {
         aim = ae::Vec2::new(kin.facing.signum(), 0.0);
     }

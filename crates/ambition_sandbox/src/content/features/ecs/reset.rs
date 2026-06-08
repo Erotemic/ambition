@@ -51,7 +51,7 @@ pub fn reset_ecs_room_features(
     >,
     mut hazards: Query<&mut HazardFeature, With<FeatureSimEntity>>,
     mut enemy_projectiles: ResMut<crate::enemy_projectile::EnemyProjectileState>,
-    mut combat_slots: ResMut<crate::combat_slots::CombatSlotsRes>,
+    mut combat_slots: ResMut<crate::combat::slots::CombatSlotsRes>,
 ) {
     if reset_requests.read().next().is_none() {
         return;
@@ -144,7 +144,7 @@ pub fn reset_ecs_room_features(
             *state = crate::brain::BossPatternState::default();
         }
         attack_state.clear();
-        control.0 = crate::actor_control::ActorControlFrame::neutral();
+        control.0 = crate::actor::control::ActorControlFrame::neutral();
     }
     for mut hazard_feature in &mut hazards {
         let spawn = hazard_feature.spawn;
@@ -220,7 +220,7 @@ mod reset_tests {
     //! pickups un-collect, opened chests un-open, broken breakables
     //! return to Intact. No event -> no change.
     use super::*;
-    use crate::combat_slots::CombatSlotsRes;
+    use crate::combat::slots::CombatSlotsRes;
     use crate::enemy_projectile::EnemyProjectileState;
     use crate::interaction::Breakable;
     use bevy::prelude::{App, Entity, Update};

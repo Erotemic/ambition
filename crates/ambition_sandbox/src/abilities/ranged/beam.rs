@@ -99,7 +99,7 @@ pub fn fire_beam_system(
     if !mana.meter.try_spend(BEAM_MANA_COST) {
         return;
     }
-    let aim = crate::item_pickup::held_shot_aim(&control, kin.facing);
+    let aim = crate::items::pickup::held_shot_aim(&control, kin.facing);
     let (offset, half_extent) = beam_geometry(aim, kin.facing);
     commands.spawn((
         Hitbox {

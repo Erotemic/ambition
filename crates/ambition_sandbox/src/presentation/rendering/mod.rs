@@ -102,13 +102,13 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     .after(actors::sync_visuals),
             )
             // Load held-item prop sprites at startup.
-            .add_systems(Startup, crate::item_pickup::load_item_art)
+            .add_systems(Startup, crate::items::pickup::load_item_art)
             .add_systems(
                 Update,
                 (
-                    crate::item_pickup::sync_ground_item_visuals.after(actors::sync_visuals),
-                    crate::item_pickup::sync_held_item_visual.after(actors::sync_visuals),
-                    crate::item_pickup::sync_held_projectile_visuals.after(actors::sync_visuals),
+                    crate::items::pickup::sync_ground_item_visuals.after(actors::sync_visuals),
+                    crate::items::pickup::sync_held_item_visual.after(actors::sync_visuals),
+                    crate::items::pickup::sync_held_projectile_visuals.after(actors::sync_visuals),
                     crate::shrine::sync_shrine_visual.after(actors::sync_visuals),
                     crate::shrine::animate_shrine_visuals.after(actors::animate_props),
                     crate::abilities::traversal::mark_recall::sync_mark_beacon_visual

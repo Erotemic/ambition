@@ -2,7 +2,7 @@
 //!
 //! Inserted into the shared [`crate::presentation::cutscene::CutsceneLibrary`] and
 //! [`crate::presentation::cutscene::RoomCutsceneBindings`] by
-//! [`crate::intro::plugin::install_intro_cutscenes_system`] at startup,
+//! [`crate::ambition_content::intro::plugin::install_intro_cutscenes_system`] at startup,
 //! so the sandbox cutscene/system runtime picks them up the moment the
 //! player enters the matching room.
 //!

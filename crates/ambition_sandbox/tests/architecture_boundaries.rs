@@ -620,7 +620,7 @@ fn architecture_boundaries_named_content_registers_through_content_plugin() {
         "AmbitionQuestContentPlugin",
         "AmbitionBossContentPlugin",
         "AmbitionDialogueContentPlugin",
-        "crate::intro::IntroPlugin",
+        "crate::ambition_content::intro::IntroPlugin",
     ] {
         assert!(
             plugin_text.contains(needle),
@@ -650,7 +650,7 @@ fn architecture_boundaries_named_content_registers_through_content_plugin() {
         "RoomCutsceneBindings::defaults()",
         "install_boss_banter",
         "install_pirate_banter",
-        "crate::intro::IntroPlugin",
+        "crate::ambition_content::intro::IntroPlugin",
     ];
     let violations = forbidden_inline
         .into_iter()

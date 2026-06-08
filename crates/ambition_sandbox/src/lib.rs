@@ -71,7 +71,6 @@ pub(crate) mod enemy_projectile;
 pub(crate) mod falling_sand;
 pub(crate) mod host;
 pub mod hud_overlay;
-pub(crate) mod intro;
 pub(crate) mod inventory;
 pub mod inventory_persist;
 pub mod item_pickup;

@@ -11,6 +11,7 @@
 
 pub mod bosses;
 pub mod dialogue;
+pub mod intro;
 pub mod items;
 pub mod plugin;
 pub mod quests;

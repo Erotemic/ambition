@@ -8,7 +8,7 @@
 //! `intro.ldtk`.
 //!
 //! Add a row by appending a tuple to [`INTRO_NPC_SPRITE_REGISTRY`] —
-//! [`crate::intro::plugin::load_intro_npc_sprites_system`] walks the
+//! [`crate::ambition_content::intro::plugin::load_intro_npc_sprites_system`] walks the
 //! table at startup and inserts every present sheet into
 //! `GameAssets.characters.npcs`. Missing PNGs fall back to colored
 //! rectangles per the existing contract.
@@ -103,7 +103,7 @@ pub fn intro_npc_sprite_rows() -> &'static [(
 /// Keyed by `Prop.kind` (NOT display name) so authors can rename a
 /// prop in LDtk without re-pointing the sprite registry. Loaded into
 /// `GameAssets.characters.props` by
-/// [`crate::intro::plugin::load_intro_prop_sprites_system`].
+/// [`crate::ambition_content::intro::plugin::load_intro_prop_sprites_system`].
 pub const INTRO_PROP_REGISTRY: &[(&str, &str, &'static std::sync::LazyLock<CharacterSheetSpec>)] =
     &[
         // Diagnostic cart the player wakes on.

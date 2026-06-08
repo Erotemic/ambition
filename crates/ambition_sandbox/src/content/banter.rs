@@ -4,7 +4,7 @@
 //! can fire `VfxMessage::SpeechBubble` when the player strikes a
 //! named enemy. Authored content (e.g. intro raiders shouting
 //! "wrong list" lines) populates the registry via a plugin startup
-//! system — [`crate::intro::banter`] is the first such contributor.
+//! system — [`crate::ambition_content::intro::banter`] is the first such contributor.
 //!
 //! Why a resource (not a `const HashMap`):
 //! - story content lives in submodules so the future game / sandbox

@@ -7,10 +7,10 @@
 //! - [`install_intro_cutscenes_system`] extends
 //!   [`crate::presentation::cutscene::CutsceneLibrary`] and
 //!   [`crate::presentation::cutscene::RoomCutsceneBindings`] with the intro scripts
-//!   and room bindings from [`crate::intro::cutscene`].
+//!   and room bindings from [`crate::ambition_content::intro::cutscene`].
 //! - [`load_intro_npc_sprites_system`] extends
 //!   [`crate::assets::game_assets::GameAssets`]`.characters.npcs` with the
-//!   intro placeholder sprite rows from [`crate::intro::sprites`].
+//!   intro placeholder sprite rows from [`crate::ambition_content::intro::sprites`].
 //!
 //! Both systems run after the sandbox's own startup systems insert the
 //! resources they extend, so they layer on top without overwriting
@@ -204,7 +204,7 @@ pub(crate) fn load_intro_npc_sprites_system(
         if game_assets.characters.npcs.contains_key(*name) {
             continue;
         }
-        let id = crate::intro::sprites::intro_npc_asset_id(name);
+        let id = crate::ambition_content::intro::sprites::intro_npc_asset_id(name);
         if let Some(asset) =
             build_npc_sprite_asset(&catalog, &asset_server, &mut layouts, &id, spec)
         {
@@ -248,7 +248,7 @@ pub(crate) fn load_intro_prop_sprites_system(
         if game_assets.characters.props.contains_key(*kind) {
             continue;
         }
-        let id = crate::intro::sprites::intro_prop_asset_id(kind);
+        let id = crate::ambition_content::intro::sprites::intro_prop_asset_id(kind);
         if let Some(asset) =
             build_prop_sprite_asset(&catalog, &asset_server, &mut layouts, &id, spec)
         {

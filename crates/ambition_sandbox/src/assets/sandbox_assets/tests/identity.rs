@@ -144,7 +144,7 @@ fn all_catalog_ids_are_unique() {
 /// through to colored rectangles.
 #[test]
 fn intro_npc_and_prop_sprite_ids_resolve_through_the_catalog() {
-    use crate::intro::sprites::{
+    use crate::ambition_content::intro::sprites::{
         intro_npc_asset_id, intro_npc_sprite_rows, intro_prop_asset_id, intro_prop_sprite_rows,
     };
 

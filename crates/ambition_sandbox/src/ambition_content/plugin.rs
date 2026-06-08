@@ -13,7 +13,7 @@
 //! implementation file. The named rosters / registries are constructed here
 //! (or in the per-content submodules this composes), while the heavy content
 //! data + systems still live in their current modules
-//! (`crate::content::quest`, `crate::boss_encounter`, `crate::intro`,
+//! (`crate::content::quest`, `crate::boss_encounter`, `crate::ambition_content::intro`,
 //! `crate::presentation::cutscene`, …) and are merely *called from* here.
 //!
 //! What this composer owns today:
@@ -22,7 +22,7 @@
 //! - boss encounter default roster ([`super::bosses`])
 //! - named cutscene library + room bindings + combat-banter registry
 //!   ([`super::dialogue`])
-//! - the intro / cut-rope story content hooks ([`crate::intro::IntroPlugin`])
+//! - the intro / cut-rope story content hooks ([`crate::ambition_content::intro::IntroPlugin`])
 //! - the Ambition portal input/inventory adapters
 //!   ([`super::portal::AmbitionPortalAdaptersPlugin`], `portal` feature)
 //!
@@ -61,7 +61,7 @@ impl Plugin for AmbitionContentPlugin {
         // headless where GameAssets is absent). Keeps story content out
         // of sandbox-owned files in preparation for a future
         // sandbox / game crate split.
-        app.add_plugins(crate::intro::IntroPlugin);
+        app.add_plugins(crate::ambition_content::intro::IntroPlugin);
 
         // Ambition-specific portal adapters (ControlFrame → portal intents,
         // inventory drop glue). Lives under the content composer so all

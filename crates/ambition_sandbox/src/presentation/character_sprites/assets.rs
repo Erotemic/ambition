@@ -321,7 +321,7 @@ fn build_optional_via_catalog(
 }
 
 /// Build a single NPC sprite asset by resolving its catalog id.
-/// Story-content plugins (e.g. `crate::intro::plugin`) call this once
+/// Story-content plugins (e.g. `crate::ambition_content::intro::plugin`) call this once
 /// per row in their authored NPC table; the matching catalog entries
 /// are registered by `crate::assets::sandbox_assets::extend_with_intro_sprite_entries`
 /// (or the equivalent helper for new plugins).

@@ -6,7 +6,7 @@
 //! beat keeps landing during combat (it doesn't only live in the
 //! intro_raid cutscene, which the player may have skipped).
 //!
-//! Installed by [`crate::intro::plugin::install_intro_banter_system`]
+//! Installed by [`crate::ambition_content::intro::plugin::install_intro_banter_system`]
 //! at startup — the sandbox-side registry stays empty by default so a
 //! plain sandbox build doesn't carry intro content.
 

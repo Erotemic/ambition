@@ -7,7 +7,7 @@
 //! owns assembling those named rosters into sandbox resources.
 //!
 //! Intro raider barks and intro cutscene scripts are layered on top by
-//! `crate::intro::IntroPlugin` (installed via the content plugin), which
+//! `crate::ambition_content::intro::IntroPlugin` (installed via the content plugin), which
 //! extends these registries at startup.
 
 use bevy::prelude::*;

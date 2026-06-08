@@ -133,7 +133,7 @@ pub(in super::super) fn extend_with_boss_entries(
 
 /// Intro NPC + prop sprite entries. The intro story content owns its
 /// own `INTRO_NPC_SPRITE_REGISTRY` / `INTRO_PROP_REGISTRY` constants
-/// in `crate::intro::sprites`; this helper walks both at catalog-build
+/// in `crate::ambition_content::intro::sprites`; this helper walks both at catalog-build
 /// time so the intro plugin's load systems can resolve their assets
 /// via `catalog.try_path_for_load(...)` like every other loader.
 ///
@@ -145,7 +145,7 @@ pub(in super::super) fn extend_with_intro_sprite_entries(
     manifest: &mut AssetManifest,
     sprite_folder: &str,
 ) {
-    use crate::intro::sprites::{
+    use crate::ambition_content::intro::sprites::{
         intro_npc_asset_id, intro_npc_sprite_rows, intro_prop_asset_id, intro_prop_sprite_rows,
     };
     for (name, filename, _spec) in intro_npc_sprite_rows() {

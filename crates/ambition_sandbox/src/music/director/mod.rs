@@ -4,7 +4,6 @@ mod adaptive;
 mod gains;
 mod loader;
 mod logging;
-mod resolver;
 mod simple;
 mod timing;
 
@@ -13,35 +12,32 @@ pub use loader::load_music_cues;
 use adaptive::{drive_adaptive_cue_state, drive_outro_tail, shutdown_adaptive_cue};
 use gains::update_gain_smoothing;
 use logging::log_periodic_state;
-pub(super) use resolver::resolve_adaptive_directive;
 use simple::apply_simple_music_intent;
 
 #[cfg(test)]
 pub(super) use adaptive::should_restart_adaptive;
-#[cfg(test)]
-pub(super) use resolver::resolve_directive_for_binding;
 
-/// Unified music director.
+/// Content-agnostic music director.
 ///
-/// Handles both simple track selection and adaptive cue state transitions. The
-/// simple track backend still reuses the existing `AudioLibrary` / `MusicChannel`
+/// Handles both simple track selection and adaptive cue state transitions. It
+/// reads only the neutral [`MusicIntent`] (the game's content layer resolves
+/// "which cue / track for which game event" into that resource — see
+/// [`super::intent`]) plus its own catalog/assets/audio backend. It names no
+/// encounter, boss, room, or track, so the machinery is reusable across games.
+///
+/// The simple track backend reuses the existing `AudioLibrary` / `MusicChannel`
 /// sources; adaptive cues use the generic layer-bank scheduler in this module.
 pub fn drive_music_director(
     time: Res<Time>,
     catalog: Option<Res<MusicCueCatalog>>,
     assets: Option<Res<LoadedMusicCueAssets>>,
     director: Option<ResMut<MusicDirectorState>>,
-    encounters: Res<EncounterRegistry>,
-    mut encounter_music: ResMut<EncounterMusicRequest>,
-    mut boss_music: ResMut<BossEncounterMusicRequest>,
-    room_music: Res<RoomMusicRequest>,
+    intent: Res<MusicIntent>,
     layer_channels: MusicLayerChannels,
     base_music_channel: Res<AudioChannel<MusicChannel>>,
     mut library: ResMut<AudioLibrary>,
     asset_server: Res<AssetServer>,
     mut music_state: ResMut<MusicPlaybackState>,
-    radio: Option<Res<RadioStationState>>,
-    sandbox_data: Res<SandboxDataSpec>,
     settings: Res<UserSettings>,
 ) {
     let Some(catalog) = catalog else {
@@ -60,8 +56,8 @@ pub fn drive_music_director(
         director.seconds_in_loop += dt;
     }
 
-    let adaptive = resolve_adaptive_directive(&catalog, &encounters, &director);
-    match adaptive {
+    let candidates = intent.simple_track_candidates.as_slice();
+    match intent.adaptive.clone() {
         Some(AdaptiveCueDirective::Play { cue_id, state_id }) => {
             if let (Some(cue), Some(target_state)) = (
                 catalog.cue(&cue_id),
@@ -95,11 +91,7 @@ pub fn drive_music_director(
                     &asset_server,
                     &mut music_state,
                     &base_music_channel,
-                    &room_music,
-                    radio.as_deref(),
-                    &sandbox_data,
-                    &mut encounter_music,
-                    &mut boss_music,
+                    candidates,
                 );
             }
         }
@@ -117,11 +109,7 @@ pub fn drive_music_director(
                     &asset_server,
                     &mut music_state,
                     &base_music_channel,
-                    &room_music,
-                    radio.as_deref(),
-                    &sandbox_data,
-                    &mut encounter_music,
-                    &mut boss_music,
+                    candidates,
                 );
             } else {
                 apply_simple_music_intent(
@@ -130,11 +118,7 @@ pub fn drive_music_director(
                     &asset_server,
                     &mut music_state,
                     &base_music_channel,
-                    &room_music,
-                    radio.as_deref(),
-                    &sandbox_data,
-                    &mut encounter_music,
-                    &mut boss_music,
+                    candidates,
                 );
             }
         }
@@ -151,11 +135,7 @@ pub fn drive_music_director(
                 &asset_server,
                 &mut music_state,
                 &base_music_channel,
-                &room_music,
-                radio.as_deref(),
-                &sandbox_data,
-                &mut encounter_music,
-                &mut boss_music,
+                candidates,
             );
             log_periodic_state(&mut director, cue, dt);
         }

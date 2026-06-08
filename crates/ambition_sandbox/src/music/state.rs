@@ -57,8 +57,36 @@ pub(super) struct PendingMusicStateTransition {
     pub(super) delay_seconds: f32,
 }
 
+/// A content-agnostic adaptive-cue intent handed to the director.
+///
+/// The director never decides *which* cue plays for *which* game event;
+/// the game's content layer resolves that (e.g. encounter phase → cue
+/// state) and pushes the resulting directive in via [`MusicIntent`]. The
+/// directive only names cue/state ids that the director looks up in its
+/// catalog, so it carries no game-specific vocabulary.
 #[derive(Debug, Clone, PartialEq)]
-pub(super) enum AdaptiveCueDirective {
+pub enum AdaptiveCueDirective {
+    /// Play `cue_id` in adaptive `state_id` this frame.
     Play { cue_id: String, state_id: String },
+    /// Stop the active adaptive cue immediately (e.g. encounter failed).
     StopNow,
+}
+
+/// Per-frame music intent the game's content layer pushes to the director.
+///
+/// This is the decoupling seam: the music director is content-agnostic and
+/// reads only this neutral resource plus its catalog/assets/audio backend.
+/// The Ambition-specific mapping ("which track / cue for which encounter,
+/// boss, room, or radio station") lives in [`super::intent`] and writes here.
+/// A different game would supply its own `compute_music_intent` and reuse the
+/// director unchanged.
+#[derive(Resource, Default, Debug, Clone)]
+pub struct MusicIntent {
+    /// Adaptive cue directive for this frame, if any content owns audio.
+    /// `None` means "no adaptive claim — fall back to the simple track."
+    pub adaptive: Option<AdaptiveCueDirective>,
+    /// Simple (single-track) candidates in priority order. The director
+    /// plays the first id that exists in its `AudioLibrary`. Empty means
+    /// "nothing requested" (the director keeps whatever is playing).
+    pub simple_track_candidates: Vec<String>,
 }

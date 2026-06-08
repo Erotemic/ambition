@@ -584,6 +584,56 @@ Move the binding into crate::ambition_content::portal (or extend the documented 
 }
 
 #[test]
+fn architecture_boundaries_music_director_is_content_agnostic() {
+    // Stage 18 T3: the music director machinery (track switching, crossfade,
+    // adaptive layering) is content-agnostic. It must not reach into Ambition
+    // gameplay content: encounters, rooms, or the sandbox content data spec.
+    // The Ambition mapping ("which cue/track for which encounter/boss/room")
+    // lives in `crate::music::intent` (the content half), which resolves a
+    // neutral `MusicIntent` the director consumes. A different game would
+    // supply its own `compute_music_intent` and reuse the director unchanged.
+    //
+    // `crate::audio` (the playback backend) and `crate::persistence::settings`
+    // (one music-volume float) are deliberately NOT forbidden: they are the
+    // legitimate downward dependency direction the in-place decoupling leaves
+    // for a future crate extraction to abstract.
+    let music_root = crate_src().join("music");
+    let forbidden = ["crate::encounter", "crate::rooms", "crate::content"];
+    let mut violations = Vec::new();
+    for file in collect_rs_files(&music_root) {
+        let name = file.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        // `intent.rs` IS the content half (it owns the encounter/room/content
+        // mapping); `tests.rs` exercises that mapping. Everything else is the
+        // reusable director and must stay content-free.
+        if name == "intent.rs" || name == "tests.rs" {
+            continue;
+        }
+        let text = fs::read_to_string(&file).expect("read music source");
+        for (idx, raw) in text.lines().enumerate() {
+            let line = raw.trim();
+            if line.starts_with("//") || line.starts_with("/*") || line.starts_with('*') {
+                continue;
+            }
+            for needle in forbidden {
+                if line.contains(needle) {
+                    violations.push(format!(
+                        "{}:{} music director references Ambition content `{needle}`: {line}",
+                        file.display(),
+                        idx + 1
+                    ));
+                }
+            }
+        }
+    }
+    assert!(
+        violations.is_empty(),
+        "music director must consume the neutral `MusicIntent`, not encounter/room/content. \
+Move the mapping into crate::music::intent:\n{}",
+        violations.join("\n")
+    );
+}
+
+#[test]
 fn architecture_boundaries_named_content_registers_through_content_plugin() {
     // Stage 11 / Task J: named Ambition content registration is owned by
     // `crate::ambition_content::AmbitionContentPlugin`. Assert (a) the

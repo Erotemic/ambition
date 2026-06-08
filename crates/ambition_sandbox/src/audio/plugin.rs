@@ -105,11 +105,21 @@ impl Plugin for SandboxAudioPlugin {
                     .chain()
                     .after(crate::app::SandboxSet::CoreSimulation),
             )
+            // Neutral music intent: the content layer resolves Ambition
+            // encounter/boss/room/radio gameplay into a content-agnostic
+            // `MusicIntent`, then the director consumes only that resource.
+            .init_resource::<crate::music::MusicIntent>()
             // Unified director: resolves room/encounter simple tracks and
-            // adaptive cue states behind one music intent layer.
+            // adaptive cue states behind one music intent layer. Runs after
+            // `compute_music_intent` so the intent is fresh this frame.
             .add_systems(
                 Update,
-                crate::music::drive_music_director.after(crate::app::SandboxSet::CoreSimulation),
+                (
+                    crate::music::compute_music_intent,
+                    crate::music::drive_music_director,
+                )
+                    .chain()
+                    .after(crate::app::SandboxSet::CoreSimulation),
             );
     }
 }

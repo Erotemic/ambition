@@ -26,20 +26,13 @@ use bevy_kira_audio::prelude::{
 
 use crate::audio::{
     amplitude_to_decibels, switch_to_music_track, AudioLibrary, MusicChannel, MusicPlaybackState,
-    RadioStationState,
-};
-use crate::content::data::SandboxDataSpec;
-use crate::encounter::{
-    BossEncounterMusicRequest, EncounterMusicRequest, EncounterPhase, EncounterRegistry,
 };
 use crate::persistence::settings::UserSettings;
-use crate::rooms::RoomMusicRequest;
 
 pub const MUSIC_LOG_TARGET: &str = "ambition_music";
 const MAX_LAYERS: usize = 6;
 const MOB_LAB_ENCOUNTER_ID: &str = "goblin_encounter";
 const FIRST_GOBLIN_CUE_ID: &str = "first_goblin_tune_v2";
-const LARGE_BRUTE_DELAY_SECONDS: f32 = 3.5;
 
 /// Relative volume for adaptive cues after user music volume.
 ///
@@ -77,15 +70,21 @@ mod catalog;
 mod channels;
 mod director;
 mod first_goblin;
+mod intent;
 mod state;
 
 #[cfg(test)]
 mod tests;
 
 pub use catalog::{
-    EncounterMusicBinding, LoadedMusicCueAssets, MusicCueCatalog, MusicCueSpec, MusicLayerGainSpec,
-    MusicLayerSourceSpec, MusicLayerSpec, MusicSectionSpec, MusicStateSpec,
+    LoadedMusicCueAssets, MusicCueCatalog, MusicCueSpec, MusicLayerGainSpec, MusicLayerSourceSpec,
+    MusicLayerSpec, MusicSectionSpec, MusicStateSpec,
 };
+// `EncounterMusicBinding` is the encounter→cue authoring type; it's consumed by
+// the content-side `intent` module (which imports it directly from `catalog`)
+// and the tests, so it is not part of the director's public surface.
+#[cfg(test)]
+use catalog::EncounterMusicBinding;
 pub use channels::{
     MusicLayer0AChannel, MusicLayer0BChannel, MusicLayer1AChannel, MusicLayer1BChannel,
     MusicLayer2AChannel, MusicLayer2BChannel, MusicLayer3AChannel, MusicLayer3BChannel,
@@ -93,11 +92,14 @@ pub use channels::{
     MusicLayerChannels,
 };
 pub use director::{drive_music_director, load_music_cues};
-pub use state::{MusicDirectorMode, MusicDirectorState};
+pub use intent::compute_music_intent;
+pub use state::{AdaptiveCueDirective, MusicDirectorMode, MusicDirectorState, MusicIntent};
 
 use catalog::MusicSourceKey;
 use channels::{LayerGains, MusicBank};
-use state::{AdaptiveCueDirective, PendingMusicStateTransition};
+use state::PendingMusicStateTransition;
 
 #[cfg(test)]
-use director::{resolve_adaptive_directive, resolve_directive_for_binding};
+use intent::{
+    resolve_adaptive_directive, resolve_directive_for_binding, LARGE_BRUTE_DELAY_SECONDS,
+};

@@ -384,11 +384,7 @@ pub(super) fn drive_outro_tail(
     asset_server: &AssetServer,
     music_state: &mut MusicPlaybackState,
     base_music_channel: &AudioChannel<MusicChannel>,
-    room_music: &RoomMusicRequest,
-    radio: Option<&RadioStationState>,
-    sandbox_data: &SandboxDataSpec,
-    encounter_music: &mut EncounterMusicRequest,
-    boss_music: &mut BossEncounterMusicRequest,
+    simple_track_candidates: &[String],
 ) {
     if director.mode != MusicDirectorMode::AdaptiveOutro {
         return;
@@ -415,11 +411,7 @@ pub(super) fn drive_outro_tail(
             asset_server,
             music_state,
             base_music_channel,
-            room_music,
-            radio,
-            sandbox_data,
-            encounter_music,
-            boss_music,
+            simple_track_candidates,
             false,
         );
         director.default_resume_started = true;
@@ -447,11 +439,7 @@ pub(super) fn shutdown_adaptive_cue(
     asset_server: &AssetServer,
     music_state: &mut MusicPlaybackState,
     base_music_channel: &AudioChannel<MusicChannel>,
-    room_music: &RoomMusicRequest,
-    radio: Option<&RadioStationState>,
-    sandbox_data: &SandboxDataSpec,
-    encounter_music: &mut EncounterMusicRequest,
-    boss_music: &mut BossEncounterMusicRequest,
+    simple_track_candidates: &[String],
 ) {
     info!(
         target: MUSIC_LOG_TARGET,
@@ -476,11 +464,7 @@ pub(super) fn shutdown_adaptive_cue(
         asset_server,
         music_state,
         base_music_channel,
-        room_music,
-        radio,
-        sandbox_data,
-        encounter_music,
-        boss_music,
+        simple_track_candidates,
         true,
     );
 }

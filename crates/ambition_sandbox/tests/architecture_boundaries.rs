@@ -200,6 +200,71 @@ fn architecture_boundaries_platformer_runtime_crate_is_extracted() {
 }
 
 #[test]
+fn architecture_boundaries_menu_crate_stays_content_free() {
+    // Phase D (unified menu refactor): the reusable engine menu crate
+    // `ambition_menu` (the page-model vocabulary + the bevy_ui grid + 3D cube
+    // RENDERERS) must NOT depend on the sandbox or its game content. The ONE menu
+    // content model + settings IR + dispatcher live in the SANDBOX
+    // (`crate::menu::*`); the crate only provides the renderer-agnostic model
+    // types and the two presentations. If the crate grew a sandbox dependency,
+    // the "reusable renderer, game owns the content" boundary would be broken.
+    //
+    // This replaces no prior guard: the deleted `pause_menu`, legacy
+    // `inventory::ui`, and `bevy_ui_grid_menu` modules were never named by any
+    // architecture guard (so there was nothing to remove/repoint), and the menu
+    // is now unconditional. This adds the meaningful new invariant the refactor
+    // creates.
+    let root = repo_root();
+    let crate_root = root.join("crates/ambition_menu");
+
+    assert!(
+        crate_root.join("Cargo.toml").exists(),
+        "ambition_menu crate should exist at crates/ambition_menu"
+    );
+
+    // (a) The manifest must not depend on the sandbox.
+    let crate_manifest =
+        fs::read_to_string(crate_root.join("Cargo.toml")).expect("read ambition_menu manifest");
+    let depends_on_sandbox = crate_manifest.lines().any(|line| {
+        let line = line.trim();
+        line.starts_with("ambition_sandbox =") || line.starts_with("ambition_sandbox.")
+    });
+    assert!(
+        !depends_on_sandbox,
+        "ambition_menu must not depend on ambition_sandbox (it is the reusable renderer; \
+         the game owns the menu CONTENT in crate::menu::*)"
+    );
+
+    // (b) No source file may reach back into the sandbox or its game content.
+    //     The crate is content-agnostic: it is generic over the host's page-id /
+    //     action types, so it never names `crate::items`, the sandbox's settings
+    //     IR, etc. A `use ambition_sandbox` (or a stray game-content path) would
+    //     mean the boundary leaked.
+    let mut violations = Vec::new();
+    for file in collect_rs_files(&crate_root.join("src")) {
+        let text = fs::read_to_string(&file).expect("read ambition_menu source");
+        for (idx, raw) in text.lines().enumerate() {
+            let line = raw.trim();
+            if line.starts_with("//") || line.starts_with("/*") || line.starts_with('*') {
+                continue;
+            }
+            if line.contains("ambition_sandbox") {
+                violations.push(format!(
+                    "{}:{} ambition_menu reaches into the sandbox: {line}",
+                    file.display(),
+                    idx + 1
+                ));
+            }
+        }
+    }
+    assert!(
+        violations.is_empty(),
+        "ambition_menu must stay content-free (no ambition_sandbox references):\n{}",
+        violations.join("\n")
+    );
+}
+
+#[test]
 fn architecture_boundaries_input_crate_is_extracted() {
     // ADR 0019: the device -> ControlFrame input layer (SandboxAction /
     // ControlFrame / MenuControlFrame / keyboard+gamepad presets + the

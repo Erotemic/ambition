@@ -70,7 +70,6 @@ use crate::input::{ControlFrame, MenuControlFrame, GAMEPAD_MAP};
 use crate::input::{MenuInputState, PlayerDashTriggerState};
 use crate::inventory;
 use crate::ldtk_world;
-use crate::pause_menu;
 use crate::platformer_runtime::lifecycle::RoomScopedEntity;
 use crate::presentation::fx::{self, vfx_spawn_messages, ParticleKind, VfxMessage};
 use crate::presentation::rendering::{

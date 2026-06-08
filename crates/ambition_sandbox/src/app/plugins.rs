@@ -618,8 +618,7 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
     // Owned by the content boundary but installed here to preserve its
     // original presentation-scoped insertion point (Stage 11 / Task J).
     app.add_plugins(crate::ambition_content::items::AmbitionItemRosterPlugin);
-    app.insert_resource(pause_menu::PauseMenuState::default())
-        .insert_resource(inventory::InventoryUiState::default())
+    app.insert_resource(inventory::InventoryUiState::default())
         .insert_resource(inventory::PlayerInventory::starter())
         .init_resource::<crate::inventory_persist::InventoryRestored>()
         // Persist the inventory + wallet across save/load: restore the saved set
@@ -634,41 +633,8 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                 .chain(),
         )
         .add_systems(
-            Startup,
-            (
-                pause_menu::spawn_pause_menu,
-                // Legacy adventure menu only when the OoT grid isn't taking over.
-                #[cfg(not(feature = "oot_inventory"))]
-                inventory::spawn_inventory_panel,
-            )
-                .after(setup_simulation_system),
-        )
-        .add_systems(
             Update,
-            (
-                // The bevy-UI pause menu's visibility sync is gated to NO-OP under the
-                // 3D-cube inventory backend (Bug 2: the "Paused" flash). Without the
-                // gate it runs every frame and sets the "Paused" root `Visible` whenever
-                // `Paused && !inventory.visible` — which is briefly true on the Esc-/I-
-                // close frame (the cube clears `visible` while `GameMode` is still
-                // `Paused` for one frame), flashing the old menu behind the closing cube.
-                // `pause_menu_ui_active` mirrors the other pause-menu systems' Cube
-                // guard; it only exists with the `input` feature (which `oot_inventory`
-                // — the only backend that can be Cube — requires), so non-input builds
-                // register the ungated sync (there is no cube to suppress).
-                #[cfg(feature = "input")]
-                pause_menu::sync_pause_menu.run_if(pause_menu::pause_menu_ui_active),
-                #[cfg(feature = "input")]
-                pause_menu::sync_settings_panel_rows.run_if(pause_menu::pause_menu_ui_active),
-                #[cfg(not(feature = "input"))]
-                pause_menu::sync_pause_menu,
-                #[cfg(not(feature = "input"))]
-                pause_menu::sync_settings_panel_rows,
-                #[cfg(not(feature = "oot_inventory"))]
-                inventory::sync_inventory_panel,
-                crate::menu::map::sync_map_menu,
-            )
-                .after(SandboxSet::CoreSimulation),
+            (crate::menu::map::sync_map_menu,).after(SandboxSet::CoreSimulation),
         )
         .add_systems(
             Startup,
@@ -698,18 +664,14 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                 .after(SandboxSet::CoreSimulation),
         );
 
-    // OoT item-grid menu (easy-to-cut seam): the two presentation backends below.
-    // When the feature is off, the legacy adventure menu handles the Inventory
-    // button.
-    #[cfg(feature = "oot_inventory")]
-    {
-        // 3D-cube inventory frontend (#31), runtime-toggleable vs the grid below.
-        crate::lunex_kaleidoscope_app::install_kaleidoscope_menu(app);
-        // Unified flat tabbed menu (Phase C2b): the `InventoryUiBackend::Grid`
-        // presentation of the SAME page model + dispatcher. Gated to `backend ==
-        // Grid`; the cube stays the untouched fallback. `\` flips between them.
-        crate::menu::grid_backend::install_grid_unified_menu(app);
-    }
+    // Unified menu (the one menu): the two presentation backends of the SAME
+    // page model + dispatcher.
+    // 3D-cube inventory frontend (#31), runtime-toggleable vs the grid below.
+    crate::lunex_kaleidoscope_app::install_kaleidoscope_menu(app);
+    // Unified flat tabbed menu (Phase C2b): the `InventoryUiBackend::Grid`
+    // presentation of the SAME page model + dispatcher. Gated to `backend ==
+    // Grid`; the cube stays the untouched fallback. `\` flips between them.
+    crate::menu::grid_backend::install_grid_unified_menu(app);
 }
 
 // Visual animation chain moved to
@@ -1024,8 +986,9 @@ pub(super) fn add_input_plugins(app: &mut App) {
         // Touch fold (mobile_input plugin) runs
         // `.after(populate_control_frame_from_actions)` for gameplay and
         // `.after(populate_menu_control_frame_from_actions)` for menus, then
-        // `.before(pause_menu_toggle)`, so pause / inventory / navigation see
-        // keyboard, gamepad, and touch contributions in one frame.
+        // `.before(MenuNavConsume)` (the unified menu's nav set), so pause /
+        // inventory / navigation see keyboard, gamepad, and touch contributions
+        // in one frame.
         .add_systems(
             Update,
             (
@@ -1033,22 +996,6 @@ pub(super) fn add_input_plugins(app: &mut App) {
                 populate_control_frame_from_actions.in_set(crate::input::InputSet::Populate),
                 apply_menu_frame_to_cutscene_request,
                 dialog::dialog_pointer_input,
-                pause_menu::pause_menu_toggle,
-                // The Inventory button opens the OoT item grid when the
-                // `oot_inventory` feature is on, otherwise the legacy 3-tab menu.
-                #[cfg(not(feature = "oot_inventory"))]
-                inventory::inventory_input,
-                // The bevy-UI pause menu is INERT under the Cube backend (the cube
-                // renderer owns input). These pointer/drag/nav systems still run
-                // while `Paused`, so each is gated by `pause_menu_ui_active` so none
-                // can re-show the legacy menu underneath the cube (Bug 1: Esc reopen).
-                // Under the Grid backend the condition is `true`.
-                pause_menu::pause_menu_pointer_input.run_if(pause_menu::pause_menu_ui_active),
-                pause_menu::settings_slider_drag_input.run_if(pause_menu::pause_menu_ui_active),
-                pause_menu::settings_scrollbar_drag_input.run_if(pause_menu::pause_menu_ui_active),
-                #[cfg(not(feature = "oot_inventory"))]
-                inventory::inventory_pointer_input,
-                pause_menu::pause_menu_navigate.run_if(pause_menu::pause_menu_ui_active),
             )
                 .chain()
                 .before(SandboxSet::CoreSimulation),

@@ -134,7 +134,6 @@ impl Plugin for TouchControlsPlugin {
                     fold_to_menu_control_frame
                         .after(crate::app::populate_menu_control_frame_from_actions)
                         .before(crate::app::apply_menu_frame_to_cutscene_request)
-                        .before(crate::pause_menu::pause_menu_toggle)
                         // Bug 2: the touch joystick must reach
                         // `MenuControlFrame.up/down/left/right` BEFORE the
                         // menu nav consumers read it, or the frame is consumed
@@ -172,15 +171,12 @@ impl Plugin for TouchControlsPlugin {
                         // `released` persist across frames in the
                         // touch state, masking the ordering bug.
                         .before(crate::app::player_control_system)
-                        // ALSO run before pause_menu_toggle so the
-                        // touch Start press is in ControlFrame before
-                        // pause_menu_toggle reads it. The pause /
-                        // inventory / navigate chain in app.rs is
-                        // ordered after populate_control_frame_from_actions,
-                        // and our fold runs after populate; this
-                        // .before(pause_menu_toggle) wins the tie
-                        // so fold also runs before pause.
-                        .before(crate::pause_menu::pause_menu_toggle),
+                        // ALSO run before the unified menu's nav consumers so
+                        // the touch Start press is in ControlFrame before the
+                        // menu open-routing / nav reads it. The fold runs after
+                        // populate; pinning `.before(MenuNavConsume)` wins the
+                        // tie so the fold also runs before the menu consumes it.
+                        .before(crate::app::MenuNavConsume),
                 )
                     .chain(),
             )

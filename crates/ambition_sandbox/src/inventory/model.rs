@@ -1,4 +1,11 @@
-use super::*;
+// The legacy adventure-menu UI that consumed several of these component markers
+// and `InventoryUiState` helpers was deleted in Phase D2; the unified menu reads
+// the data model (`ItemKind` / `PlayerInventory` / `InventoryUiState`) directly.
+// Keep the markers so the data model stays self-describing.
+#![allow(dead_code)]
+
+use bevy::prelude::*;
+
 use crate::ui_nav::MenuFocusState;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

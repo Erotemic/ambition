@@ -99,14 +99,50 @@ entities and splitting the monolithic update loops into ECS systems.
 ## harness — `replay_fixture_regression` MUST stay zero-divergence; portal +
 ## projectile reachability green)
 
-**Phase 1 — Generic transit core (the heart).** Introduce the portal-owned **marker**
-`PortalBody` + a `PortalPolicy` component, and ONE aperture/centroid transit system
-that queries `(&mut BodyKinematics, With<PortalBody>, &PortalPolicy)` and mutates the
+**Phase 1 — Generic transit core (the heart). ✅ DONE (2026-06-08).** Introduce the
+portal-owned **marker** `PortalBody` + a `PortalPolicy` component, and ONE
+aperture/centroid transit system that queries
+`(&mut BodyKinematics, With<PortalBody>, &PortalPolicy)` and mutates the
 lower-crate body **in place** (no sync copy). Migrate the player + actor paths
 (`portal_transit_system`, `portal_transit_actors`) onto this single system; Ambition
 adds the marker + policy to the player and actor entities (they already carry
 `BodyKinematics`). Drop `BossConfig` from transit (fold its mass/size into
 `PortalPolicy`). Identical-sim — same aperture/centroid result, one code path.
+
+### Phase 1 — Progress / status (2026-06-08)
+Landed, identical-sim. What shipped:
+
+- **Seam (`portal/transit.rs`).** `PortalBody` — a unit marker component. `PortalPolicy
+  { reorient: bool, carry_velocity: bool }` — behavioral only, never names
+  Player/Boss/Projectile. `reorient` = flip `facing` on a same-wall turn-around;
+  `carry_velocity` = write the rotated exit velocity (`false` = old boss
+  no-velocity path). Velocity rotation itself stays core/default (it's in
+  `transit_step`'s `vel` output).
+- **ONE core system `portal_transit`.** Replaces BOTH `portal_transit_system` (player)
+  and `portal_transit_actors` (actors) with a single query
+  `(Entity, &mut BodyKinematics, &PortalPolicy, Option<&mut PortalTransit>,
+  Option<&mut ActorRoll>, Option<&PortalTransitCooldown>), With<PortalBody>`. One
+  `&mut BodyKinematics` → no self-conflict. Uses `platformer_runtime::body::BodyKinematics`
+  (dropped the `crate::features::BodyKinematics`/`BossConfig` names from transit). Keeps
+  ENTER/EXIT sfx in-system (sfx decoupling is Phase 2). Emits a NEW
+  `PortalBodyTransited { body, enter_normal, exit_normal, facing_flip, exit_pos }`
+  on Transfer; no longer emits `BodyTeleported` from core.
+- **Ambition tagging adapter** (`ambition_content/portal/transit_body_adapter.rs::ensure_portal_bodies`):
+  identity → policy, run `.before(portal_transit)` in `PortalSet::Transit`. player
+  (`PlayerEntity`+`PrimaryPlayer`) → `{reorient:true, carry_velocity:true}`; boss
+  (`BossConfig`) → `{reorient:false, carry_velocity:false}`; other actors → `{reorient:false,
+  carry_velocity:true}`. Idempotent ensure-system (`Without<PortalBody>`), so the SET of
+  transiting bodies is identical to before (player + all actors). `portal_teleport_ground_items`
+  left untouched (Phase 4).
+- **Ambition player-input adapter** (`…::portal_player_input_adapter`), `.after(portal_transit)`:
+  reads `PortalBodyTransited` and FOR THE PLAYER reproduces today's bits — emits `BodyTeleported`
+  (trace), inserts `PortalEmission`, and (iff `facing_flip` && held intent > eps) inserts
+  `PortalInputWarp`. `PlayerMovementIntent`/`PortalEmission`/`PortalInputWarp` are INPUT and are
+  no longer referenced by core. **No fallback needed** — Step D extraction caused zero replay
+  divergence.
+- **Verify:** `cargo build -p ambition_sandbox` clean; `--lib` 1428 passed; `architecture_boundaries`,
+  `scripted_gameplay`, `replay_fixture_regression` (ZERO divergence), `portal_bridge_reachability`,
+  `portal_lab_usable` all green.
 
 **Phase 2 — Portal API decoupling (the 7 leaks).**
 - **Carve output** → portal-owned `PortalCarves` resource + an Ambition bridge into

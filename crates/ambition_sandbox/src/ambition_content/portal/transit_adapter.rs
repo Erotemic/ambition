@@ -1,6 +1,6 @@
 //! Ambition transit bindings for the portal mechanic.
 //!
-//! Portal core's transit ([`crate::portal::portal_transit_system`] /
+//! Portal core's transit ([`crate::portal::portal_transit`] /
 //! [`crate::portal::warp_portal_input`] / [`crate::portal::portal_teleport_ground_items`])
 //! is content-agnostic: it reads/writes a [`PlayerMovementIntent`] resource and a
 //! [`PortalTransitable`] body component instead of the Ambition [`ControlFrame`]
@@ -31,7 +31,7 @@ use crate::portal::{PlayerMovementIntent, PortalTransitable};
 
 /// Copy this frame's `ControlFrame` movement axes into the portal-core
 /// [`PlayerMovementIntent`]. Runs before [`crate::portal::warp_portal_input`] and
-/// again before [`crate::portal::portal_transit_system`] so portal core always
+/// again before [`crate::portal::portal_transit`] so portal core always
 /// reads the live held direction without naming `ControlFrame`.
 pub fn sync_movement_intent_from_control(
     control: Option<Res<ControlFrame>>,

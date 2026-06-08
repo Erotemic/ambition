@@ -54,6 +54,14 @@ fn spawn_player(app: &mut App, pos: Vec2, facing: f32) -> Entity {
             },
             PortalGun::default(),
             ActionSet::default(),
+            // Opt the player into the generic transit core with the player
+            // policy (re-orient + carry velocity), as the Ambition tagging
+            // adapter does in the real app.
+            crate::portal::PortalBody,
+            crate::portal::PortalPolicy {
+                reorient: true,
+                carry_velocity: true,
+            },
         ))
         .id()
 }
@@ -310,7 +318,13 @@ fn portals_teleport_a_fitting_actor_and_skip_an_oversized_one() {
     use crate::features::BodyKinematics;
     let mut app = App::new();
     app.add_message::<ambition_sfx::SfxMessage>();
-    app.add_systems(Update, portal_transit_actors);
+    app.add_message::<crate::portal::PortalBodyTransited>();
+    app.add_systems(Update, portal_transit);
+    // Actor policy: carry velocity, no re-orient (facing follows AI).
+    let actor_policy = crate::portal::PortalPolicy {
+        reorient: false,
+        carry_velocity: true,
+    };
     app.world_mut().spawn(PlacedPortal {
         channel: BLUE,
         pos: Vec2::new(20.0, 200.0),
@@ -325,21 +339,29 @@ fn portals_teleport_a_fitting_actor_and_skip_an_oversized_one() {
     });
     let small = app
         .world_mut()
-        .spawn(BodyKinematics {
-            pos: Vec2::new(20.0, 200.0),
-            vel: Vec2::new(-100.0, 0.0),
-            size: Vec2::new(24.0, 40.0),
-            facing: -1.0,
-        })
+        .spawn((
+            BodyKinematics {
+                pos: Vec2::new(20.0, 200.0),
+                vel: Vec2::new(-100.0, 0.0),
+                size: Vec2::new(24.0, 40.0),
+                facing: -1.0,
+            },
+            crate::portal::PortalBody,
+            actor_policy,
+        ))
         .id();
     let big = app
         .world_mut()
-        .spawn(BodyKinematics {
-            pos: Vec2::new(20.0, 200.0),
-            vel: Vec2::new(-100.0, 0.0),
-            size: Vec2::new(80.0, 200.0),
-            facing: -1.0,
-        })
+        .spawn((
+            BodyKinematics {
+                pos: Vec2::new(20.0, 200.0),
+                vel: Vec2::new(-100.0, 0.0),
+                size: Vec2::new(80.0, 200.0),
+                facing: -1.0,
+            },
+            crate::portal::PortalBody,
+            actor_policy,
+        ))
         .id();
     // Aperture transit: frame 1 begins (leading edge in the opening), frame 2
     // transfers (centroid already on the plane).
@@ -509,7 +531,8 @@ fn actors_get_an_aerial_roll_through_portals() {
     use crate::features::BodyKinematics;
     let mut app = App::new();
     app.add_message::<ambition_sfx::SfxMessage>();
-    app.add_systems(Update, portal_transit_actors);
+    app.add_message::<crate::portal::PortalBodyTransited>();
+    app.add_systems(Update, portal_transit);
     // Floor portal (normal up) + right-wall portal (normal left): a
     // floor→wall pair, so transit imparts a -90° roll. Player and non-player
     // actors alike now tumble + reorient (the somersault is ported to the
@@ -536,6 +559,11 @@ fn actors_get_an_aerial_roll_through_portals() {
                 facing: 1.0,
             },
             ActorRoll::default(),
+            crate::portal::PortalBody,
+            crate::portal::PortalPolicy {
+                reorient: false,
+                carry_velocity: true,
+            },
         ))
         .id();
     // Frame 1 begins transit; frame 2 transfers (centroid on the plane) and
@@ -556,8 +584,9 @@ fn portal_pair_teleports_player_carrying_momentum() {
     let mut app = App::new();
     app.add_message::<ambition_sfx::SfxMessage>();
     app.add_message::<BodyTeleported>();
+    app.add_message::<crate::portal::PortalBodyTransited>();
     app.insert_resource(crate::WorldTime::default());
-    app.add_systems(Update, portal_transit_system);
+    app.add_systems(Update, portal_transit);
     // Blue on the left (facing right), orange on the right (facing left).
     app.world_mut().spawn(PlacedPortal {
         channel: BLUE,
@@ -792,8 +821,9 @@ fn a_gunless_player_transits_an_authored_pair() {
     let mut app = App::new();
     app.add_message::<ambition_sfx::SfxMessage>();
     app.add_message::<BodyTeleported>();
+    app.add_message::<crate::portal::PortalBodyTransited>();
     app.insert_resource(crate::WorldTime::default());
-    app.add_systems(Update, portal_transit_system);
+    app.add_systems(Update, portal_transit);
     let he = portal_half_extent(Vec2::new(0.0, -1.0));
     app.world_mut().spawn(PlacedPortal {
         channel: PURPLE,
@@ -822,6 +852,11 @@ fn a_gunless_player_transits_an_authored_pair() {
                 base_size: Vec2::new(24.0, 40.0),
             },
             // No PortalGun on purpose.
+            crate::portal::PortalBody,
+            crate::portal::PortalPolicy {
+                reorient: true,
+                carry_velocity: true,
+            },
         ))
         .id();
     // Frame 1 begins transit (standing on the purple floor portal).
@@ -861,9 +896,21 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
     let mut app = App::new();
     app.add_message::<ambition_sfx::SfxMessage>();
     app.add_message::<BodyTeleported>();
+    app.add_message::<crate::portal::PortalBodyTransited>();
     app.init_resource::<TeleportedThisFrame>();
     app.insert_resource(crate::WorldTime::default());
-    app.add_systems(Update, (portal_transit_system, record_teleport).chain());
+    // The player-input adapter now emits `BodyTeleported` from the core's
+    // `PortalBodyTransited` event (the trace bit moved out of core), so include
+    // it in the chain ahead of the recorder.
+    app.add_systems(
+        Update,
+        (
+            portal_transit,
+            crate::ambition_content::portal::portal_player_input_adapter,
+            record_teleport,
+        )
+            .chain(),
+    );
     // Two FLOOR portals (normal up): blue at x=200, orange at x=600.
     app.world_mut().spawn(PlacedPortal {
         channel: BLUE,

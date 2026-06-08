@@ -9,9 +9,7 @@
 
 use bevy::prelude::*;
 
-use crate::portal::{
-    portal_teleport_ground_items, portal_transit_system, warp_portal_input, PortalSet,
-};
+use crate::portal::{portal_teleport_ground_items, portal_transit, warp_portal_input, PortalSet};
 
 use super::input_adapter::portal_input_adapter_system;
 use super::inventory_adapter::drop_portal_gun_system;
@@ -19,6 +17,7 @@ use super::transit_adapter::{
     apply_movement_intent_to_control, sync_ground_items_to_transitable,
     sync_movement_intent_from_control, sync_transitable_to_ground_items,
 };
+use super::transit_body_adapter::{ensure_portal_bodies, portal_player_input_adapter};
 
 /// Installs the Ambition-specific portal input/inventory adapters.
 pub struct AmbitionPortalAdaptersPlugin;
@@ -99,15 +98,40 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .after(warp_portal_input)
                 .before(crate::player::sync_local_player_input_frame),
         );
-        // `portal_transit_system` reads `PlayerMovementIntent` as the warp anchor;
-        // re-sync from `ControlFrame` immediately before it so the anchor matches
+        // The player-input adapter reads `PlayerMovementIntent` as the warp
+        // anchor; re-sync from `ControlFrame` immediately before the generic
+        // transit core (and thus before the input adapter) so the anchor matches
         // the live held direction (as it did when transit read `ControlFrame`).
         app.add_systems(
             Update,
             sync_movement_intent_from_control
                 .run_if(crate::gameplay_allowed)
                 .in_set(PortalSet::Transit)
-                .before(portal_transit_system),
+                .before(portal_transit),
+        );
+
+        // --- Identity → policy tagging + player-input reproduction ---
+        // `ensure_portal_bodies` adds the `PortalBody` marker + the right
+        // `PortalPolicy` to the player and every actor BEFORE the generic
+        // `portal_transit` core runs, so the SET of bodies that transit is
+        // identical to the old player + actor split.
+        app.add_systems(
+            Update,
+            ensure_portal_bodies
+                .run_if(crate::gameplay_allowed)
+                .in_set(PortalSet::Transit)
+                .before(portal_transit),
+        );
+        // `portal_player_input_adapter` reproduces the player's input/trace bits
+        // (BodyTeleported + PortalEmission + PortalInputWarp) from the core's
+        // `PortalBodyTransited` event, AFTER transit, so they exist the same
+        // frame the controller runs — exactly as the old inline insertion did.
+        app.add_systems(
+            Update,
+            portal_player_input_adapter
+                .run_if(crate::gameplay_allowed)
+                .in_set(PortalSet::Transit)
+                .after(portal_transit),
         );
 
         // --- GroundItem <-> PortalTransitable bracketing around item transit ---

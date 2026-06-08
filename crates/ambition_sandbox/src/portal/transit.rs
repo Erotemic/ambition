@@ -6,9 +6,10 @@
 use bevy::prelude::*;
 
 use crate::engine_core::{self as ae, AabbExt};
+use crate::platformer_runtime::body::BodyKinematics;
 use crate::platformer_runtime::orientation::ActorRoll;
 use crate::platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
-use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use crate::player::{PlayerEntity, PrimaryPlayer};
 use crate::portal::pieces as pp;
 
 use super::color::PortalChannel;
@@ -139,125 +140,177 @@ pub fn suppress_ledge_grab_during_transit(
     }
 }
 
-/// Drive the PLAYER through a portal as an **aperture**, not a trigger, via the
-/// shared [`transit_step`] machine: the body physically sinks into the carved
-/// opening (the movement integrator does that), transfers when the centroid
-/// crosses (carrying momentum + a somersault roll), and clears on trailing-edge
-/// out. The transfer's position snap emits a [`BodyTeleported`] message so the
-/// trace detector treats it as intentional and doesn't auto-dump on it.
+/// Marker: opts an entity into the one generic portal-transit algorithm
+/// ([`portal_transit`]). Any body carrying [`BodyKinematics`] + this marker +
+/// a [`PortalPolicy`] sinks into a carved aperture and transfers when its
+/// centroid crosses, exactly like the player. Ambition adds it (and the policy)
+/// to the entities that should transit — see
+/// `crate::ambition_content::portal::ensure_portal_bodies`.
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct PortalBody;
+
+/// HOW a body participates in transit — behavioral, never identity. The core
+/// transit reads only these flags; it never names Player / Boss / Projectile.
+/// Ambition maps its game identities → policy when it tags an entity.
 ///
-/// Transiting an existing placed portal pair is INDEPENDENT of holding the
-/// [`PortalGun`](super::gun::PortalGun) — the gun creates/replaces portals, but once a pair exists any
-/// body crosses it (the authored test lab already proves this for gate pairs;
-/// here it extends to player-placed pairs). The anti-ping-pong cooldown lives on
-/// the BODY ([`PortalTransitCooldown`]), not on the gun.
-pub fn portal_transit_system(
-    intent: Option<Res<PlayerMovementIntent>>,
+/// **Velocity rotation is core/default** (it lives in [`transit_step`]'s `vel`
+/// output) — this only chooses whether to *write* that rotated velocity and
+/// whether to re-orient the body's facing.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct PortalPolicy {
+    /// Flip the body's `facing` to the exit aperture on a same-wall turn-around
+    /// (`facing_flip`). Players/enemies re-orient; a boss whose facing follows
+    /// its AI does not.
+    pub reorient: bool,
+    /// Write the rotated exit velocity into the body. `false` is the old boss
+    /// no-velocity path (the boss floats; its `vel` stays as the brain set it).
+    pub carry_velocity: bool,
+}
+
+/// Emitted on every Transfer by the generic [`portal_transit`] core, carrying
+/// what an input/trace adapter needs without the core touching input or trace
+/// state. The Ambition player-input adapter
+/// (`crate::ambition_content::portal::portal_player_input_adapter`) reads this
+/// and — for the player only — emits [`BodyTeleported`] and inserts the
+/// `PortalEmission` / `PortalInputWarp` input bits.
+#[derive(Message, Clone, Copy, Debug)]
+pub struct PortalBodyTransited {
+    /// The body that just transferred to a portal exit.
+    pub body: Entity,
+    /// Outward normal of the ENTRY portal.
+    pub enter_normal: Vec2,
+    /// Outward normal of the EXIT portal (the emergence direction).
+    pub exit_normal: Vec2,
+    /// True for a same-wall turn-around (the warp stays horizontally
+    /// expressible); the input adapter only warps held input in this case.
+    pub facing_flip: bool,
+    /// World position the body snapped to (the exit-side centroid).
+    pub exit_pos: Vec2,
+}
+
+/// The ONE generic transit algorithm: drive **any** [`PortalBody`] through a
+/// portal as an **aperture**, not a trigger, via the shared [`transit_step`]
+/// machine. The body physically sinks into the carved opening (the movement
+/// integrator does that), transfers when the centroid crosses (carrying the
+/// rotated momentum + a somersault roll per its [`PortalPolicy`]), and clears
+/// on trailing-edge out.
+///
+/// This replaces the old player-specific `portal_transit_system` and the
+/// actor-specific `portal_transit_actors`: a single query over every body that
+/// opted in, with one `&mut BodyKinematics` (no self-conflict). Identity →
+/// behavior is supplied entirely by [`PortalPolicy`]; the player-input bits and
+/// the [`BodyTeleported`] trace message moved to the Ambition adapters that read
+/// [`PortalBodyTransited`].
+///
+/// Transiting a placed pair is INDEPENDENT of holding the
+/// [`PortalGun`](super::gun::PortalGun) — once a pair exists any opted-in body
+/// crosses it. The anti-ping-pong cooldown lives on the BODY
+/// ([`PortalTransitCooldown`]), not on the gun.
+pub fn portal_transit(
     mut commands: Commands,
-    mut players: Query<
+    portals: Query<&PlacedPortal>,
+    mut bodies: Query<
         (
             Entity,
             &mut BodyKinematics,
+            &PortalPolicy,
             Option<&mut PortalTransit>,
             Option<&mut ActorRoll>,
             Option<&PortalTransitCooldown>,
         ),
-        (With<PlayerEntity>, With<PrimaryPlayer>),
+        With<PortalBody>,
     >,
-    portals: Query<&PlacedPortal>,
     gravity: Option<Res<crate::platformer_runtime::gravity::GravityField>>,
     mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
-    mut teleported: MessageWriter<BodyTeleported>,
+    mut transited: MessageWriter<PortalBodyTransited>,
 ) {
-    let Ok((entity, mut kin, mut transit, mut roll, cooldown)) = players.single_mut() else {
-        return;
-    };
-    // The transit cooldown is a BODY latch (`PortalTransitCooldown`), ticked by
-    // `tick_portal_cooldowns`; gun-independent so a gun-less player can't
-    // ping-pong through an authored pair.
-    let cooldown_now = cooldown.map_or(0.0, |c| c.0);
     let all: Vec<PlacedPortal> = portals.iter().copied().collect();
+    if all.is_empty() {
+        return;
+    }
     let gravity_dir = gravity.map_or(Vec2::new(0.0, 1.0), |g| g.dir);
-    let step = transit_step(
-        kin.pos,
-        kin.size,
-        kin.vel,
-        transit.as_deref().copied(),
-        cooldown_now,
-        &all,
-        gravity_dir,
-    );
-    match step {
-        TransitStep::Idle | TransitStep::Continue => {}
-        TransitStep::Begin {
-            channel,
-            portal_pos,
-        } => {
-            commands.entity(entity).insert(PortalTransit {
-                straddling: channel,
-                crossed: false,
-            });
-            sfx.write(ambition_sfx::SfxMessage::Play {
-                id: ambition_sfx::ids::PORTAL_ENTER,
-                pos: portal_pos,
-            });
-        }
-        TransitStep::Transfer {
-            pos,
-            vel,
-            roll_delta,
-            facing_flip,
-            enter_normal,
-            exit_normal,
-            exit_channel,
-            exit_pos,
-        } => {
-            kin.pos = pos;
-            kin.vel = vel;
-            if facing_flip {
-                kin.facing = -kin.facing;
-            }
-            if let Some(roll) = roll.as_deref_mut() {
-                roll.angle += roll_delta;
-            }
-            // Latch the body's transit cooldown so it can't ping-pong back
-            // through the pair it just crossed — gun-independent.
-            commands
-                .entity(entity)
-                .insert(PortalTransitCooldown(TELEPORT_COOLDOWN_S));
-            // Protect the emergence: for a short window the held input can't push
-            // back INTO the exit wall (so physics carries the body out — Jon's
-            // "don't let input cancel the portal emission").
-            commands.entity(entity).insert(PortalEmission {
-                exit_normal,
-                timer: PORTAL_EMISSION_TIME,
-            });
-            // Warp the held input ONLY when the warped direction stays
-            // horizontally expressible — i.e. the same-wall turn-around
-            // (`facing_flip`). For a floor↔wall 90° turn the warp would rotate a
-            // horizontal hold into "up", which the controller can't use, so we
-            // skip it and let the emission guard + physics do the work.
-            let held = intent.as_deref().map_or(Vec2::ZERO, |i| i.dir);
-            if facing_flip && held.length() > PORTAL_INPUT_HELD_EPS {
-                commands.entity(entity).insert(PortalInputWarp {
-                    n_in: enter_normal,
-                    n_out: exit_normal,
-                    anchor: held,
+
+    for (entity, mut kin, policy, mut transit, mut roll, cooldown) in &mut bodies {
+        // The transit cooldown is a BODY latch (`PortalTransitCooldown`), ticked
+        // by `tick_portal_cooldowns`; gun-independent so nothing can ping-pong
+        // back through an authored pair.
+        let cooldown_now = cooldown.map_or(0.0, |c| c.0);
+        let step = transit_step(
+            kin.pos,
+            kin.size,
+            kin.vel,
+            transit.as_deref().copied(),
+            cooldown_now,
+            &all,
+            gravity_dir,
+        );
+        match step {
+            TransitStep::Idle | TransitStep::Continue => {}
+            TransitStep::Begin {
+                channel,
+                portal_pos,
+            } => {
+                commands.entity(entity).insert(PortalTransit {
+                    straddling: channel,
+                    crossed: false,
+                });
+                sfx.write(ambition_sfx::SfxMessage::Play {
+                    id: ambition_sfx::ids::PORTAL_ENTER,
+                    pos: portal_pos,
                 });
             }
-            if let Some(t) = transit.as_deref_mut() {
-                t.crossed = true;
-                t.straddling = exit_channel;
+            TransitStep::Transfer {
+                pos,
+                vel,
+                roll_delta,
+                facing_flip,
+                enter_normal,
+                exit_normal,
+                exit_channel,
+                exit_pos,
+            } => {
+                kin.pos = pos;
+                // Velocity rotation is core/default; the policy only chooses
+                // whether to WRITE it (false = old boss no-velocity path).
+                if policy.carry_velocity {
+                    kin.vel = vel;
+                }
+                // Re-orientation is the optional part: flip facing to the exit
+                // aperture on a same-wall turn-around, only if the policy asks.
+                if policy.reorient && facing_flip {
+                    kin.facing = -kin.facing;
+                }
+                if let Some(roll) = roll.as_deref_mut() {
+                    roll.angle += roll_delta;
+                }
+                // Latch the body's transit cooldown so it can't ping-pong back
+                // through the pair it just crossed — gun-independent.
+                commands
+                    .entity(entity)
+                    .insert(PortalTransitCooldown(TELEPORT_COOLDOWN_S));
+                if let Some(t) = transit.as_deref_mut() {
+                    t.crossed = true;
+                    t.straddling = exit_channel;
+                }
+                // The trace message + player-input bits (`PortalEmission`,
+                // `PortalInputWarp`) are emitted by the Ambition player-input
+                // adapter from this event — input/trace are not core concerns.
+                transited.write(PortalBodyTransited {
+                    body: entity,
+                    enter_normal,
+                    exit_normal,
+                    facing_flip,
+                    exit_pos,
+                });
+                sfx.write(ambition_sfx::SfxMessage::Play {
+                    id: ambition_sfx::ids::PORTAL_EXIT,
+                    pos: exit_pos,
+                });
+                bevy::log::info!(target: "ambition::portal", "transferred through the portal pair");
             }
-            teleported.write(BodyTeleported { body: entity });
-            sfx.write(ambition_sfx::SfxMessage::Play {
-                id: ambition_sfx::ids::PORTAL_EXIT,
-                pos: exit_pos,
-            });
-            bevy::log::info!(target: "ambition::portal", "transferred through the portal pair");
-        }
-        TransitStep::Clear => {
-            commands.entity(entity).remove::<PortalTransit>();
+            TransitStep::Clear => {
+                commands.entity(entity).remove::<PortalTransit>();
+            }
         }
     }
 }
@@ -267,10 +320,6 @@ const PORTAL_INPUT_HELD_EPS: f32 = 0.25;
 /// While warped, the live raw input may drift this far (cosine) from the anchor
 /// before it counts as a "clearly different" direction that drops the warp.
 const PORTAL_INPUT_WARP_KEEP_COS: f32 = 0.5;
-
-/// Seconds the [`PortalEmission`] guard protects a fresh exit. Long enough for
-/// the floored exit velocity to carry the body clear of the opening.
-const PORTAL_EMISSION_TIME: f32 = 0.18;
 
 /// The input-layer fix for the same-wall ping-pong: after a portal crossing the
 /// player's HELD movement input is warped by the same portal map as velocity, so
@@ -290,8 +339,9 @@ pub struct PortalInputWarp {
     pub anchor: Vec2,
 }
 
-/// Short-lived guard set on every crossing: for [`PORTAL_EMISSION_TIME`] the held
-/// movement input cannot push back INTO the exit wall (against `exit_normal`), so
+/// Short-lived guard set on every crossing by the Ambition player-input adapter:
+/// for a brief window the held movement input cannot push back INTO the exit wall
+/// (against `exit_normal`), so
 /// the floored exit velocity carries the body out instead of the input cancelling
 /// the emergence. Gravity-general — it works off the exit normal vector, not a
 /// hard-coded axis.
@@ -442,137 +492,6 @@ pub fn tick_portal_cooldowns(
         cooldown.0 -= dt;
         if cooldown.0 <= 0.0 {
             commands.entity(entity).remove::<PortalTransitCooldown>();
-        }
-    }
-}
-
-/// Teleport non-player actors (enemies / NPCs / bosses) through the portal
-/// pair, **size-gated** so only actors that fit the opening pass. Enemies / NPCs
-/// carry their momentum through the rotation; bosses float and never persist
-/// velocity, so they are repositioned out the exit without a velocity write
-/// (a boss's `vel` is always `ZERO`). A short [`PortalTransitCooldown`] after
-/// each jump prevents ping-pong.
-///
-/// All non-player bodies share the unified [`crate::features::BodyKinematics`],
-/// so a single query drives them through the SAME aperture / centroid-crossing
-/// machine the player uses ([`transit_step`]) — the unification: a goblin or a
-/// boss now sinks into the carved opening and transfers when its centroid
-/// crosses, carrying momentum + a somersault roll, instead of instant-popping
-/// out the far side. The optional `BossConfig` marker selects the no-velocity
-/// boss path; one query means no `&mut BodyKinematics` self-conflict.
-pub fn portal_transit_actors(
-    mut commands: Commands,
-    portals: Query<&PlacedPortal>,
-    mut bodies: Query<(
-        Entity,
-        &mut crate::features::BodyKinematics,
-        Option<&mut PortalTransit>,
-        Option<&mut ActorRoll>,
-        Option<&PortalTransitCooldown>,
-        Option<&crate::features::BossConfig>,
-    )>,
-    gravity: Option<Res<crate::platformer_runtime::gravity::GravityField>>,
-    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
-) {
-    let all: Vec<PlacedPortal> = portals.iter().copied().collect();
-    if all.is_empty() {
-        return;
-    }
-    let gravity_dir = gravity.map_or(Vec2::new(0.0, 1.0), |g| g.dir);
-
-    for (entity, kin, mut transit, mut roll, cooldown, boss) in &mut bodies {
-        let is_boss = boss.is_some();
-        let kin = kin.into_inner();
-        // Bosses have no persisted velocity (`vel` is always ZERO); enemies /
-        // NPCs carry their momentum through the rotation.
-        let step = transit_step(
-            kin.pos,
-            kin.size,
-            kin.vel,
-            transit.as_deref().copied(),
-            cooldown.map_or(0.0, |c| c.0),
-            &all,
-            gravity_dir,
-        );
-        // Boss path writes position + roll only (no velocity), preserving the
-        // float-only boss behavior; enemies / NPCs also carry velocity.
-        let vel_out: Option<&mut Vec2> = if is_boss { None } else { Some(&mut kin.vel) };
-        apply_actor_transit(
-            &mut commands,
-            entity,
-            &mut sfx,
-            step,
-            Some(&mut kin.pos),
-            vel_out,
-            roll.as_deref_mut(),
-            transit.as_deref_mut(),
-        );
-    }
-}
-
-/// Apply a [`TransitStep`] to a non-player actor: the ECS-side of the shared
-/// machine (insert / mutate / remove `PortalTransit`, latch `PortalTransitCooldown`,
-/// move the body, somersault its roll, play sfx). `vel` is `None` for bodies
-/// without a velocity field (bosses).
-#[allow(clippy::too_many_arguments)]
-fn apply_actor_transit(
-    commands: &mut Commands,
-    entity: Entity,
-    sfx: &mut MessageWriter<ambition_sfx::SfxMessage>,
-    step: TransitStep,
-    pos: Option<&mut Vec2>,
-    vel: Option<&mut Vec2>,
-    roll: Option<&mut ActorRoll>,
-    transit: Option<&mut PortalTransit>,
-) {
-    match step {
-        TransitStep::Idle | TransitStep::Continue => {}
-        TransitStep::Begin {
-            channel,
-            portal_pos,
-        } => {
-            commands.entity(entity).insert(PortalTransit {
-                straddling: channel,
-                crossed: false,
-            });
-            sfx.write(ambition_sfx::SfxMessage::Play {
-                id: ambition_sfx::ids::PORTAL_ENTER,
-                pos: portal_pos,
-            });
-        }
-        // Non-player actors have no held input to warp, so `warp_rot` is ignored.
-        // (`facing_flip` is too — actor facing follows their own AI each tick.)
-        TransitStep::Transfer {
-            pos: new_pos,
-            vel: new_vel,
-            roll_delta,
-            exit_channel,
-            exit_pos,
-            ..
-        } => {
-            if let Some(pos) = pos {
-                *pos = new_pos;
-            }
-            if let Some(vel) = vel {
-                *vel = new_vel;
-            }
-            if let Some(roll) = roll {
-                roll.angle += roll_delta;
-            }
-            if let Some(t) = transit {
-                t.crossed = true;
-                t.straddling = exit_channel;
-            }
-            commands
-                .entity(entity)
-                .insert(PortalTransitCooldown(TELEPORT_COOLDOWN_S));
-            sfx.write(ambition_sfx::SfxMessage::Play {
-                id: ambition_sfx::ids::PORTAL_EXIT,
-                pos: exit_pos,
-            });
-        }
-        TransitStep::Clear => {
-            commands.entity(entity).remove::<PortalTransit>();
         }
     }
 }

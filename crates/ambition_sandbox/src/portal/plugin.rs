@@ -6,10 +6,9 @@ use super::messages::{
 use super::schedule::PortalSet;
 use super::{
     clear_portals_on_reset, despawn_orphaned_portals, portal_fire_system, portal_projectile_step,
-    portal_teleport_ground_items, portal_toggle_system, portal_transit_actors,
-    portal_transit_system, publish_portal_carves, suppress_ledge_grab_during_transit,
-    tick_portal_cooldowns, warp_portal_input, BodyTeleported, PlayerMovementIntent,
-    SuppressWallAbilitiesInPortal,
+    portal_teleport_ground_items, portal_toggle_system, portal_transit, publish_portal_carves,
+    suppress_ledge_grab_during_transit, tick_portal_cooldowns, warp_portal_input, BodyTeleported,
+    PlayerMovementIntent, PortalBodyTransited, SuppressWallAbilitiesInPortal,
 };
 use crate::platformer_runtime::orientation::{ensure_actor_roll, update_actor_roll};
 
@@ -36,6 +35,10 @@ pub struct PortalSimulationPlugin;
 impl Plugin for PortalSimulationPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<BodyTeleported>();
+        // Emitted by the generic `portal_transit` core on every Transfer; the
+        // Ambition player-input adapter reads it to reproduce the player's
+        // input/trace bits (BodyTeleported, PortalEmission, PortalInputWarp).
+        app.add_message::<PortalBodyTransited>();
         // Reusable portal intent / outcome messages — the Ambition input and
         // inventory adapters (crate::ambition_content::portal) write these; core
         // consumes them, staying content-agnostic.
@@ -130,9 +133,8 @@ impl Plugin for PortalSimulationPlugin {
             Update,
             (
                 tick_portal_cooldowns,
-                portal_transit_system,
+                portal_transit,
                 portal_teleport_ground_items,
-                portal_transit_actors,
                 update_actor_roll,
             )
                 .chain()

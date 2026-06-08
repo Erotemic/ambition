@@ -401,7 +401,7 @@ fn architecture_boundaries_app_plugins_does_not_reown_moved_subsystems() {
         "fn register_item_pickup_systems",
         "crate::portal::portal_fire_system",
         "crate::portal::portal_projectile_step",
-        "crate::portal::portal_transit_system",
+        "crate::portal::portal_transit",
         "crate::item_pickup::pickup_held_item_system",
         "crate::item_pickup::throw_held_item_system",
         "crate::item_pickup::ground_item_physics",

@@ -1,6 +1,38 @@
 # Unified Tabbed Menu — design & execution plan
 
-**Status:** APPROVED FOR AUTONOMOUS EXECUTION (planned 2026-06-07).
+**Status:** COMPLETE (2026-06-08). Phases 0–E landed; E3 deliberately deferred.
+
+**Completion log (2026-06-08):**
+- Phases 0–C2b + Grid bug-fixes + UX batches: done in the prior session.
+- **D1** `af1b75cf` — deleted superseded `bevy_ui_grid_menu`; relocated its live
+  effect helpers (`MenuAction`, `MenuEffectPlayers/ManaQuery`) into
+  `crate::menu::effects`; ported the cube's inventory-key open/close (was delegated
+  to the deleted `grid_menu_input`) into `kaleidoscope_menu_open_routing`.
+- **D2** `d7ccaecf` — removed the `oot_inventory` feature flag entirely → the
+  unified menu (cube + grid) is now UNCONDITIONAL; `ambition_menu` is a non-optional
+  dep; deleted `pause_menu` + legacy `inventory::ui` (kept the `inventory` data
+  model). Owner decision: both backends on by default everywhere; future build-size
+  gating happens at the plugin-composition layer, not a cfg.
+- **D3a** `474bac83` — engine `ambition_menu` exposes gateable `KaleidoscopeRender`
+  /`KaleidoscopeRenderPre` SystemSets; the host gates them + `republish` + scrim on
+  `kaleidoscope_backend_active`, so the cube does NOTHING when Grid is active (fixes
+  the "both backends live at once" brittleness; cf. the page-turn leak fix `f42ca5aa`).
+- **D3b** `1a2b8d29` — cross-backend parity safety net (no-drift exhaustiveness over
+  `SettingsOptionId`/`SystemMenuEntryId`, dispatch parity, content parity) + a new
+  boundary guard: `ambition_menu` must stay content-free (no `ambition_sandbox` dep).
+- **D-cleanup** `8adbe97d` — refactor warning sweep + strengthened settings parity.
+- **E1** — cube bumper page-turn parity was ALREADY implemented + tested; verified.
+- **E2** — touch/joystick back+select in the cube was ALREADY functional (fold maps
+  touch→`frame.back`/`select`; `MenuNavConsume` ordering lands them before the cube
+  consumes; cube close/activate tested). Verified — no work needed.
+- **E3 — DEFERRED** (owner decision 2026-06-08): extracting the settings-IR
+  "framework" types into the engine is speculative — the IR is deeply Ambition-
+  concrete (`UserSettings`, `AudioSettings`, `Difficulty`, …) and the engine RENDERERS
+  never consume it (they consume the built `MenuNode` tree). The engine/content seam
+  is already validated by the two real renderers + the content-free boundary guard.
+  Revisit only when a second consumer makes the generic shape pay for itself.
+
+**Original status:** APPROVED FOR AUTONOMOUS EXECUTION (planned 2026-06-07).
 **Goal:** one menu *content model* (tabs + shared settings IR) rendered by two
 interchangeable *presentations* — the bevy_ui "grid" backend and the 3D
 "kaleidoscope" backend — A/B-swappable with `\`. This kills the

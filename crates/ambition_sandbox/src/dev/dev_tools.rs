@@ -286,6 +286,12 @@ pub struct DeveloperTools {
     pub overview_camera: bool,
     /// Orthographic scale used while overview camera is enabled.
     pub overview_camera_scale: f32,
+
+    // Manual override for camera zoom tweaking
+    pub camera_view_override_enabled: bool,
+    pub camera_view_w: f32,
+    pub camera_view_h: f32,
+
     /// When true, sprite/visual rendering is suppressed so only hitbox gizmos
     /// are visible. Useful for diagnosing spatial mismatches between art and
     /// collision geometry without sprite occlusion.
@@ -353,6 +359,9 @@ impl Default for DeveloperTools {
             show_rebound_vectors: false,
             overview_camera: false,
             overview_camera_scale: 2.35,
+            camera_view_override_enabled: false,
+            camera_view_w: 800.0,
+            camera_view_h: 450.0,
             hide_sprites: false,
             placeholder_sprites: false,
             fill_debug_boxes: false,

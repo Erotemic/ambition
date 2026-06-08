@@ -120,7 +120,17 @@ pub fn camera_follow(
     // dragging that camera off to the player and pointing it at empty space.
     mut query: Query<(&mut Transform, &mut Projection), (With<Camera2d>, Without<PlayerVisual>)>,
 ) {
-    let (base_view_w, base_view_h) = user_settings.video.camera_zoom.base_view();
+    // DeveloperTools can temporarily replace that input.
+    let (base_view_w, base_view_h) = if developer_tools.camera_view_override_enabled {
+        (
+            developer_tools.camera_view_w.max(64.0),
+            developer_tools.camera_view_h.max(64.0),
+        )
+    } else {
+        // UserSettings defines the normal authored/default camera.
+        user_settings.video.camera_zoom.base_view()
+    };
+
     let base_view = ae::Vec2::new(base_view_w, base_view_h);
 
     let overview_scale = developer_tools.overview_camera_scale.max(1.0);

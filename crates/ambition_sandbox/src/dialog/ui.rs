@@ -83,6 +83,7 @@ pub fn sync_dialog_ui(
                 top: Val::Percent(15.0),
                 bottom: Val::Px(0.0),
                 padding: UiRect::axes(Val::Px(18.0), Val::Px(18.0)),
+                flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::FlexStart,
                 align_items: AlignItems::Center,
                 ..default()
@@ -94,14 +95,15 @@ pub fn sync_dialog_ui(
         .with_children(|root| {
             root.spawn((
                 Node {
-                    width: Val::Percent(100.0),
-                    max_width: Val::Px(1080.0),
+                    width: Val::Percent(72.0),
+                    min_width: Val::Px(120.0),
+                    max_width: Val::Px(960.0),
                     max_height: Val::Percent(94.0),
-                    padding: UiRect::all(Val::Px(18.0)),
+                    padding: UiRect::all(Val::Px(14.0)),
                     flex_direction: FlexDirection::Column,
-                    row_gap: Val::Px(7.0),
+                    row_gap: Val::Px(5.0),
                     border: UiRect::all(Val::Px(2.0)),
-                    border_radius: BorderRadius::all(Val::Px(24.0)),
+                    border_radius: BorderRadius::all(Val::Px(20.0)),
                     ..default()
                 },
                 BackgroundColor(Color::srgba(0.025, 0.030, 0.045, 0.95)),

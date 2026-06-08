@@ -42,13 +42,13 @@ use ambition_menu::render::bevy_ui::{
 use ambition_menu::{ActiveMenuPages, AmbitionMenuControl, MenuFocusKey, MenuNode, MenuRect};
 
 use crate::audio::SfxMessage;
-use crate::bevy_ui_grid_menu::input::{MenuEffectManaQuery, MenuEffectPlayers};
 use crate::input::MenuControlFrame;
 use crate::items::{OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use crate::lunex_kaleidoscope_app::{
     focus_for_action, owned_item_action, play_ui, system_focus_nav, InventoryUiBackend,
     KaleidoscopeCursor, KaleidoscopeSystemNav, SystemMenuParams,
 };
+use crate::menu::effects::{MenuEffectManaQuery, MenuEffectPlayers};
 use crate::menu::model::{
     system_max_window_start, MenuFocus, MenuPage, MenuPageAction, SYSTEM_VISIBLE_ROWS,
 };

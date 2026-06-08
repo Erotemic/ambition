@@ -214,7 +214,7 @@ impl MenuFocus {
 }
 
 /// Actions the cube emits back to the game (the host consumes these — the cube
-/// never mutates item state itself, matching the existing `bevy_ui_grid_menu` seam).
+/// never mutates item state itself, matching the `crate::menu::effects` seam).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MenuPageAction {
     Equip(Item),

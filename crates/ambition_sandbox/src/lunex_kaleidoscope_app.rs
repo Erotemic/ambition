@@ -18,10 +18,10 @@ use ambition_menu::{
 use bevy::prelude::*;
 
 use crate::audio::SfxMessage;
-use crate::bevy_ui_grid_menu::input::{MenuEffectManaQuery, MenuEffectPlayers};
 use crate::engine_core::Vec2;
 use crate::input::MenuControlFrame;
 use crate::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
+use crate::menu::effects::{MenuEffectManaQuery, MenuEffectPlayers};
 use crate::menu::model::{
     build_inventory_pages, items_detail_slot_text, system_detail_slot_text,
     system_effective_window_start, system_max_window_start, system_rows, MenuFocus, MenuPage,
@@ -1733,34 +1733,32 @@ fn kaleidoscope_menu_open_routing(
         return;
     }
 
-    // inventory key: the shared open/close TOGGLE stays in `grid_menu_input` (it raises
-    // `visible` + pauses for both backends); here we only point the cube at the Items
-    // page + seed the cursor when that key OPENS the overlay.
+    // inventory key: this system OWNS the cube backend's shared open/close toggle
+    // (it raises `visible` + pauses, mirroring the Esc branch above). The old grid
+    // `grid_menu_input` used to own this toggle for the cube; that system is gone
+    // (Phase D1), so the open/close is ported here.
     if menu.inventory {
-        // The overlay's `visible` is flipped by `grid_menu_input`; we observe the
-        // PRE-flip value here, so a currently-hidden overlay is opening and a visible
-        // one is closing.
-        let closing = overlay.visible;
-        play_ui(
-            &mut sfx,
-            if closing {
-                ambition_sfx::ids::UI_MENU_CLOSE
-            } else {
-                ambition_sfx::ids::UI_MENU_OPEN
-            },
-        );
-        // Only re-seed the page/cursor when OPENING. On close, leave the active page
-        // alone so the fold-close animation plays out from whatever face was shown
-        // (re-seeding to Items here snapped the cube to the Items face mid-close — the
-        // "I" close-animation glitch).
-        if !closing {
-            pages.active = Some(crate::menu::grid_backend::pause_entry_target(
-                crate::menu::grid_backend::PauseEntrySource::Inventory,
-            ));
-            system_nav.open_entry = None;
-            cursor.last_pointer_focus = None;
-            cursor.mark_keyboard(MenuFocus::Item(0));
-            map.open = false;
+        if overlay.visible {
+            // Closing: leave the active page alone so the fold-close animation plays
+            // out from whatever face was shown (re-seeding to Items here snapped the
+            // cube to the Items face mid-close — the "I" close-animation glitch).
+            play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_CLOSE);
+            close_kaleidoscope_menu(&mut overlay, mode.get(), &mut next_mode);
+        } else if matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
+            // Opening on the Items page (shared entry→tab mapping) + seed the cursor.
+            play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_OPEN);
+            open_kaleidoscope_menu(
+                crate::menu::grid_backend::pause_entry_target(
+                    crate::menu::grid_backend::PauseEntrySource::Inventory,
+                ),
+                &mut overlay,
+                mode.get(),
+                &mut next_mode,
+                &mut pages,
+                &mut cursor,
+                &mut system_nav,
+                &mut map,
+            );
         }
         return;
     }
@@ -1789,8 +1787,8 @@ fn kaleidoscope_menu_open_routing(
     }
 }
 
-/// Open the cube overlay on `page`, pausing the sim and seeding the cursor. Mirrors
-/// the inventory open path (`grid_menu_input`): raise `visible`, switch to
+/// Open the cube overlay on `page`, pausing the sim and seeding the cursor: raise
+/// `visible`, switch to
 /// `GameMode::Paused` when coming from gameplay, and make sure the standalone map
 /// panel stays shut so it can't render behind the cube.
 #[cfg(feature = "input")]
@@ -3038,14 +3036,12 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<crate::menu::map::MapMenuState>();
         app.init_resource::<MenuControlFrame>();
         app.init_resource::<crate::input::MenuInputState>();
-        app.init_resource::<crate::bevy_ui_grid_menu::GridMenuState>();
         app.add_message::<PlayerHealRequested>();
         app.add_message::<SfxMessage>();
         app.add_systems(
             Update,
             (
                 crate::app::populate_menu_control_frame_from_actions,
-                crate::bevy_ui_grid_menu::grid_menu_input,
                 kaleidoscope_menu_open_routing,
                 kaleidoscope_focus_nav,
             )
@@ -3170,7 +3166,6 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<crate::menu::map::MapMenuState>();
         app.init_resource::<MenuControlFrame>();
         app.init_resource::<crate::input::MenuInputState>();
-        app.init_resource::<crate::bevy_ui_grid_menu::GridMenuState>();
         app.init_resource::<crate::pause_menu::PauseMenuState>();
         app.init_resource::<crate::host::windowing::DisplayModeState>();
         app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
@@ -3187,7 +3182,6 @@ mod lunex_kaleidoscope_app_tests {
             Update,
             (
                 crate::app::populate_menu_control_frame_from_actions,
-                crate::bevy_ui_grid_menu::grid_menu_input,
                 kaleidoscope_menu_open_routing,
                 // Exactly as registered in the real app (`app/plugins.rs`): gated by
                 // `pause_menu_ui_active` so it is inert under the Cube backend. This
@@ -3292,7 +3286,7 @@ mod lunex_kaleidoscope_app_tests {
     ///
     /// Unlike `esc_close_stays_closed_with_pause_menu_in_schedule`, this fixture wires
     /// BOTH the cube routing systems and the bevy-UI pause-menu systems (including
-    /// `pause_menu_toggle`, `grid_menu_input`, and the pause-menu visibility sync) into
+    /// `pause_menu_toggle` and the pause-menu visibility sync) into
     /// one deterministic chain that forces the worst-case ordering, and drives Esc
     /// through the leafwing action map so the `menu.start` + `menu.back` co-fire
     /// exactly as in game. It asserts the close
@@ -3329,7 +3323,6 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<crate::menu::map::MapMenuState>();
         app.init_resource::<MenuControlFrame>();
         app.init_resource::<crate::input::MenuInputState>();
-        app.init_resource::<crate::bevy_ui_grid_menu::GridMenuState>();
         app.init_resource::<crate::pause_menu::PauseMenuState>();
         app.add_message::<PlayerHealRequested>();
         app.add_message::<SfxMessage>();
@@ -3354,7 +3347,6 @@ mod lunex_kaleidoscope_app_tests {
                 kaleidoscope_menu_open_routing,
                 kaleidoscope_focus_nav,
                 crate::pause_menu::pause_menu_toggle,
-                crate::bevy_ui_grid_menu::grid_menu_input,
                 pause_menu_root_visibility_for_test.run_if(crate::pause_menu::pause_menu_ui_active),
             )
                 .chain(),

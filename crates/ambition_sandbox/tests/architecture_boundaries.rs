@@ -429,7 +429,7 @@ fn architecture_boundaries_portal_core_does_not_import_ambition_content_roster()
         "Item::PortalGun",
         "OwnedItems",
         "crate::inventory",
-        "crate::bevy_ui_grid_menu",
+        "crate::menu::effects",
         "StashedActionSet",
         "crate::content",
         "crate::quest",

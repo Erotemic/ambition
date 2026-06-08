@@ -14,6 +14,7 @@
 
 pub mod body;
 pub mod gravity;
+pub mod kinematic;
 pub mod lifecycle;
 pub mod markers;
 pub mod math;

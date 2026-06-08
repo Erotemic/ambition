@@ -175,6 +175,7 @@ Added as run slices: **T10** menu host move, **T11** combat/actor/items consolid
 | T10 kaleidoscope→menu | — | ~10m | `c9352d08` | DONE — `lunex_kaleidoscope_app.rs`→`menu/kaleidoscope_app.rs` (8 sites) |
 | T11 combat/actor/items consolidation | — | ~35m | `b3df018f` | DONE — 9 root files→`combat/`,`actor/`,`items/` mod.rs dirs; `crate::shop` facade kept for Yarn bindings; 3 architecture_boundaries path guards retargeted |
 | T12 presentation/portal/persistence home moves | — | ~30m | `c9352d08` | DONE — `portal_pieces.rs`→`portal/pieces.rs`, `cutscene.rs`→`presentation/cutscene/script.rs` (existing player→`cutscene/mod.rs`), `hud_overlay.rs`→`presentation/hud.rs`, `save.rs`→`persistence/save_data.rs`; `crate::save` facade kept; time-guard cutscene allowlist path fixed. cutscene/save targets suffixed (collision-free) since the doc's literal paths already host distinct modules |
+| T13 kinematic→runtime | — | ~15m | `20cc9e60` | DONE — `kinematic.rs` (417 LOC) → `ambition_platformer_runtime/src/kinematic.rs`; `crate::engine_core::…`→`ambition_engine_core::…` (engine_core dep already present); `KinematicBody/KinematicTuning/KinematicInputs/step_kinematic` added to runtime `prelude`; sandbox keeps `pub use ambition_platformer_runtime::kinematic` facade (zero call-site churn). All gates green incl. architecture_boundaries |
 
 **Root `.rs` count: 29 → 15** after T10/T11/T12 (removed the 14 relocated files;
 remaining roots are the documented "stay at root" set plus `kinematic.rs` /

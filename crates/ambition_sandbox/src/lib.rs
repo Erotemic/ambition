@@ -37,7 +37,10 @@ pub mod headless;
 // `crate::input::{ControlFrame, SandboxAction, …}` paths resolve unchanged.
 pub use ambition_input as input;
 pub mod interaction;
-pub mod kinematic;
+// Generic kinematic body (gravity + axis-separated sweep) now lives in the
+// reusable runtime crate (Stage 18 T13). Re-exported here as `crate::kinematic`
+// so all existing `crate::kinematic::…` sites resolve unchanged.
+pub use ambition_platformer_runtime::kinematic;
 pub mod platformer_runtime;
 pub mod player;
 pub mod quest;

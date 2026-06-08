@@ -5,6 +5,7 @@
 //! example the solid-world raycast helper) are re-exported alongside this
 //! prelude by the consuming crate's own `platformer_runtime::prelude` facade.
 
+pub use crate::kinematic::{step_kinematic, KinematicBody, KinematicInputs, KinematicTuning};
 pub use crate::lifecycle::{
     despawn_scoped_entity, PersistentEntity, RoomScopedEntity, RunScopedEntity, SpawnScopedExt,
 };

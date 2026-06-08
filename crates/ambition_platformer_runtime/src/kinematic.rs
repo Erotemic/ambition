@@ -29,9 +29,9 @@
 //! gains a few abilities-shaped fields and we delete the duplicate
 //! sweep helpers in `movement`.
 
-use crate::engine_core::Vec2;
-use crate::engine_core::{Aabb, AabbExt};
-use crate::engine_core::{BlockKind, World};
+use ambition_engine_core::Vec2;
+use ambition_engine_core::{Aabb, AabbExt};
+use ambition_engine_core::{BlockKind, World};
 
 /// Per-tick configuration for [`step_kinematic`].
 #[derive(Clone, Copy, Debug)]
@@ -185,7 +185,7 @@ fn body_blocked_y(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine_core::Block;
+    use ambition_engine_core::Block;
 
     fn world_with(blocks: Vec<Block>) -> World {
         World {

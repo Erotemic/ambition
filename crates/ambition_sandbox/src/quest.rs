@@ -18,7 +18,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::save::PersistedQuestState;
+use crate::persistence::save_data::PersistedQuestState;
 
 /// A single advance event the sandbox emits during gameplay.
 ///

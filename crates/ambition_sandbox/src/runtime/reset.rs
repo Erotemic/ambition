@@ -132,7 +132,7 @@ pub fn process_sandbox_reset_request(
 
     // 1. Wipe the persisted save. Change-detection will trigger the
     //    autosave system to write the empty save to disk this tick.
-    *save.data_mut() = crate::save::SandboxSaveData::default();
+    *save.data_mut() = crate::persistence::save_data::SandboxSaveData::default();
 
     // 2. Clear registries. Setting them to Default flips
     //    `specs_loaded` / `initialized` back to false so the populate
@@ -535,7 +535,7 @@ mod tests {
                 .set_flag("encounter_goblin_encounter_reward_dropped", true);
             save.data_mut().set_encounter(
                 "goblin_encounter",
-                crate::save::PersistedEncounterState::Cleared,
+                crate::persistence::save_data::PersistedEncounterState::Cleared,
             );
         }
         {
@@ -565,7 +565,7 @@ mod tests {
             .flag("encounter_goblin_encounter_reward_dropped"));
         assert_eq!(
             save.data().encounter("goblin_encounter"),
-            crate::save::PersistedEncounterState::Untouched
+            crate::persistence::save_data::PersistedEncounterState::Untouched
         );
         // Registries flag-flipped back so populate Update systems
         // will re-run on the next frame.

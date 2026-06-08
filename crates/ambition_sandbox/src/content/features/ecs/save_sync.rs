@@ -178,10 +178,10 @@ pub fn sync_ecs_bosses_with_save(
         let encounter_id = feature.config.behavior.id.clone();
         if matches!(
             data.boss(&encounter_id),
-            crate::save::PersistedEncounterState::Cleared
+            crate::persistence::save_data::PersistedEncounterState::Cleared
         ) || matches!(
             data.boss(&feature.config.id),
-            crate::save::PersistedEncounterState::Cleared
+            crate::persistence::save_data::PersistedEncounterState::Cleared
         ) {
             feature.status.alive = false;
             feature.status.health.current = 0;

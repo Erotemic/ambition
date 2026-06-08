@@ -1,4 +1,4 @@
-use crate::save::PersistedEncounterState;
+use crate::persistence::save_data::PersistedEncounterState;
 
 use crate::ldtk_world::LdtkProject;
 
@@ -14,7 +14,7 @@ use super::{EncounterMobSpec, EncounterSpec, EncounterWaveSpec, LockWallSpec};
 /// tune than in the LDtk JSON.
 pub fn load_encounter_specs_from_ldtk(
     project: &LdtkProject,
-    save: &crate::save::SandboxSaveData,
+    save: &crate::persistence::save_data::SandboxSaveData,
 ) -> Vec<(String, EncounterSpec, PersistedEncounterState)> {
     let mut out = Vec::new();
     for level in &project.levels {

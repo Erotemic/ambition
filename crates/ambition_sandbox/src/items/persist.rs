@@ -101,8 +101,8 @@ mod tests {
         save.data_mut().wallet = 137;
         // HealthCell is a stacking consumable; Bomb is a unique weapon (cap 1).
         save.data_mut().items = vec![
-            crate::save::PersistedItem::new(Item::HealthCell.dialog_id(), 4),
-            crate::save::PersistedItem::new(Item::Bomb.dialog_id(), 1),
+            crate::persistence::save_data::PersistedItem::new(Item::HealthCell.dialog_id(), 4),
+            crate::persistence::save_data::PersistedItem::new(Item::Bomb.dialog_id(), 1),
         ];
         // Live state is the starter (Fireball etc.), wallet 0.
         let (mut app, player) = app_with(save, OwnedItems::starter(), 0);

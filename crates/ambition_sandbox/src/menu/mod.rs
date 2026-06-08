@@ -29,6 +29,10 @@ pub mod effects;
 /// of the cube backend, sharing the page model + dispatcher + cursor.
 pub mod grid_backend;
 pub mod ir;
+/// The 3D-cube OoT pause-menu host (#31): the data seam wiring our 24-item
+/// inventory into the reusable `ambition_menu` cube model (was the root
+/// `crate::lunex_kaleidoscope_app`). Renderer promotion pending.
+pub mod kaleidoscope_app;
 pub mod map;
 pub mod model;
 

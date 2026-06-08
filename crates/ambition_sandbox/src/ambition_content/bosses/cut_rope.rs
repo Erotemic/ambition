@@ -155,10 +155,13 @@ pub fn reset_cut_rope_boss_attempt(
         let data = save.data_mut();
         data.set_boss(
             CUT_ROPE_BOSS_ID,
-            crate::save::PersistedEncounterState::Untouched,
+            crate::persistence::save_data::PersistedEncounterState::Untouched,
         );
         if let Some(runtime_id) = runtime_id.as_deref() {
-            data.set_boss(runtime_id, crate::save::PersistedEncounterState::Untouched);
+            data.set_boss(
+                runtime_id,
+                crate::persistence::save_data::PersistedEncounterState::Untouched,
+            );
         }
         // The NPC appears only after the victory beat. Replaying the room should
         // make the post-boss conversation available again only after the next kill.
@@ -213,13 +216,13 @@ pub fn spawn_cut_rope_victory_npc(
         let data = save.data();
         matches!(
             data.boss(CUT_ROPE_BOSS_ID),
-            crate::save::PersistedEncounterState::Cleared
+            crate::persistence::save_data::PersistedEncounterState::Cleared
         ) || matches!(
             data.boss(&boss.config.behavior.id),
-            crate::save::PersistedEncounterState::Cleared
+            crate::persistence::save_data::PersistedEncounterState::Cleared
         ) || matches!(
             data.boss(&boss.config.id),
-            crate::save::PersistedEncounterState::Cleared
+            crate::persistence::save_data::PersistedEncounterState::Cleared
         )
     };
     if !encounter_death_complete && !boss_persisted_cleared {

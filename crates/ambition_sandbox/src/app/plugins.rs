@@ -680,7 +680,7 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
     // Unified menu (the one menu): the two presentation backends of the SAME
     // page model + dispatcher.
     // 3D-cube inventory frontend (#31), runtime-toggleable vs the grid below.
-    crate::lunex_kaleidoscope_app::install_kaleidoscope_menu(app);
+    crate::menu::kaleidoscope_app::install_kaleidoscope_menu(app);
     // Unified flat tabbed menu (Phase C2b): the `InventoryUiBackend::Grid`
     // presentation of the SAME page model + dispatcher. Gated to `backend ==
     // Grid`; the cube stays the untouched fallback. `\` flips between them.
@@ -744,9 +744,9 @@ fn install_fx_and_hud_systems(app: &mut App) {
     .add_systems(
         Update,
         (
-            crate::hud_overlay::regen_player_mana,
-            crate::hud_overlay::spawn_player_hud,
-            crate::hud_overlay::update_player_hud,
+            crate::presentation::hud::regen_player_mana,
+            crate::presentation::hud::spawn_player_hud,
+            crate::presentation::hud::update_player_hud,
         )
             .chain(),
     );

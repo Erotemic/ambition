@@ -25,7 +25,6 @@ pub mod ambition_content;
 pub mod app;
 pub mod audio;
 pub mod combat;
-pub mod cutscene;
 pub mod debug_label;
 // The pure-logic core lives in its own crate (`ambition_engine_core`, ADR
 // 0019 foundation). Re-export it under the historical `crate::engine_core`
@@ -44,7 +43,11 @@ pub mod player;
 pub mod quest;
 #[cfg(feature = "rl_sim")]
 pub mod rl_sim;
-pub mod save;
+// Facade re-export: the save-game *data shapes* moved into
+// `persistence/save_data.rs` (the I/O shim is `persistence/save.rs`). Keep the
+// historical `crate::save` path alive for the Yarn dialogue bindings (owned by a
+// parallel agent, left untouched).
+pub use persistence::save_data as save;
 
 // Themed umbrellas. Each owns a coherent slice of the sandbox; the long-
 // term shape carves the reusable ones (`presentation`, `time`, `dev`,
@@ -67,7 +70,6 @@ pub(crate) mod enemy_projectile;
 #[cfg(feature = "falling_sand")]
 pub(crate) mod falling_sand;
 pub(crate) mod host;
-pub mod hud_overlay;
 pub(crate) mod inventory;
 pub mod items;
 // Facade re-export: the Yarn dialogue bindings (owned by a parallel agent)
@@ -76,9 +78,6 @@ pub mod items;
 pub use items::shop;
 pub mod mechanics;
 pub(crate) mod music;
-// 3D-cube OoT pause menu (#31): the data seam wiring our 24-item inventory into
-// the reusable `ambition_menu` cube model. Renderer promotion pending.
-pub mod lunex_kaleidoscope_app;
 // Unified menu content (model + concrete settings IR + Map tab). See
 // `docs/planning/unified_tabbed_menu.md` §10.
 pub mod menu;
@@ -86,7 +85,6 @@ pub(crate) mod persistence;
 pub mod physics;
 #[cfg(feature = "portal")]
 pub mod portal;
-pub mod portal_pieces;
 pub(crate) mod presentation;
 pub(crate) mod projectile;
 pub(crate) mod runtime;

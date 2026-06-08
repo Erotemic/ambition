@@ -26,7 +26,7 @@ use bevy::math::Vec2;
 // now lives in the content-free `ambition_platformer_runtime` crate. Re-export
 // it here so portal_pieces' AABB/piece geometry and every other in-sandbox user
 // (world_overlay, debug_overlay, portal/*) keep referencing
-// `crate::portal_pieces::{portal_rotation, rotate, portal_tangent,
+// `crate::portal::pieces::{portal_rotation, rotate, portal_tangent,
 // portal_map_vec}` unchanged.
 pub use ambition_platformer_runtime::math::{
     portal_map_vec, portal_rotation, portal_tangent, rotate,

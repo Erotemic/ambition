@@ -2,7 +2,7 @@
 //!
 //! These types are pure data + `serde`. They don't know about Bevy, file
 //! paths, autosave timing, or the LDtk layer — those live in the sandbox
-//! crate (`crate::save` over there) so the engine stays free of I/O and
+//! crate (`crate::persistence::save_data` over there) so the engine stays free of I/O and
 //! presentation concerns.
 //!
 //! The engine owns the *vocabulary* so reusable mechanics (encounter

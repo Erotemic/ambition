@@ -29,6 +29,10 @@ mod gun;
 mod lifecycle;
 mod messages;
 mod pickup;
+/// Pure portal-piece geometry — the Core invariant (was the root
+/// `crate::portal_pieces`). Public because the host world-overlay carve and the
+/// debug overlay read `crate::portal::pieces` directly.
+pub mod pieces;
 mod placement;
 mod plugin;
 mod presentation;

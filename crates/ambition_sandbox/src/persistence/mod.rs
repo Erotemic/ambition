@@ -1,10 +1,13 @@
 //! Save game I/O and the user-settings store.
 //!
+//! - `save_data` — the pure save-game data shapes (was `crate::save`).
 //! - `save` — autosave + load of the per-session `Save` resource.
 //! - `settings` — typed model + persistence for audio / video /
 //!   controls / gameplay preferences.
 
 pub mod save;
+/// Save-game *data shapes* (pure data + serde; was the root `crate::save`).
+pub mod save_data;
 pub mod settings;
 
 /// Module-local Bevy plugin: schedules the user-settings + sandbox-save

@@ -37,7 +37,10 @@ pub fn populate_boss_encounter_registry(
     let save_data = save.data();
     for (id, state) in registry.encounters.iter_mut() {
         let persisted = save_data.boss(id);
-        if matches!(persisted, crate::save::PersistedEncounterState::Cleared) {
+        if matches!(
+            persisted,
+            crate::persistence::save_data::PersistedEncounterState::Cleared
+        ) {
             // Already-defeated bosses skip straight to Death so the
             // arena renders empty next time the player walks in.
             // `phase = Dormant`, `hp = 0` is the cleanest carry-over
@@ -250,7 +253,7 @@ pub fn update_boss_encounters(
             }
             if matches!(
                 save.data().boss(id),
-                crate::save::PersistedEncounterState::Cleared
+                crate::persistence::save_data::PersistedEncounterState::Cleared
             ) {
                 feature.status.alive = false;
                 feature.status.health.current = 0;
@@ -283,9 +286,14 @@ pub fn update_boss_encounters(
                     feature.status.alive = false;
                 }
                 let prior = save.data().boss(id);
-                if !matches!(prior, crate::save::PersistedEncounterState::Cleared) {
-                    save.data_mut()
-                        .set_boss(id, crate::save::PersistedEncounterState::Cleared);
+                if !matches!(
+                    prior,
+                    crate::persistence::save_data::PersistedEncounterState::Cleared
+                ) {
+                    save.data_mut().set_boss(
+                        id,
+                        crate::persistence::save_data::PersistedEncounterState::Cleared,
+                    );
                     quests.push_event(crate::quest::QuestAdvanceEvent::BossDefeated(id.clone()));
                 }
             }

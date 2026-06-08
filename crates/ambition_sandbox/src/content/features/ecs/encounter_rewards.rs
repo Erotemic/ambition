@@ -14,7 +14,7 @@ use bevy::prelude::Name;
 /// Drop the encounter's ECS reward chest, if any, and clear its looted flag.
 pub fn clear_encounter_reward_ecs(
     commands: &mut Commands,
-    save: &mut crate::save::SandboxSaveData,
+    save: &mut crate::persistence::save_data::SandboxSaveData,
     chests: &Query<
         (Entity, &EncounterRewardChest, &FeatureId, Option<&Opened>),
         With<ChestFeature>,
@@ -35,7 +35,7 @@ pub fn clear_encounter_reward_ecs(
 /// Idempotently ensure cleared mob encounters have an ECS reward chest.
 pub fn sync_encounter_reward_chests_ecs(
     commands: &mut Commands,
-    save: &crate::save::SandboxSaveData,
+    save: &crate::persistence::save_data::SandboxSaveData,
     registry: &crate::encounter::EncounterRegistry,
     chests: &Query<
         (Entity, &EncounterRewardChest, &FeatureId, Option<&Opened>),
@@ -94,7 +94,7 @@ pub fn sync_encounter_reward_chests_ecs(
 /// from the boss encounter system and owns the reward chest entity/state natively.
 pub fn sync_boss_reward_chests_ecs(
     commands: &mut Commands,
-    save: &crate::save::SandboxSaveData,
+    save: &crate::persistence::save_data::SandboxSaveData,
     registry: &crate::boss_encounter::BossEncounterRegistry,
     world: &ae::World,
     boss_anchors: &[(String, ae::Vec2)],
@@ -120,7 +120,7 @@ pub fn sync_boss_reward_chests_ecs(
         };
         if !matches!(
             save.boss(encounter_id),
-            crate::save::PersistedEncounterState::Cleared
+            crate::persistence::save_data::PersistedEncounterState::Cleared
         ) {
             continue;
         }
@@ -272,7 +272,7 @@ mod boss_reward_sync_tests {
     use super::*;
     use crate::boss_encounter::{BossEncounterRegistry, BossProfile};
     use crate::persistence::save::SandboxSave;
-    use crate::save::PersistedEncounterState;
+    use crate::persistence::save_data::PersistedEncounterState;
     use bevy::prelude::{App, Resource, Update};
 
     #[derive(Resource)]

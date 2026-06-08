@@ -41,7 +41,7 @@ pub const DEV_BUILD: bool = cfg!(feature = "dev_tools");
 /// One developer toggle/cycle surfaced by the Developer screen. Each id maps to a
 /// field (or pair) of `crate::dev::dev_tools::DeveloperTools`. Kept here (not in
 /// `dev_tools.rs`) so the System IR owns the menu vocabulary; the cube applies
-/// them through [`crate::lunex_kaleidoscope_app`]'s dev-toggle path, which is the single
+/// them through [`crate::menu::kaleidoscope_app`]'s dev-toggle path, which is the single
 /// place that touches `DeveloperTools`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum DevToggleId {

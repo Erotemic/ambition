@@ -86,7 +86,7 @@ const LABEL_MAX_LINES: usize = 2;
 /// Detail-panel dynamic-text slots. The detail panel's CONTENT is cursor-dependent
 /// but its LAYOUT is fixed, so the panel emits a fixed set of [`MenuDynamicText`]
 /// slots (spawned empty) that the in-place updater
-/// (`crate::lunex_kaleidoscope_app::kaleidoscope_sync_detail_text`) rewrites from
+/// (`crate::menu::kaleidoscope_app::kaleidoscope_sync_detail_text`) rewrites from
 /// the live cursor — no face rebuild, so a hover never drops a `Pointer<Click>`.
 ///
 /// Items face: slot 0 is the "SELECTED" header, slots `1..=DETAIL_VISIBLE_TOTAL`
@@ -185,7 +185,7 @@ impl MenuPage {
 
 /// The cursor's logical position on the items page: either an item slot or one of
 /// the flanking edge (page-turn) buttons. This is the game-side equivalent of the
-/// demo's `MockAction`-as-selection, and the unit of [`crate::lunex_kaleidoscope_app`]'s
+/// demo's `MockAction`-as-selection, and the unit of [`crate::menu::kaleidoscope_app`]'s
 /// directional navigation (`move_spatial`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum MenuFocus {
@@ -339,7 +339,7 @@ pub fn build_items_page(
 ///
 /// The panel's CONTENT is cursor-dependent, so it is emitted as fixed, empty
 /// [`MenuDynamicText`] slots; the in-place updater
-/// (`crate::lunex_kaleidoscope_app::kaleidoscope_sync_detail_text`) fills them
+/// (`crate::menu::kaleidoscope_app::kaleidoscope_sync_detail_text`) fills them
 /// from the live cursor each time it moves — no rebuild, so a hover never drops a
 /// click. See [`items_detail_slot_text`] for the slot→string mapping.
 fn add_detail_panel(model: &mut MenuPageModel<MenuPage, MenuPageAction>) {
@@ -928,7 +928,7 @@ pub fn system_scrollbar_thumb(window_start: usize, total: usize) -> (f32, f32) {
 /// The System face's BOTTOM detail panel. Its CONTENT (focused row's label +
 /// description) is cursor-dependent, so it is emitted as fixed, empty
 /// [`MenuDynamicText`] slots filled in place by
-/// `crate::lunex_kaleidoscope_app::kaleidoscope_sync_detail_text`
+/// `crate::menu::kaleidoscope_app::kaleidoscope_sync_detail_text`
 /// (see [`system_detail_slot_text`]) — no rebuild on hover, so the click survives.
 fn add_system_detail_panel(model: &mut MenuPageModel<MenuPage, MenuPageAction>) {
     model.panel(

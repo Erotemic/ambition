@@ -14,7 +14,7 @@
 //! text-only 6×4 OoT grid renderer it lived in is superseded by
 //! [`crate::menu::grid_backend`], but these helpers are still shared by
 //! [`crate::menu::dispatch`], [`crate::menu::grid_backend`], and the cube host
-//! [`crate::lunex_kaleidoscope_app`].
+//! [`crate::menu::kaleidoscope_app`].
 
 use bevy::prelude::*;
 

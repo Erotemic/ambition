@@ -333,7 +333,7 @@ fn validate_quest_conditions(
 
     let loaded_encounters = crate::encounter::load_encounter_specs_from_ldtk(
         project,
-        &crate::save::SandboxSaveData::default(),
+        &crate::persistence::save_data::SandboxSaveData::default(),
     );
     for (id, spec, _) in loaded_encounters {
         if !spec.music_track.trim().is_empty() && !valid_tracks.contains(spec.music_track.as_str())

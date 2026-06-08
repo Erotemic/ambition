@@ -107,7 +107,7 @@ struct FallingSandSpoutState {
 }
 
 impl FallingSandSpoutState {
-    fn from_save(save: &crate::save::SandboxSaveData) -> Self {
+    fn from_save(save: &crate::persistence::save_data::SandboxSaveData) -> Self {
         Self {
             sand: save.switch(SAND_SWITCH),
             water: save.switch(WATER_SWITCH),

@@ -4,7 +4,7 @@
 //! vocabulary from [`crate::menu::model`]) to its game effect — equip/use an
 //! item, change the active page, apply a setting, quit, reset, or drill the
 //! System screens. It was lifted verbatim out of the cube backend
-//! (`crate::lunex_kaleidoscope_app`, where it was `dispatch_kaleidoscope_action`)
+//! (`crate::menu::kaleidoscope_app`, where it was `dispatch_kaleidoscope_action`)
 //! so a second menu backend can call the SAME dispatcher: see
 //! `docs/planning/unified_tabbed_menu.md` Phase B. This is a behavior-neutral
 //! move — the cube now calls `crate::menu::dispatch::dispatch_menu_action(...)`.
@@ -15,12 +15,12 @@ use ambition_menu::ActiveMenuPages;
 
 use crate::audio::SfxMessage;
 use crate::items::OwnedItems;
-use crate::lunex_kaleidoscope_app::{
-    back_edge_focus, close_system_entry, play_ui, rotate_sfx, KaleidoscopeCursor,
-    KaleidoscopeSystemNav, SystemMenuParams,
-};
 use crate::menu::effects::{
     dispatch_item_confirm, MenuAction, MenuEffectManaQuery, MenuEffectPlayers,
+};
+use crate::menu::kaleidoscope_app::{
+    back_edge_focus, close_system_entry, play_ui, rotate_sfx, KaleidoscopeCursor,
+    KaleidoscopeSystemNav, SystemMenuParams,
 };
 use crate::menu::model::{MenuFocus, MenuPage, MenuPageAction};
 use crate::persistence::settings::{

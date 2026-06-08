@@ -3,7 +3,7 @@
 
 use bevy::prelude::*;
 
-use crate::portal_pieces::PortalFrame;
+use crate::portal::pieces::PortalFrame;
 
 use super::color::PortalChannel;
 
@@ -21,7 +21,7 @@ pub struct PlacedPortal {
 }
 
 impl PlacedPortal {
-    /// The pure-geometry frame this portal presents to [`crate::portal_pieces`]
+    /// The pure-geometry frame this portal presents to [`crate::portal::pieces`]
     /// (the Core invariant math: piece decomposition, carve, portal map).
     pub fn frame(&self) -> PortalFrame {
         PortalFrame {

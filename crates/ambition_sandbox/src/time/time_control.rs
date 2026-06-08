@@ -590,7 +590,7 @@ mod tests {
             ("time/time_control.rs", "smoother / clock-scale dispatch is the controller, not a consumer"),
             // Cutscenes intentionally suspend bullet-time and run
             // on the wall clock so a paused cutscene still advances.
-            ("presentation/cutscene.rs", "cutscene beats are wall-clock by design"),
+            ("presentation/cutscene/mod.rs", "cutscene beats are wall-clock by design"),
             // VFX particles are presentation; the design decision
             // is wall-clock so juice survives bullet-time. Revisit
             // if you want VFX to slow alongside the sim.

@@ -9,7 +9,7 @@ use bevy::prelude::*;
 use crate::engine_core::{self as ae, AabbExt};
 use crate::platformer_runtime::collision::{ray_aabb, raycast_solids};
 use crate::platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
-use crate::portal_pieces as pp;
+use crate::portal::pieces as pp;
 
 use super::color::PortalChannel;
 use super::transit::PortalTransit;

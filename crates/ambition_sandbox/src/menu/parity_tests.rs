@@ -3,7 +3,7 @@
 //! The unified menu has ONE content model
 //! ([`crate::menu::model::build_inventory_pages`] + the settings IR in
 //! [`crate::menu::ir`]) rendered by TWO presentations (the flat Grid
-//! [`crate::menu::grid_backend`] and the 3D cube [`crate::lunex_kaleidoscope_app`]),
+//! [`crate::menu::grid_backend`] and the 3D cube [`crate::menu::kaleidoscope_app`]),
 //! dispatched through ONE [`crate::menu::dispatch::dispatch_menu_action`]. The
 //! tests here LOCK that the two presentations can never silently drift:
 //!
@@ -376,12 +376,12 @@ mod dispatch_parity {
     use crate::brain::ActionSet;
     use crate::input::MenuControlFrame;
     use crate::inventory::InventoryUiState;
-    use crate::lunex_kaleidoscope_app::{
-        kaleidoscope_pointer_press, kaleidoscope_pointer_release, InventoryUiBackend,
-        KaleidoscopeCursor, KaleidoscopePointerPress, KaleidoscopeSystemNav,
-    };
     use crate::menu::grid_backend::{
         grid_menu_pointer_press, grid_menu_pointer_release, GridMenuTabState, GridPointerPress,
+    };
+    use crate::menu::kaleidoscope_app::{
+        kaleidoscope_pointer_press, kaleidoscope_pointer_release, InventoryUiBackend,
+        KaleidoscopeCursor, KaleidoscopePointerPress, KaleidoscopeSystemNav,
     };
     use crate::menu::model::{MenuPage, MenuPageAction};
     use crate::persistence::settings::{SystemMenuEntryId, UserSettings};

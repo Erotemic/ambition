@@ -52,9 +52,8 @@ fn architecture_boundaries_platformer_runtime_stays_content_free() {
         "crate::dev",
         "crate::presentation",
     ];
-    // `crate::portal` (the portal mechanic) is forbidden, but `crate::portal_pieces`
-    // (the reusable Core portal-map math) is allowed — match the mechanic path with
-    // an explicit boundary so the prefix does not false-positive on portal_pieces.
+    // `crate::portal` (the portal mechanic, including its `pieces` Core math
+    // submodule) is forbidden — match the mechanic path with explicit boundaries.
     let forbidden_boundary = ["crate::portal::", "crate::portal;", "crate::portal}"];
 
     let mut violations = Vec::new();
@@ -700,9 +699,8 @@ fn architecture_boundaries_gravity_zone_mechanic_left_portal() {
         "gravity mechanic should own a GravityPlugin"
     );
     // The gravity mechanic must not depend on portal. Match the mechanic path
-    // with explicit boundaries (so `crate::portal_pieces` does not false-
-    // positive) and skip comment lines (the module doc legitimately names the
-    // `crate::portal` it was extracted from).
+    // with explicit boundaries and skip comment lines (the module doc
+    // legitimately names the `crate::portal` it was extracted from).
     let portal_boundaries = [
         "crate::portal::",
         "crate::portal;",

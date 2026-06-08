@@ -3,7 +3,7 @@
 //! This is Ambition's wiring of the engine's `bevy_ui` renderer
 //! ([`ambition_menu::render::bevy_ui::spawn_bevy_ui_menu`]) into a working,
 //! navigable, tabbed pause menu. It is the flat analog of the 3D cube backend
-//! ([`crate::lunex_kaleidoscope_app`]): SAME page models, SAME action dispatcher
+//! ([`crate::menu::kaleidoscope_app`]): SAME page models, SAME action dispatcher
 //! ([`crate::menu::dispatch::dispatch_menu_action`]), SAME shared cursor/drill
 //! resources ([`KaleidoscopeCursor`], [`KaleidoscopeSystemNav`]) — only the
 //! presentation differs (a flat tab bar + flex/grid body instead of a rotating
@@ -42,11 +42,11 @@ use ambition_menu::{ActiveMenuPages, AmbitionMenuControl, MenuFocusKey, MenuNode
 use crate::audio::SfxMessage;
 use crate::input::MenuControlFrame;
 use crate::items::{OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
-use crate::lunex_kaleidoscope_app::{
+use crate::menu::effects::{MenuEffectManaQuery, MenuEffectPlayers};
+use crate::menu::kaleidoscope_app::{
     focus_for_action, owned_item_action, play_ui, system_focus_nav, InventoryUiBackend,
     KaleidoscopeCursor, KaleidoscopeSystemNav, SystemMenuParams,
 };
-use crate::menu::effects::{MenuEffectManaQuery, MenuEffectPlayers};
 use crate::menu::model::{
     system_max_window_start, MenuFocus, MenuPage, MenuPageAction, SYSTEM_VISIBLE_ROWS,
 };
@@ -153,7 +153,7 @@ struct ViewKey {
 }
 
 /// The OLD bevy_ui menu SFX ids, used by the flat Grid backend instead of the
-/// cube's kaleidoscope-specific `ui.menu.*` family. The cube ([`crate::lunex_kaleidoscope_app`])
+/// cube's kaleidoscope-specific `ui.menu.*` family. The cube ([`crate::menu::kaleidoscope_app`])
 /// keeps its own `UI_MENU_OPEN/CLOSE/ACCEPT/BACK/ERROR/ROTATE` sounds (authored for
 /// the 3D OoT cube); the flat Grid is the descendant of the legacy bevy_ui menus
 /// (`crate::pause_menu` etc.), so it should sound like them. These map each Grid

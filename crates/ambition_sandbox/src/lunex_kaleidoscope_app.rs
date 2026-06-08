@@ -252,7 +252,7 @@ const KALEIDOSCOPE_TAP_DRAG_THRESHOLD: f32 = 12.0;
 /// the press origin (a drag, not a tap), and consumed by the click observer. Mouse OR
 /// touch — both arrive through the same pointer events, so this is mouse-testable.
 #[derive(Resource, Default)]
-struct KaleidoscopePointerPress {
+pub(crate) struct KaleidoscopePointerPress {
     /// The entity the active press landed on, if any.
     entity: Option<Entity>,
     /// The ACTION the pressed control carries, captured at press time. Dispatch on
@@ -473,7 +473,7 @@ impl SystemMenuParams<'_> {
 /// (e.g. Reset Sandbox) stay within Bevy's 16-param ceiling. Threaded into
 /// [`close_kaleidoscope_menu`] via [`Self::mode`] + [`Self::next_mode`].
 #[derive(bevy::ecs::system::SystemParam)]
-struct GameModeIo<'w> {
+pub(crate) struct GameModeIo<'w> {
     state: Res<'w, State<crate::runtime::game_mode::GameMode>>,
     next: ResMut<'w, NextState<crate::runtime::game_mode::GameMode>>,
 }
@@ -1476,7 +1476,7 @@ pub(crate) fn focus_for_action(
 /// + the press origin; `kaleidoscope_pointer_move` marks it cancelled once the
 /// pointer drags past the tap threshold, and `kaleidoscope_pointer_release` honours
 /// that. Mouse OR touch (same `Pointer<Press>` path).
-fn kaleidoscope_pointer_press(
+pub(crate) fn kaleidoscope_pointer_press(
     press: On<Pointer<Press>>,
     backend: Res<InventoryUiBackend>,
     ui_state: Option<Res<crate::inventory::InventoryUiState>>,
@@ -1589,7 +1589,7 @@ fn kaleidoscope_pointer_move(
 /// (`kaleidoscope_pointer_move` set `cancelled`), the release does NOT activate. The
 /// guard is consumed either way so the next press starts fresh.
 #[allow(clippy::too_many_arguments)]
-fn kaleidoscope_pointer_release(
+pub(crate) fn kaleidoscope_pointer_release(
     _release: On<Pointer<Release>>,
     mut ui_state: Option<ResMut<crate::inventory::InventoryUiState>>,
     // A close-via-action (e.g. Reset Sandbox) must restore `GameMode::Playing` exactly

@@ -31,3 +31,8 @@ pub mod grid_backend;
 pub mod ir;
 pub mod map;
 pub mod model;
+
+/// Cross-backend parity / no-drift tests (design doc §8): the safety net that
+/// locks the "one content model + IR + dispatcher, two presentations" invariant.
+#[cfg(test)]
+mod parity_tests;

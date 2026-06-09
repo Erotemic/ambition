@@ -11,10 +11,14 @@
 //! Splitting the state keeps the player-vs-enemy faction explicit and
 //! avoids a future "is this projectile mine?" flag on each body.
 
+mod entity;
 mod state;
 mod systems;
+#[cfg(test)]
+pub(crate) mod test_support;
 mod visuals;
 
+pub use entity::EnemyProjectile;
 pub use state::{EnemyProjectileSpawn, EnemyProjectileState};
 pub use systems::{apply_enemy_spawn_projectile_messages, update_enemy_projectiles};
 pub use visuals::{

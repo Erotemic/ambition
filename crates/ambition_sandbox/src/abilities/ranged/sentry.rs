@@ -157,8 +157,10 @@ pub fn update_sentries(
 mod tests {
     use super::*;
     use crate::brain::ActionSet;
+    use crate::enemy_projectile::test_support::enemy_projectile_bodies;
     use crate::enemy_projectile::EnemyProjectileState;
     use crate::player::PlayerBaseSize;
+    use crate::projectile::ProjectileSeqCounter;
 
     fn test_app() -> App {
         let mut app = App::new();
@@ -170,8 +172,9 @@ mod tests {
             scaled_dt: 0.1,
         });
         app.init_resource::<EnemyProjectileState>();
+        app.init_resource::<ProjectileSeqCounter>();
         // Phase 3b: update_sentries emits SpawnProjectile; the enemy-pool
-        // consumer performs the push (chained after).
+        // consumer spawns the projectile entity (chained after).
         app.add_systems(
             Update,
             (
@@ -225,13 +228,13 @@ mod tests {
         for _ in 0..10 {
             app.update();
         }
-        let pool = app.world().resource::<EnemyProjectileState>();
+        let bodies = enemy_projectile_bodies(&mut app);
         assert!(
-            !pool.bodies.is_empty(),
+            !bodies.is_empty(),
             "the sentry should have fired at the enemy"
         );
         assert!(
-            pool.bodies
+            bodies
                 .iter()
                 .all(|b| b.body.game.faction == ProjectileFaction::Player),
             "sentry bolts are player-faction (damage enemies, not the player)"
@@ -259,10 +262,7 @@ mod tests {
             app.update();
         }
         assert!(
-            app.world()
-                .resource::<EnemyProjectileState>()
-                .bodies
-                .is_empty(),
+            enemy_projectile_bodies(&mut app).is_empty(),
             "no target in range → no shots"
         );
         // Age out (lifetime 5s at 0.1/tick → 50 ticks).

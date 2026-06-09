@@ -128,8 +128,10 @@ pub fn fire_meteor_system(
 mod tests {
     use super::*;
     use crate::brain::ActionSet;
+    use crate::enemy_projectile::test_support::enemy_projectile_bodies;
     use crate::enemy_projectile::EnemyProjectileState;
     use crate::player::PlayerBaseSize;
+    use crate::projectile::ProjectileSeqCounter;
 
     fn test_app() -> App {
         let mut app = App::new();
@@ -137,7 +139,8 @@ mod tests {
         app.add_message::<SpawnProjectile>();
         app.insert_resource(ControlFrame::default());
         app.init_resource::<EnemyProjectileState>();
-        // Phase 3b: fire emits SpawnProjectile; enemy-pool consumer pushes.
+        app.init_resource::<ProjectileSeqCounter>();
+        // Phase 3b: fire emits SpawnProjectile; enemy-pool consumer spawns the entity.
         app.add_systems(
             Update,
             (
@@ -179,14 +182,14 @@ mod tests {
             .resource_mut::<ControlFrame>()
             .attack_pressed = true;
         app.update();
-        let pool = app.world().resource::<EnemyProjectileState>();
+        let bodies = enemy_projectile_bodies(&mut app);
         assert_eq!(
-            pool.bodies.len(),
+            bodies.len(),
             METEOR_COUNT,
             "one volley = METEOR_COUNT meteors"
         );
         assert!(
-            pool.bodies
+            bodies
                 .iter()
                 .all(|b| b.body.game.faction == ProjectileFaction::Player),
             "meteors are player-faction (damage enemies, spare the player)"
@@ -198,11 +201,7 @@ mod tests {
         let mut app = test_app();
         spawn_player_holding_meteor(&mut app);
         app.update(); // no attack pressed
-        assert!(app
-            .world()
-            .resource::<EnemyProjectileState>()
-            .bodies
-            .is_empty());
+        assert!(enemy_projectile_bodies(&mut app).is_empty());
     }
 
     #[test]
@@ -219,10 +218,7 @@ mod tests {
             .attack_pressed = true;
         app.update();
         assert!(
-            app.world()
-                .resource::<EnemyProjectileState>()
-                .bodies
-                .is_empty(),
+            enemy_projectile_bodies(&mut app).is_empty(),
             "no meteors when mana < cost"
         );
         app.world_mut()
@@ -232,7 +228,7 @@ mod tests {
             .current = 100.0;
         app.update();
         assert_eq!(
-            app.world().resource::<EnemyProjectileState>().bodies.len(),
+            enemy_projectile_bodies(&mut app).len(),
             METEOR_COUNT,
             "fires once there's mana"
         );

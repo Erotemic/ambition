@@ -38,7 +38,7 @@ use crate::content::features::ecs::hitbox::{Hitbox, HitboxAnchor, HitboxHits, Hi
 use crate::content::features::ecs::FeatureSimEntity;
 #[cfg(test)]
 use crate::content::features::enemies::EnemyArchetype;
-use crate::enemy_projectile::{EnemyProjectileSpawn, EnemyProjectileState};
+use crate::enemy_projectile::EnemyProjectileSpawn;
 use crate::projectile::SpawnProjectile;
 use crate::time::feel::SandboxFeelTuning;
 use crate::WorldTime;
@@ -1138,6 +1138,9 @@ mod tests {
     use super::*;
     use crate::brain::{ActionSet, RangedActionSpec};
     use crate::content::features::ecs::enemy_clusters::EnemyClusterScratch;
+    use crate::enemy_projectile::test_support::enemy_projectile_bodies;
+    use crate::enemy_projectile::EnemyProjectileState;
+    use crate::projectile::ProjectileSeqCounter;
 
     #[test]
     fn gradient_cascade_minion_offsets_spread_symmetrically() {
@@ -1243,8 +1246,9 @@ mod tests {
         app.add_message::<SfxMessage>();
         app.add_message::<SpawnProjectile>();
         app.init_resource::<EnemyProjectileState>();
+        app.init_resource::<ProjectileSeqCounter>();
         // Phase 3b: the consumer emits SpawnProjectile; chain the enemy-pool
-        // applier so the body lands in EnemyProjectileState within the update.
+        // applier so the projectile entity spawns within the update.
         app.add_systems(
             Update,
             (
@@ -1287,9 +1291,9 @@ mod tests {
                 },
             });
         app.update();
-        let projectiles = app.world().resource::<EnemyProjectileState>();
-        assert_eq!(projectiles.bodies.len(), 1);
-        let owner = &projectiles.bodies[0].owner_id;
+        let projectiles = enemy_projectile_bodies(&mut app);
+        assert_eq!(projectiles.len(), 1);
+        let owner = &projectiles[0].owner_id;
         assert!(
             !owner.starts_with("lasersword:"),
             "non-pirate archetype must not get lasersword owner_id; got {owner:?}",
@@ -1318,9 +1322,8 @@ mod tests {
                 },
             });
         app.update();
-        let projectiles = app.world().resource::<EnemyProjectileState>();
         assert!(
-            projectiles.bodies.is_empty(),
+            enemy_projectile_bodies(&mut app).is_empty(),
             "dead actor must not spawn a projectile",
         );
     }
@@ -1557,6 +1560,7 @@ mod tests {
         app.add_plugins(MinimalPlugins);
         app.add_message::<ActorActionMessage>();
         app.init_resource::<EnemyProjectileState>();
+        app.init_resource::<ProjectileSeqCounter>();
         app.init_resource::<WorldTime>();
         let mut world_time = app.world_mut().resource_mut::<WorldTime>();
         world_time.scaled_dt = sim_dt;
@@ -1610,14 +1614,14 @@ mod tests {
             write_special(&mut app, actor, gnu_apple_rain_spec());
             app.update();
         }
-        let projectiles = app.world().resource::<EnemyProjectileState>();
+        let projectiles = enemy_projectile_bodies(&mut app);
         assert_eq!(
-            projectiles.bodies.len(),
+            projectiles.len(),
             3,
             "expected one apple per tick at dt==interval, got {}",
-            projectiles.bodies.len(),
+            projectiles.len(),
         );
-        for spawn in &projectiles.bodies {
+        for spawn in &projectiles {
             assert!(
                 spawn.owner_id.starts_with(GNU_TON_APPLE_OWNER_PREFIX),
                 "apples must use the apple owner prefix; got {}",
@@ -1670,11 +1674,11 @@ mod tests {
         // And the world should still have only the single (or zero)
         // apple spawned during tick 1's drain — never an extra
         // burst from the reset tick.
-        let projectiles = app.world().resource::<EnemyProjectileState>();
+        let projectiles = enemy_projectile_bodies(&mut app);
         assert!(
-            projectiles.bodies.len() <= 1,
+            projectiles.len() <= 1,
             "no extra apple should spawn during the reset tick; got {} bodies",
-            projectiles.bodies.len(),
+            projectiles.len(),
         );
     }
 
@@ -1702,9 +1706,9 @@ mod tests {
             write_special(&mut app, actor, gnu_apple_rain_spec());
             app.update();
         }
-        let projectiles = app.world().resource::<EnemyProjectileState>();
+        let projectiles = enemy_projectile_bodies(&mut app);
         let pad = 14.0; // matches APPLE_RAIN_HALF_EXTENT.x
-        for spawn in &projectiles.bodies {
+        for spawn in &projectiles {
             assert!(
                 spawn.body.kin.pos.x <= self_aabb.min.x - pad + 1e-3
                     || spawn.body.kin.pos.x >= self_aabb.max.x + pad - 1e-3,
@@ -1735,19 +1739,17 @@ mod tests {
             write_special(&mut app, actor, gnu_apple_rain_spec());
             app.update();
         }
-        let projectiles = app.world().resource::<EnemyProjectileState>();
+        let projectiles = enemy_projectile_bodies(&mut app);
         let any_left = projectiles
-            .bodies
             .iter()
             .any(|s| s.body.kin.pos.x < boss_x - 100.0);
         let any_right = projectiles
-            .bodies
             .iter()
             .any(|s| s.body.kin.pos.x > boss_x + 100.0);
         assert!(
             any_left && any_right,
             "expected apples on both sides of boss; got {} apples",
-            projectiles.bodies.len(),
+            projectiles.len(),
         );
     }
 
@@ -1805,6 +1807,7 @@ mod tests {
         app.add_plugins(MinimalPlugins);
         app.add_message::<ActorActionMessage>();
         app.init_resource::<EnemyProjectileState>();
+        app.init_resource::<ProjectileSeqCounter>();
         app.init_resource::<WorldTime>();
         // We can't easily build a real player entity without
         // dragging in PlayerPlugin. Reproduce the bolts via a
@@ -1844,16 +1847,16 @@ mod tests {
             .id();
         write_special(&mut app, actor, overfit_volley_spec());
         app.update();
-        let projectiles = app.world().resource::<EnemyProjectileState>();
+        let projectiles = enemy_projectile_bodies(&mut app);
         assert_eq!(
-            projectiles.bodies.len(),
+            projectiles.len(),
             2,
             "expected one bolt per seeded sample (2), got {}",
-            projectiles.bodies.len(),
+            projectiles.len(),
         );
         // Owner id must carry the overfit prefix so a future
         // visuals routing can pick a custom sprite.
-        for spawn in &projectiles.bodies {
+        for spawn in &projectiles {
             assert!(
                 spawn.owner_id.starts_with("gradient_sentinel_overfit"),
                 "expected overfit owner_id, got {}",
@@ -1878,6 +1881,7 @@ mod tests {
         app.add_plugins(MinimalPlugins);
         app.add_message::<ActorActionMessage>();
         app.init_resource::<EnemyProjectileState>();
+        app.init_resource::<ProjectileSeqCounter>();
         app.init_resource::<WorldTime>();
         let mut wt = app.world_mut().resource_mut::<WorldTime>();
         wt.scaled_dt = 1.0 / 60.0;
@@ -1907,12 +1911,12 @@ mod tests {
             write_special(&mut app, actor, overfit_volley_spec());
             app.update();
         }
-        let projectiles = app.world().resource::<EnemyProjectileState>();
+        let projectiles = enemy_projectile_bodies(&mut app);
         assert_eq!(
-            projectiles.bodies.len(),
+            projectiles.len(),
             1,
             "expected exactly one bolt despite 4 strike ticks, got {}",
-            projectiles.bodies.len(),
+            projectiles.len(),
         );
     }
 
@@ -2297,9 +2301,8 @@ mod tests {
                 },
             });
         app.update();
-        let projectiles = app.world().resource::<EnemyProjectileState>();
         assert!(
-            projectiles.bodies.is_empty(),
+            enemy_projectile_bodies(&mut app).is_empty(),
             "non-Special message must not trigger the apple consumer",
         );
     }

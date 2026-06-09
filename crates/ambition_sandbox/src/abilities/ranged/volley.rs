@@ -100,8 +100,10 @@ pub fn fire_volley_system(
 mod tests {
     use super::*;
     use crate::brain::ActionSet;
+    use crate::enemy_projectile::test_support::enemy_projectile_bodies;
     use crate::enemy_projectile::EnemyProjectileState;
     use crate::player::PlayerBaseSize;
+    use crate::projectile::ProjectileSeqCounter;
 
     fn test_app() -> App {
         let mut app = App::new();
@@ -109,8 +111,9 @@ mod tests {
         app.add_message::<SpawnProjectile>();
         app.insert_resource(ControlFrame::default());
         app.init_resource::<EnemyProjectileState>();
+        app.init_resource::<ProjectileSeqCounter>();
         // Phase 3b: firing emits a SpawnProjectile; the enemy-pool consumer
-        // performs the push, so chain it after the fire system.
+        // spawns the projectile entity, so chain it after the fire system.
         app.add_systems(
             Update,
             (
@@ -150,24 +153,18 @@ mod tests {
             .resource_mut::<ControlFrame>()
             .attack_pressed = true;
         app.update();
-        let state = app.world().resource::<EnemyProjectileState>();
-        assert_eq!(
-            state.bodies.len(),
-            VOLLEY_SHOT_COUNT,
-            "one bolt per fan slot"
-        );
+        let bodies = enemy_projectile_bodies(&mut app);
+        assert_eq!(bodies.len(), VOLLEY_SHOT_COUNT, "one bolt per fan slot");
         // Every bolt is Player-faction so the faction-aware pool routes its
         // damage to enemies, not the player who fired it.
         assert!(
-            state
-                .bodies
+            bodies
                 .iter()
                 .all(|b| b.body.game.faction == ProjectileFaction::Player),
             "the wielded volley fires player-faction bolts"
         );
         // The bolts fan out — not all the same direction.
-        let dirs: Vec<f32> = state
-            .bodies
+        let dirs: Vec<f32> = bodies
             .iter()
             .map(|b| b.body.kin.vel.y.atan2(b.body.kin.vel.x))
             .collect();
@@ -182,9 +179,6 @@ mod tests {
         let mut app = test_app();
         spawn_player_holding_volley(&mut app);
         app.update();
-        assert_eq!(
-            app.world().resource::<EnemyProjectileState>().bodies.len(),
-            0
-        );
+        assert_eq!(enemy_projectile_bodies(&mut app).len(), 0);
     }
 }

@@ -78,7 +78,12 @@ pub fn draw_debug_overlay(
         &crate::player::BodyKinematics,
         With<crate::projectile::PlayerProjectile>,
     >,
-    enemy_projectiles: Res<crate::enemy_projectile::EnemyProjectileState>,
+    // In-flight enemy projectiles are ECS entities now (Phase 3c-iii) — draw
+    // each one's AABB from its kinematic body.
+    enemy_projectiles: Query<
+        &crate::player::BodyKinematics,
+        With<crate::enemy_projectile::EnemyProjectile>,
+    >,
     action_query: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
     mut player_q: Query<
         (
@@ -174,7 +179,7 @@ pub fn draw_debug_overlay(
             &mut gizmos,
             world,
             player_projectiles.iter(),
-            &enemy_projectiles,
+            enemy_projectiles.iter(),
             &developer_tools,
         );
         draw_held_projectiles(
@@ -864,7 +869,7 @@ fn draw_projectile_debug<'a>(
     gizmos: &mut Gizmos,
     world: &ae::World,
     player_bodies: impl IntoIterator<Item = &'a crate::player::BodyKinematics>,
-    enemy_state: &crate::enemy_projectile::EnemyProjectileState,
+    enemy_bodies: impl IntoIterator<Item = &'a crate::player::BodyKinematics>,
     developer_tools: &DeveloperTools,
 ) {
     let player_color = Color::srgba(1.00, 0.74, 0.30, 0.92);
@@ -872,14 +877,8 @@ fn draw_projectile_debug<'a>(
     for kin in player_bodies {
         draw_aabb_styled(gizmos, world, kin.aabb(), player_color, developer_tools);
     }
-    for proj in &enemy_state.bodies {
-        draw_aabb_styled(
-            gizmos,
-            world,
-            proj.body.aabb(),
-            enemy_color,
-            developer_tools,
-        );
+    for kin in enemy_bodies {
+        draw_aabb_styled(gizmos, world, kin.aabb(), enemy_color, developer_tools);
     }
 }
 

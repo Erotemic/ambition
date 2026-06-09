@@ -50,7 +50,10 @@ pub fn reset_ecs_room_features(
         With<FeatureSimEntity>,
     >,
     mut hazards: Query<&mut HazardFeature, With<FeatureSimEntity>>,
-    mut enemy_projectiles: ResMut<crate::enemy_projectile::EnemyProjectileState>,
+    // In-flight enemy projectiles are ECS entities now (Phase 3c-iii); despawn
+    // them instead of clearing a Vec. `Entity`-only fetch, so no aliasing with
+    // the actor/boss `&mut BodyKinematics` queries above.
+    enemy_projectiles: Query<Entity, With<crate::enemy_projectile::EnemyProjectile>>,
     mut combat_slots: ResMut<crate::combat::slots::CombatSlotsRes>,
 ) {
     if reset_requests.read().next().is_none() {
@@ -61,7 +64,9 @@ pub fn reset_ecs_room_features(
     // through the spawn point. Combat slot reservations are dropped
     // for the same reason — `update_ecs_actors` will rebuild them
     // from the freshly-respawned actor positions.
-    enemy_projectiles.clear();
+    for entity in &enemy_projectiles {
+        commands.entity(entity).despawn();
+    }
     combat_slots.0.clear_assignments();
 
     for entity in &collected_pickups {

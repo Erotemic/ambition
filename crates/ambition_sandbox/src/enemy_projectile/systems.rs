@@ -1,32 +1,59 @@
 //! Per-tick advance + collision for in-flight enemy projectiles.
+//!
+//! Phase 3c-iii: the in-flight bodies are ECS entities now
+//! (`crate::enemy_projectile::entity`), mirroring the player pool. The spawn
+//! consumer spawns one entity per `SpawnProjectile`; `update_enemy_projectiles`
+//! is an ECS system that collects the entities, sorts by the shared
+//! `ProjectileSeq`, and steps each (tick → faction routing → world collision →
+//! keep/despawn) in that stable order — byte-identical to the old
+//! `Vec`-iteration order.
 
 use crate::engine_core as ae;
 use crate::engine_core::AabbExt;
 use bevy::prelude::*;
 
-use super::state::EnemyProjectileState;
+use super::entity::EnemyProjectile;
 use crate::audio::SfxMessage;
 use crate::features::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
 use crate::presentation::fx::VfxMessage;
 use crate::projectile::{resolve_world_collision, WorldHitOutcome, WorldHitPolicy};
+use crate::projectile::{
+    ProjectileGameplay, ProjectileOwnerId, ProjectileSeq, ProjectileSeqCounter,
+};
 use crate::GameWorld;
 
 use crate::projectile::{ProjectilePool, SpawnProjectile};
 
-/// Consume [`SpawnProjectile`] messages targeting the enemy pool and push
-/// each body onto [`EnemyProjectileState::bodies`] (Phase 3b). Scheduled
-/// BEFORE `update_enemy_projectiles` so a body spawned this tick advances one
-/// step this frame — byte-identical to the EFFECTS-stage consumers that
-/// previously pushed directly before the update. Player-pool messages are
-/// ignored here (consumed by `apply_player_spawn_projectile_messages`).
+/// Consume [`SpawnProjectile`] messages targeting the enemy pool and SPAWN one
+/// projectile ENTITY per message (Phase 3c-iii). Scheduled BEFORE
+/// `update_enemy_projectiles` so a body spawned this tick advances one step
+/// this frame — byte-identical to the EFFECTS-stage consumers that previously
+/// pushed directly before the update. Player-pool messages are ignored here
+/// (consumed by `apply_player_spawn_projectile_messages`).
+///
+/// Each entity carries the SHARED [`crate::player::BodyKinematics`] body + the
+/// [`ProjectileGameplay`] marker/state + the [`ProjectileOwnerId`] string + a
+/// monotonic [`ProjectileSeq`] from the SHARED counter (assigned in
+/// spawn-message order so the step loop's seq-sort reproduces the historical
+/// Vec push order).
 pub fn apply_enemy_spawn_projectile_messages(
+    mut commands: Commands,
+    mut seq: ResMut<ProjectileSeqCounter>,
     mut spawn_projectiles: MessageReader<SpawnProjectile>,
-    mut state: ResMut<EnemyProjectileState>,
 ) {
     for msg in spawn_projectiles.read() {
-        if msg.pool == ProjectilePool::Enemy {
-            state.bodies.push(msg.projectile.clone());
+        if msg.pool != ProjectilePool::Enemy {
+            continue;
         }
+        let body = &msg.projectile.body;
+        commands.spawn((
+            body.kin,
+            body.game,
+            seq.next(),
+            ProjectileOwnerId(msg.projectile.owner_id.clone()),
+            EnemyProjectile,
+            Name::new("Enemy projectile (sim)"),
+        ));
     }
 }
 
@@ -38,11 +65,34 @@ const PROJECTILE_REFLECT_SPEED_SCALE: f32 = 1.3;
 /// deflect (and a reason to parry rather than dodge) — feel-tune.
 const PARRY_HEAL: i32 = 1;
 
+#[allow(clippy::too_many_arguments)]
 pub fn update_enemy_projectiles(
+    mut commands: Commands,
     world_time: Res<crate::WorldTime>,
     world: Res<GameWorld>,
     gravity: crate::physics::GravityCtx,
-    mut state: ResMut<EnemyProjectileState>,
+    // In-flight enemy projectiles are ECS entities now (Phase 3c-iii). The step
+    // loop below collects them, sorts by `ProjectileSeq` (Bevy iteration order
+    // is unspecified; seq reproduces the old Vec push order), then steps each.
+    //
+    // B0001 disjointness: this is the only `&mut BodyKinematics` query in the
+    // system, but it must be provably disjoint from the player / actor / boss
+    // body queries below that also touch `BodyKinematics`. Projectiles are
+    // neither a player nor a feature-sim entity, so `Without<PlayerEntity>` +
+    // `Without<FeatureSimEntity>` proves it (mirrors the player pool's fix).
+    mut projectiles: Query<
+        (
+            Entity,
+            &mut crate::player::BodyKinematics,
+            &mut ProjectileGameplay,
+            &ProjectileSeq,
+        ),
+        (
+            With<EnemyProjectile>,
+            Without<crate::player::PlayerEntity>,
+            Without<crate::features::FeatureSimEntity>,
+        ),
+    >,
     player_body_q: Query<
         (
             Entity,
@@ -52,7 +102,10 @@ pub fn update_enemy_projectiles(
             &crate::player::PlayerShieldState,
             &crate::player::PlayerCombatState,
         ),
-        With<crate::player::PlayerEntity>,
+        // `Without<EnemyProjectile>` keeps this read-only player body query
+        // provably disjoint from the mutable projectile query above (both touch
+        // `BodyKinematics`; B0001).
+        (With<crate::player::PlayerEntity>, Without<EnemyProjectile>),
     >,
     mut hit_events: MessageWriter<HitEvent>,
     mut sfx: MessageWriter<SfxMessage>,
@@ -86,14 +139,30 @@ pub fn update_enemy_projectiles(
     >,
 ) {
     let dt = world_time.sim_dt();
-    let mut keep = Vec::with_capacity(state.bodies.len());
-    let bodies = std::mem::take(&mut state.bodies);
 
-    for mut shot in bodies {
+    // Collect the in-flight enemy projectile entities and sort by spawn
+    // sequence. The old code iterated `state.bodies` in Vec push order (oldest
+    // first); `ProjectileSeq` is the monotonic spawn id, so sorting by it
+    // reproduces that order deterministically regardless of Bevy's archetype
+    // iteration order — the determinism judge for `scripted_gameplay` + the
+    // enemy projectile suites.
+    let mut ordered: Vec<(Entity, ProjectileSeq)> = projectiles
+        .iter()
+        .map(|(entity, _, _, seq)| (entity, *seq))
+        .collect();
+    ordered.sort_by_key(|(_, seq)| *seq);
+
+    for (proj_entity, _) in ordered {
+        // Re-fetch mutably by entity (the collect above borrowed `&`).
+        let Ok((_, mut kin, mut game, _)) = projectiles.get_mut(proj_entity) else {
+            continue;
+        };
+
         // Localized gravity: resolve from the shot's own position.
-        let gravity_sign = gravity.sign_at(shot.body.kin.pos);
-        let alive = shot.body.tick(dt, gravity_sign);
+        let gravity_sign = gravity.sign_at(kin.pos);
+        let alive = game.tick(&mut kin, dt, gravity_sign);
         if !alive {
+            commands.entity(proj_entity).despawn();
             continue;
         }
 
@@ -103,13 +172,11 @@ pub fn update_enemy_projectiles(
         // overlap helpers so the hit-check matches what `apply_feature_hit_events`
         // applies (incl. multi-part boss hurtboxes). Enemy-faction shots fall to
         // the existing player-damage path below, byte-identical.
-        if shot.body.game.faction == crate::projectile::ProjectileFaction::Player {
+        if game.faction == crate::projectile::ProjectileFaction::Player {
             let hit_event = HitEvent {
-                volume: shot.body.aabb(),
-                damage: shot.body.game.damage.max(1),
-                source: HitSource::PlayerProjectile {
-                    kind: shot.body.game.kind,
-                },
+                volume: kin.aabb(),
+                damage: game.damage.max(1),
+                source: HitSource::PlayerProjectile { kind: game.kind },
                 attacker: None,
                 target: HitTarget::Volume,
                 mode: HitMode::Knockback,
@@ -120,28 +187,24 @@ pub fn update_enemy_projectiles(
                 || crate::features::ecs_hit_event_hits_boss(&hit_event, &ecs_bosses)
             {
                 hit_events.write(hit_event);
-                sfx.write(SfxMessage::Hit {
-                    pos: shot.body.kin.pos,
-                });
-                vfx.write(VfxMessage::Impact {
-                    pos: shot.body.kin.pos,
-                });
+                sfx.write(SfxMessage::Hit { pos: kin.pos });
+                vfx.write(VfxMessage::Impact { pos: kin.pos });
+                commands.entity(proj_entity).despawn();
                 continue;
             }
             // No feature hit this tick — fall through to world collision (shared).
             match resolve_world_collision(
-                &mut shot.body.kin,
-                &mut shot.body.game,
+                &mut kin,
+                &mut game,
                 &world.0,
                 WorldHitPolicy::EnemyExpireOnAnyContact,
             ) {
                 WorldHitOutcome::Expired { pos } => {
                     vfx.write(VfxMessage::Impact { pos });
-                    continue;
+                    commands.entity(proj_entity).despawn();
                 }
                 WorldHitOutcome::Bounced { .. } | WorldHitOutcome::Continue => {}
             }
-            keep.push(shot);
             continue;
         }
 
@@ -154,8 +217,8 @@ pub fn update_enemy_projectiles(
         // iterate-all-players for projectile/hazard hits).
         let mut hit_any_player = false;
         let mut reflected = false;
-        for (player_entity, kin, offense, dodge, shield, combat) in &player_body_q {
-            if !shot.body.aabb().strict_intersects(kin.aabb()) {
+        for (player_entity, player_kin, offense, dodge, shield, combat) in &player_body_q {
+            if !kin.aabb().strict_intersects(player_kin.aabb()) {
                 continue;
             }
             // PARRY: a timed shield reflects the shot — flip it to the player's
@@ -164,15 +227,13 @@ pub fn update_enemy_projectiles(
             // the boss's own attack at it. Checked before the vulnerability gate
             // because parrying is exactly the "not vulnerable, act instead" case.
             if shield.parrying() {
-                shot.body.game.faction = crate::projectile::ProjectileFaction::Player;
-                shot.body.kin.vel = -shot.body.kin.vel * PROJECTILE_REFLECT_SPEED_SCALE;
+                game.faction = crate::projectile::ProjectileFaction::Player;
+                kin.vel = -kin.vel * PROJECTILE_REFLECT_SPEED_SCALE;
                 sfx.write(SfxMessage::Play {
                     id: ambition_sfx::ids::WORLD_ROCK_HIT,
-                    pos: shot.body.kin.pos,
+                    pos: kin.pos,
                 });
-                vfx.write(VfxMessage::Impact {
-                    pos: shot.body.kin.pos,
-                });
+                vfx.write(VfxMessage::Impact { pos: kin.pos });
                 // Reward the timed deflect with a little health.
                 heals.write(crate::player::PlayerHealRequested::new(PARRY_HEAL));
                 reflected = true;
@@ -183,19 +244,19 @@ pub fn update_enemy_projectiles(
             if !vulnerable {
                 continue;
             }
-            let knock_dir = (kin.pos.x - shot.body.kin.pos.x).signum();
+            let knock_dir = (player_kin.pos.x - kin.pos.x).signum();
             let knock_dir = if knock_dir.abs() < 0.001 {
                 1.0
             } else {
                 knock_dir
             };
             let impact_pos = ae::Vec2::new(
-                (kin.pos.x + shot.body.kin.pos.x) * 0.5,
-                (kin.pos.y + shot.body.kin.pos.y) * 0.5,
+                (player_kin.pos.x + kin.pos.x) * 0.5,
+                (player_kin.pos.y + kin.pos.y) * 0.5,
             );
             hit_events.write(HitEvent {
-                volume: shot.body.aabb(),
-                damage: shot.body.game.damage.max(1),
+                volume: kin.aabb(),
+                damage: game.damage.max(1),
                 source: HitSource::EnemyProjectile,
                 attacker: None,
                 // Enemy projectiles iterate every player; the first
@@ -208,27 +269,23 @@ pub fn update_enemy_projectiles(
                 knockback: Some(HitKnockback {
                     dir: knock_dir,
                     strength: 0.85,
-                    source_pos: shot.body.kin.pos,
+                    source_pos: kin.pos,
                     impact_pos,
                 }),
                 ignored_targets: Vec::new(),
             });
-            sfx.write(SfxMessage::Hit {
-                pos: shot.body.kin.pos,
-            });
-            vfx.write(VfxMessage::Impact {
-                pos: shot.body.kin.pos,
-            });
+            sfx.write(SfxMessage::Hit { pos: kin.pos });
+            vfx.write(VfxMessage::Impact { pos: kin.pos });
             hit_any_player = true;
             break;
         }
         // A parried shot survives as a player-faction bolt — keep it in flight so
         // next tick's player-faction routing lands it on the enemies.
         if reflected {
-            keep.push(shot);
             continue;
         }
         if hit_any_player {
+            commands.entity(proj_entity).despawn();
             continue;
         }
 
@@ -238,27 +295,24 @@ pub fn update_enemy_projectiles(
         // don't sail through floors and confuse the spatial read
         // (OVERNIGHT-TODO #17.7).
         match resolve_world_collision(
-            &mut shot.body.kin,
-            &mut shot.body.game,
+            &mut kin,
+            &mut game,
             &world.0,
             WorldHitPolicy::EnemyExpireOnAnyContact,
         ) {
             WorldHitOutcome::Expired { pos } => {
                 vfx.write(VfxMessage::Impact { pos });
-                continue;
+                commands.entity(proj_entity).despawn();
             }
             WorldHitOutcome::Bounced { .. } | WorldHitOutcome::Continue => {}
         }
-
-        keep.push(shot);
     }
-
-    state.bodies = keep;
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::enemy_projectile::test_support::{enemy_projectile_bodies, spawn_enemy_projectile};
     use crate::enemy_projectile::EnemyProjectileSpawn;
     use crate::projectile::ProjectileFaction;
 
@@ -297,7 +351,7 @@ mod tests {
         app.add_message::<SfxMessage>();
         app.add_message::<VfxMessage>();
         app.add_message::<crate::player::PlayerHealRequested>();
-        app.init_resource::<EnemyProjectileState>();
+        app.init_resource::<ProjectileSeqCounter>();
         app.init_resource::<CapturedHits>();
         app.add_systems(Update, (update_enemy_projectiles, capture_hits).chain());
 
@@ -317,21 +371,20 @@ mod tests {
             },
         ));
         // A player-faction shot already overlapping the enemy.
-        app.world_mut()
-            .resource_mut::<EnemyProjectileState>()
-            .spawn_with_faction(
-                EnemyProjectileSpawn {
-                    origin: enemy_pos,
-                    dir: ae::Vec2::new(1.0, 0.0),
-                    speed: 200.0,
-                    damage: 3,
-                    max_lifetime: 2.0,
-                    half_extent: ae::Vec2::new(8.0, 8.0),
-                    owner_id: "player_volley".into(),
-                    gravity: 0.0,
-                },
-                ProjectileFaction::Player,
-            );
+        spawn_enemy_projectile(
+            &mut app,
+            EnemyProjectileSpawn {
+                origin: enemy_pos,
+                dir: ae::Vec2::new(1.0, 0.0),
+                speed: 200.0,
+                damage: 3,
+                max_lifetime: 2.0,
+                half_extent: ae::Vec2::new(8.0, 8.0),
+                owner_id: "player_volley".into(),
+                gravity: 0.0,
+            },
+            ProjectileFaction::Player,
+        );
 
         app.update();
 
@@ -349,10 +402,7 @@ mod tests {
             "it must NOT register as an enemy projectile (would hit the player)"
         );
         assert!(
-            app.world()
-                .resource::<EnemyProjectileState>()
-                .bodies
-                .is_empty(),
+            enemy_projectile_bodies(&mut app).is_empty(),
             "the shot expires on contact with the enemy"
         );
     }
@@ -382,7 +432,7 @@ mod tests {
         app.add_message::<SfxMessage>();
         app.add_message::<VfxMessage>();
         app.add_message::<crate::player::PlayerHealRequested>();
-        app.init_resource::<EnemyProjectileState>();
+        app.init_resource::<ProjectileSeqCounter>();
         app.add_systems(Update, update_enemy_projectiles);
 
         let player_pos = ae::Vec2::new(200.0, 200.0);
@@ -409,9 +459,9 @@ mod tests {
         // An enemy bolt overlapping the player, travelling left (toward where it
         // came from — at the player).
         let incoming = ae::Vec2::new(-300.0, 0.0);
-        app.world_mut()
-            .resource_mut::<EnemyProjectileState>()
-            .spawn(EnemyProjectileSpawn {
+        spawn_enemy_projectile(
+            &mut app,
+            EnemyProjectileSpawn {
                 origin: player_pos,
                 dir: incoming.normalize(),
                 speed: 300.0,
@@ -420,13 +470,15 @@ mod tests {
                 half_extent: ae::Vec2::new(8.0, 8.0),
                 owner_id: "boss_bolt".into(),
                 gravity: 0.0,
-            });
+            },
+            ProjectileFaction::Enemy,
+        );
 
         app.update();
 
-        let state = app.world().resource::<EnemyProjectileState>();
-        assert_eq!(state.bodies.len(), 1, "the parried bolt stays in flight");
-        let body = &state.bodies[0].body;
+        let bodies = enemy_projectile_bodies(&mut app);
+        assert_eq!(bodies.len(), 1, "the parried bolt stays in flight");
+        let body = &bodies[0].body;
         assert_eq!(
             body.game.faction,
             crate::projectile::ProjectileFaction::Player,

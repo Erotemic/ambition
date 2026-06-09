@@ -47,15 +47,18 @@ pub struct SandboxEventWriters<'w> {
 /// 16-`SystemParam` budget — without this they'd need a separate
 /// ResMut/Res for each piece.
 #[derive(SystemParam)]
-pub struct CombatRoomReset<'w> {
-    pub enemy_projectiles: ResMut<'w, crate::enemy_projectile::EnemyProjectileState>,
+pub struct CombatRoomReset<'w, 's> {
+    pub commands: Commands<'w, 's>,
+    // In-flight enemy projectiles are ECS entities now (Phase 3c-iii); despawn
+    // them instead of clearing a Vec.
+    pub enemy_projectiles: Query<'w, 's, Entity, With<crate::enemy_projectile::EnemyProjectile>>,
     pub slot_board: ResMut<'w, crate::combat::slots::CombatSlotsRes>,
     pub feature_overlay: Res<'w, crate::features::FeatureEcsWorldOverlay>,
     pub gravity: ResMut<'w, crate::physics::GravityField>,
     pub base_gravity: ResMut<'w, crate::physics::BaseGravity>,
 }
 
-impl<'w> CombatRoomReset<'w> {
+impl<'w, 's> CombatRoomReset<'w, 's> {
     /// Drop every in-flight enemy projectile + every slot
     /// reservation. Called by the room-transition path so a fresh
     /// arena doesn't inherit hostile shots or stale assignments
@@ -63,7 +66,9 @@ impl<'w> CombatRoomReset<'w> {
     /// reset path so a player death + respawn comes back to a
     /// clean combat state.
     pub fn clear_carryover(&mut self) {
-        self.enemy_projectiles.clear();
+        for entity in &self.enemy_projectiles {
+            self.commands.entity(entity).despawn();
+        }
         self.slot_board.0.clear_assignments();
         *self.gravity = crate::physics::GravityField::default();
         *self.base_gravity = crate::physics::BaseGravity::default();

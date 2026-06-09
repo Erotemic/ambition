@@ -1,15 +1,22 @@
-//! Live state for enemy-fired projectiles.
+//! Spawn-request → body mapping for enemy-fired projectiles.
+//!
+//! Phase 3c-iii moved the in-flight bodies off `EnemyProjectileState.bodies:
+//! Vec` onto ECS entities (`crate::enemy_projectile::entity`), mirroring the
+//! player pool. `EnemyProjectileState` survives as a (now field-less) resource:
+//! it owns no in-flight storage anymore, but it keeps the canonical
+//! request→body builder (`build`) that both the `SpawnProjectile` message path
+//! and the direct test spawns share, and it remains a stable type for the
+//! `Res<EnemyProjectileState>` references + room-reset hooks across the
+//! codebase (matching how the player pool kept `PlayerProjectileState` for its
+//! controller state).
 
 use crate::engine_core as ae;
 use bevy::prelude::Resource;
 
 /// A spawn request describing an enemy projectile. Built by the
 /// EFFECTS-stage consumer `spawn_enemy_projectiles_from_brain_actions`
-/// from an [`crate::brain::ActorActionMessage::Ranged`] and flushed
-/// into [`EnemyProjectileState::bodies`] by the same system. Boss
-/// projectiles still go through `BossRuntime::update`'s
-/// `outputs.projectile_spawns` field until the boss migration
-/// lands.
+/// from an [`crate::brain::ActorActionMessage::Ranged`] (and the boss
+/// special consumers) and turned into a body by [`EnemyProjectileState::build`].
 #[derive(Clone, Debug)]
 pub struct EnemyProjectileSpawn {
     pub origin: ae::Vec2,
@@ -29,42 +36,21 @@ pub struct EnemyProjectileSpawn {
     pub gravity: f32,
 }
 
-/// Bevy resource: every in-flight enemy projectile. Shares the unified
-/// [`crate::projectile::InFlightProjectile`] in-flight representation with
-/// the per-player projectile state.
+/// Bevy resource for the enemy-projectile pool. The in-flight bodies are ECS
+/// entities now (Phase 3c-iii); this type owns no `Vec` — it survives as a
+/// stable resource handle + the home of the [`Self::build`] request→body
+/// mapping.
 #[derive(Resource, Default)]
-pub struct EnemyProjectileState {
-    pub bodies: Vec<crate::projectile::InFlightProjectile>,
-}
+pub struct EnemyProjectileState;
 
 impl EnemyProjectileState {
-    /// Convert a spawn request into a live **enemy-faction** projectile body
-    /// and push it onto the in-flight list. The historical entry point — every
-    /// boss/enemy volley uses this; behavior is unchanged.
-    pub fn spawn(&mut self, request: EnemyProjectileSpawn) {
-        self.spawn_with_faction(request, crate::projectile::ProjectileFaction::Enemy);
-    }
-
-    /// Spawn a projectile of a chosen `faction` into the shared in-flight pool.
-    /// A `Player`-faction body is stamped so `update_enemy_projectiles` routes
-    /// its damage to enemies/bosses instead of the player — the substrate for a
-    /// player wielding a boss-style ranged attack (`crate::abilities::ranged::volley`). Enemy
-    /// faction reproduces [`Self::spawn`] exactly.
-    pub fn spawn_with_faction(
-        &mut self,
-        request: EnemyProjectileSpawn,
-        faction: crate::projectile::ProjectileFaction,
-    ) {
-        self.bodies.push(Self::build(request, faction));
-    }
-
     /// Build (but do not store) the in-flight projectile for `request` +
     /// `faction`. The single place the spawn-request → body mapping lives;
-    /// [`Self::spawn_with_faction`] pushes it directly, while the Phase-3b
-    /// fire paths emit it inside a
+    /// the fire paths emit it inside a
     /// [`crate::projectile::SpawnProjectile`] message that
-    /// `apply_enemy_spawn_projectile_messages` later pushes — same body either
-    /// way.
+    /// `apply_enemy_spawn_projectile_messages` later spawns as an entity, and
+    /// tests build it directly. The mapping is unchanged from the pre-entity
+    /// pool.
     pub fn build(
         request: EnemyProjectileSpawn,
         faction: crate::projectile::ProjectileFaction,
@@ -98,16 +84,12 @@ impl EnemyProjectileState {
             owner_id: request.owner_id,
         }
     }
-
-    /// Clear all in-flight bodies (room transition).
-    pub fn clear(&mut self) {
-        self.bodies.clear();
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::projectile::ProjectileFaction;
 
     fn spawn_request(speed: f32, damage: i32) -> EnemyProjectileSpawn {
         EnemyProjectileSpawn {
@@ -123,70 +105,54 @@ mod tests {
     }
 
     #[test]
-    fn spawn_tags_body_with_enemy_faction() {
-        let mut state = EnemyProjectileState::default();
-        state.spawn(spawn_request(120.0, 1));
-        assert_eq!(state.bodies.len(), 1);
-        assert_eq!(
-            state.bodies[0].body.game.faction,
-            crate::projectile::ProjectileFaction::Enemy
-        );
+    fn build_tags_body_with_enemy_faction() {
+        let proj = EnemyProjectileState::build(spawn_request(120.0, 1), ProjectileFaction::Enemy);
+        assert_eq!(proj.body.game.faction, ProjectileFaction::Enemy);
     }
 
     #[test]
-    fn spawn_records_owner_id_for_self_filter() {
-        let mut state = EnemyProjectileState::default();
-        state.spawn(spawn_request(120.0, 1));
-        assert_eq!(state.bodies[0].owner_id, "pirate_1");
+    fn build_records_owner_id_for_self_filter() {
+        let proj = EnemyProjectileState::build(spawn_request(120.0, 1), ProjectileFaction::Enemy);
+        assert_eq!(proj.owner_id, "pirate_1");
     }
 
     #[test]
-    fn spawn_zeroes_bounces_remaining_on_enemy_projectile() {
-        let mut state = EnemyProjectileState::default();
-        state.spawn(spawn_request(120.0, 1));
+    fn build_zeroes_bounces_remaining_on_enemy_projectile() {
         // Enemy projectiles travel in a straight line; the per-frame
         // update treats one-way platforms as solid and expires on
         // first contact. `from_spec` would normally give Fireball
-        // two bounces, but `EnemyProjectileState::spawn` zeroes the
-        // counter so the engine sees the no-bounce policy.
-        assert_eq!(state.bodies[0].body.game.bounces_remaining, 0);
+        // two bounces, but `build` zeroes the counter so the engine
+        // sees the no-bounce policy.
+        let proj = EnemyProjectileState::build(spawn_request(120.0, 1), ProjectileFaction::Enemy);
+        assert_eq!(proj.body.game.bounces_remaining, 0);
     }
 
     #[test]
-    fn spawn_clamps_zero_direction_to_right_facing() {
-        let mut state = EnemyProjectileState::default();
-        state.spawn(EnemyProjectileSpawn {
-            origin: ae::Vec2::ZERO,
-            dir: ae::Vec2::ZERO,
-            speed: 120.0,
-            damage: 1,
-            max_lifetime: 1.0,
-            half_extent: ae::Vec2::new(8.0, 8.0),
-            owner_id: "test".into(),
-            gravity: 0.0,
-        });
-        // A zero-length direction would NaN the initial_velocity; spawn
+    fn build_clamps_zero_direction_to_right_facing() {
+        let proj = EnemyProjectileState::build(
+            EnemyProjectileSpawn {
+                origin: ae::Vec2::ZERO,
+                dir: ae::Vec2::ZERO,
+                speed: 120.0,
+                damage: 1,
+                max_lifetime: 1.0,
+                half_extent: ae::Vec2::new(8.0, 8.0),
+                owner_id: "test".into(),
+                gravity: 0.0,
+            },
+            ProjectileFaction::Enemy,
+        );
+        // A zero-length direction would NaN the initial_velocity; build
         // defaults to (1, 0) so the projectile has a sensible direction.
-        let vel = state.bodies[0].body.kin.vel;
+        let vel = proj.body.kin.vel;
         assert!(vel.x > 0.0 && vel.y == 0.0, "got {vel:?}");
     }
 
     #[test]
-    fn spawn_clamps_zero_speed_and_damage_to_minimums() {
-        let mut state = EnemyProjectileState::default();
-        state.spawn(spawn_request(0.0, 0));
-        let body = &state.bodies[0].body;
+    fn build_clamps_zero_speed_and_damage_to_minimums() {
+        let proj = EnemyProjectileState::build(spawn_request(0.0, 0), ProjectileFaction::Enemy);
+        let body = &proj.body;
         assert!(body.kin.vel.length() >= 1.0, "speed clamped to >= 1.0");
         assert!(body.game.damage >= 1, "damage clamped to >= 1");
-    }
-
-    #[test]
-    fn clear_drops_all_in_flight_bodies() {
-        let mut state = EnemyProjectileState::default();
-        state.spawn(spawn_request(120.0, 1));
-        state.spawn(spawn_request(120.0, 1));
-        assert_eq!(state.bodies.len(), 2);
-        state.clear();
-        assert!(state.bodies.is_empty());
     }
 }

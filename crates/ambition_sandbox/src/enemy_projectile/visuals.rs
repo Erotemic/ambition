@@ -10,10 +10,20 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
 use super::entity::EnemyProjectile;
-use crate::projectile::{ProjectileGameplay, ProjectileOwnerId};
+use crate::projectile::{ProjectileOwnerId, ProjectileVisualLink, VisualProjectile};
 
 #[derive(Component)]
 pub struct EnemyProjectileVisual;
+
+/// Which art an enemy-projectile visual uses, recorded at spawn so the
+/// per-frame refresh applies the right transform (rotation for the spinning
+/// lasersword, flip for the rectangle, position-only for the apple).
+#[derive(Component, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum EnemyVisualKind {
+    Apple,
+    Lasersword,
+    Rect,
+}
 
 /// `owner_id` prefix stamp used by GNU-ton's apple-rain attack so the
 /// visuals layer can swap the default red rectangle for the generated
@@ -98,53 +108,100 @@ fn is_lasersword_owner(owner_id: &str) -> bool {
     owner_id.starts_with(LASERSWORD_OWNER_PREFIX)
 }
 
+/// Maintain a persistent sprite for each in-flight enemy projectile entity
+/// (Phase 3d): spawn one when the projectile appears (kind picked from
+/// `owner_id`), refresh its transform each frame, despawn it when the
+/// projectile entity is gone. Mirrors the player pool's persistent visuals.
 pub fn sync_enemy_projectile_visuals(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     world: Res<crate::GameWorld>,
-    // In-flight enemy projectiles are ECS entities now (Phase 3c-iii). Read
-    // each one's body + owner-id directly; the sprite is still rebuilt each
-    // frame (Phase 3d makes the SPRITE persistent too — the sim entities are
-    // already persistent).
-    projectiles: Query<
-        (
-            &crate::player::BodyKinematics,
-            &ProjectileGameplay,
-            &ProjectileOwnerId,
-        ),
-        With<EnemyProjectile>,
+    // Enemy projectiles that don't yet have a visual get one spawned.
+    new_projectiles: Query<
+        (Entity, &crate::player::BodyKinematics, &ProjectileOwnerId),
+        (With<EnemyProjectile>, Without<ProjectileVisualLink>),
     >,
-    existing: Query<Entity, With<EnemyProjectileVisual>>,
+    // Live bodies for the per-frame transform refresh.
+    bodies: Query<&crate::player::BodyKinematics, With<EnemyProjectile>>,
+    mut visuals: Query<
+        (
+            Entity,
+            &VisualProjectile,
+            &EnemyVisualKind,
+            &mut Transform,
+            &mut Sprite,
+        ),
+        With<EnemyProjectileVisual>,
+    >,
 ) {
-    for entity in &existing {
-        commands.entity(entity).despawn();
-    }
     let apple_texture = asset_server.load(APPLE_SPRITE_PATH);
     let lasersword_texture = asset_server.load(LASERSWORD_SHEET_PATH);
-    for (kin, _game, owner) in &projectiles {
+
+    // Spawn one persistent visual per NEW enemy projectile entity.
+    for (proj_entity, kin, owner) in &new_projectiles {
         let render_size = bevy::math::Vec2::new((kin.size.x).max(8.0), (kin.size.y).max(8.0));
         let translation =
             crate::config::world_to_bevy(&world.0, kin.pos, crate::config::WORLD_Z_PLAYER + 1.8);
-        if is_apple_owner(&owner.0) {
-            spawn_apple_visual(&mut commands, &apple_texture, translation, render_size);
+        let visual = if is_apple_owner(&owner.0) {
+            spawn_apple_visual(
+                &mut commands,
+                &apple_texture,
+                translation,
+                render_size,
+                proj_entity,
+            )
+        } else if is_lasersword_owner(&owner.0) {
+            spawn_lasersword_visual(
+                &mut commands,
+                &lasersword_texture,
+                translation,
+                kin.vel,
+                proj_entity,
+            )
+        } else {
+            // Hostile orange-red: readable against the sky-blue background
+            // of the pirate arena and visually distinct from the warm
+            // yellow of player fireballs.
+            let tint = Color::srgba(1.0, 0.45, 0.18, 0.95);
+            let mut sprite = Sprite::from_color(tint, render_size);
+            sprite.flip_x = kin.vel.x < 0.0;
+            commands
+                .spawn((
+                    sprite,
+                    Transform::from_translation(translation),
+                    EnemyProjectileVisual,
+                    EnemyVisualKind::Rect,
+                    VisualProjectile(proj_entity),
+                    Name::new("Enemy projectile"),
+                ))
+                .id()
+        };
+        commands
+            .entity(proj_entity)
+            .insert(ProjectileVisualLink(visual));
+    }
+
+    // Refresh existing visuals from their live body; despawn orphans whose
+    // projectile entity is gone.
+    for (visual_entity, link, kind, mut transform, mut sprite) in &mut visuals {
+        let Ok(kin) = bodies.get(link.0) else {
+            commands.entity(visual_entity).despawn();
             continue;
+        };
+        let z = crate::config::WORLD_Z_PLAYER + 1.8;
+        transform.translation = crate::config::world_to_bevy(&world.0, kin.pos, z);
+        match kind {
+            EnemyVisualKind::Apple => {}
+            EnemyVisualKind::Lasersword => {
+                // Re-align the blade to the live velocity each frame (the old
+                // per-frame rebuild recomputed the rotation from `vel`).
+                let (_, _, rotation) = lasersword_projectile_sprite(sprite.image.clone(), kin.vel);
+                transform.rotation = rotation;
+            }
+            EnemyVisualKind::Rect => {
+                sprite.flip_x = kin.vel.x < 0.0;
+            }
         }
-        if is_lasersword_owner(&owner.0) {
-            spawn_lasersword_visual(&mut commands, &lasersword_texture, translation, kin.vel);
-            continue;
-        }
-        // Hostile orange-red: readable against the sky-blue background
-        // of the pirate arena and visually distinct from the warm
-        // yellow of player fireballs.
-        let tint = Color::srgba(1.0, 0.45, 0.18, 0.95);
-        let mut sprite = Sprite::from_color(tint, render_size);
-        sprite.flip_x = kin.vel.x < 0.0;
-        commands.spawn((
-            sprite,
-            Transform::from_translation(translation),
-            EnemyProjectileVisual,
-            Name::new("Enemy projectile"),
-        ));
     }
 }
 
@@ -158,19 +215,24 @@ fn spawn_lasersword_visual(
     texture: &Handle<Image>,
     translation: bevy::math::Vec3,
     vel: crate::engine_core::Vec2,
-) {
+    projectile: Entity,
+) -> Entity {
     let (sprite, anchor, rotation) = lasersword_projectile_sprite(texture.clone(), vel);
-    commands.spawn((
-        sprite,
-        anchor,
-        Transform {
-            translation,
-            rotation,
-            scale: Vec3::ONE,
-        },
-        EnemyProjectileVisual,
-        Name::new("Lasersword projectile"),
-    ));
+    commands
+        .spawn((
+            sprite,
+            anchor,
+            Transform {
+                translation,
+                rotation,
+                scale: Vec3::ONE,
+            },
+            EnemyProjectileVisual,
+            EnemyVisualKind::Lasersword,
+            VisualProjectile(projectile),
+            Name::new("Lasersword projectile"),
+        ))
+        .id()
 }
 
 /// Generated apple projectile sprite, scaled to match the projectile
@@ -180,16 +242,21 @@ fn spawn_apple_visual(
     texture: &Handle<Image>,
     translation: bevy::math::Vec3,
     render_size: bevy::math::Vec2,
-) {
+    projectile: Entity,
+) -> Entity {
     let mut sprite = Sprite::from_image(texture.clone());
     sprite.custom_size = Some(bevy::math::Vec2::new(
         render_size.x * 1.12,
         render_size.y * 1.12,
     ));
-    commands.spawn((
-        sprite,
-        Transform::from_translation(translation),
-        EnemyProjectileVisual,
-        Name::new("GNU-ton apple"),
-    ));
+    commands
+        .spawn((
+            sprite,
+            Transform::from_translation(translation),
+            EnemyProjectileVisual,
+            EnemyVisualKind::Apple,
+            VisualProjectile(projectile),
+            Name::new("GNU-ton apple"),
+        ))
+        .id()
 }

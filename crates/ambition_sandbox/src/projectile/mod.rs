@@ -41,6 +41,8 @@ pub use spawn_message::{ProjectilePool, SpawnProjectile};
 pub use state::PlayerProjectileState;
 pub use systems::{apply_player_spawn_projectile_messages, update_projectiles};
 pub use visuals::{sync_projectile_visuals, PlayerProjectileVisual};
+#[allow(unused_imports)]
+pub use visuals::{ProjectileVisualLink, VisualProjectile};
 
 #[cfg(test)]
 mod engine_tests;

@@ -1,33 +1,48 @@
-//! Per-frame Bevy sprite entities for in-flight projectiles plus the
+//! Persistent Bevy sprite entities for in-flight projectiles plus the
 //! charge-indicator quad in front of the player.
+//!
+//! Phase 3d: the projectile SPRITE now rides the projectile entity. When a
+//! projectile entity appears, one visual entity is spawned for it and linked
+//! back via [`VisualProjectile`]; each frame the visual's transform (+ flip) is
+//! refreshed from the live body; when the projectile entity despawns, its
+//! visual is despawned. No more despawn-and-respawn-every-frame ring.
 
 use crate::engine_core as ae;
 use bevy::prelude::*;
 
-/// Marker on the per-frame projectile sprite entities produced by
-/// [`sync_projectile_visuals`]. Despawned and rebuilt each tick so
-/// the entity set always matches `PlayerProjectileState::bodies`.
+/// Marker on the persistent per-projectile sprite entity produced by
+/// [`sync_projectile_visuals`]. One per in-flight player projectile entity,
+/// reused frame to frame (Phase 3d).
 #[derive(Component)]
 pub struct PlayerProjectileVisual;
 
+/// Back-reference from a projectile visual to its sim projectile entity. Used
+/// to refresh the visual's transform each frame and to despawn the visual once
+/// the projectile entity is gone.
+#[derive(Component, Clone, Copy)]
+pub struct VisualProjectile(pub Entity);
+
+/// Forward link from a projectile entity to its spawned visual entity, so the
+/// "spawn a visual for projectiles that don't have one yet" pass is idempotent
+/// (a projectile is only matched while it lacks this component).
+#[derive(Component, Clone, Copy)]
+pub struct ProjectileVisualLink(#[allow(dead_code)] pub Entity);
+
 /// Marker on the charge-indicator sprite that hovers in front of
 /// the player while they're holding the fire button. Rebuilt each
-/// tick from `PlayerProjectileState::charging` like the projectile
-/// sprites, so it disappears the moment the charge resolves.
+/// tick from `PlayerProjectileState::charging` like before — it is a
+/// transient per-player indicator, not a per-projectile entity.
 #[derive(Component)]
 pub struct PlayerChargeVisual;
 
-/// Draw a sprite for each in-flight player projectile + the per-player
-/// charge indicator. Runs after `update_projectiles` (which steps the
-/// projectile entities) and on the presentation half only — headless
-/// skips visuals entirely.
+/// Draw + maintain a persistent sprite for each in-flight player projectile +
+/// the per-player charge indicator. Runs after `update_projectiles` (which
+/// steps / despawns the projectile entities) and on the presentation half only.
 ///
-/// Despawn-and-respawn is the simplest match for a small ring of
-/// short-lived projectiles (typical in-flight count is 1–3, capped by
-/// the spawner's cooldown + resource meter). Phase 3d will make these
-/// persistent (one sprite per projectile entity, reused frame to frame);
-/// for now they are rebuilt each frame from the simulation projectile
-/// entities (which ARE persistent — only the VISUAL is rebuilt).
+/// The charge indicator is still rebuilt each frame (it is a transient
+/// per-player UI element, not a per-projectile entity). The projectile sprites
+/// are persistent (Phase 3d): spawned on first sight, transform-updated each
+/// frame, despawned when their projectile entity is gone.
 pub fn sync_projectile_visuals(
     mut commands: Commands,
     world: Res<crate::GameWorld>,
@@ -41,20 +56,27 @@ pub fn sync_projectile_visuals(
         ),
         With<crate::player::PlayerEntity>,
     >,
-    // In-flight player projectiles are now ECS entities (Phase 3c-ii).
-    projectiles: Query<
+    // In-flight player projectiles are ECS entities (Phase 3c-ii). Projectiles
+    // that don't yet have a visual (no `ProjectileVisualLink`) get one spawned.
+    new_projectiles: Query<
         (
+            Entity,
             &crate::player::BodyKinematics,
             &crate::projectile::ProjectileGameplay,
         ),
-        With<crate::projectile::PlayerProjectile>,
+        (
+            With<crate::projectile::PlayerProjectile>,
+            Without<ProjectileVisualLink>,
+        ),
     >,
-    existing: Query<Entity, With<PlayerProjectileVisual>>,
+    // Live bodies for the transform refresh of already-linked projectiles.
+    bodies: Query<&crate::player::BodyKinematics, With<crate::projectile::PlayerProjectile>>,
+    mut visuals: Query<
+        (Entity, &VisualProjectile, &mut Transform, &mut Sprite),
+        With<PlayerProjectileVisual>,
+    >,
     existing_charge: Query<Entity, With<PlayerChargeVisual>>,
 ) {
-    for entity in &existing {
-        commands.entity(entity).despawn();
-    }
     for entity in &existing_charge {
         commands.entity(entity).despawn();
     }
@@ -106,8 +128,8 @@ pub fn sync_projectile_visuals(
         }
     } // end per-player charge loop
 
-    // One sprite per in-flight player projectile entity (all owners).
-    for (kin, game) in &projectiles {
+    // Spawn one persistent sprite per NEW in-flight player projectile entity.
+    for (proj_entity, kin, game) in &new_projectiles {
         let render_size = bevy::math::Vec2::new((kin.size.x).max(8.0), (kin.size.y).max(8.0));
         // Hadouken tint (cooler / blue-shifted) vs Fireball (warmer
         // orange). The tint applies whether or not the textured sprite
@@ -131,21 +153,41 @@ pub fn sync_projectile_visuals(
         // Flip the sprite to face travel direction so a leftward
         // fireball doesn't look upside-down.
         sprite.flip_x = kin.vel.x < 0.0;
-        commands.spawn((
-            sprite,
-            Transform::from_translation(crate::config::world_to_bevy(
-                &world.0,
-                kin.pos,
-                crate::config::WORLD_Z_PLAYER + 2.0,
-            )),
-            PlayerProjectileVisual,
-            Name::new(match game.kind {
-                crate::projectile::ProjectileKind::Fireball => "Player projectile: fireball",
-                crate::projectile::ProjectileKind::Hadouken => "Player projectile: hadouken",
-                crate::projectile::ProjectileKind::HadoukenSuper => {
-                    "Player projectile: hadouken_super"
-                }
-            }),
-        ));
+        let visual = commands
+            .spawn((
+                sprite,
+                Transform::from_translation(crate::config::world_to_bevy(
+                    &world.0,
+                    kin.pos,
+                    crate::config::WORLD_Z_PLAYER + 2.0,
+                )),
+                PlayerProjectileVisual,
+                VisualProjectile(proj_entity),
+                Name::new(match game.kind {
+                    crate::projectile::ProjectileKind::Fireball => "Player projectile: fireball",
+                    crate::projectile::ProjectileKind::Hadouken => "Player projectile: hadouken",
+                    crate::projectile::ProjectileKind::HadoukenSuper => {
+                        "Player projectile: hadouken_super"
+                    }
+                }),
+            ))
+            .id();
+        commands
+            .entity(proj_entity)
+            .insert(ProjectileVisualLink(visual));
+    }
+
+    // Refresh existing visuals from their live body; despawn orphans whose
+    // projectile entity is gone (expired / hit this frame).
+    for (visual_entity, link, mut transform, mut sprite) in &mut visuals {
+        let Ok(kin) = bodies.get(link.0) else {
+            commands.entity(visual_entity).despawn();
+            continue;
+        };
+        transform.translation =
+            crate::config::world_to_bevy(&world.0, kin.pos, crate::config::WORLD_Z_PLAYER + 2.0);
+        // Track travel direction each frame (a fireball can reverse x on a
+        // wall bounce) so the rendered flip matches the old per-frame rebuild.
+        sprite.flip_x = kin.vel.x < 0.0;
     }
 }

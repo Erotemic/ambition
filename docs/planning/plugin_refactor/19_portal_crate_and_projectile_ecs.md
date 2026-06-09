@@ -332,8 +332,82 @@ Runtime 34, sandbox `--lib` 1428 (incl. the 13 rewritten + the brain_effects /
 sentry / meteor / volley enemy suites), `architecture_boundaries` 16,
 `scripted_gameplay` 1, `replay_fixture` 3 — all green, **zero divergence**.
 
-**3c-iii (enemy pool) + 3d (persistent visuals): NOT STARTED — checkpoint here.**
-The original deferral rationale (kept for the enemy pool, still accurate):
+**3c-iii — enemy/boss pool → ECS entities ✅ DONE (commit `8fc89d4d`).** Mirrors
+the player pool. Each in-flight enemy/boss projectile is now one entity (new
+`crate::enemy_projectile::entity` module) carrying: the SHARED `BodyKinematics`
+("tag + go" for Phase 4) + `ProjectileGameplay` (marker/state, faction routes
+damage) + `ProjectileSeq(u64)` from the SHARED `ProjectileSeqCounter` +
+`ProjectileOwnerId(String)` (visuals routing / self-filter) + an `EnemyProjectile`
+marker (mirrors `PlayerProjectile`). **NO `ProjectileOwner(Entity)`** — enemy hits
+always set `HitEvent::attacker = None`, so only the owner-id string is needed
+(the one component the player pool carried that the enemy pool does not).
+- `apply_enemy_spawn_projectile_messages` now SPAWNS an entity (was: push to
+  `EnemyProjectileState.bodies`). Still scheduled BEFORE `update_enemy_projectiles`,
+  so a body spawned this tick advances one step this frame — identical latency.
+- `update_enemy_projectiles` is now an ECS system: it collects the enemy
+  projectile entities, **sorts by `ProjectileSeq`** (Bevy iteration order is
+  unspecified; seq reproduces the old `Vec` push order, oldest first), then steps
+  each in that stable order: tick → faction routing (Player-faction shot damages
+  enemies/bosses + expires; else parry-reflect / player-damage) → world collision
+  → keep/despawn. Same intra-frame event ordering as the old `std::mem::take` +
+  `keep` loop.
+- B0001 disjointness (mirror of the player fix): the mutable projectile query
+  (`&mut BodyKinematics`) got `Without<PlayerEntity>` + `Without<FeatureSimEntity>`
+  (disjoint from the player / actor / boss body queries); `player_body_q` got
+  `Without<EnemyProjectile>`.
+- `EnemyProjectileState` KEEPS the canonical request→body builder (`build`); only
+  `.bodies: Vec` left (the resource is now field-less but survives as a stable
+  handle + the build home). **Room reset** (`reset_ecs_room_features` +
+  `CombatRoomReset::clear_carryover`) now DESPAWNS `EnemyProjectile` entities
+  instead of clearing the Vec (the player pool's short-lived projectiles aren't
+  cleared on reset, but enemy volleys must be — preserved).
+- **~15 tests rewritten** to query entities via new
+  `crate::enemy_projectile::test_support` helpers (`spawn_enemy_projectile` /
+  `enemy_projectile_bodies`, mirroring the player pool's `spawn_player_projectile`
+  / `projectile_bodies`): `brain_effects` ×9 (non-pirate origin, dead-actor drop,
+  apple-rain interval / reset-window / self-aabb / full-width, overfit
+  seeded-samples / once-per-strike, ignores-non-special), `sentry` ×2, `meteor`
+  ×3, `volley` ×2, plus the 2 in `systems.rs` (player-faction-damages-enemy,
+  parry-reflect). Each ported faithfully (same counts / positions / faction /
+  velocity / expiry), not weakened. The `state.rs` unit tests were retargeted from
+  `spawn`/`clear` (which no longer exist) onto `build` (5 tests; net −1 vs the old
+  6 spawn/clear tests).
+- Visuals (`sync_enemy_projectile_visuals`) + `debug_overlay` now read the enemy
+  projectile ENTITIES instead of `.bodies`.
+Runtime 34, sandbox `--lib` 1427, `architecture_boundaries` 16, `scripted_gameplay`
+3, `replay_fixture` 1 — all green, **zero divergence**.
+
+**3d — persistent entity visuals ✅ DONE (commit `b15b7ae9`).** The projectile SPRITE
+now RIDES the projectile entity for BOTH pools (was: despawn-all + respawn-all
+every frame). A portal-pool-agnostic link pair lives in `projectile::visuals`:
+`VisualProjectile(Entity)` (back-ref on the visual → its sim projectile) +
+`ProjectileVisualLink(Entity)` (forward link on the projectile, makes the
+"spawn-for-projectiles-without-a-visual" pass idempotent via `Without<…>`).
+- `sync_projectile_visuals` (player) + `sync_enemy_projectile_visuals` (enemy):
+  (1) spawn ONE persistent visual per projectile that lacks a link (sprite/kind
+  chosen once — fireball/hadouken tint for the player; apple / spinning-lasersword
+  / orange rectangle for the enemy via `owner_id`), insert the link; (2) refresh
+  every linked visual's transform from the live body each frame; (3) despawn a
+  visual whose projectile entity is gone (orphan). Velocity-dependent bits stay
+  per-frame so the rendered result is IDENTICAL: player `flip_x`, enemy rectangle
+  `flip_x`, enemy lasersword z-rotation (recomputed from `vel`); the apple is
+  position-only. The charge indicator stays a per-frame transient (it is per-player
+  UI, not a per-projectile entity). The marker components
+  (`PlayerProjectileVisual` / `EnemyProjectileVisual`) are unchanged so the
+  hide/placeholder-sprite overrides keep working. Render-gated (visible binary
+  only) — headless sim is untouched; **zero divergence**; sandbox `--lib` 1427,
+  `architecture_boundaries` 16, `scripted_gameplay` 3, `replay_fixture` 1 green.
+
+**Phase 3 is now FULLY COMPLETE** (3a → 3d). Projectiles are entities carrying the
+shared `BodyKinematics`, the spawn is message-decoupled, the step loops are ECS +
+seq-ordered, and the sprites are persistent. **Phase 4 ("tag projectile entities
+with `PortalBody` + a transit policy") can begin** — the bodies already carry the
+exact component portal transit queries.
+
+---
+
+#### Historical deferral rationale (3c-iii / 3d, pre-execution — kept for record):
+The original deferral rationale (was kept for the enemy pool):
 
   1. **Two pools, ~15 tests assert on the `Vec` directly.** The enemy pool is a
      `Res<EnemyProjectileState>` whose `.bodies: Vec` is read by ~15 unit tests
@@ -364,20 +438,13 @@ The original deferral rationale (kept for the enemy pool, still accurate):
      + the projectile unit suites are the real judges and must be watched.
 
   **3c plan (smaller, individually-gated steps):** (i) ✅ DONE — see 3c-i above.
-  (ii) ✅ DONE — see 3c-ii above. (iii) Convert the **enemy pool** + rewrite its
-  ~15 tests — gate, commit. (iv) 3d persistent visuals. Each step stays
-  zero-divergence on `scripted_gameplay` + the projectile suites or it does not
-  land.
+  (ii) ✅ DONE — see 3c-ii above. (iii) ✅ DONE — see 3c-iii above. (iv) 3d ✅
+  DONE — see 3d above. Each step stayed zero-divergence on `scripted_gameplay` +
+  the projectile suites.
 
-**3d — persistent entity visuals: NOT STARTED** (depends on 3c-iii; the player
-pool's sim is now entities but its SPRITE is still rebuilt each frame).
-
-**Net:** 3a + 3b + 3c-i + 3c-ii landed clean and bit-identical (the type split,
-the spawn-decoupling, the actor-query guard, and the player pool's entity
-migration). 3c-iii (enemy pool) + 3d remain; they are mechanical but wide
-(enemy pool drives ~15 brain_effects/sentry/meteor/volley unit tests), and the
-right call was to checkpoint here per the requested human gate after the player
-pool lands.
+**Net:** 3a + 3b + 3c-i + 3c-ii + 3c-iii + 3d all landed clean and bit-identical
+(the type split, the spawn-decoupling, the actor-query guard, both pools' entity
+migration, and persistent sprites). **Phase 3 is COMPLETE; Phase 4 can begin.**
 
 **Phase 4 — Projectiles transit portals (the demo).** Tag projectile entities with
 `PortalBody` + the transit policy → they use the one generic algorithm. Delete

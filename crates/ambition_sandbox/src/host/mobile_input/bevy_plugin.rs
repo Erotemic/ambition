@@ -133,6 +133,15 @@ impl Plugin for TouchControlsPlugin {
                     update_buttons_from_interactions,
                     fold_to_menu_control_frame
                         .after(crate::app::populate_menu_control_frame_from_actions)
+                        // Must run AFTER update_buttons_from_interactions so it
+                        // reads this frame's MobileTouchState, not last frame's.
+                        // Without this pin Bevy is free (based on conflict graph)
+                        // to run the fold first, reading the stale value and
+                        // missing every button press. The e90e3e58 commit changed
+                        // fold_to_menu_control_frame's ResMut footprint
+                        // (added ActiveInputKind), which silently changed Bevy's
+                        // implicit ordering and broke the menu Start button.
+                        .after(update_buttons_from_interactions)
                         .before(crate::app::apply_menu_frame_to_cutscene_request)
                         // Bug 2: the touch joystick must reach
                         // `MenuControlFrame.up/down/left/right` BEFORE the
@@ -156,6 +165,9 @@ impl Plugin for TouchControlsPlugin {
                         // resets ControlFrame to defaults / leafwing's
                         // values and stomps the touch button merge.
                         .after(crate::app::populate_control_frame_from_actions)
+                        // Same issue as fold_to_menu_control_frame above:
+                        // must see this frame's button state.
+                        .after(update_buttons_from_interactions)
                         // ALSO run before the player tick so the
                         // merged ControlFrame is visible to the sim
                         // on the same frame. Without this, Bevy is

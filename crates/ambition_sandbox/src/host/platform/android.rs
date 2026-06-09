@@ -31,6 +31,22 @@ use bevy::window::{AppLifecycle, WindowFocused, WindowOccluded};
 #[cfg(target_os = "android")]
 use crate::game_mode::GameMode;
 
+// Bevy's CosmicFontSystem is initialized with an empty fontdb (no system
+// fonts loaded). On Android, /system/fonts/ holds Roboto etc., which
+// fontdb won't find on its own. We seed it at Startup so that cosmic-text
+// always has at least one font face before text shaping can be triggered —
+// otherwise it panics with "no default font found" during the first frame
+// before the async asset server delivers the game's custom fonts.
+#[cfg(target_os = "android")]
+fn seed_android_system_fonts(mut font_system: ResMut<bevy::text::CosmicFontSystem>) {
+    font_system.0.db_mut().load_fonts_dir("/system/fonts");
+    bevy::log::info!(
+        target: "ambition::android_platform",
+        "android: seeded fontdb with {} face(s) from /system/fonts",
+        font_system.0.db().faces().count()
+    );
+}
+
 /// Bevy plugin for Android-only setup.
 ///
 /// Wires the suspend/resume handler that pauses the game + audio
@@ -42,6 +58,7 @@ impl Plugin for AndroidPlatformPlugin {
         #[cfg(target_os = "android")]
         {
             _app.init_resource::<AndroidSuspendState>();
+            _app.add_systems(Startup, seed_android_system_fonts);
             _app.add_systems(PreUpdate, detect_android_suspend_state);
             _app.add_systems(Update, apply_android_suspend_to_game_mode);
             #[cfg(feature = "audio")]

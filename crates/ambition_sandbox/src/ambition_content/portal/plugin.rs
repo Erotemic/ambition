@@ -11,9 +11,12 @@ use bevy::prelude::*;
 
 use crate::portal::{
     clear_portals_on_reset, portal_fire_system, portal_teleport_ground_items, portal_transit,
-    publish_portal_carves, warp_portal_input, PortalSet,
+    publish_portal_carves, PortalSet,
 };
 
+use super::ability_adapter::{
+    suppress_ledge_grab_during_transit, warp_portal_input, SuppressWallAbilitiesInPortal,
+};
 use super::carve_adapter::bridge_portal_carves;
 use super::fire_adapter::resolve_portal_fire_intent;
 use super::input_adapter::portal_input_adapter_system;
@@ -33,6 +36,28 @@ pub struct AmbitionPortalAdaptersPlugin;
 
 impl Plugin for AmbitionPortalAdaptersPlugin {
     fn build(&self, app: &mut App) {
+        // The wall-ability suppression toggle is an Ambition ability-policy
+        // resource (the suppressed thing is a PLAYER ability), so it is owned
+        // here, not in the portal crate (Stage 19 Phase 5a).
+        app.init_resource::<SuppressWallAbilitiesInPortal>();
+
+        // Input-shaping warp: apply the portal-owned `PortalInputWarp` /
+        // `PortalEmission` guards to the player's movement intent. INPUT is not a
+        // crate concern (Stage 19 Phase 5a) — registered here in the same
+        // `PortalSet::InputWarp` slot the core used; `app/plugins.rs` still wires
+        // that set into `PlayerInput` and the intent brackets around it.
+        app.add_systems(Update, warp_portal_input.in_set(PortalSet::InputWarp));
+
+        // Suppress ledge-grab while transiting so the carved aperture edges are
+        // not grabbed before movement integration probes for a ledge. Mutates the
+        // player's `PlayerAbilities`, so it is Ambition ability glue (Stage 19
+        // Phase 5a), registered in the same `PortalSet::TransitGuards` slot the
+        // core used.
+        app.add_systems(
+            Update,
+            suppress_ledge_grab_during_transit.in_set(PortalSet::TransitGuards),
+        );
+
         // Bridge portal-owned carves → the host collision overlay. Runs in
         // `PortalSet::Carves` (which is `.before(CoreSimulation)`), after
         // `publish_portal_carves` fills `PortalCarves`, so the overlay sees the
@@ -260,8 +285,9 @@ mod schedule_tests {
     use crate::app::{configure_sandbox_sets, SandboxSet};
     use crate::input::ControlFrame;
     use crate::player::{PlayerEntity, PrimaryPlayer};
-    use crate::portal::{warp_portal_input, PlayerMovementIntent};
+    use crate::portal::PlayerMovementIntent;
 
+    use super::super::ability_adapter::warp_portal_input;
     use super::super::transit_adapter::{
         apply_movement_intent_to_control, sync_movement_intent_from_control,
     };

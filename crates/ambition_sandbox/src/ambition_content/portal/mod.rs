@@ -12,6 +12,7 @@
 //! This is the first slice of the `ambition_content` boundary (Stage 9 / Task H);
 //! Stage 11 / Task J expands it to the rest of the named Ambition content.
 
+mod ability_adapter;
 mod carve_adapter;
 mod fire_adapter;
 mod input_adapter;
@@ -22,6 +23,9 @@ mod shot_adapter;
 mod transit_adapter;
 mod transit_body_adapter;
 
+pub use ability_adapter::{
+    suppress_ledge_grab_during_transit, warp_portal_input, SuppressWallAbilitiesInPortal,
+};
 pub use carve_adapter::bridge_portal_carves;
 pub use fire_adapter::resolve_portal_fire_intent;
 pub use input_adapter::{pick_aim, portal_input_adapter_system};

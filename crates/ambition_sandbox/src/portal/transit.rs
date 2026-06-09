@@ -9,7 +9,6 @@ use crate::engine_core::{self as ae, AabbExt};
 use crate::platformer_runtime::body::BodyKinematics;
 use crate::platformer_runtime::orientation::ActorRoll;
 use crate::platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
-use crate::player::{PlayerEntity, PrimaryPlayer};
 use crate::portal::pieces as pp;
 
 use super::color::PortalChannel;
@@ -105,55 +104,6 @@ pub fn publish_portal_carves(
         }
         carves.holes.push(pp::carve_hole(&enter.frame()));
         carved.push(t.straddling);
-    }
-}
-
-/// Runtime toggle for [`suppress_ledge_grab_during_transit`]. Default ON; flip it
-/// off to play with ledge-grab / wall-movement INTO portals enabled (the
-/// "ledge-grab through a portal" experiment — see TODO.md). Toggleable at runtime
-/// (e.g. via the inspector) so both behaviors can be tried without a recompile.
-#[derive(Resource, Clone, Copy, Debug)]
-pub struct SuppressWallAbilitiesInPortal(pub bool);
-
-impl Default for SuppressWallAbilitiesInPortal {
-    fn default() -> Self {
-        Self(true)
-    }
-}
-
-/// While the player is mid-transit, suppress the wall abilities (ledge-grab,
-/// cling, wall-jump, wall-climb) so they don't latch onto the carved aperture
-/// EDGES — the carve splits the host block, and those new edges read as grabbable
-/// ledges / climbable walls, so you'd cling "into" a portal and pop back out the
-/// entry instead of sinking through and crossing.
-///
-/// IMPORTANT — this must re-apply EVERY frame, not set-once. `PlayerAbilities` is
-/// wholesale-reset to the editable loadout every frame
-/// (`sync_live_ability_edits_clusters`: `abilities.abilities = desired`), so a
-/// save-once/restore-on-exit pattern is clobbered after a single frame (that was
-/// the "disable didn't work" bug). Re-applying each frame is robust against that
-/// reset, AND needs no save/restore — when transit ends, the per-frame reset
-/// restores the loadout automatically. (The wider structural smell — transient
-/// ability mods fighting a per-frame wholesale reset — is noted in TODO.md.)
-/// Gated on [`SuppressWallAbilitiesInPortal`]. Runs before the movement integration.
-pub fn suppress_ledge_grab_during_transit(
-    toggle: Res<SuppressWallAbilitiesInPortal>,
-    mut players: Query<
-        (&mut crate::player::PlayerAbilities, Option<&PortalTransit>),
-        (With<PlayerEntity>, With<PrimaryPlayer>),
-    >,
-) {
-    if !toggle.0 {
-        return;
-    }
-    for (mut abilities, transiting) in &mut players {
-        if transiting.is_some() {
-            let a = &mut abilities.abilities;
-            a.ledge_grab = false;
-            a.wall_cling = false;
-            a.wall_jump = false;
-            a.wall_climb = false;
-        }
     }
 }
 
@@ -332,12 +282,6 @@ pub fn portal_transit(
     }
 }
 
-/// Movement-axis magnitude above which input counts as "held" (stick deadzone).
-const PORTAL_INPUT_HELD_EPS: f32 = 0.25;
-/// While warped, the live raw input may drift this far (cosine) from the anchor
-/// before it counts as a "clearly different" direction that drops the warp.
-const PORTAL_INPUT_WARP_KEEP_COS: f32 = 0.5;
-
 /// The input-layer fix for the same-wall ping-pong: after a portal crossing the
 /// player's HELD movement input is warped by the same portal map as velocity, so
 /// holding "right" into a left-facing pair keeps carrying you LEFT out the exit
@@ -368,70 +312,6 @@ pub struct PortalEmission {
     pub exit_normal: Vec2,
     /// Remaining protection time (s).
     pub timer: f32,
-}
-
-/// Apply the active portal input effects to the player's movement intent (which
-/// the content input adapter mirrors to/from the Ambition `ControlFrame` so the
-/// brain / movement see the adjusted axes): the same-wall held-input warp (soft —
-/// drops on release or a clearly different direction) and the emergence guard
-/// (held input can't push back into the exit wall while it's fresh). Both are
-/// deliberately mild so portals never feel like a hard input latch.
-///
-/// Portal-core decoupling: this reads and MUTATES the content-agnostic
-/// [`PlayerMovementIntent`] (the live movement axis for this frame), never the
-/// Ambition input type. The content adapter
-/// (`crate::ambition_content::portal::sync_movement_intent_from_control` /
-/// `apply_movement_intent_to_control`) brackets this system to copy
-/// `ControlFrame` axes into the intent before it runs and back out afterward, so
-/// the timing and result are byte-identical to mutating `ControlFrame` directly.
-pub fn warp_portal_input(
-    time: Option<Res<crate::WorldTime>>,
-    mut commands: Commands,
-    intent: Option<ResMut<PlayerMovementIntent>>,
-    mut player: Query<
-        (
-            Entity,
-            Option<&PortalInputWarp>,
-            Option<&mut PortalEmission>,
-        ),
-        (With<PlayerEntity>, With<PrimaryPlayer>),
-    >,
-) {
-    let Some(mut intent) = intent else {
-        return;
-    };
-    let Ok((entity, warp, emission)) = player.single_mut() else {
-        return;
-    };
-
-    // --- Same-wall held-input warp ---
-    if let Some(warp) = warp {
-        let raw = intent.dir;
-        if raw.length() < PORTAL_INPUT_HELD_EPS {
-            commands.entity(entity).remove::<PortalInputWarp>();
-        } else if warp.anchor.length() > 0.01
-            && raw.normalize_or_zero().dot(warp.anchor.normalize_or_zero())
-                < PORTAL_INPUT_WARP_KEEP_COS
-        {
-            commands.entity(entity).remove::<PortalInputWarp>();
-        } else {
-            intent.dir = pp::portal_map_vec(raw, warp.n_in, warp.n_out);
-        }
-    }
-
-    // --- Emergence guard: strip any held input that pushes back into the wall ---
-    if let Some(mut emission) = emission {
-        emission.timer -= time.as_deref().map_or(0.0, |t| t.sim_dt());
-        if emission.timer <= 0.0 {
-            commands.entity(entity).remove::<PortalEmission>();
-        } else {
-            let raw = intent.dir;
-            let into = raw.dot(emission.exit_normal); // < 0 = pushing into the wall
-            if into < 0.0 {
-                intent.dir = raw - into * emission.exit_normal;
-            }
-        }
-    }
 }
 
 /// A free in-flight body that should travel through a portal pair (thrown axes /

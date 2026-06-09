@@ -8,8 +8,7 @@ use super::schedule::PortalSet;
 use super::{
     clear_portals_on_reset, despawn_orphaned_portals, portal_fire_system,
     portal_teleport_ground_items, portal_toggle_system, portal_transit, publish_portal_carves,
-    suppress_ledge_grab_during_transit, tick_portal_cooldowns, warp_portal_input, BodyTeleported,
-    PlayerMovementIntent, PortalBodyTransited, PortalCarves, SuppressWallAbilitiesInPortal,
+    tick_portal_cooldowns, BodyTeleported, PlayerMovementIntent, PortalBodyTransited, PortalCarves,
 };
 use crate::platformer_runtime::orientation::{ensure_actor_roll, update_actor_roll};
 
@@ -54,7 +53,6 @@ impl Plugin for PortalSimulationPlugin {
         // from `ResetRoomFeaturesEvent` so core never names that event.
         app.add_message::<ClearPortals>();
         app.add_message::<PortalGunEquipped>();
-        app.init_resource::<SuppressWallAbilitiesInPortal>();
         // Portal-owned carve output. `publish_portal_carves` writes the aperture
         // geometry here; the Ambition bridge copies it into the host collision
         // overlay each frame (portal core never names `FeatureEcsWorldOverlay`).
@@ -89,7 +87,11 @@ impl Plugin for PortalSimulationPlugin {
         // `CoreSimulation`); that cross-set placement is declared sandbox-side.
         app.add_systems(Update, publish_portal_carves.in_set(PortalSet::Carves));
 
-        app.add_systems(Update, warp_portal_input.in_set(PortalSet::InputWarp));
+        // The Ambition input warp (`warp_portal_input`) is an INPUT-shaping
+        // adapter and lives in `crate::ambition_content::portal::ability_adapter`
+        // (registered in `PortalSet::InputWarp` there). Portal core owns only the
+        // marker components it sets on a crossing (`PortalInputWarp` /
+        // `PortalEmission`).
 
         // The Ambition input adapter (which translates ControlFrame into portal
         // intents) runs in PortalSet::InputAdapter, ordered before this set, so
@@ -133,12 +135,11 @@ impl Plugin for PortalSimulationPlugin {
 
         app.add_systems(Update, clear_portals_on_reset.in_set(PortalSet::RoomReset));
 
-        // Suppress ledge-grab while transiting so the carved aperture edges are
-        // not grabbed before movement integration probes for a ledge.
-        app.add_systems(
-            Update,
-            suppress_ledge_grab_during_transit.in_set(PortalSet::TransitGuards),
-        );
+        // Ledge-grab suppression while transiting (it mutates the PLAYER's
+        // `PlayerAbilities`) is an Ambition ability adapter and lives in
+        // `crate::ambition_content::portal::ability_adapter` (registered in
+        // `PortalSet::TransitGuards` there). Portal core owns only the
+        // `PortalTransit` latch it reads off.
 
         // Teleports run after player and ground-item integration so this frame's
         // integrated body positions are what cross the portal.

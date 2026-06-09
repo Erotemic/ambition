@@ -441,11 +441,20 @@ pub fn throw_held_item_system(
 // range. This is the player end of the held-gun-sword unification: the same
 // `RangedActionSpec` the pirates fire, driven by the player's `Attack`.
 
-/// An in-flight laser bolt fired from a held ranged item (gun-sword).
+/// An in-flight laser bolt fired from a held ranged item (gun-sword / fireball).
+///
+/// Stage 2026-06-09: the bolt's POSITION and VELOCITY now live in the shared
+/// [`BodyKinematics`] component (the same body the player and the ECS projectiles
+/// carry), so it rides the ONE generic [`portal_transit`](crate::portal::portal_transit)
+/// algorithm through portals instead of a parallel motion path. This component
+/// holds only the held-shot-specific gameplay: damage, range traveled, and the
+/// optional explosion. The entity also carries a marker
+/// [`ProjectileGameplay`](crate::projectile::ProjectileGameplay) so the actor-generic
+/// queries (auto-righting, actor portal tagging) skip it and
+/// `ensure_projectile_portal_bodies` opts it into transit with the free-flying
+/// projectile policy — exactly like the player/enemy ECS projectiles.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct HeldProjectile {
-    pub pos: Vec2,
-    pub vel: Vec2,
     pub damage: i32,
     pub traveled: f32,
     /// Half-extent of an explosion this shot triggers when it hits something.
@@ -458,20 +467,20 @@ const HELD_SHOT_MAX_RANGE: f32 = 1600.0;
 const HELD_SHOT_HALF: Vec2 = Vec2::new(12.0, 9.0);
 
 impl HeldProjectile {
-    /// The box that actually registers a hit on a body this tick. ONE source of
-    /// truth shared by the collision system (`held_projectile_step`) and the
-    /// debug overlay so the drawn box can never drift from the box that hits —
-    /// the cause of the "fireball hits before it touches the visible box" report
-    /// was that this contact box was simply never drawn.
-    pub fn contact_aabb(&self) -> ae::Aabb {
-        ae::Aabb::new(self.pos, HELD_SHOT_HALF)
+    /// The box that actually registers a hit on a body this tick, centered on the
+    /// body's current `pos`. ONE source of truth shared by the collision system
+    /// (`held_projectile_step`) and the debug overlay so the drawn box can never
+    /// drift from the box that hits — the cause of the "fireball hits before it
+    /// touches the visible box" report was that this contact box was never drawn.
+    pub fn contact_aabb(pos: Vec2) -> ae::Aabb {
+        ae::Aabb::new(pos, HELD_SHOT_HALF)
     }
 
     /// The splash box a Fireball detonates with on contact (`None` for a plain
     /// bolt). Drawn faintly around an in-flight fireball so the player can see
     /// the whole area-of-effect that will trigger, not just the thin bolt.
-    pub fn splash_aabb(&self) -> Option<ae::Aabb> {
-        (self.explode_half > 0.0).then(|| ae::Aabb::new(self.pos, Vec2::splat(self.explode_half)))
+    pub fn splash_aabb(&self, pos: Vec2) -> Option<ae::Aabb> {
+        (self.explode_half > 0.0).then(|| ae::Aabb::new(pos, Vec2::splat(self.explode_half)))
     }
 }
 
@@ -562,16 +571,51 @@ pub fn fire_held_ranged_system(
     } else {
         0.0
     };
-    commands.spawn_room_scoped((
-        HeldProjectile {
+    #[allow(unused_mut)]
+    let mut shot = commands.spawn_room_scoped((
+        // Position + velocity live in the shared body so portal transit moves the
+        // bolt (Stage 2026-06-09). Size matches the contact half-extent.
+        BodyKinematics {
             pos: origin,
             vel: dir * ranged.speed(),
+            size: HELD_SHOT_HALF * 2.0,
+            facing: if dir.x >= 0.0 { 1.0 } else { -1.0 },
+        },
+        // The projectile *marker*: excludes the bolt from actor-generic queries
+        // (auto-righting, actor portal tagging). Its kinematics are driven by
+        // `held_projectile_step` (keyed on `HeldProjectile`), not the ECS
+        // projectile step (keyed on `PlayerProjectile`), so this marker never
+        // double-steps the bolt.
+        crate::projectile::ProjectileGameplay {
+            kind: crate::projectile::ProjectileKind::Fireball,
+            faction: crate::projectile::ProjectileFaction::Player,
+            age: 0.0,
+            max_lifetime: f32::MAX,
+            gravity: 0.0,
+            damage: ranged.damage(),
+            bounces_remaining: 0,
+        },
+        HeldProjectile {
             damage: ranged.damage(),
             traveled: 0.0,
             explode_half,
         },
         Name::new("Held ranged shot"),
     ));
+    // Opt the bolt into the ONE generic portal transit AT SPAWN (not via the
+    // deferred `ensure_projectile_portal_bodies`), so the host-surface carve opens
+    // the SAME frame even for a point-blank shot at a portal — otherwise the bolt
+    // would detonate on the still-solid surface one frame before it gets tagged.
+    // `reorient: false, carry_velocity: true` is the free-flying projectile policy.
+    #[cfg(feature = "portal")]
+    shot.insert((
+        crate::portal::PortalBody,
+        crate::portal::PortalPolicy {
+            reorient: false,
+            carry_velocity: true,
+        },
+    ));
+    let _ = &shot;
     // A Fireball whooshes out (reusing the dash whoosh) rather than the gun-sword
     // laser zap, so it doesn't *sound* like a sword either; a bespoke ignite SFX
     // is a tracked follow-up (TODO section B "Fireball projectile sprite + SFX").
@@ -592,8 +636,16 @@ pub fn fire_held_ranged_system(
 pub fn held_projectile_step(
     time: Res<crate::WorldTime>,
     world: Res<crate::GameWorld>,
+    platform_set: Res<crate::MovingPlatformSet>,
+    overlay: Res<crate::features::FeatureEcsWorldOverlay>,
     mut commands: Commands,
-    mut projectiles: Query<(Entity, &mut HeldProjectile)>,
+    // `Without<FeatureSimEntity>` keeps this `&mut BodyKinematics` disjoint from
+    // the boss cluster query below (which reads `BodyKinematics` via
+    // `BossClusterRef`) — a held bolt is never a feature-sim entity (B0001).
+    mut projectiles: Query<
+        (Entity, &mut BodyKinematics, &mut HeldProjectile),
+        Without<crate::features::FeatureSimEntity>,
+    >,
     player: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     ecs_breakables: Query<
         (
@@ -633,12 +685,21 @@ pub fn held_projectile_step(
     if dt <= 0.0 {
         return;
     }
+    // Collide against the PORTAL-CARVED world (the same view the player and
+    // actors use): a portal punched through a wall leaves the opening non-solid,
+    // so a bolt fired at a wall portal flies INTO the opening instead of
+    // detonating on the wall — and `portal_transit` (which already moves this
+    // bolt's `BodyKinematics`) carries it out the far portal.
+    let collision_world =
+        crate::features::world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
     let attacker = player.single().ok();
-    for (entity, mut proj) in &mut projectiles {
+    for (entity, mut kin, mut proj) in &mut projectiles {
+        let pos = kin.pos;
+        let vel = kin.vel;
         // Damage check against actors / bosses / breakables via the shared
         // attacker-side channel. `PlayerProjectile` broadcasts to features.
         let hit_event = crate::features::HitEvent {
-            volume: proj.contact_aabb(),
+            volume: HeldProjectile::contact_aabb(pos),
             damage: proj.damage,
             source: crate::features::HitSource::PlayerProjectile {
                 kind: crate::projectile::ProjectileKind::Fireball,
@@ -657,7 +718,7 @@ pub fn held_projectile_step(
                 // Fireball: the splash box covers the body we hit plus anything
                 // around it, so skip the single-target write and detonate.
                 emit_fireball_explosion(
-                    proj.pos,
+                    pos,
                     proj.damage,
                     proj.explode_half,
                     attacker,
@@ -667,15 +728,20 @@ pub fn held_projectile_step(
                 );
             } else {
                 feature_damage.write(hit_event);
-                sfx.write(crate::audio::SfxMessage::Hit { pos: proj.pos });
+                sfx.write(crate::audio::SfxMessage::Hit { pos });
             }
             commands.entity(entity).despawn();
             continue;
         }
         // Solid wall in this step → impact + expire (Fireball detonates here too).
-        let step = (proj.vel * dt).length().max(1.0);
+        // Uses the carved world, so a portal opening is NOT a wall.
+        let step = (vel * dt).length().max(1.0);
         if let Some((hit_pos, _normal)) = crate::platformer_runtime::collision::raycast_solids(
-            &world.0, proj.pos, proj.vel, step, false,
+            &collision_world,
+            pos,
+            vel,
+            step,
+            false,
         ) {
             if proj.explode_half > 0.0 {
                 emit_fireball_explosion(
@@ -693,13 +759,13 @@ pub fn held_projectile_step(
             commands.entity(entity).despawn();
             continue;
         }
-        let delta = proj.vel * dt;
-        proj.pos += delta;
+        let delta = vel * dt;
+        kin.pos += delta;
         proj.traveled += delta.length();
-        let oob = proj.pos.x < -64.0
-            || proj.pos.y < -64.0
-            || proj.pos.x > world.0.size.x + 64.0
-            || proj.pos.y > world.0.size.y + 64.0;
+        let oob = kin.pos.x < -64.0
+            || kin.pos.y < -64.0
+            || kin.pos.x > world.0.size.x + 64.0
+            || kin.pos.y > world.0.size.y + 64.0;
         if proj.traveled > HELD_SHOT_MAX_RANGE || oob {
             commands.entity(entity).despawn();
         }
@@ -893,15 +959,15 @@ pub fn sync_held_projectile_visuals(
     asset_server: Res<AssetServer>,
     world: Res<crate::GameWorld>,
     visuals: Query<Entity, With<HeldProjectileVisual>>,
-    projectiles: Query<&HeldProjectile>,
+    projectiles: Query<(&BodyKinematics, &HeldProjectile)>,
 ) {
     for entity in &visuals {
         commands.entity(entity).despawn();
     }
     let lasersword = asset_server.load(crate::enemy_projectile::LASERSWORD_SHEET);
     let fireball = asset_server.load(format!("sprites/props/gauntlet_{FIREBALL_ID}.png"));
-    for proj in &projectiles {
-        let translation = crate::config::world_to_bevy(&world.0, proj.pos, 9.5);
+    for (kin, proj) in &projectiles {
+        let translation = crate::config::world_to_bevy(&world.0, kin.pos, 9.5);
         if proj.explode_half > 0.0 {
             // Fireball: a glowing ball, sized a touch over the contact box so the
             // fire visibly fills the space that hits. No rotation — it's radial.
@@ -918,7 +984,7 @@ pub fn sync_held_projectile_visuals(
             continue;
         }
         let (sprite, anchor, rotation) =
-            crate::enemy_projectile::lasersword_projectile_sprite(lasersword.clone(), proj.vel);
+            crate::enemy_projectile::lasersword_projectile_sprite(lasersword.clone(), kin.vel);
         commands.spawn((
             HeldProjectileVisual,
             sprite,
@@ -1137,16 +1203,18 @@ mod tests {
         // exact geometry the debug overlay draws, so the drawn box can't drift
         // from the box that registers a hit — the original "fireball hits
         // gnuton before it touches the visible box" report.
+        let pos = Vec2::new(50.0, 20.0);
         let bolt = HeldProjectile {
-            pos: Vec2::new(50.0, 20.0),
-            vel: Vec2::new(300.0, 0.0),
             damage: 3,
             traveled: 0.0,
             explode_half: 0.0,
         };
-        assert_eq!(bolt.contact_aabb(), ae::Aabb::new(bolt.pos, HELD_SHOT_HALF));
+        assert_eq!(
+            HeldProjectile::contact_aabb(pos),
+            ae::Aabb::new(pos, HELD_SHOT_HALF)
+        );
         assert!(
-            bolt.splash_aabb().is_none(),
+            bolt.splash_aabb(pos).is_none(),
             "a plain bolt has no splash AOE to draw"
         );
 
@@ -1155,11 +1223,8 @@ mod tests {
             ..bolt
         };
         assert_eq!(
-            fireball.splash_aabb(),
-            Some(ae::Aabb::new(
-                fireball.pos,
-                Vec2::splat(FIREBALL_EXPLODE_HALF)
-            )),
+            fireball.splash_aabb(pos),
+            Some(ae::Aabb::new(pos, Vec2::splat(FIREBALL_EXPLODE_HALF))),
             "a fireball's splash box is centered on the shot at its explode half-extent"
         );
     }

@@ -37,6 +37,8 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [ ] Cube arrow key navigation is still wrong. 
 
+- [ ] Portal floor-bounce STILL slowly bleeds momentum over MANY cycles and can eventually land on the ground (much rarer after the 2026-06-09 carve-lag + swept-carve + velocity-gated-rescue fixes; takes many cycles to trigger). Likely the residual one-frame sampling/grounding at the first contact of each bounce. Investigate a fully swept transit (crossing detected along the pre→post-collision segment, not just at sampled positions) or decoupling sim physics from render dt.
+
 ## Jon's Polish List
 
 - [ ] Fireballs and most projectiles need to be transitable through portals.

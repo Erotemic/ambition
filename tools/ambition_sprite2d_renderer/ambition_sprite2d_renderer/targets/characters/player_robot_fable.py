@@ -82,8 +82,8 @@ PAL: Dict[str, Color] = {
     "shell_top": _rgba("#FFFFFF"),
     "shell_side": _rgba("#E8E2DB"),
     "outline": _rgba("#17191F"),
-    "joint": _rgba("#5D646D"),
-    "joint_dark": _rgba("#333941"),
+    "joint": _rgba("#6B737E"),
+    "joint_dark": _rgba("#4C5560"),
     "visor": _rgba("#0B111C"),
     "glow": _rgba("#0CEBFF"),
     "accent": _rgba("#C58AFF"),
@@ -103,9 +103,9 @@ def _build_skeleton() -> Skeleton:
     sk.bone("torso", parent="pelvis", offset=(0.0, -4.0))
     sk.bone("head", parent="torso", offset=(1.0, -26.0))
     sk.bone("antenna", parent="head", offset=(-9.0, -14.5), length=10.0, rest_angle=-90.0)
-    sk.bone("far_arm_u", parent="torso", offset=(-3.0, -10.0), length=ARM_U, rest_angle=90.0)
+    sk.bone("far_arm_u", parent="torso", offset=(-1.5, -11.0), length=ARM_U, rest_angle=90.0)
     sk.bone("far_arm_l", parent="far_arm_u", offset=(ARM_U, 0.0), length=ARM_L)
-    sk.bone("near_arm_u", parent="torso", offset=(3.5, -9.5), length=ARM_U, rest_angle=90.0)
+    sk.bone("near_arm_u", parent="torso", offset=(3.0, -11.0), length=ARM_U, rest_angle=90.0)
     sk.bone("near_arm_l", parent="near_arm_u", offset=(ARM_U, 0.0), length=ARM_L)
     sk.bone("far_leg_u", parent="pelvis", offset=(-2.0, 2.0), length=LEG_U, rest_angle=90.0)
     sk.bone("far_leg_l", parent="far_leg_u", offset=(LEG_U, 0.0), length=LEG_L)
@@ -156,20 +156,26 @@ def _foot_painter():
 
 
 def _pelvis_painter(ctx: PartCtx) -> None:
-    pts = [(-9.0, -2.8), (9.0, -2.8), (8.0, 4.2), (-8.0, 4.2)]
+    # Slight forward (+x) taper so the hips read as facing right.
+    pts = [(-8.6, -2.8), (9.2, -2.8), (8.4, 4.2), (-7.4, 4.2)]
     poly = rounded_polygon(ctx.pts(pts), radius=ctx.L(2.6))
-    draw_polygon(ctx.draw, poly, PAL["joint_dark"], PAL["outline"], ctx.L(OUTLINE_W * 0.8))
+    draw_polygon(ctx.draw, poly, PAL["joint"], PAL["outline"], ctx.L(OUTLINE_W * 0.8))
 
 
 def _torso_painter(ctx: PartCtx) -> None:
-    pts = [(-10.5, -13.5), (10.5, -13.5), (9.0, 1.5), (-9.0, 1.5)]
-    poly = rounded_polygon(ctx.pts(pts), radius=ctx.L(3.8))
+    # Chest/belly edge bulges toward +x (the facing direction); the back
+    # edge stays straighter. Shade rides the BACK edge, highlight the front.
+    pts = [(-9.8, -13.5), (10.2, -13.5), (11.4, -6.0), (9.6, 1.5), (-8.8, 1.5)]
+    poly = rounded_polygon(ctx.pts(pts), radius=ctx.L(3.6))
     draw_polygon(ctx.draw, poly, PAL["shell"], PAL["outline"], ctx.L(OUTLINE_W))
-    # Side shading along the back edge keeps the volume reading rounded.
-    shade = [(-10.0, -12.5), (-5.5, -12.8), (-4.8, 0.6), (-8.6, 0.8)]
-    draw_polygon(ctx.draw, rounded_polygon(ctx.pts(shade), radius=ctx.L(2.2)), (*PAL["shell_side"][:3], 180))
-    # Chest light (the concept's teal square).
-    light = [(2.0, -9.6), (6.4, -9.6), (6.4, -5.2), (2.0, -5.2)]
+    # Translucent details rely on render_frame handing the rig an
+    # alpha-BLENDING draw; a replace-mode draw would punch holes here.
+    shade = [(-9.0, -12.6), (-5.6, -12.8), (-5.0, 0.8), (-8.0, 0.8)]
+    draw_polygon(ctx.draw, rounded_polygon(ctx.pts(shade), radius=ctx.L(2.0)), (*PAL["shell_side"][:3], 110))
+    hi = [(5.4, -12.8), (9.8, -12.6), (10.8, -6.4), (9.2, -2.2), (5.8, -2.6)]
+    draw_polygon(ctx.draw, rounded_polygon(ctx.pts(hi), radius=ctx.L(2.0)), (255, 255, 255, 90))
+    # Chest light (the concept's teal square), mounted on the front plate.
+    light = [(3.2, -9.4), (7.6, -9.4), (7.6, -5.0), (3.2, -5.0)]
     draw_polygon(
         ctx.draw,
         rounded_polygon(ctx.pts(light), radius=ctx.L(1.0)),
@@ -186,7 +192,7 @@ def _head_painter(ctx: PartCtx) -> None:
     draw_polygon(ctx.draw, poly, PAL["shell_top"], PAL["outline"], ctx.L(OUTLINE_W))
     # Lower-jaw shading band.
     jaw = [(-16.0, 6.5), (16.0, 6.5), (15.0, 13.0), (-15.0, 13.0)]
-    draw_polygon(ctx.draw, rounded_polygon(ctx.pts(jaw), radius=ctx.L(3.0)), (*PAL["shell_side"][:3], 170))
+    draw_polygon(ctx.draw, rounded_polygon(ctx.pts(jaw), radius=ctx.L(3.0)), (*PAL["shell_side"][:3], 120))
     # Visor.
     visor = [(-5.5, -5.8), (16.5, -5.8), (16.5, 4.8), (-5.5, 4.8)]
     draw_polygon(
@@ -223,16 +229,16 @@ def _antenna_painter(ctx: PartCtx) -> None:
 
 def _build_rig() -> Rig:
     rig = Rig(_SKEL)
-    rig.part("far_arm", "far_arm_u", 10, _limb_painter("far_arm_u", "far_arm_l", PAL["joint"], PAL["shell_side"], 2.3, 2.1, hand_r=3.0))
-    rig.part("far_leg", "far_leg_u", 20, _limb_painter("far_leg_u", "far_leg_l", PAL["joint"], PAL["shell_side"], 2.7, 2.5))
+    rig.part("far_arm", "far_arm_u", 10, _limb_painter("far_arm_u", "far_arm_l", PAL["joint_dark"], PAL["shell_side"], 2.3, 2.1, hand_r=3.0))
+    rig.part("far_leg", "far_leg_u", 20, _limb_painter("far_leg_u", "far_leg_l", PAL["joint_dark"], PAL["shell_side"], 2.7, 2.5))
     rig.part("far_foot", "far_foot", 21, _foot_painter())
     rig.part("pelvis", "pelvis", 30, _pelvis_painter)
     rig.part("torso", "torso", 40, _torso_painter)
-    rig.part("near_leg", "near_leg_u", 50, _limb_painter("near_leg_u", "near_leg_l", PAL["joint_dark"], PAL["shell"], 2.7, 2.5))
+    rig.part("near_leg", "near_leg_u", 50, _limb_painter("near_leg_u", "near_leg_l", PAL["joint"], PAL["shell"], 2.7, 2.5))
     rig.part("near_foot", "near_foot", 51, _foot_painter())
     rig.part("head", "head", 60, _head_painter)
     rig.part("antenna", "antenna", 61, _antenna_painter)
-    rig.part("near_arm", "near_arm_u", 70, _limb_painter("near_arm_u", "near_arm_l", PAL["joint_dark"], PAL["shell"], 2.3, 2.1, hand_r=3.2))
+    rig.part("near_arm", "near_arm_u", 70, _limb_painter("near_arm_u", "near_arm_l", PAL["joint"], PAL["shell"], 2.3, 2.1, hand_r=3.2))
     return rig
 
 
@@ -305,10 +311,12 @@ CLIP_IDLE = Clip(
         "torso": lambda t: 1.7 * math.sin(_TAU * t),
         "head": lambda t: -2.1 * math.sin(_TAU * (t - 0.06)),
         "antenna": lambda t: -9.0 * math.sin(_TAU * (t - 0.14)),
+        # Elbows hinge backward: a relaxed forearm angles the hand slightly
+        # FORWARD of the upper arm, so the bend pose is negative.
         "near_arm_u": lambda t: 4.0 * math.sin(_TAU * t),
-        "near_arm_l": lambda t: 10.0 + 2.5 * math.sin(_TAU * t + 0.5),
+        "near_arm_l": lambda t: -8.0 - 2.5 * math.sin(_TAU * t + 0.5),
         "far_arm_u": lambda t: -3.5 * math.sin(_TAU * t),
-        "far_arm_l": lambda t: 10.0 + 2.0 * math.sin(_TAU * t + 0.9),
+        "far_arm_l": lambda t: -8.0 - 2.0 * math.sin(_TAU * t + 0.9),
         "near_foot_x": 5.0,
         "far_foot_x": -4.5,
         "blink": Channel((0.0, 0), (0.42, 0, "linear"), (0.48, 1, "linear"), (0.58, 1, "linear"), (0.64, 0, "linear")),
@@ -325,11 +333,12 @@ CLIP_WALK = Clip(
         "torso": lambda t: 4.0 - 2.0 * math.sin(_TAU * t),
         "head": lambda t: -3.0 + 1.2 * math.sin(_TAU * (t - 0.08)),
         "antenna": lambda t: -8.0 * math.sin(2.0 * _TAU * (t - 0.07)),
-        # Arms counter-swing their same-side legs.
+        # Arms counter-swing their same-side legs; elbows hinge backward and
+        # bend deepest when the arm swings forward.
         "near_arm_u": lambda t: 24.0 * math.cos(_TAU * t),
-        "near_arm_l": lambda t: 14.0 + 9.0 * math.cos(_TAU * t),
+        "near_arm_l": lambda t: -(12.0 - 9.0 * math.cos(_TAU * t)),
         "far_arm_u": lambda t: -24.0 * math.cos(_TAU * t),
-        "far_arm_l": lambda t: 14.0 - 9.0 * math.cos(_TAU * t),
+        "far_arm_l": lambda t: -(12.0 + 9.0 * math.cos(_TAU * t)),
         "near_foot_x": _NEAR_X,
         "near_foot_lift": _NEAR_LIFT,
         "near_foot_pitch": _NEAR_PITCH,
@@ -354,9 +363,9 @@ CLIP_SLASH = Clip(
         "torso": Channel((0, 0), (0.2, -7), (0.5, 11, "out"), (0.75, 7), (1, 0)),
         "head": Channel((0, 0), (0.2, -4), (0.5, 6, "out"), (1, 0)),
         "near_arm_u": Channel((0, 8), (0.12, 55), (0.22, 120), (0.34, 120), (0.5, 263, "out"), (0.74, 300), (1, 368)),
-        "near_arm_l": Channel((0, 14), (0.12, 28), (0.22, 60), (0.34, 60), (0.5, -5, "out"), (0.74, 32), (1, 14)),
+        "near_arm_l": Channel((0, -8), (0.12, 28), (0.22, 60), (0.34, 60), (0.5, -5, "out"), (0.74, 24), (1, -8)),
         "far_arm_u": Channel((0, -4), (0.22, -32), (0.5, 28, "out"), (0.78, 12), (1, -4)),
-        "far_arm_l": Channel((0, 12), (0.22, 30), (0.5, 6), (1, 12)),
+        "far_arm_l": Channel((0, -8), (0.22, 18), (0.5, -12), (1, -8)),
         "antenna": Channel((0, 0), (0.25, 12), (0.52, -18, "out"), (0.78, -6), (1, 0)),
         "near_foot_x": 7.0,
         "far_foot_x": -5.5,
@@ -458,7 +467,12 @@ def render_frame(animation: str, frame_idx: int, nframes: int) -> Image.Image:
     img = Image.new("RGBA", (FRAME_W * SS, FRAME_H * SS), (0, 0, 0, 0))
     world, params = _solve(animation, t)
     actor = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    _RIG.draw(actor, ImageDraw.Draw(actor), world, SS, params)
+    # "RGBA" mode = true alpha BLENDING: translucent shade/highlight fills
+    # composite over the opaque shell instead of replacing destination
+    # alpha (replace-mode would punch see-through holes in the body).
+    # The fx layer below intentionally stays replace-mode so overlapping
+    # smear strokes don't double-darken.
+    _RIG.draw(actor, ImageDraw.Draw(actor, "RGBA"), world, SS, params)
     if animation == "slash":
         fx = Image.new("RGBA", img.size, (0, 0, 0, 0))
         _draw_slash_fx(ImageDraw.Draw(fx), t, world, params)

@@ -335,6 +335,18 @@ impl<PageId, Action> Default for KaleidoscopeMenuPlugin<PageId, Action> {
     }
 }
 
+// fontdb::load_system_fonts() is explicitly a no-op on Android. This runs once
+// (via resource_added condition) on the frame TextRenderer is first available.
+#[cfg(target_os = "android")]
+fn seed_text3d_android_fonts(mut renderer: ResMut<TextRenderer>) {
+    let mut guard = renderer.lock();
+    guard.db_mut().load_fonts_dir("/system/fonts");
+    bevy::log::info!(
+        "android: seeded Text3d fontdb with {} face(s) from /system/fonts",
+        guard.db().faces().count()
+    );
+}
+
 impl<PageId, Action> Plugin for KaleidoscopeMenuPlugin<PageId, Action>
 where
     PageId: Clone + PartialEq + Send + Sync + 'static,
@@ -343,6 +355,15 @@ where
     fn build(&self, app: &mut App) {
         app.add_plugins(UiLunexPlugins)
             .init_resource::<KaleidoscopeOpenState>();
+        // fontdb::load_system_fonts() is a no-op on Android (explicitly excluded
+        // by fontdb via `not(target_os = "android")`). Seed /system/fonts/ on the
+        // frame TextRenderer first becomes available so cosmic-text never sees an
+        // empty database and panics with "no default font found".
+        #[cfg(target_os = "android")]
+        app.add_systems(
+            Update,
+            seed_text3d_android_fonts.run_if(resource_added::<TextRenderer>()),
+        );
         if !app.world().contains_resource::<KaleidoscopeMenuConfig>() {
             app.insert_resource(KaleidoscopeMenuConfig::default());
         }

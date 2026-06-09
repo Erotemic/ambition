@@ -14,12 +14,12 @@
 
 use bevy::prelude::*;
 
-use crate::enemy_projectile::{EnemyProjectileSpawn, EnemyProjectileState};
+use crate::enemy_projectile::EnemyProjectileSpawn;
 use crate::engine_core as ae;
 use crate::features::{ActorFaction, FeatureAabb, FeatureSimEntity, HeldItem};
 use crate::input::ControlFrame;
 use crate::player::{BodyKinematics, PlayerEntity, PlayerMana, PrimaryPlayer};
-use crate::projectile::ProjectileFaction;
+use crate::projectile::{ProjectileFaction, SpawnProjectile};
 
 /// Held-item id of the sentry gauntlet.
 pub const SENTRY_ID: &str = "sentry";
@@ -93,7 +93,7 @@ pub fn update_sentries(
     mut commands: Commands,
     mut sentries: Query<(Entity, &mut Sentry)>,
     enemies: Query<(&FeatureAabb, &ActorFaction), With<FeatureSimEntity>>,
-    mut projectiles: ResMut<EnemyProjectileState>,
+    mut spawn_projectiles: MessageWriter<SpawnProjectile>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     let dt = world_time.scaled_dt;
@@ -132,7 +132,7 @@ pub fn update_sentries(
         if dir == ae::Vec2::ZERO {
             continue;
         }
-        projectiles.spawn_with_faction(
+        spawn_projectiles.write(SpawnProjectile::enemy(
             EnemyProjectileSpawn {
                 origin: sentry.pos,
                 dir,
@@ -144,7 +144,7 @@ pub fn update_sentries(
                 gravity: 0.0,
             },
             ProjectileFaction::Player,
-        );
+        ));
         sentry.fire_cooldown = SENTRY_FIRE_INTERVAL_S;
         sfx.write(crate::audio::SfxMessage::Play {
             id: ambition_sfx::ids::WORLD_ROCK_HIT,
@@ -157,18 +157,30 @@ pub fn update_sentries(
 mod tests {
     use super::*;
     use crate::brain::ActionSet;
+    use crate::enemy_projectile::EnemyProjectileState;
     use crate::player::PlayerBaseSize;
 
     fn test_app() -> App {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
+        app.add_message::<SpawnProjectile>();
         app.insert_resource(ControlFrame::default());
         app.insert_resource(crate::WorldTime {
             raw_dt: 0.1,
             scaled_dt: 0.1,
         });
         app.init_resource::<EnemyProjectileState>();
-        app.add_systems(Update, (fire_sentry_system, update_sentries).chain());
+        // Phase 3b: update_sentries emits SpawnProjectile; the enemy-pool
+        // consumer performs the push (chained after).
+        app.add_systems(
+            Update,
+            (
+                fire_sentry_system,
+                update_sentries,
+                crate::enemy_projectile::apply_enemy_spawn_projectile_messages,
+            )
+                .chain(),
+        );
         app
     }
 

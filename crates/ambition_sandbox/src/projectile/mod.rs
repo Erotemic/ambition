@@ -25,6 +25,7 @@
 mod diagnostics;
 mod motion_input;
 mod spawn;
+mod spawn_message;
 mod state;
 mod systems;
 mod visuals;
@@ -32,8 +33,9 @@ mod visuals;
 #[cfg(test)]
 mod tests;
 
+pub use spawn_message::{ProjectilePool, SpawnProjectile};
 pub use state::PlayerProjectileState;
-pub use systems::update_projectiles;
+pub use systems::{apply_player_spawn_projectile_messages, update_projectiles};
 pub use visuals::{sync_projectile_visuals, PlayerProjectileVisual};
 
 #[cfg(test)]

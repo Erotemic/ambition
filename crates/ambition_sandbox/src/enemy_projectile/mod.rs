@@ -16,7 +16,7 @@ mod systems;
 mod visuals;
 
 pub use state::{EnemyProjectileSpawn, EnemyProjectileState};
-pub use systems::update_enemy_projectiles;
+pub use systems::{apply_enemy_spawn_projectile_messages, update_enemy_projectiles};
 pub use visuals::{
     lasersword_projectile_sprite, sync_enemy_projectile_visuals, EnemyProjectileVisual,
     LASERSWORD_SHEET,

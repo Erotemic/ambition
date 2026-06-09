@@ -11,6 +11,25 @@ use crate::presentation::fx::VfxMessage;
 use crate::projectile::{resolve_world_collision, WorldHitOutcome, WorldHitPolicy};
 use crate::GameWorld;
 
+use crate::projectile::{ProjectilePool, SpawnProjectile};
+
+/// Consume [`SpawnProjectile`] messages targeting the enemy pool and push
+/// each body onto [`EnemyProjectileState::bodies`] (Phase 3b). Scheduled
+/// BEFORE `update_enemy_projectiles` so a body spawned this tick advances one
+/// step this frame — byte-identical to the EFFECTS-stage consumers that
+/// previously pushed directly before the update. Player-pool messages are
+/// ignored here (consumed by `apply_player_spawn_projectile_messages`).
+pub fn apply_enemy_spawn_projectile_messages(
+    mut spawn_projectiles: MessageReader<SpawnProjectile>,
+    mut state: ResMut<EnemyProjectileState>,
+) {
+    for msg in spawn_projectiles.read() {
+        if msg.pool == ProjectilePool::Enemy {
+            state.bodies.push(msg.projectile.clone());
+        }
+    }
+}
+
 /// Speed multiplier applied to a parried shot as it reverses — a timed parry
 /// sends the bolt back a little faster than it arrived (a satisfying deflect).
 const PROJECTILE_REFLECT_SPEED_SCALE: f32 = 1.3;

@@ -37,6 +37,7 @@ impl Plugin for SandboxSimulationResourcesPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<SfxMessage>()
             .add_message::<VfxMessage>()
+            .add_message::<crate::projectile::SpawnProjectile>()
             .add_message::<ExplosionRequest>()
             .add_message::<FireworksRequest>()
             .add_message::<DebrisBurstMessage>()

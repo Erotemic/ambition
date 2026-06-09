@@ -74,7 +74,20 @@ impl Plugin for CombatSchedulePlugin {
                 // "player wields a boss attack" slice.
                 crate::abilities::ranged::shockwave::spawn_shockwave_from_special_messages
                     .run_if(gameplay_allowed),
+                // Phase 3b enemy-pool spawn consumer: drains SpawnProjectile
+                // messages emitted by the EFFECTS-stage fire consumers above
+                // (apple rain / overfit volley / eye beam / ranged bolts /
+                // sentry / meteor / volley) into EnemyProjectileState.bodies
+                // BEFORE the step below, so a body spawned this tick advances
+                // one step this frame — identical to the old direct push.
+                crate::enemy_projectile::apply_enemy_spawn_projectile_messages
+                    .run_if(gameplay_allowed),
                 crate::projectile::update_projectiles,
+                // Phase 3b player-pool spawn consumer: pushes player-fired
+                // bodies into the firing player's PlayerProjectileState.bodies
+                // AFTER update_projectiles, so the new body first ticks next
+                // frame (matches the old post-tick-loop push).
+                crate::projectile::apply_player_spawn_projectile_messages,
                 crate::enemy_projectile::update_enemy_projectiles.run_if(gameplay_allowed),
                 // Hitbox-entity lifecycle for melee strikes (Task A of the
                 // actor/brain follow-up plan). `apply_hitbox_damage`

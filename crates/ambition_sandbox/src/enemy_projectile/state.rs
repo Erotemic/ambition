@@ -55,6 +55,20 @@ impl EnemyProjectileState {
         request: EnemyProjectileSpawn,
         faction: crate::projectile::ProjectileFaction,
     ) {
+        self.bodies.push(Self::build(request, faction));
+    }
+
+    /// Build (but do not store) the in-flight projectile for `request` +
+    /// `faction`. The single place the spawn-request → body mapping lives;
+    /// [`Self::spawn_with_faction`] pushes it directly, while the Phase-3b
+    /// fire paths emit it inside a
+    /// [`crate::projectile::SpawnProjectile`] message that
+    /// `apply_enemy_spawn_projectile_messages` later pushes — same body either
+    /// way.
+    pub fn build(
+        request: EnemyProjectileSpawn,
+        faction: crate::projectile::ProjectileFaction,
+    ) -> crate::projectile::InFlightProjectile {
         let speed = request.speed.max(1.0);
         let dir = if request.dir.length() < 1.0e-4 {
             ae::Vec2::new(1.0, 0.0)
@@ -79,10 +93,10 @@ impl EnemyProjectileState {
         // a bouncing volley reads as a pinball and confuses the
         // player about the hostile path).
         body.game.bounces_remaining = 0;
-        self.bodies.push(crate::projectile::InFlightProjectile {
+        crate::projectile::InFlightProjectile {
             body,
             owner_id: request.owner_id,
-        });
+        }
     }
 
     /// Clear all in-flight bodies (room transition).

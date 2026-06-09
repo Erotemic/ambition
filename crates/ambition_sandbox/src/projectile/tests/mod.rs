@@ -76,6 +76,7 @@ fn min_app() -> App {
     app.add_message::<SetFlagRequested>();
     app.add_message::<HitEvent>();
     app.add_message::<crate::features::ActorStimulus>();
+    app.add_message::<crate::projectile::SpawnProjectile>();
     app.add_plugins(crate::brain::BrainPlugin);
     app.add_systems(
         Update,
@@ -84,6 +85,10 @@ fn min_app() -> App {
             crate::player::tick_player_brains,
             crate::brain::emit_player_projectile_tick_messages,
             update_projectiles,
+            // Phase 3b: update_projectiles emits SpawnProjectile; the
+            // player-pool consumer pushes the body into the firing player's
+            // PlayerProjectileState.bodies (after the step, like production).
+            super::systems::apply_player_spawn_projectile_messages,
             crate::features::apply_feature_hit_events,
         )
             .chain(),

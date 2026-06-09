@@ -19,12 +19,12 @@
 
 use bevy::prelude::*;
 
-use crate::enemy_projectile::{EnemyProjectileSpawn, EnemyProjectileState};
+use crate::enemy_projectile::EnemyProjectileSpawn;
 use crate::engine_core as ae;
 use crate::features::HeldItem;
 use crate::input::ControlFrame;
 use crate::player::{BodyKinematics, PlayerEntity, PlayerMana, PrimaryPlayer};
-use crate::projectile::ProjectileFaction;
+use crate::projectile::{ProjectileFaction, SpawnProjectile};
 
 /// Held-item id of the meteor gauntlet.
 pub const METEOR_ID: &str = "meteor";
@@ -86,7 +86,7 @@ pub fn fire_meteor_system(
         (&BodyKinematics, &HeldItem, &mut PlayerMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
-    mut projectiles: ResMut<EnemyProjectileState>,
+    mut spawn_projectiles: MessageWriter<SpawnProjectile>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     if !control.attack_pressed || control.shield_held {
@@ -103,7 +103,7 @@ pub fn fire_meteor_system(
     }
     let aim = crate::items::pickup::held_shot_aim(&control, kin.facing);
     for origin in meteor_strike_origins(kin.pos, aim, kin.facing) {
-        projectiles.spawn_with_faction(
+        spawn_projectiles.write(SpawnProjectile::enemy(
             EnemyProjectileSpawn {
                 origin,
                 // Straight down (engine y grows downward); gravity accelerates it.
@@ -116,7 +116,7 @@ pub fn fire_meteor_system(
                 gravity: METEOR_GRAVITY,
             },
             ProjectileFaction::Player,
-        );
+        ));
     }
     sfx.write(crate::audio::SfxMessage::Play {
         id: ambition_sfx::ids::WORLD_ROCK_HIT,
@@ -128,14 +128,24 @@ pub fn fire_meteor_system(
 mod tests {
     use super::*;
     use crate::brain::ActionSet;
+    use crate::enemy_projectile::EnemyProjectileState;
     use crate::player::PlayerBaseSize;
 
     fn test_app() -> App {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
+        app.add_message::<SpawnProjectile>();
         app.insert_resource(ControlFrame::default());
         app.init_resource::<EnemyProjectileState>();
-        app.add_systems(Update, fire_meteor_system);
+        // Phase 3b: fire emits SpawnProjectile; enemy-pool consumer pushes.
+        app.add_systems(
+            Update,
+            (
+                fire_meteor_system,
+                crate::enemy_projectile::apply_enemy_spawn_projectile_messages,
+            )
+                .chain(),
+        );
         app
     }
 

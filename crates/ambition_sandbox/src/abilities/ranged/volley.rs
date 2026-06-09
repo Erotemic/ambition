@@ -12,12 +12,12 @@
 
 use bevy::prelude::*;
 
-use crate::enemy_projectile::{EnemyProjectileSpawn, EnemyProjectileState};
+use crate::enemy_projectile::EnemyProjectileSpawn;
 use crate::engine_core as ae;
 use crate::features::HeldItem;
 use crate::input::ControlFrame;
 use crate::player::{BodyKinematics, PlayerEntity, PlayerMana, PrimaryPlayer};
-use crate::projectile::ProjectileFaction;
+use crate::projectile::{ProjectileFaction, SpawnProjectile};
 
 /// Held-item id of the volley gauntlet.
 pub const VOLLEY_ID: &str = "volley";
@@ -44,7 +44,7 @@ pub fn fire_volley_system(
         (&BodyKinematics, &HeldItem, &mut PlayerMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
-    mut enemy_projectiles: ResMut<EnemyProjectileState>,
+    mut spawn_projectiles: MessageWriter<SpawnProjectile>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     if !control.attack_pressed || control.shield_held {
@@ -76,7 +76,7 @@ pub fn fire_volley_system(
         };
         let angle = base_angle + t * spread;
         let dir = ae::Vec2::new(angle.cos(), angle.sin());
-        enemy_projectiles.spawn_with_faction(
+        spawn_projectiles.write(SpawnProjectile::enemy(
             EnemyProjectileSpawn {
                 origin,
                 dir,
@@ -88,7 +88,7 @@ pub fn fire_volley_system(
                 gravity: 0.0,
             },
             ProjectileFaction::Player,
-        );
+        ));
     }
     sfx.write(crate::audio::SfxMessage::Play {
         id: ambition_sfx::ids::WORLD_ROCK_HIT,
@@ -100,14 +100,25 @@ pub fn fire_volley_system(
 mod tests {
     use super::*;
     use crate::brain::ActionSet;
+    use crate::enemy_projectile::EnemyProjectileState;
     use crate::player::PlayerBaseSize;
 
     fn test_app() -> App {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
+        app.add_message::<SpawnProjectile>();
         app.insert_resource(ControlFrame::default());
         app.init_resource::<EnemyProjectileState>();
-        app.add_systems(Update, fire_volley_system);
+        // Phase 3b: firing emits a SpawnProjectile; the enemy-pool consumer
+        // performs the push, so chain it after the fire system.
+        app.add_systems(
+            Update,
+            (
+                fire_volley_system,
+                crate::enemy_projectile::apply_enemy_spawn_projectile_messages,
+            )
+                .chain(),
+        );
         app
     }
 

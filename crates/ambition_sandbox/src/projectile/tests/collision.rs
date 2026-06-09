@@ -113,6 +113,7 @@ fn fireball_bounces_off_floor_in_system() {
     app.add_message::<SetFlagRequested>();
     app.add_message::<HitEvent>();
     app.add_message::<crate::features::ActorStimulus>();
+    app.add_message::<crate::projectile::SpawnProjectile>();
     app.add_plugins(crate::brain::BrainPlugin);
     app.add_systems(
         Update,
@@ -121,6 +122,7 @@ fn fireball_bounces_off_floor_in_system() {
             crate::player::tick_player_brains,
             crate::brain::emit_player_projectile_tick_messages,
             update_projectiles,
+            super::super::systems::apply_player_spawn_projectile_messages,
             crate::features::apply_feature_hit_events,
         )
             .chain(),
@@ -195,6 +197,7 @@ fn fireball_bounces_off_one_way_platform_in_system() {
     app.add_message::<SetFlagRequested>();
     app.add_message::<HitEvent>();
     app.add_message::<crate::features::ActorStimulus>();
+    app.add_message::<crate::projectile::SpawnProjectile>();
     app.add_plugins(crate::brain::BrainPlugin);
     app.add_systems(
         Update,
@@ -203,6 +206,7 @@ fn fireball_bounces_off_one_way_platform_in_system() {
             crate::player::tick_player_brains,
             crate::brain::emit_player_projectile_tick_messages,
             update_projectiles,
+            super::super::systems::apply_player_spawn_projectile_messages,
             crate::features::apply_feature_hit_events,
         )
             .chain(),
@@ -278,6 +282,7 @@ fn fireball_passes_through_one_way_from_below_in_system() {
     app.add_message::<SetFlagRequested>();
     app.add_message::<HitEvent>();
     app.add_message::<crate::features::ActorStimulus>();
+    app.add_message::<crate::projectile::SpawnProjectile>();
     app.add_plugins(crate::brain::BrainPlugin);
     app.add_systems(
         Update,
@@ -286,6 +291,7 @@ fn fireball_passes_through_one_way_from_below_in_system() {
             crate::player::tick_player_brains,
             crate::brain::emit_player_projectile_tick_messages,
             update_projectiles,
+            super::super::systems::apply_player_spawn_projectile_messages,
             crate::features::apply_feature_hit_events,
         )
             .chain(),
@@ -358,6 +364,7 @@ fn hadouken_expires_on_solid_in_system() {
     app.add_message::<SetFlagRequested>();
     app.add_message::<HitEvent>();
     app.add_message::<crate::features::ActorStimulus>();
+    app.add_message::<crate::projectile::SpawnProjectile>();
     app.add_plugins(crate::brain::BrainPlugin);
     app.add_systems(
         Update,
@@ -366,6 +373,7 @@ fn hadouken_expires_on_solid_in_system() {
             crate::player::tick_player_brains,
             crate::brain::emit_player_projectile_tick_messages,
             update_projectiles,
+            super::super::systems::apply_player_spawn_projectile_messages,
             crate::features::apply_feature_hit_events,
         )
             .chain(),

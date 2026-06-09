@@ -127,7 +127,9 @@ fn floor_portal_bounce_never_falls_through() {
 fn floor_portal_bounce_survives_variable_frame_rate() {
     // Deterministic jitter pattern spanning ~13ms..50ms (the measured range),
     // including back-to-back big frames that maximize the sink-per-step.
-    let dts_ms = [16.0_f32, 50.0, 13.0, 33.0, 16.0, 45.0, 11.0, 40.0, 25.0, 50.0];
+    let dts_ms = [
+        16.0_f32, 50.0, 13.0, 33.0, 16.0, 45.0, 11.0, 40.0, 25.0, 50.0,
+    ];
 
     let opts = SandboxSimOptions::default()
         .with_timestep(TimestepMode::Fixed { dt: 1.0 / 60.0 })

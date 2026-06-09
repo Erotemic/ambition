@@ -25,3 +25,15 @@ External reference links are inspiration and research context. They do not overr
 - Atkinson Hyperlegible / Atkinson Hyperlegible Mono — accessibility-focused UI/debug candidates.
 
 Use `scripts/grab_font_assets.py` to download the current bundled-font set into the ignored sandbox asset tree before force-adding or IPFS-tracking accepted font assets.
+
+
+This is a very cool way to implement visuals for 2d portals:
+https://medium.com/@AtaTrkgl/ingression-how-we-made-seamless-portals-in-2d-b16080ecfabc
+
+
+Another 2d portal reference:
+https://github.com/MaximilianMcC/2D-Portal
+
+https://www.gamedeveloper.com/programming/making-2d-portals-using-shaders
+
+https://github.com/atjallen/portal-2D

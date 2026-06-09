@@ -73,6 +73,29 @@ pub struct PickUpPortalGun;
 #[derive(Message, Clone, Copy, Debug)]
 pub struct ClearPortals;
 
+/// Outcome: a portal shot was just fired (a `PortalFireIntent` was consumed and
+/// a [`PortalShot`](super::PortalShot) spawned). Carries the shot's spawn point
+/// so an Ambition audio adapter can play the fire-blast + travel-whizz cues —
+/// the portal crate emits the event, not the sfx (it owns neither audio nor the
+/// sfx vocabulary). `origin` is the shot's world-space spawn position.
+#[derive(Message, Clone, Copy, Debug)]
+pub struct PortalShotFired {
+    /// World-space spawn point of the shot (where the fire cue plays).
+    pub origin: Vec2,
+}
+
+/// Outcome: a [`PortalBody`](super::PortalBody) just BEGAN straddling a portal
+/// aperture (the leading edge entered the opening, before the centroid crosses).
+/// Carries the entry portal's world position so an Ambition audio adapter can
+/// play the ENTER cue. The companion EXIT cue rides
+/// [`PortalBodyTransited`](super::PortalBodyTransited) (its `exit_pos`). Portal
+/// core emits these events; the adapter owns the audio.
+#[derive(Message, Clone, Copy, Debug)]
+pub struct PortalBodyEntered {
+    /// World position of the entry portal (where the ENTER cue plays).
+    pub pos: Vec2,
+}
+
 /// Outcome: the primary player just acquired a portal gun (via a world pickup).
 /// The inventory adapter listens for this to reflect ownership / equipped state
 /// into the Ambition item roster — portal core never touches that roster.

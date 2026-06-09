@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
 use super::messages::{
-    ClearPortals, DropPortalGun, FirePortalGun, PickUpPortalGun, PortalFireIntent,
-    PortalGunEquipped, TogglePortalGun,
+    ClearPortals, DropPortalGun, FirePortalGun, PickUpPortalGun, PortalBodyEntered,
+    PortalFireIntent, PortalGunEquipped, PortalShotFired, TogglePortalGun,
 };
 use super::schedule::PortalSet;
 use super::{
@@ -53,6 +53,12 @@ impl Plugin for PortalSimulationPlugin {
         // from `ResetRoomFeaturesEvent` so core never names that event.
         app.add_message::<ClearPortals>();
         app.add_message::<PortalGunEquipped>();
+        // Portal-owned audio SIGNALS (not sfx): the crate emits these on a fire /
+        // aperture entry; an Ambition audio adapter
+        // (`crate::ambition_content::portal::play_portal_sfx`) maps them to the
+        // sfx vocabulary. The EXIT cue rides `PortalBodyTransited` (`exit_pos`).
+        app.add_message::<PortalShotFired>();
+        app.add_message::<PortalBodyEntered>();
         // Portal-owned carve output. `publish_portal_carves` writes the aperture
         // geometry here; the Ambition bridge copies it into the host collision
         // overlay each frame (portal core never names `FeatureEcsWorldOverlay`).

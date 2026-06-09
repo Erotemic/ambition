@@ -317,7 +317,7 @@ fn portal_fit_gate_keys_on_the_opening_perpendicular_to_the_normal() {
 fn portals_teleport_a_fitting_actor_and_skip_an_oversized_one() {
     use crate::features::BodyKinematics;
     let mut app = App::new();
-    app.add_message::<ambition_sfx::SfxMessage>();
+    app.add_message::<crate::portal::PortalBodyEntered>();
     app.add_message::<crate::portal::PortalBodyTransited>();
     app.add_systems(Update, portal_transit);
     // Actor policy: carry velocity, no re-orient (facing follows AI).
@@ -530,7 +530,7 @@ fn gravity_upright_angle_tracks_the_gravity_direction() {
 fn actors_get_an_aerial_roll_through_portals() {
     use crate::features::BodyKinematics;
     let mut app = App::new();
-    app.add_message::<ambition_sfx::SfxMessage>();
+    app.add_message::<crate::portal::PortalBodyEntered>();
     app.add_message::<crate::portal::PortalBodyTransited>();
     app.add_systems(Update, portal_transit);
     // Floor portal (normal up) + right-wall portal (normal left): a
@@ -582,7 +582,7 @@ fn actors_get_an_aerial_roll_through_portals() {
 #[test]
 fn portal_pair_teleports_player_carrying_momentum() {
     let mut app = App::new();
-    app.add_message::<ambition_sfx::SfxMessage>();
+    app.add_message::<crate::portal::PortalBodyEntered>();
     app.add_message::<BodyTeleported>();
     app.add_message::<crate::portal::PortalBodyTransited>();
     app.insert_resource(crate::WorldTime::default());
@@ -638,7 +638,7 @@ fn a_gunless_player_transits_an_authored_pair() {
     // the gun. Transit must still work — crossing a placed pair is independent
     // of holding the gun, and the cooldown lives on the body.
     let mut app = App::new();
-    app.add_message::<ambition_sfx::SfxMessage>();
+    app.add_message::<crate::portal::PortalBodyEntered>();
     app.add_message::<BodyTeleported>();
     app.add_message::<crate::portal::PortalBodyTransited>();
     app.insert_resource(crate::WorldTime::default());
@@ -713,7 +713,7 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
     }
 
     let mut app = App::new();
-    app.add_message::<ambition_sfx::SfxMessage>();
+    app.add_message::<crate::portal::PortalBodyEntered>();
     app.add_message::<BodyTeleported>();
     app.add_message::<crate::portal::PortalBodyTransited>();
     app.init_resource::<TeleportedThisFrame>();
@@ -924,7 +924,11 @@ fn portal_carve_is_transient_and_pair_gated() {
 #[test]
 fn portal_shot_travels_and_opens_a_portal_on_a_wall() {
     let mut app = App::new();
+    // `portal_projectile_step` (the Ambition shot adapter) still writes sfx;
+    // `portal_fire_system` now emits the portal-owned `PortalShotFired` signal
+    // (the FIRE/TRAVEL sfx moved to the `play_portal_sfx` adapter, Phase 5a).
     app.add_message::<ambition_sfx::SfxMessage>();
+    app.add_message::<crate::portal::PortalShotFired>();
     app.insert_resource(world_with_two_walls());
     app.insert_resource(crate::WorldTime {
         raw_dt: 1.0 / 60.0,

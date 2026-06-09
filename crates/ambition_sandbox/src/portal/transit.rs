@@ -188,7 +188,7 @@ pub fn portal_transit(
         With<PortalBody>,
     >,
     gravity: Option<Res<crate::platformer_runtime::gravity::GravityField>>,
-    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
+    mut entered: MessageWriter<super::messages::PortalBodyEntered>,
     mut transited: MessageWriter<PortalBodyTransited>,
 ) {
     let all: Vec<PlacedPortal> = portals.iter().copied().collect();
@@ -221,10 +221,9 @@ pub fn portal_transit(
                     straddling: channel,
                     crossed: false,
                 });
-                sfx.write(ambition_sfx::SfxMessage::Play {
-                    id: ambition_sfx::ids::PORTAL_ENTER,
-                    pos: portal_pos,
-                });
+                // The crate emits the ENTER signal; an Ambition audio adapter
+                // plays the cue (the crate owns neither audio nor sfx ids).
+                entered.write(super::messages::PortalBodyEntered { pos: portal_pos });
             }
             TransitStep::Transfer {
                 pos,
@@ -262,16 +261,17 @@ pub fn portal_transit(
                 // The trace message + player-input bits (`PortalEmission`,
                 // `PortalInputWarp`) are emitted by the Ambition player-input
                 // adapter from this event — input/trace are not core concerns.
+                // The EXIT cue rides this event's `exit_pos` (an Ambition audio
+                // adapter plays it); the trace message + player-input bits
+                // (`PortalEmission`, `PortalInputWarp`) are likewise emitted by
+                // the Ambition adapters from this event — audio/input/trace are
+                // not core concerns.
                 transited.write(PortalBodyTransited {
                     body: entity,
                     enter_normal,
                     exit_normal,
                     facing_flip,
                     exit_pos,
-                });
-                sfx.write(ambition_sfx::SfxMessage::Play {
-                    id: ambition_sfx::ids::PORTAL_EXIT,
-                    pos: exit_pos,
                 });
                 bevy::log::info!(target: "ambition::portal", "transferred through the portal pair");
             }

@@ -14,7 +14,7 @@ use crate::platformer_runtime::collision::{raycast_solids, SolidWorldQuery};
 use crate::platformer_runtime::prelude::SpawnScopedExt;
 
 use super::color::PortalChannel;
-use super::messages::PortalFireIntent;
+use super::messages::{PortalFireIntent, PortalShotFired};
 use super::types::{portal_half_extent, PlacedPortal, PORTAL_MAX_RANGE, PORTAL_SHOT_SPEED};
 
 /// An in-flight portal shot streaking toward a surface. On contact with a
@@ -39,7 +39,7 @@ pub struct PortalShot {
 pub fn portal_fire_system(
     mut fires: MessageReader<PortalFireIntent>,
     mut commands: Commands,
-    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
+    mut fired: MessageWriter<PortalShotFired>,
 ) {
     let Some(fire) = fires.read().last().copied() else {
         return;
@@ -48,14 +48,10 @@ pub fn portal_fire_system(
     if dir == Vec2::ZERO {
         return;
     }
-    // Punchy fire blast + the airy travel whizz.
-    sfx.write(ambition_sfx::SfxMessage::Play {
-        id: ambition_sfx::ids::PORTAL_FIRE,
-        pos: fire.origin,
-    });
-    sfx.write(ambition_sfx::SfxMessage::Play {
-        id: ambition_sfx::ids::PORTAL_TRAVEL,
-        pos: fire.origin,
+    // The crate emits the fire signal; an Ambition audio adapter plays the
+    // punchy blast + airy travel whizz (the crate owns neither audio nor ids).
+    fired.write(PortalShotFired {
+        origin: fire.origin,
     });
     commands.spawn_room_scoped((
         PortalShot {

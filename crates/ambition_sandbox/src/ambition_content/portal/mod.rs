@@ -19,6 +19,7 @@ mod input_adapter;
 mod inventory_adapter;
 mod plugin;
 mod reset_adapter;
+mod sfx_adapter;
 mod shot_adapter;
 mod transit_adapter;
 mod transit_body_adapter;
@@ -34,6 +35,7 @@ pub use inventory_adapter::{
 };
 pub use plugin::AmbitionPortalAdaptersPlugin;
 pub use reset_adapter::bridge_room_reset_to_clear_portals;
+pub use sfx_adapter::play_portal_sfx;
 pub use shot_adapter::portal_projectile_step;
 pub use transit_adapter::{
     apply_movement_intent_to_control, sync_ground_items_to_transitable,

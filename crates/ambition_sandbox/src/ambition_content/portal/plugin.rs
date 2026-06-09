@@ -22,6 +22,7 @@ use super::fire_adapter::resolve_portal_fire_intent;
 use super::input_adapter::portal_input_adapter_system;
 use super::inventory_adapter::drop_portal_gun_system;
 use super::reset_adapter::bridge_room_reset_to_clear_portals;
+use super::sfx_adapter::play_portal_sfx;
 use super::shot_adapter::portal_projectile_step;
 use super::transit_adapter::{
     apply_movement_intent_to_control, sync_ground_items_to_transitable,
@@ -47,6 +48,19 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // `PortalSet::InputWarp` slot the core used; `app/plugins.rs` still wires
         // that set into `PlayerInput` and the intent brackets around it.
         app.add_systems(Update, warp_portal_input.in_set(PortalSet::InputWarp));
+
+        // Play the portal audio cues from the portal-owned signals (Stage 19
+        // Phase 5a — the crate emits `PortalShotFired` / `PortalBodyEntered` /
+        // `PortalBodyTransited`, this adapter maps them to sfx). Runs in
+        // `PortalSet::Transit` after `portal_transit` so the ENTER/EXIT signals
+        // emitted this frame are played the same frame; the FIRE signal from
+        // `portal_fire_system` (an earlier set in the frame) is read here too.
+        app.add_systems(
+            Update,
+            play_portal_sfx
+                .in_set(PortalSet::Transit)
+                .after(portal_transit),
+        );
 
         // Suppress ledge-grab while transiting so the carved aperture edges are
         // not grabbed before movement integration probes for a ledge. Mutates the

@@ -235,7 +235,7 @@ mod projectile_transit_tests {
     /// `ensure → transit` exactly as the real plugin orders them.
     fn app_with_transit() -> App {
         let mut app = App::new();
-        app.add_message::<ambition_sfx::SfxMessage>();
+        app.add_message::<crate::portal::PortalBodyEntered>();
         app.add_message::<crate::portal::PortalBodyTransited>();
         app.add_systems(
             Update,

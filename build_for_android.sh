@@ -375,6 +375,38 @@ find_ndk_tool() {
     return 1
 }
 
+ndk_sysroot_arch_for_abi() {
+    case "$1" in
+        arm64-v8a)   printf 'aarch64-linux-android\n' ;;
+        armeabi-v7a) printf 'arm-linux-androideabi\n' ;;
+        x86)         printf 'i686-linux-android\n' ;;
+        x86_64)      printf 'x86_64-linux-android\n' ;;
+        *) fatal "unsupported ABI for sysroot arch mapping: $1" ;;
+    esac
+}
+
+# cargo-ndk ≥ 3.x no longer auto-copies libc++_shared.so. Copy it from the
+# NDK sysroot so dlopen can resolve it at runtime.
+copy_libcxx_shared() {
+    local abi=$1
+    local jni_abi_dir=$2
+    local host_tag="linux-x86_64"
+    local arch dst src
+    arch=$(ndk_sysroot_arch_for_abi "$abi")
+    dst="$jni_abi_dir/libc++_shared.so"
+    src="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/$host_tag/sysroot/usr/lib/$arch/libc++_shared.so"
+    if [[ -f "$dst" ]]; then
+        log "libc++_shared.so already present in jniLibs/$abi"
+        return 0
+    fi
+    if [[ -f "$src" ]]; then
+        cp "$src" "$dst"
+        log "copied libc++_shared.so from NDK sysroot ($arch)"
+    else
+        warn "libc++_shared.so not found at $src — app may crash with UnsatisfiedLinkError at runtime"
+    fi
+}
+
 strip_native_library() {
     local so_path=$1
     [[ -f "$so_path" ]] || fatal "native library not found after cargo-ndk build: $so_path"
@@ -900,6 +932,7 @@ else
 fi
 
 SO_PATH="$JNI_OUT/$TARGET_ABI/libambition_sandbox.so"
+copy_libcxx_shared "$TARGET_ABI" "$JNI_OUT/$TARGET_ABI"
 if [[ "$STRIP_NATIVE" == true ]]; then
     strip_native_library "$SO_PATH"
 else

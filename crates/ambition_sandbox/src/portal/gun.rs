@@ -6,8 +6,6 @@
 
 use bevy::prelude::*;
 
-use crate::player::{PlayerEntity, PrimaryPlayer};
-
 use super::color::PortalGunColor;
 use super::messages::TogglePortalGun;
 
@@ -32,15 +30,19 @@ impl Default for PortalGun {
 
 /// Flip which color the next shot will place, on a [`TogglePortalGun`] intent.
 /// The adapter decides *whether* a press is a portal toggle (vs. a door / NPC
-/// interaction); core just applies the flip.
+/// interaction); core just applies the flip. Operates on the [`PortalGun`]
+/// component generically (the gun mechanic) — it never names the player, so it
+/// stays in the crate. `PortalGun` only ever lives on the primary player today,
+/// so the generic single-gun query resolves to exactly the same gun the old
+/// `(PlayerEntity, PrimaryPlayer)`-filtered query did (identical-sim).
 pub fn portal_toggle_system(
     mut toggles: MessageReader<TogglePortalGun>,
-    mut players: Query<&mut PortalGun, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    mut guns: Query<&mut PortalGun>,
 ) {
     if toggles.read().next().is_none() {
         return;
     }
-    let Ok(mut gun) = players.single_mut() else {
+    let Ok(mut gun) = guns.single_mut() else {
         return;
     };
     if gun.active {

@@ -22,11 +22,35 @@ use crate::projectile::ProjectileGameplay;
 use crate::trace::GameplayTraceBuffer;
 use crate::GameWorld;
 
+/// The portal-carved collision world a projectile collides against. Bundled as a
+/// [`SystemParam`] so [`update_projectiles`] can build the carved world without
+/// adding two more top-level params (it is already at Bevy's 16-param ceiling).
+///
+/// A portal punched through a wall leaves the opening non-solid, so a shot fired
+/// into a wall portal flies THROUGH the opening instead of detonating on the wall
+/// — and `portal_transit` (which already moves the projectile body) carries it
+/// out the far portal. Without this the projectile collided against the raw world
+/// and could never transit a wall portal.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct ProjectileCollisionWorld<'w> {
+    world: Res<'w, GameWorld>,
+    overlay: Res<'w, crate::features::FeatureEcsWorldOverlay>,
+}
+
+impl ProjectileCollisionWorld<'_> {
+    /// The room world with ONLY the portal apertures carved out — preserves the
+    /// projectile's historical raw-world collision (it passes through moving
+    /// platforms) while letting a shot sink into a portal opening and transit.
+    fn solids(&self) -> ae::World {
+        crate::features::world_with_portal_carves(&self.world.0, &self.overlay.portal_carves)
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn update_projectiles(
     mut commands: Commands,
     world_time: Res<crate::WorldTime>,
-    world: Res<GameWorld>,
+    carved: ProjectileCollisionWorld,
     gravity: crate::physics::GravityCtx,
     // Per-player projectile state lives on the player entity itself
     // (was a singleton `Res<PlayerProjectileState>`). Iterates every
@@ -106,6 +130,10 @@ pub fn update_projectiles(
     // projectile in mid-arc should not advance while the world
     // is stopped.
     let dt = world_time.sim_dt();
+    // Collide projectiles against the PORTAL-CARVED world (built once per frame),
+    // so a shot fired into a wall portal flies through the opening instead of
+    // detonating on the wall; `portal_transit` then carries it across.
+    let collision_world = carved.solids();
     // Localized gravity: each projectile body resolves its own gravity by
     // position below, so a shot crossing a gravity column bends the column's way.
 
@@ -225,7 +253,7 @@ pub fn update_projectiles(
             match resolve_world_collision(
                 &mut kin,
                 &mut game,
-                &world.0,
+                &collision_world,
                 WorldHitPolicy::PlayerBouncing,
             ) {
                 WorldHitOutcome::Bounced { pos } => {

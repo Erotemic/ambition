@@ -636,7 +636,6 @@ pub fn fire_held_ranged_system(
 pub fn held_projectile_step(
     time: Res<crate::WorldTime>,
     world: Res<crate::GameWorld>,
-    platform_set: Res<crate::MovingPlatformSet>,
     overlay: Res<crate::features::FeatureEcsWorldOverlay>,
     mut commands: Commands,
     // `Without<FeatureSimEntity>` keeps this `&mut BodyKinematics` disjoint from
@@ -685,13 +684,14 @@ pub fn held_projectile_step(
     if dt <= 0.0 {
         return;
     }
-    // Collide against the PORTAL-CARVED world (the same view the player and
-    // actors use): a portal punched through a wall leaves the opening non-solid,
-    // so a bolt fired at a wall portal flies INTO the opening instead of
-    // detonating on the wall — and `portal_transit` (which already moves this
-    // bolt's `BodyKinematics`) carries it out the far portal.
+    // Collide against the room world with ONLY the portal apertures carved out: a
+    // portal punched through a wall leaves the opening non-solid, so a bolt fired
+    // at a wall portal flies INTO the opening instead of detonating on the wall —
+    // and `portal_transit` (which already moves this bolt's `BodyKinematics`)
+    // carries it out the far portal. Carves-only preserves the bolt's historical
+    // raw-world collision (it passes through moving platforms).
     let collision_world =
-        crate::features::world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
+        crate::features::world_with_portal_carves(&world.0, &overlay.portal_carves);
     let attacker = player.single().ok();
     for (entity, mut kin, mut proj) in &mut projectiles {
         let pos = kin.pos;

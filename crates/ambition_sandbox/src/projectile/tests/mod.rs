@@ -58,6 +58,9 @@ fn min_app() -> App {
     app.insert_resource(Time::<()>::default());
     app.insert_resource(crate::WorldTime::default());
     app.insert_resource(GameWorld(dummy_world()));
+    // `update_projectiles` collides against the portal-carved world; no carves in
+    // these tests, so the overlay is empty (collision == raw world).
+    app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
     app.insert_resource(ControlFrame::default());
     app.insert_resource(crate::persistence::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());

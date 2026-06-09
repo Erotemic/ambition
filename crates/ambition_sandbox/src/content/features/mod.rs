@@ -140,7 +140,7 @@ pub use events::{
 pub use hazards::HazardRuntime;
 pub use npcs::NPC_PATROL_SPEED;
 pub use path_motion::PathMotion;
-pub use world_overlay::world_with_sandbox_solids;
+pub use world_overlay::{world_with_portal_carves, world_with_sandbox_solids};
 
 pub(super) use npcs::NPC_HOSTILE_STRIKE_THRESHOLD;
 use util::*;

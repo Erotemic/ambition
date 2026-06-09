@@ -19,6 +19,19 @@ pub fn world_with_sandbox_solids(
     collision_world
 }
 
+/// The room world with ONLY the portal apertures carved out — no moving-platform
+/// or ECS-overlay solids added. Projectiles historically collided against the raw
+/// room world (they pass through moving platforms); this preserves that exactly
+/// while letting a shot sink into a portal opening and transit. Returns a clone of
+/// `world` unchanged when there are no active carves.
+pub fn world_with_portal_carves(world: &ae::World, portal_carves: &[ae::Aabb]) -> ae::World {
+    let mut carved = world.clone();
+    if !portal_carves.is_empty() {
+        carve_portal_apertures(&mut carved.blocks, portal_carves);
+    }
+    carved
+}
+
 /// Split every solid host block by the portal aperture holes, leaving a doorway
 /// in the surface (and a solid frame around it). Non-host kinds (hazard, pogo,
 /// rebound) pass through untouched.

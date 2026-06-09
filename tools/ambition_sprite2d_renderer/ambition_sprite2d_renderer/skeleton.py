@@ -402,3 +402,21 @@ def draw_polygon(
     if outline is not None and outline_w > 0:
         closed = list(pts) + [pts[0]]
         draw.line(closed, fill=outline, width=max(1, int(round(outline_w))), joint="curve")
+
+
+def composite_polygon(
+    img: Image.Image,
+    pts: Sequence[Point],
+    fill: Color,
+    outline: Optional[Color] = None,
+    outline_w: float = 0.0,
+) -> None:
+    """Translucent polygon via REAL alpha compositing (the gnu_ton pattern).
+
+    Draws onto a fresh transparent layer and ``alpha_composite``s it over
+    ``img`` in place. This is the only correct way to lay a translucent
+    detail over already-drawn art — drawing directly replaces destination
+    alpha, and ImageDraw's "RGBA" blend mode does not composite reliably."""
+    layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    draw_polygon(ImageDraw.Draw(layer), pts, fill, outline, outline_w)
+    img.alpha_composite(layer)

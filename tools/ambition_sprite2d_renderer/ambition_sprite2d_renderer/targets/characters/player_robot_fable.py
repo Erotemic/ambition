@@ -31,6 +31,7 @@ from ...skeleton import (
     PartCtx,
     Rig,
     Skeleton,
+    composite_polygon,
     draw_polygon,
     rounded_polygon,
     two_bone_ik,
@@ -82,8 +83,8 @@ PAL: Dict[str, Color] = {
     "shell_top": _rgba("#FFFFFF"),
     "shell_side": _rgba("#E8E2DB"),
     "outline": _rgba("#17191F"),
-    "joint": _rgba("#6B737E"),
-    "joint_dark": _rgba("#4C5560"),
+    "joint": _rgba("#EDEAE4"),
+    "joint_dark": _rgba("#DDD9D1"),
     "visor": _rgba("#0B111C"),
     "glow": _rgba("#0CEBFF"),
     "accent": _rgba("#C58AFF"),
@@ -103,9 +104,9 @@ def _build_skeleton() -> Skeleton:
     sk.bone("torso", parent="pelvis", offset=(0.0, -4.0))
     sk.bone("head", parent="torso", offset=(1.0, -26.0))
     sk.bone("antenna", parent="head", offset=(-9.0, -14.5), length=10.0, rest_angle=-90.0)
-    sk.bone("far_arm_u", parent="torso", offset=(-1.5, -11.0), length=ARM_U, rest_angle=90.0)
+    sk.bone("far_arm_u", parent="torso", offset=(-1.5, -9.5), length=ARM_U, rest_angle=90.0)
     sk.bone("far_arm_l", parent="far_arm_u", offset=(ARM_U, 0.0), length=ARM_L)
-    sk.bone("near_arm_u", parent="torso", offset=(3.0, -11.0), length=ARM_U, rest_angle=90.0)
+    sk.bone("near_arm_u", parent="torso", offset=(3.0, -9.5), length=ARM_U, rest_angle=90.0)
     sk.bone("near_arm_l", parent="near_arm_u", offset=(ARM_U, 0.0), length=ARM_L)
     sk.bone("far_leg_u", parent="pelvis", offset=(-2.0, 2.0), length=LEG_U, rest_angle=90.0)
     sk.bone("far_leg_l", parent="far_leg_u", offset=(LEG_U, 0.0), length=LEG_L)
@@ -168,12 +169,12 @@ def _torso_painter(ctx: PartCtx) -> None:
     pts = [(-9.8, -13.5), (10.2, -13.5), (11.4, -6.0), (9.6, 1.5), (-8.8, 1.5)]
     poly = rounded_polygon(ctx.pts(pts), radius=ctx.L(3.6))
     draw_polygon(ctx.draw, poly, PAL["shell"], PAL["outline"], ctx.L(OUTLINE_W))
-    # Translucent details rely on render_frame handing the rig an
-    # alpha-BLENDING draw; a replace-mode draw would punch holes here.
+    # Translucent details go through composite_polygon (scratch layer +
+    # alpha_composite) — drawing them directly would clobber the alpha.
     shade = [(-9.0, -12.6), (-5.6, -12.8), (-5.0, 0.8), (-8.0, 0.8)]
-    draw_polygon(ctx.draw, rounded_polygon(ctx.pts(shade), radius=ctx.L(2.0)), (*PAL["shell_side"][:3], 110))
+    composite_polygon(ctx.img, rounded_polygon(ctx.pts(shade), radius=ctx.L(2.0)), (*PAL["shell_side"][:3], 110))
     hi = [(5.4, -12.8), (9.8, -12.6), (10.8, -6.4), (9.2, -2.2), (5.8, -2.6)]
-    draw_polygon(ctx.draw, rounded_polygon(ctx.pts(hi), radius=ctx.L(2.0)), (255, 255, 255, 90))
+    composite_polygon(ctx.img, rounded_polygon(ctx.pts(hi), radius=ctx.L(2.0)), (255, 255, 255, 90))
     # Chest light (the concept's teal square), mounted on the front plate.
     light = [(3.2, -9.4), (7.6, -9.4), (7.6, -5.0), (3.2, -5.0)]
     draw_polygon(
@@ -192,7 +193,7 @@ def _head_painter(ctx: PartCtx) -> None:
     draw_polygon(ctx.draw, poly, PAL["shell_top"], PAL["outline"], ctx.L(OUTLINE_W))
     # Lower-jaw shading band.
     jaw = [(-16.0, 6.5), (16.0, 6.5), (15.0, 13.0), (-15.0, 13.0)]
-    draw_polygon(ctx.draw, rounded_polygon(ctx.pts(jaw), radius=ctx.L(3.0)), (*PAL["shell_side"][:3], 120))
+    composite_polygon(ctx.img, rounded_polygon(ctx.pts(jaw), radius=ctx.L(3.0)), (*PAL["shell_side"][:3], 120))
     # Visor.
     visor = [(-5.5, -5.8), (16.5, -5.8), (16.5, 4.8), (-5.5, 4.8)]
     draw_polygon(
@@ -305,18 +306,20 @@ _FAR_X, _FAR_LIFT, _FAR_PITCH = _stride(0.5, -2.0)
 CLIP_IDLE = Clip(
     loop=True,
     channels={
-        "root_y": lambda t: 0.8 * math.sin(_TAU * t),
-        "root_x": lambda t: 0.5 * math.sin(_TAU * t + 0.7),
-        "pelvis": lambda t: 0.8 * math.sin(_TAU * t),
-        "torso": lambda t: 1.7 * math.sin(_TAU * t),
-        "head": lambda t: -2.1 * math.sin(_TAU * (t - 0.06)),
-        "antenna": lambda t: -9.0 * math.sin(_TAU * (t - 0.14)),
+        "root_y": lambda t: 1.3 * math.sin(_TAU * t),
+        "root_x": lambda t: 0.9 * math.sin(_TAU * t + 0.7),
+        "pelvis": lambda t: 1.3 * math.sin(_TAU * t),
+        "torso": lambda t: 2.8 * math.sin(_TAU * t),
+        # Head and antenna trail the torso with increasing phase lag so the
+        # bob whips through the chain instead of moving as one rigid block.
+        "head": lambda t: -3.4 * math.sin(_TAU * (t - 0.10)),
+        "antenna": lambda t: -15.0 * math.sin(_TAU * (t - 0.20)),
         # Elbows hinge backward: a relaxed forearm angles the hand slightly
         # FORWARD of the upper arm, so the bend pose is negative.
-        "near_arm_u": lambda t: 4.0 * math.sin(_TAU * t),
-        "near_arm_l": lambda t: -8.0 - 2.5 * math.sin(_TAU * t + 0.5),
-        "far_arm_u": lambda t: -3.5 * math.sin(_TAU * t),
-        "far_arm_l": lambda t: -8.0 - 2.0 * math.sin(_TAU * t + 0.9),
+        "near_arm_u": lambda t: 6.0 * math.sin(_TAU * t),
+        "near_arm_l": lambda t: -15.0 - 4.5 * math.sin(_TAU * (t - 0.08)),
+        "far_arm_u": lambda t: -5.0 * math.sin(_TAU * t),
+        "far_arm_l": lambda t: -15.0 - 4.0 * math.sin(_TAU * (t - 0.12)),
         "near_foot_x": 5.0,
         "far_foot_x": -4.5,
         "blink": Channel((0.0, 0), (0.42, 0, "linear"), (0.48, 1, "linear"), (0.58, 1, "linear"), (0.64, 0, "linear")),
@@ -328,17 +331,17 @@ CLIP_WALK = Clip(
     loop=True,
     channels={
         # Body lowest at each foot contact (t=0, 0.5), highest at passing.
-        "root_y": lambda t: 1.1 * math.cos(2.0 * _TAU * t) - 0.3,
-        "pelvis": lambda t: 2.5 * math.sin(_TAU * t),
-        "torso": lambda t: 4.0 - 2.0 * math.sin(_TAU * t),
-        "head": lambda t: -3.0 + 1.2 * math.sin(_TAU * (t - 0.08)),
-        "antenna": lambda t: -8.0 * math.sin(2.0 * _TAU * (t - 0.07)),
+        "root_y": lambda t: 1.5 * math.cos(2.0 * _TAU * t) - 0.3,
+        "pelvis": lambda t: 3.2 * math.sin(_TAU * t),
+        "torso": lambda t: 5.0 - 2.8 * math.sin(_TAU * t),
+        "head": lambda t: -4.0 + 2.0 * math.sin(_TAU * (t - 0.10)),
+        "antenna": lambda t: -13.0 * math.sin(2.0 * _TAU * (t - 0.09)),
         # Arms counter-swing their same-side legs; elbows hinge backward and
         # bend deepest when the arm swings forward.
-        "near_arm_u": lambda t: 24.0 * math.cos(_TAU * t),
-        "near_arm_l": lambda t: -(12.0 - 9.0 * math.cos(_TAU * t)),
-        "far_arm_u": lambda t: -24.0 * math.cos(_TAU * t),
-        "far_arm_l": lambda t: -(12.0 + 9.0 * math.cos(_TAU * t)),
+        "near_arm_u": lambda t: 27.0 * math.cos(_TAU * t),
+        "near_arm_l": lambda t: -(16.0 - 11.0 * math.cos(_TAU * (t - 0.04))),
+        "far_arm_u": lambda t: -27.0 * math.cos(_TAU * t),
+        "far_arm_l": lambda t: -(16.0 + 11.0 * math.cos(_TAU * (t - 0.04))),
         "near_foot_x": _NEAR_X,
         "near_foot_lift": _NEAR_LIFT,
         "near_foot_pitch": _NEAR_PITCH,
@@ -363,9 +366,9 @@ CLIP_SLASH = Clip(
         "torso": Channel((0, 0), (0.2, -7), (0.5, 11, "out"), (0.75, 7), (1, 0)),
         "head": Channel((0, 0), (0.2, -4), (0.5, 6, "out"), (1, 0)),
         "near_arm_u": Channel((0, 8), (0.12, 55), (0.22, 120), (0.34, 120), (0.5, 263, "out"), (0.74, 300), (1, 368)),
-        "near_arm_l": Channel((0, -8), (0.12, 28), (0.22, 60), (0.34, 60), (0.5, -5, "out"), (0.74, 24), (1, -8)),
+        "near_arm_l": Channel((0, -15), (0.12, 28), (0.22, 60), (0.34, 60), (0.5, -5, "out"), (0.74, 24), (1, -15)),
         "far_arm_u": Channel((0, -4), (0.22, -32), (0.5, 28, "out"), (0.78, 12), (1, -4)),
-        "far_arm_l": Channel((0, -8), (0.22, 18), (0.5, -12), (1, -8)),
+        "far_arm_l": Channel((0, -15), (0.22, 18), (0.5, -12), (1, -15)),
         "antenna": Channel((0, 0), (0.25, 12), (0.52, -18, "out"), (0.78, -6), (1, 0)),
         "near_foot_x": 7.0,
         "far_foot_x": -5.5,
@@ -467,12 +470,9 @@ def render_frame(animation: str, frame_idx: int, nframes: int) -> Image.Image:
     img = Image.new("RGBA", (FRAME_W * SS, FRAME_H * SS), (0, 0, 0, 0))
     world, params = _solve(animation, t)
     actor = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    # "RGBA" mode = true alpha BLENDING: translucent shade/highlight fills
-    # composite over the opaque shell instead of replacing destination
-    # alpha (replace-mode would punch see-through holes in the body).
-    # The fx layer below intentionally stays replace-mode so overlapping
-    # smear strokes don't double-darken.
-    _RIG.draw(actor, ImageDraw.Draw(actor, "RGBA"), world, SS, params)
+    # Opaque parts draw directly; translucent details inside the painters
+    # go through composite_polygon (scratch layer + alpha_composite).
+    _RIG.draw(actor, ImageDraw.Draw(actor), world, SS, params)
     if animation == "slash":
         fx = Image.new("RGBA", img.size, (0, 0, 0, 0))
         _draw_slash_fx(ImageDraw.Draw(fx), t, world, params)

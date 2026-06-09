@@ -101,6 +101,7 @@ pub fn publish_portal_carves(
     portals: Query<&PlacedPortal>,
     bodies: Query<&BodyKinematics, With<PortalBody>>,
     transits: Query<&PortalTransit>,
+    sim_dt: Option<Res<ambition_platformer_runtime::time::SimDt>>,
     mut carves: ResMut<PortalCarves>,
 ) {
     use super::placement::{capture_box, portal_fits};
@@ -110,6 +111,7 @@ pub fn publish_portal_carves(
     if all.is_empty() {
         return;
     }
+    let dt = sim_dt.map_or(0.0, |d| d.get());
     // Carve a channel once (deduped), and only if its pair partner is placed — a
     // lone portal must never open a bottomless hole.
     let mut carved: Vec<PortalChannel> = Vec::new();
@@ -127,12 +129,19 @@ pub fn publish_portal_carves(
         carved.push(channel);
     };
 
-    // Geometric, same-frame: any opted-in body currently in a portal's capture
-    // opening (and able to fit) opens that portal NOW, before collision runs.
+    // Geometric + SWEPT, same-frame: any opted-in body whose path THIS frame
+    // (its current AABB swept along `vel * dt`) reaches a portal's capture opening
+    // (and that fits) opens that portal NOW, before collision integrates. The
+    // sweep matters because this runs on the body's START-of-frame position:
+    // without it, a body arriving at speed only overlaps the thin capture box
+    // AFTER collision moves it, so the floor would still be solid this frame and
+    // the body would thud onto it (one frame of lost momentum per entry). Sweeping
+    // by the displacement collision is about to apply keeps the floor open the
+    // frame the body crosses it.
     for kin in &bodies {
-        let body = ae::Aabb::new(kin.pos, kin.size * 0.5);
+        let swept = swept_aabb(kin.pos, kin.size, kin.vel * dt);
         for p in &all {
-            if portal_fits(kin.size, p) && body.strict_intersects(capture_box(p)) {
+            if portal_fits(kin.size, p) && swept.strict_intersects(capture_box(p)) {
                 carve(p.channel, &mut carves.holes);
             }
         }
@@ -141,6 +150,16 @@ pub fn publish_portal_carves(
     for t in &transits {
         carve(t.straddling, &mut carves.holes);
     }
+}
+
+/// AABB covering a body of `size` centered at `pos` swept by `delta` (its
+/// motion this frame): the union of the body at `pos` and at `pos + delta`.
+fn swept_aabb(pos: Vec2, size: Vec2, delta: Vec2) -> ae::Aabb {
+    let half = size * 0.5;
+    let p1 = pos + delta;
+    let lo = pos.min(p1) - half;
+    let hi = pos.max(p1) + half;
+    ae::Aabb::new((lo + hi) * 0.5, (hi - lo) * 0.5)
 }
 
 /// Marker: opts an entity into the one generic portal-transit algorithm

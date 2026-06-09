@@ -13,7 +13,7 @@ use ambition_platformer_runtime::world_query::{ray_aabb, raycast_solids};
 
 use super::color::PortalChannel;
 use super::transit::PortalTransit;
-use super::types::{find_portal, PlacedPortal, MIN_EXIT_SPEED};
+use super::types::{find_portal, portal_exit_clearance, PlacedPortal, MIN_EXIT_SPEED};
 
 /// Recursive, portal-aware raycast: cast from `origin` along `dir`, and if the
 /// ray crosses a portal face (entering from its front) before hitting a solid,
@@ -206,6 +206,56 @@ pub enum TransitStep {
     Continue,
 }
 
+/// Build the [`TransitStep::Transfer`] for a body crossing `enter` → `exit`.
+/// Shared by the mid-transit centroid crossing and the cooldown-bypassing rescue
+/// so both emerge identically.
+///
+/// The exit position pops the body CLEAR of the exit face: it preserves the
+/// lateral offset (`map_point`) but shifts along the exit normal so the body's
+/// centroid sits exactly [`portal_exit_clearance`] in FRONT of the exit plane.
+/// The old transfer mapped the centroid straight through (often landing it on or
+/// behind the exit plane), which (a) let a fast/large-dt crossing emerge embedded
+/// in the exit floor and (b) left the body straddling the exit so it could
+/// re-trigger the transfer the very next frame. Emerging clear fixes both and
+/// makes the post-transit cooldown enough to stop a same-frame ping-pong.
+fn transfer_step(
+    center: Vec2,
+    size: Vec2,
+    vel: Vec2,
+    enter: PlacedPortal,
+    exit: PlacedPortal,
+    gravity_dir: Vec2,
+) -> TransitStep {
+    let ef = enter.frame();
+    let xf = exit.frame();
+    let mut vel_out = portal_transform_velocity(vel, enter.normal, exit.normal);
+    // Floor the exit speed along the exit normal so a slow walk-in still emerges
+    // instead of stalling in the opening.
+    if vel_out.dot(exit.normal) < MIN_EXIT_SPEED {
+        let tangential = vel_out - vel_out.dot(exit.normal) * exit.normal;
+        vel_out = tangential + exit.normal * MIN_EXIT_SPEED;
+    }
+    // Preserve lateral offset, but set the depth to +clearance in FRONT of the
+    // exit face (shift purely along the exit normal).
+    let mapped = pp::map_point(center, &ef, &xf);
+    let clearance = portal_exit_clearance(size * 0.5, exit.normal);
+    let depth = pp::front_distance(mapped, &xf);
+    let exit_pos = mapped + exit.normal * (clearance - depth);
+    TransitStep::Transfer {
+        pos: exit_pos,
+        vel: vel_out,
+        // The body picks up the on-screen turn it travels through (a tumble for
+        // floor/ceiling, nothing for a wall↔wall turn-around); `update_actor_roll`
+        // then eases it back to gravity-upright (feet-in → reorient).
+        roll_delta: somersault_roll(enter.normal, exit.normal, gravity_dir),
+        facing_flip: portal_facing_flips(enter.normal, exit.normal, gravity_dir),
+        enter_normal: enter.normal,
+        exit_normal: exit.normal,
+        exit_channel: exit.channel,
+        exit_pos: exit.pos,
+    }
+}
+
 /// Compute the transit step for a body. See [`TransitStep`]. `cooldown` is the
 /// body's post-jump latch (player gun cooldown / actor [`super::types::PortalTransitCooldown`]);
 /// `gravity_dir` selects whether a transit tumbles or just turns around.
@@ -225,6 +275,33 @@ pub fn transit_step(
     };
     match transit {
         None => {
+            // RESCUE / commit (runs EVEN on cooldown): if the body's centroid has
+            // reached or passed a portal plane while the body still straddles its
+            // opening, it is physically in the act of falling through — transfer it
+            // NOW. The host-surface carve opens on geometric overlap (so the floor
+            // is non-solid while a body is in the opening), but the gentle Begin
+            // below is cooldown-blocked for a short window after a jump. Without
+            // this rescue, a body that falls back into an open carve DURING that
+            // cooldown (e.g. a quick floor↔floor bounce whose airtime is shorter
+            // than the cooldown) sinks to the bottom of the open hole and grounds
+            // there — "stuck in the middle of the floor", its momentum killed.
+            // `straddles` bounds the rescue to the opening (the plane passes
+            // THROUGH the body), so a body that is legitimately below the surface
+            // is never teleported.
+            for enter in portals {
+                if find_portal(portals, enter.channel.partner()).is_none() {
+                    continue;
+                }
+                if !portal_fits(size, enter) {
+                    continue;
+                }
+                let ef = enter.frame();
+                if pp::straddles(body, &ef) && pp::front_distance(center, &ef) <= 0.0 {
+                    let exit = find_portal(portals, enter.channel.partner())
+                        .expect("partner checked above");
+                    return transfer_step(center, size, vel, *enter, exit, gravity_dir);
+                }
+            }
             if cooldown > 0.0 {
                 return TransitStep::Idle;
             }
@@ -264,28 +341,7 @@ pub fn transit_step(
             // the body jumps to the exit; gameplay sees no discontinuity because
             // every query uses the portal pieces.
             if !t.crossed && pp::front_distance(center, &ef) <= 0.0 {
-                let xf = exit.frame();
-                let mut vel_out = portal_transform_velocity(vel, enter.normal, exit.normal);
-                // Floor the exit speed along the exit normal so a slow walk-in
-                // still emerges instead of stalling in the opening.
-                if vel_out.dot(exit.normal) < MIN_EXIT_SPEED {
-                    let tangential = vel_out - vel_out.dot(exit.normal) * exit.normal;
-                    vel_out = tangential + exit.normal * MIN_EXIT_SPEED;
-                }
-                return TransitStep::Transfer {
-                    pos: pp::map_point(center, &ef, &xf),
-                    vel: vel_out,
-                    // The body picks up the on-screen turn it travels through
-                    // (a tumble for floor/ceiling, nothing for a wall↔wall
-                    // turn-around); `update_actor_roll` then eases it back to
-                    // gravity-upright (feet-in → reorient).
-                    roll_delta: somersault_roll(enter.normal, exit.normal, gravity_dir),
-                    facing_flip: portal_facing_flips(enter.normal, exit.normal, gravity_dir),
-                    enter_normal: enter.normal,
-                    exit_normal: exit.normal,
-                    exit_channel: exit.channel,
-                    exit_pos: exit.pos,
-                };
+                return transfer_step(center, size, vel, enter, exit, gravity_dir);
             }
             // Stay engaged so the carve persists long enough to sink + cross —
             // clearing on "not straddling yet" would drop the carve every other

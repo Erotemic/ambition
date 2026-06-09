@@ -152,6 +152,18 @@ pub fn portal_fits(size: Vec2, portal: &PlacedPortal) -> bool {
 /// only opens once transit has begun, so begin must trigger on contact).
 const TRANSIT_BEGIN_MARGIN: f32 = 6.0;
 
+/// The capture box for a portal: the thin face grown by [`TRANSIT_BEGIN_MARGIN`].
+/// A body whose AABB intersects this box is "in the opening" — both the transit
+/// `Begin` decision AND the host-surface carve key off it, so the floor opens the
+/// exact frame transit begins (no one-frame lag where the body grounds on a
+/// still-solid floor before the carve appears).
+pub(crate) fn capture_box(portal: &PlacedPortal) -> ae::Aabb {
+    ae::Aabb::new(
+        portal.pos,
+        portal.half_extent + Vec2::splat(TRANSIT_BEGIN_MARGIN),
+    )
+}
+
 /// One step of the aperture / centroid-crossing transit machine for ANY body.
 /// Pure: given the body's geometry + current transit/cooldown state + the portal
 /// pair, it returns the action the caller applies. Shared by the player and
@@ -230,10 +242,7 @@ pub fn transit_step(
                 // (centroid in front of the plane, or moving into it). The
                 // capture box is the thin face plus a small margin; its
                 // along-surface span is the opening, so this also gates laterally.
-                let capture = ae::Aabb::new(
-                    enter.pos,
-                    enter.half_extent + Vec2::splat(TRANSIT_BEGIN_MARGIN),
-                );
+                let capture = capture_box(enter);
                 let entering =
                     pp::front_distance(center, &frame) > 0.0 || vel.dot(enter.normal) < 0.0;
                 if entering && body.strict_intersects(capture) {
@@ -288,11 +297,7 @@ pub fn transit_step(
             let still_engaged = if t.crossed {
                 pp::straddles(body, &enter.frame())
             } else {
-                let capture = ae::Aabb::new(
-                    enter.pos,
-                    enter.half_extent + Vec2::splat(TRANSIT_BEGIN_MARGIN),
-                );
-                body.strict_intersects(capture)
+                body.strict_intersects(capture_box(&enter))
             };
             if still_engaged {
                 TransitStep::Continue

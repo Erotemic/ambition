@@ -72,38 +72,74 @@ pub struct PortalCarves {
     pub holes: Vec<ae::Aabb>,
 }
 
-/// Carve placed-portal apertures out of the host surface — but ONLY a portal a
-/// transiting body currently occupies (its `PortalTransit.straddling`), so the
-/// opening exists exactly while a body is passing through and re-seals the
-/// instant it clears. A permanently-carved portal left a walk-in pocket in the
-/// host wall (you could wiggle into the solid wall / ledge-grab the carved
-/// edges); gating the carve on active transit closes that. Pair-gated — a lone
-/// portal never carves.
+/// Carve placed-portal apertures out of the host surface — but ONLY a portal an
+/// opted-in body currently occupies, so the opening exists exactly while a body
+/// is passing through and re-seals the instant it clears. A permanently-carved
+/// portal left a walk-in pocket in the host wall (you could wiggle into the solid
+/// wall / ledge-grab the carved edges); gating the carve on a present body closes
+/// that. Pair-gated — a lone portal never carves.
+///
+/// A portal is carved when EITHER:
+/// * **a [`PortalBody`] currently overlaps its capture opening** — keyed off the
+///   body's CURRENT position (this system runs in `PortalSet::Carves`,
+///   `.before(CoreSimulation)`), so the floor opens the SAME frame the body
+///   reaches it and collision lets the body sink through instead of grounding on
+///   a still-solid floor. (The old transit-latch-only carve lagged one frame: the
+///   body grounded on the sealed floor first — killing its entry momentum and
+///   playing a landing thud — then the carve opened the next frame and it sank
+///   from rest. That threw away a fast entry's speed and, on less forgiving
+///   geometry, let the body tunnel through.) The capture box is exactly the one
+///   [`transit_step`](super::placement::transit_step)'s `Begin` keys off, so carve
+///   and begin are synchronized.
+/// * **a body is mid-transit straddling it** ([`PortalTransit`]) — keeps the hole
+///   open through the deep sink/cross even after the body's centroid has dropped
+///   past the thin capture box.
 ///
 /// Writes the carve geometry into the portal-owned [`PortalCarves`] resource (not
 /// the host overlay); the Ambition bridge copies it into the collision overlay.
 pub fn publish_portal_carves(
     portals: Query<&PlacedPortal>,
+    bodies: Query<&BodyKinematics, With<PortalBody>>,
     transits: Query<&PortalTransit>,
     mut carves: ResMut<PortalCarves>,
 ) {
+    use super::placement::{capture_box, portal_fits};
+
     carves.holes.clear();
     let all: Vec<PlacedPortal> = portals.iter().copied().collect();
-    // Carve each portal a body is actively transiting (deduped), but only if its
-    // pair partner is placed — a lone portal must never open a bottomless hole.
+    if all.is_empty() {
+        return;
+    }
+    // Carve a channel once (deduped), and only if its pair partner is placed — a
+    // lone portal must never open a bottomless hole.
     let mut carved: Vec<PortalChannel> = Vec::new();
-    for t in &transits {
-        if carved.contains(&t.straddling) {
-            continue;
+    let mut carve = |channel: PortalChannel, holes: &mut Vec<ae::Aabb>| {
+        if carved.contains(&channel) {
+            return;
         }
-        let Some(enter) = find_portal(&all, t.straddling) else {
-            continue;
+        let Some(enter) = find_portal(&all, channel) else {
+            return;
         };
-        if find_portal(&all, t.straddling.partner()).is_none() {
-            continue;
+        if find_portal(&all, channel.partner()).is_none() {
+            return;
         }
-        carves.holes.push(pp::carve_hole(&enter.frame()));
-        carved.push(t.straddling);
+        holes.push(pp::carve_hole(&enter.frame()));
+        carved.push(channel);
+    };
+
+    // Geometric, same-frame: any opted-in body currently in a portal's capture
+    // opening (and able to fit) opens that portal NOW, before collision runs.
+    for kin in &bodies {
+        let body = ae::Aabb::new(kin.pos, kin.size * 0.5);
+        for p in &all {
+            if portal_fits(kin.size, p) && body.strict_intersects(capture_box(p)) {
+                carve(p.channel, &mut carves.holes);
+            }
+        }
+    }
+    // Latch: keep a straddled portal open through the centroid crossing.
+    for t in &transits {
+        carve(t.straddling, &mut carves.holes);
     }
 }
 

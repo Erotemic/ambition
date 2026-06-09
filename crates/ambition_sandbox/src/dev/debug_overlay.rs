@@ -73,16 +73,26 @@ pub fn draw_debug_overlay(
     mode: Res<State<GameMode>>,
     entities: Res<SceneEntities>,
     // In-flight player projectiles are ECS entities now (Phase 3c-ii) —
-    // draw each one's AABB from its kinematic body.
+    // draw each one's AABB from its kinematic body. `Without<PlayerEntity>`
+    // spells out that a projectile is never the player, so Bevy can prove
+    // this read of `BodyKinematics` is disjoint from the `&mut` player query
+    // below (B0001).
     player_projectiles: Query<
         &crate::player::BodyKinematics,
-        With<crate::projectile::PlayerProjectile>,
+        (
+            With<crate::projectile::PlayerProjectile>,
+            Without<crate::player::PlayerEntity>,
+        ),
     >,
     // In-flight enemy projectiles are ECS entities now (Phase 3c-iii) — draw
-    // each one's AABB from its kinematic body.
+    // each one's AABB from its kinematic body. Same `Without<PlayerEntity>`
+    // disjointness as the player projectiles above.
     enemy_projectiles: Query<
         &crate::player::BodyKinematics,
-        With<crate::enemy_projectile::EnemyProjectile>,
+        (
+            With<crate::enemy_projectile::EnemyProjectile>,
+            Without<crate::player::PlayerEntity>,
+        ),
     >,
     action_query: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
     mut player_q: Query<

@@ -232,6 +232,97 @@ Controller state stays on owners. This is the largest, riskiest phase — gate h
 Likely several commits (split types → spawn-via-message → entity step systems →
 visuals → delete Vec pools).
 
+### Phase 3 — Progress / status (2026-06-09)
+
+**3a — split `ProjectileBody` ✅ DONE (commit `3b64353d`).** The runtime
+`ProjectileBody` is now a composite of two halves: the generic kinematic body
+(the lower-crate **`ambition_engine_core::BodyKinematics`** — pos/vel/size,
+re-exported by `platformer_runtime`) and a new projectile-specific
+`ProjectileGameplay` (kind/faction/age/max_lifetime/gravity/damage/
+bounces_remaining). `resolve_world_collision` + the lifetime/bounce resolution
+(`tick`, `resolve_solid_hit`, `resolve_one_way_hit`) now operate on the two
+halves directly (`fn(&mut BodyKinematics, &mut ProjectileGameplay, …)`).
+`ProjectileBody` keeps field-style accessor methods (`.pos()`, `.kind()`, …) +
+public `.kin` / `.game` fields so the still-Vec-pooled call sites read
+unchanged. **Kinematic part is `BodyKinematics`, NOT a lean struct** — it fits
+cleanly (`BodyKinematics::aabb()` with `size = half_extent*2` is bit-identical
+to the old `aabb_from_min_size(pos-half_extent, half_extent*2)`), and it is the
+exact body component portal transit already queries, so Phase 4 is "tag + go."
+Pure refactor, Vec-pooled, **zero replay divergence**; runtime 34, sandbox
+`--lib` 1428, `architecture_boundaries` 16, `scripted_gameplay` green.
+
+**3b — spawn via `SpawnProjectile` message ✅ DONE (commit `45c024cf`).**
+New `crate::projectile::SpawnProjectile { pool: ProjectilePool, projectile:
+InFlightProjectile }` message + `ProjectilePool::{ Player{owner}, Enemy }`. The
+fire paths no longer push into a `bodies` Vec directly:
+- Player charge/motion release (`try_fire_projectile`) WRITES a Player-pool
+  message; `apply_player_spawn_projectile_messages` pushes it **after**
+  `update_projectiles` (new body first ticks next frame — matches the old
+  post-tick-loop push). The shoot-anim pulse now keys off a local
+  `fired_this_frame` count instead of `bodies.len()` growth.
+- Every enemy/boss/wielded fire path (apple rain, overfit volley, eye beam,
+  ranged bolts, sentry, meteor, volley) WRITES an Enemy-pool message via
+  `SpawnProjectile::enemy(request, faction)`;
+  `apply_enemy_spawn_projectile_messages` pushes it **before**
+  `update_enemy_projectiles` (body advances one step this frame — matches the
+  old EFFECTS-stage direct push). `EnemyProjectileState::build` centralizes the
+  request→body mapping (reused by the direct `spawn()` path the unit tests use).
+Vec pools unchanged — only *spawn* is decoupled from *storage*. **Zero replay
+divergence**; sandbox `--lib` 1428, runtime 34, `architecture_boundaries` 16,
+`scripted_gameplay` green.
+
+**3c — Vec → ECS entities: NOT STARTED — deliberately deferred, needs a human
+go-ahead on test-rewrite scope.** This is the crux and was scoped but not
+landed. The blocker is not a sim-divergence we hit — it's the **blast radius +
+determinism surface** of doing it right, which exceeds what should be jammed
+into one autonomous pass without a checkpoint:
+
+  1. **Two pools, ~15 tests assert on the `Vec` directly.** The enemy pool is a
+     `Res<EnemyProjectileState>` whose `.bodies: Vec` is read by ~15 unit tests
+     (brain_effects ×9, sentry, meteor, volley) right after `app.update()`.
+     Turning the pool into entities means rewriting every one of those
+     assertions to query projectile entities — a large, error-prone edit that
+     wants review, not a silent autonomous rewrite.
+  2. **`BodyKinematics`-on-projectile leaks into actor-generic systems.**
+     Putting the (correct, Phase-4-required) `BodyKinematics` component on a
+     projectile entity makes it visible to every actor-generic body query.
+     The concrete one found: `platformer_runtime::orientation::ensure_actor_roll`
+     (`Query<Entity, (With<BodyKinematics>, Without<ActorRoll>)>`) would attach
+     `ActorRoll` to projectiles and auto-right them to gravity. Fix is clean
+     (make `ProjectileGameplay` an ECS `Component` — the projectile tag — and
+     add `Without<ProjectileGameplay>` to that query, both in the runtime
+     crate), but it signals that EVERY unfiltered/loosely-filtered
+     `BodyKinematics` consumer must be audited before projectiles join that
+     component, which is exactly the kind of wide sweep to do with eyes on it.
+  3. **Trace-event ordering is the determinism judge.** Within a frame the old
+     loop emits `[tick events for existing bodies][fire events for new]` in Vec
+     order. Splitting into a `step_player_projectiles` entity system + the fire
+     system + the spawn consumer must reproduce that exact intra-frame ordering,
+     AND process entities in a **stable spawn-sequence order** (Bevy iteration
+     order is unspecified) — a `ProjectileSeq(u64)` monotonic id + sort/ordered
+     index is the intended mechanism (scaffolded, not wired). The
+     `replay_fixture` itself is player-pos-only and its fixture controls never
+     fire (`projectile:false`), so it is a WEAK guard for 3c; `scripted_gameplay`
+     + the projectile unit suites are the real judges and must be watched.
+
+  **Recommended 3c plan when resumed** (smaller, individually-gated steps):
+  (i) make `ProjectileGameplay` a `Component` + add the `Without<…>` auto-roll
+  guard (no behavior change; commit alone). (ii) Convert the **player pool**
+  only to entities (`step_player_projectiles` reading
+  `(&mut BodyKinematics, &mut ProjectileGameplay, &ProjectileOwner, &ProjectileSeq)`
+  sorted by seq; spawn consumer spawns entities; rewrite the `min_app`-based
+  player tests to query entities) — gate, commit. (iii) Convert the **enemy
+  pool** + rewrite its ~15 tests — gate, commit. (iv) 3d persistent visuals.
+  Each step stays zero-divergence on `scripted_gameplay` + the projectile
+  suites or it does not land.
+
+**3d — persistent entity visuals: NOT STARTED** (depends on 3c).
+
+**Net:** 3a + 3b landed clean and bit-identical (the type split + the
+spawn-decoupling — the genuinely reusable groundwork). 3c/3d remain; they are
+mechanical but wide, and the right call was to checkpoint here rather than push
+a large multi-pool, multi-test entity rewrite through without a human gate.
+
 **Phase 4 — Projectiles transit portals (the demo).** Tag projectile entities with
 `PortalBody` + the transit policy → they use the one generic algorithm. Delete
 `portal_teleport_ground_items` (ground items become generic `PortalBody` opt-ins too).

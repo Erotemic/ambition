@@ -120,7 +120,9 @@ pub(super) fn player_control_phase(
             tuning,
             feel,
         );
-        reset_room_features.write(features::ResetRoomFeaturesEvent);
+        reset_room_features.write(features::ResetRoomFeaturesEvent {
+            reason: features::RoomResetReason::PlayerDeath,
+        });
         return PhaseOutcome::Return;
     }
     // Damage breakable pogo orbs the player just bounced off. The
@@ -325,7 +327,9 @@ pub(super) fn player_simulation_phase(
             tuning,
             feel,
         );
-        reset_room_features.write(features::ResetRoomFeaturesEvent);
+        reset_room_features.write(features::ResetRoomFeaturesEvent {
+            reason: features::RoomResetReason::PlayerDeath,
+        });
         return PhaseOutcome::Return;
     }
     handle_player_events(

@@ -139,12 +139,29 @@ pub struct GameplaySfxRequested {
     pub pos: ae::Vec2,
 }
 
+/// Why a room reset fired. Lets a consumer treat a player DEATH differently from
+/// a deliberate MANUAL reset — e.g. the portal adapter preserves the player's gun
+/// portals across a death but clears them on a manual reset.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum RoomResetReason {
+    /// The player died / fell out of the world (engine-raised reset). Portals are
+    /// PRESERVED so a death doesn't wipe the player's gun-portal setup.
+    PlayerDeath,
+    /// A deliberate reset: the manual delete-key reset or a scripted room replay.
+    /// The gun's portals are cleared (authored level portals are always spared by
+    /// `clear_portals_on_reset`). Default so any plain construction clears.
+    #[default]
+    Manual,
+}
+
 /// Reset request for ECS-owned room features.
 ///
 /// Same-room resets and full sandbox resets emit this once, and
 /// `reset_ecs_room_features` consumes it through Bevy's message stream.
 #[derive(Message, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct ResetRoomFeaturesEvent;
+pub struct ResetRoomFeaturesEvent {
+    pub reason: RoomResetReason,
+}
 
 /// Runtime HUD banner state owned directly by Bevy ECS.
 ///

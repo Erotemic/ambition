@@ -264,7 +264,9 @@ pub fn apply_player_reset_input_system(
         editable_tuning.as_engine(),
         *feel_tuning,
     );
-    reset_room_features.write(features::ResetRoomFeaturesEvent);
+    reset_room_features.write(features::ResetRoomFeaturesEvent {
+        reason: features::RoomResetReason::Manual,
+    });
 }
 
 /// Replay the cut-rope boss room from a Yarn/dialogue command.
@@ -318,7 +320,9 @@ pub fn apply_cut_rope_room_replay_request_system(
         mut safety,
     )) = player_q.single_mut()
     else {
-        reset_room_features.write(features::ResetRoomFeaturesEvent);
+        reset_room_features.write(features::ResetRoomFeaturesEvent {
+            reason: features::RoomResetReason::Manual,
+        });
         return;
     };
 
@@ -339,7 +343,9 @@ pub fn apply_cut_rope_room_replay_request_system(
         editable_tuning.as_engine(),
         *feel_tuning,
     );
-    reset_room_features.write(features::ResetRoomFeaturesEvent);
+    reset_room_features.write(features::ResetRoomFeaturesEvent {
+        reason: features::RoomResetReason::Manual,
+    });
 }
 
 /// Detect a loading-zone overlap and emit a [`RoomTransitionRequested`]

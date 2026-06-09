@@ -254,7 +254,8 @@ mod reset_tests {
         let pickup = app.world_mut().spawn((FeatureSimEntity, Collected)).id();
         let brk = broken_breakable(&mut app);
 
-        app.world_mut().write_message(ResetRoomFeaturesEvent);
+        app.world_mut()
+            .write_message(ResetRoomFeaturesEvent::default());
         app.update();
 
         assert!(

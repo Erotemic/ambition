@@ -136,12 +136,18 @@ pub fn install_kaleidoscope_menu(app: &mut App) {
                 // (pause/Esc, inventory, map) open the cube on the matching page
                 // instead of the old Bevy-UI menus. Runs before nav so the page is
                 // set the same frame the cube opens.
-                kaleidoscope_menu_open_routing.run_if(kaleidoscope_backend_active),
+                // In MenuNavConsume so `fold_to_menu_control_frame`'s
+                // `.before(MenuNavConsume)` guarantees this sees the touch
+                // Menu-button press AFTER the fold writes it. Without set
+                // membership, the `.after(rebuild_cube_faces)` chain constraint
+                // could schedule this before the fold, making it miss the
+                // pressed_this_frame bit and never opening the menu on touch.
+                kaleidoscope_menu_open_routing
+                    .run_if(kaleidoscope_backend_active)
+                    .in_set(crate::app::MenuNavConsume),
                 // Nav first (mutates the cursor), then republish (reads the cursor +
                 // inventory) so the highlight + detail panel reflect this frame's move.
-                // Joins `MenuNavConsume` so the touch-joystick fold (mobile_input)
-                // pins `.before(MenuNavConsume)` and lands its directional intent
-                // in `MenuControlFrame` before this consumes it (Bug 2).
+                // Also in `MenuNavConsume` for the same fold-ordering reason above.
                 kaleidoscope_focus_nav.in_set(crate::app::MenuNavConsume),
                 // Features C/D: scroll the System window INDEPENDENTLY of selection.
                 // The wheel (D) + the scrollbar-drag signal (C) set the scroll

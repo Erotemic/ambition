@@ -452,13 +452,101 @@ migration, and persistent sprites). **Phase 3 is COMPLETE; Phase 4 can begin.**
 Add a reachability test: a fireball fired into portal A emerges from portal B with the
 mapped velocity.
 
-**Phase 5 — Extract `crates/ambition_mechanics_portal`.** Now portal core is generic
-(markers + seams + adapters) → move it (transit math, placement, lifecycle, carve,
-pieces, gun mechanics, shot, messages, types, schedule). Presentation stays
-render-gated in sandbox; the content adapters stay in `ambition_content::portal`.
-Facade `crate::portal` re-exports → zero inbound churn. Boundary guards: the crate
-depends only on `ambition_engine_core`/`ambition_platformer_runtime` + Bevy, never on
+### Phase 4 — Progress / status (2026-06-09)
+
+**Steps 1 + 2 ✅ DONE** (commits `35afbfeb` tag, `37e99f70` tests). **Step 3
+(ground-item unification) DEFERRED** per the don't-force rule — see below.
+
+- **The "almost free" claim is TRUE.** Step 1 is ~20 lines: a new idempotent
+  Ambition adapter `ensure_projectile_portal_bodies` (in `transit_body_adapter.rs`)
+  that tags every `(With<BodyKinematics>, With<ProjectileGameplay>,
+  Without<PortalBody>)` entity with `PortalBody` + the projectile policy, wired
+  `.before(portal_transit)` in `PortalSet::Transit`. No core change at all — the
+  generic `portal_transit` already does the whole aperture/centroid machine; Phase 3
+  had already put the SHARED `BodyKinematics` on the projectile entities, so this
+  really was "tag + go". The one judgment call (not a surprise): a DEDICATED tagging
+  system rather than relaxing `ensure_portal_bodies`'s `Without<ProjectileGameplay>`,
+  so the actor transit set + its actor-identity→policy mapping stay untouched and the
+  projectile policy is independent.
+- **Projectile `PortalPolicy` = `{ reorient: false, carry_velocity: true }`.** A
+  free-flying body: velocity is rotated by the pair transform (core/default, in
+  `transit_step`) and WRITTEN (`carry_velocity`), so it keeps flying out the exit;
+  `reorient: false` because a projectile carries no `ActorRoll` and has no
+  facing-to-aperture concept (Phase 3c-i already kept `ActorRoll` off projectiles via
+  `Without<ProjectileGameplay>` on `ensure_actor_roll`). Both pools
+  (`PlayerProjectile` + `EnemyProjectile`) carry the shared `BodyKinematics` +
+  `ProjectileGameplay`, so the one marker-filter covers every projectile.
+- **Ordering edges.** Tagging is `.before(portal_transit)` (same as
+  `ensure_portal_bodies`). Projectile MOTION integrates in `SandboxSet::Combat`
+  (`update_projectiles` / `update_enemy_projectiles`), which is chained AFTER
+  `SandboxSet::PlayerSimulation` (where `PortalSet::Transit` / `portal_transit`
+  lives). That cross-set chain is a FIXED, deterministic per-frame relationship —
+  `portal_transit` always samples the projectile body integrated on the previous
+  frame, the same steady integrate→transit cadence actors use. The transit machine is
+  a multi-frame aperture/centroid latch, so the one-frame sampling cadence is correct;
+  what matters (and is guaranteed by the set chain) is that it is consistent. No extra
+  `.before/.after` was needed beyond the `.before(portal_transit)` tag edge —
+  documented inline in `ambition_content/portal/plugin.rs`.
+- **Reachability tests (Step 2).** Two deterministic headless guards:
+  (a) in-crate unit suite `transit_body_adapter::projectile_transit_tests` — drives
+  the REAL adapter + REAL `portal_transit` on a projectile entity (shared
+  `BodyKinematics` + `ProjectileGameplay`) and asserts it enters portal A and EMERGES
+  from portal B with velocity rotated by the pair transform (travels along the exit
+  normal, speed preserved above the `MIN_EXIT_SPEED` floor), keeps flying, and is NOT
+  re-oriented (facing unchanged); a paired no-regression test asserts a projectile
+  away from any portal is untouched (`transit_step` → Idle, velocity intact, no
+  latch). (b) external `tests/projectile_portal_transit.rs` — the same demo
+  end-to-end in a live `SandboxSim` app: a free-flying `PortalBody` body straddling
+  portal_lab's authored Purple portal transits through the real `PortalSet::Transit`
+  schedule and emerges near the Yellow partner, still flying. (The projectile gameplay
+  type is `pub(crate)`, so the external test spawns the body with the PUBLIC
+  `PortalBody`/`PortalPolicy`; the projectile *tagging* filter is covered by the
+  in-crate suite.)
+- **Non-portal projectiles do NOT regress.** Projectile unit suites + `--lib` (1429,
+  +2) + `scripted_gameplay` (3) + `replay_fixture_regression` (ZERO divergence) +
+  `architecture_boundaries` (16) + `portal_bridge_reachability` +
+  `portal_lab_usable` all green.
+
+**Step 3 — ground-item unification: DEFERRED (don't-force).** `GroundItem` does NOT
+carry `BodyKinematics` — it has its OWN `pos` / `vel` / `half_extent` fields and is
+woven through ~50 call sites (its own pickup physics + integration, damage,
+spawn_static, room reset, and the thrown grenade / bomb abilities). Giving it the
+lower-crate `BodyKinematics` (and deleting `portal_teleport_ground_items` +
+`PortalTransitable` + the `GroundItem↔PortalTransitable` bracketing adapters) is a
+real blast radius well outside the projectile demo's scope. Per the prompt's explicit
+FALLBACK and the project's "land the decoupling-in-place or note the residue; don't
+force" discipline, `portal_teleport_ground_items` + `PortalTransitable` + the two
+`sync_*_transitable` brackets are left intact for a follow-up. Ground-item portal
+behavior is unchanged (they still transit via the weaker path). This is the LAST
+remaining instance of the "three transit paths" split (the player + actor + projectile
+paths are now ONE `portal_transit`); collapsing the ground-item path is a clean,
+self-contained follow-up: give `GroundItem` a `BodyKinematics` (or split its body
+out), tag it `PortalBody` + `{reorient:false, carry_velocity:true}`, delete the
+weaker path. NOTE for Phase 5: `PortalTransitable` + `portal_teleport_ground_items`
+must move WITH the crate (they are still portal-core surface) until this follow-up
+deletes them.
+
+**Phase 5 — Extract `crates/ambition_mechanics_portal`. READY (2026-06-09).** Now
+portal core is generic (markers + seams + adapters) and ALL the moving bodies
+(player + actors + projectiles) ride the ONE `portal_transit` → move it (transit math,
+placement, lifecycle, carve, pieces, gun mechanics, shot, messages, types, schedule).
+Presentation stays render-gated in sandbox; the content adapters stay in
+`ambition_content::portal`. Facade `crate::portal` re-exports → zero inbound churn.
+Boundary guards: the crate depends only on
+`ambition_engine_core`/`ambition_platformer_runtime` + Bevy, never on
 `ambition_sandbox`/content/features.
+
+**Phase-5 readiness caveats (carry forward):**
+- `PortalTransitable` + `portal_teleport_ground_items` + the two
+  `sync_*_transitable` brackets still exist (Step 3 deferred) — they are portal-core
+  surface and must move WITH the crate (the ground-item follow-up deletes them later).
+- The Phase-2 residue still stands (decouple before/with the move or carry as
+  documented): `crate::player` refs in `gun.rs` (color/dev toggle query the primary
+  player's `PortalGun`) + `transit.rs` (`suppress_ledge_grab_during_transit`,
+  `warp_portal_input` query the primary player); `ambition_sfx` in core
+  (`portal_transit` / `portal_fire_system` / `portal_projectile_step` — sfx
+  decoupling was tagged Phase 5); `presentation.rs` render-gated reads of
+  `Res<GameWorld>` + `crate::player`.
 
 ## Principles
 - **Elegant, not quick.** Prefer the generic aperture algorithm over the weaker

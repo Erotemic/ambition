@@ -22,11 +22,20 @@ pub struct GameplayTraceBuffer {
     pub(super) has_recorded_any: bool,
     /// Frame-to-frame diff source for synthetic events.
     pub(super) previous: Option<PreviousFrameSnapshot>,
-    /// Set for one frame when an *intentional* teleport happened (e.g. a
-    /// portal jump) so the position-delta teleport detector doesn't flag it
-    /// as an anomaly and auto-dump. Consumed by `synthesize_events_from_diff`.
-    pub(super) expected_teleport: bool,
+    /// Frames remaining in the portal-transit suppression WINDOW. A portal
+    /// crossing both snaps the player a long way (an "unexplained" position
+    /// delta) AND lands it at the exit before the exit-side carve has opened
+    /// (so it momentarily reads as inside-solid), each of which would auto-dump.
+    /// Set to a few frames when a `BodyTeleported` fires; while > 0 BOTH the
+    /// position-delta and the OOB auto-dumps are suppressed, so a normal transit
+    /// never spams a trace dump. Decremented once per frame in `record_frame`.
+    pub(super) teleport_suppress_ticks: u32,
 }
+
+/// How many frames a portal transit suppresses trace auto-dumps for: long enough
+/// to cover the transfer snap plus the exit-side settle (carve opening + any
+/// collision push-out), short enough that a genuinely stuck body still dumps.
+pub(super) const PORTAL_TELEPORT_SUPPRESS_FRAMES: u32 = 8;
 
 impl Default for GameplayTraceBuffer {
     fn default() -> Self {
@@ -49,7 +58,7 @@ impl GameplayTraceBuffer {
             auto_dump_armed: true,
             has_recorded_any: false,
             previous: None,
-            expected_teleport: false,
+            teleport_suppress_ticks: 0,
         }
     }
 

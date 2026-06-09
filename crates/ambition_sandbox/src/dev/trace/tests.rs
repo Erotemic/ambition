@@ -366,6 +366,54 @@ fn synthesizes_collision_correction_on_unexplained_teleport() {
     );
 }
 
+/// A portal transit opens a suppression WINDOW (`teleport_suppress_ticks`); while
+/// it is open, the same big unexplained position delta as
+/// `synthesizes_collision_correction_on_unexplained_teleport` must NOT request a
+/// TeleportAuto dump — a normal crossing should never spam a trace dump (Jon,
+/// 2026-06-09 "nearly every time I transit a portal it dumps a trace").
+#[test]
+fn portal_transit_window_suppresses_teleport_autodump() {
+    let mut buf = GameplayTraceBuffer::with_capacity(16, 16);
+    let player_prev = dummy_player(ae::Vec2::new(62.0, 1564.0));
+    {
+        let mut scratch_prev = scratch_from(&player_prev);
+        let clusters_prev = scratch_prev.as_mut();
+        update_previous_snapshot(
+            &mut buf,
+            &clusters_prev,
+            20,
+            ControlFrame::default(),
+            "square_arena",
+            ae::LocomotionState::Grounded,
+            ae::BodyMode::Standing,
+        );
+    }
+    // A portal `BodyTeleported` opened the suppression window this frame.
+    buf.teleport_suppress_ticks = 8;
+    // Same wild teleport as the un-suppressed test — but it must be ignored now.
+    let mut player_cur = dummy_player(ae::Vec2::new(62.0, -23.0));
+    player_cur.kinematics.vel = ae::Vec2::ZERO;
+    let mut scratch_cur = scratch_from(&player_cur);
+    let clusters_cur = scratch_cur.as_mut();
+    synthesize_events_from_diff(
+        &mut buf,
+        &clusters_cur,
+        20,
+        ControlFrame::default(),
+        0.0069,
+        "square_arena",
+        ae::LocomotionState::Grounded,
+        ae::BodyMode::Standing,
+        &dummy_world(),
+    );
+    assert!(
+        buf.dump_request.is_none(),
+        "a portal transit must NOT auto-dump the trace on its position snap while \
+         the suppression window is open; got {:?}",
+        buf.dump_request
+    );
+}
+
 /// P2 — incrementing `player.resets` should emit a `Reset` event
 /// AND suppress the teleport detector (the player position can
 /// legitimately jump to spawn on reset).

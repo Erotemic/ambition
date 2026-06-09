@@ -295,9 +295,10 @@ pub(crate) fn synthesize_events_from_diff(
     let cur_pos = clusters.kinematics.pos;
     let cur_vel = clusters.kinematics.vel;
 
-    // An intentional teleport this frame (e.g. a portal jump) is not an
-    // anomaly — don't let the position-delta check auto-dump for it.
-    let mut suppressed_teleport = std::mem::take(&mut buffer.expected_teleport);
+    // An intentional teleport (e.g. a portal jump) is not an anomaly — don't let
+    // the position-delta check auto-dump while the portal suppression window is
+    // open. The window is decremented once per frame in `record_frame`.
+    let mut suppressed_teleport = buffer.teleport_suppress_ticks > 0;
 
     if prev.active_area != active_area {
         buffer.push_event(GameplayTraceEvent::RoomTransition {
@@ -477,7 +478,13 @@ pub fn record_frame(
             reason: label.clone(),
             pos: frame.player.pos,
         });
-        if buffer.auto_dump_armed && buffer.dump_request.is_none() {
+        // Suppress the OOB auto-dump during a portal-transit window: a crossing
+        // lands the player at the exit before the exit-side carve opens, so it
+        // momentarily reads as inside-solid — that is not a stuck-body anomaly.
+        if buffer.auto_dump_armed
+            && buffer.dump_request.is_none()
+            && buffer.teleport_suppress_ticks == 0
+        {
             buffer.dump_request = Some(DumpReason::OobAuto { reason: label });
             buffer.auto_dump_armed = false;
         }
@@ -486,6 +493,8 @@ pub fn record_frame(
         // re-fires.
         buffer.auto_dump_armed = true;
     }
+    // Tick down the portal-transit suppression window once per recorded frame.
+    buffer.teleport_suppress_ticks = buffer.teleport_suppress_ticks.saturating_sub(1);
     buffer.push_frame(frame);
 }
 

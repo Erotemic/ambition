@@ -27,7 +27,7 @@ use ambition_sandbox::player::{
     PrimaryPlayer,
 };
 use ambition_sandbox::rooms::RoomSet;
-use ambition_sandbox::{GameMode, GameWorld, MovingPlatformSet, SandboxSimState};
+use ambition_sandbox::{ClockState, GameMode, GameWorld, MovingPlatformSet, SandboxSimState};
 use bevy::asset::AssetPlugin;
 use bevy::image::ImagePlugin;
 use bevy::prelude::*;
@@ -237,7 +237,7 @@ fn non_gameplay_mode_zeroes_time_scale_and_skips_player_simulation() {
     // doesn't ramp down without a hitstop / bullet-time trigger).
     app.update();
     assert!(
-        app.world().resource::<SandboxSimState>().time_scale > 0.0,
+        app.world().resource::<ClockState>().time_scale > 0.0,
         "time_scale should be >0 while gameplay is allowed"
     );
 
@@ -263,7 +263,7 @@ fn non_gameplay_mode_zeroes_time_scale_and_skips_player_simulation() {
     // forced time_scale to zero.
     app.update();
     assert_eq!(
-        app.world().resource::<SandboxSimState>().time_scale,
+        app.world().resource::<ClockState>().time_scale,
         0.0,
         "apply_suspended_time_scale_system should zero time_scale in non-gameplay modes"
     );

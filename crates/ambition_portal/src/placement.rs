@@ -13,7 +13,7 @@ use ambition_platformer_runtime::world_query::{ray_aabb, raycast_solids};
 
 use super::color::PortalChannel;
 use super::transit::PortalTransit;
-use super::types::{find_portal, portal_exit_clearance, PlacedPortal, MIN_EXIT_SPEED};
+use super::types::{find_portal, PlacedPortal, MIN_EXIT_SPEED};
 
 /// Recursive, portal-aware raycast: cast from `origin` along `dir`, and if the
 /// ray crosses a portal face (entering from its front) before hitting a solid,
@@ -210,17 +210,18 @@ pub enum TransitStep {
 /// Shared by the mid-transit centroid crossing and the cooldown-bypassing rescue
 /// so both emerge identically.
 ///
-/// The exit position pops the body CLEAR of the exit face: it preserves the
-/// lateral offset (`map_point`) but shifts along the exit normal so the body's
-/// centroid sits exactly [`portal_exit_clearance`] in FRONT of the exit plane.
-/// The old transfer mapped the centroid straight through (often landing it on or
-/// behind the exit plane), which (a) let a fast/large-dt crossing emerge embedded
-/// in the exit floor and (b) left the body straddling the exit so it could
-/// re-trigger the transfer the very next frame. Emerging clear fixes both and
-/// makes the post-transit cooldown enough to stop a same-frame ping-pong.
+/// The exit position is the plain portal map of the centroid ([`pp::map_point`]):
+/// a reversible topological glue — the depth the centroid has sunk PAST the entry
+/// plane becomes the depth it emerges in FRONT of the exit plane, and the
+/// along-surface offset is preserved. So a centroid that just barely crossed
+/// emerges just barely in front of the exit, and an equal step back inverts the
+/// move exactly (`map_point` is its own inverse with enter/exit swapped). No
+/// artificial push-out: the centroid transfer (and the rescue) fire the frame the
+/// centroid crosses, so the sink depth is small and the body emerges right at the
+/// exit face rather than embedded behind it — the small-ε case is the common one,
+/// and a large-dt crossing still maps to (a large) depth IN FRONT, never behind.
 fn transfer_step(
     center: Vec2,
-    size: Vec2,
     vel: Vec2,
     enter: PlacedPortal,
     exit: PlacedPortal,
@@ -235,14 +236,8 @@ fn transfer_step(
         let tangential = vel_out - vel_out.dot(exit.normal) * exit.normal;
         vel_out = tangential + exit.normal * MIN_EXIT_SPEED;
     }
-    // Preserve lateral offset, but set the depth to +clearance in FRONT of the
-    // exit face (shift purely along the exit normal).
-    let mapped = pp::map_point(center, &ef, &xf);
-    let clearance = portal_exit_clearance(size * 0.5, exit.normal);
-    let depth = pp::front_distance(mapped, &xf);
-    let exit_pos = mapped + exit.normal * (clearance - depth);
     TransitStep::Transfer {
-        pos: exit_pos,
+        pos: pp::map_point(center, &ef, &xf),
         vel: vel_out,
         // The body picks up the on-screen turn it travels through (a tumble for
         // floor/ceiling, nothing for a wall↔wall turn-around); `update_actor_roll`
@@ -287,7 +282,12 @@ pub fn transit_step(
             // there — "stuck in the middle of the floor", its momentum killed.
             // `straddles` bounds the rescue to the opening (the plane passes
             // THROUGH the body), so a body that is legitimately below the surface
-            // is never teleported.
+            // is never teleported. The body must also be moving INTO the portal
+            // (`vel · normal < 0`): that distinguishes a body falling THROUGH the
+            // opening (rescue it) from one that JUST EMERGED from this portal and
+            // is moving back out (do NOT re-grab it — the transfer maps the
+            // centroid right onto the exit plane, so without the velocity gate the
+            // rescue would immediately fire again and ping-pong).
             for enter in portals {
                 if find_portal(portals, enter.channel.partner()).is_none() {
                     continue;
@@ -296,10 +296,13 @@ pub fn transit_step(
                     continue;
                 }
                 let ef = enter.frame();
-                if pp::straddles(body, &ef) && pp::front_distance(center, &ef) <= 0.0 {
+                if pp::straddles(body, &ef)
+                    && pp::front_distance(center, &ef) <= 0.0
+                    && vel.dot(enter.normal) < 0.0
+                {
                     let exit = find_portal(portals, enter.channel.partner())
                         .expect("partner checked above");
-                    return transfer_step(center, size, vel, *enter, exit, gravity_dir);
+                    return transfer_step(center, vel, *enter, exit, gravity_dir);
                 }
             }
             if cooldown > 0.0 {
@@ -341,7 +344,7 @@ pub fn transit_step(
             // the body jumps to the exit; gameplay sees no discontinuity because
             // every query uses the portal pieces.
             if !t.crossed && pp::front_distance(center, &ef) <= 0.0 {
-                return transfer_step(center, size, vel, enter, exit, gravity_dir);
+                return transfer_step(center, vel, enter, exit, gravity_dir);
             }
             // Stay engaged so the carve persists long enough to sink + cross —
             // clearing on "not straddling yet" would drop the carve every other

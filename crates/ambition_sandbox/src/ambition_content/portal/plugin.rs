@@ -24,7 +24,9 @@ use super::transit_adapter::{
     apply_movement_intent_to_control, sync_ground_items_to_transitable,
     sync_movement_intent_from_control, sync_transitable_to_ground_items,
 };
-use super::transit_body_adapter::{ensure_portal_bodies, portal_player_input_adapter};
+use super::transit_body_adapter::{
+    ensure_portal_bodies, ensure_projectile_portal_bodies, portal_player_input_adapter,
+};
 
 /// Installs the Ambition-specific portal input/inventory adapters.
 pub struct AmbitionPortalAdaptersPlugin;
@@ -174,6 +176,29 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             Update,
             ensure_portal_bodies
+                .run_if(crate::gameplay_allowed)
+                .in_set(PortalSet::Transit)
+                .before(portal_transit),
+        );
+        // Stage 19 Phase 4 — opt PROJECTILE entities into the SAME generic
+        // `portal_transit` core, with their own free-flying policy
+        // (reorient:false, carry_velocity:true). Same `.before(portal_transit)`
+        // ordering as `ensure_portal_bodies` so a freshly-spawned projectile is
+        // tagged before transit sees it.
+        //
+        // Ordering of projectile INTEGRATION vs transit: projectile motion
+        // integrates in `SandboxSet::Combat` (`update_projectiles` /
+        // `update_enemy_projectiles`), which is chained AFTER
+        // `SandboxSet::PlayerSimulation` (where `PortalSet::Transit` lives). So
+        // within every frame the relationship is FIXED and deterministic —
+        // `portal_transit` runs against the projectile body integrated on the
+        // PREVIOUS frame, the same fixed cadence actors use (integrate → transit
+        // → integrate → transit). The transit machine is a multi-frame
+        // aperture/centroid latch, so the one-frame sampling cadence is correct;
+        // what matters is that it is consistent, which the set chain guarantees.
+        app.add_systems(
+            Update,
+            ensure_projectile_portal_bodies
                 .run_if(crate::gameplay_allowed)
                 .in_set(PortalSet::Transit)
                 .before(portal_transit),

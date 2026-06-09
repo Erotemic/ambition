@@ -26,6 +26,7 @@ use crate::portal::{
     BodyTeleported, PlayerMovementIntent, PortalBody, PortalBodyTransited, PortalEmission,
     PortalInputWarp, PortalPolicy,
 };
+use crate::projectile::ProjectileGameplay;
 
 /// Movement-axis magnitude above which a held input warps on a same-wall
 /// turn-around. Mirrors the old `PORTAL_INPUT_HELD_EPS` in portal core (kept in
@@ -89,6 +90,51 @@ pub fn ensure_portal_bodies(
             }
         };
         commands.entity(entity).insert((PortalBody, policy));
+    }
+}
+
+/// Stage 19 Phase 4 — the projectile transit demo. Opt every in-flight
+/// projectile entity into the ONE generic transit algorithm
+/// ([`crate::portal::portal_transit`]) by giving it the [`PortalBody`] marker +
+/// a free-flying [`PortalPolicy`]:
+///
+/// - `reorient: false` — a projectile is not an actor; it has no `ActorRoll` and
+///   no facing-to-aperture concept. Its velocity is rotated by the pair
+///   transform (that is core/default, in `transit_step`), and it just keeps
+///   flying out the exit.
+/// - `carry_velocity: true` — write the rotated exit velocity so a fireball
+///   fired into portal A emerges from portal B travelling in the mapped
+///   direction (the whole point of the demo).
+///
+/// Projectiles are EXCLUDED from [`ensure_portal_bodies`] (which is
+/// `Without<ProjectileGameplay>`, so the actor transit set is unchanged); this
+/// dedicated system opts them in with their own policy. Idempotent
+/// (`Without<PortalBody>`), so it is cheap to run every frame and tolerates
+/// late spawns. Both pools (`PlayerProjectile` + `EnemyProjectile`) carry the
+/// shared [`BodyKinematics`] + [`ProjectileGameplay`], so filtering on the
+/// gameplay marker covers every projectile regardless of pool.
+///
+/// A projectile nowhere near a portal is unaffected: `transit_step` returns
+/// `Idle`, so this is a pure no-op for the non-portal case.
+pub fn ensure_projectile_portal_bodies(
+    mut commands: Commands,
+    projectiles: Query<
+        Entity,
+        (
+            With<BodyKinematics>,
+            With<ProjectileGameplay>,
+            Without<PortalBody>,
+        ),
+    >,
+) {
+    for entity in &projectiles {
+        commands.entity(entity).insert((
+            PortalBody,
+            PortalPolicy {
+                reorient: false,
+                carry_velocity: true,
+            },
+        ));
     }
 }
 

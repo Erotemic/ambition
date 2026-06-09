@@ -362,7 +362,7 @@ where
         #[cfg(target_os = "android")]
         app.add_systems(
             Update,
-            seed_text3d_android_fonts.run_if(resource_added::<TextRenderer>()),
+            seed_text3d_android_fonts.run_if(resource_added::<TextRenderer>),
         );
         if !app.world().contains_resource::<KaleidoscopeMenuConfig>() {
             app.insert_resource(KaleidoscopeMenuConfig::default());

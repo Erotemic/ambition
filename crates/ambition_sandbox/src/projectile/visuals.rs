@@ -17,30 +17,37 @@ pub struct PlayerProjectileVisual;
 #[derive(Component)]
 pub struct PlayerChargeVisual;
 
-/// Mirror `PlayerProjectileState::bodies` onto Bevy sprite entities so
-/// the player can actually see what they fired. Runs after
-/// `update_projectiles` (which produces the body Vec) and on the
-/// presentation half only — headless drains `state.bodies` without
-/// needing visuals.
+/// Draw a sprite for each in-flight player projectile + the per-player
+/// charge indicator. Runs after `update_projectiles` (which steps the
+/// projectile entities) and on the presentation half only — headless
+/// skips visuals entirely.
 ///
 /// Despawn-and-respawn is the simplest match for a small ring of
 /// short-lived projectiles (typical in-flight count is 1–3, capped by
-/// the spawner's cooldown + resource meter). Anything fancier
-/// (per-projectile entity reuse) would need a stable id on
-/// `PlayerProjectile`, which today doesn't exist.
+/// the spawner's cooldown + resource meter). Phase 3d will make these
+/// persistent (one sprite per projectile entity, reused frame to frame);
+/// for now they are rebuilt each frame from the simulation projectile
+/// entities (which ARE persistent — only the VISUAL is rebuilt).
 pub fn sync_projectile_visuals(
     mut commands: Commands,
     world: Res<crate::GameWorld>,
     assets: Option<Res<crate::assets::game_assets::GameAssets>>,
-    // Per-player projectile state lives on the player entity now;
-    // iterate every player so each one's charge UI + in-flight bodies
-    // render independently. Single-player behavior is unchanged.
+    // Per-player charge UI: iterate every player so each one's charge
+    // indicator renders independently. Single-player behavior unchanged.
     player_q: Query<
         (
             &crate::player::BodyKinematics,
             &crate::projectile::PlayerProjectileState,
         ),
         With<crate::player::PlayerEntity>,
+    >,
+    // In-flight player projectiles are now ECS entities (Phase 3c-ii).
+    projectiles: Query<
+        (
+            &crate::player::BodyKinematics,
+            &crate::projectile::ProjectileGameplay,
+        ),
+        With<crate::projectile::PlayerProjectile>,
     >,
     existing: Query<Entity, With<PlayerProjectileVisual>>,
     existing_charge: Query<Entity, With<PlayerChargeVisual>>,
@@ -97,50 +104,48 @@ pub fn sync_projectile_visuals(
                 Name::new("Player projectile charge indicator"),
             ));
         }
-        for projectile in &state.bodies {
-            let body = &projectile.body;
-            let render_size =
-                bevy::math::Vec2::new((body.kin.size.x).max(8.0), (body.kin.size.y).max(8.0));
-            // Hadouken tint (cooler / blue-shifted) vs Fireball (warmer
-            // orange). The tint applies whether or not the textured sprite
-            // loads; a missing texture falls through to a colored quad.
-            let tint = match body.game.kind {
-                crate::projectile::ProjectileKind::Fireball => Color::srgba(1.0, 0.74, 0.30, 0.95),
-                crate::projectile::ProjectileKind::Hadouken => Color::srgba(0.45, 0.78, 1.0, 0.96),
-                // Stronger tint for the Super so the player can see at a
-                // glance that they fired the harder gesture.
+    } // end per-player charge loop
+
+    // One sprite per in-flight player projectile entity (all owners).
+    for (kin, game) in &projectiles {
+        let render_size = bevy::math::Vec2::new((kin.size.x).max(8.0), (kin.size.y).max(8.0));
+        // Hadouken tint (cooler / blue-shifted) vs Fireball (warmer
+        // orange). The tint applies whether or not the textured sprite
+        // loads; a missing texture falls through to a colored quad.
+        let tint = match game.kind {
+            crate::projectile::ProjectileKind::Fireball => Color::srgba(1.0, 0.74, 0.30, 0.95),
+            crate::projectile::ProjectileKind::Hadouken => Color::srgba(0.45, 0.78, 1.0, 0.96),
+            // Stronger tint for the Super so the player can see at a
+            // glance that they fired the harder gesture.
+            crate::projectile::ProjectileKind::HadoukenSuper => Color::srgba(0.30, 0.55, 1.0, 1.0),
+        };
+        let mut sprite = match handle.clone() {
+            Some(image) => Sprite {
+                image,
+                color: tint,
+                custom_size: Some(render_size),
+                ..Default::default()
+            },
+            None => Sprite::from_color(tint, render_size),
+        };
+        // Flip the sprite to face travel direction so a leftward
+        // fireball doesn't look upside-down.
+        sprite.flip_x = kin.vel.x < 0.0;
+        commands.spawn((
+            sprite,
+            Transform::from_translation(crate::config::world_to_bevy(
+                &world.0,
+                kin.pos,
+                crate::config::WORLD_Z_PLAYER + 2.0,
+            )),
+            PlayerProjectileVisual,
+            Name::new(match game.kind {
+                crate::projectile::ProjectileKind::Fireball => "Player projectile: fireball",
+                crate::projectile::ProjectileKind::Hadouken => "Player projectile: hadouken",
                 crate::projectile::ProjectileKind::HadoukenSuper => {
-                    Color::srgba(0.30, 0.55, 1.0, 1.0)
+                    "Player projectile: hadouken_super"
                 }
-            };
-            let mut sprite = match handle.clone() {
-                Some(image) => Sprite {
-                    image,
-                    color: tint,
-                    custom_size: Some(render_size),
-                    ..Default::default()
-                },
-                None => Sprite::from_color(tint, render_size),
-            };
-            // Flip the sprite to face travel direction so a leftward
-            // fireball doesn't look upside-down.
-            sprite.flip_x = body.kin.vel.x < 0.0;
-            commands.spawn((
-                sprite,
-                Transform::from_translation(crate::config::world_to_bevy(
-                    &world.0,
-                    body.kin.pos,
-                    crate::config::WORLD_Z_PLAYER + 2.0,
-                )),
-                PlayerProjectileVisual,
-                Name::new(match body.game.kind {
-                    crate::projectile::ProjectileKind::Fireball => "Player projectile: fireball",
-                    crate::projectile::ProjectileKind::Hadouken => "Player projectile: hadouken",
-                    crate::projectile::ProjectileKind::HadoukenSuper => {
-                        "Player projectile: hadouken_super"
-                    }
-                }),
-            ));
-        }
-    } // end per-player loop
+            }),
+        ));
+    }
 }

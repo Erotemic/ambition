@@ -115,9 +115,11 @@ impl Plugin for SandboxSimulationResourcesPlugin {
                 )
                     .chain(),
             )
-            // Player projectile state is per-player and lives on each
-            // player entity (attached via `PlayerSimulationBundle`).
-            // No global resource registration needed.
+            // Player projectile CONTROLLER state is per-player and lives
+            // on each player entity (attached via `PlayerSimulationBundle`).
+            // In-flight player projectiles are ECS entities (Phase 3c-ii);
+            // their monotonic spawn-id source is this global counter.
+            .init_resource::<crate::projectile::ProjectileSeqCounter>()
             // Enemy projectiles (pirate volleys etc) — separate from
             // player projectiles so faction routing stays explicit.
             .insert_resource(crate::enemy_projectile::EnemyProjectileState::default())

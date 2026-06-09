@@ -11,11 +11,10 @@ use super::{advance_time, min_app, tap_projectile, ControlFrame};
 fn tap_release_fires_one_fireball() {
     let mut app = min_app();
     tap_projectile(&mut app);
-    let state = crate::projectile::tests::projectile_state_ref(&app);
-    assert_eq!(state.bodies.len(), 1);
-    assert_eq!(state.bodies[0].body.game.kind, ProjectileKind::Fireball);
-    // Tap-release is below the medium threshold → tier 0.
-    assert_eq!(state.bodies[0].body.game.kind, ProjectileKind::Fireball);
+    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    assert_eq!(bodies.len(), 1);
+    // Tap-release is below the medium threshold → tier 0 Fireball.
+    assert_eq!(bodies[0].game.kind, ProjectileKind::Fireball);
 }
 
 /// Pressing without releasing is "still charging" — no body
@@ -30,15 +29,15 @@ fn press_without_release_only_starts_charge() {
     }
     advance_time(&mut app, 0.016);
     app.update();
-    let state = crate::projectile::tests::projectile_state_ref(&app);
+    let charging = crate::projectile::tests::projectile_state_ref(&app)
+        .charging
+        .is_some();
+    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
     assert!(
-        state.bodies.is_empty(),
+        bodies.is_empty(),
         "press without release must not spawn a fireball"
     );
-    assert!(
-        state.charging.is_some(),
-        "press without motion must start a charge"
-    );
+    assert!(charging, "press without motion must start a charge");
 }
 
 /// Holding past the medium-charge threshold and releasing fires a
@@ -73,9 +72,9 @@ fn held_release_after_medium_threshold_fires_charged_fireball() {
     }
     advance_time(&mut app, 0.016);
     app.update();
-    let state = crate::projectile::tests::projectile_state_ref(&app);
-    assert_eq!(state.bodies.len(), 1);
-    let body = &state.bodies[0].body;
+    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    assert_eq!(bodies.len(), 1);
+    let body = &bodies[0];
     assert_eq!(body.game.kind, ProjectileKind::Fireball);
     // Tier-1 size scaling is 1.4x on baseline half-extent (12, 9)
     // → at least 16x12 — meaningfully bigger than tier 0.
@@ -112,9 +111,9 @@ fn grace_qcf_then_press_fires_hadouken_immediately() {
     }
     advance_time(&mut app, 0.016);
     app.update();
-    let state = crate::projectile::tests::projectile_state_ref(&app);
-    assert_eq!(state.bodies.len(), 1);
-    assert_eq!(state.bodies[0].body.game.kind, ProjectileKind::Hadouken);
+    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    assert_eq!(bodies.len(), 1);
+    assert_eq!(bodies[0].game.kind, ProjectileKind::Hadouken);
 }
 
 #[test]
@@ -140,12 +139,9 @@ fn full_qcf_then_press_fires_hadouken_super() {
     }
     advance_time(&mut app, 0.016);
     app.update();
-    let state = crate::projectile::tests::projectile_state_ref(&app);
-    assert_eq!(state.bodies.len(), 1);
-    assert_eq!(
-        state.bodies[0].body.game.kind,
-        ProjectileKind::HadoukenSuper
-    );
+    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    assert_eq!(bodies.len(), 1);
+    assert_eq!(bodies[0].game.kind, ProjectileKind::HadoukenSuper);
 }
 
 #[test]
@@ -173,12 +169,9 @@ fn half_circle_still_fires_hadouken_super() {
     }
     advance_time(&mut app, 0.016);
     app.update();
-    let state = crate::projectile::tests::projectile_state_ref(&app);
-    assert_eq!(state.bodies.len(), 1);
-    assert_eq!(
-        state.bodies[0].body.game.kind,
-        ProjectileKind::HadoukenSuper
-    );
+    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    assert_eq!(bodies.len(), 1);
+    assert_eq!(bodies[0].game.kind, ProjectileKind::HadoukenSuper);
 }
 
 #[test]
@@ -187,8 +180,8 @@ fn cooldown_blocks_second_fire_in_same_window() {
     tap_projectile(&mut app);
     // Don't advance past the cooldown — second tap should be no-op.
     tap_projectile(&mut app);
-    let state = crate::projectile::tests::projectile_state_ref(&app);
-    assert_eq!(state.bodies.len(), 1);
+    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    assert_eq!(bodies.len(), 1);
 }
 
 #[test]
@@ -199,6 +192,6 @@ fn out_of_resource_blocks_fire() {
         state.spawner.meter.current = 0.0;
     }
     tap_projectile(&mut app);
-    let state = crate::projectile::tests::projectile_state_ref(&app);
-    assert!(state.bodies.is_empty());
+    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    assert!(bodies.is_empty());
 }

@@ -64,7 +64,9 @@ fn min_app() -> App {
     app.insert_resource(GameplayBanner::default());
     // PlayerProjectileState is now a per-player Component attached
     // by `PlayerSimulationBundle::from_scratch` — no resource init
-    // needed.
+    // needed. In-flight projectiles are ECS entities (Phase 3c-ii);
+    // their spawn-id source is this global counter.
+    app.init_resource::<crate::projectile::ProjectileSeqCounter>();
     // Buffered-message channels the system writes into. The brain
     // plugin owns the `ActorActionMessage` channel; install it so
     // `tick_player_brains` → `emit_player_projectile_tick_messages` →
@@ -127,6 +129,74 @@ pub(in crate::projectile) fn projectile_state_mut(
     world
         .get_mut::<PlayerProjectileState>(entity)
         .expect("entity has PlayerProjectileState")
+}
+
+/// The entity id of the (single) primary player spawned by `min_app`.
+pub(in crate::projectile) fn primary_player_entity(app: &mut App) -> Entity {
+    let world = app.world_mut();
+    let mut q = world
+        .try_query_filtered::<Entity, With<crate::player::PlayerEntity>>()
+        .unwrap();
+    q.iter(world)
+        .next()
+        .expect("min_app spawned exactly one player")
+}
+
+/// Collect the in-flight player projectile bodies, sorted by spawn
+/// sequence (oldest first) — the same order the old `state.bodies` Vec
+/// presented. Recomposes a [`crate::projectile::ProjectileBody`] from the
+/// entity's split `BodyKinematics` + `ProjectileGameplay` so the tests can
+/// keep asserting on `.body.kin` / `.body.game` exactly as before.
+pub(in crate::projectile) fn projectile_bodies(
+    app: &mut App,
+) -> Vec<crate::projectile::ProjectileBody> {
+    use crate::projectile::{ProjectileGameplay, ProjectileSeq};
+    let world = app.world_mut();
+    let mut q = world
+        .try_query::<(
+            &crate::player::BodyKinematics,
+            &ProjectileGameplay,
+            &ProjectileSeq,
+        )>()
+        .unwrap();
+    let mut rows: Vec<(ProjectileSeq, crate::projectile::ProjectileBody)> = q
+        .iter(world)
+        .map(|(kin, game, seq)| {
+            (
+                *seq,
+                crate::projectile::ProjectileBody::from_parts(*kin, *game),
+            )
+        })
+        .collect();
+    rows.sort_by_key(|(seq, _)| *seq);
+    rows.into_iter().map(|(_, body)| body).collect()
+}
+
+/// Directly spawn an in-flight player projectile entity owned by the
+/// primary player — the entity-era equivalent of the old
+/// `state.bodies.push(InFlightProjectile { .. })` test setup. Assigns the
+/// next monotonic `ProjectileSeq` so injected bodies keep a stable order.
+pub(in crate::projectile) fn spawn_player_projectile(
+    app: &mut App,
+    body: crate::projectile::ProjectileBody,
+    owner_id: &str,
+) {
+    let owner = primary_player_entity(app);
+    let seq = {
+        let mut counter = app
+            .world_mut()
+            .get_resource_or_insert_with(crate::projectile::ProjectileSeqCounter::default);
+        counter.next()
+    };
+    app.world_mut().spawn((
+        body.kin,
+        body.game,
+        crate::projectile::ProjectileOwner(owner),
+        seq,
+        crate::projectile::ProjectileOwnerId(owner_id.to_string()),
+        crate::projectile::PlayerProjectile,
+        Name::new("Player projectile (test)"),
+    ));
 }
 
 fn advance_time(app: &mut App, dt_seconds: f32) {

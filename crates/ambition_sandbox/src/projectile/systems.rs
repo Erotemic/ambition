@@ -5,6 +5,9 @@ use crate::engine_core as ae;
 use bevy::prelude::*;
 
 use super::diagnostics::log_press_diagnostics;
+use super::entity::{
+    PlayerProjectile, ProjectileOwner, ProjectileOwnerId, ProjectileSeq, ProjectileSeqCounter,
+};
 use super::spawn_message::{ProjectilePool, SpawnProjectile};
 use super::state::{PlayerProjectileState, ProjectileTraceEvent};
 use super::{resolve_world_collision, WorldHitOutcome, WorldHitPolicy};
@@ -13,18 +16,26 @@ use crate::features::{
     ActorCombatState, ActorDisposition, BossClusterRef, BossConfig, BreakableFeature, FeatureAabb,
     FeatureId, FeatureSimEntity, HitEvent, HitSource,
 };
+use crate::player::BodyKinematics;
 use crate::presentation::fx::VfxMessage;
+use crate::projectile::ProjectileGameplay;
 use crate::trace::GameplayTraceBuffer;
 use crate::GameWorld;
 
+#[allow(clippy::too_many_arguments)]
 pub fn update_projectiles(
+    mut commands: Commands,
     world_time: Res<crate::WorldTime>,
     world: Res<GameWorld>,
     gravity: crate::physics::GravityCtx,
     // Per-player projectile state lives on the player entity itself
     // (was a singleton `Res<PlayerProjectileState>`). Iterates every
     // player so co-op / possession builds get one independent charge
-    // timer + body list per player without sharing a singleton.
+    // timer per player without sharing a singleton.
+    // `Without<PlayerProjectile>` makes this query provably disjoint from the
+    // `projectiles` query below (both touch `BodyKinematics`): the player and
+    // its in-flight projectiles are separate archetypes, but Bevy needs the
+    // `Without` to prove it (B0001).
     mut player_q: Query<
         (
             Entity,
@@ -32,7 +43,29 @@ pub fn update_projectiles(
             &mut crate::projectile::PlayerProjectileState,
             &mut crate::player::PlayerAnimState,
         ),
-        With<crate::player::PlayerEntity>,
+        (With<crate::player::PlayerEntity>, Without<PlayerProjectile>),
+    >,
+    // In-flight player projectiles are now ECS entities (Phase 3c-ii). The
+    // step loop below queries them, filters to the current player, and sorts
+    // by `ProjectileSeq` so the per-frame processing order reproduces the old
+    // `Vec` order exactly (Bevy iteration order is unspecified).
+    mut projectiles: Query<
+        (
+            Entity,
+            &mut BodyKinematics,
+            &mut ProjectileGameplay,
+            &ProjectileOwner,
+            &ProjectileSeq,
+        ),
+        (
+            With<PlayerProjectile>,
+            // Provably disjoint from the player query (above) and the
+            // FeatureSimEntity actor/boss/breakable queries (below), both of
+            // which touch `BodyKinematics`. Projectiles are neither a player
+            // nor a feature-sim entity (B0001).
+            Without<crate::player::PlayerEntity>,
+            Without<FeatureSimEntity>,
+        ),
     >,
     mut brain_actions: MessageReader<crate::brain::ActorActionMessage>,
     user_settings: Res<crate::persistence::settings::UserSettings>,
@@ -123,15 +156,30 @@ pub fn update_projectiles(
         state.motion_buffer.push(dir, now);
 
         let mut events: Vec<ProjectileTraceEvent> = Vec::new();
-        let mut still_alive = Vec::with_capacity(state.bodies.len());
-        let mut bodies = std::mem::take(&mut state.bodies);
-        for mut p in bodies.drain(..) {
-            let gravity_sign = gravity.sign_at(p.body.kin.pos);
-            let alive = p.body.tick(dt, gravity_sign);
+
+        // Collect THIS player's in-flight projectile entities and sort by
+        // spawn sequence. The old code iterated `state.bodies` in Vec push
+        // order (oldest first); `ProjectileSeq` is the monotonic spawn id, so
+        // sorting by it reproduces that order deterministically regardless of
+        // Bevy's archetype iteration order.
+        let mut owned: Vec<(Entity, ProjectileSeq)> = projectiles
+            .iter()
+            .filter(|(_, _, _, owner, _)| owner.0 == player_entity)
+            .map(|(entity, _, _, _, seq)| (entity, *seq))
+            .collect();
+        owned.sort_by_key(|(_, seq)| *seq);
+
+        for (proj_entity, _) in owned {
+            // Re-fetch mutably by entity (the collect above borrowed `&`).
+            let Ok((_, mut kin, mut game, _, _)) = projectiles.get_mut(proj_entity) else {
+                continue;
+            };
+
+            let gravity_sign = gravity.sign_at(kin.pos);
+            let alive = game.tick(&mut kin, dt, gravity_sign);
             if !alive {
-                events.push(ProjectileTraceEvent::Expired {
-                    kind: p.body.game.kind,
-                });
+                events.push(ProjectileTraceEvent::Expired { kind: game.kind });
+                commands.entity(proj_entity).despawn();
                 continue;
             }
 
@@ -143,11 +191,9 @@ pub fn update_projectiles(
             // also expires on the first hit (no piercing today), so one
             // shot = one damage event = one damage application.
             let hit_event = HitEvent {
-                volume: p.body.aabb(),
-                damage: p.body.game.damage,
-                source: HitSource::PlayerProjectile {
-                    kind: p.body.game.kind,
-                },
+                volume: kin.aabb(),
+                damage: game.damage,
+                source: HitSource::PlayerProjectile { kind: game.kind },
                 attacker: Some(player_entity),
                 target: crate::features::HitTarget::Volume,
                 mode: crate::features::HitMode::Knockback,
@@ -160,13 +206,12 @@ pub fn update_projectiles(
             let ecs_boss_hit = crate::features::ecs_hit_event_hits_boss(&hit_event, &ecs_bosses);
             if ecs_breakable_hit || ecs_actor_hit || ecs_boss_hit {
                 feature_damage.write(hit_event);
-                sfx.write(SfxMessage::Hit {
-                    pos: p.body.kin.pos,
-                });
+                sfx.write(SfxMessage::Hit { pos: kin.pos });
                 events.push(ProjectileTraceEvent::Hit {
-                    kind: p.body.game.kind,
-                    damage: p.body.game.damage,
+                    kind: game.kind,
+                    damage: game.damage,
                 });
+                commands.entity(proj_entity).despawn();
                 continue;
             }
 
@@ -178,30 +223,26 @@ pub fn update_projectiles(
             // one-way platforms unless landing-from-above; Hadouken (0
             // bounces) expires on the first solid hit.
             match resolve_world_collision(
-                &mut p.body.kin,
-                &mut p.body.game,
+                &mut kin,
+                &mut game,
                 &world.0,
                 WorldHitPolicy::PlayerBouncing,
             ) {
                 WorldHitOutcome::Bounced { pos } => {
                     sfx.write(SfxMessage::Hit { pos });
-                    still_alive.push(p);
-                    continue;
+                    // body kept alive — entity survives
                 }
                 WorldHitOutcome::Expired { pos } => {
                     events.push(ProjectileTraceEvent::Hit {
-                        kind: p.body.game.kind,
-                        damage: p.body.game.damage,
+                        kind: game.kind,
+                        damage: game.damage,
                     });
                     vfx.write(VfxMessage::Impact { pos });
-                    continue;
+                    commands.entity(proj_entity).despawn();
                 }
                 WorldHitOutcome::Continue => {}
             }
-
-            still_alive.push(p);
         }
-        state.bodies = still_alive;
 
         let facing = if kin.facing.abs() < f32::EPSILON {
             1.0
@@ -362,24 +403,37 @@ fn try_fire_projectile(
     }
 }
 
-/// Consume [`SpawnProjectile`] messages targeting the player pool and push
-/// each body onto the firing player's
-/// [`PlayerProjectileState::bodies`]. Scheduled AFTER `update_projectiles`
-/// so a freshly-fired body lands in the Vec this frame but first *ticks*
-/// next frame — byte-identical to the pre-Phase-3b push, which happened
-/// after the per-frame tick loop. Enemy-pool messages are ignored here
-/// (consumed by `apply_enemy_spawn_projectile_messages`).
+/// Consume [`SpawnProjectile`] messages targeting the player pool and SPAWN
+/// one projectile ENTITY per message (Phase 3c-ii). Scheduled AFTER
+/// `update_projectiles` so a freshly-fired projectile exists this frame but
+/// first *ticks* next frame — byte-identical latency to the pre-3c-ii Vec
+/// push (which also happened after the per-frame tick loop). Enemy-pool
+/// messages are ignored here (consumed by
+/// `apply_enemy_spawn_projectile_messages`).
+///
+/// Each entity carries the SHARED [`BodyKinematics`] body + the
+/// [`ProjectileGameplay`] marker/state + owner + a monotonic
+/// [`ProjectileSeq`] (assigned in fire-message order so the step loop's
+/// seq-sort reproduces the historical Vec order).
 pub fn apply_player_spawn_projectile_messages(
+    mut commands: Commands,
+    mut seq: ResMut<ProjectileSeqCounter>,
     mut spawn_projectiles: MessageReader<SpawnProjectile>,
-    mut players: Query<&mut PlayerProjectileState, With<crate::player::PlayerEntity>>,
 ) {
     for msg in spawn_projectiles.read() {
         let ProjectilePool::Player { owner } = msg.pool else {
             continue;
         };
-        if let Ok(mut state) = players.get_mut(owner) {
-            state.bodies.push(msg.projectile.clone());
-        }
+        let body = &msg.projectile.body;
+        commands.spawn((
+            body.kin,
+            body.game,
+            ProjectileOwner(owner),
+            seq.next(),
+            ProjectileOwnerId(msg.projectile.owner_id.clone()),
+            PlayerProjectile,
+            Name::new("Player projectile (sim)"),
+        ));
     }
 }
 

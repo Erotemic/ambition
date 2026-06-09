@@ -1,27 +1,25 @@
-//! Per-player projectile data: charge state machine, motion-input
-//! buffer, in-flight body list, tracked unlocks. Lives as a
-//! `Component` on each player entity so co-op / possession
-//! builds get one independent charge timer + body list per player
-//! without sharing a singleton.
+//! Per-player projectile CONTROLLER data: charge state machine,
+//! motion-input buffer, tracked unlocks. Lives as a `Component` on each
+//! player entity so co-op / possession builds get one independent charge
+//! timer per player without sharing a singleton. As of Stage 19 Phase
+//! 3c-ii the in-flight projectiles themselves are ECS entities (see
+//! [`crate::projectile::entity`]), not a `Vec` on this struct.
 
 use bevy::prelude::Component;
 
 use crate::trace::GameplayTraceEvent;
 
-/// Per-player projectile state: spawner cooldowns + motion-input
-/// buffer + in-flight body list. Attached to each player entity by
-/// `PlayerSimulationBundle`; `update_projectiles` iterates every
-/// player and ticks their own state independently.
+/// Per-player projectile controller state: spawner cooldowns +
+/// motion-input buffer + charge accumulator. Attached to each player
+/// entity by `PlayerSimulationBundle`; `update_projectiles` iterates
+/// every player and ticks their own state independently. In-flight
+/// projectiles are separate ECS entities owned by this player.
 #[derive(Component)]
 pub struct PlayerProjectileState {
     pub spawner: crate::projectile::ProjectileSpawner,
     pub motion_buffer: crate::projectile::MotionInputBuffer,
     /// Time since first sample, in monotonic seconds.
     pub clock: f32,
-    /// Live projectiles in flight. Sandbox owns this rather than
-    /// spawning Bevy entities per projectile so headless tests can
-    /// observe motion / collision without rendering machinery.
-    pub bodies: Vec<crate::projectile::InFlightProjectile>,
     pub unlocked: ProjectileUnlocks,
     pub charge_tuning: crate::projectile::FireballChargeTuning,
     /// Hold-time accumulator for the fireball charge mechanic.
@@ -63,7 +61,6 @@ impl Default for PlayerProjectileState {
             spawner: crate::projectile::ProjectileSpawner::new(8.0, 1.5),
             motion_buffer: crate::projectile::MotionInputBuffer::new(0.45),
             clock: 0.0,
-            bodies: Vec::new(),
             unlocked: ProjectileUnlocks::default(),
             charge_tuning: crate::projectile::FireballChargeTuning::DEFAULT,
             charging: None,

@@ -23,6 +23,7 @@
 //! - [`diagnostics`] — internal motion-press logging helper.
 
 mod diagnostics;
+mod entity;
 mod motion_input;
 mod spawn;
 mod spawn_message;
@@ -33,6 +34,9 @@ mod visuals;
 #[cfg(test)]
 mod tests;
 
+pub use entity::{
+    PlayerProjectile, ProjectileOwner, ProjectileOwnerId, ProjectileSeq, ProjectileSeqCounter,
+};
 pub use spawn_message::{ProjectilePool, SpawnProjectile};
 pub use state::PlayerProjectileState;
 pub use systems::{apply_player_spawn_projectile_messages, update_projectiles};

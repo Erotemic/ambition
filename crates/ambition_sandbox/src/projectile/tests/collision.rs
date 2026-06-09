@@ -15,7 +15,6 @@ use super::{
     DebrisBurstMessage, GameWorld, GameplayBanner, GameplayTraceBuffer, HitEvent, SetFlagRequested,
     SfxMessage, VfxMessage,
 };
-use crate::projectile::InFlightProjectile;
 
 /// Pre-spawn a fireball directly into the body list and place it
 /// just beside an ECS-hostile actor. After one tick the fireball
@@ -41,7 +40,6 @@ fn fireball_damages_enemy_on_intersect() {
     app.update();
     // Inject a fireball moving toward the enemy.
     {
-        let mut state = crate::projectile::tests::projectile_state_mut(&mut app);
         let spec = crate::projectile::ProjectileSpec::new(
             ProjectileKind::Fireball,
             ae::Vec2::new(395.0, 300.0),
@@ -53,10 +51,7 @@ fn fireball_damages_enemy_on_intersect() {
         // overlaps the enemy AABB regardless of arc tuning.
         body.kin.pos = ae::Vec2::new(395.0, 300.0);
         body.kin.vel = ae::Vec2::new(50.0, 0.0);
-        state.bodies.push(InFlightProjectile {
-            body,
-            owner_id: String::new(),
-        });
+        crate::projectile::tests::spawn_player_projectile(&mut app, body, "");
     }
     advance_time(&mut app, 0.016);
     app.update();
@@ -70,15 +65,15 @@ fn fireball_damages_enemy_on_intersect() {
             .expect("test enemy should be spawned as an ECS actor");
         (health.health.current, health.health.max)
     };
-    let state = crate::projectile::tests::projectile_state_ref(&app);
     assert!(
         enemy_health < enemy_max,
         "enemy must lose HP from a projectile hit (was {}, now {})",
         enemy_max,
         enemy_health
     );
+    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
     assert!(
-        state.bodies.is_empty(),
+        bodies.is_empty(),
         "fireball must despawn after hitting an actor"
     );
 }
@@ -107,6 +102,7 @@ fn fireball_bounces_off_floor_in_system() {
     app.insert_resource(crate::persistence::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
     app.insert_resource(GameplayBanner::default());
+    app.init_resource::<crate::projectile::ProjectileSeqCounter>();
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
@@ -132,7 +128,6 @@ fn fireball_bounces_off_floor_in_system() {
     // Spawn a fireball just above the floor moving downward.
     let starting_bounces;
     {
-        let mut state = crate::projectile::tests::projectile_state_mut(&mut app);
         let spec = crate::projectile::ProjectileSpec::new(
             ProjectileKind::Fireball,
             ae::Vec2::new(500.0, 380.0),
@@ -144,20 +139,13 @@ fn fireball_bounces_off_floor_in_system() {
         body.kin.vel = ae::Vec2::new(60.0, 240.0);
         starting_bounces = body.game.bounces_remaining;
         assert!(starting_bounces > 0);
-        state.bodies.push(InFlightProjectile {
-            body,
-            owner_id: String::new(),
-        });
+        crate::projectile::tests::spawn_player_projectile(&mut app, body, "");
     }
     advance_time(&mut app, 0.016);
     app.update();
-    let state = crate::projectile::tests::projectile_state_ref(&app);
-    assert_eq!(
-        state.bodies.len(),
-        1,
-        "fireball must survive a floor bounce"
-    );
-    let body = &state.bodies[0].body;
+    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    assert_eq!(bodies.len(), 1, "fireball must survive a floor bounce");
+    let body = &bodies[0];
     assert!(
         body.kin.vel.y < 0.0,
         "post-bounce vy must be upward; got {}",
@@ -191,6 +179,7 @@ fn fireball_bounces_off_one_way_platform_in_system() {
     app.insert_resource(crate::persistence::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
     app.insert_resource(GameplayBanner::default());
+    app.init_resource::<crate::projectile::ProjectileSeqCounter>();
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
@@ -215,7 +204,6 @@ fn fireball_bounces_off_one_way_platform_in_system() {
 
     let starting_bounces;
     {
-        let mut state = crate::projectile::tests::projectile_state_mut(&mut app);
         let spec = crate::projectile::ProjectileSpec::new(
             ProjectileKind::Fireball,
             ae::Vec2::new(500.0, 380.0),
@@ -227,20 +215,17 @@ fn fireball_bounces_off_one_way_platform_in_system() {
         body.kin.vel = ae::Vec2::new(60.0, 240.0);
         starting_bounces = body.game.bounces_remaining;
         assert!(starting_bounces > 0);
-        state.bodies.push(InFlightProjectile {
-            body,
-            owner_id: String::new(),
-        });
+        crate::projectile::tests::spawn_player_projectile(&mut app, body, "");
     }
     advance_time(&mut app, 0.016);
     app.update();
-    let state = crate::projectile::tests::projectile_state_ref(&app);
+    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
     assert_eq!(
-        state.bodies.len(),
+        bodies.len(),
         1,
         "fireball must survive a one-way-platform bounce"
     );
-    let body = &state.bodies[0].body;
+    let body = &bodies[0];
     assert!(
         body.kin.vel.y < 0.0,
         "post-bounce vy must be upward; got {}",
@@ -276,6 +261,7 @@ fn fireball_passes_through_one_way_from_below_in_system() {
     app.insert_resource(crate::persistence::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
     app.insert_resource(GameplayBanner::default());
+    app.init_resource::<crate::projectile::ProjectileSeqCounter>();
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
@@ -299,7 +285,6 @@ fn fireball_passes_through_one_way_from_below_in_system() {
     spawn_player(&mut app, ae::Vec2::new(200.0, 500.0), 1.0);
 
     {
-        let mut state = crate::projectile::tests::projectile_state_mut(&mut app);
         let spec = crate::projectile::ProjectileSpec::new(
             ProjectileKind::Fireball,
             ae::Vec2::new(500.0, 405.0),
@@ -312,20 +297,17 @@ fn fireball_passes_through_one_way_from_below_in_system() {
         // landing. Velocity is purely horizontal.
         body.kin.pos = ae::Vec2::new(500.0, 404.0);
         body.kin.vel = ae::Vec2::new(360.0, 0.0);
-        state.bodies.push(InFlightProjectile {
-            body,
-            owner_id: String::new(),
-        });
+        crate::projectile::tests::spawn_player_projectile(&mut app, body, "");
     }
     advance_time(&mut app, 0.016);
     app.update();
-    let state = crate::projectile::tests::projectile_state_ref(&app);
+    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
     assert_eq!(
-        state.bodies.len(),
+        bodies.len(),
         1,
         "fireball must pass through a one-way platform on side contact"
     );
-    let body = &state.bodies[0].body;
+    let body = &bodies[0];
     assert!(
         body.kin.vel.x > 0.0,
         "horizontal velocity should be unchanged after passthrough; got {}",
@@ -358,6 +340,7 @@ fn hadouken_expires_on_solid_in_system() {
     app.insert_resource(crate::persistence::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
     app.insert_resource(GameplayBanner::default());
+    app.init_resource::<crate::projectile::ProjectileSeqCounter>();
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
@@ -381,7 +364,6 @@ fn hadouken_expires_on_solid_in_system() {
     spawn_player(&mut app, ae::Vec2::new(500.0, 300.0), 1.0);
 
     {
-        let mut state = crate::projectile::tests::projectile_state_mut(&mut app);
         let spec = crate::projectile::ProjectileSpec::new(
             ProjectileKind::Hadouken,
             ae::Vec2::new(580.0, 300.0),
@@ -391,17 +373,14 @@ fn hadouken_expires_on_solid_in_system() {
         let mut body = crate::projectile::ProjectileBody::from_spec(spec);
         body.kin.pos = ae::Vec2::new(595.0, 300.0);
         body.kin.vel = ae::Vec2::new(520.0, 0.0);
-        state.bodies.push(InFlightProjectile {
-            body,
-            owner_id: String::new(),
-        });
+        crate::projectile::tests::spawn_player_projectile(&mut app, body, "");
     }
     advance_time(&mut app, 0.016);
     app.update();
-    let state = crate::projectile::tests::projectile_state_ref(&app);
+    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
     assert!(
-        state.bodies.is_empty(),
+        bodies.is_empty(),
         "Hadouken must expire on first solid hit (no bounces); still alive: {}",
-        state.bodies.len()
+        bodies.len()
     );
 }

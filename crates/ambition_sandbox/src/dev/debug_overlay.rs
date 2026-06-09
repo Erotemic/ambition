@@ -72,11 +72,11 @@ pub fn draw_debug_overlay(
     camera_view: Res<CameraViewState>,
     mode: Res<State<GameMode>>,
     entities: Res<SceneEntities>,
-    // Per-player projectile state lives on player entities now —
-    // iterate every player to render their bodies.
+    // In-flight player projectiles are ECS entities now (Phase 3c-ii) —
+    // draw each one's AABB from its kinematic body.
     player_projectiles: Query<
-        &crate::projectile::PlayerProjectileState,
-        With<crate::player::PlayerEntity>,
+        &crate::player::BodyKinematics,
+        With<crate::projectile::PlayerProjectile>,
     >,
     enemy_projectiles: Res<crate::enemy_projectile::EnemyProjectileState>,
     action_query: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
@@ -863,22 +863,14 @@ fn draw_feature_debug(
 fn draw_projectile_debug<'a>(
     gizmos: &mut Gizmos,
     world: &ae::World,
-    player_states: impl IntoIterator<Item = &'a crate::projectile::PlayerProjectileState>,
+    player_bodies: impl IntoIterator<Item = &'a crate::player::BodyKinematics>,
     enemy_state: &crate::enemy_projectile::EnemyProjectileState,
     developer_tools: &DeveloperTools,
 ) {
     let player_color = Color::srgba(1.00, 0.74, 0.30, 0.92);
     let enemy_color = Color::srgba(1.00, 0.32, 0.32, 0.92);
-    for state in player_states {
-        for proj in &state.bodies {
-            draw_aabb_styled(
-                gizmos,
-                world,
-                proj.body.aabb(),
-                player_color,
-                developer_tools,
-            );
-        }
+    for kin in player_bodies {
+        draw_aabb_styled(gizmos, world, kin.aabb(), player_color, developer_tools);
     }
     for proj in &enemy_state.bodies {
         draw_aabb_styled(

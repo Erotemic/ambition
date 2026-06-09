@@ -54,7 +54,17 @@ pub fn ensure_portal_bodies(
     mut commands: Commands,
     bodies: Query<
         (Entity, Option<&PrimaryPlayer>, Option<&BossConfig>),
-        (With<BodyKinematics>, Without<PortalBody>),
+        (
+            With<BodyKinematics>,
+            Without<PortalBody>,
+            // Stage 19 Phase 3c-i: projectiles are NOT actors. Once player
+            // projectiles become `BodyKinematics` entities (Phase 3c-ii) they
+            // would otherwise be auto-tagged `PortalBody` here and swept into
+            // actor portal transit. Phase 4 will opt projectiles into transit
+            // explicitly with their OWN policy; until then exclude them so the
+            // transiting SET stays exactly "player + actors", unchanged.
+            Without<crate::projectile::ProjectileGameplay>,
+        ),
     >,
     players: Query<(), (With<PlayerEntity>, With<PrimaryPlayer>)>,
 ) {

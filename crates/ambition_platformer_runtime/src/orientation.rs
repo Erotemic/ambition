@@ -11,6 +11,7 @@ use bevy::prelude::*;
 
 use crate::body::BodyKinematics;
 use crate::gravity::{gravity_upright_angle, GravityCtx};
+use crate::projectile::ProjectileGameplay;
 use crate::time::SimDt;
 
 /// Shared "which way is down" body orientation, in render-space radians, applied
@@ -37,9 +38,24 @@ const ACTOR_ROLL_SPEED: f32 = 8.0;
 /// this module. With the kinematics unification all those archetypes share one
 /// component, so this is a single `With<BodyKinematics>` query (no player/actor
 /// branch).
+///
+/// Projectiles are EXCLUDED (`Without<ProjectileGameplay>`, Stage 19 Phase
+/// 3c-i): once player projectiles become entities carrying the shared
+/// [`BodyKinematics`] (Phase 3c-ii) they would otherwise be handed an
+/// [`ActorRoll`] and auto-righted to gravity like an actor. A projectile is
+/// not an actor — it must not somersault upright mid-flight — so the
+/// projectile marker filters it out here (and transitively out of
+/// [`update_actor_roll`], which only iterates `ActorRoll` carriers).
 pub fn ensure_actor_roll(
     mut commands: Commands,
-    bodies: Query<Entity, (With<BodyKinematics>, Without<ActorRoll>)>,
+    bodies: Query<
+        Entity,
+        (
+            With<BodyKinematics>,
+            Without<ActorRoll>,
+            Without<ProjectileGameplay>,
+        ),
+    >,
 ) {
     for entity in &bodies {
         commands.entity(entity).insert(ActorRoll::default());

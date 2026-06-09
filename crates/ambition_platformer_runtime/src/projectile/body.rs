@@ -70,7 +70,14 @@ pub struct InFlightProjectile {
 /// The collision/lifetime methods take the kinematic body by reference
 /// so the two halves can be stored on separate ECS components after the
 /// migration without changing this logic.
-#[derive(Clone, Copy, Debug, PartialEq)]
+///
+/// As of Stage 19 Phase 3c-i this is an ECS [`Component`]: it is the
+/// projectile *marker*. Any actor-generic system that queries the shared
+/// [`BodyKinematics`] excludes projectiles with `Without<ProjectileGameplay>`
+/// (e.g. [`crate::orientation::ensure_actor_roll`]) so a projectile entity
+/// carrying `BodyKinematics` (Phase 3c-ii onward) is never swept into actor
+/// behavior (auto-righting, portal transit, AI, …).
+#[derive(Clone, Copy, Debug, PartialEq, bevy::prelude::Component)]
 pub struct ProjectileGameplay {
     pub kind: ProjectileKind,
     /// Combat faction (who fired this projectile, which targets it

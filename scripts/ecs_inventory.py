@@ -14,10 +14,10 @@ and keeps Bevy-specific classification deliberately heuristic.
 
 It reports:
   * Rust item types that derive Bevy ECS traits: Component, Bundle, Resource,
-    Message, Event.
+    Message.
   * Bevy architecture marker types such as SystemSet and States.
   * Plugin impls and the registrations made inside each plugin build context.
-  * add_systems / configure_sets / add_message / add_event registrations, with
+  * add_systems / configure_sets / add_message registrations, with
     schedule/set/run-condition/system breakdowns where static analysis can infer
     them.
   * ECS-looking function definitions, based on Bevy system parameter types, plus
@@ -25,7 +25,7 @@ It reports:
   * Message bus and resource access summaries for architectural review.
   * Entity archetype evidence from spawn sites, inserted bundles/components,
     and Name::new labels.
-  * Non-ECS Rust data/model items with heuristic migration-candidate scoring.
+  * Non-ECS Rust data/model items as descriptive inventory only.
 
 The script deliberately keeps raw evidence in JSON so inventory changes can be
 reviewed in code review rather than hidden behind a prose summary.
@@ -43,6 +43,7 @@ import json
 import pathlib
 import re
 import sys
+import tomllib
 from collections import defaultdict
 from typing import Iterable, Iterator, Sequence
 
@@ -57,7 +58,7 @@ except ImportError as ex:  # pragma: no cover - exercised only without deps inst
     raise
 
 
-ECS_DERIVES = {"Component", "Bundle", "Resource", "Message", "Event"}
+ECS_DERIVES = {"Component", "Bundle", "Resource", "Message"}
 ARCHITECTURE_DERIVES = {"SystemSet", "States", "SubStates", "SystemParam"}
 STATEFUL_NAME_RE = re.compile(
     r"(Runtime|State|Config|Spec|Data|Profile|Archetype|Behavior|Cluster|"
@@ -84,8 +85,6 @@ SYSTEM_PARAM_NAMES = {
     "Query",
     "Res",
     "ResMut",
-    "EventReader",
-    "EventWriter",
     "MessageReader",
     "MessageWriter",
     "Local",
@@ -96,7 +95,6 @@ SYSTEM_PARAM_NAMES = {
     "NonSend",
     "NonSendMut",
     "Deferred",
-    "EventMutator",
     "SystemState",
     "In",
     "StaticSystemParam",
@@ -110,7 +108,6 @@ REGISTRATION_NAMES = (
     "add_systems",
     "configure_sets",
     "add_message",
-    "add_event",
     "init_resource",
     "insert_resource",
     "add_plugins",
@@ -288,10 +285,6 @@ class PlainItemRecord:
     file: str
     line: int
     visibility: str = ""
-    category: str = "plain"
-    migration_score: int = 0
-    migration_priority: str = "low"
-    reasons: list[str] = dataclasses.field(default_factory=list)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -299,6 +292,7 @@ class ModuleSummaryRecord:
     module: str
     ecs_items: int = 0
     components: int = 0
+    bundles: int = 0
     resources: int = 0
     messages: int = 0
     plugins: int = 0
@@ -306,7 +300,6 @@ class ModuleSummaryRecord:
     system_like_functions: int = 0
     spawn_sites: int = 0
     non_ecs_items: int = 0
-    migration_candidates: int = 0
 
 
 @dataclasses.dataclass(frozen=True)
@@ -770,15 +763,9 @@ def analyze_system_params(params: str) -> dict[str, object]:
     messages_read = [
         generic_payload_type(inner) for inner in generic_inners(params, "MessageReader")
     ]
-    messages_read.extend(
-        generic_payload_type(inner) for inner in generic_inners(params, "EventReader")
-    )
     messages_written = [
         generic_payload_type(inner) for inner in generic_inners(params, "MessageWriter")
     ]
-    messages_written.extend(
-        generic_payload_type(inner) for inner in generic_inners(params, "EventWriter")
-    )
     locals_ = [generic_payload_type(inner) for inner in generic_inners(params, "Local")]
     queries = [compact(inner, 160) for inner in generic_inners(params, "Query")]
     return {
@@ -885,12 +872,18 @@ def enclosing_context(source: bytes, node: object) -> str:
 
 
 def module_bucket(file: str) -> str:
-    prefix = "crates/ambition_sandbox/src/"
-    rel = file[len(prefix) :] if file.startswith(prefix) else file
+    """Return a compact, crate-local module bucket for a Rust source path."""
+    rel = file
+    if "/src/" in rel:
+        rel = rel.split("/src/", 1)[1]
     rel = rel.removesuffix(".rs")
-    parts = rel.split("/")
+    if rel in {"lib", "main", "mod"}:
+        return "crate_root"
+    parts = [part for part in rel.split("/") if part]
     if not parts:
-        return rel
+        return "crate_root"
+    if parts[-1] == "mod" and len(parts) > 1:
+        parts = parts[:-1]
     if parts[0] == "content" and len(parts) > 1 and parts[1] == "features":
         if len(parts) > 2 and parts[2] == "ecs":
             return "content/features/ecs"
@@ -904,54 +897,16 @@ def module_bucket(file: str) -> str:
     return parts[0]
 
 
-def classify_plain_item(
-    file: str, name: str, derives: Sequence[str], visibility: str
-) -> tuple[str, int, str, list[str]]:
-    rel_parts = set(file.split("/"))
-    reasons: list[str] = []
-    score = 0
-    category = "support"
+def plain_item_from_dict(row: dict) -> PlainItemRecord:
+    """Load current or older JSON rows while ignoring removed advisory fields."""
+    allowed = {field.name for field in dataclasses.fields(PlainItemRecord)}
+    return PlainItemRecord(**{key: value for key, value in row.items() if key in allowed})
 
-    if (
-        "content" in rel_parts
-        or "engine_core" in rel_parts
-        or "world" in rel_parts
-        or "player" in rel_parts
-    ):
-        score += 2
-        category = "domain_model"
-        reasons.append("game/domain path")
-    if "features" in rel_parts and "ecs" not in rel_parts:
-        score += 3
-        category = "legacy_feature_model"
-        reasons.append("feature model outside content/features/ecs")
-    if STATEFUL_NAME_RE.search(name):
-        score += 2
-        reasons.append("stateful/domain-style name")
-    if set(derives) & {"Serialize", "Deserialize"}:
-        score += 1
-        reasons.append("serialized data")
-    if set(derives) & {"Default", "Clone", "Copy"}:
-        score += 1
-        reasons.append("value-like runtime data")
-    if visibility.startswith("pub"):
-        score += 1
-        reasons.append("public API")
-    if rel_parts & LOW_SIGNAL_PATH_PARTS:
-        score -= 2
-        reasons.append("likely presentation/tooling/support path")
-    if set(derives) & ARCHITECTURE_DERIVES:
-        category = "bevy_architecture_marker"
-        score = max(score, 1)
-        reasons.append("Bevy architecture derive")
 
-    if score >= 5:
-        priority = "high"
-    elif score >= 3:
-        priority = "medium"
-    else:
-        priority = "low"
-    return category, score, priority, reasons
+def module_summary_from_dict(row: dict) -> ModuleSummaryRecord:
+    """Load current or older JSON rows while ignoring removed advisory fields."""
+    allowed = {field.name for field in dataclasses.fields(ModuleSummaryRecord)}
+    return ModuleSummaryRecord(**{key: value for key, value in row.items() if key in allowed})
 
 
 def collect_plain_items(
@@ -972,9 +927,6 @@ def collect_plain_items(
             file = repo_rel(parsed.path, repo_root)
             name = name_child_text(parsed.source, node)
             visibility = direct_visibility(parsed.source, node)
-            category, score, priority, reasons = classify_plain_item(
-                file, name, derives, visibility
-            )
             record = PlainItemRecord(
                 name=name,
                 kind=item_kind(node.type),
@@ -982,10 +934,6 @@ def collect_plain_items(
                 file=file,
                 line=node_line(node),
                 visibility=visibility,
-                category=category,
-                migration_score=score,
-                migration_priority=priority,
-                reasons=reasons,
             )
             if set(derives) & ARCHITECTURE_DERIVES:
                 architecture.append(record)
@@ -1198,11 +1146,6 @@ def group_by_derive(items: Sequence[ItemRecord]) -> dict[str, list[ItemRecord]]:
     return grouped
 
 
-def priority_sort_key(row: PlainItemRecord) -> tuple[int, str, str, int]:
-    priority_rank = {"high": 0, "medium": 1, "low": 2}.get(row.migration_priority, 3)
-    return (priority_rank, row.file, row.name, row.line)
-
-
 def summarize_modules(
     items: Sequence[ItemRecord],
     functions: Sequence[FunctionRecord],
@@ -1218,9 +1161,11 @@ def summarize_modules(
         for derive in item.derives:
             if derive == "Component":
                 accum[module]["components"] += 1
+            elif derive == "Bundle":
+                accum[module]["bundles"] += 1
             elif derive == "Resource":
                 accum[module]["resources"] += 1
-            elif derive in {"Message", "Event"}:
+            elif derive == "Message":
                 accum[module]["messages"] += 1
     for function in functions:
         accum[module_bucket(function.file)]["system_like_functions"] += 1
@@ -1233,10 +1178,7 @@ def summarize_modules(
     for plugin in plugins:
         accum[module_bucket(plugin.file)]["plugins"] += 1
     for row in plain_items:
-        module = module_bucket(row.file)
-        accum[module]["non_ecs_items"] += 1
-        if row.migration_priority in {"high", "medium"}:
-            accum[module]["migration_candidates"] += 1
+        accum[module_bucket(row.file)]["non_ecs_items"] += 1
     return [
         ModuleSummaryRecord(module=module, **counts)
         for module, counts in sorted(accum.items())
@@ -1250,7 +1192,7 @@ def build_message_bus(
         lambda: {"registered_at": [], "read_by": [], "written_by": []}
     )
     for registration in registrations:
-        if registration.kind not in {"add_message", "add_event"}:
+        if registration.kind != "add_message":
             continue
         for ident in registration.identifiers:
             last = identifier_last(ident)
@@ -1291,24 +1233,20 @@ def build_resource_access(
 def append_module_summary(
     out: list[str], summaries: Sequence[ModuleSummaryRecord]
 ) -> None:
-    out.append("## Architecture summary by module")
+    out.append("## Module summary")
     out.append("")
     out.append(
-        "| Module | ECS items | Components | Resources | Messages | Plugins | Registered systems | System-like fns | Spawns | Non-ECS items | Migration candidates |"
+        "| Module | ECS items | Components | Bundles | Resources | Messages | Plugins | Registered systems | System-like fns | Spawns | Non-ECS items |"
     )
     out.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
     for row in sorted(
         summaries,
-        key=lambda r: (
-            -r.registered_systems - r.ecs_items - r.migration_candidates,
-            r.module,
-        ),
+        key=lambda r: (-r.registered_systems - r.ecs_items, r.module),
     ):
         out.append(
-            f"| `{row.module}` | {row.ecs_items} | {row.components} | {row.resources} | "
-            f"{row.messages} | {row.plugins} | {row.registered_systems} | "
-            f"{row.system_like_functions} | {row.spawn_sites} | {row.non_ecs_items} | "
-            f"{row.migration_candidates} |"
+            f"| `{row.module}` | {row.ecs_items} | {row.components} | {row.bundles} | "
+            f"{row.resources} | {row.messages} | {row.plugins} | {row.registered_systems} | "
+            f"{row.system_like_functions} | {row.spawn_sites} | {row.non_ecs_items} |"
         )
     out.append("")
 
@@ -1316,49 +1254,40 @@ def append_module_summary(
 def append_schedule_map(
     out: list[str], registrations: Sequence[RegistrationRecord]
 ) -> None:
-    out.append("## Schedule and system-set map")
+    out.append("## Schedule and system-set summary")
     out.append("")
     out.append(
-        "This section is derived from `add_systems` calls. Run conditions and ordering modifiers are separated from likely system functions when tree-sitter can identify the call structure."
+        "Derived from `add_systems` calls. Detailed registration rows are kept in JSON; markdown shows only an agent-sized index."
     )
     out.append("")
-    by_schedule_set: dict[tuple[str, str], list[RegistrationRecord]] = defaultdict(list)
+    by_schedule_set: dict[tuple[str, str], dict[str, int]] = defaultdict(
+        lambda: {"registration_sites": 0, "systems": 0, "run_conditions": 0, "ordering": 0}
+    )
     for row in registrations:
         if row.kind != "add_systems":
             continue
         schedule = row.schedule_or_arg or "<unspecified>"
         sets = row.sets or ["<no explicit set>"]
         for set_name in sets:
-            by_schedule_set[(schedule, set_name)].append(row)
+            bucket = by_schedule_set[(schedule, set_name)]
+            bucket["registration_sites"] += 1
+            bucket["systems"] += len(row.systems)
+            bucket["run_conditions"] += len(row.run_conditions)
+            bucket["ordering"] += len(row.ordering)
     if not by_schedule_set:
         out.append("- None found.")
         out.append("")
         return
-    for (schedule, set_name), rows in sorted(by_schedule_set.items()):
-        system_count = sum(len(row.systems) for row in rows)
-        out.append(f"### `{schedule}` / `{set_name}` ({system_count} systems)")
-        for row in rows:
-            context = f" in `{row.context}`" if row.context else ""
-            out.append(f"- `{row.file}:{row.line}`{context}")
-            if row.systems:
-                out.append(
-                    "  - systems: " + ", ".join(f"`{system}`" for system in row.systems)
-                )
-            if row.run_conditions:
-                out.append(
-                    "  - run if: "
-                    + ", ".join(f"`{cond}`" for cond in row.run_conditions)
-                )
-            if row.ordering:
-                out.append(
-                    "  - ordering: " + ", ".join(f"`{item}`" for item in row.ordering)
-                )
-            if not row.systems and row.identifiers:
-                out.append(
-                    "  - identifiers: "
-                    + ", ".join(f"`{ident}`" for ident in row.identifiers[:20])
-                )
-        out.append("")
+    out.append("| Schedule | Set | Registration sites | Systems | Run conditions | Ordering refs |")
+    out.append("|---|---|---:|---:|---:|---:|")
+    for (schedule, set_name), info in sorted(
+        by_schedule_set.items(), key=lambda kv: (-kv[1]["systems"], kv[0])
+    ):
+        out.append(
+            f"| `{schedule}` | `{set_name}` | {info['registration_sites']} | "
+            f"{info['systems']} | {info['run_conditions']} | {info['ordering']} |"
+        )
+    out.append("")
 
 
 def append_message_bus(
@@ -1380,26 +1309,6 @@ def append_message_bus(
             f"| `{message}` | {len(info['registered_at'])} | {len(info['written_by'])} | {len(info['read_by'])} |"
         )
     out.append("")
-    for message, info in sorted(message_bus.items()):
-        out.append(f"### `{message}`")
-        if info["registered_at"]:
-            out.append(
-                "- registered at: "
-                + ", ".join(f"`{x}`" for x in info["registered_at"][:8])
-            )
-        if info["written_by"]:
-            out.append("- written by:")
-            for writer in info["written_by"][:12]:
-                out.append(f"  - `{writer}`")
-            if len(info["written_by"]) > 12:
-                out.append(f"  - ... {len(info['written_by']) - 12} more")
-        if info["read_by"]:
-            out.append("- read by:")
-            for reader in info["read_by"][:12]:
-                out.append(f"  - `{reader}`")
-            if len(info["read_by"]) > 12:
-                out.append(f"  - ... {len(info['read_by']) - 12} more")
-        out.append("")
 
 
 def append_resource_access(
@@ -1442,14 +1351,10 @@ def append_non_ecs_inventory(
     out.append("## Non-ECS Rust data/model inventory")
     out.append("")
     out.append(
-        "These are Rust structs/enums/unions that do not derive Component, Bundle, Resource, Message, or Event. The priority is heuristic: it is meant to highlight likely legacy/domain state that may deserve an ECS migration review, not to make a semantic claim."
+        "These are Rust structs/enums/unions that do not derive Component, Bundle, Resource, or Message. This is descriptive inventory only; it does not evaluate importance or recommend changes."
     )
     out.append("")
-    candidates = [
-        row for row in plain_items if row.migration_priority in {"high", "medium"}
-    ]
     out.append(f"- Total non-ECS items: {len(plain_items)}")
-    out.append(f"- High/medium migration candidates: {len(candidates)}")
     out.append(f"- Bevy architecture marker types: {len(architecture_items)}")
     out.append("")
 
@@ -1460,37 +1365,18 @@ def append_non_ecs_inventory(
             out.append(f"- `{row.name}` ({row.kind}, `{row.file}:{row.line}`{derives})")
         out.append("")
 
-    out.append("### High/medium migration candidates")
-    if not candidates:
-        out.append("- None found.")
-    else:
-        out.append("| Priority | Score | Item | Kind | Location | Reasons |")
-        out.append("|---|---:|---|---|---|---|")
-        for row in sorted(candidates, key=priority_sort_key)[:120]:
-            reasons = "; ".join(row.reasons)
-            out.append(
-                f"| {row.migration_priority} | {row.migration_score} | `{row.name}` | {row.kind} | `{row.file}:{row.line}` | {reasons} |"
-            )
-        if len(candidates) > 120:
-            out.append("")
-            out.append(
-                f"_... {len(candidates) - 120} additional candidates are present in JSON._"
-            )
-    out.append("")
-
-    out.append("### Complete non-ECS item index by module")
-    by_module: dict[str, list[PlainItemRecord]] = defaultdict(list)
+    by_module: dict[str, int] = defaultdict(int)
     for row in plain_items:
-        by_module[module_bucket(row.file)].append(row)
-    for module in sorted(by_module):
-        rows = sorted(by_module[module], key=lambda r: (r.file, r.line, r.name))
-        out.append(f"#### `{module}` ({len(rows)} items)")
-        for row in rows:
-            derives = f"; derives {', '.join(row.derives)}" if row.derives else ""
-            out.append(
-                f"- `{row.name}` ({row.kind}, `{row.file}:{row.line}`, priority {row.migration_priority}, score {row.migration_score}{derives})"
-            )
+        by_module[module_bucket(row.file)] += 1
+    if by_module:
+        out.append("### Non-ECS item counts by module")
+        out.append("| Module | Items |")
+        out.append("|---|---:|")
+        for module, count in sorted(by_module.items(), key=lambda kv: (-kv[1], kv[0])):
+            out.append(f"| `{module}` | {count} |")
         out.append("")
+    out.append("_Complete non-ECS item records are available in the JSON shard._")
+    out.append("")
 
 
 def write_markdown(inventory: dict, path: pathlib.Path) -> None:
@@ -1500,18 +1386,18 @@ def write_markdown(inventory: dict, path: pathlib.Path) -> None:
     registrations = [RegistrationRecord(**row) for row in inventory["registrations"]]
     spawns = [SpawnRecord(**row) for row in inventory["spawn_sites"]]
     plugins = [PluginRecord(**row) for row in inventory["plugins"]]
-    plain_items = [PlainItemRecord(**row) for row in inventory.get("non_ecs_items", [])]
+    plain_items = [plain_item_from_dict(row) for row in inventory.get("non_ecs_items", [])]
     architecture_items = [
-        PlainItemRecord(**row) for row in inventory.get("architecture_items", [])
+        plain_item_from_dict(row) for row in inventory.get("architecture_items", [])
     ]
     module_summaries = [
-        ModuleSummaryRecord(**row) for row in inventory.get("module_summaries", [])
+        module_summary_from_dict(row) for row in inventory.get("module_summaries", [])
     ]
     message_bus = inventory.get("message_bus", {})
     resource_access = inventory.get("resource_access", {})
 
     out: list[str] = []
-    out.append("# Ambition Sandbox ECS inventory")
+    out.append("# ECS inventory")
     out.append("")
     out.append(f"Generated from `{inventory['crate_root']}`.")
     out.append("")
@@ -1527,13 +1413,11 @@ def write_markdown(inventory: dict, path: pathlib.Path) -> None:
     append_resource_access(out, resource_access)
     append_non_ecs_inventory(out, plain_items, architecture_items)
 
-    for derive_name in ("Component", "Bundle", "Resource", "Message", "Event"):
+    for derive_name in ("Component", "Bundle", "Resource", "Message"):
         rows = grouped_items.get(derive_name, [])
-        out.append(f"## {derive_name}s")
         if not rows:
-            out.append("- None found.")
-            out.append("")
             continue
+        out.append(f"## {derive_name}s")
         by_file: dict[str, list[ItemRecord]] = defaultdict(list)
         for row in rows:
             by_file[row.file].append(row)
@@ -1558,91 +1442,11 @@ def write_markdown(inventory: dict, path: pathlib.Path) -> None:
                 out.append(f"  - `{row.name}` (line {row.line})")
     out.append("")
 
-    out.append("## Registrations")
-    if not registrations:
-        out.append("- None found.")
-    else:
-        for row in registrations:
-            context = f" in `{row.context}`" if row.context else ""
-            out.append(
-                f"- `{row.file}:{row.line}`{context} - `{row.kind}` on/with `{row.schedule_or_arg or '<none>'}`"
-            )
-            if row.systems:
-                out.append(
-                    "  - systems: " + ", ".join(f"`{system}`" for system in row.systems)
-                )
-            if row.sets:
-                out.append(
-                    "  - sets: " + ", ".join(f"`{set_name}`" for set_name in row.sets)
-                )
-            if row.run_conditions:
-                out.append(
-                    "  - run if: "
-                    + ", ".join(f"`{cond}`" for cond in row.run_conditions)
-                )
-            if row.identifiers:
-                for ident in row.identifiers:
-                    out.append(f"  - `{ident}`")
-            else:
-                out.append(f"  - expression: `{row.expression}`")
+    out.append("## Detailed records")
     out.append("")
-
-    out.append("## System-like function definitions")
-    if not functions:
-        out.append("- None found.")
-    else:
-        by_file: dict[str, list[FunctionRecord]] = defaultdict(list)
-        for row in functions:
-            by_file[row.file].append(row)
-        for file in sorted(by_file):
-            out.append(f"- `{file}`")
-            for row in sorted(by_file[file], key=lambda r: r.line):
-                vis = "pub " if row.public else ""
-                out.append(f"  - `{vis}{row.name}` (line {row.line})")
-                details = []
-                if row.commands:
-                    details.append("Commands")
-                if row.resources_written:
-                    details.append("writes " + ", ".join(row.resources_written[:6]))
-                if row.resources_read:
-                    details.append("reads " + ", ".join(row.resources_read[:6]))
-                if row.messages_written:
-                    details.append(
-                        "writes messages " + ", ".join(row.messages_written[:6])
-                    )
-                if row.messages_read:
-                    details.append("reads messages " + ", ".join(row.messages_read[:6]))
-                if row.queries:
-                    details.append(f"{len(row.queries)} queries")
-                if details:
-                    out.append("    - " + "; ".join(details))
-    out.append("")
-
-    out.append("## Entity archetype evidence / spawn sites")
     out.append(
-        "Static analysis cannot know every runtime entity instance. This section lists spawn sites and the bundle/component/type identifiers found in each spawn expression."
+        "The markdown report is intentionally compact. Full registration rows, system-like function records, spawn-site evidence, resource/message access details, and non-ECS item records are in the adjacent JSON shard."
     )
-    if not spawns:
-        out.append("- None found.")
-    else:
-        for row in spawns:
-            out.append(f"- `{row.file}:{row.line}`")
-            if row.name_labels:
-                for label in row.name_labels:
-                    out.append(f"  - name label: `{label}`")
-            if row.matched_ecs_items:
-                out.append(
-                    "  - matched ECS items: "
-                    + ", ".join(f"`{item}`" for item in row.matched_ecs_items[:30])
-                )
-            if row.identifiers:
-                out.append("  - identifiers:")
-                for ident in row.identifiers[:40]:
-                    out.append(f"    - `{ident}`")
-                if len(row.identifiers) > 40:
-                    out.append(f"    - ... {len(row.identifiers) - 40} more")
-            else:
-                out.append(f"  - expression: `{row.expression}`")
     out.append("")
 
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -1685,7 +1489,7 @@ def build_inventory(
         {identifier_last(system) for row in registrations for system in row.systems}
     )
     inventory = {
-        "schema_version": 2,
+        "schema_version": 4,
         "repo_root": ".",
         "crate_root": repo_rel(crate_root, repo_root),
         "include_tests": include_tests,
@@ -1694,7 +1498,6 @@ def build_inventory(
             "bundles": len(grouped.get("Bundle", [])),
             "resources": len(grouped.get("Resource", [])),
             "messages": len(grouped.get("Message", [])),
-            "events": len(grouped.get("Event", [])),
             "plugins": len(plugins),
             "registrations": len(registrations),
             "unique_registration_identifiers": len(unique_registration_identifiers),
@@ -1703,12 +1506,6 @@ def build_inventory(
             "registered_systems": len(registered_system_names),
             "module_summaries": len(module_summaries),
             "non_ecs_items": len(plain_items),
-            "migration_candidates_high": sum(
-                1 for row in plain_items if row.migration_priority == "high"
-            ),
-            "migration_candidates_medium": sum(
-                1 for row in plain_items if row.migration_priority == "medium"
-            ),
             "architecture_items": len(architecture_items),
             "message_channels": len(message_bus),
             "resource_access_entries": len(resource_access),
@@ -1729,6 +1526,139 @@ def build_inventory(
     return inventory
 
 
+
+
+def crate_display_name(crate_root: pathlib.Path) -> str:
+    cargo_toml = crate_root / "Cargo.toml"
+    if cargo_toml.is_file():
+        try:
+            data = tomllib.loads(cargo_toml.read_text(encoding="utf-8"))
+            package = data.get("package", {})
+            name = package.get("name")
+            if isinstance(name, str) and name:
+                return name
+        except Exception:
+            pass
+    return crate_root.name
+
+
+def discover_crate_roots(repo_root: pathlib.Path) -> list[pathlib.Path]:
+    roots: list[pathlib.Path] = []
+    crates_dir = repo_root / "crates"
+    if crates_dir.is_dir():
+        for cargo_toml in sorted(crates_dir.glob("*/Cargo.toml")):
+            crate_root = cargo_toml.parent
+            if (crate_root / "src").is_dir():
+                roots.append(crate_root.resolve())
+    # Include a root package if the repository itself is a crate.
+    if (repo_root / "Cargo.toml").is_file() and (repo_root / "src").is_dir():
+        roots.insert(0, repo_root.resolve())
+    return roots
+
+
+def summarize_project(inventories: Sequence[dict]) -> dict:
+    total_counts: dict[str, int] = defaultdict(int)
+    crates: list[dict] = []
+    for inventory in inventories:
+        counts = inventory.get("counts", {})
+        for key, value in counts.items():
+            if isinstance(value, int):
+                total_counts[key] += value
+        crate_root = inventory["crate_root"]
+        crate_name = inventory.get("crate_name", pathlib.Path(crate_root).name)
+        crates.append(
+            {
+                "crate_name": crate_name,
+                "crate_root": crate_root,
+                "counts": counts,
+                "json": f"crates/{crate_name}.json",
+                "markdown": f"crates/{crate_name}.md",
+            }
+        )
+    return {
+        "schema_version": 4,
+        "repo_root": ".",
+        "crate_count": len(inventories),
+        "counts": dict(sorted(total_counts.items())),
+        "crates": sorted(crates, key=lambda row: row["crate_name"]),
+    }
+
+
+def write_project_markdown(summary: dict, path: pathlib.Path) -> None:
+    out: list[str] = []
+    out.append("# Project ECS inventory summary")
+    out.append("")
+    out.append("This is a compact project-level index. Detailed inventory is split into one markdown/json shard per crate.")
+    out.append("")
+    out.append("## Totals")
+    out.append(f"- Crates: {summary['crate_count']}")
+    for key, value in summary["counts"].items():
+        out.append(f"- {key.replace('_', ' ').title()}: {value}")
+    out.append("")
+    out.append("## Crates")
+    out.append("")
+    out.append("| Crate | Components | Bundles | Resources | Messages | Plugins | Registered systems | Systems | Spawns | Non-ECS items | Details |")
+    out.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|")
+    for crate in summary["crates"]:
+        counts = crate["counts"]
+        out.append(
+            f"| `{crate['crate_name']}` | {counts.get('components', 0)} | {counts.get('bundles', 0)} | "
+            f"{counts.get('resources', 0)} | {counts.get('messages', 0)} | {counts.get('plugins', 0)} | "
+            f"{counts.get('registered_systems', 0)} | {counts.get('system_like_functions', 0)} | "
+            f"{counts.get('spawn_sites', 0)} | {counts.get('non_ecs_items', 0)} | "
+            f"[`md`]({crate['markdown']}) / [`json`]({crate['json']}) |"
+        )
+    out.append("")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(out) + "\n", encoding="utf-8")
+
+
+def write_workspace_inventory(
+    repo_root: pathlib.Path,
+    crate_roots: Sequence[pathlib.Path],
+    include_tests: bool,
+    out_dir: pathlib.Path,
+    check_json: pathlib.Path | None = None,
+) -> int:
+    crate_out_dir = out_dir / "crates"
+    inventories: list[dict] = []
+    for crate_root in crate_roots:
+        inventory = build_inventory(repo_root, crate_root, include_tests)
+        inventory["crate_name"] = crate_display_name(crate_root)
+        inventories.append(inventory)
+        crate_name = inventory["crate_name"]
+        json_path = crate_out_dir / f"{crate_name}.json"
+        md_path = crate_out_dir / f"{crate_name}.md"
+        json_path.parent.mkdir(parents=True, exist_ok=True)
+        json_path.write_text(
+            json.dumps(inventory, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        write_markdown(inventory, md_path)
+        print(f"wrote {json_path}")
+        print(f"wrote {md_path}")
+
+    summary = summarize_project(inventories)
+    summary_json = out_dir / "project.json"
+    summary_md = out_dir / "project.md"
+    summary_json.parent.mkdir(parents=True, exist_ok=True)
+    summary_json.write_text(
+        json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    write_project_markdown(summary, summary_md)
+
+    if check_json:
+        expected = json.loads(check_json.read_text(encoding="utf-8"))
+        if expected != summary:
+            print(f"inventory summary differs from {check_json}", file=sys.stderr)
+            print(f"wrote current summary to {summary_json}", file=sys.stderr)
+            return 1
+
+    print(f"wrote {summary_json}")
+    print(f"wrote {summary_md}")
+    print(json.dumps(summary["counts"], indent=2, sort_keys=True))
+    return 0
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", type=pathlib.Path, default=pathlib.Path.cwd())
@@ -1736,24 +1666,56 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--crate", type=pathlib.Path, default=pathlib.Path("crates/ambition_sandbox")
     )
     parser.add_argument(
+        "--workspace",
+        "--all-crates",
+        action="store_true",
+        help="Scan all local crates under crates/* and write per-crate shards plus a project summary.",
+    )
+    parser.add_argument(
+        "--out-dir",
+        type=pathlib.Path,
+        default=pathlib.Path(".agent/ecs_inventory"),
+        help="Output directory used with --workspace/--all-crates.",
+    )
+    parser.add_argument(
         "--json",
         type=pathlib.Path,
         default=pathlib.Path("target/ambition_ecs_inventory.json"),
+        help="Single-crate JSON output path when --workspace is not used.",
     )
     parser.add_argument(
         "--markdown",
         type=pathlib.Path,
         default=pathlib.Path("target/ambition_ecs_inventory.md"),
+        help="Single-crate markdown output path when --workspace is not used.",
     )
     parser.add_argument("--include-tests", action="store_true")
     parser.add_argument(
         "--check-json",
         type=pathlib.Path,
-        help="Compare generated JSON with an existing inventory file.",
+        help="Compare generated JSON with an existing inventory file. In workspace mode, compare the project summary JSON.",
     )
     args = parser.parse_args(argv)
 
     repo_root = args.repo_root.resolve()
+
+    if args.workspace:
+        crate_roots = discover_crate_roots(repo_root)
+        if not crate_roots:
+            print(
+                f"error: no crate source directories found under {repo_root / 'crates'}",
+                file=sys.stderr,
+            )
+            return 2
+        out_dir = args.out_dir if args.out_dir.is_absolute() else repo_root / args.out_dir
+        return write_workspace_inventory(
+            repo_root,
+            crate_roots,
+            args.include_tests,
+            out_dir.resolve(),
+            args.check_json,
+        )
+
     crate_root = args.crate if args.crate.is_absolute() else repo_root / args.crate
     crate_root = crate_root.resolve()
     if not (crate_root / "src").is_dir():
@@ -1764,6 +1726,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
 
     inventory = build_inventory(repo_root, crate_root, args.include_tests)
+    inventory["crate_name"] = crate_display_name(crate_root)
 
     args.json.parent.mkdir(parents=True, exist_ok=True)
     args.json.write_text(

@@ -92,6 +92,8 @@ tools/**/*.egg-info/
 
 # Local Godot editor/runtime binaries
 /tools/ambition_sprite2d_renderer/tpl/Godot_v*-stable_linux.x86_64
+.agent/reports
+.agent/ecs_inventory
 .agent/index/
 .agent/dirstats*
 

@@ -26,7 +26,6 @@ use bevy::prelude::*;
 
 use crate::input::ControlFrame;
 use crate::items::pickup::GroundItem;
-use crate::player::{PlayerEntity, PrimaryPlayer};
 use crate::portal::{PlayerMovementIntent, PortalTransitable};
 
 /// Copy this frame's `ControlFrame` movement axes into the portal-core

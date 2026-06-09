@@ -1,8 +1,8 @@
 # Stage 19: Portal mechanic crate + projectile ECS migration + generic transit
 
-**Status:** PROPOSED — awaiting eyeball, then executed phase-by-phase (each
-identical-sim gated). On `main`. The goal is an **elegant** reusable mechanic crate,
-not a quick win.
+**Status:** ✅ COMPLETE (2026-06-09) — all five phases landed, each identical-sim
+gated. The portal mechanic now lives in the standalone `ambition_portal` crate. On
+`main`. The goal was an **elegant** reusable mechanic crate, not a quick win.
 
 ## North star
 The portal plugin should feel like a **small physics/mechanic plugin with adapters**,
@@ -526,7 +526,7 @@ weaker path. NOTE for Phase 5: `PortalTransitable` + `portal_teleport_ground_ite
 must move WITH the crate (they are still portal-core surface) until this follow-up
 deletes them.
 
-**Phase 5 — Extract `crates/ambition_mechanics_portal`. READY (2026-06-09).** Now
+**Phase 5 — Extract `crates/ambition_portal`. ✅ DONE (2026-06-09) — STAGE 19 COMPLETE.** Now
 portal core is generic (markers + seams + adapters) and ALL the moving bodies
 (player + actors + projectiles) ride the ONE `portal_transit` → move it (transit math,
 placement, lifecycle, carve, pieces, gun mechanics, shot, messages, types, schedule).
@@ -547,6 +547,77 @@ Boundary guards: the crate depends only on
   (`portal_transit` / `portal_fire_system` / `portal_projectile_step` — sfx
   decoupling was tagged Phase 5); `presentation.rs` render-gated reads of
   `Res<GameWorld>` + `crate::player`.
+
+### Phase 5 — Progress / status (2026-06-09) — **DONE; STAGE 19 COMPLETE**
+
+**Step 5a — residue decoupled (3 commits, each identical-sim):**
+- **`crate::player` → gun toggle (CLEAN, commit `113384d5`).** The portal-gun
+  active/inactive switch is now message-driven (`TogglePortalGun`) inside the crate;
+  the player glue (gun color from the primary player, the `F7` dev off-switch reading
+  raw keyboard) moved host-side. The dev toggle (`portal_dev_toggle_system`) lives in
+  the render-gated `portal/presentation.rs` (it reads `ButtonInput<KeyCode>` — a host
+  input concern), the gun MECHANIC (place/replace/channel + the message toggle) stays
+  in the crate.
+- **input-warp + ability-suppression → Ambition adapters (CLEAN, commit `6bd0a576`).**
+  `suppress_ledge_grab_during_transit` (suppresses a PLAYER ability during transit) and
+  `warp_portal_input` (INPUT shaping) moved into `ambition_content/portal/ability_adapter.rs`,
+  reacting to the portal-owned crossing components/events (`PortalTransit` /
+  `PortalInputWarp`) the crate emits. The crate names neither a player ability nor the
+  input frame.
+- **`ambition_sfx` → audio-signal events (CLEAN, commit `33e0880a`).** The crate no
+  longer writes `SfxMessage`. It emits portal-owned audio signals — `PortalShotFired`
+  (fire cue), **new `PortalBodyEntered { pos }`** (ENTER cue), and the existing
+  `PortalBodyTransited` (EXIT cue) — and `ambition_content/portal/sfx_adapter.rs` maps
+  each to the sandbox sfx. `ambition_sfx` is gone from portal core.
+
+**Step 5b — `crates/ambition_portal/` extracted (this commit).** The portal MECHANIC
+moved into a new workspace crate `ambition_portal`: `color` / `types` / `gun` /
+`pickup` / `shot` (the pure `step_portal_shot` over `SolidWorldQuery`) / `placement` /
+`transit` (the one generic `portal_transit` + `PortalBody` / `PortalPolicy` /
+`PortalTransit` / `PortalCarves` / `PortalFireIntent` / `ClearPortals` / events) /
+`lifecycle` / `pieces` (the Core invariant geometry) / `messages` / `schedule` /
+`plugin`.
+- **Dep direction (guarded):** `ambition_portal` depends ONLY on
+  `ambition_engine_core` + `ambition_platformer_runtime` + Bevy (`bevy_color` +
+  `bevy_log`, no render/audio/window/asset features). Never `ambition_sandbox` /
+  content / features / input / sfx. New guard
+  `architecture_boundaries_portal_crate_is_extracted` asserts the crate exists + is a
+  workspace member, the manifest names none of the host crates and only the two lower
+  path-deps, no source line names `ambition_sandbox`, and it exposes a `PortalPlugin`.
+- **`PortalPlugin` API.** `app.add_plugins(PortalPlugin)` registers the mechanic
+  systems + portal-owned messages/resources under the `PortalSet` schedule labels;
+  `PortalSimulationPlugin` is the headless-sim subset. A host: (1) adds the plugin,
+  (2) tags transiting bodies (`BodyKinematics` + `PortalBody` + a behavioral
+  `PortalPolicy`), (3) bridges the seams with adapters (fire-intent from input, carve
+  → collision overlay, room-reset → `ClearPortals`, sfx from the audio signals,
+  input/ability shaping off the crossing components). The crate emits everything an
+  adapter needs and never names the host.
+- **Stayed in sandbox:** `portal/presentation.rs` (render-gated portal quads/labels/
+  gun sprite/body-pieces/disorientation FX + the `F7` dev toggle) and the
+  `ambition_content::portal::*` adapters (input / inventory / fire / carve / reset /
+  shot-world / sfx / ability / transit-body tagging). `portal/tests.rs` (drives core
+  THROUGH the adapters) stays sandbox-side too.
+- **Facade:** `crate::portal` is now `pub use ambition_portal::*` (+ render-gated
+  `presentation` re-exports) — every inbound `crate::portal::…` site resolves with
+  zero churn. `MIN_EXIT_SPEED` was promoted `pub` + re-exported so the sandbox-side
+  transit-invariant test reaches it through the facade.
+- **Updated guards:** the portal-core content-roster + host-world-freedom guards now
+  scan the crate source (the host-world-freedom guard adds `crate::player` to the
+  forbidden set now that 5a removed the residue); the facade/files guard asserts the
+  mechanic files live in `ambition_portal` and that `plugin.rs`/`transit.rs`/`gun.rs`
+  no longer linger in the sandbox.
+
+**Deferred (don't-force, unchanged):** `PortalTransitable` +
+`portal_teleport_ground_items` + the two `sync_*_transitable` brackets moved WITH the
+crate (the ground-item unification follow-up will delete them) — `GroundItem` still
+carries its own pos/vel/half_extent, so giving it the lower-crate body is a separate
+self-contained task.
+
+**Verify (every 5a commit + this 5b commit):** `replay_fixture_regression` ZERO
+divergence; `portal_bridge_reachability` + `portal_lab_usable` +
+`projectile_portal_transit` (3) green; `architecture_boundaries` 17;
+`scripted_gameplay` green; `ambition_portal` build + 11 tests green; sandbox `--lib`
+1418 + `--features visible` build green.
 
 ## Principles
 - **Elegant, not quick.** Prefer the generic aperture algorithm over the weaker

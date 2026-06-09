@@ -22,7 +22,9 @@ use crate::engine_core::{self as ae, AabbExt};
 use crate::items::pickup::StashedActionSet;
 use crate::items::{Item, OwnedItems};
 use crate::platformer_runtime::prelude::SpawnScopedExt;
-use crate::player::{BodyKinematics, PlayerBaseSize, PlayerEntity, PrimaryPlayer};
+#[cfg(test)]
+use crate::player::PlayerBaseSize;
+use crate::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 use crate::portal::{
     DropPortalGun, PickUpPortalGun, PortalGun, PortalGunEquipped, PortalGunPickup,
 };
@@ -261,10 +263,7 @@ mod tests {
         app.add_message::<DropPortalGun>();
         app.add_message::<PickUpPortalGun>();
         app.add_message::<PortalGunEquipped>();
-        app.insert_resource(crate::WorldTime {
-            raw_dt: 1.0 / 60.0,
-            scaled_dt: 1.0 / 60.0,
-        });
+        app.insert_resource(ambition_platformer_runtime::time::SimDt { dt: 1.0 / 60.0 });
         app.add_systems(
             Update,
             (

@@ -1,15 +1,15 @@
 //! Portal-aware geometry and the surface-fit / aperture-crossing decision logic.
 //!
-//! Plain solid raycasts live in `crate::platformer_runtime::collision`; this
+//! Plain solid raycasts live in `ambition_platformer_runtime::world_query`; this
 //! module keeps only the portal-specific traversal, the fit check, and the pure
 //! `transit_step` decision machine shared by player + actor transit.
 
 use bevy::prelude::*;
 
-use crate::engine_core::{self as ae, AabbExt};
-use crate::platformer_runtime::collision::{ray_aabb, raycast_solids};
-use crate::platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
-use crate::portal::pieces as pp;
+use crate::pieces as pp;
+use ambition_engine_core::{self as ae, AabbExt};
+use ambition_platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
+use ambition_platformer_runtime::world_query::{ray_aabb, raycast_solids};
 
 use super::color::PortalChannel;
 use super::transit::PortalTransit;

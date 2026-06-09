@@ -304,6 +304,15 @@ ambition_sfx = { path = "../ambition_sfx" }
 # not-yet-extracted local modules collision/orientation/transit). See
 # docs/planning/plugin_refactor/14_action_plan.md Stage 13 / Task K.
 ambition_platformer_runtime = { path = "../ambition_platformer_runtime" }
+# Reusable, content-free portal MECHANIC (portal-gun place/replace/channel,
+# aperture transit math, the one generic `portal_transit` over PortalBody +
+# PortalPolicy, carve publishing, pieces geometry, lifecycle, the pure shot
+# helper over SolidWorldQuery, portal events + PortalPlugin). The `crate::portal`
+# module is a facade re-exporting this crate; the sandbox keeps presentation
+# (render-gated) + the `ambition_content::portal` adapters (input / inventory /
+# carve bridge / room-reset / sfx / ability) on top. ADR 0019; Stage 19. See
+# docs/planning/plugin_refactor/19_portal_crate_and_projectile_ecs.md.
+ambition_portal = { path = "../ambition_portal" }
 # Reusable, content-free time vocabulary + producer (WorldTime / ClockState /
 # ClockDomain / ProperTimeScale / named-clock dt accessors / TimePlugin). The
 # `crate::time` module is a facade re-exporting these; the sandbox keeps the

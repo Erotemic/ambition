@@ -17,7 +17,7 @@ use super::types::{PlacedPortal, PortalTransitCooldown};
 /// cooldown — portals are per-room, so stale ones from a previous room must not
 /// linger and teleport the player unexpectedly. Portal core consumes the
 /// portal-owned `ClearPortals` message; the Ambition room-reset adapter
-/// (`crate::ambition_content::portal::bridge_room_reset_to_clear_portals`) emits
+/// (the host portal adapter) emits
 /// it from `ResetRoomFeaturesEvent`, so core never names the Ambition reset.
 pub fn clear_portals_on_reset(
     mut commands: Commands,

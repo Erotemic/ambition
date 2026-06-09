@@ -10,7 +10,7 @@ use super::{
     portal_teleport_ground_items, portal_toggle_system, portal_transit, publish_portal_carves,
     tick_portal_cooldowns, BodyTeleported, PlayerMovementIntent, PortalBodyTransited, PortalCarves,
 };
-use crate::platformer_runtime::orientation::{ensure_actor_roll, update_actor_roll};
+use ambition_platformer_runtime::orientation::{ensure_actor_roll, update_actor_roll};
 
 /// Top-level portal mechanic plugin.
 ///
@@ -55,7 +55,7 @@ impl Plugin for PortalSimulationPlugin {
         app.add_message::<PortalGunEquipped>();
         // Portal-owned audio SIGNALS (not sfx): the crate emits these on a fire /
         // aperture entry; an Ambition audio adapter
-        // (`crate::ambition_content::portal::play_portal_sfx`) maps them to the
+        // (the host portal adapter) maps them to the
         // sfx vocabulary. The EXIT cue rides `PortalBodyTransited` (`exit_pos`).
         app.add_message::<PortalShotFired>();
         app.add_message::<PortalBodyEntered>();
@@ -65,28 +65,23 @@ impl Plugin for PortalSimulationPlugin {
         app.init_resource::<PortalCarves>();
         // Content-agnostic movement intent: portal core's transit + input warp
         // read/mutate this instead of the Ambition `ControlFrame`; the content
-        // input adapter (`crate::ambition_content::portal`) mirrors it to/from
+        // input adapter (the host portal adapter) mirrors it to/from
         // `ControlFrame` each frame.
         app.init_resource::<PlayerMovementIntent>();
-        // Held-gun aim hint for the visible-build presentation, populated by the
-        // content input adapter; init only with the render feature so portal
-        // *simulation* carries no render-only resource. The content input adapter
-        // writes it via `Option<ResMut<PortalAimHint>>`, so it no-ops cleanly when
-        // the render layer (and thus this resource) is absent.
-        #[cfg(feature = "portal_render")]
-        app.init_resource::<super::PortalAimHint>();
+        // NOTE: the held-gun aim hint (`PortalAimHint`) is a render-only resource
+        // owned by the HOST presentation layer (it is not part of the headless
+        // mechanic), so it is initialised host-side behind the render feature, not
+        // here. The portal *simulation* carries no render-only resource.
 
         // Portal systems are registered `.in_set(PortalSet::X)` with only
-        // PORTAL-INTERNAL ordering here. The placement of each `PortalSet` into
-        // its `SandboxSet` phase, the cross-set `.after`/`.before` edges against
-        // sandbox app-schedule systems, and the `gameplay_allowed` run condition
-        // are all declared sandbox-side in `crate::app::wire_portal_schedule`
-        // (called right after `add_plugins(PortalPlugin)` in
-        // `add_simulation_plugins`). This lets `crate::portal` avoid naming
-        // `SandboxSet`, `crate::app::*` systems, `crate::gameplay_allowed`,
-        // `crate::items::pickup::ItemPickupSet`, or `crate::ambition_content::*`
-        // so it can become a standalone crate. The execution order is identical:
-        // the same edges are simply declared from the other side of the seam.
+        // PORTAL-INTERNAL ordering here. The placement of each [`PortalSet`] into
+        // the host's app phases, the cross-set `.after`/`.before` edges against
+        // host systems, and any run condition (e.g. "gameplay allowed") are all
+        // declared HOST-SIDE (the host wires the portal schedule right after
+        // `add_plugins(PortalPlugin)`). This keeps the crate free of host schedule
+        // labels / systems / run conditions so it stays standalone; the execution
+        // order is identical — the same edges are simply declared from the other
+        // side of the seam.
 
         // PlacedPortal carves are published with the same early-world snapshot
         // cadence as the gravity-zone snapshot (`collect_gravity_zones` before
@@ -94,7 +89,7 @@ impl Plugin for PortalSimulationPlugin {
         app.add_systems(Update, publish_portal_carves.in_set(PortalSet::Carves));
 
         // The Ambition input warp (`warp_portal_input`) is an INPUT-shaping
-        // adapter and lives in `crate::ambition_content::portal::ability_adapter`
+        // adapter and lives in the host portal adapter
         // (registered in `PortalSet::InputWarp` there). Portal core owns only the
         // marker components it sets on a crossing (`PortalInputWarp` /
         // `PortalEmission`).
@@ -116,7 +111,7 @@ impl Plugin for PortalSimulationPlugin {
             PortalSet::WeaponMaintenance.after(PortalSet::WeaponAndProjectiles),
         );
         // `portal_projectile_step` (the GameWorld-reading shot stepper) moved to
-        // the Ambition adapter `crate::ambition_content::portal::portal_projectile_step`
+        // the Ambition adapter the host portal adapter
         // (Phase 2 Seam 2): portal core keeps only the pure `step_portal_shot`
         // helper over `SolidWorldQuery`. The adapter is registered
         // `.after(portal_fire_system)` in this same set, preserving the
@@ -143,7 +138,7 @@ impl Plugin for PortalSimulationPlugin {
 
         // Ledge-grab suppression while transiting (it mutates the PLAYER's
         // `PlayerAbilities`) is an Ambition ability adapter and lives in
-        // `crate::ambition_content::portal::ability_adapter` (registered in
+        // the host portal adapter (registered in
         // `PortalSet::TransitGuards` there). Portal core owns only the
         // `PortalTransit` latch it reads off.
 

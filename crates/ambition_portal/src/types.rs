@@ -3,7 +3,7 @@
 
 use bevy::prelude::*;
 
-use crate::portal::pieces::PortalFrame;
+use crate::pieces::PortalFrame;
 
 use super::color::PortalChannel;
 
@@ -21,7 +21,7 @@ pub struct PlacedPortal {
 }
 
 impl PlacedPortal {
-    /// The pure-geometry frame this portal presents to [`crate::portal::pieces`]
+    /// The pure-geometry frame this portal presents to [`crate::pieces`]
     /// (the Core invariant math: piece decomposition, carve, portal map).
     pub fn frame(&self) -> PortalFrame {
         PortalFrame {
@@ -33,7 +33,7 @@ impl PlacedPortal {
 }
 
 /// The placed portal on `channel`, if any.
-pub(crate) fn find_portal<'a>(
+pub fn find_portal<'a>(
     portals: impl IntoIterator<Item = &'a PlacedPortal>,
     channel: PortalChannel,
 ) -> Option<PlacedPortal> {
@@ -53,12 +53,13 @@ pub(crate) const PORTAL_MAX_RANGE: f32 = 6000.0;
 pub(crate) const PORTAL_SHOT_SPEED: f32 = 1900.0;
 pub(crate) const TELEPORT_COOLDOWN_S: f32 = 0.25;
 /// Floor on exit speed so a slow walk into a portal still pops you out the
-/// far side instead of stalling inside the exit portal.
-pub(crate) const MIN_EXIT_SPEED: f32 = 220.0;
+/// far side instead of stalling inside the exit portal. Public so a host's
+/// transit invariant tests can assert against the floor.
+pub const MIN_EXIT_SPEED: f32 = 220.0;
 /// On-screen thickness of the thin portal doorway (side profile in 2D). The
 /// bar's *length* comes from the portal opening; this is its narrow dimension,
 /// matched to the capture box so the player warps right at the drawn face.
-pub(crate) const PORTAL_VISUAL_THICKNESS: f32 = PORTAL_THICKNESS_HALF * 2.0;
+pub const PORTAL_VISUAL_THICKNESS: f32 = PORTAL_THICKNESS_HALF * 2.0;
 
 /// Oriented half-extent for a portal on a surface with the given `normal`:
 /// `PORTAL_OPENING_HALF` along the surface (perpendicular to the normal) and

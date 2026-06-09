@@ -15,13 +15,10 @@ use crate::player::{PlayerEntity, PrimaryPlayer};
 use crate::portal::pieces as pp;
 use crate::GameWorld;
 
-use super::color::PortalGunColor;
-use super::gun::PortalGun;
-use super::pickup::PortalGunPickup;
-use super::placement::{portal_facing_flips, somersault_roll};
-use super::shot::PortalShot;
-use super::transit::{PortalInputWarp, PortalTransit};
-use super::types::{find_portal, PlacedPortal, PORTAL_VISUAL_THICKNESS};
+use crate::portal::{
+    find_portal, portal_facing_flips, somersault_roll, PlacedPortal, PortalGun, PortalGunColor,
+    PortalGunPickup, PortalInputWarp, PortalShot, PortalTransit, PORTAL_VISUAL_THICKNESS,
+};
 
 /// Marks a sprite entity that visualizes a [`PlacedPortal`]. Rebuilt each frame from
 /// the sim portals, so it never drifts.
@@ -392,5 +389,24 @@ pub fn sync_portal_visuals(
             Transform::from_translation(label_translation),
             Name::new("Portal label"),
         ));
+    }
+}
+
+/// Dev off-switch: `F7` toggles the portal gun active/inactive so the
+/// always-on slice gun doesn't fire portals on every Attack while testing other
+/// sandbox mechanics. (Visible build only.) Final gating is via held-item equip;
+/// this is a developer convenience until then.
+///
+/// This reads raw keyboard input (a host input / dev concern), so it lives
+/// host-side in the render-gated presentation rather than in the `ambition_portal`
+/// mechanic crate — it just flips `PortalGun.active` the way the crate's
+/// message-driven toggle would.
+pub fn portal_dev_toggle_system(keys: Res<ButtonInput<KeyCode>>, mut guns: Query<&mut PortalGun>) {
+    if !keys.just_pressed(KeyCode::F7) {
+        return;
+    }
+    for mut gun in &mut guns {
+        gun.active = !gun.active;
+        bevy::log::info!(target: "ambition::portal", "portal gun active = {}", gun.active);
     }
 }

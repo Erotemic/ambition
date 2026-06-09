@@ -12,7 +12,6 @@ use crate::platformer_runtime::transit::rotate_velocity_between_normals as porta
 use crate::player::{BodyKinematics, PlayerBaseSize, PlayerEntity, PrimaryPlayer};
 use crate::GameWorld;
 
-use super::types::MIN_EXIT_SPEED;
 use super::*;
 use crate::platformer_runtime::collision::raycast_solids;
 

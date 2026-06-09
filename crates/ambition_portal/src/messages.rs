@@ -2,7 +2,7 @@
 //!
 //! Portal core consumes these instead of reading Ambition-specific input
 //! (`ControlFrame`) or inventory (`Item` / `OwnedItems`) types directly. An
-//! Ambition adapter (`crate::ambition_content::portal`) translates control
+//! Ambition adapter (the host portal adapter) translates control
 //! frames and inventory state into these intents, so the portal simulation
 //! stays content-agnostic: anything that can emit a `FirePortalGun` (a replay,
 //! an AI, a different game's input layer) drives the gun the same way.
@@ -14,7 +14,7 @@ use super::color::PortalChannel;
 /// Intent: fire the held portal gun this frame along `aim` (already resolved to
 /// a world-space direction by the input adapter — right-stick aim, else
 /// movement axis, else facing). The Ambition resolver
-/// (`crate::ambition_content::portal::resolve_portal_fire_intent`) turns this
+/// (the host portal adapter) turns this
 /// player-and-gun-implying gesture into a generic [`PortalFireIntent`] that the
 /// portal core spawns a shot from. The shield-gated "this is actually a drop
 /// gesture" decision is made by the input adapter, so a `FirePortalGun` here is
@@ -67,7 +67,7 @@ pub struct PickUpPortalGun;
 /// Intent: clear all placed portals and any body's transit cooldown — the
 /// portal-owned reset signal. Portal core consumes this instead of reading the
 /// Ambition `ResetRoomFeaturesEvent`; the room-reset adapter
-/// (`crate::ambition_content::portal::bridge_room_reset_to_clear_portals`) emits
+/// (the host portal adapter) emits
 /// it when a room resets / transitions, so portal core never names the Ambition
 /// reset event.
 #[derive(Message, Clone, Copy, Debug)]

@@ -5,11 +5,11 @@
 
 use bevy::prelude::*;
 
-use crate::engine_core::{self as ae, AabbExt};
-use crate::platformer_runtime::body::BodyKinematics;
-use crate::platformer_runtime::orientation::ActorRoll;
-use crate::platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
-use crate::portal::pieces as pp;
+use crate::pieces as pp;
+use ambition_engine_core::{self as ae, AabbExt};
+use ambition_platformer_runtime::body::BodyKinematics;
+use ambition_platformer_runtime::orientation::ActorRoll;
+use ambition_platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
 
 use super::color::PortalChannel;
 use super::placement::{transit_step, TransitStep};
@@ -32,7 +32,7 @@ pub struct BodyTeleported {
 
 /// Content-agnostic movement intent the portal transit reads in place of the
 /// Ambition `ControlFrame`. The content/input layer syncs this from its own
-/// input each frame BEFORE transit runs (see `crate::ambition_content::portal`),
+/// input each frame BEFORE transit runs (see the host portal adapter),
 /// so portal core never imports the Ambition input type. Holds the primary
 /// player's current held movement direction (raw, un-warped): transit uses it as
 /// the anchor for the same-wall held-input warp.
@@ -61,7 +61,7 @@ pub struct PortalTransit {
 /// Portal-owned output of [`publish_portal_carves`]: the aperture rectangles to
 /// carve OUT of the host surface this frame, in publish order. Portal core writes
 /// the geometry here; an Ambition bridge
-/// (`crate::ambition_content::portal::bridge_portal_carves`) copies it into the
+/// (the host portal adapter) copies it into the
 /// host's `FeatureEcsWorldOverlay.portal_carves` each frame, ordered identically,
 /// so the collision world sees the same carves the same frame. Portal core thus
 /// never names `FeatureEcsWorldOverlay` — it owns the carve geometry, Ambition
@@ -112,7 +112,7 @@ pub fn publish_portal_carves(
 /// a [`PortalPolicy`] sinks into a carved aperture and transfers when its
 /// centroid crosses, exactly like the player. Ambition adds it (and the policy)
 /// to the entities that should transit — see
-/// `crate::ambition_content::portal::ensure_portal_bodies`.
+/// the host portal adapter.
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct PortalBody;
 
@@ -137,7 +137,7 @@ pub struct PortalPolicy {
 /// Emitted on every Transfer by the generic [`portal_transit`] core, carrying
 /// what an input/trace adapter needs without the core touching input or trace
 /// state. The Ambition player-input adapter
-/// (`crate::ambition_content::portal::portal_player_input_adapter`) reads this
+/// (the host portal adapter) reads this
 /// and — for the player only — emits [`BodyTeleported`] and inserts the
 /// `PortalEmission` / `PortalInputWarp` input bits.
 #[derive(Message, Clone, Copy, Debug)]
@@ -187,7 +187,7 @@ pub fn portal_transit(
         ),
         With<PortalBody>,
     >,
-    gravity: Option<Res<crate::platformer_runtime::gravity::GravityField>>,
+    gravity: Option<Res<ambition_platformer_runtime::gravity::GravityField>>,
     mut entered: MessageWriter<super::messages::PortalBodyEntered>,
     mut transited: MessageWriter<PortalBodyTransited>,
 ) {
@@ -321,7 +321,7 @@ pub struct PortalEmission {
 /// half-extent), so portal core never names the Ambition `GroundItem`. The
 /// content/item layer attaches this marker to its transitable bodies and keeps
 /// it in sync with its own body component each frame (see
-/// `crate::ambition_content::portal`). Resting bodies (`vel == ZERO`) are
+/// the host portal adapter). Resting bodies (`vel == ZERO`) are
 /// ignored; a transited body pops out clear of the exit portal.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PortalTransitable {
@@ -377,11 +377,11 @@ pub fn portal_teleport_ground_items(
 
 /// Tick down (and clear) per-actor [`PortalTransitCooldown`]s.
 pub fn tick_portal_cooldowns(
-    time: Res<crate::WorldTime>,
+    time: Res<ambition_platformer_runtime::time::SimDt>,
     mut commands: Commands,
     mut cooldowns: Query<(Entity, &mut PortalTransitCooldown)>,
 ) {
-    let dt = time.sim_dt();
+    let dt = time.get();
     if dt <= 0.0 {
         return;
     }

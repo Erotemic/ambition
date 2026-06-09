@@ -2,20 +2,20 @@
 //! lands on a solid (opening a portal) or fizzles.
 //!
 //! World access is captured through the reusable
-//! [`SolidWorldQuery`](crate::platformer_runtime::collision::SolidWorldQuery)
+//! [`SolidWorldQuery`](ambition_platformer_runtime::world_query::SolidWorldQuery)
 //! seam — the pure [`step_portal_shot`] helper raycasts against it (plus a
 //! world-bounds rectangle) and decides the outcome, so portal core never reads
 //! the concrete `Res<GameWorld>`. The Bevy adapter that owns `GameWorld` lives in
-//! `crate::ambition_content::portal` and calls the helper.
+//! the host portal adapter and calls the helper.
 
 use bevy::prelude::*;
 
-use crate::platformer_runtime::collision::{raycast_solids, SolidWorldQuery};
-use crate::platformer_runtime::prelude::SpawnScopedExt;
+use ambition_platformer_runtime::prelude::SpawnScopedExt;
+use ambition_platformer_runtime::world_query::{raycast_solids, SolidWorldQuery};
 
 use super::color::PortalChannel;
 use super::messages::{PortalFireIntent, PortalShotFired};
-use super::types::{portal_half_extent, PlacedPortal, PORTAL_MAX_RANGE, PORTAL_SHOT_SPEED};
+use super::types::{PORTAL_MAX_RANGE, PORTAL_SHOT_SPEED};
 
 /// An in-flight portal shot streaking toward a surface. On contact with a
 /// solid it opens a portal on `channel`; if it travels too far / leaves the
@@ -33,7 +33,7 @@ pub struct PortalShot {
 /// `portal_projectile_step`) so the player sees its path before it lands and
 /// opens a portal. Portal core no longer reaches for the primary player or the
 /// held gun — the Ambition resolver
-/// (`crate::ambition_content::portal::resolve_portal_fire_intent`) produces the
+/// (the host portal adapter) produces the
 /// intent from the player's body + the gun's color, so a replay or AI can place
 /// a portal by emitting the same intent.
 pub fn portal_fire_system(
@@ -70,7 +70,7 @@ pub fn portal_fire_system(
 /// [`step_portal_shot`] reasons about it through this seam, never `GameWorld`.
 ///
 /// `solids` is the reusable
-/// [`SolidWorldQuery`](crate::platformer_runtime::collision::SolidWorldQuery)
+/// [`SolidWorldQuery`](ambition_platformer_runtime::world_query::SolidWorldQuery)
 /// surface (Stage 16); `size` is the world rectangle (origin at `(0,0)`) the
 /// shot fizzles 64px outside of.
 pub struct PortalShotWorld<'a, W: SolidWorldQuery + ?Sized> {

@@ -1,0 +1,36 @@
+[package]
+name = "ambition_portal"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Reusable, content-free portal mechanic (portal-gun placement, aperture transit math, carve publishing, pieces geometry, gun mechanics, lifecycle) extracted from ambition_sandbox. A small physics/mechanic plugin: the host tags bodies with PortalBody + a behavioral PortalPolicy and adds adapters around PortalPlugin. See docs/planning/plugin_refactor/19_portal_crate_and_projectile_ecs.md."
+
+[lib]
+# rlib only: a library consumed by ambition_sandbox (and any future host).
+# Packaging is the consuming binary's responsibility.
+crate-type = ["rlib"]
+
+[dependencies]
+# Only the ECS surface (Component / Resource / Message / Query / Commands /
+# SystemSet via bevy::prelude). No render, audio, windowing, or asset features —
+# the portal mechanic stays reusable and headless; rendering / audio / input are
+# the host's adapters.
+# `bevy_color` for the channel display tints (`PortalChannelColor::display`) and
+# `bevy_log` for the portal trace logs. No render / audio / window / asset
+# features — the mechanic stays headless; those are the host's adapters.
+bevy = { version = "0.18.1", default-features = false, features = [
+    "bevy_color",
+    "bevy_log",
+] }
+
+# The content-free pure-logic foundation (geometry / world / the shared
+# BodyKinematics body component, re-exported by platformer_runtime). Portal
+# transit mutates engine_core bodies in place.
+ambition_engine_core = { path = "../ambition_engine_core" }
+
+# The reusable platformer runtime: the unified BodyKinematics body, the
+# SolidWorldQuery collision seam (the portal shot raycasts against it), the
+# ActorRoll orientation, the SimDt sim-clock seam, and the room-scoped spawn
+# helpers. Portal sits directly above it (ADR 0019). Never ambition_sandbox.
+ambition_platformer_runtime = { path = "../ambition_platformer_runtime" }

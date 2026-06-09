@@ -454,7 +454,7 @@ fn architecture_boundaries_portal_orders_against_item_set_not_function() {
     // `wire_portal_schedule` (crate::app::plugins) so `crate::portal` can become
     // a standalone crate. The portal plugin must no longer name the item set at
     // all; the sandbox declares the CoreHeldItems ordering for PortalSet::Transit.
-    let portal_text = fs::read_to_string(crate_src().join("portal/plugin.rs"))
+    let portal_text = fs::read_to_string(repo_root().join("crates/ambition_portal/src/plugin.rs"))
         .expect("read portal plugin source");
     let names_item_set_in_code = portal_text.lines().any(|raw| {
         let line = raw.trim();
@@ -489,7 +489,14 @@ fn architecture_boundaries_portal_core_does_not_import_ambition_content_roster()
     // Ambition-specific input/inventory bindings live in
     // `crate::ambition_content::portal` adapters, which translate `ControlFrame`
     // and item state into the reusable portal intent/outcome messages.
-    let root = crate_src().join("portal");
+    //
+    // Stage 19 Phase 5b: the mechanic moved into `ambition_portal`; the facade +
+    // presentation + integration tests stay sandbox-side. Scan BOTH so the
+    // content-roster ban covers the crate AND the sandbox-side portal files.
+    let roots = [
+        repo_root().join("crates/ambition_portal/src"),
+        crate_src().join("portal"),
+    ];
 
     // Hard-forbidden content roster: portal core must never name these. (No
     // allowlist — these were fully moved into the content adapter.)
@@ -543,7 +550,7 @@ fn architecture_boundaries_portal_core_does_not_import_ambition_content_roster()
     };
 
     let mut violations = Vec::new();
-    for file in collect_rs_files(&root) {
+    for file in roots.iter().flat_map(|r| collect_rs_files(r)) {
         let is_test = file
             .file_name()
             .and_then(|n| n.to_str())
@@ -607,12 +614,15 @@ fn architecture_boundaries_portal_core_does_not_name_host_world_or_reset() {
     // builds host fixtures and drives the full content+core chain, so it is
     // excluded too.
     //
-    // NOTE (tracked residue, NOT a freedom yet): `gun.rs` + `transit.rs` still
-    // name `crate::player` (the color-toggle, ledge-grab suppression, and
-    // input-warp systems query the primary player). Those player couplings are
-    // outside Phase 2's five seams and are deferred — so `crate::player` is
-    // intentionally NOT asserted-against here.
-    let root = crate_src().join("portal");
+    // Stage 19 Phase 5a decoupled the last `crate::player` residue (gun
+    // color/dev toggle → Ambition adapter; ledge-grab suppression + input-warp →
+    // Ambition adapters reacting to portal events), and Phase 5b moved the
+    // mechanic into the `ambition_portal` crate — which physically cannot name a
+    // host `crate::…` path. The scan now targets the crate source; the sandbox
+    // facade/presentation/tests are out of scope (presentation is render-gated;
+    // tests drive the full content+core chain). `crate::player` is added to the
+    // forbidden set now that the residue is gone.
+    let root = repo_root().join("crates/ambition_portal/src");
     let forbidden = [
         "crate::features",
         "crate::GameWorld",
@@ -620,6 +630,7 @@ fn architecture_boundaries_portal_core_does_not_name_host_world_or_reset() {
         "FeatureEcsWorldOverlay",
         "ResetRoomFeaturesEvent",
         "crate::input::ControlFrame",
+        "crate::player",
     ];
 
     let mut violations = Vec::new();
@@ -969,51 +980,168 @@ crate::abilities::AmbitionAbilitiesPlugin (Stage 17)"
 
 #[test]
 fn architecture_boundaries_portal_has_facade_plugin_and_schedule_files() {
+    // Stage 19 Phase 5b (ADR 0019): the portal MECHANIC moved into the standalone
+    // `ambition_portal` crate; only the render-gated facade + presentation +
+    // integration tests stay sandbox-side.
     let src_root = crate_src();
-    let expected = [
-        "portal/mod.rs",
-        "portal/plugin.rs",
-        "portal/schedule.rs",
-        // Stage 7 split the old monolithic `portal/implementation.rs` into
-        // responsibility submodules behind the facade.
-        "portal/color.rs",
-        "portal/types.rs",
-        "portal/gun.rs",
-        "portal/pickup.rs",
-        "portal/shot.rs",
-        "portal/placement.rs",
-        "portal/transit.rs",
-        "portal/lifecycle.rs",
-        "portal/presentation.rs",
+    let portal_crate_src = repo_root().join("crates/ambition_portal/src");
+    let mechanic_files = [
+        "lib.rs",
+        "plugin.rs",
+        "schedule.rs",
+        "color.rs",
+        "types.rs",
+        "gun.rs",
+        "pickup.rs",
+        "shot.rs",
+        "placement.rs",
+        "transit.rs",
+        "lifecycle.rs",
+        "messages.rs",
+        "pieces.rs",
     ];
+    for rel in mechanic_files {
+        assert!(
+            portal_crate_src.join(rel).exists(),
+            "portal mechanic should live in ambition_portal: missing {rel}"
+        );
+    }
 
-    for rel in expected {
+    // The facade + the render-gated presentation stay in the sandbox.
+    for rel in ["portal/mod.rs", "portal/presentation.rs"] {
         assert!(
             src_root.join(rel).exists(),
-            "portal module split should include {rel}"
+            "sandbox should keep the portal facade/presentation: {rel}"
+        );
+    }
+    // The mechanic must NOT linger in the sandbox after the move.
+    for rel in ["portal/plugin.rs", "portal/transit.rs", "portal/gun.rs"] {
+        assert!(
+            !src_root.join(rel).exists(),
+            "portal mechanic file {rel} must move into ambition_portal, not stay in the sandbox"
         );
     }
 
     assert!(
         !src_root.join("portal.rs").exists(),
-        "remove crates/ambition_sandbox/src/portal.rs after applying the overlay so Rust does not see both portal.rs and portal/mod.rs"
+        "remove crates/ambition_sandbox/src/portal.rs so Rust does not see both portal.rs and portal/mod.rs"
     );
 
     let mod_text = fs::read_to_string(src_root.join("portal/mod.rs")).expect("read portal facade");
     assert!(
-        mod_text.contains("pub use plugin::{PortalPlugin, PortalSimulationPlugin}"),
-        "portal facade should re-export the top-level and simulation portal plugins"
-    );
-    assert!(
-        mod_text.contains("pub use schedule::PortalSet"),
-        "portal facade should expose portal-owned schedule vocabulary"
+        mod_text.contains("pub use ambition_portal::*"),
+        "portal facade should re-export the whole ambition_portal crate for zero inbound churn"
     );
 
     let plugin_text =
-        fs::read_to_string(src_root.join("portal/plugin.rs")).expect("read portal plugin");
+        fs::read_to_string(portal_crate_src.join("plugin.rs")).expect("read portal plugin");
     assert!(
         plugin_text.contains("PortalSet::Transit"),
         "portal plugin should label transit systems with PortalSet"
+    );
+}
+
+#[test]
+fn architecture_boundaries_portal_crate_is_extracted() {
+    // Stage 19 Phase 5b (ADR 0019): the portal MECHANIC (transit math, placement,
+    // lifecycle, carve publish, pieces, gun mechanics, the pure shot helper,
+    // messages, types, schedule) was extracted into the standalone
+    // `ambition_portal` crate. Assert (a) the crate exists and is registered,
+    // (b) it does NOT depend on the sandbox (it is a reusable, content-free
+    // physics/mechanic plugin — a different game must be able to drop it in),
+    // (c) its only path deps are the lower crates engine_core + platformer_runtime,
+    // (d) it exposes a `PortalPlugin`, and (e) no source line names the sandbox.
+    let root = repo_root();
+    let crate_root = root.join("crates/ambition_portal");
+
+    // (a) The crate exists and is wired into the workspace.
+    assert!(
+        crate_root.join("Cargo.toml").exists(),
+        "ambition_portal crate should exist at crates/ambition_portal"
+    );
+    assert!(
+        crate_root.join("src/lib.rs").exists(),
+        "ambition_portal should have a src/lib.rs"
+    );
+    let workspace_manifest =
+        fs::read_to_string(root.join("Cargo.toml")).expect("read workspace manifest");
+    assert!(
+        workspace_manifest.contains("crates/ambition_portal"),
+        "ambition_portal must be a registered workspace member"
+    );
+
+    // (b) + (c) Manifest-level dependency boundary: never the sandbox/content,
+    //     and the only host path deps are the two lower crates.
+    let crate_manifest =
+        fs::read_to_string(crate_root.join("Cargo.toml")).expect("read ambition_portal manifest");
+    for forbidden in [
+        "ambition_sandbox",
+        "ambition_content",
+        "ambition_input",
+        "ambition_sfx",
+        "ambition_menu",
+    ] {
+        let depends = crate_manifest.lines().any(|line| {
+            let line = line.trim();
+            line.starts_with(&format!("{forbidden} ="))
+                || line.starts_with(&format!("{forbidden}."))
+        });
+        assert!(
+            !depends,
+            "ambition_portal must not depend on {forbidden} (the mechanic owns no host concern)"
+        );
+    }
+    let path_deps: Vec<String> = crate_manifest
+        .lines()
+        .filter_map(|line| {
+            let line = line.trim();
+            line.strip_prefix("ambition_").map(|rest| {
+                format!(
+                    "ambition_{}",
+                    rest.split([' ', '=', '.']).next().unwrap_or("")
+                )
+            })
+        })
+        .collect();
+    for dep in &path_deps {
+        assert!(
+            dep == "ambition_engine_core" || dep == "ambition_platformer_runtime",
+            "ambition_portal may only depend on engine_core + platformer_runtime, found `{dep}`"
+        );
+    }
+
+    // (e) Source-level boundary: no code line may reference the sandbox crate.
+    for file in collect_rs_files(&crate_root.join("src")) {
+        let text = fs::read_to_string(&file).expect("read ambition_portal source");
+        for (lineno, line) in text.lines().enumerate() {
+            let trimmed = line.trim_start();
+            if trimmed.starts_with("//") || trimmed.starts_with('*') {
+                continue;
+            }
+            assert!(
+                !line.contains("ambition_sandbox"),
+                "ambition_portal must stay content-free; {}:{} references ambition_sandbox",
+                file.display(),
+                lineno + 1,
+            );
+        }
+    }
+
+    // (d) The crate exposes a drop-in PortalPlugin.
+    let lib_text = fs::read_to_string(crate_root.join("src/lib.rs")).expect("read portal lib.rs");
+    let plugin_text =
+        fs::read_to_string(crate_root.join("src/plugin.rs")).expect("read portal plugin.rs");
+    assert!(
+        lib_text.contains("pub use plugin::{PortalPlugin")
+            && plugin_text.contains("impl Plugin for PortalPlugin"),
+        "ambition_portal should expose a PortalPlugin"
+    );
+
+    // The sandbox-side facade re-exports the whole crate (zero inbound churn).
+    let facade = fs::read_to_string(crate_src().join("portal/mod.rs")).expect("read portal facade");
+    assert!(
+        facade.contains("pub use ambition_portal::*"),
+        "sandbox portal/mod.rs should re-export ambition_portal::*"
     );
 }
 

@@ -2,7 +2,7 @@
 //!
 //! The grant/drop *policy* (action-set stashing so `Attack` fires portals, and
 //! reflecting ownership into the Ambition item roster) is Ambition inventory
-//! glue and lives in `crate::ambition_content::portal::inventory_adapter`. Core
+//! glue and lives in the host portal adapter. Core
 //! owns only the pickup body itself and the arming countdown — the simulation
 //! of a portal gun resting in the world.
 
@@ -30,8 +30,11 @@ pub struct PortalGunPickup {
 /// Tick down each pickup's [`PortalGunPickup::arm_timer`] so a just-dropped gun
 /// becomes grabbable after the short delay. Always runs (cheap; at most a
 /// couple of pickups).
-pub fn arm_portal_pickups(time: Res<crate::WorldTime>, mut pickups: Query<&mut PortalGunPickup>) {
-    let dt = time.sim_dt();
+pub fn arm_portal_pickups(
+    time: Res<ambition_platformer_runtime::time::SimDt>,
+    mut pickups: Query<&mut PortalGunPickup>,
+) {
+    let dt = time.get();
     if dt <= 0.0 {
         return;
     }

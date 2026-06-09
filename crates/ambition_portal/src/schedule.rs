@@ -7,12 +7,12 @@ use bevy::prelude::*;
 /// dependency on portal behavior; otherwise use the broader app-level sets.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 pub enum PortalSet {
-    /// Publish portal collision carves (after the gravity-zone snapshot owned by
-    /// `crate::mechanics::gravity::GravityPlugin`).
+    /// Publish portal collision carves (the host orders this against any
+    /// early-world snapshot it needs, e.g. a gravity-zone snapshot).
     Carves,
     /// Input rewrites that happen before the player input frame is synced.
     InputWarp,
-    /// Ambition input → portal intent translation (the content adapter), run
+    /// Host input → portal intent translation (a host adapter), run
     /// before the weapon/projectile consumers so the intents are visible the
     /// same frame.
     InputAdapter,

@@ -200,3 +200,84 @@ class TestTimelinePanel:
         tl._tick()
         assert window.state.frame_idx == (start + 1) % window.state.frames()
         tl.play_btn.setChecked(False)
+
+    def test_wheel_moves_one_frame_per_tick(self, window, qapp):
+        from PySide6.QtCore import QPoint, QPointF, Qt
+        from PySide6.QtGui import QWheelEvent
+
+        slider = window.timeline.frame_slider
+        slider.setValue(3)
+
+        def wheel(dy):
+            ev = QWheelEvent(
+                QPointF(5, 5), QPointF(5, 5), QPoint(0, 0), QPoint(0, dy),
+                Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier,
+                Qt.ScrollPhase.NoScrollPhase, False,
+            )
+            slider.wheelEvent(ev)
+
+        wheel(120)  # one notch up
+        assert slider.value() == 4
+        wheel(120)
+        assert slider.value() == 5
+        wheel(-120)  # one notch down
+        assert slider.value() == 4
+
+
+class TestPartsZOrder:
+    def _index(self, doc, name):
+        return next(i for i, p in enumerate(doc.parts) if p.get("name") == name)
+
+    def test_list_is_front_to_back(self, window):
+        from PySide6.QtCore import Qt
+
+        from ambition_sprite2d_renderer.gui.panels import PartsPanel
+
+        parts_panel = window.findChild(PartsPanel)
+        zs = [
+            window.state.doc.parts[parts_panel.listw.item(r).data(Qt.ItemDataRole.UserRole)]["z"]
+            for r in range(parts_panel.listw.count())
+        ]
+        assert zs == sorted(zs, reverse=True)  # top of list = frontmost
+
+    def test_list_row_maps_to_storage_index(self, window):
+        from ambition_sprite2d_renderer.gui.panels import PartsPanel
+
+        parts_panel = window.findChild(PartsPanel)
+        parts_panel.listw.setCurrentRow(0)
+        front = max(window.state.doc.parts, key=lambda p: p["z"])
+        assert window.state.doc.parts[window.state.selected_part]["name"] == front["name"]
+
+    def test_raise_brings_part_in_front(self, window):
+        from ambition_sprite2d_renderer.gui.panels import PartsPanel
+
+        doc = window.state.doc
+        parts_panel = window.findChild(PartsPanel)
+        i_torso = self._index(doc, "torso")  # z=40
+        i_shade = self._index(doc, "torso_shade")  # z=41 (just in front)
+        assert doc.parts[i_torso]["z"] < doc.parts[i_shade]["z"]
+        window.state.selected_part = i_torso
+        parts_panel._bump_z(+1)
+        assert doc.parts[i_torso]["z"] > doc.parts[i_shade]["z"]
+
+    def test_lower_sends_part_back(self, window):
+        from ambition_sprite2d_renderer.gui.panels import PartsPanel
+
+        doc = window.state.doc
+        parts_panel = window.findChild(PartsPanel)
+        i_shade = self._index(doc, "torso_shade")  # z=41
+        i_torso = self._index(doc, "torso")  # z=40 (just behind)
+        window.state.selected_part = i_shade
+        parts_panel._bump_z(-1)
+        assert doc.parts[i_shade]["z"] < doc.parts[i_torso]["z"]
+
+    def test_raise_at_front_is_noop(self, window):
+        from ambition_sprite2d_renderer.gui.panels import PartsPanel
+
+        doc = window.state.doc
+        parts_panel = window.findChild(PartsPanel)
+        front = max(range(len(doc.parts)), key=lambda i: doc.parts[i]["z"])
+        before = doc.parts[front]["z"]
+        window.state.selected_part = front
+        parts_panel._bump_z(+1)
+        assert doc.parts[front]["z"] == before

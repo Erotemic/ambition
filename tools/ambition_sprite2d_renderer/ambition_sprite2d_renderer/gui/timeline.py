@@ -33,6 +33,21 @@ from ..rigdoc import EASE_NAMES
 from .state import EditorState
 
 
+class FrameSlider(QSlider):
+    """Horizontal slider that advances exactly one frame per wheel notch.
+
+    Qt's default scrolls ``wheelScrollLines`` (typically 3) per tick, which
+    overshoots when scrubbing a short animation frame by frame."""
+
+    def wheelEvent(self, event) -> None:
+        delta = event.angleDelta().y()
+        if delta == 0:
+            event.ignore()
+            return
+        self.setValue(self.value() + (1 if delta > 0 else -1))
+        event.accept()
+
+
 class TimelinePanel(QWidget):
     def __init__(self, state: EditorState, parent=None) -> None:
         super().__init__(parent)
@@ -77,7 +92,7 @@ class TimelinePanel(QWidget):
         self.play_btn.setFixedWidth(36)
         self.play_btn.toggled.connect(self._on_play)
         row.addWidget(self.play_btn)
-        self.frame_slider = QSlider(Qt.Orientation.Horizontal)
+        self.frame_slider = FrameSlider(Qt.Orientation.Horizontal)
         self.frame_slider.valueChanged.connect(self._on_slider)
         row.addWidget(self.frame_slider, stretch=1)
         self.frame_label = QLabel("0/8")

@@ -223,9 +223,21 @@ class PartsPanel(QWidget):
         self._refreshing = False
         layout = QVBoxLayout(self)
 
+        layout.addWidget(QLabel("Parts (front of character at top)"))
         self.listw = QListWidget()
         self.listw.currentRowChanged.connect(self._on_select)
         layout.addWidget(self.listw)
+
+        zrow = QHBoxLayout()
+        raise_btn = QPushButton("▲ Raise")
+        raise_btn.setToolTip("Draw later (move toward the front / top of the list)")
+        raise_btn.clicked.connect(lambda: self._bump_z(+1))
+        lower_btn = QPushButton("▼ Lower")
+        lower_btn.setToolTip("Draw earlier (move toward the back / bottom of the list)")
+        lower_btn.clicked.connect(lambda: self._bump_z(-1))
+        zrow.addWidget(raise_btn)
+        zrow.addWidget(lower_btn)
+        layout.addLayout(zrow)
 
         btns = QHBoxLayout()
         for label, fn in (
@@ -317,13 +329,26 @@ class PartsPanel(QWidget):
         try:
             doc = self.state.doc
             self.listw.clear()
-            for p in doc.parts:
-                QListWidgetItem(
-                    f"z{p.get('z', 0):>5}  {p.get('name', '?')} ({p.get('kind', '?')} @ {p.get('bone', '?')})",
-                    self.listw,
+            # Display front-to-back (highest z first) so list order matches
+            # what's drawn on top. Each row stores its doc.parts index in
+            # UserRole so display order and storage order stay decoupled.
+            order = sorted(
+                range(len(doc.parts)),
+                key=lambda i: float(doc.parts[i].get("z", 0)),
+                reverse=True,
+            )
+            for di in order:
+                p = doc.parts[di]
+                item = QListWidgetItem(
+                    f"z{p.get('z', 0):>5}  {p.get('name', '?')} ({p.get('kind', '?')} @ {p.get('bone', '?')})"
                 )
-            if self.state.selected_part is not None and self.state.selected_part < self.listw.count():
-                self.listw.setCurrentRow(self.state.selected_part)
+                item.setData(Qt.ItemDataRole.UserRole, di)
+                self.listw.addItem(item)
+            if self.state.selected_part is not None:
+                for r in range(self.listw.count()):
+                    if self.listw.item(r).data(Qt.ItemDataRole.UserRole) == self.state.selected_part:
+                        self.listw.setCurrentRow(r)
+                        break
             self.bone_combo.clear()
             self.bone_combo.addItems([b["name"] for b in doc.bones])
             self._refresh_form()
@@ -373,12 +398,35 @@ class PartsPanel(QWidget):
     def _on_select(self, row: int) -> None:
         if self._refreshing:
             return
-        self.state.selected_part = row if row >= 0 else None
+        item = self.listw.item(row) if row >= 0 else None
+        self.state.selected_part = item.data(Qt.ItemDataRole.UserRole) if item else None
         self._refreshing = True
         try:
             self._refresh_form()
         finally:
             self._refreshing = False
+
+    def _bump_z(self, direction: int) -> None:
+        """Swap the selected part's z with its neighbor in draw order.
+        ``+1`` raises it toward the front, ``-1`` lowers it toward the back."""
+        i = self.state.selected_part
+        parts = self.state.doc.parts
+        if i is None or not (0 <= i < len(parts)):
+            return
+        # Ascending z = back-to-front; the neighbor in front is at pos+1.
+        order = sorted(range(len(parts)), key=lambda j: float(parts[j].get("z", 0)))
+        pos = order.index(i)
+        target = pos + direction
+        if not (0 <= target < len(order)):
+            return  # already at the front/back
+        other = order[target]
+        za, zb = float(parts[i].get("z", 0)), float(parts[other].get("z", 0))
+        if za == zb:
+            # Equal z: a plain swap wouldn't change anything; nudge instead.
+            zb = za + direction
+        self.state.push_undo()
+        parts[i]["z"], parts[other]["z"] = zb, za
+        self.state.mark_changed()
 
     def _apply(self, field: str, value) -> None:
         if self._refreshing:

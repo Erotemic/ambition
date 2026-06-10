@@ -677,7 +677,7 @@ fn apply_actor_hit(
                     // Steal the enemy's weapon: a defeated enemy that was wielding
                     // a held item drops it as a `GroundItem` the player can grab +
                     // wield (e.g. a pirate's gun-sword), via the existing pickup path.
-                    if let Some(spec) = em.config.archetype.held_item_spec() {
+                    if let Some(spec) = caps.drops_held_item.clone() {
                         writers.commands.spawn((
                             crate::items::pickup::GroundItem {
                                 spec,
@@ -690,7 +690,7 @@ fn apply_actor_hit(
                     }
                     if !em.config.id.starts_with("encounter:") && !em.config.tuning.is_sandbag {
                         use crate::features::EnemyRespawnPolicy as P;
-                        let flag_id = match em.config.archetype.respawn_policy() {
+                        let flag_id = match caps.respawn_policy {
                             P::OnRoomReenter => None,
                             P::OnRest => Some(format!(
                                 "enemy_{}{}",

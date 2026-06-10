@@ -68,30 +68,10 @@ pub struct ActorSurfaceState {
     pub air_jumps_remaining: u8,
 }
 
-/// Authored rule for when a defeated enemy should reappear. Picked
-/// per-archetype today; a future EnemySpawn LDtk field can override
-/// it on a single spawn without touching the archetype default.
-///
-/// The kill hook in `damage.rs` writes one of two persistent flags
-/// (or none) depending on this policy; the room-load `save_sync`
-/// reads either flag back into `alive = false`. A "rest" event
-/// clears just the `_dead_until_rest` flags, so OnRest enemies come
-/// back at the next rest but OnRoomReenter ones come back on the
-/// next room load.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum EnemyRespawnPolicy {
-    /// Fresh every time the player enters the room. Default for
-    /// trash grunts (skitters, lurkers, raiders, puppy slugs).
-    OnRoomReenter,
-    /// Stays dead until the player rests at a save point. Default
-    /// for mini-boss-tier presences (brutes, colossi, pirate
-    /// heavies, sharks-with-riders).
-    OnRest,
-    /// Permanent kill — only an explicit save reset brings them
-    /// back. Reserved for scripted one-off encounters that aren't
-    /// `encounter:*` ids (which have their own state machine).
-    Never,
-}
+// `EnemyRespawnPolicy` moved to the combat kit (generic death/respawn
+// vocabulary); re-exported so `crate::features::EnemyRespawnPolicy`
+// paths keep working.
+pub use crate::mechanics::combat::EnemyRespawnPolicy;
 
 /// Flag-id suffix used by `_dead_until_rest` flags. Constant so the
 /// kill hook, save sync, and `clear_dead_until_rest_flags` all
@@ -526,6 +506,8 @@ impl EnemyArchetype {
             charge_crash_explodes: spec.charge_crash_explodes,
             never_dies: spec.never_dies,
             respawn_in_place_seconds: spec.respawn_in_place_seconds,
+            respawn_policy: self.respawn_policy(),
+            drops_held_item: self.held_item_spec(),
         }
     }
 

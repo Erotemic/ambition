@@ -1078,7 +1078,7 @@ mod tests {
 /// component so generic combat systems can branch on capabilities
 /// instead of matching named archetype enums. The content layer
 /// derives it; the kit only defines the vocabulary.
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct CombatCapabilities {
     /// Detonates at the corpse on death (Enemy-faction blast), so a
     /// point-blank kill is punished.
@@ -1093,6 +1093,13 @@ pub struct CombatCapabilities {
     /// On death, respawns in place after this many seconds instead of
     /// counting as defeated.
     pub respawn_in_place_seconds: Option<f32>,
+    /// When a real (non-encounter) kill should clear: the death flag
+    /// vocabulary the save mirror consumes.
+    pub respawn_policy: EnemyRespawnPolicy,
+    /// Weapon dropped at the corpse as a wieldable `GroundItem` (the
+    /// "steal the enemy's weapon" rule), resolved from authored data
+    /// at spawn.
+    pub drops_held_item: Option<crate::brain::HeldItemSpec>,
 }
 
 /// Per-actor numeric/flag tuning the RUNTIME combat loops read each
@@ -1122,4 +1129,30 @@ impl EnemyTuning {
             crate::combat::slots::SlotKind::Melee
         }
     }
+}
+
+/// Authored rule for when a defeated enemy should reappear. Picked
+/// per-archetype today; a future EnemySpawn LDtk field can override
+/// it on a single spawn without touching the archetype default.
+///
+/// The kill hook in `damage.rs` writes one of two persistent flags
+/// (or none) depending on this policy; the room-load `save_sync`
+/// reads either flag back into `alive = false`. A "rest" event
+/// clears just the `_dead_until_rest` flags, so OnRest enemies come
+/// back at the next rest but OnRoomReenter ones come back on the
+/// next room load.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum EnemyRespawnPolicy {
+    /// Fresh every time the player enters the room. Default for
+    /// trash grunts (skitters, lurkers, raiders, puppy slugs).
+    #[default]
+    OnRoomReenter,
+    /// Stays dead until the player rests at a save point. Default
+    /// for mini-boss-tier presences (brutes, colossi, pirate
+    /// heavies, sharks-with-riders).
+    OnRest,
+    /// Permanent kill — only an explicit save reset brings them
+    /// back. Reserved for scripted one-off encounters that aren't
+    /// `encounter:*` ids (which have their own state machine).
+    Never,
 }

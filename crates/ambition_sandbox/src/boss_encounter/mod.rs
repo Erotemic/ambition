@@ -16,6 +16,7 @@
 //! transitions; this module mirrors them onto the seldom_state `BossPhase`
 //! component, the audio request, and the save resource.
 
+pub mod attack_geometry;
 pub mod behavior;
 mod damage;
 mod events;

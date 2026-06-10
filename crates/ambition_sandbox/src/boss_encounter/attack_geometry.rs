@@ -29,7 +29,7 @@ use bevy::prelude::Component;
 use crate::brain::{BossAttackProfile, BossAttackState};
 use crate::presentation::character_sprites::registry::{AnimationBox, BodyMetrics, PixelRect};
 
-use crate::boss_encounter::behavior::BossBehaviorProfile;
+use super::behavior::BossBehaviorProfile;
 
 // =================================================================
 // Sprite-metadata-driven body AABB derivation
@@ -589,9 +589,9 @@ pub fn boss_attack_damage(
     player_entity: bevy::prelude::Entity,
     player_body: ae::Aabb,
 ) -> Option<crate::features::HitEvent> {
-    use super::events::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
-    use super::util::midpoint;
     use crate::engine_core::AabbExt;
+    use crate::mechanics::combat::events::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
+    use crate::mechanics::combat::util::midpoint;
 
     let signum_or = |x: f32, fallback: f32| {
         if x.abs() < f32::EPSILON {

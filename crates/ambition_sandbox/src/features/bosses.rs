@@ -215,10 +215,9 @@ mod boss_profile_data_tests {
             "gnu_ton",
             "smirking_behemoth_boss",
         ] {
-            assert!(
-                BOSS_PROFILE_REGISTRY.contains_key(id),
-                "boss_profiles.ron missing row for '{id}'",
-            );
+            // `from_data` panics with a clear message when the row is
+            // missing (the registry static is private to behavior.rs).
+            let _ = BossBehaviorProfile::from_data(id);
         }
     }
 

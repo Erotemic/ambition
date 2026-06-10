@@ -10,6 +10,7 @@ members = [
     "crates/ambition_menu",
     "crates/ambition_platformer_runtime",
     "crates/ambition_portal",
+    "crates/ambition_portal_presentation",
     "crates/ambition_sandbox",
     "crates/ambition_sfx",
     "crates/ambition_sfx_bank",

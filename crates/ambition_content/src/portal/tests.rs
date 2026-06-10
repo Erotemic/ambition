@@ -806,10 +806,26 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
 
 #[test]
 fn partial_render_keeps_the_sprite_and_masks_the_through_slice() {
+    use ambition_sandbox::portal::{
+        sync_portal_world_frame, tag_portal_scene_bodies, PortalWorldFrame,
+    };
     use ambition_sandbox::presentation::rendering::PlayerVisual;
     let mut app = App::new();
     app.insert_resource(world_with_two_walls());
-    app.add_systems(Update, sync_portal_body_pieces);
+    // Drive the visual through the REAL host adapter chain: world-frame sync +
+    // scene-body tagging bridge the sandbox types (GameWorld / PlayerVisual)
+    // to the crate-owned seams the presentation system reads (auto sync points
+    // flush the tag's commands between the chained systems).
+    app.init_resource::<PortalWorldFrame>();
+    app.add_systems(
+        Update,
+        (
+            sync_portal_world_frame,
+            tag_portal_scene_bodies,
+            sync_portal_body_pieces,
+        )
+            .chain(),
+    );
     // Floor pair so a body standing on the blue portal straddles its plane.
     app.world_mut().spawn(PlacedPortal {
         channel: BLUE,

@@ -1,24 +1,26 @@
-//! Portal presentation (visible build only — registered by the presentation
-//! plugin): portal quads + labels, the held / pickup gun sprite, the body-piece
+//! The default portal visuals, moved verbatim from the Ambition sandbox's
+//! render-gated `portal/presentation.rs` (host types swapped for the crate
+//! seams): portal quads + labels, the held / pickup gun sprite, the body-piece
 //! decomposition mid-transit, and the disorientation indicator.
 //!
-//! The gravity zone / switch visuals moved to
-//! `crate::mechanics::gravity` (Stage 6 follow-up): they visualize a gravity
-//! mechanic, not a portal.
+//! Every system here is read-only over the portal sim and rebuilds its
+//! transient entities each frame, so the visuals can never desync from the sim.
 
 use bevy::prelude::*;
 
-use crate::engine_core::{self as ae, AabbExt};
-use crate::platformer_runtime::body::BodyKinematics;
-use crate::platformer_runtime::orientation::ActorRoll;
-use crate::player::{PlayerEntity, PrimaryPlayer};
-use crate::portal::pieces as pp;
-use crate::GameWorld;
+use ambition_engine_core::{self as ae, AabbExt};
+use ambition_platformer_runtime::body::BodyKinematics;
+use ambition_platformer_runtime::gravity::GravityField;
+use ambition_platformer_runtime::markers::{PlayerEntity, PrimaryPlayer};
+use ambition_platformer_runtime::orientation::ActorRoll;
 
-use crate::portal::{
+use ambition_portal::pieces as pp;
+use ambition_portal::{
     find_portal, portal_facing_flips, somersault_roll, PlacedPortal, PortalGun, PortalGunColor,
     PortalGunPickup, PortalInputWarp, PortalShot, PortalTransit, PORTAL_VISUAL_THICKNESS,
 };
+
+use crate::{PortalAimHint, PortalGunArt, PortalSceneBody, PortalWorldFrame};
 
 /// Marks a sprite entity that visualizes a [`PlacedPortal`]. Rebuilt each frame from
 /// the sim portals, so it never drifts.
@@ -42,7 +44,7 @@ pub struct PortalDisorientIndicator;
 /// the joystick visual) can replace it later.
 pub fn sync_portal_disorientation_indicator(
     mut commands: Commands,
-    world: Res<GameWorld>,
+    frame: Res<PortalWorldFrame>,
     existing: Query<Entity, With<PortalDisorientIndicator>>,
     player: Query<
         (&BodyKinematics, Has<PortalInputWarp>),
@@ -60,11 +62,7 @@ pub fn sync_portal_disorientation_indicator(
     }
     // A little spinning-arrow glyph just above the head.
     let pos = kin.pos + Vec2::new(0.0, -(kin.size.y * 0.5 + 16.0));
-    let translation = crate::engine_core::config::world_to_bevy(
-        &world.0,
-        pos,
-        crate::engine_core::config::WORLD_Z_PLAYER + 9.0,
-    );
+    let translation = frame.to_render(pos, ae::config::WORLD_Z_PLAYER + 9.0);
     commands.spawn((
         PortalDisorientIndicator,
         Text2d::new("\u{21BB}"), // ↻ clockwise open circle arrow
@@ -78,7 +76,7 @@ pub fn sync_portal_disorientation_indicator(
     ));
 }
 
-/// Render the player mid-transit as the body in BOTH charts: the real sprite at
+/// Render the transiting body as the body in BOTH charts: the real sprite at
 /// the entry, a second copy of the sprite emerging from the exit (rotated by the
 /// somersault the body is taking), and an opaque box over the **invisible /
 /// intangible** slice of each — the part of the entry sprite that has sunk
@@ -86,13 +84,15 @@ pub fn sync_portal_disorientation_indicator(
 /// has not yet emerged. So the visible part of each shows the real character art
 /// and the through-the-wall part is masked off ("feet in, feet out"). Drawing
 /// the sprite twice + masking sidesteps texture clipping until we tune visuals.
+///
+/// Operates on the host-tagged [`PortalSceneBody`] visual entity.
 pub fn sync_portal_body_pieces(
     mut commands: Commands,
-    world: Res<GameWorld>,
+    frame: Res<PortalWorldFrame>,
     pieces: Query<Entity, With<PortalBodyPiece>>,
     portals: Query<&PlacedPortal>,
-    gravity: Option<Res<crate::platformer_runtime::gravity::GravityField>>,
-    mut player: Query<
+    gravity: Option<Res<GravityField>>,
+    mut body_visual: Query<
         (
             &BodyKinematics,
             Option<&PortalTransit>,
@@ -100,13 +100,13 @@ pub fn sync_portal_body_pieces(
             &Sprite,
             &mut Visibility,
         ),
-        With<crate::presentation::rendering::PlayerVisual>,
+        With<PortalSceneBody>,
     >,
 ) {
     for entity in &pieces {
         commands.entity(entity).despawn();
     }
-    let Ok((kin, transit, roll, sprite, mut visibility)) = player.single_mut() else {
+    let Ok((kin, transit, roll, sprite, mut visibility)) = body_visual.single_mut() else {
         return;
     };
     // The real character sprite always shows now (no hiding) — the masks below
@@ -137,7 +137,7 @@ pub fn sync_portal_body_pieces(
     // Opaque mask over the invisible/intangible slice (per Jon's note: the box
     // belongs over the part you should NOT see).
     let mask_color = Color::srgb(0.80, 0.95, 1.0);
-    let mask_z = crate::engine_core::config::WORLD_Z_PLAYER + 1.0;
+    let mask_z = ae::config::WORLD_Z_PLAYER + 1.0;
 
     // Exit copy: the whole sprite emerging from the exit, mapped + rotated by the
     // somersault it is taking (none for a wall↔wall turn-around). For a suppressed
@@ -149,11 +149,7 @@ pub fn sync_portal_body_pieces(
     if portal_facing_flips(enter.normal, exit.normal, gravity_dir) {
         exit_sprite.flip_x = !exit_sprite.flip_x;
     }
-    let exit_translation = crate::engine_core::config::world_to_bevy(
-        &world.0,
-        exit_center,
-        crate::engine_core::config::WORLD_Z_PLAYER,
-    );
+    let exit_translation = frame.to_render(exit_center, ae::config::WORLD_Z_PLAYER);
     commands.spawn((
         PortalBodyPiece,
         exit_sprite,
@@ -165,8 +161,7 @@ pub fn sync_portal_body_pieces(
     // Entry mask: the slice of the real sprite that has sunk THROUGH the entry
     // plane (into the wall) — invisible on this side.
     if let Some(hidden) = pp::clip_halfspace(body, enter.pos, -enter.normal) {
-        let translation =
-            crate::engine_core::config::world_to_bevy(&world.0, hidden.center(), mask_z);
+        let translation = frame.to_render(hidden.center(), mask_z);
         commands.spawn((
             PortalBodyPiece,
             Sprite::from_color(mask_color, hidden.half_size() * 2.0),
@@ -178,8 +173,7 @@ pub fn sync_portal_body_pieces(
     // the exit plane) — invisible until it comes out.
     let exit_body = pp::map_aabb(body, &enter, &exit);
     if let Some(hidden) = pp::clip_halfspace(exit_body, exit.pos, -exit.normal) {
-        let translation =
-            crate::engine_core::config::world_to_bevy(&world.0, hidden.center(), mask_z);
+        let translation = frame.to_render(hidden.center(), mask_z);
         commands.spawn((
             PortalBodyPiece,
             Sprite::from_color(mask_color, hidden.half_size() * 2.0),
@@ -189,37 +183,9 @@ pub fn sync_portal_body_pieces(
     }
 }
 
-/// Loaded portal-gun art: the blue / orange mode sprites. Visible build only.
-#[derive(Resource)]
-pub struct PortalGunArt {
-    pub blue: Handle<Image>,
-    pub orange: Handle<Image>,
-}
-
-/// Load the portal-gun mode sprites at startup.
-pub fn load_portal_gun_art(mut commands: Commands, assets: Res<AssetServer>) {
-    commands.insert_resource(PortalGunArt {
-        blue: assets.load("sprites/props/portal_gun_blue.png"),
-        orange: assets.load("sprites/props/portal_gun_orange.png"),
-    });
-}
-
 /// Marks the held portal-gun sprite carried in the player's hand.
 #[derive(Component)]
 pub struct PortalModeIndicator;
-
-/// Content-agnostic aim hint for the held-gun presentation: the resolved
-/// world-space direction the barrel should point (same aim the input adapter
-/// resolves for `FirePortalGun`). The content input adapter
-/// (`crate::ambition_content::portal`) sets this each frame from `ControlFrame`;
-/// the visible-build [`sync_portal_mode_indicator`] reads it, so portal
-/// presentation no longer imports the Ambition input type. `None` aim falls back
-/// to facing.
-#[derive(Resource, Clone, Copy, Debug, Default)]
-pub struct PortalAimHint {
-    /// Resolved aim direction (need not be normalized; zero falls back to facing).
-    pub aim: Vec2,
-}
 
 /// On-screen size of the portal-gun sprite, used for BOTH the held gun and the
 /// ground pickup so it doesn't change size when you pick it up (keeps the
@@ -227,13 +193,13 @@ pub struct PortalAimHint {
 const PORTAL_GUN_DISPLAY: Vec2 = Vec2::new(52.0, 24.0);
 
 /// Draw the portal-gun sprite **in the player's hand**, rotated to point where
-/// you're AIMING (the same direction `Attack` fires the portal — like the
-/// pirates' wielded weapon), tinted to the active mode color so toggling
-/// (Interact) visibly swaps blue↔orange.
+/// you're AIMING (the same direction the host fires the portal — like a wielded
+/// weapon), tinted to the active mode color so toggling visibly swaps
+/// blue↔orange.
 pub fn sync_portal_mode_indicator(
     mut commands: Commands,
     aim_hint: Option<Res<PortalAimHint>>,
-    world: Res<GameWorld>,
+    frame: Res<PortalWorldFrame>,
     art: Option<Res<PortalGunArt>>,
     visuals: Query<Entity, With<PortalModeIndicator>>,
     players: Query<(&BodyKinematics, &PortalGun), (With<PlayerEntity>, With<PrimaryPlayer>)>,
@@ -261,13 +227,13 @@ pub fn sync_portal_mode_indicator(
     // (y-down world, so a small +y is slightly below centre). z=12 keeps it
     // in front of the player sprite.
     let pos = kin.pos + Vec2::new(facing * (kin.size.x * 0.45 + 6.0), kin.size.y * 0.06);
-    let translation = crate::engine_core::config::world_to_bevy(&world.0, pos, 12.0);
-    // Aim the barrel where the shot will go (same aim the input adapter resolves
-    // for `FirePortalGun`: right-stick aim, else move axis, else facing). World
-    // y-down → render y-up; aiming left flips vertically so the gun stays upright
-    // rather than upside-down. The aim is supplied by the content input adapter
-    // via `PortalAimHint` (so portal presentation stays content-agnostic); a zero
-    // hint (or no hint) falls back to facing.
+    let translation = frame.to_render(pos, 12.0);
+    // Aim the barrel where the shot will go (same aim the host's input adapter
+    // resolves for `FirePortalGun`: right-stick aim, else move axis, else
+    // facing). World y-down → render y-up; aiming left flips vertically so the
+    // gun stays upright rather than upside-down. The aim is supplied by the
+    // host via `PortalAimHint` (so portal presentation stays content-agnostic);
+    // a zero hint (or no hint) falls back to facing.
     let hinted = aim_hint.as_deref().map_or(Vec2::ZERO, |h| h.aim);
     let aim = if hinted.length() > 0.0 {
         hinted
@@ -294,7 +260,7 @@ pub fn sync_portal_mode_indicator(
 /// negligible and the visuals can never desync from the sim entities.
 pub fn sync_portal_visuals(
     mut commands: Commands,
-    world: Res<GameWorld>,
+    frame: Res<PortalWorldFrame>,
     art: Option<Res<PortalGunArt>>,
     visuals: Query<Entity, With<PortalVisual>>,
     portals: Query<&PlacedPortal>,
@@ -307,7 +273,7 @@ pub fn sync_portal_visuals(
     // In-flight portal shots: a small bright streak in the shot's color.
     for proj in &projectiles {
         let color = proj.channel.display().1;
-        let translation = crate::engine_core::config::world_to_bevy(&world.0, proj.pos, 9.5);
+        let translation = frame.to_render(proj.pos, 9.5);
         commands.spawn((
             PortalVisual,
             Sprite::from_color(color, Vec2::new(16.0, 8.0)),
@@ -317,7 +283,7 @@ pub fn sync_portal_visuals(
     }
     // Uncollected portal-gun pickup: a purple marker quad.
     for pickup in &pickups {
-        let translation = crate::engine_core::config::world_to_bevy(&world.0, pickup.pos, 9.0);
+        let translation = frame.to_render(pickup.pos, 9.0);
         // The world pickup shows the actual gun sprite (blue mode by default);
         // falls back to a marker quad before the art has loaded.
         let sprite = match art.as_ref() {
@@ -356,8 +322,8 @@ pub fn sync_portal_visuals(
         let angle = (-along.y).atan2(along.x);
         let rotation = Quat::from_rotation_z(angle);
         // Rim (outer) + brighter thin core, both oriented along the wall.
-        let rim_translation = crate::engine_core::config::world_to_bevy(&world.0, portal.pos, 9.0);
-        let core_translation = crate::engine_core::config::world_to_bevy(&world.0, portal.pos, 9.1);
+        let rim_translation = frame.to_render(portal.pos, 9.0);
+        let core_translation = frame.to_render(portal.pos, 9.1);
         commands.spawn((
             PortalVisual,
             Sprite::from_color(rim, Vec2::new(length, PORTAL_VISUAL_THICKNESS)),
@@ -377,7 +343,7 @@ pub fn sync_portal_visuals(
         // be referred to precisely (each linked pair is a distinct complementary
         // color: purple↔yellow, teal↔red, …). The color name IS the identifier.
         let label_pos = portal.pos + n * 24.0;
-        let label_translation = crate::engine_core::config::world_to_bevy(&world.0, label_pos, 9.2);
+        let label_translation = frame.to_render(label_pos, 9.2);
         commands.spawn((
             PortalVisual,
             Text2d::new(portal.channel.name()),
@@ -389,24 +355,5 @@ pub fn sync_portal_visuals(
             Transform::from_translation(label_translation),
             Name::new("Portal label"),
         ));
-    }
-}
-
-/// Dev off-switch: `F7` toggles the portal gun active/inactive so the
-/// always-on slice gun doesn't fire portals on every Attack while testing other
-/// sandbox mechanics. (Visible build only.) Final gating is via held-item equip;
-/// this is a developer convenience until then.
-///
-/// This reads raw keyboard input (a host input / dev concern), so it lives
-/// host-side in the render-gated presentation rather than in the `ambition_portal`
-/// mechanic crate — it just flips `PortalGun.active` the way the crate's
-/// message-driven toggle would.
-pub fn portal_dev_toggle_system(keys: Res<ButtonInput<KeyCode>>, mut guns: Query<&mut PortalGun>) {
-    if !keys.just_pressed(KeyCode::F7) {
-        return;
-    }
-    for mut gun in &mut guns {
-        gun.active = !gun.active;
-        bevy::log::info!(target: "ambition::portal", "portal gun active = {}", gun.active);
     }
 }

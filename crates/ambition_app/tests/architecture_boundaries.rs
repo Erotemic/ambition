@@ -506,11 +506,14 @@ fn architecture_boundaries_portal_core_does_not_import_ambition_content_roster()
     // `ambition_content::portal` adapters, which translate `ControlFrame`
     // and item state into the reusable portal intent/outcome messages.
     //
-    // Stage 19 Phase 5b: the mechanic moved into `ambition_portal`; the facade +
-    // presentation + integration tests stay sandbox-side. Scan BOTH so the
-    // content-roster ban covers the crate AND the sandbox-side portal files.
+    // Stage 19 Phase 5b: the mechanic moved into `ambition_portal`; the
+    // presentation later moved into `ambition_portal_presentation`; the facade
+    // + host adapter + integration tests stay sandbox-side. Scan ALL THREE so
+    // the content-roster ban covers both crates AND the sandbox-side portal
+    // files.
     let roots = [
         repo_root().join("crates/ambition_portal/src"),
+        repo_root().join("crates/ambition_portal_presentation/src"),
         crate_src().join("portal"),
     ];
 
@@ -1025,18 +1028,23 @@ fn architecture_boundaries_portal_has_facade_plugin_and_schedule_files() {
         );
     }
 
-    // The facade + the render-gated presentation stay in the sandbox.
-    for rel in ["portal/mod.rs", "portal/presentation.rs"] {
-        assert!(
-            src_root.join(rel).exists(),
-            "sandbox should keep the portal facade/presentation: {rel}"
-        );
-    }
-    // The mechanic must NOT linger in the sandbox after the move.
-    for rel in ["portal/plugin.rs", "portal/transit.rs", "portal/gun.rs"] {
+    // The facade (now also the presentation HOST ADAPTER) stays in the sandbox.
+    assert!(
+        src_root.join("portal/mod.rs").exists(),
+        "sandbox should keep the portal facade/host-adapter: portal/mod.rs"
+    );
+    // The mechanic must NOT linger in the sandbox after the move, and the
+    // presentation moved into `ambition_portal_presentation` (its reusable
+    // default renderer) — only the host adapter stays in portal/mod.rs.
+    for rel in [
+        "portal/plugin.rs",
+        "portal/transit.rs",
+        "portal/gun.rs",
+        "portal/presentation.rs",
+    ] {
         assert!(
             !src_root.join(rel).exists(),
-            "portal mechanic file {rel} must move into ambition_portal, not stay in the sandbox"
+            "portal file {rel} must live in ambition_portal / ambition_portal_presentation, not the sandbox"
         );
     }
 
@@ -1160,6 +1168,116 @@ fn architecture_boundaries_portal_crate_is_extracted() {
     assert!(
         facade.contains("pub use ambition_portal::*"),
         "sandbox portal/mod.rs should re-export ambition_portal::*"
+    );
+}
+
+#[test]
+fn architecture_boundaries_portal_presentation_crate_is_extracted() {
+    // The portal VISUALS (quads + labels, held/pickup gun sprite, mid-transit
+    // body pieces, disorientation indicator, view cones) live in the reusable
+    // default renderer `ambition_portal_presentation`, sitting directly above
+    // the headless mechanic. Assert (a) the crate exists and is registered,
+    // (b) it never depends on a host crate, (c) its only path deps are
+    // engine_core + platformer_runtime + portal, (d) the dependency is one-way
+    // (the mechanic never names its renderer), (e) no source line names the
+    // sandbox/content, and (f) it exposes a PortalPresentationPlugin while the
+    // sandbox facade re-exports the crate for zero inbound churn.
+    let root = repo_root();
+    let crate_root = root.join("crates/ambition_portal_presentation");
+
+    // (a) The crate exists and is wired into the workspace.
+    assert!(
+        crate_root.join("Cargo.toml").exists(),
+        "ambition_portal_presentation crate should exist at crates/ambition_portal_presentation"
+    );
+    let workspace_manifest =
+        fs::read_to_string(root.join("Cargo.toml")).expect("read workspace manifest");
+    assert!(
+        workspace_manifest.contains("crates/ambition_portal_presentation"),
+        "ambition_portal_presentation must be a registered workspace member"
+    );
+
+    // (b) + (c) Manifest-level dependency boundary.
+    let crate_manifest = fs::read_to_string(crate_root.join("Cargo.toml"))
+        .expect("read ambition_portal_presentation manifest");
+    for forbidden in [
+        "ambition_sandbox",
+        "ambition_content",
+        "ambition_input",
+        "ambition_sfx",
+        "ambition_menu",
+    ] {
+        let depends = crate_manifest.lines().any(|line| {
+            let line = line.trim();
+            line.starts_with(&format!("{forbidden} ="))
+                || line.starts_with(&format!("{forbidden}."))
+        });
+        assert!(
+            !depends,
+            "ambition_portal_presentation must not depend on {forbidden} (hosts bridge via the crate-owned seams)"
+        );
+    }
+    let path_deps: Vec<String> = crate_manifest
+        .lines()
+        .filter_map(|line| {
+            let line = line.trim();
+            line.strip_prefix("ambition_").map(|rest| {
+                format!(
+                    "ambition_{}",
+                    rest.split([' ', '=', '.']).next().unwrap_or("")
+                )
+            })
+        })
+        .collect();
+    for dep in &path_deps {
+        assert!(
+            dep == "ambition_engine_core"
+                || dep == "ambition_platformer_runtime"
+                || dep == "ambition_portal",
+            "ambition_portal_presentation may only depend on engine_core + platformer_runtime + portal, found `{dep}`"
+        );
+    }
+
+    // (d) One-way: the headless mechanic must never name its renderer.
+    let mechanic_manifest =
+        fs::read_to_string(root.join("crates/ambition_portal/Cargo.toml"))
+            .expect("read ambition_portal manifest");
+    assert!(
+        !mechanic_manifest.contains("ambition_portal_presentation"),
+        "ambition_portal (headless mechanic) must not depend on its renderer"
+    );
+
+    // (e) Source-level boundary: no code line may reference a host crate.
+    for file in collect_rs_files(&crate_root.join("src")) {
+        let text = fs::read_to_string(&file).expect("read ambition_portal_presentation source");
+        for (lineno, line) in text.lines().enumerate() {
+            let trimmed = line.trim_start();
+            if trimmed.starts_with("//") || trimmed.starts_with('*') {
+                continue;
+            }
+            for host in ["ambition_sandbox", "ambition_content"] {
+                assert!(
+                    !line.contains(host),
+                    "ambition_portal_presentation must stay host-free; {}:{} references {host}",
+                    file.display(),
+                    lineno + 1,
+                );
+            }
+        }
+    }
+
+    // (f) The crate exposes a drop-in plugin; the sandbox facade re-exports the
+    // crate so historic `crate::portal::…` presentation paths keep resolving.
+    let lib_text =
+        fs::read_to_string(crate_root.join("src/lib.rs")).expect("read presentation lib.rs");
+    assert!(
+        lib_text.contains("PortalPresentationPlugin"),
+        "ambition_portal_presentation should expose a PortalPresentationPlugin"
+    );
+    let facade = fs::read_to_string(crate_src().join("portal/mod.rs")).expect("read portal facade");
+    assert!(
+        facade.contains("pub use ambition_portal_presentation::*"),
+        "sandbox portal/mod.rs should re-export ambition_portal_presentation::* behind portal_render"
     );
 }
 

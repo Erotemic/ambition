@@ -186,3 +186,38 @@ Remaining work, in rough value order:
 
 Pick the next target by the *measured outward-dep count*, not the line size or the
 content-guard status — and re-measure before trusting this table; blockers rot.
+
+## Session 4 (2026-06-10, Fable): portal presentation → its own crate + view cones
+
+First real bite out of the **presentation → crate (B3)** row, taken from the
+portal end rather than the boss-asset end (no visual-verification wall: the
+moved visuals were behaviorally frozen and the new feature ships with pinned
+math + UV tests).
+
+- **`ambition_portal_presentation` extracted** (new workspace crate): the
+  render-gated `portal/presentation.rs` (412 lines) left the sandbox whole.
+  Seam contract mirrors `PortalPlugin`'s: crate-owned `PortalWorldFrame`
+  (world-size sync; `world_size_to_bevy` factored into engine_core so the
+  y-flip stays defined once), `PortalSceneBody` (host tags the player visual),
+  `PortalGunArt` (host loads — asset paths are content), `PortalAimHint`
+  (moved here; was never actually init'd anywhere — latent bug fixed, the
+  held-gun aim hint now works). Sandbox keeps a ~100-line host adapter +
+  facade re-export; `portal_render` now means `dep:ambition_portal_presentation`.
+  Every visual is a separately flag-gated public system in
+  `PortalPresentationSet` (extend-by-subtraction for other hosts).
+- **Through-portal view cones** (new feature): `ambition_portal::view` proves
+  the view map (body map ∘ entry-plane reflection) is ALWAYS a proper rotation
+  — no mirror case exists — and `view_cone()` hands renderers the entry
+  trapezoid + view-mapped source quad. The crate's renderer parks an
+  axis-aligned capture `Camera2d` (render-to-texture) over the partner-side
+  source rect and bakes the rotation into mesh UVs, so sim math is the single
+  source of truth for what appears where. Cones live on the default layer, so
+  capture cameras see other cones → **1-frame-lag infinite recursion** free,
+  with no read-write hazard (cross-sampling only, by construction). Rigs are
+  keyed + rebuilt only when a portal moves; captures re-render every frame.
+- Guards: `architecture_boundaries_portal_presentation_crate_is_extracted`
+  (deps ⊆ {engine_core, platformer_runtime, portal}; mechanic never names its
+  renderer; no host refs), content-roster scan now covers the new crate, and
+  the facade guard inverted (`portal/presentation.rs` must NOT exist).
+- NOT yet runtime-verified visually (headless dev): cone orientation is pinned
+  by `cone_uvs` unit tests, but the first in-game look is Jon's.

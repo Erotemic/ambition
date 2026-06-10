@@ -265,6 +265,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_portal_presentation"
+version = "0.1.0"
+dependencies = [
+ "ambition_engine_core",
+ "ambition_platformer_runtime",
+ "ambition_portal",
+ "bevy",
+]
+
+[[package]]
 name = "ambition_sandbox"
 version = "0.2.0"
 dependencies = [
@@ -276,6 +286,7 @@ dependencies = [
  "ambition_menu",
  "ambition_platformer_runtime",
  "ambition_portal",
+ "ambition_portal_presentation",
  "ambition_sfx",
  "ambition_time",
  "avian2d",

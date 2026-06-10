@@ -36,7 +36,15 @@ pub const GRID_STEP: f32 = 80.0;
 /// camera is centered with +Y upward, so all rendering should go through this
 /// adapter rather than duplicating coordinate math throughout the sandbox.
 pub fn world_to_bevy(world: &World, p: Vec2, z: f32) -> Vec3 {
-    Vec3::new(p.x - world.size.x * 0.5, world.size.y * 0.5 - p.y, z)
+    world_size_to_bevy(world.size, p, z)
+}
+
+/// [`world_to_bevy`] from just the world's size — the only field the transform
+/// reads. Render crates below the host (e.g. portal presentation) hold a copied
+/// size instead of the whole `World`; the centering + y-flip math stays defined
+/// here, once.
+pub fn world_size_to_bevy(size: Vec2, p: Vec2, z: f32) -> Vec3 {
+    Vec3::new(p.x - size.x * 0.5, size.y * 0.5 - p.y, z)
 }
 
 #[cfg(test)]

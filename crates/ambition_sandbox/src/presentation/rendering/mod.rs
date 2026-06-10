@@ -117,27 +117,34 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
             );
 
         // Portal-gun visuals (placed-portal quads, partial-transit pieces, the
-        // disorientation / mode indicators, gravity switch + zone visuals, and
-        // the F7 dev off-switch) only compile with the portal mechanic + its
-        // render feature.
+        // disorientation / mode indicators) now live in the reusable
+        // `ambition_portal_presentation` crate; the sandbox adds its plugin,
+        // places its set, and bridges the host seams (world frame, scene-body
+        // tag, gun art — see `crate::portal::host_adapter`). Gravity visuals
+        // and the F7 dev off-switch stay host-side. All of it only compiles
+        // with the portal mechanic + its render feature.
         #[cfg(feature = "portal_render")]
-        app.add_systems(Startup, crate::portal::load_portal_gun_art)
-            .add_systems(
-                Update,
-                (
-                    crate::portal::sync_portal_visuals.after(actors::sync_visuals),
-                    // Partial-transit pieces ("feet in, feet out"): runs after
-                    // the character sync so it can override the player's
-                    // visibility while crossing.
-                    crate::portal::sync_portal_body_pieces.after(actors::sync_visuals),
-                    crate::portal::sync_portal_disorientation_indicator.after(actors::sync_visuals),
-                    crate::portal::sync_portal_mode_indicator.after(actors::sync_visuals),
-                    crate::portal::portal_dev_toggle_system,
-                    crate::mechanics::gravity::sync_gravity_switch_visual
-                        .after(actors::sync_visuals),
-                    crate::mechanics::gravity::sync_gravity_zone_visual.after(actors::sync_visuals),
-                ),
-            );
+        {
+            use ambition_portal_presentation::{PortalPresentationPlugin, PortalPresentationSet};
+            app.add_plugins(PortalPresentationPlugin::default());
+            // Portal visuals run after the character sync — the partial-transit
+            // pieces ("feet in, feet out") override the player's visibility
+            // while crossing, so they must see this frame's mirrored sprite.
+            app.configure_sets(Update, PortalPresentationSet.after(actors::sync_visuals));
+            app.add_systems(Startup, crate::portal::load_portal_gun_art)
+                .add_systems(
+                    Update,
+                    (
+                        crate::portal::sync_portal_world_frame.before(PortalPresentationSet),
+                        crate::portal::tag_portal_scene_bodies.after(actors::sync_visuals),
+                        crate::portal::portal_dev_toggle_system,
+                        crate::mechanics::gravity::sync_gravity_switch_visual
+                            .after(actors::sync_visuals),
+                        crate::mechanics::gravity::sync_gravity_zone_visual
+                            .after(actors::sync_visuals),
+                    ),
+                );
+        }
     }
 }
 

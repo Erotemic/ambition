@@ -39,7 +39,12 @@ portal = []
 # into portal visuals without dragging in the desktop-only audio/ui/physics
 # subsystems. Personas that want portal rendering enable their own render
 # pipeline (`visible` / `visible_web_base`) alongside this flag.
-portal_render = ["portal"]
+#
+# The visuals themselves live in the reusable `ambition_portal_presentation`
+# crate (the default renderer for the headless mechanic); this feature pulls it
+# in and the sandbox keeps only the thin host adapter (world-frame sync,
+# scene-body tagging, gun-art loading, F7 dev toggle) in `src/portal/mod.rs`.
+portal_render = ["portal", "dep:ambition_portal_presentation"]
 portal_ldtk = ["portal", "ldtk_runtime"]
 
 
@@ -331,6 +336,11 @@ ambition_platformer_runtime = { path = "../ambition_platformer_runtime" }
 # carve bridge / room-reset / sfx / ability) on top. ADR 0019; Stage 19. See
 # docs/planning/plugin_refactor/19_portal_crate_and_projectile_ecs.md.
 ambition_portal = { path = "../ambition_portal" }
+# The reusable default renderer for the portal mechanic (quads/labels, held
+# gun, body pieces, disorientation, view cones). Optional: only the
+# `portal_render` feature pulls it in; the sandbox keeps a thin host adapter in
+# `src/portal/mod.rs` (world-frame sync, scene-body tagging, gun-art loading).
+ambition_portal_presentation = { path = "../ambition_portal_presentation", optional = true }
 # Reusable, content-free time vocabulary + producer (WorldTime / ClockState /
 # ClockDomain / ProperTimeScale / named-clock dt accessors / TimePlugin). The
 # `crate::time` module is a facade re-exporting these; the sandbox keeps the

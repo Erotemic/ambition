@@ -4,8 +4,9 @@
 //! backend-agnostic page model, the concrete settings IR, and the Map tab —
 //! consolidated out of the formerly-scattered top-level modules
 //! (`menu_model`, `map_menu`, `persistence/settings/{menu,system_menu}`).
-//! Presentation (the cube + the bevy_ui grid) still lives elsewhere for now;
-//! see `docs/planning/unified_tabbed_menu.md` §10 for the full plan.
+//! Presentation backends (the cube + the bevy_ui grid) are installed through
+//! independent feature-gated plugins; see `docs/planning/unified_tabbed_menu.md`
+//! §10 for the full plan.
 //!
 //! Submodules:
 //! - [`model`] — `MenuPage` / `MenuFocus` / `MenuPageAction` + the page builders
@@ -27,16 +28,19 @@ pub mod effects;
 /// The unified flat tabbed menu — the `InventoryUiBackend::Grid` presentation
 /// (Phase C2b). Ambition's wiring of the engine `bevy_ui` renderer; the flat analog
 /// of the cube backend, sharing the page model + dispatcher + cursor.
+/// Systems are only installed when the `bevy_ui_menu` feature is enabled.
+#[cfg(feature = "bevy_ui_menu")]
 pub mod grid_backend;
 pub mod ir;
 /// The 3D-cube OoT pause-menu host (#31): the data seam wiring our 24-item
 /// inventory into the reusable `ambition_menu` cube model (was the root
-/// `crate::lunex_kaleidoscope_app`). Renderer promotion pending.
+/// `crate::lunex_kaleidoscope_app`). Cube systems/cameras are only installed
+/// when the `kaleidoscope_menu` feature is enabled.
 pub mod kaleidoscope_app;
 pub mod map;
 pub mod model;
 
 /// Cross-backend parity / no-drift tests (design doc §8): the safety net that
 /// locks the "one content model + IR + dispatcher, two presentations" invariant.
-#[cfg(test)]
+#[cfg(all(test, feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
 mod parity_tests;

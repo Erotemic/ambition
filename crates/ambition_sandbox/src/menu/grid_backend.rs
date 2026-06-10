@@ -44,8 +44,9 @@ use crate::input::MenuControlFrame;
 use crate::items::{OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use crate::menu::effects::{MenuEffectManaQuery, MenuEffectPlayers};
 use crate::menu::kaleidoscope_app::{
-    focus_for_action, owned_item_action, play_ui, system_focus_nav, InventoryUiBackend,
-    KaleidoscopeCursor, KaleidoscopeSystemNav, SystemMenuParams,
+    focus_for_action, owned_item_action, play_ui, system_focus_nav,
+    BEVY_UI_MENU_BACKEND_ENABLED, InventoryUiBackend, KaleidoscopeCursor,
+    KaleidoscopeSystemNav, SystemMenuParams,
 };
 use crate::menu::model::{
     system_max_window_start, MenuFocus, MenuPage, MenuPageAction, SYSTEM_VISIBLE_ROWS,
@@ -72,7 +73,7 @@ pub(crate) struct MenuDispatchParams<'w, 's> {
 /// cube's `kaleidoscope_backend_active`; the new Grid systems are registered with
 /// this and the OLD grid + pause menu are gated OFF with its negation.
 pub(crate) fn grid_backend_active(backend: Res<InventoryUiBackend>) -> bool {
-    backend.effective() == InventoryUiBackend::Grid
+    BEVY_UI_MENU_BACKEND_ENABLED && backend.effective() == InventoryUiBackend::Grid
 }
 
 /// Per-backend Grid state: the remembered tab + republish bookkeeping. The CURSOR
@@ -1058,8 +1059,9 @@ pub(crate) fn grid_menu_pointer_hover(
     cursor.mark_keyboard(focus);
 }
 
-/// Install the Grid backend systems. Registered alongside the cube
-/// (`install_kaleidoscope_menu`) so `\` flips between them at runtime.
+/// Install the flat Bevy-UI/Grid backend systems. Registered independently from
+/// the cube backend so builds can omit this presentation without installing its
+/// Bevy-UI tree, picking observers, or scroll systems.
 pub(crate) fn install_grid_unified_menu(app: &mut App) {
     app.init_resource::<GridMenuTabState>()
         .init_resource::<GridPointerPress>()

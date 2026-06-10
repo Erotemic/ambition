@@ -48,15 +48,27 @@ pub(crate) fn play_ui(sfx: &mut MessageWriter<SfxMessage>, id: ambition_sfx::Sfx
     });
 }
 
+/// Build-time switch for the flat Bevy-UI menu backend.
+///
+/// The normal visible desktop/Android personas enable this feature so both
+/// platforms exercise the same menu stack. Focused diagnostics / minimal builds
+/// can leave it off, and backend selection will gracefully collapse to any other
+/// compiled backend instead of installing hidden Bevy-UI systems.
+pub(crate) const BEVY_UI_MENU_BACKEND_ENABLED: bool = cfg!(feature = "bevy_ui_menu");
+
 /// Build-time switch for the experimental 3D cube menu backend.
 ///
 /// The normal visible desktop/Android personas enable this feature so both
 /// platforms exercise the same menu stack. Minimal/headless builds can leave it
-/// off, and backend selection will gracefully collapse to Grid.
+/// off, and backend selection will gracefully collapse to any other compiled
+/// backend.
 pub(crate) const KALEIDOSCOPE_MENU_BACKEND_ENABLED: bool = cfg!(feature = "kaleidoscope_menu");
 
-/// Which inventory frontend renders. The 3D cube is the default when its feature
-/// is installed; otherwise builds that omit the cube backend fall back to Grid.
+/// Which inventory frontend renders. The 3D cube remains the default when its
+/// feature is installed; otherwise builds fall back to the flat Bevy-UI backend
+/// when available. If a saved setting names a backend that is not compiled into
+/// this build, [`InventoryUiBackend::effective`] collapses it to an available
+/// backend before any systems run.
 #[derive(Resource, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum InventoryUiBackend {
     Grid,
@@ -76,7 +88,7 @@ impl Default for InventoryUiBackend {
 impl InventoryUiBackend {
     pub(crate) fn is_available(self) -> bool {
         match self {
-            Self::Grid => true,
+            Self::Grid => BEVY_UI_MENU_BACKEND_ENABLED,
             Self::LunexKaleidoscope => KALEIDOSCOPE_MENU_BACKEND_ENABLED,
         }
     }
@@ -84,6 +96,8 @@ impl InventoryUiBackend {
     pub(crate) fn effective(self) -> Self {
         if self.is_available() {
             self
+        } else if KALEIDOSCOPE_MENU_BACKEND_ENABLED {
+            Self::LunexKaleidoscope
         } else {
             Self::Grid
         }
@@ -99,7 +113,17 @@ impl InventoryUiBackend {
     pub(crate) fn next(self) -> Self {
         match self.effective() {
             Self::Grid if KALEIDOSCOPE_MENU_BACKEND_ENABLED => Self::LunexKaleidoscope,
-            Self::Grid | Self::LunexKaleidoscope => Self::Grid,
+            Self::LunexKaleidoscope if BEVY_UI_MENU_BACKEND_ENABLED => Self::Grid,
+            Self::Grid | Self::LunexKaleidoscope => self.effective(),
+        }
+    }
+
+    pub(crate) fn unavailable_note(self) -> &'static str {
+        match (BEVY_UI_MENU_BACKEND_ENABLED, KALEIDOSCOPE_MENU_BACKEND_ENABLED) {
+            (true, true) => "",
+            (true, false) => " (cube backend disabled)",
+            (false, true) => " (grid backend disabled)",
+            (false, false) => " (all menu backends disabled)",
         }
     }
 }
@@ -128,6 +152,43 @@ pub(crate) fn install_unified_menu_shared(app: &mut App) {
 fn kaleidoscope_backend_active(backend: Res<InventoryUiBackend>) -> bool {
     KALEIDOSCOPE_MENU_BACKEND_ENABLED
         && backend.effective() == InventoryUiBackend::LunexKaleidoscope
+}
+
+/// The cube backend is selected and the inventory overlay is currently open.
+///
+/// Use this for host-side model/text/focus work that has no value while the
+/// cube is closed. The open-routing and camera gate intentionally stay broader:
+/// they must run while closed so they can open the menu and keep the camera off.
+fn kaleidoscope_menu_visible(
+    backend: Res<InventoryUiBackend>,
+    ui_state: Option<Res<crate::inventory::InventoryUiState>>,
+) -> bool {
+    KALEIDOSCOPE_MENU_BACKEND_ENABLED
+        && backend.effective() == InventoryUiBackend::LunexKaleidoscope
+        && ui_state.map(|s| s.visible).unwrap_or(false)
+}
+
+/// The cube renderer needs to tick while open and briefly while folding closed.
+///
+/// This avoids the original closed-menu churn (camera/ring/picking/fade systems
+/// running every frame just because Cube is the selected backend) without cutting
+/// off the close animation.
+fn kaleidoscope_render_needed(
+    backend: Res<InventoryUiBackend>,
+    ui_state: Option<Res<crate::inventory::InventoryUiState>>,
+    open_state: Option<Res<ambition_menu::kaleidoscope::KaleidoscopeOpenState>>,
+) -> bool {
+    if !KALEIDOSCOPE_MENU_BACKEND_ENABLED
+        || backend.effective() != InventoryUiBackend::LunexKaleidoscope
+    {
+        return false;
+    }
+    if ui_state.map(|s| s.visible).unwrap_or(false) {
+        return true;
+    }
+    open_state
+        .map(|s| s.target > 0.0 || s.amount > 0.08)
+        .unwrap_or(false)
 }
 
 /// Peak opacity of the readability dim-scrim (black) when the cube is fully open.
@@ -170,25 +231,24 @@ pub(crate) fn install_kaleidoscope_menu_backend(app: &mut App) {
     app.init_resource::<KaleidoscopeScroll>()
         .init_resource::<KaleidoscopePointerPress>()
         .add_plugins(KaleidoscopeMenuPlugin::<MenuPage, MenuPageAction>::default());
-    // Phase D3a: "only the active backend renders." The lib registers the cube's
-    // per-frame RENDER systems in the gateable `KaleidoscopeRender` /
-    // `KaleidoscopeRenderPre` sets; gate them on `kaleidoscope_backend_active` so the
-    // 3D cube stops churning (rebuild/animate/fade/scrollbar-project/picking/focus
-    // visuals) when the flat Grid is the active frontend. The cube's INPUT systems
-    // already self-gate; this completes the invariant for rendering. `KaleidoscopeRender`
-    // spans both Update and PostUpdate (the fade runs in PostUpdate), so configure it
-    // in BOTH; `KaleidoscopeRenderPre` is the PreUpdate picking half.
+    // Phase D3a/D4: "only the needed backend renders." The lib registers the
+    // cube's per-frame RENDER systems in the gateable `KaleidoscopeRender` /
+    // `KaleidoscopeRenderPre` sets; gate them on `kaleidoscope_render_needed` so
+    // the 3D cube stops churning while the menu is closed, while still ticking
+    // briefly during the close-fold animation. The cube's open-routing/camera gate
+    // stay outside this render condition so closed menus can still open and force
+    // the camera inactive.
     app.configure_sets(
         Update,
-        KaleidoscopeRender.run_if(kaleidoscope_backend_active),
+        KaleidoscopeRender.run_if(kaleidoscope_render_needed),
     )
     .configure_sets(
         PostUpdate,
-        KaleidoscopeRender.run_if(kaleidoscope_backend_active),
+        KaleidoscopeRender.run_if(kaleidoscope_render_needed),
     )
     .configure_sets(
         PreUpdate,
-        KaleidoscopeRenderPre.run_if(kaleidoscope_backend_active),
+        KaleidoscopeRenderPre.run_if(kaleidoscope_render_needed),
     );
     app.add_systems(Startup, spawn_kaleidoscope_scrim)
         .add_systems(
@@ -210,32 +270,34 @@ pub(crate) fn install_kaleidoscope_menu_backend(app: &mut App) {
                 // Nav first (mutates the cursor), then republish (reads the cursor +
                 // inventory) so the highlight + detail panel reflect this frame's move.
                 // Also in `MenuNavConsume` for the same fold-ordering reason above.
-                kaleidoscope_focus_nav.in_set(crate::app::MenuNavConsume),
+                kaleidoscope_focus_nav
+                    .run_if(kaleidoscope_menu_visible)
+                    .in_set(crate::app::MenuNavConsume),
                 // Features C/D: scroll the System window INDEPENDENTLY of selection.
                 // The wheel (D) + the scrollbar-drag signal (C) set the scroll
                 // override BEFORE republish so the new window renders this frame.
-                kaleidoscope_scroll_wheel,
-                kaleidoscope_apply_scroll_drag,
+                kaleidoscope_scroll_wheel.run_if(kaleidoscope_menu_visible),
+                kaleidoscope_apply_scroll_drag.run_if(kaleidoscope_menu_visible),
                 // Phase D3a: republish builds the cube's `ActiveMenuPages` model and
                 // is now gated to the cube backend. The Grid backend builds its OWN
                 // model via `build_inventory_pages` and never reads `pages.pages`; with
                 // the cube render set gated off in Grid mode nothing consumes
                 // `ActiveMenuPages`, so freezing republish there is inert. (The Grid
                 // still re-renders via its own dirty signals.)
-                republish_kaleidoscope_pages.run_if(kaleidoscope_backend_active),
+                republish_kaleidoscope_pages.run_if(kaleidoscope_menu_visible),
                 // The focus HIGHLIGHT and the detail-panel TEXT now update IN PLACE
                 // from the live cursor (no face rebuild), so a mouse move no longer
                 // despawns the hovered control between a pointer press and release —
                 // the deferred Bug 2 (clicks were dropped on the entity-id mismatch).
-                kaleidoscope_sync_focus_visuals.run_if(kaleidoscope_backend_active),
-                kaleidoscope_sync_detail_text.run_if(kaleidoscope_backend_active),
+                kaleidoscope_sync_focus_visuals.run_if(kaleidoscope_menu_visible),
+                kaleidoscope_sync_detail_text.run_if(kaleidoscope_menu_visible),
                 gate_kaleidoscope_menu,
                 toggle_inventory_backend,
                 // Phase D3a: the readability dim-scrim is cube-only; gate both its
                 // retarget and per-frame fade to the cube backend. (`spawn_kaleidoscope_scrim`
                 // is Startup, so it stays ungated — the node just sits transparent.)
-                retarget_kaleidoscope_scrim.run_if(kaleidoscope_backend_active),
-                fade_kaleidoscope_scrim.run_if(kaleidoscope_backend_active),
+                retarget_kaleidoscope_scrim.run_if(kaleidoscope_render_needed),
+                fade_kaleidoscope_scrim.run_if(kaleidoscope_render_needed),
             )
                 .chain()
                 // CURSOR-HIGHLIGHT fix: the lib renders the focus highlight (material
@@ -1799,13 +1861,11 @@ fn kaleidoscope_menu_open_routing(
             }
         } else if matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
             play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_OPEN);
-            // SHARED entry→tab mapping: Esc/Start lands on the System face. Same
-            // `pause_entry_target` the Grid backend uses, so the two presentations
-            // agree on what each open key targets.
+            // SHARED entry→tab mapping: Esc/Start lands on the System face.
+            // Keep this mapping local to the backend-agnostic menu vocabulary so
+            // the cube can compile without the Bevy-UI/Grid backend feature.
             open_kaleidoscope_menu(
-                crate::menu::grid_backend::pause_entry_target(
-                    crate::menu::grid_backend::PauseEntrySource::Pause,
-                ),
+                MenuPage::System,
                 &mut overlay,
                 mode.get(),
                 &mut next_mode,
@@ -1833,9 +1893,7 @@ fn kaleidoscope_menu_open_routing(
             // Opening on the Items page (shared entry→tab mapping) + seed the cursor.
             play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_OPEN);
             open_kaleidoscope_menu(
-                crate::menu::grid_backend::pause_entry_target(
-                    crate::menu::grid_backend::PauseEntrySource::Inventory,
-                ),
+                MenuPage::Items,
                 &mut overlay,
                 mode.get(),
                 &mut next_mode,
@@ -1850,9 +1908,7 @@ fn kaleidoscope_menu_open_routing(
 
     // map key: open on the Map page (suppressing the standalone map panel).
     if menu.map && matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
-        let map_page = crate::menu::grid_backend::pause_entry_target(
-            crate::menu::grid_backend::PauseEntrySource::Map,
-        );
+        let map_page = MenuPage::Map;
         if overlay.visible {
             pages.active = Some(map_page);
             cursor.mark_keyboard(MenuFocus::EdgeLeft);
@@ -1935,11 +1991,7 @@ fn toggle_inventory_backend(
         info!(
             "inventory backend → {:?}{}",
             backend.effective(),
-            if KALEIDOSCOPE_MENU_BACKEND_ENABLED {
-                ""
-            } else {
-                " (cube backend disabled)"
-            }
+            backend.unavailable_note()
         );
     }
 }
@@ -3519,8 +3571,8 @@ mod lunex_kaleidoscope_app_tests {
             Update,
             (
                 kaleidoscope_focus_nav,
-                kaleidoscope_scroll_wheel,
-                kaleidoscope_apply_scroll_drag,
+                kaleidoscope_scroll_wheel.run_if(kaleidoscope_menu_visible),
+                kaleidoscope_apply_scroll_drag.run_if(kaleidoscope_menu_visible),
                 republish_kaleidoscope_pages,
             )
                 .chain(),
@@ -4238,7 +4290,7 @@ mod lunex_kaleidoscope_app_tests {
             // Exactly the host's gating from `install_kaleidoscope_menu`.
             app.configure_sets(
                 Update,
-                KaleidoscopeRender.run_if(kaleidoscope_backend_active),
+                KaleidoscopeRender.run_if(kaleidoscope_render_needed),
             );
             // A stand-in for the lib's cube render systems (rebuild/animate/fade…),
             // which all live in `KaleidoscopeRender`.

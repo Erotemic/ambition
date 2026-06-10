@@ -54,6 +54,11 @@ mod pickup;
 /// Pure portal-piece geometry — the Core invariant. Public because a host's
 /// world-overlay carve and debug overlay read `pieces` directly.
 pub mod pieces;
+/// Pure through-portal VIEW geometry (the view map — always a proper rotation
+/// — and the view cone). Public because renderers (the
+/// `ambition_portal_presentation` default renderer or a host's own) build
+/// capture cameras + cone UVs from it.
+pub mod view;
 mod placement;
 mod plugin;
 mod schedule;
@@ -94,6 +99,7 @@ pub use types::{
     find_portal, portal_half_extent, PlacedPortal, PortalTransitCooldown, MIN_EXIT_SPEED,
     PORTAL_VISUAL_THICKNESS,
 };
+pub use view::{view_cone, view_point, PortalViewMap, ViewCone};
 
 pub use plugin::{PortalPlugin, PortalSimulationPlugin};
 pub use schedule::PortalSet;

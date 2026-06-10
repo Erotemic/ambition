@@ -1393,3 +1393,40 @@ name Ambition content:\n{}",
         violations.join("\n")
     );
 }
+
+#[test]
+fn architecture_boundaries_presentation_does_not_use_the_archetype_enum() {
+    // Stage 20 / B3: presentation consumes authored visual DATA
+    // (catalog sprite tuning, composite_visual rows, dream_seed,
+    // FeatureVisualKind) — never the named archetype enum. The boss
+    // sprite chain in rendering/actors.rs still names boss ids
+    // (tracked: the boss-asset-map slice in code_smells.md); this
+    // guard pins the ENEMY side so it cannot regress.
+    let root = crate_src().join("presentation");
+    let forbidden = ["EnemyArchetype", "is_composite_spawn", "sandbag_"];
+    let mut violations = Vec::new();
+    for file in collect_rs_files(&root) {
+        let rel = file.display().to_string();
+        if rel.ends_with("tests.rs") || rel.contains("/tests/") {
+            continue;
+        }
+        let text = fs::read_to_string(&file).expect("read rust source");
+        for (idx, raw) in text.lines().enumerate() {
+            let line = raw.trim();
+            if line.starts_with("//") || line.starts_with("/*") || line.starts_with('*') {
+                continue;
+            }
+            for needle in forbidden {
+                if line.contains(needle) {
+                    violations.push(format!("{rel}:{} {line}", idx + 1));
+                }
+            }
+        }
+    }
+    assert!(
+        violations.is_empty(),
+        "presentation must read authored visual data, not the archetype enum \
+(invert via spec fields + features::enemy_visual_kind/composite_visual_plan):\n{}",
+        violations.join("\n")
+    );
+}

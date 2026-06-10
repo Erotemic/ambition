@@ -58,6 +58,12 @@ Entry format:
 - **Noticed while:** Stage 20 overflow triage (B1 deprioritized in favor of C1 per Jon's task pick)
 - **Suggested fix / size:** M — split runtime.rs/mod.rs item-by-item along the seams above, then the crate move is mechanical
 
+## 2026-06-10 Boss sprite assets are named GameAssets fields + per-boss loader fns
+- **Where:** crates/ambition_sandbox/src/assets/game_assets.rs (mockingbird/gnu_ton/gnu_ton_body/gnu_ton_hands/smirking/spaghetti/trex fields), boss_encounter/sprites.rs (load_<boss>_sprite_in wrappers + named sheet consts), presentation/rendering/actors.rs ~695-760 (the per-boss if-chain incl. the GNU-ton body+hands layered render)
+- **Smell:** the last named-content pocket in the render path. Inversion sketch: `boss_sprites: HashMap<String, BossSpriteAsset>` + `boss_layers: HashMap<String, BossLayeredSprite>` keyed by behavior id, loaded from a data table (boss id -> sheet asset ids + layer split), with the if-chain becoming `assets.boss_sprite(boss_key).or(generic)`. Land AFTER the sheet-data migration is runtime-verified (the layered GNU-ton render is the most visually delicate path in the repo).
+- **Noticed while:** B3 session 2 (presentation de-naming)
+- **Suggested fix / size:** M (~1h) — same registry/data pattern as the character sheets
+
 ## Resolved
 
 (none yet)

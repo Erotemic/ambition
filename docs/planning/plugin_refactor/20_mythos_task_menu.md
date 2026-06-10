@@ -1,5 +1,12 @@
 # Stage 20 — Mythos task menu (autonomous overnight)
 
+> **EXECUTED 2026-06-10** — see `21_stage20_attack_plan.md` (Morning handoff)
+> for results. Status: A1 ✅ A2 ✅ (kit + knots-as-data; actor core blocked on
+> the EnemyConfig.archetype field, smell-logged) A3 ✅ (the bisection: machinery
+> lib ← ambition_content ← ambition_app) C1 ✅ (measured; see honest numbers)
+> B1 ✅ (ambition_audio) B2/C4 triaged out (thin-crate, doc 15) B3/B4/C2/C3
+> remain (C2-gravity found already-effectively-done).
+
 A menu of high-value, **mythos-level** tasks for a top-tier autonomous agent to
 **choose from** and run overnight. Each is large but bounded, self-verifying via the
 differential harness, and either independent or with prerequisites stated. Pick by

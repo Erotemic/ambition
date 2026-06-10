@@ -70,11 +70,7 @@ fn architecture_boundaries_platformer_runtime_stays_content_free() {
     ];
     // `ambition_sandbox::portal` (the portal mechanic, including its `pieces` Core math
     // submodule) is forbidden — match the mechanic path with explicit boundaries.
-    let forbidden_boundary = [
-        "crate::portal::",
-        "crate::portal;",
-        "crate::portal}",
-    ];
+    let forbidden_boundary = ["crate::portal::", "crate::portal;", "crate::portal}"];
 
     let mut violations = Vec::new();
     for file in collect_rs_files(&root) {
@@ -705,11 +701,7 @@ fn architecture_boundaries_music_director_is_content_agnostic() {
     // legitimate downward dependency direction the in-place decoupling leaves
     // for a future crate extraction to abstract.
     let music_root = crate_src().join("music");
-    let forbidden = [
-        "crate::encounter",
-        "crate::rooms",
-        "crate::content",
-    ];
+    let forbidden = ["crate::encounter", "crate::rooms", "crate::content"];
     let mut violations = Vec::new();
     for file in collect_rs_files(&music_root) {
         let name = file.file_name().and_then(|n| n.to_str()).unwrap_or("");

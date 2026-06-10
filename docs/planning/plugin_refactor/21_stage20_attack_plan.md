@@ -1,9 +1,67 @@
 # Stage 20 attack plan — A1 → A2 → A3 → C1 (overnight run)
 
-**Status: PLANNED — awaiting kickoff prompt.** Jon picked the tasks and topology on
-2026-06-10; further kickoff instructions are coming. Once the run starts, this doc is
-the live progress window (per long-run discipline): the executing agent updates the
-Progress Log at every commit point and fills the estimated-vs-actual table at the end.
+**Status: EXECUTED 2026-06-10 (≈3.5h of work in a 9h window; finished early).**
+The chain landed in full plus both overflow verdicts. See **Morning handoff**
+below for the TL;DR, the C1 RESULTS table for the honest compile-time numbers,
+and the Progress Log for the blow-by-blow.
+
+## Morning handoff (read this first)
+
+**What the repo looks like now — the bisection is real:**
+
+```text
+ambition_engine_core / ambition_platformer_runtime / ambition_portal /
+ambition_time / ambition_input / ambition_menu / ambition_sfx[_bank] /
+ambition_asset_manager / ambition_audio (NEW)        <- foundations
+        ^
+ambition_sandbox (lib)  = THE MACHINERY ONLY (mechanics::combat grew to
+        ^                 ~6k LOC incl. boss_clusters; zero content imports,
+        |                 guard-enforced across all 34 dirs with no allowlist)
+ambition_content (NEW)  = quests, bosses (cut_rope/gnu_ton/yarn), items roster,
+        ^                 dialogue, intro, banter lines, validation, portal
+        |                 adapters + portal integration tests
+ambition_app (NEW)      = app assembly, host glue, ALL bins (playable
+                          `ambition_sandbox`, headless, rl_*), rl_sim,
+                          full-stack integration tests + replay fixtures
+```
+
+**Verification state:** replay fixture BIT-IDENTICAL through every change;
+~1,360 tests green across the four moved/new crates; headless 60-tick smoke
+runs the full gameplay loop; full desktop build compiles; `cargo fmt` clean.
+
+**Command changes you'll feel:** `cargo run -p ambition_app --bin headless`,
+`cargo test -p ambition_app --test <suite>`, `cargo test -p ambition_content
+--all-features`; `cargo test -p ambition_sandbox --lib` still works (machinery
+only). AGENTS.md + CI already updated.
+
+**Known morning fixes (deliberate, small):**
+1. **Android**: the Gradle project must repoint at `libambition_app.so` (the
+   `#[bevy_main]` entry moved with the assembly; no Gradle files live in this
+   repo so it couldn't be done here).
+2. **wasm/web**: `build_for_web.sh` is untested against the new crate layout
+   (features forward through `ambition_app`, so likely just `-p` changes).
+3. `check_doc_links.py` still reports 8 PRE-EXISTING breaks (old plan docs;
+   listed in dev/journals/code_smells.md — consider archiving those docs).
+
+**What's deliberately NOT done (each with a written reason):**
+- B2 dialogue crate + C4 leaf crates: triaged as doc-15 thin-crate churn (see
+  triage notes above).
+- B3 render split + B4 devtools: the named feature world (`crate::features`)
+  stays in the lib until presentation's read-model is inverted — the night's
+  capability/tuning slices moved that boundary closer.
+- The `EnemyConfig.archetype` FIELD generalization + the item-roster registry:
+  L-sized, smell-logged with sketches in dev/journals/code_smells.md.
+- C3 (time-domains/RL seam): design-heavy with the highest re-litigation risk
+  if drafted without you — recommend a dedicated interactive session.
+
+**Where to start reading:** this doc top-to-bottom, then
+`dev/journals/code_smells.md` (5 new entries), then `git log 361fc718..` —
+every commit message is a self-contained explanation.
+
+---
+
+Original plan follows (kept for the record; per-phase RESULT sections were
+inserted at execution time).
 
 ## Authority & goals (from Jon, 2026-06-10)
 
@@ -414,13 +472,34 @@ no measured compile or navigability win.
   flipped): `ambition_audio` crate extracted — see B1 RESULT above. Sweep green:
   lib 1265 (6 director tests moved into the crate), replay bit-identical, arch 19,
   content 71, audio-crate 6.
+- 03:12 — `c8ae261e`+`6cb983da` guard ratchets: the machinery-content-free guard now
+  covers ALL 34 machinery dirs with zero allowlist (the A1 exceptions were already
+  clean); needle audit found + fixed my own A3 sed having de-toothed four
+  lib-scanning guards (`crate::…` needles restored).
+- 03:20 — `b7d09351`+`516d76d3` archetype-hub dissolution slices: per-frame loops
+  read an `EnemyTuning` snapshot on EnemyConfig; death-drop weapon + respawn policy
+  became CombatCapabilities data (EnemyRespawnPolicy enum moved to the kit). The
+  typed-damage death path now reads ONLY spawn-snapshotted data.
+- 03:27 — `beaaa04f` boss_clusters joins the kit; its two named residues inverted
+  (GNU-ton bark anchor → authored BarkAnchorSpec profile data; gnu_ton/mockingbird
+  predicates left the generic views). C2-gravity TRIAGED: already effectively done —
+  the gravity field/zones/collect live in ambition_platformer_runtime since Stage N;
+  the sandbox keeps only plugin+presentation (354 LOC, thin-crate to extract).
 
-## Estimated vs actual (fill at end of run)
+## Estimated vs actual (run of 2026-06-10, ~9h mission)
 
 | Phase | Est. | Actual | Notes |
 |-------|------|--------|-------|
-| A1 machinery content-free + unify | 3h | | |
-| A2 ecs trisection | 4h | | |
-| A3 bisection crates | 4h | | |
-| C1 compile-time pass | 2h | | |
-| Overflow (B1/C4) | — | | |
+| A1 machinery content-free + unify | 3h | **~1.0h** | The coupling map from the planning exploration made it near-mechanical; the `crate::features` alias discovery re-scoped A1/A2 but didn't slow it |
+| A2 ecs trisection | 4h | **~1.4h total** (0.5h lean kit + stretch/knots spread over the night) | Lean kit (19 files) in one pass; the EnemyArchetype hub forced the "capability/tuning data" approach instead of moving the actor core — knots done as RON data |
+| A3 bisection crates | 4h | **~1.6h** | Placeholder-sed path rewriting + the slim lib-side `app` vocabulary module made it far cheaper than feared; replay was bit-identical on the FIRST run after the split |
+| C1 compile-time pass | 2h | **~0.7h** | Mostly measurement — mold/profile.dev/Reflect were already clean; honest result: within-layer loops faster, cross-crate bin paths slower |
+| B1 ambition_audio | — | **~1.1h** | Initially triaged, reinstated once C1 landed early; 4 seam inversions |
+| Guard ratchets + needle audit | — | ~0.3h | Including fixing my own sed's de-toothing |
+| Docs/links/smells/handoff | — | ~0.7h | 45+ md files repointed |
+| **Total mission work** | 13h est | **~7h spent, ~2h under budget at wrap-up start** | 15 commits, every one gate-green |
+
+**Why so far under estimate:** the planning-session exploration (coupling maps,
+file classifications) converted almost all "surgery" into mechanical moves, and
+the facade/placeholder-sed/registry patterns amortized across phases. The
+estimates assumed discovery-during-execution; tonight discovery was prepaid.

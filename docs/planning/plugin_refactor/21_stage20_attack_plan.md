@@ -5,6 +5,10 @@ The chain landed in full plus both overflow verdicts. See **Morning handoff**
 below for the TL;DR, the C1 RESULTS table for the honest compile-time numbers,
 and the Progress Log for the blow-by-blow.
 
+> **Follow-on (2026-06-10, Opus):** post-bisection sandbox-shrink work continues in
+> `22_monolith_breaker_survey.md` — menu host stack + dev overlays moved up to
+> `ambition_app`, with a measured difficulty ranking for every remaining module.
+
 ## Morning handoff (read this first)
 
 **What the repo looks like now — the bisection is real:**

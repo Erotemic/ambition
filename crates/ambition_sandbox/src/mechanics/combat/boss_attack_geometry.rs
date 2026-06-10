@@ -29,7 +29,7 @@ use bevy::prelude::Component;
 use crate::brain::{BossAttackProfile, BossAttackState};
 use crate::presentation::character_sprites::registry::{AnimationBox, BodyMetrics, PixelRect};
 
-use super::bosses::BossBehaviorProfile;
+use crate::boss_encounter::behavior::BossBehaviorProfile;
 
 // =================================================================
 // Sprite-metadata-driven body AABB derivation
@@ -184,7 +184,7 @@ pub struct BossVolumeContext<'a> {
     /// RON carries `body_metrics` and the derivation system has
     /// snapshotted it. `damageable_volumes` prefers multi-rect
     /// hurtboxes from here over the legacy single-AABB fallback.
-    pub sprite_metrics: Option<&'a super::bosses::BossSpriteMetrics>,
+    pub sprite_metrics: Option<&'a crate::boss_encounter::behavior::BossSpriteMetrics>,
     /// Optional frame sample from the live boss sprite animator.
     /// When present and its profile matches the requested attack,
     /// sprite-authored hit/hurt boxes use this exact frame index
@@ -224,10 +224,7 @@ impl<'a> BossVolumeContext<'a> {
     /// policy. `is_gnu_ton` used to be carried separately for the
     /// hand-tuned volume path; the data-driven sprite_metrics path
     /// makes that special-case unnecessary.
-    pub fn from_ref(
-        boss: super::ecs::boss_clusters::BossRef<'a>,
-        attack_state: &'a BossAttackState,
-    ) -> Self {
+    pub fn from_ref(boss: crate::features::BossRef<'a>, attack_state: &'a BossAttackState) -> Self {
         Self {
             pos: boss.kin.pos,
             size: boss.kin.size,
@@ -303,7 +300,7 @@ fn sprite_authored_volumes(
     // (collision_scale > 1.0 in every sheet spec). Using ctx.size
     // would render hitboxes at half the visible size of the attack.
     let world_size = sprite_world_size(metrics, ctx.size);
-    for animation in super::bosses::boss_animation_keys_for_profile(profile) {
+    for animation in crate::boss_encounter::behavior::boss_animation_keys_for_profile(profile) {
         let Some(entry) = metrics.animations.get(*animation) else {
             continue;
         };
@@ -336,7 +333,10 @@ fn sprite_authored_volumes(
 /// `collision_scale`). Fall back to `ctx.size` when the snapshot
 /// didn't capture one — test fixtures that build `BossSpriteMetrics`
 /// by hand can leave `sprite_render_size = Vec2::ZERO` to opt out.
-fn sprite_world_size(metrics: &super::bosses::BossSpriteMetrics, fallback: ae::Vec2) -> ae::Vec2 {
+fn sprite_world_size(
+    metrics: &crate::boss_encounter::behavior::BossSpriteMetrics,
+    fallback: ae::Vec2,
+) -> ae::Vec2 {
     if metrics.sprite_render_size.x > 0.0 && metrics.sprite_render_size.y > 0.0 {
         metrics.sprite_render_size
     } else {
@@ -407,7 +407,7 @@ fn runtime_animation_keys<'a>(
         }
     }
     let mapped_keys = active_profile
-        .map(super::bosses::boss_animation_keys_for_profile)
+        .map(crate::boss_encounter::behavior::boss_animation_keys_for_profile)
         .unwrap_or(rest_keys);
     for key in mapped_keys {
         push_unique_animation_key(&mut keys, key);
@@ -589,9 +589,9 @@ pub fn boss_attack_damage(
     player_entity: bevy::prelude::Entity,
     player_body: ae::Aabb,
 ) -> Option<crate::features::HitEvent> {
+    use super::events::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
     use super::util::midpoint;
     use crate::engine_core::AabbExt;
-    use crate::features::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
 
     let signum_or = |x: f32, fallback: f32| {
         if x.abs() < f32::EPSILON {
@@ -976,8 +976,8 @@ mod sprite_metadata_derivation_tests {
     /// `body_pixel_bbox` (~106 wide).
     #[test]
     fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
+        use crate::boss_encounter::behavior::{BossBehaviorProfile, BossSpriteMetrics};
         use crate::brain::{BossAttackProfile, BossAttackState};
-        use crate::features::bosses::{BossBehaviorProfile, BossSpriteMetrics};
         use crate::presentation::character_sprites::registry::{
             AnimationBox, AnimationMetrics, PixelRect,
         };
@@ -1063,8 +1063,8 @@ mod sprite_metadata_derivation_tests {
     /// but the hurtbox would scale by `boss.size` only.
     #[test]
     fn damageable_volumes_samples_per_frame_hurtbox_from_animation_elapsed() {
+        use crate::boss_encounter::behavior::{BossBehaviorProfile, BossSpriteMetrics};
         use crate::brain::{BossAttackProfile, BossAttackState};
-        use crate::features::bosses::{BossBehaviorProfile, BossSpriteMetrics};
         use crate::presentation::character_sprites::registry::{
             AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
         };
@@ -1148,8 +1148,8 @@ mod sprite_metadata_derivation_tests {
 
     #[test]
     fn animation_frame_sample_overrides_elapsed_frame_for_authored_boxes() {
+        use crate::boss_encounter::behavior::{BossBehaviorProfile, BossSpriteMetrics};
         use crate::brain::{BossAttackProfile, BossAttackState};
-        use crate::features::bosses::{BossBehaviorProfile, BossSpriteMetrics};
         use crate::presentation::character_sprites::registry::{
             AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
         };
@@ -1235,8 +1235,8 @@ mod sprite_metadata_derivation_tests {
         // animation at elapsed 0 → frame 0 forever, even as the
         // rendered breathing pose bobbed. An idle `BossAnimationFrameSample`
         // (`profile: None`) now feeds the live frame index through.
+        use crate::boss_encounter::behavior::{BossBehaviorProfile, BossSpriteMetrics};
         use crate::brain::BossAttackState;
-        use crate::features::bosses::{BossBehaviorProfile, BossSpriteMetrics};
         use crate::presentation::character_sprites::registry::{
             AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
         };
@@ -1328,8 +1328,8 @@ mod sprite_metadata_derivation_tests {
 
     #[test]
     fn gnu_head_descent_accepts_visual_row_alias_for_runtime_boxes() {
+        use crate::boss_encounter::behavior::{BossBehaviorProfile, BossSpriteMetrics};
         use crate::brain::{BossAttackProfile, BossAttackState};
-        use crate::features::bosses::{BossBehaviorProfile, BossSpriteMetrics};
         use crate::presentation::character_sprites::registry::{
             AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
         };
@@ -1437,9 +1437,9 @@ mod sprite_metadata_derivation_tests {
 
     #[test]
     fn damageable_volumes_scales_to_sprite_render_size() {
+        use crate::boss_encounter::behavior::{BossBehaviorProfile, BossSpriteMetrics};
         use crate::brain::BossAttackState;
         use crate::engine_core::AabbExt;
-        use crate::features::bosses::{BossBehaviorProfile, BossSpriteMetrics};
         use crate::presentation::character_sprites::registry::PixelRect;
         use std::collections::HashMap;
 

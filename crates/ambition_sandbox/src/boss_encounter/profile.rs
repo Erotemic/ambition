@@ -21,11 +21,12 @@ pub struct BossProfile {
     pub reward: BossRewardProfile,
 }
 
+use super::behavior;
 /// `BossRewardProfile` is authored in `boss_profiles.ron` and parsed
 /// into `BossBehaviorProfile::reward`. Re-exported from its definition
 /// site (`content::features::bosses`) so existing
 /// `crate::boss_encounter::BossRewardProfile` call sites keep compiling.
-pub use crate::features::BossRewardProfile;
+pub use behavior::BossRewardProfile;
 
 impl BossProfile {
     /// Assemble a boss profile from its canonical id by combining the

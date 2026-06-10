@@ -42,7 +42,9 @@ const ENEMY_ATTACK_COOLDOWN: f32 = 1.05;
 // kit (`crate::mechanics::combat`) with their consumers.
 
 pub mod banter;
-mod boss_attack_geometry;
+// `boss_attack_geometry` (generic telegraph/strike/hurtbox geometry over
+// BossBehaviorProfile + BossSpriteMetrics) moved to the combat kit.
+pub use crate::mechanics::combat::boss_attack_geometry;
 mod bosses;
 mod ecs;
 mod enemies;

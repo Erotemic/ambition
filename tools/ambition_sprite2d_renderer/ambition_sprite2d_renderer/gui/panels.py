@@ -232,6 +232,7 @@ class PartsPanel(QWidget):
             ("Add", self._add_part),
             ("Dup", self._dup_part),
             ("Del", self._del_part),
+            ("$VISUAL", self._edit_in_visual),
         ):
             b = QPushButton(label)
             b.clicked.connect(fn)
@@ -504,6 +505,32 @@ class PartsPanel(QWidget):
         self.state.push_undo()
         self.state.doc.parts.pop(i)
         self.state.selected_part = None
+        self.state.mark_changed()
+
+    def _edit_in_visual(self) -> None:
+        """Open the selected part's JSON in $VISUAL and reload on exit."""
+        import json
+
+        from .external import edit_text_in_visual, visual_command
+
+        p = self._part()
+        if p is None:
+            return
+        if visual_command() is None:
+            QMessageBox.warning(self, "$VISUAL", "Set $VISUAL (or $EDITOR) to use this.")
+            return
+        edited = edit_text_in_visual(json.dumps(p, indent=1))
+        if edited is None:
+            return
+        try:
+            new_part = json.loads(edited)
+            if not isinstance(new_part, dict):
+                raise ValueError("part must be a JSON object")
+        except Exception as ex:  # noqa: BLE001
+            QMessageBox.critical(self, "$VISUAL", f"Edited JSON is invalid:\n{ex}")
+            return
+        self.state.push_undo()
+        self.state.doc.parts[self.state.selected_part] = new_part
         self.state.mark_changed()
 
 

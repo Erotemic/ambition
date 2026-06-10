@@ -78,6 +78,7 @@ class MainWindow(QMainWindow):
         self._action(filem, "Save As…", "Ctrl+Shift+S", self.save_as)
         filem.addSeparator()
         self._action(filem, "Export spritesheet + GIFs…", "Ctrl+E", self.export_bundle)
+        self._action(filem, "Export as Python target…", None, self.export_python)
         filem.addSeparator()
         self._action(filem, "Quit", "Ctrl+Q", self.close)
 
@@ -85,6 +86,8 @@ class MainWindow(QMainWindow):
         self._action(editm, "Undo", QKeySequence.StandardKey.Undo, self._undo)
         self._action(editm, "Redo", QKeySequence.StandardKey.Redo, self._redo)
         self._action(editm, "Rename character…", None, self.rename_character)
+        self._action(editm, "Frame settings…", None, self.frame_settings)
+        self._action(editm, "Edit document JSON in $VISUAL", "Ctrl+J", self.edit_doc_in_visual)
 
         viewm = bar.addMenu("&View")
         bones_act = self._action(viewm, "Bone overlay", "B", self._toggle_bones, checkable=True)
@@ -209,6 +212,113 @@ class MainWindow(QMainWindow):
             return
         app.restoreOverrideCursor()
         self.statusBar().showMessage(f"Exported {len(paths)} files to {out}", 8000)
+
+    def export_python(self) -> None:
+        """Generate a readable Python target module from the document."""
+        from ..rigdoc_codegen import doc_to_python
+
+        targets_dir = RIGGED_DIR.parent
+        suggested = str(targets_dir / f"{self.state.doc.name}.py")
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export Python target", suggested, "Python modules (*.py)"
+        )
+        if not path:
+            return
+        Path(path).write_text(doc_to_python(self.state.doc), encoding="utf8")
+        self.statusBar().showMessage(
+            f"Wrote {path} — it registers as a sheet target when saved under "
+            f"targets/characters/ (rename if a rigged/*.rig.json shares the name)",
+            10000,
+        )
+
+    def frame_settings(self) -> None:
+        """Edit canvas/output geometry, including render_scale (output
+        resolution multiplier — geometry stays authored in base units)."""
+        from PySide6.QtWidgets import (
+            QDialog,
+            QDialogButtonBox,
+            QDoubleSpinBox,
+            QFormLayout,
+            QSpinBox,
+        )
+
+        fr = self.state.doc.frame
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Frame settings")
+        form = QFormLayout(dlg)
+
+        def ispin(value, lo, hi):
+            s = QSpinBox()
+            s.setRange(lo, hi)
+            s.setValue(int(value))
+            return s
+
+        def dspin(value, lo, hi):
+            s = QDoubleSpinBox()
+            s.setRange(lo, hi)
+            s.setDecimals(2)
+            s.setValue(float(value))
+            return s
+
+        width = ispin(fr.get("width", 128), 16, 2048)
+        height = ispin(fr.get("height", 128), 16, 2048)
+        render_scale = ispin(fr.get("render_scale", 1), 1, 8)
+        supersample = ispin(fr.get("supersample", 4), 1, 8)
+        ground_y = dspin(fr.get("ground_y", 101.0), 0, 2048)
+        center_x = dspin(fr.get("center_x", 64.0), 0, 2048)
+        ankle_h = dspin(fr.get("ankle_h", 2.6), 0, 64)
+        form.addRow("width (authoring units)", width)
+        form.addRow("height (authoring units)", height)
+        form.addRow("render scale (output ×)", render_scale)
+        form.addRow("supersample (AA ×)", supersample)
+        form.addRow("ground y", ground_y)
+        form.addRow("center x", center_x)
+        form.addRow("ankle height", ankle_h)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(dlg.accept)
+        buttons.rejected.connect(dlg.reject)
+        form.addRow(buttons)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        self.state.push_undo()
+        fr.update(
+            width=width.value(),
+            height=height.value(),
+            render_scale=render_scale.value(),
+            supersample=supersample.value(),
+            ground_y=ground_y.value(),
+            center_x=center_x.value(),
+            ankle_h=ankle_h.value(),
+        )
+        self.state.mark_changed()
+        self.canvas.fit()
+
+    def edit_doc_in_visual(self) -> None:
+        import json
+
+        from .external import edit_text_in_visual, visual_command
+
+        if visual_command() is None:
+            QMessageBox.warning(self, "$VISUAL", "Set $VISUAL (or $EDITOR) to use this.")
+            return
+        self.statusBar().showMessage("Waiting for $VISUAL to exit…")
+        edited = edit_text_in_visual(json.dumps(self.state.doc.data, indent=1))
+        self.statusBar().clearMessage()
+        if edited is None:
+            return
+        try:
+            data = json.loads(edited)
+            if not isinstance(data, dict):
+                raise ValueError("document must be a JSON object")
+        except Exception as ex:  # noqa: BLE001
+            QMessageBox.critical(self, "$VISUAL", f"Edited JSON is invalid:\n{ex}")
+            return
+        self.state.push_undo()
+        self.state.doc.data = data
+        self.state._after_history_swap()  # revalidate clip/selection, emit signals
+        self.state.dirty = True
 
     # ---- edit ops -----------------------------------------------------------------
 

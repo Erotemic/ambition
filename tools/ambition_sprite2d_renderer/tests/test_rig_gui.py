@@ -136,6 +136,43 @@ class TestCanvas:
         key = min(spec["keys"], key=lambda k: abs(k[0] - t))
         assert key[1] == pytest.approx(-45.0, abs=8.0)
 
+    def test_ctrl_drag_moves_attachment_offset(self, window, qapp):
+        from PySide6.QtCore import QEvent, QPointF, Qt
+        from PySide6.QtGui import QMouseEvent
+
+        canvas = window.canvas
+        canvas.fit()
+        state = canvas.state
+        state.set_clip("idle")
+        state.set_frame(0)
+        world, _ = state.doc.solve("idle", state.t())
+        origin = canvas.frame_to_widget(world["near_arm_u"].origin)
+        before = list(state.doc.bone("near_arm_u")["offset"])
+
+        def mouse(etype, pos, mods):
+            return QMouseEvent(
+                etype, QPointF(pos), Qt.MouseButton.LeftButton,
+                Qt.MouseButton.LeftButton, mods,
+            )
+
+        ctrl = Qt.KeyboardModifier.ControlModifier
+        canvas.mousePressEvent(mouse(QEvent.Type.MouseButtonPress, origin, ctrl))
+        assert canvas._drag_mode == "offset"
+        target = QPointF(origin.x() + 2 * canvas.zoom, origin.y() - 3 * canvas.zoom)
+        canvas.mouseMoveEvent(mouse(QEvent.Type.MouseMove, target, ctrl))
+        canvas.mouseReleaseEvent(
+            mouse(QEvent.Type.MouseButtonRelease, target, Qt.KeyboardModifier.NoModifier)
+        )
+        after = state.doc.bone("near_arm_u")["offset"]
+        # Torso is near-upright at idle t=0, so a +2/-3 frame-space drag
+        # lands close to +2/-3 in parent-local offset units.
+        assert after[0] - before[0] == pytest.approx(2.0, abs=0.6)
+        assert after[1] - before[1] == pytest.approx(-3.0, abs=0.6)
+        # And the solved origin now sits where the cursor dropped it.
+        world2, _ = state.doc.solve("idle", state.t())
+        moved = canvas.frame_to_widget(world2["near_arm_u"].origin)
+        assert abs(moved.x() - target.x()) < 2 and abs(moved.y() - target.y()) < 2
+
     def test_ik_leg_bones_refuse_rotation(self, window):
         canvas = window.canvas
         state = canvas.state

@@ -305,98 +305,32 @@ class RigDocument:
 
     # ---- Painting -----------------------------------------------------------
 
-    def _paint_part(
+    def render_at(
         self,
-        img: Image.Image,
-        draw: ImageDraw.ImageDraw,
-        part: dict,
-        world: Dict[str, BoneWorld],
-        S: float,
-        params: Dict[str, float],
-    ) -> None:
-        bone_name = part.get("bone")
-        if bone_name not in world:
-            return
-        opacity = 1.0
-        oc = part.get("opacity_channel")
-        if oc:
-            # Default 0: a part bound to an opacity channel is HIDDEN in
-            # clips that don't drive that channel (a blade only shows in
-            # clips that animate slash_vis).
-            opacity = clamp(params.get(oc, 0.0), 0.0, 1.0)
-            if opacity <= 0.01:
-                return
-        pal = self.palette
-        fill = parse_color(part.get("fill", "#FFFFFF"), pal, opacity)
-        outline = parse_color(part.get("outline"), pal, opacity)
-        ow = float(part.get("outline_w", 0.0)) * S
-        translucent = (fill is not None and fill[3] < 255) or (
-            outline is not None and outline[3] < 255
-        )
-        if translucent:
-            # gnu_ton rule: translucent shapes composite via a scratch layer;
-            # drawing them directly would replace destination alpha.
-            target = Image.new("RGBA", img.size, (0, 0, 0, 0))
-            tdraw = ImageDraw.Draw(target)
-        else:
-            target, tdraw = img, draw
-        bw = world[bone_name]
-        kind = part.get("kind", "polygon")
-        if kind == "polygon":
-            pts = [
-                (p[0] * S, p[1] * S)
-                for p in (bw.to_world(tuple(q)) for q in part.get("points", []))
-            ]
-            if len(pts) >= 3:
-                radius = float(part.get("radius", 0.0)) * S
-                poly = rounded_polygon(pts, radius) if radius > 0 else pts
-                draw_polygon(tdraw, poly, fill, outline, ow)
-        elif kind == "capsule":
-            a_local = tuple(part.get("a", (0.0, 0.0)))
-            b_local = part.get("b")
-            if b_local is None:
-                b_local = (bw.length, 0.0)
-            a = bw.to_world(a_local)
-            b = bw.to_world(tuple(b_local))
-            r = float(part.get("radius", 2.0)) * S
-            draw_capsule(
-                tdraw,
-                (a[0] * S, a[1] * S),
-                (b[0] * S, b[1] * S),
-                r,
-                fill,
-                outline if outline is not None else fill,
-                ow * 0.5,
-            )
-        elif kind == "circle":
-            # Optional "ry" turns the circle into an axis-aligned (in bone
-            # space: still rotates with the bone via the 4-point bbox trick
-            # being unnecessary — we draw in world axes, fine for eyes).
-            c = bw.to_world(tuple(part.get("center", (0.0, 0.0))))
-            rx = float(part.get("radius", 2.0)) * S
-            ry = float(part.get("ry", part.get("radius", 2.0))) * S
-            box = (c[0] * S - rx, c[1] * S - ry, c[0] * S + rx, c[1] * S + ry)
-            if outline is not None and ow > 0:
-                tdraw.ellipse(box, fill=fill, outline=outline, width=max(1, int(ow)))
-            else:
-                tdraw.ellipse(box, fill=fill)
-        if translucent:
-            img.alpha_composite(target)
-
-    def render_at(self, clip_name: str, t: float, supersample: Optional[int] = None) -> Image.Image:
+        clip_name: str,
+        t: float,
+        supersample: Optional[int] = None,
+        scale: Optional[int] = None,
+    ) -> Image.Image:
         """Render one frame at normalized time ``t`` (continuous — the GUI
-        scrubs with this); returns a base-size RGBA image."""
+        scrubs with this). Output size is ``(width*scale, height*scale)``;
+        ``scale`` defaults to the document's ``frame.render_scale`` (1), so
+        a doc can publish at 2x/4x resolution while geometry stays authored
+        in base-frame units."""
         fr = self.frame
         w, h = int(fr["width"]), int(fr["height"])
-        ss = int(supersample or fr.get("supersample", 4))
-        img = Image.new("RGBA", (w * ss, h * ss), (0, 0, 0, 0))
+        rs = int(scale if scale is not None else fr.get("render_scale", 1))
+        rs = max(1, rs)
+        ss = max(1, int(supersample if supersample is not None else fr.get("supersample", 4)))
+        S = float(rs * ss)
+        img = Image.new("RGBA", (int(w * S), int(h * S)), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
         world, params = self.solve(clip_name, t)
         for part in sorted(self.parts, key=lambda p: float(p.get("z", 0.0))):
-            self._paint_part(img, draw, part, world, float(ss), params)
+            paint_part(img, draw, part, world, S, params, self.palette)
         if ss == 1:
             return img
-        return img.resize((w, h), Image.Resampling.LANCZOS)
+        return img.resize((w * rs, h * rs), Image.Resampling.LANCZOS)
 
     def frame_time(self, clip_name: str, frame_idx: int, nframes: Optional[int] = None) -> float:
         """Normalized time for a frame index under the loop conventions:
@@ -411,6 +345,87 @@ class RigDocument:
         return self.render_at(clip_name, self.frame_time(clip_name, frame_idx, nframes))
 
 
+# ---- Part painting -----------------------------------------------------------
+# Module-level so generated Python targets (rigdoc_codegen) can paint the
+# same part vocabulary without carrying a RigDocument around.
+
+
+def paint_part(
+    img: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    part: dict,
+    world: Dict[str, BoneWorld],
+    S: float,
+    params: Dict[str, float],
+    palette: Dict[str, str],
+) -> None:
+    bone_name = part.get("bone")
+    if bone_name not in world:
+        return
+    opacity = 1.0
+    oc = part.get("opacity_channel")
+    if oc:
+        # Default 0: a part bound to an opacity channel is HIDDEN in clips
+        # that don't drive that channel (a blade only shows in clips that
+        # animate slash_vis).
+        opacity = clamp(params.get(oc, 0.0), 0.0, 1.0)
+        if opacity <= 0.01:
+            return
+    fill = parse_color(part.get("fill", "#FFFFFF"), palette, opacity)
+    outline = parse_color(part.get("outline"), palette, opacity)
+    ow = float(part.get("outline_w", 0.0)) * S
+    translucent = (fill is not None and fill[3] < 255) or (
+        outline is not None and outline[3] < 255
+    )
+    if translucent:
+        # gnu_ton rule: translucent shapes composite via a scratch layer;
+        # drawing them directly would replace destination alpha.
+        target = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        tdraw = ImageDraw.Draw(target)
+    else:
+        target, tdraw = img, draw
+    bw = world[bone_name]
+    kind = part.get("kind", "polygon")
+    if kind == "polygon":
+        pts = [
+            (p[0] * S, p[1] * S)
+            for p in (bw.to_world(tuple(q)) for q in part.get("points", []))
+        ]
+        if len(pts) >= 3:
+            radius = float(part.get("radius", 0.0)) * S
+            poly = rounded_polygon(pts, radius) if radius > 0 else pts
+            draw_polygon(tdraw, poly, fill, outline, ow)
+    elif kind == "capsule":
+        a_local = tuple(part.get("a", (0.0, 0.0)))
+        b_local = part.get("b")
+        if b_local is None:
+            b_local = (bw.length, 0.0)
+        a = bw.to_world(a_local)
+        b = bw.to_world(tuple(b_local))
+        r = float(part.get("radius", 2.0)) * S
+        draw_capsule(
+            tdraw,
+            (a[0] * S, a[1] * S),
+            (b[0] * S, b[1] * S),
+            r,
+            fill,
+            outline if outline is not None else fill,
+            ow * 0.5,
+        )
+    elif kind == "circle":
+        # Optional "ry" stretches the circle into an ellipse (eyes).
+        c = bw.to_world(tuple(part.get("center", (0.0, 0.0))))
+        rx = float(part.get("radius", 2.0)) * S
+        ry = float(part.get("ry", part.get("radius", 2.0))) * S
+        box = (c[0] * S - rx, c[1] * S - ry, c[0] * S + rx, c[1] * S + ry)
+        if outline is not None and ow > 0:
+            tdraw.ellipse(box, fill=fill, outline=outline, width=max(1, int(ow)))
+        else:
+            tdraw.ellipse(box, fill=fill)
+    if translucent:
+        img.alpha_composite(target)
+
+
 # ---- Sheet / GIF export ----------------------------------------------------
 
 
@@ -420,12 +435,13 @@ def render_sheet_for_doc(doc: RigDocument, out_dir: Path) -> List[Path]:
     from .tackon_sheet import build_sheet
 
     fr = doc.frame
+    rs = max(1, int(fr.get("render_scale", 1)))
     outputs = build_sheet(
         target=doc.name,
         rows=doc.rows(),
         render_fn=doc.render_frame,
         out_dir=Path(out_dir),
-        frame_size=(int(fr["width"]), int(fr["height"])),
+        frame_size=(int(fr["width"]) * rs, int(fr["height"]) * rs),
     )
     keys = ("spritesheet", "yaml", "ron", "actor", "canonical", "canonical_transparent", "preview")
     return [Path(outputs[k]) for k in keys if outputs.get(k)]

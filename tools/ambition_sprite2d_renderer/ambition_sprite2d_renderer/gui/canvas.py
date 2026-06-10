@@ -5,6 +5,8 @@ Interactions:
 - wheel: zoom (about the cursor); middle-drag (or space-drag): pan
 - left-click near a joint: select that bone
 - drag a selected FK bone: rotate it — writes a key at the current frame
+- Ctrl+drag any joint: move the bone's ATTACHMENT OFFSET (rig structure,
+  not animation — edits ``bone.offset`` in parent-local space)
 - drag an IK foot: move its ankle target — writes ``<prefix>_x`` /
   ``<prefix>_lift`` keys (planted feet are world-anchored, so the drag is
   in world space)
@@ -190,6 +192,13 @@ class CanvasWidget(QWidget):
         if hit is None:
             self._drag_mode = None
             return
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            # Structural edit: move the bone's attachment offset.
+            self._drag_mode = "offset"
+            self._drag_bone = hit
+            self.state.push_undo()
+            self.statusMessage.emit(f"moving {hit} attachment (Ctrl+drag)")
+            return
         leg = self.state.doc.foot_leg_for_bone(hit)
         if leg is not None:
             if hit == leg.get("foot"):
@@ -213,9 +222,12 @@ class CanvasWidget(QWidget):
             self.pan += QPointF(delta.x(), delta.y())
             self.update()
             return
-        if self._drag_mode not in ("rotate", "foot") or self._drag_bone is None:
+        if self._drag_mode not in ("rotate", "foot", "offset") or self._drag_bone is None:
             return
         fp = self.widget_to_frame(event.position())
+        if self._drag_mode == "offset":
+            self._drag_offset_to(fp)
+            return
         if self._drag_mode == "foot":
             leg = self.state.doc.foot_leg_for_bone(self._drag_bone)
             if leg is None:
@@ -241,6 +253,33 @@ class CanvasWidget(QWidget):
         # Normalize the written pose into (-180, 180] so keys stay sane.
         pose = (pose + 180.0) % 360.0 - 180.0
         self.state.write_key(self._drag_bone, round(pose, 1))
+
+    def _drag_offset_to(self, fp: Point) -> None:
+        """Move the dragged bone's attachment so its origin lands at frame
+        point ``fp``: new offset = R(-parent_world_angle) · (fp - parent_origin)."""
+        bone = self.state.doc.bone(self._drag_bone)
+        if bone is None:
+            return
+        try:
+            world, _ = self.state.doc.solve(self.state.clip_name, self.state.t())
+        except Exception:  # noqa: BLE001
+            return
+        bw = world.get(self._drag_bone)
+        if bw is None:
+            return
+        parent = bone.get("parent")
+        if parent and parent in world:
+            po, pa = world[parent].origin, world[parent].angle
+        else:
+            # Root bone: parent frame is the root point at angle 0; recover
+            # it from the bone's current origin minus its current offset.
+            off = bone.get("offset", [0.0, 0.0])
+            po, pa = (bw.origin[0] - off[0], bw.origin[1] - off[1]), 0.0
+        rel = (fp[0] - po[0], fp[1] - po[1])
+        a = math.radians(-pa)
+        c, s = math.cos(a), math.sin(a)
+        bone["offset"] = [round(rel[0] * c - rel[1] * s, 2), round(rel[0] * s + rel[1] * c, 2)]
+        self.state.mark_changed()
 
     def mouseReleaseEvent(self, event) -> None:
         self._drag_mode = None

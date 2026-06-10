@@ -42,6 +42,7 @@ use bevy_material_ui::MaterialUiPlugin;
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::{ActionState, InputManagerPlugin, InputMap};
 
+use crate::dev::debug_overlay;
 use crate::host::windowing;
 use ambition_content::content_validation;
 use ambition_sandbox::assets::game_assets::{self, GameAssetConfig};
@@ -54,7 +55,6 @@ use ambition_sandbox::audio::{
     DefaultMusicStarted, MusicChannel, SfxChannel,
 };
 use ambition_sandbox::config::{WINDOW_H, WINDOW_W};
-use ambition_sandbox::dev::debug_overlay;
 use ambition_sandbox::dev::dev_tools::{
     self, DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
     MovementProfile, PlayerBodyProfile,

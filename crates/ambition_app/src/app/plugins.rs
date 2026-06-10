@@ -622,7 +622,7 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     app.add_plugins(ambition_sandbox::falling_sand::FallingSandRoomPlugin);
     // Lightweight FPS / frame-time overlay. ON by default on wasm,
     // OFF on desktop; F3 toggles. See `ambition_sandbox::fps_overlay`.
-    app.add_plugins(ambition_sandbox::dev::fps_overlay::FpsOverlayPlugin);
+    app.add_plugins(crate::dev::fps_overlay::FpsOverlayPlugin);
     // Frame pacing / battery saver. Enabled by the normal visible personas so
     // desktop and Android exercise the same pacing behavior by default.
     #[cfg(feature = "frame_pacing")]

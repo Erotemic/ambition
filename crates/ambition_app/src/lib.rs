@@ -10,6 +10,7 @@
 //! `rl_random_walker` / `rl_smoke` / `trace_replay` drivers (rl_sim feature).
 
 pub mod app;
+pub mod dev;
 pub mod headless;
 pub mod host;
 pub mod menu;

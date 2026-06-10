@@ -1468,3 +1468,30 @@ fn architecture_boundaries_lib_menu_keeps_only_the_coupled_pieces() {
         );
     }
 }
+
+#[test]
+fn architecture_boundaries_dev_overlays_live_in_app() {
+    // Stage 20 devtools split: the F1 debug overlay + F3 FPS counter are
+    // pure presentation with no lib consumer, so they live in
+    // `ambition_app::dev`. The machinery lib keeps the dev STATE
+    // (dev_tools), the gameplay `trace` recorder (sim writes it), and
+    // `profiling` (audio reads phase_mark) — those are genuinely
+    // lib-coupled and must NOT be assumed movable.
+    let lib_dev = crate_src().join("dev");
+    for moved in ["debug_overlay.rs", "fps_overlay.rs"] {
+        assert!(
+            !lib_dev.join(moved).exists(),
+            "{moved} moved to ambition_app::dev; it must not be in the machinery lib"
+        );
+    }
+    for stays in ["dev_tools.rs", "profiling.rs", "trace.rs"] {
+        assert!(
+            lib_dev.join(stays).exists(),
+            "lib dev must keep {stays} (lib-coupled: persistence/sim/audio read it)"
+        );
+    }
+    let app_dev = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/dev");
+    for f in ["debug_overlay.rs", "fps_overlay.rs"] {
+        assert!(app_dev.join(f).exists(), "ambition_app::dev should own {f}");
+    }
+}

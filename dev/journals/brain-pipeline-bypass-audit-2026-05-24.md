@@ -28,7 +28,7 @@ brain run (commits `c41997b`, `32c37e3`, `506b06c`, etc.).
 
 ### Player bypass — `sandbox_update` / `update_player_*`
 
-**File:** `crates/ambition_sandbox/src/app/phases.rs`
+**File:** `crates/ambition_app/src/app/phases.rs`
 
 - `player_control_phase` (line ~63) calls
   `ae::update_player_control_with_tuning(&control_world, player, input, ...)`
@@ -53,7 +53,7 @@ Daytime continuation #3 in [`TODO-controllable-entity.md`](../../TODO-controllab
 
 ### Enemy bypass — `EnemyRuntime::update`
 
-**File:** `crates/ambition_sandbox/src/content/features/enemies.rs`
+**File:** `crates/ambition_sandbox/src/features/enemies.rs`
 
 - `EnemyRuntime::update` (line ~891) is a 600+-line tick that bakes
   AI + choreography + projectile spawn into a single method. The
@@ -83,8 +83,8 @@ QA, exercises projectile spawn + recoil.
 ### Boss bypass — `BossRuntime` + bespoke pattern state-machine
 
 **Files:**
-- `crates/ambition_sandbox/src/content/features/bosses.rs`
-- `crates/ambition_sandbox/src/content/features/ecs/bosses.rs`
+- `crates/ambition_sandbox/src/features/bosses.rs`
+- `crates/ambition_sandbox/src/features/ecs/bosses.rs`
 
 Boss attack patterns drive themselves through `BossBehaviorProfile`
 + per-boss runtime state (e.g. `apple_rain`, `spike_halo`, head-

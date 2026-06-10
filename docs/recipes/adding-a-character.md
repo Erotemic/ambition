@@ -74,7 +74,7 @@ for the full brain-extension recipe. The short version:
 1. Add a variant to `StateMachineCfg` in `crates/ambition_sandbox/src/brain/state_machine.rs`.
 2. Add a `tick_<your_brain>` function and dispatch on the enum.
 3. Add a `BrainPreset::<YourBrain>` mirror to
-   `crates/ambition_sandbox/src/content/character_catalog/entry.rs`.
+   `crates/ambition_content/src/character_catalog/entry.rs`.
 4. Extend `brain_from_preset` in `resolver.rs` to construct your
    variant from the preset.
 5. Register a preset in `character_catalog.ron` (`brain_presets:

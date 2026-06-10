@@ -15,7 +15,7 @@ seams:
   device-agnostic semantic menu input resource.
 - `crates/ambition_sandbox/src/ui_nav/` contains shared list, pointer, and drag
   helpers.
-- `crates/ambition_sandbox/src/host/mobile_input/menu_bridge.rs` folds touch,
+- `crates/ambition_app/src/host/mobile_input/menu_bridge.rs` folds touch,
   joystick, mouse-drag testing, and on-screen buttons into the menu frame.
 - Pause menu, adventure menu, map menu, and dialog are already mostly routed
   through semantic menu intent rather than raw device events.

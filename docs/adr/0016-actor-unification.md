@@ -29,7 +29,7 @@ Earlier patch notes separated interactions, hazards, enemies, bosses, labels, an
 ## Faction vocabulary (2026-05-20 update)
 
 The shared actor-faction tag landed as the `ActorFaction` component
-in `crates/ambition_sandbox/src/content/features/components.rs`:
+in `crates/ambition_sandbox/src/features/components.rs`:
 
 ```rust
 pub enum ActorFaction { Player, Enemy, Npc, Boss, Neutral }

@@ -8,8 +8,8 @@ Progression is the set of save-backed facts that change what the player can do o
 crates/ambition_sandbox/src/quest.rs
 crates/ambition_sandbox/src/cutscene.rs
 crates/ambition_sandbox/src/save.rs
-crates/ambition_sandbox/src/content/quest.rs
-crates/ambition_sandbox/src/content/features/
+crates/ambition_content/src/quest.rs
+crates/ambition_sandbox/src/features/
 crates/ambition_sandbox/src/persistence/save.rs
 crates/ambition_sandbox/src/dialog/
 crates/ambition_sandbox/src/intro/cutscene.rs
@@ -17,7 +17,7 @@ crates/ambition_sandbox/src/presentation/cutscene.rs
 crates/ambition_sandbox/src/encounter/
 ```
 
-The retired root files `crates/ambition_sandbox/src/content/quest.rs`, `src/cutscene.rs`, and `src/features.rs` should not be used in new docs. Compatibility re-exports may still exist at the crate root, but the owned code lives under the themed modules above.
+The retired root files `crates/ambition_content/src/quest.rs`, `src/cutscene.rs`, and `src/features.rs` should not be used in new docs. Compatibility re-exports may still exist at the crate root, but the owned code lives under the themed modules above.
 
 ## Current model
 

@@ -18,7 +18,7 @@ The sandbox crate is organized around themed modules:
 
 ```text
 crates/ambition_sandbox/src/app/          app setup, schedules, update phases
-crates/ambition_sandbox/src/content/      authored feature/content conversion
+crates/ambition_content/src/      authored feature/content conversion
 crates/ambition_sandbox/src/world/        LDtk world, room building, physics, platforms
 crates/ambition_sandbox/src/player/       player ECS components and systems
 crates/ambition_sandbox/src/input/        action/control-frame/menu input

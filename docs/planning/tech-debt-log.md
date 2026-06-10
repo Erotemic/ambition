@@ -164,7 +164,7 @@ to the bottom under "Closed" with the commit that fixed them.
 
 - **MED — Hostile NPC conversion is one-way; conversion path now
   tested but the race-with-other-mutators invariant isn't enforced**
-  - File: `crates/ambition_sandbox/src/content/features/world_overlay.rs:apply_save`
+  - File: `crates/ambition_sandbox/src/features/world_overlay.rs:apply_save`
   - When an NPC's hostile flag is set, `apply_save` removes the
     `NpcRuntime` and `spawn_enemy`s a striker with the same id. The
     `enemy_<id>_dead` save flag now suppresses the respawn loop
@@ -177,7 +177,7 @@ to the bottom under "Closed" with the commit that fixed them.
 - **MED — `EnemyRuntime` and `BossRuntime` attack-pattern timers
   still hand-rolled** (downgraded from HIGH 2026-05-21; brain shadow
   landed 2026-05-24)
-  - File: `crates/ambition_sandbox/src/content/features/`
+  - File: `crates/ambition_sandbox/src/features/`
   - Movement and collision are now unified through the
     `ActorControlFrame` brain→sim seam (commits `155171c`, `66c8b0b`),
     so the ad-hoc state machine that remains is just attack-pattern
@@ -244,9 +244,9 @@ to the bottom under "Closed" with the commit that fixed them.
 - **MED — `sandbox_update` is still a procedural orchestrator over
   named `*_phase` helpers**
   - File: `crates/ambition_sandbox/src/app/update.rs`,
-    `crates/ambition_sandbox/src/app/phases.rs`
+    `crates/ambition_app/src/app/phases.rs`
   - Promoted to real Bevy systems in
-    `crates/ambition_sandbox/src/app/sim_systems.rs` (and gated by
+    `crates/ambition_app/src/app/sim_systems.rs` (and gated by
     run-conditions where appropriate):
     - `input_timer_system` (was `input_timer_phase`),
     - `cleanup_timers_system` (was `cleanup_timers_phase`),
@@ -348,7 +348,7 @@ to the bottom under "Closed" with the commit that fixed them.
   toggle is unaffected during cutscenes.)*
 
 - **LOW — Quest log lines are inlined in the HUD format string**
-  - File: `crates/ambition_sandbox/src/app/hud.rs:update_hud`
+  - File: `crates/ambition_app/src/app/hud.rs:update_hud`
   - Real game wants a dedicated quest panel. Right now the lines
     just get appended to the debug HUD text.
 
@@ -396,7 +396,7 @@ to the bottom under "Closed" with the commit that fixed them.
 
 - **LOW — Superseded legacy enemy-update impl is dead code**
   _(found 2026-06-02, autonomous)_
-  - File: `crates/ambition_sandbox/src/content/features/enemies.rs:708`
+  - File: `crates/ambition_sandbox/src/features/enemies.rs:708`
   - `cargo build --lib` reports a whole impl block dead: `update`,
     `step_surface_walker`, `wall_ahead`, `snap_pos_to_surface`,
     `fall_until_landed`, `body_contact_damage` — "never used". The

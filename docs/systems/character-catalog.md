@@ -173,5 +173,5 @@ The module ships a tight set of pins:
   seam the catalog feeds into.
 - [`docs/recipes/extending-brains-and-action-sets.md`](../recipes/extending-brains-and-action-sets.md)
   — how to add a new brain *variant* (the Rust side).
-- `crates/ambition_sandbox/src/content/character_catalog/`
+- `crates/ambition_content/src/character_catalog/`
   — the live source.

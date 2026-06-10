@@ -148,7 +148,7 @@ heuristics that the rest of the system can't observe.
 
 When constructing hostile actor brains, do not hand-roll a parallel source of
 per-actor randomness. Use the shared variation helpers in
-`crates/ambition_sandbox/src/content/features/ecs/variation.rs`, and keep
+`crates/ambition_sandbox/src/mechanics/combat/variation.rs`, and keep
 mount/rider fan-out, dismount, encounter-spawn, and default enemy-brain paths
 on the same seeding policy. A new brain construction path should make its
 variation choice explicit in the same place it builds the `Brain` and
@@ -162,7 +162,7 @@ variation choice explicit in the same place it builds the `Brain` and
   wide generic ones; add knobs when use cases land". This ADR is
   the canonical jitter knob; future variation adds more knobs
   rather than baking variation into archetypes.
-- `crates/ambition_sandbox/src/content/features/ecs/variation.rs`
+- `crates/ambition_sandbox/src/mechanics/combat/variation.rs`
   — the canonical seed + jitter helpers.
-- `crates/ambition_sandbox/src/content/features/ecs/mount.rs::enforce_mount_rider_link`
+- `crates/ambition_sandbox/src/features/ecs/mount.rs::enforce_mount_rider_link`
   — dissolve path that applies the rule for dismounted riders.

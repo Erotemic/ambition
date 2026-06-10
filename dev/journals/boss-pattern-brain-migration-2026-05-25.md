@@ -99,7 +99,7 @@ holding across the actor/brain migration series.
   bosses bypass the generic dispatcher via the boss tick system,
   and a dispatch race would be a bug.
 
-* `crates/ambition_sandbox/src/content/features/bosses.rs`:
+* `crates/ambition_sandbox/src/features/bosses.rs`:
   vocabulary `pub use`-re-exported from `crate::brain::boss_pattern`.
   Deleted: `BossMovementProfile`/`BossPatternStep`/`BossPattern`/
   `BossAttackPattern`/`BossAttackProfile` definitions,
@@ -111,25 +111,25 @@ holding across the actor/brain migration series.
   `telegraph_profile` / `attack_timer` / `attack_windup_timer`
   survive as brain-written mirrors.
 
-* `crates/ambition_sandbox/src/content/features/ecs/bosses.rs`:
+* `crates/ambition_sandbox/src/features/ecs/bosses.rs`:
   rewritten. New `sync_boss_encounter_phase` + `tick_boss_brains_system`
   systems; `update_ecs_bosses` is integration-only and does not
   call `boss.update(...)` or overwrite `ActorControl`. The boss
   tick chain runs in `WorldPrep`: `sync_boss_encounter_phase` →
   `tick_boss_brains_system` → `update_ecs_bosses`.
 
-* `crates/ambition_sandbox/src/content/features/ecs/spawn.rs`:
+* `crates/ambition_sandbox/src/features/ecs/spawn.rs`:
   boss spawn populates the full `BossPatternCfg` (pattern,
   movement, spawn, combat_size, cycle timings, apple-rain dodge)
   from `BossBehaviorProfile` and attaches `BossAttackState::default()`.
   Bundle split into outer + inner tuple (Bevy 15-arity Bundle
   limit).
 
-* `crates/ambition_sandbox/src/content/features.rs`: re-exports
+* `crates/ambition_content/src/features.rs`: re-exports
   `sync_boss_encounter_phase` + `tick_boss_brains_system`;
   `WorldPrepSchedulePlugin` chains them in.
 
-* `crates/ambition_sandbox/src/content/character_catalog/resolver.rs`:
+* `crates/ambition_content/src/character_catalog/resolver.rs`:
   catalog-preview `BossPattern` brain construction uses
   `BossPatternCfg::neutral_test()` as a baseline (real spawn-time
   bosses build their full cfg in `spawn.rs`).

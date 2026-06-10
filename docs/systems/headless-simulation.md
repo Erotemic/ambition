@@ -135,7 +135,7 @@ configurable seed parameter.
 
 ### Bug record / replay
 
-`crates/ambition_sandbox/src/bin/trace_replay.rs` reads a
+`crates/ambition_app/src/bin/trace_replay.rs` reads a
 `GameplayTraceBuffer` JSON dump and drives a fresh `SandboxSim` with
 the recorded `ControlFrame` sequence at fixed-60Hz timestep. It prints
 max-divergence + first-divergence frame between the live sim and the

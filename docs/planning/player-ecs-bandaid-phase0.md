@@ -54,11 +54,11 @@ breaks predate the branch and MUST NOT be used as a regression gate:
   `self_air_jumps_remaining` in `smash::observation::ObservationFrame`.
 - `crates/ambition_sandbox/src/brain/smash/emit.rs:108` — same field.
 - `crates/ambition_sandbox/src/brain/smash/mode.rs:116` — same field.
-- `crates/ambition_sandbox/src/content/features/enemies.rs:849` —
+- `crates/ambition_sandbox/src/features/enemies.rs:849` —
   `enemy.update(...)` takes 7 arguments, 6 supplied (the
   `Option<ActorControlFrame>` override slot is missing in five test call
   sites at `conversion_tests.rs:411 / 457 / 600 / 663 / 710`).
-- `crates/ambition_sandbox/src/content/features/boss_attack_geometry.rs:920`
+- `crates/ambition_sandbox/src/features/boss_attack_geometry.rs:920`
   — lifetime escape in a `BossSpriteMetrics`-borrowing closure.
 
 These need their own fix branch. They are tracked here only so that, at
@@ -108,13 +108,13 @@ The categorical map of where the refactor will bleed:
 
 | Category | Files |
 | --- | --- |
-| Player tick / authority | [`app/player_tick.rs`](../../crates/ambition_sandbox/src/app/player_tick.rs), [`app/sim_systems.rs`](../../crates/ambition_sandbox/src/app/sim_systems.rs), [`app/world_flow.rs`](../../crates/ambition_sandbox/src/app/world_flow.rs), [`app/hud.rs`](../../crates/ambition_sandbox/src/app/hud.rs), [`app/dev_runtime.rs`](../../crates/ambition_sandbox/src/app/dev_runtime.rs) |
+| Player tick / authority | [`app/player_tick.rs`](../../crates/ambition_app/src/app/player_tick.rs), [`app/sim_systems.rs`](../../crates/ambition_app/src/app/sim_systems.rs), [`app/world_flow.rs`](../../crates/ambition_app/src/app/world_flow.rs), [`app/hud.rs`](../../crates/ambition_app/src/app/hud.rs), [`app/dev_runtime.rs`](../../crates/ambition_app/src/app/dev_runtime.rs) |
 | Player module | [`player.rs`](../../crates/ambition_sandbox/src/player.rs), [`player/components.rs`](../../crates/ambition_sandbox/src/player/components.rs), [`player/bundles.rs`](../../crates/ambition_sandbox/src/player/bundles.rs), [`player/systems.rs`](../../crates/ambition_sandbox/src/player/systems.rs), [`player/affordances/mod.rs`](../../crates/ambition_sandbox/src/player/affordances/mod.rs), [`player/affordances/intent.rs`](../../crates/ambition_sandbox/src/player/affordances/intent.rs) |
 | Body mode | [`body_mode/mechanics.rs`](../../crates/ambition_sandbox/src/body_mode/mechanics.rs), [`body_mode/morph_ball.rs`](../../crates/ambition_sandbox/src/body_mode/morph_ball.rs) |
 | Brain seam | [`brain/mod.rs`](../../crates/ambition_sandbox/src/brain/mod.rs) |
-| Runtime / lifecycle | [`runtime/setup.rs`](../../crates/ambition_sandbox/src/runtime/setup.rs), [`runtime/reset.rs`](../../crates/ambition_sandbox/src/runtime/reset.rs), [`rl_sim/runtime.rs`](../../crates/ambition_sandbox/src/rl_sim/runtime.rs) |
+| Runtime / lifecycle | [`runtime/setup.rs`](../../crates/ambition_sandbox/src/runtime/setup.rs), [`runtime/reset.rs`](../../crates/ambition_sandbox/src/runtime/reset.rs), [`rl_sim/runtime.rs`](../../crates/ambition_app/src/rl_sim/runtime.rs) |
 | Presentation / FX | [`presentation/fx.rs`](../../crates/ambition_sandbox/src/presentation/fx.rs), [`presentation/rendering/actors.rs`](../../crates/ambition_sandbox/src/presentation/rendering/actors.rs), [`audio/environment.rs`](../../crates/ambition_sandbox/src/audio/environment.rs) |
-| Dev / trace / debug | [`dev/dev_tools.rs`](../../crates/ambition_sandbox/src/dev/dev_tools.rs), [`dev/debug_overlay.rs`](../../crates/ambition_sandbox/src/dev/debug_overlay.rs), [`dev/trace/systems.rs`](../../crates/ambition_sandbox/src/dev/trace/systems.rs), [`bin/headless.rs`](../../crates/ambition_sandbox/src/bin/headless.rs) |
+| Dev / trace / debug | [`dev/dev_tools.rs`](../../crates/ambition_sandbox/src/dev/dev_tools.rs), [`dev/debug_overlay.rs`](../../crates/ambition_sandbox/src/dev/debug_overlay.rs), [`dev/trace/systems.rs`](../../crates/ambition_sandbox/src/dev/trace/systems.rs), [`bin/headless.rs`](../../crates/ambition_app/src/bin/headless.rs) |
 | Time / world / pause | [`time/time_control.rs`](../../crates/ambition_sandbox/src/time/time_control.rs), [`falling_sand.rs`](../../crates/ambition_sandbox/src/falling_sand.rs), [`pause_menu/model.rs`](../../crates/ambition_sandbox/src/pause_menu/model.rs), [`lib.rs`](../../crates/ambition_sandbox/src/lib.rs) |
 
 Phase 2 of the plan removes `PlayerMovementAuthority` from the bundle and

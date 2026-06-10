@@ -583,7 +583,7 @@ Goal: make reusable portal mechanics stop depending on Ambition content concepts
 ### Target layout during proto-crate phase
 
 ```text
-crates/ambition_sandbox/src/ambition_content/portal/
+crates/ambition_content/src/portal/
   mod.rs
   plugin.rs
   input_adapter.rs
@@ -704,7 +704,7 @@ Goal: group named Ambition game content behind an explicit content plugin.
 ### Target layout
 
 ```text
-crates/ambition_sandbox/src/ambition_content/
+crates/ambition_content/src/
   mod.rs
   plugin.rs
   worlds/

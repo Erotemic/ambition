@@ -78,16 +78,16 @@ Two consequences:
 The sandbox currently has three actor data types with overlapping
 responsibilities:
 
-- **`NpcRuntime`** ([`content/features/npcs.rs`](../../crates/ambition_sandbox/src/content/features/npcs.rs))
+- **`NpcRuntime`** ([`content/features/npcs.rs`](../../crates/ambition_sandbox/src/features/npcs.rs))
   — peaceful patrol/stand-still loop. Hardcoded `update(world,
   target_pos, dt)`. Goes hostile via `hostile_from_npc(npc) ->
   EnemyRuntime` once strike count crosses a threshold.
-- **`EnemyRuntime`** ([`content/features/enemies.rs`](../../crates/ambition_sandbox/src/content/features/enemies.rs))
+- **`EnemyRuntime`** ([`content/features/enemies.rs`](../../crates/ambition_sandbox/src/features/enemies.rs))
   — `EnemyArchetype` + runtime integration state. Movement intent and
   attack requests now come from the actor/brain/action pipeline; stable
   per-actor variation lives in
-  [`variation.rs`](../../crates/ambition_sandbox/src/content/features/ecs/variation.rs).
-- **`BossRuntime`** ([`content/features/bosses.rs`](../../crates/ambition_sandbox/src/content/features/bosses.rs))
+  [`variation.rs`](../../crates/ambition_sandbox/src/mechanics/combat/variation.rs).
+- **`BossRuntime`** ([`content/features/bosses.rs`](../../crates/ambition_sandbox/src/features/bosses.rs))
   — boss-pattern state machine. Movement was migrated onto
   `ActorControlFrame` in `66c8b0b`; attack patterns still run as a
   layered driver in the EFFECTS stage.

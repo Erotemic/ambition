@@ -26,9 +26,9 @@ Still-direct paths include:
 
 1. **Brain template** (`crates/ambition_sandbox/src/brain/state_machine.rs`) — when an actor needs a new policy or state graph. Add a new `StateMachineCfg` variant only when existing templates cannot express the behavior.
 2. **ActionSet spec** (`crates/ambition_sandbox/src/brain/action_set.rs`) — when an actor needs a new concrete capability: melee, ranged, move style, or special.
-3. **Effect consumer** (`crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs` or another focused module) — when an `ActionRequest` is emitted but not yet translated into hitboxes, projectiles, VFX/SFX, boss hazards, or other world effects.
+3. **Effect consumer** (`crates/ambition_sandbox/src/features/ecs/brain_effects.rs` or another focused module) — when an `ActionRequest` is emitted but not yet translated into hitboxes, projectiles, VFX/SFX, boss hazards, or other world effects.
 
-Per-entity mapping usually lives in `crates/ambition_sandbox/src/content/features/ecs/spawn.rs` or the relevant boss/profile setup code.
+Per-entity mapping usually lives in `crates/ambition_sandbox/src/features/ecs/spawn.rs` or the relevant boss/profile setup code.
 
 ## Adding a new brain template
 
@@ -73,7 +73,7 @@ Use this when an `ActorActionMessage` is already emitted and the missing part is
 6. Schedule after `emit_brain_action_messages` and before the downstream tick that should observe the effect.
 7. Add a focused integration test in the consumer module.
 
-Current scheduling examples are in `crates/ambition_sandbox/src/app/plugins.rs::register_combat_systems`.
+Current scheduling examples are in `crates/ambition_app/src/app/plugins.rs::register_combat_systems`.
 
 ### Consumer skeleton
 

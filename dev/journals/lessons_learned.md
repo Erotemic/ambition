@@ -199,18 +199,18 @@ So a sheet whose body fills the frame ends up near `1.0`, while one with lots of
 
 ## 2026-05-10: Bevy `add_systems` tuple chains cap at 20 systems
 
-Adding `upgrade_npc_sprites` to the big presentation tuple in [crates/ambition_sandbox/src/app/plugins.rs](../../crates/ambition_sandbox/src/app/plugins.rs) (the chain that runs after `sandbox_update`) pushed it from 20 to 21 systems and produced this error:
+Adding `upgrade_npc_sprites` to the big presentation tuple in [crates/ambition_app/src/app/plugins.rs](../../crates/ambition_app/src/app/plugins.rs) (the chain that runs after `sandbox_update`) pushed it from 20 to 21 systems and produced this error:
 
 ```text
 error[E0599]: the method `chain` exists for tuple `(..., ..., ..., …)`, but its trait bounds were not satisfied
-   --> crates/ambition_sandbox/src/app/plugins.rs:355:18
+   --> crates/ambition_app/src/app/plugins.rs:355:18
 355 |                 .chain()
     |                 ^^^^^ method cannot be called due to unsatisfied trait bounds
 ```
 
 `IntoSystemConfigs` (and the `chain()` extension) is implemented for tuples up to **20** elements in Bevy 0.18. There is no compile-time message about the cap; you only see the trait-bound failure on `.chain()`. Several earlier comments in this file said "16-system tuple budget" — that was right for older Bevy versions and is now stale.
 
-The established pattern in [plugins.rs](../../crates/ambition_sandbox/src/app/plugins.rs) is **not** to subdivide the chain (which would silently change ordering) but to pull the new system out into its own `add_systems(Update, sys.after(prev))` call. `sync_health_overlays`, `map_menu_pointer_dismiss`, and `update_quest_panel` are already wired this way; `upgrade_npc_sprites` joins them.
+The established pattern in [plugins.rs](../../crates/ambition_app/src/app/plugins.rs) is **not** to subdivide the chain (which would silently change ordering) but to pull the new system out into its own `add_systems(Update, sys.after(prev))` call. `sync_health_overlays`, `map_menu_pointer_dismiss`, and `update_quest_panel` are already wired this way; `upgrade_npc_sprites` joins them.
 
 Why this beats splitting into two chained tuples:
 

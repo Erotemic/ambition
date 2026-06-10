@@ -164,6 +164,34 @@ pub(crate) fn capture_box(portal: &PlacedPortal) -> ae::Aabb {
     )
 }
 
+/// How far OUTWARD of a portal face (px) the carve's approach test reaches.
+/// Must cover the largest distance any transiting body can travel in ONE frame,
+/// so the host surface is already open on the frame a fast body crosses the
+/// opening — **without knowing that frame's dt** (a dt-dependent sweep is
+/// unfixably fragile: the carve publishes before the frame's clock refresh, so
+/// any dt it reads is stale, and a frame hitch at re-entry under-sweeps and
+/// grounds the body, killing its momentum). Budget: the player clamps its sim
+/// step to 1/30 s (`movement::update`), so 950 px/s terminal fall ⇒ ~32px/frame;
+/// projectiles do NOT clamp, so a ~700 px/s shot on a 100ms hitch ⇒ ~70px.
+/// 96px covers both with slack. Opening a few frames early is harmless: the
+/// approach carve is gated on the body MOVING INTO the portal, and a hole only
+/// ever opens where a placed, paired portal already is.
+pub(crate) const APPROACH_CARVE_REACH: f32 = 96.0;
+
+/// The capture box extended [`APPROACH_CARVE_REACH`] px OUTWARD along the
+/// portal's normal (into the room): the region in which an inbound body must
+/// already see the surface open. Purely geometric — no dt, no velocity — so the
+/// carve decision is immune to frame-time jitter; the caller pairs it with a
+/// "moving into the portal" velocity gate.
+pub(crate) fn approach_box(portal: &PlacedPortal) -> ae::Aabb {
+    let capture = capture_box(portal);
+    let n = portal.normal.normalize_or_zero();
+    ae::Aabb::new(
+        capture.center() + n * (APPROACH_CARVE_REACH * 0.5),
+        capture.half_size() + n.abs() * (APPROACH_CARVE_REACH * 0.5),
+    )
+}
+
 /// One step of the aperture / centroid-crossing transit machine for ANY body.
 /// Pure: given the body's geometry + current transit/cooldown state + the portal
 /// pair, it returns the action the caller applies. Shared by the player and

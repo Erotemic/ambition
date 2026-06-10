@@ -201,6 +201,141 @@ fn floor_portal_bounce_survives_variable_frame_rate() {
     );
 }
 
+/// The PER-TRANSIT momentum-conservation guard under jittered dt — the invariant
+/// the earlier `survives_variable_frame_rate` test misses: a momentum-KILLED
+/// bounce still transits (weakly, from rest), so transit/stall counts stay green
+/// while energy is quietly stolen. This asserts each crossing's exit speed is
+/// commensurate with its entry speed.
+///
+/// The bug this pins (Jon, 2026-06-10 "still bleeding momentum"): the carve sweep
+/// read a STALE `SimDt` (PortalSet::Carves runs before CoreSimulation, where
+/// `mirror_sim_dt_into_runtime` writes it) and used PRE-gravity velocity, so on a
+/// dt spike the sweep undershot the body's real motion, the floor stayed solid
+/// for one frame, and the integrator grounded the body — entry speed gone. The
+/// dt-independent approach-box carve removes the whole class.
+#[test]
+fn floor_portal_bounce_conserves_momentum_per_transit_under_variable_dt() {
+    use ambition_sandbox::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+    use ambition_sandbox::portal::{PlacedPortal, PortalChannel, PortalChannelColor};
+    use bevy::prelude::*;
+
+    const SMALL_DT: f32 = 0.008; // ~120 FPS baseline
+    const SPIKE_DT: f32 = 0.050; // Jon's measured worst frame (~20 FPS hitch)
+    const DROPS: usize = 8;
+
+    let opts = SandboxSimOptions::default()
+        .with_timestep(TimestepMode::Fixed { dt: SMALL_DT })
+        .with_start_room("portal_lab");
+    let mut sim = SandboxSim::new_with_options(opts).expect("SandboxSim::new in portal_lab");
+    sim.step(base());
+
+    // The purple floor portal — drops happen onto its center.
+    let (face_x, face_y) = {
+        let mut q = sim.world_mut().query::<&PlacedPortal>();
+        let world = sim.world();
+        let p = q
+            .iter(world)
+            .find(|p| p.channel == PortalChannel::Authored(PortalChannelColor::Purple))
+            .expect("portal_lab has an authored Purple floor portal");
+        (p.pos.x, p.pos.y)
+    };
+
+    // Teleport the primary player to `pos` with zero velocity.
+    let place_player = |sim: &mut SandboxSim, pos: Vec2| {
+        let mut q = sim
+            .world_mut()
+            .query_filtered::<&mut BodyKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>();
+        let mut kin = q.single_mut(sim.world_mut()).expect("primary player");
+        kin.pos = pos;
+        kin.vel = Vec2::ZERO;
+    };
+
+    // Each drop: fall from 500px above the portal (reaching ~terminal 950 px/s),
+    // inject ONE SPIKE_DT frame in the strike zone just above the face — the
+    // real-world condition: a frame hitch at the instant of re-entry, which the
+    // carve cannot know the dt of in advance. The transfer preserves speed, so a
+    // healthy crossing exits at ~entry speed; a momentum-killed one (floor stayed
+    // solid on the spike frame, body grounded + re-sank from rest) exits at a
+    // fraction of it.
+    let mut ratios: Vec<f32> = Vec::new();
+    let mut failures: Vec<String> = Vec::new();
+    for drop in 0..DROPS {
+        place_player(&mut sim, Vec2::new(face_x, face_y - 500.0));
+        let mut entry_speed = 0.0_f32;
+        let mut spiked = false;
+        let mut transited = false;
+        let mut prev_x = face_x;
+        let mut exit_peak = 0.0_f32;
+        let mut frames_after_transit = 0usize;
+        for _frame in 0..600 {
+            let obs_now = sim.observation();
+            let above_face = face_y - obs_now.player_pos.1;
+            // The miss window: the spike frame must carry the body from OUTSIDE
+            // the stale-sweep carve-open range (bottom > ~22.6px above the face)
+            // to BELOW the floor top in one step. The sim clamps a 50ms request
+            // to ~33.3ms (≈31.7px at terminal 950), and the player half-height
+            // is ~22px, so the center band is ~(45, 53)px above the face.
+            let dt = if !spiked
+                && !transited
+                && obs_now.player_vel.1 > 700.0
+                && (45.0..53.0).contains(&above_face)
+            {
+                spiked = true;
+                entry_speed = obs_now.player_vel.1;
+                SPIKE_DT
+            } else {
+                SMALL_DT
+            };
+            sim.set_timestep(TimestepMode::Fixed { dt });
+            let obs = sim.step(base());
+            if !transited && (obs.player_pos.0 - prev_x).abs() > 150.0 {
+                transited = true;
+            }
+            prev_x = obs.player_pos.0;
+            if transited {
+                // Exit speed: peak upward speed in the frames after the crossing.
+                exit_peak = exit_peak.max(-obs.player_vel.1);
+                frames_after_transit += 1;
+                if frames_after_transit > 40 {
+                    break;
+                }
+            }
+        }
+        if !spiked {
+            failures.push(format!("drop {drop}: spike never triggered (harness bug)"));
+            continue;
+        }
+        if !transited {
+            failures.push(format!(
+                "drop {drop}: never transited after the dt spike (entry {entry_speed:.0} px/s) — \
+                 grounded on a still-solid portal floor"
+            ));
+            continue;
+        }
+        ratios.push(exit_peak / entry_speed);
+    }
+    eprintln!("ratios={ratios:?} failures={failures:?}");
+
+    assert!(
+        failures.is_empty(),
+        "momentum-kill drops under a dt spike at re-entry: {failures:?} (ratios so \
+         far: {ratios:?})",
+    );
+    let violations: Vec<(usize, f32)> = ratios
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| **r < 0.7)
+        .map(|(i, r)| (i, *r))
+        .collect();
+    assert!(
+        violations.is_empty(),
+        "momentum bled through portal transits under a dt spike at re-entry: drops \
+         with exit speed < 0.7x entry speed: {violations:?} (all ratios: {ratios:?}). \
+         The carve failed to open on the spike frame and the still-solid floor \
+         grounded the body.",
+    );
+}
+
 /// The momentum / landing-thud guard: the body must SINK THROUGH the open portal
 /// floor, not repeatedly land on a still-solid floor. With the carve lagging a
 /// frame the player grounded ~10+ frames per 240 (one thud per bounce, killing

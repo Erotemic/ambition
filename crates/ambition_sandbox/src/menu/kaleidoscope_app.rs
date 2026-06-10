@@ -4289,21 +4289,25 @@ mod lunex_kaleidoscope_app_tests {
             .collect()
     }
 
-    /// Phase D3a: the cube's render set (`KaleidoscopeRender`) is gated by the host on
-    /// `kaleidoscope_backend_active`. Wire the SAME `configure_sets` the host uses, drop a
-    /// sentinel render system into the set, and prove it does NOT run when the Grid
-    /// backend is active (so the cube stops churning) but DOES run under the cube
-    /// backend. This pins the host gating without needing a full cube app.
+    /// Phase D3a + P4b: the cube's render set (`KaleidoscopeRender`) is gated by the
+    /// host on `kaleidoscope_render_needed`. Wire the SAME `configure_sets` the host
+    /// uses, drop a sentinel render system into the set, and prove it does NOT run when
+    /// the Grid backend is active or the menu is closed-and-settled (so the cube stops
+    /// churning) but DOES run while the cube menu is visible. This pins the host gating
+    /// without needing a full cube app.
     #[test]
     fn render_set_is_gated_off_under_the_grid_backend() {
         #[derive(Resource, Default)]
         struct RenderRan(u32);
 
-        fn build(backend: InventoryUiBackend) -> App {
+        fn build(backend: InventoryUiBackend, menu_visible: bool) -> App {
             let mut app = App::new();
             app.init_resource::<InventoryUiBackend>();
             app.init_resource::<RenderRan>();
             *app.world_mut().resource_mut::<InventoryUiBackend>() = backend;
+            let mut ui_state = crate::inventory::InventoryUiState::default();
+            ui_state.visible = menu_visible;
+            app.insert_resource(ui_state);
             // Exactly the host's gating from `install_kaleidoscope_menu`.
             app.configure_sets(
                 Update,
@@ -4318,7 +4322,7 @@ mod lunex_kaleidoscope_app_tests {
             app
         }
 
-        let mut grid = build(InventoryUiBackend::Grid);
+        let mut grid = build(InventoryUiBackend::Grid, true);
         grid.update();
         grid.update();
         assert_eq!(
@@ -4327,13 +4331,23 @@ mod lunex_kaleidoscope_app_tests {
             "cube render set must NOT run when the Grid backend is active"
         );
 
-        let mut cube = build(InventoryUiBackend::LunexKaleidoscope);
+        let mut cube = build(InventoryUiBackend::LunexKaleidoscope, true);
         cube.update();
         cube.update();
         assert_eq!(
             cube.world().resource::<RenderRan>().0,
             2,
-            "cube render set runs every frame when the cube backend is active"
+            "cube render set runs every frame while the cube menu is visible"
+        );
+
+        // P4b settle early-out: closed + no fade in flight = the set is skipped.
+        let mut closed = build(InventoryUiBackend::LunexKaleidoscope, false);
+        closed.update();
+        closed.update();
+        assert_eq!(
+            closed.world().resource::<RenderRan>().0,
+            0,
+            "cube render set must NOT run when the menu is closed and settled"
         );
     }
 }

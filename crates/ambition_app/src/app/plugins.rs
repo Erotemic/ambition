@@ -612,7 +612,7 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     // anchors / per-frame anchors from data instead of hardcoded
     // consts in `presentation::character_sprites::sheets`.
     app.add_plugins(ambition_sandbox::presentation::character_sprites::SheetRegistryPlugin);
-    add_dev_tools_plugins(app);
+    app.add_plugins(crate::dev::DevToolsPlugin);
     add_physics_debris_plugins(app);
     add_ui_plugins(app);
     add_input_plugins(app);
@@ -620,9 +620,6 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     add_mobile_touch_plugin(app);
     #[cfg(feature = "falling_sand")]
     app.add_plugins(ambition_sandbox::falling_sand::FallingSandRoomPlugin);
-    // Lightweight FPS / frame-time overlay. ON by default on wasm,
-    // OFF on desktop; F3 toggles. See `ambition_sandbox::fps_overlay`.
-    app.add_plugins(crate::dev::fps_overlay::FpsOverlayPlugin);
     // Frame pacing / battery saver. Enabled by the normal visible personas so
     // desktop and Android exercise the same pacing behavior by default.
     #[cfg(feature = "frame_pacing")]
@@ -908,38 +905,8 @@ fn install_projectile_and_vfx_systems(app: &mut App) {
     );
 }
 
-/// Install the egui inspector plugins. Gated by the `dev_tools` feature so
-/// shipping/headless builds don't pay for `bevy-inspector-egui` /
-/// `bevy_egui` in the dep graph. The inspector quick plugins require
-/// EguiPlugin first; that's why both live behind the same gate.
-#[cfg(feature = "dev_tools")]
-pub(super) fn add_dev_tools_plugins(app: &mut App) {
-    app.add_plugins(EguiPlugin::default())
-        .add_plugins(
-            ResourceInspectorPlugin::<DeveloperTools>::default()
-                .run_if(dev_tools::inspector_visible),
-        )
-        .add_plugins(
-            ResourceInspectorPlugin::<EditableAbilitySet>::default()
-                .run_if(dev_tools::inspector_visible),
-        )
-        .add_plugins(
-            ResourceInspectorPlugin::<EditableMovementTuning>::default()
-                .run_if(dev_tools::inspector_visible),
-        )
-        .add_plugins(
-            ResourceInspectorPlugin::<EditablePlayerStats>::default()
-                .run_if(dev_tools::inspector_visible),
-        )
-        .add_plugins(
-            ResourceInspectorPlugin::<SandboxFeelTuning>::default()
-                .run_if(dev_tools::inspector_visible),
-        )
-        .add_plugins(WorldInspectorPlugin::new().run_if(dev_tools::world_inspector_visible));
-}
-
-#[cfg(not(feature = "dev_tools"))]
-pub(super) fn add_dev_tools_plugins(_app: &mut App) {}
+// Dev tooling (egui inspectors + FPS overlay) moved to
+// `crate::dev::DevToolsPlugin` (components-as-plugins).
 
 /// Install the Avian2D secondary-physics plugin and its presentation-side
 /// debris subscriber. Gated by `physics_debris` so headless / minimal

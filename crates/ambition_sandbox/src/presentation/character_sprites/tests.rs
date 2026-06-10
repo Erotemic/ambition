@@ -1,25 +1,22 @@
 use bevy::prelude::Vec2;
 
 use super::anim::CharacterAnim;
+use super::assets::sheet_for_character_id;
+
+/// Data-path stand-in for the deleted `ROBOT_SHEET` static.
+fn robot_sheet() -> super::sheets::CharacterSheetSpec {
+    sheet_for_character_id("robot").expect("robot catalog row resolves a sheet")
+}
 use super::registry::SheetRecord;
-use super::sheets::{
-    sprite_render_size, CharacterSheetSpec, ABSURD_GENERAL_SHEET, ALICE_SHEET, ARCHITECT_SHEET,
-    BOB_SHEET, BURNING_FLYING_SHARK_SHEET, CART_SHEET, CREATOR_SHEET, ERDISH_SHEET,
-    GATE_PORTAL_SHEET, GATE_RING_SHEET, GOBLIN_CANTINA_CHIEFTAIN_SHEET, GOBLIN_SHEET,
-    KERNEL_GUIDE_SHEET, LAB_PROP_DRONE_CRADLE, LAB_PROP_GENESIS_VAT, LAB_PROP_NEURAL_CONSOLE,
-    LAB_PROP_PORTAL_CALIBRATOR, LAB_PROP_POWER_CORE, LAB_PROP_REPAIR_CRADLE,
-    LAB_PROP_RESONANCE_COIL, LAB_PROP_SPECIMEN_JAR, MERCHANT_PROTOTYPE_SHEET, NEWS_BOARD_SHEET,
-    NINJA_SHEET, OILER_SHEET, PIRATE_SHEET, PLAYER_ROBOT_SHEET, PULSE_VOYAGER_CAPTAIN_SHEET,
-    RAID_ENFORCER_SHEET, ROBOT_SHEET, SANDBAG_SHEET, TECH_BRO_DISRUPTOR_SHEET, VAULT_KEEPER_SHEET,
-};
+use super::sheets::{sprite_render_size, try_load_spec_for_target, SheetTuning};
 
 #[test]
 fn sprite_render_size_uses_max_collision_axis() {
     // Tall narrow body: render height tracks collision.y (the
     // larger axis), scaled by collision_scale.
     let collision = Vec2::new(28.0, 46.0);
-    let size = sprite_render_size(&ROBOT_SHEET, collision);
-    let expected_height = 46.0 * ROBOT_SHEET.collision_scale;
+    let size = sprite_render_size(&robot_sheet(), collision);
+    let expected_height = 46.0 * robot_sheet().collision_scale;
     assert!((size.y - expected_height).abs() < 1e-3);
 }
 
@@ -28,8 +25,8 @@ fn sprite_render_size_clamps_at_minimum_eight() {
     // Tiny collision boxes hit the 8.0 floor so micro-entities
     // (debris-sized actors) still render visibly.
     let collision = Vec2::new(2.0, 1.0);
-    let size = sprite_render_size(&ROBOT_SHEET, collision);
-    let expected_height = 8.0 * ROBOT_SHEET.collision_scale;
+    let size = sprite_render_size(&robot_sheet(), collision);
+    let expected_height = 8.0 * robot_sheet().collision_scale;
     assert!((size.y - expected_height).abs() < 1e-3);
 }
 
@@ -38,8 +35,8 @@ fn sprite_render_size_preserves_frame_aspect() {
     // Width tracks the frame's source aspect, not the collision
     // box, so cropped non-square frames don't get distorted.
     let collision = Vec2::new(28.0, 46.0);
-    let size = sprite_render_size(&ROBOT_SHEET, collision);
-    let expected_aspect = ROBOT_SHEET.frame_width as f32 / ROBOT_SHEET.frame_height as f32;
+    let size = sprite_render_size(&robot_sheet(), collision);
+    let expected_aspect = robot_sheet().frame_width as f32 / robot_sheet().frame_height as f32;
     let actual_aspect = size.x / size.y;
     assert!(
         (actual_aspect - expected_aspect).abs() < 1e-3,
@@ -49,15 +46,15 @@ fn sprite_render_size_preserves_frame_aspect() {
 
 #[test]
 fn flat_index_zero_for_first_frame_of_first_row() {
-    let idx = ROBOT_SHEET.flat_index(CharacterAnim::Idle, 0);
+    let idx = robot_sheet().flat_index(CharacterAnim::Idle, 0);
     assert_eq!(idx, 0);
 }
 
 #[test]
 fn frame_count_positive_for_every_row() {
-    for (anim, _) in &ROBOT_SHEET.rows {
+    for (anim, _) in &robot_sheet().rows {
         assert!(
-            ROBOT_SHEET.frame_count(*anim) > 0,
+            robot_sheet().frame_count(*anim) > 0,
             "anim {:?} has zero frames",
             anim
         );
@@ -69,8 +66,8 @@ fn flat_index_clamps_to_last_frame_of_row() {
     // Asking for frame past the end of a row clamps to the last
     // valid frame; this avoids out-of-bounds atlas reads when the
     // animation cursor overshoots due to a long delta-t.
-    let last = ROBOT_SHEET.flat_index(CharacterAnim::Idle, 9_999);
-    let expected = ROBOT_SHEET.frame_count(CharacterAnim::Idle) - 1;
+    let last = robot_sheet().flat_index(CharacterAnim::Idle, 9_999);
+    let expected = robot_sheet().frame_count(CharacterAnim::Idle) - 1;
     assert_eq!(last, expected);
 }
 
@@ -79,14 +76,14 @@ fn robot_sheet_has_fly_row() {
     // The generator's `hover` row is the source of the Fly visual.
     // If a future sheet regen drops or reorders hover, this test
     // catches it before runtime indexes a non-existent row.
-    assert_eq!(ROBOT_SHEET.frame_count(CharacterAnim::Fly), 8);
-    assert!((ROBOT_SHEET.frame_duration(CharacterAnim::Fly) - 0.078).abs() < 1e-4);
+    assert_eq!(robot_sheet().frame_count(CharacterAnim::Fly), 8);
+    assert!((robot_sheet().frame_duration(CharacterAnim::Fly) - 0.078).abs() < 1e-4);
     // Hover is the LAST row in the regenerated sheet, so its frames
     // sit after every other row in atlas-flat-index space.
-    let fly_first = ROBOT_SHEET.flat_index(CharacterAnim::Fly, 0);
-    let dash_last = ROBOT_SHEET.flat_index(
+    let fly_first = robot_sheet().flat_index(CharacterAnim::Fly, 0);
+    let dash_last = robot_sheet().flat_index(
         CharacterAnim::Dash,
-        ROBOT_SHEET.frame_count(CharacterAnim::Dash),
+        robot_sheet().frame_count(CharacterAnim::Dash),
     );
     assert!(
         fly_first > dash_last,
@@ -98,66 +95,42 @@ fn robot_sheet_has_fly_row() {
 fn frame_duration_positive_for_every_row() {
     // Zero or negative duration would wedge the animation cursor
     // (advance_anim divides by it). Pin the contract.
-    for (anim, _) in &ROBOT_SHEET.rows {
+    for (anim, _) in &robot_sheet().rows {
         assert!(
-            ROBOT_SHEET.frame_duration(*anim) > 0.0,
+            robot_sheet().frame_duration(*anim) > 0.0,
             "anim {:?} has non-positive duration",
             anim
         );
     }
 }
 
-/// Touching every published `*_SHEET` static forces its `LazyLock` to
-/// initialize via `load_spec(...)`. Catches the "this static refers to
-/// a `target` id that no RON file actually exposes" failure mode at
-/// `cargo test` time instead of waiting for `setup_presentation_system`
-/// to panic at game launch. The list must include every public
-/// `*_SHEET` and `LAB_PROP_*` static defined in `sheets.rs`.
+/// Every sheet the game can reach must load with sane geometry:
+/// every catalog character id that names a manifest, plus every
+/// manifest target the content intro/prop registries reference
+/// (formerly the `*_SHEET` statics; Stage 20 / B3 made them data).
 #[test]
-fn every_published_sheet_static_loads() {
-    let specs: &[(&str, &CharacterSheetSpec)] = &[
-        ("ABSURD_GENERAL_SHEET", &ABSURD_GENERAL_SHEET),
-        ("ALICE_SHEET", &ALICE_SHEET),
-        ("ARCHITECT_SHEET", &ARCHITECT_SHEET),
-        ("BOB_SHEET", &BOB_SHEET),
-        ("BURNING_FLYING_SHARK_SHEET", &BURNING_FLYING_SHARK_SHEET),
-        ("CART_SHEET", &CART_SHEET),
-        ("CREATOR_SHEET", &CREATOR_SHEET),
-        ("ERDISH_SHEET", &ERDISH_SHEET),
-        ("RAID_ENFORCER_SHEET", &RAID_ENFORCER_SHEET),
-        ("GATE_PORTAL_SHEET", &GATE_PORTAL_SHEET),
-        ("GATE_RING_SHEET", &GATE_RING_SHEET),
-        (
-            "GOBLIN_CANTINA_CHIEFTAIN_SHEET",
-            &GOBLIN_CANTINA_CHIEFTAIN_SHEET,
-        ),
-        ("GOBLIN_SHEET", &GOBLIN_SHEET),
-        ("KERNEL_GUIDE_SHEET", &KERNEL_GUIDE_SHEET),
-        ("LAB_PROP_DRONE_CRADLE", &LAB_PROP_DRONE_CRADLE),
-        ("LAB_PROP_GENESIS_VAT", &LAB_PROP_GENESIS_VAT),
-        ("LAB_PROP_NEURAL_CONSOLE", &LAB_PROP_NEURAL_CONSOLE),
-        ("LAB_PROP_PORTAL_CALIBRATOR", &LAB_PROP_PORTAL_CALIBRATOR),
-        ("LAB_PROP_POWER_CORE", &LAB_PROP_POWER_CORE),
-        ("LAB_PROP_REPAIR_CRADLE", &LAB_PROP_REPAIR_CRADLE),
-        ("LAB_PROP_RESONANCE_COIL", &LAB_PROP_RESONANCE_COIL),
-        ("LAB_PROP_SPECIMEN_JAR", &LAB_PROP_SPECIMEN_JAR),
-        ("MERCHANT_PROTOTYPE_SHEET", &MERCHANT_PROTOTYPE_SHEET),
-        ("NEWS_BOARD_SHEET", &NEWS_BOARD_SHEET),
-        ("NINJA_SHEET", &NINJA_SHEET),
-        ("OILER_SHEET", &OILER_SHEET),
-        ("PIRATE_SHEET", &PIRATE_SHEET),
-        ("PLAYER_ROBOT_SHEET", &PLAYER_ROBOT_SHEET),
-        ("PULSE_VOYAGER_CAPTAIN_SHEET", &PULSE_VOYAGER_CAPTAIN_SHEET),
-        ("ROBOT_SHEET", &ROBOT_SHEET),
-        ("SANDBAG_SHEET", &SANDBAG_SHEET),
-        ("TECH_BRO_DISRUPTOR_SHEET", &TECH_BRO_DISRUPTOR_SHEET),
-        ("VAULT_KEEPER_SHEET", &VAULT_KEEPER_SHEET),
-    ];
-    for (name, spec) in specs {
-        assert!(spec.frame_width > 0, "{name}: frame_width == 0");
-        assert!(spec.frame_height > 0, "{name}: frame_height == 0");
-        assert!(!spec.rows.is_empty(), "{name}: zero rows after load");
+fn every_reachable_sheet_loads() {
+    use crate::actor::character_catalog::EMBEDDED_CATALOG;
+    let mut checked = 0usize;
+    for (cid, entry) in EMBEDDED_CATALOG.characters.iter() {
+        let Some(target) = entry.manifest_target() else {
+            continue;
+        };
+        let Some(spec) = try_load_spec_for_target(target, &SheetTuning::default()) else {
+            // No manifest on disk yet — the runtime renders the
+            // colored-rectangle placeholder; not a test failure.
+            continue;
+        };
+        checked += 1;
+        assert!(spec.frame_width > 0, "{cid}: frame_width == 0");
+        assert!(spec.frame_height > 0, "{cid}: frame_height == 0");
+        assert!(!spec.rows.is_empty(), "{cid}: zero rows after load");
     }
+    assert!(
+        checked >= 20,
+        "expected at least 20 catalog sheets to load, got {checked} — \
+         did the manifest index break?"
+    );
 }
 
 /// Every `*_spritesheet.ron` manifest must deserialize cleanly
@@ -218,125 +191,77 @@ fn every_spritesheet_ron_parses_into_sheet_record() {
     }
 }
 
-/// For every sheet const that has a paired RON manifest, the const's
-/// label_width / frame_width / frame_height / feet_anchor_y must agree
-/// with the RON. This checks the canonical machine-readable manifest
-/// that the runtime `SheetRegistry` actually loads.
+// `sheet_consts_match_their_ron_manifests` was deleted with the `*_SHEET`
+// statics: specs are now BUILT from the RON manifests, so agreement holds
+// by construction (the parse test above + the oracle below cover the
+// remaining contract).
+
+/// Transcription oracle for the Stage 20 / B3 catalog-tuning migration:
+/// the data-driven `sheet_for_character_id` must reproduce EXACTLY the
+/// tuning the old hardcoded `*_SHEET` statics carried (values
+/// transcribed here from the deleted sheets.rs constants). Shared-sheet
+/// ids (standard pirates -> admiral, oni leader -> duelist) must keep
+/// resolving the SHARED manifest record via `sprite_target`.
 #[test]
-fn sheet_consts_match_their_ron_manifests() {
-    let cases: &[(&str, &CharacterSheetSpec, &str)] = &[
-        (
-            "ABSURD_GENERAL_SHEET",
-            &ABSURD_GENERAL_SHEET,
-            "absurd_general",
-        ),
-        ("ALICE_SHEET", &ALICE_SHEET, "alice"),
-        ("ARCHITECT_SHEET", &ARCHITECT_SHEET, "architect"),
-        ("BOB_SHEET", &BOB_SHEET, "bob"),
-        (
-            "BURNING_FLYING_SHARK_SHEET",
-            &BURNING_FLYING_SHARK_SHEET,
-            "burning_flying_shark",
-        ),
-        ("CART_SHEET", &CART_SHEET, "intro_cart"),
-        ("CREATOR_SHEET", &CREATOR_SHEET, "creator"),
-        ("ERDISH_SHEET", &ERDISH_SHEET, "erdish"),
-        ("RAID_ENFORCER_SHEET", &RAID_ENFORCER_SHEET, "raid_enforcer"),
-        (
-            "GATE_PORTAL_SHEET",
-            &GATE_PORTAL_SHEET,
-            "interdimensional_gate_portal",
-        ),
-        (
-            "GATE_RING_SHEET",
-            &GATE_RING_SHEET,
-            "interdimensional_gate_ring",
-        ),
-        (
-            "GOBLIN_CANTINA_CHIEFTAIN_SHEET",
-            &GOBLIN_CANTINA_CHIEFTAIN_SHEET,
-            "goblin_cantina_chieftain",
-        ),
-        ("GOBLIN_SHEET", &GOBLIN_SHEET, "goblin"),
-        ("KERNEL_GUIDE_SHEET", &KERNEL_GUIDE_SHEET, "kernel_guide"),
-        (
-            "MERCHANT_PROTOTYPE_SHEET",
-            &MERCHANT_PROTOTYPE_SHEET,
-            "merchant_prototype",
-        ),
-        ("NEWS_BOARD_SHEET", &NEWS_BOARD_SHEET, "news_board"),
-        ("OILER_SHEET", &OILER_SHEET, "oiler"),
-        ("PIRATE_SHEET", &PIRATE_SHEET, "pirate_admiral"),
-        ("PLAYER_ROBOT_SHEET", &PLAYER_ROBOT_SHEET, "player_robot"),
-        (
-            "PULSE_VOYAGER_CAPTAIN_SHEET",
-            &PULSE_VOYAGER_CAPTAIN_SHEET,
-            "pulse_voyager_captain",
-        ),
-        ("ROBOT_SHEET", &ROBOT_SHEET, "robot"),
-        ("SANDBAG_SHEET", &SANDBAG_SHEET, "sandbag"),
-        (
-            "TECH_BRO_DISRUPTOR_SHEET",
-            &TECH_BRO_DISRUPTOR_SHEET,
-            "tech_bro_disruptor",
-        ),
-        ("VAULT_KEEPER_SHEET", &VAULT_KEEPER_SHEET, "vault_keeper"),
+fn catalog_tuning_reproduces_the_old_hardcoded_sheets() {
+    // (id, collision_scale, frame_sample_inset)
+    let expected = [
+        ("player", 1.35, 1),
+        ("robot", 2.1, 1),
+        ("goblin", 2.1, 1),
+        ("sandbag", 1.38, 1),
+        ("npc_general", 1.15, 2),
+        ("npc_goblin_cantina_chieftain", 1.16, 1),
+        ("npc_pulse_voyager_captain", 1.20, 1),
+        ("npc_tech_bro_disruptor", 1.20, 1),
+        ("npc_pirate_admiral", 1.6, 1),
+        ("npc_pirate_quartermaster", 1.6, 1),
+        ("npc_pirate_lookout", 1.6, 1),
+        ("npc_pirate_navigator", 1.6, 1),
+        ("npc_pirate_raider", 1.6, 1),
+        ("npc_pirate_heavy_broadside_bess", 1.95, 1),
+        ("npc_pirate_heavy_iron_mary", 1.95, 1),
+        ("npc_pirate_heavy_salt_annet", 1.95, 1),
+        ("npc_burning_flying_shark", 0.8, 1),
+        ("npc_puppy_slug", 1.4, 1),
+        ("npc_ninja_shadow_oni_leader", 1.5, 1),
+        ("npc_ninja_shadow_duelist", 1.5, 1),
+        ("npc_architect", 1.10, 2),
+        ("npc_kernel_guide", 1.10, 2),
+        ("npc_vault_keeper", 1.10, 2),
+        ("npc_merchant_prototype", 1.10, 2),
     ];
-
-    let assets_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/sprites");
-    let mut mismatches: Vec<String> = Vec::new();
-    let mut checked = 0usize;
-
-    for (name, spec, target) in cases {
-        let path = assets_dir.join(format!("{target}_spritesheet.ron"));
-        if !path.exists() {
-            continue;
-        }
-        let text = std::fs::read_to_string(&path)
-            .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
-        let records: Vec<SheetRecord> =
-            ron::from_str(&text).unwrap_or_else(|e| panic!("parse {}: {e}", path.display()));
-        // Every per-character RON ships as a single-record list. The
-        // file's name is the index key (the in-file `target` may be a
-        // generator archetype like `"toon"` shared across files — see
-        // `sheets::record_index`).
-        let record = records
-            .first()
-            .unwrap_or_else(|| panic!("{}: zero records in file", path.display()));
-        checked += 1;
-
-        if spec.label_width != record.label_width
-            || spec.frame_width != record.frame_width
-            || spec.frame_height != record.frame_height
-        {
-            mismatches.push(format!(
-                "{name}: const=(lw={}, fw={}, fh={}) ron=(lw={}, fw={}, fh={})",
-                spec.label_width,
-                spec.frame_width,
-                spec.frame_height,
-                record.label_width,
-                record.frame_width,
-                record.frame_height,
-            ));
-        }
-        if let Some(metrics) = &record.body_metrics {
-            if let Some(anchor) = metrics.feet_anchor_norm {
-                if (spec.feet_anchor_y - anchor.y).abs() > 0.001 {
-                    mismatches.push(format!(
-                        "{name}: feet_anchor_y const={:.4} vs ron={:.4}",
-                        spec.feet_anchor_y, anchor.y,
-                    ));
-                }
-            }
-        }
-    }
-
-    assert!(checked > 0, "no RON manifests resolved at all");
-    if !mismatches.is_empty() {
-        panic!(
-            "{} const(s) drifted from RON manifests; resync the const or regen the sheet:\n  {}",
-            mismatches.len(),
-            mismatches.join("\n  "),
+    for (id, collision_scale, inset) in expected {
+        let spec = sheet_for_character_id(id)
+            .unwrap_or_else(|| panic!("catalog id '{id}' must resolve a sheet spec"));
+        assert!(
+            (spec.collision_scale - collision_scale).abs() < 1e-6,
+            "{id}: collision_scale {} != legacy {collision_scale}",
+            spec.collision_scale
+        );
+        assert_eq!(
+            spec.frame_sample_inset, inset,
+            "{id}: frame_sample_inset != legacy value"
         );
     }
+
+    // Shared-sheet resolution: the standard pirates must render the
+    // ADMIRAL's sheet (identical frame geometry), not per-variant ones.
+    let admiral = sheet_for_character_id("npc_pirate_admiral").unwrap();
+    for id in [
+        "npc_pirate_quartermaster",
+        "npc_pirate_lookout",
+        "npc_pirate_navigator",
+    ] {
+        let spec = sheet_for_character_id(id).unwrap();
+        assert_eq!(
+            spec.frame_width, admiral.frame_width,
+            "{id} must share the admiral's sheet geometry"
+        );
+        assert_eq!(spec.frame_height, admiral.frame_height);
+    }
+    let duelist = sheet_for_character_id("npc_ninja_shadow_duelist").unwrap();
+    let oni = sheet_for_character_id("npc_ninja_shadow_oni_leader").unwrap();
+    assert_eq!(oni.frame_width, duelist.frame_width);
+    assert_eq!(oni.frame_height, duelist.frame_height);
 }

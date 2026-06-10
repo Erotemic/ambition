@@ -138,6 +138,7 @@
         // its catalog entry exists only to keep the sprite registry
         // and catalog symmetrical so Phase 6 can delete the registry.
         "player": (
+            sprite_tuning: Some((collision_scale: 1.35, frame_sample_inset: 1)),
             display_name: "Player",
             spritesheet: "sprites/player_robot_spritesheet.png",
             manifest: "sprites/player_robot_spritesheet.ron",
@@ -149,6 +150,7 @@
             tags: ["player"],
         ),
         "robot": (
+            sprite_tuning: Some((collision_scale: 2.1, frame_sample_inset: 1)),
             display_name: "Robot",
             spritesheet: "sprites/robot_spritesheet.png",
             manifest: "sprites/robot_spritesheet.ron",
@@ -160,6 +162,7 @@
             tags: ["base"],
         ),
         "goblin": (
+            sprite_tuning: Some((collision_scale: 2.1, frame_sample_inset: 1)),
             display_name: "Goblin",
             spritesheet: "sprites/goblin_spritesheet.png",
             manifest: "sprites/goblin_spritesheet.ron",
@@ -171,6 +174,7 @@
             tags: ["enemy", "base"],
         ),
         "sandbag": (
+            sprite_tuning: Some((collision_scale: 1.38, frame_sample_inset: 1)),
             display_name: "Sandbag",
             spritesheet: "sprites/sandbag_spritesheet.png",
             manifest: "sprites/sandbag_spritesheet.ron",
@@ -184,6 +188,7 @@
 
         // ===== Faction leaders (hub NPCs).
         "npc_general": (
+            sprite_tuning: Some((collision_scale: 1.15, frame_sample_inset: 2)),
             display_name: "General",
             spritesheet: "sprites/absurd_general_spritesheet.png",
             manifest: "sprites/absurd_general_spritesheet.ron",
@@ -195,6 +200,7 @@
             tags: ["hub", "faction_leader"],
         ),
         "npc_goblin_cantina_chieftain": (
+            sprite_tuning: Some((collision_scale: 1.16, frame_sample_inset: 1)),
             display_name: "Fretjaw, Cantina Chieftain",
             spritesheet: "sprites/goblin_cantina_chieftain_spritesheet.png",
             manifest: "sprites/goblin_cantina_chieftain_spritesheet.ron",
@@ -206,6 +212,7 @@
             tags: ["hub", "faction_leader"],
         ),
         "npc_pulse_voyager_captain": (
+            sprite_tuning: Some((collision_scale: 1.2, frame_sample_inset: 1)),
             display_name: "Captain Pulse",
             spritesheet: "sprites/pulse_voyager_captain_spritesheet.png",
             manifest: "sprites/pulse_voyager_captain_spritesheet.ron",
@@ -217,6 +224,7 @@
             tags: ["hub", "faction_leader"],
         ),
         "npc_tech_bro_disruptor": (
+            sprite_tuning: Some((collision_scale: 1.2, frame_sample_inset: 1)),
             display_name: "Chadwick Disruptor III",
             spritesheet: "sprites/tech_bro_disruptor_spritesheet.png",
             manifest: "sprites/tech_bro_disruptor_spritesheet.ron",
@@ -230,6 +238,7 @@
 
         // ===== Pirate cove (Pirate Cove faction).
         "npc_pirate_admiral": (
+            sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
             display_name: "Pirate Admiral",
             spritesheet: "sprites/pirate_admiral_spritesheet.png",
             manifest: "sprites/pirate_admiral_spritesheet.ron",
@@ -241,6 +250,7 @@
             tags: ["pirate", "faction_leader"],
         ),
         "npc_pirate_raider": (
+            sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
             display_name: "Pirate Raider",
             spritesheet: "sprites/pirate_raider_spritesheet.png",
             manifest: "sprites/pirate_raider_spritesheet.ron",
@@ -252,6 +262,8 @@
             tags: ["pirate", "enemy"],
         ),
         "npc_pirate_quartermaster": (
+            sprite_target: Some("pirate_admiral"),
+            sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
             display_name: "Pirate Quartermaster",
             spritesheet: "sprites/pirate_quartermaster_spritesheet.png",
             manifest: "sprites/pirate_quartermaster_spritesheet.ron",
@@ -263,6 +275,8 @@
             tags: ["pirate", "enemy"],
         ),
         "npc_pirate_lookout": (
+            sprite_target: Some("pirate_admiral"),
+            sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
             display_name: "Pirate Lookout",
             spritesheet: "sprites/pirate_lookout_spritesheet.png",
             manifest: "sprites/pirate_lookout_spritesheet.ron",
@@ -274,6 +288,8 @@
             tags: ["pirate", "enemy"],
         ),
         "npc_pirate_navigator": (
+            sprite_target: Some("pirate_admiral"),
+            sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
             display_name: "Pirate Navigator",
             spritesheet: "sprites/pirate_navigator_spritesheet.png",
             manifest: "sprites/pirate_navigator_spritesheet.ron",
@@ -287,6 +303,7 @@
 
         // ===== Pirate Heavy bruisers (slow + hard hitting).
         "npc_pirate_heavy_broadside_bess": (
+            sprite_tuning: Some((collision_scale: 1.95, frame_sample_inset: 1)),
             display_name: "Broadside Bess",
             spritesheet: "sprites/pirate_heavy_broadside_bess_spritesheet.png",
             manifest: "sprites/pirate_heavy_broadside_bess_spritesheet.ron",
@@ -298,6 +315,7 @@
             tags: ["pirate", "heavy", "enemy"],
         ),
         "npc_pirate_heavy_iron_mary": (
+            sprite_tuning: Some((collision_scale: 1.95, frame_sample_inset: 1)),
             display_name: "Iron Mary",
             spritesheet: "sprites/pirate_heavy_iron_mary_spritesheet.png",
             manifest: "sprites/pirate_heavy_iron_mary_spritesheet.ron",
@@ -309,6 +327,7 @@
             tags: ["pirate", "heavy", "enemy"],
         ),
         "npc_pirate_heavy_salt_annet": (
+            sprite_tuning: Some((collision_scale: 1.95, frame_sample_inset: 1)),
             display_name: "Salt Annet",
             spritesheet: "sprites/pirate_heavy_salt_annet_spritesheet.png",
             manifest: "sprites/pirate_heavy_salt_annet_spritesheet.ron",
@@ -322,6 +341,7 @@
 
         // ===== Burning Flying Shark (aerial pirate enemy).
         "npc_burning_flying_shark": (
+            sprite_tuning: Some((collision_scale: 0.8, frame_sample_inset: 1)),
             display_name: "Burning Flying Shark",
             spritesheet: "sprites/burning_flying_shark_spritesheet.png",
             manifest: "sprites/burning_flying_shark_spritesheet.ron",
@@ -335,6 +355,7 @@
 
         // ===== Puppy Slug (wanderer crawlid).
         "npc_puppy_slug": (
+            sprite_tuning: Some((collision_scale: 1.4, frame_sample_inset: 1)),
             display_name: "Puppy Slug",
             spritesheet: "sprites/puppy_slug_spritesheet.png",
             manifest: "sprites/puppy_slug_spritesheet.ron",
@@ -348,6 +369,7 @@
 
         // ===== Ninja dojo.
         "npc_ninja_shadow_oni_leader": (
+            sprite_target: Some("ninja_shadow_duelist"),
             display_name: "Shadow Oni Leader",
             spritesheet: "sprites/ninja_shadow_oni_leader_spritesheet.png",
             manifest: "sprites/ninja_shadow_oni_leader_spritesheet.ron",
@@ -372,6 +394,7 @@
 
         // ===== Hub guides (peaceful, dialogue-only).
         "npc_architect": (
+            sprite_tuning: Some((collision_scale: 1.1, frame_sample_inset: 2)),
             display_name: "Architect NPC",
             spritesheet: "sprites/architect_spritesheet.png",
             manifest: "sprites/architect_spritesheet.ron",
@@ -383,6 +406,7 @@
             tags: ["hub", "guide"],
         ),
         "npc_kernel_guide": (
+            sprite_tuning: Some((collision_scale: 1.1, frame_sample_inset: 2)),
             display_name: "Kernel Guide NPC",
             spritesheet: "sprites/kernel_guide_spritesheet.png",
             manifest: "sprites/kernel_guide_spritesheet.ron",
@@ -394,6 +418,7 @@
             tags: ["hub", "guide"],
         ),
         "npc_vault_keeper": (
+            sprite_tuning: Some((collision_scale: 1.1, frame_sample_inset: 2)),
             display_name: "Vault Keeper NPC",
             spritesheet: "sprites/vault_keeper_spritesheet.png",
             manifest: "sprites/vault_keeper_spritesheet.ron",
@@ -405,6 +430,7 @@
             tags: ["hub", "guide"],
         ),
         "npc_merchant_prototype": (
+            sprite_tuning: Some((collision_scale: 1.1, frame_sample_inset: 2)),
             display_name: "Merchant Prototype NPC",
             spritesheet: "sprites/merchant_prototype_spritesheet.png",
             manifest: "sprites/merchant_prototype_spritesheet.ron",

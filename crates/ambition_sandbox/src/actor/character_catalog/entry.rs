@@ -45,6 +45,27 @@ pub struct CompositionLayer {
     pub anchor_px: (f32, f32),
 }
 
+/// Per-character sprite gameplay tuning, authored in the catalog row.
+///
+/// The generated `*_spritesheet.ron` manifest carries everything the
+/// sprite RENDERER knows (frame grid, rows, feet anchor); these are
+/// the gameplay-side knobs it can't infer. Rows without this field
+/// use middle-of-the-road defaults (`collision_scale: 1.5`,
+/// `frame_sample_inset: 1`).
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
+pub struct SpriteTuningSpec {
+    /// render_size = aabb_size * collision_scale (the sprite is drawn
+    /// larger than the collision box so silhouettes read correctly).
+    pub collision_scale: f32,
+    /// Pixels trimmed from each frame edge when sampling, to drop
+    /// generator border bleed.
+    pub frame_sample_inset: u32,
+    /// Override for the manifest's `feet_anchor_norm.y` when the
+    /// generated anchor doesn't sit actors on the floor correctly.
+    #[serde(default)]
+    pub feet_anchor_y: Option<f32>,
+}
+
 /// One character entry in `character_catalog.ron`.
 #[allow(
     dead_code,
@@ -76,6 +97,31 @@ pub struct CharacterCatalogEntry {
     /// generator uses `tags = ["boss"]` to fence basement entries).
     #[serde(default)]
     pub tags: Vec<String>,
+    /// Gameplay sprite tuning (collision scale / sample inset / feet
+    /// anchor override). `None` = defaults. Replaces the old
+    /// hardcoded `*_SHEET` statics in `character_sprites/sheets.rs`.
+    #[serde(default)]
+    pub sprite_tuning: Option<SpriteTuningSpec>,
+    /// Explicit sheet-manifest record key when this character renders
+    /// with ANOTHER character's sheet (the four standard pirates share
+    /// the admiral's; the oni leader shares the duelist's). `None` =
+    /// derive from this row's own `manifest` filename.
+    #[serde(default)]
+    pub sprite_target: Option<String>,
+}
+
+impl CharacterCatalogEntry {
+    /// The sheet-manifest record key for this character: the manifest
+    /// filename root (e.g. `sprites/pirate_admiral_spritesheet.ron`
+    /// -> `pirate_admiral`). This is how multiple catalog ids (the
+    /// four standard pirates) share one generated sheet.
+    pub fn manifest_target(&self) -> Option<&str> {
+        if let Some(target) = self.sprite_target.as_deref() {
+            return Some(target);
+        }
+        let file = self.manifest.rsplit('/').next()?;
+        file.strip_suffix("_spritesheet.ron")
+    }
 }
 
 /// Deserialize-only mirror of `brain::StateMachineCfg`. Variant

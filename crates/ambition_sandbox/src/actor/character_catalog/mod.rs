@@ -35,6 +35,7 @@ pub mod validator;
 pub use entry::{
     ActionSetPreset, BrainPreset, CharacterBodyKind, CharacterCatalogData, CharacterCatalogEntry,
     CharacterTier, CompositionLayer, MeleePreset, MoveStylePreset, RangedPreset, SpecialPreset,
+    SpriteTuningSpec,
 };
 #[allow(
     unused_imports,

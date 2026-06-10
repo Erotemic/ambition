@@ -203,12 +203,12 @@ pub(crate) fn load_intro_npc_sprites_system(
         return;
     }
     for (name, filename, spec) in intro_npc_sprite_rows() {
-        if game_assets.characters.npcs.contains_key(*name) {
+        if game_assets.characters.npcs.contains_key(name) {
             continue;
         }
         let id = crate::intro::sprites::intro_npc_asset_id(name);
         if let Some(asset) =
-            build_npc_sprite_asset(&catalog, &asset_server, &mut layouts, &id, spec)
+            build_npc_sprite_asset(&catalog, &asset_server, &mut layouts, &id, &spec)
         {
             game_assets.characters.npcs.insert(name.to_string(), asset);
         } else {
@@ -247,12 +247,12 @@ pub(crate) fn load_intro_prop_sprites_system(
         return;
     }
     for (kind, filename, spec) in intro_prop_sprite_rows() {
-        if game_assets.characters.props.contains_key(*kind) {
+        if game_assets.characters.props.contains_key(kind) {
             continue;
         }
         let id = crate::intro::sprites::intro_prop_asset_id(kind);
         if let Some(asset) =
-            build_prop_sprite_asset(&catalog, &asset_server, &mut layouts, &id, spec)
+            build_prop_sprite_asset(&catalog, &asset_server, &mut layouts, &id, &spec)
         {
             game_assets
                 .characters

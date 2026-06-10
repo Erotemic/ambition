@@ -31,14 +31,7 @@ use bevy::prelude::*;
 
 use ambition_asset_manager::AssetId;
 
-use super::sheets::{
-    CharacterSheetSpec, ABSURD_GENERAL_SHEET, ARCHITECT_SHEET, BURNING_FLYING_SHARK_SHEET,
-    GOBLIN_CANTINA_CHIEFTAIN_SHEET, GOBLIN_SHEET, KERNEL_GUIDE_SHEET, MERCHANT_PROTOTYPE_SHEET,
-    NINJA_SHEET, PIRATE_HEAVY_BROADSIDE_BESS_SHEET, PIRATE_HEAVY_IRON_MARY_SHEET,
-    PIRATE_HEAVY_SALT_ANNET_SHEET, PIRATE_RAIDER_SHEET, PIRATE_SHEET, PLAYER_ROBOT_SHEET,
-    PULSE_VOYAGER_CAPTAIN_SHEET, PUPPY_SLUG_SHEET, ROBOT_SHEET, SANDBAG_SHEET,
-    TECH_BRO_DISRUPTOR_SHEET, VAULT_KEEPER_SHEET,
-};
+use super::sheets::CharacterSheetSpec;
 use crate::actor::character_catalog::EMBEDDED_CATALOG;
 use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
 use crate::features::FeatureVisualKind;
@@ -104,68 +97,40 @@ impl CharacterSpriteAssets {
     }
 }
 
-/// Look up the [`CharacterSheetSpec`] for a catalog `character_id`.
+/// Look up the [`CharacterSheetSpec`] for a catalog `character_id` —
+/// fully DATA-driven (Stage 20 / B3):
 ///
-/// Resolves in two stages:
+/// 1. The catalog row names the sheet-manifest record (its own
+///    `manifest` filename root, or an explicit `sprite_target` when a
+///    character renders with another character's sheet) and carries
+///    the gameplay tuning (`sprite_tuning`: collision_scale /
+///    frame_sample_inset / feet-anchor override).
+/// 2. Ids without a catalog row fall back to the manifest-by-id load
+///    with default tuning (`super::sheets::try_load_spec_for_character_id`).
 ///
-/// 1. **Hardcoded constants** (the `match` arms below). Characters
-///    that need bespoke `collision_scale` / `frame_sample_inset` /
-///    feet-anchor overrides live in `sheets.rs` as
-///    `LazyLock<CharacterSheetSpec>` statics; the match arm here
-///    clones the spec.
-/// 2. **Manifest-driven fallback** ([`super::sheets::try_load_spec_for_character_id`]).
-///    For catalog ids without a hardcoded const, load the spec from
-///    the on-disk `<target>_spritesheet.ron` manifest under
-///    `assets/sprites/` (recursive into boss subdirs) with a
-///    default tuning.
+/// The old hardcoded `*_SHEET` statics + named match are gone — adding
+/// a character's bespoke tuning is a `character_catalog.ron` edit.
 ///
-/// Returns `None` only when neither path produces a spec — usually
-/// because the manifest file doesn't exist yet (e.g. the renderer
-/// hasn't been run for that target).
+/// Returns `None` only when no manifest exists for the id — usually
+/// because the renderer hasn't been run for that target; the actor
+/// then renders the colored-rectangle placeholder.
 pub fn sheet_for_character_id(character_id: &str) -> Option<CharacterSheetSpec> {
-    let hardcoded: Option<&'static LazyLock<CharacterSheetSpec>> = match character_id {
-        // Base characters.
-        "player" => Some(&PLAYER_ROBOT_SHEET),
-        "robot" => Some(&ROBOT_SHEET),
-        "goblin" => Some(&GOBLIN_SHEET),
-        "sandbag" => Some(&SANDBAG_SHEET),
-        // Hub faction leaders.
-        "npc_general" => Some(&ABSURD_GENERAL_SHEET),
-        "npc_goblin_cantina_chieftain" => Some(&GOBLIN_CANTINA_CHIEFTAIN_SHEET),
-        "npc_pulse_voyager_captain" => Some(&PULSE_VOYAGER_CAPTAIN_SHEET),
-        "npc_tech_bro_disruptor" => Some(&TECH_BRO_DISRUPTOR_SHEET),
-        // Pirate-faction (Pirate Cove). Same PIRATE_SHEET layout for
-        // every standard pirate; visual variety lives in the toon-
-        // adapter palette per variant.
-        "npc_pirate_admiral"
-        | "npc_pirate_quartermaster"
-        | "npc_pirate_lookout"
-        | "npc_pirate_navigator" => Some(&PIRATE_SHEET),
-        "npc_pirate_raider" => Some(&PIRATE_RAIDER_SHEET),
-        // Pirate Heavy bruisers — per-variant sheets.
-        "npc_pirate_heavy_broadside_bess" => Some(&PIRATE_HEAVY_BROADSIDE_BESS_SHEET),
-        "npc_pirate_heavy_iron_mary" => Some(&PIRATE_HEAVY_IRON_MARY_SHEET),
-        "npc_pirate_heavy_salt_annet" => Some(&PIRATE_HEAVY_SALT_ANNET_SHEET),
-        // Aerial pirate enemy + wanderer crawlid.
-        "npc_burning_flying_shark" => Some(&BURNING_FLYING_SHARK_SHEET),
-        "npc_puppy_slug" => Some(&PUPPY_SLUG_SHEET),
-        // Ninja dojo (shared NINJA_SHEET layout).
-        "npc_ninja_shadow_oni_leader" | "npc_ninja_shadow_duelist" => Some(&NINJA_SHEET),
-        // Hub dialogue NPCs.
-        "npc_architect" => Some(&ARCHITECT_SHEET),
-        "npc_kernel_guide" => Some(&KERNEL_GUIDE_SHEET),
-        "npc_vault_keeper" => Some(&VAULT_KEEPER_SHEET),
-        "npc_merchant_prototype" => Some(&MERCHANT_PROTOTYPE_SHEET),
-        _ => None,
-    };
-    if let Some(static_spec) = hardcoded {
-        return Some((**static_spec).clone());
+    if let Some(entry) = EMBEDDED_CATALOG.characters.get(character_id) {
+        if let Some(target) = entry.manifest_target() {
+            let tuning = entry
+                .sprite_tuning
+                .map(super::sheets::SheetTuning::from_spec)
+                .unwrap_or_default();
+            if let Some(spec) = super::sheets::try_load_spec_for_target(target, &tuning) {
+                return Some(spec);
+            }
+        }
     }
     let spec = super::sheets::try_load_spec_for_character_id(character_id);
     if spec.is_none() {
         bevy::log::debug!(
             target: "ambition::character_sprites",
-            "character_sprites: no sheet wired (hardcoded or manifest) for catalog id '{character_id}' — \
+            "character_sprites: no sheet manifest for catalog id '{character_id}' — \
              actor will render the colored-rectangle placeholder",
         );
     }

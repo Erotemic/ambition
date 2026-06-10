@@ -58,7 +58,7 @@ fn intro_npc_sprite_rows_have_unique_names() {
     let mut seen = std::collections::HashSet::new();
     for (name, _, _) in intro_npc_sprite_rows() {
         assert!(
-            seen.insert(*name),
+            seen.insert(name),
             "duplicate intro NPC sprite registry name '{name}'"
         );
     }

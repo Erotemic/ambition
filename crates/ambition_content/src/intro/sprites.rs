@@ -16,170 +16,162 @@
 use ambition_asset_manager::AssetId;
 
 use ambition_sandbox::presentation::character_sprites::{
-    CharacterSheetSpec, ALICE_SHEET, ARCHITECT_SHEET, BOB_SHEET, CART_SHEET, CREATOR_SHEET,
-    CUT_ROPE_ANVIL_SHEET, CUT_ROPE_PIANO_SHEET, CUT_ROPE_ROPE_SHEET, ERDISH_SHEET,
-    GATE_PORTAL_SHEET, GATE_RING_SHEET, GENERIC_EXPLOSIONS_SHEET, GOBLIN_SHEET, KERNEL_GUIDE_SHEET,
-    LAB_PROP_GENESIS_VAT, LAB_PROP_NEURAL_CONSOLE, LAB_PROP_POWER_CORE, LAB_PROP_REPAIR_CRADLE,
-    LAB_PROP_RESONANCE_COIL, NEWS_BOARD_SHEET, OILER_SHEET,
+    sheet_for_character_id, try_load_spec_for_target, CharacterSheetSpec, SheetTuning,
 };
 
-/// `(LDtk NpcSpawn.name, asset filename, sheet spec)` rows for the
-/// intro NPCs. Filenames are relative to the configured
-/// `assets/<sprite_folder>/` directory — same convention as
-/// `ambition_sandbox::presentation::character_sprites::assets::NPC_SPRITE_REGISTRY`.
-pub const INTRO_NPC_SPRITE_REGISTRY: &[(
-    &str,
-    &str,
-    &'static std::sync::LazyLock<CharacterSheetSpec>,
-)] = &[
-    // Wake-room creator. Dedicated creator tack-on sheet — 160×192 with
-    // a 108px label column, four authored rows (idle/speak/gesture/walk).
-    ("Creator", "creator_spritesheet.png", &CREATOR_SHEET),
-    // Same creator, raid-corridor variant. Same sheet so the player
-    // recognizes the silhouette dying mid-sentence.
-    ("Creator Final", "creator_spritesheet.png", &CREATOR_SHEET),
-    // Oiler: street mechanic. Dedicated toon-adapter sheet (rendered
-    // from configs/review/oiler.yaml + the `oiler` PRESETS entry in
-    // targets/toon_side.py).
-    ("Oiler", "oiler_spritesheet.png", &OILER_SHEET),
-    // Gate Janitor: utility staff under the gate stack. Kernel Guide
-    // is the placeholder until a dedicated janitor sheet lands —
-    // poncho + slightly weary silhouette reads closer than the
-    // vested Vault Keeper at this size.
-    (
-        "Gate Janitor",
-        "kernel_guide_spritesheet.png",
-        &KERNEL_GUIDE_SHEET,
-    ),
-    // Erdish: optional recurring graph-theory eccentric. Not spawned
-    // in the v1 intro slice yet (he lands when a `NpcSpawn` with
-    // `name: Erdish` is authored in a later room), but pre-registered
-    // so the sprite is ready the moment LDtk authoring catches up.
-    ("Erdish", "erdish_spritesheet.png", &ERDISH_SHEET),
-    // Lab Raider: generic intro pressure enemy. Uses the goblin sheet
-    // for now while the act 1 faction identity settles.
-    ("Lab Raider", "goblin_spritesheet.png", &GOBLIN_SHEET),
-    // Salvage Guard: second generic intro pressure enemy. Shares the
-    // same goblin fallback so the intro stays content-driven.
-    ("Salvage Guard", "goblin_spritesheet.png", &GOBLIN_SHEET),
-    // Manifest clerk: bureaucratic kiosk operator. Architect sheet
-    // reads as "person at a podium pointing at things."
-    (
-        "Manifest Clerk",
-        "architect_spritesheet.png",
-        &ARCHITECT_SHEET,
-    ),
-    // News board: not an animated NPC in the design sense, but the
-    // sandbox treats every `NpcSpawn` the same way. Dedicated
-    // `news_board_spritesheet.png` renders a wall-mounted bulletin
-    // board (Disruptor Industries header, pinned papers, blinking
-    // LED) so it visibly reads as a board instead of a person.
-    (
-        "News Board",
-        "news_board_spritesheet.png",
-        &NEWS_BOARD_SHEET,
-    ),
-    // Alice — unofficial cartographer. Dedicated toon-side sheet
-    // (`alice_spritesheet.png` + `alice_spritesheet.yaml`); first
-    // intro NPC with non-placeholder art.
-    ("Alice", "alice_spritesheet.png", &ALICE_SHEET),
-    // Bob — field cartographer. Companion dedicated sheet to Alice.
-    ("Bob", "bob_spritesheet.png", &BOB_SHEET),
-    // Cart, lab props, and gate sprites are now Prop entities (see
-    // INTRO_PROP_REGISTRY below) and live in
-    // `GameAssets.characters.props` instead of `npcs`.
-];
+/// Default toon-NPC tuning the old intro `*_SHEET` statics carried.
+const INTRO_NPC_TUNING: SheetTuning = SheetTuning::new(1.10, 2);
 
-pub fn intro_npc_sprite_rows() -> &'static [(
-    &'static str,
-    &'static str,
-    &'static std::sync::LazyLock<CharacterSheetSpec>,
-)] {
-    INTRO_NPC_SPRITE_REGISTRY
+/// Resolve a content-owned sheet spec by manifest target, with intro
+/// tuning. Panics in tests via the registry checks; at runtime a
+/// missing manifest falls back to the colored-rectangle contract by
+/// the caller skipping the row.
+fn intro_sheet(target: &str, tuning: &SheetTuning) -> Option<CharacterSheetSpec> {
+    try_load_spec_for_target(target, tuning)
 }
 
-/// `(Prop.kind, asset filename, sheet spec)` rows for intro props.
-///
-/// Keyed by `Prop.kind` (NOT display name) so authors can rename a
-/// prop in LDtk without re-pointing the sprite registry. Loaded into
-/// `GameAssets.characters.props` by
-/// [`crate::intro::plugin::load_intro_prop_sprites_system`].
-pub const INTRO_PROP_REGISTRY: &[(&str, &str, &'static std::sync::LazyLock<CharacterSheetSpec>)] =
-    &[
-        // Diagnostic cart the player wakes on.
-        ("intro_cart", "intro_cart_spritesheet.png", &CART_SHEET),
-        // Creator lab props — each pulls a different row from the shared
-        // `creator_lab_props_spritesheet.png` via its `y_offset`.
+/// `(LDtk NpcSpawn.name, asset filename, sheet spec)` rows for the
+/// intro NPCs, resolved from the generated sheet manifests + the
+/// intro's own tuning (Stage 20 / B3: the named `*_SHEET` statics in
+/// the machinery lib are gone; story content owns its named sheets).
+pub fn intro_npc_sprite_rows() -> Vec<(&'static str, &'static str, CharacterSheetSpec)> {
+    let t = &INTRO_NPC_TUNING;
+    let mut rows: Vec<(&str, &str, Option<CharacterSheetSpec>)> = vec![
+        // Wake-room creator + raid-corridor variant (same sheet so the
+        // player recognizes the silhouette dying mid-sentence).
+        (
+            "Creator",
+            "creator_spritesheet.png",
+            intro_sheet("creator", t),
+        ),
+        (
+            "Creator Final",
+            "creator_spritesheet.png",
+            intro_sheet("creator", t),
+        ),
+        // Oiler: street mechanic (dedicated toon-adapter sheet).
+        ("Oiler", "oiler_spritesheet.png", intro_sheet("oiler", t)),
+        // Gate Janitor: Kernel Guide placeholder until a dedicated
+        // janitor sheet lands.
+        (
+            "Gate Janitor",
+            "kernel_guide_spritesheet.png",
+            sheet_for_character_id("npc_kernel_guide"),
+        ),
+        // Erdish: pre-registered for later LDtk authoring.
+        ("Erdish", "erdish_spritesheet.png", intro_sheet("erdish", t)),
+        // Lab Raider / Salvage Guard: goblin sheet while the act-1
+        // faction identity settles.
+        (
+            "Lab Raider",
+            "goblin_spritesheet.png",
+            sheet_for_character_id("goblin"),
+        ),
+        (
+            "Salvage Guard",
+            "goblin_spritesheet.png",
+            sheet_for_character_id("goblin"),
+        ),
+        // Manifest clerk: architect sheet reads as "person at a podium".
+        (
+            "Manifest Clerk",
+            "architect_spritesheet.png",
+            sheet_for_character_id("npc_architect"),
+        ),
+        // News board: wall-mounted bulletin board rendered through the
+        // NpcSpawn path.
+        (
+            "News Board",
+            "news_board_spritesheet.png",
+            intro_sheet("news_board", &SheetTuning::new(1.50, 2)),
+        ),
+        // Alice + Bob — the cartographer pair, dedicated sheets.
+        ("Alice", "alice_spritesheet.png", intro_sheet("alice", t)),
+        ("Bob", "bob_spritesheet.png", intro_sheet("bob", t)),
+    ];
+    rows.drain(..)
+        .filter_map(|(name, file, spec)| spec.map(|s| (name, file, s)))
+        .collect()
+}
+
+/// Prop tuning: props render at their authored AABB size.
+const PROP_TUNING: SheetTuning = SheetTuning::new(1.00, 2);
+
+/// `(Prop.kind, asset filename, sheet spec)` rows for intro props
+/// (keyed by `Prop.kind` so LDtk renames don't re-point sprites).
+/// Includes the cut-rope arena props until a dedicated non-intro prop
+/// catalog exists.
+pub fn intro_prop_sprite_rows() -> Vec<(&'static str, &'static str, CharacterSheetSpec)> {
+    let t = &PROP_TUNING;
+    let mut rows: Vec<(&str, &str, Option<CharacterSheetSpec>)> = vec![
+        (
+            "intro_cart",
+            "intro_cart_spritesheet.png",
+            intro_sheet("intro_cart", t),
+        ),
+        // Creator lab props — separate records inside the shared
+        // creator_lab_props sheet.
         (
             "lab_genesis_vat",
             "creator_lab_props_spritesheet.png",
-            &LAB_PROP_GENESIS_VAT,
+            intro_sheet("genesis_vat", t),
         ),
         (
             "lab_neural_console",
             "creator_lab_props_spritesheet.png",
-            &LAB_PROP_NEURAL_CONSOLE,
+            intro_sheet("neural_console", t),
         ),
         (
             "lab_power_core",
             "creator_lab_props_spritesheet.png",
-            &LAB_PROP_POWER_CORE,
+            intro_sheet("power_core", t),
         ),
         (
             "lab_repair_cradle",
             "creator_lab_props_spritesheet.png",
-            &LAB_PROP_REPAIR_CRADLE,
+            intro_sheet("repair_cradle", t),
         ),
         (
             "lab_resonance_coil",
             "creator_lab_props_spritesheet.png",
-            &LAB_PROP_RESONANCE_COIL,
+            intro_sheet("resonance_coil", t),
         ),
-        // Cut-rope boss props. These are gameplay props in the side-world
-        // arena, but reuse the global Prop registry until a dedicated
-        // non-intro prop catalog exists.
+        // Cut-rope boss props.
         (
             "cut_rope_rope",
             "cut_rope_rope_spritesheet.png",
-            &CUT_ROPE_ROPE_SHEET,
+            intro_sheet("cut_rope_rope", t),
         ),
         (
             "cut_rope_anvil",
             "cut_rope_anvil_spritesheet.png",
-            &CUT_ROPE_ANVIL_SHEET,
+            intro_sheet("cut_rope_anvil", t),
         ),
         (
             "cut_rope_piano",
             "cut_rope_piano_spritesheet.png",
-            &CUT_ROPE_PIANO_SHEET,
+            intro_sheet("cut_rope_piano", t),
         ),
         (
             "generic_explosions",
             "generic_explosions_spritesheet.png",
-            &GENERIC_EXPLOSIONS_SHEET,
+            intro_sheet("generic_explosions", t),
         ),
-        // Interdimensional gate (legally distinct stargate). Ring is the
-        // always-on structural arch; portal renders the shimmering
-        // surface inside it. Both keyed as props so the gate stack scene
-        // never grows an interact prompt on them.
+        // Interdimensional gate ring + portal surface.
         (
             "gate_ring",
             "interdimensional_gate_ring_spritesheet.png",
-            &GATE_RING_SHEET,
+            intro_sheet("interdimensional_gate_ring", t),
         ),
         (
             "gate_portal",
             "interdimensional_gate_portal_spritesheet.png",
-            &GATE_PORTAL_SHEET,
+            intro_sheet("interdimensional_gate_portal", t),
         ),
     ];
-
-pub fn intro_prop_sprite_rows() -> &'static [(
-    &'static str,
-    &'static str,
-    &'static std::sync::LazyLock<CharacterSheetSpec>,
-)] {
-    INTRO_PROP_REGISTRY
+    rows.drain(..)
+        .filter_map(|(kind, file, spec)| spec.map(|s| (kind, file, s)))
+        .collect()
 }
 
 /// Stable [`AssetId`] for an intro NPC sprite. The namespace is

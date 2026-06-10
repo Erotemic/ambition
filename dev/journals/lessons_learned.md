@@ -77,7 +77,7 @@ Adjacent tooling gap discovered: `tileset add-layer` errored out instead of bein
 
 ## 2026-05-11: Movement split broke extension-trait scope and `Self: Sized` assumptions
 
-A movement refactor split [`crates/ambition_engine/src/movement.rs`](../../crates/ambition_sandbox/src/engine_core/movement.rs) into child modules and changed AABB sweeps from returning only `time_of_impact` to returning an `AabbSweepHit` with Parry's contact normal. The patch looked mechanically reasonable but failed immediately when the user ran the suggested checks.
+A movement refactor split [`crates/ambition_engine/src/movement.rs`](../../crates/ambition_engine_core/src/movement/mod.rs) into child modules and changed AABB sweeps from returning only `time_of_impact` to returning an `AabbSweepHit` with Parry's contact normal. The patch looked mechanically reasonable but failed immediately when the user ran the suggested checks.
 
 The first handoff mistake was the command itself:
 
@@ -114,7 +114,7 @@ Benchmark candidate: [`dev/benchmark-candidates/rust-questions.md`](../benchmark
 
 ## 2026-05-10: Movement-snap probes must validate world bounds, not just intra-block clearance
 
-[`ambition_engine::probe_ledge_grab`](../../crates/ambition_sandbox/src/engine_core/ledge_grab.rs) checked that the platform on top of a candidate ledge was clear of *other* solid blocks (good), but did not check that the climbed-onto position lay inside the world rect. The mob_lab arena has a ceiling tile at y≈1; a wall-clinging player whose head touched that ceiling could pass `probe_ledge_grab`'s clearance test, get snapped to a `climb_target.y = -23`, and end up above the world.
+[`ambition_engine::probe_ledge_grab`](../../crates/ambition_engine_core/src/ledge_grab.rs) checked that the platform on top of a candidate ledge was clear of *other* solid blocks (good), but did not check that the climbed-onto position lay inside the world rect. The mob_lab arena has a ceiling tile at y≈1; a wall-clinging player whose head touched that ceiling could pass `probe_ledge_grab`'s clearance test, get snapped to a `climb_target.y = -23`, and end up above the world.
 
 The visible symptom was a teleport-loop trapping the player in the goblin encounter:
 
@@ -545,7 +545,7 @@ Three coordinated invariants:
    `ControlFrame` is left intact.
 
 Regression tests live in
-[`crates/ambition_sandbox/tests/crouch_stability.rs`](../../crates/ambition_sandbox/tests/crouch_stability.rs)
+[`crates/ambition_sandbox/tests/crouch_stability.rs`](../../crates/ambition_app/tests/crouch_stability.rs)
 (held Down for 30 frames must stay Crouching with per-frame `pos.y`
 delta < 5 px) and
 `fold_held_down_without_edge_flag_does_not_fire_down_pressed` (historical path: `crates/ambition_sandbox/src/mobile_input.rs`)
@@ -610,7 +610,7 @@ signal can't latch across frames. `SandboxRuntime::reset` clears it
 defensively.
 
 Regression test
-[`morph_ball_does_not_fire_from_control_frame_alone`](../../crates/ambition_sandbox/src/body_mode.rs)
+[`morph_ball_does_not_fire_from_control_frame_alone`](../../crates/ambition_sandbox/src/body_mode/mod.rs)
 sets `controls.fast_fall_pressed = true` directly on the resource and
 asserts the driver does **not** enter MorphBall. The negative
 assertion pins the seam.

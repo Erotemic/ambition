@@ -349,7 +349,7 @@ Likely files/modules:
 - player spawn/state: [`crates/ambition_sandbox/src/player/components.rs`](../../crates/ambition_sandbox/src/player/components.rs), [`crates/ambition_sandbox/src/player/bundles.rs`](../../crates/ambition_sandbox/src/player/bundles.rs), [`crates/ambition_sandbox/src/player/systems.rs`](../../crates/ambition_sandbox/src/player/systems.rs);
 - player tick: [`crates/ambition_app/src/app/player_tick.rs`](../../crates/ambition_app/src/app/player_tick.rs);
 - broad sim helpers: [`crates/ambition_app/src/app/sim_systems.rs`](../../crates/ambition_app/src/app/sim_systems.rs), [`crates/ambition_app/src/app/world_flow.rs`](../../crates/ambition_app/src/app/world_flow.rs);
-- movement helpers: [`crates/ambition_sandbox/src/engine_core/movement/`](../../crates/ambition_sandbox/src/engine_core/movement/);
+- movement helpers: [`crates/ambition_engine_core/src/movement/`](../../crates/ambition_engine_core/src/movement/);
 - projectile charge/fire: [`crates/ambition_sandbox/src/projectile/`](../../crates/ambition_sandbox/src/projectile/);
 - body modes: [`crates/ambition_sandbox/src/body_mode/`](../../crates/ambition_sandbox/src/body_mode/);
 - player affordances: [`crates/ambition_sandbox/src/player/affordances/`](../../crates/ambition_sandbox/src/player/affordances/);

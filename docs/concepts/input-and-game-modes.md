@@ -8,10 +8,9 @@ aliases:
   - menu navigation
   - touch controls
 implemented_by:
-  - crates/ambition_sandbox/src/input.rs
-  - crates/ambition_sandbox/src/pause_menu.rs
-  - crates/ambition_sandbox/src/map_menu.rs
-  - crates/ambition_sandbox/src/time.rs
+  - crates/ambition_input/src/lib.rs
+  - crates/ambition_sandbox/src/menu/map/mod.rs
+  - crates/ambition_sandbox/src/time/mod.rs
 related_docs:
   - docs/systems/input-and-control-frame.md
   - docs/systems/ui-navigation-and-pause.md

@@ -20,7 +20,7 @@ to the bottom under "Closed" with the commit that fixed them.
   camera state, and interaction state live on dedicated ECS components
   on the player entity (18 cluster components + companions in
   `crates/ambition_sandbox/src/player/` and
-  `crates/ambition_sandbox/src/engine_core/player_clusters.rs`,
+  `crates/ambition_engine_core/src/player_clusters.rs`,
   finalized 2026-05-28). The god-object resource is gone; the
   `legacy_runtime_guardrail` integration test prevents re-introduction.
 
@@ -210,7 +210,7 @@ to the bottom under "Closed" with the commit that fixed them.
   - Resolved by promoting to `Player::mana: ResourceMeter` at the
     engine layer. The F3 inspector keeps the `i32` editable surface
     and converts at the boundary; reset path uses `mana.refill_full()`.
-    See `crates/ambition_sandbox/src/engine_core/movement.rs` and
+    See `crates/ambition_engine_core/src/movement/mod.rs` and
     `crates/ambition_sandbox/src/dev_tools.rs::sync_player_stats_with_inspector`.
 
 ### Encounter
@@ -231,7 +231,7 @@ to the bottom under "Closed" with the commit that fixed them.
     `flush_feedback` drains into `MessageWriter`; encounter system
     reads `MessageReader<PlayerDiedMessage>`. See
     `crates/ambition_sandbox/src/lib.rs::PlayerDiedMessage` and
-    `crates/ambition_sandbox/src/app.rs::death_respawn_player`.
+    `crates/ambition_sandbox/src/app/mod.rs::death_respawn_player`.
 
 - **LOW — Camera ease snaps in overview mode**
   - File: `crates/ambition_sandbox/src/presentation/rendering/camera.rs:camera_follow`
@@ -302,7 +302,7 @@ to the bottom under "Closed" with the commit that fixed them.
 
 - **LOW — `ProgressionResources` and `SandboxQueues` SystemParam
   bundles are ad-hoc**
-  - File: `crates/ambition_sandbox/src/app.rs`
+  - File: `crates/ambition_sandbox/src/app/mod.rs`
   - Pure pragmatism (16-param cap). Not jank exactly, but the bundles
     are growing. When the crate split lands, take a moment to make
     each bundle a public type with a docstring.
@@ -385,7 +385,7 @@ to the bottom under "Closed" with the commit that fixed them.
 
 - **RESOLVED 2026-05-28 — Ledge grab probe diagonal-corner cases** —
   two regression tests added at
-  `crates/ambition_sandbox/src/engine_core/ledge_grab.rs` —
+  `crates/ambition_engine_core/src/ledge_grab.rs` —
   `finds_ledge_at_top_of_stacked_solid_wall` (two stacked solids
   forming a continuous wall) and
   `finds_ledge_at_l_corner_when_clinging_to_upper_block` (L-shape with

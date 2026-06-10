@@ -6,7 +6,7 @@ Ambition is a Rust/Bevy workspace with reusable support crates, a playable sandb
 
 | Crate | Responsibility |
 |---|---|
-| `crates/ambition_sandbox/src/engine_core/` | Reusable mechanics vocabulary inside the sandbox crate: movement, collision, body modes, geometry, block/world policy, player clusters, and tests. Bevy-friendly types are allowed when useful. |
+| `crates/ambition_engine_core/src/` | Reusable mechanics vocabulary inside the sandbox crate: movement, collision, body modes, geometry, block/world policy, player clusters, and tests. Bevy-friendly types are allowed when useful. |
 | `ambition_asset_manager` | Asset identity, platform profile resolution, embedded/served/loose asset roots, and Bevy integration. |
 | `ambition_sfx` | Stable generated SFX identifiers and sound vocabulary. |
 | `ambition_sfx_bank` | Runtime SFX-bank parsing and lookup. |

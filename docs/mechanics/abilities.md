@@ -1,6 +1,6 @@
 # Abilities
 
-Abilities are reusable gameplay verbs. Keep reusable engine semantics in `crates/ambition_sandbox/src/engine_core/` or focused sandbox modules, and keep presentation/content/progression wiring sandbox-specific.
+Abilities are reusable gameplay verbs. Keep reusable engine semantics in `crates/ambition_engine_core/src/` or focused sandbox modules, and keep presentation/content/progression wiring sandbox-specific.
 
 **Review date:** 2026-05-30. Reviewed against source archive `ambition-source-2026-05-30T104014-5-e721ea65c578`.
 

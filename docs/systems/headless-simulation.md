@@ -177,7 +177,7 @@ foundation entirely.
 - Player state is ECS-authoritative (cluster components, completed
   2026-05-28; see `crates/ambition_sandbox/src/player/` and the 18
   cluster component types in
-  `crates/ambition_sandbox/src/engine_core/player_clusters.rs`).
+  `crates/ambition_engine_core/src/player_clusters.rs`).
   Headless drivers and the scripted-gameplay integration tests query
   / mutate the player via `PlayerClusterQueryData::as_clusters_mut()`
   (or the `PlayerClusterScratch` non-ECS helper). `GameWorld` and the

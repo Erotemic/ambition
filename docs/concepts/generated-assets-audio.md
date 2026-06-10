@@ -10,8 +10,8 @@ implemented_by:
   - tools/ambition_music_renderer
   - tools/ambition_sfx_renderer
   - tools/ambition_sfx_pack
-  - crates/ambition_sandbox/src/audio.rs
-  - crates/ambition_sandbox/src/music.rs
+  - crates/ambition_sandbox/src/audio/mod.rs
+  - crates/ambition_sandbox/src/music/mod.rs
   - crates/ambition_asset_manager/src
   - assets/
 related_docs:

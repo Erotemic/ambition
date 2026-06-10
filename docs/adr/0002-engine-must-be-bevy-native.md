@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Supersedes the older “engine may be Bevy-native” phrasing. Largely subsumed 2026-05-28 by the deletion of the `ambition_engine` crate — what remains of "the engine" is now a sandbox module at `crates/ambition_sandbox/src/engine_core/`. The decision below still applies to that module: Bevy-native semantics, no presentation/app-shell concerns.
+Accepted. Supersedes the older “engine may be Bevy-native” phrasing. Largely subsumed 2026-05-28 by the deletion of the `ambition_engine` crate — what remains of "the engine" is now a sandbox module at `crates/ambition_engine_core/src/`. The decision below still applies to that module: Bevy-native semantics, no presentation/app-shell concerns.
 
 ## Context
 

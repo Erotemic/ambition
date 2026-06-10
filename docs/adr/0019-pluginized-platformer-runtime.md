@@ -56,8 +56,26 @@ can be mapped cleanly onto reusable runtime phases.
 ## Validation
 
 ```bash
-cargo test -p ambition_sandbox architecture_boundaries
-cargo test -p ambition_sandbox room_scoped
-cargo test -p ambition_sandbox portal_lab_usable
-cargo test -p ambition_sandbox gravity_room_reachability
+cargo test -p ambition_app --test architecture_boundaries
+cargo test -p ambition_sandbox --lib room_scoped
+cargo test -p ambition_app --test portal_lab_usable
+cargo test -p ambition_app --test gravity_room_reachability
 ```
+
+## Current implications for agents
+
+- The crate extraction this ADR set up has LARGELY HAPPENED (Stage 20, 2026-06).
+  The workspace is now `ambition_engine_core` / `ambition_platformer_runtime` /
+  `ambition_portal` / `ambition_time` / `ambition_input` / `ambition_menu` /
+  `ambition_audio` (foundations) ← `ambition_sandbox` (machinery lib) ←
+  `ambition_content` (named game content) ← `ambition_app` (assembly + bins +
+  tests). See `docs/planning/plugin_refactor/22_monolith_breaker_survey.md`.
+- `crate::engine_core`, `crate::kinematic`, `crate::input`, `crate::time`,
+  `crate::portal` inside `ambition_sandbox` are FACADE re-exports of those crates —
+  edit the crate, not a (nonexistent) lib module.
+- Machinery must not import content: the `architecture_boundaries` guards (in
+  `ambition_app/tests`) enforce it. Add a guard when you win a new boundary.
+- New gameplay subsystems should be self-owning `Plugin`s (components-as-plugins),
+  not functions hand-wired in the app assembly.
+- Integration tests + binaries live in `ambition_app`; machinery unit tests in
+  `ambition_sandbox --lib`; content tests in `ambition_content --all-features`.

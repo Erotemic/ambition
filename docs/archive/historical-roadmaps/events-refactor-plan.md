@@ -148,7 +148,7 @@ sequence.
 
 ### Slice 1 — Audio events (~1-2 days)
 
-**Add** `SfxEvent` in `crates/ambition_sandbox/src/audio.rs`:
+**Add** `SfxEvent` in `crates/ambition_sandbox/src/audio/mod.rs`:
 
 ```rust
 #[derive(Event, Clone, Debug)]

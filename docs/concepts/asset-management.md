@@ -7,7 +7,7 @@ aliases:
   - platform assets
 implemented_by:
   - crates/ambition_asset_manager/src
-  - crates/ambition_sandbox/src/assets.rs
+  - crates/ambition_sandbox/src/assets/mod.rs
   - crates/ambition_sandbox/assets/ambition/sandbox.ron
 related_docs:
   - docs/systems/asset-manager.md

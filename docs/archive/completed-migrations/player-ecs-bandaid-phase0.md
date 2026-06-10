@@ -27,8 +27,8 @@ This document records:
 
 Sources read for the ledger:
 
-- [`crates/ambition_sandbox/src/engine_core/movement/player.rs`](../../crates/ambition_sandbox/src/engine_core/movement/player.rs) (the `ae::Player` struct definition).
-- [`crates/ambition_sandbox/src/engine_core/player_state.rs`](../../crates/ambition_sandbox/src/engine_core/player_state.rs) (`BodyMode`, `ResourceMeter`, `LocomotionState`, `try_change_body_mode`, `classify_player_safety`).
+- [`crates/ambition_engine_core/src/movement/player.rs`](../../crates/ambition_engine_core/src/movement/player.rs) (the `ae::Player` struct definition).
+- [`crates/ambition_engine_core/src/player_state.rs`](../../crates/ambition_engine_core/src/player_state.rs) (`BodyMode`, `ResourceMeter`, `LocomotionState`, `try_change_body_mode`, `classify_player_safety`).
 - [`crates/ambition_sandbox/src/player/components.rs`](../../crates/ambition_sandbox/src/player/components.rs) (existing ECS shape).
 - [`crates/ambition_sandbox/src/player/bundles.rs`](../../crates/ambition_sandbox/src/player/bundles.rs) (current spawn shape).
 
@@ -122,7 +122,7 @@ relies on the compiler to surface every reader in this list.
 
 ## `ae::Player` field ledger
 
-Every field on [`ae::Player`](../../crates/ambition_sandbox/src/engine_core/movement/player.rs#L26)
+Every field on [`ae::Player`](../../crates/ambition_engine_core/src/movement/player.rs#L26)
 gets a destination. "Cluster" names follow the target vocabulary in the
 plan. "Helper-local" means the value lives only as a local variable inside
 a movement helper after the refactor — it should not survive as a
@@ -346,7 +346,7 @@ What stays in `ambition_engine` after `ae::Player` is gone:
 
 What gets deleted:
 
-- `crates/ambition_sandbox/src/engine_core/movement/player.rs` (the `Player` struct).
+- `crates/ambition_engine_core/src/movement/player.rs` (the `Player` struct).
 - The high-level `update_player_control_with_tuning` /
   `update_player_simulation_with_tuning` entry points if they only operate
   on `Player` (they do today). Their bodies move into the sandbox ECS

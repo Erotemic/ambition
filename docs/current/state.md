@@ -2,7 +2,7 @@
 
 This is the compact active-state document for Ambition. Update it when the current architecture or active direction changes. Keep old migration plans in `docs/archive/`, not here.
 
-**Review date:** 2026-05-30. The `ambition_engine` crate was deleted on 2026-05-28; reusable mechanics now live inside `crates/ambition_sandbox/src/engine_core/` or focused sandbox modules such as `crates/ambition_sandbox/src/projectile/`.
+**Review date:** 2026-05-30. The `ambition_engine` crate was deleted on 2026-05-28; reusable mechanics now live inside `crates/ambition_engine_core/src/` or focused sandbox modules such as `crates/ambition_sandbox/src/projectile/`.
 
 ## One-sentence summary
 
@@ -42,7 +42,7 @@ Current rule:
 
 - LDtk owns areas, collision layers, loading zones, room/world spatial data, and authored level entities.
 - Bevy ECS owns the runtime representation.
-- `crates/ambition_sandbox/src/engine_core/` owns reusable engine semantics such as geometry, collision, movement, body modes, player clusters, and world/block policy. Focused sandbox mechanics such as projectiles live in their own crate modules.
+- `crates/ambition_engine_core/src/` owns reusable engine semantics such as geometry, collision, movement, body modes, player clusters, and world/block policy. Focused sandbox mechanics such as projectiles live in their own crate modules.
 - RON remains valid for tuning, save/settings, generated-audio specs, boss encounter specs, character catalogs, and other non-world data where it is still the best format.
 - Agents must not hand-edit `sandbox.ldtk`; use `python -m ambition_ldtk_tools` and validation tools.
 

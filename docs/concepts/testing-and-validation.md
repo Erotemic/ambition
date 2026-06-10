@@ -6,7 +6,7 @@ aliases:
   - regression tests
   - property tests
 implemented_by:
-  - crates/ambition_sandbox/src/engine_core/movement/tests
+  - crates/ambition_engine_core/src/movement
   - crates/ambition_sandbox/tests
   - .github/workflows
 related_docs:

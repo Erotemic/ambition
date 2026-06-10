@@ -85,7 +85,7 @@ fork), not bringing back a parallel DSP engine.
 
 ## Where to look for runtime audio today
 
-- `crates/ambition_sandbox/src/audio.rs` — module root + re-exports
+- `crates/ambition_sandbox/src/audio/mod.rs` — module root + re-exports
 - `crates/ambition_sandbox/src/audio/runtime.rs` — `AudioLibrary`,
   music track table, `audio_play_sfx_messages` system, SFX cue handles
 - `crates/ambition_sandbox/src/audio/render.rs` — bank-clip → Kira
@@ -96,7 +96,7 @@ fork), not bringing back a parallel DSP engine.
   `SfxBankResource` once decoded
 - `crates/ambition_sandbox/src/audio/web_unlock.rs` — telemetry around
   the browser AudioContext gesture unlock
-- `crates/ambition_sandbox/src/music.rs` — the music director, layer
+- `crates/ambition_sandbox/src/music/mod.rs` — the music director, layer
   channels, adaptive cue catalog
 - `crates/ambition_sandbox/src/setup.rs::try_load_sfx_bank_via_catalog`
   — sync bank load fast path (static embed + dev env override)

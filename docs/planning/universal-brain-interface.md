@@ -119,7 +119,7 @@ The player is its own thing entirely
 - **Player as a special case.** Multiplayer, co-op, and "play as a
   goblin" all require the player to be just-another-actor — but
   it's not. The per-player audit in
-  [`player-singleton-audit.md`](player-singleton-audit.md) has
+  [`player-singleton-audit.md`](../archive/completed-migrations/player-singleton-audit.md) has
   been chipping away at this since 2026-05-19; it has gotten the
   *data* per-player (`PlayerSlot`, `PlayerInputFrame`,
   `PrimaryPlayer`), but not the *behavior*. Behavior unification
@@ -543,7 +543,7 @@ remaining unresolved questions land here for daytime work.
 - [`docs/systems/character-ai-refactor.md`](../systems/character-ai-refactor.md)
   — current state of the enemy+boss seam (the foundation this
   builds on).
-- [`docs/planning/player-singleton-audit.md`](player-singleton-audit.md)
+- [`docs/planning/player-singleton-audit.md`](../archive/completed-migrations/player-singleton-audit.md)
   — the per-player work that's already done (data) and what
   remains (behavior).
 - [`docs/systems/input-and-control-frame.md`](../systems/input-and-control-frame.md)

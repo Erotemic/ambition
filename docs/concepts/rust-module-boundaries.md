@@ -7,7 +7,7 @@ aliases:
   - visibility drift
   - attribute drift
 implemented_by:
-  - crates/ambition_sandbox/src/engine_core
+  - crates/ambition_engine_core/src
   - crates/ambition_sandbox/src
 related_memory:
   - dev/journals/rust-module-split-import-visibility-lessons-2026-05-11.md

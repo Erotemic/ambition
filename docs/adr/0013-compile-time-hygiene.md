@@ -92,7 +92,7 @@ cargo run -p ambition_sandbox --release           # final build
 
 The original engine/sandbox crate split was collapsed 2026-05-28:
 `ambition_engine` was deleted and its mechanics moved into
-`crates/ambition_sandbox/src/engine_core/` as a sandbox submodule. The
+`crates/ambition_engine_core/src/` as a sandbox submodule. The
 boundary is now intra-crate. New reusable mechanics still live in
 `engine_core/`; new sandbox-specific content stays in its themed
 sandbox module. Future story/content/tooling may split into separate

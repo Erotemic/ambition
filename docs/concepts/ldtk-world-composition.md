@@ -9,8 +9,8 @@ aliases:
   - IntGrid
   - sandbox.ldtk
 implemented_by:
-  - crates/ambition_sandbox/src/world.rs
-  - crates/ambition_sandbox/src/world/ldtk_world.rs
+  - crates/ambition_sandbox/src/world/mod.rs
+  - crates/ambition_sandbox/src/world/ldtk_world/mod.rs
 related_adrs:
   - docs/adr/0009-world-composition-and-ldtk-authoring.md
 related_docs:

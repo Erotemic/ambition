@@ -6,9 +6,9 @@ aliases:
   - presentation adapter
   - gameplay effects
 implemented_by:
-  - crates/ambition_sandbox/src/engine_core
-  - crates/ambition_sandbox/src/presentation.rs
-  - crates/ambition_sandbox/tests/scripted_gameplay.rs
+  - crates/ambition_engine_core/src
+  - crates/ambition_sandbox/src/presentation
+  - crates/ambition_app/tests/scripted_gameplay.rs
 related_adrs:
   - docs/adr/0012-sim-presentation-split-and-events-refactor.md
 related_docs:

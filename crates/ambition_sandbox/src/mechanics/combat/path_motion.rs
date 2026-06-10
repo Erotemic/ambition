@@ -8,7 +8,7 @@ pub struct PathMotion {
 }
 
 impl PathMotion {
-    pub(super) fn new(path: crate::actor::KinematicPath) -> Self {
+    pub(crate) fn new(path: crate::actor::KinematicPath) -> Self {
         Self {
             path,
             segment: 0,
@@ -16,11 +16,11 @@ impl PathMotion {
         }
     }
 
-    pub(super) fn start_pos(&self) -> Option<ae::Vec2> {
+    pub(crate) fn start_pos(&self) -> Option<ae::Vec2> {
         self.path.points.first().copied()
     }
 
-    pub(super) fn advance(&mut self, mut pos: ae::Vec2, dt: f32) -> ae::Vec2 {
+    pub(crate) fn advance(&mut self, mut pos: ae::Vec2, dt: f32) -> ae::Vec2 {
         if !self.path.is_valid() || dt <= 0.0 {
             return pos;
         }
@@ -50,7 +50,7 @@ impl PathMotion {
         pos
     }
 
-    pub(super) fn advance_segment(&mut self) {
+    pub(crate) fn advance_segment(&mut self) {
         let last_segment = self.path.points.len().saturating_sub(2);
         lookahead_advance(
             &mut self.segment,

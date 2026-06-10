@@ -1,8 +1,8 @@
 //! Hazard tick: patrol motion, contact damage, and the impact SFX/VFX
 //! published to the presentation/audio buses.
 
+use super::util::hazard_sfx_id;
 use super::*;
-use crate::content::features::util::hazard_sfx_id;
 
 /// Tick ECS-authored hazards and publish player damage through Bevy messages.
 pub fn update_ecs_hazards(

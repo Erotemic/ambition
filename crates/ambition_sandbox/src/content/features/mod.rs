@@ -38,29 +38,26 @@ const ENEMY_ATTACK_COOLDOWN: f32 = 1.05;
 // BOSS_ATTACK_COOLDOWN retired by the boss-profile data-driven
 // migration — each profile in `boss_profiles.ron` carries its own
 // `attack_cooldown`. The clockwork_warden default (1.35) lives there.
-const BREAK_ON_STAND_SECONDS: f32 = 0.85;
-
-/// Gravity (px/s²) used by the falling-chest tick. Lighter than the
-/// player's GRAVITY (2250) so a treasure chest reads as a heavy-but-
-/// floaty drop, not a brick. Tuned by feel against the mockingbird
-/// arena: at 1400 px/s² and 80 px of fall, the drop lands in ~0.34 s.
-const CHEST_FALL_GRAVITY: f32 = 1400.0;
-/// Terminal-velocity cap so a chest dropped from a tall arena doesn't
-/// blast through the floor sweep before the sub-step kicks in.
-const CHEST_FALL_MAX_SPEED: f32 = 900.0;
+// BREAK_ON_STAND_SECONDS / CHEST_FALL_* moved to the generic combat
+// kit (`crate::mechanics::combat`) with their consumers.
 
 mod boss_attack_geometry;
 mod bosses;
-mod bus;
-pub mod components;
 mod ecs;
 mod enemies;
-mod events;
-mod hazards;
 mod npcs;
-mod path_motion;
-mod util;
-mod world_overlay;
+
+// The generic combat kit (component vocabulary, messages, effect bus,
+// hitboxes, pickups/chests/breakables/hazards, path motion, the
+// collision world-overlay) moved to `crate::mechanics::combat`
+// (Stage 20 / A2). Module re-exports keep every inbound
+// `crate::features::<module>::…` path working.
+pub use crate::mechanics::combat::components;
+pub use crate::mechanics::combat::events;
+pub use crate::mechanics::combat::hazard_runtime as hazards;
+pub use crate::mechanics::combat::path_motion;
+pub use crate::mechanics::combat::world_overlay;
+pub use crate::mechanics::combat::{bus, util};
 
 pub use boss_attack_geometry::{
     active_attack_volumes, body_damage_aabb, boss_attack_damage, bounding_aabb, damageable_volumes,
@@ -74,7 +71,6 @@ pub use bosses::{
 };
 pub use bus::{
     apply_flag_effects, apply_gameplay_sfx_effects, apply_quest_effects, apply_switch_effects,
-    GameplayEffectsSchedulePlugin,
 };
 pub(crate) use ecs::npc_component_snapshot;
 // Runtime minion/summon spawner, re-exported so non-feature modules (e.g. the
@@ -144,6 +140,36 @@ pub use world_overlay::{world_with_portal_carves, world_with_sandbox_solids};
 
 pub(super) use npcs::NPC_HOSTILE_STRIKE_THRESHOLD;
 use util::*;
+
+/// Module-local Bevy plugin: schedules the gameplay-effect bus chain
+/// (`apply_flag_effects` → `apply_quest_effects` → … →
+/// `apply_gameplay_sfx_effects`) into
+/// [`crate::app::SandboxSet::GameplayEffects`].
+///
+/// Carved out of `app/plugins.rs::register_gameplay_effects_systems`
+/// per OVERNIGHT-TODO #6. Every reader system in this chain lives in
+/// this file (`bus.rs`), so this is the right place to own the
+/// schedule registration.
+pub struct GameplayEffectsSchedulePlugin;
+
+impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        use bevy::prelude::{IntoScheduleConfigs, Update};
+        app.add_systems(
+            Update,
+            (
+                bus::apply_flag_effects,
+                bus::apply_quest_effects,
+                bus::apply_switch_effects,
+                ecs::apply_npc_stimuli,
+                ecs::apply_actor_stimuli,
+                bus::apply_gameplay_sfx_effects,
+            )
+                .chain()
+                .in_set(crate::app::SandboxSet::GameplayEffects),
+        );
+    }
+}
 
 /// Module-local Bevy plugin: schedules the `WorldPrep` simulation set —
 /// LDtk hot-reload poll + the ECS feature-world overlay rebuild + the

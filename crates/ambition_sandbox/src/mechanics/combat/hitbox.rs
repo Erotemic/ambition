@@ -32,9 +32,9 @@ use std::collections::HashSet;
 use crate::engine_core as ae;
 use crate::engine_core::AabbExt;
 
-use super::super::components::ActorFaction;
-use super::super::events::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
-use super::super::util::midpoint;
+use super::components::ActorFaction;
+use super::events::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
+use super::util::midpoint;
 use crate::audio::SfxMessage;
 use crate::presentation::fx::{ParticleKind, VfxMessage};
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
@@ -109,7 +109,7 @@ impl Hitbox {
 /// hostile melee.
 pub fn apply_hitbox_damage(
     mut hitboxes: Query<(Entity, &Hitbox, &mut HitboxHits)>,
-    owners: Query<&super::super::components::FeatureAabb>,
+    owners: Query<&super::components::FeatureAabb>,
     // Iterate every player so a multi-player build hits each
     // overlapping player independently. Single-player behavior is
     // preserved because the iterator has exactly one entity today.

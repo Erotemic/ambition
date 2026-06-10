@@ -48,35 +48,32 @@ use crate::WorldTime;
 mod actors;
 mod aggression;
 mod anim_helpers;
-mod banner;
 pub mod boss_clusters;
 mod bosses;
 mod brain_builders;
 mod brain_effects;
-mod breakables;
-mod chests;
 mod damage;
 mod encounter_rewards;
 pub mod enemy_clusters;
-mod falling_chest;
-mod hazards;
-mod held_items;
-mod hitbox;
 mod interact;
 mod mount;
 pub mod npc_clusters;
-mod overlay;
-mod pickups;
 mod reset;
 mod save_sync;
 mod spawn;
 mod spawn_actors;
 mod spawn_mounts;
-mod spawn_static;
 mod target_volumes;
-mod targeting;
-mod variation;
 mod view_index;
+
+// The generic systems below moved to the combat kit
+// (`crate::mechanics::combat`, Stage 20 / A2). Module aliases keep
+// every `super::<module>::…` path in the staying files (and every
+// external `…::ecs::<module>::…` path) resolving unchanged.
+pub use crate::mechanics::combat::{
+    banner, breakables, chests, falling_chest, hazards, held_items, hitbox, overlay, pickups,
+    spawn_static, targeting, variation,
+};
 
 pub(crate) use actors::{
     enemy_component_snapshot, enemy_runtime_for_npc_combat, make_entity_enemy,
@@ -151,8 +148,6 @@ pub use target_volumes::{
 pub use targeting::select_actor_targets;
 pub use view_index::{rebuild_feature_view_index, FeatureViewIndex};
 
-use damage::{begin_ecs_breakable_respawn, emit_breakable_destroyed};
-
 // `FeatureSimEntity` is a generic entity-marker queried by the reusable
 // mechanics, so its definition lives DOWN in
 // `ambition_platformer_runtime::markers` (ADR 0019). Re-exported here so all
@@ -160,18 +155,8 @@ use damage::{begin_ecs_breakable_respawn, emit_breakable_destroyed};
 // unchanged.
 pub use ambition_platformer_runtime::markers::FeatureSimEntity;
 
-#[derive(Component, Clone, Debug)]
-pub struct HazardFeature {
-    pub hazard: HazardRuntime,
-    pub spawn: ae::Vec2,
-}
-
-impl HazardFeature {
-    pub fn new(hazard: HazardRuntime) -> Self {
-        let spawn = hazard.pos;
-        Self { hazard, spawn }
-    }
-}
+// `HazardFeature` moved to the combat kit with the hazard runtime.
+pub use crate::mechanics::combat::hazard_runtime::HazardFeature;
 
 #[cfg(test)]
 mod tests;

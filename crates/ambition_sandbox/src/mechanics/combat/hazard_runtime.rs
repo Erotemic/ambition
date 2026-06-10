@@ -74,3 +74,18 @@ impl HazardRuntime {
         ae::Aabb::new(self.pos, self.size * 0.5)
     }
 }
+
+/// ECS wrapper for an authored hazard: the live runtime + its spawn
+/// position (for room reset).
+#[derive(Component, Clone, Debug)]
+pub struct HazardFeature {
+    pub hazard: HazardRuntime,
+    pub spawn: ae::Vec2,
+}
+
+impl HazardFeature {
+    pub fn new(hazard: HazardRuntime) -> Self {
+        let spawn = hazard.pos;
+        Self { hazard, spawn }
+    }
+}

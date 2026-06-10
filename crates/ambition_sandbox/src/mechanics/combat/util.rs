@@ -1,13 +1,13 @@
 use super::*;
 
-pub(super) fn player_is_standing_on(player: ae::Aabb, platform: ae::Aabb) -> bool {
+pub(crate) fn player_is_standing_on(player: ae::Aabb, platform: ae::Aabb) -> bool {
     let horizontally_overlaps =
         player.right() > platform.left() + 2.0 && player.left() < platform.right() - 2.0;
     let near_top = (player.bottom() - platform.top()).abs() <= 8.0;
     horizontally_overlaps && near_top
 }
 
-pub(super) fn room_spec_paths(
+pub(crate) fn room_spec_paths(
     room: &crate::rooms::RoomSpec,
 ) -> Vec<(String, crate::actor::KinematicPath)> {
     let mut paths: Vec<(String, crate::actor::KinematicPath)> = Vec::new();
@@ -30,7 +30,7 @@ pub(super) fn room_spec_paths(
 // old helpers; if a new caller needs collision-aware motion, add
 // it through `KinematicBody`.
 
-pub(super) fn approach(value: f32, target: f32, delta: f32) -> f32 {
+pub(crate) fn approach(value: f32, target: f32, delta: f32) -> f32 {
     if value < target {
         (value + delta).min(target)
     } else {
@@ -38,7 +38,7 @@ pub(super) fn approach(value: f32, target: f32, delta: f32) -> f32 {
     }
 }
 
-pub(super) fn approximately_same_aabb(a: ae::Aabb, b: ae::Aabb) -> bool {
+pub(crate) fn approximately_same_aabb(a: ae::Aabb, b: ae::Aabb) -> bool {
     // Pogo-bounce routing matches an engine-reported orb AABB against
     // sandbox-side breakable AABBs. The two are derived from the same
     // entity placement so the values agree to floating-point tolerance,
@@ -48,7 +48,7 @@ pub(super) fn approximately_same_aabb(a: ae::Aabb, b: ae::Aabb) -> bool {
     (a.center() - b.center()).length() <= eps && (a.half_size() - b.half_size()).length() <= eps
 }
 
-pub(super) fn midpoint(a: ae::Vec2, b: ae::Vec2) -> ae::Vec2 {
+pub(crate) fn midpoint(a: ae::Vec2, b: ae::Vec2) -> ae::Vec2 {
     ae::Vec2::new((a.x + b.x) * 0.5, (a.y + b.y) * 0.5)
 }
 
@@ -61,7 +61,7 @@ pub(super) fn midpoint(a: ae::Vec2, b: ae::Vec2) -> ae::Vec2 {
 /// Long-term, a typed `HazardKind` field on the engine-side
 /// `DamageVolume` would let this dispatch happen on a real enum;
 /// until then the substring set is short enough to grep.
-pub(super) fn hazard_sfx_id(name: &str) -> ambition_sfx::SfxId {
+pub(crate) fn hazard_sfx_id(name: &str) -> ambition_sfx::SfxId {
     let n = name.to_ascii_lowercase();
     if n.contains("lava") {
         ambition_sfx::ids::HAZARD_LAVA_SPLASH
@@ -78,7 +78,7 @@ pub(super) fn hazard_sfx_id(name: &str) -> ambition_sfx::SfxId {
     }
 }
 
-pub(super) trait SignumOr {
+pub(crate) trait SignumOr {
     fn signum_or(self, fallback: f32) -> f32;
 }
 

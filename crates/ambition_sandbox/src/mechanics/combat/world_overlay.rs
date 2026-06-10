@@ -1,3 +1,4 @@
+use super::overlay::FeatureEcsWorldOverlay;
 use super::*;
 
 pub fn world_with_sandbox_solids(

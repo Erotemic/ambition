@@ -11,7 +11,7 @@
 /// FNV-1a (32-bit) is small, deterministic, and distinct enough for the
 /// handful of authored actors we need to vary per arena. The helper never
 /// returns zero so callers may reserve zero as an "unset" sentinel.
-pub(super) fn seed_from_id(id: &str) -> u32 {
+pub(crate) fn seed_from_id(id: &str) -> u32 {
     let mut hash: u32 = 0x811C9DC5;
     for byte in id.as_bytes() {
         hash ^= *byte as u32;
@@ -30,7 +30,7 @@ pub(super) fn seed_from_id(id: &str) -> u32 {
 /// without carrying a PRNG in spawn code. The values are independent enough for
 /// jittering cooldowns, initial staggers, standoff radii, orbit phases, and
 /// drift rates.
-pub(super) fn five_f32s_from_seed(seed: u32) -> (f32, f32, f32, f32, f32) {
+pub(crate) fn five_f32s_from_seed(seed: u32) -> (f32, f32, f32, f32, f32) {
     // Mix the seed via xorshift to get a sequence of uncorrelated draws. The
     // shift amounts are from a standard xorshift32 implementation.
     let mut x = seed.wrapping_mul(0x9E3779B1).wrapping_add(0xDEADBEEF);

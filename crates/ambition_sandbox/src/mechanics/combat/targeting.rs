@@ -11,7 +11,7 @@
 use crate::engine_core as ae;
 use bevy::prelude::*;
 
-use super::super::components::{ActorAggression, ActorTarget, AggressionTarget, FeatureAabb};
+use super::components::{ActorAggression, ActorTarget, AggressionTarget, FeatureAabb};
 use super::FeatureSimEntity;
 use crate::player::{BodyKinematics, PlayerEntity};
 

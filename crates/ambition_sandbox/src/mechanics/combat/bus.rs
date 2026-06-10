@@ -64,34 +64,9 @@ pub fn apply_gameplay_sfx_effects(
     }
 }
 
-/// Module-local Bevy plugin: schedules the gameplay-effect bus chain
-/// (`apply_flag_effects` → `apply_quest_effects` → … →
-/// `apply_gameplay_sfx_effects`) into
-/// [`crate::app::SandboxSet::GameplayEffects`].
-///
-/// Carved out of `app/plugins.rs::register_gameplay_effects_systems`
-/// per OVERNIGHT-TODO #6. Every reader system in this chain lives in
-/// this file (`bus.rs`), so this is the right place to own the
-/// schedule registration.
-pub struct GameplayEffectsSchedulePlugin;
-
-impl Plugin for GameplayEffectsSchedulePlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (
-                apply_flag_effects,
-                apply_quest_effects,
-                apply_switch_effects,
-                super::ecs::apply_npc_stimuli,
-                super::ecs::apply_actor_stimuli,
-                apply_gameplay_sfx_effects,
-            )
-                .chain()
-                .in_set(crate::app::SandboxSet::GameplayEffects),
-        );
-    }
-}
+// `GameplayEffectsSchedulePlugin` lives content-side (content/features/mod.rs):
+// the effect chain interleaves the kit's appliers with the content layer's
+// stimuli appliers, and schedule composition belongs to the consumer.
 
 #[cfg(test)]
 mod tests {

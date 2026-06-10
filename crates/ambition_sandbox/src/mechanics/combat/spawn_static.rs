@@ -7,7 +7,7 @@ use super::*;
 use crate::platformer_runtime::prelude::SpawnScopedExt;
 use bevy::prelude::Name;
 
-pub(super) fn spawn_hazard(
+pub(crate) fn spawn_hazard(
     commands: &mut Commands,
     authored: &crate::rooms::Authored<crate::combat::DamageVolume>,
     paths: &[(String, crate::actor::KinematicPath)],
@@ -30,7 +30,7 @@ pub(super) fn spawn_hazard(
     ));
 }
 
-pub(super) fn spawn_pickup(
+pub(crate) fn spawn_pickup(
     commands: &mut Commands,
     authored: &crate::rooms::Authored<crate::interaction::Pickup>,
 ) {
@@ -46,7 +46,7 @@ pub(super) fn spawn_pickup(
     ));
 }
 
-pub(super) fn spawn_ground_item(commands: &mut Commands, spec: &crate::rooms::GroundItemSpec) {
+pub(crate) fn spawn_ground_item(commands: &mut Commands, spec: &crate::rooms::GroundItemSpec) {
     // Resolve the held-item registry id -> HeldItemSpec. An unregistered or
     // feature-gated id is skipped (the item simply doesn't appear) -- the same
     // tolerance the retired `spawn_debug_ground_items_once` table had.
@@ -65,7 +65,7 @@ pub(super) fn spawn_ground_item(commands: &mut Commands, spec: &crate::rooms::Gr
 }
 
 #[cfg(feature = "portal")]
-pub(super) fn spawn_portal_gun_spawn(
+pub(crate) fn spawn_portal_gun_spawn(
     commands: &mut Commands,
     spec: &crate::rooms::PortalGunSpawnSpec,
 ) {
@@ -81,7 +81,7 @@ pub(super) fn spawn_portal_gun_spawn(
 }
 
 #[cfg(feature = "portal")]
-pub(super) fn spawn_portal(commands: &mut Commands, spec: &crate::rooms::PortalSpec) {
+pub(crate) fn spawn_portal(commands: &mut Commands, spec: &crate::rooms::PortalSpec) {
     // Authored static portal: the same `Portal` component the gun fires, but
     // pre-placed and color-paired. Room-scoped so a transition despawns it and
     // the loader re-spawns it; never gun-owned, so it persists without a gun.
@@ -96,7 +96,7 @@ pub(super) fn spawn_portal(commands: &mut Commands, spec: &crate::rooms::PortalS
     ));
 }
 
-pub(super) fn spawn_shrine(commands: &mut Commands, spec: &crate::rooms::ShrineSpec) {
+pub(crate) fn spawn_shrine(commands: &mut Commands, spec: &crate::rooms::ShrineSpec) {
     commands.spawn_room_scoped((
         Name::new(format!("Heal/save shrine: {}", spec.name)),
         crate::shrine::HealShrine {
@@ -106,7 +106,7 @@ pub(super) fn spawn_shrine(commands: &mut Commands, spec: &crate::rooms::ShrineS
     ));
 }
 
-pub(super) fn spawn_gravity_zone(commands: &mut Commands, spec: &crate::rooms::GravityZoneSpec) {
+pub(crate) fn spawn_gravity_zone(commands: &mut Commands, spec: &crate::rooms::GravityZoneSpec) {
     let mut entity = commands.spawn_room_scoped((
         Name::new(format!("Gravity zone: {}", spec.name)),
         crate::physics::GravityZone {
@@ -127,7 +127,7 @@ pub(super) fn spawn_gravity_zone(commands: &mut Commands, spec: &crate::rooms::G
     }
 }
 
-pub(super) fn spawn_chest(
+pub(crate) fn spawn_chest(
     commands: &mut Commands,
     authored: &crate::rooms::Authored<crate::interaction::Chest>,
 ) {
@@ -143,7 +143,7 @@ pub(super) fn spawn_chest(
     ));
 }
 
-pub(super) fn spawn_breakable(
+pub(crate) fn spawn_breakable(
     commands: &mut Commands,
     authored: &crate::rooms::Authored<crate::interaction::Breakable>,
 ) {

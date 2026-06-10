@@ -1025,44 +1025,13 @@ pub fn ecs_hit_event_hits_boss(
         })
 }
 
-/// Schedule a broken breakable for respawn if its policy allows.
-///
-/// Called from both `apply_feature_hit_events` (typed damage path) and
-/// `update_ecs_breakables` (stand-to-break path), so it lives here as a
-/// `pub(super)` helper rather than duplicating the policy check.
-pub(super) fn begin_ecs_breakable_respawn(
-    commands: &mut Commands,
-    entity: Entity,
-    breakable: &crate::interaction::Breakable,
-) {
-    if let crate::actor::RespawnPolicy::AfterSeconds(seconds) = breakable.respawn {
-        commands.entity(entity).insert(RespawnTimer(seconds));
-    }
-}
-
-/// Common VFX/SFX/debris emission when a breakable is destroyed by any path.
-pub(super) fn emit_breakable_destroyed(
-    pos: ae::Vec2,
-    sfx: &mut MessageWriter<SfxMessage>,
-    vfx: &mut MessageWriter<VfxMessage>,
-    debris: &mut MessageWriter<DebrisBurstMessage>,
-) {
-    vfx.write(VfxMessage::Burst {
-        pos,
-        count: 16,
-        speed: 230.0,
-        color: [0.84, 0.95, 1.0, 0.82],
-        kind: ParticleKind::Spark,
-    });
-    debris.write(DebrisBurstMessage {
-        pos,
-        cue: PhysicsDebrisCue::Breakable,
-    });
-    sfx.write(SfxMessage::Play {
-        id: ambition_sfx::ids::WORLD_CRATE_BREAK,
-        pos,
-    });
-}
+// `begin_ecs_breakable_respawn` / `emit_breakable_destroyed` moved to
+// the combat kit (`crate::mechanics::combat::breakables`) — they are
+// generic breakable side-effect helpers shared by the typed-damage
+// path here and the kit's stand-to-break path.
+pub(crate) use crate::mechanics::combat::breakables::{
+    begin_ecs_breakable_respawn, emit_breakable_destroyed,
+};
 
 #[cfg(test)]
 mod tests {

@@ -695,13 +695,13 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
     // then install each compiled backend independently. The backend features are
     // platform-neutral so desktop and Android stay in sync unless a build profile
     // intentionally opts out of a backend.
-    ambition_sandbox::menu::kaleidoscope_app::install_unified_menu_shared(app);
-    if ambition_sandbox::menu::kaleidoscope_app::KALEIDOSCOPE_MENU_BACKEND_ENABLED {
-        ambition_sandbox::menu::kaleidoscope_app::install_kaleidoscope_menu_backend(app);
+    crate::menu::kaleidoscope_app::install_unified_menu_shared(app);
+    if ambition_sandbox::menu::backend::KALEIDOSCOPE_MENU_BACKEND_ENABLED {
+        crate::menu::kaleidoscope_app::install_kaleidoscope_menu_backend(app);
     }
     #[cfg(feature = "bevy_ui_menu")]
-    if ambition_sandbox::menu::kaleidoscope_app::BEVY_UI_MENU_BACKEND_ENABLED {
-        ambition_sandbox::menu::grid_backend::install_grid_unified_menu(app);
+    if ambition_sandbox::menu::backend::BEVY_UI_MENU_BACKEND_ENABLED {
+        crate::menu::grid_backend::install_grid_unified_menu(app);
     }
 }
 

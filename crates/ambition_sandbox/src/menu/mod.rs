@@ -16,31 +16,6 @@
 //!   the cube System face renders. Reads `crate::persistence::settings`.
 //! - [`map`] — the Map tab content (was `crate::map_menu`).
 
-/// Backend-agnostic action dispatcher (`dispatch_menu_action`); shared by the
-/// cube backend and any future menu frontend. See [`dispatch`].
-pub mod dispatch;
-/// Backend-agnostic item-confirmation effects (`MenuAction` + `decide` +
-/// `apply_menu_action`/`dispatch_item_confirm` + the shared player/mana query
-/// shapes). The ONE place an item confirmation becomes ECS side effects; shared
-/// by [`dispatch`], [`grid_backend`], and the cube host. Relocated from the
-/// deleted `crate::bevy_ui_grid_menu` (Phase D1).
-pub mod effects;
-/// The unified flat tabbed menu — the `InventoryUiBackend::Grid` presentation
-/// (Phase C2b). Ambition's wiring of the engine `bevy_ui` renderer; the flat analog
-/// of the cube backend, sharing the page model + dispatcher + cursor.
-/// Systems are only installed when the `bevy_ui_menu` feature is enabled.
-#[cfg(feature = "bevy_ui_menu")]
-pub mod grid_backend;
+pub mod backend;
 pub mod ir;
-/// The 3D-cube OoT pause-menu host (#31): the data seam wiring our 24-item
-/// inventory into the reusable `ambition_menu` cube model (was the root
-/// `crate::lunex_kaleidoscope_app`). Cube systems/cameras are only installed
-/// when the `kaleidoscope_menu` feature is enabled.
-pub mod kaleidoscope_app;
 pub mod map;
-pub mod model;
-
-/// Cross-backend parity / no-drift tests (design doc §8): the safety net that
-/// locks the "one content model + IR + dispatcher, two presentations" invariant.
-#[cfg(all(test, feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
-mod parity_tests;

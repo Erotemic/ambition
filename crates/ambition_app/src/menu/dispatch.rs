@@ -13,8 +13,6 @@ use bevy::prelude::*;
 
 use ambition_menu::ActiveMenuPages;
 
-use crate::audio::SfxMessage;
-use crate::items::OwnedItems;
 use crate::menu::effects::{
     dispatch_item_confirm, MenuAction, MenuEffectManaQuery, MenuEffectPlayers,
 };
@@ -23,11 +21,13 @@ use crate::menu::kaleidoscope_app::{
     KaleidoscopeSystemNav, SystemMenuParams,
 };
 use crate::menu::model::{MenuFocus, MenuPage, MenuPageAction};
-use crate::persistence::settings::{
+use ambition_sandbox::audio::SfxMessage;
+use ambition_sandbox::items::OwnedItems;
+use ambition_sandbox::persistence::settings::{
     apply_settings_option, settings_menu_model, SettingsOptionId, SettingsOptionKind,
     SystemMenuAction, UserSettings,
 };
-use crate::player::PlayerHealRequested;
+use ambition_sandbox::player::PlayerHealRequested;
 
 /// Dispatch a [`MenuPageAction`]. Item Equip/Use reuse the grid's shared
 /// [`dispatch_item_confirm`] (no portal/equip/heal duplication); page-change sets

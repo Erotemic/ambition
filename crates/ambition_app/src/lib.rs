@@ -12,6 +12,7 @@
 pub mod app;
 pub mod headless;
 pub mod host;
+pub mod menu;
 #[cfg(feature = "rl_sim")]
 pub mod rl_sim;
 

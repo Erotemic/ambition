@@ -39,19 +39,20 @@ use ambition_menu::render::bevy_ui::{
 };
 use ambition_menu::{ActiveMenuPages, AmbitionMenuControl, MenuFocusKey, MenuNode, MenuRect};
 
-use crate::audio::SfxMessage;
-use crate::input::MenuControlFrame;
-use crate::items::{OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use crate::menu::effects::{MenuEffectManaQuery, MenuEffectPlayers};
 use crate::menu::kaleidoscope_app::{
-    focus_for_action, owned_item_action, play_ui, system_focus_nav, InventoryUiBackend,
-    KaleidoscopeCursor, KaleidoscopeSystemNav, SystemMenuParams, BEVY_UI_MENU_BACKEND_ENABLED,
+    focus_for_action, owned_item_action, play_ui, system_focus_nav, KaleidoscopeCursor,
+    KaleidoscopeSystemNav, SystemMenuParams,
 };
 use crate::menu::model::{
     system_max_window_start, MenuFocus, MenuPage, MenuPageAction, SYSTEM_VISIBLE_ROWS,
 };
-use crate::persistence::settings::{SystemMenuModel, UserSettings};
-use crate::player::PlayerHealRequested;
+use ambition_sandbox::audio::SfxMessage;
+use ambition_sandbox::input::MenuControlFrame;
+use ambition_sandbox::items::{OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
+use ambition_sandbox::menu::backend::{InventoryUiBackend, BEVY_UI_MENU_BACKEND_ENABLED};
+use ambition_sandbox::persistence::settings::{SystemMenuModel, UserSettings};
+use ambition_sandbox::player::PlayerHealRequested;
 
 /// The effect/dispatch resources shared by [`grid_menu_nav`] and
 /// [`grid_menu_pointer_release`], bundled into one [`SystemParam`] so each stays
@@ -139,7 +140,7 @@ impl Default for GridMenuTabState {
 #[derive(Clone, Copy, PartialEq, Eq)]
 struct ViewKey {
     tab: usize,
-    open_entry: Option<crate::persistence::settings::SystemMenuEntryId>,
+    open_entry: Option<ambition_sandbox::persistence::settings::SystemMenuEntryId>,
     focus: MenuFocus,
     version: u64,
     /// Fix 4: the focus zone is part of the key so moving onto / off the tab bar
@@ -156,7 +157,7 @@ struct ViewKey {
 /// cube's kaleidoscope-specific `ui.menu.*` family. The cube ([`crate::menu::kaleidoscope_app`])
 /// keeps its own `UI_MENU_OPEN/CLOSE/ACCEPT/BACK/ERROR/ROTATE` sounds (authored for
 /// the 3D OoT cube); the flat Grid is the descendant of the legacy bevy_ui menus
-/// (`crate::pause_menu` etc.), so it should sound like them. These map each Grid
+/// (`ambition_sandbox::pause_menu` etc.), so it should sound like them. These map each Grid
 /// event onto the generic / legacy `ui.*` ids:
 ///
 /// | event             | cube id (was)       | old-menu id (now)   |
@@ -260,7 +261,7 @@ fn cursor_focus_key(
     active_page: MenuPage,
     cursor: MenuFocus,
     model: &SystemMenuModel,
-    open_entry: Option<crate::persistence::settings::SystemMenuEntryId>,
+    open_entry: Option<ambition_sandbox::persistence::settings::SystemMenuEntryId>,
 ) -> Option<MenuFocusKey> {
     for node in &page.nodes {
         let MenuNode::Control {
@@ -287,16 +288,16 @@ fn cursor_focus_key(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn grid_menu_open_routing(
     mut menu: ResMut<MenuControlFrame>,
-    mut overlay: ResMut<crate::inventory::InventoryUiState>,
-    mode: Res<State<crate::runtime::game_mode::GameMode>>,
-    mut next_mode: ResMut<NextState<crate::runtime::game_mode::GameMode>>,
+    mut overlay: ResMut<ambition_sandbox::inventory::InventoryUiState>,
+    mode: Res<State<ambition_sandbox::runtime::game_mode::GameMode>>,
+    mut next_mode: ResMut<NextState<ambition_sandbox::runtime::game_mode::GameMode>>,
     mut tab_state: ResMut<GridMenuTabState>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
     mut sfx: MessageWriter<SfxMessage>,
     mut last_start: Local<bool>,
 ) {
-    use crate::runtime::game_mode::GameMode;
+    use ambition_sandbox::runtime::game_mode::GameMode;
 
     // Esc / Start: rising-edge toggle (debounced like the cube to avoid the
     // close-then-reopen on a multi-frame `just_pressed`).
@@ -379,13 +380,13 @@ pub(crate) fn grid_menu_open_routing(
 #[cfg(feature = "input")]
 fn open_grid_unified_menu(
     active_tab: usize,
-    overlay: &mut crate::inventory::InventoryUiState,
-    mode: &crate::runtime::game_mode::GameMode,
-    next_mode: &mut NextState<crate::runtime::game_mode::GameMode>,
+    overlay: &mut ambition_sandbox::inventory::InventoryUiState,
+    mode: &ambition_sandbox::runtime::game_mode::GameMode,
+    next_mode: &mut NextState<ambition_sandbox::runtime::game_mode::GameMode>,
     cursor: &mut KaleidoscopeCursor,
     system_nav: &mut KaleidoscopeSystemNav,
 ) {
-    use crate::runtime::game_mode::GameMode;
+    use ambition_sandbox::runtime::game_mode::GameMode;
     overlay.visible = true;
     overlay.opened_from_pause = matches!(mode, GameMode::Paused);
     system_nav.open_entry = None;
@@ -408,11 +409,11 @@ fn seed_cursor_for_tab(active_tab: usize, cursor: &mut KaleidoscopeCursor) {
 /// from gameplay (respecting `opened_from_pause`). Same contract as
 /// `close_kaleidoscope_menu`.
 pub(crate) fn close_grid_unified_menu(
-    overlay: &mut crate::inventory::InventoryUiState,
-    mode: &crate::runtime::game_mode::GameMode,
-    next_mode: &mut NextState<crate::runtime::game_mode::GameMode>,
+    overlay: &mut ambition_sandbox::inventory::InventoryUiState,
+    mode: &ambition_sandbox::runtime::game_mode::GameMode,
+    next_mode: &mut NextState<ambition_sandbox::runtime::game_mode::GameMode>,
 ) {
-    use crate::runtime::game_mode::GameMode;
+    use ambition_sandbox::runtime::game_mode::GameMode;
     let opened_from_pause = overlay.opened_from_pause;
     overlay.visible = false;
     if !opened_from_pause && matches!(mode, GameMode::Paused) {
@@ -433,9 +434,9 @@ pub(crate) fn grid_menu_nav(
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
-    mut overlay: ResMut<crate::inventory::InventoryUiState>,
-    mode: Res<State<crate::runtime::game_mode::GameMode>>,
-    mut next_mode: ResMut<NextState<crate::runtime::game_mode::GameMode>>,
+    mut overlay: ResMut<ambition_sandbox::inventory::InventoryUiState>,
+    mode: Res<State<ambition_sandbox::runtime::game_mode::GameMode>>,
+    mut next_mode: ResMut<NextState<ambition_sandbox::runtime::game_mode::GameMode>>,
     mut fx: MenuDispatchParams,
 ) {
     // Read the backend from `fx.system` (it owns the resource); a separate `Res`
@@ -620,7 +621,7 @@ pub(crate) fn grid_menu_nav(
 fn cursor_on_top_row(
     page: MenuPage,
     focus: MenuFocus,
-    open_entry: Option<crate::persistence::settings::SystemMenuEntryId>,
+    open_entry: Option<ambition_sandbox::persistence::settings::SystemMenuEntryId>,
 ) -> bool {
     match page {
         MenuPage::Items => match focus {
@@ -652,7 +653,7 @@ fn move_items_cursor(focus: MenuFocus, dx: i32, dy: i32) -> MenuFocus {
 /// the Grid and cube draw the SAME model. Despawn + respawn only on a dirty key.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn grid_menu_republish_view(
-    overlay: Res<crate::inventory::InventoryUiState>,
+    overlay: Res<ambition_sandbox::inventory::InventoryUiState>,
     pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
     owned: Res<OwnedItems>,
     cursor: Res<KaleidoscopeCursor>,
@@ -824,7 +825,7 @@ fn grid_system_row_count(
 /// the cursor. Only a scrollable System list reacts; a short list ignores the wheel.
 #[cfg(feature = "input")]
 pub(crate) fn grid_menu_scroll_wheel(
-    overlay: Res<crate::inventory::InventoryUiState>,
+    overlay: Res<ambition_sandbox::inventory::InventoryUiState>,
     mut tab_state: ResMut<GridMenuTabState>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
@@ -878,7 +879,7 @@ pub(crate) fn grid_menu_scroll_wheel(
 /// the scrollable range to a window-start row. Selection-independent, like the wheel.
 #[cfg(feature = "input")]
 pub(crate) fn grid_menu_apply_scroll_drag(
-    overlay: Res<crate::inventory::InventoryUiState>,
+    overlay: Res<ambition_sandbox::inventory::InventoryUiState>,
     mut tab_state: ResMut<GridMenuTabState>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
@@ -924,7 +925,7 @@ pub(crate) struct GridPointerPress {
 pub(crate) fn grid_menu_pointer_press(
     press: On<Pointer<Press>>,
     backend: Res<InventoryUiBackend>,
-    overlay: Res<crate::inventory::InventoryUiState>,
+    overlay: Res<ambition_sandbox::inventory::InventoryUiState>,
     controls: Query<&AmbitionMenuControl<MenuPageAction>>,
     tabs: Query<&BevyUiMenuTab>,
     mut state: ResMut<GridPointerPress>,
@@ -961,9 +962,9 @@ pub(crate) fn grid_menu_pointer_release(
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
-    mut overlay: ResMut<crate::inventory::InventoryUiState>,
-    mode: Res<State<crate::runtime::game_mode::GameMode>>,
-    mut next_mode: ResMut<NextState<crate::runtime::game_mode::GameMode>>,
+    mut overlay: ResMut<ambition_sandbox::inventory::InventoryUiState>,
+    mode: Res<State<ambition_sandbox::runtime::game_mode::GameMode>>,
+    mut next_mode: ResMut<NextState<ambition_sandbox::runtime::game_mode::GameMode>>,
     mut fx: MenuDispatchParams,
 ) {
     // Backend read from `fx.system` (it owns the resource); a separate `Res` would
@@ -1027,8 +1028,8 @@ pub(crate) fn grid_menu_pointer_release(
 /// through the press/release observers), so click-to-select keeps working.
 pub(crate) fn grid_menu_pointer_hover(
     over: On<Pointer<Over>>,
-    overlay: Res<crate::inventory::InventoryUiState>,
-    active_input: Res<crate::input::ActiveInputKind>,
+    overlay: Res<ambition_sandbox::inventory::InventoryUiState>,
+    active_input: Res<ambition_sandbox::input::ActiveInputKind>,
     controls: Query<&AmbitionMenuControl<MenuPageAction>>,
     settings: Res<UserSettings>,
     system: SystemMenuParams,
@@ -1043,7 +1044,7 @@ pub(crate) fn grid_menu_pointer_hover(
     }
     // Only a genuine mouse move (which set active=Mouse) may move the cursor;
     // a rebuild-induced `Over` while on keyboard/gamepad/touch is ignored.
-    if *active_input != crate::input::ActiveInputKind::Mouse {
+    if *active_input != ambition_sandbox::input::ActiveInputKind::Mouse {
         return;
     }
     let Ok(ctrl) = controls.get(over.entity) else {
@@ -1067,7 +1068,7 @@ pub fn install_grid_unified_menu(app: &mut App) {
         // The pointer-hover observer reads `ActiveInputKind`; the input plugin
         // also inits it, but init here too so the Grid backend is self-sufficient
         // (`init_resource` is idempotent).
-        .init_resource::<crate::input::ActiveInputKind>();
+        .init_resource::<ambition_sandbox::input::ActiveInputKind>();
     #[cfg(feature = "input")]
     app.add_systems(
         Update,
@@ -1078,14 +1079,14 @@ pub fn install_grid_unified_menu(app: &mut App) {
                 // Join the shared menu-nav consume set so the touch-joystick
                 // fold (mobile_input) can pin `.before(MenuNavConsume)` and
                 // land its directional intent before this reads the frame.
-                .in_set(crate::app::MenuNavConsume),
+                .in_set(ambition_sandbox::app::MenuNavConsume),
         )
             .chain()
-            .before(crate::app::SandboxSet::CoreSimulation),
+            .before(ambition_sandbox::app::SandboxSet::CoreSimulation),
     );
     app.add_systems(
         Update,
-        grid_menu_republish_view.after(crate::app::SandboxSet::CoreSimulation),
+        grid_menu_republish_view.after(ambition_sandbox::app::SandboxSet::CoreSimulation),
     );
     // Features C/D: the wheel + scrollbar-drag scroll appliers run BEFORE republish so
     // a scroll set this frame rebuilds the windowed rows the same frame. The drag
@@ -1111,12 +1112,12 @@ pub fn install_grid_unified_menu(app: &mut App) {
 #[cfg(all(test, feature = "input"))]
 mod tests {
     use super::*;
-    use crate::brain::ActionSet;
-    use crate::items::Item;
     use crate::menu::model::{build_inventory_pages, system_rows, SystemRow};
-    use crate::persistence::settings::{SystemMenuEntryId, SystemMenuModel};
-    use crate::player::{PlayerEntity, PlayerMana, PrimaryPlayer};
-    use crate::runtime::game_mode::GameMode;
+    use ambition_sandbox::brain::ActionSet;
+    use ambition_sandbox::items::Item;
+    use ambition_sandbox::persistence::settings::{SystemMenuEntryId, SystemMenuModel};
+    use ambition_sandbox::player::{PlayerEntity, PlayerMana, PrimaryPlayer};
+    use ambition_sandbox::runtime::game_mode::GameMode;
 
     /// A minimal app wired with the Grid backend systems + every resource the
     /// shared cursor/dispatch path touches. Mirrors the cube test harness so the
@@ -1130,18 +1131,18 @@ mod tests {
         app.init_resource::<KaleidoscopeCursor>();
         app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<OwnedItems>();
-        app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
-        app.init_resource::<crate::SandboxDevState>();
-        app.init_resource::<crate::ldtk_world::LdtkHotReloadState>();
-        app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
-        app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
+        app.init_resource::<ambition_sandbox::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<ambition_sandbox::SandboxDevState>();
+        app.init_resource::<ambition_sandbox::ldtk_world::LdtkHotReloadState>();
+        app.init_resource::<ambition_sandbox::runtime::reset::SandboxResetRequested>();
+        app.init_resource::<ambition_sandbox::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
-        app.init_resource::<crate::inventory::InventoryUiState>();
-        app.init_resource::<crate::menu::map::MapMenuState>();
+        app.init_resource::<ambition_sandbox::inventory::InventoryUiState>();
+        app.init_resource::<ambition_sandbox::menu::map::MapMenuState>();
         app.init_resource::<MenuControlFrame>();
         app.init_resource::<GridMenuTabState>();
         app.init_resource::<GridPointerPress>();
-        app.init_resource::<crate::input::ActiveInputKind>();
+        app.init_resource::<ambition_sandbox::input::ActiveInputKind>();
         app.add_message::<PlayerHealRequested>();
         app.add_message::<SfxMessage>();
         app.add_message::<bevy::app::AppExit>();
@@ -1170,7 +1171,7 @@ mod tests {
 
     fn is_open(app: &App) -> bool {
         app.world()
-            .resource::<crate::inventory::InventoryUiState>()
+            .resource::<ambition_sandbox::inventory::InventoryUiState>()
             .visible
     }
 
@@ -1415,7 +1416,7 @@ mod tests {
         assert!(is_open(&app));
         assert!(
             app.world()
-                .resource::<crate::inventory::InventoryUiState>()
+                .resource::<ambition_sandbox::inventory::InventoryUiState>()
                 .opened_from_pause,
             "opened while already Paused records opened_from_pause"
         );
@@ -1957,8 +1958,8 @@ mod tests {
     /// rebuilt the menu → fired `Over` → snapped the cursor back to the mouse.
     #[test]
     fn hover_is_gated_on_active_input_being_mouse() {
-        use crate::input::ActiveInputKind;
-        use crate::items::Item;
+        use ambition_sandbox::input::ActiveInputKind;
+        use ambition_sandbox::items::Item;
 
         let mut app = grid_app();
         // Open the menu so the hover handler's `overlay.visible` guard passes.
@@ -2008,7 +2009,7 @@ mod tests {
         );
         // Open on the System tab, drilled into Developer (the long, scrollable list).
         app.world_mut()
-            .resource_mut::<crate::inventory::InventoryUiState>()
+            .resource_mut::<ambition_sandbox::inventory::InventoryUiState>()
             .visible = true;
         {
             let mut ts = app.world_mut().resource_mut::<GridMenuTabState>();
@@ -2126,7 +2127,8 @@ mod tests {
         // A hover (cursor-follow) moves the CURSOR but, with the override set, the
         // EFFECTIVE window stays at the override — hovering does not scroll the list.
         *app.world_mut()
-            .resource_mut::<crate::input::ActiveInputKind>() = crate::input::ActiveInputKind::Mouse;
+            .resource_mut::<ambition_sandbox::input::ActiveInputKind>() =
+            ambition_sandbox::input::ActiveInputKind::Mouse;
         app.world_mut()
             .resource_mut::<KaleidoscopeCursor>()
             .mark_keyboard(MenuFocus::System(0));

@@ -1430,3 +1430,41 @@ fn architecture_boundaries_presentation_does_not_use_the_archetype_enum() {
         violations.join("\n")
     );
 }
+
+#[test]
+fn architecture_boundaries_lib_menu_keeps_only_the_coupled_pieces() {
+    // Stage 20 menu split: the menu HOST stack (page model, dispatcher,
+    // item-confirm effects, the bevy_ui grid + 3D cube hosts) moved up to
+    // `ambition_app::menu`. The machinery lib keeps ONLY the genuinely
+    // lib-coupled pieces: the settings IR (read by persistence), the Map tab
+    // (read by presentation), and the backend selector. This guard pins that
+    // the host modules don't creep back into the lib.
+    let menu_dir = crate_src().join("menu");
+    let forbidden_files = [
+        "model.rs",
+        "dispatch.rs",
+        "effects.rs",
+        "grid_backend.rs",
+        "kaleidoscope_app.rs",
+    ];
+    for f in forbidden_files {
+        assert!(
+            !menu_dir.join(f).exists(),
+            "menu host file {f} must live in ambition_app::menu, not the machinery lib"
+        );
+    }
+    for required in ["backend.rs", "ir", "map"] {
+        assert!(
+            menu_dir.join(required).exists(),
+            "lib menu should keep {required} (the persistence/presentation-coupled pieces)"
+        );
+    }
+    // The app crate owns the host stack.
+    let app_menu = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/menu");
+    for f in ["kaleidoscope_app.rs", "grid_backend.rs", "model.rs"] {
+        assert!(
+            app_menu.join(f).exists(),
+            "ambition_app::menu should own the host file {f}"
+        );
+    }
+}

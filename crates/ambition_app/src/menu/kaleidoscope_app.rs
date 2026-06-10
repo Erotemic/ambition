@@ -16,24 +16,27 @@ use ambition_menu::{
     ActiveMenuPages, AmbitionInventoryUiPlugin, AmbitionMenuControl, MenuDynamicText,
     MenuDynamicTextContent, MenuVisualState,
 };
+use ambition_sandbox::menu::backend::{
+    InventoryUiBackend, BEVY_UI_MENU_BACKEND_ENABLED, KALEIDOSCOPE_MENU_BACKEND_ENABLED,
+};
 use bevy::prelude::*;
 
-use crate::audio::SfxMessage;
-use crate::engine_core::Vec2;
-use crate::input::MenuControlFrame;
-use crate::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use crate::menu::effects::{MenuEffectManaQuery, MenuEffectPlayers};
 use crate::menu::model::{
     build_inventory_pages, items_detail_slot_text, system_detail_slot_text,
     system_effective_window_start, system_max_window_start, system_rows, MenuFocus, MenuPage,
     MenuPageAction, SystemRow, SYSTEM_VISIBLE_ROWS,
 };
-use crate::persistence::settings::{
+use ambition_sandbox::audio::SfxMessage;
+use ambition_sandbox::engine_core::Vec2;
+use ambition_sandbox::input::MenuControlFrame;
+use ambition_sandbox::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
+use ambition_sandbox::persistence::settings::{
     apply_settings_option, settings_menu_model, DevSnapshot, DevToggleId, RadioSnapshot,
     SettingsOptionId, SettingsOptionKind, SystemMenuAction, SystemMenuEntryId, SystemMenuModel,
     SystemOptionId, UserSettings,
 };
-use crate::player::PlayerHealRequested;
+use ambition_sandbox::player::PlayerHealRequested;
 
 /// Play a one-shot UI sound for the cube menu: `Play { id, pos }` with `pos = ZERO`.
 /// `Play` is non-spatialized (see `audio::runtime::audio_play_sfx_messages` — it
@@ -48,89 +51,6 @@ pub(crate) fn play_ui(sfx: &mut MessageWriter<SfxMessage>, id: ambition_sfx::Sfx
     });
 }
 
-/// Build-time switch for the flat Bevy-UI menu backend.
-///
-/// The normal visible desktop/Android personas enable this feature so both
-/// platforms exercise the same menu stack. Focused diagnostics / minimal builds
-/// can leave it off, and backend selection will gracefully collapse to any other
-/// compiled backend instead of installing hidden Bevy-UI systems.
-pub const BEVY_UI_MENU_BACKEND_ENABLED: bool = cfg!(feature = "bevy_ui_menu");
-
-/// Build-time switch for the experimental 3D cube menu backend.
-///
-/// The normal visible desktop/Android personas enable this feature so both
-/// platforms exercise the same menu stack. Minimal/headless builds can leave it
-/// off, and backend selection will gracefully collapse to any other compiled
-/// backend.
-pub const KALEIDOSCOPE_MENU_BACKEND_ENABLED: bool = cfg!(feature = "kaleidoscope_menu");
-
-/// Which inventory frontend renders. The 3D cube remains the default when its
-/// feature is installed; otherwise builds fall back to the flat Bevy-UI backend
-/// when available. If a saved setting names a backend that is not compiled into
-/// this build, [`InventoryUiBackend::effective`] collapses it to an available
-/// backend before any systems run.
-#[derive(Resource, Clone, Copy, PartialEq, Eq, Debug)]
-pub enum InventoryUiBackend {
-    Grid,
-    LunexKaleidoscope,
-}
-
-impl Default for InventoryUiBackend {
-    fn default() -> Self {
-        if KALEIDOSCOPE_MENU_BACKEND_ENABLED {
-            Self::LunexKaleidoscope
-        } else {
-            Self::Grid
-        }
-    }
-}
-
-impl InventoryUiBackend {
-    pub(crate) fn is_available(self) -> bool {
-        match self {
-            Self::Grid => BEVY_UI_MENU_BACKEND_ENABLED,
-            Self::LunexKaleidoscope => KALEIDOSCOPE_MENU_BACKEND_ENABLED,
-        }
-    }
-
-    pub(crate) fn effective(self) -> Self {
-        if self.is_available() {
-            self
-        } else if KALEIDOSCOPE_MENU_BACKEND_ENABLED {
-            Self::LunexKaleidoscope
-        } else {
-            Self::Grid
-        }
-    }
-
-    pub(crate) fn label(self) -> &'static str {
-        match self.effective() {
-            Self::Grid => "Grid",
-            Self::LunexKaleidoscope => "Cube",
-        }
-    }
-
-    pub(crate) fn next(self) -> Self {
-        match self.effective() {
-            Self::Grid if KALEIDOSCOPE_MENU_BACKEND_ENABLED => Self::LunexKaleidoscope,
-            Self::LunexKaleidoscope if BEVY_UI_MENU_BACKEND_ENABLED => Self::Grid,
-            Self::Grid | Self::LunexKaleidoscope => self.effective(),
-        }
-    }
-
-    pub(crate) fn unavailable_note(self) -> &'static str {
-        match (
-            BEVY_UI_MENU_BACKEND_ENABLED,
-            KALEIDOSCOPE_MENU_BACKEND_ENABLED,
-        ) {
-            (true, true) => "",
-            (true, false) => " (cube backend disabled)",
-            (false, true) => " (grid backend disabled)",
-            (false, false) => " (all menu backends disabled)",
-        }
-    }
-}
-
 /// Install backend-agnostic menu resources/plugins shared by the flat Grid and
 /// the optional 3D cube backend. Keep this separate from cube installation so a
 /// Grid-only build does not spawn the cube camera/ring or register Lunex systems.
@@ -141,7 +61,7 @@ pub fn install_unified_menu_shared(app: &mut App) {
         // The pointer-hover handlers read `ActiveInputKind`. The input plugin
         // also inits it; init here too so the menu remains self-sufficient
         // (`init_resource` is idempotent).
-        .init_resource::<crate::input::ActiveInputKind>()
+        .init_resource::<ambition_sandbox::input::ActiveInputKind>()
         .init_resource::<KaleidoscopeSystemNav>()
         .add_plugins(AmbitionInventoryUiPlugin);
 }
@@ -164,7 +84,7 @@ fn kaleidoscope_backend_active(backend: Res<InventoryUiBackend>) -> bool {
 /// they must run while closed so they can open the menu and keep the camera off.
 fn kaleidoscope_menu_visible(
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Res<crate::inventory::InventoryUiState>>,
+    ui_state: Option<Res<ambition_sandbox::inventory::InventoryUiState>>,
 ) -> bool {
     KALEIDOSCOPE_MENU_BACKEND_ENABLED
         && backend.effective() == InventoryUiBackend::LunexKaleidoscope
@@ -178,7 +98,7 @@ fn kaleidoscope_menu_visible(
 /// off the close animation.
 fn kaleidoscope_render_needed(
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Res<crate::inventory::InventoryUiState>>,
+    ui_state: Option<Res<ambition_sandbox::inventory::InventoryUiState>>,
     open_state: Option<Res<ambition_menu::kaleidoscope::KaleidoscopeOpenState>>,
 ) -> bool {
     if !KALEIDOSCOPE_MENU_BACKEND_ENABLED
@@ -269,13 +189,13 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
                 // pressed_this_frame bit and never opening the menu on touch.
                 kaleidoscope_menu_open_routing
                     .run_if(kaleidoscope_backend_active)
-                    .in_set(crate::app::MenuNavConsume),
+                    .in_set(ambition_sandbox::app::MenuNavConsume),
                 // Nav first (mutates the cursor), then republish (reads the cursor +
                 // inventory) so the highlight + detail panel reflect this frame's move.
                 // Also in `MenuNavConsume` for the same fold-ordering reason above.
                 kaleidoscope_focus_nav
                     .run_if(kaleidoscope_menu_visible)
-                    .in_set(crate::app::MenuNavConsume),
+                    .in_set(ambition_sandbox::app::MenuNavConsume),
                 // Features C/D: scroll the System window INDEPENDENTLY of selection.
                 // The wheel (D) + the scrollbar-drag signal (C) set the scroll
                 // override BEFORE republish so the new window renders this frame.
@@ -322,7 +242,7 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
 }
 
 /// Which input source currently owns the cube cursor. Mirrors the grid's
-/// [`crate::ui_nav::MenuFocusOwner`]: keyboard/gamepad nav claims focus and keeps
+/// [`ambition_sandbox::ui_nav::MenuFocusOwner`]: keyboard/gamepad nav claims focus and keeps
 /// it until the pointer moves to a DIFFERENT control. A stationary hover must not
 /// keep reasserting itself over newer directional navigation (the "can't move away
 /// from the hovered option" bug).
@@ -423,34 +343,35 @@ struct KaleidoscopeScroll {
 /// copies (`SystemMenuSnapshotParams`) in a third system.
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct SystemMenuParams<'w> {
-    dev_tools: ResMut<'w, crate::dev::dev_tools::DeveloperTools>,
+    dev_tools: ResMut<'w, ambition_sandbox::dev::dev_tools::DeveloperTools>,
     // The Developer screen also reaches the F1/F2 global flags + F12 LDtk
     // auto-reload, which live on these two resources (not `DeveloperTools`).
-    dev_state: ResMut<'w, crate::SandboxDevState>,
-    ldtk_reload: ResMut<'w, crate::ldtk_world::LdtkHotReloadState>,
+    dev_state: ResMut<'w, ambition_sandbox::SandboxDevState>,
+    ldtk_reload: ResMut<'w, ambition_sandbox::ldtk_world::LdtkHotReloadState>,
     // The active menu frontend, mutated by the Developer "Menu Backend" row (the
     // in-menu `\` toggle). Always present (inserted at startup).
     backend: ResMut<'w, InventoryUiBackend>,
-    reset: ResMut<'w, crate::runtime::reset::SandboxResetRequested>,
+    reset: ResMut<'w, ambition_sandbox::runtime::reset::SandboxResetRequested>,
     // Movement tuning is derived from the active movement profile, so a
     // Reset All Settings must restore it to match the reset DeveloperTools
     // defaults (mirrors the pause menu's `ResetAllSettings`).
-    editable_tuning: ResMut<'w, crate::dev::dev_tools::EditableMovementTuning>,
+    editable_tuning: ResMut<'w, ambition_sandbox::dev::dev_tools::EditableMovementTuning>,
     // The radio resources are `Option`-wrapped so the System nav stays B0002-safe
     // and never panics when audio is off / a fixture omits them: a missing radio
     // resource simply disables station audition (the rows still render). Gated on
     // `audio` so non-audio builds carry none of the types.
     #[cfg(feature = "audio")]
-    library: Option<ResMut<'w, crate::audio::AudioLibrary>>,
+    library: Option<ResMut<'w, ambition_sandbox::audio::AudioLibrary>>,
     #[cfg(feature = "audio")]
     asset_server: Option<Res<'w, AssetServer>>,
     #[cfg(feature = "audio")]
-    music_state: Option<ResMut<'w, crate::audio::MusicPlaybackState>>,
+    music_state: Option<ResMut<'w, ambition_sandbox::audio::MusicPlaybackState>>,
     #[cfg(feature = "audio")]
-    radio: Option<ResMut<'w, crate::audio::RadioStationState>>,
+    radio: Option<ResMut<'w, ambition_sandbox::audio::RadioStationState>>,
     #[cfg(feature = "audio")]
-    music_channel:
-        Option<Res<'w, bevy_kira_audio::prelude::AudioChannel<crate::audio::MusicChannel>>>,
+    music_channel: Option<
+        Res<'w, bevy_kira_audio::prelude::AudioChannel<ambition_sandbox::audio::MusicChannel>>,
+    >,
 }
 
 impl SystemMenuParams<'_> {
@@ -485,7 +406,7 @@ impl SystemMenuParams<'_> {
                     self.music_channel.as_deref(),
                 ) {
                     if let Some(track_id) = library.track_at(index).map(|t| t.id.clone()) {
-                        crate::audio::set_radio_track(
+                        ambition_sandbox::audio::set_radio_track(
                             library,
                             asset_server,
                             radio,
@@ -562,8 +483,8 @@ impl SystemMenuParams<'_> {
     /// it has no live player to poke); the persisted resources still reset fully.
     pub(crate) fn reset_all_settings(&mut self, settings: &mut UserSettings) {
         *settings = UserSettings::default();
-        *self.dev_tools = crate::dev::dev_tools::DeveloperTools::default();
-        crate::dev::dev_tools::apply_movement_profile(
+        *self.dev_tools = ambition_sandbox::dev::dev_tools::DeveloperTools::default();
+        ambition_sandbox::dev::dev_tools::apply_movement_profile(
             &mut self.editable_tuning,
             self.dev_tools.movement_profile,
             None,
@@ -607,8 +528,8 @@ impl SystemMenuParams<'_> {
 /// [`close_kaleidoscope_menu`] via [`Self::mode`] + [`Self::next_mode`].
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct GameModeIo<'w> {
-    state: Res<'w, State<crate::runtime::game_mode::GameMode>>,
-    next: ResMut<'w, NextState<crate::runtime::game_mode::GameMode>>,
+    state: Res<'w, State<ambition_sandbox::runtime::game_mode::GameMode>>,
+    next: ResMut<'w, NextState<ambition_sandbox::runtime::game_mode::GameMode>>,
 }
 
 /// Resources `republish_kaleidoscope_pages` reads (immutably) to snapshot the radio + dev
@@ -616,16 +537,16 @@ pub(crate) struct GameModeIo<'w> {
 /// mutable `SystemMenuParams` (different systems).
 #[derive(bevy::ecs::system::SystemParam)]
 struct SystemMenuSnapshotParams<'w> {
-    dev_tools: Res<'w, crate::dev::dev_tools::DeveloperTools>,
-    dev_state: Res<'w, crate::SandboxDevState>,
-    ldtk_reload: Res<'w, crate::ldtk_world::LdtkHotReloadState>,
+    dev_tools: Res<'w, ambition_sandbox::dev::dev_tools::DeveloperTools>,
+    dev_state: Res<'w, ambition_sandbox::SandboxDevState>,
+    ldtk_reload: Res<'w, ambition_sandbox::ldtk_world::LdtkHotReloadState>,
     backend: Res<'w, InventoryUiBackend>,
     #[cfg(feature = "audio")]
-    library: Option<Res<'w, crate::audio::AudioLibrary>>,
+    library: Option<Res<'w, ambition_sandbox::audio::AudioLibrary>>,
     #[cfg(feature = "audio")]
-    music_state: Option<Res<'w, crate::audio::MusicPlaybackState>>,
+    music_state: Option<Res<'w, ambition_sandbox::audio::MusicPlaybackState>>,
     #[cfg(feature = "audio")]
-    radio: Option<Res<'w, crate::audio::RadioStationState>>,
+    radio: Option<Res<'w, ambition_sandbox::audio::RadioStationState>>,
 }
 
 impl SystemMenuSnapshotParams<'_> {
@@ -656,9 +577,9 @@ impl SystemMenuSnapshotParams<'_> {
 /// single place that maps the audio runtime onto the SYSTEM IR's station list.
 #[cfg(feature = "audio")]
 fn radio_snapshot_from(
-    library: &crate::audio::AudioLibrary,
-    music_state: &crate::audio::MusicPlaybackState,
-    radio: Option<&crate::audio::RadioStationState>,
+    library: &ambition_sandbox::audio::AudioLibrary,
+    music_state: &ambition_sandbox::audio::MusicPlaybackState,
+    radio: Option<&ambition_sandbox::audio::RadioStationState>,
 ) -> RadioSnapshot {
     let active_id = radio
         .and_then(|r| r.selected_track())
@@ -678,18 +599,18 @@ fn radio_snapshot_from(
 /// which aggregates the same three. Bundled so [`dev_snapshot`] /
 /// [`apply_dev_toggle`] stay single-source for every Developer row.
 struct DevToggleRead<'a> {
-    dev: &'a crate::dev::dev_tools::DeveloperTools,
-    dev_state: &'a crate::SandboxDevState,
-    ldtk_reload: &'a crate::ldtk_world::LdtkHotReloadState,
+    dev: &'a ambition_sandbox::dev::dev_tools::DeveloperTools,
+    dev_state: &'a ambition_sandbox::SandboxDevState,
+    ldtk_reload: &'a ambition_sandbox::ldtk_world::LdtkHotReloadState,
     // The Menu Backend row mirrors the `\` hotkey; its value label is the active
     // frontend (Grid / Cube), read from `InventoryUiBackend`.
     backend: InventoryUiBackend,
 }
 
 struct DevToggleWrite<'a> {
-    dev: &'a mut crate::dev::dev_tools::DeveloperTools,
-    dev_state: &'a mut crate::SandboxDevState,
-    ldtk_reload: &'a mut crate::ldtk_world::LdtkHotReloadState,
+    dev: &'a mut ambition_sandbox::dev::dev_tools::DeveloperTools,
+    dev_state: &'a mut ambition_sandbox::SandboxDevState,
+    ldtk_reload: &'a mut ambition_sandbox::ldtk_world::LdtkHotReloadState,
     backend: &'a mut InventoryUiBackend,
 }
 
@@ -866,7 +787,7 @@ fn spawn_kaleidoscope_scrim(mut commands: Commands) {
 /// B0002-safe and never panics on an uninserted resource.
 fn retarget_kaleidoscope_scrim(
     mut commands: Commands,
-    main_camera: Option<Res<crate::runtime::camera_layers::MainCameraEntity>>,
+    main_camera: Option<Res<ambition_sandbox::runtime::camera_layers::MainCameraEntity>>,
     scrim: Query<Entity, (With<KaleidoscopeScrim>, Without<UiTargetCamera>)>,
     mut done: Local<bool>,
 ) {
@@ -926,7 +847,7 @@ fn kaleidoscope_focus_nav(
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
     // Single mutable access to the overlay state — also read `.visible` from it (a
     // separate `Res<InventoryUiState>` would be a B0002 conflict with this `ResMut`).
-    mut overlay: ResMut<crate::inventory::InventoryUiState>,
+    mut overlay: ResMut<ambition_sandbox::inventory::InventoryUiState>,
     // A close-via-action (e.g. Reset Sandbox) must restore `GameMode::Playing` exactly
     // like the canonical Esc-close — so thread the game mode through to
     // `close_kaleidoscope_menu` instead of bare `overlay.visible = false`. Bundled into
@@ -1194,9 +1115,9 @@ pub(crate) fn system_focus_nav(
     cursor: &mut KaleidoscopeCursor,
     system_nav: &mut KaleidoscopeSystemNav,
     pages: &mut ActiveMenuPages<MenuPage, MenuPageAction>,
-    overlay: &mut crate::inventory::InventoryUiState,
-    mode: &crate::runtime::game_mode::GameMode,
-    next_mode: &mut NextState<crate::runtime::game_mode::GameMode>,
+    overlay: &mut ambition_sandbox::inventory::InventoryUiState,
+    mode: &ambition_sandbox::runtime::game_mode::GameMode,
+    next_mode: &mut NextState<ambition_sandbox::runtime::game_mode::GameMode>,
     settings: &mut UserSettings,
     active_page: MenuPage,
     owned: &mut OwnedItems,
@@ -1356,7 +1277,7 @@ pub(crate) fn system_row_action_for(
 ) -> Option<MenuPageAction> {
     match row {
         SystemRow::Entry(id) => match model.entry(id).map(|e| &e.target) {
-            Some(crate::persistence::settings::SystemMenuTarget::Action(action)) => {
+            Some(ambition_sandbox::persistence::settings::SystemMenuTarget::Action(action)) => {
                 Some(MenuPageAction::SystemAction(*action))
             }
             _ => Some(MenuPageAction::OpenSystemEntry(id)),
@@ -1580,7 +1501,7 @@ pub(crate) fn focus_for_action(
 pub(crate) fn kaleidoscope_pointer_press(
     press: On<Pointer<Press>>,
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Res<crate::inventory::InventoryUiState>>,
+    ui_state: Option<Res<ambition_sandbox::inventory::InventoryUiState>>,
     controls: Query<&AmbitionMenuControl<MenuPageAction>>,
     mut state: ResMut<KaleidoscopePointerPress>,
 ) {
@@ -1618,7 +1539,7 @@ fn kaleidoscope_pointer_move(
     pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
-    active_input: Res<crate::input::ActiveInputKind>,
+    active_input: Res<ambition_sandbox::input::ActiveInputKind>,
     snapshot: SystemMenuSnapshotParams,
     mut cursor: ResMut<KaleidoscopeCursor>,
     // Feature E: a press in flight is cancelled (no click) once the pointer drags
@@ -1642,7 +1563,7 @@ fn kaleidoscope_pointer_move(
     // every keyboard/gamepad/touch directional move. A real mouse move sets
     // active=Mouse (see `update_active_input_kind`) so hovering still works; clicks
     // are unaffected (separate press/release observers).
-    if *active_input != crate::input::ActiveInputKind::Mouse {
+    if *active_input != ambition_sandbox::input::ActiveInputKind::Mouse {
         return;
     }
     let Some(active_page) = pages.active else {
@@ -1692,7 +1613,7 @@ fn kaleidoscope_pointer_move(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn kaleidoscope_pointer_release(
     _release: On<Pointer<Release>>,
-    mut ui_state: Option<ResMut<crate::inventory::InventoryUiState>>,
+    mut ui_state: Option<ResMut<ambition_sandbox::inventory::InventoryUiState>>,
     // A close-via-action (e.g. Reset Sandbox) must restore `GameMode::Playing` exactly
     // like the canonical Esc-close — so route the close through `close_kaleidoscope_menu`.
     // Bundled into one `SystemParam` to stay under Bevy's 16-param ceiling.
@@ -1788,18 +1709,18 @@ pub(crate) fn kaleidoscope_pointer_release(
 #[allow(clippy::too_many_arguments)]
 fn kaleidoscope_menu_open_routing(
     mut menu: ResMut<MenuControlFrame>,
-    mut overlay: ResMut<crate::inventory::InventoryUiState>,
-    mode: Res<State<crate::runtime::game_mode::GameMode>>,
-    mut next_mode: ResMut<NextState<crate::runtime::game_mode::GameMode>>,
+    mut overlay: ResMut<ambition_sandbox::inventory::InventoryUiState>,
+    mode: Res<State<ambition_sandbox::runtime::game_mode::GameMode>>,
+    mut next_mode: ResMut<NextState<ambition_sandbox::runtime::game_mode::GameMode>>,
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
-    mut map: ResMut<crate::menu::map::MapMenuState>,
+    mut map: ResMut<ambition_sandbox::menu::map::MapMenuState>,
     mut sfx: MessageWriter<SfxMessage>,
     // Tracks last frame's `menu.start` so we only act on its RISING edge (below).
     mut last_start: Local<bool>,
 ) {
-    use crate::runtime::game_mode::GameMode;
+    use ambition_sandbox::runtime::game_mode::GameMode;
 
     // pause / Esc: toggle the cube on the System page.
     //
@@ -1915,15 +1836,15 @@ fn kaleidoscope_menu_open_routing(
 #[allow(clippy::too_many_arguments)]
 fn open_kaleidoscope_menu(
     page: MenuPage,
-    overlay: &mut crate::inventory::InventoryUiState,
-    mode: &crate::runtime::game_mode::GameMode,
-    next_mode: &mut NextState<crate::runtime::game_mode::GameMode>,
+    overlay: &mut ambition_sandbox::inventory::InventoryUiState,
+    mode: &ambition_sandbox::runtime::game_mode::GameMode,
+    next_mode: &mut NextState<ambition_sandbox::runtime::game_mode::GameMode>,
     pages: &mut ActiveMenuPages<MenuPage, MenuPageAction>,
     cursor: &mut KaleidoscopeCursor,
     system_nav: &mut KaleidoscopeSystemNav,
-    map: &mut crate::menu::map::MapMenuState,
+    map: &mut ambition_sandbox::menu::map::MapMenuState,
 ) {
-    use crate::runtime::game_mode::GameMode;
+    use ambition_sandbox::runtime::game_mode::GameMode;
     overlay.visible = true;
     overlay.opened_from_pause = matches!(mode, GameMode::Paused);
     pages.active = Some(page);
@@ -1947,11 +1868,11 @@ fn open_kaleidoscope_menu(
 /// close-via-action paths (`kaleidoscope_focus_nav` / `system_focus_nav` /
 /// `kaleidoscope_pointer_release`) so an action-triggered close unpauses identically.
 fn close_kaleidoscope_menu(
-    overlay: &mut crate::inventory::InventoryUiState,
-    mode: &crate::runtime::game_mode::GameMode,
-    next_mode: &mut NextState<crate::runtime::game_mode::GameMode>,
+    overlay: &mut ambition_sandbox::inventory::InventoryUiState,
+    mode: &ambition_sandbox::runtime::game_mode::GameMode,
+    next_mode: &mut NextState<ambition_sandbox::runtime::game_mode::GameMode>,
 ) {
-    use crate::runtime::game_mode::GameMode;
+    use ambition_sandbox::runtime::game_mode::GameMode;
     let opened_from_pause = overlay.opened_from_pause;
     overlay.visible = false;
     if !opened_from_pause && matches!(mode, GameMode::Paused) {
@@ -1980,7 +1901,7 @@ fn toggle_inventory_backend(
 /// selected). Off otherwise → the lower-order game cameras render normally.
 fn gate_kaleidoscope_menu(
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Res<crate::inventory::InventoryUiState>>,
+    ui_state: Option<Res<ambition_sandbox::inventory::InventoryUiState>>,
     mut open_state: ResMut<ambition_menu::kaleidoscope::KaleidoscopeOpenState>,
     mut cameras: Query<(
         &mut Camera,
@@ -2142,7 +2063,7 @@ fn kaleidoscope_sync_detail_text(
 /// only when something it depends on actually changed: the inventory, the focus
 /// cursor, the active page, the just-opened edge, or the very first publish.
 fn republish_kaleidoscope_pages(
-    ui_state: Option<Res<crate::inventory::InventoryUiState>>,
+    ui_state: Option<Res<ambition_sandbox::inventory::InventoryUiState>>,
     owned: Option<Res<OwnedItems>>,
     // Read-only here. The mutators (`kaleidoscope_focus_nav`, `kaleidoscope_pointer_release`) take
     // `ResMut<UserSettings>` in SEPARATE systems, so this `Res` is not a B0002
@@ -2282,7 +2203,7 @@ fn system_row_count(
 /// the wheel. Mouse OR touchpad scroll both arrive as `MouseWheel`.
 fn kaleidoscope_scroll_wheel(
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Res<crate::inventory::InventoryUiState>>,
+    ui_state: Option<Res<ambition_sandbox::inventory::InventoryUiState>>,
     pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
@@ -2336,7 +2257,7 @@ fn kaleidoscope_scroll_wheel(
 /// like the wheel (Feature D): only the visible window moves.
 fn kaleidoscope_apply_scroll_drag(
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Res<crate::inventory::InventoryUiState>>,
+    ui_state: Option<Res<ambition_sandbox::inventory::InventoryUiState>>,
     pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
@@ -2372,9 +2293,9 @@ mod lunex_kaleidoscope_app_tests {
     //! * Fix 4 — `kaleidoscope_pointer_release` dispatches System-page clicks (drill in,
     //!   apply an option, Close) at parity with keyboard select.
     use super::*;
-    use crate::brain::ActionSet;
-    use crate::game_mode::GameMode;
-    use crate::player::{PlayerEntity, PlayerMana, PrimaryPlayer};
+    use ambition_sandbox::brain::ActionSet;
+    use ambition_sandbox::game_mode::GameMode;
+    use ambition_sandbox::player::{PlayerEntity, PlayerMana, PrimaryPlayer};
     use bevy::camera::NormalizedRenderTarget;
     use bevy::picking::backend::HitData;
     use bevy::picking::events::{Move, Pointer, Press, Release};
@@ -2389,9 +2310,9 @@ mod lunex_kaleidoscope_app_tests {
     /// `apply_dev_toggle` path so the cube and pause menu can't drift.
     #[test]
     fn extra_dev_toggles_flip_their_non_developer_resources() {
-        let mut dev = crate::dev::dev_tools::DeveloperTools::default();
-        let mut dev_state = crate::SandboxDevState::default();
-        let mut ldtk_reload = crate::ldtk_world::LdtkHotReloadState::default();
+        let mut dev = ambition_sandbox::dev::dev_tools::DeveloperTools::default();
+        let mut dev_state = ambition_sandbox::SandboxDevState::default();
+        let mut ldtk_reload = ambition_sandbox::ldtk_world::LdtkHotReloadState::default();
         let mut backend = InventoryUiBackend::default();
 
         let debug_before = dev_state.debug;
@@ -2450,9 +2371,9 @@ mod lunex_kaleidoscope_app_tests {
         assert!(DevToggleId::ALL.contains(&DevToggleId::MenuBackend));
         assert!(DevToggleId::MenuBackend.is_cycle());
 
-        let mut dev = crate::dev::dev_tools::DeveloperTools::default();
-        let mut dev_state = crate::SandboxDevState::default();
-        let mut ldtk_reload = crate::ldtk_world::LdtkHotReloadState::default();
+        let mut dev = ambition_sandbox::dev::dev_tools::DeveloperTools::default();
+        let mut dev_state = ambition_sandbox::SandboxDevState::default();
+        let mut ldtk_reload = ambition_sandbox::ldtk_world::LdtkHotReloadState::default();
         let mut backend = InventoryUiBackend::Grid;
 
         // The snapshot label reflects the live backend.
@@ -2504,9 +2425,9 @@ mod lunex_kaleidoscope_app_tests {
     /// snapshot reads `show_feature_hitboxes` (matching the pause menu's source).
     #[test]
     fn show_hitboxes_toggles_feature_and_player_fields_like_pause() {
-        let mut dev = crate::dev::dev_tools::DeveloperTools::default();
-        let mut dev_state = crate::SandboxDevState::default();
-        let mut ldtk_reload = crate::ldtk_world::LdtkHotReloadState::default();
+        let mut dev = ambition_sandbox::dev::dev_tools::DeveloperTools::default();
+        let mut dev_state = ambition_sandbox::SandboxDevState::default();
+        let mut ldtk_reload = ambition_sandbox::ldtk_world::LdtkHotReloadState::default();
         dev.show_feature_hitboxes = false;
         dev.show_player_hitbox = false;
         let mut backend = InventoryUiBackend::default();
@@ -2566,18 +2487,18 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<InventoryUiBackend>();
         app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
         app.init_resource::<KaleidoscopeCursor>();
-        app.init_resource::<crate::input::ActiveInputKind>();
+        app.init_resource::<ambition_sandbox::input::ActiveInputKind>();
         app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<KaleidoscopeScroll>();
         app.init_resource::<KaleidoscopePointerPress>();
         app.init_resource::<OwnedItems>();
-        app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
-        app.init_resource::<crate::SandboxDevState>();
-        app.init_resource::<crate::ldtk_world::LdtkHotReloadState>();
-        app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
-        app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
+        app.init_resource::<ambition_sandbox::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<ambition_sandbox::SandboxDevState>();
+        app.init_resource::<ambition_sandbox::ldtk_world::LdtkHotReloadState>();
+        app.init_resource::<ambition_sandbox::runtime::reset::SandboxResetRequested>();
+        app.init_resource::<ambition_sandbox::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
-        app.init_resource::<crate::inventory::InventoryUiState>();
+        app.init_resource::<ambition_sandbox::inventory::InventoryUiState>();
         app.add_message::<PlayerHealRequested>();
         app.add_message::<SfxMessage>();
         // Feature E: the tap/drag-cancel guard needs the press + move observers in
@@ -2588,7 +2509,7 @@ mod lunex_kaleidoscope_app_tests {
         *app.world_mut().resource_mut::<InventoryUiBackend>() =
             InventoryUiBackend::LunexKaleidoscope;
         app.world_mut()
-            .resource_mut::<crate::inventory::InventoryUiState>()
+            .resource_mut::<ambition_sandbox::inventory::InventoryUiState>()
             .visible = true;
         let player = app
             .world_mut()
@@ -2610,19 +2531,19 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<InventoryUiBackend>();
         app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
         app.init_resource::<KaleidoscopeCursor>();
-        app.init_resource::<crate::input::ActiveInputKind>();
+        app.init_resource::<ambition_sandbox::input::ActiveInputKind>();
         app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<KaleidoscopeScroll>();
         app.init_resource::<KaleidoscopePointerPress>();
         app.init_resource::<OwnedItems>();
-        app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
-        app.init_resource::<crate::SandboxDevState>();
-        app.init_resource::<crate::ldtk_world::LdtkHotReloadState>();
-        app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
-        app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
+        app.init_resource::<ambition_sandbox::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<ambition_sandbox::SandboxDevState>();
+        app.init_resource::<ambition_sandbox::ldtk_world::LdtkHotReloadState>();
+        app.init_resource::<ambition_sandbox::runtime::reset::SandboxResetRequested>();
+        app.init_resource::<ambition_sandbox::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
-        app.init_resource::<crate::inventory::InventoryUiState>();
-        app.init_resource::<crate::menu::map::MapMenuState>();
+        app.init_resource::<ambition_sandbox::inventory::InventoryUiState>();
+        app.init_resource::<ambition_sandbox::menu::map::MapMenuState>();
         app.init_resource::<MenuControlFrame>();
         app.add_message::<PlayerHealRequested>();
         app.add_message::<SfxMessage>();
@@ -2631,7 +2552,7 @@ mod lunex_kaleidoscope_app_tests {
         *app.world_mut().resource_mut::<InventoryUiBackend>() =
             InventoryUiBackend::LunexKaleidoscope;
         app.world_mut()
-            .resource_mut::<crate::inventory::InventoryUiState>()
+            .resource_mut::<ambition_sandbox::inventory::InventoryUiState>()
             .visible = false;
         app.world_mut().spawn((
             PlayerEntity,
@@ -2692,7 +2613,7 @@ mod lunex_kaleidoscope_app_tests {
         // is allowed to move the cursor (the hover-gate). Insert it so harnesses
         // that don't otherwise init the resource still exercise the hover path.
         app.world_mut()
-            .insert_resource(crate::input::ActiveInputKind::Mouse);
+            .insert_resource(ambition_sandbox::input::ActiveInputKind::Mouse);
         let entity = app
             .world_mut()
             .spawn(AmbitionMenuControl::<MenuPageAction> {
@@ -2730,18 +2651,18 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<InventoryUiBackend>();
         app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
         app.init_resource::<KaleidoscopeCursor>();
-        app.init_resource::<crate::input::ActiveInputKind>();
+        app.init_resource::<ambition_sandbox::input::ActiveInputKind>();
         app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<KaleidoscopeScroll>();
         app.init_resource::<KaleidoscopePointerPress>();
         app.init_resource::<OwnedItems>();
-        app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
-        app.init_resource::<crate::SandboxDevState>();
-        app.init_resource::<crate::ldtk_world::LdtkHotReloadState>();
-        app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
-        app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
+        app.init_resource::<ambition_sandbox::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<ambition_sandbox::SandboxDevState>();
+        app.init_resource::<ambition_sandbox::ldtk_world::LdtkHotReloadState>();
+        app.init_resource::<ambition_sandbox::runtime::reset::SandboxResetRequested>();
+        app.init_resource::<ambition_sandbox::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
-        app.init_resource::<crate::inventory::InventoryUiState>();
+        app.init_resource::<ambition_sandbox::inventory::InventoryUiState>();
         app.init_resource::<MenuControlFrame>();
         app.add_message::<PlayerHealRequested>();
         app.add_message::<SfxMessage>();
@@ -2749,7 +2670,7 @@ mod lunex_kaleidoscope_app_tests {
         *app.world_mut().resource_mut::<InventoryUiBackend>() =
             InventoryUiBackend::LunexKaleidoscope;
         app.world_mut()
-            .resource_mut::<crate::inventory::InventoryUiState>()
+            .resource_mut::<ambition_sandbox::inventory::InventoryUiState>()
             .visible = true;
         app.world_mut()
             .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
@@ -2771,19 +2692,19 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<InventoryUiBackend>();
         app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
         app.init_resource::<KaleidoscopeCursor>();
-        app.init_resource::<crate::input::ActiveInputKind>();
+        app.init_resource::<ambition_sandbox::input::ActiveInputKind>();
         app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<KaleidoscopeScroll>();
         app.init_resource::<KaleidoscopePointerPress>();
         app.init_resource::<OwnedItems>();
-        app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
-        app.init_resource::<crate::SandboxDevState>();
-        app.init_resource::<crate::ldtk_world::LdtkHotReloadState>();
-        app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
-        app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
+        app.init_resource::<ambition_sandbox::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<ambition_sandbox::SandboxDevState>();
+        app.init_resource::<ambition_sandbox::ldtk_world::LdtkHotReloadState>();
+        app.init_resource::<ambition_sandbox::runtime::reset::SandboxResetRequested>();
+        app.init_resource::<ambition_sandbox::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
-        app.init_resource::<crate::inventory::InventoryUiState>();
-        app.init_resource::<crate::menu::map::MapMenuState>();
+        app.init_resource::<ambition_sandbox::inventory::InventoryUiState>();
+        app.init_resource::<ambition_sandbox::menu::map::MapMenuState>();
         app.init_resource::<MenuControlFrame>();
         app.add_message::<PlayerHealRequested>();
         app.add_message::<SfxMessage>();
@@ -2791,7 +2712,7 @@ mod lunex_kaleidoscope_app_tests {
         *app.world_mut().resource_mut::<InventoryUiBackend>() =
             InventoryUiBackend::LunexKaleidoscope;
         app.world_mut()
-            .resource_mut::<crate::inventory::InventoryUiState>()
+            .resource_mut::<ambition_sandbox::inventory::InventoryUiState>()
             .visible = true;
         app.world_mut()
             .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
@@ -2930,7 +2851,7 @@ mod lunex_kaleidoscope_app_tests {
         );
         assert!(
             app.world()
-                .resource::<crate::inventory::InventoryUiState>()
+                .resource::<ambition_sandbox::inventory::InventoryUiState>()
                 .visible,
             "auditioning a station keeps the cube open"
         );
@@ -2949,7 +2870,7 @@ mod lunex_kaleidoscope_app_tests {
             .active = Some(MenuPage::System);
         // Open the menu from gameplay: paused, but NOT nested under the pause menu.
         app.world_mut()
-            .resource_mut::<crate::inventory::InventoryUiState>()
+            .resource_mut::<ambition_sandbox::inventory::InventoryUiState>()
             .opened_from_pause = false;
         app.world_mut()
             .resource_mut::<NextState<GameMode>>()
@@ -2969,7 +2890,7 @@ mod lunex_kaleidoscope_app_tests {
 
         assert!(
             !app.world()
-                .resource::<crate::inventory::InventoryUiState>()
+                .resource::<ambition_sandbox::inventory::InventoryUiState>()
                 .visible,
             "Reset Sandbox hides the cube"
         );
@@ -3011,7 +2932,7 @@ mod lunex_kaleidoscope_app_tests {
             .audio
             .master_volume = 0.123;
         app.world_mut()
-            .resource_mut::<crate::dev::dev_tools::DeveloperTools>()
+            .resource_mut::<ambition_sandbox::dev::dev_tools::DeveloperTools>()
             .inspector_visible = true;
 
         // Dispatch Reset All Settings through the real pointer release/dispatch path.
@@ -3028,14 +2949,14 @@ mod lunex_kaleidoscope_app_tests {
         );
         assert!(
             !app.world()
-                .resource::<crate::dev::dev_tools::DeveloperTools>()
+                .resource::<ambition_sandbox::dev::dev_tools::DeveloperTools>()
                 .inspector_visible,
             "Reset All Settings restores DeveloperTools to defaults"
         );
         // The cube folds shut (same close as Reset Sandbox).
         assert!(
             !app.world()
-                .resource::<crate::inventory::InventoryUiState>()
+                .resource::<ambition_sandbox::inventory::InventoryUiState>()
                 .visible,
             "Reset All Settings closes the cube"
         );
@@ -3059,9 +2980,11 @@ mod lunex_kaleidoscope_app_tests {
         );
         assert_eq!(
             model.entry(SystemMenuEntryId::Quit).map(|e| &e.target),
-            Some(&crate::persistence::settings::SystemMenuTarget::Action(
-                SystemMenuAction::Quit
-            )),
+            Some(
+                &ambition_sandbox::persistence::settings::SystemMenuTarget::Action(
+                    SystemMenuAction::Quit
+                )
+            ),
             "Quit is surfaced as a top-level Action entry"
         );
 
@@ -3084,7 +3007,7 @@ mod lunex_kaleidoscope_app_tests {
         // The cube folds shut (same close as the other immediate actions).
         assert!(
             !app.world()
-                .resource::<crate::inventory::InventoryUiState>()
+                .resource::<ambition_sandbox::inventory::InventoryUiState>()
                 .visible,
             "Quit closes the cube"
         );
@@ -3131,7 +3054,7 @@ mod lunex_kaleidoscope_app_tests {
     fn pointer_motion_selects_a_kaleidoscope_control() {
         let mut app = open_app();
         app.world_mut()
-            .resource_mut::<crate::inventory::InventoryUiState>()
+            .resource_mut::<ambition_sandbox::inventory::InventoryUiState>()
             .visible = true;
         app.world_mut()
             .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
@@ -3169,8 +3092,8 @@ mod lunex_kaleidoscope_app_tests {
     /// `menu.start` and `menu.back`).
     #[test]
     fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
-        use crate::input::SandboxAction;
-        use crate::presentation::rendering::PlayerVisual;
+        use ambition_sandbox::input::SandboxAction;
+        use ambition_sandbox::presentation::rendering::PlayerVisual;
         use leafwing_input_manager::prelude::*;
 
         let mut app = App::new();
@@ -3182,27 +3105,27 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<InventoryUiBackend>();
         app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
         app.init_resource::<KaleidoscopeCursor>();
-        app.init_resource::<crate::input::ActiveInputKind>();
+        app.init_resource::<ambition_sandbox::input::ActiveInputKind>();
         app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<KaleidoscopeScroll>();
         app.init_resource::<KaleidoscopePointerPress>();
         app.init_resource::<OwnedItems>();
-        app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
-        app.init_resource::<crate::SandboxDevState>();
-        app.init_resource::<crate::ldtk_world::LdtkHotReloadState>();
-        app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
-        app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
+        app.init_resource::<ambition_sandbox::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<ambition_sandbox::SandboxDevState>();
+        app.init_resource::<ambition_sandbox::ldtk_world::LdtkHotReloadState>();
+        app.init_resource::<ambition_sandbox::runtime::reset::SandboxResetRequested>();
+        app.init_resource::<ambition_sandbox::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
-        app.init_resource::<crate::inventory::InventoryUiState>();
-        app.init_resource::<crate::menu::map::MapMenuState>();
+        app.init_resource::<ambition_sandbox::inventory::InventoryUiState>();
+        app.init_resource::<ambition_sandbox::menu::map::MapMenuState>();
         app.init_resource::<MenuControlFrame>();
-        app.init_resource::<crate::input::MenuInputState>();
+        app.init_resource::<ambition_sandbox::input::MenuInputState>();
         app.add_message::<PlayerHealRequested>();
         app.add_message::<SfxMessage>();
         app.add_systems(
             Update,
             (
-                crate::app::populate_menu_control_frame_from_actions,
+                ambition_sandbox::app::populate_menu_control_frame_from_actions,
                 kaleidoscope_menu_open_routing,
                 kaleidoscope_focus_nav,
             )
@@ -3236,7 +3159,7 @@ mod lunex_kaleidoscope_app_tests {
         };
         let visible = |app: &App| {
             app.world()
-                .resource::<crate::inventory::InventoryUiState>()
+                .resource::<ambition_sandbox::inventory::InventoryUiState>()
                 .visible
         };
 
@@ -3292,7 +3215,7 @@ mod lunex_kaleidoscope_app_tests {
             .last_pointer_focus = Some(MenuFocus::Item(7));
         app.world_mut().resource_mut::<MenuControlFrame>().start = true;
         app.world_mut()
-            .resource_mut::<crate::inventory::InventoryUiState>()
+            .resource_mut::<ambition_sandbox::inventory::InventoryUiState>()
             .visible = false;
         app.update();
 
@@ -3363,18 +3286,18 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<InventoryUiBackend>();
         app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
         app.init_resource::<KaleidoscopeCursor>();
-        app.init_resource::<crate::input::ActiveInputKind>();
+        app.init_resource::<ambition_sandbox::input::ActiveInputKind>();
         app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<KaleidoscopeScroll>();
         app.init_resource::<KaleidoscopePointerPress>();
         app.init_resource::<OwnedItems>();
-        app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
-        app.init_resource::<crate::SandboxDevState>();
-        app.init_resource::<crate::ldtk_world::LdtkHotReloadState>();
-        app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
-        app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
+        app.init_resource::<ambition_sandbox::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<ambition_sandbox::SandboxDevState>();
+        app.init_resource::<ambition_sandbox::ldtk_world::LdtkHotReloadState>();
+        app.init_resource::<ambition_sandbox::runtime::reset::SandboxResetRequested>();
+        app.init_resource::<ambition_sandbox::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
-        app.init_resource::<crate::inventory::InventoryUiState>();
+        app.init_resource::<ambition_sandbox::inventory::InventoryUiState>();
         app.add_message::<PlayerHealRequested>();
         app.add_message::<SfxMessage>();
         app.add_systems(
@@ -3393,7 +3316,7 @@ mod lunex_kaleidoscope_app_tests {
         *app.world_mut().resource_mut::<InventoryUiBackend>() =
             InventoryUiBackend::LunexKaleidoscope;
         app.world_mut()
-            .resource_mut::<crate::inventory::InventoryUiState>()
+            .resource_mut::<ambition_sandbox::inventory::InventoryUiState>()
             .visible = true;
         app.world_mut()
             .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
@@ -3566,19 +3489,19 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<InventoryUiBackend>();
         app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
         app.init_resource::<KaleidoscopeCursor>();
-        app.init_resource::<crate::input::ActiveInputKind>();
+        app.init_resource::<ambition_sandbox::input::ActiveInputKind>();
         app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<KaleidoscopeScroll>();
         app.init_resource::<KaleidoscopePointerPress>();
         app.init_resource::<OwnedItems>();
-        app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
-        app.init_resource::<crate::SandboxDevState>();
-        app.init_resource::<crate::ldtk_world::LdtkHotReloadState>();
-        app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
-        app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
+        app.init_resource::<ambition_sandbox::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<ambition_sandbox::SandboxDevState>();
+        app.init_resource::<ambition_sandbox::ldtk_world::LdtkHotReloadState>();
+        app.init_resource::<ambition_sandbox::runtime::reset::SandboxResetRequested>();
+        app.init_resource::<ambition_sandbox::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
-        app.init_resource::<crate::inventory::InventoryUiState>();
-        app.init_resource::<crate::menu::map::MapMenuState>();
+        app.init_resource::<ambition_sandbox::inventory::InventoryUiState>();
+        app.init_resource::<ambition_sandbox::menu::map::MapMenuState>();
         app.init_resource::<MenuControlFrame>();
         app.add_message::<PlayerHealRequested>();
         app.add_message::<SfxMessage>();
@@ -3597,7 +3520,7 @@ mod lunex_kaleidoscope_app_tests {
         *app.world_mut().resource_mut::<InventoryUiBackend>() =
             InventoryUiBackend::LunexKaleidoscope;
         app.world_mut()
-            .resource_mut::<crate::inventory::InventoryUiState>()
+            .resource_mut::<ambition_sandbox::inventory::InventoryUiState>()
             .visible = true;
         app.world_mut()
             .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
@@ -3621,11 +3544,11 @@ mod lunex_kaleidoscope_app_tests {
         let settings = app.world().resource::<UserSettings>();
         let dev = app
             .world()
-            .resource::<crate::dev::dev_tools::DeveloperTools>();
-        let dev_state = app.world().resource::<crate::SandboxDevState>();
+            .resource::<ambition_sandbox::dev::dev_tools::DeveloperTools>();
+        let dev_state = app.world().resource::<ambition_sandbox::SandboxDevState>();
         let ldtk_reload = app
             .world()
-            .resource::<crate::ldtk_world::LdtkHotReloadState>();
+            .resource::<ambition_sandbox::ldtk_world::LdtkHotReloadState>();
         let backend = *app.world().resource::<InventoryUiBackend>();
         let snap = dev_snapshot(DevToggleRead {
             dev,
@@ -4026,25 +3949,25 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<InventoryUiBackend>();
         app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
         app.init_resource::<KaleidoscopeCursor>();
-        app.init_resource::<crate::input::ActiveInputKind>();
+        app.init_resource::<ambition_sandbox::input::ActiveInputKind>();
         app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<KaleidoscopeScroll>();
         app.init_resource::<KaleidoscopePointerPress>();
         let mut owned = OwnedItems::default();
         owned.grant(owned_item, 1);
         app.insert_resource(owned);
-        app.init_resource::<crate::dev::dev_tools::DeveloperTools>();
-        app.init_resource::<crate::SandboxDevState>();
-        app.init_resource::<crate::ldtk_world::LdtkHotReloadState>();
-        app.init_resource::<crate::runtime::reset::SandboxResetRequested>();
-        app.init_resource::<crate::dev::dev_tools::EditableMovementTuning>();
+        app.init_resource::<ambition_sandbox::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<ambition_sandbox::SandboxDevState>();
+        app.init_resource::<ambition_sandbox::ldtk_world::LdtkHotReloadState>();
+        app.init_resource::<ambition_sandbox::runtime::reset::SandboxResetRequested>();
+        app.init_resource::<ambition_sandbox::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
-        app.init_resource::<crate::inventory::InventoryUiState>();
+        app.init_resource::<ambition_sandbox::inventory::InventoryUiState>();
         app.add_message::<SfxMessage>();
         *app.world_mut().resource_mut::<InventoryUiBackend>() =
             InventoryUiBackend::LunexKaleidoscope;
         app.world_mut()
-            .resource_mut::<crate::inventory::InventoryUiState>()
+            .resource_mut::<ambition_sandbox::inventory::InventoryUiState>()
             .visible = true;
 
         // The lib's ring root that `rebuild_cube_faces` parents faces under. We spawn
@@ -4305,7 +4228,7 @@ mod lunex_kaleidoscope_app_tests {
             app.init_resource::<InventoryUiBackend>();
             app.init_resource::<RenderRan>();
             *app.world_mut().resource_mut::<InventoryUiBackend>() = backend;
-            let mut ui_state = crate::inventory::InventoryUiState::default();
+            let mut ui_state = ambition_sandbox::inventory::InventoryUiState::default();
             ui_state.visible = menu_visible;
             app.insert_resource(ui_state);
             // Exactly the host's gating from `install_kaleidoscope_menu`.

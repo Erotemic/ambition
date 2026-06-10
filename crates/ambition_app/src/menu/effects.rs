@@ -10,7 +10,7 @@
 //!   [`apply_menu_action`] / [`dispatch_item_confirm`]) — turns a decided
 //!   [`MenuAction`] into the actual equip / use side effects.
 //!
-//! Relocated from the now-deleted `crate::bevy_ui_grid_menu` (Phase D1); the
+//! Relocated from the now-deleted `ambition_sandbox::bevy_ui_grid_menu` (Phase D1); the
 //! text-only 6×4 OoT grid renderer it lived in is superseded by
 //! [`crate::menu::grid_backend`], but these helpers are still shared by
 //! [`crate::menu::dispatch`], [`crate::menu::grid_backend`], and the cube host
@@ -18,10 +18,12 @@
 
 use bevy::prelude::*;
 
-use crate::brain::ActionSet;
-use crate::items::pickup::{equip_held_spec, held_spec_for_item, unequip_held, StashedActionSet};
-use crate::items::{Item, ItemCategory, OwnedItems};
-use crate::player::{PlayerEntity, PlayerHealRequested, PlayerMana, PrimaryPlayer};
+use ambition_sandbox::brain::ActionSet;
+use ambition_sandbox::items::pickup::{
+    equip_held_spec, held_spec_for_item, unequip_held, StashedActionSet,
+};
+use ambition_sandbox::items::{Item, ItemCategory, OwnedItems};
+use ambition_sandbox::player::{PlayerEntity, PlayerHealRequested, PlayerMana, PrimaryPlayer};
 
 /// One health cell restores this much HP; one mana cell this much mana. Sandbox
 /// values — a real balance pass is just a number change.
@@ -155,11 +157,17 @@ pub(crate) fn apply_menu_action(
                 if stashed.is_some() {
                     unequip_held(commands, player, &mut action_set, stashed);
                     #[cfg(feature = "portal")]
-                    commands.entity(player).remove::<crate::portal::PortalGun>();
+                    commands
+                        .entity(player)
+                        .remove::<ambition_sandbox::portal::PortalGun>();
                 }
                 #[cfg(feature = "portal")]
                 if is_portal_gun {
-                    crate::items::pickup::equip_portal_gun(commands, player, &mut action_set);
+                    ambition_sandbox::items::pickup::equip_portal_gun(
+                        commands,
+                        player,
+                        &mut action_set,
+                    );
                 } else if let Some(spec) = held_spec {
                     equip_held_spec(commands, player, &mut action_set, spec);
                 }
@@ -175,7 +183,9 @@ pub(crate) fn apply_menu_action(
                 // Detach both possible weapon front-ends (held item + portal gun).
                 unequip_held(commands, player, &mut action_set, stashed);
                 #[cfg(feature = "portal")]
-                commands.entity(player).remove::<crate::portal::PortalGun>();
+                commands
+                    .entity(player)
+                    .remove::<ambition_sandbox::portal::PortalGun>();
             }
             owned.set_equipped(None);
         }

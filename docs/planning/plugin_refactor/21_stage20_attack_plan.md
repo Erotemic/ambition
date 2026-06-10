@@ -230,6 +230,42 @@ doc, and move to C1/B1. A1+A2 alone are a successful night.
 
 ---
 
+## C1 RESULTS (measured 2026-06-10, post-bisection; mold + tuned profile.dev were already in place)
+
+Pre-split = commit `da477bec` rebuilt in a worktree; post = `44a796b4`+. All
+incremental (touch one file → rebuild), deps cached, same machine.
+
+| Loop | Pre-split | Post-split | Δ |
+|---|---|---|---|
+| content edit → playable bins | 8.6s | 10.0s | **+16% (regression)** |
+| machinery edit → playable bins | ~8.6s (same monolith path) | 27.8s | **~3× (regression)** |
+| machinery edit → `cargo check` lib | 15.2s | 11.8s | −22% |
+| machinery edit → lib-test rebuild | ~59s | 44.5s | −25% |
+| app-wiring edit → playable bins | n/a (monolith) | 5.1s | new fast path |
+| no-op | ~0.3s | 0.3s | = |
+| workspace-clean build (deps cached) | n/a | 84.7s | sandbox self-time 54.1s dominates |
+
+**Honest conclusion:** doc 20's "content edits recompile ~30k not 133k" was a
+clean-build mental model. Under incremental compilation + mold, the monolith's
+edit loop was already fast, and the crate split makes any *cross-crate* path
+slower (downstream crates rebuild non-incrementally when a dep changes —
+machinery→bins is now 3× the monolith cost). What the split actually buys:
+- the *within-layer* loops got faster (machinery check −22%, lib-test −25%,
+  app wiring 5.1s) — and these are the loops agents/devs actually sit in;
+- content can no longer break machinery types (boundary is compile-enforced);
+- content compile cost is now INDEPENDENT of machinery growth.
+Mitigation for the machinery→bins regression: iterate with
+`cargo check -p ambition_sandbox` / `--lib` tests (11.8s/44.5s) and only pay
+the full-bin link when running the game.
+
+**Other C1 findings:** Reflect audit is CLEAN (10 derives, all dev-tools/
+states — the feared hot-path Reflect smell no longer exists); `.cargo/config`
+already uses clang+mold; `[profile.dev]` already tuned (opt-level=1,
+line-tables-only, incremental). The remaining compile-time frontier is
+`ambition_sandbox`'s 54s self-time → the B-tier machinery splits (audio,
+render, devtools), which post-bisection should be judged by the within-layer
+loop metric, not the clean-build one.
+
 ## Phase C1 — compile-time deep pass (est. 2h, if time permits)
 
 1. **Measure first** (and record here): clean `cargo build -p ambition_sandbox`,

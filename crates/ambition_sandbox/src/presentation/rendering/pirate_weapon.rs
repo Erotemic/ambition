@@ -34,6 +34,21 @@ pub struct PirateWeaponVisual;
 /// `python3 -m ambition_sprite2d_renderer install lasersword_with_guns`).
 const WEAPON_SHEET_PATH: &str = "sprites/lasersword_with_guns_spritesheet.png";
 
+/// Texture handle for the pirate rider weapon overlay. Kept alive in
+/// system-local state so the per-frame overlay rebuild does not also call
+/// `AssetServer::load` on the same PNG every tick.
+pub(crate) struct PirateWeaponVisualArt {
+    weapon: Handle<Image>,
+}
+
+impl PirateWeaponVisualArt {
+    fn load(asset_server: &AssetServer) -> Self {
+        Self {
+            weapon: asset_server.load(WEAPON_SHEET_PATH),
+        }
+    }
+}
+
 /// The PNG at `WEAPON_SHEET_PATH` is the FULL spritesheet (label
 /// column + idle / fire / dissipate rows of frames laid out
 /// horizontally). To display a single frame we have to specify its
@@ -98,6 +113,7 @@ pub fn sync_pirate_weapon_visuals(
         ),
     >,
     existing: Query<Entity, With<PirateWeaponVisual>>,
+    mut art: Local<Option<PirateWeaponVisualArt>>,
 ) {
     for entity in &existing {
         commands.entity(entity).despawn();
@@ -105,7 +121,7 @@ pub fn sync_pirate_weapon_visuals(
     let Ok(player) = player_q.single() else {
         return;
     };
-    let texture = asset_server.load(WEAPON_SHEET_PATH);
+    let art = art.get_or_insert_with(|| PirateWeaponVisualArt::load(&asset_server));
 
     for (_id, actor, held_item, kin, status) in &rider_actors {
         if held_item.id() != "gun_sword" {
@@ -152,7 +168,7 @@ pub fn sync_pirate_weapon_visuals(
             WORLD_Z_PLAYER + 0.7,
         );
 
-        let mut sprite = Sprite::from_image(texture.clone());
+        let mut sprite = Sprite::from_image(art.weapon.clone());
         sprite.custom_size = Some(render);
         // Source rect on the spritesheet PNG — the first idle frame.
         // Without this, `Sprite::from_image` renders the whole sheet

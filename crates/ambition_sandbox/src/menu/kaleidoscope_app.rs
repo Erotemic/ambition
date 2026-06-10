@@ -48,24 +48,86 @@ pub(crate) fn play_ui(sfx: &mut MessageWriter<SfxMessage>, id: ambition_sfx::Sfx
     });
 }
 
-/// Which inventory frontend renders. Runtime toggle (both compiled in); defaults to
-/// the 3D `LunexKaleidoscope` (#31), with `\` flipping to the proven Bevy-UI `Grid`
-/// (see [`toggle_inventory_backend`]).
-#[derive(Resource, Clone, Copy, PartialEq, Eq, Debug, Default)]
+/// Build-time switch for the experimental 3D cube menu backend.
+///
+/// The normal visible desktop/Android personas enable this feature so both
+/// platforms exercise the same menu stack. Minimal/headless builds can leave it
+/// off, and backend selection will gracefully collapse to Grid.
+pub(crate) const KALEIDOSCOPE_MENU_BACKEND_ENABLED: bool = cfg!(feature = "kaleidoscope_menu");
+
+/// Which inventory frontend renders. The 3D cube is the default when its feature
+/// is installed; otherwise builds that omit the cube backend fall back to Grid.
+#[derive(Resource, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum InventoryUiBackend {
     Grid,
-    #[default]
     LunexKaleidoscope,
 }
 
+impl Default for InventoryUiBackend {
+    fn default() -> Self {
+        if KALEIDOSCOPE_MENU_BACKEND_ENABLED {
+            Self::LunexKaleidoscope
+        } else {
+            Self::Grid
+        }
+    }
+}
+
+impl InventoryUiBackend {
+    pub(crate) fn is_available(self) -> bool {
+        match self {
+            Self::Grid => true,
+            Self::LunexKaleidoscope => KALEIDOSCOPE_MENU_BACKEND_ENABLED,
+        }
+    }
+
+    pub(crate) fn effective(self) -> Self {
+        if self.is_available() {
+            self
+        } else {
+            Self::Grid
+        }
+    }
+
+    pub(crate) fn label(self) -> &'static str {
+        match self.effective() {
+            Self::Grid => "Grid",
+            Self::LunexKaleidoscope => "Cube",
+        }
+    }
+
+    pub(crate) fn next(self) -> Self {
+        match self.effective() {
+            Self::Grid if KALEIDOSCOPE_MENU_BACKEND_ENABLED => Self::LunexKaleidoscope,
+            Self::Grid | Self::LunexKaleidoscope => Self::Grid,
+        }
+    }
+}
+
+/// Install backend-agnostic menu resources/plugins shared by the flat Grid and
+/// the optional 3D cube backend. Keep this separate from cube installation so a
+/// Grid-only build does not spawn the cube camera/ring or register Lunex systems.
+pub(crate) fn install_unified_menu_shared(app: &mut App) {
+    app.init_resource::<InventoryUiBackend>()
+        .init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+        .init_resource::<KaleidoscopeCursor>()
+        // The pointer-hover handlers read `ActiveInputKind`. The input plugin
+        // also inits it; init here too so the menu remains self-sufficient
+        // (`init_resource` is idempotent).
+        .init_resource::<crate::input::ActiveInputKind>()
+        .init_resource::<KaleidoscopeSystemNav>()
+        .add_plugins(AmbitionInventoryUiPlugin);
+}
+
 /// The menu BACKEND SEAM as a single run-condition: gate a system on
-/// "the 3D kaleidoscope backend is the active frontend." Systems whose only
+/// "the 3D kaleidoscope backend is installed and active." Systems whose only
 /// backend handling was a bare `if *backend != LunexKaleidoscope { return; }`
 /// early-return are now registered `.run_if(kaleidoscope_backend_active)`
 /// instead, so "which backend is active" is expressed in ONE place rather than
 /// scattered across each system body.
 fn kaleidoscope_backend_active(backend: Res<InventoryUiBackend>) -> bool {
-    *backend == InventoryUiBackend::LunexKaleidoscope
+    KALEIDOSCOPE_MENU_BACKEND_ENABLED
+        && backend.effective() == InventoryUiBackend::LunexKaleidoscope
 }
 
 /// Peak opacity of the readability dim-scrim (black) when the cube is fully open.
@@ -81,7 +143,17 @@ const SCRIM_PEAK_ALPHA: f32 = 0.7;
 struct KaleidoscopeScrim;
 
 /// Wire the 3D-cube menu into the app: the lib plugins + our page-feed system.
+///
+/// This compatibility wrapper also installs the shared menu resources, which keeps
+/// older tests/fixtures that call `install_kaleidoscope_menu` directly working.
 pub fn install_kaleidoscope_menu(app: &mut App) {
+    install_unified_menu_shared(app);
+    install_kaleidoscope_menu_backend(app);
+}
+
+/// Install only the optional 3D cube backend. The caller must install
+/// [`install_unified_menu_shared`] first.
+pub(crate) fn install_kaleidoscope_menu_backend(app: &mut App) {
     // The game uses Bevy picking on the cube controls AND draws its own real L/R
     // edge buttons (see `menu::model::add_edge_buttons`), so it inserts its own
     // `KaleidoscopeMenuConfig` (lib overlay defaults, but `draw_nav_arrows = false` so the
@@ -95,18 +167,8 @@ pub fn install_kaleidoscope_menu(app: &mut App) {
             ..Default::default()
         });
     }
-    app.init_resource::<InventoryUiBackend>()
-        .init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
-        .init_resource::<KaleidoscopeCursor>()
-        // The pointer-move hover handler reads `ActiveInputKind`. The input
-        // plugin (`add_input_plugins`) also inits it; init here too so the cube
-        // stays self-sufficient even in input-feature-off / cube-only builds
-        // (`init_resource` is idempotent).
-        .init_resource::<crate::input::ActiveInputKind>()
-        .init_resource::<KaleidoscopeSystemNav>()
-        .init_resource::<KaleidoscopeScroll>()
+    app.init_resource::<KaleidoscopeScroll>()
         .init_resource::<KaleidoscopePointerPress>()
-        .add_plugins(AmbitionInventoryUiPlugin)
         .add_plugins(KaleidoscopeMenuPlugin::<MenuPage, MenuPageAction>::default());
     // Phase D3a: "only the active backend renders." The lib registers the cube's
     // per-frame RENDER systems in the gateable `KaleidoscopeRender` /
@@ -333,7 +395,7 @@ impl SystemMenuParams<'_> {
     /// Developer "Menu Backend" row), so a duplicate `Res` access in the same
     /// system would be a Bevy B0002 conflict.
     pub(crate) fn backend(&self) -> InventoryUiBackend {
-        *self.backend
+        self.backend.effective()
     }
 
     /// Apply a non-settings System screen option against its live resource.
@@ -645,13 +707,7 @@ fn dev_snapshot(ctx: DevToggleRead<'_>) -> DevSnapshot {
     ));
     // Menu frontend (InventoryUiBackend) — the `\`-hotkey row, a cycle whose value
     // label is the active frontend name.
-    values.push(DevSnapshot::cycle(
-        D::MenuBackend,
-        match ctx.backend {
-            InventoryUiBackend::Grid => "Grid",
-            InventoryUiBackend::LunexKaleidoscope => "Cube",
-        },
-    ));
+    values.push(DevSnapshot::cycle(D::MenuBackend, ctx.backend.label()));
     DevSnapshot { values }
 }
 
@@ -726,10 +782,8 @@ fn apply_dev_toggle(ctx: DevToggleWrite<'_>, id: DevToggleId, dir: i32) {
         // Cycle the menu frontend — the in-menu equivalent of the `\` hotkey
         // (`toggle_inventory_backend`). Only two states, so direction is moot; flip.
         D::MenuBackend => {
-            *ctx.backend = match *ctx.backend {
-                InventoryUiBackend::Grid => InventoryUiBackend::LunexKaleidoscope,
-                InventoryUiBackend::LunexKaleidoscope => InventoryUiBackend::Grid,
-            };
+            let next = (*ctx.backend).next();
+            *ctx.backend = next;
         }
     }
 }
@@ -1490,7 +1544,7 @@ pub(crate) fn kaleidoscope_pointer_press(
     mut state: ResMut<KaleidoscopePointerPress>,
 ) {
     let open = ui_state.map(|s| s.visible).unwrap_or(false);
-    if *backend != InventoryUiBackend::LunexKaleidoscope || !open {
+    if backend.effective() != InventoryUiBackend::LunexKaleidoscope || !open {
         return;
     }
     // Only arm the tap-guard for real controls (so a press on decoration is a no-op).
@@ -1877,11 +1931,16 @@ fn toggle_inventory_backend(
     mut backend: ResMut<InventoryUiBackend>,
 ) {
     if keys.just_pressed(KeyCode::Backslash) {
-        *backend = match *backend {
-            InventoryUiBackend::Grid => InventoryUiBackend::LunexKaleidoscope,
-            InventoryUiBackend::LunexKaleidoscope => InventoryUiBackend::Grid,
-        };
-        info!("inventory backend → {:?}", *backend);
+        *backend = backend.next();
+        info!(
+            "inventory backend → {:?}{}",
+            backend.effective(),
+            if KALEIDOSCOPE_MENU_BACKEND_ENABLED {
+                ""
+            } else {
+                " (cube backend disabled)"
+            }
+        );
     }
 }
 
@@ -1900,7 +1959,9 @@ fn gate_kaleidoscope_menu(
     mut last_show: Local<Option<bool>>,
 ) {
     let open = ui_state.map(|s| s.visible).unwrap_or(false);
-    let show = *backend == InventoryUiBackend::LunexKaleidoscope && open;
+    let show = KALEIDOSCOPE_MENU_BACKEND_ENABLED
+        && backend.effective() == InventoryUiBackend::LunexKaleidoscope
+        && open;
     if *last_show != Some(show) {
         info!(
             "cube gate: show={show} backend={:?} menu_open={open}",
@@ -2162,7 +2223,7 @@ fn kaleidoscope_scroll_wheel(
     mut wheel: MessageReader<bevy::input::mouse::MouseWheel>,
 ) {
     let open = ui_state.map(|s| s.visible).unwrap_or(false);
-    if *backend != InventoryUiBackend::LunexKaleidoscope || !open {
+    if backend.effective() != InventoryUiBackend::LunexKaleidoscope || !open {
         wheel.clear();
         return;
     }
@@ -2215,7 +2276,7 @@ fn kaleidoscope_apply_scroll_drag(
     mut dragged: MessageReader<ambition_menu::kaleidoscope::MenuScrollDragged>,
 ) {
     let open = ui_state.map(|s| s.visible).unwrap_or(false);
-    if *backend != InventoryUiBackend::LunexKaleidoscope || !open {
+    if backend.effective() != InventoryUiBackend::LunexKaleidoscope || !open {
         dragged.clear();
         return;
     }

@@ -943,6 +943,23 @@ pub fn sync_held_item_visual(
     ));
 }
 
+/// Texture handles used by held-shot visuals. Kept alive in system-local state
+/// so the per-frame clear/rebuild visual path does not also re-request and
+/// repeatedly decode projectile sprite PNGs.
+pub(crate) struct HeldProjectileVisualArt {
+    lasersword: Handle<Image>,
+    fireball: Handle<Image>,
+}
+
+impl HeldProjectileVisualArt {
+    fn load(asset_server: &AssetServer) -> Self {
+        Self {
+            lasersword: asset_server.load(crate::enemy_projectile::LASERSWORD_SHEET),
+            fireball: asset_server.load(format!("sprites/props/gauntlet_{FIREBALL_ID}.png")),
+        }
+    }
+}
+
 /// Marks the streak sprite for an in-flight [`HeldProjectile`] (laser bolt).
 #[derive(Component)]
 pub struct HeldProjectileVisual;
@@ -960,12 +977,12 @@ pub fn sync_held_projectile_visuals(
     world: Res<crate::GameWorld>,
     visuals: Query<Entity, With<HeldProjectileVisual>>,
     projectiles: Query<(&BodyKinematics, &HeldProjectile)>,
+    mut art: Local<Option<HeldProjectileVisualArt>>,
 ) {
     for entity in &visuals {
         commands.entity(entity).despawn();
     }
-    let lasersword = asset_server.load(crate::enemy_projectile::LASERSWORD_SHEET);
-    let fireball = asset_server.load(format!("sprites/props/gauntlet_{FIREBALL_ID}.png"));
+    let art = art.get_or_insert_with(|| HeldProjectileVisualArt::load(&asset_server));
     for (kin, proj) in &projectiles {
         let translation = crate::config::world_to_bevy(&world.0, kin.pos, 9.5);
         if proj.explode_half > 0.0 {
@@ -974,7 +991,7 @@ pub fn sync_held_projectile_visuals(
             commands.spawn((
                 HeldProjectileVisual,
                 Sprite {
-                    image: fireball.clone(),
+                    image: art.fireball.clone(),
                     custom_size: Some(Vec2::splat(30.0)),
                     ..default()
                 },
@@ -984,7 +1001,7 @@ pub fn sync_held_projectile_visuals(
             continue;
         }
         let (sprite, anchor, rotation) =
-            crate::enemy_projectile::lasersword_projectile_sprite(lasersword.clone(), kin.vel);
+            crate::enemy_projectile::lasersword_projectile_sprite(art.lasersword.clone(), kin.vel);
         commands.spawn((
             HeldProjectileVisual,
             sprite,

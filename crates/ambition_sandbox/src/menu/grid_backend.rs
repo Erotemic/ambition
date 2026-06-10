@@ -72,7 +72,7 @@ pub(crate) struct MenuDispatchParams<'w, 's> {
 /// cube's `kaleidoscope_backend_active`; the new Grid systems are registered with
 /// this and the OLD grid + pause menu are gated OFF with its negation.
 pub(crate) fn grid_backend_active(backend: Res<InventoryUiBackend>) -> bool {
-    *backend == InventoryUiBackend::Grid
+    backend.effective() == InventoryUiBackend::Grid
 }
 
 /// Per-backend Grid state: the remembered tab + republish bookkeeping. The CURSOR
@@ -930,7 +930,7 @@ pub(crate) fn grid_menu_pointer_press(
     mut state: ResMut<GridPointerPress>,
 ) {
     let e = press.entity;
-    if *backend != InventoryUiBackend::Grid || !overlay.visible {
+    if backend.effective() != InventoryUiBackend::Grid || !overlay.visible {
         return;
     }
     // A single click emits a `Pointer<Press>` for EVERY entity under the cursor —

@@ -105,6 +105,7 @@ visible = [
     "bevy/scene",
     "bevy/png",
     "frame_pacing",
+    "kaleidoscope_menu",
 ]
 
 # Shared backbone for the two browser personas. Mirrors `visible` but
@@ -279,6 +280,12 @@ mobile_touch = ["input", "dep:virtual_joystick"]
 # Desktop-only falling-sand room prototype. Kept out of Android/web composites
 # for now while the bevy_falling_sand render feature is validated there.
 falling_sand = ["dep:bevy_falling_sand"]
+# Experimental 3D cube inventory/pause menu backend. Enabled by the normal
+# `visible` desktop/Android personas so both platforms exercise the same menu
+# stack by default. Kept as a feature so headless/web/minimal builds can avoid
+# installing the cube camera/Lunex renderer.
+kaleidoscope_menu = []
+
 # Frame pacing (battery saver). Visible-only — the limiter lives in the render app.
 frame_pacing = ["dep:bevy_framepace"]
 

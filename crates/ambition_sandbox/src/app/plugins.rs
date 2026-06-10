@@ -617,8 +617,8 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     // Lightweight FPS / frame-time overlay. ON by default on wasm,
     // OFF on desktop; F3 toggles. See `crate::fps_overlay`.
     app.add_plugins(crate::dev::fps_overlay::FpsOverlayPlugin);
-    // Frame pacing / battery saver — caps to the display refresh when the Video
-    // setting is ON (default). Visible-only (the limiter lives in the render app).
+    // Frame pacing / battery saver. Enabled by the normal visible personas so
+    // desktop and Android exercise the same pacing behavior by default.
     #[cfg(feature = "frame_pacing")]
     app.add_plugins(crate::host::framepace::FramePacePlugin);
 
@@ -681,13 +681,14 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                 .after(SandboxSet::CoreSimulation),
         );
 
-    // Unified menu (the one menu): the two presentation backends of the SAME
-    // page model + dispatcher.
-    // 3D-cube inventory frontend (#31), runtime-toggleable vs the grid below.
-    crate::menu::kaleidoscope_app::install_kaleidoscope_menu(app);
-    // Unified flat tabbed menu (Phase C2b): the `InventoryUiBackend::Grid`
-    // presentation of the SAME page model + dispatcher. Gated to `backend ==
-    // Grid`; the cube stays the untouched fallback. `\` flips between them.
+    // Unified menu (the one menu): install backend-agnostic menu state first,
+    // install the optional 3D cube backend when the feature is present, then the
+    // flat Grid backend. The feature remains platform-neutral so desktop and
+    // Android stay in sync.
+    crate::menu::kaleidoscope_app::install_unified_menu_shared(app);
+    if crate::menu::kaleidoscope_app::KALEIDOSCOPE_MENU_BACKEND_ENABLED {
+        crate::menu::kaleidoscope_app::install_kaleidoscope_menu_backend(app);
+    }
     crate::menu::grid_backend::install_grid_unified_menu(app);
 }
 

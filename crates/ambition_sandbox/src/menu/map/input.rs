@@ -18,7 +18,9 @@ pub fn handle_map_menu_hotkeys(
 ) {
     use bevy::input::keyboard::KeyCode;
     let kaleidoscope = kaleidoscope_backend
-        .map(|b| *b == crate::menu::kaleidoscope_app::InventoryUiBackend::LunexKaleidoscope)
+        .map(|b| {
+            b.effective() == crate::menu::kaleidoscope_app::InventoryUiBackend::LunexKaleidoscope
+        })
         .unwrap_or(false);
     // The `menu.map` intent routes to the cube under the Cube backend; the `M` key
     // keeps toggling the standalone panel so it stays reachable for debugging.

@@ -62,6 +62,23 @@ const LASERSWORD_RENDER_WIDTH: f32 = 56.0;
 /// player's held gun-sword shot can render the SAME sword the pirates fire.
 pub const LASERSWORD_SHEET: &str = LASERSWORD_SHEET_PATH;
 
+/// Texture handles used by enemy projectile visuals. Stored in system-local
+/// state so per-frame visual sync does not call `AssetServer::load` and churn
+/// image decode / asset bookkeeping every tick.
+pub(crate) struct EnemyProjectileVisualArt {
+    apple: Handle<Image>,
+    lasersword: Handle<Image>,
+}
+
+impl EnemyProjectileVisualArt {
+    fn load(asset_server: &AssetServer) -> Self {
+        Self {
+            apple: asset_server.load(APPLE_SPRITE_PATH),
+            lasersword: asset_server.load(LASERSWORD_SHEET_PATH),
+        }
+    }
+}
+
 /// Build the lasersword projectile sprite (idle frame, pommel-anchored) + its
 /// z-rotation for a shot traveling at `vel` (world space, y-down). Shared by the
 /// enemy volley visual and the player's held gun-sword shot so both render an
@@ -133,9 +150,9 @@ pub fn sync_enemy_projectile_visuals(
         ),
         With<EnemyProjectileVisual>,
     >,
+    mut art: Local<Option<EnemyProjectileVisualArt>>,
 ) {
-    let apple_texture = asset_server.load(APPLE_SPRITE_PATH);
-    let lasersword_texture = asset_server.load(LASERSWORD_SHEET_PATH);
+    let art = art.get_or_insert_with(|| EnemyProjectileVisualArt::load(&asset_server));
 
     // Spawn one persistent visual per NEW enemy projectile entity.
     for (proj_entity, kin, owner) in &new_projectiles {
@@ -145,7 +162,7 @@ pub fn sync_enemy_projectile_visuals(
         let visual = if is_apple_owner(&owner.0) {
             spawn_apple_visual(
                 &mut commands,
-                &apple_texture,
+                &art.apple,
                 translation,
                 render_size,
                 proj_entity,
@@ -153,7 +170,7 @@ pub fn sync_enemy_projectile_visuals(
         } else if is_lasersword_owner(&owner.0) {
             spawn_lasersword_visual(
                 &mut commands,
-                &lasersword_texture,
+                &art.lasersword,
                 translation,
                 kin.vel,
                 proj_entity,

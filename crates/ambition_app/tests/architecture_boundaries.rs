@@ -1265,46 +1265,52 @@ fn architecture_boundaries_time_crate_is_extracted() {
 
 #[test]
 fn architecture_boundaries_machinery_does_not_import_content() {
-    // Stage 20 / A1: generic machinery modules must not import the unified
-    // content module (`ambition_content::…` / its `ambition_content::…`
-    // alias). The app layer (app/, bin/, host/, rl_sim/, headless.rs,
-    // main.rs) is the composition layer and MAY name content.
-    //
-    // Documented leftovers, excluded here and queued on their own tasks:
-    //   - presentation/** — named character/boss visuals (doc 20 B3, the
-    //     render split) still read content/features named bits.
-    //   - dev/**          — the debug overlay reads everything (doc 20 B4).
-    //   - assets/**       — the sandbox asset-manifest builders are content
-    //     composition by nature; they relocate content-side with A3+.
-    //   - *test* files    — fixtures may exercise content freely.
+    // Stage 20 / A1+A3: the ENTIRE machinery lib must keep the content
+    // layer out. Post-bisection the crate graph enforces the hard half
+    // (`ambition_content` sits ABOVE the lib, so importing it cannot even
+    // compile without a manifest change); this guard keeps the VOCABULARY
+    // out — neither the old `crate::content::` paths nor a sneaky
+    // `ambition_content::` dependency may reappear. The app crate is the
+    // composition layer and MAY name content. `crate::features` (the named
+    // actor/boss world still living in the lib until the B3 render
+    // inversion) is the one documented named-adjacent region (doc 20 B3/B4).
+    // *test* files are excluded — fixtures may exercise content freely.
     let machinery_dirs = [
         "abilities",
         "actor",
+        "assets",
         "audio",
         "body_mode",
         "boss_encounter",
         "brain",
         "combat",
+        "dev",
         "dialog",
         "encounter",
         "enemy_projectile",
+        "features",
+        "host",
+        "interaction.rs",
         "inventory",
         "items",
         "mechanics",
         "menu",
         "music",
         "persistence",
+        "physics.rs",
         "platformer_runtime",
         "player",
         "portal",
+        "presentation",
         "projectile",
         "quest",
         "runtime",
+        "shrine.rs",
         "time",
         "ui_nav",
         "world",
     ];
-    let forbidden = ["ambition_content::", "ambition_content::"];
+    let forbidden = ["crate::content::", "ambition_content::"];
 
     let mut violations = Vec::new();
     for dir in machinery_dirs {

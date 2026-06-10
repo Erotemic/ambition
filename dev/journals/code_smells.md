@@ -64,6 +64,12 @@ Entry format:
 - **Noticed while:** B3 session 2 (presentation de-naming)
 - **Suggested fix / size:** M (~1h) — same registry/data pattern as the character sheets
 
+## 2026-06-10 Special-attack EFFECTS consumers are half-vocabulary (post de-name)
+- **Where:** crates/ambition_sandbox/src/features/ecs/brain_effects.rs (spawn_gnu_apple_rain_from_special_messages, spawn_overfit_volley_from_special_messages, the LockOnBeam/PitTrap/RotatingCross/MinionCascade consumers); SpecialActionSpec doc comments in ambition_actor/src/brain/action_set.rs
+- **Smell:** the BossAttackProfile de-name (3e344d95) is honest at the key/schedule/geometry layers and at the spec-PARAMETER layer (DebrisRain{interval_s,spawn_speed,damage} etc. are RON-authored per boss), but the consumer implementations still bake content: apple art identity, "constants reused from the spec but baked here", gnu-named fns, spec docs claiming "GNU-ton boss:". Inconsistent grep threads (Jon's review caught this).
+- **Fix sketch / size:** M — lift the baked constants + projectile-art identity into the spec fields (RON), rename consumers to the vocabulary with a "first authored by gnu_ton" breadcrumb. NO generic effect-composition framework until a second boss authors one of these specials (knobs-when-use-cases-land). Verdict + discussion: doc 22 session 3.
+- **Noticed while:** Stage 22 boss_encounter core move (Jon pushed back on the rename)
+
 ## Resolved
 
 (none yet)

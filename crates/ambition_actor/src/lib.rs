@@ -6,6 +6,8 @@
 //!   `ActorControlFrame`), AI state components, pose/faction
 //!   vocabulary, and the character catalog (id → display name, sprite
 //!   tuning, default brain/action-set presets).
+//! - [`boss_encounter`] — the boss-encounter phase state machine +
+//!   spec schema (the game's named roster stays game-side).
 //! - [`brain`] — the universal brain: every controllable entity
 //!   (player, NPC, enemy, boss) carries `Brain` + `ActionSet` and is
 //!   driven through one dispatch. Includes the boss attack-pattern
@@ -18,4 +20,5 @@
 //! `crate::actor` / `crate::brain` paths.
 
 pub mod actor;
+pub mod boss_encounter;
 pub mod brain;

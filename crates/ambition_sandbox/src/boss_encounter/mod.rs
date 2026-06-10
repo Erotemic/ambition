@@ -28,7 +28,7 @@ mod specs;
 pub(crate) mod sprites;
 mod systems;
 
-mod spec_types;
+mod roster;
 #[cfg(test)]
 mod tests;
 
@@ -40,11 +40,12 @@ pub use ids::encounter_id_from_name;
 // redirect that read it moved to the data-driven
 // `assets/data/dialogue/registry.ron` `BossCleared("mockingbird")`
 // rule. Internal tests reference it via `super::ids::MOCKINGBIRD_ENCOUNTER_ID`.
-pub use profile::{default_boss_profiles, BossProfile, BossRewardProfile};
-pub use registry::BossEncounterRegistry;
-pub use spec_types::{
+pub use ambition_actor::boss_encounter::{
     BossEncounterEvent, BossEncounterPhase, BossEncounterSpec, BossEncounterState,
 };
+pub use profile::{default_boss_profiles, BossProfile, BossRewardProfile};
+pub use registry::BossEncounterRegistry;
+pub use roster::BossSpecRoster;
 pub use specs::default_boss_specs;
 pub use systems::{
     boss_phase_transition_feedback, populate_boss_encounter_registry, update_boss_encounters,

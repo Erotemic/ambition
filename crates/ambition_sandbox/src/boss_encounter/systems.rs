@@ -1,3 +1,4 @@
+use crate::boss_encounter::BossSpecRoster;
 use crate::engine_core as ae;
 use bevy::prelude::*;
 

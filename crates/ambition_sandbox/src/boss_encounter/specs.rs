@@ -1,4 +1,5 @@
 use super::profile::default_boss_profiles;
+use crate::boss_encounter::BossSpecRoster;
 
 /// Default boss specs shipped with the sandbox. Populated lazily so
 /// hot reloads of LDtk content don't double-register.

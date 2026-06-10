@@ -1,70 +1,36 @@
-//! Boss encounter state machine.
+//! The GAME's boss-encounter roster: the named `BossEncounterSpec`
+//! constructors, as an extension trait over the machinery schema in
+//! `ambition_actor::boss_encounter`. Same machinery/data split as
+//! `character_roster`: the actor crate owns the spec schema + the
+//! phase state machine; this module owns Ambition's bosses.
 //!
-//! Composes `BossPatternSchedule` (per-phase attack data) with a
-//! coarse phase progression: Dormant → Intro → Phase1 → Transition →
-//! Phase2 → Stagger → Enrage → Death. Each phase has an HP threshold
-//! that fires the next transition; the runtime walks through them
-//! deterministically based on the boss's current health fraction.
-//!
-//! This module owns the *phase logic* only — how the boss attacks in
-//! each phase lives in `BossPatternSchedule`, and how the boss
-//! actually moves / hits the player lives in the sandbox's
-//! `BossRuntime`. Keeping these layered means a future enemy boss can
-//! reuse the phase machinery with different patterns.
-//!
-//! The phase enum is also surfaced as the player-facing `BossPhase`
-//! seldom_state component (`crate::state_machines`), so HUD / debug
-//! overlays read from one source of truth.
+//! Call sites keep the `BossEncounterSpec::gnu_ton()` shape — they
+//! just `use crate::boss_encounter::BossSpecRoster;`.
 
-use serde::{Deserialize, Serialize};
+use super::BossEncounterSpec;
 
-// `BossEncounterPhase` moved to `crate::brain::boss_pattern` (actor/boss
-// unification, ADR 0016): a boss's phase is part of the unified
-// actor/brain runtime, not a boss-only concept. Re-exported below so
-// `crate::boss_encounter::BossEncounterPhase` paths keep working.
-pub use crate::brain::BossEncounterPhase;
-
-/// Authored thresholds + timings driving phase transitions.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct BossEncounterSpec {
-    pub id: String,
-    /// Boss display name. HUD shows this above the health bar.
-    pub name: String,
-    pub max_hp: i32,
-    /// HP fraction at which Phase1 ends and Transition begins.
-    /// Default 0.66.
-    pub phase1_to_transition_hp: f32,
-    /// HP fraction at which Phase2 begins (after Transition).
-    /// Default same as phase1_to_transition (Transition is an
-    /// invulnerable beat, HP doesn't drop further during it).
-    pub transition_to_phase2_hp: f32,
-    /// HP fraction at which Enrage triggers from Phase2. Default
-    /// 0.20.
-    pub phase2_to_enrage_hp: f32,
-    pub intro_seconds: f32,
-    pub transition_seconds: f32,
-    pub stagger_seconds: f32,
-    pub death_seconds: f32,
-    /// HP fraction window where damage builds up "stagger pressure";
-    /// hitting the boss for `stagger_threshold` HP within this window
-    /// triggers a Stagger. Defaults disable stagger by setting
-    /// threshold to a large number.
-    pub stagger_threshold: i32,
-    pub stagger_window_seconds: f32,
-    /// Music track ids per phase. Empty disables the swap.
-    pub music_intro: String,
-    pub music_phase1: String,
-    pub music_phase2: String,
-    pub music_enrage: String,
+/// Named spec constructors for Ambition's bosses (data-in-code; the
+/// on-disk `boss_encounters/*.ron` specs pin against these, ADR 0017).
+pub trait BossSpecRoster: Sized {
+    fn clockwork_warden() -> Self;
+    fn gradient_sentinel() -> Self;
+    fn mockingbird() -> Self;
+    fn smirking_behemoth_boss() -> Self;
+    fn gnu_ton() -> Self;
+    fn flying_spaghetti_monster_boss() -> Self;
+    fn trex_boss() -> Self;
+    fn mode_collapse_boss() -> Self;
+    fn exploding_gradient_boss() -> Self;
+    fn overflow_boss() -> Self;
 }
 
-impl BossEncounterSpec {
+impl BossSpecRoster for BossEncounterSpec {
     /// Clockwork Warden — a renamed reskin of `gradient_sentinel` with
     /// a different display name + tighter HP pool. The on-disk
     /// `boss_encounters/clockwork_warden.ron` pins against this
     /// constructor (ADR 0017); `BossProfile::from_id("clockwork_warden")`
     /// reads the same numeric body from that RON.
-    pub fn clockwork_warden() -> Self {
+    fn clockwork_warden() -> Self {
         let mut spec = Self::gradient_sentinel();
         spec.id = "clockwork_warden".into();
         spec.name = "Clockwork Warden".into();
@@ -72,7 +38,7 @@ impl BossEncounterSpec {
         spec
     }
 
-    pub fn gradient_sentinel() -> Self {
+    fn gradient_sentinel() -> Self {
         Self {
             id: "gradient_sentinel".into(),
             name: "Gradient Sentinel".into(),
@@ -106,7 +72,7 @@ impl BossEncounterSpec {
     /// of attrition. Uses the `how_to_kill_a_mockingbird` audio score
     /// (rendered separately by the music renderer); falls back to
     /// existing boss tracks if the audio asset isn't on disk.
-    pub fn mockingbird() -> Self {
+    fn mockingbird() -> Self {
         Self {
             id: "mockingbird".into(),
             name: "Mockingbird".into(),
@@ -132,7 +98,7 @@ impl BossEncounterSpec {
     /// HP is intentionally enormous because ordinary attacks are ignored;
     /// the LDtk-authored rope/anvil mechanic triggers an environmental
     /// forced death instead.
-    pub fn smirking_behemoth_boss() -> Self {
+    fn smirking_behemoth_boss() -> Self {
         Self {
             id: "smirking_behemoth_boss".into(),
             name: "Smirking Behemoth".into(),
@@ -160,7 +126,7 @@ impl BossEncounterSpec {
     /// stays in the background throughout; only the head and hands are
     /// interactive. Long HP pool to reflect the multi-part structure —
     /// Phase 1 is pure hand-dodge pressure with no damage opportunities.
-    pub fn gnu_ton() -> Self {
+    fn gnu_ton() -> Self {
         Self {
             id: "gnu_ton".into(),
             name: "GNU-ton".into(),
@@ -184,7 +150,7 @@ impl BossEncounterSpec {
     /// Flying Spaghetti Monster — a false-god boss (canon: Jon). Compile-time
     /// fallback; the on-disk `boss_encounters/flying_spaghetti_monster_boss.ron`
     /// overrides these numbers. Behaviour lives in `boss_profiles.ron`.
-    pub fn flying_spaghetti_monster_boss() -> Self {
+    fn flying_spaghetti_monster_boss() -> Self {
         Self {
             id: "flying_spaghetti_monster_boss".into(),
             name: "Flying Spaghetti Monster".into(),
@@ -207,7 +173,7 @@ impl BossEncounterSpec {
 
     /// T-rex — a grounded, melee-centric bipedal boss (canon: Jon). Compile-time
     /// fallback; `boss_encounters/trex_boss.ron` overrides these.
-    pub fn trex_boss() -> Self {
+    fn trex_boss() -> Self {
         Self {
             id: "trex_boss".into(),
             name: "T-Rex".into(),
@@ -231,7 +197,7 @@ impl BossEncounterSpec {
     /// Mode Collapse — a floating summoner boss (a training failure that floods
     /// the arena with identical lesser copies). Compile-time fallback;
     /// `boss_encounters/mode_collapse_boss.ron` overrides these.
-    pub fn mode_collapse_boss() -> Self {
+    fn mode_collapse_boss() -> Self {
         Self {
             id: "mode_collapse_boss".into(),
             name: "Mode Collapse".into(),
@@ -254,7 +220,7 @@ impl BossEncounterSpec {
 
     /// Exploding Gradient — a floating ranged-pressure boss. Compile-time
     /// fallback; `boss_encounters/exploding_gradient_boss.ron` overrides these.
-    pub fn exploding_gradient_boss() -> Self {
+    fn exploding_gradient_boss() -> Self {
         Self {
             id: "exploding_gradient_boss".into(),
             name: "Exploding Gradient".into(),
@@ -277,7 +243,7 @@ impl BossEncounterSpec {
 
     /// Overflow — an aerial melee dive-bomber. Compile-time fallback;
     /// `boss_encounters/overflow_boss.ron` overrides these.
-    pub fn overflow_boss() -> Self {
+    fn overflow_boss() -> Self {
         Self {
             id: "overflow_boss".into(),
             name: "Overflow".into(),
@@ -299,226 +265,10 @@ impl BossEncounterSpec {
     }
 }
 
-/// Live encounter state.
-#[derive(Clone, Debug, PartialEq)]
-pub struct BossEncounterState {
-    pub spec: BossEncounterSpec,
-    pub phase: BossEncounterPhase,
-    /// Current HP (clamped to [0, max_hp]).
-    pub hp: i32,
-    /// Seconds spent in the current phase. Resets on every transition.
-    pub phase_elapsed: f32,
-    /// Damage accumulated in the rolling stagger window. Decays over
-    /// `stagger_window_seconds`.
-    pub stagger_pressure: i32,
-    pub stagger_window: f32,
-}
-
-impl BossEncounterState {
-    pub fn new(spec: BossEncounterSpec) -> Self {
-        let hp = spec.max_hp.max(1);
-        Self {
-            spec,
-            phase: BossEncounterPhase::Dormant,
-            hp,
-            phase_elapsed: 0.0,
-            stagger_pressure: 0,
-            stagger_window: 0.0,
-        }
-    }
-
-    pub fn hp_fraction(&self) -> f32 {
-        if self.spec.max_hp <= 0 {
-            return 0.0;
-        }
-        (self.hp as f32 / self.spec.max_hp as f32).clamp(0.0, 1.0)
-    }
-
-    pub fn enter_intro(&mut self) -> Vec<BossEncounterEvent> {
-        if !matches!(self.phase, BossEncounterPhase::Dormant) {
-            return Vec::new();
-        }
-        self.set_phase(BossEncounterPhase::Intro)
-    }
-
-    /// Apply player damage to the boss. Returns the events the caller
-    /// should react to (phase changes, music swaps, death).
-    pub fn apply_player_damage(&mut self, damage: i32) -> Vec<BossEncounterEvent> {
-        if damage <= 0 || self.phase.boss_invulnerable() {
-            return Vec::new();
-        }
-        let mut events = Vec::new();
-        self.hp = (self.hp - damage).max(0);
-        self.stagger_pressure = self.stagger_pressure.saturating_add(damage);
-        self.stagger_window = self.spec.stagger_window_seconds.max(0.0);
-        events.push(BossEncounterEvent::DamageApplied {
-            amount: damage,
-            hp_remaining: self.hp,
-            hp_fraction: self.hp_fraction(),
-        });
-        if self.hp == 0 {
-            events.extend(self.set_phase(BossEncounterPhase::Death));
-            return events;
-        }
-        // HP-driven phase transitions take precedence over stagger
-        // — Transition / Enrage are plot-required beats and must
-        // not be skipped because the player happened to land a big
-        // hit on the threshold. Stagger only fires when the HP
-        // didn't cross a threshold this hit.
-        let frac = self.hp_fraction();
-        let mut crossed_plot_threshold = false;
-        if matches!(self.phase, BossEncounterPhase::Phase1)
-            && frac <= self.spec.phase1_to_transition_hp
-        {
-            events.extend(self.set_phase(BossEncounterPhase::Transition));
-            crossed_plot_threshold = true;
-            self.stagger_pressure = 0;
-        }
-        if matches!(self.phase, BossEncounterPhase::Phase2) && frac <= self.spec.phase2_to_enrage_hp
-        {
-            events.extend(self.set_phase(BossEncounterPhase::Enrage));
-            crossed_plot_threshold = true;
-            self.stagger_pressure = 0;
-        }
-        if crossed_plot_threshold {
-            return events;
-        }
-        // Stagger trigger only fires from the actively-attacking
-        // phases (no double-stagger during Transition / Stagger
-        // / Death).
-        if matches!(
-            self.phase,
-            BossEncounterPhase::Phase1 | BossEncounterPhase::Phase2 | BossEncounterPhase::Enrage
-        ) && self.stagger_pressure >= self.spec.stagger_threshold.max(1)
-        {
-            self.stagger_pressure = 0;
-            events.extend(self.set_phase(BossEncounterPhase::Stagger));
-        }
-        events
-    }
-
-    /// Drive the encounter's timed transitions forward.
-    pub fn tick(&mut self, dt: f32) -> Vec<BossEncounterEvent> {
-        let dt = dt.max(0.0);
-        let mut events = Vec::new();
-        if matches!(self.phase, BossEncounterPhase::Dormant) {
-            return events;
-        }
-        self.phase_elapsed += dt;
-        if self.stagger_window > 0.0 {
-            self.stagger_window = (self.stagger_window - dt).max(0.0);
-            if self.stagger_window == 0.0 {
-                self.stagger_pressure = 0;
-            }
-        }
-        match self.phase {
-            BossEncounterPhase::Intro if self.phase_elapsed >= self.spec.intro_seconds => {
-                events.extend(self.set_phase(BossEncounterPhase::Phase1));
-            }
-            BossEncounterPhase::Transition
-                if self.phase_elapsed >= self.spec.transition_seconds =>
-            {
-                events.extend(self.set_phase(BossEncounterPhase::Phase2));
-            }
-            BossEncounterPhase::Stagger if self.phase_elapsed >= self.spec.stagger_seconds => {
-                // Recover into the right "attacking" phase based on HP.
-                let frac = self.hp_fraction();
-                let next = if frac <= self.spec.phase2_to_enrage_hp {
-                    BossEncounterPhase::Enrage
-                } else if frac <= self.spec.phase1_to_transition_hp {
-                    BossEncounterPhase::Phase2
-                } else {
-                    BossEncounterPhase::Phase1
-                };
-                events.extend(self.set_phase(next));
-            }
-            _ => {}
-        }
-        events
-    }
-
-    /// Whether the death outro has elapsed and the boss can be
-    /// considered fully resolved (caller transitions the persisted
-    /// state to `Cleared`).
-    pub fn death_complete(&self) -> bool {
-        matches!(self.phase, BossEncounterPhase::Death)
-            && self.phase_elapsed >= self.spec.death_seconds
-    }
-
-    /// Force the encounter directly into Death.
-    ///
-    /// Environmental win conditions use this instead of
-    /// `apply_player_damage`: the boss may be immune to ordinary player
-    /// hits, but room-authored mechanics (e.g. a falling anvil) still need
-    /// to drive the same death events, music clearing, and save resolution
-    /// as normal lethal damage.
-    pub fn force_death(&mut self) -> Vec<BossEncounterEvent> {
-        self.hp = 0;
-        self.stagger_pressure = 0;
-        self.stagger_window = 0.0;
-        self.set_phase(BossEncounterPhase::Death)
-    }
-
-    /// Reset the encounter so a fresh attempt becomes available.
-    pub fn reset_for_retry(&mut self) {
-        self.phase = BossEncounterPhase::Dormant;
-        self.hp = self.spec.max_hp.max(1);
-        self.phase_elapsed = 0.0;
-        self.stagger_pressure = 0;
-        self.stagger_window = 0.0;
-    }
-
-    fn set_phase(&mut self, phase: BossEncounterPhase) -> Vec<BossEncounterEvent> {
-        if phase == self.phase {
-            return Vec::new();
-        }
-        let from = self.phase;
-        self.phase = phase;
-        self.phase_elapsed = 0.0;
-        let mut events = vec![BossEncounterEvent::PhaseChanged { from, to: phase }];
-        let track = match phase {
-            BossEncounterPhase::Intro => Some(self.spec.music_intro.clone()),
-            BossEncounterPhase::Phase1 | BossEncounterPhase::Transition => {
-                Some(self.spec.music_phase1.clone())
-            }
-            BossEncounterPhase::Phase2 | BossEncounterPhase::Stagger => {
-                Some(self.spec.music_phase2.clone())
-            }
-            BossEncounterPhase::Enrage => Some(self.spec.music_enrage.clone()),
-            BossEncounterPhase::Death | BossEncounterPhase::Dormant => None,
-        };
-        if let Some(track) = track.filter(|t| !t.is_empty()) {
-            events.push(BossEncounterEvent::MusicRequested { track });
-        }
-        if matches!(phase, BossEncounterPhase::Death) {
-            events.push(BossEncounterEvent::Defeated);
-        }
-        events
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum BossEncounterEvent {
-    PhaseChanged {
-        from: BossEncounterPhase,
-        to: BossEncounterPhase,
-    },
-    DamageApplied {
-        amount: i32,
-        hp_remaining: i32,
-        hp_fraction: f32,
-    },
-    MusicRequested {
-        track: String,
-    },
-    /// Boss reached HP=0; the runtime will play the death animation
-    /// and `death_complete` returns true once it's fully resolved.
-    Defeated,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::boss_encounter::{BossEncounterEvent, BossEncounterPhase, BossEncounterState};
 
     #[test]
     fn enter_intro_then_phase1_after_intro_seconds() {

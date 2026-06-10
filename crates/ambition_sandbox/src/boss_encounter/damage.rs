@@ -1,3 +1,4 @@
+use crate::boss_encounter::BossSpecRoster;
 use crate::presentation::cutscene::CutsceneTriggerQueue;
 
 use super::{events::publish_events, BossEncounterRegistry};

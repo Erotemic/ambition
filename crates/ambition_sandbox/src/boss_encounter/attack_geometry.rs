@@ -711,7 +711,7 @@ pub fn volumes_for_profile(
         // space without being absurdly tall. The Gradient Sentinel
         // sways ±130 px around its anchor (`AnchorSway` movement
         // profile), so the lane sweeps with the boss naturally.
-        BossAttackProfile::GradientLane => vec![ae::Aabb::new(
+        BossAttackProfile::HazardColumn => vec![ae::Aabb::new(
             origin + ae::Vec2::new(0.0, 0.0),
             ae::Vec2::new(size.x * 0.30, size.y * 1.80),
         )],
@@ -719,11 +719,11 @@ pub fn volumes_for_profile(
         // (spawned projectiles / World-anchored hitboxes / minions).
         // Empty volumes here prevent double-counting via
         // `boss_attack_damage`'s strike arm.
-        BossAttackProfile::OverfitVolley
-        | BossAttackProfile::EyeBeam
-        | BossAttackProfile::MinimaTrap
-        | BossAttackProfile::SaddlePoint
-        | BossAttackProfile::GradientCascade => Vec::new(),
+        BossAttackProfile::MemorizedVolley
+        | BossAttackProfile::LockOnBeam
+        | BossAttackProfile::PitTrap
+        | BossAttackProfile::RotatingCross
+        | BossAttackProfile::MinionCascade => Vec::new(),
         BossAttackProfile::WingSweep => vec![ae::Aabb::new(
             origin + ae::Vec2::new(0.0, size.y * 0.08),
             ae::Vec2::new(size.x * 0.56, size.y * 0.42),
@@ -745,7 +745,7 @@ pub fn volumes_for_profile(
         // GNU-ton fallbacks (only fire if a non-gnu-ton boss
         // somehow inherits a Gnu* profile — none today; preserved
         // so a future actor can adopt them without crashing).
-        BossAttackProfile::GnuHandSlam => vec![
+        BossAttackProfile::HandSlam => vec![
             ae::Aabb::new(
                 origin + ae::Vec2::new(-size.x * 0.40, size.y * 0.25),
                 ae::Vec2::new(size.x * 0.14, size.y * 0.60),
@@ -755,19 +755,19 @@ pub fn volumes_for_profile(
                 ae::Vec2::new(size.x * 0.14, size.y * 0.60),
             ),
         ],
-        BossAttackProfile::GnuHandSweep => vec![ae::Aabb::new(
+        BossAttackProfile::HandSweep => vec![ae::Aabb::new(
             origin + ae::Vec2::new(0.0, size.y * 0.15),
             ae::Vec2::new(size.x * 0.85, size.y * 0.28),
         )],
-        BossAttackProfile::GnuHeadDescent => vec![ae::Aabb::new(
+        BossAttackProfile::HeadDescent => vec![ae::Aabb::new(
             origin + ae::Vec2::new(0.0, size.y * 0.05),
             ae::Vec2::new(size.x * 0.32, size.y * 0.38),
         )],
-        BossAttackProfile::GnuShockwave => vec![ae::Aabb::new(
+        BossAttackProfile::ConvergingShockwave => vec![ae::Aabb::new(
             origin + ae::Vec2::new(0.0, size.y * 0.48),
             ae::Vec2::new(size.x * 0.90, size.y * 0.08),
         )],
-        BossAttackProfile::GnuAppleRain => Vec::new(),
+        BossAttackProfile::DebrisRain => Vec::new(),
     }
 }
 
@@ -1124,7 +1124,7 @@ mod sprite_metadata_derivation_tests {
         };
         let behavior = BossBehaviorProfile::gnu_ton();
         let mut attack_state = BossAttackState::default();
-        attack_state.active_profile = Some(BossAttackProfile::GnuHeadDescent);
+        attack_state.active_profile = Some(BossAttackProfile::HeadDescent);
         attack_state.active_elapsed = 0.15; // frame index 1 at 0.1s/frame.
 
         let ctx = BossVolumeContext {
@@ -1200,10 +1200,10 @@ mod sprite_metadata_derivation_tests {
         };
         let behavior = BossBehaviorProfile::gnu_ton();
         let mut attack_state = BossAttackState::default();
-        attack_state.active_profile = Some(BossAttackProfile::GnuHeadDescent);
+        attack_state.active_profile = Some(BossAttackProfile::HeadDescent);
         attack_state.active_elapsed = 0.15; // elapsed alone would pick frame 1.
         let visual_frame = BossAnimationFrameSample {
-            profile: Some(BossAttackProfile::GnuHeadDescent),
+            profile: Some(BossAttackProfile::HeadDescent),
             frame_index: 0,
             animation_key: Some("gnu_head_descent"),
         };
@@ -1406,7 +1406,7 @@ mod sprite_metadata_derivation_tests {
         };
         let behavior = BossBehaviorProfile::gnu_ton();
         let mut attack_state = BossAttackState::default();
-        attack_state.active_profile = Some(BossAttackProfile::GnuHeadDescent);
+        attack_state.active_profile = Some(BossAttackProfile::HeadDescent);
         attack_state.active_elapsed = 0.15;
         let ctx = BossVolumeContext {
             pos: ae::Vec2::ZERO,

@@ -1360,12 +1360,9 @@ fn architecture_boundaries_combat_kit_stays_content_free() {
         "ExplodingMite",
         "DividingMite",
         "clockwork_warden",
-        "EyeBeam",
-        "AppleRain",
-        "GradientCascade",
-        "MinimaTrap",
-        "OverfitVolley",
-        "SaddlePoint",
+        // The boss attack profiles (HandSlam, DebrisRain, LockOnBeam, ...)
+        // were de-named in Stage 22 — they are generic behavior vocabulary
+        // now, not content names, so they no longer belong on this list.
     ];
     let mut violations = Vec::new();
     for file in collect_rs_files(&root) {

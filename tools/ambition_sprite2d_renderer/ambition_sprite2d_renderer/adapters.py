@@ -262,9 +262,9 @@ class BossAdapter(BaseAdapter):
 
         - ``floor_slam``  → FloorSlam (broad slap below the body)
         - ``side_sweep``  → SideSweep (two arm sweeps left + right)
-        - ``spike_halo``  → OverfitVolley / SaddlePoint anchor
+        - ``spike_halo``  → MemorizedVolley / RotatingCross anchor
                             (ring around the body)
-        - ``dash_echo``   → GradientLane (a tall horizontal lane
+        - ``dash_echo``   → HazardColumn (a tall horizontal lane
                             following the dash)
 
         Tuned to the AI Slop Zeta's 128×128 frame; the renderer

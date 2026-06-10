@@ -493,7 +493,7 @@ pub enum SpecialActionSpec {
     /// accumulates per-boss spawn cadence and emits the
     /// `EnemyProjectileSpawn`s. Replaces the legacy
     /// `BossRuntime::tick_apple_rain` self-state spawn loop.
-    GnuAppleRain {
+    DebrisRain {
         /// Seconds between apple spawns while the strike is active.
         interval_s: f32,
         /// Downward initial velocity given to each apple at spawn.
@@ -503,12 +503,12 @@ pub enum SpecialActionSpec {
     },
     /// Gradient Sentinel boss: position-sampling bolt barrage. The
     /// brain emits `special_pressed` every tick the
-    /// `BossAttackProfile::OverfitVolley` window is active; the
+    /// `BossAttackProfile::MemorizedVolley` window is active; the
     /// `spawn_overfit_volley_from_special_messages` consumer samples
     /// player positions during the telegraph (via the live
     /// `BossAttackState`) and fires `sample_count` bolts at the
     /// memorized positions on the first strike tick.
-    OverfitVolley {
+    MemorizedVolley {
         /// Seconds between position samples during the telegraph
         /// window. Sample count caps at `sample_count`.
         sample_interval_s: f32,
@@ -522,10 +522,10 @@ pub enum SpecialActionSpec {
     },
     /// Smirking Behemoth boss: a short bubble-laser line emitted
     /// from the eye toward the player's approximate telegraphed
-    /// position. This is separate from OverfitVolley so the cut-rope
+    /// position. This is separate from MemorizedVolley so the cut-rope
     /// boss can fire a single readable beam instead of the Gradient
     /// Sentinel's slow memorized barrage.
-    EyeBeam {
+    LockOnBeam {
         /// Per-box projectile speed (px/s).
         shot_speed: f32,
         /// Per-box damage.
@@ -545,7 +545,7 @@ pub enum SpecialActionSpec {
     /// current position; the hitbox persists for `hazard_duration_s`
     /// seconds. If `spawn_minion` is true the consumer also spawns a
     /// puppy_slug (pacifist crawler) from inside the pit.
-    MinimaTrap {
+    PitTrap {
         /// Seconds the hazard hitbox stays live after spawn.
         hazard_duration_s: f32,
         /// Per-tick damage the pit deals while the player overlaps
@@ -566,21 +566,21 @@ pub enum SpecialActionSpec {
     /// `axis_period_s` seconds. Player stands on the inactive axis
     /// and reads the swap. Total strike duration is governed by the
     /// brain's `BossPatternStep::Strike { duration }`.
-    SaddlePoint {
+    RotatingCross {
         /// Half-extent of each arm along its long axis (px).
         arm_length: f32,
         /// Half-extent of each arm along its short axis (px).
         arm_thickness: f32,
         /// Seconds an axis stays live before toggling.
         axis_period_s: f32,
-        /// Per-tick damage. Same once-per-strike gate as MinimaTrap.
+        /// Per-tick damage. Same once-per-strike gate as PitTrap.
         damage: i32,
     },
     /// Gradient Sentinel boss: spawn `minion_count` "slop" minions
     /// (small_lurker stand-in) at the top of the arena that descend
     /// toward the player. One-shot per strike — the consumer ignores
     /// repeated Special messages while the strike is active.
-    GradientCascade {
+    MinionCascade {
         /// Number of minions to spawn on the strike edge.
         minion_count: u8,
     },
@@ -817,12 +817,12 @@ impl ActionRequest {
             Self::Special { spec } => match spec {
                 SpecialActionSpec::BubbleShield => "special_bubble_shield",
                 SpecialActionSpec::BossSpotlight => "special_boss_spotlight",
-                SpecialActionSpec::GnuAppleRain { .. } => "special_gnu_apple_rain",
-                SpecialActionSpec::OverfitVolley { .. } => "special_overfit_volley",
-                SpecialActionSpec::EyeBeam { .. } => "special_eye_beam",
-                SpecialActionSpec::MinimaTrap { .. } => "special_minima_trap",
-                SpecialActionSpec::SaddlePoint { .. } => "special_saddle_point",
-                SpecialActionSpec::GradientCascade { .. } => "special_gradient_cascade",
+                SpecialActionSpec::DebrisRain { .. } => "special_gnu_apple_rain",
+                SpecialActionSpec::MemorizedVolley { .. } => "special_overfit_volley",
+                SpecialActionSpec::LockOnBeam { .. } => "special_eye_beam",
+                SpecialActionSpec::PitTrap { .. } => "special_minima_trap",
+                SpecialActionSpec::RotatingCross { .. } => "special_saddle_point",
+                SpecialActionSpec::MinionCascade { .. } => "special_gradient_cascade",
                 SpecialActionSpec::ShockwaveSlam { .. } => "special_shockwave_slam",
             },
             Self::PlayerProjectileTick { .. } => "player_projectile_tick",
@@ -884,7 +884,7 @@ mod tests {
         // is iterable without a ~10-minute sandbox recompile — the foundation for
         // moving `boss_special_for_profile`'s hardcoded constants into
         // `boss_profiles.ron` (elevated #1's named first slice).
-        let spec = SpecialActionSpec::EyeBeam {
+        let spec = SpecialActionSpec::LockOnBeam {
             shot_speed: 420.0,
             damage: 3,
             box_count: 5,

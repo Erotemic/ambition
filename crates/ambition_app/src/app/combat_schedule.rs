@@ -41,7 +41,7 @@ impl Plugin for CombatSchedulePlugin {
                 // `apply_hitbox_damage` below resolves the overlap.
                 ambition_sandbox::features::start_enemy_melee_from_brain_actions.run_if(gameplay_allowed),
                 // EFFECTS-stage consumer: reads
-                // `ActorActionMessage::Special { SpecialActionSpec::GnuAppleRain }`
+                // `ActorActionMessage::Special { SpecialActionSpec::DebrisRain }`
                 // and accumulates per-boss apple-rain spawn cadence.
                 // Replaces `BossRuntime::tick_apple_rain` (Task B of the
                 // actor/brain follow-up plan). Runs BEFORE

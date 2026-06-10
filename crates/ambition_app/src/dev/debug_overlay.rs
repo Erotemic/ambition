@@ -326,8 +326,8 @@ pub struct FeatureDebugQueries<'w, 's> {
         With<ambition_sandbox::features::FeatureSimEntity>,
     >,
     /// All live `Hitbox` entities (melee swings, World-anchored
-    /// hazards like the Gradient Sentinel's MinimaTrap pit /
-    /// SaddlePoint arms / GradientLane column). Drawn so the debug
+    /// hazards like the Gradient Sentinel's PitTrap pit /
+    /// RotatingCross arms / HazardColumn column). Drawn so the debug
     /// view answers "what just hit me?" — without this pass the
     /// World-anchored boss specials are invisible even though they
     /// deal damage.
@@ -803,8 +803,8 @@ fn draw_feature_debug(
     // - **red** (`active_color`, `active_attack_volumes`): live
     //   strike volumes. These are also the source of `boss_attack_damage`.
     //
-    // Special attack profiles (MinimaTrap, SaddlePoint, GradientLane,
-    // OverfitVolley, GradientCascade) route damage through World-
+    // Special attack profiles (PitTrap, RotatingCross, HazardColumn,
+    // MemorizedVolley, MinionCascade) route damage through World-
     // anchored `Hitbox` entities, drawn by the later
     // `feature_q.hitboxes` pass with faction colors.
     let hurtbox_color = cyan();
@@ -862,8 +862,8 @@ fn draw_feature_debug(
     }
 
     // Live Hitbox entities — melee swings (FollowOwner) + World-
-    // anchored boss specials (MinimaTrap pit, SaddlePoint arms,
-    // GradientLane column). Without this pass, the World-anchored
+    // anchored boss specials (PitTrap pit, RotatingCross arms,
+    // HazardColumn column). Without this pass, the World-anchored
     // hitboxes are invisible in debug mode even though they deal
     // damage. Faction-color-coded so you can read which side it
     // belongs to at a glance.

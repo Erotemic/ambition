@@ -167,20 +167,20 @@ fn boss_anim_for_attack_profile(
     use crate::brain::BossAttackProfile;
     match profile {
         BossAttackProfile::FloorSlam
-        | BossAttackProfile::GnuHandSlam
-        | BossAttackProfile::GnuShockwave => Some(BossAnim::FloorSlam),
+        | BossAttackProfile::HandSlam
+        | BossAttackProfile::ConvergingShockwave => Some(BossAnim::FloorSlam),
         BossAttackProfile::SideSweep
-        | BossAttackProfile::GnuHandSweep
+        | BossAttackProfile::HandSweep
         | BossAttackProfile::Broadside => Some(BossAnim::SideSweep),
         BossAttackProfile::FullBodyPulse
-        | BossAttackProfile::GnuHeadDescent
-        | BossAttackProfile::GnuAppleRain
-        | BossAttackProfile::OverfitVolley
-        | BossAttackProfile::EyeBeam
-        | BossAttackProfile::MinimaTrap
-        | BossAttackProfile::SaddlePoint
-        | BossAttackProfile::GradientCascade => Some(BossAnim::SpikeHalo),
-        BossAttackProfile::GradientLane | BossAttackProfile::DiveLane => Some(BossAnim::DashEcho),
+        | BossAttackProfile::HeadDescent
+        | BossAttackProfile::DebrisRain
+        | BossAttackProfile::MemorizedVolley
+        | BossAttackProfile::LockOnBeam
+        | BossAttackProfile::PitTrap
+        | BossAttackProfile::RotatingCross
+        | BossAttackProfile::MinionCascade => Some(BossAnim::SpikeHalo),
+        BossAttackProfile::HazardColumn | BossAttackProfile::DiveLane => Some(BossAnim::DashEcho),
         BossAttackProfile::WingSweep => None,
     }
 }
@@ -196,14 +196,14 @@ fn boss_animation_key_for_sample(
         // `gnu_shockwave`) but the damageable head/body box should follow
         // the rendered row. Keep the sample keyed to the visual row so
         // authored row frames are the source of truth for hurtboxes.
-        (BossAttackProfile::GnuHandSlam | BossAttackProfile::GnuShockwave, BossAnim::FloorSlam) => {
-            Some("hand_slam")
-        }
-        (BossAttackProfile::GnuHandSweep, BossAnim::SideSweep) => Some("hand_sweep"),
         (
-            BossAttackProfile::GnuHeadDescent | BossAttackProfile::GnuAppleRain,
-            BossAnim::SpikeHalo,
-        ) => Some("head_down"),
+            BossAttackProfile::HandSlam | BossAttackProfile::ConvergingShockwave,
+            BossAnim::FloorSlam,
+        ) => Some("hand_slam"),
+        (BossAttackProfile::HandSweep, BossAnim::SideSweep) => Some("hand_sweep"),
+        (BossAttackProfile::HeadDescent | BossAttackProfile::DebrisRain, BossAnim::SpikeHalo) => {
+            Some("head_down")
+        }
         _ => super::super::bosses::boss_animation_keys_for_profile(profile)
             .first()
             .copied(),

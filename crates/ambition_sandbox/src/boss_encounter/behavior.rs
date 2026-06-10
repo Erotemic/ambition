@@ -69,7 +69,7 @@ pub struct BossBehaviorProfile {
     pub attack_origin_offset: ae::Vec2,
     /// World-space anchor offset (in pixels) from the boss center for
     /// projectile-like specials. Smirking Behemoth uses this to fire
-    /// OverfitVolley eye beams from its eye instead of its body center.
+    /// MemorizedVolley eye beams from its eye instead of its body center.
     #[serde(default, with = "boss_vec2_required")]
     pub projectile_origin_offset: ae::Vec2,
     /// Authored post-defeat reward. `None` (the default when the RON
@@ -423,7 +423,7 @@ impl BossSpriteMetrics {
 /// sheets / visual review tools. Keeping the aliases here prevents
 /// GNU-ton from silently falling back to rest/static boxes when the
 /// generator names the visual row `head_down` but gameplay asks for
-/// `GnuHeadDescent`.
+/// `HeadDescent`.
 pub fn boss_animation_keys_for_profile(
     profile: &crate::brain::BossAttackProfile,
 ) -> &'static [&'static str] {
@@ -432,28 +432,28 @@ pub fn boss_animation_keys_for_profile(
         BossAttackProfile::FloorSlam => &["floor_slam", "mouth_open"],
         BossAttackProfile::SideSweep => &["side_sweep"],
         BossAttackProfile::FullBodyPulse => &["spike_halo", "eye_beam"],
-        BossAttackProfile::GradientLane => &["dash_echo", "eye_beam"],
+        BossAttackProfile::HazardColumn => &["dash_echo", "eye_beam"],
         // Gradient Sentinel specials don't have a dedicated row
         // in the AI-Slop-Zeta sheet; route them to `spike_halo`
         // (closest visual: a ring of damage around the boss) so
         // the player still sees an anim cue during the strike.
-        BossAttackProfile::OverfitVolley => &["spike_halo", "eye_beam"],
-        BossAttackProfile::EyeBeam => &["eye_beam", "spike_halo"],
-        BossAttackProfile::MinimaTrap
-        | BossAttackProfile::SaddlePoint
-        | BossAttackProfile::GradientCascade => &["spike_halo"],
+        BossAttackProfile::MemorizedVolley => &["spike_halo", "eye_beam"],
+        BossAttackProfile::LockOnBeam => &["eye_beam", "spike_halo"],
+        BossAttackProfile::PitTrap
+        | BossAttackProfile::RotatingCross
+        | BossAttackProfile::MinionCascade => &["spike_halo"],
         // GNU-ton profiles use gameplay-specific canonical keys in
         // the runtime RON so one visual row can expose multiple
         // boxes (e.g. hand_slam vs shockwave). Accept the visual row
         // names too, so regenerated manifests and review images can
         // stay row-oriented without disconnecting the in-game boxes.
-        BossAttackProfile::GnuHandSlam => &["gnu_hand_slam", "hand_slam"],
-        BossAttackProfile::GnuShockwave => &["gnu_shockwave", "hand_slam"],
-        BossAttackProfile::GnuHandSweep => &["gnu_hand_sweep", "hand_sweep"],
-        BossAttackProfile::GnuHeadDescent => &["gnu_head_descent", "head_down"],
+        BossAttackProfile::HandSlam => &["gnu_hand_slam", "hand_slam"],
+        BossAttackProfile::ConvergingShockwave => &["gnu_shockwave", "hand_slam"],
+        BossAttackProfile::HandSweep => &["gnu_hand_sweep", "hand_sweep"],
+        BossAttackProfile::HeadDescent => &["gnu_head_descent", "head_down"],
         // Apple rain damages via spawned projectile bodies, not a
         // body-mounted AABB — no hitbox lookup needed.
-        BossAttackProfile::GnuAppleRain => &[],
+        BossAttackProfile::DebrisRain => &[],
         // Remaining profiles (WingSweep / DiveLane / Broadside)
         // belong to the legacy aerial bosses that still rely on
         // `volumes_for_profile`'s fallback math.

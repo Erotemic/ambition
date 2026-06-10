@@ -25,12 +25,12 @@ pub use crate::brain::boss_pattern::{BossAttackPattern, BossAttackProfile, BossM
 /// Encounter id of the gnu_ton boss — derived from
 /// `encounter_id_from_name("GNU-ton")`. Centralized so the boss
 /// ActionSet wiring (which binds the boss's special slot to
-/// `SpecialActionSpec::GnuAppleRain`) can string-match without
+/// `SpecialActionSpec::DebrisRain`) can string-match without
 /// re-deriving the slug.
 pub const GNU_TON_ENCOUNTER_ID: &str = "gnu_ton";
 
 /// Apple-rain tuning consumed by the spawn-time `ActionSet` wiring
-/// (spawn.rs binds these into `SpecialActionSpec::GnuAppleRain`).
+/// (spawn.rs binds these into `SpecialActionSpec::DebrisRain`).
 /// The visual / collision constants (gravity, lifetime, half_extent,
 /// spawn-height) live next to the EFFECTS consumer in
 /// `content/features/ecs/brain_effects.rs` — the consumer is the
@@ -60,20 +60,20 @@ pub const GRADIENT_SENTINEL_ENCOUNTER_ID: &str = "gradient_sentinel";
 // first_system_boss arena (1280×768) — see the design doc at
 // `dev/journals/gradient-sentinel-boss-design-2026-05-25.md`.
 
-/// OverfitVolley: how often (in seconds) the brain samples the
+/// MemorizedVolley: how often (in seconds) the brain samples the
 /// player's position during the telegraph window. With 5 samples and
 /// 0.30 s spacing the consumer captures ~1.5 s of player travel,
 /// covering a player who is reactively zig-zagging.
 pub const OVERFIT_VOLLEY_SAMPLE_INTERVAL_S: f32 = 0.30;
-/// OverfitVolley: max number of position samples to memorize. Caps the
+/// MemorizedVolley: max number of position samples to memorize. Caps the
 /// bolt count fired on the strike edge so the player can read the
 /// barrage instead of getting blanket-coverage'd.
 pub const OVERFIT_VOLLEY_SAMPLE_COUNT: u8 = 5;
-/// OverfitVolley: per-bolt projectile speed (px/s). Fast enough that
+/// MemorizedVolley: per-bolt projectile speed (px/s). Fast enough that
 /// the bolts feel decisive but slow enough to dodge if the player
 /// reads the barrage early.
 pub const OVERFIT_VOLLEY_SHOT_SPEED: f32 = 360.0;
-/// OverfitVolley: per-bolt damage.
+/// MemorizedVolley: per-bolt damage.
 pub const OVERFIT_VOLLEY_SHOT_DAMAGE: i32 = 1;
 
 // ===== Smirking Behemoth / You Have To Cut The Rope tuning =====
@@ -88,30 +88,30 @@ pub const SMIRKING_EYE_BEAM_HALF_EXTENT_X: f32 = 15.0;
 pub const SMIRKING_EYE_BEAM_HALF_EXTENT_Y: f32 = 8.0;
 pub const SMIRKING_EYE_BEAM_LIFETIME_S: f32 = 0.58;
 
-/// MinimaTrap: how long the pit hazard hitbox stays live after the
+/// PitTrap: how long the pit hazard hitbox stays live after the
 /// strike edge spawns it. Long enough to be a real area-denial threat,
 /// short enough that the player isn't permanently locked out of half
 /// the arena.
 pub const MINIMA_TRAP_HAZARD_DURATION_S: f32 = 5.0;
-/// MinimaTrap: per-tick damage. The standard `apply_hitbox_damage`
+/// PitTrap: per-tick damage. The standard `apply_hitbox_damage`
 /// once-per-strike gate ensures one hit per pit lifetime.
 pub const MINIMA_TRAP_DAMAGE: i32 = 2;
-/// MinimaTrap: half-extent (x, y) of the pit hitbox.
+/// PitTrap: half-extent (x, y) of the pit hitbox.
 pub const MINIMA_TRAP_HALF_EXTENT_X: f32 = 56.0;
 pub const MINIMA_TRAP_HALF_EXTENT_Y: f32 = 24.0;
 
-/// SaddlePoint: half-extent of each arm along its long axis.
+/// RotatingCross: half-extent of each arm along its long axis.
 pub const SADDLE_POINT_ARM_LENGTH: f32 = 220.0;
-/// SaddlePoint: half-extent of each arm along its short axis.
+/// RotatingCross: half-extent of each arm along its short axis.
 pub const SADDLE_POINT_ARM_THICKNESS: f32 = 36.0;
-/// SaddlePoint: seconds an axis stays active before toggling. The
+/// RotatingCross: seconds an axis stays active before toggling. The
 /// brain's `BossPatternStep::Strike { duration }` governs total
 /// strike time; this is just the rotation period.
 pub const SADDLE_POINT_AXIS_PERIOD_S: f32 = 1.2;
-/// SaddlePoint: per-tick damage.
+/// RotatingCross: per-tick damage.
 pub const SADDLE_POINT_DAMAGE: i32 = 2;
 
-/// GradientCascade: number of "slop" minions to spawn at the top of
+/// MinionCascade: number of "slop" minions to spawn at the top of
 /// the arena per strike. Kept low so the player can clear before
 /// the next attack lands.
 pub const GRADIENT_CASCADE_MINION_COUNT: u8 = 2;
@@ -136,7 +136,7 @@ pub use crate::boss_encounter::behavior::{
 /// Boss-side resolver for `Special`-flavored `BossAttackProfile`s.
 ///
 /// The Gradient Sentinel carries multiple distinct specials
-/// (OverfitVolley, MinimaTrap, SaddlePoint, GradientCascade) — more
+/// (MemorizedVolley, PitTrap, RotatingCross, MinionCascade) — more
 /// than the single `ActionSet::special` slot can express. Rather
 /// than grow `ActionSet` or `ActorControlFrame` for one boss, the
 /// `tick_boss_brains_system` calls this function when the brain
@@ -155,18 +155,18 @@ pub fn boss_special_for_profile(
 ) -> Option<crate::brain::SpecialActionSpec> {
     use crate::brain::{BossAttackProfile, SpecialActionSpec};
     match profile {
-        BossAttackProfile::GnuAppleRain => Some(SpecialActionSpec::GnuAppleRain {
+        BossAttackProfile::DebrisRain => Some(SpecialActionSpec::DebrisRain {
             interval_s: APPLE_RAIN_INTERVAL,
             spawn_speed: APPLE_RAIN_SPAWN_SPEED,
             damage: APPLE_RAIN_DAMAGE,
         }),
-        BossAttackProfile::OverfitVolley => Some(SpecialActionSpec::OverfitVolley {
+        BossAttackProfile::MemorizedVolley => Some(SpecialActionSpec::MemorizedVolley {
             sample_interval_s: OVERFIT_VOLLEY_SAMPLE_INTERVAL_S,
             sample_count: OVERFIT_VOLLEY_SAMPLE_COUNT,
             shot_speed: OVERFIT_VOLLEY_SHOT_SPEED,
             damage: OVERFIT_VOLLEY_SHOT_DAMAGE,
         }),
-        BossAttackProfile::EyeBeam => Some(SpecialActionSpec::EyeBeam {
+        BossAttackProfile::LockOnBeam => Some(SpecialActionSpec::LockOnBeam {
             shot_speed: SMIRKING_EYE_BEAM_SHOT_SPEED,
             damage: SMIRKING_EYE_BEAM_DAMAGE,
             box_count: SMIRKING_EYE_BEAM_BOX_COUNT,
@@ -175,20 +175,20 @@ pub fn boss_special_for_profile(
             half_extent_y: SMIRKING_EYE_BEAM_HALF_EXTENT_Y,
             lifetime_s: SMIRKING_EYE_BEAM_LIFETIME_S,
         }),
-        BossAttackProfile::MinimaTrap => Some(SpecialActionSpec::MinimaTrap {
+        BossAttackProfile::PitTrap => Some(SpecialActionSpec::PitTrap {
             hazard_duration_s: MINIMA_TRAP_HAZARD_DURATION_S,
             damage: MINIMA_TRAP_DAMAGE,
             half_extent_x: MINIMA_TRAP_HALF_EXTENT_X,
             half_extent_y: MINIMA_TRAP_HALF_EXTENT_Y,
             spawn_minion: true,
         }),
-        BossAttackProfile::SaddlePoint => Some(SpecialActionSpec::SaddlePoint {
+        BossAttackProfile::RotatingCross => Some(SpecialActionSpec::RotatingCross {
             arm_length: SADDLE_POINT_ARM_LENGTH,
             arm_thickness: SADDLE_POINT_ARM_THICKNESS,
             axis_period_s: SADDLE_POINT_AXIS_PERIOD_S,
             damage: SADDLE_POINT_DAMAGE,
         }),
-        BossAttackProfile::GradientCascade => Some(SpecialActionSpec::GradientCascade {
+        BossAttackProfile::MinionCascade => Some(SpecialActionSpec::MinionCascade {
             minion_count: GRADIENT_CASCADE_MINION_COUNT,
         }),
         // Ordinary melee profiles never route through this resolver
@@ -332,10 +332,10 @@ mod boss_special_resolver_tests {
     fn every_special_profile_resolves_to_a_spec_for_gradient_sentinel() {
         use crate::brain::BossAttackProfile;
         for profile in [
-            BossAttackProfile::OverfitVolley,
-            BossAttackProfile::MinimaTrap,
-            BossAttackProfile::SaddlePoint,
-            BossAttackProfile::GradientCascade,
+            BossAttackProfile::MemorizedVolley,
+            BossAttackProfile::PitTrap,
+            BossAttackProfile::RotatingCross,
+            BossAttackProfile::MinionCascade,
         ] {
             assert!(
                 boss_special_for_profile(&profile).is_some(),
@@ -350,8 +350,8 @@ mod boss_special_resolver_tests {
     #[test]
     fn gnu_apple_rain_profile_resolves_to_apple_rain_spec_for_gnu_ton() {
         use crate::brain::{BossAttackProfile, SpecialActionSpec};
-        match boss_special_for_profile(&BossAttackProfile::GnuAppleRain) {
-            Some(SpecialActionSpec::GnuAppleRain {
+        match boss_special_for_profile(&BossAttackProfile::DebrisRain) {
+            Some(SpecialActionSpec::DebrisRain {
                 interval_s,
                 spawn_speed,
                 damage,
@@ -360,7 +360,7 @@ mod boss_special_resolver_tests {
                 assert!((spawn_speed - APPLE_RAIN_SPAWN_SPEED).abs() < f32::EPSILON);
                 assert_eq!(damage, APPLE_RAIN_DAMAGE);
             }
-            other => panic!("expected GnuAppleRain spec, got {other:?}"),
+            other => panic!("expected DebrisRain spec, got {other:?}"),
         }
     }
 
@@ -374,7 +374,7 @@ mod boss_special_resolver_tests {
             BossAttackProfile::FloorSlam,
             BossAttackProfile::SideSweep,
             BossAttackProfile::FullBodyPulse,
-            BossAttackProfile::GradientLane,
+            BossAttackProfile::HazardColumn,
         ] {
             assert!(
                 boss_special_for_profile(&profile).is_none(),
@@ -558,7 +558,7 @@ mod scripted_pattern_tests {
         let boss = gnu_ton_runtime();
         // Note: after the 2026-05-26 data-driven migration, this
         // exercises the `volumes_for_profile` FALLBACK math for the
-        // `GnuHandSlam` arm — the live game routes through
+        // `HandSlam` arm — the live game routes through
         // `sprite_authored_volumes` reading the
         // `gnu_ton_boss_spritesheet.ron` `gnu_hand_slam` hitbox parts.
         // The fallback's combat_size-relative offsets keep the
@@ -566,7 +566,7 @@ mod scripted_pattern_tests {
         // assertions still hold without needing a sprite_metrics
         // snapshot in the runtime fixture.
         let slam = crate::features::volumes_for_profile(
-            &BossAttackProfile::GnuHandSlam,
+            &BossAttackProfile::HandSlam,
             boss.kin.pos,
             boss.as_ref().combat_size(),
             &boss.config.behavior,
@@ -630,14 +630,14 @@ mod scripted_pattern_tests {
     #[test]
     fn gnu_ton_apple_rain_volumes_are_empty_so_contact_does_not_double_count() {
         // The strike's damage path goes through enemy projectiles, not
-        // a stationary boss AABB. `volumes_for_profile(GnuAppleRain, …)`
+        // a stationary boss AABB. `volumes_for_profile(DebrisRain, …)`
         // must return an empty list so the regular contact-damage
         // check in `boss_attack_damage` doesn't ALSO hit the player
         // at the boss's position while apples are in flight.
         let boss = gnu_ton_runtime();
         assert!(
             crate::features::volumes_for_profile(
-                &BossAttackProfile::GnuAppleRain,
+                &BossAttackProfile::DebrisRain,
                 boss.kin.pos,
                 boss.as_ref().combat_size(),
                 &boss.config.behavior,
@@ -654,7 +654,7 @@ mod scripted_pattern_tests {
         // permanently invulnerable in Phase1 (no descent beat) and
         // therefore unkillable. Now the head is always hittable; the
         // descent window (signaled by `BossAttackState.active_profile
-        // == GnuHeadDescent`) just moves it down to player level so
+        // == HeadDescent`) just moves it down to player level so
         // the player doesn't have to climb. Both states must produce
         // exactly one head AABB.
         let boss = gnu_ton_runtime();
@@ -675,7 +675,7 @@ mod scripted_pattern_tests {
             boss.kin.pos.y
         );
 
-        attack_state.active_profile = Some(BossAttackProfile::GnuHeadDescent);
+        attack_state.active_profile = Some(BossAttackProfile::HeadDescent);
         let descent_head = crate::features::damageable_volumes(
             &crate::features::BossVolumeContext::from_ref(boss.as_ref(), &attack_state),
         );
@@ -747,7 +747,7 @@ mod scripted_pattern_tests {
         }
     }
 
-    /// Phase 1 should teach the player the GradientLane + OverfitVolley
+    /// Phase 1 should teach the player the HazardColumn + MemorizedVolley
     /// profiles (the new fundamentals) before phase 2 layers in
     /// hazards + minions. Without this, the player wouldn't see
     /// these attacks until phase 2 and the difficulty curve would
@@ -770,12 +770,12 @@ mod scripted_pattern_tests {
             })
             .collect();
         assert!(
-            profiles.contains(&BossAttackProfile::GradientLane),
-            "phase1 must include GradientLane — got {profiles:?}"
+            profiles.contains(&BossAttackProfile::HazardColumn),
+            "phase1 must include HazardColumn — got {profiles:?}"
         );
         assert!(
-            profiles.contains(&BossAttackProfile::OverfitVolley),
-            "phase1 must include OverfitVolley — got {profiles:?}"
+            profiles.contains(&BossAttackProfile::MemorizedVolley),
+            "phase1 must include MemorizedVolley — got {profiles:?}"
         );
     }
 
@@ -801,9 +801,9 @@ mod scripted_pattern_tests {
             })
             .collect();
         for required in [
-            BossAttackProfile::MinimaTrap,
-            BossAttackProfile::SaddlePoint,
-            BossAttackProfile::GradientCascade,
+            BossAttackProfile::PitTrap,
+            BossAttackProfile::RotatingCross,
+            BossAttackProfile::MinionCascade,
         ] {
             assert!(
                 profiles.contains(&required),

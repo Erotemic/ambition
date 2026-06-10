@@ -55,7 +55,7 @@ const REFERENCE_FLASH_SECONDS: f32 = 0.24;
 /// `super::deep_dream::LOCAL_OVERLAY_Z_BIAS = 0.9`, so a flash bias
 /// below that gets the white blanked out by the rainbow tint. 1.5
 /// gives a comfortable margin over both deep_dream (0.9) and the
-/// GradientLane telegraph quad (+1.0 of boss z) without colliding
+/// HazardColumn telegraph quad (+1.0 of boss z) without colliding
 /// with HUD layers, which live in the hundreds.
 const FLASH_OVERLAY_Z_BIAS: f32 = 1.5;
 

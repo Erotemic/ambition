@@ -447,8 +447,8 @@ pub fn tick_boss_brains_system(
         tick_boss_pattern(cfg, state, &ctx, &mut frame, &mut attack_state);
 
         // Boss-side Special direct-write: the Gradient Sentinel has
-        // four distinct specials (OverfitVolley / MinimaTrap /
-        // SaddlePoint / GradientCascade) which doesn't fit
+        // four distinct specials (MemorizedVolley / PitTrap /
+        // RotatingCross / MinionCascade) which doesn't fit
         // `ActionSet`'s single special slot. Rather than grow the
         // ActionSet schema or the ActorControlFrame, the boss tick
         // writes `ActorActionMessage::Special { spec }` directly

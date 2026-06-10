@@ -198,7 +198,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 hit_flash::cleanup_hit_flash_overlays,
                 actors::animate_props,
                 actors::animate_bosses,
-                // GradientLane vertical-column visual — yellow during
+                // HazardColumn vertical-column visual — yellow during
                 // telegraph, red during strike. Runs after
                 // `animate_bosses` so it can read the boss's
                 // `BossAttackState` after the brain has populated it

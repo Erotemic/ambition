@@ -964,10 +964,10 @@ fn effective_hide_sprites(developer_tools: &crate::dev::dev_tools::DeveloperTool
 }
 
 // =================================================================
-// Gradient Sentinel — GradientLane vertical-column visual
+// Gradient Sentinel — HazardColumn vertical-column visual
 // =================================================================
 //
-// The new GradientLane boss attack profile is a tall vertical
+// The new HazardColumn boss attack profile is a tall vertical
 // hazard column at the boss x. `volumes_for_profile` already
 // returns the right AABB for damage; this system layers a visible
 // rectangle so the player can read the column shape during
@@ -977,11 +977,11 @@ fn effective_hide_sprites(developer_tools: &crate::dev::dev_tools::DeveloperTool
 //
 // Pattern: a `GradientLaneVisual` marker component holds the owner
 // boss entity. `manage_gradient_lane_visual` spawns one when the
-// boss enters GradientLane telegraph/active and despawns it when
+// boss enters HazardColumn telegraph/active and despawns it when
 // the boss leaves the profile. Per-frame, it also updates the
 // visual's transform + color based on the live state.
 
-/// Marker for the GradientLane column visual entity. Carries the
+/// Marker for the HazardColumn column visual entity. Carries the
 /// owner boss entity so the manager system can find / remove the
 /// matching visual.
 #[derive(Component, Clone, Copy, Debug)]
@@ -997,7 +997,7 @@ const GRADIENT_LANE_STRIKE_COLOR: Color = Color::srgba(1.0, 0.32, 0.20, 0.75);
 const GRADIENT_LANE_VISUAL_Z: f32 = 10.5;
 
 /// Spawn/update/despawn a vertical column visual for every boss
-/// currently telegraphing or striking `GradientLane`. The column
+/// currently telegraphing or striking `HazardColumn`. The column
 /// re-uses the volume AABB computed by `volumes_for_profile` so
 /// the visible rectangle always matches the damage geometry.
 pub fn manage_gradient_lane_visual(
@@ -1016,11 +1016,11 @@ pub fn manage_gradient_lane_visual(
         }
         let in_telegraph = matches!(
             attack_state.telegraph_profile,
-            Some(BossAttackProfile::GradientLane)
+            Some(BossAttackProfile::HazardColumn)
         );
         let in_strike = matches!(
             attack_state.active_profile,
-            Some(BossAttackProfile::GradientLane)
+            Some(BossAttackProfile::HazardColumn)
         );
         if !in_telegraph && !in_strike {
             continue;
@@ -1028,7 +1028,7 @@ pub fn manage_gradient_lane_visual(
         // Use the same volume math as damage so the visual and the
         // hitbox are exactly coincident.
         let mut volumes = crate::features::volumes_for_profile(
-            &BossAttackProfile::GradientLane,
+            &BossAttackProfile::HazardColumn,
             boss.kin.pos,
             boss.combat_size(),
             &boss.config.behavior,
@@ -1052,12 +1052,12 @@ pub fn manage_gradient_lane_visual(
                 GRADIENT_LANE_TELEGRAPH_COLOR
             };
         } else {
-            // Owner stopped telegraphing/striking GradientLane — despawn.
+            // Owner stopped telegraphing/striking HazardColumn — despawn.
             commands.entity(visual_entity).despawn();
         }
     }
 
-    // Spawn visuals for bosses that newly entered GradientLane.
+    // Spawn visuals for bosses that newly entered HazardColumn.
     for (owner, (in_strike, center, size)) in active {
         let color = if in_strike {
             GRADIENT_LANE_STRIKE_COLOR

@@ -209,7 +209,7 @@ pub fn start_enemy_melee_from_brain_actions(
 /// consumer (`spawn_gnu_apple_rain_from_special_messages`) own the
 /// per-tick spawn cadence. Defaulted-attached to every boss; only
 /// the gnu_ton encounter advances it (its ActionSet's `special` is
-/// `SpecialActionSpec::GnuAppleRain`, so only it generates the
+/// `SpecialActionSpec::DebrisRain`, so only it generates the
 /// Special messages the consumer reads). Per the actor/brain
 /// follow-up plan Task B: components hold state, consumers spawn
 /// effects.
@@ -262,16 +262,16 @@ fn apple_rain_spawn_x(spawn_index: u32, world_width: f32, boss_aabb: ae::Aabb) -
 }
 
 /// Spawn GNU-ton's apple rain in response to
-/// `ActorActionMessage::Special { spec: SpecialActionSpec::GnuAppleRain }`.
+/// `ActorActionMessage::Special { spec: SpecialActionSpec::DebrisRain }`.
 /// The boss runtime tags `frame.special_pressed = true` every tick
-/// its `BossAttackProfile::GnuAppleRain` strike window is active;
+/// its `BossAttackProfile::DebrisRain` strike window is active;
 /// the resolver translates that into one `Special` message per
 /// tick. This consumer owns the spawn cadence, the
 /// golden-ratio x distribution, and the self-aabb dodge that keeps
 /// apples from landing on the giant's own head — all of which used
 /// to live inside `BossRuntime::tick_apple_rain`.
 ///
-/// Bosses whose Special slot is something other than GnuAppleRain
+/// Bosses whose Special slot is something other than DebrisRain
 /// emit no messages this consumer cares about; bosses whose
 /// `BossPattern` brain doesn't fire `special_pressed` simply pass
 /// through. The per-boss `AppleRainSpawnState` resets to zero on
@@ -286,9 +286,9 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
     mut bosses: Query<(Entity, &mut AppleRainSpawnState, BossClusterRef), With<FeatureSimEntity>>,
 ) {
     let dt = world_time.sim_dt();
-    // Bosses with a `Special::GnuAppleRain` request this tick.
+    // Bosses with a `Special::DebrisRain` request this tick.
     // Multiple messages from the same boss collapse onto the same
-    // entry — the consumer treats "any GnuAppleRain message this
+    // entry — the consumer treats "any DebrisRain message this
     // tick" as "the strike window is active this tick".
     let mut active_params: std::collections::HashMap<Entity, (f32, f32, i32)> =
         std::collections::HashMap::new();
@@ -296,7 +296,7 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
         let ActionRequest::Special { spec } = msg.request else {
             continue;
         };
-        let SpecialActionSpec::GnuAppleRain {
+        let SpecialActionSpec::DebrisRain {
             interval_s,
             spawn_speed,
             damage,
@@ -368,14 +368,14 @@ fn default_combat_tuning() -> crate::features::events::FeatureCombatTuning {
 // don't fit the single `ActionSet::special` slot. Each special has
 // its own per-boss state component and EFFECTS consumer:
 //
-//   OverfitVolley     → sample player positions during telegraph,
+//   MemorizedVolley     → sample player positions during telegraph,
 //                       fire bolts at all samples on strike edge.
-//   MinimaTrap        → spawn a World-anchored pit hitbox at player
+//   PitTrap        → spawn a World-anchored pit hitbox at player
 //                       pos on strike edge + a puppy_slug minion.
-//   SaddlePoint       → spawn 2 World hitboxes around the boss (one
+//   RotatingCross       → spawn 2 World hitboxes around the boss (one
 //                       horizontal arm, one vertical) and rotate which
 //                       arm has damage live over the strike duration.
-//   GradientCascade   → spawn N "slop" minions (small_lurker) at the
+//   MinionCascade   → spawn N "slop" minions (small_lurker) at the
 //                       top of the arena on strike edge.
 //
 // All four follow the AppleRain consumer pattern: per-boss state
@@ -385,7 +385,7 @@ fn default_combat_tuning() -> crate::features::events::FeatureCombatTuning {
 // messages directly from `tick_boss_brains_system` via
 // `boss_special_for_profile` (see `crate::features::bosses`).
 
-/// Per-boss state for OverfitVolley. Sampled positions are
+/// Per-boss state for MemorizedVolley. Sampled positions are
 /// memorized during the telegraph window; the strike edge fires one
 /// bolt at every sample.
 #[derive(Component, Clone, Debug, Default)]
@@ -396,7 +396,7 @@ pub struct OverfitVolleyState {
     pub sample_accum: f32,
     /// Tracks the per-strike "have we fired yet?" gate. Reset when
     /// the strike window closes (telegraph or active drops the
-    /// OverfitVolley profile).
+    /// MemorizedVolley profile).
     pub fired_this_strike: bool,
     /// Tracks the previous tick's "in-attack" status so the seed
     /// sample only happens once per telegraph (not every tick the
@@ -413,7 +413,7 @@ pub struct EyeBeamState {
     pub fired_this_strike: bool,
 }
 
-/// MinimaTrap is a one-shot per-strike action (spawn pit hitbox +
+/// PitTrap is a one-shot per-strike action (spawn pit hitbox +
 /// minion at strike edge). State is just the "fired" gate — the pit
 /// hitbox + minion are independent entities once spawned, so no
 /// further per-boss state is needed.
@@ -425,7 +425,7 @@ pub struct MinimaTrapState {
     pub spawn_index: u32,
 }
 
-/// Per-boss state for SaddlePoint. Tracks which axis (horizontal arm
+/// Per-boss state for RotatingCross. Tracks which axis (horizontal arm
 /// or vertical arm) is currently the damaging one + how much time
 /// is left in this axis before the toggle.
 #[derive(Component, Clone, Copy, Debug, Default)]
@@ -443,7 +443,7 @@ pub struct SaddlePointState {
     pub vertical_hitbox: Option<Entity>,
 }
 
-/// GradientCascade is one-shot per strike (spawn N minions at strike
+/// MinionCascade is one-shot per strike (spawn N minions at strike
 /// edge). State is just the "fired" gate plus a spawn counter for
 /// unique minion ids.
 #[derive(Component, Clone, Copy, Debug, Default)]
@@ -452,7 +452,7 @@ pub struct GradientCascadeState {
     pub spawn_index: u32,
 }
 
-/// OverfitVolley constants reused from the spec but baked here so
+/// MemorizedVolley constants reused from the spec but baked here so
 /// the consumer doesn't need to round-trip through the spec on every
 /// telegraph tick (the spec only arrives via the strike-tick
 /// message; sampling happens during telegraph too). Tuning lives in
@@ -461,15 +461,15 @@ const OVERFIT_VOLLEY_BOLT_HALF_EXTENT: ae::Vec2 = ae::Vec2::new(8.0, 8.0);
 const OVERFIT_VOLLEY_BOLT_LIFETIME: f32 = 2.4;
 const OVERFIT_VOLLEY_OWNER_PREFIX: &str = "gradient_sentinel_overfit";
 
-/// EFFECTS consumer: OverfitVolley position-sampling bolt barrage.
+/// EFFECTS consumer: MemorizedVolley position-sampling bolt barrage.
 ///
 /// Reads two things per tick:
 ///
 /// 1. `BossAttackState.telegraph_profile` — when set to
-///    `OverfitVolley`, the consumer samples the player's position at
+///    `MemorizedVolley`, the consumer samples the player's position at
 ///    every `OVERFIT_VOLLEY_SAMPLE_INTERVAL_S` and pushes onto
 ///    `OverfitVolleyState.samples` (capped at `OVERFIT_VOLLEY_SAMPLE_COUNT`).
-/// 2. `ActorActionMessage::Special { spec: OverfitVolley { .. } }` —
+/// 2. `ActorActionMessage::Special { spec: MemorizedVolley { .. } }` —
 ///    arrives every tick the strike is active; the consumer fires
 ///    one bolt per memorized sample on the first such message
 ///    (gated by `fired_this_strike`).
@@ -506,7 +506,7 @@ pub fn spawn_overfit_volley_from_special_messages(
     for msg in messages.read() {
         if let ActionRequest::Special {
             spec:
-                SpecialActionSpec::OverfitVolley {
+                SpecialActionSpec::MemorizedVolley {
                     shot_speed, damage, ..
                 },
         } = msg.request
@@ -541,7 +541,7 @@ pub fn spawn_overfit_volley_from_special_messages(
 
         let in_telegraph = matches!(
             attack_state.telegraph_profile,
-            Some(BossAttackProfile::OverfitVolley)
+            Some(BossAttackProfile::MemorizedVolley)
         );
         let strike_params = active_strike_params.get(&entity).copied();
 
@@ -607,10 +607,10 @@ const EYE_BEAM_OWNER_PREFIX: &str = "smirking_behemoth_eye_beam";
 
 /// EFFECTS consumer: Smirking Behemoth eye beam.
 ///
-/// During the `EyeBeam` telegraph the boss locks the currently tracked
+/// During the `LockOnBeam` telegraph the boss locks the currently tracked
 /// player position. On the first strike tick it emits a short line of
 /// fast bubble-laser projectile boxes from the eye toward that locked
-/// point. This deliberately does **not** reuse OverfitVolley's sample
+/// point. This deliberately does **not** reuse MemorizedVolley's sample
 /// barrage, because the cut-rope boss needs one readable beam rather
 /// than a cloud of slow memorized shots.
 pub fn spawn_eye_beam_from_special_messages(
@@ -635,7 +635,7 @@ pub fn spawn_eye_beam_from_special_messages(
     for msg in messages.read() {
         if let ActionRequest::Special {
             spec:
-                SpecialActionSpec::EyeBeam {
+                SpecialActionSpec::LockOnBeam {
                     shot_speed,
                     damage,
                     box_count,
@@ -677,7 +677,7 @@ pub fn spawn_eye_beam_from_special_messages(
 
         let in_telegraph = matches!(
             attack_state.telegraph_profile,
-            Some(BossAttackProfile::EyeBeam)
+            Some(BossAttackProfile::LockOnBeam)
         );
         let strike_params = active_strike_params.get(&entity).copied();
         if in_telegraph {
@@ -747,7 +747,7 @@ const MINIMA_TRAP_MINION_HALF_SIZE: ae::Vec2 = ae::Vec2::new(24.0, 11.0);
 /// frame it appears.
 const MINIMA_TRAP_MINION_SPAWN_OFFSET_PX: f32 = 90.0;
 
-/// EFFECTS consumer: MinimaTrap pit + optional puppy_slug.
+/// EFFECTS consumer: PitTrap pit + optional puppy_slug.
 ///
 /// On the first Special message of a strike (gated by
 /// `MinimaTrapState.fired_this_strike`):
@@ -782,7 +782,7 @@ pub fn spawn_minima_trap_from_special_messages(
     for msg in messages.read() {
         if let ActionRequest::Special {
             spec:
-                SpecialActionSpec::MinimaTrap {
+                SpecialActionSpec::PitTrap {
                     hazard_duration_s,
                     damage,
                     half_extent_x,
@@ -896,7 +896,7 @@ pub fn spawn_minima_trap_from_special_messages(
 
 const SADDLE_POINT_KNOCKBACK: f32 = 1.6;
 
-/// EFFECTS consumer: SaddlePoint rotating cross hazard.
+/// EFFECTS consumer: RotatingCross rotating cross hazard.
 ///
 /// On the first Special message of a strike, spawns two World-anchored
 /// hitbox entities centered on the boss — one horizontal arm, one
@@ -924,7 +924,7 @@ pub fn spawn_saddle_point_from_special_messages(
     for msg in messages.read() {
         if let ActionRequest::Special {
             spec:
-                SpecialActionSpec::SaddlePoint {
+                SpecialActionSpec::RotatingCross {
                     arm_length,
                     arm_thickness,
                     axis_period_s,
@@ -1065,7 +1065,7 @@ fn gradient_cascade_minion_x_offset(i: i32, count: i32) -> f32 {
     (t - 0.5) * 2.0 * GRADIENT_CASCADE_X_SPREAD
 }
 
-/// EFFECTS consumer: GradientCascade — spawn N "slop" minions at the
+/// EFFECTS consumer: MinionCascade — spawn N "slop" minions at the
 /// top of the arena.
 ///
 /// One-shot per strike. Spawns `minion_count` `small_lurker`
@@ -1081,7 +1081,7 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
         std::collections::HashMap::new();
     for msg in messages.read() {
         if let ActionRequest::Special {
-            spec: SpecialActionSpec::GradientCascade { minion_count },
+            spec: SpecialActionSpec::MinionCascade { minion_count },
         } = msg.request
         {
             active_strike_params.insert(msg.actor, minion_count);
@@ -1105,7 +1105,7 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
         // Spread N minions evenly across [-X_SPREAD, +X_SPREAD] around
         // the boss x.
         // Encounter id = boss's canonical behavior id (see the
-        // MinimaTrap consumer above for the name-vs-id rationale).
+        // PitTrap consumer above for the name-vs-id rationale).
         let encounter_id = boss.config.behavior.id.clone();
         for i in 0..count {
             let x_off = gradient_cascade_minion_x_offset(i, count);
@@ -1533,7 +1533,7 @@ mod tests {
     use crate::GameWorld;
 
     fn gnu_apple_rain_spec() -> SpecialActionSpec {
-        SpecialActionSpec::GnuAppleRain {
+        SpecialActionSpec::DebrisRain {
             interval_s: 0.35,
             spawn_speed: 35.0,
             damage: 1,
@@ -1753,8 +1753,8 @@ mod tests {
     // -----------------------------------------------------------
     // Gradient Sentinel consumer tests
     //
-    // Each new EFFECTS consumer (OverfitVolley, MinimaTrap,
-    // SaddlePoint, GradientCascade) gets a small App-driven test
+    // Each new EFFECTS consumer (MemorizedVolley, PitTrap,
+    // RotatingCross, MinionCascade) gets a small App-driven test
     // that fires a Special message and asserts the consumer
     // produced the right downstream effect. Mirrors the apple-rain
     // pattern: a build_app helper that adds the message channel +
@@ -1779,7 +1779,7 @@ mod tests {
     }
 
     fn overfit_volley_spec() -> SpecialActionSpec {
-        SpecialActionSpec::OverfitVolley {
+        SpecialActionSpec::MemorizedVolley {
             sample_interval_s: 0.30,
             sample_count: 5,
             shot_speed: 360.0,
@@ -1787,7 +1787,7 @@ mod tests {
         }
     }
 
-    /// Sanity: OverfitVolley consumer with a seeded sample fires
+    /// Sanity: MemorizedVolley consumer with a seeded sample fires
     /// projectiles on the strike tick.
     ///
     /// Building a real player entity for this test is heavyweight
@@ -1870,7 +1870,7 @@ mod tests {
         assert!(state.samples.is_empty());
     }
 
-    /// OverfitVolley consumer fires AT MOST once per strike — a
+    /// MemorizedVolley consumer fires AT MOST once per strike — a
     /// second Special message in the same strike window is a no-op.
     #[test]
     fn overfit_volley_consumer_fires_once_per_strike_then_holds() {
@@ -1917,7 +1917,7 @@ mod tests {
         );
     }
 
-    /// MinimaTrap consumer spawns a World-anchored hitbox at a
+    /// PitTrap consumer spawns a World-anchored hitbox at a
     /// position when the Special message arrives. We can't easily
     /// fetch the player position without a full player entity, but
     /// the consumer falls back to the boss position when no player
@@ -1943,7 +1943,7 @@ mod tests {
         write_special(
             &mut app,
             actor,
-            SpecialActionSpec::MinimaTrap {
+            SpecialActionSpec::PitTrap {
                 hazard_duration_s: 5.0,
                 damage: 2,
                 half_extent_x: 56.0,
@@ -1961,7 +1961,7 @@ mod tests {
         assert_eq!(
             world_hitboxes.len(),
             1,
-            "expected exactly one MinimaTrap hitbox, got {}",
+            "expected exactly one PitTrap hitbox, got {}",
             world_hitboxes.len(),
         );
         let trap = &world_hitboxes[0];
@@ -1973,7 +1973,7 @@ mod tests {
         assert!(state.fired_this_strike);
     }
 
-    /// MinimaTrap fires at most once per strike — repeated Special
+    /// PitTrap fires at most once per strike — repeated Special
     /// messages produce only the one hitbox.
     #[test]
     fn minima_trap_consumer_does_not_re_fire_during_strike() {
@@ -1993,7 +1993,7 @@ mod tests {
                 gradient_sentinel_boss_feature(),
             ))
             .id();
-        let spec = SpecialActionSpec::MinimaTrap {
+        let spec = SpecialActionSpec::PitTrap {
             hazard_duration_s: 5.0,
             damage: 2,
             half_extent_x: 56.0,
@@ -2017,7 +2017,7 @@ mod tests {
         );
     }
 
-    /// SaddlePoint consumer spawns a single hitbox on the first
+    /// RotatingCross consumer spawns a single hitbox on the first
     /// strike tick (the horizontal arm) and a second on the toggle
     /// edge (when axis_period_s elapses).
     #[test]
@@ -2038,7 +2038,7 @@ mod tests {
                 gradient_sentinel_boss_feature(),
             ))
             .id();
-        let spec = SpecialActionSpec::SaddlePoint {
+        let spec = SpecialActionSpec::RotatingCross {
             arm_length: 220.0,
             arm_thickness: 36.0,
             axis_period_s: 1.2,
@@ -2069,7 +2069,7 @@ mod tests {
     }
 
     /// When the strike ends (no Special message arrives), the
-    /// SaddlePoint consumer despawns its hitboxes + resets state so
+    /// RotatingCross consumer despawns its hitboxes + resets state so
     /// the next strike starts clean.
     #[test]
     fn saddle_point_consumer_despawns_on_strike_end() {
@@ -2089,7 +2089,7 @@ mod tests {
                 gradient_sentinel_boss_feature(),
             ))
             .id();
-        let spec = SpecialActionSpec::SaddlePoint {
+        let spec = SpecialActionSpec::RotatingCross {
             arm_length: 220.0,
             arm_thickness: 36.0,
             axis_period_s: 1.2,
@@ -2110,7 +2110,7 @@ mod tests {
         assert!(state.vertical_hitbox.is_none());
     }
 
-    /// MinimaTrap with spawn_minion=true should attach an
+    /// PitTrap with spawn_minion=true should attach an
     /// EncounterMob marker to the spawned puppy_slug so
     /// `spawn_dynamic_feature_visuals` (the per-frame visual
     /// discovery system) actually attaches a sprite next frame.
@@ -2143,7 +2143,7 @@ mod tests {
         write_special(
             &mut app,
             actor,
-            SpecialActionSpec::MinimaTrap {
+            SpecialActionSpec::PitTrap {
                 hazard_duration_s: 5.0,
                 damage: 2,
                 half_extent_x: 56.0,
@@ -2165,8 +2165,8 @@ mod tests {
         );
     }
 
-    /// GradientCascade-spawned minions must also carry the
-    /// EncounterMob marker for the same reason as MinimaTrap.
+    /// MinionCascade-spawned minions must also carry the
+    /// EncounterMob marker for the same reason as PitTrap.
     /// Without it the cascade adds spawn but never render — the
     /// bug the user reported as "I don't see it spawning any
     /// lurker slop enemies."
@@ -2197,7 +2197,7 @@ mod tests {
         write_special(
             &mut app,
             actor,
-            SpecialActionSpec::GradientCascade { minion_count: 3 },
+            SpecialActionSpec::MinionCascade { minion_count: 3 },
         );
         app.update();
         let post_count = app
@@ -2213,7 +2213,7 @@ mod tests {
         );
     }
 
-    /// GradientCascade consumer spawns minion entities at strike
+    /// MinionCascade consumer spawns minion entities at strike
     /// start. Mocks the runtime spawn machinery by checking the
     /// Bevy entity count goes up by `minion_count`.
     #[test]
@@ -2245,7 +2245,7 @@ mod tests {
         write_special(
             &mut app,
             actor,
-            SpecialActionSpec::GradientCascade { minion_count: 3 },
+            SpecialActionSpec::MinionCascade { minion_count: 3 },
         );
         app.update();
 

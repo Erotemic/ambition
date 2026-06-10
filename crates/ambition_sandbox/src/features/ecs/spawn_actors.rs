@@ -169,7 +169,7 @@ pub(super) fn spawn_boss(
     ));
 }
 /// Runtime minion spawner — used by boss EFFECTS consumers (e.g.
-/// MinimaTrap puppy_slug spawn, GradientCascade slop adds). Mirrors
+/// PitTrap puppy_slug spawn, MinionCascade slop adds). Mirrors
 /// `spawn_encounter_mob` but takes plain values from a Bevy system
 /// so callers don't have to wrap them in an `Authored<EnemyBrain>`.
 /// The resulting entity carries the same component set as authored

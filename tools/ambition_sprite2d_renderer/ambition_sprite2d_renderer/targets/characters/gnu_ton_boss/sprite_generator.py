@@ -941,7 +941,7 @@ REST_HAND_X = 235.0
 
 # Hand-slam strike depth (design-space y). Below the leg hooves at
 # REST_BODY_Y + 115 = 175 so the slam visually hits the floor. The
-# Rust-side hardcoded `GnuHandSlam` hitbox uses the same y so the
+# Rust-side hardcoded `HandSlam` hitbox uses the same y so the
 # collision overlays the drawn hand.
 SLAM_STRIKE_Y = 195.0
 

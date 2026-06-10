@@ -43,10 +43,10 @@
 //   Rest(duration: <s>)
 //
 // `BossAttackProfile` unit variants: FloorSlam, SideSweep,
-// FullBodyPulse, WingSweep, DiveLane, Broadside, GnuHandSlam,
-// GnuHandSweep, GnuHeadDescent, GnuShockwave, GnuAppleRain,
-// GradientLane, OverfitVolley, MinimaTrap, SaddlePoint,
-// GradientCascade.
+// FullBodyPulse, WingSweep, DiveLane, Broadside, HandSlam,
+// HandSweep, HeadDescent, ConvergingShockwave, DebrisRain,
+// HazardColumn, MemorizedVolley, PitTrap, RotatingCross,
+// MinionCascade.
 {
     // ============================================================
     // Clockwork Warden / Gradient Sentinel — polished multi-phase
@@ -55,13 +55,13 @@
     // for the full design (theme, arena geometry, attack vocab,
     // per-phase tempo).
     //
-    // Phase 1 (~16s): FloorSlam, GradientLane, OverfitVolley,
+    // Phase 1 (~16s): FloorSlam, HazardColumn, MemorizedVolley,
     //   SideSweep. Slow and readable, generous Rest beats.
     // Transition (3s): pure Rest while the music swaps.
-    // Phase 2 (~22s): adds hazards/minions — MinimaTrap, SaddlePoint,
-    //   GradientCascade, returning OverfitVolley + FullBodyPulse.
-    // Enrage (~10s): tighter MinimaTrap → OverfitVolley → SaddlePoint
-    //   → GradientLane combos.
+    // Phase 2 (~22s): adds hazards/minions — PitTrap, RotatingCross,
+    //   MinionCascade, returning MemorizedVolley + FullBodyPulse.
+    // Enrage (~10s): tighter PitTrap → MemorizedVolley → RotatingCross
+    //   → HazardColumn combos.
     // ============================================================
     "clockwork_warden": (
         id: "clockwork_warden",
@@ -121,11 +121,11 @@
             FloorSlam,
             SideSweep,
             FullBodyPulse,
-            GradientLane,
-            OverfitVolley,
-            MinimaTrap,
-            SaddlePoint,
-            GradientCascade,
+            HazardColumn,
+            MemorizedVolley,
+            PitTrap,
+            RotatingCross,
+            MinionCascade,
         ],
         attack_cooldown: 1.35,
         attack_windup: 0.52,
@@ -144,13 +144,13 @@
                 Telegraph(profile: FloorSlam, duration: 1.2),
                 Strike(profile: FloorSlam, duration: 0.4),
                 Rest(duration: 1.4),
-                // Beat 2: GradientLane — vertical hazard column.
-                Telegraph(profile: GradientLane, duration: 1.4),
-                Strike(profile: GradientLane, duration: 1.0),
+                // Beat 2: HazardColumn — vertical hazard column.
+                Telegraph(profile: HazardColumn, duration: 1.4),
+                Strike(profile: HazardColumn, duration: 1.0),
                 Rest(duration: 1.0),
-                // Beat 3: OverfitVolley — markers track player.
-                Telegraph(profile: OverfitVolley, duration: 1.4),
-                Strike(profile: OverfitVolley, duration: 0.30),
+                // Beat 3: MemorizedVolley — markers track player.
+                Telegraph(profile: MemorizedVolley, duration: 1.4),
+                Strike(profile: MemorizedVolley, duration: 0.30),
                 Rest(duration: 1.5),
                 // Beat 4: SideSweep — classic two-arm sweep.
                 Telegraph(profile: SideSweep, duration: 0.9),
@@ -161,21 +161,21 @@
             // Pure 3 s rest so the music swap has space.
             transition: (steps: [Rest(duration: 3.0)]),
             phase2: (steps: [
-                // Beat 1: MinimaTrap — pit + puppy_slug spawn.
-                Telegraph(profile: MinimaTrap, duration: 1.0),
-                Strike(profile: MinimaTrap, duration: 0.6),
+                // Beat 1: PitTrap — pit + puppy_slug spawn.
+                Telegraph(profile: PitTrap, duration: 1.0),
+                Strike(profile: PitTrap, duration: 0.6),
                 Rest(duration: 1.4),
-                // Beat 2: SaddlePoint — rotating cross hazard.
-                Telegraph(profile: SaddlePoint, duration: 1.4),
-                Strike(profile: SaddlePoint, duration: 4.8),
+                // Beat 2: RotatingCross — rotating cross hazard.
+                Telegraph(profile: RotatingCross, duration: 1.4),
+                Strike(profile: RotatingCross, duration: 4.8),
                 Rest(duration: 1.2),
-                // Beat 3: GradientCascade — 2 small_lurker minions.
-                Telegraph(profile: GradientCascade, duration: 1.2),
-                Strike(profile: GradientCascade, duration: 0.4),
+                // Beat 3: MinionCascade — 2 small_lurker minions.
+                Telegraph(profile: MinionCascade, duration: 1.2),
+                Strike(profile: MinionCascade, duration: 0.4),
                 Rest(duration: 2.4),
-                // Beat 4: OverfitVolley returns, faster.
-                Telegraph(profile: OverfitVolley, duration: 1.2),
-                Strike(profile: OverfitVolley, duration: 0.30),
+                // Beat 4: MemorizedVolley returns, faster.
+                Telegraph(profile: MemorizedVolley, duration: 1.2),
+                Strike(profile: MemorizedVolley, duration: 0.30),
                 Rest(duration: 1.4),
                 // Beat 5: FullBodyPulse — close-range pulse.
                 Telegraph(profile: FullBodyPulse, duration: 1.1),
@@ -183,18 +183,18 @@
                 Rest(duration: 1.0),
             ]),
             enrage: (steps: [
-                // Tight MinimaTrap → OverfitVolley combo.
-                Telegraph(profile: MinimaTrap, duration: 0.7),
-                Strike(profile: MinimaTrap, duration: 0.5),
-                Telegraph(profile: OverfitVolley, duration: 0.7),
-                Strike(profile: OverfitVolley, duration: 0.3),
+                // Tight PitTrap → MemorizedVolley combo.
+                Telegraph(profile: PitTrap, duration: 0.7),
+                Strike(profile: PitTrap, duration: 0.5),
+                Telegraph(profile: MemorizedVolley, duration: 0.7),
+                Strike(profile: MemorizedVolley, duration: 0.3),
                 Rest(duration: 0.6),
-                // Faster SaddlePoint — shorter total exposure.
-                Telegraph(profile: SaddlePoint, duration: 1.0),
-                Strike(profile: SaddlePoint, duration: 3.0),
-                // GradientLane closer for the final punish.
-                Telegraph(profile: GradientLane, duration: 0.7),
-                Strike(profile: GradientLane, duration: 0.8),
+                // Faster RotatingCross — shorter total exposure.
+                Telegraph(profile: RotatingCross, duration: 1.0),
+                Strike(profile: RotatingCross, duration: 3.0),
+                // HazardColumn closer for the final punish.
+                Telegraph(profile: HazardColumn, duration: 0.7),
+                Strike(profile: HazardColumn, duration: 0.8),
                 Rest(duration: 1.2),
             ]),
         ),
@@ -295,11 +295,11 @@
             retreat_distance: 0.0,
         ),
         attacks: [
-            GnuHandSlam,
-            GnuHandSweep,
-            GnuHeadDescent,
-            GnuShockwave,
-            GnuAppleRain,
+            HandSlam,
+            HandSweep,
+            HeadDescent,
+            ConvergingShockwave,
+            DebrisRain,
         ],
         attack_cooldown: 0.0,
         attack_windup: 0.0,
@@ -309,54 +309,54 @@
         body_damage: 0,
         attack_pattern: Scripted(
             intro: (steps: [
-                Telegraph(profile: GnuHandSlam, duration: 1.6),
-                Strike(profile: GnuHandSlam, duration: 0.55),
+                Telegraph(profile: HandSlam, duration: 1.6),
+                Strike(profile: HandSlam, duration: 0.55),
                 Rest(duration: 1.4),
             ]),
             phase1: (steps: [
                 // Hand slam from above, long telegraph.
-                Telegraph(profile: GnuHandSlam, duration: 1.6),
-                Strike(profile: GnuHandSlam, duration: 0.55),
+                Telegraph(profile: HandSlam, duration: 1.6),
+                Strike(profile: HandSlam, duration: 0.55),
                 Rest(duration: 1.2),
                 // Side sweep — different motion / hitbox shape.
-                Telegraph(profile: GnuHandSweep, duration: 1.4),
-                Strike(profile: GnuHandSweep, duration: 0.50),
+                Telegraph(profile: HandSweep, duration: 1.4),
+                Strike(profile: HandSweep, duration: 0.50),
                 Rest(duration: 1.0),
                 // Apple rain: scholar gestures up; apples fall.
                 // Strike window is long enough to drop ~4 apples.
-                Telegraph(profile: GnuAppleRain, duration: 1.0),
-                Strike(profile: GnuAppleRain, duration: 2.2),
+                Telegraph(profile: DebrisRain, duration: 1.0),
+                Strike(profile: DebrisRain, duration: 2.2),
                 Rest(duration: 1.0),
                 // Repeat the slam to reward memorizers.
-                Telegraph(profile: GnuHandSlam, duration: 1.6),
-                Strike(profile: GnuHandSlam, duration: 0.55),
+                Telegraph(profile: HandSlam, duration: 1.6),
+                Strike(profile: HandSlam, duration: 0.55),
                 // Long breather closes the cycle.
                 Rest(duration: 1.8),
             ]),
             transition: (steps: [Rest(duration: 3.0)]),
             phase2: (steps: [
-                Telegraph(profile: GnuHandSlam, duration: 1.4),
-                Strike(profile: GnuHandSlam, duration: 0.55),
+                Telegraph(profile: HandSlam, duration: 1.4),
+                Strike(profile: HandSlam, duration: 0.55),
                 Rest(duration: 1.0),
                 // Long head-descent: head is vulnerable. Matches the
                 // score so the music's "harpsichord exposure" beat
                 // lands in this window.
-                Telegraph(profile: GnuHeadDescent, duration: 1.8),
-                Strike(profile: GnuHeadDescent, duration: 1.4),
+                Telegraph(profile: HeadDescent, duration: 1.8),
+                Strike(profile: HeadDescent, duration: 1.4),
                 Rest(duration: 1.4),
-                Telegraph(profile: GnuHandSweep, duration: 1.4),
-                Strike(profile: GnuHandSweep, duration: 0.50),
+                Telegraph(profile: HandSweep, duration: 1.4),
+                Strike(profile: HandSweep, duration: 0.50),
                 Rest(duration: 2.0),
             ]),
             enrage: (steps: [
                 // Faster pace, no head exposure: punishing.
-                Telegraph(profile: GnuHandSlam, duration: 0.90),
-                Strike(profile: GnuHandSlam, duration: 0.45),
-                Telegraph(profile: GnuHandSweep, duration: 0.90),
-                Strike(profile: GnuHandSweep, duration: 0.45),
+                Telegraph(profile: HandSlam, duration: 0.90),
+                Strike(profile: HandSlam, duration: 0.45),
+                Telegraph(profile: HandSweep, duration: 0.90),
+                Strike(profile: HandSweep, duration: 0.45),
                 Rest(duration: 0.6),
-                Telegraph(profile: GnuShockwave, duration: 1.10),
-                Strike(profile: GnuShockwave, duration: 0.70),
+                Telegraph(profile: ConvergingShockwave, duration: 1.10),
+                Strike(profile: ConvergingShockwave, duration: 0.70),
                 Rest(duration: 1.2),
             ]),
         ),
@@ -439,7 +439,7 @@
             suppress_attacks_while_moving: true,
         ),
         attacks: [
-            EyeBeam,
+            LockOnBeam,
         ],
         attack_cooldown: 0.0,
         attack_windup: 0.0,
@@ -451,26 +451,26 @@
             intro: (steps: [Rest(duration: 1.0)]),
             phase1: (steps: [
                 Rest(duration: 1.4),
-                Telegraph(profile: EyeBeam, duration: 0.75),
-                Strike(profile: EyeBeam, duration: 0.25),
+                Telegraph(profile: LockOnBeam, duration: 0.75),
+                Strike(profile: LockOnBeam, duration: 0.25),
             ]),
             transition: (steps: [Rest(duration: 1.0)]),
             phase2: (steps: [
                 Rest(duration: 1.2),
-                Telegraph(profile: EyeBeam, duration: 0.65),
-                Strike(profile: EyeBeam, duration: 0.25),
+                Telegraph(profile: LockOnBeam, duration: 0.65),
+                Strike(profile: LockOnBeam, duration: 0.25),
             ]),
             enrage: (steps: [
                 Rest(duration: 0.95),
-                Telegraph(profile: EyeBeam, duration: 0.55),
-                Strike(profile: EyeBeam, duration: 0.22),
+                Telegraph(profile: LockOnBeam, duration: 0.55),
+                Strike(profile: LockOnBeam, duration: 0.22),
             ]),
         ),
     ),
     // Flying Spaghetti Monster — a false-god boss (canon: Jon). A floaty,
     // noodly-appendage monster. Composed ENTIRELY of reusable attack profiles
-    // (no new hardcoded attack types): OverfitVolley = meatball volley that
-    // tracks the player, SaddlePoint = rotating noodle cross, GradientCascade =
+    // (no new hardcoded attack types): MemorizedVolley = meatball volley that
+    // tracks the player, RotatingCross = rotating noodle cross, MinionCascade =
     // spawns lesser appendages (minions), FullBodyPulse / SideSweep = His Noodly
     // touch + appendage sweep. Sprite/animation fidelity + the Will-Smith finish
     // are follow-ups; this is the playable fight.
@@ -517,9 +517,9 @@
             retreat_distance: 0.0,
         ),
         attacks: [
-            OverfitVolley,
-            SaddlePoint,
-            GradientCascade,
+            MemorizedVolley,
+            RotatingCross,
+            MinionCascade,
             FullBodyPulse,
             SideSweep,
         ],
@@ -537,36 +537,36 @@
             ]),
             phase1: (steps: [
                 // Meatball volley tracks the player.
-                Telegraph(profile: OverfitVolley, duration: 1.3),
-                Strike(profile: OverfitVolley, duration: 0.32),
+                Telegraph(profile: MemorizedVolley, duration: 1.3),
+                Strike(profile: MemorizedVolley, duration: 0.32),
                 Rest(duration: 1.3),
                 // Appendage sweep.
                 Telegraph(profile: SideSweep, duration: 0.9),
                 Strike(profile: SideSweep, duration: 0.4),
                 Rest(duration: 1.1),
                 // Rotating noodle cross.
-                Telegraph(profile: SaddlePoint, duration: 1.2),
-                Strike(profile: SaddlePoint, duration: 0.8),
+                Telegraph(profile: RotatingCross, duration: 1.2),
+                Strike(profile: RotatingCross, duration: 0.8),
                 Rest(duration: 1.6),
             ]),
             transition: (steps: [Rest(duration: 2.4)]),
             phase2: (steps: [
                 // Summon lesser appendages.
-                Telegraph(profile: GradientCascade, duration: 1.2),
-                Strike(profile: GradientCascade, duration: 0.5),
+                Telegraph(profile: MinionCascade, duration: 1.2),
+                Strike(profile: MinionCascade, duration: 0.5),
                 Rest(duration: 1.2),
-                Telegraph(profile: OverfitVolley, duration: 1.0),
-                Strike(profile: OverfitVolley, duration: 0.30),
+                Telegraph(profile: MemorizedVolley, duration: 1.0),
+                Strike(profile: MemorizedVolley, duration: 0.30),
                 Rest(duration: 1.0),
                 Telegraph(profile: FullBodyPulse, duration: 1.0),
                 Strike(profile: FullBodyPulse, duration: 0.45),
                 Rest(duration: 1.2),
             ]),
             enrage: (steps: [
-                Telegraph(profile: OverfitVolley, duration: 0.7),
-                Strike(profile: OverfitVolley, duration: 0.28),
-                Telegraph(profile: SaddlePoint, duration: 0.8),
-                Strike(profile: SaddlePoint, duration: 0.7),
+                Telegraph(profile: MemorizedVolley, duration: 0.7),
+                Strike(profile: MemorizedVolley, duration: 0.28),
+                Telegraph(profile: RotatingCross, duration: 0.8),
+                Strike(profile: RotatingCross, duration: 0.7),
                 Rest(duration: 0.6),
                 Telegraph(profile: SideSweep, duration: 0.6),
                 Strike(profile: SideSweep, duration: 0.35),
@@ -694,8 +694,8 @@
     ),
     // Mode Collapse — a floating summoner boss (a training failure that keeps
     // generating the SAME output, so it floods the arena with identical lesser
-    // copies). Reuses proven attack profiles; the GradientCascade summon leads
-    // every phase, with OverfitVolley + SaddlePoint pressuring the player while
+    // copies). Reuses proven attack profiles; the MinionCascade summon leads
+    // every phase, with MemorizedVolley + RotatingCross pressuring the player while
     // the adds close. Behavior only — encounter numbers live in
     // boss_encounters/mode_collapse_boss.ron.
     "mode_collapse_boss": (
@@ -741,9 +741,9 @@
             retreat_distance: 0.0,
         ),
         attacks: [
-            GradientCascade,
-            OverfitVolley,
-            SaddlePoint,
+            MinionCascade,
+            MemorizedVolley,
+            RotatingCross,
         ],
         attack_cooldown: 1.0,
         attack_windup: 0.5,
@@ -753,41 +753,41 @@
         projectile_origin_offset: (0.0, -36.0),
         attack_pattern: Scripted(
             intro: (steps: [
-                Telegraph(profile: GradientCascade, duration: 1.3),
-                Strike(profile: GradientCascade, duration: 0.5),
+                Telegraph(profile: MinionCascade, duration: 1.3),
+                Strike(profile: MinionCascade, duration: 0.5),
                 Rest(duration: 1.1),
             ]),
             phase1: (steps: [
-                Telegraph(profile: GradientCascade, duration: 1.2),
-                Strike(profile: GradientCascade, duration: 0.5),
+                Telegraph(profile: MinionCascade, duration: 1.2),
+                Strike(profile: MinionCascade, duration: 0.5),
                 Rest(duration: 1.4),
-                Telegraph(profile: OverfitVolley, duration: 1.2),
-                Strike(profile: OverfitVolley, duration: 0.32),
+                Telegraph(profile: MemorizedVolley, duration: 1.2),
+                Strike(profile: MemorizedVolley, duration: 0.32),
                 Rest(duration: 1.2),
-                Telegraph(profile: SaddlePoint, duration: 1.1),
-                Strike(profile: SaddlePoint, duration: 0.8),
+                Telegraph(profile: RotatingCross, duration: 1.1),
+                Strike(profile: RotatingCross, duration: 0.8),
                 Rest(duration: 1.5),
             ]),
             transition: (steps: [Rest(duration: 2.2)]),
             phase2: (steps: [
-                Telegraph(profile: GradientCascade, duration: 1.0),
-                Strike(profile: GradientCascade, duration: 0.5),
+                Telegraph(profile: MinionCascade, duration: 1.0),
+                Strike(profile: MinionCascade, duration: 0.5),
                 Rest(duration: 1.0),
-                Telegraph(profile: OverfitVolley, duration: 1.0),
-                Strike(profile: OverfitVolley, duration: 0.30),
+                Telegraph(profile: MemorizedVolley, duration: 1.0),
+                Strike(profile: MemorizedVolley, duration: 0.30),
                 Rest(duration: 0.9),
-                Telegraph(profile: GradientCascade, duration: 1.0),
-                Strike(profile: GradientCascade, duration: 0.5),
+                Telegraph(profile: MinionCascade, duration: 1.0),
+                Strike(profile: MinionCascade, duration: 0.5),
                 Rest(duration: 1.1),
             ]),
             enrage: (steps: [
-                Telegraph(profile: GradientCascade, duration: 0.8),
-                Strike(profile: GradientCascade, duration: 0.45),
-                Telegraph(profile: OverfitVolley, duration: 0.7),
-                Strike(profile: OverfitVolley, duration: 0.28),
+                Telegraph(profile: MinionCascade, duration: 0.8),
+                Strike(profile: MinionCascade, duration: 0.45),
+                Telegraph(profile: MemorizedVolley, duration: 0.7),
+                Strike(profile: MemorizedVolley, duration: 0.28),
                 Rest(duration: 0.6),
-                Telegraph(profile: SaddlePoint, duration: 0.7),
-                Strike(profile: SaddlePoint, duration: 0.7),
+                Telegraph(profile: RotatingCross, duration: 0.7),
+                Strike(profile: RotatingCross, duration: 0.7),
                 Rest(duration: 0.7),
             ]),
         ),
@@ -844,8 +844,8 @@
             retreat_distance: 0.0,
         ),
         attacks: [
-            OverfitVolley,
-            SaddlePoint,
+            MemorizedVolley,
+            RotatingCross,
             SideSweep,
             FullBodyPulse,
         ],
@@ -862,11 +862,11 @@
                 Rest(duration: 0.9),
             ]),
             phase1: (steps: [
-                Telegraph(profile: OverfitVolley, duration: 1.1),
-                Strike(profile: OverfitVolley, duration: 0.32),
+                Telegraph(profile: MemorizedVolley, duration: 1.1),
+                Strike(profile: MemorizedVolley, duration: 0.32),
                 Rest(duration: 1.0),
-                Telegraph(profile: SaddlePoint, duration: 1.0),
-                Strike(profile: SaddlePoint, duration: 0.8),
+                Telegraph(profile: RotatingCross, duration: 1.0),
+                Strike(profile: RotatingCross, duration: 0.8),
                 Rest(duration: 1.1),
                 Telegraph(profile: SideSweep, duration: 0.8),
                 Strike(profile: SideSweep, duration: 0.4),
@@ -874,21 +874,21 @@
             ]),
             transition: (steps: [Rest(duration: 2.0)]),
             phase2: (steps: [
-                Telegraph(profile: OverfitVolley, duration: 0.9),
-                Strike(profile: OverfitVolley, duration: 0.30),
+                Telegraph(profile: MemorizedVolley, duration: 0.9),
+                Strike(profile: MemorizedVolley, duration: 0.30),
                 Rest(duration: 0.8),
-                Telegraph(profile: SaddlePoint, duration: 0.9),
-                Strike(profile: SaddlePoint, duration: 0.8),
+                Telegraph(profile: RotatingCross, duration: 0.9),
+                Strike(profile: RotatingCross, duration: 0.8),
                 Rest(duration: 0.8),
-                Telegraph(profile: OverfitVolley, duration: 0.9),
-                Strike(profile: OverfitVolley, duration: 0.30),
+                Telegraph(profile: MemorizedVolley, duration: 0.9),
+                Strike(profile: MemorizedVolley, duration: 0.30),
                 Rest(duration: 0.9),
             ]),
             enrage: (steps: [
-                Telegraph(profile: OverfitVolley, duration: 0.6),
-                Strike(profile: OverfitVolley, duration: 0.26),
-                Telegraph(profile: SaddlePoint, duration: 0.7),
-                Strike(profile: SaddlePoint, duration: 0.7),
+                Telegraph(profile: MemorizedVolley, duration: 0.6),
+                Strike(profile: MemorizedVolley, duration: 0.26),
+                Telegraph(profile: RotatingCross, duration: 0.7),
+                Strike(profile: RotatingCross, duration: 0.7),
                 Telegraph(profile: SideSweep, duration: 0.5),
                 Strike(profile: SideSweep, duration: 0.32),
                 Rest(duration: 0.5),
@@ -903,7 +903,7 @@
     // Overflow — an aerial melee dive-bomber (a numerical overflow: it bursts
     // past its bounds and crashes into you). A high-chase AirSwoop closes the
     // gap; FullBodyPulse + SideSweep are its contact slams (no projectiles),
-    // with an OverfitVolley poke when you flee. Distinct from the ranged
+    // with an MemorizedVolley poke when you flee. Distinct from the ranged
     // Exploding Gradient + summoner Mode Collapse — pure close-range aggression.
     "overflow_boss": (
         id: "overflow_boss",
@@ -950,7 +950,7 @@
         attacks: [
             FullBodyPulse,
             SideSweep,
-            OverfitVolley,
+            MemorizedVolley,
         ],
         attack_cooldown: 0.85,
         attack_windup: 0.45,
@@ -971,8 +971,8 @@
                 Telegraph(profile: FullBodyPulse, duration: 0.9),
                 Strike(profile: FullBodyPulse, duration: 0.45),
                 Rest(duration: 1.0),
-                Telegraph(profile: OverfitVolley, duration: 1.0),
-                Strike(profile: OverfitVolley, duration: 0.30),
+                Telegraph(profile: MemorizedVolley, duration: 1.0),
+                Strike(profile: MemorizedVolley, duration: 0.30),
                 Rest(duration: 1.1),
             ]),
             transition: (steps: [Rest(duration: 1.8)]),

@@ -1,6 +1,6 @@
 //! Character AI vocabulary shared by enemies, hostile NPCs, and bosses.
 //!
-//! The seldom_state component vocabulary in `crate::state_machines`
+//! The seldom_state component vocabulary in `ambition_sandbox::state_machines`
 //! (`EnemyIdle`, `EnemyPatrol`, `EnemyTelegraph`, `EnemyAttack`,
 //! `EnemyRecover`, `EnemyStunned`, `EnemyDead`) describes the
 //! per-entity state. This module owns the *evaluation* shape — the
@@ -20,7 +20,7 @@
 //! `CharacterAiSnapshot` + `CharacterAiOutput` and let this module be
 //! the single source of truth.
 
-use crate::engine_core::Vec2;
+use ambition_engine_core::Vec2;
 
 /// What the actor should be doing this tick.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

@@ -4,7 +4,7 @@
 //! and (in the future) other NPC actors — funnels through a single
 //! per-tick struct: an [`ActorControlFrame`]. A *brain* (the policy
 //! choosing what the actor does this tick) writes into the frame; the
-//! *simulation* half (gravity + [`crate::step_kinematic`] + cooldowns
+//! *simulation* half (gravity + `ambition_sandbox`'s `step_kinematic` + cooldowns
 //! + effects) reads from the frame.
 //!
 //! Brains today are hand-written:
@@ -28,7 +28,7 @@
 //! 1. **Brains output desired motion in velocity-space**, not
 //!    position-space. Anything that wrote `self.pos += vel * dt`
 //!    bypassed wall collision; routing that desired velocity through
-//!    [`crate::step_kinematic`] (with `gravity = 0` for fliers) makes
+//!    `ambition_sandbox`'s `step_kinematic` (with `gravity = 0` for fliers) makes
 //!    every actor collide through the same code path.
 //!
 //! 2. **Brains are pure functions of a snapshot**. A future RL agent
@@ -41,7 +41,7 @@
 //!    learned policy, or a remote player doesn't change the
 //!    integration code.
 
-use crate::engine_core::Vec2;
+use ambition_engine_core::Vec2;
 
 /// A request from a brain to fire a projectile this tick. Mirrors the
 /// existing `ChoreographyAction::FireProjectile { dir, speed }` but

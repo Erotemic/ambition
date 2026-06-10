@@ -758,7 +758,7 @@ fn convert_npc_spawn(
     let display_name = if character_id.is_empty() {
         name
     } else {
-        crate::actor::character_catalog::display_name_for_character_id(&character_id)
+        crate::character_roster::display_name_for_character_id(&character_id)
             .map(|s| s.to_string())
             .unwrap_or_else(|| character_id.clone())
     };

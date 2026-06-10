@@ -32,8 +32,8 @@ use bevy::prelude::*;
 use ambition_asset_manager::AssetId;
 
 use super::sheets::CharacterSheetSpec;
-use crate::actor::character_catalog::EMBEDDED_CATALOG;
 use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
+use crate::character_roster::EMBEDDED_CATALOG;
 use crate::features::FeatureVisualKind;
 
 #[derive(Clone)]

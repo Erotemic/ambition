@@ -26,7 +26,7 @@
 //! when a new brain template needs them; don't grow this into a
 //! pile of `Option<…>`s without a real consumer.
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 
 /// What a brain sees this tick. Read-only; brains never mutate the
 /// snapshot (they write to `&mut ActorControlFrame` instead).
@@ -83,7 +83,7 @@ pub struct BrainSnapshot {
     /// fills this from the actor entity's `PlayerInputFrame`; the
     /// player brain reads it to populate jump / dash / fire / etc.
     /// edges of the control frame.
-    pub player_input: Option<crate::input::ControlFrame>,
+    pub player_input: Option<ambition_input::ControlFrame>,
 
     /// Per-tick crowding signal — same-faction + non-faction
     /// nearby-actor counts, the averaged "away" direction, and
@@ -194,7 +194,7 @@ mod tests {
     fn snapshot_player_input_roundtrips() {
         // Snapshot must round-trip player_input correctly so the
         // player brain reads the same values the driver set.
-        let mut input = crate::input::ControlFrame::default();
+        let mut input = ambition_input::ControlFrame::default();
         input.axis_x = 0.6;
         input.jump_pressed = true;
         let mut snap = BrainSnapshot::idle();

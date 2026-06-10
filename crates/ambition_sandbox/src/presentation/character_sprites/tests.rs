@@ -110,7 +110,7 @@ fn frame_duration_positive_for_every_row() {
 /// (formerly the `*_SHEET` statics; Stage 20 / B3 made them data).
 #[test]
 fn every_reachable_sheet_loads() {
-    use crate::actor::character_catalog::EMBEDDED_CATALOG;
+    use crate::character_roster::EMBEDDED_CATALOG;
     let mut checked = 0usize;
     for (cid, entry) in EMBEDDED_CATALOG.characters.iter() {
         let Some(target) = entry.manifest_target() else {
@@ -309,7 +309,7 @@ fn every_catalog_sprite_spec_has_idle_row_if_loaded() {
     // fallback loaded a spec for a character whose generated
     // sheet only had run/walk rows (no idle).
 
-    let data = crate::actor::character_catalog::load_embedded();
+    let data = crate::character_roster::load_embedded();
     for cid in data.characters.keys() {
         let Some(spec) = sheet_for_character_id(cid) else {
             continue;
@@ -342,7 +342,7 @@ fn sprite_loader_resolves_a_sheet_for_most_catalog_entries() {
     // similar variant-only targets) ship later when their
     // publisher lands.
 
-    let data = crate::actor::character_catalog::load_embedded();
+    let data = crate::character_roster::load_embedded();
     let covered = data
         .characters
         .keys()

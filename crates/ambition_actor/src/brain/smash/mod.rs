@@ -26,7 +26,7 @@ use super::action_set::ActionSet;
 use super::snapshot::BrainSnapshot;
 // `ae` is used both by `maybe_substitute_ranged` (the ranged-verb emit) and the
 // tests, so the import is no longer test-gated.
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 
 pub mod action;
 pub mod difficulty;

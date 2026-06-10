@@ -10,7 +10,7 @@ pub mod ai;
 pub mod character_catalog;
 pub mod control;
 
-use crate::engine_core::Vec2;
+use ambition_engine_core::Vec2;
 
 /// Coarse category for room entities that have identity or behavior.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -30,7 +30,7 @@ pub enum ActorKind {
 /// Damage/team relationship used by hitboxes and hurtboxes — the `can_damage`
 /// matrix that decides whether one side's hit may affect another.
 ///
-/// Deliberately distinct from [`crate::features::ActorFaction`], which
+/// Deliberately distinct from `ActorFaction` (this crate), which
 /// is a `#[derive(Component)]` actor-side tag (`is_player_side`/`is_hostile_side`,
 /// with `Npc`/`Boss` variants). This one is the *damage* relationship; that one
 /// is the *ECS actor* tag. They were both named `ActorFaction` and both in

@@ -15,7 +15,7 @@
 //! Telegraphs aren't a separate concept; each attack spec owns its
 //! full windup → active → recover animation timing.
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 use bevy::ecs::component::Component;
 
 /// Per-entity capability set. Resolves abstract brain intent
@@ -587,7 +587,7 @@ pub enum SpecialActionSpec {
     /// Actor-generic ground-slam AOE: a World-anchored damage box at the
     /// emitting actor's position, tagged with the **emitter's** faction. A boss
     /// uses it to damage the player; the player wields it (via
-    /// `crate::abilities::ranged::shockwave`) to damage enemies — the same `Hitbox` primitive and
+    /// `abilities::ranged::shockwave` (ambition_sandbox)) to damage enemies — the same `Hitbox` primitive and
     /// `apply_hitbox_damage` system, differing only by faction. This is the
     /// first attack authored to be actor-generic from the start (the older
     /// specials above are still boss-query-coupled; migrating them is the

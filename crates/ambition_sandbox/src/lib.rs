@@ -20,9 +20,10 @@
 // External API surface — bins, tests, and Android/wasm entry points reach
 // into these modules. Everything else stays `pub(crate)` so the compiler
 // can tell us what's actually depended on from outside.
-pub mod actor;
+pub use ambition_actor::actor;
 pub mod app;
 pub mod audio;
+pub mod character_roster;
 pub mod combat;
 pub mod debug_label;
 // The pure-logic core lives in its own crate (`ambition_engine_core`, ADR
@@ -58,7 +59,7 @@ pub mod ability_cooldown;
 pub mod assets;
 pub mod body_mode;
 pub mod boss_encounter;
-pub mod brain;
+pub use ambition_actor::brain;
 pub mod config;
 pub mod dev;
 pub mod dialog;

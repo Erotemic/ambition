@@ -90,7 +90,7 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             // that panics on broken references. See
             // `ambition_sandbox::actor::character_catalog` and ADR 0017
             // (Rust = behavior, RON = content, LDtk = space).
-            .add_plugins(ambition_sandbox::actor::character_catalog::CharacterCatalogPlugin)
+            .add_plugins(ambition_sandbox::character_roster::character_roster_plugin())
             .add_systems(
                 Startup,
                 (

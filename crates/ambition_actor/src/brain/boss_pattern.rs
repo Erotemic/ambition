@@ -40,7 +40,7 @@
 //! brain. Prefer a boss-specific tick system over bloating
 //! `BrainSnapshot` for all actors."
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 use bevy::prelude::Component;
 
 // ===== Vocabulary (moved from content/features/bosses.rs) =====
@@ -1500,7 +1500,7 @@ mod tests {
     }
 
     #[test]
-    fn gnu_ton_apple_rain_strike_emits_special_intent() {
+    fn debris_rain_strike_emits_special_intent() {
         let mut cfg = cfg_with(scripted_two_step_phase1(BossAttackProfile::DebrisRain));
         cfg.spawn = ae::Vec2::ZERO;
         let mut state = BossPatternState::default();

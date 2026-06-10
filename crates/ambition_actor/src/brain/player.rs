@@ -15,10 +15,10 @@
 //! raw `ControlFrame` is no longer consulted inside the player
 //! simulation phases.
 
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 
 use super::PlayerSlot;
-use crate::input::ControlFrame;
+use ambition_input::ControlFrame;
 
 use super::snapshot::BrainSnapshot;
 
@@ -138,7 +138,7 @@ pub fn tick_player_brain_from_control(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::input::ControlFrame;
+    use ambition_input::ControlFrame;
 
     fn input_with<F: FnOnce(&mut ControlFrame)>(mut_fn: F) -> ControlFrame {
         let mut c = ControlFrame::default();

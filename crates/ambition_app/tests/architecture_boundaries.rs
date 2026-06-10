@@ -1492,3 +1492,54 @@ fn architecture_boundaries_dev_overlays_live_in_app() {
         assert!(app_dev.join(f).exists(), "ambition_app::dev should own {f}");
     }
 }
+
+#[test]
+fn architecture_boundaries_actor_crate_is_content_free_and_foundation_clean() {
+    // Stage 22: the unified actor system (actor + brain) is a real crate
+    // below the machinery lib. Two invariants:
+    // (a) it never imports upward (the machinery lib, content, app);
+    // (b) it never names game content — attack profiles were de-named to
+    //     behavior vocabulary (HandSlam, DebrisRain, ...) precisely so
+    //     this crate stays reusable. snake_case sheet-row keys live in
+    //     boss_profiles.ron + the named world, not here.
+    let root = repo_root().join("crates/ambition_actor/src");
+    let forbidden = [
+        "GnuTon",
+        "gnu_ton",
+        "Mockingbird",
+        "mockingbird",
+        "cut_rope",
+        "CutRope",
+        "Pirate",
+        "BurningFlyingShark",
+        "PuppySlug",
+        "clockwork_warden",
+        "EnemyArchetype",
+    ];
+    // No exemptions: the crate owns catalog SCHEMA + parser + resolver;
+    // the game's roster DATA (embedded RON + roster-pinning tests) lives
+    // in ambition_sandbox::character_roster, so nothing in this crate may
+    // name content or import upward.
+    let upward = ["ambition_sandbox", "ambition_content", "ambition_app"];
+    let mut violations = Vec::new();
+    for file in collect_rs_files(&root) {
+        let rel = file.display().to_string();
+        let text = fs::read_to_string(&file).expect("read ambition_actor source");
+        for (idx, raw) in text.lines().enumerate() {
+            let line = raw.trim();
+            if line.starts_with("//") || line.starts_with("/*") || line.starts_with('*') {
+                continue;
+            }
+            for needle in upward.iter().chain(forbidden.iter()) {
+                if line.contains(needle) {
+                    violations.push(format!("{rel}:{} {line}", idx + 1));
+                }
+            }
+        }
+    }
+    assert!(
+        violations.is_empty(),
+        "ambition_actor must stay content-free with no upward imports:\n{}",
+        violations.join("\n")
+    );
+}

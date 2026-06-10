@@ -136,6 +136,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_actor"
+version = "0.1.0"
+dependencies = [
+ "ambition_engine_core",
+ "ambition_input",
+ "bevy",
+ "ron 0.11.0",
+ "serde",
+]
+
+[[package]]
 name = "ambition_app"
 version = "0.1.0"
 dependencies = [
@@ -257,6 +268,7 @@ dependencies = [
 name = "ambition_sandbox"
 version = "0.2.0"
 dependencies = [
+ "ambition_actor",
  "ambition_asset_manager",
  "ambition_audio",
  "ambition_engine_core",

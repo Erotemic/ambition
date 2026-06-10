@@ -66,10 +66,10 @@
 //!
 //! // 2) Build a snapshot from the actor's per-tick state.
 //! let mut snap = BrainSnapshot::idle();
-//! snap.target_pos = crate::engine_core::Vec2::new(20.0, 0.0); // in range
+//! snap.target_pos = ambition_engine_core::Vec2::new(20.0, 0.0); // in range
 //!
 //! // 3) Tick the brain → fills an ActorControlFrame.
-//! let mut frame = crate::engine_core::ActorControlFrame::neutral();
+//! let mut frame = ambition_engine_core::ActorControlFrame::neutral();
 //! brain.tick(&snap, &mut frame);
 //!
 //! // 4) Resolve abstract intent into concrete ActionRequests.
@@ -117,7 +117,7 @@ pub use state_machine::{
 };
 
 #[cfg(test)]
-use crate::engine_core as ae;
+use ambition_engine_core as ae;
 use bevy::prelude::*;
 
 /// Per-player slot identifier. Slot `0` is the local primary player;
@@ -389,7 +389,7 @@ pub fn emit_brain_action_messages(
 
 /// Bevy system: emit one `ActorActionMessage::PlayerProjectileTick`
 /// per player-brain actor per tick. The player projectile EFFECTS
-/// consumer (`crate::projectile::update_projectiles`) drives its
+/// consumer (`update_projectiles` (ambition_sandbox)) drives its
 /// motion-recognition buffer + Fireball charge state machine from
 /// this stream instead of reading `PlayerInputFrame` directly.
 ///
@@ -454,7 +454,7 @@ pub fn observe_brain_action_counter(
 pub fn log_brain_action_messages(mut reader: MessageReader<ActorActionMessage>) {
     for msg in reader.read() {
         bevy::log::debug!(
-            target: "ambition_sandbox::brain",
+            target: "ambition_actor::brain",
             "brain action: actor={:?} req={}",
             msg.actor,
             msg.request,

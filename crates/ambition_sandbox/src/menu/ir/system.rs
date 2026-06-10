@@ -344,7 +344,7 @@ pub struct SystemMenuEntry {
 
 /// The whole SYSTEM menu as data: an ordered list of top-level entries. Build it
 /// with [`SystemMenuModel::build`].
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct SystemMenuModel {
     pub entries: Vec<SystemMenuEntry>,
 }

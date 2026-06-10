@@ -825,8 +825,8 @@ fn animate_cube_ring<PageId, Action>(
     } else {
         config.open_close_speed * config.close_speed_scale
     };
-    state.amount = ease_fold_amount(state.amount, state.target, rate, time.delta_secs());
-    let open = smoothstep(state.amount.clamp(0.0, 1.0));
+    let new_amount = ease_fold_amount(state.amount, state.target, rate, time.delta_secs());
+    let open = smoothstep(new_amount.clamp(0.0, 1.0));
 
     // OoT opening SPIN: while opening, start the ring rotated one page-step toward
     // the viewer-RIGHT neighbour and spin around so the active page swings to the
@@ -850,6 +850,22 @@ fn animate_cube_ring<PageId, Action>(
     let target = Quat::from_rotation_y(-(active_idx + spin_offset) * std::f32::consts::TAU / n);
     let rotate_step = (time.delta_secs() * config.page_rotate_speed).clamp(0.0, 1.0);
     let spin = ring_t.rotation.slerp(target, rotate_step);
+
+    // PERF (2026-06-10): SETTLE EARLY-OUT. Once the fold amount has reached its
+    // target (`ease_fold_amount` snaps within 0.002) AND the ring is already at the
+    // active-face rotation, the cube is fully open and still. Writing the ring +
+    // every face `Transform` then would needlessly re-propagate `GlobalTransform`
+    // over all face children (panels/text/icons/corners) EVERY frame — pure churn
+    // while the menu just sits open. Skip the writes while nothing actually moves;
+    // any retarget (open/close, page rotate) moves `target`/`state.target` and
+    // re-arms the animation next frame.
+    let amount_settled =
+        new_amount == state.target && (new_amount - state.amount).abs() <= f32::EPSILON;
+    let rotation_settled = ring_t.rotation.angle_between(target) < 1.0e-4;
+    if amount_settled && rotation_settled {
+        return;
+    }
+    state.amount = new_amount;
 
     match config.open_close_style {
         MenuOpenCloseStyle::SmoothScale => {

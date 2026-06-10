@@ -119,7 +119,10 @@ impl InventoryUiBackend {
     }
 
     pub(crate) fn unavailable_note(self) -> &'static str {
-        match (BEVY_UI_MENU_BACKEND_ENABLED, KALEIDOSCOPE_MENU_BACKEND_ENABLED) {
+        match (
+            BEVY_UI_MENU_BACKEND_ENABLED,
+            KALEIDOSCOPE_MENU_BACKEND_ENABLED,
+        ) {
             (true, true) => "",
             (true, false) => " (cube backend disabled)",
             (false, true) => " (grid backend disabled)",
@@ -646,30 +649,6 @@ impl SystemMenuSnapshotParams<'_> {
             ldtk_reload: &self.ldtk_reload,
             backend: *self.backend,
         })
-    }
-
-    /// True when any radio/dev resource changed this frame (so the cube republishes
-    /// the System face to reflect an auditioned station / toggled dev flag).
-    fn is_changed(&self) -> bool {
-        let mut changed = self.dev_tools.is_changed()
-            || self.dev_state.is_changed()
-            || self.ldtk_reload.is_changed();
-        #[cfg(feature = "audio")]
-        {
-            changed = changed
-                || self
-                    .library
-                    .as_ref()
-                    .map(|r| r.is_changed())
-                    .unwrap_or(false)
-                || self
-                    .music_state
-                    .as_ref()
-                    .map(|r| r.is_changed())
-                    .unwrap_or(false)
-                || self.radio.as_ref().map(|r| r.is_changed()).unwrap_or(false);
-        }
-        changed
     }
 }
 
@@ -2074,11 +2053,21 @@ fn kaleidoscope_sync_focus_visuals(
     let Some(active_page) = pages.active else {
         return;
     };
-    let model = SystemMenuModel::build(
-        &settings,
-        &snapshot.radio_snapshot(),
-        &snapshot.dev_snapshot(),
-    );
+    // PERF (2026-06-10): only the System face's controls consult the System row
+    // model; `focus_for_action` never touches it for Items/page-turn actions.
+    // Building it (which formats every setting value to a string + clones the radio
+    // station list) on the Items/Map/Quest pages was wasted work every frame. Build
+    // it only when the System face is active; an empty model is fine elsewhere
+    // because no System action is ever matched against it there.
+    let model = if active_page == MenuPage::System {
+        SystemMenuModel::build(
+            &settings,
+            &snapshot.radio_snapshot(),
+            &snapshot.dev_snapshot(),
+        )
+    } else {
+        SystemMenuModel::default()
+    };
     for (control, mut vis) in &mut controls {
         let Some(action) = control.action else {
             continue;
@@ -2174,7 +2163,7 @@ fn republish_kaleidoscope_pages(
     scroll: Res<KaleidoscopeScroll>,
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut was_open: Local<bool>,
-    mut last: Local<Option<(usize, Option<MenuPage>, Option<SystemMenuEntryId>)>>,
+    mut last: Local<Option<RebuildKey>>,
 ) {
     let Some(owned) = owned else {
         return;
@@ -2182,6 +2171,12 @@ fn republish_kaleidoscope_pages(
     let open = ui_state.map(|s| s.visible).unwrap_or(false);
     let just_opened = open && !*was_open;
     *was_open = open;
+
+    // Snapshot the System face's CONTENT once (radio station list + active station,
+    // dev-toggle flags). Used both for the dirty check and for the rebuild, so the
+    // per-frame `SystemMenuModel::build` is not duplicated.
+    let radio = snapshot.radio_snapshot();
+    let dev = snapshot.dev_snapshot();
 
     // Deferred Bug 2 fix: the page key keys off the System scroll-window START, NOT
     // the raw `cursor.focus`. A cursor-only move (mouse OR keyboard) no longer
@@ -2192,11 +2187,7 @@ fn republish_kaleidoscope_pages(
     // scroll window changes the rendered rows, so only that needs a rebuild; the
     // drill-down state is also keyed so drilling in/out republishes the new rows.
     let window_start = if pages.active == Some(MenuPage::System) {
-        let model = SystemMenuModel::build(
-            &settings,
-            &snapshot.radio_snapshot(),
-            &snapshot.dev_snapshot(),
-        );
+        let model = SystemMenuModel::build(&settings, &radio, &dev);
         let rows = system_rows(&model, system_nav.open_entry);
         // The EFFECTIVE window start: an explicit drag/wheel override wins (Features
         // C/D), otherwise it follows the cursor. Keying the rebuild off this means a
@@ -2206,23 +2197,34 @@ fn republish_kaleidoscope_pages(
     } else {
         0
     };
-    let key = (window_start, pages.active, system_nav.open_entry);
+    let key = RebuildKey {
+        window_start,
+        active: pages.active,
+        open_entry: system_nav.open_entry,
+        radio,
+        dev,
+    };
     // Republish on: catalog change, settings change (so a toggled setting's label
-    // updates immediately), radio/dev change (so an auditioned station or toggled
-    // dev flag updates), first publish, menu-open (textures that loaded after the
-    // initial build get picked up), page change, a System scroll-window shift, or a
-    // System drill in/out. The open case fixes icons rendering blank until the first
-    // rotate.
+    // updates immediately), first publish, menu-open (textures that loaded after
+    // the initial build get picked up), page change, a System scroll-window shift,
+    // a System drill in/out, or a change to the rendered System CONTENT (auditioned
+    // station / toggled dev flag).
+    //
+    // PERF (2026-06-10): the System content is compared by VALUE (via `key`), not by
+    // Bevy change-ticks. The old `snapshot.is_changed()` ORed `AudioLibrary`'s
+    // change tick, which the music director bumps EVERY FRAME while music plays (it
+    // rewrites per-layer crossfade gains) — so the whole cube despawned + respawned
+    // every frame with the menu open, the dominant Android FPS cliff. A gain update
+    // does not change the station list / active station, so the value comparison
+    // ignores it.
     let dirty = owned.is_changed()
         || settings.is_changed()
-        || snapshot.is_changed()
         || pages.pages.is_empty()
         || just_opened
-        || *last != Some(key);
+        || last.as_ref() != Some(&key);
     if !dirty {
         return;
     }
-    *last = Some(key);
 
     let active = pages.active.unwrap_or(MenuPage::Items);
     pages.pages = build_inventory_pages(
@@ -2230,12 +2232,27 @@ fn republish_kaleidoscope_pages(
         owned.equipped(),
         cursor.focus,
         &settings,
-        &snapshot.radio_snapshot(),
-        &snapshot.dev_snapshot(),
+        &key.radio,
+        &key.dev,
         window_start,
         system_nav.open_entry,
     );
     pages.active = Some(active);
+    *last = Some(key);
+}
+
+/// The value-equality key that gates a cube republish. Two frames with an equal
+/// key render identical pages, so the rebuild is skipped. Compared by VALUE (not
+/// Bevy change-ticks) so a per-frame resource mutation that does not alter the
+/// rendered content (e.g. the music director's per-frame audio-gain updates) never
+/// forces a rebuild — see `republish_kaleidoscope_pages`.
+#[derive(PartialEq)]
+struct RebuildKey {
+    window_start: usize,
+    active: Option<MenuPage>,
+    open_entry: Option<SystemMenuEntryId>,
+    radio: RadioSnapshot,
+    dev: DevSnapshot,
 }
 
 /// The live System row count for the current drill-down state (0 outside the System

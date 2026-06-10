@@ -27,6 +27,15 @@ codegen-units = 1
 panic = "abort"
 strip = "symbols"
 
+
+[profile.android-profile]
+inherits = "release"
+# Optimized like release, but keep enough DWARF in the native library for
+# host simpleperf / addr2line to recover Rust function names in Android profiles.
+debug = 1
+strip = "none"
+split-debuginfo = "off"
+
 [profile.dev]
 # Optional, but often good for Bevy/game dev:
 # optimize your own workspace crates a little without going full release.

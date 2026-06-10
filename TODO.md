@@ -37,7 +37,7 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [ ] Cube arrow key navigation is still wrong. 
 
-- [ ] Portal floor-bounce STILL slowly bleeds momentum over MANY cycles and can eventually land on the ground (much rarer after the 2026-06-09 carve-lag + swept-carve + velocity-gated-rescue fixes; takes many cycles to trigger). Likely the residual one-frame sampling/grounding at the first contact of each bounce. Investigate a fully swept transit (crossing detected along the pre→post-collision segment, not just at sampled positions) or decoupling sim physics from render dt.
+- [x] ~~Portal floor-bounce STILL slowly bleeds momentum over MANY cycles~~ FIXED 2026-06-10 (`6d526f6c`): root cause was the carve sweep reading a one-frame-stale `SimDt` (+ pre-gravity velocity), so a frame hitch at re-entry left the floor solid and grounded the body. Replaced with a dt-independent approach-box carve; pinned by `floor_portal_bounce_conserves_momentum_per_transit_under_variable_dt`.
 
 ## Jon's Polish List
 

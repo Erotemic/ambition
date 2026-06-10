@@ -28,8 +28,8 @@ use crate::brain::{
     action_set::ActionRequest, boss_pattern::tick_boss_pattern, ActorActionMessage, ActorControl,
     BossAttackState, BossPatternContext, Brain, StateMachineCfg,
 };
-use crate::content::features::bosses::BossSpriteMetrics;
 use crate::engine_core::AabbExt;
+use crate::features::bosses::BossSpriteMetrics;
 use crate::features::{
     boss_attack_damage, boss_special_for_profile, bounding_aabb, BossVolumeContext,
 };
@@ -747,7 +747,7 @@ mod tests {
 
     #[test]
     fn gnu_ton_metrics_come_from_per_animation_hurtboxes() {
-        use crate::content::features::bosses::BossBehaviorProfile;
+        use crate::features::bosses::BossBehaviorProfile;
         use crate::presentation::character_sprites::registry::SheetRegistry;
 
         let registry = SheetRegistry::from_baked();

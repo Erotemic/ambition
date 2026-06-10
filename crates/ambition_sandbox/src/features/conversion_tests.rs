@@ -11,7 +11,7 @@ mod conversion_tests {
         patrol_radius: f32,
     ) -> (
         ae::World,
-        crate::content::features::ecs::npc_clusters::NpcClusterScratch,
+        crate::features::ecs::npc_clusters::NpcClusterScratch,
         ae::PlayerClusterScratch,
     ) {
         let world = ae::World::new(
@@ -36,7 +36,7 @@ mod conversion_tests {
                 patrol_path_id: None,
             },
         );
-        let npc = crate::content::features::ecs::npc_clusters::NpcClusterScratch::new_with_paths(
+        let npc = crate::features::ecs::npc_clusters::NpcClusterScratch::new_with_paths(
             id.clone(),
             id.clone(),
             aabb,
@@ -54,7 +54,7 @@ mod conversion_tests {
     /// for the conversion tests so each scenario doesn't repeat the
     /// `let mut brain = npc.build_brain();` setup boilerplate.
     fn brain_for(
-        npc: &mut crate::content::features::ecs::npc_clusters::NpcClusterScratch,
+        npc: &mut crate::features::ecs::npc_clusters::NpcClusterScratch,
     ) -> crate::brain::Brain {
         npc.as_mut().build_brain()
     }
@@ -462,7 +462,7 @@ mod conversion_tests {
     // body AABB, dismount morphs the archetype) deleted with the
     // mount/rider split. The composite is now two linked entities;
     // coverage lives in
-    // `crate::content::features::ecs::mount::tests`.
+    // `crate::features::ecs::mount::tests`.
 
     /// Aerial enemies (flying shark + rider) used to write `self.pos`
     /// directly from a steering target, which let

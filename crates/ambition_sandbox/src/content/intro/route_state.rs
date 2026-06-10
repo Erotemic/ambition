@@ -345,8 +345,8 @@ mod tests {
     /// `map_private_marks_unlocked` to save via the bus.
     #[test]
     fn emit_chains_promotes_bob_survey_to_private_marks() {
-        use crate::content::features::apply_flag_effects;
         use crate::content::quest::QuestRegistry;
+        use crate::features::apply_flag_effects;
         use crate::features::SetFlagRequested;
         use crate::persistence::save::SandboxSave;
         use bevy::app::{App, Update};
@@ -388,10 +388,10 @@ mod tests {
     /// steps.
     #[test]
     fn cartography_quest_advances_through_alice_bob_p5() {
-        use crate::content::features::{apply_flag_effects, apply_quest_effects};
         use crate::content::quest::{
             apply_quest_advance_events, default_quest_specs, QuestRegistry,
         };
+        use crate::features::{apply_flag_effects, apply_quest_effects};
         use crate::features::{QuestAdvanceRequested, SetFlagRequested};
         use crate::persistence::save::SandboxSave;
         use bevy::app::{App, Update};
@@ -486,8 +486,8 @@ mod tests {
     /// flag should see the FlagSet event through apply_flag_effects.
     #[test]
     fn emit_chains_promotes_p5_to_route_memory() {
-        use crate::content::features::apply_flag_effects;
         use crate::content::quest::QuestRegistry;
+        use crate::features::apply_flag_effects;
         use crate::features::SetFlagRequested;
         use crate::persistence::save::SandboxSave;
         use bevy::app::{App, Update};

@@ -45,8 +45,8 @@ use std::path::PathBuf;
 use bevy::prelude::Resource;
 
 use ambition_asset_manager::{
-    AmbitionAssetCatalog, AssetId, AssetProfile, AssetResolutionError, AssetSourceProfile,
-    ResolvedAsset,
+    AmbitionAssetCatalog, AssetId, AssetManifest, AssetProfile, AssetResolutionError,
+    AssetSourceProfile, ResolvedAsset,
 };
 
 // The `tests` module reaches for several `ambition_asset_manager` types
@@ -65,8 +65,8 @@ pub mod ids;
 
 use builders::{
     extend_with_boss_entries, extend_with_character_entries, extend_with_data_entries,
-    extend_with_font_entries, extend_with_intro_sprite_entries, extend_with_music_entries,
-    extend_with_sfx_bank_entry, extend_with_world_entries,
+    extend_with_font_entries, extend_with_music_entries, extend_with_sfx_bank_entry,
+    extend_with_world_entries,
 };
 pub use embedded::AmbitionAssetSourcePlugin;
 pub(crate) use embedded::{
@@ -302,6 +302,17 @@ fn desktop_candidate_roots(rel_path: &str) -> Vec<std::path::PathBuf> {
 /// is loaded via `include_str!`, so the catalog doesn't depend on
 /// disk-resident files for bootstrap.
 pub fn build_sandbox_catalog(config: &GameAssetConfig, audio: &AudioSpec) -> SandboxAssetCatalog {
+    build_sandbox_catalog_with(config, audio, |_| {})
+}
+
+/// [`build_sandbox_catalog`] with a content-extension hook: the app
+/// assembly passes the content layer's extra manifest entries (e.g.
+/// the intro sprite rows) so this machinery module names no content.
+pub fn build_sandbox_catalog_with(
+    config: &GameAssetConfig,
+    audio: &AudioSpec,
+    extend: impl FnOnce(&mut AssetManifest),
+) -> SandboxAssetCatalog {
     let mut manifest = sandbox_image_manifest(&config.sprite_folder);
     extend_with_world_entries(&mut manifest);
     extend_with_data_entries(&mut manifest);
@@ -310,7 +321,7 @@ pub fn build_sandbox_catalog(config: &GameAssetConfig, audio: &AudioSpec) -> San
     extend_with_character_entries(&mut manifest, &config.sprite_folder);
     extend_with_boss_entries(&mut manifest, &config.sprite_folder);
     extend_with_music_entries(&mut manifest, audio);
-    extend_with_intro_sprite_entries(&mut manifest, &config.sprite_folder);
+    extend(&mut manifest);
     SandboxAssetCatalog::new(AmbitionAssetCatalog::new(manifest), config.asset_profile)
 }
 

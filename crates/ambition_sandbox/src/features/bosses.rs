@@ -274,7 +274,7 @@ mod boss_vec2_required {
 static BOSS_PROFILE_REGISTRY: std::sync::LazyLock<
     std::collections::HashMap<String, BossBehaviorProfile>,
 > = std::sync::LazyLock::new(|| {
-    const BOSS_PROFILES_RON: &str = include_str!("../../../assets/data/boss_profiles.ron");
+    const BOSS_PROFILES_RON: &str = include_str!("../../assets/data/boss_profiles.ron");
     ron::from_str(BOSS_PROFILES_RON).unwrap_or_else(|err| {
         panic!(
             "assets/data/boss_profiles.ron failed to deserialize as HashMap<String, \

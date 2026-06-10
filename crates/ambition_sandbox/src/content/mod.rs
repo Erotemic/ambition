@@ -17,7 +17,12 @@ pub mod banter;
 pub mod bosses;
 pub mod content_validation;
 pub mod dialogue;
-pub mod features;
+// `features` (the feature-ECS actor/boss world) was promoted to
+// `crate::features` (lib root): machinery presentation/dev still read
+// its named bits (doc 20 B3/B4), so it stays in the sandbox lib when
+// the rest of this content module becomes the `ambition_content`
+// crate. Re-exported here so `content::features` paths keep working.
+pub use crate::features;
 pub mod intro;
 pub mod items;
 pub mod plugin;

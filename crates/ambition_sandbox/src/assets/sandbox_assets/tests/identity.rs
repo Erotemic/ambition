@@ -151,7 +151,18 @@ fn intro_npc_and_prop_sprite_ids_resolve_through_the_catalog() {
     let mut config = GameAssetConfig::default();
     config.asset_profile = AssetProfile::DesktopDevLoose;
     let spec = SandboxDataSpec::load_embedded();
-    let catalog = build_sandbox_catalog(&config, &spec.audio);
+    // The intro entries are a CONTENT extension (the app assembly wires
+    // them through `build_sandbox_catalog_with`); mirror that wiring here.
+    let catalog = crate::assets::sandbox_assets::build_sandbox_catalog_with(
+        &config,
+        &spec.audio,
+        |manifest| {
+            crate::ambition_content::intro::sprites::extend_with_intro_sprite_entries(
+                manifest,
+                &config.sprite_folder,
+            );
+        },
+    );
 
     for (name, filename, _spec) in intro_npc_sprite_rows() {
         let id = intro_npc_asset_id(name);

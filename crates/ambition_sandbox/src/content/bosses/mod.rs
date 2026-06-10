@@ -40,6 +40,15 @@ impl Plugin for AmbitionBossContentPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(crate::boss_encounter::BossEncounterRegistry::default());
 
+        // Cut-rope boss steering: tracks the hanging anvil during the
+        // encounter. Runs in the machinery-defined `BossSteerSlot`
+        // (between `tick_boss_brains_system` and `update_ecs_bosses`
+        // inside the WorldPrep boss chain).
+        app.add_systems(
+            Update,
+            cut_rope::steer_cut_rope_boss_under_anvil.in_set(crate::app::BossSteerSlot),
+        );
+
         // Cut-rope Yarn vocabulary: installed on the DialogueRunner via the
         // dialog runtime's content-bindings seam, plus the per-frame extras
         // feed (after the generic mirror refresh so the snapshot Yarn reads

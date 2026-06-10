@@ -977,7 +977,7 @@ mod sprite_metadata_derivation_tests {
     #[test]
     fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
         use crate::brain::{BossAttackProfile, BossAttackState};
-        use crate::content::features::bosses::{BossBehaviorProfile, BossSpriteMetrics};
+        use crate::features::bosses::{BossBehaviorProfile, BossSpriteMetrics};
         use crate::presentation::character_sprites::registry::{
             AnimationBox, AnimationMetrics, PixelRect,
         };
@@ -1064,7 +1064,7 @@ mod sprite_metadata_derivation_tests {
     #[test]
     fn damageable_volumes_samples_per_frame_hurtbox_from_animation_elapsed() {
         use crate::brain::{BossAttackProfile, BossAttackState};
-        use crate::content::features::bosses::{BossBehaviorProfile, BossSpriteMetrics};
+        use crate::features::bosses::{BossBehaviorProfile, BossSpriteMetrics};
         use crate::presentation::character_sprites::registry::{
             AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
         };
@@ -1149,7 +1149,7 @@ mod sprite_metadata_derivation_tests {
     #[test]
     fn animation_frame_sample_overrides_elapsed_frame_for_authored_boxes() {
         use crate::brain::{BossAttackProfile, BossAttackState};
-        use crate::content::features::bosses::{BossBehaviorProfile, BossSpriteMetrics};
+        use crate::features::bosses::{BossBehaviorProfile, BossSpriteMetrics};
         use crate::presentation::character_sprites::registry::{
             AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
         };
@@ -1236,7 +1236,7 @@ mod sprite_metadata_derivation_tests {
         // rendered breathing pose bobbed. An idle `BossAnimationFrameSample`
         // (`profile: None`) now feeds the live frame index through.
         use crate::brain::BossAttackState;
-        use crate::content::features::bosses::{BossBehaviorProfile, BossSpriteMetrics};
+        use crate::features::bosses::{BossBehaviorProfile, BossSpriteMetrics};
         use crate::presentation::character_sprites::registry::{
             AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
         };
@@ -1329,7 +1329,7 @@ mod sprite_metadata_derivation_tests {
     #[test]
     fn gnu_head_descent_accepts_visual_row_alias_for_runtime_boxes() {
         use crate::brain::{BossAttackProfile, BossAttackState};
-        use crate::content::features::bosses::{BossBehaviorProfile, BossSpriteMetrics};
+        use crate::features::bosses::{BossBehaviorProfile, BossSpriteMetrics};
         use crate::presentation::character_sprites::registry::{
             AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
         };
@@ -1438,8 +1438,8 @@ mod sprite_metadata_derivation_tests {
     #[test]
     fn damageable_volumes_scales_to_sprite_render_size() {
         use crate::brain::BossAttackState;
-        use crate::content::features::bosses::{BossBehaviorProfile, BossSpriteMetrics};
         use crate::engine_core::AabbExt;
+        use crate::features::bosses::{BossBehaviorProfile, BossSpriteMetrics};
         use crate::presentation::character_sprites::registry::PixelRect;
         use std::collections::HashMap;
 

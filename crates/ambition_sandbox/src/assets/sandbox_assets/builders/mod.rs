@@ -30,7 +30,6 @@ mod world;
 pub(super) use audio::{extend_with_music_entries, extend_with_sfx_bank_entry};
 pub(super) use visuals::{
     extend_with_boss_entries, extend_with_character_entries, extend_with_font_entries,
-    extend_with_intro_sprite_entries,
 };
 pub(super) use world::{extend_with_data_entries, extend_with_world_entries};
 

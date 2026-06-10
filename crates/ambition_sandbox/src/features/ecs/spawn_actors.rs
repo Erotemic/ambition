@@ -56,7 +56,7 @@ pub(super) fn spawn_boss(
     // GNU-ton dodges its own apple rain by side-stepping during the
     // strike window. Other bosses don't have a self-dodge.
     let (apple_rain_dodge_amp, apple_rain_dodge_freq) =
-        if encounter_id == crate::content::features::bosses::GNU_TON_ENCOUNTER_ID {
+        if encounter_id == crate::features::bosses::GNU_TON_ENCOUNTER_ID {
             (70.0, 1.6)
         } else {
             (0.0, 0.0)

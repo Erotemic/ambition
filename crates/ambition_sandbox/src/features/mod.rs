@@ -227,10 +227,13 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // the integration system consumes its `desired_vel`.
                 // `sync_boss_encounter_phase` runs before the brain
                 // tick so this frame's phase is the one
-                // `BossPatternContext` carries.
+                // `BossPatternContext` carries. Content-side per-boss
+                // steering (the cut-rope boss tracking its anvil) runs
+                // in `BossSteerSlot`, configured below to sit between
+                // the brain tick and the integration — exactly where
+                // the old inline registration lived.
                 sync_boss_encounter_phase,
                 tick_boss_brains_system,
-                crate::ambition_content::bosses::steer_cut_rope_boss_under_anvil,
                 update_ecs_bosses,
                 sync_boss_actor_components,
                 sync_actor_poses_from_feature_aabbs,
@@ -238,6 +241,15 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 .chain()
                 .in_set(crate::app::SandboxSet::WorldPrep),
         );
+        app.configure_sets(
+            Update,
+            crate::app::BossSteerSlot
+                .after(tick_boss_brains_system)
+                .before(update_ecs_bosses)
+                .in_set(crate::app::SandboxSet::WorldPrep),
+        );
+        // The cut-rope steer system itself is registered by the content
+        // plugin (`crate::content::bosses`), in `BossSteerSlot`.
     }
 }
 

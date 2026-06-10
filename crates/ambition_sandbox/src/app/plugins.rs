@@ -661,7 +661,11 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
             Startup,
             (
                 crate::dev::profiling::phase_mark("before_setup_presentation"),
-                setup_presentation_system,
+                // `PresentationSetupSet` is the machinery-facing label for
+                // this slot: audio init (and any future machinery startup
+                // work) orders `.after(the set)` instead of naming this
+                // app system.
+                setup_presentation_system.in_set(crate::app::PresentationSetupSet),
                 crate::dev::profiling::phase_mark("after_setup_presentation"),
                 crate::menu::map::populate_map_rooms,
                 crate::menu::map::spawn_map_menu,

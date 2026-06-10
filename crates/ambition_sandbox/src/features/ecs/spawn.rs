@@ -5,7 +5,7 @@
 //! This keeps the active ECS path readable without changing the entity shapes
 //! or scheduling surfaces that callers use.
 
-use crate::content::features::util::room_spec_paths;
+use crate::features::util::room_spec_paths;
 use bevy::prelude::{Commands, Entity, Query};
 
 pub(crate) use super::spawn_actors::spawn_runtime_minion;
@@ -95,17 +95,17 @@ mod tests {
     use crate::brain::{
         ActionSet, ActorControl, Brain, MeleeActionSpec, MoveStyleSpec, StateMachineCfg,
     };
-    use crate::content::features::{
+    use crate::engine_core as ae;
+    use crate::features::{
         ActorAggression, ActorCombatState, ActorCooldowns, ActorDisposition, ActorHealth,
         ActorIdentity, ActorIntent, AggressionMode, CombatKit, EnemyArchetype, EnemyConfig,
         MountSlot, MountedSize, RidingOn,
     };
-    use crate::engine_core as ae;
     use bevy::prelude::{App, Commands, Update, With};
 
     fn make_enemy(archetype: EnemyArchetype) -> EnemyConfig {
         let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0));
-        let mut enemy = crate::content::features::ecs::enemy_clusters::EnemyClusterScratch::new(
+        let mut enemy = crate::features::ecs::enemy_clusters::EnemyClusterScratch::new(
             "test".to_string(),
             "test".to_string(),
             aabb,

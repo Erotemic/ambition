@@ -106,7 +106,7 @@ pub(crate) mod world;
 // world::{physics, platforms}, and boss_encounter::sprites) were
 // removed in the 2026-05-19 shim-cleanup pass; internal call sites
 // now use the canonical `crate::<theme>::<module>::…` paths.
-pub use content::features;
+pub mod features;
 pub use dev::trace;
 pub use runtime::game_mode;
 pub use world::{ldtk_world, rooms};

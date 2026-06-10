@@ -192,8 +192,8 @@ pub fn apply_actor_stimuli(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::content::features::NPC_HOSTILE_STRIKE_THRESHOLD;
     use crate::engine_core::{self as ae, AabbExt};
+    use crate::features::NPC_HOSTILE_STRIKE_THRESHOLD;
     use crate::features::{FeatureAabb, FeatureId, FeatureSimEntity};
     use bevy::prelude::{App, Update};
 
@@ -227,7 +227,7 @@ mod tests {
                 FeatureAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
                 ActorRuntime::Npc,
                 ActorAggression::retaliates_when_hit(
-                    crate::content::features::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
+                    crate::features::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
                 ),
                 CombatKit::default(),
                 bundle,

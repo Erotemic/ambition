@@ -232,3 +232,34 @@ pub fn intro_prop_asset_id(prop_kind: &str) -> AssetId {
         prop_kind.replace(['-', ' '], "_"),
     ))
 }
+
+use ambition_asset_manager::{
+    AssetEntry, AssetKind, AssetManifest, MissingAssetPolicy, PreloadGroup,
+};
+
+/// via `catalog.try_path_for_load(...)` like every other loader.
+///
+/// IDs are `sprite.character.intro_<name_snake>` for NPCs and
+/// `sprite.character.intro_prop_<kind_snake>` for props. Both use
+/// `SilentPlaceholder` because missing intro art falls back to colored
+/// rectangles per the existing contract.
+pub fn extend_with_intro_sprite_entries(manifest: &mut AssetManifest, sprite_folder: &str) {
+    for (name, filename, _spec) in intro_npc_sprite_rows() {
+        let id = intro_npc_asset_id(name);
+        let logical_path = format!("{sprite_folder}/{filename}");
+        manifest.insert(
+            AssetEntry::new(id, AssetKind::Image, logical_path)
+                .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
+                .with_preload_group(PreloadGroup::SandboxCore),
+        );
+    }
+    for (kind, filename, _spec) in intro_prop_sprite_rows() {
+        let id = intro_prop_asset_id(kind);
+        let logical_path = format!("{sprite_folder}/{filename}");
+        manifest.insert(
+            AssetEntry::new(id, AssetKind::Image, logical_path)
+                .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
+                .with_preload_group(PreloadGroup::SandboxCore),
+        );
+    }
+}

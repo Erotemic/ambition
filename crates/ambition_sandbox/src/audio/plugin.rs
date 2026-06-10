@@ -76,7 +76,7 @@ impl Plugin for SandboxAudioPlugin {
                     crate::dev::profiling::phase_mark("after_audio_init"),
                 )
                     .chain()
-                    .after(crate::app::setup_presentation_system),
+                    .after(crate::app::PresentationSetupSet),
             )
             // Deferred music start: polls each Update for (a) user
             // gesture observed (AudioUnlockState) and (b) the default

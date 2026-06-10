@@ -56,8 +56,16 @@ pub fn init_sandbox_resources(app: &mut App) {
         .get_resource::<crate::assets::game_assets::GameAssetConfig>()
         .cloned()
         .unwrap_or_default();
-    let sandbox_catalog =
-        crate::assets::sandbox_assets::build_sandbox_catalog(&asset_config, &sandbox_data.audio);
+    let sandbox_catalog = crate::assets::sandbox_assets::build_sandbox_catalog_with(
+        &asset_config,
+        &sandbox_data.audio,
+        |manifest| {
+            crate::content::intro::sprites::extend_with_intro_sprite_entries(
+                manifest,
+                &asset_config.sprite_folder,
+            );
+        },
+    );
 
     let ldtk_project = match ldtk_world::LdtkProject::load_default(&sandbox_catalog) {
         Ok(project) => project,

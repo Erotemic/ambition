@@ -70,7 +70,7 @@ fn held_item_grants_ranged(archetype: EnemyArchetype) -> bool {
 ///
 /// Reads `brain_template()` off the consolidated `EnemyArchetypeSpec` so adding
 /// a new archetype is a single row, not a parallel match.
-pub(in crate::content::features) fn enemy_default_brain(enemy: &EnemyConfig) -> Brain {
+pub(in crate::features) fn enemy_default_brain(enemy: &EnemyConfig) -> Brain {
     let archetype = enemy.archetype;
     match archetype.brain_template() {
         EnemyBrainTemplate::StandStill => Brain::StateMachine(StateMachineCfg::StandStill),

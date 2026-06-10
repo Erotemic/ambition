@@ -151,7 +151,7 @@ pub use view_index::{rebuild_feature_view_index, FeatureViewIndex};
 // `FeatureSimEntity` is a generic entity-marker queried by the reusable
 // mechanics, so its definition lives DOWN in
 // `ambition_platformer_runtime::markers` (ADR 0019). Re-exported here so all
-// existing `crate::content::features::ecs::FeatureSimEntity` call sites compile
+// existing `crate::features::ecs::FeatureSimEntity` call sites compile
 // unchanged.
 pub use ambition_platformer_runtime::markers::FeatureSimEntity;
 

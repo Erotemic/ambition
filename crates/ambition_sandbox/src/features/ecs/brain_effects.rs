@@ -31,14 +31,14 @@ use crate::brain::{
     action_set::ActionRequest, ActorActionMessage, BossAttackProfile, BossAttackState,
     SpecialActionSpec,
 };
-use crate::content::features::components::ActorFaction;
-use crate::content::features::ecs::actors::ActorRuntime;
-use crate::content::features::ecs::boss_clusters::BossClusterRef;
-use crate::content::features::ecs::hitbox::{Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime};
-use crate::content::features::ecs::FeatureSimEntity;
-#[cfg(test)]
-use crate::content::features::enemies::EnemyArchetype;
 use crate::enemy_projectile::EnemyProjectileSpawn;
+use crate::features::components::ActorFaction;
+use crate::features::ecs::actors::ActorRuntime;
+use crate::features::ecs::boss_clusters::BossClusterRef;
+use crate::features::ecs::hitbox::{Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime};
+use crate::features::ecs::FeatureSimEntity;
+#[cfg(test)]
+use crate::features::enemies::EnemyArchetype;
 use crate::projectile::SpawnProjectile;
 use crate::time::feel::SandboxFeelTuning;
 use crate::WorldTime;
@@ -340,7 +340,7 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
                     half_extent: APPLE_RAIN_HALF_EXTENT,
                     owner_id: format!(
                         "{}:{}",
-                        crate::content::features::bosses::GNU_TON_APPLE_OWNER_PREFIX,
+                        crate::features::bosses::GNU_TON_APPLE_OWNER_PREFIX,
                         boss.config.id,
                     ),
                     gravity: APPLE_RAIN_GRAVITY,
@@ -356,7 +356,7 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
 /// the helper available to the unit tests below without leaking
 /// `SandboxFeelTuning` through the public API.
 #[cfg(test)]
-fn default_combat_tuning() -> crate::content::features::events::FeatureCombatTuning {
+fn default_combat_tuning() -> crate::features::events::FeatureCombatTuning {
     SandboxFeelTuning::default().feature_combat_tuning()
 }
 
@@ -383,7 +383,7 @@ fn default_combat_tuning() -> crate::content::features::events::FeatureCombatTun
 // the variant, advance/reset state from the message stream + the
 // boss's live `BossAttackState`. The brain emits the Special
 // messages directly from `tick_boss_brains_system` via
-// `boss_special_for_profile` (see `crate::content::features::bosses`).
+// `boss_special_for_profile` (see `crate::features::bosses`).
 
 /// Per-boss state for OverfitVolley. Sampled positions are
 /// memorized during the telegraph window; the strike edge fires one
@@ -456,7 +456,7 @@ pub struct GradientCascadeState {
 /// the consumer doesn't need to round-trip through the spec on every
 /// telegraph tick (the spec only arrives via the strike-tick
 /// message; sampling happens during telegraph too). Tuning lives in
-/// `crate::content::features::bosses` — these are local mirrors.
+/// `crate::features::bosses` — these are local mirrors.
 const OVERFIT_VOLLEY_BOLT_HALF_EXTENT: ae::Vec2 = ae::Vec2::new(8.0, 8.0);
 const OVERFIT_VOLLEY_BOLT_LIFETIME: f32 = 2.4;
 const OVERFIT_VOLLEY_OWNER_PREFIX: &str = "gradient_sentinel_overfit";
@@ -498,9 +498,7 @@ pub fn spawn_overfit_volley_from_special_messages(
         With<FeatureSimEntity>,
     >,
 ) {
-    use crate::content::features::bosses::{
-        OVERFIT_VOLLEY_SAMPLE_COUNT, OVERFIT_VOLLEY_SAMPLE_INTERVAL_S,
-    };
+    use crate::features::bosses::{OVERFIT_VOLLEY_SAMPLE_COUNT, OVERFIT_VOLLEY_SAMPLE_INTERVAL_S};
     let dt = world_time.sim_dt();
 
     let mut active_strike_params: std::collections::HashMap<Entity, (f32, i32)> =
@@ -878,7 +876,7 @@ pub fn spawn_minima_trap_from_special_messages(
                 pit_center.x + toward_boss_x * minion_offset_px,
                 pit_center.y,
             );
-            crate::content::features::ecs::spawn::spawn_runtime_minion(
+            crate::features::ecs::spawn::spawn_runtime_minion(
                 &mut commands,
                 minion_id,
                 "Puppy Slug",
@@ -1116,7 +1114,7 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
                 "gradient_sentinel_cascade:{}:{}:{}",
                 boss.config.id, state.spawn_index, i
             );
-            crate::content::features::ecs::spawn::spawn_runtime_minion(
+            crate::features::ecs::spawn::spawn_runtime_minion(
                 &mut commands,
                 minion_id,
                 "Slop Lurker",
@@ -1137,9 +1135,9 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
 mod tests {
     use super::*;
     use crate::brain::{ActionSet, RangedActionSpec};
-    use crate::content::features::ecs::enemy_clusters::EnemyClusterScratch;
     use crate::enemy_projectile::test_support::enemy_projectile_bodies;
     use crate::enemy_projectile::EnemyProjectileState;
+    use crate::features::ecs::enemy_clusters::EnemyClusterScratch;
     use crate::projectile::ProjectileSeqCounter;
 
     #[test]
@@ -1527,12 +1525,10 @@ mod tests {
     // for the same authoritative path the live boss uses.
     // -----------------------------------------------------------
 
-    use crate::content::features::bosses::{BossBehaviorProfile, GNU_TON_APPLE_OWNER_PREFIX};
-    use crate::content::features::ecs::boss_clusters::BodyKinematics;
-    use crate::content::features::ecs::boss_clusters::{
-        BossClusterScratch, BossConfig, BossStatus,
-    };
-    use crate::content::features::ecs::FeatureSimEntity;
+    use crate::features::bosses::{BossBehaviorProfile, GNU_TON_APPLE_OWNER_PREFIX};
+    use crate::features::ecs::boss_clusters::BodyKinematics;
+    use crate::features::ecs::boss_clusters::{BossClusterScratch, BossConfig, BossStatus};
+    use crate::features::ecs::FeatureSimEntity;
     use crate::GameWorld;
 
     fn gnu_apple_rain_spec() -> SpecialActionSpec {
@@ -2121,7 +2117,7 @@ mod tests {
     /// render.
     #[test]
     fn minima_trap_spawned_minion_carries_encounter_mob_marker() {
-        use crate::content::features::components::EncounterMob;
+        use crate::features::components::EncounterMob;
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
         app.add_message::<ActorActionMessage>();
@@ -2175,7 +2171,7 @@ mod tests {
     /// lurker slop enemies."
     #[test]
     fn gradient_cascade_spawned_minions_carry_encounter_mob_marker() {
-        use crate::content::features::components::EncounterMob;
+        use crate::features::components::EncounterMob;
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
         app.add_message::<ActorActionMessage>();

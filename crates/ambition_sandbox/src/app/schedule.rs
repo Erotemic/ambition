@@ -24,6 +24,21 @@ use bevy::prelude::*;
 /// …) are top-level sets that run after `CoreSimulation` in their own
 /// chain. `ResetProcessing` and `Trace` are tail consumers configured
 /// `.after(CoreSimulation)` without joining the main chain.
+/// Startup-phase slot for the app's presentation setup (camera, root
+/// UI scaffolding). Machinery that must initialize after presentation
+/// setup (e.g. audio channel/cue loading) orders `.after(this set)`
+/// instead of naming the app's setup system.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub struct PresentationSetupSet;
+
+/// Slot inside the `WorldPrep` boss tick chain where the content layer
+/// inserts per-boss steering systems (e.g. the cut-rope boss tracking
+/// its anvil). Configured `.after(tick_boss_brains_system)` and
+/// `.before(update_ecs_bosses)` so a content system in this set runs at
+/// exactly the point the old inline registration occupied.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub struct BossSteerSlot;
+
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum SandboxSet {
     /// Top-level set that contains the six sub-sets below. Kept as a

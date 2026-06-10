@@ -379,7 +379,7 @@ fn archetype_data_key(arch: EnemyArchetype) -> &'static str {
 static ENEMY_ARCHETYPE_REGISTRY: std::sync::LazyLock<
     std::collections::HashMap<String, EnemyArchetypeSpec>,
 > = std::sync::LazyLock::new(|| {
-    const ENEMY_ARCHETYPES_RON: &str = include_str!("../../../assets/data/enemy_archetypes.ron");
+    const ENEMY_ARCHETYPES_RON: &str = include_str!("../../assets/data/enemy_archetypes.ron");
     ron::from_str(ENEMY_ARCHETYPES_RON).unwrap_or_else(|err| {
         panic!(
             "assets/data/enemy_archetypes.ron failed to deserialize as HashMap<String, \
@@ -1131,7 +1131,7 @@ mod enemy_archetype_data_tests {
     /// stop distance.
     #[test]
     fn pirate_heavy_stops_within_her_melee_reach() {
-        let mut enemy = crate::content::features::ecs::enemy_clusters::EnemyClusterScratch::new(
+        let mut enemy = crate::features::ecs::enemy_clusters::EnemyClusterScratch::new(
             "pirate_heavy_reach_probe",
             "Broadside Bess",
             ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(36.0, 55.0)),

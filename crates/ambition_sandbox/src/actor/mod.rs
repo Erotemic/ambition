@@ -28,7 +28,7 @@ pub enum ActorKind {
 /// Damage/team relationship used by hitboxes and hurtboxes — the `can_damage`
 /// matrix that decides whether one side's hit may affect another.
 ///
-/// Deliberately distinct from [`crate::content::features::ActorFaction`], which
+/// Deliberately distinct from [`crate::features::ActorFaction`], which
 /// is a `#[derive(Component)]` actor-side tag (`is_player_side`/`is_hostile_side`,
 /// with `Npc`/`Boss` variants). This one is the *damage* relationship; that one
 /// is the *ECS actor* tag. They were both named `ActorFaction` and both in

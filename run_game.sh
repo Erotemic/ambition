@@ -201,7 +201,7 @@ if [[ "$validate_only" -eq 1 ]]; then
     exit 0
 fi
 
-cargo_args=(run -p ambition_sandbox --bin ambition_sandbox)
+cargo_args=(run -p ambition_app --bin ambition_sandbox)
 
 if [[ "$no_default_features" -eq 1 ]]; then
     cargo_args+=(--no-default-features)

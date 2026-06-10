@@ -21,6 +21,36 @@ use super::*;
 #[allow(unused_imports)]
 use ambition_sandbox::app::*;
 
+/// Resolve the on-disk asset root for the desktop app.
+///
+/// Bevy's `FileAssetReader` anchors relative asset paths at
+/// `BEVY_ASSET_ROOT` / the RUNNING binary's `CARGO_MANIFEST_DIR` — which
+/// has been `crates/ambition_app/` since the Stage 20 / A3 bisection,
+/// while the asset tree stays with the machinery lib at
+/// `crates/ambition_sandbox/assets` (the lib's `include_str!` paths and
+/// the regen scripts anchor there). Under `cargo run` that default broke
+/// every AssetServer load (sprites, music OGGs, `.yarn` dialogue, menu
+/// icons) while direct-filesystem readers (SFX bank, LDtk) kept working.
+///
+/// Resolution order:
+/// 1. `BEVY_ASSET_ROOT` set → return Bevy's default relative `"assets"`
+///    so the explicit override keeps full control.
+/// 2. The dev-checkout sandbox tree exists (cargo runs) → its absolute
+///    path (an absolute `file_path` replaces Bevy's base when joined).
+/// 3. Otherwise (shipped builds) → Bevy's default exe-relative `"assets"`.
+#[cfg(not(target_arch = "wasm32"))]
+pub(super) fn desktop_asset_root() -> String {
+    if std::env::var_os("BEVY_ASSET_ROOT").is_some() {
+        return "assets".to_string();
+    }
+    let dev_assets =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../ambition_sandbox/assets");
+    match dev_assets.canonicalize() {
+        Ok(path) if path.is_dir() => path.to_string_lossy().into_owned(),
+        _ => "assets".to_string(),
+    }
+}
+
 /// True when no display server is reachable for `bevy_winit` to attach to.
 /// Linux only — other platforms always return `false` and rely on Bevy's
 /// own diagnostics. The check is conservative: any of `DISPLAY`,
@@ -97,6 +127,29 @@ mod headless_arg_tests {
         );
     }
 
+    /// In a dev checkout the desktop asset root must resolve to the
+    /// machinery lib's asset tree (the bisection moved the binary's
+    /// crate away from it) and actually contain the sandbox data —
+    /// a wrong root reproduces the "game runs but nothing renders /
+    /// no music / no dialogue" failure.
+    #[test]
+    fn desktop_asset_root_resolves_to_the_sandbox_tree_in_dev() {
+        let root = std::path::PathBuf::from(super::desktop_asset_root());
+        assert!(
+            root.is_absolute(),
+            "dev checkout should resolve an absolute sandbox assets path, got {root:?}"
+        );
+        assert!(root.ends_with("crates/ambition_sandbox/assets") || root.ends_with("assets"));
+        assert!(
+            root.join("ambition/sandbox.ron").exists(),
+            "asset root {root:?} must contain ambition/sandbox.ron"
+        );
+        assert!(
+            root.join("dialogue").is_dir(),
+            "asset root {root:?} must contain the dialogue/ tree"
+        );
+    }
+
     #[test]
     fn invalid_value_returns_none() {
         assert_eq!(
@@ -139,21 +192,33 @@ pub fn run_visible() {
         }
     }
     let asset_config = GameAssetConfig::from_args();
+    let asset_root = desktop_asset_root();
+    eprintln!("ambition_sandbox: asset root = {asset_root}");
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins.set(WindowPlugin {
-        primary_window: Some(Window {
-            title: "Ambition - Tangent Space Sandbox (Bevy)".into(),
-            resolution: WindowResolution::new(WINDOW_W, WINDOW_H),
-            resizable: true,
-            resize_constraints: WindowResizeConstraints {
-                min_width: 640.0,
-                min_height: 360.0,
+    app.add_plugins(
+        DefaultPlugins
+            .set(bevy::asset::AssetPlugin {
+                // See `desktop_asset_root`: post-bisection the binary's
+                // crate has no assets/ tree; the canonical one lives with
+                // the machinery lib.
+                file_path: asset_root,
                 ..default()
-            },
-            ..default()
-        }),
-        ..default()
-    }));
+            })
+            .set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Ambition - Tangent Space Sandbox (Bevy)".into(),
+                    resolution: WindowResolution::new(WINDOW_W, WINDOW_H),
+                    resizable: true,
+                    resize_constraints: WindowResizeConstraints {
+                        min_width: 640.0,
+                        min_height: 360.0,
+                        ..default()
+                    },
+                    ..default()
+                }),
+                ..default()
+            }),
+    );
     // DefaultPlugins installs StatesPlugin, so initialize GameMode after it.
     app.init_state::<GameMode>();
     let active_profile = asset_config.asset_profile;

@@ -15,29 +15,9 @@ use crate::input::ControlFrame;
 // re-exported here so all existing `crate::player::PlayerEntity` /
 // `PrimaryPlayer` call sites compile unchanged.
 pub use ambition_platformer_runtime::markers::{PlayerEntity, PrimaryPlayer};
-
-/// Per-player slot identifier. Slot `0` is the local primary player;
-/// future co-op / split-screen / network players will use slots
-/// `1..=N`. Stored as a `u8` so it can fit comfortably in a HUD
-/// label, a save key, or a debug overlay glyph.
-///
-/// `PlayerSlot` is the canonical "which player?" handle for new
-/// player-bearing messages and resources. New player-domain message
-/// types (heal, damage, respawn, cosmetic, …) SHOULD carry either an
-/// `Entity` or a `PlayerSlot` so they don't silently assume the
-/// primary player.
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct PlayerSlot(pub u8);
-
-impl PlayerSlot {
-    /// Slot reserved for the local primary player in single-player
-    /// builds and for player 1 in future local-multiplayer modes.
-    pub const PRIMARY: PlayerSlot = PlayerSlot(0);
-
-    pub fn index(self) -> u8 {
-        self.0
-    }
-}
+// `PlayerSlot` moved to `crate::brain` (the `Brain::Player` variant embeds
+// it, making it actor-system vocabulary). Re-exported for old paths.
+pub use crate::brain::PlayerSlot;
 
 /// Marks a player whose input comes from this machine's input devices
 /// (keyboard / gamepad / touch). In single-player today the local

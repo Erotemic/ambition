@@ -17,8 +17,8 @@
 
 use crate::engine_core as ae;
 
+use super::PlayerSlot;
 use crate::input::ControlFrame;
-use crate::player::components::{PlayerInputFrame, PlayerSlot};
 
 use super::snapshot::BrainSnapshot;
 
@@ -49,24 +49,6 @@ pub fn tick_player_brain(
     }
     *out = crate::actor::control::ActorControlFrame::neutral();
     out.facing = snapshot.actor_facing;
-}
-
-/// Translate the player's per-tick input into the abstract frame.
-///
-/// Convenience wrapper that unwraps `PlayerInputFrame` and calls
-/// [`tick_player_brain_from_control`]. Used by tests that already
-/// have a `PlayerInputFrame` in scope and by sandbox wiring that
-/// hasn't migrated to the snapshot-aware `tick_player_brain` yet.
-#[allow(
-    dead_code,
-    reason = "test-only convenience + daytime wiring entry-point"
-)]
-pub fn tick_player_brain_from_input(
-    input: &PlayerInputFrame,
-    snapshot: &BrainSnapshot,
-    out: &mut crate::actor::control::ActorControlFrame,
-) {
-    tick_player_brain_from_control(&input.frame, snapshot, out);
 }
 
 /// Translate a raw [`ControlFrame`] into the abstract intent fields
@@ -157,22 +139,21 @@ pub fn tick_player_brain_from_control(
 mod tests {
     use super::*;
     use crate::input::ControlFrame;
-    use crate::player::components::PlayerInputFrame;
 
-    fn input_with<F: FnOnce(&mut ControlFrame)>(mut_fn: F) -> PlayerInputFrame {
+    fn input_with<F: FnOnce(&mut ControlFrame)>(mut_fn: F) -> ControlFrame {
         let mut c = ControlFrame::default();
         mut_fn(&mut c);
-        PlayerInputFrame { frame: c }
+        c
     }
 
     #[test]
     fn neutral_input_yields_neutral_frame() {
-        let input = PlayerInputFrame::default();
+        let input = ControlFrame::default();
         let mut s = BrainSnapshot::idle();
         s.actor_facing = 1.0;
         let mut out = crate::actor::control::ActorControlFrame::default();
         out.melee_pressed = true; // pre-poisoned
-        tick_player_brain_from_input(&input, &s, &mut out);
+        tick_player_brain_from_control(&input, &s, &mut out);
         assert!(!out.melee_pressed);
         assert_eq!(out.desired_vel, ae::Vec2::ZERO);
         // Facing falls back to snapshot when stick neutral.
@@ -211,7 +192,7 @@ mod tests {
         let mut s = BrainSnapshot::idle();
         s.actor_facing = 1.0;
         let mut out = crate::actor::control::ActorControlFrame::default();
-        tick_player_brain_from_input(&input, &s, &mut out);
+        tick_player_brain_from_control(&input, &s, &mut out);
         assert!(out.melee_pressed);
         // Up-tilt: attack_axis carries the input direction.
         assert_eq!(out.attack_axis, ae::Vec2::new(0.0, -1.0));
@@ -225,7 +206,7 @@ mod tests {
         });
         let s = BrainSnapshot::idle();
         let mut out = crate::actor::control::ActorControlFrame::default();
-        tick_player_brain_from_input(&input, &s, &mut out);
+        tick_player_brain_from_control(&input, &s, &mut out);
         assert_eq!(out.desired_vel, ae::Vec2::new(-1.0, 0.3));
         assert_eq!(out.facing, -1.0);
     }
@@ -239,7 +220,7 @@ mod tests {
         });
         let s = BrainSnapshot::idle();
         let mut out = crate::actor::control::ActorControlFrame::default();
-        tick_player_brain_from_input(&input, &s, &mut out);
+        tick_player_brain_from_control(&input, &s, &mut out);
         assert!(out.jump_pressed);
         assert!(out.jump_held);
         assert!(!out.jump_released);
@@ -255,7 +236,7 @@ mod tests {
         let s = BrainSnapshot::idle();
         let mut out = crate::actor::control::ActorControlFrame::default();
         out.body_contact_damage_enabled = true; // pre-poisoned
-        tick_player_brain_from_input(&input, &s, &mut out);
+        tick_player_brain_from_control(&input, &s, &mut out);
         assert!(!out.body_contact_damage_enabled);
     }
 
@@ -270,7 +251,7 @@ mod tests {
         let mut s = BrainSnapshot::idle();
         s.actor_facing = -1.0;
         let mut out = crate::actor::control::ActorControlFrame::default();
-        tick_player_brain_from_input(&input, &s, &mut out);
+        tick_player_brain_from_control(&input, &s, &mut out);
         let fire = out.fire.expect("fire request expected");
         // Aim wins over facing.
         assert!((fire.dir.y - (-1.0)).abs() < 0.001);
@@ -279,7 +260,7 @@ mod tests {
             c.projectile_released = true;
         });
         let mut out2 = crate::actor::control::ActorControlFrame::default();
-        tick_player_brain_from_input(&input2, &s, &mut out2);
+        tick_player_brain_from_control(&input2, &s, &mut out2);
         let fire2 = out2.fire.expect("fire request expected");
         assert!((fire2.dir.x - (-1.0)).abs() < 0.001);
     }
@@ -294,7 +275,7 @@ mod tests {
         });
         let s = BrainSnapshot::idle();
         let mut out = crate::actor::control::ActorControlFrame::default();
-        tick_player_brain_from_input(&input, &s, &mut out);
+        tick_player_brain_from_control(&input, &s, &mut out);
         assert!(out.shield_held);
         assert!(out.special_pressed);
         assert!(out.dash_pressed);

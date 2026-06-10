@@ -277,7 +277,8 @@ pub fn sync_actor_poses_from_feature_aabbs(
                 .map(|feature| feature.kin.facing)
                 .unwrap_or(pose.facing),
         };
-        *pose = super::super::components::ActorPose::from_aabb(*aabb, facing);
+        *pose =
+            super::super::components::ActorPose::from_parts(aabb.center, aabb.half_size, facing);
     }
 }
 

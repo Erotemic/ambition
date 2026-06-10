@@ -170,8 +170,9 @@ impl PlayerSimulationBundle {
             // default fires only for actual player entities.
             action_set,
             actor_control: ActorControl::default(),
-            actor_pose: ActorPose::from_aabb(
-                FeatureAabb::from_center_size(kinematics.pos, kinematics.size),
+            actor_pose: ActorPose::from_parts(
+                kinematics.pos,
+                kinematics.size * 0.5,
                 kinematics.facing,
             ),
             abilities,

@@ -48,12 +48,12 @@ pub fn sync_player_actor_poses(
     mut players: Query<(&BodyKinematics, &mut ActorPose), With<PlayerEntity>>,
 ) {
     for (kin, mut pose) in &mut players {
-        *pose = ActorPose::from_aabb(FeatureAabb::from_center_size(kin.pos, kin.size), kin.facing);
+        *pose = ActorPose::from_parts(kin.pos, kin.size * 0.5, kin.facing);
     }
 }
 
 /// Translate each player's input frame into their `ActorControl`
-/// frame via `crate::brain::tick_player_brain_from_input`.
+/// frame via `crate::brain::player::tick_player_brain_from_control`.
 ///
 /// This is the producer for the universal-brain seam on the player
 /// side. Player control/simulation reads the resulting `ActorControl`,

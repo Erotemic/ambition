@@ -265,3 +265,92 @@ fn catalog_tuning_reproduces_the_old_hardcoded_sheets() {
     assert_eq!(oni.frame_width, duelist.frame_width);
     assert_eq!(oni.frame_height, duelist.frame_height);
 }
+
+// Catalog<->sheet integration tests, moved from actor::character_catalog
+// (Stage 22): they exercise sheet RESOLUTION, which is this module's contract,
+// and keeping them here lets the actor unit drop its presentation dependency.
+
+/// Regression: the boss subdir manifests (gnu_ton_boss,
+/// mockingbird_boss) must produce a working `CharacterSheetSpec`
+/// at runtime. They reached the catalog via `synth_boss_manifest`,
+/// but that script's `anchors: {}` was serialized as `anchors:
+/// ()` by an in-house RON dumper bug — RON rejected `()` as a
+/// HashMap value, the manifest failed to parse, and the Hall
+/// silently rendered placeholders for both bosses (2026-05-24).
+/// `inspect_hall_sprites.py` couldn't see the issue because its
+/// `pyron.load` parser was more permissive than the Rust runtime's
+/// `ron::from_str`. Pin both ids here so any future
+/// reintroduction of the bug trips a focused diff.
+#[test]
+fn boss_subdir_manifests_resolve_through_catalog() {
+    for cid in &["npc_gnu_ton_boss", "npc_mockingbird_boss"] {
+        let spec = sheet_for_character_id(cid);
+        assert!(
+            spec.is_some(),
+            "{cid}: sheet_for_character_id returned None — manifest \
+                 parse error or subdir scan miss. Runtime would render \
+                 as placeholder. Check the on-disk RON parses with \
+                 `ron::from_str::<Vec<SheetRecord>>`.",
+        );
+    }
+}
+
+#[test]
+fn every_catalog_sprite_spec_has_idle_row_if_loaded() {
+    // The actor renderer's `flat_index` falls back to `Idle`
+    // for any animation that doesn't have its own row. A spec
+    // *without* an Idle row crashes on the first frame. This
+    // test walks every catalog id, asks the sprite loader for
+    // a spec, and verifies the spec either declines to load
+    // (None) or includes an Idle row — never an Idle-less spec
+    // that the runtime would unwrap into a panic.
+    //
+    // Caught a real crash 2026-05-24 when the manifest-driven
+    // fallback loaded a spec for a character whose generated
+    // sheet only had run/walk rows (no idle).
+
+    let data = crate::actor::character_catalog::load_embedded();
+    for cid in data.characters.keys() {
+        let Some(spec) = sheet_for_character_id(cid) else {
+            continue;
+        };
+        let has_idle = spec
+            .rows
+            .iter()
+            .any(|(anim, _)| matches!(anim, CharacterAnim::Idle,));
+        assert!(
+            has_idle,
+            "catalog id '{cid}' loaded a spec without an Idle row; \
+                 sheet_for_character_id must return None or a spec with Idle",
+        );
+    }
+}
+
+#[test]
+fn sprite_loader_resolves_a_sheet_for_most_catalog_entries() {
+    // Phase 6 + manifest-driven fallback (2026-05-24): every
+    // catalog id either resolves to a hardcoded `*_SHEET` const
+    // (for the entries that need bespoke tuning) or falls back
+    // to the manifest-driven `try_load_spec_for_character_id`
+    // path (everything else with a sheet on disk).
+    //
+    // The Hall of Characters is the visible consumer of this
+    // coverage — every pedestal whose `sheet_for_character_id`
+    // returns `None` shows a colored-rectangle fallback. Pin
+    // a generous lower bound (>=70 of ~99) so the Hall stays
+    // mostly populated; the few stragglers (robot_heavy and
+    // similar variant-only targets) ship later when their
+    // publisher lands.
+
+    let data = crate::actor::character_catalog::load_embedded();
+    let covered = data
+        .characters
+        .keys()
+        .filter(|cid| sheet_for_character_id(cid).is_some())
+        .count();
+    assert!(
+        covered >= 70,
+        "expected >=70 catalog ids to resolve to a sheet spec (hardcoded const \
+             or manifest); got {covered}",
+    );
+}

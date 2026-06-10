@@ -101,7 +101,7 @@ pub use boss_pattern::{
     BossPatternContext, BossPatternState, BossPatternStep, CyclePhase,
 };
 #[allow(unused_imports)]
-pub use player::{tick_player_brain, tick_player_brain_from_input};
+pub use player::tick_player_brain;
 #[allow(unused_imports)]
 pub use smash::{
     BroadMode, CrowdingSignal, DifficultyProfile, ObservationFrame, SmashCfg, SmashState,
@@ -120,7 +120,28 @@ pub use state_machine::{
 use crate::engine_core as ae;
 use bevy::prelude::*;
 
-use crate::player::components::PlayerSlot;
+/// Per-player slot identifier. Slot `0` is the local primary player;
+/// future co-op / split-screen / network players will use slots
+/// `1..=N`. Stored as a `u8` so it can fit comfortably in a HUD
+/// label, a save key, or a debug overlay glyph.
+///
+/// `PlayerSlot` is the canonical "which player?" handle for new
+/// player-bearing messages and resources. New player-domain message
+/// types (heal, damage, respawn, cosmetic, …) SHOULD carry either an
+/// `Entity` or a `PlayerSlot` so they don't silently assume the
+/// primary player.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct PlayerSlot(pub u8);
+
+impl PlayerSlot {
+    /// Slot reserved for the local primary player in single-player
+    /// builds and for player 1 in future local-multiplayer modes.
+    pub const PRIMARY: PlayerSlot = PlayerSlot(0);
+
+    pub fn index(self) -> u8 {
+        self.0
+    }
+}
 
 /// Identifies which brain backend drives an actor this tick.
 ///
@@ -353,12 +374,7 @@ impl ActorActionMessage {
 /// gameplay truth; rendered child/visual entities own presentation
 /// transforms with sprite anchors, scaling, and hierarchy concerns.
 pub fn emit_brain_action_messages(
-    actors: Query<(
-        Entity,
-        &ActorControl,
-        &ActionSet,
-        &crate::features::ActorPose,
-    )>,
+    actors: Query<(Entity, &ActorControl, &ActionSet, &crate::actor::ActorPose)>,
     mut writer: MessageWriter<ActorActionMessage>,
 ) {
     for (entity, control, action_set, pose) in &actors {
@@ -502,7 +518,7 @@ mod tests {
             .spawn((
                 Brain::stand_still(),
                 ActorControl::default(),
-                crate::features::ActorPose::default(),
+                crate::actor::ActorPose::default(),
             ))
             .id();
         // Entity 2: missing ActorPose.
@@ -546,7 +562,7 @@ mod tests {
                 Brain::stand_still(),
                 ActorControl(frame),
                 actions.clone(),
-                crate::features::ActorPose {
+                crate::actor::ActorPose {
                     center: ae::Vec2::new(i as f32 * 10.0, 0.0),
                     feet: ae::Vec2::new(i as f32 * 10.0, 24.0),
                     facing: 1.0,
@@ -862,7 +878,7 @@ mod tests {
             }),
             ActorControl(frame),
             actions,
-            crate::features::ActorPose::default(),
+            crate::actor::ActorPose::default(),
         ));
         app.update();
         let counter = app.world().resource::<BrainActionCounter>();
@@ -901,7 +917,7 @@ mod tests {
                 }),
                 ActorControl(frame),
                 actions,
-                crate::features::ActorPose {
+                crate::actor::ActorPose {
                     center: ae::Vec2::new(50.0, 100.0),
                     feet: ae::Vec2::new(50.0, 124.0),
                     facing: 1.0,

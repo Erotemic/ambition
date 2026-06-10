@@ -4,6 +4,8 @@
 //! vocabulary for enemies, bosses, NPCs, moving hazards, and other authored
 //! entities before any one feature grows a bespoke sandbox-only system.
 
+pub mod pose;
+pub use pose::{ActorFaction, ActorPose};
 pub mod ai;
 pub mod character_catalog;
 pub mod control;

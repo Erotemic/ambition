@@ -24,7 +24,7 @@ Options:
   --release             Build the wasm artifact with Cargo --release (default).
   --debug               Build the wasm artifact with the dev profile (much larger, faster compile).
   --features LIST       Cargo features to enable. Default: web (or web_served_assets when --served is passed)
-  --use-default-features  Also enable ambition_sandbox default features. Off by default for web.
+  --use-default-features  Also enable ambition_app default features. Off by default for web.
   --no-default-features Disable default features (default for web builds).
   --bindgen-target T    Pass-through to wasm-bindgen --target. Default: web
                         Other supported values: bundler, no-modules, nodejs, deno.
@@ -183,7 +183,10 @@ case "$PROFILE" in
     debug)   WASM_BUILD_DIR="$ROOT/target/wasm32-unknown-unknown/debug" ;;
     *) fatal "unknown profile: $PROFILE (expected release or debug)" ;;
 esac
-WASM_ARTIFACT="$WASM_BUILD_DIR/ambition_sandbox.wasm"
+# The wasm cdylib moved to the ambition_app crate (Stage 20 / A3);
+# wasm-bindgen --out-name below keeps the JS/wasm pair named
+# ambition_sandbox so web/index.html needs no changes.
+WASM_ARTIFACT="$WASM_BUILD_DIR/ambition_app.wasm"
 
 log "repo: $ROOT"
 log "profile: $PROFILE"
@@ -246,7 +249,7 @@ if [[ "$CLEAN" == true && -d "$OUT_DIR" ]]; then
 fi
 
 if [[ "$SKIP_BUILD" != true ]]; then
-    CARGO_ARGS=(build -p ambition_sandbox --lib --target wasm32-unknown-unknown)
+    CARGO_ARGS=(build -p ambition_app --lib --target wasm32-unknown-unknown)
     case "$PROFILE" in
         release) CARGO_ARGS+=(--release) ;;
         debug) ;;
@@ -270,6 +273,7 @@ if [[ "$SKIP_BINDGEN" != true ]]; then
     "$WASM_BINDGEN_CMD" \
         "$WASM_ARTIFACT" \
         --out-dir "$OUT_DIR" \
+        --out-name ambition_sandbox \
         --target "$BINDGEN_TARGET" \
         --no-typescript
     OUT_WASM="$OUT_DIR/ambition_sandbox_bg.wasm"

@@ -771,7 +771,7 @@ cat > "$APP_DIR/src/main/AndroidManifest.xml" <<EOF
             android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
             android:exported="true"
             android:screenOrientation="landscape">
-            <meta-data android:name="android.app.lib_name" android:value="ambition_sandbox" />
+            <meta-data android:name="android.app.lib_name" android:value="ambition_app" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -911,7 +911,7 @@ else
 fi
 log "APK asset tree size: $(dir_size "$ASSETS_OUT")"
 
-CARGO_NDK_ARGS=(cargo ndk -t "$TARGET_ABI" -P "$MIN_SDK" -o "$JNI_OUT" build -p ambition_sandbox --lib)
+CARGO_NDK_ARGS=(cargo ndk -t "$TARGET_ABI" -P "$MIN_SDK" -o "$JNI_OUT" build -p ambition_app --lib)
 case "$RUST_PROFILE" in
     debug) ;;
     release) CARGO_NDK_ARGS+=(--release) ;;
@@ -931,7 +931,7 @@ else
     AMBITION_ANDROID_APP_ID="$APP_ID" "${CARGO_NDK_ARGS[@]}"
 fi
 
-SO_PATH="$JNI_OUT/$TARGET_ABI/libambition_sandbox.so"
+SO_PATH="$JNI_OUT/$TARGET_ABI/libambition_app.so"
 copy_libcxx_shared "$TARGET_ABI" "$JNI_OUT/$TARGET_ABI"
 if [[ "$STRIP_NATIVE" == true ]]; then
     strip_native_library "$SO_PATH"
@@ -963,7 +963,7 @@ log "APK: $OUT_APK"
 log "size summary: native=$(human_size "$SO_PATH")  apk=$(human_size "$OUT_APK")  apk-assets=$(dir_size "$ASSETS_OUT")"
 if [[ "$SIZE_REPORT" == true ]]; then
     print_apk_size_report "$OUT_APK"
-    log "cargo-bloat hint: cargo bloat --profile $RUST_PROFILE --target aarch64-linux-android -p ambition_sandbox --lib --no-default-features --features '${FEATURES}' --crates -n 40"
+    log "cargo-bloat hint: cargo bloat --profile $RUST_PROFILE --target aarch64-linux-android -p ambition_app --lib --no-default-features --features '${FEATURES}' --crates -n 40"
 fi
 
 ADB_ARGS=()

@@ -41,7 +41,8 @@ impl ProjectileCollisionWorld<'_> {
     /// The room world with ONLY the portal apertures carved out — preserves the
     /// projectile's historical raw-world collision (it passes through moving
     /// platforms) while letting a shot sink into a portal opening and transit.
-    fn solids(&self) -> ae::World {
+    /// Borrowed (no clone) in the common no-carve case.
+    fn solids(&self) -> std::borrow::Cow<'_, ae::World> {
         crate::features::world_with_portal_carves(&self.world.0, &self.overlay.portal_carves)
     }
 }

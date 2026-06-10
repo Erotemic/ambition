@@ -737,7 +737,7 @@ pub fn held_projectile_step(
         // Uses the carved world, so a portal opening is NOT a wall.
         let step = (vel * dt).length().max(1.0);
         if let Some((hit_pos, _normal)) = crate::platformer_runtime::collision::raycast_solids(
-            &collision_world,
+            &*collision_world,
             pos,
             vel,
             step,

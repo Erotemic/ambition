@@ -22,14 +22,21 @@ pub fn world_with_sandbox_solids(
 /// The room world with ONLY the portal apertures carved out — no moving-platform
 /// or ECS-overlay solids added. Projectiles historically collided against the raw
 /// room world (they pass through moving platforms); this preserves that exactly
-/// while letting a shot sink into a portal opening and transit. Returns a clone of
-/// `world` unchanged when there are no active carves.
-pub fn world_with_portal_carves(world: &ae::World, portal_carves: &[ae::Aabb]) -> ae::World {
-    let mut carved = world.clone();
-    if !portal_carves.is_empty() {
-        carve_portal_apertures(&mut carved.blocks, portal_carves);
+/// while letting a shot sink into a portal opening and transit.
+///
+/// Returns `Cow::Borrowed(world)` when there are no active carves — the common
+/// case (no body in a portal opening, or no portals at all) — so the per-frame
+/// projectile steps don't clone the whole block list every frame for nothing.
+pub fn world_with_portal_carves<'w>(
+    world: &'w ae::World,
+    portal_carves: &[ae::Aabb],
+) -> std::borrow::Cow<'w, ae::World> {
+    if portal_carves.is_empty() {
+        return std::borrow::Cow::Borrowed(world);
     }
-    carved
+    let mut carved = world.clone();
+    carve_portal_apertures(&mut carved.blocks, portal_carves);
+    std::borrow::Cow::Owned(carved)
 }
 
 /// Split every solid host block by the portal aperture holes, leaving a doorway

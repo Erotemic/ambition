@@ -5,6 +5,7 @@
 //! entities before any one feature grows a bespoke sandbox-only system.
 
 pub mod ai;
+pub mod character_catalog;
 pub mod control;
 
 use crate::engine_core::Vec2;

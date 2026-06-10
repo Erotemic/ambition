@@ -2,7 +2,7 @@
 //!
 //! Each character is identified by a stable `character_id` keyed in
 //! `assets/data/character_catalog.ron` (loaded by
-//! [`crate::content::character_catalog`]). The catalog provides the
+//! [`crate::actor::character_catalog`]). The catalog provides the
 //! display name + on-disk path; the per-character `CharacterSheetSpec`
 //! (frame/grid/anchor metadata) is resolved at startup by
 //! [`sheet_for_character_id`] — a single table that maps
@@ -39,8 +39,8 @@ use super::sheets::{
     PULSE_VOYAGER_CAPTAIN_SHEET, PUPPY_SLUG_SHEET, ROBOT_SHEET, SANDBAG_SHEET,
     TECH_BRO_DISRUPTOR_SHEET, VAULT_KEEPER_SHEET,
 };
+use crate::actor::character_catalog::EMBEDDED_CATALOG;
 use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
-use crate::content::character_catalog::EMBEDDED_CATALOG;
 use crate::features::FeatureVisualKind;
 
 #[derive(Clone)]

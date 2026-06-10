@@ -1,23 +1,20 @@
-//! Sandbox-side quest registry + Bevy systems.
+//! Ambition's authored quests + their completion payouts.
 //!
-//! The engine owns the quest data shape (`QuestSpec`, `QuestState`,
-//! `QuestAdvanceEvent`). This module wires that into the live game:
-//! - holds the registry as a Bevy resource
-//! - rehydrates quest progress from `SandboxSave` on startup
-//! - listens for advance events (NPC talks, encounter clears, boss
-//!   defeats, flag flips) and routes them into the registry
-//! - exposes a `quest_log_lines` helper the HUD can render
-//! - grants completion rewards (e.g. the pirate treasure payout)
-//!
-//! Today the sandbox carries one tutorial quest, "First Steps", as a
-//! proof-of-concept. Future content adds more by appending to
-//! `default_quest_specs()`.
-
-use std::collections::BTreeMap;
+//! The generic quest runtime (registry resource, advance-event
+//! draining, save mirroring) lives in [`crate::quest::registry`]; the
+//! Bevy-free data shapes in [`crate::quest`]. This module owns what is
+//! specifically Ambition's: WHICH quests ship, which auto-start, and
+//! named payouts like the pirate treasure.
 
 use bevy::prelude::*;
 
 use crate::inventory::{ItemKind, PlayerInventory};
+
+/// Facade: the generic registry half moved to [`crate::quest::registry`].
+/// Inbound `crate::content::quest::QuestRegistry` paths keep working.
+pub use crate::quest::registry::{
+    apply_quest_advance_events, push_room_entered_quest_events, QuestRegistry,
+};
 
 /// Save flag set once the pirate-treasure reward has been granted, so
 /// the payout fires exactly once across save/reload cycles.
@@ -32,55 +29,17 @@ pub const PIRATE_TREASURE_REWARD: &[(ItemKind, u32)] = &[
     (ItemKind::DataChip, 1),
 ];
 
-/// Sandbox quest registry. Keyed by quest id matching `QuestSpec::id`.
-#[derive(Resource, Default)]
-pub struct QuestRegistry {
-    pub quests: BTreeMap<String, crate::quest::QuestState>,
-    /// Pending advance events queued by the simulation half. Drained
-    /// by `apply_quest_advance_events` each frame.
-    pub pending_events: Vec<crate::quest::QuestAdvanceEvent>,
-    pub initialized: bool,
-}
-
-impl QuestRegistry {
-    pub fn ensure(&mut self, spec: crate::quest::QuestSpec) {
-        let id = spec.id.clone();
-        self.quests
-            .entry(id)
-            .or_insert_with(|| crate::quest::QuestState::new(spec));
-    }
-
-    pub fn get(&self, id: &str) -> Option<&crate::quest::QuestState> {
-        self.quests.get(id)
-    }
-
-    pub fn start(&mut self, id: &str) -> bool {
-        if let Some(state) = self.quests.get_mut(id) {
-            state.start()
-        } else {
-            false
-        }
-    }
-
-    pub fn push_event(&mut self, event: crate::quest::QuestAdvanceEvent) {
-        self.pending_events.push(event);
-    }
-
-    pub fn quest_log_lines(&self) -> Vec<String> {
-        self.quests
-            .values()
-            .filter(|q| q.is_active() || q.is_complete())
-            .map(|q| q.hud_summary())
-            .collect()
-    }
-
-    pub fn active_quest_summary(&self) -> Option<String> {
-        self.quests
-            .values()
-            .find(|q| q.is_active())
-            .map(|q| q.hud_summary())
-    }
-}
+/// Quest ids that auto-start at boot so the player sees HUD entries
+/// from the first frame. Starting is idempotent.
+const AUTO_START_QUESTS: &[&str] = &[
+    "first_steps",
+    "test_switch_quest",
+    "quest_lab_visit",
+    "pirate_treasure",
+    "intro_cartography_route",
+    "intro_p1_stabilizer",
+    "intro_first_system_boss",
+];
 
 /// Default quest specs the sandbox ships. The "First Steps" quest is
 /// a tutorial that walks the player through talking to a hub NPC,
@@ -223,7 +182,9 @@ pub fn default_quest_specs() -> Vec<crate::quest::QuestSpec> {
     ]
 }
 
-/// Startup system: register specs and rehydrate from save.
+/// Startup system: register Ambition's authored specs and rehydrate
+/// from save. Content-side because it names the shipped quests; the
+/// registry it fills is generic.
 pub fn populate_quest_registry(
     mut registry: ResMut<QuestRegistry>,
     save: Res<crate::persistence::save::SandboxSave>,
@@ -239,75 +200,12 @@ pub fn populate_quest_registry(
         let (persisted, step) = save_data.quest(id);
         state.apply_persisted(persisted, step);
     }
-    // Auto-start the tutorial so the player sees a HUD entry from
-    // first frame. Idempotent — `start` is a no-op if it's already
-    // running or done.
-    if let Some(q) = registry.quests.get_mut("first_steps") {
-        let _ = q.start();
-    }
-    if let Some(q) = registry.quests.get_mut("test_switch_quest") {
-        let _ = q.start();
-    }
-    if let Some(q) = registry.quests.get_mut("quest_lab_visit") {
-        let _ = q.start();
-    }
-    if let Some(q) = registry.quests.get_mut("pirate_treasure") {
-        let _ = q.start();
-    }
-    if let Some(q) = registry.quests.get_mut("intro_cartography_route") {
-        let _ = q.start();
-    }
-    if let Some(q) = registry.quests.get_mut("intro_p1_stabilizer") {
-        let _ = q.start();
-    }
-    if let Some(q) = registry.quests.get_mut("intro_first_system_boss") {
-        let _ = q.start();
+    for id in AUTO_START_QUESTS {
+        if let Some(q) = registry.quests.get_mut(*id) {
+            let _ = q.start();
+        }
     }
     registry.initialized = true;
-}
-
-/// Push a `RoomEntered` quest event whenever the active room
-/// changes. Idempotent: only fires the frame the room id flips.
-pub fn push_room_entered_quest_events(
-    room_set: Res<crate::rooms::RoomSet>,
-    mut registry: ResMut<QuestRegistry>,
-    mut last_room: Local<Option<String>>,
-) {
-    let current = room_set.active_spec().id.clone();
-    if last_room.as_deref() == Some(current.as_str()) {
-        return;
-    }
-    *last_room = Some(current.clone());
-    registry.push_event(crate::quest::QuestAdvanceEvent::RoomEntered(current));
-}
-
-/// Drain pending advance events into the registry and write quest
-/// progress back to the save resource. Runs each frame.
-pub fn apply_quest_advance_events(
-    mut registry: ResMut<QuestRegistry>,
-    mut save: ResMut<crate::persistence::save::SandboxSave>,
-) {
-    let events = std::mem::take(&mut registry.pending_events);
-    if events.is_empty() {
-        return;
-    }
-    let mut changed_ids: Vec<String> = Vec::new();
-    for event in events {
-        for (id, state) in registry.quests.iter_mut() {
-            if state.try_advance(&event) {
-                changed_ids.push(id.clone());
-            }
-        }
-    }
-    if changed_ids.is_empty() {
-        return;
-    }
-    for id in changed_ids {
-        if let Some(state) = registry.quests.get(&id) {
-            save.data_mut()
-                .set_quest(&id, state.progression, state.step);
-        }
-    }
 }
 
 /// Apply the items in `PIRATE_TREASURE_REWARD` to the inventory and
@@ -346,59 +244,6 @@ pub fn grant_quest_completion_rewards(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn first_steps_spec() -> crate::quest::QuestSpec {
-        default_quest_specs()
-            .into_iter()
-            .find(|s| s.id == "first_steps")
-            .expect("first_steps spec")
-    }
-
-    #[test]
-    fn ensure_inserts_idempotently() {
-        let mut registry = QuestRegistry::default();
-        let spec = first_steps_spec();
-        registry.ensure(spec.clone());
-        registry.ensure(spec);
-        assert_eq!(registry.quests.len(), 1);
-    }
-
-    #[test]
-    fn start_requires_existing_quest() {
-        let mut registry = QuestRegistry::default();
-        assert!(!registry.start("nonexistent"));
-        registry.ensure(first_steps_spec());
-        assert!(registry.start("first_steps"));
-    }
-
-    #[test]
-    fn quest_log_lines_skips_inactive_unstarted_quests() {
-        let mut registry = QuestRegistry::default();
-        registry.ensure(first_steps_spec());
-        // Default state is "unstarted", neither is_active nor is_complete.
-        assert!(registry.quest_log_lines().is_empty());
-        registry.start("first_steps");
-        assert!(!registry.quest_log_lines().is_empty());
-    }
-
-    #[test]
-    fn active_quest_summary_finds_one_active() {
-        let mut registry = QuestRegistry::default();
-        registry.ensure(first_steps_spec());
-        assert!(registry.active_quest_summary().is_none());
-        registry.start("first_steps");
-        let summary = registry.active_quest_summary();
-        assert!(summary.is_some());
-        assert!(summary.unwrap().contains("First Steps"));
-    }
-
-    #[test]
-    fn push_event_buffers_pending() {
-        let mut registry = QuestRegistry::default();
-        registry.push_event(crate::quest::QuestAdvanceEvent::FlagSet("foo".into()));
-        registry.push_event(crate::quest::QuestAdvanceEvent::FlagSet("bar".into()));
-        assert_eq!(registry.pending_events.len(), 2);
-    }
 
     fn pirate_treasure_spec() -> crate::quest::QuestSpec {
         default_quest_specs()
@@ -468,5 +313,18 @@ mod tests {
             assert_eq!(inventory.count(*kind), *count);
         }
         assert!(banner.contains("TREASURE"));
+    }
+
+    /// Every auto-start id must correspond to a shipped spec — a typo
+    /// here would silently never start the quest.
+    #[test]
+    fn auto_start_ids_all_exist_in_default_specs() {
+        let specs = default_quest_specs();
+        for id in AUTO_START_QUESTS {
+            assert!(
+                specs.iter().any(|s| s.id == *id),
+                "auto-start quest id {id:?} has no spec"
+            );
+        }
     }
 }

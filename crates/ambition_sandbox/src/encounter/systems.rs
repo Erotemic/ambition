@@ -53,7 +53,7 @@ pub fn update_encounters_from_world(
     mut world: ResMut<crate::GameWorld>,
     player_body_q: Query<&crate::player::BodyKinematics, With<crate::player::PlayerEntity>>,
     mut music_request: ResMut<EncounterMusicRequest>,
-    mut quests: ResMut<crate::content::quest::QuestRegistry>,
+    mut quests: ResMut<crate::quest::QuestRegistry>,
     mut banner_requests: MessageWriter<crate::features::GameplayBannerRequested>,
     room_set: Res<crate::rooms::RoomSet>,
     encounter_mobs: Query<(

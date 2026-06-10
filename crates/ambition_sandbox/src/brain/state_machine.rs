@@ -145,6 +145,12 @@ fn tick_stand_still(out: &mut crate::actor::control::ActorControlFrame) {
 
 // ===== Patrol =====
 
+/// Patrol speed for NPCs (px/s). Slightly slower than the standard
+/// enemy patrol speed so peaceful NPCs read as casual rather than
+/// alert. Owned by the brain (its consumer); content re-exports it
+/// for authoring-side reference.
+pub const NPC_PATROL_SPEED: f32 = 60.0;
+
 /// Fixed left-right paddle around a spawn point. Hostility is
 /// controlled separately — a hostile Patrol brain still emits
 /// melee_pressed when in range and can flip facing to chase.
@@ -167,14 +173,13 @@ pub struct PatrolCfg {
 }
 
 impl PatrolCfg {
-    /// Peaceful NPC default. Speed mirrors the legacy
-    /// [`crate::content::features::NPC_PATROL_SPEED`] constant so
-    /// the brain-driven Patrol gait matches what the pre-brain
+    /// Peaceful NPC default. Speed is [`NPC_PATROL_SPEED`] so the
+    /// brain-driven Patrol gait matches what the pre-brain
     /// `NpcRuntime::update` used.
     pub const NPC_DEFAULT: Self = Self {
         spawn_x: 0.0,
         radius: 64.0,
-        speed: crate::content::features::NPC_PATROL_SPEED,
+        speed: NPC_PATROL_SPEED,
         aggressiveness: 0.0,
         aggro_radius: 80.0, // talk radius for peaceful patrol
         attack_range: 0.0,

@@ -20,6 +20,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::persistence::save_data::PersistedQuestState;
 
+pub mod registry;
+pub use registry::{apply_quest_advance_events, push_room_entered_quest_events, QuestRegistry};
+
 /// A single advance event the sandbox emits during gameplay.
 ///
 /// String ids are used (not integer keys) so authoring can stay

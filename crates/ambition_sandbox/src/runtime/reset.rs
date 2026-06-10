@@ -54,11 +54,11 @@ use crate::engine_core as ae;
 
 use crate::assets::game_assets::GameAssets;
 use crate::boss_encounter::BossEncounterRegistry;
-use crate::content::quest::QuestRegistry;
 use crate::encounter::{EncounterMusicRequest, EncounterRegistry};
 use crate::persistence::save::SandboxSave;
 use crate::platformer_runtime::lifecycle::RoomScopedEntity;
 use crate::presentation::rendering::spawn_room_visuals;
+use crate::quest::QuestRegistry;
 use crate::rooms::RoomSet;
 use crate::world::physics;
 use crate::world::platforms;

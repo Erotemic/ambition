@@ -88,9 +88,9 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             // CharacterCatalogPlugin installs the parsed character
             // catalog as a Bevy resource and runs a Startup validator
             // that panics on broken references. See
-            // `crate::content::character_catalog` and ADR 0017
+            // `crate::actor::character_catalog` and ADR 0017
             // (Rust = behavior, RON = content, LDtk = space).
-            .add_plugins(crate::content::character_catalog::CharacterCatalogPlugin)
+            .add_plugins(crate::actor::character_catalog::CharacterCatalogPlugin)
             .add_systems(
                 Startup,
                 (

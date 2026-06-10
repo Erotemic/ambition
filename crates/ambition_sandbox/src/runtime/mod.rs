@@ -5,6 +5,7 @@
 //! the simulation-side glue that `app` calls into.
 
 pub mod camera_layers;
+pub mod data;
 pub mod game_mode;
 pub mod reset;
 pub mod setup;

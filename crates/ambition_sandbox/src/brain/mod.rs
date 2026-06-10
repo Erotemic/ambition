@@ -113,7 +113,7 @@ pub use snapshot::{BrainSnapshot, WallContact};
 pub use state_machine::{
     tick_state_machine, MeleeBruteCfg, MeleeBruteState, PatrolCfg, PatrolState, SharkCfg,
     SharkState, SkirmisherCfg, SkirmisherState, SniperCfg, SniperState, StateMachineCfg,
-    WandererCfg, WandererState,
+    WandererCfg, WandererState, NPC_PATROL_SPEED,
 };
 
 #[cfg(test)]

@@ -58,6 +58,11 @@ trailer always names the executing model); keep `regen_sprites.sh` / `regen_asse
 commit each gate-green milestone immediately; never stop for blockers — work around,
 note in the log (transient virtiofs EMFILE: retry, then move on).
 
+**Smell discipline (Jon, 2026-06-10):** while working, opportunistically log code
+smells to `dev/journals/code_smells.md` instead of chasing them — stay focused on the
+big wins. Exception: a very clear fix with zero risk of slowing the main task may just
+be done (and noted in the Progress Log).
+
 ---
 
 ## Phase A1 — machinery content-free + one content module (est. 3h)

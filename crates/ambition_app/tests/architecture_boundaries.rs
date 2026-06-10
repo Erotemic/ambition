@@ -51,25 +51,29 @@ fn collect_rs_files(root: &Path) -> Vec<PathBuf> {
 #[test]
 fn architecture_boundaries_platformer_runtime_stays_content_free() {
     let root = crate_src().join("platformer_runtime");
+    // Scans SANDBOX-LIB code: vocabulary needles are `crate::…` (in-lib
+    // paths). (An earlier path-rewrite sed briefly flipped these to
+    // `ambition_sandbox::…`, which can never occur inside the lib —
+    // restored 2026-06-10.)
     let forbidden = [
-        "ambition_sandbox::content",
-        "ambition_sandbox::ambition_content",
-        "ambition_sandbox::intro",
-        "ambition_sandbox::boss_encounter",
-        "ambition_sandbox::quest",
-        "ambition_sandbox::assets::sandbox_assets",
-        "ambition_sandbox::music",
-        "ambition_sandbox::items",
-        "ambition_sandbox::app",
-        "ambition_sandbox::dev",
-        "ambition_sandbox::presentation",
+        "crate::content",
+        "crate::ambition_content",
+        "crate::intro",
+        "crate::boss_encounter",
+        "crate::quest",
+        "crate::assets::sandbox_assets",
+        "crate::music",
+        "crate::items",
+        "crate::app",
+        "crate::dev",
+        "crate::presentation",
     ];
     // `ambition_sandbox::portal` (the portal mechanic, including its `pieces` Core math
     // submodule) is forbidden — match the mechanic path with explicit boundaries.
     let forbidden_boundary = [
-        "ambition_sandbox::portal::",
-        "ambition_sandbox::portal;",
-        "ambition_sandbox::portal}",
+        "crate::portal::",
+        "crate::portal;",
+        "crate::portal}",
     ];
 
     let mut violations = Vec::new();
@@ -449,7 +453,7 @@ fn architecture_boundaries_non_portal_mechanics_use_runtime_raycast_seam() {
     for rel in checked_files {
         let path = src_root.join(rel);
         let text = fs::read_to_string(&path).expect("read source file");
-        if text.contains("ambition_sandbox::portal::raycast_solids") {
+        if text.contains("crate::portal::raycast_solids") {
             violations.push(format!(
                 "{rel} still reaches into portal for a generic solid raycast; use ambition_sandbox::platformer_runtime::collision::raycast_solids"
             ));
@@ -702,9 +706,9 @@ fn architecture_boundaries_music_director_is_content_agnostic() {
     // for a future crate extraction to abstract.
     let music_root = crate_src().join("music");
     let forbidden = [
-        "ambition_sandbox::encounter",
-        "ambition_sandbox::rooms",
-        "ambition_sandbox::content",
+        "crate::encounter",
+        "crate::rooms",
+        "crate::content",
     ];
     let mut violations = Vec::new();
     for file in collect_rs_files(&music_root) {
@@ -1350,8 +1354,8 @@ fn architecture_boundaries_combat_kit_stays_content_free() {
     // content layer supplies.
     let root = crate_src().join("mechanics").join("combat");
     let forbidden = [
-        "ambition_sandbox::content",
-        "ambition_sandbox::ambition_content",
+        "crate::content",
+        "crate::ambition_content",
         "EnemyArchetype",
         "CutRope",
         "cut_rope",

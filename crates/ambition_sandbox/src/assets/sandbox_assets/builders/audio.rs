@@ -6,7 +6,7 @@ use ambition_asset_manager::{
 };
 
 use super::super::ids;
-use crate::content::data::AudioSpec;
+use crate::runtime::data::AudioSpec;
 
 /// Packed SFX bank entry. `WarnAndPlaceholder` matches the current
 /// runtime contract: a missing bank degrades to procedural / silent

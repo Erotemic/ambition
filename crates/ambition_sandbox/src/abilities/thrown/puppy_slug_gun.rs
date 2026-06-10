@@ -94,7 +94,7 @@ pub fn fire_puppy_slug_gun_system(
 mod tests {
     use super::*;
     use crate::brain::ActionSet;
-    use crate::content::features::ActorFaction as Faction;
+    use crate::mechanics::combat::ActorFaction as Faction;
     use crate::player::PlayerBaseSize;
 
     fn test_app() -> App {

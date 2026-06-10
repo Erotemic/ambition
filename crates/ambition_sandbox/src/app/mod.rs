@@ -53,7 +53,6 @@ use crate::audio::{
 };
 use crate::config::{WINDOW_H, WINDOW_W};
 use crate::content::content_validation;
-use crate::content::data;
 use crate::dev::debug_overlay;
 use crate::dev::dev_tools::{
     self, DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
@@ -79,6 +78,7 @@ use crate::presentation::rendering::{
 };
 use crate::presentation::ui_fonts;
 use crate::rooms;
+use crate::runtime::data;
 use crate::runtime::setup;
 use crate::time::feel::SandboxFeelTuning;
 #[cfg(feature = "physics_debris")]

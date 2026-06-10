@@ -10,7 +10,7 @@
 //!   `AmbitionAssetSourcePlugin` registration tests.
 
 use super::*;
-use crate::content::data::SandboxDataSpec;
+use crate::runtime::data::SandboxDataSpec;
 use std::sync::Mutex;
 
 mod embedded_core;

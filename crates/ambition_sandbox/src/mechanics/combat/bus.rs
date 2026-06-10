@@ -11,7 +11,7 @@ use bevy::prelude::{
 pub fn apply_flag_effects(
     mut effects: MessageReader<SetFlagRequested>,
     mut save: ResMut<crate::persistence::save::SandboxSave>,
-    mut quests: ResMut<crate::content::quest::QuestRegistry>,
+    mut quests: ResMut<crate::quest::QuestRegistry>,
 ) {
     for effect in effects.read() {
         if effect.on {
@@ -24,7 +24,7 @@ pub fn apply_flag_effects(
 /// Structured quest events from gameplay (NPC talked, item collected, etc.).
 pub fn apply_quest_effects(
     mut effects: MessageReader<QuestAdvanceRequested>,
-    mut quests: ResMut<crate::content::quest::QuestRegistry>,
+    mut quests: ResMut<crate::quest::QuestRegistry>,
 ) {
     for effect in effects.read() {
         quests.push_event(effect.0.clone());

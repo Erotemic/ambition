@@ -2,7 +2,7 @@
 //! uniqueness across the manifest.
 
 use super::super::*;
-use crate::content::data::SandboxDataSpec;
+use crate::runtime::data::SandboxDataSpec;
 use std::collections::HashSet;
 
 use super::fixture_catalog;

@@ -3,7 +3,7 @@
 //! load gates, and the `WebServedAssets` BevyPath fallback.
 
 use super::super::*;
-use crate::content::data::SandboxDataSpec;
+use crate::runtime::data::SandboxDataSpec;
 
 use super::SFX_BANK_ENV_LOCK;
 

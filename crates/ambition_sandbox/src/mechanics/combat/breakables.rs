@@ -1,9 +1,9 @@
 //! Per-frame tick for breakable feature entities: respawn countdown
 //! and the stand-to-break collapse trigger.
 
+use super::util::player_is_standing_on;
 use super::BREAK_ON_STAND_SECONDS;
 use super::*;
-use crate::content::features::util::player_is_standing_on;
 
 /// Tick ECS-owned breakable timers and stand-to-break triggers.
 pub fn update_ecs_breakables(

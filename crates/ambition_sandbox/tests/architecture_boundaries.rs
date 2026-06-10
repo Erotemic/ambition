@@ -729,14 +729,16 @@ fn architecture_boundaries_named_content_registers_through_content_plugin() {
     // rosters are no longer constructed inline in `app/sim_resources.rs`.
     let src_root = crate_src();
 
-    // (a) The content boundary owns the registration files.
+    // (a) The content boundary owns the registration files. (Stage 20 / A1
+    //     unified `ambition_content/` into `content/`; `crate::ambition_content`
+    //     is now an alias of `crate::content`.)
     let expected = [
-        "ambition_content/mod.rs",
-        "ambition_content/plugin.rs",
-        "ambition_content/quests/mod.rs",
-        "ambition_content/bosses/mod.rs",
-        "ambition_content/dialogue/mod.rs",
-        "ambition_content/items/mod.rs",
+        "content/mod.rs",
+        "content/plugin.rs",
+        "content/quests/mod.rs",
+        "content/bosses/mod.rs",
+        "content/dialogue/mod.rs",
+        "content/items/mod.rs",
     ];
     for rel in expected {
         assert!(
@@ -745,11 +747,11 @@ fn architecture_boundaries_named_content_registers_through_content_plugin() {
         );
     }
 
-    let plugin_text = fs::read_to_string(src_root.join("ambition_content/plugin.rs"))
-        .expect("read ambition_content/plugin.rs");
+    let plugin_text =
+        fs::read_to_string(src_root.join("content/plugin.rs")).expect("read content/plugin.rs");
     assert!(
         plugin_text.contains("pub struct AmbitionContentPlugin"),
-        "ambition_content/plugin.rs should define AmbitionContentPlugin"
+        "content/plugin.rs should define AmbitionContentPlugin"
     );
     // The composer must actually compose the named-content registrations.
     for needle in [
@@ -1239,4 +1241,133 @@ fn architecture_boundaries_time_crate_is_extracted() {
             "sandbox time/{stay} (game-specific policy / presentation) must stay sandbox-side"
         );
     }
+}
+
+#[test]
+fn architecture_boundaries_machinery_does_not_import_content() {
+    // Stage 20 / A1: generic machinery modules must not import the unified
+    // content module (`crate::content::…` / its `crate::ambition_content::…`
+    // alias). The app layer (app/, bin/, host/, rl_sim/, headless.rs,
+    // main.rs) is the composition layer and MAY name content.
+    //
+    // Documented leftovers, excluded here and queued on their own tasks:
+    //   - presentation/** — named character/boss visuals (doc 20 B3, the
+    //     render split) still read content/features named bits.
+    //   - dev/**          — the debug overlay reads everything (doc 20 B4).
+    //   - assets/**       — the sandbox asset-manifest builders are content
+    //     composition by nature; they relocate content-side with A3+.
+    //   - *test* files    — fixtures may exercise content freely.
+    let machinery_dirs = [
+        "abilities",
+        "actor",
+        "audio",
+        "body_mode",
+        "boss_encounter",
+        "brain",
+        "combat",
+        "dialog",
+        "encounter",
+        "enemy_projectile",
+        "inventory",
+        "items",
+        "mechanics",
+        "menu",
+        "music",
+        "persistence",
+        "platformer_runtime",
+        "player",
+        "portal",
+        "projectile",
+        "quest",
+        "runtime",
+        "time",
+        "ui_nav",
+        "world",
+    ];
+    let forbidden = ["crate::content::", "crate::ambition_content::"];
+
+    let mut violations = Vec::new();
+    for dir in machinery_dirs {
+        let root = crate_src().join(dir);
+        for file in collect_rs_files(&root) {
+            let rel = file.display().to_string();
+            if rel.ends_with("tests.rs") || rel.contains("/tests/") {
+                continue;
+            }
+            let text = fs::read_to_string(&file).expect("read rust source");
+            for (idx, raw) in text.lines().enumerate() {
+                let line = raw.trim();
+                if line.starts_with("//") || line.starts_with("/*") || line.starts_with('*') {
+                    continue;
+                }
+                for needle in forbidden {
+                    if line.contains(needle) {
+                        violations.push(format!("{rel}:{} {line}", idx + 1));
+                    }
+                }
+            }
+        }
+    }
+    assert!(
+        violations.is_empty(),
+        "machinery modules must not import the content module — invert via a \
+registry/marker/message/set the content layer fills (Stage 20 / A1):\n{}",
+        violations.join("\n")
+    );
+}
+
+#[test]
+fn architecture_boundaries_combat_kit_stays_content_free() {
+    // Stage 20 / A2: the generic combat kit must never name Ambition
+    // content — no archetype enum, no named bosses/enemies, no content
+    // imports. Named behavior reaches the kit via components/messages the
+    // content layer supplies.
+    let root = crate_src().join("mechanics").join("combat");
+    let forbidden = [
+        "crate::content",
+        "crate::ambition_content",
+        "EnemyArchetype",
+        "CutRope",
+        "cut_rope",
+        "GnuTon",
+        "GNU_TON",
+        "gnu_ton",
+        "Pirate",
+        "Mockingbird",
+        "BurningFlyingShark",
+        "ExplodingMite",
+        "DividingMite",
+        "clockwork_warden",
+        "EyeBeam",
+        "AppleRain",
+        "GradientCascade",
+        "MinimaTrap",
+        "OverfitVolley",
+        "SaddlePoint",
+    ];
+    let mut violations = Vec::new();
+    for file in collect_rs_files(&root) {
+        let text = fs::read_to_string(&file).expect("read rust source");
+        for (idx, raw) in text.lines().enumerate() {
+            let line = raw.trim();
+            if line.starts_with("//") || line.starts_with("/*") || line.starts_with('*') {
+                continue;
+            }
+            for needle in forbidden {
+                if line.contains(needle) {
+                    violations.push(format!(
+                        "{}:{} names content `{needle}`: {line}",
+                        file.display(),
+                        idx + 1
+                    ));
+                }
+            }
+        }
+    }
+    assert!(
+        violations.is_empty(),
+        "the combat kit (mechanics::combat) is reusable machinery and must not \
+name Ambition content:\n{}",
+        violations.join("\n")
+    );
 }

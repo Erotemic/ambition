@@ -21,7 +21,9 @@
 // into these modules. Everything else stays `pub(crate)` so the compiler
 // can tell us what's actually depended on from outside.
 pub mod actor;
-pub mod ambition_content;
+// Unified into `content` (Stage 20 / A1). The alias keeps every
+// `crate::ambition_content::…` path resolving unchanged.
+pub use content as ambition_content;
 pub mod app;
 pub mod audio;
 pub mod combat;
@@ -63,7 +65,7 @@ pub(crate) mod body_mode;
 pub(crate) mod boss_encounter;
 pub(crate) mod brain;
 pub(crate) mod config;
-pub(crate) mod content;
+pub mod content;
 pub(crate) mod dev;
 pub(crate) mod dialog;
 // Test-only (`#![cfg(test)]`): static arity lint for the Yarn dialogue commands.

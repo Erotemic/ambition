@@ -25,9 +25,9 @@ use bevy_common_assets::ron::RonAssetPlugin;
 
 use super::setup_systems::setup_simulation_system;
 use crate::audio::SfxMessage;
-use crate::content::data;
 use crate::game_mode::GameMode;
 use crate::presentation::fx::{ExplosionRequest, FireworksRequest, VfxMessage};
+use crate::runtime::data;
 use crate::world::physics::DebrisBurstMessage;
 use crate::PlayerDiedMessage;
 

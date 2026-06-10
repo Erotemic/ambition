@@ -41,8 +41,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 #[cfg(feature = "audio")]
-use crate::content::data::AudioSpec;
-use crate::content::data::SoundCueKey;
+use crate::runtime::data::AudioSpec;
+use crate::runtime::data::SoundCueKey;
 
 #[cfg(feature = "audio")]
 mod bank_asset;

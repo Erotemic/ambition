@@ -119,14 +119,51 @@ reaches into player (input frame), presentation (sheet lookup), mechanics
   app dev systems (`sync_*`); slice `trace` into lib model+buffer (sim writes) vs app
   detect+dump. ~2.5–3k more to app. Surgical, like the audio runtime split.
 
+## Session 3 (2026-06-10, Fable 5) — `ambition_actor` EXTRACTED
+
+The unified-actor-crate backlog item landed in one session because re-measurement
+showed the survey's blockers had mostly dissolved (actor→presentation was
+test-only; actor→content/state_machines were stale data). Commits:
+
+- **f5208959** — prep inversions: `ActorPose`/`ActorFaction` → `actor::pose`
+  (kit re-exports; `from_aabb` became parts-based `from_parts` so the vocabulary
+  doesn't need the kit's body type); `PlayerSlot` → brain (`Brain::Player` embeds
+  it); brain's `PlayerInputFrame` dep deleted (test-only wrapper; `BrainSnapshot`
+  already carried `Option<ControlFrame>`); catalog↔sheet tests → presentation.
+- **3e344d95** — **de-named `BossAttackProfile`**: GnuHandSlam→HandSlam,
+  GnuAppleRain→DebrisRain, GradientLane→HazardColumn, OverfitVolley→MemorizedVolley,
+  EyeBeam→LockOnBeam, MinimaTrap→PitTrap, SaddlePoint→RotatingCross,
+  GradientCascade→MinionCascade, etc. CamelCase identifiers only — snake_case
+  strings ("gnu_hand_slam", "eye_beam") are SPRITE-SHEET ROW KEYS and stay.
+  RON authors the new names; profiles are now reusable behavior vocabulary.
+- **beb0fe29** — **`crates/ambition_actor`** (~9.5k): actor control/AI/pose/faction
+  + universal brain (+ `BossEncounterPhase`) + catalog schema/parser/resolver.
+  Deps: engine_core + input crates only. Sandbox re-exports
+  `pub use ambition_actor::{actor, brain}` → zero consumer churn.
+  **Data/machinery split**: the game's roster moved to
+  `ambition_sandbox::character_roster` (embeds the RON where the Python tools
+  expect it; pre-loads the data-parameterized `CharacterCatalogPlugin`). Guard
+  #23 scans the crate with ZERO exemptions — Jon challenged the first guard
+  draft ("is the arch guard really correct?") and he was right: the catalog-dir
+  exemption + the include_str escape hatch were masking an upward data dep.
+  Splitting data from machinery made the exemptions unnecessary.
+
+Test conservation: 187 (actor) + 992 (sandbox) = 1179, the exact pre-split count.
+Replay bit-identical throughout. Sandbox lib is now ~101k (from 112k).
+
 ## Honest takeaway for the next session
-The only **big + mechanically-easy** win was menu (done). Everything else is either:
-- a DOWN-extraction blocked by upward machinery deps (mechanics, world, presentation,
-  brain, boss_encounter), or
-- a carve-the-state-from-the-systems job (dev remainder, features actor core).
+Remaining work, in rough value order:
+- **boss_encounter generic runtime → join `ambition_actor`** (~5.5k): the phase
+  enum already lives in brain; the registry/behavior/specs layer needs its named
+  recognizers (gnu_ton/mockingbird in behavior.rs) data-keyed first — same recipe
+  as the attack-profile de-name.
+- **Complete `BrainPlugin`** (fold `tick_player_brains` / `emit_brain_action_messages`
+  / projectile-tick / observer registrations out of the app schedule). Replay-
+  sensitive: preserve the explicit `.in_set/.after` ordering, fixture gate per step.
+- **dev carve** (state/systems split, ~2.5–3k) and the **B3 boss-asset map**
+  (needs Jon's eyes — visual).
+- The deep walls remain features (`EnemyConfig.archetype` knot), world (LDtk
+  adapter), presentation, mechanics (~15 upward deps).
 
 Pick the next target by the *measured outward-dep count*, not the line size or the
-content-guard status. The cheapest remaining real wins are probably **brain → crate**
-(medium; the named boss-attack variants are the only knot) and the **dev carve**
-(state/systems split, well-understood pattern). The presentation B3 boss-asset map
-(sketch in `dev/journals/code_smells.md`) remains but needs Jon's eyes (visual).
+content-guard status — and re-measure before trusting this table; blockers rot.

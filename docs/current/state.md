@@ -23,11 +23,13 @@ Bevy ECS runtime
 
 Crate layers (low → high; lower must never import higher):
   foundations  ambition_engine_core (geometry/collision/movement/body/player
-               clusters/world), ambition_platformer_runtime (kinematic body,
+               clusters/world), ambition_actor (unified actor system: control
+               vocabulary + universal brain + character catalog; bosses are
+               actors), ambition_platformer_runtime (kinematic body,
                gravity, rooms, projectile), ambition_portal, ambition_time,
                ambition_input, ambition_menu (reusable renderers), ambition_audio,
                ambition_sfx[_bank], ambition_asset_manager.
-  machinery    ambition_sandbox (lib): brain, actor, mechanics, features (named
+  machinery    ambition_sandbox (lib): mechanics, features (named
                actor/boss ECS world), presentation, world/LDtk, items, encounter,
                persistence, the dev STATE, the menu IR/map. Content-free
                (guard-enforced). Re-exports the foundation crates under their

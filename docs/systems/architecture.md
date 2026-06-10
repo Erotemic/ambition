@@ -1,43 +1,47 @@
 # Architecture
 
-Ambition is a Rust/Bevy workspace with reusable support crates, a playable sandbox crate, and author-time tools. The current architecture is Bevy-native and ECS-first; old backend-neutral constraints are superseded by ADR 0002.
+Ambition is a Rust/Bevy workspace, Bevy-native and ECS-first (old backend-neutral
+constraints superseded by ADR 0002). Post-bisection (Stage 20) it is a **4-layer
+crate graph**; lower layers must never import higher ones. Survey + remaining work:
+`docs/planning/plugin_refactor/22_monolith_breaker_survey.md`.
 
-## Crate responsibilities
+## Crate layers
 
-| Crate | Responsibility |
-|---|---|
-| `crates/ambition_engine_core/src/` | Reusable mechanics vocabulary inside the sandbox crate: movement, collision, body modes, geometry, block/world policy, player clusters, and tests. Bevy-friendly types are allowed when useful. |
-| `ambition_asset_manager` | Asset identity, platform profile resolution, embedded/served/loose asset roots, and Bevy integration. |
-| `ambition_sfx` | Stable generated SFX identifiers and sound vocabulary. |
-| `ambition_sfx_bank` | Runtime SFX-bank parsing and lookup. |
-| `ambition_sandbox` | The playable Bevy app: LDtk runtime projection, input adapters, player ECS state, presentation, UI, audio, dev tools, platform composition, and headless entry points. |
+| Layer | Crates | Responsibility |
+|---|---|---|
+| foundations | `ambition_engine_core` (movement/collision/body/geometry/world/player clusters), `ambition_platformer_runtime` (kinematic, gravity, rooms, projectile), `ambition_portal`, `ambition_time`, `ambition_input`, `ambition_menu` (reusable renderers), `ambition_audio`, `ambition_sfx[_bank]`, `ambition_asset_manager` | Reusable, content-free, no dep on the layers below |
+| machinery | `ambition_sandbox` (lib) | brain, actor, mechanics, `features` (named actor/boss ECS world), presentation, world/LDtk, items, encounter, persistence, dev STATE, menu IR/map. Content-free (guard-enforced). Re-exports foundations under facade paths (`crate::engine_core`, `crate::input`, …). |
+| content | `ambition_content` | Named game content: quests, bosses, items roster, dialogue, intro, banter, portal adapters |
+| app | `ambition_app` | Bevy assembly, host glue, ALL binaries (playable `ambition_sandbox` bin, headless, rl_*), menu host stack + `DevToolsPlugin`, full-stack integration tests |
 
-## Current sandbox module shape
-
-The sandbox crate is organized around themed modules:
+## Machinery (`ambition_sandbox`) module shape
 
 ```text
-crates/ambition_sandbox/src/app/          app setup, schedules, update phases
-crates/ambition_content/src/      authored feature/content conversion
-crates/ambition_sandbox/src/world/        LDtk world, room building, physics, platforms
-crates/ambition_sandbox/src/player/       player ECS components and systems
-crates/ambition_sandbox/src/input/        action/control-frame/menu input
-crates/ambition_sandbox/src/persistence/  save data and settings persistence
-crates/ambition_sandbox/src/presentation/ sprites, camera, parallax, rendering, UI fonts
-crates/ambition_sandbox/src/dev/          trace, debug overlays, profiling, mechanics tools
-crates/ambition_sandbox/src/runtime/      game mode, reset, setup
-crates/ambition_sandbox/src/host/         desktop/web/mobile/platform glue
+src/brain|actor/      universal brain + actor control (bosses are actors, ADR 0016)
+src/mechanics/        combat kit + gravity (content-free)
+src/features/         named actor/boss ECS world (still lib; B3-tracked)
+src/world/            LDtk world, room building, physics, platforms
+src/player/           player ECS components and systems
+src/presentation/     sprites, camera, parallax, rendering, UI fonts
+src/persistence/      save data and settings
+src/dev/              dev STATE (dev_tools), trace recorder, profiling
+src/menu/             settings IR, Map tab, backend selector (host stack is in ambition_app)
+src/app/              SCHEDULE VOCABULARY only (SandboxSet, input populate) — assembly is in ambition_app
 ```
 
-`crates/ambition_sandbox/src/lib.rs` still exposes compatibility re-export shims such as `features`, `ldtk_world`, `rooms`, `game_mode`, and `trace`. Treat those as transitional API paths, not as a reason to add new root-level modules.
+`lib.rs` re-exports the foundation crates under facade paths (`engine_core`,
+`kinematic`, `input`, `time`, `portal`) plus a few historical shims (`features`,
+`ldtk_world`, `rooms`, `game_mode`, `trace`). Edit the crate, not a facade.
 
 ## Boundary rules
 
-- Put reusable mechanics/data vocabulary in `engine_core` or another focused sandbox module when the mechanic is still sandbox-owned.
-- Put Bevy app composition, presentation, platform packaging, and LDtk runtime adaptation in `ambition_sandbox`.
-- Use components/resources/messages at runtime integration seams.
-- Do not add abstraction layers only to avoid Bevy.
-- Keep colors, sprites, audio playback, HUD layout, inspector UI, and packaging policy out of `engine_core`.
+- Reusable, dependency-clean mechanics → a foundation crate. Still-coupled
+  machinery stays in `ambition_sandbox` until its outward deps are inverted.
+- Named game content → `ambition_content`. App assembly / bins / host glue →
+  `ambition_app`. The machinery lib must import neither (guard-enforced).
+- New gameplay subsystems are self-owning `Plugin`s (components-as-plugins).
+- Use components/resources/messages at runtime seams; don't add abstraction
+  layers only to avoid Bevy. Keep presentation/packaging out of the engine core.
 
 ## Refactor rules for agents
 
@@ -51,8 +55,10 @@ crates/ambition_sandbox/src/host/         desktop/web/mobile/platform glue
 
 ```bash
 cargo fmt --check
-cargo test -p ambition_sandbox --lib engine_core
-cargo test -p ambition_sandbox --lib
+cargo test -p ambition_engine_core            # engine core unit tests (now its own crate)
+cargo test -p ambition_sandbox --lib          # machinery
+cargo test -p ambition_content --all-features  # named content
+cargo test -p ambition_app                    # assembly + integration suites (replay, boundaries, …)
 python scripts/generate_agent_index.py
 python scripts/check_agent_kb.py
 python scripts/check_doc_links.py

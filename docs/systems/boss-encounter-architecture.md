@@ -1,5 +1,11 @@
 # Boss encounter architecture direction
 
+> **Actor unification (ADR 0016):** bosses ARE actors. `BossEncounterPhase`
+> lives in `crate::brain::boss_pattern` (not a boss-only module); the goal is one
+> unified actor+brain+boss-runtime unit with only *named* boss data in
+> `ambition_content`.
+
+
 The current sandbox bosses share the same coarse encounter skeleton: intro,
 phase thresholds, transition, stagger, enrage, death, music request, and reward
 sync. That is useful scaffolding, but it should not become the place where every
@@ -36,7 +42,7 @@ path is:
 ```text
 HitEvent { source: PlayerSlash | PlayerProjectile, target, volume } (player hits boss)
   ↓
-apply_feature_hit_events (content/features/ecs/damage.rs)
+apply_feature_hit_events (features/ecs/damage.rs)
   ↓
 record_boss_damage (boss_encounter/damage.rs)
   ↓ apply_player_damage on the engine state

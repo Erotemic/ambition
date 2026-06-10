@@ -1918,30 +1918,12 @@ fn spawn_selection_corners(
     active: bool,
 ) {
     let color = Color::WHITE;
-    let l = 23.0;
-    let t = 6.0;
-    spawn_corner_piece(ui, materials, 0.0, 0.0, l, t, color, active);
-    spawn_corner_piece(ui, materials, 0.0, 0.0, t, l, color, active);
-    spawn_corner_piece(ui, materials, 100.0 - l, 0.0, l, t, color, active);
-    spawn_corner_piece(ui, materials, 100.0 - t, 0.0, t, l, color, active);
-    spawn_corner_piece(ui, materials, 0.0, 100.0 - t, l, t, color, active);
-    spawn_corner_piece(ui, materials, 0.0, 100.0 - l, t, l, color, active);
-    spawn_corner_piece(ui, materials, 100.0 - l, 100.0 - t, l, t, color, active);
-    spawn_corner_piece(ui, materials, 100.0 - t, 100.0 - l, t, l, color, active);
-}
-
-#[allow(clippy::too_many_arguments)]
-fn spawn_corner_piece(
-    ui: &mut ChildSpawnerCommands,
-    materials: &mut Assets<StandardMaterial>,
-    x: f32,
-    y: f32,
-    w: f32,
-    h: f32,
-    color: Color,
-    active: bool,
-) {
     let base_alpha = color.alpha();
+    // PERF (2026-06-10): all 8 corner pieces are the SAME white plane, toggled
+    // only by VISIBILITY (`sync_selection_corner_visuals`) and never recolored, so
+    // they share ONE material handle instead of each `materials.add()`-ing its own
+    // (8 -> 1 per control; ~190 -> 24 across the inventory grid — fewer
+    // StandardMaterial assets + GPU bind groups).
     let material = materials.add(StandardMaterial {
         base_color: fade_color(color, base_alpha),
         alpha_mode: AlphaMode::Blend,
@@ -1949,6 +1931,34 @@ fn spawn_corner_piece(
         unlit: true,
         ..default()
     });
+    let l = 23.0;
+    let t = 6.0;
+    let pieces = [
+        (0.0, 0.0, l, t),
+        (0.0, 0.0, t, l),
+        (100.0 - l, 0.0, l, t),
+        (100.0 - t, 0.0, t, l),
+        (0.0, 100.0 - t, l, t),
+        (0.0, 100.0 - l, t, l),
+        (100.0 - l, 100.0 - t, l, t),
+        (100.0 - t, 100.0 - l, t, l),
+    ];
+    for (x, y, w, h) in pieces {
+        spawn_corner_piece(ui, material.clone(), x, y, w, h, base_alpha, active);
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn spawn_corner_piece(
+    ui: &mut ChildSpawnerCommands,
+    material: Handle<StandardMaterial>,
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    base_alpha: f32,
+    active: bool,
+) {
     ui.spawn((
         Name::new("selection corner"),
         SelectionCorner,
@@ -2109,8 +2119,30 @@ fn fade_kaleidoscope_materials(
     state: Res<KaleidoscopeOpenState>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     faded: Query<(&KaleidoscopeFade, &MeshMaterial3d<StandardMaterial>)>,
+    // Faded planes whose material handle was (re)spawned or swapped THIS frame:
+    // `rebuild_cube_faces` (new planes, always Blend) and `sync_control_focus_visuals`
+    // (focus recolor, new Blend handle). `Changed<MeshMaterial3d>` covers both adds
+    // and replacements.
+    touched: Query<
+        (),
+        (
+            Changed<MeshMaterial3d<StandardMaterial>>,
+            With<KaleidoscopeFade>,
+        ),
+    >,
+    mut last_amount: Local<f32>,
 ) {
     let amount = state.amount.clamp(0.0, 1.0);
+    // PERF (2026-06-10): SETTLE EARLY-OUT. Each plane's target (mode + alpha)
+    // depends only on `amount` and its static `base_alpha`/textured-ness, so when
+    // the fold amount is unchanged AND no faded plane's material was respawned or
+    // recolored this frame, the whole sweep is a guaranteed no-op — skip it instead
+    // of doing a `materials.get()` for every one of the ~hundreds of menu planes
+    // every frame while the menu just sits open.
+    if (amount - *last_amount).abs() <= f32::EPSILON && touched.is_empty() {
+        return;
+    }
+    *last_amount = amount;
     // Restore the proven pre-Feature-B per-element alpha scheme once the fold is
     // fully open, so the cube stops z-fighting WITHOUT turning text/icons into
     // squares:

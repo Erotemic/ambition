@@ -24,12 +24,14 @@
 use bevy::ecs::query::QueryData;
 use bevy::prelude::Component;
 
-use super::super::bosses::{canonical_boss_id_from, BossBehaviorProfile, BossSpriteMetrics};
+use crate::boss_encounter::behavior::{
+    canonical_boss_id_from, BossBehaviorProfile, BossSpriteMetrics,
+};
 use crate::boss_encounter::BossEncounterPhase;
 use crate::engine_core as ae;
 use crate::engine_core::AabbExt;
 
-pub use super::enemy_clusters::BodyKinematics;
+pub use crate::platformer_runtime::body::BodyKinematics;
 
 /// Authored configuration + identity for a boss actor. Also serves as
 /// the boss marker component (see module docs).
@@ -78,17 +80,6 @@ pub struct BossMut<'a> {
 }
 
 impl<'a> BossRef<'a> {
-    pub fn is_mockingbird(&self) -> bool {
-        self.config.behavior.id == "mockingbird"
-            || self.config.name.eq_ignore_ascii_case("mockingbird")
-    }
-
-    pub fn is_gnu_ton(&self) -> bool {
-        self.config.behavior.id == "gnu_ton"
-            || self.config.name.eq_ignore_ascii_case("gnu_ton")
-            || self.config.name.eq_ignore_ascii_case("gnu-ton")
-    }
-
     pub fn render_size(&self) -> ae::Vec2 {
         self.kin.size
     }
@@ -117,16 +108,16 @@ impl<'a> BossRef<'a> {
         )
     }
 
-    /// World-space anchor for a combat-banter speech bubble. For GNU-ton
-    /// the scholar sits on the right shoulder.
+    /// World-space anchor for a combat-banter speech bubble, from the
+    /// profile's authored [`BarkAnchorSpec`] (multi-part bosses hang
+    /// the bubble off-center; the default sits just above the body).
     pub fn bark_anchor(&self) -> ae::Vec2 {
-        if self.is_gnu_ton() {
-            let half_h = self.combat_size().y * 0.5;
-            ae::Vec2::new(self.kin.pos.x + 38.0, self.kin.pos.y - half_h * 0.55 - 18.0)
-        } else {
-            let half_h = self.combat_size().y * 0.5;
-            ae::Vec2::new(self.kin.pos.x, self.kin.pos.y - half_h - 20.0)
-        }
+        let spec = self.config.behavior.bark_anchor;
+        let half_h = self.combat_size().y * 0.5;
+        ae::Vec2::new(
+            self.kin.pos.x + spec.dx_px,
+            self.kin.pos.y + spec.dy_half_h * half_h + spec.dy_px,
+        )
     }
 }
 
@@ -138,10 +129,6 @@ impl<'a> BossMut<'a> {
             config: self.config,
             status: self.status,
         }
-    }
-
-    pub fn is_gnu_ton(&self) -> bool {
-        self.as_ref().is_gnu_ton()
     }
 
     pub fn combat_size(&self) -> ae::Vec2 {

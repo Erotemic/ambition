@@ -66,6 +66,14 @@ pub struct GnuTonLadderGate {
 /// then add them back to `world.climbable_regions` the frame the boss
 /// dies. Cheap in non-arena rooms (single name comparison) and in
 /// arena rooms after stash/reveal completes.
+/// GNU-ton recognizer (id or authored display name). Lives content-side:
+/// the generic cluster views no longer carry named-boss predicates.
+fn boss_is_gnu_ton(boss: &ambition_sandbox::features::BossRef<'_>) -> bool {
+    boss.config.behavior.id == "gnu_ton"
+        || boss.config.name.eq_ignore_ascii_case("gnu_ton")
+        || boss.config.name.eq_ignore_ascii_case("gnu-ton")
+}
+
 pub fn gate_gnu_ton_arena_ladder(
     mut world: ResMut<ambition_sandbox::GameWorld>,
     bosses: Query<BossClusterRef>,
@@ -114,7 +122,7 @@ pub fn gate_gnu_ton_arena_ladder(
     // count as defeat — we only reveal on observed `alive = false`.
     let boss_defeated = bosses.iter().any(|feature| {
         let boss = feature.as_boss_ref();
-        boss.is_gnu_ton() && !boss.status.alive
+        boss_is_gnu_ton(&boss) && !boss.status.alive
     });
 
     if boss_defeated {

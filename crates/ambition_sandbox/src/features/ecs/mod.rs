@@ -48,7 +48,6 @@ use crate::WorldTime;
 mod actors;
 mod aggression;
 mod anim_helpers;
-pub mod boss_clusters;
 mod bosses;
 mod brain_builders;
 mod brain_effects;
@@ -70,6 +69,7 @@ mod view_index;
 // (`crate::mechanics::combat`, Stage 20 / A2). Module aliases keep
 // every `super::<module>::…` path in the staying files (and every
 // external `…::ecs::<module>::…` path) resolving unchanged.
+pub use crate::mechanics::combat::boss_clusters;
 pub use crate::mechanics::combat::{
     banner, breakables, chests, falling_chest, hazards, held_items, hitbox, overlay, pickups,
     spawn_static, targeting, variation,

@@ -38,6 +38,7 @@ const CHEST_FALL_GRAVITY: f32 = 1400.0;
 const CHEST_FALL_MAX_SPEED: f32 = 900.0;
 
 pub mod banner;
+pub mod boss_clusters;
 pub mod breakables;
 pub mod bus;
 pub mod chests;

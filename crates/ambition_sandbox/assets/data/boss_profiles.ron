@@ -272,6 +272,7 @@
     // `combat_size` is only the movement/placeholder envelope.
     // ============================================================
     "gnu_ton": (
+        bark_anchor: (dx_px: 38.0, dy_half_h: -0.55, dy_px: -18.0),
         id: "gnu_ton",
         combat_size: Some((220.0, 220.0)),
         movement: StationaryGiant(

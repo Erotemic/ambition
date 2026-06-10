@@ -92,6 +92,31 @@ pub struct BossBehaviorProfile {
     /// so the dependency points content -> core, never the reverse.
     #[serde(default)]
     pub environmental_kill_only: bool,
+    /// Where a combat-banter speech bubble anchors relative to the
+    /// boss: `pos + (dx_px, dy_half_h * combat_half_height + dy_px)`.
+    /// The default hangs the bubble just above the body; multi-part
+    /// bosses (GNU-ton's shoulder scholar) author their own.
+    #[serde(default)]
+    pub bark_anchor: BarkAnchorSpec,
+}
+
+/// Authored speech-bubble anchor for a boss (see
+/// [`BossBehaviorProfile::bark_anchor`]).
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+pub struct BarkAnchorSpec {
+    pub dx_px: f32,
+    pub dy_half_h: f32,
+    pub dy_px: f32,
+}
+
+impl Default for BarkAnchorSpec {
+    fn default() -> Self {
+        Self {
+            dx_px: 0.0,
+            dy_half_h: -1.0,
+            dy_px: -20.0,
+        }
+    }
 }
 
 /// Authored post-defeat reward for a boss. Parsed from the optional

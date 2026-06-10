@@ -94,7 +94,8 @@ To keep merge conflicts simple to resolve use a style formatter.
 ```bash
 cargo fmt --check
 cargo test -p ambition_sandbox --lib
-cargo run -p ambition_sandbox --bin headless
+cargo test -p ambition_content --all-features
+cargo run -p ambition_app --bin headless
 python scripts/check_agent_kb.py
 python scripts/check_doc_links.py
 ```

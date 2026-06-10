@@ -53,7 +53,7 @@ pub struct MenuNavConsume;
 /// player entity. Sim-only setup spawns the player without these so the
 /// sim path stays leafwing-free per the ADR 0012 input seam.
 #[cfg(feature = "input")]
-pub(super) fn attach_player_input_components(
+pub fn attach_player_input_components(
     mut commands: Commands,
     dev_state: Res<SandboxDevState>,
     scene: Res<crate::presentation::rendering::SceneEntities>,

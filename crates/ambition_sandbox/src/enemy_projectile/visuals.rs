@@ -19,7 +19,7 @@ pub struct EnemyProjectileVisual;
 /// per-frame refresh applies the right transform (rotation for the spinning
 /// lasersword, flip for the rectangle, position-only for the apple).
 #[derive(Component, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum EnemyVisualKind {
+pub enum EnemyVisualKind {
     Apple,
     Lasersword,
     Rect,
@@ -65,7 +65,7 @@ pub const LASERSWORD_SHEET: &str = LASERSWORD_SHEET_PATH;
 /// Texture handles used by enemy projectile visuals. Stored in system-local
 /// state so per-frame visual sync does not call `AssetServer::load` and churn
 /// image decode / asset bookkeeping every tick.
-pub(crate) struct EnemyProjectileVisualArt {
+pub struct EnemyProjectileVisualArt {
     apple: Handle<Image>,
     lasersword: Handle<Image>,
 }

@@ -291,6 +291,35 @@ doc, and move to C1/B1. A1+A2 alone are a successful night.
   `cut_rope_heavy_object` after the generic refresh; save-gating preserved + unit test).
   TRIAGED: `assets/sandbox_assets` manifest builders are content-composition by
   nature — allowlist tonight, relocate during A3 instead of inventing a registry seam.
+- 00:35 — `1b7cba93` A1 batch 2 (registration inversions: gravity ContentRoomResetSet,
+  portal pickup into content plugin, equip_portal_gun → items::pickup, dialog
+  YarnContentBindings seam + extras map). All portal suites green.
+- 00:48 — **A2 scope discovery:** `EnemyConfig.archetype: EnemyArchetype` is the
+  per-archetype tuning hub woven through actors/damage/mount/save_sync — dissolving
+  it into capability components is its own future pass. Tonight's kit = the genuinely
+  decoupled files. `boss_attack_geometry` (1590 LOC) turned out generic but needs the
+  profile-type relocation (deferred to stretch).
+- 00:55 — `50c1212a` A2: 19 files (~4.3k LOC) → `crate::mechanics::combat`; module
+  aliases keep every inbound path; breakable helpers moved with it.
+- 01:00 — `a81609fe` A1 unification: ONE content module; `crate::ambition_content` =
+  alias; + 2 new guards (machinery-content-free across 25 dirs, combat-kit named-free)
+  which immediately caught 5 stale paths.
+- 01:13 — `da477bec` A3 prep: BossSteerSlot + PresentationSetupSet schedule-vocab sets;
+  `build_sandbox_catalog_with` content-extension hook; `features` promoted to lib root.
+- 01:35 — **A3 BISECTION executed**: `ambition_content` crate (content minus features)
+  + `ambition_app` crate (app assembly, host runtime glue, bins, rl_sim, headless, ALL
+  integration tests + fixtures). Sandbox keeps the schedule/input vocabulary as a slim
+  `app` module so 30+ machinery `crate::app::SandboxSet` refs needed zero churn;
+  `host::windowing` stayed lib-side (settings model reads it). Placeholder-sed strategy
+  (`crate::content::→__SELF__::` … ) handled the items/quest name collisions cleanly.
+  ~15 pub(crate)→pub widenings. Feature graph: app crate owns the personas, forwarding
+  to sandbox+content; content pins a sandbox baseline (ldtk_runtime/input/portal —
+  the lib was never built bare).
+- 01:38 — **replay fixture BIT-IDENTICAL across the crate split**; scripted green;
+  arch 19 green (guards re-pathed: crate_src→sandbox, app_src, content_src); sandbox
+  lib 1270 + content 71 (all-features) green. Command sites updated (AGENTS.md, CI,
+  profile script). KNOWN MORNING-FIX: Android Gradle must point at libambition_app.so
+  (entry points moved with the assembly); wasm web build script untested.
 
 ## Estimated vs actual (fill at end of run)
 

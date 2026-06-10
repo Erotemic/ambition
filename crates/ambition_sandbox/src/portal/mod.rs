@@ -34,8 +34,9 @@ pub use ambition_portal::*;
 #[cfg(feature = "portal_render")]
 mod presentation;
 
-#[cfg(test)]
-mod tests;
+// Portal integration tests moved to the content crate
+// (`ambition_content::portal::tests`): they exercise the portal core
+// TOGETHER with the Ambition adapters, which live above this lib.
 
 #[cfg(feature = "portal_render")]
 pub use presentation::{

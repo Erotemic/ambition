@@ -50,7 +50,7 @@ impl DisplayModeState {
 /// Runtime display-mode hotkeys (developer convenience).
 ///
 /// The primary user-facing surface is the pause menu's Settings page
-/// (`crate::pause_menu`), which exposes Display Mode as a row that
+/// (`ambition_sandbox::pause_menu`), which exposes Display Mode as a row that
 /// cycles Windowed / Borderless / Fullscreen with Left/Right and
 /// Confirm. These F-keys remain as a dev shortcut so you can flip
 /// between modes without going through the menu while iterating:
@@ -59,7 +59,7 @@ impl DisplayModeState {
 /// - `F7`: borderless fullscreen
 ///
 /// `F8` is reserved for the gameplay trace recorder dump (see
-/// `crate::trace::handle_trace_hotkey`). Exclusive fullscreen used to
+/// `ambition_sandbox::trace::handle_trace_hotkey`). Exclusive fullscreen used to
 /// be on `F8` but is rarely useful for sandbox dev; the menu remains
 /// the way to reach it.
 ///

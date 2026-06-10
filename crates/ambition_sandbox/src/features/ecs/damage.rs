@@ -246,7 +246,7 @@ pub fn drop_ability_pickup(
 pub fn apply_feature_hit_events(
     mut hit_events: MessageReader<HitEvent>,
     mut banner: ResMut<GameplayBanner>,
-    combat_banter: Option<Res<crate::content::banter::CombatBanterRegistry>>,
+    combat_banter: Option<Res<crate::features::banter::CombatBanterRegistry>>,
     mut breakables: Query<
         (
             Entity,
@@ -552,7 +552,7 @@ fn apply_actor_hit(
     enemy: Option<&mut super::enemy_clusters::EnemyMut<'_>>,
     npc: Option<NpcHitTarget<'_>>,
     banner: &mut GameplayBanner,
-    combat_banter: Option<&crate::content::banter::CombatBanterRegistry>,
+    combat_banter: Option<&crate::features::banter::CombatBanterRegistry>,
     writers: &mut FeatureHitWriters<'_, '_>,
 ) -> bool {
     match actor {
@@ -745,7 +745,7 @@ fn apply_boss_hit(
     attack_state: &crate::brain::BossAttackState,
     animation_frame: Option<&crate::features::BossAnimationFrameSample>,
     banner: &mut GameplayBanner,
-    combat_banter: Option<&crate::content::banter::CombatBanterRegistry>,
+    combat_banter: Option<&crate::features::banter::CombatBanterRegistry>,
     writers: &mut FeatureHitWriters<'_, '_>,
     boss_registry: Option<&mut BossEncounterRegistry>,
     music_request: Option<&mut BossEncounterMusicRequest>,

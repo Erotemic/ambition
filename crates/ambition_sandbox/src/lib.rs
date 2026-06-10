@@ -21,9 +21,6 @@
 // into these modules. Everything else stays `pub(crate)` so the compiler
 // can tell us what's actually depended on from outside.
 pub mod actor;
-// Unified into `content` (Stage 20 / A1). The alias keeps every
-// `crate::ambition_content::…` path resolving unchanged.
-pub use content as ambition_content;
 pub mod app;
 pub mod audio;
 pub mod combat;
@@ -33,11 +30,11 @@ pub mod debug_label;
 // path so every `crate::engine_core::X` reference and the `use
 // crate::engine_core as ae` alias across the sandbox resolve unchanged.
 pub use ambition_engine_core as engine_core;
-pub mod headless;
 // The device -> ControlFrame input layer now lives in the `ambition_input`
 // crate (ADR 0019). Re-exported here as `crate::input` so all existing
 // `crate::input::{ControlFrame, SandboxAction, …}` paths resolve unchanged.
 pub use ambition_input as input;
+pub mod host;
 pub mod interaction;
 // Generic kinematic body (gravity + axis-separated sweep) now lives in the
 // reusable runtime crate (Stage 18 T13). Re-exported here as `crate::kinematic`
@@ -46,8 +43,6 @@ pub use ambition_platformer_runtime::kinematic;
 pub mod platformer_runtime;
 pub mod player;
 pub mod quest;
-#[cfg(feature = "rl_sim")]
-pub mod rl_sim;
 // Facade re-export: the save-game *data shapes* moved into
 // `persistence/save_data.rs` (the I/O shim is `persistence/save.rs`). Keep the
 // historical `crate::save` path alive for the Yarn dialogue bindings (owned by a
@@ -60,43 +55,41 @@ pub use persistence::save_data as save;
 // leaves the sandbox-specific ones (`content`, sandbox `assets`) behind.
 pub mod abilities;
 pub mod ability_cooldown;
-pub(crate) mod assets;
-pub(crate) mod body_mode;
-pub(crate) mod boss_encounter;
-pub(crate) mod brain;
-pub(crate) mod config;
-pub mod content;
-pub(crate) mod dev;
-pub(crate) mod dialog;
+pub mod assets;
+pub mod body_mode;
+pub mod boss_encounter;
+pub mod brain;
+pub mod config;
+pub mod dev;
+pub mod dialog;
 // Test-only (`#![cfg(test)]`): static arity lint for the Yarn dialogue commands.
 mod dialog_lint;
-pub(crate) mod encounter;
-pub(crate) mod enemy_projectile;
+pub mod encounter;
+pub mod enemy_projectile;
 #[cfg(feature = "falling_sand")]
-pub(crate) mod falling_sand;
-pub(crate) mod host;
-pub(crate) mod inventory;
+pub mod falling_sand;
+pub mod inventory;
 pub mod items;
 // Facade re-export: the Yarn dialogue bindings (owned by a parallel agent)
 // still resolve buy/sell via `crate::shop`. Keep the path alive after the
 // items/ consolidation so that module needs no churn.
 pub use items::shop;
 pub mod mechanics;
-pub(crate) mod music;
+pub mod music;
 // Unified menu content (model + concrete settings IR + Map tab). See
 // `docs/planning/unified_tabbed_menu.md` §10.
 pub mod menu;
-pub(crate) mod persistence;
+pub mod persistence;
 pub mod physics;
 #[cfg(feature = "portal")]
 pub mod portal;
-pub(crate) mod presentation;
-pub(crate) mod projectile;
-pub(crate) mod runtime;
+pub mod presentation;
+pub mod projectile;
+pub mod runtime;
 pub mod shrine;
-pub(crate) mod time;
-pub(crate) mod ui_nav;
-pub(crate) mod world;
+pub mod time;
+pub mod ui_nav;
+pub mod world;
 
 // Public re-exports double as the external API: `features`, `rooms`,
 // `ldtk_world`, `game_mode`, and `trace` are referenced from bins,
@@ -123,46 +116,10 @@ pub use time::world_time::{
     mirror_sim_dt_into_runtime, refresh_world_time, ClockDomain, WorldTime,
 };
 
-/// Android shared-library entry point.
-///
-/// Desktop builds enter through `src/main.rs`, but the Android Gradle project
-/// packages this crate as `libambition_sandbox.so`. GameActivity /
-/// android-activity expects that shared library to export `android_main`;
-/// Bevy's `#[bevy_main]` macro generates that boilerplate and registers the
-/// Android app handle for `bevy_winit` before calling into our normal visible
-/// app builder.
-#[cfg(target_os = "android")]
-#[bevy::prelude::bevy_main]
-fn main() {
-    app::run_visible();
-}
-
-/// Browser (`wasm32-unknown-unknown`) entry point.
-///
-/// The wasm module exports this as its `start` function via
-/// `wasm-bindgen`, so the JS in `crates/ambition_sandbox/web/index.html`
-/// gets to call `init()` (the generated JS shim) and the browser fires
-/// `web_start` on its own as soon as the module finishes instantiating —
-/// no manual wiring on the page.
-///
-/// This is the analog of the Android `#[bevy_main]` shim above: the
-/// platform supplies the entry-point convention, and we hand off to the
-/// browser-flavored Bevy app builder. Desktop builds compile this away
-/// entirely.
-#[cfg(all(target_arch = "wasm32", feature = "web_platform"))]
-#[wasm_bindgen::prelude::wasm_bindgen(start)]
-pub fn web_start() {
-    // Forward panics to `console.error` instead of the default `abort`
-    // so a first-pass crash is debuggable from devtools without a
-    // separate wasm symbol pass. Cheap; `set_once` is idempotent.
-    console_error_panic_hook::set_once();
-    app::run_web();
-}
+// The Android / wasm entry points moved to the `ambition_app` crate
+// with the app assembly (Stage 20 / A3).
 
 pub use game_mode::{gameplay_allowed, GameMode};
-pub use headless::{run_headless, HeadlessReport};
-#[cfg(feature = "rl_sim")]
-pub use rl_sim::{AgentAction, AgentObservation, SandboxSim, SandboxSimOptions};
 
 // Re-export the types that leak through public crate-root signatures
 // (`MovingPlatformSet.0`, `WorldTime::entity_dt`) so the modules they

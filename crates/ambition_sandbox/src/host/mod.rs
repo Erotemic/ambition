@@ -1,11 +1,6 @@
-//! Host-platform integration: per-OS plugin selection (desktop, android,
-//! …), window/display-mode controls, and touch / mobile input adapters.
-//!
-//! Lives outside `app/` because these modules describe what runs the
-//! Bevy app rather than how the schedule is wired.
+//! Host vocabulary that machinery reads (Stage 20 / A3 split): the
+//! windowing/display-mode types consumed by the settings model and the
+//! menu IR. The host RUNTIME glue (framepace, mobile input, platform
+//! plugins) lives in the `ambition_app` crate.
 
-#[cfg(feature = "frame_pacing")]
-pub mod framepace;
-pub mod mobile_input;
-pub mod platform;
 pub mod windowing;

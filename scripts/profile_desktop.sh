@@ -183,7 +183,7 @@ derive_cargo_build_cmd() {
         esac
         shift
     done
-    local cmd=(cargo build -p ambition_sandbox --bin ambition_sandbox)
+    local cmd=(cargo build -p ambition_app --bin ambition_sandbox)
     [[ "$no_default_features" -eq 1 ]] && cmd+=(--no-default-features)
     [[ -n "$cargo_jobs" ]] && cmd+=(--jobs "$cargo_jobs")
     [[ "$cargo_timings" -eq 1 ]] && cmd+=(--timings)

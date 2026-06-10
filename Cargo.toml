@@ -1,6 +1,8 @@
 [workspace]
 members = [
+    "crates/ambition_app",
     "crates/ambition_asset_manager",
+    "crates/ambition_content",
     "crates/ambition_engine_core",
     "crates/ambition_input",
     "crates/ambition_menu",

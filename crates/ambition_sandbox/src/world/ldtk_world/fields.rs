@@ -48,11 +48,11 @@ pub(super) fn value_to_string(value: &Value) -> Option<String> {
     }
 }
 
-pub(crate) fn field_string(entity: &LdtkEntityInstance, name: &str) -> Option<String> {
+pub fn field_string(entity: &LdtkEntityInstance, name: &str) -> Option<String> {
     field_value(&entity.field_instances, name).and_then(value_to_string)
 }
 
-pub(crate) fn field_f32(entity: &LdtkEntityInstance, name: &str) -> Option<f32> {
+pub fn field_f32(entity: &LdtkEntityInstance, name: &str) -> Option<f32> {
     field_value(&entity.field_instances, name).and_then(|value| match value {
         Value::Number(number) => number.as_f64().map(|value| value as f32),
         Value::String(text) => text.parse::<f32>().ok(),

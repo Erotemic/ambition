@@ -60,7 +60,7 @@ pub use surfaces::{
 // these field accessors via `crate::ldtk_world::field_string` /
 // `field_f32`. Preserve that path with a `pub(crate)` re-export so
 // the post-split crate-internal API stays stable.
-pub(crate) use fields::{field_f32, field_string};
+pub use fields::{field_f32, field_string};
 
 use fields::{
     entity_rect, entity_touches_level_edge, known_entity, pivot_is_top_left, rects_strict_intersect,

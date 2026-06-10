@@ -75,7 +75,7 @@ pub use crate::mechanics::combat::{
     spawn_static, targeting, variation,
 };
 
-pub(crate) use actors::{
+pub use actors::{
     enemy_component_snapshot, enemy_runtime_for_npc_combat, make_entity_enemy,
     npc_component_snapshot, sync_actor_components_from_enemy,
 };

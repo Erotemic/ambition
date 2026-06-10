@@ -1,0 +1,151 @@
+[package]
+name = "ambition_app"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Ambition app shell: assembly, binaries, host glue, headless/RL drivers."
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[features]
+# Personas mirror the pre-split ambition_sandbox graph; each forwards to the
+# machinery lib (ambition_sandbox) and the content crate so one selection
+# configures the whole stack. Command lines change from
+# `-p ambition_sandbox` to `-p ambition_app` and keep the same feature names.
+default = ["desktop_dev"]
+desktop_dev = [
+    "visible",
+    "desktop_platform",
+    "dev_tools",
+    "mobile_touch",
+    "rl_sim",
+    "falling_sand",
+]
+
+visible = [
+    "ambition_sandbox/visible",
+    "ambition_content/portal",
+    "ambition_content/portal_render",
+    "ambition_content/ui",
+    "ambition_content/audio",
+    "ldtk_runtime",
+    "input",
+    "audio",
+    "ui",
+    "physics_debris",
+    "portal",
+    "frame_pacing",
+    "bevy_ui_menu",
+    "kaleidoscope_menu",
+]
+
+portal = ["ambition_sandbox/portal", "ambition_content/portal"]
+portal_render = ["portal", "ambition_sandbox/portal_render", "ambition_content/portal_render"]
+portal_ldtk = ["portal", "ambition_sandbox/portal_ldtk"]
+
+desktop_platform = ["ambition_sandbox/desktop_platform"]
+android_platform = ["ambition_sandbox/android_platform"]
+web_platform = [
+    "ambition_sandbox/web_platform",
+    "dep:console_error_panic_hook",
+    "dep:wasm-bindgen",
+]
+
+visible_web_base = [
+    "ambition_sandbox/visible_web_base",
+    "ambition_content/portal",
+    "ambition_content/portal_render",
+    "ldtk_runtime",
+    "input",
+    "static_map",
+    "portal",
+    "bevy_ui_menu",
+]
+visible_web = ["visible_web_base", "static_core_assets"]
+visible_web_served = ["visible_web_base", "web_served", "web_audio"]
+web = ["visible_web", "web_platform"]
+web_served_assets = ["visible_web_served", "web_platform"]
+web_served = ["ambition_sandbox/web_served"]
+web_audio = ["audio", "ambition_sandbox/web_audio"]
+
+rl_sim = ["ambition_sandbox/rl_sim"]
+headless = ["ambition_sandbox/headless"]
+dev_tools = ["ambition_sandbox/dev_tools", "dep:bevy-inspector-egui"]
+dev_hot_reload = ["ambition_sandbox/dev_hot_reload"]
+static_map = ["ambition_sandbox/static_map"]
+static_core_assets = ["ambition_sandbox/static_core_assets"]
+static_sfx_bank = ["ambition_sandbox/static_sfx_bank"]
+android = [
+    "visible",
+    "android_platform",
+    "mobile_touch",
+    "rl_sim",
+    "static_map",
+]
+android_dev = ["android"]
+
+ldtk_runtime = ["ambition_sandbox/ldtk_runtime", "dep:bevy_ecs_ldtk", "dep:bevy_asset_loader"]
+audio = ["ambition_sandbox/audio", "ambition_content/audio", "dep:bevy_kira_audio"]
+ui = ["ambition_sandbox/ui", "ambition_content/ui", "dep:bevy_material_ui", "dep:bevy_yarnspinner"]
+physics_debris = ["ambition_sandbox/physics_debris"]
+input = ["ambition_sandbox/input", "dep:leafwing-input-manager"]
+mobile_touch = ["input", "ambition_sandbox/mobile_touch", "dep:virtual_joystick"]
+falling_sand = ["ambition_sandbox/falling_sand"]
+bevy_ui_menu = ["ambition_sandbox/bevy_ui_menu"]
+kaleidoscope_menu = ["ambition_sandbox/kaleidoscope_menu"]
+frame_pacing = ["ambition_sandbox/frame_pacing", "dep:bevy_framepace"]
+profile = ["ambition_sandbox/profile"]
+
+[dependencies]
+ambition_sandbox = { path = "../ambition_sandbox", default-features = false }
+ambition_content = { path = "../ambition_content" }
+ambition_engine_core = { path = "../ambition_engine_core" }
+ambition_input = { path = "../ambition_input" }
+ambition_platformer_runtime = { path = "../ambition_platformer_runtime" }
+ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy", "sfx"] }
+ambition_sfx = { path = "../ambition_sfx" }
+ambition_menu = { path = "../ambition_menu" }
+ambition_time = { path = "../ambition_time" }
+bevy = { version = "0.18.1", default-features = false, features = ["ui_api"] }
+bevy_common_assets = { version = "0.15", features = ["ron"] }
+bevy_yarnspinner = { version = "0.8", optional = true }
+bevy_material_ui = { version = "0.2.7", default-features = false, features = ["bevy_minimal"], optional = true }
+bevy_asset_loader = { version = "0.26", optional = true }
+bevy_ecs_ldtk = { version = "0.14", optional = true }
+bevy-inspector-egui = { version = "0.36", optional = true }
+bevy_kira_audio = { version = "0.25", default-features = false, features = ["wav", "ogg"], optional = true }
+bevy_framepace = { version = "0.21", default-features = false, optional = true }
+leafwing-input-manager = { version = "0.20", optional = true }
+virtual_joystick = { version = "2.7.2", default-features = false, optional = true }
+console_error_panic_hook = { version = "0.1", optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ron = "0.11"
+
+[[bin]]
+name = "ambition_sandbox"
+path = "src/bin/ambition_sandbox.rs"
+
+[[bin]]
+name = "headless"
+required-features = ["rl_sim"]
+
+[[bin]]
+name = "rl_random_walker"
+required-features = ["rl_sim"]
+
+[[bin]]
+name = "rl_smoke"
+required-features = ["rl_sim"]
+
+[[bin]]
+name = "trace_replay"
+required-features = ["rl_sim"]
+
+[dev-dependencies]
+insta = { version = "1", features = ["ron"] }
+proptest = "1"
+image = { version = "0.25", default-features = false, features = ["png"] }

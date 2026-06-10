@@ -73,7 +73,7 @@ impl ActorRuntime {
 /// `EnemyRuntime` and then projects it onto the entity's enemy clusters
 /// (see `apply_actor_stimuli`); the NPC's other components stay on the
 /// same entity.
-pub(crate) fn enemy_runtime_for_npc_combat(
+pub fn enemy_runtime_for_npc_combat(
     config: &super::npc_clusters::NpcConfig,
     kin: &super::enemy_clusters::BodyKinematics,
     surface: &ActorSurfaceState,
@@ -130,7 +130,7 @@ fn hostile_enemy_brain_for_npc(config: &super::npc_clusters::NpcConfig) -> &'sta
 /// Build the read-model mirror components for an enemy spawned from a
 /// transient `EnemyRuntime` (spawn paths still construct one to derive
 /// archetype/size/health before projecting it onto the clusters).
-pub(crate) fn enemy_component_snapshot(
+pub fn enemy_component_snapshot(
     enemy: &super::enemy_clusters::EnemyClusterScratch,
 ) -> (
     ActorIdentity,
@@ -165,7 +165,7 @@ pub(crate) fn enemy_component_snapshot(
 /// `EnemyRuntime` the conversion built), set the `Enemy` marker, and
 /// mirror the read-model components. Shared by the runtime stimulus
 /// flip (`apply_actor_stimuli`) and the save-load provoke path.
-pub(crate) fn make_entity_enemy(
+pub fn make_entity_enemy(
     commands: &mut Commands,
     entity: Entity,
     actor: &mut ActorRuntime,
@@ -209,7 +209,7 @@ type ActorSnapshot = (
 );
 
 /// Build the read-model mirror components for an NPC from its clusters.
-pub(crate) fn npc_component_snapshot(
+pub fn npc_component_snapshot(
     config: &super::npc_clusters::NpcConfig,
     status: &super::npc_clusters::NpcStatus,
 ) -> ActorSnapshot {
@@ -982,7 +982,7 @@ fn build_enemy_brain_snapshot(
 
 /// Mirror the authoritative enemy clusters onto the ECS read-model
 /// components consumers read.
-pub(crate) fn sync_actor_components_from_enemy(
+pub fn sync_actor_components_from_enemy(
     em: &super::enemy_clusters::EnemyMut<'_>,
     identity: &mut ActorIdentity,
     disposition: &mut ActorDisposition,

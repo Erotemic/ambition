@@ -1,0 +1,39 @@
+[package]
+name = "ambition_content"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Ambition's named game content: quests, bosses, items, dialogue, intro, banter."
+
+[features]
+default = []
+# Forwarders: the cfg(feature = "...") gates inside this crate's code key off
+# OUR feature names; each forwards to the matching ambition_sandbox machinery
+# feature so a mismatched combination is a compile error, never a silent
+# missing-registration.
+portal = ["ambition_sandbox/portal"]
+portal_render = ["portal", "ambition_sandbox/portal_render"]
+ui = ["ambition_sandbox/ui", "dep:bevy_yarnspinner"]
+audio = ["ambition_sandbox/audio"]
+
+[dependencies]
+# Baseline machinery features: the sandbox lib was never built fully bare
+# (ldtk/input/portal code is not end-to-end cfg-gated), so the content crate
+# pins the same always-on baseline every persona used pre-split.
+ambition_sandbox = { path = "../ambition_sandbox", default-features = false, features = [
+    "ldtk_runtime",
+    "input",
+    "portal",
+] }
+ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy", "sfx"] }
+ambition_sfx = { path = "../ambition_sfx" }
+ambition_platformer_runtime = { path = "../ambition_platformer_runtime" }
+bevy = { version = "0.18.1", default-features = false, features = ["ui_api"] }
+bevy_yarnspinner = { version = "0.8", optional = true }
+serde = { version = "1", features = ["derive"] }
+ron = "0.11"
+serde_json = "1"
+
+[dev-dependencies]
+insta = { version = "1", features = ["ron"] }

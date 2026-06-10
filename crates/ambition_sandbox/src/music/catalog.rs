@@ -123,7 +123,7 @@ impl MusicCueCatalog {
     /// This is intentionally independent of the audio backend: it checks the
     /// authored adaptive-music graph before the director tries to resolve a
     /// state or play a layer source at runtime.
-    pub(crate) fn validate_references(&self) -> Vec<String> {
+    pub fn validate_references(&self) -> Vec<String> {
         let mut errors = Vec::new();
         for cue in self.cues.values() {
             let sections = cue

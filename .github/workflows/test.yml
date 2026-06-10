@@ -58,16 +58,16 @@ jobs:
         # Library tests cover the headless module (run_headless ticks,
         # sim → presentation message seam) plus encounter/cutscene/quest
         # logic. Integration tests (repro_walls.rs) run as part of this.
-        run: cargo test -p ambition_sandbox --lib
-      - name: cargo test -p ambition_sandbox --test repro_walls
-        run: cargo test -p ambition_sandbox --test repro_walls
+        run: cargo test -p ambition_sandbox --lib && cargo test -p ambition_content --all-features
+      - name: cargo test -p ambition_app --test repro_walls
+        run: cargo test -p ambition_app --test repro_walls
       - name: cargo run --bin headless (smoke 60 ticks)
         # End-to-end smoke: the headless binary boots the full
         # sim plugin chain, runs 60 sandbox ticks, and exits 0.
         # Catches plugin-init regressions the lib tests miss (e.g. a
         # missing add_message that only fires when the visible plugin
         # path runs).
-        run: cargo run -p ambition_sandbox --bin headless -- 60
+        run: cargo run -p ambition_app --bin headless -- 60
 
   format-and-clippy:
     name: rustfmt + clippy

@@ -30,7 +30,7 @@ pub mod yarn_bindings;
 #[cfg(feature = "ui")]
 mod yarn_bridge;
 
-pub(crate) use content::known_dialogue_ids;
+pub use content::known_dialogue_ids;
 #[allow(
     unused_imports,
     reason = "DialogChoice surfaces in the UI's choice-row layout"

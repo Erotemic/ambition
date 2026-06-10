@@ -405,27 +405,7 @@ ron = "0.11"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
-# headless binary doesn't need any subsystem features (the sim's seam
-# is feature-gated; messages drain harmlessly without subscribers).
-# It does use SandboxSim for the --dump-trace path so the `rl_sim` feature
-# is required.
-[[bin]]
-name = "headless"
-required-features = ["rl_sim"]
-
-# RL / fuzz / replay binaries that drive SandboxSim. All gated behind
-# the `rl_sim` feature so a no-rl_sim build skips the bins entirely.
-[[bin]]
-name = "rl_random_walker"
-required-features = ["rl_sim"]
-
-[[bin]]
-name = "rl_smoke"
-required-features = ["rl_sim"]
-
-[[bin]]
-name = "trace_replay"
-required-features = ["rl_sim"]
+# The binaries moved to the `ambition_app` crate (Stage 20 / A3).
 
 [dev-dependencies]
 insta = { version = "1", features = ["ron"] }

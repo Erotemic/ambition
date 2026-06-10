@@ -34,7 +34,7 @@ is doc `04_crate_topology.md` (~20 crates: `machinery ← ambition_content ← a
   risky than they feel once the harness is green; don't over-deliberate.
 
 **Constraints:** work on `main`; stage explicit paths (never `git add -A`); commit
-trailer `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`; keep regen scripts
+trailer `Co-Authored-By: {your_model}` (e.g. {your_model} might be Claude Opus 4.8 <noreply@anthropic.com>); keep regen scripts
 working on a fresh clone; commit completed, gate-green work without waiting to be asked.
 
 **Reference docs:** `04_crate_topology.md` (target), `15_post_task_k_revision.md`

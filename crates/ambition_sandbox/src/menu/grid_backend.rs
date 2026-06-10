@@ -1061,7 +1061,7 @@ pub(crate) fn grid_menu_pointer_hover(
 /// Install the flat Bevy-UI/Grid backend systems. Registered independently from
 /// the cube backend so builds can omit this presentation without installing its
 /// Bevy-UI tree, picking observers, or scroll systems.
-pub(crate) fn install_grid_unified_menu(app: &mut App) {
+pub fn install_grid_unified_menu(app: &mut App) {
     app.init_resource::<GridMenuTabState>()
         .init_resource::<GridPointerPress>()
         // The pointer-hover observer reads `ActiveInputKind`; the input plugin

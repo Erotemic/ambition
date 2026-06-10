@@ -136,6 +136,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_app"
+version = "0.1.0"
+dependencies = [
+ "ambition_asset_manager",
+ "ambition_content",
+ "ambition_engine_core",
+ "ambition_input",
+ "ambition_menu",
+ "ambition_platformer_runtime",
+ "ambition_sandbox",
+ "ambition_sfx",
+ "ambition_time",
+ "bevy",
+ "bevy-inspector-egui",
+ "bevy_asset_loader",
+ "bevy_common_assets",
+ "bevy_ecs_ldtk",
+ "bevy_framepace",
+ "bevy_kira_audio",
+ "bevy_material_ui",
+ "bevy_yarnspinner",
+ "console_error_panic_hook",
+ "image",
+ "insta",
+ "leafwing-input-manager",
+ "proptest",
+ "ron 0.11.0",
+ "serde",
+ "serde_json",
+ "virtual_joystick",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "ambition_asset_manager"
 version = "0.1.0"
 dependencies = [
@@ -144,6 +178,22 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 1.0.69",
+]
+
+[[package]]
+name = "ambition_content"
+version = "0.1.0"
+dependencies = [
+ "ambition_asset_manager",
+ "ambition_platformer_runtime",
+ "ambition_sandbox",
+ "ambition_sfx",
+ "bevy",
+ "bevy_yarnspinner",
+ "insta",
+ "ron 0.11.0",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

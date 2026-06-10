@@ -54,7 +54,7 @@ pub(crate) fn play_ui(sfx: &mut MessageWriter<SfxMessage>, id: ambition_sfx::Sfx
 /// platforms exercise the same menu stack. Focused diagnostics / minimal builds
 /// can leave it off, and backend selection will gracefully collapse to any other
 /// compiled backend instead of installing hidden Bevy-UI systems.
-pub(crate) const BEVY_UI_MENU_BACKEND_ENABLED: bool = cfg!(feature = "bevy_ui_menu");
+pub const BEVY_UI_MENU_BACKEND_ENABLED: bool = cfg!(feature = "bevy_ui_menu");
 
 /// Build-time switch for the experimental 3D cube menu backend.
 ///
@@ -62,7 +62,7 @@ pub(crate) const BEVY_UI_MENU_BACKEND_ENABLED: bool = cfg!(feature = "bevy_ui_me
 /// platforms exercise the same menu stack. Minimal/headless builds can leave it
 /// off, and backend selection will gracefully collapse to any other compiled
 /// backend.
-pub(crate) const KALEIDOSCOPE_MENU_BACKEND_ENABLED: bool = cfg!(feature = "kaleidoscope_menu");
+pub const KALEIDOSCOPE_MENU_BACKEND_ENABLED: bool = cfg!(feature = "kaleidoscope_menu");
 
 /// Which inventory frontend renders. The 3D cube remains the default when its
 /// feature is installed; otherwise builds fall back to the flat Bevy-UI backend
@@ -134,7 +134,7 @@ impl InventoryUiBackend {
 /// Install backend-agnostic menu resources/plugins shared by the flat Grid and
 /// the optional 3D cube backend. Keep this separate from cube installation so a
 /// Grid-only build does not spawn the cube camera/ring or register Lunex systems.
-pub(crate) fn install_unified_menu_shared(app: &mut App) {
+pub fn install_unified_menu_shared(app: &mut App) {
     app.init_resource::<InventoryUiBackend>()
         .init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
         .init_resource::<KaleidoscopeCursor>()
@@ -217,7 +217,7 @@ pub fn install_kaleidoscope_menu(app: &mut App) {
 
 /// Install only the optional 3D cube backend. The caller must install
 /// [`install_unified_menu_shared`] first.
-pub(crate) fn install_kaleidoscope_menu_backend(app: &mut App) {
+pub fn install_kaleidoscope_menu_backend(app: &mut App) {
     // The game uses Bevy picking on the cube controls AND draws its own real L/R
     // edge buttons (see `menu::model::add_edge_buttons`), so it inserts its own
     // `KaleidoscopeMenuConfig` (lib overlay defaults, but `draw_nav_arrows = false` so the

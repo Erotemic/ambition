@@ -41,6 +41,7 @@ const ENEMY_ATTACK_COOLDOWN: f32 = 1.05;
 // BREAK_ON_STAND_SECONDS / CHEST_FALL_* moved to the generic combat
 // kit (`crate::mechanics::combat`) with their consumers.
 
+pub mod banter;
 mod boss_attack_geometry;
 mod bosses;
 mod ecs;
@@ -72,7 +73,7 @@ pub use bosses::{
 pub use bus::{
     apply_flag_effects, apply_gameplay_sfx_effects, apply_quest_effects, apply_switch_effects,
 };
-pub(crate) use ecs::npc_component_snapshot;
+pub use ecs::npc_component_snapshot;
 // Runtime minion/summon spawner, re-exported so non-feature modules (e.g. the
 // puppy-slug gun) can summon actors without reaching into the private `ecs` tree.
 pub(crate) use ecs::spawn_runtime_minion;

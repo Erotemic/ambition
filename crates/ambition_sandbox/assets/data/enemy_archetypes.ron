@@ -127,6 +127,7 @@
         ))),
         smash_hit_band: Some(30.0),
         move_style: Walk,
+        explodes_on_death: true,
     ),
     // Replicating blob: slow + a bit tanky (4 HP), and it splits into two
     // fast SmallSkitter offspring on death (`damage.rs::spawn_split_offspring`).
@@ -149,6 +150,7 @@
         ))),
         smash_hit_band: Some(34.0),
         move_style: Walk,
+        divides_on_death: true,
     ),
     // Ranged kiter: the Skirmisher brain holds a standoff distance (derived
     // from attack_range -> standoff_px ~182), strafes, and fires bolts on a
@@ -279,6 +281,7 @@
     // combat-feel lab so the player can wail on a static target.
     "InfiniteSandbag": (
         max_health: 9999,
+        never_dies: true,
         patrol_speed: 105.0,
         chase_speed: 155.0,
         aggro_radius: 0.0,
@@ -298,6 +301,7 @@
     ),
     "FiniteSandbag": (
         max_health: 6,
+        respawn_in_place_seconds: Some(0.85),
         patrol_speed: 105.0,
         chase_speed: 155.0,
         aggro_radius: 0.0,
@@ -345,6 +349,9 @@
         contact_strength: 1.10,
         damage_amount: 2,
         is_aerial: true,
+        // A riderless shark's fast charge that gets stopped dead by a
+        // wall detonates the shark (#98).
+        charge_crash_explodes: true,
         // Shark body — scaled down from the original (108, 96) which
         // dominated arenas and dwarfed every other enemy. The render
         // size is also driven by this field (see actors.rs sprite
@@ -373,6 +380,9 @@
         contact_strength: 1.10,
         damage_amount: 2,
         is_aerial: true,
+        // A riderless shark's fast charge that gets stopped dead by a
+        // wall detonates the shark (#98).
+        charge_crash_explodes: true,
         // Shark body — scaled down from the original (108, 96) which
         // dominated arenas and dwarfed every other enemy. The render
         // size is also driven by this field (see actors.rs sprite

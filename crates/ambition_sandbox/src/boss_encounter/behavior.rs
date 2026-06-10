@@ -126,7 +126,6 @@ impl Default for BossRewardProfile {
 /// doesn't implement `Deserialize` under the features the sandbox compiles
 /// with, so we route through tuple shims.
 mod boss_vec2_option {
-    use crate::brain::boss_pattern::{BossAttackPattern, BossAttackProfile, BossMovementProfile};
     use crate::engine_core as ae;
     use serde::Deserialize;
 
@@ -140,7 +139,6 @@ mod boss_vec2_option {
 }
 
 mod boss_vec2_required {
-    use crate::brain::boss_pattern::{BossAttackPattern, BossAttackProfile, BossMovementProfile};
     use crate::engine_core as ae;
     use serde::Deserialize;
 

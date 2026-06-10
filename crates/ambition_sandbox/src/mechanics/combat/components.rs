@@ -1072,3 +1072,25 @@ mod tests {
         assert_eq!(PogoPolicy::default(), PogoPolicy::FromDamageable);
     }
 }
+
+/// Per-actor combat capabilities, derived from the actor's authored
+/// archetype DATA at spawn (`enemy_archetypes.ron`) and attached as a
+/// component so generic combat systems can branch on capabilities
+/// instead of matching named archetype enums. The content layer
+/// derives it; the kit only defines the vocabulary.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
+pub struct CombatCapabilities {
+    /// Detonates at the corpse on death (Enemy-faction blast), so a
+    /// point-blank kill is punished.
+    pub explodes_on_death: bool,
+    /// Splits into offspring on death.
+    pub divides_on_death: bool,
+    /// A fast charge stopped dead by a wall destroys this actor.
+    pub charge_crash_explodes: bool,
+    /// Damage never kills (training dummy with an effectively
+    /// infinite pool).
+    pub never_dies: bool,
+    /// On death, respawns in place after this many seconds instead of
+    /// counting as defeated.
+    pub respawn_in_place_seconds: Option<f32>,
+}

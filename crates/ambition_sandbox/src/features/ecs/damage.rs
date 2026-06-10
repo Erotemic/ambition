@@ -627,7 +627,8 @@ fn apply_actor_hit(
                 em.kin.vel.y = (em.kin.vel.y - 90.0).max(-280.0);
             }
             let damage_amount = event.damage.max(1);
-            let killed = if em.config.archetype == EnemyArchetype::InfiniteSandbag {
+            let caps = em.config.archetype.combat_capabilities();
+            let killed = if caps.never_dies {
                 false
             } else {
                 em.status.health.damage(damage_amount)
@@ -636,8 +637,8 @@ fn apply_actor_hit(
             writers.vfx.write(VfxMessage::Impact { pos: impact });
             if killed {
                 em.status.alive = false;
-                if em.config.archetype == EnemyArchetype::FiniteSandbag {
-                    em.status.respawn_timer = 0.85;
+                if let Some(respawn_s) = caps.respawn_in_place_seconds {
+                    em.status.respawn_timer = respawn_s;
                     banner.show(format!("{} dropped; respawning", em.config.name), 2.6);
                 } else {
                     banner.show(format!("defeated {}", em.config.name), 2.6);
@@ -653,7 +654,7 @@ fn apply_actor_hit(
                     // Volatile archetypes detonate on death — a sizable
                     // Enemy-faction blast at the corpse, so a point-blank kill is
                     // punished (the read: kill it at range / sidestep the body).
-                    if em.config.archetype == EnemyArchetype::ExplodingMite {
+                    if caps.explodes_on_death {
                         spawn_death_explosion(&mut writers.commands, actor_entity, em.kin.pos);
                         writers.vfx.write(VfxMessage::Explosion {
                             pos: em.kin.pos,
@@ -662,7 +663,7 @@ fn apply_actor_hit(
                         });
                     }
                     // Replicating blobs divide on death into two fast offspring.
-                    if em.config.archetype == EnemyArchetype::DividingMite {
+                    if caps.divides_on_death {
                         spawn_split_offspring(&mut writers.commands, &em.config.id, em.kin.pos);
                     }
                     if id_drops_health(&em.config.id) {
@@ -687,9 +688,7 @@ fn apply_actor_hit(
                             bevy::prelude::Name::new("Dropped weapon"),
                         ));
                     }
-                    if !em.config.id.starts_with("encounter:")
-                        && em.config.archetype != EnemyArchetype::InfiniteSandbag
-                        && em.config.archetype != EnemyArchetype::FiniteSandbag
+                    if !em.config.id.starts_with("encounter:") && !em.config.archetype.is_sandbag()
                     {
                         use crate::features::EnemyRespawnPolicy as P;
                         let flag_id = match em.config.archetype.respawn_policy() {

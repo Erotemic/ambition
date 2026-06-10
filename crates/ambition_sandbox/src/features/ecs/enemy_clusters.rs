@@ -201,7 +201,9 @@ impl EnemyClusterScratch {
         ActorMotionPath,
         ActorSurfaceState,
         ActorAttackState,
+        crate::mechanics::combat::CombatCapabilities,
     ) {
+        let caps = self.config.archetype.combat_capabilities();
         (
             self.kin,
             self.status,
@@ -209,6 +211,7 @@ impl EnemyClusterScratch {
             self.motion,
             self.surface,
             self.attack,
+            caps,
         )
     }
 }

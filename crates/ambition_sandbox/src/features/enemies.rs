@@ -234,6 +234,21 @@ pub(super) struct EnemyArchetypeSpec {
     pub is_aerial: bool,
     #[serde(default)]
     pub is_sandbag: bool,
+    /// Detonates at the corpse on death (see `CombatCapabilities`).
+    #[serde(default)]
+    pub explodes_on_death: bool,
+    /// Splits into offspring on death.
+    #[serde(default)]
+    pub divides_on_death: bool,
+    /// A fast charge stopped dead by a wall destroys this actor.
+    #[serde(default)]
+    pub charge_crash_explodes: bool,
+    /// Damage never kills (infinite training dummy).
+    #[serde(default)]
+    pub never_dies: bool,
+    /// On death, respawn in place after this many seconds.
+    #[serde(default)]
+    pub respawn_in_place_seconds: Option<f32>,
     #[serde(default, with = "vec2_option")]
     pub default_size: Option<ae::Vec2>,
     /// Brain template the spawn site instantiates for this archetype.
@@ -483,6 +498,22 @@ impl EnemyArchetype {
 
     pub(crate) fn is_sandbag(self) -> bool {
         self.spec().is_sandbag
+    }
+
+    /// Project this archetype's authored capability flags into the
+    /// combat kit's [`CombatCapabilities`] component (attached to
+    /// every enemy entity at spawn). Generic systems branch on the
+    /// component; content code may also call this directly instead of
+    /// matching archetype identities.
+    pub(crate) fn combat_capabilities(self) -> crate::mechanics::combat::CombatCapabilities {
+        let spec = self.spec();
+        crate::mechanics::combat::CombatCapabilities {
+            explodes_on_death: spec.explodes_on_death,
+            divides_on_death: spec.divides_on_death,
+            charge_crash_explodes: spec.charge_crash_explodes,
+            never_dies: spec.never_dies,
+            respawn_in_place_seconds: spec.respawn_in_place_seconds,
+        }
     }
 
     pub(super) fn max_health(self) -> i32 {
@@ -1148,5 +1179,36 @@ mod enemy_archetype_data_tests {
             "PirateHeavy attack_range {attack_range} must stay within her swing far \
              edge {reach_edge} so she stops inside her own reach instead of whiffing",
         );
+    }
+}
+
+#[cfg(test)]
+mod capability_tests {
+    use super::EnemyArchetype;
+
+    /// Pin the authored capability rows in `enemy_archetypes.ron` to the
+    /// behavior the actor layer used to hardcode by archetype identity
+    /// (Stage 20: the named checks became data-driven capabilities).
+    #[test]
+    fn archetype_capabilities_match_the_legacy_identity_checks() {
+        let mite = EnemyArchetype::ExplodingMite.combat_capabilities();
+        assert!(mite.explodes_on_death && !mite.divides_on_death);
+
+        let blob = EnemyArchetype::DividingMite.combat_capabilities();
+        assert!(blob.divides_on_death && !blob.explodes_on_death);
+
+        let shark = EnemyArchetype::BurningFlyingShark.combat_capabilities();
+        assert!(shark.charge_crash_explodes);
+
+        let infinite = EnemyArchetype::InfiniteSandbag.combat_capabilities();
+        assert!(infinite.never_dies && infinite.respawn_in_place_seconds.is_none());
+
+        let finite = EnemyArchetype::FiniteSandbag.combat_capabilities();
+        assert!(!finite.never_dies);
+        assert_eq!(finite.respawn_in_place_seconds, Some(0.85));
+
+        // A plain combatant has no special capabilities.
+        let base = EnemyArchetype::Combatant.combat_capabilities();
+        assert_eq!(base, Default::default());
     }
 }

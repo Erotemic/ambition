@@ -1218,6 +1218,7 @@ mod tests {
         super::super::enemy_clusters::ActorMotionPath,
         crate::features::ActorSurfaceState,
         crate::features::ActorAttackState,
+        crate::mechanics::combat::CombatCapabilities,
     );
 
     /// Spawnable (marker + clusters) bundle for an enemy test fixture.

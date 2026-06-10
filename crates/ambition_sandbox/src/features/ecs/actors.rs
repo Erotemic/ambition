@@ -15,7 +15,11 @@ fn shark_charge_crashed(
     previous_pos: ae::Vec2,
 ) -> bool {
     !is_mounted
-        && em.config.archetype == EnemyArchetype::BurningFlyingShark
+        && em
+            .config
+            .archetype
+            .combat_capabilities()
+            .charge_crash_explodes
         && em.status.alive
         && shark_charge_crashed_geometry(
             charge_vec,

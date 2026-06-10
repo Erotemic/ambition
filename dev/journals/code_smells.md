@@ -46,6 +46,18 @@ Entry format:
 - **Noticed while:** A2 guard authoring
 - **Suggested fix / size:** S — rename to TrainingDummy (touches LDtk/content mapping)
 
+## 2026-06-10 BossAttackProfile brain enum carries named variants
+- **Where:** crates/ambition_sandbox/src/brain/boss_pattern.rs (GnuHandSlam, GnuAppleRain, OverfitVolley, EyeBeam, MinimaTrap, SaddlePoint, GradientCascade...)
+- **Smell:** the machinery brain enum names specific boss attacks; every new boss special grows a machinery enum. This forced boss attack_geometry to live in boss_encounter rather than the combat kit.
+- **Noticed while:** A2 stretch (combat-kit guard rejected boss_attack_geometry)
+- **Suggested fix / size:** M-L — replace variants with data-keyed attack profiles (string/interned id + spec struct), content registers specs
+
+## 2026-06-10 audio/music runtime interleaves game reads with playback machinery
+- **Where:** crates/ambition_sandbox/src/audio/runtime.rs (apply_encounter_music reads EncounterMusicRequest/RoomMusicRequest inline), music/mod.rs (UserSettings reads), environment.rs (player position reads)
+- **Smell:** doc 20's B1 ("ambition_audio is the cleanest warm-up") underestimates this: the playback engine and the game-event adapters are item-level interleaved in the same files, so the crate extraction is real surgery (~4 seams: AudioMixSettings sync, AudioSpec resource, request->MusicIntent (exists), bank/catalog glue). Post-bisection the compile-time payoff also shrank (audio already left the content-edit hot path).
+- **Noticed while:** Stage 20 overflow triage (B1 deprioritized in favor of C1 per Jon's task pick)
+- **Suggested fix / size:** M — split runtime.rs/mod.rs item-by-item along the seams above, then the crate move is mechanical
+
 ## Resolved
 
 (none yet)

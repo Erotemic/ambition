@@ -18,58 +18,11 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Where the boss is in the encounter.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub enum BossEncounterPhase {
-    #[default]
-    Dormant,
-    /// Pre-fight intro: title card, boss roar, camera-pan.
-    Intro,
-    /// First phase of attacks.
-    Phase1,
-    /// Brief transition between Phase1 and Phase2 — boss is
-    /// invulnerable, plays a tell. Patterns from neither phase fire.
-    Transition,
-    /// Second phase of attacks (faster patterns, more variety).
-    Phase2,
-    /// Boss is staggered and vulnerable to a punish window. Triggered
-    /// by hitting a stagger HP threshold. Auto-recovers after a fixed
-    /// duration.
-    Stagger,
-    /// Final low-HP phase: tighter, faster patterns. Visible "enraged"
-    /// presentation cue.
-    Enrage,
-    /// Boss is dead, playing outro logic.
-    Death,
-}
-
-impl BossEncounterPhase {
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::Dormant => "dormant",
-            Self::Intro => "intro",
-            Self::Phase1 => "phase1",
-            Self::Transition => "transition",
-            Self::Phase2 => "phase2",
-            Self::Stagger => "stagger",
-            Self::Enrage => "enrage",
-            Self::Death => "death",
-        }
-    }
-
-    pub fn boss_invulnerable(self) -> bool {
-        matches!(
-            self,
-            Self::Dormant | Self::Intro | Self::Transition | Self::Death
-        )
-    }
-
-    /// True while the boss should be running its attack patterns.
-    /// Stagger is not an attacking phase.
-    pub fn is_attacking(self) -> bool {
-        matches!(self, Self::Phase1 | Self::Phase2 | Self::Enrage)
-    }
-}
+// `BossEncounterPhase` moved to `crate::brain::boss_pattern` (actor/boss
+// unification, ADR 0016): a boss's phase is part of the unified
+// actor/brain runtime, not a boss-only concept. Re-exported below so
+// `crate::boss_encounter::BossEncounterPhase` paths keep working.
+pub use crate::brain::BossEncounterPhase;
 
 /// Authored thresholds + timings driving phase transitions.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

@@ -215,10 +215,7 @@ pub enum BossAttackPattern {
 }
 
 impl BossAttackPattern {
-    pub fn pattern_for(
-        &self,
-        phase: crate::boss_encounter::BossEncounterPhase,
-    ) -> Option<&BossPattern> {
+    pub fn pattern_for(&self, phase: BossEncounterPhase) -> Option<&BossPattern> {
         match self {
             BossAttackPattern::Cycle => None,
             BossAttackPattern::Scripted {
@@ -228,11 +225,11 @@ impl BossAttackPattern {
                 phase2,
                 enrage,
             } => match phase {
-                crate::boss_encounter::BossEncounterPhase::Intro => Some(intro),
-                crate::boss_encounter::BossEncounterPhase::Phase1 => Some(phase1),
-                crate::boss_encounter::BossEncounterPhase::Transition => Some(transition),
-                crate::boss_encounter::BossEncounterPhase::Phase2 => Some(phase2),
-                crate::boss_encounter::BossEncounterPhase::Enrage => Some(enrage),
+                BossEncounterPhase::Intro => Some(intro),
+                BossEncounterPhase::Phase1 => Some(phase1),
+                BossEncounterPhase::Transition => Some(transition),
+                BossEncounterPhase::Phase2 => Some(phase2),
+                BossEncounterPhase::Enrage => Some(enrage),
                 // Dormant / Stagger / Death don't run patterns; the caller
                 // already skips attacks in those phases.
                 _ => Some(phase1),
@@ -439,18 +436,12 @@ impl BossPatternCfg {
     /// encounter phase. Phases without a dedicated override fall
     /// back to the default `movement`. Dormant/Stagger/Death are
     /// non-attacking — the brain handles them upstream.
-    pub fn movement_for_phase(
-        &self,
-        phase: crate::boss_encounter::BossEncounterPhase,
-    ) -> &BossMovementProfile {
+    pub fn movement_for_phase(&self, phase: BossEncounterPhase) -> &BossMovementProfile {
         match phase {
-            crate::boss_encounter::BossEncounterPhase::Phase2
-            | crate::boss_encounter::BossEncounterPhase::Transition => {
+            BossEncounterPhase::Phase2 | BossEncounterPhase::Transition => {
                 self.movement_phase2.as_ref().unwrap_or(&self.movement)
             }
-            crate::boss_encounter::BossEncounterPhase::Enrage => {
-                self.movement_enrage.as_ref().unwrap_or(&self.movement)
-            }
+            BossEncounterPhase::Enrage => self.movement_enrage.as_ref().unwrap_or(&self.movement),
             _ => &self.movement,
         }
     }
@@ -465,7 +456,7 @@ pub struct BossPatternState {
     /// changes the brain resets the scripted cursor so a new phase's
     /// timeline begins at step 0 rather than mid-step. `None` until
     /// the first tick.
-    pub last_phase: Option<crate::boss_encounter::BossEncounterPhase>,
+    pub last_phase: Option<BossEncounterPhase>,
     /// Cursor into the active scripted pattern's `steps`. Cycle-mode
     /// patterns leave this at 0.
     pub step_index: usize,
@@ -671,7 +662,7 @@ pub struct BossPatternContext {
     /// Boss encounter phase this tick (forwarded by the system from
     /// `BossEncounterRegistry`). Drives pattern selection + the
     /// `is_attacking()` gate.
-    pub encounter_phase: crate::boss_encounter::BossEncounterPhase,
+    pub encounter_phase: BossEncounterPhase,
     /// Boss's current authoritative world position. Read by the
     /// movement profile's velocity computation.
     pub actor_pos: ae::Vec2,
@@ -1367,7 +1358,7 @@ mod tests {
         }
     }
 
-    fn ctx(phase: crate::boss_encounter::BossEncounterPhase, dt: f32) -> BossPatternContext {
+    fn ctx(phase: BossEncounterPhase, dt: f32) -> BossPatternContext {
         BossPatternContext {
             encounter_phase: phase,
             actor_pos: ae::Vec2::ZERO,
@@ -1398,10 +1389,7 @@ mod tests {
         tick_boss_pattern(
             &cfg,
             &mut state,
-            &ctx(
-                crate::boss_encounter::BossEncounterPhase::Dormant,
-                1.0 / 60.0,
-            ),
+            &ctx(BossEncounterPhase::Dormant, 1.0 / 60.0),
             &mut out,
             &mut attack_state,
         );
@@ -1425,7 +1413,7 @@ mod tests {
             tick_boss_pattern(
                 &cfg,
                 &mut state,
-                &ctx(crate::boss_encounter::BossEncounterPhase::Phase1, 0.05),
+                &ctx(BossEncounterPhase::Phase1, 0.05),
                 &mut out,
                 &mut attack_state,
             );
@@ -1441,7 +1429,7 @@ mod tests {
         tick_boss_pattern(
             &cfg,
             &mut state,
-            &ctx(crate::boss_encounter::BossEncounterPhase::Phase2, 0.05),
+            &ctx(BossEncounterPhase::Phase2, 0.05),
             &mut out,
             &mut attack_state,
         );
@@ -1463,7 +1451,7 @@ mod tests {
         tick_boss_pattern(
             &cfg,
             &mut state,
-            &ctx(crate::boss_encounter::BossEncounterPhase::Phase1, 0.1),
+            &ctx(BossEncounterPhase::Phase1, 0.1),
             &mut out,
             &mut attack_state,
         );
@@ -1490,7 +1478,7 @@ mod tests {
             tick_boss_pattern(
                 &cfg,
                 &mut state,
-                &ctx(crate::boss_encounter::BossEncounterPhase::Phase1, 0.1),
+                &ctx(BossEncounterPhase::Phase1, 0.1),
                 &mut out,
                 &mut attack_state,
             );
@@ -1524,7 +1512,7 @@ mod tests {
             tick_boss_pattern(
                 &cfg,
                 &mut state,
-                &ctx(crate::boss_encounter::BossEncounterPhase::Phase1, 0.1),
+                &ctx(BossEncounterPhase::Phase1, 0.1),
                 &mut out,
                 &mut attack_state,
             );
@@ -1559,7 +1547,7 @@ mod tests {
         tick_boss_pattern(
             &cfg,
             &mut state,
-            &ctx(crate::boss_encounter::BossEncounterPhase::Phase1, 0.25),
+            &ctx(BossEncounterPhase::Phase1, 0.25),
             &mut out,
             &mut attack_state,
         );
@@ -1571,7 +1559,7 @@ mod tests {
         tick_boss_pattern(
             &cfg,
             &mut state,
-            &ctx(crate::boss_encounter::BossEncounterPhase::Phase1, 0.25),
+            &ctx(BossEncounterPhase::Phase1, 0.25),
             &mut out,
             &mut attack_state,
         );
@@ -1584,11 +1572,11 @@ mod tests {
     fn movement_for_phase_falls_back_to_default_when_overrides_unset() {
         let cfg = BossPatternCfg::neutral_test();
         for phase in [
-            crate::boss_encounter::BossEncounterPhase::Phase1,
-            crate::boss_encounter::BossEncounterPhase::Phase2,
-            crate::boss_encounter::BossEncounterPhase::Transition,
-            crate::boss_encounter::BossEncounterPhase::Enrage,
-            crate::boss_encounter::BossEncounterPhase::Dormant,
+            BossEncounterPhase::Phase1,
+            BossEncounterPhase::Phase2,
+            BossEncounterPhase::Transition,
+            BossEncounterPhase::Enrage,
+            BossEncounterPhase::Dormant,
         ] {
             assert_eq!(
                 cfg.movement_for_phase(phase),
@@ -1612,18 +1600,18 @@ mod tests {
         };
         cfg.movement_phase2 = Some(p2.clone());
         assert_eq!(
-            cfg.movement_for_phase(crate::boss_encounter::BossEncounterPhase::Phase2),
+            cfg.movement_for_phase(BossEncounterPhase::Phase2),
             &p2,
             "Phase2 should use the phase2 override",
         );
         assert_eq!(
-            cfg.movement_for_phase(crate::boss_encounter::BossEncounterPhase::Transition),
+            cfg.movement_for_phase(BossEncounterPhase::Transition),
             &p2,
             "Transition routes through the phase2 override too — keeps motion continuous across the music swap",
         );
         // Phase1 still falls back to default.
         assert_eq!(
-            cfg.movement_for_phase(crate::boss_encounter::BossEncounterPhase::Phase1),
+            cfg.movement_for_phase(BossEncounterPhase::Phase1),
             &cfg.movement,
         );
     }
@@ -1641,13 +1629,10 @@ mod tests {
             speed: 500.0,
         };
         cfg.movement_enrage = Some(enrage.clone());
-        assert_eq!(
-            cfg.movement_for_phase(crate::boss_encounter::BossEncounterPhase::Enrage),
-            &enrage,
-        );
+        assert_eq!(cfg.movement_for_phase(BossEncounterPhase::Enrage), &enrage,);
         // Other phases unchanged.
         assert_eq!(
-            cfg.movement_for_phase(crate::boss_encounter::BossEncounterPhase::Phase1),
+            cfg.movement_for_phase(BossEncounterPhase::Phase1),
             &cfg.movement,
         );
     }
@@ -1673,10 +1658,7 @@ mod tests {
         let mut state = BossPatternState::default();
         let mut attack_state = BossAttackState::default();
         let mut out = crate::actor::control::ActorControlFrame::neutral();
-        let mut ctx = ctx(
-            crate::boss_encounter::BossEncounterPhase::Phase1,
-            1.0 / 60.0,
-        );
+        let mut ctx = ctx(BossEncounterPhase::Phase1, 1.0 / 60.0);
         ctx.target_pos = ae::Vec2::new(500.0, 0.0); // pull toward +x
         ctx.actor_pos = ae::Vec2::ZERO;
         tick_boss_pattern(&cfg, &mut state, &ctx, &mut out, &mut attack_state);
@@ -1744,10 +1726,7 @@ mod tests {
         cfg.cycle_attack_active = 5.0;
 
         let baseline_ctx = {
-            let mut c = ctx(
-                crate::boss_encounter::BossEncounterPhase::Phase1,
-                1.0 / 60.0,
-            );
+            let mut c = ctx(BossEncounterPhase::Phase1, 1.0 / 60.0);
             c.target_pos = ae::Vec2::new(500.0, 0.0);
             c.actor_pos = ae::Vec2::ZERO;
             c
@@ -1827,7 +1806,7 @@ mod tests {
 
     fn macro_ctx(actor_pos: ae::Vec2, target_pos: ae::Vec2, dt: f32) -> BossPatternContext {
         BossPatternContext {
-            encounter_phase: crate::boss_encounter::BossEncounterPhase::Phase1,
+            encounter_phase: BossEncounterPhase::Phase1,
             actor_pos,
             target_pos,
             world_size: ae::Vec2::new(1_280.0, 768.0),
@@ -2158,12 +2137,65 @@ mod tests {
             tick_boss_pattern(
                 &cfg,
                 &mut state,
-                &ctx(crate::boss_encounter::BossEncounterPhase::Phase1, 0.1),
+                &ctx(BossEncounterPhase::Phase1, 0.1),
                 &mut out,
                 &mut attack_state,
             );
         }
         assert!(!out.melee_pressed);
         assert!(!out.special_pressed);
+    }
+}
+
+/// Where the boss is in the encounter.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum BossEncounterPhase {
+    #[default]
+    Dormant,
+    /// Pre-fight intro: title card, boss roar, camera-pan.
+    Intro,
+    /// First phase of attacks.
+    Phase1,
+    /// Brief transition between Phase1 and Phase2 — boss is
+    /// invulnerable, plays a tell. Patterns from neither phase fire.
+    Transition,
+    /// Second phase of attacks (faster patterns, more variety).
+    Phase2,
+    /// Boss is staggered and vulnerable to a punish window. Triggered
+    /// by hitting a stagger HP threshold. Auto-recovers after a fixed
+    /// duration.
+    Stagger,
+    /// Final low-HP phase: tighter, faster patterns. Visible "enraged"
+    /// presentation cue.
+    Enrage,
+    /// Boss is dead, playing outro logic.
+    Death,
+}
+
+impl BossEncounterPhase {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Dormant => "dormant",
+            Self::Intro => "intro",
+            Self::Phase1 => "phase1",
+            Self::Transition => "transition",
+            Self::Phase2 => "phase2",
+            Self::Stagger => "stagger",
+            Self::Enrage => "enrage",
+            Self::Death => "death",
+        }
+    }
+
+    pub fn boss_invulnerable(self) -> bool {
+        matches!(
+            self,
+            Self::Dormant | Self::Intro | Self::Transition | Self::Death
+        )
+    }
+
+    /// True while the boss should be running its attack patterns.
+    /// Stagger is not an attacking phase.
+    pub fn is_attacking(self) -> bool {
+        matches!(self, Self::Phase1 | Self::Phase2 | Self::Enrage)
     }
 }

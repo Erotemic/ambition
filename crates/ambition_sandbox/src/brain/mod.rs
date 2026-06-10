@@ -96,9 +96,9 @@ pub use action_set::{
 };
 #[allow(unused_imports)]
 pub use boss_pattern::{
-    tick_boss_pattern, BossAttackPattern, BossAttackProfile, BossAttackState, BossMacroState,
-    BossMacroTuning, BossMovementProfile, BossPattern, BossPatternCfg, BossPatternContext,
-    BossPatternState, BossPatternStep, CyclePhase,
+    tick_boss_pattern, BossAttackPattern, BossAttackProfile, BossAttackState, BossEncounterPhase,
+    BossMacroState, BossMacroTuning, BossMovementProfile, BossPattern, BossPatternCfg,
+    BossPatternContext, BossPatternState, BossPatternStep, CyclePhase,
 };
 #[allow(unused_imports)]
 pub use player::{tick_player_brain, tick_player_brain_from_input};

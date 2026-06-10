@@ -505,6 +505,19 @@ impl EnemyArchetype {
     /// every enemy entity at spawn). Generic systems branch on the
     /// component; content code may also call this directly instead of
     /// matching archetype identities.
+    /// Project this archetype's per-frame runtime tuning into the
+    /// combat kit's [`EnemyTuning`](crate::mechanics::combat::EnemyTuning)
+    /// value carried on `EnemyConfig.tuning` — the per-frame loops read
+    /// that instead of calling back into this named enum.
+    pub(crate) fn tuning(self) -> crate::mechanics::combat::EnemyTuning {
+        crate::mechanics::combat::EnemyTuning {
+            chase_speed: self.chase_speed(),
+            is_aerial: self.is_aerial(),
+            is_sandbag: self.is_sandbag(),
+            body_contact_damage: self.body_contact_damage_enabled(),
+        }
+    }
+
     pub(crate) fn combat_capabilities(self) -> crate::mechanics::combat::CombatCapabilities {
         let spec = self.spec();
         crate::mechanics::combat::CombatCapabilities {

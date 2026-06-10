@@ -45,7 +45,7 @@ pub fn sync_ecs_actors_with_save(
         // place, so they spawn alive by default.
         let em = cq.as_enemy_mut();
         if !em.config.id.starts_with("encounter:")
-            && !em.config.archetype.is_sandbag()
+            && !em.config.tuning.is_sandbag
             && (data.flag(&format!("enemy_{}_dead", em.config.id))
                 || data.flag(&format!(
                     "enemy_{}{}",

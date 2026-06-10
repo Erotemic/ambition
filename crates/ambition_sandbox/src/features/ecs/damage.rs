@@ -688,8 +688,7 @@ fn apply_actor_hit(
                             bevy::prelude::Name::new("Dropped weapon"),
                         ));
                     }
-                    if !em.config.id.starts_with("encounter:") && !em.config.archetype.is_sandbag()
-                    {
+                    if !em.config.id.starts_with("encounter:") && !em.config.tuning.is_sandbag {
                         use crate::features::EnemyRespawnPolicy as P;
                         let flag_id = match em.config.archetype.respawn_policy() {
                             P::OnRoomReenter => None,

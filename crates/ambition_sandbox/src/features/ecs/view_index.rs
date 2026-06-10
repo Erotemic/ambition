@@ -193,7 +193,7 @@ pub fn rebuild_feature_view_index(
                 let alive = status.is_some_and(|s| s.alive);
                 let flash = status.is_some_and(|s| s.hit_flash > 0.0)
                     || attack.is_some_and(|a| a.is_winding_up() || a.is_active());
-                let kind = if config.is_some_and(|c| c.archetype.is_sandbag()) {
+                let kind = if config.is_some_and(|c| c.tuning.is_sandbag) {
                     FeatureVisualKind::Sandbag
                 } else {
                     FeatureVisualKind::Enemy

@@ -285,7 +285,7 @@ pub fn enforce_mount_rider_link(
             // so a PirateRaider / PirateHeavy variant falls and fights without
             // visually scaling up.
             (false, true) => {
-                rider.surface.gravity_scale = if rider.config.archetype.is_aerial() {
+                rider.surface.gravity_scale = if rider.config.tuning.is_aerial {
                     0.0
                 } else {
                     1.0

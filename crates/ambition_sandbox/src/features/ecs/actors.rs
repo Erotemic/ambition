@@ -26,7 +26,7 @@ fn shark_charge_crashed(
             em.kin.pos,
             previous_pos,
             em.kin.vel,
-            em.config.archetype.chase_speed(),
+            em.config.tuning.chase_speed,
         )
 }
 
@@ -154,7 +154,7 @@ pub fn enemy_component_snapshot(
             enemy.status.hit_flash,
             enemy.attack.windup_timer,
             enemy.attack.active_timer,
-            enemy.config.archetype.is_sandbag(),
+            enemy.config.tuning.is_sandbag,
         ),
         ActorIntent::new(enemy.status.ai_mode),
         ActorCooldowns {
@@ -396,11 +396,7 @@ pub fn update_ecs_actors(
         if matches!(actor, ActorRuntime::Enemy) {
             if let Some(c) = clusters {
                 if c.status.alive {
-                    requests.push((
-                        c.config.id.clone(),
-                        c.kin.pos,
-                        c.config.archetype.slot_kind(),
-                    ));
+                    requests.push((c.config.id.clone(), c.kin.pos, c.config.tuning.slot_kind()));
                 }
             }
         }
@@ -543,7 +539,7 @@ pub fn update_ecs_actors(
                         // you on contact (its melee + ranged already redirect at
                         // its former allies; contact just stops harming the player).
                         && possessed.is_none()
-                        && em.config.archetype.body_contact_damage_enabled();
+                        && em.config.tuning.body_contact_damage;
                 let mut brain_frame = brain_frame;
                 brain_frame.body_contact_damage_enabled = body_contact_damage_enabled;
                 let shark_charge_vec = brain_frame.desired_vel;
@@ -1013,7 +1009,7 @@ pub fn sync_actor_components_from_enemy(
         em.status.hit_flash,
         em.attack.windup_timer,
         em.attack.active_timer,
-        em.config.archetype.is_sandbag(),
+        em.config.tuning.is_sandbag,
     );
     *intent = ActorIntent::new(em.status.ai_mode);
     *cooldowns = ActorCooldowns {
@@ -1255,7 +1251,7 @@ mod tests {
         enemy.kin.pos = previous_pos;
         enemy.kin.vel = ae::Vec2::ZERO;
         enemy.status.alive = true;
-        let charge_vec = ae::Vec2::new(enemy.config.archetype.chase_speed() * 2.0, 0.0);
+        let charge_vec = ae::Vec2::new(enemy.config.tuning.chase_speed * 2.0, 0.0);
         let em = enemy.as_mut();
         assert!(shark_charge_crashed(&em, false, charge_vec, previous_pos));
     }
@@ -1267,7 +1263,7 @@ mod tests {
         enemy.kin.pos = previous_pos;
         enemy.kin.vel = ae::Vec2::ZERO;
         enemy.status.alive = true;
-        let chase_speed = enemy.config.archetype.chase_speed();
+        let chase_speed = enemy.config.tuning.chase_speed;
         let charge_vec = ae::Vec2::new(chase_speed * 2.0, 0.0);
         let em = enemy.as_mut();
         assert!(!shark_charge_crashed(&em, true, charge_vec, previous_pos));

@@ -47,6 +47,9 @@ pub struct EnemyConfig {
     pub id: String,
     pub name: String,
     pub archetype: EnemyArchetype,
+    /// Per-frame runtime tuning snapshot (kit vocabulary), projected
+    /// from the archetype's authored spec at spawn.
+    pub tuning: crate::mechanics::combat::EnemyTuning,
     pub brain: crate::actor::EnemyBrain,
     pub spawn: ActorSpawnState,
     /// LDtk display name of the original NPC when this enemy was spawned
@@ -169,6 +172,7 @@ impl EnemyClusterScratch {
                 id: id.into(),
                 name: name.into(),
                 archetype,
+                tuning: archetype.tuning(),
                 brain,
                 spawn: ActorSpawnState {
                     pos,

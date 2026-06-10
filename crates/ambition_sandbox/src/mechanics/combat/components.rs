@@ -1094,3 +1094,32 @@ pub struct CombatCapabilities {
     /// counting as defeated.
     pub respawn_in_place_seconds: Option<f32>,
 }
+
+/// Per-actor numeric/flag tuning the RUNTIME combat loops read each
+/// frame, derived from the actor's authored archetype DATA at spawn
+/// (like [`CombatCapabilities`], but plain tuning rather than special
+/// behaviors). Carried as a field on the enemy config component so
+/// the per-frame systems never call back into a named archetype enum.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct EnemyTuning {
+    /// Chase/steering speed (px/s).
+    pub chase_speed: f32,
+    /// Flies: no gravity, aerial slot class.
+    pub is_aerial: bool,
+    /// Training-dummy family: excluded from slot pressure and save
+    /// persistence.
+    pub is_sandbag: bool,
+    /// Touching this actor's body hurts the player.
+    pub body_contact_damage: bool,
+}
+
+impl EnemyTuning {
+    /// Slot class this actor requests from the combat slot board.
+    pub fn slot_kind(&self) -> crate::combat::slots::SlotKind {
+        if self.is_aerial {
+            crate::combat::slots::SlotKind::Aerial
+        } else {
+            crate::combat::slots::SlotKind::Melee
+        }
+    }
+}

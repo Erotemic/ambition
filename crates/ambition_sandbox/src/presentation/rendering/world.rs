@@ -74,21 +74,15 @@ pub fn spawn_room_visuals(
         );
     }
     for enemy in &spec.enemy_spawns {
-        let kind = if matches!(&enemy.payload, crate::actor::EnemyBrain::Custom(name) if name.starts_with("sandbag_"))
-        {
-            FeatureVisualKind::Sandbag
-        } else {
-            FeatureVisualKind::Enemy
-        };
+        let kind = crate::features::enemy_visual_kind(&enemy.payload);
         // Composite "X on Shark" spawns become a mount entity + a
         // rider entity on the sim side (see
         // `content::features::ecs::mount`). Fan the same way here
         // so each side has its own FeatureVisual entity — without
         // this both sims point at ids that don't match any room
         // visual, and `sync_visuals` hides them.
-        let archetype = crate::features::EnemyArchetype::from_brain(&enemy.payload);
-        if crate::features::is_composite_spawn(archetype) {
-            spawn_composite_visuals(commands, world, enemy, kind, assets);
+        if let Some(plan) = crate::features::composite_visual_plan(&enemy.payload) {
+            spawn_composite_visuals(commands, world, enemy, kind, assets, &plan);
             continue;
         }
         spawn_authored_basic(
@@ -488,57 +482,37 @@ fn spawn_composite_visuals(
     enemy: &crate::rooms::Authored<crate::actor::EnemyBrain>,
     kind: FeatureVisualKind,
     assets: Option<&GameAssets>,
+    plan: &crate::features::CompositeVisualPlan,
 ) {
-    use crate::features::EnemyArchetype;
-    let composite = crate::features::EnemyArchetype::from_brain(&enemy.payload);
-    // Mount: keep authored id; reuse the authored aabb (the
-    // BurningFlyingShark default_size is what `spawn_composite_*`
-    // uses for the sim mount).
+    // Mount: keep authored id; reuse the authored aabb (the mount's
+    // default_size is what the sim-side composite spawn uses too).
     spawn_authored_basic(
         commands,
         world,
         &enemy.id,
-        "Burning Flying Shark",
+        &plan.mount_name,
         enemy.aabb,
         kind,
-        game_assets::entity_sprite_for_enemy(&crate::actor::EnemyBrain::Custom(
-            "burning_flying_shark".into(),
-        )),
+        game_assets::entity_sprite_for_enemy(&plan.mount_brain),
         assets,
     );
-    // Rider: ":rider" suffix, name parsed from the authored spawn
-    // name. The rider's initial AABB is placed at a sensible
-    // position above the mount; `sync_visuals` overwrites it next
-    // frame off the rider sim entity's pos.
-    let rider_name = match composite {
-        EnemyArchetype::PirateHeavyOnShark => enemy
+    // Rider: ":rider" suffix; display name parsed from the authored
+    // spawn name when it carries the " on Shark" composite suffix.
+    let rider_name = if plan.rider_name_from_spawn {
+        enemy
             .name
             .strip_suffix(" on Shark")
             .map(str::to_owned)
-            .unwrap_or_else(|| "Broadside Bess".to_string()),
-        _ => "Pirate Raider".to_string(),
-    };
-    let rider_brain = match composite {
-        EnemyArchetype::PirateHeavyOnShark => {
-            crate::actor::EnemyBrain::Custom("pirate_heavy".into())
-        }
-        _ => crate::actor::EnemyBrain::Custom("pirate_raider".into()),
+            .unwrap_or_else(|| plan.rider_fallback_name.clone())
+    } else {
+        plan.rider_fallback_name.clone()
     };
     // Rider renders at HALF its standalone size while mounted so it
-    // fits visually on the shark. Mirrors the sim-side mounted size
-    // (`MountedSize` in `content::features::ecs::mount`); the sim
-    // entity carries the mounted size in `EnemyRuntime.size`, the
-    // FeatureViewIndex publishes that, and `sync_visuals` will pick
-    // it up on the first frame — but the initial visual entity here
-    // also needs to be sized correctly so it doesn't pop on tick 1.
-    let standalone_rider_size = EnemyArchetype::from_brain(&rider_brain)
-        .default_size()
-        .unwrap_or(ae::Vec2::new(44.0, 78.0));
-    let rider_size = standalone_rider_size * 0.5;
-    let mount_size = EnemyArchetype::BurningFlyingShark
-        .default_size()
-        .unwrap_or(ae::Vec2::new(126.0, 52.0));
-    let rider_offset_y = -(mount_size.y * 0.5) - (rider_size.y * 0.5) + 8.0;
+    // fits visually on the mount — mirrors the sim-side `MountedSize`;
+    // `sync_visuals` re-syncs from the FeatureViewIndex next frame,
+    // but the initial visual must be sized right to avoid a tick-1 pop.
+    let rider_size = plan.rider_standalone_size * 0.5;
+    let rider_offset_y = -(plan.mount_size.y * 0.5) - (rider_size.y * 0.5) + 8.0;
     let rider_pos = enemy.aabb.center() + ae::Vec2::new(0.0, rider_offset_y);
     let rider_aabb = ae::Aabb::new(rider_pos, rider_size * 0.5);
     spawn_authored_basic(
@@ -548,7 +522,7 @@ fn spawn_composite_visuals(
         &rider_name,
         rider_aabb,
         kind,
-        game_assets::entity_sprite_for_enemy(&rider_brain),
+        game_assets::entity_sprite_for_enemy(&plan.rider_brain),
         assets,
     );
 }

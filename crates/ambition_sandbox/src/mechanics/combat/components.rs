@@ -1118,6 +1118,8 @@ pub struct EnemyTuning {
     pub is_sandbag: bool,
     /// Touching this actor's body hurts the player.
     pub body_contact_damage: bool,
+    /// Deep-dream visual jitter seed; `None` = no dream pass.
+    pub dream_seed: Option<f32>,
 }
 
 impl EnemyTuning {

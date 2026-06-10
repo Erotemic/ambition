@@ -371,6 +371,13 @@
         move_style: Float,
     ),
     "PirateOnShark": (
+        // Visual fan-out: this spawn renders as a mount + rider pair.
+        composite_visual: Some((
+            mount_brain: "burning_flying_shark",
+            mount_name: "Burning Flying Shark",
+            rider_brain: "pirate_raider",
+            rider_fallback_name: "Pirate Raider",
+        )),
         max_health: 6,
         rider_max_health: Some(4),
         patrol_speed: 110.0,
@@ -438,6 +445,15 @@
         move_style: WalkHeavy,
     ),
     "PirateHeavyOnShark": (
+        // Visual fan-out: heavy rider variant; the rider's display name
+        // comes from the authored spawn name minus " on Shark".
+        composite_visual: Some((
+            mount_brain: "burning_flying_shark",
+            mount_name: "Burning Flying Shark",
+            rider_brain: "pirate_heavy",
+            rider_fallback_name: "Broadside Bess",
+            rider_name_from_spawn: true,
+        )),
         max_health: 7,
         rider_max_health: Some(6),
         patrol_speed: 110.0,
@@ -469,6 +485,8 @@
     // hit" mode reads sensibly. Collider hugs the dorsal-ridge
     // silhouette of the 128×95 sprite (body bbox ~120×31).
     "PuppySlug": (
+        // Deep-dream visual jitter seed (slug-only psychedelic pass).
+        dream_seed: Some(0.271828),
         max_health: 2,
         patrol_speed: 55.0,
         chase_speed: 80.0,

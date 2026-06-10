@@ -890,13 +890,11 @@ pub fn entity_sprite_for_interactable(
 }
 
 pub fn entity_sprite_for_enemy(brain: &crate::actor::EnemyBrain) -> Option<EntitySprite> {
-    match brain {
-        // Sandbag training dummies use a dedicated static sprite.
-        crate::actor::EnemyBrain::Custom(name) if name.starts_with("sandbag_") => {
-            Some(EntitySprite::SandbagDummy)
-        }
-        // Other enemies use the goblin spritesheet (animated), not a
-        // static entity sprite — `upgrade_enemy_sprites` handles them.
+    // Training dummies use a dedicated static sprite (authored
+    // archetype data); other enemies use animated spritesheets, not a
+    // static entity sprite — `upgrade_enemy_sprites` handles them.
+    match crate::features::enemy_visual_kind(brain) {
+        crate::features::FeatureVisualKind::Sandbag => Some(EntitySprite::SandbagDummy),
         _ => None,
     }
 }

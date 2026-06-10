@@ -199,6 +199,22 @@ const BRAIN_NAME_TO_ARCHETYPE: &[(&str, EnemyArchetype)] = &[
 /// timings, damage, reach — so a designer who wants to make the
 /// Brute's lunge slower has one place to look. `damage_amount` is
 /// the BODY-CONTACT damage; attack damage lives in the spec.
+/// Authored mount+rider visual fan-out for composite spawns (see
+/// `EnemyArchetypeSpec::composite_visual`). Brains are archetype
+/// brain-keys; names are display fallbacks for the spawned visuals.
+#[derive(Clone, Debug, serde::Deserialize)]
+pub struct CompositeVisualSpec {
+    pub mount_brain: String,
+    pub mount_name: String,
+    pub rider_brain: String,
+    pub rider_fallback_name: String,
+    /// When true, the rider's display name comes from the authored
+    /// spawn name minus its " on Shark" suffix (named heavy variants);
+    /// otherwise the fallback name is always used.
+    #[serde(default)]
+    pub rider_name_from_spawn: bool,
+}
+
 #[derive(Clone, Debug, serde::Deserialize)]
 pub(super) struct EnemyArchetypeSpec {
     pub max_health: i32,
@@ -229,6 +245,14 @@ pub(super) struct EnemyArchetypeSpec {
     /// On death, respawn in place after this many seconds.
     #[serde(default)]
     pub respawn_in_place_seconds: Option<f32>,
+    /// Deep-dream visual jitter seed (psychedelic shader pass);
+    /// `None` = the archetype doesn't participate.
+    #[serde(default)]
+    pub dream_seed: Option<f32>,
+    /// When set, this spawn renders as a mount + rider visual pair
+    /// (the sim fans it into two entities; presentation mirrors that).
+    #[serde(default)]
+    pub composite_visual: Option<CompositeVisualSpec>,
     #[serde(default, with = "vec2_option")]
     pub default_size: Option<ae::Vec2>,
     /// Brain template the spawn site instantiates for this archetype.
@@ -485,6 +509,11 @@ impl EnemyArchetype {
     /// every enemy entity at spawn). Generic systems branch on the
     /// component; content code may also call this directly instead of
     /// matching archetype identities.
+    /// Deep-dream jitter seed (authored data; `None` = no dream pass).
+    pub(crate) fn dream_seed(self) -> Option<f32> {
+        self.spec().dream_seed
+    }
+
     /// Project this archetype's per-frame runtime tuning into the
     /// combat kit's [`EnemyTuning`](crate::mechanics::combat::EnemyTuning)
     /// value carried on `EnemyConfig.tuning` — the per-frame loops read
@@ -495,6 +524,7 @@ impl EnemyArchetype {
             is_aerial: self.is_aerial(),
             is_sandbag: self.is_sandbag(),
             body_contact_damage: self.body_contact_damage_enabled(),
+            dream_seed: self.dream_seed(),
         }
     }
 
@@ -1030,6 +1060,58 @@ impl<'a> EnemyMut<'a> {
             air_jumps_remaining: MAX_ENEMY_AIR_JUMPS,
         };
     }
+}
+
+/// Per-spawn VISUAL plan for an enemy payload, derived from authored
+/// archetype data. Presentation consumes this instead of the
+/// archetype enum (Stage 20 / B3): the named knowledge stays on this
+/// side of the named/generic boundary, as data.
+#[derive(Clone, Debug)]
+pub struct CompositeVisualPlan {
+    pub rider_name_from_spawn: bool,
+    pub mount_name: String,
+    pub mount_brain: crate::actor::EnemyBrain,
+    pub rider_brain: crate::actor::EnemyBrain,
+    pub rider_fallback_name: String,
+    /// Rider's standalone body size (the visual renders at half while
+    /// mounted, mirroring the sim's `MountedSize`).
+    pub rider_standalone_size: ae::Vec2,
+    pub mount_size: ae::Vec2,
+}
+
+/// Visual kind for an enemy spawn payload (training dummies render as
+/// sandbags; everything else as a standard enemy).
+pub fn enemy_visual_kind(payload: &crate::actor::EnemyBrain) -> FeatureVisualKind {
+    if EnemyArchetype::from_brain(payload).tuning().is_sandbag {
+        FeatureVisualKind::Sandbag
+    } else {
+        FeatureVisualKind::Enemy
+    }
+}
+
+/// The mount+rider visual fan-out plan for a composite spawn payload,
+/// or `None` for ordinary single-entity spawns. Backed by the
+/// `composite_visual` rows in `enemy_archetypes.ron`.
+pub fn composite_visual_plan(payload: &crate::actor::EnemyBrain) -> Option<CompositeVisualPlan> {
+    let spec = EnemyArchetype::from_brain(payload).spec();
+    let composite = spec.composite_visual.as_ref()?;
+    let mount_brain = crate::actor::EnemyBrain::Custom(composite.mount_brain.clone());
+    let rider_brain = crate::actor::EnemyBrain::Custom(composite.rider_brain.clone());
+    let rider_standalone_size = EnemyArchetype::from_brain(&rider_brain)
+        .default_size()
+        .unwrap_or(ae::Vec2::new(44.0, 78.0));
+    let mount_size = EnemyArchetype::from_brain(&mount_brain)
+        .default_size()
+        .unwrap_or(ae::Vec2::new(126.0, 52.0));
+    Some(CompositeVisualPlan {
+        rider_name_from_spawn: composite.rider_name_from_spawn,
+        mount_name: composite.mount_name.clone(),
+        mount_brain,
+        rider_brain,
+        rider_fallback_name: composite.rider_fallback_name.clone(),
+        rider_standalone_size,
+        mount_size,
+    })
 }
 
 #[cfg(test)]

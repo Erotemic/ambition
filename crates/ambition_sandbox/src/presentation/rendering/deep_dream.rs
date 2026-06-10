@@ -24,7 +24,7 @@ use bevy::{
 };
 
 use super::primitives::{FeatureVisual, PlayerVisual, PropVisual, RoomVisual};
-use crate::features::{ActorRuntime, EnemyArchetype};
+use crate::features::ActorRuntime;
 
 const SHADER_ASSET_PATH: &str = "shaders/puppy_slug_deep_dream.wgsl";
 
@@ -291,9 +291,9 @@ fn puppy_slug_seed(id: &str, actors: &Query<crate::features::ActorSpriteData>) -
             if feature_id.as_str() != id {
                 return None;
             }
-            let (name, archetype) = match actor {
+            let (name, dream_seed) = match actor {
                 ActorRuntime::Enemy => match config {
-                    Some(c) => (c.name.as_str(), Some(c.archetype)),
+                    Some(c) => (c.name.as_str(), c.tuning.dream_seed),
                     None => return None,
                 },
                 ActorRuntime::Npc => match npc_config {
@@ -302,23 +302,17 @@ fn puppy_slug_seed(id: &str, actors: &Query<crate::features::ActorSpriteData>) -
                 },
             };
             let name_lc = name.to_ascii_lowercase();
-            let is_slug = archetype == Some(EnemyArchetype::PuppySlug)
-                || name_lc.contains("puppy")
-                || name_lc.contains("slug");
+            // Dream participation is authored data (the archetype's
+            // dream_seed) with the name heuristics kept as fallback.
+            let is_slug =
+                dream_seed.is_some() || name_lc.contains("puppy") || name_lc.contains("slug");
             if is_slug {
-                Some(seed_from_id(name) * 0.63 + archetype_seed(archetype))
+                Some(seed_from_id(name) * 0.63 + dream_seed.unwrap_or(0.0))
             } else {
                 None
             }
         },
     )
-}
-
-fn archetype_seed(archetype: Option<EnemyArchetype>) -> f32 {
-    match archetype {
-        Some(EnemyArchetype::PuppySlug) => 0.271828,
-        _ => 0.0,
-    }
 }
 
 fn current_sprite_uv_rect(

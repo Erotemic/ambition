@@ -2,7 +2,10 @@
 
 This is the compact active-state document for Ambition. Update it when the current architecture or active direction changes. Keep old migration plans in `docs/archive/`, not here.
 
-**Review date:** 2026-05-30. The `ambition_engine` crate was deleted on 2026-05-28; reusable mechanics now live inside `crates/ambition_engine_core/src/` or focused sandbox modules such as `crates/ambition_sandbox/src/projectile/`.
+**Review date:** 2026-06-10. The monolith was bisected into a layered crate
+graph (Stage 20); `ambition_sandbox` is now the **machinery library**, not the
+playable shell. Full breakdown + remaining-work survey:
+`docs/planning/plugin_refactor/22_monolith_breaker_survey.md`.
 
 ## One-sentence summary
 
@@ -17,22 +20,28 @@ Authoring / generation
 
 Bevy ECS runtime
   Components/entities/systems/messages are the main integration language.
-  Sandbox systems adapt authored data into runtime entities and presentation.
 
-Reusable crates
-  ambition_asset_manager: asset identity, source selection, platform profiles.
-  ambition_sfx / ambition_sfx_bank: generated SFX IDs and runtime banks.
-
-Playable shell
-  ambition_sandbox: Bevy app composition, LDtk runtime, input/touch/controller,
-  audio, UI, debug/devtools, presentation, content, and the reusable
-  mechanics modules (`src/engine_core/` for geometry/collision/movement/body
-  modes/world/player clusters, plus focused sandbox-owned mechanics such as
-  `src/projectile/`). The former `ambition_engine` crate was collapsed into
-  this crate 2026-05-28.
+Crate layers (low → high; lower must never import higher):
+  foundations  ambition_engine_core (geometry/collision/movement/body/player
+               clusters/world), ambition_platformer_runtime (kinematic body,
+               gravity, rooms, projectile), ambition_portal, ambition_time,
+               ambition_input, ambition_menu (reusable renderers), ambition_audio,
+               ambition_sfx[_bank], ambition_asset_manager.
+  machinery    ambition_sandbox (lib): brain, actor, mechanics, features (named
+               actor/boss ECS world), presentation, world/LDtk, items, encounter,
+               persistence, the dev STATE, the menu IR/map. Content-free
+               (guard-enforced). Re-exports the foundation crates under their
+               historical `crate::engine_core` / `crate::input` / … facade paths.
+  content      ambition_content: named game content — quests, bosses, items
+               roster, dialogue, intro, banter, portal adapters.
+  app          ambition_app: Bevy assembly, host glue, ALL binaries (playable
+               `ambition_sandbox` bin, headless, rl_*), the menu host stack +
+               DevToolsPlugin, and the full-stack integration tests.
 ```
 
-The old direction of keeping the engine backend-neutral is superseded. See ADR 0002.
+The old direction of keeping the engine backend-neutral is superseded (ADR 0002).
+Gameplay subsystems are moving to a **components-as-plugins** shape: each owns its
+own `Plugin` registration rather than being hand-wired in the app assembly.
 
 ## World and data ownership
 
@@ -76,7 +85,15 @@ Landed or scaffolded mechanics include:
 - RON-authored boss encounter numeric specs with Rust behavior profiles;
 - universal-brain interface in `crates/ambition_sandbox/src/brain/`: every controllable entity carries `Brain` + `ActionSet` + `ActorControl` sibling components, with `emit_brain_action_messages` producing `ActorActionMessage`s from each actor's resolved intent.
 
-The current actor/brain migration is no longer only a shadow seam. The live code uses it for player movement/control, player melee-start gating, player projectile tick/charge input, hostile enemy ranged projectiles, hostile enemy melee windup starts, and authored boss special consumers such as apple rain / Gradient Sentinel attacks. Remaining rough edges are narrower: pogo start remains player-specific in the attack lifecycle, but both control-phase and attack-phase pogo use the centralized `BlockKind::is_pogo_target()` surface policy. As of 2026-05-28 the player ECS migration is **complete**: the player entity carries 18 cluster components (`PlayerKinematics`, `PlayerGroundState`, …, `PlayerComboTrace`); every production path takes `&mut PlayerClustersMut` natively; `PlayerMovementAuthority` + `PlayerBody` + `ae::Player` are all deleted; tests build a `PlayerClusterScratch` via `PlayerClusterScratch::new_with_abilities` (or `crate::player::primary_player_scratch` for ECS spawn sites). The engine entry points (`update_player_with_tuning_clusters`, `update_player_*_scratch`, `tick_active_ledge_grab_clusters`, `try_start_ledge_grab_clusters`, `try_change_body_mode_clusters`, `classify_safety_from_kinematics`, `detect_oob_from_kinematics`, combat `*_from_view`, …) are the only path. See `dev/journals/player-cluster-native-push-2026-05-28.md`.
+The actor/brain unification is live, not a shadow seam: player movement/control,
+melee-start gating, projectile tick/charge, enemy ranged + melee windups, and
+authored boss specials all flow through it. Player ECS migration is **complete**
+(2026-05-28): the player carries 18 cluster components, every path takes
+`&mut PlayerClustersMut`, and `ae::Player`/`PlayerMovementAuthority`/`PlayerBody`
+are deleted (tests use `PlayerClusterScratch::new_with_abilities`). Bosses ARE
+actors (ADR 0016): `BossEncounterPhase` lives in `brain` and the goal is one
+unified actor+brain+boss-runtime unit with only *named* boss data in
+`ambition_content`. See `dev/journals/player-cluster-native-push-2026-05-28.md`.
 
 Damage is functional but fragmented. The sandbox currently routes outgoing player/projectile hits through `DamageEvent`, hostile hitboxes through explicit `Hitbox` entities and `PlayerDamageEvent`, boss state through `BossDamageOutcome`, and presentation through VFX/SFX messages. There is not yet a canonical `HitSpec` / `HitInstance` / `HitResult` pipeline that carries per-hit metadata end-to-end.
 

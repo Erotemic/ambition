@@ -1,28 +1,28 @@
 # Architecture boundary guardrails
 
-The plugin refactor uses a few intentionally simple tests to keep the new
-same-crate boundaries honest while the code is still in `ambition_sandbox`.
-These tests are not a substitute for rustc, but they give implementation agents
-fast feedback when a patch moves in the wrong architectural direction.
+Source-scanning tests keep the crate boundaries honest. Post-bisection (Stage 20)
+the boundaries are REAL crates — foundations ← machinery lib (`ambition_sandbox`)
+← content (`ambition_content`) ← app (`ambition_app`) — and the guards (~22) live
+in `crates/ambition_app/tests/architecture_boundaries.rs`. Not a substitute for
+rustc, but fast directional feedback.
 
-## Current guardrails
+## Current guardrails (representative)
 
-- `platformer_runtime/**` must not import Ambition content, app assembly,
-presentation, dev tools, portal, music, quest, or sandbox asset modules.
-- Room-authored spawn modules under `content/features/ecs/spawn*.rs` should not
-add new raw `commands.spawn(...)` calls. New room-authored spawn sites should use
-`SpawnScopedExt::spawn_room_scoped` or another explicit lifecycle helper.
-- `app/plugins.rs` should not regain portal or held-item subsystem registration
-helpers after those registrations moved into module-owned plugins.
-- Non-portal mechanics should call `platformer_runtime::collision::raycast_solids`
-  for plain solid raycasts instead of importing the portal mechanic.
-- Cross-subsystem ordering should prefer public `SystemSet` labels, such as
-  `ItemPickupSet`, rather than concrete function references.
-- The portal mechanic should remain a facade module at `src/portal/` with
-  plugin registration in `portal/plugin.rs`, schedule labels in
-  `portal/schedule.rs`, and implementation details behind `portal/implementation.rs`.
-  Remove the legacy `src/portal.rs` file when applying overlays that introduce
-  this split.
+- **Machinery imports no content**: every `ambition_sandbox` dir is scanned for
+`crate::content::` / `ambition_content::` — none may appear. `crate::features`
+(the named actor/boss ECS world still in the lib) is the one tracked exception.
+- Foundation crates (`ambition_platformer_runtime`, `ambition_portal`,
+`ambition_time`, `ambition_input`, `ambition_menu`, `ambition_audio`) must not
+depend on `ambition_sandbox`/content/app or name game content.
+- The combat kit (`mechanics::combat`) must name no archetype/boss content.
+- Room-authored spawn modules under `features/ecs/spawn*.rs` should not add raw
+`commands.spawn(...)`; use `SpawnScopedExt::spawn_room_scoped`.
+- Lib `menu`/`dev` keep only the persistence/sim-coupled pieces; the menu host
+stack + dev overlays/inspectors live in `ambition_app`.
+- Non-portal mechanics call `platformer_runtime::collision::raycast_solids`, not
+the portal mechanic; cross-subsystem ordering prefers public `SystemSet` labels
+(e.g. `ItemPickupSet`) over concrete function references.
+- New gameplay subsystems are self-owning `Plugin`s, not app-assembly hand-wiring.
 
 ## Updating the allowlist
 
@@ -35,7 +35,7 @@ intentional, non-room-authored, and documented in the review/commit.
 Run the guardrails with:
 
 ```bash
-cargo test -p ambition_sandbox architecture_boundaries
+cargo test -p ambition_app --test architecture_boundaries
 ```
 
 When a boundary intentionally changes, update this document, the allowlist, and

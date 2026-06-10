@@ -1,7 +1,13 @@
 # Current next moves
 
-**Review date:** 2026-05-30. Reviewed against source archive `ambition-source-2026-05-30T104014-5-e721ea65c578`.
+**Review date:** 2026-06-10.
 
+0. **Monolith breakup (active direction).** The bisection landed (Stage 20); the
+   live backlog — which module to extract/pluginize next, ranked by measured
+   difficulty, plus the deferred carves (unified actor+brain crate, dev_tools
+   state/systems split) — is `docs/planning/plugin_refactor/22_monolith_breaker_survey.md`.
+   Rule proven this stage: measure a module's *outward* dep count, not its line
+   size or content-guard status, before promising an "easy" extraction.
 1. Keep ADRs and concept pages modern enough that agents can trust them.
 2. Continue shifting runtime integration toward data-driven Bevy ECS instead of parallel code-owned world state.
 3. Replace obsolete migration docs with current systems/concepts or archive them.

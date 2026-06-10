@@ -78,6 +78,47 @@ apply fns, lib) vs the egui inspector/sync *systems* (app), and slicing `trace` 
 `model+buffer` (lib, sim writes) vs `detect+dump` (app, analysis). ~2.5–3k more to
 app, but it's surgical file-splitting (like the audio runtime split), not a bulk move.
 
+## Session 2 (2026-06-10, Opus) — actor unification + plugins paradigm
+
+Jon's steers this session: (1) "components as plugins" — each module should be a
+self-owning `Plugin`, not functions the app hand-wires; (2) "boundaries are mostly
+shrunk but grow if they need to be right sized"; (3) **bosses ARE actors** (ADR 0016)
+— so the brain/actor/boss tangle is not coupling-to-separate, it's that the
+*right-sized unit* is actor + brain + generic boss-runtime as ONE component, with
+only *named* boss content in `ambition_content`.
+
+Done:
+- **`BossEncounterPhase` → `brain::boss_pattern`** (commit 7fa4c2b3). Breaks the
+  brain↔boss_encounter cycle (brain's last upward dep on boss_encounter, was 35
+  refs); boss_encounter re-exports so consumers are untouched. First concrete step
+  of the actor/boss unification.
+- **`DevToolsPlugin`** (commit 63eb156d): the egui inspectors + FPS overlay, three
+  scattered assembly calls → one `ambition_app::dev::DevToolsPlugin`.
+
+Measured reality (the recurring finding): brain has **199 refs to `actor`** + upward
+reaches into player (input frame), presentation (sheet lookup), mechanics
+(`ActorPose`/`ActorFaction`), content (a test). The remaining sandbox core
+(brain, actor, mechanics, features, world, presentation, boss_encounter) is a
+**tightly-woven mesh** — the bisection already separated the easy axis
+(content/machinery/app); what's left needs mesh-untangling, not bulk moves.
+
+### Deferred backlog (real work, not mechanical — don't rush)
+- **Complete `BrainPlugin`**: fold the scattered brain systems still registered in
+  the app schedule (`player::tick_player_brains`, `brain::emit_brain_action_messages`,
+  `emit_player_projectile_tick_messages`, `observe_brain_action_counter`) into
+  `BrainPlugin` so brain self-owns registration. Risk: those carry explicit
+  `.in_set(SandboxSet::…).after(…)` ordering; folding must preserve it or replay
+  diverges. Do with the fixture gate per step.
+- **Unified `ambition_actor` crate** (actor + brain + generic boss-runtime): the big
+  shrink (~11k+). Blockers to invert first: actor→presentation sheet lookup,
+  brain→player input types (move to `ambition_input`?), `ActorPose`/`ActorFaction`
+  home, the actor→content test, and the named `BossAttackProfile` variants (data-key
+  them like the sprite sheets/capabilities — see `dev/journals/code_smells.md`).
+- **dev_tools state/systems carve**: split `dev_tools.rs` into lib `dev_state`
+  (DeveloperTools + editable types + `apply_*`, read by persistence/presentation) vs
+  app dev systems (`sync_*`); slice `trace` into lib model+buffer (sim writes) vs app
+  detect+dump. ~2.5–3k more to app. Surgical, like the audio runtime split.
+
 ## Honest takeaway for the next session
 The only **big + mechanically-easy** win was menu (done). Everything else is either:
 - a DOWN-extraction blocked by upward machinery deps (mechanics, world, presentation,

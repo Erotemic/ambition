@@ -151,17 +151,36 @@ test-only; actor→content/state_machines were stale data). Commits:
 Test conservation: 187 (actor) + 992 (sandbox) = 1179, the exact pre-split count.
 Replay bit-identical throughout. Sandbox lib is now ~101k (from 112k).
 
+### Session 3b — boss-encounter core moved (8df30cdd); de-name verdict
+
+- **`ambition_actor::boss_encounter`**: BossEncounterSpec schema + BossEncounterState
+  phase machine + events moved (zero outward deps). The game's ten named spec ctors
+  stay sandbox-side as the `BossSpecRoster` extension trait (`roster.rs`) — call
+  sites unchanged modulo one trait import. NOT moved (measured): attack_geometry +
+  behavior (couple to presentation's sprite-manifest types), damage/events/systems
+  (sim glue), registry (→BossProfile→features), sprites (B3 pocket), ids.
+- **Jon's de-name review verdict** (recorded in code_smells.md): the attack-profile
+  rename is honest at the key/schedule/geometry/spec-parameter layers (any boss can
+  author DebrisRain{interval,speed,damage} in RON today) but the EFFECTS consumers
+  are still half-bespoke (apple art + some constants baked, gnu-named fns).
+  Decision: accept + smell-log; no effect-composition framework until a second
+  boss authors one of these specials.
+- **BrainPlugin fold re-measured — doc-22's framing was WRONG**: the brain emitters
+  are registered inside a `.chain()` INTERLEAVED with sandbox player systems
+  (update_body_mode → tick_player_brains → sync_player_actor_poses → emitters) in
+  `SandboxSet::PlayerInput`. The chain is the ordering contract; folding only the
+  brain systems into the actor crate's BrainPlugin would break it. The right plugin
+  boundary is the whole player-input pipeline (a sandbox-side plugin owning that
+  chain). Replay-sensitive; do as its own focused slice.
+
 ## Honest takeaway for the next session
 Remaining work, in rough value order:
-- **boss_encounter generic runtime → join `ambition_actor`** (~5.5k): the phase
-  enum already lives in brain; the registry/behavior/specs layer needs its named
-  recognizers (gnu_ton/mockingbird in behavior.rs) data-keyed first — same recipe
-  as the attack-profile de-name.
-- **Complete `BrainPlugin`** (fold `tick_player_brains` / `emit_brain_action_messages`
-  / projectile-tick / observer registrations out of the app schedule). Replay-
-  sensitive: preserve the explicit `.in_set/.after` ordering, fixture gate per step.
+- **Player-input pipeline plugin** (the corrected BrainPlugin item, see above):
+  sandbox-side plugin owning the input-phase chain. Replay fixture gate per step.
 - **dev carve** (state/systems split, ~2.5–3k) and the **B3 boss-asset map**
   (needs Jon's eyes — visual).
+- **Special-effects parameterization finish** (smell-logged): lift baked apple
+  art/constants into the RON specs when touched, or when a second boss needs one.
 - The deep walls remain features (`EnemyConfig.archetype` knot), world (LDtk
   adapter), presentation, mechanics (~15 upward deps).
 

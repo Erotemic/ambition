@@ -192,12 +192,12 @@ fn wire_portal_schedule(app: &mut App) {
     );
 
     // RoomReset: reset-time portal cleanup in the room-transition phase, after
-    // the cut-rope boss arena reset.
+    // the content layer's room-reset work (the cut-rope boss arena reset).
     app.configure_sets(
         Update,
         PortalSet::RoomReset
             .in_set(SandboxSet::RoomTransition)
-            .after(crate::ambition_content::bosses::reset_cut_rope_boss_arena_on_room_reset),
+            .after(crate::runtime::reset::ContentRoomResetSet),
     );
 
     // TransitGuards: suppress ledge-grab while transiting, before player
@@ -400,7 +400,11 @@ fn register_room_transition_systems(app: &mut App) {
             apply_room_transition_system,
             crate::features::reset_ecs_room_features,
             crate::features::reset_ecs_npc_actors,
-            crate::ambition_content::bosses::reset_cut_rope_boss_arena_on_room_reset,
+            // Content-side reset work carries the ContentRoomResetSet
+            // label so generic plugins (gravity, portal) can order
+            // after it without naming content systems.
+            crate::ambition_content::bosses::reset_cut_rope_boss_arena_on_room_reset
+                .in_set(crate::runtime::reset::ContentRoomResetSet),
             // Portal room-reset cleanup is registered by
             // `crate::portal::PortalPlugin`.
         )

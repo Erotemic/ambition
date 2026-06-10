@@ -17,6 +17,8 @@ use bevy::prelude::*;
 pub mod banter;
 pub mod cut_rope;
 pub mod gnu_ton;
+#[cfg(feature = "ui")]
+pub mod yarn;
 
 pub use banter::{install_boss_banter, tick_boss_idle_barks};
 pub use cut_rope::{
@@ -30,11 +32,30 @@ pub use cut_rope::{
 };
 pub use gnu_ton::gate_gnu_ton_arena_ladder;
 
-/// Installs the default Ambition boss encounter registry resource.
+/// Installs the default Ambition boss encounter registry resource and
+/// the cut-rope Yarn vocabulary + mirror feed.
 pub struct AmbitionBossContentPlugin;
 
 impl Plugin for AmbitionBossContentPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(crate::boss_encounter::BossEncounterRegistry::default());
+
+        // Cut-rope Yarn vocabulary: installed on the DialogueRunner via the
+        // dialog runtime's content-bindings seam, plus the per-frame extras
+        // feed (after the generic mirror refresh so the snapshot Yarn reads
+        // is consistent within the tick).
+        #[cfg(feature = "ui")]
+        {
+            app.init_resource::<crate::dialog::yarn_bindings::YarnContentBindings>();
+            app.world_mut()
+                .resource_mut::<crate::dialog::yarn_bindings::YarnContentBindings>()
+                .installers
+                .push(yarn::install_cut_rope_yarn_bindings);
+            app.add_systems(
+                Update,
+                yarn::mirror_cut_rope_heavy_object
+                    .after(crate::dialog::yarn_bindings::refresh_yarn_state_mirror),
+            );
+        }
     }
 }

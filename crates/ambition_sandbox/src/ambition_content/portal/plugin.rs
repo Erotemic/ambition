@@ -20,7 +20,7 @@ use super::ability_adapter::{
 use super::carve_adapter::bridge_portal_carves;
 use super::fire_adapter::resolve_portal_fire_intent;
 use super::input_adapter::portal_input_adapter_system;
-use super::inventory_adapter::drop_portal_gun_system;
+use super::inventory_adapter::{drop_portal_gun_system, pickup_portal_gun_system};
 use super::reset_adapter::bridge_room_reset_to_clear_portals;
 use super::sfx_adapter::play_portal_sfx;
 use super::shot_adapter::portal_projectile_step;
@@ -130,6 +130,20 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .in_set(PortalSet::InputAdapter)
                 .in_set(crate::app::SandboxSet::PlayerSimulation)
                 .after(portal_input_adapter_system),
+        );
+
+        // Portal-gun ground pickups: the Ambition inventory grant on Attack.
+        // Ordered `.after(arm_portal_pickups)` (registered by
+        // `crate::items::pickup` in `ItemPickupSet::CoreHeldItems`) so the
+        // arm → grant chain edge is identical to the old inline `.chain()`,
+        // and after `portal_fire` (via the set order) so grabbing the gun
+        // does not also fire on the same Attack press.
+        app.add_systems(
+            Update,
+            pickup_portal_gun_system
+                .run_if(crate::gameplay_allowed)
+                .in_set(crate::items::pickup::ItemPickupSet::CoreHeldItems)
+                .after(crate::portal::arm_portal_pickups),
         );
 
         // The drop consumer touches Ambition item state (StashedActionSet), so

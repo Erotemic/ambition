@@ -87,20 +87,15 @@ impl Plugin for ItemPickupSimulationPlugin {
                 .in_set(ItemPickupSet::CoreHeldItems),
         );
 
-        // Portal-gun ground pickups: arming the LDtk-authored pickup and the
-        // Ambition inventory grant on Attack. Gated with the portal mechanic.
-        // `pickup_portal_gun_system` runs after `portal_fire` (registered by
-        // `PortalSimulationPlugin`) so grabbing the gun does not also fire on
-        // the same Attack press.
+        // Portal-gun ground pickups: arm the LDtk-authored pickup here; the
+        // Ambition inventory grant (`pickup_portal_gun_system`) is registered
+        // by the content layer (`AmbitionPortalAdaptersPlugin`), ordered
+        // `.after(arm_portal_pickups)` inside this same set so the chain edge
+        // is preserved without this generic module naming content.
         #[cfg(feature = "portal")]
         app.add_systems(
             Update,
-            (
-                crate::portal::arm_portal_pickups,
-                crate::ambition_content::portal::pickup_portal_gun_system
-                    .run_if(crate::gameplay_allowed),
-            )
-                .chain()
+            crate::portal::arm_portal_pickups
                 // Parent `PlayerSimulation` already implied via
                 // `ItemPickupSet::CoreHeldItems` (configured above).
                 .in_set(ItemPickupSet::CoreHeldItems),
@@ -309,6 +304,40 @@ pub fn unequip_held(
         *action_set = stash.0.clone();
     }
     commands.entity(player).remove::<HeldItem>();
+    commands.entity(player).remove::<StashedActionSet>();
+}
+
+/// Equip the portal gun onto the player from a non-pickup source (the inventory
+/// menu): stash the action set, attach an active [`PortalGun`], and clear the
+/// melee swing so `Attack` fires portals (the same replacement the world pickup
+/// does). Mirrors the pickup grant minus the ground entity — the portal-gun
+/// twin of [`equip_held_spec`], so the menu and the world pickup share one
+/// equip contract.
+#[cfg(feature = "portal")]
+pub fn equip_portal_gun(commands: &mut Commands, player: Entity, action_set: &mut ActionSet) {
+    commands
+        .entity(player)
+        .insert(StashedActionSet(action_set.clone()));
+    commands.entity(player).insert(PortalGun {
+        active: true,
+        ..PortalGun::default()
+    });
+    action_set.melee = None;
+}
+
+/// Detach the portal gun and restore the stashed action set (inventory
+/// unequip). The portal-gun twin of [`unequip_held`].
+#[cfg(feature = "portal")]
+pub fn unequip_portal_gun(
+    commands: &mut Commands,
+    player: Entity,
+    action_set: &mut ActionSet,
+    stashed: Option<&StashedActionSet>,
+) {
+    if let Some(stash) = stashed {
+        *action_set = stash.0.clone();
+    }
+    commands.entity(player).remove::<PortalGun>();
     commands.entity(player).remove::<StashedActionSet>();
 }
 

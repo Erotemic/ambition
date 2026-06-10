@@ -23,8 +23,10 @@ mod content;
 mod runtime;
 mod systems;
 mod ui;
+/// Public so content plugins can reach the [`yarn_bindings::YarnContentBindings`]
+/// installer seam + the mirror types.
 #[cfg(feature = "ui")]
-mod yarn_bindings;
+pub mod yarn_bindings;
 #[cfg(feature = "ui")]
 mod yarn_bridge;
 

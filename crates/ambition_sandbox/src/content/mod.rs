@@ -11,10 +11,9 @@ pub mod content_validation;
 pub mod features;
 pub mod quest;
 
-/// Facade: the character catalog *machinery* (schema, loader, brain
-/// resolver, validation) moved to [`crate::actor::character_catalog`];
-/// the authored entries live in `assets/data/character_catalog.ron`.
-pub use crate::actor::character_catalog;
+// The character catalog *machinery* (schema, loader, brain resolver,
+// validation) moved to `crate::actor::character_catalog`; the authored
+// entries live in `assets/data/character_catalog.ron`.
 
 /// Facade: the data-manifest *machinery* (spec schema + asset wiring)
 /// moved to [`crate::runtime::data`]; the authored RON it loads is the

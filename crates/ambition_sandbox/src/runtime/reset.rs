@@ -52,6 +52,14 @@ use bevy::prelude::*;
 
 use crate::engine_core as ae;
 
+/// Room-transition slot for *content-side* reset work (named boss
+/// arenas, story state). The app assembly places the content layer's
+/// reset systems in this set; machinery that must run after content
+/// resets (e.g. gravity reset-to-default) orders against the SET, so
+/// generic plugins never name a content system.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ContentRoomResetSet;
+
 use crate::assets::game_assets::GameAssets;
 use crate::boss_encounter::BossEncounterRegistry;
 use crate::encounter::{EncounterMusicRequest, EncounterRegistry};

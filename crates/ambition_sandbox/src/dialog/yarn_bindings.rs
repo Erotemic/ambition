@@ -62,8 +62,13 @@ pub struct YarnStateMirrorData {
     pub quests_active: std::collections::HashSet<String>,
     /// dialogue id → visit count.
     pub visit_counts: std::collections::HashMap<String, u32>,
-    /// Yarn-facing id for the heavy object currently hanging in the cut-rope room.
-    pub cut_rope_heavy_object: String,
+    /// Content-fed string values keyed by name (e.g. a boss room's
+    /// current heavy-object id). The generic refresh below never
+    /// touches these; content-side systems mirror their own state in
+    /// (after [`refresh_yarn_state_mirror`]) and content-installed
+    /// Yarn functions read them. Keeps named content out of this
+    /// generic mirror.
+    pub extras: std::collections::HashMap<String, String>,
     /// Item `dialog_id()` → held count, mirrored from the live
     /// `PlayerInventory` resource so `inventory_has(...)` can read it.
     pub inventory_counts: std::collections::HashMap<String, u32>,
@@ -82,7 +87,6 @@ pub struct YarnStateMirror(pub Arc<RwLock<YarnStateMirrorData>>);
 /// the data is small (flags/bosses/quests are short Vecs).
 pub fn refresh_yarn_state_mirror(
     save: Option<Res<SandboxSave>>,
-    cut_rope_heavy_object: Option<Res<crate::ambition_content::bosses::CutRopeHeavyObjectCycle>>,
     inventory: Option<Res<crate::inventory::PlayerInventory>>,
     owned: Option<Res<crate::items::OwnedItems>>,
     wallet: Query<&crate::player::PlayerWallet, With<crate::player::PrimaryPlayer>>,
@@ -119,12 +123,6 @@ pub fn refresh_yarn_state_mirror(
         return;
     };
     let data = save.data();
-    snap.cut_rope_heavy_object.clear();
-    snap.cut_rope_heavy_object.push_str(
-        cut_rope_heavy_object
-            .map(|cycle| cycle.current_dialogue_id())
-            .unwrap_or("anvil"),
-    );
     snap.flags.clear();
     for flag in &data.flags {
         snap.flags.insert(flag.id.clone(), flag.on);
@@ -179,6 +177,23 @@ pub fn clear_yarn_presentation_cue(mut cue: ResMut<YarnPresentationCue>) {
     cue.whisper = false;
 }
 
+// ===== Content extension seam ===================================
+
+/// One content-side installer: registers that content's custom Yarn
+/// commands and/or library functions on the runner. Runs once when
+/// the singleton `DialogueRunner` is spawned, after the generic
+/// commands/functions are registered.
+pub type YarnBindingInstaller = fn(&mut Commands, &mut DialogueRunner, &YarnStateMirror);
+
+/// Content-registered Yarn vocabulary. The dialog runtime owns the
+/// generic commands/functions (`set_flag`, `give_item`, …); content
+/// plugins push installers here for named vocabulary (e.g. the
+/// cut-rope boss commands) so this module names no content.
+#[derive(Resource, Default)]
+pub struct YarnContentBindings {
+    pub installers: Vec<YarnBindingInstaller>,
+}
+
 // ===== Plugin ===================================================
 
 pub struct YarnBindingsPlugin;
@@ -187,6 +202,7 @@ impl Plugin for YarnBindingsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<YarnStateMirror>();
         app.init_resource::<YarnPresentationCue>();
+        app.init_resource::<YarnContentBindings>();
         app.add_systems(
             Update,
             (clear_yarn_presentation_cue, refresh_yarn_state_mirror).chain(),
@@ -364,37 +380,10 @@ pub fn cmd_camera_zoom(In(factor): In<f32>) {
     );
 }
 
-/// `<<watch_cut_rope_video>>` — authored post-boss branch placeholder.
-///
-/// TODO(web-open): desktop builds could optionally open the URL in the user's
-/// browser after a settings/privacy opt-in. For now the Yarn line presents the
-/// link and this command records the choice as a save flag for traceability.
-pub fn cmd_watch_cut_rope_video(mut effects: MessageWriter<SetFlagRequested>) {
-    info!(
-        target: "ambition_sandbox::dialog::yarn",
-        "watch_cut_rope_video: TODO optional browser launch for https://www.youtube.com/watch?v=ucLGm27DDL0",
-    );
-    effects.write(SetFlagRequested {
-        id: "smirking_behemoth_video_suggested".into(),
-        on: true,
-    });
-}
-
-/// `<<reset_cut_rope_room>>` — replay the Smirking Behemoth room from the start.
-///
-/// The command is reached by Yarn immediately after the NPC's final line is
-/// presented, before the player has dismissed that line. Latch a pending replay
-/// resource instead of resetting immediately; the simulation emits the real
-/// replay request once `DialogState` is inactive.
-pub fn cmd_reset_cut_rope_room(
-    mut pending: ResMut<crate::ambition_content::bosses::PendingCutRopeRoomReplay>,
-) {
-    pending.requested = true;
-    info!(
-        target: "ambition_sandbox::dialog::yarn",
-        "reset_cut_rope_room: latched Smirking Behemoth room replay until dialogue closes",
-    );
-}
+// The cut-rope boss commands (`watch_cut_rope_video`,
+// `reset_cut_rope_room`) and the `cut_rope_heavy_object_is` function
+// moved to `crate::ambition_content::bosses::yarn` — installed via
+// [`YarnContentBindings`] so this generic module names no content.
 
 // ===== Functions ================================================
 //
@@ -438,14 +427,6 @@ pub fn register_functions(runner: &mut DialogueRunner, mirror: &YarnStateMirror)
     lib.add_function("quest_active", move |id: String| -> bool {
         m.read()
             .map(|snap| snap.quests_active.contains(&id))
-            .unwrap_or(false)
-    });
-    // cut_rope_heavy_object_is(id) -> bool: lets authored Yarn branch on the
-    // runtime-selected heavy object without reaching into Bevy resources.
-    let m = Arc::clone(&mirror.0);
-    lib.add_function("cut_rope_heavy_object_is", move |id: String| -> bool {
-        m.read()
-            .map(|snap| snap.cut_rope_heavy_object == id)
             .unwrap_or(false)
     });
     // inventory_has(item) -> bool: does the player currently hold at
@@ -497,9 +478,10 @@ fn normalize_item_id(raw: &str) -> String {
         .collect()
 }
 
-/// Register all eleven custom commands on the runner. Called from
-/// `spawn_dialogue_runner`. Each command name maps to a Bevy
-/// system registered against the `World`.
+/// Register the nine generic custom commands on the runner. Called
+/// from `spawn_dialogue_runner`; content commands are installed right
+/// after via [`YarnContentBindings`]. Each command name maps to a
+/// Bevy system registered against the `World`.
 pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
     let set_flag_id = commands.register_system(cmd_set_flag);
     let clear_flag_id = commands.register_system(cmd_clear_flag);
@@ -510,8 +492,6 @@ pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
     let play_sfx_id = commands.register_system(cmd_play_sfx);
     let spawn_fireworks_id = commands.register_system(cmd_spawn_fireworks);
     let camera_zoom_id = commands.register_system(cmd_camera_zoom);
-    let watch_cut_rope_video_id = commands.register_system(cmd_watch_cut_rope_video);
-    let reset_cut_rope_room_id = commands.register_system(cmd_reset_cut_rope_room);
     let cmds = runner.commands_mut();
     cmds.add_command("set_flag", set_flag_id);
     cmds.add_command("clear_flag", clear_flag_id);
@@ -522,8 +502,6 @@ pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
     cmds.add_command("play_sfx", play_sfx_id);
     cmds.add_command("spawn_fireworks", spawn_fireworks_id);
     cmds.add_command("camera_zoom", camera_zoom_id);
-    cmds.add_command("watch_cut_rope_video", watch_cut_rope_video_id);
-    cmds.add_command("reset_cut_rope_room", reset_cut_rope_room_id);
 }
 
 #[cfg(test)]

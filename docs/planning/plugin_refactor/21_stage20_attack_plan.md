@@ -269,6 +269,28 @@ doc, and move to C1/B1. A1+A2 alone are a successful night.
 
 - 2026-06-10 — plan authored; exploration reports captured (coupling map, ecs
   classification, safety-net mechanics). Run not yet started.
+- 00:04 — `ccc37c3d`-era baseline had ONE pre-existing red lib test
+  (`render_set_is_gated_off_under_the_grid_backend`, stale after the P4b menu-perf
+  early-out). Fixed + pinned all three gating states; committed standalone.
+- 00:10 — **discovery that re-shaped A1/A2 sequencing:** `lib.rs` has
+  `pub use content::features;` — every machinery `crate::features::X` import is a
+  content import the plan's coupling map undercounted (~40 generic symbols across
+  ~30 machinery files). Decision: A1 handles NAMED couplings only; the generic-symbol
+  mass moves wholesale with A2's kit extraction + a repointed `features` facade.
+- 00:12 — `dd42d3e8` A1 batch 1: NPC_PATROL_SPEED → brain; `content/data.rs` →
+  `runtime/data.rs` (zero named identifiers); `content/quest.rs` split (generic
+  `QuestRegistry`+systems → new `crate::quest::registry`, named specs/payout stay);
+  `content/character_catalog` → `actor/character_catalog` (named ids were test-only).
+  All gates green, replay bit-identical.
+- 00:28 — A1 batch 2 in flight: gravity `.after(content system)` → machinery-owned
+  `ContentRoomResetSet`; portal-pickup registration moved into
+  `AmbitionPortalAdaptersPlugin` (same edges via `.after(arm_portal_pickups)`);
+  `equip_portal_gun`/`unequip` moved to `items::pickup` (bodies were pure machinery,
+  twins of `equip_held_spec`); dialog cut-rope vocabulary inverted via new
+  `YarnContentBindings` installer seam + generic mirror `extras` map (content feeds
+  `cut_rope_heavy_object` after the generic refresh; save-gating preserved + unit test).
+  TRIAGED: `assets/sandbox_assets` manifest builders are content-composition by
+  nature — allowlist tonight, relocate during A3 instead of inventing a registry seam.
 
 ## Estimated vs actual (fill at end of run)
 

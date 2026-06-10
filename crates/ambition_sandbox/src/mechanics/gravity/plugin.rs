@@ -63,13 +63,15 @@ impl Plugin for GravityPlugin {
         // It was never registered in the app schedule before the extraction, so
         // leaving it unregistered preserves behavior exactly.
 
-        // Reset gravity to default when the room resets.
+        // Reset gravity to default when the room resets — after the
+        // content layer's room-reset work (named boss arenas), ordered
+        // against the SET label so this generic plugin names no content.
         app.add_systems(
             Update,
             reset_gravity_on_room_reset
                 .in_set(GravitySet::RoomReset)
                 .in_set(crate::app::SandboxSet::RoomTransition)
-                .after(crate::ambition_content::bosses::reset_cut_rope_boss_arena_on_room_reset),
+                .after(crate::runtime::reset::ContentRoomResetSet),
         );
     }
 }

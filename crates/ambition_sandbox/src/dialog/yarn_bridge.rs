@@ -45,7 +45,8 @@ use bevy_yarnspinner::prelude::*;
 use super::content::DialogChoice;
 use super::runtime::DialogState;
 use super::yarn_bindings::{
-    register_commands, register_functions, YarnPresentationCue, YarnStateMirror,
+    register_commands, register_functions, YarnContentBindings, YarnPresentationCue,
+    YarnStateMirror,
 };
 use crate::persistence::save::SandboxSave;
 
@@ -89,6 +90,7 @@ fn spawn_dialogue_runner(
     mut commands: Commands,
     project: Res<YarnProject>,
     mirror: Res<YarnStateMirror>,
+    content_bindings: Res<YarnContentBindings>,
     existing: Option<Res<DialogueRunnerEntity>>,
 ) {
     if existing.is_some() {
@@ -97,6 +99,11 @@ fn spawn_dialogue_runner(
     let mut runner = project.create_dialogue_runner(&mut commands);
     register_commands(&mut commands, &mut runner);
     register_functions(&mut runner, &mirror);
+    // Content-side vocabulary (named boss commands/functions), pushed
+    // into the registry by content plugins at build time.
+    for install in &content_bindings.installers {
+        install(&mut commands, &mut runner, &mirror);
+    }
     let entity = commands.spawn(runner).id();
     commands.insert_resource(DialogueRunnerEntity(entity));
     info!(

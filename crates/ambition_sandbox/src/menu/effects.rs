@@ -159,11 +159,7 @@ pub(crate) fn apply_menu_action(
                 }
                 #[cfg(feature = "portal")]
                 if is_portal_gun {
-                    crate::ambition_content::portal::equip_portal_gun(
-                        commands,
-                        player,
-                        &mut action_set,
-                    );
+                    crate::items::pickup::equip_portal_gun(commands, player, &mut action_set);
                 } else if let Some(spec) = held_spec {
                     equip_held_spec(commands, player, &mut action_set, spec);
                 }

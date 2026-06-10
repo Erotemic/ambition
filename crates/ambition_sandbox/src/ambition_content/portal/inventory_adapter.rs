@@ -29,34 +29,11 @@ use crate::portal::{
     DropPortalGun, PickUpPortalGun, PortalGun, PortalGunEquipped, PortalGunPickup,
 };
 
-/// Equip the portal gun onto the player from a non-pickup source (the inventory
-/// menu): stash the action set, attach an active [`PortalGun`], and clear the
-/// melee swing so `Attack` fires portals (the same replacement the world pickup
-/// does). Mirrors the pickup grant minus the ground entity.
-pub fn equip_portal_gun(commands: &mut Commands, player: Entity, action_set: &mut ActionSet) {
-    commands
-        .entity(player)
-        .insert(StashedActionSet(action_set.clone()));
-    commands.entity(player).insert(PortalGun {
-        active: true,
-        ..PortalGun::default()
-    });
-    action_set.melee = None;
-}
-
-/// Detach the portal gun and restore the stashed action set (inventory unequip).
-pub fn unequip_portal_gun(
-    commands: &mut Commands,
-    player: Entity,
-    action_set: &mut ActionSet,
-    stashed: Option<&StashedActionSet>,
-) {
-    if let Some(stash) = stashed {
-        *action_set = stash.0.clone();
-    }
-    commands.entity(player).remove::<PortalGun>();
-    commands.entity(player).remove::<StashedActionSet>();
-}
+/// Facade: the menu-driven equip/unequip pair moved to
+/// [`crate::items::pickup`] (their bodies are pure item-equip
+/// machinery, the twins of `equip_held_spec` / `unequip_held`); the
+/// content adapter keeps the roster-policy systems below.
+pub use crate::items::pickup::{equip_portal_gun, unequip_portal_gun};
 
 /// On a [`DropPortalGun`] intent, drop the held portal gun: remove the
 /// `PortalGun` (so `Attack` stops firing portals), restore the stashed melee,

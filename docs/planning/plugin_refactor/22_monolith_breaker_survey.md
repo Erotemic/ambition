@@ -221,3 +221,18 @@ math + UV tests).
   the facade guard inverted (`portal/presentation.rs` must NOT exist).
 - NOT yet runtime-verified visually (headless dev): cone orientation is pinned
   by `cone_uvs` unit tests, but the first in-game look is Jon's.
+
+### Session 4 correction (same day): cones flipped to WINDOW semantics
+Jon's first visual pass: cones were on the wrong side. The shipped model had
+the view protruding into the room as a hologram at the entry; intended model
+is a **window receding INTO the host surface** ("see through the portal a
+little bit"). The window's display map is the plain BODY map (depth into the
+entry wall = depth in front of the exit) — sight and transit share one map,
+and the body map's mirror lands harmlessly in mesh UV space. Bonus: the
+protruding design had an emergent artifact (the partner's cone sat inside
+every capture rect at high alpha, so a cone mostly showed the viewer's OWN
+side back — exactly the "wrong side" read); windows are in walls, captures
+frame open rooms, so the artifact is structurally impossible. The
+proper-rotation theorem stays in `ambition_portal::view` (it is the
+camera-orientation tool for the projection model). Defaults retuned: depth
+90 (≈ carve scale), spread 0.20, alpha 0.9. Still awaiting Jon's second look.

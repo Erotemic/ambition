@@ -34,8 +34,9 @@ pub struct PortalPresentationPlugin {
     /// The input-warp disorientation glyph
     /// ([`visuals::sync_portal_disorientation_indicator`]).
     pub disorientation: bool,
-    /// The through-portal view cones: render-to-texture captures of the world
-    /// in front of each portal's partner, with 1-frame-lag infinite recursion
+    /// The through-portal view windows: each portal shows a render-to-texture
+    /// capture of the world in front of its partner, receding into its host
+    /// surface, with 1-frame-lag recursion when portals face each other
     /// ([`view_cones::sync_portal_view_cones`]; tune via
     /// [`crate::PortalViewConeConfig`]).
     pub view_cones: bool,

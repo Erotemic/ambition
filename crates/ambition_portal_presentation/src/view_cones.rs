@@ -1,34 +1,39 @@
-//! Through-portal **view cones**: each placed portal projects a trapezoid of
-//! "what you'd see coming out of here" — the world in front of its partner —
+//! Through-portal **view windows**: each placed portal shows a trapezoid of
+//! the world in front of its partner, receding INTO its host surface — you
+//! look "through the portal a little bit," like glass set in the wall —
 //! rendered live by an offscreen capture camera.
 //!
 //! ## How it works
 //! Per placed portal with a placed partner, a **rig**: an offscreen image, a
-//! capture `Camera2d` parked over the partner-side source rect, and a cone
-//! `Mesh2d` at the entry face textured with that image. All geometry comes
-//! from `ambition_portal::view::view_cone` — the same math that proves the
-//! view map is always a proper rotation (no mirror case exists):
+//! capture `Camera2d` parked over the partner-side source rect, and a window
+//! `Mesh2d` set into the entry's surface, textured with that image. All
+//! geometry comes from `ambition_portal::view::view_cone` (window semantics:
+//! the display map IS the body map, so the window image and a transiting body
+//! agree at the face by construction):
 //!
 //! - the capture camera stays **axis-aligned** framing `ViewCone::source`
 //!   (exact for axis-aligned portals);
-//! - the rotation lives entirely in the **UV mapping**: vertex `i` of the cone
-//!   shows `source_quad[i]`, normalized inside the source rect. Sim math is
-//!   the single source of truth for what appears where.
+//! - the body map's rotation+mirror lives entirely in the **UV mapping**:
+//!   vertex `i` of the window shows `source_quad[i]`, normalized inside the
+//!   source rect. Sim math is the single source of truth for what appears
+//!   where; a UV-space mirror costs nothing on a textured mesh.
 //!
 //! Texture v runs top-down and the capture's top edge is the world rect's
 //! min-y edge (render y-up flips twice), so `uv = (s - source.min) / size`
 //! with no flip — pinned by `cone_uvs`' unit test below.
 //!
 //! ## 1-frame-lag infinite recursion
-//! Cone meshes are ordinary world entities on the default render layer, so
-//! capture cameras see OTHER portals' cones. A cone visible through a cone
-//! samples the image its own camera wrote last frame (or earlier this frame —
-//! cameras run in `order` sequence), so portal-through-portal recursion falls
-//! out with one frame of lag per depth level, Portal-style, with zero extra
-//! code. No camera ever samples the image it is writing: portal P's cone shows
-//! the image CAPTURED NEAR P (by the camera parked at P's partner), and that
-//! camera's frustum contains P's face — whose cone displays the image captured
-//! near the partner. Cross-sampling only, by construction.
+//! Window meshes are ordinary world entities on the default render layer, so
+//! capture cameras see OTHER portals' windows. When a portal's host surface
+//! lies inside its partner's capture rect (portals facing each other within
+//! window depth), the captured window displays the image its own camera wrote
+//! last frame — portal-through-portal recursion with one frame of lag per
+//! depth level, Portal-style, zero extra code. No camera ever samples the
+//! image it is writing (P's window shows the capture made near P's partner;
+//! cross-sampling only, by construction). And because windows recede into
+//! walls while captures frame the open room in FRONT of faces, a partner's
+//! window never sits inside its own capture — the "portal showing its own
+//! side back at you" artifact of a protruding-projection design can't happen.
 //!
 //! Rigs are keyed on the portal pair + config + world size and rebuilt only
 //! when a key changes (a portal moved / appeared / vanished) — cameras and
@@ -52,39 +57,41 @@ use crate::PortalWorldFrame;
 /// to `false` to drop the feature (and its capture passes) entirely.
 #[derive(Resource, Clone, Copy, Debug, PartialEq)]
 pub struct PortalViewConeConfig {
-    /// How far the cone reaches out of the portal face (world px).
+    /// How far the window recedes into the portal's host surface (world px).
+    /// Keep near wall-thickness scale (`pieces::CARVE_DEPTH` is 60) so the
+    /// window doesn't visually punch through into rooms beyond the wall.
     pub depth: f32,
-    /// How much each side widens per px of depth (0 = straight corridor).
+    /// How much each side widens per px of depth (0 = straight corridor view).
     pub spread: f32,
     /// Offscreen capture height in texels; width follows the source rect's
-    /// aspect. Capture area ≈ cone area, so ~1:1 texel:px needs no more than
-    /// the cone is tall.
+    /// aspect. Capture area ≈ window area, so ~1:1 texel:px needs no more
+    /// than the window is tall.
     pub resolution: u32,
-    /// Render z of the cone mesh. Default sits just BEHIND the portal rim
-    /// (9.0) so the doorway stays crisp over its own projection, above world
-    /// blocks (0) and below actors (10+) — the cone reads as a projection on
-    /// the scenery, not an object in play.
+    /// Render z of the window mesh. Default sits just BEHIND the portal rim
+    /// (9.0) so the doorway stays crisp over its own view, above world blocks
+    /// (0) and below actors (10+) — the wall visually opens up where the sim
+    /// carves it.
     pub z: f32,
-    /// Tint multiplied over the capture (alpha < 1 lets the room ghost
-    /// through, selling "projection" over "hole").
+    /// Tint multiplied over the capture (alpha slightly < 1 lets the host
+    /// surface ghost through, selling "looking INTO the surface").
     pub tint: Color,
 }
 
 impl Default for PortalViewConeConfig {
     fn default() -> Self {
         Self {
-            depth: 160.0,
-            spread: 0.30,
+            depth: 90.0,
+            spread: 0.20,
             resolution: 256,
             z: 8.9,
-            tint: Color::srgba(1.0, 1.0, 1.0, 0.78),
+            tint: Color::srgba(1.0, 1.0, 1.0, 0.9),
         }
     }
 }
 
 /// One rig: the capture camera entity carries this; `cone` is the mesh entity
-/// at the entry face. Rebuilt (not mutated) when `key` drifts from the live
-/// portal pair.
+/// set into the entry's host surface. Rebuilt (not mutated) when `key` drifts
+/// from the live portal pair.
 #[derive(Component)]
 pub struct PortalViewRig {
     key: RigKey,
@@ -200,8 +207,9 @@ pub fn sync_portal_view_cones(
             None,
         ));
 
-        // The cone mesh at the entry face: positions around the trapezoid
-        // centroid (render space), UVs from the view-mapped source corners.
+        // The window mesh, receding into the entry's host surface: positions
+        // around the trapezoid centroid (render space), UVs from the
+        // body-mapped source corners.
         let render_quad = cone
             .entry_quad
             .map(|p| frame.to_render(p, 0.0).truncate());
@@ -229,7 +237,7 @@ pub fn sync_portal_view_cones(
                     ..default()
                 })),
                 Transform::from_translation(centroid.extend(key.config.z)),
-                Name::new(format!("Portal view cone ({})", portal.channel.name())),
+                Name::new(format!("Portal view window ({})", portal.channel.name())),
             ))
             .id();
 

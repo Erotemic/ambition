@@ -1,38 +1,36 @@
 //! Pure through-portal **view** geometry — what a viewer looking into one
 //! portal sees of the world at its partner.
 //!
-//! The body map ([`pieces::map_point`] / [`portal_map_vec`]) carries the depth
-//! a point has sunk INTO the entry wall to the depth it emerges OUT of the
-//! exit. A *sight line*, by contrast, never sinks in: the content displayed at
-//! an entry-side point `p` (at depth `d` in FRONT of the entry plane) is the
-//! exit-side point at depth `d` in front of the exit plane. That is exactly
-//! the body map applied to `p`'s **reflection** across the entry plane:
+//! Two display models, sharing the same source region (the world in FRONT of
+//! the exit portal):
 //!
-//! > `view_point(p) = map_point(reflect_across_entry_plane(p))`
-//!
-//! Two consequences, both load-bearing for any renderer:
-//!
-//! 1. **Continuity at the face.** The reflection is the identity on the portal
-//!    plane, so the view map and the body map agree there — a body emerging
-//!    from the exit lines up exactly with its image in the entry's view cone.
-//! 2. **The view is never mirrored.** The body map sends the orientation −1
-//!    frame `(-n_in, t_in)` onto the orientation +1 frame `(n_out, t_out)` —
-//!    it is always a reflection (det −1). Composing with the plane reflection
-//!    (det −1) makes the view map a PROPER rigid motion (det +1): a pure
-//!    rotation + translation. A through-portal view can be drawn by rotating a
-//!    camera capture; no flip case exists. [`PortalViewMap::between`]
-//!    debug-asserts this, and the unit tests pin it for every axis-aligned
-//!    portal pair.
+//! - **Window** ([`ViewCone`] / [`view_cone`] — what the default renderer
+//!   ships): the view recedes INTO the entry's host surface, like glass set in
+//!   the wall — you see "through the portal a little bit." A window's display
+//!   map is the plain BODY map ([`map_point`]): depth `d` into the entry wall
+//!   shows depth `d` out in front of the exit. Sight lines and transiting
+//!   bodies share ONE map, so the window image and an emerging body agree at
+//!   the face by construction.
+//! - **Projection** ([`PortalViewMap`] / [`view_point`]): the view protrudes
+//!   into the room in front of the entry, hologram-style. Its map is the body
+//!   map composed with a reflection across the entry plane, which yields a
+//!   small theorem: the body map always sends the orientation −1 frame
+//!   `(-n_in, t_in)` onto the orientation +1 frame `(n_out, t_out)` (det −1,
+//!   always a reflection), so the PROJECTION map is always a PROPER rotation
+//!   (det +1) — a host drawing this model can orient a camera by
+//!   [`PortalViewMap::angle`] with no flip case, pinned for every axis-aligned
+//!   pair below. (For the window model the mirror lives harmlessly in UV
+//!   space, so the theorem is not needed there.)
 //!
 //! Like [`pieces`], this module is pure and allocation-light: no ECS, no
 //! render types, no RNG. The renderer (`ambition_portal_presentation`) builds
-//! its capture cameras and cone-mesh UVs from [`view_cone`]; a roll-your-own
+//! its capture cameras and window UVs from [`view_cone`]; a roll-your-own
 //! host consumes the same functions.
 
 use ambition_engine_core as ae;
 use bevy::math::Vec2;
 
-use crate::pieces::{portal_map_vec, PortalFrame};
+use crate::pieces::{map_point, portal_map_vec, PortalFrame};
 
 /// The proper rigid map of the VIEW through a portal pair: rotation `(cos,
 /// sin)` about the entry portal's center, then translation onto the exit's.
@@ -103,33 +101,39 @@ pub fn view_point(p: Vec2, enter: &PortalFrame, exit: &PortalFrame) -> Vec2 {
     PortalViewMap::between(enter, exit).apply(p)
 }
 
-/// The view cone of one portal: a trapezoid opening out of the entry face into
-/// the room, plus the exit-side region it images. Corner order is
-/// `[near_a, near_b, far_b, far_a]` — near edge ON the face (lateral ∓
-/// aperture), far edge `depth` out along the normal (lateral widened by
+/// The view cone of one portal, **window semantics**: a trapezoid receding
+/// from the entry face INTO the host surface (you look "through" the portal a
+/// little way), displaying the world in front of the exit. The display map for
+/// a window is the plain BODY map ([`map_point`]): depth `d` into the entry
+/// wall shows depth `d` out in front of the exit — sight lines and transiting
+/// bodies share one map, so the view and an emerging body can never disagree.
+/// (The body map is orientation-reversing; for a textured mesh that is just a
+/// UV-space mirror, costing nothing. [`PortalViewMap`] above remains the
+/// camera-orientation tool for hosts that want a protruding-projection look.)
+///
+/// Corner order is `[near_a, near_b, far_b, far_a]` — near edge ON the face
+/// (lateral ∓ aperture), far edge `depth` INTO the wall (lateral widened by
 /// `spread * depth` per side) — so `(0,1,2) (0,2,3)` triangulates it with
 /// consistent winding.
 #[derive(Clone, Copy, Debug)]
 pub struct ViewCone {
-    /// Trapezoid corners on the ENTRY side, world space.
+    /// Trapezoid corners at the ENTRY portal (face + into-the-wall), world space.
     pub entry_quad: [Vec2; 4],
-    /// The same corners pushed through the view map: the exit-side world quad
-    /// the cone displays. `source_quad[i]` is what `entry_quad[i]` shows — a
+    /// The same corners pushed through the body map: the exit-side world quad
+    /// the window displays. `source_quad[i]` is what `entry_quad[i]` shows — a
     /// renderer derives per-vertex UVs by normalizing these inside [`Self::source`].
     pub source_quad: [Vec2; 4],
-    /// Axis-aligned bounds of `source_quad`: the world rect a capture camera
-    /// parked at the exit must frame. Axis-aligned exactly (not just bounding)
-    /// for axis-aligned portals, since the view map's rotation is then a
-    /// multiple of 90°.
+    /// Axis-aligned bounds of `source_quad`: the world rect (in FRONT of the
+    /// exit) a capture camera must frame. Axis-aligned exactly (not just
+    /// bounding) for axis-aligned portals, since the body map's linear part is
+    /// then axis-aligned.
     pub source: ae::Aabb,
-    /// The view map the quads were built with, for callers that need the
-    /// rotation (e.g. to orient a capture camera instead of remapping UVs).
-    pub map: PortalViewMap,
 }
 
-/// Build the [`ViewCone`] for a linked pair: `depth` is how far the cone
-/// reaches out of the entry face (world px), `spread` how much each side
-/// widens per px of depth (0 = a straight corridor, 0.5 ≈ 53° full opening).
+/// Build the [`ViewCone`] for a linked pair: `depth` is how far the window
+/// recedes into the entry's host surface (world px — keep it near the wall
+/// thickness / [`crate::pieces::CARVE_DEPTH`] scale), `spread` how much each
+/// side widens per px of depth (0 = a straight corridor view).
 pub fn view_cone(enter: &PortalFrame, exit: &PortalFrame, depth: f32, spread: f32) -> ViewCone {
     let n = enter.normal;
     let along = Vec2::new(-n.y, n.x);
@@ -138,11 +142,10 @@ pub fn view_cone(enter: &PortalFrame, exit: &PortalFrame, depth: f32, spread: f3
     let entry_quad = [
         enter.pos - along * near_half,
         enter.pos + along * near_half,
-        enter.pos + along * far_half + n * depth,
-        enter.pos - along * far_half + n * depth,
+        enter.pos + along * far_half - n * depth,
+        enter.pos - along * far_half - n * depth,
     ];
-    let map = PortalViewMap::between(enter, exit);
-    let source_quad = entry_quad.map(|p| map.apply(p));
+    let source_quad = entry_quad.map(|p| map_point(p, enter, exit));
     let (mut min, mut max) = (source_quad[0], source_quad[0]);
     for p in &source_quad[1..] {
         min = min.min(*p);
@@ -153,14 +156,13 @@ pub fn view_cone(enter: &PortalFrame, exit: &PortalFrame, depth: f32, spread: f3
         entry_quad,
         source_quad,
         source,
-        map,
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pieces::{front_distance, map_point};
+    use crate::pieces::front_distance;
     use ambition_engine_core::AabbExt;
 
     fn frame(pos: Vec2, normal: Vec2) -> PortalFrame {
@@ -223,8 +225,9 @@ mod tests {
         }
     }
 
-    /// Depth in front of the entry becomes depth in front of the exit: the
-    /// cone shows the exit's room, never the inside of its wall.
+    /// Projection model: depth in front of the entry becomes depth in front
+    /// of the exit — the projection shows the exit's room, never the inside
+    /// of its wall.
     #[test]
     fn view_preserves_front_depth() {
         let enter = floor(Vec2::new(100.0, 300.0));
@@ -258,9 +261,10 @@ mod tests {
         assert!((m.cos).abs() < 1e-4 && (m.sin + 1.0).abs() < 1e-4, "{m:?}");
     }
 
-    /// The cone's source rect sits fully in FRONT of the exit (it images the
-    /// exit's room) and swaps extents across a 90° pair: cone depth becomes
-    /// the rect's x-extent, cone width its y-extent.
+    /// Window semantics: the trapezoid recedes INTO the entry's host surface,
+    /// while its source rect sits fully in FRONT of the exit (it images the
+    /// exit's room), swapping extents across a 90° pair: window depth becomes
+    /// the rect's x-extent, window width its y-extent.
     #[test]
     fn view_cone_source_geometry() {
         let enter = floor(Vec2::new(100.0, 300.0));
@@ -268,9 +272,10 @@ mod tests {
         let depth = 120.0;
         let spread = 0.25;
         let cone = view_cone(&enter, &exit, depth, spread);
-        // Entry quad: near edge on the face, far edge `depth` in front (up).
+        // Entry quad: near edge on the face, far edge `depth` INTO the floor
+        // (y-down world: into a floor = +y).
         assert!((cone.entry_quad[0].y - 300.0).abs() < 1e-3);
-        assert!((cone.entry_quad[2].y - 180.0).abs() < 1e-3);
+        assert!((cone.entry_quad[2].y - 420.0).abs() < 1e-3);
         // Source rect: x spans the wall's front depth, y the widened lateral.
         assert!(
             (size(cone.source).x - depth).abs() < 1e-3,
@@ -286,9 +291,10 @@ mod tests {
         // Fully in front of the exit wall (x <= 400), touching the face.
         assert!(cone.source.max.x <= 400.0 + 1e-3, "{:?}", cone.source);
         assert!((cone.source.max.x - 400.0).abs() < 1e-3);
-        // Every source corner is the view image of its entry corner.
+        // Every source corner is the BODY-map image of its entry corner (the
+        // window's display map IS the body map — one map for sight and transit).
         for (e, s) in cone.entry_quad.iter().zip(cone.source_quad.iter()) {
-            assert!((view_point(*e, &enter, &exit) - *s).length() < 1e-3);
+            assert!((map_point(*e, &enter, &exit) - *s).length() < 1e-3);
         }
     }
 

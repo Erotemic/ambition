@@ -5,8 +5,9 @@
 //! write one to get portals on screen: placed-portal quads + channel labels,
 //! the in-flight shot streak, the held / pickup gun sprite, the mid-transit
 //! body-piece decomposition ("feet in, feet out"), the disorientation
-//! indicator, and the through-portal **view cones** (render-to-texture with
-//! 1-frame-lag infinite recursion).
+//! indicator, and the through-portal **view windows** (each portal shows the
+//! world in front of its partner, receding into its host surface;
+//! render-to-texture with 1-frame-lag recursion for facing portals).
 //!
 //! ## How a host uses it
 //! 1. `app.add_plugins(PortalPresentationPlugin::default())`, then place

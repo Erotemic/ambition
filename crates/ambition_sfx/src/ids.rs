@@ -63,7 +63,7 @@ pub const HAZARD_SAW_LOOP: SfxId = SfxId::from_static("hazard.saw.loop");
 //pub const UI_MENU_MOVE: SfxId = SfxId::from_static("ui.menu.move");
 // Test to see if the move icon sounds better than the original move version:
 // yes it is much better as of 2026-06-07, not sure if we need separate icon sounds
-pub const UI_MENU_MOVE: SfxId = SfxId::from_static("ui.menu.move_icon"); 
+pub const UI_MENU_MOVE: SfxId = SfxId::from_static("ui.menu.move_icon");
 
 pub const UI_MENU_ACCEPT: SfxId = SfxId::from_static("ui.menu.accept");
 pub const UI_MENU_BACK: SfxId = SfxId::from_static("ui.menu.back");

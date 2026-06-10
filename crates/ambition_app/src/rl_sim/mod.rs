@@ -14,7 +14,7 @@
 //! Usage from Rust:
 //!
 //! ```no_run
-//! use ambition_sandbox::rl_sim::{AgentAction, SandboxSim};
+//! use ambition_app::rl_sim::{AgentAction, SandboxSim};
 //!
 //! let mut sim = SandboxSim::new().expect("sim builds");
 //! let mut action = AgentAction::default();

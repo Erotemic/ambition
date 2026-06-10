@@ -375,7 +375,7 @@ Tool: `tools/ambition_ldtk_tools/ambition_ldtk_tools/codegen_character_catalog.p
 
 Reads:
 - `crates/ambition_sandbox/src/presentation/character_sprites/assets.rs::NPC_SPRITE_REGISTRY` (parsed from Rust)
-- `crates/ambition_sandbox/src/content/features/ecs/spawn.rs::enemy_default_brain()` (parsed for archetype → preset mapping)
+- `crates/ambition_sandbox/src/features/ecs/spawn.rs::enemy_default_brain()` (parsed for archetype → preset mapping)
 - `crates/ambition_sandbox/src/brain/state_machine.rs::*_DEFAULT` consts (parsed for preset values)
 - Renderer's `list-targets` output (cross-reference for missing sprites)
 
@@ -409,7 +409,7 @@ accept `.ron` natively; the YAML path is retired in the same commit.
 
 ## Bevy plugin shape
 
-`crates/ambition_sandbox/src/content/character_catalog/`:
+`crates/ambition_content/src/character_catalog/`:
 
 - `mod.rs` — `CharacterCatalogPlugin`, `CharacterCatalog` resource, public API.
 - `entry.rs` — `CharacterCatalogEntry` struct, `BrainPreset` / `ActionSetPreset` enums (deserialized RON shapes).
@@ -440,9 +440,9 @@ phase if budget runs out.
 
 **Files:**
 - New: `crates/ambition_sandbox/assets/data/character_catalog.ron` (codegen'd from current registry)
-- New: `crates/ambition_sandbox/src/content/character_catalog/{mod,entry,loader,resolver,validator}.rs`
+- New: `crates/ambition_content/src/character_catalog/{mod,entry,loader,resolver,validator}.rs`
 - New: `tools/ambition_ldtk_tools/ambition_ldtk_tools/codegen_character_catalog.py` (one-shot migration script)
-- Edit: `crates/ambition_sandbox/src/app/plugins.rs` (register plugin)
+- Edit: `crates/ambition_app/src/app/plugins.rs` (register plugin)
 
 **Tests:**
 - `character_catalog::tests::catalog_loads_without_panic`
@@ -466,8 +466,8 @@ phase if budget runs out.
 - Edit: `crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk` (NpcSpawn defs + every instance)
 - Edit: `crates/ambition_sandbox/assets/ambition/worlds/intro.ldtk` (same)
 - Edit: `crates/ambition_sandbox/src/world/ldtk_world/` (parser reads `character_id`)
-- Edit: `crates/ambition_sandbox/src/content/features/npcs.rs` (NpcRuntime construction)
-- Edit: `crates/ambition_sandbox/src/content/features/ecs/spawn.rs::spawn_interactable` (catalog lookup)
+- Edit: `crates/ambition_sandbox/src/features/npcs.rs` (NpcRuntime construction)
+- Edit: `crates/ambition_sandbox/src/features/ecs/spawn.rs::spawn_interactable` (catalog lookup)
 - New: `tools/ambition_ldtk_tools/ambition_ldtk_tools/edit/rename_npc_field.py`
 
 **Tests:**

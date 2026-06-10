@@ -1,8 +1,12 @@
 use super::*;
 
-/// Load file-backed cue sources and install the generic cue catalog.
-pub fn load_music_cues(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let catalog = MusicCueCatalog::builtin();
+/// Load file-backed cue sources for the HOST-provided cue catalog
+/// (inserted by the host's audio plugin before startup systems run).
+pub fn load_music_cues(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    catalog: Res<MusicCueCatalog>,
+) {
     let mut sources = HashMap::new();
     for cue in catalog.cues.values() {
         for section in &cue.sections {
@@ -23,7 +27,6 @@ pub fn load_music_cues(mut commands: Commands, asset_server: Res<AssetServer>) {
         );
     }
 
-    commands.insert_resource(catalog);
     commands.insert_resource(LoadedMusicCueAssets { sources });
     commands.insert_resource(MusicDirectorState::default());
 }

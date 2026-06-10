@@ -1,0 +1,25 @@
+[package]
+name = "ambition_audio"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Authored-audio stack: data schema, Kira playback library, adaptive music director."
+
+[features]
+default = []
+# The playback half (library/render/music director/web unlock). Off by
+# default so headless hosts get the data schema without the Kira backend.
+kira = ["dep:bevy_kira_audio"]
+
+[dependencies]
+ambition_sfx = { path = "../ambition_sfx" }
+bevy = { version = "0.18.1", default-features = false, features = ["ui_api"] }
+bevy_kira_audio = { version = "0.25", default-features = false, features = ["wav", "ogg"], optional = true }
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+# Tests build this crate standalone (no workspace feature unification),
+# and bevy's `ui_api` pulls winit, which needs a display backend to
+# compile at all. x11 here affects test builds only.
+bevy = { version = "0.18.1", default-features = false, features = ["ui_api", "x11"] }

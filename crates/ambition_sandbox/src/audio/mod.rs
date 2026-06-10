@@ -49,16 +49,14 @@ mod bank_asset;
 pub mod environment;
 #[cfg(feature = "audio")]
 mod plugin;
-mod render;
 mod runtime;
-#[cfg(feature = "audio")]
-mod web_unlock;
 
 #[cfg(all(test, feature = "audio"))]
 mod tests;
 
 pub use environment::{AudioEnvironment, AudioEnvironmentMode};
-pub use runtime::{SfxMessageCue, SoundCue, ORIGINAL_TRACK_ID};
+// SoundCue / SfxMessageCue / ORIGINAL_TRACK_ID live in `ambition_audio`
+// (Kira-gated); headless paths use `SoundCueKey` from the data schema.
 
 #[cfg(feature = "audio")]
 pub use bank_asset::{SfxBankAsset, SfxBankAssetPlugin};
@@ -68,13 +66,18 @@ pub use environment::{
 };
 #[cfg(feature = "audio")]
 pub use plugin::SandboxAudioPlugin;
+// The playback library + render cache + web unlock moved to the
+// `ambition_audio` crate (Stage 20 / B1); re-exported so historical
+// `crate::audio::…` paths keep resolving.
 #[cfg(feature = "audio")]
-pub use render::SfxBankHandleCache;
-#[cfg(feature = "audio")]
-pub use runtime::{
-    amplitude_to_decibels, apply_encounter_music, audio_play_sfx_messages, set_radio_track,
-    start_default_music_when_ready, switch_to_music_track, AudioLibrary, DefaultMusicStarted,
-    MusicChannel, MusicPlaybackState, MusicTrackRuntime, RadioStationState, SfxChannel,
+pub use ambition_audio::library::{
+    amplitude_to_decibels, set_radio_track, start_default_music_when_ready, switch_to_music_track,
+    AudioLibrary, DefaultMusicStarted, MusicChannel, MusicPlaybackState, MusicTrackRuntime,
+    RadioStationState, SfxChannel, SfxMessageCue, SoundCue, ORIGINAL_TRACK_ID,
 };
 #[cfg(feature = "audio")]
-pub use web_unlock::{AudioUnlockState, WebAudioUnlockPlugin};
+pub use ambition_audio::render::SfxBankHandleCache;
+#[cfg(feature = "audio")]
+pub use ambition_audio::web_unlock::{AudioUnlockState, WebAudioUnlockPlugin};
+#[cfg(feature = "audio")]
+pub use runtime::{apply_encounter_music, audio_play_sfx_messages};

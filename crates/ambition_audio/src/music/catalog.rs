@@ -1,4 +1,3 @@
-use super::first_goblin::first_goblin_tune_v2_spec;
 use super::*;
 
 #[derive(Clone, Debug)]
@@ -13,6 +12,11 @@ pub struct MusicCueSpec {
     pub states: Vec<MusicStateSpec>,
     pub outro_state: Option<String>,
     pub post_clear_bridge_state: Option<String>,
+    /// Optional per-state runtime layer-balance table, authored with
+    /// the cue (legacy stem-balance data for multi-stem cues; cues
+    /// that play one mastered `full` layer per section leave this
+    /// empty and let the renderer own loudness).
+    pub runtime_balance_overrides: Vec<MusicStateBalanceOverride>,
 }
 
 impl MusicCueSpec {
@@ -92,30 +96,46 @@ pub struct MusicCueCatalog {
     pub(super) encounter_bindings: Vec<EncounterMusicBinding>,
 }
 
+/// One state's authored layer-gain overrides (see
+/// [`MusicCueSpec::runtime_balance_overrides`]).
+#[derive(Clone, Debug)]
+pub struct MusicStateBalanceOverride {
+    pub state_id: String,
+    pub layer_gains: Vec<(String, f32)>,
+}
+
 impl MusicCueCatalog {
-    pub fn builtin() -> Self {
-        let mut cues = HashMap::new();
-        let goblin = first_goblin_tune_v2_spec();
-        cues.insert(goblin.id.clone(), goblin);
+    /// Build a catalog from host-authored parts. The HOST owns which
+    /// cues exist and which encounters bind to them; this crate only
+    /// plays them.
+    pub fn from_parts(
+        cues: Vec<MusicCueSpec>,
+        encounter_bindings: Vec<EncounterMusicBinding>,
+    ) -> Self {
+        let cues = cues
+            .into_iter()
+            .map(|cue| (cue.id.clone(), cue))
+            .collect::<HashMap<_, _>>();
         Self {
             cues,
-            encounter_bindings: vec![EncounterMusicBinding {
-                encounter_id: MOB_LAB_ENCOUNTER_ID.to_string(),
-                cue_id: FIRST_GOBLIN_CUE_ID.to_string(),
-                starting_state: "intro".to_string(),
-                wave_states: vec![
-                    "wave1".to_string(),
-                    "wave2".to_string(),
-                    "wave3".to_string(),
-                ],
-                wave2_reinforced_state: Some("wave2_brute".to_string()),
-                cleared_state: "outro".to_string(),
-            }],
+            encounter_bindings,
         }
     }
 
     pub(super) fn cue(&self, id: &str) -> Option<&MusicCueSpec> {
         self.cues.get(id)
+    }
+
+    /// The host's encounter -> cue bindings (read by the host's
+    /// intent-mapping adapter).
+    pub fn encounter_bindings(&self) -> &[EncounterMusicBinding] {
+        &self.encounter_bindings
+    }
+
+    /// Append an encounter -> cue binding (host-side catalog assembly /
+    /// test fixtures).
+    pub fn add_encounter_binding(&mut self, binding: EncounterMusicBinding) {
+        self.encounter_bindings.push(binding);
     }
 
     /// Validate internal cue/state/layer/binding references.

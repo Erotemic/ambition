@@ -70,7 +70,7 @@ pub(super) fn drive_adaptive_cue_state(
     assets: &LoadedMusicCueAssets,
     channels: &MusicLayerChannels,
     base_music_channel: &AudioChannel<MusicChannel>,
-    settings: &UserSettings,
+    settings: &MusicMix,
     dt: f32,
 ) {
     if should_restart_adaptive(
@@ -209,7 +209,7 @@ fn queue_or_fire_outro(
     target_state: &MusicStateSpec,
     assets: &LoadedMusicCueAssets,
     channels: &MusicLayerChannels,
-    settings: &UserSettings,
+    settings: &MusicMix,
     dt: f32,
 ) {
     if director.pending_state.is_none() {
@@ -265,7 +265,7 @@ fn start_adaptive_state(
     target_state: &MusicStateSpec,
     assets: &LoadedMusicCueAssets,
     channels: &MusicLayerChannels,
-    settings: &UserSettings,
+    settings: &MusicMix,
     crossfade_seconds: f32,
 ) {
     let Some(section) = cue.section(&target_state.section_id) else {

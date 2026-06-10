@@ -278,6 +278,44 @@ loop metric, not the clean-build one.
 4. **No behavior change**: replay bit-identical. Deliverable: before/after wall-clock
    table (clean + both incrementals) in this doc.
 
+## B1 RESULT (2026-06-10, second pass — extracted after C1 landed)
+
+`ambition_audio` crate extracted (sits BELOW the machinery lib, next to
+`ambition_sfx`): the authored-audio data schema (`spec` — AudioSpec & friends,
+Kira-free, embedded by the sandbox data manifest) + behind the crate's `kira`
+feature the playback library (typed SFX table, lazily-loaded music tracks,
+channel markers, switch/radio/default-start), the bank-bytes→Kira render cache,
+the full adaptive music core (cue catalog, layered channels, director), and the
+web AudioContext unlock gate.
+
+Seam inversions that made the core host-agnostic:
+- `MusicMix` resource (crate) — the sandbox syncs `UserSettings`' effective
+  music volume in each frame before the director; the core never reads the
+  game's settings model.
+- `MusicCueCatalog::from_parts` — the GOBLIN cue + encounter binding moved out
+  of the crate's `builtin()` into the sandbox's `ambition_music_cue_catalog()`
+  (content-authored catalog, inserted by the audio plugin); `load_music_cues`
+  now loads whatever catalog the host provides.
+- The named first-goblin per-stem balance table became DATA on `MusicCueSpec`
+  (`runtime_balance_overrides`), applied generically.
+- `AudioLibrary::new` takes a track-path resolver closure instead of naming the
+  sandbox asset catalog; `SfxBankHandleCache` takes `&dyn SfxProvider`.
+
+Sandbox keeps the game-side adapters: `music/intent.rs` (encounter/room/radio →
+MusicIntent), `audio/runtime.rs` (request application + bank-backed SFX play),
+environment detection, bank loading, and the plugin composition.
+
+**B2 (dialogue crate) triaged OUT** (2026-06-10): per-file dep analysis shows the
+crate-able core is only `runtime.rs` + `content.rs` (~535 LOC) — `systems`/`ui`/
+`yarn_bridge` are game-side and `yarn_bindings` is the game-vocabulary adapter by
+design. A 535-LOC crate is exactly the thin-crate proliferation doc 15 warns
+about. Revisit if/when the dialogue runtime grows real reusable substance.
+
+**C4 (leaf crates) triaged OUT** (2026-06-10): `ambition_engine_core` already
+serves as the Layer-0 math/data foundation (geometry, AABB, ids); carving
+`ambition_math`/`ambition_data` out of it tonight would be thin-crate churn with
+no measured compile or navigability win.
+
 ## Overflow — B1 then C4
 
 - **B1 `ambition_audio`** (~4.3k): `audio/` + `music/` → new crate. Music director is
@@ -356,6 +394,26 @@ loop metric, not the clean-build one.
   lib 1270 + content 71 (all-features) green. Command sites updated (AGENTS.md, CI,
   profile script). KNOWN MORNING-FIX: Android Gradle must point at libambition_app.so
   (entry points moved with the assembly); wasm web build script untested.
+- 01:47 — `6506ed92` 45 markdown files repointed for the moves; 8 残り link breaks are
+  PRE-EXISTING (old plan docs; logged in code_smells.md). Full ambition_app suite run:
+  one stale doctest fixed (`16de674b`); everything else green; headless 60-tick smoke
+  runs the full loop.
+- 02:05 — `a6e3f291`+`d48e9b21` A2 stretch: boss profile vocabulary →
+  `boss_encounter::behavior` (types are data-driven via boss_profiles.ron);
+  boss_attack_geometry initially joined the kit but the combat-kit guard correctly
+  rejected it (names brain-enum attack variants) → relocated to
+  `boss_encounter::attack_geometry`. Guard catching my own move = the system working.
+- 02:23 — `058c66aa` C1 measured report (see table above): the honest headline is
+  that the split speeds up within-layer loops (−22%/−25%) and regresses cross-crate
+  bin paths (~3×); mold + profile.dev were already tuned, Reflect already clean.
+- 02:36 — `49c2e523` the ORIGINAL A2 knots, done as data: enemy_archetypes.ron rows
+  carry capability fields; `CombatCapabilities` (kit vocabulary) attached to every
+  enemy at the `into_components` chokepoint; zero archetype identity checks left in
+  the actor layer.
+- 03:10 — B1 second pass (after C1 landed, with hours remaining the earlier triage
+  flipped): `ambition_audio` crate extracted — see B1 RESULT above. Sweep green:
+  lib 1265 (6 director tests moved into the crate), replay bit-identical, arch 19,
+  content 71, audio-crate 6.
 
 ## Estimated vs actual (fill at end of run)
 

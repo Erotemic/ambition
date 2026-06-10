@@ -30,7 +30,7 @@ use bevy::asset::{
 use bevy::log::{debug, info, warn};
 use bevy::prelude::{App, Commands, Plugin, Res, ResMut, Resource, Startup, Update};
 
-use super::web_unlock::AUDIO_LOG_TARGET;
+use ambition_audio::web_unlock::AUDIO_LOG_TARGET;
 use bevy::reflect::TypePath;
 use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 

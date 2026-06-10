@@ -1,6 +1,40 @@
-use super::*;
+use ambition_audio::music::{
+    EncounterMusicBinding, MusicCueCatalog, MusicCueSpec, MusicLayerGainSpec, MusicLayerSourceSpec,
+    MusicLayerSpec, MusicSectionSpec, MusicStateSpec,
+};
 
-pub(super) fn first_goblin_tune_v2_spec() -> MusicCueSpec {
+/// Sandbox encounter id the goblin cue binds to.
+pub const MOB_LAB_ENCOUNTER_ID: &str = "goblin_encounter";
+/// Cue id for the generated first-goblin adaptive tune.
+pub const FIRST_GOBLIN_CUE_ID: &str = "first_goblin_tune_v2";
+
+/// Relative volume for adaptive cues after user music volume. Stacked
+/// layers sum hotter than the single-channel room tracks, so keep the
+/// per-cue default conservative.
+const ADAPTIVE_MUSIC_RELATIVE_VOLUME: f32 = 1.0;
+
+/// Ambition's authored music-cue catalog: the cues that ship and the
+/// encounters that bind to them. The reusable director plays whatever
+/// catalog the host inserts; THIS is the sandbox's.
+pub fn ambition_music_cue_catalog() -> MusicCueCatalog {
+    MusicCueCatalog::from_parts(
+        vec![first_goblin_tune_v2_spec()],
+        vec![EncounterMusicBinding {
+            encounter_id: MOB_LAB_ENCOUNTER_ID.to_string(),
+            cue_id: FIRST_GOBLIN_CUE_ID.to_string(),
+            starting_state: "intro".to_string(),
+            wave_states: vec![
+                "wave1".to_string(),
+                "wave2".to_string(),
+                "wave3".to_string(),
+            ],
+            wave2_reinforced_state: Some("wave2_brute".to_string()),
+            cleared_state: "outro".to_string(),
+        }],
+    )
+}
+
+pub fn first_goblin_tune_v2_spec() -> MusicCueSpec {
     let asset_root = "audio/music/generated/first_goblin_tune_v2".to_string();
     let layers = vec![
         // The current generated goblin cue intentionally plays mastered
@@ -56,6 +90,9 @@ pub(super) fn first_goblin_tune_v2_spec() -> MusicCueSpec {
         bpm: 132.0,
         beats_per_bar: 4.0,
         relative_volume: ADAPTIVE_MUSIC_RELATIVE_VOLUME,
+        // Single mastered `full` layer per section: the renderer owns
+        // loudness, so no per-stem runtime balance table.
+        runtime_balance_overrides: Vec::new(),
         layers,
         sections: vec![
             MusicSectionSpec {

@@ -21,9 +21,9 @@ use bevy_kira_audio::prelude::{AudioApp, AudioPlugin as KiraAudioPlugin};
 use super::environment::{
     apply_audio_environment, detect_audio_environment, smooth_audio_environment, AudioEnvironment,
 };
-use super::runtime::{
-    audio_play_sfx_messages, start_default_music_when_ready, DefaultMusicStarted, MusicChannel,
-    SfxChannel,
+use super::runtime::audio_play_sfx_messages;
+use ambition_audio::library::{
+    start_default_music_when_ready, DefaultMusicStarted, MusicChannel, SfxChannel,
 };
 
 /// Public Bevy plugin: installs the Kira backend, channel resources,
@@ -109,12 +109,19 @@ impl Plugin for SandboxAudioPlugin {
             // encounter/boss/room/radio gameplay into a content-agnostic
             // `MusicIntent`, then the director consumes only that resource.
             .init_resource::<crate::music::MusicIntent>()
+            // The HOST owns its settings model and the authored cue
+            // catalog; the reusable music core consumes the synced
+            // `MusicMix` + the inserted catalog (Stage 20 / B1 seam).
+            .init_resource::<ambition_audio::MusicMix>()
+            .insert_resource(crate::music::ambition_music_cue_catalog())
             // Unified director: resolves room/encounter simple tracks and
             // adaptive cue states behind one music intent layer. Runs after
-            // `compute_music_intent` so the intent is fresh this frame.
+            // `compute_music_intent` so the intent is fresh this frame; the
+            // mix sync runs first so the director sees this frame's volume.
             .add_systems(
                 Update,
                 (
+                    crate::music::sync_music_mix,
                     crate::music::compute_music_intent,
                     crate::music::drive_music_director,
                 )

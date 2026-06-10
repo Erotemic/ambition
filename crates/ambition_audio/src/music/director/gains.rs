@@ -1,79 +1,28 @@
 use super::*;
 
-pub(super) fn apply_first_goblin_runtime_balance_overrides(
+pub(super) fn apply_runtime_balance_overrides(
     cue: &MusicCueSpec,
     state: &MusicStateSpec,
     gains: &mut LayerGains,
     master: f32,
 ) {
-    if cue.id != FIRST_GOBLIN_CUE_ID {
-        return;
-    }
-
-    // The current first_goblin_tune_v2 runtime plays one mastered `full` layer
-    // per section. In that mode, state.gains are intentionally near unity and
-    // the renderer/YAML owns section-to-section loudness. Do not apply the old
-    // per-stem runtime balance table: doing so hides generator problems and can
-    // overwrite the slot used by the `full` layer.
+    // Cues that play one mastered `full` layer per section let the
+    // renderer/YAML own loudness; state.gains stay near unity and the
+    // authored per-stem balance table (if any) must not overwrite the
+    // `full` layer's slot.
     if cue.layers.len() == 1 && cue.layer("full").is_some() {
         return;
     }
 
-    let overrides: &[(&str, f32)] = match state.id.as_str() {
-        "intro" => &[("full", 0.95)],
-        "outro" => &[("full", 0.85)],
-        "cleared_bridge" => &[
-            ("strings", 0.40),
-            ("winds", 0.36),
-            ("mallets", 0.10),
-            ("percussion", 0.06),
-            ("brass", 0.10),
-            ("choir_pad", 0.04),
-        ],
-        "wave1" => &[
-            ("strings", 0.95),
-            ("winds", 1.00),
-            ("mallets", 0.18),
-            ("percussion", 0.08),
-            ("brass", 0.00),
-            ("choir_pad", 0.00),
-        ],
-        "wave2" => &[
-            ("strings", 0.95),
-            ("winds", 1.00),
-            ("mallets", 0.14),
-            ("percussion", 0.42),
-            ("brass", 0.44),
-            ("choir_pad", 0.04),
-        ],
-        "wave2_brute" => &[
-            ("strings", 0.95),
-            ("winds", 1.00),
-            ("mallets", 0.12),
-            ("percussion", 0.50),
-            ("brass", 0.58),
-            ("choir_pad", 0.06),
-        ],
-        "wave3" => &[
-            ("strings", 0.90),
-            ("winds", 1.00),
-            ("mallets", 0.08),
-            ("percussion", 0.58),
-            ("brass", 0.62),
-            ("choir_pad", 0.06),
-        ],
-        "recap_loop" => &[
-            ("strings", 0.90),
-            ("winds", 0.90),
-            ("mallets", 0.10),
-            ("percussion", 0.12),
-            ("brass", 0.16),
-            ("choir_pad", 0.02),
-        ],
-        _ => return,
+    let Some(over) = cue
+        .runtime_balance_overrides
+        .iter()
+        .find(|over| over.state_id == state.id)
+    else {
+        return;
     };
 
-    for (layer_id, gain) in overrides {
+    for (layer_id, gain) in &over.layer_gains {
         if let Some(layer) = cue.layer(layer_id) {
             let slot = layer.slot.min(MAX_LAYERS - 1);
             gains[slot] = gain.max(0.0) * master;
@@ -84,17 +33,17 @@ pub(super) fn apply_first_goblin_runtime_balance_overrides(
 pub(super) fn gains_for_state(
     cue: &MusicCueSpec,
     state: &MusicStateSpec,
-    settings: &UserSettings,
+    settings: &MusicMix,
 ) -> LayerGains {
     let mut gains = [0.0; MAX_LAYERS];
-    let master = settings.audio.effective_music() * cue.relative_volume;
+    let master = settings.effective_music() * cue.relative_volume;
     for layer_gain in &state.gains {
         if let Some(layer) = cue.layer(&layer_gain.layer_id) {
             let slot = layer.slot.min(MAX_LAYERS - 1);
             gains[slot] = layer_gain.gain.max(0.0) * master;
         }
     }
-    apply_first_goblin_runtime_balance_overrides(cue, state, &mut gains, master);
+    apply_runtime_balance_overrides(cue, state, &mut gains, master);
     gains
 }
 

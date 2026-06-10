@@ -27,8 +27,6 @@
 //! the pre-deferred startup. Cross-platform call sites can read
 //! `unlock.unlocked` uniformly.
 
-#![cfg(feature = "audio")]
-
 use bevy::input::touch::Touches;
 use bevy::input::ButtonInput;
 use bevy::log::info;

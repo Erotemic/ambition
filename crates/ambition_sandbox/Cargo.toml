@@ -253,7 +253,7 @@ audio = ["authored_audio"]
 # Authored-asset audio playback. `bevy_kira_audio` works on
 # wasm32-unknown-unknown via `kira/cpal/wasm-bindgen`, so this composite
 # is the same on desktop, Android, and web.
-authored_audio = ["dep:bevy_kira_audio"]
+authored_audio = ["dep:bevy_kira_audio", "ambition_audio/kira"]
 # Browser-side audio composite. Pulls in the full `audio` feature
 # (NOT just `authored_audio`) so the `#[cfg(feature = "audio")]`
 # gates in `audio/runtime.rs`, `audio/web_unlock.rs`, the bank
@@ -312,6 +312,10 @@ parry2d = "0.26"
 # (`features.rs`) needs `SfxId` to enqueue SFX-only events generically.
 # Headless / RL builds compile it but never play through it.
 ambition_sfx = { path = "../ambition_sfx" }
+# Authored-audio stack (Stage 20 / B1). The data schema half is
+# unconditional (SandboxDataSpec embeds AudioSpec); the Kira playback
+# half lights up via the `audio` feature below.
+ambition_audio = { path = "../ambition_audio" }
 # Reusable, content-free platformer runtime primitives (lifecycle vocabulary +
 # schedule sets). First real crate extracted from the proto-runtime
 # (`crate::platformer_runtime` is now a facade over this crate plus the

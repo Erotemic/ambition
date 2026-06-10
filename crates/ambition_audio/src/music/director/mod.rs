@@ -38,7 +38,7 @@ pub fn drive_music_director(
     mut library: ResMut<AudioLibrary>,
     asset_server: Res<AssetServer>,
     mut music_state: ResMut<MusicPlaybackState>,
-    settings: Res<UserSettings>,
+    settings: Res<MusicMix>,
 ) {
     let Some(catalog) = catalog else {
         return;
@@ -139,5 +139,101 @@ pub fn drive_music_director(
             );
             log_periodic_state(&mut director, cue, dt);
         }
+    }
+}
+
+#[cfg(test)]
+mod restart_tests {
+    use super::*;
+    use crate::music::{MusicDirectorMode, MusicDirectorState};
+
+    #[test]
+    fn should_restart_adaptive_when_cue_id_changes() {
+        // The classic case: a different cue is taking over.
+        assert!(should_restart_adaptive(
+            Some("first_goblin_tune_v2"),
+            MusicDirectorMode::AdaptiveLoop,
+            "boss_intro_v1",
+            false,
+        ));
+    }
+
+    #[test]
+    fn should_restart_adaptive_when_no_cue_was_active() {
+        // No prior adaptive cue — definitely need to set one up.
+        assert!(should_restart_adaptive(
+            None,
+            MusicDirectorMode::SimpleTrack,
+            "first_goblin_tune_v2",
+            false,
+        ));
+    }
+
+    #[test]
+    fn should_not_restart_adaptive_on_same_cue_in_loop() {
+        // Steady-state: cue is already running its loop. Moving between
+        // wave states does NOT reset the adaptive cue from its intro.
+        assert!(!should_restart_adaptive(
+            Some("first_goblin_tune_v2"),
+            MusicDirectorMode::AdaptiveLoop,
+            "first_goblin_tune_v2",
+            false,
+        ));
+    }
+
+    #[test]
+    fn should_restart_adaptive_when_mode_says_simple_track_playing() {
+        // Defensive: if anything leaves the director in mode=SimpleTrack
+        // while still claiming an active adaptive cue, the new directive
+        // must stop the base channel before the adaptive layers ramp up.
+        // (The primary fix prevents this state from being created, but
+        // the predicate is robust against other code paths.)
+        assert!(should_restart_adaptive(
+            Some("first_goblin_tune_v2"),
+            MusicDirectorMode::SimpleTrack,
+            "first_goblin_tune_v2",
+            false,
+        ));
+        // Same for the post-outro Idle/Finished states.
+        assert!(should_restart_adaptive(
+            Some("first_goblin_tune_v2"),
+            MusicDirectorMode::Idle,
+            "first_goblin_tune_v2",
+            false,
+        ));
+        assert!(should_restart_adaptive(
+            Some("first_goblin_tune_v2"),
+            MusicDirectorMode::AdaptiveFinished,
+            "first_goblin_tune_v2",
+            false,
+        ));
+    }
+
+    #[test]
+    fn should_restart_adaptive_when_outro_returns_to_active_state() {
+        // The Jon-2026-05-09 race: encounter cleared → outro tail
+        // playing AND base lofi playing (overlap), then encounter
+        // restarts → directive points to a non-outro state. Without
+        // this guard, the same-cue match would skip the
+        // stop-base-channel path and lofi + adaptive layers play
+        // simultaneously.
+        assert!(should_restart_adaptive(
+            Some("first_goblin_tune_v2"),
+            MusicDirectorMode::AdaptiveOutro,
+            "first_goblin_tune_v2",
+            false, // target_state is e.g. wave1, NOT the outro
+        ));
+    }
+
+    #[test]
+    fn should_not_restart_adaptive_when_outro_continues_to_outro() {
+        // The encounter is still in its cleared/outro phase; the same
+        // outro keeps tailing. No restart.
+        assert!(!should_restart_adaptive(
+            Some("first_goblin_tune_v2"),
+            MusicDirectorMode::AdaptiveOutro,
+            "first_goblin_tune_v2",
+            true, // target_state IS the outro
+        ));
     }
 }

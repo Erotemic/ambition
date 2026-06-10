@@ -8,28 +8,31 @@
 //! [`KiraAudioSource`] Kira can play, and caches the resulting
 //! handles per [`SfxId`] so each `SfxMessage::Play` only decodes once.
 
-#[cfg(feature = "audio")]
-use super::*;
+use ambition_sfx::{self as sfx, SfxId, SfxProvider};
+use bevy::platform::collections::HashMap;
+use bevy::prelude::*;
+use bevy_kira_audio::prelude::{
+    AudioSource as KiraAudioSource, Frame, StaticSoundData, StaticSoundSettings,
+};
+use std::io::Cursor;
+use std::sync::Arc;
 
-#[cfg(feature = "audio")]
-pub(super) fn audio_source_from_sfx_clip(clip: sfx::SfxClip) -> Result<KiraAudioSource, String> {
+pub fn audio_source_from_sfx_clip(clip: sfx::SfxClip) -> Result<KiraAudioSource, String> {
     let cursor = Cursor::new(clip.bytes.to_vec());
     let sound = StaticSoundData::from_cursor(cursor).map_err(|e| e.to_string())?;
     Ok(KiraAudioSource { sound })
 }
 
-#[cfg(feature = "audio")]
 #[derive(Resource, Default)]
 pub struct SfxBankHandleCache {
     handles: HashMap<SfxId, Option<Handle<KiraAudioSource>>>,
 }
 
-#[cfg(feature = "audio")]
 impl SfxBankHandleCache {
-    pub(super) fn handle_for(
+    pub fn handle_for(
         &mut self,
         id: SfxId,
-        bank: Option<&crate::runtime::setup::SfxBankResource>,
+        bank: Option<&dyn SfxProvider>,
         audio_sources: &mut Assets<KiraAudioSource>,
     ) -> Option<Handle<KiraAudioSource>> {
         if let Some(slot) = self.handles.get(&id) {
@@ -37,7 +40,7 @@ impl SfxBankHandleCache {
         }
         let result = (|| {
             let bank = bank?;
-            let clip = bank.0.provide_clip(id)?;
+            let clip = bank.provide_clip(id)?;
             match audio_source_from_sfx_clip(clip) {
                 Ok(source) => Some(audio_sources.add(source)),
                 Err(error) => {
@@ -58,8 +61,7 @@ impl SfxBankHandleCache {
 /// provider is registered (e.g. WebStatic without `static_sfx_bank`).
 /// Returning a real handle keeps the playback path uniform — Kira just
 /// plays ~10ms of silence instead of warning per call.
-#[cfg(feature = "audio")]
-pub(super) fn silent_audio_source(sample_rate: u32) -> KiraAudioSource {
+pub fn silent_audio_source(sample_rate: u32) -> KiraAudioSource {
     let frames = vec![Frame::new(0.0, 0.0); (sample_rate / 100).max(2) as usize];
     KiraAudioSource {
         sound: StaticSoundData {

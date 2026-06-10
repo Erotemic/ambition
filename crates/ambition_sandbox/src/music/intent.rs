@@ -20,8 +20,10 @@ use crate::encounter::{
 use crate::rooms::RoomMusicRequest;
 use crate::runtime::data::SandboxDataSpec;
 
-use super::catalog::{EncounterMusicBinding, MusicCueCatalog};
-use super::state::{AdaptiveCueDirective, MusicDirectorMode, MusicDirectorState, MusicIntent};
+use ambition_audio::music::{
+    AdaptiveCueDirective, MusicDirectorMode, MusicDirectorState, MusicIntent,
+};
+use ambition_audio::music::{EncounterMusicBinding, MusicCueCatalog};
 
 /// Delay after wave 2 starts before the music promotes to its "reinforced"
 /// (large-brute) state. Content tuning — owned here, not by the director.
@@ -108,7 +110,7 @@ pub(super) fn resolve_adaptive_directive(
     encounters: &EncounterRegistry,
     director: &MusicDirectorState,
 ) -> Option<AdaptiveCueDirective> {
-    for binding in &catalog.encounter_bindings {
+    for binding in catalog.encounter_bindings() {
         if let Some(directive) = resolve_directive_for_binding(binding, encounters, director) {
             return Some(directive);
         }

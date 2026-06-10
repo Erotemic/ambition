@@ -180,6 +180,11 @@ pub fn presentation_world(
     let sandbox_data = params.sandbox_data;
     presentation_world_inner(commands, params, player);
     let bank_provider = try_load_sfx_bank_via_catalog(catalog);
+    // Resolve music-track ids through the sandbox asset catalog so the
+    // library stores catalog-blessed paths (the generic library takes a
+    // resolver closure instead of naming the catalog type).
+    let resolve_track_path =
+        |id: &str| catalog.path_for(&crate::assets::sandbox_assets::ids::music_track(id));
     let audio_library = AudioLibrary::new(
         audio_sources,
         &sandbox_data.audio,
@@ -187,7 +192,7 @@ pub fn presentation_world(
         bank_provider
             .as_ref()
             .map(|provider| provider as &dyn ambition_sfx::SfxProvider),
-        Some(catalog),
+        Some(&resolve_track_path),
     );
     let music_state = MusicPlaybackState::from_audio_spec(&sandbox_data.audio, &audio_library);
     commands.insert_resource(audio_library);

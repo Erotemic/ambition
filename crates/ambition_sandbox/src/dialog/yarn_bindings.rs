@@ -382,7 +382,7 @@ pub fn cmd_camera_zoom(In(factor): In<f32>) {
 
 // The cut-rope boss commands (`watch_cut_rope_video`,
 // `reset_cut_rope_room`) and the `cut_rope_heavy_object_is` function
-// moved to `crate::ambition_content::bosses::yarn` — installed via
+// moved to `ambition_content::bosses::yarn` (the content crate) — installed via
 // [`YarnContentBindings`] so this generic module names no content.
 
 // ===== Functions ================================================

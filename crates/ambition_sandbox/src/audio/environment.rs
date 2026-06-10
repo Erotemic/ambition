@@ -44,7 +44,7 @@ use bevy::prelude::*;
 use bevy_kira_audio::prelude::{AudioChannel, AudioControl};
 
 #[cfg(feature = "audio")]
-use super::runtime::{amplitude_to_decibels, MusicChannel, SfxChannel};
+use ambition_audio::library::{amplitude_to_decibels, MusicChannel, SfxChannel};
 
 /// Coarse classification of the player's acoustic surroundings. The
 /// gameplay layer picks one of these; the audio layer is responsible

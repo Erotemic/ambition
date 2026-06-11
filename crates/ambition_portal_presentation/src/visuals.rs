@@ -9,6 +9,8 @@
 use bevy::prelude::*;
 
 use ambition_engine_core as ae;
+#[cfg(feature = "effect_transit_masks")]
+use ambition_engine_core::AabbExt;
 use ambition_platformer_runtime::body::BodyKinematics;
 use ambition_platformer_runtime::gravity::GravityField;
 use ambition_platformer_runtime::markers::{PlayerEntity, PrimaryPlayer};
@@ -80,17 +82,21 @@ pub fn sync_portal_disorientation_indicator(
 /// mapped + rotated by the somersault it is taking, so a body straddling a
 /// portal shows in BOTH charts (its real sprite at the entry, this copy at the
 /// exit). The copy must stay in sync with the real sprite — it is rebuilt each
-/// frame from the same `Sprite`, after `sync_visuals` has updated it.
+/// frame from the same `Sprite`, after `sync_visuals` has updated it. The copy
+/// is shared by EVERY visual-effect mode (windows / masks / off).
 ///
-/// No masking: the through-portal view windows already show the body slice
-/// emerging at the exit, and the copy is positioned to overlay it exactly, so
-/// the old opaque "feet in, feet out" mask boxes are gone. (The masking was
-/// always provisional; if it is ever needed again it belongs behind its own
-/// flag — it is not finished.)
+/// When the legacy **Transit Masks** effect is the active
+/// [`crate::PortalEffectSelection`] (compiled via `effect_transit_masks`),
+/// the opaque "feet in, feet out" boxes are drawn over the invisible slice of
+/// each chart, like before the view windows existed — kept selectable for
+/// A/B profiling against the windows. NOTE: the masking is unfinished
+/// (placeholder boxes, not texture clipping); it is a baseline, not a
+/// destination.
 ///
 /// Operates on the host-tagged [`PortalSceneBody`] visual entity.
 pub fn sync_portal_body_pieces(
     mut commands: Commands,
+    #[cfg(feature = "effect_transit_masks")] selection: Res<crate::PortalEffectSelection>,
     frame: Res<PortalWorldFrame>,
     pieces: Query<Entity, With<PortalBodyPiece>>,
     portals: Query<&PlacedPortal>,
@@ -155,6 +161,36 @@ pub fn sync_portal_body_pieces(
             .with_rotation(Quat::from_rotation_z(exit_roll)),
         Name::new("Portal body copy (exit)"),
     ));
+
+    // Legacy Transit Masks effect: opaque boxes over the invisible slice of
+    // each chart — the part of the real sprite sunk through the entry plane,
+    // and the part of the exit copy that has not yet emerged.
+    #[cfg(feature = "effect_transit_masks")]
+    if selection.active == crate::PortalVisualEffect::TransitMasks {
+        let mask_color = Color::srgb(0.80, 0.95, 1.0);
+        let mask_z = ae::config::WORLD_Z_PLAYER + 1.0;
+        // Entry mask: the slice that has sunk THROUGH the entry plane.
+        if let Some(hidden) = pp::clip_halfspace(body, enter.pos, -enter.normal) {
+            let translation = frame.to_render(hidden.center(), mask_z);
+            commands.spawn((
+                PortalBodyPiece,
+                Sprite::from_color(mask_color, hidden.half_size() * 2.0),
+                Transform::from_translation(translation),
+                Name::new("Portal mask (entry, through-wall)"),
+            ));
+        }
+        // Exit mask: the slice of the exit copy that has NOT yet emerged.
+        let exit_body = pp::map_aabb(body, &enter, &exit);
+        if let Some(hidden) = pp::clip_halfspace(exit_body, exit.pos, -exit.normal) {
+            let translation = frame.to_render(hidden.center(), mask_z);
+            commands.spawn((
+                PortalBodyPiece,
+                Sprite::from_color(mask_color, hidden.half_size() * 2.0),
+                Transform::from_translation(translation),
+                Name::new("Portal mask (exit, not-yet-emerged)"),
+            ));
+        }
+    }
 }
 
 /// Marks the held portal-gun sprite carried in the player's hand.

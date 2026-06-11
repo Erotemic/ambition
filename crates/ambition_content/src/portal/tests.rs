@@ -817,6 +817,9 @@ fn partial_render_keeps_the_sprite_and_adds_the_exit_copy() {
     // to the crate-owned seams the presentation system reads (auto sync points
     // flush the tag's commands between the chained systems).
     app.init_resource::<PortalWorldFrame>();
+    // The body-pieces system reads the live effect selection (for the legacy
+    // mask mode); default = first compiled effect.
+    app.init_resource::<ambition_sandbox::portal::PortalEffectSelection>();
     app.add_systems(
         Update,
         (

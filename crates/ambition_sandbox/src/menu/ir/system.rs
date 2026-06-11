@@ -74,6 +74,11 @@ pub enum DevToggleId {
     // states) so SELECT flips it; works from BOTH backends since the Developer
     // screen is shared.
     MenuBackend,
+    // Portal transit visual effect (sourced from the portal presentation
+    // crate's `PortalEffectSelection`, not `DeveloperTools`): cycles the
+    // compiled-in effects (view cones / legacy masks / off) for in-session
+    // A/B comparison and profiling.
+    PortalEffect,
 }
 
 impl DevToggleId {
@@ -82,7 +87,7 @@ impl DevToggleId {
     /// (DebugOverlay/SlowMotion) and the trailing LdtkAutoApply are sourced from
     /// `SandboxDevState` / `LdtkHotReloadState` (not `DeveloperTools`); they mirror
     /// the pause-menu Developer page's F1 / F2 / F12 rows.
-    pub const ALL: [Self; 19] = [
+    pub const ALL: [Self; 20] = [
         Self::DebugOverlay,
         Self::SlowMotion,
         Self::Inspector,
@@ -102,6 +107,7 @@ impl DevToggleId {
         Self::MovementProfile,
         Self::LdtkAutoApply,
         Self::MenuBackend,
+        Self::PortalEffect,
     ];
 
     pub fn label(self) -> &'static str {
@@ -125,6 +131,7 @@ impl DevToggleId {
             Self::MovementProfile => "Movement Profile",
             Self::LdtkAutoApply => "LDtk Auto-Reload (F12)",
             Self::MenuBackend => "Menu Backend",
+            Self::PortalEffect => "Portal FX",
         }
     }
 
@@ -151,6 +158,9 @@ impl DevToggleId {
             Self::MenuBackend => {
                 "Switch the menu frontend: Grid (flat) or Cube (3D). Same as the \\ key."
             }
+            Self::PortalEffect => {
+                "Cycle the portal transit visual (view cones / masks / off) for A/B profiling."
+            }
         }
     }
 
@@ -166,6 +176,9 @@ impl DevToggleId {
                 // MenuBackend cycles Grid ↔ Cube so its value label (the active
                 // frontend name) shows in the row, like the other cycles.
                 | Self::MenuBackend
+                // PortalEffect cycles the compiled-in portal transit visuals
+                // (view cones / masks / off) for A/B profiling.
+                | Self::PortalEffect
         )
     }
 }
@@ -875,7 +888,7 @@ mod tests {
             );
             assert!(!id.is_cycle(), "{id:?} is a toggle, not a cycle");
         }
-        assert_eq!(DevToggleId::ALL.len(), 19);
+        assert_eq!(DevToggleId::ALL.len(), 20);
     }
 
     #[test]

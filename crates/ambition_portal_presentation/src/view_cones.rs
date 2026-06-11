@@ -17,10 +17,11 @@
 //! ## How a rig works
 //! Per placed portal with a placed partner, a **rig**: one offscreen image, a
 //! capture `Camera2d` framing the partner-side source rect, and a window
-//! `Mesh2d` set into the entry's surface. The display map is the body map, so
-//! the window content agrees with a transiting body at the face; the body
-//! map's rotation+mirror lives entirely in the **UV mapping** (`cone_uvs`,
-//! pinned below), and the capture camera stays axis-aligned. The capture
+//! `Mesh2d` set into the entry's surface. The display map is
+//! `view::display_point` — the transit sprite copy's map — so the window and
+//! the copy read as one continuous image; its rotation/mirror lives entirely
+//! in the **UV mapping** (`cone_uvs`, pinned below), and the capture camera
+//! stays axis-aligned. The capture
 //! renders into a fixed **square** texture; non-square source rects are stored
 //! stretched and un-stretched by the UVs (mesh geometry is world-space), so the
 //! texture never needs resizing as the viewer-dependent rect changes shape.
@@ -45,6 +46,7 @@ use bevy::render::render_resource::TextureFormat;
 use bevy::sprite_render::AlphaMode2d;
 
 use ambition_engine_core::{self as ae, AabbExt};
+use ambition_platformer_runtime::gravity::GravityField;
 use ambition_platformer_runtime::world_query::{raycast_solids, SolidWorldQuery};
 use ambition_portal::pieces::PortalFrame;
 use ambition_portal::view::{aperture_wedge, blend_cones, view_cone, window_eye, ViewCone};
@@ -162,7 +164,10 @@ pub struct PortalConeMesh;
 pub struct PortalViewRig {
     channel: PortalChannel,
     rebuild: RebuildKey,
-    image: Handle<Image>,
+    /// Keep-alive for the offscreen target (also referenced by the camera's
+    /// `RenderTarget` and the window material; held here so the rig owns its
+    /// asset lifetime explicitly).
+    _image: Handle<Image>,
     mesh: Handle<Mesh>,
     cone: Entity,
 }
@@ -230,14 +235,15 @@ fn compute_cone(
     partner: &PlacedPortal,
     config: &PortalViewConeConfig,
     viewer: Option<&PortalViewer>,
+    gravity_dir: Vec2,
 ) -> ViewCone {
     let enter = portal.frame();
     let exit = partner.frame();
     if !config.viewer_gated {
-        return view_cone(&enter, &exit, config.depth, config.spread);
+        return view_cone(&enter, &exit, config.depth, config.spread, gravity_dir);
     }
     // The minimum cone, always shown when nothing better exists.
-    let min = view_cone(&enter, &exit, config.min_depth, config.min_spread);
+    let min = view_cone(&enter, &exit, config.min_depth, config.min_spread, gravity_dir);
     let Some(v) = viewer.filter(|v| v.present) else {
         return min;
     };
@@ -254,13 +260,13 @@ fn compute_cone(
     {
         return min; // sight line blocked — minimum only
     }
-    let Some(wedge) = aperture_wedge(&enter, &exit, eye, config.max_depth, config.max_half_width)
+    let Some(wedge) = aperture_wedge(&enter, &exit, eye, config.max_depth, config.max_half_width, gravity_dir)
     else {
         return min;
     };
     // viewer_blend = 1.0 (default): the wedge verbatim — the real visibility
     // map, unmodified by the minimum.
-    blend_cones(&min, &wedge, config.viewer_blend, &enter, &exit)
+    blend_cones(&min, &wedge, config.viewer_blend, &enter, &exit, gravity_dir)
 }
 
 /// Per-vertex UVs for the window mesh: each source-quad corner normalized
@@ -323,11 +329,17 @@ fn placeholder_mesh() -> Mesh {
 /// Maintain + update one rig per placed portal with a placed partner: spawn
 /// missing, despawn stale, and update every live rig's geometry in place each
 /// frame (the viewer moves, so the cone changes continuously).
+///
+/// When [`crate::PortalEffectSelection`] is not on `ViewCones`, every rig is
+/// DESPAWNED (cameras included) rather than hidden, so an A/B profile against
+/// the other effects measures the true cost of the capture passes.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn sync_portal_view_cones(
     mut commands: Commands,
+    selection: Res<crate::PortalEffectSelection>,
     config: Res<PortalViewConeConfig>,
     viewer: Option<Res<PortalViewer>>,
+    gravity: Option<Res<GravityField>>,
     frame: Res<PortalWorldFrame>,
     mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -342,11 +354,19 @@ pub fn sync_portal_view_cones(
     )>,
     mut cones: Query<(&mut Transform, &mut Visibility), (With<PortalConeMesh>, Without<PortalViewRig>)>,
 ) {
+    if selection.active != crate::PortalVisualEffect::ViewCones {
+        for (entity, rig, ..) in &rigs {
+            commands.entity(entity).despawn();
+            commands.entity(rig.cone).despawn();
+        }
+        return;
+    }
     if frame.size == Vec2::ZERO {
         return;
     }
     let all: Vec<PlacedPortal> = portals.iter().copied().collect();
     let viewer = viewer.as_deref();
+    let gravity_dir = gravity.map_or(Vec2::new(0.0, 1.0), |g| g.dir);
     let rebuild = RebuildKey {
         world_size: frame.size,
         resolution: config.resolution.max(8),
@@ -370,7 +390,7 @@ pub fn sync_portal_view_cones(
         }
         served.push(rig.channel);
 
-        let cone = compute_cone(&portal, &partner, &config, viewer);
+        let cone = compute_cone(&portal, &partner, &config, viewer, gravity_dir);
         let render = cone_render(&cone, &frame, config.z);
         match render {
             Some(r) => {
@@ -414,7 +434,7 @@ pub fn sync_portal_view_cones(
             TextureFormat::Rgba8UnormSrgb,
             None,
         ));
-        let cone = compute_cone(portal, &partner, &config, viewer);
+        let cone = compute_cone(portal, &partner, &config, viewer, gravity_dir);
         let render = cone_render(&cone, &frame, config.z);
         let mesh = meshes.add(match &render {
             Some(r) => make_mesh(r),
@@ -491,7 +511,7 @@ pub fn sync_portal_view_cones(
             PortalViewRig {
                 channel: portal.channel,
                 rebuild,
-                image,
+                _image: image,
                 mesh,
                 cone: cone_entity,
             },
@@ -508,23 +528,29 @@ pub fn sync_portal_view_cones(
 /// aperture is occluded). The sample zone shows where the capture samples from;
 /// the entry window shows where it is displayed.
 pub fn debug_portal_view_zones(
+    selection: Res<crate::PortalEffectSelection>,
     config: Res<PortalViewConeConfig>,
     viewer: Option<Res<PortalViewer>>,
+    gravity: Option<Res<GravityField>>,
     frame: Res<PortalWorldFrame>,
     portals: Query<&PlacedPortal>,
     mut gizmos: Gizmos,
 ) {
-    if !config.debug_outline || frame.size == Vec2::ZERO {
+    if selection.active != crate::PortalVisualEffect::ViewCones
+        || !config.debug_outline
+        || frame.size == Vec2::ZERO
+    {
         return;
     }
     let all: Vec<PlacedPortal> = portals.iter().copied().collect();
     let viewer = viewer.as_deref();
+    let gravity_dir = gravity.map_or(Vec2::new(0.0, 1.0), |g| g.dir);
     let to_render = |p: Vec2| frame.to_render(p, 0.0).truncate();
     for portal in &all {
         let Some(partner) = find_portal(&all, portal.channel.partner()) else {
             continue;
         };
-        let cone = compute_cone(portal, &partner, &config, viewer);
+        let cone = compute_cone(portal, &partner, &config, viewer, gravity_dir);
         let (_, core) = portal.channel.display();
 
         // Exit sample zone: the source rect (axis-aligned in world stays
@@ -588,7 +614,7 @@ mod tests {
             normal: Vec2::new(-1.0, 0.0),
             half_extent: Vec2::new(9.0, 46.0),
         };
-        let cone = view_cone(&enter, &exit, 120.0, 0.25);
+        let cone = view_cone(&enter, &exit, 120.0, 0.25, Vec2::new(0.0, 1.0));
         let uvs = cone_uvs(&cone.source_quad, cone.source);
         for uv in &uvs {
             assert!((0.0..=1.0).contains(&uv[0]) && (0.0..=1.0).contains(&uv[1]));

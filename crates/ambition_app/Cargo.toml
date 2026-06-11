@@ -36,6 +36,7 @@ visible = [
     "ui",
     "physics_debris",
     "portal",
+    "portal_render",
     "frame_pacing",
     "bevy_ui_menu",
     "kaleidoscope_menu",
@@ -61,6 +62,7 @@ visible_web_base = [
     "input",
     "static_map",
     "portal",
+    "portal_render",
     "bevy_ui_menu",
 ]
 visible_web = ["visible_web_base", "static_core_assets"]

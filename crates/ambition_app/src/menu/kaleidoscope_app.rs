@@ -351,6 +351,11 @@ pub(crate) struct SystemMenuParams<'w> {
     // The active menu frontend, mutated by the Developer "Menu Backend" row (the
     // in-menu `\` toggle). Always present (inserted at startup).
     backend: ResMut<'w, InventoryUiBackend>,
+    // The Portal FX cycle's target (portal presentation crate, host adapter).
+    // Option: absent in non-portal personas / minimal fixtures — the row then
+    // no-ops and reads "n/a".
+    #[cfg(feature = "portal_render")]
+    portal_effect: Option<ResMut<'w, ambition_sandbox::portal::PortalEffectSelection>>,
     reset: ResMut<'w, ambition_sandbox::runtime::reset::SandboxResetRequested>,
     // Movement tuning is derived from the active movement profile, so a
     // Reset All Settings must restore it to match the reset DeveloperTools
@@ -436,6 +441,8 @@ impl SystemMenuParams<'_> {
                         dev_state: &mut self.dev_state,
                         ldtk_reload: &mut self.ldtk_reload,
                         backend: &mut self.backend,
+                        #[cfg(feature = "portal_render")]
+                        portal_effect: self.portal_effect.as_deref_mut(),
                     },
                     id,
                     0,
@@ -460,6 +467,8 @@ impl SystemMenuParams<'_> {
                         dev_state: &mut self.dev_state,
                         ldtk_reload: &mut self.ldtk_reload,
                         backend: &mut self.backend,
+                        #[cfg(feature = "portal_render")]
+                        portal_effect: self.portal_effect.as_deref_mut(),
                     },
                     id,
                     dir,
@@ -513,6 +522,8 @@ impl SystemMenuParams<'_> {
             dev_state: &self.dev_state,
             ldtk_reload: &self.ldtk_reload,
             backend: *self.backend,
+            #[cfg(feature = "portal_render")]
+            portal_effect: self.portal_effect.as_deref(),
         })
     }
 
@@ -541,6 +552,8 @@ struct SystemMenuSnapshotParams<'w> {
     dev_state: Res<'w, ambition_sandbox::SandboxDevState>,
     ldtk_reload: Res<'w, ambition_sandbox::ldtk_world::LdtkHotReloadState>,
     backend: Res<'w, InventoryUiBackend>,
+    #[cfg(feature = "portal_render")]
+    portal_effect: Option<Res<'w, ambition_sandbox::portal::PortalEffectSelection>>,
     #[cfg(feature = "audio")]
     library: Option<Res<'w, ambition_sandbox::audio::AudioLibrary>>,
     #[cfg(feature = "audio")]
@@ -569,6 +582,8 @@ impl SystemMenuSnapshotParams<'_> {
             dev_state: &self.dev_state,
             ldtk_reload: &self.ldtk_reload,
             backend: *self.backend,
+            #[cfg(feature = "portal_render")]
+            portal_effect: self.portal_effect.as_deref(),
         })
     }
 }
@@ -605,6 +620,10 @@ struct DevToggleRead<'a> {
     // The Menu Backend row mirrors the `\` hotkey; its value label is the active
     // frontend (Grid / Cube), read from `InventoryUiBackend`.
     backend: InventoryUiBackend,
+    // The Portal FX row's live effect (view cones / masks / off). Option so
+    // fixtures without the resource still render the row (as "n/a").
+    #[cfg(feature = "portal_render")]
+    portal_effect: Option<&'a ambition_sandbox::portal::PortalEffectSelection>,
 }
 
 struct DevToggleWrite<'a> {
@@ -612,6 +631,8 @@ struct DevToggleWrite<'a> {
     dev_state: &'a mut ambition_sandbox::SandboxDevState,
     ldtk_reload: &'a mut ambition_sandbox::ldtk_world::LdtkHotReloadState,
     backend: &'a mut InventoryUiBackend,
+    #[cfg(feature = "portal_render")]
+    portal_effect: Option<&'a mut ambition_sandbox::portal::PortalEffectSelection>,
 }
 
 /// Read every developer toggle/cycle into a [`DevSnapshot`] for the SYSTEM IR. The
@@ -670,6 +691,15 @@ fn dev_snapshot(ctx: DevToggleRead<'_>) -> DevSnapshot {
     // Menu frontend (InventoryUiBackend) — the `\`-hotkey row, a cycle whose value
     // label is the active frontend name.
     values.push(DevSnapshot::cycle(D::MenuBackend, ctx.backend.label()));
+    // Portal FX (PortalEffectSelection, host adapter) — the A/B profiling
+    // cycle over the compiled-in portal transit visuals.
+    #[cfg(feature = "portal_render")]
+    values.push(DevSnapshot::cycle(
+        D::PortalEffect,
+        ctx.portal_effect.map_or("n/a", |s| s.active.label()),
+    ));
+    #[cfg(not(feature = "portal_render"))]
+    values.push(DevSnapshot::cycle(D::PortalEffect, "not compiled"));
     DevSnapshot { values }
 }
 
@@ -746,6 +776,17 @@ fn apply_dev_toggle(ctx: DevToggleWrite<'_>, id: DevToggleId, dir: i32) {
         D::MenuBackend => {
             let next = (*ctx.backend).next();
             *ctx.backend = next;
+        }
+        // Portal FX: cycle the compiled-in portal transit visuals on the
+        // presentation crate's selection resource (absent under fixtures /
+        // non-portal builds: no-op).
+        D::PortalEffect => {
+            #[cfg(feature = "portal_render")]
+            if let Some(selection) = ctx.portal_effect {
+                selection.cycle(dir);
+            }
+            #[cfg(not(feature = "portal_render"))]
+            let _ = dir;
         }
     }
 }
@@ -2330,6 +2371,8 @@ mod lunex_kaleidoscope_app_tests {
                     dev_state: &mut dev_state,
                     ldtk_reload: &mut ldtk_reload,
                     backend: &mut backend,
+                    #[cfg(feature = "portal_render")]
+                    portal_effect: None,
                 },
                 id,
                 0,
@@ -2354,6 +2397,8 @@ mod lunex_kaleidoscope_app_tests {
             dev_state: &dev_state,
             ldtk_reload: &ldtk_reload,
             backend: InventoryUiBackend::default(),
+            #[cfg(feature = "portal_render")]
+            portal_effect: None,
         });
         let read = |id: DevToggleId| snap.values.iter().find(|(d, _, _)| *d == id).unwrap().1;
         assert_eq!(read(DevToggleId::DebugOverlay), dev_state.debug);
@@ -2383,6 +2428,8 @@ mod lunex_kaleidoscope_app_tests {
                 dev_state: &dev_state,
                 ldtk_reload: &ldtk_reload,
                 backend: b,
+                #[cfg(feature = "portal_render")]
+                portal_effect: None,
             })
             .values
             .iter()
@@ -2401,6 +2448,8 @@ mod lunex_kaleidoscope_app_tests {
                 dev_state: &mut dev_state,
                 ldtk_reload: &mut ldtk_reload,
                 backend: &mut backend,
+                #[cfg(feature = "portal_render")]
+                portal_effect: None,
             },
             DevToggleId::MenuBackend,
             0,
@@ -2413,6 +2462,8 @@ mod lunex_kaleidoscope_app_tests {
                 dev_state: &mut dev_state,
                 ldtk_reload: &mut ldtk_reload,
                 backend: &mut backend,
+                #[cfg(feature = "portal_render")]
+                portal_effect: None,
             },
             DevToggleId::MenuBackend,
             0,
@@ -2438,6 +2489,8 @@ mod lunex_kaleidoscope_app_tests {
                 dev_state: &mut dev_state,
                 ldtk_reload: &mut ldtk_reload,
                 backend: &mut backend,
+                #[cfg(feature = "portal_render")]
+                portal_effect: None,
             },
             DevToggleId::ShowHitboxes,
             0,
@@ -2453,6 +2506,8 @@ mod lunex_kaleidoscope_app_tests {
             dev_state: &dev_state,
             ldtk_reload: &ldtk_reload,
             backend: InventoryUiBackend::default(),
+            #[cfg(feature = "portal_render")]
+            portal_effect: None,
         });
         let on = snap
             .values
@@ -3555,6 +3610,8 @@ mod lunex_kaleidoscope_app_tests {
             dev_state,
             ldtk_reload,
             backend,
+            #[cfg(feature = "portal_render")]
+            portal_effect: None,
         });
         let model = SystemMenuModel::build(settings, &RadioSnapshot::default(), &snap);
         system_rows(&model, Some(SystemMenuEntryId::Developer)).len()

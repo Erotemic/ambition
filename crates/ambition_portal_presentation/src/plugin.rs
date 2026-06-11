@@ -7,8 +7,10 @@
 
 use bevy::prelude::*;
 
-use crate::{view_cones, visuals};
-use crate::{PortalAimHint, PortalWorldFrame};
+#[cfg(feature = "effect_view_cones")]
+use crate::view_cones;
+use crate::visuals;
+use crate::{PortalAimHint, PortalEffectSelection, PortalWorldFrame};
 
 /// The one schedule label every portal visual runs in. Hosts order this set
 /// against their own presentation systems (e.g. `.after(sync_visuals)`); the
@@ -64,6 +66,9 @@ impl Plugin for PortalPresentationPlugin {
         // host's input adapter writes it each frame.
         app.init_resource::<PortalWorldFrame>();
         app.init_resource::<PortalAimHint>();
+        // The live effect choice (view cones / transit masks / off), cycled
+        // from the host's developer menu for in-session A/B profiling.
+        app.init_resource::<PortalEffectSelection>();
 
         if self.portal_quads {
             app.add_systems(
@@ -89,6 +94,7 @@ impl Plugin for PortalPresentationPlugin {
                 visuals::sync_portal_disorientation_indicator.in_set(PortalPresentationSet),
             );
         }
+        #[cfg(feature = "effect_view_cones")]
         if self.view_cones {
             app.init_resource::<view_cones::PortalViewConeConfig>();
             // The viewer seam (host-synced each frame); empty/absent ⇒ static

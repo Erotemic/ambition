@@ -38,11 +38,15 @@ use bevy::prelude::*;
 
 use ambition_engine_core as ae;
 
+mod effects;
 mod plugin;
+#[cfg(feature = "effect_view_cones")]
 mod view_cones;
 mod visuals;
 
+pub use effects::{PortalEffectSelection, PortalVisualEffect};
 pub use plugin::{PortalPresentationPlugin, PortalPresentationSet};
+#[cfg(feature = "effect_view_cones")]
 pub use view_cones::{
     debug_portal_view_zones, sync_portal_view_cones, PortalConeMesh, PortalViewConeConfig,
     PortalViewRig, PortalViewer,

@@ -47,9 +47,7 @@ use bevy::sprite_render::AlphaMode2d;
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_platformer_runtime::world_query::{raycast_solids, SolidWorldQuery};
 use ambition_portal::pieces::PortalFrame;
-use ambition_portal::view::{
-    aperture_wedge, blend_cones, effective_eye, floor_cone_depth, view_cone, ViewCone,
-};
+use ambition_portal::view::{aperture_wedge, blend_cones, view_cone, window_eye, ViewCone};
 use ambition_portal::{find_portal, PlacedPortal, PortalChannel};
 
 use crate::PortalWorldFrame;
@@ -91,17 +89,22 @@ pub struct PortalViewConeConfig {
     /// How far the **viewer-dependent** wedge may extend behind the surface
     /// (world px). Demo: ~1 tile so the window only peeks just past the wall.
     pub max_depth: f32,
+    /// How far the wedge's far edge may extend laterally from the aperture
+    /// center (world px). This bounds the half-plane limit (eye at the plane ⇒
+    /// the wedge saturates to a `±max_half_width × max_depth` strip) so the
+    /// capture rect stays frameable by a fixed-size texture.
+    pub max_half_width: f32,
     /// The **minimum cone** every portal always shows (depth into the surface,
-    /// world px) — the floor the viewer wedge blends up from, so a portal is
-    /// never blank even when the character is behind it or its sight line is
-    /// occluded.
+    /// world px), so a portal is never blank even when the character is behind
+    /// both ends or its sight line is occluded.
     pub min_depth: f32,
     /// Minimum-cone side widening per px of depth.
     pub min_spread: f32,
-    /// Blend from the minimum cone (0) to the full visible wedge (1) — the
-    /// linear interpolation between "minimum always shown" and "what the viewer
-    /// can see." Default 1.0 (open fully to the wedge; the minimum still shows
-    /// whenever no wedge is available).
+    /// Blend from the minimum cone (0) toward the visible wedge (1). Keep at
+    /// 1.0 (default): once ANY visibility exists the window follows the real
+    /// visibility wedge exactly and the minimum has no influence — the minimum
+    /// only fills in when no wedge exists at all. Lower values are for tuning
+    /// transitions only.
     pub viewer_blend: f32,
     /// Static-fallback window depth into the surface (world px), used only when
     /// `viewer_gated` is off. Keep near wall scale.
@@ -130,6 +133,7 @@ impl Default for PortalViewConeConfig {
         Self {
             viewer_gated: true,
             max_depth: 80.0,
+            max_half_width: 480.0,
             min_depth: 22.0,
             min_spread: 0.12,
             viewer_blend: 1.0,
@@ -193,25 +197,34 @@ impl SolidWorldQuery for SliceSolids<'_> {
     }
 }
 
-/// Is the line of sight from `eye` to the aperture center blocked by a solid?
-/// Stops just short of the surface so the portal's own host wall (which the
-/// aperture is carved from) never counts as the occluder.
+/// Skip the line-of-sight test when the real eye is within this distance of
+/// the faced aperture: at/in the doorway the ray would only graze the host
+/// surface's own (uncarved) blocks and false-positive.
+const LOS_NEAR_SKIP: f32 = 70.0;
+
+/// Is the line of sight from `eye` to the aperture blocked by a solid? The
+/// target is lifted a little OFF the surface (along the normal) so the ray
+/// never has to land exactly on the host face — a grazing ray along a shared
+/// floor line would otherwise clip the (uncarved) host blocks themselves —
+/// and the cast still stops short of the lifted point.
 fn aperture_occluded(eye: Vec2, enter: &PortalFrame, occluders: &[ae::Aabb]) -> bool {
-    let d = enter.pos - eye;
+    let target = enter.pos + enter.normal * 12.0;
+    let d = target - eye;
     let dist = d.length();
     if dist < 2.0 {
         return false;
     }
-    raycast_solids(&SliceSolids(occluders), eye, d, (dist - 6.0).max(0.0), false).is_some()
+    raycast_solids(&SliceSolids(occluders), eye, d, (dist - 4.0).max(0.0), false).is_some()
 }
 
 /// The window geometry for one portal pair this frame. ALWAYS returns a cone:
-/// every portal shows at least the minimum cone, which the viewer-dependent
-/// wedge blends up from (so a portal is never blank). The wedge opens when the
-/// character is in front of EITHER end of the pair (the wormhole — being "in"
-/// one end is being in the other) and its sight line to that aperture is clear;
-/// otherwise just the minimum shows. `viewer_gated == false` ⇒ the static
-/// always-on window.
+/// every portal shows at least the minimum cone; once any real visibility
+/// exists the window follows the visibility wedge exactly (the minimum has no
+/// influence — see `viewer_blend`). The wedge opens when the character is in
+/// front of (or in the doorway of) EITHER end of the pair — the wormhole:
+/// being "in" one end is being in the other — and its sight line to the end it
+/// actually faces is clear. `viewer_gated == false` ⇒ the static always-on
+/// window.
 fn compute_cone(
     portal: &PlacedPortal,
     partner: &PlacedPortal,
@@ -223,25 +236,30 @@ fn compute_cone(
     if !config.viewer_gated {
         return view_cone(&enter, &exit, config.depth, config.spread);
     }
-    // The minimum cone, always shown.
+    // The minimum cone, always shown when nothing better exists.
     let min = view_cone(&enter, &exit, config.min_depth, config.min_spread);
     let Some(v) = viewer.filter(|v| v.present) else {
         return min;
     };
-    // Which end the character actually faces (direct, or through the wormhole
-    // from the partner) decides both the wedge eye and the LOS aperture.
-    let Some((eye, via_wormhole)) = effective_eye(&enter, &exit, v.eye) else {
+    // Resolve which end the character actually looks through (nearest-first,
+    // with the in-doorway transit grace) — it decides both the wedge eye and
+    // which aperture the LOS runs against.
+    let Some((eye, via_partner)) = window_eye(&enter, &exit, v.eye) else {
         return min; // behind both ends — minimum only
     };
-    let los_frame = if via_wormhole { &exit } else { &enter };
-    if aperture_occluded(v.eye, los_frame, &v.occluders) {
+    let faced = if via_partner { &exit } else { &enter };
+    // LOS from the REAL eye to the faced aperture; skipped when basically at
+    // the doorway (straddling/transiting — sight is trivially clear).
+    if v.eye.distance(faced.pos) > LOS_NEAR_SKIP && aperture_occluded(v.eye, faced, &v.occluders)
+    {
         return min; // sight line blocked — minimum only
     }
-    let Some(wedge) = aperture_wedge(&enter, &exit, eye, config.max_depth) else {
+    let Some(wedge) = aperture_wedge(&enter, &exit, eye, config.max_depth, config.max_half_width)
+    else {
         return min;
     };
-    // Floor the wedge depth to the minimum, then blend min → wedge.
-    let wedge = floor_cone_depth(&wedge, &enter, &exit, config.min_depth);
+    // viewer_blend = 1.0 (default): the wedge verbatim — the real visibility
+    // map, unmodified by the minimum.
     blend_cones(&min, &wedge, config.viewer_blend, &enter, &exit)
 }
 
@@ -424,6 +442,14 @@ pub fn sync_portal_view_cones(
                 cone_tf,
                 cone_vis,
                 PortalConeMesh,
+                // The mesh's vertices are rewritten in place every frame as the
+                // viewer moves, but Bevy computes a mesh entity's culling Aabb
+                // ONCE (calculate_bounds only fills in missing Aabbs; mutating
+                // the asset never refreshes it). A stale Aabb from the spawn
+                // shape — possibly the degenerate hidden placeholder — gets the
+                // window frustum-culled into nothing even though its geometry
+                // is correct. One quad: just never cull it.
+                bevy::camera::visibility::NoFrustumCulling,
                 Name::new(format!("Portal view window ({})", portal.channel.name())),
             ))
             .id();

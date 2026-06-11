@@ -100,8 +100,8 @@ pub use types::{
     PORTAL_VISUAL_THICKNESS,
 };
 pub use view::{
-    aperture_wedge, blend_cones, effective_eye, floor_cone_depth, view_cone, view_point,
-    visible_cone, PortalViewMap, ViewCone,
+    aperture_wedge, blend_cones, view_cone, view_point, visible_cone, window_eye, PortalViewMap,
+    ViewCone,
 };
 
 pub use plugin::{PortalPlugin, PortalSimulationPlugin};

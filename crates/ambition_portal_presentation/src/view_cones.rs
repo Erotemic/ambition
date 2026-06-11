@@ -140,8 +140,13 @@ pub struct PortalViewConeConfig {
     /// doorway stays crisp over its own view, above world blocks (0) and below
     /// actors (10+).
     pub z: f32,
-    /// Tint multiplied over the capture. Opaque by default — the window draws
-    /// over whatever it is in front of (see [`AlphaMode2d::Opaque`] below).
+    /// Tint multiplied over the capture (opaque — the window draws over what it
+    /// is in front of). This is ALSO the **recursion attenuator**: a capture
+    /// sees other portals' windows, so two facing/door portals recurse with one
+    /// frame of lag. A tint slightly below white makes each nested level
+    /// `tint × tint × …` → the infinite recursion CONVERGES to dark (a fading
+    /// tunnel) instead of a full-brightness chaotic fractal. 1.0 = no
+    /// attenuation (chaos); ~0.8 = a calm fade.
     pub tint: Color,
     /// Debug: draw gizmo outlines of each portal's EXIT sample zone (the
     /// `ViewCone::source` rect, in the portal's channel color, in front of its
@@ -154,7 +159,10 @@ impl Default for PortalViewConeConfig {
     fn default() -> Self {
         Self {
             viewer_gated: true,
-            depth_close: 520.0,
+            // Large but not so deep it punches through thin "door" walls into
+            // the far room (which is what drives the heaviest recursion); also
+            // keeps the near-face↔deep-content parallax modest.
+            depth_close: 280.0,
             depth_far: 44.0,
             dist_close: 70.0,
             dist_far: 900.0,
@@ -168,8 +176,11 @@ impl Default for PortalViewConeConfig {
             texels_per_world_px: 1.0,
             max_resolution: 2048,
             z: 8.55,
-            // Opaque white: the window draws over what it is in front of.
-            tint: Color::WHITE,
+            // Slightly below white: opaque, but each recursion level multiplies
+            // the tint so facing/door portals fade into a tunnel rather than a
+            // full-brightness chaotic fractal (see the field docs). 1.0 brings
+            // back the chaos; lower fades faster.
+            tint: Color::srgb(0.8, 0.8, 0.8),
             debug_outline: false,
         }
     }

@@ -53,6 +53,17 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools def register-
   tools/ambition_ldtk_tools/specs/encounter_and_switch_entities.yaml \
   --in-place
 
+# Author a LINKED portal pair in one command (partner color auto-assigned).
+# NORMAL = the surface the portal sits ON: up=floor, down=ceiling,
+# left=right-wall, right=left-wall (world y is down).
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools portal pair \
+  --level portal_lab --channel purple \
+  --a 300 891 up --b 600 700 left \
+  --id demo --name "demo gate" --in-place
+# --channel takes a named pair member (purple/yellow, teal/red, green/magenta,
+# cyan/rose) OR a generated channel cN (paired with cN^1, i.e. c8<->c9):
+# 128 generated pairs, so a room can hold far more than the four named ones.
+
 # Read-only spatial queries (answer placement questions before editing;
 # see docs/concepts/llm-spatial-authoring-discipline.md).
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools intgrid query \

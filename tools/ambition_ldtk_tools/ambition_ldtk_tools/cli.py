@@ -241,6 +241,12 @@ def cmd_gates(args, rest):
     return _todo(f"gates {args.gates_action}")
 
 
+def cmd_portal(args, rest):
+    if args.portal_action == "pair":
+        return _delegate("ambition_ldtk_tools.edit.portals", rest)
+    return _todo(f"portal {args.portal_action}")
+
+
 # ---- Parser construction ------------------------------------------------------
 
 
@@ -342,6 +348,20 @@ def build_parser() -> argparse.ArgumentParser:
     sp_level.set_defaults(func=cmd_level)
 
     # entity {add,set-field,move,delete,even-space}
+    # portal pair — author a linked pair in one command
+    sp_portal = sub.add_parser("portal", help="Portal authoring")
+    portal_sub = sp_portal.add_subparsers(dest="portal_action", required=True)
+    portal_sub.add_parser(
+        "pair",
+        help=(
+            "Place a LINKED portal pair. Usage: portal pair --level <id> "
+            "--channel <color|cN> --a X Y NORMAL --b X Y NORMAL [--id PREFIX] "
+            "[--name NAME] (--in-place | --output PATH). NORMAL ∈ "
+            "{up,down,left,right}; the partner color is assigned automatically."
+        ),
+    )
+    sp_portal.set_defaults(func=cmd_portal)
+
     sp_entity = sub.add_parser("entity", help="Entity instance edits")
     entity_sub = sp_entity.add_subparsers(dest="entity_action", required=True)
     entity_sub.add_parser("add", help="Add entity instance(s)")

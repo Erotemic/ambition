@@ -39,6 +39,17 @@ Entry format:
 - **Smell:** the named EnemyArchetype enum is woven into the generic actor layer as its tuning provider; blocks moving the actor combat core into mechanics::combat
 - **Noticed while:** A2 kit extraction
 - **Suggested fix / size:** L — dissolve into capability components + tuning struct written at spawn (markers: CompositeSpawn, ChargeAttacker, respawn policy already exists)
+- **RESOLVED (sim side) 2026-06-11** (`6dc440b9`): EnemyTuning grew the full
+  per-frame vocabulary (speeds/ranges/damage + attack_cooldown_mult,
+  surface_walker, revives_in_place — the named comparisons became RON-authored
+  data); CombatCapabilities joined the enemy cluster view; every per-frame read
+  (EnemyMut tick + damage hook + render mapper) now consumes spawn-projected kit
+  data, guarded by architecture_boundaries_enemy_sim_reads_data_not_the_archetype_enum.
+  REMAINING (spawn side): the enum is still the spawn/construction vocabulary
+  (scratch ctor from_brain, spawn_actors, spawn_mounts composite fan-out,
+  brain_builders' ~20 spec-accessor reads). Next milestone: string-key the spawn
+  seam off the RON rows so the roster (enum + specs + brain-name table) can leave
+  the machinery lib for ambition_content.
 
 ## 2026-06-10 FeatureVisualKind::Sandbag variant in the generic kit
 - **Where:** crates/ambition_sandbox/src/mechanics/combat/events.rs (FeatureVisualKind)

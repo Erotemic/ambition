@@ -236,3 +236,36 @@ frame open rooms, so the artifact is structurally impossible. The
 proper-rotation theorem stays in `ambition_portal::view` (it is the
 camera-orientation tool for the projection model). Defaults retuned: depth
 90 (≈ carve scale), spread 0.20, alpha 0.9. Still awaiting Jon's second look.
+
+## Session 5 (2026-06-11, Fable) — the archetype knot dissolved (sim side)
+
+Re-measured the features wall per the "blockers rot" rule and the
+`EnemyConfig.archetype` knot had — like the actor-crate blockers before it —
+mostly dissolved already: A2 had landed `EnemyTuning` + `CombatCapabilities` in
+the kit, but the per-frame layer never switched over (caps was spawned and read
+by NOBODY; the damage hook recomputed it from the enum each hit).
+
+**Landed (`6dc440b9`), replay bit-identical:**
+- `EnemyTuning` carries the full per-frame vocabulary; the named comparisons
+  became authored data (`attack_cooldown_mult` 0.75/1.35 + `surface_walker` in
+  enemy_archetypes.ron; `revives_in_place` keys off the existing
+  respawn_in_place_seconds).
+- `CombatCapabilities` joined the enemy cluster view; charge-crash + kill hook
+  read the component.
+- Every per-frame read (EnemyMut tick/aabb/visual_kind/begin_attack/body-contact,
+  damage hook, presentation sandbag mapper) consumes spawn-projected data.
+- Guard #25: `architecture_boundaries_enemy_sim_reads_data_not_the_archetype_enum`
+  (actors.rs / damage.rs / presentation features.rs, production code).
+
+**The enum is now spawn-vocabulary only** (scratch ctor `from_brain`,
+spawn_actors, spawn_mounts composite fan-out, brain_builders, tests).
+
+**Next milestone (measured, not yet done):** string-key the spawn seam — spawn
+resolves a RON spec row by name (the `BRAIN_NAME_TO_ARCHETYPE` hop inverts to
+name→row), brain_builders read the row, `ActorSpawnState`/`EnemyConfig` store
+data not the enum — then the roster (enum + specs + RON + name table,
+~enemies.rs) can leave the machinery lib for `ambition_content`, unblocking the
+features→content shrink the survey table wants. Note: `ActorSpawnState`'s doc
+claims runtime archetype morphing (dismount), but no production code assigns
+`config.archetype` outside ctor/reset — verify the doc is stale (EnemyRuntime
+era) before designing the baseline respec.

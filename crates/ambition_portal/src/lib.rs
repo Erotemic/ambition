@@ -47,6 +47,7 @@
 //! - [`pieces`] — the pure portal-piece geometry (the Core invariant).
 
 mod color;
+mod eviction;
 mod gun;
 mod lifecycle;
 mod messages;
@@ -75,6 +76,7 @@ pub use ambition_platformer_runtime::transit::rotate_velocity_between_normals as
 pub use ambition_platformer_runtime::world_query::raycast_solids;
 
 pub use color::{PortalChannel, PortalChannelColor, PortalGunColor};
+pub use eviction::{evict_straddlers_on_portal_change, PortalFrameHistory};
 pub use gun::{portal_toggle_system, PortalGun};
 pub use lifecycle::{clear_portals_on_reset, despawn_orphaned_portals};
 pub use messages::{

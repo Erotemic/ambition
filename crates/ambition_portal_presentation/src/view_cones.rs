@@ -45,8 +45,7 @@ use bevy::prelude::*;
 use bevy::render::render_resource::TextureFormat;
 use bevy::sprite_render::AlphaMode2d;
 
-use ambition_engine_core::{self as ae, AabbExt};
-use ambition_platformer_runtime::gravity::GravityField;
+use ambition_engine_core as ae;
 use ambition_platformer_runtime::world_query::{raycast_solids, SolidWorldQuery};
 use ambition_portal::pieces::PortalFrame;
 use ambition_portal::view::{aperture_wedge, blend_cones, view_cone, window_eye, ViewCone};
@@ -70,8 +69,12 @@ const CAPTURE_CLEAR: Color = Color::srgb(0.03, 0.04, 0.05);
 pub struct PortalViewer {
     /// Whether a controlled-character eye is available this frame.
     pub present: bool,
-    /// The controlled character's eye position, world space.
+    /// The controlled character's eye position (body center), world space.
     pub eye: Vec2,
+    /// The character's body half-size: line-of-sight is tested from all four
+    /// body corners, so partial cover yields a partial (smoothly blended)
+    /// window instead of a binary popping one.
+    pub half_size: Vec2,
     /// Solid AABBs for the line-of-sight test — a portal whose aperture is
     /// occluded from `eye` renders no window. The host syncs these from its
     /// collision world (only the blocks that block sight).
@@ -91,11 +94,10 @@ pub struct PortalViewConeConfig {
     /// How far the **viewer-dependent** wedge may extend behind the surface
     /// (world px). Demo: ~1 tile so the window only peeks just past the wall.
     pub max_depth: f32,
-    /// How far the wedge's far edge may extend laterally from the aperture
-    /// center (world px). This bounds the half-plane limit (eye at the plane ⇒
-    /// the wedge saturates to a `±max_half_width × max_depth` strip) so the
-    /// capture rect stays frameable by a fixed-size texture.
-    pub max_half_width: f32,
+    /// How quickly the window opens/closes between the minimum cone and the
+    /// visible wedge (per second, exponential approach) — the temporal half of
+    /// the smooth blend; the spatial half is the 4-corner visibility fraction.
+    pub blend_rate: f32,
     /// The **minimum cone** every portal always shows (depth into the surface,
     /// world px), so a portal is never blank even when the character is behind
     /// both ends or its sight line is occluded.
@@ -113,9 +115,15 @@ pub struct PortalViewConeConfig {
     pub depth: f32,
     /// Static-fallback side widening per px of depth (0 = straight corridor).
     pub spread: f32,
-    /// Offscreen capture size in texels (square; non-square source rects are
-    /// stored stretched and un-stretched by the UVs).
-    pub resolution: u32,
+    /// Capture sharpness target: texels per world pixel along the window's
+    /// long (lateral) axis. The wedge runs to the half-plane (clipped only by
+    /// the world bounds), so the texture's long side is sized from the WORLD
+    /// extent × this density, capped by `max_resolution`. The short side
+    /// covers the window depth. 1.0 ⇒ pixel-perfect up to the cap.
+    pub texels_per_world_px: f32,
+    /// Hard cap on the capture texture's long side (GPU memory guard; a
+    /// 2048×256 RGBA capture is ~2 MB per portal).
+    pub max_resolution: u32,
     /// Render z of the window mesh. Just BEHIND the portal rim (9.0) so the
     /// doorway stays crisp over its own view, above world blocks (0) and below
     /// actors (10+).
@@ -135,13 +143,14 @@ impl Default for PortalViewConeConfig {
         Self {
             viewer_gated: true,
             max_depth: 80.0,
-            max_half_width: 480.0,
+            blend_rate: 10.0,
             min_depth: 22.0,
             min_spread: 0.12,
             viewer_blend: 1.0,
             depth: 90.0,
             spread: 0.20,
-            resolution: 384,
+            texels_per_world_px: 1.0,
+            max_resolution: 2048,
             z: 8.9,
             // Opaque white: the window draws over what it is in front of.
             tint: Color::WHITE,
@@ -156,14 +165,18 @@ impl Default for PortalViewConeConfig {
 pub struct PortalConeMesh;
 
 /// One rig, carried by the capture camera entity: which portal channel it
-/// serves, the rebuild key it was built for, and handles to its image + mesh +
-/// window-mesh entity. Geometry is updated in place each frame; the rig is only
-/// respawned when `rebuild` drifts (world size / resolution) or the pair
-/// disappears.
+/// serves, the rebuild key it was built for, the live min↔wedge blend state,
+/// and handles to its image + mesh + window-mesh entity. Geometry is updated
+/// in place each frame; the rig is only respawned when `rebuild` drifts
+/// (world size / texture dims) or the pair disappears.
 #[derive(Component)]
 pub struct PortalViewRig {
     channel: PortalChannel,
     rebuild: RebuildKey,
+    /// Temporal blend state, 0 = minimum cone, 1 = full visible wedge;
+    /// approaches the 4-corner visibility fraction at `blend_rate`/s and is
+    /// shaped by a smoothstep before use, so opening/closing feels smooth.
+    blend: f32,
     /// Keep-alive for the offscreen target (also referenced by the camera's
     /// `RenderTarget` and the window material; held here so the rig owns its
     /// asset lifetime explicitly).
@@ -173,22 +186,91 @@ pub struct PortalViewRig {
 }
 
 /// What forces a full rig rebuild (vs. a cheap per-frame geometry update): the
-/// world-space render transform (size) and the capture texture size.
+/// world-space render transform (size) and the capture texture dims (derived
+/// from world extent × density and the exit portal's surface axis).
 #[derive(Clone, Copy, PartialEq)]
 struct RebuildKey {
     world_size: Vec2,
-    resolution: u32,
+    tex: UVec2,
 }
 
-/// Per-frame render data derived from a [`ViewCone`]: the window mesh's
-/// centroid-relative corner positions + UVs, its world translation, and the
-/// capture camera's center + framed size.
+/// The capture texture dims for a rig: the LONG side covers the exit's
+/// along-surface (lateral) axis at the configured density up to the cap; the
+/// SHORT side covers the bounded window depth. A wall exit is tall-thin, a
+/// floor/ceiling exit wide-short.
+fn capture_dims(config: &PortalViewConeConfig, world_size: Vec2, exit_normal: Vec2) -> UVec2 {
+    let density = config.texels_per_world_px.max(0.05);
+    let long = ((world_size.x.max(world_size.y) * density) as u32)
+        .clamp(256, config.max_resolution.max(256));
+    let short = (((config.max_depth.max(config.min_depth) * 2.0 * density) as u32)
+        .next_power_of_two())
+    .clamp(64, 512);
+    if exit_normal.x.abs() > 0.5 {
+        UVec2::new(short, long) // wall exit: lateral runs vertically
+    } else {
+        UVec2::new(long, short) // floor/ceiling exit: lateral runs horizontally
+    }
+}
+
+/// Per-frame render data for the (world-clipped) window polygon: fan-mesh
+/// positions + UVs + indices, the mesh world translation, and the capture
+/// camera's center + framed size.
 struct ConeRender {
-    positions: [[f32; 3]; 4],
-    uvs: [[f32; 2]; 4],
+    positions: Vec<[f32; 3]>,
+    uvs: Vec<[f32; 2]>,
+    indices: Vec<u32>,
     centroid: Vec3,
     cam_center: Vec3,
     source_size: Vec2,
+}
+
+/// Sutherland–Hodgman clip of a convex polygon to an axis-aligned rect. The
+/// wedge legitimately reaches the half-plane limit; the WORLD bounds are its
+/// only honest clip (no arbitrary lateral clamp), and clipping before building
+/// the mesh keeps the capture rect — and therefore the texel density — tight.
+fn clip_polygon_to_rect(poly: &[Vec2], min: Vec2, max: Vec2) -> Vec<Vec2> {
+    // (axis, bound, keep_less_than)
+    let planes = [
+        (0usize, min.x, false),
+        (0usize, max.x, true),
+        (1usize, min.y, false),
+        (1usize, max.y, true),
+    ];
+    let mut current: Vec<Vec2> = poly.to_vec();
+    for (axis, bound, keep_lt) in planes {
+        if current.is_empty() {
+            break;
+        }
+        let inside = |p: Vec2| {
+            let c = if axis == 0 { p.x } else { p.y };
+            if keep_lt {
+                c <= bound
+            } else {
+                c >= bound
+            }
+        };
+        let cross = |a: Vec2, b: Vec2| {
+            let (ca, cb) = if axis == 0 { (a.x, b.x) } else { (a.y, b.y) };
+            let t = (bound - ca) / (cb - ca);
+            a + (b - a) * t
+        };
+        let mut next = Vec::with_capacity(current.len() + 2);
+        for i in 0..current.len() {
+            let a = current[i];
+            let b = current[(i + 1) % current.len()];
+            match (inside(a), inside(b)) {
+                (true, true) => next.push(b),
+                (true, false) => next.push(cross(a, b)),
+                (false, true) => {
+                    next.push(cross(a, b));
+                    next.push(b);
+                }
+                (false, false) => {}
+            }
+        }
+        current = next;
+    }
+    current
 }
 
 /// A `&[Aabb]` as a [`SolidWorldQuery`] so the LOS raycast can reuse
@@ -222,82 +304,160 @@ fn aperture_occluded(eye: Vec2, enter: &PortalFrame, occluders: &[ae::Aabb]) -> 
     raycast_solids(&SliceSolids(occluders), eye, d, (dist - 4.0).max(0.0), false).is_some()
 }
 
-/// The window geometry for one portal pair this frame. ALWAYS returns a cone:
-/// every portal shows at least the minimum cone; once any real visibility
-/// exists the window follows the visibility wedge exactly (the minimum has no
-/// influence — see `viewer_blend`). The wedge opens when the character is in
-/// front of (or in the doorway of) EITHER end of the pair — the wormhole:
-/// being "in" one end is being in the other — and its sight line to the end it
-/// actually faces is clear. `viewer_gated == false` ⇒ the static always-on
-/// window.
+/// One frame's window plan for a pair: the minimum cone, the (full) visible
+/// wedge, and the target blend between them — the fraction of the viewer's
+/// body corners with clear sight to the faced aperture. The renderer
+/// approaches `target` temporally and blends per-corner, so partial cover and
+/// approach/retreat all read as a smooth opening, not a pop.
+struct ConePlan {
+    min: ViewCone,
+    wedge: ViewCone,
+    target: f32,
+}
+
+/// The window plan for one portal pair this frame. Every portal always shows
+/// at least the minimum cone; the wedge opens (smoothly, via `target`) when
+/// the character is in front of (or in the doorway of) EITHER end of the pair
+/// — the wormhole: being "in" one end is being in the other — in proportion
+/// to how many of its body corners have clear sight to the faced aperture.
+/// The wedge itself runs to the half-plane limit; the WORLD bounds are its
+/// only clip (renderer-side). `viewer_gated == false` ⇒ the static always-on
+/// window at full blend.
 fn compute_cone(
     portal: &PlacedPortal,
     partner: &PlacedPortal,
     config: &PortalViewConeConfig,
     viewer: Option<&PortalViewer>,
-    gravity_dir: Vec2,
-) -> ViewCone {
+    world_size: Vec2,
+) -> ConePlan {
     let enter = portal.frame();
     let exit = partner.frame();
     if !config.viewer_gated {
-        return view_cone(&enter, &exit, config.depth, config.spread, gravity_dir);
+        let c = view_cone(&enter, &exit, config.depth, config.spread);
+        return ConePlan {
+            min: c,
+            wedge: c,
+            target: 1.0,
+        };
     }
     // The minimum cone, always shown when nothing better exists.
-    let min = view_cone(&enter, &exit, config.min_depth, config.min_spread, gravity_dir);
+    let min = view_cone(&enter, &exit, config.min_depth, config.min_spread);
+    let closed = |min: ViewCone| ConePlan {
+        min,
+        wedge: min,
+        target: 0.0,
+    };
     let Some(v) = viewer.filter(|v| v.present) else {
-        return min;
+        return closed(min);
     };
     // Resolve which end the character actually looks through (nearest-first,
     // with the in-doorway transit grace) — it decides both the wedge eye and
     // which aperture the LOS runs against.
     let Some((eye, via_partner)) = window_eye(&enter, &exit, v.eye) else {
-        return min; // behind both ends — minimum only
+        return closed(min); // behind both ends
     };
     let faced = if via_partner { &exit } else { &enter };
-    // LOS from the REAL eye to the faced aperture; skipped when basically at
-    // the doorway (straddling/transiting — sight is trivially clear).
-    if v.eye.distance(faced.pos) > LOS_NEAR_SKIP && aperture_occluded(v.eye, faced, &v.occluders)
-    {
-        return min; // sight line blocked — minimum only
-    }
-    let Some(wedge) = aperture_wedge(&enter, &exit, eye, config.max_depth, config.max_half_width, gravity_dir)
-    else {
-        return min;
+    // Visibility fraction: all four body corners ray-test to the faced
+    // aperture (lifted target). Skipped (fully visible) when basically at the
+    // doorway — straddling/transiting, where sight is trivially clear and the
+    // rays would graze the host blocks.
+    let target = if v.eye.distance(faced.pos) <= LOS_NEAR_SKIP {
+        1.0
+    } else {
+        let h = v.half_size;
+        let corners = [
+            v.eye + Vec2::new(-h.x, -h.y),
+            v.eye + Vec2::new(h.x, -h.y),
+            v.eye + Vec2::new(h.x, h.y),
+            v.eye + Vec2::new(-h.x, h.y),
+        ];
+        let clear = corners
+            .iter()
+            .filter(|c| !aperture_occluded(**c, faced, &v.occluders))
+            .count();
+        clear as f32 / corners.len() as f32
     };
-    // viewer_blend = 1.0 (default): the wedge verbatim — the real visibility
-    // map, unmodified by the minimum.
-    blend_cones(&min, &wedge, config.viewer_blend, &enter, &exit, gravity_dir)
+    if target <= 0.0 {
+        return closed(min);
+    }
+    // The wedge runs to the half-plane: far extent past every world bound (the
+    // renderer clips to the world rect afterwards).
+    let far_extent = world_size.x + world_size.y;
+    let Some(wedge) = aperture_wedge(&enter, &exit, eye, config.max_depth, far_extent) else {
+        return closed(min);
+    };
+    ConePlan {
+        min,
+        wedge,
+        target: target * config.viewer_blend.clamp(0.0, 1.0),
+    }
 }
 
-/// Per-vertex UVs for the window mesh: each source-quad corner normalized
+/// Per-vertex UVs for the window mesh: each mapped source vertex normalized
 /// inside the source rect. World y-down and texture v-down agree (the render
 /// y-flip cancels between camera and capture), so this is flip-free.
-fn cone_uvs(source_quad: &[Vec2; 4], source: ae::Aabb) -> [[f32; 2]; 4] {
-    let size = source.half_size() * 2.0;
-    source_quad.map(|s| {
-        [
-            ((s.x - source.min.x) / size.x.max(1e-6)).clamp(0.0, 1.0),
-            ((s.y - source.min.y) / size.y.max(1e-6)).clamp(0.0, 1.0),
-        ]
-    })
+fn vertex_uv(s: Vec2, source_min: Vec2, source_size: Vec2) -> [f32; 2] {
+    [
+        ((s.x - source_min.x) / source_size.x.max(1e-6)).clamp(0.0, 1.0),
+        ((s.y - source_min.y) / source_size.y.max(1e-6)).clamp(0.0, 1.0),
+    ]
 }
 
-/// Resolve a [`ViewCone`] into renderable data, or `None` for a degenerate rect.
-fn cone_render(cone: &ViewCone, frame: &PortalWorldFrame, z: f32) -> Option<ConeRender> {
-    let source_size = cone.source.half_size() * 2.0;
+/// Resolve a blended window cone into renderable data: clip the entry quad to
+/// the WORLD rect (the wedge's only honest bound — it may legitimately reach
+/// the half-plane), map each clipped vertex through the body map, and frame
+/// the capture on the clipped source's bounds — so the texture's density is
+/// spent only on what the window can actually show. `None` when the clip
+/// leaves nothing or the source degenerates.
+fn cone_render(
+    cone: &ViewCone,
+    enter: &PortalFrame,
+    exit: &PortalFrame,
+    frame: &PortalWorldFrame,
+    z: f32,
+) -> Option<ConeRender> {
+    let poly = clip_polygon_to_rect(&cone.entry_quad, Vec2::ZERO, frame.size);
+    if poly.len() < 3 {
+        return None;
+    }
+    // Map the clipped vertices; their bounds are the capture rect.
+    let mapped: Vec<Vec2> = poly
+        .iter()
+        .map(|p| ambition_portal::pieces::map_point(*p, enter, exit))
+        .collect();
+    let (mut smin, mut smax) = (mapped[0], mapped[0]);
+    for m in &mapped[1..] {
+        smin = smin.min(*m);
+        smax = smax.max(*m);
+    }
+    let source_size = smax - smin;
     if source_size.x < 1.0 || source_size.y < 1.0 {
         return None;
     }
-    let render_quad: [Vec2; 4] =
-        std::array::from_fn(|i| frame.to_render(cone.entry_quad[i], 0.0).truncate());
-    let centroid = (render_quad[0] + render_quad[1] + render_quad[2] + render_quad[3]) * 0.25;
-    let positions: [[f32; 3]; 4] =
-        std::array::from_fn(|i| [render_quad[i].x - centroid.x, render_quad[i].y - centroid.y, 0.0]);
+    let render_poly: Vec<Vec2> = poly
+        .iter()
+        .map(|p| frame.to_render(*p, 0.0).truncate())
+        .collect();
+    let centroid =
+        render_poly.iter().copied().sum::<Vec2>() / render_poly.len() as f32;
+    let positions: Vec<[f32; 3]> = render_poly
+        .iter()
+        .map(|p| [p.x - centroid.x, p.y - centroid.y, 0.0])
+        .collect();
+    let uvs: Vec<[f32; 2]> = mapped
+        .iter()
+        .map(|m| vertex_uv(*m, smin, source_size))
+        .collect();
+    // Fan triangulation (the clipped polygon stays convex).
+    let indices: Vec<u32> = (1..poly.len() as u32 - 1)
+        .flat_map(|i| [0, i, i + 1])
+        .collect();
     Some(ConeRender {
         positions,
-        uvs: cone_uvs(&cone.source_quad, cone.source),
+        uvs,
+        indices,
         centroid: centroid.extend(z),
-        cam_center: frame.to_render(cone.source.center(), 0.0),
+        cam_center: frame.to_render((smin + smax) * 0.5, 0.0),
         source_size,
     })
 }
@@ -305,25 +465,33 @@ fn cone_render(cone: &ViewCone, frame: &PortalWorldFrame, z: f32) -> Option<Cone
 fn make_mesh(render: &ConeRender) -> Mesh {
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default());
     apply_mesh(&mut mesh, render);
-    mesh.insert_indices(Indices::U32(vec![0, 1, 2, 0, 2, 3]));
     mesh
 }
 
 fn apply_mesh(mesh: &mut Mesh, render: &ConeRender) {
-    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, render.positions.to_vec());
-    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, render.uvs.to_vec());
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, render.positions.clone());
+    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, render.uvs.clone());
+    mesh.insert_indices(Indices::U32(render.indices.clone()));
 }
 
 /// A hidden-rig placeholder mesh (degenerate; the rig is invisible until its
 /// first visible frame fills it in).
 fn placeholder_mesh() -> Mesh {
     make_mesh(&ConeRender {
-        positions: [[0.0; 3]; 4],
-        uvs: [[0.0; 2]; 4],
+        positions: vec![[0.0; 3]; 3],
+        uvs: vec![[0.0; 2]; 3],
+        indices: vec![0, 1, 2],
         centroid: Vec3::ZERO,
         cam_center: Vec3::ZERO,
         source_size: Vec2::ONE,
     })
+}
+
+/// Smoothstep shaping for the temporal blend — the "squished logit" feel:
+/// flat near both ends, fast through the middle.
+fn smooth01(t: f32) -> f32 {
+    let t = t.clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
 }
 
 /// Maintain + update one rig per placed portal with a placed partner: spawn
@@ -339,15 +507,15 @@ pub fn sync_portal_view_cones(
     selection: Res<crate::PortalEffectSelection>,
     config: Res<PortalViewConeConfig>,
     viewer: Option<Res<PortalViewer>>,
-    gravity: Option<Res<GravityField>>,
     frame: Res<PortalWorldFrame>,
     mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    time: Res<Time>,
     portals: Query<&PlacedPortal>,
     mut rigs: Query<(
         Entity,
-        &PortalViewRig,
+        &mut PortalViewRig,
         &mut Transform,
         &mut Projection,
         &mut Camera,
@@ -366,22 +534,21 @@ pub fn sync_portal_view_cones(
     }
     let all: Vec<PlacedPortal> = portals.iter().copied().collect();
     let viewer = viewer.as_deref();
-    let gravity_dir = gravity.map_or(Vec2::new(0.0, 1.0), |g| g.dir);
-    let rebuild = RebuildKey {
-        world_size: frame.size,
-        resolution: config.resolution.max(8),
-    };
 
     // First pass: update each live rig in place, or despawn it if its pair is
     // gone / it needs a full rebuild.
     let mut served: Vec<PortalChannel> = Vec::new();
-    for (entity, rig, mut cam_tf, mut proj, mut cam) in &mut rigs {
+    for (entity, mut rig, mut cam_tf, mut proj, mut cam) in &mut rigs {
         let portal = all.iter().find(|p| p.channel == rig.channel).copied();
         let partner = portal.and_then(|p| find_portal(&all, p.channel.partner()));
         let (Some(portal), Some(partner)) = (portal, partner) else {
             commands.entity(entity).despawn();
             commands.entity(rig.cone).despawn();
             continue;
+        };
+        let rebuild = RebuildKey {
+            world_size: frame.size,
+            tex: capture_dims(&config, frame.size, partner.normal),
         };
         if rig.rebuild != rebuild {
             commands.entity(entity).despawn();
@@ -390,8 +557,13 @@ pub fn sync_portal_view_cones(
         }
         served.push(rig.channel);
 
-        let cone = compute_cone(&portal, &partner, &config, viewer, gravity_dir);
-        let render = cone_render(&cone, &frame, config.z);
+        let (enter, exit) = (portal.frame(), partner.frame());
+        let plan = compute_cone(&portal, &partner, &config, viewer, frame.size);
+        // Temporal approach to the visibility fraction, smoothstep-shaped.
+        let step = (config.blend_rate * time.delta_secs()).clamp(0.0, 1.0);
+        rig.blend += (plan.target - rig.blend) * step;
+        let cone = blend_cones(&plan.min, &plan.wedge, smooth01(rig.blend), &enter, &exit);
+        let render = cone_render(&cone, &enter, &exit, &frame, config.z);
         match render {
             Some(r) => {
                 if let Some(mesh) = meshes.get_mut(&rig.mesh) {
@@ -428,14 +600,21 @@ pub fn sync_portal_view_cones(
         if served.contains(&portal.channel) {
             continue;
         }
+        let rebuild = RebuildKey {
+            world_size: frame.size,
+            tex: capture_dims(&config, frame.size, partner.normal),
+        };
         let image = images.add(Image::new_target_texture(
-            rebuild.resolution,
-            rebuild.resolution,
+            rebuild.tex.x,
+            rebuild.tex.y,
             TextureFormat::Rgba8UnormSrgb,
             None,
         ));
-        let cone = compute_cone(portal, &partner, &config, viewer, gravity_dir);
-        let render = cone_render(&cone, &frame, config.z);
+        let (enter, exit) = (portal.frame(), partner.frame());
+        let plan = compute_cone(portal, &partner, &config, viewer, frame.size);
+        // Spawn at the target blend (no opening animation on appear).
+        let cone = blend_cones(&plan.min, &plan.wedge, smooth01(plan.target), &enter, &exit);
+        let render = cone_render(&cone, &enter, &exit, &frame, config.z);
         let mesh = meshes.add(match &render {
             Some(r) => make_mesh(r),
             None => placeholder_mesh(),
@@ -511,6 +690,7 @@ pub fn sync_portal_view_cones(
             PortalViewRig {
                 channel: portal.channel,
                 rebuild,
+                blend: plan.target,
                 _image: image,
                 mesh,
                 cone: cone_entity,
@@ -531,7 +711,6 @@ pub fn debug_portal_view_zones(
     selection: Res<crate::PortalEffectSelection>,
     config: Res<PortalViewConeConfig>,
     viewer: Option<Res<PortalViewer>>,
-    gravity: Option<Res<GravityField>>,
     frame: Res<PortalWorldFrame>,
     portals: Query<&PlacedPortal>,
     mut gizmos: Gizmos,
@@ -544,13 +723,14 @@ pub fn debug_portal_view_zones(
     }
     let all: Vec<PlacedPortal> = portals.iter().copied().collect();
     let viewer = viewer.as_deref();
-    let gravity_dir = gravity.map_or(Vec2::new(0.0, 1.0), |g| g.dir);
     let to_render = |p: Vec2| frame.to_render(p, 0.0).truncate();
     for portal in &all {
         let Some(partner) = find_portal(&all, portal.channel.partner()) else {
             continue;
         };
-        let cone = compute_cone(portal, &partner, &config, viewer, gravity_dir);
+        let (enter, exit) = (portal.frame(), partner.frame());
+        let plan = compute_cone(portal, &partner, &config, viewer, frame.size);
+        let cone = blend_cones(&plan.min, &plan.wedge, smooth01(plan.target), &enter, &exit);
         let (_, core) = portal.channel.display();
 
         // Exit sample zone: the source rect (axis-aligned in world stays
@@ -593,7 +773,11 @@ mod tests {
             Vec2::new(140.0, 70.0),
             Vec2::new(60.0, 70.0),
         ];
-        let uvs = cone_uvs(&quad, source);
+        let size = source.max - source.min;
+        let uvs: Vec<[f32; 2]> = quad
+            .iter()
+            .map(|q| vertex_uv(*q, source.min, size))
+            .collect();
         assert_eq!(uvs[0], [0.0, 0.0]);
         assert_eq!(uvs[1], [1.0, 0.0]);
         assert_eq!(uvs[2], [1.0, 1.0]);
@@ -614,8 +798,13 @@ mod tests {
             normal: Vec2::new(-1.0, 0.0),
             half_extent: Vec2::new(9.0, 46.0),
         };
-        let cone = view_cone(&enter, &exit, 120.0, 0.25, Vec2::new(0.0, 1.0));
-        let uvs = cone_uvs(&cone.source_quad, cone.source);
+        let cone = view_cone(&enter, &exit, 120.0, 0.25);
+        let size = cone.source.max - cone.source.min;
+        let uvs: Vec<[f32; 2]> = cone
+            .source_quad
+            .iter()
+            .map(|q| vertex_uv(*q, cone.source.min, size))
+            .collect();
         for uv in &uvs {
             assert!((0.0..=1.0).contains(&uv[0]) && (0.0..=1.0).contains(&uv[1]));
         }
@@ -644,5 +833,36 @@ mod tests {
         assert!(!aperture_occluded(eye, &enter, &[aside]));
         // No occluders at all → clear.
         assert!(!aperture_occluded(eye, &enter, &[]));
+    }
+
+    /// World clipping: a half-plane-sized wedge clips to the world rect, the
+    /// clipped polygon stays convex-fan renderable, and a fully-outside quad
+    /// clips away entirely.
+    #[test]
+    fn wedge_clips_to_world_bounds() {
+        let world = Vec2::new(800.0, 600.0);
+        // A huge trapezoid wildly exceeding the world.
+        let quad = [
+            Vec2::new(300.0, 400.0),
+            Vec2::new(500.0, 400.0),
+            Vec2::new(4000.0, 480.0),
+            Vec2::new(-4000.0, 480.0),
+        ];
+        let poly = clip_polygon_to_rect(&quad, Vec2::ZERO, world);
+        assert!(poly.len() >= 4, "clipped poly: {poly:?}");
+        for p in &poly {
+            assert!(
+                p.x >= -1e-3 && p.x <= world.x + 1e-3 && p.y >= -1e-3 && p.y <= world.y + 1e-3,
+                "inside world: {p:?}"
+            );
+        }
+        // Fully outside → empty.
+        let outside = [
+            Vec2::new(-100.0, -100.0),
+            Vec2::new(-50.0, -100.0),
+            Vec2::new(-50.0, -50.0),
+            Vec2::new(-100.0, -50.0),
+        ];
+        assert!(clip_polygon_to_rect(&outside, Vec2::ZERO, world).is_empty());
     }
 }

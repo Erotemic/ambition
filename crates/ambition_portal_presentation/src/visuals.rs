@@ -12,14 +12,13 @@ use ambition_engine_core as ae;
 #[cfg(feature = "effect_transit_masks")]
 use ambition_engine_core::AabbExt;
 use ambition_platformer_runtime::body::BodyKinematics;
-use ambition_platformer_runtime::gravity::GravityField;
 use ambition_platformer_runtime::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer_runtime::orientation::ActorRoll;
 
 use ambition_portal::pieces as pp;
 use ambition_portal::{
-    find_portal, portal_facing_flips, somersault_roll, PlacedPortal, PortalGun, PortalGunColor,
-    PortalGunPickup, PortalInputWarp, PortalShot, PortalTransit, PORTAL_VISUAL_THICKNESS,
+    copy_roll, find_portal, PlacedPortal, PortalGun, PortalGunColor, PortalGunPickup,
+    PortalInputWarp, PortalShot, PortalTransit, PORTAL_VISUAL_THICKNESS,
 };
 
 use crate::{PortalAimHint, PortalGunArt, PortalSceneBody, PortalWorldFrame};
@@ -79,7 +78,7 @@ pub fn sync_portal_disorientation_indicator(
 }
 
 /// Draw a second copy of the transiting body emerging from the **exit** portal,
-/// mapped + rotated by the somersault it is taking, so a body straddling a
+/// posed by the BODY map (`copy_roll` + flip_x), so a body straddling a
 /// portal shows in BOTH charts (its real sprite at the entry, this copy at the
 /// exit). The copy must stay in sync with the real sprite — it is rebuilt each
 /// frame from the same `Sprite`, after `sync_visuals` has updated it. The copy
@@ -100,7 +99,6 @@ pub fn sync_portal_body_pieces(
     frame: Res<PortalWorldFrame>,
     pieces: Query<Entity, With<PortalBodyPiece>>,
     portals: Query<&PlacedPortal>,
-    gravity: Option<Res<GravityField>>,
     mut body_visual: Query<
         (
             &BodyKinematics,
@@ -141,18 +139,17 @@ pub fn sync_portal_body_pieces(
     };
     let (enter, exit) = (through.enter, through.exit);
     let base_roll = roll.map_or(0.0, |r| r.angle);
-    let gravity_dir = gravity.map_or(Vec2::new(0.0, 1.0), |g| g.dir);
 
-    // Exit copy: the whole sprite emerging from the exit, mapped + rotated by the
-    // somersault it is taking (none for a wall↔wall turn-around). For a suppressed
-    // wall↔wall turn-around the sprite stays upright but its FACING mirrors, so it
-    // comes out face-first (X-in, X-out) instead of back-first.
+    // Exit copy: the whole sprite emerging from the exit, drawn with the BODY
+    // map exactly — `R(copy_roll) ∘ flip_x` (the transit map is always a
+    // reflection, and every 2D reflection factors that way), so the copy, the
+    // view window, and the actual transit positions/velocities are ONE map.
+    // Entering on one side shows you emerging exactly where transit puts you,
+    // mirrored when the pair's tangent convention mirrors.
     let exit_center = pp::map_point(kin.pos, &enter, &exit);
-    let exit_roll = base_roll + somersault_roll(enter.normal, exit.normal, gravity_dir);
+    let exit_roll = base_roll + copy_roll(&enter, &exit);
     let mut exit_sprite = sprite.clone();
-    if portal_facing_flips(enter.normal, exit.normal, gravity_dir) {
-        exit_sprite.flip_x = !exit_sprite.flip_x;
-    }
+    exit_sprite.flip_x = !exit_sprite.flip_x;
     let exit_translation = frame.to_render(exit_center, ae::config::WORLD_Z_PLAYER);
     commands.spawn((
         PortalBodyPiece,

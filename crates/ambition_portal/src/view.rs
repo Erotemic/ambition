@@ -7,10 +7,15 @@
 //! - **Window** ([`ViewCone`] / [`view_cone`] — what the default renderer
 //!   ships): the view recedes INTO the entry's host surface, like glass set in
 //!   the wall — you see "through the portal a little bit." A window's display
-//!   map is [`display_point`]: the SPRITE COPY's map (somersault rotation +
-//!   the suppressed-turn facing mirror), so the window, the copy, and a body
-//!   crossing all read as one continuous image. Depth continues exactly
-//!   (`d` into the entry wall shows `d` in front of the exit).
+//!   map is the BODY map ([`map_point`]) — the same map transit uses for
+//!   positions and velocities — so the window agrees with where bodies
+//!   actually emerge. **The 2D parity fact:** the body map is always det −1
+//!   (a reflection), so in 2D you cannot have both "sprites never mirror" and
+//!   "lateral position/velocity preserved" for every pair orientation (3D
+//!   escapes via a rotation about the portal normal; 2D has no third axis).
+//!   The game keeps the tangent-preserving (mirror) transit; sprites realize
+//!   it exactly via [`copy_roll`] + an unconditional `flip_x` (any reflection
+//!   = rotation ∘ flip_x), so window, copy, and transit are ONE map.
 //! - **Projection** ([`PortalViewMap`] / [`view_point`]): the view protrudes
 //!   into the room in front of the entry, hologram-style. Its map is the body
 //!   map composed with a reflection across the entry plane, which yields a
@@ -29,8 +34,7 @@
 use ambition_engine_core as ae;
 use bevy::math::Vec2;
 
-use crate::pieces::{portal_map_vec, PortalFrame};
-use crate::placement::{portal_facing_flips, somersault_roll};
+use crate::pieces::{map_point, portal_map_vec, PortalFrame};
 
 /// The proper rigid map of the VIEW through a portal pair: rotation `(cos,
 /// sin)` about the entry portal's center, then translation onto the exit's.
@@ -103,8 +107,9 @@ pub fn view_point(p: Vec2, enter: &PortalFrame, exit: &PortalFrame) -> Vec2 {
 
 /// The view cone of one portal, **window semantics**: a trapezoid receding
 /// from the entry face INTO the host surface (you look "through" the portal a
-/// little way), displaying the world in front of the exit via
-/// [`display_point`] (the sprite copy's map, so window and copy agree).
+/// little way), displaying the world in front of the exit via the body
+/// [`map_point`] (the transit map, so the window agrees with where bodies
+/// actually emerge; the sprite copy realizes the same map via [`copy_roll`]).
 ///
 /// Corner order is `[near_a, near_b, far_b, far_a]` — near edge ON the face
 /// (lateral ∓ aperture), far edge `depth` INTO the wall (lateral widened by
@@ -114,8 +119,8 @@ pub fn view_point(p: Vec2, enter: &PortalFrame, exit: &PortalFrame) -> Vec2 {
 pub struct ViewCone {
     /// Trapezoid corners at the ENTRY portal (face + into-the-wall), world space.
     pub entry_quad: [Vec2; 4],
-    /// The same corners pushed through [`display_point`]: the exit-side world
-    /// quad the window displays. `source_quad[i]` is what `entry_quad[i]`
+    /// The same corners pushed through the body [`map_point`]: the exit-side
+    /// world quad the window displays. `source_quad[i]` is what `entry_quad[i]`
     /// shows — a renderer derives per-vertex UVs by normalizing these inside
     /// [`Self::source`].
     pub source_quad: [Vec2; 4],
@@ -126,44 +131,28 @@ pub struct ViewCone {
     pub source: ae::Aabb,
 }
 
-/// The window **display map**: where window-point `p`'s content lives near the
-/// exit. This is the map the transit SPRITE COPY uses — the somersault
-/// rotation, plus the facing mirror in exactly the suppressed-turn case
-/// ([`somersault_roll`] / [`portal_facing_flips`]) — anchored at the portal
-/// centers. NOT the body map: the body map is the tangent-preserving
-/// identification used for collision pieces, which is orientation-REVERSING
-/// for most pairs; a drawn image cannot mirror through a physical motion, and
-/// the validated copy doesn't, so a body-map window reads as horizontally
-/// flipped against the copy (Jon's floor↔floor report). With this map the
-/// window, the copy, and a body crossing all read as one continuous image.
-///
-/// Depth still continues correctly (`-n_in ↦ n_out` is exactly the somersault
-/// turn), so "d into the entry wall shows d in front of the exit" holds
-/// unchanged.
-pub fn display_point(p: Vec2, enter: &PortalFrame, exit: &PortalFrame, gravity_dir: Vec2) -> Vec2 {
-    let mut v = p - enter.pos;
-    if portal_facing_flips(enter.normal, exit.normal, gravity_dir) {
-        // The copy's `flip_x`: a screen-horizontal mirror (world x).
-        v.x = -v.x;
-    }
-    // `somersault_roll` is the RENDER-space (y-up) angle; conjugating by the
-    // world↔render y-flip negates it.
-    let a = -somersault_roll(enter.normal, exit.normal, gravity_dir);
-    let (s, c) = a.sin_cos();
-    exit.pos + Vec2::new(v.x * c - v.y * s, v.x * s + v.y * c)
+/// The render-space roll for the transit sprite copy such that
+/// `R(roll) ∘ flip_x` equals the BODY map exactly. Works for every pair
+/// because the body map is always a reflection (det −1) and every 2D
+/// reflection factors as rotation ∘ flip_x. With the copy drawn this way, the
+/// copy, the window (body-map UVs), and the actual transit all agree —
+/// entering on one side of the entry shows you emerging exactly where transit
+/// puts you, mirrored or not.
+pub fn copy_roll(enter: &PortalFrame, exit: &PortalFrame) -> f32 {
+    // World-space first column of M ∘ FlipX is M·(−e_x) = −m_x; the world
+    // rotation angle is atan2 of that column, and render space negates it
+    // (y-flip conjugation).
+    let m_x = portal_map_vec(Vec2::X, enter.normal, exit.normal);
+    let world = (-m_x.y).atan2(-m_x.x);
+    -world
 }
 
 /// Build a [`ViewCone`] from its four entry-side corners: the source quad is
-/// the corners through [`display_point`] (the sprite copy's map), the source
+/// the corners through the body [`map_point`] (the transit map), the source
 /// rect their bounds. One place that defines the display map, shared by every
 /// cone constructor.
-fn from_entry_quad(
-    entry_quad: [Vec2; 4],
-    enter: &PortalFrame,
-    exit: &PortalFrame,
-    gravity_dir: Vec2,
-) -> ViewCone {
-    let source_quad = entry_quad.map(|p| display_point(p, enter, exit, gravity_dir));
+fn from_entry_quad(entry_quad: [Vec2; 4], enter: &PortalFrame, exit: &PortalFrame) -> ViewCone {
+    let source_quad = entry_quad.map(|p| map_point(p, enter, exit));
     let (mut min, mut max) = (source_quad[0], source_quad[0]);
     for p in &source_quad[1..] {
         min = min.min(*p);
@@ -180,13 +169,7 @@ fn from_entry_quad(
 /// receding `depth` into the entry's host surface, widening by `spread` per px
 /// of depth. Viewer-independent — the "always show this much" baseline (also
 /// the minimum-cone floor; see [`blend_cones`]).
-pub fn view_cone(
-    enter: &PortalFrame,
-    exit: &PortalFrame,
-    depth: f32,
-    spread: f32,
-    gravity_dir: Vec2,
-) -> ViewCone {
+pub fn view_cone(enter: &PortalFrame, exit: &PortalFrame, depth: f32, spread: f32) -> ViewCone {
     let n = enter.normal;
     let along = Vec2::new(-n.y, n.x);
     let near_half = enter.aperture_half();
@@ -200,7 +183,6 @@ pub fn view_cone(
         ],
         enter,
         exit,
-        gravity_dir,
     )
 }
 
@@ -291,7 +273,6 @@ pub fn aperture_wedge(
     eye: Vec2,
     max_depth: f32,
     max_lateral: f32,
-    gravity_dir: Vec2,
 ) -> Option<ViewCone> {
     let n = enter.normal;
     let t = Vec2::new(-n.y, n.x);
@@ -320,7 +301,7 @@ pub fn aperture_wedge(
     let a1 = enter.pos + t * h;
     let f0 = enter.pos + t * far_lat(-h) - n * max_depth;
     let f1 = enter.pos + t * far_lat(h) - n * max_depth;
-    Some(from_entry_quad([a0, a1, f1, f0], enter, exit, gravity_dir))
+    Some(from_entry_quad([a0, a1, f1, f0], enter, exit))
 }
 
 /// Convenience: [`window_eye`] (so it works from either end of the pair, with
@@ -332,10 +313,9 @@ pub fn visible_cone(
     eye: Vec2,
     max_depth: f32,
     max_lateral: f32,
-    gravity_dir: Vec2,
 ) -> Option<ViewCone> {
     let (eye, _) = window_eye(enter, exit, eye)?;
-    aperture_wedge(enter, exit, eye, max_depth, max_lateral, gravity_dir)
+    aperture_wedge(enter, exit, eye, max_depth, max_lateral)
 }
 
 /// Per-corner linear blend `a → b` by `t ∈ [0,1]`. With `a` the minimum cone
@@ -348,11 +328,10 @@ pub fn blend_cones(
     t: f32,
     enter: &PortalFrame,
     exit: &PortalFrame,
-    gravity_dir: Vec2,
 ) -> ViewCone {
     let t = t.clamp(0.0, 1.0);
     let entry_quad = std::array::from_fn(|i| a.entry_quad[i].lerp(b.entry_quad[i], t));
-    from_entry_quad(entry_quad, enter, exit, gravity_dir)
+    from_entry_quad(entry_quad, enter, exit)
 }
 
 
@@ -468,7 +447,7 @@ mod tests {
         let exit = right_wall(Vec2::new(400.0, 200.0));
         let depth = 120.0;
         let spread = 0.25;
-        let cone = view_cone(&enter, &exit, depth, spread, Vec2::new(0.0, 1.0));
+        let cone = view_cone(&enter, &exit, depth, spread);
         // Entry quad: near edge on the face, far edge `depth` INTO the floor
         // (y-down world: into a floor = +y).
         assert!((cone.entry_quad[0].y - 300.0).abs() < 1e-3);
@@ -491,7 +470,7 @@ mod tests {
         // Every source corner is the BODY-map image of its entry corner (the
         // window's display map IS the body map — one map for sight and transit).
         for (e, s) in cone.entry_quad.iter().zip(cone.source_quad.iter()) {
-            assert!((display_point(*e, &enter, &exit, Vec2::new(0.0, 1.0)) - *s).length() < 1e-3);
+            assert!((map_point(*e, &enter, &exit) - *s).length() < 1e-3);
         }
     }
 
@@ -502,7 +481,7 @@ mod tests {
         let enter = floor(Vec2::new(100.0, 300.0));
         let exit = floor(Vec2::new(500.0, 300.0));
         // Floors face up (−y); 60px below is past the doorway depth grace.
-        assert!(visible_cone(&enter, &exit, Vec2::new(100.0, 360.0), 80.0, 400.0, Vec2::new(0.0, 1.0)).is_none());
+        assert!(visible_cone(&enter, &exit, Vec2::new(100.0, 360.0), 80.0, 400.0).is_none());
     }
 
     /// The wormhole: standing in front of the PARTNER opens this end's window
@@ -518,7 +497,7 @@ mod tests {
         assert!(wormhole, "resolved via the partner side");
         // The image is in front of `enter` (above the floor, y < 300).
         assert!(resolved.y < 300.0, "image in front of enter: {resolved:?}");
-        assert!(visible_cone(&enter, &exit, eye, 80.0, 400.0, Vec2::new(0.0, 1.0)).is_some());
+        assert!(visible_cone(&enter, &exit, eye, 80.0, 400.0).is_some());
     }
 
     /// Same-plane pair (two floor portals): the eye above the PARTNER is in
@@ -553,7 +532,7 @@ mod tests {
         // Eye 10px BELOW the entry plane, laterally centered (mid-transit).
         let eye = Vec2::new(100.0, 310.0);
         let cone =
-            visible_cone(&enter, &exit, eye, 80.0, max_lateral, Vec2::new(0.0, 1.0)).expect("doorway grace holds");
+            visible_cone(&enter, &exit, eye, 80.0, max_lateral).expect("doorway grace holds");
         let [_, _, f1, f0] = cone.entry_quad;
         // The limit continuation: far corners at the lateral clamp.
         assert!(
@@ -577,7 +556,7 @@ mod tests {
             Vec2::new(100.0, 298.0),  // 2px in front (projective, clamped)
             Vec2::new(1000.0, 295.0), // extreme grazing skew from the right
         ] {
-            let cone = aperture_wedge(&enter, &exit, eye, 80.0, max_lateral, Vec2::new(0.0, 1.0)).unwrap();
+            let cone = aperture_wedge(&enter, &exit, eye, 80.0, max_lateral).unwrap();
             for p in cone.entry_quad.iter().chain(cone.source_quad.iter()) {
                 assert!(p.x.is_finite() && p.y.is_finite(), "finite corners");
                 assert!(
@@ -602,7 +581,7 @@ mod tests {
         let depth = 80.0;
         // Eye 80px in front of the floor portal (−y), directly above center.
         let front = 80.0;
-        let cone = visible_cone(&enter, &exit, Vec2::new(100.0, 300.0 - front), depth, 400.0, Vec2::new(0.0, 1.0)).unwrap();
+        let cone = visible_cone(&enter, &exit, Vec2::new(100.0, 300.0 - front), depth, 400.0).unwrap();
         let [a0, a1, f1, f0] = cone.entry_quad;
         // Near edge is the aperture (on the surface, y = 300).
         assert!((a0.y - 300.0).abs() < 1e-3 && (a1.y - 300.0).abs() < 1e-3);
@@ -628,7 +607,7 @@ mod tests {
         let enter = floor(Vec2::new(100.0, 300.0));
         let exit = right_wall(Vec2::new(400.0, 200.0));
         // Eye up and to the LEFT of center.
-        let cone = visible_cone(&enter, &exit, Vec2::new(40.0, 220.0), 80.0, 400.0, Vec2::new(0.0, 1.0)).unwrap();
+        let cone = visible_cone(&enter, &exit, Vec2::new(40.0, 220.0), 80.0, 400.0).unwrap();
         let [_, _, f1, f0] = cone.entry_quad;
         // Far edge center is pushed to the RIGHT of the aperture center (x=100).
         assert!(
@@ -638,34 +617,35 @@ mod tests {
         );
     }
 
-    /// The display map is the SPRITE COPY's map, not the body map. Floor↔floor
-    /// under normal gravity: the copy somersaults 180° (no facing flip), so
-    /// content rotates — `(dx, dy) ↦ (−dx, −dy)` — where the body map would
-    /// mirror laterally (`(dx, dy) ↦ (dx, −dy)`). A body-map window reads as
-    /// horizontally flipped against the validated copy (Jon's report); this
-    /// pins the rotation. Opposite-facing walls: both suppressed ⇒ identity.
+    /// `R(copy_roll) ∘ flip_x` equals the body map for every pair class — the
+    /// factorization that lets the sprite copy realize the transit map exactly
+    /// (det −1) with only a rotation and a texture flip.
     #[test]
-    fn display_map_matches_the_sprite_copy() {
-        let g = Vec2::new(0.0, 1.0);
-        // Floor↔floor: 180° rotation, NOT the lateral-preserving mirror.
-        let a = floor(Vec2::new(200.0, 300.0));
-        let b = floor(Vec2::new(600.0, 300.0));
-        let shown = display_point(Vec2::new(210.0, 305.0), &a, &b, g);
-        assert!(
-            (shown - Vec2::new(590.0, 295.0)).length() < 1e-3,
-            "R180: got {shown:?}"
-        );
-        // The body map would give (610, 295) — laterally preserved. Pin the
-        // difference so a regression back to the body map fails loudly.
-        assert!((shown - Vec2::new(610.0, 295.0)).length() > 1.0);
-        // Opposite-facing walls (teal/red shape): identity.
-        let l = frame(Vec2::new(900.0, 200.0), Vec2::new(1.0, 0.0));
-        let r = frame(Vec2::new(960.0, 200.0), Vec2::new(-1.0, 0.0));
-        let shown = display_point(Vec2::new(890.0, 210.0), &l, &r, g);
-        assert!(
-            (shown - Vec2::new(950.0, 210.0)).length() < 1e-3,
-            "identity: got {shown:?}"
-        );
+    fn copy_roll_flip_x_factors_the_body_map() {
+        let pairs = [
+            (Vec2::new(0.0, -1.0), Vec2::new(0.0, -1.0)), // floor↔floor
+            (Vec2::new(0.0, 1.0), Vec2::new(0.0, -1.0)),  // ceiling↔floor
+            (Vec2::new(1.0, 0.0), Vec2::new(1.0, 0.0)),   // same wall
+            (Vec2::new(1.0, 0.0), Vec2::new(-1.0, 0.0)),  // opposite walls
+            (Vec2::new(0.0, -1.0), Vec2::new(-1.0, 0.0)), // floor→wall (90°)
+        ];
+        for (n_in, n_out) in pairs {
+            let enter = frame(Vec2::new(100.0, 300.0), n_in);
+            let exit = frame(Vec2::new(500.0, 200.0), n_out);
+            // World-space rotation angle is the negated render roll.
+            let a = -copy_roll(&enter, &exit);
+            let (s, c) = a.sin_cos();
+            for v in [Vec2::new(1.0, 0.0), Vec2::new(0.0, 1.0), Vec2::new(3.0, -2.0)] {
+                // flip_x first, then rotate (render applies rotation ∘ flip).
+                let f = Vec2::new(-v.x, v.y);
+                let rotated = Vec2::new(f.x * c - f.y * s, f.x * s + f.y * c);
+                let body = portal_map_vec(v, n_in, n_out);
+                assert!(
+                    (rotated - body).length() < 1e-4,
+                    "{n_in:?}→{n_out:?}: R∘flip_x {rotated:?} vs body {body:?}"
+                );
+            }
+        }
     }
 
     /// Zero spread degenerates to a straight corridor: source rect lateral
@@ -674,7 +654,7 @@ mod tests {
     fn view_cone_zero_spread_is_a_corridor() {
         let enter = floor(Vec2::new(100.0, 300.0));
         let exit = floor(Vec2::new(500.0, 300.0));
-        let cone = view_cone(&enter, &exit, 90.0, 0.0, Vec2::new(0.0, 1.0));
+        let cone = view_cone(&enter, &exit, 90.0, 0.0);
         assert!(
             (size(cone.source).x - 2.0 * enter.aperture_half()).abs() < 1e-3,
             "{:?}",

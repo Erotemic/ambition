@@ -100,7 +100,7 @@ pub use types::{
     PORTAL_VISUAL_THICKNESS,
 };
 pub use view::{
-    aperture_wedge, blend_cones, display_point, view_cone, view_point, visible_cone, window_eye,
+    aperture_wedge, blend_cones, copy_roll, view_cone, view_point, visible_cone, window_eye,
     PortalViewMap, ViewCone,
 };
 

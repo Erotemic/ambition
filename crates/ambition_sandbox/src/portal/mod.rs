@@ -69,14 +69,15 @@ mod host_adapter {
         let Some(mut viewer) = viewer else {
             return;
         };
-        let eye = possession
+        let body = possession
             .possessed
-            .and_then(|e| feature_aabbs.get(e).ok().map(|a| a.center))
-            .or_else(|| player.single().ok().map(|k| k.pos));
-        match eye {
-            Some(eye) => {
+            .and_then(|e| feature_aabbs.get(e).ok().map(|a| (a.center, a.half_size)))
+            .or_else(|| player.single().ok().map(|k| (k.pos, k.size * 0.5)));
+        match body {
+            Some((eye, half_size)) => {
                 viewer.present = true;
                 viewer.eye = eye;
+                viewer.half_size = half_size;
                 viewer.occluders.clear();
                 world
                     .0

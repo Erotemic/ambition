@@ -139,6 +139,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                         crate::portal::sync_portal_viewer.before(PortalPresentationSet),
                         crate::portal::tag_portal_scene_bodies.after(actors::sync_visuals),
                         crate::portal::portal_dev_toggle_system,
+                        crate::portal::portal_convention_toggle_system,
                         crate::portal::sync_portal_view_debug_to_f1,
                         crate::mechanics::gravity::sync_gravity_switch_visual
                             .after(actors::sync_visuals),

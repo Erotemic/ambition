@@ -156,10 +156,29 @@ mod host_adapter {
             bevy::log::info!(target: "ambition::portal", "portal gun active = {}", gun.active);
         }
     }
+
+    /// Dev: `F10` flips the game-wide portal map CONVENTION live, to A/B the
+    /// feel — reflection (det −1, default: tangent preserved, facing/thin-wall
+    /// pairs vertically flip) vs rotation (det +1: facing/thin-wall pairs are a
+    /// clean straight-through "door", floor↔floor reverses horizontal). Affects
+    /// transit, the view cones, the body copy, and collision pieces together.
+    pub fn portal_convention_toggle_system(keys: Res<ButtonInput<KeyCode>>) {
+        if !keys.just_pressed(KeyCode::F10) {
+            return;
+        }
+        let next = !ambition_portal::portal_map_rotation();
+        ambition_portal::set_portal_map_rotation(next);
+        bevy::log::info!(
+            target: "ambition::portal",
+            "portal map convention = {}",
+            if next { "rotation (det +1)" } else { "reflection (det -1)" }
+        );
+    }
 }
 
 #[cfg(feature = "portal_render")]
 pub use host_adapter::{
-    load_portal_gun_art, portal_dev_toggle_system, sync_portal_view_debug_to_f1,
+    load_portal_gun_art, portal_convention_toggle_system, portal_dev_toggle_system,
+    sync_portal_view_debug_to_f1,
     sync_portal_viewer, sync_portal_world_frame, tag_portal_scene_bodies,
 };

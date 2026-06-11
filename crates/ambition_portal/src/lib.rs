@@ -97,6 +97,7 @@ pub use transit::{
     BodyTeleported, PlayerMovementIntent, PortalBody, PortalBodyTransited, PortalCarves,
     PortalEmission, PortalInputWarp, PortalPolicy, PortalTransit, PortalTransitable,
 };
+pub use pieces::{portal_map_rotation, set_portal_map_rotation};
 pub use types::{
     find_portal, portal_half_extent, PlacedPortal, PortalTransitCooldown, MIN_EXIT_SPEED,
     PORTAL_VISUAL_THICKNESS,

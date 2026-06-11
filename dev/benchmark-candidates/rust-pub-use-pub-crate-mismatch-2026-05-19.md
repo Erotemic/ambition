@@ -4,7 +4,7 @@ Date: 2026-05-19
 
 ## Prompt
 
-You are splitting `crates/ambition_sandbox/src/content/features/ecs/mod.rs`
+You are splitting `crates/ambition_sandbox/src/features/ecs/mod.rs`
 into focused submodules and need to keep the existing call sites in
 `app/plugins.rs`, `world_flow.rs`, etc. working without touching them.
 The original `mod.rs` had two `pub(crate) fn` helpers that several

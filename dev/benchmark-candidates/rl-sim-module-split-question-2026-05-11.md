@@ -51,7 +51,7 @@ cargo test -p ambition_sandbox --test repro_walls
 
 ```text
 error: expected item after attributes
-   --> crates/ambition_sandbox/src/rl_sim/runtime.rs:276:1
+   --> crates/ambition_app/src/rl_sim/runtime.rs:276:1
     |
 276 | #[cfg(test)]
 ```

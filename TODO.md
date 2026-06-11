@@ -43,6 +43,15 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [ ] Fireballs and most projectiles need to be transitable through portals.
 
+- [ ] Fireballs will still explode as if they hit a wall when they should transit through portals without exploding.
+
+- [ ] I want to increase the terminal velocity
+
+- [ ] When a laser sword times out or hits a wall it should explode. An explosion should be a message that you emit to request an explosion, and the actual explosion should use one of our rendered explosion sprites, either randomly, or perhaps by request. Need to look at how smirking behemoth fight is done because 
+
+
+- [ ] We need a feature where we can "tie a knot", where the player emits a trail, that might drape down onto the collision, and perhaps be pulled taught, and it needs to work through portals.
+
 
 
 ## Jon's List

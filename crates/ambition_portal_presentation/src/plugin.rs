@@ -90,7 +90,11 @@ impl Plugin for PortalPresentationPlugin {
             app.init_resource::<view_cones::PortalViewConeConfig>();
             app.add_systems(
                 Update,
-                view_cones::sync_portal_view_cones.in_set(PortalPresentationSet),
+                (
+                    view_cones::sync_portal_view_cones,
+                    view_cones::debug_portal_view_zones,
+                )
+                    .in_set(PortalPresentationSet),
             );
         }
     }

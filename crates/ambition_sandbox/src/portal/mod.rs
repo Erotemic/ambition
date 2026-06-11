@@ -41,7 +41,7 @@ mod host_adapter {
     use bevy::prelude::*;
 
     use ambition_portal_presentation::{
-        PortalGunArt, PortalSceneBody, PortalWorldFrame,
+        PortalGunArt, PortalSceneBody, PortalViewConeConfig, PortalWorldFrame,
     };
 
     use crate::presentation::rendering::PlayerVisual;
@@ -80,6 +80,27 @@ mod host_adapter {
         });
     }
 
+    /// Dev: `F8` toggles the portal view-cone debug outline (each portal's
+    /// exit sample zone + entry window trapezoid). Raw keyboard = host input
+    /// concern, so it lives here and just flips the crate-owned config flag.
+    pub fn portal_view_debug_toggle_system(
+        keys: Res<ButtonInput<KeyCode>>,
+        config: Option<ResMut<PortalViewConeConfig>>,
+    ) {
+        if !keys.just_pressed(KeyCode::F8) {
+            return;
+        }
+        let Some(mut config) = config else {
+            return;
+        };
+        config.debug_outline = !config.debug_outline;
+        bevy::log::info!(
+            target: "ambition::portal",
+            "portal view-cone debug outline = {}",
+            config.debug_outline
+        );
+    }
+
     /// Dev off-switch: `F7` toggles the portal gun active/inactive so the
     /// always-on slice gun doesn't fire portals on every Attack while testing
     /// other sandbox mechanics. (Visible build only.) Final gating is via
@@ -104,6 +125,6 @@ mod host_adapter {
 
 #[cfg(feature = "portal_render")]
 pub use host_adapter::{
-    load_portal_gun_art, portal_dev_toggle_system, sync_portal_world_frame,
-    tag_portal_scene_bodies,
+    load_portal_gun_art, portal_dev_toggle_system, portal_view_debug_toggle_system,
+    sync_portal_world_frame, tag_portal_scene_bodies,
 };

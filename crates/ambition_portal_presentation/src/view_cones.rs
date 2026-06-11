@@ -75,6 +75,11 @@ pub struct PortalViewConeConfig {
     /// Tint multiplied over the capture (alpha slightly < 1 lets the host
     /// surface ghost through, selling "looking INTO the surface").
     pub tint: Color,
+    /// Debug: draw gizmo outlines of each portal's EXIT sample zone (the
+    /// `ViewCone::source` rect, in the portal's channel color, sitting in
+    /// front of its partner) and the entry window trapezoid. The host toggles
+    /// this (in Ambition: `F8`). Off by default.
+    pub debug_outline: bool,
 }
 
 impl Default for PortalViewConeConfig {
@@ -85,6 +90,7 @@ impl Default for PortalViewConeConfig {
             resolution: 256,
             z: 8.9,
             tint: Color::srgba(1.0, 1.0, 1.0, 0.9),
+            debug_outline: false,
         }
     }
 }
@@ -252,6 +258,14 @@ pub fn sync_portal_view_cones(
                 clear_color: ClearColorConfig::Custom(Color::NONE),
                 ..default()
             },
+            // CRITICAL: the offscreen target from `new_target_texture` is
+            // single-sampled, but a camera defaults to `Msaa::Sample4`. A
+            // 4×-MSAA camera rendering into a 1× target silently produces
+            // NOTHING — the image keeps its initial transparent clear, the
+            // window samples fully-transparent texels, and you see straight
+            // through the cone to the real world (which then pans/zooms with
+            // your main camera). Matching the target's sample count fixes it.
+            Msaa::Off,
             RenderTarget::Image(ImageRenderTarget::from(image)),
             Projection::Orthographic(OrthographicProjection {
                 scaling_mode: ScalingMode::Fixed {
@@ -267,6 +281,62 @@ pub fn sync_portal_view_cones(
             },
             Name::new(format!("Portal view capture ({})", portal.channel.name())),
         ));
+    }
+}
+
+/// Debug overlay (gated by [`PortalViewConeConfig::debug_outline`]): for every
+/// portal with a placed partner, outline the **exit sample zone** — the world
+/// rect (`ViewCone::source`, sitting in front of the partner) that this
+/// portal's capture camera frames — plus the entry window trapezoid where it
+/// is displayed. The sample zone is drawn in the portal's own channel color,
+/// so e.g. the purple portal's zone (bright purple) appears in front of the
+/// yellow portal: "purple samples HERE." When the zone doesn't sit where the
+/// exit actually is, the capture is mis-aimed; when it does but the window
+/// still looks wrong, the bug is in the texture/UVs, not the geometry.
+pub fn debug_portal_view_zones(
+    config: Res<PortalViewConeConfig>,
+    frame: Res<PortalWorldFrame>,
+    portals: Query<&PlacedPortal>,
+    mut gizmos: Gizmos,
+) {
+    if !config.debug_outline || frame.size == Vec2::ZERO {
+        return;
+    }
+    let all: Vec<PlacedPortal> = portals.iter().copied().collect();
+    let to_render = |p: Vec2| frame.to_render(p, 0.0).truncate();
+    for portal in &all {
+        let Some(partner) = find_portal(&all, portal.channel.partner()) else {
+            continue;
+        };
+        let cone = view_cone(
+            &portal.frame(),
+            &partner.frame(),
+            config.depth,
+            config.spread,
+        );
+        let (_, core) = portal.channel.display();
+
+        // Exit sample zone: the source rect, in render space (axis-aligned in
+        // world stays axis-aligned through the y-flip). Bright channel color.
+        let s = cone.source;
+        let zone = [
+            to_render(Vec2::new(s.min.x, s.min.y)),
+            to_render(Vec2::new(s.max.x, s.min.y)),
+            to_render(Vec2::new(s.max.x, s.max.y)),
+            to_render(Vec2::new(s.min.x, s.max.y)),
+            to_render(Vec2::new(s.min.x, s.min.y)),
+        ];
+        gizmos.linestrip_2d(zone, core);
+
+        // Entry window trapezoid: where the zone is displayed, dimmer so the
+        // two never read as the same shape.
+        let entry: Vec<Vec2> = cone
+            .entry_quad
+            .iter()
+            .chain(std::iter::once(&cone.entry_quad[0]))
+            .map(|p| to_render(*p))
+            .collect();
+        gizmos.linestrip_2d(entry, core.with_alpha(0.4));
     }
 }
 

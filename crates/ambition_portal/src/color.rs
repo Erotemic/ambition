@@ -57,6 +57,20 @@ pub enum PortalChannelColor {
     Magenta,
     Cyan,
     Rose,
+    /// A generated pair member by index — even = slot A, odd = slot B; the
+    /// partner is `Indexed(n ^ 1)`. Its display color is taken from a
+    /// golden-ratio hue wheel (slot B complementary to A), so a room can hold
+    /// arbitrarily many visibly-distinct pairs beyond the eight named ones.
+    /// `0..=7` overlap the named pairs in *index space* but the named variants
+    /// are preferred for authoring; use indices `8..` (pairs 4+) for the extra
+    /// channels. Max distinct pairs: 128 (`u8` / 2).
+    Indexed(u8),
+}
+
+/// Golden-ratio hue (degrees) for generated pair `pair_index`, so successive
+/// pairs are maximally far apart on the wheel.
+fn pair_hue(pair_index: u8) -> f32 {
+    (pair_index as f32 * 137.508).rem_euclid(360.0)
 }
 
 impl PortalChannelColor {
@@ -72,6 +86,7 @@ impl PortalChannelColor {
             Magenta => Green,
             Cyan => Rose,
             Rose => Cyan,
+            Indexed(n) => Indexed(n ^ 1),
         }
     }
 
@@ -80,18 +95,53 @@ impl PortalChannelColor {
         PortalChannel::Authored(self)
     }
 
-    /// Lowercase name, used in logs and as the LDtk authoring token.
-    pub fn name(self) -> &'static str {
+    /// Lowercase name, used in logs and as the LDtk authoring token. Generated
+    /// channels are `c{index}` (e.g. `c8`).
+    pub fn name(self) -> String {
         use PortalChannelColor::*;
         match self {
-            Purple => "purple",
-            Yellow => "yellow",
-            Teal => "teal",
-            Red => "red",
-            Green => "green",
-            Magenta => "magenta",
-            Cyan => "cyan",
-            Rose => "rose",
+            Purple => "purple".into(),
+            Yellow => "yellow".into(),
+            Teal => "teal".into(),
+            Red => "red".into(),
+            Green => "green".into(),
+            Magenta => "magenta".into(),
+            Cyan => "cyan".into(),
+            Rose => "rose".into(),
+            Indexed(n) => format!("c{n}"),
+        }
+    }
+
+    /// `(rim, core)` display tints for this authored channel. The eight named
+    /// channels keep their hand-tuned colors; generated channels derive a
+    /// saturated rim + light core from the [`pair_hue`] of their pair, with
+    /// slot B taken 180° around so a pair reads complementary like the named
+    /// ones.
+    pub fn rim_core(self) -> (Color, Color) {
+        use PortalChannelColor::*;
+        let named = |rim: [f32; 3], core: [f32; 3]| {
+            (
+                Color::srgb(rim[0], rim[1], rim[2]),
+                Color::srgb(core[0], core[1], core[2]),
+            )
+        };
+        match self {
+            Purple => named([0.55, 0.30, 0.95], [0.82, 0.66, 1.0]),
+            Yellow => named([0.95, 0.85, 0.18], [1.0, 0.96, 0.66]),
+            Teal => named([0.13, 0.76, 0.70], [0.64, 0.96, 0.92]),
+            Red => named([0.92, 0.22, 0.25], [1.0, 0.62, 0.62]),
+            Green => named([0.28, 0.80, 0.35], [0.72, 0.96, 0.74]),
+            Magenta => named([0.92, 0.25, 0.80], [1.0, 0.70, 0.95]),
+            Cyan => named([0.18, 0.92, 0.95], [0.70, 0.99, 1.0]),
+            Rose => named([1.0, 0.40, 0.62], [1.0, 0.74, 0.84]),
+            Indexed(n) => {
+                // Slot B (odd) is the complementary hue of its pair.
+                let hue = pair_hue(n / 2) + if n % 2 == 1 { 180.0 } else { 0.0 };
+                (
+                    Color::hsl(hue.rem_euclid(360.0), 0.72, 0.55),
+                    Color::hsl(hue.rem_euclid(360.0), 0.85, 0.80),
+                )
+            }
         }
     }
 
@@ -108,7 +158,11 @@ impl PortalChannelColor {
             "magenta" => Magenta,
             "cyan" => Cyan,
             "rose" => Rose,
-            _ => return None,
+            other => {
+                // Generated channels: `c{index}` (e.g. `c8`, `c9`).
+                let idx = other.strip_prefix('c')?.parse::<u8>().ok()?;
+                Indexed(idx)
+            }
         })
     }
 }
@@ -147,7 +201,6 @@ impl PortalChannel {
     /// `(rim, core)` display colors for the portal bar — partners are visibly
     /// complementary so a linked pair reads as a pair.
     pub fn display(self) -> (Color, Color) {
-        use PortalChannelColor::*;
         use PortalGunColor::*;
         match self {
             PortalChannel::Gun(Blue) => {
@@ -156,38 +209,15 @@ impl PortalChannel {
             PortalChannel::Gun(Orange) => {
                 (Color::srgb(1.0, 0.55, 0.20), Color::srgb(1.0, 0.86, 0.55))
             }
-            PortalChannel::Authored(Purple) => {
-                (Color::srgb(0.55, 0.30, 0.95), Color::srgb(0.82, 0.66, 1.0))
-            }
-            PortalChannel::Authored(Yellow) => {
-                (Color::srgb(0.95, 0.85, 0.18), Color::srgb(1.0, 0.96, 0.66))
-            }
-            PortalChannel::Authored(Teal) => {
-                (Color::srgb(0.13, 0.76, 0.70), Color::srgb(0.64, 0.96, 0.92))
-            }
-            PortalChannel::Authored(Red) => {
-                (Color::srgb(0.92, 0.22, 0.25), Color::srgb(1.0, 0.62, 0.62))
-            }
-            PortalChannel::Authored(Green) => {
-                (Color::srgb(0.28, 0.80, 0.35), Color::srgb(0.72, 0.96, 0.74))
-            }
-            PortalChannel::Authored(Magenta) => {
-                (Color::srgb(0.92, 0.25, 0.80), Color::srgb(1.0, 0.70, 0.95))
-            }
-            PortalChannel::Authored(Cyan) => {
-                (Color::srgb(0.18, 0.92, 0.95), Color::srgb(0.70, 0.99, 1.0))
-            }
-            PortalChannel::Authored(Rose) => {
-                (Color::srgb(1.0, 0.40, 0.62), Color::srgb(1.0, 0.74, 0.84))
-            }
+            PortalChannel::Authored(c) => c.rim_core(),
         }
     }
 
     /// Lowercase name, used in logs and entity naming.
-    pub fn name(self) -> &'static str {
+    pub fn name(self) -> String {
         match self {
-            PortalChannel::Gun(PortalGunColor::Blue) => "blue",
-            PortalChannel::Gun(PortalGunColor::Orange) => "orange",
+            PortalChannel::Gun(PortalGunColor::Blue) => "blue".into(),
+            PortalChannel::Gun(PortalGunColor::Orange) => "orange".into(),
             PortalChannel::Authored(c) => c.name(),
         }
     }
@@ -202,5 +232,29 @@ impl From<PortalGunColor> for PortalChannel {
 impl From<PortalChannelColor> for PortalChannel {
     fn from(c: PortalChannelColor) -> Self {
         PortalChannel::Authored(c)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Generated channels pair by index parity, parse round-trip via `c{N}`,
+    /// and yield distinct colors — so a room can hold many pairs past the eight
+    /// named ones.
+    #[test]
+    fn indexed_channels_pair_parse_and_color() {
+        use PortalChannelColor::Indexed;
+        // Pair (8,9): partners of each other, distinct from named pairs.
+        assert_eq!(Indexed(8).partner(), Indexed(9));
+        assert_eq!(Indexed(9).partner(), Indexed(8));
+        // Name round-trips through the LDtk token.
+        assert_eq!(Indexed(8).name(), "c8");
+        assert_eq!(PortalChannelColor::from_name("c8"), Some(Indexed(8)));
+        assert_eq!(PortalChannelColor::from_name("purple"), Some(PortalChannelColor::Purple));
+        // A pair's two slots are complementary (different) colors.
+        let (rim_a, _) = Indexed(8).rim_core();
+        let (rim_b, _) = Indexed(9).rim_core();
+        assert_ne!(rim_a, rim_b);
     }
 }

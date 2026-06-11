@@ -23,7 +23,10 @@ pub const AIR_ACCEL: f32 = 3100.0;
 pub const GROUND_FRICTION: f32 = 7600.0;
 pub const AIR_FRICTION: f32 = 650.0;
 pub const MAX_RUN_SPEED: f32 = 270.0;
-pub const MAX_FALL_SPEED: f32 = 950.0;
+// Raised for momentum-preserving portal play (Portal-style flings): you
+// can build and carry much more speed before the fall cap clips it. The
+// fast-fall cap scales with it.
+pub const MAX_FALL_SPEED: f32 = 1900.0;
 pub const JUMP_SPEED: f32 = 630.0;
 pub const DOUBLE_JUMP_SPEED: f32 = 520.0;
 pub const WALL_JUMP_X: f32 = 430.0;
@@ -52,7 +55,7 @@ pub const BLINK_MAX_DOWNWARD_SPEED: f32 = 55.0;
 /// Maximum downward velocity immediately after a precision blink.
 pub const PRECISION_BLINK_MAX_DOWNWARD_SPEED: f32 = 18.0;
 pub const FAST_FALL_ACCEL: f32 = 1850.0;
-pub const FAST_FALL_SPEED: f32 = 1380.0;
+pub const FAST_FALL_SPEED: f32 = 2400.0;
 /// Glide / slow-fall vertical cap. Roughly 1/5 of `MAX_FALL_SPEED` so
 /// the held-jump glide feels distinctly hover-y without becoming
 /// effectively-flying. Pair with `MovementTuning::glide_air_accel` for

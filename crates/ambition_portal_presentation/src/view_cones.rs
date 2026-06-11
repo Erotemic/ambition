@@ -91,9 +91,21 @@ pub struct PortalViewConeConfig {
     /// from the minimum cone. When false, windows render the static, always-on
     /// `view_cone` — the "always show this much" mode that needs no viewer.
     pub viewer_gated: bool,
-    /// How far the **viewer-dependent** wedge may extend behind the surface
-    /// (world px). Demo: ~1 tile so the window only peeks just past the wall.
-    pub max_depth: f32,
+    /// Max window depth behind the surface (world px), reached when the viewer
+    /// is within `dist_close` of the aperture — the "large maximum." The depth
+    /// is proximity-proportional: the closer you are, the deeper you see (down
+    /// to `depth_far` when beyond `dist_far`). The world bounds still clip it.
+    pub depth_close: f32,
+    /// Min window depth behind the surface (world px), reached when the viewer
+    /// is beyond `dist_far`.
+    pub depth_far: f32,
+    /// Viewer→aperture distance (world px) at/below which depth = `depth_close`.
+    pub dist_close: f32,
+    /// Viewer→aperture distance (world px) at/beyond which depth = `depth_far`.
+    pub dist_far: f32,
+    /// Z range over which nearer portals' windows draw ON TOP of farther ones
+    /// (added to `z` by an inverse-distance bias). Kept under the rim gap.
+    pub z_proximity_span: f32,
     /// How quickly the window opens/closes between the minimum cone and the
     /// visible wedge (per second, exponential approach) — the temporal half of
     /// the smooth blend; the spatial half is the 4-corner visibility fraction.
@@ -142,7 +154,11 @@ impl Default for PortalViewConeConfig {
     fn default() -> Self {
         Self {
             viewer_gated: true,
-            max_depth: 80.0,
+            depth_close: 520.0,
+            depth_far: 44.0,
+            dist_close: 70.0,
+            dist_far: 900.0,
+            z_proximity_span: 0.35,
             blend_rate: 10.0,
             min_depth: 22.0,
             min_spread: 0.12,
@@ -151,7 +167,7 @@ impl Default for PortalViewConeConfig {
             spread: 0.20,
             texels_per_world_px: 1.0,
             max_resolution: 2048,
-            z: 8.9,
+            z: 8.55,
             // Opaque white: the window draws over what it is in front of.
             tint: Color::WHITE,
             debug_outline: false,
@@ -202,7 +218,7 @@ fn capture_dims(config: &PortalViewConeConfig, world_size: Vec2, exit_normal: Ve
     let density = config.texels_per_world_px.max(0.05);
     let long = ((world_size.x.max(world_size.y) * density) as u32)
         .clamp(256, config.max_resolution.max(256));
-    let short = (((config.max_depth.max(config.min_depth) * 2.0 * density) as u32)
+    let short = (((config.depth_close.max(config.min_depth) * 2.0 * density) as u32)
         .next_power_of_two())
     .clamp(64, 512);
     if exit_normal.x.abs() > 0.5 {
@@ -357,11 +373,18 @@ fn compute_cone(
         return closed(min); // behind both ends
     };
     let faced = if via_partner { &exit } else { &enter };
+    // Proximity-proportional depth: deep when close to the aperture, shallow
+    // when far (smoothstep between dist_close→depth_close and
+    // dist_far→depth_far). The world clip still bounds it.
+    let dist = v.eye.distance(faced.pos);
+    let dt = ((dist - config.dist_close) / (config.dist_far - config.dist_close).max(1.0))
+        .clamp(0.0, 1.0);
+    let depth = config.depth_close + (config.depth_far - config.depth_close) * smooth01(dt);
     // Visibility fraction: all four body corners ray-test to the faced
     // aperture (lifted target). Skipped (fully visible) when basically at the
     // doorway — straddling/transiting, where sight is trivially clear and the
     // rays would graze the host blocks.
-    let target = if v.eye.distance(faced.pos) <= LOS_NEAR_SKIP {
+    let target = if dist <= LOS_NEAR_SKIP {
         1.0
     } else {
         let h = v.half_size;
@@ -383,7 +406,7 @@ fn compute_cone(
     // The wedge runs to the half-plane: far extent past every world bound (the
     // renderer clips to the world rect afterwards).
     let far_extent = world_size.x + world_size.y;
-    let Some(wedge) = aperture_wedge(&enter, &exit, eye, config.max_depth, far_extent) else {
+    let Some(wedge) = aperture_wedge(&enter, &exit, eye, depth, far_extent) else {
         return closed(min);
     };
     ConePlan {
@@ -494,6 +517,16 @@ fn smooth01(t: f32) -> f32 {
     t * t * (3.0 - 2.0 * t)
 }
 
+/// Render z for a portal's window biased by viewer proximity, so the portal
+/// you are closest to draws ON TOP of the others (inverse-distance, bounded by
+/// `span` and kept under the rim gap). No viewer ⇒ base z.
+fn proximity_z(config: &PortalViewConeConfig, viewer: Option<&PortalViewer>, portal_pos: Vec2) -> f32 {
+    let dist = viewer
+        .filter(|v| v.present)
+        .map_or(f32::INFINITY, |v| v.eye.distance(portal_pos));
+    config.z + config.z_proximity_span / (1.0 + dist / 200.0)
+}
+
 /// Maintain + update one rig per placed portal with a placed partner: spawn
 /// missing, despawn stale, and update every live rig's geometry in place each
 /// frame (the viewer moves, so the cone changes continuously).
@@ -563,7 +596,8 @@ pub fn sync_portal_view_cones(
         let step = (config.blend_rate * time.delta_secs()).clamp(0.0, 1.0);
         rig.blend += (plan.target - rig.blend) * step;
         let cone = blend_cones(&plan.min, &plan.wedge, smooth01(rig.blend), &enter, &exit);
-        let render = cone_render(&cone, &enter, &exit, &frame, config.z);
+        let z = proximity_z(&config, viewer, portal.pos);
+        let render = cone_render(&cone, &enter, &exit, &frame, z);
         match render {
             Some(r) => {
                 if let Some(mesh) = meshes.get_mut(&rig.mesh) {
@@ -614,7 +648,8 @@ pub fn sync_portal_view_cones(
         let plan = compute_cone(portal, &partner, &config, viewer, frame.size);
         // Spawn at the target blend (no opening animation on appear).
         let cone = blend_cones(&plan.min, &plan.wedge, smooth01(plan.target), &enter, &exit);
-        let render = cone_render(&cone, &enter, &exit, &frame, config.z);
+        let z = proximity_z(&config, viewer, portal.pos);
+        let render = cone_render(&cone, &enter, &exit, &frame, z);
         let mesh = meshes.add(match &render {
             Some(r) => make_mesh(r),
             None => placeholder_mesh(),
@@ -630,7 +665,7 @@ pub fn sync_portal_view_cones(
         let (cone_tf, cone_vis) = match &render {
             Some(r) => (Transform::from_translation(r.centroid), Visibility::Inherited),
             None => (
-                Transform::from_translation(Vec3::new(0.0, 0.0, config.z)),
+                Transform::from_translation(Vec3::new(0.0, 0.0, z)),
                 Visibility::Hidden,
             ),
         };

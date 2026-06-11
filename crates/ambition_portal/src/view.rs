@@ -600,19 +600,31 @@ mod tests {
         );
     }
 
-    /// An off-axis viewer skews the wedge: looking from the left, the far edge
-    /// shifts right (you see more of the far side through the slit).
+    /// An off-axis viewer skews the wedge: through a slit you see the FAR side,
+    /// away from you (looking from the left, the visible far edge shifts
+    /// right). Pinned for BOTH a floor portal AND a ceiling portal (the
+    /// magenta case) so the skew direction is identical regardless of which
+    /// way the surface faces — a ceiling never inverts.
     #[test]
-    fn visible_cone_skews_with_viewer_angle() {
+    fn visible_cone_skews_away_from_viewer_floor_and_ceiling() {
+        // Floor (normal up): eye up-and-LEFT ⇒ far edge to the RIGHT.
         let enter = floor(Vec2::new(100.0, 300.0));
         let exit = right_wall(Vec2::new(400.0, 200.0));
-        // Eye up and to the LEFT of center.
         let cone = visible_cone(&enter, &exit, Vec2::new(40.0, 220.0), 80.0, 400.0).unwrap();
         let [_, _, f1, f0] = cone.entry_quad;
-        // Far edge center is pushed to the RIGHT of the aperture center (x=100).
         assert!(
             (f0.x + f1.x) * 0.5 > 100.0,
-            "off-left viewer pushes the far edge right, got {}",
+            "floor: off-left viewer ⇒ far edge right, got {}",
+            (f0.x + f1.x) * 0.5
+        );
+        // Ceiling (normal DOWN, +y): eye BELOW and to the LEFT ⇒ far edge still
+        // to the RIGHT (consistent — no ceiling-specific inversion).
+        let ceil = frame(Vec2::new(100.0, 300.0), Vec2::new(0.0, 1.0));
+        let cone = visible_cone(&ceil, &exit, Vec2::new(40.0, 380.0), 80.0, 400.0).unwrap();
+        let [_, _, f1, f0] = cone.entry_quad;
+        assert!(
+            (f0.x + f1.x) * 0.5 > 100.0,
+            "ceiling: off-left viewer ⇒ far edge right, got {}",
             (f0.x + f1.x) * 0.5
         );
     }

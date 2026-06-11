@@ -73,3 +73,21 @@ Entry format:
 ## Resolved
 
 (none yet)
+
+## Portal body transit has no exit push-out (NPCs can stick in the exit wall) — 2026-06-11
+`placement::transfer_step` places a transited body at `pp::map_point(centroid)`
+— right at the exit FACE, with NO push-out along the exit normal (the comment
+calls this deliberate: reversibility + "emerges right at the face"). The
+PLAYER clears the wall over the next frames via the exit-normal `MIN_EXIT_SPEED`
+floor + the carve + collision resolution. But GROUND ITEMS get an explicit
+`pos = exit.pos + exit.normal * portal_exit_clearance(half_extent, normal)`
+(transit.rs ~412) — bodies do NOT. So a body whose exit velocity is low or
+whose collision resolution differs (the kernel NPC, reported by Jon: "gets
+stuck in the wall sometimes when you portal him around") can emerge embedded
+and never get pushed clear → stuck.
+Likely fix: clamp the body exit depth to at least `portal_exit_clearance` along
+the exit normal (preserving the along-surface offset), mirroring ground items.
+RISK: changes core transit placement for the player too and touches the
+"reversibility" property — must go through the replay/differential fixtures
+(scripted_gameplay / replay_fixture_regression), so do it as its own focused
+slice, not folded into a visuals change.

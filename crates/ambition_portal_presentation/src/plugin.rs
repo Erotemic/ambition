@@ -10,6 +10,8 @@ use bevy::prelude::*;
 #[cfg(feature = "effect_view_cones")]
 use crate::view_cones;
 use crate::visuals;
+#[cfg(feature = "effect_view_cones")]
+use crate::PortalDebugOverlay;
 use crate::{PortalAimHint, PortalEffectSelection, PortalWorldFrame};
 
 /// The one schedule label every portal visual runs in. Hosts order this set
@@ -100,6 +102,7 @@ impl Plugin for PortalPresentationPlugin {
             // The viewer seam (host-synced each frame); empty/absent ⇒ static
             // window fallback. Init here so the host can `ResMut` it.
             app.init_resource::<view_cones::PortalViewer>();
+            app.init_resource::<PortalDebugOverlay>();
             app.add_systems(
                 Update,
                 (

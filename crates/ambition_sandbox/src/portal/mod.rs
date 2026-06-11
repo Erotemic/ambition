@@ -42,7 +42,7 @@ mod host_adapter {
 
     use ambition_platformer_runtime::world_query::SolidWorldQuery;
     use ambition_portal_presentation::{
-        PortalGunArt, PortalSceneBody, PortalViewConeConfig, PortalViewer, PortalWorldFrame,
+        PortalDebugOverlay, PortalGunArt, PortalSceneBody, PortalViewer, PortalWorldFrame,
     };
 
     use crate::abilities::traversal::possession::PossessionState;
@@ -120,19 +120,15 @@ mod host_adapter {
         });
     }
 
-    /// Drive the portal view-cone debug outline (each portal's exit sample
-    /// zone + entry window trapezoid) off the standard `F1` debug overlay,
-    /// rather than a key of its own — so it shows exactly when the rest of the
-    /// F1 debug drawing is on. Mirrors the `SandboxDevState.debug` flag into
-    /// the crate-owned config each frame.
-    pub fn sync_portal_view_debug_to_f1(
+    /// Drive the portal debug overlay's host-side F1 gate from the standard
+    /// `SandboxDevState.debug` flag, so the portal gizmos stay quiet unless the
+    /// global debug overlay is on.
+    pub fn sync_portal_debug_overlay_to_f1(
         dev_state: Res<crate::SandboxDevState>,
-        config: Option<ResMut<PortalViewConeConfig>>,
+        debug: Option<ResMut<PortalDebugOverlay>>,
     ) {
-        if let Some(mut config) = config {
-            if config.debug_outline != dev_state.debug {
-                config.debug_outline = dev_state.debug;
-            }
+        if let Some(mut debug) = debug {
+            debug.enabled = dev_state.debug;
         }
     }
 
@@ -185,6 +181,6 @@ mod host_adapter {
 #[cfg(feature = "portal_render")]
 pub use host_adapter::{
     load_portal_gun_art, portal_convention_toggle_system, portal_dev_toggle_system,
-    sync_portal_view_debug_to_f1, sync_portal_viewer, sync_portal_world_frame,
+    sync_portal_debug_overlay_to_f1, sync_portal_viewer, sync_portal_world_frame,
     tag_portal_scene_bodies,
 };

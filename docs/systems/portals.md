@@ -245,6 +245,11 @@ feel changes — but they are still departures from a purely ideal portal.
   glyph over the player shows exactly while the held input is portal-warped (the
   "holding left, moving right" state), and vanishes when the warp drops. A
   placeholder for a nicer effect (incl. on the joystick visual) later.
+- **Portal view-cone gizmos**: the F1 debug overlay now gates portal LOS/debug
+  drawing, while the F3 `PortalViewConeConfig` lets you toggle the view-zone
+  outlines and the LOS-ray overlay independently. The LOS rays turn bright when
+  the viewer corner can actually see into the portal and truncate at the wall
+  when they do not, which makes wall-corner leaks much easier to diagnose.
 
 ## Gravity
 

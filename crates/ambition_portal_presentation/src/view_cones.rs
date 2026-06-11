@@ -95,6 +95,15 @@ pub struct PortalViewer {
     pub occluders: Vec<ae::Aabb>,
 }
 
+/// Host seam: whether the F1 debug overlay is currently active. Portal debug
+/// gizmos stay quiet unless this is on, even when their individual F3 toggles
+/// are enabled.
+#[derive(Resource, Clone, Debug, Default)]
+pub struct PortalDebugOverlay {
+    /// True while the host's F1 debug mode is active.
+    pub enabled: bool,
+}
+
 /// Tuning for the view windows. A host overwrites the resource to retune; set
 /// [`PortalPresentationPlugin::view_cones`](crate::PortalPresentationPlugin)
 /// to `false` to drop the feature (and its capture passes) entirely.
@@ -170,9 +179,12 @@ pub struct PortalViewConeConfig {
     pub tint: Color,
     /// Debug: draw gizmo outlines of each portal's EXIT sample zone (the
     /// `ViewCone::source` rect, in the portal's channel color, in front of its
-    /// partner) and the entry window. Driven host-side (in Ambition, off the
-    /// standard `F1` debug overlay). Off by default.
+    /// partner) and the entry window.
     pub debug_outline: bool,
+    /// Debug: draw the four line-of-sight rays used to decide whether the
+    /// viewer can see into the portal. Rays that reach the aperture are drawn
+    /// brightly; rays blocked by a wall are truncated at the blocker.
+    pub debug_los_rays: bool,
 }
 
 impl Default for PortalViewConeConfig {
@@ -202,7 +214,8 @@ impl Default for PortalViewConeConfig {
             // full-brightness chaotic fractal (see the field docs). 1.0 brings
             // back the chaos; lower fades faster.
             tint: Color::srgb(0.8, 0.8, 0.8),
-            debug_outline: false,
+            debug_outline: true,
+            debug_los_rays: false,
         }
     }
 }
@@ -336,6 +349,54 @@ impl SolidWorldQuery for SliceSolids<'_> {
 /// the faced aperture: at/in the doorway the ray would only graze the host
 /// surface's own (uncarved) blocks and false-positive.
 const LOS_NEAR_SKIP: f32 = 70.0;
+/// Pull LOS sample points slightly inward from the body corners so a corner
+/// that is flush against a wall does not sneak through as "clear" by exact
+/// point geometry.
+const LOS_SAMPLE_INSET: f32 = 2.0;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct ApertureLosRay {
+    origin: Vec2,
+    target: Vec2,
+    hit: Option<Vec2>,
+}
+
+fn aperture_los_ray(eye: Vec2, enter: &PortalFrame, occluders: &[ae::Aabb]) -> ApertureLosRay {
+    let target = enter.pos + enter.normal * 12.0;
+    let d = target - eye;
+    let dist = d.length();
+    if dist < 2.0 {
+        return ApertureLosRay {
+            origin: eye,
+            target,
+            hit: None,
+        };
+    }
+    let hit = raycast_solids(
+        &SliceSolids(occluders),
+        eye,
+        d,
+        (dist - 4.0).max(0.0),
+        false,
+    )
+    .map(|(hit, _)| hit);
+    ApertureLosRay {
+        origin: eye,
+        target,
+        hit,
+    }
+}
+
+fn inset_viewer_corners(eye: Vec2, half_size: Vec2) -> [Vec2; 4] {
+    let inset = Vec2::splat(LOS_SAMPLE_INSET).min(half_size.max(Vec2::ZERO));
+    let h = (half_size - inset).max(Vec2::ZERO);
+    [
+        eye + Vec2::new(-h.x, -h.y),
+        eye + Vec2::new(h.x, -h.y),
+        eye + Vec2::new(h.x, h.y),
+        eye + Vec2::new(-h.x, h.y),
+    ]
+}
 
 /// Is the line of sight from `eye` to the aperture blocked by a solid? The
 /// target is lifted a little OFF the surface (along the normal) so the ray
@@ -343,20 +404,7 @@ const LOS_NEAR_SKIP: f32 = 70.0;
 /// floor line would otherwise clip the (uncarved) host blocks themselves —
 /// and the cast still stops short of the lifted point.
 fn aperture_occluded(eye: Vec2, enter: &PortalFrame, occluders: &[ae::Aabb]) -> bool {
-    let target = enter.pos + enter.normal * 12.0;
-    let d = target - eye;
-    let dist = d.length();
-    if dist < 2.0 {
-        return false;
-    }
-    raycast_solids(
-        &SliceSolids(occluders),
-        eye,
-        d,
-        (dist - 4.0).max(0.0),
-        false,
-    )
-    .is_some()
+    aperture_los_ray(eye, enter, occluders).hit.is_some()
 }
 
 /// One frame's window plan for a pair: the minimum cone, the (full) visible
@@ -406,12 +454,7 @@ fn compute_cone(
         return closed(min);
     };
     let h = v.half_size;
-    let corners = [
-        v.eye + Vec2::new(-h.x, -h.y),
-        v.eye + Vec2::new(h.x, -h.y),
-        v.eye + Vec2::new(h.x, h.y),
-        v.eye + Vec2::new(-h.x, h.y),
-    ];
+    let corners = inset_viewer_corners(v.eye, h);
     // Eye set for this end's wedge: the viewer's REAL AABB corners (those in
     // front of `enter` contribute) PLUS, for any corner that has crossed the
     // partner plane, its sprite-trick SHADOW (the body-map image, which emerges
@@ -800,24 +843,27 @@ pub fn sync_portal_view_cones(
     }
 }
 
-/// Debug overlay (gated by [`PortalViewConeConfig::debug_outline`]): for every
-/// portal with a placed partner, outline the **exit sample zone** (the world
-/// rect `ViewCone::source` in front of the partner, in the portal's channel
-/// color) and the entry window. Uses the SAME `compute_cone` as the renderer,
-/// so the gizmo reflects the live viewer-dependent wedge (or nothing, when the
-/// aperture is occluded). The sample zone shows where the capture samples from;
-/// the entry window shows where it is displayed.
+/// Debug overlay for portal view cones: when the host's F1 debug overlay is on,
+/// optional F3 toggles can draw the **exit sample zone** (the world rect
+/// `ViewCone::source` in front of the partner, in the portal's channel color),
+/// the entry window, and/or the LOS rays that decide whether the viewer can see
+/// through the aperture. Uses the SAME `compute_cone` as the renderer, so the
+/// gizmo reflects the live viewer-dependent wedge (or nothing, when the
+/// aperture is occluded). The sample zone shows where the capture samples
+/// from; the entry window shows where it is displayed.
 pub fn debug_portal_view_zones(
     selection: Res<crate::PortalEffectSelection>,
     config: Res<PortalViewConeConfig>,
+    debug: Res<PortalDebugOverlay>,
     viewer: Option<Res<PortalViewer>>,
     frame: Res<PortalWorldFrame>,
     portals: Query<&PlacedPortal>,
     mut gizmos: Gizmos,
 ) {
     if selection.active != crate::PortalVisualEffect::ViewCones
-        || !config.debug_outline
+        || !debug.enabled
         || frame.size == Vec2::ZERO
+        || (!config.debug_outline && !config.debug_los_rays)
     {
         return;
     }
@@ -833,27 +879,76 @@ pub fn debug_portal_view_zones(
         let cone = blend_cones(&plan.min, &plan.wedge, smooth01(plan.target), &enter, &exit);
         let (_, core) = portal.channel.display();
 
-        // Exit sample zone: the source rect (axis-aligned in world stays
-        // axis-aligned through the y-flip). Bright channel color.
-        let s = cone.source;
-        gizmos.linestrip_2d(
-            [
-                to_render(Vec2::new(s.min.x, s.min.y)),
-                to_render(Vec2::new(s.max.x, s.min.y)),
-                to_render(Vec2::new(s.max.x, s.max.y)),
-                to_render(Vec2::new(s.min.x, s.max.y)),
-                to_render(Vec2::new(s.min.x, s.min.y)),
-            ],
-            core,
-        );
-        // Entry window, dimmer so the two never read as the same shape.
-        let entry: Vec<Vec2> = cone
-            .entry_quad
-            .iter()
-            .chain(std::iter::once(&cone.entry_quad[0]))
-            .map(|p| to_render(*p))
-            .collect();
-        gizmos.linestrip_2d(entry, core.with_alpha(0.4));
+        if config.debug_outline {
+            // Exit sample zone: the source rect (axis-aligned in world stays
+            // axis-aligned through the y-flip). Bright channel color.
+            let s = cone.source;
+            gizmos.linestrip_2d(
+                [
+                    to_render(Vec2::new(s.min.x, s.min.y)),
+                    to_render(Vec2::new(s.max.x, s.min.y)),
+                    to_render(Vec2::new(s.max.x, s.max.y)),
+                    to_render(Vec2::new(s.min.x, s.max.y)),
+                    to_render(Vec2::new(s.min.x, s.min.y)),
+                ],
+                core,
+            );
+            // Entry window, dimmer so the two never read as the same shape.
+            let entry: Vec<Vec2> = cone
+                .entry_quad
+                .iter()
+                .chain(std::iter::once(&cone.entry_quad[0]))
+                .map(|p| to_render(*p))
+                .collect();
+            gizmos.linestrip_2d(entry, core.with_alpha(0.4));
+        }
+
+        if config.debug_los_rays {
+            let Some(viewer) = viewer.filter(|v| v.present) else {
+                continue;
+            };
+            let corners = inset_viewer_corners(viewer.eye, viewer.half_size);
+            let faced = if viewer.eye.distance(enter.pos) <= viewer.eye.distance(exit.pos) {
+                &enter
+            } else {
+                &exit
+            };
+            let near = viewer.eye.distance(faced.pos) <= LOS_NEAR_SKIP;
+            for origin in corners {
+                let ray = if near {
+                    ApertureLosRay {
+                        origin,
+                        target: faced.pos + faced.normal * 12.0,
+                        hit: None,
+                    }
+                } else {
+                    aperture_los_ray(origin, faced, &viewer.occluders)
+                };
+                let clear = ray.hit.is_none();
+                let end = ray.hit.unwrap_or(ray.target);
+                let color = if clear {
+                    core.with_alpha(0.95)
+                } else {
+                    core.with_alpha(0.30)
+                };
+                let hit_color = if clear {
+                    Color::srgba(0.14, 1.00, 0.65, 0.95)
+                } else {
+                    Color::srgba(1.00, 0.32, 0.28, 0.80)
+                };
+                gizmos.line_2d(to_render(ray.origin), to_render(end), color);
+                gizmos.line_2d(
+                    to_render(end + Vec2::new(-3.0, -3.0)),
+                    to_render(end + Vec2::new(3.0, 3.0)),
+                    hit_color,
+                );
+                gizmos.line_2d(
+                    to_render(end + Vec2::new(-3.0, 3.0)),
+                    to_render(end + Vec2::new(3.0, -3.0)),
+                    hit_color,
+                );
+            }
+        }
     }
 }
 
@@ -933,6 +1028,41 @@ mod tests {
         assert!(!aperture_occluded(eye, &enter, &[aside]));
         // No occluders at all → clear.
         assert!(!aperture_occluded(eye, &enter, &[]));
+    }
+
+    /// The debug ray helper reports the same blocker that the occlusion test
+    /// uses, and stays clear when nothing blocks the aperture.
+    #[test]
+    fn aperture_los_ray_reports_blockers_and_clear_paths() {
+        let enter = PortalFrame {
+            pos: Vec2::new(100.0, 300.0),
+            normal: Vec2::new(0.0, -1.0),
+            half_extent: Vec2::new(46.0, 9.0),
+        };
+        let eye = Vec2::new(100.0, 100.0);
+        let wall = ae::Aabb::new(Vec2::new(100.0, 200.0), Vec2::new(40.0, 8.0));
+        let blocked = aperture_los_ray(eye, &enter, &[wall]);
+        assert_eq!(blocked.target, enter.pos + enter.normal * 12.0);
+        assert!(blocked.hit.is_some());
+        assert!(aperture_occluded(eye, &enter, &[wall]));
+
+        let clear = aperture_los_ray(eye, &enter, &[]);
+        assert_eq!(clear.target, enter.pos + enter.normal * 12.0);
+        assert!(clear.hit.is_none());
+        assert!(!aperture_occluded(eye, &enter, &[]));
+    }
+
+    /// The inset corner sampler pulls each corner inward by the configured
+    /// amount, without reordering the corners.
+    #[test]
+    fn inset_viewer_corners_are_conservative_and_stable() {
+        let eye = Vec2::new(100.0, 100.0);
+        let half_size = Vec2::new(20.0, 12.0);
+        let corners = inset_viewer_corners(eye, half_size);
+        assert_eq!(corners[0], Vec2::new(82.0, 90.0));
+        assert_eq!(corners[1], Vec2::new(118.0, 90.0));
+        assert_eq!(corners[2], Vec2::new(118.0, 110.0));
+        assert_eq!(corners[3], Vec2::new(82.0, 110.0));
     }
 
     /// World clipping: a half-plane-sized wedge clips to the world rect, the

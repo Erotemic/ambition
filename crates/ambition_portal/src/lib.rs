@@ -99,7 +99,7 @@ pub use types::{
     find_portal, portal_half_extent, PlacedPortal, PortalTransitCooldown, MIN_EXIT_SPEED,
     PORTAL_VISUAL_THICKNESS,
 };
-pub use view::{view_cone, view_point, PortalViewMap, ViewCone};
+pub use view::{view_cone, view_point, visible_cone, PortalViewMap, ViewCone};
 
 pub use plugin::{PortalPlugin, PortalSimulationPlugin};
 pub use schedule::PortalSet;

@@ -1,43 +1,41 @@
-//! Through-portal **view windows**: each placed portal shows a trapezoid of
-//! the world in front of its partner, receding INTO its host surface — you
-//! look "through the portal a little bit," like glass set in the wall —
-//! rendered live by an offscreen capture camera.
+//! Through-portal **view windows**: each placed portal shows a slice of the
+//! world in front of its partner, set into its host surface — you look "through
+//! the portal a little bit" — rendered live by an offscreen capture camera.
 //!
-//! ## How it works
-//! Per placed portal with a placed partner, a **rig**: an offscreen image, a
-//! capture `Camera2d` parked over the partner-side source rect, and a window
-//! `Mesh2d` set into the entry's surface, textured with that image. All
-//! geometry comes from `ambition_portal::view::view_cone` (window semantics:
-//! the display map IS the body map, so the window image and a transiting body
-//! agree at the face by construction):
+//! ## Viewer-dependent visibility
+//! By default the window is the wedge of the surface the **controlled
+//! character** can actually see through the aperture (its sightline frustum
+//! through the slit), via `ambition_portal::view::visible_cone` from a
+//! host-supplied [`PortalViewer`]: the wedge skews with the viewer's angle to
+//! the surface, widens as they near the portal, and vanishes when a wall
+//! occludes the line of sight (a short raycast over [`PortalViewer::occluders`])
+//! or the viewer steps behind the surface. Set
+//! [`PortalViewConeConfig::viewer_gated`] to `false` (or leave the viewer
+//! unset) to fall back to the static, always-on `view_cone` — the
+//! "render unconditionally" mode.
 //!
-//! - the capture camera stays **axis-aligned** framing `ViewCone::source`
-//!   (exact for axis-aligned portals);
-//! - the body map's rotation+mirror lives entirely in the **UV mapping**:
-//!   vertex `i` of the window shows `source_quad[i]`, normalized inside the
-//!   source rect. Sim math is the single source of truth for what appears
-//!   where; a UV-space mirror costs nothing on a textured mesh.
+//! ## How a rig works
+//! Per placed portal with a placed partner, a **rig**: one offscreen image, a
+//! capture `Camera2d` framing the partner-side source rect, and a window
+//! `Mesh2d` set into the entry's surface. The display map is the body map, so
+//! the window content agrees with a transiting body at the face; the body
+//! map's rotation+mirror lives entirely in the **UV mapping** (`cone_uvs`,
+//! pinned below), and the capture camera stays axis-aligned. The capture
+//! renders into a fixed **square** texture; non-square source rects are stored
+//! stretched and un-stretched by the UVs (mesh geometry is world-space), so the
+//! texture never needs resizing as the viewer-dependent rect changes shape.
 //!
-//! Texture v runs top-down and the capture's top edge is the world rect's
-//! min-y edge (render y-up flips twice), so `uv = (s - source.min) / size`
-//! with no flip — pinned by `cone_uvs`' unit test below.
+//! Because the cone follows a moving viewer, rigs are **updated in place every
+//! frame** (mesh attributes + camera transform/projection + visibility) and
+//! only spawned/despawned when the set of portal pairs — or the world size /
+//! capture resolution — changes. No per-frame texture or entity churn.
 //!
-//! ## 1-frame-lag infinite recursion
-//! Window meshes are ordinary world entities on the default render layer, so
-//! capture cameras see OTHER portals' windows. When a portal's host surface
-//! lies inside its partner's capture rect (portals facing each other within
-//! window depth), the captured window displays the image its own camera wrote
-//! last frame — portal-through-portal recursion with one frame of lag per
-//! depth level, Portal-style, zero extra code. No camera ever samples the
-//! image it is writing (P's window shows the capture made near P's partner;
-//! cross-sampling only, by construction). And because windows recede into
-//! walls while captures frame the open room in FRONT of faces, a partner's
-//! window never sits inside its own capture — the "portal showing its own
-//! side back at you" artifact of a protruding-projection design can't happen.
-//!
-//! Rigs are keyed on the portal pair + config + world size and rebuilt only
-//! when a key changes (a portal moved / appeared / vanished) — cameras and
-//! render targets are NOT per-frame churn, unlike the cheap quad visuals.
+//! ## 1-frame-lag recursion
+//! Window meshes live on the default render layer, so capture cameras see other
+//! portals' windows. Two portals facing each other within window depth show one
+//! frame of through-portal recursion per level, Portal-style, for free — and no
+//! camera ever samples the image it writes (P's window shows the capture made
+//! near P's partner; cross-sampling only, by construction).
 
 use bevy::asset::RenderAssetUsages;
 use bevy::camera::{ImageRenderTarget, RenderTarget, ScalingMode};
@@ -46,84 +44,178 @@ use bevy::prelude::*;
 use bevy::render::render_resource::TextureFormat;
 use bevy::sprite_render::AlphaMode2d;
 
-use ambition_engine_core::AabbExt;
-use ambition_portal::view::view_cone;
-use ambition_portal::{find_portal, PlacedPortal};
+use ambition_engine_core::{self as ae, AabbExt};
+use ambition_platformer_runtime::world_query::{raycast_solids, SolidWorldQuery};
+use ambition_portal::pieces::PortalFrame;
+use ambition_portal::view::{view_cone, visible_cone, ViewCone};
+use ambition_portal::{find_portal, PlacedPortal, PortalChannel};
 
 use crate::PortalWorldFrame;
 
-/// Tuning for the view cones. A host overwrites the resource to retune; set
+/// Clear color of an offscreen capture: a dark tone shows through wherever the
+/// exit room has no geometry (rare — parallax usually fills it). Opaque windows
+/// draw it directly, so keep it unobtrusive.
+const CAPTURE_CLEAR: Color = Color::srgb(0.03, 0.04, 0.05);
+
+/// Host seam: the controlled character's eye + the world's solid occluders,
+/// used to compute the viewer-dependent visible wedge through each aperture.
+/// The host (in Ambition: `crate::portal::sync_portal_viewer`) sets `eye` from
+/// the possessed actor or the primary player and fills `occluders` from its
+/// collision world each frame. `present == false` ⇒ no controlled viewer this
+/// frame; the renderer then falls back to the static window if
+/// [`PortalViewConeConfig::viewer_gated`] is on.
+#[derive(Resource, Clone, Debug, Default)]
+pub struct PortalViewer {
+    /// Whether a controlled-character eye is available this frame.
+    pub present: bool,
+    /// The controlled character's eye position, world space.
+    pub eye: Vec2,
+    /// Solid AABBs for the line-of-sight test — a portal whose aperture is
+    /// occluded from `eye` renders no window. The host syncs these from its
+    /// collision world (only the blocks that block sight).
+    pub occluders: Vec<ae::Aabb>,
+}
+
+/// Tuning for the view windows. A host overwrites the resource to retune; set
 /// [`PortalPresentationPlugin::view_cones`](crate::PortalPresentationPlugin)
 /// to `false` to drop the feature (and its capture passes) entirely.
-#[derive(Resource, Clone, Copy, Debug, PartialEq)]
+#[derive(Resource, Clone, Debug, PartialEq)]
 pub struct PortalViewConeConfig {
-    /// How far the window recedes into the portal's host surface (world px).
-    /// Keep near wall-thickness scale (`pieces::CARVE_DEPTH` is 60) so the
-    /// window doesn't visually punch through into rooms beyond the wall.
+    /// When true (default), each window is the controlled character's visible
+    /// wedge through the aperture (from [`PortalViewer`]). When false, windows
+    /// render the static, always-on `view_cone` instead — the "always show"
+    /// mode that needs no viewer.
+    pub viewer_gated: bool,
+    /// How far the **viewer-dependent** wedge may extend behind the surface
+    /// (world px). Demo: ~1 tile so the window only peeks just past the wall.
+    /// In principle larger or dynamic.
+    pub max_depth: f32,
+    /// Static-fallback window depth into the surface (world px), used only when
+    /// `viewer_gated` is off (or no viewer is present). Keep near wall scale.
     pub depth: f32,
-    /// How much each side widens per px of depth (0 = straight corridor view).
+    /// Static-fallback side widening per px of depth (0 = straight corridor).
     pub spread: f32,
-    /// Offscreen capture height in texels; width follows the source rect's
-    /// aspect. Capture area ≈ window area, so ~1:1 texel:px needs no more
-    /// than the window is tall.
+    /// Offscreen capture size in texels (square; non-square source rects are
+    /// stored stretched and un-stretched by the UVs).
     pub resolution: u32,
-    /// Render z of the window mesh. Default sits just BEHIND the portal rim
-    /// (9.0) so the doorway stays crisp over its own view, above world blocks
-    /// (0) and below actors (10+) — the wall visually opens up where the sim
-    /// carves it.
+    /// Render z of the window mesh. Just BEHIND the portal rim (9.0) so the
+    /// doorway stays crisp over its own view, above world blocks (0) and below
+    /// actors (10+).
     pub z: f32,
-    /// Tint multiplied over the capture (alpha slightly < 1 lets the host
-    /// surface ghost through, selling "looking INTO the surface").
+    /// Tint multiplied over the capture. Opaque by default — the window draws
+    /// over whatever it is in front of (see [`AlphaMode2d::Opaque`] below).
     pub tint: Color,
     /// Debug: draw gizmo outlines of each portal's EXIT sample zone (the
-    /// `ViewCone::source` rect, in the portal's channel color, sitting in
-    /// front of its partner) and the entry window trapezoid. The host drives
-    /// this (in Ambition, off the standard `F1` debug overlay). Off by default.
+    /// `ViewCone::source` rect, in the portal's channel color, in front of its
+    /// partner) and the entry window. Driven host-side (in Ambition, off the
+    /// standard `F1` debug overlay). Off by default.
     pub debug_outline: bool,
 }
 
 impl Default for PortalViewConeConfig {
     fn default() -> Self {
         Self {
+            viewer_gated: true,
+            max_depth: 80.0,
             depth: 90.0,
             spread: 0.20,
             resolution: 256,
             z: 8.9,
-            tint: Color::srgba(1.0, 1.0, 1.0, 0.9),
+            // Opaque white: the window draws over what it is in front of.
+            tint: Color::WHITE,
             debug_outline: false,
         }
     }
 }
 
-/// One rig: the capture camera entity carries this; `cone` is the mesh entity
-/// set into the entry's host surface. Rebuilt (not mutated) when `key` drifts
-/// from the live portal pair.
+/// Marks a window mesh entity (the `Mesh2d` set into a portal's surface),
+/// disjoint from the capture-camera entity that carries [`PortalViewRig`].
+#[derive(Component)]
+pub struct PortalConeMesh;
+
+/// One rig, carried by the capture camera entity: which portal channel it
+/// serves, the rebuild key it was built for, and handles to its image + mesh +
+/// window-mesh entity. Geometry is updated in place each frame; the rig is only
+/// respawned when `rebuild` drifts (world size / resolution) or the pair
+/// disappears.
 #[derive(Component)]
 pub struct PortalViewRig {
-    key: RigKey,
+    channel: PortalChannel,
+    rebuild: RebuildKey,
+    image: Handle<Image>,
+    mesh: Handle<Mesh>,
     cone: Entity,
 }
 
-/// Everything a rig's geometry was derived from. Float equality is exactly
-/// what we want: ANY drift (portal re-fired, room resized, config retuned)
-/// rebuilds the rig.
+/// What forces a full rig rebuild (vs. a cheap per-frame geometry update): the
+/// world-space render transform (size) and the capture texture size.
 #[derive(Clone, Copy, PartialEq)]
-struct RigKey {
-    enter_pos: Vec2,
-    enter_normal: Vec2,
-    exit_pos: Vec2,
-    exit_normal: Vec2,
+struct RebuildKey {
     world_size: Vec2,
-    config: PortalViewConeConfig,
-    /// Stable camera order (capture cameras must run before the main camera);
-    /// keyed so a change in rig count re-lays the orders deterministically.
-    order: isize,
+    resolution: u32,
 }
 
-/// Per-vertex UVs for the cone mesh: each source-quad corner normalized inside
-/// the source rect. World y-down and texture v-down agree (the render y-flip
-/// cancels between camera and capture), so this is flip-free — see module docs.
-fn cone_uvs(source_quad: &[Vec2; 4], source: ambition_engine_core::Aabb) -> [[f32; 2]; 4] {
+/// Per-frame render data derived from a [`ViewCone`]: the window mesh's
+/// centroid-relative corner positions + UVs, its world translation, and the
+/// capture camera's center + framed size.
+struct ConeRender {
+    positions: [[f32; 3]; 4],
+    uvs: [[f32; 2]; 4],
+    centroid: Vec3,
+    cam_center: Vec3,
+    source_size: Vec2,
+}
+
+/// A `&[Aabb]` as a [`SolidWorldQuery`] so the LOS raycast can reuse
+/// `raycast_solids` over the host-supplied occluder snapshot.
+struct SliceSolids<'a>(&'a [ae::Aabb]);
+impl SolidWorldQuery for SliceSolids<'_> {
+    fn for_each_solid_aabb(&self, _include_one_way: bool, visit: &mut dyn FnMut(ae::Aabb)) {
+        for a in self.0 {
+            visit(*a);
+        }
+    }
+}
+
+/// Is the line of sight from `eye` to the aperture center blocked by a solid?
+/// Stops just short of the surface so the portal's own host wall (which the
+/// aperture is carved from) never counts as the occluder.
+fn aperture_occluded(eye: Vec2, enter: &PortalFrame, occluders: &[ae::Aabb]) -> bool {
+    let d = enter.pos - eye;
+    let dist = d.length();
+    if dist < 2.0 {
+        return false;
+    }
+    raycast_solids(&SliceSolids(occluders), eye, d, (dist - 6.0).max(0.0), false).is_some()
+}
+
+/// The window geometry for one portal pair this frame: the viewer-dependent
+/// visible wedge when `viewer_gated` and a viewer is present (None if the
+/// aperture is occluded or the viewer is behind the surface), else the static
+/// always-on window.
+fn compute_cone(
+    portal: &PlacedPortal,
+    partner: &PlacedPortal,
+    config: &PortalViewConeConfig,
+    viewer: Option<&PortalViewer>,
+) -> Option<ViewCone> {
+    let enter = portal.frame();
+    let exit = partner.frame();
+    if config.viewer_gated {
+        if let Some(v) = viewer.filter(|v| v.present) {
+            if aperture_occluded(v.eye, &enter, &v.occluders) {
+                return None;
+            }
+            return visible_cone(&enter, &exit, v.eye, config.max_depth);
+        }
+    }
+    Some(view_cone(&enter, &exit, config.depth, config.spread))
+}
+
+/// Per-vertex UVs for the window mesh: each source-quad corner normalized
+/// inside the source rect. World y-down and texture v-down agree (the render
+/// y-flip cancels between camera and capture), so this is flip-free.
+fn cone_uvs(source_quad: &[Vec2; 4], source: ae::Aabb) -> [[f32; 2]; 4] {
     let size = source.half_size() * 2.0;
     source_quad.map(|s| {
         [
@@ -133,150 +225,217 @@ fn cone_uvs(source_quad: &[Vec2; 4], source: ambition_engine_core::Aabb) -> [[f3
     })
 }
 
-/// Maintain one rig per placed portal with a placed partner: spawn missing,
-/// despawn stale, leave matching rigs alone (the captures re-render every
-/// frame on their own — only the GEOMETRY is cached).
-#[allow(clippy::too_many_arguments)]
+/// Resolve a [`ViewCone`] into renderable data, or `None` for a degenerate rect.
+fn cone_render(cone: &ViewCone, frame: &PortalWorldFrame, z: f32) -> Option<ConeRender> {
+    let source_size = cone.source.half_size() * 2.0;
+    if source_size.x < 1.0 || source_size.y < 1.0 {
+        return None;
+    }
+    let render_quad: [Vec2; 4] =
+        std::array::from_fn(|i| frame.to_render(cone.entry_quad[i], 0.0).truncate());
+    let centroid = (render_quad[0] + render_quad[1] + render_quad[2] + render_quad[3]) * 0.25;
+    let positions: [[f32; 3]; 4] =
+        std::array::from_fn(|i| [render_quad[i].x - centroid.x, render_quad[i].y - centroid.y, 0.0]);
+    Some(ConeRender {
+        positions,
+        uvs: cone_uvs(&cone.source_quad, cone.source),
+        centroid: centroid.extend(z),
+        cam_center: frame.to_render(cone.source.center(), 0.0),
+        source_size,
+    })
+}
+
+fn make_mesh(render: &ConeRender) -> Mesh {
+    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default());
+    apply_mesh(&mut mesh, render);
+    mesh.insert_indices(Indices::U32(vec![0, 1, 2, 0, 2, 3]));
+    mesh
+}
+
+fn apply_mesh(mesh: &mut Mesh, render: &ConeRender) {
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, render.positions.to_vec());
+    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, render.uvs.to_vec());
+}
+
+/// A hidden-rig placeholder mesh (degenerate; the rig is invisible until its
+/// first visible frame fills it in).
+fn placeholder_mesh() -> Mesh {
+    make_mesh(&ConeRender {
+        positions: [[0.0; 3]; 4],
+        uvs: [[0.0; 2]; 4],
+        centroid: Vec3::ZERO,
+        cam_center: Vec3::ZERO,
+        source_size: Vec2::ONE,
+    })
+}
+
+/// Maintain + update one rig per placed portal with a placed partner: spawn
+/// missing, despawn stale, and update every live rig's geometry in place each
+/// frame (the viewer moves, so the cone changes continuously).
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn sync_portal_view_cones(
     mut commands: Commands,
     config: Res<PortalViewConeConfig>,
+    viewer: Option<Res<PortalViewer>>,
     frame: Res<PortalWorldFrame>,
     mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     portals: Query<&PlacedPortal>,
-    rigs: Query<(Entity, &PortalViewRig)>,
+    mut rigs: Query<(
+        Entity,
+        &PortalViewRig,
+        &mut Transform,
+        &mut Projection,
+        &mut Camera,
+    )>,
+    mut cones: Query<(&mut Transform, &mut Visibility), (With<PortalConeMesh>, Without<PortalViewRig>)>,
 ) {
-    // Pre-world-sync frames have nothing to project onto.
     if frame.size == Vec2::ZERO {
         return;
     }
-    // Desired rigs: every placed portal whose channel partner is also placed.
     let all: Vec<PlacedPortal> = portals.iter().copied().collect();
-    let mut desired: Vec<(RigKey, PlacedPortal, PlacedPortal)> = Vec::new();
-    for portal in &all {
-        let Some(partner) = find_portal(&all, portal.channel.partner()) else {
+    let viewer = viewer.as_deref();
+    let rebuild = RebuildKey {
+        world_size: frame.size,
+        resolution: config.resolution.max(8),
+    };
+
+    // First pass: update each live rig in place, or despawn it if its pair is
+    // gone / it needs a full rebuild.
+    let mut served: Vec<PortalChannel> = Vec::new();
+    for (entity, rig, mut cam_tf, mut proj, mut cam) in &mut rigs {
+        let portal = all.iter().find(|p| p.channel == rig.channel).copied();
+        let partner = portal.and_then(|p| find_portal(&all, p.channel.partner()));
+        let (Some(portal), Some(partner)) = (portal, partner) else {
+            commands.entity(entity).despawn();
+            commands.entity(rig.cone).despawn();
             continue;
         };
-        // Capture cameras render strictly before the main pass (order 0),
-        // deterministically laid out by discovery index.
-        let order = -8 - desired.len() as isize;
-        desired.push((
-            RigKey {
-                enter_pos: portal.pos,
-                enter_normal: portal.normal,
-                exit_pos: partner.pos,
-                exit_normal: partner.normal,
-                world_size: frame.size,
-                config: *config,
-                order,
-            },
-            *portal,
-            partner,
-        ));
-    }
+        if rig.rebuild != rebuild {
+            commands.entity(entity).despawn();
+            commands.entity(rig.cone).despawn();
+            continue;
+        }
+        served.push(rig.channel);
 
-    // Keep rigs whose key still matches a desired rig; despawn the rest.
-    let mut missing: Vec<bool> = vec![true; desired.len()];
-    for (entity, rig) in &rigs {
-        match desired.iter().position(|(key, ..)| *key == rig.key) {
-            Some(i) if missing[i] => missing[i] = false,
-            _ => {
-                commands.entity(entity).despawn();
-                commands.entity(rig.cone).despawn();
+        let render = compute_cone(&portal, &partner, &config, viewer)
+            .as_ref()
+            .and_then(|c| cone_render(c, &frame, config.z));
+        match render {
+            Some(r) => {
+                if let Some(mesh) = meshes.get_mut(&rig.mesh) {
+                    apply_mesh(mesh, &r);
+                }
+                cam_tf.translation = r.cam_center;
+                if let Projection::Orthographic(o) = &mut *proj {
+                    o.scaling_mode = ScalingMode::Fixed {
+                        width: r.source_size.x,
+                        height: r.source_size.y,
+                    };
+                }
+                cam.is_active = true;
+                if let Ok((mut ctf, mut vis)) = cones.get_mut(rig.cone) {
+                    ctf.translation = r.centroid;
+                    *vis = Visibility::Inherited;
+                }
+            }
+            None => {
+                // Occluded / behind the surface: stop capturing and hide.
+                cam.is_active = false;
+                if let Ok((_, mut vis)) = cones.get_mut(rig.cone) {
+                    *vis = Visibility::Hidden;
+                }
             }
         }
     }
 
-    for (i, (key, portal, partner)) in desired.into_iter().enumerate() {
-        if !missing[i] {
+    // Second pass: spawn rigs for desired pairs not yet served.
+    for (i, portal) in all.iter().enumerate() {
+        let Some(partner) = find_portal(&all, portal.channel.partner()) else {
+            continue;
+        };
+        if served.contains(&portal.channel) {
             continue;
         }
-        let cone = view_cone(
-            &portal.frame(),
-            &partner.frame(),
-            key.config.depth,
-            key.config.spread,
-        );
-        let source_size = cone.source.half_size() * 2.0;
-        if source_size.x < 1.0 || source_size.y < 1.0 {
-            continue;
-        }
-
-        // The offscreen capture, ~1:1 texels per world px at default depth.
-        let height = key.config.resolution.max(8);
-        let width = ((height as f32 * source_size.x / source_size.y) as u32).clamp(8, 2048);
         let image = images.add(Image::new_target_texture(
-            width,
-            height,
+            rebuild.resolution,
+            rebuild.resolution,
             TextureFormat::Rgba8UnormSrgb,
             None,
         ));
-
-        // The window mesh, receding into the entry's host surface: positions
-        // around the trapezoid centroid (render space), UVs from the
-        // body-mapped source corners.
-        let render_quad = cone
-            .entry_quad
-            .map(|p| frame.to_render(p, 0.0).truncate());
-        let centroid = (render_quad[0] + render_quad[1] + render_quad[2] + render_quad[3]) * 0.25;
-        let positions: Vec<[f32; 3]> = render_quad
-            .iter()
-            .map(|p| [p.x - centroid.x, p.y - centroid.y, 0.0])
-            .collect();
-        let uvs: Vec<[f32; 2]> = cone_uvs(&cone.source_quad, cone.source).to_vec();
-        let mut mesh = Mesh::new(
-            PrimitiveTopology::TriangleList,
-            RenderAssetUsages::default(),
-        );
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-        mesh.insert_indices(Indices::U32(vec![0, 1, 2, 0, 2, 3]));
-
+        let render = compute_cone(portal, &partner, &config, viewer)
+            .as_ref()
+            .and_then(|c| cone_render(c, &frame, config.z));
+        let mesh = meshes.add(match &render {
+            Some(r) => make_mesh(r),
+            None => placeholder_mesh(),
+        });
+        let material = materials.add(ColorMaterial {
+            color: config.tint,
+            // Opaque: the window draws over whatever it is in front of, rather
+            // than ghosting it through.
+            alpha_mode: AlphaMode2d::Opaque,
+            texture: Some(image.clone()),
+            ..default()
+        });
+        let (cone_tf, cone_vis) = match &render {
+            Some(r) => (Transform::from_translation(r.centroid), Visibility::Inherited),
+            None => (
+                Transform::from_translation(Vec3::new(0.0, 0.0, config.z)),
+                Visibility::Hidden,
+            ),
+        };
         let cone_entity = commands
             .spawn((
-                Mesh2d(meshes.add(mesh)),
-                MeshMaterial2d(materials.add(ColorMaterial {
-                    color: key.config.tint,
-                    alpha_mode: AlphaMode2d::Blend,
-                    texture: Some(image.clone()),
-                    ..default()
-                })),
-                Transform::from_translation(centroid.extend(key.config.z)),
+                Mesh2d(mesh.clone()),
+                MeshMaterial2d(material),
+                cone_tf,
+                cone_vis,
+                PortalConeMesh,
                 Name::new(format!("Portal view window ({})", portal.channel.name())),
             ))
             .id();
-
-        // The capture camera, axis-aligned over the partner-side source rect.
-        // Transparent clear: where the capture sees nothing, the cone shows
-        // the room behind it instead of a black slab.
-        let center = frame.to_render(cone.source.center(), 0.0);
+        let (cam_tf, active, scaling) = match &render {
+            Some(r) => (
+                Transform::from_translation(r.cam_center),
+                true,
+                ScalingMode::Fixed {
+                    width: r.source_size.x,
+                    height: r.source_size.y,
+                },
+            ),
+            None => (
+                Transform::default(),
+                false,
+                ScalingMode::Fixed {
+                    width: 1.0,
+                    height: 1.0,
+                },
+            ),
+        };
         commands.spawn((
             Camera2d,
             Camera {
-                order: key.order,
-                clear_color: ClearColorConfig::Custom(Color::NONE),
+                order: -8 - i as isize,
+                is_active: active,
+                clear_color: ClearColorConfig::Custom(CAPTURE_CLEAR),
                 ..default()
             },
-            // CRITICAL: the offscreen target from `new_target_texture` is
-            // single-sampled, but a camera defaults to `Msaa::Sample4`. A
-            // 4×-MSAA camera rendering into a 1× target silently produces
-            // NOTHING — the image keeps its initial transparent clear, the
-            // window samples fully-transparent texels, and you see straight
-            // through the cone to the real world (which then pans/zooms with
-            // your main camera). Matching the target's sample count fixes it.
+            // Single-sampled target needs a single-sampled camera (see commit
+            // history): a default 4×-MSAA camera renders nothing into it.
             Msaa::Off,
-            RenderTarget::Image(ImageRenderTarget::from(image)),
+            RenderTarget::Image(ImageRenderTarget::from(image.clone())),
             Projection::Orthographic(OrthographicProjection {
-                scaling_mode: ScalingMode::Fixed {
-                    width: source_size.x,
-                    height: source_size.y,
-                },
+                scaling_mode: scaling,
                 ..OrthographicProjection::default_2d()
             }),
-            Transform::from_translation(center),
+            cam_tf,
             PortalViewRig {
-                key,
+                channel: portal.channel,
+                rebuild,
+                image,
+                mesh,
                 cone: cone_entity,
             },
             Name::new(format!("Portal view capture ({})", portal.channel.name())),
@@ -285,16 +444,15 @@ pub fn sync_portal_view_cones(
 }
 
 /// Debug overlay (gated by [`PortalViewConeConfig::debug_outline`]): for every
-/// portal with a placed partner, outline the **exit sample zone** — the world
-/// rect (`ViewCone::source`, sitting in front of the partner) that this
-/// portal's capture camera frames — plus the entry window trapezoid where it
-/// is displayed. The sample zone is drawn in the portal's own channel color,
-/// so e.g. the purple portal's zone (bright purple) appears in front of the
-/// yellow portal: "purple samples HERE." When the zone doesn't sit where the
-/// exit actually is, the capture is mis-aimed; when it does but the window
-/// still looks wrong, the bug is in the texture/UVs, not the geometry.
+/// portal with a placed partner, outline the **exit sample zone** (the world
+/// rect `ViewCone::source` in front of the partner, in the portal's channel
+/// color) and the entry window. Uses the SAME `compute_cone` as the renderer,
+/// so the gizmo reflects the live viewer-dependent wedge (or nothing, when the
+/// aperture is occluded). The sample zone shows where the capture samples from;
+/// the entry window shows where it is displayed.
 pub fn debug_portal_view_zones(
     config: Res<PortalViewConeConfig>,
+    viewer: Option<Res<PortalViewer>>,
     frame: Res<PortalWorldFrame>,
     portals: Query<&PlacedPortal>,
     mut gizmos: Gizmos,
@@ -303,33 +461,31 @@ pub fn debug_portal_view_zones(
         return;
     }
     let all: Vec<PlacedPortal> = portals.iter().copied().collect();
+    let viewer = viewer.as_deref();
     let to_render = |p: Vec2| frame.to_render(p, 0.0).truncate();
     for portal in &all {
         let Some(partner) = find_portal(&all, portal.channel.partner()) else {
             continue;
         };
-        let cone = view_cone(
-            &portal.frame(),
-            &partner.frame(),
-            config.depth,
-            config.spread,
-        );
+        let Some(cone) = compute_cone(portal, &partner, &config, viewer) else {
+            continue; // occluded / behind the surface — nothing to outline
+        };
         let (_, core) = portal.channel.display();
 
-        // Exit sample zone: the source rect, in render space (axis-aligned in
-        // world stays axis-aligned through the y-flip). Bright channel color.
+        // Exit sample zone: the source rect (axis-aligned in world stays
+        // axis-aligned through the y-flip). Bright channel color.
         let s = cone.source;
-        let zone = [
-            to_render(Vec2::new(s.min.x, s.min.y)),
-            to_render(Vec2::new(s.max.x, s.min.y)),
-            to_render(Vec2::new(s.max.x, s.max.y)),
-            to_render(Vec2::new(s.min.x, s.max.y)),
-            to_render(Vec2::new(s.min.x, s.min.y)),
-        ];
-        gizmos.linestrip_2d(zone, core);
-
-        // Entry window trapezoid: where the zone is displayed, dimmer so the
-        // two never read as the same shape.
+        gizmos.linestrip_2d(
+            [
+                to_render(Vec2::new(s.min.x, s.min.y)),
+                to_render(Vec2::new(s.max.x, s.min.y)),
+                to_render(Vec2::new(s.max.x, s.max.y)),
+                to_render(Vec2::new(s.min.x, s.max.y)),
+                to_render(Vec2::new(s.min.x, s.min.y)),
+            ],
+            core,
+        );
+        // Entry window, dimmer so the two never read as the same shape.
         let entry: Vec<Vec2> = cone
             .entry_quad
             .iter()
@@ -343,21 +499,18 @@ pub fn debug_portal_view_zones(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_engine_core as ae;
     use ambition_portal::pieces::PortalFrame;
 
     /// Pin the flip-free UV convention: the source-rect corner with MINIMAL
     /// world coords (left, world-top) is texture (0,0); maximal is (1,1).
-    /// If the capture orientation ever changes, this is the test that catches
-    /// the upside-down cone before a human does.
     #[test]
     fn cone_uvs_are_flip_free_in_world_space() {
         let source = ae::Aabb::new(Vec2::new(100.0, 50.0), Vec2::new(40.0, 20.0));
         let quad = [
-            Vec2::new(60.0, 30.0),  // world min corner
-            Vec2::new(140.0, 30.0), // world max-x, min-y
-            Vec2::new(140.0, 70.0), // world max corner
-            Vec2::new(60.0, 70.0),  // world min-x, max-y
+            Vec2::new(60.0, 30.0),
+            Vec2::new(140.0, 30.0),
+            Vec2::new(140.0, 70.0),
+            Vec2::new(60.0, 70.0),
         ];
         let uvs = cone_uvs(&quad, source);
         assert_eq!(uvs[0], [0.0, 0.0]);
@@ -366,8 +519,8 @@ mod tests {
         assert_eq!(uvs[3], [0.0, 1.0]);
     }
 
-    /// The UVs always cover the full unit square's bounds (the source rect IS
-    /// the quad's bbox), rotated per the view map — pinned for a 90° pair.
+    /// The UVs cover the unit square's bounds, rotated per the view map — pinned
+    /// for a 90° pair (the entry near edge maps onto the exit face → u = 1).
     #[test]
     fn cone_uvs_rotate_with_the_view_map() {
         let enter = PortalFrame {
@@ -382,16 +535,33 @@ mod tests {
         };
         let cone = view_cone(&enter, &exit, 120.0, 0.25);
         let uvs = cone_uvs(&cone.source_quad, cone.source);
-        // Every UV inside the unit square…
         for uv in &uvs {
             assert!((0.0..=1.0).contains(&uv[0]) && (0.0..=1.0).contains(&uv[1]));
         }
-        // …and the quad touches all four sides (it spans its own bbox).
-        let touch = |f: &dyn Fn(&[f32; 2]) -> f32, v: f32| uvs.iter().any(|uv| (f(uv) - v).abs() < 1e-4);
+        let touch =
+            |f: &dyn Fn(&[f32; 2]) -> f32, v: f32| uvs.iter().any(|uv| (f(uv) - v).abs() < 1e-4);
         assert!(touch(&|uv| uv[0], 0.0) && touch(&|uv| uv[0], 1.0));
         assert!(touch(&|uv| uv[1], 0.0) && touch(&|uv| uv[1], 1.0));
-        // 90° pair: the entry's near edge (corners 0,1 — the portal face) maps
-        // onto the exit face, which is the source rect's max-x edge → u = 1.
         assert!((uvs[0][0] - 1.0).abs() < 1e-4 && (uvs[1][0] - 1.0).abs() < 1e-4);
+    }
+
+    /// LOS: a solid AABB straddling the segment eye→aperture blocks it; none
+    /// clear of the segment does not.
+    #[test]
+    fn aperture_occlusion_tracks_a_blocking_wall() {
+        let enter = PortalFrame {
+            pos: Vec2::new(100.0, 300.0),
+            normal: Vec2::new(0.0, -1.0),
+            half_extent: Vec2::new(46.0, 9.0),
+        };
+        let eye = Vec2::new(100.0, 100.0); // 200px above the floor portal
+        // Wall across the sight line, well in front of the surface.
+        let wall = ae::Aabb::new(Vec2::new(100.0, 200.0), Vec2::new(40.0, 8.0));
+        assert!(aperture_occluded(eye, &enter, &[wall]));
+        // A wall off to the side does not block.
+        let aside = ae::Aabb::new(Vec2::new(400.0, 200.0), Vec2::new(40.0, 8.0));
+        assert!(!aperture_occluded(eye, &enter, &[aside]));
+        // No occluders at all → clear.
+        assert!(!aperture_occluded(eye, &enter, &[]));
     }
 }

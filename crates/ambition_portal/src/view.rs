@@ -159,6 +159,64 @@ pub fn view_cone(enter: &PortalFrame, exit: &PortalFrame, depth: f32, spread: f3
     }
 }
 
+/// The **viewer-dependent** window: the wedge of the host surface a viewer at
+/// `eye` can actually see through the aperture, instead of a fixed trapezoid.
+///
+/// Treat the aperture (the doorway opening along the surface) as a slit. A
+/// point behind the surface is visible to `eye` iff the sight line `eye → P`
+/// passes through the slit, so the visible region is the wedge bounded by the
+/// two rays from `eye` through the aperture endpoints, on the far side of the
+/// surface, clipped to `max_depth` behind it. The near edge is the aperture;
+/// each far corner is its aperture endpoint pushed directly away from the eye
+/// until it reaches `max_depth` of depth:
+///
+/// > `F = A + (max_depth / front) * (A − eye)`,  `front = (eye − pos)·n`
+///
+/// — which lands `F` exactly `max_depth` behind the surface (`(F−pos)·n =
+/// −max_depth`). So the wedge **skews with the viewer's angle** (off to one
+/// side ⇒ you see more of the opposite side) and **widens as the viewer nears**
+/// the portal (small `front`) — "shown proportional to what the character can
+/// see." Returns `None` when `eye` is on or behind the surface (`front ≤ 0`):
+/// you cannot look through a portal from behind its own wall. Line-of-sight
+/// occlusion (a wall between `eye` and the aperture) is the caller's check —
+/// this is pure aperture geometry, no world access.
+///
+/// Same window display map as [`view_cone`] (the body [`map_point`]), so the
+/// wedge's content still agrees with a transiting body at the face.
+pub fn visible_cone(
+    enter: &PortalFrame,
+    exit: &PortalFrame,
+    eye: Vec2,
+    max_depth: f32,
+) -> Option<ViewCone> {
+    let n = enter.normal;
+    let front = (eye - enter.pos).dot(n);
+    if front <= 1.0 {
+        return None;
+    }
+    let t = Vec2::new(-n.y, n.x);
+    let h = enter.aperture_half();
+    let a0 = enter.pos - t * h;
+    let a1 = enter.pos + t * h;
+    let k = max_depth / front;
+    // Push each aperture corner away from the eye to depth `max_depth`.
+    let f0 = a0 + (a0 - eye) * k;
+    let f1 = a1 + (a1 - eye) * k;
+    let entry_quad = [a0, a1, f1, f0];
+    let source_quad = entry_quad.map(|p| map_point(p, enter, exit));
+    let (mut min, mut max) = (source_quad[0], source_quad[0]);
+    for p in &source_quad[1..] {
+        min = min.min(*p);
+        max = max.max(*p);
+    }
+    let source = ae::Aabb::new((min + max) * 0.5, (max - min) * 0.5);
+    Some(ViewCone {
+        entry_quad,
+        source_quad,
+        source,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -296,6 +354,64 @@ mod tests {
         for (e, s) in cone.entry_quad.iter().zip(cone.source_quad.iter()) {
             assert!((map_point(*e, &enter, &exit) - *s).length() < 1e-3);
         }
+    }
+
+    /// Viewer behind (or on) the surface can't see through: `None`.
+    #[test]
+    fn visible_cone_none_from_behind_the_surface() {
+        let enter = floor(Vec2::new(100.0, 300.0));
+        let exit = right_wall(Vec2::new(400.0, 200.0));
+        // Floor normal points up (−y); a viewer BELOW the floor (y > 300) is
+        // behind the surface.
+        assert!(visible_cone(&enter, &exit, Vec2::new(100.0, 360.0), 80.0).is_none());
+        // Exactly on the surface → also None.
+        assert!(visible_cone(&enter, &exit, Vec2::new(100.0, 300.0), 80.0).is_none());
+    }
+
+    /// The far edge sits exactly `max_depth` behind the surface, and a head-on
+    /// viewer yields a laterally-centered, symmetric wedge wider than the
+    /// aperture (perspective through the slit).
+    #[test]
+    fn visible_cone_head_on_is_symmetric_and_depth_clamped() {
+        let enter = floor(Vec2::new(100.0, 300.0));
+        let exit = right_wall(Vec2::new(400.0, 200.0));
+        let depth = 80.0;
+        // Eye 80px in front of the floor portal (−y), directly above center.
+        let front = 80.0;
+        let cone = visible_cone(&enter, &exit, Vec2::new(100.0, 300.0 - front), depth).unwrap();
+        let [a0, a1, f1, f0] = cone.entry_quad;
+        // Near edge is the aperture (on the surface, y = 300).
+        assert!((a0.y - 300.0).abs() < 1e-3 && (a1.y - 300.0).abs() < 1e-3);
+        // Far corners sit exactly `depth` behind (into the floor, +y).
+        assert!((f0.y - (300.0 + depth)).abs() < 1e-3, "{f0:?}");
+        assert!((f1.y - (300.0 + depth)).abs() < 1e-3, "{f1:?}");
+        // Head-on ⇒ far edge centered on the aperture center (x=100) and wider
+        // than the aperture by (1 + depth/front).
+        let h = enter.aperture_half();
+        assert!(((f0.x + f1.x) * 0.5 - 100.0).abs() < 1e-3, "centered");
+        let far_half = (f1.x - f0.x).abs() * 0.5;
+        assert!(
+            (far_half - h * (1.0 + depth / front)).abs() < 1e-3,
+            "far_half {far_half} vs {}",
+            h * (1.0 + depth / front)
+        );
+    }
+
+    /// An off-axis viewer skews the wedge: looking from the left, the far edge
+    /// shifts right (you see more of the far side through the slit).
+    #[test]
+    fn visible_cone_skews_with_viewer_angle() {
+        let enter = floor(Vec2::new(100.0, 300.0));
+        let exit = right_wall(Vec2::new(400.0, 200.0));
+        // Eye up and to the LEFT of center.
+        let cone = visible_cone(&enter, &exit, Vec2::new(40.0, 220.0), 80.0).unwrap();
+        let [_, _, f1, f0] = cone.entry_quad;
+        // Far edge center is pushed to the RIGHT of the aperture center (x=100).
+        assert!(
+            (f0.x + f1.x) * 0.5 > 100.0,
+            "off-left viewer pushes the far edge right, got {}",
+            (f0.x + f1.x) * 0.5
+        );
     }
 
     /// Zero spread degenerates to a straight corridor: source rect lateral

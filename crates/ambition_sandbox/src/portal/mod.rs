@@ -40,12 +40,51 @@ pub use ambition_portal_presentation::*;
 mod host_adapter {
     use bevy::prelude::*;
 
+    use ambition_platformer_runtime::world_query::SolidWorldQuery;
     use ambition_portal_presentation::{
-        PortalGunArt, PortalSceneBody, PortalViewConeConfig, PortalWorldFrame,
+        PortalGunArt, PortalSceneBody, PortalViewConeConfig, PortalViewer, PortalWorldFrame,
     };
 
+    use crate::abilities::traversal::possession::PossessionState;
+    use crate::features::FeatureAabb;
+    use crate::platformer_runtime::body::BodyKinematics;
+    use crate::player::{PlayerEntity, PrimaryPlayer};
     use crate::presentation::rendering::PlayerVisual;
     use crate::GameWorld;
+
+    /// Bridge the controlled character + the collision world → the crate-owned
+    /// [`PortalViewer`] seam, so each portal window is the wedge that character
+    /// can actually see through the aperture. The eye is the possessed actor's
+    /// body when possessing (so the view follows the body you're driving), else
+    /// the primary player's; `occluders` is a snapshot of the world's solid
+    /// blocks for the line-of-sight test. Absent player/possessed body ⇒
+    /// `present = false`, and the renderer falls back to the static window.
+    pub fn sync_portal_viewer(
+        world: Res<GameWorld>,
+        possession: Res<PossessionState>,
+        feature_aabbs: Query<&FeatureAabb>,
+        player: Query<&BodyKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+        viewer: Option<ResMut<PortalViewer>>,
+    ) {
+        let Some(mut viewer) = viewer else {
+            return;
+        };
+        let eye = possession
+            .possessed
+            .and_then(|e| feature_aabbs.get(e).ok().map(|a| a.center))
+            .or_else(|| player.single().ok().map(|k| k.pos));
+        match eye {
+            Some(eye) => {
+                viewer.present = true;
+                viewer.eye = eye;
+                viewer.occluders.clear();
+                world
+                    .0
+                    .for_each_solid_aabb(false, &mut |aabb| viewer.occluders.push(aabb));
+            }
+            None => viewer.present = false,
+        }
+    }
 
     /// Bridge [`GameWorld`] → the crate-owned [`PortalWorldFrame`] seam: the
     /// presentation crate only ever needs the world's size for its centered
@@ -121,5 +160,5 @@ mod host_adapter {
 #[cfg(feature = "portal_render")]
 pub use host_adapter::{
     load_portal_gun_art, portal_dev_toggle_system, sync_portal_view_debug_to_f1,
-    sync_portal_world_frame, tag_portal_scene_bodies,
+    sync_portal_viewer, sync_portal_world_frame, tag_portal_scene_bodies,
 };

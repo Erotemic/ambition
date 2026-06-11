@@ -27,6 +27,12 @@ pub struct PortalPresentationPlugin {
     pub portal_quads: bool,
     /// Mid-transit body-piece decomposition over the host-tagged
     /// [`crate::PortalSceneBody`] ([`visuals::sync_portal_body_pieces`]).
+    ///
+    /// OFF by default: it draws a second "exit copy" of the transiting body
+    /// (the "feet in, feet out" mask), which double-draws the character, and
+    /// the masking is unfinished. The view windows are now the nicer way to
+    /// show a body straddling a portal, so this stays opt-in until the masking
+    /// is finished and reconciled with the windows.
     pub body_pieces: bool,
     /// The held portal-gun sprite aimed by [`PortalAimHint`]
     /// ([`visuals::sync_portal_mode_indicator`]).
@@ -46,7 +52,9 @@ impl Default for PortalPresentationPlugin {
     fn default() -> Self {
         Self {
             portal_quads: true,
-            body_pieces: true,
+            // Off: unfinished masking + double-draws the body; the view windows
+            // supersede it for now (see the field docs).
+            body_pieces: false,
             gun_indicator: true,
             disorientation: true,
             view_cones: true,
@@ -88,6 +96,9 @@ impl Plugin for PortalPresentationPlugin {
         }
         if self.view_cones {
             app.init_resource::<view_cones::PortalViewConeConfig>();
+            // The viewer seam (host-synced each frame); empty/absent ⇒ static
+            // window fallback. Init here so the host can `ResMut` it.
+            app.init_resource::<view_cones::PortalViewer>();
             app.add_systems(
                 Update,
                 (

@@ -47,7 +47,9 @@ use bevy::sprite_render::AlphaMode2d;
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_platformer_runtime::world_query::{raycast_solids, SolidWorldQuery};
 use ambition_portal::pieces::PortalFrame;
-use ambition_portal::view::{view_cone, visible_cone, ViewCone};
+use ambition_portal::view::{
+    aperture_wedge, blend_cones, effective_eye, floor_cone_depth, view_cone, ViewCone,
+};
 use ambition_portal::{find_portal, PlacedPortal, PortalChannel};
 
 use crate::PortalWorldFrame;
@@ -81,17 +83,28 @@ pub struct PortalViewer {
 /// to `false` to drop the feature (and its capture passes) entirely.
 #[derive(Resource, Clone, Debug, PartialEq)]
 pub struct PortalViewConeConfig {
-    /// When true (default), each window is the controlled character's visible
-    /// wedge through the aperture (from [`PortalViewer`]). When false, windows
-    /// render the static, always-on `view_cone` instead — the "always show"
-    /// mode that needs no viewer.
+    /// When true (default), each window opens to the controlled character's
+    /// visible wedge through the aperture (from [`PortalViewer`]), blended up
+    /// from the minimum cone. When false, windows render the static, always-on
+    /// `view_cone` — the "always show this much" mode that needs no viewer.
     pub viewer_gated: bool,
     /// How far the **viewer-dependent** wedge may extend behind the surface
     /// (world px). Demo: ~1 tile so the window only peeks just past the wall.
-    /// In principle larger or dynamic.
     pub max_depth: f32,
+    /// The **minimum cone** every portal always shows (depth into the surface,
+    /// world px) — the floor the viewer wedge blends up from, so a portal is
+    /// never blank even when the character is behind it or its sight line is
+    /// occluded.
+    pub min_depth: f32,
+    /// Minimum-cone side widening per px of depth.
+    pub min_spread: f32,
+    /// Blend from the minimum cone (0) to the full visible wedge (1) — the
+    /// linear interpolation between "minimum always shown" and "what the viewer
+    /// can see." Default 1.0 (open fully to the wedge; the minimum still shows
+    /// whenever no wedge is available).
+    pub viewer_blend: f32,
     /// Static-fallback window depth into the surface (world px), used only when
-    /// `viewer_gated` is off (or no viewer is present). Keep near wall scale.
+    /// `viewer_gated` is off. Keep near wall scale.
     pub depth: f32,
     /// Static-fallback side widening per px of depth (0 = straight corridor).
     pub spread: f32,
@@ -117,9 +130,12 @@ impl Default for PortalViewConeConfig {
         Self {
             viewer_gated: true,
             max_depth: 80.0,
+            min_depth: 22.0,
+            min_spread: 0.12,
+            viewer_blend: 1.0,
             depth: 90.0,
             spread: 0.20,
-            resolution: 256,
+            resolution: 384,
             z: 8.9,
             // Opaque white: the window draws over what it is in front of.
             tint: Color::WHITE,
@@ -189,27 +205,44 @@ fn aperture_occluded(eye: Vec2, enter: &PortalFrame, occluders: &[ae::Aabb]) -> 
     raycast_solids(&SliceSolids(occluders), eye, d, (dist - 6.0).max(0.0), false).is_some()
 }
 
-/// The window geometry for one portal pair this frame: the viewer-dependent
-/// visible wedge when `viewer_gated` and a viewer is present (None if the
-/// aperture is occluded or the viewer is behind the surface), else the static
+/// The window geometry for one portal pair this frame. ALWAYS returns a cone:
+/// every portal shows at least the minimum cone, which the viewer-dependent
+/// wedge blends up from (so a portal is never blank). The wedge opens when the
+/// character is in front of EITHER end of the pair (the wormhole — being "in"
+/// one end is being in the other) and its sight line to that aperture is clear;
+/// otherwise just the minimum shows. `viewer_gated == false` ⇒ the static
 /// always-on window.
 fn compute_cone(
     portal: &PlacedPortal,
     partner: &PlacedPortal,
     config: &PortalViewConeConfig,
     viewer: Option<&PortalViewer>,
-) -> Option<ViewCone> {
+) -> ViewCone {
     let enter = portal.frame();
     let exit = partner.frame();
-    if config.viewer_gated {
-        if let Some(v) = viewer.filter(|v| v.present) {
-            if aperture_occluded(v.eye, &enter, &v.occluders) {
-                return None;
-            }
-            return visible_cone(&enter, &exit, v.eye, config.max_depth);
-        }
+    if !config.viewer_gated {
+        return view_cone(&enter, &exit, config.depth, config.spread);
     }
-    Some(view_cone(&enter, &exit, config.depth, config.spread))
+    // The minimum cone, always shown.
+    let min = view_cone(&enter, &exit, config.min_depth, config.min_spread);
+    let Some(v) = viewer.filter(|v| v.present) else {
+        return min;
+    };
+    // Which end the character actually faces (direct, or through the wormhole
+    // from the partner) decides both the wedge eye and the LOS aperture.
+    let Some((eye, via_wormhole)) = effective_eye(&enter, &exit, v.eye) else {
+        return min; // behind both ends — minimum only
+    };
+    let los_frame = if via_wormhole { &exit } else { &enter };
+    if aperture_occluded(v.eye, los_frame, &v.occluders) {
+        return min; // sight line blocked — minimum only
+    }
+    let Some(wedge) = aperture_wedge(&enter, &exit, eye, config.max_depth) else {
+        return min;
+    };
+    // Floor the wedge depth to the minimum, then blend min → wedge.
+    let wedge = floor_cone_depth(&wedge, &enter, &exit, config.min_depth);
+    blend_cones(&min, &wedge, config.viewer_blend, &enter, &exit)
 }
 
 /// Per-vertex UVs for the window mesh: each source-quad corner normalized
@@ -319,9 +352,8 @@ pub fn sync_portal_view_cones(
         }
         served.push(rig.channel);
 
-        let render = compute_cone(&portal, &partner, &config, viewer)
-            .as_ref()
-            .and_then(|c| cone_render(c, &frame, config.z));
+        let cone = compute_cone(&portal, &partner, &config, viewer);
+        let render = cone_render(&cone, &frame, config.z);
         match render {
             Some(r) => {
                 if let Some(mesh) = meshes.get_mut(&rig.mesh) {
@@ -364,9 +396,8 @@ pub fn sync_portal_view_cones(
             TextureFormat::Rgba8UnormSrgb,
             None,
         ));
-        let render = compute_cone(portal, &partner, &config, viewer)
-            .as_ref()
-            .and_then(|c| cone_render(c, &frame, config.z));
+        let cone = compute_cone(portal, &partner, &config, viewer);
+        let render = cone_render(&cone, &frame, config.z);
         let mesh = meshes.add(match &render {
             Some(r) => make_mesh(r),
             None => placeholder_mesh(),
@@ -467,9 +498,7 @@ pub fn debug_portal_view_zones(
         let Some(partner) = find_portal(&all, portal.channel.partner()) else {
             continue;
         };
-        let Some(cone) = compute_cone(portal, &partner, &config, viewer) else {
-            continue; // occluded / behind the surface — nothing to outline
-        };
+        let cone = compute_cone(portal, &partner, &config, viewer);
         let (_, core) = portal.channel.display();
 
         // Exit sample zone: the source rect (axis-aligned in world stays

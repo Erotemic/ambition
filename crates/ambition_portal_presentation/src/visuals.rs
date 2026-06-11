@@ -8,7 +8,7 @@
 
 use bevy::prelude::*;
 
-use ambition_engine_core::{self as ae, AabbExt};
+use ambition_engine_core as ae;
 use ambition_platformer_runtime::body::BodyKinematics;
 use ambition_platformer_runtime::gravity::GravityField;
 use ambition_platformer_runtime::markers::{PlayerEntity, PrimaryPlayer};
@@ -76,14 +76,17 @@ pub fn sync_portal_disorientation_indicator(
     ));
 }
 
-/// Render the transiting body as the body in BOTH charts: the real sprite at
-/// the entry, a second copy of the sprite emerging from the exit (rotated by the
-/// somersault the body is taking), and an opaque box over the **invisible /
-/// intangible** slice of each — the part of the entry sprite that has sunk
-/// through the portal plane (into the wall), and the part of the exit copy that
-/// has not yet emerged. So the visible part of each shows the real character art
-/// and the through-the-wall part is masked off ("feet in, feet out"). Drawing
-/// the sprite twice + masking sidesteps texture clipping until we tune visuals.
+/// Draw a second copy of the transiting body emerging from the **exit** portal,
+/// mapped + rotated by the somersault it is taking, so a body straddling a
+/// portal shows in BOTH charts (its real sprite at the entry, this copy at the
+/// exit). The copy must stay in sync with the real sprite — it is rebuilt each
+/// frame from the same `Sprite`, after `sync_visuals` has updated it.
+///
+/// No masking: the through-portal view windows already show the body slice
+/// emerging at the exit, and the copy is positioned to overlay it exactly, so
+/// the old opaque "feet in, feet out" mask boxes are gone. (The masking was
+/// always provisional; if it is ever needed again it belongs behind its own
+/// flag — it is not finished.)
 ///
 /// Operates on the host-tagged [`PortalSceneBody`] visual entity.
 pub fn sync_portal_body_pieces(
@@ -109,8 +112,7 @@ pub fn sync_portal_body_pieces(
     let Ok((kin, transit, roll, sprite, mut visibility)) = body_visual.single_mut() else {
         return;
     };
-    // The real character sprite always shows now (no hiding) — the masks below
-    // cover only the parts that have passed through a portal.
+    // The real character sprite always shows; the exit copy is additive.
     *visibility = Visibility::Inherited;
     // The body is transiting exactly one portal — decompose against that pair.
     let Some(transit) = transit else {
@@ -124,7 +126,7 @@ pub fn sync_portal_body_pieces(
         return;
     };
     let body = ae::Aabb::new(kin.pos, kin.size * 0.5);
-    // Decompose via the tested Core-invariant function so these slices can never
+    // Decompose via the tested Core-invariant function so the copy can never
     // drift from the collision / gameplay decomposition.
     let pieces = pp::compute_body_pieces(body, Some((enter_portal.frame(), exit_portal.frame())));
     let Some(through) = pieces.through else {
@@ -134,10 +136,6 @@ pub fn sync_portal_body_pieces(
     let (enter, exit) = (through.enter, through.exit);
     let base_roll = roll.map_or(0.0, |r| r.angle);
     let gravity_dir = gravity.map_or(Vec2::new(0.0, 1.0), |g| g.dir);
-    // Opaque mask over the invisible/intangible slice (per Jon's note: the box
-    // belongs over the part you should NOT see).
-    let mask_color = Color::srgb(0.80, 0.95, 1.0);
-    let mask_z = ae::config::WORLD_Z_PLAYER + 1.0;
 
     // Exit copy: the whole sprite emerging from the exit, mapped + rotated by the
     // somersault it is taking (none for a wall↔wall turn-around). For a suppressed
@@ -157,30 +155,6 @@ pub fn sync_portal_body_pieces(
             .with_rotation(Quat::from_rotation_z(exit_roll)),
         Name::new("Portal body copy (exit)"),
     ));
-
-    // Entry mask: the slice of the real sprite that has sunk THROUGH the entry
-    // plane (into the wall) — invisible on this side.
-    if let Some(hidden) = pp::clip_halfspace(body, enter.pos, -enter.normal) {
-        let translation = frame.to_render(hidden.center(), mask_z);
-        commands.spawn((
-            PortalBodyPiece,
-            Sprite::from_color(mask_color, hidden.half_size() * 2.0),
-            Transform::from_translation(translation),
-            Name::new("Portal mask (entry, through-wall)"),
-        ));
-    }
-    // Exit mask: the slice of the exit copy that has NOT yet emerged (still behind
-    // the exit plane) — invisible until it comes out.
-    let exit_body = pp::map_aabb(body, &enter, &exit);
-    if let Some(hidden) = pp::clip_halfspace(exit_body, exit.pos, -exit.normal) {
-        let translation = frame.to_render(hidden.center(), mask_z);
-        commands.spawn((
-            PortalBodyPiece,
-            Sprite::from_color(mask_color, hidden.half_size() * 2.0),
-            Transform::from_translation(translation),
-            Name::new("Portal mask (exit, not-yet-emerged)"),
-        ));
-    }
 }
 
 /// Marks the held portal-gun sprite carried in the player's hand.

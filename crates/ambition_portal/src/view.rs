@@ -130,60 +130,86 @@ pub struct ViewCone {
     pub source: ae::Aabb,
 }
 
-/// Build the [`ViewCone`] for a linked pair: `depth` is how far the window
-/// recedes into the entry's host surface (world px — keep it near the wall
-/// thickness / [`crate::pieces::CARVE_DEPTH`] scale), `spread` how much each
-/// side widens per px of depth (0 = a straight corridor view).
-pub fn view_cone(enter: &PortalFrame, exit: &PortalFrame, depth: f32, spread: f32) -> ViewCone {
-    let n = enter.normal;
-    let along = Vec2::new(-n.y, n.x);
-    let near_half = enter.aperture_half();
-    let far_half = near_half + depth * spread;
-    let entry_quad = [
-        enter.pos - along * near_half,
-        enter.pos + along * near_half,
-        enter.pos + along * far_half - n * depth,
-        enter.pos - along * far_half - n * depth,
-    ];
+/// Build a [`ViewCone`] from its four entry-side corners: the source quad is
+/// the corners through the body [`map_point`], the source rect their bounds.
+/// One place that defines the display map, shared by every cone constructor.
+fn from_entry_quad(entry_quad: [Vec2; 4], enter: &PortalFrame, exit: &PortalFrame) -> ViewCone {
     let source_quad = entry_quad.map(|p| map_point(p, enter, exit));
     let (mut min, mut max) = (source_quad[0], source_quad[0]);
     for p in &source_quad[1..] {
         min = min.min(*p);
         max = max.max(*p);
     }
-    let source = ae::Aabb::new((min + max) * 0.5, (max - min) * 0.5);
     ViewCone {
         entry_quad,
         source_quad,
-        source,
+        source: ae::Aabb::new((min + max) * 0.5, (max - min) * 0.5),
     }
 }
 
-/// The **viewer-dependent** window: the wedge of the host surface a viewer at
-/// `eye` can actually see through the aperture, instead of a fixed trapezoid.
+/// Build the static [`ViewCone`] for a linked pair: a fixed symmetric trapezoid
+/// receding `depth` into the entry's host surface, widening by `spread` per px
+/// of depth. Viewer-independent — the "always show this much" baseline (also
+/// the minimum-cone floor; see [`blend_cones`]).
+pub fn view_cone(enter: &PortalFrame, exit: &PortalFrame, depth: f32, spread: f32) -> ViewCone {
+    let n = enter.normal;
+    let along = Vec2::new(-n.y, n.x);
+    let near_half = enter.aperture_half();
+    let far_half = near_half + depth * spread;
+    from_entry_quad(
+        [
+            enter.pos - along * near_half,
+            enter.pos + along * near_half,
+            enter.pos + along * far_half - n * depth,
+            enter.pos - along * far_half - n * depth,
+        ],
+        enter,
+        exit,
+    )
+}
+
+/// The effective eye for looking into `enter`, given the controlled
+/// character's real `eye`. A portal pair glues two surfaces into one window, so
+/// the character can look into `enter` two ways:
 ///
-/// Treat the aperture (the doorway opening along the surface) as a slit. A
-/// point behind the surface is visible to `eye` iff the sight line `eye → P`
-/// passes through the slit, so the visible region is the wedge bounded by the
-/// two rays from `eye` through the aperture endpoints, on the far side of the
-/// surface, clipped to `max_depth` behind it. The near edge is the aperture;
-/// each far corner is its aperture endpoint pushed directly away from the eye
-/// until it reaches `max_depth` of depth:
+/// - **directly**, when in front of `enter` (`front > 0`) — returns the real
+///   eye, `wormhole = false`;
+/// - **through the pair**, when in front of the partner `exit`: standing in
+///   front of `exit` is, topologically, standing in front of `enter`, so the
+///   eye's image is `map_point(eye, exit, enter)` (front-preserving) — returns
+///   that, `wormhole = true`.
 ///
-/// > `F = A + (max_depth / front) * (A − eye)`,  `front = (eye − pos)·n`
+/// This is why a portal shows a cone even when you stand at its *partner*: above
+/// `purple` you are equally "in" `yellow`, so `yellow`'s window opens. `None`
+/// only when the character is behind BOTH ends. The `wormhole` flag tells the
+/// caller which aperture to run line-of-sight against (the one actually faced).
+pub fn effective_eye(enter: &PortalFrame, exit: &PortalFrame, eye: Vec2) -> Option<(Vec2, bool)> {
+    if (eye - enter.pos).dot(enter.normal) > 1.0 {
+        return Some((eye, false));
+    }
+    // In front of the partner? The eye's image through the pair appears in
+    // front of `enter`. Use the front-preserving VIEW map (`view_point`), not
+    // the body `map_point` (which sends front↔back) — standing in front of the
+    // partner must put the image in FRONT of this end, not inside its wall.
+    if (eye - exit.pos).dot(exit.normal) > 1.0 {
+        return Some((view_point(eye, exit, enter), true));
+    }
+    None
+}
+
+/// The viewer-dependent wedge through the aperture, given an `eye` already
+/// **in front of** `enter` (use [`effective_eye`] to resolve it). Treat the
+/// aperture as a slit: a point behind the surface is visible iff the sight line
+/// `eye → P` crosses it, so the region is the wedge bounded by the rays from
+/// `eye` through the aperture endpoints, clipped to `max_depth` deep. Each far
+/// corner is its endpoint pushed away from the eye to exactly `max_depth`:
 ///
-/// — which lands `F` exactly `max_depth` behind the surface (`(F−pos)·n =
-/// −max_depth`). So the wedge **skews with the viewer's angle** (off to one
-/// side ⇒ you see more of the opposite side) and **widens as the viewer nears**
-/// the portal (small `front`) — "shown proportional to what the character can
-/// see." Returns `None` when `eye` is on or behind the surface (`front ≤ 0`):
-/// you cannot look through a portal from behind its own wall. Line-of-sight
-/// occlusion (a wall between `eye` and the aperture) is the caller's check —
-/// this is pure aperture geometry, no world access.
+/// > `F = A + (max_depth / front) · (A − eye)`,  `front = (eye − pos)·n`
 ///
-/// Same window display map as [`view_cone`] (the body [`map_point`]), so the
-/// wedge's content still agrees with a transiting body at the face.
-pub fn visible_cone(
+/// so the wedge **skews with the viewer's angle** and **widens as the viewer
+/// nears** the portal. `None` if `eye` is not in front (`front ≤ 0`). Pure
+/// geometry — line-of-sight occlusion is the caller's check.
+pub fn aperture_wedge(
     enter: &PortalFrame,
     exit: &PortalFrame,
     eye: Vec2,
@@ -194,27 +220,67 @@ pub fn visible_cone(
     if front <= 1.0 {
         return None;
     }
+    // Clamp the effective front off zero: as the eye nears the aperture plane
+    // the wedge blows up toward a half-plane (`k → ∞`) — a huge, fuzzy source
+    // rect and numerically unstable. A small floor bounds the spread.
+    let front = front.max(8.0);
     let t = Vec2::new(-n.y, n.x);
     let h = enter.aperture_half();
     let a0 = enter.pos - t * h;
     let a1 = enter.pos + t * h;
     let k = max_depth / front;
-    // Push each aperture corner away from the eye to depth `max_depth`.
     let f0 = a0 + (a0 - eye) * k;
     let f1 = a1 + (a1 - eye) * k;
-    let entry_quad = [a0, a1, f1, f0];
-    let source_quad = entry_quad.map(|p| map_point(p, enter, exit));
-    let (mut min, mut max) = (source_quad[0], source_quad[0]);
-    for p in &source_quad[1..] {
-        min = min.min(*p);
-        max = max.max(*p);
+    Some(from_entry_quad([a0, a1, f1, f0], enter, exit))
+}
+
+/// Convenience: [`effective_eye`] (so it works from either end of the pair)
+/// then [`aperture_wedge`]. `None` only when the viewer is behind both ends.
+pub fn visible_cone(
+    enter: &PortalFrame,
+    exit: &PortalFrame,
+    eye: Vec2,
+    max_depth: f32,
+) -> Option<ViewCone> {
+    let (eye, _) = effective_eye(enter, exit, eye)?;
+    aperture_wedge(enter, exit, eye, max_depth)
+}
+
+/// Per-corner linear blend `a → b` by `t ∈ [0,1]`. With `a` the minimum cone
+/// and `b` the viewer wedge, `t = 0` shows the always-on minimum and `t = 1`
+/// the full visible wedge — the two share the near (aperture) edge, so the
+/// blend just opens the far edge from the floor out to what the viewer sees.
+pub fn blend_cones(
+    a: &ViewCone,
+    b: &ViewCone,
+    t: f32,
+    enter: &PortalFrame,
+    exit: &PortalFrame,
+) -> ViewCone {
+    let t = t.clamp(0.0, 1.0);
+    let entry_quad = std::array::from_fn(|i| a.entry_quad[i].lerp(b.entry_quad[i], t));
+    from_entry_quad(entry_quad, enter, exit)
+}
+
+/// Push a cone's far corners so each is at least `min_depth` behind the surface
+/// — the minimum-cone floor, so even a grazing/near-aligned wedge never reads
+/// as a flat sliver. Leaves the lateral (skew) of each corner intact.
+pub fn floor_cone_depth(
+    cone: &ViewCone,
+    enter: &PortalFrame,
+    exit: &PortalFrame,
+    min_depth: f32,
+) -> ViewCone {
+    let n = enter.normal;
+    let mut entry_quad = cone.entry_quad;
+    for i in [2, 3] {
+        let p = entry_quad[i];
+        let depth = (p - enter.pos).dot(-n); // into the wall is positive
+        if depth < min_depth {
+            entry_quad[i] = p + (-n) * (min_depth - depth);
+        }
     }
-    let source = ae::Aabb::new((min + max) * 0.5, (max - min) * 0.5);
-    Some(ViewCone {
-        entry_quad,
-        source_quad,
-        source,
-    })
+    from_entry_quad(entry_quad, enter, exit)
 }
 
 #[cfg(test)]
@@ -356,16 +422,29 @@ mod tests {
         }
     }
 
-    /// Viewer behind (or on) the surface can't see through: `None`.
+    /// Behind BOTH ends ⇒ `None` (two floors, eye below both).
     #[test]
-    fn visible_cone_none_from_behind_the_surface() {
+    fn visible_cone_none_behind_both_ends() {
+        let enter = floor(Vec2::new(100.0, 300.0));
+        let exit = floor(Vec2::new(500.0, 300.0));
+        // Floors face up (−y); a viewer BELOW both (y > 300) is behind each.
+        assert!(visible_cone(&enter, &exit, Vec2::new(100.0, 360.0), 80.0).is_none());
+    }
+
+    /// The wormhole: standing in front of the PARTNER opens this end's window
+    /// even though the eye is behind this surface (above purple ⇒ yellow shows).
+    #[test]
+    fn visible_cone_opens_from_the_partner_side() {
         let enter = floor(Vec2::new(100.0, 300.0));
         let exit = right_wall(Vec2::new(400.0, 200.0));
-        // Floor normal points up (−y); a viewer BELOW the floor (y > 300) is
-        // behind the surface.
-        assert!(visible_cone(&enter, &exit, Vec2::new(100.0, 360.0), 80.0).is_none());
-        // Exactly on the surface → also None.
-        assert!(visible_cone(&enter, &exit, Vec2::new(100.0, 300.0), 80.0).is_none());
+        // Eye is BEHIND the floor (y > 300) but in FRONT of the wall partner
+        // (x < 400) — only the wormhole opens this end.
+        let eye = Vec2::new(100.0, 360.0);
+        let (resolved, wormhole) = effective_eye(&enter, &exit, eye).expect("in front of partner");
+        assert!(wormhole, "resolved via the partner side");
+        // The image is in front of `enter` (above the floor, y < 300).
+        assert!(resolved.y < 300.0, "image in front of enter: {resolved:?}");
+        assert!(visible_cone(&enter, &exit, eye, 80.0).is_some());
     }
 
     /// The far edge sits exactly `max_depth` behind the surface, and a head-on

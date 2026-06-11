@@ -805,7 +805,7 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
 }
 
 #[test]
-fn partial_render_keeps_the_sprite_and_masks_the_through_slice() {
+fn partial_render_keeps_the_sprite_and_adds_the_exit_copy() {
     use ambition_sandbox::portal::{
         sync_portal_world_frame, tag_portal_scene_bodies, PortalWorldFrame,
     };
@@ -862,19 +862,20 @@ fn partial_render_keeps_the_sprite_and_masks_the_through_slice() {
         ))
         .id();
     app.update();
-    // The real sprite stays visible — only the through-wall slice is masked.
+    // The real sprite stays visible; the exit copy is additive (no masking).
     assert_eq!(
         *app.world().get::<Visibility>(player).unwrap(),
         Visibility::Inherited,
-        "the real character sprite is NOT hidden; the box masks the invisible part"
+        "the real character sprite is NOT hidden"
     );
-    // An exit copy of the sprite + a mask over each invisible slice (entry
-    // through-wall + exit not-yet-emerged) = three transient pieces.
+    // Exactly one transient piece now: the exit copy of the sprite. The opaque
+    // "feet in, feet out" mask boxes were removed — the view windows show the
+    // emerging slice and the copy overlays it.
     let pieces = {
         let mut q = app.world_mut().query::<&PortalBodyPiece>();
         q.iter(app.world()).count()
     };
-    assert_eq!(pieces, 3, "exit sprite copy + entry mask + exit mask");
+    assert_eq!(pieces, 1, "exit sprite copy only, no masks");
 }
 
 #[test]

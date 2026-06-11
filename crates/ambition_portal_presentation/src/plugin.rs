@@ -25,14 +25,11 @@ pub struct PortalPresentationPlugin {
     /// Placed-portal quads + channel labels, the in-flight shot streak, and
     /// the ground-pickup sprite ([`visuals::sync_portal_visuals`]).
     pub portal_quads: bool,
-    /// Mid-transit body-piece decomposition over the host-tagged
-    /// [`crate::PortalSceneBody`] ([`visuals::sync_portal_body_pieces`]).
-    ///
-    /// OFF by default: it draws a second "exit copy" of the transiting body
-    /// (the "feet in, feet out" mask), which double-draws the character, and
-    /// the masking is unfinished. The view windows are now the nicer way to
-    /// show a body straddling a portal, so this stays opt-in until the masking
-    /// is finished and reconciled with the windows.
+    /// The mid-transit **exit copy** of the body over the host-tagged
+    /// [`crate::PortalSceneBody`] ([`visuals::sync_portal_body_pieces`]): a
+    /// second sprite emerging from the exit portal while the body straddles a
+    /// pair, kept in sync with the real sprite. No masking — the view windows
+    /// show the emerging slice and the copy overlays it.
     pub body_pieces: bool,
     /// The held portal-gun sprite aimed by [`PortalAimHint`]
     /// ([`visuals::sync_portal_mode_indicator`]).
@@ -52,9 +49,7 @@ impl Default for PortalPresentationPlugin {
     fn default() -> Self {
         Self {
             portal_quads: true,
-            // Off: unfinished masking + double-draws the body; the view windows
-            // supersede it for now (see the field docs).
-            body_pieces: false,
+            body_pieces: true,
             gun_indicator: true,
             disorientation: true,
             view_cones: true,

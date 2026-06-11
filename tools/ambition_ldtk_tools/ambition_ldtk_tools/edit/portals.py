@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
 """Author a LINKED portal PAIR in one command.
 
-Two `Portal` entities pair iff their `color` fields are complementary channels.
-This is the ergonomic front end: give it a channel + the two placements and it
-emits BOTH ends with the right paired colors, a shared id prefix, and a shared
-name, then repairs the file — so an author never has to remember the pairing
-table or place two entities by hand.
+Two `Portal` entities pair iff they share the same `link` id (the explicit,
+preferred model — a link that is not exactly two members is closed in game).
+This emits BOTH ends carrying that link, a shared id prefix, and a shared name,
+then repairs the file — so an author never places two entities by hand or has
+to remember the legacy complementary-color table.
 
     ambition-ldtk-tools portal pair \\
-        --level portal_lab --channel purple \\
-        --a 254 891 up --b 554 891 up \\
+        --level portal_lab --link demo_door \\
+        --a 254 891 up --b 554 700 left \\
         --id demo --name "demo gate" --in-place
 
-`--channel` accepts either member of a named pair (purple/yellow, teal/red,
-green/magenta, cyan/rose) or a generated channel `cN` (paired with `cN^1`, i.e.
-c8↔c9, c10↔c11, …) — there are 128 generated pairs, so a room can hold far more
-than the four named ones. `--a`/`--b` are `X Y NORMAL`, NORMAL ∈
-{up (floor), down (ceiling), left (right-wall), right (left-wall)} (world y is
-down). Each end's box is the 92×18 portal face centered on `X,Y`.
+`--link` is any string shared by the two ends. `--a`/`--b` are `X Y NORMAL`,
+NORMAL ∈ {up (floor), down (ceiling), left (right-wall), right (left-wall)}
+(world y is down). The box SIZE you give (via --size, default 92×18) sets the
+opening length; a mismatched pair opens the MINIMUM of the two, centered. The
+`color` field is cosmetic when a link is set (the runtime derives the pair's
+color), so `--color` is optional.
 """
 
 from __future__ import annotations
@@ -80,7 +80,7 @@ def main(argv=None) -> int:
     p.add_argument("pair", nargs="?", help=argparse.SUPPRESS)
     p.add_argument("--ldtk", type=Path, default=DEFAULT_LDTK)
     p.add_argument("--level", required=True, help="level identifier (e.g. portal_lab)")
-    p.add_argument("--channel", required=True, help="channel of end A (partner is B)")
+    p.add_argument("--link", required=True, help="shared link id for the pair")
     p.add_argument(
         "--a", nargs=3, metavar=("X", "Y", "NORMAL"), required=True,
         help="end A: level-local x y and surface normal",
@@ -89,7 +89,10 @@ def main(argv=None) -> int:
         "--b", nargs=3, metavar=("X", "Y", "NORMAL"), required=True,
         help="end B (partner): level-local x y and surface normal",
     )
-    p.add_argument("--id", default="portal", help="id prefix; ends are {id}_{color}")
+    p.add_argument("--color", default="purple", help="cosmetic color (link overrides pairing)")
+    p.add_argument("--size", nargs=2, type=int, metavar=("W", "H"), default=None,
+                   help="opening box size; default 92x18 (pair opens the minimum)")
+    p.add_argument("--id", default="portal", help="id prefix; ends are {id}_a / {id}_b")
     p.add_argument("--name", default=None, help="shared name (default: '{id} pair')")
     p.add_argument("--in-place", action="store_true")
     p.add_argument("--output", type=Path, default=None)
@@ -99,25 +102,29 @@ def main(argv=None) -> int:
     if not args.in_place and args.output is None:
         p.error("choose --in-place or --output <path>")
 
-    chan_a = args.channel.strip().lower()
-    chan_b = partner_of(chan_a)
+    link = args.link.strip()
+    color = args.color.strip().lower()
     name = args.name or f"{args.id} pair"
 
-    def make(channel: str, placement) -> dict:
+    def make(slot: str, placement) -> dict:
         x, y, normal = placement
         normal = normal.strip().lower()
         if normal not in NORMALS:
             raise SystemExit(f"normal must be one of {sorted(NORMALS)}, got '{normal}'")
-        return {
+        spec = {
             "type": "Portal",
             "px": [int(x), int(y)],
             "fields": {
-                "id": f"{args.id}_{channel}",
+                "id": f"{args.id}_{slot}",
                 "name": name,
-                "color": channel,
+                "color": color,
                 "normal": normal,
+                "link": link,
             },
         }
+        if args.size:
+            spec["size"] = [int(args.size[0]), int(args.size[1])]
+        return spec
 
     project = load_project(args.ldtk)
     level = find_level(project, args.level)
@@ -127,7 +134,7 @@ def main(argv=None) -> int:
     valid = {f["identifier"] for f in ent_def.get("fieldDefs", [])}
 
     added = []
-    for spec in (make(chan_a, args.a), make(chan_b, args.b)):
+    for spec in (make("a", args.a), make("b", args.b)):
         for fname in spec["fields"]:
             if fname not in valid:
                 return _fail(f"Portal has no field '{fname}' (known: {sorted(valid)})")
@@ -135,7 +142,7 @@ def main(argv=None) -> int:
             project, spec, grid, int(level.get("worldX", 0)), int(level.get("worldY", 0))
         )
         layer.setdefault("entityInstances", []).append(inst)
-        added.append(f"{spec['fields']['id']} ({spec['fields']['color']})")
+        added.append(spec["fields"]["id"])
 
     target = args.output or args.ldtk
     if args.in_place and args.backup:
@@ -143,7 +150,7 @@ def main(argv=None) -> int:
         shutil.copy2(args.ldtk, backup)
         print(f"wrote backup: {backup}")
     write_project(target, project)
-    print(f"added portal pair to '{args.level}': {' <-> '.join(added)}")
+    print(f"added portal pair (link '{link}') to '{args.level}': {' <-> '.join(added)}")
 
     if args.no_repair:
         return 0

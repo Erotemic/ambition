@@ -49,6 +49,7 @@
 mod color;
 mod eviction;
 mod gun;
+mod link;
 mod lifecycle;
 mod messages;
 mod pickup;
@@ -77,6 +78,9 @@ pub use ambition_platformer_runtime::world_query::raycast_solids;
 
 pub use color::{PortalChannel, PortalChannelColor, PortalGunColor};
 pub use eviction::{evict_straddlers_on_portal_change, PortalFrameHistory};
+pub use link::{
+    equalize_pair_apertures, link_hash, resolve_portal_links, PortalLink,
+};
 pub use gun::{portal_toggle_system, PortalGun};
 pub use lifecycle::{clear_portals_on_reset, despawn_orphaned_portals};
 pub use messages::{
@@ -99,8 +103,8 @@ pub use transit::{
 };
 pub use pieces::{portal_map_rotation, set_portal_map_rotation};
 pub use types::{
-    find_portal, portal_half_extent, PlacedPortal, PortalTransitCooldown, MIN_EXIT_SPEED,
-    PORTAL_VISUAL_THICKNESS,
+    find_portal, portal_half_extent, portal_half_extent_with_length, portal_opening_half,
+    PlacedPortal, PortalTransitCooldown, MIN_EXIT_SPEED, PORTAL_VISUAL_THICKNESS,
 };
 pub use view::{
     aperture_wedge, aperture_wedge_multi, blend_cones, copy_roll, view_cone, view_point,

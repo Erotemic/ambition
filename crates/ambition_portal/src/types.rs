@@ -69,13 +69,31 @@ pub const PORTAL_VISUAL_THICKNESS: f32 = PORTAL_THICKNESS_HALF * 2.0;
 /// axis-aligned box that bounds the tilted face (good enough until slanted
 /// portals are real).
 pub fn portal_half_extent(normal: Vec2) -> Vec2 {
+    portal_half_extent_with_length(normal, PORTAL_OPENING_HALF)
+}
+
+/// [`portal_half_extent`] with an explicit along-surface half-length (e.g. the
+/// authored LDtk box), keeping the standard through-surface thickness. For
+/// portals whose opening size is authored rather than the fixed default.
+pub fn portal_half_extent_with_length(normal: Vec2, along_half: f32) -> Vec2 {
     let n = normal.normalize_or_zero();
     let along = Vec2::new(-n.y, n.x);
     Vec2::new(
-        along.x.abs() * PORTAL_OPENING_HALF + n.x.abs() * PORTAL_THICKNESS_HALF,
-        along.y.abs() * PORTAL_OPENING_HALF + n.y.abs() * PORTAL_THICKNESS_HALF,
+        along.x.abs() * along_half + n.x.abs() * PORTAL_THICKNESS_HALF,
+        along.y.abs() * along_half + n.y.abs() * PORTAL_THICKNESS_HALF,
     )
 }
+
+/// The along-surface half-length (opening size) of an oriented half-extent —
+/// the inverse of [`portal_half_extent_with_length`]'s along component.
+pub fn portal_opening_half(normal: Vec2, half_extent: Vec2) -> f32 {
+    let n = normal.normalize_or_zero();
+    half_extent.dot(Vec2::new(-n.y, n.x).abs())
+}
+
+/// Standard through-surface half-thickness, exposed so the aperture-equalizer
+/// can rebuild a half-extent from a new along-length.
+pub const PORTAL_FACE_HALF_THICKNESS: f32 = PORTAL_THICKNESS_HALF;
 
 /// How far out of the exit portal (along its normal) to pop a body so it clears
 /// the thin portal face without immediately re-entering: the body's half-size

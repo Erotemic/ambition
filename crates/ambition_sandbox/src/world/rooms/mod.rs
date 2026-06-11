@@ -596,6 +596,14 @@ pub struct PortalSpec {
     pub pos: ae::Vec2,
     /// Outward surface normal (axis-aligned), pointing into the room.
     pub normal: ae::Vec2,
+    /// Explicit link id (LDtk `link` field). When set, the portal pairs with
+    /// the OTHER portal carrying the same link — overriding the complementary-
+    /// color pairing — and a link that is not exactly two members is closed.
+    /// `None` ⇒ legacy color pairing.
+    pub link: Option<String>,
+    /// Authored along-surface half-length (opening size) from the LDtk box.
+    /// `None` ⇒ the fixed default. Both ends of a pair shrink to the minimum.
+    pub half_length: Option<f32>,
 }
 
 /// LDtk-authored heal/save shrine. Resolves to a [`crate::shrine::HealShrine`]

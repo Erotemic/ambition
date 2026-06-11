@@ -85,15 +85,26 @@ pub(crate) fn spawn_portal(commands: &mut Commands, spec: &crate::rooms::PortalS
     // Authored static portal: the same `Portal` component the gun fires, but
     // pre-placed and color-paired. Room-scoped so a transition despawns it and
     // the loader re-spawns it; never gun-owned, so it persists without a gun.
-    commands.spawn_room_scoped((
+    // Opening size: authored along-surface half-length if given, else default.
+    let half_extent = match spec.half_length {
+        Some(h) => crate::portal::portal_half_extent_with_length(spec.normal, h),
+        None => crate::portal::portal_half_extent(spec.normal),
+    };
+    let mut entity = commands.spawn_room_scoped((
         Name::new(format!("Portal ({}): {}", spec.color.name(), spec.name)),
         crate::portal::PlacedPortal {
+            // Link-authored portals get a provisional channel; `resolve_portal_links`
+            // assigns the real paired channel each frame. Color-authored keep
+            // their legacy complementary channel.
             channel: spec.color.channel(),
             pos: spec.pos,
             normal: spec.normal,
-            half_extent: crate::portal::portal_half_extent(spec.normal),
+            half_extent,
         },
     ));
+    if let Some(link) = &spec.link {
+        entity.insert(crate::portal::PortalLink(crate::portal::link_hash(link)));
+    }
 }
 
 pub(crate) fn spawn_shrine(commands: &mut Commands, spec: &crate::rooms::ShrineSpec) {

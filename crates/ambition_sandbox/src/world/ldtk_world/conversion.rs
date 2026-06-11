@@ -864,12 +864,22 @@ fn convert_portal(
         Some("up") | None => ae::Vec2::new(0.0, -1.0),
         Some(other) => return Err(format!("Portal '{name}' has unknown normal '{other}'")),
     };
+    // Explicit link id (preferred pairing); empty/absent ⇒ legacy color pairing.
+    let link = field_string(entity, "link")
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    // Authored opening size: the box dimension ALONG the surface (perpendicular
+    // to the normal). Floor/ceiling (vertical normal) → width; wall → height.
+    let along = if normal.x.abs() > 0.5 { size.y } else { size.x };
+    let half_length = (along > 1.0).then_some(along * 0.5);
     Ok(RuntimeEntityEmission::portal(crate::rooms::PortalSpec {
         id: authored_id(entity),
         name,
         color,
         pos: min + size * 0.5,
         normal,
+        link,
+        half_length,
     }))
 }
 

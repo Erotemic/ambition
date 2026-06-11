@@ -61,9 +61,9 @@ pub fn evict_straddlers_on_portal_change(
     for (channel, old) in history.0.iter() {
         // The plane is unchanged only if a portal of the same channel still
         // sits at the same pos + normal; otherwise its old plane is closing.
-        let unchanged = current.get(channel).is_some_and(|now| {
-            now.pos.distance(old.pos) < 1.0 && now.normal == old.normal
-        });
+        let unchanged = current
+            .get(channel)
+            .is_some_and(|now| now.pos.distance(old.pos) < 1.0 && now.normal == old.normal);
         if unchanged {
             continue;
         }
@@ -150,7 +150,10 @@ mod tests {
         let mut app = app();
         // Floor portal at y=300; body centered just ABOVE the plane (centroid
         // front, feet dipped through).
-        let portal = app.world_mut().spawn(floor_portal(BLUE, Vec2::new(100.0, 300.0))).id();
+        let portal = app
+            .world_mut()
+            .spawn(floor_portal(BLUE, Vec2::new(100.0, 300.0)))
+            .id();
         let body = straddling_body(&mut app, Vec2::new(100.0, 290.0));
         // Frame 1: history records the portal; body still straddles.
         app.update();
@@ -163,16 +166,24 @@ mod tests {
         app.update();
         let kin = app.world().get::<BodyKinematics>(body).unwrap();
         // Pushed UP (—y) fully clear of the old plane: bottom edge above y=300.
-        assert!(kin.pos.y + kin.size.y * 0.5 <= 300.0 + 1e-3, "evicted clear: {:?}", kin.pos);
+        assert!(
+            kin.pos.y + kin.size.y * 0.5 <= 300.0 + 1e-3,
+            "evicted clear: {:?}",
+            kin.pos
+        );
     }
 
     #[test]
     fn teleported_portal_evicts_straddler_but_stable_portal_does_not() {
         let mut app = app();
-        let portal = app.world_mut().spawn(floor_portal(BLUE, Vec2::new(100.0, 300.0))).id();
+        let portal = app
+            .world_mut()
+            .spawn(floor_portal(BLUE, Vec2::new(100.0, 300.0)))
+            .id();
         let body = straddling_body(&mut app, Vec2::new(100.0, 290.0));
         // A different, stable channel a SECOND body straddles — must be left alone.
-        app.world_mut().spawn(floor_portal(PURPLE, Vec2::new(500.0, 300.0)));
+        app.world_mut()
+            .spawn(floor_portal(PURPLE, Vec2::new(500.0, 300.0)));
         let stable_body = straddling_body(&mut app, Vec2::new(500.0, 290.0));
         app.update();
         // Teleport BLUE far away; PURPLE unchanged.
@@ -182,7 +193,10 @@ mod tests {
         app.update();
         let moved = app.world().get::<BodyKinematics>(body).unwrap().pos;
         let stable = app.world().get::<BodyKinematics>(stable_body).unwrap().pos;
-        assert!(moved.y < 290.0 - 1.0, "BLUE straddler evicted up: {moved:?}");
+        assert!(
+            moved.y < 290.0 - 1.0,
+            "BLUE straddler evicted up: {moved:?}"
+        );
         assert!(
             (stable.y - 290.0).abs() < 1e-3,
             "PURPLE straddler untouched: {stable:?}"

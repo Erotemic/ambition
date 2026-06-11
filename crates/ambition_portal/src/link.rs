@@ -64,7 +64,8 @@ pub fn resolve_portal_links(mut portals: Query<(&PortalLink, &mut PlacedPortal)>
     // sorted positions (so each end's slot is stable).
     let mut hashes: Vec<u64> = groups.keys().copied().collect();
     hashes.sort_unstable();
-    let group_index: HashMap<u64, usize> = hashes.iter().enumerate().map(|(i, h)| (*h, i)).collect();
+    let group_index: HashMap<u64, usize> =
+        hashes.iter().enumerate().map(|(i, h)| (*h, i)).collect();
     for members in groups.values_mut() {
         members.sort_by(|a, b| a.x.total_cmp(&b.x).then(a.y.total_cmp(&b.y)));
     }
@@ -129,7 +130,10 @@ mod tests {
 
     fn app() -> App {
         let mut app = App::new();
-        app.add_systems(Update, (resolve_portal_links, equalize_pair_apertures).chain());
+        app.add_systems(
+            Update,
+            (resolve_portal_links, equalize_pair_apertures).chain(),
+        );
         app
     }
 
@@ -138,11 +142,17 @@ mod tests {
         let mut app = app();
         let a = app
             .world_mut()
-            .spawn((PortalLink(link_hash("door")), floor(Vec2::new(100.0, 300.0))))
+            .spawn((
+                PortalLink(link_hash("door")),
+                floor(Vec2::new(100.0, 300.0)),
+            ))
             .id();
         let b = app
             .world_mut()
-            .spawn((PortalLink(link_hash("door")), floor(Vec2::new(500.0, 300.0))))
+            .spawn((
+                PortalLink(link_hash("door")),
+                floor(Vec2::new(500.0, 300.0)),
+            ))
             .id();
         app.update();
         let ca = app.world().get::<PlacedPortal>(a).unwrap().channel;
@@ -167,7 +177,10 @@ mod tests {
         // A lone portal on another link → also closed.
         let lone = app
             .world_mut()
-            .spawn((PortalLink(link_hash("solo")), floor(Vec2::new(700.0, 300.0))))
+            .spawn((
+                PortalLink(link_hash("solo")),
+                floor(Vec2::new(700.0, 300.0)),
+            ))
             .id();
         app.update();
         let all: Vec<PlacedPortal> = {
@@ -190,8 +203,14 @@ mod tests {
         big.half_extent = portal_half_extent_with_length(big.normal, 80.0); // wide
         let mut small = floor(Vec2::new(500.0, 300.0));
         small.half_extent = portal_half_extent_with_length(small.normal, 30.0); // narrow
-        let a = app.world_mut().spawn((PortalLink(link_hash("d")), big)).id();
-        let b = app.world_mut().spawn((PortalLink(link_hash("d")), small)).id();
+        let a = app
+            .world_mut()
+            .spawn((PortalLink(link_hash("d")), big))
+            .id();
+        let b = app
+            .world_mut()
+            .spawn((PortalLink(link_hash("d")), small))
+            .id();
         app.update();
         // Both ends now open the minimum (30), centered (pos unchanged).
         for e in [a, b] {

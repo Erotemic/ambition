@@ -94,41 +94,85 @@ pub fn portal_transit_roll(n_in: Vec2, n_out: Vec2) -> f32 {
     cross.atan2(dot)
 }
 
-/// The somersault roll a body picks up crossing a portal pair. It is the
-/// on-screen turn from [`portal_transit_roll`] — EXCEPT a pure turn-around in
-/// the gravity-perpendicular plane (wall↔wall under normal gravity) imparts NO
-/// tumble: the body stays gravity-upright and just reverses facing, so it comes
-/// out the far wall already correctly oriented. Crossing a floor / ceiling
-/// (normal along gravity) keeps the genuine tumble (feet-in → reorient).
-pub fn somersault_roll(n_in: Vec2, n_out: Vec2, gravity_dir: Vec2) -> f32 {
+fn wall_to_wall(n_in: Vec2, n_out: Vec2, gravity_dir: Vec2) -> bool {
     let g = gravity_dir.normalize_or_zero();
-    // A portal whose normal is perpendicular to gravity sits on a wall; the body
-    // enters/leaves it moving horizontally, so the transit is a turn-around, not
-    // a tumble.
     let in_wall = n_in.normalize_or_zero().dot(g).abs() < 0.5;
     let out_wall = n_out.normalize_or_zero().dot(g).abs() < 0.5;
-    if in_wall && out_wall {
+    in_wall && out_wall
+}
+
+/// Convention-aware somersault policy.
+///
+/// Rotation convention (det +1) is a proper orientation map, so the body picks
+/// up exactly the render-space rotation of the map. Reflection convention
+/// (det -1) cannot be represented by roll alone; it keeps the historical
+/// gravity-platformer accommodation where wall↔wall crossings stay upright and
+/// express their mirror through [`portal_facing_flips_for_convention`].
+pub fn somersault_roll_for_convention(
+    rotation_convention: bool,
+    n_in: Vec2,
+    n_out: Vec2,
+    gravity_dir: Vec2,
+) -> f32 {
+    if !rotation_convention && wall_to_wall(n_in, n_out, gravity_dir) {
         return 0.0;
     }
     portal_transit_roll(n_in, n_out)
 }
 
+/// The somersault roll a body picks up crossing a portal pair under the active
+/// game-wide map convention.
+pub fn somersault_roll(n_in: Vec2, n_out: Vec2, gravity_dir: Vec2) -> f32 {
+    somersault_roll_for_convention(pp::portal_map_rotation(), n_in, n_out, gravity_dir)
+}
+
 /// Whether the body's horizontal FACING flips through this portal pair.
 ///
-/// A 180° somersault rotation inherently mirrors the sprite left↔right. For a
-/// wall↔wall turn-around we SUPPRESS that rotation (to keep the body upright —
-/// see [`somersault_roll`]), which would lose the mirror and emerge the body
-/// back-first ("face in, back out"). So in exactly that suppressed-180° case the
-/// mirror is re-applied as a facing flip, giving the wanted "face in, face out"
-/// (really: X-in, X-out). Every other case carries its orientation in the
-/// rotation, so facing is left alone.
+/// This is needed only under the reflection convention. A same-wall reflection
+/// is a horizontal mirror, but the visual policy suppresses wall↔wall roll to
+/// keep actors gravity-upright; the facing flip supplies the missing mirror so
+/// the leading side still leads out. Under rotation convention the map is a
+/// proper rotation, so facing is carried by roll and no separate mirror applies.
+pub fn portal_facing_flips_for_convention(
+    rotation_convention: bool,
+    n_in: Vec2,
+    n_out: Vec2,
+    gravity_dir: Vec2,
+) -> bool {
+    !rotation_convention
+        && wall_to_wall(n_in, n_out, gravity_dir)
+        && portal_transit_roll(n_in, n_out).abs() > std::f32::consts::FRAC_PI_2
+}
+
+/// Whether the body's horizontal FACING flips through this portal pair under
+/// the active game-wide map convention.
 pub fn portal_facing_flips(n_in: Vec2, n_out: Vec2, gravity_dir: Vec2) -> bool {
-    let g = gravity_dir.normalize_or_zero();
-    let in_wall = n_in.normalize_or_zero().dot(g).abs() < 0.5;
-    let out_wall = n_out.normalize_or_zero().dot(g).abs() < 0.5;
-    // Suppressed (both walls) AND the would-be turn is a ~180° flip (same-wall),
-    // not a 0° straight-through (facing-each-other walls).
-    in_wall && out_wall && portal_transit_roll(n_in, n_out).abs() > std::f32::consts::FRAC_PI_2
+    portal_facing_flips_for_convention(pp::portal_map_rotation(), n_in, n_out, gravity_dir)
+}
+
+/// Whether held horizontal movement should be temporarily mapped through the
+/// portal after a transfer. This is an input-feel accommodation, but the gate is
+/// mathematical: apply it only when the active map sends screen-horizontal input
+/// to the opposite screen-horizontal direction. Floor↔wall turns map horizontal
+/// input into vertical movement, which the platformer controller cannot express
+/// as ordinary movement, so they stay on the emergence guard alone.
+pub fn portal_input_warp_flips_horizontal_for_convention(
+    rotation_convention: bool,
+    n_in: Vec2,
+    n_out: Vec2,
+) -> bool {
+    let mapped = if rotation_convention {
+        pp::portal_map_vec_rotation(Vec2::X, n_in, n_out)
+    } else {
+        pp::portal_map_vec_reflection(Vec2::X, n_in, n_out)
+    };
+    mapped.x < -0.5 && mapped.y.abs() < 0.5
+}
+
+/// Whether held horizontal movement should be temporarily mapped through the
+/// portal after a transfer under the active game-wide convention.
+pub fn portal_input_warp_flips_horizontal(n_in: Vec2, n_out: Vec2) -> bool {
+    portal_input_warp_flips_horizontal_for_convention(pp::portal_map_rotation(), n_in, n_out)
 }
 
 /// Does an actor of `size` fit through `portal`? The opening the actor must
@@ -217,9 +261,10 @@ pub enum TransitStep {
         vel: Vec2,
         roll_delta: f32,
         /// Mirror the body's horizontal facing (the wall↔wall "face out" rule).
-        /// Also the gate for the held-input warp: it's exactly the case where
-        /// warping held movement stays horizontally expressible.
         facing_flip: bool,
+        /// Whether the held-input warp maps horizontal movement to the opposite
+        /// horizontal direction for this transfer.
+        input_warp: bool,
         /// Entry + exit portal normals — the held-input warp maps through them.
         enter_normal: Vec2,
         /// Outward normal of the exit portal — the direction the body emerges.
@@ -272,6 +317,7 @@ fn transfer_step(
         // then eases it back to gravity-upright (feet-in → reorient).
         roll_delta: somersault_roll(enter.normal, exit.normal, gravity_dir),
         facing_flip: portal_facing_flips(enter.normal, exit.normal, gravity_dir),
+        input_warp: portal_input_warp_flips_horizontal(enter.normal, exit.normal),
         enter_normal: enter.normal,
         exit_normal: exit.normal,
         exit_channel: exit.channel,

@@ -328,7 +328,14 @@ fn aperture_occluded(eye: Vec2, enter: &PortalFrame, occluders: &[ae::Aabb]) -> 
     if dist < 2.0 {
         return false;
     }
-    raycast_solids(&SliceSolids(occluders), eye, d, (dist - 4.0).max(0.0), false).is_some()
+    raycast_solids(
+        &SliceSolids(occluders),
+        eye,
+        d,
+        (dist - 4.0).max(0.0),
+        false,
+    )
+    .is_some()
 }
 
 /// One frame's window plan for a pair: the minimum cone, the (full) visible
@@ -481,8 +488,7 @@ fn cone_render(
         .iter()
         .map(|p| frame.to_render(*p, 0.0).truncate())
         .collect();
-    let centroid =
-        render_poly.iter().copied().sum::<Vec2>() / render_poly.len() as f32;
+    let centroid = render_poly.iter().copied().sum::<Vec2>() / render_poly.len() as f32;
     let positions: Vec<[f32; 3]> = render_poly
         .iter()
         .map(|p| [p.x - centroid.x, p.y - centroid.y, 0.0])
@@ -506,7 +512,10 @@ fn cone_render(
 }
 
 fn make_mesh(render: &ConeRender) -> Mesh {
-    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default());
+    let mut mesh = Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::default(),
+    );
     apply_mesh(&mut mesh, render);
     mesh
 }
@@ -540,7 +549,11 @@ fn smooth01(t: f32) -> f32 {
 /// Render z for a portal's window biased by viewer proximity, so the portal
 /// you are closest to draws ON TOP of the others (inverse-distance, bounded by
 /// `span` and kept under the rim gap). No viewer ⇒ base z.
-fn proximity_z(config: &PortalViewConeConfig, viewer: Option<&PortalViewer>, portal_pos: Vec2) -> f32 {
+fn proximity_z(
+    config: &PortalViewConeConfig,
+    viewer: Option<&PortalViewer>,
+    portal_pos: Vec2,
+) -> f32 {
     let dist = viewer
         .filter(|v| v.present)
         .map_or(f32::INFINITY, |v| v.eye.distance(portal_pos));
@@ -573,7 +586,10 @@ pub fn sync_portal_view_cones(
         &mut Projection,
         &mut Camera,
     )>,
-    mut cones: Query<(&mut Transform, &mut Visibility), (With<PortalConeMesh>, Without<PortalViewRig>)>,
+    mut cones: Query<
+        (&mut Transform, &mut Visibility),
+        (With<PortalConeMesh>, Without<PortalViewRig>),
+    >,
 ) {
     if selection.active != crate::PortalVisualEffect::ViewCones {
         for (entity, rig, ..) in &rigs {
@@ -683,7 +699,10 @@ pub fn sync_portal_view_cones(
             ..default()
         });
         let (cone_tf, cone_vis) = match &render {
-            Some(r) => (Transform::from_translation(r.centroid), Visibility::Inherited),
+            Some(r) => (
+                Transform::from_translation(r.centroid),
+                Visibility::Inherited,
+            ),
             None => (
                 Transform::from_translation(Vec3::new(0.0, 0.0, z)),
                 Visibility::Hidden,
@@ -880,7 +899,7 @@ mod tests {
             half_extent: Vec2::new(46.0, 9.0),
         };
         let eye = Vec2::new(100.0, 100.0); // 200px above the floor portal
-        // Wall across the sight line, well in front of the surface.
+                                           // Wall across the sight line, well in front of the surface.
         let wall = ae::Aabb::new(Vec2::new(100.0, 200.0), Vec2::new(40.0, 8.0));
         assert!(aperture_occluded(eye, &enter, &[wall]));
         // A wall off to the side does not block.

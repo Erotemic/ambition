@@ -179,6 +179,6 @@ mod host_adapter {
 #[cfg(feature = "portal_render")]
 pub use host_adapter::{
     load_portal_gun_art, portal_convention_toggle_system, portal_dev_toggle_system,
-    sync_portal_view_debug_to_f1,
-    sync_portal_viewer, sync_portal_world_frame, tag_portal_scene_bodies,
+    sync_portal_view_debug_to_f1, sync_portal_viewer, sync_portal_world_frame,
+    tag_portal_scene_bodies,
 };

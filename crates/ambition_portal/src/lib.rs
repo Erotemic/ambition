@@ -49,24 +49,24 @@
 mod color;
 mod eviction;
 mod gun;
-mod link;
 mod lifecycle;
+mod link;
 mod messages;
 mod pickup;
 /// Pure portal-piece geometry — the Core invariant. Public because a host's
 /// world-overlay carve and debug overlay read `pieces` directly.
 pub mod pieces;
-/// Pure through-portal VIEW geometry (the view map — always a proper rotation
-/// — and the view cone). Public because renderers (the
-/// `ambition_portal_presentation` default renderer or a host's own) build
-/// capture cameras + cone UVs from it.
-pub mod view;
 mod placement;
 mod plugin;
 mod schedule;
 mod shot;
 mod transit;
 mod types;
+/// Pure through-portal VIEW geometry (the view map — always a proper rotation
+/// — and the view cone). Public because renderers (the
+/// `ambition_portal_presentation` default renderer or a host's own) build
+/// capture cameras + cone UVs from it.
+pub mod view;
 
 // Re-export the lower-crate surfaces the portal mechanic builds on, so a host's
 // `crate::portal::…` facade and the portal adapters keep resolving these paths.
@@ -78,19 +78,20 @@ pub use ambition_platformer_runtime::world_query::raycast_solids;
 
 pub use color::{PortalChannel, PortalChannelColor, PortalGunColor};
 pub use eviction::{evict_straddlers_on_portal_change, PortalFrameHistory};
-pub use link::{
-    equalize_pair_apertures, link_hash, resolve_portal_links, PortalLink,
-};
 pub use gun::{portal_toggle_system, PortalGun};
 pub use lifecycle::{clear_portals_on_reset, despawn_orphaned_portals};
+pub use link::{equalize_pair_apertures, link_hash, resolve_portal_links, PortalLink};
 pub use messages::{
     ClearPortals, DropPortalGun, FirePortalGun, PickUpPortalGun, PortalBodyEntered,
     PortalFireIntent, PortalGunEquipped, PortalShotFired, TogglePortalGun,
 };
 pub use pickup::{arm_portal_pickups, PortalGunPickup};
+pub use pieces::{portal_map_rotation, set_portal_map_rotation};
 pub use placement::{
-    portal_facing_flips, portal_fits, portal_transit_roll, raycast_through_portals,
-    somersault_roll, transit_step, TransitStep,
+    portal_facing_flips, portal_facing_flips_for_convention, portal_fits,
+    portal_input_warp_flips_horizontal, portal_input_warp_flips_horizontal_for_convention,
+    portal_transit_roll, raycast_through_portals, somersault_roll, somersault_roll_for_convention,
+    transit_step, TransitStep,
 };
 pub use shot::{
     is_portal_placeable, portal_fire_system, step_portal_shot, PortalShot, PortalShotStep,
@@ -101,15 +102,14 @@ pub use transit::{
     BodyTeleported, PlayerMovementIntent, PortalBody, PortalBodyTransited, PortalCarves,
     PortalEmission, PortalInputWarp, PortalPolicy, PortalTransit, PortalTransitable,
 };
-pub use pieces::{portal_map_rotation, set_portal_map_rotation};
 pub use types::{
     find_portal, portal_half_extent, portal_half_extent_with_length, portal_opening_half,
     PlacedPortal, PortalTransitCooldown, MIN_EXIT_SPEED, PORTAL_VISUAL_THICKNESS,
 };
 pub use view::{
-    aperture_wedge, aperture_wedge_multi, blend_cones, copy_roll, view_cone, view_point,
-    visible_cone, window_eye,
-    PortalViewMap, ViewCone,
+    aperture_wedge, aperture_wedge_multi, blend_cones, copy_roll, copy_transform,
+    copy_transform_for_convention, view_cone, view_point, visible_cone, window_eye,
+    PortalCopyTransform, PortalViewMap, ViewCone,
 };
 
 pub use plugin::{PortalPlugin, PortalSimulationPlugin};

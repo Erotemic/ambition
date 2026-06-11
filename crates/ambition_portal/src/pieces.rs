@@ -29,8 +29,8 @@ use bevy::math::Vec2;
 // `crate::pieces::{portal_rotation, rotate, portal_tangent,
 // portal_map_vec}` unchanged.
 pub use ambition_platformer_runtime::math::{
-    portal_map_rotation, portal_map_vec, portal_rotation, portal_tangent, rotate,
-    set_portal_map_rotation,
+    portal_map_rotation, portal_map_vec, portal_map_vec_reflection, portal_map_vec_rotation,
+    portal_rotation, portal_tangent, rotate, set_portal_map_rotation,
 };
 
 /// An axis-aligned portal as the piece math sees it: where the doorway is, the

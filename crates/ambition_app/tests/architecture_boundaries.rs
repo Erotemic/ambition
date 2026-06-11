@@ -1239,9 +1239,8 @@ fn architecture_boundaries_portal_presentation_crate_is_extracted() {
     }
 
     // (d) One-way: the headless mechanic must never name its renderer.
-    let mechanic_manifest =
-        fs::read_to_string(root.join("crates/ambition_portal/Cargo.toml"))
-            .expect("read ambition_portal manifest");
+    let mechanic_manifest = fs::read_to_string(root.join("crates/ambition_portal/Cargo.toml"))
+        .expect("read ambition_portal manifest");
     assert!(
         !mechanic_manifest.contains("ambition_portal_presentation"),
         "ambition_portal (headless mechanic) must not depend on its renderer"

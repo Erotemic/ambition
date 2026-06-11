@@ -17,7 +17,7 @@ use ambition_platformer_runtime::orientation::ActorRoll;
 
 use ambition_portal::pieces as pp;
 use ambition_portal::{
-    copy_roll, find_portal, PlacedPortal, PortalGun, PortalGunColor, PortalGunPickup,
+    copy_transform, find_portal, PlacedPortal, PortalGun, PortalGunColor, PortalGunPickup,
     PortalInputWarp, PortalShot, PortalTransit, PORTAL_VISUAL_THICKNESS,
 };
 
@@ -78,11 +78,12 @@ pub fn sync_portal_disorientation_indicator(
 }
 
 /// Draw a second copy of the transiting body emerging from the **exit** portal,
-/// posed by the BODY map (`copy_roll` + flip_x), so a body straddling a
-/// portal shows in BOTH charts (its real sprite at the entry, this copy at the
-/// exit). The copy must stay in sync with the real sprite — it is rebuilt each
-/// frame from the same `Sprite`, after `sync_visuals` has updated it. The copy
-/// is shared by EVERY visual-effect mode (windows / masks / off).
+/// posed by the BODY map (`copy_transform`: rotation-only for det +1 maps,
+/// rotation plus flip for det -1 maps), so a body straddling a portal shows in
+/// BOTH charts (its real sprite at the entry, this copy at the exit). The copy
+/// must stay in sync with the real sprite — it is rebuilt each frame from the
+/// same `Sprite`, after `sync_visuals` has updated it. The copy is shared by
+/// EVERY visual-effect mode (windows / masks / off).
 ///
 /// When the legacy **Transit Masks** effect is the active
 /// [`crate::PortalEffectSelection`] (compiled via `effect_transit_masks`),
@@ -141,15 +142,15 @@ pub fn sync_portal_body_pieces(
     let base_roll = roll.map_or(0.0, |r| r.angle);
 
     // Exit copy: the whole sprite emerging from the exit, drawn with the BODY
-    // map exactly — `R(copy_roll) ∘ flip_x` (the transit map is always a
-    // reflection, and every 2D reflection factors that way), so the copy, the
-    // view window, and the actual transit positions/velocities are ONE map.
-    // Entering on one side shows you emerging exactly where transit puts you,
-    // mirrored when the pair's tangent convention mirrors.
+    // map exactly. The active convention decides whether that map factors as a
+    // pure rotation or as rotation plus one x-reflection.
     let exit_center = pp::map_point(kin.pos, &enter, &exit);
-    let exit_roll = base_roll + copy_roll(&enter, &exit);
+    let copy = copy_transform(&enter, &exit);
+    let exit_roll = base_roll + copy.roll;
     let mut exit_sprite = sprite.clone();
-    exit_sprite.flip_x = !exit_sprite.flip_x;
+    if copy.flip_x {
+        exit_sprite.flip_x = !exit_sprite.flip_x;
+    }
     let exit_translation = frame.to_render(exit_center, ae::config::WORLD_Z_PLAYER);
     commands.spawn((
         PortalBodyPiece,

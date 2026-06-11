@@ -190,9 +190,12 @@ pub struct PortalBodyTransited {
     pub enter_normal: Vec2,
     /// Outward normal of the EXIT portal (the emergence direction).
     pub exit_normal: Vec2,
-    /// True for a same-wall turn-around (the warp stays horizontally
-    /// expressible); the input adapter only warps held input in this case.
+    /// True when this convention's orientation policy applies a separate
+    /// horizontal facing mirror.
     pub facing_flip: bool,
+    /// True when held horizontal movement maps to the opposite horizontal
+    /// direction under the active portal convention.
+    pub input_warp: bool,
     /// World position the body snapped to (the exit-side centroid).
     pub exit_pos: Vec2,
 }
@@ -272,6 +275,7 @@ pub fn portal_transit(
                 vel,
                 roll_delta,
                 facing_flip,
+                input_warp,
                 enter_normal,
                 exit_normal,
                 exit_channel,
@@ -313,6 +317,7 @@ pub fn portal_transit(
                     enter_normal,
                     exit_normal,
                     facing_flip,
+                    input_warp,
                     exit_pos,
                 });
                 bevy::log::info!(target: "ambition::portal", "transferred through the portal pair");
@@ -324,12 +329,10 @@ pub fn portal_transit(
     }
 }
 
-/// The input-layer fix for the same-wall ping-pong: after a portal crossing the
-/// player's HELD movement input is warped by the same portal map as velocity, so
-/// holding "right" into a left-facing pair keeps carrying you LEFT out the exit
-/// instead of instantly fighting the warped velocity and pulling you back through.
-/// Only set for the wall↔wall turn-around (where the warp stays horizontally
-/// expressible). Soft, not a hard latch — see [`warp_portal_input`].
+/// The input-layer fix for portal ping-pong: after a portal crossing the
+/// player's HELD movement input is warped by the same portal map as velocity
+/// when that map keeps horizontal movement expressible. Soft, not a hard latch —
+/// see the Ambition `warp_portal_input` adapter.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PortalInputWarp {
     /// Entry + exit portal normals — the held movement axis is mapped through the

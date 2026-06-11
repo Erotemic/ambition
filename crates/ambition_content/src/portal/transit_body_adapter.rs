@@ -146,8 +146,8 @@ pub fn ensure_projectile_portal_bodies(
 ///   intentional and doesn't auto-dump on it),
 /// - inserts the [`PortalEmission`] emergence guard (held input can't push back
 ///   into the exit wall for a short window), and
-/// - inserts the [`PortalInputWarp`] same-wall held-input warp **iff** the
-///   crossing was a `facing_flip` turn-around AND a movement input is held.
+/// - inserts the [`PortalInputWarp`] held-input warp **iff** this convention's
+///   map flips horizontal movement and a movement input is held.
 ///
 /// `PlayerMovementIntent` / `PortalEmission` / `PortalInputWarp` are INPUT and
 /// must never be referenced by the portal core. This runs `.after(portal_transit)`
@@ -174,10 +174,11 @@ pub fn portal_player_input_adapter(
             exit_normal: ev.exit_normal,
             timer: PORTAL_EMISSION_TIME,
         });
-        // Warp the held input only on the same-wall turn-around (where the warp
-        // stays horizontally expressible); a floor↔wall 90° turn would rotate a
-        // horizontal hold into "up", which the controller can't use.
-        if ev.facing_flip && held.length() > PORTAL_INPUT_HELD_EPS {
+        // Warp held input only when the active portal map keeps ordinary
+        // horizontal movement expressible and flips it. A floor↔wall 90° turn
+        // would rotate a horizontal hold into "up", which the controller can't
+        // use as ordinary movement.
+        if ev.input_warp && held.length() > PORTAL_INPUT_HELD_EPS {
             commands.entity(ev.body).insert(PortalInputWarp {
                 n_in: ev.enter_normal,
                 n_out: ev.exit_normal,

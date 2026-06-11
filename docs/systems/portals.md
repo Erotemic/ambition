@@ -150,18 +150,19 @@ pure physics says**, **what we do instead**, and **why**.
   layer), set on transfer in `portal_transit_system`.
 - **Pure physics says:** a portal transforms the *body* (position, velocity,
   facing). It has no business touching the player's controller.
-- **What we do — the warp:** on a **same-wall turn-around** crossing (both portals
-  perpendicular to gravity, where `portal_facing_flips` holds), the held movement
-  axis is mirrored at the input layer (`ControlFrame`), before the player brain
-  reads it, so a held *right* keeps carrying you *left* out the exit instead of
-  fighting the reversed exit velocity and yanking you back. Soft — it drops the
-  moment movement is released or clearly redirected.
+- **What we do — the warp:** when the active portal convention maps horizontal
+  movement to the opposite horizontal direction, the held movement axis is mapped
+  through the same portal map at the input layer (`ControlFrame`), before the
+  player brain reads it. So a held *right* keeps carrying the transformed body
+  in its transformed direction instead of fighting the exit velocity and yanking
+  it back. Soft — it drops the moment movement is released or clearly redirected.
 - **The expressibility rule:** the warp is applied **only** when the warped
-  direction is something the controller can express as movement — i.e. the
-  same-wall case, where it stays a horizontal mirror. For a floor↔wall (90°)
-  crossing the portal map would rotate a *horizontal* hold into *vertical* ("up"),
-  which the controller can't use for horizontal movement, so we **do not warp**
-  there.
+  direction is something the controller can express as ordinary movement. Under
+  the reflection convention this is the same-wall mirror case; under the rotation
+  convention it also includes floor↔floor / ceiling↔ceiling 180° turns. For a
+  floor↔wall (90°) crossing the portal map would rotate a *horizontal* hold into
+  *vertical* ("up"), which the controller can't use for horizontal movement, so
+  we **do not warp** there.
 - **What we do — the emergence guard (`PortalEmission`):** for a short window
   after **every** crossing, held input that pushes back *into* the exit wall
   (against the exit normal) is stripped, so the floored exit velocity carries the
@@ -178,22 +179,18 @@ pure physics says**, **what we do instead**, and **why**.
 - **Code:** `somersault_roll` + `ActorRoll` + `update_actor_roll`.
 - **Pure physics says:** the body leaves the exit in whatever orientation the
   portal map dictates and stays there.
-- **What we do:** on transfer the body picks up the portal's on-screen turn as a
-  transient roll, then continuously eases back to **gravity-upright**. A body that
-  goes feet-first into a floor portal tumbles out and rights itself; the character
-  never stays upside-down.
-- **Sub-rule — no tumble on a wall↔wall turn-around:** when both portal normals
-  are perpendicular to gravity (a same-direction wall pair), the transit is a pure
-  horizontal *turn-around*, not a tumble, so `somersault_roll` imparts **zero**
-  roll — the body comes out already upright. Floor↔floor / ceiling↔ceiling keep
-  the full 180° somersault; floor↔wall keeps 90°.
-- **Sub-rule — facing mirrors on that same turn-around** (`portal_facing_flips`):
-  a 180° somersault rotation inherently mirrors the sprite left↔right. Since the
-  wall↔wall case *suppresses* that rotation, the mirror would be lost and the body
-  would emerge **back-first** ("face in, back out"). So in exactly the
-  suppressed-180° case the horizontal facing is flipped, giving the wanted "face
-  in, face out" (really **X-in, X-out**: whatever part led in leads out). Every
-  other case carries its orientation in the rotation, so facing is left alone.
+- **What we do:** on transfer the body picks up the active portal convention's
+  on-screen orientation change as a transient roll, then continuously eases back
+  to **gravity-upright**. A body that goes feet-first into a floor portal tumbles
+  out and rights itself; the character never stays upside-down.
+- **Reflection convention sub-rule:** the det −1 map cannot be represented by
+  roll alone. We keep the historical gravity-platformer accommodation: wall↔wall
+  crossings stay upright, and same-wall mirrors flip horizontal facing via
+  `portal_facing_flips` so the leading side still leads out. Floor↔floor /
+  ceiling↔ceiling keep the full 180° somersault; floor↔wall keeps 90°.
+- **Rotation convention sub-rule:** the det +1 map is a proper orientation map,
+  so `somersault_roll` follows it directly. Same-wall and floor↔floor cases are
+  true 180° rolls, and no separate facing mirror is applied.
 - **Why:** a gravity-bound platformer character should read as "which way is
   down" = gravity, regardless of the non-Euclidean geometry. The somersault sells
   the transit; the righting keeps the character controllable; the wall-wall
@@ -254,11 +251,12 @@ feel changes — but they are still departures from a purely ideal portal.
 The orientation + input rules are written **gravity-parameterized**, not
 hard-coded to "down": `somersault_roll`, `portal_facing_flips`, and the emergence
 guard all take the gravity direction / the portal normals, so they generalize to
-flipped or sideways gravity. The one place still effectively assuming down-gravity
-is the same-wall input *warp itself* (it mirrors the screen-horizontal axis); the
-**gate** on it is gravity-aware, so under non-down gravity the warp simply won't
-engage where it shouldn't. Correctness under arbitrary gravity is verified for the
-down case first; the seams are in place to finish it without a rewrite.
+flipped or sideways gravity. The ordinary-movement input warp is intentionally
+screen-horizontal because Ambition's current platformer movement axis is
+screen-horizontal; its gate only engages when the active portal map keeps that
+input expressible as horizontal movement. Correctness under arbitrary gravity is
+verified for the down case first; the seams are in place to finish it without a
+rewrite.
 
 ---
 

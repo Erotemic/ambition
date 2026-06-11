@@ -75,7 +75,11 @@ impl PortalEffectSelection {
         let all = PortalVisualEffect::compiled();
         let i = all.iter().position(|e| *e == self.active).unwrap_or(0) as i32;
         let n = all.len() as i32;
-        let next = if dir < 0 { (i + n - 1) % n } else { (i + 1) % n };
+        let next = if dir < 0 {
+            (i + n - 1) % n
+        } else {
+            (i + 1) % n
+        };
         self.active = all[next as usize];
     }
 }

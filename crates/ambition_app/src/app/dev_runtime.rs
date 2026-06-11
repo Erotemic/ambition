@@ -38,15 +38,6 @@ pub(super) fn handle_debug_hotkeys(
     if keys.just_pressed(KeyCode::F1) {
         dev_state.debug = !dev_state.debug;
     }
-    if keys.just_pressed(KeyCode::F9) {
-        dev_state.preset_index =
-            (dev_state.preset_index + dev_state.presets.len() - 1) % dev_state.presets.len();
-        dev_state.preset_flash = 1.2;
-    }
-    if keys.just_pressed(KeyCode::F10) {
-        dev_state.preset_index = (dev_state.preset_index + 1) % dev_state.presets.len();
-        dev_state.preset_flash = 1.2;
-    }
     if keys.just_pressed(KeyCode::F2) {
         dev_state.slowmo = !dev_state.slowmo;
     }
@@ -61,10 +52,10 @@ pub(super) fn handle_debug_hotkeys(
     }
 }
 
-/// When the player cycles input presets via F9/F10, sync leafwing's
-/// `InputMap` on the player entity so the next-frame inputs reflect the
-/// new preset. Detected by polling `runtime.preset_index`. Gated behind
-/// `input` because it owns leafwing components.
+/// When the runtime keyboard preset changes, sync leafwing's `InputMap`
+/// on the player entity so the next-frame inputs reflect the new preset.
+/// Detected by polling `runtime.preset_index`. Gated behind `input`
+/// because it owns leafwing components.
 #[cfg(feature = "input")]
 pub(super) fn sync_preset_input_map(
     dev_state: Res<SandboxDevState>,

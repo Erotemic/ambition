@@ -9,22 +9,16 @@
 //!   the wall — you see "through the portal a little bit." A window's display
 //!   map is the BODY map ([`map_point`]) — the same map transit uses for
 //!   positions and velocities — so the window agrees with where bodies
-//!   actually emerge. **The 2D parity fact:** the body map is always det −1
-//!   (a reflection), so in 2D you cannot have both "sprites never mirror" and
-//!   "lateral position/velocity preserved" for every pair orientation (3D
-//!   escapes via a rotation about the portal normal; 2D has no third axis).
-//!   The game keeps the tangent-preserving (mirror) transit; sprites realize
-//!   it exactly via [`copy_roll`] + an unconditional `flip_x` (any reflection
-//!   = rotation ∘ flip_x), so window, copy, and transit are ONE map.
+//!   actually emerge. The body map is orthogonal: under the rotation convention
+//!   it is det +1 and factors as a rotation; under the reflection convention it
+//!   is det −1 and factors as a rotation plus one texture flip. Sprites realize
+//!   that exact factorization via [`copy_transform`], so window, copy, and
+//!   transit are ONE map.
 //! - **Projection** ([`PortalViewMap`] / [`view_point`]): the view protrudes
 //!   into the room in front of the entry, hologram-style. Its map is the body
-//!   map composed with a reflection across the entry plane, which yields a
-//!   small theorem: the body map always sends the orientation −1 frame
-//!   `(-n_in, t_in)` onto the orientation +1 frame `(n_out, t_out)` (det −1,
-//!   always a reflection), so the PROJECTION map is always a PROPER rotation
-//!   (det +1) — a host drawing this model can orient a camera by
-//!   [`PortalViewMap::angle`] with no flip case, pinned for every axis-aligned
-//!   pair below.
+//!   map composed with a reflection across the entry plane, so its parity is the
+//!   opposite of the body map. [`PortalViewMap`] stores the same rotation/flip
+//!   factorization and applies it exactly.
 //!
 //! Like [`pieces`], this module is pure and allocation-light: no ECS, no
 //! render types, no RNG. The renderer (`ambition_portal_presentation`) builds
@@ -34,12 +28,35 @@
 use ambition_engine_core as ae;
 use bevy::math::Vec2;
 
-use crate::pieces::{map_point, portal_map_vec, PortalFrame};
+use crate::pieces::{
+    map_point, portal_map_vec, portal_map_vec_reflection, portal_map_vec_rotation, PortalFrame,
+};
 
-/// The proper rigid map of the VIEW through a portal pair: rotation `(cos,
-/// sin)` about the entry portal's center, then translation onto the exit's.
-/// Built by [`PortalViewMap::between`]; always orientation-preserving (see the
-/// module docs — that is the theorem this type encodes).
+/// A 2D orthogonal transform factored the way Bevy sprites can draw it:
+/// optional `flip_x`, then rotation by `(cos, sin)`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct OrthogonalFactor {
+    cos: f32,
+    sin: f32,
+    flip_x: bool,
+}
+
+fn factor_orthogonal(col_x: Vec2, col_y: Vec2) -> OrthogonalFactor {
+    let det = col_x.x * col_y.y - col_x.y * col_y.x;
+    let flip_x = det < 0.0;
+    let basis_x = if flip_x { -col_x } else { col_x };
+    let angle = basis_x.y.atan2(basis_x.x);
+    OrthogonalFactor {
+        cos: angle.cos(),
+        sin: angle.sin(),
+        flip_x,
+    }
+}
+
+/// The rigid/reflected map of the VIEW through a portal pair: optional `flip_x`,
+/// then rotation `(cos, sin)` about the entry portal's center, then translation
+/// onto the exit's. The flip is false under the reflection body convention and
+/// true under the rotation body convention.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PortalViewMap {
     /// Entry portal center (the rotation pivot).
@@ -50,39 +67,61 @@ pub struct PortalViewMap {
     pub cos: f32,
     /// Rotation sine of the linear part.
     pub sin: f32,
+    /// Whether the map applies a local x-reflection before rotation.
+    pub flip_x: bool,
 }
 
 impl PortalViewMap {
-    /// The view map for a linked pair: body map ∘ reflection across the entry
-    /// plane. The linear part is recovered from its action on the basis and
-    /// debug-asserted to be a proper rotation.
-    pub fn between(enter: &PortalFrame, exit: &PortalFrame) -> Self {
+    fn between_with_map(
+        enter: &PortalFrame,
+        exit: &PortalFrame,
+        map_vec: fn(Vec2, Vec2, Vec2) -> Vec2,
+    ) -> Self {
         let lin = |v: Vec2| {
             // Reflect across the entry plane (linear part: across the surface
             // direction), then push through the body map.
             let reflected = v - 2.0 * v.dot(enter.normal) * enter.normal;
-            portal_map_vec(reflected, enter.normal, exit.normal)
+            map_vec(reflected, enter.normal, exit.normal)
         };
         let col_x = lin(Vec2::X);
         let col_y = lin(Vec2::Y);
-        // Proper rotation: orthonormal columns with det +1 — col_y is col_x
-        // rotated +90°. Holds for ALL normals by the module-docs argument.
-        debug_assert!(
-            (col_x.x * col_y.y - col_x.y * col_y.x - 1.0).abs() < 1e-4,
-            "view map must be a proper rotation, got cols {col_x:?} {col_y:?}"
-        );
+        let factor = factor_orthogonal(col_x, col_y);
         Self {
             enter_pos: enter.pos,
             exit_pos: exit.pos,
-            cos: col_x.x,
-            sin: col_x.y,
+            cos: factor.cos,
+            sin: factor.sin,
+            flip_x: factor.flip_x,
         }
+    }
+
+    /// The view map for a linked pair under the active game-wide convention:
+    /// body map ∘ reflection across the entry plane.
+    pub fn between(enter: &PortalFrame, exit: &PortalFrame) -> Self {
+        Self::between_with_map(enter, exit, portal_map_vec)
+    }
+
+    /// Pure variant used by tests and convention-specific tools.
+    pub fn between_for_convention(
+        enter: &PortalFrame,
+        exit: &PortalFrame,
+        rotation_convention: bool,
+    ) -> Self {
+        let map_vec = if rotation_convention {
+            portal_map_vec_rotation
+        } else {
+            portal_map_vec_reflection
+        };
+        Self::between_with_map(enter, exit, map_vec)
     }
 
     /// The exit-side world point whose light "comes through" the portal to the
     /// entry-side point `p`.
     pub fn apply(&self, p: Vec2) -> Vec2 {
-        let v = p - self.enter_pos;
+        let mut v = p - self.enter_pos;
+        if self.flip_x {
+            v.x = -v.x;
+        }
         self.exit_pos
             + Vec2::new(
                 v.x * self.cos - v.y * self.sin,
@@ -90,9 +129,7 @@ impl PortalViewMap {
             )
     }
 
-    /// The rotation angle (radians) of the linear part — what a renderer
-    /// rotates a capture by (in WORLD space; remember the host's y-flip when
-    /// converting to screen space).
+    /// The rotation angle (radians) of the factored linear part.
     pub fn angle(&self) -> f32 {
         self.sin.atan2(self.cos)
     }
@@ -131,20 +168,54 @@ pub struct ViewCone {
     pub source: ae::Aabb,
 }
 
-/// The render-space roll for the transit sprite copy such that
-/// `R(roll) ∘ flip_x` equals the BODY map exactly. Works for every pair
-/// because the body map is always a reflection (det −1) and every 2D
-/// reflection factors as rotation ∘ flip_x. With the copy drawn this way, the
-/// copy, the window (body-map UVs), and the actual transit all agree —
-/// entering on one side of the entry shows you emerging exactly where transit
-/// puts you, mirrored or not.
+/// Sprite transform for a portal body copy. Bevy applies `flip_x` in texture
+/// space and then the transform rotation, so this factors the active BODY map
+/// as exactly that pair.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PortalCopyTransform {
+    /// Render-space z-rotation to add to the copied sprite.
+    pub roll: f32,
+    /// Whether the copied sprite should invert `Sprite::flip_x`.
+    pub flip_x: bool,
+}
+
+fn copy_transform_with_map(
+    enter: &PortalFrame,
+    exit: &PortalFrame,
+    map_vec: fn(Vec2, Vec2, Vec2) -> Vec2,
+) -> PortalCopyTransform {
+    let col_x = map_vec(Vec2::X, enter.normal, exit.normal);
+    let col_y = map_vec(Vec2::Y, enter.normal, exit.normal);
+    let factor = factor_orthogonal(col_x, col_y);
+    PortalCopyTransform {
+        roll: -factor.sin.atan2(factor.cos),
+        flip_x: factor.flip_x,
+    }
+}
+
+/// Pure variant used by tests and convention-specific tools.
+pub fn copy_transform_for_convention(
+    enter: &PortalFrame,
+    exit: &PortalFrame,
+    rotation_convention: bool,
+) -> PortalCopyTransform {
+    let map_vec = if rotation_convention {
+        portal_map_vec_rotation
+    } else {
+        portal_map_vec_reflection
+    };
+    copy_transform_with_map(enter, exit, map_vec)
+}
+
+/// Sprite transform for a portal body copy under the active game-wide map
+/// convention.
+pub fn copy_transform(enter: &PortalFrame, exit: &PortalFrame) -> PortalCopyTransform {
+    copy_transform_with_map(enter, exit, portal_map_vec)
+}
+
+/// Backward-compatible shorthand for callers that only need the roll.
 pub fn copy_roll(enter: &PortalFrame, exit: &PortalFrame) -> f32 {
-    // World-space first column of M ∘ FlipX is M·(−e_x) = −m_x; the world
-    // rotation angle is atan2 of that column, and render space negates it
-    // (y-flip conjugation).
-    let m_x = portal_map_vec(Vec2::X, enter.normal, exit.normal);
-    let world = (-m_x.y).atan2(-m_x.x);
-    -world
+    copy_transform(enter, exit).roll
 }
 
 /// Build a [`ViewCone`] from its four entry-side corners: the source quad is
@@ -369,7 +440,6 @@ pub fn blend_cones(
     from_entry_quad(entry_quad, enter, exit)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -393,28 +463,47 @@ mod tests {
         b.half_size() * 2.0
     }
 
-    /// The theorem: for every axis-aligned (enter, exit) normal pair, the view
-    /// map is a PROPER rotation — orthonormal linear part, det +1. This is what
-    /// lets a renderer draw the view without ever mirroring a capture.
+    /// For every axis-aligned (enter, exit) normal pair, the view projection
+    /// factors exactly into optional `flip_x` plus a rotation. Reflection-body
+    /// convention yields rotation-only projection; rotation-body convention
+    /// yields a reflected projection.
     #[test]
-    fn view_map_is_always_a_proper_rotation() {
+    fn view_map_factorization_matches_each_convention() {
         let normals = [
             Vec2::new(0.0, -1.0),
             Vec2::new(0.0, 1.0),
             Vec2::new(-1.0, 0.0),
             Vec2::new(1.0, 0.0),
         ];
-        for n_in in normals {
-            for n_out in normals {
-                let enter = frame(Vec2::new(100.0, 300.0), n_in);
-                let exit = frame(Vec2::new(700.0, 140.0), n_out);
-                let m = PortalViewMap::between(&enter, &exit);
-                assert!(
-                    (m.cos * m.cos + m.sin * m.sin - 1.0).abs() < 1e-4,
-                    "unit rotation for {n_in:?}→{n_out:?}: cos {} sin {}",
-                    m.cos,
-                    m.sin
-                );
+        for rotation_convention in [false, true] {
+            let map_vec = if rotation_convention {
+                portal_map_vec_rotation
+            } else {
+                portal_map_vec_reflection
+            };
+            for n_in in normals {
+                for n_out in normals {
+                    let enter = frame(Vec2::new(100.0, 300.0), n_in);
+                    let exit = frame(Vec2::new(700.0, 140.0), n_out);
+                    let m =
+                        PortalViewMap::between_for_convention(&enter, &exit, rotation_convention);
+                    assert!(
+                        (m.cos * m.cos + m.sin * m.sin - 1.0).abs() < 1e-4,
+                        "unit factor for {n_in:?}→{n_out:?}: cos {} sin {}",
+                        m.cos,
+                        m.sin
+                    );
+                    assert_eq!(m.flip_x, rotation_convention);
+                    for v in [Vec2::X, Vec2::Y, Vec2::new(3.0, -2.0)] {
+                        let reflected = v - 2.0 * v.dot(enter.normal) * enter.normal;
+                        let expected = map_vec(reflected, enter.normal, exit.normal);
+                        let got = m.apply(enter.pos + v) - exit.pos;
+                        assert!(
+                            (got - expected).length() < 1e-4,
+                            "projection factor mismatch convention={rotation_convention} {n_in:?}→{n_out:?}: {got:?} vs {expected:?}"
+                        );
+                    }
+                }
             }
         }
     }
@@ -616,7 +705,8 @@ mod tests {
         let depth = 80.0;
         // Eye 80px in front of the floor portal (−y), directly above center.
         let front = 80.0;
-        let cone = visible_cone(&enter, &exit, Vec2::new(100.0, 300.0 - front), depth, 400.0).unwrap();
+        let cone =
+            visible_cone(&enter, &exit, Vec2::new(100.0, 300.0 - front), depth, 400.0).unwrap();
         let [a0, a1, f1, f0] = cone.entry_quad;
         // Near edge is the aperture (on the surface, y = 300).
         assert!((a0.y - 300.0).abs() < 1e-3 && (a1.y - 300.0).abs() < 1e-3);
@@ -664,11 +754,10 @@ mod tests {
         );
     }
 
-    /// `R(copy_roll) ∘ flip_x` equals the body map for every pair class — the
-    /// factorization that lets the sprite copy realize the transit map exactly
-    /// (det −1) with only a rotation and a texture flip.
+    /// The sprite-copy factorization equals the body map for every pair class
+    /// under both map conventions.
     #[test]
-    fn copy_roll_flip_x_factors_the_body_map() {
+    fn copy_transform_factors_the_body_map() {
         let pairs = [
             (Vec2::new(0.0, -1.0), Vec2::new(0.0, -1.0)), // floor↔floor
             (Vec2::new(0.0, 1.0), Vec2::new(0.0, -1.0)),  // ceiling↔floor
@@ -676,21 +765,33 @@ mod tests {
             (Vec2::new(1.0, 0.0), Vec2::new(-1.0, 0.0)),  // opposite walls
             (Vec2::new(0.0, -1.0), Vec2::new(-1.0, 0.0)), // floor→wall (90°)
         ];
-        for (n_in, n_out) in pairs {
-            let enter = frame(Vec2::new(100.0, 300.0), n_in);
-            let exit = frame(Vec2::new(500.0, 200.0), n_out);
-            // World-space rotation angle is the negated render roll.
-            let a = -copy_roll(&enter, &exit);
-            let (s, c) = a.sin_cos();
-            for v in [Vec2::new(1.0, 0.0), Vec2::new(0.0, 1.0), Vec2::new(3.0, -2.0)] {
-                // flip_x first, then rotate (render applies rotation ∘ flip).
-                let f = Vec2::new(-v.x, v.y);
-                let rotated = Vec2::new(f.x * c - f.y * s, f.x * s + f.y * c);
-                let body = portal_map_vec(v, n_in, n_out);
-                assert!(
-                    (rotated - body).length() < 1e-4,
-                    "{n_in:?}→{n_out:?}: R∘flip_x {rotated:?} vs body {body:?}"
-                );
+        for rotation_convention in [false, true] {
+            let map_vec = if rotation_convention {
+                portal_map_vec_rotation
+            } else {
+                portal_map_vec_reflection
+            };
+            for (n_in, n_out) in pairs {
+                let enter = frame(Vec2::new(100.0, 300.0), n_in);
+                let exit = frame(Vec2::new(500.0, 200.0), n_out);
+                let copy = copy_transform_for_convention(&enter, &exit, rotation_convention);
+                assert_eq!(copy.flip_x, !rotation_convention);
+                // World-space rotation angle is the negated render roll.
+                let a = -copy.roll;
+                let (s, c) = a.sin_cos();
+                for v in [
+                    Vec2::new(1.0, 0.0),
+                    Vec2::new(0.0, 1.0),
+                    Vec2::new(3.0, -2.0),
+                ] {
+                    let f = if copy.flip_x { Vec2::new(-v.x, v.y) } else { v };
+                    let rotated = Vec2::new(f.x * c - f.y * s, f.x * s + f.y * c);
+                    let body = map_vec(v, n_in, n_out);
+                    assert!(
+                        (rotated - body).length() < 1e-4,
+                        "{n_in:?}→{n_out:?} convention={rotation_convention}: copy {rotated:?} vs body {body:?}"
+                    );
+                }
             }
         }
     }
@@ -714,9 +815,14 @@ mod tests {
         let span = |c: &ViewCone| (c.entry_quad[2].x - c.entry_quad[3].x).abs();
         assert!(span(&both) >= span(&one_l) - 1e-3 && span(&both) >= span(&one_r) - 1e-3);
         // An extra eye BEHIND the plane (below the floor) changes nothing.
-        let with_behind =
-            aperture_wedge_multi(&enter, &exit, &[left, right, Vec2::new(100.0, 360.0)], 80.0, 400.0)
-                .unwrap();
+        let with_behind = aperture_wedge_multi(
+            &enter,
+            &exit,
+            &[left, right, Vec2::new(100.0, 360.0)],
+            80.0,
+            400.0,
+        )
+        .unwrap();
         assert!((span(&with_behind) - span(&both)).abs() < 1e-3);
     }
 

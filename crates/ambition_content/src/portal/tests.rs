@@ -422,39 +422,79 @@ fn n_pairs_transit_routes_to_the_matching_partner() {
 }
 
 #[test]
-fn facing_flips_only_for_a_same_wall_turn_around() {
+fn facing_flip_policy_is_convention_aware() {
     let g = Vec2::new(0.0, 1.0); // gravity down
     let up = Vec2::new(0.0, -1.0); // floor
     let down = Vec2::new(0.0, 1.0); // ceiling
     let left = Vec2::new(-1.0, 0.0); // right-wall normal
     let right = Vec2::new(1.0, 0.0); // left-wall normal
-                                     // Same wall (both normals left) is the only "face in, back out" case →
-                                     // facing mirrors so it comes out face-first.
-    assert!(portal_facing_flips(left, left, g));
-    // Walls facing EACH OTHER (portal_bridge) go straight through → no flip.
-    assert!(!portal_facing_flips(right, left, g));
-    // Floor/ceiling pairs carry orientation in the somersault rotation → no
-    // separate facing flip (the 180° rotation already mirrors).
-    assert!(!portal_facing_flips(up, up, g));
-    assert!(!portal_facing_flips(down, down, g));
-    assert!(!portal_facing_flips(up, left, g));
+
+    // Reflection convention: same-wall is the only suppressed-roll mirror, so
+    // facing flips to keep the leading side leading out.
+    assert!(portal_facing_flips_for_convention(false, left, left, g));
+    // Walls facing EACH OTHER (portal_bridge) go straight through.
+    assert!(!portal_facing_flips_for_convention(false, right, left, g));
+    // Floor/ceiling pairs carry their visible turn in roll, not facing.
+    assert!(!portal_facing_flips_for_convention(false, up, up, g));
+    assert!(!portal_facing_flips_for_convention(false, down, down, g));
+    assert!(!portal_facing_flips_for_convention(false, up, left, g));
+
+    // Rotation convention is a proper orientation map: no extra mirror is ever
+    // needed, including the same-wall 180-degree case.
+    assert!(!portal_facing_flips_for_convention(true, left, left, g));
 }
 
 #[test]
-fn somersault_is_suppressed_for_a_wall_to_wall_turn_around() {
+fn somersault_policy_is_convention_aware() {
     use std::f32::consts::PI;
     let g = Vec2::new(0.0, 1.0); // gravity down
     let up = Vec2::new(0.0, -1.0); // floor normal
     let down = Vec2::new(0.0, 1.0); // ceiling normal
     let left = Vec2::new(-1.0, 0.0); // right-wall normal
-                                     // Floor↔floor and ceiling↔ceiling KEEP the 180° tumble (feet-in → reorient).
-    assert!((somersault_roll(up, up, g).abs() - PI).abs() < 1e-5);
-    assert!((somersault_roll(down, down, g).abs() - PI).abs() < 1e-5);
-    // Two portals on the SAME wall (both normals horizontal) impart NO tumble —
-    // the body just turns around and comes out upright.
-    assert!(somersault_roll(left, left, g).abs() < 1e-5);
+
+    // Reflection convention keeps the historical gravity-platformer
+    // accommodation: floor/ceiling tumble, wall↔wall stays upright.
+    assert!((somersault_roll_for_convention(false, up, up, g).abs() - PI).abs() < 1e-5);
+    assert!((somersault_roll_for_convention(false, down, down, g).abs() - PI).abs() < 1e-5);
+    assert!(somersault_roll_for_convention(false, left, left, g).abs() < 1e-5);
     // A floor→wall pair still tumbles 90° (it genuinely reorients).
-    assert!(somersault_roll(up, left, g).abs() > 1.0);
+    assert!(somersault_roll_for_convention(false, up, left, g).abs() > 1.0);
+
+    // Rotation convention is a proper map, so same-wall is now a true 180° roll.
+    assert!((somersault_roll_for_convention(true, left, left, g).abs() - PI).abs() < 1e-5);
+}
+
+#[test]
+fn held_input_warp_gate_is_convention_aware() {
+    let up = Vec2::new(0.0, -1.0); // floor
+    let left = Vec2::new(-1.0, 0.0); // right-wall normal
+
+    // Reflection: same-wall flips horizontal movement; floor↔floor preserves it.
+    assert!(portal_input_warp_flips_horizontal_for_convention(
+        false, left, left
+    ));
+    assert!(!portal_input_warp_flips_horizontal_for_convention(
+        false, up, up
+    ));
+
+    // Rotation: both same-wall and floor↔floor are proper 180-degree rotations,
+    // so held horizontal movement must flip to keep helping the transformed
+    // velocity instead of fighting it.
+    assert!(portal_input_warp_flips_horizontal_for_convention(
+        true, left, left
+    ));
+    assert!(portal_input_warp_flips_horizontal_for_convention(
+        true, up, up
+    ));
+
+    // A 90-degree floor→wall turn maps horizontal input to vertical; the
+    // platformer movement controller cannot express that as ordinary movement.
+    assert!(!portal_input_warp_flips_horizontal_for_convention(
+        true, up, left
+    ));
+    assert!(!portal_input_warp_flips_horizontal_for_convention(
+        false, up, left
+    ));
 }
 
 #[test]

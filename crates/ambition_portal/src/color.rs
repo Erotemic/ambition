@@ -251,7 +251,10 @@ mod tests {
         // Name round-trips through the LDtk token.
         assert_eq!(Indexed(8).name(), "c8");
         assert_eq!(PortalChannelColor::from_name("c8"), Some(Indexed(8)));
-        assert_eq!(PortalChannelColor::from_name("purple"), Some(PortalChannelColor::Purple));
+        assert_eq!(
+            PortalChannelColor::from_name("purple"),
+            Some(PortalChannelColor::Purple)
+        );
         // A pair's two slots are complementary (different) colors.
         let (rim_a, _) = Indexed(8).rim_core();
         let (rim_b, _) = Indexed(9).rim_core();

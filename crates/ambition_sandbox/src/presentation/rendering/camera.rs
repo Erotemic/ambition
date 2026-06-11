@@ -124,7 +124,10 @@ pub fn camera_follow(
     // camera keeps follow/zoom off the captures.
     mut query: Query<
         (&mut Transform, &mut Projection),
-        (With<crate::runtime::camera_layers::MainCamera>, Without<PlayerVisual>),
+        (
+            With<crate::runtime::camera_layers::MainCamera>,
+            Without<PlayerVisual>,
+        ),
     >,
 ) {
     // DeveloperTools can temporarily replace that input.

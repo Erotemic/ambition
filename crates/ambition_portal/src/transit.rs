@@ -12,10 +12,9 @@ use ambition_platformer_runtime::orientation::ActorRoll;
 use ambition_platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
 
 use super::color::PortalChannel;
-use super::placement::{transit_step, TransitStep};
-use super::types::{
-    find_portal, portal_exit_clearance, PlacedPortal, PortalTransitCooldown, TELEPORT_COOLDOWN_S,
-};
+use super::placement::{transit_step_with_tuning, TransitStep};
+use super::tuning::PortalTuning;
+use super::types::{find_portal, portal_exit_clearance, PlacedPortal, PortalTransitCooldown};
 
 /// Semantic transit message: a body's authoritative position just snapped to a
 /// portal's exit (the centroid crossed). Replaces the old one-frame
@@ -233,6 +232,7 @@ pub fn portal_transit(
         With<PortalBody>,
     >,
     gravity: Option<Res<ambition_platformer_runtime::gravity::GravityField>>,
+    tuning: Res<PortalTuning>,
     mut entered: MessageWriter<super::messages::PortalBodyEntered>,
     mut transited: MessageWriter<PortalBodyTransited>,
 ) {
@@ -247,7 +247,7 @@ pub fn portal_transit(
         // by `tick_portal_cooldowns`; gun-independent so nothing can ping-pong
         // back through an authored pair.
         let cooldown_now = cooldown.map_or(0.0, |c| c.0);
-        let step = transit_step(
+        let step = transit_step_with_tuning(
             kin.pos,
             kin.size,
             kin.vel,
@@ -255,6 +255,7 @@ pub fn portal_transit(
             cooldown_now,
             &all,
             gravity_dir,
+            &tuning,
         );
         match step {
             TransitStep::Idle | TransitStep::Continue => {}
@@ -299,7 +300,7 @@ pub fn portal_transit(
                 // through the pair it just crossed — gun-independent.
                 commands
                     .entity(entity)
-                    .insert(PortalTransitCooldown(TELEPORT_COOLDOWN_S));
+                    .insert(PortalTransitCooldown(tuning.teleport_cooldown_s));
                 if let Some(t) = transit.as_deref_mut() {
                     t.crossed = true;
                     t.straddling = exit_channel;

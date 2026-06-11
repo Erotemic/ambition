@@ -12,7 +12,7 @@
 use bevy::prelude::*;
 
 /// One portal transit visual effect.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Reflect, PartialEq, Eq)]
 pub enum PortalVisualEffect {
     /// No effect beyond the always-on exit copy of the transiting body — the
     /// profiling baseline.
@@ -54,7 +54,8 @@ impl PortalVisualEffect {
 /// cycles it; systems for inactive effects stand down (the view-cone renderer
 /// despawns its capture rigs entirely, so an A/B profile sees the true cost
 /// delta, not a hidden-but-still-rendering pass).
-#[derive(Resource, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Resource, Clone, Copy, Debug, Reflect, PartialEq, Eq)]
+#[reflect(Resource)]
 pub struct PortalEffectSelection {
     pub active: PortalVisualEffect,
 }

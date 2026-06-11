@@ -318,6 +318,7 @@ fn portals_teleport_a_fitting_actor_and_skip_an_oversized_one() {
     let mut app = App::new();
     app.add_message::<ambition_sandbox::portal::PortalBodyEntered>();
     app.add_message::<ambition_sandbox::portal::PortalBodyTransited>();
+    app.init_resource::<ambition_sandbox::portal::PortalTuning>();
     app.add_systems(Update, portal_transit);
     // Actor policy: carry velocity, no re-orient (facing follows AI).
     let actor_policy = ambition_sandbox::portal::PortalPolicy {
@@ -571,6 +572,7 @@ fn actors_get_an_aerial_roll_through_portals() {
     let mut app = App::new();
     app.add_message::<ambition_sandbox::portal::PortalBodyEntered>();
     app.add_message::<ambition_sandbox::portal::PortalBodyTransited>();
+    app.init_resource::<ambition_sandbox::portal::PortalTuning>();
     app.add_systems(Update, portal_transit);
     // Floor portal (normal up) + right-wall portal (normal left): a
     // floor→wall pair, so transit imparts a -90° roll. Player and non-player
@@ -625,6 +627,7 @@ fn portal_pair_teleports_player_carrying_momentum() {
     app.add_message::<BodyTeleported>();
     app.add_message::<ambition_sandbox::portal::PortalBodyTransited>();
     app.insert_resource(ambition_sandbox::WorldTime::default());
+    app.init_resource::<ambition_sandbox::portal::PortalTuning>();
     app.add_systems(Update, portal_transit);
     // Blue on the left (facing right), orange on the right (facing left).
     app.world_mut().spawn(PlacedPortal {
@@ -681,6 +684,7 @@ fn a_gunless_player_transits_an_authored_pair() {
     app.add_message::<BodyTeleported>();
     app.add_message::<ambition_sandbox::portal::PortalBodyTransited>();
     app.insert_resource(ambition_sandbox::WorldTime::default());
+    app.init_resource::<ambition_sandbox::portal::PortalTuning>();
     app.add_systems(Update, portal_transit);
     let he = portal_half_extent(Vec2::new(0.0, -1.0));
     app.world_mut().spawn(PlacedPortal {
@@ -757,6 +761,7 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
     app.add_message::<ambition_sandbox::portal::PortalBodyTransited>();
     app.init_resource::<TeleportedThisFrame>();
     app.insert_resource(ambition_sandbox::WorldTime::default());
+    app.init_resource::<ambition_sandbox::portal::PortalTuning>();
     // The player-input adapter now emits `BodyTeleported` from the core's
     // `PortalBodyTransited` event (the trace bit moved out of core), so include
     // it in the chain ahead of the recorder.

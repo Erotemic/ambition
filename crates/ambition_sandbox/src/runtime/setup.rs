@@ -341,6 +341,9 @@ fn presentation_world_inner(
         .spawn((
             Camera2d,
             crate::runtime::camera_layers::MainCamera,
+            #[cfg(feature = "portal_render")]
+            bevy::camera::visibility::RenderLayers::layer(0)
+                .with(crate::portal::PORTAL_WINDOW_RENDER_LAYER),
             crate::presentation::screen_effects::ScreenEffectSettings::default(),
             Name::new("Main Camera"),
         ))

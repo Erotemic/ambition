@@ -32,13 +32,14 @@
 //! capture resolution — changes. No per-frame texture or entity churn.
 //!
 //! ## 1-frame-lag recursion
-//! Window meshes live on the default render layer, so capture cameras see other
-//! portals' windows. Two portals facing each other within window depth show one
-//! frame of through-portal recursion per level, Portal-style, for free — and no
-//! camera ever samples the image it writes (P's window shows the capture made
-//! near P's partner; cross-sampling only, by construction).
+//! Window meshes live on a dedicated render layer. The main camera sees that
+//! layer; capture cameras include it only when
+//! [`PortalViewConeConfig::recursion_depth`] is positive. That makes `0` a clean
+//! "world only" capture and positive values keep the existing one-frame-lag
+//! recursive feedback path.
 
 use bevy::asset::RenderAssetUsages;
+use bevy::camera::visibility::RenderLayers;
 use bevy::camera::{ImageRenderTarget, RenderTarget, ScalingMode};
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
@@ -57,6 +58,19 @@ use crate::PortalWorldFrame;
 /// exit room has no geometry (rare — parallax usually fills it). Opaque windows
 /// draw it directly, so keep it unobtrusive.
 const CAPTURE_CLEAR: Color = Color::srgb(0.03, 0.04, 0.05);
+
+const WORLD_RENDER_LAYER: usize = 0;
+/// Dedicated layer for portal view-window meshes.
+pub const PORTAL_WINDOW_RENDER_LAYER: usize = 5;
+
+fn capture_render_layers(config: &PortalViewConeConfig) -> RenderLayers {
+    let layers = RenderLayers::layer(WORLD_RENDER_LAYER);
+    if config.recursion_depth == 0 {
+        layers
+    } else {
+        layers.with(PORTAL_WINDOW_RENDER_LAYER)
+    }
+}
 
 /// Host seam: the controlled character's eye + the world's solid occluders,
 /// used to compute the viewer-dependent visible wedge through each aperture.
@@ -84,7 +98,8 @@ pub struct PortalViewer {
 /// Tuning for the view windows. A host overwrites the resource to retune; set
 /// [`PortalPresentationPlugin::view_cones`](crate::PortalPresentationPlugin)
 /// to `false` to drop the feature (and its capture passes) entirely.
-#[derive(Resource, Clone, Debug, PartialEq)]
+#[derive(Resource, Clone, Debug, Reflect, PartialEq)]
+#[reflect(Resource)]
 pub struct PortalViewConeConfig {
     /// When true (default), each window opens to the controlled character's
     /// visible wedge through the aperture (from [`PortalViewer`]), blended up
@@ -136,6 +151,11 @@ pub struct PortalViewConeConfig {
     /// Hard cap on the capture texture's long side (GPU memory guard; a
     /// 2048×256 RGBA capture is ~2 MB per portal).
     pub max_resolution: u32,
+    /// Portal-window capture recursion. `0` makes capture cameras see only the
+    /// world layer; positive values include other portal windows and preserve
+    /// the current one-frame-lag recursive feedback. Exact multi-pass finite
+    /// depth can later refine this field without changing the dev UI.
+    pub recursion_depth: u32,
     /// Render z of the window mesh. Just BEHIND the portal rim (9.0) so the
     /// doorway stays crisp over its own view, above world blocks (0) and below
     /// actors (10+).
@@ -175,6 +195,7 @@ impl Default for PortalViewConeConfig {
             spread: 0.20,
             texels_per_world_px: 1.0,
             max_resolution: 2048,
+            recursion_depth: 1,
             z: 8.55,
             // Slightly below white: opaque, but each recursion level multiplies
             // the tint so facing/door portals fade into a tunnel rather than a
@@ -585,6 +606,7 @@ pub fn sync_portal_view_cones(
         &mut Transform,
         &mut Projection,
         &mut Camera,
+        &mut RenderLayers,
     )>,
     mut cones: Query<
         (&mut Transform, &mut Visibility),
@@ -607,7 +629,8 @@ pub fn sync_portal_view_cones(
     // First pass: update each live rig in place, or despawn it if its pair is
     // gone / it needs a full rebuild.
     let mut served: Vec<PortalChannel> = Vec::new();
-    for (entity, mut rig, mut cam_tf, mut proj, mut cam) in &mut rigs {
+    let capture_layers = capture_render_layers(&config);
+    for (entity, mut rig, mut cam_tf, mut proj, mut cam, mut layers) in &mut rigs {
         let portal = all.iter().find(|p| p.channel == rig.channel).copied();
         let partner = portal.and_then(|p| find_portal(&all, p.channel.partner()));
         let (Some(portal), Some(partner)) = (portal, partner) else {
@@ -625,6 +648,7 @@ pub fn sync_portal_view_cones(
             continue;
         }
         served.push(rig.channel);
+        *layers = capture_layers.clone();
 
         let (enter, exit) = (portal.frame(), partner.frame());
         let plan = compute_cone(&portal, &partner, &config, viewer, frame.size);
@@ -715,6 +739,7 @@ pub fn sync_portal_view_cones(
                 cone_tf,
                 cone_vis,
                 PortalConeMesh,
+                RenderLayers::layer(PORTAL_WINDOW_RENDER_LAYER),
                 // The mesh's vertices are rewritten in place every frame as the
                 // viewer moves, but Bevy computes a mesh entity's culling Aabb
                 // ONCE (calculate_bounds only fills in missing Aabbs; mutating
@@ -756,6 +781,7 @@ pub fn sync_portal_view_cones(
             // history): a default 4×-MSAA camera renders nothing into it.
             Msaa::Off,
             RenderTarget::Image(ImageRenderTarget::from(image.clone())),
+            capture_render_layers(&config),
             Projection::Orthographic(OrthographicProjection {
                 scaling_mode: scaling,
                 ..OrthographicProjection::default_2d()

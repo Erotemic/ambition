@@ -603,7 +603,14 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
         .register_type::<EditableAbilitySet>()
         .register_type::<EditableMovementTuning>()
         .register_type::<EditablePlayerStats>()
-        .register_type::<SandboxFeelTuning>();
+        .register_type::<SandboxFeelTuning>()
+        .register_type::<ambition_sandbox::portal::PortalConvention>()
+        .register_type::<ambition_sandbox::portal::PortalTuning>();
+
+    #[cfg(feature = "portal_render")]
+    app.register_type::<ambition_sandbox::portal::PortalVisualEffect>()
+        .register_type::<ambition_sandbox::portal::PortalEffectSelection>()
+        .register_type::<ambition_sandbox::portal::PortalViewConeConfig>();
 
     app.add_plugins(crate::host::platform::PlatformPlugin);
     app.add_plugins(ambition_sandbox::presentation::screen_effects::ScreenEffectsPlugin);

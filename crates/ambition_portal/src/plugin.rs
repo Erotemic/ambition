@@ -8,7 +8,8 @@ use super::schedule::PortalSet;
 use super::{
     clear_portals_on_reset, despawn_orphaned_portals, portal_fire_system,
     portal_teleport_ground_items, portal_toggle_system, portal_transit, publish_portal_carves,
-    tick_portal_cooldowns, BodyTeleported, PlayerMovementIntent, PortalBodyTransited, PortalCarves,
+    sync_portal_tuning_convention, tick_portal_cooldowns, BodyTeleported, PlayerMovementIntent,
+    PortalBodyTransited, PortalCarves, PortalTuning,
 };
 use ambition_platformer_runtime::orientation::{ensure_actor_roll, update_actor_roll};
 
@@ -68,6 +69,7 @@ impl Plugin for PortalSimulationPlugin {
         // input adapter (the host portal adapter) mirrors it to/from
         // `ControlFrame` each frame.
         app.init_resource::<PlayerMovementIntent>();
+        app.init_resource::<PortalTuning>();
         // NOTE: the held-gun aim hint (`PortalAimHint`) is a render-only resource
         // owned by the HOST presentation layer (it is not part of the headless
         // mechanic), so it is initialised host-side behind the render feature, not
@@ -101,6 +103,10 @@ impl Plugin for PortalSimulationPlugin {
         app.configure_sets(
             Update,
             PortalSet::InputAdapter.before(PortalSet::WeaponAndProjectiles),
+        );
+        app.add_systems(
+            Update,
+            sync_portal_tuning_convention.in_set(PortalSet::InputAdapter),
         );
 
         // The gameplay-gated weapon systems. The host gates this set with

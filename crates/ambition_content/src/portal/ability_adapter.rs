@@ -25,14 +25,8 @@ use bevy::prelude::*;
 use ambition_sandbox::player::{PlayerEntity, PrimaryPlayer};
 use ambition_sandbox::portal::pieces::portal_map_vec;
 use ambition_sandbox::portal::{
-    PlayerMovementIntent, PortalEmission, PortalInputWarp, PortalTransit,
+    PlayerMovementIntent, PortalEmission, PortalInputWarp, PortalTransit, PortalTuning,
 };
-
-/// Movement-axis magnitude above which input counts as "held" (stick deadzone).
-const PORTAL_INPUT_HELD_EPS: f32 = 0.25;
-/// While warped, the live raw input may drift this far (cosine) from the anchor
-/// before it counts as a "clearly different" direction that drops the warp.
-const PORTAL_INPUT_WARP_KEEP_COS: f32 = 0.5;
 
 /// Runtime toggle for [`suppress_ledge_grab_during_transit`]. Default ON; flip it
 /// off to play with ledge-grab / wall-movement INTO portals enabled (the
@@ -64,13 +58,14 @@ impl Default for SuppressWallAbilitiesInPortal {
 /// reset, AND needs no save/restore — when transit ends, the per-frame reset
 /// restores the loadout automatically. (The wider structural smell — transient
 /// ability mods fighting a per-frame wholesale reset — is noted in TODO.md.)
-/// Gated on [`SuppressWallAbilitiesInPortal`]. Runs before the movement integration.
+/// Gated on [`PortalTuning::suppress_wall_abilities`]. Runs before the movement
+/// integration.
 ///
 /// Reads the portal-owned [`PortalTransit`] latch and writes the Ambition
 /// `PlayerAbilities` — so it is content glue, not portal core. Moved out of the
 /// portal crate (Stage 19 Phase 5a); identical-sim.
 pub fn suppress_ledge_grab_during_transit(
-    toggle: Res<SuppressWallAbilitiesInPortal>,
+    tuning: Res<PortalTuning>,
     mut players: Query<
         (
             &mut ambition_sandbox::player::PlayerAbilities,
@@ -79,7 +74,7 @@ pub fn suppress_ledge_grab_during_transit(
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
 ) {
-    if !toggle.0 {
+    if !tuning.suppress_wall_abilities {
         return;
     }
     for (mut abilities, transiting) in &mut players {
@@ -114,6 +109,7 @@ pub fn warp_portal_input(
     time: Option<Res<ambition_sandbox::WorldTime>>,
     mut commands: Commands,
     intent: Option<ResMut<PlayerMovementIntent>>,
+    tuning: Res<PortalTuning>,
     mut player: Query<
         (
             Entity,
@@ -133,11 +129,11 @@ pub fn warp_portal_input(
     // --- Same-wall held-input warp ---
     if let Some(warp) = warp {
         let raw = intent.dir;
-        if raw.length() < PORTAL_INPUT_HELD_EPS {
+        if raw.length() < tuning.input_held_epsilon {
             commands.entity(entity).remove::<PortalInputWarp>();
         } else if warp.anchor.length() > 0.01
             && raw.normalize_or_zero().dot(warp.anchor.normalize_or_zero())
-                < PORTAL_INPUT_WARP_KEEP_COS
+                < tuning.input_warp_keep_cos
         {
             commands.entity(entity).remove::<PortalInputWarp>();
         } else {
@@ -172,12 +168,10 @@ mod tests {
     use ambition_sandbox::player::{PlayerEntity, PrimaryPlayer};
     use ambition_sandbox::portal::{
         PlayerMovementIntent, PortalChannel, PortalEmission, PortalGunColor, PortalInputWarp,
-        PortalTransit,
+        PortalTransit, PortalTuning,
     };
 
-    use super::{
-        suppress_ledge_grab_during_transit, warp_portal_input, SuppressWallAbilitiesInPortal,
-    };
+    use super::{suppress_ledge_grab_during_transit, warp_portal_input};
 
     const BLUE: PortalChannel = PortalChannel::Gun(PortalGunColor::Blue);
 
@@ -187,6 +181,7 @@ mod tests {
         let mut app = App::new();
         app.insert_resource(ControlFrame::default());
         app.init_resource::<PlayerMovementIntent>();
+        app.init_resource::<PortalTuning>();
         // The content adapter brackets the core warp: mirror ControlFrame -> intent
         // before the warp, and the warped intent -> ControlFrame after, so this
         // exercises the full content+core chain on the ControlFrame surface exactly
@@ -252,7 +247,7 @@ mod tests {
     fn wall_ability_suppression_reapplies_every_frame_against_the_loadout_reset() {
         use ambition_sandbox::player::PlayerAbilities;
         let mut app = App::new();
-        app.init_resource::<SuppressWallAbilitiesInPortal>();
+        app.init_resource::<PortalTuning>();
         // Stand in for the per-frame loadout reset that clobbered the old
         // save-once suppression: re-enable ledge_grab BEFORE the suppressor runs.
         fn reenable_ledge_grab(mut q: Query<&mut PlayerAbilities>) {
@@ -320,6 +315,7 @@ mod tests {
         let mut app = App::new();
         app.insert_resource(ControlFrame::default());
         app.init_resource::<PlayerMovementIntent>();
+        app.init_resource::<PortalTuning>();
         app.add_systems(
             Update,
             (

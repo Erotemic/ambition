@@ -14,9 +14,7 @@ use ambition_sandbox::portal::{
     publish_portal_carves, PortalSet,
 };
 
-use super::ability_adapter::{
-    suppress_ledge_grab_during_transit, warp_portal_input, SuppressWallAbilitiesInPortal,
-};
+use super::ability_adapter::{suppress_ledge_grab_during_transit, warp_portal_input};
 use super::carve_adapter::bridge_portal_carves;
 use super::fire_adapter::resolve_portal_fire_intent;
 use super::input_adapter::portal_input_adapter_system;
@@ -37,11 +35,6 @@ pub struct AmbitionPortalAdaptersPlugin;
 
 impl Plugin for AmbitionPortalAdaptersPlugin {
     fn build(&self, app: &mut App) {
-        // The wall-ability suppression toggle is an Ambition ability-policy
-        // resource (the suppressed thing is a PLAYER ability), so it is owned
-        // here, not in the portal crate (Stage 19 Phase 5a).
-        app.init_resource::<SuppressWallAbilitiesInPortal>();
-
         // Input-shaping warp: apply the portal-owned `PortalInputWarp` /
         // `PortalEmission` guards to the player's movement intent. INPUT is not a
         // crate concern (Stage 19 Phase 5a) — registered here in the same
@@ -341,6 +334,7 @@ mod schedule_tests {
         configure_sandbox_sets(&mut app);
         app.init_resource::<ControlFrame>();
         app.init_resource::<PlayerMovementIntent>();
+        app.init_resource::<ambition_sandbox::portal::PortalTuning>();
         app.init_resource::<ConsumedAxis>();
         // A primary player so `warp_portal_input` runs its body.
         app.world_mut().spawn((PlayerEntity, PrimaryPlayer));

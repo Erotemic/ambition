@@ -24,17 +24,9 @@ use ambition_sandbox::features::{BodyKinematics, BossConfig};
 use ambition_sandbox::player::{PlayerEntity, PrimaryPlayer};
 use ambition_sandbox::portal::{
     BodyTeleported, PlayerMovementIntent, PortalBody, PortalBodyTransited, PortalEmission,
-    PortalInputWarp, PortalPolicy,
+    PortalInputWarp, PortalPolicy, PortalTuning,
 };
 use ambition_sandbox::projectile::ProjectileGameplay;
-
-/// Movement-axis magnitude above which a held input warps on a same-wall
-/// turn-around. Mirrors the old `PORTAL_INPUT_HELD_EPS` in portal core (kept in
-/// sync — this is the Ambition side of the same threshold).
-const PORTAL_INPUT_HELD_EPS: f32 = 0.25;
-/// Seconds the [`PortalEmission`] guard protects a fresh exit. Mirrors the old
-/// `PORTAL_EMISSION_TIME` constant in portal core.
-const PORTAL_EMISSION_TIME: f32 = 0.18;
 
 /// Ensure every body that transited before the unification carries the portal
 /// transit opt-in. Maps Ambition identity → behavioral [`PortalPolicy`]:
@@ -156,6 +148,7 @@ pub fn ensure_projectile_portal_bodies(
 pub fn portal_player_input_adapter(
     mut commands: Commands,
     intent: Option<Res<PlayerMovementIntent>>,
+    tuning: Res<PortalTuning>,
     mut transited: MessageReader<PortalBodyTransited>,
     mut teleported: MessageWriter<BodyTeleported>,
     players: Query<(), (With<PlayerEntity>, With<PrimaryPlayer>)>,
@@ -172,13 +165,13 @@ pub fn portal_player_input_adapter(
         // out before held input can fight it.
         commands.entity(ev.body).insert(PortalEmission {
             exit_normal: ev.exit_normal,
-            timer: PORTAL_EMISSION_TIME,
+            timer: tuning.emission_time_s,
         });
         // Warp held input only when the active portal map keeps ordinary
         // horizontal movement expressible and flips it. A floor↔wall 90° turn
         // would rotate a horizontal hold into "up", which the controller can't
         // use as ordinary movement.
-        if ev.input_warp && held.length() > PORTAL_INPUT_HELD_EPS {
+        if ev.input_warp && held.length() > tuning.input_held_epsilon {
             commands.entity(ev.body).insert(PortalInputWarp {
                 n_in: ev.enter_normal,
                 n_out: ev.exit_normal,
@@ -238,6 +231,7 @@ mod projectile_transit_tests {
         let mut app = App::new();
         app.add_message::<ambition_sandbox::portal::PortalBodyEntered>();
         app.add_message::<ambition_sandbox::portal::PortalBodyTransited>();
+        app.init_resource::<ambition_sandbox::portal::PortalTuning>();
         app.add_systems(
             Update,
             (ensure_projectile_portal_bodies, portal_transit).chain(),

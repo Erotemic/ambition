@@ -35,6 +35,7 @@ fn install_egui_inspectors(app: &mut App) {
         inspector_visible, world_inspector_visible, DeveloperTools, EditableAbilitySet,
         EditableMovementTuning, EditablePlayerStats,
     };
+    use ambition_sandbox::portal::PortalTuning;
     use ambition_sandbox::time::feel::SandboxFeelTuning;
     use bevy_inspector_egui::bevy_egui::EguiPlugin;
     use bevy_inspector_egui::quick::{ResourceInspectorPlugin, WorldInspectorPlugin};
@@ -53,7 +54,19 @@ fn install_egui_inspectors(app: &mut App) {
         .add_plugins(
             ResourceInspectorPlugin::<SandboxFeelTuning>::default().run_if(inspector_visible),
         )
-        .add_plugins(WorldInspectorPlugin::new().run_if(world_inspector_visible));
+        .add_plugins(ResourceInspectorPlugin::<PortalTuning>::default().run_if(inspector_visible));
+
+    #[cfg(feature = "portal_render")]
+    app.add_plugins(
+        ResourceInspectorPlugin::<ambition_sandbox::portal::PortalEffectSelection>::default()
+            .run_if(inspector_visible),
+    )
+    .add_plugins(
+        ResourceInspectorPlugin::<ambition_sandbox::portal::PortalViewConeConfig>::default()
+            .run_if(inspector_visible),
+    );
+
+    app.add_plugins(WorldInspectorPlugin::new().run_if(world_inspector_visible));
 }
 
 #[cfg(not(feature = "dev_tools"))]

@@ -13,7 +13,8 @@ use ambition_platformer_runtime::world_query::{ray_aabb, raycast_solids};
 
 use super::color::PortalChannel;
 use super::transit::PortalTransit;
-use super::types::{find_portal, PlacedPortal, MIN_EXIT_SPEED};
+use super::tuning::PortalTuning;
+use super::types::{find_portal, PlacedPortal};
 
 /// Recursive, portal-aware raycast: cast from `origin` along `dir`, and if the
 /// ray crosses a portal face (entering from its front) before hitting a solid,
@@ -74,6 +75,27 @@ pub fn raycast_through_portals(
         }
     }
     None
+}
+
+/// Portal-aware raycast using the editable portal recursion budget.
+pub fn raycast_through_portals_tuned(
+    world: &ae::World,
+    portals: &[PlacedPortal],
+    origin: Vec2,
+    dir: Vec2,
+    max_dist: f32,
+    include_one_way: bool,
+    tuning: &PortalTuning,
+) -> Option<(Vec2, Vec2)> {
+    raycast_through_portals(
+        world,
+        portals,
+        origin,
+        dir,
+        max_dist,
+        include_one_way,
+        tuning.raycast_recursion_depth,
+    )
 }
 
 /// The render-space roll a body picks up traveling through a portal pair: the
@@ -299,15 +321,16 @@ fn transfer_step(
     enter: PlacedPortal,
     exit: PlacedPortal,
     gravity_dir: Vec2,
+    tuning: &PortalTuning,
 ) -> TransitStep {
     let ef = enter.frame();
     let xf = exit.frame();
     let mut vel_out = portal_transform_velocity(vel, enter.normal, exit.normal);
     // Floor the exit speed along the exit normal so a slow walk-in still emerges
     // instead of stalling in the opening.
-    if vel_out.dot(exit.normal) < MIN_EXIT_SPEED {
+    if vel_out.dot(exit.normal) < tuning.min_exit_speed {
         let tangential = vel_out - vel_out.dot(exit.normal) * exit.normal;
-        vel_out = tangential + exit.normal * MIN_EXIT_SPEED;
+        vel_out = tangential + exit.normal * tuning.min_exit_speed;
     }
     TransitStep::Transfer {
         pos: pp::map_point(center, &ef, &xf),
@@ -336,6 +359,29 @@ pub fn transit_step(
     cooldown: f32,
     portals: &[PlacedPortal],
     gravity_dir: Vec2,
+) -> TransitStep {
+    transit_step_with_tuning(
+        center,
+        size,
+        vel,
+        transit,
+        cooldown,
+        portals,
+        gravity_dir,
+        &PortalTuning::default(),
+    )
+}
+
+/// Compute the transit step with editable portal tuning.
+pub fn transit_step_with_tuning(
+    center: Vec2,
+    size: Vec2,
+    vel: Vec2,
+    transit: Option<PortalTransit>,
+    cooldown: f32,
+    portals: &[PlacedPortal],
+    gravity_dir: Vec2,
+    tuning: &PortalTuning,
 ) -> TransitStep {
     let body = ae::Aabb::new(center, size * 0.5);
     // Resolve `(straddled, its linked exit)` for a color — both must be placed.
@@ -376,7 +422,7 @@ pub fn transit_step(
                 {
                     let exit = find_portal(portals, enter.channel.partner())
                         .expect("partner checked above");
-                    return transfer_step(center, vel, *enter, exit, gravity_dir);
+                    return transfer_step(center, vel, *enter, exit, gravity_dir, tuning);
                 }
             }
             if cooldown > 0.0 {
@@ -418,7 +464,7 @@ pub fn transit_step(
             // the body jumps to the exit; gameplay sees no discontinuity because
             // every query uses the portal pieces.
             if !t.crossed && pp::front_distance(center, &ef) <= 0.0 {
-                return transfer_step(center, vel, enter, exit, gravity_dir);
+                return transfer_step(center, vel, enter, exit, gravity_dir, tuning);
             }
             // Stay engaged so the carve persists long enough to sink + cross —
             // clearing on "not straddling yet" would drop the carve every other

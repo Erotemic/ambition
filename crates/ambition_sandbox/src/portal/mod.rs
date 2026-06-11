@@ -162,11 +162,17 @@ mod host_adapter {
     /// pairs vertically flip) vs rotation (det +1: facing/thin-wall pairs are a
     /// clean straight-through "door", floor↔floor reverses horizontal). Affects
     /// transit, the view cones, the body copy, and collision pieces together.
-    pub fn portal_convention_toggle_system(keys: Res<ButtonInput<KeyCode>>) {
+    pub fn portal_convention_toggle_system(
+        keys: Res<ButtonInput<KeyCode>>,
+        tuning: Option<ResMut<ambition_portal::PortalTuning>>,
+    ) {
         if !keys.just_pressed(KeyCode::F10) {
             return;
         }
         let next = !ambition_portal::portal_map_rotation();
+        if let Some(mut tuning) = tuning {
+            tuning.convention = ambition_portal::PortalConvention::from_rotation(next);
+        }
         ambition_portal::set_portal_map_rotation(next);
         bevy::log::info!(
             target: "ambition::portal",

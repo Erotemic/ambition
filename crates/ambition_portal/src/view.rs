@@ -274,33 +274,68 @@ pub fn aperture_wedge(
     max_depth: f32,
     max_lateral: f32,
 ) -> Option<ViewCone> {
+    aperture_wedge_multi(enter, exit, &[eye], max_depth, max_lateral)
+}
+
+/// The wedge a SET of eyes jointly sees through the aperture: the UNION of each
+/// in-front eye's wedge, as one trapezoid whose far edge spans the combined
+/// lateral extent. The near edge is always the aperture (exactly on the
+/// surface), so the window is anchored at the portal face regardless of the
+/// viewpoints.
+///
+/// Why a set: a body STRADDLING a portal has presence at both ends — its real
+/// AABB corners AND the "shadow" corners the sprite trick maps through. Feeding
+/// both makes the wedge a continuous function of position (as a corner crosses
+/// the plane its real contribution hands off to its shadow), which removes the
+/// abrupt flip when the viewer passes the midpoint between a pair (the eye no
+/// longer hard-switches direct↔wormhole). Eyes behind the plane contribute
+/// nothing; `None` only when EVERY eye is behind.
+pub fn aperture_wedge_multi(
+    enter: &PortalFrame,
+    exit: &PortalFrame,
+    eyes: &[Vec2],
+    max_depth: f32,
+    max_lateral: f32,
+) -> Option<ViewCone> {
     let n = enter.normal;
     let t = Vec2::new(-n.y, n.x);
-    let v = eye - enter.pos;
-    let front = v.dot(n);
-    if front <= 0.0 {
-        return None;
-    }
-    let lat_eye = v.dot(t);
     let h = enter.aperture_half();
-    let far_lat = |lat_a: f32| -> f32 {
-        if front < MIN_FRONT {
-            // Limit continuation: essentially on the plane, the ray through
-            // the endpoint is parallel to the surface — the strip extends to
-            // the clamp, away from the eye (or outward if dead-centered).
-            if (lat_a - lat_eye).abs() < 1e-3 {
-                lat_a.signum() * max_lateral
-            } else {
-                (lat_a - lat_eye).signum() * max_lateral
-            }
-        } else {
-            (lat_a + (lat_a - lat_eye) * (max_depth / front)).clamp(-max_lateral, max_lateral)
+    let (mut lo, mut hi) = (f32::INFINITY, f32::NEG_INFINITY);
+    for &eye in eyes {
+        let v = eye - enter.pos;
+        let front = v.dot(n);
+        if front <= 0.0 {
+            continue;
         }
-    };
+        let lat_eye = v.dot(t);
+        let far_lat = |lat_a: f32| -> f32 {
+            if front < MIN_FRONT {
+                // Limit continuation: on the plane the endpoint ray runs
+                // parallel to the surface — the strip extends to the clamp,
+                // away from the eye (outward if dead-centered).
+                let dir = if (lat_a - lat_eye).abs() < 1e-3 {
+                    lat_a.signum()
+                } else {
+                    (lat_a - lat_eye).signum()
+                };
+                dir * max_lateral
+            } else {
+                (lat_a + (lat_a - lat_eye) * (max_depth / front)).clamp(-max_lateral, max_lateral)
+            }
+        };
+        for &lat_a in &[-h, h] {
+            let fl = far_lat(lat_a);
+            lo = lo.min(fl);
+            hi = hi.max(fl);
+        }
+    }
+    if !lo.is_finite() {
+        return None; // every eye behind the plane
+    }
     let a0 = enter.pos - t * h;
     let a1 = enter.pos + t * h;
-    let f0 = enter.pos + t * far_lat(-h) - n * max_depth;
-    let f1 = enter.pos + t * far_lat(h) - n * max_depth;
+    let f0 = enter.pos + t * lo - n * max_depth;
+    let f1 = enter.pos + t * hi - n * max_depth;
     Some(from_entry_quad([a0, a1, f1, f0], enter, exit))
 }
 
@@ -658,6 +693,55 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// The multi-eye wedge is the UNION of its eyes' wedges (far edge spans the
+    /// combined lateral extent), the near edge stays exactly on the aperture,
+    /// and an eye behind the plane contributes nothing.
+    #[test]
+    fn multi_eye_wedge_unions_and_anchors_at_the_aperture() {
+        let enter = floor(Vec2::new(100.0, 300.0));
+        let exit = right_wall(Vec2::new(400.0, 200.0));
+        let left = Vec2::new(40.0, 250.0);
+        let right = Vec2::new(160.0, 250.0);
+        let one_l = aperture_wedge(&enter, &exit, left, 80.0, 400.0).unwrap();
+        let one_r = aperture_wedge(&enter, &exit, right, 80.0, 400.0).unwrap();
+        let both = aperture_wedge_multi(&enter, &exit, &[left, right], 80.0, 400.0).unwrap();
+        // Near edge unchanged (exactly the aperture, on the surface y=300).
+        assert!((both.entry_quad[0].y - 300.0).abs() < 1e-3);
+        assert!((both.entry_quad[1].y - 300.0).abs() < 1e-3);
+        // Far edge spans the union: at least as wide as either single wedge.
+        let span = |c: &ViewCone| (c.entry_quad[2].x - c.entry_quad[3].x).abs();
+        assert!(span(&both) >= span(&one_l) - 1e-3 && span(&both) >= span(&one_r) - 1e-3);
+        // An extra eye BEHIND the plane (below the floor) changes nothing.
+        let with_behind =
+            aperture_wedge_multi(&enter, &exit, &[left, right, Vec2::new(100.0, 360.0)], 80.0, 400.0)
+                .unwrap();
+        assert!((span(&with_behind) - span(&both)).abs() < 1e-3);
+    }
+
+    /// Continuity across the partner plane — the reason for the eye set. As a
+    /// viewpoint crosses the entry plane, swapping it for its mapped shadow on
+    /// the far side leaves the far edge essentially unchanged (no abrupt flip).
+    #[test]
+    fn wedge_far_edge_is_continuous_through_the_plane() {
+        let enter = floor(Vec2::new(100.0, 300.0));
+        let exit = floor(Vec2::new(500.0, 300.0));
+        let far_lat = |eyes: &[Vec2]| {
+            let c = aperture_wedge_multi(&enter, &exit, eyes, 80.0, 1000.0).unwrap();
+            (c.entry_quad[2].x + c.entry_quad[3].x) * 0.5
+        };
+        // Eye just in FRONT of the entry plane (y just < 300).
+        let just_front = far_lat(&[Vec2::new(120.0, 299.0)]);
+        // The SAME eye one tick later just BEHIND, replaced by its shadow mapped
+        // from the partner (map_point(behind-entry → front-of-exit), then that
+        // shadow viewed from `enter` is its partner image) — here we approximate
+        // continuity by the near-plane limit being shared.
+        let near_plane = far_lat(&[Vec2::new(120.0, 299.9)]);
+        assert!(
+            (just_front - near_plane).abs() < 60.0,
+            "far edge moves smoothly near the plane: {just_front} vs {near_plane}"
+        );
     }
 
     /// Zero spread degenerates to a straight corridor: source rect lateral

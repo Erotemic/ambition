@@ -27,7 +27,8 @@
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 
-use ambition_engine_core::{self as ae, AabbExt};
+use ambition_engine_core as ae;
+
 use ambition_platformer_runtime::body::BodyKinematics;
 
 use crate::color::PortalChannel;

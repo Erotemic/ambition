@@ -3,16 +3,16 @@
 //! the portal a little bit" — rendered live by an offscreen capture camera.
 //!
 //! ## Viewer-dependent visibility
-//! By default the window is the wedge of the surface the **controlled
-//! character** can actually see through the aperture (its sightline frustum
-//! through the slit), via `ambition_portal::view::visible_cone` from a
-//! host-supplied [`PortalViewer`]: the wedge skews with the viewer's angle to
-//! the surface, widens as they near the portal, and vanishes when a wall
-//! occludes the line of sight (a short raycast over [`PortalViewer::occluders`])
-//! or the viewer steps behind the surface. Set
+//! By default the window is the wedge the **controlled character** sees through
+//! the aperture, from a host-supplied [`PortalViewer`]. The viewpoint set is
+//! the character's four real AABB corners PLUS, for any corner that has crossed
+//! the partner plane, its sprite-trick SHADOW (the body-map image) — so a
+//! straddling viewer's presence at both ends feeds one continuous wedge
+//! (`aperture_wedge_multi` unions them), with no abrupt flip at the midpoint of
+//! a pair. Depth scales with proximity to the nearer aperture; line of sight is
+//! a 4-corner raycast fraction (partial cover ⇒ partial window). Set
 //! [`PortalViewConeConfig::viewer_gated`] to `false` (or leave the viewer
-//! unset) to fall back to the static, always-on `view_cone` — the
-//! "render unconditionally" mode.
+//! unset) to fall back to the static, always-on `view_cone`.
 //!
 //! ## How a rig works
 //! Per placed portal with a placed partner, a **rig**: one offscreen image, a
@@ -48,7 +48,7 @@ use bevy::sprite_render::AlphaMode2d;
 use ambition_engine_core as ae;
 use ambition_platformer_runtime::world_query::{raycast_solids, SolidWorldQuery};
 use ambition_portal::pieces::PortalFrame;
-use ambition_portal::view::{aperture_wedge, blend_cones, view_cone, window_eye, ViewCone};
+use ambition_portal::view::{aperture_wedge_multi, blend_cones, view_cone, ViewCone};
 use ambition_portal::{find_portal, PlacedPortal, PortalChannel};
 
 use crate::PortalWorldFrame;
@@ -366,34 +366,43 @@ fn compute_cone(
     let Some(v) = viewer.filter(|v| v.present) else {
         return closed(min);
     };
-    // Resolve which end the character actually looks through (nearest-first,
-    // with the in-doorway transit grace) — it decides both the wedge eye and
-    // which aperture the LOS runs against.
-    let Some((eye, via_partner)) = window_eye(&enter, &exit, v.eye) else {
-        return closed(min); // behind both ends
-    };
-    let faced = if via_partner { &exit } else { &enter };
-    // Proximity-proportional depth: deep when close to the aperture, shallow
-    // when far (smoothstep between dist_close→depth_close and
-    // dist_far→depth_far). The world clip still bounds it.
-    let dist = v.eye.distance(faced.pos);
+    let h = v.half_size;
+    let corners = [
+        v.eye + Vec2::new(-h.x, -h.y),
+        v.eye + Vec2::new(h.x, -h.y),
+        v.eye + Vec2::new(h.x, h.y),
+        v.eye + Vec2::new(-h.x, h.y),
+    ];
+    // Eye set for this end's wedge: the viewer's REAL AABB corners (those in
+    // front of `enter` contribute) PLUS, for any corner that has crossed the
+    // partner plane, its sprite-trick SHADOW (the body-map image, which emerges
+    // in front of `enter`). A straddling viewer has presence at both ends, so
+    // both sets feed the wedge — and as a corner crosses, its real contribution
+    // hands off to its shadow continuously, removing the abrupt flip at the
+    // midpoint between a pair (no hard direct↔wormhole eye switch).
+    let mut eyes: Vec<Vec2> = corners.to_vec();
+    for &c in &corners {
+        if (c - exit.pos).dot(exit.normal) < 0.0 {
+            eyes.push(ambition_portal::pieces::map_point(c, &exit, &enter));
+        }
+    }
+    // Proximity-proportional depth from the NEAREST aperture — the distance is
+    // continuous across the midpoint even as which-is-nearer flips.
+    let dist = v.eye.distance(enter.pos).min(v.eye.distance(exit.pos));
     let dt = ((dist - config.dist_close) / (config.dist_far - config.dist_close).max(1.0))
         .clamp(0.0, 1.0);
     let depth = config.depth_close + (config.depth_far - config.depth_close) * smooth01(dt);
-    // Visibility fraction: all four body corners ray-test to the faced
-    // aperture (lifted target). Skipped (fully visible) when basically at the
-    // doorway — straddling/transiting, where sight is trivially clear and the
-    // rays would graze the host blocks.
-    let target = if dist <= LOS_NEAR_SKIP {
+    // Visibility fraction: real corners ray-test to the nearer aperture
+    // (skipped at the doorway — straddling, where the rays would graze the
+    // host blocks and sight is trivially clear).
+    let faced = if v.eye.distance(enter.pos) <= v.eye.distance(exit.pos) {
+        &enter
+    } else {
+        &exit
+    };
+    let target = if v.eye.distance(faced.pos) <= LOS_NEAR_SKIP {
         1.0
     } else {
-        let h = v.half_size;
-        let corners = [
-            v.eye + Vec2::new(-h.x, -h.y),
-            v.eye + Vec2::new(h.x, -h.y),
-            v.eye + Vec2::new(h.x, h.y),
-            v.eye + Vec2::new(-h.x, h.y),
-        ];
         let clear = corners
             .iter()
             .filter(|c| !aperture_occluded(**c, faced, &v.occluders))
@@ -406,7 +415,7 @@ fn compute_cone(
     // The wedge runs to the half-plane: far extent past every world bound (the
     // renderer clips to the world rect afterwards).
     let far_extent = world_size.x + world_size.y;
-    let Some(wedge) = aperture_wedge(&enter, &exit, eye, depth, far_extent) else {
+    let Some(wedge) = aperture_wedge_multi(&enter, &exit, &eyes, depth, far_extent) else {
         return closed(min);
     };
     ConePlan {

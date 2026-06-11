@@ -74,6 +74,10 @@ pub struct EnemyMut<'a> {
     pub attack: &'a mut ActorAttackState,
     pub config: &'a mut EnemyConfig,
     pub motion: &'a mut ActorMotionPath,
+    /// Spawn-resolved special-behavior flags (kit vocabulary). Read-only:
+    /// the per-frame integration and the damage hook branch on these
+    /// instead of calling back into the named archetype enum.
+    pub caps: &'a crate::mechanics::combat::CombatCapabilities,
 }
 
 #[derive(QueryData)]
@@ -85,6 +89,7 @@ pub struct EnemyClusterQueryData {
     pub attack: &'static mut ActorAttackState,
     pub config: &'static mut EnemyConfig,
     pub motion: &'static mut ActorMotionPath,
+    pub caps: &'static crate::mechanics::combat::CombatCapabilities,
 }
 
 impl<'w, 's> EnemyClusterQueryDataItem<'w, 's> {
@@ -101,6 +106,7 @@ impl<'w, 's> EnemyClusterQueryDataItem<'w, 's> {
             attack: &mut self.attack,
             config: &mut self.config,
             motion: &mut self.motion,
+            caps: self.caps,
         }
     }
 }
@@ -116,6 +122,9 @@ pub struct EnemyClusterScratch {
     pub attack: ActorAttackState,
     pub config: EnemyConfig,
     pub motion: ActorMotionPath,
+    /// Spawn-resolved special-behavior flags (kit vocabulary), spawned
+    /// alongside the clusters by [`Self::into_components`].
+    pub caps: crate::mechanics::combat::CombatCapabilities,
 }
 
 impl EnemyClusterScratch {
@@ -182,6 +191,7 @@ impl EnemyClusterScratch {
                 sprite_override_npc_name: None,
             },
             motion: ActorMotionPath(motion),
+            caps: archetype.combat_capabilities(),
         }
     }
     pub fn as_mut(&mut self) -> EnemyMut<'_> {
@@ -192,6 +202,7 @@ impl EnemyClusterScratch {
             attack: &mut self.attack,
             config: &mut self.config,
             motion: &mut self.motion,
+            caps: &self.caps,
         }
     }
 
@@ -207,7 +218,6 @@ impl EnemyClusterScratch {
         ActorAttackState,
         crate::mechanics::combat::CombatCapabilities,
     ) {
-        let caps = self.config.archetype.combat_capabilities();
         (
             self.kin,
             self.status,
@@ -215,7 +225,7 @@ impl EnemyClusterScratch {
             self.motion,
             self.surface,
             self.attack,
-            caps,
+            self.caps,
         )
     }
 }

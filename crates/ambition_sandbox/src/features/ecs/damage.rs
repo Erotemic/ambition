@@ -23,8 +23,8 @@ use super::super::{
 use super::{
     ae, sync_actor_components_from_enemy, ActorCombatState, ActorCooldowns, ActorDisposition,
     ActorHealth, ActorIdentity, ActorIntent, ActorRuntime, BossConfig, BreakableFeature,
-    EnemyArchetype, FeatureAabb, FeatureId, FeatureName, FeatureSimEntity, GameplayBanner,
-    HitEvent, HitSource, PickupFeature, RespawnTimer, SetFlagRequested,
+    FeatureAabb, FeatureId, FeatureName, FeatureSimEntity, GameplayBanner, HitEvent, HitSource,
+    PickupFeature, RespawnTimer, SetFlagRequested,
 };
 use crate::audio::SfxMessage;
 use crate::boss_encounter::{record_boss_damage, BossEncounterRegistry};
@@ -627,7 +627,7 @@ fn apply_actor_hit(
                 em.kin.vel.y = (em.kin.vel.y - 90.0).max(-280.0);
             }
             let damage_amount = event.damage.max(1);
-            let caps = em.config.archetype.combat_capabilities();
+            let caps = em.caps.clone();
             let killed = if caps.never_dies {
                 false
             } else {
@@ -1033,6 +1033,7 @@ pub(crate) use crate::mechanics::combat::breakables::{
 
 #[cfg(test)]
 mod tests {
+    use super::super::EnemyArchetype;
     use super::*;
     use crate::features::ecs::enemy_component_snapshot;
     use crate::features::{HitMode, HitTarget};

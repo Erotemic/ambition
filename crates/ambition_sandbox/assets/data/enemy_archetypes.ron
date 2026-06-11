@@ -95,6 +95,8 @@
         attack_range: 105.0,
         contact_strength: 0.55,
         damage_amount: 1,
+        // Fast skitter: attacks recover faster than the shared cooldown.
+        attack_cooldown_mult: 0.75,
         brain_template: Smash,
         melee: Some(Swipe((
             windup_s: 0.28,
@@ -224,6 +226,8 @@
         attack_range: 205.0,
         contact_strength: 1.25,
         damage_amount: 2,
+        // Lumbering heavy: attacks recover slower than the shared cooldown.
+        attack_cooldown_mult: 1.35,
         brain_template: Smash,
         melee: Some(Lunge((
             windup_s: 0.45,
@@ -487,6 +491,9 @@
     "PuppySlug": (
         // Deep-dream visual jitter seed (slug-only psychedelic pass).
         dream_seed: Some(0.271828),
+        // Crawlid-style wall/ceiling crawler: hugs the surface normal and
+        // probes ledges so it never walks off a platform.
+        surface_walker: true,
         max_health: 2,
         patrol_speed: 55.0,
         chase_speed: 80.0,

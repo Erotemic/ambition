@@ -1017,10 +1017,35 @@ pub struct CombatCapabilities {
 /// (like [`CombatCapabilities`], but plain tuning rather than special
 /// behaviors). Carried as a field on the enemy config component so
 /// the per-frame systems never call back into a named archetype enum.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct EnemyTuning {
+    /// Full health pool at spawn / respawn-reset.
+    pub max_health: i32,
+    /// Patrol walking speed (px/s).
+    pub patrol_speed: f32,
     /// Chase/steering speed (px/s).
     pub chase_speed: f32,
+    /// Distance (px) at which the actor notices the player.
+    pub aggro_radius: f32,
+    /// Distance (px) at which the actor commits to an attack.
+    pub attack_range: f32,
+    /// Contact-damage knockback strength.
+    pub contact_strength: f32,
+    /// Damage dealt by an attack / body contact.
+    pub damage_amount: i32,
+    /// Multiplier on the shared attack cooldown (fast skirmishers
+    /// < 1.0, lumbering heavies > 1.0).
+    pub attack_cooldown_mult: f32,
+    /// Hostile by default: actively tracks the player and publishes
+    /// contact damage. Peaceful patrollers are false.
+    pub attacks_player: bool,
+    /// Walks surfaces hugging the surface normal: body axes swap on
+    /// vertical surfaces and patrol probes ledges instead of walking
+    /// off them.
+    pub surface_walker: bool,
+    /// Self-revives in place after its respawn timer instead of
+    /// counting as defeated (finite training dummies).
+    pub revives_in_place: bool,
     /// Flies: no gravity, aerial slot class.
     pub is_aerial: bool,
     /// Training-dummy family: excluded from slot pressure and save
@@ -1030,6 +1055,30 @@ pub struct EnemyTuning {
     pub body_contact_damage: bool,
     /// Deep-dream visual jitter seed; `None` = no dream pass.
     pub dream_seed: Option<f32>,
+}
+
+impl Default for EnemyTuning {
+    fn default() -> Self {
+        Self {
+            max_health: 0,
+            patrol_speed: 0.0,
+            chase_speed: 0.0,
+            aggro_radius: 0.0,
+            attack_range: 0.0,
+            contact_strength: 0.0,
+            damage_amount: 0,
+            // Multiplicative identity — a defaulted tuning must not
+            // zero out the shared attack cooldown.
+            attack_cooldown_mult: 1.0,
+            attacks_player: false,
+            surface_walker: false,
+            revives_in_place: false,
+            is_aerial: false,
+            is_sandbag: false,
+            body_contact_damage: false,
+            dream_seed: None,
+        }
+    }
 }
 
 impl EnemyTuning {

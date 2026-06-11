@@ -61,7 +61,7 @@ pub fn spawn_dynamic_feature_visuals(
         let (ActorRuntime::Enemy, Some(config)) = (actor, config) else {
             continue;
         };
-        let kind = if config.archetype.is_sandbag() {
+        let kind = if config.tuning.is_sandbag {
             FeatureVisualKind::Sandbag
         } else {
             FeatureVisualKind::Enemy

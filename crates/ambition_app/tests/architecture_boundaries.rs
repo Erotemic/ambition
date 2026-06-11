@@ -1546,6 +1546,60 @@ fn architecture_boundaries_presentation_does_not_use_the_archetype_enum() {
 }
 
 #[test]
+fn architecture_boundaries_enemy_sim_reads_data_not_the_archetype_enum() {
+    // Stage 22 / the A2 deep half: the per-frame enemy SIM layer (the actor
+    // tick, the damage/kill hook, and the enemy render mapper) reads only the
+    // spawn-projected kit data (`EnemyConfig.tuning` + the `CombatCapabilities`
+    // component on the cluster view) — never the named archetype enum or its
+    // method projections. The enum is spawn-vocabulary: it may appear in
+    // construction paths (`EnemyClusterScratch::new`, spawn_*, brain_builders)
+    // and tests, but a per-frame system reaching back into it re-ties the
+    // generic combat core to the named roster (the knot that blocks moving the
+    // actor combat core into mechanics::combat).
+    let files = [
+        crate_src().join("features").join("ecs").join("actors.rs"),
+        crate_src().join("features").join("ecs").join("damage.rs"),
+        crate_src()
+            .join("presentation")
+            .join("rendering")
+            .join("features.rs"),
+    ];
+    let forbidden = ["EnemyArchetype", ".archetype"];
+    let mut violations = Vec::new();
+    for file in files {
+        let text = fs::read_to_string(&file).expect("read rust source");
+        // The ratchet covers production code only: strip the tail
+        // `#[cfg(test)]` module (tests may exercise named archetypes).
+        let prod = text
+            .split("#[cfg(test)]")
+            .next()
+            .expect("split always yields at least one piece");
+        for (idx, raw) in prod.lines().enumerate() {
+            let line = raw.trim();
+            if line.starts_with("//") || line.starts_with("/*") || line.starts_with('*') {
+                continue;
+            }
+            for needle in forbidden {
+                if line.contains(needle) {
+                    violations.push(format!(
+                        "{}:{} reaches into the archetype enum `{needle}`: {line}",
+                        file.display(),
+                        idx + 1
+                    ));
+                }
+            }
+        }
+    }
+    assert!(
+        violations.is_empty(),
+        "the per-frame enemy sim must read spawn-projected tuning/capabilities, \
+not the named archetype enum (project the value through EnemyTuning / \
+CombatCapabilities at spawn instead):\n{}",
+        violations.join("\n")
+    );
+}
+
+#[test]
 fn architecture_boundaries_lib_menu_keeps_only_the_coupled_pieces() {
     // Stage 20 menu split: the menu HOST stack (page model, dispatcher,
     // item-confirm effects, the bevy_ui grid + 3D cube hosts) moved up to

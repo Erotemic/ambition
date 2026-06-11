@@ -226,6 +226,14 @@ pub(super) struct EnemyArchetypeSpec {
     pub attack_range: f32,
     pub contact_strength: f32,
     pub damage_amount: i32,
+    /// Multiplier on the shared attack cooldown (fast skirmishers
+    /// < 1.0, lumbering heavies > 1.0).
+    #[serde(default = "default_attack_cooldown_mult")]
+    pub attack_cooldown_mult: f32,
+    /// Walks surfaces hugging the surface normal (wall/ceiling
+    /// crawler with ledge-aware patrol).
+    #[serde(default)]
+    pub surface_walker: bool,
     #[serde(default)]
     pub is_aerial: bool,
     #[serde(default)]
@@ -362,6 +370,12 @@ fn archetype_spec(arch: EnemyArchetype) -> EnemyArchetypeSpec {
 /// Rust variant name exactly so adding a variant is a one-line
 /// change on both sides. Kept as an explicit match (not Debug /
 /// derive) so the contract with the data file is searchable.
+/// Serde default for [`EnemyArchetypeSpec::attack_cooldown_mult`]: the
+/// multiplicative identity (most archetypes use the shared cooldown).
+fn default_attack_cooldown_mult() -> f32 {
+    1.0
+}
+
 fn archetype_data_key(arch: EnemyArchetype) -> &'static str {
     use EnemyArchetype::*;
     match arch {
@@ -519,12 +533,25 @@ impl EnemyArchetype {
     /// value carried on `EnemyConfig.tuning` — the per-frame loops read
     /// that instead of calling back into this named enum.
     pub(crate) fn tuning(self) -> crate::mechanics::combat::EnemyTuning {
+        let spec = self.spec();
         crate::mechanics::combat::EnemyTuning {
-            chase_speed: self.chase_speed(),
-            is_aerial: self.is_aerial(),
-            is_sandbag: self.is_sandbag(),
+            max_health: spec.max_health,
+            patrol_speed: spec.patrol_speed,
+            chase_speed: spec.chase_speed,
+            aggro_radius: spec.aggro_radius,
+            attack_range: spec.attack_range,
+            contact_strength: spec.contact_strength,
+            damage_amount: spec.damage_amount,
+            attack_cooldown_mult: spec.attack_cooldown_mult,
+            attacks_player: self.attacks_player(),
+            surface_walker: spec.surface_walker,
+            // Self-revive loop = the authored respawn-in-place timer
+            // exists (finite training dummies).
+            revives_in_place: spec.respawn_in_place_seconds.is_some(),
+            is_aerial: spec.is_aerial,
+            is_sandbag: spec.is_sandbag,
             body_contact_damage: self.body_contact_damage_enabled(),
-            dream_seed: self.dream_seed(),
+            dream_seed: spec.dream_seed,
         }
     }
 
@@ -647,9 +674,7 @@ impl<'a> EnemyMut<'a> {
         self.status.hit_flash = (self.status.hit_flash - dt).max(0.0);
         if !self.status.alive {
             self.status.respawn_timer = (self.status.respawn_timer - dt).max(0.0);
-            if self.config.archetype == EnemyArchetype::FiniteSandbag
-                && self.status.respawn_timer <= 0.0
-            {
+            if self.config.tuning.revives_in_place && self.status.respawn_timer <= 0.0 {
                 self.status.alive = true;
                 self.status.health.reset();
                 self.kin.pos = self.config.spawn.pos;
@@ -673,26 +698,26 @@ impl<'a> EnemyMut<'a> {
         let effective_aggro_radius = match &self.config.brain {
             crate::actor::EnemyBrain::Passive => 0.0,
             crate::actor::EnemyBrain::Guard { leash_radius } => *leash_radius,
-            _ => self.config.archetype.aggro_radius(),
+            _ => self.config.tuning.aggro_radius,
         };
         let ai =
             crate::actor::ai::evaluate_character_ai_output(crate::actor::ai::CharacterAiSnapshot {
                 actor_pos: self.kin.pos,
                 player_pos: target_pos,
                 aggro_radius: effective_aggro_radius,
-                attack_range: self.config.archetype.attack_range(),
+                attack_range: self.config.tuning.attack_range,
                 attack_windup_remaining: self.attack.windup_timer,
                 attack_active_remaining: self.attack.active_timer,
                 attack_recover_remaining: recover_remaining,
                 stun_remaining: 0.0,
                 alive: self.status.alive,
-                patrol_enabled: !self.config.archetype.is_sandbag()
+                patrol_enabled: !self.config.tuning.is_sandbag
                     && !matches!(self.config.brain, crate::actor::EnemyBrain::Passive),
             });
         self.status.ai_mode = ai.mode;
 
         let is_aerial = self.surface.gravity_scale <= 0.001;
-        let is_surface_walker = self.config.archetype == EnemyArchetype::PuppySlug;
+        let is_surface_walker = self.config.tuning.surface_walker;
 
         if is_surface_walker {
             self.step_surface_walker(world, nearest_neighbor, dt);
@@ -713,7 +738,7 @@ impl<'a> EnemyMut<'a> {
             let prev_vel_x = body.vel.x;
             if is_aerial {
                 let target_speed = frame.desired_vel.length();
-                let archetype_chase = self.config.archetype.chase_speed();
+                let archetype_chase = self.config.tuning.chase_speed;
                 let accel = (target_speed.max(archetype_chase) * 3.0).max(900.0) * dt;
                 body.vel.x = approach(body.vel.x, frame.desired_vel.x, accel);
                 body.vel.y = approach(body.vel.y, frame.desired_vel.y, accel);
@@ -764,7 +789,7 @@ impl<'a> EnemyMut<'a> {
             }
         }
 
-        if self.config.archetype.attacks_player() && frame.facing.abs() > 0.001 {
+        if self.config.tuning.attacks_player && frame.facing.abs() > 0.001 {
             self.kin.facing = frame.facing.signum();
         }
 
@@ -786,7 +811,7 @@ impl<'a> EnemyMut<'a> {
         }
 
         let n = self.surface.surface_normal;
-        let speed = self.config.archetype.patrol_speed();
+        let speed = self.config.tuning.patrol_speed;
         let step_len = speed * dt;
         let tangent = ae::Vec2::new(-n.y * self.kin.facing, n.x * self.kin.facing);
         let body_long = self.kin.size.x * 0.5;
@@ -919,8 +944,7 @@ impl<'a> EnemyMut<'a> {
     // matching EnemyRuntime methods, reading the cluster components).
 
     pub fn aabb(&self) -> ae::Aabb {
-        let size = if self.config.archetype == EnemyArchetype::PuppySlug
-            && self.surface.surface_normal.x.abs() > 0.5
+        let size = if self.config.tuning.surface_walker && self.surface.surface_normal.x.abs() > 0.5
         {
             ae::Vec2::new(self.kin.size.y, self.kin.size.x)
         } else {
@@ -937,7 +961,7 @@ impl<'a> EnemyMut<'a> {
     }
 
     pub fn visual_kind(&self) -> FeatureVisualKind {
-        if self.config.archetype.is_sandbag() {
+        if self.config.tuning.is_sandbag {
             FeatureVisualKind::Sandbag
         } else {
             FeatureVisualKind::Enemy
@@ -989,14 +1013,7 @@ impl<'a> EnemyMut<'a> {
             return false;
         }
         self.attack.windup_timer = tuning.enemy_attack_windup.max(0.01);
-        self.attack.cooldown = ENEMY_ATTACK_COOLDOWN
-            * if self.config.archetype == EnemyArchetype::SmallSkitter {
-                0.75
-            } else if self.config.archetype == EnemyArchetype::LargeBrute {
-                1.35
-            } else {
-                1.0
-            };
+        self.attack.cooldown = ENEMY_ATTACK_COOLDOWN * self.config.tuning.attack_cooldown_mult;
         self.status.ai_mode = crate::actor::ai::CharacterAiMode::Telegraph;
         self.attack.pending_axis = if attack_axis.length_squared() > 0.01 {
             attack_axis.normalize_or_zero()
@@ -1007,7 +1024,7 @@ impl<'a> EnemyMut<'a> {
     }
 
     pub fn body_damage_aabb(&self) -> Option<ae::Aabb> {
-        if !self.config.archetype.body_contact_damage_enabled() {
+        if !self.config.tuning.body_contact_damage {
             return None;
         }
         Some(self.aabb())
@@ -1025,14 +1042,14 @@ impl<'a> EnemyMut<'a> {
         let impact = midpoint(player_body.center(), body_damage.center());
         Some(HitEvent {
             volume: body_damage,
-            damage: self.config.archetype.damage_amount(),
+            damage: self.config.tuning.damage_amount,
             source: HitSource::EnemyBody,
             attacker: None,
             target: HitTarget::Player(player_entity),
             mode: HitMode::Knockback,
             knockback: Some(HitKnockback {
                 dir: (player_body.center().x - self.kin.pos.x).signum_or(self.kin.facing),
-                strength: self.config.archetype.contact_strength(),
+                strength: self.config.tuning.contact_strength,
                 source_pos: self.kin.pos,
                 impact_pos: impact,
             }),
@@ -1041,13 +1058,18 @@ impl<'a> EnemyMut<'a> {
     }
 
     pub fn reset_to_spawn(&mut self) {
+        // Restore the authored baseline: a morphing actor (dismounted
+        // rider) reverts to the level author's archetype, so re-project
+        // the spawn-resolved tuning alongside it (spawn-shaped work —
+        // the per-frame paths above read only the projected tuning).
         let archetype = self.config.spawn.archetype;
         self.config.archetype = archetype;
+        self.config.tuning = archetype.tuning();
         self.kin.size = self.config.spawn.size;
         self.kin.pos = self.config.spawn.pos;
         self.kin.vel = ae::Vec2::ZERO;
         self.status.alive = true;
-        self.status.health = crate::actor::Health::new(archetype.max_health());
+        self.status.health = crate::actor::Health::new(self.config.tuning.max_health);
         *self.attack = ActorAttackState::default();
         self.status.respawn_timer = 0.0;
         self.status.hit_flash = 0.0;
@@ -1056,7 +1078,11 @@ impl<'a> EnemyMut<'a> {
         *self.surface = ActorSurfaceState {
             on_ground: false,
             surface_normal: ae::Vec2::new(0.0, -1.0),
-            gravity_scale: if archetype.is_aerial() { 0.0 } else { 1.0 },
+            gravity_scale: if self.config.tuning.is_aerial {
+                0.0
+            } else {
+                1.0
+            },
             air_jumps_remaining: MAX_ENEMY_AIR_JUMPS,
         };
     }

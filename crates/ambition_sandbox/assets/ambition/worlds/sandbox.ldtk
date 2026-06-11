@@ -54060,7 +54060,11 @@
 									"params": ["A ground-ground"]
 								}] },
 								{ "__identifier": "color", "__type": "String", "__value": "purple", "__tile": null, "defUid": 6136, "realEditorValues": [] },
-								{ "__identifier": "normal", "__type": "String", "__value": "up", "__tile": null, "defUid": 6137, "realEditorValues": [] }
+								{ "__identifier": "normal", "__type": "String", "__value": "up", "__tile": null, "defUid": 6137, "realEditorValues": [] },
+								{ "__identifier": "link", "__type": "String", "__value": "portal_lab_a_ground_ground", "__tile": null, "defUid": 6154, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["portal_lab_a_ground_ground"]
+								}] }
 							],
 							"__worldX": 2990,
 							"__worldY": -837
@@ -54090,7 +54094,11 @@
 									"id": "V_String",
 									"params": ["yellow"]
 								}] },
-								{ "__identifier": "normal", "__type": "String", "__value": "up", "__tile": null, "defUid": 6137, "realEditorValues": [] }
+								{ "__identifier": "normal", "__type": "String", "__value": "up", "__tile": null, "defUid": 6137, "realEditorValues": [] },
+								{ "__identifier": "link", "__type": "String", "__value": "portal_lab_a_ground_ground", "__tile": null, "defUid": 6154, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["portal_lab_a_ground_ground"]
+								}] }
 							],
 							"__worldX": 3290,
 							"__worldY": -837
@@ -54123,6 +54131,10 @@
 								{ "__identifier": "normal", "__type": "String", "__value": "right", "__tile": null, "defUid": 6137, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["right"]
+								}] },
+								{ "__identifier": "link", "__type": "String", "__value": "portal_lab_b_wall_wall", "__tile": null, "defUid": 6154, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["portal_lab_b_wall_wall"]
 								}] }
 							],
 							"__worldX": 3917,
@@ -54156,6 +54168,10 @@
 								{ "__identifier": "normal", "__type": "String", "__value": "right", "__tile": null, "defUid": 6137, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["right"]
+								}] },
+								{ "__identifier": "link", "__type": "String", "__value": "portal_lab_b_wall_wall", "__tile": null, "defUid": 6154, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["portal_lab_b_wall_wall"]
 								}] }
 							],
 							"__worldX": 3917,
@@ -54186,7 +54202,11 @@
 									"id": "V_String",
 									"params": ["green"]
 								}] },
-								{ "__identifier": "normal", "__type": "String", "__value": "up", "__tile": null, "defUid": 6137, "realEditorValues": [] }
+								{ "__identifier": "normal", "__type": "String", "__value": "up", "__tile": null, "defUid": 6137, "realEditorValues": [] },
+								{ "__identifier": "link", "__type": "String", "__value": "portal_lab_c_ground_ceiling", "__tile": null, "defUid": 6154, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["portal_lab_c_ground_ceiling"]
+								}] }
 							],
 							"__worldX": 3590,
 							"__worldY": -837
@@ -54219,6 +54239,10 @@
 								{ "__identifier": "normal", "__type": "String", "__value": "down", "__tile": null, "defUid": 6137, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["down"]
+								}] },
+								{ "__identifier": "link", "__type": "String", "__value": "portal_lab_c_ground_ceiling", "__tile": null, "defUid": 6154, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["portal_lab_c_ground_ceiling"]
 								}] }
 							],
 							"__worldX": 3590,
@@ -54249,7 +54273,11 @@
 									"id": "V_String",
 									"params": ["cyan"]
 								}] },
-								{ "__identifier": "normal", "__type": "String", "__value": "up", "__tile": null, "defUid": 6137, "realEditorValues": [] }
+								{ "__identifier": "normal", "__type": "String", "__value": "up", "__tile": null, "defUid": 6137, "realEditorValues": [] },
+								{ "__identifier": "link", "__type": "String", "__value": "portal_lab_d_ground_wall", "__tile": null, "defUid": 6154, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["portal_lab_d_ground_wall"]
+								}] }
 							],
 							"__worldX": 4140,
 							"__worldY": -837
@@ -54282,6 +54310,10 @@
 								{ "__identifier": "normal", "__type": "String", "__value": "left", "__tile": null, "defUid": 6137, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["left"]
+								}] },
+								{ "__identifier": "link", "__type": "String", "__value": "portal_lab_d_ground_wall", "__tile": null, "defUid": 6154, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["portal_lab_d_ground_wall"]
 								}] }
 							],
 							"__worldX": 4503,

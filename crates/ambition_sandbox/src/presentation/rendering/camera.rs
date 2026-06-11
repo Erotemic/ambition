@@ -115,10 +115,17 @@ pub fn camera_follow(
     possession: Res<crate::abilities::traversal::possession::PossessionState>,
     feature_aabbs: Query<&crate::features::FeatureAabb>,
     windows: Query<&Window, With<PrimaryWindow>>,
-    // `With<Camera2d>` (not `With<Camera>`): the #31 cube pause menu adds a 3D
-    // overlay Camera3d; targeting only the 2D game camera keeps this follow from
-    // dragging that camera off to the player and pointing it at empty space.
-    mut query: Query<(&mut Transform, &mut Projection), (With<Camera2d>, Without<PlayerVisual>)>,
+    // `With<MainCamera>` (not the broad `With<Camera2d>`): besides the #31 cube
+    // pause-menu Camera3d, the portal view-cone renderer spawns offscreen
+    // capture `Camera2d`s. A broad match would drag every capture to the player
+    // and overwrite its `Fixed` ortho scale with the main zoom each frame — so
+    // each portal window would show "the player area at the current zoom"
+    // instead of a fixed slice of its exit. Pinning to the single main game
+    // camera keeps follow/zoom off the captures.
+    mut query: Query<
+        (&mut Transform, &mut Projection),
+        (With<crate::runtime::camera_layers::MainCamera>, Without<PlayerVisual>),
+    >,
 ) {
     // DeveloperTools can temporarily replace that input.
     let (base_view_w, base_view_h) = if developer_tools.camera_view_override_enabled {

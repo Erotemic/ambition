@@ -77,8 +77,8 @@ pub struct PortalViewConeConfig {
     pub tint: Color,
     /// Debug: draw gizmo outlines of each portal's EXIT sample zone (the
     /// `ViewCone::source` rect, in the portal's channel color, sitting in
-    /// front of its partner) and the entry window trapezoid. The host toggles
-    /// this (in Ambition: `F8`). Off by default.
+    /// front of its partner) and the entry window trapezoid. The host drives
+    /// this (in Ambition, off the standard `F1` debug overlay). Off by default.
     pub debug_outline: bool,
 }
 

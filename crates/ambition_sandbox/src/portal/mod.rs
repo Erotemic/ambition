@@ -80,25 +80,20 @@ mod host_adapter {
         });
     }
 
-    /// Dev: `F8` toggles the portal view-cone debug outline (each portal's
-    /// exit sample zone + entry window trapezoid). Raw keyboard = host input
-    /// concern, so it lives here and just flips the crate-owned config flag.
-    pub fn portal_view_debug_toggle_system(
-        keys: Res<ButtonInput<KeyCode>>,
+    /// Drive the portal view-cone debug outline (each portal's exit sample
+    /// zone + entry window trapezoid) off the standard `F1` debug overlay,
+    /// rather than a key of its own — so it shows exactly when the rest of the
+    /// F1 debug drawing is on. Mirrors the `SandboxDevState.debug` flag into
+    /// the crate-owned config each frame.
+    pub fn sync_portal_view_debug_to_f1(
+        dev_state: Res<crate::SandboxDevState>,
         config: Option<ResMut<PortalViewConeConfig>>,
     ) {
-        if !keys.just_pressed(KeyCode::F8) {
-            return;
+        if let Some(mut config) = config {
+            if config.debug_outline != dev_state.debug {
+                config.debug_outline = dev_state.debug;
+            }
         }
-        let Some(mut config) = config else {
-            return;
-        };
-        config.debug_outline = !config.debug_outline;
-        bevy::log::info!(
-            target: "ambition::portal",
-            "portal view-cone debug outline = {}",
-            config.debug_outline
-        );
     }
 
     /// Dev off-switch: `F7` toggles the portal gun active/inactive so the
@@ -125,6 +120,6 @@ mod host_adapter {
 
 #[cfg(feature = "portal_render")]
 pub use host_adapter::{
-    load_portal_gun_art, portal_dev_toggle_system, portal_view_debug_toggle_system,
+    load_portal_gun_art, portal_dev_toggle_system, sync_portal_view_debug_to_f1,
     sync_portal_world_frame, tag_portal_scene_bodies,
 };

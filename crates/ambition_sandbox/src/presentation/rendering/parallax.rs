@@ -106,9 +106,16 @@ pub fn spawn_parallax_layers(
 }
 
 pub fn sync_parallax_layers(
-    // `With<Camera2d>`: ignore the #31 cube overlay Camera3d so `.single()` still
-    // resolves the one 2D game camera.
-    camera: Query<&Transform, (With<Camera2d>, Without<ParallaxLayerVisual>)>,
+    // `With<MainCamera>`: ignore the #31 cube overlay Camera3d AND the portal
+    // view-cone capture `Camera2d`s, so `.single()` still resolves the one main
+    // game camera (a broad `With<Camera2d>` now matches the captures too).
+    camera: Query<
+        &Transform,
+        (
+            With<crate::runtime::camera_layers::MainCamera>,
+            Without<ParallaxLayerVisual>,
+        ),
+    >,
     mut layers: Query<(&mut Transform, &ParallaxLayerVisual), Without<Camera>>,
 ) {
     let Ok(camera_transform) = camera.single() else {

@@ -1,13 +1,7 @@
 //! Backend-agnostic menu action dispatcher.
 //!
-//! [`dispatch_menu_action`] maps a [`MenuPageAction`] (the shared action
-//! vocabulary from [`crate::menu::model`]) to its game effect — equip/use an
-//! item, change the active page, apply a setting, quit, reset, or drill the
-//! System screens. It was lifted verbatim out of the cube backend
-//! (`crate::menu::kaleidoscope_app`, where it was `dispatch_kaleidoscope_action`)
-//! so a second menu backend can call the SAME dispatcher: see
-//! `docs/planning/unified_tabbed_menu.md` Phase B. This is a behavior-neutral
-//! move — the cube now calls `crate::menu::dispatch::dispatch_menu_action(...)`.
+//! Maps [`MenuPageAction`] into game effects (equip/use, page changes, settings,
+//! quit/reset, System drill-down) so the grid and cube backends call one path.
 
 use bevy::prelude::*;
 

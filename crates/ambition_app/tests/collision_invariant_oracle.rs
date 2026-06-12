@@ -32,81 +32,9 @@
 //! `cargo run --bin rl_random_walker -- <STEPS> <SEED>` after a `--start-room`.
 
 use ambition_app::rl_sim::TimestepMode;
-use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions};
+use ambition_app::{RandomWalkPolicy, SandboxSim, SandboxSimOptions};
 use ambition_sandbox::engine_core as ae;
 use ambition_sandbox::GameWorld;
-
-// --- deterministic policy (shared *shape* with fuzz_random_walker, not code) ---
-
-struct Lcg(u64);
-
-impl Lcg {
-    fn new(seed: u64) -> Self {
-        Self(seed.max(1))
-    }
-    fn next_u32(&mut self) -> u32 {
-        self.0 = self
-            .0
-            .wrapping_mul(6364136223846793005)
-            .wrapping_add(1442695040888963407);
-        (self.0 >> 32) as u32
-    }
-    fn unit(&mut self) -> f32 {
-        (self.next_u32() as f32) / (u32::MAX as f32 + 1.0)
-    }
-    fn signed_unit(&mut self) -> f32 {
-        2.0 * self.unit() - 1.0
-    }
-    fn chance(&mut self, p: f32) -> bool {
-        self.unit() < p
-    }
-}
-
-/// Random play biased toward *traversal stress* — more jumping, flying, blinking,
-/// and vertical input than the base fuzzer, because the OOB pops Jon hit all
-/// started with "fly up and move around on the ceiling". Pushing the player into
-/// ceilings/corners is what makes the embed/teleport bugs reproduce.
-fn random_action(rng: &mut Lcg, sticky_x: &mut f32) -> AgentAction {
-    if rng.chance(0.08) {
-        *sticky_x = if rng.chance(0.6) {
-            if rng.chance(0.5) {
-                1.0
-            } else {
-                -1.0
-            }
-        } else {
-            rng.signed_unit()
-        };
-    }
-    let jump = rng.chance(0.10);
-    let up = rng.chance(0.20);
-    AgentAction {
-        move_x: *sticky_x,
-        move_y: if up { -1.0 } else { rng.signed_unit() * 0.3 },
-        up_pressed: up,
-        down_pressed: rng.chance(0.08),
-        jump,
-        jump_held: jump || rng.chance(0.6),
-        jump_released: false,
-        dash: rng.chance(0.04),
-        attack: rng.chance(0.01),
-        blink: rng.chance(0.02),
-        blink_held: false,
-        blink_released: false,
-        pogo: rng.chance(0.02),
-        interact: false,
-        projectile: false,
-        projectile_held: false,
-        projectile_released: false,
-        // Toggle fly occasionally — being airborne over the ceiling is the
-        // precondition for the reported pops.
-        fly_toggle: rng.chance(0.03),
-        reset: false,
-        start: false,
-        aim_x: rng.signed_unit(),
-        aim_y: rng.signed_unit(),
-    }
-}
 
 // --- the oracle ---
 
@@ -342,8 +270,7 @@ fn run_episode(
     let Ok(mut sim) = SandboxSim::new_with_options(opts) else {
         return (Vec::new(), 0, 0);
     };
-    let mut rng = Lcg::new(seed);
-    let mut sticky = 0.0_f32;
+    let mut policy = RandomWalkPolicy::traversal_stress(seed);
     let first = sim.observation();
     let mut prev_pos = first.player_pos;
     let mut prev_room = first.active_room.clone();
@@ -353,7 +280,7 @@ fn run_episode(
     let mut suppressed = 0;
     let empty: Vec<ae::Aabb> = Vec::new();
     for _ in 0..steps {
-        let action = random_action(&mut rng, &mut sticky);
+        let action = policy.act();
         let obs = sim.step(action);
         ran += 1;
         let blocks = solid_blocks(&sim);
@@ -518,11 +445,10 @@ fn trace_oob_under_town_pipes() {
         .with_timestep(TimestepMode::fixed_60hz())
         .with_start_room("under_town_pipes");
     let mut sim = SandboxSim::new_with_options(opts).expect("sim");
-    let mut rng = Lcg::new(1);
-    let mut sticky = 0.0_f32;
+    let mut policy = RandomWalkPolicy::traversal_stress(1);
     let mut prev = sim.observation().player_pos;
     for tick in 1..=110u64 {
-        let action = random_action(&mut rng, &mut sticky);
+        let action = policy.act();
         let obs = sim.step(action);
         let (px, py) = obs.player_pos;
         if (90..=105).contains(&tick) {

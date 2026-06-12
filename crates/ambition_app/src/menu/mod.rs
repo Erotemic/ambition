@@ -1,11 +1,8 @@
-//! The game's menu HOST stack (Stage 20 menu split): the backend-agnostic
-//! page model + dispatcher + item-confirm effects, and the two presentation
-//! hosts (the flat Bevy-UI grid + the 3D cube). Moved up from the machinery
-//! lib because these are app-level host wiring, not reusable machinery.
+//! Game-side menu host stack: backend-agnostic page model, dispatcher, item
+//! effects, and the flat-grid / 3D-cube presentation hosts.
 //!
-//! The lib-coupled pieces stay in `ambition_sandbox::menu`: the settings IR
-//! (`ir`, read by persistence) the Map tab (`map`, read by presentation), and
-//! the backend selector (`backend`).
+//! `ambition_sandbox::menu` keeps the lib-coupled settings IR, Map tab, and
+//! backend selector; this crate owns app-level wiring and effects.
 
 pub mod dispatch;
 pub mod effects;
@@ -13,6 +10,8 @@ pub mod effects;
 pub mod grid_backend;
 pub mod kaleidoscope_app;
 pub mod model;
+#[cfg(test)]
+mod test_support;
 
 #[cfg(all(test, feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
 mod parity_tests;

@@ -1,50 +1,15 @@
-//! The reusable, content-free **portal mechanic** crate.
+//! Reusable, content-free portal mechanic.
 //!
-//! This is a small physics/mechanic plugin, not "Ambition's portal gun ripped
-//! into a crate": it owns portals, the portal gun's place/replace/channel
-//! mechanic, placement + aperture transit math, portal carves (the geometry —
-//! not how a host applies them to its collision), portal **body movement**
-//! through a pair, lifecycle, and the portal events. It does NOT own input,
-//! inventory, room-reset policy, the collision-world implementation,
-//! rendering/audio/VFX, fireball semantics, player abilities, achievements, or
-//! how carves alter collision — those are the host's adapters around
-//! [`PortalPlugin`].
+//! Owns portals, gun state, placement, transit math, carves, lifecycle,
+//! events, and schedule labels. Hosts provide input/inventory bindings,
+//! collision-world application, room-reset policy, rendering/audio/VFX,
+//! and content-specific behavior through adapters around [`PortalPlugin`].
 //!
-//! ## How a host uses it
-//! 1. `app.add_plugins(PortalPlugin)` — registers the mechanic systems +
-//!    portal-owned messages/resources in the [`PortalSet`] schedule labels.
-//! 2. Tag the bodies that should transit: any entity carrying
-//!    [`BodyKinematics`](ambition_platformer_runtime::body::BodyKinematics) +
-//!    [`PortalBody`] + a behavioral [`PortalPolicy`] uses the ONE generic
-//!    [`portal_transit`] algorithm (players, enemies, bosses, projectiles —
-//!    identity → policy is the host's job, never the crate's).
-//! 3. Bridge the seams with adapters: produce [`PortalFireIntent`] from input,
-//!    copy [`PortalCarves`] into the host collision representation, emit
-//!    [`ClearPortals`] on room reset, play sfx from the portal-owned audio
-//!    signals ([`PortalShotFired`] / [`PortalBodyEntered`] /
-//!    [`PortalBodyTransited`]), and shape input / player abilities off the
-//!    portal-owned crossing components ([`PortalInputWarp`] / [`PortalEmission`]
-//!    / [`PortalTransit`]). The crate emits everything an adapter needs; it never
-//!    names the host.
-//!
-//! Depends ONLY on `bevy` + `ambition_engine_core` + `ambition_platformer_runtime`
-//! — never on a host crate. It stays deterministic (no RNG, no per-frame
-//! allocation in the hot path) so it runs identically in a headless sim.
-//!
-//! The implementation is split into responsibility submodules:
-//! - [`color`] — [`PortalGunColor`], [`PortalChannelColor`], and the unifying
-//!   [`PortalChannel`] (parse/display/pairing).
-//! - [`types`] — shared [`PlacedPortal`] body, geometry constants, small helpers.
-//! - [`gun`] — the held [`PortalGun`] and its toggle state.
-//! - [`pickup`] — the world [`PortalGunPickup`] and the arm-timer tick.
-//! - [`shot`] — the in-flight [`PortalShot`] + the pure [`step_portal_shot`]
-//!   helper over [`SolidWorldQuery`](ambition_platformer_runtime::world_query::SolidWorldQuery).
-//! - [`placement`] — portal-aware raycast, fit check, and the [`transit_step`]
-//!   decision machine.
-//! - [`transit`] — the one generic [`portal_transit`] algorithm + the carve
-//!   publish + cooldown tick, plus the portal-owned crossing components.
-//! - [`lifecycle`] — portal orphan cleanup and reset-time portal clearing.
-//! - [`pieces`] — the pure portal-piece geometry (the Core invariant).
+//! Any entity with [`BodyKinematics`](ambition_platformer_runtime::body::BodyKinematics),
+//! [`PortalBody`], and a [`PortalPolicy`] can use the generic
+//! [`portal_transit`] path. The crate depends only on `bevy`,
+//! `ambition_engine_core`, and `ambition_platformer_runtime`, so it stays
+//! deterministic and host-free.
 
 mod color;
 mod eviction;

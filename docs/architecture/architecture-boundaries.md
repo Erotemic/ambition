@@ -1,7 +1,6 @@
 # Architecture boundary guardrails
 
-Source-scanning tests keep the crate boundaries honest. Post-bisection (Stage 20)
-the boundaries are REAL crates — foundations ← machinery lib (`ambition_sandbox`)
+Source-scanning tests keep the crate boundaries honest. The live boundaries are real crates — foundations ← machinery lib (`ambition_sandbox`)
 ← content (`ambition_content`) ← app (`ambition_app`) — and the guards (~22) live
 in `crates/ambition_app/tests/architecture_boundaries.rs`. Not a substitute for
 rustc, but fast directional feedback.

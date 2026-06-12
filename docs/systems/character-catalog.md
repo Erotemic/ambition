@@ -123,7 +123,7 @@ doesn't have `Res<>` access — the LDtk parser uses it to translate
 
 ## How the LDtk parser uses the catalog
 
-After Phase 2 of the refactor, LDtk `NpcSpawn` entities carry a
+LDtk `NpcSpawn` entities carry a
 `character_id` field. `convert_npc_spawn` reads it, asks the
 embedded catalog for the matching `display_name`, and stamps that on
 `Authored.name`. Downstream consumers (sprite lookup, combat banter,

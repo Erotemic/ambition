@@ -2299,6 +2299,10 @@ mod lunex_kaleidoscope_app_tests {
     //! Behaviour tests for the cube's interaction seams, driven through the real
     //! systems/observers as the app wires them.
     use super::*;
+    use crate::menu::test_support::{
+        click_control, pointer_location, spawn_control, trigger_move, trigger_press,
+        trigger_release,
+    };
     use ambition_sandbox::brain::ActionSet;
     use ambition_sandbox::game_mode::GameMode;
     use ambition_sandbox::player::{PlayerEntity, PlayerMana, PrimaryPlayer};
@@ -2568,81 +2572,11 @@ mod lunex_kaleidoscope_app_tests {
         app
     }
 
-    /// Spawn a cube control carrying `action` and drive a real press→release on it,
-    /// exactly as Bevy picking + the new release-dispatch path would (no compound
-    /// `Pointer<Click>`, which never fires reliably in the GUI).
-    fn click_control(app: &mut App, action: MenuPageAction) {
-        let entity = app
-            .world_mut()
-            .spawn(AmbitionMenuControl::<MenuPageAction> {
-                kind: ambition_menu::MenuControlKind::OptionToggle,
-                action: Some(action),
-                focus: ambition_menu::MenuFocusKey::default(),
-            })
-            .id();
-        // The handlers read the location for the tap/drag guard; any render target
-        // works, so the simplest no-render target keeps the fixture minimal.
-        let location = Location {
-            target: NormalizedRenderTarget::None {
-                width: 1,
-                height: 1,
-            },
-            position: Vec2::ZERO,
-        };
-        // Press ARMS the action; release DISPATCHES the stored action.
-        app.world_mut().trigger(Pointer::new(
-            PointerId::Mouse,
-            location.clone(),
-            bevy::picking::events::Press {
-                button: bevy::picking::pointer::PointerButton::Primary,
-                hit: HitData::new(entity, 0.0, None, None),
-            },
-            entity,
-        ));
-        app.world_mut().trigger(Pointer::new(
-            PointerId::Mouse,
-            location,
-            Release {
-                button: bevy::picking::pointer::PointerButton::Primary,
-                hit: HitData::new(entity, 0.0, None, None),
-            },
-            entity,
-        ));
-        app.update();
-    }
-
     fn move_control(app: &mut App, action: MenuPageAction) {
-        // A `Pointer<Move>` models a GENUINE mouse motion, which sets the active
-        // input source to Mouse — the state under which `kaleidoscope_pointer_move`
-        // is allowed to move the cursor (the hover-gate). Insert it so harnesses
-        // that don't otherwise init the resource still exercise the hover path.
         app.world_mut()
             .insert_resource(ambition_sandbox::input::ActiveInputKind::Mouse);
-        let entity = app
-            .world_mut()
-            .spawn(AmbitionMenuControl::<MenuPageAction> {
-                kind: ambition_menu::MenuControlKind::OptionToggle,
-                action: Some(action),
-                focus: ambition_menu::MenuFocusKey::default(),
-            })
-            .id();
-        let location = Location {
-            target: NormalizedRenderTarget::None {
-                width: 1,
-                height: 1,
-            },
-            position: Vec2::ZERO,
-        };
-        let pointer_move = Pointer::new(
-            PointerId::Mouse,
-            location,
-            Move {
-                hit: HitData::new(entity, 0.0, None, None),
-                delta: Vec2::new(1.0, 0.0),
-            },
-            entity,
-        );
-        app.world_mut().trigger(pointer_move);
+        let entity = spawn_control(app, action);
+        trigger_move(app, entity, Vec2::new(1.0, 0.0));
         app.update();
     }
 
@@ -3260,16 +3194,6 @@ mod lunex_kaleidoscope_app_tests {
             .unwrap_or_else(|| panic!("no live control for {action:?}"))
     }
 
-    fn pointer_location() -> Location {
-        Location {
-            target: NormalizedRenderTarget::None {
-                width: 1,
-                height: 1,
-            },
-            position: Vec2::ZERO,
-        }
-    }
-
     /// Reproduce Bug 2 on the NEW release-dispatch path: PRESS the original
     /// `click_target` (arming its action), then hover-move onto `move_to` (which
     /// rebuilds the face and DESPAWNS the pressed control), then RELEASE. The action
@@ -3666,52 +3590,15 @@ mod lunex_kaleidoscope_app_tests {
     /// Spawn a real control carrying `action` and fire a `Pointer<Press>` on it
     /// (arming the guard via the real press handler), returning its entity.
     fn arm_press(app: &mut App, action: MenuPageAction) -> Entity {
-        let entity = app
-            .world_mut()
-            .spawn(AmbitionMenuControl::<MenuPageAction> {
-                kind: ambition_menu::MenuControlKind::OptionToggle,
-                action: Some(action),
-                focus: ambition_menu::MenuFocusKey::default(),
-            })
-            .id();
-        let location = Location {
-            target: NormalizedRenderTarget::None {
-                width: 1,
-                height: 1,
-            },
-            position: Vec2::ZERO,
-        };
-        app.world_mut().trigger(Pointer::new(
-            PointerId::Mouse,
-            location,
-            Press {
-                button: bevy::picking::pointer::PointerButton::Primary,
-                hit: HitData::new(entity, 0.0, None, None),
-            },
-            entity,
-        ));
+        let entity = spawn_control(app, action);
+        trigger_press(app, entity);
         app.update();
         entity
     }
 
     /// Fire a `Pointer<Release>` whose hit/target is `entity` (which may be despawned).
     fn fire_release(app: &mut App, entity: Entity) {
-        let location = Location {
-            target: NormalizedRenderTarget::None {
-                width: 1,
-                height: 1,
-            },
-            position: Vec2::ZERO,
-        };
-        app.world_mut().trigger(Pointer::new(
-            PointerId::Mouse,
-            location,
-            Release {
-                button: bevy::picking::pointer::PointerButton::Primary,
-                hit: HitData::new(entity, 0.0, None, None),
-            },
-            entity,
-        ));
+        trigger_release(app, entity);
         app.update();
     }
 

@@ -1,27 +1,8 @@
 //! Reusable player-state vocabulary.
 //!
-//! Adds three high-leverage primitives identified in
-//! `docs/mechanics/expressibility-checklist.md` Tier 1:
-//!
-//! * `LocomotionState` — explicit player movement mode, derived from the
-//!   existing `Player` struct so older code that still reads booleans /
-//!   timers keeps working. New mechanics should branch on the enum.
-//! * `BodyMode` — alternate body-shape stance. Backed by a `BodyShape`
-//!   table that returns the AABB size each mode uses; gameplay can
-//!   query "would this body shape fit here" before actually swapping
-//!   stances (the start of collision-safe resize).
-//! * `ResourceMeter` — generic stamina/mana/ammo/charge meter with
-//!   regen/decay rates. `try_spend` honours the floor at 0; `tick`
-//!   advances regen (when above zero spend) and decay independently
-//!   so meters that should drain only when "in use" can be modeled
-//!   with two separate meters or by skipping the tick on idle frames.
-//!
-//! These primitives are intentionally Bevy-free so they survive both the
-//! sandbox visible-binary and the headless simulation (and any future
-//! pure-engine RL adapter). The sandbox attaches `LocomotionState` and
-//! `BodyMode` at the trace boundary by calling `from_player`; richer
-//! systems (HUD, future per-mode physics) can keep the value as a
-//! component or resource.
+//! Main primitives: explicit locomotion state, alternate body modes, and generic
+//! resource meters. They are Bevy-free so the visible sandbox, headless sim, and
+//! future pure-engine adapters can share the same vocabulary.
 
 use crate::Vec2;
 use serde::{Deserialize, Serialize};

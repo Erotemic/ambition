@@ -17,6 +17,6 @@ Use the archive only when investigating why a decision happened or recovering de
 | `superseded-migrations/` | Migration notes kept only when no compact historical summary exists. |
 | `superseded-systems/` | System docs superseded by current `docs/systems/` entries. |
 
-Old session-state dumps, overlay readmes, and autonomous handoff prompts were pruned because they were high-noise retrieval targets.
+Old session-state dumps, overlay readmes, autonomous handoff prompts, and completed migration plans are compacted or pruned because they are high-noise retrieval targets. Use git history for full originals.
 
 Current docs start at `../README.md`.

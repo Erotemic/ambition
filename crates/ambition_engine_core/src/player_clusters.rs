@@ -1,10 +1,8 @@
 //! Authoritative player cluster types.
 //!
-//! Each cluster carries one tightly-related slice of player state
-//! (kinematics, ground contact, dash timers, …) and is registered as a
-//! Bevy `Component`. The 18 components together form the entire
-//! authoritative player aggregate — the legacy monolithic `ae::Player`
-//! struct was deleted 2026-05-28.
+//! Each Bevy `Component` carries one tightly related slice of player state
+//! (kinematics, ground contact, dash timers, …). Together they form the
+//! authoritative player aggregate.
 //!
 //! [`PlayerClustersMut`] is a struct-of-`&mut` view assembled from a
 //! `Query<PlayerClusterQueryData, …>::as_clusters_mut()` call; every

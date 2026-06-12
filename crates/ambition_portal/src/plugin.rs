@@ -116,12 +116,9 @@ impl Plugin for PortalSimulationPlugin {
             Update,
             PortalSet::WeaponMaintenance.after(PortalSet::WeaponAndProjectiles),
         );
-        // `portal_projectile_step` (the GameWorld-reading shot stepper) moved to
-        // the Ambition adapter the host portal adapter
-        // (Phase 2 Seam 2): portal core keeps only the pure `step_portal_shot`
-        // helper over `SolidWorldQuery`. The adapter is registered
-        // `.after(portal_fire_system)` in this same set, preserving the
-        // `toggle → fire → step` order.
+        // Host adapters run their world-reading shot stepper after
+        // `portal_fire_system`; core keeps only the pure `step_portal_shot`
+        // helper over `SolidWorldQuery`.
         app.add_systems(
             Update,
             (portal_toggle_system, portal_fire_system)

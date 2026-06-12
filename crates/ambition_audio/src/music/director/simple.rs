@@ -39,30 +39,9 @@ fn resolved_simple_track(library: &AudioLibrary, candidates: &[String]) -> Strin
     candidates.last().cloned().unwrap_or_default()
 }
 
-/// Decide whether `drive_adaptive_cue_state` should stop the base
-/// (simple-track) channel and (re)start the adaptive cue from its
-/// intro.
-///
-/// Three conditions trigger a restart, all preserving the invariant
-/// that **simple base track and adaptive layers cannot remain
-/// audible at the same time**:
-///
-/// 1. A different cue is taking over (the obvious case).
-/// 2. The director's mode says a simple base track is playing
-///    (`SimpleTrack`, `Idle`, `AdaptiveFinished`). Defensive: the
-///    primary `resume_simple_music(set_mode = false)` fix prevents
-///    this state from coexisting with `Some(active_cue_id)`, but
-///    if anything leaves the director in that shape we still need
-///    to stop the base channel before the adaptive layers ramp up.
-/// 3. The cue is in `AdaptiveOutro` and the new directive points
-///    back to a non-outro state — i.e. the encounter restarted
-///    during the outro tail. `drive_outro_tail` had already started
-///    the base lofi channel for the overlap; we must stop it
-///    before the adaptive layers come back.
-///
-/// Captured as a free function so the decision can be unit-tested
-/// without spinning up Bevy resources (audio channels, asset
-/// server, etc.).
+/// Resume the base/simple track. `set_mode_to_simple_track` is false during
+/// adaptive-outro overlap: the base channel fades back in, but the director stays
+/// in `AdaptiveOutro` until the tail is complete.
 pub(super) fn resume_simple_music(
     director: &mut MusicDirectorState,
     library: &mut AudioLibrary,

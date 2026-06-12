@@ -48,13 +48,82 @@ fn collect_rs_files(root: &Path) -> Vec<PathBuf> {
     files
 }
 
+fn is_comment_line(line: &str) -> bool {
+    let line = line.trim();
+    line.starts_with("//") || line.starts_with("/*") || line.starts_with('*')
+}
+
+fn manifest_depends_on(manifest: &str, crate_name: &str) -> bool {
+    manifest.lines().any(|line| {
+        let line = line.trim();
+        line.starts_with(&format!("{crate_name} =")) || line.starts_with(&format!("{crate_name}."))
+    })
+}
+
+fn assert_manifest_has_no_deps(crate_root: &Path, forbidden: &[&str], context: &str) {
+    let manifest = fs::read_to_string(crate_root.join("Cargo.toml")).expect("read crate manifest");
+    let violations = forbidden
+        .iter()
+        .copied()
+        .filter(|name| manifest_depends_on(&manifest, name))
+        .collect::<Vec<_>>();
+    assert!(
+        violations.is_empty(),
+        "{context} must not depend on: {:?}",
+        violations
+    );
+}
+
+fn scan_code_refs<F>(roots: &[PathBuf], forbidden: &[&str], mut allow: F) -> Vec<String>
+where
+    F: FnMut(&Path, &str) -> bool,
+{
+    let mut violations = Vec::new();
+    for file in roots.iter().flat_map(|root| collect_rs_files(root)) {
+        let text = fs::read_to_string(&file).expect("read rust source");
+        for (idx, raw) in text.lines().enumerate() {
+            let line = raw.trim();
+            if is_comment_line(line) || allow(&file, line) {
+                continue;
+            }
+            for needle in forbidden {
+                if line.contains(needle) {
+                    violations.push(format!(
+                        "{}:{} references `{needle}`: {line}",
+                        file.display(),
+                        idx + 1
+                    ));
+                }
+            }
+        }
+    }
+    violations
+}
+
+fn scan_text_refs(roots: &[PathBuf], forbidden: &[&str]) -> Vec<String> {
+    let mut violations = Vec::new();
+    for file in roots.iter().flat_map(|root| collect_rs_files(root)) {
+        let text = fs::read_to_string(&file).expect("read rust source");
+        for needle in forbidden {
+            if text.contains(needle) {
+                violations.push(format!("{} mentions `{needle}`", file.display()));
+            }
+        }
+    }
+    violations
+}
+
+fn assert_source_tree_has_no_code_refs(root: PathBuf, forbidden: &[&str], context: &str) {
+    let violations = scan_code_refs(&[root], forbidden, |_, _| false);
+    assert!(
+        violations.is_empty(),
+        "{context}:\n{}",
+        violations.join("\n")
+    );
+}
+
 #[test]
 fn architecture_boundaries_platformer_runtime_stays_content_free() {
-    let root = crate_src().join("platformer_runtime");
-    // Scans SANDBOX-LIB code: vocabulary needles are `crate::…` (in-lib
-    // paths). (An earlier path-rewrite sed briefly flipped these to
-    // `ambition_sandbox::…`, which can never occur inside the lib —
-    // restored 2026-06-10.)
     let forbidden = [
         "crate::content",
         "crate::ambition_content",
@@ -67,26 +136,11 @@ fn architecture_boundaries_platformer_runtime_stays_content_free() {
         "crate::app",
         "crate::dev",
         "crate::presentation",
+        "crate::portal::",
+        "crate::portal;",
+        "crate::portal}",
     ];
-    // `ambition_sandbox::portal` (the portal mechanic, including its `pieces` Core math
-    // submodule) is forbidden — match the mechanic path with explicit boundaries.
-    let forbidden_boundary = ["crate::portal::", "crate::portal;", "crate::portal}"];
-
-    let mut violations = Vec::new();
-    for file in collect_rs_files(&root) {
-        let text = fs::read_to_string(&file).expect("read rust source");
-        for needle in forbidden {
-            if text.contains(needle) {
-                violations.push(format!("{} imports or mentions {needle}", file.display()));
-            }
-        }
-        for needle in forbidden_boundary {
-            if text.contains(needle) {
-                violations.push(format!("{} imports or mentions {needle}", file.display()));
-            }
-        }
-    }
-
+    let violations = scan_text_refs(&[crate_src().join("platformer_runtime")], &forbidden);
     assert!(
         violations.is_empty(),
         "platformer_runtime must remain reusable and content-free:\n{}",
@@ -216,66 +270,20 @@ fn architecture_boundaries_platformer_runtime_crate_is_extracted() {
 
 #[test]
 fn architecture_boundaries_menu_crate_stays_content_free() {
-    // Phase D (unified menu refactor): the reusable engine menu crate
-    // `ambition_menu` (the page-model vocabulary + the bevy_ui grid + 3D cube
-    // RENDERERS) must NOT depend on the sandbox or its game content. The ONE menu
-    // content model + settings IR + dispatcher live in the SANDBOX
-    // (`ambition_sandbox::menu::*`); the crate only provides the renderer-agnostic model
-    // types and the two presentations. If the crate grew a sandbox dependency,
-    // the "reusable renderer, game owns the content" boundary would be broken.
-    //
-    // This replaces no prior guard: the deleted `pause_menu`, legacy
-    // `inventory::ui`, and `bevy_ui_grid_menu` modules were never named by any
-    // architecture guard (so there was nothing to remove/repoint), and the menu
-    // is now unconditional. This adds the meaningful new invariant the refactor
-    // creates.
-    let root = repo_root();
-    let crate_root = root.join("crates/ambition_menu");
-
+    let crate_root = repo_root().join("crates/ambition_menu");
     assert!(
         crate_root.join("Cargo.toml").exists(),
         "ambition_menu crate should exist at crates/ambition_menu"
     );
-
-    // (a) The manifest must not depend on the sandbox.
-    let crate_manifest =
-        fs::read_to_string(crate_root.join("Cargo.toml")).expect("read ambition_menu manifest");
-    let depends_on_sandbox = crate_manifest.lines().any(|line| {
-        let line = line.trim();
-        line.starts_with("ambition_sandbox =") || line.starts_with("ambition_sandbox.")
-    });
-    assert!(
-        !depends_on_sandbox,
-        "ambition_menu must not depend on ambition_sandbox (it is the reusable renderer; \
-         the game owns the menu CONTENT in ambition_sandbox::menu::*)"
+    assert_manifest_has_no_deps(
+        &crate_root,
+        &["ambition_sandbox"],
+        "ambition_menu is the reusable renderer; the game owns menu content",
     );
-
-    // (b) No source file may reach back into the sandbox or its game content.
-    //     The crate is content-agnostic: it is generic over the host's page-id /
-    //     action types, so it never names `ambition_sandbox::items`, the sandbox's settings
-    //     IR, etc. A `use ambition_sandbox` (or a stray game-content path) would
-    //     mean the boundary leaked.
-    let mut violations = Vec::new();
-    for file in collect_rs_files(&crate_root.join("src")) {
-        let text = fs::read_to_string(&file).expect("read ambition_menu source");
-        for (idx, raw) in text.lines().enumerate() {
-            let line = raw.trim();
-            if line.starts_with("//") || line.starts_with("/*") || line.starts_with('*') {
-                continue;
-            }
-            if line.contains("ambition_sandbox") {
-                violations.push(format!(
-                    "{}:{} ambition_menu reaches into the sandbox: {line}",
-                    file.display(),
-                    idx + 1
-                ));
-            }
-        }
-    }
-    assert!(
-        violations.is_empty(),
-        "ambition_menu must stay content-free (no ambition_sandbox references):\n{}",
-        violations.join("\n")
+    assert_source_tree_has_no_code_refs(
+        crate_root.join("src"),
+        &["ambition_sandbox"],
+        "ambition_menu must stay content-free",
     );
 }
 

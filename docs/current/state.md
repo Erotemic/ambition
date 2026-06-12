@@ -4,8 +4,7 @@ This is the compact active-state document for Ambition. Update it when the curre
 
 **Review date:** 2026-06-10. The monolith was bisected into a layered crate
 graph (Stage 20); `ambition_sandbox` is now the **machinery library**, not the
-playable shell. Full breakdown + remaining-work survey:
-`docs/planning/plugin_refactor/22_monolith_breaker_survey.md`.
+playable shell. The remaining-work survey is `docs/planning/plugin_refactor/22_monolith_breaker_survey.md`; most older `plugin_refactor/` files are historical execution notes.
 
 ## One-sentence summary
 

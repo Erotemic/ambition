@@ -366,13 +366,9 @@ fn grid_and_cube_render_the_same_non_edge_controls_per_page() {
 #[cfg(feature = "input")]
 mod dispatch_parity {
     use super::*;
-    use bevy::camera::NormalizedRenderTarget;
-    use bevy::picking::backend::HitData;
-    use bevy::picking::events::{Press, Release};
-    use bevy::picking::pointer::{Location, PointerButton, PointerId};
     use bevy::prelude::*;
 
-    use ambition_menu::{ActiveMenuPages, AmbitionMenuControl};
+    use ambition_menu::ActiveMenuPages;
 
     use crate::menu::grid_backend::{
         grid_menu_pointer_press, grid_menu_pointer_release, GridMenuTabState, GridPointerPress,
@@ -382,6 +378,7 @@ mod dispatch_parity {
         KaleidoscopePointerPress, KaleidoscopeSystemNav,
     };
     use crate::menu::model::{MenuPage, MenuPageAction};
+    use crate::menu::test_support::click_control as click;
     use ambition_sandbox::audio::SfxMessage;
     use ambition_sandbox::brain::ActionSet;
     use ambition_sandbox::input::MenuControlFrame;
@@ -438,46 +435,6 @@ mod dispatch_parity {
         ));
         app.update();
         app
-    }
-
-    /// Drive a real press→release on a control carrying `action`, exactly as Bevy
-    /// picking + the backend's release-dispatch path do. Both backends arm on
-    /// press and dispatch the stored action on release.
-    fn click(app: &mut App, action: MenuPageAction) {
-        let entity = app
-            .world_mut()
-            .spawn(AmbitionMenuControl::<MenuPageAction> {
-                kind: ambition_menu::MenuControlKind::OptionToggle,
-                action: Some(action),
-                focus: ambition_menu::MenuFocusKey::default(),
-            })
-            .id();
-        let location = Location {
-            target: NormalizedRenderTarget::None {
-                width: 1,
-                height: 1,
-            },
-            position: Vec2::ZERO,
-        };
-        app.world_mut().trigger(Pointer::new(
-            PointerId::Mouse,
-            location.clone(),
-            Press {
-                button: PointerButton::Primary,
-                hit: HitData::new(entity, 0.0, None, None),
-            },
-            entity,
-        ));
-        app.world_mut().trigger(Pointer::new(
-            PointerId::Mouse,
-            location,
-            Release {
-                button: PointerButton::Primary,
-                hit: HitData::new(entity, 0.0, None, None),
-            },
-            entity,
-        ));
-        app.update();
     }
 
     /// Dispatch parity: an EQUIP action equips the same item through either

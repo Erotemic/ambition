@@ -1,38 +1,14 @@
-//! The reusable **default renderer** for the [`ambition_portal`] mechanic.
+//! Default renderer for the headless [`ambition_portal`] mechanic.
 //!
-//! `ambition_portal` is deliberately headless — "rendering is the host's
-//! adapter". This crate IS that adapter, packaged so a host doesn't have to
-//! write one to get portals on screen: placed-portal quads + channel labels,
-//! the in-flight shot streak, the held / pickup gun sprite, the mid-transit
-//! body-piece decomposition ("feet in, feet out"), the disorientation
-//! indicator, and the through-portal **view windows** (each portal shows the
-//! world in front of its partner, receding into its host surface;
-//! render-to-texture with 1-frame-lag recursion for facing portals).
+//! Provides placed-portal visuals, gun sprites, mid-transit body pieces,
+//! disorientation indicators, and through-portal view windows. Hosts sync the
+//! crate-owned seams ([`PortalWorldFrame`], [`PortalSceneBody`],
+//! [`PortalGunArt`], [`PortalAimHint`]) and may replace any visual by disabling
+//! that [`PortalPresentationPlugin`] flag and registering an alternative system.
 //!
-//! ## How a host uses it
-//! 1. `app.add_plugins(PortalPresentationPlugin::default())`, then place
-//!    [`PortalPresentationSet`] in its schedule (typically after the system
-//!    that mirrors sim state into sprites) — same wiring pattern as
-//!    `PortalPlugin` + the host's `wire_portal_schedule`.
-//! 2. Bridge the seams, all crate-owned so the crate never names a host type:
-//!    - sync [`PortalWorldFrame`] from the host's world each frame (the
-//!      world-size half of the centered y-flip render transform);
-//!    - tag [`PortalSceneBody`] on the visual entity whose sprite should
-//!      decompose mid-transit (the player's, in Ambition);
-//!    - load [`PortalGunArt`] (asset *paths* are content — the host owns them);
-//!    - write [`PortalAimHint`] from its input layer (else the held gun falls
-//!      back to facing).
-//!
-//! ## How a host extends or replaces it
-//! Every visual is a separately registered **public system** behind a
-//! [`PortalPresentationPlugin`] flag. Disable a flag, register your own system
-//! in [`PortalPresentationSet`], and keep the rest. A roll-your-own host skips
-//! this crate entirely and consumes the geometry from `ambition_portal`
-//! (`pieces`, the portal map, the view cone) — the hard-won math lives there,
-//! not here.
-//!
-//! Depends ONLY on `bevy` + `ambition_engine_core` + `ambition_platformer_runtime`
-//! + `ambition_portal` — never on a host crate. Read-only over the portal sim.
+//! Depends only on `bevy`, `ambition_engine_core`,
+//! `ambition_platformer_runtime`, and `ambition_portal`; it never names a host
+//! crate.
 
 use bevy::prelude::*;
 

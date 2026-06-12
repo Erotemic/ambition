@@ -22,8 +22,6 @@ use super::world_flow::*;
 use super::*;
 #[allow(unused_imports)]
 use ambition_sandbox::app::*;
-#[allow(unused_imports)]
-use ambition_sandbox::app::*;
 
 /// Register core simulation plugins, message types, and the gameplay
 /// schedule. Headless and visible both call this.

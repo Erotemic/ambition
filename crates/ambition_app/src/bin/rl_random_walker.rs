@@ -8,7 +8,7 @@
 //!   teleports, mid-air-stuck states, etc.).
 //! - **End-to-end SandboxSim demonstration** — one of the simplest
 //!   possible RL agents you can write against the Ambition step API.
-//!   The policy here is `epsilon=1.0` random — replace `RandomPolicy`
+//!   The policy here is `epsilon=1.0` random — replace `RandomWalkPolicy`
 //!   with a learned policy and you're training.
 //!
 //! Usage:
@@ -22,139 +22,7 @@
 //! room, hp, total resets, dash count, jump count, max distance from
 //! spawn).
 
-use ambition_app::{AgentAction, AgentObservation, SandboxSim};
-
-/// Simple LCG. Plenty for fuzzing — we don't need cryptographic
-/// quality, just deterministic + cheap.
-struct Lcg(u64);
-
-impl Lcg {
-    fn new(seed: u64) -> Self {
-        // Avoid all-zero state.
-        Self(seed.max(1))
-    }
-
-    fn next_u32(&mut self) -> u32 {
-        // Numerical Recipes-style 64-bit LCG.
-        self.0 = self
-            .0
-            .wrapping_mul(6364136223846793005)
-            .wrapping_add(1442695040888963407);
-        (self.0 >> 32) as u32
-    }
-
-    fn unit(&mut self) -> f32 {
-        // [0, 1)
-        (self.next_u32() as f32) / (u32::MAX as f32 + 1.0)
-    }
-
-    fn signed_unit(&mut self) -> f32 {
-        // [-1, 1)
-        2.0 * self.unit() - 1.0
-    }
-
-    fn chance(&mut self, p: f32) -> bool {
-        self.unit() < p
-    }
-}
-
-/// Per-step action probabilities. Tuned so the agent moves around a lot
-/// (walks + jumps frequently), occasionally dashes / blinks, and rarely
-/// presses Reset (which would short-circuit the run). No projectile or
-/// fly-toggle by default — both are situational and a uniform random
-/// agent ends up spamming them.
-struct RandomPolicy {
-    rng: Lcg,
-    /// Sticky horizontal axis. Each frame we pick a new axis with
-    /// probability `axis_change_chance`; otherwise the previous axis
-    /// holds. This avoids the "vibrate at 0 velocity" failure mode of
-    /// purely IID action sampling.
-    axis_x: f32,
-    axis_change_chance: f32,
-    jump_chance: f32,
-    jump_hold_chance: f32,
-    dash_chance: f32,
-    blink_chance: f32,
-    attack_chance: f32,
-    interact_chance: f32,
-    reset_chance: f32,
-}
-
-impl RandomPolicy {
-    fn new(seed: u64) -> Self {
-        Self {
-            rng: Lcg::new(seed),
-            axis_x: 0.0,
-            axis_change_chance: 0.06,
-            jump_chance: 0.05,
-            jump_hold_chance: 0.5,
-            dash_chance: 0.02,
-            blink_chance: 0.005,
-            attack_chance: 0.01,
-            interact_chance: 0.01,
-            reset_chance: 0.0005,
-        }
-    }
-
-    fn act(&mut self) -> AgentAction {
-        if self.rng.chance(self.axis_change_chance) {
-            // Bias toward the cardinals: half the time -1/+1, half the
-            // time pure analog. Keeps the test exercising both "stick
-            // pinned" and "stick partial" inputs.
-            self.axis_x = if self.rng.chance(0.5) {
-                if self.rng.chance(0.5) {
-                    1.0
-                } else {
-                    -1.0
-                }
-            } else {
-                self.rng.signed_unit()
-            };
-        }
-        let jump = self.rng.chance(self.jump_chance);
-        // Aim sticks: when a blink fires, set a random aim direction
-        // so blink targets get exercised (precision-blink reads aim
-        // x/y). Idle frames use small drift so the aim deadzone code
-        // sees both 0-magnitude and partial-magnitude stick reads.
-        let blink = self.rng.chance(self.blink_chance);
-        let (aim_x, aim_y) = if blink {
-            // Random unit-ish vector when blinking.
-            let dx = self.rng.signed_unit();
-            let dy = self.rng.signed_unit();
-            (dx, dy)
-        } else {
-            // Drifting partial-magnitude aim, scaled to stay in the
-            // deadzone band most frames. This exercises the aim
-            // deadzone code path (filter out drift) without firing
-            // blink targets randomly.
-            (self.rng.signed_unit() * 0.05, self.rng.signed_unit() * 0.05)
-        };
-        AgentAction {
-            move_x: self.axis_x,
-            move_y: 0.0,
-            up_pressed: false,
-            down_pressed: false,
-            jump,
-            jump_held: jump || self.rng.chance(self.jump_hold_chance),
-            jump_released: false,
-            dash: self.rng.chance(self.dash_chance),
-            attack: self.rng.chance(self.attack_chance),
-            blink,
-            blink_held: false,
-            blink_released: false,
-            pogo: false,
-            interact: self.rng.chance(self.interact_chance),
-            projectile: false,
-            projectile_held: false,
-            projectile_released: false,
-            fly_toggle: false,
-            reset: self.rng.chance(self.reset_chance),
-            start: false,
-            aim_x,
-            aim_y,
-        }
-    }
-}
+use ambition_app::{AgentObservation, RandomWalkPolicy, SandboxSim};
 
 #[derive(Default, Clone, Copy)]
 struct RunStats {
@@ -177,7 +45,7 @@ fn run_random_walk(steps: u32, seed: u64) {
             std::process::exit(1);
         }
     };
-    let mut policy = RandomPolicy::new(seed);
+    let mut policy = RandomWalkPolicy::demo(seed);
     let mut stats = RunStats::default();
     let initial = sim.observation();
     let mut last_room = initial.active_room.clone();

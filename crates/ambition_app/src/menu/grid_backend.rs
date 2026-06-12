@@ -1583,50 +1583,17 @@ mod tests {
 
     // ----- Pointer bug-fix coverage -----------------------------------------
 
+    use crate::menu::test_support::{spawn_control, trigger_over, trigger_press, trigger_release};
     use ambition_menu::render::bevy_ui::BevyUiMenuTab;
     use ambition_menu::AmbitionMenuControl;
-    use bevy::camera::NormalizedRenderTarget;
-    use bevy::picking::backend::HitData;
-    use bevy::picking::events::{Pointer, Press, Release};
-    use bevy::picking::pointer::{Location, PointerId};
 
-    fn pointer_location() -> Location {
-        Location {
-            target: NormalizedRenderTarget::None {
-                width: 1,
-                height: 1,
-            },
-            position: Vec2::ZERO,
-        }
-    }
-
-    /// Fire a `Pointer<Press>` whose hit/target is `entity`, arming the grid press
-    /// observer (entity-independent capture).
     fn fire_press(app: &mut App, entity: Entity) {
-        app.world_mut().trigger(Pointer::new(
-            PointerId::Mouse,
-            pointer_location(),
-            Press {
-                button: bevy::picking::pointer::PointerButton::Primary,
-                hit: HitData::new(entity, 0.0, None, None),
-            },
-            entity,
-        ));
+        trigger_press(app, entity);
         app.update();
     }
 
-    /// Fire a `Pointer<Release>` whose hit/target is `entity` (which may have been
-    /// respawned by a republish between press and release).
     fn fire_release(app: &mut App, entity: Entity) {
-        app.world_mut().trigger(Pointer::new(
-            PointerId::Mouse,
-            pointer_location(),
-            Release {
-                button: bevy::picking::pointer::PointerButton::Primary,
-                hit: HitData::new(entity, 0.0, None, None),
-            },
-            entity,
-        ));
+        trigger_release(app, entity);
         app.update();
     }
 
@@ -1889,37 +1856,10 @@ mod tests {
     /// Spawn a hoverable control and fire a `Pointer<Over>` at it (the exact
     /// event a republish synthesizes under a stationary mouse).
     fn hover_control(app: &mut App, action: MenuPageAction) {
-        use bevy::camera::NormalizedRenderTarget;
-        use bevy::picking::backend::HitData;
-        use bevy::picking::events::{Over, Pointer};
-        use bevy::picking::pointer::{Location, PointerId};
-
-        let entity = app
-            .world_mut()
-            .spawn(AmbitionMenuControl::<MenuPageAction> {
-                kind: ambition_menu::MenuControlKind::OptionToggle,
-                action: Some(action),
-                focus: ambition_menu::MenuFocusKey::default(),
-            })
-            .id();
-        let location = Location {
-            target: NormalizedRenderTarget::None {
-                width: 1,
-                height: 1,
-            },
-            position: bevy::prelude::Vec2::ZERO,
-        };
-        // The observer fires SYNCHRONOUSLY here; no `app.update()` (which would
-        // re-run `grid_menu_open_routing` and reseed the cursor) is needed or
-        // wanted between the trigger and the assertion.
-        app.world_mut().trigger(Pointer::new(
-            PointerId::Mouse,
-            location,
-            Over {
-                hit: HitData::new(entity, 0.0, None, None),
-            },
-            entity,
-        ));
+        let entity = spawn_control(app, action);
+        // The observer fires synchronously; avoid `app.update()` so open routing
+        // does not reseed the cursor before the assertion.
+        trigger_over(app, entity);
     }
 
     /// Bug 1 (snap-back): `grid_menu_pointer_hover` must IGNORE a `Pointer<Over>`

@@ -1,20 +1,7 @@
 //! Backend-agnostic item-confirmation effects for the unified menu.
 //!
-//! Two halves, kept together because they are the ONE place an item
-//! confirmation turns into ECS side effects (no portal / equip / heal logic is
-//! duplicated by the Grid or Cube backend):
-//!
-//! * **decision** ([`MenuAction`] + [`decide`] + [`status_for`]) — pure,
-//!   ECS-free, trivially unit-testable: "what does confirming this slot do?".
-//! * **application** ([`MenuEffectPlayers`] / [`MenuEffectManaQuery`] +
-//!   [`apply_menu_action`] / [`dispatch_item_confirm`]) — turns a decided
-//!   [`MenuAction`] into the actual equip / use side effects.
-//!
-//! Relocated from the now-deleted `ambition_sandbox::bevy_ui_grid_menu` (Phase D1); the
-//! text-only 6×4 OoT grid renderer it lived in is superseded by
-//! [`crate::menu::grid_backend`], but these helpers are still shared by
-//! [`crate::menu::dispatch`], [`crate::menu::grid_backend`], and the cube host
-//! [`crate::menu::kaleidoscope_app`].
+//! Pure decision helpers decide what confirming a slot means; the ECS helpers
+//! apply the resolved equip/use/inspect effect for both grid and cube backends.
 
 use bevy::prelude::*;
 

@@ -33,6 +33,7 @@
 mod action;
 mod observation;
 mod options;
+pub mod random_policy;
 pub mod reward;
 mod runtime;
 
@@ -42,4 +43,5 @@ mod tests;
 pub use action::AgentAction;
 pub use observation::AgentObservation;
 pub use options::{SandboxSimOptions, TimestepMode};
+pub use random_policy::{Lcg, RandomWalkPolicy, RandomWalkTuning};
 pub use runtime::SandboxSim;

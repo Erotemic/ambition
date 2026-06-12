@@ -23,57 +23,7 @@
 //! ```
 
 use ambition_app::rl_sim::TimestepMode;
-use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions};
-
-struct Lcg(u64);
-
-impl Lcg {
-    fn new(seed: u64) -> Self {
-        Self(seed.max(1))
-    }
-    fn next_u32(&mut self) -> u32 {
-        self.0 = self
-            .0
-            .wrapping_mul(6364136223846793005)
-            .wrapping_add(1442695040888963407);
-        (self.0 >> 32) as u32
-    }
-    fn unit(&mut self) -> f32 {
-        (self.next_u32() as f32) / (u32::MAX as f32 + 1.0)
-    }
-    fn signed_unit(&mut self) -> f32 {
-        2.0 * self.unit() - 1.0
-    }
-    fn chance(&mut self, p: f32) -> bool {
-        self.unit() < p
-    }
-}
-
-fn random_action(rng: &mut Lcg, sticky_axis_x: &mut f32) -> AgentAction {
-    if rng.chance(0.06) {
-        *sticky_axis_x = if rng.chance(0.5) {
-            if rng.chance(0.5) {
-                1.0
-            } else {
-                -1.0
-            }
-        } else {
-            rng.signed_unit()
-        };
-    }
-    let jump = rng.chance(0.05);
-    AgentAction {
-        move_x: *sticky_axis_x,
-        move_y: 0.0,
-        jump,
-        jump_held: jump || rng.chance(0.5),
-        dash: rng.chance(0.02),
-        attack: rng.chance(0.01),
-        blink: rng.chance(0.005),
-        interact: rng.chance(0.01),
-        ..AgentAction::default()
-    }
-}
+use ambition_app::{RandomWalkPolicy, SandboxSim, SandboxSimOptions};
 
 fn smoke_room(room_id: &str, steps: u32, seed: u64) -> Result<RoomReport, String> {
     let mut sim = SandboxSim::new_with_options(
@@ -94,13 +44,12 @@ fn smoke_room(room_id: &str, steps: u32, seed: u64) -> Result<RoomReport, String
             initial.active_room
         );
     }
-    let mut rng = Lcg::new(seed.wrapping_add(hash_room_id(room_id)));
-    let mut sticky = 0.0_f32;
+    let mut policy = RandomWalkPolicy::fuzz(seed.wrapping_add(hash_room_id(room_id)));
     let mut max_dist: f32 = 0.0;
     let mut hp_drained = false;
 
     for step in 0..steps {
-        let action = random_action(&mut rng, &mut sticky);
+        let action = policy.act();
         let obs = sim.step(action);
         if !obs.player_pos.0.is_finite() || !obs.player_pos.1.is_finite() {
             return Err(format!(

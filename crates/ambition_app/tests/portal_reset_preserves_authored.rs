@@ -17,13 +17,11 @@
 //! auto-despawned here when the player holds no portal gun).
 
 mod common;
-use common::{base, fixed_60hz_room_sim};
+use common::{authored_portal_pairs, base, fixed_60hz_room_sim};
 
 use ambition_app::{AgentAction, SandboxSim};
 use ambition_sandbox::features::{ResetRoomFeaturesEvent, RoomResetReason};
-use ambition_sandbox::portal::{PlacedPortal, PortalChannel, PortalChannelColor};
-
-const PURPLE: PortalChannel = PortalChannel::Authored(PortalChannelColor::Purple);
+use ambition_sandbox::portal::PlacedPortal;
 
 fn authored_count(sim: &mut SandboxSim) -> usize {
     let mut q = sim.world_mut().query::<&PlacedPortal>();
@@ -39,16 +37,12 @@ fn authored_portals_survive_both_death_and_manual_resets() {
     let baseline = authored_count(&mut sim);
     assert!(
         baseline > 0,
-        "portal_lab should have authored level portals (Purple/Yellow/…), got {baseline}"
+        "portal_lab should have authored level portals, got {baseline}"
     );
-    {
-        let mut q = sim.world_mut().query::<&PlacedPortal>();
-        let world = sim.world();
-        assert!(
-            q.iter(world).any(|p| p.channel == PURPLE),
-            "portal_lab should have an authored Purple portal"
-        );
-    }
+    assert!(
+        !authored_portal_pairs(&mut sim).is_empty(),
+        "portal_lab should have at least one linked authored portal pair"
+    );
 
     // A DEATH reset must not despawn any authored portal.
     sim.world_mut().write_message(ResetRoomFeaturesEvent {

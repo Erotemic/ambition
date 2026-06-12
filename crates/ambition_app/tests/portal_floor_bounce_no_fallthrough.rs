@@ -4,8 +4,8 @@
 //! Regression guard for "walk into a floor portal, press nothing, bounce a few
 //! times, then lose all momentum / FALL THROUGH THE FLOOR" (Jon, 2026-06-09).
 //!
-//! Station A in `portal_lab` is a purple↔yellow ground↔ground pair. A body that
-//! enters the purple floor portal with no further input should ping-pong between
+//! Station A in `portal_lab` is an authored ground↔ground pair. A body that
+//! enters the first floor portal with no further input should ping-pong between
 //! the two floor portals forever, carrying its momentum through each crossing —
 //! it must NEVER ground on the (open) portal floor and must NEVER fall through it
 //! and trip the fall-out-of-world death reset.
@@ -23,7 +23,7 @@
 //! position / velocity / on-ground / reset counter.
 
 mod common;
-use common::base;
+use common::{base, first_floor_authored_portal_pair};
 
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions};
@@ -41,7 +41,7 @@ fn run_bounce(dt: f32) -> BounceStats {
 
     let spawn = sim.observation().player_pos;
 
-    // Phase 1: walk right onto the purple floor portal center, then STOP.
+    // Phase 1: walk right onto the first floor portal center, then STOP.
     let mut prev = spawn;
     for _ in 0..480 {
         let obs = sim.step(AgentAction {
@@ -114,7 +114,7 @@ fn floor_portal_bounce_survives_variable_frame_rate() {
 
     let spawn = sim.observation().player_pos;
 
-    // Walk onto the purple floor portal center, then stop.
+    // Walk onto the first floor portal center, then stop.
     let mut prev = spawn;
     for _ in 0..480 {
         let obs = sim.step(AgentAction {
@@ -192,7 +192,6 @@ fn floor_portal_bounce_survives_variable_frame_rate() {
 #[test]
 fn floor_portal_bounce_conserves_momentum_per_transit_under_variable_dt() {
     use ambition_sandbox::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
-    use ambition_sandbox::portal::{PlacedPortal, PortalChannel, PortalChannelColor};
     use bevy::prelude::*;
 
     const SMALL_DT: f32 = 0.008; // ~120 FPS baseline
@@ -205,14 +204,9 @@ fn floor_portal_bounce_conserves_momentum_per_transit_under_variable_dt() {
     let mut sim = SandboxSim::new_with_options(opts).expect("SandboxSim::new in portal_lab");
     sim.step(base());
 
-    // The purple floor portal — drops happen onto its center.
+    // Drops happen onto the first live floor-to-floor authored pair.
     let (face_x, face_y) = {
-        let mut q = sim.world_mut().query::<&PlacedPortal>();
-        let world = sim.world();
-        let p = q
-            .iter(world)
-            .find(|p| p.channel == PortalChannel::Authored(PortalChannelColor::Purple))
-            .expect("portal_lab has an authored Purple floor portal");
+        let (p, _) = first_floor_authored_portal_pair(&mut sim);
         (p.pos.x, p.pos.y)
     };
 

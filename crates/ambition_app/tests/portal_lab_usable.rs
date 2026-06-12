@@ -6,8 +6,8 @@
 //! can walk onto an authored portal and be carried through it. (Jon hit "I still
 //! couldn't enter them"; the gun-less transit path + this test guard it.)
 //!
-//! Station A is a purple↔yellow ground↔ground pair at x≈300 / x≈600 on the floor.
-//! Walking the player right across the purple portal must produce a TELEPORT —
+//! Station A is a linked ground↔ground authored pair at x≈300 / x≈600 on the floor.
+//! Walking the player right across the entry portal must produce a TELEPORT —
 //! a single-frame position jump far larger than walking speed — which only the
 //! portal transfer can do. Driven through the public SandboxSim API, asserting
 //! only on observed player position.
@@ -25,9 +25,9 @@ fn portal_lab_authored_portals_are_enterable_without_the_gun() {
     let spawn = sim.observation().player_pos;
     assert!(spawn.0 < 200.0, "spawns on the left, got x={}", spawn.0);
 
-    // Walk right across the purple floor portal. Track the biggest single-frame
+    // Walk right across the first floor portal. Track the biggest single-frame
     // position jump: a normal walk step is only a few px at 60 Hz, so any jump of
-    // >150px is a portal transfer (purple x≈300 → yellow x≈600 is ~300px).
+    // >150px is a portal transfer (station A jumps ~300px).
     let mut prev = spawn;
     let mut max_jump = 0.0_f32;
     let mut resets = sim.observation().resets;
@@ -48,7 +48,7 @@ fn portal_lab_authored_portals_are_enterable_without_the_gun() {
 
     assert!(
         max_jump > 150.0,
-        "walking onto the authored purple portal should teleport the player \
+        "walking onto the authored floor portal should teleport the player \
          (biggest single-frame move was {max_jump:.1}px) — the static portals are \
          not transiting; is the gun-less transit / carve path wired?"
     );

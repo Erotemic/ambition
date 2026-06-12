@@ -65,3 +65,59 @@ pub fn fixed_60hz_sim() -> SandboxSim {
 pub fn fixed_60hz_room_sim(room: &str) -> SandboxSim {
     SandboxSim::new_with_options(fixed_60hz_room_options(room)).expect("SandboxSim::new")
 }
+
+#[cfg(feature = "portal")]
+use ambition_sandbox::portal::PlacedPortal;
+
+/// Return all currently-live authored portal pairs, after any link resolution.
+///
+/// `portal_lab` now authors explicit `link` ids. After the app steps once,
+/// linked portals are assigned generated `Indexed` channels, so tests should not
+/// assume the old Purple/Yellow channels remain on the live `PlacedPortal`s.
+#[cfg(feature = "portal")]
+pub fn authored_portal_pairs(sim: &mut SandboxSim) -> Vec<(PlacedPortal, PlacedPortal)> {
+    let mut q = sim.world_mut().query::<&PlacedPortal>();
+    let world = sim.world();
+    let mut portals: Vec<PlacedPortal> = q
+        .iter(world)
+        .filter(|p| !p.channel.is_gun_pair())
+        .copied()
+        .collect();
+    portals.sort_by(|a, b| {
+        a.pos
+            .x
+            .total_cmp(&b.pos.x)
+            .then(a.pos.y.total_cmp(&b.pos.y))
+            .then(a.channel.name().cmp(&b.channel.name()))
+    });
+
+    let mut pairs = Vec::new();
+    for entry in &portals {
+        if let Some(exit) = portals
+            .iter()
+            .find(|candidate| candidate.channel == entry.channel.partner())
+        {
+            pairs.push((*entry, *exit));
+        }
+    }
+    pairs
+}
+
+/// First live authored pair in deterministic left-to-right/top-to-bottom order.
+#[cfg(feature = "portal")]
+pub fn first_authored_portal_pair(sim: &mut SandboxSim) -> (PlacedPortal, PlacedPortal) {
+    authored_portal_pairs(sim)
+        .into_iter()
+        .next()
+        .expect("room has a linked authored portal pair")
+}
+
+/// First floor-to-floor authored pair, used by tests that must exercise a floor
+/// carve instead of a wall/ceiling portal.
+#[cfg(feature = "portal")]
+pub fn first_floor_authored_portal_pair(sim: &mut SandboxSim) -> (PlacedPortal, PlacedPortal) {
+    authored_portal_pairs(sim)
+        .into_iter()
+        .find(|(entry, exit)| entry.normal.y < -0.5 && exit.normal.y < -0.5)
+        .expect("room has a linked floor-to-floor authored portal pair")
+}

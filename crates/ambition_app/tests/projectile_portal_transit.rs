@@ -13,11 +13,11 @@
 //! the real `PortalSet::Transit` schedule processes a projectile-shaped body and
 //! transits it through a placed pair.
 //!
-//! Setup: spawn a portal pair (left wall normal +x, right wall normal -x) plus a
-//! projectile-shaped body (small `BodyKinematics`, no `ActorRoll`, the
-//! free-flying `PortalPolicy`) flying into the left portal, then step the real
-//! app and assert the body emerges on the far side travelling along the exit
-//! normal (rotated velocity, keeps flying — not stopped, not re-oriented).
+//! Setup: read a live authored portal pair, spawn a projectile-shaped body
+//! (small `BodyKinematics`, no `ActorRoll`, the free-flying `PortalPolicy`)
+//! flying into the entry portal, then step the real app and assert the body
+//! emerges on the far side travelling through the exit (keeps flying — not
+//! stopped, not re-oriented).
 //!
 //! The body is spawned already carrying `PortalBody` + `PortalPolicy` (both
 //! public) so the test needs no `pub(crate)` projectile types; the projectile
@@ -26,19 +26,11 @@
 //! free-flying body and carries it through the pair.
 
 mod common;
-use common::{base, fixed_60hz_room_sim};
+use common::{base, first_authored_portal_pair, fixed_60hz_room_sim};
 
 use ambition_sandbox::platformer_runtime::body::BodyKinematics;
-use ambition_sandbox::portal::{
-    PlacedPortal, PortalBody, PortalChannel, PortalChannelColor, PortalPolicy,
-};
+use ambition_sandbox::portal::{PortalBody, PortalPolicy};
 use bevy::prelude::*;
-
-// AUTHORED channels (not the gun's Blue/Orange pair): `despawn_orphaned_portals`
-// removes gun-pair portals when the player holds no gun, but authored pairs are
-// permanent — so an injected authored pair survives in the gun-less portal_lab.
-const A: PortalChannel = PortalChannel::Authored(PortalChannelColor::Purple);
-const B: PortalChannel = PortalChannel::Authored(PortalChannelColor::Yellow);
 
 #[test]
 fn a_free_flying_projectile_body_transits_a_portal_pair_in_the_real_app() {
@@ -47,25 +39,15 @@ fn a_free_flying_projectile_body_transits_a_portal_pair_in_the_real_app() {
     // Step once so the world + schedule are fully initialized.
     sim.step(base());
 
-    // Read the authored entry portal (purple) so the projectile body is spawned
-    // straddling its plane and the partner (yellow) so we know the far side.
+    // Read a live authored pair after link resolution. Link-authored portals
+    // get generated channels in the app, so this test should not depend on a
+    // particular authoring color surviving as the runtime channel.
     let (entry_pos, entry_normal, exit_pos) = {
-        let mut q = sim.world_mut().query::<&PlacedPortal>();
-        let world = sim.world();
-        let entry = q
-            .iter(world)
-            .find(|p| p.channel == A)
-            .copied()
-            .expect("portal_lab has an authored Purple portal");
-        let exit = q
-            .iter(world)
-            .find(|p| p.channel == B)
-            .copied()
-            .expect("portal_lab has an authored Yellow portal");
+        let (entry, exit) = first_authored_portal_pair(&mut sim);
         (entry.pos, entry.normal, exit.pos)
     };
 
-    // A free-flying projectile-shaped body straddling the purple portal, moving
+    // A free-flying projectile-shaped body straddling the entry portal, moving
     // INTO its face (against the outward normal) at 400 px/s — well above
     // MIN_EXIT_SPEED so the rotation is pure. No projectile-step integration is
     // needed because it already sits in the opening.

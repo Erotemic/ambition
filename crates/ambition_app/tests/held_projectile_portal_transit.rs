@@ -12,52 +12,38 @@
 //! `held_projectile_step` collides against the PORTAL-CARVED world — so a bolt
 //! fired into a portal flies through the opening and emerges from the partner.
 //!
-//! Setup: spawn a held bolt straddling `portal_lab`'s authored purple floor
-//! portal, moving INTO it. The authored portal sits on a SOLID floor, so this
-//! also exercises the carved-world collision (without it, the bolt's own
-//! solid-raycast would detonate it on the floor before it could transit). Step
-//! the real app and assert the bolt jumps to the partner (yellow) portal.
+//! Setup: spawn a held bolt straddling `portal_lab`'s first authored
+//! floor-to-floor portal pair, moving INTO its entry. The authored entry sits on
+//! a SOLID floor, so this also exercises carved-world collision (without it, the
+//! bolt's own solid-raycast would detonate on the floor before it could transit).
+//! Step the real app and assert the bolt jumps to the partner portal.
 
 mod common;
-use common::{base, fixed_60hz_room_sim};
+use common::{base, first_floor_authored_portal_pair, fixed_60hz_room_sim};
 
 use ambition_platformer_runtime::projectile::{
     ProjectileFaction, ProjectileGameplay, ProjectileKind,
 };
 use ambition_sandbox::items::pickup::HeldProjectile;
 use ambition_sandbox::platformer_runtime::body::BodyKinematics;
-use ambition_sandbox::portal::{
-    PlacedPortal, PortalBody, PortalChannel, PortalChannelColor, PortalPolicy,
-};
+use ambition_sandbox::portal::{PortalBody, PortalPolicy};
 use bevy::prelude::*;
-
-const PURPLE: PortalChannel = PortalChannel::Authored(PortalChannelColor::Purple);
-const YELLOW: PortalChannel = PortalChannel::Authored(PortalChannelColor::Yellow);
 
 #[test]
 fn a_held_bolt_transits_an_authored_portal_in_the_real_app() {
     let mut sim = fixed_60hz_room_sim("portal_lab");
     sim.step(base());
 
-    // Read the authored floor pair.
+    // Read a live authored floor pair after link resolution. `portal_lab` uses
+    // explicit link ids, so live portal channels may be generated `Indexed`
+    // values rather than the legacy Purple/Yellow authoring colors.
     let (entry_pos, entry_normal, exit_pos) = {
-        let mut q = sim.world_mut().query::<&PlacedPortal>();
-        let world = sim.world();
-        let entry = q
-            .iter(world)
-            .find(|p| p.channel == PURPLE)
-            .copied()
-            .expect("portal_lab has an authored Purple portal");
-        let exit = q
-            .iter(world)
-            .find(|p| p.channel == YELLOW)
-            .copied()
-            .expect("portal_lab has an authored Yellow portal");
+        let (entry, exit) = first_floor_authored_portal_pair(&mut sim);
         (entry.pos, entry.normal, exit.pos)
     };
     let entry_to_exit = entry_pos.distance(exit_pos);
 
-    // A held bolt straddling the purple floor portal, moving INTO its face
+    // A held bolt straddling the floor portal, moving INTO its face
     // (against the outward normal) at 440 px/s (the Fireball speed). It carries
     // the shared body + the projectile marker + the held-shot gameplay — exactly
     // what `fire_held_ranged_system` now spawns.
@@ -96,7 +82,7 @@ fn a_held_bolt_transits_an_authored_portal_in_the_real_app() {
 
     // Step the real app: `ensure_projectile_portal_bodies` tags the bolt, the
     // live `portal_transit` carries it across. It must end up near the EXIT
-    // (yellow) and far from the ENTRY (purple) — a transit, not a straight flight
+    // and far from the ENTRY — a transit, not a straight flight
     // or a detonation on the floor.
     let mut emerged = false;
     for _ in 0..12 {

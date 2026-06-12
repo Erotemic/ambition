@@ -976,7 +976,7 @@ pub struct HeldProjectileVisual;
 
 /// Render each in-flight held shot. Fireballs draw as a glowing sphere; other
 /// shots reuse the spinning lasersword sprite and rotate along travel.
-pub fn sync_held_projectile_visuals(
+pub(crate) fn sync_held_projectile_visuals(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     world: Res<crate::GameWorld>,

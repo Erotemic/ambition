@@ -242,7 +242,7 @@ pub fn ensure_requested_room_parallax_system(
     }
 }
 
-pub fn apply_room_transition_system(
+pub(super) fn apply_room_transition_system(
     mut commands: Commands,
     mut requests: MessageReader<rooms::RoomTransitionRequested>,
     mut event_writers: SandboxEventWriters,

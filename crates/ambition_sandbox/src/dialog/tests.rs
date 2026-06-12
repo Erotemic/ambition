@@ -1,6 +1,7 @@
-use super::ui::DIALOG_VISIBLE_OPTIONS;
 use super::*;
 use crate::ui_nav::visible_window_start;
+
+const DIALOG_VISIBLE_OPTIONS: usize = 4;
 
 #[test]
 fn default_state_is_inactive() {

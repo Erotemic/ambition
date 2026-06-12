@@ -156,31 +156,9 @@ fn record_index() -> &'static HashMap<String, SheetRecord> {
     })
 }
 
-/// Build a `CharacterSheetSpec` from the RON record for `target`,
-/// combined with the static gameplay tuning. Panics if the target id
-/// is not present in any `*_spritesheet.ron` — that's a hard project
-/// invariant (the test `every_spritesheet_ron_parses_into_sheet_record`
-/// catches malformed RON before runtime).
-fn load_spec(target: &str, tuning: &SheetTuning) -> CharacterSheetSpec {
-    let record = record_index().get(target).unwrap_or_else(|| {
-        panic!("load_spec({target}): no SheetRecord with that target in any *_spritesheet.ron")
-    });
-    spec_from_record(record, tuning)
-}
-
-/// Public counterpart to [`load_spec`] for callers that don't have a
-/// hardcoded `*_SHEET` const for the target. Returns `None` when the
-/// manifest isn't on disk (rather than panicking) so the catalog-
-/// driven sprite loader can fall back to colored rectangles.
-///
-/// Used by [`super::sheet_for_character_id`] when no `*_SHEET` const
-/// is wired for a catalog id. Resolves the manifest target via two
-/// fallbacks: the bare id ("goblin"), then the id with the `npc_`
-/// prefix stripped ("npc_gnu_ton_boss" → "gnu_ton_boss").
-/// Load a sheet spec for an explicit manifest record key with the
-/// given tuning. The catalog-driven sprite path resolves the target
-/// from the character's catalog row; content code may also use this
-/// for its own named sheets (props, intro NPCs).
+/// Load a sheet spec for an explicit manifest record key with the given tuning.
+/// Returns `None` when the manifest target is absent so catalog-driven sprite
+/// loading can fall back to colored rectangles.
 pub fn try_load_spec_for_target(target: &str, tuning: &SheetTuning) -> Option<CharacterSheetSpec> {
     let record = record_index().get(target)?;
     let spec = spec_from_record(record, tuning);

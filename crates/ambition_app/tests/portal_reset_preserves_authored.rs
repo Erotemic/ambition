@@ -19,7 +19,7 @@
 mod common;
 use common::{authored_portal_pairs, base, fixed_60hz_room_sim};
 
-use ambition_app::{AgentAction, SandboxSim};
+use ambition_app::SandboxSim;
 use ambition_sandbox::features::{ResetRoomFeaturesEvent, RoomResetReason};
 use ambition_sandbox::portal::PlacedPortal;
 

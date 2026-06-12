@@ -130,4 +130,3 @@ pub use sim_systems::{
     attack_advance_system, cleanup_timers_system, detect_room_transition_system,
     input_timer_system, interaction_input_system, sync_live_player_dev_edits_system,
 };
-pub use world_flow::apply_room_transition_system;

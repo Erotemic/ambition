@@ -222,25 +222,6 @@ struct DialogHoverUpdate {
     last_pointer_position: Option<Vec2>,
 }
 
-#[cfg(feature = "input")]
-fn resolve_dialog_choice_hover(
-    index: usize,
-    selected: usize,
-    pointer_armed: Option<usize>,
-    focus: crate::ui_nav::MenuFocusState,
-    last_pointer_position: Option<Vec2>,
-    cursor_position: Option<Vec2>,
-) -> DialogHoverUpdate {
-    handle_dialog_choice_hover(
-        index,
-        selected,
-        pointer_armed,
-        focus,
-        last_pointer_position,
-        cursor_position,
-    )
-}
-
 #[cfg(all(test, feature = "input"))]
 mod tests {
     use super::*;
@@ -248,7 +229,7 @@ mod tests {
 
     #[test]
     fn keyboard_focus_blocks_stale_hover_on_same_row() {
-        let update = resolve_dialog_choice_hover(
+        let update = handle_dialog_choice_hover(
             2,
             1,
             Some(1),
@@ -267,7 +248,7 @@ mod tests {
 
     #[test]
     fn keyboard_focus_blocks_stationary_hover_after_scroll() {
-        let update = resolve_dialog_choice_hover(
+        let update = handle_dialog_choice_hover(
             5,
             1,
             Some(1),

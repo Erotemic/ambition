@@ -194,6 +194,7 @@ impl EnemyClusterScratch {
             caps: archetype.combat_capabilities(),
         }
     }
+    #[cfg(test)]
     pub fn as_mut(&mut self) -> EnemyMut<'_> {
         EnemyMut {
             kin: &mut self.kin,

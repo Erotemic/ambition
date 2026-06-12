@@ -3,7 +3,6 @@ use bevy::prelude::*;
 
 use crate::presentation::ui_fonts::{UiFontWeight, UiFonts};
 
-pub(in crate::dialog) const DIALOG_VISIBLE_OPTIONS: usize = 4;
 const DIALOG_CONTINUE_HINT: &str =
     "Tap an option, press Confirm / Jump / Interact, or drag / use Up-Down. Back closes.";
 

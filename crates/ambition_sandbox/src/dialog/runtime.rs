@@ -229,13 +229,6 @@ impl DialogState {
         self.line_last_before_options
     }
 
-    pub(in crate::dialog) fn start_revealing_options(&mut self) {
-        self.options_reveal = OptionsRevealState::from_count(
-            self.current_options.len(),
-            self.line_reveal.chars_per_second,
-        );
-    }
-
     pub(in crate::dialog) fn tick_options_reveal(&mut self, delta_s: f32) {
         self.options_reveal
             .tick(delta_s, self.current_options.len());
@@ -383,19 +376,6 @@ impl Default for OptionsRevealState {
 }
 
 impl OptionsRevealState {
-    fn from_count(count: usize, line_chars_per_second: f32) -> Self {
-        // Keep the options cadence tied to the current dialog pace:
-        // the faster the line typewriter runs, the faster choices
-        // populate. At the current 112.5 chars/sec pace this works
-        // out to 2.5 options/sec.
-        let options_per_second = (line_chars_per_second / 45.0).max(1.0);
-        Self {
-            visible_count: 0,
-            elapsed_s: 0.0,
-            options_per_second: if count == 0 { 1.0 } else { options_per_second },
-        }
-    }
-
     fn tick(&mut self, delta_s: f32, total_count: usize) {
         if total_count == 0 || self.complete(total_count) {
             self.visible_count = total_count;

@@ -277,7 +277,7 @@ mod tests {
     fn sim_includes_brain_plugin_registration() {
         use ambition_sandbox::brain::{ActorActionMessage, BrainActionCounter};
         use bevy::ecs::message::Messages;
-        let mut app = initialized_sandbox_sim_app();
+        let app = initialized_sandbox_sim_app();
         // Both resources should be present.
         assert!(
             app.world()

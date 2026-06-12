@@ -504,28 +504,8 @@ impl EnemyArchetype {
         self.spec().smash_hit_band
     }
 
-    /// Slot kind this archetype requests from the combat slot board.
-    /// Used by the per-frame slot allocator.
-    pub(super) fn slot_kind(self) -> crate::combat::slots::SlotKind {
-        if self.is_aerial() {
-            crate::combat::slots::SlotKind::Aerial
-        } else {
-            crate::combat::slots::SlotKind::Melee
-        }
-    }
-
     pub(crate) fn is_sandbag(self) -> bool {
         self.spec().is_sandbag
-    }
-
-    /// Project this archetype's authored capability flags into the
-    /// combat kit's [`CombatCapabilities`] component (attached to
-    /// every enemy entity at spawn). Generic systems branch on the
-    /// component; content code may also call this directly instead of
-    /// matching archetype identities.
-    /// Deep-dream jitter seed (authored data; `None` = no dream pass).
-    pub(crate) fn dream_seed(self) -> Option<f32> {
-        self.spec().dream_seed
     }
 
     /// Project this archetype's per-frame runtime tuning into the
@@ -555,6 +535,7 @@ impl EnemyArchetype {
         }
     }
 
+    /// Project this archetype's authored capability flags into the combat kit.
     pub(crate) fn combat_capabilities(self) -> crate::mechanics::combat::CombatCapabilities {
         let spec = self.spec();
         crate::mechanics::combat::CombatCapabilities {
@@ -578,6 +559,7 @@ impl EnemyArchetype {
         self.spec().rider_max_health
     }
 
+    #[cfg(test)]
     pub(super) fn patrol_speed(self) -> f32 {
         self.spec().patrol_speed
     }
@@ -594,10 +576,12 @@ impl EnemyArchetype {
         self.spec().attack_range
     }
 
+    #[cfg(test)]
     pub(super) fn contact_strength(self) -> f32 {
         self.spec().contact_strength
     }
 
+    #[cfg(test)]
     pub(super) fn damage_amount(self) -> i32 {
         self.spec().damage_amount
     }

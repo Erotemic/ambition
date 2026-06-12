@@ -16,9 +16,7 @@ use ambition_menu::{
     ActiveMenuPages, AmbitionInventoryUiPlugin, AmbitionMenuControl, MenuDynamicText,
     MenuDynamicTextContent, MenuVisualState,
 };
-use ambition_sandbox::menu::backend::{
-    InventoryUiBackend, BEVY_UI_MENU_BACKEND_ENABLED, KALEIDOSCOPE_MENU_BACKEND_ENABLED,
-};
+use ambition_sandbox::menu::backend::{InventoryUiBackend, KALEIDOSCOPE_MENU_BACKEND_ENABLED};
 use bevy::prelude::*;
 
 use crate::menu::effects::{MenuEffectManaQuery, MenuEffectPlayers};
@@ -1352,7 +1350,7 @@ enum SpatialMove {
 /// Port of the demo's `MockDemo::move_spatial` for the items grid + flanking
 /// arrows. Pure (no ECS) so it's unit-testable and easy to reason about. See
 /// [`kaleidoscope_focus_nav`] for the rule list.
-pub(crate) fn move_spatial(focus: MenuFocus, dx: i32, dy: i32, _page: MenuPage) -> SpatialMove {
+fn move_spatial(focus: MenuFocus, dx: i32, dy: i32, _page: MenuPage) -> SpatialMove {
     let cols = ITEM_GRID_COLS as i32;
     let rows = ITEM_GRID_ROWS as i32;
 

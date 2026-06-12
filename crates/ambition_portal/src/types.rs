@@ -93,7 +93,6 @@ pub fn portal_opening_half(normal: Vec2, half_extent: Vec2) -> f32 {
 
 /// Standard through-surface half-thickness, exposed so the aperture-equalizer
 /// can rebuild a half-extent from a new along-length.
-pub const PORTAL_FACE_HALF_THICKNESS: f32 = PORTAL_THICKNESS_HALF;
 
 /// How far out of the exit portal (along its normal) to pop a body so it clears
 /// the thin portal face without immediately re-entering: the body's half-size

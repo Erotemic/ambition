@@ -1,4 +1,3 @@
-use crate::boss_encounter::BossSpecRoster;
 use crate::engine_core as ae;
 use bevy::prelude::*;
 
@@ -480,6 +479,7 @@ pub fn boss_phase_transition_feedback(
 #[cfg(test)]
 mod phase_feedback_tests {
     use super::*;
+    use crate::boss_encounter::roster::BossSpecRoster;
     use crate::boss_encounter::{BossEncounterPhase, BossEncounterState};
     use crate::time::camera_ease::CameraShakeState;
 

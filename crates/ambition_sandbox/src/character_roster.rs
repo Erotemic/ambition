@@ -58,7 +58,6 @@ mod tests {
     // — they pin SHEET resolution, which is presentation's contract.
     use super::*;
     use crate::actor::character_catalog::*;
-    use crate::brain::state_machine::StateMachineCfg;
     use crate::brain::Brain;
 
     #[test]

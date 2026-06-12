@@ -25,7 +25,6 @@
 //! is the only place that pairs a catalog id with its sheet const.
 
 use std::collections::HashMap;
-use std::sync::LazyLock;
 
 use bevy::prelude::*;
 

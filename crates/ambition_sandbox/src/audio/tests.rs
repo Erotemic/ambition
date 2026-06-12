@@ -1,5 +1,6 @@
 use super::*;
 use crate::runtime::data::SandboxDataSpec;
+use ambition_sfx::SfxProvider;
 
 #[test]
 fn amplitude_to_decibels_silent_floor() {

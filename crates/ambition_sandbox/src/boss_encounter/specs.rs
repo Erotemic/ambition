@@ -1,5 +1,4 @@
 use super::profile::default_boss_profiles;
-use crate::boss_encounter::BossSpecRoster;
 
 /// Default boss specs shipped with the sandbox. Populated lazily so
 /// hot reloads of LDtk content don't double-register.
@@ -54,6 +53,7 @@ pub fn load_boss_specs_from_disk() -> Vec<crate::boss_encounter::BossEncounterSp
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::boss_encounter::roster::BossSpecRoster;
 
     /// Asserts the on-disk RON for the named boss is field-by-field
     /// equivalent to the supplied hardcoded constructor's output.

@@ -11,7 +11,7 @@ use super::movement_components::{BodyKinematics, PlayerGroundState};
 use crate::brain::{ActorControl, Brain, BrainSnapshot};
 #[cfg(test)]
 use crate::engine_core as ae;
-use crate::features::{ActorPose, FeatureAabb};
+use crate::features::ActorPose;
 use crate::input::ControlFrame;
 
 /// Mirror the finalized global [`ControlFrame`] onto the local player's

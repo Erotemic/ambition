@@ -1,5 +1,3 @@
-use super::*;
-
 // Boss policy vocabulary (`BossMovementProfile`, `BossPatternStep`,
 // `BossPattern`, `BossAttackPattern`, `BossAttackProfile`,
 // `step_duration`) moved to `crate::brain::boss_pattern` per the
@@ -8,7 +6,9 @@ use super::*;
 // below still reference them by their old `content::features::bosses`
 // path — those references stay legal via the re-export while call
 // sites migrate to the brain-module path at their leisure.
-pub use crate::brain::boss_pattern::{BossAttackPattern, BossAttackProfile, BossMovementProfile};
+#[cfg(test)]
+use crate::brain::boss_pattern::BossAttackPattern;
+pub use crate::brain::boss_pattern::{BossAttackProfile, BossMovementProfile};
 // `BossPattern` and `BossPatternStep` only show up inside the
 // scripted profiles, which now live in `boss_profiles.ron`. They're
 // still publicly accessible via `crate::brain::boss_pattern`; we
@@ -128,9 +128,10 @@ pub const GRADIENT_CASCADE_MINION_COUNT: u8 = 2;
 // `crate::boss_encounter::behavior` (Stage 20 / A2 stretch): the boss
 // PROFILE vocabulary is machinery (data-driven via boss_profiles.ron);
 // this module keeps the named special-spec resolver + tuning consts.
+#[cfg(test)]
+use crate::boss_encounter::behavior::canonical_boss_id_from;
 pub use crate::boss_encounter::behavior::{
-    boss_animation_keys_for_profile, canonical_boss_id_from, BossBehaviorProfile,
-    BossRewardProfile, BossSpriteMetrics,
+    boss_animation_keys_for_profile, BossBehaviorProfile, BossRewardProfile, BossSpriteMetrics,
 };
 
 /// Boss-side resolver for `Special`-flavored `BossAttackProfile`s.
@@ -245,6 +246,7 @@ mod boss_profile_data_tests {
 #[cfg(test)]
 mod canonical_boss_id_tests {
     use super::*;
+    use crate::engine_core as ae;
 
     /// PhaseScript brain wins over display name. The user-reported
     /// bug: BossSpawn named "System Boss" in `first_system_boss`
@@ -391,6 +393,8 @@ mod scripted_pattern_tests {
     use super::*;
     use crate::brain::boss_pattern::BossPatternStep;
     use crate::engine_core as ae;
+    use crate::engine_core::AabbExt;
+    use crate::features::FeatureCombatTuning;
 
     fn gnu_ton_runtime() -> super::super::ecs::boss_clusters::BossClusterScratch {
         let behavior = BossBehaviorProfile::gnu_ton();

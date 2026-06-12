@@ -226,7 +226,11 @@ pub struct SfxBankResource(pub std::sync::Arc<BankProvider>);
 /// an APK-asset backend, `build_for_android.sh` can enable `static_sfx_bank`
 /// and pass `AMBITION_STATIC_SFX_BANK_PATH` so the packed bank is available to
 /// the same runtime bank provider used on desktop.
-#[cfg(all(feature = "audio", feature = "static_sfx_bank"))]
+#[cfg(all(
+    feature = "audio",
+    feature = "static_sfx_bank",
+    ambition_static_sfx_bank_path
+))]
 fn try_load_static_sfx_bank() -> Option<BankProvider> {
     let bytes = include_bytes!(env!("AMBITION_STATIC_SFX_BANK_PATH"));
     match BankProvider::from_bytes(bytes.to_vec()) {
@@ -242,6 +246,19 @@ fn try_load_static_sfx_bank() -> Option<BankProvider> {
             None
         }
     }
+}
+
+#[cfg(all(
+    feature = "audio",
+    feature = "static_sfx_bank",
+    not(ambition_static_sfx_bank_path)
+))]
+fn try_load_static_sfx_bank() -> Option<BankProvider> {
+    warn!(
+        "static_sfx_bank feature enabled without AMBITION_STATIC_SFX_BANK_PATH; \
+         falling back to catalog-resolved SFX bank"
+    );
+    None
 }
 
 /// Resolve the SFX bank through the

@@ -22,13 +22,6 @@ use crate::mix::MusicMix;
 pub const MUSIC_LOG_TARGET: &str = "ambition_music";
 const MAX_LAYERS: usize = 6;
 
-/// Relative volume for adaptive cues after user music volume.
-///
-/// Stacked layers sum hotter than the legacy single-channel procedural room
-/// tracks, so keep the per-cue default conservative and let cue states shape
-/// individual layer gains.
-const ADAPTIVE_MUSIC_RELATIVE_VOLUME: f32 = 1.0;
-
 /// Runtime gain smoothing for adaptive layer targets.
 ///
 /// Keep this short enough that an intro-to-wave handoff reads as one continuous

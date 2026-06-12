@@ -16,7 +16,7 @@ use super::movement_components::{
     PlayerWallState,
 };
 use crate::brain::{ActionSet, ActorControl, Brain};
-use crate::features::{ActorFaction, ActorPose, FeatureAabb};
+use crate::features::{ActorFaction, ActorPose};
 
 /// All simulation components required on the player entity.
 ///

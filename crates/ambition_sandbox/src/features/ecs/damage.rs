@@ -24,7 +24,7 @@ use super::{
     ae, sync_actor_components_from_enemy, ActorCombatState, ActorCooldowns, ActorDisposition,
     ActorHealth, ActorIdentity, ActorIntent, ActorRuntime, BossConfig, BreakableFeature,
     FeatureAabb, FeatureId, FeatureName, FeatureSimEntity, GameplayBanner, HitEvent, HitSource,
-    PickupFeature, RespawnTimer, SetFlagRequested,
+    PickupFeature, SetFlagRequested,
 };
 use crate::audio::SfxMessage;
 use crate::boss_encounter::{record_boss_damage, BossEncounterRegistry};

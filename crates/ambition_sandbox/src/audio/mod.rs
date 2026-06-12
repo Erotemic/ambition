@@ -15,34 +15,19 @@
 //! `TODO: kira_underwater_filter_backend` for the exact swap points.
 //! Reverb / heavier coloration remains future work.
 
+#[cfg(all(test, feature = "audio"))]
 use crate::engine_core as ae;
 // `SfxMessage` now lives in the `ambition_sfx` crate (moved down so
 // reusable mechanics request sound without naming a sandbox module).
 // Re-export it here so the historical `crate::audio::SfxMessage` path
 // — used across the sandbox and by the audio runtime consumer below —
 // keeps resolving unchanged.
-use ambition_sfx::SfxId;
+#[cfg(all(test, feature = "audio"))]
+use ambition_sfx as sfx;
 pub use ambition_sfx::SfxMessage;
-#[cfg(feature = "audio")]
-use ambition_sfx::{self as sfx, SfxProvider};
-#[cfg(feature = "audio")]
-use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 #[cfg(feature = "audio")]
-use bevy_kira_audio::prelude::{
-    AudioChannel, AudioControl, AudioEasing, AudioSource as KiraAudioSource, AudioTween, Frame,
-    StaticSoundData, StaticSoundSettings,
-};
-#[cfg(feature = "audio")]
-use std::io::Cursor;
-#[cfg(feature = "audio")]
-use std::sync::Arc;
-#[cfg(feature = "audio")]
-use std::time::Duration;
-
-#[cfg(feature = "audio")]
-use crate::runtime::data::AudioSpec;
-use crate::runtime::data::SoundCueKey;
+use bevy_kira_audio::prelude::{AudioChannel, AudioControl, AudioSource as KiraAudioSource};
 
 #[cfg(feature = "audio")]
 mod bank_asset;

@@ -145,7 +145,7 @@ pub fn drive_music_director(
 #[cfg(test)]
 mod restart_tests {
     use super::*;
-    use crate::music::{MusicDirectorMode, MusicDirectorState};
+    use crate::music::MusicDirectorMode;
 
     #[test]
     fn should_restart_adaptive_when_cue_id_changes() {

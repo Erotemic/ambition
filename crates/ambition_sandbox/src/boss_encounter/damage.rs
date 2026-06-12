@@ -1,4 +1,3 @@
-use crate::boss_encounter::BossSpecRoster;
 use crate::presentation::cutscene::CutsceneTriggerQueue;
 
 use super::{events::publish_events, BossEncounterRegistry};
@@ -100,6 +99,7 @@ pub fn force_boss_death(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::boss_encounter::roster::BossSpecRoster;
     use crate::encounter::BossEncounterMusicRequest;
     use crate::features::GameplayBanner;
 

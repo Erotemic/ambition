@@ -15,7 +15,8 @@ use crate::engine_core as ae;
 use bevy::asset::{Asset, AssetServer};
 use bevy::prelude::{Commands, Handle, Res, Resource};
 use bevy::reflect::TypePath;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+#[cfg(test)]
 use std::collections::HashSet;
 
 pub const SANDBOX_DATA_ASSET: &str = "ambition/sandbox.ron";

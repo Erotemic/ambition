@@ -9,8 +9,6 @@ use crate::engine_core as ae;
 use crate::engine_core::AabbExt;
 use bevy::prelude::*;
 
-use crate::world::platforms::MovingPlatformState;
-
 const ENEMY_GRAVITY: f32 = 1450.0;
 const ENEMY_MAX_FALL: f32 = 760.0;
 /// Vertical impulse (px/s) applied when a grounded enemy's

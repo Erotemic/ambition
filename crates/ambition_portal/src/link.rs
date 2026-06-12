@@ -20,9 +20,7 @@ use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 
 use crate::color::{PortalChannel, PortalChannelColor};
-use crate::types::{
-    portal_half_extent_with_length, portal_opening_half, PlacedPortal, PORTAL_FACE_HALF_THICKNESS,
-};
+use crate::types::{portal_half_extent_with_length, portal_opening_half, PlacedPortal};
 
 /// A portal authored with an explicit link id (the hash of the LDtk `link`
 /// field). Two portals with the same id are a pair; the channel is DERIVED each

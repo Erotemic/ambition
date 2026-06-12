@@ -8,7 +8,7 @@
 //! adds gameplay tuning the generator cannot infer.
 
 use std::collections::HashMap;
-use std::sync::{LazyLock, OnceLock};
+use std::sync::OnceLock;
 
 use bevy::math::URect;
 use bevy::prelude::*;

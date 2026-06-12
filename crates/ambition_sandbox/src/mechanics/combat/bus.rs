@@ -1,9 +1,7 @@
 use crate::features::events::{
     GameplaySfxRequested, QuestAdvanceRequested, SetFlagRequested, SwitchActivated,
 };
-use bevy::prelude::{
-    App, IntoScheduleConfigs, MessageReader, MessageWriter, Plugin, ResMut, Update,
-};
+use bevy::prelude::{MessageReader, MessageWriter, ResMut};
 
 /// Save writes first so quest conditions that read flags see them this same
 /// frame. `on == true` also mirrors into `QuestAdvanceEvent::FlagSet`, matching

@@ -12,6 +12,7 @@
 //!   presentation code.
 
 use super::*;
+#[cfg(test)]
 use crate::audio::SfxMessage;
 use crate::presentation::fx::{ParticleKind, VfxMessage};
 use crate::presentation::rendering::RoomVisual;

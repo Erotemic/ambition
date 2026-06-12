@@ -4,35 +4,10 @@
 //! row of three targets should clear them. Movement is checked via the public
 //! observation; the kills via a world query on the enemies' `ActorHealth`.
 
-use ambition_app::rl_sim::TimestepMode;
-use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions};
+mod common;
+use common::{base, fixed_60hz_room_sim};
 
-fn base() -> AgentAction {
-    AgentAction {
-        move_x: 0.0,
-        move_y: 0.0,
-        up_pressed: false,
-        down_pressed: false,
-        jump: false,
-        jump_held: false,
-        jump_released: false,
-        dash: false,
-        attack: false,
-        blink: false,
-        blink_held: false,
-        blink_released: false,
-        pogo: false,
-        interact: false,
-        projectile: false,
-        projectile_held: false,
-        projectile_released: false,
-        fly_toggle: false,
-        reset: false,
-        start: false,
-        aim_x: 0.0,
-        aim_y: 0.0,
-    }
-}
+use ambition_app::{AgentAction, SandboxSim};
 
 /// Current HP of each target (enemies carry `ActorHealth`; the player carries
 /// player-side health, so this is the target line). Dead-but-not-despawned
@@ -46,12 +21,7 @@ fn enemy_hps(sim: &mut SandboxSim) -> Vec<i32> {
 
 #[test]
 fn dive_drill_lunges_through_the_targets() {
-    let mut sim = SandboxSim::new_with_options(
-        SandboxSimOptions::default()
-            .with_timestep(TimestepMode::fixed_60hz())
-            .with_start_room("dive_drill"),
-    )
-    .expect("SandboxSim::new");
+    let mut sim = fixed_60hz_room_sim("dive_drill");
 
     // Grab the Dive ability off the floor (pickup x[110,150]).
     for _ in 0..60 {

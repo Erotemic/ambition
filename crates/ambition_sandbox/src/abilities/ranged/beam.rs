@@ -127,8 +127,7 @@ pub fn fire_beam_system(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::brain::ActionSet;
-    use crate::player::PlayerBaseSize;
+    use crate::abilities::test_support::spawn_primary_player_holding;
 
     fn test_app() -> App {
         let mut app = App::new();
@@ -136,28 +135,6 @@ mod tests {
         app.insert_resource(ControlFrame::default());
         app.add_systems(Update, fire_beam_system);
         app
-    }
-
-    fn spawn_player_holding_beam(app: &mut App) -> Entity {
-        let spec = crate::brain::held_item_by_id(BEAM_ID).unwrap();
-        app.world_mut()
-            .spawn((
-                PlayerEntity,
-                PrimaryPlayer,
-                BodyKinematics {
-                    pos: ae::Vec2::new(100.0, 100.0),
-                    vel: ae::Vec2::ZERO,
-                    size: ae::Vec2::new(24.0, 40.0),
-                    facing: 1.0,
-                },
-                PlayerBaseSize {
-                    base_size: ae::Vec2::new(24.0, 40.0),
-                },
-                ActionSet::default(),
-                HeldItem::new(spec),
-                PlayerMana::default(),
-            ))
-            .id()
     }
 
     fn hitboxes(app: &mut App) -> Vec<Hitbox> {
@@ -171,7 +148,7 @@ mod tests {
     #[test]
     fn attack_with_the_beam_spawns_one_player_faction_line_hitbox() {
         let mut app = test_app();
-        let player = spawn_player_holding_beam(&mut app);
+        let player = spawn_primary_player_holding(&mut app, BEAM_ID);
         app.world_mut()
             .resource_mut::<ControlFrame>()
             .attack_pressed = true;
@@ -201,7 +178,7 @@ mod tests {
     #[test]
     fn no_beam_without_attack_or_item() {
         let mut app = test_app();
-        spawn_player_holding_beam(&mut app);
+        spawn_primary_player_holding(&mut app, BEAM_ID);
         app.update(); // no attack pressed
         assert_eq!(hitboxes(&mut app).len(), 0);
     }
@@ -209,7 +186,7 @@ mod tests {
     #[test]
     fn beam_costs_mana_and_is_blocked_when_empty() {
         let mut app = test_app();
-        let player = spawn_player_holding_beam(&mut app);
+        let player = spawn_primary_player_holding(&mut app, BEAM_ID);
         app.world_mut()
             .get_mut::<PlayerMana>(player)
             .unwrap()

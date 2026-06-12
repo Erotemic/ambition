@@ -156,10 +156,9 @@ pub fn update_sentries(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::brain::ActionSet;
+    use crate::abilities::test_support::spawn_primary_player_holding;
     use crate::enemy_projectile::test_support::enemy_projectile_bodies;
     use crate::enemy_projectile::EnemyProjectileState;
-    use crate::player::PlayerBaseSize;
     use crate::projectile::ProjectileSeqCounter;
 
     fn test_app() -> App {
@@ -187,30 +186,10 @@ mod tests {
         app
     }
 
-    fn spawn_player_holding_sentry(app: &mut App) {
-        let spec = crate::brain::held_item_by_id(SENTRY_ID).unwrap();
-        app.world_mut().spawn((
-            PlayerEntity,
-            PrimaryPlayer,
-            BodyKinematics {
-                pos: ae::Vec2::new(100.0, 100.0),
-                vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(24.0, 40.0),
-                facing: 1.0,
-            },
-            PlayerBaseSize {
-                base_size: ae::Vec2::new(24.0, 40.0),
-            },
-            ActionSet::default(),
-            HeldItem::new(spec),
-            PlayerMana::default(),
-        ));
-    }
-
     #[test]
     fn deployed_sentry_fires_a_player_bolt_at_a_nearby_enemy() {
         let mut app = test_app();
-        spawn_player_holding_sentry(&mut app);
+        spawn_primary_player_holding(&mut app, SENTRY_ID);
         // An enemy within range of where the sentry will deploy (100,100).
         app.world_mut().spawn((
             FeatureSimEntity,
@@ -244,7 +223,7 @@ mod tests {
     #[test]
     fn sentry_with_no_enemy_in_range_does_not_fire_and_expires() {
         let mut app = test_app();
-        spawn_player_holding_sentry(&mut app);
+        spawn_primary_player_holding(&mut app, SENTRY_ID);
         // Enemy far outside SENTRY_RANGE.
         app.world_mut().spawn((
             FeatureSimEntity,

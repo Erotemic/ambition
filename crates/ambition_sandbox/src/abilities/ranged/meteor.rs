@@ -127,10 +127,9 @@ pub fn fire_meteor_system(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::brain::ActionSet;
+    use crate::abilities::test_support::spawn_primary_player_holding;
     use crate::enemy_projectile::test_support::enemy_projectile_bodies;
     use crate::enemy_projectile::EnemyProjectileState;
-    use crate::player::PlayerBaseSize;
     use crate::projectile::ProjectileSeqCounter;
 
     fn test_app() -> App {
@@ -152,32 +151,10 @@ mod tests {
         app
     }
 
-    fn spawn_player_holding_meteor(app: &mut App) -> Entity {
-        let spec = crate::brain::held_item_by_id(METEOR_ID).unwrap();
-        app.world_mut()
-            .spawn((
-                PlayerEntity,
-                PrimaryPlayer,
-                BodyKinematics {
-                    pos: ae::Vec2::new(100.0, 100.0),
-                    vel: ae::Vec2::ZERO,
-                    size: ae::Vec2::new(24.0, 40.0),
-                    facing: 1.0,
-                },
-                PlayerBaseSize {
-                    base_size: ae::Vec2::new(24.0, 40.0),
-                },
-                ActionSet::default(),
-                HeldItem::new(spec),
-                PlayerMana::default(),
-            ))
-            .id()
-    }
-
     #[test]
     fn attack_rains_player_faction_meteors() {
         let mut app = test_app();
-        spawn_player_holding_meteor(&mut app);
+        spawn_primary_player_holding(&mut app, METEOR_ID);
         app.world_mut()
             .resource_mut::<ControlFrame>()
             .attack_pressed = true;
@@ -199,7 +176,7 @@ mod tests {
     #[test]
     fn no_meteor_without_attack_or_item() {
         let mut app = test_app();
-        spawn_player_holding_meteor(&mut app);
+        spawn_primary_player_holding(&mut app, METEOR_ID);
         app.update(); // no attack pressed
         assert!(enemy_projectile_bodies(&mut app).is_empty());
     }
@@ -207,7 +184,7 @@ mod tests {
     #[test]
     fn meteor_costs_mana_and_is_blocked_when_empty() {
         let mut app = test_app();
-        let player = spawn_player_holding_meteor(&mut app);
+        let player = spawn_primary_player_holding(&mut app, METEOR_ID);
         app.world_mut()
             .get_mut::<PlayerMana>(player)
             .unwrap()

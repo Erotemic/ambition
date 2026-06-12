@@ -16,39 +16,14 @@
 //! tested in `ambition_portal::lifecycle` and the host bridge, since a gun pair is
 //! auto-despawned here when the player holds no portal gun).
 
-use ambition_app::rl_sim::TimestepMode;
-use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions};
+mod common;
+use common::{base, fixed_60hz_room_sim};
+
+use ambition_app::{AgentAction, SandboxSim};
 use ambition_sandbox::features::{ResetRoomFeaturesEvent, RoomResetReason};
 use ambition_sandbox::portal::{PlacedPortal, PortalChannel, PortalChannelColor};
 
 const PURPLE: PortalChannel = PortalChannel::Authored(PortalChannelColor::Purple);
-
-fn base() -> AgentAction {
-    AgentAction {
-        move_x: 0.0,
-        move_y: 0.0,
-        up_pressed: false,
-        down_pressed: false,
-        jump: false,
-        jump_held: false,
-        jump_released: false,
-        dash: false,
-        attack: false,
-        blink: false,
-        blink_held: false,
-        blink_released: false,
-        pogo: false,
-        interact: false,
-        projectile: false,
-        projectile_held: false,
-        projectile_released: false,
-        fly_toggle: false,
-        reset: false,
-        start: false,
-        aim_x: 0.0,
-        aim_y: 0.0,
-    }
-}
 
 fn authored_count(sim: &mut SandboxSim) -> usize {
     let mut q = sim.world_mut().query::<&PlacedPortal>();
@@ -58,10 +33,7 @@ fn authored_count(sim: &mut SandboxSim) -> usize {
 
 #[test]
 fn authored_portals_survive_both_death_and_manual_resets() {
-    let opts = SandboxSimOptions::default()
-        .with_timestep(TimestepMode::fixed_60hz())
-        .with_start_room("portal_lab");
-    let mut sim = SandboxSim::new_with_options(opts).expect("SandboxSim::new in portal_lab");
+    let mut sim = fixed_60hz_room_sim("portal_lab");
     sim.step(base());
 
     let baseline = authored_count(&mut sim);

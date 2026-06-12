@@ -2,8 +2,8 @@
 //! exercise the flagship in a real LDtk-authored room (the engine has unit tests
 //! for the *mechanic*; these prove the *content* wires up to it):
 //!
-//! - `wall_run` — walk right into a rightward field and get carried onto the right
-//!   wall (the flagship as a SHOWCASE).
+//! - `wall_run` — walk right into a rightward field and get carried onto the
+//!   right wall (the flagship as a SHOWCASE).
 //! - `ceiling_cross` — walk into an upward field off a ledge, fall onto the
 //!   ceiling, and cross a hazard floor that's otherwise lethal (the flagship as a
 //!   TRAVERSAL TOOL).
@@ -11,48 +11,12 @@
 //! Both drive only "hold right" and assert on the public `SandboxSim` observation,
 //! so they're fast (sub-second) and don't depend on rendering.
 
-use ambition_app::rl_sim::TimestepMode;
-use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions};
-
-/// "Hold right" — the only input these tests need. Built fresh each tick so we
-/// don't rely on `AgentAction` being `Copy`/`Clone`.
-fn hold_right() -> AgentAction {
-    AgentAction {
-        move_x: 1.0,
-        move_y: 0.0,
-        up_pressed: false,
-        down_pressed: false,
-        jump: false,
-        jump_held: false,
-        jump_released: false,
-        dash: false,
-        attack: false,
-        blink: false,
-        blink_held: false,
-        blink_released: false,
-        pogo: false,
-        interact: false,
-        projectile: false,
-        projectile_held: false,
-        projectile_released: false,
-        fly_toggle: false,
-        reset: false,
-        start: false,
-        aim_x: 0.0,
-        aim_y: 0.0,
-    }
-}
-
-fn sim_in(room: &str) -> SandboxSim {
-    let opts = SandboxSimOptions::default()
-        .with_timestep(TimestepMode::fixed_60hz())
-        .with_start_room(room);
-    SandboxSim::new_with_options(opts).expect("SandboxSim::new")
-}
+mod common;
+use common::{fixed_60hz_room_sim, hold_right};
 
 #[test]
 fn wall_run_field_pulls_the_player_onto_the_right_wall() {
-    let mut sim = sim_in("wall_run");
+    let mut sim = fixed_60hz_room_sim("wall_run");
 
     // Spawns in the left, normal-gravity strip (x≈80), well left of the field
     // (which starts at x=260) and the right wall (x=624).
@@ -85,7 +49,7 @@ fn wall_run_field_pulls_the_player_onto_the_right_wall() {
 
 #[test]
 fn ceiling_cross_inverts_the_player_onto_the_ceiling_to_cross_the_hazard() {
-    let mut sim = sim_in("ceiling_cross");
+    let mut sim = fixed_60hz_room_sim("ceiling_cross");
 
     // Spawns on the left ledge (x≈70), left of the death floor x[300,720].
     let spawn = sim.observation().player_pos;

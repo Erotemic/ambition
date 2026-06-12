@@ -22,6 +22,9 @@
 //! `crate::mechanics`), distinct from `ambition_engine_core::abilities` in
 //! the engine-core crate.
 
+#[cfg(test)]
+pub(crate) mod test_support;
+
 pub mod ranged;
 pub mod thrown;
 pub mod traversal;

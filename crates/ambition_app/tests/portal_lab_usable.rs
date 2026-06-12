@@ -12,42 +12,14 @@
 //! portal transfer can do. Driven through the public SandboxSim API, asserting
 //! only on observed player position.
 
-use ambition_app::rl_sim::TimestepMode;
-use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions};
+mod common;
+use common::{base, fixed_60hz_room_sim};
 
-fn base() -> AgentAction {
-    AgentAction {
-        move_x: 0.0,
-        move_y: 0.0,
-        up_pressed: false,
-        down_pressed: false,
-        jump: false,
-        jump_held: false,
-        jump_released: false,
-        dash: false,
-        attack: false,
-        blink: false,
-        blink_held: false,
-        blink_released: false,
-        pogo: false,
-        interact: false,
-        projectile: false,
-        projectile_held: false,
-        projectile_released: false,
-        fly_toggle: false,
-        reset: false,
-        start: false,
-        aim_x: 0.0,
-        aim_y: 0.0,
-    }
-}
+use ambition_app::AgentAction;
 
 #[test]
 fn portal_lab_authored_portals_are_enterable_without_the_gun() {
-    let opts = SandboxSimOptions::default()
-        .with_timestep(TimestepMode::fixed_60hz())
-        .with_start_room("portal_lab");
-    let mut sim = SandboxSim::new_with_options(opts).expect("SandboxSim::new in portal_lab");
+    let mut sim = fixed_60hz_room_sim("portal_lab");
 
     // Spawns on the left floor (PlayerStart x≈92), left of station A (x≈300).
     let spawn = sim.observation().player_pos;

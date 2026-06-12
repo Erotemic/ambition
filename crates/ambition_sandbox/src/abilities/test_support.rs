@@ -1,0 +1,33 @@
+//! Test-only fixtures for ability modules.
+//!
+//! Ability unit tests mostly need the same minimal primary-player entity: a body,
+//! action set, held item, and mana. Keeping that bundle here lets each ability
+//! test focus on the behavior it is asserting instead of repeating spawn wiring.
+
+use crate::brain::{held_item_by_id, ActionSet};
+use crate::engine_core as ae;
+use crate::features::HeldItem;
+use crate::player::{BodyKinematics, PlayerBaseSize, PlayerEntity, PlayerMana, PrimaryPlayer};
+use bevy::prelude::*;
+
+pub(crate) fn spawn_primary_player_holding(app: &mut App, held_item_id: &str) -> Entity {
+    let spec = held_item_by_id(held_item_id).unwrap();
+    app.world_mut()
+        .spawn((
+            PlayerEntity,
+            PrimaryPlayer,
+            BodyKinematics {
+                pos: ae::Vec2::new(100.0, 100.0),
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(24.0, 40.0),
+                facing: 1.0,
+            },
+            PlayerBaseSize {
+                base_size: ae::Vec2::new(24.0, 40.0),
+            },
+            ActionSet::default(),
+            HeldItem::new(spec),
+            PlayerMana::default(),
+        ))
+        .id()
+}

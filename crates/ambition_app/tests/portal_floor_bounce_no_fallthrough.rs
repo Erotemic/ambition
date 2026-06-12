@@ -22,35 +22,11 @@
 //! Driven through the public SandboxSim API, asserting only on observed player
 //! position / velocity / on-ground / reset counter.
 
+mod common;
+use common::base;
+
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions};
-
-fn base() -> AgentAction {
-    AgentAction {
-        move_x: 0.0,
-        move_y: 0.0,
-        up_pressed: false,
-        down_pressed: false,
-        jump: false,
-        jump_held: false,
-        jump_released: false,
-        dash: false,
-        attack: false,
-        blink: false,
-        blink_held: false,
-        blink_released: false,
-        pogo: false,
-        interact: false,
-        projectile: false,
-        projectile_held: false,
-        projectile_released: false,
-        fly_toggle: false,
-        reset: false,
-        start: false,
-        aim_x: 0.0,
-        aim_y: 0.0,
-    }
-}
 
 struct BounceStats {
     died_at: Option<usize>,

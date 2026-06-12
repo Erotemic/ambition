@@ -99,10 +99,9 @@ pub fn fire_volley_system(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::brain::ActionSet;
+    use crate::abilities::test_support::spawn_primary_player_holding;
     use crate::enemy_projectile::test_support::enemy_projectile_bodies;
     use crate::enemy_projectile::EnemyProjectileState;
-    use crate::player::PlayerBaseSize;
     use crate::projectile::ProjectileSeqCounter;
 
     fn test_app() -> App {
@@ -125,30 +124,10 @@ mod tests {
         app
     }
 
-    fn spawn_player_holding_volley(app: &mut App) {
-        let spec = crate::brain::held_item_by_id(VOLLEY_ID).unwrap();
-        app.world_mut().spawn((
-            PlayerEntity,
-            PrimaryPlayer,
-            BodyKinematics {
-                pos: ae::Vec2::new(100.0, 100.0),
-                vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(24.0, 40.0),
-                facing: 1.0,
-            },
-            PlayerBaseSize {
-                base_size: ae::Vec2::new(24.0, 40.0),
-            },
-            ActionSet::default(),
-            HeldItem::new(spec),
-            PlayerMana::default(),
-        ));
-    }
-
     #[test]
     fn attack_with_the_volley_spawns_a_fan_of_player_faction_bolts() {
         let mut app = test_app();
-        spawn_player_holding_volley(&mut app);
+        spawn_primary_player_holding(&mut app, VOLLEY_ID);
         app.world_mut()
             .resource_mut::<ControlFrame>()
             .attack_pressed = true;
@@ -177,7 +156,7 @@ mod tests {
     #[test]
     fn no_volley_without_attack() {
         let mut app = test_app();
-        spawn_player_holding_volley(&mut app);
+        spawn_primary_player_holding(&mut app, VOLLEY_ID);
         app.update();
         assert_eq!(enemy_projectile_bodies(&mut app).len(), 0);
     }

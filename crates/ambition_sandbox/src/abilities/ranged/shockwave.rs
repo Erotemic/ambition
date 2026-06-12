@@ -144,8 +144,7 @@ pub fn spawn_shockwave_from_special_messages(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::brain::ActionSet;
-    use crate::player::PlayerBaseSize;
+    use crate::abilities::test_support::spawn_primary_player_holding;
 
     fn test_app() -> App {
         let mut app = App::new();
@@ -159,28 +158,6 @@ mod tests {
         app
     }
 
-    fn spawn_player_holding_shockwave(app: &mut App) -> Entity {
-        let spec = crate::brain::held_item_by_id(SHOCKWAVE_ID).unwrap();
-        app.world_mut()
-            .spawn((
-                PlayerEntity,
-                PrimaryPlayer,
-                BodyKinematics {
-                    pos: ae::Vec2::new(100.0, 100.0),
-                    vel: ae::Vec2::ZERO,
-                    size: ae::Vec2::new(24.0, 40.0),
-                    facing: 1.0,
-                },
-                PlayerBaseSize {
-                    base_size: ae::Vec2::new(24.0, 40.0),
-                },
-                ActionSet::default(),
-                HeldItem::new(spec),
-                PlayerMana::default(),
-            ))
-            .id()
-    }
-
     fn shockwave_count(app: &mut App) -> usize {
         app.world_mut()
             .query_filtered::<&Hitbox, ()>()
@@ -191,7 +168,7 @@ mod tests {
     #[test]
     fn player_attack_with_shockwave_spawns_a_player_faction_aoe() {
         let mut app = test_app();
-        let player = spawn_player_holding_shockwave(&mut app);
+        let player = spawn_primary_player_holding(&mut app, SHOCKWAVE_ID);
         app.world_mut()
             .resource_mut::<ControlFrame>()
             .attack_pressed = true;
@@ -217,7 +194,7 @@ mod tests {
     fn no_shockwave_without_attack_or_without_the_item() {
         // Holding the item but not attacking → no AOE.
         let mut app = test_app();
-        spawn_player_holding_shockwave(&mut app);
+        spawn_primary_player_holding(&mut app, SHOCKWAVE_ID);
         app.update();
         assert_eq!(shockwave_count(&mut app), 0);
     }
@@ -225,7 +202,7 @@ mod tests {
     #[test]
     fn shockwave_costs_mana_and_is_blocked_when_empty() {
         let mut app = test_app();
-        let player = spawn_player_holding_shockwave(&mut app);
+        let player = spawn_primary_player_holding(&mut app, SHOCKWAVE_ID);
         // Mana below the cost → the slam is blocked.
         app.world_mut()
             .get_mut::<PlayerMana>(player)

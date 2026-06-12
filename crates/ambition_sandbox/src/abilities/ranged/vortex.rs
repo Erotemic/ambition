@@ -121,8 +121,7 @@ pub fn update_vortex_wells(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::brain::ActionSet;
-    use crate::player::PlayerBaseSize;
+    use crate::abilities::test_support::spawn_primary_player_holding;
 
     fn test_app() -> App {
         let mut app = App::new();
@@ -134,26 +133,6 @@ mod tests {
         });
         app.add_systems(Update, (fire_vortex_system, update_vortex_wells).chain());
         app
-    }
-
-    fn spawn_player_holding_vortex(app: &mut App) {
-        let spec = crate::brain::held_item_by_id(VORTEX_ID).unwrap();
-        app.world_mut().spawn((
-            PlayerEntity,
-            PrimaryPlayer,
-            BodyKinematics {
-                pos: ae::Vec2::new(100.0, 100.0),
-                vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(24.0, 40.0),
-                facing: 1.0,
-            },
-            PlayerBaseSize {
-                base_size: ae::Vec2::new(24.0, 40.0),
-            },
-            ActionSet::default(),
-            HeldItem::new(spec),
-            PlayerMana::default(),
-        ));
     }
 
     fn spawn_enemy(app: &mut App, pos: ae::Vec2) -> Entity {
@@ -174,7 +153,7 @@ mod tests {
     #[test]
     fn attack_with_vortex_spawns_a_well_and_pulls_a_nearby_enemy_inward() {
         let mut app = test_app();
-        spawn_player_holding_vortex(&mut app);
+        spawn_primary_player_holding(&mut app, VORTEX_ID);
         // Player at (100,100), facing +x → well at (300,100). Enemy just inside
         // the radius, off to the side, should be dragged toward the center.
         let enemy = spawn_enemy(&mut app, ae::Vec2::new(420.0, 100.0));
@@ -202,7 +181,7 @@ mod tests {
     #[test]
     fn vortex_ignores_a_far_enemy_and_expires() {
         let mut app = test_app();
-        spawn_player_holding_vortex(&mut app);
+        spawn_primary_player_holding(&mut app, VORTEX_ID);
         // Far away (well at 300,100; enemy at 900 — outside the 220 radius).
         let far = spawn_enemy(&mut app, ae::Vec2::new(900.0, 100.0));
         app.world_mut()

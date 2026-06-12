@@ -8,36 +8,10 @@
 //! Sequence: walk onto the ability (Attack to grab) → for each gap, walk to its
 //! near edge and Attack with aim right (a blink carries the player 150px across).
 
-use ambition_app::rl_sim::TimestepMode;
-use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions};
+mod common;
+use common::{base, fixed_60hz_room_sim};
 
-/// A fully-neutral action; build real ones with struct update.
-fn base() -> AgentAction {
-    AgentAction {
-        move_x: 0.0,
-        move_y: 0.0,
-        up_pressed: false,
-        down_pressed: false,
-        jump: false,
-        jump_held: false,
-        jump_released: false,
-        dash: false,
-        attack: false,
-        blink: false,
-        blink_held: false,
-        blink_released: false,
-        pogo: false,
-        interact: false,
-        projectile: false,
-        projectile_held: false,
-        projectile_released: false,
-        fly_toggle: false,
-        reset: false,
-        start: false,
-        aim_x: 0.0,
-        aim_y: 0.0,
-    }
-}
+use ambition_app::{AgentAction, SandboxSim};
 
 /// Walk right until at least `edge`, then fire a blink aimed right and let it land
 /// (the idle tail also covers the blink cooldown before the next gap).
@@ -67,12 +41,7 @@ fn walk_to_then_blink(sim: &mut SandboxSim, edge: f32) {
 
 #[test]
 fn blink_run_blinks_across_the_death_gaps() {
-    let mut sim = SandboxSim::new_with_options(
-        SandboxSimOptions::default()
-            .with_timestep(TimestepMode::fixed_60hz())
-            .with_start_room("blink_run"),
-    )
-    .expect("SandboxSim::new");
+    let mut sim = fixed_60hz_room_sim("blink_run");
     assert!(
         sim.observation().player_pos.0 < 110.0,
         "spawns at the start of the corridor, got x={}",

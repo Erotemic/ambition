@@ -17,48 +17,20 @@
 //! PASSES, the live device->ControlFrame populate path is the only remaining
 //! suspect (not exercised by this seam).
 
-use ambition_app::rl_sim::TimestepMode;
-use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions};
+mod common;
+use common::base;
 
-/// A fully-neutral action; build real ones with struct update:
-/// `AgentAction { move_x: -1.0, ..base() }`.
-fn base() -> AgentAction {
-    AgentAction {
-        move_x: 0.0,
-        move_y: 0.0,
-        up_pressed: false,
-        down_pressed: false,
-        jump: false,
-        jump_held: false,
-        jump_released: false,
-        dash: false,
-        attack: false,
-        blink: false,
-        blink_held: false,
-        blink_released: false,
-        pogo: false,
-        interact: false,
-        projectile: false,
-        projectile_held: false,
-        projectile_released: false,
-        fly_toggle: false,
-        reset: false,
-        start: false,
-        aim_x: 0.0,
-        aim_y: 0.0,
-    }
-}
+use ambition_app::AgentAction;
 
 /// Minimum horizontal distance (px) we require over ~50 ticks of full-axis
 /// walk. Walk speed is hundreds of px/s, so over ~0.83s at 60Hz this is a very
 /// loose floor that still rules out "axis is dead" (~0 movement).
 const MIN_TRAVEL_PX: f32 = 20.0;
 
-fn fresh_sim() -> SandboxSim {
+fn fresh_sim() -> ambition_app::SandboxSim {
     // Default room spawns the player on flat floor; fixed 60Hz keeps the
     // trajectory deterministic.
-    let opts = SandboxSimOptions::default().with_timestep(TimestepMode::fixed_60hz());
-    SandboxSim::new_with_options(opts).expect("SandboxSim::new")
+    common::fixed_60hz_sim()
 }
 
 #[test]

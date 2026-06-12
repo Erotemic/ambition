@@ -18,8 +18,9 @@
 //! solid-raycast would detonate it on the floor before it could transit). Step
 //! the real app and assert the bolt jumps to the partner (yellow) portal.
 
-use ambition_app::rl_sim::TimestepMode;
-use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions};
+mod common;
+use common::{base, fixed_60hz_room_sim};
+
 use ambition_platformer_runtime::projectile::{
     ProjectileFaction, ProjectileGameplay, ProjectileKind,
 };
@@ -33,39 +34,9 @@ use bevy::prelude::*;
 const PURPLE: PortalChannel = PortalChannel::Authored(PortalChannelColor::Purple);
 const YELLOW: PortalChannel = PortalChannel::Authored(PortalChannelColor::Yellow);
 
-fn base() -> AgentAction {
-    AgentAction {
-        move_x: 0.0,
-        move_y: 0.0,
-        up_pressed: false,
-        down_pressed: false,
-        jump: false,
-        jump_held: false,
-        jump_released: false,
-        dash: false,
-        attack: false,
-        blink: false,
-        blink_held: false,
-        blink_released: false,
-        pogo: false,
-        interact: false,
-        projectile: false,
-        projectile_held: false,
-        projectile_released: false,
-        fly_toggle: false,
-        reset: false,
-        start: false,
-        aim_x: 0.0,
-        aim_y: 0.0,
-    }
-}
-
 #[test]
 fn a_held_bolt_transits_an_authored_portal_in_the_real_app() {
-    let opts = SandboxSimOptions::default()
-        .with_timestep(TimestepMode::fixed_60hz())
-        .with_start_room("portal_lab");
-    let mut sim = SandboxSim::new_with_options(opts).expect("SandboxSim::new in portal_lab");
+    let mut sim = fixed_60hz_room_sim("portal_lab");
     sim.step(base());
 
     // Read the authored floor pair.

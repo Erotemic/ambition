@@ -2342,6 +2342,51 @@ mod lunex_kaleidoscope_app_tests {
     use bevy::picking::events::{Move, Pointer, Press, Release};
     use bevy::picking::pointer::{Location, PointerId};
 
+    fn base_kaleidoscope_test_app() -> App {
+        let mut app = App::new();
+        app.add_plugins(bevy::state::app::StatesPlugin);
+        app.init_state::<GameMode>();
+        app.init_resource::<InventoryUiBackend>();
+        app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
+        app.init_resource::<KaleidoscopeCursor>();
+        app.init_resource::<ambition_sandbox::input::ActiveInputKind>();
+        app.init_resource::<KaleidoscopeSystemNav>();
+        app.init_resource::<KaleidoscopeScroll>();
+        app.init_resource::<KaleidoscopePointerPress>();
+        app.init_resource::<OwnedItems>();
+        app.init_resource::<ambition_sandbox::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<ambition_sandbox::SandboxDevState>();
+        app.init_resource::<ambition_sandbox::ldtk_world::LdtkHotReloadState>();
+        app.init_resource::<ambition_sandbox::runtime::reset::SandboxResetRequested>();
+        app.init_resource::<ambition_sandbox::dev::dev_tools::EditableMovementTuning>();
+        app.init_resource::<UserSettings>();
+        app.init_resource::<ambition_sandbox::inventory::InventoryUiState>();
+        app.init_resource::<ambition_sandbox::menu::map::MapMenuState>();
+        app.init_resource::<MenuControlFrame>();
+        app.add_message::<PlayerHealRequested>();
+        app.add_message::<SfxMessage>();
+        *app.world_mut().resource_mut::<InventoryUiBackend>() =
+            InventoryUiBackend::LunexKaleidoscope;
+        app
+    }
+
+    fn set_kaleidoscope_visible(app: &mut App, visible: bool) {
+        app.world_mut()
+            .resource_mut::<ambition_sandbox::inventory::InventoryUiState>()
+            .visible = visible;
+    }
+
+    fn spawn_kaleidoscope_test_player(app: &mut App) -> Entity {
+        app.world_mut()
+            .spawn((
+                PlayerEntity,
+                PrimaryPlayer,
+                ActionSet::default(),
+                PlayerMana::default(),
+            ))
+            .id()
+    }
+
     // ---- Phase C1: the three extra dev toggles span three resources ----------
 
     /// Dispatching the F1/F2/F12 Developer rows flips the right resource:
@@ -2536,85 +2581,24 @@ mod lunex_kaleidoscope_app_tests {
     // ---- Fix 4: System-page pointer clicks -----------------------------------
 
     fn click_app() -> (App, Entity) {
-        let mut app = App::new();
-        app.add_plugins(bevy::state::app::StatesPlugin);
-        app.init_state::<GameMode>();
-        app.init_resource::<InventoryUiBackend>();
-        app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
-        app.init_resource::<KaleidoscopeCursor>();
-        app.init_resource::<ambition_sandbox::input::ActiveInputKind>();
-        app.init_resource::<KaleidoscopeSystemNav>();
-        app.init_resource::<KaleidoscopeScroll>();
-        app.init_resource::<KaleidoscopePointerPress>();
-        app.init_resource::<OwnedItems>();
-        app.init_resource::<ambition_sandbox::dev::dev_tools::DeveloperTools>();
-        app.init_resource::<ambition_sandbox::SandboxDevState>();
-        app.init_resource::<ambition_sandbox::ldtk_world::LdtkHotReloadState>();
-        app.init_resource::<ambition_sandbox::runtime::reset::SandboxResetRequested>();
-        app.init_resource::<ambition_sandbox::dev::dev_tools::EditableMovementTuning>();
-        app.init_resource::<UserSettings>();
-        app.init_resource::<ambition_sandbox::inventory::InventoryUiState>();
-        app.add_message::<PlayerHealRequested>();
-        app.add_message::<SfxMessage>();
+        let mut app = base_kaleidoscope_test_app();
         // Feature E: the tap/drag-cancel guard needs the press + move observers in
         // addition to the release-dispatch observer.
         app.add_observer(kaleidoscope_pointer_press);
         app.add_observer(kaleidoscope_pointer_move);
         app.add_observer(kaleidoscope_pointer_release);
-        *app.world_mut().resource_mut::<InventoryUiBackend>() =
-            InventoryUiBackend::LunexKaleidoscope;
-        app.world_mut()
-            .resource_mut::<ambition_sandbox::inventory::InventoryUiState>()
-            .visible = true;
-        let player = app
-            .world_mut()
-            .spawn((
-                PlayerEntity,
-                PrimaryPlayer,
-                ActionSet::default(),
-                PlayerMana::default(),
-            ))
-            .id();
+        set_kaleidoscope_visible(&mut app, true);
+        let player = spawn_kaleidoscope_test_player(&mut app);
         app.update();
         (app, player)
     }
 
     fn open_app() -> App {
-        let mut app = App::new();
-        app.add_plugins(bevy::state::app::StatesPlugin);
-        app.init_state::<GameMode>();
-        app.init_resource::<InventoryUiBackend>();
-        app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
-        app.init_resource::<KaleidoscopeCursor>();
-        app.init_resource::<ambition_sandbox::input::ActiveInputKind>();
-        app.init_resource::<KaleidoscopeSystemNav>();
-        app.init_resource::<KaleidoscopeScroll>();
-        app.init_resource::<KaleidoscopePointerPress>();
-        app.init_resource::<OwnedItems>();
-        app.init_resource::<ambition_sandbox::dev::dev_tools::DeveloperTools>();
-        app.init_resource::<ambition_sandbox::SandboxDevState>();
-        app.init_resource::<ambition_sandbox::ldtk_world::LdtkHotReloadState>();
-        app.init_resource::<ambition_sandbox::runtime::reset::SandboxResetRequested>();
-        app.init_resource::<ambition_sandbox::dev::dev_tools::EditableMovementTuning>();
-        app.init_resource::<UserSettings>();
-        app.init_resource::<ambition_sandbox::inventory::InventoryUiState>();
-        app.init_resource::<ambition_sandbox::menu::map::MapMenuState>();
-        app.init_resource::<MenuControlFrame>();
-        app.add_message::<PlayerHealRequested>();
-        app.add_message::<SfxMessage>();
+        let mut app = base_kaleidoscope_test_app();
         app.add_systems(Update, kaleidoscope_menu_open_routing);
         app.add_observer(kaleidoscope_pointer_move);
-        *app.world_mut().resource_mut::<InventoryUiBackend>() =
-            InventoryUiBackend::LunexKaleidoscope;
-        app.world_mut()
-            .resource_mut::<ambition_sandbox::inventory::InventoryUiState>()
-            .visible = false;
-        app.world_mut().spawn((
-            PlayerEntity,
-            PrimaryPlayer,
-            ActionSet::default(),
-            PlayerMana::default(),
-        ));
+        set_kaleidoscope_visible(&mut app, false);
+        spawn_kaleidoscope_test_player(&mut app);
         app.update();
         app
     }
@@ -2700,85 +2684,26 @@ mod lunex_kaleidoscope_app_tests {
     // ---- Fix 2: shoulder-bumper page turns -----------------------------------
 
     fn nav_app() -> App {
-        let mut app = App::new();
-        app.add_plugins(bevy::state::app::StatesPlugin);
-        app.init_state::<GameMode>();
-        app.init_resource::<InventoryUiBackend>();
-        app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
-        app.init_resource::<KaleidoscopeCursor>();
-        app.init_resource::<ambition_sandbox::input::ActiveInputKind>();
-        app.init_resource::<KaleidoscopeSystemNav>();
-        app.init_resource::<KaleidoscopeScroll>();
-        app.init_resource::<KaleidoscopePointerPress>();
-        app.init_resource::<OwnedItems>();
-        app.init_resource::<ambition_sandbox::dev::dev_tools::DeveloperTools>();
-        app.init_resource::<ambition_sandbox::SandboxDevState>();
-        app.init_resource::<ambition_sandbox::ldtk_world::LdtkHotReloadState>();
-        app.init_resource::<ambition_sandbox::runtime::reset::SandboxResetRequested>();
-        app.init_resource::<ambition_sandbox::dev::dev_tools::EditableMovementTuning>();
-        app.init_resource::<UserSettings>();
-        app.init_resource::<ambition_sandbox::inventory::InventoryUiState>();
-        app.init_resource::<MenuControlFrame>();
-        app.add_message::<PlayerHealRequested>();
-        app.add_message::<SfxMessage>();
+        let mut app = base_kaleidoscope_test_app();
         app.add_systems(Update, kaleidoscope_focus_nav);
-        *app.world_mut().resource_mut::<InventoryUiBackend>() =
-            InventoryUiBackend::LunexKaleidoscope;
-        app.world_mut()
-            .resource_mut::<ambition_sandbox::inventory::InventoryUiState>()
-            .visible = true;
+        set_kaleidoscope_visible(&mut app, true);
         app.world_mut()
             .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
             .active = Some(MenuPage::Items);
-        app.world_mut().spawn((
-            PlayerEntity,
-            PrimaryPlayer,
-            ActionSet::default(),
-            PlayerMana::default(),
-        ));
+        spawn_kaleidoscope_test_player(&mut app);
         app.update();
         app
     }
 
     fn system_nav_app(focus: MenuFocus) -> App {
-        let mut app = App::new();
-        app.add_plugins(bevy::state::app::StatesPlugin);
-        app.init_state::<GameMode>();
-        app.init_resource::<InventoryUiBackend>();
-        app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
-        app.init_resource::<KaleidoscopeCursor>();
-        app.init_resource::<ambition_sandbox::input::ActiveInputKind>();
-        app.init_resource::<KaleidoscopeSystemNav>();
-        app.init_resource::<KaleidoscopeScroll>();
-        app.init_resource::<KaleidoscopePointerPress>();
-        app.init_resource::<OwnedItems>();
-        app.init_resource::<ambition_sandbox::dev::dev_tools::DeveloperTools>();
-        app.init_resource::<ambition_sandbox::SandboxDevState>();
-        app.init_resource::<ambition_sandbox::ldtk_world::LdtkHotReloadState>();
-        app.init_resource::<ambition_sandbox::runtime::reset::SandboxResetRequested>();
-        app.init_resource::<ambition_sandbox::dev::dev_tools::EditableMovementTuning>();
-        app.init_resource::<UserSettings>();
-        app.init_resource::<ambition_sandbox::inventory::InventoryUiState>();
-        app.init_resource::<ambition_sandbox::menu::map::MapMenuState>();
-        app.init_resource::<MenuControlFrame>();
-        app.add_message::<PlayerHealRequested>();
-        app.add_message::<SfxMessage>();
+        let mut app = base_kaleidoscope_test_app();
         app.add_systems(Update, kaleidoscope_focus_nav);
-        *app.world_mut().resource_mut::<InventoryUiBackend>() =
-            InventoryUiBackend::LunexKaleidoscope;
-        app.world_mut()
-            .resource_mut::<ambition_sandbox::inventory::InventoryUiState>()
-            .visible = true;
+        set_kaleidoscope_visible(&mut app, true);
         app.world_mut()
             .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
             .active = Some(MenuPage::System);
         app.world_mut().resource_mut::<KaleidoscopeCursor>().focus = focus;
-        app.world_mut().spawn((
-            PlayerEntity,
-            PrimaryPlayer,
-            ActionSet::default(),
-            PlayerMana::default(),
-        ));
+        spawn_kaleidoscope_test_player(&mut app);
         app.update();
         app
     }
@@ -3335,26 +3260,7 @@ mod lunex_kaleidoscope_app_tests {
     /// the `fake_rebuild` (mirroring the lib) + the real pointer observers, on the
     /// given active page. Drives the genuine despawn-on-republish path.
     fn bug2_app(active: MenuPage) -> App {
-        let mut app = App::new();
-        app.add_plugins(bevy::state::app::StatesPlugin);
-        app.init_state::<GameMode>();
-        app.init_resource::<InventoryUiBackend>();
-        app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
-        app.init_resource::<KaleidoscopeCursor>();
-        app.init_resource::<ambition_sandbox::input::ActiveInputKind>();
-        app.init_resource::<KaleidoscopeSystemNav>();
-        app.init_resource::<KaleidoscopeScroll>();
-        app.init_resource::<KaleidoscopePointerPress>();
-        app.init_resource::<OwnedItems>();
-        app.init_resource::<ambition_sandbox::dev::dev_tools::DeveloperTools>();
-        app.init_resource::<ambition_sandbox::SandboxDevState>();
-        app.init_resource::<ambition_sandbox::ldtk_world::LdtkHotReloadState>();
-        app.init_resource::<ambition_sandbox::runtime::reset::SandboxResetRequested>();
-        app.init_resource::<ambition_sandbox::dev::dev_tools::EditableMovementTuning>();
-        app.init_resource::<UserSettings>();
-        app.init_resource::<ambition_sandbox::inventory::InventoryUiState>();
-        app.add_message::<PlayerHealRequested>();
-        app.add_message::<SfxMessage>();
+        let mut app = base_kaleidoscope_test_app();
         app.add_systems(
             Update,
             (
@@ -3368,20 +3274,11 @@ mod lunex_kaleidoscope_app_tests {
         app.add_observer(kaleidoscope_pointer_press);
         app.add_observer(kaleidoscope_pointer_move);
         app.add_observer(kaleidoscope_pointer_release);
-        *app.world_mut().resource_mut::<InventoryUiBackend>() =
-            InventoryUiBackend::LunexKaleidoscope;
-        app.world_mut()
-            .resource_mut::<ambition_sandbox::inventory::InventoryUiState>()
-            .visible = true;
+        set_kaleidoscope_visible(&mut app, true);
         app.world_mut()
             .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
             .active = Some(active);
-        app.world_mut().spawn((
-            PlayerEntity,
-            PrimaryPlayer,
-            ActionSet::default(),
-            PlayerMana::default(),
-        ));
+        spawn_kaleidoscope_test_player(&mut app);
         // First update: republish builds the page data, fake_rebuild spawns controls.
         app.update();
         app
@@ -3538,28 +3435,7 @@ mod lunex_kaleidoscope_app_tests {
     /// chain: keyboard nav, the mouse-wheel scroller, the scrollbar-drag applier,
     /// and the page republish. No audio resources needed (dev toggles overflow).
     fn scroll_app() -> App {
-        let mut app = App::new();
-        app.add_plugins(bevy::state::app::StatesPlugin);
-        app.init_state::<GameMode>();
-        app.init_resource::<InventoryUiBackend>();
-        app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
-        app.init_resource::<KaleidoscopeCursor>();
-        app.init_resource::<ambition_sandbox::input::ActiveInputKind>();
-        app.init_resource::<KaleidoscopeSystemNav>();
-        app.init_resource::<KaleidoscopeScroll>();
-        app.init_resource::<KaleidoscopePointerPress>();
-        app.init_resource::<OwnedItems>();
-        app.init_resource::<ambition_sandbox::dev::dev_tools::DeveloperTools>();
-        app.init_resource::<ambition_sandbox::SandboxDevState>();
-        app.init_resource::<ambition_sandbox::ldtk_world::LdtkHotReloadState>();
-        app.init_resource::<ambition_sandbox::runtime::reset::SandboxResetRequested>();
-        app.init_resource::<ambition_sandbox::dev::dev_tools::EditableMovementTuning>();
-        app.init_resource::<UserSettings>();
-        app.init_resource::<ambition_sandbox::inventory::InventoryUiState>();
-        app.init_resource::<ambition_sandbox::menu::map::MapMenuState>();
-        app.init_resource::<MenuControlFrame>();
-        app.add_message::<PlayerHealRequested>();
-        app.add_message::<SfxMessage>();
+        let mut app = base_kaleidoscope_test_app();
         app.add_message::<bevy::input::mouse::MouseWheel>();
         app.add_message::<ambition_menu::kaleidoscope::MenuScrollDragged>();
         app.add_systems(
@@ -3572,11 +3448,7 @@ mod lunex_kaleidoscope_app_tests {
             )
                 .chain(),
         );
-        *app.world_mut().resource_mut::<InventoryUiBackend>() =
-            InventoryUiBackend::LunexKaleidoscope;
-        app.world_mut()
-            .resource_mut::<ambition_sandbox::inventory::InventoryUiState>()
-            .visible = true;
+        set_kaleidoscope_visible(&mut app, true);
         app.world_mut()
             .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
             .active = Some(MenuPage::System);
@@ -3584,12 +3456,7 @@ mod lunex_kaleidoscope_app_tests {
             .resource_mut::<KaleidoscopeSystemNav>()
             .open_entry = Some(SystemMenuEntryId::Developer);
         app.world_mut().resource_mut::<KaleidoscopeCursor>().focus = MenuFocus::System(0);
-        app.world_mut().spawn((
-            PlayerEntity,
-            PrimaryPlayer,
-            ActionSet::default(),
-            PlayerMana::default(),
-        ));
+        spawn_kaleidoscope_test_player(&mut app);
         app.update();
         app
     }

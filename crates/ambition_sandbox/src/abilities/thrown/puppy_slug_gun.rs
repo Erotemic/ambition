@@ -93,9 +93,8 @@ pub fn fire_puppy_slug_gun_system(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::brain::ActionSet;
+    use crate::abilities::test_support::spawn_primary_player_holding;
     use crate::mechanics::combat::ActorFaction as Faction;
-    use crate::player::PlayerBaseSize;
 
     fn test_app() -> App {
         let mut app = App::new();
@@ -103,25 +102,6 @@ mod tests {
         app.insert_resource(ControlFrame::default());
         app.add_systems(Update, fire_puppy_slug_gun_system);
         app
-    }
-
-    fn spawn_player_holding_gun(app: &mut App) {
-        let spec = crate::brain::held_item_by_id(PUPPY_SLUG_GUN_ID).unwrap();
-        app.world_mut().spawn((
-            PlayerEntity,
-            PrimaryPlayer,
-            BodyKinematics {
-                pos: ae::Vec2::new(100.0, 100.0),
-                vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(24.0, 40.0),
-                facing: 1.0,
-            },
-            PlayerBaseSize {
-                base_size: ae::Vec2::new(24.0, 40.0),
-            },
-            ActionSet::default(),
-            HeldItem::new(spec),
-        ));
     }
 
     fn ally_count(app: &mut App) -> usize {
@@ -134,7 +114,7 @@ mod tests {
     #[test]
     fn attack_with_the_gun_summons_a_player_allied_slug() {
         let mut app = test_app();
-        spawn_player_holding_gun(&mut app);
+        spawn_primary_player_holding(&mut app, PUPPY_SLUG_GUN_ID);
         app.world_mut()
             .resource_mut::<ControlFrame>()
             .attack_pressed = true;
@@ -158,7 +138,7 @@ mod tests {
     #[test]
     fn summon_is_capped() {
         let mut app = test_app();
-        spawn_player_holding_gun(&mut app);
+        spawn_primary_player_holding(&mut app, PUPPY_SLUG_GUN_ID);
         // Press attack many times (re-arming the edge each frame).
         for _ in 0..6 {
             app.world_mut()
@@ -177,7 +157,7 @@ mod tests {
     fn no_summon_without_the_gun_or_without_attack() {
         // Holding the gun but not attacking → no summon.
         let mut app = test_app();
-        spawn_player_holding_gun(&mut app);
+        spawn_primary_player_holding(&mut app, PUPPY_SLUG_GUN_ID);
         app.update();
         assert_eq!(ally_count(&mut app), 0);
     }

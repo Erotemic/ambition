@@ -1,5 +1,8 @@
 # Documentation Branch Plan
 
+> Historical execution note: this file records the completed plugin-refactor run. It is not current planning guidance; use `docs/planning/plugin_refactor/README.md`, `22_monolith_breaker_survey.md`, and `runtime_extraction_backlog.md` for active follow-up.
+
+
 The docs branch should update the project's architecture story before the code branch makes large changes.
 
 ## Branch
@@ -13,11 +16,11 @@ git switch -c docs/pluginized-platformer-runtime-roadmap
 Run and check in inventory snapshots:
 
 ```bash
-python tools/ecs_inventory.py \
+python scripts/ecs_inventory.py \
   --json docs/generated/ambition_ecs_inventory.baseline.json \
   --markdown docs/generated/ambition_ecs_inventory.baseline.md
 
-python tools/ecs_inventory.py --include-tests \
+python scripts/ecs_inventory.py --include-tests \
   --json docs/generated/ambition_ecs_inventory.with_tests.baseline.json \
   --markdown docs/generated/ambition_ecs_inventory.with_tests.baseline.md
 ```

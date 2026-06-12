@@ -1,5 +1,8 @@
 # Architecture Guardrails
 
+> Historical execution note: this file records the completed plugin-refactor run. It is not current planning guidance; use `docs/planning/plugin_refactor/README.md`, `22_monolith_breaker_survey.md`, and `runtime_extraction_backlog.md` for active follow-up.
+
+
 This refactor needs tests that enforce architectural rules. These tests can be simple grep-style checks at first. The point is to make bad dependency direction visible to humans and agents.
 
 ## Forbidden import tests
@@ -59,7 +62,7 @@ The room-scope leak showed that raw spawn calls can create persistent bugs.
 Guardrails:
 
 ```text
-- content/features/ecs/spawn*.rs should not call commands.spawn directly except through approved helpers.
+- crates/ambition_sandbox/src/features/ecs/spawn*.rs should not call commands.spawn directly except through approved helpers.
 - room-authored entities must have RoomScopedEntity or equivalent lifetime marker.
 - dynamic room-local entities such as portal shots, dropped portal gun pickups, thrown items, and projectiles should declare lifetime explicitly.
 ```
@@ -110,7 +113,7 @@ cargo check -p ambition_sandbox --no-default-features --features "ldtk portal po
 
 ## Generated inventory guardrails
 
-Use `tools/ecs_inventory.py` snapshots to detect broad architectural drift:
+Use `scripts/ecs_inventory.py` snapshots to detect broad architectural drift:
 
 ```text
 registered systems in app/plugins.rs should trend down

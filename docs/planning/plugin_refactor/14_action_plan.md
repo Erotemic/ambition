@@ -1,5 +1,8 @@
 # Plugin refactor action plan — compact historical summary
 
+> Historical execution note: this file records the completed plugin-refactor run. It is not current planning guidance; use `docs/planning/plugin_refactor/README.md`, `22_monolith_breaker_survey.md`, and `runtime_extraction_backlog.md` for active follow-up.
+
+
 **Status:** superseded by the landed Stage 20 crate graph and the remaining-work survey in `22_monolith_breaker_survey.md`.
 
 This file used to contain the full 1,000-line execution checklist for the original plugin-refactor run. The useful outcome is now small enough to keep as a summary.

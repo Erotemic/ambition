@@ -1,5 +1,8 @@
 # Stage 19 portal crate + projectile ECS — compact historical summary
 
+> Historical execution note: this file records the completed plugin-refactor run. It is not current planning guidance; use `docs/planning/plugin_refactor/README.md`, `22_monolith_breaker_survey.md`, and `runtime_extraction_backlog.md` for active follow-up.
+
+
 **Status:** complete. The portal mechanic is now the standalone `ambition_portal` crate, and projectiles are entity-backed.
 
 ## Durable ownership boundary

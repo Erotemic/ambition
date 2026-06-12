@@ -7,7 +7,9 @@ aliases:
   - property tests
 implemented_by:
   - crates/ambition_engine_core/src/movement
-  - crates/ambition_sandbox/tests
+  - crates/ambition_app/tests
+  - crates/ambition_content/src
+  - crates/ambition_sandbox/src
   - .github/workflows
 related_docs:
   - docs/systems/testing-strategy.md

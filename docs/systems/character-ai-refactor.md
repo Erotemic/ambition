@@ -2,7 +2,7 @@
 
 **Review date:** 2026-05-30. Reviewed against source archive `ambition-source-2026-05-30T104014-5-e721ea65c578`.
 
-This is the companion doc referenced from `crates/ambition_sandbox/src/character_ai.rs`. It captures the current state of the shared character-AI vocabulary and the path forward for making actor policy, movement, and effects reusable across NPCs, enemies, bosses, and future player-controlled bodies.
+This is the companion doc for `crates/ambition_actor/src/actor/ai.rs` and the brain modules. It captures the current state of the shared character-AI vocabulary and the path forward for making actor policy, movement, and effects reusable across NPCs, enemies, bosses, and future player-controlled bodies.
 
 ## Current status
 
@@ -36,7 +36,7 @@ This lets two actors share one brain template but look different because their `
 
 ## Engine AI vocabulary
 
-`crates/ambition_sandbox/src/character_ai.rs` remains the pure-data evaluator vocabulary:
+`crates/ambition_actor/src/actor/ai.rs` remains the pure-data evaluator vocabulary:
 
 - `CharacterAiSnapshot` — read-only view of actor/target state.
 - `CharacterAiMode` — canonical coarse mode (`Idle`, `Patrol`, `Chase`, `Telegraph`, `Attack`, `Recover`, `Stunned`, `Dead`).
@@ -47,7 +47,7 @@ The sandbox brain system is now the higher-level runtime that maps actor snapsho
 
 ## Current brain templates
 
-`crates/ambition_sandbox/src/brain/state_machine.rs` currently exposes a small set of reusable templates rather than one bespoke brain per enemy:
+`crates/ambition_actor/src/brain/state_machine.rs` currently exposes a small set of reusable templates rather than one bespoke brain per enemy:
 
 | Template | Use |
 |---|---|
@@ -67,7 +67,7 @@ Per-entity variety should still come from `ActionSet` and authored profiles, not
 - **Data-table cleanup.** Archetype-specific speeds, aggro ranges, attack ranges, cooldown multipliers, and damage still live in sandbox mappings. Push durable tuning into tables/content where it is stable enough.
 - **Runtime timer ownership.** Enemy melee active windows and several boss pattern states still live in feature runtime components. That is acceptable when the runtime owns integration state, but avoid adding new policy decisions there.
 - **Pogo action ownership.** Decide whether pogo remains an intentionally player-specific attack lifecycle edge or becomes an ActionSet/HitResult concept; do not duplicate target-surface policy.
-- **Hit pipeline.** A canonical `HitSpec` / `HitInstance` / `HitResult` system would make attack effects less branchy than the current `DamageEvent` / `Hitbox` / `PlayerDamageEvent` split.
+- **Hit pipeline.** `HitEvent` is the current transport; future cleanup should add richer `HitResult` semantics instead of reviving the old split damage-event shapes.
 - **Possession/multiplayer.** The brain/action decomposition makes this cheap in principle, but production routing and UI are still future work.
 
 ## Until then

@@ -1,5 +1,8 @@
 # Overnight reusable extraction run — compact historical summary
 
+> Historical execution note: this file records the completed plugin-refactor run. It is not current planning guidance; use `docs/planning/plugin_refactor/README.md`, `22_monolith_breaker_survey.md`, and `runtime_extraction_backlog.md` for active follow-up.
+
+
 **Status:** completed and superseded by later Stage 20 bisection work.
 
 This file used to contain a long task table for extracting reusable pieces from the sandbox. The durable outcome is the pattern, not the task list.

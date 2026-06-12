@@ -1,5 +1,8 @@
 # Stage 17 content / ability boundary run — compact historical summary
 
+> Historical execution note: this file records the completed plugin-refactor run. It is not current planning guidance; use `docs/planning/plugin_refactor/README.md`, `22_monolith_breaker_survey.md`, and `runtime_extraction_backlog.md` for active follow-up.
+
+
 **Status:** done. This was the first content-boundary cleanup inside `ambition_sandbox` before the later `ambition_content` crate promotion.
 
 ## What landed

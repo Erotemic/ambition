@@ -24,11 +24,11 @@ Still-direct paths include:
 
 ## Three places work usually lands
 
-1. **Brain template** (`crates/ambition_sandbox/src/brain/state_machine.rs`) — when an actor needs a new policy or state graph. Add a new `StateMachineCfg` variant only when existing templates cannot express the behavior.
-2. **ActionSet spec** (`crates/ambition_sandbox/src/brain/action_set.rs`) — when an actor needs a new concrete capability: melee, ranged, move style, or special.
+1. **Brain template** (`crates/ambition_actor/src/brain/state_machine.rs`) — when an actor needs a new policy or state graph. Add a new `StateMachineCfg` variant only when existing templates cannot express the behavior.
+2. **ActionSet spec** (`crates/ambition_actor/src/brain/action_set.rs`) — when an actor needs a new concrete capability: melee, ranged, move style, or special.
 3. **Effect consumer** (`crates/ambition_sandbox/src/features/ecs/brain_effects.rs` or another focused module) — when an `ActionRequest` is emitted but not yet translated into hitboxes, projectiles, VFX/SFX, boss hazards, or other world effects.
 
-Per-entity mapping usually lives in `crates/ambition_sandbox/src/features/ecs/spawn.rs` or the relevant boss/profile setup code.
+Per-entity brain construction usually lives in `crates/ambition_sandbox/src/features/ecs/brain_builders.rs` or the relevant boss/profile setup code.
 
 ## Adding a new brain template
 
@@ -69,7 +69,7 @@ Use this when an `ActorActionMessage` is already emitted and the missing part is
 2. Add a Bevy system that reads `MessageReader<ActorActionMessage>`.
 3. Filter by request kind and actor ownership/faction.
 4. Look up the components/resources needed to spawn or start the effect.
-5. Produce the existing effect shape when possible: hostile `Hitbox`, `EnemyProjectileSpawn`, `PlayerDamageEvent`, `DamageEvent`, boss-special state, VFX/SFX messages, etc.
+5. Produce the existing effect shape when possible: `HitEvent`, hostile `Hitbox` lifetime/state, `EnemyProjectileSpawn`, boss-special state, VFX/SFX messages, etc.
 6. Schedule after `emit_brain_action_messages` and before the downstream tick that should observe the effect.
 7. Add a focused integration test in the consumer module.
 

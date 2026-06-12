@@ -1,5 +1,8 @@
 # Build Personas and Feature Gates
 
+> Historical execution note: this file records the completed plugin-refactor run. It is not current planning guidance; use `docs/planning/plugin_refactor/README.md`, `22_monolith_breaker_survey.md`, and `runtime_extraction_backlog.md` for active follow-up.
+
+
 The feature system should support known build personas rather than every arbitrary combination.
 
 ## Build personas

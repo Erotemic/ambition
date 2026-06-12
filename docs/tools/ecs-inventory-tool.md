@@ -1,6 +1,6 @@
 # ECS inventory tool
 
-`tools/ecs_inventory.py` builds a static inventory of the `ambition_sandbox` Bevy ECS surface.
+`scripts/ecs_inventory.py` builds a static inventory of the `ambition_sandbox` Bevy ECS surface.
 It is meant for refactor planning and code-review diffs, not as a replacement for `cargo check`.
 
 ## Usage
@@ -8,7 +8,7 @@ It is meant for refactor planning and code-review diffs, not as a replacement fo
 From the repository root:
 
 ```bash
-python3 tools/ecs_inventory.py
+python3 scripts/ecs_inventory.py
 ```
 
 By default this writes:
@@ -22,15 +22,15 @@ Useful variants:
 
 ```bash
 # Include test modules and test-only spawn/system evidence.
-python3 tools/ecs_inventory.py --include-tests
+python3 scripts/ecs_inventory.py --include-tests
 
 # Write inventory somewhere explicit.
-python3 tools/ecs_inventory.py \
+python3 scripts/ecs_inventory.py \
   --json docs/generated/ambition_ecs_inventory.json \
   --markdown docs/generated/ambition_ecs_inventory.md
 
 # CI / review guard: compare a generated inventory with a checked-in snapshot.
-python3 tools/ecs_inventory.py \
+python3 scripts/ecs_inventory.py \
   --json target/ambition_ecs_inventory.json \
   --markdown target/ambition_ecs_inventory.md \
   --check-json docs/generated/ambition_ecs_inventory.json

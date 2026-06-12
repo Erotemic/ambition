@@ -35,15 +35,9 @@ When adding new Silksong-style polish, prefer a reusable `ActionBuffer` / `Input
 
 ## Combat-hit status
 
-Damage exists, but a canonical per-hit payload does not. Current combat uses several payloads:
+Combat damage now flows through the canonical `HitEvent` transport for player slash, pogo, projectile, hazard, enemy, and boss damage paths. Explicit hostile `Hitbox` entities still model enemy/boss active melee volumes, but their damage output joins the same hit-event pipeline.
 
-- `DamageEvent` for outgoing player slash / projectile hits against feature targets;
-- `PogoBounceEvent` for pogo-refresh breakables;
-- explicit hostile `Hitbox` entities for enemy/boss active melee volumes;
-- `PlayerDamageEvent` for hazards/enemies/bosses damaging the player;
-- boss encounter outcomes for boss HP / invulnerability / kill handling.
-
-The next reusable combat primitive should be `HitSpec` -> `HitInstance` -> `HitResult`, not more ad-hoc damage message variants.
+The next reusable combat work should enrich `HitResult` semantics — stagger/poise, elements/status, hitstop, rejection reasons, and reward hooks — rather than adding more ad-hoc damage message variants.
 
 ## Placement rules
 
@@ -60,5 +54,5 @@ cargo test -p ambition_sandbox --lib combat
 cargo test -p ambition_sandbox --lib projectile
 cargo test -p ambition_sandbox --lib brain::
 cargo test -p ambition_sandbox projectile
-cargo test -p ambition_sandbox scripted_gameplay
+cargo test -p ambition_app --test scripted_gameplay --features "rl_sim portal"
 ```

@@ -28,7 +28,7 @@ focused EFFECTS/Combat consumers
 Key files:
 
 ```text
-crates/ambition_sandbox/src/brain/
+crates/ambition_actor/src/brain/
 ├── mod.rs              # Brain enum, ActorControl, ActorActionMessage, resolver emission
 ├── snapshot.rs         # BrainSnapshot, player input slot, wall/contact view
 ├── state_machine.rs    # reusable AI templates + tick_state_machine
@@ -37,6 +37,8 @@ crates/ambition_sandbox/src/brain/
 ├── player.rs           # PlayerInputFrame / ControlFrame -> ActorControlFrame
 └── smash/              # Smash-style experimental brain and observation/action types
 ```
+
+Sandbox-side consumers live under `crates/ambition_sandbox/src/features/ecs/`, especially `brain_effects.rs` for concrete world effects.
 
 Sibling components on controllable entities:
 
@@ -84,7 +86,7 @@ The main structural migration has landed. Remaining work is cleanup and extensio
 1. **Pogo action ownership.** Pogo start is still a player-specific verb alongside `ActorActionMessage::Melee`. Its target policy is centralized, but the action-routing shape still needs a deliberate home: attack variant, special action, or `HitResult` reaction rule.
 2. **Brain construction policy.** Enemy brain construction now applies stable per-actor variation, but the policy is still spread across default spawn, composite fan-out, and dismount paths. A shared builder would make future actor work safer.
 3. **`ae::Player` decomposition.** ✅ Landed 2026-05-28 (commit `c02ca686`). The player entity carries 18 cluster components (`PlayerKinematics`, `PlayerGroundState`, …, `PlayerComboTrace`); the monolithic `ae::Player` aggregate and the `PlayerMovementAuthority` wrapper are gone.
-4. **Canonical hit pipeline.** Brain/action messages now start attacks, but the actual hit/damage metadata is still fragmented across `DamageEvent`, hostile `Hitbox`, `PlayerDamageEvent`, and boss outcomes.
+4. **Hit-result richness.** Brain/action messages start attacks and combat sources emit `HitEvent`; the remaining work is richer `HitResult` metadata such as stagger/poise, elements/status, hitstop, and rejection reasons.
 5. **Possession / co-op.** The architecture supports swapping `Brain::Player(slot)` onto arbitrary actors, but production routing and UX are not implemented.
 
 ## Extension rule

@@ -1,5 +1,8 @@
 # Stage 20 attack plan — compact historical summary
 
+> Historical execution note: this file records the completed plugin-refactor run. It is not current planning guidance; use `docs/planning/plugin_refactor/README.md`, `22_monolith_breaker_survey.md`, and `runtime_extraction_backlog.md` for active follow-up.
+
+
 **Status:** executed 2026-06-10. The bisection landed and the repo now has the four-layer crate graph described in `../../current/state.md`.
 
 ## Landed result

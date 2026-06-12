@@ -83,7 +83,7 @@ same brain with different tuning by editing one row.
 
 ## Runtime shape
 
-The Bevy plugin is `crate::content::character_catalog::CharacterCatalogPlugin`.
+The Bevy plugin is `ambition_actor::actor::character_catalog::CharacterCatalogPlugin`; sandbox wires it through `crates/ambition_sandbox/src/character_roster.rs`.
 At app build it:
 
 1. Parses the embedded RON via `include_str!` (synchronous; no
@@ -116,7 +116,7 @@ impl CharacterCatalog {
 to derive the patrol center for `Patrol`-brain characters; for non-
 patrol brains the argument is ignored.
 
-A non-Bevy lookup path (`crate::content::character_catalog::EMBEDDED_CATALOG`
+A non-Bevy lookup path (`crates/ambition_sandbox/src/character_roster.rs::EMBEDDED_CATALOG`
 + `display_name_for_character_id`) is available for code that
 doesn't have `Res<>` access — the LDtk parser uses it to translate
 `NpcSpawn.character_id` into a display name for `Authored.name`.
@@ -173,5 +173,5 @@ The module ships a tight set of pins:
   seam the catalog feeds into.
 - [`docs/recipes/extending-brains-and-action-sets.md`](../recipes/extending-brains-and-action-sets.md)
   — how to add a new brain *variant* (the Rust side).
-- `crates/ambition_content/src/character_catalog/`
+- `crates/ambition_actor/src/actor/character_catalog/`
   — the live source.

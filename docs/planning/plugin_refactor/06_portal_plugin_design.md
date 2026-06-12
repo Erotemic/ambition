@@ -1,5 +1,8 @@
 # Portal Plugin Design
 
+> Historical execution note: this file records the completed plugin-refactor run. It is not current planning guidance; use `docs/planning/plugin_refactor/README.md`, `22_monolith_breaker_survey.md`, and `runtime_extraction_backlog.md` for active follow-up.
+
+
 Portal is the pilot optional mechanic plugin. It is the best candidate because it is large, cross-cutting, optional, and reusable.
 
 ## Current problem

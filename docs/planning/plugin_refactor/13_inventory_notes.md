@@ -1,5 +1,8 @@
 # ECS Inventory Notes
 
+> Historical execution note: this file records the completed plugin-refactor run. It is not current planning guidance; use `docs/planning/plugin_refactor/README.md`, `22_monolith_breaker_survey.md`, and `runtime_extraction_backlog.md` for active follow-up.
+
+
 The ECS inventory is a planning input, not a hard pass/fail metric.
 
 ## Current high-level counts

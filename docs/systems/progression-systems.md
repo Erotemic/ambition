@@ -5,24 +5,22 @@ Progression is the set of save-backed facts that change what the player can do o
 ## Current paths
 
 ```text
-crates/ambition_sandbox/src/quest.rs
-crates/ambition_sandbox/src/cutscene.rs
-crates/ambition_sandbox/src/save.rs
-crates/ambition_content/src/quest.rs
-crates/ambition_sandbox/src/features/
-crates/ambition_sandbox/src/persistence/save.rs
-crates/ambition_sandbox/src/dialog/
-crates/ambition_sandbox/src/intro/cutscene.rs
+crates/ambition_sandbox/src/quest/                 # generic quest runtime and state
+crates/ambition_content/src/quest.rs               # shipped quest specs and payouts
+crates/ambition_content/src/quests/                # authored quest registration/content
+crates/ambition_sandbox/src/persistence/save.rs    # durable save facts
+crates/ambition_sandbox/src/dialog/                # dialogue runtime/read model
+crates/ambition_sandbox/src/encounter/             # encounter progression hooks
 crates/ambition_sandbox/src/presentation/cutscene.rs
-crates/ambition_sandbox/src/encounter/
+crates/ambition_sandbox/src/intro/cutscene.rs
 ```
 
-The retired root files `crates/ambition_content/src/quest.rs`, `src/cutscene.rs`, and `src/features.rs` should not be used in new docs. Compatibility re-exports may still exist at the crate root, but the owned code lives under the themed modules above.
+The sandbox owns reusable progression machinery and durable state. The content crate owns named authored quest/content definitions. Root-level compatibility re-exports may exist, but new docs should point at the owning modules above.
 
 ## Current model
 
-- Engine crates define durable vocabularies: quests, cutscenes, saves, combat/actor primitives.
-- Sandbox content modules convert authored LDtk/content data into runtime entities and progression state.
+- Engine/sandbox crates define durable vocabularies: quests, cutscenes, saves, combat/actor primitives.
+- `ambition_content` registers shipped quests, rewards, dialogue/intro hooks, and named content.
 - Save data stores persistent facts such as flags, defeated enemies, hostile NPC conversions, cutscene seen flags, and collected rewards.
 - Presentation modules show dialogue/cutscenes and effects; they do not own persistent truth.
 
@@ -39,7 +37,6 @@ The retired root files `crates/ambition_content/src/quest.rs`, `src/cutscene.rs`
 ```bash
 cargo test -p ambition_sandbox quest
 cargo test -p ambition_sandbox save
-cargo test -p ambition_sandbox content_validation
-cargo test -p ambition_sandbox conversion_tests
+cargo test -p ambition_content quest
 cargo test -p ambition_sandbox encounter
 ```

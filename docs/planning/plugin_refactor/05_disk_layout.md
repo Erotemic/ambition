@@ -1,5 +1,8 @@
 # Disk Layout
 
+> Historical execution note: this file records the completed plugin-refactor run. It is not current planning guidance; use `docs/planning/plugin_refactor/README.md`, `22_monolith_breaker_survey.md`, and `runtime_extraction_backlog.md` for active follow-up.
+
+
 ## Final workspace layout
 
 The final disk layout should make dependency direction obvious.
@@ -242,7 +245,7 @@ combat.rs
 physics.rs
 quest.rs
 boss_encounter/
-content/features/ecs/
+crates/ambition_sandbox/src/features/ecs/
 engine_core/
 world/ldtk_world/
 presentation/rendering/

@@ -84,7 +84,7 @@ Landed or scaffolded mechanics include:
 - LDtk-authored goblin encounter / encounter-style areas and transition validation;
 - character catalog and Hall of Characters content flow;
 - RON-authored boss encounter numeric specs with Rust behavior profiles;
-- universal-brain interface in `crates/ambition_sandbox/src/brain/`: every controllable entity carries `Brain` + `ActionSet` + `ActorControl` sibling components, with `emit_brain_action_messages` producing `ActorActionMessage`s from each actor's resolved intent.
+- universal-brain interface in `crates/ambition_actor/src/brain/`: every controllable entity carries `Brain` + `ActionSet` + `ActorControl` sibling components, with sandbox effect consumers such as `crates/ambition_sandbox/src/features/ecs/brain_effects.rs` translating resolved actor requests into world effects.
 
 The actor/brain unification is live, not a shadow seam: player movement/control,
 melee-start gating, projectile tick/charge, enemy ranged + melee windups, and
@@ -96,7 +96,7 @@ actors (ADR 0016): `BossEncounterPhase` lives in `brain` and the goal is one
 unified actor+brain+boss-runtime unit with only *named* boss data in
 `ambition_content`. See `dev/journals/player-cluster-native-push-2026-05-28.md`.
 
-Damage is functional but fragmented. The sandbox currently routes outgoing player/projectile hits through `DamageEvent`, hostile hitboxes through explicit `Hitbox` entities and `PlayerDamageEvent`, boss state through `BossDamageOutcome`, and presentation through VFX/SFX messages. There is not yet a canonical `HitSpec` / `HitInstance` / `HitResult` pipeline that carries per-hit metadata end-to-end.
+Damage now uses the canonical `HitEvent` transport for player slash/pogo/projectile hits, hostile hitbox entities, hazards, enemy hits, and boss hits. Remaining combat work is richer per-hit result metadata — stagger/poise, elements/status, hitstop, and explicit rejection reasons — rather than reintroducing separate damage-event shapes.
 
 The mechanics are still sandbox-grade. Treat mechanics docs as expressibility and validation guides, not as promises of final tuning or animation polish.
 

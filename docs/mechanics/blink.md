@@ -13,7 +13,7 @@ Blink is the short-range teleport / phase movement family. It is powerful enough
 
 - `crates/ambition_engine_core/src/movement/mod.rs` and related engine mechanics for movement vocabulary.
 - `crates/ambition_sandbox/src/player/` for player ECS state and blink-adjacent player behavior.
-- `crates/ambition_sandbox/src/app/update.rs` and focused systems for gameplay integration.
+- `crates/ambition_app/src/app/sim_systems.rs`, `crates/ambition_sandbox/src/player/`, and focused systems for gameplay integration.
 - `crates/ambition_sandbox/src/dev/trace/` for trace-backed validation of edge cases.
 
 ## Validation anchors
@@ -21,7 +21,7 @@ Blink is the short-range teleport / phase movement family. It is powerful enough
 ```bash
 cargo test -p ambition_sandbox --lib engine_core::movement
 cargo test -p ambition_sandbox blink
-cargo test -p ambition_sandbox scripted_gameplay
+cargo test -p ambition_app --test scripted_gameplay --features "rl_sim portal"
 ```
 
 When a blink bug depends on geometry, add or update a trace-backed reproduction instead of only checking the happy path.

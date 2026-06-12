@@ -62,13 +62,13 @@ output. The headless binary skips this layer and so:
 - does not read `ButtonInput<KeyCode>` (input is supplied as
   `ControlFrame` values).
 
-Scripted gameplay tests in `crates/ambition_sandbox/tests/scripted_gameplay.rs`
+Scripted gameplay tests in `crates/ambition_app/tests/scripted_gameplay.rs`
 inject `ControlFrame`s and assert on emitted message counts.
 
 ## Phase 3 — RL adapter (in progress)
 
 The first half of the RL adapter has landed in
-`crates/ambition_sandbox/src/rl_sim.rs`. It exposes:
+`crates/ambition_app/src/rl_sim/`. It exposes:
 
 - **`AgentAction`** — sparse per-tick intent struct (move x/y, jump,
   jump_held, dash, attack, blink, interact, projectile, fly_toggle,

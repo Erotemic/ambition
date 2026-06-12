@@ -49,7 +49,7 @@ Lean into the names as character ideas, not as job descriptions.
 ## Batch 1 — landed (2026-05-21)
 
 These six are PRESETS in `toon_side.py`, with review configs in
-`configs/review/` and rendered into `assets/sprites/` via
+`configs/review/` and rendered into `crates/ambition_sandbox/assets/sprites/` via
 `draw-runtime-npcs`.
 
 | Name | Silhouette read | Prop | Palette signal |

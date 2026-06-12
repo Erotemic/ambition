@@ -12,9 +12,7 @@ document here. As of this writing there are two gameplay-feel accommodations
 (input warp + auto-orientation) plus a couple of smaller stability/robustness
 ones — all listed below.
 
-Code: `crates/ambition_sandbox/src/portal_pieces.rs` (the pure math — the "Core
-invariant") and `crates/ambition_sandbox/src/portal.rs` (the ECS systems). The
-test lab is the LDtk-authored `portal_lab` room (see the bottom of this doc).
+Code: `crates/ambition_portal/src/pieces.rs` owns the pure math — the Core invariant. `crates/ambition_portal/src/transit.rs`, `placement.rs`, `gun.rs`, `pickup.rs`, and `plugin.rs` own reusable portal ECS. Content/app adapters live under `crates/ambition_content/src/portal/`, while presentation-only body pieces and view cones live under `crates/ambition_portal_presentation/src/`. The test lab is the LDtk-authored `portal_lab` room.
 
 ---
 
@@ -269,19 +267,18 @@ rewrite.
 
 | Concern | Where |
 | --- | --- |
-| Pure piece math (Core invariant) | `portal_pieces.rs`: `compute_body_pieces`, `map_point`/`map_aabb`/`portal_rotation`, `clip_halfspace`, `straddles`, `front_distance`, `subtract_aabb`/`carve_hole` |
-| Transit state machine (shared by player + actors) | `portal.rs`: `transit_step` → `TransitStep`, `portal_transit_system`, `portal_transit_actors` |
-| Host-surface carve | `portal.rs::publish_portal_carves` → `FeatureEcsWorldOverlay.portal_carves` → `world_with_sandbox_solids` |
-| Partial render (feet in / feet out) | `portal.rs::sync_portal_body_pieces` (draws the sprite twice + masks the invisible slice) |
-| Accommodation: input warp | `portal.rs`: `PortalInputWarp`, `warp_portal_input` |
-| Accommodation: auto-orientation | `portal.rs`: `somersault_roll`, `ActorRoll`, `update_actor_roll` |
-| Recursive ray | `portal.rs::raycast_through_portals` |
-| N linked pairs by color | `portal.rs::PortalColor` (5 complementary pairs; `partner()`) |
-| LDtk-authored static portals | entity `Portal` (color + normal) → `convert_portal` → `spawn_portal` |
+| Pure piece math (Core invariant) | `crates/ambition_portal/src/pieces.rs`: `compute_body_pieces`, `map_point`/`map_aabb`, `clip_halfspace`, `straddles`, `front_distance`, `subtract_aabb`/`carve_hole` |
+| Transit state machine | `crates/ambition_portal/src/transit.rs`: `transit_step`, `PortalTransit`, `TransitStep`; ECS scheduling via `plugin.rs` |
+| Host-surface carve | `crates/ambition_portal/src/placement.rs::publish_portal_carves` → content carve adapter/world overlay |
+| Partial render (feet in / feet out) | `crates/ambition_portal_presentation/src/visuals.rs::sync_portal_body_pieces` |
+| Accommodation: input warp | `crates/ambition_content/src/portal/ability_adapter.rs::warp_portal_input`, driven by portal-owned `PortalInputWarp` / `PortalEmission` |
+| Accommodation: auto-orientation | `ambition_portal` roll helpers plus `ambition_platformer_runtime::orientation::{ActorRoll, update_actor_roll}` |
+| Recursive ray | `crates/ambition_portal/src/transit.rs::raycast_through_portals` |
+| Linked portal identity | `crates/ambition_portal/src/link.rs` and authored LDtk link ids; colors remain presentation/authoring vocabulary |
+| LDtk-authored static portals | LDtk `Portal` entity → content conversion → portal core spawn/components |
 
 Key constants live next to their use: `CARVE_DEPTH` / `SURFACE_GRACE`
-(`portal_pieces.rs`), `MIN_EXIT_SPEED` / `TELEPORT_COOLDOWN_S` /
-`TRANSIT_BEGIN_MARGIN` / `PORTAL_OPENING_HALF` (`portal.rs`).
+(`crates/ambition_portal/src/pieces.rs`), and transit/placement tuning lives near the corresponding portal core modules (`types.rs`, `tuning.rs`, `placement.rs`).
 
 ---
 

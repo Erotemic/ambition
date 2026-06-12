@@ -27,7 +27,7 @@ as standalone, declarative bullets so you can act on them one at a time. It is a
 
 Sources: `docs/brainstorms/*`, `docs/planning/story-gameplay-progression-draft.md`,
 `docs/planning/hall-of-characters-and-character-catalog.md`,
-`docs/storylines/primary_ai_agency.md`.
+`docs/brainstorms/primary_ai_agency.md`.
 
 ---
 
@@ -298,5 +298,5 @@ Sources: `docs/brainstorms/*`, `docs/planning/story-gameplay-progression-draft.m
 - `docs/planning/story-gameplay-progression-draft.md` — the Kernel hub, the wake →
   raid → escape → drain → gate-stack spine, the Alice/Bob/Eve/Mallory crypto-gang
   quest, "debug as a sense organ," clockwork-warden first boss.
-- `docs/storylines/primary_ai_agency.md` — ethical-funding axis, conduit-vs-
+- `docs/brainstorms/primary_ai_agency.md` — ethical-funding axis, conduit-vs-
   collaborator humans, mirrored-world topology, ability-as-theorem framing.

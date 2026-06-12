@@ -19,7 +19,7 @@ Use the focused progression/save/audio messages for effects that cross into save
 
 Use domain-specific messages when the consumer is known and the payload is more specific:
 
-- `HitEvent` (carrying a `HitSource` + `HitTarget`) for **all** combat damage — player slash/projectile against feature targets, pogo-bounce orbs, and hazard/enemy/boss damage against the player. This replaced the old separate `DamageEvent` / `PogoBounceEvent` / `PlayerDamageEvent`.
+- `HitEvent` (carrying a `HitSource` + `HitTarget`) for **all** combat damage — player slash/projectile against feature targets, pogo-bounce orbs, and hazard/enemy/boss damage against the player. This replaces the old split damage-message family.
 - `ActorActionMessage` for resolved brain/action requests that spawn or start concrete effects.
 - `GameplayBannerRequested` for HUD banner text from systems whose parameter list is already large.
 - `ResetRoomFeaturesEvent` for same-room feature reset.
@@ -28,8 +28,7 @@ Presentation facts that already have a concrete presentation type should use the
 
 ## Damage and hit state today
 
-The separate `DamageEvent` / `PogoBounceEvent` / `PlayerDamageEvent` shapes
-have been **unified into one `HitEvent`** carrying a `HitSource` (who/what
+The legacy split damage-message shapes have been **unified into one `HitEvent`** carrying a `HitSource` (who/what
 caused it — `PlayerSlash` / `PlayerProjectile` / `PogoBounce` /
 `EnemyBody` / `EnemyProjectile` / `BossBody` / `BossAttack` / hazard / …),
 a `HitTarget` (broadcast `Volume` vs a specific player/actor entity), plus

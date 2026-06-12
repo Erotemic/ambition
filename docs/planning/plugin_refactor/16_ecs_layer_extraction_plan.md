@@ -1,5 +1,8 @@
 # Stage 16 ECS-layer extraction — compact historical summary
 
+> Historical execution note: this file records the completed plugin-refactor run. It is not current planning guidance; use `docs/planning/plugin_refactor/README.md`, `22_monolith_breaker_survey.md`, and `runtime_extraction_backlog.md` for active follow-up.
+
+
 **Status:** landed. `ambition_platformer_runtime` now owns the generic ECS runtime layer that this plan targeted.
 
 ## Durable decisions

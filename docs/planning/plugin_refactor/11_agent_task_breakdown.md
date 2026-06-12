@@ -1,5 +1,8 @@
 # Agent Task Breakdown
 
+> Historical execution note: this file records the completed plugin-refactor run. It is not current planning guidance; use `docs/planning/plugin_refactor/README.md`, `22_monolith_breaker_survey.md`, and `runtime_extraction_backlog.md` for active follow-up.
+
+
 This document turns the roadmap into agent-sized tasks. Each task should be one architectural seam, not a vague refactor request.
 
 ## Task 1: add docs and inventory snapshots
@@ -9,11 +12,11 @@ Goal: check in planning docs and baseline inventory.
 Steps:
 
 ```bash
-python tools/ecs_inventory.py \
+python scripts/ecs_inventory.py \
   --json docs/generated/ambition_ecs_inventory.baseline.json \
   --markdown docs/generated/ambition_ecs_inventory.baseline.md
 
-python tools/ecs_inventory.py --include-tests \
+python scripts/ecs_inventory.py --include-tests \
   --json docs/generated/ambition_ecs_inventory.with_tests.baseline.json \
   --markdown docs/generated/ambition_ecs_inventory.with_tests.baseline.md
 ```
@@ -77,9 +80,8 @@ Goal: move portal registration ownership out of app-level modules without moving
 
 Steps:
 
-```bash
-mkdir -p crates/ambition_sandbox/src/portal
-git mv crates/ambition_sandbox/src/portal.rs crates/ambition_sandbox/src/portal/mod.rs
+```text
+Historical action: the old single-file sandbox portal module was split. Current portal code lives in `crates/ambition_sandbox/src/portal/mod.rs`, `crates/ambition_portal/src/`, and `crates/ambition_content/src/portal/`.
 ```
 
 Add:

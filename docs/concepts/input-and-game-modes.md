@@ -48,7 +48,7 @@ Input and game modes cover semantic actions, control presets, menu/dialogue/cuts
 
 ```bash
 cargo test -p ambition_sandbox --lib input
-cargo test -p ambition_sandbox --lib pause_menu
+cargo test -p ambition_sandbox --lib menu
 cargo run -p ambition_sandbox --bin headless
 ```
 

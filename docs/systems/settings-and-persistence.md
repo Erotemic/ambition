@@ -40,7 +40,7 @@ The older `crates/ambition_sandbox/src/settings/` path is retired. Do not add ne
 ```bash
 cargo test -p ambition_sandbox settings
 cargo test -p ambition_sandbox save
-cargo test -p ambition_sandbox pause_menu
+cargo test -p ambition_app --tests --features "bevy_ui_menu kaleidoscope_menu input"
 ```
 
 Related docs: `docs/systems/input-and-control-frame.md`, `docs/systems/ui-navigation-and-pause.md`, `docs/concepts/platform-targets.md`.

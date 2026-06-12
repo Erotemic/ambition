@@ -1,5 +1,8 @@
 # Staged Refactor Plan
 
+> Historical execution note: this file records the completed plugin-refactor run. It is not current planning guidance; use `docs/planning/plugin_refactor/README.md`, `22_monolith_breaker_survey.md`, and `runtime_extraction_backlog.md` for active follow-up.
+
+
 The preferred style is staged shotgun refactoring: intentionally break imports and assumptions along useful seams, then fix forward. Avoid long-lived compatibility layers.
 
 ## Stage 0: docs and inventory branch

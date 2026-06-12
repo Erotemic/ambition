@@ -42,7 +42,7 @@ The sim/presentation seam separates reusable gameplay state and messages from sa
 ## Validation
 
 ```bash
-cargo test -p ambition_sandbox --test scripted_gameplay
+cargo test -p ambition_app --test scripted_gameplay --features "rl_sim portal"
 cargo run -p ambition_sandbox --bin headless
 cargo test -p ambition_sandbox --lib
 ```

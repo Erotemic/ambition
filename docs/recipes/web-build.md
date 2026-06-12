@@ -1,7 +1,7 @@
 # Ambition Sandbox — Web (wasm32) build
 
-Browser build for `ambition_sandbox`. Targets `wasm32-unknown-unknown`
-and boots the visible Bevy app inside a `<canvas>` with keyboard input.
+Browser build for the Ambition app cdylib. Targets `wasm32-unknown-unknown`
+and boots the visible Bevy app inside a `<canvas>` with keyboard input. The JS/wasm output is still named `ambition_sandbox` for web bootstrap compatibility.
 
 There are **two browser personas**, selected by Cargo feature:
 
@@ -76,7 +76,7 @@ The fix in this repo is two-layer:
    is what actually unblocks playback in the browser. Look for
    `[ambition-audio]` lines in the devtools console.
 2. **`crate::audio::WebAudioUnlockPlugin`** (see
-   `crates/ambition_sandbox/src/audio/web_unlock.rs`) — flips
+   `crates/ambition_audio/src/web_unlock.rs`) — flips
    `AudioUnlockState::unlocked` to `true` on the first Bevy input
    event, and `start_default_music_when_ready` (in
    `audio/runtime.rs`) gates the first `play()` call on that flag
@@ -118,13 +118,12 @@ cause of a "version mismatch" runtime error in the browser.
 ## Compile-check only (fast feedback)
 
 ```sh
-cargo check -p ambition_sandbox \
+cargo check -p ambition_app --lib \
     --target wasm32-unknown-unknown \
     --no-default-features --features web
 ```
 
-Run after any change that touches the sandbox crate. Pairs with the
-desktop `cargo check -p ambition_sandbox` smoke.
+Run after any change that touches the app web entry, sandbox web features, or asset profile code. Pairs with the desktop `cargo check -p ambition_app` / `cargo check -p ambition_sandbox` smoke checks.
 
 ## Browser smoke — WebStatic (embedded core)
 
@@ -136,8 +135,8 @@ desktop `cargo check -p ambition_sandbox` smoke.
 ```
 
 `build_for_web.sh` (default) runs:
-1. `cargo build --release --target wasm32-unknown-unknown --no-default-features --features web`
-2. `wasm-bindgen` → `crates/ambition_sandbox/web/pkg/{ambition_sandbox.js, ambition_sandbox_bg.wasm}`
+1. `cargo build -p ambition_app --lib --release --target wasm32-unknown-unknown --no-default-features --features web`
+2. `wasm-bindgen --out-name ambition_sandbox` → `crates/ambition_sandbox/web/pkg/{ambition_sandbox.js, ambition_sandbox_bg.wasm}`
 3. `python3 -m http.server -d crates/ambition_sandbox/web 8000` (or
    `basic-http-server` if Python is missing).
 
@@ -162,15 +161,16 @@ Hand-running the equivalent:
 
 ```sh
 # 1. Build wasm with the served-assets persona.
-cargo build -p ambition_sandbox --lib \
+cargo build -p ambition_app --lib \
     --target wasm32-unknown-unknown \
     --no-default-features --features web_served_assets \
     --release
 
 # 2. Wrap it for the browser.
 wasm-bindgen \
-    target/wasm32-unknown-unknown/release/ambition_sandbox.wasm \
+    target/wasm32-unknown-unknown/release/ambition_app.wasm \
     --out-dir crates/ambition_sandbox/web/pkg \
+    --out-name ambition_sandbox \
     --target web --no-typescript
 
 # 3. Make the page-served `/assets/` URL reachable.
@@ -187,13 +187,14 @@ The same `python3 -m http.server` serves `/`, `/pkg/...`, and
 ## WebStatic hand-build (without the helper script)
 
 ```sh
-cargo build -p ambition_sandbox --lib \
+cargo build -p ambition_app --lib \
     --target wasm32-unknown-unknown \
     --no-default-features --features web \
     --release
 wasm-bindgen \
-    target/wasm32-unknown-unknown/release/ambition_sandbox.wasm \
+    target/wasm32-unknown-unknown/release/ambition_app.wasm \
     --out-dir crates/ambition_sandbox/web/pkg \
+    --out-name ambition_sandbox \
     --target web --no-typescript
 python3 -m http.server -d crates/ambition_sandbox/web 8000
 ```
@@ -256,21 +257,17 @@ canvas to capture keyboard focus, and look for:
 
 ## How the embedded source plugin works
 
-Bevy's `AssetServer` on wasm doesn't have a host filesystem. Two
-sources are wired:
+Bevy's `AssetServer` on wasm does not have the native host filesystem. The asset profile wires one of two browser-friendly paths:
 
 1. **Embedded source** — `AmbitionAssetSourcePlugin::for_profile(...)`
    inserts every embedded core asset's bytes (via `include_bytes!`)
    into Bevy's `EmbeddedAssetRegistry`. The catalog's authored
    `EmbeddedBinary` candidates point at the same `embedded://...`
    URLs, so `try_path_for_load` returns paths that actually load.
-2. **HTTP source** — not wired yet (slice 18). The catalog would emit
-   `https://...` URLs if any entry authored an `HttpRemote` candidate;
-   today none do, so `try_path_for_load` returns `None` for those
-   classes on `WebHttp`.
+2. **Served `/assets/` path** — the `WebServedAssets` profile emits synthesized `BevyPath` candidates for non-embedded assets. `build_for_web.sh --served` symlinks or copies `crates/ambition_sandbox/assets` into `crates/ambition_sandbox/web/assets`, and Bevy's wasm HTTP reader fetches those `/assets/...` URLs.
 
 The macro-emitted `register_embedded_core_assets` in
-`crates/ambition_sandbox/src/assets/sandbox_assets.rs` is the canonical list
+`crates/ambition_sandbox/src/assets/sandbox_assets/` is the canonical list
 of registered URLs. Adding a new embedded asset is **one row in the
 `embed_core_assets!` table** plus one `with_embedded_core_candidate(...)`
 call on the corresponding catalog entry. The
@@ -283,8 +280,8 @@ mismatches.
 no-display-server probe, and a headless fallback. None of that makes
 sense in a browser, so it is `#[cfg(not(target_arch = "wasm32"))]`.
 
-The web build enters through `ambition_sandbox::web_start` in
-`src/lib.rs`, a `#[wasm_bindgen(start)]` function the browser fires on
+The web build enters through `ambition_app::web_start` in
+`crates/ambition_app/src/lib.rs`, a `#[wasm_bindgen(start)]` function the browser fires on
 its own once the wasm module finishes instantiating. `web_start`:
 
 1. Installs `console_error_panic_hook` so Rust panics surface in
@@ -299,10 +296,10 @@ its own once the wasm module finishes instantiating. `web_start`:
 
 - `crates/ambition_sandbox/web/index.html` — page + JS bootstrap.
 - `crates/ambition_sandbox/web/pkg/` — generated by `wasm-bindgen` (git-ignored).
-- `crates/ambition_sandbox/src/lib.rs` — `web_start` `#[wasm_bindgen(start)]` entry.
+- `crates/ambition_app/src/lib.rs` — `web_start` `#[wasm_bindgen(start)]` entry.
 - `crates/ambition_app/src/app/cli.rs::run_web` — Bevy `App` builder for the browser.
-- `crates/ambition_sandbox/src/assets/sandbox_assets.rs::AmbitionAssetSourcePlugin` — embedded asset registration.
-- `crates/ambition_sandbox/src/assets/sandbox_assets.rs::embed_core_assets!` — declarative table of embedded core assets.
-- `crates/ambition_sandbox/Cargo.toml` — `web`, `visible_web`, `web_platform`, `static_core_assets` features.
+- `crates/ambition_sandbox/src/assets/sandbox_assets/mod.rs::AmbitionAssetSourcePlugin` — embedded asset registration.
+- `crates/ambition_sandbox/src/assets/sandbox_assets/embedded.rs::embed_core_assets!` — declarative table of embedded core assets.
+- `crates/ambition_app/Cargo.toml` and `crates/ambition_sandbox/Cargo.toml` — browser feature composites (`web`, `web_served_assets`, `web_platform`, `static_core_assets`) and forwarded sandbox feature flags.
 - `scripts/setup_web_prereq.sh` — installs the wasm rustup target + version-matched `wasm-bindgen-cli`.
 - `build_for_web.sh` — runs `cargo build` + `wasm-bindgen` + optional `--serve`.

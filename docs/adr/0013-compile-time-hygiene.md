@@ -133,8 +133,7 @@ cargo nextest run -p ambition_sandbox
 Run `cargo build --timings` quarterly (or after any large dependency
 addition / refactor) to identify compile-time hotspots. The output is
 an HTML report showing per-crate compile durations; regressions are
-visible immediately. Commit the most recent audit output as
-`docs/compile_time_audits/YYYY-MM.html` for historical comparison.
+visible immediately. Keep timing outputs with the optimization-report workflow under `tools/optimization_report/` or attach them to the relevant performance note. Do not name a standalone docs directory for audits unless it is created and maintained.
 
 ### Compile-time log level capping
 
@@ -172,8 +171,7 @@ and maintenance:
   is balanced by compile-time review, not contradicted. Adopt
   `bevy_dev_tools` (ADR 0014) and other ecosystem crates with eyes
   open.
-- A `docs/compile_time_audits/` directory accumulates `cargo --timings`
-  HTML reports as a historical record.
+- `cargo --timings` output is captured through the optimization-report workflow or attached to focused performance notes so historical evidence stays discoverable without stale empty directories.
 
 ## Initial implementation target
 
@@ -187,8 +185,7 @@ Conservative, sequenced:
    bundling `bevy/dynamic_linking` and `bevy/file_watcher`. Document
    the new run command in the README.
 4. Add `cargo nextest` to the recommended test commands.
-5. Run a baseline `cargo build --timings` and commit the report under
-   `docs/compile_time_audits/2026-05-baseline.html`.
+5. Run a baseline `cargo build --timings` and record the output through `tools/optimization_report/` or a focused performance note.
 
 ## Non-goals for the first implementation
 

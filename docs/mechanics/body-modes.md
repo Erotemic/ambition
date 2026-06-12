@@ -93,5 +93,5 @@ Current examples:
 cargo test -p ambition_sandbox --lib engine_core::player_state
 cargo test -p ambition_sandbox --lib engine_core::movement
 cargo test -p ambition_sandbox body_mode
-cargo test -p ambition_sandbox scripted_gameplay
+cargo test -p ambition_app --test scripted_gameplay --features "rl_sim portal"
 ```

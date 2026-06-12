@@ -32,7 +32,7 @@ Legend: `[x]` expressible now, `[~]` scaffolded but incomplete, `[ ]` not yet re
 - [x] Enemy ranged projectiles, enemy melee windup starts, and current authored boss specials have `ActorActionMessage` consumers.
 - [~] Dialogue/commerce hooks: architectural seed exists, content pipeline is not final.
 - [~] Boss profiles and phase machines: playable, with RON numeric specs; not fully data-authored behavior.
-- [x] Combat-hit metadata unified into one canonical per-hit object: `DamageEvent` / `PlayerDamageEvent` deleted; player slash/pogo/projectile, hostile `Hitbox`, hazards, enemy, and boss hits all flow through `HitEvent { volume, damage, source, attacker, target, mode, knockback }` consumed by `apply_feature_hit_events`.
+- [x] Combat-hit metadata unified into one canonical per-hit object: old split damage events deleted; player slash/pogo/projectile, hostile `Hitbox`, hazards, enemy, and boss hits all flow through `HitEvent { volume, damage, source, attacker, target, mode, knockback }` consumed by `apply_feature_hit_events`.
 - [ ] Advanced `HitResult` fields on top of `HitEvent`: stagger/poise, elements/status, hitstop, and explicit rejection reasons — land alongside the mechanics that need them, not speculatively.
 - [ ] Bubble shield dodge/roll policy.
 - [~] Falling-sand / fluid toy-room simulation: prototype landed (`falling_sand.rs`, `falling_sand` feature) — spouts + wall mirroring + collidable piles; pile-up polish remains.
@@ -87,7 +87,7 @@ cargo test -p ambition_sandbox --lib projectile
 cargo test -p ambition_sandbox --lib engine_core::movement
 cargo test -p ambition_sandbox --lib brain::
 cargo test -p ambition_sandbox projectile
-cargo test -p ambition_sandbox scripted_gameplay
+cargo test -p ambition_app --test scripted_gameplay --features "rl_sim portal"
 ```
 
 Prefer exact tests named by concepts or benchmark candidates when available. Use `TODO.md` for the centralized accepted task list; use brainstorm docs for speculative mechanic ideas that are not ready for an agent session.

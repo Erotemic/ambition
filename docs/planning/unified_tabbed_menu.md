@@ -1,5 +1,8 @@
 # Unified Tabbed Menu — design & execution plan
 
+> Historical execution note: this completed menu execution plan documents how the unified menu landed. For current menu ownership, use `docs/systems/ui-navigation-and-pause.md`; for active cleanup candidates, use `docs/planning/refactor-candidates.md`.
+
+
 **Status:** COMPLETE (2026-06-08). Phases 0–E landed; E3 deliberately deferred.
 
 **Completion log (2026-06-08):**

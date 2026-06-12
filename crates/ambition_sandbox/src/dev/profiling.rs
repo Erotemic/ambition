@@ -1,42 +1,15 @@
 //! Lightweight startup profiler.
 //!
-//! Goal: surface "where did the first 5 seconds go" without any
-//! external profiler attached. The pattern is `Instant::now()` snapshots
-//! taken at named phase boundaries; a final `PostStartup` report system
-//! prints per-phase deltas to stderr.
+//! Records `Instant::now()` marks at named startup boundaries and prints per-phase
+//! deltas plus total time before the first frame. Insert `phase_mark("name")`
+//! between chained `Startup` systems to delimit windows.
 //!
-//! Usage: insert `phase_mark("name")` between Startup chain steps.
+//! For deeper profiling, build with `--features profile` to enable Bevy's
+//! `trace_tracy` integration; see `docs/recipes/profiling.md`.
 //!
-//! ```ignore
-//! .add_systems(Startup, (
-//!     phase_mark("startup_begin"),
-//!     load_asset_handles,
-//!     phase_mark("after_load_assets"),
-//!     setup_simulation,
-//!     phase_mark("after_setup_sim"),
-//! ).chain())
-//! ```
-//!
-//! Output:
-//! ```text
-//! [startup] startup_begin → after_load_assets: 312.4ms
-//! [startup] after_load_assets → after_setup_sim: 41.2ms
-//! [startup] total before first frame: 412.7ms
-//! ```
-//!
-//! For deeper per-system profiling, build with `--features profile`,
-//! which enables Bevy's `trace_tracy` integration; see
-//! `docs/recipes/profiling.md`.
-//!
-//! ## Wasm32 (browser) note
-//!
-//! `std::time::Instant::now()` panics with `time not implemented on
-//! this platform` under `wasm32-unknown-unknown`. Profiling is therefore
-//! a no-op on the browser build: [`StartupProfiler`] carries no time
-//! fields, [`phase_mark`] is a no-op system, and
-//! [`report_startup_phases`] logs once that profiling is disabled.
-//! For wall-clock measurement in the browser the right tool is the
-//! browser devtools Performance panel.
+//! On `wasm32-unknown-unknown`, `std::time::Instant` is unavailable, so this module
+//! compiles to a one-time disabled notice and no-op mark/report systems. Use browser
+//! devtools for wall-clock profiling there.
 
 use bevy::prelude::*;
 

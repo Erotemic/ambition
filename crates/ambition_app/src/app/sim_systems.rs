@@ -1,10 +1,9 @@
-//! Bevy systems extracted from the legacy `sandbox_update` orchestrator.
+//! Core simulation Bevy systems.
 //!
-//! Each function here is a real Bevy system with a narrow query/resource
-//! signature. They live in the [`SandboxSet::CoreSimulation`] chain
-//! configured by [`super::schedule::configure_sandbox_sets`], and their
-//! order inside that chain is expressed by the tuple `.chain()` in
-//! `add_simulation_plugins` rather than by `.after(name)` on each system.
+//! Each function is a narrow query/resource system registered in the
+//! [`SandboxSet::CoreSimulation`] chain configured by
+//! [`super::schedule::configure_sandbox_sets`]. Cross-set ordering lives in the
+//! schedule; intra-set ordering is expressed by `.chain()` where registered.
 
 use ambition_sandbox::engine_core as ae;
 use bevy::prelude::*;
@@ -24,13 +23,8 @@ use ambition_sandbox::{
     GameWorld, MovingPlatformSet, PlayerDiedMessage, SafePositionContext, SandboxSimState,
 };
 
-/// Push live ability-flag and movement-tuning edits from the dev-tools
-/// inspector resources onto the authoritative player. Runs every
-/// frame, including paused / dialogue / cutscene, so the F3 inspector
-/// keeps working when the sim is suspended — the legacy `sandbox_update`
-/// orchestrator called this *before* its mode-gate early-return, so
-/// the same "always-on" behavior must be preserved now that the
-/// player tick itself only runs in `GameMode::Playing`.
+/// Push live dev-tools ability/tuning edits onto the authoritative player.
+/// Runs even while gameplay is suspended so the F3 inspector remains responsive.
 pub fn sync_live_player_dev_edits_system(
     editable_tuning: Res<EditableMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
@@ -60,23 +54,9 @@ pub fn sync_live_player_dev_edits_system(
     );
 }
 
-/// While gameplay is suspended (paused, dialogue, room transition,
-/// cutscene), force `ClockState::time_scale` AND the
-/// `RequestedClockScale` target (a private resource in
-/// `ambition_sandbox::time::time_control`) to 0 so any presentation system that
-/// scales an animation by `time_scale * dt` freezes — and so the
-/// smoother doesn't ramp back up on the very next frame.
-///
-/// The previous `mode_gate_phase` did the same thing at the top of
-/// the legacy `sandbox_update`; now that the player tick is gated
-/// by `run_if(gameplay_allowed)`, this needs to live in its own
-/// system that runs only when gameplay is *not* allowed.
-///
-/// In gameplay mode the time-control pipeline
-/// (`emit_player_time_intent_system` → `apply_clock_scale_requests` →
-/// `smooth_sim_clock_toward_target_system`) drives time_scale from
-/// hitstop / bullet-time / blink-hold / dev slowmo intent, so this
-/// system intentionally does nothing when gameplay is allowed.
+/// While gameplay is suspended, force both live and requested sim-clock scale to
+/// zero so presentation animations freeze and the smoother cannot ramp up next
+/// frame. Gameplay mode leaves scale control to the normal time-control pipeline.
 pub fn apply_suspended_time_scale_system(
     mut clock: ResMut<ambition_sandbox::time::clock_state::ClockState>,
     mut target: ResMut<ambition_sandbox::time::time_control::RequestedClockScale>,
@@ -139,15 +119,9 @@ pub fn input_timer_system(
 /// advance the per-frame interact buffer on
 /// [`ambition_sandbox::player::PlayerInteractionState`].
 ///
-/// Replaces the historical inline `interaction_input_phase` that ran
-/// inside the player tick. Downstream code (notably
-/// `detect_room_transition_system`) no longer reads the buffered
-/// signal off `ControlFrame`; it reads `PlayerInteractionState::
-/// buffered()` directly off the component.
-///
-/// Gated by `gameplay_allowed`: the buffer must not tick down while
-/// paused / in dialogue / mid-cutscene — the previous procedural
-/// version was protected by the now-extracted mode-gate early-return.
+/// Downstream consumers read the buffered signal from
+/// `PlayerInteractionState::buffered()`. Gated by `gameplay_allowed` so the
+/// buffer does not tick down while paused, in dialogue, or mid-cutscene.
 ///
 /// Ordering: must run after `input_timer_system` (which decrements
 /// `combat.hitstun_timer` and sets `double_tap_up_pending` from
@@ -176,7 +150,7 @@ pub fn interaction_input_system(
     // writes `fast_fall_pressed` to the resource and the per-player
     // `sync_local_player_input_frame` mirror only fires at the END of
     // the chain. Switching to `PlayerInputFrame` here would read the
-    // previous frame's snapshot (#17.5 migration boundary).
+    // previous frame's snapshot.
     let raw_interact_pressed = if combat.hitstun_timer > 0.0 {
         false
     } else {
@@ -190,15 +164,9 @@ pub fn interaction_input_system(
 /// and execute the full sandbox reset before the rest of the gameplay
 /// chain runs.
 ///
-/// Replaces the inline input-driven half of `reset_phase`. The
-/// engine-driven half (a reset surfaced by
-/// `update_player_control_with_clusters` or
-/// `update_player_simulation_with_clusters` returning
-/// `events.reset = true`) still runs inline inside the legacy
-/// `sandbox_update` orchestrator's `player_control_phase` /
-/// `player_simulation_phase` — those paths know the engine has
-/// already mutated the player and need to finish the sandbox-side
-/// cleanup in the same call.
+/// Handles input-driven resets before the rest of gameplay. Engine-driven resets
+/// still finish in their player-control/simulation call sites because those paths
+/// have already mutated the player and must complete cleanup immediately.
 ///
 /// This system clears `ControlFrame::reset_pressed` after handling it
 /// so the engine path inside `update_player_control_with_clusters`
@@ -357,15 +325,9 @@ pub fn apply_cut_rope_room_replay_request_system(
 /// to spawn point) happens in `apply_room_transition_system`, which
 /// runs immediately after this system in the `CoreSimulation` chain.
 ///
-/// Replaces the inline `room_transition_phase` that used to live inside
-/// the legacy `sandbox_update` orchestrator and `PhaseOutcome::Return`-skip
-/// `attack_phase`. The extracted ordering — the player tick →
-/// `detect_room_transition_system` → `apply_room_transition_system` —
-/// means `attack_phase` now always runs even on a transition frame;
-/// this is a tiny semantic change (the in-flight attack hitbox in
-/// the old room is wasted) but the replay-fixture regression test
-/// confirms player position determinism is preserved because attacks
-/// do not push the player.
+/// Ordering is player tick → detect transition → apply transition. Attacks may
+/// still advance on a transition frame, but replay fixtures confirm player-position
+/// determinism because attacks do not push the player.
 ///
 /// Gated by `gameplay_allowed`: transitions must not fire while paused
 /// or in dialogue. `apply_room_transition_system` itself is unconditional
@@ -423,18 +385,9 @@ pub fn detect_room_transition_system(
 /// in-flight attack — applying hits, debris, and recoil through the
 /// damage / pogo / sfx / vfx message channels.
 ///
-/// Replaces the inline `attack_phase` that used to run last inside
-/// the legacy `sandbox_update` orchestrator. Runs after
-/// `detect_room_transition_system` in the `CoreSimulation` chain so
-/// its sequencing relative to room transitions matches the prior
-/// ordering (detect first, then attack, then apply).
-///
-/// The two engine-side helpers (`start_attack`, `advance_attack`) still
-/// accept `&mut Vec<…>` collectors for sfx and vfx. The extracted system
-/// drains those local Vecs to the real `MessageWriter`s at the bottom,
-/// which is the same pattern the procedural `FrameFeedback` used to
-/// implement — but the channels are no longer threaded through the
-/// `sandbox_update` orchestrator.
+/// Runs after transition detection so ordering remains detect → attack → apply.
+/// Engine helpers still collect sfx/vfx in local Vecs; this system drains them to
+/// the real message writers.
 pub fn attack_advance_system(
     time: Res<Time>,
     world: Res<GameWorld>,
@@ -485,12 +438,8 @@ pub fn attack_advance_system(
     let frame_dt = time.delta_secs();
 
     let mut clusters = cluster_item.as_clusters_mut();
-    // Player melee + pogo migration: both gates read the brain-driven
-    // ActorControl rather than the raw PlayerInputFrame. Melee comes
-    // through `ActorActionMessage::Melee` (the ActionSet-resolved
-    // verb); pogo is a player-specific intent surfaced directly on
-    // `ActorControlFrame::pogo_pressed`, which the player brain
-    // mirrors from raw input.
+    // Melee comes through the ActionSet-resolved brain message; pogo is a
+    // player-specific intent mirrored onto `ActorControlFrame`.
     let melee_requested = brain_actions
         .read()
         .any(|msg| msg.actor == player_entity && msg.is_melee());
@@ -523,9 +472,8 @@ pub fn attack_advance_system(
     );
 }
 
-/// Resolve this tick's victim-side `HitEvent`s + remember the last
-/// safe-spawn position. Replaces the inline `damage_heal_dialogue_phase`
-/// that used to run inside the legacy `sandbox_update` orchestrator.
+/// Resolve this tick's victim-side `HitEvent`s and remember the last safe-spawn
+/// position.
 ///
 /// Reads `MessageReader<HitEvent>` and filters to victim-side
 /// sources (hazard / enemy / boss); attacker-side hits (player slash,

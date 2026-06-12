@@ -1,80 +1,19 @@
-//! Universal brain interface — **see `brain/README.md` for the
-//! navigability map** (where enemy / NPC / boss / player AI lives,
-//! the per-tick data flow, and the 12-file layout). Read that before
-//! touching enemy AI. Also see
-//! [`docs/systems/brain-driver.md`](../../../docs/systems/brain-driver.md)
-//! for the overview and
-//! [`docs/recipes/extending-brains-and-action-sets.md`](../../../docs/recipes/extending-brains-and-action-sets.md)
-//! for the extension recipe.
+//! Universal brain interface.
 //!
-//! Every controllable actor in the sandbox carries a [`Brain`]. The
-//! brain reads a [`BrainSnapshot`] each tick and writes intent into
-//! `crate::actor::control::ActorControlFrame`. The simulation half (collision, cooldowns,
-//! effects) consumes the frame uniformly — same code path for
-//! players, NPCs, enemies, bosses, and (future) RL agents.
+//! See `brain/README.md`, `docs/systems/brain-driver.md`, and
+//! `docs/recipes/extending-brains-and-action-sets.md` for the full navigation map
+//! and extension recipe.
 //!
-//! Per-entity variety lives in an [`ActionSet`] component on the
-//! actor entity. The brain emits abstract intent
-//! (`melee_pressed = true`); the ActionSet resolves it into the
-//! concrete effect (Swipe vs Lunge vs Bite). Two enemies with the
-//! same `Brain::StateMachine(MeleeBrute(…))` can look completely
-//! different because their ActionSets differ.
+//! Every controllable actor carries a [`Brain`]. Each tick the brain reads a
+//! [`BrainSnapshot`] and writes intent into
+//! [`crate::actor::control::ActorControlFrame`]. Simulation code then consumes
+//! that frame uniformly for players, NPCs, enemies, bosses, and future learned
+//! or remote policies.
 //!
-//! **Current shape:** every actor type (player / NPC / enemy /
-//! boss) spawns with Brain + ActionSet + ActorControl sibling
-//! components. The brain ticks each frame and fills the frame. The
-//! [`emit_brain_action_messages`] resolver writes one
-//! [`ActorActionMessage`] per resolved [`action_set::ActionRequest`].
-//!
-//! **Live consumers:**
-//! - Player input feeds `Brain::Player` → `ActorControl` → the
-//!   sandbox's `player_control_system` / `player_simulation_system`
-//!   via `engine_input_from_actor_control` (the polarity flip).
-//! - Player melee-start gating reads this player's
-//!   `ActorActionMessage::Melee`. Pogo-start gating reads the
-//!   player's `ActorControl::pogo_pressed` (the brain mirrors the
-//!   raw input onto the frame upstream); no remaining
-//!   `PlayerInputFrame` read in the attack pipeline.
-//! - Enemy ranged projectiles flow through `ActorActionMessage::Ranged`
-//!   via `content::features::ecs::spawn_enemy_projectiles_from_brain_actions`.
-//! - Hostile enemy melee windups start from
-//!   `ActorActionMessage::Melee`; the runtime still owns the
-//!   windup → active hitbox edge.
-//! - Current boss specials such as GNU-ton apple rain and Gradient
-//!   Sentinel attacks flow through `ActorActionMessage::Special`
-//!   consumers in `content::features::ecs::brain_effects`.
-//!
-//! **Remaining direct paths:** player projectile charge / motion-input
-//! recognition still reads `PlayerInputFrame` (the charge state
-//! machine in `update_projectiles`). The legacy `ae::Player`
-//! aggregate / the
-//! `PlayerMovementAuthority` wrapper were deleted 2026-05-28; the
-//! player entity carries 18 cluster components instead.
-//!
-//! # Mini-example
-//!
-//! ```ignore
-//! use ambition_sandbox::brain::{Brain, BrainSnapshot, ActionSet, resolve_action_requests};
-//! use ambition_sandbox::brain::{StateMachineCfg, MeleeBruteCfg, MeleeBruteState};
-//!
-//! // 1) Spawn an enemy with a Brain + ActionSet.
-//! let mut brain = Brain::StateMachine(StateMachineCfg::MeleeBrute {
-//!     cfg: MeleeBruteCfg::STRIKER_DEFAULT,
-//!     state: MeleeBruteState::default(),
-//! });
-//! let actions = ActionSet::peaceful(); // or per-archetype set
-//!
-//! // 2) Build a snapshot from the actor's per-tick state.
-//! let mut snap = BrainSnapshot::idle();
-//! snap.target_pos = ambition_engine_core::Vec2::new(20.0, 0.0); // in range
-//!
-//! // 3) Tick the brain → fills an ActorControlFrame.
-//! let mut frame = ambition_engine_core::ActorControlFrame::neutral();
-//! brain.tick(&snap, &mut frame);
-//!
-//! // 4) Resolve abstract intent into concrete ActionRequests.
-//! let requests = resolve_action_requests(&actions, &frame, snap.actor_pos);
-//! ```
+//! Per-entity variety lives in [`ActionSet`]: the brain emits abstract intent
+//! such as "melee pressed", and the action set resolves it into the concrete
+//! effect for that actor. The resolver emits one [`ActorActionMessage`] per
+//! resolved [`action_set::ActionRequest`].
 
 pub mod action_set;
 pub mod boss_pattern;
@@ -83,11 +22,8 @@ pub mod smash;
 pub mod snapshot;
 pub mod state_machine;
 
-// Re-exports are the brain module's public surface. Some variants
-// Some action-spec variants are not exercised by every current
-// consumer in every build target. Allow unused re-exports so the
-// public brain/action surface stays documented and ready for the
-// next focused consumer slice.
+// Re-exports are the brain module's public surface. Some action-spec variants
+// are not exercised by every current consumer in every build target.
 #[allow(unused_imports)]
 pub use action_set::{
     held_item_by_id, resolve as resolve_action_requests, ActionRequest, ActionSet, BiteSpec,

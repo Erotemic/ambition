@@ -154,13 +154,8 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
     app.init_resource::<KaleidoscopeScroll>()
         .init_resource::<KaleidoscopePointerPress>()
         .add_plugins(KaleidoscopeMenuPlugin::<MenuPage, MenuPageAction>::default());
-    // Phase D3a/D4: "only the needed backend renders." The lib registers the
-    // cube's per-frame RENDER systems in the gateable `KaleidoscopeRender` /
-    // `KaleidoscopeRenderPre` sets; gate them on `kaleidoscope_render_needed` so
-    // the 3D cube stops churning while the menu is closed, while still ticking
-    // briefly during the close-fold animation. The cube's open-routing/camera gate
-    // stay outside this render condition so closed menus can still open and force
-    // the camera inactive.
+    // Gate only the cube's render sets: closed menus can still open and manage
+    // camera routing, while face rendering stops when it is not visible/animating.
     app.configure_sets(
         Update,
         KaleidoscopeRender.run_if(kaleidoscope_render_needed),
@@ -177,10 +172,8 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
         .add_systems(
             Update,
             (
-                // Fix 3: when Cube is the backend, the game's menu-open inputs
-                // (pause/Esc, inventory, map) open the cube on the matching page
-                // instead of the old Bevy-UI menus. Runs before nav so the page is
-                // set the same frame the cube opens.
+                // Route pause/Esc, inventory, and map into the cube backend on the
+                // matching page before navigation consumes the frame.
                 // In MenuNavConsume so `fold_to_menu_control_frame`'s
                 // `.before(MenuNavConsume)` guarantees this sees the touch
                 // Menu-button press AFTER the fold writes it. Without set
@@ -196,17 +189,11 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
                 kaleidoscope_focus_nav
                     .run_if(kaleidoscope_menu_visible)
                     .in_set(ambition_sandbox::app::MenuNavConsume),
-                // Features C/D: scroll the System window INDEPENDENTLY of selection.
-                // The wheel (D) + the scrollbar-drag signal (C) set the scroll
-                // override BEFORE republish so the new window renders this frame.
+                // Scroll the System window independently of selection before republish.
                 kaleidoscope_scroll_wheel.run_if(kaleidoscope_menu_visible),
                 kaleidoscope_apply_scroll_drag.run_if(kaleidoscope_menu_visible),
-                // Phase D3a: republish builds the cube's `ActiveMenuPages` model and
-                // is now gated to the cube backend. The Grid backend builds its OWN
-                // model via `build_inventory_pages` and never reads `pages.pages`; with
-                // the cube render set gated off in Grid mode nothing consumes
-                // `ActiveMenuPages`, so freezing republish there is inert. (The Grid
-                // still re-renders via its own dirty signals.)
+                // Republish the cube's model only for the cube backend; Grid builds and
+                // dirties its own page model.
                 republish_kaleidoscope_pages.run_if(kaleidoscope_menu_visible),
                 // The focus HIGHLIGHT and the detail-panel TEXT now update IN PLACE
                 // from the live cursor (no face rebuild), so a mouse move no longer
@@ -216,9 +203,8 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
                 kaleidoscope_sync_detail_text.run_if(kaleidoscope_menu_visible),
                 gate_kaleidoscope_menu,
                 toggle_inventory_backend,
-                // Phase D3a: the readability dim-scrim is cube-only; gate both its
-                // retarget and per-frame fade to the cube backend. (`spawn_kaleidoscope_scrim`
-                // is Startup, so it stays ungated — the node just sits transparent.)
+                // The readability dim-scrim is cube-only; the Startup node stays
+                // transparent when the cube backend is inactive.
                 retarget_kaleidoscope_scrim.run_if(kaleidoscope_render_needed),
                 fade_kaleidoscope_scrim.run_if(kaleidoscope_render_needed),
             )
@@ -1635,22 +1621,11 @@ fn kaleidoscope_pointer_move(
     }
 }
 
-/// Pointer release (mouse/touch) anywhere: dispatch the action ARMED at press time.
+/// Pointer release (mouse/touch) dispatches the action armed at press time.
 ///
-/// This replaces the old `On<Pointer<Click>>` observer. Bevy's compound
-/// `Pointer<Click>` only fires when press AND release resolve to the SAME entity
-/// within a threshold — but the perspective cube despawns + respawns controls on
-/// every hover-driven republish, so the press entity is routinely gone by release
-/// and the click silently never fired (mouse-clicks did NOTHING in the GUI). The
-/// proven demo (`oot_pause_demo::input::pointer_hit_test`) dispatches from cursor +
-/// mouse button, entity-independently; we do the equivalent: arm the action on
-/// `Pointer<Press>` (stored in [`KaleidoscopePointerPress`]) and dispatch THAT
-/// stored action on RELEASE, regardless of which entity the release lands on. A
-/// rebuild between press and release can no longer drop the activation.
-///
-/// Feature E (tap vs drag) is preserved: if the press dragged past the threshold
-/// (`kaleidoscope_pointer_move` set `cancelled`), the release does NOT activate. The
-/// guard is consumed either way so the next press starts fresh.
+/// Cube controls can be despawned/rebuilt between press and release, so dispatch is
+/// entity-independent: store the action on `Pointer<Press>` and consume it on
+/// release. Drag cancellation still wins when movement exceeds the tap threshold.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn kaleidoscope_pointer_release(
     _release: On<Pointer<Release>>,
@@ -1670,7 +1645,7 @@ pub(crate) fn kaleidoscope_pointer_release(
     mut heals: MessageWriter<PlayerHealRequested>,
     mut sfx: MessageWriter<SfxMessage>,
     mut system: SystemMenuParams,
-    // Feature E: the in-flight press; activation uses the action stored at press time.
+    // In-flight press; activation uses the action stored at press time.
     mut press: ResMut<KaleidoscopePointerPress>,
 ) {
     let open = ui_state.as_deref().map(|s| s.visible).unwrap_or(false);
@@ -1819,10 +1794,7 @@ fn kaleidoscope_menu_open_routing(
         return;
     }
 
-    // inventory key: this system OWNS the cube backend's shared open/close toggle
-    // (it raises `visible` + pauses, mirroring the Esc branch above). The old grid
-    // `grid_menu_input` used to own this toggle for the cube; that system is gone
-    // (Phase D1), so the open/close is ported here.
+    // Inventory key: shared cube open/close toggle, mirroring the Esc branch.
     if menu.inventory {
         if overlay.visible {
             // Closing: leave the active page alone so the fold-close animation plays
@@ -2291,11 +2263,8 @@ fn kaleidoscope_scroll_wheel(
     scroll.system_window_start = Some(next);
 }
 
-/// Feature C: apply the lib's backend-agnostic scrollbar-drag signal
-/// ([`ambition_menu::kaleidoscope::MenuScrollDragged`]) to the host scroll
-/// position. The lib emits a neutral `0..=1` fraction (0 = top, 1 = bottom); the host
-/// maps it across the scrollable range to a window-start row. Selection-independent,
-/// like the wheel (Feature D): only the visible window moves.
+/// Apply the lib's backend-agnostic scrollbar-drag fraction (`0..=1`) to the
+/// host System-menu window. Selection is unchanged; only the visible rows move.
 fn kaleidoscope_apply_scroll_drag(
     backend: Res<InventoryUiBackend>,
     ui_state: Option<Res<ambition_sandbox::inventory::InventoryUiState>>,
@@ -2328,11 +2297,7 @@ fn kaleidoscope_apply_scroll_drag(
 #[cfg(test)]
 mod lunex_kaleidoscope_app_tests {
     //! Behaviour tests for the cube's interaction seams, driven through the real
-    //! systems / observers exactly as the app wires them.
-    //!
-    //! * Fix 1 — [`back_edge_focus`] lands the cursor on the "back" edge button.
-    //! * Fix 4 — `kaleidoscope_pointer_release` dispatches System-page clicks (drill in,
-    //!   apply an option, Close) at parity with keyboard select.
+    //! systems/observers as the app wires them.
     use super::*;
     use ambition_sandbox::brain::ActionSet;
     use ambition_sandbox::game_mode::GameMode;
@@ -2387,7 +2352,7 @@ mod lunex_kaleidoscope_app_tests {
             .id()
     }
 
-    // ---- Phase C1: the three extra dev toggles span three resources ----------
+    // ---- Developer-resource toggles ------------------------------------------
 
     /// Dispatching the F1/F2/F12 Developer rows flips the right resource:
     /// `DebugOverlay` → `SandboxDevState::debug`, `SlowMotion` →
@@ -4136,12 +4101,8 @@ mod lunex_kaleidoscope_app_tests {
             .collect()
     }
 
-    /// Phase D3a + P4b: the cube's render set (`KaleidoscopeRender`) is gated by the
-    /// host on `kaleidoscope_render_needed`. Wire the SAME `configure_sets` the host
-    /// uses, drop a sentinel render system into the set, and prove it does NOT run when
-    /// the Grid backend is active or the menu is closed-and-settled (so the cube stops
-    /// churning) but DOES run while the cube menu is visible. This pins the host gating
-    /// without needing a full cube app.
+    /// Proves the host's `kaleidoscope_render_needed` gate disables cube rendering
+    /// for Grid or settled-closed menus, while still allowing visible cube menus.
     #[test]
     fn render_set_is_gated_off_under_the_grid_backend() {
         #[derive(Resource, Default)]

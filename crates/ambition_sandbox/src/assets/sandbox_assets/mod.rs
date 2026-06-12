@@ -1,44 +1,14 @@
 //! Sandbox-side aggregator for the [`ambition_asset_manager`] catalog.
 //!
-//! Owns the construction of the **single** [`SandboxAssetCatalog`]
-//! resource that every visible-sandbox subsystem reads from to resolve
-//! Bevy asset paths. The catalog covers:
+//! This module builds the single [`SandboxAssetCatalog`] resource used by visible
+//! sandbox systems to resolve Bevy asset paths: sprites, parallax, character and
+//! boss sheets, fonts, LDtk world/data, SFX bank, and music tracks.
 //!
-//! - entity sprites + parallax layers (built from `game_assets.rs`'s
-//!   `sandbox_image_manifest`)
-//! - character spritesheets (player / robot / goblin / sandbag + NPC
-//!   registry)
-//! - boss spritesheets (gradient-sentinel + mockingbird)
-//! - UI fonts (dialog regular / semibold + debug mono, with legacy
-//!   per-source fallbacks)
-//! - the LDtk world (`world.sandbox_ldtk`)
-//! - the sandbox tuning RON (`data.sandbox`)
-//! - the packed SFX bank (`audio.sfx_bank`)
-//! - every music track in `sandbox_data.audio.music_tracks`
-//!
-//! ## Submodule layout
-//!
-//! - [`builders`] — per-domain manifest builders (world/data/SFX/fonts/
-//!   characters/bosses/music/intro sprites). Each `extend_with_*` adds
-//!   one slice to the manifest passed to [`build_sandbox_catalog`].
-//! - [`embedded`] — embedded-asset URL constants ([`embedded_core`]
-//!   et al.), the `include_bytes!` registrations that back them, and
-//!   the [`AmbitionAssetSourcePlugin`] that installs them into Bevy.
-//! - [`ids`] — typed `AssetId` constructors (`sandbox_ldtk()`,
-//!   `character_sprite(name)`, etc.).
-//!
-//! Construction order (`build_sandbox_catalog`):
-//! 1. start with the image manifest from
-//!    [`crate::assets::game_assets::sandbox_image_manifest`]
-//! 2. extend with character / boss / font / music / world / data / SFX
-//!    entries from the helpers in [`builders`]
-//! 3. wrap into [`SandboxAssetCatalog`] with the active
-//!    [`AssetProfile`].
-//!
-//! Everywhere else: ask the catalog for a path via
-//! [`SandboxAssetCatalog::path_for`]; hand the string to Bevy's
-//! `AssetServer`; let Bevy's per-platform `AssetReader` do the actual
-//! IO. The catalog does **not** perform IO itself.
+//! Construction starts from the image manifest in
+//! [`crate::assets::game_assets::sandbox_image_manifest`], extends it with domain
+//! builders, and wraps the result with the active [`AssetProfile`]. Consumers ask
+//! the catalog for a path and pass it to Bevy's `AssetServer`; the catalog itself
+//! performs no IO.
 
 use std::path::PathBuf;
 

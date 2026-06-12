@@ -1,44 +1,15 @@
-//! [`AmbitionContentPlugin`] — the single composer that owns registration
-//! of named Ambition game content.
+//! [`AmbitionContentPlugin`] — named Ambition game-content registration.
 //!
-//! Stage 11 / Task J groups the named-content registrations that used to be
-//! inlined in `app/sim_resources.rs` behind one explicit plugin so the app
-//! assembly installs content through a single seam:
+//! The app installs this composer once during simulation setup so visible and
+//! headless builds register the same named content through one seam.
 //!
-//! ```ignore
-//! app.add_plugins(crate::AmbitionContentPlugin);
-//! ```
+//! Today it composes the quest roster, boss roster, dialogue/cutscene/banter
+//! content, intro/cut-rope story hooks, and — behind the `portal` feature —
+//! Ambition-specific portal input/inventory adapters.
 //!
-//! This stage is about *registration ownership*, not relocating every
-//! implementation file. The named rosters / registries are constructed here
-//! (or in the per-content submodules this composes), while the heavy content
-//! data + systems still live in their current modules
-//! (`crate::quest`, `ambition_sandbox::boss_encounter`, `crate::intro`,
-//! `ambition_sandbox::presentation::cutscene`, …) and are merely *called from* here.
-//!
-//! What this composer owns today:
-//!
-//! - quest registry default roster ([`super::quests`])
-//! - boss encounter default roster ([`super::bosses`])
-//! - named cutscene library + room bindings + combat-banter registry
-//!   ([`super::dialogue`])
-//! - the intro / cut-rope story content hooks ([`crate::intro::IntroPlugin`])
-//! - the Ambition portal input/inventory adapters
-//!   ([`super::portal::AmbitionPortalAdaptersPlugin`], `portal` feature)
-//!
-//! What it intentionally does NOT own yet (see module docs for why):
-//!
-//! - the starter item roster ([`super::items::AmbitionItemRosterPlugin`]) —
-//!   installed from the presentation assembly to keep its original
-//!   insertion point, so headless builds keep their pre-Stage-11 behavior.
-//! - named world manifest / asset-ID bindings — those are constructed
-//!   eagerly inside `init_sandbox_resources` (the LDtk project + asset
-//!   catalog must exist before room-set validation), which is too entangled
-//!   with app-assembly ordering to move this pass.
-//! - runtime music request channels (`EncounterMusicRequest`,
-//!   `RoomMusicRequest`, …) and the empty `EncounterRegistry` default —
-//!   these are mechanic-runtime state populated from LDtk, not named
-//!   content rosters.
+//! Mechanic runtime state, world/asset catalog bootstrapping, and the starter item
+//! roster keep their existing app-assembly insertion points because those depend on
+//! runtime ordering outside named-content registration.
 
 use bevy::prelude::*;
 
@@ -55,19 +26,12 @@ impl Plugin for AmbitionContentPlugin {
         app.add_plugins(super::bosses::AmbitionBossContentPlugin);
         app.add_plugins(super::dialogue::AmbitionDialogueContentPlugin);
 
-        // Intro story content plugin. Extends CutsceneLibrary +
-        // RoomCutsceneBindings (always) and GameAssets.characters.npcs
-        // (visible builds only — the sprite installer is a no-op in
-        // headless where GameAssets is absent). Keeps story content out
-        // of sandbox-owned files in preparation for a future
-        // sandbox / game crate split.
+        // Installs intro cutscenes, room bindings, dialogue, and visible-build NPC
+        // sprite rows while keeping story content out of sandbox-owned files.
         app.add_plugins(crate::intro::IntroPlugin);
 
-        // Ambition-specific portal adapters (ControlFrame → portal intents,
-        // inventory drop glue). Lives under the content composer so all
-        // Ambition content registration flows through one place; the
-        // reusable portal core (`ambition_sandbox::portal::PortalPlugin`) is still
-        // installed separately in `add_simulation_plugins`.
+        // Ambition-specific portal adapters; the reusable portal core is installed
+        // separately in `add_simulation_plugins`.
         #[cfg(feature = "portal")]
         app.add_plugins(super::portal::AmbitionPortalAdaptersPlugin);
     }

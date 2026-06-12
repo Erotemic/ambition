@@ -1,46 +1,15 @@
-//! Runtime-loaded sprite-sheet metadata, deserialized from per-sheet
-//! `*_spritesheet.ron` manifests emitted by the procedural sprite
-//! generators.
+//! Runtime sprite-sheet metadata registry.
 //!
-//! # Why this exists
+//! Procedural generators emit `*_spritesheet.ron` manifests alongside the YAML
+//! audit sidecars. Runtime code reads the baked RON table through [`SheetRegistry`]
+//! so sprite dimensions, row layout, and body metrics stay aligned with generated
+//! sheets.
 //!
-//! Historically every sprite-sheet's dimensions, foot anchor, and
-//! animation row layout were hand-typed into [`super::sheets`] as
-//! `CharacterSheetSpec` const tables. Whenever a generator was
-//! re-run, those consts silently drifted from the regenerated YAML
-//! manifests until something visibly misaligned in-game. The
-//! 2026-05-22 "pirate floats above its collision box" report was
-//! exactly this drift. See `TODO.md` ("Sprite frame dimensions read
-//! from YAML at runtime…") and the `feedback-no-drop-shadows-on-sprites`
-//! agent memory for the full history.
-//!
-//! This module is the long-term fix: drive sheet metadata from a
-//! machine-readable manifest that the generator itself owns. The
-//! Python `pirates/common::build_sheet` helper writes both:
-//!
-//!   * `*_spritesheet.yaml` — sidecar for human inspection and the
-//!     existing preview / audit tooling. Unchanged.
-//!   * `*_spritesheet.ron`  — canonical machine-readable manifest
-//!     that this loader consumes. The shape is intentionally a
-//!     direct serde mirror of [`SheetRecord`].
-//!
-//! Authoring-time tools that want to read the metadata (audits,
-//! debuggers, atlas viewers) should prefer the YAML; runtime
-//! consumers should prefer the RON via [`SheetRegistry`].
-//!
-//! # How loading works
-//!
-//! Every `*_spritesheet.ron` under `assets/sprites/` is embedded into
-//! the binary at compile time by `build.rs` (see
-//! [`super::baked_sheet_rons::BAKED_SHEET_RONS`]). The Bevy `Startup`
-//! system [`init_sheet_registry`] parses each baked RON text into a
-//! [`SheetRecord`] and inserts it into the [`SheetRegistry`] resource.
-//!
-//! Re-running `./regen_sprites.sh` rewrites the RON files; `cargo`
-//! re-runs `build.rs` (via the `cargo:rerun-if-changed=assets/sprites`
-//! directive) so a normal `cargo build` picks up the new shape. There
-//! is no separate "iteration vs ship" loader — Android, wasm, and
-//! desktop all read the same embedded table.
+//! Authoring tools may keep using YAML for inspection; runtime consumers should use
+//! the RON data embedded by `build.rs` through
+//! [`super::baked_sheet_rons::BAKED_SHEET_RONS`]. Re-running sprite generation and
+//! then building is enough to refresh the baked table for desktop, Android, wasm,
+//! and other targets.
 
 // SheetRecord / SheetRow / BodyMetrics / FrameRect / PixelRect /
 // PixelPoint / NormPoint carry the full generator-emitted schema.
@@ -94,24 +63,14 @@ pub struct SheetRecord {
     /// `CharacterSheetSpec::feet_anchor_y` mirrors today).
     #[serde(default)]
     pub body_metrics: Option<BodyMetrics>,
-    /// Per-target gameplay tuning authored alongside the sheet. When
-    /// present, [`super::sheets::spec_from_record`] uses it; absent →
-    /// fall back to the legacy `*_SHEET` const's `SheetTuning` so
-    /// existing characters keep their hand-tuned values during the
-    /// migration. The end-state (V3/D4 follow-up from
-    /// `TODO-character-catalog-and-hall.md`): every manifest carries
-    /// tuning, every hardcoded `*_SHEET` const disappears, adding a
-    /// character is a renderer-only operation.
+    /// Per-target gameplay tuning authored alongside the sheet. When absent,
+    /// callers use their Rust fallback tuning.
     #[serde(default)]
     pub tuning: Option<SheetTuningSpec>,
     pub rows: Vec<SheetRow>,
 }
 
-/// Per-target gameplay-tuning fields embedded in the spritesheet
-/// manifest. Mirrors the internal `super::sheets::SheetTuning` but
-/// authored as content (RON), not as a Rust constant. Optional —
-/// targets that haven't been migrated keep their hardcoded
-/// `LazyLock<CharacterSheetSpec>` and ignore this.
+/// Per-target gameplay-tuning fields embedded in the spritesheet manifest.
 #[derive(Debug, Clone, Copy, Deserialize)]
 pub struct SheetTuningSpec {
     /// Multiplier on the actor's collision AABB when computing the
@@ -384,15 +343,8 @@ fn init_sheet_registry(mut registry: ResMut<SheetRegistry>) {
     *registry = SheetRegistry::from_baked();
 }
 
-/// Build the runtime `SheetRegistry` from the compile-time
-/// `BAKED_SHEET_RONS` table emitted by `build.rs`. Replaces the old
-/// `std::fs::read_dir($CARGO_MANIFEST_DIR/assets/sprites)` scan, which
-/// only worked on desktop — the manifest path doesn't exist on Android /
-/// wasm devices, so the device-side registry was silently empty and the
-/// first sprite load panicked.
-///
-/// Each baked entry is the raw RON text from one `*_spritesheet.ron`
-/// file. Most files are a length-1 list; shared-PNG sheets (lab props)
+/// Build the runtime `SheetRegistry` from baked `*_spritesheet.ron` text.
+/// Most files are a length-1 list; shared-PNG sheets (lab props)
 /// carry multiple records, one per sub-target.
 fn init_from_baked(registry: &mut SheetRegistry) {
     let mut loaded = 0usize;

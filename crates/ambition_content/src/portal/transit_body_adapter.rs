@@ -1,18 +1,12 @@
 //! Ambition identity → portal-transit policy glue.
 //!
-//! The generic portal core ([`ambition_sandbox::portal::portal_transit`]) drives any body
-//! carrying [`BodyKinematics`] + a [`PortalBody`] marker + a [`PortalPolicy`]
-//! through a placed pair. It never names Player / Boss / Enemy — that identity
-//! lives here. These adapters:
+//! The generic portal core drives any [`BodyKinematics`] + [`PortalBody`] +
+//! [`PortalPolicy`] through a placed pair without naming player, boss, enemy, or
+//! projectile. This module supplies those Ambition identities.
 //!
-//! - **Tag bodies** ([`ensure_portal_bodies`]): add the marker + the correct
-//!   policy to exactly the entities that transited before this unification —
-//!   the primary player and every non-player actor with a `BodyKinematics`.
-//! - **Reproduce the player input bits** ([`portal_player_input_adapter`]): read
-//!   the core's [`PortalBodyTransited`] event and, for the player only, emit the
-//!   [`BodyTeleported`] trace message and insert the `PortalEmission` /
-//!   `PortalInputWarp` input components — exactly as the old player-specific
-//!   transit system did inline, on the same frame the controller runs.
+//! It tags actors and projectiles with the right transit policy, then mirrors the
+//! primary player's input/trace side effects after a generic transit event so the
+//! controller sees `PortalEmission` / `PortalInputWarp` on the same frame.
 //!
 //! [`BodyKinematics`]: ambition_sandbox::platformer_runtime::body::BodyKinematics
 //! [`PortalBody`]: ambition_sandbox::portal::PortalBody
@@ -50,12 +44,8 @@ pub fn ensure_portal_bodies(
         (
             With<BodyKinematics>,
             Without<PortalBody>,
-            // Stage 19 Phase 3c-i: projectiles are NOT actors. Once player
-            // projectiles become `BodyKinematics` entities (Phase 3c-ii) they
-            // would otherwise be auto-tagged `PortalBody` here and swept into
-            // actor portal transit. Phase 4 will opt projectiles into transit
-            // explicitly with their OWN policy; until then exclude them so the
-            // transiting SET stays exactly "player + actors", unchanged.
+            // Projectiles are not actors; a dedicated adapter opts them into transit
+            // with projectile-specific policy.
             Without<ambition_sandbox::projectile::ProjectileGameplay>,
         ),
     >,
@@ -85,10 +75,8 @@ pub fn ensure_portal_bodies(
     }
 }
 
-/// Stage 19 Phase 4 — the projectile transit demo. Opt every in-flight
-/// projectile entity into the ONE generic transit algorithm
-/// ([`ambition_sandbox::portal::portal_transit`]) by giving it the [`PortalBody`] marker +
-/// a free-flying [`PortalPolicy`]:
+/// Opt every in-flight projectile entity into the generic transit algorithm by
+/// giving it the [`PortalBody`] marker plus a free-flying [`PortalPolicy`]:
 ///
 /// - `reorient: false` — a projectile is not an actor; it has no `ActorRoll` and
 ///   no facing-to-aperture concept. Its velocity is rotated by the pair
@@ -130,9 +118,8 @@ pub fn ensure_projectile_portal_bodies(
     }
 }
 
-/// Reproduce the PLAYER's input/trace side effects that used to live inside the
-/// old `portal_transit_system`. Reads the generic core's [`PortalBodyTransited`]
-/// events and, for the primary-player entity only:
+/// Apply player-only input/trace side effects after generic portal transit.
+/// Reads [`PortalBodyTransited`] events and, for the primary-player entity only:
 ///
 /// - emits [`BodyTeleported`] (so the gameplay trace treats the position snap as
 ///   intentional and doesn't auto-dump on it),
@@ -183,19 +170,9 @@ pub fn portal_player_input_adapter(
 
 #[cfg(test)]
 mod projectile_transit_tests {
-    //! Stage 19 Phase 4 — the projectile-transit DEMO, proven headless.
-    //!
-    //! A projectile entity (the exact shape the player / enemy spawn consumers
-    //! produce: shared [`BodyKinematics`] + [`ProjectileGameplay`]) is opted into
-    //! the ONE generic [`portal_transit`] core by the REAL Phase-4 adapter
-    //! ([`ensure_projectile_portal_bodies`]). With a portal pair placed, a
-    //! projectile fired into portal A must EMERGE from portal B with its velocity
-    //! rotated by the pair transform and keep flying past B (no re-orientation —
-    //! projectiles have no `ActorRoll`, `reorient: false`).
-    //!
-    //! Deterministic: no RNG, fixed positions/velocities, explicit `app.update()`
-    //! steps. Also guards the no-regression case — a projectile nowhere near a
-    //! portal stays on its straight-line path (`transit_step` → `Idle`).
+    //! Headless projectile-transit tests for the generic portal core plus the real
+    //! projectile adapter. A projectile near a pair should emerge with rotated
+    //! velocity; one nowhere near a portal should keep its straight-line path.
 
     use bevy::prelude::*;
 
@@ -225,8 +202,8 @@ mod projectile_transit_tests {
         }
     }
 
-    /// Minimal app: the Phase-4 tagging adapter + the generic transit core, wired
-    /// `ensure → transit` exactly as the real plugin orders them.
+    /// Minimal app: projectile tagging adapter + generic transit core, wired
+    /// `ensure → transit` as in the real plugin.
     fn app_with_transit() -> App {
         let mut app = App::new();
         app.add_message::<ambition_sandbox::portal::PortalBodyEntered>();

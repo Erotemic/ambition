@@ -1,38 +1,16 @@
-//! `DialogState` — the dialogue UI's read-model.
+//! `DialogState` — the dialogue UI read model.
 //!
-//! Yarn-driven (post-phase 5): the runner is the authority. The
-//! existing UI (`sync_dialog_ui`) and input systems (`dialog_input`,
-//! `dialog_pointer_input`) continue to call the legacy accessors
-//! (`active()`, `body()`, `options()`, `title()`,
-//! `confirm_or_advance()`, `select_delta()`), but those now read /
-//! write fields populated by the Yarn bridge.
+//! The Yarn runner owns dialogue progression. `DialogState` stores the frame-local
+//! UI projection: active conversation id, speaker/line text, revealed options,
+//! selected option, presentation cue, and pending requests from input/UI callers.
 //!
-//! ## How writes flow
+//! Callers mutate `DialogState` through pure methods such as `start`, `close`,
+//! `confirm_or_advance`, and `select_delta`. The bridge drains the pending request
+//! fields into the live `DialogueRunner`, then writes runner events back into this
+//! read model.
 //!
-//! - Caller (interact system) → `state.start(dialogue_id, npc_name)`.
-//!   The method stashes a `pending_start` request on the state; a
-//!   bridge system reads it, increments `dialog_visit_count` in
-//!   save, and calls `runner.start_node(id)`.
-//! - Runner triggers `PresentLine` → bridge observer writes
-//!   `current_speaker` + `current_line`; the reveal tick exposes
-//!   it to the UI over time.
-//! - Runner triggers `PresentOptions` → bridge observer writes
-//!   `current_options` + `yarn_option_ids`; the options reveal tick
-//!   exposes them one at a time.
-//! - Player input → `state.confirm_or_advance()` stashes
-//!   `pending_select` or `pending_advance`; the dispatch system
-//!   calls `runner.select_option(id)` or
-//!   `runner.continue_in_next_update()`.
-//! - Runner triggers `DialogueCompleted` → bridge observer flips
-//!   `active = false`.
-//!
-//! ## Why a "pending request" indirection
-//!
-//! Callers of `state.start(...)` hold a `&mut DialogState`, not a
-//! full Bevy `World`. The runner lives on an entity and needs a
-//! `Query<&mut DialogueRunner>`. The pending-request fields are
-//! the seam that lets pure callers stay pure and a single dispatch
-//! system own the runner access. Same pattern for close + select.
+//! The pending-request seam keeps UI/gameplay callers independent of Bevy runner
+//! queries while giving one system ownership of runner access.
 
 use bevy::prelude::Resource;
 

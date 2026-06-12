@@ -1,51 +1,17 @@
-//! Sandbox-wide reset: wipe the save and rebuild the runtime so the
-//! player ends up in the world's start room with every NPC alive,
-//! every encounter armed, and every persisted flag cleared.
+//! Sandbox-wide gameplay reset.
 //!
-//! Triggered by setting [`SandboxResetRequested::request`] from
-//! anywhere — today the pause-menu "Reset Sandbox" item is the only
-//! caller, but the seam is generic so future debug hotkeys / dev
-//! tools can reuse it.
+//! Setting [`SandboxResetRequested::request`] clears gameplay progress and rebuilds
+//! runtime state so the player returns to the world's start room with encounters,
+//! quests, switches, bosses, and flags reset.
 //!
-//! ## What gets reset
+//! Reset replaces `SandboxSaveData`, resets encounter/boss/quest registries so
+//! their populate systems rebuild from LDtk plus the empty save, despawns
+//! `RoomScopedEntity` instances, warps/refills the player, and re-seeds authored
+//! moving-platform state for the start room.
 //!
-//! - **Save**: replaced with `SandboxSaveData::default()` (encounters,
-//!   switches, bosses, quests, flags all cleared). Bevy's
-//!   change-detection picks up the mutation and `autosave_sandbox_save`
-//!   writes the empty save to disk on the same tick, so the reset
-//!   survives a fresh game launch.
-//! - **Encounter / boss / quest registries**: replaced with their
-//!   `Default` values, which sets `specs_loaded` / `initialized` to
-//!   false. The populate Update systems
-//!   (`populate_encounter_registry`, etc.) re-run on the next frame
-//!   and rebuild the registries from the LDtk project + the now-empty
-//!   save.
-//! - **`RoomScopedEntity` entities** (including all `RoomVisual`s):
-//!   despawned. The room-visual respawn path runs after the active
-//!   room flips back to the start.
-//! - **Player entity**: warped to the start room's spawn via
-//!   `player.reset_to(world.spawn)` — restores movement resources and
-//!   refills mana. Immediately afterward, the moving-platform state
-//!   is re-seeded from the start room's LDtk-authored `MovingPlatform`,
-//!   falling back to the legacy test/reference platform only for rooms
-//!   that have no authored platform yet.
-//! - **Active room**: `room_set.active` resets to `room_set.start`
-//!   (captured at `RoomSet::from_parts` time) so the player ends up
-//!   wherever a fresh game would start, not wherever they happened
-//!   to be when they hit reset.
-//!
-//! ## What does NOT get reset
-//!
-//! - User settings (audio mix, controls, video, gameplay tuning) —
-//!   those live in `crate::persistence::settings::UserSettings` and are not part
-//!   of the sandbox state. Reset is about gameplay progress only.
-//! - Keyboard preset selection.
-//! - Dev-tool toggles (the F3 stats editor's invincible flag etc.)
-//!   live on `PlayerOffense` / `PlayerMana` and ARE reset by
-//!   `reset_player_clusters`, because the caller also runs
-//!   `mana.refill_full()` — that's actually a feature: a player who
-//!   accidentally enabled invincibility and wants to play "for real"
-//!   gets a clean slate.
+//! It does **not** reset user settings, keyboard preset selection, or global app
+//! preferences. Dev-tool gameplay flags stored on player clusters are reset with
+//! the player so a manual reset gives a clean gameplay slate.
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
@@ -291,12 +257,7 @@ pub fn clear_transient_on_sandbox_reset(
     }
 }
 
-/// Module-local Bevy plugin: schedules
-/// [`process_sandbox_reset_request`] into [`SandboxSet::ResetProcessing`].
-///
-/// Carved out of `app/plugins.rs::register_reset_processing_systems`
-/// per OVERNIGHT-TODO #6. The reset machinery lives entirely in this
-/// module, so its schedule registration belongs here too.
+/// Schedules [`process_sandbox_reset_request`] into [`SandboxSet::ResetProcessing`].
 pub struct SandboxResetSchedulePlugin;
 
 impl Plugin for SandboxResetSchedulePlugin {

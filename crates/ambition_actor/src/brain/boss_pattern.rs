@@ -1,49 +1,22 @@
-//! Boss-policy brain template: scripted multi-phase + legacy cycle.
+//! Boss-policy brain template.
 //!
-//! Owns the vocabulary that used to live on `BossRuntime`:
+//! This module defines the content-free vocabulary for scripted boss brains:
+//! movement profiles, attack profiles, pattern steps, looping/cyclic attack
+//! schedules, per-boss tuning, per-actor cursors, and the live attack-state sink.
 //!
-//! - [`BossMovementProfile`] — anchor-sway / air-swoop / stationary-giant
-//!   movement families.
-//! - [`BossAttackProfile`] — per-strike hitbox identities (FloorSlam,
-//!   DebrisRain, WingSweep, …). The world-space AABB for each profile
-//!   is still computed by `BossRuntime::volumes_for(profile)` because
-//!   the math depends on the boss's pos / spawn / combat_size /
-//!   is_gnu_ton flags — but the **choice** of which profile is active
-//!   this tick is made here, not there.
-//! - [`BossPatternStep`] — one beat in a scripted timeline (Telegraph
-//!   / Strike / Rest).
-//! - [`BossPattern`] — an ordered list of steps that loops.
-//! - [`BossAttackPattern`] — `Cycle` (legacy rhythm using
-//!   `BossBehaviorProfile::attacks`) or `Scripted` (per-phase
-//!   timeline).
+//! [`tick_boss_pattern`] turns [`BossPatternCfg`] + [`BossPatternState`] +
+//! [`BossPatternContext`] into an [`crate::actor::control::ActorControlFrame`]
+//! plus [`BossAttackState`]. It is deliberately separate from [`BrainSnapshot`]
+//! because bosses need encounter phase, arena bounds, spawn anchors, and other
+//! boss-specific context that should not bloat every actor snapshot.
 //!
-//! Plus the brain-template state shape:
-//!
-//! - [`BossPatternCfg`] — per-boss tuning (pattern, movement, phase
-//!   timings, spawn anchor, world bounds). Built at spawn-time from
-//!   `BossBehaviorProfile`.
-//! - [`BossPatternState`] — per-actor cursor (step index/elapsed,
-//!   last phase, movement_timer, pattern_timer, cycle phase) advanced
-//!   by [`tick_boss_pattern`] every frame.
-//! - [`BossPatternContext`] — per-tick read-only inputs the system
-//!   passes in (encounter phase, target pos, current pos, dt).
-//! - [`BossAttackState`] — the brain's component-side output sink.
-//!   Holds the live telegraph / active profile + remaining time so
-//!   rendering and contact systems read execution state from a
-//!   uniform place instead of poking at runtime fields.
-//!
-//! [`tick_boss_pattern`] is the pure function the boss tick system
-//! calls each frame to turn (cfg + state + context) into
-//! (`ActorControlFrame` intent + `BossAttackState` mirror). The
-//! function is `BrainSnapshot`-free on purpose — the user-facing
-//! follow-up plan explicitly says "Phase must be available to the
-//! brain. Prefer a boss-specific tick system over bloating
-//! `BrainSnapshot` for all actors."
+//! The named boss roster lives in content; this crate only defines reusable
+//! behavior vocabulary such as "floor slam" or "debris rain".
 
 use ambition_engine_core as ae;
 use bevy::prelude::Component;
 
-// ===== Vocabulary (moved from content/features/bosses.rs) =====
+// ===== Vocabulary =====
 
 /// Movement family for a live boss actor. Encounter phases decide *when* a boss
 /// is active; this profile decides how the authored actor moves while active.
@@ -339,9 +312,8 @@ pub struct BossPatternCfg {
     /// Stays a `String` so the brain can pull straight from the
     /// existing registry instead of forcing a parallel id type.
     pub encounter_id: String,
-    /// Pattern choice + per-phase scripted steps (or `Cycle` for the
-    /// legacy rhythm). Moved out of `BossBehaviorProfile` so the
-    /// brain owns the schedule.
+    /// Pattern choice plus per-phase scripted steps, or `Cycle` for the classic
+    /// roster rhythm. The brain owns the schedule.
     pub pattern: BossAttackPattern,
     /// Movement profile (anchor sway / air swoop / stationary giant).
     /// Tells the brain how to fill `frame.desired_vel` each tick.
@@ -682,16 +654,9 @@ pub struct BossPatternContext {
     pub dt: f32,
 }
 
-/// Component-side mirror of the brain's "what attack is live right
-/// now?" decision. Written by the boss brain tick system; read by
-/// rendering (debug overlay), damage (boss player_damage), and the
-/// `Special` resolver (boss runtime's `frame.special_pressed` gate).
-///
-/// This component replaces the policy fields that used to live on
-/// `BossRuntime` (`active_strike_profile` + `telegraph_profile` +
-/// `attack_timer` + `attack_windup_timer`). `BossRuntime` may keep
-/// mirror copies briefly during the transition; the new component is
-/// the source of truth.
+/// Component-side mirror of the brain's live attack decision. Written by the
+/// boss brain tick system; read by rendering, damage, and `Special` consumers.
+/// This component is the source of truth for telegraph/active profile timing.
 #[derive(Component, Clone, Debug, Default)]
 pub struct BossAttackState {
     /// `Some(profile)` while the brain is inside a `Telegraph` step
@@ -733,15 +698,8 @@ impl BossAttackState {
 
 // ===== tick_boss_pattern =====
 
-/// Pure brain tick: advance the cursor + clocks, write
-/// `ActorControlFrame` intent (movement + melee/special edges), and
-/// mirror the live telegraph/active profile into the
-/// `BossAttackState` sink.
-///
-/// Behavioral parity with the deleted `BossRuntime::update_scripted_attacks`
-/// / `update_cycle_attacks` is the goal — the migration moves the
-/// policy decision into the brain without changing what bosses
-/// visibly do.
+/// Pure brain tick: advance the cursor/clocks, write movement and action intent,
+/// and mirror the live telegraph/active profile into [`BossAttackState`].
 pub fn tick_boss_pattern(
     cfg: &BossPatternCfg,
     state: &mut BossPatternState,

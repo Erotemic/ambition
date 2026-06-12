@@ -1,23 +1,15 @@
-//! The unified actor system (Stage 22 extraction).
+//! Unified actor system.
 //!
-//! One crate for everything that makes an entity a controllable actor:
+//! This crate owns the content-free vocabulary that makes an entity controllable:
 //!
-//! - [`actor`] — the control-frame vocabulary (`ActorControl`,
-//!   `ActorControlFrame`), AI state components, pose/faction
-//!   vocabulary, and the character catalog (id → display name, sprite
-//!   tuning, default brain/action-set presets).
-//! - [`boss_encounter`] — the boss-encounter phase state machine +
-//!   spec schema (the game's named roster stays game-side).
-//! - [`brain`] — the universal brain: every controllable entity
-//!   (player, NPC, enemy, boss) carries `Brain` + `ActionSet` and is
-//!   driven through one dispatch. Includes the boss attack-pattern
-//!   schedule + `BossEncounterPhase` (bosses ARE actors, ADR 0016).
+//! - [`actor`] — control frames, AI state components, pose/faction vocabulary, and
+//!   character-catalog data.
+//! - [`boss_encounter`] — boss phase progression and spec schema.
+//! - [`brain`] — the universal brain/action-set dispatch for players, NPCs,
+//!   enemies, and bosses.
 //!
-//! Content-free by construction: attack profiles are behavior
-//! vocabulary (`HandSlam`, `DebrisRain`, ...), never boss names; the
-//! named world lives in `ambition_content` / the machinery lib above.
-//! `ambition_sandbox` re-exports both modules at their historical
-//! `crate::actor` / `crate::brain` paths.
+//! Named world content stays in `ambition_content`; `ambition_sandbox` re-exports
+//! these modules at the historical `crate::actor` / `crate::brain` paths.
 
 pub mod actor;
 pub mod boss_encounter;

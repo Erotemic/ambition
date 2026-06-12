@@ -744,19 +744,10 @@ fn apply_flying_separation(
 
 // ===== BossPattern =====
 //
-// `BossPatternCfg` / `BossPatternState` / `tick_boss_pattern` moved
-// to `brain/boss_pattern.rs`. They are re-exported from `brain::*`.
-// The real boss-tick driver lives in `content/features/ecs/bosses.rs`
-// (`tick_boss_brains_system`) because it needs boss-entity context
-// — encounter phase, target pos, world bounds — that doesn't fit
-// inside the generic `BrainSnapshot`.
-//
-// The `tick_state_machine` dispatch arm below emits a neutral frame
-// for `BossPattern` because this generic path is the wrong driver
-// for bosses; the boss tick system bypasses it and calls
-// `boss_pattern::tick_boss_pattern` directly with the full
-// `BossPatternContext`. The arm exists only so a possessed-boss
-// actor in a non-boss code path doesn't crash the dispatch.
+// Bosses are driven by `tick_boss_brains_system`, which has encounter phase,
+// target, bounds, and spawn-anchor context unavailable to generic snapshots. This
+// fallback keeps non-boss dispatch paths neutral rather than crashing if they see
+// a `BossPattern` brain.
 fn tick_boss_pattern_via_state_machine(
     _cfg: &super::BossPatternCfg,
     _state: &mut super::BossPatternState,

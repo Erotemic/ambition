@@ -1,37 +1,15 @@
 //! ECS-native feature simulation.
 //!
 //! Authored and dynamic pickups, chests, breakables, switches, NPCs, enemies,
-//! hazards, and bosses are spawned as Bevy entities and updated by the systems
-//! in this module. This is the authoritative feature implementation.
+//! hazards, mounts, and bosses are spawned as Bevy entities and updated by this
+//! module. This is the authoritative feature implementation.
 //!
-//! ## Submodule layout (post-2026-05-19 split)
-//!
-//! - [`spawn`] — public spawn facade for room features and encounter mobs.
-//! - [`spawn_static`], [`spawn_actors`], [`spawn_mounts`] — concrete
-//!   family-specific spawn helpers.
-//! - [`actors`] — `ActorRuntime` enum + `update_ecs_actors` (slot
-//!   board, holding-position fallback, attack publication).
-//! - Per-family update systems: [`pickups`], [`chests`],
-//!   [`breakables`], [`hazards`], [`bosses`].
-//! - [`interact`] — buffered-interact resolver (peaceful NPCs,
-//!   switches).
-//! - [`damage`] — typed slash/projectile/pogo damage application,
-//!   breakable shatter side effects, hit predicates.
-//! - [`encounter_rewards`] — reward chest spawn/despawn for cleared
-//!   mob + boss encounters.
-//! - [`falling_chest`] — boss-reward chest gravity tick plus
-//!   precomputed "settled at save load" pass.
-//! - [`overlay`] — `FeatureEcsWorldOverlay` collision contribution
-//!   rebuilt each frame for engine code.
-//! - [`view_index`] — `FeatureViewIndex` per-frame read model that
-//!   presentation systems consult by id.
-//! - [`anim_helpers`] — per-id sprite/anim lookups for the
-//!   presentation pipeline.
-//! - [`save_sync`] — boss / actor / switch mirror systems run at
-//!   room-load.
-//! - [`reset`] — `reset_ecs_room_features` same-room sandbox-reset
-//!   handler.
-//! - [`banner`] — gameplay banner tick + deferred-request applier.
+//! Main responsibilities:
+//! - spawn authored room features and encounter mobs;
+//! - update actors, NPCs, bosses, interactables, damage, rewards, save mirrors, and
+//!   reset behavior;
+//! - maintain the per-frame collision/read-model overlays used by engine and
+//!   presentation code.
 
 use super::*;
 use crate::audio::SfxMessage;
@@ -65,10 +43,7 @@ mod spawn_mounts;
 mod target_volumes;
 mod view_index;
 
-// The generic systems below moved to the combat kit
-// (`crate::mechanics::combat`, Stage 20 / A2). Module aliases keep
-// every `super::<module>::…` path in the staying files (and every
-// external `…::ecs::<module>::…` path) resolving unchanged.
+// Combat-kit aliases keep `ecs::<module>` paths stable for callers.
 pub use crate::mechanics::combat::boss_clusters;
 pub use crate::mechanics::combat::{
     banner, breakables, chests, falling_chest, hazards, held_items, hitbox, overlay, pickups,

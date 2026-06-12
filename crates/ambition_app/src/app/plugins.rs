@@ -51,25 +51,13 @@ pub fn add_simulation_plugins(app: &mut App) {
 
     app.add_plugins(super::sim_resources::SandboxSimulationResourcesPlugin);
 
-    // Named Ambition game content (quests, bosses, cutscenes/banter, the
-    // intro/cut-rope story hooks, and — under the `portal` feature — the
-    // portal adapters). Registration ownership lives behind one composer
-    // so the named-content rosters are constructed in a single content-
-    // owned place instead of inline in `sim_resources.rs`. Installed right
-    // after the simulation resources so the registries land at the same
-    // point in app assembly as before (preserving replay / scripted
-    // ordering).
+    // Named Ambition game content: quests, bosses, dialogue/cutscenes, intro
+    // hooks, and portal adapters. Installed after simulation resources so content
+    // registries land at the expected assembly point.
     app.add_plugins(ambition_content::AmbitionContentPlugin);
 
-    // Yarn dialogue stack (gated by `ui` feature):
-    //   1. `yarn_spinner_plugin()` — bevy_yarnspinner: compiles
-    //      `.yarn` files into a `YarnProject` resource at startup.
-    //   2. `YarnBridgePlugin` — spawns the persistent `DialogueRunner`
-    //      entity once `YarnProject` resolves + registers observers
-    //      that translate Yarn lifecycle events into sandbox state.
-    //   3. `YarnBindingsPlugin` — registers custom commands /
-    //      functions / markup the .yarn content can invoke (phase
-    //      1: empty scaffold; phases 2-4 fill it in).
+    // Yarn dialogue stack: compile `.yarn`, bridge runner events into sandbox
+    // state, and register the commands / functions / markup used by content.
     #[cfg(feature = "ui")]
     {
         app.add_plugins(ambition_sandbox::dialog::yarn_spinner_plugin());
@@ -78,37 +66,20 @@ pub fn add_simulation_plugins(app: &mut App) {
     }
 
     app.add_plugins(ambition_sandbox::features::WorldPrepSchedulePlugin);
-    // Universal-brain plugin: registers ActorActionMessage +
-    // BrainActionCounter resource. Scheduling of the per-tick
-    // systems lives in register_player_input_systems below.
+    // Universal-brain messages/resources; per-tick systems are registered below.
     app.add_plugins(ambition_sandbox::brain::BrainPlugin);
     register_player_input_systems(app);
     register_player_simulation_systems(app);
-    // Ambition's player ability / weapon kit (blink, dive, grapple,
-    // possession, beam, meteor, …). The 14 abilities are mostly pure-logic
-    // modules driven from combat / item-pickup / projectile code; this
-    // umbrella plugin owns the only Bevy `App` state any of them register
-    // today (possession's `PossessionState` resource). A sibling of the
-    // mechanic plugins below.
+    // Ambition's player ability/weapon kit plus its small shared app state.
     app.add_plugins(ambition_sandbox::abilities::AmbitionAbilitiesPlugin);
-    // Gravity-zone mechanic (Stage 6 follow-up): the gravity zones / switches
-    // that flip ambient gravity + their per-frame snapshot. Owns its own
-    // resources + scheduling; installed alongside the other mechanic plugins and
-    // independent of the `portal` feature (it used to live inside portal).
+    // Gravity zones / switches and their per-frame ambient-gravity snapshot.
     app.add_plugins(ambition_sandbox::mechanics::gravity::GravityPlugin);
     #[cfg(feature = "portal")]
     {
         app.add_plugins(ambition_sandbox::portal::PortalPlugin);
-        // Wire portal's internal `PortalSet`s into the sandbox app schedule.
-        // `ambition_sandbox::portal` owns only its own intra-set ordering; the sandbox
-        // declares the cross-set phase placement, `.before`/`.after` edges, and
-        // `gameplay_allowed` gating here so portal can become a standalone crate
-        // without naming `SandboxSet`/app-systems/`gameplay_allowed`/etc.
+        // Host-side placement for portal's internal sets.
         wire_portal_schedule(app);
     }
-    // The Ambition portal adapters (AmbitionPortalAdaptersPlugin) are now
-    // installed by `ambition_content::AmbitionContentPlugin` above so
-    // all Ambition content lives in one composer.
     app.add_plugins(ambition_sandbox::items::pickup::ItemPickupSimulationPlugin);
     register_room_transition_systems(app);
     app.add_plugins(super::combat_schedule::CombatSchedulePlugin);
@@ -131,31 +102,13 @@ pub fn add_simulation_plugins(app: &mut App) {
     app.add_plugins(ambition_sandbox::player::affordances::AffordancesPlugin);
 }
 
-/// Place portal's internal [`ambition_sandbox::portal::PortalSet`] variants into the
-/// sandbox app schedule.
-///
-/// `ambition_sandbox::portal::PortalPlugin` registers each portal system `.in_set(PortalSet::X)`
-/// with only PORTAL-INTERNAL ordering (edges between portal's own sets). This
-/// function — the sandbox side of the seam — declares everything that ties
-/// portal to the host app schedule:
-///   * which `SandboxSet` phase each `PortalSet` runs in,
-///   * the cross-set `.before`/`.after` edges against concrete sandbox systems
-///     (`interaction_input_system`, `sync_local_player_input_frame`,
-///     `player_simulation_system`, `collect_gravity_zones`) and sets
-///     (`ItemPickupSet::CoreHeldItems`, `reset_cut_rope_boss_arena_on_room_reset`,
-///     `SandboxSet::CoreSimulation`),
-///   * the `gameplay_allowed` run condition.
-///
-/// These are EXACTLY the edges `portal/plugin.rs` used to bake; moving where they
-/// are declared does not change the resulting execution order.
+/// Host-side placement for portal systems: map each portal-internal set to
+/// the sandbox phase, cross-set ordering edge, and gameplay run condition.
 #[cfg(feature = "portal")]
 fn wire_portal_schedule(app: &mut App) {
     use ambition_sandbox::portal::PortalSet;
 
-    // Carves: published with the same early-world snapshot cadence as the
-    // gravity-zone snapshot — after `collect_gravity_zones`, before
-    // `CoreSimulation` (byte-identical to the pre-extraction
-    // `oscillate → collect → carves` chain).
+    // Carves publish after gravity-zone collection and before core simulation.
     app.configure_sets(
         Update,
         PortalSet::Carves
@@ -175,11 +128,7 @@ fn wire_portal_schedule(app: &mut App) {
             .run_if(ambition_sandbox::gameplay_allowed),
     );
 
-    // WeaponAndProjectiles: gameplay-gated weapon/projectile systems in the
-    // player-simulation phase. WeaponMaintenance (orphan cleanup + roll
-    // readiness) runs in the same phase but stays UNGATED, matching the
-    // pre-extraction per-system gating; portal already chains it after
-    // WeaponAndProjectiles.
+    // Weapon maintenance stays ungated for orphan cleanup / roll readiness.
     app.configure_sets(
         Update,
         PortalSet::WeaponAndProjectiles
@@ -229,9 +178,6 @@ fn wire_portal_schedule(app: &mut App) {
 // External presentation/audio/HUD systems still pin against
 // `SandboxSet::CoreSimulation`; that constraint covers all six
 // sub-sets transitively.
-
-// WorldPrep schedule moved to `ambition_sandbox::features::WorldPrepSchedulePlugin`
-// (OVERNIGHT-TODO #6 — module-local plugins).
 
 /// Dev-edit sync + input-driven reset + gameplay timer decay + interact
 /// buffer + suspended-time fallback. Each subsequent system depends on
@@ -289,13 +235,8 @@ fn register_player_input_systems(app: &mut App) {
             // Portal-warped held movement input is registered by
             // `ambition_sandbox::portal::PortalPlugin` so the portal subsystem owns
             // its input seam.
-            // Per-player input migration (OVERNIGHT-TODO #17.5). Mirror
-            // the now-final `Res<ControlFrame>` onto the local primary
-            // player's `PlayerInputFrame` so simulation systems can
-            // move toward reading input from a Query<&PlayerInputFrame>
-            // rather than the single global resource. Runs last in the
-            // PlayerInput phase so every input writer (leafwing, mobile
-            // bridge, RL) has finalized the resource for this frame.
+            // Mirror the finalized global control frame onto the local
+            // primary player's input component after every input writer.
             ambition_sandbox::player::sync_local_player_input_frame,
             // Ladder body-mode policy needs the freshly mirrored input
             // frame, but it must still run before the player tick so
@@ -336,33 +277,13 @@ fn register_player_input_systems(app: &mut App) {
     );
 }
 
-/// Main player tick (two-clock control + simulation) plus post-sim
-/// damage / safe-respawn.
-///
-/// Per the actor/brain migration, the player tick is no longer
-/// a monolithic `sandbox_update` orchestrator. Instead:
-///
-/// 1. `clear_sandbox_reset_this_frame` zeros the per-frame reset
-///    flag at the start of the player tick.
-/// 2. `player_control_system` runs the control-clock half. If
-///    `update_player_control_with_clusters` reports a reset, the
-///    `SandboxResetThisFrame` flag is set.
-/// 3. `player_simulation_system` runs the sim-clock half. It
-///    short-circuits when the flag is set so the same-frame reset
-///    isn't clobbered. May set the flag itself if its own engine
-///    call reports a reset.
-/// 4. `apply_player_hit_events` drains pending damage events.
-///
-/// Both systems read `ActorControl` as the brain-output authority +
-/// `PlayerInputFrame` for player-specific verbs (the polarity flip).
+/// Main player tick: clear the reset flag, run control, run simulation,
+/// then drain damage. Simulation short-circuits when control already reset
+/// the player so same-frame respawns are not clobbered.
 fn register_player_simulation_systems(app: &mut App) {
     app.init_resource::<crate::app::SandboxResetThisFrame>();
-    // `PossessionState` is now initialized by
-    // `ambition_sandbox::abilities::AmbitionAbilitiesPlugin` (installed in
-    // `add_simulation_plugins`). The possession *systems* below stay chained
-    // here because they are interleaved with the player control / simulation
-    // tick (`not_possessing` run conditions inside this `.chain()`); lifting
-    // them would change execution order.
+    // Possession systems stay interleaved with the player tick; lifting
+    // them would change the `not_possessing` run-condition window.
     app.add_systems(
         Update,
         (
@@ -385,10 +306,6 @@ fn register_player_simulation_systems(app: &mut App) {
             .in_set(SandboxSet::PlayerSimulation),
     );
 }
-
-// Portal and held-item simulation schedules moved to
-// `ambition_sandbox::portal::PortalPlugin` and
-// `ambition_sandbox::items::pickup::ItemPickupSimulationPlugin`.
 
 /// Detection emits `RoomTransitionRequested`; apply consumes it and runs
 /// `load_room`; the feature-side `reset_ecs_room_features` system tears
@@ -431,42 +348,6 @@ fn register_presentation_sync_systems(app: &mut App) {
             .in_set(SandboxSet::PresentationSync),
     );
 }
-
-// FeatureViewSync, FeatureCollection, and FeatureInteraction schedules
-// moved to `ambition_sandbox::features::{FeatureViewSyncSchedulePlugin,
-// FeatureCollectionSchedulePlugin, FeatureInteractionSchedulePlugin}`
-// (OVERNIGHT-TODO #6 — module-local plugins). The per-frame
-// `FeatureViewIndex` rebuild gets its own set rather than living at
-// the end of `PresentationSync` because pickup / chest / switch /
-// encounter-mob / save-driven boss sync mutations land in sets that
-// fire *after* `CoreSimulation`; rebuilding at the very tail of the
-// sim chain guarantees the cache reflects this frame's full feature
-// state before the presentation half reads it.
-
-// LDtk runtime spine schedule moved to
-// `ldtk_world::LdtkRuntimeSpinePlugin` (OVERNIGHT-TODO #6).
-
-// EncounterSimulation schedule moved to
-// `ambition_sandbox::encounter::EncounterSimulationSchedulePlugin` (OVERNIGHT-TODO #6).
-
-// Progression chain: cutscenes, gameplay-effect routing, boss encounters,
-// quest events, and the F3 stats editor sync. Split into several chained
-// groups so each tuple stays under Bevy's macro arity limit while
-// preserving the old drain-before-progression order.
-
-// Cutscene schedule moved to
-// `ambition_sandbox::presentation::cutscene::CutsceneSchedulePlugin` (OVERNIGHT-TODO #6).
-
-// Gameplay-effects bus schedule moved to
-// `ambition_sandbox::features::GameplayEffectsSchedulePlugin` (OVERNIGHT-TODO #6).
-
-// Progression schedule moved to
-// `super::progression_schedule::ProgressionSchedulePlugin` (ecs-cleanup-plan #8).
-// Sandbox reset schedule moved to
-// `ambition_sandbox::runtime::reset::SandboxResetSchedulePlugin` (OVERNIGHT-TODO #6).
-// Trace recorder schedule moved to `ambition_sandbox::trace::TraceSchedulePlugin`
-// (OVERNIGHT-TODO #6 — module-local plugins). `add_simulation_plugins`
-// installs them via `app.add_plugins`.
 
 /// Register Bevy's `LdtkPlugin` plus the supporting Ambition glue
 /// (entity registrations, asset collection, LdtkWorldBundle spawn,
@@ -614,10 +495,7 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
 
     app.add_plugins(crate::host::platform::PlatformPlugin);
     app.add_plugins(ambition_sandbox::presentation::screen_effects::ScreenEffectsPlugin);
-    // Loads `*_spritesheet.ron` manifests so the registry (and, in a
-    // future pass, the consumer code) can read sheet sizing / feet
-    // anchors / per-frame anchors from data instead of hardcoded
-    // consts in `presentation::character_sprites::sheets`.
+    // Loads baked `*_spritesheet.ron` manifests for runtime sheet metadata.
     app.add_plugins(ambition_sandbox::presentation::character_sprites::SheetRegistryPlugin);
     app.add_plugins(crate::dev::DevToolsPlugin);
     add_physics_debris_plugins(app);
@@ -635,15 +513,10 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     app.add_systems(Startup, ui_fonts::load_ui_fonts);
 }
 
-// Settings + sandbox-save persistence schedule moved to
-// `ambition_sandbox::persistence::PersistenceSchedulePlugin` (OVERNIGHT-TODO #6).
-
 /// Pause menu, inventory, map menu, presentation startup, dev/dialog
 /// hotkeys.
 fn install_menu_setup_and_hotkeys(app: &mut App) {
     // Starter item-ownership roster (the 24-item catalog default set).
-    // Owned by the content boundary but installed here to preserve its
-    // original presentation-scoped insertion point (Stage 11 / Task J).
     app.add_plugins(ambition_content::items::AmbitionItemRosterPlugin);
     app.insert_resource(inventory::InventoryUiState::default())
         .insert_resource(inventory::PlayerInventory::starter())
@@ -708,18 +581,6 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
         crate::menu::grid_backend::install_grid_unified_menu(app);
     }
 }
-
-// Visual animation chain moved to
-// `ambition_sandbox::presentation::rendering::PresentationVisualAnimationPlugin`
-// (OVERNIGHT-TODO #6). The chain spawns visual entities for dynamic
-// features plus the sprite/animation pipeline, chained after
-// `handle_map_menu_hotkeys` in `SandboxSet::PresentationVisualSync`.
-// `sync_visuals` and `upgrade_enemy_sprites` / `upgrade_npc_sprites`
-// all read `FeatureViewIndex`; the
-// `.after(SandboxSet::FeatureViewSync)` constraint lives on the set
-// itself in `configure_sandbox_sets` so the ordering contract is
-// testable via a probe in the same set rather than re-typed on every
-// call site.
 
 fn install_camera_and_debug_overlay_systems(app: &mut App) {
     app.add_systems(
@@ -807,10 +668,6 @@ fn install_misc_visual_sync_systems(app: &mut App) {
         Update,
         ambition_sandbox::presentation::rendering::sync_parallax_layers.after(camera_follow),
     )
-    // Yarn-driven dialog migration retired `redirect_post_quest_dialog`:
-    // boss-cleared / flag-set redirects are now inline `<<if>>`
-    // branches inside the `.yarn` files (the Yarn runner evaluates
-    // them on each conversation start).
     // Encounter-driven LockWall visuals. Reconciles `LockWallVisual`
     // Bevy entities against `world.blocks` so the wall is visible
     // for the player when an encounter slams it shut. Must run
@@ -860,10 +717,6 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     .add_systems(Update, update_quest_panel.after(dialog::sync_dialog_ui));
 }
 
-// Player visual schedule moved to
-// `ambition_sandbox::presentation::rendering::PlayerVisualSchedulePlugin`
-// (OVERNIGHT-TODO #6).
-
 /// Projectile sprite ring + VFX/debris message subscribers + (input-
 /// feature-gated) blink preview ring.
 fn install_projectile_and_vfx_systems(app: &mut App) {
@@ -911,9 +764,6 @@ fn install_projectile_and_vfx_systems(app: &mut App) {
         fx::update_blink_preview.after(SandboxSet::CoreSimulation),
     );
 }
-
-// Dev tooling (egui inspectors + FPS overlay) moved to
-// `crate::dev::DevToolsPlugin` (components-as-plugins).
 
 /// Install the Avian2D secondary-physics plugin and its presentation-side
 /// debris subscriber. Gated by `physics_debris` so headless / minimal
@@ -1046,9 +896,6 @@ pub(super) fn add_mobile_touch_plugin(_app: &mut App) {}
 /// / RL builds drop `bevy_kira_audio` from the dep graph entirely;
 /// the sim still emits `SfxMessage`s and the queue drains harmlessly
 /// per the ADR 0012 seam.
-///
-/// Moved to `ambition_sandbox::audio::SandboxAudioPlugin` per OVERNIGHT-TODO #6;
-/// this helper is now a one-liner that installs that plugin.
 #[cfg(feature = "audio")]
 pub(super) fn add_audio_plugins(app: &mut App) {
     app.add_plugins(ambition_sandbox::audio::SandboxAudioPlugin);

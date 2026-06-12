@@ -1,36 +1,15 @@
-//! Unified flat tabbed menu — the `InventoryUiBackend::Grid` presentation.
+//! Flat tabbed menu backend (`InventoryUiBackend::Grid`).
 //!
-//! This is Ambition's wiring of the engine's `bevy_ui` renderer
-//! ([`ambition_menu::render::bevy_ui::spawn_bevy_ui_menu`]) into a working,
-//! navigable, tabbed pause menu. It is the flat analog of the 3D cube backend
-//! ([`crate::menu::kaleidoscope_app`]): SAME page models, SAME action dispatcher
-//! ([`crate::menu::dispatch::dispatch_menu_action`]), SAME shared cursor/drill
-//! resources ([`KaleidoscopeCursor`], [`KaleidoscopeSystemNav`]) — only the
-//! presentation differs (a flat tab bar + flex/grid body instead of a rotating
-//! cube). Having two real renderers of one model validates the engine/content
-//! seam; see `docs/planning/unified_tabbed_menu.md` §2/§3/§6.
+//! Wires `ambition_menu::render::bevy_ui::spawn_bevy_ui_menu` into the same menu
+//! model/action/cursor resources used by the 3D kaleidoscope backend. Only the
+//! presentation differs: a flat tab bar and body instead of cube faces.
 //!
-//! # What this module owns (gated to `backend == Grid`)
-//! * **open/close** ([`grid_menu_open_routing`]) — the Grid analog of
-//!   `kaleidoscope_menu_open_routing`. Esc/Start or the inventory key opens the
-//!   unified menu (`GameMode::Paused`); Back at a tab's top level closes (→
-//!   `GameMode::Playing`, respecting `opened_from_pause`); Back inside a System
-//!   drill pops one level. ONE open/close owner for the Grid backend.
-//! * **tabs** — the 4 [`MenuPage::ALL`] tabs; L/R bumpers cycle with wraparound;
-//!   clicking a tab switches. Default tab Inventory; the last-viewed tab is
-//!   remembered across opens ([`GridMenuTabState`]).
-//! * **nav** ([`grid_menu_nav`]) — up/down/left/right move the focus cursor over
-//!   the active page's controls (Items = 6×4 grid, System = the row list);
-//!   `select` dispatches the focused control's action; `back` pops/closes.
-//! * **render** ([`grid_menu_republish_view`]) — each frame the ACTIVE TAB's
-//!   [`MenuPageModel`] is built from the SAME backend-agnostic builder the cube uses
-//!   (`build_inventory_pages`) and rendered by `spawn_bevy_ui_menu` (the grid renders
-//!   its OWN tab, not the cube's `pages.active`). The cube's page-turn EDGE controls
-//!   (`MenuPageAction::ChangePage`) are stripped — the tab bar replaces them. Re-render
-//!   only when the model/tab/drill/cursor changes.
-//! * **pointer** ([`grid_menu_pointer_*`]) — clicking a tagged control dispatches
-//!   its action (entity-independent press→release so a rebuild can't drop a
-//!   click); clicking a tab switches; hover moves the cursor.
+//! Owned systems, gated to `backend == Grid`:
+//! - open/close routing for Esc/Start, inventory, and Back;
+//! - tab switching and remembered active tab;
+//! - keyboard/gamepad focus navigation and action dispatch;
+//! - dirty republish of the active page model through the Bevy-UI renderer;
+//! - pointer press/release/hover handling resilient to entity rebuilds.
 
 use bevy::prelude::*;
 
@@ -69,17 +48,13 @@ pub(crate) struct MenuDispatchParams<'w, 's> {
     system: SystemMenuParams<'w>,
 }
 
-/// The Grid backend is the active inventory frontend (run-condition). Mirrors the
-/// cube's `kaleidoscope_backend_active`; the new Grid systems are registered with
-/// this and the OLD grid + pause menu are gated OFF with its negation.
+/// Run condition: the Grid backend is the active inventory frontend.
 pub(crate) fn grid_backend_active(backend: Res<InventoryUiBackend>) -> bool {
     BEVY_UI_MENU_BACKEND_ENABLED && backend.effective() == InventoryUiBackend::Grid
 }
 
-/// Per-backend Grid state: the remembered tab + republish bookkeeping. The CURSOR
-/// and drill state live on the SHARED [`KaleidoscopeCursor`] / [`KaleidoscopeSystemNav`]
-/// resources (one source of truth across backends), so this only holds what is
-/// Grid-presentation-specific.
+/// Grid-only state: remembered tab plus republish bookkeeping. Shared cursor and
+/// drill state stay on [`KaleidoscopeCursor`] / [`KaleidoscopeSystemNav`].
 #[derive(Resource)]
 pub(crate) struct GridMenuTabState {
     /// Index into [`MenuPage::ALL`] of the active tab. Remembered across opens.
@@ -153,12 +128,8 @@ struct ViewKey {
     window_start: usize,
 }
 
-/// The OLD bevy_ui menu SFX ids, used by the flat Grid backend instead of the
-/// cube's kaleidoscope-specific `ui.menu.*` family. The cube ([`crate::menu::kaleidoscope_app`])
-/// keeps its own `UI_MENU_OPEN/CLOSE/ACCEPT/BACK/ERROR/ROTATE` sounds (authored for
-/// the 3D OoT cube); the flat Grid is the descendant of the legacy bevy_ui menus
-/// (`ambition_sandbox::pause_menu` etc.), so it should sound like them. These map each Grid
-/// event onto the generic / legacy `ui.*` ids:
+/// Flat Grid backend SFX ids. The cube keeps kaleidoscope-specific `ui.menu.*`
+/// sounds; Grid maps each menu event onto the generic `ui.*` ids:
 ///
 /// | event             | cube id (was)       | old-menu id (now)   |
 /// |-------------------|---------------------|---------------------|
@@ -1610,7 +1581,7 @@ mod tests {
         );
     }
 
-    // ----- Phase C2b bug-fix coverage --------------------------------------
+    // ----- Pointer bug-fix coverage -----------------------------------------
 
     use ambition_menu::render::bevy_ui::BevyUiMenuTab;
     use ambition_menu::AmbitionMenuControl;

@@ -792,28 +792,10 @@ pub fn ensure_parallax_layers_for_room(
     }
 }
 
-// HISTORICAL: `should_attempt_optional_image_load` and
-// `desktop_loose_file_exists` once lived here as free helpers. They moved
-// to `crate::assets::sandbox_assets::SandboxAssetCatalog` so the catalog
-// owns the only per-profile load gate + the only host-filesystem probe.
-// New code should call
-// `SandboxAssetCatalog::should_attempt_optional_load` directly. The
-// per-profile decision matrix below survives as a comment because it
-// still describes the live policy:
-//
-// - Desktop profiles (DevLoose / Installed / SteamDeck): pre-check the
-//   host filesystem so missing optional art falls back to colored
-//   rectangles before Bevy logs a load failure.
-// - Bundled / mobile profiles (Android / iOS): trust the packager and
-//   let Bevy's platform `AssetReader` try the load. A missing asset
-//   here is a packaging mistake, not a content-author concern.
-// - Web / bundled-static / IPFS profiles: optional sprite/parallax
-//   PNGs aren't packaged with these builds today, so skip the load
-//   entirely. The rendering layer paints colored rectangles. A future
-//   slice can author per-asset explicit candidates to opt back in
-//   once packaging lands.
-// - NoAssets / Headless: the catalog already returned `None` upstream;
-//   the arms are here only for match exhaustiveness.
+// Optional-image load policy lives in `SandboxAssetCatalog`:
+// desktop profiles pre-check loose files, bundled/mobile profiles trust
+// packaging, web/static profiles skip optional PNGs, and headless/no-assets have
+// already returned `None` upstream.
 
 /// Build a `Sprite` for the given entity-sprite key, falling back to the
 /// supplied colored-rectangle if the handle is missing. Render size always

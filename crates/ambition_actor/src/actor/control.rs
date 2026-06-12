@@ -1,45 +1,17 @@
-//! Actor control-frame seam — the unified brain→sim contract.
+//! Actor control-frame seam: the unified brain→simulation contract.
 //!
-//! Every controllable entity in Ambition — players, enemies, bosses,
-//! and (in the future) other NPC actors — funnels through a single
-//! per-tick struct: an [`ActorControlFrame`]. A *brain* (the policy
-//! choosing what the actor does this tick) writes into the frame; the
-//! *simulation* half (gravity + `ambition_sandbox`'s `step_kinematic` + cooldowns
-//! + effects) reads from the frame.
+//! Every controllable entity writes one [`ActorControlFrame`] per tick. Brains
+//! choose desired velocity, facing, and action edges; the simulation decides what
+//! is physically possible given collision, cooldowns, and world rules.
 //!
-//! Brains today are hand-written:
+//! The contract is intentionally brain-agnostic: hand-authored AI, player input,
+//! replay, remote control, and future learned policies can all drive the same
+//! velocity-space frame without touching collision code.
 //!
-//! - Player: sandbox `Brain::Player` translates per-player input into
-//!   this frame, and the player control/simulation phases consume it.
-//! - NPC/enemy: sandbox state-machine brains translate snapshots into
-//!   desired motion and action edges; ActionSets resolve concrete effects.
-//! - Boss: sandbox `BossPattern` brains and authored profiles emit
-//!   movement/action frames for encounter-specific consumers.
-//!
-//! Brains tomorrow can be neural networks, replay buffers, remote
-//! players, or scripted demos — same frame, same integration. The
-//! ambition is that you can put any brain on any actor: the player
-//! could control a goblin, a second player could control a boss, an
-//! RL policy could drive a skitter, all without touching collision
-//! code.
-//!
-//! Design pillars:
-//!
-//! 1. **Brains output desired motion in velocity-space**, not
-//!    position-space. Anything that wrote `self.pos += vel * dt`
-//!    bypassed wall collision; routing that desired velocity through
-//!    `ambition_sandbox`'s `step_kinematic` (with `gravity = 0` for fliers) makes
-//!    every actor collide through the same code path.
-//!
-//! 2. **Brains are pure functions of a snapshot**. A future RL agent
-//!    that wants to plug in here gets the same snapshot a scripted
-//!    brain gets.
-//!
-//! 3. **The integration is brain-agnostic**. Velocity, attack intent,
-//!    facing, and projectile fire all live on the control frame.
-//!    Whether the brain came from a hand-authored choreography, a
-//!    learned policy, or a remote player doesn't change the
-//!    integration code.
+//! Design rules:
+//! - brains write desired motion, not direct position changes;
+//! - brains are pure functions of a snapshot plus their local state;
+//! - integration code reads only the frame, not the brain implementation.
 
 use ambition_engine_core::Vec2;
 

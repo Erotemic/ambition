@@ -1,42 +1,19 @@
 //! Yarn↔DialogState bridge.
 //!
-//! Owns the integration between `bevy_yarnspinner` and the sandbox's
-//! poll-based [`DialogState`] view-model. Phase 5 of the migration:
-//! the runner is now the authority. The custom UI
-//! (`sync_dialog_ui`) keeps reading `DialogState` exactly as before
-//! — this module just makes the runner the source of writes.
+//! Integrates `bevy_yarnspinner` with the sandbox's poll-based [`DialogState`]
+//! view model. The persistent `DialogueRunner` is the dialogue authority; the UI
+//! and input systems keep reading/writing `DialogState`.
 //!
-//! ## Lifecycle
+//! Flow:
+//! - startup compiles `.yarn` into `YarnProject`;
+//! - [`spawn_dialogue_runner`] creates the singleton runner once the project exists
+//!   and registers commands/functions;
+//! - pending `DialogState` requests are drained into runner calls;
+//! - runner lifecycle observers write speaker, line, options, markup cues, and
+//!   completion state back into `DialogState`.
 //!
-//! - At startup, `bevy_yarnspinner::YarnSpinnerPlugin` compiles all
-//!   `.yarn` files into a `YarnProject` resource.
-//! - Once `YarnProject` lands, [`spawn_dialogue_runner`] spawns the
-//!   singleton `DialogueRunner` entity, registers commands +
-//!   functions (`super::yarn_bindings`), and stashes the entity id
-//!   in [`DialogueRunnerEntity`]. Persistent runner so visited-node
-//!   bookkeeping survives across NPC visits; the save-driven
-//!   `visit_count(id)` function is the canonical "have I talked to
-//!   X" probe.
-//!
-//! ## Two-way flow
-//!
-//! - **Caller → runner**: `DialogState::start/close/confirm_or_advance`
-//!   write `pending_*` fields. [`dispatch_pending_dialog_requests`]
-//!   drains them once per frame and calls
-//!   `runner.start_node` / `stop` / `select_option` /
-//!   `continue_in_next_update` against the live runner entity.
-//!   Visit count increments here too (one per `start` call).
-//!   The bridge only auto-continues on explicit `lastline`
-//!   markers, so options can appear immediately while plain lines
-//!   still wait for player confirm.
-//! - **Runner → UI**: three observers translate the runner's
-//!   lifecycle events into `DialogState` writes:
-//!   - [`on_present_line`] — `current_speaker`, `current_line`, and
-//!     the `[shout]/[whisper]` markup cue.
-//!   - [`on_present_options`] — `current_options` + parallel
-//!     `yarn_option_ids`.
-//!   - [`on_dialogue_completed`] — clears `active` + flips
-//!     `GameMode` back to `Playing`.
+//! The bridge auto-continues only on explicit `lastline` markers, so authored
+//! options can appear immediately while normal lines still wait for confirmation.
 
 use bevy::prelude::*;
 use bevy_yarnspinner::events::*;

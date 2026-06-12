@@ -643,14 +643,8 @@ pub struct GravityZoneSpec {
     pub oscillate_freq: f32,
 }
 
-/// Authored entity payload — `(id, name, aabb, payload)`.
-///
-/// Sandbox-side replacement for the retired `ae::RoomObject` IR. Each
-/// per-family Vec on [`RoomSpec`] carries one of these per LDtk entity
-/// (or surface-compiled entity, or RON-authored entity); the engine
-/// crate no longer knows about authored entities at all. Per-family
-/// typing means "add a new authored entity type" is "add a new field
-/// to RoomSpec + a new spawn loop", not "edit a `match arm` somewhere".
+/// Authored entity payload — `(id, name, aabb, payload)`. Per-family typing
+/// keeps authored entities out of the engine crate.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Authored<T> {
     pub id: String,
@@ -701,9 +695,7 @@ pub struct RoomSpec {
     /// LDtk-authored localized-gravity zones. See [`GravityZoneSpec`].
     pub gravity_zones: Vec<GravityZoneSpec>,
 
-    // --- Per-family authored entity lists (replaces the retired
-    //     `ae::World::objects: Vec<RoomObject>` / `RoomObjectKind`
-    //     dispatch IR). Each family spawns through its own ECS path.
+    // --- Per-family authored entity lists; each family spawns through ECS.
     pub hazards: Vec<Authored<crate::combat::DamageVolume>>,
     pub interactables: Vec<Authored<crate::interaction::Interactable>>,
     pub pickups: Vec<Authored<crate::interaction::Pickup>>,
@@ -721,10 +713,6 @@ struct TransitionEdge {
 }
 
 /// Authored directed connection between loading zones in runtime rooms.
-///
-/// This is intentionally independent from the retired RON world manifest so
-/// LDtk and future generators can build `RoomSet` directly from runtime room
-/// data.
 #[derive(Clone, Debug)]
 pub struct RoomLink {
     pub from_room: String,

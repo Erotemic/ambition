@@ -53,11 +53,11 @@ fn spawn_player(app: &mut App, pos: ae::Vec2, facing: f32) {
     app.world_mut().spawn(bundle);
 }
 
-fn min_app() -> App {
+fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     let mut app = App::new();
     app.insert_resource(Time::<()>::default());
     app.insert_resource(crate::WorldTime::default());
-    app.insert_resource(GameWorld(dummy_world()));
+    app.insert_resource(GameWorld(world));
     // `update_projectiles` collides against the portal-carved world; no carves in
     // these tests, so the overlay is empty (collision == raw world).
     app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
@@ -65,16 +65,9 @@ fn min_app() -> App {
     app.insert_resource(crate::persistence::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
     app.insert_resource(GameplayBanner::default());
-    // PlayerProjectileState is now a per-player Component attached
-    // by `PlayerSimulationBundle::from_scratch` — no resource init
-    // needed. In-flight projectiles are ECS entities (Phase 3c-ii);
-    // their spawn-id source is this global counter.
+    // Projectile state lives on the player; this counter only gives in-flight
+    // projectile entities stable spawn order.
     app.init_resource::<crate::projectile::ProjectileSeqCounter>();
-    // Buffered-message channels the system writes into. The brain
-    // plugin owns the `ActorActionMessage` channel; install it so
-    // `tick_player_brains` → `emit_player_projectile_tick_messages` →
-    // `update_projectiles` form the same chain that production uses
-    // for the player projectile path.
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
@@ -90,16 +83,19 @@ fn min_app() -> App {
             crate::player::tick_player_brains,
             crate::brain::emit_player_projectile_tick_messages,
             update_projectiles,
-            // Phase 3b: update_projectiles emits SpawnProjectile; the
-            // player-pool consumer pushes the body into the firing player's
-            // PlayerProjectileState.bodies (after the step, like production).
+            // Mirror production: projectile ticks emit SpawnProjectile, the pool
+            // consumer materializes entities, then feature hits drain.
             super::systems::apply_player_spawn_projectile_messages,
             crate::features::apply_feature_hit_events,
         )
             .chain(),
     );
-    spawn_player(&mut app, ae::Vec2::new(300.0, 300.0), 1.0);
+    spawn_player(&mut app, player_pos, facing);
     app
+}
+
+fn min_app() -> App {
+    projectile_test_app(dummy_world(), ae::Vec2::new(300.0, 300.0), 1.0)
 }
 
 /// Read-only view of the primary player's `PlayerProjectileState`.

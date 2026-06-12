@@ -1,43 +1,14 @@
-//! Reusable time vocabulary + producer for Bevy games (ADR 0010 / 0011).
+//! Reusable time vocabulary + Bevy producer for the named-clock dt model
+//! (ADR 0010 / 0011).
 //!
-//! This crate owns the *generic* time machinery extracted from
-//! `ambition_sandbox`: the named-clock dt model ([`WorldTime`] +
-//! [`ClockDomain`]), the single sim-clock scale ([`ClockState`]), the
-//! per-entity proper-time scale ([`ProperTimeScale`]), and a drop-in
-//! [`TimePlugin`] that computes [`WorldTime`] from [`ClockState`] × Bevy
-//! `Time` once per frame.
+//! Host games write [`ClockState::time_scale`]; [`TimePlugin`] converts
+//! Bevy `Time` into [`WorldTime`] once per frame. Read dt through typed
+//! accessors instead of `Res<Time>::delta_secs()`:
 //!
-//! It is content-free and game-agnostic — a different platformer (or an
-//! agent building one) can `app.add_plugins(TimePlugin)` and immediately
-//! get bullet-time / hitstop / pause-aware dt accessors. What stays in the
-//! host game is the *policy* (who is allowed to bend which clock — the
-//! Regime / requester table) and how the scale is *driven* (game-feel
-//! ramping), because those are game-specific authority decisions. This
-//! crate only owns the vocabulary and the producer.
-//!
-//! ## Quick start
-//!
-//! ```ignore
-//! app.add_plugins(ambition_time::TimePlugin);
-//! // ... anywhere downstream:
-//! fn my_system(time: Res<ambition_time::WorldTime>) {
-//!     let dt = time.sim_dt(); // scales with bullet-time / hitstop / pause
-//! }
-//! // ... to bend time, write ClockState::time_scale from your own policy.
-//! ```
-//!
-//! ## The dt model (ADR 0010)
-//!
-//! Read dt through the typed accessors instead of `Res<Time>::delta_secs()`:
-//! - [`WorldTime::sim_dt`] — gameplay state machines + world-anchored
-//!   animation. Scales with bullet-time / hitstop / pause.
-//! - [`WorldTime::wall_dt`] — real time. UI fades, hot-reload polling,
-//!   audio — anything that must NOT freeze with the world.
-//! - [`WorldTime::player_dt`] — per-observer cognitive rate. In single-
-//!   player it equals `sim_dt`; it's the seam where a future multiplayer
-//!   build gives one player's bullet-time a different rate from another's.
-//! - [`WorldTime::entity_dt`] — per-entity proper time (ADR 0011), the
-//!   seam for special-relativity / per-entity time dilation.
+//! - [`WorldTime::sim_dt`] for gameplay state and world-anchored animation.
+//! - [`WorldTime::wall_dt`] for UI, audio, hot reload, and debug overlays.
+//! - [`WorldTime::player_dt`] for observer cognitive time.
+//! - [`WorldTime::entity_dt`] for per-entity proper time.
 
 use bevy::prelude::*;
 
@@ -62,18 +33,8 @@ impl ClockObserver {
     }
 }
 
-/// ADR 0010 vocabulary — the named clocks gameplay code can read.
-///
-/// `SimClock` ticks at the gameplay rate; bullet-time / hitstop /
-/// pause scale this. `PlayerClock(observer)` is a per-observer cognitive
-/// rate (ADR 0011) and is what multiplayer-coherent time abilities
-/// rebind. `WallClock` is the host's real time, never scaled —
-/// used by UI fades, hot-reload polling, audio.
-///
-/// In single-player today every PlayerClock equals SimClock, so
-/// the operationally-equivalent SP path "slow sim" and MP-correct
-/// path "boost player proper time" are observationally identical.
-/// See ADR 0011 §"Two time-control operations".
+/// ADR 0010 vocabulary — sim time, per-observer cognitive time, and
+/// unscaled host wall time.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ClockDomain {
     SimClock,
@@ -106,21 +67,11 @@ impl Default for ClockState {
     }
 }
 
-/// ADR 0011 — per-entity proper-time scale.
-///
-/// An entity with `ProperTimeScale(2.0)` ticks at twice the world's
-/// sim rate; an entity with `ProperTimeScale(0.5)` ticks at half.
-/// Default is `1.0`, in which case [`WorldTime::entity_dt`] returns
-/// sim_dt unchanged.
-///
-/// This is the seam for per-entity time dilation: a future room metric
-/// could compute it from velocity via the Lorentz factor
-/// `γ(v) = 1 / √(1 − v²/c²)`. The integrator already reads per-entity
-/// proper-time scale, so adding special relativity is a data change.
+/// ADR 0011 — per-entity proper-time scale. `1.0` means
+/// [`WorldTime::entity_dt`] returns sim dt unchanged.
 ///
 /// Most entities never carry this component; [`ProperTimeScale::or_default`]
-/// returns `ONE` (i.e., `sim_dt`) when it's missing so the change is
-/// invisible until something opts in.
+/// returns [`ProperTimeScale::ONE`] for the missing-component case.
 #[derive(Component, Copy, Clone, Debug, PartialEq)]
 pub struct ProperTimeScale(pub f32);
 
@@ -149,28 +100,12 @@ impl ProperTimeScale {
     }
 }
 
-/// Per-frame dt snapshots keyed by [`ClockDomain`].
+/// Per-frame dt snapshot. Prefer [`WorldTime::sim_dt`] for gameplay;
+/// use wall/player/entity accessors only when the domain matters.
 ///
-/// Use the typed accessors instead of `Res<Time>::delta_secs()`:
-///
-/// - [`WorldTime::sim_dt`] — gameplay state machines + world-anchored
-///   animation. Scales with bullet-time / hitstop / pause.
-/// - [`WorldTime::player_dt`] — per-observer cognitive rate. In SP this
-///   equals `sim_dt`; in future MP it's the seam where one player's
-///   bullet-time doesn't slow the other's world.
-/// - [`WorldTime::wall_dt`] — real time. UI fades, hot-reload polling,
-///   debug overlays — anything that must NOT freeze with the world.
-///
-/// Default `sim_dt` for new code; reach for the others only when you
-/// can articulate why.
-///
-/// The legacy fields [`WorldTime::raw_dt`] / [`WorldTime::scaled_dt`]
-/// remain as aliases (`raw_dt == wall_dt`, `scaled_dt == sim_dt`) so
-/// existing callers keep compiling.
-///
-/// Refreshed once per Update via [`refresh_world_time`] before
-/// every system that reads it; the resource is always one frame
-/// fresh by construction.
+/// Legacy fields remain aliases: `raw_dt == wall_dt`,
+/// `scaled_dt == sim_dt`. [`TimePlugin`] refreshes this resource each
+/// `Update` before downstream systems read it.
 #[derive(Resource, Default, Debug, Clone, Copy)]
 pub struct WorldTime {
     /// Wall-clock dt from Bevy's `Time` resource. Unscaled — for
@@ -200,12 +135,8 @@ impl WorldTime {
         self.raw_dt
     }
 
-    /// Dt for observer `slot`'s cognitive clock (ADR 0011). In the
-    /// single-player Solo regime every `PlayerClock` equals
-    /// `SimClock`, so this is observationally identical to
-    /// [`Self::sim_dt`] today. The accessor is the seam where a
-    /// future CoopConsensual / Competitive regime can give each
-    /// observer a distinct rate without the call sites changing.
+    /// Dt for observer `slot`'s cognitive clock. In single-player this
+    /// currently equals [`Self::sim_dt`].
     #[inline]
     pub fn player_dt(&self, _slot: ClockObserver) -> f32 {
         // SP regime: every PlayerClock == SimClock.
@@ -224,14 +155,8 @@ impl WorldTime {
         }
     }
 
-    /// Per-entity proper-time dt (ADR 0011). Multiplies [`Self::sim_dt`]
-    /// by the entity's [`ProperTimeScale`] — `1.0` by default, so callers
-    /// that pass [`ProperTimeScale::ONE`] (the missing-component case) get
-    /// the same `sim_dt` value as before.
-    ///
-    /// Pattern: animator + AI systems query `Option<&ProperTimeScale>`
-    /// alongside the entity's other components and feed the result
-    /// through [`ProperTimeScale::or_default`] before calling `entity_dt`.
+    /// Per-entity proper-time dt: [`Self::sim_dt`] multiplied by
+    /// [`ProperTimeScale`] (`1.0` by default).
     #[inline]
     pub fn entity_dt(&self, scale: ProperTimeScale) -> f32 {
         self.sim_dt() * scale.value()
@@ -252,16 +177,10 @@ pub fn refresh_world_time(
 }
 
 /// Drop-in time producer: installs [`ClockState`] + [`WorldTime`] and
-/// runs [`refresh_world_time`] each `Update` so downstream systems read
-/// a one-frame-fresh [`WorldTime`].
+/// refreshes the named-clock dt snapshot every `Update`.
 ///
-/// The host game writes [`ClockState::time_scale`] from its own
-/// time-control policy (bullet-time / hitstop / pause); this plugin only
-/// converts that scale × Bevy `Time` into the named-clock dt snapshot.
-///
-/// `add_plugins(TimePlugin)` is idempotent on the resources via
-/// `init_resource`, so a host that wants to seed a non-default
-/// [`ClockState`] can `insert_resource` it before adding the plugin.
+/// `init_resource` preserves a host-provided [`ClockState`] inserted
+/// before adding the plugin.
 #[derive(Default)]
 pub struct TimePlugin;
 

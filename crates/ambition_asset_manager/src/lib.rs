@@ -17,12 +17,8 @@
 //! adapters that consult the resolver and return bytes ready for the
 //! consuming subsystem.
 //!
-//! # End-state architecture
-//!
-//! See [`docs/systems/asset-manager.md`](https://github.com/anthropics/claude-code/tree/main/docs)
-//! (the in-repo design doc) for the full per-profile contract — what
-//! sources each profile understands, hot-reload availability, and the
-//! recommended Bevy `AssetSource` wiring per platform.
+//! See `docs/systems/asset-manager.md` for the full per-profile contract,
+//! hot-reload availability, and Bevy `AssetSource` wiring recommendations.
 
 pub mod id;
 pub mod kind;

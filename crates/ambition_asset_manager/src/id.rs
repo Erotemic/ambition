@@ -9,20 +9,8 @@
 //! extension, or whether the asset is required. Those are properties of
 //! the [`crate::manifest::AssetEntry`] keyed by id.
 //!
-//! ## Conventions
-//!
-//! Recommended (not enforced) prefix scheme:
-//!
-//! - `sprite.<category>.<name>`     — Image
-//! - `font.<name>`                  — Font
-//! - `audio.<name>`                 — AudioClip / AudioBank
-//! - `world.<name>`                 — LdtkProject
-//! - `data.<name>`                  — RonData / JsonData
-//! - `shader.<name>`                — Shader
-//! - `binary.<name>`                — Binary
-//!
-//! Keep ids stable across renames of the underlying file; the manifest
-//! redirects the location while gameplay keeps referencing the old id.
+//! Keep ids stable across underlying file renames; the manifest redirects
+//! locations while gameplay keeps referencing the same id.
 
 use serde::{Deserialize, Serialize};
 

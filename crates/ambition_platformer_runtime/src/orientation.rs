@@ -32,20 +32,9 @@ pub struct ActorRoll {
 /// quick — a 180° flip rights itself in ~0.4s as the body arcs.
 const ACTOR_ROLL_SPEED: f32 = 8.0;
 
-/// Attach an [`ActorRoll`] to every body that can be reoriented — every entity
-/// carrying the unified [`BodyKinematics`] (the player plus all non-player
-/// actors: enemies / NPCs / bosses) — lazily, so no bundle needs to know about
-/// this module. With the kinematics unification all those archetypes share one
-/// component, so this is a single `With<BodyKinematics>` query (no player/actor
-/// branch).
-///
-/// Projectiles are EXCLUDED (`Without<ProjectileGameplay>`, Stage 19 Phase
-/// 3c-i): once player projectiles become entities carrying the shared
-/// [`BodyKinematics`] (Phase 3c-ii) they would otherwise be handed an
-/// [`ActorRoll`] and auto-righted to gravity like an actor. A projectile is
-/// not an actor — it must not somersault upright mid-flight — so the
-/// projectile marker filters it out here (and transitively out of
-/// [`update_actor_roll`], which only iterates `ActorRoll` carriers).
+/// Attach an [`ActorRoll`] lazily to each non-projectile body that can be
+/// reoriented. Projectiles carry [`BodyKinematics`] too, but must not
+/// somersault upright mid-flight, so [`ProjectileGameplay`] filters them out.
 pub fn ensure_actor_roll(
     mut commands: Commands,
     bodies: Query<
@@ -62,13 +51,9 @@ pub fn ensure_actor_roll(
     }
 }
 
-/// Continuously ease EVERY actor's roll toward "feet along gravity" (the
-/// orient-to-gravity reflex) — player and non-player alike. Runs whether
-/// airborne or grounded, so after something rotates a body it visibly rights
-/// itself toward the current gravity field; in a gravity room it settles to that
-/// room's down. With the kinematics unification every `ActorRoll` carrier holds
-/// the one [`BodyKinematics`], so this is a single query (the dual-arm
-/// player/actor branch collapsed in Stage 16 / S5).
+/// Ease each actor's roll toward "feet along gravity". Runs airborne and
+/// grounded so a rotated body visibly rights itself toward its local gravity
+/// field.
 pub fn update_actor_roll(
     time: Res<SimDt>,
     gravity: GravityCtx,

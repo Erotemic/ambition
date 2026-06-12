@@ -196,21 +196,6 @@ impl AssetManifest {
 
 /// Ergonomic builder for in-code manifest authoring. Chain `.entry(...)`
 /// calls and finish with `.build()`.
-///
-/// ```
-/// use ambition_asset_manager::{
-///     AssetEntry, AssetId, AssetKind, AssetManifest, MissingAssetPolicy, PreloadGroup,
-/// };
-///
-/// let manifest = AssetManifest::builder()
-///     .entry(
-///         AssetEntry::new(AssetId::new("world.sandbox_ldtk"), AssetKind::LdtkProject, "ambition/worlds/sandbox.ldtk")
-///             .with_missing_policy(MissingAssetPolicy::Error)
-///             .with_preload_group(PreloadGroup::Bootstrap)
-///     )
-///     .build();
-/// assert_eq!(manifest.len(), 1);
-/// ```
 #[derive(Clone, Debug, Default)]
 pub struct AssetManifestBuilder {
     manifest: AssetManifest,

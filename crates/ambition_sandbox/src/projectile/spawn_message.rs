@@ -1,20 +1,8 @@
-//! `SpawnProjectile` — the decoupled spawn seam (Stage 19 Phase 3b).
+//! `SpawnProjectile` decouples fire sites from projectile storage.
 //!
-//! Firing code (player charge/motion release, enemy/boss volley consumers)
-//! no longer pushes directly into a `bodies: Vec`. It WRITES a
-//! [`SpawnProjectile`] message describing the new in-flight projectile and
-//! which pool it belongs to; a per-pool consumer system drains the messages
-//! and performs the actual `Vec` push. The Vec pools still exist (Phase 3c
-//! turns them into entities) — this step only decouples *spawn* from *storage*
-//! so the storage can change underneath without touching every fire site.
-//!
-//! Timing is preserved by where the consumers are scheduled:
-//! * Player pool — consumed AFTER `update_projectiles`, so a freshly-fired
-//!   body lands in `bodies` and first ticks next frame (the old push happened
-//!   after the per-frame tick loop → same one-frame latency).
-//! * Enemy pool — consumed BEFORE `update_enemy_projectiles`, so a body
-//!   spawned this tick advances one step this frame (matching the EFFECTS-stage
-//!   consumers that previously pushed directly before the update).
+//! Firing code writes a pool-tagged message; per-pool consumers create the
+//! runtime projectile representation at the schedule point that preserves
+//! first-tick timing for player and enemy projectiles.
 
 use bevy::prelude::*;
 

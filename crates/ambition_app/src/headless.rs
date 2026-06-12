@@ -176,6 +176,24 @@ mod tests {
     use ambition_sandbox::input::ControlFrame;
     use bevy::ecs::message::Messages;
 
+    fn sandbox_sim_app() -> App {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(AssetPlugin::default());
+        app.add_plugins(ImagePlugin::default());
+        app.add_plugins(TransformPlugin);
+        app.add_plugins(StatesPlugin);
+        app.init_state::<GameMode>();
+        app.add_plugins(crate::app::SandboxSimulationPlugin);
+        app
+    }
+
+    fn initialized_sandbox_sim_app() -> App {
+        let mut app = sandbox_sim_app();
+        app.update();
+        app
+    }
+
     #[test]
     fn run_headless_completes_one_tick_without_panicking() {
         let report = run_headless(1).expect("headless one-tick run succeeds");
@@ -201,18 +219,7 @@ mod tests {
     /// `SfxMessage::Reset` synchronously, no spawn-position dependence.
     #[test]
     fn sim_emits_sfx_reset_when_control_frame_requests_reset() {
-        let mut app = App::new();
-        app.add_plugins(MinimalPlugins);
-        app.add_plugins(AssetPlugin::default());
-        app.add_plugins(ImagePlugin::default());
-        app.add_plugins(TransformPlugin);
-        app.add_plugins(StatesPlugin);
-        app.init_state::<GameMode>();
-
-        app.add_plugins(crate::app::SandboxSimulationPlugin);
-
-        // First tick runs Startup (spawns the player entity).
-        app.update();
+        let mut app = initialized_sandbox_sim_app();
 
         // Inject a "press reset" frame on the sim/presentation input seam.
         *app.world_mut().resource_mut::<ControlFrame>() = ControlFrame {
@@ -243,14 +250,7 @@ mod tests {
     #[test]
     fn sim_completes_60_ticks_with_counter_intact() {
         use ambition_sandbox::brain::BrainActionCounter;
-        let mut app = App::new();
-        app.add_plugins(MinimalPlugins);
-        app.add_plugins(AssetPlugin::default());
-        app.add_plugins(ImagePlugin::default());
-        app.add_plugins(TransformPlugin);
-        app.add_plugins(StatesPlugin);
-        app.init_state::<GameMode>();
-        app.add_plugins(crate::app::SandboxSimulationPlugin);
+        let mut app = sandbox_sim_app();
         // Run 60 ticks (1 sim second at 60Hz).
         for _ in 0..60 {
             app.update();
@@ -277,16 +277,7 @@ mod tests {
     fn sim_includes_brain_plugin_registration() {
         use ambition_sandbox::brain::{ActorActionMessage, BrainActionCounter};
         use bevy::ecs::message::Messages;
-        let mut app = App::new();
-        app.add_plugins(MinimalPlugins);
-        app.add_plugins(AssetPlugin::default());
-        app.add_plugins(ImagePlugin::default());
-        app.add_plugins(TransformPlugin);
-        app.add_plugins(StatesPlugin);
-        app.init_state::<GameMode>();
-        app.add_plugins(crate::app::SandboxSimulationPlugin);
-        // First tick runs Startup.
-        app.update();
+        let mut app = initialized_sandbox_sim_app();
         // Both resources should be present.
         assert!(
             app.world()
@@ -308,15 +299,7 @@ mod tests {
     #[test]
     fn sim_accumulates_messages_across_repeated_attacks() {
         use ambition_sandbox::brain::BrainActionCounter;
-        let mut app = App::new();
-        app.add_plugins(MinimalPlugins);
-        app.add_plugins(AssetPlugin::default());
-        app.add_plugins(ImagePlugin::default());
-        app.add_plugins(TransformPlugin);
-        app.add_plugins(StatesPlugin);
-        app.init_state::<GameMode>();
-        app.add_plugins(crate::app::SandboxSimulationPlugin);
-        app.update();
+        let mut app = initialized_sandbox_sim_app();
         for i in 0..20 {
             let attack = i % 2 == 0;
             *app.world_mut().resource_mut::<ControlFrame>() = ControlFrame {
@@ -345,15 +328,7 @@ mod tests {
     fn sim_spawns_player_with_brain_and_action_set() {
         use ambition_sandbox::brain::{ActionSet, ActorControl, Brain};
         use ambition_sandbox::player::PlayerEntity;
-        let mut app = App::new();
-        app.add_plugins(MinimalPlugins);
-        app.add_plugins(AssetPlugin::default());
-        app.add_plugins(ImagePlugin::default());
-        app.add_plugins(TransformPlugin);
-        app.add_plugins(StatesPlugin);
-        app.init_state::<GameMode>();
-        app.add_plugins(crate::app::SandboxSimulationPlugin);
-        app.update();
+        let mut app = initialized_sandbox_sim_app();
         let mut q = app
             .world_mut()
             .query_filtered::<(&Brain, &ActionSet, &ActorControl), With<PlayerEntity>>();
@@ -380,16 +355,7 @@ mod tests {
     #[test]
     fn sim_emits_action_messages_when_player_attacks() {
         use ambition_sandbox::brain::{ActorActionMessage, BrainActionCounter};
-        let mut app = App::new();
-        app.add_plugins(MinimalPlugins);
-        app.add_plugins(AssetPlugin::default());
-        app.add_plugins(ImagePlugin::default());
-        app.add_plugins(TransformPlugin);
-        app.add_plugins(StatesPlugin);
-        app.init_state::<GameMode>();
-        app.add_plugins(crate::app::SandboxSimulationPlugin);
-        // First tick runs Startup (spawns the player entity).
-        app.update();
+        let mut app = initialized_sandbox_sim_app();
         // Stamp an attack press into the control frame.
         *app.world_mut().resource_mut::<ControlFrame>() = ControlFrame {
             attack_pressed: true,

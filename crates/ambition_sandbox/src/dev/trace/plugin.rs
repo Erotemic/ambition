@@ -5,10 +5,6 @@
 //! per-frame snapshot captures the resolved player state. Both the
 //! visible binary and the headless driver install this plugin via
 //! `add_simulation_plugins`, so trace dumps work in either build.
-//!
-//! Carved out of `app/plugins.rs::register_trace_systems` per
-//! OVERNIGHT-TODO #6 (module-local plugins). The systems registered
-//! here are siblings in this module's `systems.rs`.
 
 use bevy::prelude::*;
 

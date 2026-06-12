@@ -1,23 +1,10 @@
-//! Per-frame projectile state, split into a generic kinematic body
-//! (the lower-crate [`BodyKinematics`]) and the projectile *gameplay*
-//! state ([`ProjectileGameplay`]) plus the engine-side floor/wall
-//! resolution ([`ProjectileGameplay::resolve_solid_hit`]).
+//! Projectile state split into shared kinematics ([`BodyKinematics`]) and
+//! projectile gameplay state ([`ProjectileGameplay`]).
 //!
-//! ## Why the split (Stage 19 Phase 3a)
-//!
-//! The kinematic half — position, velocity, size — is the SAME shape every
-//! controllable body uses ([`ambition_engine_core::BodyKinematics`], re-exported
-//! by the runtime). Sharing it means a projectile *entity* can carry the exact
-//! component the player / enemy / boss carry, so the portal transit machine
-//! (which queries `(&mut BodyKinematics, With<PortalBody>)`) drives projectiles
-//! "for free" once they become entities (Phase 3c/3d → Phase 4). The gameplay
-//! half — kind, faction, lifetime, gravity, damage, bounce budget — is
-//! projectile-specific and stays in [`ProjectileGameplay`].
-//!
-//! [`ProjectileBody`] composes the two for the still-`Vec`-pooled callers; its
-//! field accessors (`.pos`, `.vel`, `.kind`, …) forward to the appropriate half
-//! so existing call sites read unchanged until the ECS migration moves the two
-//! halves onto separate components.
+//! Projectiles use the same body component as players/enemies/bosses, which
+//! lets generic systems such as portal transit operate on projectile entities.
+//! [`ProjectileBody`] composes the split halves for call sites that still want
+//! a single value.
 
 use ambition_engine_core::BodyKinematics;
 use ambition_engine_core::Vec2;
@@ -28,10 +15,7 @@ use ambition_engine_core::{Aabb, AabbExt};
 /// Which side of the combat faction a projectile belongs to.
 ///
 /// `Player` projectiles hit enemies / bosses / breakables; `Enemy`
-/// projectiles hit the player. The sandbox-side update loops dispatch
-/// damage routing on this so a future unified projectile system
-/// (OVERNIGHT-TODO #17.7) does not need separate code paths per
-/// faction — friendly-fire policy becomes a function of
+/// projectiles hit the player. Damage routing is a function of
 /// `(projectile.faction, target.faction)`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum ProjectileFaction {
@@ -62,21 +46,12 @@ pub struct InFlightProjectile {
     pub owner_id: String,
 }
 
-/// Projectile *gameplay* state: identity (kind/faction), lifetime,
-/// gravity, damage, and bounce budget. The kinematic half (pos / vel /
-/// size) lives separately in [`BodyKinematics`] so a projectile entity
-/// can carry the same body component the player / enemy / boss carry.
+/// Projectile gameplay state: identity (kind/faction), lifetime, gravity,
+/// damage, and bounce budget.
 ///
-/// The collision/lifetime methods take the kinematic body by reference
-/// so the two halves can be stored on separate ECS components after the
-/// migration without changing this logic.
-///
-/// As of Stage 19 Phase 3c-i this is an ECS [`Component`]: it is the
-/// projectile *marker*. Any actor-generic system that queries the shared
-/// [`BodyKinematics`] excludes projectiles with `Without<ProjectileGameplay>`
-/// (e.g. [`crate::orientation::ensure_actor_roll`]) so a projectile entity
-/// carrying `BodyKinematics` (Phase 3c-ii onward) is never swept into actor
-/// behavior (auto-righting, portal transit, AI, …).
+/// This component is also the projectile marker. Actor-generic systems that
+/// query [`BodyKinematics`] exclude `ProjectileGameplay` so projectile bodies
+/// are never swept into actor behavior such as auto-righting or AI.
 #[derive(Clone, Copy, Debug, PartialEq, bevy::prelude::Component)]
 pub struct ProjectileGameplay {
     pub kind: ProjectileKind,
@@ -216,11 +191,8 @@ impl ProjectileGameplay {
     }
 }
 
-/// Per-frame physics state of an in-flight projectile: the kinematic
-/// [`BodyKinematics`] plus the projectile [`ProjectileGameplay`]. The
-/// two halves are stored as named fields; the convenience field-style
-/// accessors below (`.pos`, `.vel`, `.kind`, …) forward to the right
-/// half so the still-`Vec`-pooled call sites read unchanged.
+/// Per-frame physics state of an in-flight projectile: kinematics plus
+/// projectile gameplay state.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ProjectileBody {
     /// Generic kinematic body (pos / vel / size / facing). Shared shape
@@ -233,11 +205,7 @@ pub struct ProjectileBody {
 }
 
 impl ProjectileBody {
-    /// Build a player-owned projectile body from `spec`. Convenience
-    /// wrapper around [`Self::from_spec_with_faction`] preserved for
-    /// callers that haven't migrated to the explicit-faction
-    /// constructor yet (player projectiles are the historical
-    /// default in the engine API).
+    /// Build a player-owned projectile body from `spec`.
     pub fn from_spec(spec: ProjectileSpec) -> Self {
         Self::from_spec_with_faction(spec, ProjectileFaction::Player)
     }
@@ -263,10 +231,7 @@ impl ProjectileBody {
         }
     }
 
-    /// Build a [`ProjectileBody`] from already-split halves. Used by the
-    /// ECS step systems (Phase 3c) to re-compose a body for the shared
-    /// collision resolver from the entity's `BodyKinematics` +
-    /// `ProjectileGameplay` components.
+    /// Build a [`ProjectileBody`] from already-split halves.
     pub fn from_parts(kin: BodyKinematics, game: ProjectileGameplay) -> Self {
         Self { kin, game }
     }
@@ -296,9 +261,7 @@ impl ProjectileBody {
         self.game.resolve_one_way_hit(&mut self.kin, block_aabb)
     }
 
-    // --- Field-style accessors: forward to the appropriate half so the
-    // --- still-Vec-pooled call sites (and tests) read `.pos`, `.kind`,
-    // --- … unchanged through the Phase-3a split.
+    // Field-style accessors forward to the appropriate half.
 
     pub fn pos(&self) -> Vec2 {
         self.kin.pos

@@ -9,12 +9,7 @@ use bevy::prelude::*;
 use crate::engine_core as ae;
 use crate::projectile::ProjectileKind;
 
-use super::super::systems::update_projectiles;
-use super::{
-    advance_time, min_app, spawn_player, ActorHealth, ActorIdentity, ControlFrame,
-    DebrisBurstMessage, GameWorld, GameplayBanner, GameplayTraceBuffer, HitEvent, SetFlagRequested,
-    SfxMessage, VfxMessage,
-};
+use super::{advance_time, min_app, projectile_test_app, ActorHealth, ActorIdentity};
 
 /// Pre-spawn a fireball directly into the body list and place it
 /// just beside an ECS-hostile actor. After one tick the fireball
@@ -83,9 +78,6 @@ fn fireball_damages_enemy_on_intersect() {
 /// drops by one, and the projectile must remain in the body list.
 #[test]
 fn fireball_bounces_off_floor_in_system() {
-    let mut app = App::new();
-    app.insert_resource(Time::<()>::default());
-    app.insert_resource(crate::WorldTime::default());
     // World with a single floor block well below the spawn point.
     let world = ae::World::new(
         "bounce_test",
@@ -97,34 +89,7 @@ fn fireball_bounces_off_floor_in_system() {
             ae::Vec2::new(2000.0, 32.0),
         )],
     );
-    app.insert_resource(GameWorld(world.clone()));
-    app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
-    app.insert_resource(ControlFrame::default());
-    app.insert_resource(crate::persistence::settings::UserSettings::default());
-    app.insert_resource(GameplayTraceBuffer::default());
-    app.insert_resource(GameplayBanner::default());
-    app.init_resource::<crate::projectile::ProjectileSeqCounter>();
-    app.add_message::<SfxMessage>();
-    app.add_message::<VfxMessage>();
-    app.add_message::<DebrisBurstMessage>();
-    app.add_message::<SetFlagRequested>();
-    app.add_message::<HitEvent>();
-    app.add_message::<crate::features::ActorStimulus>();
-    app.add_message::<crate::projectile::SpawnProjectile>();
-    app.add_plugins(crate::brain::BrainPlugin);
-    app.add_systems(
-        Update,
-        (
-            crate::player::sync_local_player_input_frame,
-            crate::player::tick_player_brains,
-            crate::brain::emit_player_projectile_tick_messages,
-            update_projectiles,
-            super::super::systems::apply_player_spawn_projectile_messages,
-            crate::features::apply_feature_hit_events,
-        )
-            .chain(),
-    );
-    spawn_player(&mut app, ae::Vec2::new(200.0, 200.0), 1.0);
+    let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
 
     // Spawn a fireball just above the floor moving downward.
     let starting_bounces;
@@ -161,9 +126,6 @@ fn fireball_bounces_off_floor_in_system() {
 /// thin ledges identically to thick floors.
 #[test]
 fn fireball_bounces_off_one_way_platform_in_system() {
-    let mut app = App::new();
-    app.insert_resource(Time::<()>::default());
-    app.insert_resource(crate::WorldTime::default());
     let world = ae::World::new(
         "one_way_bounce_test",
         ae::Vec2::new(2000.0, 2000.0),
@@ -174,35 +136,7 @@ fn fireball_bounces_off_one_way_platform_in_system() {
             ae::Vec2::new(2000.0, 8.0),
         )],
     );
-    app.insert_resource(GameWorld(world.clone()));
-    app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
-
-    app.insert_resource(ControlFrame::default());
-    app.insert_resource(crate::persistence::settings::UserSettings::default());
-    app.insert_resource(GameplayTraceBuffer::default());
-    app.insert_resource(GameplayBanner::default());
-    app.init_resource::<crate::projectile::ProjectileSeqCounter>();
-    app.add_message::<SfxMessage>();
-    app.add_message::<VfxMessage>();
-    app.add_message::<DebrisBurstMessage>();
-    app.add_message::<SetFlagRequested>();
-    app.add_message::<HitEvent>();
-    app.add_message::<crate::features::ActorStimulus>();
-    app.add_message::<crate::projectile::SpawnProjectile>();
-    app.add_plugins(crate::brain::BrainPlugin);
-    app.add_systems(
-        Update,
-        (
-            crate::player::sync_local_player_input_frame,
-            crate::player::tick_player_brains,
-            crate::brain::emit_player_projectile_tick_messages,
-            update_projectiles,
-            super::super::systems::apply_player_spawn_projectile_messages,
-            crate::features::apply_feature_hit_events,
-        )
-            .chain(),
-    );
-    spawn_player(&mut app, ae::Vec2::new(200.0, 200.0), 1.0);
+    let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
 
     let starting_bounces;
     {
@@ -244,9 +178,6 @@ fn fireball_bounces_off_one_way_platform_in_system() {
 /// walls breaks the test.
 #[test]
 fn fireball_passes_through_one_way_from_below_in_system() {
-    let mut app = App::new();
-    app.insert_resource(Time::<()>::default());
-    app.insert_resource(crate::WorldTime::default());
     let world = ae::World::new(
         "one_way_passthrough_test",
         ae::Vec2::new(2000.0, 2000.0),
@@ -257,35 +188,7 @@ fn fireball_passes_through_one_way_from_below_in_system() {
             ae::Vec2::new(2000.0, 8.0),
         )],
     );
-    app.insert_resource(GameWorld(world.clone()));
-    app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
-
-    app.insert_resource(ControlFrame::default());
-    app.insert_resource(crate::persistence::settings::UserSettings::default());
-    app.insert_resource(GameplayTraceBuffer::default());
-    app.insert_resource(GameplayBanner::default());
-    app.init_resource::<crate::projectile::ProjectileSeqCounter>();
-    app.add_message::<SfxMessage>();
-    app.add_message::<VfxMessage>();
-    app.add_message::<DebrisBurstMessage>();
-    app.add_message::<SetFlagRequested>();
-    app.add_message::<HitEvent>();
-    app.add_message::<crate::features::ActorStimulus>();
-    app.add_message::<crate::projectile::SpawnProjectile>();
-    app.add_plugins(crate::brain::BrainPlugin);
-    app.add_systems(
-        Update,
-        (
-            crate::player::sync_local_player_input_frame,
-            crate::player::tick_player_brains,
-            crate::brain::emit_player_projectile_tick_messages,
-            update_projectiles,
-            super::super::systems::apply_player_spawn_projectile_messages,
-            crate::features::apply_feature_hit_events,
-        )
-            .chain(),
-    );
-    spawn_player(&mut app, ae::Vec2::new(200.0, 500.0), 1.0);
+    let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 500.0), 1.0);
 
     {
         let spec = crate::projectile::ProjectileSpec::new(
@@ -324,9 +227,6 @@ fn fireball_passes_through_one_way_from_below_in_system() {
 /// system level (engine test pinned it at the unit level).
 #[test]
 fn hadouken_expires_on_solid_in_system() {
-    let mut app = App::new();
-    app.insert_resource(Time::<()>::default());
-    app.insert_resource(crate::WorldTime::default());
     let world = ae::World::new(
         "wall_test",
         ae::Vec2::new(2000.0, 2000.0),
@@ -337,35 +237,7 @@ fn hadouken_expires_on_solid_in_system() {
             ae::Vec2::new(40.0, 800.0),
         )],
     );
-    app.insert_resource(GameWorld(world.clone()));
-    app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
-
-    app.insert_resource(ControlFrame::default());
-    app.insert_resource(crate::persistence::settings::UserSettings::default());
-    app.insert_resource(GameplayTraceBuffer::default());
-    app.insert_resource(GameplayBanner::default());
-    app.init_resource::<crate::projectile::ProjectileSeqCounter>();
-    app.add_message::<SfxMessage>();
-    app.add_message::<VfxMessage>();
-    app.add_message::<DebrisBurstMessage>();
-    app.add_message::<SetFlagRequested>();
-    app.add_message::<HitEvent>();
-    app.add_message::<crate::features::ActorStimulus>();
-    app.add_message::<crate::projectile::SpawnProjectile>();
-    app.add_plugins(crate::brain::BrainPlugin);
-    app.add_systems(
-        Update,
-        (
-            crate::player::sync_local_player_input_frame,
-            crate::player::tick_player_brains,
-            crate::brain::emit_player_projectile_tick_messages,
-            update_projectiles,
-            super::super::systems::apply_player_spawn_projectile_messages,
-            crate::features::apply_feature_hit_events,
-        )
-            .chain(),
-    );
-    spawn_player(&mut app, ae::Vec2::new(500.0, 300.0), 1.0);
+    let mut app = projectile_test_app(world, ae::Vec2::new(500.0, 300.0), 1.0);
 
     {
         let spec = crate::projectile::ProjectileSpec::new(

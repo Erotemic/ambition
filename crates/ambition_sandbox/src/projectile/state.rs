@@ -1,9 +1,6 @@
-//! Per-player projectile CONTROLLER data: charge state machine,
-//! motion-input buffer, tracked unlocks. Lives as a `Component` on each
-//! player entity so co-op / possession builds get one independent charge
-//! timer per player without sharing a singleton. As of Stage 19 Phase
-//! 3c-ii the in-flight projectiles themselves are ECS entities (see
-//! [`crate::projectile::entity`]), not a `Vec` on this struct.
+//! Per-player projectile controller state: charge machine, motion-input
+//! buffer, and tracked unlocks. In-flight projectiles live as ECS entities;
+//! this component is only the player's firing state.
 
 use bevy::prelude::Component;
 

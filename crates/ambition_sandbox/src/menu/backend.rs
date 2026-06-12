@@ -1,12 +1,8 @@
 //! Menu backend selection vocabulary (lib-side).
 //!
-//! `InventoryUiBackend` is the small shared resource that selects which
-//! menu frontend renders (the bevy_ui grid vs the 3D cube). It lives in
-//! the machinery lib because lib-side consumers read it (the Map tab's
-//! input gating, the System-IR rebuild); the host backends themselves
-//! moved up to `ambition_app::menu` (Stage 20 menu split). The two
-//! `*_BACKEND_ENABLED` consts mirror the build features so backend
-//! selection collapses gracefully when a backend is compiled out.
+//! `InventoryUiBackend` selects which compiled menu frontend renders. The
+//! `*_BACKEND_ENABLED` consts mirror build features so selection collapses
+//! gracefully when a backend is absent.
 
 use bevy::prelude::Resource;
 

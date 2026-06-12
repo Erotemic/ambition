@@ -6,44 +6,12 @@
 //! re-implement async loading, handles, dependencies, or hot reload —
 //! those live in Bevy itself.
 //!
-//! ## Wiring
+//! The plugin inserts [`AmbitionAssetCatalog`] and [`AmbitionAssetProfile`];
+//! callers use [`AmbitionAssetCatalog::path_for`] / [`AmbitionAssetCatalog::load`].
 //!
-//! ```ignore
-//! use ambition_asset_manager::{
-//!     bevy_integration::{
-//!         AmbitionAssetCatalog, AmbitionAssetManagerPlugin, AmbitionAssetProfile,
-//!     },
-//!     AssetManifest, AssetProfile,
-//! };
-//! use bevy::prelude::*;
-//!
-//! fn build_app() -> App {
-//!     let mut app = App::new();
-//!     let manifest: AssetManifest = build_my_manifest();
-//!     app.add_plugins(MinimalPlugins)
-//!         .add_plugins(AmbitionAssetManagerPlugin {
-//!             manifest,
-//!             profile: AssetProfile::DesktopDevLoose,
-//!         });
-//!     app
-//! }
-//! ```
-//!
-//! The plugin inserts [`AmbitionAssetCatalog`] and
-//! [`AmbitionAssetProfile`] resources. Callers query the catalog through
-//! its [`AmbitionAssetCatalog::path_for`] / [`AmbitionAssetCatalog::load`]
-//! helpers.
-//!
-//! ## Registering custom Bevy `AssetSource`s
-//!
-//! Source registrations (`embedded`, `http`, `https`, custom IPFS) live
-//! in the consuming app. Bevy's `AssetPlugin::source` (Bevy 0.18+) is
-//! the canonical hook. This crate intentionally does not auto-register
-//! sources — the consumer knows which features it compiled with.
-//!
-//! See `docs/systems/asset-manager.md` for the integration recipe per profile
-//! (`bevy_embedded_assets` for BundledStatic, Bevy's `http` source for
-//! WebHttp, etc.).
+//! Custom Bevy `AssetSource` registrations (`embedded`, `http`, `https`, IPFS)
+//! live in the consuming app. This crate intentionally does not auto-register
+//! sources because the consumer knows which features it compiled with.
 
 #![cfg(feature = "bevy")]
 

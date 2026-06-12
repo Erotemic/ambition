@@ -29,33 +29,20 @@ const ENEMY_DOUBLE_JUMP_SPEED: f32 = 430.0;
 /// double-jump (matches the player's default). Resets when the
 /// body transitions `on_ground: false → true` in `enemy.update()`.
 pub(crate) const MAX_ENEMY_AIR_JUMPS: u8 = 1;
-// `ENEMY_PATROL_SPEED` / `ENEMY_CHASE_SPEED` / `ENEMY_ATTACK_RANGE`
-// retired by the enemy_archetypes.ron migration — each row now carries
-// its own speeds / ranges. If multiple archetypes drift back to the
-// same baseline, prefer one inline literal per row over re-introducing
-// a shared const here.
+// Archetype data owns enemy speed/range tuning; keep only shared fallback
+// clocks here.
 const ENEMY_ATTACK_COOLDOWN: f32 = 1.05;
-// BOSS_ATTACK_COOLDOWN retired by the boss-profile data-driven
-// migration — each profile in `boss_profiles.ron` carries its own
-// `attack_cooldown`. The clockwork_warden default (1.35) lives there.
-// BREAK_ON_STAND_SECONDS / CHEST_FALL_* moved to the generic combat
-// kit (`crate::mechanics::combat`) with their consumers.
+// Boss/profile and combat-kit data own their own cooldown/timing constants.
 
 pub mod banter;
-// `boss_attack_geometry` (generic telegraph/strike/hurtbox geometry over
-// BossBehaviorProfile + BossSpriteMetrics) moved to
-// `crate::boss_encounter::attack_geometry` (boss machinery).
+// Stable facade for boss attack geometry.
 pub use crate::boss_encounter::attack_geometry as boss_attack_geometry;
 mod bosses;
 mod ecs;
 mod enemies;
 mod npcs;
 
-// The generic combat kit (component vocabulary, messages, effect bus,
-// hitboxes, pickups/chests/breakables/hazards, path motion, the
-// collision world-overlay) moved to `crate::mechanics::combat`
-// (Stage 20 / A2). Module re-exports keep every inbound
-// `crate::features::<module>::…` path working.
+// Re-export the generic combat kit so existing feature-facing paths stay stable.
 pub use crate::mechanics::combat::components;
 pub use crate::mechanics::combat::events;
 pub use crate::mechanics::combat::hazard_runtime as hazards;
@@ -145,15 +132,8 @@ pub use world_overlay::{world_with_portal_carves, world_with_sandbox_solids};
 pub(super) use npcs::NPC_HOSTILE_STRIKE_THRESHOLD;
 use util::*;
 
-/// Module-local Bevy plugin: schedules the gameplay-effect bus chain
-/// (`apply_flag_effects` → `apply_quest_effects` → … →
-/// `apply_gameplay_sfx_effects`) into
+/// Schedules the gameplay-effect bus chain into
 /// [`crate::app::SandboxSet::GameplayEffects`].
-///
-/// Carved out of `app/plugins.rs::register_gameplay_effects_systems`
-/// per OVERNIGHT-TODO #6. Every reader system in this chain lives in
-/// this file (`bus.rs`), so this is the right place to own the
-/// schedule registration.
 pub struct GameplayEffectsSchedulePlugin;
 
 impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
@@ -175,15 +155,8 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
     }
 }
 
-/// Module-local Bevy plugin: schedules the `WorldPrep` simulation set —
-/// LDtk hot-reload poll + the ECS feature-world overlay rebuild + the
-/// per-frame hazard/actor/boss ticks. Sets up the collision world that
-/// `PlayerInput` and `PlayerSimulation` read in the same frame.
-///
-/// Four of the five systems live in `content/features/ecs/`; the
-/// LDtk hot-reload poller is the one outlier (lives in
-/// `ldtk_world::hot_reload`). Carved out of
-/// `app/plugins.rs::register_world_prep_systems` per OVERNIGHT-TODO #6.
+/// Schedules `WorldPrep`: LDtk hot-reload, feature-world overlay rebuild,
+/// and per-frame hazard/actor/boss ticks before player simulation reads them.
 pub struct WorldPrepSchedulePlugin;
 
 impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
@@ -204,10 +177,8 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 derive_pogo_target_volumes,
                 rebuild_feature_ecs_world_overlay,
                 update_ecs_hazards,
-                // Target selection runs before actor / boss updates so
-                // each non-player actor's per-frame "who am I looking
-                // at" pointer is fresh by the time downstream ticks
-                // consult `ActorTarget` (OVERNIGHT-TODO #17.8).
+                // Target selection refreshes each actor's `ActorTarget`
+                // before actor / boss update systems consume it.
                 select_actor_targets,
                 update_ecs_actors,
                 // NPCs tick in their own system (shared cluster
@@ -226,16 +197,8 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // position so the rider doesn't drift away on the
                 // next frame.
                 sync_riders_to_mounts,
-                // Boss tick chain (post "move boss policy out of
-                // BossRuntime"): the brain decides intent first, then
-                // the integration system consumes its `desired_vel`.
-                // `sync_boss_encounter_phase` runs before the brain
-                // tick so this frame's phase is the one
-                // `BossPatternContext` carries. Content-side per-boss
-                // steering (the cut-rope boss tracking its anvil) runs
-                // in `BossSteerSlot`, configured below to sit between
-                // the brain tick and the integration — exactly where
-                // the old inline registration lived.
+                // Boss brain decides intent first; integration consumes
+                // `desired_vel` after optional content-side steering.
                 sync_boss_encounter_phase,
                 tick_boss_brains_system,
                 update_ecs_bosses,
@@ -257,13 +220,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
     }
 }
 
-/// Module-local Bevy plugin: schedules the `FeatureCollection`
-/// simulation set — pickups collected this frame + the resulting heal
-/// requests applied to player health.
-///
-/// Carved out of `app/plugins.rs::register_feature_collection_systems`
-/// per OVERNIGHT-TODO #6. The heal-request reader lives in
-/// `crate::player`; the chain still owns the ordering.
+/// Schedules `FeatureCollection`: pickup collection followed by heal apply.
 pub struct FeatureCollectionSchedulePlugin;
 
 impl bevy::prelude::Plugin for FeatureCollectionSchedulePlugin {
@@ -283,16 +240,8 @@ impl bevy::prelude::Plugin for FeatureCollectionSchedulePlugin {
     }
 }
 
-/// Module-local Bevy plugin: schedules the `FeatureInteraction`
-/// simulation set — actor / switch interactions, chest opens, breakable
-/// damage, falling chest ticks, save mirror, and the encounter switch
-/// index rebuild.
-///
-/// Carved out of
-/// `app/plugins.rs::register_feature_interaction_systems` per
-/// OVERNIGHT-TODO #6. Five of the six systems live in
-/// `content/features/ecs/`; the encounter switch index rebuild is the
-/// one outlier (lives in `crate::encounter`).
+/// Schedules `FeatureInteraction`: switches, chests, breakables, save sync,
+/// and encounter switch-index rebuild.
 pub struct FeatureInteractionSchedulePlugin;
 
 impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
@@ -314,14 +263,7 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
     }
 }
 
-/// Module-local Bevy plugin: schedules the per-frame
-/// [`FeatureViewIndex`] rebuild into [`crate::app::SandboxSet::FeatureViewSync`].
-/// The rebuild walks every ECS feature query once per frame and feeds
-/// presentation systems (sync_visuals, sprite upgraders, HUD readouts)
-/// a single shared read-model instead of forcing each consumer to
-/// re-scan the feature world. Carved out of
-/// `app/plugins.rs::register_feature_view_sync_systems` per
-/// OVERNIGHT-TODO #6.
+/// Rebuilds [`FeatureViewIndex`] once per frame for presentation/HUD readers.
 pub struct FeatureViewSyncSchedulePlugin;
 
 impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {

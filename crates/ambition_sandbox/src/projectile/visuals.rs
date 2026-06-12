@@ -1,18 +1,12 @@
 //! Persistent Bevy sprite entities for in-flight projectiles plus the
-//! charge-indicator quad in front of the player.
-//!
-//! Phase 3d: the projectile SPRITE now rides the projectile entity. When a
-//! projectile entity appears, one visual entity is spawned for it and linked
-//! back via [`VisualProjectile`]; each frame the visual's transform (+ flip) is
-//! refreshed from the live body; when the projectile entity despawns, its
-//! visual is despawned. No more despawn-and-respawn-every-frame ring.
+//! charge-indicator quad in front of the player. Each projectile owns one linked
+//! visual entity that is transformed from the live body and despawned with it.
 
 use crate::engine_core as ae;
 use bevy::prelude::*;
 
 /// Marker on the persistent per-projectile sprite entity produced by
-/// [`sync_projectile_visuals`]. One per in-flight player projectile entity,
-/// reused frame to frame (Phase 3d).
+/// [`sync_projectile_visuals`].
 #[derive(Component)]
 pub struct PlayerProjectileVisual;
 
@@ -28,10 +22,7 @@ pub struct VisualProjectile(pub Entity);
 #[derive(Component, Clone, Copy)]
 pub struct ProjectileVisualLink(#[allow(dead_code)] pub Entity);
 
-/// Marker on the charge-indicator sprite that hovers in front of
-/// the player while they're holding the fire button. Rebuilt each
-/// tick from `PlayerProjectileState::charging` like before — it is a
-/// transient per-player indicator, not a per-projectile entity.
+/// Marker on the transient charge-indicator sprite in front of the player.
 #[derive(Component)]
 pub struct PlayerChargeVisual;
 
@@ -39,10 +30,8 @@ pub struct PlayerChargeVisual;
 /// the per-player charge indicator. Runs after `update_projectiles` (which
 /// steps / despawns the projectile entities) and on the presentation half only.
 ///
-/// The charge indicator is still rebuilt each frame (it is a transient
-/// per-player UI element, not a per-projectile entity). The projectile sprites
-/// are persistent (Phase 3d): spawned on first sight, transform-updated each
-/// frame, despawned when their projectile entity is gone.
+/// The charge indicator is rebuilt each frame; projectile sprites persist and
+/// are transform-updated until their projectile entity despawns.
 pub fn sync_projectile_visuals(
     mut commands: Commands,
     world: Res<crate::GameWorld>,
@@ -56,8 +45,7 @@ pub fn sync_projectile_visuals(
         ),
         With<crate::player::PlayerEntity>,
     >,
-    // In-flight player projectiles are ECS entities (Phase 3c-ii). Projectiles
-    // that don't yet have a visual (no `ProjectileVisualLink`) get one spawned.
+    // Spawn visuals for in-flight projectiles that do not have a link yet.
     new_projectiles: Query<
         (
             Entity,
@@ -186,8 +174,7 @@ pub fn sync_projectile_visuals(
         };
         transform.translation =
             crate::config::world_to_bevy(&world.0, kin.pos, crate::config::WORLD_Z_PLAYER + 2.0);
-        // Track travel direction each frame (a fireball can reverse x on a
-        // wall bounce) so the rendered flip matches the old per-frame rebuild.
+        // Track travel direction each frame; fireballs can reverse on bounce.
         sprite.flip_x = kin.vel.x < 0.0;
     }
 }

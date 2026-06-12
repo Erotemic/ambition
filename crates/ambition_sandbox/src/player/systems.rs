@@ -14,21 +14,8 @@ use crate::engine_core as ae;
 use crate::features::{ActorPose, FeatureAabb};
 use crate::input::ControlFrame;
 
-/// Mirror the global [`ControlFrame`] resource onto the local primary
-/// player's [`PlayerInputFrame`] component each frame.
-///
-/// This is the producer for the per-player input migration (OVERNIGHT-
-/// TODO #17.5). The visible binary's input pipeline + the headless
-/// driver both keep writing the global resource; this system snapshots
-/// it onto the entity so simulation systems can move toward reading
-/// `Query<&PlayerInputFrame>` without losing the "primary local player"
-/// behavior. Future remote / co-op players would have their own
-/// PlayerInputFrame populated by a network adapter, bypassing the
-/// global resource entirely.
-///
-/// Runs once per frame after the input pipeline has finished writing
-/// `Res<ControlFrame>` (registered in the `PlayerInput` set, after
-/// `interaction_input_system`).
+/// Mirror the finalized global [`ControlFrame`] onto the local player's
+/// [`PlayerInputFrame`] component after the input pipeline finishes writing it.
 pub fn sync_local_player_input_frame(
     frame: Res<ControlFrame>,
     mut players: Query<&mut PlayerInputFrame, (With<PlayerEntity>, With<LocalPlayer>)>,
@@ -114,15 +101,7 @@ pub fn tick_player_brains(
 }
 
 /// Mirror `ActivePlayerAttack::is_active()` onto
-/// `PlayerCombatState::attacking` so rendering systems can branch on
-/// attack state without a separate query.
-///
-/// All Phase 2 work has landed: `PlayerMovementAuthority` and
-/// `PlayerBody` are gone, and the cluster components in
-/// [`super::movement_components`] are the authoritative simulation
-/// state. This system is the residue of the previous mirror — it's
-/// kept as a separate function so the scheduler ordering hooked into
-/// `PresentationSync` doesn't change shape.
+/// `PlayerCombatState::attacking` for rendering systems.
 pub fn write_player_ecs_components(
     mut players: Query<(&ActivePlayerAttack, &mut PlayerCombatState), With<PlayerEntity>>,
 ) {

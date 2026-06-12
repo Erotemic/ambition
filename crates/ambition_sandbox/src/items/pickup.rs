@@ -7,14 +7,8 @@
 //! back onto the ground ahead of the player, restoring the player's original
 //! action set.
 //!
-//! Decisions baked in (see TODO "Pick-up / throw held items"):
-//! - one held item at a time (the `Without<HeldItem>` pickup filter),
-//! - `Attack` picks up / uses; `Shield + Attack` throws (Smash grab-throw).
-//!
-//! Handoff / not-yet-built:
-//! - thrown items arc under gravity and settle on contact (no slide/bounce),
-//! - placement is a single debug-spawned axe; authored ground items come later,
-//! - a held-in-hand sprite on the player; held-item gating of the portal gun.
+//! One held item at a time; `Attack` picks up / uses and `Shield + Attack`
+//! throws.
 
 use bevy::prelude::*;
 
@@ -429,10 +423,9 @@ pub fn throw_held_item_system(
     let Ok((player, kin, mut action_set, held, stashed)) = players.single_mut() else {
         return;
     };
-    // Shield+Attack throws anything; a plain Attack throws only items whose
-    // authored `use_behavior` says so (Refactor 5) — replacing the old hardcoded
-    // id-chain. A `UseSystem` ability (blink / shockwave / …) returns false here,
-    // so its plain Attack is left for its own use system.
+    // Shield+Attack throws anything; plain Attack throws only items whose
+    // authored `use_behavior` opts in, leaving `UseSystem` abilities to their
+    // own systems.
     if !(control.shield_held || held.spec.throws_on_plain_attack()) {
         return;
     }
@@ -470,18 +463,9 @@ pub fn throw_held_item_system(
 // range. This is the player end of the held-gun-sword unification: the same
 // `RangedActionSpec` the pirates fire, driven by the player's `Attack`.
 
-/// An in-flight laser bolt fired from a held ranged item (gun-sword / fireball).
-///
-/// Stage 2026-06-09: the bolt's POSITION and VELOCITY now live in the shared
-/// [`BodyKinematics`] component (the same body the player and the ECS projectiles
-/// carry), so it rides the ONE generic [`portal_transit`](crate::portal::portal_transit)
-/// algorithm through portals instead of a parallel motion path. This component
-/// holds only the held-shot-specific gameplay: damage, range traveled, and the
-/// optional explosion. The entity also carries a marker
-/// [`ProjectileGameplay`](crate::projectile::ProjectileGameplay) so the actor-generic
-/// queries (auto-righting, actor portal tagging) skip it and
-/// `ensure_projectile_portal_bodies` opts it into transit with the free-flying
-/// projectile policy — exactly like the player/enemy ECS projectiles.
+/// Held-shot-specific gameplay for an in-flight ranged item. Position and
+/// velocity live in shared [`BodyKinematics`]; this component carries damage,
+/// range traveled, and optional splash radius.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct HeldProjectile {
     pub damage: i32,
@@ -602,8 +586,7 @@ pub fn fire_held_ranged_system(
     };
     #[allow(unused_mut)]
     let mut shot = commands.spawn_room_scoped((
-        // Position + velocity live in the shared body so portal transit moves the
-        // bolt (Stage 2026-06-09). Size matches the contact half-extent.
+        // Position + velocity live in the shared body; size matches contact.
         BodyKinematics {
             pos: origin,
             vel: dir * ranged.speed(),
@@ -645,9 +628,7 @@ pub fn fire_held_ranged_system(
         },
     ));
     let _ = &shot;
-    // A Fireball whooshes out (reusing the dash whoosh) rather than the gun-sword
-    // laser zap, so it doesn't *sound* like a sword either; a bespoke ignite SFX
-    // is a tracked follow-up (TODO section B "Fireball projectile sprite + SFX").
+    // Fireball currently reuses the dash whoosh instead of the gun-sword zap.
     let fire_sfx = if held.spec.id == FIREBALL_ID {
         ambition_sfx::ids::PLAYER_DASH
     } else {
@@ -993,13 +974,8 @@ impl HeldProjectileVisualArt {
 #[derive(Component)]
 pub struct HeldProjectileVisual;
 
-/// Render each in-flight held shot. A **Fireball** (it carries a splash, i.e.
-/// `explode_half > 0`) draws as its glowing fire sphere — a fireball reads as
-/// fire from any travel angle, so it needs no orientation, unlike the gun-sword
-/// bolt. Every other shot is the **same** spinning lasersword sprite the pirates
-/// fire (`enemy_projectile::lasersword_projectile_sprite`), rotated along its
-/// travel. Clear-and-rebuild each frame (few shots). Fixes Jon's "the fireball
-/// shoots a sword, not a fireball" — the bolt no longer looks like a sword.
+/// Render each in-flight held shot. Fireballs draw as a glowing sphere; other
+/// shots reuse the spinning lasersword sprite and rotate along travel.
 pub fn sync_held_projectile_visuals(
     mut commands: Commands,
     asset_server: Res<AssetServer>,

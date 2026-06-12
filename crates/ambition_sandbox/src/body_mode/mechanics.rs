@@ -301,6 +301,34 @@ mod tests {
         (app, player)
     }
 
+    fn place_player_on_test_ladder(app: &mut App, player: Entity, vel: Option<Vec2>) {
+        app.world_mut()
+            .resource_mut::<crate::GameWorld>()
+            .0
+            .climbable_regions
+            .push(ClimbableRegion::new(
+                ae::Aabb::new(Vec2::new(210.0, 820.0), Vec2::new(20.0, 200.0)),
+                ClimbableKind::Ladder,
+                ClimbableSpec::default(),
+            ));
+        {
+            let mut kin = app.world_mut().get_mut::<BodyKinematics>(player).unwrap();
+            kin.pos = Vec2::new(210.0, 820.0);
+            if let Some(vel) = vel {
+                kin.vel = vel;
+            }
+        }
+        let contact = app
+            .world()
+            .resource::<crate::GameWorld>()
+            .0
+            .climbable_at(app.world().get::<BodyKinematics>(player).unwrap().aabb());
+        app.world_mut()
+            .get_mut::<PlayerEnvironmentContact>(player)
+            .unwrap()
+            .climbable = contact;
+    }
+
     /// The headline morph-ball entry path. With the player standing on
     /// the ground and `double_tap_down_pending = true`, one `update`
     /// call should flip `body_mode` to `MorphBall`. Pins the gesture
@@ -372,36 +400,13 @@ mod tests {
     #[test]
     fn dash_press_from_climbing_transitions_to_standing() {
         let (mut app, player) = build_body_mode_test_app();
-        {
-            let mut world = app.world_mut().resource_mut::<crate::GameWorld>();
-            world.0.climbable_regions.push(ClimbableRegion::new(
-                ae::Aabb::new(Vec2::new(210.0, 820.0), Vec2::new(20.0, 200.0)),
-                ClimbableKind::Ladder,
-                ClimbableSpec::default(),
-            ));
-        }
+        place_player_on_test_ladder(&mut app, player, None);
         {
             let mut body_mode = app
                 .world_mut()
                 .get_mut::<PlayerBodyModeState>(player)
                 .unwrap();
             body_mode.body_mode = ae::BodyMode::Climbing;
-        }
-        {
-            let mut kin = app.world_mut().get_mut::<BodyKinematics>(player).unwrap();
-            kin.pos = Vec2::new(210.0, 820.0);
-        }
-        {
-            let contact = app
-                .world()
-                .resource::<crate::GameWorld>()
-                .0
-                .climbable_at(app.world().get::<BodyKinematics>(player).unwrap().aabb());
-            let mut env = app
-                .world_mut()
-                .get_mut::<PlayerEnvironmentContact>(player)
-                .unwrap();
-            env.climbable = contact;
         }
         {
             let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
@@ -428,36 +433,13 @@ mod tests {
     #[test]
     fn jump_press_from_climbing_keeps_climbing_mode() {
         let (mut app, player) = build_body_mode_test_app();
-        {
-            let mut world = app.world_mut().resource_mut::<crate::GameWorld>();
-            world.0.climbable_regions.push(ClimbableRegion::new(
-                ae::Aabb::new(Vec2::new(210.0, 820.0), Vec2::new(20.0, 200.0)),
-                ClimbableKind::Ladder,
-                ClimbableSpec::default(),
-            ));
-        }
+        place_player_on_test_ladder(&mut app, player, None);
         {
             let mut body_mode = app
                 .world_mut()
                 .get_mut::<PlayerBodyModeState>(player)
                 .unwrap();
             body_mode.body_mode = ae::BodyMode::Climbing;
-        }
-        {
-            let mut kin = app.world_mut().get_mut::<BodyKinematics>(player).unwrap();
-            kin.pos = Vec2::new(210.0, 820.0);
-        }
-        {
-            let contact = app
-                .world()
-                .resource::<crate::GameWorld>()
-                .0
-                .climbable_at(app.world().get::<BodyKinematics>(player).unwrap().aabb());
-            let mut env = app
-                .world_mut()
-                .get_mut::<PlayerEnvironmentContact>(player)
-                .unwrap();
-            env.climbable = contact;
         }
         {
             let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
@@ -485,37 +467,13 @@ mod tests {
     #[test]
     fn down_jump_from_climbing_falls_off_ladder() {
         let (mut app, player) = build_body_mode_test_app();
-        {
-            let mut world = app.world_mut().resource_mut::<crate::GameWorld>();
-            world.0.climbable_regions.push(ClimbableRegion::new(
-                ae::Aabb::new(Vec2::new(210.0, 820.0), Vec2::new(20.0, 200.0)),
-                ClimbableKind::Ladder,
-                ClimbableSpec::default(),
-            ));
-        }
+        place_player_on_test_ladder(&mut app, player, Some(Vec2::new(0.0, -100.0)));
         {
             let mut body_mode = app
                 .world_mut()
                 .get_mut::<PlayerBodyModeState>(player)
                 .unwrap();
             body_mode.body_mode = ae::BodyMode::Climbing;
-        }
-        {
-            let mut kin = app.world_mut().get_mut::<BodyKinematics>(player).unwrap();
-            kin.pos = Vec2::new(210.0, 820.0);
-            kin.vel = Vec2::new(0.0, -100.0);
-        }
-        {
-            let contact = app
-                .world()
-                .resource::<crate::GameWorld>()
-                .0
-                .climbable_at(app.world().get::<BodyKinematics>(player).unwrap().aabb());
-            let mut env = app
-                .world_mut()
-                .get_mut::<PlayerEnvironmentContact>(player)
-                .unwrap();
-            env.climbable = contact;
         }
         {
             let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
@@ -548,14 +506,7 @@ mod tests {
     #[test]
     fn down_release_rearms_ladder_regrab() {
         let (mut app, player) = build_body_mode_test_app();
-        {
-            let mut world = app.world_mut().resource_mut::<crate::GameWorld>();
-            world.0.climbable_regions.push(ClimbableRegion::new(
-                ae::Aabb::new(Vec2::new(210.0, 820.0), Vec2::new(20.0, 200.0)),
-                ClimbableKind::Ladder,
-                ClimbableSpec::default(),
-            ));
-        }
+        place_player_on_test_ladder(&mut app, player, None);
         {
             let mut body_mode = app
                 .world_mut()
@@ -569,22 +520,6 @@ mod tests {
                 .get_mut::<PlayerGroundState>(player)
                 .unwrap();
             ground.on_ground = false;
-        }
-        {
-            let mut kin = app.world_mut().get_mut::<BodyKinematics>(player).unwrap();
-            kin.pos = Vec2::new(210.0, 820.0);
-        }
-        {
-            let contact = app
-                .world()
-                .resource::<crate::GameWorld>()
-                .0
-                .climbable_at(app.world().get::<BodyKinematics>(player).unwrap().aabb());
-            let mut env = app
-                .world_mut()
-                .get_mut::<PlayerEnvironmentContact>(player)
-                .unwrap();
-            env.climbable = contact;
         }
         {
             let mut jump_state = app.world_mut().get_mut::<PlayerJumpState>(player).unwrap();
@@ -646,30 +581,7 @@ mod tests {
     fn flying_suppresses_ladder_auto_climb() {
         let (mut app, player) = build_body_mode_test_app();
         // A ladder column the player is standing in.
-        {
-            let mut world = app.world_mut().resource_mut::<crate::GameWorld>();
-            world.0.climbable_regions.push(ClimbableRegion::new(
-                ae::Aabb::new(Vec2::new(210.0, 820.0), Vec2::new(20.0, 200.0)),
-                ClimbableKind::Ladder,
-                ClimbableSpec::default(),
-            ));
-        }
-        {
-            let mut kin = app.world_mut().get_mut::<BodyKinematics>(player).unwrap();
-            kin.pos = Vec2::new(210.0, 820.0);
-        }
-        {
-            let contact = app
-                .world()
-                .resource::<crate::GameWorld>()
-                .0
-                .climbable_at(app.world().get::<BodyKinematics>(player).unwrap().aabb());
-            let mut env = app
-                .world_mut()
-                .get_mut::<PlayerEnvironmentContact>(player)
-                .unwrap();
-            env.climbable = contact;
-        }
+        place_player_on_test_ladder(&mut app, player, None);
         // Hold Up + enable flight.
         {
             let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();

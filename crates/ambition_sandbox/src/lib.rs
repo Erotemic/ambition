@@ -26,34 +26,21 @@ pub mod audio;
 pub mod character_roster;
 pub mod combat;
 pub mod debug_label;
-// The pure-logic core lives in its own crate (`ambition_engine_core`, ADR
-// 0019 foundation). Re-export it under the historical `crate::engine_core`
-// path so every `crate::engine_core::X` reference and the `use
-// crate::engine_core as ae` alias across the sandbox resolve unchanged.
+// Re-export the pure-logic core under the sandbox's stable `crate::engine_core` path.
 pub use ambition_engine_core as engine_core;
-// The device -> ControlFrame input layer now lives in the `ambition_input`
-// crate (ADR 0019). Re-exported here as `crate::input` so all existing
-// `crate::input::{ControlFrame, SandboxAction, …}` paths resolve unchanged.
+// Re-export input types under the sandbox's stable `crate::input` path.
 pub use ambition_input as input;
 pub mod host;
 pub mod interaction;
-// Generic kinematic body (gravity + axis-separated sweep) now lives in the
-// reusable runtime crate (Stage 18 T13). Re-exported here as `crate::kinematic`
-// so all existing `crate::kinematic::…` sites resolve unchanged.
+// Re-export the reusable kinematic body/sweep runtime.
 pub use ambition_platformer_runtime::kinematic;
 pub mod platformer_runtime;
 pub mod player;
 pub mod quest;
-// Facade re-export: the save-game *data shapes* moved into
-// `persistence/save_data.rs` (the I/O shim is `persistence/save.rs`). Keep the
-// historical `crate::save` path alive for the Yarn dialogue bindings (owned by a
-// parallel agent, left untouched).
+// Stable facade for save-game data shapes used by dialogue bindings.
 pub use persistence::save_data as save;
 
-// Themed umbrellas. Each owns a coherent slice of the sandbox; the long-
-// term shape carves the reusable ones (`presentation`, `time`, `dev`,
-// `world`, `persistence`) into the future `ambition` framework crate, and
-// leaves the sandbox-specific ones (`content`, sandbox `assets`) behind.
+// Themed module umbrellas. Each owns a coherent slice of the sandbox.
 pub mod abilities;
 pub mod ability_cooldown;
 pub mod assets;
@@ -71,9 +58,7 @@ pub mod enemy_projectile;
 pub mod falling_sand;
 pub mod inventory;
 pub mod items;
-// Facade re-export: the Yarn dialogue bindings (owned by a parallel agent)
-// still resolve buy/sell via `crate::shop`. Keep the path alive after the
-// items/ consolidation so that module needs no churn.
+// Stable facade for dialogue shop bindings.
 pub use items::shop;
 pub mod mechanics;
 pub mod music;
@@ -92,14 +77,7 @@ pub mod time;
 pub mod ui_nav;
 pub mod world;
 
-// Public re-exports double as the external API: `features`, `rooms`,
-// `ldtk_world`, `game_mode`, and `trace` are referenced from bins,
-// tests, and the engine crate's doc comments. Internal `pub(crate)`
-// shims for the other themed modules (assets, content, dev, host,
-// persistence, player::bubble_shield, presentation, runtime, time,
-// world::{physics, platforms}, and boss_encounter::sprites) were
-// removed in the 2026-05-19 shim-cleanup pass; internal call sites
-// now use the canonical `crate::<theme>::<module>::…` paths.
+// Public re-exports double as the external API for bins, tests, and docs.
 pub mod features;
 pub use dev::trace;
 pub use runtime::game_mode;
@@ -116,9 +94,6 @@ pub use time::move_toward;
 pub use time::world_time::{
     mirror_sim_dt_into_runtime, refresh_world_time, ClockDomain, WorldTime,
 };
-
-// The Android / wasm entry points moved to the `ambition_app` crate
-// with the app assembly (Stage 20 / A3).
 
 pub use game_mode::{gameplay_allowed, GameMode};
 
@@ -216,30 +191,18 @@ pub const ROOM_DOOR_CAMERA_SNAP_TIME: f32 = 0.08;
 #[derive(Resource, Default)]
 pub struct MovingPlatformSet(pub Vec<world::platforms::MovingPlatformState>);
 
-// `WorldTime`, `ClockDomain`, `refresh_world_time` moved to
-// `time::world_time`; `CameraEaseState` / `CameraEaseTuning` and the
-// `DEFAULT_CAMERA_*` constants moved to `time::camera_ease`. Re-exported
-// below so `crate::WorldTime` / `ambition_sandbox::WorldTime` keep working.
-
 /// Pure simulation scalars for the running sandbox session.
 /// Holds values that belong to the simulation, not to
 /// developer/debug tools or presentation state.
 ///
 /// **Multiplayer caveat:** each field has different per-player vs.
 /// shared semantics for a future co-op build:
-/// - Per-player "last safe position" lives on the player entity
-///   as `crate::player::PlayerSafetyState` since 2026-05-19
-///   (OVERNIGHT-TODO #17.9) — a future co-op build keeps each
-///   player's safe spot independent.
+/// - Per-player "last safe position" lives on each player entity as
+///   `crate::player::PlayerSafetyState`.
 /// - `room_transition_cooldown` — **global shared-world** today
 ///   because the whole party shares one active room. If a future
 ///   build splits rooms per-player this would need to move per-room
 ///   or per-player.
-///
-/// The sim-clock `time_scale` used to live here too; it moved to the
-/// time-owned [`crate::time::clock_state::ClockState`] resource (Stage 18
-/// T1a) because it belongs to the TIME domain, not this room-state
-/// grab-bag.
 #[derive(Resource, Clone, Copy, Debug)]
 pub struct SandboxSimState {
     pub room_transition_cooldown: f32,
@@ -379,13 +342,6 @@ pub fn remember_safe_player_position_from_kinematics(
         safety.last_safe_pos = pos;
     }
 }
-
-// `update_time_scale` (deprecated since 0.2.0) and `move_toward` removed
-// from the crate root. `move_toward` now lives in `time::move_toward` and
-// is re-exported below; the `update_time_scale` ramp was superseded by
-// `time_control::emit_player_time_intent_system` +
-// `smooth_sim_clock_toward_target_system` (ADR 0010 step 4) and had no
-// runtime callers left.
 
 #[cfg(test)]
 mod safe_pos_tests {
@@ -617,6 +573,3 @@ mod safe_pos_tests {
         assert!(!interaction.buffered_interact(false, 0.001, 1.0));
     }
 }
-
-// `world_time_clock_tests` moved alongside the implementation in
-// `time::world_time`.

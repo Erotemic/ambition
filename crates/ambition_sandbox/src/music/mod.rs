@@ -1,9 +1,7 @@
 //! Sandbox music adapters over the `ambition_audio` music core.
 //!
-//! The cue catalog / layered channels / director moved to the
-//! `ambition_audio` crate (Stage 20 / B1). This module keeps the
-//! game-side halves: [`intent`] (encounter / room / radio state ->
-//! [`MusicIntent`]), the authored goblin cue data, and the settings ->
+//! Game-side music glue: [`intent`] (encounter / room / radio state ->
+//! [`MusicIntent`]), authored goblin cue data, and settings ->
 //! [`ambition_audio::MusicMix`] sync.
 
 #![cfg(feature = "audio")]

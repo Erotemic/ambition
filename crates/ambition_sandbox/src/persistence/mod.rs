@@ -10,15 +10,8 @@ pub mod save;
 pub mod save_data;
 pub mod settings;
 
-/// Module-local Bevy plugin: schedules the user-settings + sandbox-save
-/// persistence systems.
-///
-/// Two Startup loaders (settings, developer toggles, sandbox save) and
-/// three Update writers (the same trio, gated on `Res::is_changed`).
-/// Carved out of `app/plugins.rs::install_settings_and_save_systems`
-/// per OVERNIGHT-TODO #6; visible builds register this through the
-/// presentation install chain and headless / RL drivers omit it so a
-/// `cargo run --bin headless` never reads or writes user files.
+/// Schedules user-settings and sandbox-save persistence for visible builds.
+/// Headless / RL drivers omit this plugin so they never read or write user files.
 pub struct PersistenceSchedulePlugin;
 
 impl bevy::prelude::Plugin for PersistenceSchedulePlugin {

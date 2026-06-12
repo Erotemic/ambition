@@ -1,29 +1,10 @@
-//! Small adapter between the asset catalog and
-//! [`ambition_sfx::BankProvider`].
+//! Small adapter between the asset catalog and [`ambition_sfx::BankProvider`].
 //!
-//! [`ambition_sfx`] already owns the SFX runtime contract; this module
-//! intentionally adds zero new semantics on top. The job is purely
-//! *where do the bank bytes come from* — the catalog resolves
-//! `AssetId("audio.sfx_bank")` (or any other id the consumer authored
-//! for an `AudioBank` entry) to a [`crate::location::AssetLocation`]
-//! and this adapter turns that location into bytes for
-//! [`ambition_sfx::BankProvider::from_bytes`] or
-//! [`ambition_sfx::BankProvider::from_path`].
-//!
-//! The adapter handles the variants whose bytes can be obtained
-//! synchronously (`LocalPath`, `Embedded` *via a caller-supplied byte
-//! slice*); HTTP / IPFS resolution is left to async loaders the
-//! consumer wires through Bevy's `AssetServer`.
-//!
-//! ## Why not let the catalog `include_bytes!` directly?
-//!
-//! Embedded bytes must be supplied at the call site so `include_bytes!`
-//! sees a literal path. The adapter therefore exposes
-//! [`build_provider_from_resolved`] which accepts an `Option<&'static [u8]>`
-//! the caller has already materialized (e.g. via `include_bytes!` in
-//! their crate). Anything fancier would force the catalog to know about
-//! every consuming crate's static byte tables, which defeats the point
-//! of a generic catalog.
+//! The catalog resolves an `AudioBank` id to an [`crate::location::AssetLocation`];
+//! this adapter handles synchronous locations (`LocalPath`, `Embedded` with
+//! caller-supplied bytes). HTTP / IPFS remain async loader responsibilities.
+//! Embedded bytes must be supplied by the consuming crate so `include_bytes!`
+//! can see a literal path.
 
 #![cfg(feature = "sfx")]
 

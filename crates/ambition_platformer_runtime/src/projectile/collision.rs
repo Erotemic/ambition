@@ -1,17 +1,7 @@
 //! Shared world-block collision resolver for player + enemy projectiles.
 //!
-//! Both the player projectile update loop and the enemy-projectile
-//! update loop previously re-implemented the "did this projectile body
-//! hit a solid / blink-wall / one-way platform this frame?" scan. They
-//! differ only in how the outcome is routed (player bounces off floors,
-//! enemy shots expire on any solid contact) — the scan itself is
-//! identical and faction-dispatched here so a new projectile family
-//! (boss volleys, traps, reflected shots) can pick a policy by tag
-//! rather than copying a 40-line loop. This is the reusable,
-//! game-agnostic projectile-vs-world resolver: it operates only on an
-//! `ambition_engine_core::World` and a [`ProjectileBody`], so any
-//! platformer can drive it. Spawn/damage routing stays in the consuming
-//! game.
+//! The world scan is common; callers choose the outcome policy by faction.
+//! Spawn/damage routing stays in the consuming game.
 
 use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
@@ -50,16 +40,9 @@ pub enum WorldHitOutcome {
 /// Resolve a projectile against the world's blocks for this tick,
 /// dispatching on the per-faction collision policy.
 ///
-/// Operates on the SPLIT halves — the kinematic [`BodyKinematics`] and the
-/// projectile [`ProjectileGameplay`] (Stage 19 Phase 3a) — so the same
-/// resolver drives a still-`Vec`-pooled `ProjectileBody` (whose `.kin` /
-/// `.game` fields are passed in) and, after the ECS migration, a projectile
-/// *entity* carrying the two as separate components.
-///
 /// The halves are mutably borrowed because `PlayerBouncing` may decrement
-/// `bounces_remaining` / reposition the body via
-/// `game.resolve_solid_hit` / `resolve_one_way_hit`;
-/// `EnemyExpireOnAnyContact` only reads.
+/// `bounces_remaining` and reposition the body; `EnemyExpireOnAnyContact`
+/// only reads.
 pub fn resolve_world_collision(
     kin: &mut BodyKinematics,
     game: &mut ProjectileGameplay,

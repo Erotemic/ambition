@@ -9,14 +9,9 @@ use bevy::prelude::*;
 
 use crate::input::ControlFrame;
 
-// `PlayerEntity` and [`PrimaryPlayer`] are generic entity-marker components
-// queried by the reusable mechanics (portal, gravity, …), so their definitions
-// live DOWN in `ambition_platformer_runtime::markers` (ADR 0019). They are
-// re-exported here so all existing `crate::player::PlayerEntity` /
-// `PrimaryPlayer` call sites compile unchanged.
+// Re-export generic player markers from the platformer runtime.
 pub use ambition_platformer_runtime::markers::{PlayerEntity, PrimaryPlayer};
-// `PlayerSlot` moved to `crate::brain` (the `Brain::Player` variant embeds
-// it, making it actor-system vocabulary). Re-exported for old paths.
+// Stable facade for the player-slot marker used by brain/player code.
 pub use crate::brain::PlayerSlot;
 
 /// Marks a player whose input comes from this machine's input devices
@@ -48,11 +43,6 @@ pub struct LocalPlayer;
 pub struct PlayerInputFrame {
     pub frame: ControlFrame,
 }
-
-// PlayerMovementAuthority + PlayerBody removed in Phase 2c of the
-// player-ecs-bandaid plan. The cluster components in
-// `crate::player::movement_components` are now the authoritative
-// simulation state.
 
 /// ECS-owned player health.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
@@ -354,17 +344,9 @@ pub struct PlayerPlatformRideState {
     pub was_riding: bool,
 }
 
-/// Per-player "last known safe spot" used by hazard knockback and
-/// debug respawn helpers. Authored separately from the engine
-/// `ae::Player::pos` so reset paths and trace recorders can read a
-/// value that was deliberately gated by `SafePositionContext`
-/// rather than the raw frame-to-frame position.
-///
-/// Replaces `SandboxSimState::last_safe_player_pos`
-/// (OVERNIGHT-TODO #17.9). The old resource field implicitly meant
-/// "the primary player's safe spot" — a future co-op build wants
-/// per-player anchors so a second player can hazard-fail without
-/// the first player's safe spot moving.
+/// Per-player "last known safe spot" used by hazard knockback and debug
+/// respawn helpers. Stored on each player so future co-op builds keep safe
+/// anchors independent.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct PlayerSafetyState {
     /// Last grounded, gameplay-safe position the safety gate

@@ -9,6 +9,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::host::windowing::DisplayModeKind;
 
+fn cycle_next<T: Copy + PartialEq, const N: usize>(all: &[T; N], current: T, fallback: usize) -> T {
+    let idx = all.iter().position(|p| *p == current).unwrap_or(fallback);
+    all[(idx + 1) % all.len()]
+}
+
+fn cycle_prev<T: Copy + PartialEq, const N: usize>(all: &[T; N], current: T, fallback: usize) -> T {
+    let idx = all.iter().position(|p| *p == current).unwrap_or(fallback);
+    all[(idx + all.len() - 1) % all.len()]
+}
+
 /// Whether full-screen flash effects are shown at full strength,
 /// reduced, or disabled. Read by camera flash and VFX systems.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -161,13 +171,11 @@ impl ColorblindMode {
     }
 
     pub fn next(self) -> Self {
-        let idx = Self::ALL.iter().position(|m| m == &self).unwrap_or(0);
-        Self::ALL[(idx + 1) % Self::ALL.len()]
+        cycle_next(&Self::ALL, self, 0)
     }
 
     pub fn prev(self) -> Self {
-        let idx = Self::ALL.iter().position(|m| m == &self).unwrap_or(0);
-        Self::ALL[(idx + Self::ALL.len() - 1) % Self::ALL.len()]
+        cycle_prev(&Self::ALL, self, 0)
     }
 }
 
@@ -225,13 +233,11 @@ impl CameraZoomPreset {
     }
 
     pub fn next(self) -> Self {
-        let idx = Self::ALL.iter().position(|p| *p == self).unwrap_or(1);
-        Self::ALL[(idx + 1) % Self::ALL.len()]
+        cycle_next(&Self::ALL, self, 1)
     }
 
     pub fn prev(self) -> Self {
-        let idx = Self::ALL.iter().position(|p| *p == self).unwrap_or(1);
-        Self::ALL[(idx + Self::ALL.len() - 1) % Self::ALL.len()]
+        cycle_prev(&Self::ALL, self, 1)
     }
 }
 
@@ -262,13 +268,11 @@ impl CameraAspectPolicy {
     }
 
     pub fn next(self) -> Self {
-        let idx = Self::ALL.iter().position(|p| *p == self).unwrap_or(0);
-        Self::ALL[(idx + 1) % Self::ALL.len()]
+        cycle_next(&Self::ALL, self, 0)
     }
 
     pub fn prev(self) -> Self {
-        let idx = Self::ALL.iter().position(|p| *p == self).unwrap_or(0);
-        Self::ALL[(idx + Self::ALL.len() - 1) % Self::ALL.len()]
+        cycle_prev(&Self::ALL, self, 0)
     }
 }
 
@@ -327,13 +331,11 @@ impl CameraFramingPreset {
     }
 
     pub fn next(self) -> Self {
-        let idx = Self::ALL.iter().position(|p| *p == self).unwrap_or(1);
-        Self::ALL[(idx + 1) % Self::ALL.len()]
+        cycle_next(&Self::ALL, self, 1)
     }
 
     pub fn prev(self) -> Self {
-        let idx = Self::ALL.iter().position(|p| *p == self).unwrap_or(1);
-        Self::ALL[(idx + Self::ALL.len() - 1) % Self::ALL.len()]
+        cycle_prev(&Self::ALL, self, 1)
     }
 }
 

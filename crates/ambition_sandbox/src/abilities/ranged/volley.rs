@@ -111,8 +111,7 @@ mod tests {
         app.insert_resource(ControlFrame::default());
         app.init_resource::<EnemyProjectileState>();
         app.init_resource::<ProjectileSeqCounter>();
-        // Phase 3b: firing emits a SpawnProjectile; the enemy-pool consumer
-        // spawns the projectile entity, so chain it after the fire system.
+        // Chain the enemy-pool spawn consumer after the fire system.
         app.add_systems(
             Update,
             (

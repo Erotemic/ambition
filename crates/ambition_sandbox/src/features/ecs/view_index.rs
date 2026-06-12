@@ -1,9 +1,7 @@
 //! `FeatureViewIndex` resource and the per-frame rebuild pass.
 //!
-//! The index is the read-model that presentation systems consult to
-//! drive sprite swaps, debug overlays, and HUD readouts without
-//! re-running the per-FeatureVisual × seven-family linear scan that
-//! the old `ecs_feature_view` performed each frame.
+//! Presentation systems consult this read-model for sprite swaps, debug overlays,
+//! and HUD readouts instead of re-scanning every feature family per visual.
 
 use super::*;
 
@@ -23,8 +21,7 @@ pub struct FeatureViewIndex {
     /// MARK-AND-SWEEP instead of clear()+reinsert: a surviving id keeps its
     /// existing key allocation, so a `String` is allocated only for a genuinely
     /// new feature id — not for every id every frame. This index rebuilds every
-    /// frame and RL steps the sim millions of times, so the old per-id
-    /// `to_string()` was pure allocator churn.
+    /// frame and RL steps the sim millions of times, so avoid per-id churn.
     views: std::collections::HashMap<String, (FeatureView, u64)>,
     generation: u64,
 }
@@ -58,14 +55,8 @@ impl FeatureViewIndex {
     /// Insert `view` for `id` only if no view has been recorded yet THIS
     /// rebuild.
     ///
-    /// Preserves the priority order of the old `ecs_feature_view`
-    /// linear scan (pickup → chest → breakable → switch → actor →
-    /// hazard → boss): the first matching family wins, later writes are
-    /// dropped. This matters because authored ids occasionally collide
-    /// between families (e.g. `encounter_chest_{encounter_id}` plus an
-    /// LDtk-authored Switch id with the same string would have rendered
-    /// as the chest under the linear scan; a plain HashMap `insert`
-    /// would silently flip them to whichever family runs last).
+    /// Preserves family priority (pickup → chest → breakable → switch →
+    /// actor → hazard → boss): first matching family wins when ids collide.
     ///
     /// A same-generation entry is kept (first wins); a stale prior-frame entry
     /// is refreshed in place; only a genuinely new id allocates a `String`.

@@ -70,10 +70,8 @@ pub fn update_projectiles(
         ),
         (With<crate::player::PlayerEntity>, Without<PlayerProjectile>),
     >,
-    // In-flight player projectiles are now ECS entities (Phase 3c-ii). The
-    // step loop below queries them, filters to the current player, and sorts
-    // by `ProjectileSeq` so the per-frame processing order reproduces the old
-    // `Vec` order exactly (Bevy iteration order is unspecified).
+    // Sort in-flight projectiles by spawn sequence because Bevy iteration
+    // order is unspecified.
     mut projectiles: Query<
         (
             Entity,
@@ -120,10 +118,8 @@ pub fn update_projectiles(
     >,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
-    // Spawn seam (Phase 3b): firing emits a `SpawnProjectile` instead of
-    // pushing into `state.bodies` directly. `apply_player_spawn_projectile_messages`
-    // (scheduled after this system) performs the push, preserving the
-    // old "newly-fired body first ticks next frame" latency.
+    // Firing emits `SpawnProjectile`; the player-pool consumer runs after
+    // this system so newly-fired projectiles first tick next frame.
     mut spawn_projectiles: MessageWriter<SpawnProjectile>,
 ) {
     // Sim clock: projectile motion + spawner pacing freeze in
@@ -186,11 +182,7 @@ pub fn update_projectiles(
 
         let mut events: Vec<ProjectileTraceEvent> = Vec::new();
 
-        // Collect THIS player's in-flight projectile entities and sort by
-        // spawn sequence. The old code iterated `state.bodies` in Vec push
-        // order (oldest first); `ProjectileSeq` is the monotonic spawn id, so
-        // sorting by it reproduces that order deterministically regardless of
-        // Bevy's archetype iteration order.
+        // Collect this player's in-flight projectile entities in spawn order.
         let mut owned: Vec<(Entity, ProjectileSeq)> = projectiles
             .iter()
             .filter(|(_, _, _, owner, _)| owner.0 == player_entity)
@@ -244,13 +236,8 @@ pub fn update_projectiles(
                 continue;
             }
 
-            // Step 2: world-collision test, dispatched through the shared
-            // `WorldHitPolicy::PlayerBouncing` helper so the "solid first,
-            // then one-way" priority + bouncing semantics live in one
-            // place (OVERNIGHT-TODO #17.7). Player Fireballs (with
-            // `bounces_remaining > 0`) bounce off floors and pass through
-            // one-way platforms unless landing-from-above; Hadouken (0
-            // bounces) expires on the first solid hit.
+            // Step 2: shared world-collision policy. Fireballs bounce while
+            // `bounces_remaining > 0`; Hadouken expires on first solid hit.
             match resolve_world_collision(
                 &mut kin,
                 &mut game,
@@ -284,11 +271,8 @@ pub fn update_projectiles(
         );
         let direction = ae::Vec2::new(facing, 0.0);
 
-        // Count of projectiles fired this frame. The spawn now goes through
-        // a `SpawnProjectile` message (consumed after this system), so the
-        // body Vec hasn't grown yet — track the fire count locally to drive
-        // the shoot-anim pulse below exactly as the old
-        // `state.bodies.len() > bodies_before` check did.
+        // Count fires locally because spawn messages are consumed after this
+        // system, but shoot animation still pulses on the firing frame.
         let mut fired_this_frame = 0u32;
 
         // Press edge: try Hadouken tiers first (most-specific motion gate
@@ -387,15 +371,9 @@ pub fn update_projectiles(
     } // end per-player loop
 }
 
-/// Run the spawner's cooldown / resource-meter checks for `kind`,
-/// apply the (Fireball-only) charge tier, and — on success — EMIT a
-/// [`SpawnProjectile`] message routed to the firing player's pool
-/// (Phase 3b: spawn is decoupled from the body Vec; the push happens in
-/// `apply_player_spawn_projectile_messages`). Pulled out of
-/// `update_projectiles` so the press path and the release path share one
-/// code path. Returns `true` iff a projectile was actually spawned (the
-/// caller tallies this for the shoot-anim pulse, since the body Vec no
-/// longer grows synchronously).
+/// Run spawn checks for `kind`, apply the Fireball charge tier, and emit a
+/// player-pool [`SpawnProjectile`] on success. Shared by press and release
+/// paths; returns whether the shoot animation should pulse.
 #[allow(clippy::too_many_arguments)]
 fn try_fire_projectile(
     state: &mut PlayerProjectileState,
@@ -432,18 +410,10 @@ fn try_fire_projectile(
     }
 }
 
-/// Consume [`SpawnProjectile`] messages targeting the player pool and SPAWN
-/// one projectile ENTITY per message (Phase 3c-ii). Scheduled AFTER
-/// `update_projectiles` so a freshly-fired projectile exists this frame but
-/// first *ticks* next frame — byte-identical latency to the pre-3c-ii Vec
-/// push (which also happened after the per-frame tick loop). Enemy-pool
-/// messages are ignored here (consumed by
-/// `apply_enemy_spawn_projectile_messages`).
-///
-/// Each entity carries the SHARED [`BodyKinematics`] body + the
-/// [`ProjectileGameplay`] marker/state + owner + a monotonic
-/// [`ProjectileSeq`] (assigned in fire-message order so the step loop's
-/// seq-sort reproduces the historical Vec order).
+/// Consume player-pool [`SpawnProjectile`] messages and spawn one projectile
+/// entity per message. Scheduled after `update_projectiles` so new player
+/// projectiles exist this frame but first tick next frame. Enemy-pool messages
+/// are ignored here and consumed by the enemy-projectile system.
 pub fn apply_player_spawn_projectile_messages(
     mut commands: Commands,
     mut seq: ResMut<ProjectileSeqCounter>,

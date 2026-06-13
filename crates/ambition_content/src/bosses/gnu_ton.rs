@@ -220,6 +220,7 @@ mod tests {
     fn gnu_ton_head_hurtbox_overlaps_the_body_envelope() {
         use ambition_sandbox::engine_core::AabbExt;
 
+        crate::bosses::install_boss_roster();
         let mut app = App::new();
         app.add_plugins(ambition_sandbox::presentation::character_sprites::SheetRegistryPlugin);
         let entity = app
@@ -301,6 +302,7 @@ mod tests {
     }
 
     fn make_app(world: ambition_sandbox::GameWorld) -> App {
+        crate::bosses::install_boss_roster();
         let mut app = App::new();
         app.insert_resource(world);
         app.add_systems(Update, gate_gnu_ton_arena_ladder);

@@ -918,6 +918,9 @@ pub struct SandboxSimulationPlugin;
 
 impl Plugin for SandboxSimulationPlugin {
     fn build(&self, app: &mut App) {
+        // `init_sandbox_resources` installs the named boss roster first (it
+        // resolves `BossBehaviorProfile::from_data` while populating the boss
+        // encounter registry).
         init_sandbox_resources(app);
         add_simulation_plugins(app);
     }

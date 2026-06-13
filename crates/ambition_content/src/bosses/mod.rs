@@ -32,12 +32,30 @@ pub use cut_rope::{
 };
 pub use gnu_ton::gate_gnu_ton_arena_ladder;
 
+/// Install the named boss-behavior roster (`boss_profiles.ron`) into the
+/// machinery lib's holder. Called by [`AmbitionBossContentPlugin`] at build
+/// time, and by content tests that resolve boss profiles without assembling the
+/// full app. First install wins (idempotent across the test binary).
+pub fn install_boss_roster() {
+    ambition_sandbox::boss_encounter::install_boss_profiles(
+        ambition_sandbox::boss_encounter::BossProfileRegistry::from_ron(include_str!(
+            "../../assets/data/boss_profiles.ron"
+        )),
+    );
+}
+
 /// Installs the default Ambition boss encounter registry resource and
 /// the cut-rope Yarn vocabulary + mirror feed.
 pub struct AmbitionBossContentPlugin;
 
 impl Plugin for AmbitionBossContentPlugin {
     fn build(&self, app: &mut App) {
+        // Install the named boss-behavior roster into the machinery lib's
+        // holder at plugin-build time (before any boss spawn / profile clone),
+        // so `BossBehaviorProfile::from_data` resolves against content data —
+        // the lib embeds no boss data in production. Mirrors the enemy roster.
+        install_boss_roster();
+
         app.insert_resource(ambition_sandbox::boss_encounter::BossEncounterRegistry::default());
 
         // Cut-rope boss steering: tracks the hanging anvil during the

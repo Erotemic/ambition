@@ -16,11 +16,11 @@ use crate::engine_core as ae;
 /// thresholds, while this profile owns sandbox movement, contact size, damage,
 /// and hitbox shapes.
 ///
-/// Every field here is authored in
-/// `assets/data/boss_profiles.ron` and parsed into the
-/// `BOSS_PROFILE_REGISTRY` `LazyLock` below. Adding a new boss is a
-/// single new key + row in that file when it needs custom behavior;
-/// unknown authored bosses fall back to the generic profile.
+/// Every field here is authored in `ambition_content`'s `boss_profiles.ron`,
+/// parsed into the installable [`BossProfileRegistry`] below (content installs
+/// it at plugin-build time). Adding a new boss is a single new key + row in
+/// that file when it needs custom behavior; unknown authored bosses fall back
+/// to the generic profile.
 #[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 pub struct BossBehaviorProfile {
     pub id: String,
@@ -176,33 +176,75 @@ mod boss_vec2_required {
     }
 }
 
-/// Parsed contents of `assets/data/boss_profiles.ron`. Built once on
-/// first access via `LazyLock` so `BossBehaviorProfile::from_data()`
-/// can stay a plain function callable from non-system contexts
-/// (every spawn site + every test that clones a profile).
-///
-/// Keyed by canonical boss id (`"clockwork_warden"`, `"mockingbird"`,
-/// `"gnu_ton"`, …). Adding a new custom behavior is one RON row;
-/// unknown bosses still spawn through the generic fallback.
-static BOSS_PROFILE_REGISTRY: std::sync::LazyLock<
-    std::collections::HashMap<String, BossBehaviorProfile>,
-> = std::sync::LazyLock::new(|| {
-    const BOSS_PROFILES_RON: &str = include_str!("../../assets/data/boss_profiles.ron");
-    ron::from_str(BOSS_PROFILES_RON).unwrap_or_else(|err| {
+/// The installed boss-behavior registry (canonical id → profile). The named
+/// boss DATA (`boss_profiles.ron`) is content, owned and installed by
+/// `ambition_content` at plugin-build time; the lib owns only this generic
+/// holder + the `BossBehaviorProfile` schema. Held as an installable global
+/// (not a Bevy `Resource`) because `from_data` is called from many non-system
+/// contexts (spawn sites, profile clones) — the same rationale as the enemy
+/// `EnemyRoster`.
+#[derive(Clone, Debug, Default)]
+pub struct BossProfileRegistry {
+    by_id: std::collections::HashMap<String, BossBehaviorProfile>,
+}
+
+impl BossProfileRegistry {
+    /// Parse a boss-profile RON document (`HashMap<id, BossBehaviorProfile>`) —
+    /// the content layer's install entry point.
+    pub fn from_ron(ron: &str) -> Self {
+        let by_id = ron::from_str(ron).unwrap_or_else(|err| {
+            panic!("boss_profiles.ron failed to deserialize as HashMap<String, BossBehaviorProfile>: {err}")
+        });
+        Self { by_id }
+    }
+
+    fn get(&self, id: &str) -> Option<&BossBehaviorProfile> {
+        self.by_id.get(id)
+    }
+}
+
+/// Content-installed boss-profile registry. Set once at plugin-build time;
+/// production resolution REQUIRES it (there is no production embedded default).
+static BOSS_PROFILE_OVERRIDE: std::sync::OnceLock<BossProfileRegistry> = std::sync::OnceLock::new();
+
+/// Install the authored boss-behavior registry — `ambition_content` calls this
+/// at plugin-build time (before any boss spawn / profile clone runs).
+pub fn install_boss_profiles(registry: BossProfileRegistry) {
+    let _ = BOSS_PROFILE_OVERRIDE.set(registry);
+}
+
+/// Test fixture: the lib's own unit tests read content's authoritative
+/// `boss_profiles.ron` at compile time (cfg(test) only — production embeds no
+/// boss data and requires the content install).
+#[cfg(test)]
+static BOSS_PROFILE_FIXTURE: std::sync::LazyLock<BossProfileRegistry> =
+    std::sync::LazyLock::new(|| {
+        BossProfileRegistry::from_ron(include_str!(
+            "../../../ambition_content/assets/data/boss_profiles.ron"
+        ))
+    });
+
+#[cfg(test)]
+fn boss_profiles() -> &'static BossProfileRegistry {
+    BOSS_PROFILE_OVERRIDE.get().unwrap_or(&BOSS_PROFILE_FIXTURE)
+}
+
+#[cfg(not(test))]
+fn boss_profiles() -> &'static BossProfileRegistry {
+    BOSS_PROFILE_OVERRIDE.get().unwrap_or_else(|| {
         panic!(
-            "assets/data/boss_profiles.ron failed to deserialize as HashMap<String, \
-             BossBehaviorProfile>: {err}"
+            "boss profiles not installed — AmbitionContentPlugin must call \
+             install_boss_profiles() at build time before any boss spawns"
         )
     })
-});
+}
 
 impl BossBehaviorProfile {
-    /// Look up a boss profile by canonical id, cloning the parsed
-    /// row from the registry. Panics if the id isn't present in
-    /// `boss_profiles.ron` — call sites that need a fallback should
-    /// route through `for_authored_boss` instead.
+    /// Look up a boss profile by canonical id, cloning the parsed row from the
+    /// installed registry. Panics if the id isn't present — call sites that
+    /// need a fallback should route through `for_authored_boss` instead.
     pub fn from_data(id: &str) -> Self {
-        BOSS_PROFILE_REGISTRY
+        boss_profiles()
             .get(id)
             .cloned()
             .unwrap_or_else(|| panic!("boss profile '{id}' not in boss_profiles.ron"))
@@ -280,7 +322,7 @@ impl BossBehaviorProfile {
         if key == "gradient_sentinel" {
             return Self::clockwork_warden();
         }
-        BOSS_PROFILE_REGISTRY
+        boss_profiles()
             .get(&key)
             .cloned()
             .unwrap_or_else(|| Self::generic(key))

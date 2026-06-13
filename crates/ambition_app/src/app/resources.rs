@@ -44,6 +44,14 @@ pub struct StartRoomOverride(pub String);
 pub struct SandboxResetThisFrame(pub bool);
 
 pub fn init_sandbox_resources(app: &mut App) {
+    // Install the named boss roster into the machinery lib's holder before
+    // anything in this function (or any later system) resolves a boss profile
+    // via `BossBehaviorProfile::from_data` (the boss encounter registry +
+    // content validation read it). This is the single choke point every sim
+    // entry path flows through (the plugin and the test harnesses), so the
+    // content data is always present. First-install-wins.
+    ambition_content::bosses::install_boss_roster();
+
     let sandbox_data = data::SandboxDataSpec::load_embedded();
 
     // Build the singleton SandboxAssetCatalog before anything else asks

@@ -570,12 +570,14 @@ mod tests {
 
     #[test]
     fn embedded_content_graph_validates() {
+        crate::bosses::install_boss_roster();
         let report = validate_embedded_content_graph();
         report.panic_if_errors();
     }
 
     #[test]
     fn validates_ldtk_loading_zone_targets() {
+        crate::bosses::install_boss_roster();
         let data = SandboxDataSpec::load_embedded();
         let project = LdtkProject::load_default_for_dev().expect("embedded LDtk loads");
         let report = validate_content_graph(&data, &project);

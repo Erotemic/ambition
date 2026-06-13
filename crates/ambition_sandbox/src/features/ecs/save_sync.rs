@@ -120,7 +120,7 @@ pub fn sync_ecs_npc_actors_with_save(
             *cooldowns = cd;
             continue;
         }
-        let mut hostile = enemy_runtime_for_npc_combat(&npc.config, &npc.kin, &npc.surface);
+        let mut hostile = enemy_cluster_for_hostile_npc(&npc.config, &npc.kin, &npc.surface);
         if data.flag(&format!("enemy_{}_dead", hostile.config.id))
             || data.flag(&format!(
                 "enemy_{}{}",

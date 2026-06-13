@@ -209,7 +209,7 @@ pub(crate) fn spawn_runtime_minion(
     let brain = crate::actor::EnemyBrain::Custom(archetype_id.into());
     let archetype = EnemyArchetype::from_brain(&brain);
     let mut enemy =
-        super::enemy_clusters::EnemyClusterScratch::new(id.clone(), name.clone(), aabb, brain, &[]);
+        super::enemy_clusters::EnemyClusterSeed::new(id.clone(), name.clone(), aabb, brain, &[]);
     enemy.config.archetype = archetype;
     enemy.status.health = crate::actor::Health::new(archetype.max_health());
     // Boss-spawned minions shouldn't auto-respawn — they're part of
@@ -260,35 +260,26 @@ pub(super) fn spawn_enemy(
     authored: &crate::rooms::Authored<crate::actor::EnemyBrain>,
     paths: &[(String, crate::actor::KinematicPath)],
 ) {
-    // Build a probe runtime to inspect the resolved archetype. The
-    // composite "X on Shark" archetypes fan out into a mount entity +
-    // a rider entity linked via [`super::Mountable`] /
-    // [`super::RidingOn`]; everything else goes through the standard
-    // single-entity spawn.
-    let probe = super::enemy_clusters::EnemyClusterScratch::new(
+    let archetype = EnemyArchetype::from_brain(&authored.payload);
+    if super::mount::is_composite_spawn(archetype) {
+        super::spawn_mounts::spawn_composite_mount_rider(commands, authored, paths, archetype);
+        return;
+    }
+    let enemy = super::enemy_clusters::EnemyClusterSeed::new(
         authored.id.clone(),
         authored.name.clone(),
         authored.aabb,
         authored.payload.clone(),
         paths,
     );
-    if super::mount::is_composite_spawn(probe.config.archetype) {
-        super::spawn_mounts::spawn_composite_mount_rider(
-            commands,
-            authored,
-            paths,
-            probe.config.archetype,
-        );
-        return;
-    }
-    spawn_solo_enemy(commands, probe, authored);
+    spawn_solo_enemy(commands, enemy, authored);
 }
 
-/// Single-entity hostile spawn — the common path. Mirrors the
-/// legacy `spawn_enemy` body.
+/// Single-entity hostile spawn — the common path after composite
+/// mount/rider fan-out has been handled.
 pub(super) fn spawn_solo_enemy(
     commands: &mut Commands,
-    enemy: super::enemy_clusters::EnemyClusterScratch,
+    enemy: super::enemy_clusters::EnemyClusterSeed,
     authored: &crate::rooms::Authored<crate::actor::EnemyBrain>,
 ) {
     let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
@@ -354,7 +345,7 @@ pub(super) fn spawn_interactable(
         let cluster_bundle = npc.into_components();
         let facing = cluster_bundle.0.facing;
         let combat_projection =
-            enemy_runtime_for_npc_combat(&cluster_bundle.3, &cluster_bundle.0, &cluster_bundle.1);
+            enemy_cluster_for_hostile_npc(&cluster_bundle.3, &cluster_bundle.0, &cluster_bundle.1);
         let combat_kit = enemy_default_combat_kit(&combat_projection.config);
         let (identity, disposition, health, combat, intent, cooldowns) =
             super::actors::npc_component_snapshot(&cluster_bundle.3, &cluster_bundle.4);
@@ -413,7 +404,7 @@ pub(super) fn spawn_encounter_mob(
     let archetype = EnemyArchetype::from_brain(&brain);
     let aabb = ae::Aabb::new(pos, size * 0.5);
     let mut enemy =
-        super::enemy_clusters::EnemyClusterScratch::new(id.clone(), id.clone(), aabb, brain, &[]);
+        super::enemy_clusters::EnemyClusterSeed::new(id.clone(), id.clone(), aabb, brain, &[]);
     enemy.config.archetype = archetype;
     enemy.status.health = crate::actor::Health::new(archetype.max_health());
     // Encounter mobs should not auto-respawn like training sandbags.

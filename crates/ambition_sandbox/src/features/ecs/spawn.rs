@@ -105,7 +105,7 @@ mod tests {
 
     fn make_enemy(archetype: EnemyArchetype) -> EnemyConfig {
         let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0));
-        let mut enemy = crate::features::ecs::enemy_clusters::EnemyClusterScratch::new(
+        let mut enemy = crate::features::ecs::enemy_clusters::EnemyClusterSeed::new(
             "test".to_string(),
             "test".to_string(),
             aabb,

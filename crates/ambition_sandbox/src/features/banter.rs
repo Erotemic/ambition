@@ -13,8 +13,7 @@ use bevy::prelude::*;
 #[derive(Resource, Default, Debug, Clone)]
 pub struct CombatBanterRegistry {
     /// Lines an enemy yells when hit. Indexed by enemy display
-    /// name (matches `EnemyRuntime::name`). The line picked rotates
-    /// with strike count to avoid repetition.
+    /// name. The line picked rotates with strike count to avoid repetition.
     pub on_hit: HashMap<String, Vec<&'static str>>,
     /// Lines an actor mutters periodically during a fight even when
     /// not being hit. Used by the boss idle-bark ticker so the giant

@@ -61,7 +61,7 @@ pub(super) fn spawn_composite_mount_rider(
     // `presentation::rendering::world`.
     let mount_id = authored.id.clone();
     let mount_name = "Burning Flying Shark".to_string();
-    let mut mount_enemy = super::enemy_clusters::EnemyClusterScratch::new(
+    let mut mount_enemy = super::enemy_clusters::EnemyClusterSeed::new(
         mount_id.clone(),
         mount_name.clone(),
         mount_aabb,
@@ -108,7 +108,7 @@ pub(super) fn spawn_composite_mount_rider(
         EnemyArchetype::PirateHeavy => crate::actor::EnemyBrain::Custom("pirate_heavy".into()),
         _ => crate::actor::EnemyBrain::Custom("pirate_raider".into()),
     };
-    let mut rider_enemy = super::enemy_clusters::EnemyClusterScratch::new(
+    let mut rider_enemy = super::enemy_clusters::EnemyClusterSeed::new(
         rider_id.clone(),
         rider_variant_name.clone(),
         rider_aabb,

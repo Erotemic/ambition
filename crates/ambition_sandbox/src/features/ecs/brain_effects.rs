@@ -1,9 +1,7 @@
 //! EFFECTS-stage consumers for `ActorActionMessage`.
 //!
-//! Per the actor/brain migration mandate (see
-//! `dev/journals/brain-pipeline-bypass-audit-2026-05-24.md`):
-//! hitboxes, projectiles, SFX, VFX, and recoil should be driven from
-//! resolved action messages, not from legacy runtime spawn loops.
+//! Hitboxes, projectiles, SFX, VFX, and recoil are driven from resolved
+//! action messages rather than from per-actor integration loops.
 //!
 //! This module owns the consumer Bevy systems that read
 //! `MessageReader<ActorActionMessage>` and produce effects. Each
@@ -17,10 +15,6 @@
 //! - these systems run after, reading the same message stream
 //! - the `BrainActionCounter` observer is unaffected (it counts but
 //!   doesn't consume)
-//!
-//! The legacy paths (`EnemyRuntime::update`'s `outputs.projectile_spawns`,
-//! `update_player`'s direct hitbox spawn, etc.) are deleted as each
-//! consumer here takes over.
 
 use crate::engine_core as ae;
 use crate::engine_core::AabbExt;
@@ -155,12 +149,9 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
 }
 
 /// Read every `ActorActionMessage::Melee` addressed to a hostile
-/// actor and start that enemy's melee windup/cooldown via
-/// `EnemyRuntime::begin_melee_attack`. The windup → active timer
-/// transition stays on `EnemyRuntime` because the timers are
-/// integration-side state per the actor/brain mandate ("Runtimes
-/// own state, not policy"). Only the START of the attack — the
-/// policy decision — moves through the message stream.
+/// actor and start that enemy's melee windup/cooldown. Only the
+/// START of the attack — the policy decision — moves through the
+/// message stream; timers remain integration-side state.
 ///
 /// Damage application during the active window flows through the
 /// `Hitbox` entity lifecycle (see
@@ -1137,7 +1128,7 @@ mod tests {
     use crate::brain::{ActionSet, RangedActionSpec};
     use crate::enemy_projectile::test_support::enemy_projectile_bodies;
     use crate::enemy_projectile::EnemyProjectileState;
-    use crate::features::ecs::enemy_clusters::EnemyClusterScratch;
+    use crate::features::ecs::enemy_clusters::EnemyClusterSeed;
     use crate::projectile::ProjectileSeqCounter;
 
     #[test]
@@ -1222,13 +1213,13 @@ mod tests {
     );
 
     /// Spawnable (marker + clusters) bundle for an enemy test fixture.
-    fn enemy_actor(enemy: EnemyClusterScratch) -> (ActorRuntime, EnemyClusterBundle) {
+    fn enemy_actor(enemy: EnemyClusterSeed) -> (ActorRuntime, EnemyClusterBundle) {
         (ActorRuntime::Enemy, enemy.into_components())
     }
 
     fn pirate_rider_actor(pos: ae::Vec2) -> (ActorRuntime, EnemyClusterBundle) {
         let aabb = ae::Aabb::new(pos, ae::Vec2::new(14.0, 23.0));
-        let enemy = EnemyClusterScratch::new(
+        let enemy = EnemyClusterSeed::new(
             "rider_a",
             "Pirate Raider",
             aabb,
@@ -1267,7 +1258,7 @@ mod tests {
         // here; the consumer only branches on archetype for origin
         // and owner_id formatting.
         let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(14.0, 23.0));
-        let mut enemy = EnemyClusterScratch::new(
+        let mut enemy = EnemyClusterSeed::new(
             "skitter_a",
             "Skitter",
             aabb,
@@ -1333,10 +1324,8 @@ mod tests {
 
     /// `start_enemy_melee_from_brain_actions` pin: the consumer
     /// starts the enemy's melee windup + cooldown when a
-    /// `ActorActionMessage::Melee` arrives. Today the same trigger
-    /// flowed through `EnemyRuntime::update` directly; the consumer
-    /// replaces that gate without changing the windup/cooldown
-    /// timings.
+    /// `ActorActionMessage::Melee` arrives without changing the
+    /// windup/cooldown timings.
     #[test]
     fn melee_message_starts_enemy_windup_and_cooldown() {
         use crate::brain::{MeleeActionSpec, SwipeSpec};
@@ -1348,7 +1337,7 @@ mod tests {
 
         let actor_pos = ae::Vec2::new(300.0, 300.0);
         let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(20.0, 24.0));
-        let mut enemy = EnemyClusterScratch::new(
+        let mut enemy = EnemyClusterSeed::new(
             "striker_a",
             "Striker",
             aabb,
@@ -1412,7 +1401,7 @@ mod tests {
 
         let actor_pos = ae::Vec2::new(300.0, 300.0);
         let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(36.0, 55.0));
-        let mut enemy = EnemyClusterScratch::new(
+        let mut enemy = EnemyClusterSeed::new(
             "iron_mary_dismounted",
             "Iron Mary",
             aabb,
@@ -1473,7 +1462,7 @@ mod tests {
 
         let actor_pos = ae::Vec2::new(300.0, 300.0);
         let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(20.0, 24.0));
-        let mut enemy = EnemyClusterScratch::new(
+        let mut enemy = EnemyClusterSeed::new(
             "striker_a",
             "Striker",
             aabb,

@@ -45,14 +45,10 @@ fn shark_charge_crashed_geometry(
         || crashed(charge_vec.y, pos.y, prev_pos.y, vel.y)
 }
 
-/// Marker for an actor entity. Both variants are payload-free — NPC and
-/// enemy state live entirely in ECS cluster components (`NpcConfig`/
-/// `NpcStatus` or `EnemyConfig`/`EnemyStatus` + the shared
-/// `BodyKinematics`/`ActorSurfaceState`/`ActorMotionPath`). The variant
-/// is just the disposition tag (peaceful vs hostile); the legacy
-/// `NpcRuntime`/`EnemyRuntime` blobs were dissolved into the clusters.
-/// A peaceful NPC flips to `Enemy` in place (`make_entity_enemy`) when
-/// its aggression policy provokes it.
+/// Marker for an actor entity. Both variants are payload-free: NPC and
+/// enemy state live in ECS cluster components. The enum is only the
+/// peaceful-vs-hostile disposition tag, so an NPC can flip to `Enemy`
+/// in place when aggression provokes it.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ActorRuntime {
     Npc,
@@ -68,18 +64,16 @@ impl ActorRuntime {
     }
 }
 
-/// Build the `EnemyRuntime` an NPC migrates into when its aggression
-/// policy flips it hostile. The conversion still produces an
-/// `EnemyRuntime` and then projects it onto the entity's enemy clusters
-/// (see `apply_actor_stimuli`); the NPC's other components stay on the
-/// same entity.
-pub fn enemy_runtime_for_npc_combat(
+/// Build the enemy component seed an NPC uses when its aggression policy
+/// flips it hostile. The NPC keeps the same entity identity; only the
+/// NPC-only cluster is replaced with the enemy cluster.
+pub fn enemy_cluster_for_hostile_npc(
     config: &super::npc_clusters::NpcConfig,
     kin: &super::enemy_clusters::BodyKinematics,
     surface: &ActorSurfaceState,
-) -> super::enemy_clusters::EnemyClusterScratch {
+) -> super::enemy_clusters::EnemyClusterSeed {
     let brain_id = hostile_enemy_brain_for_npc(config);
-    let mut enemy = super::enemy_clusters::EnemyClusterScratch::new(
+    let mut enemy = super::enemy_clusters::EnemyClusterSeed::new(
         config.id.clone(),
         config.name.clone(),
         ae::Aabb::new(kin.pos, kin.size * 0.5),
@@ -127,11 +121,9 @@ fn hostile_enemy_brain_for_npc(config: &super::npc_clusters::NpcConfig) -> &'sta
     "medium_striker"
 }
 
-/// Build the read-model mirror components for an enemy spawned from a
-/// transient `EnemyRuntime` (spawn paths still construct one to derive
-/// archetype/size/health before projecting it onto the clusters).
+/// Build the read-model mirror components from an enemy cluster seed.
 pub fn enemy_component_snapshot(
-    enemy: &super::enemy_clusters::EnemyClusterScratch,
+    enemy: &super::enemy_clusters::EnemyClusterSeed,
 ) -> (
     ActorIdentity,
     ActorDisposition,
@@ -161,15 +153,14 @@ pub fn enemy_component_snapshot(
 }
 
 /// Flip an entity from peaceful NPC to hostile enemy in place: attach
-/// the enemy cluster components (projected from the `hostile`
-/// `EnemyRuntime` the conversion built), set the `Enemy` marker, and
-/// mirror the read-model components. Shared by the runtime stimulus
-/// flip (`apply_actor_stimuli`) and the save-load provoke path.
+/// the enemy cluster components, set the `Enemy` marker, and mirror the
+/// read-model components. Shared by runtime stimulus and save-load
+/// provoke paths.
 pub fn make_entity_enemy(
     commands: &mut Commands,
     entity: Entity,
     actor: &mut ActorRuntime,
-    hostile: &super::enemy_clusters::EnemyClusterScratch,
+    hostile: &super::enemy_clusters::EnemyClusterSeed,
     identity: &mut ActorIdentity,
     disposition: &mut ActorDisposition,
     health: &mut ActorHealth,
@@ -345,11 +336,9 @@ pub fn update_ecs_actors(
             // so dynamically-spawned actors without a set still tick.
             Option<&crate::brain::ActionSet>,
             Option<&super::Mounted>,
-            // Enemy cluster components — `None` on NPC actors (which
-            // don't carry them). The enemy branch runs its integration
-            // through these via `EnemyMut`; the `EnemyRuntime` inside
-            // `ActorRuntime::Enemy` is a transition mirror kept in sync
-            // by load/store until the consumers are migrated.
+            // Enemy cluster components — `None` on NPC actors. The
+            // enemy branch runs its integration through these via
+            // `EnemyMut`.
             //
             // `Possessed` is nested with the cluster data (not a new top-level
             // tuple field) to stay within Bevy's query-tuple arity: when set,
@@ -474,9 +463,8 @@ pub fn update_ecs_actors(
                 };
                 let nearest_neighbor = neighbor_by_id.get(&em.config.id).copied();
                 // Capture pre-tick attack state so we can detect
-                // the windup → active edge below. The runtime's
-                // `update_attack_timers` is the only path that
-                // performs the transition (windup → active), so
+                // the windup → active edge below. The enemy timer update
+                // is the only path that performs the transition, so
                 // observing the edge lets us spawn the strike's
                 // `Hitbox` entity exactly once per begin-attack
                 // instead of polling overlap every tick.
@@ -490,10 +478,7 @@ pub fn update_ecs_actors(
                 // actually move the actor) AND lands in `ActorControl`
                 // for the EFFECTS consumers (so melee + ranged fire).
                 // Smash + Patrol + MeleeBrute + Skirmisher + Sniper +
-                // Wanderer all flow through this single path; the
-                // legacy `build_control_frame` branch inside
-                // `EnemyRuntime::update` was deleted in the
-                // brain-authority GC pass.
+                // Wanderer all flow through this single path.
                 //
                 // Actors without a brain (dynamically-spawned debug
                 // entities) get a neutral frame and stand still —
@@ -1195,9 +1180,9 @@ mod tests {
         );
     }
 
-    fn burning_shark_enemy() -> super::enemy_clusters::EnemyClusterScratch {
+    fn burning_shark_enemy() -> super::enemy_clusters::EnemyClusterSeed {
         let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(126.0, 52.0));
-        super::enemy_clusters::EnemyClusterScratch::new(
+        super::enemy_clusters::EnemyClusterSeed::new(
             "burning_shark".to_string(),
             "Burning Shark".to_string(),
             aabb,
@@ -1249,7 +1234,7 @@ mod tests {
         enemy.kin.vel = ae::Vec2::ZERO;
         enemy.status.alive = true;
         let charge_vec = ae::Vec2::new(enemy.config.tuning.chase_speed * 2.0, 0.0);
-        let em = enemy.as_mut();
+        let em = enemy.as_enemy_mut_for_test();
         assert!(shark_charge_crashed(&em, false, charge_vec, previous_pos));
     }
 
@@ -1262,7 +1247,7 @@ mod tests {
         enemy.status.alive = true;
         let chase_speed = enemy.config.tuning.chase_speed;
         let charge_vec = ae::Vec2::new(chase_speed * 2.0, 0.0);
-        let em = enemy.as_mut();
+        let em = enemy.as_enemy_mut_for_test();
         assert!(!shark_charge_crashed(&em, true, charge_vec, previous_pos));
         assert!(!shark_charge_crashed(
             &em,

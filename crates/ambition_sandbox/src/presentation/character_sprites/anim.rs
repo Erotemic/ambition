@@ -497,10 +497,9 @@ pub fn pick_enemy_anim(state: EnemyAnimState) -> CharacterAnim {
 
 /// Snapshot of a peaceful NPC's per-frame state for animation.
 ///
-/// Smaller than `EnemyAnimState` because NPCs don't carry attack /
-/// alive state (a hostile NPC is migrated to an `EnemyRuntime`
-/// elsewhere; once the migration happens, the entity flows through
-/// `pick_enemy_anim` instead).
+/// Smaller than `EnemyAnimState` because NPCs do not carry attack /
+/// alive state. Once an NPC flips hostile, the entity flows through
+/// `pick_enemy_anim` instead.
 #[derive(Clone, Copy, Debug)]
 pub struct NpcAnimState {
     /// World position — see [`EnemyAnimState::pos`] (localized-gravity flip).

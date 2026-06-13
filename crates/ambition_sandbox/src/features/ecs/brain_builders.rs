@@ -350,7 +350,7 @@ mod tests {
     use crate::engine_core as ae;
 
     fn enemy(brain_key: &str) -> EnemyConfig {
-        super::super::enemy_clusters::EnemyClusterScratch::new(
+        super::super::enemy_clusters::EnemyClusterSeed::new(
             "e",
             "E",
             ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)),

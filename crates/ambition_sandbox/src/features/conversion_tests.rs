@@ -490,7 +490,7 @@ mod conversion_tests {
             ],
         );
         let aabb = ae::Aabb::new(ae::Vec2::new(200.0, 300.0), ae::Vec2::new(20.0, 16.0));
-        let mut enemy = super::ecs::enemy_clusters::EnemyClusterScratch::new(
+        let mut enemy = super::ecs::enemy_clusters::EnemyClusterSeed::new(
             "shark_a",
             "Burning Flying Shark",
             aabb,
@@ -506,7 +506,7 @@ mod conversion_tests {
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
         frame.desired_vel = ae::Vec2::new(enemy.config.archetype.chase_speed(), 0.0);
         for _ in 0..120 {
-            enemy.as_mut().update(
+            enemy.as_enemy_mut_for_test().update(
                 &world,
                 player_pos,
                 FeatureCombatTuning::default(),
@@ -559,7 +559,7 @@ mod conversion_tests {
             start_offset_seconds: 0.0,
         };
         let paths = vec![("skitter_path".to_string(), path)];
-        let mut enemy = super::ecs::enemy_clusters::EnemyClusterScratch::new(
+        let mut enemy = super::ecs::enemy_clusters::EnemyClusterSeed::new(
             "path_skitter",
             "path_skitter",
             aabb,
@@ -576,7 +576,7 @@ mod conversion_tests {
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
         frame.desired_vel = ae::Vec2::new(enemy.config.archetype.patrol_speed(), 0.0);
         for _ in 0..120 {
-            enemy.as_mut().update(
+            enemy.as_enemy_mut_for_test().update(
                 &world,
                 player_pos_far,
                 FeatureCombatTuning::default(),

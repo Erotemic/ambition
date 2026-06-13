@@ -1,14 +1,10 @@
 //! Authoritative ECS components for an enemy actor + the `EnemyMut`
 //! view that the per-tick integration mutates in place.
 //!
-//! This dissolves the legacy `EnemyRuntime` blob (which lived inside the
-//! `ActorRuntime::Enemy` enum and was shadowed by one-way mirror
-//! components) into real ECS state, following the player cluster
-//! pattern (`engine_core::player_clusters`): each concept is a
-//! component, and the integration borrows them all through a single
-//! view struct rather than reconstructing a runtime scratchpad.
+//! Enemy state lives as ECS components. Per-tick systems borrow those
+//! components through [`EnemyMut`] instead of rebuilding a runtime blob.
 //!
-//! Field → component map (see `dev/reviews/enemyruntime-ecs-inventory.md`):
+//! Field → component map:
 //! - pos/vel/size/facing      → [`BodyKinematics`]
 //! - on_ground/normal/gravity/air_jumps → [`ActorSurfaceState`] (component)
 //! - attack windup/active/cooldown/axis → [`ActorAttackState`] (component)
@@ -63,10 +59,7 @@ pub struct EnemyConfig {
 pub struct ActorMotionPath(pub Option<PathMotion>);
 
 /// Mutable borrow of every component the enemy integration touches,
-/// assembled from a Bevy query via [`EnemyClusterQueryData`]. Field
-/// names mirror the old `EnemyRuntime` layout so the ported integration
-/// reads naturally (`self.kin.pos`, `self.surface.on_ground`,
-/// `self.attack.cooldown`, `self.status.alive`, `self.config.archetype`).
+/// assembled from a Bevy query via [`EnemyClusterQueryData`].
 pub struct EnemyMut<'a> {
     pub kin: &'a mut BodyKinematics,
     pub status: &'a mut EnemyStatus,
@@ -111,11 +104,10 @@ impl<'w, 's> EnemyClusterQueryDataItem<'w, 's> {
     }
 }
 
-/// Owned aggregate of the enemy clusters, for spawn construction and
-/// non-ECS callers (e.g. the NPC→enemy hostility conversion). Mirrors
-/// the player's `PlayerClusterScratch`.
+/// Owned seed used to construct the enemy ECS component cluster before spawn.
+/// Runtime systems should query [`EnemyClusterQueryData`] instead.
 #[derive(Clone, Debug)]
-pub struct EnemyClusterScratch {
+pub struct EnemyClusterSeed {
     pub kin: BodyKinematics,
     pub status: EnemyStatus,
     pub surface: ActorSurfaceState,
@@ -127,11 +119,8 @@ pub struct EnemyClusterScratch {
     pub caps: crate::mechanics::combat::CombatCapabilities,
 }
 
-impl EnemyClusterScratch {
-    /// Build the enemy clusters directly from spawn inputs — the
-    /// cluster-native replacement for `EnemyRuntime::new`. Every spawn
-    /// site and the NPC→enemy flip construct one of these instead of a
-    /// legacy blob.
+impl EnemyClusterSeed {
+    /// Build enemy component seed state from authored spawn inputs.
     pub fn new(
         id: impl Into<String>,
         name: impl Into<String>,
@@ -195,7 +184,7 @@ impl EnemyClusterScratch {
         }
     }
     #[cfg(test)]
-    pub fn as_mut(&mut self) -> EnemyMut<'_> {
+    pub fn as_enemy_mut_for_test(&mut self) -> EnemyMut<'_> {
         EnemyMut {
             kin: &mut self.kin,
             status: &mut self.status,

@@ -2,15 +2,14 @@
 //!
 //! Damage should say "this actor was hit"; the actor's aggression policy decides
 //! whether that means retaliation, fleeing, ignoring the hit, or some future
-//! faction relationship change. This module is the first slice of that ECS seam:
-//! cove NPCs still borrow the legacy enemy-shaped combat runtime when they
-//! retaliate, but the decision is now driven by `ActorAggression + CombatKit +
-//! HeldItem` instead of being embedded directly in the damage application loop.
+//! faction relationship change. Cove NPCs convert to enemy component clusters
+//! when provoked; the decision is driven by `ActorAggression + CombatKit +
+//! HeldItem`, not by the damage application loop.
 
 use bevy::prelude::*;
 
 use super::{
-    enemy_runtime_for_npc_combat, make_entity_enemy, sync_actor_components_from_enemy,
+    enemy_cluster_for_hostile_npc, make_entity_enemy, sync_actor_components_from_enemy,
     ActorAggression, ActorCombatState, ActorCooldowns, ActorDisposition, ActorHealth,
     ActorIdentity, ActorIntent, ActorRuntime, AggressionMode, CombatKit, FeatureSimEntity,
     HeldItem,
@@ -84,7 +83,7 @@ pub fn apply_npc_stimuli(
         }
         aggression.mode = AggressionMode::HostileToPlayer;
 
-        let mut hostile = enemy_runtime_for_npc_combat(&npc.config, &npc.kin, &npc.surface);
+        let mut hostile = enemy_cluster_for_hostile_npc(&npc.config, &npc.kin, &npc.surface);
         if source.is_some() {
             hostile.status.ai_mode = crate::actor::ai::CharacterAiMode::Chase;
         }
@@ -161,20 +160,10 @@ pub fn apply_actor_stimuli(
         // Every non-passive enemy escalates to hostile on a hit.
         aggression.mode = AggressionMode::HostileToPlayer;
 
-        // Re-derive the aggressive brain from the cluster config
-        // (reconstruct a throwaway EnemyRuntime — the brain builders
-        // only read id + archetype).
+        // Re-derive the aggressive brain from the live enemy config.
         let em = cq.as_enemy_mut();
-        let proxy = super::enemy_clusters::EnemyClusterScratch::new(
-            em.config.id.clone(),
-            em.config.name.clone(),
-            em.aabb(),
-            em.config.brain.clone(),
-            &[],
-        )
-        .config;
         let (brain, action_set) = super::brain_builders::aggressive_brain_and_action_set_for_enemy(
-            &proxy, combat_kit, held_item,
+            em.config, combat_kit, held_item,
         );
         commands.entity(entity).insert((brain, action_set));
         sync_actor_components_from_enemy(

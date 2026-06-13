@@ -23,13 +23,8 @@ fn surface_wall_pred(b: &ae::Block) -> bool {
 }
 
 /// The authored spawn baseline an actor reverts to on a same-room
-/// reset. Grouped out of `EnemyRuntime`'s flat `spawn` /
-/// `spawn_archetype` / `spawn_size` fields. `archetype` and `size`
-/// can mutate at runtime (PirateOnShark dismounts into PirateRaider
-/// with a different `default_size`), so this records the level
-/// author's original so [`EnemyRuntime::reset_to_spawn`] can rebuild
-/// the fused actor. Identical to the live `archetype`/`size` for every
-/// non-morphing actor.
+/// reset. `archetype` and `size` can mutate at runtime during mount
+/// dissolution, so this records the level author's original values.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ActorSpawnState {
     /// World position the actor spawned at.
@@ -40,10 +35,8 @@ pub struct ActorSpawnState {
     pub size: ae::Vec2,
 }
 
-/// An actor's locomotion contact + vertical-control state, grouped out
-/// of `EnemyRuntime`'s flat `on_ground` / `surface_normal` /
-/// `gravity_scale` / `air_jumps_remaining` fields. Maintained by the
-/// kinematic integration each tick.
+/// An actor's locomotion contact + vertical-control state, maintained
+/// by the kinematic integration each tick.
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq)]
 pub struct ActorSurfaceState {
     /// Set by [`crate::kinematic::step_kinematic`](crate::engine_core::step_kinematic)
@@ -57,8 +50,7 @@ pub struct ActorSurfaceState {
     /// y grows downward, so floor → (0, -1), right wall → (-1, 0),
     /// ceiling → (0, 1), left wall → (1, 0).
     pub surface_normal: ae::Vec2,
-    /// 0.0 = ignores gravity (flying); 1.0 = full gravity. Set by the
-    /// archetype (`BurningFlyingShark` / `PirateOnShark` are 0.0).
+    /// 0.0 = ignores gravity (flying); 1.0 = full gravity.
     pub gravity_scale: f32,
     /// Mid-air jumps the actor has left until next landing. Reset to
     /// `MAX_ENEMY_AIR_JUMPS` when `on_ground` transitions false → true
@@ -459,8 +451,8 @@ impl EnemyArchetype {
         archetype_spec(self)
     }
 
-    /// True for archetypes that ignore gravity. Drives the
-    /// `gravity_scale` field on `EnemyRuntime`.
+    /// True for archetypes that ignore gravity. Drives the actor surface
+    /// gravity scale in the enemy component cluster.
     pub(super) fn is_aerial(self) -> bool {
         self.spec().is_aerial
     }
@@ -634,12 +626,8 @@ impl EnemyArchetype {
     }
 }
 
-/// Cluster-native enemy integration. This is the EnemyRuntime::update
-/// physics/AI port, operating directly on the authoritative ECS
-/// components through the [`EnemyMut`] view (player cluster pattern).
-/// Field map: self.kin.* (pos/vel/size/facing), self.status.* (alive/
-/// respawn_timer/hit_flash/ai_mode/health), self.config.* (archetype/
-/// brain/spawn), self.attack.* / self.surface.* unchanged, self.motion.0.
+/// Enemy physics/AI integration, operating directly on the authoritative
+/// ECS components through the [`EnemyMut`] view.
 impl<'a> EnemyMut<'a> {
     #[allow(clippy::too_many_arguments)]
     pub fn update(
@@ -925,7 +913,7 @@ impl<'a> EnemyMut<'a> {
     }
 
     // ---- Consumer-facing geometry / combat helpers (ports of the
-    // matching EnemyRuntime methods, reading the cluster components).
+    // matching the cluster component accessors.
 
     pub fn aabb(&self) -> ae::Aabb {
         let size = if self.config.tuning.surface_walker && self.surface.surface_normal.x.abs() > 0.5
@@ -1249,7 +1237,7 @@ mod enemy_archetype_data_tests {
     /// stop distance.
     #[test]
     fn pirate_heavy_stops_within_her_melee_reach() {
-        let mut enemy = crate::features::ecs::enemy_clusters::EnemyClusterScratch::new(
+        let mut enemy = crate::features::ecs::enemy_clusters::EnemyClusterSeed::new(
             "pirate_heavy_reach_probe",
             "Broadside Bess",
             ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(36.0, 55.0)),
@@ -1258,7 +1246,9 @@ mod enemy_archetype_data_tests {
         );
         enemy.kin.facing = 1.0;
         assert_eq!(enemy.config.archetype, EnemyArchetype::PirateHeavy);
-        let hitbox = enemy.as_mut().attack_aabb_dir(ae::Vec2::new(1.0, 0.0));
+        let hitbox = enemy
+            .as_enemy_mut_for_test()
+            .attack_aabb_dir(ae::Vec2::new(1.0, 0.0));
         let reach_edge = hitbox.center().x + hitbox.half_size().x - enemy.kin.pos.x;
         let attack_range = enemy.config.archetype.attack_range();
         assert!(

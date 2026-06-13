@@ -308,9 +308,9 @@ pub fn cleanup_hit_flash_overlays(
 /// | type | timer storage | set by damage |
 /// |------|---------------|---------------|
 /// | player | `PlayerCombatState::flash_timer` | `world_flow` damage paths |
-/// | enemy  | `EnemyRuntime::hit_flash` (via `ActorRuntime::Enemy`) | `enemies::apply_damage_at` |
-/// | NPC    | `NpcRuntime::hit_flash` (via `ActorRuntime::Npc`)   | NPC damage paths |
-/// | boss   | `BossStatus::hit_flash` (via the boss cluster)        | boss damage paths |
+/// | enemy  | `EnemyStatus::hit_flash` (enemy cluster) | enemy damage paths |
+/// | NPC    | `NpcStatus::hit_flash` (NPC cluster)     | NPC damage paths |
+/// | boss   | `BossStatus::hit_flash` (boss cluster)   | boss damage paths |
 fn hit_flash_secs_for_source(
     feature: Option<&FeatureVisual>,
     player: Option<&PlayerVisual>,

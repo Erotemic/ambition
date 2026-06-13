@@ -32,8 +32,7 @@ const APPLE_OWNER_PREFIX: &str = "gnu_ton_apple";
 const APPLE_SPRITE_PATH: &str = "sprites/gnu_ton_boss/gnu_ton_apple.png";
 /// Owner prefix used by `PirateOnShark` discharges. Routes the
 /// projectile to the `lasersword` sprite rendered rotated along its
-/// velocity vector. Set by `EnemyRuntime::update` when the firing
-/// archetype is `PirateOnShark`.
+/// velocity vector. Set by the firing logic for shark-rider archetypes.
 const LASERSWORD_OWNER_PREFIX: &str = "lasersword";
 
 const LASERSWORD_SHEET_PATH: &str = "sprites/lasersword_spritesheet.png";

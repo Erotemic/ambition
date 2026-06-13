@@ -52,7 +52,7 @@ pub use crate::mechanics::combat::{
 };
 
 pub use actors::{
-    enemy_component_snapshot, enemy_runtime_for_npc_combat, make_entity_enemy,
+    enemy_cluster_for_hostile_npc, enemy_component_snapshot, make_entity_enemy,
     npc_component_snapshot, sync_actor_components_from_enemy,
 };
 pub use actors::{

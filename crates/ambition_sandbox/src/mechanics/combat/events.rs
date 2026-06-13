@@ -29,8 +29,8 @@ pub struct FeatureView {
     /// Z-axis rotation to apply to the rendered sprite, in radians
     /// (Bevy frame; +π/2 is CCW). Non-zero for surface-walking
     /// archetypes that crawl on walls/ceilings; everyone else
-    /// reports 0.0 and renders axis-aligned. See
-    /// `EnemyRuntime::rotation_rad` for the engine → Bevy mapping.
+    /// reports 0.0 and renders axis-aligned. Uses the engine → Bevy
+    /// rotation mapping shared by actor rendering.
     pub rotation_rad: f32,
 }
 

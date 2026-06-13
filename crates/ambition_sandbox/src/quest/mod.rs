@@ -27,7 +27,7 @@ pub use registry::{apply_quest_advance_events, push_room_entered_quest_events, Q
 ///
 /// String ids are used (not integer keys) so authoring can stay
 /// data-driven. Keep the spelling in sync with the LDtk entity ids
-/// and `EnemyRuntime::id` when matching.
+/// and actor/enemy ids when matching.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum QuestAdvanceEvent {
     /// Player talked to an NPC with id `npc_id`.

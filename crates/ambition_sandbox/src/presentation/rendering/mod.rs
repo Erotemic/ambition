@@ -47,10 +47,9 @@ pub use actors::{
 // callers need a re-export.
 pub use camera::{camera_follow, CameraViewState};
 pub use health::{sync_boss_health_bar_overlay, sync_health_overlays};
-// Re-exported so the simulation side (e.g. `EnemyRuntime::update`
-// in `content/features/enemies.rs`) can place projectile-spawn
-// origins at the same hand position the visual lays the gun-sword
-// on. Keeps "where the muzzle is" defined in ONE module.
+// Re-exported so simulation/effects code can place projectile-spawn
+// origins at the same hand position the visual lays the gun-sword on.
+// Keeps "where the muzzle is" defined in one module.
 pub use parallax::{spawn_parallax_layers, sync_parallax_layers};
 pub use pirate_weapon::rider_hand_world_pos;
 pub use primitives::{

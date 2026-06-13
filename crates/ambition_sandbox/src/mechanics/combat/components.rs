@@ -498,12 +498,9 @@ impl ActorHealth {
     }
 }
 
-/// Melee attack timing + aim, grouped out of the flat `EnemyRuntime`
-/// field list so the four interdependent values move as one coherent
-/// unit and combat systems can read strike progress from a single
-/// place. Today it lives as the `EnemyRuntime::attack` field; it is the
-/// destined home for the ECS-component promotion tracked in
-/// `dev/reviews/ecs-cleanup-plan.md` (#1, "Extract ActorAttackState").
+/// Melee attack timing + aim. The four interdependent values move as one
+/// coherent unit so combat systems can read strike progress from a single
+/// place.
 ///
 /// Timeline of a strike: `begin_attack` arms `windup_timer` + `cooldown`
 /// and commits `pending_axis`; `tick` counts windup down and, on the

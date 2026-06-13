@@ -1041,7 +1041,7 @@ mod tests {
 
     fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
         let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
-        let mut enemy = crate::features::ecs::enemy_clusters::EnemyClusterScratch::new(
+        let mut enemy = crate::features::ecs::enemy_clusters::EnemyClusterSeed::new(
             "kernel_guide".to_string(),
             "Kernel Guide".to_string(),
             aabb,

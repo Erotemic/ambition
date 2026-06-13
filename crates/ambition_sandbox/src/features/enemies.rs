@@ -399,15 +399,11 @@ fn archetype_data_key(arch: EnemyArchetype) -> &'static str {
     }
 }
 
-/// Parsed contents of `assets/data/enemy_archetypes.ron`. `LazyLock`
-/// (not a Bevy `Resource`) so `archetype_spec()` can stay a plain
-/// function callable from non-system contexts (e.g.
-/// `BossBehaviorProfile` constructors). Hot reload is a future-work
-/// item — for now the data is read once when first accessed.
-///
-/// Keyed by `String` rather than `EnemyArchetype` to dodge serde's
-/// enum-key-in-HashMap quirks; the variant ↔ string round-trip lives
-/// in `archetype_data_key`.
+/// Test fixture: the lib's bundled brain-keyed enemy RON, parsed so the lib's
+/// own unit tests + the `EnemyArchetype` tooling resolve standalone. The real,
+/// authored roster lives in `ambition_content`; in a production build this is
+/// absent and the binary embeds no enemy data.
+#[cfg(test)]
 static ENEMY_ARCHETYPE_REGISTRY: std::sync::LazyLock<
     std::collections::HashMap<String, EnemyArchetypeSpec>,
 > = std::sync::LazyLock::new(|| {
@@ -489,30 +485,43 @@ impl EnemyRoster {
     }
 }
 
-/// The lib's embedded default roster, parsed from the bundled brain-keyed RON.
-/// Roster-enum-free: the RON keys are the spawn brain keys, so resolution and
-/// the default both bypass `EnemyArchetype` entirely. Reproduces the legacy
-/// `from_brain` mapping exactly (every brain key → its spec; unknown →
-/// `combatant`).
+/// Test-only fallback roster, parsed from the lib's bundled fixture RON so
+/// the lib's own unit tests resolve enemies standalone (without the content
+/// plugin). In a real build the named roster is owned and installed by
+/// `ambition_content`; the production binary embeds no enemy data here.
+#[cfg(test)]
 static EMBEDDED_ENEMY_ROSTER: std::sync::LazyLock<EnemyRoster> =
     std::sync::LazyLock::new(|| EnemyRoster::from_map(ENEMY_ARCHETYPE_REGISTRY.clone()));
 
-/// Content-installed roster override. Set once at startup; `None` falls back
-/// to the embedded default.
+/// Content-installed roster. Set once at plugin-build time; production
+/// resolution REQUIRES it (there is no production embedded default).
 static ENEMY_ROSTER_OVERRIDE: std::sync::OnceLock<EnemyRoster> = std::sync::OnceLock::new();
 
 /// Install the authored enemy roster — the content layer calls this at
-/// plugin-build time (before any spawn system runs, so resolution never sees
-/// the embedded default). First install wins; later calls are ignored, so
-/// tests / the embedded default can't be clobbered mid-run.
+/// plugin-build time (before any spawn system runs). First install wins; later
+/// calls are ignored, so a mid-run call can't clobber the live roster.
 pub fn install_enemy_roster(roster: EnemyRoster) {
     let _ = ENEMY_ROSTER_OVERRIDE.set(roster);
 }
 
+#[cfg(test)]
+fn roster_fallback() -> &'static EnemyRoster {
+    &EMBEDDED_ENEMY_ROSTER
+}
+
+/// Production has no embedded enemy data: the content plugin must install the
+/// roster at build time. Reaching here means `AmbitionContentPlugin` was not
+/// mounted before the first enemy spawn.
+#[cfg(not(test))]
+fn roster_fallback() -> &'static EnemyRoster {
+    panic!(
+        "enemy roster not installed — AmbitionContentPlugin must call \
+         install_enemy_roster() at build time before any enemy spawns"
+    )
+}
+
 fn enemy_roster() -> &'static EnemyRoster {
-    ENEMY_ROSTER_OVERRIDE
-        .get()
-        .unwrap_or_else(|| &EMBEDDED_ENEMY_ROSTER)
+    ENEMY_ROSTER_OVERRIDE.get().unwrap_or_else(roster_fallback)
 }
 
 /// Resolve the authored spec for a spawn `EnemyBrain` payload — a pure

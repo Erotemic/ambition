@@ -110,11 +110,11 @@ fn enemy_cluster_for_hostile_npc(
     enemy
 }
 
-pub(crate) fn hostile_enemy_archetype_for_npc(
+pub(crate) fn hostile_enemy_spec_for_npc(
     config: &super::npc_clusters::NpcConfig,
-) -> super::super::enemies::EnemyArchetype {
+) -> super::super::enemies::EnemyArchetypeSpec {
     let brain = crate::actor::EnemyBrain::Custom(hostile_enemy_brain_for_npc(config).into());
-    super::super::enemies::EnemyArchetype::from_brain(&brain)
+    super::super::enemies::spec_for_brain(&brain)
 }
 
 fn hostile_enemy_brain_for_npc(config: &super::npc_clusters::NpcConfig) -> &'static str {

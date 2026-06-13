@@ -209,7 +209,7 @@ pub struct CompositeVisualSpec {
 }
 
 #[derive(Clone, Debug, serde::Deserialize)]
-pub(super) struct EnemyArchetypeSpec {
+pub(crate) struct EnemyArchetypeSpec {
     pub max_health: i32,
     #[serde(default)]
     pub rider_max_health: Option<i32>,
@@ -415,6 +415,13 @@ static ENEMY_ARCHETYPE_REGISTRY: std::sync::LazyLock<
     })
 });
 
+/// Resolve the authored spec for a spawn `EnemyBrain` payload (the
+/// string-keyed roster lookup). The `EnemyArchetype` enum is an internal
+/// resolution hop; the spawn path holds the returned spec, not the enum.
+pub(crate) fn spec_for_brain(brain: &crate::actor::EnemyBrain) -> EnemyArchetypeSpec {
+    EnemyArchetype::from_brain(brain).spec()
+}
+
 impl EnemyArchetypeSpec {
     /// Project the generic brain-construction inputs (kit vocabulary) the
     /// runtime brain rebuilds reconstruct without naming the roster.
@@ -433,6 +440,23 @@ impl EnemyArchetypeSpec {
         self.held_item
             .as_deref()
             .and_then(crate::brain::held_item_by_id)
+    }
+
+    /// Concrete melee/ranged/locomotion the actor's `ActionSet` carries
+    /// at spawn. Thin field accessors so the spawn path can read the spec
+    /// without naming the roster enum.
+    pub(super) fn melee_spec(&self) -> Option<crate::brain::MeleeActionSpec> {
+        self.melee.clone()
+    }
+    pub(super) fn ranged_spec(&self) -> Option<crate::brain::RangedActionSpec> {
+        self.ranged.clone()
+    }
+    pub(super) fn move_style(&self) -> crate::brain::MoveStyleSpec {
+        self.move_style
+    }
+    /// True when this spawn renders / fans out as a mount + rider pair.
+    pub(super) fn is_composite(&self) -> bool {
+        self.composite_visual.is_some()
     }
 
     /// Default respawn cadence: heavier presences take a Rest, the rest
@@ -519,121 +543,6 @@ impl EnemyArchetype {
         archetype_spec(self)
     }
 
-    /// True for archetypes that ignore gravity. Drives the actor surface
-    /// gravity scale in the enemy component cluster.
-    pub(super) fn is_aerial(self) -> bool {
-        self.spec().is_aerial
-    }
-
-    /// Project the generic brain-construction inputs this archetype
-    /// resolves to. Stored on the enemy config at spawn so the runtime
-    /// brain rebuilds (provoke, dismount) reconstruct the brain from data
-    /// without naming this enum. The smash flags are inert unless the
-    /// template is `Smash`; the provoke override only fires on a
-    /// peaceful→hostile flip.
-    pub(super) fn brain_spec(self) -> crate::mechanics::combat::EnemyBrainSpec {
-        self.spec().brain_spec()
-    }
-
-    /// Concrete melee spec this archetype's `ActionSet` carries at
-    /// spawn. `None` = no melee capability (peaceful patrollers).
-    pub(super) fn melee_spec(self) -> Option<crate::brain::MeleeActionSpec> {
-        self.spec().melee
-    }
-
-    /// Concrete ranged spec this archetype's `ActionSet` carries at
-    /// spawn. `None` = no ranged capability.
-    pub(super) fn ranged_spec(self) -> Option<crate::brain::RangedActionSpec> {
-        self.spec().ranged
-    }
-
-    /// Authored held item, if any. This is separate from the actor's default
-    /// hostility: a peaceful NPC can carry a weapon that becomes active only
-    /// if another system provokes them.
-    pub(super) fn held_item_spec(self) -> Option<crate::brain::HeldItemSpec> {
-        self.spec().held_item_spec()
-    }
-
-    /// Locomotion style for this archetype's `ActionSet.move_style`.
-    pub(super) fn move_style(self) -> crate::brain::MoveStyleSpec {
-        self.spec().move_style
-    }
-
-    pub(crate) fn is_sandbag(self) -> bool {
-        self.spec().is_sandbag
-    }
-
-    /// Project this archetype's per-frame runtime tuning into the
-    /// combat kit's [`EnemyTuning`](crate::mechanics::combat::EnemyTuning)
-    /// value carried on `EnemyConfig.tuning` — the per-frame loops read
-    /// that instead of calling back into this named enum.
-    pub(crate) fn tuning(self) -> crate::mechanics::combat::EnemyTuning {
-        self.spec().tuning()
-    }
-
-    /// Project this archetype's authored capability flags into the combat kit.
-    pub(crate) fn combat_capabilities(self) -> crate::mechanics::combat::CombatCapabilities {
-        self.spec().combat_capabilities()
-    }
-
-    pub(super) fn max_health(self) -> i32 {
-        self.spec().max_health
-    }
-
-    /// Extra HP pool for actors that have a "rider" on top — today
-    /// only `PirateOnShark`. `None` for every other archetype.
-    pub(super) fn rider_max_health(self) -> Option<i32> {
-        self.spec().rider_max_health
-    }
-
-    #[cfg(test)]
-    pub(super) fn patrol_speed(self) -> f32 {
-        self.spec().patrol_speed
-    }
-
-    #[cfg(test)]
-    pub(super) fn contact_strength(self) -> f32 {
-        self.spec().contact_strength
-    }
-
-    #[cfg(test)]
-    pub(super) fn damage_amount(self) -> i32 {
-        self.spec().damage_amount
-    }
-
-    /// Body size (px) for actors of this archetype. Aerial actors
-    /// are larger because the shark sprite is 192×128.
-    pub fn default_size(self) -> Option<ae::Vec2> {
-        self.spec().default_size
-    }
-
-    /// True when this archetype is hostile by default — actively tracks
-    /// the player and publishes contact damage. False for "peaceful patrol"
-    /// archetypes (PuppySlug, PirateHeavy) that exist as ambient threats /
-    /// cove crew rather than active combatants. A peaceful-by-default row may
-    /// still carry dormant attack data so a separate explicit-hostile path can
-    /// provoke it without changing its authored identity.
-    pub fn attacks_player(self) -> bool {
-        self.spec().attacks_player
-    }
-
-    /// True when the archetype should publish a body-contact hazard
-    /// on touch. Sandbags and composite shark riders opt out; the
-    /// peaceful cove crew do not emit touch damage unless a future
-    /// mode explicitly opts them back in.
-    pub fn body_contact_damage_enabled(self) -> bool {
-        self.spec().body_contact_damage
-    }
-
-    /// Default respawn cadence for this archetype. Grunts refresh
-    /// every visit (OnRoomReenter); heavier mini-boss-tier presences
-    /// (Heavies, Brutes, Colossi, sharks-with-rider) take a Rest to
-    /// come back. Sandbags handle their own respawn loop in `update`
-    /// and report OnRoomReenter as a stable default that the kill
-    /// hook ignores anyway.
-    pub fn respawn_policy(self) -> EnemyRespawnPolicy {
-        self.spec().respawn_policy()
-    }
 }
 
 /// Enemy physics/AI integration, operating directly on the authoritative
@@ -1131,7 +1040,7 @@ pub struct CompositeVisualPlan {
 /// Visual kind for an enemy spawn payload (training dummies render as
 /// sandbags; everything else as a standard enemy).
 pub fn enemy_visual_kind(payload: &crate::actor::EnemyBrain) -> FeatureVisualKind {
-    if EnemyArchetype::from_brain(payload).tuning().is_sandbag {
+    if spec_for_brain(payload).is_sandbag {
         FeatureVisualKind::Sandbag
     } else {
         FeatureVisualKind::Enemy
@@ -1142,15 +1051,15 @@ pub fn enemy_visual_kind(payload: &crate::actor::EnemyBrain) -> FeatureVisualKin
 /// or `None` for ordinary single-entity spawns. Backed by the
 /// `composite_visual` rows in `enemy_archetypes.ron`.
 pub fn composite_visual_plan(payload: &crate::actor::EnemyBrain) -> Option<CompositeVisualPlan> {
-    let spec = EnemyArchetype::from_brain(payload).spec();
+    let spec = spec_for_brain(payload);
     let composite = spec.composite_visual.as_ref()?;
     let mount_brain = crate::actor::EnemyBrain::Custom(composite.mount_brain.clone());
     let rider_brain = crate::actor::EnemyBrain::Custom(composite.rider_brain.clone());
-    let rider_standalone_size = EnemyArchetype::from_brain(&rider_brain)
-        .default_size()
+    let rider_standalone_size = spec_for_brain(&rider_brain)
+        .default_size
         .unwrap_or(ae::Vec2::new(44.0, 78.0));
-    let mount_size = EnemyArchetype::from_brain(&mount_brain)
-        .default_size()
+    let mount_size = spec_for_brain(&mount_brain)
+        .default_size
         .unwrap_or(ae::Vec2::new(126.0, 52.0));
     Some(CompositeVisualPlan {
         rider_name_from_spawn: composite.rider_name_from_spawn,
@@ -1232,6 +1141,7 @@ mod enemy_archetype_data_tests {
     fn gun_sword_archetypes_resolve_held_item_by_id() {
         use crate::brain::RangedActionSpec;
         let on_shark = EnemyArchetype::PirateOnShark
+            .spec()
             .held_item_spec()
             .expect("PirateOnShark should resolve a held item");
         assert_eq!(on_shark.id, "gun_sword");
@@ -1240,6 +1150,7 @@ mod enemy_archetype_data_tests {
             Some(RangedActionSpec::Bolt { damage: 2, .. })
         ));
         let heavy = EnemyArchetype::PirateHeavyOnShark
+            .spec()
             .held_item_spec()
             .expect("PirateHeavyOnShark should resolve a held item");
         assert_eq!(heavy.id, "gun_sword_heavy");
@@ -1270,11 +1181,11 @@ mod enemy_archetype_data_tests {
 
     #[test]
     fn body_contact_damage_is_explicitly_opted_in() {
-        assert!(EnemyArchetype::Combatant.body_contact_damage_enabled());
-        assert!(EnemyArchetype::PuppySlug.body_contact_damage_enabled());
-        assert!(!EnemyArchetype::PirateHeavy.body_contact_damage_enabled());
-        assert!(!EnemyArchetype::PirateOnShark.body_contact_damage_enabled());
-        assert!(!EnemyArchetype::FiniteSandbag.body_contact_damage_enabled());
+        assert!(EnemyArchetype::Combatant.spec().body_contact_damage);
+        assert!(EnemyArchetype::PuppySlug.spec().body_contact_damage);
+        assert!(!EnemyArchetype::PirateHeavy.spec().body_contact_damage);
+        assert!(!EnemyArchetype::PirateOnShark.spec().body_contact_damage);
+        assert!(!EnemyArchetype::FiniteSandbag.spec().body_contact_damage);
     }
 
     /// Regression for the cove bug "an aggressive PirateHeavy never gets
@@ -1292,11 +1203,12 @@ mod enemy_archetype_data_tests {
         let authored_aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(36.0, 55.0));
         let pos = authored_aabb.center();
         let size = archetype
-            .default_size()
+            .spec()
+            .default_size
             .unwrap_or_else(|| authored_aabb.half_size() * 2.0);
         let hitbox = enemy_attack_aabb_dir(pos, size, 1.0, ae::Vec2::new(1.0, 0.0));
         let reach_edge = hitbox.center().x + hitbox.half_size().x - pos.x;
-        let attack_range = archetype.tuning().attack_range;
+        let attack_range = archetype.spec().tuning().attack_range;
         assert!(
             attack_range <= reach_edge,
             "PirateHeavy attack_range {attack_range} must stay within her swing far \
@@ -1314,24 +1226,24 @@ mod capability_tests {
     /// (Stage 20: the named checks became data-driven capabilities).
     #[test]
     fn archetype_capabilities_match_the_legacy_identity_checks() {
-        let mite = EnemyArchetype::ExplodingMite.combat_capabilities();
+        let mite = EnemyArchetype::ExplodingMite.spec().combat_capabilities();
         assert!(mite.explodes_on_death && !mite.divides_on_death);
 
-        let blob = EnemyArchetype::DividingMite.combat_capabilities();
+        let blob = EnemyArchetype::DividingMite.spec().combat_capabilities();
         assert!(blob.divides_on_death && !blob.explodes_on_death);
 
-        let shark = EnemyArchetype::BurningFlyingShark.combat_capabilities();
+        let shark = EnemyArchetype::BurningFlyingShark.spec().combat_capabilities();
         assert!(shark.charge_crash_explodes);
 
-        let infinite = EnemyArchetype::InfiniteSandbag.combat_capabilities();
+        let infinite = EnemyArchetype::InfiniteSandbag.spec().combat_capabilities();
         assert!(infinite.never_dies && infinite.respawn_in_place_seconds.is_none());
 
-        let finite = EnemyArchetype::FiniteSandbag.combat_capabilities();
+        let finite = EnemyArchetype::FiniteSandbag.spec().combat_capabilities();
         assert!(!finite.never_dies);
         assert_eq!(finite.respawn_in_place_seconds, Some(0.85));
 
         // A plain combatant has no special capabilities.
-        let base = EnemyArchetype::Combatant.combat_capabilities();
+        let base = EnemyArchetype::Combatant.spec().combat_capabilities();
         assert_eq!(base, Default::default());
     }
 
@@ -1369,13 +1281,13 @@ mod capability_tests {
         ];
         for &a in ALL {
             let attacks = !matches!(a, PuppySlug | PirateHeavy);
-            assert_eq!(a.attacks_player(), attacks, "{a:?} attacks_player");
+            assert_eq!(a.spec().attacks_player, attacks, "{a:?} attacks_player");
 
             let body = !matches!(
                 a,
                 InfiniteSandbag | FiniteSandbag | PirateOnShark | PirateHeavyOnShark
             ) && (attacks || matches!(a, PuppySlug));
-            assert_eq!(a.body_contact_damage_enabled(), body, "{a:?} body_contact");
+            assert_eq!(a.spec().body_contact_damage, body, "{a:?} body_contact");
 
             let policy = if matches!(
                 a,
@@ -1385,9 +1297,9 @@ mod capability_tests {
             } else {
                 EnemyRespawnPolicy::OnRoomReenter
             };
-            assert_eq!(a.respawn_policy(), policy, "{a:?} respawn_policy");
+            assert_eq!(a.spec().respawn_policy(), policy, "{a:?} respawn_policy");
 
-            let bs = a.brain_spec();
+            let bs = a.spec().brain_spec();
             assert_eq!(
                 bs.smash_heavy,
                 matches!(a, LargeBrute | LargeColossus),

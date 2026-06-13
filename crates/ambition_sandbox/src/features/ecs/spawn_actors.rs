@@ -5,7 +5,7 @@
 //! `spawn_static.rs`; composite mount/rider fan-out lives in `spawn_mounts.rs`.
 
 use super::brain_builders::{
-    enemy_combat_kit_for_archetype, enemy_default_action_set, enemy_default_brain,
+    enemy_combat_kit_for_spec, enemy_default_action_set, enemy_default_brain,
 };
 use super::*;
 use bevy::prelude::Name;
@@ -40,9 +40,9 @@ impl EnemyActorSpawnPlan {
         enemy: super::enemy_clusters::EnemyClusterSeed,
     ) -> Self {
         let brain = enemy_default_brain(&enemy.config);
-        let action_set = enemy_default_action_set(enemy.archetype);
-        let combat_kit = enemy_combat_kit_for_archetype(enemy.archetype);
-        let held_item = super::brain_builders::held_item_for_archetype(enemy.archetype);
+        let action_set = enemy_default_action_set(&enemy.spec);
+        let combat_kit = enemy_combat_kit_for_spec(&enemy.spec);
+        let held_item = super::brain_builders::held_item_for_spec(&enemy.spec);
         Self {
             entity_name: entity_name.into(),
             feature_id: feature_id.into(),
@@ -163,8 +163,8 @@ impl NpcActorSpawnPlan {
     ) -> Self {
         let mut npc = npc;
         let brain = npc.as_mut().build_brain();
-        let hostile_archetype = super::actors::hostile_enemy_archetype_for_npc(&npc.config);
-        let combat_kit = super::brain_builders::enemy_combat_kit_for_archetype(hostile_archetype);
+        let hostile_spec = super::actors::hostile_enemy_spec_for_npc(&npc.config);
+        let combat_kit = super::brain_builders::enemy_combat_kit_for_spec(&hostile_spec);
         Self {
             entity_name: entity_name.into(),
             feature_id: feature_id.into(),
@@ -412,10 +412,9 @@ pub(crate) fn spawn_runtime_minion(
     let encounter_id = encounter_id.into();
     let aabb = ae::Aabb::new(world_pos, half_size);
     let brain = crate::actor::EnemyBrain::Custom(archetype_id.into());
-    let archetype = EnemyArchetype::from_brain(&brain);
     let mut enemy =
         super::enemy_clusters::EnemyClusterSeed::new(id.clone(), name.clone(), aabb, brain, &[]);
-    enemy.status.health = crate::actor::Health::new(archetype.max_health());
+    // `EnemyClusterSeed::new` already sets HP from the resolved spec.
     // Boss-spawned minions shouldn't auto-respawn — they're part of
     // the encounter, not a static sandbag.
     enemy.status.respawn_timer = 999_999.0;
@@ -441,9 +440,9 @@ pub(super) fn spawn_enemy(
     authored: &crate::rooms::Authored<crate::actor::EnemyBrain>,
     paths: &[(String, crate::actor::KinematicPath)],
 ) {
-    let archetype = EnemyArchetype::from_brain(&authored.payload);
-    if super::mount::is_composite_spawn(archetype) {
-        super::spawn_mounts::spawn_composite_mount_rider(commands, authored, paths, archetype);
+    let spec = super::super::enemies::spec_for_brain(&authored.payload);
+    if spec.is_composite() {
+        super::spawn_mounts::spawn_composite_mount_rider(commands, authored, paths, &spec);
         return;
     }
     let enemy = super::enemy_clusters::EnemyClusterSeed::new(
@@ -528,11 +527,10 @@ pub(super) fn spawn_encounter_mob(
     size: ae::Vec2,
 ) {
     let encounter_id = encounter_id.into();
-    let archetype = EnemyArchetype::from_brain(&brain);
     let aabb = ae::Aabb::new(pos, size * 0.5);
     let mut enemy =
         super::enemy_clusters::EnemyClusterSeed::new(id.clone(), id.clone(), aabb, brain, &[]);
-    enemy.status.health = crate::actor::Health::new(archetype.max_health());
+    // `EnemyClusterSeed::new` already sets HP from the resolved spec.
     // Encounter mobs should not auto-respawn like training sandbags.
     enemy.status.respawn_timer = 999_999.0;
     let feature_aabb = FeatureAabb::from_center_size(pos, size);

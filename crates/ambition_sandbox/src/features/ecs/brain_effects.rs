@@ -31,8 +31,6 @@ use crate::features::ecs::actors::ActorRuntime;
 use crate::features::ecs::boss_clusters::BossClusterRef;
 use crate::features::ecs::hitbox::{Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime};
 use crate::features::ecs::FeatureSimEntity;
-#[cfg(test)]
-use crate::features::enemies::EnemyArchetype;
 use crate::projectile::SpawnProjectile;
 use crate::time::feel::SandboxFeelTuning;
 use crate::WorldTime;
@@ -1406,10 +1404,16 @@ mod tests {
             crate::actor::EnemyBrain::Custom("pirate_heavy".into()),
             &[],
         );
-        assert_eq!(enemy.archetype, EnemyArchetype::PirateHeavy);
+        // The "pirate_heavy" brain resolved to the PirateHeavy spec: peaceful
+        // by default, with the cove-crew provoke override that forces an
+        // aggressive MeleeBrute when struck.
         assert!(
             !enemy.config.tuning.attacks_player,
             "standalone PirateHeavy is normally peaceful"
+        );
+        assert_eq!(
+            enemy.spec.brain_spec().provoke_forced_brute_min_aggro,
+            Some(500.0)
         );
         enemy.attack.cooldown = 0.0;
         let actor = app.world_mut().spawn(enemy_actor(enemy)).id();

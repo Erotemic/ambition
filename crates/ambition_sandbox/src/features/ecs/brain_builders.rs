@@ -6,7 +6,7 @@
 //! hand-rolling a slightly different mix of archetype tuning, aggressiveness,
 //! and per-actor jitter.
 
-use super::super::enemies::EnemyArchetype;
+use super::super::enemies::{EnemyArchetype, EnemyArchetypeSpec};
 use super::enemy_clusters::EnemyConfig;
 use super::variation::{five_f32s_from_seed, seed_from_id};
 use super::{CombatKit, HeldItem};
@@ -22,11 +22,11 @@ use crate::mechanics::combat::{EnemyBrainSpec, EnemyBrainTemplate, EnemyTuning};
 /// The kit intentionally does **not** include held item overlays; a held item is
 /// a separate component and can be dropped/swapped later. `ActionSet` is derived
 /// from `CombatKit + HeldItem` for whichever aggression state is currently live.
-pub(super) fn enemy_combat_kit_for_archetype(archetype: EnemyArchetype) -> CombatKit {
+pub(super) fn enemy_combat_kit_for_spec(spec: &EnemyArchetypeSpec) -> CombatKit {
     CombatKit {
-        innate_melee: archetype.melee_spec(),
-        innate_ranged: archetype.ranged_spec(),
-        move_style: archetype.move_style(),
+        innate_melee: spec.melee_spec(),
+        innate_ranged: spec.ranged_spec(),
+        move_style: spec.move_style(),
     }
 }
 
@@ -37,26 +37,24 @@ pub(super) fn action_set_from_combat_kit(
     kit.to_action_set(held_item.map(|item| &item.spec))
 }
 
-/// Build the enemy's default `ActionSet` from its archetype spec.
+/// Build the enemy's default `ActionSet` from its authored spec.
 ///
 /// Reads `melee_spec()` / `ranged_spec()` / `move_style()` straight off the
 /// data-driven `EnemyArchetypeSpec` — every spec value (timings, damage,
-/// reach) lives in `enemy_archetypes.ron`. Adding a new archetype is a single
-/// RON row + a new `EnemyArchetype` enum variant. Spawn-time only: the roster
-/// enum is resolved on the spawn seed before the entity exists.
-pub(super) fn enemy_default_action_set(archetype: EnemyArchetype) -> ActionSet {
-    enemy_combat_kit_for_archetype(archetype).to_action_set(archetype.held_item_spec().as_ref())
+/// reach) lives in `enemy_archetypes.ron`. Spawn-time only: the spec is
+/// resolved on the spawn seed before the entity exists, so the spawn path
+/// never names the roster enum.
+pub(super) fn enemy_default_action_set(spec: &EnemyArchetypeSpec) -> ActionSet {
+    enemy_combat_kit_for_spec(spec).to_action_set(spec.held_item_spec().as_ref())
 }
-fn apply_archetype_held_item(archetype: EnemyArchetype, actions: &mut ActionSet) {
-    if let Some(item) = archetype.held_item_spec() {
+fn apply_spec_held_item(spec: &EnemyArchetypeSpec, actions: &mut ActionSet) {
+    if let Some(item) = spec.held_item_spec() {
         item.apply_to_action_set(actions);
     }
 }
 
-pub(super) fn held_item_for_archetype(
-    archetype: EnemyArchetype,
-) -> Option<crate::brain::HeldItemSpec> {
-    archetype.held_item_spec()
+pub(super) fn held_item_for_spec(spec: &EnemyArchetypeSpec) -> Option<crate::brain::HeldItemSpec> {
+    spec.held_item_spec()
 }
 
 /// Build the enemy's default `Brain` from its archetype spec.
@@ -212,17 +210,17 @@ fn shark_brain_for_enemy(enemy: &EnemyConfig) -> Brain {
 /// the composite archetype's ranged spec and variation keyed by the rider id.
 pub(super) fn mounted_rider_brain_and_action_set(
     rider_id: &str,
-    rider_archetype: EnemyArchetype,
-    composite_archetype: EnemyArchetype,
+    rider_spec: &EnemyArchetypeSpec,
+    composite_spec: &EnemyArchetypeSpec,
 ) -> (Brain, ActionSet) {
-    let brain = skirmisher_brain_from_tuning(rider_id, &composite_archetype.tuning(), true);
+    let brain = skirmisher_brain_from_tuning(rider_id, &composite_spec.tuning(), true);
     let mut action_set = ActionSet {
         melee: None,
-        ranged: composite_archetype.ranged_spec(),
-        move_style: rider_archetype.move_style(),
+        ranged: composite_spec.ranged_spec(),
+        move_style: rider_spec.move_style(),
         ..Default::default()
     };
-    apply_archetype_held_item(composite_archetype, &mut action_set);
+    apply_spec_held_item(composite_spec, &mut action_set);
     (brain, action_set)
 }
 
@@ -243,7 +241,7 @@ pub(super) fn dismounted_rider_brain_and_action_set(
     // the entity so the runtime dismount never re-reads the roster enum.
     let mut action_set = kit.to_action_set(held_item);
     if action_set.melee.is_none() {
-        action_set.melee = EnemyArchetype::PirateRaider.melee_spec();
+        action_set.melee = EnemyArchetype::PirateRaider.spec().melee_spec();
     }
 
     // If the dismounted rider still has a ranged held item, keep using a
@@ -365,7 +363,7 @@ mod tests {
         // The combat-kit -> action-set projection should yield a usable set
         // (the striker has a melee verb).
         let e = enemy("medium_striker");
-        let set = enemy_default_action_set(e.archetype);
+        let set = enemy_default_action_set(&e.spec);
         assert!(set.melee.is_some(), "a striker should expose a melee verb");
     }
 
@@ -377,7 +375,7 @@ mod tests {
         // edit can't silently drop the ranged verb (which would revert goblins
         // to melee-only without any test noticing).
         let e = enemy("medium_striker");
-        let set = enemy_default_action_set(e.archetype);
+        let set = enemy_default_action_set(&e.spec);
         assert!(
             matches!(
                 set.ranged,

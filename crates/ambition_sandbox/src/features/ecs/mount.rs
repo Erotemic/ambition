@@ -29,7 +29,6 @@
 
 use bevy::prelude::{Commands, Component, Entity, Query, With, Without};
 
-use super::super::EnemyArchetype;
 use super::brain_builders::dismounted_rider_brain_and_action_set;
 use super::{ActorRuntime, FeatureAabb};
 use crate::engine_core as ae;
@@ -333,17 +332,6 @@ pub fn enforce_mount_rider_link(
 /// fused `rider_aabb` placement).
 pub fn pirate_on_shark_rider_offset(mount_size: ae::Vec2, rider_size: ae::Vec2) -> ae::Vec2 {
     ae::Vec2::new(0.0, -(mount_size.y * 0.5) - (rider_size.y * 0.5) + 8.0)
-}
-
-/// Predicate used by composite-spawn callers to recognize the
-/// authored "X on Shark" archetypes. The runtime no longer stores
-/// these archetypes on an entity — they're a spawn-time tag that
-/// fans out to a mount + rider pair.
-pub fn is_composite_spawn(archetype: EnemyArchetype) -> bool {
-    matches!(
-        archetype,
-        EnemyArchetype::PirateOnShark | EnemyArchetype::PirateHeavyOnShark
-    )
 }
 
 #[cfg(test)]

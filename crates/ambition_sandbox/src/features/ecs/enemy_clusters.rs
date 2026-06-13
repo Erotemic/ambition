@@ -16,7 +16,7 @@ use bevy::ecs::query::QueryData;
 use bevy::prelude::Component;
 
 use super::super::components::ActorAttackState;
-use super::super::enemies::{ActorSpawnState, ActorSurfaceState, EnemyArchetype};
+use super::super::enemies::{spec_for_brain, ActorSpawnState, ActorSurfaceState, EnemyArchetypeSpec};
 use super::super::path_motion::PathMotion;
 use super::super::MAX_ENEMY_AIR_JUMPS;
 use crate::engine_core as ae;
@@ -124,11 +124,13 @@ pub struct EnemyClusterSeed {
     /// Spawn-resolved special-behavior flags (kit vocabulary), spawned
     /// alongside the clusters by [`Self::into_components`].
     pub caps: crate::mechanics::combat::CombatCapabilities,
-    /// The authored roster archetype. Spawn-time ONLY: brain / combat-kit
-    /// / held-item construction reads it here before the entity exists;
-    /// it is deliberately NOT carried onto any spawned component, so the
-    /// persisted [`EnemyConfig`] stays archetype-free.
-    pub archetype: EnemyArchetype,
+    /// The authored roster spec (resolved by string key from the spawn
+    /// brain). Spawn-time ONLY: brain / combat-kit / held-item construction
+    /// reads it here before the entity exists; it is deliberately NOT
+    /// carried onto any spawned component, so the persisted [`EnemyConfig`]
+    /// stays roster-free. The named `EnemyArchetype` enum never reaches the
+    /// spawn path — only this data does.
+    pub spec: EnemyArchetypeSpec,
 }
 
 impl EnemyClusterSeed {
@@ -140,11 +142,11 @@ impl EnemyClusterSeed {
         brain: crate::actor::EnemyBrain,
         paths: &[(String, crate::actor::KinematicPath)],
     ) -> Self {
-        let archetype = EnemyArchetype::from_brain(&brain);
+        let spec = spec_for_brain(&brain);
         let motion = match &brain {
             crate::actor::EnemyBrain::Patrol {
                 path_id: Some(path_id),
-            } if !archetype.is_sandbag() => paths
+            } if !spec.is_sandbag => paths
                 .iter()
                 .find(|(p_id, _)| p_id == path_id)
                 .map(|(_, path)| PathMotion::new(path.clone())),
@@ -154,8 +156,8 @@ impl EnemyClusterSeed {
             .as_ref()
             .and_then(PathMotion::start_pos)
             .unwrap_or_else(|| aabb.center());
-        let size = archetype
-            .default_size()
+        let size = spec
+            .default_size
             .unwrap_or_else(|| aabb.half_size() * 2.0);
         Self {
             kin: BodyKinematics {
@@ -169,27 +171,27 @@ impl EnemyClusterSeed {
                 respawn_timer: 0.0,
                 hit_flash: 0.0,
                 ai_mode: crate::actor::ai::CharacterAiMode::Idle,
-                health: crate::actor::Health::new(archetype.max_health()),
+                health: crate::actor::Health::new(spec.max_health),
             },
             surface: ActorSurfaceState {
                 on_ground: false,
                 surface_normal: ae::Vec2::new(0.0, -1.0),
-                gravity_scale: if archetype.is_aerial() { 0.0 } else { 1.0 },
+                gravity_scale: if spec.is_aerial { 0.0 } else { 1.0 },
                 air_jumps_remaining: MAX_ENEMY_AIR_JUMPS,
             },
             attack: ActorAttackState::default(),
             config: EnemyConfig {
                 id: id.into(),
                 name: name.into(),
-                tuning: archetype.tuning(),
-                brain_spec: archetype.brain_spec(),
+                tuning: spec.tuning(),
+                brain_spec: spec.brain_spec(),
                 brain,
                 spawn: ActorSpawnState { pos, size },
                 sprite_override_npc_name: None,
             },
             motion: ActorMotionPath(motion),
-            caps: archetype.combat_capabilities(),
-            archetype,
+            caps: spec.combat_capabilities(),
+            spec,
         }
     }
     #[cfg(test)]

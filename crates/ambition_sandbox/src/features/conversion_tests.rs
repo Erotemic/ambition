@@ -356,24 +356,24 @@ mod conversion_tests {
     #[test]
     fn enemy_archetype_tunings_are_finite() {
         for archetype in EnemyArchetype::COMBAT_ALL {
-            assert!(archetype.max_health() > 0);
-            assert!(archetype.patrol_speed().is_finite());
-            assert!(archetype.tuning().chase_speed.is_finite());
-            assert!(archetype.tuning().aggro_radius.is_finite());
-            assert!(archetype.tuning().aggro_radius >= 0.0);
-            assert!(archetype.tuning().attack_range.is_finite());
-            assert!(archetype.tuning().attack_range >= 0.0);
-            assert!(archetype.contact_strength().is_finite());
-            assert!(archetype.contact_strength() >= 0.0);
-            assert!(archetype.damage_amount() > 0);
-            if archetype.attacks_player() {
+            assert!(archetype.spec().max_health > 0);
+            assert!(archetype.spec().patrol_speed.is_finite());
+            assert!(archetype.spec().tuning().chase_speed.is_finite());
+            assert!(archetype.spec().tuning().aggro_radius.is_finite());
+            assert!(archetype.spec().tuning().aggro_radius >= 0.0);
+            assert!(archetype.spec().tuning().attack_range.is_finite());
+            assert!(archetype.spec().tuning().attack_range >= 0.0);
+            assert!(archetype.spec().contact_strength.is_finite());
+            assert!(archetype.spec().contact_strength >= 0.0);
+            assert!(archetype.spec().damage_amount > 0);
+            if archetype.spec().attacks_player {
                 assert!(
-                    archetype.tuning().attack_range > 0.0,
+                    archetype.spec().tuning().attack_range > 0.0,
                     "{:?} reports it attacks but has zero attack_range",
                     archetype,
                 );
                 assert!(
-                    archetype.contact_strength() > 0.0,
+                    archetype.spec().contact_strength > 0.0,
                     "{:?} reports it attacks but has zero contact_strength",
                     archetype,
                 );
@@ -391,47 +391,47 @@ mod conversion_tests {
     fn enemy_archetype_size_and_aggression_invariants() {
         // HP: small < medium < large.
         assert!(
-            EnemyArchetype::SmallSkitter.max_health() < EnemyArchetype::MediumStriker.max_health()
+            EnemyArchetype::SmallSkitter.spec().max_health < EnemyArchetype::MediumStriker.spec().max_health
         );
         assert!(
-            EnemyArchetype::SmallLurker.max_health() < EnemyArchetype::MediumStriker.max_health()
+            EnemyArchetype::SmallLurker.spec().max_health < EnemyArchetype::MediumStriker.spec().max_health
         );
         assert!(
-            EnemyArchetype::MediumStriker.max_health() < EnemyArchetype::LargeBrute.max_health()
+            EnemyArchetype::MediumStriker.spec().max_health < EnemyArchetype::LargeBrute.spec().max_health
         );
         assert!(
-            EnemyArchetype::LargeBrute.max_health() < EnemyArchetype::LargeColossus.max_health()
+            EnemyArchetype::LargeBrute.spec().max_health < EnemyArchetype::LargeColossus.spec().max_health
         );
 
         // Aggro radius: low-aggression < high-aggression at same size.
         assert!(
-            EnemyArchetype::SmallLurker.tuning().aggro_radius
-                < EnemyArchetype::SmallSkitter.tuning().aggro_radius
+            EnemyArchetype::SmallLurker.spec().tuning().aggro_radius
+                < EnemyArchetype::SmallSkitter.spec().tuning().aggro_radius
         );
         assert!(
-            EnemyArchetype::LargeColossus.tuning().aggro_radius
-                < EnemyArchetype::LargeBrute.tuning().aggro_radius
+            EnemyArchetype::LargeColossus.spec().tuning().aggro_radius
+                < EnemyArchetype::LargeBrute.spec().tuning().aggro_radius
         );
 
         // Damage: large > medium / small (LargeColossus is the heaviest hitter).
         assert!(
-            EnemyArchetype::LargeColossus.damage_amount()
-                >= EnemyArchetype::LargeBrute.damage_amount()
+            EnemyArchetype::LargeColossus.spec().damage_amount
+                >= EnemyArchetype::LargeBrute.spec().damage_amount
         );
         assert!(
-            EnemyArchetype::LargeBrute.damage_amount()
-                > EnemyArchetype::SmallSkitter.damage_amount()
+            EnemyArchetype::LargeBrute.spec().damage_amount
+                > EnemyArchetype::SmallSkitter.spec().damage_amount
         );
 
         // Patrol speed: lurker / colossus visibly slower than their
         // higher-aggression siblings.
         assert!(
-            EnemyArchetype::SmallLurker.patrol_speed()
-                < EnemyArchetype::SmallSkitter.patrol_speed()
+            EnemyArchetype::SmallLurker.spec().patrol_speed
+                < EnemyArchetype::SmallSkitter.spec().patrol_speed
         );
         assert!(
-            EnemyArchetype::LargeColossus.patrol_speed()
-                < EnemyArchetype::LargeBrute.patrol_speed()
+            EnemyArchetype::LargeColossus.spec().patrol_speed
+                < EnemyArchetype::LargeBrute.spec().patrol_speed
         );
     }
 

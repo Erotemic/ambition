@@ -1568,7 +1568,7 @@ mod tests {
     fn an_armed_enemy_archetype_resolves_a_weapon_to_drop() {
         // The defeat branch's weapon drop keys off `held_item_spec()`; the pirate
         // carries a gun-sword, so a defeated pirate drops one.
-        let spec = EnemyArchetype::PirateOnShark.held_item_spec();
+        let spec = EnemyArchetype::PirateOnShark.spec().held_item_spec();
         assert!(spec.is_some(), "PirateOnShark carries a weapon");
         assert_eq!(spec.unwrap().id.as_str(), "gun_sword");
     }

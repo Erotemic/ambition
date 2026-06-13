@@ -104,8 +104,8 @@ pub use hitbox::{
 };
 pub use interact::interact_ecs_actors_and_switches;
 pub use mount::{
-    enforce_mount_rider_link, is_composite_spawn, pirate_on_shark_rider_offset,
-    sync_riders_to_mounts, MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, RidingOn,
+    enforce_mount_rider_link, pirate_on_shark_rider_offset, sync_riders_to_mounts, MountSlot,
+    Mountable, Mounted, MountedBrainCache, MountedSize, RidingOn,
 };
 pub use overlay::{rebuild_feature_ecs_world_overlay, FeatureEcsWorldOverlay};
 pub use pickups::{collect_ecs_pickups, magnetize_pickups};

@@ -4,8 +4,9 @@
 //! module owns the fan-out from a composite authored enemy into separate
 //! mount and rider ECS actors.
 
+use super::super::enemies::{spec_for_brain, EnemyArchetypeSpec};
 use super::brain_builders::{
-    enemy_combat_kit_for_archetype, enemy_default_action_set, held_item_for_archetype,
+    enemy_combat_kit_for_spec, enemy_default_action_set, held_item_for_spec,
     mounted_rider_brain_and_action_set, skirmisher_brain_for_enemy,
 };
 use super::spawn_actors::EnemyActorSpawnPlan;
@@ -37,22 +38,31 @@ pub(super) fn spawn_composite_mount_rider(
     commands: &mut Commands,
     authored: &crate::rooms::Authored<crate::actor::EnemyBrain>,
     paths: &[(String, crate::actor::KinematicPath)],
-    composite_archetype: EnemyArchetype,
+    composite_spec: &EnemyArchetypeSpec,
 ) {
+    // The whole fan-out is driven by the composite's authored
+    // `composite_visual` row (mount/rider brain keys + names): no named
+    // roster branch decides the mount or rider here.
+    let cv = composite_spec
+        .composite_visual
+        .as_ref()
+        .expect("spawn_composite_mount_rider called on a non-composite spec");
+
     // Spawn both at the authored center. The mount's standalone
     // size is its `default_size`; the rider rides at
     // `pirate_on_shark_rider_offset(mount.size, rider.size)`.
     let center = authored.aabb.center();
-    let mount_archetype = EnemyArchetype::BurningFlyingShark;
-    let mount_size = mount_archetype
-        .default_size()
-        .expect("BurningFlyingShark has a default_size in archetype_specs");
+    let mount_brain_payload = crate::actor::EnemyBrain::Custom(cv.mount_brain.clone());
+    let mount_spec = spec_for_brain(&mount_brain_payload);
+    let mount_size = mount_spec
+        .default_size
+        .expect("composite mount has a default_size in enemy_archetypes.ron");
     let mount_aabb = ae::Aabb::new(center, mount_size * 0.5);
 
     // Mount HP: take the composite spec's body HP rather than the
-    // standalone BurningFlyingShark's default, so tuning the
-    // composite's HP in the RON works as expected.
-    let composite_hp = composite_archetype.max_health();
+    // standalone mount's default, so tuning the composite's HP in the
+    // RON works as expected.
+    let composite_hp = composite_spec.max_health;
     // Mount keeps the authored id so the room-side FeatureVisual
     // entity (spawned by `spawn_room_visuals`) matches and resolves
     // its sprite via the standard upgrade path. The rider takes a
@@ -60,30 +70,30 @@ pub(super) fn spawn_composite_mount_rider(
     // entity from `spawn_composite_visuals` in
     // `presentation::rendering::world`.
     let mount_id = authored.id.clone();
-    let mount_name = "Burning Flying Shark".to_string();
+    let mount_name = cv.mount_name.clone();
     let mut mount_enemy = super::enemy_clusters::EnemyClusterSeed::new(
         mount_id.clone(),
         mount_name.clone(),
         mount_aabb,
-        crate::actor::EnemyBrain::Custom("burning_flying_shark".into()),
+        mount_brain_payload,
         paths,
     );
     mount_enemy.status.health = crate::actor::Health::new(composite_hp);
 
-    // Rider archetype + variant name. The light composite is always
-    // a Pirate Raider; the heavy composite parses the authored name
-    // (e.g. "Iron Mary on Shark") to pick the variant for the sprite
-    // layer.
-    let (rider_archetype, rider_variant_name) = match composite_archetype {
-        EnemyArchetype::PirateHeavyOnShark => {
-            let base = authored
-                .name
-                .strip_suffix(" on Shark")
-                .unwrap_or("Broadside Bess")
-                .to_string();
-            (EnemyArchetype::PirateHeavy, base)
-        }
-        _ => (EnemyArchetype::PirateRaider, "Pirate Raider".to_string()),
+    // Rider variant name. `rider_name_from_spawn` heavy variants parse the
+    // authored spawn name (e.g. "Iron Mary on Shark" → "Iron Mary"),
+    // falling back to the authored `rider_fallback_name`; light variants
+    // always use the fallback.
+    let rider_brain_payload = crate::actor::EnemyBrain::Custom(cv.rider_brain.clone());
+    let rider_spec = spec_for_brain(&rider_brain_payload);
+    let rider_variant_name = if cv.rider_name_from_spawn {
+        authored
+            .name
+            .strip_suffix(" on Shark")
+            .unwrap_or(&cv.rider_fallback_name)
+            .to_string()
+    } else {
+        cv.rider_fallback_name.clone()
     };
     // Standalone size = the full cove-pirate hitbox (44x78 for the raider;
     // 72x110 for a heavy). Shark-rider size = the authored sky-rider scale.
@@ -93,9 +103,9 @@ pub(super) fn spawn_composite_mount_rider(
     // she keeps that same size after dismount. Larger cove PirateRaider /
     // PirateHeavy actors are separate authored spawns that use their full
     // standalone archetype sizes.
-    let standalone_size = rider_archetype
-        .default_size()
-        .expect("rider archetype has a default_size");
+    let standalone_size = rider_spec
+        .default_size
+        .expect("rider has a default_size");
     let mounted_size = standalone_size * 0.5;
     let dismounted_size = mounted_size;
     // Rider starts at the same footprint it will keep after dismount, so
@@ -104,10 +114,6 @@ pub(super) fn spawn_composite_mount_rider(
     let rider_pos = center + rider_offset;
     let rider_aabb = ae::Aabb::new(rider_pos, mounted_size * 0.5);
     let rider_id = format!("{}:rider", authored.id);
-    let rider_brain_payload = match rider_archetype {
-        EnemyArchetype::PirateHeavy => crate::actor::EnemyBrain::Custom("pirate_heavy".into()),
-        _ => crate::actor::EnemyBrain::Custom("pirate_raider".into()),
-    };
     let mut rider_enemy = super::enemy_clusters::EnemyClusterSeed::new(
         rider_id.clone(),
         rider_variant_name.clone(),
@@ -122,7 +128,7 @@ pub(super) fn spawn_composite_mount_rider(
     rider_enemy.config.spawn.size = dismounted_size;
     rider_enemy.kin.size = mounted_size;
     // Rider HP from the composite spec's `rider_max_health`.
-    if let Some(rider_hp) = composite_archetype.rider_max_health() {
+    if let Some(rider_hp) = composite_spec.rider_max_health {
         rider_enemy.status.health = crate::actor::Health::new(rider_hp);
     }
     rider_enemy.surface.gravity_scale = 0.0;
@@ -132,9 +138,9 @@ pub(super) fn spawn_composite_mount_rider(
     // behavior, forced mounted hostility, and per-rider jitter in one
     // place instead of hand-rolling a parallel setup here.
     let (rider_brain, rider_action_set) =
-        mounted_rider_brain_and_action_set(&rider_id, rider_archetype, composite_archetype);
-    let rider_held_item = held_item_for_archetype(composite_archetype)
-        .or_else(|| held_item_for_archetype(rider_archetype));
+        mounted_rider_brain_and_action_set(&rider_id, &rider_spec, composite_spec);
+    let rider_held_item =
+        held_item_for_spec(composite_spec).or_else(|| held_item_for_spec(&rider_spec));
 
     // Build mount-side bundles and reserve the entity. We need both
     // entity IDs to link MountSlot ↔ RidingOn, so we spawn each and
@@ -142,8 +148,8 @@ pub(super) fn spawn_composite_mount_rider(
     // orbiting aerial brain so the shark still changes height while
     // the rider stays visually welded to it.
     let mount_brain = skirmisher_brain_for_enemy(&mount_enemy.config);
-    let mount_action_set = enemy_default_action_set(mount_enemy.archetype);
-    let mount_combat_kit = enemy_combat_kit_for_archetype(mount_enemy.archetype);
+    let mount_action_set = enemy_default_action_set(&mount_enemy.spec);
+    let mount_combat_kit = enemy_combat_kit_for_spec(&mount_enemy.spec);
     let mount_feature_aabb = FeatureAabb::from_aabb(mount_aabb);
     let mount_entity = EnemyActorSpawnPlan::hostile(
         format!("Feature actor mount: {mount_name}"),
@@ -164,7 +170,7 @@ pub(super) fn spawn_composite_mount_rider(
 
     // Rider-side bundles, with the RidingOn link pointing at the
     // mount we just spawned.
-    let rider_combat_kit = enemy_combat_kit_for_archetype(rider_enemy.archetype);
+    let rider_combat_kit = enemy_combat_kit_for_spec(&rider_enemy.spec);
     let rider_feature_aabb = FeatureAabb::from_aabb(rider_aabb);
     // Cache the mounted brain on the rider so the same-room reset
     // path can restore it after a mount-death-then-reset cycle

@@ -345,11 +345,11 @@ mod vec2_option {
 /// path. See [`crate::mechanics::combat::EnemyBrainTemplate`].
 pub(super) use crate::mechanics::combat::EnemyBrainTemplate;
 
-/// Per-archetype tuning rows live in `assets/data/enemy_archetypes.ron`
-/// (loaded once at startup via the `LazyLock` below). Designers edit
-/// that file to tune fights — no Rust patch needed. The enum stays
-/// as the closed "known archetypes" set so the compiler still flags
-/// missing variants in `match` arms across the codebase.
+/// Resolve a spec by `EnemyArchetype` (enum → brain key → row). Test /
+/// tooling only: production resolution goes through the brain-keyed
+/// [`EnemyRoster`] (`spec_for_brain`), never the enum. Relocates to content
+/// with the enum (2b.3).
+#[cfg(test)]
 fn archetype_spec(arch: EnemyArchetype) -> EnemyArchetypeSpec {
     let key = archetype_data_key(arch);
     ENEMY_ARCHETYPE_REGISTRY
@@ -374,6 +374,7 @@ fn default_attack_cooldown_mult() -> f32 {
 /// (`Custom("…")`), so the registry is keyed identically whether resolved by
 /// brain string (the spawn path) or by enum (tests / tooling). `Combatant`
 /// has no spawn brain key and uses the reserved `"combatant"` fallback row.
+#[cfg(test)]
 fn archetype_data_key(arch: EnemyArchetype) -> &'static str {
     use EnemyArchetype::*;
     match arch {
@@ -637,7 +638,9 @@ impl EnemyArchetype {
             .unwrap_or(Self::Combatant)
     }
 
-    /// Tuning row for this archetype.
+    /// Tuning row for this archetype (test / tooling only — production
+    /// resolves via the brain-keyed [`EnemyRoster`]).
+    #[cfg(test)]
     #[inline]
     pub(super) fn spec(self) -> EnemyArchetypeSpec {
         archetype_spec(self)

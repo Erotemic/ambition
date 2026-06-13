@@ -6,7 +6,7 @@
 //! hand-rolling a slightly different mix of archetype tuning, aggressiveness,
 //! and per-actor jitter.
 
-use super::super::enemies::{EnemyArchetype, EnemyArchetypeSpec};
+use super::super::enemies::EnemyArchetypeSpec;
 use super::enemy_clusters::EnemyConfig;
 use super::variation::{five_f32s_from_seed, seed_from_id};
 use super::{CombatKit, HeldItem};
@@ -241,7 +241,10 @@ pub(super) fn dismounted_rider_brain_and_action_set(
     // the entity so the runtime dismount never re-reads the roster enum.
     let mut action_set = kit.to_action_set(held_item);
     if action_set.melee.is_none() {
-        action_set.melee = EnemyArchetype::PirateRaider.spec().melee_spec();
+        action_set.melee = super::super::enemies::spec_for_brain(
+            &crate::actor::EnemyBrain::Custom("pirate_raider".into()),
+        )
+        .melee_spec();
     }
 
     // If the dismounted rider still has a ranged held item, keep using a

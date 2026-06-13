@@ -22,9 +22,15 @@ Entry format:
 
 ## Open
 
+## 2026-06-13 Docs reference deleted RON-based levels
+- **Where:** docs/adr/0009 (the RON-room archaeology — fixed in this pass); likely other docs, since 0009's own "Consequences" implies RON-world-authoring docs still exist unswept
+- **Smell:** RON-shaped room/world levels were fully removed (LDtk is the only world source), but docs still describe them as if extant or as a live alternative. Jon's standing rule: a doc describing something that no longer exists is a smell — log it.
+- **Noticed while:** updating ADR 0009 during the Technique/Effects architecture discussion
+- **Suggested fix / size:** S — grep docs for old room-data / "RON room|world|manifest|level" mentions, archive or rewrite; consider a check_doc_links-style guard so doc drift fails loudly
+
 ## 2026-06-10 check_doc_links.py was already red before Stage 20
-- **Where:** docs/planning/player-ecs-bandaid-phase0.md, docs/planning/universal-brain-interface.md (engine_core/movement paths), dev/journals/lessons_learned.md (body_mode.rs -> body_mode/), docs/adr/0019 missing "## Current implications for agents" section
-- **Smell:** 8 broken local links + 1 missing section predate tonight's run — they reference files deleted in earlier refactor waves (ae::Player deletion, engine_core crate extraction). The checker isn't in CI so drift accumulates.
+- **Where:** docs/planning/universal-brain-interface.md (engine_core/movement paths), dev/journals/lessons_learned.md (body_mode.rs -> body_mode/), docs/adr/0019 missing "## Current implications for agents" section. (player-ecs-bandaid-phase0.md has since been deleted, so its breaks are moot.)
+- **Smell:** broken local links + 1 missing section predate Stage 20 — they reference files deleted in earlier refactor waves (ae::Player deletion, engine_core crate extraction). The checker isn't in CI so drift accumulates.
 - **Noticed while:** Stage 20 A3 (fixing the ~37 link breaks the bisection itself caused)
 - **Suggested fix / size:** S — update the stale links (or mark those plan docs archived in stale_docs_index.md) and add check_doc_links to CI
 
@@ -34,37 +40,6 @@ Entry format:
 - **Noticed while:** A1 menu equip inversion
 - **Suggested fix / size:** L — item registry keyed by id, roster authored content-side
 
-## 2026-06-10 EnemyConfig.archetype is the per-archetype tuning hub
-- **Where:** crates/ambition_sandbox/src/features/ecs/enemy_clusters.rs:49 + ~25 method-projection reads across actors/damage/mount/save_sync
-- **Smell:** the named EnemyArchetype enum is woven into the generic actor layer as its tuning provider; blocks moving the actor combat core into mechanics::combat
-- **Noticed while:** A2 kit extraction
-- **Suggested fix / size:** L — dissolve into capability components + tuning struct written at spawn (markers: CompositeSpawn, ChargeAttacker, respawn policy already exists)
-- **RESOLVED (sim side) 2026-06-11** (`6dc440b9`): EnemyTuning grew the full
-  per-frame vocabulary (speeds/ranges/damage + attack_cooldown_mult,
-  surface_walker, revives_in_place — the named comparisons became RON-authored
-  data); CombatCapabilities joined the enemy cluster view; every per-frame read
-  (EnemyMut tick + damage hook + render mapper) now consumes spawn-projected kit
-  data, guarded by architecture_boundaries_enemy_sim_reads_data_not_the_archetype_enum.
-  REMAINING (spawn side): the enum is still the spawn/construction vocabulary
-  (scratch ctor from_brain, spawn_actors, spawn_mounts composite fan-out,
-  brain_builders' ~20 spec-accessor reads). Next milestone: string-key the spawn
-  seam off the RON rows so the roster (enum + specs + brain-name table) can leave
-  the machinery lib for ambition_content.
-- **RESOLVED (persisted component) 2026-06-13** (Session 6): the DURABLE
-  `EnemyConfig` + the per-frame `EnemyMut` view are now archetype-free — the enum
-  was dropped from both (and from `ActorSpawnState`) and replaced by projected
-  generic kit data: `EnemyTuning` (numbers) + a new `EnemyBrainSpec` (brain
-  template + smash flags + provoke override) + the `CombatCapabilities`
-  component. The enum lives ONLY on the spawn-time `EnemyClusterSeed`. The two
-  runtime brain rebuilds that still re-derived from the enum on a live entity —
-  provoke-to-hostile (`aggression.rs`) and mount dissolution (`mount.rs`) — now
-  read `brain_spec`/`tuning` and the stored `CombatKit`. Guarded structurally by
-  `architecture_boundaries_enemy_config_is_archetype_free`. The roster
-  (`EnemyArchetype` + specs + RON) can now be lifted to `ambition_content`; the
-  only named runtime reference left in the lib is dismount's
-  `PirateRaider.melee_spec()` fallback (a pirate-mechanic constant, not a stored
-  read), to fold into that move.
-
 ## 2026-06-10 FeatureVisualKind::Sandbag variant in the generic kit
 - **Where:** crates/ambition_sandbox/src/mechanics/combat/events.rs (FeatureVisualKind)
 - **Smell:** a named-ish variant in kit vocabulary (excluded from the combat-kit guard word list)
@@ -72,10 +47,10 @@ Entry format:
 - **Suggested fix / size:** S — rename to TrainingDummy (touches LDtk/content mapping)
 
 ## 2026-06-10 BossAttackProfile brain enum carries named variants
-- **Where:** crates/ambition_sandbox/src/brain/boss_pattern.rs (GnuHandSlam, GnuAppleRain, OverfitVolley, EyeBeam, MinimaTrap, SaddlePoint, GradientCascade...)
-- **Smell:** the machinery brain enum names specific boss attacks; every new boss special grows a machinery enum. This forced boss attack_geometry to live in boss_encounter rather than the combat kit.
+- **Where:** crates/ambition_actor/src/brain/boss_pattern.rs (HandSlam, HeadDescent, MemorizedVolley, LockOnBeam, PitTrap, RotatingCross, MinionCascade...) — moved here from ambition_sandbox in Stage 20
+- **Smell:** the foundation brain enum names specific boss attacks; every new boss special grows a foundation enum. This forced boss attack_geometry to live in boss_encounter rather than the combat kit.
 - **Noticed while:** A2 stretch (combat-kit guard rejected boss_attack_geometry)
-- **Suggested fix / size:** M-L — replace variants with data-keyed attack profiles (string/interned id + spec struct), content registers specs
+- **Suggested fix / size:** M-L — replace variants with data-keyed attack profiles (string/interned id + spec struct), content registers specs. NOW the active target of the Technique/Effects framework design (2026-06-13).
 
 ## 2026-06-10 audio/music runtime interleaves game reads with playback machinery
 - **Where:** crates/ambition_sandbox/src/audio/runtime.rs (apply_encounter_music reads EncounterMusicRequest/RoomMusicRequest inline), music/mod.rs (UserSettings reads), environment.rs (player position reads)
@@ -92,27 +67,18 @@ Entry format:
 ## 2026-06-10 Special-attack EFFECTS consumers are half-vocabulary (post de-name)
 - **Where:** crates/ambition_sandbox/src/features/ecs/brain_effects.rs (spawn_gnu_apple_rain_from_special_messages, spawn_overfit_volley_from_special_messages, the LockOnBeam/PitTrap/RotatingCross/MinionCascade consumers); SpecialActionSpec doc comments in ambition_actor/src/brain/action_set.rs
 - **Smell:** the BossAttackProfile de-name (3e344d95) is honest at the key/schedule/geometry layers and at the spec-PARAMETER layer (DebrisRain{interval_s,spawn_speed,damage} etc. are RON-authored per boss), but the consumer implementations still bake content: apple art identity, "constants reused from the spec but baked here", gnu-named fns, spec docs claiming "GNU-ton boss:". Inconsistent grep threads (Jon's review caught this).
-- **Fix sketch / size:** M — lift the baked constants + projectile-art identity into the spec fields (RON), rename consumers to the vocabulary with a "first authored by gnu_ton" breadcrumb. NO generic effect-composition framework until a second boss authors one of these specials (knobs-when-use-cases-land). Verdict + discussion: doc 22 session 3.
+- **Fix sketch / size:** M — lift the baked constants + projectile-art identity into the spec fields (RON), rename consumers to the vocabulary with a "first authored by gnu_ton" breadcrumb. Verdict + discussion: doc 22 session 3.
 - **Noticed while:** Stage 22 boss_encounter core move (Jon pushed back on the rename)
+- **UPDATE 2026-06-13:** the original "no generic effect-composition framework until a second boss needs one" verdict is **superseded** — the engine-for-other-games north star greenlit a generalized `ambition_effects` crate (Technique → Effect → Combat layering). This smell + the BossAttackProfile enum above are now the active targets of that design.
+
+## 2026-06-11 Portal body transit has no exit push-out (NPCs stick in the exit wall)
+- **Where:** placement::transfer_step / transit.rs ~412
+- **Smell:** a transited body is placed at `pp::map_point(centroid)` — right at the exit FACE, with no push-out along the exit normal (the comment calls this deliberate: reversibility + "emerges right at the face"). The player clears the wall over the next frames via the exit-normal MIN_EXIT_SPEED floor + carve + collision. But GROUND ITEMS get an explicit `pos = exit.pos + exit.normal * portal_exit_clearance(...)` — bodies do NOT, so a body with low exit velocity or different collision resolution (the kernel NPC, "gets stuck in the wall sometimes when you portal him around") can emerge embedded and never get pushed clear.
+- **Noticed while:** portal body-transit review
+- **Suggested fix / size:** M — clamp body exit depth to at least `portal_exit_clearance` along the exit normal (preserve the along-surface offset), mirroring ground items. RISK: changes core transit placement for the player too and touches the "reversibility" property — own focused slice through replay_fixture_regression / scripted_gameplay, not folded into a visuals change. (Note the avoid-pushout rule: this is the sanctioned straddle-eviction exception.)
 
 ## Resolved
 
-(none yet)
-
-## Portal body transit has no exit push-out (NPCs can stick in the exit wall) — 2026-06-11
-`placement::transfer_step` places a transited body at `pp::map_point(centroid)`
-— right at the exit FACE, with NO push-out along the exit normal (the comment
-calls this deliberate: reversibility + "emerges right at the face"). The
-PLAYER clears the wall over the next frames via the exit-normal `MIN_EXIT_SPEED`
-floor + the carve + collision resolution. But GROUND ITEMS get an explicit
-`pos = exit.pos + exit.normal * portal_exit_clearance(half_extent, normal)`
-(transit.rs ~412) — bodies do NOT. So a body whose exit velocity is low or
-whose collision resolution differs (the kernel NPC, reported by Jon: "gets
-stuck in the wall sometimes when you portal him around") can emerge embedded
-and never get pushed clear → stuck.
-Likely fix: clamp the body exit depth to at least `portal_exit_clearance` along
-the exit normal (preserving the along-surface offset), mirroring ground items.
-RISK: changes core transit placement for the player too and touches the
-"reversibility" property — must go through the replay/differential fixtures
-(scripted_gameplay / replay_fixture_regression), so do it as its own focused
-slice, not folded into a visuals change.
+## 2026-06-10 EnemyConfig.archetype is the per-archetype tuning hub — RESOLVED 2026-06-13
+- **Was:** the named `EnemyArchetype` enum woven into the generic actor layer as its tuning provider; blocked moving the actor combat core into mechanics::combat.
+- **Resolved across three steps:** (1) sim-side reads projected to `EnemyTuning` + `CombatCapabilities` (`6dc440b9`, 2026-06-11); (2) the durable `EnemyConfig` + per-frame `EnemyMut` made archetype-free via a new `EnemyBrainSpec`, enum confined to the spawn-time seed (Session 6, 2026-06-13); (3) the whole roster lifted to `ambition_content` (`crates/ambition_content/src/enemy_roster.rs`) and the `EnemyArchetype` enum **deleted** — enemies now resolve by brain-key against an installed `EnemyRoster` holder. Guarded by `architecture_boundaries_enemy_config_is_archetype_free`. The lib names no enemy archetype.

@@ -435,3 +435,39 @@ lives*:
 Scope: cross-crate move + RON re-key (replay-sensitive — the brain-key→spec
 mapping must be preserved exactly) + ~40 enum-test-site relocations. A focused
 session. Gate replay every step.
+
+### Session 7d (2026-06-13, Fable) — lib production fully enum-free (2b.1 + last logic ref)
+
+Landed `9e2b3d8c` + `43b5861a` (replay bit-identical):
+- **2b.1**: re-keyed `enemy_archetypes.ron` by spawn brain key; `EnemyRoster`
+  gained `from_map`/`from_ron`; the embedded default parses the brain-keyed
+  registry with NO `EnemyArchetype` in the build. `archetype_data_key` returns
+  brain keys so the (test-only) enum→spec path still resolves.
+- Dismount's last enum logic ref → `spec_for_brain(Custom("pirate_raider"))`,
+  which made the enum→spec chain (`archetype_spec` / `archetype_data_key` /
+  `EnemyArchetype::spec()`) production-dead → now `#[cfg(test)]`-gated.
+
+**State: the machinery lib's production code (logic + resolution + embedded
+default) names `EnemyArchetype` NOWHERE.** The enum is a `#[cfg(test)]`/`pub`
+typed handle (definition + re-export + ~50 test sites). The architectural
+decoupling is complete; what remains is physical relocation.
+
+**Checkpoint 2b.3 — the relocation (fresh-session task; two real gotchas):**
+1. **Install ordering (runtime correctness!).** Content's plugin must
+   `install_enemy_roster(EnemyRoster::from_ron(CONTENT_RON))` BEFORE the first
+   room spawns an enemy. `install_enemy_roster` is first-write-wins, so if the
+   lib's embedded default is touched first (any spawn / `spec_for_brain`) the
+   override silently loses. Either (a) install in a `PreStartup`/early-startup
+   system ordered before room load, or (b) make the override settable-once but
+   checked lazily so first *install* wins regardless of first *read*. Verify
+   with a test that installs a divergent roster and asserts a spawn uses it.
+2. **Lib test fixture.** Moving the enum + RON to content breaks the lib's own
+   enemy-spawn tests (conversion_tests 28, spawn.rs 21, capability/parity/data
+   tests). Plan: move the roster-DATA tests (HP/aggro invariants, capability
+   parity) to content alongside the enum; for the lib MACHINERY tests
+   (spawn-attaches-brain, action-set derivation, dismount), add a tiny
+   brain-keyed test-fixture RON in the lib and switch them to brain-key strings
+   via `spec_for_brain` (drop the enum). Bump `EnemyArchetypeSpec` / `EnemyRoster`
+   / `install_enemy_roster` to `pub`.
+3. Add an `architecture_boundaries` guard: the machinery lib's production code
+   never names `EnemyArchetype` (exempt the relocated-away definition).

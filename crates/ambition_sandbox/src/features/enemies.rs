@@ -628,6 +628,27 @@ impl EnemyArchetype {
 
 /// Enemy physics/AI integration, operating directly on the authoritative
 /// ECS components through the [`EnemyMut`] view.
+fn enemy_attack_aabb_dir(pos: ae::Vec2, size: ae::Vec2, facing: f32, axis: ae::Vec2) -> ae::Aabb {
+    let horizontal = axis.x.abs() >= axis.y.abs();
+    if horizontal {
+        let side = if axis.x.abs() > 0.1 {
+            axis.x.signum()
+        } else {
+            facing
+        };
+        let center = pos + ae::Vec2::new(side * (size.x * 0.55 + 24.0), -4.0);
+        return ae::Aabb::new(center, ae::Vec2::new(34.0, 28.0));
+    }
+    if axis.y < 0.0 {
+        let half = ae::Vec2::new(16.0, 36.0);
+        let center = pos + ae::Vec2::new(0.0, -(size.y * 0.5 + half.y + 4.0));
+        return ae::Aabb::new(center, half);
+    }
+    let half = ae::Vec2::new(36.0, 20.0);
+    let center = pos + ae::Vec2::new(0.0, size.y * 0.5 + half.y - 2.0);
+    ae::Aabb::new(center, half)
+}
+
 impl<'a> EnemyMut<'a> {
     #[allow(clippy::too_many_arguments)]
     pub fn update(
@@ -956,24 +977,7 @@ impl<'a> EnemyMut<'a> {
     }
 
     pub fn attack_aabb_dir(&self, axis: ae::Vec2) -> ae::Aabb {
-        let horizontal = axis.x.abs() >= axis.y.abs();
-        if horizontal {
-            let side = if axis.x.abs() > 0.1 {
-                axis.x.signum()
-            } else {
-                self.kin.facing
-            };
-            let center = self.kin.pos + ae::Vec2::new(side * (self.kin.size.x * 0.55 + 24.0), -4.0);
-            return ae::Aabb::new(center, ae::Vec2::new(34.0, 28.0));
-        }
-        if axis.y < 0.0 {
-            let half = ae::Vec2::new(16.0, 36.0);
-            let center = self.kin.pos + ae::Vec2::new(0.0, -(self.kin.size.y * 0.5 + half.y + 4.0));
-            return ae::Aabb::new(center, half);
-        }
-        let half = ae::Vec2::new(36.0, 20.0);
-        let center = self.kin.pos + ae::Vec2::new(0.0, self.kin.size.y * 0.5 + half.y - 2.0);
-        ae::Aabb::new(center, half)
+        enemy_attack_aabb_dir(self.kin.pos, self.kin.size, self.kin.facing, axis)
     }
 
     pub fn begin_melee_attack(
@@ -1237,20 +1241,15 @@ mod enemy_archetype_data_tests {
     /// stop distance.
     #[test]
     fn pirate_heavy_stops_within_her_melee_reach() {
-        let mut enemy = crate::features::ecs::enemy_clusters::EnemyClusterSeed::new(
-            "pirate_heavy_reach_probe",
-            "Broadside Bess",
-            ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(36.0, 55.0)),
-            crate::actor::EnemyBrain::Custom("pirate_heavy".into()),
-            &[],
-        );
-        enemy.kin.facing = 1.0;
-        assert_eq!(enemy.config.archetype, EnemyArchetype::PirateHeavy);
-        let hitbox = enemy
-            .as_enemy_mut_for_test()
-            .attack_aabb_dir(ae::Vec2::new(1.0, 0.0));
-        let reach_edge = hitbox.center().x + hitbox.half_size().x - enemy.kin.pos.x;
-        let attack_range = enemy.config.archetype.attack_range();
+        let archetype = EnemyArchetype::PirateHeavy;
+        let authored_aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(36.0, 55.0));
+        let pos = authored_aabb.center();
+        let size = archetype
+            .default_size()
+            .unwrap_or_else(|| authored_aabb.half_size() * 2.0);
+        let hitbox = enemy_attack_aabb_dir(pos, size, 1.0, ae::Vec2::new(1.0, 0.0));
+        let reach_edge = hitbox.center().x + hitbox.half_size().x - pos.x;
+        let attack_range = archetype.attack_range();
         assert!(
             attack_range <= reach_edge,
             "PirateHeavy attack_range {attack_range} must stay within her swing far \

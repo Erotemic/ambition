@@ -506,7 +506,7 @@ mod conversion_tests {
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
         frame.desired_vel = ae::Vec2::new(enemy.config.archetype.chase_speed(), 0.0);
         for _ in 0..120 {
-            enemy.as_enemy_mut_for_test().update(
+            enemy.update_for_test(
                 &world,
                 player_pos,
                 FeatureCombatTuning::default(),
@@ -576,7 +576,7 @@ mod conversion_tests {
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
         frame.desired_vel = ae::Vec2::new(enemy.config.archetype.patrol_speed(), 0.0);
         for _ in 0..120 {
-            enemy.as_enemy_mut_for_test().update(
+            enemy.update_for_test(
                 &world,
                 player_pos_far,
                 FeatureCombatTuning::default(),

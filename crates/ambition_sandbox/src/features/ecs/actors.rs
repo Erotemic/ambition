@@ -14,16 +14,33 @@ fn shark_charge_crashed(
     charge_vec: ae::Vec2,
     previous_pos: ae::Vec2,
 ) -> bool {
+    shark_charge_crashed_parts(
+        em.caps,
+        em.status.alive,
+        em.kin.pos,
+        em.kin.vel,
+        em.config.tuning.chase_speed,
+        is_mounted,
+        charge_vec,
+        previous_pos,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn shark_charge_crashed_parts(
+    caps: &crate::mechanics::combat::CombatCapabilities,
+    alive: bool,
+    pos: ae::Vec2,
+    vel: ae::Vec2,
+    chase_speed: f32,
+    is_mounted: bool,
+    charge_vec: ae::Vec2,
+    previous_pos: ae::Vec2,
+) -> bool {
     !is_mounted
-        && em.caps.charge_crash_explodes
-        && em.status.alive
-        && shark_charge_crashed_geometry(
-            charge_vec,
-            em.kin.pos,
-            previous_pos,
-            em.kin.vel,
-            em.config.tuning.chase_speed,
-        )
+        && caps.charge_crash_explodes
+        && alive
+        && shark_charge_crashed_geometry(charge_vec, pos, previous_pos, vel, chase_speed)
 }
 
 /// True when a fast shark charge along EITHER axis was stopped dead by a wall:
@@ -1234,8 +1251,16 @@ mod tests {
         enemy.kin.vel = ae::Vec2::ZERO;
         enemy.status.alive = true;
         let charge_vec = ae::Vec2::new(enemy.config.tuning.chase_speed * 2.0, 0.0);
-        let em = enemy.as_enemy_mut_for_test();
-        assert!(shark_charge_crashed(&em, false, charge_vec, previous_pos));
+        assert!(shark_charge_crashed_parts(
+            &enemy.caps,
+            enemy.status.alive,
+            enemy.kin.pos,
+            enemy.kin.vel,
+            enemy.config.tuning.chase_speed,
+            false,
+            charge_vec,
+            previous_pos,
+        ));
     }
 
     #[test]
@@ -1247,13 +1272,25 @@ mod tests {
         enemy.status.alive = true;
         let chase_speed = enemy.config.tuning.chase_speed;
         let charge_vec = ae::Vec2::new(chase_speed * 2.0, 0.0);
-        let em = enemy.as_enemy_mut_for_test();
-        assert!(!shark_charge_crashed(&em, true, charge_vec, previous_pos));
-        assert!(!shark_charge_crashed(
-            &em,
+        assert!(!shark_charge_crashed_parts(
+            &enemy.caps,
+            enemy.status.alive,
+            enemy.kin.pos,
+            enemy.kin.vel,
+            chase_speed,
+            true,
+            charge_vec,
+            previous_pos,
+        ));
+        assert!(!shark_charge_crashed_parts(
+            &enemy.caps,
+            enemy.status.alive,
+            enemy.kin.pos,
+            enemy.kin.vel,
+            chase_speed,
             false,
             ae::Vec2::new(chase_speed, 0.0),
-            previous_pos
+            previous_pos,
         ));
     }
 }

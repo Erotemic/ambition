@@ -184,7 +184,18 @@ impl EnemyClusterSeed {
         }
     }
     #[cfg(test)]
-    pub fn as_enemy_mut_for_test(&mut self) -> EnemyMut<'_> {
+    #[allow(clippy::too_many_arguments)]
+    pub fn update_for_test(
+        &mut self,
+        world: &ae::World,
+        target_pos: ae::Vec2,
+        tuning: crate::mechanics::combat::FeatureCombatTuning,
+        nearest_neighbor: Option<ae::Vec2>,
+        dt: f32,
+        is_mounted: bool,
+        frame: crate::actor::control::ActorControlFrame,
+        gravity_sign: f32,
+    ) -> crate::actor::control::ActorControlFrame {
         EnemyMut {
             kin: &mut self.kin,
             status: &mut self.status,
@@ -194,6 +205,16 @@ impl EnemyClusterSeed {
             motion: &mut self.motion,
             caps: &self.caps,
         }
+        .update(
+            world,
+            target_pos,
+            tuning,
+            nearest_neighbor,
+            dt,
+            is_mounted,
+            frame,
+            gravity_sign,
+        )
     }
 
     /// The six authoritative components as a spawnable Bundle.

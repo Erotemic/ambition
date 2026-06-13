@@ -498,3 +498,33 @@ the enum + brain-name table + roster-DATA tests physically into
 convert the lib's ~50 machinery-test enum sites to brain-key strings. This is
 heavy test surgery for no production change (production already names the enum
 nowhere and embeds no enemy data) — deferred as low-priority.
+
+### Session 9 (2026-06-13, Fable) — EnemyArchetype enum DELETED; roster is pure data
+
+Jon asked whether the roster-test polish was worth it for codebase size — yes.
+Key finding: `EnemyArchetype` was entirely lib-internal + test/tooling-only
+(production named it nowhere). So rather than relocate the enum to content, it
+was DELETED outright (`6aabf9fa`, replay bit-identical, net -218 lines):
+- Gone: the 18-variant enum, `BRAIN_NAME_TO_ARCHETYPE`, `archetype_data_key`,
+  `from_brain`, `COMBAT_ALL`, `archetype_spec`, `EnemyArchetype::spec()`.
+- Tests are roster-string-keyed via `#[cfg(test)] test_spec(brain_key)` +
+  `COMBAT_BRAIN_KEYS` / `ALL_BRAIN_KEYS`; parity/capability/coverage tests use
+  `matches!(key, "…")` oracles. `make_enemy` simplified (no override hack).
+  Deleted the redundant `body_contact_damage_is_explicitly_opted_in` test
+  (subsumed by the parity test).
+
+The roster is now PURE brain-keyed data + the `EnemyArchetypeSpec` schema. No
+named enemy enum exists anywhere.
+
+**Remaining named-roster residual in the lib (test-only, drift-guarded):** a
+540-line `#[cfg(test)]` fixture RON (copy of content's) + 9 roster-DATA tests in
+`enemies.rs` that validate content's authored values against that fixture. To
+eliminate the duplicate fixture (the last size item): move the 9 data tests to
+content (they're string-keyed; assert on `EnemyArchetypeSpec` raw fields after
+parsing content's RON — needs `EnemyArchetypeSpec` bumped to `pub`), then
+replace the lib's full fixture with a small GENERIC roster ("test_smasher",
+"test_skirmisher", "test_composite", …) and re-key the lib's MACHINERY tests
+(spawn.rs / brain_builders / conversion collision) to it; then delete the
+540-line fixture + the drift guard. Larger (generic-fixture authoring +
+machinery-test re-key) for a test-only size win — lower priority than the enum
+deletion, which is done.

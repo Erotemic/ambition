@@ -395,3 +395,43 @@ the lib-test build masked it; the app gate caught it (reproduce-under-real-cfg).
   constant into content (or replace with a generic "dismount fallback melee" spec
   field). Add an architecture_boundaries guard: the machinery lib never names
   `EnemyArchetype`.
+
+### Session 7c (2026-06-13, Fable) — resolution inverted to an installable holder (2a done)
+
+Landed `2c65d963` (replay bit-identical). Production spec resolution now goes
+through `EnemyRoster { by_brain, fallback }` — `spec_for_brain` is a pure
+string lookup, so the `EnemyArchetype` enum is gone from the resolution path
+(only the embedded-default builder + tests still name it). `install_enemy_roster`
+(OnceLock override) is the seam content plugs into; the lib ships an embedded
+default (bundled RON + `BRAIN_NAME_TO_ARCHETYPE`) so it resolves standalone.
+Chosen as an installable global, NOT a Bevy `Resource`, because resolution is
+read from many non-system contexts (constructors, presentation sprite-binding,
+asset resolution) — threading `Res` would be a pervasive ripple (documented at
+the type).
+
+**Checkpoint 2b — the relocation (precise plan + the one real decision):**
+
+The blocker to fully evicting the enum: the lib's OWN tests + headless bin need
+a roster to spawn enemies. So the design decision is *where the embedded default
+lives*:
+- **Recommended:** re-key `enemy_archetypes.ron` by BRAIN KEY (`"medium_striker"`
+  not `"MediumStriker"`; add a reserved `"combatant"` fallback row). Then
+  `EnemyRoster::from_ron(&str)` parses a brain-keyed map directly — NO enum, NO
+  `BRAIN_NAME_TO_ARCHETYPE` needed to build it. The embedded default becomes
+  `from_ron(include_str!(bundled))`, fully enum-free. This makes the enum 100%
+  test/authoring-only in the lib, ready to move.
+- Then **relocate** to `ambition_content`: the enum (+ `COMBAT_ALL`,
+  `from_brain`, `archetype_data_key`), the brain-name table, the RON, and the
+  roster tests (conversion_tests invariants, parity, capability). Content's
+  plugin calls `install_enemy_roster(EnemyRoster::from_ron(MY_RON))` at startup.
+- The lib KEEPS: `EnemyArchetypeSpec` (bump to `pub`) + its projection methods,
+  the `EnemyRoster` holder + `from_ron` parser + install seam, and the generic
+  spawn machinery. For lib standalone tests, either (a) keep a tiny brain-keyed
+  test RON in the lib, or (b) move the enemy-spawn lib tests to content/app
+  where the roster is installed. (a) is simpler and keeps lib tests hermetic.
+- Add an `architecture_boundaries` guard: the machinery lib never names
+  `EnemyArchetype`.
+
+Scope: cross-crate move + RON re-key (replay-sensitive — the brain-key→spec
+mapping must be preserved exactly) + ~40 enum-test-site relocations. A focused
+session. Gate replay every step.

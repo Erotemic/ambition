@@ -18,11 +18,22 @@
    [`state.md`](state.md), the content-installed-roster pattern).
 
    Remaining backlog, by readiness:
-   - **Boss roster (next named-content target).** `boss_encounter` (~5k) + boss
-     specs are the next "named content out of core." Apply the enemy-roster
-     pattern: keep the generic boss-runtime + spec schema in the lib (or fold
-     into `ambition_actor`), move the named boss DATA + install seam into
-     `ambition_content`. Bosses are already actors (ADR 0016).
+   - **Boss roster (in progress).** Applying the enemy-roster pattern to the
+     boss named data. DONE: `boss_profiles.ron` (per-boss behavior/attacks/
+     rewards) is content-owned + installed into the lib's `BossProfileRegistry`
+     holder via `install_boss_roster()`; production lib embeds no boss behavior
+     data. KEY GOTCHA learned: bosses resolve EARLIER than enemies (at registry
+     population + content validation, not just spawn), so the install choke
+     point is `init_sandbox_resources` (every sim entry path flows through it),
+     not the content plugin's build. REMAINING: (a) move `boss_encounters/*.ron`
+     (the encounter specs — note this is a RUNTIME `std::fs` read via
+     `load_boss_specs_from_disk(CARGO_MANIFEST_DIR)`, replay-sensitive, unlike
+     the compile-time `boss_profiles.ron`); (b) de-dup the `roster.rs`
+     `BossSpecRoster` named spec constructors — they hardcode the same values as
+     `boss_encounters/*.ron` (test-pins, like the deleted `EnemyArchetype`).
+     The generic boss-runtime + `BossEncounterSpec`/`BossBehaviorProfile` schema
+     stay in the lib (or fold into `ambition_actor`). Bosses are already actors
+     (ADR 0016).
    - **Unified actor+brain crate (deferred carve).** Fold the boss runtime fully
      into `ambition_actor`, leaving only named boss data in content.
    - **`mechanics` crate extraction — verified HARD.** Needs ~15 dependency

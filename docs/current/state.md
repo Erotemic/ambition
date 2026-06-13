@@ -74,6 +74,13 @@ content. The reference implementation is the enemy roster:
   `enemy_archetypes.ron` and installs it at `AmbitionContentPlugin::build`
   (before any spawn system runs — install ordering is structural). A production
   lib build embeds no enemy data; resolution requires the content install.
+- The boss-behavior roster follows the same shape: `boss_profiles.ron` is
+  content-owned and installed into the lib's `BossProfileRegistry` holder
+  (`ambition_content::bosses::install_boss_roster`, called from
+  `app::init_sandbox_resources` — bosses resolve early, at registry population /
+  validation, so the install can't wait for the content plugin's build). The
+  boss *encounter* specs (`boss_encounters/*.ron`) + the `roster.rs` named
+  constructors are not yet moved (see `next.md`).
 - Apply the same shape to other named rosters before reaching for an enum +
   in-lib data table.
 

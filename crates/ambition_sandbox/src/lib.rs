@@ -52,6 +52,7 @@ pub mod dev;
 pub mod dialog;
 // Test-only (`#![cfg(test)]`): static arity lint for the Yarn dialogue commands.
 mod dialog_lint;
+pub mod effects;
 pub mod encounter;
 pub mod enemy_projectile;
 #[cfg(feature = "falling_sand")]

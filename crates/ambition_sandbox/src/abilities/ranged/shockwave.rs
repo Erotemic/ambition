@@ -21,10 +21,7 @@ use bevy::prelude::*;
 use crate::brain::action_set::SpecialActionSpec;
 use crate::brain::{ActionRequest, ActorActionMessage};
 use crate::engine_core as ae;
-use crate::features::{
-    ActorFaction, FeatureAabb, FeatureSimEntity, HeldItem, Hitbox, HitboxAnchor, HitboxHits,
-    HitboxLifetime,
-};
+use crate::features::{ActorFaction, FeatureAabb, FeatureSimEntity, HeldItem};
 use crate::input::ControlFrame;
 use crate::player::{BodyKinematics, PlayerEntity, PlayerMana, PrimaryPlayer};
 
@@ -123,21 +120,19 @@ pub fn spawn_shockwave_from_special_messages(
             // — nothing to anchor the slam to.
             continue;
         };
-        commands.spawn((
-            Hitbox {
-                owner: msg.actor,
-                source: faction,
-                anchor: HitboxAnchor::World { center },
+        crate::effects::spawn_damage_box(
+            &mut commands,
+            msg.actor,
+            faction,
+            center,
+            crate::effects::DamageBox {
                 half_extent: ae::Vec2::new(half_extent_x, half_extent_y),
                 damage,
-                knockback_strength: knockback,
+                knockback,
+                lifetime_s,
+                name: Some("Shockwave AOE"),
             },
-            HitboxLifetime {
-                remaining_s: lifetime_s,
-            },
-            HitboxHits::default(),
-            Name::new("Shockwave AOE"),
-        ));
+        );
     }
 }
 
@@ -145,6 +140,7 @@ pub fn spawn_shockwave_from_special_messages(
 mod tests {
     use super::*;
     use crate::abilities::test_support::spawn_primary_player_holding;
+    use crate::features::{Hitbox, HitboxAnchor};
 
     fn test_app() -> App {
         let mut app = App::new();

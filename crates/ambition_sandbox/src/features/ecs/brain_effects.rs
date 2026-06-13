@@ -29,7 +29,9 @@ use crate::enemy_projectile::EnemyProjectileSpawn;
 use crate::features::components::ActorFaction;
 use crate::features::ecs::actors::ActorRuntime;
 use crate::features::ecs::boss_clusters::BossClusterRef;
-use crate::features::ecs::hitbox::{Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime};
+// World-anchored damage boxes (pit-trap, rotating-cross) spawn via
+// `crate::effects::spawn_damage_box`; the `Hitbox` types are only needed by
+// this module's tests now (imported there).
 use crate::features::ecs::FeatureSimEntity;
 use crate::projectile::SpawnProjectile;
 use crate::time::feel::SandboxFeelTuning;
@@ -816,20 +818,19 @@ pub fn spawn_minima_trap_from_special_messages(
         let (hazard_duration_s, damage, hx, hy, spawn_minion) = params;
         let pit_center = player_pos.unwrap_or(boss.kin.pos);
 
-        commands.spawn((
-            Hitbox {
-                owner: entity,
-                source: ActorFaction::Boss,
-                anchor: HitboxAnchor::World { center: pit_center },
+        crate::effects::spawn_damage_box(
+            &mut commands,
+            entity,
+            ActorFaction::Boss,
+            pit_center,
+            crate::effects::DamageBox {
                 half_extent: ae::Vec2::new(hx, hy),
                 damage,
-                knockback_strength: MINIMA_TRAP_KNOCKBACK,
+                knockback: MINIMA_TRAP_KNOCKBACK,
+                lifetime_s: hazard_duration_s.max(0.05),
+                name: None,
             },
-            HitboxLifetime {
-                remaining_s: hazard_duration_s.max(0.05),
-            },
-            HitboxHits::default(),
-        ));
+        );
 
         if spawn_minion {
             let minion_id = format!(
@@ -966,27 +967,21 @@ pub fn spawn_saddle_point_from_special_messages(
             } else {
                 (arm_thickness, arm_length)
             };
-            commands
-                .spawn((
-                    Hitbox {
-                        owner: entity,
-                        source: ActorFaction::Boss,
-                        anchor: HitboxAnchor::World {
-                            center: boss.kin.pos,
-                        },
-                        half_extent: ae::Vec2::new(he_x, he_y),
-                        damage,
-                        knockback_strength: SADDLE_POINT_KNOCKBACK,
-                    },
-                    HitboxLifetime {
-                        // Lifetime > axis_period_s so the hitbox
-                        // doesn't expire mid-axis. We despawn it on
-                        // toggle or strike end.
-                        remaining_s: period * 2.0,
-                    },
-                    HitboxHits::default(),
-                ))
-                .id()
+            // Lifetime > axis_period_s so the hitbox doesn't expire
+            // mid-axis. We despawn it on toggle or strike end.
+            crate::effects::spawn_damage_box(
+                commands,
+                entity,
+                ActorFaction::Boss,
+                boss.kin.pos,
+                crate::effects::DamageBox {
+                    half_extent: ae::Vec2::new(he_x, he_y),
+                    damage,
+                    knockback: SADDLE_POINT_KNOCKBACK,
+                    lifetime_s: period * 2.0,
+                    name: None,
+                },
+            )
         };
 
         if !state.strike_active {
@@ -1123,6 +1118,7 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::features::ecs::hitbox::{Hitbox, HitboxAnchor};
     use crate::brain::{ActionSet, RangedActionSpec};
     use crate::enemy_projectile::test_support::enemy_projectile_bodies;
     use crate::enemy_projectile::EnemyProjectileState;

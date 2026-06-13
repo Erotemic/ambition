@@ -21,7 +21,7 @@
 use bevy::prelude::*;
 
 use crate::engine_core as ae;
-use crate::features::{ActorFaction, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime};
+use crate::features::{ActorFaction, HeldItem};
 use crate::input::ControlFrame;
 use crate::player::{BodyKinematics, PlayerEntity, PlayerMana, PrimaryPlayer};
 
@@ -101,23 +101,19 @@ pub fn fire_beam_system(
     }
     let aim = crate::items::pickup::held_shot_aim(&control, kin.facing);
     let (offset, half_extent) = beam_geometry(aim, kin.facing);
-    commands.spawn((
-        Hitbox {
-            owner: entity,
-            source: ActorFaction::Player,
-            anchor: HitboxAnchor::World {
-                center: kin.pos + offset,
-            },
+    crate::effects::spawn_damage_box(
+        &mut commands,
+        entity,
+        ActorFaction::Player,
+        kin.pos + offset,
+        crate::effects::DamageBox {
             half_extent,
             damage: BEAM_DAMAGE,
-            knockback_strength: BEAM_KNOCKBACK,
+            knockback: BEAM_KNOCKBACK,
+            lifetime_s: BEAM_LIFETIME_S,
+            name: Some("Focus Beam"),
         },
-        HitboxLifetime {
-            remaining_s: BEAM_LIFETIME_S,
-        },
-        HitboxHits::default(),
-        Name::new("Focus Beam"),
-    ));
+    );
     sfx.write(crate::audio::SfxMessage::Play {
         id: ambition_sfx::ids::WORLD_ROCK_HIT,
         pos: kin.pos,
@@ -127,6 +123,7 @@ pub fn fire_beam_system(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::features::{Hitbox, HitboxAnchor};
     use crate::abilities::test_support::spawn_primary_player_holding;
 
     fn test_app() -> App {

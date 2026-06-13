@@ -105,21 +105,19 @@ const EXPLODER_BLAST_LIFETIME_S: f32 = 0.14;
 /// doesn't chain), and the player's shield/parry can still negate it. `owner` is
 /// the dying mite (moot for ignore-self, since the blast never hits its own side).
 fn spawn_death_explosion(commands: &mut Commands, owner: Entity, pos: ae::Vec2) {
-    commands.spawn((
-        crate::features::Hitbox {
-            owner,
-            source: crate::features::ActorFaction::Enemy,
-            anchor: crate::features::HitboxAnchor::World { center: pos },
+    crate::effects::spawn_damage_box(
+        commands,
+        owner,
+        crate::features::ActorFaction::Enemy,
+        pos,
+        crate::effects::DamageBox {
             half_extent: ae::Vec2::splat(EXPLODER_BLAST_HALF),
             damage: EXPLODER_BLAST_DAMAGE,
-            knockback_strength: EXPLODER_BLAST_KNOCKBACK,
+            knockback: EXPLODER_BLAST_KNOCKBACK,
+            lifetime_s: EXPLODER_BLAST_LIFETIME_S,
+            name: Some("Exploding mite blast"),
         },
-        crate::features::HitboxLifetime {
-            remaining_s: EXPLODER_BLAST_LIFETIME_S,
-        },
-        crate::features::HitboxHits::default(),
-        bevy::prelude::Name::new("Exploding mite blast"),
-    ));
+    );
 }
 
 /// Lateral offset (px) each split offspring spawns from the parent's corpse.

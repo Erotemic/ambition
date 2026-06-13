@@ -525,12 +525,6 @@ impl EnemyArchetype {
         self.spec().is_aerial
     }
 
-    /// Brain template the spawn site instantiates for this archetype.
-    /// See [`EnemyBrainTemplate`].
-    pub(super) fn brain_template(self) -> EnemyBrainTemplate {
-        self.spec().brain_template
-    }
-
     /// Project the generic brain-construction inputs this archetype
     /// resolves to. Stored on the enemy config at spawn so the runtime
     /// brain rebuilds (provoke, dismount) reconstruct the brain from data
@@ -563,12 +557,6 @@ impl EnemyArchetype {
     /// Locomotion style for this archetype's `ActionSet.move_style`.
     pub(super) fn move_style(self) -> crate::brain::MoveStyleSpec {
         self.spec().move_style
-    }
-
-    /// Authored Smash-brain melee hit band, if any. `None` falls back to
-    /// the Smash config builder's default (see `smash_cfg_for_archetype`).
-    pub(super) fn smash_hit_band(self) -> Option<f32> {
-        self.spec().smash_hit_band
     }
 
     pub(crate) fn is_sandbag(self) -> bool {
@@ -1269,15 +1257,15 @@ mod enemy_archetype_data_tests {
     /// fallback).
     #[test]
     fn smash_hit_band_is_data_authored() {
-        assert_eq!(EnemyArchetype::MediumStriker.smash_hit_band(), Some(32.0));
-        assert_eq!(EnemyArchetype::SmallSkitter.smash_hit_band(), Some(32.0));
-        assert_eq!(EnemyArchetype::SmallLurker.smash_hit_band(), Some(32.0));
-        assert_eq!(EnemyArchetype::LargeBrute.smash_hit_band(), Some(48.0));
-        assert_eq!(EnemyArchetype::LargeColossus.smash_hit_band(), Some(48.0));
+        assert_eq!(EnemyArchetype::MediumStriker.spec().smash_hit_band,Some(32.0));
+        assert_eq!(EnemyArchetype::SmallSkitter.spec().smash_hit_band,Some(32.0));
+        assert_eq!(EnemyArchetype::SmallLurker.spec().smash_hit_band,Some(32.0));
+        assert_eq!(EnemyArchetype::LargeBrute.spec().smash_hit_band,Some(48.0));
+        assert_eq!(EnemyArchetype::LargeColossus.spec().smash_hit_band,Some(48.0));
         // 36px-default Smash archetypes omit the field on purpose.
-        assert_eq!(EnemyArchetype::Combatant.smash_hit_band(), None);
-        assert_eq!(EnemyArchetype::AggressiveSeeker.smash_hit_band(), None);
-        assert_eq!(EnemyArchetype::PirateRaider.smash_hit_band(), None);
+        assert_eq!(EnemyArchetype::Combatant.spec().smash_hit_band,None);
+        assert_eq!(EnemyArchetype::AggressiveSeeker.spec().smash_hit_band,None);
+        assert_eq!(EnemyArchetype::PirateRaider.spec().smash_hit_band,None);
     }
 
     #[test]

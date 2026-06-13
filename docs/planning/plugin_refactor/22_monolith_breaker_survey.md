@@ -311,3 +311,55 @@ persisted or per-frame names it anymore. The one named reference left in the
 lib's runtime path is dismount's `EnemyArchetype::PirateRaider.melee_spec()`
 fallback — a pirate-mechanic constant, not a stored-enum read; fold it into the
 content move.
+
+## Session 7 (2026-06-13, Fable) — enemy behaviors fully data-driven (roster-move prep)
+
+Jon chose "go straight to the content-crate move" (lift the enemy roster out of
+the machinery lib into `ambition_content`). The move requires the lib spawn path
+to stop naming `EnemyArchetype`; this session removed the last *behavioral*
+coupling.
+
+**Landed (`08d1afe0`), replay bit-identical:** the four behaviors still hardcoded
+as `match self { … }` arms on the enum — `attacks_player`,
+`body_contact_damage`, respawn cadence, and the smash/provoke brain flags —
+became authored `EnemyArchetypeSpec` fields (RON annotates only the exceptional
+rows; defaults cover the common case). The projection logic moved onto
+`impl EnemyArchetypeSpec`; the enum methods delegate to `self.spec().*`. A new
+parity test re-encodes the OLD identity formulas as the oracle and asserts every
+archetype's RON row reproduces them (guards the exotic rows replay never runs).
+
+**The enum is now a pure spawn-time RESOLUTION handle** — every projection is
+spec-driven; the only enum logic left is `from_brain` (brain-key string → enum)
+and the registry key. So `EnemyArchetype` could be replaced by the spec
+everywhere with no behavior change.
+
+**Remaining to actually move the roster (precise plan):**
+1. **String-key the spawn path (1B):** add `spec_for_brain(&EnemyBrain) ->
+   EnemyArchetypeSpec`; carry `EnemyArchetypeSpec` (not the enum) on
+   `EnemyClusterSeed`; convert the brain_builders kit fns
+   (`enemy_combat_kit_for_archetype` / `enemy_default_action_set` /
+   `held_item_for_archetype` / `mounted_rider_*`) to take `&EnemyArchetypeSpec`;
+   drive the composite fan-out (`spawn_mounts`) + `is_composite_spawn` off
+   `spec.composite_visual` instead of matching `PirateOnShark|PirateHeavyOnShark`.
+   After this the enum is vestigial (used only inside `from_brain`).
+   ~8 files (features/ecs/spawn*, brain_builders, mount, actors, visual mappers
+   in enemies.rs). Mechanical; gate replay.
+2. **Invert spec resolution to a Resource (2a):** the spec registry is a
+   `LazyLock` over embedded RON today, read by the free fn `archetype_spec()`
+   (callable from non-system contexts). Turn it into a lib-defined
+   `Resource<EnemyRoster>(HashMap<String, EnemyArchetypeSpec>)` populated at
+   startup; resolve specs from the resource in spawn systems (the
+   CharacterCatalog data-parameterized pattern). The non-system callers
+   (`EnemyClusterSeed::new`, any `BossBehaviorProfile` ctor) take the resolved
+   spec as a param.
+3. **Relocate (2b):** move the roster (`EnemyArchetype` enum +
+   `BRAIN_NAME_TO_ARCHETYPE` + the RON + the registry-population) and the named
+   composite fan-out into `ambition_content`; content's plugin inserts the
+   `EnemyRoster` resource at startup. The generic `EnemyArchetypeSpec` schema +
+   the generic spawn machinery stay in the lib. Fold dismount's lone
+   `EnemyArchetype::PirateRaider.melee_spec()` constant into the content move.
+   Add an architecture_boundaries guard: the lib never names `EnemyArchetype`.
+
+Gates every checkpoint: ambition_sandbox lib + architecture_boundaries +
+replay_fixture_regression (zero-divergence) + scripted_gameplay +
+build --features visible.

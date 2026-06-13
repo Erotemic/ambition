@@ -8,8 +8,8 @@ use super::brain_builders::{
     enemy_default_action_set, enemy_default_combat_kit, held_item_for_archetype,
     mounted_rider_brain_and_action_set, skirmisher_brain_for_enemy,
 };
+use super::spawn_actors::EnemyActorSpawnPlan;
 use super::*;
-use bevy::prelude::Name;
 
 /// Fan a composite "X on Shark" spawn into a mount entity + a rider
 /// entity. Both are spawned at the authored position; the per-tick
@@ -141,53 +141,30 @@ pub(super) fn spawn_composite_mount_rider(
     // then attach the link components. The mount should keep the
     // orbiting aerial brain so the shark still changes height while
     // the rider stays visually welded to it.
-    let mount_facing = mount_enemy.kin.facing;
     let mount_brain = skirmisher_brain_for_enemy(&mount_enemy.config);
     let mount_action_set = enemy_default_action_set(&mount_enemy.config);
     let mount_combat_kit = enemy_default_combat_kit(&mount_enemy.config);
-    let mount_actor = ActorRuntime::Enemy;
-    let (m_identity, m_disposition, m_health, m_combat, m_intent, m_cooldowns) =
-        enemy_component_snapshot(&mount_enemy);
-    let mount_cluster_bundle = mount_enemy.into_components();
     let mount_feature_aabb = FeatureAabb::from_aabb(mount_aabb);
-    let mount_entity = commands
-        .spawn((
-            Name::new(format!("Feature actor mount: {mount_name}")),
-            EnemyActorBundle::new(
-                FeatureBaseBundle::new(&mount_id, &mount_name, mount_feature_aabb),
-                m_identity,
-                m_disposition,
-                super::ActorFaction::Enemy,
-                ActorPose::from_parts(
-                    mount_feature_aabb.center,
-                    mount_feature_aabb.half_size,
-                    mount_facing,
-                ),
-                mount_combat_kit,
-                super::ActorAggression::hostile_to_player(),
-                m_health,
-                m_combat,
-                m_intent,
-                m_cooldowns,
-            ),
-            mount_actor,
-            mount_cluster_bundle,
-            mount_brain,
-            mount_action_set,
-            crate::brain::ActorControl::default(),
-            super::Mountable { rider_offset },
-            super::MountSlot::default(),
-        ))
-        .id();
+    let mount_entity = EnemyActorSpawnPlan::hostile(
+        format!("Feature actor mount: {mount_name}"),
+        mount_id.clone(),
+        mount_name.clone(),
+        mount_feature_aabb,
+        mount_enemy,
+    )
+    .with_brain(mount_brain)
+    .with_action_set(mount_action_set)
+    .with_combat_kit(mount_combat_kit)
+    .without_held_item()
+    .spawn(commands);
+    commands.entity(mount_entity).insert((
+        super::Mountable { rider_offset },
+        super::MountSlot::default(),
+    ));
 
     // Rider-side bundles, with the RidingOn link pointing at the
     // mount we just spawned.
-    let rider_facing = rider_enemy.kin.facing;
     let rider_combat_kit = enemy_default_combat_kit(&rider_enemy.config);
-    let rider_actor = ActorRuntime::Enemy;
-    let (r_identity, r_disposition, r_health, r_combat, r_intent, r_cooldowns) =
-        enemy_component_snapshot(&rider_enemy);
-    let rider_cluster_bundle = rider_enemy.into_components();
     let rider_feature_aabb = FeatureAabb::from_aabb(rider_aabb);
     // Cache the mounted brain on the rider so the same-room reset
     // path can restore it after a mount-death-then-reset cycle
@@ -197,44 +174,26 @@ pub(super) fn spawn_composite_mount_rider(
         brain: rider_brain.clone(),
         action_set: rider_action_set.clone(),
     };
-    let rider_entity = commands
-        .spawn((
-            Name::new(format!("Feature actor rider: {rider_variant_name}")),
-            EnemyActorBundle::new(
-                FeatureBaseBundle::new(&rider_id, &rider_variant_name, rider_feature_aabb),
-                r_identity,
-                r_disposition,
-                super::ActorFaction::Enemy,
-                ActorPose::from_parts(
-                    rider_feature_aabb.center,
-                    rider_feature_aabb.half_size,
-                    rider_facing,
-                ),
-                rider_combat_kit,
-                super::ActorAggression::hostile_to_player(),
-                r_health,
-                r_combat,
-                r_intent,
-                r_cooldowns,
-            ),
-            rider_actor,
-            rider_cluster_bundle,
-            rider_brain,
-            rider_action_set,
-            crate::brain::ActorControl::default(),
-            mounted_brain_cache,
-            super::Mounted,
-            super::MountedSize(mounted_size),
-            super::RidingOn {
-                mount: mount_entity,
-            },
-        ))
-        .id();
-    if let Some(item) = rider_held_item {
-        commands
-            .entity(rider_entity)
-            .insert(super::HeldItem::new(item));
-    }
+    let rider_entity = EnemyActorSpawnPlan::hostile(
+        format!("Feature actor rider: {rider_variant_name}"),
+        rider_id.clone(),
+        rider_variant_name.clone(),
+        rider_feature_aabb,
+        rider_enemy,
+    )
+    .with_brain(rider_brain)
+    .with_action_set(rider_action_set)
+    .with_combat_kit(rider_combat_kit)
+    .with_held_item(rider_held_item)
+    .spawn(commands);
+    commands.entity(rider_entity).insert((
+        mounted_brain_cache,
+        super::Mounted,
+        super::MountedSize(mounted_size),
+        super::RidingOn {
+            mount: mount_entity,
+        },
+    ));
 
     // Wire MountSlot.rider on the mount so death-side dissolution
     // can reach back from mount → rider.

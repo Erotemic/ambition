@@ -559,3 +559,20 @@ perform proofs in a way that manifests into the real world.
 
 * Proof by contradiction is an ability
 * Proof by contradiction is an ability
+
+Enemy idea:
+
+* Stochastic Parrot
+
+Also:
+
+* Curse of dimensionality is a debuff
+
+
+The player will need to navigate the bias variance tradeoff.
+
+We might travel to Cantors world of infinities and encounter set theoretic paradoxes
+
+There is a barber who shaves everyone in town who doesn't shave themself.
+
+There are excluded middles

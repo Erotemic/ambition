@@ -532,3 +532,30 @@ boss? Probably need to watch CCWH #17.
 Yuclid might be a boss who really hates when you go through portals (breaks
 Eucliean space rules is the joke), maybe a topologist comes to help you, to
 teach you to cut and stitch the manifolds.
+
+---
+
+Event idea:
+SOLDIER! That RESOURCE is only meant to be used ONLY FOR XYZ.
+
+Does it cause harm to use it? No. 
+Does it cause help to use it? Yes.
+
+Everything is arguable. Rigidity is put above the well being of others. This is
+going to be a source of conflict in the game.
+
+Maybe there is a character in the military faction and we help them on the
+mental journey of realizing that the world is full of conflicting rigid rules
+and humans spend a great deal of energy determining which ones they are going
+to follow and which they are going to ignore. Some spend a great deal of energy
+in following all of the rules. That could be a funny absurd general thing. They
+have awards for performing contradictory things. Maybe you defeat the general
+via proof by contradiction. Oh I like that idea.
+
+Harness the power of truth, which is why "god" enters the game, and you have to
+fight different "gods". We are going to have different regions believe in
+different gods for sure. Harnessing the power of truth gives you the ability to
+perform proofs in a way that manifests into the real world.
+
+* Proof by contradiction is an ability
+* Proof by contradiction is an ability

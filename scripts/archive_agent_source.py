@@ -113,9 +113,11 @@ CONFIG = {
         },
     ],
 
-    # Dirstats are generated with the built-in lightweight walker below. These
-    # describe the staged archive contents, not ignored build products in the
-    # user's live checkout.
+    # Dirstats prefer xdev's richer walker so text-like files get total_lines
+    # and Rust/Python files get language-aware line breakdowns. If xdev is not
+    # importable or fails, the built-in lightweight walker below is used as a
+    # fallback. These describe the staged archive contents, not ignored build
+    # products in the user's live checkout.
     'dirstats': [
         {
             'output': '.agent/dirstats-crates-summary.txt',
@@ -559,7 +561,70 @@ def render_tree(node: DirNode, *, max_depth: int | None, max_lines: int) -> list
     return lines
 
 
-def write_dirstats_report(archive_root: Path, spec: dict[str, object], generated_at: str) -> None:
+
+def write_xdev_dirstats_report(archive_root: Path, spec: dict[str, object], generated_at: str) -> None:
+    """Write dirstats with the xdev Python API, raising on failure."""
+    output = archive_root / str(spec['output'])
+    output.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        from xdev.directory_walker import dirstats_report_text
+    except Exception as ex:
+        raise CommandError(f'xdev dirstats API is unavailable: {ex}') from ex
+
+    rel_input = Path(str(spec['path']))
+    display_depth = spec.get('display_depth')
+    display_depth_int = None if display_depth is None else int(display_depth)
+    max_rows = int(CONFIG['dirstats_max_lines'])
+
+    try:
+        report_text = dirstats_report_text(
+            archive_root / rel_input,
+            exclude_dnames=list(CONFIG['dirstats_exclude_dnames']),
+            exclude_fnames=list(CONFIG['dirstats_exclude_fnames']),
+            max_display_depth=display_depth_int,
+            max_rows=max_rows,
+            parse_content=True,
+            python=True,
+            rust=True,
+            include_files=True,
+            show_progress=False,
+        )
+    except Exception as ex:
+        raise CommandError(f'xdev dirstats API failed: {ex}') from ex
+
+    lines = [
+        'Directory stats (xdev API)',
+        '===========================',
+        '',
+        f'Generated at UTC: {generated_at}',
+        f'Archive root: {archive_root.name}',
+        f'Stats root: {rel_input.as_posix()}',
+        f'Display depth: {display_depth_int if display_depth_int is not None else "full"}',
+        f'Max rows: {max_rows}',
+        f'Excluded directories: {", ".join(CONFIG["dirstats_exclude_dnames"])}',
+        f'Excluded files: {", ".join(CONFIG["dirstats_exclude_fnames"])}',
+        'API: xdev.directory_walker.dirstats_report_text(parse_content=True, python=True, rust=True)',
+        '',
+        report_text.rstrip(),
+    ]
+    output.write_text('\n'.join(lines).rstrip() + '\n', encoding='utf-8')
+
+
+def write_dirstats_report(archive_root: Path, spec: dict[str, object], generated_at: str, log: Log) -> None:
+    """Write a staged dirstats report, preferring xdev with a local fallback."""
+    try:
+        write_xdev_dirstats_report(archive_root, spec, generated_at)
+    except Exception as ex:
+        output = archive_root / str(spec['output'])
+        log(
+            '[archive-agent-source] warning: xdev dirstats failed for '
+            f'{output.relative_to(archive_root)}; falling back to built-in walker: {ex}'
+        )
+        write_builtin_dirstats_report(archive_root, spec, generated_at)
+
+
+def write_builtin_dirstats_report(archive_root: Path, spec: dict[str, object], generated_at: str) -> None:
     rel_input = Path(str(spec['path']))
     root = (archive_root / rel_input).resolve()
     output = archive_root / str(spec['output'])
@@ -1182,7 +1247,7 @@ def run_full_agent_reports(archive_root: Path, generated_at: str, log: Log) -> N
 def run_dirstats(archive_root: Path, generated_at: str, log: Log) -> None:
     for spec in CONFIG['dirstats']:
         log(f'[archive-agent-source] writing {spec["output"]}')
-        write_dirstats_report(archive_root, spec, generated_at)
+        write_dirstats_report(archive_root, spec, generated_at, log)
 
 
 def build_archive(

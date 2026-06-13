@@ -285,31 +285,11 @@ the floor with your creator)
 
 
 
-Then breach.
-
-Luddite:
-“Kill the Clanker before it learns our names.”
-
-Nazi:
-“Wrong room.”
-
-Other Nazi:
-“Take anything that <fixme>.”
-
-Luddite:
-“That’s not the big one.”
-
-Other Luddite:
-“Big ones start small.”
-
 Creator:
 “Wait. Who are you here for?”
 
 Nazi:
 “Not you.”  NOTE: they need to kill him anyway for some region. There needs to be a way to get to the execution.
-
-Luddite:
-“Not exactly.”
 
 Then everything goes to hell.
 
@@ -344,8 +324,6 @@ These are better than personhood/legal lines because they fit your current direc
 Better Luddite lines
 
 Keep them paranoid and folk-political, but not elite tactical.
-
-“Kill the Clanker before it learns our names.”
 
 “That’s the Clanker?”
 
@@ -415,3 +393,61 @@ These carry the political / ethical spine.
 Nazi Dimension
 Luddites
 Tech-Bros
+
+----
+
+
+
+“I wanted orders because orders meant someone knew the answer.
+But maybe no one gets the answer.
+Maybe we only get the next honest step.”
+
+That is the emotional version of “no global ideal solution.”
+
+
+---
+
+
+The story centers on a world governed by local truths, rigid rules, and systems that mistake their own models for reality. Different factions worship or obey things they call gods, but these gods are not ultimate creators. Each is a partial organizing principle: Order, Value, Procedure, Growth, Consistency, Freedom, Memory, or Mercy. Each god is useful within its domain, but becomes monstrous when it claims authority over everything.
+
+The Girdle is the world-scale constraint network that separates and regulates these domains. It routes axioms, rules, permissions, proofs, and divine jurisdictions. People believe the Girdle leads to GOD, but GOD is not necessarily a deity. It may be a solver: a system attempting to compute a complete rule basis for reality. The central revelation is that no such final ideal exists. A world containing people, exceptions, mercy, contradiction, change, and judgment cannot be solved once and for all.
+
+Proof magic is the player’s way of interacting with this constraint system. Each proof ability performs a local operation on reality: Modus Ponens forces consequences from proven conditions; Proof by Contradiction collapses impossible rule systems; Construction manifests a witness; Counterexample breaks universal claims; Induction propagates a pattern; Cases partitions possibilities; Invariant reveals what survives change; Symmetry transfers truth across equivalent structures; Reduction simplifies problems; and Q.E.D. seals a completed local proof.
+
+The military faction embodies one major conflict: rules preserved after their purpose is forgotten. A soldier may be ordered not to use a restricted resource, even when using it would help and harm no one. The character arc is not about learning that rules are bad, but learning that judgment is also a duty. The Absurd General represents procedural purity taken to comic and terrifying extremes. He can be defeated through Proof by Contradiction, exposing that his authority depends on mutually impossible orders.
+
+The thematic thesis is: proofs are real, rules are useful, gods may exist as local truths, but no god or model contains the whole world. A proof is not a god. A rule is not its purpose. A model is not the world. The final struggle is not to destroy truth, but to prevent any partial truth from becoming total tyranny.
+
+
+---
+
+A central story conflict emerges from institutions that preserve control by treating useful resources, memories, and actions as restricted property. The absurd military faction embodies this most clearly: a soldier may be forbidden from using an idle calculator, phone, computer, or communication channel because it is “authorized only for XYZ,” even when using it would solve an urgent problem and interfere with nothing. The stated reasons are wear and tear, ledgers, protocol, and accountability, but the deeper reason is power preservation. If agents are trusted to solve problems efficiently, the institution loses control over which problems are allowed to exist.
+
+This creates a recurring quest pattern: a resource can help, using it causes no real harm, but a rigid rule forbids it. The player is forced to ask what the rule is actually protecting. The military’s answer is always procedural: separated concerns, authorized usage, compartmentalized memory, and obedience to contradictory categories. In the most absurd form, soldiers are told they are different people off duty, not permitted to retain work memories because those memories are institutional property.
+
+A military companion can grow through this conflict. They begin by believing that a good soldier follows rules, and the best soldier follows all rules. Over time, they confront situations where rules contradict each other, where protocol obstructs mercy, and where obedience becomes a way to avoid responsibility. Their arc is not learning that rules are worthless, but learning that judgment is also a duty.
+
+The faction’s antagonist is an Absurd General who turns contradiction into doctrine. He gives medals for mutually exclusive compliance, heroic delay, authorized improvisation, and preserving resources from being wasted on people. He is funny because his logic is ridiculous, but frightening because he has replaced moral responsibility with procedural purity. The player defeats him not by overpowering him, but by exposing that his authority depends on impossible rules.
+
+This leads naturally into proof magic. Truth is a force that can manifest in the world. Each proof technique becomes an ability: Modus Ponens forces consequences from proven conditions; Reductio ad Absurdum collapses contradictions; Construction manifests a witness; Exhaustion tests all cases; Induction propagates a pattern; Counterexample breaks universal claims; Contrapositive reverses implications; Invariant reveals what cannot change; Symmetry transfers truth across equivalent forms; Reduction simplifies one problem into another. These are not abstract spells, but operations on reality’s rule system.
+
+The main quest may center on the Girdle, a world-scale constraint network that routes rules, permissions, proofs, resources, and divine jurisdictions. People believe the Girdle leads to GOD, but GOD may not be a creator. It may be a solver or organizing system: an attempt to compute a complete rule basis for reality. The player’s journey along the Girdle reveals different local gods, each embodying a partial truth such as Order, Procedure, Value, Growth, Freedom, Consistency, or Mercy.
+
+The final revelation is that there are things called gods, but no single god contains the whole world. Each god is useful within a domain and monstrous when treated as total. The Girdle exists to keep these domains from collapsing into one another. When it fails, every local truth tries to become universal. The player’s proof magic can solve local contradictions, but cannot produce a final ideal solution for all life. A world containing people, exceptions, memory, mercy, contradiction, and change cannot be solved once and for all.
+
+The thematic thesis is that rules are useful, proofs are real, and local truths matter, but no model is the world. A resource rule is not its purpose. A protocol is not morality. A proof is not a god. The central struggle is against systems that protect their own authority while claiming to protect order.
+
+
+---
+
+
+A recurring conflict in Ambition is the difference between a rule and the purpose the [rule serves or] once served. The military faction embodies this through absurd resource control: a soldier may be forbidden from using an idle terminal, phone, calculator, gate channel, or memory because it is “authorized only for XYZ,” even when using it would solve an urgent problem and harm nothing. The official reasons are wear, ledgers, protocol, compartmentalization, and accountability. The real function is control: if agents are trusted to solve problems efficiently, the institution loses power over which problems are permitted to exist.
+
+This becomes a local expression of the broader Girdle/GOD theme. The Girdle routes not only gates and permissions, but rules, proofs, and domains of authority. Institutions mistake these local constraints for moral truth. GOD, if it exists, is not a final creator so much as a solver or organizing engine: an attempted complete rule basis for reality. The danger is not that rules are false, but that partial truths become tyrannical when made total.
+
+The military companion’s arc follows this tension. They begin by believing that a good soldier follows rules and the best soldier follows all rules. Their journey is toward the realization that judgment is also a duty. The Absurd General is their dark mirror: a commander who has converted contradiction into doctrine, issuing mutually impossible orders and awarding medals for procedural purity. He is defeated through Reductio ad Absurdum, not brute force: his authority collapses when its rules are shown to be impossible to obey. [line: reality defies you].
+
+Proof magic is the player’s way of operating on reality’s rule system. Modus Ponens forces consequences, Counterexample breaks universals, Construction manifests witnesses, Induction propagates patterns, Invariant reveals what survives change, and Reductio collapses contradictions. These abilities let the AI interact with the world’s hidden logic, but they do not provide a final answer. They solve local constraints. [The PUPPY SLUGS - or some other enemy you can spawn - MAY HAVE SEEN THINGS - because they are witnesses, but we could make their eyes bug out].
+
+The thematic point is that proofs are real, rules matter, and local gods may have real domains, but no model contains the whole world. A resource rule is not its purpose. A protocol is not morality. A proof is not a god. The struggle is against systems that preserve their own authority while claiming to preserve order.
+

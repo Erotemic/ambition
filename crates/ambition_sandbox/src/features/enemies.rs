@@ -415,11 +415,87 @@ static ENEMY_ARCHETYPE_REGISTRY: std::sync::LazyLock<
     })
 });
 
-/// Resolve the authored spec for a spawn `EnemyBrain` payload (the
-/// string-keyed roster lookup). The `EnemyArchetype` enum is an internal
-/// resolution hop; the spawn path holds the returned spec, not the enum.
+/// The installed enemy roster: a brain-key → spec table plus the fallback
+/// spec used for unknown brain keys and non-`Custom` brains. This is the
+/// spawn path's only resolution surface and it is **roster-enum-free** — a
+/// pure string lookup, so the named `EnemyArchetype` enum / RON / brain-name
+/// table can be owned and installed by the content layer.
+///
+/// Held as an installable global (not a Bevy `Resource`) because spec
+/// resolution is read from many non-system contexts — plain constructors
+/// (`EnemyClusterSeed::new`), presentation sprite-binding
+/// (`presentation::rendering::world`), and asset resolution
+/// (`assets::game_assets`) — where threading `Res<EnemyRoster>` would be a
+/// pervasive, ugly ripple. The content layer installs the real table at
+/// startup via [`install_enemy_roster`]; the lib ships an embedded default
+/// (built from the bundled RON) so lib tests and the headless bin resolve
+/// standalone.
+#[derive(Clone, Debug)]
+pub struct EnemyRoster {
+    by_brain: std::collections::HashMap<String, EnemyArchetypeSpec>,
+    fallback: EnemyArchetypeSpec,
+}
+
+impl EnemyRoster {
+    /// Build a roster from a brain-key → spec table and the fallback spec
+    /// (resolved for any unknown brain key, mirroring `from_brain`'s
+    /// `Combatant` default).
+    pub(crate) fn new(
+        by_brain: std::collections::HashMap<String, EnemyArchetypeSpec>,
+        fallback: EnemyArchetypeSpec,
+    ) -> Self {
+        Self { by_brain, fallback }
+    }
+
+    /// Resolve the authored spec for a spawn `EnemyBrain` payload by its
+    /// `Custom("…")` brain key, falling back to the roster's default for an
+    /// unknown key or a non-`Custom` brain.
+    pub(crate) fn spec_for_brain(&self, brain: &crate::actor::EnemyBrain) -> EnemyArchetypeSpec {
+        let key = match brain {
+            crate::actor::EnemyBrain::Custom(name) => name.as_str(),
+            _ => "",
+        };
+        self.by_brain
+            .get(key)
+            .cloned()
+            .unwrap_or_else(|| self.fallback.clone())
+    }
+}
+
+/// The lib's embedded default roster, derived from the bundled RON +
+/// `BRAIN_NAME_TO_ARCHETYPE`. Reproduces `from_brain` exactly: every brain
+/// key maps to its archetype's spec, unknown keys fall back to `Combatant`.
+static EMBEDDED_ENEMY_ROSTER: std::sync::LazyLock<EnemyRoster> = std::sync::LazyLock::new(|| {
+    let by_brain = BRAIN_NAME_TO_ARCHETYPE
+        .iter()
+        .map(|(brain_key, arch)| (brain_key.to_string(), archetype_spec(*arch)))
+        .collect();
+    EnemyRoster::new(by_brain, archetype_spec(EnemyArchetype::Combatant))
+});
+
+/// Content-installed roster override. Set once at startup; `None` falls back
+/// to the embedded default.
+static ENEMY_ROSTER_OVERRIDE: std::sync::OnceLock<EnemyRoster> = std::sync::OnceLock::new();
+
+/// Install the authored enemy roster (the content layer calls this at
+/// startup). Idempotent-ish: the first install wins; later calls are
+/// ignored, so tests / the embedded default can't be clobbered mid-run.
+#[allow(dead_code)] // Wired by the content plugin in the roster relocation (2b).
+pub(crate) fn install_enemy_roster(roster: EnemyRoster) {
+    let _ = ENEMY_ROSTER_OVERRIDE.set(roster);
+}
+
+fn enemy_roster() -> &'static EnemyRoster {
+    ENEMY_ROSTER_OVERRIDE
+        .get()
+        .unwrap_or_else(|| &EMBEDDED_ENEMY_ROSTER)
+}
+
+/// Resolve the authored spec for a spawn `EnemyBrain` payload — a pure
+/// string lookup against the installed [`EnemyRoster`]. The spawn path holds
+/// the returned spec; the roster enum never appears here.
 pub(crate) fn spec_for_brain(brain: &crate::actor::EnemyBrain) -> EnemyArchetypeSpec {
-    EnemyArchetype::from_brain(brain).spec()
+    enemy_roster().spec_for_brain(brain)
 }
 
 impl EnemyArchetypeSpec {
@@ -1075,6 +1151,44 @@ pub fn composite_visual_plan(payload: &crate::actor::EnemyBrain) -> Option<Compo
 #[cfg(test)]
 mod enemy_archetype_data_tests {
     use super::*;
+
+    /// The installable [`EnemyRoster`] holder resolves a known brain key to
+    /// its spec and falls back for an unknown / non-`Custom` brain, and the
+    /// lib's embedded default reproduces `from_brain` exactly (the
+    /// replay-identity guarantee for the resolution inversion). Built
+    /// locally so it doesn't touch the process-global override.
+    #[test]
+    fn enemy_roster_resolves_brain_keys_with_fallback() {
+        use crate::actor::EnemyBrain;
+        let mut by_brain = std::collections::HashMap::new();
+        by_brain.insert(
+            "pirate_heavy".to_string(),
+            archetype_spec(EnemyArchetype::PirateHeavy),
+        );
+        let roster = EnemyRoster::new(by_brain, archetype_spec(EnemyArchetype::Combatant));
+        // Known key → its spec (PirateHeavy is peaceful by default).
+        assert!(
+            !roster
+                .spec_for_brain(&EnemyBrain::Custom("pirate_heavy".into()))
+                .attacks_player
+        );
+        // Unknown key → fallback (Combatant is hostile).
+        assert!(
+            roster
+                .spec_for_brain(&EnemyBrain::Custom("does_not_exist".into()))
+                .attacks_player
+        );
+        // The embedded default that production resolution uses must agree
+        // with the legacy enum path for every authored brain key.
+        for (brain_key, arch) in BRAIN_NAME_TO_ARCHETYPE {
+            let brain = EnemyBrain::Custom((*brain_key).to_string());
+            assert_eq!(
+                spec_for_brain(&brain).max_health,
+                arch.spec().max_health,
+                "embedded roster disagrees with from_brain for {brain_key}"
+            );
+        }
+    }
 
     /// `assets/data/enemy_archetypes.ron` must carry a row for every
     /// `EnemyArchetype` variant the codebase knows about — otherwise

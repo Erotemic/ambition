@@ -63,6 +63,17 @@
 //                      held_item: Some("gun_sword"),
 //   move_style         Locomotion animation: Walk / WalkHeavy / Hop /
 //                      Strafe / Slither / Float.
+//   attacks_player     Hostile by default (tracks + damages). Default true;
+//                      false = peaceful until provoked (cove crew, wildlife).
+//   body_contact_damage  Body touch hurts the player. Default true; false for
+//                      sandbags + the composite shark (rider is the threat).
+//   respawn_on_rest    Defeated body needs a Rest to reappear (heavier
+//                      presences) vs refreshing every room re-entry. Default false.
+//   smash_heavy        Smash template uses the heavy base (longer reach,
+//                      slower chase). Default false; inert unless Smash.
+//   smash_dash_to_close  Smash template dashes to close a large gap (goblins).
+//   provoke_forced_brute_min_aggro  When provoked from peaceful, force an
+//                      aggressive MeleeBrute with at least this aggro radius.
 //
 // Shared baselines (kept in sync with `content/features.rs`):
 //   ENEMY_PATROL_SPEED = 105.0
@@ -216,6 +227,8 @@
         // yet — the rock just spawns from the goblin; sprite/feel is a handoff.
         ranged: Some(Rock(speed: 360.0, damage: 1)),
         smash_hit_band: Some(32.0),
+        // Goblins dash to close a large gap (richer action set).
+        smash_dash_to_close: true,
         move_style: Walk,
     ),
     "LargeBrute": (
@@ -228,6 +241,8 @@
         damage_amount: 2,
         // Lumbering heavy: attacks recover slower than the shared cooldown.
         attack_cooldown_mult: 1.35,
+        smash_heavy: true,
+        respawn_on_rest: true,
         brain_template: Smash,
         melee: Some(Lunge((
             windup_s: 0.45,
@@ -251,6 +266,8 @@
         attack_range: 240.0,
         contact_strength: 1.50,
         damage_amount: 3,
+        smash_heavy: true,
+        respawn_on_rest: true,
         brain_template: Smash,
         melee: Some(Lunge((
             windup_s: 0.45,
@@ -286,6 +303,7 @@
     "InfiniteSandbag": (
         max_health: 9999,
         never_dies: true,
+        body_contact_damage: false,
         patrol_speed: 105.0,
         chase_speed: 155.0,
         aggro_radius: 0.0,
@@ -306,6 +324,7 @@
     "FiniteSandbag": (
         max_health: 6,
         respawn_in_place_seconds: Some(0.85),
+        body_contact_damage: false,
         patrol_speed: 105.0,
         chase_speed: 155.0,
         aggro_radius: 0.0,
@@ -384,6 +403,8 @@
         )),
         max_health: 6,
         rider_max_health: Some(4),
+        body_contact_damage: false,
+        respawn_on_rest: true,
         patrol_speed: 110.0,
         chase_speed: 230.0,
         aggro_radius: 1200.0,
@@ -423,6 +444,12 @@
     // of falling back to a generic striker.
     "PirateHeavy": (
         max_health: 10,
+        // Peaceful cove crew until provoked; then forced into an
+        // aggressive MeleeBrute with a wide aggro radius.
+        attacks_player: false,
+        body_contact_damage: false,
+        respawn_on_rest: true,
+        provoke_forced_brute_min_aggro: Some(500.0),
         // attack_range is the stop-and-swing distance. PirateHeavy's
         // melee hitbox (attack_aabb_dir) reaches size.x*0.55+24+34 =
         // 97.6 px from her center, so against a ~14 px-half player she
@@ -460,6 +487,8 @@
         )),
         max_health: 7,
         rider_max_health: Some(6),
+        body_contact_damage: false,
+        respawn_on_rest: true,
         patrol_speed: 110.0,
         chase_speed: 215.0,
         aggro_radius: 1200.0,
@@ -489,6 +518,8 @@
     // hit" mode reads sensibly. Collider hugs the dorsal-ridge
     // silhouette of the 128×95 sprite (body bbox ~120×31).
     "PuppySlug": (
+        // Ambient wildlife: never aggros, but its body still hurts on touch.
+        attacks_player: false,
         // Deep-dream visual jitter seed (slug-only psychedelic pass).
         dream_seed: Some(0.271828),
         // Crawlid-style wall/ceiling crawler: hugs the surface normal and

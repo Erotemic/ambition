@@ -284,8 +284,42 @@ pub(super) struct EnemyArchetypeSpec {
     /// so a new Smash enemy is a data row, not a code edit.
     #[serde(default)]
     pub smash_hit_band: Option<f32>,
+    /// Smash-template heavy base: longer reach + slower chase
+    /// (`SmashCfg::BRUTE_DEFAULT`) vs the lighter striker default. Inert
+    /// unless `brain_template` is `Smash`.
+    #[serde(default)]
+    pub smash_heavy: bool,
+    /// Smash-template dash-to-close: a richer action set that dashes to
+    /// close a large gap (goblins). Inert unless `brain_template` is `Smash`.
+    #[serde(default)]
+    pub smash_dash_to_close: bool,
+    /// When provoked from peaceful, force an aggressive MeleeBrute brain
+    /// with at least this aggro radius (cove PirateHeavy crew). `None` =
+    /// use the template's default aggressive brain.
+    #[serde(default)]
+    pub provoke_forced_brute_min_aggro: Option<f32>,
+    /// Hostile by default: actively tracks the player and publishes contact
+    /// damage. Peaceful patrollers (cove crew, ambient wildlife) set false
+    /// and stay dormant until a system explicitly provokes them.
+    #[serde(default = "default_true")]
+    pub attacks_player: bool,
+    /// Body touch hurts the player. Sandbags and the composite shark
+    /// (whose rider is the threat) opt out; the peaceful cove crew also
+    /// stay non-damaging until provoked.
+    #[serde(default = "default_true")]
+    pub body_contact_damage: bool,
+    /// Defeated body takes a Rest to reappear (heavier mini-boss-tier
+    /// presences) instead of refreshing on every room re-entry.
+    #[serde(default)]
+    pub respawn_on_rest: bool,
     /// Locomotion style for the actor's `ActionSet.move_style`.
     pub move_style: crate::brain::MoveStyleSpec,
+}
+
+/// Serde default for the `bool` spec fields that are true for the common
+/// case (`attacks_player`, `body_contact_damage`).
+fn default_true() -> bool {
+    true
 }
 
 /// Glue: `Option<ae::Vec2>` deserializes from a `(x, y)` tuple in RON
@@ -381,6 +415,72 @@ static ENEMY_ARCHETYPE_REGISTRY: std::sync::LazyLock<
     })
 });
 
+impl EnemyArchetypeSpec {
+    /// Project the generic brain-construction inputs (kit vocabulary) the
+    /// runtime brain rebuilds reconstruct without naming the roster.
+    pub(super) fn brain_spec(&self) -> crate::mechanics::combat::EnemyBrainSpec {
+        crate::mechanics::combat::EnemyBrainSpec {
+            template: self.brain_template,
+            smash_hit_band: self.smash_hit_band.unwrap_or(36.0),
+            smash_heavy: self.smash_heavy,
+            smash_dash_to_close: self.smash_dash_to_close,
+            provoke_forced_brute_min_aggro: self.provoke_forced_brute_min_aggro,
+        }
+    }
+
+    /// Authored held item resolved against the held-item registry.
+    pub(super) fn held_item_spec(&self) -> Option<crate::brain::HeldItemSpec> {
+        self.held_item
+            .as_deref()
+            .and_then(crate::brain::held_item_by_id)
+    }
+
+    /// Default respawn cadence: heavier presences take a Rest, the rest
+    /// refresh on every room re-entry.
+    pub(super) fn respawn_policy(&self) -> EnemyRespawnPolicy {
+        if self.respawn_on_rest {
+            EnemyRespawnPolicy::OnRest
+        } else {
+            EnemyRespawnPolicy::OnRoomReenter
+        }
+    }
+
+    /// Project the per-frame runtime tuning carried on `EnemyConfig.tuning`.
+    pub(crate) fn tuning(&self) -> crate::mechanics::combat::EnemyTuning {
+        crate::mechanics::combat::EnemyTuning {
+            max_health: self.max_health,
+            patrol_speed: self.patrol_speed,
+            chase_speed: self.chase_speed,
+            aggro_radius: self.aggro_radius,
+            attack_range: self.attack_range,
+            contact_strength: self.contact_strength,
+            damage_amount: self.damage_amount,
+            attack_cooldown_mult: self.attack_cooldown_mult,
+            attacks_player: self.attacks_player,
+            surface_walker: self.surface_walker,
+            // Self-revive loop = the authored respawn-in-place timer exists.
+            revives_in_place: self.respawn_in_place_seconds.is_some(),
+            is_aerial: self.is_aerial,
+            is_sandbag: self.is_sandbag,
+            body_contact_damage: self.body_contact_damage,
+            dream_seed: self.dream_seed,
+        }
+    }
+
+    /// Project the authored capability flags into the combat kit.
+    pub(crate) fn combat_capabilities(&self) -> crate::mechanics::combat::CombatCapabilities {
+        crate::mechanics::combat::CombatCapabilities {
+            explodes_on_death: self.explodes_on_death,
+            divides_on_death: self.divides_on_death,
+            charge_crash_explodes: self.charge_crash_explodes,
+            never_dies: self.never_dies,
+            respawn_in_place_seconds: self.respawn_in_place_seconds,
+            respawn_policy: self.respawn_policy(),
+            drops_held_item: self.held_item_spec(),
+        }
+    }
+}
+
 impl EnemyArchetype {
     /// All combat-capable archetypes in a stable order. Useful for
     /// tests / tooling that want to iterate every variant; the
@@ -438,18 +538,7 @@ impl EnemyArchetype {
     /// template is `Smash`; the provoke override only fires on a
     /// peaceful→hostile flip.
     pub(super) fn brain_spec(self) -> crate::mechanics::combat::EnemyBrainSpec {
-        use EnemyArchetype::*;
-        crate::mechanics::combat::EnemyBrainSpec {
-            template: self.brain_template(),
-            smash_hit_band: self.smash_hit_band().unwrap_or(36.0),
-            smash_heavy: matches!(self, LargeBrute | LargeColossus),
-            smash_dash_to_close: matches!(self, MediumStriker),
-            provoke_forced_brute_min_aggro: if matches!(self, PirateHeavy) {
-                Some(500.0)
-            } else {
-                None
-            },
-        }
+        self.spec().brain_spec()
     }
 
     /// Concrete melee spec this archetype's `ActionSet` carries at
@@ -468,10 +557,7 @@ impl EnemyArchetype {
     /// hostility: a peaceful NPC can carry a weapon that becomes active only
     /// if another system provokes them.
     pub(super) fn held_item_spec(self) -> Option<crate::brain::HeldItemSpec> {
-        self.spec()
-            .held_item
-            .as_deref()
-            .and_then(crate::brain::held_item_by_id)
+        self.spec().held_item_spec()
     }
 
     /// Locomotion style for this archetype's `ActionSet.move_style`.
@@ -494,40 +580,12 @@ impl EnemyArchetype {
     /// value carried on `EnemyConfig.tuning` — the per-frame loops read
     /// that instead of calling back into this named enum.
     pub(crate) fn tuning(self) -> crate::mechanics::combat::EnemyTuning {
-        let spec = self.spec();
-        crate::mechanics::combat::EnemyTuning {
-            max_health: spec.max_health,
-            patrol_speed: spec.patrol_speed,
-            chase_speed: spec.chase_speed,
-            aggro_radius: spec.aggro_radius,
-            attack_range: spec.attack_range,
-            contact_strength: spec.contact_strength,
-            damage_amount: spec.damage_amount,
-            attack_cooldown_mult: spec.attack_cooldown_mult,
-            attacks_player: self.attacks_player(),
-            surface_walker: spec.surface_walker,
-            // Self-revive loop = the authored respawn-in-place timer
-            // exists (finite training dummies).
-            revives_in_place: spec.respawn_in_place_seconds.is_some(),
-            is_aerial: spec.is_aerial,
-            is_sandbag: spec.is_sandbag,
-            body_contact_damage: self.body_contact_damage_enabled(),
-            dream_seed: spec.dream_seed,
-        }
+        self.spec().tuning()
     }
 
     /// Project this archetype's authored capability flags into the combat kit.
     pub(crate) fn combat_capabilities(self) -> crate::mechanics::combat::CombatCapabilities {
-        let spec = self.spec();
-        crate::mechanics::combat::CombatCapabilities {
-            explodes_on_death: spec.explodes_on_death,
-            divides_on_death: spec.divides_on_death,
-            charge_crash_explodes: spec.charge_crash_explodes,
-            never_dies: spec.never_dies,
-            respawn_in_place_seconds: spec.respawn_in_place_seconds,
-            respawn_policy: self.respawn_policy(),
-            drops_held_item: self.held_item_spec(),
-        }
+        self.spec().combat_capabilities()
     }
 
     pub(super) fn max_health(self) -> i32 {
@@ -568,8 +626,7 @@ impl EnemyArchetype {
     /// still carry dormant attack data so a separate explicit-hostile path can
     /// provoke it without changing its authored identity.
     pub fn attacks_player(self) -> bool {
-        use EnemyArchetype::*;
-        !matches!(self, PuppySlug | PirateHeavy)
+        self.spec().attacks_player
     }
 
     /// True when the archetype should publish a body-contact hazard
@@ -577,11 +634,7 @@ impl EnemyArchetype {
     /// peaceful cove crew do not emit touch damage unless a future
     /// mode explicitly opts them back in.
     pub fn body_contact_damage_enabled(self) -> bool {
-        use EnemyArchetype::*;
-        !matches!(
-            self,
-            InfiniteSandbag | FiniteSandbag | PirateOnShark | PirateHeavyOnShark
-        ) && (self.attacks_player() || self == PuppySlug)
+        self.spec().body_contact_damage
     }
 
     /// Default respawn cadence for this archetype. Grunts refresh
@@ -591,15 +644,7 @@ impl EnemyArchetype {
     /// and report OnRoomReenter as a stable default that the kill
     /// hook ignores anyway.
     pub fn respawn_policy(self) -> EnemyRespawnPolicy {
-        use EnemyArchetype::*;
-        match self {
-            Combatant | SmallSkitter | SmallLurker | MediumStriker | AggressiveSeeker
-            | PuppySlug | PirateRaider | BurningFlyingShark | InfiniteSandbag | FiniteSandbag
-            | ExplodingMite | DividingMite | RangedSkirmisher => EnemyRespawnPolicy::OnRoomReenter,
-            LargeBrute | LargeColossus | PirateHeavy | PirateOnShark | PirateHeavyOnShark => {
-                EnemyRespawnPolicy::OnRest
-            }
-        }
+        self.spec().respawn_policy()
     }
 }
 
@@ -1300,5 +1345,76 @@ mod capability_tests {
         // A plain combatant has no special capabilities.
         let base = EnemyArchetype::Combatant.combat_capabilities();
         assert_eq!(base, Default::default());
+    }
+
+    /// Parity net for the Session-6/7 data migration: the four behaviors
+    /// that used to be hardcoded `match self { … }` arms on the enum are now
+    /// authored RON fields (`attacks_player`, `body_contact_damage`,
+    /// `respawn_on_rest`, the smash/provoke flags). Re-encode the OLD
+    /// identity formulas here as the oracle and assert every archetype's
+    /// RON row reproduces them — replay only exercises the archetypes in the
+    /// fixture, so this guards the exotic rows (sandbags, mites, composites)
+    /// against a silent mis-migration.
+    #[test]
+    fn ron_derived_behaviors_match_the_legacy_identity_formulas() {
+        use super::EnemyRespawnPolicy;
+        use EnemyArchetype::*;
+        const ALL: &[EnemyArchetype] = &[
+            Combatant,
+            SmallSkitter,
+            SmallLurker,
+            MediumStriker,
+            LargeBrute,
+            LargeColossus,
+            AggressiveSeeker,
+            InfiniteSandbag,
+            FiniteSandbag,
+            PirateRaider,
+            BurningFlyingShark,
+            PirateOnShark,
+            PirateHeavy,
+            PirateHeavyOnShark,
+            PuppySlug,
+            ExplodingMite,
+            DividingMite,
+            RangedSkirmisher,
+        ];
+        for &a in ALL {
+            let attacks = !matches!(a, PuppySlug | PirateHeavy);
+            assert_eq!(a.attacks_player(), attacks, "{a:?} attacks_player");
+
+            let body = !matches!(
+                a,
+                InfiniteSandbag | FiniteSandbag | PirateOnShark | PirateHeavyOnShark
+            ) && (attacks || matches!(a, PuppySlug));
+            assert_eq!(a.body_contact_damage_enabled(), body, "{a:?} body_contact");
+
+            let policy = if matches!(
+                a,
+                LargeBrute | LargeColossus | PirateHeavy | PirateOnShark | PirateHeavyOnShark
+            ) {
+                EnemyRespawnPolicy::OnRest
+            } else {
+                EnemyRespawnPolicy::OnRoomReenter
+            };
+            assert_eq!(a.respawn_policy(), policy, "{a:?} respawn_policy");
+
+            let bs = a.brain_spec();
+            assert_eq!(
+                bs.smash_heavy,
+                matches!(a, LargeBrute | LargeColossus),
+                "{a:?} smash_heavy"
+            );
+            assert_eq!(
+                bs.smash_dash_to_close,
+                matches!(a, MediumStriker),
+                "{a:?} smash_dash_to_close"
+            );
+            assert_eq!(
+                bs.provoke_forced_brute_min_aggro,
+                if matches!(a, PirateHeavy) { Some(500.0) } else { None },
+                "{a:?} provoke_forced_brute_min_aggro"
+            );
+        }
     }
 }

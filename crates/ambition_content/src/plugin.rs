@@ -22,6 +22,12 @@ pub struct AmbitionContentPlugin;
 
 impl Plugin for AmbitionContentPlugin {
     fn build(&self, app: &mut App) {
+        // Install the named enemy roster into the machinery lib BEFORE any
+        // spawn system runs (plugin build precedes all systems), so every
+        // enemy spawn resolves against this authored data, not the lib's
+        // standalone fallback.
+        super::enemy_roster::install();
+
         app.add_plugins(super::quests::AmbitionQuestContentPlugin);
         app.add_plugins(super::bosses::AmbitionBossContentPlugin);
         app.add_plugins(super::dialogue::AmbitionDialogueContentPlugin);

@@ -113,8 +113,9 @@ pub use ecs::{
     SaddlePointState,
 };
 pub use enemies::{
-    composite_visual_plan, enemy_visual_kind, ActorSpawnState, ActorSurfaceState,
-    CompositeVisualPlan, EnemyArchetype, EnemyRespawnPolicy, ENEMY_DEAD_UNTIL_REST_SUFFIX,
+    composite_visual_plan, enemy_visual_kind, install_enemy_roster, ActorSpawnState,
+    ActorSurfaceState, CompositeVisualPlan, EnemyArchetype, EnemyRespawnPolicy, EnemyRoster,
+    ENEMY_DEAD_UNTIL_REST_SUFFIX,
 };
 pub use events::{
     ActorStimulus, FeatureCombatTuning, FeatureView, FeatureVisualKind, GameplayBanner,

@@ -23,6 +23,9 @@ pub mod dialogue;
 // the rest of this content module becomes the `ambition_content`
 // crate. Re-exported here so `content::features` paths keep working.
 pub use ambition_sandbox::features;
+/// The named enemy roster DATA, installed into the machinery lib at
+/// content-plugin build time.
+pub mod enemy_roster;
 pub mod intro;
 pub mod items;
 pub mod plugin;

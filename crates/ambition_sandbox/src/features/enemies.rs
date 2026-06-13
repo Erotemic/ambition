@@ -480,8 +480,7 @@ impl EnemyRoster {
 
     /// Parse a brain-keyed roster RON document — the content layer's entry
     /// point: `install_enemy_roster(EnemyRoster::from_ron(MY_RON))`.
-    #[allow(dead_code)] // Wired by the content plugin in the roster relocation (2b.3).
-    pub(crate) fn from_ron(ron: &str) -> Self {
+    pub fn from_ron(ron: &str) -> Self {
         let by_brain: std::collections::HashMap<String, EnemyArchetypeSpec> =
             ron::from_str(ron).unwrap_or_else(|err| {
                 panic!("enemy roster RON failed to deserialize: {err}")
@@ -502,11 +501,11 @@ static EMBEDDED_ENEMY_ROSTER: std::sync::LazyLock<EnemyRoster> =
 /// to the embedded default.
 static ENEMY_ROSTER_OVERRIDE: std::sync::OnceLock<EnemyRoster> = std::sync::OnceLock::new();
 
-/// Install the authored enemy roster (the content layer calls this at
-/// startup). Idempotent-ish: the first install wins; later calls are
-/// ignored, so tests / the embedded default can't be clobbered mid-run.
-#[allow(dead_code)] // Wired by the content plugin in the roster relocation (2b).
-pub(crate) fn install_enemy_roster(roster: EnemyRoster) {
+/// Install the authored enemy roster — the content layer calls this at
+/// plugin-build time (before any spawn system runs, so resolution never sees
+/// the embedded default). First install wins; later calls are ignored, so
+/// tests / the embedded default can't be clobbered mid-run.
+pub fn install_enemy_roster(roster: EnemyRoster) {
     let _ = ENEMY_ROSTER_OVERRIDE.set(roster);
 }
 

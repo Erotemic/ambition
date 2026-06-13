@@ -15,25 +15,14 @@
    Done this push: `menu` host → app; `ambition_actor` extracted; portal +
    portal-presentation crates; the **enemy roster** is now content-owned data
    installed into a lib holder (no `EnemyArchetype` enum — see
-   [`state.md`](state.md), the content-installed-roster pattern).
+   [`state.md`](state.md), the content-installed-roster pattern); the **boss
+   roster** is now fully content-owned the same way — both `boss_profiles.ron`
+   AND `boss_encounters/*.ron` are embedded + installed by `install_boss_roster`
+   (from `init_sandbox_resources`, the early-resolution choke point), the old
+   runtime `std::fs` encounter-spec read is gone, and `roster.rs` collapsed to
+   the one in-lib generic `gradient_sentinel` base.
 
    Remaining backlog, by readiness:
-   - **Boss roster (in progress).** Applying the enemy-roster pattern to the
-     boss named data. DONE: `boss_profiles.ron` (per-boss behavior/attacks/
-     rewards) is content-owned + installed into the lib's `BossProfileRegistry`
-     holder via `install_boss_roster()`; production lib embeds no boss behavior
-     data. KEY GOTCHA learned: bosses resolve EARLIER than enemies (at registry
-     population + content validation, not just spawn), so the install choke
-     point is `init_sandbox_resources` (every sim entry path flows through it),
-     not the content plugin's build. REMAINING: (a) move `boss_encounters/*.ron`
-     (the encounter specs — note this is a RUNTIME `std::fs` read via
-     `load_boss_specs_from_disk(CARGO_MANIFEST_DIR)`, replay-sensitive, unlike
-     the compile-time `boss_profiles.ron`); (b) de-dup the `roster.rs`
-     `BossSpecRoster` named spec constructors — they hardcode the same values as
-     `boss_encounters/*.ron` (test-pins, like the deleted `EnemyArchetype`).
-     The generic boss-runtime + `BossEncounterSpec`/`BossBehaviorProfile` schema
-     stay in the lib (or fold into `ambition_actor`). Bosses are already actors
-     (ADR 0016).
    - **Unified actor+brain crate (deferred carve).** Fold the boss runtime fully
      into `ambition_actor`, leaving only named boss data in content.
    - **`mechanics` crate extraction — verified HARD.** Needs ~15 dependency

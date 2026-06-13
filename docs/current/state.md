@@ -74,13 +74,20 @@ content. The reference implementation is the enemy roster:
   `enemy_archetypes.ron` and installs it at `AmbitionContentPlugin::build`
   (before any spawn system runs — install ordering is structural). A production
   lib build embeds no enemy data; resolution requires the content install.
-- The boss-behavior roster follows the same shape: `boss_profiles.ron` is
-  content-owned and installed into the lib's `BossProfileRegistry` holder
-  (`ambition_content::bosses::install_boss_roster`, called from
-  `app::init_sandbox_resources` — bosses resolve early, at registry population /
-  validation, so the install can't wait for the content plugin's build). The
-  boss *encounter* specs (`boss_encounters/*.ron`) + the `roster.rs` named
-  constructors are not yet moved (see `next.md`).
+- The boss roster follows the same shape and is now **fully content-owned**.
+  Both `boss_profiles.ron` (per-boss behavior/attacks/rewards → the lib's
+  `BossProfileRegistry`) and `boss_encounters/*.ron` (per-boss encounter numbers
+  — HP / phase thresholds / timings / music → the lib's installed
+  `BossEncounterSpec` holder) are embedded and installed by
+  `ambition_content::bosses::install_boss_roster`, called from
+  `app::init_sandbox_resources`. Bosses resolve early (at registry population /
+  content validation, not just spawn), so the install choke point is
+  `init_sandbox_resources` — every sim entry path flows through it — not the
+  content plugin's build. A production lib build embeds no boss data; the old
+  runtime `std::fs` read of the source tree (broken in shipped binaries) is
+  gone. The lib keeps only the generic `BossEncounterSpec`/`BossBehaviorProfile`
+  schema and one in-lib `gradient_sentinel` base (the generic fallback
+  `BossProfile::generic` clones for an unknown boss id; it has no RON).
 - Apply the same shape to other named rosters before reaching for an enum +
   in-lib data table.
 

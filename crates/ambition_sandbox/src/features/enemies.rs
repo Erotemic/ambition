@@ -232,20 +232,20 @@ fn default_attack_cooldown_mult() -> f32 {
     1.0
 }
 
-/// Test fixture: the lib's bundled brain-keyed enemy RON, parsed so the lib's
-/// own unit tests + the `EnemyArchetype` tooling resolve standalone. The real,
-/// authored roster lives in `ambition_content`; in a production build this is
-/// absent and the binary embeds no enemy data.
+/// Test fixture for the lib's own unit tests: the AUTHORITATIVE roster lives in
+/// `ambition_content`, and the lib's tests validate the generic spawn machinery
+/// against that single source of truth by reading the same file at compile time
+/// (`#[cfg(test)]` only — a production lib build embeds no enemy data; content
+/// installs the roster via `install_enemy_roster`). The cross-crate include
+/// keeps one roster file instead of a guarded duplicate.
 #[cfg(test)]
 static ENEMY_ARCHETYPE_REGISTRY: std::sync::LazyLock<
     std::collections::HashMap<String, EnemyArchetypeSpec>,
 > = std::sync::LazyLock::new(|| {
-    const ENEMY_ARCHETYPES_RON: &str = include_str!("../../assets/data/enemy_archetypes.ron");
+    const ENEMY_ARCHETYPES_RON: &str =
+        include_str!("../../../ambition_content/assets/data/enemy_archetypes.ron");
     ron::from_str(ENEMY_ARCHETYPES_RON).unwrap_or_else(|err| {
-        panic!(
-            "assets/data/enemy_archetypes.ron failed to deserialize as HashMap<String, \
-             EnemyArchetypeSpec>: {err}"
-        )
+        panic!("ambition_content enemy_archetypes.ron failed to deserialize: {err}")
     })
 });
 

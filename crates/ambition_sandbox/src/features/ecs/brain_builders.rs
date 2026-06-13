@@ -6,7 +6,7 @@
 //! hand-rolling a slightly different mix of archetype tuning, aggressiveness,
 //! and per-actor jitter.
 
-use super::super::enemies::{EnemyArchetype, EnemyBrainTemplate};
+use super::super::enemies::EnemyArchetype;
 use super::enemy_clusters::EnemyConfig;
 use super::variation::{five_f32s_from_seed, seed_from_id};
 use super::{CombatKit, HeldItem};
@@ -15,6 +15,7 @@ use crate::brain::{
     SkirmisherState, SmashCfg, SmashState, SniperCfg, SniperState, StateMachineCfg, WandererCfg,
     WandererState,
 };
+use crate::mechanics::combat::{EnemyBrainSpec, EnemyBrainTemplate, EnemyTuning};
 
 /// Build the enemy's durable combat capability kit from archetype data.
 ///
@@ -29,10 +30,6 @@ pub(super) fn enemy_combat_kit_for_archetype(archetype: EnemyArchetype) -> Comba
     }
 }
 
-pub(super) fn enemy_default_combat_kit(enemy: &EnemyConfig) -> CombatKit {
-    enemy_combat_kit_for_archetype(enemy.archetype)
-}
-
 pub(super) fn action_set_from_combat_kit(
     kit: &CombatKit,
     held_item: Option<&HeldItem>,
@@ -45,10 +42,10 @@ pub(super) fn action_set_from_combat_kit(
 /// Reads `melee_spec()` / `ranged_spec()` / `move_style()` straight off the
 /// data-driven `EnemyArchetypeSpec` — every spec value (timings, damage,
 /// reach) lives in `enemy_archetypes.ron`. Adding a new archetype is a single
-/// RON row + a new `EnemyArchetype` enum variant.
-pub(super) fn enemy_default_action_set(enemy: &EnemyConfig) -> ActionSet {
-    let kit = enemy_default_combat_kit(enemy);
-    kit.to_action_set(enemy.archetype.held_item_spec().as_ref())
+/// RON row + a new `EnemyArchetype` enum variant. Spawn-time only: the roster
+/// enum is resolved on the spawn seed before the entity exists.
+pub(super) fn enemy_default_action_set(archetype: EnemyArchetype) -> ActionSet {
+    enemy_combat_kit_for_archetype(archetype).to_action_set(archetype.held_item_spec().as_ref())
 }
 fn apply_archetype_held_item(archetype: EnemyArchetype, actions: &mut ActionSet) {
     if let Some(item) = archetype.held_item_spec() {
@@ -62,20 +59,12 @@ pub(super) fn held_item_for_archetype(
     archetype.held_item_spec()
 }
 
-fn held_item_grants_ranged(archetype: EnemyArchetype) -> bool {
-    archetype
-        .held_item_spec()
-        .as_ref()
-        .is_some_and(|item| item.grants_ranged())
-}
-
 /// Build the enemy's default `Brain` from its archetype spec.
 ///
 /// Reads `brain_template()` off the consolidated `EnemyArchetypeSpec` so adding
 /// a new archetype is a single row, not a parallel match.
 pub(in crate::features) fn enemy_default_brain(enemy: &EnemyConfig) -> Brain {
-    let archetype = enemy.archetype;
-    match archetype.brain_template() {
+    match enemy.brain_spec.template {
         EnemyBrainTemplate::StandStill => Brain::StateMachine(StateMachineCfg::StandStill),
         EnemyBrainTemplate::Wanderer => Brain::StateMachine(StateMachineCfg::Wanderer {
             cfg: WandererCfg::PUPPY_SLUG_DEFAULT,
@@ -86,7 +75,7 @@ pub(in crate::features) fn enemy_default_brain(enemy: &EnemyConfig) -> Brain {
         EnemyBrainTemplate::Skirmisher => skirmisher_brain_for_enemy(enemy),
         EnemyBrainTemplate::Sniper => sniper_brain_for_enemy(enemy),
         EnemyBrainTemplate::Smash => Brain::StateMachine(StateMachineCfg::Smash {
-            cfg: smash_cfg_for_archetype(archetype),
+            cfg: smash_cfg_from_spec(&enemy.brain_spec, &enemy.tuning),
             state: SmashState {
                 rng_seed: seed_from_id(&enemy.id) as u64,
                 ..Default::default()
@@ -116,24 +105,24 @@ pub(super) fn aggressive_brain_and_action_set_for_enemy(
     // attacked instead of kited.
     if action_set.ranged.is_some() && action_set.melee.is_none() {
         return (
-            skirmisher_brain_from_archetype(&enemy.id, enemy.archetype, true),
+            skirmisher_brain_from_tuning(&enemy.id, &enemy.tuning, true),
             action_set,
         );
     }
 
-    if enemy.archetype == EnemyArchetype::PirateHeavy {
-        let brain = forced_hostile_melee_brute_brain(enemy, 500.0);
+    if let Some(min_aggro) = enemy.brain_spec.provoke_forced_brute_min_aggro {
+        let brain = forced_hostile_melee_brute_brain(enemy, min_aggro);
         return (brain, action_set);
     }
     (enemy_default_brain(enemy), action_set)
 }
 
 fn forced_hostile_melee_brute_brain(enemy: &EnemyConfig, min_aggro_radius: f32) -> Brain {
-    let archetype = enemy.archetype;
+    let t = &enemy.tuning;
     let jitters = five_f32s_from_seed(seed_from_id(&enemy.id));
-    let aggro_radius = archetype.aggro_radius().max(min_aggro_radius) * (0.9 + 0.2 * jitters.0);
-    let chase_speed = archetype.chase_speed() * (0.9 + 0.2 * jitters.1);
-    let attack_range = archetype.attack_range().max(56.0) * (0.95 + 0.1 * jitters.2);
+    let aggro_radius = t.aggro_radius.max(min_aggro_radius) * (0.9 + 0.2 * jitters.0);
+    let chase_speed = t.chase_speed * (0.9 + 0.2 * jitters.1);
+    let attack_range = t.attack_range.max(56.0) * (0.95 + 0.1 * jitters.2);
     Brain::StateMachine(StateMachineCfg::MeleeBrute {
         cfg: MeleeBruteCfg {
             aggressiveness: 1.0,
@@ -146,14 +135,14 @@ fn forced_hostile_melee_brute_brain(enemy: &EnemyConfig, min_aggro_radius: f32) 
 }
 
 pub(super) fn melee_brute_brain_for_enemy(enemy: &EnemyConfig) -> Brain {
-    let archetype = enemy.archetype;
+    let t = &enemy.tuning;
     let jitters = five_f32s_from_seed(seed_from_id(&enemy.id));
-    let aggro_radius = archetype.aggro_radius() * (0.8 + 0.4 * jitters.0);
-    let chase_speed = archetype.chase_speed() * (0.85 + 0.3 * jitters.1);
-    let attack_range = archetype.attack_range() * (0.9 + 0.2 * jitters.2);
+    let aggro_radius = t.aggro_radius * (0.8 + 0.4 * jitters.0);
+    let chase_speed = t.chase_speed * (0.85 + 0.3 * jitters.1);
+    let attack_range = t.attack_range * (0.9 + 0.2 * jitters.2);
     Brain::StateMachine(StateMachineCfg::MeleeBrute {
         cfg: MeleeBruteCfg {
-            aggressiveness: if archetype.attacks_player() { 1.0 } else { 0.0 },
+            aggressiveness: if t.attacks_player { 1.0 } else { 0.0 },
             aggro_radius,
             attack_range,
             chase_speed,
@@ -163,20 +152,19 @@ pub(super) fn melee_brute_brain_for_enemy(enemy: &EnemyConfig) -> Brain {
 }
 
 pub(super) fn skirmisher_brain_for_enemy(enemy: &EnemyConfig) -> Brain {
-    let archetype = enemy.archetype;
-    skirmisher_brain_from_archetype(&enemy.id, archetype, archetype.attacks_player())
+    skirmisher_brain_from_tuning(&enemy.id, &enemy.tuning, enemy.tuning.attacks_player)
 }
 
 fn sniper_brain_for_enemy(enemy: &EnemyConfig) -> Brain {
-    let archetype = enemy.archetype;
+    let t = &enemy.tuning;
     let jitters = five_f32s_from_seed(seed_from_id(&enemy.id));
     let base_cooldown_s = 1.5;
     let fire_cooldown_s = base_cooldown_s * (0.75 + 0.5 * jitters.0);
     let initial_cooldown_s = fire_cooldown_s * (0.3 + 0.7 * jitters.1);
     Brain::StateMachine(StateMachineCfg::Sniper {
         cfg: SniperCfg {
-            aggressiveness: if archetype.attacks_player() { 1.0 } else { 0.0 },
-            aggro_radius: archetype.aggro_radius(),
+            aggressiveness: if t.attacks_player { 1.0 } else { 0.0 },
+            aggro_radius: t.aggro_radius,
             fire_cooldown_s,
         },
         state: SniperState {
@@ -186,20 +174,20 @@ fn sniper_brain_for_enemy(enemy: &EnemyConfig) -> Brain {
 }
 
 fn shark_brain_for_enemy(enemy: &EnemyConfig) -> Brain {
-    let archetype = enemy.archetype;
+    let t = &enemy.tuning;
     let jitters = five_f32s_from_seed(seed_from_id(&enemy.id));
-    let aggro_radius = archetype.aggro_radius() * (0.85 + 0.3 * jitters.0);
-    let cruise_speed = archetype.chase_speed() * (0.85 + 0.25 * jitters.1);
+    let aggro_radius = t.aggro_radius * (0.85 + 0.3 * jitters.0);
+    let cruise_speed = t.chase_speed * (0.85 + 0.25 * jitters.1);
     let charge_speed = (cruise_speed * (2.0 + 0.4 * jitters.2)).max(360.0);
-    let bite_range = archetype.attack_range() * (0.85 + 0.15 * jitters.3);
+    let bite_range = t.attack_range * (0.85 + 0.15 * jitters.3);
     let charge_duration_s = 0.38 + 0.18 * jitters.4;
     let charge_cooldown_s = 0.75 + 0.55 * jitters.1;
-    let standoff_px = (archetype.attack_range() * 0.40).max(140.0) * (0.8 + 0.4 * jitters.2);
-    let vertical_wobble_px = (archetype.attack_range() * 0.12).max(20.0) * (0.8 + 0.4 * jitters.3);
+    let standoff_px = (t.attack_range * 0.40).max(140.0) * (0.8 + 0.4 * jitters.2);
+    let vertical_wobble_px = (t.attack_range * 0.12).max(20.0) * (0.8 + 0.4 * jitters.3);
     let orbit_drift_rad_s = 0.55 + 0.7 * jitters.4;
     Brain::StateMachine(StateMachineCfg::Shark {
         cfg: SharkCfg {
-            aggressiveness: if archetype.attacks_player() { 1.0 } else { 0.0 },
+            aggressiveness: if t.attacks_player { 1.0 } else { 0.0 },
             aggro_radius,
             cruise_speed,
             charge_speed,
@@ -227,7 +215,7 @@ pub(super) fn mounted_rider_brain_and_action_set(
     rider_archetype: EnemyArchetype,
     composite_archetype: EnemyArchetype,
 ) -> (Brain, ActionSet) {
-    let brain = skirmisher_brain_from_archetype(rider_id, composite_archetype, true);
+    let brain = skirmisher_brain_from_tuning(rider_id, &composite_archetype.tuning(), true);
     let mut action_set = ActionSet {
         melee: None,
         ranged: composite_archetype.ranged_spec(),
@@ -246,12 +234,14 @@ pub(super) fn mounted_rider_brain_and_action_set(
 /// installs an aggressive MeleeBrute brain plus a melee-only action set.
 pub(super) fn dismounted_rider_brain_and_action_set(
     rider: &EnemyConfig,
+    kit: &CombatKit,
     held_item: Option<&crate::brain::HeldItemSpec>,
 ) -> (Brain, ActionSet) {
-    let mut action_set = enemy_default_action_set(rider);
-    if let Some(item) = held_item {
-        item.apply_to_action_set(&mut action_set);
-    }
+    // Rebuild the rider's solo action set from its DURABLE stored combat
+    // kit (`innate_melee` / `innate_ranged` / `move_style`) plus its live
+    // held item — the same inputs the spawn projection used, queried off
+    // the entity so the runtime dismount never re-reads the roster enum.
+    let mut action_set = kit.to_action_set(held_item);
     if action_set.melee.is_none() {
         action_set.melee = EnemyArchetype::PirateRaider.melee_spec();
     }
@@ -260,39 +250,33 @@ pub(super) fn dismounted_rider_brain_and_action_set(
     // ranged-capable brain so the weapon remains live after the shark dies.
     // This preserves the item as the authority: remove / change the held item
     // in data and this path changes without another Rust branch.
-    let brain = if held_item.is_some_and(|item| item.grants_ranged())
-        || held_item_grants_ranged(rider.archetype)
-    {
-        skirmisher_brain_from_archetype(&rider.id, rider.archetype, true)
+    let brain = if held_item.is_some_and(|item| item.grants_ranged()) {
+        skirmisher_brain_from_tuning(&rider.id, &rider.tuning, true)
     } else {
         forced_hostile_melee_brute_brain(rider, 540.0)
     };
     (brain, action_set)
 }
 
-fn skirmisher_brain_from_archetype(
-    actor_id: &str,
-    archetype: EnemyArchetype,
-    force_hostile: bool,
-) -> Brain {
+fn skirmisher_brain_from_tuning(actor_id: &str, tuning: &EnemyTuning, force_hostile: bool) -> Brain {
     let jitters = five_f32s_from_seed(seed_from_id(actor_id));
     let base_cooldown_s = 1.5;
     let fire_cooldown_s = base_cooldown_s * (0.75 + 0.5 * jitters.0);
     let initial_cooldown_s = fire_cooldown_s * (0.3 + 0.7 * jitters.1);
-    let standoff_base = (archetype.attack_range() * 0.35).max(120.0);
+    let standoff_base = (tuning.attack_range * 0.35).max(120.0);
     let standoff_px = standoff_base * (0.8 + 0.4 * jitters.2);
     let orbit_phase = jitters.3 * std::f32::consts::TAU;
     let orbit_drift_rad_s = 0.4 + 0.8 * jitters.4;
     Brain::StateMachine(StateMachineCfg::Skirmisher {
         cfg: SkirmisherCfg {
-            aggressiveness: if force_hostile || archetype.attacks_player() {
+            aggressiveness: if force_hostile || tuning.attacks_player {
                 1.0
             } else {
                 0.0
             },
-            aggro_radius: archetype.aggro_radius(),
+            aggro_radius: tuning.aggro_radius,
             standoff_px,
-            strafe_speed: archetype.chase_speed(),
+            strafe_speed: tuning.chase_speed,
             fire_cooldown_s,
             orbit_drift_rad_s,
         },
@@ -315,20 +299,20 @@ fn skirmisher_brain_from_archetype(
 /// (~28 px); the brain needs to close to roughly `body_half_width +
 /// swing_reach` before emitting MeleeAttack, otherwise the windup fires from too
 /// far away and the player walks out of the active window.
-fn smash_cfg_for_archetype(arch: EnemyArchetype) -> SmashCfg {
-    use super::super::enemies::EnemyArchetype::*;
-    let base = match arch {
-        LargeBrute | LargeColossus => SmashCfg::BRUTE_DEFAULT,
-        _ => SmashCfg::STRIKER_DEFAULT,
+fn smash_cfg_from_spec(spec: &EnemyBrainSpec, tuning: &EnemyTuning) -> SmashCfg {
+    // Heavy vs striker base + per-archetype hit band + dash-to-close are
+    // projected onto `EnemyBrainSpec` at spawn (`smash_hit_band`,
+    // `smash_heavy`, `smash_dash_to_close`), so this builder reads generic
+    // data rather than matching the roster enum. The 36 px hit-band
+    // fallback lives in the projection.
+    let base = if spec.smash_heavy {
+        SmashCfg::BRUTE_DEFAULT
+    } else {
+        SmashCfg::STRIKER_DEFAULT
     };
-    // Per-archetype hit-band sizing now lives in `enemy_archetypes.ron`
-    // (`smash_hit_band`), so adding a Smash enemy is a data row rather
-    // than a new match arm (CharacterAI migration, #194). The 36px
-    // fallback preserves the legacy `_` bucket for any archetype whose
-    // row omits the field.
-    let hit_band = arch.smash_hit_band().unwrap_or(36.0);
+    let hit_band = spec.smash_hit_band;
     SmashCfg {
-        aggro_radius: arch.aggro_radius(),
+        aggro_radius: tuning.aggro_radius,
         attack_range: hit_band,
         // Engage band: the brain holds position once inside this radius even if
         // the swing is on cooldown. Slightly larger than `attack_range` so the
@@ -337,12 +321,12 @@ fn smash_cfg_for_archetype(arch: EnemyArchetype) -> SmashCfg {
         // Retreat threshold — well inside the hit band so a player dashing into
         // the goblin's space pushes it back rather than getting eaten.
         too_close_distance: (hit_band * 0.5).max(18.0),
-        chase_speed: arch.chase_speed(),
-        retreat_speed: arch.chase_speed() * 0.75,
+        chase_speed: tuning.chase_speed,
+        retreat_speed: tuning.chase_speed * 0.75,
         // Goblins dash to close a large gap (richer action set: melee +
         // ranged + dash + jump). Kept off for the other strikers so it
         // doesn't blanket-change every melee enemy's feel.
-        dash_to_close: matches!(arch, MediumStriker),
+        dash_to_close: spec.smash_dash_to_close,
         ..base
     }
 }
@@ -352,7 +336,7 @@ mod tests {
     use super::*;
     use crate::engine_core as ae;
 
-    fn enemy(brain_key: &str) -> EnemyConfig {
+    fn enemy(brain_key: &str) -> super::super::enemy_clusters::EnemyClusterSeed {
         super::super::enemy_clusters::EnemyClusterSeed::new(
             "e",
             "E",
@@ -360,7 +344,6 @@ mod tests {
             crate::actor::EnemyBrain::Custom(brain_key.into()),
             &[],
         )
-        .config
     }
 
     #[test]
@@ -370,7 +353,7 @@ mod tests {
         let e = enemy("medium_striker");
         assert!(
             matches!(
-                enemy_default_brain(&e),
+                enemy_default_brain(&e.config),
                 Brain::StateMachine(StateMachineCfg::Smash { .. })
             ),
             "medium_striker should default to a Smash brain"
@@ -382,7 +365,7 @@ mod tests {
         // The combat-kit -> action-set projection should yield a usable set
         // (the striker has a melee verb).
         let e = enemy("medium_striker");
-        let set = enemy_default_action_set(&e);
+        let set = enemy_default_action_set(e.archetype);
         assert!(set.melee.is_some(), "a striker should expose a melee verb");
     }
 
@@ -394,7 +377,7 @@ mod tests {
         // edit can't silently drop the ranged verb (which would revert goblins
         // to melee-only without any test noticing).
         let e = enemy("medium_striker");
-        let set = enemy_default_action_set(&e);
+        let set = enemy_default_action_set(e.archetype);
         assert!(
             matches!(
                 set.ranged,

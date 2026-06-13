@@ -50,6 +50,20 @@ Entry format:
   brain_builders' ~20 spec-accessor reads). Next milestone: string-key the spawn
   seam off the RON rows so the roster (enum + specs + brain-name table) can leave
   the machinery lib for ambition_content.
+- **RESOLVED (persisted component) 2026-06-13** (Session 6): the DURABLE
+  `EnemyConfig` + the per-frame `EnemyMut` view are now archetype-free — the enum
+  was dropped from both (and from `ActorSpawnState`) and replaced by projected
+  generic kit data: `EnemyTuning` (numbers) + a new `EnemyBrainSpec` (brain
+  template + smash flags + provoke override) + the `CombatCapabilities`
+  component. The enum lives ONLY on the spawn-time `EnemyClusterSeed`. The two
+  runtime brain rebuilds that still re-derived from the enum on a live entity —
+  provoke-to-hostile (`aggression.rs`) and mount dissolution (`mount.rs`) — now
+  read `brain_spec`/`tuning` and the stored `CombatKit`. Guarded structurally by
+  `architecture_boundaries_enemy_config_is_archetype_free`. The roster
+  (`EnemyArchetype` + specs + RON) can now be lifted to `ambition_content`; the
+  only named runtime reference left in the lib is dismount's
+  `PirateRaider.melee_spec()` fallback (a pirate-mechanic constant, not a stored
+  read), to fold into that move.
 
 ## 2026-06-10 FeatureVisualKind::Sandbag variant in the generic kit
 - **Where:** crates/ambition_sandbox/src/mechanics/combat/events.rs (FeatureVisualKind)

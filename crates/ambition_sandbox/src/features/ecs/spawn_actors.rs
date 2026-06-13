@@ -5,7 +5,7 @@
 //! `spawn_static.rs`; composite mount/rider fan-out lives in `spawn_mounts.rs`.
 
 use super::brain_builders::{
-    enemy_default_action_set, enemy_default_brain, enemy_default_combat_kit,
+    enemy_combat_kit_for_archetype, enemy_default_action_set, enemy_default_brain,
 };
 use super::*;
 use bevy::prelude::Name;
@@ -40,9 +40,9 @@ impl EnemyActorSpawnPlan {
         enemy: super::enemy_clusters::EnemyClusterSeed,
     ) -> Self {
         let brain = enemy_default_brain(&enemy.config);
-        let action_set = enemy_default_action_set(&enemy.config);
-        let combat_kit = enemy_default_combat_kit(&enemy.config);
-        let held_item = super::brain_builders::held_item_for_archetype(enemy.config.archetype);
+        let action_set = enemy_default_action_set(enemy.archetype);
+        let combat_kit = enemy_combat_kit_for_archetype(enemy.archetype);
+        let held_item = super::brain_builders::held_item_for_archetype(enemy.archetype);
         Self {
             entity_name: entity_name.into(),
             feature_id: feature_id.into(),
@@ -415,7 +415,6 @@ pub(crate) fn spawn_runtime_minion(
     let archetype = EnemyArchetype::from_brain(&brain);
     let mut enemy =
         super::enemy_clusters::EnemyClusterSeed::new(id.clone(), name.clone(), aabb, brain, &[]);
-    enemy.config.archetype = archetype;
     enemy.status.health = crate::actor::Health::new(archetype.max_health());
     // Boss-spawned minions shouldn't auto-respawn — they're part of
     // the encounter, not a static sandbag.
@@ -533,7 +532,6 @@ pub(super) fn spawn_encounter_mob(
     let aabb = ae::Aabb::new(pos, size * 0.5);
     let mut enemy =
         super::enemy_clusters::EnemyClusterSeed::new(id.clone(), id.clone(), aabb, brain, &[]);
-    enemy.config.archetype = archetype;
     enemy.status.health = crate::actor::Health::new(archetype.max_health());
     // Encounter mobs should not auto-respawn like training sandbags.
     enemy.status.respawn_timer = 999_999.0;

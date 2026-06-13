@@ -9,7 +9,7 @@
 //! - on_ground/normal/gravity/air_jumps → [`ActorSurfaceState`] (component)
 //! - attack windup/active/cooldown/axis → [`ActorAttackState`] (component)
 //! - alive/respawn/hit_flash/ai_mode/health → [`EnemyStatus`]
-//! - archetype/brain/spawn baseline/sprite override/id/name → [`EnemyConfig`]
+//! - tuning/brain_spec/brain/spawn baseline/sprite override/id/name → [`EnemyConfig`]
 //! - patrol path             → [`ActorMotionPath`]
 
 use bevy::ecs::query::QueryData;
@@ -35,17 +35,24 @@ pub struct EnemyStatus {
     pub health: crate::actor::Health,
 }
 
-/// Authored configuration + identity for an enemy actor. `archetype`
-/// can mutate at runtime (PirateOnShark dismounts), so it is not const;
-/// `spawn` records the authored baseline `reset_to_spawn` restores.
+/// Authored configuration + identity for an enemy actor. Archetype-free
+/// by construction: the named roster enum is resolved at spawn and
+/// projected into generic kit data (`tuning` + `brain_spec` + the
+/// `CombatCapabilities` component), so neither the per-frame integration
+/// nor the runtime brain rebuilds (provoke, dismount) call back into the
+/// content roster. `spawn` records the authored baseline
+/// `reset_to_spawn` restores.
 #[derive(Component, Clone, Debug)]
 pub struct EnemyConfig {
     pub id: String,
     pub name: String,
-    pub archetype: EnemyArchetype,
     /// Per-frame runtime tuning snapshot (kit vocabulary), projected
     /// from the archetype's authored spec at spawn.
     pub tuning: crate::mechanics::combat::EnemyTuning,
+    /// Generic brain-construction inputs (kit vocabulary), projected
+    /// from the archetype at spawn so the runtime brain rebuilds
+    /// reconstruct a brain without naming the roster enum.
+    pub brain_spec: crate::mechanics::combat::EnemyBrainSpec,
     pub brain: crate::actor::EnemyBrain,
     pub spawn: ActorSpawnState,
     /// LDtk display name of the original NPC when this enemy was spawned
@@ -117,6 +124,11 @@ pub struct EnemyClusterSeed {
     /// Spawn-resolved special-behavior flags (kit vocabulary), spawned
     /// alongside the clusters by [`Self::into_components`].
     pub caps: crate::mechanics::combat::CombatCapabilities,
+    /// The authored roster archetype. Spawn-time ONLY: brain / combat-kit
+    /// / held-item construction reads it here before the entity exists;
+    /// it is deliberately NOT carried onto any spawned component, so the
+    /// persisted [`EnemyConfig`] stays archetype-free.
+    pub archetype: EnemyArchetype,
 }
 
 impl EnemyClusterSeed {
@@ -169,18 +181,15 @@ impl EnemyClusterSeed {
             config: EnemyConfig {
                 id: id.into(),
                 name: name.into(),
-                archetype,
                 tuning: archetype.tuning(),
+                brain_spec: archetype.brain_spec(),
                 brain,
-                spawn: ActorSpawnState {
-                    pos,
-                    archetype,
-                    size,
-                },
+                spawn: ActorSpawnState { pos, size },
                 sprite_override_npc_name: None,
             },
             motion: ActorMotionPath(motion),
             caps: archetype.combat_capabilities(),
+            archetype,
         }
     }
     #[cfg(test)]

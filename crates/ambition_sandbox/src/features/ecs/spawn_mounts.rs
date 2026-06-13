@@ -5,7 +5,7 @@
 //! mount and rider ECS actors.
 
 use super::brain_builders::{
-    enemy_default_action_set, enemy_default_combat_kit, held_item_for_archetype,
+    enemy_combat_kit_for_archetype, enemy_default_action_set, held_item_for_archetype,
     mounted_rider_brain_and_action_set, skirmisher_brain_for_enemy,
 };
 use super::spawn_actors::EnemyActorSpawnPlan;
@@ -142,8 +142,8 @@ pub(super) fn spawn_composite_mount_rider(
     // orbiting aerial brain so the shark still changes height while
     // the rider stays visually welded to it.
     let mount_brain = skirmisher_brain_for_enemy(&mount_enemy.config);
-    let mount_action_set = enemy_default_action_set(&mount_enemy.config);
-    let mount_combat_kit = enemy_default_combat_kit(&mount_enemy.config);
+    let mount_action_set = enemy_default_action_set(mount_enemy.archetype);
+    let mount_combat_kit = enemy_combat_kit_for_archetype(mount_enemy.archetype);
     let mount_feature_aabb = FeatureAabb::from_aabb(mount_aabb);
     let mount_entity = EnemyActorSpawnPlan::hostile(
         format!("Feature actor mount: {mount_name}"),
@@ -164,7 +164,7 @@ pub(super) fn spawn_composite_mount_rider(
 
     // Rider-side bundles, with the RidingOn link pointing at the
     // mount we just spawned.
-    let rider_combat_kit = enemy_default_combat_kit(&rider_enemy.config);
+    let rider_combat_kit = enemy_combat_kit_for_archetype(rider_enemy.archetype);
     let rider_feature_aabb = FeatureAabb::from_aabb(rider_aabb);
     // Cache the mounted brain on the rider so the same-room reset
     // path can restore it after a mount-death-then-reset cycle

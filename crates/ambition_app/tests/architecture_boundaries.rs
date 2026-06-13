@@ -1097,8 +1097,15 @@ fn architecture_boundaries_presentation_does_not_use_the_archetype_enum() {
 
 #[test]
 fn architecture_boundaries_enemy_sim_reads_data_not_the_archetype_enum() {
+    // The pure per-frame surfaces (the damage hook + the presentation
+    // resolver) must branch on projected tuning / capabilities, never the
+    // named roster enum. `features/ecs/actors.rs` is deliberately NOT here:
+    // it now mixes per-frame tick helpers (which read `caps`) with
+    // spawn-time NPC→enemy conversion (which legitimately names the roster
+    // to resolve a spawn archetype). The structural invariant that the
+    // PERSISTED component never carries the enum is enforced separately by
+    // `architecture_boundaries_enemy_config_is_archetype_free`.
     let files = [
-        crate_src().join("features/ecs/actors.rs"),
         crate_src().join("features/ecs/damage.rs"),
         crate_src().join("presentation/rendering/features.rs"),
     ];
@@ -1107,6 +1114,42 @@ fn architecture_boundaries_enemy_sim_reads_data_not_the_archetype_enum() {
         &["EnemyArchetype", ".archetype"],
         "per-frame enemy sim should read projected tuning/capabilities, not named archetypes",
     );
+}
+
+#[test]
+fn architecture_boundaries_enemy_config_is_archetype_free() {
+    // The spawn-seam milestone: the DURABLE enemy component (`EnemyConfig`)
+    // and the per-frame mutable view (`EnemyMut`) carry projected generic
+    // kit data — `tuning`, `brain_spec`, and the `CombatCapabilities`
+    // component — so neither the per-frame integration nor the runtime
+    // brain rebuilds (provoke, dismount) call back into the named roster.
+    // That is what lets the roster (`EnemyArchetype` + specs + RON) leave
+    // the machinery lib for `ambition_content`. The spawn-time
+    // `EnemyClusterSeed` is allowed to carry the enum (it is consumed
+    // before the entity exists), so this guards only the durable structs.
+    let text = fs::read_to_string(crate_src().join("features/ecs/enemy_clusters.rs"))
+        .expect("read enemy_clusters.rs");
+    for struct_name in ["pub struct EnemyConfig {", "pub struct EnemyMut<'a> {"] {
+        let start = text
+            .find(struct_name)
+            .unwrap_or_else(|| panic!("{struct_name} not found in enemy_clusters.rs"));
+        let body = &text[start..];
+        let end = body.find("\n}").expect("struct should have a closing brace");
+        // Skip doc/comment lines — a field's prose may legitimately mention
+        // "projected from the archetype" while the field itself is generic.
+        let violations: Vec<&str> = body[..end]
+            .lines()
+            .map(str::trim)
+            .filter(|line| !is_comment_line(line))
+            .filter(|line| line.contains("EnemyArchetype") || line.contains("archetype:"))
+            .collect();
+        assert!(
+            violations.is_empty(),
+            "{struct_name} must stay archetype-free — project generic kit data \
+             (tuning / brain_spec / caps) at spawn instead of storing the roster \
+             enum; offending field(s): {violations:?}",
+        );
+    }
 }
 
 #[test]

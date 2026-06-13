@@ -1258,14 +1258,13 @@ mod tests {
         // here; the consumer only branches on archetype for origin
         // and owner_id formatting.
         let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(14.0, 23.0));
-        let mut enemy = EnemyClusterSeed::new(
+        let enemy = EnemyClusterSeed::new(
             "skitter_a",
             "Skitter",
             aabb,
             crate::actor::EnemyBrain::Custom("small_skitter".into()),
             &[],
         );
-        enemy.config.archetype = EnemyArchetype::SmallSkitter;
         let actor = app.world_mut().spawn(enemy_actor(enemy)).id();
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
@@ -1344,7 +1343,6 @@ mod tests {
             crate::actor::EnemyBrain::Custom("medium_striker".into()),
             &[],
         );
-        enemy.config.archetype = EnemyArchetype::MediumStriker;
         enemy.attack.cooldown = 0.0;
         let pre_windup = enemy.attack.windup_timer;
         let actor = app.world_mut().spawn(enemy_actor(enemy)).id();
@@ -1408,9 +1406,9 @@ mod tests {
             crate::actor::EnemyBrain::Custom("pirate_heavy".into()),
             &[],
         );
-        assert_eq!(enemy.config.archetype, EnemyArchetype::PirateHeavy);
+        assert_eq!(enemy.archetype, EnemyArchetype::PirateHeavy);
         assert!(
-            !enemy.config.archetype.attacks_player(),
+            !enemy.config.tuning.attacks_player,
             "standalone PirateHeavy is normally peaceful"
         );
         enemy.attack.cooldown = 0.0;
@@ -1469,7 +1467,6 @@ mod tests {
             crate::actor::EnemyBrain::Custom("medium_striker".into()),
             &[],
         );
-        enemy.config.archetype = EnemyArchetype::MediumStriker;
         // Pre-set cooldown so begin_melee_attack refuses.
         enemy.attack.cooldown = 0.5;
         let pre_windup = enemy.attack.windup_timer;

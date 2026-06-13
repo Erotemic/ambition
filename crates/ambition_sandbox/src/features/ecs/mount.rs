@@ -215,6 +215,7 @@ pub fn enforce_mount_rider_link(
             Option<&MountedBrainCache>,
             Option<&Mounted>,
             Option<&super::HeldItem>,
+            Option<&super::CombatKit>,
             Option<super::enemy_clusters::EnemyClusterQueryData>,
         ),
         Without<MountSlot>,
@@ -246,6 +247,7 @@ pub fn enforce_mount_rider_link(
         cache,
         was_mounted,
         held_item,
+        combat_kit,
         rider_clusters,
     ) in &mut riders
     {
@@ -297,8 +299,14 @@ pub fn enforce_mount_rider_link(
                 // size overrides explicit and safe.
                 rider_aabb.center = rider.kin.pos;
                 rider_aabb.half_size = rider.kin.size * 0.5;
+                // Rebuild from the rider's DURABLE stored combat kit (the
+                // same data the archetype projected at spawn) so dismount
+                // never re-reads the roster enum. A rider always carries a
+                // CombatKit; fall back to an empty kit defensively.
+                let rider_kit = combat_kit.cloned().unwrap_or_default();
                 let (new_brain, new_action_set) = dismounted_rider_brain_and_action_set(
                     rider.config,
+                    &rider_kit,
                     held_item.map(|item| &item.spec),
                 );
                 commands

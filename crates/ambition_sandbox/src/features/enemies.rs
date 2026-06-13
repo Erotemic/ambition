@@ -22,15 +22,16 @@ fn surface_wall_pred(b: &ae::Block) -> bool {
     )
 }
 
-/// The authored spawn baseline an actor reverts to on a same-room
-/// reset. `archetype` and `size` can mutate at runtime during mount
-/// dissolution, so this records the level author's original values.
+/// The authored spawn baseline an actor reverts to on a same-room reset
+/// (`reset_to_spawn`): position and body size. No entity morphs its
+/// archetype in place — a composite (PirateOnShark) is spawned as two
+/// SEPARATE standalone entities (`spawn_mounts`) and dismount swaps the
+/// rider's brain/action-set, never its archetype — so there is nothing
+/// to record here but the spatial baseline.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ActorSpawnState {
     /// World position the actor spawned at.
     pub pos: ae::Vec2,
-    /// Authored archetype — the "what the level author wrote" record.
-    pub archetype: EnemyArchetype,
     /// Authored body size.
     pub size: ae::Vec2,
 }
@@ -304,44 +305,11 @@ mod vec2_option {
     }
 }
 
-/// Brain template choice keyed off `EnemyArchetype`. Sandbox-side
-/// enum because the brain module is the universal-actor abstraction
-/// and shouldn't know about enemies.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
-pub(super) enum EnemyBrainTemplate {
-    /// No motion / no AI — the actor only reacts to events
-    /// (sandbag's PunchWeak counter, dialogue-only NPCs that become
-    /// hostile).
-    StandStill,
-    /// Surface-walking idle wanderer. Used by the puppy slug.
-    Wanderer,
-    /// Approach-then-strike melee policy. The default for almost
-    /// every hostile archetype — variety comes from per-archetype
-    /// chase_speed / attack_range / aggro_radius pulled into the
-    /// cfg.
-    MeleeBrute,
-    /// Strafe-and-fire ranged policy. Maintains a standoff distance
-    /// from the target and emits `frame.fire` on a fixed cooldown.
-    /// Use for archetypes that should harass with projectiles —
-    /// shark-riders are the canonical case (aerial body + Bolt
-    /// ranged capability). Pairs with a `ranged: Some(...)` row in
-    /// the archetype data; without it the resolver swallows the fire
-    /// intent.
-    Skirmisher,
-    /// Hold position + long-range fire. Like `Skirmisher` but does
-    /// not strafe — used by stationary turret-like enemies.
-    Sniper,
-    /// Dedicated shark motion policy. Drives the riderless burning
-    /// shark's charge-and-crash behavior without changing the
-    /// mounted shark+pirate composite, which keeps its own mount
-    /// brain.
-    Shark,
-    /// Smash-brawl pipeline: observe → mode → action → difficulty
-    /// → emit. See `crate::brain::smash`. Use for humanoid melee
-    /// archetypes that should approach, swing, and step back with
-    /// crowding awareness.
-    Smash,
-}
+/// Brain template choice keyed off `EnemyArchetype`. The definition is
+/// generic kit vocabulary — re-exported here so the archetype spec row
+/// (`brain_template`) and the spawn-site projection keep their existing
+/// path. See [`crate::mechanics::combat::EnemyBrainTemplate`].
+pub(super) use crate::mechanics::combat::EnemyBrainTemplate;
 
 /// Per-archetype tuning rows live in `assets/data/enemy_archetypes.ron`
 /// (loaded once at startup via the `LazyLock` below). Designers edit
@@ -463,6 +431,27 @@ impl EnemyArchetype {
         self.spec().brain_template
     }
 
+    /// Project the generic brain-construction inputs this archetype
+    /// resolves to. Stored on the enemy config at spawn so the runtime
+    /// brain rebuilds (provoke, dismount) reconstruct the brain from data
+    /// without naming this enum. The smash flags are inert unless the
+    /// template is `Smash`; the provoke override only fires on a
+    /// peaceful→hostile flip.
+    pub(super) fn brain_spec(self) -> crate::mechanics::combat::EnemyBrainSpec {
+        use EnemyArchetype::*;
+        crate::mechanics::combat::EnemyBrainSpec {
+            template: self.brain_template(),
+            smash_hit_band: self.smash_hit_band().unwrap_or(36.0),
+            smash_heavy: matches!(self, LargeBrute | LargeColossus),
+            smash_dash_to_close: matches!(self, MediumStriker),
+            provoke_forced_brute_min_aggro: if matches!(self, PirateHeavy) {
+                Some(500.0)
+            } else {
+                None
+            },
+        }
+    }
+
     /// Concrete melee spec this archetype's `ActionSet` carries at
     /// spawn. `None` = no melee capability (peaceful patrollers).
     pub(super) fn melee_spec(self) -> Option<crate::brain::MeleeActionSpec> {
@@ -554,18 +543,6 @@ impl EnemyArchetype {
     #[cfg(test)]
     pub(super) fn patrol_speed(self) -> f32 {
         self.spec().patrol_speed
-    }
-
-    pub(super) fn chase_speed(self) -> f32 {
-        self.spec().chase_speed
-    }
-
-    pub(super) fn aggro_radius(self) -> f32 {
-        self.spec().aggro_radius
-    }
-
-    pub(super) fn attack_range(self) -> f32 {
-        self.spec().attack_range
     }
 
     #[cfg(test)]
@@ -1074,13 +1051,10 @@ impl<'a> EnemyMut<'a> {
     }
 
     pub fn reset_to_spawn(&mut self) {
-        // Restore the authored baseline: a morphing actor (dismounted
-        // rider) reverts to the level author's archetype, so re-project
-        // the spawn-resolved tuning alongside it (spawn-shaped work —
-        // the per-frame paths above read only the projected tuning).
-        let archetype = self.config.spawn.archetype;
-        self.config.archetype = archetype;
-        self.config.tuning = archetype.tuning();
+        // Restore the authored spatial baseline. `tuning` / `brain_spec`
+        // are projected once at spawn and never mutate at runtime (no
+        // entity morphs its archetype in place), so they already hold the
+        // baseline — there is nothing to re-project here.
         self.kin.size = self.config.spawn.size;
         self.kin.pos = self.config.spawn.pos;
         self.kin.vel = ae::Vec2::ZERO;
@@ -1289,7 +1263,7 @@ mod enemy_archetype_data_tests {
             .unwrap_or_else(|| authored_aabb.half_size() * 2.0);
         let hitbox = enemy_attack_aabb_dir(pos, size, 1.0, ae::Vec2::new(1.0, 0.0));
         let reach_edge = hitbox.center().x + hitbox.half_size().x - pos.x;
-        let attack_range = archetype.attack_range();
+        let attack_range = archetype.tuning().attack_range;
         assert!(
             attack_range <= reach_edge,
             "PirateHeavy attack_range {attack_range} must stay within her swing far \

@@ -112,7 +112,11 @@ mod tests {
             crate::actor::EnemyBrain::Custom("medium_striker".into()),
             &[],
         );
-        enemy.config.archetype = archetype;
+        // Re-project the generic brain inputs for the archetype under test
+        // (the seed's brain key fixed `medium_striker`; the config is now
+        // archetype-free, so the brain it builds is driven by these fields).
+        enemy.config.tuning = archetype.tuning();
+        enemy.config.brain_spec = archetype.brain_spec();
         enemy.config
     }
 
@@ -285,7 +289,8 @@ mod tests {
             Brain::StateMachine(StateMachineCfg::Smash { cfg, .. }) => {
                 assert!(cfg.aggro_radius > 0.0);
                 assert!(
-                    (cfg.chase_speed - EnemyArchetype::MediumStriker.chase_speed()).abs() < 0.01
+                    (cfg.chase_speed - EnemyArchetype::MediumStriker.tuning().chase_speed).abs()
+                        < 0.01
                 );
             }
             other => panic!("expected Smash for MediumStriker, got {:?}", other),
@@ -435,8 +440,7 @@ mod tests {
     #[test]
     fn enemy_default_action_set_covers_every_combat_archetype() {
         for archetype in EnemyArchetype::COMBAT_ALL {
-            let enemy = make_enemy(archetype);
-            let set = enemy_default_action_set(&enemy);
+            let set = enemy_default_action_set(archetype);
             if archetype.attacks_player() {
                 assert!(
                     set.melee.is_some() || set.ranged.is_some(),
@@ -452,27 +456,22 @@ mod tests {
     /// distinct hitboxes / projectiles per archetype.
     #[test]
     fn enemy_default_action_set_picks_per_archetype_specs() {
-        let slug = make_enemy(EnemyArchetype::PuppySlug);
-        let set = enemy_default_action_set(&slug);
+        let set = enemy_default_action_set(EnemyArchetype::PuppySlug);
         assert!(set.melee.is_none(), "peaceful PuppySlug has no melee");
         assert!(matches!(set.move_style, MoveStyleSpec::Slither));
 
-        let heavy = make_enemy(EnemyArchetype::PirateHeavy);
-        let set = enemy_default_action_set(&heavy);
+        let set = enemy_default_action_set(EnemyArchetype::PirateHeavy);
         assert!(matches!(set.melee, Some(MeleeActionSpec::Lunge(_))));
         assert!(matches!(set.move_style, MoveStyleSpec::WalkHeavy));
 
-        let brute = make_enemy(EnemyArchetype::LargeBrute);
-        let set = enemy_default_action_set(&brute);
+        let set = enemy_default_action_set(EnemyArchetype::LargeBrute);
         assert!(matches!(set.melee, Some(MeleeActionSpec::Lunge(_))));
         assert!(matches!(set.move_style, MoveStyleSpec::WalkHeavy));
 
-        let striker = make_enemy(EnemyArchetype::MediumStriker);
-        let set = enemy_default_action_set(&striker);
+        let set = enemy_default_action_set(EnemyArchetype::MediumStriker);
         assert!(matches!(set.melee, Some(MeleeActionSpec::Swipe(_))));
 
-        let pirate_shark = make_enemy(EnemyArchetype::PirateOnShark);
-        let set = enemy_default_action_set(&pirate_shark);
+        let set = enemy_default_action_set(EnemyArchetype::PirateOnShark);
         assert!(set.ranged.is_some(), "PirateOnShark has ranged");
         assert!(matches!(set.move_style, MoveStyleSpec::Float));
     }
@@ -493,7 +492,7 @@ mod tests {
             }
             other => panic!("expected PirateHeavy to use MeleeBrute, got {other:?}"),
         }
-        let actions = enemy_default_action_set(&enemy);
+        let actions = enemy_default_action_set(EnemyArchetype::PirateHeavy);
         assert!(matches!(actions.melee, Some(MeleeActionSpec::Lunge(_))));
 
         let snapshot = crate::brain::BrainSnapshot {

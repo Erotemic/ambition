@@ -1089,6 +1089,75 @@ impl EnemyTuning {
     }
 }
 
+/// Which motion / AI state-machine template a brain instantiates.
+/// Generic kit vocabulary: the brain module is the universal-actor
+/// abstraction and shouldn't know named enemies, and the runtime brain
+/// rebuild (provoke-to-hostile, dismount) must reconstruct a brain from
+/// projected data without naming the content archetype enum. Authored
+/// per archetype in `enemy_archetypes.ron` and projected onto
+/// [`EnemyBrainSpec`] at spawn.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+pub enum EnemyBrainTemplate {
+    /// No motion / no AI — the actor only reacts to events (sandbag's
+    /// PunchWeak counter, dialogue-only NPCs that become hostile).
+    StandStill,
+    /// Surface-walking idle wanderer.
+    Wanderer,
+    /// Approach-then-strike melee policy. Variety comes from the
+    /// per-actor chase_speed / attack_range / aggro_radius in
+    /// [`EnemyTuning`].
+    MeleeBrute,
+    /// Strafe-and-fire ranged policy. Maintains a standoff distance and
+    /// emits `frame.fire` on a fixed cooldown.
+    Skirmisher,
+    /// Hold position + long-range fire. Like `Skirmisher` but does not
+    /// strafe — stationary turret-like enemies.
+    Sniper,
+    /// Dedicated shark motion policy (charge-and-crash).
+    Shark,
+    /// Smash-brawl pipeline: observe → mode → action → difficulty →
+    /// emit. See `crate::brain::smash`.
+    Smash,
+}
+
+/// The generic brain-construction inputs projected from an actor's
+/// authored archetype at spawn, carried on the enemy config component so
+/// the runtime brain rebuilds (provoke-to-hostile, dismount) can
+/// reconstruct the brain WITHOUT naming the content archetype enum. The
+/// numeric inputs (aggro/chase/attack/attacks_player) live in
+/// [`EnemyTuning`]; this carries the structural choices.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct EnemyBrainSpec {
+    /// Which motion / AI policy template the brain instantiates.
+    pub template: EnemyBrainTemplate,
+    /// Smash-template hit band (px) — the radius the brain closes to
+    /// before emitting MeleeAttack. Authored per archetype; legacy
+    /// fallback is 36 px.
+    pub smash_hit_band: f32,
+    /// Smash-template heavy base: longer reach + slower chase
+    /// (`SmashCfg::BRUTE_DEFAULT`) vs the lighter striker default.
+    pub smash_heavy: bool,
+    /// Smash-template dash-to-close: a richer action set that dashes to
+    /// close a large gap (goblins).
+    pub smash_dash_to_close: bool,
+    /// When provoked from peaceful, force an aggressive MeleeBrute brain
+    /// with at least this aggro radius (cove PirateHeavy crew).
+    /// `None` = use the template's default aggressive brain.
+    pub provoke_forced_brute_min_aggro: Option<f32>,
+}
+
+impl Default for EnemyBrainSpec {
+    fn default() -> Self {
+        Self {
+            template: EnemyBrainTemplate::MeleeBrute,
+            smash_hit_band: 36.0,
+            smash_heavy: false,
+            smash_dash_to_close: false,
+            provoke_forced_brute_min_aggro: None,
+        }
+    }
+}
+
 /// Authored rule for when a defeated enemy should reappear. Picked
 /// per-archetype today; a future EnemySpawn LDtk field can override
 /// it on a single spawn without touching the archetype default.

@@ -358,17 +358,17 @@ mod conversion_tests {
         for archetype in EnemyArchetype::COMBAT_ALL {
             assert!(archetype.max_health() > 0);
             assert!(archetype.patrol_speed().is_finite());
-            assert!(archetype.chase_speed().is_finite());
-            assert!(archetype.aggro_radius().is_finite());
-            assert!(archetype.aggro_radius() >= 0.0);
-            assert!(archetype.attack_range().is_finite());
-            assert!(archetype.attack_range() >= 0.0);
+            assert!(archetype.tuning().chase_speed.is_finite());
+            assert!(archetype.tuning().aggro_radius.is_finite());
+            assert!(archetype.tuning().aggro_radius >= 0.0);
+            assert!(archetype.tuning().attack_range.is_finite());
+            assert!(archetype.tuning().attack_range >= 0.0);
             assert!(archetype.contact_strength().is_finite());
             assert!(archetype.contact_strength() >= 0.0);
             assert!(archetype.damage_amount() > 0);
             if archetype.attacks_player() {
                 assert!(
-                    archetype.attack_range() > 0.0,
+                    archetype.tuning().attack_range > 0.0,
                     "{:?} reports it attacks but has zero attack_range",
                     archetype,
                 );
@@ -405,12 +405,12 @@ mod conversion_tests {
 
         // Aggro radius: low-aggression < high-aggression at same size.
         assert!(
-            EnemyArchetype::SmallLurker.aggro_radius()
-                < EnemyArchetype::SmallSkitter.aggro_radius()
+            EnemyArchetype::SmallLurker.tuning().aggro_radius
+                < EnemyArchetype::SmallSkitter.tuning().aggro_radius
         );
         assert!(
-            EnemyArchetype::LargeColossus.aggro_radius()
-                < EnemyArchetype::LargeBrute.aggro_radius()
+            EnemyArchetype::LargeColossus.tuning().aggro_radius
+                < EnemyArchetype::LargeBrute.tuning().aggro_radius
         );
 
         // Damage: large > medium / small (LargeColossus is the heaviest hitter).
@@ -504,7 +504,7 @@ mod conversion_tests {
         // verifies the integration step blocks the body against
         // the wall, not just the steering code that picks velocity.
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
-        frame.desired_vel = ae::Vec2::new(enemy.config.archetype.chase_speed(), 0.0);
+        frame.desired_vel = ae::Vec2::new(enemy.config.tuning.chase_speed, 0.0);
         for _ in 0..120 {
             enemy.update_for_test(
                 &world,
@@ -574,7 +574,7 @@ mod conversion_tests {
         // rightward patrol motion — the test verifies the
         // integration step blocks the body against the wall.
         let mut frame = crate::actor::control::ActorControlFrame::neutral();
-        frame.desired_vel = ae::Vec2::new(enemy.config.archetype.patrol_speed(), 0.0);
+        frame.desired_vel = ae::Vec2::new(enemy.config.tuning.patrol_speed, 0.0);
         for _ in 0..120 {
             enemy.update_for_test(
                 &world,

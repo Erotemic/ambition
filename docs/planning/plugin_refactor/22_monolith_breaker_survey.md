@@ -269,3 +269,45 @@ features→content shrink the survey table wants. Note: `ActorSpawnState`'s doc
 claims runtime archetype morphing (dismount), but no production code assigns
 `config.archetype` outside ctor/reset — verify the doc is stale (EnemyRuntime
 era) before designing the baseline respec.
+
+## Session 6 (2026-06-13, Fable) — the spawn seam, de-enumed
+
+Finished the Session-5 milestone: the **persisted enemy component is now
+archetype-free**, so the roster can leave the machinery lib next.
+
+What the milestone actually required (bigger than flagged): the runtime brain
+rebuilds — provoke-to-hostile (`aggression.rs`, hot path) AND mount dissolution
+(`mount.rs`) — re-derived behavior from the enum on a LIVE entity. Decoupling
+the per-frame layer wasn't enough; those two runtime paths had to reconstruct a
+brain from data on the component too.
+
+**Landed (one atomic change), replay bit-identical:**
+- New generic kit vocabulary in `mechanics::combat`: `EnemyBrainTemplate` moved
+  out of the roster (it was already template-generic) + a new `EnemyBrainSpec`
+  (template + the three smash structural flags + the provoke MeleeBrute
+  override) — the structural brain inputs, mirroring how `EnemyTuning` already
+  carried the numeric ones.
+- `EnemyConfig` DROPS `archetype`, GAINS `brain_spec`; `ActorSpawnState` DROPS
+  `archetype` (the doc's "runtime morphing" claim was stale — confirmed: nothing
+  morphs in place; the composite spawns two standalone entities and dismount
+  swaps brain/action-set, never archetype). The enum now lives ONLY on the
+  spawn-time `EnemyClusterSeed`, consumed before the entity exists.
+- `brain_builders` provoke-reachable fns read `tuning` + `brain_spec`; the
+  kit-derivation fns take an `EnemyArchetype` arg (resolved on the seed at
+  spawn). Dismount rebuilds its action set from the rider's DURABLE stored
+  `CombatKit` component + live held item — never the roster.
+- `reset_to_spawn` no longer re-projects from the enum (tuning/brain_spec are
+  immutable post-spawn — no morph — so the re-projection was a no-op).
+- Guards: the per-frame guard drops `actors.rs` (now legitimately mixed:
+  per-frame tick helpers + spawn-time NPC→enemy conversion) and a new
+  structural guard `architecture_boundaries_enemy_config_is_archetype_free`
+  slices the `EnemyConfig` + `EnemyMut` struct bodies and forbids the enum —
+  a stronger invariant than the file-level scan it replaces.
+
+**Next (now unblocked):** lift the roster (`EnemyArchetype` enum + specs + RON +
+`BRAIN_NAME_TO_ARCHETYPE`, ~`enemies.rs`) into `ambition_content`. The seam is a
+single spawn hop (`EnemyArchetype::from_brain` → seed projection); nothing
+persisted or per-frame names it anymore. The one named reference left in the
+lib's runtime path is dismount's `EnemyArchetype::PirateRaider.melee_spec()`
+fallback — a pirate-mechanic constant, not a stored-enum read; fold it into the
+content move.

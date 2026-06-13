@@ -36,4 +36,24 @@ mod tests {
         // `from_ron` panics on a parse error or a missing `combatant` row.
         let _ = EnemyRoster::from_ron(ENEMY_ROSTER_RON);
     }
+
+    /// Drift guard: the machinery lib keeps a `#[cfg(test)]` COPY of this RON
+    /// so its own unit tests resolve enemies standalone (without this plugin).
+    /// Content is the source of truth — fail loudly if the copy drifts, so a
+    /// roster edit can't make the lib's tests assert stale data while
+    /// production (this file) behaves differently.
+    #[test]
+    fn lib_test_fixture_matches_the_authored_roster() {
+        let lib_fixture = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../ambition_sandbox/assets/data/enemy_archetypes.ron"
+        ))
+        .expect("read the lib's enemy_archetypes.ron test fixture");
+        assert_eq!(
+            lib_fixture, ENEMY_ROSTER_RON,
+            "the lib's #[cfg(test)] enemy_archetypes.ron fixture has drifted from \
+             the authored content roster — re-copy this file into \
+             crates/ambition_sandbox/assets/data/enemy_archetypes.ron"
+        );
+    }
 }

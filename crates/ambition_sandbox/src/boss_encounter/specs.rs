@@ -9,21 +9,39 @@ pub fn default_boss_specs() -> Vec<crate::boss_encounter::BossEncounterSpec> {
         .collect()
 }
 
-/// Per-boss spec read from `assets/data/boss_encounters/<id>.ron`.
-///
-/// Per ADR 0017 (Rust = behavior, RON = content). Called by
-/// [`super::profile::default_boss_profiles`]: any RON file whose
-/// `id` matches an authored profile overrides the hardcoded
-/// `crate::boss_encounter::BossEncounterSpec::<id>()` constructor's numeric fields.
-/// The Rust profile constructor still owns the behavior wiring
-/// (`BossBehaviorProfile`, `BossRewardProfile`); only the encounter-
-/// spec numbers come from disk.
-///
-/// Returns an empty `Vec` when the directory is missing or unreadable
-/// so the build runs cleanly on a fresh clone before any RON has
-/// been authored.
-pub fn load_boss_specs_from_disk() -> Vec<crate::boss_encounter::BossEncounterSpec> {
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/data/boss_encounters");
+use crate::boss_encounter::BossEncounterSpec;
+
+/// The installed per-boss encounter specs (`boss_encounters/<id>.ron`). The
+/// named encounter DATA is content, owned + installed by `ambition_content`
+/// (`install_boss_roster`); the lib holds only this generic holder + the
+/// `BossEncounterSpec` schema. Per ADR 0017 the RON owns the encounter numbers
+/// (HP / phase thresholds / timings / music ids); the `BossBehaviorProfile`
+/// (boss_profiles.ron) owns movement/attacks/rewards.
+static BOSS_ENCOUNTER_SPEC_OVERRIDE: std::sync::OnceLock<Vec<BossEncounterSpec>> =
+    std::sync::OnceLock::new();
+
+/// Install the authored per-boss encounter specs — `ambition_content` calls
+/// this (alongside `install_boss_profiles`) with the parsed, embedded
+/// `boss_encounters/*.ron`.
+pub fn install_boss_encounter_specs(specs: Vec<BossEncounterSpec>) {
+    let _ = BOSS_ENCOUNTER_SPEC_OVERRIDE.set(specs);
+}
+
+/// The installed encounter specs. Production REQUIRES the content install (no
+/// embedded boss data in the lib binary); lib unit tests read content's
+/// authored `boss_encounters/` at compile-relative path so they resolve
+/// standalone.
+pub(super) fn boss_encounter_specs() -> Vec<BossEncounterSpec> {
+    if let Some(specs) = BOSS_ENCOUNTER_SPEC_OVERRIDE.get() {
+        return specs.clone();
+    }
+    boss_encounter_specs_fallback()
+}
+
+#[cfg(test)]
+fn boss_encounter_specs_fallback() -> Vec<BossEncounterSpec> {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../ambition_content/assets/data/boss_encounters");
     let Ok(entries) = std::fs::read_dir(&dir) else {
         return Vec::new();
     };
@@ -36,89 +54,25 @@ pub fn load_boss_specs_from_disk() -> Vec<crate::boss_encounter::BossEncounterSp
         let Ok(text) = std::fs::read_to_string(&path) else {
             continue;
         };
-        match ron::from_str::<crate::boss_encounter::BossEncounterSpec>(&text) {
-            Ok(spec) => out.push(spec),
-            Err(err) => {
-                bevy::log::warn!(
-                    target: "ambition::boss_encounter",
-                    "boss_encounters: failed to parse {}: {err}",
-                    path.display(),
-                );
-            }
+        if let Ok(spec) = ron::from_str::<BossEncounterSpec>(&text) {
+            out.push(spec);
         }
     }
     out
 }
 
+#[cfg(not(test))]
+fn boss_encounter_specs_fallback() -> Vec<BossEncounterSpec> {
+    panic!(
+        "boss encounter specs not installed — AmbitionContent must call \
+         install_boss_encounter_specs() (via init_sandbox_resources) before any \
+         boss resolves"
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::boss_encounter::roster::BossSpecRoster;
-
-    /// Asserts the on-disk RON for the named boss is field-by-field
-    /// equivalent to the supplied hardcoded constructor's output.
-    /// Used by every per-boss RON pin test so a drift in any single
-    /// field (HP, timing, music id) trips a focused diff.
-    #[track_caller]
-    fn assert_spec_matches_disk(id: &str, hardcoded: crate::boss_encounter::BossEncounterSpec) {
-        let specs = load_boss_specs_from_disk();
-        let on_disk = specs
-            .iter()
-            .find(|s| s.id == id)
-            .unwrap_or_else(|| panic!("{id}.ron should load"));
-        assert_eq!(
-            *on_disk, hardcoded,
-            "boss_encounters/{id}.ron drifted from constructor"
-        );
-    }
-
-    #[test]
-    fn load_boss_specs_from_disk_finds_gnu_ton() {
-        assert_spec_matches_disk(
-            "gnu_ton",
-            crate::boss_encounter::BossEncounterSpec::gnu_ton(),
-        );
-    }
-
-    #[test]
-    fn load_boss_specs_from_disk_finds_mockingbird() {
-        assert_spec_matches_disk(
-            "mockingbird",
-            crate::boss_encounter::BossEncounterSpec::mockingbird(),
-        );
-    }
-
-    #[test]
-    fn load_boss_specs_from_disk_finds_clockwork_warden() {
-        assert_spec_matches_disk(
-            "clockwork_warden",
-            crate::boss_encounter::BossEncounterSpec::clockwork_warden(),
-        );
-    }
-
-    #[test]
-    fn load_boss_specs_from_disk_finds_smirking_behemoth_boss() {
-        assert_spec_matches_disk(
-            "smirking_behemoth_boss",
-            crate::boss_encounter::BossEncounterSpec::smirking_behemoth_boss(),
-        );
-    }
-
-    #[test]
-    fn load_boss_specs_from_disk_finds_flying_spaghetti_monster_boss() {
-        assert_spec_matches_disk(
-            "flying_spaghetti_monster_boss",
-            crate::boss_encounter::BossEncounterSpec::flying_spaghetti_monster_boss(),
-        );
-    }
-
-    #[test]
-    fn load_boss_specs_from_disk_finds_trex_boss() {
-        assert_spec_matches_disk(
-            "trex_boss",
-            crate::boss_encounter::BossEncounterSpec::trex_boss(),
-        );
-    }
 
     /// Every RON file under `boss_encounters/` must correspond to an
     /// authored profile in `AUTHORED_BOSS_PROFILES`. A stray RON
@@ -130,7 +84,7 @@ mod tests {
     fn every_on_disk_ron_matches_an_authored_profile() {
         let profile_ids: std::collections::BTreeSet<String> =
             default_boss_profiles().into_iter().map(|p| p.id).collect();
-        let orphans: Vec<String> = load_boss_specs_from_disk()
+        let orphans: Vec<String> = boss_encounter_specs()
             .into_iter()
             .map(|s| s.id)
             .filter(|id| !profile_ids.contains(id))
@@ -148,7 +102,7 @@ mod tests {
     /// last. This test trips on that case.
     #[test]
     fn load_boss_specs_from_disk_has_no_duplicate_ids() {
-        let specs = load_boss_specs_from_disk();
+        let specs = boss_encounter_specs();
         let mut seen: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
         let dupes: Vec<String> = specs
             .iter()

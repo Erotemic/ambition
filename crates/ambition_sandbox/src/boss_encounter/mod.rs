@@ -47,7 +47,7 @@ pub use behavior::{install_boss_profiles, BossProfileRegistry};
 pub use profile::{default_boss_profiles, BossProfile, BossRewardProfile};
 pub use registry::BossEncounterRegistry;
 pub use roster::BossSpecRoster;
-pub use specs::default_boss_specs;
+pub use specs::{default_boss_specs, install_boss_encounter_specs};
 pub use systems::{
     boss_phase_transition_feedback, populate_boss_encounter_registry, update_boss_encounters,
 };

@@ -101,7 +101,7 @@ fn default_boss_specs_by_id(
 ) -> std::collections::BTreeMap<String, crate::boss_encounter::BossEncounterSpec> {
     let mut specs: std::collections::BTreeMap<String, crate::boss_encounter::BossEncounterSpec> =
         std::collections::BTreeMap::new();
-    for spec in super::specs::load_boss_specs_from_disk() {
+    for spec in super::specs::boss_encounter_specs() {
         specs.insert(spec.id.clone(), spec);
     }
     specs

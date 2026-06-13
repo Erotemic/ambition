@@ -37,11 +37,35 @@ pub use gnu_ton::gate_gnu_ton_arena_ladder;
 /// time, and by content tests that resolve boss profiles without assembling the
 /// full app. First install wins (idempotent across the test binary).
 pub fn install_boss_roster() {
+    // Per-boss behavior (movement / attacks / rewards).
     ambition_sandbox::boss_encounter::install_boss_profiles(
         ambition_sandbox::boss_encounter::BossProfileRegistry::from_ron(include_str!(
             "../../assets/data/boss_profiles.ron"
         )),
     );
+
+    // Per-boss encounter specs (HP / phase thresholds / timings / music), one
+    // embedded RON per boss. Embedded (not fs-read) so shipped binaries carry
+    // the data; the lib holds only the generic `BossEncounterSpec` schema.
+    const BOSS_ENCOUNTER_RONS: &[&str] = &[
+        include_str!("../../assets/data/boss_encounters/clockwork_warden.ron"),
+        include_str!("../../assets/data/boss_encounters/mockingbird.ron"),
+        include_str!("../../assets/data/boss_encounters/gnu_ton.ron"),
+        include_str!("../../assets/data/boss_encounters/smirking_behemoth_boss.ron"),
+        include_str!("../../assets/data/boss_encounters/flying_spaghetti_monster_boss.ron"),
+        include_str!("../../assets/data/boss_encounters/trex_boss.ron"),
+        include_str!("../../assets/data/boss_encounters/mode_collapse_boss.ron"),
+        include_str!("../../assets/data/boss_encounters/exploding_gradient_boss.ron"),
+        include_str!("../../assets/data/boss_encounters/overflow_boss.ron"),
+    ];
+    let specs = BOSS_ENCOUNTER_RONS
+        .iter()
+        .map(|text| {
+            ron::from_str::<ambition_sandbox::boss_encounter::BossEncounterSpec>(text)
+                .expect("boss_encounters/*.ron should parse as BossEncounterSpec")
+        })
+        .collect();
+    ambition_sandbox::boss_encounter::install_boss_encounter_specs(specs);
 }
 
 /// Installs the default Ambition boss encounter registry resource and

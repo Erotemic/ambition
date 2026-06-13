@@ -1033,7 +1033,6 @@ pub(crate) use crate::mechanics::combat::breakables::{
 
 #[cfg(test)]
 mod tests {
-    use super::super::EnemyArchetype;
     use super::*;
     use crate::features::ecs::enemy_component_snapshot;
     use crate::features::{HitMode, HitTarget};
@@ -1568,7 +1567,7 @@ mod tests {
     fn an_armed_enemy_archetype_resolves_a_weapon_to_drop() {
         // The defeat branch's weapon drop keys off `held_item_spec()`; the pirate
         // carries a gun-sword, so a defeated pirate drops one.
-        let spec = EnemyArchetype::PirateOnShark.spec().held_item_spec();
+        let spec = crate::features::enemies::test_spec("pirate_on_shark").held_item_spec();
         assert!(spec.is_some(), "PirateOnShark carries a weapon");
         assert_eq!(spec.unwrap().id.as_str(), "gun_sword");
     }

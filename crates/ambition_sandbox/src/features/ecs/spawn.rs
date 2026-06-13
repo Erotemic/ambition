@@ -98,26 +98,21 @@ mod tests {
     use crate::engine_core as ae;
     use crate::features::{
         ActorAggression, ActorCombatState, ActorCooldowns, ActorDisposition, ActorHealth,
-        ActorIdentity, ActorIntent, AggressionMode, CombatKit, EnemyArchetype, EnemyConfig,
-        MountSlot, MountedSize, RidingOn,
+        ActorIdentity, ActorIntent, AggressionMode, CombatKit, EnemyConfig, MountSlot, MountedSize,
+        RidingOn,
     };
     use bevy::prelude::{App, Commands, Update, With};
 
-    fn make_enemy(archetype: EnemyArchetype) -> EnemyConfig {
+    fn make_enemy(brain_key: &str) -> EnemyConfig {
         let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0));
-        let mut enemy = crate::features::ecs::enemy_clusters::EnemyClusterSeed::new(
+        crate::features::ecs::enemy_clusters::EnemyClusterSeed::new(
             "test".to_string(),
             "test".to_string(),
             aabb,
-            crate::actor::EnemyBrain::Custom("medium_striker".into()),
+            crate::actor::EnemyBrain::Custom(brain_key.to_string()),
             &[],
-        );
-        // Re-project the generic brain inputs for the archetype under test
-        // (the seed's brain key fixed `medium_striker`; the config is now
-        // archetype-free, so the brain it builds is driven by these fields).
-        enemy.config.tuning = archetype.spec().tuning();
-        enemy.config.brain_spec = archetype.spec().brain_spec();
-        enemy.config
+        )
+        .config
     }
 
     /// Regression net: spawning an encounter mob attaches a
@@ -262,19 +257,19 @@ mod tests {
     /// PuppySlug and Sandbag rely on.
     #[test]
     fn enemy_default_brain_picks_per_archetype_template() {
-        let slug = make_enemy(EnemyArchetype::PuppySlug);
+        let slug = make_enemy("puppy_slug");
         assert!(matches!(
             enemy_default_brain(&slug),
             Brain::StateMachine(StateMachineCfg::Wanderer { .. })
         ));
 
-        let sandbag = make_enemy(EnemyArchetype::InfiniteSandbag);
+        let sandbag = make_enemy("sandbag_infinite");
         assert!(matches!(
             enemy_default_brain(&sandbag),
             Brain::StateMachine(StateMachineCfg::StandStill)
         ));
 
-        let shark = make_enemy(EnemyArchetype::BurningFlyingShark);
+        let shark = make_enemy("burning_flying_shark");
         assert!(matches!(
             enemy_default_brain(&shark),
             Brain::StateMachine(StateMachineCfg::Shark { .. })
@@ -284,12 +279,12 @@ mod tests {
         // `enemy_archetypes.ron` — assert against the live data path
         // rather than reverting to MeleeBrute. The chase_speed pin
         // moves over to the `SmashCfg` row.
-        let striker = make_enemy(EnemyArchetype::MediumStriker);
+        let striker = make_enemy("medium_striker");
         match enemy_default_brain(&striker) {
             Brain::StateMachine(StateMachineCfg::Smash { cfg, .. }) => {
                 assert!(cfg.aggro_radius > 0.0);
                 assert!(
-                    (cfg.chase_speed - EnemyArchetype::MediumStriker.spec().tuning().chase_speed).abs()
+                    (cfg.chase_speed - crate::features::enemies::test_spec("medium_striker").tuning().chase_speed).abs()
                         < 0.01
                 );
             }
@@ -297,23 +292,22 @@ mod tests {
         }
     }
 
-    /// Coverage lint: every EnemyArchetype in COMBAT_ALL maps to a
+    /// Coverage lint: every combat brain key maps to a
     /// usable Brain (no panic, non-empty per design). Catches a
     /// future archetype addition that forgets to update
     /// enemy_default_brain.
     #[test]
     fn enemy_default_brain_covers_every_combat_archetype() {
-        for archetype in EnemyArchetype::COMBAT_ALL {
-            let enemy = make_enemy(archetype);
+        for key in crate::features::enemies::COMBAT_BRAIN_KEYS {
+            let enemy = make_enemy(key);
             let brain = enemy_default_brain(&enemy);
-            // Aggressiveness should match archetype.attacks_player.
+            // Aggressiveness should match the row's attacks_player.
             // (Wanderer / StandStill / peaceful Patrol all return
             // !is_hostile; everyone else returns is_hostile.)
             assert_eq!(
                 brain.is_hostile(),
-                archetype.spec().attacks_player,
-                "{:?} brain.is_hostile mismatch with archetype.attacks_player",
-                archetype,
+                crate::features::enemies::test_spec(key).attacks_player,
+                "{key} brain.is_hostile mismatch with attacks_player",
             );
         }
     }
@@ -336,7 +330,7 @@ mod tests {
                 &mut commands,
                 &authored,
                 &[],
-                &EnemyArchetype::PirateOnShark.spec(),
+                &crate::features::enemies::test_spec("pirate_on_shark"),
             );
         });
         app.update();
@@ -368,7 +362,7 @@ mod tests {
                 &mut commands,
                 &authored,
                 &[],
-                &EnemyArchetype::PirateOnShark.spec(),
+                &crate::features::enemies::test_spec("pirate_on_shark"),
             );
         });
         app.update();
@@ -408,7 +402,7 @@ mod tests {
                 &mut commands,
                 &authored,
                 &[],
-                &EnemyArchetype::PirateHeavyOnShark.spec(),
+                &crate::features::enemies::test_spec("pirate_heavy_on_shark"),
             );
         });
         app.update();
@@ -432,20 +426,20 @@ mod tests {
         );
     }
 
-    /// Coverage lint: every hostile-by-default EnemyArchetype gets at least one
+    /// Coverage lint: every hostile-by-default combat archetype gets at least one
     /// offensive ActionSet verb. Peaceful-by-default archetypes may still carry a
     /// dormant verb when another system explicitly forces them hostile (PirateHeavy
     /// after provocation / dismount); default hostility remains controlled by the
     /// brain's aggressiveness, not by stripping the capability out of the ActionSet.
     #[test]
     fn enemy_default_action_set_covers_every_combat_archetype() {
-        for archetype in EnemyArchetype::COMBAT_ALL {
-            let set = enemy_default_action_set(&archetype.spec());
-            if archetype.spec().attacks_player {
+        for key in crate::features::enemies::COMBAT_BRAIN_KEYS {
+            let spec = crate::features::enemies::test_spec(key);
+            let set = enemy_default_action_set(&spec);
+            if spec.attacks_player {
                 assert!(
                     set.melee.is_some() || set.ranged.is_some(),
-                    "{:?} attacks_player but ActionSet has no melee or ranged",
-                    archetype,
+                    "{key} attacks_player but ActionSet has no melee or ranged",
                 );
             }
         }
@@ -456,22 +450,22 @@ mod tests {
     /// distinct hitboxes / projectiles per archetype.
     #[test]
     fn enemy_default_action_set_picks_per_archetype_specs() {
-        let set = enemy_default_action_set(&EnemyArchetype::PuppySlug.spec());
+        let set = enemy_default_action_set(&crate::features::enemies::test_spec("puppy_slug"));
         assert!(set.melee.is_none(), "peaceful PuppySlug has no melee");
         assert!(matches!(set.move_style, MoveStyleSpec::Slither));
 
-        let set = enemy_default_action_set(&EnemyArchetype::PirateHeavy.spec());
+        let set = enemy_default_action_set(&crate::features::enemies::test_spec("pirate_heavy"));
         assert!(matches!(set.melee, Some(MeleeActionSpec::Lunge(_))));
         assert!(matches!(set.move_style, MoveStyleSpec::WalkHeavy));
 
-        let set = enemy_default_action_set(&EnemyArchetype::LargeBrute.spec());
+        let set = enemy_default_action_set(&crate::features::enemies::test_spec("large_brute"));
         assert!(matches!(set.melee, Some(MeleeActionSpec::Lunge(_))));
         assert!(matches!(set.move_style, MoveStyleSpec::WalkHeavy));
 
-        let set = enemy_default_action_set(&EnemyArchetype::MediumStriker.spec());
+        let set = enemy_default_action_set(&crate::features::enemies::test_spec("medium_striker"));
         assert!(matches!(set.melee, Some(MeleeActionSpec::Swipe(_))));
 
-        let set = enemy_default_action_set(&EnemyArchetype::PirateOnShark.spec());
+        let set = enemy_default_action_set(&crate::features::enemies::test_spec("pirate_on_shark"));
         assert!(set.ranged.is_some(), "PirateOnShark has ranged");
         assert!(matches!(set.move_style, MoveStyleSpec::Float));
     }
@@ -482,7 +476,7 @@ mod tests {
     /// but never swings" state where only movement was made hostile.
     #[test]
     fn pirate_heavy_action_set_swings_when_brain_is_forced_hostile() {
-        let enemy = make_enemy(EnemyArchetype::PirateHeavy);
+        let enemy = make_enemy("pirate_heavy");
         let mut brain = enemy_default_brain(&enemy);
         match &mut brain {
             Brain::StateMachine(StateMachineCfg::MeleeBrute { cfg, .. }) => {
@@ -492,7 +486,7 @@ mod tests {
             }
             other => panic!("expected PirateHeavy to use MeleeBrute, got {other:?}"),
         }
-        let actions = enemy_default_action_set(&EnemyArchetype::PirateHeavy.spec());
+        let actions = enemy_default_action_set(&crate::features::enemies::test_spec("pirate_heavy"));
         assert!(matches!(actions.melee, Some(MeleeActionSpec::Lunge(_))));
 
         let snapshot = crate::brain::BrainSnapshot {

@@ -71,130 +71,11 @@ pub use crate::mechanics::combat::EnemyRespawnPolicy;
 /// agree on the spelling.
 pub const ENEMY_DEAD_UNTIL_REST_SUFFIX: &str = "_dead_until_rest";
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Deserialize)]
-pub enum EnemyArchetype {
-    Combatant,
-    SmallSkitter,
-    MediumStriker,
-    LargeBrute,
-    AggressiveSeeker,
-    InfiniteSandbag,
-    FiniteSandbag,
-    /// Small + low aggression: slow patrol, tiny aggro radius, low
-    /// damage. Fits scenery-flavored encounters (rats, fungi) where
-    /// the player can ignore them but a careless approach still
-    /// punishes.
-    SmallLurker,
-    /// Large + low aggression: bigger HP / damage than `LargeBrute`
-    /// but with a much narrower aggro radius. Boss-room
-    /// "stationary heavy" archetype — the player has to step
-    /// inside its threat envelope deliberately.
-    LargeColossus,
-    /// Grounded pirate (dismounted form of `PirateOnShark`). Melee
-    /// striker with a cutlass — same kit as a `MediumStriker` but
-    /// with the pirate sprite.
-    PirateRaider,
-    /// Riderless burning flying shark. Aerial dive-strike pattern.
-    BurningFlyingShark,
-    /// Authored pirate-on-shark composite. The ECS spawn path fans
-    /// this out into separate mount and rider actor entities. The
-    /// rider dismounts into `PirateRaider` when the shark dies, and
-    /// the mount continues as `BurningFlyingShark` when the rider dies.
-    PirateOnShark,
-    /// Deep-dream "puppy slug" — small ground-walker (Crawlid
-    /// analogue from Hollow Knight). Always patrols, no chase, no
-    /// attack windup. Body-contact damages on touch. The brain
-    /// reverses facing at walls (the standard patrol-blocked path)
-    /// AND at ledges (custom probe in `update`) so it never falls
-    /// off platforms — even though `aggro_radius = 0` keeps it
-    /// completely ignorant of the player.
-    PuppySlug,
-    /// Pirate heavy bruiser. Slow, tanky, big-cleaver swing. Three
-    /// authored sprite variants (Broadside Bess, Iron Mary, Salt
-    /// Annet) all map to this archetype — variants differ by
-    /// EnemySpawn display name, not by tuning.
-    PirateHeavy,
-    /// Pirate heavy riding a burning flying shark. Mechanically a
-    /// `PirateOnShark` composite, but the rider sprite resolves to
-    /// one of the heavy-variant sheets instead of `Pirate Raider`.
-    /// On shark-death dismount, the rider drops to a ground
-    /// `PirateHeavy` (heavier and slower than a `PirateRaider`).
-    PirateHeavyOnShark,
-    /// Volatile kamikaze mite — low HP, fast aggressive rush, and it
-    /// **detonates on death** in a sizable Enemy-faction blast
-    /// (`damage.rs::spawn_death_explosion`). The threat is the blast,
-    /// not the body: meleeing it point-blank eats the explosion, so the
-    /// read is "kill it at range or sidestep the corpse." Thematically
-    /// the Exploding Gradient boss's runaway spawn.
-    ExplodingMite,
-    /// Replicating blob — slow and a bit tanky, and on death it **splits
-    /// into two fast `SmallSkitter` offspring** (one level deep — the
-    /// children don't re-split). The read is the inverse of the mite's:
-    /// a deliberate priority target you whittle down, then clean up the
-    /// two quick children before they swarm. Thematically an overfit
-    /// model memorizing (replicating) its data points.
-    DividingMite,
-    /// Ranged skirmisher — the roster's only true **kiter**. It holds at
-    /// long range and peppers you with arrows, and backs off early when
-    /// you close (a large `too_close_distance` in
-    /// `smash_cfg_for_archetype`), so the read is "chase it down or use
-    /// your own ranged/AOE" rather than the melee rushers' "block and
-    /// punish." Thematically an outlier that snipes from the margins.
-    RangedSkirmisher,
-}
 
-/// Maps `crate::actor::EnemyBrain::Custom("...")` strings to archetype variants.
-/// `from_brain` walks this table, falling back to `Combatant` for any
-/// unknown brain string or a non-`Custom` variant.
-const BRAIN_NAME_TO_ARCHETYPE: &[(&str, EnemyArchetype)] = &[
-    ("small_skitter", EnemyArchetype::SmallSkitter),
-    ("small_lurker", EnemyArchetype::SmallLurker),
-    ("medium_striker", EnemyArchetype::MediumStriker),
-    ("large_brute", EnemyArchetype::LargeBrute),
-    ("large_colossus", EnemyArchetype::LargeColossus),
-    ("gradient_seeker", EnemyArchetype::AggressiveSeeker),
-    ("sandbag_infinite", EnemyArchetype::InfiniteSandbag),
-    ("sandbag_finite", EnemyArchetype::FiniteSandbag),
-    ("pirate_raider", EnemyArchetype::PirateRaider),
-    ("burning_flying_shark", EnemyArchetype::BurningFlyingShark),
-    ("pirate_on_shark", EnemyArchetype::PirateOnShark),
-    ("puppy_slug", EnemyArchetype::PuppySlug),
-    ("pirate_heavy", EnemyArchetype::PirateHeavy),
-    ("pirate_heavy_on_shark", EnemyArchetype::PirateHeavyOnShark),
-    ("exploding_mite", EnemyArchetype::ExplodingMite),
-    ("dividing_mite", EnemyArchetype::DividingMite),
-    ("ranged_skirmisher", EnemyArchetype::RangedSkirmisher),
-];
-
-/// Authored tuning row for one [`EnemyArchetype`]. Every archetype is
-/// fully specified in [`ARCHETYPE_SPECS`]; the small accessor methods
-/// on [`EnemyArchetype`] (`max_health`, `patrol_speed`, ...) all read
-/// from this row.
-///
-/// Adding a new archetype is one new entry in the table plus one new
-/// `Custom("…")` arm in [`EnemyArchetype::from_brain`] — no more
-/// hunting through ten parallel `match` blocks.
-///
-/// Behavior fields (`brain_template`, `attack`, `move_style`) collapse
-/// what used to be three independent per-archetype matches
-/// (`enemy_default_brain`, `enemy_default_action_set`, and the
-/// peaceful-vs-hostile move-style branches) into one source of truth.
-/// Any new archetype now defines its full behavior shape in a single
-/// `archetype_spec` arm.
-/// Tuning row for one enemy archetype. The Rust enum
-/// [`EnemyArchetype`] stays as the closed set of "known" archetypes
-/// the codebase ships, but every field here is authored in
-/// `assets/data/enemy_archetypes.ron` so a designer can tweak the
-/// chase / aggro / damage numbers (the things that decide whether a
-/// fight feels fair) without a Rust patch.
-///
-/// The `melee` / `ranged` fields carry the FULL attack spec — phase
-/// timings, damage, reach — so a designer who wants to make the
-/// Brute's lunge slower has one place to look. `damage_amount` is
-/// the BODY-CONTACT damage; attack damage lives in the spec.
-/// Authored mount+rider visual fan-out for composite spawns (see
-/// `EnemyArchetypeSpec::composite_visual`). Brains are archetype
-/// brain-keys; names are display fallbacks for the spawned visuals.
+/// Authored mount+rider visual fan-out for a composite spawn (see
+/// [`EnemyArchetypeSpec::composite_visual`]). `mount_brain` / `rider_brain`
+/// are spawn brain keys into the roster; the names are display fallbacks for
+/// the spawned visuals.
 #[derive(Clone, Debug, serde::Deserialize)]
 pub struct CompositeVisualSpec {
     pub mount_brain: String,
@@ -345,58 +226,10 @@ mod vec2_option {
 /// path. See [`crate::mechanics::combat::EnemyBrainTemplate`].
 pub(super) use crate::mechanics::combat::EnemyBrainTemplate;
 
-/// Resolve a spec by `EnemyArchetype` (enum → brain key → row). Test /
-/// tooling only: production resolution goes through the brain-keyed
-/// [`EnemyRoster`] (`spec_for_brain`), never the enum. Relocates to content
-/// with the enum (2b.3).
-#[cfg(test)]
-fn archetype_spec(arch: EnemyArchetype) -> EnemyArchetypeSpec {
-    let key = archetype_data_key(arch);
-    ENEMY_ARCHETYPE_REGISTRY
-        .get(key)
-        .unwrap_or_else(|| {
-            panic!("enemy archetype {arch:?} (RON key '{key}') missing from enemy_archetypes.ron")
-        })
-        .clone()
-}
-
-/// Stable RON key for an `EnemyArchetype` variant. Matches the
-/// Rust variant name exactly so adding a variant is a one-line
-/// change on both sides. Kept as an explicit match (not Debug /
-/// derive) so the contract with the data file is searchable.
 /// Serde default for [`EnemyArchetypeSpec::attack_cooldown_mult`]: the
 /// multiplicative identity (most archetypes use the shared cooldown).
 fn default_attack_cooldown_mult() -> f32 {
     1.0
-}
-
-/// The roster RON / `EnemyRoster` key for an archetype: its spawn brain key
-/// (`Custom("…")`), so the registry is keyed identically whether resolved by
-/// brain string (the spawn path) or by enum (tests / tooling). `Combatant`
-/// has no spawn brain key and uses the reserved `"combatant"` fallback row.
-#[cfg(test)]
-fn archetype_data_key(arch: EnemyArchetype) -> &'static str {
-    use EnemyArchetype::*;
-    match arch {
-        Combatant => "combatant",
-        SmallSkitter => "small_skitter",
-        SmallLurker => "small_lurker",
-        MediumStriker => "medium_striker",
-        LargeBrute => "large_brute",
-        LargeColossus => "large_colossus",
-        AggressiveSeeker => "gradient_seeker",
-        InfiniteSandbag => "sandbag_infinite",
-        FiniteSandbag => "sandbag_finite",
-        PirateRaider => "pirate_raider",
-        BurningFlyingShark => "burning_flying_shark",
-        PirateOnShark => "pirate_on_shark",
-        PirateHeavy => "pirate_heavy",
-        PirateHeavyOnShark => "pirate_heavy_on_shark",
-        PuppySlug => "puppy_slug",
-        ExplodingMite => "exploding_mite",
-        DividingMite => "dividing_mite",
-        RangedSkirmisher => "ranged_skirmisher",
-    }
 }
 
 /// Test fixture: the lib's bundled brain-keyed enemy RON, parsed so the lib's
@@ -531,6 +364,60 @@ pub(crate) fn spec_for_brain(brain: &crate::actor::EnemyBrain) -> EnemyArchetype
     enemy_roster().spec_for_brain(brain)
 }
 
+/// Resolve a spec by its spawn brain key against the lib's `#[cfg(test)]`
+/// fixture roster — the test-side replacement for the deleted
+/// `EnemyArchetype::X.spec()`. Tests are roster-string-keyed now: the named
+/// enum is gone, so they reference enemies by the same `Custom("…")` key the
+/// game authors.
+#[cfg(test)]
+pub(crate) fn test_spec(brain_key: &str) -> EnemyArchetypeSpec {
+    spec_for_brain(&crate::actor::EnemyBrain::Custom(brain_key.to_string()))
+}
+
+/// Every authored spawn brain key in the lib's fixture roster — the
+/// string-keyed replacement for the deleted `EnemyArchetype` iteration
+/// constants. `COMBAT_*` excludes the training-dummy + raw-mite rows that
+/// don't run the standard combat AI loop (was `COMBAT_ALL`).
+#[cfg(test)]
+pub(crate) const COMBAT_BRAIN_KEYS: &[&str] = &[
+    "combatant",
+    "small_skitter",
+    "small_lurker",
+    "medium_striker",
+    "large_brute",
+    "large_colossus",
+    "gradient_seeker",
+    "pirate_raider",
+    "burning_flying_shark",
+    "pirate_on_shark",
+    "puppy_slug",
+    "pirate_heavy",
+    "pirate_heavy_on_shark",
+];
+
+/// Every authored row in the fixture (combat + training dummies + raw mites).
+#[cfg(test)]
+pub(crate) const ALL_BRAIN_KEYS: &[&str] = &[
+    "combatant",
+    "small_skitter",
+    "small_lurker",
+    "medium_striker",
+    "large_brute",
+    "large_colossus",
+    "gradient_seeker",
+    "sandbag_infinite",
+    "sandbag_finite",
+    "pirate_raider",
+    "burning_flying_shark",
+    "pirate_on_shark",
+    "pirate_heavy",
+    "pirate_heavy_on_shark",
+    "puppy_slug",
+    "exploding_mite",
+    "dividing_mite",
+    "ranged_skirmisher",
+];
+
 impl EnemyArchetypeSpec {
     /// Project the generic brain-construction inputs (kit vocabulary) the
     /// runtime brain rebuilds reconstruct without naming the roster.
@@ -612,48 +499,6 @@ impl EnemyArchetypeSpec {
             drops_held_item: self.held_item_spec(),
         }
     }
-}
-
-impl EnemyArchetype {
-    /// All combat-capable archetypes in a stable order. Useful for
-    /// tests / tooling that want to iterate every variant; the
-    /// sandbag training dummies are *not* in this list because they
-    /// don't run the standard combat AI loop.
-    pub const COMBAT_ALL: [Self; 13] = [
-        Self::Combatant,
-        Self::SmallSkitter,
-        Self::SmallLurker,
-        Self::MediumStriker,
-        Self::LargeBrute,
-        Self::LargeColossus,
-        Self::AggressiveSeeker,
-        Self::PirateRaider,
-        Self::BurningFlyingShark,
-        Self::PirateOnShark,
-        Self::PuppySlug,
-        Self::PirateHeavy,
-        Self::PirateHeavyOnShark,
-    ];
-
-    pub fn from_brain(brain: &crate::actor::EnemyBrain) -> Self {
-        let crate::actor::EnemyBrain::Custom(name) = brain else {
-            return Self::Combatant;
-        };
-        BRAIN_NAME_TO_ARCHETYPE
-            .iter()
-            .find(|(key, _)| *key == name.as_str())
-            .map(|(_, archetype)| *archetype)
-            .unwrap_or(Self::Combatant)
-    }
-
-    /// Tuning row for this archetype (test / tooling only — production
-    /// resolves via the brain-keyed [`EnemyRoster`]).
-    #[cfg(test)]
-    #[inline]
-    pub(super) fn spec(self) -> EnemyArchetypeSpec {
-        archetype_spec(self)
-    }
-
 }
 
 /// Enemy physics/AI integration, operating directly on the authoritative
@@ -1196,63 +1041,31 @@ mod enemy_archetype_data_tests {
     fn enemy_roster_resolves_brain_keys_with_fallback() {
         use crate::actor::EnemyBrain;
         let mut by_brain = std::collections::HashMap::new();
-        by_brain.insert(
-            "pirate_heavy".to_string(),
-            archetype_spec(EnemyArchetype::PirateHeavy),
-        );
-        let roster = EnemyRoster::new(by_brain, archetype_spec(EnemyArchetype::Combatant));
+        by_brain.insert("pirate_heavy".to_string(), test_spec("pirate_heavy"));
+        let roster = EnemyRoster::new(by_brain, test_spec("combatant"));
         // Known key → its spec (PirateHeavy is peaceful by default).
         assert!(
             !roster
                 .spec_for_brain(&EnemyBrain::Custom("pirate_heavy".into()))
                 .attacks_player
         );
-        // Unknown key → fallback (Combatant is hostile).
+        // Unknown key + non-Custom → fallback (Combatant is hostile).
         assert!(
             roster
                 .spec_for_brain(&EnemyBrain::Custom("does_not_exist".into()))
                 .attacks_player
         );
-        // The embedded default that production resolution uses must agree
-        // with the legacy enum path for every authored brain key.
-        for (brain_key, arch) in BRAIN_NAME_TO_ARCHETYPE {
-            let brain = EnemyBrain::Custom((*brain_key).to_string());
-            assert_eq!(
-                spec_for_brain(&brain).max_health,
-                arch.spec().max_health,
-                "embedded roster disagrees with from_brain for {brain_key}"
-            );
-        }
     }
 
-    /// `assets/data/enemy_archetypes.ron` must carry a row for every
-    /// `EnemyArchetype` variant the codebase knows about — otherwise
-    /// `archetype_spec()` would panic at the first spawn of the
-    /// missing archetype. Pin every enum variant the engine ships.
+    /// The fixture roster must carry a row for every authored spawn brain key
+    /// (a missing row would resolve to the `combatant` fallback rather than
+    /// the intended enemy).
     #[test]
-    fn ron_carries_every_known_archetype() {
-        use EnemyArchetype::*;
-        for arch in [
-            Combatant,
-            SmallSkitter,
-            SmallLurker,
-            MediumStriker,
-            LargeBrute,
-            LargeColossus,
-            AggressiveSeeker,
-            InfiniteSandbag,
-            FiniteSandbag,
-            PirateRaider,
-            BurningFlyingShark,
-            PirateOnShark,
-            PirateHeavy,
-            PirateHeavyOnShark,
-            PuppySlug,
-        ] {
-            let key = archetype_data_key(arch);
+    fn ron_carries_every_known_brain_key() {
+        for key in ALL_BRAIN_KEYS {
             assert!(
-                ENEMY_ARCHETYPE_REGISTRY.contains_key(key),
-                "enemy_archetypes.ron missing row for {arch:?} (key '{key}')",
+                ENEMY_ARCHETYPE_REGISTRY.contains_key(*key),
+                "enemy_archetypes.ron missing row for brain key '{key}'",
             );
         }
     }
@@ -1263,7 +1076,7 @@ mod enemy_archetype_data_tests {
     #[test]
     fn legacy_baseline_pins() {
         use crate::brain::MeleeActionSpec;
-        let combatant = archetype_spec(EnemyArchetype::Combatant);
+        let combatant = test_spec("combatant");
         assert_eq!(combatant.max_health, 4);
         assert!((combatant.chase_speed - 155.0).abs() < f32::EPSILON);
         assert!((combatant.aggro_radius - 460.0).abs() < f32::EPSILON);
@@ -1272,7 +1085,7 @@ mod enemy_archetype_data_tests {
             "Combatant melee should be Swipe; got {:?}",
             combatant.melee
         );
-        let slug = archetype_spec(EnemyArchetype::PuppySlug);
+        let slug = test_spec("puppy_slug");
         assert_eq!(slug.max_health, 2);
         assert!((slug.patrol_speed - 55.0).abs() < f32::EPSILON);
         assert_eq!(slug.aggro_radius, 0.0);
@@ -1289,8 +1102,7 @@ mod enemy_archetype_data_tests {
     #[test]
     fn gun_sword_archetypes_resolve_held_item_by_id() {
         use crate::brain::RangedActionSpec;
-        let on_shark = EnemyArchetype::PirateOnShark
-            .spec()
+        let on_shark = test_spec("pirate_on_shark")
             .held_item_spec()
             .expect("PirateOnShark should resolve a held item");
         assert_eq!(on_shark.id, "gun_sword");
@@ -1298,8 +1110,7 @@ mod enemy_archetype_data_tests {
             on_shark.ranged,
             Some(RangedActionSpec::Bolt { damage: 2, .. })
         ));
-        let heavy = EnemyArchetype::PirateHeavyOnShark
-            .spec()
+        let heavy = test_spec("pirate_heavy_on_shark")
             .held_item_spec()
             .expect("PirateHeavyOnShark should resolve a held item");
         assert_eq!(heavy.id, "gun_sword_heavy");
@@ -1317,24 +1128,24 @@ mod enemy_archetype_data_tests {
     /// fallback).
     #[test]
     fn smash_hit_band_is_data_authored() {
-        assert_eq!(EnemyArchetype::MediumStriker.spec().smash_hit_band,Some(32.0));
-        assert_eq!(EnemyArchetype::SmallSkitter.spec().smash_hit_band,Some(32.0));
-        assert_eq!(EnemyArchetype::SmallLurker.spec().smash_hit_band,Some(32.0));
-        assert_eq!(EnemyArchetype::LargeBrute.spec().smash_hit_band,Some(48.0));
-        assert_eq!(EnemyArchetype::LargeColossus.spec().smash_hit_band,Some(48.0));
+        assert_eq!(crate::features::enemies::test_spec("medium_striker").smash_hit_band,Some(32.0));
+        assert_eq!(crate::features::enemies::test_spec("small_skitter").smash_hit_band,Some(32.0));
+        assert_eq!(crate::features::enemies::test_spec("small_lurker").smash_hit_band,Some(32.0));
+        assert_eq!(crate::features::enemies::test_spec("large_brute").smash_hit_band,Some(48.0));
+        assert_eq!(crate::features::enemies::test_spec("large_colossus").smash_hit_band,Some(48.0));
         // 36px-default Smash archetypes omit the field on purpose.
-        assert_eq!(EnemyArchetype::Combatant.spec().smash_hit_band,None);
-        assert_eq!(EnemyArchetype::AggressiveSeeker.spec().smash_hit_band,None);
-        assert_eq!(EnemyArchetype::PirateRaider.spec().smash_hit_band,None);
+        assert_eq!(crate::features::enemies::test_spec("combatant").smash_hit_band,None);
+        assert_eq!(crate::features::enemies::test_spec("gradient_seeker").smash_hit_band,None);
+        assert_eq!(crate::features::enemies::test_spec("pirate_raider").smash_hit_band,None);
     }
 
     #[test]
     fn body_contact_damage_is_explicitly_opted_in() {
-        assert!(EnemyArchetype::Combatant.spec().body_contact_damage);
-        assert!(EnemyArchetype::PuppySlug.spec().body_contact_damage);
-        assert!(!EnemyArchetype::PirateHeavy.spec().body_contact_damage);
-        assert!(!EnemyArchetype::PirateOnShark.spec().body_contact_damage);
-        assert!(!EnemyArchetype::FiniteSandbag.spec().body_contact_damage);
+        assert!(crate::features::enemies::test_spec("combatant").body_contact_damage);
+        assert!(crate::features::enemies::test_spec("puppy_slug").body_contact_damage);
+        assert!(!crate::features::enemies::test_spec("pirate_heavy").body_contact_damage);
+        assert!(!crate::features::enemies::test_spec("pirate_on_shark").body_contact_damage);
+        assert!(!crate::features::enemies::test_spec("sandbag_finite").body_contact_damage);
     }
 
     /// Regression for the cove bug "an aggressive PirateHeavy never gets
@@ -1348,16 +1159,15 @@ mod enemy_archetype_data_tests {
     /// stop distance.
     #[test]
     fn pirate_heavy_stops_within_her_melee_reach() {
-        let archetype = EnemyArchetype::PirateHeavy;
+        let spec = test_spec("pirate_heavy");
         let authored_aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(36.0, 55.0));
         let pos = authored_aabb.center();
-        let size = archetype
-            .spec()
+        let size = spec
             .default_size
             .unwrap_or_else(|| authored_aabb.half_size() * 2.0);
         let hitbox = enemy_attack_aabb_dir(pos, size, 1.0, ae::Vec2::new(1.0, 0.0));
         let reach_edge = hitbox.center().x + hitbox.half_size().x - pos.x;
-        let attack_range = archetype.spec().tuning().attack_range;
+        let attack_range = spec.tuning().attack_range;
         assert!(
             attack_range <= reach_edge,
             "PirateHeavy attack_range {attack_range} must stay within her swing far \
@@ -1368,31 +1178,31 @@ mod enemy_archetype_data_tests {
 
 #[cfg(test)]
 mod capability_tests {
-    use super::EnemyArchetype;
+    use super::{test_spec, ALL_BRAIN_KEYS};
 
     /// Pin the authored capability rows in `enemy_archetypes.ron` to the
     /// behavior the actor layer used to hardcode by archetype identity
     /// (Stage 20: the named checks became data-driven capabilities).
     #[test]
     fn archetype_capabilities_match_the_legacy_identity_checks() {
-        let mite = EnemyArchetype::ExplodingMite.spec().combat_capabilities();
+        let mite = crate::features::enemies::test_spec("exploding_mite").combat_capabilities();
         assert!(mite.explodes_on_death && !mite.divides_on_death);
 
-        let blob = EnemyArchetype::DividingMite.spec().combat_capabilities();
+        let blob = crate::features::enemies::test_spec("dividing_mite").combat_capabilities();
         assert!(blob.divides_on_death && !blob.explodes_on_death);
 
-        let shark = EnemyArchetype::BurningFlyingShark.spec().combat_capabilities();
+        let shark = crate::features::enemies::test_spec("burning_flying_shark").combat_capabilities();
         assert!(shark.charge_crash_explodes);
 
-        let infinite = EnemyArchetype::InfiniteSandbag.spec().combat_capabilities();
+        let infinite = crate::features::enemies::test_spec("sandbag_infinite").combat_capabilities();
         assert!(infinite.never_dies && infinite.respawn_in_place_seconds.is_none());
 
-        let finite = EnemyArchetype::FiniteSandbag.spec().combat_capabilities();
+        let finite = crate::features::enemies::test_spec("sandbag_finite").combat_capabilities();
         assert!(!finite.never_dies);
         assert_eq!(finite.respawn_in_place_seconds, Some(0.85));
 
         // A plain combatant has no special capabilities.
-        let base = EnemyArchetype::Combatant.spec().combat_capabilities();
+        let base = crate::features::enemies::test_spec("combatant").combat_capabilities();
         assert_eq!(base, Default::default());
     }
 
@@ -1407,62 +1217,50 @@ mod capability_tests {
     #[test]
     fn ron_derived_behaviors_match_the_legacy_identity_formulas() {
         use super::EnemyRespawnPolicy;
-        use EnemyArchetype::*;
-        const ALL: &[EnemyArchetype] = &[
-            Combatant,
-            SmallSkitter,
-            SmallLurker,
-            MediumStriker,
-            LargeBrute,
-            LargeColossus,
-            AggressiveSeeker,
-            InfiniteSandbag,
-            FiniteSandbag,
-            PirateRaider,
-            BurningFlyingShark,
-            PirateOnShark,
-            PirateHeavy,
-            PirateHeavyOnShark,
-            PuppySlug,
-            ExplodingMite,
-            DividingMite,
-            RangedSkirmisher,
-        ];
-        for &a in ALL {
-            let attacks = !matches!(a, PuppySlug | PirateHeavy);
-            assert_eq!(a.spec().attacks_player, attacks, "{a:?} attacks_player");
+        for &key in ALL_BRAIN_KEYS {
+            let spec = test_spec(key);
+            let attacks = !matches!(key, "puppy_slug" | "pirate_heavy");
+            assert_eq!(spec.attacks_player, attacks, "{key} attacks_player");
 
             let body = !matches!(
-                a,
-                InfiniteSandbag | FiniteSandbag | PirateOnShark | PirateHeavyOnShark
-            ) && (attacks || matches!(a, PuppySlug));
-            assert_eq!(a.spec().body_contact_damage, body, "{a:?} body_contact");
+                key,
+                "sandbag_infinite" | "sandbag_finite" | "pirate_on_shark" | "pirate_heavy_on_shark"
+            ) && (attacks || key == "puppy_slug");
+            assert_eq!(spec.body_contact_damage, body, "{key} body_contact");
 
             let policy = if matches!(
-                a,
-                LargeBrute | LargeColossus | PirateHeavy | PirateOnShark | PirateHeavyOnShark
+                key,
+                "large_brute"
+                    | "large_colossus"
+                    | "pirate_heavy"
+                    | "pirate_on_shark"
+                    | "pirate_heavy_on_shark"
             ) {
                 EnemyRespawnPolicy::OnRest
             } else {
                 EnemyRespawnPolicy::OnRoomReenter
             };
-            assert_eq!(a.spec().respawn_policy(), policy, "{a:?} respawn_policy");
+            assert_eq!(spec.respawn_policy(), policy, "{key} respawn_policy");
 
-            let bs = a.spec().brain_spec();
+            let bs = spec.brain_spec();
             assert_eq!(
                 bs.smash_heavy,
-                matches!(a, LargeBrute | LargeColossus),
-                "{a:?} smash_heavy"
+                matches!(key, "large_brute" | "large_colossus"),
+                "{key} smash_heavy"
             );
             assert_eq!(
                 bs.smash_dash_to_close,
-                matches!(a, MediumStriker),
-                "{a:?} smash_dash_to_close"
+                key == "medium_striker",
+                "{key} smash_dash_to_close"
             );
             assert_eq!(
                 bs.provoke_forced_brute_min_aggro,
-                if matches!(a, PirateHeavy) { Some(500.0) } else { None },
-                "{a:?} provoke_forced_brute_min_aggro"
+                if key == "pirate_heavy" {
+                    Some(500.0)
+                } else {
+                    None
+                },
+                "{key} provoke_forced_brute_min_aggro"
             );
         }
     }

@@ -325,57 +325,48 @@ mod conversion_tests {
     }
 
     #[test]
-    fn enemy_archetype_brain_round_trip() {
-        for (name, expected) in [
-            ("small_skitter", EnemyArchetype::SmallSkitter),
-            ("small_lurker", EnemyArchetype::SmallLurker),
-            ("medium_striker", EnemyArchetype::MediumStriker),
-            ("large_brute", EnemyArchetype::LargeBrute),
-            ("large_colossus", EnemyArchetype::LargeColossus),
-            ("gradient_seeker", EnemyArchetype::AggressiveSeeker),
-            ("sandbag_infinite", EnemyArchetype::InfiniteSandbag),
-            ("sandbag_finite", EnemyArchetype::FiniteSandbag),
-            ("unknown_brain", EnemyArchetype::Combatant),
-        ] {
-            let brain = crate::actor::EnemyBrain::Custom(name.to_string());
-            assert_eq!(EnemyArchetype::from_brain(&brain), expected);
-        }
+    fn enemy_brain_keys_resolve_to_their_rows() {
+        use crate::features::enemies::test_spec;
+        // A known spawn brain key resolves to its own authored row...
+        assert_eq!(test_spec("small_skitter").max_health, 2);
+        assert_eq!(test_spec("large_brute").max_health, 9);
+        assert_eq!(test_spec("sandbag_infinite").max_health, 9999);
+        // ...and an unknown / non-roster key falls back to the combatant row.
+        assert_eq!(
+            test_spec("unknown_brain").max_health,
+            test_spec("combatant").max_health,
+        );
     }
 
-    /// Every combat archetype reports finite, non-NaN tunings. A
-    /// regression here would mean a numerical typo in the per-archetype
-    /// match arms (most likely an `f32::NAN` literal slipped in).
-    ///
-    /// Hostile archetypes additionally must have positive
-    /// `attack_range` + `contact_strength`. Peaceful archetypes
-    /// (PuppySlug, PirateHeavy — see `EnemyArchetype::attacks_player`)
-    /// are allowed to have `attack_range == 0.0` because they don't
-    /// emit a melee windup; the universal-brain refactor moves this
-    /// into `Brain::is_hostile()` long-term, but the per-archetype
-    /// signal is the source of truth for now.
+    /// Every combat archetype reports finite, non-NaN tunings. A regression
+    /// here would mean a numerical typo in the authored `enemy_archetypes.ron`
+    /// row (most likely an `f32::NAN` slipped in). Hostile archetypes
+    /// additionally must have positive `attack_range` + `contact_strength`;
+    /// peaceful rows (puppy_slug, pirate_heavy) may have `attack_range == 0.0`
+    /// because they don't emit a melee windup.
     #[test]
     fn enemy_archetype_tunings_are_finite() {
-        for archetype in EnemyArchetype::COMBAT_ALL {
-            assert!(archetype.spec().max_health > 0);
-            assert!(archetype.spec().patrol_speed.is_finite());
-            assert!(archetype.spec().tuning().chase_speed.is_finite());
-            assert!(archetype.spec().tuning().aggro_radius.is_finite());
-            assert!(archetype.spec().tuning().aggro_radius >= 0.0);
-            assert!(archetype.spec().tuning().attack_range.is_finite());
-            assert!(archetype.spec().tuning().attack_range >= 0.0);
-            assert!(archetype.spec().contact_strength.is_finite());
-            assert!(archetype.spec().contact_strength >= 0.0);
-            assert!(archetype.spec().damage_amount > 0);
-            if archetype.spec().attacks_player {
+        use crate::features::enemies::{test_spec, COMBAT_BRAIN_KEYS};
+        for key in COMBAT_BRAIN_KEYS {
+            let spec = test_spec(key);
+            assert!(spec.max_health > 0);
+            assert!(spec.patrol_speed.is_finite());
+            assert!(spec.tuning().chase_speed.is_finite());
+            assert!(spec.tuning().aggro_radius.is_finite());
+            assert!(spec.tuning().aggro_radius >= 0.0);
+            assert!(spec.tuning().attack_range.is_finite());
+            assert!(spec.tuning().attack_range >= 0.0);
+            assert!(spec.contact_strength.is_finite());
+            assert!(spec.contact_strength >= 0.0);
+            assert!(spec.damage_amount > 0);
+            if spec.attacks_player {
                 assert!(
-                    archetype.spec().tuning().attack_range > 0.0,
-                    "{:?} reports it attacks but has zero attack_range",
-                    archetype,
+                    spec.tuning().attack_range > 0.0,
+                    "{key} reports it attacks but has zero attack_range",
                 );
                 assert!(
-                    archetype.spec().contact_strength > 0.0,
-                    "{:?} reports it attacks but has zero contact_strength",
-                    archetype,
+                    spec.contact_strength > 0.0,
+                    "{key} reports it attacks but has zero contact_strength",
                 );
             }
         }
@@ -391,47 +382,47 @@ mod conversion_tests {
     fn enemy_archetype_size_and_aggression_invariants() {
         // HP: small < medium < large.
         assert!(
-            EnemyArchetype::SmallSkitter.spec().max_health < EnemyArchetype::MediumStriker.spec().max_health
+            crate::features::enemies::test_spec("small_skitter").max_health < crate::features::enemies::test_spec("medium_striker").max_health
         );
         assert!(
-            EnemyArchetype::SmallLurker.spec().max_health < EnemyArchetype::MediumStriker.spec().max_health
+            crate::features::enemies::test_spec("small_lurker").max_health < crate::features::enemies::test_spec("medium_striker").max_health
         );
         assert!(
-            EnemyArchetype::MediumStriker.spec().max_health < EnemyArchetype::LargeBrute.spec().max_health
+            crate::features::enemies::test_spec("medium_striker").max_health < crate::features::enemies::test_spec("large_brute").max_health
         );
         assert!(
-            EnemyArchetype::LargeBrute.spec().max_health < EnemyArchetype::LargeColossus.spec().max_health
+            crate::features::enemies::test_spec("large_brute").max_health < crate::features::enemies::test_spec("large_colossus").max_health
         );
 
         // Aggro radius: low-aggression < high-aggression at same size.
         assert!(
-            EnemyArchetype::SmallLurker.spec().tuning().aggro_radius
-                < EnemyArchetype::SmallSkitter.spec().tuning().aggro_radius
+            crate::features::enemies::test_spec("small_lurker").tuning().aggro_radius
+                < crate::features::enemies::test_spec("small_skitter").tuning().aggro_radius
         );
         assert!(
-            EnemyArchetype::LargeColossus.spec().tuning().aggro_radius
-                < EnemyArchetype::LargeBrute.spec().tuning().aggro_radius
+            crate::features::enemies::test_spec("large_colossus").tuning().aggro_radius
+                < crate::features::enemies::test_spec("large_brute").tuning().aggro_radius
         );
 
         // Damage: large > medium / small (LargeColossus is the heaviest hitter).
         assert!(
-            EnemyArchetype::LargeColossus.spec().damage_amount
-                >= EnemyArchetype::LargeBrute.spec().damage_amount
+            crate::features::enemies::test_spec("large_colossus").damage_amount
+                >= crate::features::enemies::test_spec("large_brute").damage_amount
         );
         assert!(
-            EnemyArchetype::LargeBrute.spec().damage_amount
-                > EnemyArchetype::SmallSkitter.spec().damage_amount
+            crate::features::enemies::test_spec("large_brute").damage_amount
+                > crate::features::enemies::test_spec("small_skitter").damage_amount
         );
 
         // Patrol speed: lurker / colossus visibly slower than their
         // higher-aggression siblings.
         assert!(
-            EnemyArchetype::SmallLurker.spec().patrol_speed
-                < EnemyArchetype::SmallSkitter.spec().patrol_speed
+            crate::features::enemies::test_spec("small_lurker").patrol_speed
+                < crate::features::enemies::test_spec("small_skitter").patrol_speed
         );
         assert!(
-            EnemyArchetype::LargeColossus.spec().patrol_speed
-                < EnemyArchetype::LargeBrute.spec().patrol_speed
+            crate::features::enemies::test_spec("large_colossus").patrol_speed
+                < crate::features::enemies::test_spec("large_brute").patrol_speed
         );
     }
 

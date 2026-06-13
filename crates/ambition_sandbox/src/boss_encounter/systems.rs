@@ -485,10 +485,11 @@ mod phase_feedback_tests {
 
     fn registry_with_boss(phase: BossEncounterPhase) -> BossEncounterRegistry {
         let mut state =
-            BossEncounterState::new(crate::boss_encounter::BossEncounterSpec::trex_boss());
+            BossEncounterState::new(crate::boss_encounter::BossEncounterSpec::gradient_sentinel());
         state.phase = phase;
         let mut reg = BossEncounterRegistry::default();
-        reg.encounters.insert("trex_boss".to_string(), state);
+        reg.encounters
+            .insert("gradient_sentinel".to_string(), state);
         reg
     }
 
@@ -514,7 +515,7 @@ mod phase_feedback_tests {
         app.world_mut()
             .resource_mut::<BossEncounterRegistry>()
             .encounters
-            .get_mut("trex_boss")
+            .get_mut("gradient_sentinel")
             .unwrap()
             .phase = BossEncounterPhase::Enrage;
         app.update();
@@ -535,7 +536,7 @@ mod phase_feedback_tests {
         app.world_mut()
             .resource_mut::<BossEncounterRegistry>()
             .encounters
-            .get_mut("trex_boss")
+            .get_mut("gradient_sentinel")
             .unwrap()
             .phase = BossEncounterPhase::Phase1;
         app.update();

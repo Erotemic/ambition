@@ -1,43 +1,24 @@
-//! The GAME's boss-encounter roster: the named `BossEncounterSpec`
-//! constructors, as an extension trait over the machinery schema in
-//! `ambition_actor::boss_encounter`. Same machinery/data split as
-//! `character_roster`: the actor crate owns the spec schema + the
-//! phase state machine; this module owns Ambition's bosses.
+//! The lib's generic boss-encounter base.
 //!
-//! Call sites keep the `BossEncounterSpec::gnu_ton()` shape — they
-//! just `use crate::boss_encounter::BossSpecRoster;`.
+//! The actor crate (`ambition_actor::boss_encounter`) owns the spec schema +
+//! the phase state machine. Ambition's *named* boss encounter specs are
+//! content: they live in `ambition_content/assets/data/boss_encounters/*.ron`
+//! and are installed via `ambition_content::bosses::install_boss_roster`
+//! (see `specs::boss_encounter_specs`). This module keeps only
+//! `gradient_sentinel` — the in-lib generic fallback that `BossProfile::generic`
+//! clones for an unknown boss id. It has no RON of its own (it IS the default),
+//! so it is not a content duplicate.
 
 use super::BossEncounterSpec;
 
-/// Named spec constructors for Ambition's bosses (data-in-code; the
-/// on-disk `boss_encounters/*.ron` specs pin against these, ADR 0017).
+/// The generic boss-encounter base, as an extension trait over the machinery
+/// schema. Only `gradient_sentinel` remains in the lib; the named boss specs
+/// moved to content (`boss_encounters/*.ron`).
 pub trait BossSpecRoster: Sized {
-    fn clockwork_warden() -> Self;
     fn gradient_sentinel() -> Self;
-    fn mockingbird() -> Self;
-    fn smirking_behemoth_boss() -> Self;
-    fn gnu_ton() -> Self;
-    fn flying_spaghetti_monster_boss() -> Self;
-    fn trex_boss() -> Self;
-    fn mode_collapse_boss() -> Self;
-    fn exploding_gradient_boss() -> Self;
-    fn overflow_boss() -> Self;
 }
 
 impl BossSpecRoster for BossEncounterSpec {
-    /// Clockwork Warden — a renamed reskin of `gradient_sentinel` with
-    /// a different display name + tighter HP pool. The on-disk
-    /// `boss_encounters/clockwork_warden.ron` pins against this
-    /// constructor (ADR 0017); `BossProfile::from_id("clockwork_warden")`
-    /// reads the same numeric body from that RON.
-    fn clockwork_warden() -> Self {
-        let mut spec = Self::gradient_sentinel();
-        spec.id = "clockwork_warden".into();
-        spec.name = "Clockwork Warden".into();
-        spec.max_hp = 36;
-        spec
-    }
-
     fn gradient_sentinel() -> Self {
         Self {
             id: "gradient_sentinel".into(),
@@ -63,204 +44,6 @@ impl BossSpecRoster for BossEncounterSpec {
             music_phase1: "fast_paced_violin_boss".into(),
             music_phase2: "fast_paced_violin_boss".into(),
             music_enrage: "fast_paced_violin_boss".into(),
-        }
-    }
-
-    /// Mockingbird boss — pirate-faction arena boss. Shorter HP pool
-    /// than the gradient sentinel to keep the fight crisp; the design
-    /// intent is "swooping aerial pressure" rather than a long combat
-    /// of attrition. Uses the `how_to_kill_a_mockingbird` audio score
-    /// (rendered separately by the music renderer); falls back to
-    /// existing boss tracks if the audio asset isn't on disk.
-    fn mockingbird() -> Self {
-        Self {
-            id: "mockingbird".into(),
-            name: "Mockingbird".into(),
-            max_hp: 28,
-            phase1_to_transition_hp: 0.60,
-            transition_to_phase2_hp: 0.60,
-            phase2_to_enrage_hp: 0.25,
-            intro_seconds: 2.0,
-            transition_seconds: 1.4,
-            stagger_seconds: 1.6,
-            death_seconds: 2.2,
-            stagger_threshold: 5,
-            stagger_window_seconds: 1.4,
-            music_intro: "how_to_kill_a_mockingbird".into(),
-            music_phase1: "how_to_kill_a_mockingbird".into(),
-            music_phase2: "how_to_kill_a_mockingbird".into(),
-            music_enrage: "how_to_kill_a_mockingbird".into(),
-        }
-    }
-
-    /// Smirking Behemoth — "You Have To Cut The Rope" parody boss.
-    ///
-    /// HP is intentionally enormous because ordinary attacks are ignored;
-    /// the LDtk-authored rope/anvil mechanic triggers an environmental
-    /// forced death instead.
-    fn smirking_behemoth_boss() -> Self {
-        Self {
-            id: "smirking_behemoth_boss".into(),
-            name: "Smirking Behemoth".into(),
-            max_hp: 9999,
-            phase1_to_transition_hp: 0.66,
-            transition_to_phase2_hp: 0.66,
-            phase2_to_enrage_hp: 0.22,
-            intro_seconds: 1.0,
-            transition_seconds: 1.0,
-            stagger_seconds: 0.4,
-            death_seconds: 2.0,
-            stagger_threshold: 999_999,
-            stagger_window_seconds: 0.1,
-            music_intro: "smirking_behemoth_boss".into(),
-            music_phase1: "smirking_behemoth_boss".into(),
-            music_phase2: "smirking_behemoth_boss".into(),
-            music_enrage: "smirking_behemoth_boss".into(),
-        }
-    }
-
-    /// GNU-ton — the giant GNU with a scholar perched on its shoulders.
-    ///
-    /// Multi-part fight: the player must dodge hands (Phase 1) until the
-    /// head descends (SpikeHalo windows in Phase 2+). The GNU's body
-    /// stays in the background throughout; only the head and hands are
-    /// interactive. Long HP pool to reflect the multi-part structure —
-    /// Phase 1 is pure hand-dodge pressure with no damage opportunities.
-    fn gnu_ton() -> Self {
-        Self {
-            id: "gnu_ton".into(),
-            name: "GNU-ton".into(),
-            max_hp: 42,
-            phase1_to_transition_hp: 0.65,
-            transition_to_phase2_hp: 0.65,
-            phase2_to_enrage_hp: 0.28,
-            intro_seconds: 2.8,
-            transition_seconds: 2.0,
-            stagger_seconds: 2.2,
-            death_seconds: 3.0,
-            stagger_threshold: 8,
-            stagger_window_seconds: 2.0,
-            music_intro: "standing_on_shoulders".into(),
-            music_phase1: "standing_on_shoulders".into(),
-            music_phase2: "standing_on_shoulders".into(),
-            music_enrage: "standing_on_shoulders".into(),
-        }
-    }
-
-    /// Flying Spaghetti Monster — a false-god boss (canon: Jon). Compile-time
-    /// fallback; the on-disk `boss_encounters/flying_spaghetti_monster_boss.ron`
-    /// overrides these numbers. Behaviour lives in `boss_profiles.ron`.
-    fn flying_spaghetti_monster_boss() -> Self {
-        Self {
-            id: "flying_spaghetti_monster_boss".into(),
-            name: "Flying Spaghetti Monster".into(),
-            max_hp: 36,
-            phase1_to_transition_hp: 0.6,
-            transition_to_phase2_hp: 0.6,
-            phase2_to_enrage_hp: 0.25,
-            intro_seconds: 2.6,
-            transition_seconds: 2.0,
-            stagger_seconds: 1.8,
-            death_seconds: 2.6,
-            stagger_threshold: 7,
-            stagger_window_seconds: 1.6,
-            music_intro: "flying_spaghetti_monster_fight".into(),
-            music_phase1: "flying_spaghetti_monster_fight".into(),
-            music_phase2: "flying_spaghetti_monster_fight".into(),
-            music_enrage: "flying_spaghetti_monster_fight".into(),
-        }
-    }
-
-    /// T-rex — a grounded, melee-centric bipedal boss (canon: Jon). Compile-time
-    /// fallback; `boss_encounters/trex_boss.ron` overrides these.
-    fn trex_boss() -> Self {
-        Self {
-            id: "trex_boss".into(),
-            name: "T-Rex".into(),
-            max_hp: 44,
-            phase1_to_transition_hp: 0.62,
-            transition_to_phase2_hp: 0.62,
-            phase2_to_enrage_hp: 0.26,
-            intro_seconds: 2.6,
-            transition_seconds: 2.0,
-            stagger_seconds: 2.0,
-            death_seconds: 2.8,
-            stagger_threshold: 8,
-            stagger_window_seconds: 1.8,
-            music_intro: "dinosaur_liberators".into(),
-            music_phase1: "dinosaur_liberators".into(),
-            music_phase2: "dinosaur_liberators".into(),
-            music_enrage: "dinosaur_liberators".into(),
-        }
-    }
-
-    /// Mode Collapse — a floating summoner boss (a training failure that floods
-    /// the arena with identical lesser copies). Compile-time fallback;
-    /// `boss_encounters/mode_collapse_boss.ron` overrides these.
-    fn mode_collapse_boss() -> Self {
-        Self {
-            id: "mode_collapse_boss".into(),
-            name: "Mode Collapse".into(),
-            max_hp: 34,
-            phase1_to_transition_hp: 0.6,
-            transition_to_phase2_hp: 0.6,
-            phase2_to_enrage_hp: 0.25,
-            intro_seconds: 2.6,
-            transition_seconds: 2.0,
-            stagger_seconds: 1.8,
-            death_seconds: 2.6,
-            stagger_threshold: 7,
-            stagger_window_seconds: 1.6,
-            music_intro: "flying_spaghetti_monster_fight".into(),
-            music_phase1: "flying_spaghetti_monster_fight".into(),
-            music_phase2: "flying_spaghetti_monster_fight".into(),
-            music_enrage: "flying_spaghetti_monster_fight".into(),
-        }
-    }
-
-    /// Exploding Gradient — a floating ranged-pressure boss. Compile-time
-    /// fallback; `boss_encounters/exploding_gradient_boss.ron` overrides these.
-    fn exploding_gradient_boss() -> Self {
-        Self {
-            id: "exploding_gradient_boss".into(),
-            name: "Exploding Gradient".into(),
-            max_hp: 38,
-            phase1_to_transition_hp: 0.6,
-            transition_to_phase2_hp: 0.6,
-            phase2_to_enrage_hp: 0.25,
-            intro_seconds: 2.4,
-            transition_seconds: 1.8,
-            stagger_seconds: 1.6,
-            death_seconds: 2.6,
-            stagger_threshold: 8,
-            stagger_window_seconds: 1.6,
-            music_intro: "dinosaur_liberators".into(),
-            music_phase1: "dinosaur_liberators".into(),
-            music_phase2: "dinosaur_liberators".into(),
-            music_enrage: "dinosaur_liberators".into(),
-        }
-    }
-
-    /// Overflow — an aerial melee dive-bomber. Compile-time fallback;
-    /// `boss_encounters/overflow_boss.ron` overrides these.
-    fn overflow_boss() -> Self {
-        Self {
-            id: "overflow_boss".into(),
-            name: "Overflow".into(),
-            max_hp: 42,
-            phase1_to_transition_hp: 0.6,
-            transition_to_phase2_hp: 0.6,
-            phase2_to_enrage_hp: 0.25,
-            intro_seconds: 2.4,
-            transition_seconds: 1.8,
-            stagger_seconds: 1.8,
-            death_seconds: 2.6,
-            stagger_threshold: 9,
-            stagger_window_seconds: 1.6,
-            music_intro: "dinosaur_liberators".into(),
-            music_phase1: "dinosaur_liberators".into(),
-            music_phase2: "dinosaur_liberators".into(),
-            music_enrage: "dinosaur_liberators".into(),
         }
     }
 }

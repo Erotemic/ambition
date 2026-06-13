@@ -78,8 +78,8 @@ mod tests {
     /// authored profile in `AUTHORED_BOSS_PROFILES`. A stray RON
     /// (typo'd filename, leftover from a renamed boss) would be
     /// silently ignored by the loader override loop; this test trips
-    /// instead. The reverse (profile without RON) is fine — the
-    /// hardcoded constructor stays the fallback.
+    /// instead. The reverse (profile without RON) is fine — the in-lib
+    /// generic `gradient_sentinel` base covers an unauthored boss.
     #[test]
     fn every_on_disk_ron_matches_an_authored_profile() {
         let profile_ids: std::collections::BTreeSet<String> =

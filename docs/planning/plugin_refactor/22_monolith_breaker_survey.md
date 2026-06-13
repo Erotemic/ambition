@@ -471,3 +471,30 @@ decoupling is complete; what remains is physical relocation.
    / `install_enemy_roster` to `pub`.
 3. Add an `architecture_boundaries` guard: the machinery lib's production code
    never names `EnemyArchetype` (exempt the relocated-away definition).
+
+### Session 8 (2026-06-13, Fable) — enemy roster DATA relocated to content (2b.3 done)
+
+The named enemy roster DATA now lives in and is installed exclusively by
+`ambition_content` (`c1ba363d`, `c4a808e8`, `6df436f5`; replay bit-identical):
+- `ambition_content::enemy_roster` owns the brain-keyed RON and installs it into
+  the lib's `EnemyRoster` at `AmbitionContentPlugin::build` (before any spawn
+  system — install ordering is structural, no startup race). `from_ron` /
+  `install_enemy_roster` are the now-`pub` lib seam.
+- The lib's embedded roster + bundled-RON registry are now `#[cfg(test)]`: a
+  fixture so the lib's own unit tests resolve standalone. **Production embeds NO
+  enemy data** — `enemy_roster()` requires the content install and panics if
+  absent, so the green app gates PROVE the install is load-bearing (a missing
+  `AmbitionContentPlugin` would panic, not silently fall back).
+- Drift guard: a content test asserts the lib's `#[cfg(test)]` fixture RON is
+  byte-identical to content's authored roster.
+
+**State:** production core is free of enemy data; content owns + installs it.
+The `EnemyArchetype` enum + the brain-name table + the roster-DATA tests remain
+in the lib as `#[cfg(test)]`/`pub` test tooling, backed by the fixture RON.
+
+**Optional remaining polish (test-tooling only; not production-visible):** move
+the enum + brain-name table + roster-DATA tests physically into
+`ambition_content`, slim the lib's fixture to a small GENERIC roster, and
+convert the lib's ~50 machinery-test enum sites to brain-key strings. This is
+heavy test surgery for no production change (production already names the enum
+nowhere and embeds no enemy data) — deferred as low-priority.

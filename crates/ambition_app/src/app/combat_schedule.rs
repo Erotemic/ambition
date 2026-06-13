@@ -20,6 +20,11 @@ pub struct CombatSchedulePlugin;
 
 impl Plugin for CombatSchedulePlugin {
     fn build(&self, app: &mut App) {
+        // The effect seam: techniques (the shockwave gauntlet, the boss
+        // phase-transition slam, …) emit `EffectRequest`; `apply_effects` below
+        // drains it. Registered here so the writers never hit an unregistered
+        // message.
+        app.add_message::<ambition_sandbox::effects::EffectRequest>();
         app.add_systems(
             Update,
             (
@@ -67,13 +72,13 @@ impl Plugin for CombatSchedulePlugin {
                 ambition_sandbox::features::spawn_saddle_point_from_special_messages.run_if(gameplay_allowed),
                 ambition_sandbox::features::spawn_gradient_cascade_minions_from_special_messages
                     .run_if(gameplay_allowed),
-                // Actor-generic consumer: a ShockwaveSlam Special (boss OR
-                // player-emitted) spawns a faction-tagged World-anchored AOE
-                // hitbox at the emitter, resolved by `apply_hitbox_damage`
-                // below. The player end (the shockwave gauntlet) is the first
-                // "player wields a boss attack" slice.
-                ambition_sandbox::abilities::ranged::shockwave::spawn_shockwave_from_special_messages
-                    .run_if(gameplay_allowed),
+                // Generic effect executor: drains `EffectRequest` (boss OR
+                // player emitted) and makes each effect happen — currently the
+                // `DamageBox` AOE (shockwave gauntlet + boss phase-transition
+                // slam), faction-tagged at the emitter, resolved by
+                // `apply_hitbox_damage` below. Runs at the position the bespoke
+                // shockwave consumer used, so spawn timing is unchanged.
+                ambition_sandbox::effects::apply_effects.run_if(gameplay_allowed),
                 // Phase 3b enemy-pool spawn consumer: drains SpawnProjectile
                 // messages emitted by the EFFECTS-stage fire consumers above
                 // (apple rain / overfit volley / eye beam / ranged bolts /

@@ -418,7 +418,7 @@ pub fn boss_phase_transition_feedback(
         ),
         With<crate::features::BossConfig>,
     >,
-    mut actions: MessageWriter<crate::brain::ActorActionMessage>,
+    mut effects: MessageWriter<crate::effects::EffectRequest>,
     mut vfx: MessageWriter<crate::presentation::fx::VfxMessage>,
 ) {
     use crate::boss_encounter::BossEncounterPhase as P;
@@ -441,23 +441,22 @@ pub fn boss_phase_transition_feedback(
                 pos: ae::Vec2::ZERO,
             });
             // The transition is now a dodge-able GAMEPLAY beat, not just feel: the
-            // boss emits a `ShockwaveSlam` Special through the SAME actor-generic
-            // consumer the player's shockwave gauntlet uses (`crate::abilities::ranged::shockwave`).
-            // Resolved as the boss's own faction (`ActorFaction::Boss`), so the
-            // shared `apply_hitbox_damage` lands it on the player — the literal
-            // "player and boss fire the same attack" unification, in-game.
+            // boss emits a `DamageBox` effect through the SAME generic
+            // `apply_effects` consumer the player's shockwave gauntlet uses.
+            // Resolved at the boss's own position + faction (`ActorFaction::Boss`),
+            // so the shared `apply_hitbox_damage` lands it on the player — the
+            // literal "player and boss fire the same attack" unification, in-game.
             if let Some((entity, _, kin)) = bosses.iter().find(|(_, fid, _)| fid.as_str() == id) {
-                actions.write(crate::brain::ActorActionMessage {
-                    actor: entity,
-                    request: crate::brain::ActionRequest::Special {
-                        spec: crate::brain::action_set::SpecialActionSpec::ShockwaveSlam {
-                            half_extent_x: 170.0,
-                            half_extent_y: 80.0,
-                            damage: 2,
-                            lifetime_s: 0.30,
-                            knockback: 1.6,
-                        },
-                    },
+                effects.write(crate::effects::EffectRequest {
+                    owner: entity,
+                    effect: crate::effects::Effect::DamageBox(crate::effects::DamageBoxEffect {
+                        at: crate::effects::DamageBoxAt::Emitter,
+                        half_extent: ae::Vec2::new(170.0, 80.0),
+                        damage: 2,
+                        knockback: 1.6,
+                        lifetime_s: 0.30,
+                        name: Some("Shockwave AOE"),
+                    }),
                 });
                 // "Scream lines": a sharp radial spark burst FROM the boss, so the
                 // phase change reads as a dramatic beat instead of a silent state
@@ -501,7 +500,7 @@ mod phase_feedback_tests {
     fn dramatic_phase_change_kicks_the_camera_shake() {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
-        app.add_message::<crate::brain::ActorActionMessage>();
+        app.add_message::<crate::effects::EffectRequest>();
         app.add_message::<crate::presentation::fx::VfxMessage>();
         app.init_resource::<CameraShakeState>();
         app.insert_resource(registry_with_boss(BossEncounterPhase::Phase1));
@@ -526,7 +525,7 @@ mod phase_feedback_tests {
     fn non_dramatic_change_does_not_shake() {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
-        app.add_message::<crate::brain::ActorActionMessage>();
+        app.add_message::<crate::effects::EffectRequest>();
         app.add_message::<crate::presentation::fx::VfxMessage>();
         app.init_resource::<CameraShakeState>();
         app.insert_resource(registry_with_boss(BossEncounterPhase::Intro));

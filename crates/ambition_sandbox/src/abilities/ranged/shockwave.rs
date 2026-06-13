@@ -1,27 +1,18 @@
 //! Shockwave Slam — a boss-style ground-slam AOE the **player** can wield.
 //!
-//! This is the first slice of "player wields boss attacks" / the Effect-primitive
-//! ability vocabulary (TODO.md). A boss ground-slam and the player's wielded
-//! shockwave are the **same primitive**: an
-//! [`ActorActionMessage::Special`]`{ spec: ShockwaveSlam }` →
-//! [`spawn_shockwave_from_special_messages`] → a World-anchored, faction-tagged
-//! [`Hitbox`]. The consumer is **actor-generic**: it reads the emitting actor's
-//! position and stamps the hitbox with the **emitter's** faction, so the SAME
-//! system serves a boss (Boss faction → damages the player) and the player
-//! (Player faction → damages enemies, via the player-faction branch added to
-//! `apply_hitbox_damage`). No projectile-pool faction split is involved — the
-//! `Hitbox` primitive already carries a faction.
-//!
-//! The older `spawn_*_from_special_messages` consumers are still boss-query
-//! coupled; `ShockwaveSlam` is authored actor-generic from the start, and
-//! migrating the rest onto this shape is the Effect-primitive vocabulary item.
+//! The first "player wields a boss attack" slice, now expressed on the effect
+//! seam: `Attack` while holding the shockwave gauntlet emits a generic
+//! [`crate::effects::EffectRequest`] carrying a `DamageBox` effect anchored at
+//! the emitter. The generic [`crate::effects::apply_effects`] consumer spawns
+//! the World-anchored, faction-tagged AOE — so the SAME path serves the player
+//! (Player faction → damages enemies) and a boss (Boss faction → damages the
+//! player, see `boss_encounter::systems` phase-transition slam). No bespoke
+//! per-attack consumer: the technique just emits an effect.
 
 use bevy::prelude::*;
 
-use crate::brain::action_set::SpecialActionSpec;
-use crate::brain::{ActionRequest, ActorActionMessage};
 use crate::engine_core as ae;
-use crate::features::{ActorFaction, FeatureAabb, FeatureSimEntity, HeldItem};
+use crate::features::HeldItem;
 use crate::input::ControlFrame;
 use crate::player::{BodyKinematics, PlayerEntity, PlayerMana, PrimaryPlayer};
 
@@ -32,26 +23,24 @@ pub const SHOCKWAVE_ID: &str = "shockwave";
 /// regen this is feedback (the bar visibly drops), not a hard gate — feel-tune.
 const SHOCKWAVE_MANA_COST: f32 = 25.0;
 
-/// Player-wielded shockwave tunings. (A boss using `ShockwaveSlam` authors its
-/// own values on the spec; these are the player gauntlet's.)
+/// Player-wielded shockwave tunings. (A boss authors its own `DamageBox` values
+/// at its emit site; these are the player gauntlet's.)
 const SHOCKWAVE_HALF: ae::Vec2 = ae::Vec2::new(120.0, 52.0);
 const SHOCKWAVE_DAMAGE: i32 = 4;
 const SHOCKWAVE_LIFETIME_S: f32 = 0.18;
 const SHOCKWAVE_KNOCKBACK: f32 = 1.3;
 
-/// `Attack` while holding the shockwave gauntlet emits a `ShockwaveSlam`
-/// Special so the shared [`spawn_shockwave_from_special_messages`] consumer
-/// spawns the AOE from the **player** (player faction). Plain Attack only —
-/// `Shield + Attack` is the throw/drop gesture (handled by
-/// `item_pickup::throw_held_item_system`, which excludes this id from
-/// throw-on-plain-Attack).
+/// `Attack` while holding the shockwave gauntlet emits a `DamageBox` effect from
+/// the **player**. Plain Attack only — `Shield + Attack` is the throw/drop
+/// gesture (handled by `item_pickup::throw_held_item_system`, which excludes
+/// this id from throw-on-plain-Attack).
 pub fn fire_shockwave_system(
     control: Res<ControlFrame>,
     mut players: Query<
         (Entity, &HeldItem, &BodyKinematics, &mut PlayerMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
-    mut actions: MessageWriter<ActorActionMessage>,
+    mut effects: MessageWriter<crate::effects::EffectRequest>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     if !control.attack_pressed || control.shield_held {
@@ -67,17 +56,16 @@ pub fn fire_shockwave_system(
     if !mana.meter.try_spend(SHOCKWAVE_MANA_COST) {
         return;
     }
-    actions.write(ActorActionMessage {
-        actor: entity,
-        request: ActionRequest::Special {
-            spec: SpecialActionSpec::ShockwaveSlam {
-                half_extent_x: SHOCKWAVE_HALF.x,
-                half_extent_y: SHOCKWAVE_HALF.y,
-                damage: SHOCKWAVE_DAMAGE,
-                lifetime_s: SHOCKWAVE_LIFETIME_S,
-                knockback: SHOCKWAVE_KNOCKBACK,
-            },
-        },
+    effects.write(crate::effects::EffectRequest {
+        owner: entity,
+        effect: crate::effects::Effect::DamageBox(crate::effects::DamageBoxEffect {
+            at: crate::effects::DamageBoxAt::Emitter,
+            half_extent: SHOCKWAVE_HALF,
+            damage: SHOCKWAVE_DAMAGE,
+            knockback: SHOCKWAVE_KNOCKBACK,
+            lifetime_s: SHOCKWAVE_LIFETIME_S,
+            name: Some("Shockwave AOE"),
+        }),
     });
     sfx.write(crate::audio::SfxMessage::Play {
         id: ambition_sfx::ids::WORLD_ROCK_HIT,
@@ -85,71 +73,20 @@ pub fn fire_shockwave_system(
     });
 }
 
-/// Actor-generic EFFECTS consumer: for every `ShockwaveSlam` Special, spawn a
-/// World-anchored [`Hitbox`] AOE at the **emitting actor's** position, tagged
-/// with that actor's faction. Resolves the emitter against the player first,
-/// then the feature actors (enemies/bosses that carry an [`ActorFaction`]), so
-/// one system serves player- and actor-sourced slams alike.
-pub fn spawn_shockwave_from_special_messages(
-    mut commands: Commands,
-    mut messages: MessageReader<ActorActionMessage>,
-    players: Query<&BodyKinematics, With<PlayerEntity>>,
-    features: Query<(&FeatureAabb, &ActorFaction), With<FeatureSimEntity>>,
-) {
-    for msg in messages.read() {
-        let ActionRequest::Special {
-            spec:
-                SpecialActionSpec::ShockwaveSlam {
-                    half_extent_x,
-                    half_extent_y,
-                    damage,
-                    lifetime_s,
-                    knockback,
-                },
-        } = msg.request
-        else {
-            continue;
-        };
-        // Resolve the emitter's position + faction generically.
-        let (center, faction) = if let Ok(kin) = players.get(msg.actor) {
-            (kin.pos, ActorFaction::Player)
-        } else if let Ok((aabb, fac)) = features.get(msg.actor) {
-            (aabb.center, *fac)
-        } else {
-            // Emitter has neither player kinematics nor a feature AABB+faction
-            // — nothing to anchor the slam to.
-            continue;
-        };
-        crate::effects::spawn_damage_box(
-            &mut commands,
-            msg.actor,
-            faction,
-            center,
-            crate::effects::DamageBox {
-                half_extent: ae::Vec2::new(half_extent_x, half_extent_y),
-                damage,
-                knockback,
-                lifetime_s,
-                name: Some("Shockwave AOE"),
-            },
-        );
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::abilities::test_support::spawn_primary_player_holding;
-    use crate::features::{Hitbox, HitboxAnchor};
+    use crate::features::{ActorFaction, FeatureAabb, FeatureSimEntity, Hitbox, HitboxAnchor};
 
     fn test_app() -> App {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
-        app.add_message::<ActorActionMessage>();
+        app.add_message::<crate::effects::EffectRequest>();
         app.insert_resource(ControlFrame::default());
         app.add_systems(
             Update,
-            (fire_shockwave_system, spawn_shockwave_from_special_messages).chain(),
+            (fire_shockwave_system, crate::effects::apply_effects).chain(),
         );
         app
     }
@@ -228,12 +165,12 @@ mod tests {
 
     #[test]
     fn an_actor_emitting_shockwave_gets_an_aoe_of_its_own_faction() {
-        // The consumer is actor-generic: a non-player actor (an enemy) emitting
-        // the SAME ShockwaveSlam Special gets an Enemy-faction AOE at its own
-        // position — proving the player and bosses/enemies share one system.
+        // The effect path is actor-generic: a non-player actor (an enemy)
+        // emitting the SAME DamageBox effect gets an Enemy-faction AOE at its
+        // own position — proving player and bosses/enemies share one path.
         let mut app = App::new();
-        app.add_message::<ActorActionMessage>();
-        app.add_systems(Update, spawn_shockwave_from_special_messages);
+        app.add_message::<crate::effects::EffectRequest>();
+        app.add_systems(Update, crate::effects::apply_effects);
         let enemy = app
             .world_mut()
             .spawn((
@@ -242,17 +179,16 @@ mod tests {
                 ActorFaction::Enemy,
             ))
             .id();
-        app.world_mut().write_message(ActorActionMessage {
-            actor: enemy,
-            request: ActionRequest::Special {
-                spec: SpecialActionSpec::ShockwaveSlam {
-                    half_extent_x: 60.0,
-                    half_extent_y: 30.0,
-                    damage: 3,
-                    lifetime_s: 0.2,
-                    knockback: 1.0,
-                },
-            },
+        app.world_mut().write_message(crate::effects::EffectRequest {
+            owner: enemy,
+            effect: crate::effects::Effect::DamageBox(crate::effects::DamageBoxEffect {
+                at: crate::effects::DamageBoxAt::Emitter,
+                half_extent: ae::Vec2::new(60.0, 30.0),
+                damage: 3,
+                knockback: 1.0,
+                lifetime_s: 0.2,
+                name: Some("Shockwave AOE"),
+            }),
         });
         app.update();
         let mut q = app.world_mut().query::<&Hitbox>();

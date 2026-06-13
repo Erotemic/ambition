@@ -18,7 +18,8 @@
 use bevy::prelude::*;
 
 use crate::engine_core as ae;
-use crate::features::{ActorFaction, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime};
+use crate::features::{ActorFaction, FeatureAabb, FeatureSimEntity, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime};
+use crate::player::{BodyKinematics, PlayerEntity};
 
 /// The `DamageBox` effect primitive: a world-anchored, time-limited damage
 /// volume. `owner` + `source` faction are supplied at spawn (from the emitter),
@@ -67,4 +68,99 @@ pub fn spawn_damage_box(
         e.insert(Name::new(name));
     }
     e.id()
+}
+
+/// Where a [`DamageBoxEffect`] is anchored.
+pub enum DamageBoxAt {
+    /// At the emitting actor's own position (player kinematics, or a feature
+    /// actor's AABB center) — the resolution the shockwave consumer used.
+    Emitter,
+    /// At an explicit world point (e.g. a pit trap dropped at the player).
+    World(ae::Vec2),
+}
+
+/// The payload of an [`Effect::DamageBox`]: a world-anchored damage volume an
+/// emitter requests. `at` chooses the center; `owner` + faction are resolved
+/// from the emitter at apply time.
+pub struct DamageBoxEffect {
+    pub at: DamageBoxAt,
+    pub half_extent: ae::Vec2,
+    pub damage: i32,
+    pub knockback: f32,
+    pub lifetime_s: f32,
+    pub name: Option<&'static str>,
+}
+
+/// A composable effect an actor *technique* emits. [`apply_effects`] executes
+/// it — faction-tagged and emitter-relative — so player, enemy, and boss share
+/// one path. More primitives (Projectiles, Minions) land here as sites migrate.
+pub enum Effect {
+    DamageBox(DamageBoxEffect),
+}
+
+/// "This `owner` emitted this `effect`." Written by a technique, drained by
+/// [`apply_effects`]. This message seam is what makes the effect system
+/// removable: drop the consumer and techniques emit into the void — nothing
+/// spawns, the rest of the game still runs.
+#[derive(Message)]
+pub struct EffectRequest {
+    pub owner: Entity,
+    pub effect: Effect,
+}
+
+/// Resolve an emitter's center + faction the way the shockwave consumer did:
+/// the player by kinematics (Player faction), else a feature actor by its AABB
+/// center + authored faction.
+fn resolve_emitter(
+    owner: Entity,
+    players: &Query<&BodyKinematics, With<PlayerEntity>>,
+    features: &Query<(&FeatureAabb, &ActorFaction), With<FeatureSimEntity>>,
+) -> Option<(ae::Vec2, ActorFaction)> {
+    if let Ok(kin) = players.get(owner) {
+        Some((kin.pos, ActorFaction::Player))
+    } else if let Ok((aabb, fac)) = features.get(owner) {
+        Some((aabb.center, *fac))
+    } else {
+        None
+    }
+}
+
+/// Generic effect executor: drains [`EffectRequest`]s and makes each happen at
+/// the emitter's position with the emitter's faction. The single home for "an
+/// actor emitted an effect → it occurs in the world." Reads in message order
+/// (unsorted) to match the per-consumer behavior it replaces; if a future
+/// multi-emit race needs a stable order, sort by `owner`'s stable id here.
+pub fn apply_effects(
+    mut commands: Commands,
+    mut requests: MessageReader<EffectRequest>,
+    players: Query<&BodyKinematics, With<PlayerEntity>>,
+    features: Query<(&FeatureAabb, &ActorFaction), With<FeatureSimEntity>>,
+) {
+    for req in requests.read() {
+        let Some((emitter_center, faction)) = resolve_emitter(req.owner, &players, &features)
+        else {
+            continue;
+        };
+        match &req.effect {
+            Effect::DamageBox(d) => {
+                let center = match d.at {
+                    DamageBoxAt::Emitter => emitter_center,
+                    DamageBoxAt::World(p) => p,
+                };
+                spawn_damage_box(
+                    &mut commands,
+                    req.owner,
+                    faction,
+                    center,
+                    DamageBox {
+                        half_extent: d.half_extent,
+                        damage: d.damage,
+                        knockback: d.knockback,
+                        lifetime_s: d.lifetime_s,
+                        name: d.name,
+                    },
+                );
+            }
+        }
+    }
 }

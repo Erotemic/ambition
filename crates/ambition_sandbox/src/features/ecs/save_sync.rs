@@ -120,29 +120,29 @@ pub fn sync_ecs_npc_actors_with_save(
             *cooldowns = cd;
             continue;
         }
-        let mut hostile = enemy_cluster_for_hostile_npc(&npc.config, &npc.kin, &npc.surface);
-        if data.flag(&format!("enemy_{}_dead", hostile.config.id))
+        let hostile_id = npc.config.id.clone();
+        let dead_on_load = data.flag(&format!("enemy_{hostile_id}_dead"))
             || data.flag(&format!(
-                "enemy_{}{}",
-                hostile.config.id,
+                "enemy_{hostile_id}{}",
                 crate::features::ENEMY_DEAD_UNTIL_REST_SUFFIX,
-            ))
-        {
-            hostile.status.alive = false;
-            hostile.status.health.current = 0;
-        }
+            ));
         aggression.mode = AggressionMode::HostileToPlayer;
-        let (new_brain, new_action_set) =
-            super::brain_builders::aggressive_brain_and_action_set_for_enemy(
-                &hostile.config,
-                combat_kit,
-                held_item,
-            );
-        make_entity_enemy(
+        let conversion = super::actors::HostileNpcConversionPlan::from_npc(
+            &npc.config,
+            &npc.kin,
+            &npc.surface,
+            combat_kit,
+            held_item,
+        );
+        let conversion = if dead_on_load {
+            conversion.with_dead_state()
+        } else {
+            conversion
+        };
+        conversion.apply(
             &mut commands,
             entity,
             &mut actor,
-            &hostile,
             &mut identity,
             &mut disposition,
             &mut health,
@@ -150,7 +150,6 @@ pub fn sync_ecs_npc_actors_with_save(
             &mut intent,
             &mut cooldowns,
         );
-        commands.entity(entity).insert((new_brain, new_action_set));
     }
 }
 

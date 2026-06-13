@@ -84,7 +84,7 @@ impl ActorRuntime {
 /// Build the enemy component seed an NPC uses when its aggression policy
 /// flips it hostile. The NPC keeps the same entity identity; only the
 /// NPC-only cluster is replaced with the enemy cluster.
-pub fn enemy_cluster_for_hostile_npc(
+fn enemy_cluster_for_hostile_npc(
     config: &super::npc_clusters::NpcConfig,
     kin: &super::enemy_clusters::BodyKinematics,
     surface: &ActorSurfaceState,
@@ -108,6 +108,13 @@ pub fn enemy_cluster_for_hostile_npc(
         enemy.config.sprite_override_npc_name = Some(config.name.clone());
     }
     enemy
+}
+
+pub(crate) fn hostile_enemy_archetype_for_npc(
+    config: &super::npc_clusters::NpcConfig,
+) -> super::super::enemies::EnemyArchetype {
+    let brain = crate::actor::EnemyBrain::Custom(hostile_enemy_brain_for_npc(config).into());
+    super::super::enemies::EnemyArchetype::from_brain(&brain)
 }
 
 fn hostile_enemy_brain_for_npc(config: &super::npc_clusters::NpcConfig) -> &'static str {
@@ -173,7 +180,7 @@ pub fn enemy_component_snapshot(
 /// the enemy cluster components, set the `Enemy` marker, and mirror the
 /// read-model components. Shared by runtime stimulus and save-load
 /// provoke paths.
-pub fn make_entity_enemy(
+fn make_entity_enemy(
     commands: &mut Commands,
     entity: Entity,
     actor: &mut ActorRuntime,
@@ -205,6 +212,89 @@ pub fn make_entity_enemy(
     *combat = next_combat;
     *intent = next_intent;
     *cooldowns = next_cd;
+}
+
+/// Complete conversion recipe for an NPC that becomes hostile.
+///
+/// The plan keeps the enemy cluster seed together with the brain/action pair
+/// derived from the current combat kit and held item. Callers can tweak the
+/// seed for the trigger source or save flags, then apply it to the entity in
+/// one place.
+pub(crate) struct HostileNpcConversionPlan {
+    hostile: super::enemy_clusters::EnemyClusterSeed,
+    brain: crate::brain::Brain,
+    action_set: crate::brain::ActionSet,
+}
+
+impl HostileNpcConversionPlan {
+    pub(crate) fn from_npc(
+        config: &super::npc_clusters::NpcConfig,
+        kin: &super::enemy_clusters::BodyKinematics,
+        surface: &ActorSurfaceState,
+        combat_kit: &CombatKit,
+        held_item: Option<&HeldItem>,
+    ) -> Self {
+        let hostile = enemy_cluster_for_hostile_npc(config, kin, surface);
+        Self::from_hostile_cluster(hostile, combat_kit, held_item)
+    }
+
+    pub(crate) fn from_hostile_cluster(
+        hostile: super::enemy_clusters::EnemyClusterSeed,
+        combat_kit: &CombatKit,
+        held_item: Option<&HeldItem>,
+    ) -> Self {
+        let (brain, action_set) = super::brain_builders::aggressive_brain_and_action_set_for_enemy(
+            &hostile.config,
+            combat_kit,
+            held_item,
+        );
+        Self {
+            hostile,
+            brain,
+            action_set,
+        }
+    }
+
+    pub(crate) fn with_chase(mut self) -> Self {
+        self.hostile.status.ai_mode = crate::actor::ai::CharacterAiMode::Chase;
+        self
+    }
+
+    pub(crate) fn with_dead_state(mut self) -> Self {
+        self.hostile.status.alive = false;
+        self.hostile.status.health.current = 0;
+        self
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn apply(
+        self,
+        commands: &mut Commands,
+        entity: Entity,
+        actor: &mut ActorRuntime,
+        identity: &mut ActorIdentity,
+        disposition: &mut ActorDisposition,
+        health: &mut ActorHealth,
+        combat: &mut ActorCombatState,
+        intent: &mut ActorIntent,
+        cooldowns: &mut ActorCooldowns,
+    ) {
+        make_entity_enemy(
+            commands,
+            entity,
+            actor,
+            &self.hostile,
+            identity,
+            disposition,
+            health,
+            combat,
+            intent,
+            cooldowns,
+        );
+        commands
+            .entity(entity)
+            .insert((self.brain, self.action_set));
+    }
 }
 
 type ActorSnapshot = (

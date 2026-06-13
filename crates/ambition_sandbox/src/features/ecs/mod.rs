@@ -52,8 +52,7 @@ pub use crate::mechanics::combat::{
 };
 
 pub use actors::{
-    enemy_cluster_for_hostile_npc, enemy_component_snapshot, make_entity_enemy,
-    npc_component_snapshot, sync_actor_components_from_enemy,
+    enemy_component_snapshot, npc_component_snapshot, sync_actor_components_from_enemy,
 };
 pub use actors::{
     sync_actor_poses_from_feature_aabbs, update_ecs_actors, update_ecs_npcs, ActorRuntime,

@@ -10,6 +10,211 @@ use super::brain_builders::{
 use super::*;
 use bevy::prelude::Name;
 
+/// Declarative seed for the common hostile-actor spawn bundle.
+///
+/// Authored enemies, encounter mobs, runtime minions, mounts, and riders all
+/// share the same core entity shape: feature identity + generic actor combat
+/// read models + enemy ECS cluster + brain/action/control.  Keeping that shape
+/// here prevents each spawn path from rebuilding the same bundle by hand and
+/// makes the mount/rider special cases read as small overrides.
+pub(super) struct EnemyActorSpawnPlan {
+    entity_name: String,
+    feature_id: String,
+    feature_name: String,
+    feature_aabb: FeatureAabb,
+    enemy: super::enemy_clusters::EnemyClusterSeed,
+    faction: super::ActorFaction,
+    aggression: super::ActorAggression,
+    brain: crate::brain::Brain,
+    action_set: crate::brain::ActionSet,
+    combat_kit: crate::mechanics::combat::CombatKit,
+    held_item: Option<crate::brain::HeldItemSpec>,
+}
+
+impl EnemyActorSpawnPlan {
+    pub(super) fn hostile(
+        entity_name: impl Into<String>,
+        feature_id: impl Into<String>,
+        feature_name: impl Into<String>,
+        feature_aabb: FeatureAabb,
+        enemy: super::enemy_clusters::EnemyClusterSeed,
+    ) -> Self {
+        let brain = enemy_default_brain(&enemy.config);
+        let action_set = enemy_default_action_set(&enemy.config);
+        let combat_kit = enemy_default_combat_kit(&enemy.config);
+        let held_item = super::brain_builders::held_item_for_archetype(enemy.config.archetype);
+        Self {
+            entity_name: entity_name.into(),
+            feature_id: feature_id.into(),
+            feature_name: feature_name.into(),
+            feature_aabb,
+            enemy,
+            faction: super::ActorFaction::Enemy,
+            aggression: super::ActorAggression::hostile_to_player(),
+            brain,
+            action_set,
+            combat_kit,
+            held_item,
+        }
+    }
+
+    pub(super) fn with_faction(mut self, faction: super::ActorFaction) -> Self {
+        self.faction = faction;
+        self
+    }
+
+    pub(super) fn with_aggression(mut self, aggression: super::ActorAggression) -> Self {
+        self.aggression = aggression;
+        self
+    }
+
+    pub(super) fn with_brain(mut self, brain: crate::brain::Brain) -> Self {
+        self.brain = brain;
+        self
+    }
+
+    pub(super) fn with_action_set(mut self, action_set: crate::brain::ActionSet) -> Self {
+        self.action_set = action_set;
+        self
+    }
+
+    pub(super) fn with_combat_kit(
+        mut self,
+        combat_kit: crate::mechanics::combat::CombatKit,
+    ) -> Self {
+        self.combat_kit = combat_kit;
+        self
+    }
+
+    pub(super) fn with_held_item(mut self, held_item: Option<crate::brain::HeldItemSpec>) -> Self {
+        self.held_item = held_item;
+        self
+    }
+
+    pub(super) fn without_held_item(mut self) -> Self {
+        self.held_item = None;
+        self
+    }
+
+    pub(super) fn spawn(self, commands: &mut Commands) -> Entity {
+        let facing = self.enemy.kin.facing;
+        let (identity, disposition, health, combat, intent, cooldowns) =
+            enemy_component_snapshot(&self.enemy);
+        let cluster_bundle = self.enemy.into_components();
+        let entity = commands
+            .spawn((
+                Name::new(self.entity_name),
+                EnemyActorBundle::new(
+                    FeatureBaseBundle::new(&self.feature_id, &self.feature_name, self.feature_aabb),
+                    identity,
+                    disposition,
+                    self.faction,
+                    ActorPose::from_parts(
+                        self.feature_aabb.center,
+                        self.feature_aabb.half_size,
+                        facing,
+                    ),
+                    self.combat_kit,
+                    self.aggression,
+                    health,
+                    combat,
+                    intent,
+                    cooldowns,
+                ),
+                ActorRuntime::Enemy,
+                cluster_bundle,
+                self.brain,
+                self.action_set,
+                crate::brain::ActorControl::default(),
+            ))
+            .id();
+        if let Some(item) = self.held_item {
+            commands.entity(entity).insert(super::HeldItem::new(item));
+        }
+        entity
+    }
+}
+
+/// Declarative seed for the common peaceful-NPC actor spawn bundle.
+///
+/// Peaceful NPCs share the same actor read-model shape as enemies, but spawn
+/// with NPC clusters, peaceful actions, and retaliation-only aggression. Keeping
+/// that shape here makes NPC spawning the sibling of [`EnemyActorSpawnPlan`]
+/// instead of another hand-built `EnemyActorBundle` tuple.
+pub(super) struct NpcActorSpawnPlan {
+    entity_name: String,
+    feature_id: String,
+    feature_name: String,
+    feature_aabb: FeatureAabb,
+    npc: super::npc_clusters::NpcClusterScratch,
+    brain: crate::brain::Brain,
+    action_set: crate::brain::ActionSet,
+    combat_kit: crate::mechanics::combat::CombatKit,
+    aggression: super::ActorAggression,
+}
+
+impl NpcActorSpawnPlan {
+    pub(super) fn peaceful(
+        entity_name: impl Into<String>,
+        feature_id: impl Into<String>,
+        feature_name: impl Into<String>,
+        feature_aabb: FeatureAabb,
+        npc: super::npc_clusters::NpcClusterScratch,
+    ) -> Self {
+        let mut npc = npc;
+        let brain = npc.as_mut().build_brain();
+        let hostile_archetype = super::actors::hostile_enemy_archetype_for_npc(&npc.config);
+        let combat_kit = super::brain_builders::enemy_combat_kit_for_archetype(hostile_archetype);
+        Self {
+            entity_name: entity_name.into(),
+            feature_id: feature_id.into(),
+            feature_name: feature_name.into(),
+            feature_aabb,
+            npc,
+            brain,
+            action_set: crate::brain::ActionSet::peaceful(),
+            combat_kit,
+            aggression: super::ActorAggression::retaliates_when_hit(
+                super::super::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
+            ),
+        }
+    }
+
+    pub(super) fn spawn(self, commands: &mut Commands) -> Entity {
+        let facing = self.npc.kin.facing;
+        let (identity, disposition, health, combat, intent, cooldowns) =
+            super::actors::npc_component_snapshot(&self.npc.config, &self.npc.status);
+        let cluster_bundle = self.npc.into_components();
+        commands
+            .spawn((
+                Name::new(self.entity_name),
+                EnemyActorBundle::new(
+                    FeatureBaseBundle::new(&self.feature_id, &self.feature_name, self.feature_aabb),
+                    identity,
+                    disposition,
+                    super::ActorFaction::Npc,
+                    ActorPose::from_parts(
+                        self.feature_aabb.center,
+                        self.feature_aabb.half_size,
+                        facing,
+                    ),
+                    self.combat_kit,
+                    self.aggression,
+                    health,
+                    combat,
+                    intent,
+                    cooldowns,
+                ),
+                ActorRuntime::Npc,
+                cluster_bundle,
+                self.brain,
+                self.action_set,
+                crate::brain::ActorControl::default(),
+            ))
+            .id()
+    }
+}
+
 pub(super) fn spawn_boss(
     commands: &mut Commands,
     authored: &crate::rooms::Authored<crate::actor::BossBrain>,
@@ -216,42 +421,19 @@ pub(crate) fn spawn_runtime_minion(
     // the encounter, not a static sandbag.
     enemy.status.respawn_timer = 999_999.0;
     let feature_aabb = FeatureAabb::from_aabb(aabb);
-    let facing = enemy.kin.facing;
-    let brain_component = enemy_default_brain(&enemy.config);
-    let action_set = enemy_default_action_set(&enemy.config);
-    let combat_kit = enemy_default_combat_kit(&enemy.config);
-    let actor = ActorRuntime::Enemy;
-    let (identity, disposition, health, combat, intent, cooldowns) =
-        enemy_component_snapshot(&enemy);
-    let cluster_bundle = enemy.into_components();
-    let held_item = super::brain_builders::held_item_for_archetype(archetype);
-    let entity = commands
-        .spawn((
-            Name::new(format!("Runtime minion: {name}")),
-            EnemyActorBundle::new(
-                FeatureBaseBundle::new(&id, &name, feature_aabb),
-                identity,
-                disposition,
-                faction,
-                ActorPose::from_parts(feature_aabb.center, feature_aabb.half_size, facing),
-                combat_kit,
-                aggression,
-                health,
-                combat,
-                intent,
-                cooldowns,
-            ),
-            actor,
-            cluster_bundle,
-            super::EncounterMob::new(encounter_id),
-            brain_component,
-            action_set,
-            crate::brain::ActorControl::default(),
-        ))
-        .id();
-    if let Some(item) = held_item {
-        commands.entity(entity).insert(super::HeldItem::new(item));
-    }
+    let entity = EnemyActorSpawnPlan::hostile(
+        format!("Runtime minion: {name}"),
+        id.clone(),
+        name.clone(),
+        feature_aabb,
+        enemy,
+    )
+    .with_faction(faction)
+    .with_aggression(aggression)
+    .spawn(commands);
+    commands
+        .entity(entity)
+        .insert(super::EncounterMob::new(encounter_id));
     entity
 }
 
@@ -283,41 +465,14 @@ pub(super) fn spawn_solo_enemy(
     authored: &crate::rooms::Authored<crate::actor::EnemyBrain>,
 ) {
     let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
-    let facing = enemy.kin.facing;
-    let brain = enemy_default_brain(&enemy.config);
-    let action_set = enemy_default_action_set(&enemy.config);
-    let combat_kit = enemy_default_combat_kit(&enemy.config);
-    let held_item = super::brain_builders::held_item_for_archetype(enemy.config.archetype);
-    let actor = ActorRuntime::Enemy;
-    let (identity, disposition, health, combat, intent, cooldowns) =
-        enemy_component_snapshot(&enemy);
-    let cluster_bundle = enemy.into_components();
-    let entity = commands
-        .spawn((
-            Name::new(format!("Feature actor enemy: {}", authored.name)),
-            EnemyActorBundle::new(
-                FeatureBaseBundle::new(&authored.id, &authored.name, feature_aabb),
-                identity,
-                disposition,
-                super::ActorFaction::Enemy,
-                ActorPose::from_parts(feature_aabb.center, feature_aabb.half_size, facing),
-                combat_kit,
-                super::ActorAggression::hostile_to_player(),
-                health,
-                combat,
-                intent,
-                cooldowns,
-            ),
-            actor,
-            cluster_bundle,
-            brain,
-            action_set,
-            crate::brain::ActorControl::default(),
-        ))
-        .id();
-    if let Some(item) = held_item {
-        commands.entity(entity).insert(super::HeldItem::new(item));
-    }
+    EnemyActorSpawnPlan::hostile(
+        format!("Feature actor enemy: {}", authored.name),
+        authored.id.clone(),
+        authored.name.clone(),
+        feature_aabb,
+        enemy,
+    )
+    .spawn(commands);
 }
 pub(super) fn spawn_interactable(
     commands: &mut Commands,
@@ -330,48 +485,21 @@ pub(super) fn spawn_interactable(
         interactable.kind,
         crate::interaction::InteractionKind::Npc { .. }
     ) {
-        let mut npc = super::npc_clusters::NpcClusterScratch::new_with_paths(
+        let npc = super::npc_clusters::NpcClusterScratch::new_with_paths(
             authored.id.clone(),
             authored.name.clone(),
             authored.aabb,
             interactable.clone(),
             paths,
         );
-        // Build the brain from the authored NPC fields, then move the
-        // cluster components onto the entity. Patrol-radius > 0 or an
-        // authored motion path → Patrol brain; otherwise StandStill.
-        // ActionSet stays peaceful by default.
-        let brain = npc.as_mut().build_brain();
-        let cluster_bundle = npc.into_components();
-        let facing = cluster_bundle.0.facing;
-        let combat_projection =
-            enemy_cluster_for_hostile_npc(&cluster_bundle.3, &cluster_bundle.0, &cluster_bundle.1);
-        let combat_kit = enemy_default_combat_kit(&combat_projection.config);
-        let (identity, disposition, health, combat, intent, cooldowns) =
-            super::actors::npc_component_snapshot(&cluster_bundle.3, &cluster_bundle.4);
-        commands.spawn((
-            Name::new(format!("Feature actor npc: {}", authored.name)),
-            EnemyActorBundle::new(
-                FeatureBaseBundle::new(&authored.id, &authored.name, feature_aabb),
-                identity,
-                disposition,
-                super::ActorFaction::Npc,
-                ActorPose::from_parts(feature_aabb.center, feature_aabb.half_size, facing),
-                combat_kit,
-                super::ActorAggression::retaliates_when_hit(
-                    super::super::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
-                ),
-                health,
-                combat,
-                intent,
-                cooldowns,
-            ),
-            ActorRuntime::Npc,
-            cluster_bundle,
-            brain,
-            crate::brain::ActionSet::peaceful(),
-            crate::brain::ActorControl::default(),
-        ));
+        NpcActorSpawnPlan::peaceful(
+            format!("Feature actor npc: {}", authored.name),
+            authored.id.clone(),
+            authored.name.clone(),
+            feature_aabb,
+            npc,
+        )
+        .spawn(commands);
     } else if let crate::interaction::InteractionKind::Custom(payload) = &interactable.kind {
         if let Some(activation) = crate::encounter::SwitchActivation::parse_custom(payload) {
             commands.spawn((
@@ -409,43 +537,18 @@ pub(super) fn spawn_encounter_mob(
     enemy.status.health = crate::actor::Health::new(archetype.max_health());
     // Encounter mobs should not auto-respawn like training sandbags.
     enemy.status.respawn_timer = 999_999.0;
-    let facing = enemy.kin.facing;
-    let brain = enemy_default_brain(&enemy.config);
-    let action_set = enemy_default_action_set(&enemy.config);
-    let combat_kit = enemy_default_combat_kit(&enemy.config);
-    let held_item = super::brain_builders::held_item_for_archetype(enemy.config.archetype);
-    let actor = ActorRuntime::Enemy;
-    let (identity, disposition, health, combat, intent, cooldowns) =
-        enemy_component_snapshot(&enemy);
-    let cluster_bundle = enemy.into_components();
     let feature_aabb = FeatureAabb::from_center_size(pos, size);
-    let entity = commands
-        .spawn((
-            Name::new(format!("Encounter mob: {id}")),
-            EnemyActorBundle::new(
-                FeatureBaseBundle::new(&id, &id, feature_aabb),
-                identity,
-                disposition,
-                super::ActorFaction::Enemy,
-                ActorPose::from_parts(feature_aabb.center, feature_aabb.half_size, facing),
-                combat_kit,
-                super::ActorAggression::hostile_to_player(),
-                health,
-                combat,
-                intent,
-                cooldowns,
-            ),
-            actor,
-            cluster_bundle,
-            EncounterMob::new(encounter_id),
-            brain,
-            action_set,
-            crate::brain::ActorControl::default(),
-        ))
-        .id();
-    if let Some(item) = held_item {
-        commands.entity(entity).insert(super::HeldItem::new(item));
-    }
+    let entity = EnemyActorSpawnPlan::hostile(
+        format!("Encounter mob: {id}"),
+        id.clone(),
+        id.clone(),
+        feature_aabb,
+        enemy,
+    )
+    .spawn(commands);
+    commands
+        .entity(entity)
+        .insert(EncounterMob::new(encounter_id));
 }
 
 /// Despawn all ECS mobs owned by an encounter attempt.

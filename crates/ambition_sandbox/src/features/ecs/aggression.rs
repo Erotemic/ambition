@@ -9,10 +9,9 @@
 use bevy::prelude::*;
 
 use super::{
-    enemy_cluster_for_hostile_npc, make_entity_enemy, sync_actor_components_from_enemy,
-    ActorAggression, ActorCombatState, ActorCooldowns, ActorDisposition, ActorHealth,
-    ActorIdentity, ActorIntent, ActorRuntime, AggressionMode, CombatKit, FeatureSimEntity,
-    HeldItem,
+    sync_actor_components_from_enemy, ActorAggression, ActorCombatState, ActorCooldowns,
+    ActorDisposition, ActorHealth, ActorIdentity, ActorIntent, ActorRuntime, AggressionMode,
+    CombatKit, FeatureSimEntity, HeldItem,
 };
 use crate::features::ActorStimulus;
 
@@ -83,20 +82,22 @@ pub fn apply_npc_stimuli(
         }
         aggression.mode = AggressionMode::HostileToPlayer;
 
-        let mut hostile = enemy_cluster_for_hostile_npc(&npc.config, &npc.kin, &npc.surface);
-        if source.is_some() {
-            hostile.status.ai_mode = crate::actor::ai::CharacterAiMode::Chase;
-        }
-        let (brain, action_set) = super::brain_builders::aggressive_brain_and_action_set_for_enemy(
-            &hostile.config,
+        let conversion = super::actors::HostileNpcConversionPlan::from_npc(
+            &npc.config,
+            &npc.kin,
+            &npc.surface,
             combat_kit,
             held_item,
         );
-        make_entity_enemy(
+        let conversion = if source.is_some() {
+            conversion.with_chase()
+        } else {
+            conversion
+        };
+        conversion.apply(
             &mut commands,
             entity,
             &mut runtime,
-            &hostile,
             &mut identity,
             &mut disposition,
             &mut health,
@@ -104,7 +105,6 @@ pub fn apply_npc_stimuli(
             &mut intent,
             &mut cooldowns,
         );
-        commands.entity(entity).insert((brain, action_set));
     }
 }
 

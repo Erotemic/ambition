@@ -649,6 +649,118 @@ fn enemy_attack_aabb_dir(pos: ae::Vec2, size: ae::Vec2, facing: f32, axis: ae::V
     ae::Aabb::new(center, half)
 }
 
+fn evaluate_enemy_ai_output(
+    pos: ae::Vec2,
+    target_pos: ae::Vec2,
+    brain: &crate::actor::EnemyBrain,
+    tuning: &crate::mechanics::combat::EnemyTuning,
+    attack: &crate::features::ActorAttackState,
+    alive: bool,
+) -> crate::actor::ai::CharacterAiOutput {
+    let recover_remaining =
+        if attack.cooldown > 0.0 && attack.windup_timer <= 0.0 && attack.active_timer <= 0.0 {
+            attack.cooldown.min(0.30)
+        } else {
+            0.0
+        };
+    let effective_aggro_radius = match brain {
+        crate::actor::EnemyBrain::Passive => 0.0,
+        crate::actor::EnemyBrain::Guard { leash_radius } => *leash_radius,
+        _ => tuning.aggro_radius,
+    };
+    crate::actor::ai::evaluate_character_ai_output(crate::actor::ai::CharacterAiSnapshot {
+        actor_pos: pos,
+        player_pos: target_pos,
+        aggro_radius: effective_aggro_radius,
+        attack_range: tuning.attack_range,
+        attack_windup_remaining: attack.windup_timer,
+        attack_active_remaining: attack.active_timer,
+        attack_recover_remaining: recover_remaining,
+        stun_remaining: 0.0,
+        alive,
+        patrol_enabled: !tuning.is_sandbag && !matches!(brain, crate::actor::EnemyBrain::Passive),
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn integrate_standard_enemy_body(
+    world: &ae::World,
+    kin: &mut super::ecs::enemy_clusters::BodyKinematics,
+    surface: &mut ActorSurfaceState,
+    motion: &mut super::ecs::enemy_clusters::ActorMotionPath,
+    tuning: &crate::mechanics::combat::EnemyTuning,
+    ai_intent: crate::actor::ai::CharacterAiIntent,
+    is_aerial: bool,
+    frame: &crate::actor::control::ActorControlFrame,
+    dt: f32,
+    gravity_sign: f32,
+) {
+    let gravity = if is_aerial {
+        0.0
+    } else {
+        ENEMY_GRAVITY * surface.gravity_scale
+    };
+    let mut body = crate::kinematic::KinematicBody {
+        pos: kin.pos,
+        vel: kin.vel,
+        size: kin.size,
+        on_ground: surface.on_ground,
+        facing: kin.facing,
+    };
+    let prev_vel_x = body.vel.x;
+    if is_aerial {
+        let target_speed = frame.desired_vel.length();
+        let archetype_chase = tuning.chase_speed;
+        let accel = (target_speed.max(archetype_chase) * 3.0).max(900.0) * dt;
+        body.vel.x = approach(body.vel.x, frame.desired_vel.x, accel);
+        body.vel.y = approach(body.vel.y, frame.desired_vel.y, accel);
+    } else {
+        body.vel.x = approach(body.vel.x, frame.desired_vel.x, 650.0 * dt);
+        if frame.jump_pressed {
+            // Jumps oppose gravity, so they flip with it.
+            if body.on_ground {
+                body.vel.y = -ENEMY_JUMP_SPEED * gravity_sign;
+                body.on_ground = false;
+            } else if surface.air_jumps_remaining > 0 {
+                body.vel.y = -ENEMY_DOUBLE_JUMP_SPEED * gravity_sign;
+                surface.air_jumps_remaining -= 1;
+            }
+        }
+    }
+    crate::kinematic::step_kinematic(
+        &mut body,
+        world,
+        crate::kinematic::KinematicTuning {
+            gravity,
+            max_fall_speed: ENEMY_MAX_FALL,
+            // Falls the same way the player does when gravity flips.
+            gravity_sign,
+        },
+        crate::kinematic::KinematicInputs {
+            drop_through: frame.drop_through,
+        },
+        dt,
+    );
+    kin.pos = body.pos;
+    kin.vel = body.vel;
+    surface.on_ground = if is_aerial { false } else { body.on_ground };
+    if surface.on_ground {
+        surface.air_jumps_remaining = MAX_ENEMY_AIR_JUMPS;
+    }
+
+    if let Some(motion) = &mut motion.0 {
+        let _ = motion.advance(kin.pos, dt);
+    }
+
+    if !is_aerial
+        && matches!(ai_intent, crate::actor::ai::CharacterAiIntent::Patrol)
+        && prev_vel_x.abs() > 1.0
+        && kin.vel.x.abs() < 0.01
+    {
+        kin.facing *= -1.0;
+    }
+}
+
 impl<'a> EnemyMut<'a> {
     #[allow(clippy::too_many_arguments)]
     pub fn update(
@@ -680,33 +792,14 @@ impl<'a> EnemyMut<'a> {
 
         self.attack.tick(dt, tuning.enemy_attack_active);
 
-        let recover_remaining = if self.attack.cooldown > 0.0
-            && self.attack.windup_timer <= 0.0
-            && self.attack.active_timer <= 0.0
-        {
-            self.attack.cooldown.min(0.30)
-        } else {
-            0.0
-        };
-        let effective_aggro_radius = match &self.config.brain {
-            crate::actor::EnemyBrain::Passive => 0.0,
-            crate::actor::EnemyBrain::Guard { leash_radius } => *leash_radius,
-            _ => self.config.tuning.aggro_radius,
-        };
-        let ai =
-            crate::actor::ai::evaluate_character_ai_output(crate::actor::ai::CharacterAiSnapshot {
-                actor_pos: self.kin.pos,
-                player_pos: target_pos,
-                aggro_radius: effective_aggro_radius,
-                attack_range: self.config.tuning.attack_range,
-                attack_windup_remaining: self.attack.windup_timer,
-                attack_active_remaining: self.attack.active_timer,
-                attack_recover_remaining: recover_remaining,
-                stun_remaining: 0.0,
-                alive: self.status.alive,
-                patrol_enabled: !self.config.tuning.is_sandbag
-                    && !matches!(self.config.brain, crate::actor::EnemyBrain::Passive),
-            });
+        let ai = evaluate_enemy_ai_output(
+            self.kin.pos,
+            target_pos,
+            &self.config.brain,
+            &self.config.tuning,
+            self.attack,
+            self.status.alive,
+        );
         self.status.ai_mode = ai.mode;
 
         let is_aerial = self.surface.gravity_scale <= 0.001;
@@ -715,71 +808,18 @@ impl<'a> EnemyMut<'a> {
         if is_surface_walker {
             self.step_surface_walker(world, nearest_neighbor, dt);
         } else {
-            let max_fall = ENEMY_MAX_FALL;
-            let gravity = if is_aerial {
-                0.0
-            } else {
-                ENEMY_GRAVITY * self.surface.gravity_scale
-            };
-            let mut body = crate::kinematic::KinematicBody {
-                pos: self.kin.pos,
-                vel: self.kin.vel,
-                size: self.kin.size,
-                on_ground: self.surface.on_ground,
-                facing: self.kin.facing,
-            };
-            let prev_vel_x = body.vel.x;
-            if is_aerial {
-                let target_speed = frame.desired_vel.length();
-                let archetype_chase = self.config.tuning.chase_speed;
-                let accel = (target_speed.max(archetype_chase) * 3.0).max(900.0) * dt;
-                body.vel.x = approach(body.vel.x, frame.desired_vel.x, accel);
-                body.vel.y = approach(body.vel.y, frame.desired_vel.y, accel);
-            } else {
-                body.vel.x = approach(body.vel.x, frame.desired_vel.x, 650.0 * dt);
-                if frame.jump_pressed {
-                    // Jumps oppose gravity, so they flip with it.
-                    if body.on_ground {
-                        body.vel.y = -ENEMY_JUMP_SPEED * gravity_sign;
-                        body.on_ground = false;
-                    } else if self.surface.air_jumps_remaining > 0 {
-                        body.vel.y = -ENEMY_DOUBLE_JUMP_SPEED * gravity_sign;
-                        self.surface.air_jumps_remaining -= 1;
-                    }
-                }
-            }
-            crate::kinematic::step_kinematic(
-                &mut body,
+            integrate_standard_enemy_body(
                 world,
-                crate::kinematic::KinematicTuning {
-                    gravity,
-                    max_fall_speed: max_fall,
-                    // Falls the same way the player does when gravity flips.
-                    gravity_sign,
-                },
-                crate::kinematic::KinematicInputs {
-                    drop_through: frame.drop_through,
-                },
+                self.kin,
+                self.surface,
+                self.motion,
+                &self.config.tuning,
+                ai.intent,
+                is_aerial,
+                &frame,
                 dt,
+                gravity_sign,
             );
-            self.kin.pos = body.pos;
-            self.kin.vel = body.vel;
-            self.surface.on_ground = if is_aerial { false } else { body.on_ground };
-            if self.surface.on_ground {
-                self.surface.air_jumps_remaining = MAX_ENEMY_AIR_JUMPS;
-            }
-
-            if let Some(motion) = &mut self.motion.0 {
-                let _ = motion.advance(self.kin.pos, dt);
-            }
-
-            if !is_aerial
-                && matches!(ai.intent, crate::actor::ai::CharacterAiIntent::Patrol)
-                && prev_vel_x.abs() > 1.0
-                && self.kin.vel.x.abs() < 0.01
-            {
-                self.kin.facing *= -1.0;
-            }
         }
 
         if self.config.tuning.attacks_player && frame.facing.abs() > 0.001 {

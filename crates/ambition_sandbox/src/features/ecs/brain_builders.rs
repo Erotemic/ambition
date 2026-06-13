@@ -21,13 +21,16 @@ use crate::brain::{
 /// The kit intentionally does **not** include held item overlays; a held item is
 /// a separate component and can be dropped/swapped later. `ActionSet` is derived
 /// from `CombatKit + HeldItem` for whichever aggression state is currently live.
-pub(super) fn enemy_default_combat_kit(enemy: &EnemyConfig) -> CombatKit {
-    let archetype = enemy.archetype;
+pub(super) fn enemy_combat_kit_for_archetype(archetype: EnemyArchetype) -> CombatKit {
     CombatKit {
         innate_melee: archetype.melee_spec(),
         innate_ranged: archetype.ranged_spec(),
         move_style: archetype.move_style(),
     }
+}
+
+pub(super) fn enemy_default_combat_kit(enemy: &EnemyConfig) -> CombatKit {
+    enemy_combat_kit_for_archetype(enemy.archetype)
 }
 
 pub(super) fn action_set_from_combat_kit(

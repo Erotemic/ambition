@@ -370,27 +370,31 @@ fn default_attack_cooldown_mult() -> f32 {
     1.0
 }
 
+/// The roster RON / `EnemyRoster` key for an archetype: its spawn brain key
+/// (`Custom("…")`), so the registry is keyed identically whether resolved by
+/// brain string (the spawn path) or by enum (tests / tooling). `Combatant`
+/// has no spawn brain key and uses the reserved `"combatant"` fallback row.
 fn archetype_data_key(arch: EnemyArchetype) -> &'static str {
     use EnemyArchetype::*;
     match arch {
-        Combatant => "Combatant",
-        SmallSkitter => "SmallSkitter",
-        SmallLurker => "SmallLurker",
-        MediumStriker => "MediumStriker",
-        LargeBrute => "LargeBrute",
-        LargeColossus => "LargeColossus",
-        AggressiveSeeker => "AggressiveSeeker",
-        InfiniteSandbag => "InfiniteSandbag",
-        FiniteSandbag => "FiniteSandbag",
-        PirateRaider => "PirateRaider",
-        BurningFlyingShark => "BurningFlyingShark",
-        PirateOnShark => "PirateOnShark",
-        PirateHeavy => "PirateHeavy",
-        PirateHeavyOnShark => "PirateHeavyOnShark",
-        PuppySlug => "PuppySlug",
-        ExplodingMite => "ExplodingMite",
-        DividingMite => "DividingMite",
-        RangedSkirmisher => "RangedSkirmisher",
+        Combatant => "combatant",
+        SmallSkitter => "small_skitter",
+        SmallLurker => "small_lurker",
+        MediumStriker => "medium_striker",
+        LargeBrute => "large_brute",
+        LargeColossus => "large_colossus",
+        AggressiveSeeker => "gradient_seeker",
+        InfiniteSandbag => "sandbag_infinite",
+        FiniteSandbag => "sandbag_finite",
+        PirateRaider => "pirate_raider",
+        BurningFlyingShark => "burning_flying_shark",
+        PirateOnShark => "pirate_on_shark",
+        PirateHeavy => "pirate_heavy",
+        PirateHeavyOnShark => "pirate_heavy_on_shark",
+        PuppySlug => "puppy_slug",
+        ExplodingMite => "exploding_mite",
+        DividingMite => "dividing_mite",
+        RangedSkirmisher => "ranged_skirmisher",
     }
 }
 
@@ -460,18 +464,38 @@ impl EnemyRoster {
             .cloned()
             .unwrap_or_else(|| self.fallback.clone())
     }
+
+    /// Build a roster from a brain-keyed spec map. The reserved `"combatant"`
+    /// row is the fallback for unknown brain keys (mirroring the legacy
+    /// `from_brain` default). This is the roster-enum-free construction path:
+    /// the map keys ARE the spawn brain keys, so no `EnemyArchetype` is named.
+    pub(crate) fn from_map(by_brain: std::collections::HashMap<String, EnemyArchetypeSpec>) -> Self {
+        let fallback = by_brain
+            .get("combatant")
+            .cloned()
+            .expect("enemy roster must define a \"combatant\" fallback row");
+        Self::new(by_brain, fallback)
+    }
+
+    /// Parse a brain-keyed roster RON document — the content layer's entry
+    /// point: `install_enemy_roster(EnemyRoster::from_ron(MY_RON))`.
+    #[allow(dead_code)] // Wired by the content plugin in the roster relocation (2b.3).
+    pub(crate) fn from_ron(ron: &str) -> Self {
+        let by_brain: std::collections::HashMap<String, EnemyArchetypeSpec> =
+            ron::from_str(ron).unwrap_or_else(|err| {
+                panic!("enemy roster RON failed to deserialize: {err}")
+            });
+        Self::from_map(by_brain)
+    }
 }
 
-/// The lib's embedded default roster, derived from the bundled RON +
-/// `BRAIN_NAME_TO_ARCHETYPE`. Reproduces `from_brain` exactly: every brain
-/// key maps to its archetype's spec, unknown keys fall back to `Combatant`.
-static EMBEDDED_ENEMY_ROSTER: std::sync::LazyLock<EnemyRoster> = std::sync::LazyLock::new(|| {
-    let by_brain = BRAIN_NAME_TO_ARCHETYPE
-        .iter()
-        .map(|(brain_key, arch)| (brain_key.to_string(), archetype_spec(*arch)))
-        .collect();
-    EnemyRoster::new(by_brain, archetype_spec(EnemyArchetype::Combatant))
-});
+/// The lib's embedded default roster, parsed from the bundled brain-keyed RON.
+/// Roster-enum-free: the RON keys are the spawn brain keys, so resolution and
+/// the default both bypass `EnemyArchetype` entirely. Reproduces the legacy
+/// `from_brain` mapping exactly (every brain key → its spec; unknown →
+/// `combatant`).
+static EMBEDDED_ENEMY_ROSTER: std::sync::LazyLock<EnemyRoster> =
+    std::sync::LazyLock::new(|| EnemyRoster::from_map(ENEMY_ARCHETYPE_REGISTRY.clone()));
 
 /// Content-installed roster override. Set once at startup; `None` falls back
 /// to the embedded default.

@@ -1,17 +1,18 @@
-// Enemy archetype tuning rows — single source of truth for the
-// numbers that decide how each archetype fights. Loaded once at
-// startup into a `LazyLock<HashMap<EnemyArchetype, EnemyArchetypeSpec>>`
-// in `content/features/enemies.rs`; `EnemyArchetype::spec()` is the
-// only read site.
+// Enemy roster — single source of truth for the numbers that decide
+// how each archetype fights. Parsed into `EnemyRoster` (a brain-key →
+// `EnemyArchetypeSpec` table) and resolved by the spawn brain key; the
+// reserved `"combatant"` row is the fallback for any unknown brain key.
+//
+// Each top-level key IS the spawn brain key — the string a `LoadingZone`
+// / encounter authors as `Brain::Custom("…")`. `"combatant"` is the
+// implicit default (no authored brain key of its own).
 //
 // To re-tune a fight: edit the row, restart the sandbox. No Rust
 // changes needed.
 //
-// To add an archetype:
-//   1. Add a new variant to the `EnemyArchetype` enum in `enemies.rs`.
-//   2. Add a row keyed by the variant name below.
-//   3. Wire it into `BRAIN_NAME_TO_ARCHETYPE` if it should be
-//      spawnable from LDtk via a `Brain::Custom("…")` reference.
+// To add an archetype: add a row keyed by the spawn brain key. (The
+// `EnemyArchetype` enum is a typed handle for tests/tooling and mirrors
+// these keys via `archetype_data_key`.)
 //
 // Field reference:
 //   max_health         HP pool of the body (shark body for fused actors).
@@ -80,7 +81,7 @@
 //   ENEMY_CHASE_SPEED  = 155.0
 //   ENEMY_ATTACK_RANGE = 150.0
 {
-    "Combatant": (
+    "combatant": (
         max_health: 4,
         patrol_speed: 105.0,
         chase_speed: 155.0,
@@ -98,7 +99,7 @@
         ))),
         move_style: Walk,
     ),
-    "SmallSkitter": (
+    "small_skitter": (
         max_health: 2,
         patrol_speed: 150.0,
         chase_speed: 210.0,
@@ -122,7 +123,7 @@
     // Volatile kamikaze: 2 HP, a fast committed rush from far away, a
     // light contact swipe — but the real threat is the death blast
     // (`damage.rs::spawn_death_explosion`). Kill it at range or eat the boom.
-    "ExplodingMite": (
+    "exploding_mite": (
         max_health: 2,
         patrol_speed: 70.0,
         chase_speed: 245.0,
@@ -145,7 +146,7 @@
     // Replicating blob: slow + a bit tanky (4 HP), and it splits into two
     // fast SmallSkitter offspring on death (`damage.rs::spawn_split_offspring`).
     // A priority target — whittle it, then clean up the children.
-    "DividingMite": (
+    "dividing_mite": (
         max_health: 4,
         patrol_speed: 80.0,
         chase_speed: 130.0,
@@ -170,7 +171,7 @@
     // cadence. No melee — it keeps its distance and peppers you, so the player
     // has to chase it down or out-range it. Grounded (move_style Walk), unlike
     // the aerial pirate-on-shark Skirmishers.
-    "RangedSkirmisher": (
+    "ranged_skirmisher": (
         max_health: 3,
         patrol_speed: 90.0,
         chase_speed: 150.0,
@@ -184,7 +185,7 @@
     ),
     // Sluggish wanderer. Tiny aggro so the player can walk past, but a
     // careless approach still punishes via the swipe.
-    "SmallLurker": (
+    "small_lurker": (
         max_health: 2,
         patrol_speed: 60.0,
         chase_speed: 90.0,
@@ -203,7 +204,7 @@
         smash_hit_band: Some(32.0),
         move_style: Walk,
     ),
-    "MediumStriker": (
+    "medium_striker": (
         max_health: 5,
         patrol_speed: 105.0,
         chase_speed: 170.0,
@@ -231,7 +232,7 @@
         smash_dash_to_close: true,
         move_style: Walk,
     ),
-    "LargeBrute": (
+    "large_brute": (
         max_health: 9,
         patrol_speed: 72.0,
         chase_speed: 118.0,
@@ -258,7 +259,7 @@
     // Boss-room "stationary heavy" — almost stationary, narrow threat
     // envelope but huge reach + biggest non-boss contact damage. Lunge
     // damage stays at 2 (BRUTE_DEFAULT) while body contact deals 3.
-    "LargeColossus": (
+    "large_colossus": (
         max_health: 14,
         patrol_speed: 40.0,
         chase_speed: 80.0,
@@ -280,7 +281,7 @@
         smash_hit_band: Some(48.0),
         move_style: WalkHeavy,
     ),
-    "AggressiveSeeker": (
+    "gradient_seeker": (
         max_health: 4,
         patrol_speed: 130.0,
         chase_speed: 225.0,
@@ -300,7 +301,7 @@
     ),
     // Training dummy that never dies. The sandbox uses this for the
     // combat-feel lab so the player can wail on a static target.
-    "InfiniteSandbag": (
+    "sandbag_infinite": (
         max_health: 9999,
         never_dies: true,
         body_contact_damage: false,
@@ -321,7 +322,7 @@
         ))),
         move_style: Walk,
     ),
-    "FiniteSandbag": (
+    "sandbag_finite": (
         max_health: 6,
         respawn_in_place_seconds: Some(0.85),
         body_contact_damage: false,
@@ -342,7 +343,7 @@
         ))),
         move_style: Walk,
     ),
-    "PirateRaider": (
+    "pirate_raider": (
         max_health: 5,
         patrol_speed: 130.0,
         chase_speed: 190.0,
@@ -363,7 +364,7 @@
     ),
     // Aerial shark (dismounted form). chase_speed is the steering
     // convergence rate, not ground sprint.
-    "BurningFlyingShark": (
+    "burning_flying_shark": (
         max_health: 6,
         patrol_speed: 110.0,
         chase_speed: 260.0,
@@ -393,7 +394,7 @@
         ))),
         move_style: Float,
     ),
-    "PirateOnShark": (
+    "pirate_on_shark": (
         // Visual fan-out: this spawn renders as a mount + rider pair.
         composite_visual: Some((
             mount_brain: "burning_flying_shark",
@@ -442,7 +443,7 @@
     // explicitly force a PirateHeavy hostile (provoked cove crew or a
     // shark rider after dismount) reuse the same body/action tuning instead
     // of falling back to a generic striker.
-    "PirateHeavy": (
+    "pirate_heavy": (
         max_health: 10,
         // Peaceful cove crew until provoked; then forced into an
         // aggressive MeleeBrute with a wide aggro radius.
@@ -475,7 +476,7 @@
         ))),
         move_style: WalkHeavy,
     ),
-    "PirateHeavyOnShark": (
+    "pirate_heavy_on_shark": (
         // Visual fan-out: heavy rider variant; the rider's display name
         // comes from the authored spawn name minus " on Shark".
         composite_visual: Some((
@@ -517,7 +518,7 @@
     // chase_speed is unused but kept non-zero so a future "panic on
     // hit" mode reads sensibly. Collider hugs the dorsal-ridge
     // silhouette of the 128×95 sprite (body bbox ~120×31).
-    "PuppySlug": (
+    "puppy_slug": (
         // Ambient wildlife: never aggros, but its body still hurts on touch.
         attacks_player: false,
         // Deep-dream visual jitter seed (slug-only psychedelic pass).

@@ -363,3 +363,35 @@ everywhere with no behavior change.
 Gates every checkpoint: ambition_sandbox lib + architecture_boundaries +
 replay_fixture_regression (zero-divergence) + scripted_gameplay +
 build --features visible.
+
+### Session 7b (2026-06-13, Fable) — spawn path string-keyed; enum vestigial (1B done)
+
+Landed `f3a637b3` (replay bit-identical). The spawn pipeline now resolves and
+carries `EnemyArchetypeSpec` by string key (`spec_for_brain(&EnemyBrain)`); the
+named composite fan-out is driven by the authored `composite_visual` row. In
+PRODUCTION the `EnemyArchetype` enum survives only inside the roster's own
+resolver (`from_brain` + `BRAIN_NAME_TO_ARCHETYPE`) — every spawn-path file
+(`spawn_actors`/`spawn_mounts`/`brain_builders`/`mount`/`actors`) is enum-free.
+The dead projection delegators were deleted (they duplicated `EnemyArchetypeSpec`);
+`is_composite_spawn` (named match) → `spec.is_composite()`. Also fixed an
+orphaned `#[cfg(test)]` that was gating a production `SpawnProjectile` import —
+the lib-test build masked it; the app gate caught it (reproduce-under-real-cfg).
+
+**Remaining = Checkpoint 2 (the actual relocation):**
+- **2a — invert spec resolution to a Resource.** Today the registry is a
+  `LazyLock<HashMap<String, EnemyArchetypeSpec>>` over embedded RON, read by the
+  free fn `archetype_spec()`/`spec_for_brain()` (callable from non-system
+  contexts — `EnemyClusterSeed::new`, boss ctors). DESIGN DECISION: to let
+  content own the RON, the spec data must come from a Bevy `Resource`
+  (`EnemyRoster`) the content plugin inserts at startup. The non-system callers
+  (`EnemyClusterSeed::new`) then need the registry passed in — i.e. spawn
+  systems resolve `&EnemyArchetypeSpec` from `Res<EnemyRoster>` and hand it to
+  `new()`. This ripples through the spawn entry points (room loader → `spawn_enemy`
+  → `EnemyClusterSeed::new`). Keep the lib's generic `EnemyArchetypeSpec` schema;
+  move only the DATA.
+- **2b — relocate.** Move `EnemyArchetype` + `BRAIN_NAME_TO_ARCHETYPE` + the RON
+  + registry-population into `ambition_content`; its plugin inserts the
+  `EnemyRoster` resource. Fold dismount's lone `PirateRaider.spec().melee_spec()`
+  constant into content (or replace with a generic "dismount fallback melee" spec
+  field). Add an architecture_boundaries guard: the machinery lib never names
+  `EnemyArchetype`.

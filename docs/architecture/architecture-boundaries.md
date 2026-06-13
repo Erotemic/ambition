@@ -14,6 +14,12 @@ rustc, but fast directional feedback.
 `ambition_time`, `ambition_input`, `ambition_menu`, `ambition_audio`) must not
 depend on `ambition_sandbox`/content/app or name game content.
 - The combat kit (`mechanics::combat`) must name no archetype/boss content.
+- The enemy roster is content-owned DATA: the lib's persisted `EnemyConfig` +
+per-frame `EnemyMut` stay archetype-free (project `EnemyTuning` /
+`EnemyBrainSpec` / `CombatCapabilities` at spawn), and there is no
+`EnemyArchetype` enum — enemies resolve by spawn brain key against the
+content-installed `EnemyRoster`. Guard:
+`architecture_boundaries_enemy_config_is_archetype_free`.
 - Room-authored spawn modules under `features/ecs/spawn*.rs` should not add raw
 `commands.spawn(...)`; use `SpawnScopedExt::spawn_room_scoped`.
 - Lib `menu`/`dev` keep only the persistence/sim-coupled pieces; the menu host

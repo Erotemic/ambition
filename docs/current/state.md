@@ -2,9 +2,10 @@
 
 This is the compact active-state document for Ambition. Update it when the current architecture or active direction changes. Keep old migration plans in `docs/archive/`, not here.
 
-**Review date:** 2026-06-10. The monolith was bisected into a layered crate
+**Review date:** 2026-06-13. The monolith was bisected into a layered crate
 graph (Stage 20); `ambition_sandbox` is now the **machinery library**, not the
-playable shell. The remaining-work survey is `docs/planning/plugin_refactor/22_monolith_breaker_survey.md`; most older `plugin_refactor/` files are historical execution notes.
+playable shell. The remaining monolith-breakup backlog lives in
+[`next.md`](next.md).
 
 ## One-sentence summary
 
@@ -33,8 +34,9 @@ Crate layers (low → high; lower must never import higher):
                persistence, the dev STATE, the menu IR/map. Content-free
                (guard-enforced). Re-exports the foundation crates under their
                historical `crate::engine_core` / `crate::input` / … facade paths.
-  content      ambition_content: named game content — quests, bosses, items
-               roster, dialogue, intro, banter, portal adapters.
+  content      ambition_content: named game content — quests, bosses, the enemy
+               roster (installed into the lib's generic holder), items roster,
+               dialogue, intro, banter, portal adapters.
   app          ambition_app: Bevy assembly, host glue, ALL binaries (playable
                `ambition_sandbox` bin, headless, rl_*), the menu host stack +
                DevToolsPlugin, and the full-stack integration tests.
@@ -55,6 +57,25 @@ Current rule:
 - `crates/ambition_engine_core/src/` owns reusable engine semantics such as geometry, collision, movement, body modes, player clusters, and world/block policy. Focused sandbox mechanics such as projectiles live in their own crate modules.
 - RON remains valid for tuning, save/settings, generated-audio specs, boss encounter specs, character catalogs, and other non-world data where it is still the best format.
 - Agents must not hand-edit `sandbox.ldtk`; use `python -m ambition_ldtk_tools` and validation tools.
+
+**Content-installed rosters (the machinery-owns-schema / content-owns-data
+pattern).** Named gameplay rosters are authored DATA in `ambition_content`,
+installed into a generic holder the machinery lib owns — the lib names no roster
+content. The reference implementation is the enemy roster:
+
+- The lib (`features/enemies.rs`) owns the generic `EnemyArchetypeSpec` schema,
+  the spawn pipeline, and an installable `EnemyRoster` holder
+  (`install_enemy_roster`). There is **no `EnemyArchetype` enum** — enemies
+  resolve by their spawn brain key (`EnemyBrain::Custom("…")`) against the
+  installed roster (`spec_for_brain`). The persisted `EnemyConfig` / per-frame
+  `EnemyMut` carry only projected generic data (`EnemyTuning`, `EnemyBrainSpec`,
+  `CombatCapabilities`).
+- `ambition_content::enemy_roster` owns the authored, brain-keyed
+  `enemy_archetypes.ron` and installs it at `AmbitionContentPlugin::build`
+  (before any spawn system runs — install ordering is structural). A production
+  lib build embeds no enemy data; resolution requires the content install.
+- Apply the same shape to other named rosters before reaching for an enum +
+  in-lib data table.
 
 ## Platform stance
 

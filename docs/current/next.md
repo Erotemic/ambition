@@ -1,13 +1,37 @@
 # Current next moves
 
-**Review date:** 2026-06-10.
+**Review date:** 2026-06-13.
 
-0. **Monolith breakup (active direction).** The bisection landed (Stage 20); the
-   live backlog — which module to extract/pluginize next, ranked by measured
-   difficulty, plus the deferred carves (unified actor+brain crate, dev_tools
-   state/systems split) — is `docs/planning/plugin_refactor/22_monolith_breaker_survey.md`.
-   Rule proven this stage: measure a module's *outward* dep count, not its line
-   size or content-guard status, before promising an "easy" extraction.
+0. **Monolith breakup (active direction).** The Stage-20 bisection landed
+   (foundations ← machinery `ambition_sandbox` ← content `ambition_content` ←
+   app `ambition_app`); the work now is shrinking `ambition_sandbox` (~90k LOC).
+
+   **Hard-won rule:** measure a module's *outward* dependency count, not its line
+   size or content-guard status. "Names no content" (passes the guard) is NOT
+   the same as "extractable" — a module can be content-free yet have dozens of
+   inbound mechanic deps. Two move shapes: extract a reusable crate DOWN
+   (foundations) vs. move named content UP (into `ambition_content` / `app`).
+
+   Done this push: `menu` host → app; `ambition_actor` extracted; portal +
+   portal-presentation crates; the **enemy roster** is now content-owned data
+   installed into a lib holder (no `EnemyArchetype` enum — see
+   [`state.md`](state.md), the content-installed-roster pattern).
+
+   Remaining backlog, by readiness:
+   - **Boss roster (next named-content target).** `boss_encounter` (~5k) + boss
+     specs are the next "named content out of core." Apply the enemy-roster
+     pattern: keep the generic boss-runtime + spec schema in the lib (or fold
+     into `ambition_actor`), move the named boss DATA + install seam into
+     `ambition_content`. Bosses are already actors (ADR 0016).
+   - **Unified actor+brain crate (deferred carve).** Fold the boss runtime fully
+     into `ambition_actor`, leaving only named boss data in content.
+   - **`mechanics` crate extraction — verified HARD.** Needs ~15 dependency
+     inversions (or pre-extracting half the lib first). Do NOT attempt as a
+     quick crate; pre-invert its inbound deps incrementally instead.
+   - **`dev` state/systems split (partial).** ~1.3k of presentation-only dev
+     overlays already moved up; the dev STATE + systems split is deferred.
+   - **`presentation` (~10k) / `world`+LDtk (~9k).** Large; measure outward deps
+     before promising any extraction.
 1. Keep ADRs and concept pages modern enough that agents can trust them.
 2. Continue shifting runtime integration toward data-driven Bevy ECS instead of parallel code-owned world state.
 3. Replace obsolete migration docs with current systems/concepts or archive them.

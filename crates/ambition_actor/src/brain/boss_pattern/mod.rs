@@ -1270,7 +1270,6 @@ fn emit_desired_vel(
     };
 }
 
-
 /// Where the boss is in the encounter.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum BossEncounterPhase {

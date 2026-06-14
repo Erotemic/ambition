@@ -187,9 +187,14 @@ pub fn update_enemy_projectiles(
         let alive = game.tick(&mut kin, dt, gravity_sign);
         if !alive {
             // A timed-out lasersword detonates (Jon's polish list); other shots
-            // just wink out as before. VFX-only, so replay is unaffected.
+            // just wink out as before. VFX + SFX are presentation, so replay is
+            // unaffected.
             if let Some(boom) = lasersword_detonation(owner, kin.pos) {
                 vfx.write(boom);
+                sfx.write(SfxMessage::Play {
+                    id: ambition_sfx::ids::WORLD_EXPLOSION,
+                    pos: kin.pos,
+                });
             }
             commands.entity(proj_entity).despawn();
             continue;
@@ -229,12 +234,20 @@ pub fn update_enemy_projectiles(
                 WorldHitPolicy::EnemyExpireOnAnyContact,
             ) {
                 WorldHitOutcome::Expired { pos } => {
-                    // A lasersword detonates on the wall; everything else gives
-                    // the plain impact spark.
-                    vfx.write(
-                        lasersword_detonation(owner, pos)
-                            .unwrap_or(VfxMessage::Impact { pos }),
-                    );
+                    // A lasersword detonates on the wall (boom + blast sound);
+                    // everything else gives the plain impact spark.
+                    match lasersword_detonation(owner, pos) {
+                        Some(boom) => {
+                            vfx.write(boom);
+                            sfx.write(SfxMessage::Play {
+                                id: ambition_sfx::ids::WORLD_EXPLOSION,
+                                pos,
+                            });
+                        }
+                        None => {
+                            vfx.write(VfxMessage::Impact { pos });
+                        }
+                    }
                     commands.entity(proj_entity).despawn();
                 }
                 WorldHitOutcome::Bounced { .. } | WorldHitOutcome::Continue => {}

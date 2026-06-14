@@ -161,8 +161,12 @@ pub fn update_enemy_projectiles(
         ),
         With<crate::features::FeatureSimEntity>,
     >,
+    // Placed portals — an enemy shot crossing an aperture transits the pair
+    // (rotated momentum) instead of detonating on the portal wall.
+    portals: Query<&crate::portal::PlacedPortal>,
 ) {
     let dt = world_time.sim_dt();
+    let portal_list: Vec<crate::portal::PlacedPortal> = portals.iter().copied().collect();
 
     // Collect the in-flight enemy projectile entities and sort by spawn
     // sequence. The old code iterated `state.bodies` in Vec push order (oldest
@@ -197,6 +201,16 @@ pub fn update_enemy_projectiles(
                 });
             }
             commands.entity(proj_entity).despawn();
+            continue;
+        }
+
+        // Portal transit (both factions): if this shot crossed a portal aperture
+        // this tick, map it through the pair and skip this tick's collision /
+        // damage so it threads the portal instead of detonating on the wall
+        // (Jon: "fireballs should transit portals without exploding").
+        if !portal_list.is_empty()
+            && crate::projectile::try_projectile_portal_transit(&mut kin, &portal_list)
+        {
             continue;
         }
 

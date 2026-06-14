@@ -25,6 +25,7 @@
 mod diagnostics;
 mod entity;
 mod motion_input;
+mod portal_transit;
 mod spawn;
 mod spawn_message;
 mod state;
@@ -62,4 +63,5 @@ pub use ambition_platformer_runtime::projectile::{
 // Sandbox-specific spawn helpers (player input gesture buffer + cooldown meter)
 // stay in the sandbox.
 pub use motion_input::{MotionDirection, MotionInputBuffer};
+pub use portal_transit::try_projectile_portal_transit;
 pub use spawn::{ProjectileSpawner, SpawnFailure};

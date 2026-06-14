@@ -32,18 +32,26 @@ use crate::GameWorld;
 /// out the far portal. Without this the projectile collided against the raw world
 /// and could never transit a wall portal.
 #[derive(bevy::ecs::system::SystemParam)]
-pub struct ProjectileCollisionWorld<'w> {
+pub struct ProjectileCollisionWorld<'w, 's> {
     world: Res<'w, GameWorld>,
     overlay: Res<'w, crate::features::FeatureEcsWorldOverlay>,
+    // Folded in here (rather than as its own top-level param) because
+    // `update_projectiles` is already at Bevy's 16-param ceiling.
+    portals: Query<'w, 's, &'static crate::portal::PlacedPortal>,
 }
 
-impl ProjectileCollisionWorld<'_> {
+impl ProjectileCollisionWorld<'_, '_> {
     /// The room world with ONLY the portal apertures carved out — preserves the
     /// projectile's historical raw-world collision (it passes through moving
     /// platforms) while letting a shot sink into a portal opening and transit.
     /// Borrowed (no clone) in the common no-carve case.
     fn solids(&self) -> std::borrow::Cow<'_, ae::World> {
         crate::features::world_with_portal_carves(&self.world.0, &self.overlay.portal_carves)
+    }
+
+    /// Snapshot the placed portals for the per-projectile transit test.
+    fn portal_list(&self) -> Vec<crate::portal::PlacedPortal> {
+        self.portals.iter().copied().collect()
     }
 }
 
@@ -131,6 +139,8 @@ pub fn update_projectiles(
     // so a shot fired into a wall portal flies through the opening instead of
     // detonating on the wall; `portal_transit` then carries it across.
     let collision_world = carved.solids();
+    // Snapshot placed portals once for the per-projectile transit test.
+    let portal_list = carved.portal_list();
     // Localized gravity: each projectile body resolves its own gravity by
     // position below, so a shot crossing a gravity column bends the column's way.
 
@@ -233,6 +243,17 @@ pub fn update_projectiles(
                     damage: game.damage,
                 });
                 commands.entity(proj_entity).despawn();
+                continue;
+            }
+
+            // Step 1.5: portal transit. If this shot crossed a portal aperture
+            // this tick, map it through the pair (rotated momentum) and skip the
+            // wall-collision step — so it threads the portal instead of
+            // detonating on the wall (Jon: "fireballs should transit portals
+            // without exploding").
+            if !portal_list.is_empty()
+                && crate::projectile::try_projectile_portal_transit(&mut kin, &portal_list)
+            {
                 continue;
             }
 

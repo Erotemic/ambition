@@ -211,6 +211,15 @@ pub(crate) fn sync_menu_page_across_backend_switch(
     if *last == Some(now) {
         return;
     }
+    eprintln!(
+        "[PAGESYNC] {:?}->{:?} visible={} pages.active={:?} active_tab={} ({:?})",
+        *last,
+        now,
+        overlay.visible,
+        pages.active,
+        tab_state.active_tab,
+        tab_page(tab_state.active_tab),
+    );
     // A genuine switch WHILE THE MENU IS OPEN carries the page across; a switch while
     // closed is irrelevant (the next open's entry key sets the landing page). The very
     // first run just records the backend (there is no prior backend to carry from).
@@ -227,6 +236,12 @@ pub(crate) fn sync_menu_page_across_backend_switch(
                 pages.active = Some(tab_page(tab_state.active_tab));
             }
         }
+        eprintln!(
+            "[PAGESYNC]   -> active_tab={} ({:?}) pages.active={:?}",
+            tab_state.active_tab,
+            tab_page(tab_state.active_tab),
+            pages.active,
+        );
     }
     *last = Some(now);
 }
@@ -701,7 +716,15 @@ pub(crate) fn grid_menu_republish_view(
         }
         return;
     }
+    let just_became_active = !tab_state.was_open;
     tab_state.was_open = true;
+    if just_became_active {
+        eprintln!(
+            "[GRIDVIEW] became active: rendering active_tab={} ({:?})",
+            tab_state.active_tab,
+            tab_page(tab_state.active_tab),
+        );
+    }
 
     // RENDER THE GRID'S TAB, not the shared `pages.active` (which the cube drives).
     // The grid builds the active tab's `MenuPageModel` from the SAME backend-agnostic

@@ -138,7 +138,7 @@ pub fn record_frame_system(
     // out there are no teleports to expect.
     #[cfg(feature = "portal")]
     if teleported.read().next().is_some() {
-        buffer.teleport_suppress_ticks = super::buffer::PORTAL_TELEPORT_SUPPRESS_FRAMES;
+        buffer.teleport_suppress_ticks = super::PORTAL_TELEPORT_SUPPRESS_FRAMES;
     }
     let Ok((mut cluster_item, player_health, safety, input)) = player_q.single_mut() else {
         return;

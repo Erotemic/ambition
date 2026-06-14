@@ -1,0 +1,24 @@
+[package]
+name = "ambition_trace"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Reusable, content-free gameplay flight-recorder format: the per-frame trace schema (GameplayTraceFrame / GameplayTraceEvent), the rolling GameplayTraceBuffer resource, and the markdown/JSON dump writers. The game's sim systems fill the buffer; this crate owns the format the replay harness reads. Extracted from ambition_sandbox."
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+# Resource derive on GameplayTraceBuffer (ECS surface only — no render/audio).
+bevy = { version = "0.18.1", default-features = false }
+
+# Geometry (Vec2) used by the player-snapshot fields.
+ambition_engine_core = { path = "../ambition_engine_core" }
+
+# ControlFrame — the input snapshot stored per trace frame.
+ambition_input = { path = "../ambition_input" }
+
+# The on-disk trace schema is serde-serialized for the dump writers.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

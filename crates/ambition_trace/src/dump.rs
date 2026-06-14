@@ -1,5 +1,9 @@
-use super::*;
+use crate::*;
 use serde::Serialize;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
+use std::{fs, io};
 
 static DUMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
@@ -40,7 +44,7 @@ pub fn dump_paths(dir: &Path, timestamp_label: &str) -> (PathBuf, PathBuf) {
 /// taken in the same nanosecond still get distinct paths. Lexical
 /// order matches chronological order so `ls -1` lists dumps in the
 /// order they were taken.
-pub(super) fn timestamp_label_with_seq(ts: SystemTime, seq: u64) -> String {
+pub fn timestamp_label_with_seq(ts: SystemTime, seq: u64) -> String {
     let dur = ts.duration_since(UNIX_EPOCH).unwrap_or_default();
     let secs = dur.as_secs();
     let nanos = dur.subsec_nanos();
@@ -60,7 +64,7 @@ pub(super) fn timestamp_label_with_seq(ts: SystemTime, seq: u64) -> String {
 /// counter and formats `ts` against it. Tests can call
 /// `timestamp_label_with_seq` directly with explicit sequences to
 /// pin behavior.
-pub(super) fn timestamp_label(ts: SystemTime) -> String {
+pub fn timestamp_label(ts: SystemTime) -> String {
     timestamp_label_with_seq(ts, next_dump_sequence())
 }
 

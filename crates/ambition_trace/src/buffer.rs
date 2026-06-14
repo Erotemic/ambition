@@ -1,27 +1,29 @@
-use super::*;
+use crate::*;
+use bevy::prelude::*;
+use std::collections::VecDeque;
 
 /// Top-level rolling buffer.
 #[derive(Resource, Debug)]
 pub struct GameplayTraceBuffer {
-    pub(super) capacity_frames: usize,
-    pub(super) capacity_events: usize,
-    pub(super) frames: VecDeque<GameplayTraceFrame>,
-    pub(super) events: VecDeque<GameplayTraceEvent>,
-    pub(super) sequence: u64,
-    pub(super) tick: u64,
+    pub capacity_frames: usize,
+    pub capacity_events: usize,
+    pub frames: VecDeque<GameplayTraceFrame>,
+    pub events: VecDeque<GameplayTraceEvent>,
+    pub sequence: u64,
+    pub tick: u64,
     pub last_dump_path: Option<String>,
     pub last_dump_status: Option<String>,
     pub dump_request: Option<DumpReason>,
     /// Once an OOB has auto-dumped we suppress further auto-dumps until
     /// the player is no longer OOB; otherwise a single broken frame would
     /// produce 60 dump files per second.
-    pub(super) auto_dump_armed: bool,
+    pub auto_dump_armed: bool,
     /// True after the very first frame has been recorded; lets us produce
     /// useful "first OOB frame" output without indexing into an empty
     /// buffer.
-    pub(super) has_recorded_any: bool,
+    pub has_recorded_any: bool,
     /// Frame-to-frame diff source for synthetic events.
-    pub(super) previous: Option<PreviousFrameSnapshot>,
+    pub previous: Option<PreviousFrameSnapshot>,
     /// Frames remaining in the portal-transit suppression WINDOW. A portal
     /// crossing both snaps the player a long way (an "unexplained" position
     /// delta) AND lands it at the exit before the exit-side carve has opened
@@ -29,13 +31,13 @@ pub struct GameplayTraceBuffer {
     /// Set to a few frames when a `BodyTeleported` fires; while > 0 BOTH the
     /// position-delta and the OOB auto-dumps are suppressed, so a normal transit
     /// never spams a trace dump. Decremented once per frame in `record_frame`.
-    pub(super) teleport_suppress_ticks: u32,
+    pub teleport_suppress_ticks: u32,
 }
 
 /// How many frames a portal transit suppresses trace auto-dumps for: long enough
 /// to cover the transfer snap plus the exit-side settle (carve opening + any
 /// collision push-out), short enough that a genuinely stuck body still dumps.
-pub(super) const PORTAL_TELEPORT_SUPPRESS_FRAMES: u32 = 8;
+pub const PORTAL_TELEPORT_SUPPRESS_FRAMES: u32 = 8;
 
 impl Default for GameplayTraceBuffer {
     fn default() -> Self {
@@ -80,7 +82,7 @@ impl GameplayTraceBuffer {
         }
     }
 
-    pub(super) fn push_frame(&mut self, frame: GameplayTraceFrame) {
+    pub fn push_frame(&mut self, frame: GameplayTraceFrame) {
         if self.frames.len() == self.capacity_frames {
             self.frames.pop_front();
         }

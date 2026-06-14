@@ -1,4 +1,6 @@
-use super::*;
+use ambition_engine_core as ae;
+use ambition_input::ControlFrame;
+use serde::Serialize;
 
 /// Lightweight 2D point used in the serialized payload. Avoids leaking
 /// `bevy_math::Vec2` into the JSON shape (which is not directly Serialize
@@ -255,7 +257,7 @@ pub enum GameplayTraceEvent {
 }
 
 impl GameplayTraceEvent {
-    pub(super) fn tick(&self) -> u64 {
+    pub fn tick(&self) -> u64 {
         match self {
             GameplayTraceEvent::InputEdge { tick, .. }
             | GameplayTraceEvent::PlayerModeChanged { tick, .. }
@@ -276,7 +278,7 @@ impl GameplayTraceEvent {
         }
     }
 
-    pub(super) fn label(&self) -> &'static str {
+    pub fn label(&self) -> &'static str {
         match self {
             GameplayTraceEvent::InputEdge { .. } => "InputEdge",
             GameplayTraceEvent::PlayerModeChanged { .. } => "PlayerModeChanged",
@@ -368,26 +370,26 @@ impl OobReason {
 /// diffs.
 #[derive(Clone, Debug)]
 #[allow(dead_code)]
-pub(super) struct PreviousFrameSnapshot {
-    pub(super) pos: ae::Vec2,
-    pub(super) vel: ae::Vec2,
-    pub(super) on_ground: bool,
-    pub(super) fly_enabled: bool,
-    pub(super) blink_aiming: bool,
-    pub(super) blink_grace_timer: f32,
-    pub(super) fast_falling: bool,
-    pub(super) dash_charges_available: u8,
-    pub(super) air_jumps_available: u8,
-    pub(super) resets: u32,
-    pub(super) hp_current: i32,
-    pub(super) locomotion: ae::LocomotionState,
-    pub(super) body_mode: ae::BodyMode,
-    pub(super) active_area: String,
-    pub(super) controls: ControlFrame,
+pub struct PreviousFrameSnapshot {
+    pub pos: ae::Vec2,
+    pub vel: ae::Vec2,
+    pub on_ground: bool,
+    pub fly_enabled: bool,
+    pub blink_aiming: bool,
+    pub blink_grace_timer: f32,
+    pub fast_falling: bool,
+    pub dash_charges_available: u8,
+    pub air_jumps_available: u8,
+    pub resets: u32,
+    pub hp_current: i32,
+    pub locomotion: ae::LocomotionState,
+    pub body_mode: ae::BodyMode,
+    pub active_area: String,
+    pub controls: ControlFrame,
     /// Snapshot of `player.ledge_grab.is_some()` and `wall_normal_x`
     /// so `synthesize_events_from_diff` can attribute a teleporting
     /// position snap to a ledge-grab entry or a wall-side flip.
-    pub(super) ledge_grabbing: bool,
-    pub(super) wall_normal_x: f32,
-    pub(super) on_wall: bool,
+    pub ledge_grabbing: bool,
+    pub wall_normal_x: f32,
+    pub on_wall: bool,
 }

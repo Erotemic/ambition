@@ -13,28 +13,11 @@
 use crate::engine_core as ae;
 use bevy::prelude::Resource;
 
-/// A spawn request describing an enemy projectile. Built by the
-/// EFFECTS-stage consumer `spawn_enemy_projectiles_from_brain_actions`
-/// from an [`crate::brain::ActorActionMessage::Ranged`] (and the boss
-/// special consumers) and turned into a body by [`EnemyProjectileState::build`].
-#[derive(Clone, Debug)]
-pub struct EnemyProjectileSpawn {
-    pub origin: ae::Vec2,
-    pub dir: ae::Vec2,
-    pub speed: f32,
-    pub damage: i32,
-    pub max_lifetime: f32,
-    pub half_extent: ae::Vec2,
-    /// Id of the spawning enemy. Useful for self-friendly-fire ignore
-    /// lists, sprite routing in the visuals layer (GNU-ton's apples
-    /// stamp `gnu_ton_apple:*` so the visual gets the apple shape
-    /// instead of the default bullet rectangle), and debug traces.
-    pub owner_id: String,
-    /// Per-second downward acceleration applied to the body each tick.
-    /// Zero for hitscan-like volleys; positive for arcing/falling
-    /// projectiles such as GNU-ton's apple rain.
-    pub gravity: f32,
-}
+// `EnemyProjectileSpawn` (a substrate-neutral projectile spawn request) moved
+// down to `ambition_platformer_runtime::projectile` so the foundation
+// `ambition_effects` vocabulary can reference it. Re-exported here at its
+// historical path.
+pub use ambition_platformer_runtime::projectile::EnemyProjectileSpawn;
 
 /// Bevy resource for the enemy-projectile pool. The in-flight bodies are ECS
 /// entities now (Phase 3c-iii); this type owns no `Vec` — it survives as a

@@ -34,4 +34,4 @@ pub use body::{
     InFlightProjectile, ProjectileBody, ProjectileFaction, ProjectileGameplay, ProjectileSolidHit,
 };
 pub use collision::{resolve_world_collision, WorldHitOutcome, WorldHitPolicy};
-pub use spec::{FireballChargeTuning, ProjectileKind, ProjectileSpec};
+pub use spec::{EnemyProjectileSpawn, FireballChargeTuning, ProjectileKind, ProjectileSpec};

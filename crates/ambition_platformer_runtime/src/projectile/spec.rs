@@ -284,3 +284,23 @@ mod tests {
         assert!(s.damage >= 1, "damage floors at 1");
     }
 }
+
+/// A request to spawn one in-flight projectile (origin / dir / speed / damage /
+/// lifetime / size / owner-id / gravity). Substrate-neutral data: the effect
+/// vocabulary and both projectile pools build bodies from it. (Named for its
+/// historical enemy-pool origin; it is pool-agnostic.)
+#[derive(Clone, Debug)]
+pub struct EnemyProjectileSpawn {
+    pub origin: Vec2,
+    pub dir: Vec2,
+    pub speed: f32,
+    pub damage: i32,
+    pub max_lifetime: f32,
+    /// Id of the spawning actor — self-friendly-fire ignore lists, sprite
+    /// routing in the visuals layer, debug traces.
+    pub owner_id: String,
+    pub half_extent: Vec2,
+    /// Per-second downward acceleration each tick. Zero for hitscan-like
+    /// volleys; positive for arcing/falling projectiles (e.g. apple rain).
+    pub gravity: f32,
+}

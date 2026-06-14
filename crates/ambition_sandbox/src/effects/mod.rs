@@ -113,7 +113,7 @@ pub enum Effect {
     Summon(SummonSpec),
     Projectiles {
         faction: crate::projectile::ProjectileFaction,
-        shots: Vec<crate::enemy_projectile::EnemyProjectileSpawn>,
+        shots: Vec<ambition_platformer_runtime::projectile::EnemyProjectileSpawn>,
     },
 }
 

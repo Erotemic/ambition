@@ -19,6 +19,7 @@ members = [
     "crates/ambition_sprite_sheet",
     "crates/ambition_time",
     "crates/ambition_trace",
+    "crates/ambition_ui_nav",
 ]
 resolver = "2"
 

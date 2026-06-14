@@ -11,5 +11,7 @@ mod list;
 mod pointer;
 
 pub use drag::DragScrollState;
-pub use list::{apply_vertical_scroll, visible_window_start};
+#[cfg(feature = "input")]
+pub use list::apply_vertical_scroll;
+pub use list::visible_window_start;
 pub use pointer::{resolve_selectable_row_interaction, MenuFocusOwner, MenuFocusState};

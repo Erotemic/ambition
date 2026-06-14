@@ -1,12 +1,14 @@
 #![allow(dead_code)] // Several helpers are reserved API for future menu callers.
 
-use crate::input::MenuInputFrame;
+#[cfg(feature = "input")]
+use ambition_input::MenuInputFrame;
 
 /// Convert discrete vertical scroll steps into menu up/down edges.
 ///
 /// Positive scroll values mean "previous row" / "scroll up". Negative values
 /// mean "next row" / "scroll down". This mirrors `MenuControlFrame::scroll_y`
 /// and keeps menus from duplicating that sign convention.
+#[cfg(feature = "input")]
 pub fn apply_vertical_scroll(frame: &mut MenuInputFrame, steps: i32) {
     if steps > 0 {
         frame.up = true;

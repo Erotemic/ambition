@@ -1,0 +1,21 @@
+[package]
+name = "ambition_ui_nav"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Reusable, content-free UI/menu navigation primitives: windowed list math (visible window + discrete scroll-to-row), pointer row-activation resolution, and drag-scroll accumulation. Keeps the keyboard/gamepad/touch menu paths from drifting apart. Pure over the input foundation; extracted from ambition_sandbox."
+
+[lib]
+crate-type = ["rlib"]
+
+[features]
+default = []
+# Forwarded from the host: enables the `MenuInputFrame`-driven scroll helper.
+input = ["ambition_input/input"]
+
+[dependencies]
+# MenuInputFrame (input feature) + the MenuPointerPress / MenuTapMode settings enums.
+ambition_input = { path = "../ambition_input" }
+# `Interaction` (bevy_ui) for pointer row activation; Vec2 / Resource derive.
+bevy = { version = "0.18.1", default-features = false, features = ["bevy_ui"] }

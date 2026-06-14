@@ -1,6 +1,6 @@
 use bevy::prelude::Interaction;
 
-use crate::persistence::settings::{MenuPointerPress, MenuTapMode};
+use ambition_input::settings::{MenuPointerPress, MenuTapMode};
 
 /// Which input source currently owns menu focus.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

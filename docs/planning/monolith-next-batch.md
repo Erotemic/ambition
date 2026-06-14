@@ -55,6 +55,30 @@ levers are unchanged: the presentation move-UP (gated on the rendering/`RoomVisu
 lifecycle inversion — sim must stop managing visual teardown) and content promotion
 via install-holders. Remaining inventory + open directions below.
 
+## Menu + production-peel batch (2026-06-14 cont.)
+
+- **Menu god-modules split** — settings-IR (1111 → model/build/apply/tests),
+  the kaleidoscope cube renderer (2402 → mod 1260 + **page.rs** 738 + 4 test
+  files), bevy_ui grid renderer (1148 → 769 + tests).
+- **Menu unifications** — both scrollbar maths (`scrollbar_thumb_layout` +
+  `scrollbar_fraction_from_rect`) were copied into each renderer and drifting;
+  hoisted one pub(crate) copy each into the crate root. Plus a dead-module
+  doc-smell fix (`crate::pause_menu` referenced after deletion).
+- **Production concern-peels** (new pattern, proven): peel a contiguous concern
+  into a child module that does `use super::*` (descendant visibility reaches the
+  parent's private consts/components) with only the externally-called fns made
+  `pub(super)`. Done: `kaleidoscope/page.rs`, `actors/boss.rs` (1211 → 901).
+- **More test-mod splits**: `features/ecs/damage.rs` (1229 → 770) and the earlier
+  16. Twenty-plus god-modules now split.
+
+**Gotcha learned (production peels):** a child-module peel breaks
+`super::sibling_module::X` references — `super` from `foo/child.rs` is `foo/`
+(the dir), not `foo`'s parent, so any `super::other_module` in the moved code
+must become `super::super::` or an absolute `crate::` path. Test-mod extractions
+are immune (the test's `use super::*` correctly resolves to the new `mod.rs`).
+This is why the `damage/apply.rs` applier-peel was reverted (the appliers
+reference many `features/ecs` siblings via `super::`); the test split landed.
+
 ## Where we are (measured 2026-06-14)
 
 `ambition_sandbox` is **~87k LOC** — still the monolith (next crate, `ambition_app`,

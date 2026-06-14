@@ -535,7 +535,9 @@ fn architecture_boundaries_non_portal_mechanics_use_runtime_raycast_seam() {
         "abilities/traversal/blink.rs",
         "abilities/traversal/dive.rs",
         "abilities/traversal/grapple.rs",
-        "items/pickup.rs",
+        // pickup.rs was split into a `pickup/` dir (Refactor 6); the production
+        // raycast usage lives in mod.rs.
+        "items/pickup/mod.rs",
     ];
     let mut violations = Vec::new();
 

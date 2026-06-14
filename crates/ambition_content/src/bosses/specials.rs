@@ -182,6 +182,26 @@ const MINIMA_TRAP_KEY: &str = "minima_trap";
 const SADDLE_POINT_KEY: &str = "saddle_point";
 const GRADIENT_CASCADE_KEY: &str = "gradient_cascade";
 
+// Boss-special tuning — content-owned (moved off the engine lib with the
+// techniques; the engine's `features::bosses` no longer holds boss-special
+// numbers). Values are tuned for the gradient-sentinel arena.
+const APPLE_RAIN_INTERVAL: f32 = 0.35;
+const APPLE_RAIN_SPAWN_SPEED: f32 = 35.0;
+const APPLE_RAIN_DAMAGE: i32 = 1;
+const OVERFIT_VOLLEY_SAMPLE_INTERVAL_S: f32 = 0.30;
+const OVERFIT_VOLLEY_SAMPLE_COUNT: u8 = 5;
+const OVERFIT_VOLLEY_SHOT_SPEED: f32 = 360.0;
+const OVERFIT_VOLLEY_SHOT_DAMAGE: i32 = 1;
+const MINIMA_TRAP_HAZARD_DURATION_S: f32 = 5.0;
+const MINIMA_TRAP_DAMAGE: i32 = 2;
+const MINIMA_TRAP_HALF_EXTENT_X: f32 = 56.0;
+const MINIMA_TRAP_HALF_EXTENT_Y: f32 = 24.0;
+const SADDLE_POINT_ARM_LENGTH: f32 = 220.0;
+const SADDLE_POINT_ARM_THICKNESS: f32 = 36.0;
+const SADDLE_POINT_AXIS_PERIOD_S: f32 = 1.2;
+const SADDLE_POINT_DAMAGE: i32 = 2;
+const GRADIENT_CASCADE_MINION_COUNT: u8 = 2;
+
 /// Per-boss apple-rain accumulator: state moved out of `BossRuntime`
 /// to keep the runtime focused on body/HP and to let the EFFECTS
 /// consumer (`spawn_gnu_apple_rain_from_special_messages`) own the
@@ -268,9 +288,9 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
     // technique). The brain fires one `Special("apple_rain")` message per tick
     // the strike window is active.
     let (interval_s, spawn_speed, damage) = (
-        ambition_sandbox::features::bosses::APPLE_RAIN_INTERVAL,
-        ambition_sandbox::features::bosses::APPLE_RAIN_SPAWN_SPEED,
-        ambition_sandbox::features::bosses::APPLE_RAIN_DAMAGE,
+        APPLE_RAIN_INTERVAL,
+        APPLE_RAIN_SPAWN_SPEED,
+        APPLE_RAIN_DAMAGE,
     );
     // Bosses with an `apple_rain` Special this tick. Multiple messages from one
     // boss collapse to the same entry — "any message this tick" = "strike
@@ -465,10 +485,6 @@ pub fn spawn_overfit_volley_from_special_messages(
         With<FeatureSimEntity>,
     >,
 ) {
-    use ambition_sandbox::features::bosses::{
-        OVERFIT_VOLLEY_SAMPLE_COUNT, OVERFIT_VOLLEY_SAMPLE_INTERVAL_S, OVERFIT_VOLLEY_SHOT_DAMAGE,
-        OVERFIT_VOLLEY_SHOT_SPEED,
-    };
     let dt = world_time.sim_dt();
 
     let mut firing: std::collections::HashSet<Entity> = std::collections::HashSet::new();
@@ -621,10 +637,6 @@ pub fn spawn_minima_trap_from_special_messages(
         With<FeatureSimEntity>,
     >,
 ) {
-    use ambition_sandbox::features::bosses::{
-        MINIMA_TRAP_DAMAGE, MINIMA_TRAP_HALF_EXTENT_X, MINIMA_TRAP_HALF_EXTENT_Y,
-        MINIMA_TRAP_HAZARD_DURATION_S,
-    };
     let mut firing: std::collections::HashSet<Entity> = std::collections::HashSet::new();
     for msg in messages.read() {
         if let ActionRequest::Special {
@@ -755,10 +767,6 @@ pub fn spawn_saddle_point_from_special_messages(
     mut messages: MessageReader<ActorActionMessage>,
     mut bosses: Query<(Entity, BossClusterRef, &mut SaddlePointState), With<FeatureSimEntity>>,
 ) {
-    use ambition_sandbox::features::bosses::{
-        SADDLE_POINT_ARM_LENGTH, SADDLE_POINT_ARM_THICKNESS, SADDLE_POINT_AXIS_PERIOD_S,
-        SADDLE_POINT_DAMAGE,
-    };
     let dt = world_time.sim_dt();
 
     let mut firing: std::collections::HashSet<Entity> = std::collections::HashSet::new();
@@ -915,7 +923,7 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
     mut messages: MessageReader<ActorActionMessage>,
     mut bosses: Query<(Entity, BossClusterRef, &mut GradientCascadeState), With<FeatureSimEntity>>,
 ) {
-    let minion_count = ambition_sandbox::features::bosses::GRADIENT_CASCADE_MINION_COUNT;
+    let minion_count = GRADIENT_CASCADE_MINION_COUNT;
     let mut firing: std::collections::HashSet<Entity> = std::collections::HashSet::new();
     for msg in messages.read() {
         if let ActionRequest::Special {

@@ -29,16 +29,6 @@ pub use crate::brain::boss_pattern::{BossAttackProfile, BossMovementProfile};
 /// re-deriving the slug.
 pub const GNU_TON_ENCOUNTER_ID: &str = "gnu_ton";
 
-/// Apple-rain tuning consumed by the spawn-time `ActionSet` wiring
-/// (spawn.rs binds these into `SpecialActionSpec::Special("apple_rain")`).
-/// The visual / collision constants (gravity, lifetime, half_extent,
-/// spawn-height) live next to the EFFECTS consumer in
-/// `content/features/ecs/brain_effects.rs` — the consumer is the
-/// only thing that reads them, so they're local there instead of
-/// a cross-module knob set.
-pub const APPLE_RAIN_INTERVAL: f32 = 0.35;
-pub const APPLE_RAIN_SPAWN_SPEED: f32 = 35.0;
-pub const APPLE_RAIN_DAMAGE: i32 = 1;
 /// Stable id prefix used by the visuals layer to switch the
 /// flat-red-rectangle bullet shape to the apple sprite (red body +
 /// green leaf + brown stem). Keep in sync with
@@ -52,61 +42,11 @@ pub const GNU_TON_APPLE_OWNER_PREFIX: &str = "gnu_ton_apple";
 // and EFFECTS consumers is the public name.
 pub const GRADIENT_SENTINEL_ENCOUNTER_ID: &str = "gradient_sentinel";
 
-// ===== Gradient Sentinel special-attack tuning =====
-//
-// Constants kept here (next to the behavior profile that authors the
-// schedule) so the EFFECTS consumers and the brain wiring share one
-// source. The numeric values are tuned for the
-// first_system_boss arena (1280×768) — see the design doc at
-// `dev/journals/gradient-sentinel-boss-design-2026-05-25.md`.
-
-/// MemorizedVolley: how often (in seconds) the brain samples the
-/// player's position during the telegraph window. With 5 samples and
-/// 0.30 s spacing the consumer captures ~1.5 s of player travel,
-/// covering a player who is reactively zig-zagging.
-pub const OVERFIT_VOLLEY_SAMPLE_INTERVAL_S: f32 = 0.30;
-/// MemorizedVolley: max number of position samples to memorize. Caps the
-/// bolt count fired on the strike edge so the player can read the
-/// barrage instead of getting blanket-coverage'd.
-pub const OVERFIT_VOLLEY_SAMPLE_COUNT: u8 = 5;
-/// MemorizedVolley: per-bolt projectile speed (px/s). Fast enough that
-/// the bolts feel decisive but slow enough to dodge if the player
-/// reads the barrage early.
-pub const OVERFIT_VOLLEY_SHOT_SPEED: f32 = 360.0;
-/// MemorizedVolley: per-bolt damage.
-pub const OVERFIT_VOLLEY_SHOT_DAMAGE: i32 = 1;
-
-// Smirking Behemoth eye-beam tuning moved to `ambition_content`
-// (`bosses::specials`) with the eye-beam Technique — the engine names no boss
-// special's params.
-
-/// PitTrap: how long the pit hazard hitbox stays live after the
-/// strike edge spawns it. Long enough to be a real area-denial threat,
-/// short enough that the player isn't permanently locked out of half
-/// the arena.
-pub const MINIMA_TRAP_HAZARD_DURATION_S: f32 = 5.0;
-/// PitTrap: per-tick damage. The standard `apply_hitbox_damage`
-/// once-per-strike gate ensures one hit per pit lifetime.
-pub const MINIMA_TRAP_DAMAGE: i32 = 2;
-/// PitTrap: half-extent (x, y) of the pit hitbox.
-pub const MINIMA_TRAP_HALF_EXTENT_X: f32 = 56.0;
-pub const MINIMA_TRAP_HALF_EXTENT_Y: f32 = 24.0;
-
-/// RotatingCross: half-extent of each arm along its long axis.
-pub const SADDLE_POINT_ARM_LENGTH: f32 = 220.0;
-/// RotatingCross: half-extent of each arm along its short axis.
-pub const SADDLE_POINT_ARM_THICKNESS: f32 = 36.0;
-/// RotatingCross: seconds an axis stays active before toggling. The
-/// brain's `BossPatternStep::Strike { duration }` governs total
-/// strike time; this is just the rotation period.
-pub const SADDLE_POINT_AXIS_PERIOD_S: f32 = 1.2;
-/// RotatingCross: per-tick damage.
-pub const SADDLE_POINT_DAMAGE: i32 = 2;
-
-/// MinionCascade: number of "slop" minions to spawn at the top of
-/// the arena per strike. Kept low so the player can clear before
-/// the next attack lands.
-pub const GRADIENT_CASCADE_MINION_COUNT: u8 = 2;
+// All boss-special tuning numbers (apple-rain cadence, overfit-volley sampling,
+// minima-trap / saddle-point / gradient-cascade params, the eye-beam tuning)
+// moved to `ambition_content::bosses::specials` with the Techniques themselves —
+// the engine names no boss special's params. The engine retains only the generic
+// boss machinery (profile/spec/resolver) below.
 
 // `GNU_TON_ANCHOR_Y`, `GNU_TON_COLLISION_SCALE`, `GNU_TON_FRAME_HEIGHT`,
 // and `gnu_ton_sprite_scale` were retired in the 2026-05-26

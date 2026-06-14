@@ -44,6 +44,22 @@ Historical notes under `docs/archive/` are evidence, not current authority. Gene
   Machinery must not import content — `architecture_boundaries` enforces it.
   Schedule vocabulary (`SandboxSet` etc.) stays in `ambition_sandbox::app`.
 
+## Autonomous decision-making
+
+When operating autonomously and you hit an architecture or design fork, **make the
+choice Jon would most likely make and act** — read
+`docs/concepts/autonomous-decision-making.md`. The short version: most
+architecture/implementation forks are yours to decide (reserve questions for
+product/scope, irreversible/outward-facing acts, or true intent ambiguity); score
+candidates by elegance (obvious single source of truth, follows seams, no hidden
+ordering), the layer boundaries (Rust=behavior, RON=content, LDtk=space, machinery
+imports no named content), runtime efficiency, maintainability, and conciseness;
+refactor toward the better-scoring option rather than taking the easy path; prefer
+single-commit replacement over compatibility shims (pre-release); and on a timed
+or autonomous run, **infer and keep going — do not stall to ask.** A behavior-
+neutral change must keep replay bit-identical; a behavior fix ships with a focused
+test.
+
 ## Spatial authoring discipline (LDtk, gates, hitboxes)
 
 If you are placing entities, gates, walls, hitboxes, or other map

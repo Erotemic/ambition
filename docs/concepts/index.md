@@ -6,6 +6,7 @@ Concept pages are durable, agent-readable memory. They define vocabulary, aliase
 
 | Concept | Read when |
 |---|---|
+| [`autonomous-decision-making.md`](autonomous-decision-making.md) | hitting an architecture/design fork while operating autonomously — how to make the choice Jon would, and when a decision is yours vs his |
 | [`bevy-native-data-driven-ecs.md`](bevy-native-data-driven-ecs.md) | deciding whether a system should be code-driven, RON-driven, LDtk-driven, or ECS-driven |
 | [`platform-targets.md`](platform-targets.md) | changing build features, input, assets, packaging, web, Android, mobile, controller, or Steam Deck paths |
 | [`tools-and-generated-content.md`](tools-and-generated-content.md) | using or documenting author-time generators, validators, asset renderers, or generated outputs |

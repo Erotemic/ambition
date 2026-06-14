@@ -88,6 +88,9 @@ impl DevToggleId {
     /// `SandboxDevState` / `LdtkHotReloadState` (not `DeveloperTools`); they mirror
     /// the pause-menu Developer page's F1 / F2 / F12 rows.
     pub const ALL: [Self; 20] = [
+        // Pinned FIRST so it lands under the cursor the instant you drill into
+        // Developer — the menu-frontend toggle is the one developers flip most.
+        Self::MenuBackend,
         Self::DebugOverlay,
         Self::SlowMotion,
         Self::Inspector,
@@ -106,7 +109,6 @@ impl DevToggleId {
         Self::PlayerBodyProfile,
         Self::MovementProfile,
         Self::LdtkAutoApply,
-        Self::MenuBackend,
         Self::PortalEffect,
     ];
 

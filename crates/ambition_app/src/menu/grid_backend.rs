@@ -206,44 +206,35 @@ pub(crate) fn sync_menu_page_across_backend_switch(
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut tab_state: ResMut<GridMenuTabState>,
     mut last: Local<Option<InventoryUiBackend>>,
+    // The page the user is on, snapshotted each stable frame so a switch can carry it
+    // even after `grid_menu_nav` clobbers the live `pages.active`.
+    mut carried: Local<Option<MenuPage>>,
 ) {
     let now = backend.effective();
-    if *last == Some(now) {
-        return;
-    }
-    eprintln!(
-        "[PAGESYNC] {:?}->{:?} visible={} pages.active={:?} active_tab={} ({:?})",
-        *last,
-        now,
-        overlay.visible,
-        pages.active,
-        tab_state.active_tab,
-        tab_page(tab_state.active_tab),
-    );
     // A genuine switch WHILE THE MENU IS OPEN carries the page across; a switch while
     // closed is irrelevant (the next open's entry key sets the landing page). The very
-    // first run just records the backend (there is no prior backend to carry from).
-    if last.is_some() && overlay.visible {
-        match now {
-            InventoryUiBackend::Grid => {
-                // Arrived at the Grid: seed its tab from the cube's page.
-                if let Some(page) = pages.active {
-                    tab_state.active_tab = tab_index_of(page);
-                }
-            }
-            InventoryUiBackend::LunexKaleidoscope => {
-                // Arrived at the cube: seed its page from the Grid's tab.
-                pages.active = Some(tab_page(tab_state.active_tab));
+    // first run has no prior backend to carry from.
+    if *last != Some(now) && last.is_some() && overlay.visible {
+        // Carry the page captured LAST frame from the OLD backend. We do NOT read the
+        // live `pages.active` here: `grid_menu_nav` rewrites it to its own (stale) tab
+        // the instant the backend flips to Grid, clobbering the cube's page before we
+        // run. The snapshot below is taken on stable frames, so it is reliable.
+        if let Some(page) = *carried {
+            match now {
+                InventoryUiBackend::Grid => tab_state.active_tab = tab_index_of(page),
+                InventoryUiBackend::LunexKaleidoscope => pages.active = Some(page),
             }
         }
-        eprintln!(
-            "[PAGESYNC]   -> active_tab={} ({:?}) pages.active={:?}",
-            tab_state.active_tab,
-            tab_page(tab_state.active_tab),
-            pages.active,
-        );
     }
     *last = Some(now);
+    // Snapshot the page the user is currently on, from the ACTIVE backend's own source
+    // of truth, for the NEXT switch.
+    if overlay.visible {
+        *carried = match now {
+            InventoryUiBackend::LunexKaleidoscope => pages.active,
+            InventoryUiBackend::Grid => Some(tab_page(tab_state.active_tab)),
+        };
+    }
 }
 
 /// The tab specs (page id + label) drawn left→right, matching [`MenuPage::ALL`].
@@ -716,15 +707,7 @@ pub(crate) fn grid_menu_republish_view(
         }
         return;
     }
-    let just_became_active = !tab_state.was_open;
     tab_state.was_open = true;
-    if just_became_active {
-        eprintln!(
-            "[GRIDVIEW] became active: rendering active_tab={} ({:?})",
-            tab_state.active_tab,
-            tab_page(tab_state.active_tab),
-        );
-    }
 
     // RENDER THE GRID'S TAB, not the shared `pages.active` (which the cube drives).
     // The grid builds the active tab's `MenuPageModel` from the SAME backend-agnostic
@@ -1183,7 +1166,7 @@ mod tests {
             .resource_mut::<ambition_sandbox::inventory::InventoryUiState>()
             .visible = true;
 
-        // Open on the cube, System page; the first update just records the backend.
+        // Open on the cube, System page; the first update snapshots the current page.
         *app.world_mut().resource_mut::<InventoryUiBackend>() =
             InventoryUiBackend::LunexKaleidoscope;
         app.world_mut()
@@ -1200,9 +1183,11 @@ mod tests {
             "cube→grid lands on the same page (System), not Inventory"
         );
 
-        // Move the grid to Map, switch back to the cube: the cube page carries it.
+        // Navigate the grid to Map and let it settle one frame (the snapshot), then
+        // switch back to the cube: the cube page carries it.
         app.world_mut().resource_mut::<GridMenuTabState>().active_tab =
             tab_index_of(MenuPage::Map);
+        app.update();
         *app.world_mut().resource_mut::<InventoryUiBackend>() =
             InventoryUiBackend::LunexKaleidoscope;
         app.update();

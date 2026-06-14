@@ -200,7 +200,6 @@ fn default_combat_tuning() -> crate::features::events::FeatureCombatTuning {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::features::ecs::hitbox::{Hitbox, HitboxAnchor};
     use crate::brain::{ActionSet, RangedActionSpec};
     use crate::enemy_projectile::test_support::enemy_projectile_bodies;
     use crate::enemy_projectile::EnemyProjectileState;

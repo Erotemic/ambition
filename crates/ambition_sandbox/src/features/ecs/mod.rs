@@ -31,6 +31,7 @@ mod bosses;
 mod brain_builders;
 mod brain_effects;
 mod damage;
+mod damage_drops;
 mod encounter_rewards;
 pub mod enemy_clusters;
 mod interact;

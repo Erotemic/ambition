@@ -401,7 +401,7 @@ pub(crate) fn close_grid_unified_menu(
 #[cfg(feature = "input")]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn grid_menu_nav(
-    menu: Res<MenuControlFrame>,
+    mut menu_frame: ResMut<MenuControlFrame>,
     mut tab_state: ResMut<GridMenuTabState>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
@@ -414,8 +414,15 @@ pub(crate) fn grid_menu_nav(
     // Read the backend from `fx.system` (it owns the resource); a separate `Res`
     // here would be a B0002 conflict with that `ResMut`.
     if fx.system.backend() != InventoryUiBackend::Grid || !overlay.visible {
+        // Not the active backend — leave the frame for whichever nav owns it.
         return;
     }
+    // This frame's menu navigation belongs to the Grid now: snapshot it, then CONSUME
+    // the one-shot nav edges so the Cube backend's nav (sharing this `Res` in the same
+    // frame) can't re-fire the same press if the "Menu Backend" row flips
+    // `InventoryUiBackend` mid-frame.
+    let menu = *menu_frame;
+    menu_frame.consume_nav_edges();
     // The Esc/Start toggle is owned by `grid_menu_open_routing`; bail so a single Esc
     // can't both close here and reopen there (the cube's Esc-Esc reopen guard).
     if menu.start {

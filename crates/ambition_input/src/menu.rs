@@ -77,6 +77,28 @@ impl MenuControlFrame {
         self.any_directional() || self.scroll_y.abs() >= 0.5
     }
 
+    /// Clear the one-shot NAVIGATION edges (directional + select / back / page-turn)
+    /// after a menu has consumed this frame, so a SECOND consumer sharing the same
+    /// `Res<MenuControlFrame>` in the same frame can't re-fire them.
+    ///
+    /// This matters when two inventory backends (the flat Grid and the 3D Cube) are
+    /// both installed: each gates its nav on the live `InventoryUiBackend`, and the
+    /// "Menu Backend" row flips that backend MID-FRAME. Without consuming, whichever
+    /// nav runs second re-evaluates its (now-satisfied) gate and re-processes the same
+    /// press — flipping the backend back, so the toggle nets to nothing intermittently.
+    /// The continuous holds (`*_held`, `scroll_y`) and the open/close edges
+    /// (`start` / `inventory` / `map`, owned by separate routing systems) are left intact.
+    pub fn consume_nav_edges(&mut self) {
+        self.up = false;
+        self.down = false;
+        self.left = false;
+        self.right = false;
+        self.select = false;
+        self.back = false;
+        self.page_left = false;
+        self.page_right = false;
+    }
+
     /// Convert accumulated scroll/drag into discrete row navigation steps.
     ///
     /// Mouse wheels usually arrive as small integer deltas. Touch drag uses

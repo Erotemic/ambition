@@ -788,6 +788,10 @@ fn apply_dev_toggle(ctx: DevToggleWrite<'_>, id: DevToggleId, dir: i32) {
         // (`toggle_inventory_backend`). Only two states, so direction is moot; flip.
         D::MenuBackend => {
             let next = (*ctx.backend).next();
+            eprintln!(
+                "[BACKEND] MenuBackend toggle: {:?} -> {:?} (dir={dir})",
+                *ctx.backend, next
+            );
             *ctx.backend = next;
         }
         // Portal FX: cycle the compiled-in portal transit visuals on the
@@ -892,7 +896,7 @@ fn fade_kaleidoscope_scrim(
 /// page; `back` closes the menu. The republish runs after this in the chain.
 #[allow(clippy::too_many_arguments)]
 fn kaleidoscope_focus_nav(
-    menu: Res<MenuControlFrame>,
+    mut menu_frame: ResMut<MenuControlFrame>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
     // Features C/D: keyboard navigation CLEARS the explicit scroll override so the
@@ -919,8 +923,15 @@ fn kaleidoscope_focus_nav(
     // Read the backend from `system` (the bundle owns it); a separate `Res` here
     // would be a B0002 conflict with that `ResMut`.
     if system.backend() != InventoryUiBackend::LunexKaleidoscope || !overlay.visible {
+        // Not the active backend — leave the frame for whichever nav owns it.
         return;
     }
+    // This frame's menu navigation belongs to the cube now: snapshot it, then CONSUME
+    // the one-shot nav edges so the Grid backend's nav (which shares this `Res` in the
+    // same frame) can't re-fire the same press if the "Menu Backend" row flips
+    // `InventoryUiBackend` mid-frame (the cause of the unreliable in-menu toggle).
+    let menu = *menu_frame;
+    menu_frame.consume_nav_edges();
     // The Esc/pause toggle (`menu.start`) is owned ENTIRELY by
     // `kaleidoscope_menu_open_routing` (close the cube / drill out of a System category /
     // restore GameMode). Esc co-fires `menu.back`, and this nav system (and the
@@ -2818,6 +2829,26 @@ mod lunex_kaleidoscope_app_tests {
         app.world()
             .resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
             .active
+    }
+
+    /// REGRESSION: the active backend's nav must CONSUME the frame's select edge, so
+    /// the OTHER inventory backend's nav (which shares `Res<MenuControlFrame>` in the
+    /// same frame) can't re-process it. Without this, selecting the "Menu Backend" row
+    /// flipped `InventoryUiBackend` mid-frame and the second nav flipped it back —
+    /// keyboard select on that row appeared to do nothing while a mouse click (a
+    /// one-shot observer) worked.
+    #[test]
+    fn active_backend_nav_consumes_the_select_edge() {
+        let mut app = system_nav_app(MenuFocus::System(0));
+        app.insert_resource(MenuControlFrame {
+            select: true,
+            ..Default::default()
+        });
+        app.update();
+        assert!(
+            !app.world().resource::<MenuControlFrame>().select,
+            "the cube nav (active backend) consumed the select edge"
+        );
     }
 
     /// The System face routes its `>`/`<` buttons through the SAME `edge_button_nav`

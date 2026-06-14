@@ -1027,7 +1027,7 @@ fn architecture_boundaries_time_crate_is_extracted() {
     assert!(clock_state.contains("pub use ambition_time::ClockState"));
     assert_paths_exist(
         &sandbox_time,
-        &["time_control.rs", "camera_ease.rs", "feel.rs"],
+        &["time_control", "camera_ease.rs", "feel.rs"],
         "sandbox game-specific time policy/presentation",
     );
 }
@@ -1210,7 +1210,7 @@ fn architecture_boundaries_dev_overlays_live_in_app() {
     );
     assert_paths_exist(
         &lib_dev,
-        &["dev_tools.rs", "profiling.rs", "trace.rs"],
+        &["dev_tools", "profiling.rs", "trace.rs"],
         "lib-coupled dev state/profiling/trace",
     );
     assert_paths_exist(

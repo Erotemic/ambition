@@ -753,6 +753,7 @@ const MINIMA_TRAP_MINION_SPAWN_OFFSET_PX: f32 = 90.0;
 /// most one hit per pit lifetime.
 pub fn spawn_minima_trap_from_special_messages(
     mut commands: Commands,
+    mut effects: MessageWriter<crate::effects::EffectRequest>,
     mut messages: MessageReader<ActorActionMessage>,
     // Per-boss target via `ActorTarget` (populated by
     // `select_actor_targets`); same multi-player-ready pattern as
@@ -866,17 +867,19 @@ pub fn spawn_minima_trap_from_special_messages(
                 pit_center.x + toward_boss_x * minion_offset_px,
                 pit_center.y,
             );
-            crate::features::ecs::spawn::spawn_runtime_minion(
-                &mut commands,
-                minion_id,
-                "Puppy Slug",
-                minion_pos,
-                MINIMA_TRAP_MINION_HALF_SIZE,
-                MINIMA_TRAP_MINION_ARCHETYPE,
-                encounter_id,
-                crate::features::ActorFaction::Enemy,
-                crate::features::ActorAggression::hostile_to_player(),
-            );
+            effects.write(crate::effects::EffectRequest {
+                owner: entity,
+                effect: crate::effects::Effect::Summon(crate::effects::SummonSpec {
+                    id: minion_id,
+                    name: "Puppy Slug".to_string(),
+                    pos: minion_pos,
+                    half_size: MINIMA_TRAP_MINION_HALF_SIZE,
+                    archetype_id: MINIMA_TRAP_MINION_ARCHETYPE.to_string(),
+                    encounter_id,
+                    faction: crate::features::ActorFaction::Enemy,
+                    aggression: crate::features::ActorAggression::hostile_to_player(),
+                }),
+            });
         }
 
         state.fired_this_strike = true;
@@ -1057,7 +1060,7 @@ fn gradient_cascade_minion_x_offset(i: i32, count: i32) -> f32 {
 /// centered on the boss x. Gravity carries them down toward the
 /// player; their default `MeleeBrute` brain chases on contact.
 pub fn spawn_gradient_cascade_minions_from_special_messages(
-    mut commands: Commands,
+    mut effects: MessageWriter<crate::effects::EffectRequest>,
     mut messages: MessageReader<ActorActionMessage>,
     mut bosses: Query<(Entity, BossClusterRef, &mut GradientCascadeState), With<FeatureSimEntity>>,
 ) {
@@ -1098,17 +1101,19 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
                 "gradient_sentinel_cascade:{}:{}:{}",
                 boss.config.id, state.spawn_index, i
             );
-            crate::features::ecs::spawn::spawn_runtime_minion(
-                &mut commands,
-                minion_id,
-                "Slop Lurker",
-                spawn_pos,
-                GRADIENT_CASCADE_MINION_HALF_SIZE,
-                GRADIENT_CASCADE_MINION_ARCHETYPE,
-                encounter_id.clone(),
-                crate::features::ActorFaction::Enemy,
-                crate::features::ActorAggression::hostile_to_player(),
-            );
+            effects.write(crate::effects::EffectRequest {
+                owner: entity,
+                effect: crate::effects::Effect::Summon(crate::effects::SummonSpec {
+                    id: minion_id,
+                    name: "Slop Lurker".to_string(),
+                    pos: spawn_pos,
+                    half_size: GRADIENT_CASCADE_MINION_HALF_SIZE,
+                    archetype_id: GRADIENT_CASCADE_MINION_ARCHETYPE.to_string(),
+                    encounter_id: encounter_id.clone(),
+                    faction: crate::features::ActorFaction::Enemy,
+                    aggression: crate::features::ActorAggression::hostile_to_player(),
+                }),
+            });
         }
         state.fired_this_strike = true;
         state.spawn_index = state.spawn_index.wrapping_add(1);
@@ -1917,6 +1922,7 @@ mod tests {
         let mut wt = app.world_mut().resource_mut::<WorldTime>();
         wt.scaled_dt = 1.0 / 60.0;
         wt.raw_dt = 1.0 / 60.0;
+        app.add_message::<crate::effects::EffectRequest>();
         app.add_systems(Update, spawn_minima_trap_from_special_messages);
         let actor = app
             .world_mut()
@@ -1970,6 +1976,7 @@ mod tests {
         let mut wt = app.world_mut().resource_mut::<WorldTime>();
         wt.scaled_dt = 1.0 / 60.0;
         wt.raw_dt = 1.0 / 60.0;
+        app.add_message::<crate::effects::EffectRequest>();
         app.add_systems(Update, spawn_minima_trap_from_special_messages);
         let actor = app
             .world_mut()
@@ -2112,7 +2119,16 @@ mod tests {
         let mut wt = app.world_mut().resource_mut::<WorldTime>();
         wt.scaled_dt = 1.0 / 60.0;
         wt.raw_dt = 1.0 / 60.0;
-        app.add_systems(Update, spawn_minima_trap_from_special_messages);
+        app.add_message::<crate::effects::EffectRequest>();
+        // The minion now spawns via `Effect::Summon`; chain `apply_effects`.
+        app.add_systems(
+            Update,
+            (
+                spawn_minima_trap_from_special_messages,
+                crate::effects::apply_effects,
+            )
+                .chain(),
+        );
         let actor = app
             .world_mut()
             .spawn((
@@ -2166,7 +2182,17 @@ mod tests {
         let mut wt = app.world_mut().resource_mut::<WorldTime>();
         wt.scaled_dt = 1.0 / 60.0;
         wt.raw_dt = 1.0 / 60.0;
-        app.add_systems(Update, spawn_gradient_cascade_minions_from_special_messages);
+        app.add_message::<crate::effects::EffectRequest>();
+        // The consumer now emits `Effect::Summon`; `apply_effects` materializes
+        // the minions, so chain it in.
+        app.add_systems(
+            Update,
+            (
+                spawn_gradient_cascade_minions_from_special_messages,
+                crate::effects::apply_effects,
+            )
+                .chain(),
+        );
         let actor = app
             .world_mut()
             .spawn((
@@ -2211,7 +2237,17 @@ mod tests {
         let mut wt = app.world_mut().resource_mut::<WorldTime>();
         wt.scaled_dt = 1.0 / 60.0;
         wt.raw_dt = 1.0 / 60.0;
-        app.add_systems(Update, spawn_gradient_cascade_minions_from_special_messages);
+        app.add_message::<crate::effects::EffectRequest>();
+        // The consumer now emits `Effect::Summon`; `apply_effects` materializes
+        // the minions, so chain it in.
+        app.add_systems(
+            Update,
+            (
+                spawn_gradient_cascade_minions_from_special_messages,
+                crate::effects::apply_effects,
+            )
+                .chain(),
+        );
 
         // Count actors pre-spawn.
         let actor = app

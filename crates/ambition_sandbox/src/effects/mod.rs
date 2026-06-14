@@ -91,11 +91,28 @@ pub struct DamageBoxEffect {
     pub name: Option<&'static str>,
 }
 
+/// The payload of an [`Effect::Summon`]: bring an entity into being near the
+/// emitter. NOT necessarily a friendly minion — a summon may be hostile,
+/// neutral, a decoy, or a hazard-carrier; `faction`/`aggression` decide. `id` is
+/// caller-supplied (stable across the encounter), so summons are deterministic
+/// without a shared spawn counter.
+pub struct SummonSpec {
+    pub id: String,
+    pub name: String,
+    pub pos: ae::Vec2,
+    pub half_size: ae::Vec2,
+    pub archetype_id: String,
+    pub encounter_id: String,
+    pub faction: ActorFaction,
+    pub aggression: crate::features::ActorAggression,
+}
+
 /// A composable effect an actor *technique* emits. [`apply_effects`] executes
 /// it — faction-tagged and emitter-relative — so player, enemy, and boss share
-/// one path. More primitives (Projectiles, Minions) land here as sites migrate.
+/// one path. `Projectiles` lands here as the enemy-pool swap completes.
 pub enum Effect {
     DamageBox(DamageBoxEffect),
+    Summon(SummonSpec),
 }
 
 /// "This `owner` emitted this `effect`." Written by a technique, drained by
@@ -137,12 +154,15 @@ pub fn apply_effects(
     features: Query<(&FeatureAabb, &ActorFaction), With<FeatureSimEntity>>,
 ) {
     for req in requests.read() {
-        let Some((emitter_center, faction)) = resolve_emitter(req.owner, &players, &features)
-        else {
-            continue;
-        };
         match &req.effect {
             Effect::DamageBox(d) => {
+                // Only the DamageBox needs the emitter's center/faction
+                // resolved; a Summon carries its own pos + faction.
+                let Some((emitter_center, faction)) =
+                    resolve_emitter(req.owner, &players, &features)
+                else {
+                    continue;
+                };
                 let center = match d.at {
                     DamageBoxAt::Emitter => emitter_center,
                     DamageBoxAt::World(p) => p,
@@ -159,6 +179,19 @@ pub fn apply_effects(
                         lifetime_s: d.lifetime_s,
                         name: d.name,
                     },
+                );
+            }
+            Effect::Summon(s) => {
+                crate::features::spawn_runtime_minion(
+                    &mut commands,
+                    s.id.clone(),
+                    s.name.clone(),
+                    s.pos,
+                    s.half_size,
+                    &s.archetype_id,
+                    s.encounter_id.clone(),
+                    s.faction,
+                    s.aggression.clone(),
                 );
             }
         }

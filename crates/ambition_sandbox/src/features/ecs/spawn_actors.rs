@@ -353,26 +353,17 @@ pub(super) fn spawn_boss(
     ));
     entity.insert((
         // The brain bundle stays grouped because each piece is required
-        // for the boss tick chain. Per-special state components live in
-        // a second insert below; see `content/features/ecs/brain_effects.rs`
-        // for the consumers that drive each one.
+        // for the boss tick chain.
         brain,
         boss_action_set,
         crate::brain::ActorControl::default(),
         crate::brain::BossAttackState::default(),
-        super::AppleRainSpawnState::default(),
     ));
-    entity.insert((
-        // Gradient Sentinel special state. Defaulted-attached to every
-        // boss so a future encounter can adopt the same attacks without
-        // re-touching the spawn wiring.
-        super::OverfitVolleyState::default(),
-        // EyeBeamState is now content-owned (ambition_content boss specials),
-        // attached via register_required_components — see that crate.
-        super::MinimaTrapState::default(),
-        super::SaddlePointState::default(),
-        super::GradientCascadeState::default(),
-    ));
+    // Per-boss special-technique state (apple-rain accumulator, overfit-volley
+    // samples, pit/cross/cascade gates, eye-beam lock) is now content-owned
+    // (`ambition_content::bosses::specials`), attached to every boss via
+    // `register_required_components::<BossConfig, _>()` in the content plugin —
+    // the engine spawn names no boss special.
 }
 /// Runtime minion spawner — used by boss EFFECTS consumers (e.g.
 /// PitTrap puppy_slug spawn, MinionCascade slop adds). Mirrors

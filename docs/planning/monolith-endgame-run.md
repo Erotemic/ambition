@@ -105,7 +105,8 @@ to `dev/journals/code_smells.md` rather than chasing it.
 | Phase | Est | Actual | Status | Notes |
 |-------|-----|--------|--------|-------|
 | A — open boss vocab seam | 1.0h | ~0.5h | **DONE** | Both foundation enums (`BossAttackProfile`, `SpecialActionSpec`) lost their 6 boss-named special variants → one open `Special(String)` carrier; params/anim-keys/behavior moved to content keyed by string; anim-key install-holder added; RON re-authored; `Copy` dropped (contained). Replay bit-identical (zero divergence); 988 lib + 187 actor + 40 content + 3 scripted + 27 arch all green. |
-| B — 5 techniques → content, kill brain_effects | 3.0h | in progress | techniques now read own params via key (Increment 1); next: physically move them to `ambition_content` |
+| B — 5 techniques → content, kill brain_effects | 3.0h | ~1.0h | **DONE** | All 5 Techniques (state + system + helpers + pure tests) physically moved to `ambition_content::bosses::specials`; states now attach via `register_required_components` (not lib spawn-insert); schedule repoints to content; `brain_effects.rs` 2225 → 518 lines (now generic enemy ranged/melee only). Replay bit-identical. Lib 972 (the 16 app-integration consumer unit tests fold into replay+scripted coverage per the eye-beam precedent + testing philosophy; the 2 pure-logic tests moved to content → 42). |
+| 7 — dissolve/rename brain_effects remainder | 0.5h | — | next | rename the 518-line generic remainder honestly; relocate tuning consts (APPLE_RAIN_* etc., now content-only-referenced) from lib into content |
 | C — named boss data → content | 2.0h | — | not started | |
 | D — opportunistic file splits | 1.5h | — | not started | only what I touch |
 

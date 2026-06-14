@@ -108,6 +108,26 @@ impl Plugin for AmbitionBossContentPlugin {
             ambition_sandbox::features::BossConfig,
             specials::EyeBeamState,
         >();
+        app.register_required_components::<
+            ambition_sandbox::features::BossConfig,
+            specials::AppleRainSpawnState,
+        >();
+        app.register_required_components::<
+            ambition_sandbox::features::BossConfig,
+            specials::OverfitVolleyState,
+        >();
+        app.register_required_components::<
+            ambition_sandbox::features::BossConfig,
+            specials::MinimaTrapState,
+        >();
+        app.register_required_components::<
+            ambition_sandbox::features::BossConfig,
+            specials::SaddlePointState,
+        >();
+        app.register_required_components::<
+            ambition_sandbox::features::BossConfig,
+            specials::GradientCascadeState,
+        >();
 
         // Cut-rope boss steering: tracks the hanging anvil during the
         // encounter. Runs in the machinery-defined `BossSteerSlot`

@@ -54,7 +54,7 @@ impl Plugin for CombatSchedulePlugin {
                 // advance one step this frame, matching the legacy
                 // ordering of `outputs.projectile_spawns` flush →
                 // projectile tick.
-                ambition_sandbox::features::spawn_gnu_apple_rain_from_special_messages
+                ambition_content::bosses::specials::spawn_gnu_apple_rain_from_special_messages
                     .run_if(gameplay_allowed),
                 // Gradient Sentinel special consumers (one per
                 // SpecialActionSpec variant): position-sampling bolt
@@ -65,13 +65,13 @@ impl Plugin for CombatSchedulePlugin {
                 // state component, reset on no-message tick). Run before
                 // `update_enemy_projectiles` for the bolt barrage so it
                 // advances this frame.
-                ambition_sandbox::features::spawn_overfit_volley_from_special_messages
+                ambition_content::bosses::specials::spawn_overfit_volley_from_special_messages
                     .run_if(gameplay_allowed),
                 ambition_content::bosses::specials::spawn_eye_beam_from_special_messages
                     .run_if(gameplay_allowed),
-                ambition_sandbox::features::spawn_minima_trap_from_special_messages.run_if(gameplay_allowed),
-                ambition_sandbox::features::spawn_saddle_point_from_special_messages.run_if(gameplay_allowed),
-                ambition_sandbox::features::spawn_gradient_cascade_minions_from_special_messages
+                ambition_content::bosses::specials::spawn_minima_trap_from_special_messages.run_if(gameplay_allowed),
+                ambition_content::bosses::specials::spawn_saddle_point_from_special_messages.run_if(gameplay_allowed),
+                ambition_content::bosses::specials::spawn_gradient_cascade_minions_from_special_messages
                     .run_if(gameplay_allowed),
                 // Generic effect executor: drains `EffectRequest` (boss OR
                 // player emitted) and makes each effect happen — currently the

@@ -35,7 +35,7 @@ const ENEMY_ATTACK_COOLDOWN: f32 = 1.05;
 pub mod banter;
 // Stable facade for boss attack geometry.
 pub use crate::boss_encounter::attack_geometry as boss_attack_geometry;
-mod bosses;
+pub mod bosses;
 mod ecs;
 mod enemies;
 mod npcs;
@@ -96,22 +96,18 @@ pub use ecs::{
     refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
     refresh_breakable_damageable_volumes, reset_ecs_npc_actors, reset_ecs_room_features,
     select_actor_targets, spawn_encounter_mob, spawn_enemy_projectiles_from_brain_actions,
-    spawn_gnu_apple_rain_from_special_messages,
-    spawn_gradient_cascade_minions_from_special_messages, spawn_melee_hitbox,
-    spawn_minima_trap_from_special_messages, spawn_overfit_volley_from_special_messages,
-    spawn_room_feature_entities, spawn_saddle_point_from_special_messages,
+    spawn_melee_hitbox, spawn_room_feature_entities,
     start_enemy_melee_from_brain_actions, sync_actor_poses_from_feature_aabbs,
     sync_boss_actor_components, sync_boss_encounter_phase, sync_boss_reward_chests_ecs,
     sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_npc_actors_with_save,
     sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs, sync_riders_to_mounts,
     tick_and_despawn_hitboxes, tick_boss_brains_system, tick_gameplay_banner, update_ecs_actors,
     update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards,
-    update_ecs_npcs, ActorRuntime, AppleRainSpawnState, BossClusterQueryData, BossClusterRef,
+    update_ecs_npcs, ActorRuntime, BossClusterQueryData, BossClusterRef,
     BossClusterScratch, BossConfig, BossMut, BossRef, BossStatus,
-    FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex, GradientCascadeState,
-    HazardFeature, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime, MinimaTrapState,
-    MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, OverfitVolleyState, RidingOn,
-    SaddlePointState,
+    FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex,
+    HazardFeature, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime,
+    MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, RidingOn,
 };
 pub use enemies::{
     composite_visual_plan, enemy_visual_kind, install_enemy_roster, ActorSpawnState,

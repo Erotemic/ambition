@@ -862,6 +862,7 @@
         attacks: [
             Special("overfit_volley"),
             Special("saddle_point"),
+            Special("gradient_nova"),
             SideSweep,
             FullBodyPulse,
         ],
@@ -896,8 +897,10 @@
                 Telegraph(profile: Special("saddle_point"), duration: 0.9),
                 Strike(profile: Special("saddle_point"), duration: 0.8),
                 Rest(duration: 0.8),
-                Telegraph(profile: Special("overfit_volley"), duration: 0.9),
-                Strike(profile: Special("overfit_volley"), duration: 0.30),
+                // Runaway gradients explode outward — an omnidirectional nova
+                // with ragged speed tiers; weave between the slow and fast fronts.
+                Telegraph(profile: Special("gradient_nova"), duration: 0.9),
+                Strike(profile: Special("gradient_nova"), duration: 0.4),
                 Rest(duration: 0.9),
             ]),
             enrage: (steps: [

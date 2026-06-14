@@ -16,7 +16,9 @@ use bevy::ecs::query::QueryData;
 use bevy::prelude::Component;
 
 use super::super::components::ActorAttackState;
-use super::super::enemies::{spec_for_brain, ActorSpawnState, ActorSurfaceState, EnemyArchetypeSpec};
+use super::super::enemies::{
+    spec_for_brain, ActorSpawnState, ActorSurfaceState, EnemyArchetypeSpec,
+};
 use super::super::path_motion::PathMotion;
 use super::super::MAX_ENEMY_AIR_JUMPS;
 use crate::engine_core as ae;
@@ -156,9 +158,7 @@ impl EnemyClusterSeed {
             .as_ref()
             .and_then(PathMotion::start_pos)
             .unwrap_or_else(|| aabb.center());
-        let size = spec
-            .default_size
-            .unwrap_or_else(|| aabb.half_size() * 2.0);
+        let size = spec.default_size.unwrap_or_else(|| aabb.half_size() * 2.0);
         Self {
             kin: BodyKinematics {
                 pos,

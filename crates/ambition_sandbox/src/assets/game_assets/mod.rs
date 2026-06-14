@@ -998,6 +998,5 @@ pub fn entity_sprite_for_kind(kind: FeatureVisualKind) -> Option<EntitySprite> {
     }
 }
 
-
 #[cfg(test)]
 mod tests;

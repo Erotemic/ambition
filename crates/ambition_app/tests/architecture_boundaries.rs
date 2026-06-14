@@ -1156,7 +1156,9 @@ fn architecture_boundaries_enemy_config_is_archetype_free() {
             .find(struct_name)
             .unwrap_or_else(|| panic!("{struct_name} not found in enemy_clusters.rs"));
         let body = &text[start..];
-        let end = body.find("\n}").expect("struct should have a closing brace");
+        let end = body
+            .find("\n}")
+            .expect("struct should have a closing brace");
         // Skip doc/comment lines — a field's prose may legitimately mention
         // "projected from the archetype" while the field itself is generic.
         let violations: Vec<&str> = body[..end]

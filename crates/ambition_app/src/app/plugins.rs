@@ -70,8 +70,8 @@ pub fn add_simulation_plugins(app: &mut App) {
     register_player_simulation_systems(app);
     // Ambition's player ability/weapon kit plus its small shared app state.
     app.add_plugins(ambition_sandbox::abilities::AmbitionAbilitiesPlugin);
-    // "Tie a knot": the passive verlet trail rope the player drags (sim only for
-    // now — renderer + world-collision drape are the next increments).
+    // "Tie a knot": the passive verlet trail rope the player drags. The rope
+    // feature is currently gated off by default inside player_rope.rs.
     app.add_plugins(ambition_sandbox::player_rope::PlayerRopePlugin);
     // Gravity zones / switches and their per-frame ambient-gravity snapshot.
     app.add_plugins(ambition_sandbox::mechanics::gravity::GravityPlugin);

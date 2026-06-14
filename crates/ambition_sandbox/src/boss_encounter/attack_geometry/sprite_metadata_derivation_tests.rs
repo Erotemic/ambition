@@ -194,9 +194,7 @@ fn bounding_aabb_returns_none_for_empty_input() {
 fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
     use crate::boss_encounter::behavior::{BossBehaviorProfile, BossSpriteMetrics};
     use crate::brain::{BossAttackProfile, BossAttackState};
-    use ambition_sprite_sheet::{
-        AnimationBox, AnimationMetrics, PixelRect,
-    };
+    use ambition_sprite_sheet::{AnimationBox, AnimationMetrics, PixelRect};
     use std::collections::HashMap;
 
     // Build a sprite-metrics snapshot with a distinct

@@ -715,6 +715,5 @@ pub fn update_ecs_bosses(
     }
 }
 
-
 #[cfg(test)]
 mod tests;

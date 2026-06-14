@@ -1060,6 +1060,5 @@ pub fn sync_player_stats_with_inspector(
     }
 }
 
-
 #[cfg(test)]
 mod tests;

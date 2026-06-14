@@ -385,9 +385,7 @@ fn shrine_atlas_layout(record: &SheetRecord) -> TextureAtlasLayout {
     layout
 }
 
-fn frame_rect_to_urect(
-    rect: &ambition_sprite_sheet::FrameRect,
-) -> Option<bevy::math::URect> {
+fn frame_rect_to_urect(rect: &ambition_sprite_sheet::FrameRect) -> Option<bevy::math::URect> {
     let x = u32::try_from(rect.x).ok()?;
     let y = u32::try_from(rect.y).ok()?;
     let w = u32::try_from(rect.w).ok()?;

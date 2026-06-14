@@ -62,9 +62,9 @@ pub mod encounter;
 pub mod enemy_projectile;
 #[cfg(feature = "falling_sand")]
 pub mod falling_sand;
-pub mod player_rope;
 pub mod inventory;
 pub mod items;
+pub mod player_rope;
 // Stable facade for dialogue shop bindings.
 pub use items::shop;
 pub mod mechanics;

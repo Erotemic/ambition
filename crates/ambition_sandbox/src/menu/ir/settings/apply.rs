@@ -241,4 +241,3 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
     }
     false
 }
-

@@ -460,10 +460,7 @@ pub struct BossSpriteMetrics {
     /// Consumers (`damageable_volumes`, `volumes_for_profile`)
     /// look up by current animation name to scale hurtboxes /
     /// hitboxes with the on-screen sprite pose.
-    pub animations: std::collections::HashMap<
-        String,
-        ambition_sprite_sheet::AnimationMetrics,
-    >,
+    pub animations: std::collections::HashMap<String, ambition_sprite_sheet::AnimationMetrics>,
 }
 
 impl BossSpriteMetrics {

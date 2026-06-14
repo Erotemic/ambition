@@ -305,7 +305,6 @@ pub fn tick_firework_sequences(
     }
 }
 
-
 /// Presentation-side subscriber. Reads `VfxMessage`s and spawns particle /
 /// impact / slash entities. Skipped in headless builds.
 pub fn vfx_spawn_messages(

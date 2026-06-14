@@ -19,10 +19,10 @@ use crate::features::{
     FeatureId, FeatureSimEntity, HitEvent, HitKnockback, HitMode, HitSource, HitTarget,
 };
 use crate::player::BodyKinematics;
-use ambition_effects::vfx::VfxMessage;
 use crate::projectile::ProjectileGameplay;
 use crate::trace::GameplayTraceBuffer;
 use crate::GameWorld;
+use ambition_effects::vfx::VfxMessage;
 
 /// Speed multiplier applied to a parried shot as it reverses — a timed parry
 /// sends the bolt back a little faster than it arrived.
@@ -392,10 +392,7 @@ pub fn step_projectiles(
             &crate::player::PlayerShieldState,
             &crate::player::PlayerCombatState,
         ),
-        (
-            With<crate::player::PlayerEntity>,
-            Without<LiveProjectile>,
-        ),
+        (With<crate::player::PlayerEntity>, Without<LiveProjectile>),
     >,
     mut feature_damage: MessageWriter<HitEvent>,
     ecs_breakables: Query<(&FeatureId, &FeatureAabb, &BreakableFeature), With<FeatureSimEntity>>,
@@ -455,7 +452,9 @@ pub fn step_projectiles(
                     pos: kin.pos,
                 });
             } else {
-                trace.push_event(ProjectileTraceEvent::Expired { kind: game.kind }.into_trace_event(tick));
+                trace.push_event(
+                    ProjectileTraceEvent::Expired { kind: game.kind }.into_trace_event(tick),
+                );
             }
             commands.entity(proj_entity).despawn();
             continue;
@@ -481,9 +480,10 @@ pub fn step_projectiles(
                     knockback: None,
                     ignored_targets: Vec::new(),
                 };
-                let hit = crate::features::ecs_hit_event_hits_breakable(&hit_event, &ecs_breakables)
-                    || crate::features::ecs_hit_event_hits_actor(&hit_event, &ecs_actors)
-                    || crate::features::ecs_hit_event_hits_boss(&hit_event, &ecs_bosses);
+                let hit =
+                    crate::features::ecs_hit_event_hits_breakable(&hit_event, &ecs_breakables)
+                        || crate::features::ecs_hit_event_hits_actor(&hit_event, &ecs_actors)
+                        || crate::features::ecs_hit_event_hits_boss(&hit_event, &ecs_bosses);
                 if hit {
                     feature_damage.write(hit_event);
                     sfx.write(SfxMessage::Hit { pos: kin.pos });
@@ -526,7 +526,11 @@ pub fn step_projectiles(
                         continue;
                     }
                     let knock_dir = (player_kin.pos.x - kin.pos.x).signum();
-                    let knock_dir = if knock_dir.abs() < 0.001 { 1.0 } else { knock_dir };
+                    let knock_dir = if knock_dir.abs() < 0.001 {
+                        1.0
+                    } else {
+                        knock_dir
+                    };
                     let impact_pos = ae::Vec2::new(
                         (player_kin.pos.x + kin.pos.x) * 0.5,
                         (player_kin.pos.y + kin.pos.y) * 0.5,

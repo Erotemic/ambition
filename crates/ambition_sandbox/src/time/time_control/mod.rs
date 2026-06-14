@@ -294,6 +294,5 @@ pub fn smooth_sim_clock_toward_target_system(
     clock.time_scale = crate::move_toward(clock.time_scale, target.sim_clock, rate * frame_dt);
 }
 
-
 #[cfg(test)]
 mod tests;

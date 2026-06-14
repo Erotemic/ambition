@@ -180,18 +180,19 @@ mod tests {
                 ActorFaction::Enemy,
             ))
             .id();
-        app.world_mut().write_message(crate::effects::EffectRequest {
-            owner: enemy,
-            effect: crate::effects::Effect::DamageBox(crate::effects::DamageBoxEffect {
-                center: ae::Vec2::new(300.0, 80.0),
-                faction: ActorFaction::Enemy,
-                half_extent: ae::Vec2::new(60.0, 30.0),
-                damage: 3,
-                knockback: 1.0,
-                lifetime_s: 0.2,
-                name: Some("Shockwave AOE"),
-            }),
-        });
+        app.world_mut()
+            .write_message(crate::effects::EffectRequest {
+                owner: enemy,
+                effect: crate::effects::Effect::DamageBox(crate::effects::DamageBoxEffect {
+                    center: ae::Vec2::new(300.0, 80.0),
+                    faction: ActorFaction::Enemy,
+                    half_extent: ae::Vec2::new(60.0, 30.0),
+                    damage: 3,
+                    knockback: 1.0,
+                    lifetime_s: 0.2,
+                    name: Some("Shockwave AOE"),
+                }),
+            });
         app.update();
         let mut q = app.world_mut().query::<&Hitbox>();
         let boxes: Vec<&Hitbox> = q.iter(app.world()).collect();

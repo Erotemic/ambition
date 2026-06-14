@@ -103,9 +103,7 @@ pub(super) fn spawn_composite_mount_rider(
     // she keeps that same size after dismount. Larger cove PirateRaider /
     // PirateHeavy actors are separate authored spawns that use their full
     // standalone archetype sizes.
-    let standalone_size = rider_spec
-        .default_size
-        .expect("rider has a default_size");
+    let standalone_size = rider_spec.default_size.expect("rider has a default_size");
     let mounted_size = standalone_size * 0.5;
     let dismounted_size = mounted_size;
     // Rider starts at the same footprint it will keep after dismount, so

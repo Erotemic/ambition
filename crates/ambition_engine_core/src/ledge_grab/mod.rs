@@ -930,6 +930,5 @@ pub fn try_start_ledge_grab_scratch(
     try_start_ledge_grab_clusters(world, &mut clusters, input, events)
 }
 
-
 #[cfg(test)]
 mod tests;

@@ -19,8 +19,8 @@ use ambition_sandbox::brain::{
     SpecialActionSpec,
 };
 use ambition_sandbox::effects::{Effect, EffectRequest};
-use ambition_sandbox::engine_core::{self as ae, AabbExt};
 use ambition_sandbox::enemy_projectile::EnemyProjectileSpawn;
+use ambition_sandbox::engine_core::{self as ae, AabbExt};
 use ambition_sandbox::features::{ActorFaction, ActorTarget, BossClusterRef, FeatureSimEntity};
 use ambition_sandbox::player::{BodyKinematics, PlayerEntity};
 use ambition_sandbox::projectile::ProjectileFaction;
@@ -399,7 +399,6 @@ pub struct OverfitVolleyState {
     pub had_seed_sample: bool,
 }
 
-
 /// PitTrap is a one-shot per-strike action (spawn pit hitbox +
 /// minion at strike edge). State is just the "fired" gate — the pit
 /// hitbox + minion are independent entities once spawned, so no
@@ -473,7 +472,10 @@ pub fn spawn_overfit_volley_from_special_messages(
     // Reading the target's player kinematics by Entity makes this
     // system multi-player ready — single-player behavior is preserved
     // because there's only one player today.
-    player_query: Query<&ambition_sandbox::player::BodyKinematics, With<ambition_sandbox::player::PlayerEntity>>,
+    player_query: Query<
+        &ambition_sandbox::player::BodyKinematics,
+        With<ambition_sandbox::player::PlayerEntity>,
+    >,
     mut bosses: Query<
         (
             Entity,
@@ -626,7 +628,10 @@ pub fn spawn_minima_trap_from_special_messages(
     // Per-boss target via `ActorTarget` (populated by
     // `select_actor_targets`); same multi-player-ready pattern as
     // the overfit-volley consumer above.
-    player_query: Query<&ambition_sandbox::player::BodyKinematics, With<ambition_sandbox::player::PlayerEntity>>,
+    player_query: Query<
+        &ambition_sandbox::player::BodyKinematics,
+        With<ambition_sandbox::player::PlayerEntity>,
+    >,
     mut bosses: Query<
         (
             Entity,
@@ -680,15 +685,17 @@ pub fn spawn_minima_trap_from_special_messages(
 
         effects.write(ambition_sandbox::effects::EffectRequest {
             owner: entity,
-            effect: ambition_sandbox::effects::Effect::DamageBox(ambition_sandbox::effects::DamageBoxEffect {
-                center: pit_center,
-                faction: ActorFaction::Boss,
-                half_extent: ae::Vec2::new(hx, hy),
-                damage,
-                knockback: MINIMA_TRAP_KNOCKBACK,
-                lifetime_s: hazard_duration_s.max(0.05),
-                name: None,
-            }),
+            effect: ambition_sandbox::effects::Effect::DamageBox(
+                ambition_sandbox::effects::DamageBoxEffect {
+                    center: pit_center,
+                    faction: ActorFaction::Boss,
+                    half_extent: ae::Vec2::new(hx, hy),
+                    damage,
+                    knockback: MINIMA_TRAP_KNOCKBACK,
+                    lifetime_s: hazard_duration_s.max(0.05),
+                    name: None,
+                },
+            ),
         });
 
         if spawn_minion {
@@ -727,15 +734,17 @@ pub fn spawn_minima_trap_from_special_messages(
             );
             effects.write(ambition_sandbox::effects::EffectRequest {
                 owner: entity,
-                effect: ambition_sandbox::effects::Effect::Summon(ambition_sandbox::effects::SummonSpec {
-                    id: minion_id,
-                    name: "Puppy Slug".to_string(),
-                    pos: minion_pos,
-                    half_size: MINIMA_TRAP_MINION_HALF_SIZE,
-                    archetype_id: MINIMA_TRAP_MINION_ARCHETYPE.to_string(),
-                    encounter_id,
-                    faction: ambition_sandbox::features::ActorFaction::Enemy,
-                }),
+                effect: ambition_sandbox::effects::Effect::Summon(
+                    ambition_sandbox::effects::SummonSpec {
+                        id: minion_id,
+                        name: "Puppy Slug".to_string(),
+                        pos: minion_pos,
+                        half_size: MINIMA_TRAP_MINION_HALF_SIZE,
+                        archetype_id: MINIMA_TRAP_MINION_ARCHETYPE.to_string(),
+                        encounter_id,
+                        faction: ambition_sandbox::features::ActorFaction::Enemy,
+                    },
+                ),
             });
         }
 
@@ -964,15 +973,17 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
             );
             effects.write(ambition_sandbox::effects::EffectRequest {
                 owner: entity,
-                effect: ambition_sandbox::effects::Effect::Summon(ambition_sandbox::effects::SummonSpec {
-                    id: minion_id,
-                    name: "Slop Lurker".to_string(),
-                    pos: spawn_pos,
-                    half_size: GRADIENT_CASCADE_MINION_HALF_SIZE,
-                    archetype_id: GRADIENT_CASCADE_MINION_ARCHETYPE.to_string(),
-                    encounter_id: encounter_id.clone(),
-                    faction: ambition_sandbox::features::ActorFaction::Enemy,
-                }),
+                effect: ambition_sandbox::effects::Effect::Summon(
+                    ambition_sandbox::effects::SummonSpec {
+                        id: minion_id,
+                        name: "Slop Lurker".to_string(),
+                        pos: spawn_pos,
+                        half_size: GRADIENT_CASCADE_MINION_HALF_SIZE,
+                        archetype_id: GRADIENT_CASCADE_MINION_ARCHETYPE.to_string(),
+                        encounter_id: encounter_id.clone(),
+                        faction: ambition_sandbox::features::ActorFaction::Enemy,
+                    },
+                ),
             });
         }
         state.fired_this_strike = true;
@@ -1610,7 +1621,10 @@ mod tests {
         // Middle shot flies straight along the aim; ends are symmetric about it.
         let mid = fan[3];
         assert!(mid.y.abs() < 1e-3 && mid.x > 0.0, "center shot is the aim");
-        assert!((fan[0].y + fan[6].y).abs() < 1e-3, "fan symmetric about aim");
+        assert!(
+            (fan[0].y + fan[6].y).abs() < 1e-3,
+            "fan symmetric about aim"
+        );
         assert!(fan[0].y * fan[6].y < 0.0, "ends straddle the aim");
         // A single shot flies straight along the aim (no spread).
         let one = echo_fan(aim, 1, 0.9);
@@ -1632,7 +1646,11 @@ mod tests {
             assert!(x > prev, "offsets strictly increase outward");
             prev = x;
         }
-        assert_eq!(seismic_offsets(0, 84.0), vec![0.0], "degenerate is just the tile");
+        assert_eq!(
+            seismic_offsets(0, 84.0),
+            vec![0.0],
+            "degenerate is just the tile"
+        );
     }
 
     #[test]
@@ -1665,8 +1683,10 @@ mod tests {
             assert!(*speed <= 260.0 * 2.0 + 1e-3, "speed capped at the top tier");
         }
         // Three distinct speed tiers are present (runaway magnitudes).
-        let tiers: std::collections::BTreeSet<i32> =
-            nova.iter().map(|(_, s)| (s / 130.0).round() as i32).collect();
+        let tiers: std::collections::BTreeSet<i32> = nova
+            .iter()
+            .map(|(_, s)| (s / 130.0).round() as i32)
+            .collect();
         assert_eq!(tiers.len(), 3, "three runaway speed tiers");
         // Directions cover all four quadrants (a full nova, not a fan).
         assert!(nova.iter().any(|(d, _)| d.x > 0.5 && d.y.abs() < 0.5));
@@ -1705,8 +1725,14 @@ mod tests {
         // A lone minion drops on the boss x.
         assert_eq!(gradient_cascade_minion_x_offset(0, 1), 0.0);
         // Two minions land on the spread edges.
-        assert_eq!(gradient_cascade_minion_x_offset(0, 2), -GRADIENT_CASCADE_X_SPREAD);
-        assert_eq!(gradient_cascade_minion_x_offset(1, 2), GRADIENT_CASCADE_X_SPREAD);
+        assert_eq!(
+            gradient_cascade_minion_x_offset(0, 2),
+            -GRADIENT_CASCADE_X_SPREAD
+        );
+        assert_eq!(
+            gradient_cascade_minion_x_offset(1, 2),
+            GRADIENT_CASCADE_X_SPREAD
+        );
         // An odd count puts the middle minion on the boss x and the
         // ends symmetric about it.
         let n = 5;

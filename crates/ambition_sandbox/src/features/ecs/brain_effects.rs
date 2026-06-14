@@ -513,5 +513,4 @@ mod tests {
     fn default_combat_tuning_helper_exists() {
         let _ = default_combat_tuning();
     }
-
 }

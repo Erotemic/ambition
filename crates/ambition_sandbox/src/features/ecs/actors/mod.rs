@@ -1107,6 +1107,5 @@ pub fn sync_actor_components_from_enemy(
     };
 }
 
-
 #[cfg(test)]
 mod tests;

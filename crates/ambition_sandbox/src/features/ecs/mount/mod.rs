@@ -334,6 +334,5 @@ pub fn pirate_on_shark_rider_offset(mount_size: ae::Vec2, rider_size: ae::Vec2) 
     ae::Vec2::new(0.0, -(mount_size.y * 0.5) - (rider_size.y * 0.5) + 8.0)
 }
 
-
 #[cfg(test)]
 mod tests;

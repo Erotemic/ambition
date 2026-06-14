@@ -778,6 +778,5 @@ pub fn volumes_for_profile(
 // transform that the gradient sentinel uses) produces the same
 // world AABBs the hand-tuned math used to.
 
-
 #[cfg(test)]
 mod sprite_metadata_derivation_tests;

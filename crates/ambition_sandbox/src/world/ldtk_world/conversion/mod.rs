@@ -626,7 +626,6 @@ pub(super) fn entity_to_runtime(
     }
 }
 
-
 mod entity_converters;
 use entity_converters::*;
 

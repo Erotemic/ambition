@@ -706,6 +706,5 @@ impl From<SerializableDisplayMode> for DisplayModeKind {
     }
 }
 
-
 #[cfg(test)]
 mod tests;

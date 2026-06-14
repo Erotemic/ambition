@@ -19,11 +19,11 @@ use crate::engine_core::AabbExt;
 use bevy::prelude::*;
 
 use crate::audio::SfxMessage;
-use ambition_effects::vfx::{ParticleKind, VfxMessage};
 use crate::presentation::rendering::RoomVisual;
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 use crate::world::platforms::MovingPlatformState;
 use crate::WorldTime;
+use ambition_effects::vfx::{ParticleKind, VfxMessage};
 
 /// Seconds a player must stand on a breakable before it shatters.
 const BREAK_ON_STAND_SECONDS: f32 = 0.85;

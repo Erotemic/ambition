@@ -1119,6 +1119,5 @@ pub fn apply_display_mode(
     }
 }
 
-
 #[cfg(test)]
 mod model_logic_tests;

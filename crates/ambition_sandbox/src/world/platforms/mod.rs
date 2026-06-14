@@ -463,6 +463,5 @@ pub fn sync_moving_platform(
     }
 }
 
-
 #[cfg(test)]
 mod tests;

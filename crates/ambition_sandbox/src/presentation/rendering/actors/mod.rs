@@ -612,7 +612,6 @@ pub fn animate_props(
     }
 }
 
-
 /// When `DeveloperTools::hide_sprites` is enabled, force every `Sprite`-bearing
 /// entity to `Hidden` so only gizmo hitbox outlines remain visible. When the
 /// flag flips off, restore every sprite to `Inherited` *exactly once* on the

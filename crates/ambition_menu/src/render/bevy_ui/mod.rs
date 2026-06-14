@@ -36,8 +36,8 @@ use bevy::ecs::relationship::RelatedSpawnerCommands;
 use bevy::prelude::*;
 
 use crate::{
-    AmbitionMenuControl, AmbitionMenuRoot, MenuColor, MenuControlKind, MenuNode, MenuPageModel,
-    MenuRect, MenuTextAlign, MenuVisualState, scrollbar_fraction_from_rect, scrollbar_thumb_layout,
+    scrollbar_fraction_from_rect, scrollbar_thumb_layout, AmbitionMenuControl, AmbitionMenuRoot,
+    MenuColor, MenuControlKind, MenuNode, MenuPageModel, MenuRect, MenuTextAlign, MenuVisualState,
     ScrollThumb,
 };
 
@@ -396,7 +396,6 @@ where
 const LAYER_CONTROL: i32 = 10;
 const LAYER_TEXT: i32 = 20;
 
-
 /// Feature C (flat backend): map a pointer's vertical SCREEN position over a
 /// scrollbar track's screen rect into the neutral `0..=1` drag fraction (0 = top,
 /// 1 = bottom). `None` if the track has no measured height yet. Mirrors the cube's
@@ -510,7 +509,6 @@ pub fn install_bevy_ui_menu_scroll(app: &mut App) {
     app.add_observer(bevy_ui_scrollbar_release);
     app.add_systems(Update, bevy_ui_scrollbar_press_drag);
 }
-
 
 #[cfg(test)]
 mod tests;

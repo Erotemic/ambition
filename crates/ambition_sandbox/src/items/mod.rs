@@ -594,6 +594,5 @@ impl OwnedItems {
     }
 }
 
-
 #[cfg(test)]
 mod tests;

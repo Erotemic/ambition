@@ -1021,6 +1021,5 @@ pub(crate) fn sync_held_projectile_visuals(
     }
 }
 
-
 #[cfg(test)]
 mod tests;

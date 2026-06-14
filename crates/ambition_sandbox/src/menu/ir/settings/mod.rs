@@ -195,7 +195,12 @@ pub(super) fn on_off(value: bool) -> &'static str {
     }
 }
 
-pub(super) fn toggle(id: SettingsOptionId, label: &str, value: bool, description: &str) -> SettingsOption {
+pub(super) fn toggle(
+    id: SettingsOptionId,
+    label: &str,
+    value: bool,
+    description: &str,
+) -> SettingsOption {
     SettingsOption {
         id,
         label: label.to_string(),
@@ -287,7 +292,6 @@ pub(super) fn shader_unit_slider(
 pub(super) fn enum_index<T: PartialEq + Copy>(all: &[T], value: T) -> (usize, usize) {
     (all.iter().position(|v| *v == value).unwrap_or(0), all.len())
 }
-
 
 mod apply;
 mod build;

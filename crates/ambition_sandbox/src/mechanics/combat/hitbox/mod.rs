@@ -35,9 +35,9 @@ use super::components::ActorFaction;
 use super::events::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
 use super::util::midpoint;
 use crate::audio::SfxMessage;
-use ambition_effects::vfx::{ParticleKind, VfxMessage};
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 use crate::WorldTime;
+use ambition_effects::vfx::{ParticleKind, VfxMessage};
 
 // The hitbox COMPONENTS moved to the reusable `ambition_effects` crate (the
 // damage-box primitive). Re-exported here so `mechanics::combat::hitbox::Hitbox`
@@ -239,7 +239,6 @@ pub fn spawn_melee_hitbox(
         ))
         .id()
 }
-
 
 #[cfg(test)]
 mod tests;

@@ -382,26 +382,38 @@ mod conversion_tests {
     fn enemy_archetype_size_and_aggression_invariants() {
         // HP: small < medium < large.
         assert!(
-            crate::features::enemies::test_spec("small_skitter").max_health < crate::features::enemies::test_spec("medium_striker").max_health
+            crate::features::enemies::test_spec("small_skitter").max_health
+                < crate::features::enemies::test_spec("medium_striker").max_health
         );
         assert!(
-            crate::features::enemies::test_spec("small_lurker").max_health < crate::features::enemies::test_spec("medium_striker").max_health
+            crate::features::enemies::test_spec("small_lurker").max_health
+                < crate::features::enemies::test_spec("medium_striker").max_health
         );
         assert!(
-            crate::features::enemies::test_spec("medium_striker").max_health < crate::features::enemies::test_spec("large_brute").max_health
+            crate::features::enemies::test_spec("medium_striker").max_health
+                < crate::features::enemies::test_spec("large_brute").max_health
         );
         assert!(
-            crate::features::enemies::test_spec("large_brute").max_health < crate::features::enemies::test_spec("large_colossus").max_health
+            crate::features::enemies::test_spec("large_brute").max_health
+                < crate::features::enemies::test_spec("large_colossus").max_health
         );
 
         // Aggro radius: low-aggression < high-aggression at same size.
         assert!(
-            crate::features::enemies::test_spec("small_lurker").tuning().aggro_radius
-                < crate::features::enemies::test_spec("small_skitter").tuning().aggro_radius
+            crate::features::enemies::test_spec("small_lurker")
+                .tuning()
+                .aggro_radius
+                < crate::features::enemies::test_spec("small_skitter")
+                    .tuning()
+                    .aggro_radius
         );
         assert!(
-            crate::features::enemies::test_spec("large_colossus").tuning().aggro_radius
-                < crate::features::enemies::test_spec("large_brute").tuning().aggro_radius
+            crate::features::enemies::test_spec("large_colossus")
+                .tuning()
+                .aggro_radius
+                < crate::features::enemies::test_spec("large_brute")
+                    .tuning()
+                    .aggro_radius
         );
 
         // Damage: large > medium / small (LargeColossus is the heaviest hitter).

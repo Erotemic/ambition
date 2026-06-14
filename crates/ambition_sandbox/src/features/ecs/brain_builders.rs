@@ -259,7 +259,11 @@ pub(super) fn dismounted_rider_brain_and_action_set(
     (brain, action_set)
 }
 
-fn skirmisher_brain_from_tuning(actor_id: &str, tuning: &EnemyTuning, force_hostile: bool) -> Brain {
+fn skirmisher_brain_from_tuning(
+    actor_id: &str,
+    tuning: &EnemyTuning,
+    force_hostile: bool,
+) -> Brain {
     let jitters = five_f32s_from_seed(seed_from_id(actor_id));
     let base_cooldown_s = 1.5;
     let fire_cooldown_s = base_cooldown_s * (0.75 + 0.5 * jitters.0);

@@ -86,6 +86,5 @@ pub fn despawn_encounter_mobs(
     super::spawn_actors::despawn_encounter_mobs(commands, mobs, encounter_id);
 }
 
-
 #[cfg(test)]
 mod tests;

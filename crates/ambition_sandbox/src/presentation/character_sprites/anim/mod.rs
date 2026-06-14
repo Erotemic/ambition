@@ -526,6 +526,5 @@ pub fn pick_npc_anim(state: NpcAnimState) -> CharacterAnim {
     }
 }
 
-
 #[cfg(test)]
 mod tests;

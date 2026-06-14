@@ -29,6 +29,15 @@ pub const ROPE_CONSTRAINT_ITERS: usize = 16;
 /// so the rope doesn't oscillate forever after the player stops.
 pub const ROPE_DAMPING: f32 = 0.97;
 
+/// Feature gate for the rope trail.
+///
+/// The trail is disabled by default. We can wire an explicit toggle later
+/// without changing the simulation plumbing again.
+#[derive(Resource, Clone, Copy, Debug, Default)]
+pub struct PlayerTrailRopeEnabled {
+    pub enabled: bool,
+}
+
 /// One verlet point: current + previous position (velocity is implicit in their
 /// difference, the verlet integration trick).
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -115,6 +124,7 @@ pub fn verlet_step(
 /// starts hanging from wherever the player currently is, no first-frame snap).
 pub fn ensure_player_rope(
     mut commands: Commands,
+    enabled: Option<Res<PlayerTrailRopeEnabled>>,
     players: Query<
         (Entity, &crate::player::BodyKinematics),
         (
@@ -124,11 +134,18 @@ pub fn ensure_player_rope(
         ),
     >,
 ) {
+    if !enabled.is_some_and(|enabled| enabled.enabled) {
+        return;
+    }
     for (entity, kin) in &players {
         let anchor = rope_anchor(kin);
         commands
             .entity(entity)
-            .insert(PlayerTrailRope::hanging_from(anchor, ROPE_SEGMENTS, ROPE_SEGMENT_LEN));
+            .insert(PlayerTrailRope::hanging_from(
+                anchor,
+                ROPE_SEGMENTS,
+                ROPE_SEGMENT_LEN,
+            ));
     }
 }
 
@@ -164,11 +181,15 @@ pub fn resolve_rope_collisions(points: &mut [RopePoint], world: &ae::World) {
 pub fn update_player_rope(
     world_time: Res<crate::WorldTime>,
     world: Option<Res<crate::GameWorld>>,
+    enabled: Option<Res<PlayerTrailRopeEnabled>>,
     mut players: Query<
         (&crate::player::BodyKinematics, &mut PlayerTrailRope),
         With<crate::player::PlayerEntity>,
     >,
 ) {
+    if !enabled.is_some_and(|enabled| enabled.enabled) {
+        return;
+    }
     let dt = world_time.sim_dt();
     if dt <= 0.0 {
         return;
@@ -206,9 +227,13 @@ const ROPE_COLOR: Color = Color::srgb(0.62, 0.47, 0.30);
 /// rope reads as trailing from the body.
 pub fn render_player_rope(
     world: Option<Res<crate::GameWorld>>,
+    enabled: Option<Res<PlayerTrailRopeEnabled>>,
     ropes: Query<&PlayerTrailRope, With<crate::player::PlayerEntity>>,
     mut gizmos: Gizmos,
 ) {
+    if !enabled.is_some_and(|enabled| enabled.enabled) {
+        return;
+    }
     let Some(world) = world.as_deref() else {
         return;
     };
@@ -225,13 +250,15 @@ pub fn render_player_rope(
     }
 }
 
-/// Passive plugin: keeps the player carrying a verlet trail rope, simulates its
-/// drape against world solids, and draws it as a gizmo linestrip. Portal transit
-/// (the rope threading an aperture) is the documented next increment.
+/// Passive plugin: the rope trail is disabled by default, but once enabled it
+/// keeps the player carrying a verlet trail rope, simulates its drape against
+/// world solids, and draws it as a gizmo linestrip. Portal transit (the rope
+/// threading an aperture) is the documented next increment.
 pub struct PlayerRopePlugin;
 
 impl Plugin for PlayerRopePlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<PlayerTrailRopeEnabled>();
         app.add_systems(
             Update,
             (
@@ -283,7 +310,7 @@ mod tests {
     fn rope_falls_and_hangs_below_the_anchor() {
         let anchor = ae::Vec2::new(640.0, 400.0);
         let points = settle(anchor, 240); // ~4s — plenty to settle
-        // +Y is down: a settled rope hangs, so the tail sits well below the head.
+                                          // +Y is down: a settled rope hangs, so the tail sits well below the head.
         let tail = points.last().unwrap();
         assert!(
             tail.pos.y > anchor.y + ROPE_SEGMENT_LEN * 4.0,
@@ -365,10 +392,25 @@ mod tests {
     }
 
     #[test]
+    fn rope_is_disabled_by_default() {
+        assert!(
+            !PlayerTrailRopeEnabled::default().enabled,
+            "the trail should start disabled until an explicit toggle exists",
+        );
+    }
+
+    #[test]
     fn an_empty_rope_is_a_no_op() {
         // Degenerate guard — never panics on an empty point list.
         let mut points: Vec<RopePoint> = Vec::new();
-        verlet_step(&mut points, ae::Vec2::ZERO, ROPE_GRAVITY, 1.0 / 60.0, ROPE_SEGMENT_LEN, 4);
+        verlet_step(
+            &mut points,
+            ae::Vec2::ZERO,
+            ROPE_GRAVITY,
+            1.0 / 60.0,
+            ROPE_SEGMENT_LEN,
+            4,
+        );
         assert!(points.is_empty());
     }
 }

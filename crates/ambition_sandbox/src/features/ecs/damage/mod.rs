@@ -20,30 +20,31 @@ use super::super::{
     util::{approximately_same_aabb, midpoint},
     NPC_HOSTILE_STRIKE_THRESHOLD,
 };
-use super::{
-    ae, sync_actor_components_from_enemy, ActorCombatState, ActorCooldowns, ActorDisposition,
-    ActorHealth, ActorIdentity, ActorIntent, ActorRuntime, BreakableFeature, FeatureAabb,
-    FeatureId, FeatureName, FeatureSimEntity, GameplayBanner, HitEvent, HitSource, SetFlagRequested,
-};
 use super::damage_drops::{
     drop_ability_pickup, drop_currency_coin, drop_health_pickup, id_drops_health,
     spawn_death_explosion, spawn_split_offspring,
+};
+use super::{
+    ae, sync_actor_components_from_enemy, ActorCombatState, ActorCooldowns, ActorDisposition,
+    ActorHealth, ActorIdentity, ActorIntent, ActorRuntime, BreakableFeature, FeatureAabb,
+    FeatureId, FeatureName, FeatureSimEntity, GameplayBanner, HitEvent, HitSource,
+    SetFlagRequested,
 };
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.
 #[cfg(test)]
 use super::damage_drops::EXPLODER_BLAST_DAMAGE;
+use super::damage_predicates::target_is_ignored;
 #[cfg(test)]
 use super::PickupFeature;
-use super::damage_predicates::target_is_ignored;
 use crate::audio::SfxMessage;
 use crate::boss_encounter::{record_boss_damage, BossEncounterRegistry};
+use crate::cutscene_trigger::CutsceneTriggerQueue;
 use crate::encounter::BossEncounterMusicRequest;
 use crate::features::ActorStimulus;
-use crate::cutscene_trigger::CutsceneTriggerQueue;
-use ambition_effects::vfx::{ParticleKind, VfxMessage};
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
+use ambition_effects::vfx::{ParticleKind, VfxMessage};
 
 #[derive(SystemParam)]
 pub struct FeatureHitWriters<'w, 's> {
@@ -72,7 +73,6 @@ pub const BOSS_BOUNTY: i32 = 50;
 
 /// Health a dropped heart restores when the enemy drops one.
 pub const ENEMY_HEALTH_DROP: i32 = 1;
-
 
 /// Apply typed slash / projectile / pogo hit messages to ECS feature targets.
 pub fn apply_feature_hit_events(
@@ -756,7 +756,6 @@ fn apply_boss_hit(
     true
 }
 
-
 // `begin_ecs_breakable_respawn` / `emit_breakable_destroyed` moved to
 // the combat kit (`crate::mechanics::combat::breakables`) — they are
 // generic breakable side-effect helpers shared by the typed-damage
@@ -764,7 +763,6 @@ fn apply_boss_hit(
 pub(crate) use crate::mechanics::combat::breakables::{
     begin_ecs_breakable_respawn, emit_breakable_destroyed,
 };
-
 
 #[cfg(test)]
 mod tests;

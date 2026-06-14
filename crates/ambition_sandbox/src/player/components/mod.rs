@@ -363,6 +363,5 @@ impl PlayerSafetyState {
     }
 }
 
-
 #[cfg(test)]
 mod multiplayer_smoke_tests;

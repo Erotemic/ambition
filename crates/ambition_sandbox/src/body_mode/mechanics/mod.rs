@@ -229,6 +229,5 @@ pub fn update_body_mode(
     );
 }
 
-
 #[cfg(test)]
 mod tests;

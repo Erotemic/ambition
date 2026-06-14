@@ -615,6 +615,5 @@ impl SystemMenuModel {
     }
 }
 
-
 #[cfg(test)]
 mod tests;

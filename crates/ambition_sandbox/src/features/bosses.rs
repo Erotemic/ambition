@@ -231,7 +231,12 @@ mod boss_special_resolver_tests {
     #[test]
     fn every_special_profile_resolves_to_a_spec_for_gradient_sentinel() {
         use crate::brain::BossAttackProfile;
-        for key in ["overfit_volley", "minima_trap", "saddle_point", "gradient_cascade"] {
+        for key in [
+            "overfit_volley",
+            "minima_trap",
+            "saddle_point",
+            "gradient_cascade",
+        ] {
             let profile = BossAttackProfile::Special(key.into());
             assert!(
                 boss_special_for_profile(&profile).is_some(),
@@ -313,9 +318,7 @@ mod scripted_pattern_tests {
     /// pinned even though gnu_ton_runtime doesn't go through
     /// `derive_boss_sprite_metrics`.
     fn gnu_ton_sprite_metrics_fixture() -> super::BossSpriteMetrics {
-        use ambition_sprite_sheet::{
-            AnimationBox, AnimationMetrics, NamedPixelRect,
-        };
+        use ambition_sprite_sheet::{AnimationBox, AnimationMetrics, NamedPixelRect};
         use std::collections::HashMap;
         let head_rest = NamedPixelRect {
             name: "head".to_string(),

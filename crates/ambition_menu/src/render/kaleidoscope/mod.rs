@@ -28,10 +28,10 @@ use bevy::window::PrimaryWindow;
 use bevy_lunex::prelude::*;
 
 use crate::{
-    ActiveMenuPages, AmbitionMenuControl, AmbitionMenuPage, AmbitionMenuRoot, MenuColor,
-    MenuControlKind, MenuCubeGeometry, MenuDynamicText, MenuDynamicTextContent, MenuFocusKey,
-    MenuNode, MenuOpenCloseStyle, MenuPageModel, MenuRect, MenuTextAlign, MenuVisualState,
-    scrollbar_thumb_layout, ScrollThumb,
+    scrollbar_thumb_layout, ActiveMenuPages, AmbitionMenuControl, AmbitionMenuPage,
+    AmbitionMenuRoot, MenuColor, MenuControlKind, MenuCubeGeometry, MenuDynamicText,
+    MenuDynamicTextContent, MenuFocusKey, MenuNode, MenuOpenCloseStyle, MenuPageModel, MenuRect,
+    MenuTextAlign, MenuVisualState, ScrollThumb,
 };
 
 // Depth bands on each Lunex face (more negative = closer to the pause camera).
@@ -958,7 +958,6 @@ fn ease_fold_amount(amount: f32, target: f32, rate: f32, dt: f32) -> f32 {
     next
 }
 
-
 /// Feature B: drive every ring material's base-color alpha to
 /// `base_alpha * KaleidoscopeOpenState::amount` so the cube cross-fades with the
 /// open/close fold (matching the scrim) instead of popping. Cheap: mutates the
@@ -1248,9 +1247,9 @@ fn menu_align(align: MenuTextAlign) -> TextAlign {
 }
 
 #[cfg(test)]
-mod fold_ease_tests;
-#[cfg(test)]
 mod fade_tests;
+#[cfg(test)]
+mod fold_ease_tests;
 #[cfg(test)]
 mod scrollbar_tests;
 #[cfg(test)]

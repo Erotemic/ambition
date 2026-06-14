@@ -288,8 +288,7 @@ fn forgiving_grab_still_allows_regular_ledge_jump_without_bonus_velocity() {
         ..InputState::default()
     };
 
-    let consumed =
-        tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
+    let consumed = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
 
     assert!(consumed);
     assert!(scratch.ledge.grab.is_none());
@@ -493,8 +492,7 @@ fn ledge_jump_away_launches_player_outward() {
         axis_x: -1.0, // pressing away from the platform (away = wall_normal direction = -1)
         ..InputState::default()
     };
-    let consumed =
-        tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
+    let consumed = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
     assert!(consumed, "tick should consume the frame");
     assert!(scratch.ledge.grab.is_none(), "ledge should be released");
     // Player should move left (away from the right-side wall).
@@ -530,8 +528,7 @@ fn jump_toward_platform_now_hops_up_not_climbs() {
         axis_x: 1.0, // pressing into the platform (into = -wall_normal = +1)
         ..InputState::default()
     };
-    let consumed =
-        tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
+    let consumed = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
     assert!(consumed);
     assert!(
         scratch.ledge.grab.is_none(),
@@ -569,8 +566,7 @@ fn jump_with_no_horizontal_input_hops_up() {
         jump_pressed: true,
         ..InputState::default()
     };
-    let consumed =
-        tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
+    let consumed = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
     assert!(consumed);
     assert!(scratch.ledge.grab.is_none());
     assert!(
@@ -718,8 +714,7 @@ fn shield_held_starts_a_ledge_roll() {
         shield_held: true,
         ..InputState::default()
     };
-    let consumed =
-        tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
+    let consumed = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
     assert!(consumed);
     let state = scratch
         .ledge
@@ -858,8 +853,7 @@ fn voluntary_drop_arms_a_regrab_cooldown() {
         axis_y: 1.0, // down
         ..InputState::default()
     };
-    let consumed =
-        tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
+    let consumed = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
     assert!(consumed);
     assert!(
         scratch.ledge.grab.is_none(),
@@ -1171,13 +1165,8 @@ fn ledge_jump_with_quick_action_carries_momentum() {
     // can compare "with boost" vs "without boost" exit velocities.
     let mut baseline = baseline_player;
     let mut baseline_events = crate::movement::FrameEvents::default();
-    let _ = tick_active_ledge_grab_scratch(
-        &mut baseline,
-        input,
-        0.016,
-        tuning,
-        &mut baseline_events,
-    );
+    let _ =
+        tick_active_ledge_grab_scratch(&mut baseline, input, 0.016, tuning, &mut baseline_events);
     // The boosted exit velocity should be larger in magnitude
     // along the carried axes than the unboosted one.
     assert!(
@@ -1240,13 +1229,8 @@ fn outward_ledge_release_does_not_apply_boost() {
     // exit vel (i.e. no boost applied).
     let mut baseline = baseline_player;
     let mut baseline_events = crate::movement::FrameEvents::default();
-    let _ = tick_active_ledge_grab_scratch(
-        &mut baseline,
-        input,
-        0.016,
-        tuning,
-        &mut baseline_events,
-    );
+    let _ =
+        tick_active_ledge_grab_scratch(&mut baseline, input, 0.016, tuning, &mut baseline_events);
     assert!(
         (scratch.kinematics.vel - baseline.kinematics.vel).length() < 0.5,
         "outward release must produce identical vel with and without momentum, \
@@ -1355,13 +1339,8 @@ fn getup_transition_completes_faster_with_momentum_carry() {
     // Start both climbs.
     let mut events = crate::movement::FrameEvents::default();
     let _ = tick_active_ledge_grab_scratch(&mut boosted, input, 0.001, tuning, &mut events);
-    let _ = tick_active_ledge_grab_scratch(
-        &mut baseline,
-        input,
-        0.001,
-        baseline_tuning,
-        &mut events,
-    );
+    let _ =
+        tick_active_ledge_grab_scratch(&mut baseline, input, 0.001, baseline_tuning, &mut events);
     // Step both forward by exactly the BASELINE climb time. The
     // baseline should be ~done; the boosted player should be
     // OFF the ledge already (we're past their shortened duration).

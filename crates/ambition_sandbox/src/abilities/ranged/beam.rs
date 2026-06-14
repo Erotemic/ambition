@@ -122,8 +122,8 @@ pub fn fire_beam_system(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::features::{Hitbox, HitboxAnchor};
     use crate::abilities::test_support::spawn_primary_player_holding;
+    use crate::features::{Hitbox, HitboxAnchor};
 
     fn test_app() -> App {
         let mut app = App::new();

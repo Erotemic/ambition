@@ -71,7 +71,6 @@ pub use crate::mechanics::combat::EnemyRespawnPolicy;
 /// agree on the spelling.
 pub const ENEMY_DEAD_UNTIL_REST_SUFFIX: &str = "_dead_until_rest";
 
-
 /// Authored mount+rider visual fan-out for a composite spawn (see
 /// [`EnemyArchetypeSpec::composite_visual`]). `mount_brain` / `rider_brain`
 /// are spawn brain keys into the roster; the names are display fallbacks for
@@ -299,7 +298,9 @@ impl EnemyRoster {
     /// row is the fallback for unknown brain keys (mirroring the legacy
     /// `from_brain` default). This is the roster-enum-free construction path:
     /// the map keys ARE the spawn brain keys, so no `EnemyArchetype` is named.
-    pub(crate) fn from_map(by_brain: std::collections::HashMap<String, EnemyArchetypeSpec>) -> Self {
+    pub(crate) fn from_map(
+        by_brain: std::collections::HashMap<String, EnemyArchetypeSpec>,
+    ) -> Self {
         let fallback = by_brain
             .get("combatant")
             .cloned()
@@ -310,10 +311,8 @@ impl EnemyRoster {
     /// Parse a brain-keyed roster RON document — the content layer's entry
     /// point: `install_enemy_roster(EnemyRoster::from_ron(MY_RON))`.
     pub fn from_ron(ron: &str) -> Self {
-        let by_brain: std::collections::HashMap<String, EnemyArchetypeSpec> =
-            ron::from_str(ron).unwrap_or_else(|err| {
-                panic!("enemy roster RON failed to deserialize: {err}")
-            });
+        let by_brain: std::collections::HashMap<String, EnemyArchetypeSpec> = ron::from_str(ron)
+            .unwrap_or_else(|err| panic!("enemy roster RON failed to deserialize: {err}"));
         Self::from_map(by_brain)
     }
 }
@@ -1128,15 +1127,39 @@ mod enemy_archetype_data_tests {
     /// fallback).
     #[test]
     fn smash_hit_band_is_data_authored() {
-        assert_eq!(crate::features::enemies::test_spec("medium_striker").smash_hit_band,Some(32.0));
-        assert_eq!(crate::features::enemies::test_spec("small_skitter").smash_hit_band,Some(32.0));
-        assert_eq!(crate::features::enemies::test_spec("small_lurker").smash_hit_band,Some(32.0));
-        assert_eq!(crate::features::enemies::test_spec("large_brute").smash_hit_band,Some(48.0));
-        assert_eq!(crate::features::enemies::test_spec("large_colossus").smash_hit_band,Some(48.0));
+        assert_eq!(
+            crate::features::enemies::test_spec("medium_striker").smash_hit_band,
+            Some(32.0)
+        );
+        assert_eq!(
+            crate::features::enemies::test_spec("small_skitter").smash_hit_band,
+            Some(32.0)
+        );
+        assert_eq!(
+            crate::features::enemies::test_spec("small_lurker").smash_hit_band,
+            Some(32.0)
+        );
+        assert_eq!(
+            crate::features::enemies::test_spec("large_brute").smash_hit_band,
+            Some(48.0)
+        );
+        assert_eq!(
+            crate::features::enemies::test_spec("large_colossus").smash_hit_band,
+            Some(48.0)
+        );
         // 36px-default Smash archetypes omit the field on purpose.
-        assert_eq!(crate::features::enemies::test_spec("combatant").smash_hit_band,None);
-        assert_eq!(crate::features::enemies::test_spec("gradient_seeker").smash_hit_band,None);
-        assert_eq!(crate::features::enemies::test_spec("pirate_raider").smash_hit_band,None);
+        assert_eq!(
+            crate::features::enemies::test_spec("combatant").smash_hit_band,
+            None
+        );
+        assert_eq!(
+            crate::features::enemies::test_spec("gradient_seeker").smash_hit_band,
+            None
+        );
+        assert_eq!(
+            crate::features::enemies::test_spec("pirate_raider").smash_hit_band,
+            None
+        );
     }
 
     #[test]
@@ -1191,10 +1214,12 @@ mod capability_tests {
         let blob = crate::features::enemies::test_spec("dividing_mite").combat_capabilities();
         assert!(blob.divides_on_death && !blob.explodes_on_death);
 
-        let shark = crate::features::enemies::test_spec("burning_flying_shark").combat_capabilities();
+        let shark =
+            crate::features::enemies::test_spec("burning_flying_shark").combat_capabilities();
         assert!(shark.charge_crash_explodes);
 
-        let infinite = crate::features::enemies::test_spec("sandbag_infinite").combat_capabilities();
+        let infinite =
+            crate::features::enemies::test_spec("sandbag_infinite").combat_capabilities();
         assert!(infinite.never_dies && infinite.respawn_in_place_seconds.is_none());
 
         let finite = crate::features::enemies::test_spec("sandbag_finite").combat_capabilities();

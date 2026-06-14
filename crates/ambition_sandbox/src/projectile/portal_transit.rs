@@ -145,7 +145,10 @@ mod tests {
     #[test]
     fn a_lone_portal_without_its_partner_never_transits() {
         let mut k = kin(ae::Vec2::new(99.0, 0.0), ae::Vec2::new(360.0, 0.0));
-        assert!(!try_projectile_portal_transit(&mut k, &[blue_facing_left()]));
+        assert!(!try_projectile_portal_transit(
+            &mut k,
+            &[blue_facing_left()]
+        ));
     }
 
     #[test]

@@ -1002,6 +1002,5 @@ pub fn is_boss_kind(kind: FeatureVisualKind) -> bool {
     matches!(kind, FeatureVisualKind::Boss)
 }
 
-
 #[cfg(test)]
 mod tests;

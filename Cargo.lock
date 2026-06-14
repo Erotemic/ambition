@@ -202,6 +202,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_combat"
+version = "0.1.0"
+dependencies = [
+ "ambition_actor",
+ "ambition_engine_core",
+ "bevy",
+]
+
+[[package]]
 name = "ambition_content"
 version = "0.1.0"
 dependencies = [
@@ -291,6 +300,7 @@ dependencies = [
  "ambition_actor",
  "ambition_asset_manager",
  "ambition_audio",
+ "ambition_combat",
  "ambition_effects",
  "ambition_engine_core",
  "ambition_input",
@@ -299,7 +309,9 @@ dependencies = [
  "ambition_portal",
  "ambition_portal_presentation",
  "ambition_sfx",
+ "ambition_sprite_sheet",
  "ambition_time",
+ "ambition_trace",
  "avian2d",
  "bevy",
  "bevy-inspector-egui",
@@ -345,10 +357,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_sprite_sheet"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "ron 0.11.0",
+ "serde",
+ "tracing",
+]
+
+[[package]]
 name = "ambition_time"
 version = "0.1.0"
 dependencies = [
  "bevy",
+]
+
+[[package]]
+name = "ambition_trace"
+version = "0.1.0"
+dependencies = [
+ "ambition_engine_core",
+ "ambition_input",
+ "bevy",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

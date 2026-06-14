@@ -788,10 +788,6 @@ fn apply_dev_toggle(ctx: DevToggleWrite<'_>, id: DevToggleId, dir: i32) {
         // (`toggle_inventory_backend`). Only two states, so direction is moot; flip.
         D::MenuBackend => {
             let next = (*ctx.backend).next();
-            eprintln!(
-                "[BACKEND] MenuBackend toggle: {:?} -> {:?} (dir={dir})",
-                *ctx.backend, next
-            );
             *ctx.backend = next;
         }
         // Portal FX: cycle the compiled-in portal transit visuals on the

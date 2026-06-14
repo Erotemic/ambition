@@ -192,6 +192,45 @@ fn tab_index_of(page: MenuPage) -> usize {
     MenuPage::ALL.iter().position(|p| *p == page).unwrap_or(0)
 }
 
+/// Carry the active PAGE across an inventory-backend switch (the `\` hotkey or the
+/// in-menu "Menu Backend" row) so you land on the SAME screen in the new frontend
+/// instead of being dumped back on Inventory. The cube keeps the page in
+/// `ActiveMenuPages.active`; the Grid keeps it in `GridMenuTabState.active_tab` (it
+/// renders its OWN tab, not the shared `pages.active`). The shared cursor + drill
+/// state already carry the within-page position, so only the page/tab needs syncing.
+/// Ordered before BOTH republish systems so the arriving backend draws the carried
+/// page on the switch frame (no Inventory flash).
+pub(crate) fn sync_menu_page_across_backend_switch(
+    backend: Res<InventoryUiBackend>,
+    overlay: Res<ambition_sandbox::inventory::InventoryUiState>,
+    mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
+    mut tab_state: ResMut<GridMenuTabState>,
+    mut last: Local<Option<InventoryUiBackend>>,
+) {
+    let now = backend.effective();
+    if *last == Some(now) {
+        return;
+    }
+    // A genuine switch WHILE THE MENU IS OPEN carries the page across; a switch while
+    // closed is irrelevant (the next open's entry key sets the landing page). The very
+    // first run just records the backend (there is no prior backend to carry from).
+    if last.is_some() && overlay.visible {
+        match now {
+            InventoryUiBackend::Grid => {
+                // Arrived at the Grid: seed its tab from the cube's page.
+                if let Some(page) = pages.active {
+                    tab_state.active_tab = tab_index_of(page);
+                }
+            }
+            InventoryUiBackend::LunexKaleidoscope => {
+                // Arrived at the cube: seed its page from the Grid's tab.
+                pages.active = Some(tab_page(tab_state.active_tab));
+            }
+        }
+    }
+    *last = Some(now);
+}
+
 /// The tab specs (page id + label) drawn left→right, matching [`MenuPage::ALL`].
 fn tab_specs() -> Vec<BevyUiMenuTabSpec<MenuPage>> {
     MenuPage::ALL
@@ -1067,6 +1106,17 @@ pub fn install_grid_unified_menu(app: &mut App) {
         Update,
         grid_menu_republish_view.after(ambition_sandbox::app::SandboxSet::CoreSimulation),
     );
+    // Carry the active page across a backend switch BEFORE the Grid republishes its
+    // body, so you land on the same screen you were on (not Inventory). Ordered AFTER
+    // `MenuNavConsume` (both backends' nav live there) so an in-menu "Menu Backend"
+    // flip is seen on the SAME frame. The cube direction (grid→cube) settles via the
+    // cube's own republish next frame, hidden by the cube's fold-in animation.
+    app.add_systems(
+        Update,
+        sync_menu_page_across_backend_switch
+            .after(ambition_sandbox::app::MenuNavConsume)
+            .before(grid_menu_republish_view),
+    );
     // Features C/D: the wheel + scrollbar-drag scroll appliers run BEFORE republish so
     // a scroll set this frame rebuilds the windowed rows the same frame. The drag
     // signal comes from the engine's `bevy_ui` scrollbar observers
@@ -1097,6 +1147,50 @@ mod tests {
     use ambition_sandbox::persistence::settings::{SystemMenuEntryId, SystemMenuModel};
     use ambition_sandbox::player::{PlayerEntity, PlayerMana, PrimaryPlayer};
     use ambition_sandbox::runtime::game_mode::GameMode;
+
+    /// Switching the inventory frontend mid-session lands you on the SAME page in the
+    /// new frontend (not back on Inventory). The cube stores the page in
+    /// `ActiveMenuPages.active`, the Grid in `GridMenuTabState.active_tab`;
+    /// `sync_menu_page_across_backend_switch` carries it across either way.
+    #[test]
+    fn backend_switch_carries_the_active_page() {
+        let mut app = grid_app();
+        app.add_systems(Update, sync_menu_page_across_backend_switch);
+        app.world_mut()
+            .resource_mut::<ambition_sandbox::inventory::InventoryUiState>()
+            .visible = true;
+
+        // Open on the cube, System page; the first update just records the backend.
+        *app.world_mut().resource_mut::<InventoryUiBackend>() =
+            InventoryUiBackend::LunexKaleidoscope;
+        app.world_mut()
+            .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+            .active = Some(MenuPage::System);
+        app.update();
+
+        // Cube → Grid: the grid tab carries the cube's page (System), not Inventory.
+        *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::Grid;
+        app.update();
+        assert_eq!(
+            tab_page(app.world().resource::<GridMenuTabState>().active_tab),
+            MenuPage::System,
+            "cube→grid lands on the same page (System), not Inventory"
+        );
+
+        // Move the grid to Map, switch back to the cube: the cube page carries it.
+        app.world_mut().resource_mut::<GridMenuTabState>().active_tab =
+            tab_index_of(MenuPage::Map);
+        *app.world_mut().resource_mut::<InventoryUiBackend>() =
+            InventoryUiBackend::LunexKaleidoscope;
+        app.update();
+        assert_eq!(
+            app.world()
+                .resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+                .active,
+            Some(MenuPage::Map),
+            "grid→cube lands on the same page (Map)"
+        );
+    }
 
     /// A minimal app wired with the Grid backend systems + every resource the
     /// shared cursor/dispatch path touches. Mirrors the cube test harness so the

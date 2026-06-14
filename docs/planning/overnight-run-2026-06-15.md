@@ -171,13 +171,13 @@ files, descending; discover more via the method):
   test/CI; fix the stale links (universal-brain-interface paths, lessons_learned
   `body_mode.rs`→dir, ADR 0019 missing section) + the deleted-RON-levels doc sweep. [S]
 
-### Wave G — Replay-gated bug backlog (from the smell log)
+### (No gameplay-behaviour items)
 
-- **G1.** Portal body exit push-out (NPCs stick in the exit wall): clamp body exit
-  depth to ≥ `portal_exit_clearance` along the exit normal (preserve along-surface
-  offset), mirroring ground items. **Own focused slice** through
-  `replay_fixture_regression` + `scripted_gameplay`; the sanctioned
-  straddle-eviction exception to the avoid-pushout rule. [M]
+This run is **pure refactor + simplification: replay stays bit-identical for
+EVERY commit, no sim-output change.** (The earlier portal-exit-pushout candidate
+was dropped — it contradicts Jon's avoid-pushout rule: transit emerges at the
+face and carries momentum; the ONLY sanctioned eviction is when a portal
+**relocates or disappears**, which already exists. Do not add a transit pushout.)
 
 ---
 
@@ -186,10 +186,11 @@ files, descending; discover more via the method):
 A1 → A2 → A3 (presentation seam thinning) → B1/B2 (content, proven-safe) →
 D (splits) as filler between the bigger items → F1 (ui_nav clean extraction) →
 C1 (cheap de-name) → E1 (audio decouple) → then A4 (presentation move-UP) as its
-own multi-session push once the coupler list is finite → C2/C3, B3/B4, G1 as
-capacity allows. Each item is independently shippable + replay-checked; none
-changes gameplay except G1 (own slice) — so the visible build is only needed to
-feel-check anything that touches rendering output.
+own multi-session push once the coupler list is finite → C2/C3, B3/B4 as capacity
+allows. Each item is independently shippable + replay-checked; **none changes
+gameplay** — so the visible build is only needed to feel-check anything that
+alters rendering OUTPUT (the presentation splits in D / the move-UP in A4), not
+for correctness.
 
 ## Endgame (do not start until the boundary is real)
 

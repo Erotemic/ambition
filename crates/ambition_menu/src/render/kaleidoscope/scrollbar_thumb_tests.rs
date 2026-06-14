@@ -1,4 +1,4 @@
-    use super::scrollbar_thumb_layout;
+    use crate::scrollbar_thumb_layout;
     use crate::ScrollThumb;
 
     /// Fix 1: the lib maps the host's thumb fractions onto a track-relative

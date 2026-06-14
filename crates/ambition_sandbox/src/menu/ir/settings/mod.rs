@@ -11,11 +11,11 @@
 //!
 //! ## Why an IR
 //!
-//! Two settings surfaces exist in the sandbox: the bevy-UI pause menu
-//! (`crate::pause_menu`, which reads [`crate::persistence::settings::model::SettingsItem`]) and the
-//! 3D OoT cube's System face (`crate::menu::model`). They used to each re-author
-//! the option set, so they drifted. This IR is the shared source of truth the
-//! cube renders from (the pause menu migrates onto it as a follow-up).
+//! The settings menu used to be re-authored independently by each surface (a
+//! since-removed bevy-UI pause menu and the OoT cube's System face), so the two
+//! drifted. This IR is now the single source of truth every renderer reads from
+//! — the cube's System face ([`crate::menu::ir::system`]) and the bevy-UI grid
+//! both build from this one model, so they cannot drift again.
 //!
 //! ## Persistence
 //!

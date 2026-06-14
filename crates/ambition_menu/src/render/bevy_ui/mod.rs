@@ -37,7 +37,7 @@ use bevy::prelude::*;
 
 use crate::{
     AmbitionMenuControl, AmbitionMenuRoot, MenuColor, MenuControlKind, MenuNode, MenuPageModel,
-    MenuRect, MenuTextAlign, MenuVisualState, ScrollThumb,
+    MenuRect, MenuTextAlign, MenuVisualState, scrollbar_thumb_layout, ScrollThumb,
 };
 
 /// Root marker for a spawned flat `bevy_ui` menu tree.
@@ -630,17 +630,6 @@ fn spawn_control<Action>(
             });
         }
     }
-}
-
-/// Clamp host thumb fractions into a renderable `(top, height)` pair in `0..=1`,
-/// matching the cube's `scrollbar_thumb_layout`: the height is floored grabbable,
-/// and the top is placed across the remaining travel (`1 - height`) so the thumb
-/// never overflows the track bottom.
-fn scrollbar_thumb_layout(thumb: ScrollThumb) -> (f32, f32) {
-    let start = thumb.start.clamp(0.0, 1.0);
-    let size = thumb.size.clamp(0.08, 1.0);
-    let travel = (1.0 - size).max(0.0);
-    (start * travel, size)
 }
 
 /// Feature C (flat backend): map a pointer's vertical SCREEN position over a

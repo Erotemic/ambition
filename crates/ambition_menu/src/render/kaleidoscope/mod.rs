@@ -31,7 +31,7 @@ use crate::{
     ActiveMenuPages, AmbitionMenuControl, AmbitionMenuPage, AmbitionMenuRoot, MenuColor,
     MenuControlKind, MenuCubeGeometry, MenuDynamicText, MenuDynamicTextContent, MenuFocusKey,
     MenuNode, MenuOpenCloseStyle, MenuPageModel, MenuRect, MenuTextAlign, MenuVisualState,
-    ScrollThumb,
+    scrollbar_thumb_layout, ScrollThumb,
 };
 
 // Depth bands on each Lunex face (more negative = closer to the pause camera).
@@ -1449,12 +1449,6 @@ fn spawn_scrollbar_thumb(
 /// fractions. `size` is floored to a grabbable minimum (8%) and capped at the full
 /// track; `y` (the thumb top) is positioned across the REMAINING travel
 /// (`1 - size`) so the thumb never overflows the track bottom. Pure for testing.
-fn scrollbar_thumb_layout(thumb: ScrollThumb) -> (f32, f32) {
-    let start = thumb.start.clamp(0.0, 1.0);
-    let size = thumb.size.clamp(0.08, 1.0);
-    let y = (start * (1.0 - size)).clamp(0.0, 1.0 - size);
-    (y, size)
-}
 
 /// Render an item's icon as a textured plane inside a control cell.
 ///

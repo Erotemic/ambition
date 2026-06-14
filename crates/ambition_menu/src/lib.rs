@@ -157,6 +157,19 @@ pub struct ScrollThumb {
     pub size: f32,
 }
 
+/// Resolve a [`ScrollThumb`] into `(top_fraction, height_fraction)` in `[0, 1]`
+/// for a vertical scrollbar track. Single source of truth shared by BOTH menu
+/// renderers (the cube + the bevy-UI grid), which previously each carried their
+/// own mathematically-equivalent copy and had begun to drift cosmetically. The
+/// height is floored grabbable (min 8% of the track) and the thumb travels the
+/// remaining `1 - height`.
+pub(crate) fn scrollbar_thumb_layout(thumb: ScrollThumb) -> (f32, f32) {
+    let start = thumb.start.clamp(0.0, 1.0);
+    let size = thumb.size.clamp(0.08, 1.0);
+    let travel = (1.0 - size).max(0.0);
+    (start * travel, size)
+}
+
 impl<Action> MenuNode<Action> {
     pub fn action(&self) -> Option<&Action> {
         match self {

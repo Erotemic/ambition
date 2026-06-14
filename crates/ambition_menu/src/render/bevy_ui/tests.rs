@@ -1,4 +1,5 @@
     use super::*;
+    use crate::scrollbar_thumb_layout;
     use crate::{MenuColor, MenuFocusKey};
 
     #[derive(Clone, Copy, Debug, Eq, PartialEq)]

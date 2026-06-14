@@ -871,7 +871,8 @@ pub(crate) fn grid_menu_apply_scroll_drag(
     let active_page = tab_page(tab_state.active_tab);
     let model = system.model(&settings);
     let total = grid_system_row_count(active_page, &system_nav, &model);
-    if let Some(start) = scroll_fraction_to_window_start(total, fraction) {
+    let result = scroll_fraction_to_window_start(total, fraction);
+    if let Some(start) = result {
         tab_state.system_window_start = Some(start);
     }
 }

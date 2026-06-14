@@ -433,10 +433,6 @@ fn bevy_ui_scrollbar_press(
     mut out: MessageWriter<crate::render::kaleidoscope::MenuScrollDragged>,
 ) {
     if bars.get(press.entity).is_ok() {
-        eprintln!(
-            "[SCROLL] GRID press matched: res_geom=(top={:.0},h={:.0}) ptr_y={:.0}",
-            drag.track_top_y, drag.track_height, press.pointer_location.position.y
-        );
         // Mark the held pointer; geometry is the LAST KNOWN GOOD rect maintained by
         // `bevy_ui_maintain_track_rect` (a freshly-respawned node's ComputedNode is
         // zero on the press frame, so reading it directly here would jump nowhere).

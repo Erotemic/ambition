@@ -2283,7 +2283,8 @@ fn kaleidoscope_apply_scroll_drag(
         return;
     };
     let total = system_row_count(&pages, &system_nav, &settings, &snapshot);
-    if let Some(start) = scroll_fraction_to_window_start(total, fraction) {
+    let result = scroll_fraction_to_window_start(total, fraction);
+    if let Some(start) = result {
         scroll.system_window_start = Some(start);
     }
 }

@@ -769,7 +769,6 @@ const MINIMA_TRAP_MINION_SPAWN_OFFSET_PX: f32 = 90.0;
 /// once-per-strike `HitboxHits` set ensures the player takes at
 /// most one hit per pit lifetime.
 pub fn spawn_minima_trap_from_special_messages(
-    mut commands: Commands,
     mut effects: MessageWriter<crate::effects::EffectRequest>,
     mut messages: MessageReader<ActorActionMessage>,
     // Per-boss target via `ActorTarget` (populated by
@@ -836,19 +835,18 @@ pub fn spawn_minima_trap_from_special_messages(
         let (hazard_duration_s, damage, hx, hy, spawn_minion) = params;
         let pit_center = player_pos.unwrap_or(boss.kin.pos);
 
-        crate::effects::spawn_damage_box(
-            &mut commands,
-            entity,
-            ActorFaction::Boss,
-            pit_center,
-            crate::effects::DamageBox {
+        effects.write(crate::effects::EffectRequest {
+            owner: entity,
+            effect: crate::effects::Effect::DamageBox(crate::effects::DamageBoxEffect {
+                at: crate::effects::DamageBoxAt::World(pit_center),
+                faction: ActorFaction::Boss,
                 half_extent: ae::Vec2::new(hx, hy),
                 damage,
                 knockback: MINIMA_TRAP_KNOCKBACK,
                 lifetime_s: hazard_duration_s.max(0.05),
                 name: None,
-            },
-        );
+            }),
+        });
 
         if spawn_minion {
             let minion_id = format!(
@@ -989,6 +987,12 @@ pub fn spawn_saddle_point_from_special_messages(
             };
             // Lifetime > axis_period_s so the hitbox doesn't expire
             // mid-axis. We despawn it on toggle or strike end.
+            //
+            // This one calls the executor DIRECTLY (not via `Effect::DamageBox`)
+            // on purpose: the rotating cross tracks each arm's `Entity` to
+            // despawn it on toggle, and the fire-and-forget `EffectRequest` seam
+            // can't hand the spawned entity back. Effects you need a handle to
+            // use the spawn helper directly; fire-and-forget ones emit a request.
             crate::effects::spawn_damage_box(
                 commands,
                 entity,
@@ -1940,7 +1944,15 @@ mod tests {
         wt.scaled_dt = 1.0 / 60.0;
         wt.raw_dt = 1.0 / 60.0;
         app.add_message::<crate::effects::EffectRequest>();
-        app.add_systems(Update, spawn_minima_trap_from_special_messages);
+        // The pit box + minion now spawn via Effect; chain apply_effects.
+        app.add_systems(
+            Update,
+            (
+                spawn_minima_trap_from_special_messages,
+                crate::effects::apply_effects,
+            )
+                .chain(),
+        );
         let actor = app
             .world_mut()
             .spawn((
@@ -1994,7 +2006,15 @@ mod tests {
         wt.scaled_dt = 1.0 / 60.0;
         wt.raw_dt = 1.0 / 60.0;
         app.add_message::<crate::effects::EffectRequest>();
-        app.add_systems(Update, spawn_minima_trap_from_special_messages);
+        // The pit box + minion now spawn via Effect; chain apply_effects.
+        app.add_systems(
+            Update,
+            (
+                spawn_minima_trap_from_special_messages,
+                crate::effects::apply_effects,
+            )
+                .chain(),
+        );
         let actor = app
             .world_mut()
             .spawn((

@@ -80,10 +80,13 @@ pub enum DamageBoxAt {
 }
 
 /// The payload of an [`Effect::DamageBox`]: a world-anchored damage volume an
-/// emitter requests. `at` chooses the center; `owner` + faction are resolved
-/// from the emitter at apply time.
+/// emitter requests. `at` chooses the center (only `Emitter` resolves against
+/// the emitter); `faction` is carried explicitly — the emitter knows whether
+/// it's the player or a hostile actor, so we don't depend on the emitter being a
+/// resolvable player/feature.
 pub struct DamageBoxEffect {
     pub at: DamageBoxAt,
+    pub faction: ActorFaction,
     pub half_extent: ae::Vec2,
     pub damage: i32,
     pub knockback: f32,
@@ -135,18 +138,18 @@ pub struct EffectRequest {
     pub effect: Effect,
 }
 
-/// Resolve an emitter's center + faction the way the shockwave consumer did:
-/// the player by kinematics (Player faction), else a feature actor by its AABB
-/// center + authored faction.
-fn resolve_emitter(
+/// Resolve an emitter's center for a `DamageBoxAt::Emitter` box: the player by
+/// kinematics, else a feature actor by its AABB center. (Faction is carried
+/// explicitly on the effect; only the position is resolved here.)
+fn resolve_emitter_center(
     owner: Entity,
     players: &Query<&BodyKinematics, With<PlayerEntity>>,
-    features: &Query<(&FeatureAabb, &ActorFaction), With<FeatureSimEntity>>,
-) -> Option<(ae::Vec2, ActorFaction)> {
+    features: &Query<&FeatureAabb, With<FeatureSimEntity>>,
+) -> Option<ae::Vec2> {
     if let Ok(kin) = players.get(owner) {
-        Some((kin.pos, ActorFaction::Player))
-    } else if let Ok((aabb, fac)) = features.get(owner) {
-        Some((aabb.center, *fac))
+        Some(kin.pos)
+    } else if let Ok(aabb) = features.get(owner) {
+        Some(aabb.center)
     } else {
         None
     }
@@ -161,26 +164,26 @@ pub fn apply_effects(
     mut commands: Commands,
     mut requests: MessageReader<EffectRequest>,
     players: Query<&BodyKinematics, With<PlayerEntity>>,
-    features: Query<(&FeatureAabb, &ActorFaction), With<FeatureSimEntity>>,
+    features: Query<&FeatureAabb, With<FeatureSimEntity>>,
 ) {
     for req in requests.read() {
         match &req.effect {
             Effect::DamageBox(d) => {
-                // Only the DamageBox needs the emitter's center/faction
-                // resolved; a Summon carries its own pos + faction.
-                let Some((emitter_center, faction)) =
-                    resolve_emitter(req.owner, &players, &features)
-                else {
-                    continue;
-                };
+                // Faction is explicit on the effect; only an `Emitter`-anchored
+                // box needs the emitter's position resolved.
                 let center = match d.at {
-                    DamageBoxAt::Emitter => emitter_center,
+                    DamageBoxAt::Emitter => {
+                        match resolve_emitter_center(req.owner, &players, &features) {
+                            Some(c) => c,
+                            None => continue,
+                        }
+                    }
                     DamageBoxAt::World(p) => p,
                 };
                 spawn_damage_box(
                     &mut commands,
                     req.owner,
-                    faction,
+                    d.faction,
                     center,
                     DamageBox {
                         half_extent: d.half_extent,

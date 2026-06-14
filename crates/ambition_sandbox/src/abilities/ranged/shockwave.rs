@@ -60,6 +60,7 @@ pub fn fire_shockwave_system(
         owner: entity,
         effect: crate::effects::Effect::DamageBox(crate::effects::DamageBoxEffect {
             at: crate::effects::DamageBoxAt::Emitter,
+            faction: crate::features::ActorFaction::Player,
             half_extent: SHOCKWAVE_HALF,
             damage: SHOCKWAVE_DAMAGE,
             knockback: SHOCKWAVE_KNOCKBACK,
@@ -183,6 +184,7 @@ mod tests {
             owner: enemy,
             effect: crate::effects::Effect::DamageBox(crate::effects::DamageBoxEffect {
                 at: crate::effects::DamageBoxAt::Emitter,
+                faction: ActorFaction::Enemy,
                 half_extent: ae::Vec2::new(60.0, 30.0),
                 damage: 3,
                 knockback: 1.0,

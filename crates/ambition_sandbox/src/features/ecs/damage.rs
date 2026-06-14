@@ -104,6 +104,11 @@ const EXPLODER_BLAST_LIFETIME_S: f32 = 0.14;
 /// `apply_hitbox_damage` routes it at the *player* (not other enemies — the blast
 /// doesn't chain), and the player's shield/parry can still negate it. `owner` is
 /// the dying mite (moot for ignore-self, since the blast never hits its own side).
+///
+/// Calls the executor DIRECTLY (not via `Effect::DamageBox`) on purpose: this
+/// runs in the hit-resolution stage, AFTER `apply_effects`, so a fire-and-forget
+/// `EffectRequest` would land a frame late. Spawning the box here keeps it
+/// same-frame (and replay-identical).
 fn spawn_death_explosion(commands: &mut Commands, owner: Entity, pos: ae::Vec2) {
     crate::effects::spawn_damage_box(
         commands,

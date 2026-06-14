@@ -83,7 +83,7 @@ pub fn fire_beam_system(
         (Entity, &HeldItem, &BodyKinematics, &mut PlayerMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
-    mut commands: Commands,
+    mut effects: MessageWriter<crate::effects::EffectRequest>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     if !control.attack_pressed || control.shield_held {
@@ -101,19 +101,18 @@ pub fn fire_beam_system(
     }
     let aim = crate::items::pickup::held_shot_aim(&control, kin.facing);
     let (offset, half_extent) = beam_geometry(aim, kin.facing);
-    crate::effects::spawn_damage_box(
-        &mut commands,
-        entity,
-        ActorFaction::Player,
-        kin.pos + offset,
-        crate::effects::DamageBox {
+    effects.write(crate::effects::EffectRequest {
+        owner: entity,
+        effect: crate::effects::Effect::DamageBox(crate::effects::DamageBoxEffect {
+            at: crate::effects::DamageBoxAt::World(kin.pos + offset),
+            faction: ActorFaction::Player,
             half_extent,
             damage: BEAM_DAMAGE,
             knockback: BEAM_KNOCKBACK,
             lifetime_s: BEAM_LIFETIME_S,
             name: Some("Focus Beam"),
-        },
-    );
+        }),
+    });
     sfx.write(crate::audio::SfxMessage::Play {
         id: ambition_sfx::ids::WORLD_ROCK_HIT,
         pos: kin.pos,
@@ -129,8 +128,13 @@ mod tests {
     fn test_app() -> App {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
+        app.add_message::<crate::effects::EffectRequest>();
         app.insert_resource(ControlFrame::default());
-        app.add_systems(Update, fire_beam_system);
+        // fire_beam emits Effect::DamageBox; apply_effects spawns the hitbox.
+        app.add_systems(
+            Update,
+            (fire_beam_system, crate::effects::apply_effects).chain(),
+        );
         app
     }
 

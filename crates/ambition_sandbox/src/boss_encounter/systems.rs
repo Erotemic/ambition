@@ -451,6 +451,7 @@ pub fn boss_phase_transition_feedback(
                     owner: entity,
                     effect: crate::effects::Effect::DamageBox(crate::effects::DamageBoxEffect {
                         at: crate::effects::DamageBoxAt::Emitter,
+                        faction: crate::features::ActorFaction::Boss,
                         half_extent: ae::Vec2::new(170.0, 80.0),
                         damage: 2,
                         knockback: 1.6,

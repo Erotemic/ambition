@@ -273,7 +273,7 @@ mod tests {
             .filter(|m| matches!(m.request, ActionRequest::Ranged { .. }))
             .collect();
         assert_eq!(ranged.len(), 1, "expected exactly one Ranged message");
-        match ranged[0].request {
+        match ranged[0].request.clone() {
             ActionRequest::Ranged {
                 spec: RangedActionSpec::Bolt { speed, .. },
                 dir,
@@ -341,7 +341,7 @@ mod tests {
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>();
         let received: Vec<_> = messages.drain().collect();
         assert_eq!(received.len(), 1, "expected one Swipe message");
-        match received[0].request {
+        match received[0].request.clone() {
             ActionRequest::Melee {
                 spec: MeleeActionSpec::Swipe(_),
                 facing,

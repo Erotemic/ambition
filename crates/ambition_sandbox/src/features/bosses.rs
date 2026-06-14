@@ -25,12 +25,12 @@ pub use crate::brain::boss_pattern::{BossAttackProfile, BossMovementProfile};
 /// Encounter id of the gnu_ton boss — derived from
 /// `encounter_id_from_name("GNU-ton")`. Centralized so the boss
 /// ActionSet wiring (which binds the boss's special slot to
-/// `SpecialActionSpec::DebrisRain`) can string-match without
+/// `SpecialActionSpec::Special("apple_rain")`) can string-match without
 /// re-deriving the slug.
 pub const GNU_TON_ENCOUNTER_ID: &str = "gnu_ton";
 
 /// Apple-rain tuning consumed by the spawn-time `ActionSet` wiring
-/// (spawn.rs binds these into `SpecialActionSpec::DebrisRain`).
+/// (spawn.rs binds these into `SpecialActionSpec::Special("apple_rain")`).
 /// The visual / collision constants (gravity, lifetime, half_extent,
 /// spawn-height) live next to the EFFECTS consumer in
 /// `content/features/ecs/brain_effects.rs` — the consumer is the
@@ -76,17 +76,9 @@ pub const OVERFIT_VOLLEY_SHOT_SPEED: f32 = 360.0;
 /// MemorizedVolley: per-bolt damage.
 pub const OVERFIT_VOLLEY_SHOT_DAMAGE: i32 = 1;
 
-// ===== Smirking Behemoth / You Have To Cut The Rope tuning =====
-
-/// Smirking Behemoth eye-beam projectile speed. Kept high because the
-/// attack should read as a short bubble-laser line, not a slow barrage.
-pub const SMIRKING_EYE_BEAM_SHOT_SPEED: f32 = 780.0;
-pub const SMIRKING_EYE_BEAM_DAMAGE: i32 = 1;
-pub const SMIRKING_EYE_BEAM_BOX_COUNT: u8 = 5;
-pub const SMIRKING_EYE_BEAM_BOX_SPACING: f32 = 26.0;
-pub const SMIRKING_EYE_BEAM_HALF_EXTENT_X: f32 = 15.0;
-pub const SMIRKING_EYE_BEAM_HALF_EXTENT_Y: f32 = 8.0;
-pub const SMIRKING_EYE_BEAM_LIFETIME_S: f32 = 0.58;
+// Smirking Behemoth eye-beam tuning moved to `ambition_content`
+// (`bosses::specials`) with the eye-beam Technique — the engine names no boss
+// special's params.
 
 /// PitTrap: how long the pit hazard hitbox stays live after the
 /// strike edge spawns it. Long enough to be a real area-denial threat,
@@ -154,50 +146,16 @@ pub use crate::boss_encounter::behavior::{
 pub fn boss_special_for_profile(
     profile: &crate::brain::BossAttackProfile,
 ) -> Option<crate::brain::SpecialActionSpec> {
-    use crate::brain::{BossAttackProfile, SpecialActionSpec};
-    match profile {
-        BossAttackProfile::DebrisRain => Some(SpecialActionSpec::DebrisRain {
-            interval_s: APPLE_RAIN_INTERVAL,
-            spawn_speed: APPLE_RAIN_SPAWN_SPEED,
-            damage: APPLE_RAIN_DAMAGE,
-        }),
-        BossAttackProfile::MemorizedVolley => Some(SpecialActionSpec::MemorizedVolley {
-            sample_interval_s: OVERFIT_VOLLEY_SAMPLE_INTERVAL_S,
-            sample_count: OVERFIT_VOLLEY_SAMPLE_COUNT,
-            shot_speed: OVERFIT_VOLLEY_SHOT_SPEED,
-            damage: OVERFIT_VOLLEY_SHOT_DAMAGE,
-        }),
-        BossAttackProfile::LockOnBeam => Some(SpecialActionSpec::LockOnBeam {
-            shot_speed: SMIRKING_EYE_BEAM_SHOT_SPEED,
-            damage: SMIRKING_EYE_BEAM_DAMAGE,
-            box_count: SMIRKING_EYE_BEAM_BOX_COUNT,
-            box_spacing: SMIRKING_EYE_BEAM_BOX_SPACING,
-            half_extent_x: SMIRKING_EYE_BEAM_HALF_EXTENT_X,
-            half_extent_y: SMIRKING_EYE_BEAM_HALF_EXTENT_Y,
-            lifetime_s: SMIRKING_EYE_BEAM_LIFETIME_S,
-        }),
-        BossAttackProfile::PitTrap => Some(SpecialActionSpec::PitTrap {
-            hazard_duration_s: MINIMA_TRAP_HAZARD_DURATION_S,
-            damage: MINIMA_TRAP_DAMAGE,
-            half_extent_x: MINIMA_TRAP_HALF_EXTENT_X,
-            half_extent_y: MINIMA_TRAP_HALF_EXTENT_Y,
-            spawn_minion: true,
-        }),
-        BossAttackProfile::RotatingCross => Some(SpecialActionSpec::RotatingCross {
-            arm_length: SADDLE_POINT_ARM_LENGTH,
-            arm_thickness: SADDLE_POINT_ARM_THICKNESS,
-            axis_period_s: SADDLE_POINT_AXIS_PERIOD_S,
-            damage: SADDLE_POINT_DAMAGE,
-        }),
-        BossAttackProfile::MinionCascade => Some(SpecialActionSpec::MinionCascade {
-            minion_count: GRADIENT_CASCADE_MINION_COUNT,
-        }),
-        // Ordinary melee profiles never route through this resolver
-        // (they damage via `boss_attack_damage` reading `BossAttackState`
-        // directly). The `_` arm keeps this function the single
-        // source of truth for *which* special spec each profile maps to.
-        _ => None,
-    }
+    use crate::brain::SpecialActionSpec;
+    // Open seam: a `Special` beat carries its content-technique key; the
+    // brain emits it verbatim as `SpecialActionSpec::Special(key)` and the
+    // matching content Technique reads its own params + emits the effects.
+    // Ordinary (geometry) profiles never route through here — they damage
+    // via `boss_attack_damage` reading `BossAttackState` directly, so they
+    // map to `None`. The engine names no boss special.
+    profile
+        .special_key()
+        .map(|key| SpecialActionSpec::Special(key.to_string()))
 }
 
 #[cfg(test)]
@@ -333,12 +291,8 @@ mod boss_special_resolver_tests {
     #[test]
     fn every_special_profile_resolves_to_a_spec_for_gradient_sentinel() {
         use crate::brain::BossAttackProfile;
-        for profile in [
-            BossAttackProfile::MemorizedVolley,
-            BossAttackProfile::PitTrap,
-            BossAttackProfile::RotatingCross,
-            BossAttackProfile::MinionCascade,
-        ] {
+        for key in ["overfit_volley", "minima_trap", "saddle_point", "gradient_cascade"] {
+            let profile = BossAttackProfile::Special(key.into());
             assert!(
                 boss_special_for_profile(&profile).is_some(),
                 "{profile:?} must resolve to a spec for Gradient Sentinel",
@@ -346,23 +300,15 @@ mod boss_special_resolver_tests {
         }
     }
 
-    /// GNU-ton's apple rain still resolves through the new path so
-    /// the consumer (`spawn_gnu_apple_rain_from_special_messages`)
-    /// keeps receiving messages after the migration.
+    /// GNU-ton's apple rain still resolves through the open seam: the
+    /// `Special("apple_rain")` beat maps to a `Special` spec carrying the
+    /// verbatim key, which the content apple-rain Technique recognizes.
     #[test]
     fn gnu_apple_rain_profile_resolves_to_apple_rain_spec_for_gnu_ton() {
         use crate::brain::{BossAttackProfile, SpecialActionSpec};
-        match boss_special_for_profile(&BossAttackProfile::DebrisRain) {
-            Some(SpecialActionSpec::DebrisRain {
-                interval_s,
-                spawn_speed,
-                damage,
-            }) => {
-                assert!((interval_s - APPLE_RAIN_INTERVAL).abs() < f32::EPSILON);
-                assert!((spawn_speed - APPLE_RAIN_SPAWN_SPEED).abs() < f32::EPSILON);
-                assert_eq!(damage, APPLE_RAIN_DAMAGE);
-            }
-            other => panic!("expected DebrisRain spec, got {other:?}"),
+        match boss_special_for_profile(&BossAttackProfile::Special("apple_rain".into())) {
+            Some(SpecialActionSpec::Special(key)) => assert_eq!(key, "apple_rain"),
+            other => panic!("expected Special(apple_rain) spec, got {other:?}"),
         }
     }
 
@@ -641,7 +587,7 @@ mod scripted_pattern_tests {
         let boss = gnu_ton_runtime();
         assert!(
             crate::features::volumes_for_profile(
-                &BossAttackProfile::DebrisRain,
+                &BossAttackProfile::Special("apple_rain".into()),
                 boss.kin.pos,
                 boss.as_ref().combat_size(),
                 &boss.config.behavior,
@@ -778,8 +724,8 @@ mod scripted_pattern_tests {
             "phase1 must include HazardColumn — got {profiles:?}"
         );
         assert!(
-            profiles.contains(&BossAttackProfile::MemorizedVolley),
-            "phase1 must include MemorizedVolley — got {profiles:?}"
+            profiles.contains(&BossAttackProfile::Special("overfit_volley".into())),
+            "phase1 must include overfit_volley — got {profiles:?}"
         );
     }
 
@@ -804,11 +750,8 @@ mod scripted_pattern_tests {
                 _ => None,
             })
             .collect();
-        for required in [
-            BossAttackProfile::PitTrap,
-            BossAttackProfile::RotatingCross,
-            BossAttackProfile::MinionCascade,
-        ] {
+        for key in ["minima_trap", "saddle_point", "gradient_cascade"] {
+            let required = BossAttackProfile::Special(key.into());
             assert!(
                 profiles.contains(&required),
                 "phase2 must include {required:?} — got {profiles:?}"

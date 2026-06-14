@@ -37,14 +37,28 @@ pub struct EyeBeamState {
 
 const EYE_BEAM_OWNER_PREFIX: &str = "smirking_behemoth_eye_beam";
 
+/// The eye-beam special's content key (matches the boss-schedule
+/// `Special("eye_beam")` beats in `boss_profiles.ron`).
+pub const EYE_BEAM_KEY: &str = "eye_beam";
+
+// Eye-beam tuning — content-owned (moved off the engine with the special).
+// Kept high so the attack reads as a short bubble-laser line, not a barrage.
+const SHOT_SPEED: f32 = 780.0;
+const DAMAGE: i32 = 1;
+const BOX_COUNT: u8 = 5;
+const BOX_SPACING: f32 = 26.0;
+const HALF_EXTENT_X: f32 = 15.0;
+const HALF_EXTENT_Y: f32 = 8.0;
+const LIFETIME_S: f32 = 0.58;
+
 /// Technique: Smirking Behemoth eye beam.
 ///
-/// During the `LockOnBeam` telegraph the boss locks the currently tracked
-/// player position. On the first strike tick it emits a short line of fast
-/// bubble-laser projectile boxes from the eye toward that locked point. This
-/// deliberately does **not** reuse MemorizedVolley's sample barrage, because the
-/// cut-rope boss needs one readable beam rather than a cloud of slow memorized
-/// shots.
+/// During the `Special("eye_beam")` telegraph the boss locks the currently
+/// tracked player position. On the first strike tick it emits a short line of
+/// fast bubble-laser projectile boxes from the eye toward that locked point.
+/// This deliberately does **not** reuse overfit-volley's sample barrage,
+/// because the cut-rope boss needs one readable beam rather than a cloud of
+/// slow memorized shots. Params are content-owned consts (above).
 pub fn spawn_eye_beam_from_special_messages(
     mut effects: MessageWriter<EffectRequest>,
     mut messages: MessageReader<ActorActionMessage>,
@@ -60,36 +74,16 @@ pub fn spawn_eye_beam_from_special_messages(
         With<FeatureSimEntity>,
     >,
 ) {
-    let mut active_strike_params: std::collections::HashMap<
-        Entity,
-        (f32, i32, u8, f32, f32, f32, f32),
-    > = std::collections::HashMap::new();
+    // Which actors emitted an eye-beam Special this tick (the strike edge).
+    let mut firing: std::collections::HashSet<Entity> = std::collections::HashSet::new();
     for msg in messages.read() {
         if let ActionRequest::Special {
-            spec:
-                SpecialActionSpec::LockOnBeam {
-                    shot_speed,
-                    damage,
-                    box_count,
-                    box_spacing,
-                    half_extent_x,
-                    half_extent_y,
-                    lifetime_s,
-                },
-        } = msg.request
+            spec: SpecialActionSpec::Special(key),
+        } = &msg.request
         {
-            active_strike_params.insert(
-                msg.actor,
-                (
-                    shot_speed,
-                    damage,
-                    box_count,
-                    box_spacing,
-                    half_extent_x,
-                    half_extent_y,
-                    lifetime_s,
-                ),
-            );
+            if key == EYE_BEAM_KEY {
+                firing.insert(msg.actor);
+            }
         }
     }
 
@@ -109,9 +103,8 @@ pub fn spawn_eye_beam_from_special_messages(
 
         let in_telegraph = matches!(
             attack_state.telegraph_profile,
-            Some(BossAttackProfile::LockOnBeam)
+            Some(BossAttackProfile::Special(ref k)) if k == EYE_BEAM_KEY
         );
-        let strike_params = active_strike_params.get(&entity).copied();
         if in_telegraph {
             if state.locked_target.is_none() {
                 state.locked_target = player_pos;
@@ -120,13 +113,20 @@ pub fn spawn_eye_beam_from_special_messages(
             continue;
         }
 
-        let Some((shot_speed, damage, box_count, box_spacing, half_x, half_y, lifetime_s)) =
-            strike_params
-        else {
+        if !firing.contains(&entity) {
             state.locked_target = None;
             state.fired_this_strike = false;
             continue;
-        };
+        }
+        let (shot_speed, damage, box_count, box_spacing, half_x, half_y, lifetime_s) = (
+            SHOT_SPEED,
+            DAMAGE,
+            BOX_COUNT,
+            BOX_SPACING,
+            HALF_EXTENT_X,
+            HALF_EXTENT_Y,
+            LIFETIME_S,
+        );
         if state.fired_this_strike {
             continue;
         }

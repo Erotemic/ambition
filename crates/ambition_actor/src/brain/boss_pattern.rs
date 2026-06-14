@@ -233,57 +233,38 @@ pub enum BossAttackProfile {
     HeadDescent,
     // GNU-ton specific: shockwave from both hands meeting in the center
     ConvergingShockwave,
-    // GNU-ton specific: apples fall from the ceiling around the player.
-    // Direct contact damage comes from spawned enemy projectiles
-    // (gravity > 0), not a single AABB, so `volumes_for` returns empty
-    // for this profile and damage routes through the projectile path.
-    DebrisRain,
     // Gradient Sentinel: tall vertical hazard column at the boss x.
     // Ordinary melee profile (volume from `volumes_for_profile`); the
     // player jumps over or laterals away.
     HazardColumn,
-    // Gradient Sentinel special: boss memorizes player positions during
-    // telegraph and fires bolts at every sample on the strike edge.
-    // Damage routes through spawned enemy projectiles (the bolt
-    // barrage), so `volumes_for` returns empty for this profile.
-    MemorizedVolley,
-    // Smirking Behemoth special: lock an approximate player position
-    // during the telegraph, then emit a short line of fast bubble-laser
-    // boxes from the eye toward that position. Damage routes through
-    // spawned enemy projectiles, so `volumes_for` returns empty.
-    LockOnBeam,
-    // Gradient Sentinel special: a "local minimum" pit forms at the
-    // player's position on strike start and persists as a damaging
-    // World-anchored hitbox for several seconds; spawns 1 puppy_slug
-    // minion from inside the pit.
-    PitTrap,
-    // Gradient Sentinel special: a cross-shaped hazard centered on the
-    // boss. Two World-anchored hitboxes (horizontal arm + vertical
-    // arm); one is "live" at a time and the active axis rotates
-    // periodically across the strike window. Player stands on the safe
-    // axis and reads the swap.
-    RotatingCross,
-    // Gradient Sentinel special: spawns N "slop" minions (small_lurker
-    // stand-in) at the top of the arena that descend toward the
-    // player. Damage routes through the minion contact path, not a
-    // boss AABB, so `volumes_for` returns empty.
-    MinionCascade,
+    /// An open, content-defined special. The `String` is the special
+    /// **key** (snake_case, e.g. `"overfit_volley"`); a content-owned
+    /// *Technique* recognizes it, reads its own params, and emits the
+    /// effects. Damage routes through whatever that technique spawns
+    /// (projectiles / World-anchored hitboxes / minions), so
+    /// `volumes_for_profile` returns empty for every `Special`. This is
+    /// the engine seam: a new game adds a boss special by registering a
+    /// content technique under a new key — no edit to this enum. The
+    /// old per-boss variants (`DebrisRain`, `MemorizedVolley`,
+    /// `LockOnBeam`, `PitTrap`, `RotatingCross`, `MinionCascade`)
+    /// collapsed into this carrier.
+    Special(String),
 }
 
 impl BossAttackProfile {
     /// True iff this profile is implemented through a `Special`
-    /// message + EFFECTS consumer. False for profiles whose damage
-    /// flows through melee/contact hitbox volumes.
+    /// message + EFFECTS consumer (a content Technique). False for
+    /// profiles whose damage flows through melee/contact hitbox volumes.
     pub fn is_special(&self) -> bool {
-        matches!(
-            self,
-            BossAttackProfile::DebrisRain
-                | BossAttackProfile::MemorizedVolley
-                | BossAttackProfile::LockOnBeam
-                | BossAttackProfile::PitTrap
-                | BossAttackProfile::RotatingCross
-                | BossAttackProfile::MinionCascade
-        )
+        matches!(self, BossAttackProfile::Special(_))
+    }
+
+    /// The content technique key for a `Special` profile, else `None`.
+    pub fn special_key(&self) -> Option<&str> {
+        match self {
+            BossAttackProfile::Special(key) => Some(key.as_str()),
+            _ => None,
+        }
     }
 }
 
@@ -788,7 +769,7 @@ pub fn tick_boss_pattern(
     // Edge tags into the ActorControlFrame: while a Strike is active,
     // emit melee_pressed for ordinary profiles and special_pressed
     // for profiles the EFFECTS consumer handles (apple rain today).
-    // ActionSet binds special_pressed to `SpecialActionSpec::DebrisRain`;
+    // ActionSet binds special_pressed to `SpecialActionSpec::Special("apple_rain")`;
     // the resolver writes `ActorActionMessage::Special`; the consumer
     // spawns the apples.
     if cfg.aggressiveness > 0.0 {
@@ -1459,7 +1440,9 @@ mod tests {
 
     #[test]
     fn debris_rain_strike_emits_special_intent() {
-        let mut cfg = cfg_with(scripted_two_step_phase1(BossAttackProfile::DebrisRain));
+        let mut cfg = cfg_with(scripted_two_step_phase1(BossAttackProfile::Special(
+            "apple_rain".into(),
+        )));
         cfg.spawn = ae::Vec2::ZERO;
         let mut state = BossPatternState::default();
         let mut attack_state = BossAttackState::default();
@@ -1478,7 +1461,7 @@ mod tests {
 
         assert_eq!(
             attack_state.active_profile,
-            Some(BossAttackProfile::DebrisRain),
+            Some(BossAttackProfile::Special("apple_rain".into())),
         );
         assert!(
             out.special_pressed,
@@ -1630,7 +1613,7 @@ mod tests {
         // overwrite, but we test the scale on the active-emit path).
         let mut out2 = crate::actor::control::ActorControlFrame::neutral();
         // Drive cycle forward to Active phase with a special profile.
-        cfg.cycle_attacks = vec![BossAttackProfile::MemorizedVolley];
+        cfg.cycle_attacks = vec![BossAttackProfile::Special("overfit_volley".into())];
         cfg.cycle_attack_cooldown = 0.05;
         cfg.cycle_attack_windup = 0.01;
         cfg.cycle_attack_active = 5.0; // long active so subsequent ticks stay there
@@ -1642,8 +1625,8 @@ mod tests {
         tick_boss_pattern(&cfg, &mut state2, &ctx2, &mut out2, &mut attack_state2);
         assert_eq!(
             attack_state2.active_profile,
-            Some(BossAttackProfile::MemorizedVolley),
-            "should be in active MemorizedVolley strike for the test",
+            Some(BossAttackProfile::Special("overfit_volley".into())),
+            "should be in active overfit_volley strike for the test",
         );
         let vel_in_strike = out2.desired_vel.length();
         assert!(
@@ -2017,11 +2000,11 @@ mod tests {
             steps: vec![
                 BossPatternStep::Rest { duration: 0.1 },
                 BossPatternStep::Telegraph {
-                    profile: BossAttackProfile::LockOnBeam,
+                    profile: BossAttackProfile::Special("eye_beam".into()),
                     duration: 0.5,
                 },
                 BossPatternStep::Strike {
-                    profile: BossAttackProfile::LockOnBeam,
+                    profile: BossAttackProfile::Special("eye_beam".into()),
                     duration: 0.25,
                 },
             ],
@@ -2050,7 +2033,7 @@ mod tests {
         );
         assert!(matches!(
             attack_state.telegraph_profile,
-            Some(BossAttackProfile::LockOnBeam)
+            Some(BossAttackProfile::Special(ref k)) if k == "eye_beam"
         ));
     }
 

@@ -36,6 +36,17 @@ use crate::features::ecs::FeatureSimEntity;
 use crate::time::feel::SandboxFeelTuning;
 use crate::WorldTime;
 
+// Content-special keys these Techniques recognize on the open
+// `SpecialActionSpec::Special(key)` / `BossAttackProfile::Special(key)` seam.
+// (These Techniques are mid-migration to `ambition_content`; the keys travel
+// with them.) The brain emits a `Special(key)` beat; the matching consumer
+// below recognizes its key and reads its own params.
+const APPLE_RAIN_KEY: &str = "apple_rain";
+const OVERFIT_VOLLEY_KEY: &str = "overfit_volley";
+const MINIMA_TRAP_KEY: &str = "minima_trap";
+const SADDLE_POINT_KEY: &str = "saddle_point";
+const GRADIENT_CASCADE_KEY: &str = "gradient_cascade";
+
 /// Recoil applied to the firing enemy along the negative fire
 /// direction. Per-archetype because PirateOnShark visibly knocks
 /// back the rider+shark combo.
@@ -205,7 +216,7 @@ pub fn start_enemy_melee_from_brain_actions(
 /// consumer (`spawn_gnu_apple_rain_from_special_messages`) own the
 /// per-tick spawn cadence. Defaulted-attached to every boss; only
 /// the gnu_ton encounter advances it (its ActionSet's `special` is
-/// `SpecialActionSpec::DebrisRain`, so only it generates the
+/// `SpecialActionSpec::Special("apple_rain")`, so only it generates the
 /// Special messages the consumer reads). Per the actor/brain
 /// follow-up plan Task B: components hold state, consumers spawn
 /// effects.
@@ -258,9 +269,9 @@ fn apple_rain_spawn_x(spawn_index: u32, world_width: f32, boss_aabb: ae::Aabb) -
 }
 
 /// Spawn GNU-ton's apple rain in response to
-/// `ActorActionMessage::Special { spec: SpecialActionSpec::DebrisRain }`.
+/// `ActorActionMessage::Special { spec: SpecialActionSpec::Special("apple_rain") }`.
 /// The boss runtime tags `frame.special_pressed = true` every tick
-/// its `BossAttackProfile::DebrisRain` strike window is active;
+/// its `BossAttackProfile::Special("apple_rain")` strike window is active;
 /// the resolver translates that into one `Special` message per
 /// tick. This consumer owns the spawn cadence, the
 /// golden-ratio x distribution, and the self-aabb dodge that keeps
@@ -282,29 +293,31 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
     mut bosses: Query<(Entity, &mut AppleRainSpawnState, BossClusterRef), With<FeatureSimEntity>>,
 ) {
     let dt = world_time.sim_dt();
-    // Bosses with a `Special::DebrisRain` request this tick.
-    // Multiple messages from the same boss collapse onto the same
-    // entry — the consumer treats "any DebrisRain message this
-    // tick" as "the strike window is active this tick".
-    let mut active_params: std::collections::HashMap<Entity, (f32, f32, i32)> =
-        std::collections::HashMap::new();
+    // Apple-rain tuning is content-owned (lib consts for now; move with the
+    // technique). The brain fires one `Special("apple_rain")` message per tick
+    // the strike window is active.
+    let (interval_s, spawn_speed, damage) = (
+        crate::features::bosses::APPLE_RAIN_INTERVAL,
+        crate::features::bosses::APPLE_RAIN_SPAWN_SPEED,
+        crate::features::bosses::APPLE_RAIN_DAMAGE,
+    );
+    // Bosses with an `apple_rain` Special this tick. Multiple messages from one
+    // boss collapse to the same entry — "any message this tick" = "strike
+    // window active this tick".
+    let mut firing: std::collections::HashSet<Entity> = std::collections::HashSet::new();
     for msg in messages.read() {
-        let ActionRequest::Special { spec } = msg.request else {
-            continue;
-        };
-        let SpecialActionSpec::DebrisRain {
-            interval_s,
-            spawn_speed,
-            damage,
-        } = spec
-        else {
-            continue;
-        };
-        active_params.insert(msg.actor, (interval_s, spawn_speed, damage));
+        if let ActionRequest::Special {
+            spec: SpecialActionSpec::Special(key),
+        } = &msg.request
+        {
+            if key == APPLE_RAIN_KEY {
+                firing.insert(msg.actor);
+            }
+        }
     }
 
     for (entity, mut state, boss_feature) in &mut bosses {
-        let Some((interval_s, spawn_speed, damage)) = active_params.get(&entity).copied() else {
+        if !firing.contains(&entity) {
             // No message this tick → reset accumulator so a future
             // strike window starts on a clean beat.
             state.spawn_accum = 0.0;
@@ -489,20 +502,21 @@ pub fn spawn_overfit_volley_from_special_messages(
         With<FeatureSimEntity>,
     >,
 ) {
-    use crate::features::bosses::{OVERFIT_VOLLEY_SAMPLE_COUNT, OVERFIT_VOLLEY_SAMPLE_INTERVAL_S};
+    use crate::features::bosses::{
+        OVERFIT_VOLLEY_SAMPLE_COUNT, OVERFIT_VOLLEY_SAMPLE_INTERVAL_S, OVERFIT_VOLLEY_SHOT_DAMAGE,
+        OVERFIT_VOLLEY_SHOT_SPEED,
+    };
     let dt = world_time.sim_dt();
 
-    let mut active_strike_params: std::collections::HashMap<Entity, (f32, i32)> =
-        std::collections::HashMap::new();
+    let mut firing: std::collections::HashSet<Entity> = std::collections::HashSet::new();
     for msg in messages.read() {
         if let ActionRequest::Special {
-            spec:
-                SpecialActionSpec::MemorizedVolley {
-                    shot_speed, damage, ..
-                },
-        } = msg.request
+            spec: SpecialActionSpec::Special(key),
+        } = &msg.request
         {
-            active_strike_params.insert(msg.actor, (shot_speed, damage));
+            if key == OVERFIT_VOLLEY_KEY {
+                firing.insert(msg.actor);
+            }
         }
     }
 
@@ -532,9 +546,8 @@ pub fn spawn_overfit_volley_from_special_messages(
 
         let in_telegraph = matches!(
             attack_state.telegraph_profile,
-            Some(BossAttackProfile::MemorizedVolley)
+            Some(BossAttackProfile::Special(ref k)) if k == OVERFIT_VOLLEY_KEY
         );
-        let strike_params = active_strike_params.get(&entity).copied();
 
         if in_telegraph {
             // Seed an initial sample on the first telegraph tick so
@@ -557,7 +570,8 @@ pub fn spawn_overfit_volley_from_special_messages(
             }
             // Strike hasn't fired yet — keep the gate open.
             state.fired_this_strike = false;
-        } else if let Some((shot_speed, damage)) = strike_params {
+        } else if firing.contains(&entity) {
+            let (shot_speed, damage) = (OVERFIT_VOLLEY_SHOT_SPEED, OVERFIT_VOLLEY_SHOT_DAMAGE);
             if !state.fired_this_strike {
                 let origin = boss.kin.pos + boss.config.behavior.projectile_origin_offset;
                 for sample_pos in state.samples.iter() {
@@ -644,30 +658,19 @@ pub fn spawn_minima_trap_from_special_messages(
         With<FeatureSimEntity>,
     >,
 ) {
-    let mut active_strike_params: std::collections::HashMap<Entity, (f32, i32, f32, f32, bool)> =
-        std::collections::HashMap::new();
+    use crate::features::bosses::{
+        MINIMA_TRAP_DAMAGE, MINIMA_TRAP_HALF_EXTENT_X, MINIMA_TRAP_HALF_EXTENT_Y,
+        MINIMA_TRAP_HAZARD_DURATION_S,
+    };
+    let mut firing: std::collections::HashSet<Entity> = std::collections::HashSet::new();
     for msg in messages.read() {
         if let ActionRequest::Special {
-            spec:
-                SpecialActionSpec::PitTrap {
-                    hazard_duration_s,
-                    damage,
-                    half_extent_x,
-                    half_extent_y,
-                    spawn_minion,
-                },
-        } = msg.request
+            spec: SpecialActionSpec::Special(key),
+        } = &msg.request
         {
-            active_strike_params.insert(
-                msg.actor,
-                (
-                    hazard_duration_s,
-                    damage,
-                    half_extent_x,
-                    half_extent_y,
-                    spawn_minion,
-                ),
-            );
+            if key == MINIMA_TRAP_KEY {
+                firing.insert(msg.actor);
+            }
         }
     }
 
@@ -679,7 +682,7 @@ pub fn spawn_minima_trap_from_special_messages(
                 .map(|kin| kin.aabb().center())
                 .or(Some(t.pos))
         });
-        let Some(params) = active_strike_params.get(&entity).copied() else {
+        if !firing.contains(&entity) {
             // Strike window closed — reset the fired gate so the next
             // strike re-spawns the pit.
             state.fired_this_strike = false;
@@ -691,7 +694,13 @@ pub fn spawn_minima_trap_from_special_messages(
         if state.fired_this_strike {
             continue;
         }
-        let (hazard_duration_s, damage, hx, hy, spawn_minion) = params;
+        let (hazard_duration_s, damage, hx, hy, spawn_minion) = (
+            MINIMA_TRAP_HAZARD_DURATION_S,
+            MINIMA_TRAP_DAMAGE,
+            MINIMA_TRAP_HALF_EXTENT_X,
+            MINIMA_TRAP_HALF_EXTENT_Y,
+            true,
+        );
         let pit_center = player_pos.unwrap_or(boss.kin.pos);
 
         effects.write(crate::effects::EffectRequest {
@@ -783,33 +792,27 @@ pub fn spawn_saddle_point_from_special_messages(
     mut messages: MessageReader<ActorActionMessage>,
     mut bosses: Query<(Entity, BossClusterRef, &mut SaddlePointState), With<FeatureSimEntity>>,
 ) {
+    use crate::features::bosses::{
+        SADDLE_POINT_ARM_LENGTH, SADDLE_POINT_ARM_THICKNESS, SADDLE_POINT_AXIS_PERIOD_S,
+        SADDLE_POINT_DAMAGE,
+    };
     let dt = world_time.sim_dt();
 
-    let mut active_strike_params: std::collections::HashMap<Entity, (f32, f32, f32, i32)> =
-        std::collections::HashMap::new();
+    let mut firing: std::collections::HashSet<Entity> = std::collections::HashSet::new();
     for msg in messages.read() {
         if let ActionRequest::Special {
-            spec:
-                SpecialActionSpec::RotatingCross {
-                    arm_length,
-                    arm_thickness,
-                    axis_period_s,
-                    damage,
-                },
-        } = msg.request
+            spec: SpecialActionSpec::Special(key),
+        } = &msg.request
         {
-            active_strike_params.insert(
-                msg.actor,
-                (arm_length, arm_thickness, axis_period_s, damage),
-            );
+            if key == SADDLE_POINT_KEY {
+                firing.insert(msg.actor);
+            }
         }
     }
 
     for (entity, boss_feature, mut state) in &mut bosses {
         let boss = boss_feature.as_boss_ref();
-        let Some((arm_length, arm_thickness, axis_period_s, damage)) =
-            active_strike_params.get(&entity).copied()
-        else {
+        if !firing.contains(&entity) {
             // Strike closed — despawn any lingering hitboxes and
             // reset state so the next strike starts clean.
             if let Some(h) = state.horizontal_hitbox.take() {
@@ -831,6 +834,12 @@ pub fn spawn_saddle_point_from_special_messages(
             }
             continue;
         }
+        let (arm_length, arm_thickness, axis_period_s, damage) = (
+            SADDLE_POINT_ARM_LENGTH,
+            SADDLE_POINT_ARM_THICKNESS,
+            SADDLE_POINT_AXIS_PERIOD_S,
+            SADDLE_POINT_DAMAGE,
+        );
         let period = axis_period_s.max(0.05);
 
         // Strike start (or re-start after a between-strike gap):
@@ -943,20 +952,22 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
     mut messages: MessageReader<ActorActionMessage>,
     mut bosses: Query<(Entity, BossClusterRef, &mut GradientCascadeState), With<FeatureSimEntity>>,
 ) {
-    let mut active_strike_params: std::collections::HashMap<Entity, u8> =
-        std::collections::HashMap::new();
+    let minion_count = crate::features::bosses::GRADIENT_CASCADE_MINION_COUNT;
+    let mut firing: std::collections::HashSet<Entity> = std::collections::HashSet::new();
     for msg in messages.read() {
         if let ActionRequest::Special {
-            spec: SpecialActionSpec::MinionCascade { minion_count },
-        } = msg.request
+            spec: SpecialActionSpec::Special(key),
+        } = &msg.request
         {
-            active_strike_params.insert(msg.actor, minion_count);
+            if key == GRADIENT_CASCADE_KEY {
+                firing.insert(msg.actor);
+            }
         }
     }
 
     for (entity, boss_feature, mut state) in &mut bosses {
         let boss = boss_feature.as_boss_ref();
-        let Some(minion_count) = active_strike_params.get(&entity).copied() else {
+        if !firing.contains(&entity) {
             // Strike closed — reset gate.
             state.fired_this_strike = false;
             continue;
@@ -1402,11 +1413,7 @@ mod tests {
     use crate::GameWorld;
 
     fn gnu_apple_rain_spec() -> SpecialActionSpec {
-        SpecialActionSpec::DebrisRain {
-            interval_s: 0.35,
-            spawn_speed: 35.0,
-            damage: 1,
-        }
+        SpecialActionSpec::Special(APPLE_RAIN_KEY.to_string())
     }
 
     fn gnu_ton_boss_feature() -> (BodyKinematics, BossConfig, BossStatus) {
@@ -1648,12 +1655,7 @@ mod tests {
     }
 
     fn overfit_volley_spec() -> SpecialActionSpec {
-        SpecialActionSpec::MemorizedVolley {
-            sample_interval_s: 0.30,
-            sample_count: 5,
-            shot_speed: 360.0,
-            damage: 1,
-        }
+        SpecialActionSpec::Special(OVERFIT_VOLLEY_KEY.to_string())
     }
 
     /// Sanity: MemorizedVolley consumer with a seeded sample fires
@@ -1819,17 +1821,7 @@ mod tests {
                 gradient_sentinel_boss_feature(),
             ))
             .id();
-        write_special(
-            &mut app,
-            actor,
-            SpecialActionSpec::PitTrap {
-                hazard_duration_s: 5.0,
-                damage: 2,
-                half_extent_x: 56.0,
-                half_extent_y: 24.0,
-                spawn_minion: false, // avoid the runtime minion spawn machinery
-            },
-        );
+        write_special(&mut app, actor, SpecialActionSpec::Special("minima_trap".into()));
         app.update();
         // Count hitboxes — should be exactly one new World-anchored.
         let mut hitboxes = app.world_mut().query::<&Hitbox>();
@@ -1882,15 +1874,9 @@ mod tests {
                 gradient_sentinel_boss_feature(),
             ))
             .id();
-        let spec = SpecialActionSpec::PitTrap {
-            hazard_duration_s: 5.0,
-            damage: 2,
-            half_extent_x: 56.0,
-            half_extent_y: 24.0,
-            spawn_minion: false,
-        };
+        let spec = SpecialActionSpec::Special("minima_trap".into());
         for _ in 0..3 {
-            write_special(&mut app, actor, spec);
+            write_special(&mut app, actor, spec.clone());
             app.update();
         }
         let mut hitboxes = app.world_mut().query::<&Hitbox>();
@@ -1927,15 +1913,10 @@ mod tests {
                 gradient_sentinel_boss_feature(),
             ))
             .id();
-        let spec = SpecialActionSpec::RotatingCross {
-            arm_length: 220.0,
-            arm_thickness: 36.0,
-            axis_period_s: 1.2,
-            damage: 2,
-        };
+        let spec = SpecialActionSpec::Special("saddle_point".into());
 
         // Tick 1: strike starts, horizontal arm spawned.
-        write_special(&mut app, actor, spec);
+        write_special(&mut app, actor, spec.clone());
         app.update();
         let state = app.world().entity(actor).get::<SaddlePointState>().unwrap();
         assert!(state.strike_active);
@@ -1945,7 +1926,7 @@ mod tests {
 
         // Walk past the axis period — toggles to vertical.
         for _ in 0..4 {
-            write_special(&mut app, actor, spec);
+            write_special(&mut app, actor, spec.clone());
             app.update();
         }
         let state = app.world().entity(actor).get::<SaddlePointState>().unwrap();
@@ -1978,12 +1959,7 @@ mod tests {
                 gradient_sentinel_boss_feature(),
             ))
             .id();
-        let spec = SpecialActionSpec::RotatingCross {
-            arm_length: 220.0,
-            arm_thickness: 36.0,
-            axis_period_s: 1.2,
-            damage: 2,
-        };
+        let spec = SpecialActionSpec::Special("saddle_point".into());
 
         // Start strike.
         write_special(&mut app, actor, spec);
@@ -2042,13 +2018,7 @@ mod tests {
         write_special(
             &mut app,
             actor,
-            SpecialActionSpec::PitTrap {
-                hazard_duration_s: 5.0,
-                damage: 2,
-                half_extent_x: 56.0,
-                half_extent_y: 24.0,
-                spawn_minion: true, // <- spawn the minion this time
-            },
+            SpecialActionSpec::Special("minima_trap".into()),
         );
         app.update();
         let post_count = app
@@ -2106,7 +2076,7 @@ mod tests {
         write_special(
             &mut app,
             actor,
-            SpecialActionSpec::MinionCascade { minion_count: 3 },
+            SpecialActionSpec::Special("gradient_cascade".into()),
         );
         app.update();
         let post_count = app
@@ -2116,8 +2086,8 @@ mod tests {
             .count();
         assert_eq!(
             post_count - pre_count,
-            3,
-            "expected three new EncounterMob entities, got {}",
+            crate::features::bosses::GRADIENT_CASCADE_MINION_COUNT as usize,
+            "expected one new EncounterMob per cascade minion, got {}",
             post_count - pre_count,
         );
     }
@@ -2164,7 +2134,7 @@ mod tests {
         write_special(
             &mut app,
             actor,
-            SpecialActionSpec::MinionCascade { minion_count: 3 },
+            SpecialActionSpec::Special("gradient_cascade".into()),
         );
         app.update();
 
@@ -2175,8 +2145,8 @@ mod tests {
             .count();
         assert_eq!(
             post_count - pre_count,
-            3,
-            "expected 3 new minion ActorRuntime entities, got {}",
+            crate::features::bosses::GRADIENT_CASCADE_MINION_COUNT as usize,
+            "expected one new minion ActorRuntime per cascade minion, got {}",
             post_count - pre_count,
         );
         let state = app

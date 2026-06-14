@@ -172,14 +172,13 @@ fn boss_anim_for_attack_profile(
         BossAttackProfile::SideSweep
         | BossAttackProfile::HandSweep
         | BossAttackProfile::Broadside => Some(BossAnim::SideSweep),
+        // Every content special falls back to the spike-halo telegraph anim
+        // (a ring of damage around the boss) — the closest generic visual cue.
+        // Covers the former DebrisRain / MemorizedVolley / LockOnBeam / PitTrap
+        // / RotatingCross / MinionCascade.
         BossAttackProfile::FullBodyPulse
         | BossAttackProfile::HeadDescent
-        | BossAttackProfile::DebrisRain
-        | BossAttackProfile::MemorizedVolley
-        | BossAttackProfile::LockOnBeam
-        | BossAttackProfile::PitTrap
-        | BossAttackProfile::RotatingCross
-        | BossAttackProfile::MinionCascade => Some(BossAnim::SpikeHalo),
+        | BossAttackProfile::Special(_) => Some(BossAnim::SpikeHalo),
         BossAttackProfile::HazardColumn | BossAttackProfile::DiveLane => Some(BossAnim::DashEcho),
         BossAttackProfile::WingSweep => None,
     }
@@ -201,7 +200,9 @@ fn boss_animation_key_for_sample(
             BossAnim::FloorSlam,
         ) => Some("hand_slam"),
         (BossAttackProfile::HandSweep, BossAnim::SideSweep) => Some("hand_sweep"),
-        (BossAttackProfile::HeadDescent | BossAttackProfile::DebrisRain, BossAnim::SpikeHalo) => {
+        (BossAttackProfile::HeadDescent, BossAnim::SpikeHalo) => Some("head_down"),
+        // GNU-ton's apple rain reads the head row for its damageable hurtbox.
+        (BossAttackProfile::Special(key), BossAnim::SpikeHalo) if key == "apple_rain" => {
             Some("head_down")
         }
         _ => super::super::bosses::boss_animation_keys_for_profile(profile)

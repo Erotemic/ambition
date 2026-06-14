@@ -43,7 +43,7 @@ pub use ids::encounter_id_from_name;
 pub use ambition_actor::boss_encounter::{
     BossEncounterEvent, BossEncounterPhase, BossEncounterSpec, BossEncounterState,
 };
-pub use behavior::{install_boss_profiles, BossProfileRegistry};
+pub use behavior::{install_boss_profiles, install_boss_special_anim_keys, BossProfileRegistry};
 pub use profile::{default_boss_profiles, BossProfile, BossRewardProfile};
 pub use registry::BossEncounterRegistry;
 pub use roster::BossSpecRoster;

@@ -67,6 +67,23 @@ pub fn install_boss_roster() {
         })
         .collect();
     ambition_sandbox::boss_encounter::install_boss_encounter_specs(specs);
+
+    // Telegraph anim rows for each content boss-special key. The engine ships
+    // no anim row for content specials (it names none); this is where the
+    // key→sprite-row mapping lives. `apple_rain` damages via projectile bodies
+    // and has no body-mounted telegraph row, so it's simply absent (→ no row).
+    ambition_sandbox::boss_encounter::install_boss_special_anim_keys(
+        std::collections::HashMap::from([
+            (
+                "overfit_volley".to_string(),
+                &["spike_halo", "eye_beam"] as &'static [&'static str],
+            ),
+            ("eye_beam".to_string(), &["eye_beam", "spike_halo"]),
+            ("minima_trap".to_string(), &["spike_halo"]),
+            ("saddle_point".to_string(), &["spike_halo"]),
+            ("gradient_cascade".to_string(), &["spike_halo"]),
+        ]),
+    );
 }
 
 /// Installs the default Ambition boss encounter registry resource and

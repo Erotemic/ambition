@@ -715,15 +715,14 @@ pub fn volumes_for_profile(
             origin + ae::Vec2::new(0.0, 0.0),
             ae::Vec2::new(size.x * 0.30, size.y * 1.80),
         )],
-        // Specials' damage routes through their EFFECTS consumers
-        // (spawned projectiles / World-anchored hitboxes / minions).
-        // Empty volumes here prevent double-counting via
-        // `boss_attack_damage`'s strike arm.
-        BossAttackProfile::MemorizedVolley
-        | BossAttackProfile::LockOnBeam
-        | BossAttackProfile::PitTrap
-        | BossAttackProfile::RotatingCross
-        | BossAttackProfile::MinionCascade => Vec::new(),
+        // Every content special (`Special(_)`) routes its damage through
+        // its own Technique's EFFECTS consumer (spawned projectiles /
+        // World-anchored hitboxes / minions), so it has no body-mounted
+        // melee volume — empty here prevents double-counting via
+        // `boss_attack_damage`'s strike arm. This covers what used to be
+        // MemorizedVolley / LockOnBeam / PitTrap / RotatingCross /
+        // MinionCascade / DebrisRain.
+        BossAttackProfile::Special(_) => Vec::new(),
         BossAttackProfile::WingSweep => vec![ae::Aabb::new(
             origin + ae::Vec2::new(0.0, size.y * 0.08),
             ae::Vec2::new(size.x * 0.56, size.y * 0.42),
@@ -767,7 +766,6 @@ pub fn volumes_for_profile(
             origin + ae::Vec2::new(0.0, size.y * 0.48),
             ae::Vec2::new(size.x * 0.90, size.y * 0.08),
         )],
-        BossAttackProfile::DebrisRain => Vec::new(),
     }
 }
 

@@ -476,7 +476,12 @@ pub enum MoveStyleSpec {
 /// Per-entity signature move. The contents vary widely between
 /// actors — keep the enum small and add variants only when a real
 /// consumer lands.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+///
+/// Boss specials are no longer enumerated here: they collapsed into the
+/// open [`SpecialActionSpec::Special`] carrier, whose `String` key a
+/// content-owned *Technique* recognizes (it owns the params + behavior).
+/// Not `Copy` — the key is an owned `String`.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum SpecialActionSpec {
     /// Player-only: deploys the bubble shield. Wired through the
     /// existing bubble-shield pipeline when Chunk 4 hooks the player
@@ -486,104 +491,15 @@ pub enum SpecialActionSpec {
     /// content of "spotlight" is resolved by the boss encounter
     /// driver.
     BossSpotlight,
-    /// GNU-ton boss: rain of apples falling from the ceiling across
-    /// the arena. The boss runtime tags `frame.special_pressed`
-    /// every tick the apple-rain strike window is active; the
-    /// `spawn_gnu_apple_rain_from_special_messages` consumer
-    /// accumulates per-boss spawn cadence and emits the
-    /// `EnemyProjectileSpawn`s. Replaces the legacy
-    /// `BossRuntime::tick_apple_rain` self-state spawn loop.
-    DebrisRain {
-        /// Seconds between apple spawns while the strike is active.
-        interval_s: f32,
-        /// Downward initial velocity given to each apple at spawn.
-        spawn_speed: f32,
-        /// Per-apple damage.
-        damage: i32,
-    },
-    /// Gradient Sentinel boss: position-sampling bolt barrage. The
-    /// brain emits `special_pressed` every tick the
-    /// `BossAttackProfile::MemorizedVolley` window is active; the
-    /// `spawn_overfit_volley_from_special_messages` consumer samples
-    /// player positions during the telegraph (via the live
-    /// `BossAttackState`) and fires `sample_count` bolts at the
-    /// memorized positions on the first strike tick.
-    MemorizedVolley {
-        /// Seconds between position samples during the telegraph
-        /// window. Sample count caps at `sample_count`.
-        sample_interval_s: f32,
-        /// Max number of player-position samples to memorize per
-        /// strike. More samples = more bolts.
-        sample_count: u8,
-        /// Per-bolt projectile speed (px/s).
-        shot_speed: f32,
-        /// Per-bolt damage.
-        damage: i32,
-    },
-    /// Smirking Behemoth boss: a short bubble-laser line emitted
-    /// from the eye toward the player's approximate telegraphed
-    /// position. This is separate from MemorizedVolley so the cut-rope
-    /// boss can fire a single readable beam instead of the Gradient
-    /// Sentinel's slow memorized barrage.
-    LockOnBeam {
-        /// Per-box projectile speed (px/s).
-        shot_speed: f32,
-        /// Per-box damage.
-        damage: i32,
-        /// Number of boxes spawned along the initial beam line.
-        box_count: u8,
-        /// Pixel spacing between beam boxes at spawn.
-        box_spacing: f32,
-        /// Beam box half-size.
-        half_extent_x: f32,
-        half_extent_y: f32,
-        /// Lifetime for each beam box.
-        lifetime_s: f32,
-    },
-    /// Gradient Sentinel boss: local-minimum pit trap. The strike
-    /// edge spawns a World-anchored hazard hitbox at the player's
-    /// current position; the hitbox persists for `hazard_duration_s`
-    /// seconds. If `spawn_minion` is true the consumer also spawns a
-    /// puppy_slug (pacifist crawler) from inside the pit.
-    PitTrap {
-        /// Seconds the hazard hitbox stays live after spawn.
-        hazard_duration_s: f32,
-        /// Per-tick damage the pit deals while the player overlaps
-        /// it (the standard `apply_hitbox_damage` once-per-strike
-        /// gate still applies, so the player takes at most one hit
-        /// per pit lifetime).
-        damage: i32,
-        /// Half-extent of the pit hitbox (px).
-        half_extent_x: f32,
-        half_extent_y: f32,
-        /// Spawn a puppy_slug crawler from inside the pit on the
-        /// strike edge.
-        spawn_minion: bool,
-    },
-    /// Gradient Sentinel boss: rotating cross hazard around the
-    /// boss. Two World-anchored hitboxes (horizontal arm + vertical
-    /// arm); the consumer toggles which arm is "live" every
-    /// `axis_period_s` seconds. Player stands on the inactive axis
-    /// and reads the swap. Total strike duration is governed by the
-    /// brain's `BossPatternStep::Strike { duration }`.
-    RotatingCross {
-        /// Half-extent of each arm along its long axis (px).
-        arm_length: f32,
-        /// Half-extent of each arm along its short axis (px).
-        arm_thickness: f32,
-        /// Seconds an axis stays live before toggling.
-        axis_period_s: f32,
-        /// Per-tick damage. Same once-per-strike gate as PitTrap.
-        damage: i32,
-    },
-    /// Gradient Sentinel boss: spawn `minion_count` "slop" minions
-    /// (small_lurker stand-in) at the top of the arena that descend
-    /// toward the player. One-shot per strike — the consumer ignores
-    /// repeated Special messages while the strike is active.
-    MinionCascade {
-        /// Number of minions to spawn on the strike edge.
-        minion_count: u8,
-    },
+    /// An open, content-defined special. The `String` is the special
+    /// **key** (snake_case, e.g. `"overfit_volley"`); the matching
+    /// content-owned *Technique* reads its own params + emits the
+    /// effects. The brain emits this when a `BossAttackProfile::Special`
+    /// beat strikes (see `BossAttackProfile::special_key`). The old
+    /// per-boss variants (`DebrisRain`, `MemorizedVolley`, `LockOnBeam`,
+    /// `PitTrap`, `RotatingCross`, `MinionCascade`) collapsed here — the
+    /// engine names no boss special.
+    Special(String),
     // `ShockwaveSlam` moved off this enum onto the generic effect seam
     // (`ambition_sandbox::effects::Effect::DamageBox`): an actor-generic
     // ground-slam is now an emitted effect, not a Special variant. It was the
@@ -690,7 +606,9 @@ impl PunchSpec {
 /// resolver wiring (writing hitbox AABBs into a feature-output
 /// channel) lands in Chunk 3 when an actor first uses a brain. For
 /// now the helpers are testable in isolation.
-#[derive(Clone, Copy, Debug, PartialEq)]
+// Not `Copy`: the `Special` variant carries an owned `SpecialActionSpec`
+// (open `String` key). Cloned at the few emit sites; cheap (specials are rare).
+#[derive(Clone, Debug, PartialEq)]
 pub enum ActionRequest {
     /// Spawn a melee hitbox in front of the actor.
     Melee {
@@ -801,12 +719,10 @@ impl ActionRequest {
             Self::Special { spec } => match spec {
                 SpecialActionSpec::BubbleShield => "special_bubble_shield",
                 SpecialActionSpec::BossSpotlight => "special_boss_spotlight",
-                SpecialActionSpec::DebrisRain { .. } => "special_gnu_apple_rain",
-                SpecialActionSpec::MemorizedVolley { .. } => "special_overfit_volley",
-                SpecialActionSpec::LockOnBeam { .. } => "special_eye_beam",
-                SpecialActionSpec::PitTrap { .. } => "special_minima_trap",
-                SpecialActionSpec::RotatingCross { .. } => "special_saddle_point",
-                SpecialActionSpec::MinionCascade { .. } => "special_gradient_cascade",
+                // Open content special — the key carries the specific
+                // identity (e.g. `overfit_volley`); this static label is
+                // just the kind.
+                SpecialActionSpec::Special(_) => "special",
             },
             Self::PlayerProjectileTick { .. } => "player_projectile_tick",
         }
@@ -849,8 +765,8 @@ pub fn resolve(
         }
     }
     if frame.special_pressed {
-        if let Some(spec) = actions.special {
-            out.push(ActionRequest::Special { spec });
+        if let Some(spec) = &actions.special {
+            out.push(ActionRequest::Special { spec: spec.clone() });
         }
     }
     out
@@ -867,15 +783,7 @@ mod tests {
         // is iterable without a ~10-minute sandbox recompile — the foundation for
         // moving `boss_special_for_profile`'s hardcoded constants into
         // `boss_profiles.ron` (elevated #1's named first slice).
-        let spec = SpecialActionSpec::LockOnBeam {
-            shot_speed: 420.0,
-            damage: 3,
-            box_count: 5,
-            box_spacing: 24.0,
-            half_extent_x: 20.0,
-            half_extent_y: 14.0,
-            lifetime_s: 1.2,
-        };
+        let spec = SpecialActionSpec::Special("eye_beam".to_string());
         let serialized = ron::to_string(&spec).expect("SpecialActionSpec should serialize to RON");
         let restored: SpecialActionSpec =
             ron::from_str(&serialized).expect("SpecialActionSpec should deserialize from RON");
@@ -1205,7 +1113,7 @@ mod tests {
         let b = resolve(&brute, &frame, ae::Vec2::ZERO);
         assert_eq!(g.len(), 1);
         assert_eq!(b.len(), 1);
-        match (g[0], b[0]) {
+        match (&g[0], &b[0]) {
             (ActionRequest::Melee { spec: gs, .. }, ActionRequest::Melee { spec: bs, .. }) => {
                 assert!(matches!(gs, MeleeActionSpec::Swipe(_)));
                 assert!(matches!(bs, MeleeActionSpec::Lunge(_)));

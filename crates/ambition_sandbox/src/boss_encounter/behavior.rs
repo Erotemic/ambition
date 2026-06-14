@@ -213,6 +213,33 @@ pub fn install_boss_profiles(registry: BossProfileRegistry) {
     let _ = BOSS_PROFILE_OVERRIDE.set(registry);
 }
 
+/// Content-installed telegraph-animation hints per boss `Special(key)`. The
+/// engine ships no anim row for content specials; content registers which
+/// sprite rows telegraph each one. Visual only — an unregistered key simply
+/// shows no special telegraph row, the strike still fires. This is what keeps
+/// the engine from naming `overfit_volley`/`minima_trap`/etc.: the key→rows
+/// mapping is content data, not a lib `match`.
+static BOSS_SPECIAL_ANIM_KEYS: std::sync::OnceLock<
+    std::collections::HashMap<String, &'static [&'static str]>,
+> = std::sync::OnceLock::new();
+
+/// Install per-special telegraph anim hints — `ambition_content` calls this at
+/// plugin-build time alongside [`install_boss_profiles`].
+pub fn install_boss_special_anim_keys(
+    map: std::collections::HashMap<String, &'static [&'static str]>,
+) {
+    let _ = BOSS_SPECIAL_ANIM_KEYS.set(map);
+}
+
+/// Telegraph anim rows for a content special key (empty if unregistered).
+fn special_anim_keys(key: &str) -> &'static [&'static str] {
+    BOSS_SPECIAL_ANIM_KEYS
+        .get()
+        .and_then(|m| m.get(key))
+        .copied()
+        .unwrap_or(&[])
+}
+
 /// Test fixture: the lib's own unit tests read content's authoritative
 /// `boss_profiles.ron` at compile time (cfg(test) only — production embeds no
 /// boss data and requires the content install).
@@ -475,15 +502,10 @@ pub fn boss_animation_keys_for_profile(
         BossAttackProfile::SideSweep => &["side_sweep"],
         BossAttackProfile::FullBodyPulse => &["spike_halo", "eye_beam"],
         BossAttackProfile::HazardColumn => &["dash_echo", "eye_beam"],
-        // Gradient Sentinel specials don't have a dedicated row
-        // in the AI-Slop-Zeta sheet; route them to `spike_halo`
-        // (closest visual: a ring of damage around the boss) so
-        // the player still sees an anim cue during the strike.
-        BossAttackProfile::MemorizedVolley => &["spike_halo", "eye_beam"],
-        BossAttackProfile::LockOnBeam => &["eye_beam", "spike_halo"],
-        BossAttackProfile::PitTrap
-        | BossAttackProfile::RotatingCross
-        | BossAttackProfile::MinionCascade => &["spike_halo"],
+        // Content specials carry their telegraph rows as installed data
+        // (see `install_boss_special_anim_keys`), so the engine names no
+        // specific special here. Unregistered → no special row.
+        BossAttackProfile::Special(key) => special_anim_keys(key),
         // GNU-ton profiles use gameplay-specific canonical keys in
         // the runtime RON so one visual row can expose multiple
         // boxes (e.g. hand_slam vs shockwave). Accept the visual row
@@ -493,11 +515,8 @@ pub fn boss_animation_keys_for_profile(
         BossAttackProfile::ConvergingShockwave => &["gnu_shockwave", "hand_slam"],
         BossAttackProfile::HandSweep => &["gnu_hand_sweep", "hand_sweep"],
         BossAttackProfile::HeadDescent => &["gnu_head_descent", "head_down"],
-        // Apple rain damages via spawned projectile bodies, not a
-        // body-mounted AABB — no hitbox lookup needed.
-        BossAttackProfile::DebrisRain => &[],
-        // Remaining profiles (WingSweep / DiveLane / Broadside)
-        // belong to the legacy aerial bosses that still rely on
+        // Remaining profiles (WingSweep / DiveLane / Broadside) belong to
+        // the legacy aerial bosses that still rely on
         // `volumes_for_profile`'s fallback math.
         _ => &[],
     }

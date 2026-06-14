@@ -259,7 +259,7 @@ impl std::fmt::Display for Brain {
 /// apple rain, and Gradient Sentinel boss specials. Pogo and player
 /// projectile charge / motion-input handling remain explicit
 /// player-specific direct paths.
-#[derive(Message, Clone, Copy, Debug)]
+#[derive(Message, Clone, Debug)]
 pub struct ActorActionMessage {
     /// The actor that wants the action.
     pub actor: Entity,
@@ -867,7 +867,7 @@ mod tests {
         let received: Vec<_> = messages.drain().collect();
         assert_eq!(received.len(), 1, "expected one Melee message");
         assert_eq!(received[0].actor, entity);
-        match received[0].request {
+        match received[0].request.clone() {
             ActionRequest::Melee {
                 origin,
                 facing,
@@ -921,7 +921,7 @@ mod tests {
         };
         let req = resolve_action_requests(&kit, &frame, snap.actor_pos);
         assert_eq!(req.len(), 1, "exactly one ranged request");
-        match req[0] {
+        match req[0].clone() {
             ActionRequest::Ranged { spec, dir, .. } => {
                 assert!(
                     matches!(spec, RangedActionSpec::Bolt { .. }),
@@ -970,7 +970,7 @@ mod tests {
         let brute_req = resolve_action_requests(&brute_kit, &frame_b, snap.actor_pos);
         assert_eq!(goblin_req.len(), 1);
         assert_eq!(brute_req.len(), 1);
-        match (goblin_req[0], brute_req[0]) {
+        match (goblin_req[0].clone(), brute_req[0].clone()) {
             (
                 ActionRequest::Melee {
                     spec: MeleeActionSpec::Swipe(_),

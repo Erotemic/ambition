@@ -1,0 +1,33 @@
+// Authored wave timeline for the goblin mob-lab encounter — content data,
+// installed into the engine's `EncounterWaveBook` holder by
+// `ambition_content::install_encounter_waves`. The engine's encounter loader
+// reads this by trigger id; any encounter NOT in this book falls back to one
+// wave assembled from its LDtk `EnemySpawn` markers. Keys are encounter trigger
+// ids; values are the ordered waves (active-area-local coords; arena floor
+// y≈608, doorway x=480–704, so wave mobs sit deeper at x≈1180/1500).
+{
+    "goblin_encounter": [
+        (
+            label: "wave 1 — flank the doorway",
+            mobs: [
+                (kind: "medium_striker", spawn: (1180.0, 580.0), size: (22.0, 38.0), delay: 0.0),
+                (kind: "medium_striker", spawn: (1500.0, 580.0), size: (22.0, 38.0), delay: 0.0),
+            ],
+        ),
+        (
+            label: "wave 2 — goblins + heavy",
+            mobs: [
+                (kind: "medium_striker", spawn: (1180.0, 580.0), size: (22.0, 38.0), delay: 0.0),
+                (kind: "medium_striker", spawn: (1500.0, 580.0), size: (22.0, 38.0), delay: 0.70),
+                (kind: "large_brute", spawn: (1340.0, 562.0), size: (32.0, 56.0), delay: 2.60),
+            ],
+        ),
+        (
+            label: "wave 3 — heavy duo",
+            mobs: [
+                (kind: "large_brute", spawn: (1180.0, 562.0), size: (32.0, 56.0), delay: 0.0),
+                (kind: "large_brute", spawn: (1500.0, 562.0), size: (32.0, 56.0), delay: 0.0),
+            ],
+        ),
+    ],
+}

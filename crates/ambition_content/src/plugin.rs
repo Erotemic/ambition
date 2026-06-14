@@ -28,6 +28,16 @@ impl Plugin for AmbitionContentPlugin {
         // standalone fallback.
         super::enemy_roster::install();
 
+        // Install authored encounter wave timelines (goblin mob-lab, …) into the
+        // machinery lib's wave book before the encounter loader runs — the engine
+        // hard-codes no encounter's waves.
+        ambition_sandbox::encounter::install_encounter_waves(
+            ron::from_str(include_str!(
+                "../assets/data/encounters/goblin_encounter.ron"
+            ))
+            .expect("goblin_encounter.ron should parse as an encounter wave book"),
+        );
+
         app.add_plugins(super::quests::AmbitionQuestContentPlugin);
         app.add_plugins(super::bosses::AmbitionBossContentPlugin);
         app.add_plugins(super::dialogue::AmbitionDialogueContentPlugin);

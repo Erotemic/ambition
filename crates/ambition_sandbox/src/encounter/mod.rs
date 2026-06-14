@@ -22,7 +22,7 @@ mod switches;
 mod systems;
 
 pub use events::EncounterEvent;
-pub use loading::load_encounter_specs_from_ldtk;
+pub use loading::{install_encounter_waves, load_encounter_specs_from_ldtk};
 #[cfg(test)]
 use lock_walls::sync_lock_walls;
 pub use music::{BossEncounterMusicRequest, EncounterMusicRequest};

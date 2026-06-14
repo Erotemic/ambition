@@ -4,14 +4,59 @@ use crate::ldtk_world::LdtkProject;
 
 use super::{EncounterMobSpec, EncounterSpec, EncounterWaveSpec, LockWallSpec};
 
+use std::collections::HashMap;
+
+/// Content-installed encounter wave timelines, keyed by trigger id. An encounter
+/// whose id is in this book gets its authored multi-wave sequence; any other
+/// encounter falls back to one wave assembled from its LDtk `EnemySpawn`
+/// markers. This is the seam that keeps the engine's encounter loader from
+/// naming any specific encounter — the goblin (and future) wave data is content
+/// (`ambition_content/assets/data/encounters/*.ron`).
+static ENCOUNTER_WAVE_BOOK: std::sync::OnceLock<HashMap<String, Vec<EncounterWaveSpec>>> =
+    std::sync::OnceLock::new();
+
+/// Install the authored encounter wave timelines — `ambition_content` calls this
+/// at plugin-build time (before the first `load_encounter_specs_from_ldtk`).
+pub fn install_encounter_waves(book: HashMap<String, Vec<EncounterWaveSpec>>) {
+    let _ = ENCOUNTER_WAVE_BOOK.set(book);
+}
+
+/// Test fixture: the lib's own loader tests read content's authoritative
+/// `encounters/goblin_encounter.ron` at compile time (cfg(test) only —
+/// production embeds no encounter wave data and requires the content install).
+#[cfg(test)]
+static ENCOUNTER_WAVE_BOOK_FIXTURE: std::sync::LazyLock<HashMap<String, Vec<EncounterWaveSpec>>> =
+    std::sync::LazyLock::new(|| {
+        ron::from_str(include_str!(
+            "../../../ambition_content/assets/data/encounters/goblin_encounter.ron"
+        ))
+        .expect("goblin_encounter.ron should parse as an encounter wave book")
+    });
+
+/// The authored multi-wave timeline for a trigger id, or `None` to fall back to
+/// one wave from the level's LDtk `EnemySpawn` markers. Production reads the
+/// content install; lib tests read content's authored RON via the fixture.
+fn authored_encounter_waves(id: &str) -> Option<Vec<EncounterWaveSpec>> {
+    if let Some(book) = ENCOUNTER_WAVE_BOOK.get() {
+        return book.get(id).cloned();
+    }
+    #[cfg(test)]
+    {
+        return ENCOUNTER_WAVE_BOOK_FIXTURE.get(id).cloned();
+    }
+    #[cfg(not(test))]
+    None
+}
+
 /// Read all `EncounterTrigger` + `LockWall` markers in the active
 /// LDtk project, build matching `EncounterSpec`s, and register them.
 ///
-/// Runs once after startup (or after a hot reload). The goblin_encounter area
-/// gets its waves from a hard-coded `goblin_encounter_wave_specs()` rather
-/// than from LDtk EnemySpawn markers, so the spawn timeline (delays
-/// between waves and within waves) lives in code where it's easier to
-/// tune than in the LDtk JSON.
+/// Runs once after startup (or after a hot reload). An encounter whose trigger
+/// id has an authored entry in the content-installed wave book (see
+/// [`install_encounter_waves`]) gets that multi-wave timeline — the spawn
+/// cadence (delays between/within waves) is data in `encounters/*.ron`, not
+/// LDtk JSON. Any other encounter falls back to one wave assembled from its
+/// LDtk `EnemySpawn` markers. The loader names no specific encounter.
 pub fn load_encounter_specs_from_ldtk(
     project: &LdtkProject,
     save: &crate::persistence::save_data::SandboxSaveData,
@@ -41,13 +86,14 @@ pub fn load_encounter_specs_from_ldtk(
                 size: [e.width as f32, e.height as f32],
             });
 
-        // Hard-coded waves for known encounters. Falls back to one
-        // wave assembled from LDtk EnemySpawn markers for areas the
-        // sandbox doesn't have a builder for yet.
-        let waves = match trigger_id.as_str() {
-            "goblin_encounter" => goblin_encounter_wave_specs(),
-            _ => fallback_waves_from_enemy_spawns(level),
-        };
+        // Authored waves come from the content-installed wave book (keyed by
+        // trigger id); any encounter without an authored timeline falls back to
+        // one wave assembled from its LDtk EnemySpawn markers. The engine names
+        // no specific encounter.
+        let authored = authored_encounter_waves(&trigger_id);
+        let waves = authored
+            .clone()
+            .unwrap_or_else(|| fallback_waves_from_enemy_spawns(level));
 
         let spec = EncounterSpec {
             id: trigger_id.clone(),
@@ -57,8 +103,10 @@ pub fn load_encounter_specs_from_ldtk(
             camera_zoom,
             lock_wall,
             intro_seconds: 2.5,
-            // goblin_encounter is now driven by generated_music.rs: intro -> adaptive stem loops -> outro.
-            music_track: if trigger_id == "goblin_encounter" {
+            // Authored encounters (those with a wave-book entry) are driven by
+            // generated_music.rs (intro → adaptive stem loops → outro), signalled
+            // by an empty track id; marker-only encounters use the shared loop.
+            music_track: if authored.is_some() {
                 String::new()
             } else {
                 "pulse_drift_voyage".into()
@@ -69,61 +117,6 @@ pub fn load_encounter_specs_from_ldtk(
         out.push((trigger_id, spec, persisted));
     }
     out
-}
-
-/// Build the canonical mob-lab wave spec — the user-authored fight
-/// sequence:
-///
-/// - Wave 1: 2 mid-tier enemies, one each side (no sandbag respawn).
-/// - Wave 2: 2 goblins immediately + 1 big goblin after a few seconds
-///   (delay-based sub-spawn — wave 2 doesn't clear until all three
-///   are down).
-/// - Wave 3: 2 big goblins.
-///
-/// Positions assume the goblin_encounter arena floor (y=608) and span from
-/// the divider-jamb edge (~x=720) to the back wall (~x=1584). The
-/// arena is roughly 850x600 of usable space.
-pub fn goblin_encounter_wave_specs() -> Vec<EncounterWaveSpec> {
-    // Active-area-local coords. The arena floor is y=608 and the
-    // doorway opening is at x=480-704. The encounter trigger spans
-    // x=920-1160, so wave mobs sit deeper still — past the trigger
-    // so they're visible after the camera zooms out and so the
-    // player has crossed into the arena before the wall slams.
-    let left_x: f32 = 1180.0;
-    let right_x: f32 = 1500.0;
-    let floor_y: f32 = 580.0; // ~30 px above the floor (mob centered)
-    let goblin_size = [22.0, 38.0];
-    let big_size = [32.0, 56.0];
-    vec![
-        EncounterWaveSpec {
-            label: "wave 1 — flank the doorway".into(),
-            mobs: vec![
-                EncounterMobSpec::new("medium_striker", [left_x, floor_y]).with_size(goblin_size),
-                EncounterMobSpec::new("medium_striker", [right_x, floor_y]).with_size(goblin_size),
-            ],
-        },
-        EncounterWaveSpec {
-            label: "wave 2 — goblins + heavy".into(),
-            mobs: vec![
-                EncounterMobSpec::new("medium_striker", [left_x, floor_y]).with_size(goblin_size),
-                EncounterMobSpec::new("medium_striker", [right_x, floor_y])
-                    .with_size(goblin_size)
-                    .with_delay(0.70),
-                // Big goblin reinforcement on a timer, fires whether
-                // or not the goblins are still up.
-                EncounterMobSpec::new("large_brute", [(left_x + right_x) * 0.5, floor_y - 18.0])
-                    .with_size(big_size)
-                    .with_delay(2.60),
-            ],
-        },
-        EncounterWaveSpec {
-            label: "wave 3 — heavy duo".into(),
-            mobs: vec![
-                EncounterMobSpec::new("large_brute", [left_x, floor_y - 18.0]).with_size(big_size),
-                EncounterMobSpec::new("large_brute", [right_x, floor_y - 18.0]).with_size(big_size),
-            ],
-        },
-    ]
 }
 
 fn fallback_waves_from_enemy_spawns(
@@ -160,7 +153,8 @@ mod loading_tests {
 
     #[test]
     fn goblin_waves_escalate_and_spawn_past_the_trigger() {
-        let waves = goblin_encounter_wave_specs();
+        let waves = authored_encounter_waves("goblin_encounter")
+            .expect("goblin_encounter has an authored wave book entry");
         assert_eq!(waves.len(), 3, "three authored waves");
 
         // Documented spatial invariant: every wave mob sits past the

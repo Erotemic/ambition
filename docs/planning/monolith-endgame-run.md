@@ -127,6 +127,19 @@ above): boss sprites (render-blind frame data), item art, dialogue `.yarn`
 (lib-resident), and crate extraction (`combat`/`persistence` are woven into
 ~10 subsystems each — no clean leaf).
 
+**Then, drawing tasks from the repo's own TODO** (the long-run "scan for the next
+real task" fallback once the de-naming/feature frontier was exhausted):
+- **Refactor 6 (elevated TODO: split the god-modules to shrink the ~10-min
+  incremental rebuild unit).** Already dissolved `brain_effects.rs` (2256→518) in
+  the de-naming work; this push split `damage.rs` (1443 → 1225) into focused
+  siblings — `damage_drops.rs` (loot/death-blast spawners) + `damage_predicates.rs`
+  (read-only hit-test predicates). Pure code-moves, public paths preserved, replay
+  bit-identical.
+- **Jon's polish list — lasersword detonation.** A timed-out / wall-killed
+  lasersword now emits the rendered explosion VFX + blast SFX (reusing the proven
+  mite-death explosion), keyed on its owner prefix; presentation-only so replay is
+  untouched. Marked done in TODO.md with a handoff note.
+
 | Phase | Est | Actual | Status | Notes |
 |-------|-----|--------|--------|-------|
 | A — open boss vocab seam | 1.0h | ~0.5h | **DONE** | Both foundation enums (`BossAttackProfile`, `SpecialActionSpec`) lost their 6 boss-named special variants → one open `Special(String)` carrier; params/anim-keys/behavior moved to content keyed by string; anim-key install-holder added; RON re-authored; `Copy` dropped (contained). Replay bit-identical (zero divergence); 988 lib + 187 actor + 40 content + 3 scripted + 27 arch all green. |

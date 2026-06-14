@@ -96,7 +96,6 @@ pub struct SummonSpec {
     pub archetype_id: String,
     pub encounter_id: String,
     pub faction: ActorFaction,
-    pub aggression: crate::features::ActorAggression,
 }
 
 /// A composable effect an actor *technique* emits. [`apply_effects`] executes
@@ -151,23 +150,11 @@ pub fn apply_effects(mut commands: Commands, mut requests: MessageReader<EffectR
                     },
                 );
             }
-            Effect::Summon(s) => {
-                crate::features::spawn_runtime_minion(
-                    &mut commands,
-                    s.id.clone(),
-                    s.name.clone(),
-                    s.pos,
-                    s.half_size,
-                    &s.archetype_id,
-                    s.encounter_id.clone(),
-                    s.faction,
-                    s.aggression.clone(),
-                );
-            }
-            // Enemy-pool projectiles are materialized by the projectile
-            // substrate's executor (`apply_projectile_effects`) at the spawn
-            // slot, so the shared `ProjectileSeq` order is preserved.
-            Effect::Projectiles { .. } => {}
+            // Summon + Projectiles are materialized by lib-side executors next
+            // to their substrate (`apply_summon_effects` / `apply_projectile_effects`),
+            // so this stays substrate-free for the `ambition_effects` crate. The
+            // projectile executor also preserves the shared `ProjectileSeq` order.
+            Effect::Summon(_) | Effect::Projectiles { .. } => {}
         }
     }
 }

@@ -79,7 +79,15 @@ impl Plugin for CombatSchedulePlugin {
                 // slam), faction-tagged at the emitter, resolved by
                 // `apply_hitbox_damage` below. Runs at the position the bespoke
                 // shockwave consumer used, so spawn timing is unchanged.
-                ambition_sandbox::effects::apply_effects.run_if(gameplay_allowed),
+                // Box + Summon executors, nested into one chained group (keeps
+                // the outer tuple within Bevy's 20-system limit). Summon stays
+                // lib-side (the enemy roster) so `apply_effects` is substrate-free;
+                // same slot as before, so minion spawn timing is unchanged.
+                (
+                    ambition_sandbox::effects::apply_effects.run_if(gameplay_allowed),
+                    ambition_sandbox::features::apply_summon_effects.run_if(gameplay_allowed),
+                )
+                    .chain(),
                 // Phase 3b enemy-pool spawn consumer: drains SpawnProjectile
                 // messages emitted by the EFFECTS-stage fire consumers above
                 // (apple rain / overfit volley / eye beam / ranged bolts /

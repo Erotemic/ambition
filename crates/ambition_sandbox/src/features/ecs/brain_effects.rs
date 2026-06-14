@@ -751,7 +751,6 @@ pub fn spawn_minima_trap_from_special_messages(
                     archetype_id: MINIMA_TRAP_MINION_ARCHETYPE.to_string(),
                     encounter_id,
                     faction: crate::features::ActorFaction::Enemy,
-                    aggression: crate::features::ActorAggression::hostile_to_player(),
                 }),
             });
         }
@@ -991,7 +990,6 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
                     archetype_id: GRADIENT_CASCADE_MINION_ARCHETYPE.to_string(),
                     encounter_id: encounter_id.clone(),
                     faction: crate::features::ActorFaction::Enemy,
-                    aggression: crate::features::ActorAggression::hostile_to_player(),
                 }),
             });
         }
@@ -1809,6 +1807,7 @@ mod tests {
             (
                 spawn_minima_trap_from_special_messages,
                 crate::effects::apply_effects,
+                crate::features::apply_summon_effects,
             )
                 .chain(),
         );
@@ -1871,6 +1870,7 @@ mod tests {
             (
                 spawn_minima_trap_from_special_messages,
                 crate::effects::apply_effects,
+                crate::features::apply_summon_effects,
             )
                 .chain(),
         );
@@ -2022,6 +2022,7 @@ mod tests {
             (
                 spawn_minima_trap_from_special_messages,
                 crate::effects::apply_effects,
+                crate::features::apply_summon_effects,
             )
                 .chain(),
         );
@@ -2085,7 +2086,7 @@ mod tests {
             Update,
             (
                 spawn_gradient_cascade_minions_from_special_messages,
-                crate::effects::apply_effects,
+                crate::features::apply_summon_effects,
             )
                 .chain(),
         );
@@ -2140,7 +2141,7 @@ mod tests {
             Update,
             (
                 spawn_gradient_cascade_minions_from_special_messages,
-                crate::effects::apply_effects,
+                crate::features::apply_summon_effects,
             )
                 .chain(),
         );

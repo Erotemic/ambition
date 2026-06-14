@@ -24,7 +24,8 @@ use crate::menu::kaleidoscope_app::{
     KaleidoscopeSystemNav, SystemMenuParams,
 };
 use crate::menu::model::{
-    system_max_window_start, MenuFocus, MenuPage, MenuPageAction, SYSTEM_VISIBLE_ROWS,
+    scroll_fraction_to_window_start, system_max_window_start, MenuFocus, MenuPage, MenuPageAction,
+    SYSTEM_VISIBLE_ROWS,
 };
 use ambition_sandbox::audio::SfxMessage;
 use ambition_sandbox::input::MenuControlFrame;
@@ -870,13 +871,9 @@ pub(crate) fn grid_menu_apply_scroll_drag(
     let active_page = tab_page(tab_state.active_tab);
     let model = system.model(&settings);
     let total = grid_system_row_count(active_page, &system_nav, &model);
-    if total <= SYSTEM_VISIBLE_ROWS {
-        return;
+    if let Some(start) = scroll_fraction_to_window_start(total, fraction) {
+        tab_state.system_window_start = Some(start);
     }
-    let max = system_max_window_start(total);
-    // Map the 0..=1 track fraction onto 0..=max window-start rows (round to nearest).
-    let start = (fraction * max as f32).round() as usize;
-    tab_state.system_window_start = Some(start.min(max));
 }
 
 /// Pointer/touch: a press on a tagged control or tab captures the intent;

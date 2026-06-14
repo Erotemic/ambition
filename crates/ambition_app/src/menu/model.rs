@@ -691,6 +691,19 @@ pub fn system_max_window_start(total: usize) -> usize {
     total.saturating_sub(SYSTEM_VISIBLE_ROWS)
 }
 
+/// Map a scrollbar's neutral `0..=1` drag fraction onto a System-window START row
+/// for a list of `total` rows. `None` when the list fits (no scrolling). Single
+/// source of truth shared by BOTH backends' scroll-drag appliers (the cube's
+/// `kaleidoscope_apply_scroll_drag` + the grid's `grid_menu_apply_scroll_drag`),
+/// which previously each open-coded the same `(fraction * max).round().min(max)`.
+pub fn scroll_fraction_to_window_start(total: usize, fraction: f32) -> Option<usize> {
+    if total <= SYSTEM_VISIBLE_ROWS {
+        return None;
+    }
+    let max = system_max_window_start(total);
+    Some(((fraction.clamp(0.0, 1.0) * max as f32).round() as usize).min(max))
+}
+
 /// The cursor-derived scroll-window START (the window that keeps the focused row
 /// visible). The default when no explicit scroll override is in effect.
 pub fn system_window_start(rows: &[SystemRow], focus: MenuFocus) -> usize {

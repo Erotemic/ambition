@@ -22,7 +22,8 @@ use bevy::prelude::*;
 use crate::menu::effects::{MenuEffectManaQuery, MenuEffectPlayers};
 use crate::menu::model::{
     build_inventory_pages, items_detail_slot_text, system_detail_slot_text,
-    system_effective_window_start, system_max_window_start, system_rows, MenuFocus, MenuPage,
+    scroll_fraction_to_window_start, system_effective_window_start, system_max_window_start,
+    system_rows, MenuFocus, MenuPage,
     MenuPageAction, SystemRow, SYSTEM_VISIBLE_ROWS,
 };
 use ambition_sandbox::audio::SfxMessage;
@@ -2283,13 +2284,9 @@ fn kaleidoscope_apply_scroll_drag(
         return;
     };
     let total = system_row_count(&pages, &system_nav, &settings, &snapshot);
-    if total <= SYSTEM_VISIBLE_ROWS {
-        return;
+    if let Some(start) = scroll_fraction_to_window_start(total, fraction) {
+        scroll.system_window_start = Some(start);
     }
-    let max = system_max_window_start(total);
-    // Map the 0..=1 track fraction onto 0..=max window-start rows (round to nearest).
-    let start = (fraction * max as f32).round() as usize;
-    scroll.system_window_start = Some(start.min(max));
 }
 
 #[cfg(test)]

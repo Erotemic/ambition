@@ -753,6 +753,7 @@
             Special("gradient_cascade"),
             Special("overfit_volley"),
             Special("saddle_point"),
+            Special("mode_collapse_converge"),
         ],
         attack_cooldown: 1.0,
         attack_windup: 0.5,
@@ -785,6 +786,11 @@
                 Telegraph(profile: Special("overfit_volley"), duration: 1.0),
                 Strike(profile: Special("overfit_volley"), duration: 0.30),
                 Rest(duration: 0.9),
+                // Mode collapse: the diverse population converges onto the spot
+                // you stood on during the long telegraph — step off the mode.
+                Telegraph(profile: Special("mode_collapse_converge"), duration: 1.5),
+                Strike(profile: Special("mode_collapse_converge"), duration: 0.4),
+                Rest(duration: 1.2),
                 Telegraph(profile: Special("gradient_cascade"), duration: 1.0),
                 Strike(profile: Special("gradient_cascade"), duration: 0.5),
                 Rest(duration: 1.1),

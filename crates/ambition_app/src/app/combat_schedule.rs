@@ -67,7 +67,13 @@ impl Plugin for CombatSchedulePlugin {
                 // advances this frame.
                 ambition_content::bosses::specials::spawn_overfit_volley_from_special_messages
                     .run_if(gameplay_allowed),
-                ambition_content::bosses::specials::spawn_eye_beam_from_special_messages
+                // Content boss specials nested as one chain element (keeps the
+                // outer tuple under Bevy's 20-system limit). Independent of each
+                // other; both just need to run before the projectile slot below.
+                (
+                    ambition_content::bosses::specials::spawn_eye_beam_from_special_messages,
+                    ambition_content::bosses::specials::spawn_mode_collapse_converge_from_special_messages,
+                )
                     .run_if(gameplay_allowed),
                 ambition_content::bosses::specials::spawn_minima_trap_from_special_messages.run_if(gameplay_allowed),
                 ambition_content::bosses::specials::spawn_saddle_point_from_special_messages.run_if(gameplay_allowed),

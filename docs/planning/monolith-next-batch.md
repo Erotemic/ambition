@@ -11,9 +11,25 @@ a different platformer be built by ADDING a content crate without editing core?_
 Jon's four goals the work must serve: **(1)** incremental compile time, **(2)**
 agent-navigability, **(3)** idiomatic Bevy plugins, **(4)** audit-grade reuse.
 
+## Progress log (2026-06-14, executed)
+
+- **Batch 1 — VFX vocab → `ambition_effects`.** `VfxMessage`/`ParticleKind`/
+  `ExplosionKind` moved to the foundation crate; render/audio mappings stayed as
+  free fns. Presentation inward couplers **44 → 32**.
+- **Batch 2a — sprite-sheet metadata → NEW crate `ambition_sprite_sheet`.** The
+  `registry.rs` schema (clean leaf, only a build-time baked table coupled it) →
+  reusable crate; dependency inverted (`from_baked_table(table)`). **32 → 28**,
+  lib −529 LOC.
+- **Trace format → NEW crate `ambition_trace`.** `model`/`buffer`/`dump` (the
+  flight-recorder schema + buffer + writers) → reusable crate; recording systems
+  stay in `dev/trace`. Lib **87720 → 86809 LOC**; replay bit-identical throughout.
+
+Net: **3 foundation crates**, lib **88249 → 86809 LOC**, presentation couplers
+**44 → 28**. Remaining inventory + open directions below.
+
 ## Where we are (measured 2026-06-14)
 
-`ambition_sandbox` is **88k LOC** — still the monolith (next crate, `ambition_app`,
+`ambition_sandbox` is **~87k LOC** — still the monolith (next crate, `ambition_app`,
 is 21k). Subdir size vs **outward coupling** (distinct `crate::<mod>` paths each
 subdir imports — the extractability metric, not content-refs):
 

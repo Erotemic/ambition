@@ -85,6 +85,11 @@ another special-case branch to a core system. A narrow, specific type beats a
 wide generic one; add knobs only when a concrete use case lands. Do not open wide
 tech-debt surfaces.
 
+Prefer the solution that does not depend on incidental ordering — system-schedule order, query-iteration order, frame timing. Make the invariant explicit (consume the input, sort by a stable key) rather than relying on an order that happens to hold today.
+
+Prefer the solution that fixes the whole class at one seam over patching each symptom. If two things do the same job by different code, that divergence is itself a smell — unify them onto one path; "why is this case special?" is a question to chase, not accept.
+
+
 ## Important considerations
 
 If the code can be **refactored** so the solution better satisfies the high-weight

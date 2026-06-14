@@ -71,12 +71,6 @@ Entry format:
 - **Noticed while:** Stage 22 boss_encounter core move (Jon pushed back on the rename)
 - **UPDATE 2026-06-13:** the original "no generic effect-composition framework until a second boss needs one" verdict is **superseded** — the engine-for-other-games north star greenlit a generalized `ambition_effects` crate (Technique → Effect → Combat layering). This smell + the BossAttackProfile enum above are now the active targets of that design.
 
-## 2026-06-11 Portal body transit has no exit push-out (NPCs stick in the exit wall)
-- **Where:** placement::transfer_step / transit.rs ~412
-- **Smell:** a transited body is placed at `pp::map_point(centroid)` — right at the exit FACE, with no push-out along the exit normal (the comment calls this deliberate: reversibility + "emerges right at the face"). The player clears the wall over the next frames via the exit-normal MIN_EXIT_SPEED floor + carve + collision. But GROUND ITEMS get an explicit `pos = exit.pos + exit.normal * portal_exit_clearance(...)` — bodies do NOT, so a body with low exit velocity or different collision resolution (the kernel NPC, "gets stuck in the wall sometimes when you portal him around") can emerge embedded and never get pushed clear.
-- **Noticed while:** portal body-transit review
-- **Suggested fix / size:** M — clamp body exit depth to at least `portal_exit_clearance` along the exit normal (preserve the along-surface offset), mirroring ground items. RISK: changes core transit placement for the player too and touches the "reversibility" property — own focused slice through replay_fixture_regression / scripted_gameplay, not folded into a visuals change. (Note the avoid-pushout rule: this is the sanctioned straddle-eviction exception.)
-
 ## Resolved
 
 ## 2026-06-14 Cube edge-button (page-turn) handling was duplicated per face — RESOLVED 2026-06-14

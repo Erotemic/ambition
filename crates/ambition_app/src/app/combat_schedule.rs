@@ -75,6 +75,7 @@ impl Plugin for CombatSchedulePlugin {
                     ambition_content::bosses::specials::spawn_mode_collapse_converge_from_special_messages,
                     ambition_content::bosses::specials::spawn_gradient_nova_from_special_messages,
                     ambition_content::bosses::specials::spawn_overflow_flood_from_special_messages,
+                    ambition_content::bosses::specials::spawn_seismic_stomp_from_special_messages,
                 )
                     .run_if(gameplay_allowed),
                 ambition_content::bosses::specials::spawn_minima_trap_from_special_messages.run_if(gameplay_allowed),

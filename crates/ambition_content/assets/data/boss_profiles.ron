@@ -645,6 +645,7 @@
             FloorSlam,
             FullBodyPulse,
             SideSweep,
+            Special("seismic_stomp"),
         ],
         attack_cooldown: 1.0,
         attack_windup: 0.5,
@@ -676,6 +677,10 @@
                 Telegraph(profile: FloorSlam, duration: 0.9),
                 Strike(profile: FloorSlam, duration: 0.4),
                 Rest(duration: 0.9),
+                // Seismic stomp — a floor shockwave rolls out both ways; jump it.
+                Telegraph(profile: Special("seismic_stomp"), duration: 1.0),
+                Strike(profile: Special("seismic_stomp"), duration: 0.4),
+                Rest(duration: 1.1),
                 Telegraph(profile: FullBodyPulse, duration: 0.8),
                 Strike(profile: FullBodyPulse, duration: 0.4),
                 Rest(duration: 0.8),

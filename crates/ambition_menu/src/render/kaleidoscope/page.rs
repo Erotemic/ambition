@@ -189,6 +189,9 @@ fn spawn_panel_at_depth<Action>(
                 disabled: false,
             },
         ));
+        if active {
+            entity.insert(KaleidoscopeActiveFaceControl);
+        }
     } else {
         entity.insert(Pickable::IGNORE);
     }
@@ -346,6 +349,11 @@ fn spawn_control<Action>(
         },
         KaleidoscopeFade { base_alpha },
     ));
+    // Only controls on the active face are highlight-eligible (focus keys collide
+    // across the cube's simultaneously-spawned faces).
+    if active {
+        entity.insert(KaleidoscopeActiveFaceControl);
+    }
     // Feature C: a scrollbar is a DRAGGABLE control even with no `action` (it emits
     // `MenuScrollDragged` via the drag observers, not a click action). Tag it so the
     // projection system + drag observers can find it, and keep it pickable below

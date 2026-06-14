@@ -9,8 +9,8 @@
 //! `dev/journals/oot-cube-integration-plan.md`.
 
 use ambition_menu::kaleidoscope::{
-    rebuild_cube_faces, KaleidoscopeFocusVisuals, KaleidoscopeMenuConfig, KaleidoscopeMenuPlugin,
-    KaleidoscopeRender, KaleidoscopeRenderPre,
+    rebuild_cube_faces, KaleidoscopeActiveFaceControl, KaleidoscopeFocusVisuals,
+    KaleidoscopeMenuConfig, KaleidoscopeMenuPlugin, KaleidoscopeRender, KaleidoscopeRenderPre,
 };
 use ambition_menu::{
     ActiveMenuPages, AmbitionInventoryUiPlugin, AmbitionMenuControl, MenuDynamicText,
@@ -2001,7 +2001,15 @@ fn kaleidoscope_sync_focus_visuals(
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
     snapshot: SystemMenuSnapshotParams,
-    mut controls: Query<(&AmbitionMenuControl<MenuPageAction>, &mut MenuVisualState)>,
+    // ONLY the active face's controls are highlight-eligible. The cube spawns every
+    // face at once, and a focus key (an edge page-turn button, a row index) collides
+    // across faces — without this filter the same-keyed control on the side/back
+    // faces lit up too (e.g. turning to Quest left the System face's rows + the
+    // neighbours' `>`/`<` buttons highlighted alongside the real cursor target).
+    mut controls: Query<
+        (&AmbitionMenuControl<MenuPageAction>, &mut MenuVisualState),
+        With<KaleidoscopeActiveFaceControl>,
+    >,
 ) {
     let Some(active_page) = pages.active else {
         return;

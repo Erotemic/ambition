@@ -129,6 +129,16 @@ pub struct KaleidoscopeControlStyle {
     disabled: bool,
 }
 
+/// Marks a control that was spawned on the ACTIVE face (the one turned to the
+/// camera). The cube spawns every face's controls at once, so a focus key (an edge
+/// page-turn button, a row index) can collide across faces — a host highlight
+/// writer that matched purely by focus would light up the same-keyed control on the
+/// side/back faces too. Filtering the writer to `With<KaleidoscopeActiveFaceControl>`
+/// keeps the cursor highlight on the active face only. Re-stamped every rebuild
+/// (a page turn republishes), so it always reflects the current active page.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct KaleidoscopeActiveFaceControl;
+
 /// Marks the dedicated pause camera that frames the cube.
 #[derive(Component)]
 pub struct KaleidoscopePauseCamera;

@@ -168,17 +168,21 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
         KaleidoscopeRenderPre.run_if(kaleidoscope_render_needed),
     );
     app.add_systems(Startup, spawn_kaleidoscope_scrim)
+        // PHASE 1 — decide this frame's CONTENT, BEFORE the lib rebuild. Nav mutates
+        // the cursor; scroll/cache/republish derive the page model + System scroll
+        // window from it. Running republish BEFORE `rebuild_cube_faces` means a move
+        // that SHIFTS the System scroll window rebuilds the new rows the SAME frame as
+        // the highlight moves — eliminating the one-frame "highlight jumps, then the
+        // list scrolls" flash (republish used to run AFTER the rebuild, so the shifted
+        // window was not drawn until the next frame).
         .add_systems(
             Update,
             (
                 // Route pause/Esc, inventory, and map into the cube backend on the
-                // matching page before navigation consumes the frame.
-                // In MenuNavConsume so `fold_to_menu_control_frame`'s
-                // `.before(MenuNavConsume)` guarantees this sees the touch
-                // Menu-button press AFTER the fold writes it. Without set
-                // membership, the `.after(rebuild_cube_faces)` chain constraint
-                // could schedule this before the fold, making it miss the
-                // pressed_this_frame bit and never opening the menu on touch.
+                // matching page before navigation consumes the frame. In
+                // MenuNavConsume so `fold_to_menu_control_frame`'s
+                // `.before(MenuNavConsume)` guarantees this sees the touch Menu-button
+                // press AFTER the fold writes the pressed_this_frame bit.
                 kaleidoscope_menu_open_routing
                     .run_if(kaleidoscope_backend_active)
                     .in_set(ambition_sandbox::app::MenuNavConsume),
@@ -192,16 +196,22 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
                 kaleidoscope_scroll_wheel.run_if(kaleidoscope_menu_visible),
                 kaleidoscope_apply_scroll_drag.run_if(kaleidoscope_menu_visible),
                 // Build the System model + radio/dev snapshots ONCE per frame; the
-                // republish + both in-place sync systems below read this cache instead
-                // of each rebuilding it (3 heavy builds/frame → 1 on the System face).
+                // republish + both in-place sync systems read this cache instead of
+                // each rebuilding it (3 heavy builds/frame → 1 on the System face).
                 cache_system_menu.run_if(kaleidoscope_menu_visible),
                 // Republish the cube's model only for the cube backend; Grid builds and
                 // dirties its own page model.
                 republish_kaleidoscope_pages.run_if(kaleidoscope_menu_visible),
-                // The focus HIGHLIGHT and the detail-panel TEXT now update IN PLACE
-                // from the live cursor (no face rebuild), so a mouse move no longer
-                // despawns the hovered control between a pointer press and release —
-                // the deferred Bug 2 (clicks were dropped on the entity-id mismatch).
+            )
+                .chain()
+                .before(rebuild_cube_faces::<MenuPage, MenuPageAction>),
+        )
+        // PHASE 2 — reflect that content, AFTER the lib rebuild. The focus HIGHLIGHT
+        // and the detail-panel TEXT update IN PLACE from the live cursor over the
+        // freshly (re)built controls.
+        .add_systems(
+            Update,
+            (
                 kaleidoscope_sync_focus_visuals.run_if(kaleidoscope_menu_visible),
                 kaleidoscope_sync_detail_text.run_if(kaleidoscope_menu_visible),
                 gate_kaleidoscope_menu,
@@ -212,16 +222,12 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
                 fade_kaleidoscope_scrim.run_if(kaleidoscope_render_needed),
             )
                 .chain()
-                // CURSOR-HIGHLIGHT fix: the lib renders the focus highlight (material
-                // recolour + white selection corners) from `MenuVisualState` via the
-                // `Changed`-gated `KaleidoscopeFocusVisuals` readers. Run this chain —
-                // which includes the `kaleidoscope_sync_focus_visuals` WRITER — AFTER
+                // CURSOR-HIGHLIGHT fix: the lib renders the focus highlight from
+                // `MenuVisualState` via the `Changed`-gated `KaleidoscopeFocusVisuals`
+                // readers. Run the `kaleidoscope_sync_focus_visuals` WRITER AFTER
                 // `rebuild_cube_faces` (so a republish that respawns the controls can't
-                // wipe the flags the writer set) and BEFORE the lib readers (so they see
-                // the flipped flags the same frame). Without these edges the writer and
-                // the rebuild/readers were unordered: a republish-driven rebuild reset
-                // `MenuVisualState` after the write and/or the readers ran first, so the
-                // highlight never appeared (keyboard nav + mouse hover both went dark).
+                // wipe the flags it set) and BEFORE the lib readers (so they see the
+                // flipped flags the same frame).
                 .after(rebuild_cube_faces::<MenuPage, MenuPageAction>)
                 .before(KaleidoscopeFocusVisuals),
         )
@@ -1276,6 +1282,25 @@ pub(crate) fn system_focus_nav(
     }
 
     if menu.select {
+        // A `>`/`<` page-turn button is SELECTABLE on the System face exactly like on
+        // every other face: select rotates to that neighbour. Without this, an edge
+        // focus fell through to the row dispatch below — where `current` had been
+        // normalised to `rows[0]` (the cursor isn't a `System(idx)`) — so selecting
+        // `>Quest` wrongly activated the first System row. (Grid passes
+        // `allow_page_turn=false` and can never reach an edge, so this is inert there.)
+        if allow_page_turn {
+            match cursor.focus {
+                MenuFocus::EdgeLeft => {
+                    turn_page_seeded(pages, cursor, active_page.on_viewer_left(), sfx);
+                    return;
+                }
+                MenuFocus::EdgeRight => {
+                    turn_page_seeded(pages, cursor, active_page.on_viewer_right(), sfx);
+                    return;
+                }
+                _ => {}
+            }
+        }
         if let Some(action) = system_row_action_for(&model, current) {
             let mut close_menu = false;
             crate::menu::dispatch::dispatch_menu_action(
@@ -2691,6 +2716,43 @@ mod lunex_kaleidoscope_app_tests {
         }
         app.insert_resource(frame);
         app.update();
+    }
+
+    fn press_select(app: &mut App) {
+        app.insert_resource(MenuControlFrame {
+            select: true,
+            ..Default::default()
+        });
+        app.update();
+    }
+
+    /// REGRESSION: on the System face, SELECT while the cursor sits on a `>`/`<`
+    /// page-turn edge button must ROTATE to that neighbour — exactly like every other
+    /// face. The System branch used to fall through to the row dispatch with `current`
+    /// normalised to `rows[0]`, so selecting `>Quest` wrongly activated the first
+    /// System row instead of turning the page.
+    #[test]
+    fn select_on_system_edge_button_turns_the_page() {
+        let mut right = system_nav_app(MenuFocus::EdgeRight);
+        press_select(&mut right);
+        assert_eq!(
+            right
+                .world()
+                .resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+                .active,
+            Some(MenuPage::System.on_viewer_right()),
+            "SELECT on the right edge rotates to the viewer-right page"
+        );
+
+        let mut left = system_nav_app(MenuFocus::EdgeLeft);
+        press_select(&mut left);
+        assert_eq!(
+            left.world()
+                .resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+                .active,
+            Some(MenuPage::System.on_viewer_left()),
+            "SELECT on the left edge rotates to the viewer-left page"
+        );
     }
 
     #[test]

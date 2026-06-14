@@ -20,6 +20,12 @@ Entry format:
 
 ---
 
+## 2026-06-14 Cube edge-button (page-turn) handling is duplicated + divergent per face
+- **Where:** crates/ambition_app/src/menu/kaleidoscope_app.rs — `kaleidoscope_focus_nav` (the placeholder Map/Quest branch, ~line 985-1030) vs `system_focus_nav` (~line 1210-1300). Both implement "cursor on a `>`/`<` edge button → step inward / rotate" and "SELECT on an edge → rotate", but separately.
+- **Smell:** the System face re-implements edge-button nav by hand and drifted from the generic face handler. The `dx`-outward turn was already special (raw `turn_page` + `cursor = System(0)`), and SELECT-on-edge was simply MISSING — it fell through to the row dispatch with `current` normalised to `rows[0]`, so selecting `>Quest` activated the first System row. Jon: "Why is system being treated in such a special way? That is a smell." Two point-fixes landed (turn_page_seeded for the cursor landing; an explicit edge-select arm), but the duplication remains: any future edge-nav change must be made in two places.
+- **Noticed while:** menu polish (select-on-edge bug + cursor-landing bug, 2026-06-14)
+- **Suggested fix / size:** M — extract a shared `edge_button_nav(cursor, active_page, dx, select, allow_page_turn, pages, sfx) -> Handled` helper consumed by BOTH the placeholder branch and `system_focus_nav`, so edge → inward/rotate/select is single-source. The System branch then only owns ROW logic. Guard with the new `select_on_system_edge_button_turns_the_page` + the bumper tests.
+
 ## Open
 
 ## 2026-06-13 Docs reference deleted RON-based levels

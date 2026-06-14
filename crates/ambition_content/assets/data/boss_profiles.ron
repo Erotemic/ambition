@@ -239,6 +239,8 @@
             WingSweep,
             DiveLane,
             Broadside,
+            // The mimic copies one shot across a cone aimed at you.
+            Special("echo_fan"),
         ],
         attack_cooldown: 1.05,
         attack_windup: 0.44,

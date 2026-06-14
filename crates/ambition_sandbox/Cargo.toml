@@ -353,6 +353,7 @@ ambition_time = { path = "../ambition_time" }
 # body component). The build-time foundation; re-exported as `crate::engine_core`
 # from lib.rs (ADR 0019). See docs/planning/plugin_refactor/15_post_task_k_revision.md.
 ambition_actor = { path = "../ambition_actor" }
+ambition_effects = { path = "../ambition_effects" }
 ambition_engine_core = { path = "../ambition_engine_core" }
 # Device -> ControlFrame input layer (SandboxAction / ControlFrame / presets /
 # input-domain settings). Re-exported as `crate::input` from lib.rs (ADR 0019);

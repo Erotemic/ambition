@@ -218,6 +218,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_effects"
+version = "0.1.0"
+dependencies = [
+ "ambition_actor",
+ "ambition_engine_core",
+ "ambition_platformer_runtime",
+ "bevy",
+]
+
+[[package]]
 name = "ambition_engine_core"
 version = "0.1.0"
 dependencies = [
@@ -281,6 +291,7 @@ dependencies = [
  "ambition_actor",
  "ambition_asset_manager",
  "ambition_audio",
+ "ambition_effects",
  "ambition_engine_core",
  "ambition_input",
  "ambition_menu",

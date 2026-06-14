@@ -26,8 +26,7 @@
 //! `HitboxAnchor::World` (Task B groundwork) is a fixed
 //! world-space rectangle for hazards / boss specials.
 
-use bevy::prelude::{Commands, Component, Entity, MessageWriter, Query, Res, With};
-use std::collections::HashSet;
+use bevy::prelude::{Commands, Entity, MessageWriter, Query, Res, With};
 
 use crate::engine_core as ae;
 use crate::engine_core::AabbExt;
@@ -40,65 +39,11 @@ use crate::presentation::fx::{ParticleKind, VfxMessage};
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 use crate::WorldTime;
 
-/// One in-flight strike's damage volume. Spawned on the windup →
-/// active edge of an attack; despawned when its `HitboxLifetime`
-/// expires.
-#[derive(Component, Clone, Debug)]
-pub struct Hitbox {
-    /// Entity that spawned the hitbox (skip self-hits, look up the
-    /// follow anchor's world position each tick).
-    pub owner: Entity,
-    /// Whose attack is this? Picks the target query in
-    /// `apply_hitbox_damage`.
-    pub source: ActorFaction,
-    /// FollowOwner re-resolves the AABB each tick from the owner's
-    /// authoritative position. World is fixed world-space.
-    pub anchor: HitboxAnchor,
-    pub half_extent: ae::Vec2,
-    pub damage: i32,
-    pub knockback_strength: f32,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum HitboxAnchor {
-    /// Melee swing — the hitbox tracks the owner's `pos` each tick
-    /// with a per-strike local offset baked at spawn time. Facing
-    /// is encoded in `local_offset.x`'s sign so a flipped attacker
-    /// doesn't need a per-frame re-spawn.
-    FollowOwner { local_offset: ae::Vec2 },
-    /// Arena hazard / boss special — fixed world-space rectangle.
-    /// Used by Task B's apple-rain / spotlight effect consumers.
-    #[allow(dead_code)]
-    World { center: ae::Vec2 },
-}
-
-#[derive(Component, Clone, Copy, Debug)]
-pub struct HitboxLifetime {
-    pub remaining_s: f32,
-}
-
-/// Hit-once set: targets the hitbox already damaged this strike.
-/// Stops a long active window from re-hitting a stationary target
-/// every frame (the old polled path leaned on player iframes for
-/// this; the explicit set removes the assumption).
-#[derive(Component, Default, Debug)]
-pub struct HitboxHits {
-    pub hit: HashSet<Entity>,
-}
-
-impl Hitbox {
-    /// Re-resolve this hitbox's world-space AABB. Computed every
-    /// tick rather than mirrored on the entity so a moving owner
-    /// doesn't need a per-frame component update.
-    pub fn world_aabb(&self, owner_pos: ae::Vec2) -> ae::Aabb {
-        let center = match self.anchor {
-            HitboxAnchor::FollowOwner { local_offset } => owner_pos + local_offset,
-            HitboxAnchor::World { center } => center,
-        };
-        // `Aabb::new` (Bevy `Aabb2d`) takes `(center, half_size)`.
-        ae::Aabb::new(center, self.half_extent)
-    }
-}
+// The hitbox COMPONENTS moved to the reusable `ambition_effects` crate (the
+// damage-box primitive). Re-exported here so `mechanics::combat::hitbox::Hitbox`
+// (and `features::Hitbox`) paths are unchanged; the SYSTEMS below (damage
+// resolution, melee spawn, lifecycle) stay in the lib.
+pub use ambition_effects::{Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime};
 
 /// Apply each live hitbox's damage to the right faction's targets.
 ///

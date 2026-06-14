@@ -1,0 +1,25 @@
+[package]
+name = "ambition_effects"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Reusable, content-free effect vocabulary: the Effect enum + EffectRequest seam + the generic executor, plus the world-anchored Hitbox damage-box component. A game's techniques emit these; the engine executes them. Extracted from ambition_sandbox."
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+# ECS surface only (Component / Message / Commands / Entity / Name via prelude).
+# No render/audio/windowing — this crate stays reusable and headless.
+bevy = { version = "0.18.1", default-features = false }
+
+# Geometry (Vec2 / Aabb) — the pure-logic foundation.
+ambition_engine_core = { path = "../ambition_engine_core" }
+
+# ActorFaction (a hitbox / effect is faction-tagged).
+ambition_actor = { path = "../ambition_actor" }
+
+# The projectile substrate: ProjectileFaction + the EnemyProjectileSpawn request
+# carried by Effect::Projectiles.
+ambition_platformer_runtime = { path = "../ambition_platformer_runtime" }

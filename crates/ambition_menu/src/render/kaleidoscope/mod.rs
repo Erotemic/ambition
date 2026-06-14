@@ -500,6 +500,13 @@ fn setup_cube(mut commands: Commands, config: Res<KaleidoscopeMenuConfig>) {
             ..default()
         },
         RenderLayers::layer(0),
+        // Set the vertical FOV explicitly from the SAME constant the geometry derives
+        // the camera distance from (instead of relying on Bevy's default happening to
+        // be 45°), so the framing margin stays correct if that default ever changes.
+        Projection::Perspective(PerspectiveProjection {
+            fov: crate::MenuCubeGeometry::CAMERA_FOV_RADIANS,
+            ..default()
+        }),
         // NO explicit Msaa: a Camera3d overlaying a Camera2d on the same window must
         // share its sample count or it renders its clear but drops all geometry. The
         // host's Camera2d uses the default (Msaa::Sample4); omitting Msaa here

@@ -485,13 +485,37 @@ pub struct MenuCubeGeometry {
 }
 
 impl MenuCubeGeometry {
-    pub const fn oot_like(page_radius: f32) -> Self {
+    /// The cube camera's VERTICAL field of view (radians). Single source of truth:
+    /// [`Self::oot_like`] derives the camera distance from it, AND the renderer sets
+    /// the camera's `PerspectiveProjection.fov` to it — so the two can't silently
+    /// disagree (previously the derivation implicitly assumed Bevy's 45° default).
+    pub const CAMERA_FOV_RADIANS: f32 = core::f32::consts::FRAC_PI_4; // 45°
+
+    /// Fraction of the half-screen-height the active face's top edge reaches; the
+    /// remainder is the top/bottom margin. `0.80` → ~20% margin. The camera distance
+    /// is DERIVED from this (below), so the margin is an explicit, readable knob
+    /// rather than an emergent side effect of a magic camera offset — and it survives
+    /// changes to the face aspect or page size.
+    pub const TARGET_FACE_FILL: f32 = 0.80;
+
+    pub fn oot_like(page_radius: f32) -> Self {
         let page_width = page_radius * 2.0;
+        let page_height = page_width * (160.0 / 240.0);
+        let face_half_height = page_height * 0.5;
+        // The active face is a plane at z = +page_radius; the camera sits at
+        // z = −camera_distance looking at the cube centre, so the camera-to-face
+        // distance is `page_radius + camera_distance`. With a vertical-FOV perspective
+        // camera the face's top edge reaches
+        //     fill = face_half_height / (distance · tan(fov/2))
+        // of the half-screen-height (aspect- AND page_radius-independent). Solve for
+        // the distance that yields `TARGET_FACE_FILL`, then back out the camera offset.
+        let distance =
+            face_half_height / (Self::TARGET_FACE_FILL * (Self::CAMERA_FOV_RADIANS * 0.5).tan());
         Self {
             page_radius,
             page_width,
-            page_height: page_width * (160.0 / 240.0),
-            camera_distance: page_radius * 0.80,
+            page_height,
+            camera_distance: distance - page_radius,
             camera_y: 0.0,
             look_y: 0.0,
         }
@@ -974,6 +998,31 @@ pub trait ItemsOnlyMenuAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The active face's vertical framing must hit `TARGET_FACE_FILL` (so the
+    /// top/bottom margin is the intended ~20%), independent of `page_radius`. This
+    /// recomputes the on-screen fill from the DERIVED camera distance + the shared
+    /// FOV, locking the camera_distance derivation in `oot_like` against drift.
+    #[test]
+    fn cube_face_vertical_fill_matches_target_margin() {
+        for radius in [1.0_f32, 2.85, 7.5] {
+            let geo = MenuCubeGeometry::oot_like(radius);
+            // The face plane sits at +page_radius; the camera at −camera_distance.
+            let distance = geo.page_radius + geo.camera_distance;
+            let face_half_height = geo.page_height * 0.5;
+            let fill = face_half_height
+                / (distance * (MenuCubeGeometry::CAMERA_FOV_RADIANS * 0.5).tan());
+            assert!(
+                (fill - MenuCubeGeometry::TARGET_FACE_FILL).abs() < 1.0e-4,
+                "radius {radius}: face fills {fill} of the half-screen, want {} \
+                 (~{:.0}% top/bottom margin)",
+                MenuCubeGeometry::TARGET_FACE_FILL,
+                (1.0 - MenuCubeGeometry::TARGET_FACE_FILL) * 100.0,
+            );
+        }
+        // 0.80 fill ⇒ a 20%-of-half-height margin, as requested.
+        assert!((MenuCubeGeometry::TARGET_FACE_FILL - 0.80).abs() < 1.0e-6);
+    }
 
     #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     enum Page {

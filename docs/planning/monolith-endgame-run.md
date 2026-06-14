@@ -102,6 +102,31 @@ to `dev/journals/code_smells.md` rather than chasing it.
 
 ## Progress / time log (estimated vs actual)
 
+## Run summary (live)
+
+14 commits, **every one replay bit-identical** (zero divergence) and green across
+actor (187) · lib (971) · content (47) · scripted (3) · architecture (27) ·
+`--features visible` build. Two threads:
+
+**Breakup / de-naming (the ask):** opened the boss-special vocabulary
+(`Special(String)`); moved all 5 boss Techniques + the new specials' data out of
+the engine; dissolved `brain_effects.rs` (2225→518); de-named the boss id list,
+boss rewards, and the goblin encounter waves+music. The engine lib now names no
+boss special, no boss reward, no boss list, and no encounter — all are content
+data, replay-proven equivalent.
+
+**Proof the seam works (skill's "build features" fallback once breakup's safe
+frontier was exhausted):** authored five new boss specials *entirely in content*
+with zero engine-lib edits — every one of the nine bosses now has a content
+special, across five distinct mechanic types (converging ring, diverging nova,
+find-the-gap flood, ground shockwave, aimed cone). This is the working
+demonstration of "a different game adds bosses/specials by editing only content."
+
+**Honestly deferred** (headless-unsafe or entangled — see the deferred list
+above): boss sprites (render-blind frame data), item art, dialogue `.yarn`
+(lib-resident), and crate extraction (`combat`/`persistence` are woven into
+~10 subsystems each — no clean leaf).
+
 | Phase | Est | Actual | Status | Notes |
 |-------|-----|--------|--------|-------|
 | A — open boss vocab seam | 1.0h | ~0.5h | **DONE** | Both foundation enums (`BossAttackProfile`, `SpecialActionSpec`) lost their 6 boss-named special variants → one open `Special(String)` carrier; params/anim-keys/behavior moved to content keyed by string; anim-key install-holder added; RON re-authored; `Copy` dropped (contained). Replay bit-identical (zero divergence); 988 lib + 187 actor + 40 content + 3 scripted + 27 arch all green. |

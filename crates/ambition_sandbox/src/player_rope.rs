@@ -196,14 +196,53 @@ fn rope_anchor(kin: &crate::player::BodyKinematics) -> ae::Vec2 {
     kin.aabb().center()
 }
 
-/// Passive plugin: keeps the player carrying a verlet trail rope. Renderer +
-/// world-collision drape + portal transit are the documented next increments
-/// (the rope simulates correctly today; it's just not yet drawn or collided).
+/// Hemp/manila rope colour — warm brown, fully opaque so the line reads against
+/// both bright and dark backgrounds.
+const ROPE_COLOR: Color = Color::srgb(0.62, 0.47, 0.30);
+
+/// Draw the rope as a single gizmo linestrip through its points, mapped from sim
+/// space into Bevy world space. This is presentation-only (no sim state touched),
+/// so it is harness-blind but replay-neutral. Drawn just behind the player so the
+/// rope reads as trailing from the body.
+pub fn render_player_rope(
+    world: Option<Res<crate::GameWorld>>,
+    ropes: Query<&PlayerTrailRope, With<crate::player::PlayerEntity>>,
+    mut gizmos: Gizmos,
+) {
+    let Some(world) = world.as_deref() else {
+        return;
+    };
+    let z = crate::config::WORLD_Z_PLAYER - 0.1;
+    for rope in &ropes {
+        if rope.points.len() < 2 {
+            continue;
+        }
+        let pts = rope
+            .points
+            .iter()
+            .map(|p| crate::config::world_to_bevy(&world.0, p.pos, z).truncate());
+        gizmos.linestrip_2d(pts, ROPE_COLOR);
+    }
+}
+
+/// Passive plugin: keeps the player carrying a verlet trail rope, simulates its
+/// drape against world solids, and draws it as a gizmo linestrip. Portal transit
+/// (the rope threading an aperture) is the documented next increment.
 pub struct PlayerRopePlugin;
 
 impl Plugin for PlayerRopePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (ensure_player_rope, update_player_rope).chain());
+        app.add_systems(
+            Update,
+            (
+                (ensure_player_rope, update_player_rope).chain(),
+                // Gizmo rendering only runs once the GizmoPlugin's config store
+                // exists — headless apps (replay/tests) carry no gizmos, so the
+                // draw system simply doesn't run there.
+                render_player_rope
+                    .run_if(resource_exists::<bevy::gizmos::config::GizmoConfigStore>),
+            ),
+        );
     }
 }
 

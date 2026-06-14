@@ -405,6 +405,26 @@ fn architecture_boundaries_menu_crate_stays_content_free() {
 }
 
 #[test]
+fn architecture_boundaries_effects_crate_is_foundation_only() {
+    let crate_root = repo_root().join("crates/ambition_effects");
+    assert!(
+        crate_root.join("Cargo.toml").exists(),
+        "ambition_effects crate should exist at crates/ambition_effects"
+    );
+    assert_manifest_has_no_deps(
+        &crate_root,
+        &["ambition_sandbox"],
+        "ambition_effects is the reusable effect substrate (Effect vocabulary + \
+         Hitbox + executor); it must never depend on the game lib",
+    );
+    assert_source_tree_has_no_code_refs(
+        crate_root.join("src"),
+        &["ambition_sandbox"],
+        "ambition_effects must stay content-free / foundation-only",
+    );
+}
+
+#[test]
 fn architecture_boundaries_input_crate_is_extracted() {
     let crate_root = repo_root().join("crates/ambition_input");
 

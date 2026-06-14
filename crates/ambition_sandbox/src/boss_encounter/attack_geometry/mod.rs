@@ -27,7 +27,7 @@ use crate::engine_core as ae;
 use bevy::prelude::Component;
 
 use crate::brain::{BossAttackProfile, BossAttackState};
-use crate::presentation::character_sprites::registry::{AnimationBox, BodyMetrics, PixelRect};
+use ambition_sprite_sheet::{AnimationBox, BodyMetrics, PixelRect};
 
 use super::behavior::BossBehaviorProfile;
 
@@ -91,7 +91,7 @@ fn world_aabb_from_pixel_rect(
 /// the legacy `world_size`-driven AABB rather than the sprite
 /// path.
 pub fn world_space_body_aabbs_from_parts(
-    body_pixel_parts: &[crate::presentation::character_sprites::registry::NamedPixelRect],
+    body_pixel_parts: &[ambition_sprite_sheet::NamedPixelRect],
     body_pixel_bbox: Option<PixelRect>,
     frame_width: u32,
     frame_height: u32,
@@ -345,7 +345,7 @@ fn sprite_world_size(
 }
 
 fn animation_frame_index(
-    entry: &crate::presentation::character_sprites::registry::AnimationMetrics,
+    entry: &ambition_sprite_sheet::AnimationMetrics,
     elapsed_s: f32,
 ) -> Option<usize> {
     let frame_duration = entry.frame_duration_secs?;
@@ -358,7 +358,7 @@ fn animation_frame_index(
 fn authored_animation_frame_index(
     ctx: &BossVolumeContext,
     profile: &BossAttackProfile,
-    entry: &crate::presentation::character_sprites::registry::AnimationMetrics,
+    entry: &ambition_sprite_sheet::AnimationMetrics,
     elapsed_s: f32,
 ) -> Option<usize> {
     if let Some(sample) = ctx.animation_frame {
@@ -376,7 +376,7 @@ fn authored_animation_frame_index(
 /// (which, with the idle elapsed of 0, would lock to frame 0).
 fn idle_animation_frame_index(
     ctx: &BossVolumeContext,
-    entry: &crate::presentation::character_sprites::registry::AnimationMetrics,
+    entry: &ambition_sprite_sheet::AnimationMetrics,
     elapsed_s: f32,
 ) -> Option<usize> {
     if let Some(sample) = ctx.animation_frame {

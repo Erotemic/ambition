@@ -313,7 +313,7 @@ mod scripted_pattern_tests {
     /// pinned even though gnu_ton_runtime doesn't go through
     /// `derive_boss_sprite_metrics`.
     fn gnu_ton_sprite_metrics_fixture() -> super::BossSpriteMetrics {
-        use crate::presentation::character_sprites::registry::{
+        use ambition_sprite_sheet::{
             AnimationBox, AnimationMetrics, NamedPixelRect,
         };
         use std::collections::HashMap;

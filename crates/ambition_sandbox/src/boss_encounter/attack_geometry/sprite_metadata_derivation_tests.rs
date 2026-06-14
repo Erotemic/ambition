@@ -1,6 +1,6 @@
 use super::*;
 use crate::engine_core::AabbExt;
-use crate::presentation::character_sprites::registry::{NamedPixelRect, PixelRect};
+use ambition_sprite_sheet::{NamedPixelRect, PixelRect};
 
 /// Centered pixel bbox at frame center → world AABB at world_center.
 /// The 128×128 frame with a 64×64 bbox at (32, 32) should map to
@@ -194,7 +194,7 @@ fn bounding_aabb_returns_none_for_empty_input() {
 fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
     use crate::boss_encounter::behavior::{BossBehaviorProfile, BossSpriteMetrics};
     use crate::brain::{BossAttackProfile, BossAttackState};
-    use crate::presentation::character_sprites::registry::{
+    use ambition_sprite_sheet::{
         AnimationBox, AnimationMetrics, PixelRect,
     };
     use std::collections::HashMap;
@@ -281,7 +281,7 @@ fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
 fn damageable_volumes_samples_per_frame_hurtbox_from_animation_elapsed() {
     use crate::boss_encounter::behavior::{BossBehaviorProfile, BossSpriteMetrics};
     use crate::brain::{BossAttackProfile, BossAttackState};
-    use crate::presentation::character_sprites::registry::{
+    use ambition_sprite_sheet::{
         AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
     };
     use std::collections::HashMap;
@@ -366,7 +366,7 @@ fn damageable_volumes_samples_per_frame_hurtbox_from_animation_elapsed() {
 fn animation_frame_sample_overrides_elapsed_frame_for_authored_boxes() {
     use crate::boss_encounter::behavior::{BossBehaviorProfile, BossSpriteMetrics};
     use crate::brain::{BossAttackProfile, BossAttackState};
-    use crate::presentation::character_sprites::registry::{
+    use ambition_sprite_sheet::{
         AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
     };
     use std::collections::HashMap;
@@ -453,7 +453,7 @@ fn idle_rest_hurtbox_follows_the_live_animation_frame() {
     // (`profile: None`) now feeds the live frame index through.
     use crate::boss_encounter::behavior::{BossBehaviorProfile, BossSpriteMetrics};
     use crate::brain::BossAttackState;
-    use crate::presentation::character_sprites::registry::{
+    use ambition_sprite_sheet::{
         AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
     };
     use std::collections::HashMap;
@@ -546,7 +546,7 @@ fn idle_rest_hurtbox_follows_the_live_animation_frame() {
 fn gnu_head_descent_accepts_visual_row_alias_for_runtime_boxes() {
     use crate::boss_encounter::behavior::{BossBehaviorProfile, BossSpriteMetrics};
     use crate::brain::{BossAttackProfile, BossAttackState};
-    use crate::presentation::character_sprites::registry::{
+    use ambition_sprite_sheet::{
         AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
     };
     use std::collections::HashMap;
@@ -656,7 +656,7 @@ fn damageable_volumes_scales_to_sprite_render_size() {
     use crate::boss_encounter::behavior::{BossBehaviorProfile, BossSpriteMetrics};
     use crate::brain::BossAttackState;
     use crate::engine_core::AabbExt;
-    use crate::presentation::character_sprites::registry::PixelRect;
+    use ambition_sprite_sheet::PixelRect;
     use std::collections::HashMap;
 
     let bbox = PixelRect {

@@ -20,7 +20,7 @@ use std::hash::{Hash, Hasher};
 use crate::engine_core::{self as ae, AabbExt};
 use crate::input::ControlFrame;
 use crate::player::{BodyKinematics, PlayerEntity, PlayerHealth, PlayerMana, PrimaryPlayer};
-use crate::presentation::character_sprites::{SheetRecord, SheetRegistry};
+use ambition_sprite_sheet::{SheetRecord, SheetRegistry};
 
 /// A healing / save-point shrine the player can `Interact` with.
 #[derive(Component, Clone, Copy, Debug)]
@@ -386,7 +386,7 @@ fn shrine_atlas_layout(record: &SheetRecord) -> TextureAtlasLayout {
 }
 
 fn frame_rect_to_urect(
-    rect: &crate::presentation::character_sprites::registry::FrameRect,
+    rect: &ambition_sprite_sheet::FrameRect,
 ) -> Option<bevy::math::URect> {
     let x = u32::try_from(rect.x).ok()?;
     let y = u32::try_from(rect.y).ok()?;
@@ -507,7 +507,7 @@ mod tests {
 
     #[test]
     fn shrine_sheet_exposes_idle_then_activate_rows() {
-        let registry = SheetRegistry::from_baked();
+        let registry = crate::presentation::character_sprites::baked_sheet_registry();
         let record = registry.get("shrine").expect("shrine sheet record");
         assert_eq!(record.rows.len(), 2);
         assert_eq!(shrine_row_start_index(record, "idle"), Some(0));

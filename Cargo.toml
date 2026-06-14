@@ -15,6 +15,7 @@ members = [
     "crates/ambition_sandbox",
     "crates/ambition_sfx",
     "crates/ambition_sfx_bank",
+    "crates/ambition_sprite_sheet",
     "crates/ambition_time",
 ]
 resolver = "2"

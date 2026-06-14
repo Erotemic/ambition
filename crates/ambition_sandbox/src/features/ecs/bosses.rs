@@ -33,7 +33,7 @@ use crate::features::bosses::BossSpriteMetrics;
 use crate::features::{
     boss_attack_damage, boss_special_for_profile, bounding_aabb, BossVolumeContext,
 };
-use crate::presentation::character_sprites::registry::SheetRegistry;
+use ambition_sprite_sheet::SheetRegistry;
 use bevy::prelude::{Commands, MessageWriter};
 
 /// Marker that a boss entity has had its sprite metrics applied
@@ -283,7 +283,7 @@ pub fn boss_spawn_hurtboxes(
     aabb: ae::Aabb,
     brain: crate::actor::BossBrain,
 ) -> Vec<ae::Aabb> {
-    let registry = SheetRegistry::from_baked();
+    let registry = crate::presentation::character_sprites::baked_sheet_registry();
     let mut boss = super::boss_clusters::BossClusterScratch::new(id, name, aabb, brain);
     if let Some((metrics, _)) = boss_sprite_metrics_from_registry(boss.as_ref(), &registry) {
         boss.status.sprite_metrics = Some(metrics);
@@ -721,7 +721,7 @@ mod tests {
 
     /// The extracted pure metrics derivation (`boss_sprite_metrics_from_registry`)
     /// reproduces GNU-ton's metrics without the ECS system, via
-    /// `SheetRegistry::from_baked()` (no Bevy `App`). It pins a
+    /// `crate::presentation::character_sprites::baked_sheet_registry()` (no Bevy `App`). It pins a
     /// non-obvious structural fact discovered while extracting it:
     /// GNU-ton's combat geometry comes entirely from its **per-animation
     /// hurtboxes** (the `animations` map), not from static
@@ -748,9 +748,9 @@ mod tests {
     #[test]
     fn gnu_ton_metrics_come_from_per_animation_hurtboxes() {
         use crate::features::bosses::BossBehaviorProfile;
-        use crate::presentation::character_sprites::registry::SheetRegistry;
+        use ambition_sprite_sheet::SheetRegistry;
 
-        let registry = SheetRegistry::from_baked();
+        let registry = crate::presentation::character_sprites::baked_sheet_registry();
         let pos = ae::Vec2::new(500.0, 400.0);
         let behavior = BossBehaviorProfile::gnu_ton();
         let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(220.0, 220.0));

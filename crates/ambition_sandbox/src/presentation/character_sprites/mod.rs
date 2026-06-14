@@ -32,7 +32,7 @@ pub use anim::{
     pick_enemy_anim, pick_npc_anim, pick_player_anim, CharacterAnim, EnemyAnimState, NpcAnimState,
 };
 pub use animator::CharacterAnimator;
-pub use registry::SheetRegistryPlugin;
+pub use registry::{baked_sheet_registry, SheetRegistryPlugin};
 // SheetRecord and SheetRegistry are kept in the module's public surface
 // for future consumers that want per-frame anchors / body bbox queries;
 // they're already loaded at startup by SheetRegistryPlugin. Re-export

@@ -433,8 +433,8 @@ pub fn canonical_boss_id_from(name: &str, brain: &crate::actor::BossBrain) -> St
 pub struct BossSpriteMetrics {
     pub frame_width: u32,
     pub frame_height: u32,
-    pub body_pixel_bbox: Option<crate::presentation::character_sprites::registry::PixelRect>,
-    pub body_pixel_parts: Vec<crate::presentation::character_sprites::registry::NamedPixelRect>,
+    pub body_pixel_bbox: Option<ambition_sprite_sheet::PixelRect>,
+    pub body_pixel_parts: Vec<ambition_sprite_sheet::NamedPixelRect>,
     /// World-space extent of the rendered sprite quad. Equal to
     /// `BossSheetSpec::render_size(boss.size)` at derivation time.
     /// Falls back to `(boss.size, boss.size)` when the sprite spec
@@ -462,7 +462,7 @@ pub struct BossSpriteMetrics {
     /// hitboxes with the on-screen sprite pose.
     pub animations: std::collections::HashMap<
         String,
-        crate::presentation::character_sprites::registry::AnimationMetrics,
+        ambition_sprite_sheet::AnimationMetrics,
     >,
 }
 
@@ -482,7 +482,7 @@ impl BossSpriteMetrics {
     pub fn hurtbox_for_animation(
         &self,
         animation: &str,
-    ) -> Option<&crate::presentation::character_sprites::registry::AnimationBox> {
+    ) -> Option<&ambition_sprite_sheet::AnimationBox> {
         self.animations.get(animation)?.hurtbox.as_ref()
     }
 
@@ -495,7 +495,7 @@ impl BossSpriteMetrics {
     pub fn hitbox_for_animation(
         &self,
         animation: &str,
-    ) -> Option<&crate::presentation::character_sprites::registry::AnimationBox> {
+    ) -> Option<&ambition_sprite_sheet::AnimationBox> {
         self.animations.get(animation)?.hitbox.as_ref()
     }
 }

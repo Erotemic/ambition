@@ -317,6 +317,9 @@ parry2d = "0.26"
 # (`features.rs`) needs `SfxId` to enqueue SFX-only events generically.
 # Headless / RL builds compile it but never play through it.
 ambition_sfx = { path = "../ambition_sfx" }
+# Reusable sprite-sheet metadata schema + SheetRegistry (the baked-table host
+# wiring stays here in presentation::character_sprites::registry).
+ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
 # Authored-audio stack (Stage 20 / B1). The data schema half is
 # unconditional (SandboxDataSpec embeds AudioSpec); the Kira playback
 # half lights up via the `audio` feature below.

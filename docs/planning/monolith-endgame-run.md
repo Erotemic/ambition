@@ -157,12 +157,24 @@ Sentinel's specials; giving each a signature attack both improves the game and i
 the end-to-end proof that tonight's open vocabulary + install-holders deliver a
 real seam — each special is authored with **zero edits to the engine lib**:
 
-- **`73139620` — Mode Collapse converging ring.** Telegraph locks the player's
-  spot; the strike spawns a ring of inward-aimed projectiles that collapse onto
-  it (the GAN mode-collapse failure). Technique + pure-tested core + state +
-  schedule beat, all in `ambition_content`; only the app's combat schedule wires
-  the consumer (composition is the app's job). Replay bit-identical (central-hub
-  fixture has no boss).
+Each is a Technique (state + consumer + a **pure, unit-tested core**) + a
+`register_required_components` + a telegraph-anim install + a `boss_profiles.ron`
+schedule beat — all in `ambition_content`; only the app's combat schedule wires
+the consumer (composition is the app's job). The three failure-mode-themed
+attacks (an in/out/flood triptych):
+
+- **`73139620` — Mode Collapse converging ring.** Telegraph locks your spot; the
+  strike spawns a ring of inward-aimed projectiles that *collapse* onto it.
+- **`b10d0b59` — Exploding Gradient nova.** An omnidirectional burst whose shots
+  come in three speed tiers — runaway magnitudes *blowing up outward* (the
+  diverging inverse of the ring).
+- **`ac15cff7` — Overflow boundary flood.** Telegraph locks your x; the strike
+  *floods* the whole arena width with falling projectiles except the one lane you
+  held. Find-and-hold-the-gap, distinct from apple-rain's sparse dodge.
+
+All replay bit-identical (the central-hub fixture has no boss fight). The three
+data-driven bosses (Mode Collapse / Exploding Gradient / Overflow), which had
+only *reused* the Gradient Sentinel's specials, now each have a signature attack.
 
 **Design note (the engine win):** adding a boss special is now a content-only act —
 register a Technique under a new key + author `Special("key")` beats in RON + install its

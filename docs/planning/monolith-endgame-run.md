@@ -142,11 +142,20 @@ real task" fallback once the de-naming/feature frontier was exhausted):
 
 | Phase | Est | Actual | Status | Notes |
 |-------|-----|--------|--------|-------|
-| A — open boss vocab seam | 1.0h | ~0.5h | **DONE** | Both foundation enums (`BossAttackProfile`, `SpecialActionSpec`) lost their 6 boss-named special variants → one open `Special(String)` carrier; params/anim-keys/behavior moved to content keyed by string; anim-key install-holder added; RON re-authored; `Copy` dropped (contained). Replay bit-identical (zero divergence); 988 lib + 187 actor + 40 content + 3 scripted + 27 arch all green. |
-| B — 5 techniques → content, kill brain_effects | 3.0h | ~1.0h | **DONE** | All 5 Techniques (state + system + helpers + pure tests) physically moved to `ambition_content::bosses::specials`; states now attach via `register_required_components` (not lib spawn-insert); schedule repoints to content; `brain_effects.rs` 2225 → 518 lines (now generic enemy ranged/melee only). Replay bit-identical. Lib 972 (the 16 app-integration consumer unit tests fold into replay+scripted coverage per the eye-beam precedent + testing philosophy; the 2 pure-logic tests moved to content → 42). |
-| 7 — dissolve/rename brain_effects remainder | 0.5h | — | next | rename the 518-line generic remainder honestly; relocate tuning consts (APPLE_RAIN_* etc., now content-only-referenced) from lib into content |
-| C — named boss data → content | 2.0h | — | not started | |
-| D — opportunistic file splits | 1.5h | — | not started | only what I touch |
+| A — open boss vocab seam | 1.0h | ~0.5h | **DONE** | Both foundation enums → one open `Special(String)`; params/anim/behavior to content; replay bit-identical. |
+| B — 5 techniques → content, kill brain_effects | 3.0h | ~1.0h | **DONE** | All 5 Techniques → `ambition_content`; `register_required_components`; `brain_effects.rs` 2225→518. Replay bit-identical. |
+| C — de-naming sweep (boss-id-list, rewards, goblin encounter) | 2.0h | ~1.5h | **DONE** | 3 more replay-safe de-namings; engine names no boss list / reward / encounter. |
+| (feature) 5 new content-only boss specials + integration test | — | ~1.5h | **DONE** | Proof of the seam; every boss differentiated; replay-safe. |
+| (Jon's list) lasersword detonation (VFX+SFX) | — | ~0.5h | **DONE** | TODO item closed. |
+| Refactor 6 — split god-modules (elevated TODO) | — | ~1.5h | **DONE (11 files)** | brain_effects (dissolved) + ledge_grab + boss_pattern + state_machine + action_set + attack_geometry + damage(×2) + actors + pickup + game_assets + sprites. All replay bit-identical. Guard path fixed. |
+
+**Run tally:** ~33 commits, every one replay bit-identical (zero divergence) and
+green across actor 187 · engine_core 160 · sandbox 972 · content 48 · scripted 3 ·
+architecture 27 · `--features visible`. Three threads — de-naming (the ask),
+feature-proof of the seam, and the TODO's own elevated Refactor 6 — plus one
+Jon's-list polish item. Deferred (with reasons, above): boss-sprite *data*
+de-naming (render-blind), crate extraction (no clean leaf), and the *production*
+(not test) splits of the cohesive remaining god-modules.
 
 ### De-naming sweep (Phase C continued — replay-covered named content → content data)
 

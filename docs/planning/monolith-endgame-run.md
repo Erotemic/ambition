@@ -110,6 +110,60 @@ to `dev/journals/code_smells.md` rather than chasing it.
 | C — named boss data → content | 2.0h | — | not started | |
 | D — opportunistic file splits | 1.5h | — | not started | only what I touch |
 
+### De-naming sweep (Phase C continued — replay-covered named content → content data)
+
+Once the boss-special vocabulary + techniques were out, I swept the lib for the
+same anti-pattern — *named game content hard-coded in engine machinery* — keeping
+strictly to **sim/replay-covered** targets (skipping render-coupled ones, which a
+headless run can't verify per the "don't ship unseen visual changes" rule). Each
+landed replay-bit-identical:
+
+- **`56420571` — boss id list.** `boss_encounter::profile::AUTHORED_BOSS_IDS` (a
+  9-entry hard-coded boss array, "append its id here" to add a boss) was redundant
+  with the content-installed encounter specs → derive the list from them; array deleted.
+- **`17c98112` — boss rewards.** `features::ecs::damage` hard-coded each boss →
+  its ability + signature-gauntlet drop in two `match boss_id {…}` fns. Moved to
+  two `Option<String>` fields on `BossBehaviorProfile`, authored in
+  `boss_profiles.ron`; the match fns deleted. The old "key on the real behavior
+  id" mis-key bug becomes structurally impossible (reward rides on the profile).
+- **`e0681879` — encounter waves.** `encounter::loading` hard-coded the goblin
+  mob-lab wave timeline + a `== "goblin_encounter"` music case. Moved to
+  `encounters/goblin_encounter.ron` + an `ENCOUNTER_WAVE_BOOK` install-holder
+  (boss-spec fixture pattern → lib tests unchanged); loader + music now name no
+  encounter.
+
+**Deferred (headless-unsafe or entangled), with reasons:**
+- *Boss sprites* (`boss_encounter/sprites.rs`, densest named file) — the loaders +
+  `GameAssets` per-boss fields are wired into the **render** path; a refactor bug
+  would be invisible headless. Needs the user's GUI (or a pinned sprite-registry
+  test) — flagged not done.
+- *Item art / `ItemKind`* — render-coupled (`items/pickup.rs` icon loads); and
+  `ItemKind` is woven into the inventory machinery, so moving it would force a
+  speculative open of the inventory (one game, 3 items) the design-balance rule
+  cautions against. Correctly deferred.
+- *Dialogue ids / `.yarn`* — the id list is consumed only by content, but the
+  `.yarn` files themselves live in the lib, so a half-move (list only) creates a
+  bad lib↔content coupling; the full move (yarn runtime → content) is a bigger job.
+- *Crate extraction (`ambition_combat`, etc.)* — `mechanics/combat` is woven into
+  ~10 subsystems (player/interaction/rooms/quest/presentation); the "~15 inversions"
+  case, not a clean headless increment.
+
+### Proof of the seam — new content-only boss specials (`73139620` →)
+
+With the safe de-naming frontier exhausted, the long-run discipline's fallback is
+"build the next real feature." The under-developed data-driven bosses
+(`mode_collapse`/`exploding_gradient`/`overflow`) only *reused* the Gradient
+Sentinel's specials; giving each a signature attack both improves the game and is
+the end-to-end proof that tonight's open vocabulary + install-holders deliver a
+real seam — each special is authored with **zero edits to the engine lib**:
+
+- **`73139620` — Mode Collapse converging ring.** Telegraph locks the player's
+  spot; the strike spawns a ring of inward-aimed projectiles that collapse onto
+  it (the GAN mode-collapse failure). Technique + pure-tested core + state +
+  schedule beat, all in `ambition_content`; only the app's combat schedule wires
+  the consumer (composition is the app's job). Replay bit-identical (central-hub
+  fixture has no boss).
+
 **Design note (the engine win):** adding a boss special is now a content-only act —
 register a Technique under a new key + author `Special("key")` beats in RON + install its
 telegraph rows. No edit to any foundation enum. The geometry/telegraph profiles (FloorSlam,

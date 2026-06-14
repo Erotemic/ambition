@@ -24,8 +24,36 @@ agent-navigability, **(3)** idiomatic Bevy plugins, **(4)** audit-grade reuse.
   flight-recorder schema + buffer + writers) → reusable crate; recording systems
   stay in `dev/trace`. Lib **87720 → 86809 LOC**; replay bit-identical throughout.
 
-Net: **3 foundation crates**, lib **88249 → 86809 LOC**, presentation couplers
-**44 → 28**. Remaining inventory + open directions below.
+- **`ambition_combat` (NEW crate).** `crate::combat` was the pure combat MODEL
+  (Damage/Hitbox/AttackSpec/DamageVolume/slots) depending only on `ambition_actor`
+  + `ambition_engine_core` — a clean foundation leaf. Extracted; lib re-exports
+  `ambition_combat as combat` (15 consumers unchanged). Lib **−979 LOC**.
+- **Cutscene TRIGGER seam.** `CutsceneTriggerQueue` → neutral `crate::cutscene_trigger`
+  (the boss/damage gameplay systems requested cutscenes without depending on the
+  renderer). Couplers **28 → 25**.
+- **Motion-gesture recognition → `ambition_input`.** `MotionInputBuffer` /
+  `MotionDirection` (pure, single consumer) moved to the input crate.
+- **Projectile pipeline UNIFIED.** The two parallel step systems collapsed into one
+  faction-general `step_projectiles` over a single `LiveProjectile` pool (normalized:
+  all player-faction shots hit breakables consistently). Last dual sim pipeline gone.
+- **Refactor 6 — 10 god-modules split** (test blocks → `tests` files, dir-conversion):
+  anim, menu/ir/system, settings/model+video, ecs/bosses, player/components, dev_tools,
+  world/platforms, items, character_sprites/sheets. Each production file's rebuild unit
+  shrank markedly.
+
+Net this session: **3 NEW crates** (`ambition_sprite_sheet`, `ambition_trace`,
+`ambition_combat`) + VFX-vocab→`ambition_effects` + motion-input→`ambition_input`;
+projectile unification; cutscene seam; 10 god-module splits. Lib **88249 → ~85420
+LOC**; presentation couplers **44 → 25**. All replay bit-identical.
+
+**The clean extraction frontier is now exhausted** — every remaining top-level
+module depends on a mid-tier ball (`persistence` / `rooms` / `player` /
+`presentation` / `features`). Further crate extraction needs dependency inversion
+first (e.g. `ui_nav` is 1 dep from clean: only `persistence::{MenuPointerPress,
+MenuTapMode}` — move those nav-input types down and it extracts). The big remaining
+levers are unchanged: the presentation move-UP (gated on the rendering/`RoomVisual`
+lifecycle inversion — sim must stop managing visual teardown) and content promotion
+via install-holders. Remaining inventory + open directions below.
 
 ## Where we are (measured 2026-06-14)
 

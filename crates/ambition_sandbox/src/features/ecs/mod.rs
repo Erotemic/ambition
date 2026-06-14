@@ -32,6 +32,7 @@ mod brain_builders;
 mod brain_effects;
 mod damage;
 mod damage_drops;
+mod damage_predicates;
 mod encounter_rewards;
 pub mod enemy_clusters;
 mod interact;
@@ -84,9 +85,9 @@ pub use brain_effects::{
 };
 pub use breakables::update_ecs_breakables;
 pub use chests::open_ecs_chests;
-pub use damage::{
-    apply_feature_hit_events, ecs_hit_event_hits_actor, ecs_hit_event_hits_boss,
-    ecs_hit_event_hits_breakable,
+pub use damage::apply_feature_hit_events;
+pub use damage_predicates::{
+    ecs_hit_event_hits_actor, ecs_hit_event_hits_boss, ecs_hit_event_hits_breakable,
 };
 pub use encounter_rewards::{
     clear_encounter_reward_ecs, sync_boss_reward_chests_ecs, sync_encounter_reward_chests_ecs,

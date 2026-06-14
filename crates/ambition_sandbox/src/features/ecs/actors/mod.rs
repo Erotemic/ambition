@@ -389,7 +389,7 @@ pub fn update_ecs_actors(
     overlay: Res<FeatureEcsWorldOverlay>,
     mut slot_board: ResMut<crate::combat::slots::CombatSlotsRes>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
-    mut vfx: MessageWriter<crate::presentation::fx::VfxMessage>,
+    mut vfx: MessageWriter<ambition_effects::vfx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut hit_events: MessageWriter<HitEvent>,
     // Multi-player ready: iterate every player and resolve each

@@ -15,6 +15,35 @@ use crate::presentation::character_sprites::{
     build_character_sprite_with_render_size, CharacterAnim, CharacterAnimator,
 };
 
+// The VFX MESSAGE vocabulary now lives in the foundation crate `ambition_effects`
+// (presentation-neutral data, so a sim system can emit a cue without depending on
+// this render module). Re-exported here so existing `crate::presentation::fx::*`
+// paths keep resolving; the render/audio mappings (`explosion_anim` /
+// `explosion_sfx`) stay below, where the render + packed-bank knowledge lives.
+pub use ambition_effects::vfx::{ExplosionKind, ParticleKind, VfxMessage};
+
+/// Spritesheet row an [`ExplosionKind`] renders as (presentation-only mapping).
+pub fn explosion_anim(kind: ExplosionKind) -> CharacterAnim {
+    match kind {
+        ExplosionKind::ClassicBurst => CharacterAnim::Idle,
+        ExplosionKind::BurstRound => CharacterAnim::Walk,
+        ExplosionKind::Shockwave => CharacterAnim::Run,
+        ExplosionKind::SmokeBurst => CharacterAnim::Hit,
+        ExplosionKind::Starburst => CharacterAnim::Slash,
+    }
+}
+
+/// Packed-bank SFX an [`ExplosionKind`] plays (presentation/audio-only mapping).
+pub fn explosion_sfx(kind: ExplosionKind) -> ambition_sfx::SfxId {
+    match kind {
+        ExplosionKind::ClassicBurst => ambition_sfx::ids::VFX_EXPLOSION_CLASSIC_BURST,
+        ExplosionKind::BurstRound => ambition_sfx::ids::VFX_EXPLOSION_BURST_ROUND,
+        ExplosionKind::Shockwave => ambition_sfx::ids::VFX_EXPLOSION_SHOCKWAVE,
+        ExplosionKind::SmokeBurst => ambition_sfx::ids::VFX_EXPLOSION_SMOKE_BURST,
+        ExplosionKind::Starburst => ambition_sfx::ids::VFX_EXPLOSION_STARBURST,
+    }
+}
+
 #[derive(Component)]
 pub struct ParticleVisual {
     kind: ParticleKind,
@@ -102,44 +131,6 @@ pub struct BlinkPreviewVisual {
     angle_offset: f32,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ParticleKind {
-    Spark,
-    Dust,
-    Shard,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ExplosionKind {
-    ClassicBurst,
-    BurstRound,
-    Shockwave,
-    SmokeBurst,
-    Starburst,
-}
-
-impl ExplosionKind {
-    pub fn anim(self) -> CharacterAnim {
-        match self {
-            Self::ClassicBurst => CharacterAnim::Idle,
-            Self::BurstRound => CharacterAnim::Walk,
-            Self::Shockwave => CharacterAnim::Run,
-            Self::SmokeBurst => CharacterAnim::Hit,
-            Self::Starburst => CharacterAnim::Slash,
-        }
-    }
-
-    pub fn sfx(self) -> ambition_sfx::SfxId {
-        match self {
-            Self::ClassicBurst => ambition_sfx::ids::VFX_EXPLOSION_CLASSIC_BURST,
-            Self::BurstRound => ambition_sfx::ids::VFX_EXPLOSION_BURST_ROUND,
-            Self::Shockwave => ambition_sfx::ids::VFX_EXPLOSION_SHOCKWAVE,
-            Self::SmokeBurst => ambition_sfx::ids::VFX_EXPLOSION_SMOKE_BURST,
-            Self::Starburst => ambition_sfx::ids::VFX_EXPLOSION_STARBURST,
-        }
-    }
-}
-
 /// Reusable gameplay request for a point explosion. Simulation code writes this
 /// instead of remembering to pair a visual `VfxMessage::Explosion` with the
 /// matching packed-bank SFX. The presentation/audio bridge below fans it out
@@ -159,7 +150,7 @@ impl ExplosionRequest {
             pos,
             kind,
             scale: 1.0,
-            sfx: Some(kind.sfx()),
+            sfx: Some(explosion_sfx(kind)),
         }
     }
 
@@ -314,53 +305,6 @@ pub fn tick_firework_sequences(
     }
 }
 
-/// Typed sandbox-side visual-effects message (Bevy 0.18 buffered Message
-/// API; the pre-0.18 `Event`/`EventReader` names moved to observer-style
-/// one-shots). Emitted by simulation systems via the Vec collector and
-/// drained into `Messages<VfxMessage>` by the player tick. The
-/// presentation-side `vfx_spawn_messages` subscriber spawns the actual
-/// particle/impact/slash entities.
-///
-/// Headless builds omit the subscriber; messages accumulate and drain
-/// without entity spawns.
-#[derive(Message, Clone, Debug)]
-pub enum VfxMessage {
-    Burst {
-        pos: ae::Vec2,
-        count: u32,
-        speed: f32,
-        color: [f32; 4],
-        kind: ParticleKind,
-    },
-    Dust {
-        pos: ae::Vec2,
-        facing: f32,
-    },
-    Impact {
-        pos: ae::Vec2,
-    },
-    Explosion {
-        pos: ae::Vec2,
-        kind: ExplosionKind,
-        scale: f32,
-    },
-    BlinkEffects {
-        from: ae::Vec2,
-        to: ae::Vec2,
-        precision: bool,
-    },
-    SlashPreview {
-        hitbox: ae::Aabb,
-    },
-    ResetEffects {
-        from: ae::Vec2,
-        to: ae::Vec2,
-    },
-    SpeechBubble {
-        pos: ae::Vec2,
-        text: String,
-    },
-}
 
 /// Presentation-side subscriber. Reads `VfxMessage`s and spawns particle /
 /// impact / slash entities. Skipped in headless builds.
@@ -463,7 +407,7 @@ fn spawn_explosion(
     let render_size = BVec2::splat(132.0 * scale);
     let mut sprite = build_character_sprite_with_render_size(asset, render_size);
     let mut animator = CharacterAnimator::new(&asset.spec);
-    animator.request(kind.anim());
+    animator.request(explosion_anim(kind));
     let index = animator.tick(0.0);
     if let Some(atlas) = sprite.texture_atlas.as_mut() {
         atlas.index = index;

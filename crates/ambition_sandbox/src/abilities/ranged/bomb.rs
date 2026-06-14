@@ -55,7 +55,7 @@ pub fn tick_bomb_fuses(
     mut bombs: Query<(Entity, &GroundItem, &mut BombFuse)>,
     mut hits: MessageWriter<HitEvent>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
-    mut vfx: MessageWriter<crate::presentation::fx::VfxMessage>,
+    mut vfx: MessageWriter<ambition_effects::vfx::VfxMessage>,
 ) {
     let dt = time.sim_dt();
     if dt <= 0.0 {
@@ -81,9 +81,9 @@ pub fn tick_bomb_fuses(
             id: ambition_sfx::ids::WORLD_ROCK_HIT,
             pos: ground.pos,
         });
-        vfx.write(crate::presentation::fx::VfxMessage::Explosion {
+        vfx.write(ambition_effects::vfx::VfxMessage::Explosion {
             pos: ground.pos,
-            kind: crate::presentation::fx::ExplosionKind::ClassicBurst,
+            kind: ambition_effects::vfx::ExplosionKind::ClassicBurst,
             scale: 1.0,
         });
         commands.entity(entity).despawn();
@@ -135,7 +135,7 @@ mod tests {
         let mut app = App::new();
         app.add_message::<HitEvent>();
         app.add_message::<crate::audio::SfxMessage>();
-        app.add_message::<crate::presentation::fx::VfxMessage>();
+        app.add_message::<ambition_effects::vfx::VfxMessage>();
         app.init_resource::<CapturedHits>();
         let mut wt = crate::WorldTime::default();
         wt.scaled_dt = 0.05; // sim_dt() > the 0.001 fuse

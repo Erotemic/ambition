@@ -17,7 +17,7 @@ use crate::features::{
     FeatureId, FeatureSimEntity, HitEvent, HitSource,
 };
 use crate::player::BodyKinematics;
-use crate::presentation::fx::VfxMessage;
+use ambition_effects::vfx::VfxMessage;
 use crate::projectile::ProjectileGameplay;
 use crate::trace::GameplayTraceBuffer;
 use crate::GameWorld;

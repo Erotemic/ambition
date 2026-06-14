@@ -51,7 +51,7 @@ pub fn blink_system(
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
-    mut vfx: MessageWriter<crate::presentation::fx::VfxMessage>,
+    mut vfx: MessageWriter<ambition_effects::vfx::VfxMessage>,
     mut hits: MessageWriter<crate::features::HitEvent>,
 ) {
     // Plain Attack blinks; Shield+Attack is the generic "throw the item away".
@@ -134,14 +134,14 @@ pub fn blink_system(
         pos: target,
     });
     // A wisp where you left, a flash where you arrive.
-    vfx.write(crate::presentation::fx::VfxMessage::Explosion {
+    vfx.write(ambition_effects::vfx::VfxMessage::Explosion {
         pos: from,
-        kind: crate::presentation::fx::ExplosionKind::ClassicBurst,
+        kind: ambition_effects::vfx::ExplosionKind::ClassicBurst,
         scale: 0.35,
     });
-    vfx.write(crate::presentation::fx::VfxMessage::Explosion {
+    vfx.write(ambition_effects::vfx::VfxMessage::Explosion {
         pos: target,
-        kind: crate::presentation::fx::ExplosionKind::ClassicBurst,
+        kind: ambition_effects::vfx::ExplosionKind::ClassicBurst,
         scale: 0.5,
     });
 }
@@ -155,7 +155,7 @@ mod tests {
     fn test_app() -> App {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
-        app.add_message::<crate::presentation::fx::VfxMessage>();
+        app.add_message::<ambition_effects::vfx::VfxMessage>();
         app.add_message::<crate::features::HitEvent>();
         app.insert_resource(ControlFrame::default());
         app.add_systems(Update, blink_system);

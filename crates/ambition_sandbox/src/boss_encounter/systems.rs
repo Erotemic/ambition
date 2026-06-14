@@ -420,7 +420,7 @@ pub fn boss_phase_transition_feedback(
         With<crate::features::BossConfig>,
     >,
     mut effects: MessageWriter<crate::effects::EffectRequest>,
-    mut vfx: MessageWriter<crate::presentation::fx::VfxMessage>,
+    mut vfx: MessageWriter<ambition_effects::vfx::VfxMessage>,
 ) {
     use crate::boss_encounter::BossEncounterPhase as P;
     for (id, state) in &registry.encounters {
@@ -467,12 +467,12 @@ pub fn boss_phase_transition_feedback(
                 // flip (#122 "transitions are not noticeable / too short"). The
                 // radial Spark burst is the placeholder; a bespoke scream-line
                 // sprite is later polish (TODO §A boss transitions).
-                vfx.write(crate::presentation::fx::VfxMessage::Burst {
+                vfx.write(ambition_effects::vfx::VfxMessage::Burst {
                     pos: kin.pos,
                     count: 24,
                     speed: 340.0,
                     color: [1.0, 0.92, 0.45, 0.95],
-                    kind: crate::presentation::fx::ParticleKind::Spark,
+                    kind: ambition_effects::vfx::ParticleKind::Spark,
                 });
             }
         }
@@ -505,7 +505,7 @@ mod phase_feedback_tests {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
         app.add_message::<crate::effects::EffectRequest>();
-        app.add_message::<crate::presentation::fx::VfxMessage>();
+        app.add_message::<ambition_effects::vfx::VfxMessage>();
         app.init_resource::<CameraShakeState>();
         app.insert_resource(registry_with_boss(BossEncounterPhase::Phase1));
         app.add_systems(Update, boss_phase_transition_feedback);
@@ -530,7 +530,7 @@ mod phase_feedback_tests {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
         app.add_message::<crate::effects::EffectRequest>();
-        app.add_message::<crate::presentation::fx::VfxMessage>();
+        app.add_message::<ambition_effects::vfx::VfxMessage>();
         app.init_resource::<CameraShakeState>();
         app.insert_resource(registry_with_boss(BossEncounterPhase::Intro));
         app.add_systems(Update, boss_phase_transition_feedback);

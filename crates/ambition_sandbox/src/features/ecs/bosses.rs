@@ -576,7 +576,7 @@ pub fn update_ecs_bosses(
     platform_set: Res<crate::MovingPlatformSet>,
     overlay: Res<FeatureEcsWorldOverlay>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
-    mut vfx: MessageWriter<crate::presentation::fx::VfxMessage>,
+    mut vfx: MessageWriter<ambition_effects::vfx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut hit_events: MessageWriter<HitEvent>,
     // Bosses target the primary player today. Real multiplayer

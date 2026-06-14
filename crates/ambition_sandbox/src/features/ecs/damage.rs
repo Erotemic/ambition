@@ -42,7 +42,7 @@ use crate::boss_encounter::{record_boss_damage, BossEncounterRegistry};
 use crate::encounter::BossEncounterMusicRequest;
 use crate::features::ActorStimulus;
 use crate::presentation::cutscene::CutsceneTriggerQueue;
-use crate::presentation::fx::{ParticleKind, VfxMessage};
+use ambition_effects::vfx::{ParticleKind, VfxMessage};
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 
 #[derive(SystemParam)]
@@ -490,7 +490,7 @@ fn apply_actor_hit(
                         spawn_death_explosion(&mut writers.commands, actor_entity, em.kin.pos);
                         writers.vfx.write(VfxMessage::Explosion {
                             pos: em.kin.pos,
-                            kind: crate::presentation::fx::ExplosionKind::ClassicBurst,
+                            kind: ambition_effects::vfx::ExplosionKind::ClassicBurst,
                             scale: 0.85,
                         });
                     }

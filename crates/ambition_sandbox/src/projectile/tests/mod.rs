@@ -18,7 +18,7 @@ use super::systems::update_projectiles;
 use crate::audio::SfxMessage;
 use crate::features::{ActorHealth, ActorIdentity, GameplayBanner, HitEvent, SetFlagRequested};
 use crate::input::ControlFrame;
-use crate::presentation::fx::VfxMessage;
+use ambition_effects::vfx::VfxMessage;
 use crate::trace::GameplayTraceBuffer;
 use crate::world::physics::DebrisBurstMessage;
 use crate::GameWorld;

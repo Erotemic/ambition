@@ -15,7 +15,7 @@ use bevy::prelude::*;
 use super::entity::EnemyProjectile;
 use crate::audio::SfxMessage;
 use crate::features::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
-use crate::presentation::fx::VfxMessage;
+use ambition_effects::vfx::VfxMessage;
 use crate::projectile::{resolve_world_collision, WorldHitOutcome, WorldHitPolicy};
 use crate::projectile::{
     ProjectileGameplay, ProjectileOwnerId, ProjectileSeq, ProjectileSeqCounter,
@@ -83,7 +83,7 @@ fn lasersword_detonation(
         .starts_with("lasersword")
         .then_some(VfxMessage::Explosion {
             pos,
-            kind: crate::presentation::fx::ExplosionKind::ClassicBurst,
+            kind: ambition_effects::vfx::ExplosionKind::ClassicBurst,
             scale: 0.7,
         })
 }

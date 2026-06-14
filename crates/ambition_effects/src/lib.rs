@@ -19,6 +19,9 @@ use ambition_actor::actor::ActorFaction;
 use ambition_engine_core as ae;
 use ambition_platformer_runtime::projectile::{EnemyProjectileSpawn, ProjectileFaction};
 
+pub mod vfx;
+pub use vfx::{ExplosionKind, ParticleKind, VfxMessage};
+
 // ===================================================================
 // Hitbox — the world-anchored damage volume an effect spawns.
 // ===================================================================

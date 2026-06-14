@@ -20,12 +20,6 @@ Entry format:
 
 ---
 
-## 2026-06-14 Cube edge-button (page-turn) handling is duplicated + divergent per face
-- **Where:** crates/ambition_app/src/menu/kaleidoscope_app.rs — `kaleidoscope_focus_nav` (the placeholder Map/Quest branch, ~line 985-1030) vs `system_focus_nav` (~line 1210-1300). Both implement "cursor on a `>`/`<` edge button → step inward / rotate" and "SELECT on an edge → rotate", but separately.
-- **Smell:** the System face re-implements edge-button nav by hand and drifted from the generic face handler. The `dx`-outward turn was already special (raw `turn_page` + `cursor = System(0)`), and SELECT-on-edge was simply MISSING — it fell through to the row dispatch with `current` normalised to `rows[0]`, so selecting `>Quest` activated the first System row. Jon: "Why is system being treated in such a special way? That is a smell." Two point-fixes landed (turn_page_seeded for the cursor landing; an explicit edge-select arm), but the duplication remains: any future edge-nav change must be made in two places.
-- **Noticed while:** menu polish (select-on-edge bug + cursor-landing bug, 2026-06-14)
-- **Suggested fix / size:** M — extract a shared `edge_button_nav(cursor, active_page, dx, select, allow_page_turn, pages, sfx) -> Handled` helper consumed by BOTH the placeholder branch and `system_focus_nav`, so edge → inward/rotate/select is single-source. The System branch then only owns ROW logic. Guard with the new `select_on_system_edge_button_turns_the_page` + the bumper tests.
-
 ## Open
 
 ## 2026-06-13 Docs reference deleted RON-based levels
@@ -84,6 +78,10 @@ Entry format:
 - **Suggested fix / size:** M — clamp body exit depth to at least `portal_exit_clearance` along the exit normal (preserve the along-surface offset), mirroring ground items. RISK: changes core transit placement for the player too and touches the "reversibility" property — own focused slice through replay_fixture_regression / scripted_gameplay, not folded into a visuals change. (Note the avoid-pushout rule: this is the sanctioned straddle-eviction exception.)
 
 ## Resolved
+
+## 2026-06-14 Cube edge-button (page-turn) handling was duplicated per face — RESOLVED 2026-06-14
+- **Was:** `kaleidoscope_focus_nav`'s placeholder Map/Quest branch and `system_focus_nav` each hand-rolled "cursor on a `>`/`<` edge → step inward / rotate / select-rotate". They drifted: SELECT-on-edge was simply MISSING on the System face (fell through to the row dispatch with `current` normalised to `rows[0]`, so selecting `>Quest` activated the first System row). Jon: "Why is system being treated in such a special way?"
+- **Resolved:** extracted a single `edge_button_nav(cursor, pages, active_page, dx, select, allow_page_turn, inward: EdgeInward, sfx) -> EdgeNav`, consumed by BOTH callers. The only per-face difference (where an INWARD step lands) is the `EdgeInward` param — `OppositeEdge` for placeholders, `Into(System(0))` for the row list. Each caller now owns only its centre content. Pinned by `system_edge_outward_arrow_rotates`, `placeholder_edge_nav_matches_other_faces`, `select_on_system_edge_button_turns_the_page` + the existing inward/bumper tests.
 
 ## 2026-06-10 EnemyConfig.archetype is the per-archetype tuning hub — RESOLVED 2026-06-13
 - **Was:** the named `EnemyArchetype` enum woven into the generic actor layer as its tuning provider; blocked moving the actor combat core into mechanics::combat.

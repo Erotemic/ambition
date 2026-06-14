@@ -997,51 +997,27 @@ fn kaleidoscope_focus_nav(
     // (Fix 1). The L/R bumpers (Fix 2) are already handled above for every face.
     if active_page != MenuPage::Items {
         // Placeholder faces (Map / Quest) have only the two edge buttons and no centre
-        // content. LEFT/RIGHT move BETWEEN the edges when stepping INWARD; only stepping
-        // OUTWARD past an edge rotates the page — the same arrow/edge rule as the items
-        // face, just with nothing in the middle. (Was: any L/R rotated immediately, so
-        // right-from-the-left-edge jumped to the next page instead of the right edge.)
-        if dx != 0 {
-            match cursor.focus {
-                MenuFocus::EdgeLeft if dx > 0 => cursor.mark_keyboard(MenuFocus::EdgeRight),
-                MenuFocus::EdgeLeft => turn_page_seeded(
-                    &mut pages,
-                    &mut cursor,
-                    active_page.on_viewer_left(),
-                    &mut sfx,
-                ),
-                MenuFocus::EdgeRight if dx < 0 => cursor.mark_keyboard(MenuFocus::EdgeLeft),
-                MenuFocus::EdgeRight => turn_page_seeded(
-                    &mut pages,
-                    &mut cursor,
-                    active_page.on_viewer_right(),
-                    &mut sfx,
-                ),
-                // Cursor not yet on an edge — seed onto the edge for the pressed direction.
-                _ => cursor.mark_keyboard(if dx < 0 {
-                    MenuFocus::EdgeLeft
-                } else {
-                    MenuFocus::EdgeRight
-                }),
-            }
-        }
-        if menu.select {
-            // The only selectable controls on a placeholder are the edge buttons.
-            match cursor.focus {
-                MenuFocus::EdgeLeft => turn_page_seeded(
-                    &mut pages,
-                    &mut cursor,
-                    active_page.on_viewer_left(),
-                    &mut sfx,
-                ),
-                MenuFocus::EdgeRight => turn_page_seeded(
-                    &mut pages,
-                    &mut cursor,
-                    active_page.on_viewer_right(),
-                    &mut sfx,
-                ),
-                _ => {}
-            }
+        // content, so edge nav is the whole story: `edge_button_nav` rotates on an
+        // OUTWARD step / select and crosses to the opposite edge on an INWARD step. The
+        // only thing left to do locally is seed onto an edge when the cursor hasn't
+        // landed on one yet (rare — these faces spawn the cursor on an edge).
+        if edge_button_nav(
+            &mut cursor,
+            &mut pages,
+            active_page,
+            dx,
+            menu.select,
+            true,
+            EdgeInward::OppositeEdge,
+            &mut sfx,
+        ) == EdgeNav::NotOnEdge
+            && dx != 0
+        {
+            cursor.mark_keyboard(if dx < 0 {
+                MenuFocus::EdgeLeft
+            } else {
+                MenuFocus::EdgeRight
+            });
         }
         if menu.back {
             play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_CLOSE);
@@ -1213,61 +1189,7 @@ pub(crate) fn system_focus_nav(
 
     let current = rows[row.max(0).min(count - 1) as usize];
 
-    if dx != 0 {
-        match cursor.focus {
-            MenuFocus::EdgeLeft => {
-                if dx > 0 || !allow_page_turn {
-                    // Move inward from the page-turn button into the row list. With
-                    // page-turns disabled (Grid) an edge focus is never reachable, but
-                    // normalise defensively to a row rather than rotating.
-                    cursor.mark_keyboard(MenuFocus::System(0));
-                } else {
-                    // Moving further outward from the edge rotates the cube — land the
-                    // cursor on the NEW face's back-edge button (the one pointing back
-                    // to System), exactly like every other face's turn. Seeding
-                    // `System(0)` here left the cursor on a row index the placeholder
-                    // Quest/Map faces don't have, so nothing highlighted on arrival.
-                    turn_page_seeded(pages, cursor, active_page.on_viewer_left(), sfx);
-                }
-            }
-            MenuFocus::EdgeRight => {
-                if dx < 0 || !allow_page_turn {
-                    cursor.mark_keyboard(MenuFocus::System(0));
-                } else {
-                    turn_page_seeded(pages, cursor, active_page.on_viewer_right(), sfx);
-                }
-            }
-            MenuFocus::System(_) | MenuFocus::Item(_) => {
-                // LEFT/RIGHT step value rows in place (settings cycles/sliders, dev
-                // cycles); otherwise use the horizontal affordance to move onto the
-                // edge buttons (cube only — the Grid switches pages via its tab bar,
-                // so a non-value step there is simply inert).
-                let stepped = match current {
-                    SystemRow::Setting(o) if is_value_setting(o, settings) => {
-                        apply_system_option_step(o, dx, settings, sfx);
-                        true
-                    }
-                    SystemRow::Option(o) => {
-                        if let Some(id) = system.step_option(o, dx) {
-                            play_ui(sfx, id);
-                            true
-                        } else {
-                            false
-                        }
-                    }
-                    _ => false,
-                };
-                if !stepped && allow_page_turn {
-                    if dx < 0 {
-                        cursor.mark_keyboard(MenuFocus::EdgeLeft);
-                    } else {
-                        cursor.mark_keyboard(MenuFocus::EdgeRight);
-                    }
-                }
-            }
-        }
-    }
-
+    // Back drills OUT / closes — independent of edge vs row, so handle it first.
     if menu.back {
         // Inside an entry, Back drills OUT to the entry list; at the top level Back
         // closes the menu (matching the items face).
@@ -1281,26 +1203,55 @@ pub(crate) fn system_focus_nav(
         return;
     }
 
-    if menu.select {
-        // A `>`/`<` page-turn button is SELECTABLE on the System face exactly like on
-        // every other face: select rotates to that neighbour. Without this, an edge
-        // focus fell through to the row dispatch below — where `current` had been
-        // normalised to `rows[0]` (the cursor isn't a `System(idx)`) — so selecting
-        // `>Quest` wrongly activated the first System row. (Grid passes
-        // `allow_page_turn=false` and can never reach an edge, so this is inert there.)
-        if allow_page_turn {
-            match cursor.focus {
-                MenuFocus::EdgeLeft => {
-                    turn_page_seeded(pages, cursor, active_page.on_viewer_left(), sfx);
-                    return;
-                }
-                MenuFocus::EdgeRight => {
-                    turn_page_seeded(pages, cursor, active_page.on_viewer_right(), sfx);
-                    return;
-                }
-                _ => {}
+    // `>`/`<` page-turn buttons: SHARED with the placeholder faces (single source, so
+    // edge nav can't drift). On the System face an INWARD step enters the row list, and
+    // SELECT / an OUTWARD step rotates. Consumes dx + select while the cursor is on an
+    // edge; a row cursor falls through to the value/row handling below.
+    if edge_button_nav(
+        cursor,
+        pages,
+        active_page,
+        dx,
+        menu.select,
+        allow_page_turn,
+        EdgeInward::Into(MenuFocus::System(0)),
+        sfx,
+    ) == EdgeNav::Handled
+    {
+        emit_move_sfx(sfx, focus_before, cursor.focus, page_before, pages.active);
+        return;
+    }
+
+    // The cursor is on a ROW: LEFT/RIGHT step value rows in place (settings cycles/
+    // sliders, dev cycles); otherwise use the horizontal affordance to move onto the
+    // edge buttons (cube only — the Grid switches pages via its tab bar, so a non-value
+    // step there is simply inert).
+    if dx != 0 {
+        let stepped = match current {
+            SystemRow::Setting(o) if is_value_setting(o, settings) => {
+                apply_system_option_step(o, dx, settings, sfx);
+                true
             }
+            SystemRow::Option(o) => {
+                if let Some(id) = system.step_option(o, dx) {
+                    play_ui(sfx, id);
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        };
+        if !stepped && allow_page_turn {
+            cursor.mark_keyboard(if dx < 0 {
+                MenuFocus::EdgeLeft
+            } else {
+                MenuFocus::EdgeRight
+            });
         }
+    }
+
+    if menu.select {
         if let Some(action) = system_row_action_for(&model, current) {
             let mut close_menu = false;
             crate::menu::dispatch::dispatch_menu_action(
@@ -1492,6 +1443,81 @@ fn turn_page_seeded(
     let from = pages.active;
     turn_page(pages, page, sfx);
     cursor.mark_keyboard(back_edge_focus(from, page));
+}
+
+/// Where an INWARD horizontal step FROM a `>`/`<` edge button lands — the only thing
+/// that differs between faces, so [`edge_button_nav`] takes it as a parameter.
+#[derive(Clone, Copy)]
+enum EdgeInward {
+    /// The opposite edge button. Placeholder faces (Map/Quest) have no centre content,
+    /// so stepping in from one edge crosses straight to the other.
+    OppositeEdge,
+    /// A fixed focus — the head of the System face's row list.
+    Into(MenuFocus),
+}
+
+/// Did [`edge_button_nav`] consume this frame's horizontal/select input?
+#[derive(PartialEq, Eq, Clone, Copy)]
+enum EdgeNav {
+    /// The cursor was on an edge button and an edge action ran (rotate or step in).
+    Handled,
+    /// The cursor was NOT on an edge button (or there was no edge input) — the caller
+    /// owns this frame's input for its own centre content (rows / item grid).
+    NotOnEdge,
+}
+
+/// Shared `>`/`<` page-turn-button navigation for EVERY cube face — the single source
+/// the placeholder Map/Quest handler and [`system_focus_nav`] both call, so edge nav
+/// can never drift between them (it did: SELECT-on-edge was silently missing on the
+/// System face, where it fell through and activated the first row).
+///
+/// When the cursor sits on an edge button: SELECT or an OUTWARD `dx` rotates to that
+/// neighbour, landing on the new face's back-edge (via [`turn_page_seeded`]); an
+/// INWARD `dx` (or any `dx` when `allow_page_turn` is false) moves to `inward`.
+/// Returns [`EdgeNav::NotOnEdge`] when the cursor isn't on an edge or there's no
+/// horizontal/select input this frame, so the caller handles its own content (and
+/// vertical moves off an edge still flow through to the caller).
+fn edge_button_nav(
+    cursor: &mut KaleidoscopeCursor,
+    pages: &mut ActiveMenuPages<MenuPage, MenuPageAction>,
+    active_page: MenuPage,
+    dx: i32,
+    select: bool,
+    allow_page_turn: bool,
+    inward: EdgeInward,
+    sfx: &mut MessageWriter<SfxMessage>,
+) -> EdgeNav {
+    let edge = cursor.focus;
+    let on_left = edge == MenuFocus::EdgeLeft;
+    let on_right = edge == MenuFocus::EdgeRight;
+    if (!on_left && !on_right) || (dx == 0 && !select) {
+        return EdgeNav::NotOnEdge;
+    }
+    // The neighbour this edge turns toward (outward), or None when turns are disabled.
+    let outward_page = match (allow_page_turn, on_left) {
+        (false, _) => None,
+        (true, true) => Some(active_page.on_viewer_left()),
+        (true, false) => Some(active_page.on_viewer_right()),
+    };
+    let inward_focus = match inward {
+        EdgeInward::OppositeEdge if on_left => MenuFocus::EdgeRight,
+        EdgeInward::OppositeEdge => MenuFocus::EdgeLeft,
+        EdgeInward::Into(f) => f,
+    };
+    // SELECT activates the edge button = rotate (no-op if turns are disabled).
+    if select {
+        if let Some(target) = outward_page {
+            turn_page_seeded(pages, cursor, target, sfx);
+        }
+        return EdgeNav::Handled;
+    }
+    // Horizontal: stepping OUTWARD past the edge rotates; INWARD moves to `inward`.
+    let going_outward = if on_left { dx < 0 } else { dx > 0 };
+    match outward_page {
+        Some(target) if going_outward => turn_page_seeded(pages, cursor, target, sfx),
+        _ => cursor.mark_keyboard(inward_focus),
+    }
+    EdgeNav::Handled
 }
 
 /// Set the active page (the lib rotates that face to the camera). Emits the
@@ -2724,6 +2750,88 @@ mod lunex_kaleidoscope_app_tests {
             ..Default::default()
         });
         app.update();
+    }
+
+    fn press_dir(app: &mut App, left: bool) {
+        let mut frame = MenuControlFrame::default();
+        if left {
+            frame.left = true;
+        } else {
+            frame.right = true;
+        }
+        app.insert_resource(frame);
+        app.update();
+    }
+
+    fn placeholder_nav_app(page: MenuPage, focus: MenuFocus) -> App {
+        let mut app = base_kaleidoscope_test_app();
+        app.add_systems(Update, kaleidoscope_focus_nav);
+        set_kaleidoscope_visible(&mut app, true);
+        app.world_mut()
+            .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+            .active = Some(page);
+        app.world_mut().resource_mut::<KaleidoscopeCursor>().focus = focus;
+        spawn_kaleidoscope_test_player(&mut app);
+        app.update();
+        app
+    }
+
+    fn active_page(app: &App) -> Option<MenuPage> {
+        app.world()
+            .resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+            .active
+    }
+
+    /// The System face routes its `>`/`<` buttons through the SAME `edge_button_nav`
+    /// as the placeholder faces: an OUTWARD arrow off an edge rotates (landing on the
+    /// new face's back-edge), an INWARD arrow enters the row list.
+    #[test]
+    fn system_edge_outward_arrow_rotates() {
+        let mut app = system_nav_app(MenuFocus::EdgeLeft);
+        press_dir(&mut app, /* left = */ true); // outward off the < edge
+        assert_eq!(
+            active_page(&app),
+            Some(MenuPage::System.on_viewer_left()),
+            "outward arrow off the < edge rotates to the viewer-left page"
+        );
+    }
+
+    /// The placeholder faces (Map/Quest) — which have only the two edge buttons — go
+    /// through the shared `edge_button_nav` too: INWARD crosses to the opposite edge
+    /// (no rotation), OUTWARD rotates, SELECT rotates.
+    #[test]
+    fn placeholder_edge_nav_matches_other_faces() {
+        // INWARD (right, from the left edge) crosses to the opposite edge, no rotate.
+        let mut inward = placeholder_nav_app(MenuPage::Quest, MenuFocus::EdgeLeft);
+        press_dir(&mut inward, /* left = */ false);
+        assert_eq!(
+            inward.world().resource::<KaleidoscopeCursor>().focus,
+            MenuFocus::EdgeRight,
+            "inward arrow crosses to the opposite edge"
+        );
+        assert_eq!(
+            active_page(&inward),
+            Some(MenuPage::Quest),
+            "inward arrow does NOT rotate"
+        );
+
+        // OUTWARD (right, from the right edge) rotates to the viewer-right page.
+        let mut outward = placeholder_nav_app(MenuPage::Quest, MenuFocus::EdgeRight);
+        press_dir(&mut outward, /* left = */ false);
+        assert_eq!(
+            active_page(&outward),
+            Some(MenuPage::Quest.on_viewer_right()),
+            "outward arrow rotates"
+        );
+
+        // SELECT on an edge rotates.
+        let mut selected = placeholder_nav_app(MenuPage::Quest, MenuFocus::EdgeLeft);
+        press_select(&mut selected);
+        assert_eq!(
+            active_page(&selected),
+            Some(MenuPage::Quest.on_viewer_left()),
+            "select on the < edge rotates to the viewer-left page"
+        );
     }
 
     /// REGRESSION: on the System face, SELECT while the cursor sits on a `>`/`<`

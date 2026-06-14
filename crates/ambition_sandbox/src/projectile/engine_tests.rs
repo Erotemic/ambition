@@ -1,6 +1,6 @@
 use crate::engine_core::Vec2;
 
-use super::motion_input::{MotionDirection, MotionInputBuffer};
+use super::{MotionDirection, MotionInputBuffer};
 use super::spawn::{ProjectileSpawner, SpawnFailure};
 use super::{FireballChargeTuning, ProjectileKind, ProjectileSpec};
 use super::{ProjectileBody, ProjectileFaction, ProjectileSolidHit};

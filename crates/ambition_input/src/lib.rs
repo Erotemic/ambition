@@ -20,11 +20,17 @@ mod actions;
 mod active_input;
 mod control;
 mod menu;
+mod motion_input;
 mod presets;
 pub mod settings;
 
 #[cfg(test)]
 mod tests;
+
+/// Fighting-game directional motion recognition (quarter / half-circle gesture
+/// detection over a rolling input buffer). Pure + headless; the Hadouken /
+/// special-move gate consumes it.
+pub use motion_input::{MotionDirection, MotionInputBuffer};
 
 #[cfg(feature = "input")]
 pub use actions::SandboxAction;

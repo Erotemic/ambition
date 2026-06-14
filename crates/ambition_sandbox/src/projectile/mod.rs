@@ -24,7 +24,6 @@
 
 mod diagnostics;
 mod entity;
-mod motion_input;
 mod portal_transit;
 mod spawn;
 mod spawn_message;
@@ -65,6 +64,9 @@ pub use ambition_platformer_runtime::projectile::{
 
 // Sandbox-specific spawn helpers (player input gesture buffer + cooldown meter)
 // stay in the sandbox.
-pub use motion_input::{MotionDirection, MotionInputBuffer};
+// Motion-gesture recognition moved to the `ambition_input` crate (it is pure
+// input logic, reusable beyond projectiles). Re-exported so existing
+// `crate::projectile::MotionInputBuffer` paths keep resolving.
+pub use crate::input::{MotionDirection, MotionInputBuffer};
 pub use portal_transit::try_projectile_portal_transit;
 pub use spawn::{ProjectileSpawner, SpawnFailure};

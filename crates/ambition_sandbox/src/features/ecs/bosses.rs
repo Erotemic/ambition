@@ -748,7 +748,6 @@ mod tests {
     #[test]
     fn gnu_ton_metrics_come_from_per_animation_hurtboxes() {
         use crate::features::bosses::BossBehaviorProfile;
-        use ambition_sprite_sheet::SheetRegistry;
 
         let registry = crate::presentation::character_sprites::baked_sheet_registry();
         let pos = ae::Vec2::new(500.0, 400.0);

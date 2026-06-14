@@ -971,6 +971,7 @@
             FullBodyPulse,
             SideSweep,
             Special("overfit_volley"),
+            Special("overflow_flood"),
         ],
         attack_cooldown: 0.85,
         attack_windup: 0.45,
@@ -1003,9 +1004,11 @@
                 Telegraph(profile: FullBodyPulse, duration: 0.8),
                 Strike(profile: FullBodyPulse, duration: 0.45),
                 Rest(duration: 0.8),
-                Telegraph(profile: SideSweep, duration: 0.7),
-                Strike(profile: SideSweep, duration: 0.4),
-                Rest(duration: 0.9),
+                // The bounds overflow: a wall of values floods down across the
+                // arena, leaving only the lane you held during the telegraph.
+                Telegraph(profile: Special("overflow_flood"), duration: 1.1),
+                Strike(profile: Special("overflow_flood"), duration: 0.4),
+                Rest(duration: 1.0),
             ]),
             enrage: (steps: [
                 Telegraph(profile: FullBodyPulse, duration: 0.55),

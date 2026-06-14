@@ -84,6 +84,7 @@ pub fn install_boss_roster() {
             ("gradient_cascade".to_string(), &["spike_halo"]),
             ("mode_collapse_converge".to_string(), &["spike_halo"]),
             ("gradient_nova".to_string(), &["spike_halo"]),
+            ("overflow_flood".to_string(), &["spike_halo"]),
         ]),
     );
 }
@@ -137,6 +138,10 @@ impl Plugin for AmbitionBossContentPlugin {
         app.register_required_components::<
             ambition_sandbox::features::BossConfig,
             specials::ExplodingGradientState,
+        >();
+        app.register_required_components::<
+            ambition_sandbox::features::BossConfig,
+            specials::OverflowState,
         >();
 
         // Cut-rope boss steering: tracks the hanging anvil during the

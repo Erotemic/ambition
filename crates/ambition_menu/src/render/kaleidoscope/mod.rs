@@ -552,15 +552,20 @@ fn cube_3d_picking(
         ),
         With<KaleidoscopePauseCamera>,
     >,
-    // Only INTERACTIVE control planes are pick candidates: the query REQUIRES
-    // `KaleidoscopeControlStyle`, which `spawn_control` puts on every interactive control and
-    // nothing else (the full-face background, the per-page `UiRoot3d` face plane —
-    // which carries a face-sized `Dimension` — decorative panels, text, and the
-    // selection corners all lack it). Without this gate those non-control planes are
-    // valid `Dimension` candidates too; a face-spanning plane that wins the depth
-    // sort silently swallows the click (it has no `AmbitionMenuControl`, so the host
-    // observer's `controls.get(hit)` returns `Err` and the click is dropped). Gating
-    // to real controls makes every spawned, enabled control reliably clickable.
+    // Only INTERACTIVE control planes on the ACTIVE face are pick candidates:
+    //
+    // * `KaleidoscopeControlStyle` — `spawn_control` puts it on every interactive
+    //   control and nothing else (the full-face background, the per-page `UiRoot3d`
+    //   face plane — which carries a face-sized `Dimension` — decorative panels, text,
+    //   and the selection corners all lack it). Without this gate those non-control
+    //   planes are valid `Dimension` candidates too; a face-spanning plane that wins
+    //   the depth sort silently swallows the click (it has no `AmbitionMenuControl`, so
+    //   the host observer's `controls.get(hit)` returns `Err` and the click is dropped).
+    // * `KaleidoscopeActiveFaceControl` — the cube spawns EVERY face's controls at once
+    //   (the side/back faces are rotated away, not hidden, so their planes are still
+    //   visible candidates). Requiring the active-face marker means a pointer can only
+    //   hover/press/drag the face turned to the camera — hovering a rotated-away
+    //   System/Items button no longer fires the move blip or moves the cursor.
     nodes: Query<
         (
             Entity,
@@ -569,7 +574,10 @@ fn cube_3d_picking(
             Option<&Pickable>,
             &ViewVisibility,
         ),
-        With<KaleidoscopeControlStyle>,
+        (
+            With<KaleidoscopeControlStyle>,
+            With<KaleidoscopeActiveFaceControl>,
+        ),
     >,
     mut output: MessageWriter<PointerHits>,
 ) {

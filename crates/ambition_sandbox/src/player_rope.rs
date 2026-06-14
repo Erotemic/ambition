@@ -132,11 +132,38 @@ pub fn ensure_player_rope(
     }
 }
 
-/// Advance the player's rope one sim step, pinned to the player's hip. Uses
-/// `scaled_dt` so bullet-time / pause slow the rope with the rest of the world
-/// (`[[feedback_world_time_pattern]]`).
+/// Drape the rope over world solids: each free point sweeps from its previous to
+/// its new position; if that move crosses a solid surface, the point rests on
+/// the surface instead of tunnelling through (and its velocity into the surface
+/// is killed, so it drapes rather than bounces). This is the "drape down onto the
+/// collision" half of the feature. Pure given a world — testable with a fixture.
+pub fn resolve_rope_collisions(points: &mut [RopePoint], world: &ae::World) {
+    // Skip the pinned head (it lives wherever the player is, even inside geometry
+    // briefly during a transit).
+    for p in points.iter_mut().skip(1) {
+        let delta = p.pos - p.prev;
+        let dist = delta.length();
+        if dist < 1e-4 {
+            continue;
+        }
+        let dir = delta / dist;
+        if let Some((hit, _normal)) =
+            crate::platformer_runtime::collision::raycast_solids(world, p.prev, dir, dist, false)
+        {
+            // Rest on the surface; pin prev=pos so it doesn't carry momentum into
+            // the solid next tick (a drape, not a bounce).
+            p.pos = hit;
+            p.prev = hit;
+        }
+    }
+}
+
+/// Advance the player's rope one sim step, pinned to the player's hip, then drape
+/// it over the world. Uses `sim_dt` so bullet-time / pause slow the rope with the
+/// rest of the world (`[[feedback_world_time_pattern]]`).
 pub fn update_player_rope(
     world_time: Res<crate::WorldTime>,
+    world: Option<Res<crate::GameWorld>>,
     mut players: Query<
         (&crate::player::BodyKinematics, &mut PlayerTrailRope),
         With<crate::player::PlayerEntity>,
@@ -156,6 +183,9 @@ pub fn update_player_rope(
             ROPE_SEGMENT_LEN,
             ROPE_CONSTRAINT_ITERS,
         );
+        if let Some(w) = world.as_deref() {
+            resolve_rope_collisions(&mut rope.points, &w.0);
+        }
     }
 }
 
@@ -241,6 +271,58 @@ mod tests {
                 "segment length {len} drifted from rest {ROPE_SEGMENT_LEN} — rope is too stretchy",
             );
         }
+    }
+
+    #[test]
+    fn rope_drapes_over_a_floor_instead_of_tunnelling_through() {
+        // A floor solid at y[200,220] spanning the arena; the anchor sits above
+        // it at y=100. Free-hanging the rope would reach y ≈ 100 + 14*18 = 352,
+        // well past the floor — so a correct drape must rest it on top (~y=200).
+        let world = ae::World::new(
+            "rope_drape_test",
+            ae::Vec2::new(900.0, 400.0),
+            ae::Vec2::new(450.0, 50.0),
+            vec![ae::Block::solid(
+                "floor",
+                ae::Vec2::new(0.0, 200.0),
+                ae::Vec2::new(900.0, 20.0),
+            )],
+        );
+        let anchor = ae::Vec2::new(450.0, 100.0);
+        // Lay the rope out HORIZONTALLY just above the floor so it has to fall
+        // onto it (spread points so the segment constraints engage — coincident
+        // points have no direction to relax along).
+        let mut points: Vec<RopePoint> = (0..=ROPE_SEGMENTS)
+            .map(|i| {
+                let p = ae::Vec2::new(anchor.x + i as f32 * ROPE_SEGMENT_LEN, anchor.y);
+                RopePoint { pos: p, prev: p }
+            })
+            .collect();
+        for _ in 0..300 {
+            verlet_step(
+                &mut points,
+                anchor,
+                ROPE_GRAVITY,
+                1.0 / 60.0,
+                ROPE_SEGMENT_LEN,
+                ROPE_CONSTRAINT_ITERS,
+            );
+            resolve_rope_collisions(&mut points, &world);
+        }
+        // No point sinks meaningfully past the floor's top face (y=200).
+        for p in &points {
+            assert!(
+                p.pos.y <= 200.0 + ROPE_SEGMENT_LEN,
+                "rope point {:?} tunnelled through the floor (top y=200)",
+                p.pos,
+            );
+        }
+        // And the rope actually reached the floor (it didn't just float) — the
+        // tail rests near it, not way up at the anchor.
+        assert!(
+            points.last().unwrap().pos.y > 150.0,
+            "the rope should have fallen down onto the floor",
+        );
     }
 
     #[test]

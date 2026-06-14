@@ -41,9 +41,9 @@ When you wake up here, pick the next task from this list and work on it without 
 
 ## Jon's Polish List
 
-- [ ] Fireballs and most projectiles need to be transitable through portals.
+- [x] Fireballs and most projectiles need to be transitable through portals. _Done 2026-06-14 (autonomous): pure `crate::projectile::try_projectile_portal_transit` (mirrors `portal_teleport_ground_items`) maps an in-flight shot's pos+velocity through the portal pair (speed-preserving rotation) when it enters a portal face; both the player and enemy projectile systems call it before their shared world-collision step and skip collision on transit. 5 pure unit tests; replay bit-identical._
 
-- [ ] Fireballs will still explode as if they hit a wall when they should transit through portals without exploding.
+- [x] Fireballs will still explode as if they hit a wall when they should transit through portals without exploding. _Done 2026-06-14 — same change: transit happens BEFORE `resolve_world_collision`, so a shot threading the aperture never reaches the wall-hit/explode branch. **Handoff (feel):** the trigger is an AABB-overlap with the portal frame (matching the ground-item convention); a very fast shot could in principle tunnel the thin frame in one step — if that shows up in play, upgrade to a swept plane-cross test (`front_distance` sign change). Sized-projectile partial clipping through the aperture is not modelled (the shot teleports whole)._
 
 - [ ] I want to increase the terminal velocity, or there is some effect that maxes out your out velocity when you travel through a portal. We need better momentum preservation and buildup. 
 

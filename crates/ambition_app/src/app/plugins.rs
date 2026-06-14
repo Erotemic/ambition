@@ -731,9 +731,9 @@ fn install_projectile_and_vfx_systems(app: &mut App) {
         Update,
         (
             ambition_sandbox::projectile::sync_projectile_visuals
-                .after(ambition_sandbox::projectile::update_projectiles),
+                .after(ambition_sandbox::projectile::step_projectiles),
             ambition_sandbox::enemy_projectile::sync_enemy_projectile_visuals
-                .after(ambition_sandbox::enemy_projectile::update_enemy_projectiles),
+                .after(ambition_sandbox::projectile::step_projectiles),
         ),
     )
     // VFX + debris subscribe on the visible binary only. Audio's

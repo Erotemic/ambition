@@ -106,13 +106,17 @@ impl Plugin for CombatSchedulePlugin {
                 // one step this frame — identical to the old direct push.
                 ambition_sandbox::enemy_projectile::apply_projectile_effects
                     .run_if(gameplay_allowed),
-                ambition_sandbox::projectile::update_projectiles,
-                // Phase 3b player-pool spawn consumer: pushes player-fired
-                // bodies into the firing player's PlayerProjectileState.bodies
-                // AFTER update_projectiles, so the new body first ticks next
-                // frame (matches the old post-tick-loop push).
+                // Unified projectile step (player + enemy, faction-routed). Runs
+                // AFTER the enemy spawn consumer (so an enemy body spawned this
+                // tick advances one step this frame) and BEFORE the player input +
+                // spawn below (so a player shot FIRED this frame first ticks next
+                // frame — the old asymmetric spawn timing, preserved).
+                ambition_sandbox::projectile::step_projectiles.run_if(gameplay_allowed),
+                // Player projectile INPUT: charge / Hadouken / fire → SpawnProjectile.
+                ambition_sandbox::projectile::player_projectile_input,
+                // Phase 3b player-pool spawn consumer: materializes player-fired
+                // bodies AFTER the step, so the new body first ticks next frame.
                 ambition_sandbox::projectile::apply_player_spawn_projectile_messages,
-                ambition_sandbox::enemy_projectile::update_enemy_projectiles.run_if(gameplay_allowed),
                 // Hitbox-entity lifecycle for melee strikes (Task A of the
                 // actor/brain follow-up plan). `apply_hitbox_damage`
                 // resolves overlap → damage event; `tick_and_despawn_hitboxes`

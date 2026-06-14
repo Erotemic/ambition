@@ -36,11 +36,14 @@ mod visuals;
 mod tests;
 
 pub use entity::{
-    PlayerProjectile, ProjectileOwner, ProjectileOwnerId, ProjectileSeq, ProjectileSeqCounter,
+    LiveProjectile, PlayerProjectile, ProjectileOwner, ProjectileOwnerId, ProjectileSeq,
+    ProjectileSeqCounter,
 };
 pub use spawn_message::{ProjectilePool, SpawnProjectile};
 pub use state::PlayerProjectileState;
-pub use systems::{apply_player_spawn_projectile_messages, update_projectiles};
+pub use systems::{
+    apply_player_spawn_projectile_messages, player_projectile_input, step_projectiles,
+};
 pub use visuals::{sync_projectile_visuals, PlayerProjectileVisual};
 #[allow(unused_imports)]
 pub use visuals::{ProjectileVisualLink, VisualProjectile};

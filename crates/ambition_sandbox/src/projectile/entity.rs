@@ -21,9 +21,16 @@
 
 use bevy::prelude::*;
 
-/// Marker on every PLAYER-pool projectile entity. The enemy pool is still a
-/// `Vec` (`EnemyProjectileState`), so this distinguishes the two during the
-/// staged migration.
+/// Marker on EVERY in-flight projectile entity — player- and enemy-spawned
+/// alike. The unified `step_projectiles` system queries this one marker and
+/// routes behavior by `ProjectileGameplay::faction`, so there is a single
+/// projectile step pipeline. `PlayerProjectile` / `EnemyProjectile` remain as
+/// thin ART tags that select which visual the (still per-source) renderers draw.
+#[derive(Component)]
+pub struct LiveProjectile;
+
+/// Art tag on a PLAYER-pool projectile entity (drives `sync_projectile_visuals`).
+/// Behavior is faction-routed in the unified stepper; this only picks the sprite.
 #[derive(Component)]
 pub struct PlayerProjectile;
 

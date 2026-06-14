@@ -14,7 +14,7 @@ use crate::engine_core::{Block, World};
 use bevy::prelude::*;
 
 use super::state::PlayerProjectileState;
-use super::systems::update_projectiles;
+use super::systems::{player_projectile_input, step_projectiles};
 use crate::audio::SfxMessage;
 use crate::features::{ActorHealth, ActorIdentity, GameplayBanner, HitEvent, SetFlagRequested};
 use crate::input::ControlFrame;
@@ -75,6 +75,10 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     app.add_message::<HitEvent>();
     app.add_message::<crate::features::ActorStimulus>();
     app.add_message::<crate::projectile::SpawnProjectile>();
+    // The unified stepper can heal the player on a parry, so the message must be
+    // registered even though player projectiles never trigger it.
+    app.add_message::<crate::player::PlayerHealRequested>();
+    app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
     app.add_plugins(crate::brain::BrainPlugin);
     app.add_systems(
         Update,
@@ -82,9 +86,11 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
             crate::player::sync_local_player_input_frame,
             crate::player::tick_player_brains,
             crate::brain::emit_player_projectile_tick_messages,
-            update_projectiles,
-            // Mirror production: projectile ticks emit SpawnProjectile, the pool
-            // consumer materializes entities, then feature hits drain.
+            // Mirror production order: the unified stepper advances existing
+            // shots, THEN input fires + the pool consumer materializes (so a
+            // shot fired this frame first ticks next frame), then feature hits.
+            step_projectiles,
+            player_projectile_input,
             super::systems::apply_player_spawn_projectile_messages,
             crate::features::apply_feature_hit_events,
         )
@@ -193,6 +199,7 @@ pub(in crate::projectile) fn spawn_player_projectile(
         crate::projectile::ProjectileOwner(owner),
         seq,
         crate::projectile::ProjectileOwnerId(owner_id.to_string()),
+        crate::projectile::LiveProjectile,
         crate::projectile::PlayerProjectile,
         Name::new("Player projectile (test)"),
     ));

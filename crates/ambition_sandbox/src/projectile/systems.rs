@@ -2,25 +2,46 @@
 //! input, and routes hits through ECS-native feature damage messages.
 
 use crate::engine_core as ae;
+use crate::engine_core::AabbExt;
 use bevy::prelude::*;
 
 use super::diagnostics::log_press_diagnostics;
 use super::entity::{
-    PlayerProjectile, ProjectileOwner, ProjectileOwnerId, ProjectileSeq, ProjectileSeqCounter,
+    LiveProjectile, PlayerProjectile, ProjectileOwner, ProjectileOwnerId, ProjectileSeq,
+    ProjectileSeqCounter,
 };
 use super::spawn_message::{ProjectilePool, SpawnProjectile};
 use super::state::{PlayerProjectileState, ProjectileTraceEvent};
-use super::{resolve_world_collision, WorldHitOutcome, WorldHitPolicy};
+use super::{resolve_world_collision, ProjectileFaction, WorldHitOutcome, WorldHitPolicy};
 use crate::audio::SfxMessage;
 use crate::features::{
     ActorCombatState, ActorDisposition, BossClusterRef, BossConfig, BreakableFeature, FeatureAabb,
-    FeatureId, FeatureSimEntity, HitEvent, HitSource,
+    FeatureId, FeatureSimEntity, HitEvent, HitKnockback, HitMode, HitSource, HitTarget,
 };
 use crate::player::BodyKinematics;
 use ambition_effects::vfx::VfxMessage;
 use crate::projectile::ProjectileGameplay;
 use crate::trace::GameplayTraceBuffer;
 use crate::GameWorld;
+
+/// Speed multiplier applied to a parried shot as it reverses — a timed parry
+/// sends the bolt back a little faster than it arrived.
+const PROJECTILE_REFLECT_SPEED_SCALE: f32 = 1.3;
+/// Health a successful parry restores (a reason to parry rather than dodge).
+const PARRY_HEAL: i32 = 1;
+
+/// A timed-out or wall-killed **lasersword** detonates with a rendered
+/// explosion (keyed on the `lasersword:`-prefixed owner id). Returns `None` for
+/// any other projectile. VFX-only — replay-neutral.
+fn lasersword_detonation(owner_id: &str, pos: ae::Vec2) -> Option<VfxMessage> {
+    owner_id
+        .starts_with("lasersword")
+        .then_some(VfxMessage::Explosion {
+            pos,
+            kind: ambition_effects::vfx::ExplosionKind::ClassicBurst,
+            scale: 0.7,
+        })
+}
 
 /// The portal-carved collision world a projectile collides against. Bundled as a
 /// [`SystemParam`] so [`update_projectiles`] can build the carved world without
@@ -55,20 +76,16 @@ impl ProjectileCollisionWorld<'_, '_> {
     }
 }
 
+/// Player projectile INPUT: per-player charge / Hadouken-motion recognition /
+/// fire. Emits [`SpawnProjectile`] into the shared pool; the actual flight is
+/// stepped by [`step_projectiles`] (the unified faction-general stepper). Split
+/// out of the former `update_projectiles` when the player + enemy step loops
+/// were merged.
 #[allow(clippy::too_many_arguments)]
-pub fn update_projectiles(
-    mut commands: Commands,
+pub fn player_projectile_input(
     world_time: Res<crate::WorldTime>,
-    carved: ProjectileCollisionWorld,
-    gravity: crate::physics::GravityCtx,
-    // Per-player projectile state lives on the player entity itself
-    // (was a singleton `Res<PlayerProjectileState>`). Iterates every
-    // player so co-op / possession builds get one independent charge
-    // timer per player without sharing a singleton.
-    // `Without<PlayerProjectile>` makes this query provably disjoint from the
-    // `projectiles` query below (both touch `BodyKinematics`): the player and
-    // its in-flight projectiles are separate archetypes, but Bevy needs the
-    // `Without` to prove it (B0001).
+    // Per-player projectile state lives on the player entity itself. Iterates
+    // every player so co-op / possession builds get one independent charge timer.
     mut player_q: Query<
         (
             Entity,
@@ -76,73 +93,17 @@ pub fn update_projectiles(
             &mut crate::projectile::PlayerProjectileState,
             &mut crate::player::PlayerAnimState,
         ),
-        (With<crate::player::PlayerEntity>, Without<PlayerProjectile>),
-    >,
-    // Sort in-flight projectiles by spawn sequence because Bevy iteration
-    // order is unspecified.
-    mut projectiles: Query<
-        (
-            Entity,
-            &mut BodyKinematics,
-            &mut ProjectileGameplay,
-            &ProjectileOwner,
-            &ProjectileSeq,
-        ),
-        (
-            With<PlayerProjectile>,
-            // Provably disjoint from the player query (above) and the
-            // FeatureSimEntity actor/boss/breakable queries (below), both of
-            // which touch `BodyKinematics`. Projectiles are neither a player
-            // nor a feature-sim entity (B0001).
-            Without<crate::player::PlayerEntity>,
-            Without<FeatureSimEntity>,
-        ),
+        With<crate::player::PlayerEntity>,
     >,
     mut brain_actions: MessageReader<crate::brain::ActorActionMessage>,
     user_settings: Res<crate::persistence::settings::UserSettings>,
     mut trace: ResMut<GameplayTraceBuffer>,
-    mut feature_damage: MessageWriter<HitEvent>,
-    ecs_breakables: Query<(&FeatureId, &FeatureAabb, &BreakableFeature), With<FeatureSimEntity>>,
-    ecs_actors: Query<
-        (
-            &FeatureId,
-            &FeatureAabb,
-            &ActorDisposition,
-            &ActorCombatState,
-        ),
-        (With<FeatureSimEntity>, Without<BossConfig>),
-    >,
-    ecs_bosses: Query<
-        (
-            &FeatureId,
-            &FeatureAabb,
-            BossClusterRef,
-            &crate::brain::BossAttackState,
-            // Live rendered frame, so the projectile hit-check uses the
-            // same head position as the damage path + the drawn hurtbox.
-            Option<&crate::features::BossAnimationFrameSample>,
-        ),
-        With<FeatureSimEntity>,
-    >,
-    mut sfx: MessageWriter<SfxMessage>,
-    mut vfx: MessageWriter<VfxMessage>,
-    // Firing emits `SpawnProjectile`; the player-pool consumer runs after
-    // this system so newly-fired projectiles first tick next frame.
+    // Firing emits `SpawnProjectile`; the player-pool consumer runs after this
+    // system so newly-fired projectiles first tick next frame.
     mut spawn_projectiles: MessageWriter<SpawnProjectile>,
 ) {
-    // Sim clock: projectile motion + spawner pacing freeze in
-    // bullet-time alongside the rest of the world (ADR 0010). A
-    // projectile in mid-arc should not advance while the world
-    // is stopped.
+    // Sim clock: spawner pacing freezes in bullet-time alongside the world.
     let dt = world_time.sim_dt();
-    // Collide projectiles against the PORTAL-CARVED world (built once per frame),
-    // so a shot fired into a wall portal flies through the opening instead of
-    // detonating on the wall; `portal_transit` then carries it across.
-    let collision_world = carved.solids();
-    // Snapshot placed portals once for the per-projectile transit test.
-    let portal_list = carved.portal_list();
-    // Localized gravity: each projectile body resolves its own gravity by
-    // position below, so a shot crossing a gravity column bends the column's way.
 
     // Build a per-actor map of PlayerProjectileTick infos so the
     // per-player loop below can look up each player's tick info by
@@ -191,95 +152,6 @@ pub fn update_projectiles(
         state.motion_buffer.push(dir, now);
 
         let mut events: Vec<ProjectileTraceEvent> = Vec::new();
-
-        // Collect this player's in-flight projectile entities in spawn order.
-        let mut owned: Vec<(Entity, ProjectileSeq)> = projectiles
-            .iter()
-            .filter(|(_, _, _, owner, _)| owner.0 == player_entity)
-            .map(|(entity, _, _, _, seq)| (entity, *seq))
-            .collect();
-        owned.sort_by_key(|(_, seq)| *seq);
-
-        for (proj_entity, _) in owned {
-            // Re-fetch mutably by entity (the collect above borrowed `&`).
-            let Ok((_, mut kin, mut game, _, _)) = projectiles.get_mut(proj_entity) else {
-                continue;
-            };
-
-            let gravity_sign = gravity.sign_at(kin.pos);
-            let alive = game.tick(&mut kin, dt, gravity_sign);
-            if !alive {
-                events.push(ProjectileTraceEvent::Expired { kind: game.kind });
-                commands.entity(proj_entity).despawn();
-                continue;
-            }
-
-            // Step 1: damage check against actors (enemies / bosses /
-            // breakables / NPCs) via the unified pathway. The damage event
-            // is only written when a hit is actually detected — a stray
-            // projectile mid-flight must not deal damage to anything its
-            // future AABB happens to brush in a later frame. The projectile
-            // also expires on the first hit (no piercing today), so one
-            // shot = one damage event = one damage application.
-            let hit_event = HitEvent {
-                volume: kin.aabb(),
-                damage: game.damage,
-                source: HitSource::PlayerProjectile { kind: game.kind },
-                attacker: Some(player_entity),
-                target: crate::features::HitTarget::Volume,
-                mode: crate::features::HitMode::Knockback,
-                knockback: None,
-                ignored_targets: Vec::new(),
-            };
-            let ecs_breakable_hit =
-                crate::features::ecs_hit_event_hits_breakable(&hit_event, &ecs_breakables);
-            let ecs_actor_hit = crate::features::ecs_hit_event_hits_actor(&hit_event, &ecs_actors);
-            let ecs_boss_hit = crate::features::ecs_hit_event_hits_boss(&hit_event, &ecs_bosses);
-            if ecs_breakable_hit || ecs_actor_hit || ecs_boss_hit {
-                feature_damage.write(hit_event);
-                sfx.write(SfxMessage::Hit { pos: kin.pos });
-                events.push(ProjectileTraceEvent::Hit {
-                    kind: game.kind,
-                    damage: game.damage,
-                });
-                commands.entity(proj_entity).despawn();
-                continue;
-            }
-
-            // Step 1.5: portal transit. If this shot crossed a portal aperture
-            // this tick, map it through the pair (rotated momentum) and skip the
-            // wall-collision step — so it threads the portal instead of
-            // detonating on the wall (Jon: "fireballs should transit portals
-            // without exploding").
-            if !portal_list.is_empty()
-                && crate::projectile::try_projectile_portal_transit(&mut kin, &portal_list)
-            {
-                continue;
-            }
-
-            // Step 2: shared world-collision policy. Fireballs bounce while
-            // `bounces_remaining > 0`; Hadouken expires on first solid hit.
-            match resolve_world_collision(
-                &mut kin,
-                &mut game,
-                &collision_world,
-                WorldHitPolicy::PlayerBouncing,
-            ) {
-                WorldHitOutcome::Bounced { pos } => {
-                    sfx.write(SfxMessage::Hit { pos });
-                    // body kept alive — entity survives
-                }
-                WorldHitOutcome::Expired { pos } => {
-                    events.push(ProjectileTraceEvent::Hit {
-                        kind: game.kind,
-                        damage: game.damage,
-                    });
-                    vfx.write(VfxMessage::Impact { pos });
-                    commands.entity(proj_entity).despawn();
-                }
-                WorldHitOutcome::Continue => {}
-            }
-        }
 
         let facing = if kin.facing.abs() < f32::EPSILON {
             1.0
@@ -451,6 +323,7 @@ pub fn apply_player_spawn_projectile_messages(
             ProjectileOwner(owner),
             seq.next(),
             ProjectileOwnerId(msg.projectile.owner_id.clone()),
+            crate::projectile::LiveProjectile,
             PlayerProjectile,
             Name::new("Player projectile (sim)"),
         ));
@@ -469,4 +342,259 @@ struct PlayerProjectileTickInfo {
     press: bool,
     held: bool,
     released: bool,
+}
+
+/// The unified projectile step pipeline. Processes EVERY in-flight projectile —
+/// player- and enemy-spawned alike (one `LiveProjectile` query) — sorted by
+/// the global [`ProjectileSeq`], routing behavior by
+/// [`ProjectileGameplay::faction`]:
+///
+/// - **Player-faction** shots damage enemies / bosses / breakables (one hit =
+///   one despawn) and bounce on solids per `WorldHitPolicy::PlayerBouncing`.
+/// - **Enemy-faction** shots can be parried (flip to Player-faction + reflect),
+///   else damage the first vulnerable overlapping player, and expire on any
+///   solid contact.
+///
+/// Lasersword shots detonate (rendered explosion) on death / wall-hit either
+/// way. This replaces the former separate `update_projectiles` step loop and
+/// `update_enemy_projectiles`; the player INPUT / charge / fire stays in
+/// [`update_projectiles`], which now only spawns into this shared pool.
+#[allow(clippy::too_many_arguments)]
+pub fn step_projectiles(
+    mut commands: Commands,
+    world_time: Res<crate::WorldTime>,
+    carved: ProjectileCollisionWorld,
+    gravity: crate::physics::GravityCtx,
+    mut projectiles: Query<
+        (
+            Entity,
+            &mut BodyKinematics,
+            &mut ProjectileGameplay,
+            Option<&ProjectileOwner>,
+            Option<&ProjectileOwnerId>,
+            &ProjectileSeq,
+        ),
+        (
+            With<LiveProjectile>,
+            Without<crate::player::PlayerEntity>,
+            Without<FeatureSimEntity>,
+        ),
+    >,
+    // Read-only player bodies for enemy-faction damage + parry. Disjoint from the
+    // mutable projectile query above (both touch `BodyKinematics`; B0001) via the
+    // `LiveProjectile` / `PlayerEntity` marker split.
+    player_body_q: Query<
+        (
+            Entity,
+            &BodyKinematics,
+            &crate::player::PlayerOffense,
+            &crate::player::PlayerDodgeState,
+            &crate::player::PlayerShieldState,
+            &crate::player::PlayerCombatState,
+        ),
+        (
+            With<crate::player::PlayerEntity>,
+            Without<LiveProjectile>,
+        ),
+    >,
+    mut feature_damage: MessageWriter<HitEvent>,
+    ecs_breakables: Query<(&FeatureId, &FeatureAabb, &BreakableFeature), With<FeatureSimEntity>>,
+    ecs_actors: Query<
+        (
+            &FeatureId,
+            &FeatureAabb,
+            &ActorDisposition,
+            &ActorCombatState,
+        ),
+        (With<FeatureSimEntity>, Without<BossConfig>),
+    >,
+    ecs_bosses: Query<
+        (
+            &FeatureId,
+            &FeatureAabb,
+            BossClusterRef,
+            &crate::brain::BossAttackState,
+            Option<&crate::features::BossAnimationFrameSample>,
+        ),
+        With<FeatureSimEntity>,
+    >,
+    mut sfx: MessageWriter<SfxMessage>,
+    mut vfx: MessageWriter<VfxMessage>,
+    mut heals: MessageWriter<crate::player::PlayerHealRequested>,
+    mut trace: ResMut<GameplayTraceBuffer>,
+) {
+    let dt = world_time.sim_dt();
+    let collision_world = carved.solids();
+    let portal_list = carved.portal_list();
+    let tick = trace.current_tick();
+
+    // Collect + sort by the GLOBAL spawn sequence (a single deterministic order
+    // across both factions; the seq counter is shared at spawn).
+    let mut ordered: Vec<(Entity, ProjectileSeq)> = projectiles
+        .iter()
+        .map(|(entity, _, _, _, _, seq)| (entity, *seq))
+        .collect();
+    ordered.sort_by_key(|(_, seq)| *seq);
+
+    for (proj_entity, _) in ordered {
+        let Ok((_, mut kin, mut game, owner, owner_id, _)) = projectiles.get_mut(proj_entity)
+        else {
+            continue;
+        };
+        let owner_entity = owner.map(|o| o.0);
+        let owner_id_str = owner_id.map(|o| o.0.clone()).unwrap_or_default();
+
+        // Tick + lifetime. A dead lasersword detonates; everything else logs an
+        // Expired trace event.
+        let gravity_sign = gravity.sign_at(kin.pos);
+        if !game.tick(&mut kin, dt, gravity_sign) {
+            if let Some(boom) = lasersword_detonation(&owner_id_str, kin.pos) {
+                vfx.write(boom);
+                sfx.write(SfxMessage::Play {
+                    id: ambition_sfx::ids::WORLD_EXPLOSION,
+                    pos: kin.pos,
+                });
+            } else {
+                trace.push_event(ProjectileTraceEvent::Expired { kind: game.kind }.into_trace_event(tick));
+            }
+            commands.entity(proj_entity).despawn();
+            continue;
+        }
+
+        // Portal transit: thread the aperture instead of hitting the wall.
+        if !portal_list.is_empty()
+            && crate::projectile::try_projectile_portal_transit(&mut kin, &portal_list)
+        {
+            continue;
+        }
+
+        // Faction-routed damage.
+        match game.faction {
+            ProjectileFaction::Player => {
+                let hit_event = HitEvent {
+                    volume: kin.aabb(),
+                    damage: game.damage.max(1),
+                    source: HitSource::PlayerProjectile { kind: game.kind },
+                    attacker: owner_entity,
+                    target: HitTarget::Volume,
+                    mode: HitMode::Knockback,
+                    knockback: None,
+                    ignored_targets: Vec::new(),
+                };
+                let hit = crate::features::ecs_hit_event_hits_breakable(&hit_event, &ecs_breakables)
+                    || crate::features::ecs_hit_event_hits_actor(&hit_event, &ecs_actors)
+                    || crate::features::ecs_hit_event_hits_boss(&hit_event, &ecs_bosses);
+                if hit {
+                    feature_damage.write(hit_event);
+                    sfx.write(SfxMessage::Hit { pos: kin.pos });
+                    trace.push_event(
+                        ProjectileTraceEvent::Hit {
+                            kind: game.kind,
+                            damage: game.damage,
+                        }
+                        .into_trace_event(tick),
+                    );
+                    commands.entity(proj_entity).despawn();
+                    continue;
+                }
+            }
+            ProjectileFaction::Enemy => {
+                let mut hit_any_player = false;
+                let mut reflected = false;
+                for (player_entity, player_kin, offense, dodge, shield, combat) in &player_body_q {
+                    if !kin.aabb().strict_intersects(player_kin.aabb()) {
+                        continue;
+                    }
+                    // Parry: a timed shield flips the shot to the player's faction
+                    // and reverses (+boosts) its velocity, so next tick's routing
+                    // sends it back at the enemies.
+                    if shield.parrying() {
+                        game.faction = ProjectileFaction::Player;
+                        kin.vel = -kin.vel * PROJECTILE_REFLECT_SPEED_SCALE;
+                        sfx.write(SfxMessage::Play {
+                            id: ambition_sfx::ids::WORLD_ROCK_HIT,
+                            pos: kin.pos,
+                        });
+                        vfx.write(VfxMessage::Impact { pos: kin.pos });
+                        heals.write(crate::player::PlayerHealRequested::new(PARRY_HEAL));
+                        reflected = true;
+                        break;
+                    }
+                    let dodge_rolling = dodge.roll_timer > 0.0;
+                    let vulnerable = !offense.invincible && !dodge_rolling && combat.vulnerable();
+                    if !vulnerable {
+                        continue;
+                    }
+                    let knock_dir = (player_kin.pos.x - kin.pos.x).signum();
+                    let knock_dir = if knock_dir.abs() < 0.001 { 1.0 } else { knock_dir };
+                    let impact_pos = ae::Vec2::new(
+                        (player_kin.pos.x + kin.pos.x) * 0.5,
+                        (player_kin.pos.y + kin.pos.y) * 0.5,
+                    );
+                    feature_damage.write(HitEvent {
+                        volume: kin.aabb(),
+                        damage: game.damage.max(1),
+                        source: HitSource::EnemyProjectile,
+                        attacker: None,
+                        target: HitTarget::Player(player_entity),
+                        mode: HitMode::Knockback,
+                        knockback: Some(HitKnockback {
+                            dir: knock_dir,
+                            strength: 0.85,
+                            source_pos: kin.pos,
+                            impact_pos,
+                        }),
+                        ignored_targets: Vec::new(),
+                    });
+                    sfx.write(SfxMessage::Hit { pos: kin.pos });
+                    vfx.write(VfxMessage::Impact { pos: kin.pos });
+                    hit_any_player = true;
+                    break;
+                }
+                // A parried shot survives as a player-faction bolt (keep in flight).
+                if reflected {
+                    continue;
+                }
+                if hit_any_player {
+                    commands.entity(proj_entity).despawn();
+                    continue;
+                }
+            }
+        }
+
+        // World collision: faction picks the policy. Player fireballs bounce;
+        // enemy shots expire on any contact. A lasersword detonates on the wall.
+        let policy = match game.faction {
+            ProjectileFaction::Player => WorldHitPolicy::PlayerBouncing,
+            ProjectileFaction::Enemy => WorldHitPolicy::EnemyExpireOnAnyContact,
+        };
+        match resolve_world_collision(&mut kin, &mut game, &collision_world, policy) {
+            WorldHitOutcome::Bounced { pos } => {
+                sfx.write(SfxMessage::Hit { pos });
+            }
+            WorldHitOutcome::Expired { pos } => {
+                match lasersword_detonation(&owner_id_str, pos) {
+                    Some(boom) => {
+                        vfx.write(boom);
+                        sfx.write(SfxMessage::Play {
+                            id: ambition_sfx::ids::WORLD_EXPLOSION,
+                            pos,
+                        });
+                    }
+                    None => {
+                        trace.push_event(
+                            ProjectileTraceEvent::Hit {
+                                kind: game.kind,
+                                damage: game.damage,
+                            }
+                            .into_trace_event(tick),
+                        );
+                        vfx.write(VfxMessage::Impact { pos });
+                    }
+                }
+                commands.entity(proj_entity).despawn();
+            }
+            WorldHitOutcome::Continue => {}
+        }
+    }
 }

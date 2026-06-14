@@ -35,6 +35,7 @@ pub(crate) fn spawn_enemy_projectile(
         projectile.body.game,
         seq,
         ProjectileOwnerId(projectile.owner_id),
+        crate::projectile::LiveProjectile,
         EnemyProjectile,
         Name::new("Enemy projectile (test)"),
     ));

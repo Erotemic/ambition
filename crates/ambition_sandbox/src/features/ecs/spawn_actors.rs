@@ -367,7 +367,8 @@ pub(super) fn spawn_boss(
         // boss so a future encounter can adopt the same attacks without
         // re-touching the spawn wiring.
         super::OverfitVolleyState::default(),
-        super::EyeBeamState::default(),
+        // EyeBeamState is now content-owned (ambition_content boss specials),
+        // attached via register_required_components — see that crate.
         super::MinimaTrapState::default(),
         super::SaddlePointState::default(),
         super::GradientCascadeState::default(),

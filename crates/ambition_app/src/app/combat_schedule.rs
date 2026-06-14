@@ -67,7 +67,8 @@ impl Plugin for CombatSchedulePlugin {
                 // advances this frame.
                 ambition_sandbox::features::spawn_overfit_volley_from_special_messages
                     .run_if(gameplay_allowed),
-                ambition_sandbox::features::spawn_eye_beam_from_special_messages.run_if(gameplay_allowed),
+                ambition_content::bosses::specials::spawn_eye_beam_from_special_messages
+                    .run_if(gameplay_allowed),
                 ambition_sandbox::features::spawn_minima_trap_from_special_messages.run_if(gameplay_allowed),
                 ambition_sandbox::features::spawn_saddle_point_from_special_messages.run_if(gameplay_allowed),
                 ambition_sandbox::features::spawn_gradient_cascade_minions_from_special_messages

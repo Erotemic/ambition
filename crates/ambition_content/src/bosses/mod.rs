@@ -17,6 +17,7 @@ use bevy::prelude::*;
 pub mod banter;
 pub mod cut_rope;
 pub mod gnu_ton;
+pub mod specials;
 #[cfg(feature = "ui")]
 pub mod yarn;
 
@@ -81,6 +82,15 @@ impl Plugin for AmbitionBossContentPlugin {
         install_boss_roster();
 
         app.insert_resource(ambition_sandbox::boss_encounter::BossEncounterRegistry::default());
+
+        // Boss special Techniques own their per-boss temporal state. Attach each
+        // to every boss (the `BossConfig` marker) via required components, so the
+        // machinery lib's spawn no longer names a boss technique. Registered
+        // before any boss spawns (plugin build time). First: the eye beam.
+        app.register_required_components::<
+            ambition_sandbox::features::BossConfig,
+            specials::EyeBeamState,
+        >();
 
         // Cut-rope boss steering: tracks the hanging anvil during the
         // encounter. Runs in the machinery-defined `BossSteerSlot`

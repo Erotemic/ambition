@@ -1520,6 +1520,77 @@ pub fn spawn_overflow_flood_from_special_messages(
 mod tests {
     use super::*;
 
+    /// End-to-end wiring check (public-API only): drive a boss to fire the
+    /// gradient nova and confirm the full burst of projectile entities
+    /// materializes through `Effect::Projectiles` → the engine's projectile
+    /// executor. Validates the consumer → effect → spawn pipeline that all five
+    /// new content specials share — catching a wiring/registration mistake the
+    /// pure-core tests can't. Builds the boss via `BossClusterScratch` (public),
+    /// so no engine `test-support` plumbing is needed.
+    #[test]
+    fn gradient_nova_consumer_materializes_a_full_burst_of_projectiles() {
+        use ambition_sandbox::actor::BossBrain;
+        use ambition_sandbox::enemy_projectile::{
+            apply_projectile_effects, EnemyProjectile, EnemyProjectileState,
+        };
+        use ambition_sandbox::features::BossClusterScratch;
+        use ambition_sandbox::projectile::ProjectileSeqCounter;
+
+        // The boss-profile registry must be installed before `BossClusterScratch`
+        // resolves a behavior (the lib panics otherwise in non-test builds, which
+        // is how the lib compiles for a content test). Idempotent.
+        crate::bosses::install_boss_roster();
+
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_message::<ActorActionMessage>();
+        app.add_message::<EffectRequest>();
+        app.init_resource::<EnemyProjectileState>();
+        app.init_resource::<ProjectileSeqCounter>();
+        app.init_resource::<WorldTime>();
+        {
+            let mut wt = app.world_mut().resource_mut::<WorldTime>();
+            wt.scaled_dt = 1.0 / 60.0;
+            wt.raw_dt = 1.0 / 60.0;
+        }
+        app.add_systems(
+            Update,
+            (
+                spawn_gradient_nova_from_special_messages,
+                apply_projectile_effects,
+            )
+                .chain(),
+        );
+
+        let aabb = ae::Aabb::new(ae::Vec2::new(640.0, 400.0), ae::Vec2::new(64.0, 64.0));
+        let boss = BossClusterScratch::new("test_boss", "Test Boss", aabb, BossBrain::Dormant)
+            .into_components();
+        let actor = app
+            .world_mut()
+            .spawn((FeatureSimEntity, ExplodingGradientState::default(), boss))
+            .id();
+
+        app.world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
+            .write(ActorActionMessage {
+                actor,
+                request: ActionRequest::Special {
+                    spec: SpecialActionSpec::Special(GRADIENT_NOVA_KEY.to_string()),
+                },
+            });
+        app.update();
+
+        let count = app
+            .world_mut()
+            .query_filtered::<(), With<EnemyProjectile>>()
+            .iter(app.world())
+            .count();
+        assert_eq!(
+            count, NOVA_COUNT as usize,
+            "the full nova burst should materialize as projectile entities",
+        );
+    }
+
     #[test]
     fn echo_fan_spreads_evenly_around_the_aim() {
         let aim = ae::Vec2::new(1.0, 0.0); // straight right

@@ -77,21 +77,6 @@ impl BossProfile {
     }
 }
 
-/// Canonical boss ids that have an authored encounter + behavior.
-/// Adding a new boss is two data edits — a `boss_encounters/<id>.ron`
-/// file and a `boss_profiles.ron` row — plus appending its id here.
-pub const AUTHORED_BOSS_IDS: &[&str] = &[
-    "clockwork_warden",
-    "mockingbird",
-    "gnu_ton",
-    "smirking_behemoth_boss",
-    "flying_spaghetti_monster_boss",
-    "trex_boss",
-    "mode_collapse_boss",
-    "exploding_gradient_boss",
-    "overflow_boss",
-];
-
 /// Default encounter specs keyed by id. Reads from disk
 /// (`boss_encounters/<id>.ron`) per ADR 0017; the on-disk RON is the
 /// authoritative numeric source. Authored ids without a RON file fall
@@ -107,10 +92,15 @@ fn default_boss_specs_by_id(
     specs
 }
 
+/// Every authored boss profile, derived from the content-installed encounter
+/// specs (`boss_encounters/<id>.ron`). The engine hardcodes no boss list —
+/// adding a boss is purely content data (an encounter RON + a `boss_profiles.ron`
+/// row), with no lib edit. Iterates the installed specs in install order so
+/// registration/spawn order stays stable (and replay-deterministic).
 pub fn default_boss_profiles() -> Vec<BossProfile> {
-    AUTHORED_BOSS_IDS
+    super::specs::boss_encounter_specs()
         .iter()
-        .filter_map(|id| BossProfile::from_id(id))
+        .filter_map(|spec| BossProfile::from_id(&spec.id))
         .collect()
 }
 
@@ -123,8 +113,8 @@ mod tests {
         let profiles = default_boss_profiles();
         assert_eq!(
             profiles.len(),
-            AUTHORED_BOSS_IDS.len(),
-            "every authored boss id must resolve to a profile",
+            super::super::specs::boss_encounter_specs().len(),
+            "every installed boss encounter spec must resolve to a profile",
         );
         let mut ids = std::collections::BTreeSet::new();
         for profile in profiles {

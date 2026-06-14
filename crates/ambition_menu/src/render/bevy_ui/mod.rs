@@ -34,6 +34,7 @@
 
 use bevy::ecs::relationship::RelatedSpawnerCommands;
 use bevy::prelude::*;
+use bevy::ui::UiGlobalTransform;
 
 use crate::{
     scrollbar_fraction_from_rect, scrollbar_thumb_layout, AmbitionMenuControl, AmbitionMenuRoot,
@@ -395,17 +396,22 @@ const LAYER_TEXT: i32 = 20;
 /// [`crate::render::kaleidoscope`] `scrollbar_fraction`, but reads the track rect
 /// from `bevy_ui`'s `ComputedNode`/`GlobalTransform` (2D, no camera projection).
 /// The track's screen rect `(top_y, height)` in logical pixels from its
-/// `bevy_ui` layout. `ComputedNode::size()` is PHYSICAL pixels; scale to logical
-/// to match the pointer location (the picking core reports logical/window px).
-fn bevy_ui_track_rect(computed: &ComputedNode, transform: &GlobalTransform) -> (f32, f32) {
-    let height = computed.size().y * computed.inverse_scale_factor;
-    let center_y = transform.translation().y;
+/// `bevy_ui` layout. A UI node's computed screen rect lives in [`ComputedNode`]
+/// (PHYSICAL px size) + [`UiGlobalTransform`] (PHYSICAL px center) — NOT its plain
+/// `GlobalTransform`, which is identity for UI nodes (that was the long-standing
+/// bug: the rect always read zero). Scale both to LOGICAL px via the node's
+/// `inverse_scale_factor` so they line up with the pointer location, which the
+/// picking core reports in logical/window px.
+fn bevy_ui_track_rect(computed: &ComputedNode, transform: &UiGlobalTransform) -> (f32, f32) {
+    let inv = computed.inverse_scale_factor();
+    let height = computed.size().y * inv;
+    let center_y = transform.translation.y * inv;
     (center_y - height * 0.5, height)
 }
 
 fn bevy_ui_scrollbar_fraction(
     computed: &ComputedNode,
-    transform: &GlobalTransform,
+    transform: &UiGlobalTransform,
     pointer_y: f32,
 ) -> Option<f32> {
     let (top_y, height) = bevy_ui_track_rect(computed, transform);
@@ -450,7 +456,7 @@ fn bevy_ui_scrollbar_press(
 /// overwriting it with the zero a fresh node reports the frame it is respawned. The
 /// press jump + the manual drag tracker both map against this always-valid rect.
 fn bevy_ui_maintain_track_rect(
-    bars: Query<(&ComputedNode, &GlobalTransform), With<BevyUiMenuScrollbar>>,
+    bars: Query<(&ComputedNode, &UiGlobalTransform), With<BevyUiMenuScrollbar>>,
     mut drag: ResMut<crate::render::kaleidoscope::ScrollbarDragState>,
 ) {
     for (computed, transform) in &bars {
@@ -468,7 +474,7 @@ fn bevy_ui_maintain_track_rect(
 /// press+move tracker below is belt-and-braces.
 fn bevy_ui_scrollbar_drag(
     drag: On<Pointer<Drag>>,
-    bars: Query<(&BevyUiMenuScrollbar, &ComputedNode, &GlobalTransform)>,
+    bars: Query<(&BevyUiMenuScrollbar, &ComputedNode, &UiGlobalTransform)>,
     mut out: MessageWriter<crate::render::kaleidoscope::MenuScrollDragged>,
 ) {
     if let Ok((_, computed, transform)) = bars.get(drag.entity) {

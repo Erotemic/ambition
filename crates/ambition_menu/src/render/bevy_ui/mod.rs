@@ -394,16 +394,21 @@ const LAYER_TEXT: i32 = 20;
 /// 1 = bottom). `None` if the track has no measured height yet. Mirrors the cube's
 /// [`crate::render::kaleidoscope`] `scrollbar_fraction`, but reads the track rect
 /// from `bevy_ui`'s `ComputedNode`/`GlobalTransform` (2D, no camera projection).
+/// The track's screen rect `(top_y, height)` in logical pixels from its
+/// `bevy_ui` layout. `ComputedNode::size()` is PHYSICAL pixels; scale to logical
+/// to match the pointer location (the picking core reports logical/window px).
+fn bevy_ui_track_rect(computed: &ComputedNode, transform: &GlobalTransform) -> (f32, f32) {
+    let height = computed.size().y * computed.inverse_scale_factor;
+    let center_y = transform.translation().y;
+    (center_y - height * 0.5, height)
+}
+
 fn bevy_ui_scrollbar_fraction(
     computed: &ComputedNode,
     transform: &GlobalTransform,
     pointer_y: f32,
 ) -> Option<f32> {
-    // `ComputedNode::size()` is in PHYSICAL pixels; scale to logical to match the
-    // pointer location (which the picking core reports in logical/window pixels).
-    let height = computed.size().y * computed.inverse_scale_factor;
-    let center_y = transform.translation().y;
-    let top_y = center_y - height * 0.5;
+    let (top_y, height) = bevy_ui_track_rect(computed, transform);
     scrollbar_fraction_from_rect(top_y, height, pointer_y)
 }
 
@@ -422,10 +427,14 @@ fn bevy_ui_scrollbar_press(
     mut out: MessageWriter<crate::render::kaleidoscope::MenuScrollDragged>,
 ) {
     if let Ok((_, computed, transform)) = bars.get(press.entity) {
-        // Held state lives in the RESOURCE so it survives the per-step republish.
+        // Held state + CACHED track rect live in the RESOURCE so the drag survives
+        // the per-step republish (which zeroes a fresh node's ComputedNode).
+        let (top_y, height) = bevy_ui_track_rect(computed, transform);
         drag.pressed_by = Some(press.pointer_id);
+        drag.track_top_y = top_y;
+        drag.track_height = height;
         if let Some(fraction) =
-            bevy_ui_scrollbar_fraction(computed, transform, press.pointer_location.position.y)
+            crate::scrollbar_fraction_from_rect(top_y, height, press.pointer_location.position.y)
         {
             out.write(crate::render::kaleidoscope::MenuScrollDragged { fraction });
         }
@@ -472,7 +481,6 @@ fn bevy_ui_scrollbar_press_drag(
         &bevy::picking::pointer::PointerId,
         &bevy::picking::pointer::PointerLocation,
     )>,
-    bars: Query<(&BevyUiMenuScrollbar, &ComputedNode, &GlobalTransform)>,
     drag: Res<crate::render::kaleidoscope::ScrollbarDragState>,
     mut out: MessageWriter<crate::render::kaleidoscope::MenuScrollDragged>,
 ) {
@@ -486,10 +494,12 @@ fn bevy_ui_scrollbar_press_drag(
     else {
         return;
     };
-    for (_, computed, transform) in &bars {
-        if let Some(fraction) = bevy_ui_scrollbar_fraction(computed, transform, loc.position.y) {
-            out.write(crate::render::kaleidoscope::MenuScrollDragged { fraction });
-        }
+    // Map the live pointer onto the CACHED track rect — valid across the respawn
+    // that zeroes the fresh node's `ComputedNode`/`GlobalTransform`.
+    if let Some(fraction) =
+        scrollbar_fraction_from_rect(drag.track_top_y, drag.track_height, loc.position.y)
+    {
+        out.write(crate::render::kaleidoscope::MenuScrollDragged { fraction });
     }
 }
 

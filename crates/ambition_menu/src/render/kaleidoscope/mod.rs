@@ -189,6 +189,14 @@ pub struct MenuScrollbar {
 #[derive(Resource, Default)]
 pub struct ScrollbarDragState {
     pub pressed_by: Option<PointerId>,
+    /// Track screen rect (top edge + height, logical px) CACHED at press time.
+    /// The track never moves during a drag (only the pointer does), and the grid
+    /// track's `ComputedNode`/`GlobalTransform` read as ZERO on the frame it is
+    /// respawned by the per-step republish — so the manual tracker maps the live
+    /// pointer against this cached rect rather than the (possibly just-respawned)
+    /// entity's geometry. Set on press, when the pressed track's geometry is valid.
+    pub track_top_y: f32,
+    pub track_height: f32,
 }
 
 /// Non-generic marker on each cube face plus the face's base ring placement.
@@ -1124,9 +1132,11 @@ fn scrollbar_press(
     mut out: MessageWriter<MenuScrollDragged>,
 ) {
     if let Ok(bar) = bars.get(press.entity) {
-        // Mark the held pointer in the RESOURCE so the drag survives the per-step
-        // republish that respawns this entity.
+        // Mark the held pointer + CACHE the track geometry in the RESOURCE so the
+        // drag survives the per-step republish that respawns this entity.
         drag.pressed_by = Some(press.pointer_id);
+        drag.track_top_y = bar.track_top_y;
+        drag.track_height = bar.track_height;
         if let Some(fraction) = scrollbar_fraction(bar, press.pointer_location.position.y) {
             out.write(MenuScrollDragged { fraction });
         }
@@ -1148,7 +1158,6 @@ fn scrollbar_release(release: On<Pointer<Release>>, mut drag: ResMut<ScrollbarDr
 /// `PointerLocation`) where the custom 3D backend doesn't drive `Pointer<Drag>`.
 fn scrollbar_press_drag(
     pointers: Query<(&PointerId, &PointerLocation)>,
-    bars: Query<&MenuScrollbar>,
     drag: Res<ScrollbarDragState>,
     mut out: MessageWriter<MenuScrollDragged>,
 ) {
@@ -1162,11 +1171,12 @@ fn scrollbar_press_drag(
     else {
         return;
     };
-    // There is one scrollbar at a time; map the live pointer onto its track.
-    for bar in &bars {
-        if let Some(fraction) = scrollbar_fraction(bar, loc.position.y) {
-            out.write(MenuScrollDragged { fraction });
-        }
+    // Map the live pointer onto the CACHED track rect (constant during a drag, and
+    // valid across the respawn that zeroes a fresh entity's geometry).
+    if let Some(fraction) =
+        crate::scrollbar_fraction_from_rect(drag.track_top_y, drag.track_height, loc.position.y)
+    {
+        out.write(MenuScrollDragged { fraction });
     }
 }
 

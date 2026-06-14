@@ -19,7 +19,7 @@ use crate::engine_core as ae;
 use crate::features::{ActorFaction, FeatureAabb, FeatureSimEntity, HeldItem};
 use crate::input::ControlFrame;
 use crate::player::{BodyKinematics, PlayerEntity, PlayerMana, PrimaryPlayer};
-use crate::projectile::{ProjectileFaction, SpawnProjectile};
+use crate::projectile::ProjectileFaction;
 
 /// Held-item id of the sentry gauntlet.
 pub const SENTRY_ID: &str = "sentry";
@@ -93,7 +93,7 @@ pub fn update_sentries(
     mut commands: Commands,
     mut sentries: Query<(Entity, &mut Sentry)>,
     enemies: Query<(&FeatureAabb, &ActorFaction), With<FeatureSimEntity>>,
-    mut spawn_projectiles: MessageWriter<SpawnProjectile>,
+    mut effects: MessageWriter<crate::effects::EffectRequest>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     let dt = world_time.scaled_dt;
@@ -132,19 +132,22 @@ pub fn update_sentries(
         if dir == ae::Vec2::ZERO {
             continue;
         }
-        spawn_projectiles.write(SpawnProjectile::enemy(
-            EnemyProjectileSpawn {
-                origin: sentry.pos,
-                dir,
-                speed: SENTRY_BOLT_SPEED,
-                damage: SENTRY_BOLT_DAMAGE,
-                max_lifetime: SENTRY_BOLT_LIFETIME,
-                half_extent: SENTRY_BOLT_HALF,
-                owner_id: "player_sentry".into(),
-                gravity: 0.0,
+        effects.write(crate::effects::EffectRequest {
+            owner: entity,
+            effect: crate::effects::Effect::Projectiles {
+                faction: ProjectileFaction::Player,
+                shots: vec![EnemyProjectileSpawn {
+                    origin: sentry.pos,
+                    dir,
+                    speed: SENTRY_BOLT_SPEED,
+                    damage: SENTRY_BOLT_DAMAGE,
+                    max_lifetime: SENTRY_BOLT_LIFETIME,
+                    half_extent: SENTRY_BOLT_HALF,
+                    owner_id: "player_sentry".into(),
+                    gravity: 0.0,
+                }],
             },
-            ProjectileFaction::Player,
-        ));
+        });
         sentry.fire_cooldown = SENTRY_FIRE_INTERVAL_S;
         sfx.write(crate::audio::SfxMessage::Play {
             id: ambition_sfx::ids::WORLD_ROCK_HIT,
@@ -164,7 +167,7 @@ mod tests {
     fn test_app() -> App {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
-        app.add_message::<SpawnProjectile>();
+        app.add_message::<crate::effects::EffectRequest>();
         app.insert_resource(ControlFrame::default());
         app.insert_resource(crate::WorldTime {
             raw_dt: 0.1,
@@ -172,14 +175,14 @@ mod tests {
         });
         app.init_resource::<EnemyProjectileState>();
         app.init_resource::<ProjectileSeqCounter>();
-        // Phase 3b: update_sentries emits SpawnProjectile; the enemy-pool
-        // consumer spawns the projectile entity (chained after).
+        // update_sentries emits Effect::Projectiles; apply_projectile_effects
+        // spawns the projectile entity (chained after).
         app.add_systems(
             Update,
             (
                 fire_sentry_system,
                 update_sentries,
-                crate::enemy_projectile::apply_enemy_spawn_projectile_messages,
+                crate::enemy_projectile::apply_projectile_effects,
             )
                 .chain(),
         );

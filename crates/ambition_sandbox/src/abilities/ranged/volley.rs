@@ -17,7 +17,7 @@ use crate::engine_core as ae;
 use crate::features::HeldItem;
 use crate::input::ControlFrame;
 use crate::player::{BodyKinematics, PlayerEntity, PlayerMana, PrimaryPlayer};
-use crate::projectile::{ProjectileFaction, SpawnProjectile};
+use crate::projectile::ProjectileFaction;
 
 /// Held-item id of the volley gauntlet.
 pub const VOLLEY_ID: &str = "volley";
@@ -44,7 +44,7 @@ pub fn fire_volley_system(
         (&BodyKinematics, &HeldItem, &mut PlayerMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
-    mut spawn_projectiles: MessageWriter<SpawnProjectile>,
+    mut effects: MessageWriter<crate::effects::EffectRequest>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     if !control.attack_pressed || control.shield_held {
@@ -76,19 +76,24 @@ pub fn fire_volley_system(
         };
         let angle = base_angle + t * spread;
         let dir = ae::Vec2::new(angle.cos(), angle.sin());
-        spawn_projectiles.write(SpawnProjectile::enemy(
-            EnemyProjectileSpawn {
-                origin,
-                dir,
-                speed: VOLLEY_SPEED,
-                damage: VOLLEY_DAMAGE,
-                max_lifetime: VOLLEY_LIFETIME,
-                half_extent: VOLLEY_HALF,
-                owner_id: "player_volley".into(),
-                gravity: 0.0,
+        effects.write(crate::effects::EffectRequest {
+            // Projectiles are self-describing (owner_id is on the shot); the
+            // EffectRequest owner is unused by the projectile executor.
+            owner: Entity::PLACEHOLDER,
+            effect: crate::effects::Effect::Projectiles {
+                faction: ProjectileFaction::Player,
+                shots: vec![EnemyProjectileSpawn {
+                    origin,
+                    dir,
+                    speed: VOLLEY_SPEED,
+                    damage: VOLLEY_DAMAGE,
+                    max_lifetime: VOLLEY_LIFETIME,
+                    half_extent: VOLLEY_HALF,
+                    owner_id: "player_volley".into(),
+                    gravity: 0.0,
+                }],
             },
-            ProjectileFaction::Player,
-        ));
+        });
     }
     sfx.write(crate::audio::SfxMessage::Play {
         id: ambition_sfx::ids::WORLD_ROCK_HIT,
@@ -107,7 +112,7 @@ mod tests {
     fn test_app() -> App {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
-        app.add_message::<SpawnProjectile>();
+        app.add_message::<crate::effects::EffectRequest>();
         app.insert_resource(ControlFrame::default());
         app.init_resource::<EnemyProjectileState>();
         app.init_resource::<ProjectileSeqCounter>();
@@ -116,7 +121,7 @@ mod tests {
             Update,
             (
                 fire_volley_system,
-                crate::enemy_projectile::apply_enemy_spawn_projectile_messages,
+                crate::enemy_projectile::apply_projectile_effects,
             )
                 .chain(),
         );

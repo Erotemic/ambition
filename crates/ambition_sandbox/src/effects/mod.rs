@@ -108,11 +108,21 @@ pub struct SummonSpec {
 }
 
 /// A composable effect an actor *technique* emits. [`apply_effects`] executes
-/// it — faction-tagged and emitter-relative — so player, enemy, and boss share
-/// one path. `Projectiles` lands here as the enemy-pool swap completes.
+/// `DamageBox`/`Summon`; the enemy-pool `Projectiles` are materialized by the
+/// projectile substrate's own executor (`apply_projectile_effects`, at the
+/// projectile-spawn slot) so the shared `ProjectileSeq` ordering is preserved.
+///
+/// A `Projectiles` burst carries one [`EnemyProjectileSpawn`] per shot — the
+/// emitting technique (a shaper) has already resolved aim, so the executor just
+/// builds + spawns. (When `effects` becomes its own crate, the shot type swaps
+/// to a substrate-neutral struct; in-lib it reuses the existing spawn request.)
 pub enum Effect {
     DamageBox(DamageBoxEffect),
     Summon(SummonSpec),
+    Projectiles {
+        faction: crate::projectile::ProjectileFaction,
+        shots: Vec<crate::enemy_projectile::EnemyProjectileSpawn>,
+    },
 }
 
 /// "This `owner` emitted this `effect`." Written by a technique, drained by
@@ -194,6 +204,10 @@ pub fn apply_effects(
                     s.aggression.clone(),
                 );
             }
+            // Enemy-pool projectiles are materialized by the projectile
+            // substrate's executor (`apply_projectile_effects`) at the spawn
+            // slot, so the shared `ProjectileSeq` order is preserved.
+            Effect::Projectiles { .. } => {}
         }
     }
 }

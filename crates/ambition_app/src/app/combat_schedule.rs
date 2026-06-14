@@ -85,7 +85,7 @@ impl Plugin for CombatSchedulePlugin {
                 // sentry / meteor / volley) into EnemyProjectileState.bodies
                 // BEFORE the step below, so a body spawned this tick advances
                 // one step this frame — identical to the old direct push.
-                ambition_sandbox::enemy_projectile::apply_enemy_spawn_projectile_messages
+                ambition_sandbox::enemy_projectile::apply_projectile_effects
                     .run_if(gameplay_allowed),
                 ambition_sandbox::projectile::update_projectiles,
                 // Phase 3b player-pool spawn consumer: pushes player-fired

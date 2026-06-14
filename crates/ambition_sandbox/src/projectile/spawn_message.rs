@@ -32,17 +32,7 @@ pub struct SpawnProjectile {
     pub projectile: InFlightProjectile,
 }
 
-impl SpawnProjectile {
-    /// Build an enemy-pool spawn message from a spawn request + faction. The
-    /// body-building lives in [`crate::enemy_projectile::EnemyProjectileState::build`]
-    /// so the message path and the direct-`spawn` path (tests) stay in sync.
-    pub fn enemy(
-        request: crate::enemy_projectile::EnemyProjectileSpawn,
-        faction: crate::projectile::ProjectileFaction,
-    ) -> Self {
-        Self {
-            pool: ProjectilePool::Enemy,
-            projectile: crate::enemy_projectile::EnemyProjectileState::build(request, faction),
-        }
-    }
-}
+// `SpawnProjectile::enemy` was removed: enemy-pool projectiles are now emitted
+// as `crate::effects::Effect::Projectiles` and materialized by
+// `enemy_projectile::apply_projectile_effects`. `SpawnProjectile` itself stays
+// for the player pool until that path migrates too.

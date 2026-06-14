@@ -22,38 +22,39 @@ use crate::projectile::{
 };
 use crate::GameWorld;
 
-use crate::projectile::{ProjectilePool, SpawnProjectile};
-
-/// Consume [`SpawnProjectile`] messages targeting the enemy pool and SPAWN one
-/// projectile ENTITY per message (Phase 3c-iii). Scheduled BEFORE
-/// `update_enemy_projectiles` so a body spawned this tick advances one step
-/// this frame — byte-identical to the EFFECTS-stage consumers that previously
-/// pushed directly before the update. Player-pool messages are ignored here
-/// (consumed by `apply_player_spawn_projectile_messages`).
+/// Materialize enemy-pool projectiles from [`crate::effects::Effect::Projectiles`]
+/// requests — one projectile ENTITY per shot. Scheduled BEFORE
+/// `update_enemy_projectiles` so a body spawned this tick advances one step this
+/// frame. Non-projectile effects (DamageBox / Summon) are handled by
+/// `crate::effects::apply_effects`; this executor lives next to the projectile
+/// substrate so the shared [`ProjectileSeq`] is assigned in emission order (its
+/// sort then reproduces the historical push order).
 ///
 /// Each entity carries the SHARED [`crate::player::BodyKinematics`] body + the
-/// [`ProjectileGameplay`] marker/state + the [`ProjectileOwnerId`] string + a
-/// monotonic [`ProjectileSeq`] from the SHARED counter (assigned in
-/// spawn-message order so the step loop's seq-sort reproduces the historical
-/// Vec push order).
-pub fn apply_enemy_spawn_projectile_messages(
+/// [`ProjectileGameplay`] marker/state + the [`ProjectileOwnerId`] string + the
+/// monotonic [`ProjectileSeq`].
+pub fn apply_projectile_effects(
     mut commands: Commands,
     mut seq: ResMut<ProjectileSeqCounter>,
-    mut spawn_projectiles: MessageReader<SpawnProjectile>,
+    mut requests: MessageReader<crate::effects::EffectRequest>,
 ) {
-    for msg in spawn_projectiles.read() {
-        if msg.pool != ProjectilePool::Enemy {
+    for req in requests.read() {
+        let crate::effects::Effect::Projectiles { faction, shots } = &req.effect else {
             continue;
+        };
+        for shot in shots {
+            let owner_id = shot.owner_id.clone();
+            let projectile =
+                crate::enemy_projectile::EnemyProjectileState::build(shot.clone(), *faction);
+            commands.spawn((
+                projectile.body.kin,
+                projectile.body.game,
+                seq.next(),
+                ProjectileOwnerId(owner_id),
+                EnemyProjectile,
+                Name::new("Enemy projectile (sim)"),
+            ));
         }
-        let body = &msg.projectile.body;
-        commands.spawn((
-            body.kin,
-            body.game,
-            seq.next(),
-            ProjectileOwnerId(msg.projectile.owner_id.clone()),
-            EnemyProjectile,
-            Name::new("Enemy projectile (sim)"),
-        ));
     }
 }
 

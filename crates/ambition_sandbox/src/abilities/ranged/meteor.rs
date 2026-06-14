@@ -24,7 +24,7 @@ use crate::engine_core as ae;
 use crate::features::HeldItem;
 use crate::input::ControlFrame;
 use crate::player::{BodyKinematics, PlayerEntity, PlayerMana, PrimaryPlayer};
-use crate::projectile::{ProjectileFaction, SpawnProjectile};
+use crate::projectile::ProjectileFaction;
 
 /// Held-item id of the meteor gauntlet.
 pub const METEOR_ID: &str = "meteor";
@@ -86,7 +86,7 @@ pub fn fire_meteor_system(
         (&BodyKinematics, &HeldItem, &mut PlayerMana),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
-    mut spawn_projectiles: MessageWriter<SpawnProjectile>,
+    mut effects: MessageWriter<crate::effects::EffectRequest>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     if !control.attack_pressed || control.shield_held {
@@ -103,20 +103,25 @@ pub fn fire_meteor_system(
     }
     let aim = crate::items::pickup::held_shot_aim(&control, kin.facing);
     for origin in meteor_strike_origins(kin.pos, aim, kin.facing) {
-        spawn_projectiles.write(SpawnProjectile::enemy(
-            EnemyProjectileSpawn {
-                origin,
-                // Straight down (engine y grows downward); gravity accelerates it.
-                dir: ae::Vec2::new(0.0, 1.0),
-                speed: METEOR_SPEED,
-                damage: METEOR_DAMAGE,
-                max_lifetime: METEOR_LIFETIME,
-                half_extent: METEOR_HALF,
-                owner_id: "player_meteor".into(),
-                gravity: METEOR_GRAVITY,
+        effects.write(crate::effects::EffectRequest {
+            // Projectiles are self-describing (owner_id is on the shot); the
+            // EffectRequest owner is unused by the projectile executor.
+            owner: Entity::PLACEHOLDER,
+            effect: crate::effects::Effect::Projectiles {
+                faction: ProjectileFaction::Player,
+                shots: vec![EnemyProjectileSpawn {
+                    origin,
+                    // Straight down (engine y grows downward); gravity accelerates it.
+                    dir: ae::Vec2::new(0.0, 1.0),
+                    speed: METEOR_SPEED,
+                    damage: METEOR_DAMAGE,
+                    max_lifetime: METEOR_LIFETIME,
+                    half_extent: METEOR_HALF,
+                    owner_id: "player_meteor".into(),
+                    gravity: METEOR_GRAVITY,
+                }],
             },
-            ProjectileFaction::Player,
-        ));
+        });
     }
     sfx.write(crate::audio::SfxMessage::Play {
         id: ambition_sfx::ids::WORLD_ROCK_HIT,
@@ -135,16 +140,16 @@ mod tests {
     fn test_app() -> App {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
-        app.add_message::<SpawnProjectile>();
+        app.add_message::<crate::effects::EffectRequest>();
         app.insert_resource(ControlFrame::default());
         app.init_resource::<EnemyProjectileState>();
         app.init_resource::<ProjectileSeqCounter>();
-        // Phase 3b: fire emits SpawnProjectile; enemy-pool consumer spawns the entity.
+        // fire emits Effect::Projectiles; apply_projectile_effects spawns the entity.
         app.add_systems(
             Update,
             (
                 fire_meteor_system,
-                crate::enemy_projectile::apply_enemy_spawn_projectile_messages,
+                crate::enemy_projectile::apply_projectile_effects,
             )
                 .chain(),
         );

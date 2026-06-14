@@ -33,7 +33,6 @@ use crate::features::ecs::boss_clusters::BossClusterRef;
 // `crate::effects::spawn_damage_box`; the `Hitbox` types are only needed by
 // this module's tests now (imported there).
 use crate::features::ecs::FeatureSimEntity;
-use crate::projectile::SpawnProjectile;
 use crate::time::feel::SandboxFeelTuning;
 use crate::WorldTime;
 
@@ -57,7 +56,7 @@ const PROJECTILE_MAX_LIFETIME: f32 = 2.4;
 /// the next slice in the mandate.
 pub fn spawn_enemy_projectiles_from_brain_actions(
     mut messages: MessageReader<ActorActionMessage>,
-    mut spawn_projectiles: MessageWriter<SpawnProjectile>,
+    mut effects: MessageWriter<crate::effects::EffectRequest>,
     mut sfx: MessageWriter<SfxMessage>,
     mut actors: Query<(
         &ActorRuntime,
@@ -135,7 +134,13 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         } else {
             crate::projectile::ProjectileFaction::Enemy
         };
-        spawn_projectiles.write(SpawnProjectile::enemy(spawn, shot_faction));
+        effects.write(crate::effects::EffectRequest {
+            owner: msg.actor,
+            effect: crate::effects::Effect::Projectiles {
+                faction: shot_faction,
+                shots: vec![spawn],
+            },
+        });
         // Recoil: push the firing actor backward along the negative
         // fire direction.
         let recoil_strength = if uses_gun_sword {
@@ -273,7 +278,7 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
     world_time: Res<WorldTime>,
     world: Res<crate::GameWorld>,
     mut messages: MessageReader<ActorActionMessage>,
-    mut spawn_projectiles: MessageWriter<SpawnProjectile>,
+    mut effects: MessageWriter<crate::effects::EffectRequest>,
     mut bosses: Query<(Entity, &mut AppleRainSpawnState, BossClusterRef), With<FeatureSimEntity>>,
 ) {
     let dt = world_time.sim_dt();
@@ -318,26 +323,29 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
             let spawn_x = apple_rain_spawn_x(state.spawn_index, world.0.size.x, self_aabb);
             let spawn_y = (boss.kin.pos.y - APPLE_RAIN_SPAWN_HEIGHT_ABOVE_PLAYER)
                 .max(APPLE_RAIN_HALF_EXTENT.y + 8.0);
-            spawn_projectiles.write(SpawnProjectile::enemy(
-                EnemyProjectileSpawn {
-                    origin: ae::Vec2::new(spawn_x, spawn_y),
-                    // Downward initial velocity so the apple commits to
-                    // its lane immediately instead of hanging at zero
-                    // until gravity catches up.
-                    dir: ae::Vec2::new(0.0, 1.0),
-                    speed: spawn_speed,
-                    damage,
-                    max_lifetime: APPLE_RAIN_LIFETIME,
-                    half_extent: APPLE_RAIN_HALF_EXTENT,
-                    owner_id: format!(
-                        "{}:{}",
-                        crate::features::bosses::GNU_TON_APPLE_OWNER_PREFIX,
-                        boss.config.id,
-                    ),
-                    gravity: APPLE_RAIN_GRAVITY,
+            effects.write(crate::effects::EffectRequest {
+                owner: entity,
+                effect: crate::effects::Effect::Projectiles {
+                    faction: crate::projectile::ProjectileFaction::Enemy,
+                    shots: vec![EnemyProjectileSpawn {
+                        origin: ae::Vec2::new(spawn_x, spawn_y),
+                        // Downward initial velocity so the apple commits to
+                        // its lane immediately instead of hanging at zero
+                        // until gravity catches up.
+                        dir: ae::Vec2::new(0.0, 1.0),
+                        speed: spawn_speed,
+                        damage,
+                        max_lifetime: APPLE_RAIN_LIFETIME,
+                        half_extent: APPLE_RAIN_HALF_EXTENT,
+                        owner_id: format!(
+                            "{}:{}",
+                            crate::features::bosses::GNU_TON_APPLE_OWNER_PREFIX,
+                            boss.config.id,
+                        ),
+                        gravity: APPLE_RAIN_GRAVITY,
+                    }],
                 },
-                crate::projectile::ProjectileFaction::Enemy,
-            ));
+            });
             state.spawn_index = state.spawn_index.wrapping_add(1);
         }
     }
@@ -470,7 +478,7 @@ const OVERFIT_VOLLEY_OWNER_PREFIX: &str = "gradient_sentinel_overfit";
 /// from zero.
 pub fn spawn_overfit_volley_from_special_messages(
     world_time: Res<WorldTime>,
-    mut spawn_projectiles: MessageWriter<SpawnProjectile>,
+    mut effects: MessageWriter<crate::effects::EffectRequest>,
     mut messages: MessageReader<ActorActionMessage>,
     // Per-actor target: each boss carries an `ActorTarget` populated
     // upstream by `select_actor_targets` (nearest-player resolution).
@@ -566,19 +574,25 @@ pub fn spawn_overfit_volley_from_special_messages(
                     if dir.length_squared() < 1e-4 {
                         continue;
                     }
-                    spawn_projectiles.write(SpawnProjectile::enemy(
-                        EnemyProjectileSpawn {
-                            origin,
-                            dir,
-                            speed: shot_speed,
-                            damage,
-                            max_lifetime: OVERFIT_VOLLEY_BOLT_LIFETIME,
-                            half_extent: OVERFIT_VOLLEY_BOLT_HALF_EXTENT,
-                            owner_id: format!("{}:{}", OVERFIT_VOLLEY_OWNER_PREFIX, boss.config.id),
-                            gravity: 0.0,
+                    effects.write(crate::effects::EffectRequest {
+                        owner: entity,
+                        effect: crate::effects::Effect::Projectiles {
+                            faction: crate::projectile::ProjectileFaction::Enemy,
+                            shots: vec![EnemyProjectileSpawn {
+                                origin,
+                                dir,
+                                speed: shot_speed,
+                                damage,
+                                max_lifetime: OVERFIT_VOLLEY_BOLT_LIFETIME,
+                                half_extent: OVERFIT_VOLLEY_BOLT_HALF_EXTENT,
+                                owner_id: format!(
+                                    "{}:{}",
+                                    OVERFIT_VOLLEY_OWNER_PREFIX, boss.config.id
+                                ),
+                                gravity: 0.0,
+                            }],
                         },
-                        crate::projectile::ProjectileFaction::Enemy,
-                    ));
+                    });
                 }
                 state.fired_this_strike = true;
                 state.samples.clear();
@@ -605,7 +619,7 @@ const EYE_BEAM_OWNER_PREFIX: &str = "smirking_behemoth_eye_beam";
 /// barrage, because the cut-rope boss needs one readable beam rather
 /// than a cloud of slow memorized shots.
 pub fn spawn_eye_beam_from_special_messages(
-    mut spawn_projectiles: MessageWriter<SpawnProjectile>,
+    mut effects: MessageWriter<crate::effects::EffectRequest>,
     mut messages: MessageReader<ActorActionMessage>,
     player_query: Query<&crate::player::BodyKinematics, With<crate::player::PlayerEntity>>,
     mut bosses: Query<
@@ -705,19 +719,22 @@ pub fn spawn_eye_beam_from_special_messages(
         let spacing = box_spacing.max(1.0);
         for i in 0..count {
             let beam_origin = origin + dir * spacing * f32::from(i);
-            spawn_projectiles.write(SpawnProjectile::enemy(
-                EnemyProjectileSpawn {
-                    origin: beam_origin,
-                    dir,
-                    speed: shot_speed.max(1.0),
-                    damage,
-                    max_lifetime: lifetime_s.max(0.05),
-                    half_extent: ae::Vec2::new(half_x.max(1.0), half_y.max(1.0)),
-                    owner_id: format!("{}:{}", EYE_BEAM_OWNER_PREFIX, boss.config.id),
-                    gravity: 0.0,
+            effects.write(crate::effects::EffectRequest {
+                owner: entity,
+                effect: crate::effects::Effect::Projectiles {
+                    faction: crate::projectile::ProjectileFaction::Enemy,
+                    shots: vec![EnemyProjectileSpawn {
+                        origin: beam_origin,
+                        dir,
+                        speed: shot_speed.max(1.0),
+                        damage,
+                        max_lifetime: lifetime_s.max(0.05),
+                        half_extent: ae::Vec2::new(half_x.max(1.0), half_y.max(1.0)),
+                        owner_id: format!("{}:{}", EYE_BEAM_OWNER_PREFIX, boss.config.id),
+                        gravity: 0.0,
+                    }],
                 },
-                crate::projectile::ProjectileFaction::Enemy,
-            ));
+            });
         }
         state.fired_this_strike = true;
         state.locked_target = None;
@@ -1233,7 +1250,7 @@ mod tests {
         app.add_plugins(MinimalPlugins);
         app.add_message::<ActorActionMessage>();
         app.add_message::<SfxMessage>();
-        app.add_message::<SpawnProjectile>();
+        app.add_message::<crate::effects::EffectRequest>();
         app.init_resource::<EnemyProjectileState>();
         app.init_resource::<ProjectileSeqCounter>();
         // Phase 3b: the consumer emits SpawnProjectile; chain the enemy-pool
@@ -1242,7 +1259,7 @@ mod tests {
             Update,
             (
                 spawn_enemy_projectiles_from_brain_actions,
-                crate::enemy_projectile::apply_enemy_spawn_projectile_messages,
+                crate::enemy_projectile::apply_projectile_effects,
             )
                 .chain(),
         );
@@ -1560,12 +1577,12 @@ mod tests {
             Vec::new(),
         );
         app.insert_resource(GameWorld(arena));
-        app.add_message::<SpawnProjectile>();
+        app.add_message::<crate::effects::EffectRequest>();
         app.add_systems(
             Update,
             (
                 spawn_gnu_apple_rain_from_special_messages,
-                crate::enemy_projectile::apply_enemy_spawn_projectile_messages,
+                crate::enemy_projectile::apply_projectile_effects,
             )
                 .chain(),
         );
@@ -1809,12 +1826,12 @@ mod tests {
         let mut world_time = app.world_mut().resource_mut::<WorldTime>();
         world_time.scaled_dt = 1.0 / 60.0;
         world_time.raw_dt = 1.0 / 60.0;
-        app.add_message::<SpawnProjectile>();
+        app.add_message::<crate::effects::EffectRequest>();
         app.add_systems(
             Update,
             (
                 spawn_overfit_volley_from_special_messages,
-                crate::enemy_projectile::apply_enemy_spawn_projectile_messages,
+                crate::enemy_projectile::apply_projectile_effects,
             )
                 .chain(),
         );
@@ -1874,12 +1891,12 @@ mod tests {
         let mut wt = app.world_mut().resource_mut::<WorldTime>();
         wt.scaled_dt = 1.0 / 60.0;
         wt.raw_dt = 1.0 / 60.0;
-        app.add_message::<SpawnProjectile>();
+        app.add_message::<crate::effects::EffectRequest>();
         app.add_systems(
             Update,
             (
                 spawn_overfit_volley_from_special_messages,
-                crate::enemy_projectile::apply_enemy_spawn_projectile_messages,
+                crate::enemy_projectile::apply_projectile_effects,
             )
                 .chain(),
         );

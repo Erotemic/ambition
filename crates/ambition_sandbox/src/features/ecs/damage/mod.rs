@@ -377,7 +377,7 @@ struct NpcHitTarget<'a> {
     aabb: ae::Aabb,
 }
 
-pub(super) fn apply_actor_hit(
+fn apply_actor_hit(
     event: &HitEvent,
     actor_entity: Entity,
     actor: &mut ActorRuntime,
@@ -569,7 +569,7 @@ pub(super) fn apply_actor_hit(
 ///
 /// Extracted from `apply_feature_hit_events` per ecs-cleanup-plan.md #4.
 #[allow(clippy::too_many_arguments)]
-pub(super) fn apply_boss_hit(
+fn apply_boss_hit(
     event: &HitEvent,
     boss: super::boss_clusters::BossMut<'_>,
     attack_state: &crate::brain::BossAttackState,

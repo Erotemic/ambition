@@ -1128,7 +1128,7 @@ fn architecture_boundaries_enemy_sim_reads_data_not_the_archetype_enum() {
     // PERSISTED component never carries the enum is enforced separately by
     // `architecture_boundaries_enemy_config_is_archetype_free`.
     let files = [
-        crate_src().join("features/ecs/damage.rs"),
+        crate_src().join("features/ecs/damage/mod.rs"),
         crate_src().join("presentation/rendering/features.rs"),
     ];
     assert_production_lines_have_no_refs(

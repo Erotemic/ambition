@@ -4,6 +4,7 @@ members = [
     "crates/ambition_app",
     "crates/ambition_asset_manager",
     "crates/ambition_audio",
+    "crates/ambition_combat",
     "crates/ambition_content",
     "crates/ambition_effects",
     "crates/ambition_engine_core",

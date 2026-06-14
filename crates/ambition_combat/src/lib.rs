@@ -7,9 +7,9 @@
 
 pub mod slots;
 
-use crate::actor::{DamageTeam, KinematicPath, RespawnPolicy};
-use crate::engine_core::Vec2;
-use crate::engine_core::{Aabb, AabbExt};
+use ambition_actor::actor::{DamageTeam, KinematicPath, RespawnPolicy};
+use ambition_engine_core::Vec2;
+use ambition_engine_core::{Aabb, AabbExt};
 
 /// The broad gameplay category of damage. This is intentionally separate from
 /// presentation so hazards, attacks, and projectiles can share damage handling.
@@ -226,8 +226,8 @@ impl AttackSpec {
     /// whether a swing happens. (Hitbox geometry is left to the directional
     /// `attack_spec_from_view` default — the player's reach already exceeds the
     /// enemy-scale `reach_px`, so importing it would *shrink* the swing.)
-    pub fn with_held_melee(mut self, melee: crate::brain::MeleeActionSpec) -> Self {
-        let crate::brain::MeleeActionSpec::Swipe(s) = melee else {
+    pub fn with_held_melee(mut self, melee: ambition_actor::brain::MeleeActionSpec) -> Self {
+        let ambition_actor::brain::MeleeActionSpec::Swipe(s) = melee else {
             return self;
         };
         self.startup_seconds = s.windup_s.max(0.0);
@@ -449,7 +449,7 @@ pub fn attack_hitbox_from_view(view: &AttackView, spec: AttackSpec) -> Aabb {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine_core::Vec2;
+    use ambition_engine_core::Vec2;
 
     /// Test helper: resolve the canonical attack pipeline
     /// (`resolve_attack_intent` → `attack_spec` → `attack_hitbox`) into
@@ -463,12 +463,12 @@ mod tests {
     fn view_at(pos: Vec2, facing: f32) -> AttackView {
         AttackView {
             pos,
-            size: crate::engine_core::movement::default_player_body_size(),
+            size: ambition_engine_core::movement::default_player_body_size(),
             facing,
             on_ground: false,
             wall_clinging: false,
             dash_timer: 0.0,
-            abilities_directional_primary: crate::engine_core::AbilitySet::sandbox_all()
+            abilities_directional_primary: ambition_engine_core::AbilitySet::sandbox_all()
                 .directional_primary,
         }
     }
@@ -477,8 +477,8 @@ mod tests {
     fn held_axe_retunes_swing_timing_reach_and_damage() {
         let view = view_at(Vec2::new(0.0, 0.0), 1.0);
         let base = attack_spec_from_view(&view, AttackIntent::Forward);
-        let axe = base.with_held_melee(crate::brain::MeleeActionSpec::Swipe(
-            crate::brain::SwipeSpec {
+        let axe = base.with_held_melee(ambition_actor::brain::MeleeActionSpec::Swipe(
+            ambition_actor::brain::SwipeSpec {
                 windup_s: 0.22,
                 active_s: 0.12,
                 recover_s: 0.30,

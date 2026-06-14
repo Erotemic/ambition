@@ -24,7 +24,11 @@ pub use ambition_actor::actor;
 pub mod app;
 pub mod audio;
 pub mod character_roster;
-pub mod combat;
+// The pure combat MODEL (Damage / Hitbox / AttackSpec / DamageVolume / slots)
+// is the reusable `ambition_combat` foundation crate. Re-exported at the
+// historical `crate::combat` path so every `crate::combat::*` consumer resolves
+// unchanged; the ECS combat SYSTEMS that consume it stay in `mechanics::combat`.
+pub use ambition_combat as combat;
 pub mod debug_label;
 // Re-export the pure-logic core under the sandbox's stable `crate::engine_core` path.
 pub use ambition_engine_core as engine_core;

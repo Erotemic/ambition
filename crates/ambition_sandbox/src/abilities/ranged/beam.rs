@@ -104,7 +104,7 @@ pub fn fire_beam_system(
     effects.write(crate::effects::EffectRequest {
         owner: entity,
         effect: crate::effects::Effect::DamageBox(crate::effects::DamageBoxEffect {
-            at: crate::effects::DamageBoxAt::World(kin.pos + offset),
+            center: kin.pos + offset,
             faction: ActorFaction::Player,
             half_extent,
             damage: BEAM_DAMAGE,

@@ -18,8 +18,7 @@
 use bevy::prelude::*;
 
 use crate::engine_core as ae;
-use crate::features::{ActorFaction, FeatureAabb, FeatureSimEntity, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime};
-use crate::player::{BodyKinematics, PlayerEntity};
+use crate::features::{ActorFaction, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime};
 
 /// The `DamageBox` effect primitive: a world-anchored, time-limited damage
 /// volume. `owner` + `source` faction are supplied at spawn (from the emitter),
@@ -70,22 +69,12 @@ pub fn spawn_damage_box(
     e.id()
 }
 
-/// Where a [`DamageBoxEffect`] is anchored.
-pub enum DamageBoxAt {
-    /// At the emitting actor's own position (player kinematics, or a feature
-    /// actor's AABB center) — the resolution the shockwave consumer used.
-    Emitter,
-    /// At an explicit world point (e.g. a pit trap dropped at the player).
-    World(ae::Vec2),
-}
-
 /// The payload of an [`Effect::DamageBox`]: a world-anchored damage volume an
-/// emitter requests. `at` chooses the center (only `Emitter` resolves against
-/// the emitter); `faction` is carried explicitly — the emitter knows whether
-/// it's the player or a hostile actor, so we don't depend on the emitter being a
-/// resolvable player/feature.
+/// emitter requests. `center` + `faction` are explicit — the emitter resolves
+/// its own position and knows its faction, so the executor needs no actor
+/// queries (keeping it substrate-free for the `ambition_effects` crate).
 pub struct DamageBoxEffect {
-    pub at: DamageBoxAt,
+    pub center: ae::Vec2,
     pub faction: ActorFaction,
     pub half_extent: ae::Vec2,
     pub damage: i32,
@@ -138,53 +127,21 @@ pub struct EffectRequest {
     pub effect: Effect,
 }
 
-/// Resolve an emitter's center for a `DamageBoxAt::Emitter` box: the player by
-/// kinematics, else a feature actor by its AABB center. (Faction is carried
-/// explicitly on the effect; only the position is resolved here.)
-fn resolve_emitter_center(
-    owner: Entity,
-    players: &Query<&BodyKinematics, With<PlayerEntity>>,
-    features: &Query<&FeatureAabb, With<FeatureSimEntity>>,
-) -> Option<ae::Vec2> {
-    if let Ok(kin) = players.get(owner) {
-        Some(kin.pos)
-    } else if let Ok(aabb) = features.get(owner) {
-        Some(aabb.center)
-    } else {
-        None
-    }
-}
-
-/// Generic effect executor: drains [`EffectRequest`]s and makes each happen at
-/// the emitter's position with the emitter's faction. The single home for "an
-/// actor emitted an effect → it occurs in the world." Reads in message order
-/// (unsorted) to match the per-consumer behavior it replaces; if a future
-/// multi-emit race needs a stable order, sort by `owner`'s stable id here.
-pub fn apply_effects(
-    mut commands: Commands,
-    mut requests: MessageReader<EffectRequest>,
-    players: Query<&BodyKinematics, With<PlayerEntity>>,
-    features: Query<&FeatureAabb, With<FeatureSimEntity>>,
-) {
+/// Generic effect executor: drains [`EffectRequest`]s and makes each happen.
+/// Pure executor — every effect carries its own geometry (center / shots /
+/// pos), so this needs no actor queries (keeping it substrate-free for the
+/// `ambition_effects` crate). Reads in message order (unsorted) to match the
+/// per-consumer behavior it replaces; if a future multi-emit race needs a stable
+/// order, sort by `owner`'s stable id here.
+pub fn apply_effects(mut commands: Commands, mut requests: MessageReader<EffectRequest>) {
     for req in requests.read() {
         match &req.effect {
             Effect::DamageBox(d) => {
-                // Faction is explicit on the effect; only an `Emitter`-anchored
-                // box needs the emitter's position resolved.
-                let center = match d.at {
-                    DamageBoxAt::Emitter => {
-                        match resolve_emitter_center(req.owner, &players, &features) {
-                            Some(c) => c,
-                            None => continue,
-                        }
-                    }
-                    DamageBoxAt::World(p) => p,
-                };
                 spawn_damage_box(
                     &mut commands,
                     req.owner,
                     d.faction,
-                    center,
+                    d.center,
                     DamageBox {
                         half_extent: d.half_extent,
                         damage: d.damage,

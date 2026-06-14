@@ -415,6 +415,7 @@ pub fn boss_phase_transition_feedback(
             Entity,
             &crate::features::FeatureId,
             &crate::features::BodyKinematics,
+            &crate::features::FeatureAabb,
         ),
         With<crate::features::BossConfig>,
     >,
@@ -446,11 +447,13 @@ pub fn boss_phase_transition_feedback(
             // Resolved at the boss's own position + faction (`ActorFaction::Boss`),
             // so the shared `apply_hitbox_damage` lands it on the player — the
             // literal "player and boss fire the same attack" unification, in-game.
-            if let Some((entity, _, kin)) = bosses.iter().find(|(_, fid, _)| fid.as_str() == id) {
+            if let Some((entity, _, kin, aabb)) =
+                bosses.iter().find(|(_, fid, _, _)| fid.as_str() == id)
+            {
                 effects.write(crate::effects::EffectRequest {
                     owner: entity,
                     effect: crate::effects::Effect::DamageBox(crate::effects::DamageBoxEffect {
-                        at: crate::effects::DamageBoxAt::Emitter,
+                        center: aabb.center,
                         faction: crate::features::ActorFaction::Boss,
                         half_extent: ae::Vec2::new(170.0, 80.0),
                         damage: 2,

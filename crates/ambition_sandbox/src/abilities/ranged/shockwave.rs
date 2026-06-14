@@ -59,7 +59,7 @@ pub fn fire_shockwave_system(
     effects.write(crate::effects::EffectRequest {
         owner: entity,
         effect: crate::effects::Effect::DamageBox(crate::effects::DamageBoxEffect {
-            at: crate::effects::DamageBoxAt::Emitter,
+            center: kin.pos,
             faction: crate::features::ActorFaction::Player,
             half_extent: SHOCKWAVE_HALF,
             damage: SHOCKWAVE_DAMAGE,
@@ -183,7 +183,7 @@ mod tests {
         app.world_mut().write_message(crate::effects::EffectRequest {
             owner: enemy,
             effect: crate::effects::Effect::DamageBox(crate::effects::DamageBoxEffect {
-                at: crate::effects::DamageBoxAt::Emitter,
+                center: ae::Vec2::new(300.0, 80.0),
                 faction: ActorFaction::Enemy,
                 half_extent: ae::Vec2::new(60.0, 30.0),
                 damage: 3,

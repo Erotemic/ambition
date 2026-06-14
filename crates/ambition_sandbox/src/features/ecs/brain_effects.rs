@@ -697,7 +697,7 @@ pub fn spawn_minima_trap_from_special_messages(
         effects.write(crate::effects::EffectRequest {
             owner: entity,
             effect: crate::effects::Effect::DamageBox(crate::effects::DamageBoxEffect {
-                at: crate::effects::DamageBoxAt::World(pit_center),
+                center: pit_center,
                 faction: ActorFaction::Boss,
                 half_extent: ae::Vec2::new(hx, hy),
                 damage,

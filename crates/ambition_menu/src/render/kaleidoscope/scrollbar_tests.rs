@@ -106,6 +106,13 @@ fn press_and_move_on_scrollbar_emits_proportional_fraction() {
             ..Default::default()
         })
         .id();
+    // The press jump + manual tracker map against the resource's last-known-good
+    // rect (normally maintained by `project_scrollbar_tracks`); seed it directly.
+    {
+        let mut st = app.world_mut().resource_mut::<ScrollbarDragState>();
+        st.track_top_y = 100.0;
+        st.track_height = 200.0;
+    }
 
     let drain = |app: &mut App| -> Vec<f32> {
         app.world_mut()
@@ -206,6 +213,13 @@ fn held_drag_survives_a_scrollbar_respawn() {
             track_height: 200.0,
         })
         .id();
+    // Seed the resource's last-known-good rect (normally maintained each frame by
+    // `project_scrollbar_tracks`); it persists across the respawn below.
+    {
+        let mut st = app.world_mut().resource_mut::<ScrollbarDragState>();
+        st.track_top_y = 100.0;
+        st.track_height = 200.0;
+    }
 
     let drain = |app: &mut App| -> Vec<f32> {
         app.world_mut()

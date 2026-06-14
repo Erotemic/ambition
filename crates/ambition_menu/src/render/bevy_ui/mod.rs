@@ -422,21 +422,42 @@ fn bevy_ui_scrollbar_fraction(
 /// fraction). Mirrors the cube's `scrollbar_press`.
 fn bevy_ui_scrollbar_press(
     press: On<Pointer<Press>>,
-    bars: Query<(&BevyUiMenuScrollbar, &ComputedNode, &GlobalTransform)>,
+    bars: Query<&BevyUiMenuScrollbar>,
     mut drag: ResMut<crate::render::kaleidoscope::ScrollbarDragState>,
     mut out: MessageWriter<crate::render::kaleidoscope::MenuScrollDragged>,
 ) {
-    if let Ok((_, computed, transform)) = bars.get(press.entity) {
-        // Held state + CACHED track rect live in the RESOURCE so the drag survives
-        // the per-step republish (which zeroes a fresh node's ComputedNode).
-        let (top_y, height) = bevy_ui_track_rect(computed, transform);
+    if bars.get(press.entity).is_ok() {
+        eprintln!(
+            "[SCROLL] GRID press matched: res_geom=(top={:.0},h={:.0}) ptr_y={:.0}",
+            drag.track_top_y, drag.track_height, press.pointer_location.position.y
+        );
+        // Mark the held pointer; geometry is the LAST KNOWN GOOD rect maintained by
+        // `bevy_ui_maintain_track_rect` (a freshly-respawned node's ComputedNode is
+        // zero on the press frame, so reading it directly here would jump nowhere).
         drag.pressed_by = Some(press.pointer_id);
-        drag.track_top_y = top_y;
-        drag.track_height = height;
-        if let Some(fraction) =
-            crate::scrollbar_fraction_from_rect(top_y, height, press.pointer_location.position.y)
-        {
+        if let Some(fraction) = crate::scrollbar_fraction_from_rect(
+            drag.track_top_y,
+            drag.track_height,
+            press.pointer_location.position.y,
+        ) {
             out.write(crate::render::kaleidoscope::MenuScrollDragged { fraction });
+        }
+    }
+}
+
+/// Keep the shared [`ScrollbarDragState`](crate::render::kaleidoscope::ScrollbarDragState)
+/// track rect refreshed with the grid scrollbar's LAST KNOWN GOOD screen rect — never
+/// overwriting it with the zero a fresh node reports the frame it is respawned. The
+/// press jump + the manual drag tracker both map against this always-valid rect.
+fn bevy_ui_maintain_track_rect(
+    bars: Query<(&ComputedNode, &GlobalTransform), With<BevyUiMenuScrollbar>>,
+    mut drag: ResMut<crate::render::kaleidoscope::ScrollbarDragState>,
+) {
+    for (computed, transform) in &bars {
+        let (top_y, height) = bevy_ui_track_rect(computed, transform);
+        if height > f32::EPSILON {
+            drag.track_top_y = top_y;
+            drag.track_height = height;
         }
     }
 }
@@ -514,7 +535,11 @@ pub fn install_bevy_ui_menu_scroll(app: &mut App) {
     app.add_observer(bevy_ui_scrollbar_press);
     app.add_observer(bevy_ui_scrollbar_drag);
     app.add_observer(bevy_ui_scrollbar_release);
-    app.add_systems(Update, bevy_ui_scrollbar_press_drag);
+    // Maintain the last-known-good rect BEFORE the tracker reads it each frame.
+    app.add_systems(
+        Update,
+        (bevy_ui_maintain_track_rect, bevy_ui_scrollbar_press_drag).chain(),
+    );
 }
 
 #[cfg(test)]

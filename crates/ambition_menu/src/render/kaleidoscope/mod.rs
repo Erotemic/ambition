@@ -1056,6 +1056,7 @@ fn fade_kaleidoscope_materials(
 fn project_scrollbar_tracks(
     camera_query: Query<(&Camera, &GlobalTransform), With<KaleidoscopePauseCamera>>,
     mut scrollbars: Query<(&mut MenuScrollbar, &Dimension, &GlobalTransform)>,
+    mut drag: ResMut<ScrollbarDragState>,
 ) {
     let Some((camera, cam_transform)) = camera_query.iter().find(|(c, _)| c.is_active) else {
         return;
@@ -1076,6 +1077,12 @@ fn project_scrollbar_tracks(
         if height > f32::EPSILON {
             bar.track_top_y = top_y;
             bar.track_height = height;
+            // Mirror the LAST KNOWN GOOD rect into the shared resource so the press
+            // jump + the manual drag tracker map against geometry that is always
+            // valid — even on the frame the per-step republish respawns the track
+            // entity with a not-yet-projected (zero) transform.
+            drag.track_top_y = top_y;
+            drag.track_height = height;
         }
     }
 }
@@ -1131,13 +1138,20 @@ fn scrollbar_press(
     mut drag: ResMut<ScrollbarDragState>,
     mut out: MessageWriter<MenuScrollDragged>,
 ) {
-    if let Ok(bar) = bars.get(press.entity) {
-        // Mark the held pointer + CACHE the track geometry in the RESOURCE so the
-        // drag survives the per-step republish that respawns this entity.
+    if bars.get(press.entity).is_ok() {
+        eprintln!(
+            "[SCROLL] CUBE press matched: res_geom=(top={:.0},h={:.0}) ptr_y={:.0}",
+            drag.track_top_y, drag.track_height, press.pointer_location.position.y
+        );
+        // Mark the held pointer; geometry is the LAST KNOWN GOOD rect maintained in
+        // the resource by `project_scrollbar_tracks` (the entity's own geometry can
+        // still be zero on the press frame right after a respawn).
         drag.pressed_by = Some(press.pointer_id);
-        drag.track_top_y = bar.track_top_y;
-        drag.track_height = bar.track_height;
-        if let Some(fraction) = scrollbar_fraction(bar, press.pointer_location.position.y) {
+        if let Some(fraction) = crate::scrollbar_fraction_from_rect(
+            drag.track_top_y,
+            drag.track_height,
+            press.pointer_location.position.y,
+        ) {
             out.write(MenuScrollDragged { fraction });
         }
     }

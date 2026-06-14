@@ -66,6 +66,28 @@ const PROJECTILE_REFLECT_SPEED_SCALE: f32 = 1.3;
 /// deflect (and a reason to parry rather than dodge) — feel-tune.
 const PARRY_HEAL: i32 = 1;
 
+/// A timed-out or wall-killed **lasersword** detonates with a rendered
+/// explosion (Jon's polish list: "when a laser sword times out or hits a wall it
+/// should explode … use one of our rendered explosion sprites"). Laserswords are
+/// tagged by their `lasersword:`-prefixed owner id. Returns `None` for any other
+/// projectile so it keeps its plain despawn / `Impact` cue. VFX-only — it writes
+/// a presentation message and never touches sim state, so replay is unaffected.
+fn lasersword_detonation(
+    owner: &crate::projectile::ProjectileOwnerId,
+    pos: ae::Vec2,
+) -> Option<VfxMessage> {
+    // Same `"lasersword"` owner-id prefix the visuals layer keys its spinning-
+    // sword sprite on (`enemy_projectile::visuals::LASERSWORD_OWNER_PREFIX`).
+    owner
+        .0
+        .starts_with("lasersword")
+        .then_some(VfxMessage::Explosion {
+            pos,
+            kind: crate::presentation::fx::ExplosionKind::ClassicBurst,
+            scale: 0.7,
+        })
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn update_enemy_projectiles(
     mut commands: Commands,
@@ -87,6 +109,7 @@ pub fn update_enemy_projectiles(
             &mut crate::player::BodyKinematics,
             &mut ProjectileGameplay,
             &ProjectileSeq,
+            &crate::projectile::ProjectileOwnerId,
         ),
         (
             With<EnemyProjectile>,
@@ -149,13 +172,13 @@ pub fn update_enemy_projectiles(
     // enemy projectile suites.
     let mut ordered: Vec<(Entity, ProjectileSeq)> = projectiles
         .iter()
-        .map(|(entity, _, _, seq)| (entity, *seq))
+        .map(|(entity, _, _, seq, _)| (entity, *seq))
         .collect();
     ordered.sort_by_key(|(_, seq)| *seq);
 
     for (proj_entity, _) in ordered {
         // Re-fetch mutably by entity (the collect above borrowed `&`).
-        let Ok((_, mut kin, mut game, _)) = projectiles.get_mut(proj_entity) else {
+        let Ok((_, mut kin, mut game, _, owner)) = projectiles.get_mut(proj_entity) else {
             continue;
         };
 
@@ -163,6 +186,11 @@ pub fn update_enemy_projectiles(
         let gravity_sign = gravity.sign_at(kin.pos);
         let alive = game.tick(&mut kin, dt, gravity_sign);
         if !alive {
+            // A timed-out lasersword detonates (Jon's polish list); other shots
+            // just wink out as before. VFX-only, so replay is unaffected.
+            if let Some(boom) = lasersword_detonation(owner, kin.pos) {
+                vfx.write(boom);
+            }
             commands.entity(proj_entity).despawn();
             continue;
         }
@@ -201,7 +229,12 @@ pub fn update_enemy_projectiles(
                 WorldHitPolicy::EnemyExpireOnAnyContact,
             ) {
                 WorldHitOutcome::Expired { pos } => {
-                    vfx.write(VfxMessage::Impact { pos });
+                    // A lasersword detonates on the wall; everything else gives
+                    // the plain impact spark.
+                    vfx.write(
+                        lasersword_detonation(owner, pos)
+                            .unwrap_or(VfxMessage::Impact { pos }),
+                    );
                     commands.entity(proj_entity).despawn();
                 }
                 WorldHitOutcome::Bounced { .. } | WorldHitOutcome::Continue => {}
@@ -313,6 +346,23 @@ pub fn update_enemy_projectiles(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lasersword_detonates_on_death_other_shots_do_not() {
+        use crate::projectile::ProjectileOwnerId;
+        let pos = ae::Vec2::new(10.0, 20.0);
+        // A lasersword (its `lasersword:`-prefixed owner) detonates with a
+        // rendered explosion at its position — Jon's polish-list request.
+        let sword = ProjectileOwnerId("lasersword:pirate_3".to_string());
+        let boom = lasersword_detonation(&sword, pos);
+        assert!(
+            matches!(boom, Some(VfxMessage::Explosion { pos: p, .. }) if p == pos),
+            "a lasersword should detonate at its position, got {boom:?}",
+        );
+        // Any other enemy shot (apple, bolt) keeps its plain despawn/impact.
+        let apple = ProjectileOwnerId("gnu_ton_apple:gnu_ton".to_string());
+        assert!(lasersword_detonation(&apple, pos).is_none());
+    }
     use crate::enemy_projectile::test_support::{enemy_projectile_bodies, spawn_enemy_projectile};
     use crate::enemy_projectile::EnemyProjectileSpawn;
     use crate::projectile::ProjectileFaction;

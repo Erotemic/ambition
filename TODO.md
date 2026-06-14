@@ -47,7 +47,7 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [ ] I want to increase the terminal velocity, or there is some effect that maxes out your out velocity when you travel through a portal. We need better momentum preservation and buildup. 
 
-- [ ] When a laser sword times out or hits a wall it should explode. An explosion should be a message that you emit to request an explosion, and the actual explosion should use one of our rendered explosion sprites, either randomly, or perhaps by request. Need to look at how smirking behemoth fight is done because 
+- [x] ~~When a laser sword times out or hits a wall it should explode~~ DONE (autonomous run): a timed-out or wall-killed lasersword now emits a `VfxMessage::Explosion` (`ExplosionKind::ClassicBurst`, the same rendered explosion the exploding-mite death uses) at its position via `lasersword_detonation` in `enemy_projectile::systems`; other shots keep their plain `Impact` spark. VFX-only (replay-neutral), keyed on the `lasersword:` owner prefix. Pinned by `lasersword_detonates_on_death_other_shots_do_not`. _Handoff: pick the explosion sprite/`ExplosionKind` you prefer in-game (Classic/Burst/Shockwave/Smoke/Starburst all exist); area-damage on detonation is a deliberate non-goal here (the ask was the visual)._
 
 - [ ] We need a feature where we can "tie a knot", where the player emits a trail, that might drape down onto the collision, and perhaps be pulled taught, and it needs to work through portals.
 

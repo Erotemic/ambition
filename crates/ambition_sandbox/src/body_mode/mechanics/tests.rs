@@ -1,4 +1,3 @@
-
 use super::*;
 use crate::engine_core::world::{ClimbableKind, ClimbableRegion, ClimbableSpec, World};
 use crate::engine_core::Vec2;

@@ -1,4 +1,3 @@
-
 //! Pure-logic coverage for the settings model: the menu's page graph,
 //! row tables, action routing, and label formatting. `apply_action`
 //! itself is World-coupled (it pokes the primary `Window`), but the

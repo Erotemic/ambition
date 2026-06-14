@@ -1,4 +1,3 @@
-
 use super::*;
 
 /// When the manifest carries a `tuning:` block,

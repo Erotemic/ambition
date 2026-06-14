@@ -21,10 +21,9 @@ use bevy::prelude::*;
 
 use crate::menu::effects::{MenuEffectManaQuery, MenuEffectPlayers};
 use crate::menu::model::{
-    build_inventory_pages, items_detail_slot_text, system_detail_slot_text,
-    scroll_fraction_to_window_start, system_effective_window_start, system_max_window_start,
-    system_rows, MenuFocus, MenuPage,
-    MenuPageAction, SystemRow, SYSTEM_VISIBLE_ROWS,
+    build_inventory_pages, items_detail_slot_text, scroll_fraction_to_window_start,
+    system_detail_slot_text, system_effective_window_start, system_max_window_start, system_rows,
+    MenuFocus, MenuPage, MenuPageAction, SystemRow, SYSTEM_VISIBLE_ROWS,
 };
 use ambition_sandbox::audio::SfxMessage;
 use ambition_sandbox::engine_core::Vec2;

@@ -1,4 +1,3 @@
-
 use super::{fade_kaleidoscope_materials, KaleidoscopeFade, KaleidoscopeOpenState};
 use bevy::prelude::*;
 

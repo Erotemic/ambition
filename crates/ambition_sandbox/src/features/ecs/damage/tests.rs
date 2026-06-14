@@ -1,4 +1,3 @@
-
 use super::*;
 use crate::features::ecs::enemy_component_snapshot;
 use crate::features::{HitMode, HitTarget};

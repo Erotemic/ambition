@@ -1,4 +1,3 @@
-
 use super::*;
 
 /// The extracted pure metrics derivation (`boss_sprite_metrics_from_registry`)

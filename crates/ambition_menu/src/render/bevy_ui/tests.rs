@@ -1,4 +1,3 @@
-
 use super::*;
 use crate::scrollbar_thumb_layout;
 use crate::{MenuColor, MenuFocusKey};

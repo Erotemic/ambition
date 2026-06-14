@@ -1,4 +1,3 @@
-
 use super::{
     scrollbar_drag, scrollbar_drag_start, scrollbar_press, scrollbar_press_drag, scrollbar_release,
     MenuScrollDragged, MenuScrollbar,

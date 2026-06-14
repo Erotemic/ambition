@@ -1,4 +1,3 @@
-
 use crate::scrollbar_thumb_layout;
 use crate::ScrollThumb;
 

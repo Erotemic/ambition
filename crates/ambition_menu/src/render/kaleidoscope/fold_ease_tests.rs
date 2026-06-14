@@ -1,4 +1,3 @@
-
 use super::{ease_fold_amount, MAX_FOLD_EASE_DT};
 
 /// A single huge-delta frame (the un-pause hitch on close) must NOT collapse the

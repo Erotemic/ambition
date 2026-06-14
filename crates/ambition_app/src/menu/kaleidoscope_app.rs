@@ -94,23 +94,41 @@ fn kaleidoscope_menu_visible(
 ///
 /// This avoids the original closed-menu churn (camera/ring/picking/fade systems
 /// running every frame just because Cube is the selected backend) without cutting
-/// off the close animation.
+/// off the close animation — including the close triggered by SWITCHING backends.
 fn kaleidoscope_render_needed(
     backend: Res<InventoryUiBackend>,
     ui_state: Option<Res<ambition_sandbox::inventory::InventoryUiState>>,
     open_state: Option<Res<ambition_menu::kaleidoscope::KaleidoscopeOpenState>>,
 ) -> bool {
-    if !KALEIDOSCOPE_MENU_BACKEND_ENABLED
-        || backend.effective() != InventoryUiBackend::LunexKaleidoscope
-    {
+    let (target, amount) = open_state.map(|s| (s.target, s.amount)).unwrap_or((0.0, 0.0));
+    cube_render_needed(
+        KALEIDOSCOPE_MENU_BACKEND_ENABLED,
+        backend.effective() == InventoryUiBackend::LunexKaleidoscope,
+        ui_state.map(|s| s.visible).unwrap_or(false),
+        target,
+        amount,
+    )
+}
+
+/// Pure decision for [`kaleidoscope_render_needed`]: should the cube's render set tick
+/// this frame? Either it's actively open (Cube backend selected AND the menu is up),
+/// OR it's still folding shut (`target`/`amount` not yet decayed) — the latter holds
+/// REGARDLESS of backend, so switching Cube→Grid keeps `animate_cube_ring` running
+/// long enough to ease `amount` to 0 and let the camera turn off.
+fn cube_render_needed(
+    enabled: bool,
+    backend_is_cube: bool,
+    menu_open: bool,
+    target: f32,
+    amount: f32,
+) -> bool {
+    if !enabled {
         return false;
     }
-    if ui_state.map(|s| s.visible).unwrap_or(false) {
+    if backend_is_cube && menu_open {
         return true;
     }
-    open_state
-        .map(|s| s.target > 0.0 || s.amount > 0.08)
-        .unwrap_or(false)
+    target > 0.0 || amount > 0.08
 }
 
 /// Peak opacity of the readability dim-scrim (black) when the cube is fully open.
@@ -2750,6 +2768,26 @@ mod lunex_kaleidoscope_app_tests {
             ..Default::default()
         });
         app.update();
+    }
+
+    /// REGRESSION: switching Cube→Grid while the cube is open must keep the cube's
+    /// render set ticking until the fold-shut `amount` decays, so the camera can turn
+    /// off. Before the fix, a non-cube backend short-circuited render to `false`
+    /// immediately, freezing `amount` mid-fold → the cube stayed stuck on top.
+    #[test]
+    fn cube_render_keeps_folding_shut_after_backend_switch() {
+        // Actively open on the cube backend → render.
+        assert!(cube_render_needed(true, true, true, 1.0, 1.0));
+        // Switched to Grid mid-fold (amount still high): MUST still render so the fold
+        // completes and the camera deactivates. This is the bug fix.
+        assert!(cube_render_needed(true, false, false, 0.0, 1.0));
+        assert!(cube_render_needed(true, false, true, 0.0, 0.5));
+        // Fully folded shut on a non-cube backend → stop (no churn, camera already off).
+        assert!(!cube_render_needed(true, false, false, 0.0, 0.07));
+        // Cube backend selected but menu closed and fully decayed → stop.
+        assert!(!cube_render_needed(true, true, false, 0.0, 0.0));
+        // Backend feature disabled → never render.
+        assert!(!cube_render_needed(false, true, true, 1.0, 1.0));
     }
 
     fn press_dir(app: &mut App, left: bool) {

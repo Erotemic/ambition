@@ -80,6 +80,20 @@ pub struct BossBehaviorProfile {
     /// boss is authored in one RON row.
     #[serde(default)]
     pub reward: BossRewardProfile,
+    /// Catalog ability this boss grants on defeat (`"blink"`, `"fireball"`, …),
+    /// dropped as a collectible pickup — "every boss a failed objective
+    /// function; defeating it teaches its theorem." `None` (the default) = no
+    /// ability drop. Content data: each boss embodies an ability, authored in
+    /// `boss_profiles.ron`, so the engine's drop logic names no boss.
+    #[serde(default)]
+    pub reward_ability: Option<String>,
+    /// The boss's signature wielded gauntlet (a held-item id like `"shockwave"`
+    /// / `"meteor"`), dropped as a ground item the player picks up to wield the
+    /// boss's own attack. `None` (the default) = no gauntlet drop. Content data
+    /// (authored in `boss_profiles.ron`), distinct from [`Self::reward_ability`]
+    /// which grants a catalog ability.
+    #[serde(default)]
+    pub signature_gauntlet: Option<String>,
     /// When `true`, ordinary player hits (slash / projectile) never damage
     /// this boss — they only give honest local impact feedback when they
     /// overlap the body hurtbox. The only kill condition is an environmental

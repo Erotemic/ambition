@@ -65,6 +65,7 @@
     // ============================================================
     "clockwork_warden": (
         id: "clockwork_warden",
+        reward_ability: Some("markrecall"),
         // Tightened combat size to roughly match the visible sprite
         // body: the clockwork_warden sheet has body_pixel_bbox 106×83
         // inside a 128×128 frame. Boss spawns at 64×80 world px so
@@ -207,6 +208,7 @@
     // ============================================================
     "mockingbird": (
         id: "mockingbird",
+        signature_gauntlet: Some("volley"),
         combat_size: Some((500.0, 185.0)),
         movement: AirSwoop(
             x_radius: 250.0,
@@ -274,6 +276,8 @@
     "gnu_ton": (
         bark_anchor: (dx_px: 38.0, dy_half_h: -0.55, dy_px: -18.0),
         id: "gnu_ton",
+        reward_ability: Some("fireball"),
+        signature_gauntlet: Some("meteor"),
         combat_size: Some((220.0, 220.0)),
         movement: StationaryGiant(
             sway_amplitude: 6.0,
@@ -376,6 +380,7 @@
     // ============================================================
     "smirking_behemoth_boss": (
         id: "smirking_behemoth_boss",
+        signature_gauntlet: Some("beam"),
         // Environmental puzzle boss: ordinary slashes/projectiles never
         // damage it; the only kill condition is the LDtk-authored
         // rope/anvil trap (see ambition_content::bosses::cut_rope).
@@ -476,6 +481,7 @@
     // are follow-ups; this is the playable fight.
     "flying_spaghetti_monster_boss": (
         id: "flying_spaghetti_monster_boss",
+        reward_ability: Some("blink"),
         combat_size: Some((168.0, 150.0)),
         movement: AirSwoop(
             x_radius: 190.0,
@@ -587,6 +593,8 @@
     // contact-AABB, no projectiles), stressing the grounded shared-kinematic path.
     "trex_boss": (
         id: "trex_boss",
+        reward_ability: Some("grapple"),
+        signature_gauntlet: Some("shockwave"),
         combat_size: Some((140.0, 112.0)),
         movement: AnchorSway(
             x_radius: 0.0,
@@ -700,6 +708,7 @@
     // boss_encounters/mode_collapse_boss.ron.
     "mode_collapse_boss": (
         id: "mode_collapse_boss",
+        signature_gauntlet: Some("vortex"),
         combat_size: Some((140.0, 132.0)),
         movement: AirSwoop(
             x_radius: 130.0,
@@ -803,6 +812,7 @@
     // attack profiles. Encounter numbers in boss_encounters/exploding_gradient_boss.ron.
     "exploding_gradient_boss": (
         id: "exploding_gradient_boss",
+        signature_gauntlet: Some("sentry"),
         combat_size: Some((150.0, 140.0)),
         movement: AirSwoop(
             x_radius: 200.0,
@@ -907,6 +917,7 @@
     // Exploding Gradient + summoner Mode Collapse — pure close-range aggression.
     "overflow_boss": (
         id: "overflow_boss",
+        signature_gauntlet: Some("dive"),
         combat_size: Some((150.0, 145.0)),
         movement: AirSwoop(
             x_radius: 120.0,

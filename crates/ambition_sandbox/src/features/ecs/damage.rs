@@ -166,61 +166,6 @@ pub fn drop_health_pickup(commands: &mut Commands, id: &str, pos: ae::Vec2, amou
     ));
 }
 
-/// The ability a defeated boss bestows, keyed by boss profile id (catalog
-/// `dialog_id`), or `None` for bosses that grant nothing (puzzle bosses, etc.).
-/// Each pairing reads as "this boss embodies that theorem".
-fn boss_reward_ability(boss_id: &str) -> Option<&'static str> {
-    match boss_id {
-        // The false-god FSM flits through the air — it drops Blink.
-        "flying_spaghetti_monster_boss" => Some("blink"),
-        // The grounded T-Rex lunges and anchors — it drops Grapple.
-        "trex_boss" => Some("grapple"),
-        // GNU-Ton hurls apples in arcs — it drops the Fireball projectile.
-        "gnu_ton" => Some("fireball"),
-        // The Clockwork Warden rewinds and repositions — it drops Mark/Recall.
-        "clockwork_warden" => Some("markrecall"),
-        // Mockingbird (mimic) + Smirking Behemoth (environmental puzzle) grant
-        // nothing on their own.
-        _ => None,
-    }
-}
-
-/// The **signature gauntlet** a defeated boss drops as a wieldable ground item —
-/// the player picks it up and wields that boss's own attack (the "every boss a
-/// failed objective function, learn its attack" loop). Distinct from
-/// [`boss_reward_ability`], which grants catalog abilities; these are held-item
-/// gauntlets (`crate::abilities::ranged::shockwave` / `crate::abilities::ranged::volley`) the player grabs off the
-/// ground. Keyed so the attack matches the boss: the grounded T-Rex's **stomp**
-/// drops the Shockwave slam; the flitting Mockingbird's spread drops the Volley.
-fn boss_signature_gauntlet(boss_id: &str) -> Option<&'static str> {
-    match boss_id {
-        "trex_boss" => Some(crate::abilities::ranged::shockwave::SHOCKWAVE_ID),
-        "mockingbird" => Some(crate::abilities::ranged::volley::VOLLEY_ID),
-        // The smirking_behemoth's signature tell is a focused eye beam — drop
-        // the focus-beam gauntlet so the player wields that same line attack.
-        // NOTE: keyed on the REAL behavior id `smirking_behemoth_boss` (what
-        // `boss.config.behavior.id` actually is). A bare `smirking_behemoth`
-        // silently never matched, so the beam drop never fired in-game; the
-        // `boss_reward_lookups_key_on_real_behavior_ids` test guards this.
-        "smirking_behemoth_boss" => Some(crate::abilities::ranged::beam::BEAM_ID),
-        // Mode Collapse converges a diverse population onto one mode — drop the
-        // Vortex, a singularity that gathers a scattered mob to a single point.
-        "mode_collapse_boss" => Some(crate::abilities::ranged::vortex::VORTEX_ID),
-        // The Exploding Gradient sprays runaway values outward — drop the
-        // Sentry, a deployed turret that auto-sprays the room for you.
-        "exploding_gradient_boss" => Some(crate::abilities::ranged::sentry::SENTRY_ID),
-        // Overflow is an aerial dive-bomber that bursts its bounds and crashes
-        // into you — drop the Dive, its lunging crash, to close and cut a line.
-        "overflow_boss" => Some(crate::abilities::traversal::dive::DIVE_ID),
-        // GNU-ton rains apples from its descending head — drop the Meteor, an
-        // overhead area-rain, so you call the same storm down on a zone. (It
-        // also grants Fireball via `boss_reward_ability`; a major boss, like
-        // the T-Rex, drops both an ability and a wielded gauntlet.)
-        "gnu_ton" => Some(crate::abilities::ranged::meteor::METEOR_ID),
-        _ => None,
-    }
-}
-
 /// Spawn a collectible ability pickup at `pos` — a defeated boss's reward. Reuses
 /// the standard pickup entity shape so [`super::collect_ecs_pickups`] grants the
 /// ability to the player's catalog ([`crate::items::OwnedItems`]) on overlap.
@@ -896,7 +841,7 @@ fn apply_boss_hit(
         // North star: "every boss a failed objective function, every upgrade a
         // theorem" — a defeated boss drops the ability it embodies, so combat
         // (not just the merchant) teaches the player new verbs.
-        if let Some(ability_id) = boss_reward_ability(&boss.config.behavior.id) {
+        if let Some(ability_id) = boss.config.behavior.reward_ability.as_deref() {
             if let Some(item) = crate::items::Item::from_dialog_id(ability_id) {
                 drop_ability_pickup(
                     &mut writers.commands,
@@ -909,7 +854,7 @@ fn apply_boss_hit(
         }
         // …and its signature wielded attack drops as a ground-item gauntlet the
         // player picks up + uses (the player literally wields the boss's move).
-        if let Some(gauntlet_id) = boss_signature_gauntlet(&boss.config.behavior.id) {
+        if let Some(gauntlet_id) = boss.config.behavior.signature_gauntlet.as_deref() {
             if let Some(spec) = crate::brain::held_item_by_id(gauntlet_id) {
                 writers.commands.spawn((
                     crate::items::pickup::GroundItem {
@@ -1315,28 +1260,31 @@ mod tests {
 
     #[test]
     fn defeated_boss_drops_its_signature_ability() {
-        // Each boss is paired with the ability it embodies; others grant nothing.
-        assert_eq!(
-            boss_reward_ability("flying_spaghetti_monster_boss"),
-            Some("blink")
-        );
-        assert_eq!(boss_reward_ability("trex_boss"), Some("grapple"));
-        assert_eq!(boss_reward_ability("gnu_ton"), Some("fireball"));
-        assert_eq!(boss_reward_ability("clockwork_warden"), Some("markrecall"));
-        assert_eq!(boss_reward_ability("mockingbird"), None);
-        assert_eq!(boss_reward_ability("smirking_behemoth_boss"), None);
-        // Every mapped reward resolves to a real catalog item.
-        for boss in [
-            "flying_spaghetti_monster_boss",
-            "trex_boss",
-            "gnu_ton",
-            "clockwork_warden",
-        ] {
-            let id = boss_reward_ability(boss).unwrap();
-            assert!(
-                crate::items::Item::from_dialog_id(id).is_some(),
-                "boss {boss} -> ability {id} must be a real catalog item",
+        use crate::features::BossBehaviorProfile;
+        // Each boss's reward ability is content data (`boss_profiles.ron`):
+        // verify the authored pairings and that each resolves to a real catalog
+        // item. Read off the RON-loaded profile by id — the engine names none.
+        let expect: &[(&str, Option<&str>)] = &[
+            ("flying_spaghetti_monster_boss", Some("blink")),
+            ("trex_boss", Some("grapple")),
+            ("gnu_ton", Some("fireball")),
+            ("clockwork_warden", Some("markrecall")),
+            ("mockingbird", None),
+            ("smirking_behemoth_boss", None),
+        ];
+        for (id, ability) in expect {
+            let profile = BossBehaviorProfile::from_data(id);
+            assert_eq!(
+                profile.reward_ability.as_deref(),
+                *ability,
+                "{id} reward ability drifted from boss_profiles.ron",
             );
+            if let Some(a) = ability {
+                assert!(
+                    crate::items::Item::from_dialog_id(a).is_some(),
+                    "boss {id} -> ability {a} must be a real catalog item",
+                );
+            }
         }
 
         // The drop spawns a single collectible Ability pickup.
@@ -1365,136 +1313,54 @@ mod tests {
 
     #[test]
     fn boss_signature_gauntlets_map_to_real_wielded_held_items() {
-        // The grounded stomper drops the Shockwave slam; the flitting mimic
-        // drops the Volley spread — "every boss a failed objective function,
-        // learn its attack". Each must resolve to a real held-item spec so the
-        // dropped GroundItem is actually pick-up-able.
-        assert_eq!(
-            boss_signature_gauntlet("trex_boss"),
-            Some(crate::abilities::ranged::shockwave::SHOCKWAVE_ID)
-        );
-        assert_eq!(
-            boss_signature_gauntlet("mockingbird"),
-            Some(crate::abilities::ranged::volley::VOLLEY_ID)
-        );
-        // The eye-beam boss drops the focus beam — wield its signature line
-        // attack. Keyed on the REAL behavior id (`smirking_behemoth_boss`).
-        assert_eq!(
-            boss_signature_gauntlet("smirking_behemoth_boss"),
-            Some(crate::abilities::ranged::beam::BEAM_ID)
-        );
-        // The three data-driven bosses each arm the player with a thematic kit:
-        // Mode Collapse -> the gathering Vortex; Exploding Gradient -> the
-        // spraying Sentry; Overflow -> the lunging Dive.
-        assert_eq!(
-            boss_signature_gauntlet("mode_collapse_boss"),
-            Some(crate::abilities::ranged::vortex::VORTEX_ID)
-        );
-        assert_eq!(
-            boss_signature_gauntlet("exploding_gradient_boss"),
-            Some(crate::abilities::ranged::sentry::SENTRY_ID)
-        );
-        assert_eq!(
-            boss_signature_gauntlet("overflow_boss"),
-            Some(crate::abilities::traversal::dive::DIVE_ID)
-        );
-        // GNU-ton's apple-rain becomes the wielded Meteor (it also grants
-        // Fireball as a catalog ability — a dual drop, like the T-Rex).
-        assert_eq!(
-            boss_signature_gauntlet("gnu_ton"),
-            Some(crate::abilities::ranged::meteor::METEOR_ID)
-        );
-        for boss in [
-            "trex_boss",
-            "mockingbird",
-            "smirking_behemoth_boss",
-            "mode_collapse_boss",
-            "exploding_gradient_boss",
-            "overflow_boss",
-            "gnu_ton",
-        ] {
-            let id = boss_signature_gauntlet(boss).unwrap();
-            assert!(
-                crate::brain::held_item_by_id(id).is_some(),
-                "boss {boss} -> gauntlet {id} must be a registered held item",
-            );
-        }
-    }
-
-    /// REGRESSION GUARD: the reward lookups match on `boss.config.behavior.id`
-    /// at runtime. An arm keyed on a string no boss actually carries (e.g. the
-    /// original `"smirking_behemoth"` vs the real `"smirking_behemoth_boss"`)
-    /// silently never fires — the drop just doesn't happen in-game, while a
-    /// literal-keyed unit test passes anyway. Driving the lookups off each
-    /// boss's REAL behavior id (via its profile constructor) catches that, and
-    /// flows future id renames through automatically.
-    #[test]
-    fn boss_reward_lookups_key_on_real_behavior_ids() {
+        use crate::abilities::ranged::{beam, sentry, shockwave, vortex, volley, meteor};
+        use crate::abilities::traversal::dive;
         use crate::features::BossBehaviorProfile;
-        let bosses = [
-            BossBehaviorProfile::clockwork_warden(),
-            BossBehaviorProfile::mockingbird(),
-            BossBehaviorProfile::gnu_ton(),
-            BossBehaviorProfile::smirking_behemoth_boss(),
-            BossBehaviorProfile::flying_spaghetti_monster_boss(),
-            BossBehaviorProfile::trex_boss(),
-            BossBehaviorProfile::mode_collapse_boss(),
-            BossBehaviorProfile::exploding_gradient_boss(),
-            BossBehaviorProfile::overflow_boss(),
+        // Signature gauntlets are content data (`boss_profiles.ron`): each must
+        // resolve to a real held-item spec so the dropped GroundItem is
+        // pick-up-able. Read off the RON-loaded profile by id — so the reward is
+        // intrinsically keyed on the boss's REAL behavior id (the old
+        // `"smirking_behemoth"` vs `"smirking_behemoth_boss"` mis-key, where a
+        // literal-keyed lookup silently never fired, can no longer happen). The
+        // expected values pin the RON against the ability id consts so the two
+        // can't drift apart.
+        let expect: &[(&str, Option<&str>)] = &[
+            ("trex_boss", Some(shockwave::SHOCKWAVE_ID)),
+            ("mockingbird", Some(volley::VOLLEY_ID)),
+            ("smirking_behemoth_boss", Some(beam::BEAM_ID)),
+            ("mode_collapse_boss", Some(vortex::VORTEX_ID)),
+            ("exploding_gradient_boss", Some(sentry::SENTRY_ID)),
+            ("overflow_boss", Some(dive::DIVE_ID)),
+            ("gnu_ton", Some(meteor::METEOR_ID)),
+            ("clockwork_warden", None),
+            ("flying_spaghetti_monster_boss", None),
         ];
         let mut gauntlets = 0;
         let mut abilities = 0;
-        for b in &bosses {
-            let id = b.id.as_str();
-            if let Some(g) = boss_signature_gauntlet(id) {
+        for (id, gauntlet) in expect {
+            let profile = BossBehaviorProfile::from_data(id);
+            assert_eq!(
+                profile.signature_gauntlet.as_deref(),
+                *gauntlet,
+                "{id} signature gauntlet drifted from boss_profiles.ron",
+            );
+            if let Some(g) = profile.signature_gauntlet.as_deref() {
                 assert!(
                     crate::brain::held_item_by_id(g).is_some(),
-                    "boss {id} -> gauntlet {g} must resolve to a real held item",
+                    "boss {id} -> gauntlet {g} must be a registered held item",
                 );
                 gauntlets += 1;
             }
-            if let Some(a) = boss_reward_ability(id) {
-                assert!(
-                    crate::items::Item::from_dialog_id(a).is_some(),
-                    "boss {id} -> ability {a} must resolve to a real catalog item",
-                );
+            if profile.reward_ability.is_some() {
                 abilities += 1;
             }
         }
         // trex + mockingbird + smirking + mode_collapse + exploding_gradient +
         // overflow + gnu_ton each arm a wielded gauntlet (seven "learn its
         // attack" drops; trex and gnu_ton also grant a catalog ability).
-        assert_eq!(
-            gauntlets, 7,
-            "seven bosses drop a signature gauntlet, keyed on real ids"
-        );
+        assert_eq!(gauntlets, 7, "seven bosses drop a signature gauntlet");
         // FSM(blink) + trex(grapple) + gnu(fireball) + clockwork(markrecall).
-        assert_eq!(
-            abilities, 4,
-            "four bosses grant a catalog ability, keyed on real ids"
-        );
-        // The bug this guards: the beam drop must fire on the REAL behavior id.
-        let g = |b: BossBehaviorProfile| boss_signature_gauntlet(&b.id);
-        assert_eq!(
-            g(BossBehaviorProfile::smirking_behemoth_boss()),
-            Some(crate::abilities::ranged::beam::BEAM_ID)
-        );
-        assert_eq!(
-            g(BossBehaviorProfile::mode_collapse_boss()),
-            Some(crate::abilities::ranged::vortex::VORTEX_ID)
-        );
-        assert_eq!(
-            g(BossBehaviorProfile::exploding_gradient_boss()),
-            Some(crate::abilities::ranged::sentry::SENTRY_ID)
-        );
-        assert_eq!(
-            g(BossBehaviorProfile::overflow_boss()),
-            Some(crate::abilities::traversal::dive::DIVE_ID)
-        );
-        assert_eq!(
-            g(BossBehaviorProfile::gnu_ton()),
-            Some(crate::abilities::ranged::meteor::METEOR_ID)
-        );
+        assert_eq!(abilities, 4, "four bosses grant a catalog ability");
     }
 
     #[test]

@@ -1814,10 +1814,7 @@ fn project_scrollbar_tracks(
 /// measured height yet (the projection has not run). Shared by the DragStart +
 /// Drag observers so a press and a drag map identically.
 fn scrollbar_fraction(bar: &MenuScrollbar, pointer_y: f32) -> Option<f32> {
-    if bar.track_height <= f32::EPSILON {
-        return None;
-    }
-    Some(((pointer_y - bar.track_top_y) / bar.track_height).clamp(0.0, 1.0))
+    crate::scrollbar_fraction_from_rect(bar.track_top_y, bar.track_height, pointer_y)
 }
 
 /// Feature C: a press that lands on the scrollbar immediately jumps the scroll to

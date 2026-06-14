@@ -37,7 +37,8 @@ use bevy::prelude::*;
 
 use crate::{
     AmbitionMenuControl, AmbitionMenuRoot, MenuColor, MenuControlKind, MenuNode, MenuPageModel,
-    MenuRect, MenuTextAlign, MenuVisualState, scrollbar_thumb_layout, ScrollThumb,
+    MenuRect, MenuTextAlign, MenuVisualState, scrollbar_fraction_from_rect, scrollbar_thumb_layout,
+    ScrollThumb,
 };
 
 /// Root marker for a spawned flat `bevy_ui` menu tree.
@@ -653,16 +654,6 @@ fn bevy_ui_scrollbar_fraction(
 /// The pure track-rect → fraction mapping shared by the `bevy_ui` scrollbar
 /// observers. `None` if the track has no measured height yet. 0 = top edge,
 /// 1 = bottom edge; clamped.
-fn scrollbar_fraction_from_rect(
-    track_top_y: f32,
-    track_height: f32,
-    pointer_y: f32,
-) -> Option<f32> {
-    if track_height <= f32::EPSILON {
-        return None;
-    }
-    Some(((pointer_y - track_top_y) / track_height).clamp(0.0, 1.0))
-}
 
 /// Feature C: a press that lands on the `bevy_ui` scrollbar marks the track held by
 /// that pointer (so [`bevy_ui_scrollbar_press_drag`] tracks the live position) and

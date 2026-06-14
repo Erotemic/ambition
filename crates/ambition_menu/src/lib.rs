@@ -170,6 +170,22 @@ pub(crate) fn scrollbar_thumb_layout(thumb: ScrollThumb) -> (f32, f32) {
     (start * travel, size)
 }
 
+/// Map a pointer's position along a scrollbar track into the neutral `0..=1`
+/// drag fraction (0 = top, 1 = bottom). `None` if the track has no height yet.
+/// Single source of truth shared by both renderers (the cube extracts the track
+/// rect from its `MenuScrollbar` component; the grid reads its measured node
+/// rect) — the division used to be copied into each.
+pub(crate) fn scrollbar_fraction_from_rect(
+    track_top_y: f32,
+    track_height: f32,
+    pointer_y: f32,
+) -> Option<f32> {
+    if track_height <= f32::EPSILON {
+        return None;
+    }
+    Some(((pointer_y - track_top_y) / track_height).clamp(0.0, 1.0))
+}
+
 impl<Action> MenuNode<Action> {
     pub fn action(&self) -> Option<&Action> {
         match self {

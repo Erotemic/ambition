@@ -233,6 +233,14 @@ fn spawn_control<Action>(
                     },
                     BackgroundColor(Color::srgba(0.85, 0.78, 0.30, 0.96)),
                     BevyUiMenuScrollbarThumb,
+                    // The thumb sits ON TOP of the track but the track owns the
+                    // drag (it carries `BevyUiMenuScrollbar` + the press/drag
+                    // handlers). Without this, grabbing the thumb — the natural
+                    // drag target — sends `Pointer<Press>` to the thumb entity,
+                    // the press handler's `get_mut(press.entity)` misses, and the
+                    // drag never starts. `IGNORE` lets the pick fall through to
+                    // the track (mirrors the cube thumb).
+                    Pickable::IGNORE,
                     Name::new("scrollbar thumb"),
                 ));
             });

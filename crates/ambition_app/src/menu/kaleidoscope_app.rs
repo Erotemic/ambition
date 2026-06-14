@@ -61,6 +61,7 @@ pub fn install_unified_menu_shared(app: &mut App) {
         // (`init_resource` is idempotent).
         .init_resource::<ambition_sandbox::input::ActiveInputKind>()
         .init_resource::<KaleidoscopeSystemNav>()
+        .init_resource::<CachedSystemMenu>()
         .add_plugins(AmbitionInventoryUiPlugin);
 }
 
@@ -190,6 +191,10 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
                 // Scroll the System window independently of selection before republish.
                 kaleidoscope_scroll_wheel.run_if(kaleidoscope_menu_visible),
                 kaleidoscope_apply_scroll_drag.run_if(kaleidoscope_menu_visible),
+                // Build the System model + radio/dev snapshots ONCE per frame; the
+                // republish + both in-place sync systems below read this cache instead
+                // of each rebuilding it (3 heavy builds/frame → 1 on the System face).
+                cache_system_menu.run_if(kaleidoscope_menu_visible),
                 // Republish the cube's model only for the cube backend; Grid builds and
                 // dirties its own page model.
                 republish_kaleidoscope_pages.run_if(kaleidoscope_menu_visible),
@@ -1211,17 +1216,19 @@ pub(crate) fn system_focus_nav(
                     // normalise defensively to a row rather than rotating.
                     cursor.mark_keyboard(MenuFocus::System(0));
                 } else {
-                    // Moving further outward from the edge still rotates the cube.
-                    turn_page(pages, active_page.on_viewer_left(), sfx);
-                    cursor.mark_keyboard(MenuFocus::System(0));
+                    // Moving further outward from the edge rotates the cube — land the
+                    // cursor on the NEW face's back-edge button (the one pointing back
+                    // to System), exactly like every other face's turn. Seeding
+                    // `System(0)` here left the cursor on a row index the placeholder
+                    // Quest/Map faces don't have, so nothing highlighted on arrival.
+                    turn_page_seeded(pages, cursor, active_page.on_viewer_left(), sfx);
                 }
             }
             MenuFocus::EdgeRight => {
                 if dx < 0 || !allow_page_turn {
                     cursor.mark_keyboard(MenuFocus::System(0));
                 } else {
-                    turn_page(pages, active_page.on_viewer_right(), sfx);
-                    cursor.mark_keyboard(MenuFocus::System(0));
+                    turn_page_seeded(pages, cursor, active_page.on_viewer_right(), sfx);
                 }
             }
             MenuFocus::System(_) | MenuFocus::Item(_) => {
@@ -1999,42 +2006,34 @@ fn kaleidoscope_sync_focus_visuals(
     cursor: Res<KaleidoscopeCursor>,
     pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
     system_nav: Res<KaleidoscopeSystemNav>,
-    settings: Res<UserSettings>,
-    snapshot: SystemMenuSnapshotParams,
-    // ONLY the active face's controls are highlight-eligible. The cube spawns every
-    // face at once, and a focus key (an edge page-turn button, a row index) collides
-    // across faces — without this filter the same-keyed control on the side/back
-    // faces lit up too (e.g. turning to Quest left the System face's rows + the
-    // neighbours' `>`/`<` buttons highlighted alongside the real cursor target).
-    mut controls: Query<
-        (&AmbitionMenuControl<MenuPageAction>, &mut MenuVisualState),
-        With<KaleidoscopeActiveFaceControl>,
-    >,
+    cache: Res<CachedSystemMenu>,
+    // Every control across every face, plus whether it sits on the ACTIVE face. The
+    // cube spawns all faces at once and a focus key (an edge `>`/`<` button, a row
+    // index) collides across faces, so only the active face may carry the cursor
+    // highlight. Crucially we still iterate the OTHER faces to RESET them: a control
+    // built `selected` (an equipped item / active station) spawns with `focused`
+    // pre-set, so skipping inactive faces left those stuck-lit when rotated away.
+    mut controls: Query<(
+        &AmbitionMenuControl<MenuPageAction>,
+        Has<KaleidoscopeActiveFaceControl>,
+        &mut MenuVisualState,
+    )>,
 ) {
     let Some(active_page) = pages.active else {
         return;
     };
-    // PERF (2026-06-10): only the System face's controls consult the System row
-    // model; `focus_for_action` never touches it for Items/page-turn actions.
-    // Building it (which formats every setting value to a string + clones the radio
-    // station list) on the Items/Map/Quest pages was wasted work every frame. Build
-    // it only when the System face is active; an empty model is fine elsewhere
-    // because no System action is ever matched against it there.
-    let model = if active_page == MenuPage::System {
-        SystemMenuModel::build(
-            &settings,
-            &snapshot.radio_snapshot(),
-            &snapshot.dev_snapshot(),
-        )
-    } else {
-        SystemMenuModel::default()
-    };
-    for (control, mut vis) in &mut controls {
+    // The System row model is built once per frame by `cache_system_menu`; reuse it
+    // (empty default off the System face, where no System action is ever matched).
+    let fallback = SystemMenuModel::default();
+    let model = cache.model.as_ref().unwrap_or(&fallback);
+    for (control, on_active_face, mut vis) in &mut controls {
         let Some(action) = control.action else {
             continue;
         };
-        let focus = focus_for_action(action, active_page, &model, system_nav.open_entry);
-        let focused = focus == cursor.focus;
+        // Only the active face highlights; inactive faces always resolve to `false`
+        // (and so get reset), never matched against the cursor.
+        let focused = on_active_face
+            && focus_for_action(action, active_page, model, system_nav.open_entry) == cursor.focus;
         // Change-detection friendly: only write when the flags actually flip, so the
         // lib's `Changed<MenuVisualState>` recolor stays cheap.
         if vis.focused != focused || vis.selected != focused {
@@ -2053,9 +2052,7 @@ fn kaleidoscope_sync_detail_text(
     owned: Option<Res<OwnedItems>>,
     cursor: Res<KaleidoscopeCursor>,
     pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
-    system_nav: Res<KaleidoscopeSystemNav>,
-    settings: Res<UserSettings>,
-    snapshot: SystemMenuSnapshotParams,
+    cache: Res<CachedSystemMenu>,
     mut texts: Query<(&MenuDynamicText, &mut MenuDynamicTextContent)>,
 ) {
     let Some(owned) = owned else {
@@ -2068,19 +2065,16 @@ fn kaleidoscope_sync_detail_text(
     // active page carries dynamic-text slots, so a single map covers the panel.
     let slot_text: Vec<(u32, String)> = match active_page {
         MenuPage::Items => items_detail_slot_text(&owned, owned.equipped(), cursor.focus),
-        MenuPage::System => {
-            let model = SystemMenuModel::build(
-                &settings,
-                &snapshot.radio_snapshot(),
-                &snapshot.dev_snapshot(),
-            );
-            let rows = system_rows(&model, system_nav.open_entry);
-            let focused = match cursor.focus {
-                MenuFocus::System(idx) => idx.min(rows.len().saturating_sub(1)),
-                _ => 0,
-            };
-            system_detail_slot_text(&model, &rows, focused)
-        }
+        MenuPage::System => match cache.model.as_ref() {
+            Some(model) => {
+                let focused = match cursor.focus {
+                    MenuFocus::System(idx) => idx.min(cache.rows.len().saturating_sub(1)),
+                    _ => 0,
+                };
+                system_detail_slot_text(model, &cache.rows, focused)
+            }
+            None => Vec::new(),
+        },
         // Placeholder faces (Map / Quest) have no dynamic detail panel.
         _ => Vec::new(),
     };
@@ -2092,6 +2086,50 @@ fn kaleidoscope_sync_detail_text(
             }
         }
     }
+}
+
+/// Per-frame cache of the System face's built model + windowed rows + the radio/dev
+/// snapshots. `SystemMenuModel::build` (the full settings IR plus many per-row string
+/// allocations) and the radio/dev snapshots were each rebuilt THREE times per frame
+/// on the System face — once each in [`republish_kaleidoscope_pages`],
+/// [`kaleidoscope_sync_focus_visuals`], and [`kaleidoscope_sync_detail_text`]. They
+/// run back-to-back in one chain with identical inputs, so [`cache_system_menu`]
+/// builds them once and the three consumers read this.
+#[derive(Resource, Default)]
+struct CachedSystemMenu {
+    /// The System model for the live face, or `None` when another face is active.
+    model: Option<SystemMenuModel>,
+    /// `system_rows(model, open_entry)` for the live drill state (empty off-System).
+    rows: Vec<SystemRow>,
+    /// Snapshots feeding the model AND the republish `RebuildKey`, which carries them
+    /// on every face — so these are refreshed each frame regardless of active page.
+    radio: RadioSnapshot,
+    dev: DevSnapshot,
+}
+
+/// Build the System model + radio/dev snapshots ONCE per frame (front of the visible
+/// chain) into [`CachedSystemMenu`]. The model + rows are built only while the System
+/// face is active; the snapshots are always refreshed (the republish key carries them
+/// on every face). See [`CachedSystemMenu`] for why.
+fn cache_system_menu(
+    pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
+    settings: Res<UserSettings>,
+    system_nav: Res<KaleidoscopeSystemNav>,
+    snapshot: SystemMenuSnapshotParams,
+    mut cache: ResMut<CachedSystemMenu>,
+) {
+    let radio = snapshot.radio_snapshot();
+    let dev = snapshot.dev_snapshot();
+    if pages.active == Some(MenuPage::System) {
+        let model = SystemMenuModel::build(&settings, &radio, &dev);
+        cache.rows = system_rows(&model, system_nav.open_entry);
+        cache.model = Some(model);
+    } else {
+        cache.model = None;
+        cache.rows.clear();
+    }
+    cache.radio = radio;
+    cache.dev = dev;
 }
 
 /// Republish the cube's faces from our live inventory + the focus cursor (the
@@ -2114,10 +2152,10 @@ fn republish_kaleidoscope_pages(
     // `ResMut<KaleidoscopeSystemNav>` in SEPARATE systems/observers, so this `Res` is not a
     // B0002 conflict. Inserted at startup (`init_resource`) so it never panics.
     system_nav: Res<KaleidoscopeSystemNav>,
-    // The radio + developer snapshots feed the broadened SYSTEM screens. Read-only
-    // here; the mutators take the `ResMut` `SystemMenuParams` in separate systems,
-    // so no B0002. Audio resources are absent under no `audio` (the bundle cfgs out).
-    snapshot: SystemMenuSnapshotParams,
+    // The System model + radio/dev snapshots, built ONCE this frame by
+    // `cache_system_menu` (runs just before us in the chain with identical inputs),
+    // so the dirty-key + rebuild reuse them instead of rebuilding a third time.
+    cache: Res<CachedSystemMenu>,
     // Read-only here; the mutators (`kaleidoscope_focus_nav`, `kaleidoscope_scroll_wheel`,
     // `kaleidoscope_apply_scroll_drag`) take `ResMut<KaleidoscopeScroll>` in separate
     // systems, so this `Res` is not a B0002 conflict. Inserted at startup so it never panics.
@@ -2133,12 +2171,6 @@ fn republish_kaleidoscope_pages(
     let just_opened = open && !*was_open;
     *was_open = open;
 
-    // Snapshot the System face's CONTENT once (radio station list + active station,
-    // dev-toggle flags). Used both for the dirty check and for the rebuild, so the
-    // per-frame `SystemMenuModel::build` is not duplicated.
-    let radio = snapshot.radio_snapshot();
-    let dev = snapshot.dev_snapshot();
-
     // Deferred Bug 2 fix: the page key keys off the System scroll-window START, NOT
     // the raw `cursor.focus`. A cursor-only move (mouse OR keyboard) no longer
     // rebuilds the face — the highlight (`kaleidoscope_sync_focus_visuals`) and the
@@ -2148,13 +2180,12 @@ fn republish_kaleidoscope_pages(
     // scroll window changes the rendered rows, so only that needs a rebuild; the
     // drill-down state is also keyed so drilling in/out republishes the new rows.
     let window_start = if pages.active == Some(MenuPage::System) {
-        let model = SystemMenuModel::build(&settings, &radio, &dev);
-        let rows = system_rows(&model, system_nav.open_entry);
         // The EFFECTIVE window start: an explicit drag/wheel override wins (Features
         // C/D), otherwise it follows the cursor. Keying the rebuild off this means a
         // wheel/drag scroll rebuilds the windowed rows, while a cursor-only move
-        // inside the window still does not (preserving A's click fix).
-        system_effective_window_start(&rows, cursor.focus, scroll.system_window_start)
+        // inside the window still does not (preserving A's click fix). Rows come from
+        // the shared per-frame cache.
+        system_effective_window_start(&cache.rows, cursor.focus, scroll.system_window_start)
     } else {
         0
     };
@@ -2162,8 +2193,8 @@ fn republish_kaleidoscope_pages(
         window_start,
         active: pages.active,
         open_entry: system_nav.open_entry,
-        radio,
-        dev,
+        radio: cache.radio.clone(),
+        dev: cache.dev.clone(),
     };
     // Republish on: catalog change, settings change (so a toggled setting's label
     // updates immediately), first publish, menu-open (textures that loaded after
@@ -2364,6 +2395,7 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<ambition_sandbox::input::ActiveInputKind>();
         app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<KaleidoscopeScroll>();
+        app.init_resource::<CachedSystemMenu>();
         app.init_resource::<KaleidoscopePointerPress>();
         app.init_resource::<OwnedItems>();
         app.init_resource::<ambition_sandbox::dev::dev_tools::DeveloperTools>();
@@ -3030,6 +3062,7 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<ambition_sandbox::input::ActiveInputKind>();
         app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<KaleidoscopeScroll>();
+        app.init_resource::<CachedSystemMenu>();
         app.init_resource::<KaleidoscopePointerPress>();
         app.init_resource::<OwnedItems>();
         app.init_resource::<ambition_sandbox::dev::dev_tools::DeveloperTools>();
@@ -3206,6 +3239,7 @@ mod lunex_kaleidoscope_app_tests {
         app.add_systems(
             Update,
             (
+                cache_system_menu,
                 republish_kaleidoscope_pages,
                 kaleidoscope_sync_focus_visuals,
                 kaleidoscope_sync_detail_text,
@@ -3376,6 +3410,7 @@ mod lunex_kaleidoscope_app_tests {
                 kaleidoscope_focus_nav,
                 kaleidoscope_scroll_wheel.run_if(kaleidoscope_menu_visible),
                 kaleidoscope_apply_scroll_drag.run_if(kaleidoscope_menu_visible),
+                cache_system_menu,
                 republish_kaleidoscope_pages,
             )
                 .chain(),
@@ -3771,6 +3806,7 @@ mod lunex_kaleidoscope_app_tests {
         app.init_resource::<ambition_sandbox::input::ActiveInputKind>();
         app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<KaleidoscopeScroll>();
+        app.init_resource::<CachedSystemMenu>();
         app.init_resource::<KaleidoscopePointerPress>();
         let mut owned = OwnedItems::default();
         owned.grant(owned_item, 1);
@@ -3823,6 +3859,7 @@ mod lunex_kaleidoscope_app_tests {
             app.add_systems(
                 Update,
                 (
+                    cache_system_menu,
                     republish_kaleidoscope_pages,
                     kaleidoscope_sync_focus_visuals,
                 )
@@ -3844,6 +3881,7 @@ mod lunex_kaleidoscope_app_tests {
             app.add_systems(
                 Update,
                 (
+                    cache_system_menu,
                     republish_kaleidoscope_pages,
                     kaleidoscope_sync_focus_visuals,
                 )
@@ -3875,6 +3913,61 @@ mod lunex_kaleidoscope_app_tests {
             .replace_pages(pages, MenuPage::Items);
         app.update();
         app
+    }
+
+    /// REGRESSION pin: the cursor highlight stays on the ACTIVE face. The cube spawns
+    /// every face's controls at once, so a control built `selected` (an equipped item
+    /// / active station) on a rotated-away face spawns with `focused` pre-set. The
+    /// writer must RESET it (the "flash"/stuck-lit bug), while still highlighting the
+    /// same-focus control on the active face. We spawn two controls with the SAME
+    /// matching action — one marked `KaleidoscopeActiveFaceControl`, one not — both
+    /// pre-lit, and assert only the active-face one survives.
+    #[test]
+    fn highlight_resets_inactive_face_controls() {
+        let item = Item::PortalGun;
+        let mut app = base_kaleidoscope_test_app();
+        app.add_systems(
+            Update,
+            (cache_system_menu, kaleidoscope_sync_focus_visuals).chain(),
+        );
+        app.world_mut()
+            .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+            .active = Some(MenuPage::Items);
+        app.world_mut().resource_mut::<KaleidoscopeCursor>().focus = MenuFocus::Item(item.index());
+
+        let pre_lit = || MenuVisualState {
+            focused: true,
+            selected: true,
+            ..Default::default()
+        };
+        let control = |with_marker: bool| {
+            (
+                AmbitionMenuControl::<MenuPageAction> {
+                    kind: ambition_menu::MenuControlKind::Action,
+                    action: Some(MenuPageAction::Equip(item)),
+                    focus: ambition_menu::MenuFocusKey::default(),
+                },
+                pre_lit(),
+                with_marker,
+            )
+        };
+        // Active-face control (marked) — must stay lit; inactive (unmarked) — reset.
+        let (a_ctrl, a_vis, _) = control(true);
+        let active = app.world_mut().spawn((a_ctrl, a_vis, KaleidoscopeActiveFaceControl)).id();
+        let (i_ctrl, i_vis, _) = control(false);
+        let inactive = app.world_mut().spawn((i_ctrl, i_vis)).id();
+
+        app.update();
+
+        assert!(
+            app.world().get::<MenuVisualState>(active).unwrap().focused,
+            "the active-face control matching the cursor stays highlighted"
+        );
+        assert!(
+            !app.world().get::<MenuVisualState>(inactive).unwrap().focused,
+            "an inactive-face control (no marker) is reset, even though its action \
+             matches the cursor focus — fixes the rotate 'flash'/stuck-lit highlight"
+        );
     }
 
     /// REGRESSION pin: setting the cursor onto an owned item's focus must (a) flip

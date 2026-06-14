@@ -103,11 +103,18 @@ pub fn step_kinematic(
     //    `MovementTuning.gravity_sign` so an enemy falls the same way the player
     //    does when gravity flips.
     let sign = tuning.gravity_sign;
+    // Terminal velocity is an equilibrium gravity accelerates UP TO, not a brake
+    // that decelerates a body already moving faster (e.g. one flung out of a
+    // portal). Raise the effective cap to at least the body's pre-gravity
+    // fall-direction speed: a normal fall (below the cap) is unchanged, while
+    // an over-cap fling is preserved instead of clipped back on the next tick.
+    let fall_before = (body.vel.y * sign).max(0.0);
+    let cap = tuning.max_fall_speed.max(fall_before);
     let new_vy = body.vel.y + tuning.gravity * sign * dt;
     body.vel.y = if sign >= 0.0 {
-        new_vy.min(tuning.max_fall_speed)
+        new_vy.min(cap)
     } else {
-        new_vy.max(-tuning.max_fall_speed)
+        new_vy.max(-cap)
     };
 
     // Capture the bottom edge BEFORE we move so the OneWay direction
@@ -239,6 +246,53 @@ mod tests {
         assert!(
             b.on_ground,
             "the body should stand on the ceiling under flipped gravity"
+        );
+    }
+
+    #[test]
+    fn gravity_caps_a_normal_fall_at_terminal_velocity() {
+        // No floor: a body falling under gravity should accelerate UP TO the
+        // terminal velocity and sit there (the equilibrium), never exceeding it.
+        let world = world_with(vec![]);
+        let mut b = body(Vec2::new(50.0, 0.0));
+        for _ in 0..600 {
+            step_kinematic(
+                &mut b,
+                &world,
+                tuning(),
+                KinematicInputs::default(),
+                1.0 / 60.0,
+            );
+        }
+        assert!(
+            (b.vel.y - tuning().max_fall_speed).abs() < 1.0,
+            "a normal fall should settle at terminal velocity {}, got {}",
+            tuning().max_fall_speed,
+            b.vel.y
+        );
+    }
+
+    #[test]
+    fn a_fling_above_terminal_is_preserved_not_braked() {
+        // A body already moving faster than terminal (a portal fling) must NOT be
+        // decelerated by the fall cap — gravity is an equilibrium it accelerates
+        // toward, not a brake. The over-cap speed persists (no air drag on the
+        // fall axis), so momentum carries through.
+        let world = world_with(vec![]);
+        let mut b = body(Vec2::new(50.0, 0.0));
+        let fling = tuning().max_fall_speed * 2.0;
+        b.vel.y = fling;
+        step_kinematic(
+            &mut b,
+            &world,
+            tuning(),
+            KinematicInputs::default(),
+            1.0 / 60.0,
+        );
+        assert!(
+            b.vel.y >= fling,
+            "an over-terminal fling ({fling}) should be preserved, got {}",
+            b.vel.y
         );
     }
 

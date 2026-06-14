@@ -98,6 +98,14 @@ pub(super) fn integrate_velocity_clusters(
         // fall-cap, fast-fall and glide all project onto `g` instead of assuming
         // `+Y`. For down/up this is identical to the old `gravity_sign` path.
         let g = tuning.gravity_dir;
+        // Fall-direction speed BEFORE this frame's gravity. Terminal velocity is
+        // an equilibrium gravity accelerates UP TO — not a brake that actively
+        // decelerates a body already moving faster (e.g. one flung out of a
+        // portal carrying built-up momentum). So the air cap below is raised to
+        // at least this pre-gravity speed: a normal fall (below the cap) is
+        // unchanged, while an over-cap fling is preserved instead of being
+        // clipped back to terminal on the very next tick.
+        let fall_along_before = clusters.kinematics.vel.dot(g).max(0.0);
         let blink_hang_active =
             clusters.blink.grace_timer > 0.0 && clusters.kinematics.vel.dot(g) >= 0.0;
         let water_gravity_scale = clusters
@@ -160,14 +168,23 @@ pub(super) fn integrate_velocity_clusters(
             clusters.kinematics.vel *= 1.0 - drag;
             cap_fall_speed(&mut clusters.kinematics.vel, g, contact.spec.max_fall_speed);
         } else {
-            let fall_cap = if clusters.flight.fast_falling {
-                tuning.fast_fall_speed
+            // `relax` = treat the cap as an equilibrium (never decelerate an
+            // over-cap fling like a portal exit). GLIDING is an intentional brake
+            // (a parachute that slows you BELOW terminal), so it keeps its hard
+            // clamp; the plain terminal velocity and fast-fall do not.
+            let (fall_cap, relax) = if clusters.flight.fast_falling {
+                (tuning.fast_fall_speed, true)
             } else if clusters.flight.gliding {
-                tuning.glide_fall_speed
+                (tuning.glide_fall_speed, false)
             } else {
-                tuning.max_fall_speed
+                (tuning.max_fall_speed, true)
             };
-            cap_fall_speed(&mut clusters.kinematics.vel, g, fall_cap);
+            let effective_cap = if relax {
+                fall_cap.max(fall_along_before)
+            } else {
+                fall_cap
+            };
+            cap_fall_speed(&mut clusters.kinematics.vel, g, effective_cap);
         }
     }
 

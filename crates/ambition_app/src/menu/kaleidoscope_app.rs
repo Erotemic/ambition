@@ -975,6 +975,8 @@ fn kaleidoscope_focus_nav(
             &mut system,
             // The cube turns its face on LEFT/RIGHT at the row edges.
             true,
+            // The cube's System face is a closed list — UP/DOWN wrap around.
+            true,
         );
         return;
     }
@@ -1133,6 +1135,18 @@ fn emit_move_sfx(
 /// menu. Mutations go through [`apply_system_option`] so persistence stays in one
 /// place.
 #[allow(clippy::too_many_arguments)]
+/// Next row index after a vertical nav step over a `count`-row System list.
+/// `wrap_rows` selects the cube's closed-list wrap (UP off the top → bottom row,
+/// DOWN off the bottom → top) versus the Grid's clamp (its rows sit below the tab
+/// bar, a real target UP must reach). `count` is always ≥ 1, so `rem_euclid` is safe.
+fn step_system_row(row: i32, dy: i32, count: i32, wrap_rows: bool) -> i32 {
+    if wrap_rows {
+        (row + dy).rem_euclid(count)
+    } else {
+        (row + dy).clamp(0, count - 1)
+    }
+}
+
 pub(crate) fn system_focus_nav(
     menu: &MenuControlFrame,
     dx: i32,
@@ -1158,6 +1172,13 @@ pub(crate) fn system_focus_nav(
     // value rows and is otherwise inert (it can never reach an edge or `turn_page`,
     // which used to leak the cube's rotate-SFX + a one-frame face flip into Grid mode).
     allow_page_turn: bool,
+    // Vertical wrap-around for the row list: UP off the top lands on the bottom row
+    // and DOWN off the bottom lands on the top. The cube enables this (its System
+    // face is a closed list with nothing above/below the rows); the Grid passes
+    // `false` because its rows sit BELOW a real target (the tab bar), so UP off the
+    // top must reach that, not wrap. Kept as a distinct flag from `allow_page_turn`
+    // so either behaviour can be flipped independently (e.g. trivially reverted).
+    wrap_rows: bool,
 ) {
     let focus_before = cursor.focus;
     let page_before = pages.active;
@@ -1175,7 +1196,7 @@ pub(crate) fn system_focus_nav(
     };
 
     if dy != 0 {
-        row = (row + dy).clamp(0, count - 1);
+        row = step_system_row(row, dy, count, wrap_rows);
         cursor.mark_keyboard(MenuFocus::System(row as usize));
     }
 
@@ -2301,6 +2322,25 @@ mod lunex_kaleidoscope_app_tests {
     use ambition_sandbox::brain::ActionSet;
     use ambition_sandbox::game_mode::GameMode;
     use ambition_sandbox::player::{PlayerEntity, PlayerMana, PrimaryPlayer};
+
+    /// The cube's System list wraps vertically (closed list); the Grid clamps (its
+    /// rows sit below the tab bar, a real UP target). Pins `step_system_row` so a
+    /// future edit can't silently revert the cube wrap or leak it into the Grid.
+    #[test]
+    fn system_row_wrap_is_cube_only() {
+        // count = 4 rows (indices 0..=3).
+        // Cube (wrap): UP off the top → bottom, DOWN off the bottom → top.
+        assert_eq!(step_system_row(0, -1, 4, true), 3, "cube UP off top wraps");
+        assert_eq!(step_system_row(3, 1, 4, true), 0, "cube DOWN off bottom wraps");
+        // Cube interior moves are unchanged.
+        assert_eq!(step_system_row(1, 1, 4, true), 2);
+        assert_eq!(step_system_row(2, -1, 4, true), 1);
+        // Grid (clamp): the ends hold.
+        assert_eq!(step_system_row(0, -1, 4, false), 0, "grid UP off top clamps");
+        assert_eq!(step_system_row(3, 1, 4, false), 3, "grid DOWN off bottom clamps");
+        // Single-row list: wrap is a no-op, never a divide-by-zero.
+        assert_eq!(step_system_row(0, -1, 1, true), 0);
+    }
     use bevy::camera::NormalizedRenderTarget;
     use bevy::picking::backend::HitData;
     use bevy::picking::events::{Move, Pointer, Press, Release};

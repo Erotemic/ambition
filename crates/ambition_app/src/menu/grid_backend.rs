@@ -563,6 +563,9 @@ pub(crate) fn grid_menu_nav(
                 // onto an edge and firing `turn_page` (the cube rotate-SFX + a
                 // one-frame face flip that leaked into Grid mode).
                 false,
+                // No vertical wrap: the Grid's rows sit below the tab bar, a real
+                // target UP off the top row must reach — so clamp, don't wrap.
+                false,
             );
             // Belt-and-braces: keep the shared page pointer on this tab (republish also
             // aligns it). With `allow_page_turn=false` the nav can no longer move it.

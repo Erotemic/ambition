@@ -37,8 +37,11 @@ GENERATE more via the discovery methods. There is always more.
 ## Standing rules (per commit)
 
 - Work on **main**. No feature branches.
-- **Replay stays BIT-IDENTICAL.** After any sim-touching change run
-  `cargo test -p ambition_app --test replay_fixture_regression`. Also keep
+- **Replay discipline.** A behaviour-NEUTRAL change must keep replay bit-identical
+  (`cargo test -p ambition_app --test replay_fixture_regression` after any
+  sim-touching change). A deliberate coherence fix may change replay — but only
+  with a focused test pinning the new behaviour AND a `behaviour Δ` flag in the
+  progress table (see Run latitudes). Keep
   `cargo test -p ambition_app --test architecture_boundaries` green; add a new
   guard whenever you lock a boundary.
 - One concern per commit, clean rollback boundary, validation command in the body.

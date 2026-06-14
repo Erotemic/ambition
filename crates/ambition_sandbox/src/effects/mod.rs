@@ -116,7 +116,7 @@ pub struct SummonSpec {
 /// projectile-spawn slot) so the shared `ProjectileSeq` ordering is preserved.
 ///
 /// A `Projectiles` burst carries one [`EnemyProjectileSpawn`] per shot — the
-/// emitting technique (a shaper) has already resolved aim, so the executor just
+/// emitting technique has already resolved aim, so the executor just
 /// builds + spawns. (When `effects` becomes its own crate, the shot type swaps
 /// to a substrate-neutral struct; in-lib it reuses the existing spawn request.)
 pub enum Effect {

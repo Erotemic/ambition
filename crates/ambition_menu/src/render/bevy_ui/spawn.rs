@@ -213,10 +213,7 @@ fn spawn_control<Action>(
             start: 0.0,
             size: 1.0,
         });
-        control.insert(BevyUiMenuScrollbar {
-            thumb,
-            pressed_by: None,
-        });
+        control.insert(BevyUiMenuScrollbar { thumb });
         // Only draw a thumb when the list actually scrolls (`size < 1`); a
         // full-size thumb means the list fits, same rule as the cube.
         if thumb.size < 1.0 {

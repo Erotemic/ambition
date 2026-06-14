@@ -168,32 +168,27 @@ pub struct MenuScrollDragged {
 /// pointer's vertical screen position into the neutral `0..=1` fraction reported
 /// by [`MenuScrollDragged`]. Also carries the host's last-published `fraction`
 /// so the rendered thumb can reflect the current scroll position.
-#[derive(Component, Clone, Copy, Debug)]
+#[derive(Component, Clone, Copy, Debug, Default)]
 pub struct MenuScrollbar {
     /// Track top edge in screen pixels (set by the projection system at runtime;
     /// a headless test may set it directly).
     pub track_top_y: f32,
     /// Track height in screen pixels (must be > 0 for the drag to map).
     pub track_height: f32,
-    /// Fix 1: the pointer currently pressing this track, if any. Set on
-    /// [`Pointer<Press>`], cleared on [`Pointer<Release>`]. While `Some`, the
-    /// manual [`scrollbar_press_drag`] tracker emits [`MenuScrollDragged`] for the
-    /// pointer's live position each frame. This is the robust fallback for the cube
-    /// (the custom 3D picking backend does not reliably drive the picking core's
-    /// `Pointer<Drag>` continuity, so we track press + move ourselves on a path that
-    /// only needs the `Pointer<Press>`/`Pointer<Release>` events — which DO fire
-    /// through the custom backend, exactly like `Pointer<Click>` does).
-    pub pressed_by: Option<PointerId>,
 }
 
-impl Default for MenuScrollbar {
-    fn default() -> Self {
-        Self {
-            track_top_y: 0.0,
-            track_height: 0.0,
-            pressed_by: None,
-        }
-    }
+/// Which pointer (if any) is mid-drag on a menu scrollbar. Held in a RESOURCE,
+/// NOT on the scrollbar entity, because changing the scroll position triggers the
+/// host's per-step republish, which DESPAWNS + respawns the scrollbar entity each
+/// frame — a per-entity held flag would reset to `None` after the very first step
+/// and the drag would die. Keyed on the persistent `PointerId`, so the drag
+/// survives any number of respawns. Set on `Pointer<Press>`, cleared on
+/// `Pointer<Release>`; the manual `scrollbar_press_drag` tracker reads it and
+/// emits [`MenuScrollDragged`] for the held pointer's live position each frame.
+/// Shared by BOTH renderers (only one menu is active at a time).
+#[derive(Resource, Default)]
+pub struct ScrollbarDragState {
+    pub pressed_by: Option<PointerId>,
 }
 
 /// Non-generic marker on each cube face plus the face's base ring placement.
@@ -414,6 +409,7 @@ where
             // extent fresh (projection), and observe pointer drags on a scrollbar
             // to emit the neutral `MenuScrollDragged` fraction the host applies.
             app.add_message::<MenuScrollDragged>();
+            app.init_resource::<ScrollbarDragState>();
             app.add_systems(Update, project_scrollbar_tracks.in_set(KaleidoscopeRender));
             app.add_observer(scrollbar_drag_start);
             app.add_observer(scrollbar_drag);
@@ -1123,49 +1119,51 @@ fn scrollbar_drag(
 /// `MenuScrollDragged` fraction, so having both is safe).
 fn scrollbar_press(
     press: On<Pointer<Press>>,
-    mut bars: Query<&mut MenuScrollbar>,
+    bars: Query<&MenuScrollbar>,
+    mut drag: ResMut<ScrollbarDragState>,
     mut out: MessageWriter<MenuScrollDragged>,
 ) {
-    if let Ok(mut bar) = bars.get_mut(press.entity) {
-        bar.pressed_by = Some(press.pointer_id);
-        if let Some(fraction) = scrollbar_fraction(&bar, press.pointer_location.position.y) {
+    if let Ok(bar) = bars.get(press.entity) {
+        // Mark the held pointer in the RESOURCE so the drag survives the per-step
+        // republish that respawns this entity.
+        drag.pressed_by = Some(press.pointer_id);
+        if let Some(fraction) = scrollbar_fraction(bar, press.pointer_location.position.y) {
             out.write(MenuScrollDragged { fraction });
         }
     }
 }
 
-/// Fix 1: releasing the pointer ends the manual scrollbar drag. We clear the press
-/// state on EVERY scrollbar for this pointer (a release can land off the thumb, so
-/// we can't rely on `release.entity` being the track).
-fn scrollbar_release(release: On<Pointer<Release>>, mut bars: Query<&mut MenuScrollbar>) {
-    for mut bar in &mut bars {
-        if bar.pressed_by == Some(release.pointer_id) {
-            bar.pressed_by = None;
-        }
+/// Releasing the pointer ends the manual scrollbar drag (clears the resource).
+fn scrollbar_release(release: On<Pointer<Release>>, mut drag: ResMut<ScrollbarDragState>) {
+    if drag.pressed_by == Some(release.pointer_id) {
+        drag.pressed_by = None;
     }
 }
 
-/// Fix 1: while a scrollbar track is held (`pressed_by`), emit the neutral
-/// `MenuScrollDragged` fraction for the holding pointer's LIVE position each frame.
-/// This is the manual press+move tracker that makes click-and-drag work on the cube
-/// (mouse AND touch — both arrive as a `PointerLocation`) where the picking core's
-/// `Pointer<Drag>` events don't reach through the custom 3D backend.
+/// While a pointer is held on a scrollbar (`ScrollbarDragState.pressed_by`), emit
+/// the neutral `MenuScrollDragged` fraction for that pointer's LIVE position each
+/// frame against the CURRENT scrollbar entity (re-found by component, so it works
+/// even after the per-step republish respawns the entity). This is what makes
+/// click-and-drag work on the cube (mouse AND touch — both arrive as a
+/// `PointerLocation`) where the custom 3D backend doesn't drive `Pointer<Drag>`.
 fn scrollbar_press_drag(
     pointers: Query<(&PointerId, &PointerLocation)>,
     bars: Query<&MenuScrollbar>,
+    drag: Res<ScrollbarDragState>,
     mut out: MessageWriter<MenuScrollDragged>,
 ) {
+    let Some(held) = drag.pressed_by else {
+        return;
+    };
+    let Some(loc) = pointers
+        .iter()
+        .find(|(id, _)| **id == held)
+        .and_then(|(_, loc)| loc.location())
+    else {
+        return;
+    };
+    // There is one scrollbar at a time; map the live pointer onto its track.
     for bar in &bars {
-        let Some(held) = bar.pressed_by else {
-            continue;
-        };
-        let Some((_, loc)) = pointers
-            .iter()
-            .find(|(id, _)| **id == held)
-            .and_then(|(id, loc)| loc.location().map(|l| (id, l)))
-        else {
-            continue;
-        };
         if let Some(fraction) = scrollbar_fraction(bar, loc.position.y) {
             out.write(MenuScrollDragged { fraction });
         }

@@ -1,6 +1,6 @@
 use super::{
     scrollbar_drag, scrollbar_drag_start, scrollbar_press, scrollbar_press_drag, scrollbar_release,
-    MenuScrollDragged, MenuScrollbar,
+    MenuScrollDragged, MenuScrollbar, ScrollbarDragState,
 };
 use bevy::camera::NormalizedRenderTarget;
 use bevy::picking::events::{Drag, DragStart, Pointer, Press, Release};
@@ -86,6 +86,7 @@ fn drag_on_scrollbar_emits_proportional_fraction() {
 fn press_and_move_on_scrollbar_emits_proportional_fraction() {
     let mut app = App::new();
     app.add_message::<MenuScrollDragged>();
+    app.init_resource::<ScrollbarDragState>();
     app.add_observer(scrollbar_press);
     app.add_observer(scrollbar_release);
     app.add_systems(Update, scrollbar_press_drag);
@@ -129,7 +130,7 @@ fn press_and_move_on_scrollbar_emits_proportional_fraction() {
     assert_eq!(press.len(), 1, "press emits exactly one fraction");
     assert!((press[0] - 0.0).abs() < 1e-4, "press at top = {}", press[0]);
     assert_eq!(
-        app.world().get::<MenuScrollbar>(bar).unwrap().pressed_by,
+        app.world().resource::<ScrollbarDragState>().pressed_by,
         Some(PointerId::Mouse),
         "press marks the track held"
     );
@@ -162,7 +163,7 @@ fn press_and_move_on_scrollbar_emits_proportional_fraction() {
         bar,
     ));
     assert_eq!(
-        app.world().get::<MenuScrollbar>(bar).unwrap().pressed_by,
+        app.world().resource::<ScrollbarDragState>().pressed_by,
         None,
         "release clears the held pointer"
     );
@@ -176,5 +177,80 @@ fn press_and_move_on_scrollbar_emits_proportional_fraction() {
     assert!(
         after_release.is_empty(),
         "no fractions after release: {after_release:?}"
+    );
+}
+
+/// Regression: changing the scroll position triggers the host's per-step
+/// republish, which DESPAWNS + respawns the scrollbar entity. The held-pointer
+/// state lives in [`ScrollbarDragState`] (a resource), NOT on the entity, so the
+/// drag must survive: after despawning the pressed bar and spawning a fresh one,
+/// the manual tracker keeps emitting for the held pointer against the NEW track.
+/// Before the resource fix, the per-entity flag reset to `None` on respawn and
+/// the drag died after the first step (mouse moved, scrollbar didn't follow).
+#[test]
+fn held_drag_survives_a_scrollbar_respawn() {
+    let mut app = App::new();
+    app.add_message::<MenuScrollDragged>();
+    app.init_resource::<ScrollbarDragState>();
+    app.add_observer(scrollbar_press);
+    app.add_systems(Update, scrollbar_press_drag);
+
+    let pointer = app
+        .world_mut()
+        .spawn((PointerId::Mouse, PointerLocation::new(location(100.0))))
+        .id();
+    let bar1 = app
+        .world_mut()
+        .spawn(MenuScrollbar {
+            track_top_y: 100.0,
+            track_height: 200.0,
+        })
+        .id();
+
+    let drain = |app: &mut App| -> Vec<f32> {
+        app.world_mut()
+            .resource_mut::<Messages<MenuScrollDragged>>()
+            .drain()
+            .map(|m| m.fraction)
+            .collect()
+    };
+
+    // Press on bar1 -> the RESOURCE records the held pointer.
+    app.world_mut().trigger(Pointer::new(
+        PointerId::Mouse,
+        location(100.0),
+        Press {
+            button: PointerButton::Primary,
+            hit: bevy::picking::backend::HitData::new(bar1, 0.0, None, None),
+        },
+        bar1,
+    ));
+    let _ = drain(&mut app);
+
+    // Simulate the per-step republish: despawn the pressed bar, spawn a fresh one
+    // (a NEW entity with no per-entity held state).
+    app.world_mut().entity_mut(bar1).despawn();
+    let _bar2 = app
+        .world_mut()
+        .spawn(MenuScrollbar {
+            track_top_y: 100.0,
+            track_height: 200.0,
+        })
+        .id();
+
+    // Move the live pointer + run a frame: the tracker must STILL emit against the
+    // respawned track because the held state persisted in the resource.
+    *app.world_mut().get_mut::<PointerLocation>(pointer).unwrap() =
+        PointerLocation::new(location(200.0));
+    app.update();
+    let tracked = drain(&mut app);
+    assert!(
+        !tracked.is_empty(),
+        "the held drag survives a scrollbar respawn: {tracked:?}",
+    );
+    assert!(
+        (tracked.last().unwrap() - 0.5).abs() < 1e-4,
+        "tracks the live pointer (mid) on the new track = {}",
+        tracked.last().unwrap(),
     );
 }

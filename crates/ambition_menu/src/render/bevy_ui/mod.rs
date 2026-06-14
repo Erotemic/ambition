@@ -88,13 +88,6 @@ pub struct BevyUiMenuFocused;
 pub struct BevyUiMenuScrollbar {
     /// The thumb geometry the host computed (track fractions in `0..=1`).
     pub thumb: ScrollThumb,
-    /// The pointer currently pressing this track, if any. Set on `Pointer<Press>`,
-    /// cleared on `Pointer<Release>`. While `Some`, [`bevy_ui_scrollbar_press_drag`]
-    /// emits [`MenuScrollDragged`] for the pointer's live position each frame — the
-    /// robust press+move fallback mirroring the cube's `MenuScrollbar::pressed_by`,
-    /// so a click-and-drag scrolls even if the picking core's `Pointer<Drag>`
-    /// continuity hiccups. Both paths emit the same fraction, so having both is safe.
-    pub pressed_by: Option<bevy::picking::pointer::PointerId>,
 }
 
 /// Marker for the scrollbar thumb child (the grab handle / position indicator).
@@ -424,11 +417,13 @@ fn bevy_ui_scrollbar_fraction(
 /// fraction). Mirrors the cube's `scrollbar_press`.
 fn bevy_ui_scrollbar_press(
     press: On<Pointer<Press>>,
-    mut bars: Query<(&mut BevyUiMenuScrollbar, &ComputedNode, &GlobalTransform)>,
+    bars: Query<(&BevyUiMenuScrollbar, &ComputedNode, &GlobalTransform)>,
+    mut drag: ResMut<crate::render::kaleidoscope::ScrollbarDragState>,
     mut out: MessageWriter<crate::render::kaleidoscope::MenuScrollDragged>,
 ) {
-    if let Ok((mut bar, computed, transform)) = bars.get_mut(press.entity) {
-        bar.pressed_by = Some(press.pointer_id);
+    if let Ok((_, computed, transform)) = bars.get(press.entity) {
+        // Held state lives in the RESOURCE so it survives the per-step republish.
+        drag.pressed_by = Some(press.pointer_id);
         if let Some(fraction) =
             bevy_ui_scrollbar_fraction(computed, transform, press.pointer_location.position.y)
         {
@@ -460,37 +455,38 @@ fn bevy_ui_scrollbar_drag(
 /// `scrollbar_release`.
 fn bevy_ui_scrollbar_release(
     release: On<Pointer<Release>>,
-    mut bars: Query<&mut BevyUiMenuScrollbar>,
+    mut drag: ResMut<crate::render::kaleidoscope::ScrollbarDragState>,
 ) {
-    for mut bar in &mut bars {
-        if bar.pressed_by == Some(release.pointer_id) {
-            bar.pressed_by = None;
-        }
+    if drag.pressed_by == Some(release.pointer_id) {
+        drag.pressed_by = None;
     }
 }
 
-/// Feature C: while a `bevy_ui` scrollbar track is held (`pressed_by`), emit the
-/// neutral fraction for the holding pointer's LIVE position each frame — the manual
-/// press+move tracker mirroring the cube's `scrollbar_press_drag`.
+/// Feature C: while a pointer is held on a `bevy_ui` scrollbar
+/// ([`ScrollbarDragState`](crate::render::kaleidoscope::ScrollbarDragState)), emit
+/// the neutral fraction for its LIVE position each frame against the CURRENT track
+/// — re-found by component, so the drag survives the per-step republish that
+/// respawns the track entity.
 fn bevy_ui_scrollbar_press_drag(
     pointers: Query<(
         &bevy::picking::pointer::PointerId,
         &bevy::picking::pointer::PointerLocation,
     )>,
     bars: Query<(&BevyUiMenuScrollbar, &ComputedNode, &GlobalTransform)>,
+    drag: Res<crate::render::kaleidoscope::ScrollbarDragState>,
     mut out: MessageWriter<crate::render::kaleidoscope::MenuScrollDragged>,
 ) {
-    for (bar, computed, transform) in &bars {
-        let Some(held) = bar.pressed_by else {
-            continue;
-        };
-        let Some(loc) = pointers
-            .iter()
-            .find(|(id, _)| **id == held)
-            .and_then(|(_, loc)| loc.location())
-        else {
-            continue;
-        };
+    let Some(held) = drag.pressed_by else {
+        return;
+    };
+    let Some(loc) = pointers
+        .iter()
+        .find(|(id, _)| **id == held)
+        .and_then(|(_, loc)| loc.location())
+    else {
+        return;
+    };
+    for (_, computed, transform) in &bars {
         if let Some(fraction) = bevy_ui_scrollbar_fraction(computed, transform, loc.position.y) {
             out.write(crate::render::kaleidoscope::MenuScrollDragged { fraction });
         }
@@ -504,6 +500,7 @@ fn bevy_ui_scrollbar_press_drag(
 /// scroll window (mirroring the cube's `kaleidoscope_apply_scroll_drag`).
 pub fn install_bevy_ui_menu_scroll(app: &mut App) {
     app.add_message::<crate::render::kaleidoscope::MenuScrollDragged>();
+    app.init_resource::<crate::render::kaleidoscope::ScrollbarDragState>();
     app.add_observer(bevy_ui_scrollbar_press);
     app.add_observer(bevy_ui_scrollbar_drag);
     app.add_observer(bevy_ui_scrollbar_release);

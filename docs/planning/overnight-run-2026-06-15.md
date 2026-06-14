@@ -47,6 +47,27 @@ GENERATE more via the discovery methods. There is always more.
 - Sign commits: `Co-Authored-By: <executing model> <noreply@anthropic.com>`.
 - Update the **progress table** + record est-vs-actual per item; emit a final table.
 
+## Run latitudes (decided 2026-06-14 with Jon)
+
+- **A4 (presentation move-UP):** ATTEMPT it if A1–A3 leave a **finite, clean**
+  coupler list. Take a real swing at the RoomVisual lifecycle inversion + the move
+  behind replay + a new "sim does not import render" guard. If it turns into a
+  half-finished tangle, **roll it back cleanly** and leave a written inversion plan
+  — don't ship a broken cut.
+- **New crates:** FREE to create when a clean boundary appears (`ambition_ui_kit`,
+  `ambition_render`, an audio-runtime crate, etc.). This is the lever the whole
+  refactor rides on — use it.
+- **Behaviour:** a behaviour-neutral commit MUST stay replay-bit-identical. You
+  MAY additionally land a behaviour change when it is **clearly a coherence
+  improvement** and you can **pin it with a focused test** — but FLAG it in the
+  progress table (a `behaviour Δ` mark) so Jon feel-checks it. Provisional/buggy
+  behaviour you're *not* confident about → log to `code_smells.md`, don't change it.
+- **Renames + regen:** rename ids freely (ItemKind/Item, BossAttackProfile,
+  Sandbag→TrainingDummy, …). **There is no save data that matters — delete saves,
+  regenerate LDtk/sheets/RON via the tools.** "This is the time to do it." Keep
+  `regen_sprites.sh` / `regen_assets.sh` working on a fresh clone; never commit the
+  regenerated binary output (it's gitignored).
+
 ## The loop (method)
 
 1. Pick the highest-value **unblocked** item (respect the dependency notes).
@@ -171,13 +192,14 @@ files, descending; discover more via the method):
   test/CI; fix the stale links (universal-brain-interface paths, lessons_learned
   `body_mode.rs`→dir, ADR 0019 missing section) + the deleted-RON-levels doc sweep. [S]
 
-### (No gameplay-behaviour items)
+### Behaviour stance
 
-This run is **pure refactor + simplification: replay stays bit-identical for
-EVERY commit, no sim-output change.** (The earlier portal-exit-pushout candidate
-was dropped — it contradicts Jon's avoid-pushout rule: transit emerges at the
-face and carries momentum; the ONLY sanctioned eviction is when a portal
-**relocates or disappears**, which already exists. Do not add a transit pushout.)
+This run is **primarily refactor + simplification** — most commits stay
+replay-bit-identical. Confident, test-pinned **coherence fixes are allowed** (see
+Run latitudes), flagged for Jon's feel-check. (One thing that's NOT in scope: a
+portal *transit* pushout — it contradicts Jon's avoid-pushout rule; transit
+emerges at the face and carries momentum, and the only sanctioned eviction is a
+portal **relocating or disappearing**, which already exists.)
 
 ---
 

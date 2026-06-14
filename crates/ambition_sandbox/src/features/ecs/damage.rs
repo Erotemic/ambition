@@ -41,7 +41,7 @@ use crate::audio::SfxMessage;
 use crate::boss_encounter::{record_boss_damage, BossEncounterRegistry};
 use crate::encounter::BossEncounterMusicRequest;
 use crate::features::ActorStimulus;
-use crate::presentation::cutscene::CutsceneTriggerQueue;
+use crate::cutscene_trigger::CutsceneTriggerQueue;
 use ambition_effects::vfx::{ParticleKind, VfxMessage};
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 

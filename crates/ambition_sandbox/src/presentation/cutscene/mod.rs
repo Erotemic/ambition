@@ -134,11 +134,10 @@ pub fn default_cutscene_library() -> CutsceneLibrary {
     lib
 }
 
-/// Trigger queue: anyone can push a cutscene id and the player picks
-/// it up. Cleaner than Bevy events for the simple "fire once when X
-/// happens" pattern.
-#[derive(Resource, Default)]
-pub struct CutsceneTriggerQueue(pub Vec<String>);
+// The trigger CHANNEL moved to `crate::cutscene_trigger` (a presentation-neutral
+// request queue) so gameplay can request a cutscene without depending on this
+// renderer module. Re-exported here so existing paths keep resolving.
+pub use crate::cutscene_trigger::CutsceneTriggerQueue;
 
 /// Mapping from room id → cutscene id to play the first time the
 /// player walks into that room. Drained by `auto_trigger_room_cutscenes`.
@@ -187,12 +186,6 @@ pub fn auto_trigger_room_cutscenes(
         if room_id == &current {
             queue.request(cutscene_id);
         }
-    }
-}
-
-impl CutsceneTriggerQueue {
-    pub fn request(&mut self, id: impl Into<String>) {
-        self.0.push(id.into());
     }
 }
 

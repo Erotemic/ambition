@@ -1,7 +1,7 @@
 use crate::engine_core as ae;
 use bevy::prelude::*;
 
-use crate::presentation::cutscene::CutsceneTriggerQueue;
+use crate::cutscene_trigger::CutsceneTriggerQueue;
 use crate::quest::QuestRegistry;
 
 use super::{default_boss_profiles, events::publish_events, BossEncounterRegistry, BossProfile};

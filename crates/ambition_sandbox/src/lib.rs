@@ -48,6 +48,7 @@ pub mod body_mode;
 pub mod boss_encounter;
 pub use ambition_actor::brain;
 pub mod config;
+pub mod cutscene_trigger;
 pub mod dev;
 pub mod dialog;
 // Test-only (`#![cfg(test)]`): static arity lint for the Yarn dialogue commands.

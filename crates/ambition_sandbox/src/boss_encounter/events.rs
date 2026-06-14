@@ -1,4 +1,4 @@
-use crate::presentation::cutscene::CutsceneTriggerQueue;
+use crate::cutscene_trigger::CutsceneTriggerQueue;
 
 pub(super) fn publish_events(
     encounter_id: &str,

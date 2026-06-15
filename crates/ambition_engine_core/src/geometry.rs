@@ -30,6 +30,54 @@ pub fn aabb_from_min_size(min: Vec2, size: Vec2) -> Aabb {
     Aabb::new(min + size * 0.5, size * 0.5)
 }
 
+/// Canonical mutable axis-aligned box, stored as `center` + `half_size`.
+///
+/// [`Aabb`] (= `Aabb2d`) is the collision-math primitive — min/max corners, Parry
+/// sweeps, strict overlap. `Bounds` is its ECS-friendly storage twin: a
+/// `Component` you reposition by writing `center` and size by writing
+/// `half_size`, with no min/max bookkeeping. Convert to the math primitive with
+/// [`Bounds::aabb`] and back with [`Bounds::from_aabb`].
+///
+/// This is the single canonical center+half box for entities that own a
+/// footprint (feature geometry, pickups, triggers). It deliberately mirrors the
+/// `Aabb::new(center, half)` constructor convention so the two are trivially
+/// interchangeable.
+#[derive(bevy_ecs::component::Component, Clone, Copy, Debug, PartialEq)]
+pub struct Bounds {
+    pub center: Vec2,
+    pub half_size: Vec2,
+}
+
+impl Bounds {
+    pub fn new(center: Vec2, half_size: Vec2) -> Self {
+        Self { center, half_size }
+    }
+
+    pub fn from_center_size(center: Vec2, size: Vec2) -> Self {
+        Self {
+            center,
+            half_size: size * 0.5,
+        }
+    }
+
+    pub fn from_aabb(aabb: Aabb) -> Self {
+        Self {
+            center: aabb.center(),
+            half_size: aabb.half_size(),
+        }
+    }
+
+    /// Full extent (`half_size * 2`).
+    pub fn size(self) -> Vec2 {
+        self.half_size * 2.0
+    }
+
+    /// The collision-math view (`Aabb2d`).
+    pub fn aabb(self) -> Aabb {
+        Aabb::new(self.center, self.half_size)
+    }
+}
+
 /// Result of sweeping an AABB by a normalized frame delta.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AabbSweepHit {

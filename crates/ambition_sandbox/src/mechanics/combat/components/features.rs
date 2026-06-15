@@ -34,42 +34,13 @@ impl FeatureName {
 
 /// World-space collision / interaction shape for a feature entity.
 ///
-/// The legacy runtimes store `pos` + full `size`. ECS systems should prefer
-/// this single component so collection, interaction, damage, and overlay systems
-/// can query one canonical shape.
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
-pub struct FeatureAabb {
-    pub center: ae::Vec2,
-    pub half_size: ae::Vec2,
-}
-
-impl FeatureAabb {
-    pub fn new(center: ae::Vec2, half_size: ae::Vec2) -> Self {
-        Self { center, half_size }
-    }
-
-    pub fn from_center_size(center: ae::Vec2, size: ae::Vec2) -> Self {
-        Self {
-            center,
-            half_size: size * 0.5,
-        }
-    }
-
-    pub fn from_aabb(aabb: ae::Aabb) -> Self {
-        Self {
-            center: aabb.center(),
-            half_size: aabb.half_size(),
-        }
-    }
-
-    pub fn size(self) -> ae::Vec2 {
-        self.half_size * 2.0
-    }
-
-    pub fn aabb(self) -> ae::Aabb {
-        ae::Aabb::new(self.center, self.half_size)
-    }
-}
+/// This is the canonical center+half box [`ae::Bounds`] (machinery layer), kept
+/// under the `FeatureAabb` name where feature code reads as "a feature's
+/// footprint". ECS systems prefer this single component so collection,
+/// interaction, damage, and overlay systems query one canonical shape — and it
+/// is the same type the engine uses everywhere, so there is no per-layer box
+/// conversion.
+pub type FeatureAabb = ae::Bounds;
 
 // `ActorPose` moved to `crate::actor::pose` (actor-system vocabulary;
 // Stage 22 unified-actor work). Re-exported below so kit paths keep working.

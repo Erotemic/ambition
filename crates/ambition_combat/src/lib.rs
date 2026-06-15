@@ -55,51 +55,10 @@ impl Damage {
     }
 }
 
-/// Short-lived attack rectangle.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Hitbox {
-    pub id: String,
-    pub aabb: Aabb,
-    pub damage: Damage,
-    pub active_seconds: f32,
-    pub one_hit_per_target: bool,
-}
-
-impl Hitbox {
-    pub fn new(id: impl Into<String>, aabb: Aabb, damage: Damage) -> Self {
-        Self {
-            id: id.into(),
-            aabb,
-            damage,
-            active_seconds: 0.08,
-            one_hit_per_target: true,
-        }
-    }
-}
-
-/// Damageable body area.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Hurtbox {
-    pub id: String,
-    pub aabb: Aabb,
-    pub faction: DamageTeam,
-    pub enabled: bool,
-}
-
-impl Hurtbox {
-    pub fn new(id: impl Into<String>, aabb: Aabb, faction: DamageTeam) -> Self {
-        Self {
-            id: id.into(),
-            aabb,
-            faction,
-            enabled: true,
-        }
-    }
-
-    pub fn accepts(&self, damage: Damage) -> bool {
-        self.enabled && damage.can_affect(self.faction)
-    }
-}
+// NOTE: the old spec-layer `Hitbox` / `Hurtbox` structs were removed (2026-06-15).
+// They were never constructed at runtime — the live model is `ambition_effects::Hitbox`
+// (transient strike volume) for dealing damage and the `DamageableVolumes` component
+// for receiving it; every hit path resolves through `Aabb::strict_intersects`.
 
 /// Persistent or reusable damaging area: spikes, lasers, spike balls, boss
 /// patterns, enemy contact damage, and similar hazards.
@@ -135,9 +94,6 @@ impl DamageVolume {
         }
     }
 
-    pub fn overlaps_hurtbox(&self, hurtbox: &Hurtbox) -> bool {
-        self.enabled && hurtbox.accepts(self.damage) && self.aabb.strict_intersects(hurtbox.aabb)
-    }
 }
 
 /// Player melee intent resolved from input + movement state.
@@ -511,21 +467,6 @@ mod tests {
     }
 
     #[test]
-    fn hazard_volume_overlaps_player_hurtbox() {
-        let hazard = DamageVolume::new(
-            "spike",
-            Aabb::new(Vec2::new(20.0, 20.0), Vec2::new(10.0, 10.0)),
-            1,
-        );
-        let hurtbox = Hurtbox::new(
-            "player",
-            Aabb::new(Vec2::new(25.0, 20.0), Vec2::new(10.0, 10.0)),
-            DamageTeam::Player,
-        );
-        assert!(hazard.overlaps_hurtbox(&hurtbox));
-    }
-
-    #[test]
     fn damage_with_knockback_chains_builder() {
         let damage = Damage::new(2, DamageKind::Slash, DamageTeam::Player)
             .with_knockback(Vec2::new(100.0, -50.0));
@@ -543,21 +484,6 @@ mod tests {
         let env_dmg = Damage::new(1, DamageKind::Hazard, DamageTeam::Environment);
         assert!(env_dmg.can_affect(DamageTeam::Player));
         assert!(env_dmg.can_affect(DamageTeam::Enemy));
-    }
-
-    #[test]
-    fn hurtbox_accepts_only_compatible_damage() {
-        let hurtbox = Hurtbox::new(
-            "player",
-            Aabb::new(Vec2::ZERO, Vec2::new(10.0, 10.0)),
-            DamageTeam::Player,
-        );
-        // Player hurtbox accepts enemy / environment damage.
-        let enemy_dmg = Damage::new(1, DamageKind::Slash, DamageTeam::Enemy);
-        assert!(hurtbox.accepts(enemy_dmg));
-        // Player hurtbox rejects player damage (no friendly fire).
-        let self_dmg = Damage::new(1, DamageKind::Slash, DamageTeam::Player);
-        assert!(!hurtbox.accepts(self_dmg));
     }
 
     #[test]

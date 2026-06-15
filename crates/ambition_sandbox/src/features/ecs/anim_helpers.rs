@@ -72,7 +72,7 @@ pub fn ecs_enemy_name(id: &str, actors: &Query<ActorSpriteData>) -> Option<Strin
 pub fn ecs_enemy_anim_state(
     id: &str,
     actors: &Query<ActorSpriteData>,
-) -> Option<crate::presentation::character_sprites::EnemyAnimState> {
+) -> Option<crate::character_sprites::EnemyAnimState> {
     actors
         .iter()
         .find_map(|(feature_id, actor, kin, status, attack, _, _, _)| {
@@ -84,7 +84,7 @@ pub fn ecs_enemy_anim_state(
                     let kin = kin?;
                     let status = status?;
                     let attack = attack?;
-                    Some(crate::presentation::character_sprites::EnemyAnimState {
+                    Some(crate::character_sprites::EnemyAnimState {
                         pos: kin.pos,
                         vel: kin.vel,
                         facing: kin.facing,
@@ -102,7 +102,7 @@ pub fn ecs_enemy_anim_state(
 pub fn ecs_npc_anim_state(
     id: &str,
     actors: &Query<ActorSpriteData>,
-) -> Option<crate::presentation::character_sprites::NpcAnimState> {
+) -> Option<crate::character_sprites::NpcAnimState> {
     actors
         .iter()
         .find_map(|(feature_id, actor, kin, _, _, _, _, npc_status)| {
@@ -113,7 +113,7 @@ pub fn ecs_npc_anim_state(
                 ActorRuntime::Npc => {
                     let kin = kin?;
                     let status = npc_status?;
-                    Some(crate::presentation::character_sprites::NpcAnimState {
+                    Some(crate::character_sprites::NpcAnimState {
                         pos: kin.pos,
                         vel: kin.vel,
                         facing: kin.facing,

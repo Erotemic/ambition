@@ -6,7 +6,6 @@
 //! presentation is the long-term shape we want; grouping these together
 //! makes the future `ambition` framework crate extraction mechanical.
 
-pub mod character_sprites;
 pub mod cutscene;
 pub mod fx;
 /// The in-world HUD overlay (was the root `crate::hud_overlay`): health/mana

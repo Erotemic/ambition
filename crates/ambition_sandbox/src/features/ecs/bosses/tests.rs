@@ -2,7 +2,7 @@ use super::*;
 
 /// The extracted pure metrics derivation (`boss_sprite_metrics_from_registry`)
 /// reproduces GNU-ton's metrics without the ECS system, via
-/// `crate::presentation::character_sprites::baked_sheet_registry()` (no Bevy `App`). It pins a
+/// `crate::character_sprites::baked_sheet_registry()` (no Bevy `App`). It pins a
 /// non-obvious structural fact discovered while extracting it:
 /// GNU-ton's combat geometry comes entirely from its **per-animation
 /// hurtboxes** (the `animations` map), not from static
@@ -30,7 +30,7 @@ fn boss_spawn_hurtboxes_resolves_without_panicking() {
 fn gnu_ton_metrics_come_from_per_animation_hurtboxes() {
     use crate::features::bosses::BossBehaviorProfile;
 
-    let registry = crate::presentation::character_sprites::baked_sheet_registry();
+    let registry = crate::character_sprites::baked_sheet_registry();
     let pos = ae::Vec2::new(500.0, 400.0);
     let behavior = BossBehaviorProfile::gnu_ton();
     let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(220.0, 220.0));

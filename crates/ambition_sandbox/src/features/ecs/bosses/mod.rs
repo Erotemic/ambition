@@ -283,7 +283,7 @@ pub fn boss_spawn_hurtboxes(
     aabb: ae::Aabb,
     brain: crate::actor::BossBrain,
 ) -> Vec<ae::Aabb> {
-    let registry = crate::presentation::character_sprites::baked_sheet_registry();
+    let registry = crate::character_sprites::baked_sheet_registry();
     let mut boss = super::boss_clusters::BossClusterScratch::new(id, name, aabb, brain);
     if let Some((metrics, _)) = boss_sprite_metrics_from_registry(boss.as_ref(), &registry) {
         boss.status.sprite_metrics = Some(metrics);

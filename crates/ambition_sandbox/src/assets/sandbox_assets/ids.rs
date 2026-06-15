@@ -51,7 +51,7 @@ pub fn music_track(track_id: &str) -> AssetId {
 
 /// `sprite.character.<name>` for a character spritesheet. `name` is
 /// the sandbox-side label used by
-/// `crate::presentation::character_sprites::assets` (e.g. `player`,
+/// `crate::character_sprites::assets` (e.g. `player`,
 /// `robot`, `goblin`, or an NPC sprite key derived from the LDtk
 /// `NpcSpawn.name` field).
 pub fn character_sprite(name: &str) -> AssetId {

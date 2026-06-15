@@ -11,7 +11,7 @@ use std::f32::consts::TAU;
 
 use crate::audio::SfxMessage;
 use crate::config::{rgba, world_to_bevy, WORLD_Z_FX};
-use crate::presentation::character_sprites::{
+use crate::character_sprites::{
     build_character_sprite_with_render_size, CharacterAnim, CharacterAnimator,
 };
 

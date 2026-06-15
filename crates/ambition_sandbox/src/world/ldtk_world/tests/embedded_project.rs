@@ -352,7 +352,7 @@ fn embedded_ldtk_hall_of_characters_has_expected_pedestals() {
 /// (the hall's actual placements).
 #[test]
 fn embedded_ldtk_hall_of_characters_every_npc_resolves_a_safe_sprite_state() {
-    use crate::presentation::character_sprites::{sheet_for_character_id, CharacterAnim};
+    use crate::character_sprites::{sheet_for_character_id, CharacterAnim};
 
     let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
     let hall = project

@@ -509,7 +509,7 @@ fn name_slug(name: &str) -> Option<String> {
 /// (so an Interact press near a prop does NOT pop a dialogue) and
 /// no AI / combat / save state. Sheet lookup goes through the
 /// prop registry in
-/// `crate::presentation::character_sprites::sheets`, keyed by `kind`.
+/// `crate::character_sprites::sheets`, keyed by `kind`.
 ///
 /// Props are kept off `World::objects` (which is the engine-side
 /// authored-object list — every entry there grows runtime behavior).

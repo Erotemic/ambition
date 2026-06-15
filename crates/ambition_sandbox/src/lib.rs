@@ -49,6 +49,7 @@ pub mod abilities;
 pub mod ability_cooldown;
 pub mod assets;
 pub mod body_mode;
+pub mod character_sprites;
 pub mod boss_encounter;
 pub use ambition_actor::brain;
 pub mod config;

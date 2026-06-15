@@ -6,7 +6,7 @@ use super::{
     tick_gate_portal_phase, ActiveRoomMetadata, GatePortalPhase, GatePortalRegistry,
     RoomMusicRequest, RoomSet,
 };
-use crate::presentation::character_sprites::{CharacterAnim, CharacterAnimator};
+use crate::character_sprites::{CharacterAnim, CharacterAnimator};
 use crate::WorldTime;
 
 /// Tag on the portal + gate-ring visual entities so the generic

@@ -505,7 +505,7 @@ mod tests {
 
     #[test]
     fn shrine_sheet_exposes_idle_then_activate_rows() {
-        let registry = crate::presentation::character_sprites::baked_sheet_registry();
+        let registry = crate::character_sprites::baked_sheet_registry();
         let record = registry.get("shrine").expect("shrine sheet record");
         assert_eq!(record.rows.len(), 2);
         assert_eq!(shrine_row_start_index(record, "idle"), Some(0));

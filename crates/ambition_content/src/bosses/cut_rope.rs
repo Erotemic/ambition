@@ -23,7 +23,7 @@ use ambition_sandbox::features::{
     GameplayBanner, HitEvent, HitSource, PogoPolicy, PogoTargetVolumes, PostBossNpc,
     ResetRoomFeaturesEvent,
 };
-use ambition_sandbox::presentation::character_sprites::{
+use ambition_sandbox::character_sprites::{
     build_character_sprite, feet_anchor_for, CharacterAnimator,
 };
 use ambition_sandbox::presentation::fx::{

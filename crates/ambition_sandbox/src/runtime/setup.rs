@@ -30,7 +30,7 @@ use crate::audio::{AudioLibrary, MusicPlaybackState};
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
 use crate::dev::dev_tools::{EditableAbilitySet, EditableMovementTuning};
 use crate::ldtk_world::{LdtkRuntimeIndex, SandboxLdtkAsset};
-use crate::presentation::character_sprites::{
+use crate::character_sprites::{
     build_character_sprite_with_render_size, feet_anchor_for_render_size,
     player_placeholder_render_size, CharacterAnimator,
 };

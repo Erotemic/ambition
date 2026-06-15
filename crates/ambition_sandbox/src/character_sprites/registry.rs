@@ -7,7 +7,7 @@
 //! the Bevy plugin that installs + populates the registry resource from it.
 //!
 //! Re-exports the crate's vocabulary so existing
-//! `crate::presentation::character_sprites::registry::*` paths keep resolving.
+//! `crate::character_sprites::registry::*` paths keep resolving.
 
 pub use ambition_sprite_sheet::*;
 

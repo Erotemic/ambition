@@ -434,3 +434,34 @@ tests green. The render extraction's sim/render seam guard holds.
 `brain/mod.rs` 987 (already 7 submodules). The app `menu/` files (4419/2212/1742)
 are the next frontier but are tangled kaleidoscope/grid rendering — a supervised
 pass, not a blind sweep.
+
+### Run 2 addendum — sweep extended to app + portal_presentation
+
+After the 8-file table above, the sweep continued into the remaining crates:
+
+| File | crate | LOC | split into | verify |
+|---|---|---|---|---|
+| `dev/debug_overlay.rs` 1001 → 182 | app | M | `prims.rs` (palette + AABB/arrow primitives) / `gizmos.rs` (the overlay layers) / orchestrator in mod | builds |
+| `view_cones.rs` 1098 → 581 | portal_presentation | M | `geometry.rs` (LOS/occlusion/clip/cone math + tests) / `mesh.rs` (triangulation + fade ramp) / types+systems in mod | 7 |
+| `menu/kaleidoscope_app.rs` 4419 → 2430 | app | — | the 1990-line inline `#[cfg(test)] mod` → sibling file (production host now stands alone) | 37 |
+| `menu/model.rs` 1742 → 1083 | app | — | the 659-line inline test module → sibling file | 16 |
+
+**Test-module extraction** (kaleidoscope_app, model): the largest app files were
+~half inline tests; moving the `#[cfg(test)] mod` to a sibling file (Rust allows
+`foo.rs` + `foo/` for children; `use super::*` is unchanged) halves them with
+ZERO production-code risk — the highest ratio of nav-gain to risk available for a
+tangled file you don't want to restructure blindly.
+
+**Final Run-2 tally: 10 god-files split + 2 test modules extracted, across 7
+crates** (engine_core, actor, sandbox, render, content, app, portal_presentation).
+Biggest-file-in-workspace dropped 4419 → 2430. Every change: builds clean, 0 new
+warnings, no behavior change; full workspace + 30 arch guards + replay determinism
++ flagship reachability all green.
+
+**Process bug found & fixed:** the two file→dir splits (specials, cut_rope) had
+committed only the `git rm` — a combined `git add <removed.rs> <newdir>/` aborts
+on the removed pathspec and stages neither. Fixed in a follow-up commit; lesson in
+memory. **Frontier left for a supervised pass:** app `menu/grid_backend.rs` (2212,
+all production), the kaleidoscope host production half (2430), `app/world_flow.rs`
+(1211, super::=12), `menu/lib.rs` (1073) — all tangled/high-coupling, not blind-
+sweep material.

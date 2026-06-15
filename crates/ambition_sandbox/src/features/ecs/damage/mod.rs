@@ -350,8 +350,8 @@ pub fn apply_feature_hit_events(
 
 mod actor_hit;
 mod boss_hit;
-pub use actor_hit::*;
-pub use boss_hit::*;
+use actor_hit::*;
+use boss_hit::*;
 
 #[cfg(test)]
 mod tests;

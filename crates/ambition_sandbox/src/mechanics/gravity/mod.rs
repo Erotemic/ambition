@@ -13,10 +13,6 @@
 
 mod lifecycle;
 mod plugin;
-mod presentation;
 
 pub use lifecycle::{gravity_flip_switch_system, reset_gravity_on_room_reset, GravityFlipSwitch};
 pub use plugin::{GravityPlugin, GravitySet};
-pub use presentation::{
-    sync_gravity_switch_visual, sync_gravity_zone_visual, GravitySwitchVisual, GravityZoneVisual,
-};

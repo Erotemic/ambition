@@ -29,6 +29,7 @@ pub mod actors;
 mod camera;
 pub mod bubble_shield;
 pub mod morph_ball;
+pub mod gravity_visuals;
 mod item_visuals;
 mod deep_dream;
 mod features;
@@ -147,9 +148,9 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                         ambition_sandbox::portal::tag_portal_scene_bodies.after(actors::sync_visuals),
                         ambition_sandbox::portal::portal_dev_toggle_system,
                         ambition_sandbox::portal::portal_convention_toggle_system,
-                        ambition_sandbox::mechanics::gravity::sync_gravity_switch_visual
+                        gravity_visuals::sync_gravity_switch_visual
                             .after(actors::sync_visuals),
-                        ambition_sandbox::mechanics::gravity::sync_gravity_zone_visual
+                        gravity_visuals::sync_gravity_zone_visual
                             .after(actors::sync_visuals),
                     ),
                 );

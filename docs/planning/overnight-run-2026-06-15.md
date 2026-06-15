@@ -465,3 +465,25 @@ memory. **Frontier left for a supervised pass:** app `menu/grid_backend.rs` (221
 all production), the kaleidoscope host production half (2430), `app/world_flow.rs`
 (1211, super::=12), `menu/lib.rs` (1073) — all tangled/high-coupling, not blind-
 sweep material.
+
+### Run 2 — safe-subset extraction on a tangled file (world_flow.rs)
+
+`app/world_flow.rs` (1211, super::=12) interleaves room-lifecycle, player-event/
+damage, and attack-phase systems with shared helpers — NOT a clean whole-file
+split. But two of its concern blocks are CONTIGUOUS and nearly self-contained, so
+they extract safely without touching the tangled middle:
+  attack.rs    — engine-input translation + start/advance attack phase (294L)
+  room_flow.rs — reset/load/parallax/transition + landing log (339L)
+world_flow.rs drops 1211 → 597 (helpers + the player-event/damage block + tests).
+Each extracted block: pub(super)→pub(crate) for the app registration via
+`pub use`, the one `super::feedback` ref deepened a level, shared helpers reached
+through the child `use super::*`. Replay determinism + world_flow tests green.
+
+**This is the model for the remaining supervised-tier files** (grid_backend 2212,
+kaleidoscope host 2430, menu/lib 1073): don't force a whole-file split, but lift
+out the contiguous self-contained concerns one at a time, leaving the genuinely
+interwoven core for a focused pass. Each lift is independently verifiable.
+
+**Run-2 grand total: 11 god-files split + 2 inline-test modules extracted + 2
+safe-subset lifts, across 7 crates.** Workspace builds clean; 30 arch guards +
+replay determinism + reachability green throughout.

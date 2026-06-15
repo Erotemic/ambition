@@ -18,7 +18,7 @@ use bevy::prelude::*;
 #[cfg(feature = "physics_debris")]
 use crate::config::{world_to_bevy, WORLD_Z_BLOCK, WORLD_Z_FX};
 #[cfg(feature = "physics_debris")]
-use crate::presentation::rendering::RoomVisual;
+use crate::platformer_runtime::lifecycle::RoomVisual;
 
 #[cfg(feature = "physics_debris")]
 const SANDBOX_GRAVITY: f32 = 1250.0;

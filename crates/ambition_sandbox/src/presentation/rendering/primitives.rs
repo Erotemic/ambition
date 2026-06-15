@@ -7,7 +7,11 @@ use bevy::prelude::*;
 use crate::config::{world_to_bevy, WORLD_Z_BLOCK, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
 use crate::features::FeatureVisualKind;
 
-pub use crate::platformer_runtime::lifecycle::RoomScopedEntity;
+// Runtime-owned room lifecycle markers. Re-exported so presentation systems +
+// existing `presentation::rendering::RoomVisual` call sites keep resolving; the
+// canonical home is `crate::platformer_runtime::lifecycle` (content-free, so sim
+// systems can tag visual entities without importing presentation).
+pub use crate::platformer_runtime::lifecycle::{RoomScopedEntity, RoomVisual};
 
 #[derive(Resource)]
 pub struct SceneEntities {
@@ -47,21 +51,6 @@ pub struct HudText;
 #[derive(Component)]
 pub struct QuestPanelText;
 
-// Runtime-owned lifetime-scope marker. Re-exported here for compatibility with
-// existing presentation and reset call sites while the marker's canonical home
-// moves to `crate::platformer_runtime::lifecycle`.
-
-/// Rendering marker: tags an entity as "rendered as part of the
-/// current room." Presentation systems (`sync_visuals`,
-/// `sync_health_overlays`, etc.) query `With<RoomVisual>` to filter
-/// to the active room's rendered entities.
-///
-/// Every `RoomVisual` also has a [`RoomScopedEntity`] (required), so
-/// the room-load / reset paths automatically tear it down with the
-/// rest of the room.
-#[derive(Component, Default)]
-#[require(RoomScopedEntity)]
-pub struct RoomVisual;
 
 /// Marker for an encounter-driven lock-wall block visual. The
 /// encounter system inserts `Block::solid` entries named

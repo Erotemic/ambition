@@ -14,7 +14,7 @@
 use super::*;
 #[cfg(test)]
 use crate::audio::SfxMessage;
-use crate::presentation::rendering::RoomVisual;
+use crate::platformer_runtime::lifecycle::RoomVisual;
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 use ambition_effects::vfx::{ParticleKind, VfxMessage};
 use bevy::prelude::{

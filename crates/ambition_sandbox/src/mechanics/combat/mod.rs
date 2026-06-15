@@ -19,7 +19,7 @@ use crate::engine_core::AabbExt;
 use bevy::prelude::*;
 
 use crate::audio::SfxMessage;
-use crate::presentation::rendering::RoomVisual;
+use crate::platformer_runtime::lifecycle::RoomVisual;
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 use crate::world::platforms::MovingPlatformState;
 use crate::WorldTime;

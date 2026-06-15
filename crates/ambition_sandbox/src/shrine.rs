@@ -204,7 +204,7 @@ pub fn sync_shrine_visual(
                 shrine_visual_atlas(&source),
                 sprite,
                 Transform::from_translation(translation),
-                crate::presentation::rendering::RoomVisual,
+                crate::platformer_runtime::lifecycle::RoomVisual,
                 Name::new("Shrine visual"),
             ))
             .id();

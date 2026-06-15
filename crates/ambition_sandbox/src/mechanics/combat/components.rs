@@ -799,14 +799,14 @@ impl FeatureLifecycleBundle {
 #[derive(Bundle)]
 pub struct FeatureRenderedBundle {
     pub lifecycle: FeatureLifecycleBundle,
-    pub room_visual: crate::presentation::rendering::RoomVisual,
+    pub room_visual: crate::platformer_runtime::lifecycle::RoomVisual,
 }
 
 impl FeatureRenderedBundle {
     pub fn new(id: impl Into<String>, name: impl Into<String>, aabb: FeatureAabb) -> Self {
         Self {
             lifecycle: FeatureLifecycleBundle::new(id, name, aabb),
-            room_visual: crate::presentation::rendering::RoomVisual,
+            room_visual: crate::platformer_runtime::lifecycle::RoomVisual,
         }
     }
 }

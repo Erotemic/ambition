@@ -603,7 +603,7 @@ fn sync_falling_sand_spout_nozzles(
                 crate::config::WORLD_Z_FX + 1.0,
             )),
             FallingSandSpoutNozzle { id },
-            crate::presentation::rendering::RoomVisual,
+            crate::platformer_runtime::lifecycle::RoomVisual,
         ));
     }
 }
@@ -791,7 +791,7 @@ fn spawn_stream_particles(
                 age: 0.0,
                 lifetime: 2.4,
             },
-            crate::presentation::rendering::RoomVisual,
+            crate::platformer_runtime::lifecycle::RoomVisual,
         ));
     }
 }
@@ -1241,7 +1241,7 @@ fn sync_material_visuals(
                 crate::config::WORLD_Z_PLAYER + 4.0,
             )),
             FallingSandMaterialVisual { tile, kind },
-            crate::presentation::rendering::RoomVisual,
+            crate::platformer_runtime::lifecycle::RoomVisual,
         ));
     }
 }

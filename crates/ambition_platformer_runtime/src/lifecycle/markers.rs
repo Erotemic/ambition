@@ -8,6 +8,19 @@ use bevy::prelude::*;
 #[derive(Component, Default)]
 pub struct RoomScopedEntity;
 
+/// Marker for a RENDERED room-scoped entity — a visual the presentation layer
+/// draws/syncs for the current room. Presentation systems query `With<RoomVisual>`
+/// to filter to the active room's rendered entities; the required
+/// [`RoomScopedEntity`] gives it the room-unload/reset teardown automatically.
+///
+/// Lives here (not in `presentation`) deliberately: the marker is content-free
+/// vocabulary, so sim systems can tag the visual entities they spawn WITHOUT
+/// importing a presentation module (the whole point of the runtime-owned
+/// lifecycle markers above).
+#[derive(Component, Default)]
+#[require(RoomScopedEntity)]
+pub struct RoomVisual;
+
 /// Lifetime-scope marker: despawn when the current gameplay run/session ends,
 /// but survive room transitions.
 ///

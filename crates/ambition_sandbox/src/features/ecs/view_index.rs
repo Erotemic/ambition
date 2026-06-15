@@ -200,22 +200,9 @@ pub fn rebuild_feature_view_index(
                     Some(s) => f32::atan2(-s.surface_normal.x, -s.surface_normal.y),
                     None => roll_rad,
                 };
-                // A surface-walker's body is LONG along the surface tangent and THIN
-                // along its normal. On a WALL (horizontal normal) the tangent is
-                // vertical, so the rendered/debug AABB must SWAP width<->height to
-                // match the ~90°-rotated sprite + the body's real oriented footprint
-                // (movement collision already uses body_long=size.x / body_thick=size.y).
-                let raw = aabb.size();
-                let size = if surface
-                    .is_some_and(|s| s.surface_normal.x.abs() > s.surface_normal.y.abs())
-                {
-                    ae::Vec2::new(raw.y, raw.x)
-                } else {
-                    raw
-                };
                 FeatureView {
                     pos: aabb.center,
-                    size,
+                    size: aabb.size(),
                     kind,
                     visible: alive,
                     flash,

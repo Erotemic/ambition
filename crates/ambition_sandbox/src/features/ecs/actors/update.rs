@@ -324,7 +324,21 @@ pub fn update_ecs_actors(
                     frame = crate::actor::control::ActorControlFrame::neutral();
                 }
                 aabb.center = em.kin.pos;
-                aabb.half_size = em.kin.size * 0.5;
+                // A surface-walker's body is LONG along the surface tangent and
+                // THIN along its normal (movement uses body_long = size.x /
+                // body_thick = size.y). On a WALL (horizontal surface normal) the
+                // tangent is vertical, so the collision/hurtbox footprint must SWAP
+                // width<->height to match the ~90°-rotated sprite. This is the single
+                // source of truth: debug overlay, player hurtbox, and target volumes
+                // all read `FeatureAabb`. Vertical normal (floor/ceiling) is
+                // unchanged, so flat-ground stays byte-identical.
+                let half = em.kin.size * 0.5;
+                let n = em.surface.surface_normal;
+                aabb.half_size = if n.x.abs() > n.y.abs() {
+                    ae::Vec2::new(half.y, half.x)
+                } else {
+                    half
+                };
 
                 if let Some(control) = control.as_deref_mut() {
                     control.0 = frame;

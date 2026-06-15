@@ -556,6 +556,9 @@ pub(crate) fn draw_feature_debug(
             ambition_sandbox::features::ActorRuntime::Npc => npc_color,
             ambition_sandbox::features::ActorRuntime::Enemy => enemy_color,
         };
+        // `FeatureAabb` is already oriented to the actor's surface (a clung
+        // surface-walker swaps width<->height onto a wall — see
+        // `update_enemy_actors`), so the drawn box matches the rotated sprite.
         draw_aabb_styled(gizmos, world, aabb.aabb(), color, developer_tools);
         // Hostile actors (and turned-hostile NPCs like the Kernel Guide)
         // own an attack volume that becomes active during a swing — draw

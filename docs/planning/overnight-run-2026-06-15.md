@@ -226,7 +226,10 @@ the final act; needs A4 done so the rename reflects a real boundary, not a label
 
 | # | item | status | est | actual | commit(s) | LOC Δ | notes |
 |---|---|---|---|---|---|---|---|
-| — | (run not yet started) | ☐ | — | — | — | — | seeded 2026-06-14 |
+| A1 | ui_fonts move-down | ☑ skip | S | — | — | — | low value: the 2 non-presentation importers also need `UiFonts`; moving the enum wouldn't break the edge. Verified, dropped. |
+| F1 | extract `ui_nav` → crate | ☑ | M | ~1 cycle | `832215bf` | lib −711 | clean leaf; types already in `ambition_input`, no move needed. Replay identical. |
+| A | VFX request vocab → `ambition_effects` | ☑ | M | ~1 cycle | (fx-move) | lib ~−85 | Explosion/Fireworks requests + `explosion_sfx` joined `ExplosionKind`; `dialog/yarn_bindings` now presentation-free. App builds, replay identical. |
+| ⚠ | **disk-full event** | ☑ resolved | — | — | — | — | `/home/joncrall/ambition-target` cargo cache hit 107G (disk 100%). Cleared → 45%. Repo `target/` is unused (config redirects). Next build is a full rebuild. |
 
 ## Final summary (fill at run end)
 

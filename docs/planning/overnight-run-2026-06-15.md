@@ -110,11 +110,50 @@ Ordered so each step compiles + commits; later steps unlock the big one.
    `ambition_sandbox`. `git mv` the dir; rewrite its internal `crate::X` → `ambition_sandbox::X`;
    `ambition_app` + `ambition_content` repoint `presentation::*` → `ambition_render::*`.
    Add the architecture guard: **the sandbox lib does not import the render crate.**
-   This is the ~10k-LOC monolith cut.
+   This is the ~10k-LOC monolith cut. **NOTE:** `presentation/` is 6755 LOC (NOT 10k).
+
+   **▶ STEP-2 EXECUTION PLAN (scoped 2026-06-15; step 1 is DONE + guard-locked).**
+   The blocker is NOT sim→render couplers (those are 0, locked by
+   `architecture_boundaries_sim_does_not_import_presentation`). It is the THREE
+   in-lib modules that import `crate::presentation` and would form a crate cycle
+   (`ambition_sandbox → ambition_render → ambition_sandbox`) once presentation
+   moves up: `dialog/ui.rs`, `runtime/setup.rs`, `runtime/reset/` (the guard's
+   allowlist names exactly these). Resolve BEFORE the `git mv`:
+   - **`runtime/setup.rs` + `runtime/reset/mod.rs`** are composition-root
+     orchestration (build the scene, respawn room visuals on reset). They call
+     `spawn_room_visuals` + `spawn_parallax_layers` (the ONLY two non-render
+     callers — verified). Two options: (a) MOVE both files up into `ambition_app`
+     (or the new render crate) — they already pull tons of sandbox `pub(crate)`
+     internals, so this needs a `pub`/`pub(crate)`→`pub` widening pass; or
+     (b) INVERT the two spawn calls behind a `RespawnActiveRoomVisuals` message a
+     presentation system consumes (the system reads the active room spec from
+     `RoomSet`/`ActiveRoomMetadata` — already resources). **(b) is smaller** and
+     keeps reset/setup sim-side; prefer it.
+   - **`dialog/ui.rs`** IS UI rendering (draws the dialog box + uses
+     `ui_fonts::{UiFonts, UiFontWeight}`). It belongs in the render crate — move
+     it up with `presentation/`, leaving the sim-side dialog logic (`dialog/mod`,
+     `yarn_bindings`) in the lib.
+   - Then the `git mv presentation → crates/ambition_render/src`, rewrite
+     `crate::` → `ambition_sandbox::` (expect a `pub` widening pass for the ~40
+     distinct sandbox symbols presentation touches — `player::*`, `features::*`,
+     `rooms::*`, `assets::*`, `dev::dev_tools`, `config`, etc.; grep surface is in
+     the session log), repoint `ambition_app`/`ambition_content`, add the guard.
+   - Sequencing: do the message-inversion (b) + `dialog/ui` move as their OWN
+     committed steps FIRST (each keeps the lib compiling), THEN the crate `git mv`
+     as the final big commit. Don't do it all in one shot.
 3. **Named content OUT of machinery** (the engine/content oracle):
-   - `ItemKind` / `Item` → id-keyed registry; roster authored in `ambition_content`.
-   - `BossAttackProfile` enum → data-keyed attack specs; content registers them.
-   - boss-sprite `GameAssets` named fields + per-boss loaders → id-keyed registry.
+   - `ItemKind` / `PlayerInventory` (legacy 3-kind bag) → DELETE; collapse onto the
+     canonical `Item`/`OwnedItems` 24-row catalog (already a registry). See the
+     2026-06-15 dual-bag entry in `dev/journals/code_smells.md` for the exact
+     consumer list + fix sketch (~1-2h, spans `ambition_content::quest`).
+   - `BossAttackProfile` enum (in foundation `ambition_actor`) → the `Special(String)`
+     content seam already exists; collapse the remaining NAMED melee variants
+     (FloorSlam/HandSlam/HazardColumn/…) into data-keyed volume params so the enum
+     names no boss. Foundation-crate surgery — careful, has `volumes_for_profile`.
+   - boss-sprite `GameAssets` named fields + per-boss loaders → id-keyed registry
+     (see the boss-sprite smell in `code_smells.md`; land AFTER sheet-data migration).
+   - NOTE: boss ENCOUNTER roster is ALREADY content (only `gradient_sentinel`
+     generic fallback remains in-lib — `boss_encounter/roster.rs`). Don't redo it.
 4. **Audio/music runtime** → split the game-read adapters from playback; extract.
 5. **God-module splits + dedup + dead-code** as filler between the big cuts.
 
@@ -279,6 +318,10 @@ the final act; needs A4 done so the rename reflects a real boundary, not a label
 | S1-b | `character_sprites` → lib root (it's gameplay anim, not presentation) | ☑ | M | ~1 cycle | `26c15afe` | — | 2609 LOC mis-filed under presentation; `git mv` to crate root. couplers 17→8. |
 | S1-c | `BoundFeatureKind`+`rider_hand_world_pos`+`LoadingZoneVisual` move-down | ☑ | M | ~1 cycle | (coupler batch) | — | `BoundFeatureKind`→`mechanics::combat`; `rider_hand_world_pos`+`HAND_OFFSET_NORM`→`features::ecs::mount`; `LoadingZoneVisual`→runtime markers. **couplers → 5 (2 are doc-comment false positives).** |
 | S1-✓ | **lock sim→presentation boundary** | ☑ | S | ~1 cycle | (guard) | — | `architecture_boundaries_sim_does_not_import_presentation`: pure gameplay/sim imports ZERO presentation. Allowlist = `presentation/`, `dialog/ui.rs` (IS UI), `runtime/{setup,reset}` (composition-root orchestration). **MONOLITH SEQUENCE step 1 DONE.** Prereq for the `ambition_render` extraction (step 2). |
+
+| S3-smell | dual inventory-bag duplication logged | ☑ | S | ~1 cycle | (smell log) | — | `PlayerInventory`/`ItemKind` (3) shadows `OwnedItems`/`Item` (24) + `legacy_kind` bridge. Real fix is a content-spanning collapse (~1-2h) — deferred to the long run, fully scoped in `code_smells.md`. |
+| S2-plan | presentation→`ambition_render` step-2 execution plan | ☑ | S | ~1 cycle | (plan doc) | — | scoped the real blocker (the 3 in-lib presentation importers / crate-cycle), with the message-inversion-vs-move-up decision + the `pub`-widening surface. Ready to execute in the 10h run. |
+| S5 | delete dead inventory UI markers | ☑ | S | ~1 cycle | (dead-code) | lib −28 | 8 zero-reader `#[derive(Component)]` markers from the Phase-D2-deleted adventure menu. |
 
 ## Final summary (run 1 — 2026-06-15)
 

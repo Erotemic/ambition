@@ -15,8 +15,8 @@
 //! menu can be cut without touching this catalog.
 //!
 //! Some slots map to systems that already exist (portal gun, axe, javelin,
-//! gun-sword, fireball, bubble shield, health/mana cells, the legacy
-//! [`crate::inventory::ItemKind`] bag). Others are reserved placeholders for
+//! gun-sword, fireball, bubble shield, health/mana cells). Others are
+//! reserved placeholders for
 //! planned items (puppy-slug gun, grapple, morph ball, bombs, the Alice/Bob
 //! cartography key items) — they still occupy a real, stable slot so the grid
 //! shows "every item you could ever have," OoT-style, with un-acquired entries
@@ -99,7 +99,7 @@ pub enum Item {
 
 /// Per-item metadata, one row per catalog slot (Refactor 1). Replaces the five
 /// parallel 24-arm `match self` functions (`category` / `display_name` /
-/// `description` / `held_item_id` / `dialog_id`) + the `legacy_kind` bridge, so
+/// `description` / `held_item_id` / `dialog_id`), so
 /// adding or renaming an item is **one row** here, not edits scattered across
 /// several functions with nothing stopping a forgotten arm. The `[_; ITEM_COUNT]`
 /// length is compiler-enforced, so the table can't be partial; row order must
@@ -112,13 +112,10 @@ struct ItemMeta {
     held_item_id: Option<&'static str>,
     /// Stable lowercase authoring id (`inventory_has("portalgun")`).
     dialog_id: &'static str,
-    /// Bridge to the legacy 3-kind [`crate::inventory::ItemKind`] bag, if any.
-    legacy_kind: Option<crate::inventory::ItemKind>,
 }
 
 /// One row per [`Item`], in discriminant order. See [`ItemMeta`].
 const ITEM_META: [ItemMeta; ITEM_COUNT] = {
-    use crate::inventory::ItemKind;
     use ItemCategory::*;
     [
         ItemMeta {
@@ -127,7 +124,6 @@ const ITEM_META: [ItemMeta; ITEM_COUNT] = {
             category: Weapon,
             held_item_id: None,
             dialog_id: "portalgun",
-            legacy_kind: None,
         },
         ItemMeta {
             display_name: "Axe",
@@ -135,7 +131,6 @@ const ITEM_META: [ItemMeta; ITEM_COUNT] = {
             category: Weapon,
             held_item_id: Some("axe"),
             dialog_id: "axe",
-            legacy_kind: None,
         },
         ItemMeta {
             display_name: "Javelin",
@@ -143,7 +138,6 @@ const ITEM_META: [ItemMeta; ITEM_COUNT] = {
             category: Weapon,
             held_item_id: Some("javelin"),
             dialog_id: "javelin",
-            legacy_kind: None,
         },
         ItemMeta {
             display_name: "Gun-Sword",
@@ -151,7 +145,6 @@ const ITEM_META: [ItemMeta; ITEM_COUNT] = {
             category: Weapon,
             held_item_id: Some("gun_sword"),
             dialog_id: "gunsword",
-            legacy_kind: None,
         },
         ItemMeta {
             display_name: "Puppy-Slug Gun",
@@ -159,7 +152,6 @@ const ITEM_META: [ItemMeta; ITEM_COUNT] = {
             category: Weapon,
             held_item_id: Some("puppy_slug_gun"),
             dialog_id: "puppysluggun",
-            legacy_kind: None,
         },
         ItemMeta {
             display_name: "Fireball",
@@ -167,7 +159,6 @@ const ITEM_META: [ItemMeta; ITEM_COUNT] = {
             category: Ability,
             held_item_id: Some("fireball"),
             dialog_id: "fireball",
-            legacy_kind: None,
         },
         ItemMeta {
             display_name: "Blink",
@@ -175,7 +166,6 @@ const ITEM_META: [ItemMeta; ITEM_COUNT] = {
             category: Ability,
             held_item_id: Some("blink"),
             dialog_id: "blink",
-            legacy_kind: None,
         },
         ItemMeta {
             display_name: "Flight",
@@ -183,7 +173,6 @@ const ITEM_META: [ItemMeta; ITEM_COUNT] = {
             category: Ability,
             held_item_id: None,
             dialog_id: "fly",
-            legacy_kind: None,
         },
         ItemMeta {
             display_name: "Grapple Hook",
@@ -191,7 +180,6 @@ const ITEM_META: [ItemMeta; ITEM_COUNT] = {
             category: Ability,
             held_item_id: Some("grapple"),
             dialog_id: "grapple",
-            legacy_kind: None,
         },
         ItemMeta {
             display_name: "Morph Ball",
@@ -199,7 +187,6 @@ const ITEM_META: [ItemMeta; ITEM_COUNT] = {
             category: Ability,
             held_item_id: None,
             dialog_id: "morphball",
-            legacy_kind: None,
         },
         ItemMeta {
             display_name: "Mark / Recall",
@@ -207,7 +194,6 @@ const ITEM_META: [ItemMeta; ITEM_COUNT] = {
             category: Ability,
             held_item_id: Some("mark_recall"),
             dialog_id: "markrecall",
-            legacy_kind: None,
         },
         ItemMeta {
             display_name: "Bubble Shield",
@@ -215,7 +201,6 @@ const ITEM_META: [ItemMeta; ITEM_COUNT] = {
             category: Ability,
             held_item_id: None,
             dialog_id: "bubbleshield",
-            legacy_kind: None,
         },
         ItemMeta {
             display_name: "Health Cell",
@@ -223,7 +208,6 @@ const ITEM_META: [ItemMeta; ITEM_COUNT] = {
             category: Consumable,
             held_item_id: None,
             dialog_id: "healthcell",
-            legacy_kind: Some(ItemKind::HealthPotion),
         },
         ItemMeta {
             display_name: "Mana Cell",
@@ -231,7 +215,6 @@ const ITEM_META: [ItemMeta; ITEM_COUNT] = {
             category: Consumable,
             held_item_id: None,
             dialog_id: "manacell",
-            legacy_kind: None,
         },
         ItemMeta {
             display_name: "Spare Battery",
@@ -239,7 +222,6 @@ const ITEM_META: [ItemMeta; ITEM_COUNT] = {
             category: Consumable,
             held_item_id: None,
             dialog_id: "sparebattery",
-            legacy_kind: Some(ItemKind::SpareBattery),
         },
         ItemMeta {
             display_name: "Data Chip",
@@ -247,7 +229,6 @@ const ITEM_META: [ItemMeta; ITEM_COUNT] = {
             category: Consumable,
             held_item_id: None,
             dialog_id: "datachip",
-            legacy_kind: Some(ItemKind::DataChip),
         },
         ItemMeta {
             display_name: "Bomb",
@@ -256,7 +237,6 @@ const ITEM_META: [ItemMeta; ITEM_COUNT] = {
             category: Weapon,
             held_item_id: Some("bomb"),
             dialog_id: "bomb",
-            legacy_kind: None,
         },
         ItemMeta {
             display_name: "Gold Pouch",
@@ -264,7 +244,6 @@ const ITEM_META: [ItemMeta; ITEM_COUNT] = {
             category: Consumable,
             held_item_id: None,
             dialog_id: "goldpouch",
-            legacy_kind: None,
         },
         ItemMeta {
             display_name: "Map Fragment",
@@ -272,7 +251,6 @@ const ITEM_META: [ItemMeta; ITEM_COUNT] = {
             category: KeyItem,
             held_item_id: None,
             dialog_id: "mapfragment",
-            legacy_kind: None,
         },
         ItemMeta {
             display_name: "Sealed Note",
@@ -280,7 +258,6 @@ const ITEM_META: [ItemMeta; ITEM_COUNT] = {
             category: KeyItem,
             held_item_id: None,
             dialog_id: "sealednote",
-            legacy_kind: None,
         },
         ItemMeta {
             display_name: "Field Survey",
@@ -288,7 +265,6 @@ const ITEM_META: [ItemMeta; ITEM_COUNT] = {
             category: KeyItem,
             held_item_id: None,
             dialog_id: "fieldsurvey",
-            legacy_kind: None,
         },
         ItemMeta {
             display_name: "Gate Key",
@@ -296,7 +272,6 @@ const ITEM_META: [ItemMeta; ITEM_COUNT] = {
             category: KeyItem,
             held_item_id: None,
             dialog_id: "gatekey",
-            legacy_kind: None,
         },
         ItemMeta {
             display_name: "Debug Lens",
@@ -304,7 +279,6 @@ const ITEM_META: [ItemMeta; ITEM_COUNT] = {
             category: KeyItem,
             held_item_id: None,
             dialog_id: "debuglens",
-            legacy_kind: None,
         },
         ItemMeta {
             display_name: "—",
@@ -312,7 +286,6 @@ const ITEM_META: [ItemMeta; ITEM_COUNT] = {
             category: Reserved,
             held_item_id: None,
             dialog_id: "reservedslot",
-            legacy_kind: None,
         },
     ]
 };
@@ -438,22 +411,6 @@ impl Item {
         Item::ALL.into_iter().find(|i| i.held_item_id() == Some(id))
     }
 
-    /// Bridge to the legacy 3-kind [`crate::inventory::ItemKind`] bag so existing
-    /// dialogue ids and the old menu keep resolving. Only the three overlapping
-    /// items map; everything else is new and lives only in [`OwnedItems`].
-    pub fn legacy_kind(self) -> Option<crate::inventory::ItemKind> {
-        self.meta().legacy_kind
-    }
-
-    pub fn from_legacy_kind(kind: crate::inventory::ItemKind) -> Item {
-        use crate::inventory::ItemKind;
-        match kind {
-            ItemKind::HealthPotion => Item::HealthCell,
-            ItemKind::SpareBattery => Item::SpareBattery,
-            ItemKind::DataChip => Item::DataChip,
-        }
-    }
-
     /// Stable lowercase id for dialogue/authoring, e.g. `inventory_has("portal_gun")`.
     /// Normalized the same way the Yarn bindings normalize (lowercase, drop
     /// non-alphanumerics), so `"PortalGun"`, `"portal_gun"`, `"portal gun"` all
@@ -463,8 +420,8 @@ impl Item {
     }
 
     /// Normalize a raw authoring string the same way the Yarn bindings do, then
-    /// resolve it. Also accepts the legacy [`crate::inventory::ItemKind`] dialog
-    /// ids (`"healthpotion"` → [`Item::HealthCell`]) so old scripts keep working.
+    /// resolve it. Also accepts the legacy `"healthpotion"` alias →
+    /// [`Item::HealthCell`] so old scripts keep working.
     pub fn from_dialog_id(raw: &str) -> Option<Item> {
         let key: String = raw
             .chars()
@@ -474,8 +431,24 @@ impl Item {
         if let Some(found) = Item::ALL.into_iter().find(|i| i.dialog_id() == key) {
             return Some(found);
         }
-        // Fall back to the legacy 3-kind ids.
-        crate::inventory::ItemKind::from_dialog_id(&key).map(Item::from_legacy_kind)
+        // Legacy alias: the old 3-kind bag spelled the health consumable
+        // "healthpotion"; the catalog id is "healthcell". (SpareBattery/DataChip
+        // already share their ids, so this is the only divergent alias.)
+        if key == "healthpotion" {
+            return Some(Item::HealthCell);
+        }
+        None
+    }
+
+    /// The legacy bag's dialogue alias for this item, if it differs from
+    /// [`Self::dialog_id`]. Only `HealthCell` (old "healthpotion") diverges;
+    /// the yarn snapshot mirrors counts under this alias too so older scripts
+    /// using `inventory_has("healthpotion")` keep resolving.
+    pub fn legacy_dialog_alias(self) -> Option<&'static str> {
+        match self {
+            Item::HealthCell => Some("healthpotion"),
+            _ => None,
+        }
     }
 }
 
@@ -486,9 +459,8 @@ impl Item {
 /// `equipped` is the currently-equipped [`ItemCategory::Weapon`] slot, if any.
 ///
 /// This is the single source of truth the unified menu, pickups, dialogue, and
-/// the equip path share. The legacy [`crate::inventory::PlayerInventory`] is kept
-/// in sync one-way (here → there) for the three overlapping items so any consumer
-/// of that data model still displays correct counts.
+/// the equip path share. (It replaced the legacy 3-kind `PlayerInventory` bag,
+/// which was deleted once this catalog became the only item store.)
 #[derive(Resource, Clone, Debug)]
 pub struct OwnedItems {
     counts: [u32; ITEM_COUNT],
@@ -548,8 +520,8 @@ impl OwnedItems {
     }
 
     /// Seed a small starter set so a fresh sandbox run has something to show in
-    /// the grid. Mirrors the legacy `PlayerInventory::starter` plus the items the
-    /// sandbox debug-spawns (axe, gun-sword, portal gun).
+    /// the grid: the consumables (health/mana cells, battery, chip), a couple of
+    /// starter abilities, plus the items the sandbox debug-spawns.
     pub fn starter() -> Self {
         let mut owned = Self::default();
         owned.grant(Item::HealthCell, 3);

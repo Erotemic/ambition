@@ -70,7 +70,7 @@ pub struct YarnStateMirrorData {
     /// generic mirror.
     pub extras: std::collections::HashMap<String, String>,
     /// Item `dialog_id()` → held count, mirrored from the live
-    /// `PlayerInventory` resource so `inventory_has(...)` can read it.
+    /// `OwnedItems` catalog resource so `inventory_has(...)` can read it.
     pub inventory_counts: std::collections::HashMap<String, u32>,
     /// Player money, mirrored from the primary player's `PlayerWallet` so a
     /// merchant dialogue can show the balance / gate purchases (`wallet_balance`,
@@ -87,7 +87,6 @@ pub struct YarnStateMirror(pub Arc<RwLock<YarnStateMirrorData>>);
 /// the data is small (flags/bosses/quests are short Vecs).
 pub fn refresh_yarn_state_mirror(
     save: Option<Res<SandboxSave>>,
-    inventory: Option<Res<crate::inventory::PlayerInventory>>,
     owned: Option<Res<crate::items::OwnedItems>>,
     wallet: Query<&crate::player::PlayerWallet, With<crate::player::PrimaryPlayer>>,
     mirror: Res<YarnStateMirror>,
@@ -106,17 +105,11 @@ pub fn refresh_yarn_state_mirror(
             let count = owned.count(item);
             snap.inventory_counts
                 .insert(item.dialog_id().to_string(), count);
-            if let Some(legacy) = item.legacy_kind() {
-                snap.inventory_counts
-                    .insert(legacy.dialog_id().to_string(), count);
+            // Mirror under the legacy alias too (only "healthpotion" diverges)
+            // so older scripts using the old id keep resolving.
+            if let Some(alias) = item.legacy_dialog_alias() {
+                snap.inventory_counts.insert(alias.to_string(), count);
             }
-        }
-    } else if let Some(inventory) = inventory {
-        // Fallback for builds without the catalog resource (shouldn't happen in
-        // practice, but keeps dialogue working with just the legacy bag).
-        for kind in crate::inventory::ItemKind::ALL {
-            snap.inventory_counts
-                .insert(kind.dialog_id().to_string(), inventory.count(kind));
         }
     }
     let Some(save) = save else {
@@ -233,31 +226,16 @@ pub fn cmd_clear_flag(In(name): In<String>, mut effects: MessageWriter<SetFlagRe
 }
 
 /// `<<give_item "kind" count>>` — grant the player an item by adding
-/// to the live `PlayerInventory` resource. The kind string is
-/// resolved through [`crate::inventory::ItemKind::from_dialog_id`]
+/// to the live `OwnedItems` catalog resource. The kind string is
+/// resolved through [`crate::items::Item::from_dialog_id`]
 /// (loose spelling); an unknown kind or non-positive count is logged
 /// and ignored.
 pub fn cmd_give_item(
     In((kind, count)): In<(String, f32)>,
-    mut inventory: ResMut<crate::inventory::PlayerInventory>,
-    owned: Option<ResMut<crate::items::OwnedItems>>,
+    mut owned: ResMut<crate::items::OwnedItems>,
 ) {
-    let legacy_granted = apply_give_item(&mut inventory, &kind, count);
-    // Also grant into the 24-item catalog (the superset that covers items with
-    // no legacy `ItemKind` — weapons, abilities, the Alice/Bob key items, …).
-    let catalog_granted = if count > 0.0 {
-        match (owned, crate::items::Item::from_dialog_id(&kind)) {
-            (Some(mut owned), Some(item)) => {
-                let n = count as u32;
-                owned.grant(item, n);
-                n
-            }
-            _ => 0,
-        }
-    } else {
-        0
-    };
-    if legacy_granted == 0 && catalog_granted == 0 {
+    let granted = apply_give_item(&mut owned, &kind, count);
+    if granted == 0 {
         warn!(
             target: "ambition_sandbox::dialog::yarn",
             "give_item: ignored kind={kind:?} count={count} (unknown item or non-positive count)",
@@ -265,8 +243,7 @@ pub fn cmd_give_item(
     } else {
         info!(
             target: "ambition_sandbox::dialog::yarn",
-            "give_item: granted {}x {kind:?}",
-            legacy_granted.max(catalog_granted),
+            "give_item: granted {granted}x {kind:?}",
         );
     }
 }
@@ -319,19 +296,15 @@ pub fn cmd_sell_item(
 /// number actually granted (0 when the kind is unknown or the count
 /// is non-positive) so the command can log and tests can assert
 /// without a live `World`.
-fn apply_give_item(
-    inventory: &mut crate::inventory::PlayerInventory,
-    kind: &str,
-    count: f32,
-) -> u32 {
+fn apply_give_item(owned: &mut crate::items::OwnedItems, kind: &str, count: f32) -> u32 {
     if count <= 0.0 {
         return 0;
     }
-    let Some(item) = crate::inventory::ItemKind::from_dialog_id(kind) else {
+    let Some(item) = crate::items::Item::from_dialog_id(kind) else {
         return 0;
     };
     let n = count as u32;
-    inventory.add(item, n);
+    owned.grant(item, n);
     n
 }
 
@@ -431,7 +404,7 @@ pub fn register_functions(runner: &mut DialogueRunner, mirror: &YarnStateMirror)
     });
     // inventory_has(item) -> bool: does the player currently hold at
     // least one of the named item? Reads the inventory slice the
-    // refresh system mirrors from `PlayerInventory`. The item argument
+    // refresh system mirrors from `OwnedItems`. The item argument
     // is normalized (lowercased, non-alphanumerics dropped) so
     // `"HealthPotion"`, `"health_potion"`, and `"health potion"` all
     // match the item's `dialog_id()`.
@@ -469,7 +442,7 @@ fn mirror_inventory_has(data: &YarnStateMirrorData, item: &str) -> bool {
 
 /// Normalize an authored item id for `inventory_has` lookups:
 /// lowercase and strip every non-alphanumeric character. Mirrors how
-/// [`crate::inventory::ItemKind::dialog_id`] is keyed, so authored
+/// [`crate::items::Item::dialog_id`] is keyed, so authored
 /// dialogue can spell the item loosely.
 fn normalize_item_id(raw: &str) -> String {
     raw.chars()
@@ -507,7 +480,7 @@ pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::inventory::{ItemKind, PlayerInventory};
+    use crate::items::{Item, OwnedItems};
 
     #[test]
     fn normalize_item_id_collapses_spelling_variants() {
@@ -517,8 +490,8 @@ mod tests {
         assert_eq!(normalize_item_id("SPARE-BATTERY"), "sparebattery");
         // The mirror is keyed by `dialog_id()`, which is already in
         // normal form, so normalization is idempotent on the keys.
-        for kind in ItemKind::ALL {
-            assert_eq!(normalize_item_id(kind.dialog_id()), kind.dialog_id());
+        for item in Item::ALL {
+            assert_eq!(normalize_item_id(item.dialog_id()), item.dialog_id());
         }
     }
 
@@ -539,31 +512,32 @@ mod tests {
 
     #[test]
     fn apply_give_item_adds_known_kinds_and_ignores_bad_input() {
-        let mut bag = PlayerInventory::default();
-        assert_eq!(bag.count(ItemKind::HealthPotion), 0);
+        let mut bag = OwnedItems::default();
+        // The legacy "health_potion" / "healthpotion" alias resolves to HealthCell.
+        assert_eq!(bag.count(Item::HealthCell), 0);
 
         // Loose spelling resolves and grants.
         assert_eq!(apply_give_item(&mut bag, "health_potion", 2.0), 2);
-        assert_eq!(bag.count(ItemKind::HealthPotion), 2);
-        // Granting stacks (floored count).
+        assert_eq!(bag.count(Item::HealthCell), 2);
+        // Granting stacks (floored count) — consumables stack.
         assert_eq!(apply_give_item(&mut bag, "HealthPotion", 1.9), 1);
-        assert_eq!(bag.count(ItemKind::HealthPotion), 3);
+        assert_eq!(bag.count(Item::HealthCell), 3);
 
         // Unknown kind grants nothing.
-        assert_eq!(apply_give_item(&mut bag, "Grapple", 5.0), 0);
+        assert_eq!(apply_give_item(&mut bag, "definitely_not_an_item", 5.0), 0);
         // Non-positive count grants nothing.
         assert_eq!(apply_give_item(&mut bag, "DataChip", 0.0), 0);
         assert_eq!(apply_give_item(&mut bag, "DataChip", -3.0), 0);
-        assert_eq!(bag.count(ItemKind::DataChip), 0);
+        assert_eq!(bag.count(Item::DataChip), 0);
     }
 
     #[test]
     fn refresh_mirrors_player_inventory_into_the_snapshot() {
         // Minimal app: no save / cut-rope resources (both Option<Res>
-        // resolve to None), only a live PlayerInventory + the mirror.
+        // resolve to None), only a live OwnedItems catalog + the mirror.
         let mut app = App::new();
         app.init_resource::<YarnStateMirror>();
-        app.insert_resource(PlayerInventory::starter()); // 2 health, 1 battery, 1 chip
+        app.insert_resource(OwnedItems::starter());
         app.add_systems(Update, refresh_yarn_state_mirror);
         app.update();
 
@@ -571,9 +545,11 @@ mod tests {
         let snap = mirror.0.read().expect("mirror readable");
         assert_eq!(
             snap.inventory_counts.get("healthpotion").copied(),
-            Some(2),
-            "starter inventory carries two health cells"
+            Some(3),
+            "starter inventory carries three health cells, mirrored under the legacy alias"
         );
+        // The catalog dialog id resolves too.
+        assert_eq!(snap.inventory_counts.get("healthcell").copied(), Some(3));
         assert!(mirror_inventory_has(&snap, "HealthPotion"));
         assert!(mirror_inventory_has(&snap, "SpareBattery"));
         // Inventory must populate even though there is no SandboxSave

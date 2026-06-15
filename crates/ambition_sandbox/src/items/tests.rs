@@ -98,18 +98,20 @@ fn dialog_ids_are_unique_and_round_trip() {
 }
 
 #[test]
-fn legacy_kind_bridge_is_consistent_both_ways() {
-    use crate::inventory::ItemKind;
-    for kind in ItemKind::ALL {
-        let item = Item::from_legacy_kind(kind);
-        assert_eq!(item.legacy_kind(), Some(kind));
-    }
-    // Legacy dialog ids still resolve through the new catalog.
+fn legacy_health_alias_resolves_to_health_cell() {
+    // The old 3-kind bag spelled the health consumable "healthpotion"; the
+    // catalog id is "healthcell". `from_dialog_id` keeps the alias resolving,
+    // and `legacy_dialog_alias` reports it (only HealthCell diverges).
     assert_eq!(Item::from_dialog_id("healthpotion"), Some(Item::HealthCell));
     assert_eq!(
         Item::from_dialog_id("health_potion"),
         Some(Item::HealthCell)
     );
+    assert_eq!(Item::from_dialog_id("healthcell"), Some(Item::HealthCell));
+    assert_eq!(Item::HealthCell.legacy_dialog_alias(), Some("healthpotion"));
+    // The other two overlapping items already share their ids — no alias.
+    assert_eq!(Item::SpareBattery.legacy_dialog_alias(), None);
+    assert_eq!(Item::DataChip.legacy_dialog_alias(), None);
 }
 
 #[test]

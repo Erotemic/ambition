@@ -1,8 +1,9 @@
-//! Inventory data model.
+//! Inventory menu-navigation state.
 //!
-//! The runtime owns a flat `PlayerInventory` resource (item kind → count) plus
-//! the `InventoryUiState` resource driven by the unified menu.
+//! The item store itself is the `OwnedItems` catalog (`crate::items`); this
+//! module owns only the `InventoryUiState` resource (selection / tab / scroll)
+//! driven by the unified menu.
 
 mod model;
 
-pub use self::model::{InventoryUiState, ItemKind, PlayerInventory};
+pub use self::model::InventoryUiState;

@@ -8,7 +8,7 @@
 
 use bevy::prelude::*;
 
-use ambition_sandbox::inventory::{ItemKind, PlayerInventory};
+use ambition_sandbox::items::{Item, OwnedItems};
 
 /// Facade: the generic registry half moved to [`ambition_sandbox::quest::registry`].
 /// Inbound `crate::quest::QuestRegistry` paths keep working.
@@ -23,10 +23,10 @@ pub const PIRATE_TREASURE_REWARD_FLAG: &str = "pirate_treasure_reward_granted";
 /// Items the pirate admiral hands over when the treasure is returned.
 /// Kept as a const so the payout is data-defined (and test-pinable)
 /// rather than buried in a system body.
-pub const PIRATE_TREASURE_REWARD: &[(ItemKind, u32)] = &[
-    (ItemKind::HealthPotion, 3),
-    (ItemKind::SpareBattery, 2),
-    (ItemKind::DataChip, 1),
+pub const PIRATE_TREASURE_REWARD: &[(Item, u32)] = &[
+    (Item::HealthCell, 3),
+    (Item::SpareBattery, 2),
+    (Item::DataChip, 1),
 ];
 
 /// Quest ids that auto-start at boot so the player sees HUD entries
@@ -229,9 +229,9 @@ pub fn populate_quest_registry(
 /// Apply the items in `PIRATE_TREASURE_REWARD` to the inventory and
 /// return a banner string for the HUD. Pure helper so tests can drive
 /// the payout without spinning up Bevy.
-pub fn grant_pirate_treasure_reward(inventory: &mut PlayerInventory) -> String {
-    for (kind, count) in PIRATE_TREASURE_REWARD {
-        inventory.add(*kind, *count);
+pub fn grant_pirate_treasure_reward(inventory: &mut OwnedItems) -> String {
+    for (item, count) in PIRATE_TREASURE_REWARD {
+        inventory.grant(*item, *count);
     }
     "TREASURE RETURNED — Admiral pays out the hoard".to_string()
 }
@@ -242,7 +242,7 @@ pub fn grant_pirate_treasure_reward(inventory: &mut PlayerInventory) -> String {
 pub fn grant_quest_completion_rewards(
     registry: Res<QuestRegistry>,
     mut save: ResMut<ambition_sandbox::persistence::save::SandboxSave>,
-    mut inventory: ResMut<PlayerInventory>,
+    mut inventory: ResMut<OwnedItems>,
     mut banner_state: ResMut<ambition_sandbox::features::GameplayBanner>,
 ) {
     let Some(state) = registry.quests.get("pirate_treasure") else {
@@ -329,10 +329,10 @@ mod tests {
 
     #[test]
     fn grant_pirate_treasure_reward_adds_each_item_listed_in_payout() {
-        let mut inventory = PlayerInventory::default();
+        let mut inventory = OwnedItems::default();
         let banner = grant_pirate_treasure_reward(&mut inventory);
-        for (kind, count) in PIRATE_TREASURE_REWARD {
-            assert_eq!(inventory.count(*kind), *count);
+        for (item, count) in PIRATE_TREASURE_REWARD {
+            assert_eq!(inventory.count(*item), *count);
         }
         assert!(banner.contains("TREASURE"));
     }

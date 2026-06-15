@@ -520,7 +520,6 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
     // Starter item-ownership roster (the 24-item catalog default set).
     app.add_plugins(ambition_content::items::AmbitionItemRosterPlugin);
     app.insert_resource(inventory::InventoryUiState::default())
-        .insert_resource(inventory::PlayerInventory::starter())
         .init_resource::<ambition_sandbox::items::persist::InventoryRestored>()
         // Persist the inventory + wallet across save/load: restore the saved set
         // once the player exists, then mirror live changes back into the save

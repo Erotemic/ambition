@@ -1,68 +1,14 @@
 // The legacy adventure-menu UI that consumed the per-entity inventory component
 // markers was deleted in Phase D2; the unified menu reads the data model
-// (`ItemKind` / `PlayerInventory` / `InventoryUiState`) directly, so the dead
-// markers (InventoryRoot/InventoryItemRow/…) were removed too. What remains is
-// the live data model.
+// (`InventoryUiState`) + the `OwnedItems` catalog (`crate::items`) directly. The
+// dead markers and the legacy 3-kind `ItemKind`/`PlayerInventory` bag were
+// removed once `OwnedItems` became the single item store. What remains is the
+// live menu-navigation state.
 #![allow(dead_code)]
 
 use bevy::prelude::*;
 
 use crate::ui_nav::MenuFocusState;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum ItemKind {
-    HealthPotion,
-    SpareBattery,
-    DataChip,
-}
-
-impl ItemKind {
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::HealthPotion => "Health Cell",
-            Self::SpareBattery => "Spare Battery",
-            Self::DataChip => "Data Chip",
-        }
-    }
-
-    pub fn description(self) -> &'static str {
-        match self {
-            Self::HealthPotion => "Restores 2 HP.",
-            Self::SpareBattery => "Reserved for future ability charge.",
-            Self::DataChip => "Lore fragment — does nothing yet.",
-        }
-    }
-
-    pub const ALL: [Self; 3] = [Self::HealthPotion, Self::SpareBattery, Self::DataChip];
-
-    /// Stable lowercase id used by authored dialogue, e.g.
-    /// `inventory_has("HealthPotion")`. Keyed off the variant name
-    /// (not the display `label`, which can change for flavor). The
-    /// Yarn binding normalizes both sides by lowercasing and dropping
-    /// non-alphanumerics, so `"HealthPotion"`, `"health_potion"`, and
-    /// `"health potion"` all resolve here.
-    pub fn dialog_id(self) -> &'static str {
-        match self {
-            Self::HealthPotion => "healthpotion",
-            Self::SpareBattery => "sparebattery",
-            Self::DataChip => "datachip",
-        }
-    }
-
-    /// Resolve an authored dialogue item id back to a kind, matching
-    /// [`Self::dialog_id`] after the same normalization the Yarn
-    /// bindings apply (lowercase, non-alphanumerics dropped). Returns
-    /// `None` for an unknown item so callers can warn instead of
-    /// silently granting the wrong thing.
-    pub fn from_dialog_id(raw: &str) -> Option<Self> {
-        let key: String = raw
-            .chars()
-            .filter(|c| c.is_alphanumeric())
-            .flat_map(|c| c.to_lowercase())
-            .collect();
-        Self::ALL.into_iter().find(|k| k.dialog_id() == key)
-    }
-}
 
 /// Top-level adventure-menu tab.
 ///
@@ -105,59 +51,6 @@ impl InventoryTab {
 
     pub(super) fn previous(self) -> Self {
         Self::from_index((self.index() + Self::ALL.len() - 1) % Self::ALL.len())
-    }
-}
-
-/// Counted-item bag.
-#[derive(Resource, Default, Clone)]
-pub struct PlayerInventory {
-    counts: [u32; 3],
-}
-
-impl PlayerInventory {
-    fn slot(kind: ItemKind) -> usize {
-        match kind {
-            ItemKind::HealthPotion => 0,
-            ItemKind::SpareBattery => 1,
-            ItemKind::DataChip => 2,
-        }
-    }
-
-    pub fn count(&self, kind: ItemKind) -> u32 {
-        self.counts[Self::slot(kind)]
-    }
-
-    pub fn add(&mut self, kind: ItemKind, n: u32) {
-        self.counts[Self::slot(kind)] = self.counts[Self::slot(kind)].saturating_add(n);
-    }
-
-    pub fn remove(&mut self, kind: ItemKind, n: u32) -> u32 {
-        let slot = &mut self.counts[Self::slot(kind)];
-        let removed = (*slot).min(n);
-        *slot -= removed;
-        removed
-    }
-
-    #[cfg(test)]
-    pub fn entries(&self) -> impl Iterator<Item = (ItemKind, u32)> + '_ {
-        ItemKind::ALL
-            .into_iter()
-            .map(move |kind| (kind, self.count(kind)))
-    }
-
-    #[cfg(test)]
-    pub fn total_items(&self) -> u32 {
-        self.counts.iter().sum()
-    }
-
-    /// Seed with one of each item so the menu has something to show on a
-    /// fresh run. The data model can later swap this for save-game restore.
-    pub fn starter() -> Self {
-        let mut bag = Self::default();
-        bag.add(ItemKind::HealthPotion, 2);
-        bag.add(ItemKind::SpareBattery, 1);
-        bag.add(ItemKind::DataChip, 1);
-        bag
     }
 }
 
@@ -228,31 +121,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn from_dialog_id_resolves_loose_spelling_and_rejects_unknown() {
-        assert_eq!(
-            ItemKind::from_dialog_id("HealthPotion"),
-            Some(ItemKind::HealthPotion)
-        );
-        assert_eq!(
-            ItemKind::from_dialog_id("health_potion"),
-            Some(ItemKind::HealthPotion)
-        );
-        assert_eq!(
-            ItemKind::from_dialog_id("Spare Battery"),
-            Some(ItemKind::SpareBattery)
-        );
-        assert_eq!(
-            ItemKind::from_dialog_id("DATACHIP"),
-            Some(ItemKind::DataChip)
-        );
-        assert_eq!(ItemKind::from_dialog_id("grapple"), None);
-        // dialog_id round-trips through from_dialog_id for every kind.
-        for kind in ItemKind::ALL {
-            assert_eq!(ItemKind::from_dialog_id(kind.dialog_id()), Some(kind));
-        }
-    }
-
-    #[test]
     fn inventory_tab_cycles_forward_and_backward_with_wraparound() {
         use InventoryTab::{Items, Map, Quests};
         assert_eq!(Items.next(), Map);
@@ -260,29 +128,5 @@ mod tests {
         assert_eq!(Quests.next(), Items, "next wraps");
         assert_eq!(Items.previous(), Quests, "previous wraps");
         assert_eq!(Quests.previous(), Map);
-    }
-
-    #[test]
-    fn inventory_bag_adds_saturates_and_removes_floors() {
-        let mut bag = PlayerInventory::default();
-        assert_eq!(bag.count(ItemKind::HealthPotion), 0);
-
-        bag.add(ItemKind::HealthPotion, 3);
-        assert_eq!(bag.count(ItemKind::HealthPotion), 3);
-
-        // remove returns how many were actually removed.
-        assert_eq!(bag.remove(ItemKind::HealthPotion, 2), 2);
-        assert_eq!(bag.count(ItemKind::HealthPotion), 1);
-
-        // removing more than present floors at 0 and reports the real count.
-        assert_eq!(bag.remove(ItemKind::HealthPotion, 5), 1);
-        assert_eq!(bag.count(ItemKind::HealthPotion), 0);
-
-        // add saturates rather than overflowing.
-        bag.add(ItemKind::DataChip, u32::MAX);
-        bag.add(ItemKind::DataChip, 10);
-        assert_eq!(bag.count(ItemKind::DataChip), u32::MAX);
-        // items are tracked per-kind independently.
-        assert_eq!(bag.count(ItemKind::HealthPotion), 0);
     }
 }

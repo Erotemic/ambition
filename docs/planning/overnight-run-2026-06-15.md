@@ -487,3 +487,29 @@ interwoven core for a focused pass. Each lift is independently verifiable.
 **Run-2 grand total: 11 god-files split + 2 inline-test modules extracted + 2
 safe-subset lifts, across 7 crates.** Workspace builds clean; 30 arch guards +
 replay determinism + reachability green throughout.
+
+### Run 2 — FINAL TALLY
+
+Added grid_backend.rs's 1063-line inline test module extraction (2212→1149) — the
+3rd huge app file halved. **Complete Run-2 navigability sweep: 11 god-files split
++ 3 inline-test modules extracted + 2 safe-subset lifts = 16 changes across 7
+crates** (engine_core, actor, sandbox, render, content, portal_presentation, app).
+
+Biggest source file in the workspace: 4419 → 2430 (the kaleidoscope menu host's
+generics-heavy render body, left for a supervised pass). Every file that was
+>1300 lines is now split, test-extracted, or subset-lifted.
+
+**Final verification (all green, zero behavior change):**
+- `cargo build --workspace` clean, 0 new warnings
+- lib tests: engine_core 160 · actor 187 · sandbox 911 · render 24 · content 49 ·
+  portal_presentation 7 · app 175  (= 1513)
+- integration: 30 arch guards · replay_fixture_regression (determinism) ·
+  blink/gravity/dive reachability
+- the render-extraction sim/render seam guard + all crate boundaries hold
+
+**Remaining frontier (supervised, NOT blind):** the kaleidoscope host body (2430,
+generics), `menu/render/kaleidoscope/mod.rs` (1302, generics render),
+`menu/lib`/`ambition_menu/lib` (~1073), the interwoven player-event core of
+world_flow (~597), and the two already-reverted prototypes (falling_sand 1305,
+settings/model 1123). These need huge-fn breakup or shared-state untangling — a
+focused pass, using the lift-the-contiguous-concern model proven on world_flow.

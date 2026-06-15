@@ -636,44 +636,35 @@ impl ParallaxLayerSet {
 pub struct GameAssets {
     pub characters: CharacterSpriteAssets,
     pub entities: EntitySpriteSet,
-    /// Boss spritesheet — separate from `characters` because the boss
-    /// generator emits its own animation rows
-    /// (rest/floor_slam/side_sweep/spike_halo/dash_echo/hit/death) that
-    /// don't fit `CharacterAnim`. `None` falls back to the static
-    /// `EntitySprite::BossCore` image.
+    /// Generic boss spritesheet — the fallback the renderer uses for any boss
+    /// without a dedicated sheet in `boss_sprites`. Separate from `characters`
+    /// because the boss generator emits its own animation rows
+    /// (rest/floor_slam/side_sweep/spike_halo/dash_echo/hit/death) that don't fit
+    /// `CharacterAnim`. `None` falls back to the static `EntitySprite::BossCore`.
     pub boss: Option<BossSpriteAsset>,
-    /// Mockingbird boss spritesheet — different generator (the
-    /// standalone PIL-based mockingbird tool) with a 6-row layout
-    /// (hover / thrust / bite / slash / hit / death). The rendering
-    /// layer dispatches on the boss's authored name to pick this
-    /// asset; other bosses fall back to `boss`.
-    pub mockingbird: Option<BossSpriteAsset>,
-    /// GNU-ton boss spritesheet — the giant GNU wildebeest with a
-    /// scholar (GNU-ton) perched on its shoulders. 6-row layout:
-    /// rest / hand_slam / hand_sweep / head_down / hit / death.
-    /// Installed by `ambition_sprite2d_renderer render-publish gnu_ton_boss`.
-    pub gnu_ton: Option<BossSpriteAsset>,
-    /// Smirking Behemoth boss spritesheet for the cut-rope arena.
-    /// Installed by `ambition_sprite2d_renderer publish smirking_behemoth_boss`.
-    pub smirking_behemoth_boss: Option<BossSpriteAsset>,
-    /// Body-only GNU-ton sheet (no hands, no attack VFX). Rendered
-    /// behind platforms so the player can read jump targets through
-    /// the giant silhouette.
-    pub gnu_ton_body: Option<BossSpriteAsset>,
-    /// Hands-only GNU-ton sheet (with shockwave / vulnerability glow).
-    /// Rendered in front of platforms so incoming danger reads clearly.
-    pub gnu_ton_hands: Option<BossSpriteAsset>,
-    /// Flying Spaghetti Monster boss spritesheet (noodly appendages). The
-    /// renderer dispatches on `behavior.id == "flying_spaghetti_monster_boss"`;
-    /// `None` falls back to the generic `boss` sheet.
-    pub flying_spaghetti_monster_boss: Option<BossSpriteAsset>,
-    /// T-Rex boss spritesheet (reuses the trex enemy PNG). The renderer
-    /// dispatches on `behavior.id == "trex_boss"`; `None` falls back to `boss`.
-    pub trex_boss: Option<BossSpriteAsset>,
+    /// Dedicated per-boss spritesheets, keyed by the boss's lowercased behavior
+    /// id (`boss_key`) — the renderer looks up `boss_sprites.get(&boss_key)` and
+    /// falls back to `boss`. This replaced a hand-maintained set of named fields
+    /// (`gnu_ton`, `mockingbird`, `trex_boss`, …) + a per-boss if-else chain in
+    /// the render layer, so the MACHINERY no longer names any boss: adding a boss
+    /// sheet is a new [`boss_sprite_keys`] entry + its loader, not a struct edit.
+    ///
+    /// Multi-part bosses store their pieces under suffixed keys: GNU-ton's split
+    /// body/hands render reads `"gnu_ton_body"` / `"gnu_ton_hands"`.
+    pub boss_sprites: HashMap<&'static str, BossSpriteAsset>,
     /// Optional generated biome sky/background/parallax layers. Missing PNGs
     /// are fine: room rendering simply skips the extra layers and keeps the
     /// existing clear-color/grid/block visuals.
     pub parallax_layers: ParallaxLayerSet,
+}
+
+impl GameAssets {
+    /// Dedicated boss spritesheet for `key` (the lowercased boss behavior id, or
+    /// a multi-part suffix like `"gnu_ton_hands"`), if one was loaded. The render
+    /// layer falls back to [`Self::boss`] when this is `None`.
+    pub fn boss_sprite(&self, key: &str) -> Option<&BossSpriteAsset> {
+        self.boss_sprites.get(key)
+    }
 }
 
 /// Build a fresh `GameAssets`, honoring `config` + the shared
@@ -721,17 +712,30 @@ pub fn load_game_assets(
         );
     }
 
+    // Dedicated per-boss sheets, keyed by boss_key (lowercased behavior id) +
+    // GNU-ton's split-render suffixes. Only present sheets land in the map; the
+    // renderer falls back to `boss` for any key it doesn't find. The machinery
+    // names these keys only HERE (a wiring table), not in its public struct.
+    let mut boss_sprites: HashMap<&'static str, BossSpriteAsset> = HashMap::new();
+    for (key, sheet) in [
+        ("mockingbird", mockingbird),
+        ("gnu_ton", gnu_ton),
+        ("smirking_behemoth_boss", smirking_behemoth_boss),
+        ("gnu_ton_body", gnu_ton_body),
+        ("gnu_ton_hands", gnu_ton_hands),
+        ("flying_spaghetti_monster_boss", flying_spaghetti_monster_boss),
+        ("trex_boss", trex_boss),
+    ] {
+        if let Some(sheet) = sheet {
+            boss_sprites.insert(key, sheet);
+        }
+    }
+
     GameAssets {
         characters,
         entities,
         boss,
-        mockingbird,
-        gnu_ton,
-        smirking_behemoth_boss,
-        gnu_ton_body,
-        gnu_ton_hands,
-        flying_spaghetti_monster_boss,
-        trex_boss,
+        boss_sprites,
         parallax_layers,
     }
 }

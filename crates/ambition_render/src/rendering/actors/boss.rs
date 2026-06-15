@@ -101,7 +101,10 @@ pub fn upgrade_boss_sprites(
         // GNU-ton gets a split body + hands render. If either layered
         // sheet is missing, fall back to the legacy single-sheet path.
         let split_layers = if is_gnu_ton {
-            match (assets.gnu_ton_body.as_ref(), assets.gnu_ton_hands.as_ref()) {
+            match (
+                assets.boss_sprite("gnu_ton_body"),
+                assets.boss_sprite("gnu_ton_hands"),
+            ) {
                 (Some(body), Some(hands))
                     if images.get(&body.texture).is_some()
                         && images.get(&hands.texture).is_some() =>
@@ -113,59 +116,28 @@ pub fn upgrade_boss_sprites(
         } else {
             None
         };
+        // Dedicated sheets are keyed by `boss_key` in the asset registry, so the
+        // former per-boss if-else chain collapses to one lookup + the generic
+        // fallback. GNU-ton's split-layer body is the only special case above.
+        let dedicated = assets.boss_sprite(&boss_key);
+        // Warn once for any boss without its own sheet (it renders with the
+        // generic gradient-sentinel body) — the same signal the per-boss chain
+        // gave, so a boss that should have art isn't silently shipped generic.
+        if !is_gnu_ton && dedicated.is_none() && warned_generic_bosses.insert(boss_key.clone()) {
+            bevy::log::warn!(
+                target: "ambition::sprites",
+                "boss '{boss_key}' has no dedicated spritesheet wired — rendering with the \
+                 generic boss body. If it should have its own sprite, wire a BossSheetSpec + \
+                 a boss_sprites entry (keyed by boss_key) + its loader (see \
+                 flying_spaghetti_monster_boss).",
+            );
+        }
         let boss_asset = if let Some((body, _hands)) = split_layers {
             body
-        } else if boss_name.eq_ignore_ascii_case("mockingbird") {
-            let Some(asset) = assets.mockingbird.as_ref().or(assets.boss.as_ref()) else {
-                continue;
-            };
-            asset
-        } else if is_gnu_ton {
-            let Some(asset) = assets.gnu_ton.as_ref().or(assets.boss.as_ref()) else {
-                continue;
-            };
-            asset
-        } else if boss_key == "smirking_behemoth_boss" {
-            let Some(asset) = assets
-                .smirking_behemoth_boss
-                .as_ref()
-                .or(assets.boss.as_ref())
-            else {
-                continue;
-            };
-            asset
-        } else if boss_key == "flying_spaghetti_monster_boss" {
-            let Some(asset) = assets
-                .flying_spaghetti_monster_boss
-                .as_ref()
-                .or(assets.boss.as_ref())
-            else {
-                continue;
-            };
-            asset
-        } else if boss_key == "trex_boss" {
-            let Some(asset) = assets.trex_boss.as_ref().or(assets.boss.as_ref()) else {
-                continue;
-            };
+        } else if let Some(asset) = dedicated.or(assets.boss.as_ref()) {
             asset
         } else {
-            // No dedicated sheet wired for this boss — it renders with the
-            // generic gradient-sentinel body. Surface it once (a boss with its
-            // own art should have a branch above + a GameAssets field) instead
-            // of silently shipping the wrong character, the bug that hid the
-            // FSM / T-Rex behind the generic boss.
-            if warned_generic_bosses.insert(boss_key.clone()) {
-                bevy::log::warn!(
-                    target: "ambition::sprites",
-                    "boss '{boss_key}' has no dedicated spritesheet wired — rendering with the \
-                     generic boss body. If it should have its own sprite, wire a BossSheetSpec + \
-                     a GameAssets field + a resolver branch (see flying_spaghetti_monster_boss).",
-                );
-            }
-            let Some(asset) = assets.boss.as_ref() else {
-                continue;
-            };
-            asset
+            continue;
         };
         if images.get(&boss_asset.texture).is_none() {
             continue;

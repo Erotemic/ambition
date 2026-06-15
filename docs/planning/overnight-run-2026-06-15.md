@@ -352,6 +352,10 @@ the final act; needs A4 done so the rename reflects a real boundary, not a label
 
 | S2 | **EXTRACT `ambition_render` crate (the ~6.6k presentation cut)** | ☑ | XL | ~45min | (5 commits) | sandbox −~6600 | THE HEADLINE. fx+hud (leaf) → reset-visual inversion → presentation_world→app (composition) → rendering/cutscene/ui_fonts/screen_effects/dialog_ui. Layering sandbox<render<content<app; sim CANNOT import its renderer (guard). Replay BIT-IDENTICAL throughout. DialogChoiceSlot moved DOWN to dialog::runtime; pub-widened 4 sandbox internals; SfxBankResource→audio. MONOLITH SEQUENCE step 2 DONE. |
 
+| S3-b | boss sprites: id-keyed registry + (key,spec) loader table | ☑ | M | ~1 cycle | (2 commits) | net −24 | named GameAssets boss fields + per-boss if-else chain + 7 loaders → `boss_sprites` HashMap keyed by boss_key + `dedicated_boss_sheets()` data table. Machinery names no boss. Replay bit-identical. (Caveat: GNU-ton layered render logic untouched but unverifiable headless.) |
+| NAV | navigability pass on the 13k `features/` dir (#1 north-star goal) | ◐ | L | ~3 cycles | (3 commits) | — | proven split pattern (regex super::-doubling + dual-glob + pub(crate) for test-referenced helpers). Done: `combat/components.rs` 1185→{features,actors,spawn}; `features/enemies.rs` 1302→ +integration tick; `features/ecs/actors/mod.rs` 1111→{conversion,update}. Each replay bit-identical, 0 warnings. Remaining 1000+ god-files: game_assets, settings/model, features/bosses. |
+| ✅ VERIFY | full workspace solid after the session | ☑ | S | — | — | — | `cargo build --workspace` clean; 920 sandbox-lib + 175 app-lib + 20 render + content + 29 arch-guard + scripted_gameplay tests green; replay bit-identical on every commit. |
+
 ## Final summary (run 1 — 2026-06-15)
 
 - **New foundation crates (3):** `ambition_ui_nav`, `ambition_cutscene` (format +

@@ -90,8 +90,10 @@ The goal: shrink `ambition_sandbox` (~85k LOC) by moving layers OUT into crates 
 another platformer could be built by adding a content crate without editing core.
 Ordered so each step compiles + commits; later steps unlock the big one.
 
-1. **Drive presentation couplers to ~0** by moving the imported types DOWN out of
-   `presentation` (each a compile+commit):
+1. ✅ **DONE (2026-06-15).** **Drive presentation couplers to ~0** by moving the imported types DOWN out of
+   `presentation` (each a compile+commit). Pure sim now imports ZERO presentation;
+   locked by `architecture_boundaries_sim_does_not_import_presentation`. Remaining
+   importers (`dialog/ui`, `runtime/{setup,reset}`) are at-or-above the render line.
    - `PlayerVisual` / `SceneEntities` (zero-sized marker + handle Resource) →
      `platformer_runtime::lifecycle` (like `RoomVisual`). Decouples portal, body_mode.
    - `character_sprites` METADATA (`baked_sheet_registry`, `sheets` specs, the
@@ -273,6 +275,10 @@ the final act; needs A4 done so the rename reflects a real boundary, not a label
 | A4-prep | `RoomVisual` marker → `platformer_runtime::lifecycle` | ☑ | M | ~1 cycle | `5cab1e4b` | — | the seam's top coupler; zero-sized marker, runtime-owned home (its sibling `RoomScopedEntity` was already there). **presentation couplers 32 → 26.** Replay identical. |
 | A | cutscene state → `ambition_cutscene` crate | ☑ | M | ~1 cycle | `d9196268` | lib −55 | `ActiveCutscene`/`CutsceneAdvanceRequest`/`SKIP_HOLD` consolidated into the cutscene runtime crate; `app/input_systems` presentation refs 8 → 2. Replay identical. |
 | — | presentation seam status | — | — | — | — | — | **26 couplers; remaining are entangled.** The `PlayerVisual`/`SceneEntities` render-handle cluster has no clean foundation home (player↔presentation cycle risk) — needs a supervised A4 design+feel pass. RoomVisual + cutscene were the clean ones. |
+| S1-a | `PlayerVisual`+`SceneEntities` → `platformer_runtime::lifecycle` | ☑ | M | ~1 cycle | (couplers 25→17) | — | the "no clean home" claim above was wrong — they're content-free tags/handles; runtime markers are the home, render re-exports. Decoupled portal/body_mode. |
+| S1-b | `character_sprites` → lib root (it's gameplay anim, not presentation) | ☑ | M | ~1 cycle | `26c15afe` | — | 2609 LOC mis-filed under presentation; `git mv` to crate root. couplers 17→8. |
+| S1-c | `BoundFeatureKind`+`rider_hand_world_pos`+`LoadingZoneVisual` move-down | ☑ | M | ~1 cycle | (coupler batch) | — | `BoundFeatureKind`→`mechanics::combat`; `rider_hand_world_pos`+`HAND_OFFSET_NORM`→`features::ecs::mount`; `LoadingZoneVisual`→runtime markers. **couplers → 5 (2 are doc-comment false positives).** |
+| S1-✓ | **lock sim→presentation boundary** | ☑ | S | ~1 cycle | (guard) | — | `architecture_boundaries_sim_does_not_import_presentation`: pure gameplay/sim imports ZERO presentation. Allowlist = `presentation/`, `dialog/ui.rs` (IS UI), `runtime/{setup,reset}` (composition-root orchestration). **MONOLITH SEQUENCE step 1 DONE.** Prereq for the `ambition_render` extraction (step 2). |
 
 ## Final summary (run 1 — 2026-06-15)
 

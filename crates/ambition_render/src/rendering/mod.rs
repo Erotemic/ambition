@@ -30,6 +30,7 @@ mod camera;
 pub mod bubble_shield;
 pub mod morph_ball;
 pub mod gravity_visuals;
+pub mod mark_beacon;
 mod item_visuals;
 mod deep_dream;
 mod features;
@@ -117,7 +118,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     item_visuals::sync_held_projectile_visuals.after(actors::sync_visuals),
                     ambition_sandbox::shrine::sync_shrine_visual.after(actors::sync_visuals),
                     ambition_sandbox::shrine::animate_shrine_visuals.after(actors::animate_props),
-                    ambition_sandbox::abilities::traversal::mark_recall::sync_mark_beacon_visual
+                    mark_beacon::sync_mark_beacon_visual
                         .after(actors::sync_visuals),
                 ),
             );

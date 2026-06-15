@@ -189,13 +189,17 @@ pub fn rebuild_feature_view_index(
                 } else {
                     FeatureVisualKind::Enemy
                 };
-                // Surface-walker (PuppySlug) sprite rotation from the
-                // clung surface normal; flat actors render upright. The portal
-                // aerial-roll composes on top so a teleported actor somersaults.
-                let rotation_rad = surface
-                    .map(|s| f32::atan2(-s.surface_normal.x, -s.surface_normal.y))
-                    .unwrap_or(0.0)
-                    + roll_rad;
+                // Surface-walker (PuppySlug) sprite rotation: while clung to a
+                // surface, orient to that surface's normal; while airborne, use the
+                // gravity/portal aerial roll. These must NOT be summed — under a
+                // sideways gravity zone the clung surface IS the gravity floor, so
+                // `surface_rotation` and `roll_rad` both rotate to the wall and the
+                // slug over-rotates. (Byte-identical under normal gravity, where a
+                // grounded slug has `roll_rad == 0`.)
+                let rotation_rad = match surface {
+                    Some(s) => f32::atan2(-s.surface_normal.x, -s.surface_normal.y),
+                    None => roll_rad,
+                };
                 FeatureView {
                     pos: aabb.center,
                     size: aabb.size(),

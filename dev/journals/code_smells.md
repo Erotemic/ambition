@@ -71,6 +71,13 @@ Entry format:
 - **Noticed while:** Stage 22 boss_encounter core move (Jon pushed back on the rename)
 - **UPDATE 2026-06-13:** the original "no generic effect-composition framework until a second boss needs one" verdict is **superseded** — the engine-for-other-games north star greenlit a generalized `ambition_effects` crate (Technique → Effect → Combat layering). This smell + the BossAttackProfile enum above are now the active targets of that design.
 
+## 2026-06-15 Dual inventory bags — `PlayerInventory`/`ItemKind` (3) shadows `OwnedItems`/`Item` (24)
+
+- **Where:** `crates/ambition_sandbox/src/inventory/model.rs` (`ItemKind` 3-variant enum + `PlayerInventory` `[u32;3]` bag); `crates/ambition_sandbox/src/items/mod.rs` (`Item` 24-row table catalog + `OwnedItems` `[u32;ITEM_COUNT]` bag + the `legacy_kind`/`from_legacy_kind` bridge + the `ItemMeta.legacy_kind` column); consumers `dialog/yarn_bindings.rs` (`apply_give_item` grants into `PlayerInventory`; the snapshot reads `OwnedItems` then falls back to `PlayerInventory`) and `crates/ambition_content/src/quest.rs` (`PIRATE_TREASURE_REWARD: &[(ItemKind, u32)]` grants into `PlayerInventory`).
+- **Smell:** two parallel item-count bags keyed by two parallel item enums for the same player. `Item`/`OwnedItems` is the real 24-item catalog (table-driven, `dialog_id`, sprites); `ItemKind`/`PlayerInventory` is a legacy 3-kind subset bridged by `legacy_kind`. Every grant/query path has to pick a bag, and the yarn snapshot writes BOTH dialog ids per item to keep them reconciled. A new item can only be granted-by-dialogue if it exists in the legacy bag.
+- **Fix sketch / size:** M (~1-2h) — delete `ItemKind` + `PlayerInventory` + the `legacy_kind` column/methods; key the single bag on `Item` (it's `Copy+Eq+Hash` with explicit 0..23 discriminants, so `OwnedItems` already IS that bag). Repoint `apply_give_item` -> `OwnedItems` + `Item::from_dialog_id` (already accepts the legacy ids), and `content::quest::PIRATE_TREASURE_REWARD` -> `&[(Item, u32)]`. Drop the snapshot's dual-write fallback. Touches the content crate + a handful of tests; behaviour-equivalent for the 3 overlapping items, and UNLOCKS dialogue-granting any of the 24. **Deferred from the 2026-06-15 window** (spans the content crate + dual-bag tests; wanted a clean uninterrupted block).
+- **Noticed while:** 2026-06-15 monolith-breakup run, scoping "named content (ItemKind) out of machinery".
+
 ## Resolved
 
 ## 2026-06-14 Cube edge-button (page-turn) handling was duplicated per face — RESOLVED 2026-06-14

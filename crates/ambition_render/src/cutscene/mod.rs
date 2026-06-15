@@ -325,7 +325,7 @@ pub fn tick_active_cutscene(
 pub struct CutsceneOverlayRoot;
 
 /// Build / refresh the cutscene UI overlay. Pattern matches
-/// `ambition_sandbox::dialog::sync_dialog_ui`: despawn last frame's overlay,
+/// `ambition_render::dialog_ui::sync_dialog_ui`: despawn last frame's overlay,
 /// re-spawn this frame's based on `ActiveCutscene` + `CutsceneAdvanceRequest`.
 ///
 /// Layout:

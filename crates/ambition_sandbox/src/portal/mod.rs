@@ -49,7 +49,7 @@ mod host_adapter {
     use crate::features::FeatureAabb;
     use crate::platformer_runtime::body::BodyKinematics;
     use crate::player::{PlayerEntity, PrimaryPlayer};
-    use crate::presentation::rendering::PlayerVisual;
+    use crate::platformer_runtime::lifecycle::PlayerVisual;
     use crate::GameWorld;
 
     /// Bridge the controlled character + the collision world → the crate-owned

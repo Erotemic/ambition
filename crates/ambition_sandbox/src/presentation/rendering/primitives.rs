@@ -11,17 +11,9 @@ use crate::features::FeatureVisualKind;
 // existing `presentation::rendering::RoomVisual` call sites keep resolving; the
 // canonical home is `crate::platformer_runtime::lifecycle` (content-free, so sim
 // systems can tag visual entities without importing presentation).
-pub use crate::platformer_runtime::lifecycle::{RoomScopedEntity, RoomVisual};
-
-#[derive(Resource)]
-pub struct SceneEntities {
-    pub player: Entity,
-    pub hud: Entity,
-    pub quest_panel: Entity,
-}
-
-#[derive(Component)]
-pub struct PlayerVisual;
+pub use crate::platformer_runtime::lifecycle::{
+    PlayerVisual, RoomScopedEntity, RoomVisual, SceneEntities,
+};
 
 /// Standing-stance render size of the textured player sprite, recorded
 /// at sprite-build time. The crouch-squash hack in `sync_visuals` uses

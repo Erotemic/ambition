@@ -11,5 +11,7 @@ mod markers;
 mod spawn_ext;
 
 pub use cleanup::despawn_scoped_entity;
-pub use markers::{PersistentEntity, RoomScopedEntity, RoomVisual, RunScopedEntity};
+pub use markers::{
+    PersistentEntity, PlayerVisual, RoomScopedEntity, RoomVisual, RunScopedEntity, SceneEntities,
+};
 pub use spawn_ext::SpawnScopedExt;

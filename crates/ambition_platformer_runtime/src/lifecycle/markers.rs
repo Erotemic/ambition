@@ -35,3 +35,19 @@ pub struct RunScopedEntity;
 /// `commands.spawn` would make lifecycle intent unclear.
 #[derive(Component, Default)]
 pub struct PersistentEntity;
+
+/// Marker on the player's rendered sprite entity. Content-free (a tag the renderer
+/// queries + gameplay systems that manipulate the player visual reference); lives
+/// here so neither side imports a presentation module to name it.
+#[derive(Component, Default)]
+pub struct PlayerVisual;
+
+/// The scene's root entity handles (player sprite + HUD surfaces). Opaque `Entity`
+/// slots shared by setup, input, and presentation; runtime-owned so sim systems can
+/// reference them without importing presentation.
+#[derive(Resource)]
+pub struct SceneEntities {
+    pub player: Entity,
+    pub hud: Entity,
+    pub quest_panel: Entity,
+}

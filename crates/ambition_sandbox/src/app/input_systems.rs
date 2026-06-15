@@ -10,7 +10,7 @@ use crate::input::{
     analog_to_dir, ControlFrame, MenuControlFrame, MenuInputState, PlayerDashTriggerState,
 };
 #[cfg(feature = "input")]
-use crate::presentation::rendering::PlayerVisual;
+use crate::platformer_runtime::lifecycle::PlayerVisual;
 use crate::SandboxDevState;
 
 /// Item 3 (optional guard): whether input should be SUPPRESSED this frame because
@@ -56,7 +56,7 @@ pub struct MenuNavConsume;
 pub fn attach_player_input_components(
     mut commands: Commands,
     dev_state: Res<SandboxDevState>,
-    scene: Res<crate::presentation::rendering::SceneEntities>,
+    scene: Res<crate::platformer_runtime::lifecycle::SceneEntities>,
 ) {
     let input_map = dev_state.preset().input_map();
     commands

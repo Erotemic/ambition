@@ -24,7 +24,7 @@ use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
 
 use ambition_sandbox::persistence::settings::UserSettings;
-use ambition_sandbox::presentation::ui_fonts::{UiFontWeight, UiFonts};
+use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 
 /// Runtime mirror of [`UserSettings::video::show_fps`]. Updated by
 /// [`sync_fps_overlay_state_from_settings`] when the persisted flag

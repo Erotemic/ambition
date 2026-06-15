@@ -89,7 +89,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     app.add_plugins(ambition_sandbox::features::FeatureInteractionSchedulePlugin);
     app.add_plugins(ldtk_world::LdtkRuntimeSpinePlugin);
     app.add_plugins(ambition_sandbox::encounter::EncounterSimulationSchedulePlugin);
-    app.add_plugins(ambition_sandbox::presentation::cutscene::CutsceneSchedulePlugin);
+    app.add_plugins(ambition_render::cutscene::CutsceneSchedulePlugin);
     app.add_plugins(ambition_sandbox::features::GameplayEffectsSchedulePlugin);
     app.add_plugins(super::progression_schedule::ProgressionSchedulePlugin);
     app.add_plugins(ambition_sandbox::features::FeatureViewSyncSchedulePlugin);
@@ -465,11 +465,11 @@ pub fn add_presentation_plugins(app: &mut App) {
     install_presentation_resources_and_subplugins(app);
     app.add_plugins(ambition_sandbox::persistence::PersistenceSchedulePlugin);
     install_menu_setup_and_hotkeys(app);
-    app.add_plugins(ambition_sandbox::presentation::rendering::PresentationVisualAnimationPlugin);
+    app.add_plugins(ambition_render::rendering::PresentationVisualAnimationPlugin);
     install_camera_and_debug_overlay_systems(app);
     install_fx_and_hud_systems(app);
     install_misc_visual_sync_systems(app);
-    app.add_plugins(ambition_sandbox::presentation::rendering::PlayerVisualSchedulePlugin);
+    app.add_plugins(ambition_render::rendering::PlayerVisualSchedulePlugin);
     install_projectile_and_vfx_systems(app);
 }
 
@@ -495,7 +495,7 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
         .register_type::<ambition_sandbox::portal::PortalViewConeConfig>();
 
     app.add_plugins(crate::host::platform::PlatformPlugin);
-    app.add_plugins(ambition_sandbox::presentation::screen_effects::ScreenEffectsPlugin);
+    app.add_plugins(ambition_render::screen_effects::ScreenEffectsPlugin);
     // Loads baked `*_spritesheet.ron` manifests for runtime sheet metadata.
     app.add_plugins(ambition_sandbox::character_sprites::SheetRegistryPlugin);
     app.add_plugins(crate::dev::DevToolsPlugin);
@@ -613,10 +613,10 @@ fn install_fx_and_hud_systems(app: &mut App) {
         Update,
         (
             update_hud,
-            ambition_sandbox::presentation::rendering::sync_boss_health_bar_overlay,
+            ambition_render::rendering::sync_boss_health_bar_overlay,
             dialog::dialog_reveal_tick,
-            dialog::sync_dialog_ui,
-            ambition_sandbox::presentation::cutscene::sync_cutscene_ui,
+            ambition_render::dialog_ui::sync_dialog_ui,
+            ambition_render::cutscene::sync_cutscene_ui,
         )
             .chain()
             .after(windowing::window_mode_hotkeys),
@@ -642,7 +642,7 @@ fn install_fx_and_hud_systems(app: &mut App) {
 fn install_misc_visual_sync_systems(app: &mut App) {
     app.add_systems(
         Update,
-        ambition_sandbox::presentation::rendering::sync_health_overlays.after(sync_visuals),
+        ambition_render::rendering::sync_health_overlays.after(sync_visuals),
     )
     // Idle barks fire on a 5-10s cadence while the boss is in an
     // attacking phase, so the scholar feels alive between strikes.
@@ -666,7 +666,7 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     )
     .add_systems(
         Update,
-        ambition_sandbox::presentation::rendering::sync_parallax_layers.after(camera_follow),
+        ambition_render::rendering::sync_parallax_layers.after(camera_follow),
     )
     // Encounter-driven LockWall visuals. Reconciles `LockWallVisual`
     // Bevy entities against `world.blocks` so the wall is visible
@@ -676,7 +676,7 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     // current frame's world state, not last frame's.
     .add_systems(
         Update,
-        ambition_sandbox::presentation::rendering::sync_lock_wall_visuals
+        ambition_render::rendering::sync_lock_wall_visuals
             .after(ambition_sandbox::encounter::update_encounters_from_world),
     )
     // NPC spritesheet upgrade. `.after(sync_visuals)` preserves the
@@ -684,7 +684,7 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     // must exist before we look them up).
     .add_systems(
         Update,
-        ambition_sandbox::presentation::rendering::upgrade_npc_sprites.after(sync_visuals),
+        ambition_render::rendering::upgrade_npc_sprites.after(sync_visuals),
     )
     // Dev "hide sprites" / "placeholder sprites" overrides — must run
     // after every other visibility- or sprite-setting system so they
@@ -698,8 +698,8 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     .add_systems(
         Update,
         (
-            ambition_sandbox::presentation::rendering::apply_placeholder_sprites_override,
-            ambition_sandbox::presentation::rendering::apply_hide_sprites_override,
+            ambition_render::rendering::apply_placeholder_sprites_override,
+            ambition_render::rendering::apply_hide_sprites_override,
         )
             .chain()
             .after(sync_visuals)
@@ -714,7 +714,7 @@ fn install_misc_visual_sync_systems(app: &mut App) {
         ambition_sandbox::menu::map::map_menu_pointer_dismiss,
     )
     // Quest panel runs alongside the verbose HUD.
-    .add_systems(Update, update_quest_panel.after(dialog::sync_dialog_ui));
+    .add_systems(Update, update_quest_panel.after(ambition_render::dialog_ui::sync_dialog_ui));
 }
 
 /// Projectile sprite ring + VFX/debris message subscribers + (input-
@@ -782,7 +782,7 @@ pub(super) fn add_physics_debris_plugins(app: &mut App) {
 pub(super) fn add_physics_debris_plugins(_app: &mut App) {}
 
 /// Install UI-shell plugins: bevy_material_ui's styling layer. The
-/// dialogue overlay (`dialog::sync_dialog_ui`) draws with Bevy's
+/// dialogue overlay (`ambition_render::dialog_ui::sync_dialog_ui`) draws with Bevy's
 /// core UI primitives and stays installed unconditionally; only
 /// the optional plugins live behind `ui`.
 ///

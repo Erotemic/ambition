@@ -15,6 +15,8 @@ default = []
 # names; each forwards to the matching ambition_sandbox machinery feature so a
 # mismatched combination is a compile error, never a silent missing system.
 input = ["dep:leafwing-input-manager", "ambition_sandbox/input"]
+# The reusable portal renderer the world-sync code installs when portals draw.
+portal_render = ["dep:ambition_portal_presentation", "ambition_sandbox/portal_render"]
 
 [dependencies]
 # The machinery this crate renders. Same always-on baseline every persona used
@@ -27,6 +29,12 @@ ambition_sandbox = { path = "../ambition_sandbox", default-features = false, fea
 ambition_platformer_runtime = { path = "../ambition_platformer_runtime" }
 # The VFX message vocabulary `fx` re-exports (`ambition_effects::vfx::*`).
 ambition_effects = { path = "../ambition_effects" }
+# The cutscene format + live state the cutscene UI plays back.
+ambition_cutscene = { path = "../ambition_cutscene" }
+# Font id resolution for the UI font loader (`ui_fonts`).
+ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy"] }
+# The reusable portal renderer (portal_render only); world-sync installs it.
+ambition_portal_presentation = { path = "../ambition_portal_presentation", optional = true }
 
 # Render-facing by definition: the 2D + UI render pipeline for sprites, Mesh2d,
 # bevy_ui nodes, and text. `ui_api` matches the sandbox baseline; the render

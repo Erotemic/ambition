@@ -7,9 +7,9 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
 use super::primitives::{feature_color, feature_z, FeatureVisual, RoomVisual};
-use crate::assets::game_assets::{self, entity_sprite_or_color, GameAssets};
-use crate::config::world_to_bevy;
-use crate::features::{
+use ambition_sandbox::assets::game_assets::{self, entity_sprite_or_color, GameAssets};
+use ambition_sandbox::config::world_to_bevy;
+use ambition_sandbox::features::{
     ActorRuntime, BossRewardChest, ChestFeature, EncounterMob, EncounterRewardChest, FeatureAabb,
     FeatureId, FeatureName, FeatureVisualKind,
 };
@@ -24,7 +24,7 @@ use crate::features::{
 /// same frame; chests pick up their sprite via `state_aware_entity_sprite`.
 pub fn spawn_dynamic_feature_visuals(
     mut commands: Commands,
-    world: Res<crate::GameWorld>,
+    world: Res<ambition_sandbox::GameWorld>,
     assets: Option<Res<GameAssets>>,
     existing: Query<&FeatureVisual>,
     ecs_mobs: Query<
@@ -32,7 +32,7 @@ pub fn spawn_dynamic_feature_visuals(
             &FeatureId,
             &FeatureAabb,
             &ActorRuntime,
-            Option<&crate::features::EnemyConfig>,
+            Option<&ambition_sandbox::features::EnemyConfig>,
         ),
         With<EncounterMob>,
     >,
@@ -42,10 +42,10 @@ pub fn spawn_dynamic_feature_visuals(
             &FeatureName,
             &FeatureAabb,
             &ActorRuntime,
-            Option<&crate::features::EnemyConfig>,
-            Option<&crate::features::NpcConfig>,
+            Option<&ambition_sandbox::features::EnemyConfig>,
+            Option<&ambition_sandbox::features::NpcConfig>,
         ),
-        With<crate::features::PostBossNpc>,
+        With<ambition_sandbox::features::PostBossNpc>,
     >,
     ecs_reward_chests: Query<
         (&FeatureId, &FeatureAabb, &ChestFeature),

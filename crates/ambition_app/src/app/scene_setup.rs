@@ -25,10 +25,10 @@ use ambition_sandbox::character_sprites::{
     player_placeholder_render_size, CharacterAnimator,
 };
 use ambition_sandbox::platformer_runtime::lifecycle::SceneEntities;
-use ambition_sandbox::presentation::rendering::{
+use ambition_render::rendering::{
     spawn_parallax_layers, spawn_room_visuals, HudText, PlayerSpriteBaseline, QuestPanelText,
 };
-use ambition_sandbox::presentation::ui_fonts::{UiFontWeight, UiFonts};
+use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_sandbox::rooms::RoomSet;
 use ambition_sandbox::runtime::data::SandboxDataSpec;
 use ambition_sandbox::world::physics::PhysicsSandboxSettings;
@@ -238,7 +238,7 @@ fn presentation_world_inner(
             #[cfg(feature = "portal_render")]
             bevy::camera::visibility::RenderLayers::layer(0)
                 .with(ambition_sandbox::portal::PORTAL_WINDOW_RENDER_LAYER),
-            ambition_sandbox::presentation::screen_effects::ScreenEffectSettings::default(),
+            ambition_render::screen_effects::ScreenEffectSettings::default(),
             Name::new("Main Camera"),
         ))
         .id();

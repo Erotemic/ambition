@@ -29,7 +29,7 @@ use ambition_sandbox::character_sprites::{
 use ambition_render::fx::{
     ExplosionKind, ExplosionRequest, FireworksRequest, ParticleKind, VfxMessage,
 };
-use ambition_sandbox::presentation::rendering::PropVisual;
+use ambition_render::rendering::PropVisual;
 use ambition_sandbox::rooms::{PropSpec, RoomSet};
 use ambition_sandbox::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 
@@ -382,7 +382,7 @@ pub fn tick_cut_rope_boss_arena(
     mut boss_registry: Option<ResMut<BossEncounterRegistry>>,
     mut music_request: Option<ResMut<ambition_sandbox::encounter::BossEncounterMusicRequest>>,
     mut cutscene_queue: Option<
-        ResMut<ambition_sandbox::presentation::cutscene::CutsceneTriggerQueue>,
+        ResMut<ambition_render::cutscene::CutsceneTriggerQueue>,
     >,
     mut banner: ResMut<GameplayBanner>,
     mut sfx: MessageWriter<SfxMessage>,

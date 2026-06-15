@@ -4,13 +4,13 @@
 //! are intentionally optional. If a generated PNG is absent, no fallback quad is
 //! spawned; foreground atmosphere should never become gameplay-critical.
 
-use crate::engine_core as ae;
+use ambition_sandbox::engine_core as ae;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 use super::primitives::RoomVisual;
-use crate::config::{world_to_bevy, WINDOW_H, WINDOW_W, WORLD_Z_FX};
-use crate::assets::game_assets::{
+use ambition_sandbox::config::{world_to_bevy, WINDOW_H, WINDOW_W, WORLD_Z_FX};
+use ambition_sandbox::assets::game_assets::{
     foreground_parallax_factor, foreground_parallax_sprite_for_biome, ForegroundParallaxSprite,
     GameAssets,
 };
@@ -31,7 +31,7 @@ pub struct ForegroundParallax {
 /// Spawn the active room's optional generated foreground layer.
 pub fn spawn_room_foreground_parallax(
     commands: &mut Commands,
-    spec: &crate::rooms::RoomSpec,
+    spec: &ambition_sandbox::rooms::RoomSpec,
     assets: Option<&GameAssets>,
 ) {
     let Some(assets) = assets else {
@@ -82,7 +82,7 @@ pub fn sync_foreground_parallax(
     camera: Query<
         (&Transform, &Projection),
         (
-            With<crate::runtime::camera_layers::MainCamera>,
+            With<ambition_sandbox::runtime::camera_layers::MainCamera>,
             Without<ForegroundParallax>,
         ),
     >,

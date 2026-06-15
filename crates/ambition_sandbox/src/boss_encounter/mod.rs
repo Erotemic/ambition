@@ -25,7 +25,7 @@ mod profile;
 mod registry;
 mod rewards;
 mod specs;
-pub(crate) mod sprites;
+pub mod sprites;
 mod systems;
 
 mod roster;

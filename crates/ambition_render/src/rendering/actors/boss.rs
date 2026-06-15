@@ -39,7 +39,7 @@ pub fn upgrade_boss_sprites(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
     images: Res<Assets<Image>>,
-    ecs_bosses: Query<(&FeatureId, BossClusterRef, &crate::brain::BossAttackState)>,
+    ecs_bosses: Query<(&FeatureId, BossClusterRef, &ambition_sandbox::brain::BossAttackState)>,
     new_bosses: Query<
         (Entity, &FeatureVisual),
         (Without<CharacterAnimator>, Without<BossAnimator>),
@@ -61,7 +61,7 @@ pub fn upgrade_boss_sprites(
                 let boss = item.as_boss_ref();
                 // `flash` reads `BossAttackState` instead of the deleted
                 // `attack_timer` / `attack_windup_timer` mirror fields.
-                Some(crate::features::FeatureView {
+                Some(ambition_sandbox::features::FeatureView {
                     pos: boss.kin.pos,
                     size: boss.render_size(),
                     kind: FeatureVisualKind::Boss,
@@ -84,7 +84,7 @@ pub fn upgrade_boss_sprites(
         // bosses fall back to the gradient-sentinel sheet.
         // If no asset is available we skip — the colored rectangle
         // fallback in `sync_visuals` continues to render.
-        let boss_name = crate::features::ecs_boss_name(&visual.id, &ecs_bosses).unwrap_or("");
+        let boss_name = ambition_sandbox::features::ecs_boss_name(&visual.id, &ecs_bosses).unwrap_or("");
         let boss_behavior_id = ecs_bosses
             .iter()
             .find_map(|(feature_id, item, _)| {
@@ -251,20 +251,20 @@ pub fn sync_gnu_ton_hands(
 /// Per-frame state-driven animation for boss entities.
 pub fn animate_bosses(
     mut commands: Commands,
-    world_time: Res<crate::WorldTime>,
+    world_time: Res<ambition_sandbox::WorldTime>,
     ecs_bosses: Query<(
         Entity,
         &FeatureId,
         BossClusterRef,
-        &crate::brain::BossAttackState,
-        &crate::brain::Brain,
+        &ambition_sandbox::brain::BossAttackState,
+        &ambition_sandbox::brain::Brain,
     )>,
     mut query: Query<
         (
             &FeatureVisual,
             &mut Sprite,
             &mut BossAnimator,
-            Option<&crate::time::time_control::ProperTimeScale>,
+            Option<&ambition_sandbox::time::time_control::ProperTimeScale>,
         ),
         Without<PlayerVisual>,
     >,
@@ -275,11 +275,11 @@ pub fn animate_bosses(
     // own animation while the world is frozen by its SimClock
     // request.
     for (visual, mut sprite, mut animator, scale) in &mut query {
-        let dt = world_time.entity_dt(crate::time::time_control::ProperTimeScale::or_default(
+        let dt = world_time.entity_dt(ambition_sandbox::time::time_control::ProperTimeScale::or_default(
             scale,
         ));
         let Some((boss_entity, state)): Option<(Entity, BossAnimState)> =
-            crate::features::ecs_boss_anim_state_and_entity(&visual.id, &ecs_bosses)
+            ambition_sandbox::features::ecs_boss_anim_state_and_entity(&visual.id, &ecs_bosses)
         else {
             continue;
         };
@@ -287,7 +287,7 @@ pub fn animate_bosses(
         let drive_phase = state.drive_phase();
         animator.request_for_phase(anim, drive_phase);
         let index = animator.tick(dt);
-        let animation_sample = crate::features::ecs_boss_animation_frame_sample(
+        let animation_sample = ambition_sandbox::features::ecs_boss_animation_frame_sample(
             &visual.id,
             &ecs_bosses,
             anim,
@@ -298,7 +298,7 @@ pub fn animate_bosses(
         } else {
             commands
                 .entity(boss_entity)
-                .remove::<crate::features::BossAnimationFrameSample>();
+                .remove::<ambition_sandbox::features::BossAnimationFrameSample>();
         }
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
             atlas.index = index;

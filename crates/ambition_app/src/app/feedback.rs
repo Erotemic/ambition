@@ -119,8 +119,8 @@ pub struct SandboxQueues<'w> {
 #[derive(SystemParam)]
 pub struct ProgressionResources<'w> {
     pub quests: Res<'w, ambition_content::quest::QuestRegistry>,
-    pub cutscene: Res<'w, ambition_sandbox::presentation::cutscene::ActiveCutscene>,
-    pub cutscene_request: Res<'w, ambition_sandbox::presentation::cutscene::CutsceneAdvanceRequest>,
+    pub cutscene: Res<'w, ambition_render::cutscene::ActiveCutscene>,
+    pub cutscene_request: Res<'w, ambition_render::cutscene::CutsceneAdvanceRequest>,
     pub bosses: Res<'w, ambition_sandbox::boss_encounter::BossEncounterRegistry>,
     pub encounters: Res<'w, ambition_sandbox::encounter::EncounterRegistry>,
     pub map: Res<'w, ambition_sandbox::menu::map::MapMenuState>,

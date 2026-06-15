@@ -43,7 +43,7 @@ visible = [
 ]
 
 portal = ["ambition_sandbox/portal", "ambition_content/portal"]
-portal_render = ["portal", "ambition_sandbox/portal_render", "ambition_content/portal_render"]
+portal_render = ["portal", "ambition_sandbox/portal_render", "ambition_render/portal_render", "ambition_content/portal_render"]
 portal_ldtk = ["portal", "ambition_sandbox/portal_ldtk"]
 
 desktop_platform = ["ambition_sandbox/desktop_platform"]

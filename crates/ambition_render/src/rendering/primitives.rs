@@ -1,17 +1,17 @@
 //! Visual marker components, scene entity registry, color/z helpers,
 //! and the small `spawn_world_label` utility.
 
-use crate::engine_core as ae;
+use ambition_sandbox::engine_core as ae;
 use bevy::prelude::*;
 
-use crate::config::{world_to_bevy, WORLD_Z_BLOCK, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
-use crate::features::FeatureVisualKind;
+use ambition_sandbox::config::{world_to_bevy, WORLD_Z_BLOCK, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
+use ambition_sandbox::features::FeatureVisualKind;
 
 // Runtime-owned room lifecycle markers. Re-exported so presentation systems +
 // existing `presentation::rendering::RoomVisual` call sites keep resolving; the
-// canonical home is `crate::platformer_runtime::lifecycle` (content-free, so sim
+// canonical home is `ambition_sandbox::platformer_runtime::lifecycle` (content-free, so sim
 // systems can tag visual entities without importing presentation).
-pub use crate::platformer_runtime::lifecycle::{
+pub use ambition_sandbox::platformer_runtime::lifecycle::{
     LoadingZoneVisual, PlayerVisual, RoomScopedEntity, RoomVisual, SceneEntities,
 };
 

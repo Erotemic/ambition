@@ -24,7 +24,7 @@ use bevy::{
 };
 
 use super::primitives::{FeatureVisual, PlayerVisual, PropVisual, RoomVisual};
-use crate::features::ActorRuntime;
+use ambition_sandbox::features::ActorRuntime;
 
 const SHADER_ASSET_PATH: &str = "shaders/puppy_slug_deep_dream.wgsl";
 
@@ -99,7 +99,7 @@ pub fn attach_puppy_slug_deep_dream_overlays(
     mut materials: ResMut<Assets<PuppySlugDeepDreamMaterial>>,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
     images: Res<Assets<Image>>,
-    actors: Query<crate::features::ActorSpriteData>,
+    actors: Query<ambition_sandbox::features::ActorSpriteData>,
     candidates: Query<
         (Entity, &FeatureVisual, &Transform, &Sprite, Option<&Anchor>),
         (
@@ -169,9 +169,9 @@ pub fn attach_puppy_slug_deep_dream_overlays(
 /// material. This runs after `animate_characters`, so it sees the same atlas
 /// index and facing flip that the normal sprite draws.
 pub fn sync_puppy_slug_deep_dream_overlays(
-    world_time: Res<crate::WorldTime>,
+    world_time: Res<ambition_sandbox::WorldTime>,
     mut elapsed: Local<f32>,
-    developer_tools: Res<crate::dev::dev_tools::DeveloperTools>,
+    developer_tools: Res<ambition_sandbox::dev::dev_tools::DeveloperTools>,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
     images: Res<Assets<Image>>,
     mut sources: Query<
@@ -285,7 +285,7 @@ pub fn cleanup_puppy_slug_deep_dream_overlays(
     }
 }
 
-fn puppy_slug_seed(id: &str, actors: &Query<crate::features::ActorSpriteData>) -> Option<f32> {
+fn puppy_slug_seed(id: &str, actors: &Query<ambition_sandbox::features::ActorSpriteData>) -> Option<f32> {
     actors.iter().find_map(
         |(feature_id, actor, _kin, _status, _attack, config, npc_config, _)| {
             if feature_id.as_str() != id {

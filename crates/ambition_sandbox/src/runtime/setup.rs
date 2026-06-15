@@ -17,11 +17,8 @@
 
 use crate::engine_core as ae;
 use bevy::prelude::*;
-#[cfg(feature = "audio")]
 
 use crate::assets::loading::SandboxAssetCollection;
-#[cfg(feature = "audio")]
-#[cfg(feature = "audio")]
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
 use crate::dev::dev_tools::{EditableAbilitySet, EditableMovementTuning};
 use crate::ldtk_world::{LdtkRuntimeIndex, SandboxLdtkAsset};
@@ -29,7 +26,6 @@ use crate::platformer_runtime::lifecycle::{PlayerVisual, SceneEntities};
 use crate::rooms::RoomSet;
 use crate::runtime::data::SandboxDataAsset;
 use crate::GameWorld;
-#[cfg(feature = "audio")]
 
 /// Borrowed inputs for `simulation_world`.
 ///

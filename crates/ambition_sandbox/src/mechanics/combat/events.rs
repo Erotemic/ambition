@@ -33,7 +33,7 @@ impl BoundFeatureKind {
         }
     }
 
-    pub(crate) fn matches(&self, kind: FeatureVisualKind, collision_size: ae::Vec2) -> bool {
+    pub fn matches(&self, kind: FeatureVisualKind, collision_size: ae::Vec2) -> bool {
         self.kind == kind && (self.collision_size - collision_size).length_squared() <= 0.25
     }
 }

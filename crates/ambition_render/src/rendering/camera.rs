@@ -1,8 +1,8 @@
 //! Player-following camera with smooth zoom in/out around encounter
 //! transitions and an overview-camera dev mode.
 
-use crate::engine_core as ae;
-use crate::engine_core::AabbExt;
+use ambition_sandbox::engine_core as ae;
+use ambition_sandbox::engine_core::AabbExt;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
@@ -32,9 +32,9 @@ use bevy::window::PrimaryWindow;
 const MAX_CAMERA_SMOOTH_DT: f32 = 1.0 / 30.0;
 
 use super::primitives::PlayerVisual;
-use crate::config::world_to_bevy;
-use crate::persistence::settings::CameraAspectPolicy;
-use crate::rooms::{CameraClampMode, CameraZoneSpec, RoomSet};
+use ambition_sandbox::config::world_to_bevy;
+use ambition_sandbox::persistence::settings::CameraAspectPolicy;
+use ambition_sandbox::rooms::{CameraClampMode, CameraZoneSpec, RoomSet};
 
 /// Live camera diagnostics and feel-lab data.
 ///
@@ -88,32 +88,32 @@ impl Default for CameraViewState {
 /// the lone player today. A future co-op build needs to follow the
 /// player with `PrimaryPlayer` (or compute a midpoint between local
 /// players); the query should switch to
-/// `With<crate::player::PrimaryPlayer>` once a second player can
-/// exist. See [`crate::player::queries::PrimaryPlayerOnly`].
+/// `With<ambition_sandbox::player::PrimaryPlayer>` once a second player can
+/// exist. See [`ambition_sandbox::player::queries::PrimaryPlayerOnly`].
 pub fn camera_follow(
-    world: Res<crate::GameWorld>,
+    world: Res<ambition_sandbox::GameWorld>,
     room_set: Res<RoomSet>,
     time: Res<Time>,
-    developer_tools: Res<crate::dev::dev_tools::DeveloperTools>,
-    encounter_registry: Res<crate::encounter::EncounterRegistry>,
-    user_settings: Res<crate::persistence::settings::UserSettings>,
-    mut camera_state: ResMut<crate::CameraEaseState>,
+    developer_tools: Res<ambition_sandbox::dev::dev_tools::DeveloperTools>,
+    encounter_registry: Res<ambition_sandbox::encounter::EncounterRegistry>,
+    user_settings: Res<ambition_sandbox::persistence::settings::UserSettings>,
+    mut camera_state: ResMut<ambition_sandbox::CameraEaseState>,
     mut view_state: ResMut<CameraViewState>,
-    ease_tuning: Res<crate::CameraEaseTuning>,
-    shake: Res<crate::time::camera_ease::CameraShakeState>,
+    ease_tuning: Res<ambition_sandbox::CameraEaseTuning>,
+    shake: Res<ambition_sandbox::time::camera_ease::CameraShakeState>,
     mut last_camera_room: Local<Option<String>>,
     player: Query<
         (
-            &crate::player::BodyKinematics,
-            &crate::player::PlayerBaseSize,
-            &crate::player::PlayerBlinkCameraState,
+            &ambition_sandbox::player::BodyKinematics,
+            &ambition_sandbox::player::PlayerBaseSize,
+            &ambition_sandbox::player::PlayerBlinkCameraState,
         ),
-        crate::player::PrimaryPlayerOnly,
+        ambition_sandbox::player::PrimaryPlayerOnly,
     >,
     // While possessing, the camera follows the possessed actor (so the player
     // can see the body they're driving), resolved from its FeatureAabb.
-    possession: Res<crate::abilities::traversal::possession::PossessionState>,
-    feature_aabbs: Query<&crate::features::FeatureAabb>,
+    possession: Res<ambition_sandbox::abilities::traversal::possession::PossessionState>,
+    feature_aabbs: Query<&ambition_sandbox::features::FeatureAabb>,
     windows: Query<&Window, With<PrimaryWindow>>,
     // `With<MainCamera>` (not the broad `With<Camera2d>`): besides the #31 cube
     // pause-menu Camera3d, the portal view-cone renderer spawns offscreen
@@ -125,7 +125,7 @@ pub fn camera_follow(
     mut query: Query<
         (&mut Transform, &mut Projection),
         (
-            With<crate::runtime::camera_layers::MainCamera>,
+            With<ambition_sandbox::runtime::camera_layers::MainCamera>,
             Without<PlayerVisual>,
         ),
     >,
@@ -232,8 +232,8 @@ pub fn camera_follow(
         .single()
         .map(|w| (w.width().max(1.0), w.height().max(1.0)))
         .unwrap_or((
-            crate::config::WINDOW_W as f32,
-            crate::config::WINDOW_H as f32,
+            ambition_sandbox::config::WINDOW_W as f32,
+            ambition_sandbox::config::WINDOW_H as f32,
         ));
 
     let scale_by_height = target_view_h / window_h;

@@ -2,7 +2,7 @@
 //!
 //! Owns the install of the named cutscene library, the room → cutscene
 //! bindings, and the combat-banter registry (boss + pirate barks). The
-//! cutscene/banter *content* still lives in `ambition_sandbox::presentation::cutscene`
+//! cutscene/banter *content* still lives in `ambition_render::cutscene`
 //! and `crate::banter` / `crate::bosses`; this module only
 //! owns assembling those named rosters into sandbox resources.
 //!
@@ -17,16 +17,16 @@ pub struct AmbitionDialogueContentPlugin;
 
 impl Plugin for AmbitionDialogueContentPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(ambition_sandbox::presentation::cutscene::default_cutscene_library())
-            .insert_resource(ambition_sandbox::presentation::cutscene::ActiveCutscene::default())
+        app.insert_resource(ambition_render::cutscene::default_cutscene_library())
+            .insert_resource(ambition_render::cutscene::ActiveCutscene::default())
             .insert_resource(
-                ambition_sandbox::presentation::cutscene::CutsceneTriggerQueue::default(),
+                ambition_render::cutscene::CutsceneTriggerQueue::default(),
             )
             .insert_resource(
-                ambition_sandbox::presentation::cutscene::CutsceneAdvanceRequest::default(),
+                ambition_render::cutscene::CutsceneAdvanceRequest::default(),
             )
             .insert_resource(
-                ambition_sandbox::presentation::cutscene::RoomCutsceneBindings::defaults(),
+                ambition_render::cutscene::RoomCutsceneBindings::defaults(),
             )
             // Combat-banter registry — story-content lines for the
             // `apply_feature_hit_events` hit handler. Boss barks are

@@ -157,7 +157,7 @@ pub(super) fn update_hud(
         String::new()
     };
     // Cutscene UI lives in the dedicated overlay
-    // (`ambition_sandbox::presentation::cutscene::sync_cutscene_ui`) — a proper Bevy Node panel
+    // (`ambition_render::cutscene::sync_cutscene_ui`) — a proper Bevy Node panel
     // with speaker / body / continue prompt and a skip-hold progress
     // bar. The debug HUD just notes that one is active so testers
     // can correlate skip-hold state with the floating overlay; the
@@ -317,7 +317,7 @@ pub fn update_quest_panel(
     quests: Res<ambition_content::quest::QuestRegistry>,
     user_settings: Res<ambition_sandbox::persistence::settings::UserSettings>,
     entities: Res<SceneEntities>,
-    mut query: Query<&mut Text, With<ambition_sandbox::presentation::rendering::QuestPanelText>>,
+    mut query: Query<&mut Text, With<ambition_render::rendering::QuestPanelText>>,
 ) {
     if entities.quest_panel == Entity::PLACEHOLDER {
         return;

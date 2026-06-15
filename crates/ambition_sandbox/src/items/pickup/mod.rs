@@ -956,7 +956,7 @@ pub fn sync_held_item_visual(
 /// Texture handles used by held-shot visuals. Kept alive in system-local state
 /// so the per-frame clear/rebuild visual path does not also re-request and
 /// repeatedly decode projectile sprite PNGs.
-pub(crate) struct HeldProjectileVisualArt {
+pub struct HeldProjectileVisualArt {
     lasersword: Handle<Image>,
     fireball: Handle<Image>,
 }
@@ -976,7 +976,7 @@ pub struct HeldProjectileVisual;
 
 /// Render each in-flight held shot. Fireballs draw as a glowing sphere; other
 /// shots reuse the spinning lasersword sprite and rotate along travel.
-pub(crate) fn sync_held_projectile_visuals(
+pub fn sync_held_projectile_visuals(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     world: Res<crate::GameWorld>,

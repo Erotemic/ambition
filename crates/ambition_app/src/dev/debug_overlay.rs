@@ -16,8 +16,8 @@ use ambition_sandbox::input::ControlFrame;
 #[cfg(feature = "input")]
 use ambition_sandbox::input::SandboxAction;
 #[cfg(feature = "input")]
-use ambition_sandbox::presentation::rendering::PlayerVisual;
-use ambition_sandbox::presentation::rendering::{CameraViewState, SceneEntities};
+use ambition_render::rendering::PlayerVisual;
+use ambition_render::rendering::{CameraViewState, SceneEntities};
 use ambition_sandbox::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
 use ambition_sandbox::world::platforms;
 use ambition_sandbox::{GameMode, GameWorld, SandboxDevState};

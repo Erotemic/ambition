@@ -4,8 +4,8 @@
 //! initial colored rectangles into authored character sprites once
 //! the asset is loaded.
 
-use crate::engine_core as ae;
-use crate::engine_core::AabbExt;
+use ambition_sandbox::engine_core as ae;
+use ambition_sandbox::engine_core::AabbExt;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
@@ -13,20 +13,20 @@ use super::primitives::{
     feature_color, feature_z, switch_on_color, FeatureVisual, PlayerSpriteBaseline, PlayerVisual,
     PropVisual, SceneEntities,
 };
-use crate::assets::game_assets::{self, EntitySprite, GameAssets};
-use crate::boss_encounter::sprites::{self, BossAnimState, BossAnimator};
-use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
-use crate::features::{
+use ambition_sandbox::assets::game_assets::{self, EntitySprite, GameAssets};
+use ambition_sandbox::boss_encounter::sprites::{self, BossAnimState, BossAnimator};
+use ambition_sandbox::config::{world_to_bevy, WORLD_Z_PLAYER};
+use ambition_sandbox::features::{
     BossClusterRef, BreakableFeature, ChestFeature, FeatureId, FeatureViewIndex, FeatureVisualKind,
     Opened,
 };
-use crate::mechanics::combat::BoundFeatureKind;
-use crate::character_sprites::{
+use ambition_sandbox::mechanics::combat::BoundFeatureKind;
+use ambition_sandbox::character_sprites::{
     build_character_sprite, feet_anchor_for, CharacterAnimator,
 };
 
 pub fn sync_visuals(
-    world: Res<crate::GameWorld>,
+    world: Res<ambition_sandbox::GameWorld>,
     entities: Res<SceneEntities>,
     assets: Option<Res<GameAssets>>,
     feature_views: Res<FeatureViewIndex>,
@@ -35,10 +35,10 @@ pub fn sync_visuals(
             &mut Transform,
             &mut Sprite,
             Option<&PlayerSpriteBaseline>,
-            &crate::player::BodyKinematics,
-            &crate::player::PlayerBaseSize,
-            &crate::player::PlayerCombatState,
-            Option<&crate::platformer_runtime::orientation::ActorRoll>,
+            &ambition_sandbox::player::BodyKinematics,
+            &ambition_sandbox::player::PlayerBaseSize,
+            &ambition_sandbox::player::PlayerCombatState,
+            Option<&ambition_sandbox::platformer_runtime::orientation::ActorRoll>,
         ),
         With<PlayerVisual>,
     >,
@@ -157,10 +157,10 @@ fn state_aware_entity_sprite(
     ecs_breakables: &Query<(&FeatureId, &BreakableFeature)>,
 ) -> Option<EntitySprite> {
     match kind {
-        FeatureVisualKind::Breakable => crate::features::ecs_breakable_state(id, ecs_breakables)
+        FeatureVisualKind::Breakable => ambition_sandbox::features::ecs_breakable_state(id, ecs_breakables)
             .map(game_assets::breakable_state_sprite),
         FeatureVisualKind::Chest => {
-            crate::features::ecs_chest_opened(id, ecs_chests).map(game_assets::chest_state_sprite)
+            ambition_sandbox::features::ecs_chest_opened(id, ecs_chests).map(game_assets::chest_state_sprite)
         }
         // Switch shows its on/off button sprite (armed = on, disabled = off)
         // instead of a flat colored block (#57).
@@ -191,7 +191,7 @@ pub fn upgrade_enemy_sprites(
     images: Res<Assets<Image>>,
     feature_views: Res<FeatureViewIndex>,
     features: Query<(Entity, &FeatureVisual, Option<&BoundFeatureKind>)>,
-    ecs_actors: Query<crate::features::ActorSpriteData>,
+    ecs_actors: Query<ambition_sandbox::features::ActorSpriteData>,
     // Names we've already warned about resolving no sprite, so the warning fires
     // once per offending name instead of every frame the actor is unbound.
     mut warned_sprite_names: Local<std::collections::HashSet<String>>,
@@ -231,8 +231,8 @@ pub fn upgrade_enemy_sprites(
         // placeholder sheet this way without authors having to
         // duplicate the registry entry on an
         // enemy-side table.
-        let override_name = crate::features::ecs_enemy_sprite_override(&visual.id, &ecs_actors);
-        let enemy_name = crate::features::ecs_enemy_name(&visual.id, &ecs_actors);
+        let override_name = ambition_sandbox::features::ecs_enemy_sprite_override(&visual.id, &ecs_actors);
+        let enemy_name = ambition_sandbox::features::ecs_enemy_name(&visual.id, &ecs_actors);
         // Resolve a *named* sprite first (override label, then the enemy's own
         // name), then fall back to the generic kind sheet.
         let named = override_name
@@ -306,7 +306,7 @@ pub fn upgrade_npc_sprites(
     images: Res<Assets<Image>>,
     feature_views: Res<FeatureViewIndex>,
     features: Query<(Entity, &FeatureVisual, Option<&BoundFeatureKind>)>,
-    ecs_actors: Query<crate::features::ActorSpriteData>,
+    ecs_actors: Query<ambition_sandbox::features::ActorSpriteData>,
 ) {
     let Some(assets) = assets else {
         return;
@@ -322,7 +322,7 @@ pub fn upgrade_npc_sprites(
         if bound.is_some_and(|b| b.matches(view.kind, view.size)) {
             continue;
         }
-        let Some(name) = crate::features::ecs_npc_name(&visual.id, &ecs_actors) else {
+        let Some(name) = ambition_sandbox::features::ecs_npc_name(&visual.id, &ecs_actors) else {
             continue;
         };
         let Some(character_asset) = assets.characters.npc_asset_for_name(&name) else {
@@ -353,33 +353,33 @@ pub fn upgrade_npc_sprites(
 /// clusters (body_mode, env_contact, abilities) to cover crouch /
 /// crawl / slide / ladder / swim.
 pub fn animate_player(
-    world_time: Res<crate::WorldTime>,
-    primary_attack: Query<&crate::player::ActivePlayerAttack, crate::player::PrimaryPlayerOnly>,
+    world_time: Res<ambition_sandbox::WorldTime>,
+    primary_attack: Query<&ambition_sandbox::player::ActivePlayerAttack, ambition_sandbox::player::PrimaryPlayerOnly>,
     entities: Res<SceneEntities>,
-    gravity: Option<Res<crate::physics::GravityField>>,
+    gravity: Option<Res<ambition_sandbox::physics::GravityField>>,
     mut query: Query<
         (
             (
                 &mut Sprite,
                 &mut CharacterAnimator,
-                &crate::player::BodyKinematics,
-                &crate::player::PlayerGroundState,
-                &crate::player::PlayerWallState,
-                &crate::player::PlayerBlinkState,
-                &crate::player::PlayerFlightState,
-                &crate::player::PlayerDashState,
-                &crate::player::PlayerLedgeState,
-                &crate::player::PlayerCombatState,
-                &crate::player::PlayerAnimState,
-                &crate::player::PlayerBlinkCameraState,
+                &ambition_sandbox::player::BodyKinematics,
+                &ambition_sandbox::player::PlayerGroundState,
+                &ambition_sandbox::player::PlayerWallState,
+                &ambition_sandbox::player::PlayerBlinkState,
+                &ambition_sandbox::player::PlayerFlightState,
+                &ambition_sandbox::player::PlayerDashState,
+                &ambition_sandbox::player::PlayerLedgeState,
+                &ambition_sandbox::player::PlayerCombatState,
+                &ambition_sandbox::player::PlayerAnimState,
+                &ambition_sandbox::player::PlayerBlinkCameraState,
             ),
             (
-                &crate::player::PlayerBodyModeState,
-                &crate::player::PlayerEnvironmentContact,
-                &crate::player::PlayerAbilities,
-                &crate::player::PlayerDodgeState,
-                &crate::player::PlayerShieldState,
-                Option<&crate::time::time_control::ProperTimeScale>,
+                &ambition_sandbox::player::PlayerBodyModeState,
+                &ambition_sandbox::player::PlayerEnvironmentContact,
+                &ambition_sandbox::player::PlayerAbilities,
+                &ambition_sandbox::player::PlayerDodgeState,
+                &ambition_sandbox::player::PlayerShieldState,
+                Option<&ambition_sandbox::time::time_control::ProperTimeScale>,
             ),
         ),
         With<PlayerVisual>,
@@ -406,7 +406,7 @@ pub fn animate_player(
         return;
     };
     let attack_state = primary_attack.iter().next().and_then(|a| a.0.as_ref());
-    let anim = crate::character_sprites::pick_player_anim(
+    let anim = ambition_sandbox::character_sprites::pick_player_anim(
         anim_state,
         player_combat,
         blink_cam,
@@ -432,7 +432,7 @@ pub fn animate_player(
     // can boost the player's cognitive rate without slowing the
     // world for other observers.
     let index = animator.tick(world_time.entity_dt(
-        crate::time::time_control::ProperTimeScale::or_default(scale),
+        ambition_sandbox::time::time_control::ProperTimeScale::or_default(scale),
     ));
     if let Some(atlas) = sprite.texture_atlas.as_mut() {
         atlas.index = index;
@@ -441,8 +441,8 @@ pub fn animate_player(
     // sprite, so the flip inverts (fixes #33 "move left, face right upside down").
     let player_gravity = gravity
         .as_deref()
-        .map_or(crate::engine_core::Vec2::Y, |g| g.dir);
-    sprite.flip_x = crate::physics::gravity_aware_flip_x(kinematics.facing, player_gravity);
+        .map_or(ambition_sandbox::engine_core::Vec2::Y, |g| g.dir);
+    sprite.flip_x = ambition_sandbox::physics::gravity_aware_flip_x(kinematics.facing, player_gravity);
     // Hit feedback is drawn by the white-silhouette overlay in
     // `presentation::rendering::hit_flash` — a sibling mesh that
     // samples this atlas frame and outputs pure white modulated by
@@ -463,24 +463,24 @@ pub fn animate_player(
 /// One system instead of two avoids the borrow conflict on the
 /// shared `(&mut Sprite, &mut CharacterAnimator)` query.
 pub fn animate_characters(
-    world_time: Res<crate::WorldTime>,
+    world_time: Res<ambition_sandbox::WorldTime>,
     mut query: Query<
         (
             &FeatureVisual,
             &mut Sprite,
             &mut CharacterAnimator,
-            Option<&crate::time::time_control::ProperTimeScale>,
+            Option<&ambition_sandbox::time::time_control::ProperTimeScale>,
         ),
         (
             Without<PlayerVisual>,
-            Without<crate::rooms::PortalSprite>,
+            Without<ambition_sandbox::rooms::PortalSprite>,
             Without<PropVisual>,
         ),
     >,
-    ecs_actors: Query<crate::features::ActorSpriteData>,
+    ecs_actors: Query<ambition_sandbox::features::ActorSpriteData>,
     // Localized gravity, so an enemy/NPC wall-walking or on a flipped-gravity
     // ceiling flips the right way (the same gravity-aware facing the player got).
-    gravity: crate::physics::GravityCtx,
+    gravity: ambition_sandbox::physics::GravityCtx,
 ) {
     // ADR 0011 — per-entity proper time. SP today: no entity carries
     // ProperTimeScale, so `entity_dt` collapses to `sim_dt` and
@@ -488,22 +488,22 @@ pub fn animate_characters(
     // boss freezes the world but leaves the player un-frozen, or
     // future MP boosts one player's proper time.
     for (visual, mut sprite, mut animator, scale) in &mut query {
-        let dt = world_time.entity_dt(crate::time::time_control::ProperTimeScale::or_default(
+        let dt = world_time.entity_dt(ambition_sandbox::time::time_control::ProperTimeScale::or_default(
             scale,
         ));
         let (anim, facing, pos, hit_flash, attacking) = if let Some(state) =
-            crate::features::ecs_enemy_anim_state(&visual.id, &ecs_actors)
+            ambition_sandbox::features::ecs_enemy_anim_state(&visual.id, &ecs_actors)
         {
             (
-                crate::character_sprites::pick_enemy_anim(state),
+                ambition_sandbox::character_sprites::pick_enemy_anim(state),
                 state.facing,
                 state.pos,
                 state.hit_flash,
                 state.attack_active || state.attack_windup,
             )
-        } else if let Some(state) = crate::features::ecs_npc_anim_state(&visual.id, &ecs_actors) {
+        } else if let Some(state) = ambition_sandbox::features::ecs_npc_anim_state(&visual.id, &ecs_actors) {
             (
-                crate::character_sprites::pick_npc_anim(state),
+                ambition_sandbox::character_sprites::pick_npc_anim(state),
                 state.facing,
                 state.pos,
                 state.hit_flash,
@@ -517,7 +517,7 @@ pub fn animate_characters(
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
             atlas.index = index;
         }
-        sprite.flip_x = crate::physics::gravity_aware_flip_x(facing, gravity.dir_at(pos));
+        sprite.flip_x = ambition_sandbox::physics::gravity_aware_flip_x(facing, gravity.dir_at(pos));
         // Hit feedback is drawn by the white-silhouette overlay in
         // `presentation::rendering::hit_flash`. Keep the warm
         // attack tint on the multiplicative `sprite.color` channel
@@ -546,7 +546,7 @@ pub const PROP_KINDS_STATIC_UNTIL_MOVING: &[&str] = &["intro_cart"];
 /// the regular `animate_characters` lookup would skip them — without
 /// this system the sprite stays pinned to frame 0 forever.
 ///
-/// Filtered with `Without<crate::rooms::PortalSprite>` so the gate
+/// Filtered with `Without<ambition_sandbox::rooms::PortalSprite>` so the gate
 /// ring + gate portal stay owned by the portal-presentation systems
 /// (which drive the animator from `GatePortalPhase` instead of a flat
 /// Idle row tick).
@@ -558,15 +558,15 @@ pub const PROP_KINDS_STATIC_UNTIL_MOVING: &[&str] = &["intro_cart"];
 /// cart look like it's drifting in place. Until a `PropMotionState`
 /// component lands, hold these kinds at rest.
 pub fn animate_props(
-    world_time: Res<crate::WorldTime>,
+    world_time: Res<ambition_sandbox::WorldTime>,
     mut query: Query<
         (
             &mut Sprite,
             &mut CharacterAnimator,
             &PropVisual,
-            Option<&crate::time::time_control::ProperTimeScale>,
+            Option<&ambition_sandbox::time::time_control::ProperTimeScale>,
         ),
-        Without<crate::rooms::PortalSprite>,
+        Without<ambition_sandbox::rooms::PortalSprite>,
     >,
 ) {
     // ADR 0011 — per-entity proper time. Props that need to keep
@@ -577,17 +577,17 @@ pub fn animate_props(
             // Force-rest at frame 0 of the Idle row. `request` selects
             // the row; ticking with dt=0 holds the row's current frame
             // and matches the asset's first frame on entry.
-            animator.request(crate::character_sprites::CharacterAnim::Idle);
+            animator.request(ambition_sandbox::character_sprites::CharacterAnim::Idle);
             let index = animator.tick(0.0);
             if let Some(atlas) = sprite.texture_atlas.as_mut() {
                 atlas.index = index;
             }
             continue;
         }
-        let dt = world_time.entity_dt(crate::time::time_control::ProperTimeScale::or_default(
+        let dt = world_time.entity_dt(ambition_sandbox::time::time_control::ProperTimeScale::or_default(
             scale,
         ));
-        animator.request(crate::character_sprites::CharacterAnim::Idle);
+        animator.request(ambition_sandbox::character_sprites::CharacterAnim::Idle);
         let index = animator.tick(dt);
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
             atlas.index = index;
@@ -604,7 +604,7 @@ pub fn animate_props(
 /// in morph-ball mode, etc.) and makes them flicker back to visible.
 /// UI uses `Node`/`ImageNode`, not `Sprite`, so HUD/menus are unaffected.
 pub fn apply_hide_sprites_override(
-    developer_tools: Res<crate::dev::dev_tools::DeveloperTools>,
+    developer_tools: Res<ambition_sandbox::dev::dev_tools::DeveloperTools>,
     mut prev_active: Local<bool>,
     mut sprites: Query<&mut Visibility, With<Sprite>>,
 ) {
@@ -625,7 +625,7 @@ pub fn apply_hide_sprites_override(
     *prev_active = active;
 }
 
-fn effective_hide_sprites(developer_tools: &crate::dev::dev_tools::DeveloperTools) -> bool {
+fn effective_hide_sprites(developer_tools: &ambition_sandbox::dev::dev_tools::DeveloperTools) -> bool {
     // Placeholder art is a visible debug-art mode. If an old persisted or
     // inspector-mutated state leaves both booleans true, keep placeholders
     // visible instead of letting hide mode erase them.
@@ -671,11 +671,11 @@ const GRADIENT_LANE_VISUAL_Z: f32 = 10.5;
 /// the visible rectangle always matches the damage geometry.
 pub fn manage_gradient_lane_visual(
     mut commands: Commands,
-    world: Res<crate::GameWorld>,
-    bosses: Query<(Entity, BossClusterRef, &crate::brain::BossAttackState)>,
+    world: Res<ambition_sandbox::GameWorld>,
+    bosses: Query<(Entity, BossClusterRef, &ambition_sandbox::brain::BossAttackState)>,
     mut visuals: Query<(Entity, &GradientLaneVisual, &mut Transform, &mut Sprite)>,
 ) {
-    use crate::brain::BossAttackProfile;
+    use ambition_sandbox::brain::BossAttackProfile;
     let mut active: std::collections::HashMap<Entity, (bool, ae::Vec2, BVec2)> =
         std::collections::HashMap::new();
     for (entity, item, attack_state) in &bosses {
@@ -696,7 +696,7 @@ pub fn manage_gradient_lane_visual(
         }
         // Use the same volume math as damage so the visual and the
         // hitbox are exactly coincident.
-        let mut volumes = crate::features::volumes_for_profile(
+        let mut volumes = ambition_sandbox::features::volumes_for_profile(
             &BossAttackProfile::HazardColumn,
             boss.kin.pos,
             boss.combat_size(),
@@ -770,7 +770,7 @@ pub struct SpriteOriginalState {
 /// falls back to the existing sprite color (kept as-is).
 pub fn apply_placeholder_sprites_override(
     mut commands: Commands,
-    developer_tools: Res<crate::dev::dev_tools::DeveloperTools>,
+    developer_tools: Res<ambition_sandbox::dev::dev_tools::DeveloperTools>,
     feature_views: Res<FeatureViewIndex>,
     mut sprites: Query<(
         Entity,
@@ -778,9 +778,9 @@ pub fn apply_placeholder_sprites_override(
         Option<&SpriteOriginalState>,
         Option<&FeatureVisual>,
         Option<&PlayerVisual>,
-        Option<&crate::player::BodyKinematics>,
-        Option<&crate::projectile::PlayerProjectileVisual>,
-        Option<&crate::enemy_projectile::EnemyProjectileVisual>,
+        Option<&ambition_sandbox::player::BodyKinematics>,
+        Option<&ambition_sandbox::projectile::PlayerProjectileVisual>,
+        Option<&ambition_sandbox::enemy_projectile::EnemyProjectileVisual>,
     )>,
 ) {
     if developer_tools.placeholder_sprites {
@@ -865,7 +865,7 @@ fn pick_placeholder_color(
 #[cfg(test)]
 mod tests {
     use super::effective_hide_sprites;
-    use crate::dev::dev_tools::{DebugArtMode, DeveloperTools};
+    use ambition_sandbox::dev::dev_tools::{DebugArtMode, DeveloperTools};
 
     #[test]
     fn placeholder_art_wins_over_stale_hide_flag() {

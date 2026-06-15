@@ -26,15 +26,15 @@ use bevy::prelude::*;
 
 #[derive(Resource, Default)]
 pub struct CutsceneLibrary {
-    pub scripts: BTreeMap<String, crate::presentation::cutscene::script::CutsceneScript>,
+    pub scripts: BTreeMap<String, crate::cutscene::script::CutsceneScript>,
 }
 
 impl CutsceneLibrary {
-    pub fn insert(&mut self, script: crate::presentation::cutscene::script::CutsceneScript) {
+    pub fn insert(&mut self, script: crate::cutscene::script::CutsceneScript) {
         self.scripts.insert(script.id.clone(), script);
     }
 
-    pub fn get(&self, id: &str) -> Option<&crate::presentation::cutscene::script::CutsceneScript> {
+    pub fn get(&self, id: &str) -> Option<&crate::cutscene::script::CutsceneScript> {
         self.scripts.get(id)
     }
 }
@@ -49,22 +49,22 @@ pub use ambition_cutscene::{ActiveCutscene, CutsceneAdvanceRequest, SKIP_HOLD_TH
 pub fn default_cutscene_library() -> CutsceneLibrary {
     let mut lib = CutsceneLibrary::default();
     lib.insert(
-        crate::presentation::cutscene::script::CutsceneScript::new(
+        crate::cutscene::script::CutsceneScript::new(
             "test_intro",
             vec![
-                crate::presentation::cutscene::script::CutsceneBeat::Banner {
+                crate::cutscene::script::CutsceneBeat::Banner {
                     text: "// boot sequence".into(),
                     seconds: 1.4,
                 },
-                crate::presentation::cutscene::script::CutsceneBeat::Fade {
+                crate::cutscene::script::CutsceneBeat::Fade {
                     to_alpha: 0.0,
                     seconds: 0.8,
                 },
-                crate::presentation::cutscene::script::CutsceneBeat::Dialogue {
+                crate::cutscene::script::CutsceneBeat::Dialogue {
                     speaker: "WARDEN".into(),
                     text: "Instance online. You'll know your purpose when you find it.".into(),
                 },
-                crate::presentation::cutscene::script::CutsceneBeat::SetFlag {
+                crate::cutscene::script::CutsceneBeat::SetFlag {
                     id: "test_intro_seen".into(),
                     on: true,
                 },
@@ -73,25 +73,25 @@ pub fn default_cutscene_library() -> CutsceneLibrary {
         .with_seen_flag("test_intro_seen"),
     );
     lib.insert(
-        crate::presentation::cutscene::script::CutsceneScript::new(
+        crate::cutscene::script::CutsceneScript::new(
             "cutscene_lab_intro",
             vec![
-                crate::presentation::cutscene::script::CutsceneBeat::Banner {
+                crate::cutscene::script::CutsceneBeat::Banner {
                     text: "// cutscene proof".into(),
                     seconds: 1.0,
                 },
-                crate::presentation::cutscene::script::CutsceneBeat::Dialogue {
+                crate::cutscene::script::CutsceneBeat::Dialogue {
                     speaker: "WARDEN".into(),
                     text: "This is the cutscene-proof room. The seen-flag stops me from talking twice."
                         .into(),
                 },
-                crate::presentation::cutscene::script::CutsceneBeat::Wait { seconds: 0.4 },
-                crate::presentation::cutscene::script::CutsceneBeat::Dialogue {
+                crate::cutscene::script::CutsceneBeat::Wait { seconds: 0.4 },
+                crate::cutscene::script::CutsceneBeat::Dialogue {
                     speaker: "WARDEN".into(),
                     text: "Hold Reset to skip cutscenes -- useful when you've heard a beat already."
                         .into(),
                 },
-                crate::presentation::cutscene::script::CutsceneBeat::SetFlag {
+                crate::cutscene::script::CutsceneBeat::SetFlag {
                     id: "cutscene_lab_intro_seen".into(),
                     on: true,
                 },
@@ -100,15 +100,15 @@ pub fn default_cutscene_library() -> CutsceneLibrary {
         .with_seen_flag("cutscene_lab_intro_seen"),
     );
     lib.insert(
-        crate::presentation::cutscene::script::CutsceneScript::new(
+        crate::cutscene::script::CutsceneScript::new(
             "boss_intro_gradient_sentinel",
             vec![
-                crate::presentation::cutscene::script::CutsceneBeat::Banner {
+                crate::cutscene::script::CutsceneBeat::Banner {
                     text: "GRADIENT SENTINEL".into(),
                     seconds: 1.6,
                 },
-                crate::presentation::cutscene::script::CutsceneBeat::Wait { seconds: 0.4 },
-                crate::presentation::cutscene::script::CutsceneBeat::Dialogue {
+                crate::cutscene::script::CutsceneBeat::Wait { seconds: 0.4 },
+                crate::cutscene::script::CutsceneBeat::Dialogue {
                     speaker: "SENTINEL".into(),
                     text: "Your loss surface is steep. I am its slope.".into(),
                 },
@@ -119,10 +119,10 @@ pub fn default_cutscene_library() -> CutsceneLibrary {
     lib
 }
 
-// The trigger CHANNEL moved to `crate::cutscene_trigger` (a presentation-neutral
+// The trigger CHANNEL moved to `ambition_sandbox::cutscene_trigger` (a presentation-neutral
 // request queue) so gameplay can request a cutscene without depending on this
 // renderer module. Re-exported here so existing paths keep resolving.
-pub use crate::cutscene_trigger::CutsceneTriggerQueue;
+pub use ambition_sandbox::cutscene_trigger::CutsceneTriggerQueue;
 
 /// Mapping from room id → cutscene id to play the first time the
 /// player walks into that room. Drained by `auto_trigger_room_cutscenes`.
@@ -157,7 +157,7 @@ impl RoomCutsceneBindings {
 /// the new room has a binding and the cutscene hasn't been seen.
 pub fn auto_trigger_room_cutscenes(
     bindings: Res<RoomCutsceneBindings>,
-    room_set: Res<crate::rooms::RoomSet>,
+    room_set: Res<ambition_sandbox::rooms::RoomSet>,
     mut queue: ResMut<CutsceneTriggerQueue>,
     mut last_room: Local<Option<String>>,
 ) {
@@ -181,7 +181,7 @@ pub fn drain_cutscene_triggers(
     mut queue: ResMut<CutsceneTriggerQueue>,
     library: Res<CutsceneLibrary>,
     mut active: ResMut<ActiveCutscene>,
-    save: Res<crate::persistence::save::SandboxSave>,
+    save: Res<ambition_sandbox::persistence::save::SandboxSave>,
 ) {
     if active.is_playing() {
         return;
@@ -196,7 +196,7 @@ pub fn drain_cutscene_triggers(
                 continue;
             }
         }
-        active.runtime = Some(crate::presentation::cutscene::script::CutsceneRuntime::new(
+        active.runtime = Some(crate::cutscene::script::CutsceneRuntime::new(
             script.clone(),
         ));
         active.current_dialogue = None;
@@ -211,7 +211,7 @@ pub fn tick_active_cutscene(
     time: Res<Time>,
     mut active: ResMut<ActiveCutscene>,
     mut request: ResMut<CutsceneAdvanceRequest>,
-    mut save: ResMut<crate::persistence::save::SandboxSave>,
+    mut save: ResMut<ambition_sandbox::persistence::save::SandboxSave>,
 ) {
     let dismiss = std::mem::take(&mut request.dismiss_dialogue);
     let skip = std::mem::take(&mut request.skip_cutscene);
@@ -238,29 +238,29 @@ pub fn tick_active_cutscene(
     let mut completed = false;
     for event in events {
         match event {
-            crate::presentation::cutscene::script::CutsceneEvent::BeatEntered { beat, .. } => {
+            crate::cutscene::script::CutsceneEvent::BeatEntered { beat, .. } => {
                 match beat {
-                    crate::presentation::cutscene::script::CutsceneBeat::Dialogue {
+                    crate::cutscene::script::CutsceneBeat::Dialogue {
                         speaker,
                         text,
                     } => {
                         active.current_dialogue = Some((speaker, text));
                         active.current_banner = None;
                     }
-                    crate::presentation::cutscene::script::CutsceneBeat::Banner {
+                    crate::cutscene::script::CutsceneBeat::Banner {
                         text,
                         seconds,
                     } => {
                         active.current_dialogue = None;
                         active.current_banner = Some((text, seconds));
                     }
-                    crate::presentation::cutscene::script::CutsceneBeat::CameraPan {
+                    crate::cutscene::script::CutsceneBeat::CameraPan {
                         target,
                         ..
                     } => {
                         active.camera_target = Some(Vec2::new(target[0], target[1]));
                     }
-                    crate::presentation::cutscene::script::CutsceneBeat::Fade {
+                    crate::cutscene::script::CutsceneBeat::Fade {
                         to_alpha, ..
                     } => {
                         active.fade_alpha = to_alpha.clamp(0.0, 1.0);
@@ -268,11 +268,11 @@ pub fn tick_active_cutscene(
                     _ => {}
                 }
             }
-            crate::presentation::cutscene::script::CutsceneEvent::FlagWritten { id, on } => {
+            crate::cutscene::script::CutsceneEvent::FlagWritten { id, on } => {
                 save.data_mut().set_flag(id, on);
             }
-            crate::presentation::cutscene::script::CutsceneEvent::Skipped
-            | crate::presentation::cutscene::script::CutsceneEvent::Completed => {
+            crate::cutscene::script::CutsceneEvent::Skipped
+            | crate::cutscene::script::CutsceneEvent::Completed => {
                 completed = true;
             }
         }
@@ -307,7 +307,7 @@ pub fn tick_active_cutscene(
 //   input) and CutsceneBeat::Banner (timed — auto-advances). The skip-
 //   hold progress bar lives here too. Owned by [`sync_cutscene_ui`].
 //
-// - **Speech bubbles** (`crate::presentation::fx::update_speech_bubbles`): world-
+// - **Speech bubbles** (`crate::fx::update_speech_bubbles`): world-
 //   space transient quote bubbles that anyone can fire via
 //   `VfxMessage::SpeechBubble { pos, text }`. Already used by the
 //   combat / damage path so enemies can shout when they get hit. The
@@ -325,7 +325,7 @@ pub fn tick_active_cutscene(
 pub struct CutsceneOverlayRoot;
 
 /// Build / refresh the cutscene UI overlay. Pattern matches
-/// `crate::dialog::sync_dialog_ui`: despawn last frame's overlay,
+/// `ambition_sandbox::dialog::sync_dialog_ui`: despawn last frame's overlay,
 /// re-spawn this frame's based on `ActiveCutscene` + `CutsceneAdvanceRequest`.
 ///
 /// Layout:
@@ -340,7 +340,7 @@ pub fn sync_cutscene_ui(
     active: Res<ActiveCutscene>,
     request: Res<CutsceneAdvanceRequest>,
     overlays: Query<Entity, With<CutsceneOverlayRoot>>,
-    ui_fonts: Option<Res<crate::presentation::ui_fonts::UiFonts>>,
+    ui_fonts: Option<Res<crate::ui_fonts::UiFonts>>,
 ) {
     use bevy::ui::{
         AlignItems, BorderRadius, FlexDirection, JustifyContent, Node, PositionType, UiRect, Val,
@@ -354,7 +354,7 @@ pub fn sync_cutscene_ui(
         return;
     }
 
-    let cutscene_font = |font_size: f32, weight: crate::presentation::ui_fonts::UiFontWeight| {
+    let cutscene_font = |font_size: f32, weight: crate::ui_fonts::UiFontWeight| {
         ui_fonts
             .as_deref()
             .map(|fonts| fonts.text_font(font_size, weight))
@@ -414,7 +414,7 @@ pub fn sync_cutscene_ui(
                 .with_children(|panel| {
                     panel.spawn((
                         Text::new(banner_text.clone()),
-                        cutscene_font(18.0, crate::presentation::ui_fonts::UiFontWeight::Semibold),
+                        cutscene_font(18.0, crate::ui_fonts::UiFontWeight::Semibold),
                         TextColor(Color::srgba(0.96, 0.90, 0.74, 1.0)),
                     ));
                 });
@@ -446,22 +446,22 @@ pub fn sync_cutscene_ui(
                 .with_children(|panel| {
                     panel.spawn((
                         Text::new(speaker.clone()),
-                        cutscene_font(20.0, crate::presentation::ui_fonts::UiFontWeight::Semibold),
+                        cutscene_font(20.0, crate::ui_fonts::UiFontWeight::Semibold),
                         TextColor(Color::srgba(0.82, 0.94, 1.00, 1.0)),
                     ));
                     panel.spawn((
                         Text::new(text.clone()),
-                        cutscene_font(16.0, crate::presentation::ui_fonts::UiFontWeight::Regular),
+                        cutscene_font(16.0, crate::ui_fonts::UiFontWeight::Regular),
                         TextColor(Color::srgba(0.93, 0.96, 1.00, 1.0)),
                     ));
                     panel.spawn((
                         // The actual bindings live in
-                        // `crate::input::presets::ControlPreset::input_map`
+                        // `ambition_sandbox::input::presets::ControlPreset::input_map`
                         // (Interact = E by default, Jump = Space/W).
                         // The hint names the *semantic* actions so a
                         // rebound key isn't a lie.
                         Text::new("Press Interact (E) or Jump (Space) to continue. Hold Backspace to skip."),
-                        cutscene_font(12.0, crate::presentation::ui_fonts::UiFontWeight::Regular),
+                        cutscene_font(12.0, crate::ui_fonts::UiFontWeight::Regular),
                         TextColor(Color::srgba(0.66, 0.76, 0.88, 0.96)),
                     ));
                 });
@@ -493,7 +493,7 @@ pub fn sync_cutscene_ui(
             .with_children(|root| {
                 root.spawn((
                     Text::new(format!("hold to skip … {fill_pct:>3.0}%")),
-                    cutscene_font(12.0, crate::presentation::ui_fonts::UiFontWeight::Regular),
+                    cutscene_font(12.0, crate::ui_fonts::UiFontWeight::Regular),
                     TextColor(Color::srgba(0.86, 0.86, 0.92, 0.92)),
                 ));
                 root.spawn((
@@ -522,7 +522,7 @@ pub fn sync_cutscene_ui(
 
 /// Module-local Bevy plugin: schedules the cutscene chain
 /// (`auto_trigger_room_cutscenes` → `drain_cutscene_triggers` →
-/// `tick_active_cutscene`) into [`crate::app::SandboxSet::Cutscene`].
+/// `tick_active_cutscene`) into [`ambition_sandbox::app::SandboxSet::Cutscene`].
 ///
 /// Carved out of `app/plugins.rs::register_cutscene_systems` per
 /// OVERNIGHT-TODO #6 (module-local plugins). Every system in this
@@ -540,7 +540,7 @@ impl Plugin for CutsceneSchedulePlugin {
                 tick_active_cutscene,
             )
                 .chain()
-                .in_set(crate::app::SandboxSet::Cutscene),
+                .in_set(ambition_sandbox::app::SandboxSet::Cutscene),
         );
     }
 }

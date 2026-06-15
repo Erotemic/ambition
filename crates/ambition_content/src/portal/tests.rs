@@ -855,7 +855,7 @@ fn partial_render_keeps_the_sprite_and_adds_the_exit_copy() {
     use ambition_sandbox::portal::{
         sync_portal_world_frame, tag_portal_scene_bodies, PortalWorldFrame,
     };
-    use ambition_sandbox::presentation::rendering::PlayerVisual;
+    use ambition_render::rendering::PlayerVisual;
     let mut app = App::new();
     app.insert_resource(world_with_two_walls());
     // Drive the visual through the REAL host adapter chain: world-frame sync +

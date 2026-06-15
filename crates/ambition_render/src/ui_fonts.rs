@@ -1,7 +1,7 @@
 // crates/ambition_sandbox/src/ui_fonts.rs
 //
 // UI font loading. All path/existence policy goes through
-// `crate::assets::sandbox_assets::SandboxAssetCatalog`; there are no
+// `ambition_sandbox::assets::sandbox_assets::SandboxAssetCatalog`; there are no
 // `target_os = "android"` cfg branches or `BEVY_ASSET_ROOT` probes
 // in this module.
 
@@ -10,7 +10,7 @@ use bevy::prelude::*;
 
 use ambition_asset_manager::AssetId;
 
-use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
+use ambition_sandbox::assets::sandbox_assets::{ids, SandboxAssetCatalog};
 
 #[derive(Resource, Clone, Debug, Default)]
 pub struct UiFonts {
@@ -61,7 +61,7 @@ pub enum UiFontWeight {
 
 /// Bevy startup system: walk each font's canonical + legacy catalog
 /// ids, pick the first one whose asset is present under the active
-/// [`crate::assets::sandbox_assets::SandboxAssetCatalog`] profile, and store
+/// [`ambition_sandbox::assets::sandbox_assets::SandboxAssetCatalog`] profile, and store
 /// the resulting `Handle<Font>` in [`UiFonts`].
 ///
 /// Missing fonts are non-fatal — the rendering layer falls back to

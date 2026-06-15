@@ -2,18 +2,18 @@
 //! a `Health` resource. Toggled via
 //! `DeveloperTools::show_health_bars`.
 
-use crate::engine_core as ae;
-use crate::engine_core::AabbExt;
+use ambition_sandbox::engine_core as ae;
+use ambition_sandbox::engine_core::AabbExt;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
 use super::primitives::HealthOverlayVisual;
-use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
-use crate::features::{
+use ambition_sandbox::config::{world_to_bevy, WORLD_Z_PLAYER};
+use ambition_sandbox::features::{
     ActorCombatState, ActorDisposition, ActorHealth, BossClusterRef, BossConfig, BreakableFeature,
     FeatureAabb, FeatureName,
 };
-use crate::presentation::ui_fonts::{UiFontWeight, UiFonts};
+use crate::ui_fonts::{UiFontWeight, UiFonts};
 
 #[derive(Component)]
 pub struct BossHealthBarOverlayVisual;
@@ -133,13 +133,13 @@ pub fn sync_boss_health_bar_overlay(
 
 pub fn sync_health_overlays(
     mut commands: Commands,
-    world: Res<crate::GameWorld>,
-    dev_state: Res<crate::SandboxDevState>,
-    developer_tools: Res<crate::dev::dev_tools::DeveloperTools>,
+    world: Res<ambition_sandbox::GameWorld>,
+    dev_state: Res<ambition_sandbox::SandboxDevState>,
+    developer_tools: Res<ambition_sandbox::dev::dev_tools::DeveloperTools>,
     overlays: Query<Entity, With<HealthOverlayVisual>>,
     player: Query<
-        (&crate::player::BodyKinematics, &crate::player::PlayerHealth),
-        crate::player::PrimaryPlayerOnly,
+        (&ambition_sandbox::player::BodyKinematics, &ambition_sandbox::player::PlayerHealth),
+        ambition_sandbox::player::PrimaryPlayerOnly,
     >,
     ecs_breakables: Query<(&FeatureName, &FeatureAabb, &BreakableFeature)>,
     ecs_actors: Query<
@@ -222,7 +222,7 @@ fn spawn_health_overlay(
     world: &ae::World,
     name: &str,
     aabb: ae::Aabb,
-    health: crate::actor::Health,
+    health: ambition_sandbox::actor::Health,
     fill_color: Color,
 ) {
     let width = aabb.width().max(56.0);

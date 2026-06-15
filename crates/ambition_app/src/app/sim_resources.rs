@@ -186,7 +186,7 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             .insert_resource(ambition_sandbox::CameraEaseState::default())
             .insert_resource(ambition_sandbox::CameraEaseTuning::default())
             .insert_resource(ambition_sandbox::time::camera_ease::CameraShakeState::default())
-            .insert_resource(ambition_sandbox::presentation::rendering::CameraViewState::default())
+            .insert_resource(ambition_render::rendering::CameraViewState::default())
             .insert_resource(ambition_sandbox::runtime::reset::SandboxResetRequested::default());
     }
 }

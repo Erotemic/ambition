@@ -11,6 +11,13 @@
 //! `ambition_sandbox::presentation` umbrella; consumers (content, app) import
 //! `ambition_render::*` directly.
 
+pub mod cutscene;
+/// The dialog-box overlay UI (was `ambition_sandbox::dialog::ui`). Render-only;
+/// reads the sim-side dialog state in `ambition_sandbox::dialog`.
+pub mod dialog_ui;
 pub mod fx;
 /// The in-world HUD overlay: health/mana bars, ability pips, banner text.
 pub mod hud;
+pub mod rendering;
+pub mod screen_effects;
+pub mod ui_fonts;

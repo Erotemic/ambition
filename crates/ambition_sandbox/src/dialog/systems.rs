@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use super::runtime::DialogState;
-use super::ui::DialogChoiceSlot;
+use super::runtime::DialogChoiceSlot;
 use crate::game_mode::GameMode;
 #[cfg(feature = "input")]
 use crate::input::MenuControlFrame;

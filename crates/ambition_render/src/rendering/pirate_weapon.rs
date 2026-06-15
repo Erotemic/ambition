@@ -1,5 +1,5 @@
 //! Gun-sword (`lasersword_with_guns`) visual layered on top of any
-//! actor entity carrying a [`crate::features::HeldItem`] component.
+//! actor entity carrying a [`ambition_sandbox::features::HeldItem`] component.
 //! Mounted riders and dismounted pirates both keep the component while
 //! they still have the weapon, so this visual is item-driven rather
 //! than mount-state-driven.
@@ -19,13 +19,13 @@
 //! `sync_enemy_projectile_visuals` — no per-entity lifecycle
 //! plumbing, the visual set always reflects the live rider set.
 
-use crate::features::rider_hand_world_pos;
+use ambition_sandbox::features::rider_hand_world_pos;
 use bevy::math::Vec2;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
-use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
-use crate::features::{ActorRuntime, FeatureId, HeldItem};
+use ambition_sandbox::config::{world_to_bevy, WORLD_Z_PLAYER};
+use ambition_sandbox::features::{ActorRuntime, FeatureId, HeldItem};
 
 #[derive(Component)]
 pub struct PirateWeaponVisual;
@@ -87,19 +87,19 @@ const WEAPON_WIDTH_PER_RIDER_HEIGHT: f32 = 64.0 / 72.0;
 pub fn sync_pirate_weapon_visuals(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    world: Res<crate::GameWorld>,
+    world: Res<ambition_sandbox::GameWorld>,
     rider_actors: Query<(
         &FeatureId,
         &ActorRuntime,
         &HeldItem,
-        Option<&crate::features::BodyKinematics>,
-        Option<&crate::features::EnemyStatus>,
+        Option<&ambition_sandbox::features::BodyKinematics>,
+        Option<&ambition_sandbox::features::EnemyStatus>,
     )>,
     player_q: Query<
-        &crate::player::BodyKinematics,
+        &ambition_sandbox::player::BodyKinematics,
         (
-            With<crate::player::PlayerEntity>,
-            With<crate::player::PrimaryPlayer>,
+            With<ambition_sandbox::player::PlayerEntity>,
+            With<ambition_sandbox::player::PrimaryPlayer>,
         ),
     >,
     existing: Query<Entity, With<PirateWeaponVisual>>,
@@ -222,7 +222,7 @@ mod tests {
 
     #[test]
     fn hand_offset_flips_with_facing() {
-        let pos = crate::engine_core::Vec2::new(100.0, 50.0);
+        let pos = ambition_sandbox::engine_core::Vec2::new(100.0, 50.0);
         let right = rider_hand_world_pos(pos, 1.0, 78.0);
         let left = rider_hand_world_pos(pos, -1.0, 78.0);
         assert!(right.x > pos.x, "right-facing hand should be to the right");

@@ -22,7 +22,8 @@
 mod content;
 mod runtime;
 mod systems;
-mod ui;
+// The dialog-box overlay UI moved to the `ambition_render` crate
+// (`ambition_render::dialog_ui`); the sim-side dialog state/logic stays here.
 /// Public so content plugins can reach the [`yarn_bindings::YarnContentBindings`]
 /// installer seam + the mirror types.
 #[cfg(feature = "ui")]
@@ -36,9 +37,8 @@ pub use content::known_dialogue_ids;
     reason = "DialogChoice surfaces in the UI's choice-row layout"
 )]
 pub use content::DialogChoice;
-pub use runtime::DialogState;
+pub use runtime::{DialogChoiceSlot, DialogState};
 pub use systems::{dialog_input, dialog_pointer_input, dialog_reveal_tick};
-pub use ui::sync_dialog_ui;
 #[cfg(feature = "ui")]
 pub use yarn_bindings::YarnBindingsPlugin;
 #[cfg(feature = "ui")]

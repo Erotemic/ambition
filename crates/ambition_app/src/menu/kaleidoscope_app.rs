@@ -3282,7 +3282,7 @@ mod lunex_kaleidoscope_app_tests {
     #[test]
     fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
         use ambition_sandbox::input::SandboxAction;
-        use ambition_sandbox::presentation::rendering::PlayerVisual;
+        use ambition_render::rendering::PlayerVisual;
         use leafwing_input_manager::prelude::*;
 
         let mut app = App::new();

@@ -43,7 +43,7 @@ pub use actors::{
 };
 // `BoundFeatureKind` moved to `mechanics::combat` (sim owns it); re-exported here
 // so existing render call sites resolve unchanged.
-pub use crate::mechanics::combat::BoundFeatureKind;
+pub use ambition_sandbox::mechanics::combat::BoundFeatureKind;
 // `manage_gradient_lane_visual` + `GradientLaneVisual` stay
 // module-private; the schedule registration uses
 // `actors::manage_gradient_lane_visual` directly so no outside
@@ -54,7 +54,7 @@ pub use health::{sync_boss_health_bar_overlay, sync_health_overlays};
 // origins at the same hand position the visual lays the gun-sword on.
 // Keeps "where the muzzle is" defined in one module.
 pub use parallax::{spawn_parallax_layers, sync_parallax_layers};
-pub use crate::features::rider_hand_world_pos;
+pub use ambition_sandbox::features::rider_hand_world_pos;
 pub use primitives::{
     HudText, LoadingZoneVisual, PlayerSpriteBaseline, PlayerVisual, PropVisual, QuestPanelText,
     RoomScopedEntity, RoomVisual, SceneEntities,
@@ -77,12 +77,12 @@ pub struct PlayerVisualSchedulePlugin;
 impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use bevy::prelude::{IntoScheduleConfigs, Startup, Update};
-        app.add_systems(Startup, crate::body_mode::build_morph_ball_sprite)
+        app.add_systems(Startup, ambition_sandbox::body_mode::build_morph_ball_sprite)
             .add_systems(
                 Update,
                 (
-                    crate::body_mode::spawn_morph_ball_visual,
-                    crate::body_mode::sync_morph_ball_visual,
+                    ambition_sandbox::body_mode::spawn_morph_ball_visual,
+                    ambition_sandbox::body_mode::sync_morph_ball_visual,
                 )
                     .chain()
                     .after(actors::sync_visuals),
@@ -92,28 +92,28 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
             // `PlayerShieldState::parrying()`.
             .add_systems(
                 Startup,
-                crate::player::bubble_shield::build_bubble_shield_sprite,
+                ambition_sandbox::player::bubble_shield::build_bubble_shield_sprite,
             )
             .add_systems(
                 Update,
                 (
-                    crate::player::bubble_shield::spawn_bubble_shield_visual,
-                    crate::player::bubble_shield::sync_bubble_shield_visual,
+                    ambition_sandbox::player::bubble_shield::spawn_bubble_shield_visual,
+                    ambition_sandbox::player::bubble_shield::sync_bubble_shield_visual,
                 )
                     .chain()
                     .after(actors::sync_visuals),
             )
             // Load held-item prop sprites at startup.
-            .add_systems(Startup, crate::items::pickup::load_item_art)
+            .add_systems(Startup, ambition_sandbox::items::pickup::load_item_art)
             .add_systems(
                 Update,
                 (
-                    crate::items::pickup::sync_ground_item_visuals.after(actors::sync_visuals),
-                    crate::items::pickup::sync_held_item_visual.after(actors::sync_visuals),
-                    crate::items::pickup::sync_held_projectile_visuals.after(actors::sync_visuals),
-                    crate::shrine::sync_shrine_visual.after(actors::sync_visuals),
-                    crate::shrine::animate_shrine_visuals.after(actors::animate_props),
-                    crate::abilities::traversal::mark_recall::sync_mark_beacon_visual
+                    ambition_sandbox::items::pickup::sync_ground_item_visuals.after(actors::sync_visuals),
+                    ambition_sandbox::items::pickup::sync_held_item_visual.after(actors::sync_visuals),
+                    ambition_sandbox::items::pickup::sync_held_projectile_visuals.after(actors::sync_visuals),
+                    ambition_sandbox::shrine::sync_shrine_visual.after(actors::sync_visuals),
+                    ambition_sandbox::shrine::animate_shrine_visuals.after(actors::animate_props),
+                    ambition_sandbox::abilities::traversal::mark_recall::sync_mark_beacon_visual
                         .after(actors::sync_visuals),
                 ),
             );
@@ -122,7 +122,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
         // disorientation / mode indicators) now live in the reusable
         // `ambition_portal_presentation` crate; the sandbox adds its plugin,
         // places its set, and bridges the host seams (world frame, scene-body
-        // tag, gun art — see `crate::portal::host_adapter`). Gravity visuals
+        // tag, gun art — see `ambition_sandbox::portal::host_adapter`). Gravity visuals
         // and the F7 dev off-switch stay host-side. All of it only compiles
         // with the portal mechanic + its render feature.
         #[cfg(feature = "portal_render")]
@@ -133,20 +133,20 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
             // pieces ("feet in, feet out") override the player's visibility
             // while crossing, so they must see this frame's mirrored sprite.
             app.configure_sets(Update, PortalPresentationSet.after(actors::sync_visuals));
-            app.add_systems(Startup, crate::portal::load_portal_gun_art)
+            app.add_systems(Startup, ambition_sandbox::portal::load_portal_gun_art)
                 .add_systems(
                     Update,
                     (
-                        crate::portal::sync_portal_world_frame.before(PortalPresentationSet),
-                        crate::portal::sync_portal_viewer.before(PortalPresentationSet),
-                        crate::portal::sync_portal_debug_overlay_to_f1
+                        ambition_sandbox::portal::sync_portal_world_frame.before(PortalPresentationSet),
+                        ambition_sandbox::portal::sync_portal_viewer.before(PortalPresentationSet),
+                        ambition_sandbox::portal::sync_portal_debug_overlay_to_f1
                             .before(PortalPresentationSet),
-                        crate::portal::tag_portal_scene_bodies.after(actors::sync_visuals),
-                        crate::portal::portal_dev_toggle_system,
-                        crate::portal::portal_convention_toggle_system,
-                        crate::mechanics::gravity::sync_gravity_switch_visual
+                        ambition_sandbox::portal::tag_portal_scene_bodies.after(actors::sync_visuals),
+                        ambition_sandbox::portal::portal_dev_toggle_system,
+                        ambition_sandbox::portal::portal_convention_toggle_system,
+                        ambition_sandbox::mechanics::gravity::sync_gravity_switch_visual
                             .after(actors::sync_visuals),
-                        crate::mechanics::gravity::sync_gravity_zone_visual
+                        ambition_sandbox::mechanics::gravity::sync_gravity_zone_visual
                             .after(actors::sync_visuals),
                     ),
                 );
@@ -155,7 +155,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
 }
 
 /// Module-local Bevy plugin: schedules the per-frame visual animation
-/// chain into [`crate::app::SandboxSet::PresentationVisualSync`].
+/// chain into [`ambition_sandbox::app::SandboxSet::PresentationVisualSync`].
 ///
 /// Spawns dynamic feature visuals first (so `sync_visuals` finds them
 /// the same frame), then mirrors transforms / sprite atlas indices,
@@ -232,8 +232,8 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 pirate_weapon::sync_pirate_weapon_visuals,
             )
                 .chain()
-                .in_set(crate::app::SandboxSet::PresentationVisualSync)
-                .after(crate::menu::map::handle_map_menu_hotkeys),
+                .in_set(ambition_sandbox::app::SandboxSet::PresentationVisualSync)
+                .after(ambition_sandbox::menu::map::handle_map_menu_hotkeys),
         );
 
         // Rebuild the active room's static visuals + parallax when the sim asks

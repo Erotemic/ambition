@@ -48,7 +48,7 @@ use ambition_sandbox::input::{ControlFrame, MenuControlFrame, MenuInputState};
 /// stick/button intent via [`fold_to_menu_control_frame`] instead.
 pub fn fold_to_control_frame(
     mode: Res<State<ambition_sandbox::game_mode::GameMode>>,
-    cutscene: Res<ambition_sandbox::presentation::cutscene::ActiveCutscene>,
+    cutscene: Res<ambition_render::cutscene::ActiveCutscene>,
     state: Res<MobileTouchState>,
     mut frame: ResMut<ControlFrame>,
 ) {

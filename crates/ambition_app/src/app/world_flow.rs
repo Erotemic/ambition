@@ -182,7 +182,7 @@ pub(super) fn load_room(
     };
     dev_state.preset_flash = 1.0;
 
-    ambition_sandbox::presentation::rendering::spawn_parallax_layers(
+    ambition_render::rendering::spawn_parallax_layers(
         commands,
         &world.0,
         &spec.metadata,

@@ -1195,7 +1195,8 @@ fn architecture_boundaries_enemy_sim_reads_data_not_the_archetype_enum() {
     // `architecture_boundaries_enemy_config_is_archetype_free`.
     let files = [
         crate_src().join("features/ecs/damage/mod.rs"),
-        crate_src().join("presentation/rendering/features.rs"),
+        // The presentation feature-resolver moved to the ambition_render crate.
+        repo_root().join("crates/ambition_render/src/rendering/features.rs"),
     ];
     assert_production_lines_have_no_refs(
         &files,

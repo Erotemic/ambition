@@ -227,12 +227,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_cutscene"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "serde",
+]
+
+[[package]]
 name = "ambition_effects"
 version = "0.1.0"
 dependencies = [
  "ambition_actor",
  "ambition_engine_core",
  "ambition_platformer_runtime",
+ "ambition_sfx",
  "bevy",
 ]
 
@@ -301,6 +310,7 @@ dependencies = [
  "ambition_asset_manager",
  "ambition_audio",
  "ambition_combat",
+ "ambition_cutscene",
  "ambition_effects",
  "ambition_engine_core",
  "ambition_input",
@@ -312,6 +322,7 @@ dependencies = [
  "ambition_sprite_sheet",
  "ambition_time",
  "ambition_trace",
+ "ambition_ui_nav",
  "avian2d",
  "bevy",
  "bevy-inspector-egui",
@@ -382,6 +393,14 @@ dependencies = [
  "bevy",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "ambition_ui_nav"
+version = "0.1.0"
+dependencies = [
+ "ambition_input",
+ "bevy",
 ]
 
 [[package]]

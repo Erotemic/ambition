@@ -81,7 +81,7 @@ pub fn tick_portal_phases_system(
 pub fn hide_portal_loading_zone_visuals(
     portals: Res<GatePortalRegistry>,
     mut visuals: Query<(
-        &crate::presentation::rendering::LoadingZoneVisual,
+        &crate::platformer_runtime::lifecycle::LoadingZoneVisual,
         &mut Visibility,
     )>,
 ) {

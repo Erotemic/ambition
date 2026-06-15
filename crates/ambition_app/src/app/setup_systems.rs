@@ -16,6 +16,7 @@ use super::plugins::*;
 use super::resources::*;
 #[allow(unused_imports)]
 use super::world_flow::*;
+use super::scene_setup;
 #[allow(unused_imports)]
 use super::*;
 #[allow(unused_imports)]
@@ -106,12 +107,12 @@ pub(crate) fn setup_presentation_system(
             std::time::Instant::now(),
         ));
         let t1 = std::time::Instant::now();
-        setup::presentation_world(
+        scene_setup::presentation_world(
             &mut commands,
             &mut audio_sources,
             &asset_server,
             &sandbox_catalog,
-            setup::PresentationSetup {
+            scene_setup::PresentationSetup {
                 world: &world,
                 room_set: &room_set,
                 sandbox_data: &sandbox_data,
@@ -136,12 +137,12 @@ pub(crate) fn setup_presentation_system(
         // wasm `StartupProfiler` doesn't take Instants — see
         // `ambition_sandbox::profiling`). The presentation world still spawns.
         let _ = &profiler; // silence unused-resource warning
-        setup::presentation_world(
+        scene_setup::presentation_world(
             &mut commands,
             &mut audio_sources,
             &asset_server,
             &sandbox_catalog,
-            setup::PresentationSetup {
+            scene_setup::PresentationSetup {
                 world: &world,
                 room_set: &room_set,
                 sandbox_data: &sandbox_data,
@@ -175,9 +176,9 @@ pub(crate) fn setup_presentation_system(
         &mut atlas_layouts,
         &room_set.active_spec().metadata,
     );
-    setup::presentation_world(
+    scene_setup::presentation_world(
         &mut commands,
-        setup::PresentationSetup {
+        scene_setup::PresentationSetup {
             world: &world,
             room_set: &room_set,
             sandbox_data: &sandbox_data,

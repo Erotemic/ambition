@@ -97,6 +97,7 @@ mod player_tick;
 mod plugins;
 mod progression_schedule;
 mod resources;
+mod scene_setup;
 mod setup_systems;
 mod sim_resources;
 mod sim_systems;

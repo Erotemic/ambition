@@ -38,11 +38,22 @@ use ambition_sfx::{BankProvider, SfxError};
 
 use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
 use crate::audio::AudioLibrary;
-use crate::runtime::setup::SfxBankResource;
+
+/// Process-wide handle to the loaded SFX bank, when one was found at
+/// startup. Wrapped in `Arc` so systems that need to play catalog SFX
+/// (beyond the typed `SoundCue` set the `AudioLibrary` preloads) can clone
+/// cheaply and look up by id without re-reading the file. Absent when the
+/// bank file isn't on disk; missing cues then resolve to a short silent stub
+/// (see `crate::audio::render::silent_audio_source`).
+///
+/// Populated either by the sync startup loader (the app's scene setup) or by
+/// the async `bank_asset` path below.
+#[derive(Resource, Clone)]
+pub struct SfxBankResource(pub Arc<BankProvider>);
 
 /// Loaded SFX-bank asset. Wraps the parsed [`BankProvider`] in an
-/// `Arc` so the private `SfxBankResource` (in `crate::runtime::setup`)
-/// and any future direct consumers can share it without re-decoding.
+/// `Arc` so the [`SfxBankResource`] and any future direct consumers can
+/// share it without re-decoding.
 #[derive(Asset, TypePath)]
 pub struct SfxBankAsset {
     pub provider: Arc<BankProvider>,

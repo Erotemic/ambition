@@ -44,7 +44,7 @@ pub use environment::{AudioEnvironment, AudioEnvironmentMode};
 // (Kira-gated); headless paths use `SoundCueKey` from the data schema.
 
 #[cfg(feature = "audio")]
-pub use bank_asset::{SfxBankAsset, SfxBankAssetPlugin};
+pub use bank_asset::{SfxBankAsset, SfxBankAssetPlugin, SfxBankResource};
 #[cfg(feature = "audio")]
 pub use environment::{
     apply_audio_environment, detect_audio_environment, smooth_audio_environment,

@@ -358,6 +358,8 @@ the final act; needs A4 done so the rename reflects a real boundary, not a label
 
 | SEAM | complete the sim/render crate seam — move ALL render code out of sim modules | ☑ | XL | ~8 cycles | (8 commits) | sandbox −~1300 | the render extraction (step 2) only moved `presentation/`; render code also lived in sim modules (items/pickup, player/bubble_shield, body_mode/morph_ball, mechanics/gravity, abilities/.../mark_recall, shrine). Moved all 8 (items/pickup, bubble_shield, morph_ball, gravity, mark_beacon, shrine, projectile, enemy_projectile) into `ambition_render::rendering::*` (reading sim state from sandbox). Remaining render→sandbox refs are legit: sim-data computers (`composite_visual_plan`, `enemy_visual_kind`) + the documented portal host-adapter. Replay bit-identical on every move; 916 sandbox + 24 render green. |
 
+| FND | extract `ambition_interaction` foundation crate (machinery-DOWN) | ☑ | M | ~1 cycle | (interaction) | sandbox −291 | interaction.rs (Interactable/InteractionKind/Pickup/Chest/Breakable — content-free DATA over actor+geometry) → new foundation crate; sandbox re-exports `crate::interaction` so all 42 consumers are unchanged. Serves the oracle; guard-locked content-free. The OTHER low-coupling files are player-coupled (affordances), borderline (camera_ease), or too small (config/debug) — no more clean foundation cuts. |
+
 ## Final summary (run 1 — 2026-06-15)
 
 - **New foundation crates (3):** `ambition_ui_nav`, `ambition_cutscene` (format +

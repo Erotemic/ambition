@@ -26,12 +26,10 @@ use crate::engine_core as ae;
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ContentRoomResetSet;
 
-use crate::assets::game_assets::GameAssets;
 use crate::boss_encounter::BossEncounterRegistry;
 use crate::encounter::{EncounterMusicRequest, EncounterRegistry};
 use crate::persistence::save::SandboxSave;
 use crate::platformer_runtime::lifecycle::RoomScopedEntity;
-use crate::presentation::rendering::spawn_room_visuals;
 use crate::quest::QuestRegistry;
 use crate::rooms::RoomSet;
 use crate::world::physics;
@@ -43,7 +41,6 @@ use crate::world::platforms;
 pub struct ResetPlayState<'w> {
     sim_state: ResMut<'w, crate::SandboxSimState>,
     clock: ResMut<'w, crate::time::clock_state::ClockState>,
-    physics_settings: Res<'w, crate::world::physics::PhysicsSandboxSettings>,
     moving_platforms: ResMut<'w, crate::MovingPlatformSet>,
 }
 
@@ -79,7 +76,7 @@ pub fn process_sandbox_reset_request(
     mut room_set: ResMut<RoomSet>,
     mut world: ResMut<crate::GameWorld>,
     tuning: Res<crate::dev::dev_tools::EditableMovementTuning>,
-    assets: Option<Res<GameAssets>>,
+    mut respawn_visuals: MessageWriter<crate::runtime::RespawnRoomVisualsRequested>,
     mut commands: Commands,
     mut banner: ResMut<crate::features::GameplayBanner>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
@@ -168,23 +165,14 @@ pub fn process_sandbox_reset_request(
     crate::features::spawn_room_feature_entities(&mut commands, &start_spec);
     play_state.moving_platforms.0 = platforms::moving_platforms_for_room(&start_spec);
 
-    // 7. Respawn the static world visuals + moving platform for the
-    //    start room. Without this, the despawn in step 4 leaves the
-    //    scene empty until something else (LDtk reload, room transition)
-    //    triggers a fresh `spawn_room_visuals`. Mirrors the pattern in
-    //    `app::world_flow::load_room` and the LDtk hot-reload path.
-    crate::presentation::rendering::spawn_parallax_layers(
-        &mut commands,
-        &world.0,
-        &start_spec.metadata,
-        assets.as_deref(),
-    );
-    spawn_room_visuals(
-        &mut commands,
-        &start_spec,
-        *play_state.physics_settings,
-        assets.as_deref(),
-    );
+    // 7. Respawn the static world visuals + parallax for the start room.
+    //    Without this, the despawn in step 3 leaves the scene empty until
+    //    something else (LDtk reload, room transition) rebuilds it. The visual
+    //    respawn is a PRESENTATION concern, so the sim only emits the request —
+    //    the render layer's `respawn_room_visuals_on_request` consumes it and
+    //    reads the active room from `RoomSet`. A headless build has no consumer
+    //    and correctly skips the (purely visual) respawn.
+    respawn_visuals.write(crate::runtime::RespawnRoomVisualsRequested);
     platforms::spawn_moving_platforms(&mut commands, &world.0, &play_state.moving_platforms.0);
 
     // 8. User feedback: surface a banner so the reset is visibly
@@ -262,6 +250,7 @@ pub struct SandboxResetSchedulePlugin;
 
 impl Plugin for SandboxResetSchedulePlugin {
     fn build(&self, app: &mut App) {
+        app.add_message::<crate::runtime::RespawnRoomVisualsRequested>();
         app.add_systems(
             Update,
             // Clear transient portals/held-items/summons BEFORE the request flag

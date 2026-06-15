@@ -235,5 +235,10 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 .in_set(crate::app::SandboxSet::PresentationVisualSync)
                 .after(crate::menu::map::handle_map_menu_hotkeys),
         );
+
+        // Rebuild the active room's static visuals + parallax when the sim asks
+        // for it (sandbox reset). The sim emits `RespawnRoomVisualsRequested`; we
+        // own the actual spawn here so the sim never imports the render layer.
+        app.add_systems(Update, world::respawn_room_visuals_on_request);
     }
 }

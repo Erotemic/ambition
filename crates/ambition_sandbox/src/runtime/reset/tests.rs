@@ -190,6 +190,10 @@ fn min_app() -> App {
         Vec::new(),
     ));
     app.insert_resource(EditableMovementTuning::default());
+    // The processor now emits `RespawnRoomVisualsRequested` instead of spawning
+    // visuals inline (the render layer consumes it); register the message so the
+    // headless test app can run the system.
+    app.add_message::<crate::runtime::RespawnRoomVisualsRequested>();
     app.add_systems(Update, process_sandbox_reset_request);
     app
 }

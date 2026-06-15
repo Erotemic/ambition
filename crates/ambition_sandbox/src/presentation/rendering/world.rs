@@ -21,6 +21,29 @@ use crate::character_sprites::{
 use crate::rooms::{LoadingZone, LoadingZoneActivation, PropSpec};
 use crate::world::physics;
 
+/// Presentation consumer of [`crate::runtime::RespawnRoomVisualsRequested`].
+///
+/// The sim (sandbox reset) emits the request after flipping the active room; this
+/// reads the active room from [`RoomSet`] and rebuilds its static visuals +
+/// parallax. Keeping the spawn on the render side means the sim never imports the
+/// render layer, and a headless build (no presentation plugins) simply never runs
+/// this system — correct, since it needs no visuals.
+pub fn respawn_room_visuals_on_request(
+    mut requests: MessageReader<crate::runtime::RespawnRoomVisualsRequested>,
+    mut commands: Commands,
+    room_set: Res<crate::rooms::RoomSet>,
+    physics_settings: Res<physics::PhysicsSandboxSettings>,
+    assets: Option<Res<GameAssets>>,
+) {
+    if requests.is_empty() {
+        return;
+    }
+    requests.clear();
+    let spec = room_set.active_spec();
+    super::spawn_parallax_layers(&mut commands, &spec.world, &spec.metadata, assets.as_deref());
+    spawn_room_visuals(&mut commands, spec, *physics_settings, assets.as_deref());
+}
+
 pub fn spawn_room_visuals(
     commands: &mut Commands,
     spec: &crate::rooms::RoomSpec,

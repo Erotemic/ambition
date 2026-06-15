@@ -40,6 +40,7 @@ Entry format:
 - **Noticed while:** A1 menu equip inversion
 - **Suggested fix / size:** L — item registry keyed by id, roster authored content-side
 
+- **UPDATE 2026-06-15 (long run):** the legacy `ItemKind`/`PlayerInventory` half is DELETED (collapsed onto `OwnedItems`/`Item`); the dual-bag smell is resolved. The remaining `Item` 24-variant enum is INTENTIONALLY kept — it has type-level equip/ability/held-item wiring (match arms), and the decision doc prefers a NARROW closed enum over a wide data-keyed registry for that. The `ItemMeta` table is already data. Verdict: leave `Item` as the enum; B4 (data-key it) is anti-elegant. Won't-do-by-analysis.
 ## 2026-06-10 FeatureVisualKind::Sandbag variant in the generic kit
 - **Where:** crates/ambition_sandbox/src/mechanics/combat/events.rs (FeatureVisualKind)
 - **Smell:** a named-ish variant in kit vocabulary (excluded from the combat-kit guard word list)
@@ -52,12 +53,14 @@ Entry format:
 - **Noticed while:** A2 stretch (combat-kit guard rejected boss_attack_geometry)
 - **Suggested fix / size:** M-L — replace variants with data-keyed attack profiles (string/interned id + spec struct), content registers specs. NOW the active target of the Technique/Effects framework design (2026-06-13).
 
+- **UPDATE 2026-06-15 (long run):** analysis says LEAVE the enum. The named melee variants (FloorSlam ×18, SideSweep ×35, HandSlam ×12, HazardColumn ×10, …) are SHARED attack-shape vocabulary authored across MANY bosses in `boss_profiles.ron`, not per-boss content — a narrow closed enum is correct engine vocabulary (decision doc: narrow > wide). The content-specific specials already route through the `Special(String)` seam, and their consumers (`spawn_gnu_apple_rain_*` etc.) ALREADY live in `ambition_content::bosses::specials` (C3 done). Won't-do-by-analysis.
 ## 2026-06-10 audio/music runtime interleaves game reads with playback machinery
 - **Where:** crates/ambition_sandbox/src/audio/runtime.rs (apply_encounter_music reads EncounterMusicRequest/RoomMusicRequest inline), music/mod.rs (UserSettings reads), environment.rs (player position reads)
 - **Smell:** doc 20's B1 ("ambition_audio is the cleanest warm-up") underestimates this: the playback engine and the game-event adapters are item-level interleaved in the same files, so the crate extraction is real surgery (~4 seams: AudioMixSettings sync, AudioSpec resource, request->MusicIntent (exists), bank/catalog glue). Post-bisection the compile-time payoff also shrank (audio already left the content-edit hot path).
 - **Noticed while:** Stage 20 overflow triage (B1 deprioritized in favor of C1 per Jon's task pick)
 - **Suggested fix / size:** M — split runtime.rs/mod.rs item-by-item along the seams above, then the crate move is mechanical
 
+- **UPDATE 2026-06-15 (long run):** the authored music-cue catalog (the goblin adaptive tune + binding) moved to `ambition_content::music` (the lib's audio plugin no longer hard-codes it; the content plugin installs the `MusicCueCatalog`, which the director already takes as `Option<Res<_>>`). What remains (`audio/runtime.rs`, 89L) is thin game-glue translating `EncounterMusicRequest`/`RoomMusicRequest` → playback; the generic half is already `ambition_audio`, settings already decouple via `MusicMix`. No crate to extract — E1/E2 are effectively addressed.
 ## 2026-06-10 Boss sprite assets are named GameAssets fields + per-boss loader fns
 - **Where:** crates/ambition_sandbox/src/assets/game_assets.rs (mockingbird/gnu_ton/gnu_ton_body/gnu_ton_hands/smirking/spaghetti/trex fields), boss_encounter/sprites.rs (load_<boss>_sprite_in wrappers + named sheet consts), presentation/rendering/actors.rs ~695-760 (the per-boss if-chain incl. the GNU-ton body+hands layered render)
 - **Smell:** the last named-content pocket in the render path. Inversion sketch: `boss_sprites: HashMap<String, BossSpriteAsset>` + `boss_layers: HashMap<String, BossLayeredSprite>` keyed by behavior id, loaded from a data table (boss id -> sheet asset ids + layer split), with the if-chain becoming `assets.boss_sprite(boss_key).or(generic)`. Land AFTER the sheet-data migration is runtime-verified (the layered GNU-ton render is the most visually delicate path in the repo).

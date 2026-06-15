@@ -290,9 +290,20 @@ pub fn upgrade_enemy_sprites(
             continue;
         }
         let sprite = build_character_sprite(character_asset, collision);
+        // Surface-walkers (e.g. the puppy-slug) rotate their sprite onto walls
+        // and ceilings. The humanoid feet-anchor is a fixed local-vertical offset
+        // that rotates with the sprite, which would shove a clung slug to the
+        // wall-side edge of its (oriented) collision box. A blob has no feet to
+        // plant, so center it; the offset on flat ground was tiny anyway.
+        let anchor =
+            if ambition_sandbox::features::ecs_enemy_is_surface_walker(&visual.id, &ecs_actors) {
+                bevy::sprite::Anchor::CENTER
+            } else {
+                feet_anchor_for(&character_asset.spec, collision)
+            };
         commands.entity(entity).insert((
             sprite,
-            feet_anchor_for(&character_asset.spec, collision),
+            anchor,
             CharacterAnimator::new(&character_asset.spec),
             BoundFeatureKind::new(view.kind, collision),
         ));

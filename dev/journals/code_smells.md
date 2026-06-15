@@ -92,3 +92,11 @@ Entry format:
 ## 2026-06-10 EnemyConfig.archetype is the per-archetype tuning hub — RESOLVED 2026-06-13
 - **Was:** the named `EnemyArchetype` enum woven into the generic actor layer as its tuning provider; blocked moving the actor combat core into mechanics::combat.
 - **Resolved across three steps:** (1) sim-side reads projected to `EnemyTuning` + `CombatCapabilities` (`6dc440b9`, 2026-06-11); (2) the durable `EnemyConfig` + per-frame `EnemyMut` made archetype-free via a new `EnemyBrainSpec`, enum confined to the spawn-time seed (Session 6, 2026-06-13); (3) the whole roster lifted to `ambition_content` (`crates/ambition_content/src/enemy_roster.rs`) and the `EnemyArchetype` enum **deleted** — enemies now resolve by brain-key against an installed `EnemyRoster` holder. Guarded by `architecture_boundaries_enemy_config_is_archetype_free`. The lib names no enemy archetype.
+
+## audio/mod.rs:28 `use bevy::prelude::*` flagged unused but is load-bearing (2026-06-15)
+The unused-import lint flags `use bevy::prelude::*` at the top of
+`crates/ambition_sandbox/src/audio/mod.rs`, but child modules (`runtime.rs`,
+…) reach `Res`/`ResMut`/`AssetServer`/`info!` through `use super::*`, which
+re-globs the parent's prelude. Removing it breaks the build. DO NOT "clean" it
+— the lint is a known false positive for glob-imports re-exported via child
+`use super::*`. (Confirmed + reverted during the 2026-06-15 split run.)

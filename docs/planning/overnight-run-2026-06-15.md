@@ -232,6 +232,8 @@ the final act; needs A4 done so the rename reflects a real boundary, not a label
 | ⚠ | **disk-full event** | ☑ resolved | — | — | — | — | `/home/joncrall/ambition-target` cargo cache hit 107G (disk 100%, historical accumulation across sessions). Cleared → 45%. Repo `target/` is a decoy (config redirects). |
 | A | extract cutscene format → `ambition_cutscene` crate | ☑ | M | ~1 cycle | `c337730e` | lib −311 | pure serde format+stepper; re-exported as `cutscene::script`. Replay identical, 6 crate tests. |
 | — | clean-extraction frontier check | ☑ | S | — | — | — | **Exhausted.** `inventory` has named `ItemKind` content (needs data-keying, not extraction); `quest`/`music` already factored (runtime in lib, named content in `ambition_content`). Next phase = splits / de-naming / dedup + eventual A4. |
+| C1 | `FeatureVisualKind::Sandbag`→`TrainingDummy` | ☑ | S | ~1 cycle | `b9345dec` | — | code-only kit-vocab de-name; content sprite keeps `sandbag` name. |
+| — | sandbag passive fix (Jon FYI) | ☑ `behaviour Δ` | S | — | `b9345dec` | — | both `is_sandbag` archetypes had a dormant `PunchWeak` melee (aggro 0) → `melee: None`. Pinned by `sandbags_are_passive()` + content test. Replay identical. Feel-check: dummy no longer counter-attacks. |
 
 ## Final summary (fill at run end)
 

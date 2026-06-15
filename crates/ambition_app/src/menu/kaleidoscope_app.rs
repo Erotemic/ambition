@@ -1807,3 +1807,6 @@ mod cache;
 mod scroll;
 pub use cache::*;
 pub use scroll::*;
+
+#[cfg(test)]
+mod lunex_kaleidoscope_app_tests;

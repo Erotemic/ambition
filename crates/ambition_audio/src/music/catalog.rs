@@ -271,7 +271,7 @@ impl MusicCueCatalog {
     }
 }
 
-#[derive(Resource, Clone)]
+#[derive(Resource, Clone, Default)]
 pub struct LoadedMusicCueAssets {
     pub(super) sources: HashMap<MusicSourceKey, Handle<KiraAudioSource>>,
 }
@@ -286,6 +286,25 @@ impl LoadedMusicCueAssets {
         self.sources
             .get(&MusicSourceKey::new(cue_id, section_id, layer_id))
             .cloned()
+    }
+
+    /// Lazily request a cue's file-backed sources the first time it is about to
+    /// play (load-on-play). Idempotent: already-requested sources are left as-is,
+    /// so a cue loads exactly once and steady-state playback does no work.
+    ///
+    /// This replaces eager "load every catalog cue at startup": authored cues are
+    /// only `asset_server.load()`ed when their `Play` directive actually fires.
+    pub(super) fn ensure_cue_loaded(&mut self, cue: &MusicCueSpec, asset_server: &AssetServer) {
+        for section in &cue.sections {
+            for source in &section.sources {
+                let key = MusicSourceKey::new(&cue.id, &section.id, &source.layer_id);
+                if !self.sources.contains_key(&key) {
+                    let rel =
+                        format!("{}/{}", cue.asset_root.trim_end_matches('/'), source.path);
+                    self.sources.insert(key, asset_server.load(rel));
+                }
+            }
+        }
     }
 }
 

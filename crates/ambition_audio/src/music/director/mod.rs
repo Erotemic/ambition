@@ -30,7 +30,7 @@ pub(super) use adaptive::should_restart_adaptive;
 pub fn drive_music_director(
     time: Res<Time>,
     catalog: Option<Res<MusicCueCatalog>>,
-    assets: Option<Res<LoadedMusicCueAssets>>,
+    assets: Option<ResMut<LoadedMusicCueAssets>>,
     director: Option<ResMut<MusicDirectorState>>,
     intent: Res<MusicIntent>,
     layer_channels: MusicLayerChannels,
@@ -43,7 +43,7 @@ pub fn drive_music_director(
     let Some(catalog) = catalog else {
         return;
     };
-    let Some(assets) = assets else {
+    let Some(mut assets) = assets else {
         return;
     };
     let Some(mut director) = director else {
@@ -63,6 +63,8 @@ pub fn drive_music_director(
                 catalog.cue(&cue_id),
                 catalog.cue(&cue_id).and_then(|cue| cue.state(&state_id)),
             ) {
+                // Lazily pull this cue's sources on first play (no-op afterwards).
+                assets.ensure_cue_loaded(cue, &asset_server);
                 drive_adaptive_cue_state(
                     &mut director,
                     cue,

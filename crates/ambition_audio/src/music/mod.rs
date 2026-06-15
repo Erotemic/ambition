@@ -67,5 +67,4 @@ pub use director::{drive_music_director, load_music_cues};
 use state::PendingMusicStateTransition;
 pub use state::{AdaptiveCueDirective, MusicDirectorMode, MusicDirectorState, MusicIntent};
 
-use catalog::MusicSourceKey;
 use channels::{LayerGains, MusicBank};

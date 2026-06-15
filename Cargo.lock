@@ -156,6 +156,7 @@ dependencies = [
  "ambition_input",
  "ambition_menu",
  "ambition_platformer_runtime",
+ "ambition_render",
  "ambition_sandbox",
  "ambition_sfx",
  "ambition_time",
@@ -216,6 +217,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_asset_manager",
  "ambition_platformer_runtime",
+ "ambition_render",
  "ambition_sandbox",
  "ambition_sfx",
  "bevy",
@@ -300,6 +302,21 @@ dependencies = [
  "ambition_platformer_runtime",
  "ambition_portal",
  "bevy",
+]
+
+[[package]]
+name = "ambition_render"
+version = "0.1.0"
+dependencies = [
+ "ambition_asset_manager",
+ "ambition_cutscene",
+ "ambition_effects",
+ "ambition_platformer_runtime",
+ "ambition_portal_presentation",
+ "ambition_sandbox",
+ "ambition_sprite_sheet",
+ "bevy",
+ "leafwing-input-manager",
 ]
 
 [[package]]

@@ -155,6 +155,40 @@ pub fn step_kinematic(
     } else {
         body.on_ground = false;
     }
+
+    // Gravity-axis depenetration: if the body ENDS the tick overlapping a solid
+    // (the revert above only undoes the current move, not a pre-existing overlap —
+    // e.g. gravity flipped while it rested inside a platform, or it got nudged in by
+    // the X sweep), push it out toward -gravity so its feet rest flush. Guarded to
+    // the gravity side + the shallower (landing-type) axis so it never fights the X
+    // (wall) resolver. Byte-identical when there is no overlap.
+    let b = body.aabb();
+    for block in &world.blocks {
+        if !matches!(block.kind, BlockKind::Solid | BlockKind::BlinkWall { .. }) {
+            continue;
+        }
+        let blk = block.aabb;
+        if !b.strict_intersects(blk) {
+            continue;
+        }
+        let y_overlap = (b.bottom().min(blk.bottom()) - b.top().max(blk.top())).max(0.0);
+        let x_overlap = (b.right().min(blk.right()) - b.left().max(blk.left())).max(0.0);
+        if y_overlap <= 0.0 || y_overlap > x_overlap {
+            continue; // a wall hit (or no Y overlap) — leave it to the X resolver
+        }
+        let body_on_head_side = if sign >= 0.0 {
+            b.center().y < blk.center().y
+        } else {
+            b.center().y > blk.center().y
+        };
+        if !body_on_head_side {
+            continue;
+        }
+        body.pos.y += if sign >= 0.0 { -y_overlap } else { y_overlap };
+        body.on_ground = true;
+        body.vel.y = 0.0;
+        break;
+    }
 }
 
 fn body_blocked_x(aabb: Aabb, world: &World) -> bool {

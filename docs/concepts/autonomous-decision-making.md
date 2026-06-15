@@ -54,10 +54,18 @@ code into the **right shape**. Do that first. Find and fix what's wrong **after*
   to avoid, shrink, or defer a structural change. When a refactor changes behavior,
   that is expected — let replay diverge.
 - **When given a duration, use all of it.** Do not stop early. Do not hand back at
-  the first hard problem. Do NOT declare the work "exhausted," "entangled," or
-  "needs supervision" to dodge the harder, higher-impact moves — *that evasion* is
+  the first hard problem. Do NOT declare the work "exhausted," "entangled,"
+  "comprehensive," "diminishing returns," "supervised-tier," or "needs a careful /
+  supervised pass" to dodge the harder, higher-impact moves — *that evasion* is
   the failure, not a behavior change. When the easy wins are gone, it's time for the
-  structural ones, not time to stop.
+  structural ones, not time to stop. In a REFACTOR run the evasion wears a disguise:
+  extracting a test module, splitting out the easy half of a god-file and leaving
+  the tangled core, "safe-subset lifts," renames, and reverting a file the moment it
+  throws a compile error. Those shuffle line counts without breaking the monolith. A
+  file is broken only when its HARD core is decomposed; the file that fights you IS
+  the task. A mid-refactor compile error is the middle of the work — fix it forward,
+  never `git checkout` to escape it; revert only a wrong APPROACH, then re-attack the
+  same target a different way.
 - **A commit IS your checkpoint — not a stopping point.** Land each coherent step
   as a commit (that's how you save progress and stay safe to roll back), then
   *immediately keep moving* to the next move. "Checkpoint" never means "hand back to

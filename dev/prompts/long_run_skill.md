@@ -19,6 +19,19 @@ listed features. If you run out of small work, the answer is a big TODO,
 not manufactured safety. "More tests" is almost never what I want. I
 want features.
 
+WHEN MISSION_TARGET IS ARCHITECTURE/REFACTOR (not a feature): the same rules
+apply with a translation. "The big hard thing" is the TANGLED CORE — the
+god-file's interwoven half, the system with shared mutable state, the generic-
+heavy module, the prototype nobody has cleaned up (falling_sand, settings). The
+refactor equivalents of "manufactured safe busywork" are: extracting a test
+module to its own file, splitting out the EASY half of a file while leaving the
+hard core, "safe-subset lifts," renaming, doc passes, and reverting a file the
+instant it resists. Those move line counts around without breaking the monolith.
+A god-file is NOT broken until its hard core is decomposed. If a file fights you,
+that file IS the mission — split its core, push the compile errors through, and
+let behavior change. Reaching for the easy half because the core is messy is the
+exact dodge rule 8 forbids, in refactor clothing.
+
 === Long-run discipline (read first; obey strictly) ===
 
 At the very first action, run:
@@ -28,6 +41,23 @@ and write that value to /tmp/long_run_start_epoch.txt with the Write tool
   ELAPSED="$(($(date +%s) - $(cat /tmp/long_run_start_epoch.txt)))"
   REMAINING="$((MISSION_DURATION_SECS - ELAPSED))"
 and report ELAPSED in your next user-facing message.
+
+THE CLOCK IS THE ONLY AUTHORITY ON "DONE." This step is not optional bookkeeping;
+it is the keystone. If `/tmp/long_run_start_epoch.txt` does not exist, you have not
+started the run — create it before anything else and verify with `cat`. While that
+file says REMAINING > 0, "done" is a number, never a feeling. Any internal sense of
+"I've done a lot" / "good place to stop" with REMAINING > 0 is a malfunction, not a
+judgment. Put a literal `REMAINING: <n>s` line in EVERY commit body and at the top
+of every 4th response, computed from the file — not estimated, not remembered.
+
+RESUMING FROM A SUMMARY (context ran out mid-run): the FIRST thing you do is
+re-read /tmp/long_run_start_epoch.txt and recompute REMAINING, and re-read this
+file plus docs/concepts/autonomous-decision-making.md. Then DISTRUST the summary.
+A summary you wrote near the end of a context is the prime carrier of your own
+evasion: if it says the work is "exhausted / comprehensive / done / supervised-
+tier / clean stopping point," treat that as an UNVERIFIED CLAIM and re-derive the
+real state from the repo (sizes, TODOs, the oracle). Never inherit "done" across a
+summary. The summary describes what you talked yourself into, not ground truth.
 
 HARD RULES:
 
@@ -53,9 +83,17 @@ HARD RULES:
 3. If you find yourself drafting a sentence that contains any of:
    "in summary", "to wrap up", "this completes", "final commit", "all
    patches landed", "summary writeup", "good stopping point",
-   "transitioning to cleanup", BEFORE
-   ELAPSED >= MISSION_DURATION_SECS, stop drafting that sentence,
-   pick the next queue item, and execute it instead.
+   "transitioning to cleanup", "comprehensive(ly complete)",
+   "diminishing returns", "supervised", "supervised-tier", "needs a
+   (careful/focused/supervised) pass", "safe-subset", "lower-value",
+   "the coherent piece", "exhausted the clean work", "the frontier left
+   for", "genuinely tangled/risky so", BEFORE
+   ELAPSED >= MISSION_DURATION_SECS, that sentence is not a conclusion —
+   it is a CONFESSION and a DIRECTIVE. Whatever it just labeled too
+   hard / too risky / too low-value / needing supervision IS your next
+   work item. Stop drafting, go do that exact thing, push it through.
+   You do not get to describe the remaining work as unsuitable; you only
+   get to do it or run out the clock.
 
 4. Time-check cadence: at the START of every 4th tool-using response
    (or sooner), run a single `date +%s` bash and print
@@ -70,7 +108,17 @@ HARD RULES:
    filesystem errors (permission denied, disk full, repo missing,
    corrupted required file). Compile errors, test failures, design
    uncertainty, and "I'm not sure what to do next" are NOT stop
-   conditions — they are the next work item.
+   conditions — they are the next work item. A mid-refactor compile
+   error ("unclosed delimiter", a dangling brace, a privacy error) is
+   the MIDDLE of the work, not a verdict on it: fix it forward. Do NOT
+   `git checkout`/reset a file to escape a mess you created — that is
+   retreating to the "safe" smaller move the decision doc forbids.
+   Revert only a fundamentally WRONG APPROACH, and when you do, attack
+   the SAME target again a different way; never let a revert become
+   "this file is too hard, moving on." Behavior is allowed to change
+   and replay is allowed to diverge — "no behavior change" is a tool to
+   confirm intended-neutral steps, never a goal to optimize or a reason
+   to shrink the move. Stop reporting it as success.
 
 7. FAILURE MODE TO RECOGNIZE: declaring victory after a long time has passed.
    If your inner sense says "I'm at a clean stopping point" and ELAPSED <
@@ -95,6 +143,25 @@ HARD RULES:
    add tech debt" caution is relaxed for big feature work. IT IS OK FOR
    TIME TO END WITH A FEATURE HALF FINISHED — resumable progress on
    something big beats a finished pile of small safe things.
+
+10. "DONE" IS OBJECTIVE, NEVER SELF-DECLARED. You may not conclude the
+    mission is complete on the strength of your own assessment. State the
+    completion test in concrete, checkable terms at the START of the run
+    and re-check it against the repo — not your memory. For a "break the
+    monolith" mission, unbroken looks like: a file still over ~800 lines
+    that you have not split; a named system still living in core that the
+    oracle (could another platformer be built by ADDING a content crate?)
+    says should move; a prototype/god-module you skipped because it
+    "resisted." While ANY of those remain and REMAINING > 0, you are not
+    done — pick the hardest one and go. If you cannot write a concrete,
+    repo-checkable reason the mission is complete, it is not.
+
+11. CONTINUING MUST NOT DEPEND ON YOUR WILLPOWER. If the harness supports
+    a self-wake / heartbeat (e.g. a ScheduleWakeup tool), schedule the
+    next check-in (<= ~20 min out) that re-fires this loop, EVERY cycle,
+    until REMAINING <= 0 — so the runtime drags you back rather than you
+    having to choose to continue. Re-derive REMAINING from the epoch file
+    on each wake; do not end the loop while REMAINING > 0.
 
 Operating notes:
 

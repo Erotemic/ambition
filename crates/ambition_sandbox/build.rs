@@ -16,11 +16,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 fn main() {
-    println!("cargo:rustc-check-cfg=cfg(ambition_static_sfx_bank_path)");
-    println!("cargo:rerun-if-env-changed=AMBITION_STATIC_SFX_BANK_PATH");
+    // NOTE: the static-SFX-bank cfg/env is configured in `ambition_app/build.rs`
+    // now — a build script only affects its own crate, and the consumer
+    // (`app::scene_setup`) lives in `ambition_app`.
 
     let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
-    configure_static_sfx_bank(&manifest_dir);
 
     let sprites_dir = manifest_dir.join("assets/sprites");
 
@@ -61,29 +61,6 @@ fn main() {
     body.push_str("];\n");
 
     fs::write(&out_path, body).expect("write baked_sheet_rons.rs");
-}
-
-fn configure_static_sfx_bank(manifest_dir: &Path) {
-    if std::env::var_os("CARGO_FEATURE_STATIC_SFX_BANK").is_none() {
-        return;
-    }
-
-    let configured = std::env::var_os("AMBITION_STATIC_SFX_BANK_PATH")
-        .filter(|value| !value.is_empty())
-        .map(PathBuf::from)
-        .or_else(|| {
-            let default_path = manifest_dir.join("assets/audio/sfx.bank");
-            default_path.is_file().then_some(default_path)
-        });
-
-    if let Some(path) = configured {
-        println!(
-            "cargo:rustc-env=AMBITION_STATIC_SFX_BANK_PATH={}",
-            path.display()
-        );
-        println!("cargo:rustc-cfg=ambition_static_sfx_bank_path");
-        println!("cargo:rerun-if-changed={}", path.display());
-    }
 }
 
 fn collect_spritesheet_rons(dir: &Path, out: &mut Vec<(String, PathBuf)>) {

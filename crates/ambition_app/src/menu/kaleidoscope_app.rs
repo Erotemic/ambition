@@ -624,7 +624,7 @@ mod dev_toggles;
 use dev_toggles::*;
 
 mod scrim;
-pub use scrim::*;
+pub(crate) use scrim::*;
 
 /// Directional focus navigation for the cube (keyboard / gamepad), porting the
 /// demo's `MockDemo::move_spatial` (`crates/ambition_mock_demo/src/app/state.rs`).
@@ -1374,7 +1374,7 @@ pub(crate) fn focus_for_action(
 }
 
 mod pointer;
-pub use pointer::*;
+pub(crate) use pointer::*;
 
 /// Fix 3: route the game's menu-open inputs to the CUBE when it is the active
 /// backend, opening it on the page that matches the requested menu:
@@ -1737,8 +1737,8 @@ fn kaleidoscope_sync_detail_text(
 
 mod cache;
 mod scroll;
-pub use cache::*;
-pub use scroll::*;
+pub(crate) use cache::*;
+pub(crate) use scroll::*;
 
 #[cfg(test)]
 mod lunex_kaleidoscope_app_tests;

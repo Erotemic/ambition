@@ -27,6 +27,7 @@
 
 pub mod actors;
 mod camera;
+pub mod bubble_shield;
 mod item_visuals;
 mod deep_dream;
 mod features;
@@ -93,13 +94,13 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
             // `PlayerShieldState::parrying()`.
             .add_systems(
                 Startup,
-                ambition_sandbox::player::bubble_shield::build_bubble_shield_sprite,
+                bubble_shield::build_bubble_shield_sprite,
             )
             .add_systems(
                 Update,
                 (
-                    ambition_sandbox::player::bubble_shield::spawn_bubble_shield_visual,
-                    ambition_sandbox::player::bubble_shield::sync_bubble_shield_visual,
+                    bubble_shield::spawn_bubble_shield_visual,
+                    bubble_shield::sync_bubble_shield_visual,
                 )
                     .chain()
                     .after(actors::sync_visuals),

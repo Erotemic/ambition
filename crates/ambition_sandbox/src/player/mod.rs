@@ -16,7 +16,6 @@
 //! - [`systems`]    — frame systems that read or sync the player components.
 
 pub mod affordances;
-pub mod bubble_shield;
 pub mod bundles;
 pub mod components;
 pub mod events;

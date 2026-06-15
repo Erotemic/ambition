@@ -234,6 +234,9 @@ the final act; needs A4 done so the rename reflects a real boundary, not a label
 | — | clean-extraction frontier check | ☑ | S | — | — | — | **Exhausted.** `inventory` has named `ItemKind` content (needs data-keying, not extraction); `quest`/`music` already factored (runtime in lib, named content in `ambition_content`). Next phase = splits / de-naming / dedup + eventual A4. |
 | C1 | `FeatureVisualKind::Sandbag`→`TrainingDummy` | ☑ | S | ~1 cycle | `b9345dec` | — | code-only kit-vocab de-name; content sprite keeps `sandbag` name. |
 | — | sandbag passive fix (Jon FYI) | ☑ `behaviour Δ` | S | — | `b9345dec` | — | both `is_sandbag` archetypes had a dormant `PunchWeak` melee (aggro 0) → `melee: None`. Pinned by `sandbags_are_passive()` + content test. Replay identical. Feel-check: dummy no longer counter-attacks. |
+| A4-prep | `RoomVisual` marker → `platformer_runtime::lifecycle` | ☑ | M | ~1 cycle | `5cab1e4b` | — | the seam's top coupler; zero-sized marker, runtime-owned home (its sibling `RoomScopedEntity` was already there). **presentation couplers 32 → 26.** Replay identical. |
+| A | cutscene state → `ambition_cutscene` crate | ☑ | M | ~1 cycle | `d9196268` | lib −55 | `ActiveCutscene`/`CutsceneAdvanceRequest`/`SKIP_HOLD` consolidated into the cutscene runtime crate; `app/input_systems` presentation refs 8 → 2. Replay identical. |
+| — | presentation seam status | — | — | — | — | — | **26 couplers; remaining are entangled.** The `PlayerVisual`/`SceneEntities` render-handle cluster has no clean foundation home (player↔presentation cycle risk) — needs a supervised A4 design+feel pass. RoomVisual + cutscene were the clean ones. |
 
 ## Final summary (fill at run end)
 

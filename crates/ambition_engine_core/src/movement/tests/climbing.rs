@@ -400,7 +400,6 @@ fn down_jump_on_ladder_falls_off_without_regrabbing() {
         InputState {
             jump_pressed: true,
             jump_held: true,
-            drop_through_pressed: true,
             axis_y: 1.0,
             control_dt: 1.0 / 60.0,
             ..InputState::default()

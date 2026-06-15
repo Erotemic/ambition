@@ -76,6 +76,7 @@ pub fn apply_suspended_time_scale_system(
 pub fn input_timer_system(
     time: Res<Time>,
     feel_tuning: Res<SandboxFeelTuning>,
+    gravity_field: Option<Res<ambition_sandbox::physics::GravityField>>,
     mut sim_state: ResMut<ambition_sandbox::SandboxSimState>,
     mut control_frame: ResMut<ControlFrame>,
     mut player_q: Query<
@@ -94,8 +95,17 @@ pub fn input_timer_system(
     sim_state.room_transition_cooldown = (sim_state.room_transition_cooldown - frame_dt).max(0.0);
     combat.damage_invuln_timer = (combat.damage_invuln_timer - frame_dt).max(0.0);
     combat.hitstun_timer = (combat.hitstun_timer - frame_dt).max(0.0);
+    // Fast-fall = double-tap toward gravity. The descend EDGE is the screen-down
+    // press normally, but the screen-up press under inverted gravity (past ±90°),
+    // so the gesture flips with gravity like the other gates.
+    let gravity_up = gravity_field.as_deref().is_some_and(|g| g.dir.y < 0.0);
+    let descend_pressed = if gravity_up {
+        control_frame.up_pressed
+    } else {
+        control_frame.down_pressed
+    };
     let double_tap_down = interaction.register_down_tap(
-        control_frame.down_pressed,
+        descend_pressed,
         frame_dt,
         feel.down_double_tap_window,
     );

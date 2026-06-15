@@ -11,10 +11,9 @@ use super::*;
 /// now complete: raw `ControlFrame` is no longer consulted inside
 /// the player simulation phases.
 ///
-/// `drop_through_pressed` is derived from the standard `axis_y +
-/// jump_pressed` gesture (same logic that lived in
-/// `ControlFrame::engine_input` pre-migration), so consumers don't
-/// have to special-case it.
+/// The drop-through gesture is no longer precomputed here — the engine forms it
+/// gravity-relatively (`movement::wants_drop_through`) from `axis_y + jump`, so
+/// it flips correctly under inverted gravity.
 ///
 /// The hitstun gate is applied to the FINAL `InputState` so every
 /// verb is zeroed uniformly.
@@ -24,10 +23,6 @@ pub(crate) fn engine_input_from_actor_control(
     hitstun_timer: f32,
     control_dt: f32,
 ) -> ae::InputState {
-    // Same drop-through gesture the legacy `ControlFrame::engine_input`
-    // computed (down held + jump just-pressed). Lives here because
-    // it's a gesture, not a primitive verb.
-    let drop_through_pressed = actor.desired_vel.y > 0.35 && actor.jump_pressed;
     let mut input = ae::InputState {
         axis_x: actor.desired_vel.x,
         axis_y: actor.desired_vel.y,
@@ -40,7 +35,6 @@ pub(crate) fn engine_input_from_actor_control(
         blink_held: actor.blink_held,
         blink_released: actor.blink_released,
         fast_fall_pressed: actor.fast_fall_pressed,
-        drop_through_pressed,
         attack_pressed: actor.melee_pressed,
         pogo_pressed: actor.pogo_pressed,
         interact_pressed: actor.interact_pressed,

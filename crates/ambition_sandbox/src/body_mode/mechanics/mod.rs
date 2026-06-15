@@ -40,6 +40,7 @@ const CROUCH_AXIS_Y_THRESHOLD: f32 = 0.4;
 
 pub fn update_body_mode(
     world: Res<crate::GameWorld>,
+    gravity_field: Option<Res<crate::physics::GravityField>>,
     mut player_q: Query<
         (
             &mut crate::player::BodyKinematics,
@@ -93,8 +94,14 @@ pub fn update_body_mode(
         return;
     }
 
-    let down_held = controls.axis_y > CROUCH_AXIS_Y_THRESHOLD;
-    let up_held = controls.axis_y < -CROUCH_AXIS_Y_THRESHOLD;
+    // Gravity-relative "descend" gate: crouch is "press toward your feet", which
+    // flips to screen-up under inverted gravity.
+    let gravity_dir = gravity_field
+        .as_deref()
+        .map_or(ae::Vec2::new(0.0, 1.0), |g| g.dir);
+    let descend = ae::movement::gravity_descend(controls.axis_y, gravity_dir);
+    let down_held = descend > CROUCH_AXIS_Y_THRESHOLD;
+    let up_held = descend < -CROUCH_AXIS_Y_THRESHOLD;
     let on_ground = ground.on_ground;
     let mode = body_mode_state.body_mode;
     let solid = |b: &ae::Block| matches!(b.kind, ae::BlockKind::Solid);

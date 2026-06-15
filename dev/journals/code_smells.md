@@ -108,11 +108,18 @@ a class of "world-Y-hardcoded" links that break when gravity flips. The pogo
 BOUNCE + HITBOX + tuning-gravity-sync were fixed (commit afd8345b). Remaining
 suspects, each cheaply verifiable by adding a case to that test file:
 
-- **Attack-driven pogo input intent** — `crates/ambition_engine_core/src/movement/control.rs:132`
-  gates the attack-pogo on `input.axis_y > 0.25` (screen-down). Under inverted
-  gravity the player's gravity-down input can't trigger it; only the dedicated
-  pogo button works. DESIGN QUESTION (screen-relative vs gravity-relative controls
-  under a flip) — Jon's call, not a unilateral fix.
+**RESOLVED (gravity-relative input frame):** crouch, drop-through-one-way, the
+attack-pogo input intent, fast-fall, possession, ladder-jump-boost, and ledge
+up/down now route their vertical "descend" gate through
+`ae::movement::gravity_descend(axis_y, gravity_dir)` (the convention: the gate
+stays on the up/down keys; its sign flips past ±90°). `standing_on_one_way_aabb`
+is gravity-relative too. Continuous vertical velocity (climb/flight/wall-climb
+speed) was already gravity-symmetric (screen-space velocity; the projection
+cancels). Verified: `gravity_symmetry.rs` (crouch/pogo) + engine
+`one_way_drop_through_works_under_inverted_gravity`. So the "attack-driven pogo
+input intent" item below IS resolved (it now uses gravity_descend); the residual
+DESIGN QUESTION is only the broader directional-attack screen-vs-gravity choice:
+
 - **Directional attack hitbox offset** — `crates/ambition_combat/src/lib.rs:446`
   (`view.pos + spec.hitbox_offset`): the down/up/forward attack hitbox offsets are
   world-locked, so the whole directional-attack system is screen-relative, not

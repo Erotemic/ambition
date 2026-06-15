@@ -187,8 +187,11 @@ pub fn tick_active_ledge_grab_clusters(
         return true;
     }
 
-    let input_up = input.axis_y < -0.4;
-    let input_down = input.axis_y > 0.4;
+    // Gravity-relative: "up" = away from gravity (climb up the ledge), "down" =
+    // toward gravity (drop). Flips under inverted gravity.
+    let descend = crate::movement::gravity_descend(input.axis_y, tuning.gravity_dir);
+    let input_up = descend < -0.4;
+    let input_down = descend > 0.4;
     let input_into_platform = input.axis_x * into_platform_axis(state.contact) > 0.4;
     let input_away_from_platform = input.axis_x * away_from_platform_axis(state.contact) > 0.4;
     let climb_unlocked = state.elapsed >= LEDGE_MIN_CLIMB_DELAY;

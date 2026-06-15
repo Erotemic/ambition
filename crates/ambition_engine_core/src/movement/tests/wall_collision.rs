@@ -70,7 +70,6 @@ fn one_way_platform_requires_down_plus_jump_to_drop_through() {
         InputState {
             axis_y: 1.0,
             jump_pressed: true,
-            drop_through_pressed: true,
             ..Default::default()
         },
     );
@@ -80,7 +79,7 @@ fn one_way_platform_requires_down_plus_jump_to_drop_through() {
             &mut scratch,
             InputState {
                 axis_y: 1.0,
-                // jump_pressed and drop_through_pressed are NOT held: this
+                // jump_pressed is NOT held: this
                 // is exactly the input shape the sandbox produces after
                 // the initial press.
                 ..Default::default()
@@ -581,5 +580,90 @@ fn ceiling_graze_x_sweep_does_not_teleport_body_to_the_far_edge() {
     assert!(
         after.x < 1100.0,
         "X-sweep teleported the body out the ceiling's far edge: pos={after:?} (delta_x={delta_x})",
+    );
+}
+
+#[test]
+fn one_way_drop_through_works_under_inverted_gravity() {
+    // The reported bug: with gravity inverted (pointing up), you couldn't drop
+    // through a one-way platform. Deterministic mirror of the down-gravity test:
+    // the player rests on the platform's BOTTOM face and "descend + jump" (which
+    // is screen-UP under inverted gravity) drops them through, toward gravity (-Y).
+    use crate::movement::tuning::DEFAULT_TUNING;
+    let g = Vec2::new(0.0, -1.0);
+    let tuning = MovementTuning {
+        gravity_dir: g,
+        gravity_sign: -1.0,
+        ..DEFAULT_TUNING
+    };
+    let step = |world: &World, scratch: &mut PlayerClusterScratch, input: InputState| {
+        update_player_with_tuning_scratch(world, scratch, input, 1.0 / 60.0, tuning);
+    };
+
+    let mut world = test_world();
+    // one-way platform; its BOTTOM face is the gravity-up (rest) side under inversion.
+    let plat_min_y = 400.0;
+    world.blocks.push(Block::one_way(
+        "inv drop platform",
+        Vec2::new(360.0, plat_min_y),
+        Vec2::new(180.0, 12.0),
+    ));
+    let plat_bottom = plat_min_y + 12.0;
+
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+    scratch.kinematics.pos = Vec2::new(450.0, plat_bottom + scratch.kinematics.size.y * 0.5);
+    scratch.kinematics.vel = Vec2::ZERO;
+    scratch.ground.on_ground = false;
+
+    for _ in 0..6 {
+        step(&world, &mut scratch, InputState::default());
+    }
+    let resting_y = scratch.kinematics.pos.y;
+    assert!(
+        scratch.ground.on_ground,
+        "player should rest on the one-way's bottom face under inverted gravity"
+    );
+
+    // "down alone" (toward gravity = screen-up, axis_y = -1) must NOT drop through.
+    for _ in 0..6 {
+        step(
+            &world,
+            &mut scratch,
+            InputState {
+                axis_y: -1.0,
+                ..Default::default()
+            },
+        );
+    }
+    assert!(
+        (scratch.kinematics.pos.y - resting_y).abs() < 1.0,
+        "descend-alone must not drop through (moved {} px)",
+        scratch.kinematics.pos.y - resting_y
+    );
+
+    // descend + jump drops through, toward gravity (-Y, so pos.y decreases).
+    step(
+        &world,
+        &mut scratch,
+        InputState {
+            axis_y: -1.0,
+            jump_pressed: true,
+            ..Default::default()
+        },
+    );
+    for _ in 0..10 {
+        step(
+            &world,
+            &mut scratch,
+            InputState {
+                axis_y: -1.0,
+                ..Default::default()
+            },
+        );
+    }
+    assert!(
+        scratch.kinematics.pos.y < resting_y - 12.0,
+        "descend+jump should drop the player through toward gravity under inverted gravity (delta {})",
+        scratch.kinematics.pos.y - resting_y
     );
 }

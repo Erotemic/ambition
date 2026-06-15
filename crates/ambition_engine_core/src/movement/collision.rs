@@ -379,16 +379,34 @@ fn resolve_vertical_clusters(
 }
 
 /// AABB-only variant of [`standing_on_one_way`]. Cluster-aware
-/// callers pass `BodyKinematics::aabb()` directly.
-pub fn standing_on_one_way_aabb(world: &World, body: Aabb) -> bool {
+/// callers pass `BodyKinematics::aabb()` directly. Gravity-relative: the player
+/// rests on the one-way's ANTI-gravity face (its top under normal gravity, its
+/// bottom under inverted), so drop-through detection flips with gravity like the
+/// landing sweep already does.
+pub fn standing_on_one_way_aabb(world: &World, body: Aabb, gravity_dir: Vec2) -> bool {
     for block in &world.blocks {
         if !matches!(block.kind, BlockKind::OneWay) {
             continue;
         }
-        let horizontally_overlaps =
-            body.right() > block.aabb.left() + 1.0 && body.left() < block.aabb.right() - 1.0;
-        let near_top = (body.bottom() - block.aabb.top()).abs() <= 4.0;
-        if horizontally_overlaps && near_top {
+        let b = &block.aabb;
+        // Resting contact: the player's gravity-facing edge meets the platform's
+        // anti-gravity face; overlap is on the perpendicular (cross-gravity) axis.
+        let (overlaps, edge, face) = if gravity_dir.y != 0.0 {
+            let overlaps = body.right() > b.left() + 1.0 && body.left() < b.right() - 1.0;
+            if gravity_dir.y >= 0.0 {
+                (overlaps, body.bottom(), b.top())
+            } else {
+                (overlaps, body.top(), b.bottom())
+            }
+        } else {
+            let overlaps = body.bottom() > b.top() + 1.0 && body.top() < b.bottom() - 1.0;
+            if gravity_dir.x >= 0.0 {
+                (overlaps, body.right(), b.left())
+            } else {
+                (overlaps, body.left(), b.right())
+            }
+        };
+        if overlaps && (edge - face).abs() <= 4.0 {
             return true;
         }
     }

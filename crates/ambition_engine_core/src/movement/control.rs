@@ -129,7 +129,7 @@ pub fn handle_attacks_clusters(
             events.op_clusters(combo_trace, MovementOp::Slash);
         }
     } else if input.attack_pressed {
-        if can_pogo && input.axis_y > 0.25 {
+        if can_pogo && super::integration::gravity_descend(input.axis_y, tuning.gravity_dir) > 0.25 {
             if let Some(orb_aabb) = super::collision::try_pogo_clusters(
                 world, kinematics, abilities, dash, jump_state, ground, tuning,
             ) {

@@ -41,6 +41,11 @@ pub use events::{BlinkEvent, FrameEvents};
 /// pogo/jump impulse outside the engine (e.g. the sandbox attack path) MUST go
 /// through this instead of a hardcoded `vel.y = -speed`.
 pub use integration::set_jump_velocity;
+/// Screen-vertical input → gravity-relative "descend" intent (the vertical
+/// sibling of the run-axis transform). Every crouch/pogo/drop-through/fast-fall
+/// gate and gravity-relative vertical movement reads input through this so a
+/// gravity flip moves them all together. See its doc for the convention.
+pub use integration::gravity_descend;
 pub use input::InputState;
 pub use ops::{ComboMark, MovementOp};
 pub use player::{default_player_body_size, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH};

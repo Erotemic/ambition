@@ -71,6 +71,7 @@ pub const POSSESSED_MOVE_SPEED: f32 = 180.0;
 /// runs on real time (`raw_dt`) so bullet-time doesn't change the feel.
 pub fn possession_trigger_system(
     control: Res<ControlFrame>,
+    gravity_field: Option<Res<crate::physics::GravityField>>,
     world_time: Res<crate::WorldTime>,
     mut hold_timer: Local<f32>,
     mut prev_down_interact: Local<bool>,
@@ -92,7 +93,12 @@ pub fn possession_trigger_system(
     // actor while possessing) doesn't snap back to the abandoned body.
     actor_aabb: Query<&crate::features::FeatureAabb>,
 ) {
-    let down_interact = control.axis_y > 0.35 && control.interact_pressed;
+    let gravity_dir = gravity_field
+        .as_deref()
+        .map_or(crate::engine_core::Vec2::new(0.0, 1.0), |g| g.dir);
+    let down_interact = crate::engine_core::movement::gravity_descend(control.axis_y, gravity_dir)
+        > 0.35
+        && control.interact_pressed;
     let release_edge = down_interact && !*prev_down_interact;
     *prev_down_interact = down_interact;
 

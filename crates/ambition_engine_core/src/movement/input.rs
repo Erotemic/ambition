@@ -23,10 +23,6 @@ pub struct InputState {
     /// Double-tap-down gesture recognized by the input layer. This is separate
     /// from `axis_y` so down+attack can mean pogo without forcing fast-fall.
     pub fast_fall_pressed: bool,
-    /// Down-held + jump-pressed gesture: drop through one-way platforms.
-    /// The presentation layer composes this from raw inputs so the engine
-    /// does not have to reason about jump-vs-drop disambiguation itself.
-    pub drop_through_pressed: bool,
     pub attack_pressed: bool,
     /// Dedicated downward/pogo slash action. This is separate from
     /// `attack_pressed` so layouts can expose four main face-button verbs.

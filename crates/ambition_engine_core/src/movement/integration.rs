@@ -30,6 +30,32 @@ pub fn set_jump_velocity(vel: &mut crate::Vec2, gravity_dir: crate::Vec2, speed:
     *vel = perp - speed * gravity_dir;
 }
 
+/// Screen-vertical input (`axis_y`, +Y = screen-down) → the gravity-relative
+/// "descend" (toward-the-feet) intent that gates crouch / pogo / drop-through /
+/// fast-fall and drives gravity-relative vertical movement. The vertical sibling
+/// of [`move_axis`]: that keeps the run axis sign-consistent, this keeps the gate
+/// axis sign-consistent.
+///
+/// CONVENTION — this game's; change it HERE and every gate moves together. The
+/// gate stays on the up/down keys; its sign flips only when gravity rotates PAST
+/// ±90° from screen-down (its screen-down component goes negative). So down AND
+/// sideways gravity read screen-down as "descend"; only past horizontal (gravity
+/// pointing up-ish) does screen-up become "descend". For default down gravity
+/// this is the identity, so normal play is byte-identical.
+pub fn gravity_descend(axis_y: f32, gravity_dir: crate::Vec2) -> f32 {
+    let gate_sign = if gravity_dir.y < 0.0 { -1.0 } else { 1.0 };
+    axis_y * gate_sign
+}
+
+/// The "drop through a one-way platform" gesture: press the descend gate (toward
+/// gravity) + jump. Gravity-relative via [`gravity_descend`], so under inverted
+/// gravity it reads screen-UP + jump. Computed here at the consumer (where
+/// `gravity_dir` is known) rather than precomputed gravity-blind at the input
+/// boundary.
+pub(super) fn wants_drop_through(axis_y: f32, jump_pressed: bool, gravity_dir: crate::Vec2) -> bool {
+    gravity_descend(axis_y, gravity_dir) > 0.35 && jump_pressed
+}
+
 /// The MOVEMENT axis for a cardinal gravity direction: the unit axis the player
 /// runs along (perpendicular to gravity). Sign-consistent so `axis_x` never
 /// inverts under a gravity flip — screen `+X` under vertical gravity (down/up),
@@ -233,7 +259,8 @@ pub(super) fn integrate_velocity_clusters(
         // grounds the player. Under sideways gravity the probe below owns it.
         clusters.ground.on_ground = false;
     }
-    let drop_through = input.drop_through_pressed || clusters.ground.drop_through_timer > 0.0;
+    let drop_through = wants_drop_through(input.axis_y, input.jump_pressed, tuning.gravity_dir)
+        || clusters.ground.drop_through_timer > 0.0;
     let dt_y = clusters.kinematics.vel.y * dt;
     super::collision::sweep_player_y_clusters(
         world,
@@ -319,7 +346,12 @@ pub(super) fn integrate_climb_clusters(
         return;
     };
     let spec = contact.spec;
-    let target_vy = if jump.ladder_jump_boost > 0.0 && input.axis_y < -0.1 {
+    // The boost GATE ("press away from gravity") is gravity-relative; the climb
+    // SPEED stays raw `axis_y` (screen-vertical along the ladder, already
+    // gravity-symmetric since it's a direct screen-space velocity).
+    let pressing_away_from_gravity =
+        gravity_descend(input.axis_y, tuning.gravity_dir) < -0.1;
+    let target_vy = if jump.ladder_jump_boost > 0.0 && pressing_away_from_gravity {
         -tuning.jump_speed * tuning.gravity_sign
     } else {
         input.axis_y * spec.climb_speed

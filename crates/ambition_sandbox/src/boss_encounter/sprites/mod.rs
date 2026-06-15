@@ -679,6 +679,28 @@ pub fn all_boss_sprite_filenames() -> Vec<(&'static str, &'static str)> {
     ]
 }
 
+/// The dedicated per-boss spritesheets, as `(boss_key, BossSheetSpec)` rows.
+///
+/// `boss_key` is the lowercased boss behavior id the renderer dispatches on
+/// (`assets.boss_sprite(&boss_key)`); GNU-ton's split render reads the
+/// `"gnu_ton_body"` / `"gnu_ton_hands"` rows. This is the ONE place the
+/// machinery names a boss sheet â `load_game_assets` loops it to fill
+/// `GameAssets::boss_sprites`. Adding a boss is a row here (+ its catalog filename
+/// in `all_boss_sprite_filenames`), not a new loader fn or struct field. The
+/// generic `gradient_sentinel` sheet is excluded: it loads into `GameAssets::boss`
+/// as the fallback via `load_boss_sprite_in`.
+pub fn dedicated_boss_sheets() -> [(&'static str, BossSheetSpec); 7] {
+    [
+        ("mockingbird", MOCKINGBIRD_SHEET),
+        ("gnu_ton", GNU_TON_SHEET),
+        ("smirking_behemoth_boss", SMIRKING_BEHEMOTH_SHEET),
+        ("gnu_ton_body", GNU_TON_SHEET),
+        ("gnu_ton_hands", GNU_TON_SHEET),
+        ("flying_spaghetti_monster_boss", FLYING_SPAGHETTI_MONSTER_SHEET),
+        ("trex_boss", TREX_BOSS_SHEET),
+    ]
+}
+
 /// Build the boss sprite asset for the gradient sentinel sheet.
 /// Returns `None` if the catalog reports the asset disabled or the
 /// active profile's optional-image gate skips it — callers fall back
@@ -698,115 +720,16 @@ pub fn load_boss_sprite_in(
     )
 }
 
-/// Build the boss sprite asset for the mockingbird sheet (installed by
-/// `tools/ambition_sprite2d_renderer/mockingbird_boss_sprite_generator.py install`).
-/// Returns `None` if the PNG is missing — the rendering layer keeps
-/// the colored-rectangle fallback for that boss.
-pub fn load_mockingbird_sprite_in(
-    catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
-    asset_server: &AssetServer,
-    layouts: &mut Assets<TextureAtlasLayout>,
-) -> Option<BossSpriteAsset> {
-    load_named_boss_sprite_via_catalog(
-        catalog,
-        asset_server,
-        layouts,
-        "mockingbird",
-        MOCKINGBIRD_SHEET,
-    )
-}
 
-/// Build the boss sprite asset for the GNU-ton sheet (installed by
-/// `tools/ambition_sprite2d_renderer render-publish gnu_ton_boss`).
-/// Returns `None` if the PNG is missing — falls back to colored rectangle.
-pub fn load_gnu_ton_sprite_in(
-    catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
-    asset_server: &AssetServer,
-    layouts: &mut Assets<TextureAtlasLayout>,
-) -> Option<BossSpriteAsset> {
-    load_named_boss_sprite_via_catalog(catalog, asset_server, layouts, "gnu_ton", GNU_TON_SHEET)
-}
 
 /// Build the Smirking Behemoth boss sprite asset.
 ///
-/// Returns `None` until the sprite renderer has published
-/// `smirking_behemoth_boss_spritesheet.png` into the sandbox sprite
-/// asset folder; the rendering layer then falls back to the generic
-/// boss sheet instead of hard-failing the room.
-pub fn load_smirking_behemoth_sprite_in(
-    catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
-    asset_server: &AssetServer,
-    layouts: &mut Assets<TextureAtlasLayout>,
-) -> Option<BossSpriteAsset> {
-    load_named_boss_sprite_via_catalog(
-        catalog,
-        asset_server,
-        layouts,
-        "smirking_behemoth_boss",
-        SMIRKING_BEHEMOTH_SHEET,
-    )
-}
 
-/// Build the Flying Spaghetti Monster boss sprite asset. `None` until its PNG
-/// is published; the renderer then falls back to the generic boss sheet.
-pub fn load_flying_spaghetti_sprite_in(
-    catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
-    asset_server: &AssetServer,
-    layouts: &mut Assets<TextureAtlasLayout>,
-) -> Option<BossSpriteAsset> {
-    load_named_boss_sprite_via_catalog(
-        catalog,
-        asset_server,
-        layouts,
-        "flying_spaghetti_monster_boss",
-        FLYING_SPAGHETTI_MONSTER_SHEET,
-    )
-}
 
-/// Build the T-Rex boss sprite asset (reuses the trex enemy PNG). `None` until
-/// its PNG is published; the renderer then falls back to the generic boss sheet.
-pub fn load_trex_boss_sprite_in(
-    catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
-    asset_server: &AssetServer,
-    layouts: &mut Assets<TextureAtlasLayout>,
-) -> Option<BossSpriteAsset> {
-    load_named_boss_sprite_via_catalog(catalog, asset_server, layouts, "trex_boss", TREX_BOSS_SHEET)
-}
 
-/// Body-only GNU-ton sheet (no hands, no attack VFX). Rendered behind
-/// platforms so the player can see jump targets through the giant body.
-/// Same atlas layout as `GNU_TON_SHEET` so `flat_index` works for both.
-pub fn load_gnu_ton_body_sprite_in(
-    catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
-    asset_server: &AssetServer,
-    layouts: &mut Assets<TextureAtlasLayout>,
-) -> Option<BossSpriteAsset> {
-    load_named_boss_sprite_via_catalog(
-        catalog,
-        asset_server,
-        layouts,
-        "gnu_ton_body",
-        GNU_TON_SHEET,
-    )
-}
 
-/// Hands-only GNU-ton sheet (with attack VFX). Rendered in front of
-/// platforms so incoming danger reads clearly.
-pub fn load_gnu_ton_hands_sprite_in(
-    catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
-    asset_server: &AssetServer,
-    layouts: &mut Assets<TextureAtlasLayout>,
-) -> Option<BossSpriteAsset> {
-    load_named_boss_sprite_via_catalog(
-        catalog,
-        asset_server,
-        layouts,
-        "gnu_ton_hands",
-        GNU_TON_SHEET,
-    )
-}
 
-fn load_named_boss_sprite_via_catalog(
+pub(crate) fn load_named_boss_sprite_via_catalog(
     catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,

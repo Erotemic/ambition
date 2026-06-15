@@ -690,15 +690,17 @@ pub fn load_game_assets(
     let characters = character_sprites::load_character_sprites_in(catalog, asset_server, layouts);
     let entities = load_entity_sprites(catalog, asset_server);
     let boss = sprites::load_boss_sprite_in(catalog, asset_server, layouts);
-    let mockingbird = sprites::load_mockingbird_sprite_in(catalog, asset_server, layouts);
-    let gnu_ton = sprites::load_gnu_ton_sprite_in(catalog, asset_server, layouts);
-    let smirking_behemoth_boss =
-        sprites::load_smirking_behemoth_sprite_in(catalog, asset_server, layouts);
-    let gnu_ton_body = sprites::load_gnu_ton_body_sprite_in(catalog, asset_server, layouts);
-    let gnu_ton_hands = sprites::load_gnu_ton_hands_sprite_in(catalog, asset_server, layouts);
-    let flying_spaghetti_monster_boss =
-        sprites::load_flying_spaghetti_sprite_in(catalog, asset_server, layouts);
-    let trex_boss = sprites::load_trex_boss_sprite_in(catalog, asset_server, layouts);
+    // Dedicated per-boss sheets, driven by the `(boss_key, BossSheetSpec)` data
+    // table in `boss_encounter::sprites` — the machinery names each boss only
+    // there, not in a per-boss loader fn or a struct field.
+    let mut boss_sprites: HashMap<&'static str, BossSpriteAsset> = HashMap::new();
+    for (key, spec) in sprites::dedicated_boss_sheets() {
+        if let Some(sheet) =
+            sprites::load_named_boss_sprite_via_catalog(catalog, asset_server, layouts, key, spec)
+        {
+            boss_sprites.insert(key, sheet);
+        }
+    }
     let active_parallax_theme = ParallaxTheme::from_room_metadata(active_room_metadata);
     let parallax_layers =
         load_parallax_layers_for_theme(catalog, asset_server, active_parallax_theme);
@@ -710,25 +712,6 @@ pub fn load_game_assets(
             EntitySprite::ALL.len(),
             config.sprite_folder,
         );
-    }
-
-    // Dedicated per-boss sheets, keyed by boss_key (lowercased behavior id) +
-    // GNU-ton's split-render suffixes. Only present sheets land in the map; the
-    // renderer falls back to `boss` for any key it doesn't find. The machinery
-    // names these keys only HERE (a wiring table), not in its public struct.
-    let mut boss_sprites: HashMap<&'static str, BossSpriteAsset> = HashMap::new();
-    for (key, sheet) in [
-        ("mockingbird", mockingbird),
-        ("gnu_ton", gnu_ton),
-        ("smirking_behemoth_boss", smirking_behemoth_boss),
-        ("gnu_ton_body", gnu_ton_body),
-        ("gnu_ton_hands", gnu_ton_hands),
-        ("flying_spaghetti_monster_boss", flying_spaghetti_monster_boss),
-        ("trex_boss", trex_boss),
-    ] {
-        if let Some(sheet) = sheet {
-            boss_sprites.insert(key, sheet);
-        }
     }
 
     GameAssets {

@@ -5,7 +5,5 @@
 //! - `morph_ball` owns the procedural morph-ball sprite and visual sync.
 
 mod mechanics;
-mod morph_ball;
 
 pub use mechanics::update_body_mode;
-pub use morph_ball::{build_morph_ball_sprite, spawn_morph_ball_visual, sync_morph_ball_visual};

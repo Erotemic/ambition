@@ -28,6 +28,7 @@
 pub mod actors;
 mod camera;
 pub mod bubble_shield;
+pub mod morph_ball;
 mod item_visuals;
 mod deep_dream;
 mod features;
@@ -79,12 +80,12 @@ pub struct PlayerVisualSchedulePlugin;
 impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use bevy::prelude::{IntoScheduleConfigs, Startup, Update};
-        app.add_systems(Startup, ambition_sandbox::body_mode::build_morph_ball_sprite)
+        app.add_systems(Startup, morph_ball::build_morph_ball_sprite)
             .add_systems(
                 Update,
                 (
-                    ambition_sandbox::body_mode::spawn_morph_ball_visual,
-                    ambition_sandbox::body_mode::sync_morph_ball_visual,
+                    morph_ball::spawn_morph_ball_visual,
+                    morph_ball::sync_morph_ball_visual,
                 )
                     .chain()
                     .after(actors::sync_visuals),

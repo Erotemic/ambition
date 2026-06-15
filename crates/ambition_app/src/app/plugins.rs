@@ -703,7 +703,7 @@ fn install_misc_visual_sync_systems(app: &mut App) {
         )
             .chain()
             .after(sync_visuals)
-            .after(ambition_sandbox::body_mode::sync_morph_ball_visual)
+            .after(ambition_render::rendering::morph_ball::sync_morph_ball_visual)
             .after(ambition_render::rendering::bubble_shield::sync_bubble_shield_visual)
             .after(ambition_sandbox::projectile::sync_projectile_visuals)
             .after(ambition_sandbox::enemy_projectile::sync_enemy_projectile_visuals),

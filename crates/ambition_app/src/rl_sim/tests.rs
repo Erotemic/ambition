@@ -163,6 +163,9 @@ fn observation_hp_fraction_handles_default() {
         water_submersion: 0.0,
         on_climbable: false,
         climbable_kind: None,
+        gravity_dir: (0.0, 1.0),
+        enemies: vec![],
+        pickups: vec![],
     };
     assert!((obs.hp_fraction() - 0.5).abs() < f32::EPSILON);
     assert!(obs.alive());

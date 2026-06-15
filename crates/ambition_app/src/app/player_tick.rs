@@ -77,6 +77,7 @@ pub fn player_control_system(
     world: Res<GameWorld>,
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
+    gravity_field: Option<Res<ambition_sandbox::physics::GravityField>>,
     mut reset_this_frame: ResMut<SandboxResetThisFrame>,
     mut event_writers: SandboxEventWriters,
     mut queues: SandboxQueues,
@@ -111,7 +112,15 @@ pub fn player_control_system(
     else {
         return;
     };
-    let tuning = editable_tuning.as_engine();
+    let mut tuning = editable_tuning.as_engine();
+    // The control phase runs the engine pogo (try_pogo_clusters), which launches
+    // OPPOSITE tuning.gravity_dir — so sync it from the live gravity, exactly as
+    // the simulation phase does. Without this the pogo used default `(0,1)` and
+    // bounced into gravity under a flip.
+    let gdir = gravity_field
+        .as_deref()
+        .map_or(ambition_sandbox::engine_core::Vec2::new(0.0, 1.0), |g| g.dir);
+    ambition_sandbox::physics::apply_gravity_dir(&mut tuning, gdir);
     let feel = *feel_tuning;
     let frame_dt = time.delta_secs();
     // PlayerInputFrame is still kept on the player entity (story-
@@ -210,12 +219,7 @@ pub fn player_simulation_system(
         .map_or(ambition_sandbox::engine_core::Vec2::new(0.0, 1.0), |g| {
             g.dir
         });
-    tuning.gravity_dir = ambition_sandbox::physics::snap_cardinal(gdir);
-    tuning.gravity_sign = if tuning.gravity_dir.y != 0.0 {
-        tuning.gravity_dir.y.signum()
-    } else {
-        1.0
-    };
+    ambition_sandbox::physics::apply_gravity_dir(&mut tuning, gdir);
     let feel = *feel_tuning;
     let frame_dt = time.delta_secs();
     // Same polarity flip as the control phase — ActorControl is the

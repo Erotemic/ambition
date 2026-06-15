@@ -395,6 +395,7 @@ pub fn attack_advance_system(
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     feature_ecs_overlay: Res<FeatureEcsWorldOverlay>,
+    gravity_field: Option<Res<ambition_sandbox::physics::GravityField>>,
     mut player_q: Query<
         (
             Entity,
@@ -433,7 +434,15 @@ pub fn attack_advance_system(
     // lives on the brain-driven frame — the raw `PlayerInputFrame`
     // is no longer read in this system.
     let actor_frame = actor_control.0;
-    let tuning = editable_tuning.as_engine();
+    let mut tuning = editable_tuning.as_engine();
+    // Sync gravity into the tuning so the pogo bounce (and any other
+    // gravity-relative impulse this system applies) launches OPPOSITE the live
+    // gravity, not a hardcoded world-up. Without this the attack-path pogo used
+    // the default `(0,1)` down and bounced the wrong way under inverted gravity.
+    let gdir = gravity_field
+        .as_deref()
+        .map_or(ae::Vec2::new(0.0, 1.0), |g| g.dir);
+    ambition_sandbox::physics::apply_gravity_dir(&mut tuning, gdir);
     let feel = *feel_tuning;
     let frame_dt = time.delta_secs();
 

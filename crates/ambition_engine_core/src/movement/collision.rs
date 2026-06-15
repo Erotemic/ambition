@@ -427,10 +427,19 @@ pub fn try_pogo_clusters(
     tuning: MovementTuning,
 ) -> Option<Aabb> {
     let feet = kinematics.aabb();
-    let hitbox = Aabb::new(
-        Vec2::new(feet.center().x, feet.bottom() + 18.0),
-        Vec2::new(feet.half_size().x * 0.76, 22.0),
+    // Probe just past the player's gravity-facing ("down") edge, gravity-RELATIVE
+    // so pogo works under inverted / wall gravity instead of only world-down.
+    // `gravity_dir` is cardinal: the box is thin (22) along the gravity axis and
+    // a narrowed body-width across it.
+    let g = tuning.gravity_dir;
+    let half = feet.half_size();
+    let edge = half.x * g.x.abs() + half.y * g.y.abs();
+    let probe_center = feet.center() + g * (edge + 18.0);
+    let probe_half = Vec2::new(
+        if g.x == 0.0 { half.x * 0.76 } else { 22.0 },
+        if g.y == 0.0 { half.y * 0.76 } else { 22.0 },
     );
+    let hitbox = Aabb::new(probe_center, probe_half);
     let hit = world
         .blocks
         .iter()

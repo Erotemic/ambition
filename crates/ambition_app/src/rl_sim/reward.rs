@@ -103,6 +103,9 @@ mod tests {
             water_submersion: 0.0,
             on_climbable: false,
             climbable_kind: None,
+            gravity_dir: (0.0, 1.0),
+            enemies: vec![],
+            pickups: vec![],
         }
     }
 

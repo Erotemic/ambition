@@ -25,7 +25,7 @@ fn cap_fall_speed(vel: &mut crate::Vec2, gravity_dir: crate::Vec2, cap: f32) {
 /// Launch the body at `speed` OPPOSITE `gravity_dir` (a jump / pogo / wall-kick
 /// vertical impulse), preserving the perpendicular (movement-axis) component.
 /// The gravity-direction-relative form of `vel.y = -speed * gravity_sign`.
-pub(super) fn set_jump_velocity(vel: &mut crate::Vec2, gravity_dir: crate::Vec2, speed: f32) {
+pub fn set_jump_velocity(vel: &mut crate::Vec2, gravity_dir: crate::Vec2, speed: f32) {
     let perp = *vel - vel.dot(gravity_dir) * gravity_dir;
     *vel = perp - speed * gravity_dir;
 }

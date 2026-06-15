@@ -210,6 +210,22 @@ pub fn snap_cardinal(dir: Vec2) -> Vec2 {
     }
 }
 
+/// Sync a freshly-built [`MovementTuning`]'s gravity direction (and the legacy
+/// `gravity_sign` scalar) from the live world gravity. EVERY system that builds
+/// a tuning via `as_engine()` and then applies a gravity-relative impulse
+/// (jump, pogo, wall-kick, knockback) MUST call this — otherwise the tuning
+/// keeps its default `(0,1)` "down" and the impulse launches the wrong way
+/// under a gravity flip. This is the single seam that keeps those mechanics
+/// flipping together; `pass `gravity_field.map(|g| g.dir)`.
+pub fn apply_gravity_dir(tuning: &mut ambition_engine_core::MovementTuning, gravity_dir: Vec2) {
+    tuning.gravity_dir = snap_cardinal(gravity_dir);
+    tuning.gravity_sign = if tuning.gravity_dir.y != 0.0 {
+        tuning.gravity_dir.y.signum()
+    } else {
+        1.0
+    };
+}
+
 /// One bundled system param for the world's gravity, so the many actor
 /// integrators read gravity through a single argument (Bevy caps systems at 16
 /// params) and resolve it **by position** — `sign_at`/`dir_at` give a body its

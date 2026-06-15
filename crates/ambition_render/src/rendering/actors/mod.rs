@@ -52,13 +52,7 @@ pub fn sync_visuals(
         With<PlayerVisual>,
     >,
     mut feature_query: Query<
-        (
-            &FeatureVisual,
-            &mut Transform,
-            &mut Sprite,
-            &mut Visibility,
-            Option<&bevy::sprite::Anchor>,
-        ),
+        (&FeatureVisual, &mut Transform, &mut Sprite, &mut Visibility),
         Without<PlayerVisual>,
     >,
     ecs_chest_states: Query<(&FeatureId, Option<&Opened>), With<ChestFeature>>,
@@ -106,7 +100,7 @@ pub fn sync_visuals(
         }
     }
 
-    for (visual, mut transform, mut sprite, mut visibility, anchor) in &mut feature_query {
+    for (visual, mut transform, mut sprite, mut visibility) in &mut feature_query {
         let Some(view) = feature_views.get(&visual.id) else {
             *visibility = Visibility::Hidden;
             continue;
@@ -118,26 +112,6 @@ pub fn sync_visuals(
         // visibly clinging to them. All other actors stay axis-
         // aligned (rotation_rad = 0).
         transform.rotation = Quat::from_rotation_z(view.rotation_rad);
-
-        // One-shot geometry diagnostic for the surface-walker mismatch. Opt in
-        // with `AMBITION_SLUG_DEBUG=1 ./run_game.sh`, walk a slug onto a wall, and
-        // read a few lines: it prints the box (view.pos/size), rotation, and the
-        // sprite anchor/custom_size so we can see where the feet actually land vs
-        // the (oriented) collision box. Off by default — zero cost otherwise.
-        if view.rotation_rad.abs() > 0.1
-            && std::env::var_os("AMBITION_SLUG_DEBUG").is_some()
-        {
-            bevy::log::info!(
-                target: "ambition::slug_debug",
-                "id={} pos={:?} box_size={:?} rot_deg={:.1} anchor={:?} custom_size={:?}",
-                visual.id,
-                view.pos,
-                view.size,
-                view.rotation_rad.to_degrees(),
-                anchor.map(|a| a.0),
-                sprite.custom_size,
-            );
-        }
 
         // State-aware sprite swap for breakables and chests. Pickups are
         // chosen at spawn time and never change kind. Enemies are animated

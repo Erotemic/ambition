@@ -14,7 +14,11 @@
 //! (`CutsceneScript` / `CutsceneBeat` / `CutsceneRuntime`); this module is the
 //! sandbox-side player that drives them.
 
-pub mod script;
+// The cutscene SCRIPT format + runtime stepper now live in the foundation crate
+// `ambition_cutscene` (pure data + logic, no renderer). Re-exported as `script` so
+// existing `cutscene::script::*` paths keep resolving; this module is the
+// sandbox-side player that drives them.
+pub use ambition_cutscene as script;
 
 use std::collections::BTreeMap;
 

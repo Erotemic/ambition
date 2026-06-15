@@ -1,0 +1,13 @@
+[package]
+name = "ambition_cutscene"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Reusable, content-free cutscene SCRIPT format + runtime stepper: the CutsceneBeat vocabulary, a CutsceneScript (ordered beats + seen-flag), and CutsceneRuntime (ticks beats into CutsceneEvents) with NO renderer attached. A game authors scripts as content; the presentation layer plays the emitted events. Extracted from ambition_sandbox."
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }

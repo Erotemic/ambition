@@ -513,3 +513,31 @@ generics), `menu/render/kaleidoscope/mod.rs` (1302, generics render),
 world_flow (~597), and the two already-reverted prototypes (falling_sand 1305,
 settings/model 1123). These need huge-fn breakup or shared-state untangling — a
 focused pass, using the lift-the-contiguous-concern model proven on world_flow.
+
+### Run 2 — CLOSING STATE
+
+The kaleidoscope host turned out to be mostly NON-generic menu logic (the
+generics are confined to the early cube-render core), so it took 4 more clean
+safe-subset lifts: dev_toggles, scroll, pointer, cache — host 2430 → 1812 via
+pub(crate) widening, no behavior change.
+
+**Run-2 grand total: 10 god-files split + 3 inline-test modules extracted + 6
+safe-subset lifts = 19 navigability operations across 7 crates** (engine_core,
+actor, sandbox, render, content, portal_presentation, app).
+
+**Workspace's biggest source file: 4419 → 1812.** Every file that was >1300 lines
+is now split / test-extracted / subset-lifted, except the two already-reverted
+prototypes (falling_sand 1305, settings/model 1123) and the generics-render pair
+(menu/render/kaleidoscope 1302, the kaleidoscope host's remaining cube core).
+
+**Final verification — all green, zero behavior change throughout:**
+`cargo build --workspace` clean; lib tests engine_core 160 · actor 187 · sandbox
+911 · render 24 · content 49 · portal_presentation 7 · app 175; 30 arch guards;
+replay determinism; flagship reachability. The render/interaction crate boundaries
++ sim/render seam guard all hold.
+
+**Remaining frontier (supervised pass, using the lift-the-contiguous-concern
+model proven here):** the kaleidoscope cube-render core + nav cluster (~1812,
+generics + interwoven focus state), menu/render/kaleidoscope (1302, generics),
+mobile_input (1217), menu/lib (1073), and the two reverted prototypes that need
+real untangling (falling_sand, settings/model).

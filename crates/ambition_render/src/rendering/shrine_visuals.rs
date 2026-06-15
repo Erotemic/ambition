@@ -149,7 +149,13 @@ pub fn sync_shrine_visual(
         .collect();
     for key in stale {
         if let Some(entity) = visual_cache.remove(&key) {
-            commands.entity(entity).despawn();
+            // The cached entity may already be gone — shrine visuals carry
+            // `RoomVisual` (=> `RoomScopedEntity`), so a room transition despawns
+            // them out from under this `Local` cache. Guard the despawn instead of
+            // commanding a stale handle (which raised the "Entity despawned" error).
+            if let Ok(mut ec) = commands.get_entity(entity) {
+                ec.despawn();
+            }
         }
     }
 }

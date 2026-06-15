@@ -183,7 +183,7 @@ mod tests {
     use super::*;
     use crate::engine_core::{self as ae, AabbExt};
     use crate::features::NPC_HOSTILE_STRIKE_THRESHOLD;
-    use crate::features::{FeatureAabb, FeatureId, FeatureSimEntity};
+    use crate::features::{CenteredAabb, FeatureId, FeatureSimEntity};
     use bevy::prelude::{App, Update};
 
     fn spawn_npc_with_strikes(app: &mut App, strikes: i32) -> bevy::prelude::Entity {
@@ -213,7 +213,7 @@ mod tests {
             .spawn((
                 FeatureSimEntity,
                 FeatureId::new("alice"),
-                FeatureAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
+                CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
                 ActorRuntime::Npc,
                 ActorAggression::retaliates_when_hit(
                     crate::features::NPC_HOSTILE_STRIKE_THRESHOLD as u8,

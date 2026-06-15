@@ -148,7 +148,7 @@ pub(super) fn spawn_composite_mount_rider(
     let mount_brain = skirmisher_brain_for_enemy(&mount_enemy.config);
     let mount_action_set = enemy_default_action_set(&mount_enemy.spec);
     let mount_combat_kit = enemy_combat_kit_for_spec(&mount_enemy.spec);
-    let mount_feature_aabb = FeatureAabb::from_aabb(mount_aabb);
+    let mount_feature_aabb = CenteredAabb::from_aabb(mount_aabb);
     let mount_entity = EnemyActorSpawnPlan::hostile(
         format!("Feature actor mount: {mount_name}"),
         mount_id.clone(),
@@ -169,7 +169,7 @@ pub(super) fn spawn_composite_mount_rider(
     // Rider-side bundles, with the RidingOn link pointing at the
     // mount we just spawned.
     let rider_combat_kit = enemy_combat_kit_for_spec(&rider_enemy.spec);
-    let rider_feature_aabb = FeatureAabb::from_aabb(rider_aabb);
+    let rider_feature_aabb = CenteredAabb::from_aabb(rider_aabb);
     // Cache the mounted brain on the rider so the same-room reset
     // path can restore it after a mount-death-then-reset cycle
     // (without the cache, the rider would keep their solo brain

@@ -11,7 +11,7 @@ use super::primitives::HealthOverlayVisual;
 use ambition_sandbox::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_sandbox::features::{
     ActorCombatState, ActorDisposition, ActorHealth, BossClusterRef, BossConfig, BreakableFeature,
-    FeatureAabb, FeatureName,
+    CenteredAabb, FeatureName,
 };
 use crate::ui_fonts::{UiFontWeight, UiFonts};
 
@@ -141,11 +141,11 @@ pub fn sync_health_overlays(
         (&ambition_sandbox::player::BodyKinematics, &ambition_sandbox::player::PlayerHealth),
         ambition_sandbox::player::PrimaryPlayerOnly,
     >,
-    ecs_breakables: Query<(&FeatureName, &FeatureAabb, &BreakableFeature)>,
+    ecs_breakables: Query<(&FeatureName, &CenteredAabb, &BreakableFeature)>,
     ecs_actors: Query<
         (
             &FeatureName,
-            &FeatureAabb,
+            &CenteredAabb,
             &ActorDisposition,
             &ActorHealth,
             &ActorCombatState,

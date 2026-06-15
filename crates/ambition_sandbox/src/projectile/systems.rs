@@ -15,7 +15,7 @@ use super::state::{PlayerProjectileState, ProjectileTraceEvent};
 use super::{resolve_world_collision, ProjectileFaction, WorldHitOutcome, WorldHitPolicy};
 use crate::audio::SfxMessage;
 use crate::features::{
-    ActorCombatState, ActorDisposition, BossClusterRef, BossConfig, BreakableFeature, FeatureAabb,
+    ActorCombatState, ActorDisposition, BossClusterRef, BossConfig, BreakableFeature, CenteredAabb,
     FeatureId, FeatureSimEntity, HitEvent, HitKnockback, HitMode, HitSource, HitTarget,
 };
 use crate::player::BodyKinematics;
@@ -395,11 +395,11 @@ pub fn step_projectiles(
         (With<crate::player::PlayerEntity>, Without<LiveProjectile>),
     >,
     mut feature_damage: MessageWriter<HitEvent>,
-    ecs_breakables: Query<(&FeatureId, &FeatureAabb, &BreakableFeature), With<FeatureSimEntity>>,
+    ecs_breakables: Query<(&FeatureId, &CenteredAabb, &BreakableFeature), With<FeatureSimEntity>>,
     ecs_actors: Query<
         (
             &FeatureId,
-            &FeatureAabb,
+            &CenteredAabb,
             &ActorDisposition,
             &ActorCombatState,
         ),
@@ -408,7 +408,7 @@ pub fn step_projectiles(
     ecs_bosses: Query<
         (
             &FeatureId,
-            &FeatureAabb,
+            &CenteredAabb,
             BossClusterRef,
             &crate::brain::BossAttackState,
             Option<&crate::features::BossAnimationFrameSample>,

@@ -25,7 +25,7 @@ pub(crate) fn spawn_hazard(
         RoomVisual,
         FeatureId::new(authored.id.clone()),
         FeatureName::new(authored.name.clone()),
-        FeatureAabb::from_center_size(hazard.pos, hazard.size),
+        CenteredAabb::from_center_size(hazard.pos, hazard.size),
         HazardFeature::new(hazard),
     ));
 }
@@ -34,7 +34,7 @@ pub(crate) fn spawn_pickup(
     commands: &mut Commands,
     authored: &crate::rooms::Authored<crate::interaction::Pickup>,
 ) {
-    let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
+    let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     commands.spawn_room_scoped((
         Name::new(format!("Feature pickup: {}", authored.name)),
         PickupBundle::new(
@@ -142,7 +142,7 @@ pub(crate) fn spawn_chest(
     commands: &mut Commands,
     authored: &crate::rooms::Authored<crate::interaction::Chest>,
 ) {
-    let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
+    let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     commands.spawn_room_scoped((
         Name::new(format!("Feature chest: {}", authored.name)),
         ChestBundle::new(
@@ -158,7 +158,7 @@ pub(crate) fn spawn_breakable(
     commands: &mut Commands,
     authored: &crate::rooms::Authored<crate::interaction::Breakable>,
 ) {
-    let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
+    let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     let breakable = &authored.payload;
     let mut entity = commands.spawn_room_scoped((
         Name::new(format!("Feature breakable: {}", authored.name)),

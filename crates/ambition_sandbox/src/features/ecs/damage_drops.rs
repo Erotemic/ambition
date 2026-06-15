@@ -6,7 +6,7 @@
 
 use bevy::prelude::{Commands, Entity};
 
-use super::{FeatureAabb, FeatureId, FeatureName, FeatureSimEntity, PickupFeature};
+use super::{CenteredAabb, FeatureId, FeatureName, FeatureSimEntity, PickupFeature};
 use crate::engine_core as ae;
 
 /// Deterministic (FNV-1a over the id) gate so ~1 in 4 enemy *kinds* drops a heart.
@@ -29,7 +29,7 @@ pub fn drop_currency_coin(commands: &mut Commands, id: &str, pos: ae::Vec2, amou
         FeatureSimEntity,
         FeatureId::new(format!("coin:{id}")),
         FeatureName::new("Coin"),
-        FeatureAabb::from_center_size(pos, ae::Vec2::new(12.0, 12.0)),
+        CenteredAabb::from_center_size(pos, ae::Vec2::new(12.0, 12.0)),
         PickupFeature::new(crate::interaction::Pickup::new(
             format!("coin:{id}"),
             crate::interaction::PickupKind::Currency { amount },
@@ -105,7 +105,7 @@ pub fn drop_health_pickup(commands: &mut Commands, id: &str, pos: ae::Vec2, amou
         FeatureSimEntity,
         FeatureId::new(format!("heart:{id}")),
         FeatureName::new("Health"),
-        FeatureAabb::from_center_size(pos, ae::Vec2::new(12.0, 12.0)),
+        CenteredAabb::from_center_size(pos, ae::Vec2::new(12.0, 12.0)),
         PickupFeature::new(crate::interaction::Pickup::new(
             format!("heart:{id}"),
             crate::interaction::PickupKind::Health { amount },
@@ -127,7 +127,7 @@ pub fn drop_ability_pickup(
         FeatureSimEntity,
         FeatureId::new(format!("ability_drop:{boss_id}")),
         FeatureName::new(ability_name.to_string()),
-        FeatureAabb::from_center_size(pos, ae::Vec2::new(16.0, 16.0)),
+        CenteredAabb::from_center_size(pos, ae::Vec2::new(16.0, 16.0)),
         PickupFeature::new(crate::interaction::Pickup::new(
             format!("ability_drop:{boss_id}"),
             crate::interaction::PickupKind::Ability {

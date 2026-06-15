@@ -72,7 +72,7 @@ pub use components::{
     ActorFaction, ActorHealth, ActorIdentity, ActorIntent, ActorPose, ActorTarget, AggressionMode,
     AggressionTarget, BossDeathAnimation, BossPatternTimer, BossPhase, BossRewardChest,
     BreakableFeature, ChestBundle, ChestFeature, Collected, CombatKit, DamageableVolumes,
-    EncounterMob, EncounterRewardChest, EnemyActorBundle, FallingChest, FeatureAabb,
+    EncounterMob, EncounterRewardChest, EnemyActorBundle, FallingChest, CenteredAabb,
     FeatureBaseBundle, FeatureId, FeatureLifecycleBundle, FeatureName, FeatureRenderedBundle,
     Opened, PersistKey, PickupBundle, PickupFeature, PogoPolicy, PogoTargetContributor,
     PogoTargetVolumes, PostBossNpc, RespawnTimer, SandboxSolidContributor, StandTimer,

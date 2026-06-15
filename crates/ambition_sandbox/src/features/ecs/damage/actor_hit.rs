@@ -41,7 +41,7 @@ use super::*;
 /// NPC-side hit target: the mutated status, read-only config, and the
 /// actor AABB (position source — the shared kinematics is borrowed
 /// mutably by the enemy cluster query, so NPC positions come from
-/// `FeatureAabb` instead).
+/// `CenteredAabb` instead).
 pub(crate) struct NpcHitTarget<'a> {
     pub(crate) status: &'a mut super::super::npc_clusters::NpcStatus,
     pub(crate) config: &'a super::super::npc_clusters::NpcConfig,

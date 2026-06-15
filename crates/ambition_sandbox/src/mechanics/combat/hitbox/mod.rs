@@ -54,7 +54,7 @@ pub use ambition_effects::{Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime};
 /// hostile melee.
 pub fn apply_hitbox_damage(
     mut hitboxes: Query<(Entity, &Hitbox, &mut HitboxHits)>,
-    owners: Query<&super::components::FeatureAabb>,
+    owners: Query<&super::components::CenteredAabb>,
     // Iterate every player so a multi-player build hits each
     // overlapping player independently. Single-player behavior is
     // preserved because the iterator has exactly one entity today.

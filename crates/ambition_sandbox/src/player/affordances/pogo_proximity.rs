@@ -16,7 +16,7 @@
 use crate::engine_core::AabbExt;
 use bevy::prelude::*;
 
-use crate::features::{FeatureAabb, FeatureSimEntity, PogoTargetContributor, PogoTargetVolumes};
+use crate::features::{CenteredAabb, FeatureSimEntity, PogoTargetContributor, PogoTargetVolumes};
 
 /// Resource: true iff a pogo-able target is currently below the
 /// primary player within [`POGO_DETECTION_DEPTH`] of their feet.
@@ -49,7 +49,7 @@ pub fn update_pogo_target_below(
         ),
     >,
     targets: Query<&PogoTargetVolumes, With<FeatureSimEntity>>,
-    legacy_targets: Query<&FeatureAabb, (With<FeatureSimEntity>, With<PogoTargetContributor>)>,
+    legacy_targets: Query<&CenteredAabb, (With<FeatureSimEntity>, With<PogoTargetContributor>)>,
     mut out: ResMut<PogoTargetBelow>,
 ) {
     let Ok(kin) = player.single() else {

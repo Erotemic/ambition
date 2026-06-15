@@ -15,7 +15,7 @@ pub fn update_ecs_breakables(
         (
             Entity,
             &FeatureName,
-            &FeatureAabb,
+            &CenteredAabb,
             &mut BreakableFeature,
             Option<&mut RespawnTimer>,
             Option<&mut StandTimer>,
@@ -119,7 +119,7 @@ mod breakable_tests {
             .spawn((
                 FeatureSimEntity,
                 FeatureName::new("Crate"),
-                FeatureAabb::from_center_size(center, ae::Vec2::new(24.0, 24.0)),
+                CenteredAabb::from_center_size(center, ae::Vec2::new(24.0, 24.0)),
                 BreakableFeature::new(b),
                 StandTimer(stand),
             ))

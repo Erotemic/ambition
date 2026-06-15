@@ -10,7 +10,7 @@ use super::primitives::{feature_color, feature_z, FeatureVisual, RoomVisual};
 use ambition_sandbox::assets::game_assets::{self, entity_sprite_or_color, GameAssets};
 use ambition_sandbox::config::world_to_bevy;
 use ambition_sandbox::features::{
-    ActorRuntime, BossRewardChest, ChestFeature, EncounterMob, EncounterRewardChest, FeatureAabb,
+    ActorRuntime, BossRewardChest, ChestFeature, EncounterMob, EncounterRewardChest, CenteredAabb,
     FeatureId, FeatureName, FeatureVisualKind,
 };
 
@@ -30,7 +30,7 @@ pub fn spawn_dynamic_feature_visuals(
     ecs_mobs: Query<
         (
             &FeatureId,
-            &FeatureAabb,
+            &CenteredAabb,
             &ActorRuntime,
             Option<&ambition_sandbox::features::EnemyConfig>,
         ),
@@ -40,7 +40,7 @@ pub fn spawn_dynamic_feature_visuals(
         (
             &FeatureId,
             &FeatureName,
-            &FeatureAabb,
+            &CenteredAabb,
             &ActorRuntime,
             Option<&ambition_sandbox::features::EnemyConfig>,
             Option<&ambition_sandbox::features::NpcConfig>,
@@ -48,7 +48,7 @@ pub fn spawn_dynamic_feature_visuals(
         With<ambition_sandbox::features::PostBossNpc>,
     >,
     ecs_reward_chests: Query<
-        (&FeatureId, &FeatureAabb, &ChestFeature),
+        (&FeatureId, &CenteredAabb, &ChestFeature),
         Or<(With<EncounterRewardChest>, With<BossRewardChest>)>,
     >,
 ) {

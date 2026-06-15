@@ -24,7 +24,7 @@ fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
         .spawn((
             FeatureSimEntity,
             FeatureId::new("kernel_guide"),
-            FeatureAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
+            CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
             ActorRuntime::Enemy,
             enemy.into_components(),
             identity,
@@ -218,7 +218,7 @@ fn player_slash_shatters_a_breakable() {
             FeatureSimEntity,
             FeatureId::new("crate"),
             FeatureName::new("crate"),
-            FeatureAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
+            CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
             BreakableFeature::new(crate::interaction::Breakable::new("crate", 1)),
         ))
         .id();

@@ -21,7 +21,7 @@ mod tests {
     #[test]
     fn feature_aabb_round_trips_center_and_size() {
         let feature =
-            FeatureAabb::from_center_size(ae::Vec2::new(10.0, 20.0), ae::Vec2::new(8.0, 6.0));
+            CenteredAabb::from_center_size(ae::Vec2::new(10.0, 20.0), ae::Vec2::new(8.0, 6.0));
 
         assert_eq!(feature.center, ae::Vec2::new(10.0, 20.0));
         assert_eq!(feature.half_size, ae::Vec2::new(4.0, 3.0));

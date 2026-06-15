@@ -17,7 +17,7 @@ pub fn spawn_cut_rope_victory_npc(
     registry: Res<BossEncounterRegistry>,
     save: Res<ambition_sandbox::persistence::save::SandboxSave>,
     existing: Query<&FeatureId, With<SmirkingBehemothVictoryNpc>>,
-    bosses: Query<(&FeatureId, &FeatureAabb, BossClusterRef), With<FeatureSimEntity>>,
+    bosses: Query<(&FeatureId, &CenteredAabb, BossClusterRef), With<FeatureSimEntity>>,
 ) {
     if room_set.active_spec().id != CUT_ROPE_ROOM_ID {
         return;
@@ -108,7 +108,7 @@ fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
                 base: FeatureBaseBundle::new(
                     CUT_ROPE_VICTORY_NPC_ID,
                     CUT_ROPE_VICTORY_NPC_NAME,
-                    FeatureAabb::from_aabb(aabb),
+                    CenteredAabb::from_aabb(aabb),
                 ),
                 identity,
                 disposition,

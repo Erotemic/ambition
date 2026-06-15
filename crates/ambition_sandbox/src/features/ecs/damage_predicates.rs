@@ -7,7 +7,7 @@
 use bevy::prelude::{Query, With, Without};
 
 use super::{
-    ActorCombatState, ActorDisposition, BossConfig, BreakableFeature, FeatureAabb, FeatureId,
+    ActorCombatState, ActorDisposition, BossConfig, BreakableFeature, CenteredAabb, FeatureId,
     FeatureSimEntity, HitEvent,
 };
 use crate::engine_core::AabbExt;
@@ -32,7 +32,7 @@ pub(super) fn target_is_ignored(ignored_targets: &[String], prefix: &str, id: &s
 /// typed Bevy messages.
 pub fn ecs_hit_event_hits_breakable(
     event: &HitEvent,
-    breakables: &Query<(&FeatureId, &FeatureAabb, &BreakableFeature), With<FeatureSimEntity>>,
+    breakables: &Query<(&FeatureId, &CenteredAabb, &BreakableFeature), With<FeatureSimEntity>>,
 ) -> bool {
     breakables.iter().any(|(id, aabb, feature)| {
         !target_is_ignored(&event.ignored_targets, "breakable", id.as_str())
@@ -48,7 +48,7 @@ pub fn ecs_hit_event_hits_actor(
     actors: &Query<
         (
             &FeatureId,
-            &FeatureAabb,
+            &CenteredAabb,
             &ActorDisposition,
             &ActorCombatState,
         ),
@@ -71,7 +71,7 @@ pub fn ecs_hit_event_hits_boss(
     bosses: &Query<
         (
             &FeatureId,
-            &FeatureAabb,
+            &CenteredAabb,
             super::boss_clusters::BossClusterRef,
             &crate::brain::BossAttackState,
             Option<&crate::features::BossAnimationFrameSample>,
@@ -82,7 +82,7 @@ pub fn ecs_hit_event_hits_boss(
     // Check against `damageable_volumes` so the hit-check matches
     // what `apply_feature_hit_events` will actually apply damage
     // to. Multi-part bosses (e.g. GNU-ton) have a gross
-    // `FeatureAabb` covering the whole creature but only the head
+    // `CenteredAabb` covering the whole creature but only the head
     // is actually damageable — checking against the gross AABB
     // would over-trigger projectile termination on the body without
     // ever applying damage. `damageable_volumes` reads the brain's

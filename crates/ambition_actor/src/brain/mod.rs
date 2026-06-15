@@ -306,7 +306,7 @@ impl ActorActionMessage {
 /// runtime tick) so the frame is current.
 ///
 /// The resolver intentionally reads `ActorPose` instead of Bevy
-/// `Transform`. Feature sim entities use `FeatureAabb` / `ActorPose` as
+/// `Transform`. Feature sim entities use `CenteredAabb` / `ActorPose` as
 /// gameplay truth; rendered child/visual entities own presentation
 /// transforms with sprite anchors, scaling, and hierarchy concerns.
 pub fn emit_brain_action_messages(

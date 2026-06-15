@@ -20,7 +20,7 @@ pub fn open_ecs_chests(
             Entity,
             &FeatureId,
             &FeatureName,
-            &FeatureAabb,
+            &CenteredAabb,
             Option<&Opened>,
             Option<&FallingChest>,
         ),
@@ -129,7 +129,7 @@ mod chest_tests {
                 FeatureSimEntity,
                 FeatureId::new(id),
                 FeatureName::new("Chest"),
-                FeatureAabb::from_center_size(pos, ae::Vec2::new(24.0, 24.0)),
+                CenteredAabb::from_center_size(pos, ae::Vec2::new(24.0, 24.0)),
                 ChestFeature::new(crate::interaction::Chest::new(id, None)),
             ))
             .id()

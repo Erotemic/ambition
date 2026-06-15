@@ -79,7 +79,7 @@ pub fn possession_trigger_system(
     mut commands: Commands,
     mut players: Query<&mut BodyKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     candidates: Query<
-        (Entity, &crate::features::FeatureAabb),
+        (Entity, &crate::features::CenteredAabb),
         (
             With<crate::features::FeatureSimEntity>,
             With<crate::brain::ActorControl>,
@@ -91,7 +91,7 @@ pub fn possession_trigger_system(
     // Read-only AABB lookup for the *vacate exit*: on release the player steps
     // out where the possessed actor stands, so the camera (which follows the
     // actor while possessing) doesn't snap back to the abandoned body.
-    actor_aabb: Query<&crate::features::FeatureAabb>,
+    actor_aabb: Query<&crate::features::CenteredAabb>,
 ) {
     let gravity_dir = gravity_field
         .as_deref()
@@ -226,7 +226,7 @@ mod tests {
         app.world_mut()
             .spawn((
                 crate::features::FeatureSimEntity,
-                crate::features::FeatureAabb::new(pos, vec2(12.0, 16.0)),
+                crate::features::CenteredAabb::new(pos, vec2(12.0, 16.0)),
                 crate::brain::ActorControl::default(),
                 crate::features::ActorFaction::Enemy,
             ))

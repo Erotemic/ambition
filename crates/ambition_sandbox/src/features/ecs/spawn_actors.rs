@@ -21,7 +21,7 @@ pub(super) struct EnemyActorSpawnPlan {
     entity_name: String,
     feature_id: String,
     feature_name: String,
-    feature_aabb: FeatureAabb,
+    feature_aabb: CenteredAabb,
     enemy: super::enemy_clusters::EnemyClusterSeed,
     faction: super::ActorFaction,
     aggression: super::ActorAggression,
@@ -36,7 +36,7 @@ impl EnemyActorSpawnPlan {
         entity_name: impl Into<String>,
         feature_id: impl Into<String>,
         feature_name: impl Into<String>,
-        feature_aabb: FeatureAabb,
+        feature_aabb: CenteredAabb,
         enemy: super::enemy_clusters::EnemyClusterSeed,
     ) -> Self {
         let brain = enemy_default_brain(&enemy.config);
@@ -145,7 +145,7 @@ pub(super) struct NpcActorSpawnPlan {
     entity_name: String,
     feature_id: String,
     feature_name: String,
-    feature_aabb: FeatureAabb,
+    feature_aabb: CenteredAabb,
     npc: super::npc_clusters::NpcClusterScratch,
     brain: crate::brain::Brain,
     action_set: crate::brain::ActionSet,
@@ -158,7 +158,7 @@ impl NpcActorSpawnPlan {
         entity_name: impl Into<String>,
         feature_id: impl Into<String>,
         feature_name: impl Into<String>,
-        feature_aabb: FeatureAabb,
+        feature_aabb: CenteredAabb,
         npc: super::npc_clusters::NpcClusterScratch,
     ) -> Self {
         let mut npc = npc;
@@ -235,7 +235,7 @@ pub(super) fn spawn_boss(
         boss.as_ref().combat_size(),
     );
     let initial_phase = BossPhase::from_alive(boss.status.alive);
-    let feature_aabb = FeatureAabb::from_center_size(boss.kin.pos, boss.as_ref().render_size());
+    let feature_aabb = CenteredAabb::from_center_size(boss.kin.pos, boss.as_ref().render_size());
     // BossPattern brain owns boss intent. The cfg snapshots the
     // authored behavior profile's pattern + movement at spawn
     // time, plus the per-boss spawn anchor and combat collision
@@ -410,7 +410,7 @@ pub(crate) fn spawn_runtime_minion(
     // Boss-spawned minions shouldn't auto-respawn — they're part of
     // the encounter, not a static sandbag.
     enemy.status.respawn_timer = 999_999.0;
-    let feature_aabb = FeatureAabb::from_aabb(aabb);
+    let feature_aabb = CenteredAabb::from_aabb(aabb);
     let entity = EnemyActorSpawnPlan::hostile(
         format!("Runtime minion: {name}"),
         id.clone(),
@@ -454,7 +454,7 @@ pub(super) fn spawn_solo_enemy(
     enemy: super::enemy_clusters::EnemyClusterSeed,
     authored: &crate::rooms::Authored<crate::actor::EnemyBrain>,
 ) {
-    let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
+    let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     EnemyActorSpawnPlan::hostile(
         format!("Feature actor enemy: {}", authored.name),
         authored.id.clone(),
@@ -469,7 +469,7 @@ pub(super) fn spawn_interactable(
     authored: &crate::rooms::Authored<crate::interaction::Interactable>,
     paths: &[(String, crate::actor::KinematicPath)],
 ) {
-    let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
+    let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     let interactable = &authored.payload;
     if matches!(
         interactable.kind,
@@ -525,7 +525,7 @@ pub(super) fn spawn_encounter_mob(
     // `EnemyClusterSeed::new` already sets HP from the resolved spec.
     // Encounter mobs should not auto-respawn like training sandbags.
     enemy.status.respawn_timer = 999_999.0;
-    let feature_aabb = FeatureAabb::from_center_size(pos, size);
+    let feature_aabb = CenteredAabb::from_center_size(pos, size);
     let entity = EnemyActorSpawnPlan::hostile(
         format!("Encounter mob: {id}"),
         id.clone(),

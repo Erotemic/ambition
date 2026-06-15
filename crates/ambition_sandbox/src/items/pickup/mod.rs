@@ -659,7 +659,7 @@ pub fn held_projectile_step(
     ecs_breakables: Query<
         (
             &crate::features::FeatureId,
-            &crate::features::FeatureAabb,
+            &crate::features::CenteredAabb,
             &crate::features::BreakableFeature,
         ),
         With<crate::features::FeatureSimEntity>,
@@ -667,7 +667,7 @@ pub fn held_projectile_step(
     ecs_actors: Query<
         (
             &crate::features::FeatureId,
-            &crate::features::FeatureAabb,
+            &crate::features::CenteredAabb,
             &crate::features::ActorDisposition,
             &crate::features::ActorCombatState,
         ),
@@ -679,7 +679,7 @@ pub fn held_projectile_step(
     ecs_bosses: Query<
         (
             &crate::features::FeatureId,
-            &crate::features::FeatureAabb,
+            &crate::features::CenteredAabb,
             crate::features::BossClusterRef,
             &crate::brain::BossAttackState,
             Option<&crate::features::BossAnimationFrameSample>,

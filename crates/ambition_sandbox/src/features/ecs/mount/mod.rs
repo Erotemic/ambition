@@ -30,7 +30,7 @@
 use bevy::prelude::{Commands, Component, Entity, Query, With, Without};
 
 use super::brain_builders::dismounted_rider_brain_and_action_set;
-use super::{ActorRuntime, FeatureAabb};
+use super::{ActorRuntime, CenteredAabb};
 use crate::engine_core as ae;
 
 /// Attached to a mount entity. Specifies where the rider rides
@@ -115,7 +115,7 @@ pub fn sync_riders_to_mounts(
         (
             &RidingOn,
             &ActorRuntime,
-            &mut FeatureAabb,
+            &mut CenteredAabb,
             Option<&MountedSize>,
             Option<super::enemy_clusters::EnemyClusterQueryData>,
         ),
@@ -169,7 +169,7 @@ pub fn sync_riders_to_mounts(
         rider.kin.vel = ae::Vec2::ZERO;
         rider.surface.gravity_scale = 0.0;
         rider.surface.on_ground = false;
-        // Keep the FeatureAabb mirror in sync so damage / spatial
+        // Keep the CenteredAabb mirror in sync so damage / spatial
         // queries on the same tick see the rider where it visually
         // sits. update_ecs_actors writes this from rider.kin.pos at the
         // top of the next tick too, but the same-frame consumers
@@ -210,7 +210,7 @@ pub fn enforce_mount_rider_link(
             Entity,
             &RidingOn,
             &ActorRuntime,
-            &mut FeatureAabb,
+            &mut CenteredAabb,
             Option<&MountedBrainCache>,
             Option<&Mounted>,
             Option<&super::HeldItem>,

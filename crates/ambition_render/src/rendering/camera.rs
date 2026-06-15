@@ -111,9 +111,9 @@ pub fn camera_follow(
         ambition_sandbox::player::PrimaryPlayerOnly,
     >,
     // While possessing, the camera follows the possessed actor (so the player
-    // can see the body they're driving), resolved from its FeatureAabb.
+    // can see the body they're driving), resolved from its CenteredAabb.
     possession: Res<ambition_sandbox::abilities::traversal::possession::PossessionState>,
-    feature_aabbs: Query<&ambition_sandbox::features::FeatureAabb>,
+    feature_aabbs: Query<&ambition_sandbox::features::CenteredAabb>,
     windows: Query<&Window, With<PrimaryWindow>>,
     // `With<MainCamera>` (not the broad `With<Camera2d>`): besides the #31 cube
     // pause-menu Camera3d, the portal view-cone renderer spawns offscreen

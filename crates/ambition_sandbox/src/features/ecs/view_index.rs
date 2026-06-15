@@ -80,13 +80,13 @@ impl FeatureViewIndex {
 /// `ecs_feature_view` performed.
 pub fn rebuild_feature_view_index(
     mut index: ResMut<FeatureViewIndex>,
-    pickups: Query<(&FeatureId, &FeatureAabb, Option<&Collected>), With<PickupFeature>>,
-    chests: Query<(&FeatureId, &FeatureAabb, Option<&Opened>), With<ChestFeature>>,
-    breakables: Query<(&FeatureId, &FeatureAabb, &BreakableFeature)>,
-    switches: Query<(&FeatureId, &FeatureAabb, &SwitchOn), With<SwitchFeature>>,
+    pickups: Query<(&FeatureId, &CenteredAabb, Option<&Collected>), With<PickupFeature>>,
+    chests: Query<(&FeatureId, &CenteredAabb, Option<&Opened>), With<ChestFeature>>,
+    breakables: Query<(&FeatureId, &CenteredAabb, &BreakableFeature)>,
+    switches: Query<(&FeatureId, &CenteredAabb, &SwitchOn), With<SwitchFeature>>,
     actors: Query<(
         &FeatureId,
-        &FeatureAabb,
+        &CenteredAabb,
         &ActorRuntime,
         Option<&super::enemy_clusters::EnemyStatus>,
         Option<&ActorAttackState>,
@@ -97,7 +97,7 @@ pub fn rebuild_feature_view_index(
         // somersault + self-right through portals just like the player.
         Option<&crate::platformer_runtime::orientation::ActorRoll>,
     )>,
-    hazards: Query<(&FeatureId, &FeatureAabb, &HazardFeature)>,
+    hazards: Query<(&FeatureId, &CenteredAabb, &HazardFeature)>,
     bosses: Query<(
         &FeatureId,
         super::boss_clusters::BossClusterRef,
@@ -206,7 +206,7 @@ pub fn rebuild_feature_view_index(
                 // worse, changes `view.size` when the slug climbs a wall, tripping
                 // the `BoundFeatureKind` re-bind which re-bakes the feet anchor off
                 // the swapped (long) dimension and shoves the sprite off its box.
-                // The ORIENTED footprint still lives in the `FeatureAabb` component
+                // The ORIENTED footprint still lives in the `CenteredAabb` component
                 // (read directly by the debug overlay + hurtbox), so un-swap here to
                 // recover the raw dims. Floor/ceiling (vertical normal) is unchanged.
                 let render_size = match surface {
@@ -247,7 +247,7 @@ pub fn rebuild_feature_view_index(
         let boss = feature.as_boss_ref();
         // `alive` reads the shared `ActorCombatState` mirror; pos / size
         // still come from `BossRuntime` until the boss body migrates to
-        // `FeatureAabb` (ecs-cleanup-plan #9).
+        // `CenteredAabb` (ecs-cleanup-plan #9).
         let visible = combat.alive
             || death_anim.is_some_and(|d| d.remaining_s > 0.0)
             || phase.is_some_and(|p| p.is_active());

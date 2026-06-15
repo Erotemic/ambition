@@ -20,7 +20,7 @@ use super::super::util::{approximately_same_aabb, midpoint};
 use super::damage_drops::drop_currency_coin;
 use super::{
     sync_actor_components_from_enemy, ActorCombatState, ActorCooldowns, ActorDisposition,
-    ActorHealth, ActorIdentity, ActorIntent, ActorRuntime, BreakableFeature, FeatureAabb,
+    ActorHealth, ActorIdentity, ActorIntent, ActorRuntime, BreakableFeature, CenteredAabb,
     FeatureId, FeatureName, FeatureSimEntity, GameplayBanner, HitEvent, HitSource,
     SetFlagRequested,
 };
@@ -78,7 +78,7 @@ pub fn apply_feature_hit_events(
             Entity,
             &FeatureId,
             &FeatureName,
-            &FeatureAabb,
+            &CenteredAabb,
             &mut BreakableFeature,
         ),
         With<FeatureSimEntity>,
@@ -87,7 +87,7 @@ pub fn apply_feature_hit_events(
         (
             Entity,
             &FeatureId,
-            &FeatureAabb,
+            &CenteredAabb,
             &mut ActorRuntime,
             &mut ActorIdentity,
             &mut ActorDisposition,
@@ -97,7 +97,7 @@ pub fn apply_feature_hit_events(
             &mut ActorCooldowns,
             Option<super::enemy_clusters::EnemyClusterQueryData>,
             // NPC status/config read & mutated directly; position comes
-            // from `FeatureAabb` above so we never borrow the shared
+            // from `CenteredAabb` above so we never borrow the shared
             // kinematics the enemy cluster query already holds mutably.
             Option<&mut super::npc_clusters::NpcStatus>,
             Option<&super::npc_clusters::NpcConfig>,
@@ -113,7 +113,7 @@ pub fn apply_feature_hit_events(
     mut bosses: Query<
         (
             &FeatureId,
-            &FeatureAabb,
+            &CenteredAabb,
             super::boss_clusters::BossClusterQueryData,
             &crate::brain::BossAttackState,
             Option<&crate::features::BossAnimationFrameSample>,

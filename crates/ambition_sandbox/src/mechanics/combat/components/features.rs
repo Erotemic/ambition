@@ -34,13 +34,12 @@ impl FeatureName {
 
 /// World-space collision / interaction shape for a feature entity.
 ///
-/// This is the canonical center+half box [`ae::Bounds`] (machinery layer), kept
-/// under the `FeatureAabb` name where feature code reads as "a feature's
-/// footprint". ECS systems prefer this single component so collection,
+/// Re-export of the canonical machinery-layer center+half box
+/// [`ae::CenteredAabb`]. ECS systems prefer this single component so collection,
 /// interaction, damage, and overlay systems query one canonical shape — and it
 /// is the same type the engine uses everywhere, so there is no per-layer box
 /// conversion.
-pub type FeatureAabb = ae::Bounds;
+pub use ae::CenteredAabb;
 
 // `ActorPose` moved to `crate::actor::pose` (actor-system vocabulary;
 // Stage 22 unified-actor work). Re-exported below so kit paths keep working.

@@ -12,7 +12,7 @@ use bevy::prelude::Component;
 
 /// Gameplay-space pose for an actor-like feature.
 ///
-/// `FeatureAabb` remains the authoritative collision body; `ActorPose` is the
+/// `CenteredAabb` remains the authoritative collision body; `ActorPose` is the
 /// lightweight read model that brain/action systems use for attack origins and
 /// facing. This keeps gameplay action emission off Bevy `Transform`, which is a
 /// rendering/spatial-hierarchy concern in this codebase.
@@ -25,7 +25,7 @@ pub struct ActorPose {
 
 impl ActorPose {
     /// Build a pose from a collision body's parts. (Was `from_aabb`,
-    /// taking the kit's `FeatureAabb`; parts-based so this crate-level
+    /// taking the kit's `CenteredAabb`; parts-based so this crate-level
     /// vocabulary doesn't depend on the combat kit's body type.)
     pub fn from_parts(center: ae::Vec2, half_size: ae::Vec2, facing: f32) -> Self {
         Self {

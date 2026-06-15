@@ -200,7 +200,7 @@ fn sync_actor_pose_uses_feature_aabb_and_actor_facing() {
         .world_mut()
         .spawn((
             FeatureSimEntity,
-            FeatureAabb::from_center_size(ae::Vec2::new(40.0, 80.0), ae::Vec2::new(20.0, 30.0)),
+            CenteredAabb::from_center_size(ae::Vec2::new(40.0, 80.0), ae::Vec2::new(20.0, 30.0)),
             crate::features::ActorPose::default(),
             ActorRuntime::Enemy,
             enemy.into_components(),

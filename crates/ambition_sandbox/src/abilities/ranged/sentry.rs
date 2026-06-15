@@ -8,7 +8,7 @@
 //! It fires through the same faction-aware projectile pool the volley uses
 //! (`EnemyProjectileState::spawn_with_faction(..., Player)`), so its bolts damage
 //! enemies/bosses and ignore the player. Bosses carry `BodyKinematics`, but the
-//! sentry targets by `FeatureAabb` + `ActorFaction::Enemy`, so it shoots mobs
+//! sentry targets by `CenteredAabb` + `ActorFaction::Enemy`, so it shoots mobs
 //! (not bosses or the player). Pairs with the vortex: drop a sentry, vortex the
 //! mob onto it.
 
@@ -16,7 +16,7 @@ use bevy::prelude::*;
 
 use crate::enemy_projectile::EnemyProjectileSpawn;
 use crate::engine_core as ae;
-use crate::features::{ActorFaction, FeatureAabb, FeatureSimEntity, HeldItem};
+use crate::features::{ActorFaction, CenteredAabb, FeatureSimEntity, HeldItem};
 use crate::input::ControlFrame;
 use crate::player::{BodyKinematics, PlayerEntity, PlayerMana, PrimaryPlayer};
 use crate::projectile::ProjectileFaction;
@@ -92,7 +92,7 @@ pub fn update_sentries(
     world_time: Res<crate::WorldTime>,
     mut commands: Commands,
     mut sentries: Query<(Entity, &mut Sentry)>,
-    enemies: Query<(&FeatureAabb, &ActorFaction), With<FeatureSimEntity>>,
+    enemies: Query<(&CenteredAabb, &ActorFaction), With<FeatureSimEntity>>,
     mut effects: MessageWriter<crate::effects::EffectRequest>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
@@ -196,7 +196,7 @@ mod tests {
         // An enemy within range of where the sentry will deploy (100,100).
         app.world_mut().spawn((
             FeatureSimEntity,
-            FeatureAabb::new(ae::Vec2::new(300.0, 100.0), ae::Vec2::new(24.0, 40.0)),
+            CenteredAabb::new(ae::Vec2::new(300.0, 100.0), ae::Vec2::new(24.0, 40.0)),
             ActorFaction::Enemy,
         ));
         app.world_mut()
@@ -230,7 +230,7 @@ mod tests {
         // Enemy far outside SENTRY_RANGE.
         app.world_mut().spawn((
             FeatureSimEntity,
-            FeatureAabb::new(ae::Vec2::new(2000.0, 100.0), ae::Vec2::new(24.0, 40.0)),
+            CenteredAabb::new(ae::Vec2::new(2000.0, 100.0), ae::Vec2::new(24.0, 40.0)),
             ActorFaction::Enemy,
         ));
         app.world_mut()

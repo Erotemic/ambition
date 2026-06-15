@@ -54,7 +54,7 @@ fn peaceful_actor_damageable_volume_derives_pogo_overlay() {
         FeatureSimEntity,
         FeatureId::new("guide"),
         FeatureName::new("Guide"),
-        FeatureAabb::from_center_size(center, size),
+        CenteredAabb::from_center_size(center, size),
         ActorRuntime::Npc,
         npc.into_components(),
         DamageableVolumes::default(),
@@ -99,7 +99,7 @@ fn overlay_uses_published_pogo_volumes_instead_of_boss_body_aabb() {
         FeatureSimEntity,
         FeatureId::new("gnu_ton"),
         FeatureName::new("GNU-ton"),
-        FeatureAabb::from_aabb(boss_body),
+        CenteredAabb::from_aabb(boss_body),
         boss.into_components(),
         PogoTargetVolumes {
             volumes: vec![pogo_hurtbox],
@@ -135,7 +135,7 @@ fn ecs_overlay_ignores_broken_breakables() {
         FeatureSimEntity,
         FeatureId::new("crate"),
         FeatureName::new("crate"),
-        FeatureAabb::from_center_size(ae::Vec2::ZERO, ae::Vec2::new(16.0, 16.0)),
+        CenteredAabb::from_center_size(ae::Vec2::ZERO, ae::Vec2::new(16.0, 16.0)),
         BreakableFeature::new(breakable),
     ));
     app.add_systems(Update, rebuild_feature_ecs_world_overlay);
@@ -170,7 +170,7 @@ fn interact_buffered_opens_adjacent_chest() {
             ChestFeature::new(crate::interaction::Chest::new("test_chest", None)),
             FeatureId::new("test_chest"),
             FeatureName::new("test_chest"),
-            FeatureAabb::from_center_size(center, ae::Vec2::new(24.0, 24.0)),
+            CenteredAabb::from_center_size(center, ae::Vec2::new(24.0, 24.0)),
         ))
         .id();
 
@@ -214,7 +214,7 @@ fn interact_buffered_does_not_open_distant_chest() {
             ChestFeature::new(crate::interaction::Chest::new("far_chest", None)),
             FeatureId::new("far_chest"),
             FeatureName::new("far_chest"),
-            FeatureAabb::from_center_size(chest_pos, ae::Vec2::new(24.0, 24.0)),
+            CenteredAabb::from_center_size(chest_pos, ae::Vec2::new(24.0, 24.0)),
         ))
         .id();
 
@@ -247,7 +247,7 @@ fn interact_does_not_reopen_already_opened_chest() {
             ChestFeature::new(crate::interaction::Chest::new("already_open", None)),
             FeatureId::new("already_open"),
             FeatureName::new("already_open"),
-            FeatureAabb::from_center_size(center, ae::Vec2::new(24.0, 24.0)),
+            CenteredAabb::from_center_size(center, ae::Vec2::new(24.0, 24.0)),
             Opened,
         ))
         .id();
@@ -299,7 +299,7 @@ fn interact_buffered_starts_npc_dialogue() {
     );
     app.world_mut().spawn((
         FeatureSimEntity,
-        FeatureAabb::from_center_size(center, ae::Vec2::new(32.0, 48.0)),
+        CenteredAabb::from_center_size(center, ae::Vec2::new(32.0, 48.0)),
         ActorRuntime::Npc,
         npc.into_components(),
     ));
@@ -334,7 +334,7 @@ fn feature_view_index_reflects_same_frame_pickup_collection() {
             FeatureSimEntity,
             FeatureId::new("hp_pickup"),
             FeatureName::new("Health"),
-            FeatureAabb::from_center_size(center, ae::Vec2::new(12.0, 12.0)),
+            CenteredAabb::from_center_size(center, ae::Vec2::new(12.0, 12.0)),
             PickupFeature::new(crate::interaction::Pickup::new(
                 "hp_pickup",
                 crate::interaction::PickupKind::Health { amount: 1 },
@@ -378,7 +378,7 @@ fn feature_view_index_first_write_wins_on_duplicate_ids() {
         FeatureSimEntity,
         FeatureId::new("dup_id"),
         FeatureName::new("Pickup"),
-        FeatureAabb::from_center_size(pos, ae::Vec2::new(8.0, 8.0)),
+        CenteredAabb::from_center_size(pos, ae::Vec2::new(8.0, 8.0)),
         PickupFeature::new(crate::interaction::Pickup::new(
             "dup_id",
             crate::interaction::PickupKind::Health { amount: 1 },
@@ -389,7 +389,7 @@ fn feature_view_index_first_write_wins_on_duplicate_ids() {
         FeatureSimEntity,
         FeatureId::new("dup_id"),
         FeatureName::new("Chest"),
-        FeatureAabb::from_center_size(pos, ae::Vec2::new(16.0, 16.0)),
+        CenteredAabb::from_center_size(pos, ae::Vec2::new(16.0, 16.0)),
         ChestFeature::new(crate::interaction::Chest::new("dup_id", None)),
     ));
     app.add_systems(Update, rebuild_feature_view_index);
@@ -434,7 +434,7 @@ fn feature_view_index_reflects_same_frame_reset_spawn() {
             FeatureSimEntity,
             FeatureId::new("post_reset_pickup"),
             FeatureName::new("Post-Reset Health"),
-            FeatureAabb::from_center_size(ae::Vec2::new(20.0, 20.0), ae::Vec2::new(12.0, 12.0)),
+            CenteredAabb::from_center_size(ae::Vec2::new(20.0, 20.0), ae::Vec2::new(12.0, 12.0)),
             PickupFeature::new(crate::interaction::Pickup::new(
                 "post_reset_pickup",
                 crate::interaction::PickupKind::Health { amount: 1 },
@@ -450,7 +450,7 @@ fn feature_view_index_reflects_same_frame_reset_spawn() {
         FeatureSimEntity,
         FeatureId::new("pre_reset_pickup"),
         FeatureName::new("Pre-Reset Health"),
-        FeatureAabb::from_center_size(ae::Vec2::ZERO, ae::Vec2::new(12.0, 12.0)),
+        CenteredAabb::from_center_size(ae::Vec2::ZERO, ae::Vec2::new(12.0, 12.0)),
         PickupFeature::new(crate::interaction::Pickup::new(
             "pre_reset_pickup",
             crate::interaction::PickupKind::Health { amount: 1 },

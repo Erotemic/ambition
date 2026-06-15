@@ -418,7 +418,7 @@ fn npc_hostile_bark(key: &str, name: &str) -> &'static str {
 //
 // These operate on the NPC cluster components directly (no `NpcMut`
 // view), so consumers that only hold `&NpcConfig` / `&NpcStatus` (the
-// damage system reads position from `FeatureAabb` instead of the
+// damage system reads position from `CenteredAabb` instead of the
 // kinematics it borrows mutably for enemies) can still derive flags and
 // bark lines. The `NpcMut` methods above delegate to these.
 

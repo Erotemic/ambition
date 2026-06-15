@@ -14,11 +14,11 @@ pub struct FeatureLifecycleBundle {
     pub room_scoped: crate::platformer_runtime::lifecycle::RoomScopedEntity,
     pub id: FeatureId,
     pub name: FeatureName,
-    pub aabb: FeatureAabb,
+    pub aabb: CenteredAabb,
 }
 
 impl FeatureLifecycleBundle {
-    pub fn new(id: impl Into<String>, name: impl Into<String>, aabb: FeatureAabb) -> Self {
+    pub fn new(id: impl Into<String>, name: impl Into<String>, aabb: CenteredAabb) -> Self {
         Self {
             sim_entity: FeatureSimEntity,
             room_scoped: crate::platformer_runtime::lifecycle::RoomScopedEntity,
@@ -41,7 +41,7 @@ pub struct FeatureRenderedBundle {
 }
 
 impl FeatureRenderedBundle {
-    pub fn new(id: impl Into<String>, name: impl Into<String>, aabb: FeatureAabb) -> Self {
+    pub fn new(id: impl Into<String>, name: impl Into<String>, aabb: CenteredAabb) -> Self {
         Self {
             lifecycle: FeatureLifecycleBundle::new(id, name, aabb),
             room_visual: crate::platformer_runtime::lifecycle::RoomVisual,
@@ -64,7 +64,7 @@ impl PickupBundle {
     pub fn new(
         id: impl Into<String>,
         name: impl Into<String>,
-        aabb: FeatureAabb,
+        aabb: CenteredAabb,
         pickup: crate::interaction::Pickup,
     ) -> Self {
         Self {
@@ -85,7 +85,7 @@ impl ChestBundle {
     pub fn new(
         id: impl Into<String>,
         name: impl Into<String>,
-        aabb: FeatureAabb,
+        aabb: CenteredAabb,
         chest: crate::interaction::Chest,
     ) -> Self {
         Self {

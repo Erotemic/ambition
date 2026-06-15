@@ -20,7 +20,7 @@ pub fn reset_ecs_room_features(
     >,
     mut actors: Query<
         (
-            &mut FeatureAabb,
+            &mut CenteredAabb,
             &mut ActorRuntime,
             &mut ActorIdentity,
             &mut ActorDisposition,
@@ -176,7 +176,7 @@ pub fn reset_ecs_npc_actors(
     mut reset_requests: MessageReader<ResetRoomFeaturesEvent>,
     mut npcs: Query<
         (
-            &mut FeatureAabb,
+            &mut CenteredAabb,
             super::npc_clusters::NpcClusterQueryData,
             &mut ActorIdentity,
             &mut ActorDisposition,

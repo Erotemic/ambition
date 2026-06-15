@@ -27,7 +27,7 @@ pub fn tick_cut_rope_boss_arena(
     heavy_object: Res<CutRopeHeavyObjectCycle>,
     mut hit_events: MessageReader<HitEvent>,
     mut reset_events: MessageReader<ResetRoomFeaturesEvent>,
-    mut bosses: Query<(&FeatureAabb, BossClusterQueryData), With<FeatureSimEntity>>,
+    mut bosses: Query<(&CenteredAabb, BossClusterQueryData), With<FeatureSimEntity>>,
     mut boss_registry: Option<ResMut<BossEncounterRegistry>>,
     mut music_request: Option<ResMut<ambition_sandbox::encounter::BossEncounterMusicRequest>>,
     mut cutscene_queue: Option<

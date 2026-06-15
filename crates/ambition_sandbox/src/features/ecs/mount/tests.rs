@@ -1,4 +1,4 @@
-use super::super::FeatureAabb;
+use super::super::CenteredAabb;
 use super::*;
 use bevy::prelude::*;
 
@@ -73,7 +73,7 @@ fn sync_riders_to_mounts_snaps_rider_to_mount_offset() {
         .world_mut()
         .spawn((
             hostile("mount", "burning_flying_shark", mount_pos, mount_size),
-            FeatureAabb::from_center_size(mount_pos, mount_size),
+            CenteredAabb::from_center_size(mount_pos, mount_size),
             Mountable {
                 rider_offset: ae::Vec2::new(0.0, -40.0),
             },
@@ -90,7 +90,7 @@ fn sync_riders_to_mounts_snaps_rider_to_mount_offset() {
         .world_mut()
         .spawn((
             hostile("rider", "pirate_raider", rider_start, rider_size),
-            FeatureAabb::from_center_size(rider_start, rider_size),
+            CenteredAabb::from_center_size(rider_start, rider_size),
             RidingOn { mount },
         ))
         .id();
@@ -117,10 +117,10 @@ fn sync_riders_to_mounts_snaps_rider_to_mount_offset() {
     assert_eq!(k.vel, ae::Vec2::ZERO, "rider vel zeroed by sync");
     assert_eq!(s.gravity_scale, 0.0, "rider gravity zeroed by sync");
 
-    let aabb = app.world().entity(rider).get::<FeatureAabb>().unwrap();
+    let aabb = app.world().entity(rider).get::<CenteredAabb>().unwrap();
     assert_eq!(
         aabb.center, k.pos,
-        "FeatureAabb mirror updated to synced pos"
+        "CenteredAabb mirror updated to synced pos"
     );
 }
 
@@ -176,7 +176,7 @@ fn spawn_pair(app: &mut App, mount_alive: bool, rider_alive: bool) -> (Entity, E
         .world_mut()
         .spawn((
             rider_actor,
-            FeatureAabb::from_center_size(rider_pos, rider_size),
+            CenteredAabb::from_center_size(rider_pos, rider_size),
             mounted_brain.clone(),
             mounted_action_set.clone(),
             MountedBrainCache {

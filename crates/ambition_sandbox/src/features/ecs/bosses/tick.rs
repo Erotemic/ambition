@@ -252,7 +252,7 @@ fn pattern_brain_mut(brain: &mut Brain) -> &mut StateMachineCfg {
 ///
 /// This system:
 /// 1. Integrates the boss body using `ActorControl::0.desired_vel`.
-/// 2. Syncs presentation mirrors (`FeatureAabb`, `BossPatternTimer`,
+/// 2. Syncs presentation mirrors (`CenteredAabb`, `BossPatternTimer`,
 ///    `BossPhase`).
 /// 3. Publishes attack + body-contact damage via the pure
 ///    `boss_attack_damage` helper, which reads `BossAttackState`
@@ -290,7 +290,7 @@ pub fn update_ecs_bosses(
     >,
     mut bosses: Query<
         (
-            &mut FeatureAabb,
+            &mut CenteredAabb,
             super::super::boss_clusters::BossClusterQueryData,
             &mut BossPatternTimer,
             &mut BossDeathAnimation,

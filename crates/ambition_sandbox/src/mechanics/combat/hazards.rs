@@ -23,7 +23,7 @@ pub fn update_ecs_hazards(
         With<crate::player::PlayerEntity>,
     >,
     mut hazards: Query<
-        (&FeatureName, &mut FeatureAabb, &mut HazardFeature),
+        (&FeatureName, &mut CenteredAabb, &mut HazardFeature),
         With<FeatureSimEntity>,
     >,
 ) {
@@ -146,7 +146,7 @@ mod tests {
         app.world_mut().spawn((
             FeatureSimEntity,
             FeatureName::new(id),
-            FeatureAabb::from_center_size(pos, ae::Vec2::new(32.0, 32.0)),
+            CenteredAabb::from_center_size(pos, ae::Vec2::new(32.0, 32.0)),
             HazardFeature::new(hazard),
         ));
     }

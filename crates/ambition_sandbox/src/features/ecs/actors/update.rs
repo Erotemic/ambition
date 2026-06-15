@@ -4,7 +4,7 @@
 use super::super::*;
 use super::*;
 
-/// Keep actor-like gameplay poses in sync with the authoritative [`FeatureAabb`].
+/// Keep actor-like gameplay poses in sync with the authoritative [`CenteredAabb`].
 ///
 /// `ActorPose` is the gameplay action-origin read model used by the universal
 /// brain/action resolver. Presentation `Transform`s are intentionally not the
@@ -13,7 +13,7 @@ use super::*;
 pub fn sync_actor_poses_from_feature_aabbs(
     mut actors: Query<
         (
-            &FeatureAabb,
+            &CenteredAabb,
             &mut super::super::super::components::ActorPose,
             Option<&ActorRuntime>,
             Option<&super::super::enemy_clusters::BodyKinematics>,
@@ -84,7 +84,7 @@ pub fn update_ecs_actors(
     mut actors: Query<
         (
             Entity,
-            &mut FeatureAabb,
+            &mut CenteredAabb,
             &mut ActorRuntime,
             &mut ActorIdentity,
             &mut ActorDisposition,
@@ -326,7 +326,7 @@ pub fn update_ecs_actors(
                 // Publish the actor's surface-oriented footprint as the single
                 // source of truth: `EnemyMut::aabb()` already swaps width<->height
                 // for a surface-walker clung to a wall, so the debug overlay,
-                // player hurtbox, and target volumes (all readers of `FeatureAabb`)
+                // player hurtbox, and target volumes (all readers of `CenteredAabb`)
                 // match the ~90°-rotated sprite. Flat-ground (vertical normal) is
                 // unchanged, so replay stays byte-identical.
                 let body = em.aabb();
@@ -467,7 +467,7 @@ pub fn update_ecs_npcs(
     overlay: Res<FeatureEcsWorldOverlay>,
     mut npcs: Query<
         (
-            &mut FeatureAabb,
+            &mut CenteredAabb,
             super::super::npc_clusters::NpcClusterQueryData,
             &super::super::super::components::ActorTarget,
             Option<&mut crate::brain::Brain>,

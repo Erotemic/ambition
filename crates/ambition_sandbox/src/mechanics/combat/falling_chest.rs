@@ -14,7 +14,7 @@ pub fn update_ecs_falling_chests(
     mut commands: Commands,
     world_time: Res<WorldTime>,
     world: Res<crate::GameWorld>,
-    mut chests: Query<(Entity, &mut FeatureAabb, &mut FallingChest), With<ChestFeature>>,
+    mut chests: Query<(Entity, &mut CenteredAabb, &mut FallingChest), With<ChestFeature>>,
 ) {
     // Sim clock: bullet-time / pause / hitstop must freeze a falling
     // chest mid-arc the same way they freeze the player. ADR 0010.

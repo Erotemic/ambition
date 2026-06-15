@@ -78,7 +78,7 @@ pub fn fire_shockwave_system(
 mod tests {
     use super::*;
     use crate::abilities::test_support::spawn_primary_player_holding;
-    use crate::features::{ActorFaction, FeatureAabb, FeatureSimEntity, Hitbox, HitboxAnchor};
+    use crate::features::{ActorFaction, CenteredAabb, FeatureSimEntity, Hitbox, HitboxAnchor};
 
     fn test_app() -> App {
         let mut app = App::new();
@@ -176,7 +176,7 @@ mod tests {
             .world_mut()
             .spawn((
                 FeatureSimEntity,
-                FeatureAabb::new(ae::Vec2::new(300.0, 80.0), ae::Vec2::new(12.0, 16.0)),
+                CenteredAabb::new(ae::Vec2::new(300.0, 80.0), ae::Vec2::new(12.0, 16.0)),
                 ActorFaction::Enemy,
             ))
             .id();

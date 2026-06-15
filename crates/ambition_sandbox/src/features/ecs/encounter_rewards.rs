@@ -76,7 +76,7 @@ pub fn sync_encounter_reward_chests_ecs(
             RoomVisual,
             FeatureId::new(chest_id.clone()),
             FeatureName::new(chest_id.clone()),
-            FeatureAabb::from_center_size(chest_pos, chest_size),
+            CenteredAabb::from_center_size(chest_pos, chest_size),
             ChestFeature::new(crate::interaction::Chest::new(
                 chest_id,
                 Some(spec.reward.clone()),
@@ -164,7 +164,7 @@ pub fn sync_boss_reward_chests_ecs(
             RoomVisual,
             FeatureId::new(chest_id.clone()),
             FeatureName::new(chest_id.clone()),
-            FeatureAabb::from_center_size(chest_pos, *size),
+            CenteredAabb::from_center_size(chest_pos, *size),
             ChestFeature::new(crate::interaction::Chest::new(
                 chest_id,
                 Some(pickup.clone()),

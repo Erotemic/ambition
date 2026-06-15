@@ -16,7 +16,7 @@ const PICKUP_MAGNET_SPEED: f32 = 340.0;
 pub fn magnetize_pickups(
     time: Res<crate::WorldTime>,
     players: Query<&crate::player::BodyKinematics, With<crate::player::PrimaryPlayer>>,
-    mut pickups: Query<&mut FeatureAabb, (With<PickupFeature>, Without<Collected>)>,
+    mut pickups: Query<&mut CenteredAabb, (With<PickupFeature>, Without<Collected>)>,
 ) {
     let dt = time.scaled_dt;
     let Ok(player) = players.single() else {
@@ -40,7 +40,7 @@ pub fn collect_ecs_pickups(
         (
             Entity,
             &FeatureName,
-            &FeatureAabb,
+            &CenteredAabb,
             &PickupFeature,
             Option<&Collected>,
         ),
@@ -160,7 +160,7 @@ mod tests {
                 FeatureSimEntity,
                 FeatureId::new(id),
                 FeatureName::new("Health"),
-                FeatureAabb::from_center_size(pos, ae::Vec2::new(12.0, 12.0)),
+                CenteredAabb::from_center_size(pos, ae::Vec2::new(12.0, 12.0)),
                 PickupFeature::new(crate::interaction::Pickup::new(
                     id,
                     crate::interaction::PickupKind::Health { amount: 1 },
@@ -227,7 +227,7 @@ mod tests {
             FeatureSimEntity,
             FeatureId::new("coin"),
             FeatureName::new("Coin"),
-            FeatureAabb::from_center_size(center, ae::Vec2::new(12.0, 12.0)),
+            CenteredAabb::from_center_size(center, ae::Vec2::new(12.0, 12.0)),
             PickupFeature::new(crate::interaction::Pickup::new(
                 "coin",
                 crate::interaction::PickupKind::Currency { amount: 25 },
@@ -274,7 +274,7 @@ mod tests {
             FeatureSimEntity,
             FeatureId::new("ability_drop"),
             FeatureName::new("Blink"),
-            FeatureAabb::from_center_size(center, ae::Vec2::new(16.0, 16.0)),
+            CenteredAabb::from_center_size(center, ae::Vec2::new(16.0, 16.0)),
             PickupFeature::new(crate::interaction::Pickup::new(
                 "ability_drop",
                 crate::interaction::PickupKind::Ability {
@@ -324,8 +324,8 @@ mod tests {
         // Out of range (dist 400) -> unmoved.
         let far = health_pickup_at(&mut app, "far", ae::Vec2::new(500.0, 100.0));
         app.update();
-        let near_x = app.world().get::<FeatureAabb>(near).unwrap().center.x;
-        let far_x = app.world().get::<FeatureAabb>(far).unwrap().center.x;
+        let near_x = app.world().get::<CenteredAabb>(near).unwrap().center.x;
+        let far_x = app.world().get::<CenteredAabb>(far).unwrap().center.x;
         assert!(
             near_x < 200.0,
             "the nearby pickup drifted toward the player (x={near_x})"

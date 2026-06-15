@@ -11,7 +11,7 @@
 use crate::engine_core as ae;
 use bevy::prelude::*;
 
-use super::components::{ActorAggression, ActorTarget, AggressionTarget, FeatureAabb};
+use super::components::{ActorAggression, ActorTarget, AggressionTarget, CenteredAabb};
 use super::FeatureSimEntity;
 use crate::player::{BodyKinematics, PlayerEntity};
 
@@ -36,7 +36,7 @@ use crate::player::{BodyKinematics, PlayerEntity};
 /// index here without changing the consumer side.
 pub fn select_actor_targets(
     players: Query<(Entity, &BodyKinematics), With<PlayerEntity>>,
-    mut actors: Query<(&FeatureAabb, &mut ActorTarget, &ActorAggression), With<FeatureSimEntity>>,
+    mut actors: Query<(&CenteredAabb, &mut ActorTarget, &ActorAggression), With<FeatureSimEntity>>,
 ) {
     let player_snapshots: Vec<(Entity, ae::Vec2)> =
         players.iter().map(|(e, kin)| (e, kin.pos)).collect();
@@ -78,7 +78,7 @@ fn distance_squared(a: ae::Vec2, b: ae::Vec2) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mechanics::combat::components::{ActorAggression, ActorTarget, FeatureAabb};
+    use crate::mechanics::combat::components::{ActorAggression, ActorTarget, CenteredAabb};
     use crate::player::{BodyKinematics, PlayerEntity, PlayerSlot, PrimaryPlayer};
 
     fn dummy_player_body(pos: ae::Vec2) -> BodyKinematics {
@@ -94,7 +94,7 @@ mod tests {
         app.world_mut()
             .spawn((
                 FeatureSimEntity,
-                FeatureAabb::from_center_size(pos, ae::Vec2::new(20.0, 20.0)),
+                CenteredAabb::from_center_size(pos, ae::Vec2::new(20.0, 20.0)),
                 ActorTarget::default(),
                 ActorAggression::hostile_to_player(),
             ))
@@ -162,7 +162,7 @@ mod tests {
             .world_mut()
             .spawn((
                 FeatureSimEntity,
-                FeatureAabb::from_center_size(actor_pos, ae::Vec2::new(20.0, 20.0)),
+                CenteredAabb::from_center_size(actor_pos, ae::Vec2::new(20.0, 20.0)),
                 ActorTarget::default(),
                 ActorAggression::passive(),
             ))
@@ -196,7 +196,7 @@ mod tests {
             .world_mut()
             .spawn((
                 FeatureSimEntity,
-                FeatureAabb::from_center_size(
+                CenteredAabb::from_center_size(
                     ae::Vec2::new(100.0, 100.0),
                     ae::Vec2::new(20.0, 20.0),
                 ),

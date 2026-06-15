@@ -110,7 +110,7 @@ mod tests {
         app.world_mut().spawn((
             crate::features::FeatureSimEntity,
             crate::features::FeatureId::new("test_enemy"),
-            crate::features::FeatureAabb::new(enemy_pos, ae::Vec2::new(16.0, 24.0)),
+            crate::features::CenteredAabb::new(enemy_pos, ae::Vec2::new(16.0, 24.0)),
             crate::features::ActorDisposition::Hostile,
             crate::features::ActorCombatState {
                 alive: true,

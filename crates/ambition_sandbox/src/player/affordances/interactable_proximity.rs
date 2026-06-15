@@ -18,7 +18,7 @@ use bevy::prelude::*;
 
 use super::variants::InteractVariant;
 use crate::features::{
-    ActorRuntime, ChestFeature, FeatureAabb, FeatureSimEntity, Opened, SwitchFeature,
+    ActorRuntime, ChestFeature, CenteredAabb, FeatureSimEntity, Opened, SwitchFeature,
 };
 
 /// Resource: the nearest live interactable overlapping the primary
@@ -45,9 +45,9 @@ pub fn update_nearest_interactable(
             With<crate::player::PrimaryPlayer>,
         ),
     >,
-    actors: Query<(&FeatureAabb, &ActorRuntime), With<FeatureSimEntity>>,
-    chests: Query<(&FeatureAabb, Option<&Opened>), (With<FeatureSimEntity>, With<ChestFeature>)>,
-    switches: Query<&FeatureAabb, (With<FeatureSimEntity>, With<SwitchFeature>)>,
+    actors: Query<(&CenteredAabb, &ActorRuntime), With<FeatureSimEntity>>,
+    chests: Query<(&CenteredAabb, Option<&Opened>), (With<FeatureSimEntity>, With<ChestFeature>)>,
+    switches: Query<&CenteredAabb, (With<FeatureSimEntity>, With<SwitchFeature>)>,
     mut out: ResMut<NearestInteractable>,
 ) {
     let Ok(kin) = player.single() else {

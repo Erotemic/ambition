@@ -207,7 +207,7 @@ fn player_faction_hitbox_emits_an_attacker_side_feature_hit() {
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
     let owner = app
         .world_mut()
-        .spawn(crate::features::FeatureAabb::new(
+        .spawn(crate::features::CenteredAabb::new(
             ae::Vec2::new(100.0, 100.0),
             ae::Vec2::new(12.0, 16.0),
         ))
@@ -258,7 +258,7 @@ fn player_faction_hitbox_only_fires_once() {
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
     let owner = app
         .world_mut()
-        .spawn(crate::features::FeatureAabb::new(
+        .spawn(crate::features::CenteredAabb::new(
             ae::Vec2::ZERO,
             ae::Vec2::splat(8.0),
         ))

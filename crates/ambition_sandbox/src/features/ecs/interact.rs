@@ -23,7 +23,7 @@ pub fn interact_ecs_actors_and_switches(
     >,
     actors: Query<
         (
-            &FeatureAabb,
+            &CenteredAabb,
             &ActorRuntime,
             Option<&super::npc_clusters::NpcConfig>,
             Option<&super::npc_clusters::NpcStatus>,
@@ -34,7 +34,7 @@ pub fn interact_ecs_actors_and_switches(
         (
             &FeatureId,
             &FeatureName,
-            &FeatureAabb,
+            &CenteredAabb,
             &SwitchFeature,
             &mut SwitchOn,
         ),
@@ -139,7 +139,7 @@ mod tests {
     use super::*;
     use crate::engine_core as ae;
     use crate::features::{
-        FeatureAabb, FeatureId, FeatureName, FeatureSimEntity, SwitchFeature, SwitchOn,
+        CenteredAabb, FeatureId, FeatureName, FeatureSimEntity, SwitchFeature, SwitchOn,
     };
     use bevy::prelude::{App, NextState, Update};
 
@@ -173,7 +173,7 @@ mod tests {
                 FeatureSimEntity,
                 FeatureId::new("gate_switch"),
                 FeatureName::new("Gate Switch"),
-                FeatureAabb::from_center_size(center, ae::Vec2::new(24.0, 24.0)),
+                CenteredAabb::from_center_size(center, ae::Vec2::new(24.0, 24.0)),
                 SwitchFeature::new(crate::encounter::SwitchActivation {
                     id: "gate_switch".into(),
                     action: "open".into(),

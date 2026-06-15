@@ -25,11 +25,11 @@ pub struct FeatureEcsWorldOverlay {
 pub fn rebuild_feature_ecs_world_overlay(
     mut overlay: ResMut<FeatureEcsWorldOverlay>,
     breakables: Query<
-        (&FeatureId, &FeatureName, &FeatureAabb, &BreakableFeature),
+        (&FeatureId, &FeatureName, &CenteredAabb, &BreakableFeature),
         With<FeatureSimEntity>,
     >,
     legacy_pogo_targets: Query<
-        (&FeatureId, &FeatureAabb),
+        (&FeatureId, &CenteredAabb),
         (
             With<FeatureSimEntity>,
             With<PogoTargetContributor>,

@@ -46,7 +46,7 @@ mod host_adapter {
     };
 
     use crate::abilities::traversal::possession::PossessionState;
-    use crate::features::FeatureAabb;
+    use crate::features::CenteredAabb;
     use crate::platformer_runtime::body::BodyKinematics;
     use crate::player::{PlayerEntity, PrimaryPlayer};
     use crate::platformer_runtime::lifecycle::PlayerVisual;
@@ -62,7 +62,7 @@ mod host_adapter {
     pub fn sync_portal_viewer(
         world: Res<GameWorld>,
         possession: Res<PossessionState>,
-        feature_aabbs: Query<&FeatureAabb>,
+        feature_aabbs: Query<&CenteredAabb>,
         player: Query<&BodyKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
         viewer: Option<ResMut<PortalViewer>>,
     ) {

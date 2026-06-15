@@ -18,7 +18,7 @@ use super::*;
 pub fn refresh_actor_damageable_volumes(
     mut actors: Query<
         (
-            &FeatureAabb,
+            &CenteredAabb,
             &ActorRuntime,
             Option<&super::enemy_clusters::EnemyStatus>,
             &mut DamageableVolumes,
@@ -80,7 +80,7 @@ pub fn refresh_boss_damageable_volumes(
 /// instead of pretending to be player-damage targets.
 pub fn refresh_breakable_damageable_volumes(
     mut breakables: Query<
-        (&FeatureAabb, &BreakableFeature, &mut DamageableVolumes),
+        (&CenteredAabb, &BreakableFeature, &mut DamageableVolumes),
         With<FeatureSimEntity>,
     >,
 ) {

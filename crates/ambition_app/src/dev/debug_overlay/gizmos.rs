@@ -96,7 +96,7 @@ pub struct FeatureDebugQueries<'w, 's> {
         's,
         (
             &'static ambition_sandbox::features::ActorRuntime,
-            &'static ambition_sandbox::features::FeatureAabb,
+            &'static ambition_sandbox::features::CenteredAabb,
             Option<&'static ambition_sandbox::features::BodyKinematics>,
             Option<&'static ambition_sandbox::features::ActorAttackState>,
             Option<&'static ambition_sandbox::features::ActorSurfaceState>,
@@ -106,7 +106,7 @@ pub struct FeatureDebugQueries<'w, 's> {
     pub breakables: Query<
         'w,
         's,
-        &'static ambition_sandbox::features::FeatureAabb,
+        &'static ambition_sandbox::features::CenteredAabb,
         (
             With<ambition_sandbox::features::FeatureSimEntity>,
             With<ambition_sandbox::features::BreakableFeature>,
@@ -115,7 +115,7 @@ pub struct FeatureDebugQueries<'w, 's> {
     pub chests: Query<
         'w,
         's,
-        &'static ambition_sandbox::features::FeatureAabb,
+        &'static ambition_sandbox::features::CenteredAabb,
         (
             With<ambition_sandbox::features::FeatureSimEntity>,
             With<ambition_sandbox::features::ChestFeature>,
@@ -134,10 +134,10 @@ pub struct FeatureDebugQueries<'w, 's> {
     /// World-anchored boss specials are invisible even though they
     /// deal damage.
     pub hitboxes: Query<'w, 's, &'static ambition_sandbox::features::Hitbox>,
-    /// FeatureAabb lookup for resolving `FollowOwner` hitboxes to
+    /// CenteredAabb lookup for resolving `FollowOwner` hitboxes to
     /// their current world-space rectangle. World-anchored
     /// hitboxes don't need this — their AABB is fixed at spawn.
-    pub hitbox_owners: Query<'w, 's, &'static ambition_sandbox::features::FeatureAabb>,
+    pub hitbox_owners: Query<'w, 's, &'static ambition_sandbox::features::CenteredAabb>,
     /// In-flight held-item shots (gun-sword bolt / Fireball). Their
     /// contact + splash boxes were previously undrawn, so a Fireball
     /// read as "hitting before it touches the visible box". Lives in
@@ -556,7 +556,7 @@ pub(crate) fn draw_feature_debug(
             ambition_sandbox::features::ActorRuntime::Npc => npc_color,
             ambition_sandbox::features::ActorRuntime::Enemy => enemy_color,
         };
-        // `FeatureAabb` is already oriented to the actor's surface (a clung
+        // `CenteredAabb` is already oriented to the actor's surface (a clung
         // surface-walker swaps width<->height onto a wall — see
         // `update_enemy_actors`), so the drawn box matches the rotated sprite.
         draw_aabb_styled(gizmos, world, aabb.aabb(), color, developer_tools);
@@ -679,7 +679,7 @@ pub(crate) fn draw_feature_debug(
     for hitbox in feature_q.hitboxes.iter() {
         let owner_pos = match feature_q.hitbox_owners.get(hitbox.owner) {
             Ok(aabb) => aabb.center,
-            // Owner despawned or never had a FeatureAabb — for
+            // Owner despawned or never had a CenteredAabb — for
             // World-anchored hitboxes this doesn't matter (the
             // anchor carries the center). For FollowOwner with a
             // dead owner the draw position is ambiguous; fall back

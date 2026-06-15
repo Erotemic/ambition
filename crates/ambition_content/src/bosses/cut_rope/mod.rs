@@ -20,7 +20,7 @@ use ambition_sandbox::config::world_to_bevy;
 use ambition_sandbox::engine_core::{self as ae, AabbExt};
 use ambition_sandbox::features::{
     ActorPose, ActorRuntime, BossClusterQueryData, BossClusterRef, BossRef, DamageableVolumes,
-    EnemyActorBundle, FeatureAabb, FeatureBaseBundle, FeatureId, FeatureName, FeatureSimEntity,
+    EnemyActorBundle, CenteredAabb, FeatureBaseBundle, FeatureId, FeatureName, FeatureSimEntity,
     GameplayBanner, HitEvent, HitSource, PogoPolicy, PogoTargetVolumes, PostBossNpc,
     ResetRoomFeaturesEvent,
 };

@@ -385,6 +385,49 @@ fn architecture_boundaries_platformer_runtime_crate_is_extracted() {
     );
 }
 
+/// Pure simulation/gameplay code in `ambition_sandbox` must not import the
+/// presentation layer. The render layer depends on the sim — never the reverse —
+/// so that `presentation/` can be lifted into a standalone render crate without
+/// dragging gameplay logic along.
+///
+/// The allowlist names the only modules permitted to import `crate::presentation`,
+/// and each is legitimately at-or-above the render boundary:
+///   - `presentation/` itself (the render layer).
+///   - `dialog/ui.rs` — IS UI rendering (draws the dialog box + fonts).
+///   - `runtime/setup.rs` + `runtime/reset/` — composition-root orchestration that
+///     wires sim and render together (spawns the scene, respawns room visuals on
+///     reset). These sit above presentation by construction.
+///
+/// To extend the allowlist you must justify that the module genuinely belongs at
+/// or above the presentation layer — not merely that it currently compiles.
+#[test]
+fn architecture_boundaries_sim_does_not_import_presentation() {
+    let src = crate_src();
+    let allowed_prefixes = [
+        "presentation/",
+        "dialog/ui.rs",
+        "runtime/setup.rs",
+        "runtime/reset/",
+    ];
+    let is_allowed = |file: &Path| {
+        let rel = file.strip_prefix(&src).unwrap_or(file);
+        let rel_str = rel.to_string_lossy().replace('\\', "/");
+        allowed_prefixes
+            .iter()
+            .any(|p| rel_str.starts_with(p) || rel_str.contains(&format!("/{p}")))
+    };
+    let violations = scan_code_refs(&[src.clone()], &["crate::presentation"], |file, _line| {
+        is_allowed(file)
+    });
+    assert!(
+        violations.is_empty(),
+        "pure gameplay/sim code must not import `crate::presentation` (render depends on sim, \
+         not the reverse). Move the imported type DOWN to a foundation/runtime module, or invert \
+         the call with an event. Violations:\n{}",
+        violations.join("\n")
+    );
+}
+
 #[test]
 fn architecture_boundaries_menu_crate_stays_content_free() {
     let crate_root = repo_root().join("crates/ambition_menu");

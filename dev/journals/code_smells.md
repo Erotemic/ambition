@@ -100,3 +100,33 @@ The unused-import lint flags `use bevy::prelude::*` at the top of
 re-globs the parent's prelude. Removing it breaks the build. DO NOT "clean" it
 — the lint is a known false positive for glob-imports re-exported via child
 `use super::*`. (Confirmed + reverted during the 2026-06-15 split run.)
+
+## Gravity-inversion symmetry suspects (found via the headless gravity-symmetry harness, 2026-06-15)
+Building `crates/ambition_app/tests/gravity_symmetry.rs` (drives mechanics under
+default-down AND inverted-up gravity through the action/observation API) surfaced
+a class of "world-Y-hardcoded" links that break when gravity flips. The pogo
+BOUNCE + HITBOX + tuning-gravity-sync were fixed (commit afd8345b). Remaining
+suspects, each cheaply verifiable by adding a case to that test file:
+
+- **Attack-driven pogo input intent** — `crates/ambition_engine_core/src/movement/control.rs:132`
+  gates the attack-pogo on `input.axis_y > 0.25` (screen-down). Under inverted
+  gravity the player's gravity-down input can't trigger it; only the dedicated
+  pogo button works. DESIGN QUESTION (screen-relative vs gravity-relative controls
+  under a flip) — Jon's call, not a unilateral fix.
+- **Directional attack hitbox offset** — `crates/ambition_combat/src/lib.rs:446`
+  (`view.pos + spec.hitbox_offset`): the down/up/forward attack hitbox offsets are
+  world-locked, so the whole directional-attack system is screen-relative, not
+  gravity-relative.
+- **`ground_gap_below_feet`** — `crates/ambition_app/src/app/world_flow.rs:63`
+  probes world-down (`block.top()`, `top < feet_y`) for landing feedback. World-Y
+  locked.
+- **Thrown ground-item physics** — `crates/ambition_sandbox/src/items/pickup/mod.rs:169`
+  ("integrate thrown ground items under gravity (y-down world)", `GROUND_ITEM_GRAVITY`):
+  thrown items fall world-down regardless of the gravity field.
+- **Player knockback** — `apply_player_hit_events` (`sim_systems.rs:547`) builds
+  `editable_tuning.as_engine()` WITHOUT the new `apply_gravity_dir` sync; if
+  knockback is gravity-relative it's wrong under a flip. UNTESTED suspect — add a
+  knockback case to the symmetry suite.
+
+POSITIVE finding (no action): one-way platform LANDING is already gravity-symmetric
+(the player lands on the gravity-facing face under either orientation).

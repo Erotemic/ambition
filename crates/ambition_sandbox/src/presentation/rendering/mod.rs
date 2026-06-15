@@ -39,8 +39,11 @@ mod world;
 pub use actors::{
     animate_bosses, animate_characters, animate_player, apply_hide_sprites_override,
     apply_placeholder_sprites_override, sync_visuals, upgrade_boss_sprites, upgrade_enemy_sprites,
-    upgrade_npc_sprites, BoundFeatureKind,
+    upgrade_npc_sprites,
 };
+// `BoundFeatureKind` moved to `mechanics::combat` (sim owns it); re-exported here
+// so existing render call sites resolve unchanged.
+pub use crate::mechanics::combat::BoundFeatureKind;
 // `manage_gradient_lane_visual` + `GradientLaneVisual` stay
 // module-private; the schedule registration uses
 // `actors::manage_gradient_lane_visual` directly so no outside
@@ -51,7 +54,7 @@ pub use health::{sync_boss_health_bar_overlay, sync_health_overlays};
 // origins at the same hand position the visual lays the gun-sword on.
 // Keeps "where the muzzle is" defined in one module.
 pub use parallax::{spawn_parallax_layers, sync_parallax_layers};
-pub use pirate_weapon::rider_hand_world_pos;
+pub use crate::features::rider_hand_world_pos;
 pub use primitives::{
     HudText, LoadingZoneVisual, PlayerSpriteBaseline, PlayerVisual, PropVisual, QuestPanelText,
     RoomScopedEntity, RoomVisual, SceneEntities,

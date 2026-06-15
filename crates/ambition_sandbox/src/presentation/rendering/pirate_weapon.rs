@@ -19,6 +19,7 @@
 //! `sync_enemy_projectile_visuals` — no per-entity lifecycle
 //! plumbing, the visual set always reflects the live rider set.
 
+use crate::features::rider_hand_world_pos;
 use bevy::math::Vec2;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
@@ -77,22 +78,11 @@ const WEAPON_WIDTH_PER_RIDER_HEIGHT: f32 = 64.0 / 72.0;
 /// automatically for left-facing pirates.
 /// - +x: in front of the body (sword-arm side)
 /// - -y: above the rider's center (small-of-back / waist height)
-const HAND_OFFSET_NORM: Vec2 = Vec2::new(0.18, -0.05);
 
 /// World-space hand position for a rider. The hand offset is scaled
 /// off the rider's own `size.y`, so the same anchor math works for a
 /// PirateRaider (78-tall) and a PirateHeavy (110-tall) without
 /// per-character tuning.
-pub fn rider_hand_world_pos(
-    rider_pos: crate::engine_core::Vec2,
-    facing: f32,
-    rider_height: f32,
-) -> crate::engine_core::Vec2 {
-    let facing_sign = if facing >= 0.0 { 1.0 } else { -1.0 };
-    let hand_local_x = HAND_OFFSET_NORM.x * rider_height * facing_sign;
-    let hand_local_y = HAND_OFFSET_NORM.y * rider_height;
-    crate::engine_core::Vec2::new(rider_pos.x + hand_local_x, rider_pos.y + hand_local_y)
-}
 
 pub fn sync_pirate_weapon_visuals(
     mut commands: Commands,

@@ -37,6 +37,7 @@ pub mod banter;
 pub use crate::boss_encounter::attack_geometry as boss_attack_geometry;
 pub mod bosses;
 mod ecs;
+pub use ecs::rider_hand_world_pos;
 mod enemies;
 mod npcs;
 

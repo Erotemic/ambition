@@ -51,3 +51,11 @@ pub struct SceneEntities {
     pub hud: Entity,
     pub quest_panel: Entity,
 }
+
+/// Marker on the rendered loading-zone indicator entity (keyed by zone `id`).
+/// World/room systems spawn + reconcile these; content-free so they need no
+/// presentation import.
+#[derive(Component, Clone, Debug)]
+pub struct LoadingZoneVisual {
+    pub id: String,
+}

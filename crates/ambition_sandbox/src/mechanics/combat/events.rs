@@ -17,6 +17,28 @@ pub enum FeatureVisualKind {
     Switch,
 }
 
+/// Marker binding a feature visual to its kind + collision size (moved here from
+/// the render layer so the mount gameplay can remove it without importing presentation).
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct BoundFeatureKind {
+    pub kind: FeatureVisualKind,
+    pub collision_size: ae::Vec2,
+}
+
+impl BoundFeatureKind {
+    pub fn new(kind: FeatureVisualKind, collision: bevy::math::Vec2) -> Self {
+        Self {
+            kind,
+            collision_size: ae::Vec2::new(collision.x, collision.y),
+        }
+    }
+
+    pub(crate) fn matches(&self, kind: FeatureVisualKind, collision_size: ae::Vec2) -> bool {
+        self.kind == kind && (self.collision_size - collision_size).length_squared() <= 0.25
+    }
+}
+
+
 #[derive(Clone, Copy, Debug)]
 pub struct FeatureView {
     pub pos: ae::Vec2,

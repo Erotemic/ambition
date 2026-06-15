@@ -20,6 +20,7 @@ use crate::features::{
     BossClusterRef, BreakableFeature, ChestFeature, FeatureId, FeatureViewIndex, FeatureVisualKind,
     Opened,
 };
+use crate::mechanics::combat::BoundFeatureKind;
 use crate::character_sprites::{
     build_character_sprite, feet_anchor_for, CharacterAnimator,
 };
@@ -180,24 +181,6 @@ fn state_aware_entity_sprite(
 /// `Without<CharacterAnimator>` filter hid the entity from the enemy
 /// upgrade pass and the kernel guide stayed visually a kernel guide
 /// after the third strike.
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
-pub struct BoundFeatureKind {
-    pub kind: FeatureVisualKind,
-    pub collision_size: ae::Vec2,
-}
-
-impl BoundFeatureKind {
-    pub fn new(kind: FeatureVisualKind, collision: BVec2) -> Self {
-        Self {
-            kind,
-            collision_size: ae::Vec2::new(collision.x, collision.y),
-        }
-    }
-
-    fn matches(&self, kind: FeatureVisualKind, collision_size: ae::Vec2) -> bool {
-        self.kind == kind && (self.collision_size - collision_size).length_squared() <= 0.25
-    }
-}
 
 /// Bind enemy/sandbag visuals to the appropriate character sheet
 /// once the asset is available — and re-bind when an existing visual

@@ -89,7 +89,7 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         let held_item_id = held_items.get(msg.actor).ok().map(|item| item.id());
         let uses_gun_sword = held_item_id == Some("gun_sword");
         let (spawn_origin, owner_id) = if uses_gun_sword {
-            let hand = crate::presentation::rendering::rider_hand_world_pos(
+            let hand = crate::features::rider_hand_world_pos(
                 enemy.kin.pos,
                 enemy.kin.facing,
                 enemy.kin.size.y,

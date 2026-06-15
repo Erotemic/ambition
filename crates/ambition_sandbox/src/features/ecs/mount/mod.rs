@@ -314,7 +314,7 @@ pub fn enforce_mount_rider_link(
                     .remove::<Mounted>()
                     // Sprite-binding refresh so the rider's sheet
                     // re-resolves on the next presentation pass.
-                    .remove::<crate::presentation::rendering::BoundFeatureKind>();
+                    .remove::<crate::mechanics::combat::BoundFeatureKind>();
             }
             // Mount dead, rider already dissolved → steady state.
             (false, false) => {}
@@ -336,3 +336,19 @@ pub fn pirate_on_shark_rider_offset(mount_size: ae::Vec2, rider_size: ae::Vec2) 
 
 #[cfg(test)]
 mod tests;
+
+/// World position of the rider's hand (where mounted attacks originate). The
+/// hand offset is sprite-layout-derived but the SIM needs it to spawn attacks, so
+/// it lives here, not in presentation.
+const HAND_OFFSET_NORM: crate::engine_core::Vec2 = crate::engine_core::Vec2::new(0.18, -0.05);
+pub fn rider_hand_world_pos(
+    rider_pos: crate::engine_core::Vec2,
+    facing: f32,
+    rider_height: f32,
+) -> crate::engine_core::Vec2 {
+    let facing_sign = if facing >= 0.0 { 1.0 } else { -1.0 };
+    let hand_local_x = HAND_OFFSET_NORM.x * rider_height * facing_sign;
+    let hand_local_y = HAND_OFFSET_NORM.y * rider_height;
+    crate::engine_core::Vec2::new(rider_pos.x + hand_local_x, rider_pos.y + hand_local_y)
+}
+

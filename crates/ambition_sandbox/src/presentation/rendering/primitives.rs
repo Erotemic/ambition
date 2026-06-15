@@ -12,7 +12,7 @@ use crate::features::FeatureVisualKind;
 // canonical home is `crate::platformer_runtime::lifecycle` (content-free, so sim
 // systems can tag visual entities without importing presentation).
 pub use crate::platformer_runtime::lifecycle::{
-    PlayerVisual, RoomScopedEntity, RoomVisual, SceneEntities,
+    LoadingZoneVisual, PlayerVisual, RoomScopedEntity, RoomVisual, SceneEntities,
 };
 
 /// Standing-stance render size of the textured player sprite, recorded
@@ -74,18 +74,6 @@ pub struct PropVisual {
     pub id: String,
     /// Registry key the sprite was looked up under.
     pub kind: String,
-}
-
-/// Marker for the sprite + label spawned by `spawn_loading_zone`.
-/// Stores the LoadingZone's `id` so portal-aware systems can
-/// suppress the debug door visual for zones whose actual gate is
-/// rendered as a separate sprite (e.g. the intro portal — the ring
-/// and portal NpcSpawn sprites ARE the visual; the LoadingZone's
-/// own colored DoorZone box is redundant and reads as a door behind
-/// the portal).
-#[derive(Component, Clone, Debug)]
-pub struct LoadingZoneVisual {
-    pub id: String,
 }
 
 #[derive(Component)]

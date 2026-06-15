@@ -15,7 +15,7 @@ use ambition_sandbox::ldtk_world;
 use ambition_sandbox::rooms::RoomSet;
 
 use super::action::AgentAction;
-use super::observation::AgentObservation;
+use super::observation::{AgentObservation, EnemyObs, PickupObs};
 use super::options::{SandboxSimOptions, TimestepMode};
 
 /// A self-contained sandbox simulation, ready to be stepped programmatically.
@@ -212,8 +212,38 @@ impl SandboxSim {
             .world_mut()
             .query_filtered::<&ambition_sandbox::player::PlayerSafetyState, With<ambition_sandbox::player::PlayerEntity>>(
             );
+        // World-side observability (enemies, pickups) for combat /
+        // collection assertions. Read once per tick; cheap.
+        let mut enemy_query = self.app.world_mut().query::<(
+            &ambition_sandbox::player::BodyKinematics,
+            &ambition_sandbox::features::EnemyStatus,
+        )>();
+        let mut pickup_query = self
+            .app
+            .world_mut()
+            .query::<&ambition_sandbox::items::pickup::GroundItem>();
 
         let world = self.app.world();
+        let gravity_dir = world
+            .get_resource::<ambition_sandbox::physics::GravityField>()
+            .map(|g| (g.dir.x, g.dir.y))
+            .unwrap_or((0.0, 1.0));
+        let enemies: Vec<EnemyObs> = enemy_query
+            .iter(world)
+            .map(|(kin, status)| EnemyObs {
+                pos: (kin.pos.x, kin.pos.y),
+                hp: status.health.current,
+                hp_max: status.health.max,
+                alive: status.alive,
+            })
+            .collect();
+        let pickups: Vec<PickupObs> = pickup_query
+            .iter(world)
+            .map(|g| PickupObs {
+                pos: (g.pos.x, g.pos.y),
+                id: g.spec.id.clone(),
+            })
+            .collect();
         let cluster = cluster_query.single(world).ok();
         let health = health_query
             .single(world)
@@ -289,6 +319,9 @@ impl SandboxSim {
             water_submersion: water.map(|c| c.submersion).unwrap_or(0.0),
             on_climbable: climbable.is_some(),
             climbable_kind: climbable.map(|c| format!("{:?}", c.kind)),
+            gravity_dir,
+            enemies,
+            pickups,
         }
     }
 
@@ -322,6 +355,56 @@ impl SandboxSim {
     /// invariants the simulation relies on.
     pub fn world_mut(&mut self) -> &mut World {
         self.app.world_mut()
+    }
+
+    /// Set the room's ambient gravity direction (unit vector). `(0, 1)`
+    /// is default down; `(0, -1)` inverts to up. Writes [`BaseGravity`],
+    /// which `resolve_active_gravity` copies into the live `GravityField`
+    /// each frame (so it is the durable, frame-stable invert — poking
+    /// `GravityField` directly gets overwritten next tick). Test-only
+    /// scaffolding for gravity-symmetry checks.
+    pub fn set_base_gravity_dir(&mut self, dir: (f32, f32)) {
+        let mut base = self
+            .app
+            .world_mut()
+            .resource_mut::<ambition_sandbox::physics::BaseGravity>();
+        base.dir = ae::Vec2::new(dir.0, dir.1);
+    }
+
+    /// Teleport the player to `pos` and zero its velocity. Test setup.
+    pub fn teleport_player(&mut self, pos: (f32, f32)) {
+        let mut q = self
+            .app
+            .world_mut()
+            .query_filtered::<&mut ambition_sandbox::player::BodyKinematics, With<ambition_sandbox::player::PlayerEntity>>();
+        if let Ok(mut kin) = q.single_mut(self.app.world_mut()) {
+            kin.pos = ae::Vec2::new(pos.0, pos.1);
+            kin.vel = ae::Vec2::ZERO;
+        }
+    }
+
+    /// Grant the player the pogo (down-attack bounce) ability. Test setup.
+    pub fn grant_pogo_ability(&mut self) {
+        let mut q = self
+            .app
+            .world_mut()
+            .query_filtered::<&mut ambition_sandbox::player::PlayerAbilities, With<ambition_sandbox::player::PlayerEntity>>();
+        if let Ok(mut abilities) = q.single_mut(self.app.world_mut()) {
+            abilities.abilities.pogo = true;
+        }
+    }
+
+    /// Inject a block into the live sim world (a pogo orb, one-way
+    /// platform, solid, …). Used by symmetry tests to place a known
+    /// target without authoring a room. Build with `ae::Block::pogo_orb`
+    /// / `ae::Block::one_way` / etc.
+    pub fn add_block(&mut self, block: ae::Block) {
+        self.app
+            .world_mut()
+            .resource_mut::<ambition_sandbox::GameWorld>()
+            .0
+            .blocks
+            .push(block);
     }
 
     /// Returns the list of room ids the LDtk project compiled to.

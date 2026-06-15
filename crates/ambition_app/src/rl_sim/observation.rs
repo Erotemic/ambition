@@ -56,6 +56,36 @@ pub struct AgentObservation {
     /// wall / vine) this frame.
     pub on_climbable: bool,
     pub climbable_kind: Option<String>,
+    /// Current world gravity direction (unit vector). `(0, 1)` is the
+    /// default "down" (+Y); `(0, -1)` is inverted "up". Exposed so
+    /// scripted tests can assert gravity-relative invariants (a jump or
+    /// pogo launches along `-gravity_dir`) and check gravity-flip
+    /// SYMMETRY without reaching into the engine resources.
+    pub gravity_dir: (f32, f32),
+    /// Every live enemy in the sim, for combat-outcome assertions
+    /// ("attack the goblin, verify it died"). Empty in rooms with no
+    /// enemies. Read from the enemy cluster each tick.
+    pub enemies: Vec<EnemyObs>,
+    /// Every ground pickup currently on the floor (uncollected). A
+    /// ground item despawns when collected, so a scripted run verifies
+    /// collection by watching an `id` leave this list.
+    pub pickups: Vec<PickupObs>,
+}
+
+/// One enemy's observable state (position + health + liveness).
+#[derive(Clone, Debug)]
+pub struct EnemyObs {
+    pub pos: (f32, f32),
+    pub hp: i32,
+    pub hp_max: i32,
+    pub alive: bool,
+}
+
+/// One uncollected ground pickup's observable state (position + id).
+#[derive(Clone, Debug)]
+pub struct PickupObs {
+    pub pos: (f32, f32),
+    pub id: String,
 }
 
 impl AgentObservation {

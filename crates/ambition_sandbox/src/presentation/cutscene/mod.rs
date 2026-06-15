@@ -39,30 +39,11 @@ impl CutsceneLibrary {
     }
 }
 
-/// Live cutscene playback state. `Some` while a cutscene is running.
-#[derive(Resource, Default)]
-pub struct ActiveCutscene {
-    pub runtime: Option<crate::presentation::cutscene::script::CutsceneRuntime>,
-    /// Last-seen dialogue line. Cleared when the beat advances.
-    pub current_dialogue: Option<(String, String)>,
-    /// Last-seen banner line + remaining seconds.
-    pub current_banner: Option<(String, f32)>,
-    /// Camera pan target (world coords) while a CameraPan beat is
-    /// active. Consumers ease toward it.
-    pub camera_target: Option<Vec2>,
-    /// Fade overlay alpha [0, 1].
-    pub fade_alpha: f32,
-}
-
-impl ActiveCutscene {
-    pub fn is_playing(&self) -> bool {
-        self.runtime.is_some()
-    }
-
-    pub fn freezes_player_input(&self) -> bool {
-        self.is_playing()
-    }
-}
+// The live playback-state Resources (`ActiveCutscene` / `CutsceneAdvanceRequest`)
+// + `SKIP_HOLD_THRESHOLD_SECS` moved DOWN to the `ambition_cutscene` crate (it owns
+// the cutscene runtime). Re-exported so the player systems below + existing
+// `presentation::cutscene::*` consumers keep resolving.
+pub use ambition_cutscene::{ActiveCutscene, CutsceneAdvanceRequest, SKIP_HOLD_THRESHOLD_SECS};
 
 /// Default sandbox cutscenes shipped with the sandbox.
 pub fn default_cutscene_library() -> CutsceneLibrary {
@@ -223,40 +204,6 @@ pub fn drain_cutscene_triggers(
         active.camera_target = None;
         active.fade_alpha = 0.0;
         break;
-    }
-}
-
-/// Hold duration in seconds the player must keep the skip button held
-/// before the cutscene actually skips. Long enough that an accidental
-/// tap can't burn through scripted content.
-pub const SKIP_HOLD_THRESHOLD_SECS: f32 = 1.2;
-
-/// Tick the active cutscene. The advance signal comes from the input
-/// layer (it sets `runtime.advance_dialogue` via the
-/// `CutsceneAdvanceRequest` resource so the simulation half doesn't
-/// import keyboard state).
-///
-/// `skip_hold_seconds` is presentation-readable so the HUD can render
-/// a "hold to skip" progress bar. The input layer accumulates it
-/// while the player is holding the skip button and zeroes it on
-/// release. The simulation half flips `skip_cutscene = true` when
-/// `skip_hold_seconds >= SKIP_HOLD_THRESHOLD_SECS`; the actual
-/// cutscene-skip path consumes `skip_cutscene` and is unchanged.
-#[derive(Resource, Default)]
-pub struct CutsceneAdvanceRequest {
-    pub dismiss_dialogue: bool,
-    pub skip_cutscene: bool,
-    pub skip_hold_seconds: f32,
-}
-
-impl CutsceneAdvanceRequest {
-    /// Fraction of the way through the skip-hold window. Useful for
-    /// HUD progress bars; clamped to `[0, 1]`.
-    pub fn skip_progress(&self) -> f32 {
-        if SKIP_HOLD_THRESHOLD_SECS <= 0.0 {
-            return 1.0;
-        }
-        (self.skip_hold_seconds / SKIP_HOLD_THRESHOLD_SECS).clamp(0.0, 1.0)
     }
 }
 

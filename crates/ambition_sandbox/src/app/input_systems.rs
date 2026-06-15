@@ -82,8 +82,8 @@ pub fn populate_control_frame_from_actions(
     mut frame: ResMut<ControlFrame>,
     user_settings: Res<crate::persistence::settings::UserSettings>,
     mut dash_state: ResMut<PlayerDashTriggerState>,
-    cutscene: Res<crate::presentation::cutscene::ActiveCutscene>,
-    mut cutscene_request: ResMut<crate::presentation::cutscene::CutsceneAdvanceRequest>,
+    cutscene: Res<ambition_cutscene::ActiveCutscene>,
+    mut cutscene_request: ResMut<ambition_cutscene::CutsceneAdvanceRequest>,
     time: Res<Time>,
     windows: Query<&Window>,
 ) {
@@ -122,7 +122,7 @@ pub fn populate_control_frame_from_actions(
             if action_state.pressed(&SandboxAction::Reset) {
                 cutscene_request.skip_hold_seconds += time.delta_secs();
                 if cutscene_request.skip_hold_seconds
-                    >= crate::presentation::cutscene::SKIP_HOLD_THRESHOLD_SECS
+                    >= ambition_cutscene::SKIP_HOLD_THRESHOLD_SECS
                 {
                     cutscene_request.skip_cutscene = true;
                     cutscene_request.skip_hold_seconds = 0.0;
@@ -242,8 +242,8 @@ pub fn populate_menu_control_frame_from_actions(
 pub fn apply_menu_frame_to_cutscene_request(
     time: Res<Time>,
     menu_frame: Res<MenuControlFrame>,
-    cutscene: Res<crate::presentation::cutscene::ActiveCutscene>,
-    mut cutscene_request: ResMut<crate::presentation::cutscene::CutsceneAdvanceRequest>,
+    cutscene: Res<ambition_cutscene::ActiveCutscene>,
+    mut cutscene_request: ResMut<ambition_cutscene::CutsceneAdvanceRequest>,
 ) {
     if !cutscene.is_playing() {
         return;
@@ -254,7 +254,7 @@ pub fn apply_menu_frame_to_cutscene_request(
     if menu_frame.back_held {
         cutscene_request.skip_hold_seconds += time.delta_secs();
         if cutscene_request.skip_hold_seconds
-            >= crate::presentation::cutscene::SKIP_HOLD_THRESHOLD_SECS
+            >= ambition_cutscene::SKIP_HOLD_THRESHOLD_SECS
         {
             cutscene_request.skip_cutscene = true;
             cutscene_request.skip_hold_seconds = 0.0;

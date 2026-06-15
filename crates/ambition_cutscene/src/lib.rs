@@ -10,6 +10,7 @@
 //! lives in the sandbox: rendering the dialogue text, easing the
 //! camera target, drawing the fade overlay.
 
+use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 /// One beat in a cutscene script.
@@ -179,6 +180,60 @@ pub enum CutsceneEvent {
     FlagWritten { id: String, on: bool },
     Skipped,
     Completed,
+}
+
+// ---------------------------------------------------------------------------
+// Live playback state (Bevy Resources). The format + stepper above are bevy-free;
+// these are the running-cutscene state the presentation player mutates each frame
+// and gameplay/HUD systems read. Kept here so the cutscene runtime is one crate.
+
+/// Live cutscene playback state. `runtime` is `Some` while a cutscene is running.
+#[derive(Resource, Default)]
+pub struct ActiveCutscene {
+    pub runtime: Option<CutsceneRuntime>,
+    /// Last-seen dialogue line. Cleared when the beat advances.
+    pub current_dialogue: Option<(String, String)>,
+    /// Last-seen banner line + remaining seconds.
+    pub current_banner: Option<(String, f32)>,
+    /// Camera pan target (world coords) while a CameraPan beat is active.
+    pub camera_target: Option<Vec2>,
+    /// Fade overlay alpha [0, 1].
+    pub fade_alpha: f32,
+}
+
+impl ActiveCutscene {
+    pub fn is_playing(&self) -> bool {
+        self.runtime.is_some()
+    }
+
+    pub fn freezes_player_input(&self) -> bool {
+        self.is_playing()
+    }
+}
+
+/// Hold duration in seconds the player must keep the skip button held before the
+/// cutscene actually skips. Long enough that an accidental tap can't burn through
+/// scripted content.
+pub const SKIP_HOLD_THRESHOLD_SECS: f32 = 1.2;
+
+/// The input layer's advance/skip signal for the active cutscene (kept off the
+/// gameplay `ControlFrame` so the sim half doesn't import keyboard state).
+#[derive(Resource, Default)]
+pub struct CutsceneAdvanceRequest {
+    pub dismiss_dialogue: bool,
+    pub skip_cutscene: bool,
+    pub skip_hold_seconds: f32,
+}
+
+impl CutsceneAdvanceRequest {
+    /// Fraction of the way through the skip-hold window. Useful for HUD progress
+    /// bars; clamped to `[0, 1]`.
+    pub fn skip_progress(&self) -> f32 {
+        if SKIP_HOLD_THRESHOLD_SECS <= 0.0 {
+            return 1.0;
+        }
+        (self.skip_hold_seconds / SKIP_HOLD_THRESHOLD_SECS).clamp(0.0, 1.0)
+    }
 }
 
 #[cfg(test)]

@@ -238,10 +238,30 @@ the final act; needs A4 done so the rename reflects a real boundary, not a label
 | A | cutscene state → `ambition_cutscene` crate | ☑ | M | ~1 cycle | `d9196268` | lib −55 | `ActiveCutscene`/`CutsceneAdvanceRequest`/`SKIP_HOLD` consolidated into the cutscene runtime crate; `app/input_systems` presentation refs 8 → 2. Replay identical. |
 | — | presentation seam status | — | — | — | — | — | **26 couplers; remaining are entangled.** The `PlayerVisual`/`SceneEntities` render-handle cluster has no clean foundation home (player↔presentation cycle risk) — needs a supervised A4 design+feel pass. RoomVisual + cutscene were the clean ones. |
 
-## Final summary (fill at run end)
+## Final summary (run 1 — 2026-06-15)
 
-- Crates touched / created:
-- Lib LOC: start → end (Δ):
-- Presentation couplers: 32 → ?
-- Replay: bit-identical throughout? (Y/N + any deviation)
-- Est-vs-actual table + biggest surprises:
+- **New foundation crates (3):** `ambition_ui_nav`, `ambition_cutscene` (format +
+  stepper + live state), + the VFX request vocab folded into `ambition_effects`.
+- **Lib LOC:** ≈ −1,150 (ui_nav −711, cutscene format −311, cutscene state −55,
+  + the fx-vocab move) toward the engine/content boundary.
+- **Presentation couplers:** 32 → ~25. `RoomVisual` marker → `platformer_runtime::
+  lifecycle` (−6, the clean inversion); cutscene state → `ambition_cutscene`
+  (`app/input_systems` 8→2). `cutscene_trigger`'s remaining "ref" is a doc comment.
+- **De-name + fix:** `FeatureVisualKind::Sandbag`→`TrainingDummy`; the passive
+  dummy's dormant `PunchWeak` melee removed (Jon-flagged), pinned by a test.
+- **Replay:** bit-identical on EVERY commit (the sandbag fix too — aggro 0 made the
+  melee dormant). architecture_boundaries green throughout.
+- **Infra:** the shared cargo cache at `/home/joncrall/ambition-target` had grown
+  to 107G (historical, across sessions) and filled the disk mid-run; cleared → 45%.
+  Worth a periodic `rm -rf` between heavy sessions.
+
+### Clean frontier is exhausted — the remaining levers all need a FOCUSED/supervised pass:
+- **`character_sprites` metadata cluster** (~5 couplers): `baked_sheet_registry` /
+  `sheets` are separable DATA, but the baked table is `build.rs`-generated UNDER
+  presentation — moving it relocates build-system paths (medium-large).
+- **`PlayerVisual` / `SceneEntities` render-handle cluster**: no clean foundation
+  home (player↔presentation cycle risk); the real A4 inversion needs a design call
+  + feel-test (sim stops spawning visual-tagged entities; renderer mirrors state).
+- **`ItemKind` / `BossAttackProfile` data-keying** (named content in machinery):
+  big, unblocks the `inventory` extraction — Jon flagged as possible design-together.
+- **God-module splits** (goals 1+2, nav/compile only): safe filler, available anytime.

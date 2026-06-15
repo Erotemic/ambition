@@ -1,7 +1,8 @@
-// The legacy adventure-menu UI that consumed several of these component markers
-// and `InventoryUiState` helpers was deleted in Phase D2; the unified menu reads
-// the data model (`ItemKind` / `PlayerInventory` / `InventoryUiState`) directly.
-// Keep the markers so the data model stays self-describing.
+// The legacy adventure-menu UI that consumed the per-entity inventory component
+// markers was deleted in Phase D2; the unified menu reads the data model
+// (`ItemKind` / `PlayerInventory` / `InventoryUiState`) directly, so the dead
+// markers (InventoryRoot/InventoryItemRow/…) were removed too. What remains is
+// the live data model.
 #![allow(dead_code)]
 
 use bevy::prelude::*;
@@ -221,34 +222,6 @@ impl InventoryUiState {
         self.set_tab(self.tab.previous());
     }
 }
-
-#[derive(Component)]
-pub struct InventoryRoot;
-
-#[derive(Component)]
-pub struct InventoryTitleText;
-
-#[derive(Component)]
-pub struct InventoryTabButton {
-    pub tab: InventoryTab,
-}
-
-#[derive(Component)]
-pub struct InventoryBackButton;
-
-#[derive(Component)]
-pub struct InventoryItemRow {
-    pub kind: ItemKind,
-}
-
-#[derive(Component)]
-pub struct InventoryDescriptionText;
-
-#[derive(Component)]
-pub struct InventoryStatusText;
-
-#[derive(Component)]
-pub struct InventoryTabContentText;
 
 #[cfg(test)]
 mod tests {

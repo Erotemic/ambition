@@ -825,10 +825,10 @@ pub fn update_blink_preview(
     world: Res<crate::GameWorld>,
     platform_set: Res<crate::MovingPlatformSet>,
     mode: Res<State<crate::game_mode::GameMode>>,
-    scene: Res<crate::presentation::rendering::SceneEntities>,
+    scene: Res<crate::platformer_runtime::lifecycle::SceneEntities>,
     action_query: Query<
         &leafwing_input_manager::prelude::ActionState<crate::input::SandboxAction>,
-        bevy::prelude::With<crate::presentation::rendering::PlayerVisual>,
+        bevy::prelude::With<crate::platformer_runtime::lifecycle::PlayerVisual>,
     >,
     player_q: Query<
         (

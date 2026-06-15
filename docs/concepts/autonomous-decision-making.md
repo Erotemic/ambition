@@ -182,6 +182,19 @@ elegant system; build the headless approximation where you can, and note the
 caveat. Visual regressions are found and fixed later through review, playtesting,
 and iteration — they are not a reason to ship a worse architecture.
 
+**Make the fix BLIND rather than handing it back.** When a fix can't be verified
+by the tools you have — a visual / feel change, or a bug you can't reproduce
+headless — do NOT stop at "I found it but shouldn't fix blind" or "tell me which
+still misbehaves." Reason from the code to the most-likely-correct change and
+**ship it**, in its OWN commit, with the subject starting `blind fix:` and a
+one-line "check that X looks right in-game." The reviewer always re-checks; the
+worst case is reverting one isolated commit, which is cheap — far cheaper than a
+round-trip where they wait for a turn they were almost always going to accept.
+Blind ≠ careless: it must still compile, keep the relevant tests green, and stay
+replay-byte-identical where that applies; "blind" covers the unverifiable feel/
+visual, not unverified-compile. Several independent blind fixes → several
+independent commits, so any one can be reverted alone.
+
 ---
 
 _Companion reading: `docs/concepts/rust-module-boundaries.md` (the crate layering

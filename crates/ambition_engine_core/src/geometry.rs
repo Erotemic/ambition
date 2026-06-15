@@ -56,6 +56,60 @@ pub trait AabbExt {
     fn translated(self, delta: Vec2) -> Self;
     fn strict_intersects(self, rhs: Self) -> bool;
     fn sweep_hit(self, delta: Vec2, rhs: Self) -> Option<AabbSweepHit>;
+
+    // --- Gravity-relative edges (the ONE source of truth for "feet") ---
+    //
+    // Ambition's gravity is cardinal (down `(0,1)`, up `(0,-1)`, wall `(±1,0)`).
+    // A body's FEET are the AABB face in the +gravity direction; its HEAD is the
+    // opposite face. Every grounding / resize / one-way / sprite-anchor site reads
+    // these instead of hardcoding `.bottom()` so they all flip together under a
+    // gravity change. Under down-gravity `feet == bottom` / `head == top`, so
+    // routing existing code through these is byte-identical.
+
+    /// Half-extent along the gravity axis (`half_size.y` for vertical gravity,
+    /// `half_size.x` for wall-walking).
+    fn gravity_half(self, gravity_dir: Vec2) -> f32
+    where
+        Self: Sized,
+    {
+        let h = self.half_size();
+        h.x * gravity_dir.x.abs() + h.y * gravity_dir.y.abs()
+    }
+
+    /// The FEET face center — the AABB face a falling body lands on (in the
+    /// +gravity direction). Bottom-center under down-gravity, top-center under up.
+    fn feet(self, gravity_dir: Vec2) -> Vec2
+    where
+        Self: Sized + Copy,
+    {
+        self.center() + gravity_dir * self.gravity_half(gravity_dir)
+    }
+
+    /// The HEAD face center — opposite gravity.
+    fn head(self, gravity_dir: Vec2) -> Vec2
+    where
+        Self: Sized + Copy,
+    {
+        self.center() - gravity_dir * self.gravity_half(gravity_dir)
+    }
+
+    /// The feet edge projected onto the gravity axis. A body rests on a surface
+    /// when its `feet_coord` meets the surface's `head_coord`.
+    fn feet_coord(self, gravity_dir: Vec2) -> f32
+    where
+        Self: Sized + Copy,
+    {
+        self.center().dot(gravity_dir) + self.gravity_half(gravity_dir)
+    }
+
+    /// The head edge projected onto the gravity axis — for a platform, the FACE a
+    /// falling body lands on (its anti-gravity face).
+    fn head_coord(self, gravity_dir: Vec2) -> f32
+    where
+        Self: Sized + Copy,
+    {
+        self.center().dot(gravity_dir) - self.gravity_half(gravity_dir)
+    }
     fn sweep_time_of_impact(self, delta: Vec2, rhs: Self) -> Option<f32>
     where
         Self: Sized,

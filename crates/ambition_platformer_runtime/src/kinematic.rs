@@ -147,6 +147,7 @@ pub fn step_kinematic(
         prev_bottom,
         was_falling,
         inputs.drop_through,
+        sign,
     ) {
         body.pos.y = old_y;
         body.on_ground = was_falling;
@@ -168,7 +169,9 @@ fn body_blocked_y(
     prev_bottom: f32,
     falling: bool,
     drop_through: bool,
+    gravity_sign: f32,
 ) -> bool {
+    let prev_top = prev_bottom - (aabb.bottom() - aabb.top());
     world.body_overlaps_any(aabb, |block| match block.kind {
         BlockKind::Solid | BlockKind::BlinkWall { .. } => true,
         BlockKind::OneWay => {
@@ -176,11 +179,15 @@ fn body_blocked_y(
             if drop_through {
                 return false;
             }
-            // Same landing-from-above test as `movement::sweep_player_y`.
-            // The 8px slack matches the player to keep enemies/NPCs
-            // landing on platforms at the same precision the player
-            // does instead of clipping through on a single dt.
-            falling && prev_bottom <= block.aabb.top() + 8.0
+            // Land on the one-way's gravity-up face — its TOP under normal
+            // gravity, its BOTTOM under flipped — matching the player's
+            // `sweep_player_y` (gravity-relative), so enemies/NPCs land on the
+            // correct side of a one-way under inverted gravity.
+            if gravity_sign >= 0.0 {
+                falling && prev_bottom <= block.aabb.top() + 8.0
+            } else {
+                falling && prev_top >= block.aabb.bottom() - 8.0
+            }
         }
         // Hazards / pogo orbs / rebound surfaces are not collision
         // blockers for the kinematic sweep — gameplay layers handle

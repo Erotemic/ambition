@@ -388,29 +388,28 @@ pub fn standing_on_one_way_aabb(world: &World, body: Aabb, gravity_dir: Vec2) ->
         if !matches!(block.kind, BlockKind::OneWay) {
             continue;
         }
-        let b = &block.aabb;
-        // Resting contact: the player's gravity-facing edge meets the platform's
-        // anti-gravity face; overlap is on the perpendicular (cross-gravity) axis.
-        let (overlaps, edge, face) = if gravity_dir.y != 0.0 {
-            let overlaps = body.right() > b.left() + 1.0 && body.left() < b.right() - 1.0;
-            if gravity_dir.y >= 0.0 {
-                (overlaps, body.bottom(), b.top())
-            } else {
-                (overlaps, body.top(), b.bottom())
-            }
-        } else {
-            let overlaps = body.bottom() > b.top() + 1.0 && body.top() < b.bottom() - 1.0;
-            if gravity_dir.x >= 0.0 {
-                (overlaps, body.right(), b.left())
-            } else {
-                (overlaps, body.left(), b.right())
-            }
-        };
-        if overlaps && (edge - face).abs() <= 4.0 {
+        let b = block.aabb;
+        // Resting contact (the ONE source of truth): the body's FEET edge meets the
+        // platform's HEAD (anti-gravity) face, projected onto the gravity axis, with
+        // overlap on the perpendicular axis. Flips for free under any cardinal gravity.
+        if perpendicular_overlap(body, b, gravity_dir)
+            && (body.feet_coord(gravity_dir) - b.head_coord(gravity_dir)).abs() <= 4.0
+        {
             return true;
         }
     }
     false
+}
+
+/// Overlap on the axis PERPENDICULAR to gravity (the "width" the body must share
+/// with a surface to rest on it): the X span under vertical gravity, the Y span
+/// under wall-walking. 1px slack matches the historical strict-touch contract.
+pub(super) fn perpendicular_overlap(body: Aabb, b: Aabb, gravity_dir: Vec2) -> bool {
+    if gravity_dir.y != 0.0 {
+        body.right() > b.left() + 1.0 && body.left() < b.right() - 1.0
+    } else {
+        body.bottom() > b.top() + 1.0 && body.top() < b.bottom() - 1.0
+    }
 }
 
 /// Tile-set-only hazard touch test. Cluster-aware callers

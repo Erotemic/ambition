@@ -803,9 +803,15 @@ fn architecture_boundaries_gravity_zone_mechanic_left_portal() {
             "mechanics/gravity/mod.rs",
             "mechanics/gravity/plugin.rs",
             "mechanics/gravity/lifecycle.rs",
-            "mechanics/gravity/presentation.rs",
         ],
         "extracted gravity mechanic",
+    );
+    // The gravity visuals (`presentation.rs`) moved to the ambition_render crate
+    // (sim/render seam completion, 2026-06-15) — gravity is now sim-only.
+    assert_paths_exist(
+        &repo_root().join("crates/ambition_render/src/rendering"),
+        &["gravity_visuals.rs"],
+        "gravity visuals live in the render crate",
     );
     let gravity_plugin = fs::read_to_string(src_root.join("mechanics/gravity/plugin.rs"))
         .expect("read gravity plugin");

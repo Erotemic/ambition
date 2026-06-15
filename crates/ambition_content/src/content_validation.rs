@@ -432,7 +432,7 @@ fn validate_boss_music_tracks(data: &SandboxDataSpec, report: &mut ContentValida
 
 #[cfg(feature = "audio")]
 fn validate_adaptive_music_catalog(report: &mut ContentValidationReport) {
-    let catalog = ambition_sandbox::music::ambition_music_cue_catalog();
+    let catalog = crate::music::ambition_music_cue_catalog();
     report.extend_errors(
         catalog
             .validate_references()

@@ -28,6 +28,14 @@ impl Plugin for AmbitionContentPlugin {
         // standalone fallback.
         super::enemy_roster::install();
 
+        // Insert Ambition's authored music-cue catalog (the goblin adaptive tune
+        // + its encounter binding) so the reusable ambition_audio director plays
+        // it. The director takes Option<Res<MusicCueCatalog>>, so a content-less
+        // build just has no adaptive music. The catalog is CONTENT — it left the
+        // machinery lib's audio plugin here (the B1 seam).
+        #[cfg(feature = "audio")]
+        app.insert_resource(crate::music::ambition_music_cue_catalog());
+
         // Install authored encounter wave timelines (goblin mob-lab, …) into the
         // machinery lib's wave book before the encounter loader runs — the engine
         // hard-codes no encounter's waves.

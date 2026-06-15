@@ -15,7 +15,7 @@ default = []
 portal = ["ambition_sandbox/portal"]
 portal_render = ["portal", "ambition_sandbox/portal_render"]
 ui = ["ambition_sandbox/ui", "dep:bevy_yarnspinner"]
-audio = ["ambition_sandbox/audio"]
+audio = ["ambition_sandbox/audio", "dep:ambition_audio"]
 
 [dependencies]
 # Baseline machinery features: the sandbox lib was never built fully bare
@@ -29,6 +29,7 @@ ambition_sandbox = { path = "../ambition_sandbox", default-features = false, fea
 ambition_render = { path = "../ambition_render" }
 ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy", "sfx"] }
 ambition_sfx = { path = "../ambition_sfx" }
+ambition_audio = { path = "../ambition_audio", optional = true }
 ambition_platformer_runtime = { path = "../ambition_platformer_runtime" }
 bevy = { version = "0.18.1", default-features = false, features = ["ui_api"] }
 bevy_yarnspinner = { version = "0.8", optional = true }

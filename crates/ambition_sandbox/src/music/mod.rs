@@ -10,7 +10,6 @@ use bevy::prelude::*;
 
 use crate::persistence::settings::UserSettings;
 
-mod first_goblin;
 mod intent;
 
 #[cfg(test)]
@@ -31,10 +30,6 @@ pub use ambition_audio::music::{
     MusicLayer4AChannel, MusicLayer4BChannel, MusicLayer5AChannel, MusicLayer5BChannel,
     MusicLayerChannels, MusicLayerGainSpec, MusicLayerSourceSpec, MusicLayerSpec, MusicSectionSpec,
     MusicStateSpec, MUSIC_LOG_TARGET,
-};
-pub use first_goblin::{
-    ambition_music_cue_catalog, first_goblin_tune_v2_spec, FIRST_GOBLIN_CUE_ID,
-    MOB_LAB_ENCOUNTER_ID,
 };
 pub use intent::compute_music_intent;
 

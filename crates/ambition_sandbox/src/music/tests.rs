@@ -139,8 +139,20 @@ fn active_phase_wave2_promotes_to_reinforced_after_brute_delay() {
 
 #[test]
 fn resolver_iterates_multiple_bindings() {
-    // Catalog with two bindings; only the second is in flight.
-    let mut catalog = crate::music::ambition_music_cue_catalog();
+    // Catalog with two bindings; only the second is in flight. Build a minimal
+    // base catalog inline (the authored goblin catalog is content now); this
+    // resolver unit test only needs a catalog carrying the goblin binding.
+    let mut catalog = MusicCueCatalog::from_parts(
+        Vec::new(),
+        vec![EncounterMusicBinding {
+            encounter_id: "goblin_encounter".into(),
+            cue_id: "first_goblin_tune_v2".into(),
+            starting_state: "intro".into(),
+            wave_states: vec!["wave1".into()],
+            wave2_reinforced_state: None,
+            cleared_state: "outro".into(),
+        }],
+    );
     catalog.add_encounter_binding(EncounterMusicBinding {
         encounter_id: "imaginary_arena".into(),
         cue_id: "imaginary_cue".into(),

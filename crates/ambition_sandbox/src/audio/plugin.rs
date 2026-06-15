@@ -113,7 +113,6 @@ impl Plugin for SandboxAudioPlugin {
             // catalog; the reusable music core consumes the synced
             // `MusicMix` + the inserted catalog (Stage 20 / B1 seam).
             .init_resource::<ambition_audio::MusicMix>()
-            .insert_resource(crate::music::ambition_music_cue_catalog())
             // Unified director: resolves room/encounter simple tracks and
             // adaptive cue states behind one music intent layer. Runs after
             // `compute_music_intent` so the intent is fresh this frame; the

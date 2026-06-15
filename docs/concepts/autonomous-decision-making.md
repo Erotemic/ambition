@@ -27,6 +27,46 @@ end-state, and keep going.** Work around blockers rather than halting. A
 plausible, reversible decision made now beats a perfect decision made after a
 stall. "I wasn't sure" is not a reason to stop when the criteria point somewhere.
 
+## Get the shape right first; fix what's wrong after
+
+When the task is to improve the ARCHITECTURE — break up the monolith, move a layer
+up or down, invert a dependency, data-drive a named enum — your job is to get the
+code into the **right shape**. Do that first. Find and fix what's wrong **after**.
+
+- **The only hard gate is that it compiles and the workspace builds.** NOT
+  replay-bit-identical. NOT "no behavior change." A bold move that leaves a
+  temporary mess is expected — keep going and resolve it. Do **not** retreat to a
+  smaller, "safe" move because the big one is messy.
+- **A better architecture usually plays BETTER, not just reads better.** Cleaner
+  state ownership, a removed special-case, a unified code path — these change
+  gameplay, and the change is usually an *improvement*. "Different from before" is
+  not "worse." Assume the cleaner shape is the better-feeling shape until proven
+  otherwise; we tune the feel afterward.
+- **Actively pursue gameplay IMPROVEMENTS — the current feel is the baseline to
+  BEAT, not to preserve.** The game is not good yet; lots of it could feel much
+  better (tighter control, clearer feedback, fewer special-cases, snappier
+  responses, better-tuned numbers). The job is not only to make the code cleaner —
+  it is to make the *game* better. When a change is a chance to improve the feel,
+  take it; do not protect the current behavior, improve on it. A refactor that also
+  makes the game play better is the ideal outcome, not a risk to be managed.
+- **Replay-bit-identical is a verification TOOL, not a gate.** Use it to confirm a
+  change you *intended* to be behavior-neutral actually was. It is never a reason
+  to avoid, shrink, or defer a structural change. When a refactor changes behavior,
+  that is expected — let replay diverge.
+- **When given a duration, use all of it.** Do not stop early. Do not hand back at
+  the first hard problem. Do NOT declare the work "exhausted," "entangled," or
+  "needs supervision" to dodge the harder, higher-impact moves — *that evasion* is
+  the failure, not a behavior change. When the easy wins are gone, it's time for the
+  structural ones, not time to stop.
+- **A commit IS your checkpoint — not a stopping point.** Land each coherent step
+  as a commit (that's how you save progress and stay safe to roll back), then
+  *immediately keep moving* to the next move. "Checkpoint" never means "hand back to
+  the user"; it means "commit and continue." The only reasons to actually stop are:
+  the clock you were given ran out, you are truly blocked on something only the user
+  can unblock, or the user interrupts.
+- **We can always fix things after. We make no progress if every move is held
+  hostage to bit-identical output.**
+
 ## The procedure
 
 1. Confirm the decision is yours (above).
@@ -102,14 +142,21 @@ instance of a general case without a major runtime or clarity cost, that is
 usually worth doing. (But do not generalize speculatively — unify what exists, not
 what might.)
 
-Consider whether the change affects **game behavior**. Behavior changes are not
-automatically bad — the game still contains buggy, inconsistent, or provisional
-behavior, so making behavior more *coherent* may be the right outcome. Preserve
-behavior only when the existing behavior is intentional or relied upon. **When in
-doubt about whether behavior is load-bearing, the replay/scripted-gameplay tests
-are the arbiter:** a change meant to be behavior-neutral must keep replay
-bit-identical; a change meant to fix behavior should come with a focused test
-that pins the new, intended behavior.
+**Game behavior is allowed to change — and during architecture work it usually
+will, often for the better.** The game is pre-release and full of buggy,
+provisional, inconsistent behavior; a cleaner architecture (clearer ownership, a
+removed special-case, a unified path) routinely produces *different* behavior, and
+different is usually an improvement. Do NOT preserve current behavior for its own
+sake — preserve it only where it is known-intentional and relied upon, and never
+let "this might change behavior" shrink or block a structural move.
+
+Replay-bit-identical and the scripted-gameplay tests are **verification tools, not
+gates.** When you *intend* a change to be behavior-neutral, replay confirms it was.
+When you intend to change behavior, let replay diverge — that is the expected,
+correct outcome; pin the *new* intended behavior with a focused test if it's worth
+locking, and move on. Never reach for "keep replay identical" as a reason to avoid
+the move that actually improves the shape. (See "Get the shape right first" above —
+this is the same rule, restated where it bites.)
 
 Prefer a **narrow validation path**. A good architecture change usually has a
 focused test, check, or tool command that proves the important part. If one

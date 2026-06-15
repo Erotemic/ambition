@@ -157,6 +157,31 @@ Ordered so each step compiles + commits; later steps unlock the big one.
 4. **Audio/music runtime** → split the game-read adapters from playback; extract.
 5. **God-module splits + dedup + dead-code** as filler between the big cuts.
 
+### ⚖️ HONEST STATE ASSESSMENT (2026-06-15, after the render extraction)
+
+After extracting `ambition_render`, I surveyed every remaining sandbox subsystem for
+a clean crate cut. **There is no clean large crate cut left** — the sandbox core is a
+tightly-coupled web (the player cluster + `features` + `rooms` + `brain` are mutually
+referenced by nearly everything). Findings:
+- `ldtk_world` (6.3k) — 73 refs to `crate::rooms`, 42 to `interaction`: it's THIS
+  game's LDtk→RoomSpec converter, not a reusable loader.
+- `boss_encounter` (5k) — 24 refs to `features`, 11 to `brain`: woven into the game.
+- `character_sprites` (2.6k) / `body_mode` (0.8k) — player-coupled (the player is the
+  universal hub). But the player IS already split: generic kinematics live in the
+  foundation crates (engine_core/actor); sandbox/player holds only game-specific state.
+- `audio` (1.3k) — the generic half is already `ambition_audio`; what's left is game glue.
+- `Item` (24-variant) — correctly a NARROW enum with type-level equip/ability wiring
+  (decision doc PREFERS narrow types); data-keying it would be anti-elegant. Leave it.
+- Boss/enemy rosters, character sprites, boss behavior profiles — ALREADY data-driven.
+
+**Conclusion:** the foundations already hold the reusable machinery; the big clean cut
+(presentation→render) is done. The remaining high-value work is (a) **named-content-out
+where it still hides** (boss sprites DONE this run), (b) **agent-navigability** — the #1
+stated goal (`feedback_agent_navigability_north_star`): split the worst god-files so a
+~13k `features/` dir + 1000-line files become workable, and (c) targeted dedup. Further
+CRATE cuts need decoupling groundwork first (e.g. splitting `features` into generic ECS
+machinery vs named feature content) — a real but multi-step decoupling, not a quick mv.
+
 ### Discovery methods (refill the backlog)
 
 - **God-module split:** any production file > ~600 LOC → concern-split behind a

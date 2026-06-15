@@ -60,11 +60,15 @@ GENERATE more via the discovery methods. There is always more.
 - **New crates:** FREE to create when a clean boundary appears (`ambition_ui_kit`,
   `ambition_render`, an audio-runtime crate, etc.). This is the lever the whole
   refactor rides on — use it.
-- **Behaviour:** a behaviour-neutral commit MUST stay replay-bit-identical. You
-  MAY additionally land a behaviour change when it is **clearly a coherence
-  improvement** and you can **pin it with a focused test** — but FLAG it in the
-  progress table (a `behaviour Δ` mark) so Jon feel-checks it. Provisional/buggy
-  behaviour you're *not* confident about → log to `code_smells.md`, don't change it.
+- **Behaviour / replay (READ THIS — it overrides any earlier caution):** the ONLY
+  hard gate is **it compiles + the workspace builds.** NOT replay-bit-identical,
+  NOT "no behaviour change." Replay is a verification *tool*, not a gate. Behaviour
+  is ALLOWED to change and during this structural work it usually will — often for
+  the better. **Actively pursue gameplay improvements** (the current feel is the
+  baseline to BEAT). Do the big structural moves even when they break replay; we
+  fix feel after. NEVER shrink/defer a move to keep replay identical, and NEVER
+  declare the work "exhausted/entangled/needs supervision" to dodge it — that
+  evasion is the failure. Canonical: `docs/concepts/autonomous-decision-making.md`.
 - **Renames + regen:** rename ids freely (ItemKind/Item, BossAttackProfile,
   Sandbag→TrainingDummy, …). **There is no save data that matters — delete saves,
   regenerate LDtk/sheets/RON via the tools.** "This is the time to do it." Keep
@@ -74,11 +78,43 @@ GENERATE more via the discovery methods. There is always more.
 ## The loop (method)
 
 1. Pick the highest-value **unblocked** item (respect the dependency notes).
-2. Execute as a self-contained, replay-checked, shippable change.
-3. Validate → commit → update the progress table.
-4. Blocked? Log why in the table, take the next unblocked item. Never idle.
-5. Backlog thinning? Run the **discovery methods** to refill it.
-6. Continue until the window closes.
+2. Execute it BOLDLY — structural correctness first; let behaviour/replay change.
+3. `cargo build -p ambition_app` (the only gate) → commit → update the progress table.
+4. The commit IS the checkpoint — then IMMEDIATELY take the next move. Never hand back.
+5. Blocked on THIS item? Take the next one. Backlog thinning? Run discovery methods.
+6. Continue until the given clock runs out. Do not stop early.
+
+## ⭐ MONOLITH BREAKUP SEQUENCE (the spine — execute top-down)
+
+The goal: shrink `ambition_sandbox` (~85k LOC) by moving layers OUT into crates so
+another platformer could be built by adding a content crate without editing core.
+Ordered so each step compiles + commits; later steps unlock the big one.
+
+1. **Drive presentation couplers to ~0** by moving the imported types DOWN out of
+   `presentation` (each a compile+commit):
+   - `PlayerVisual` / `SceneEntities` (zero-sized marker + handle Resource) →
+     `platformer_runtime::lifecycle` (like `RoomVisual`). Decouples portal, body_mode.
+   - `character_sprites` METADATA (`baked_sheet_registry`, `sheets` specs, the
+     `build.rs`-generated baked table, `all_character_sprite_filenames`) → a new
+     foundation crate `ambition_character_sprites` (or `crate::sprite_data` /
+     the asset layer). Relocate the `build.rs` generation. Decouples ~5 files +
+     the renderer reads it from below.
+   - Character ANIM vocabulary (`CharacterAnim`, `*AnimState`, `pick_*_anim`) →
+     the same foundation home (it's content-free mapping). Decouples anim_helpers.
+   - Misc: `BoundFeatureKind`, `rider_hand_world_pos`, `ui_fonts::UiFontWeight`.
+   - Whatever's left in the lib that imports presentation is HOST/SETUP wiring —
+     it moves UP with presentation in step 2, not decoupled.
+2. **Extract `presentation/` → a new `ambition_render` crate** that depends on
+   `ambition_sandbox`. `git mv` the dir; rewrite its internal `crate::X` → `ambition_sandbox::X`;
+   `ambition_app` + `ambition_content` repoint `presentation::*` → `ambition_render::*`.
+   Add the architecture guard: **the sandbox lib does not import the render crate.**
+   This is the ~10k-LOC monolith cut.
+3. **Named content OUT of machinery** (the engine/content oracle):
+   - `ItemKind` / `Item` → id-keyed registry; roster authored in `ambition_content`.
+   - `BossAttackProfile` enum → data-keyed attack specs; content registers them.
+   - boss-sprite `GameAssets` named fields + per-boss loaders → id-keyed registry.
+4. **Audio/music runtime** → split the game-read adapters from playback; extract.
+5. **God-module splits + dedup + dead-code** as filler between the big cuts.
 
 ### Discovery methods (refill the backlog)
 

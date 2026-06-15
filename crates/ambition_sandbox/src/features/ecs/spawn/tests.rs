@@ -164,7 +164,7 @@ fn encounter_mob_spawns_with_brain_components() {
 /// enemy_default_brain picks a per-archetype template — pins
 /// the mapping so a future refactor that re-keys archetypes
 /// can't silently lose the Wanderer/StandStill assignments
-/// PuppySlug and Sandbag rely on.
+/// PuppySlug and the training dummy rely on.
 #[test]
 fn enemy_default_brain_picks_per_archetype_template() {
     let slug = make_enemy("puppy_slug");

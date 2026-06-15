@@ -372,7 +372,8 @@ pub enum MeleeActionSpec {
     /// Jaw-snap bite. Used by puppy slug aggressive variants and
     /// sharks if/when they get melee.
     Bite(BiteSpec),
-    /// Light reactive punch — used by Sandbag when struck.
+    /// Light reactive punch — a quick jab thrown back when struck (for reactive
+    /// strikers; a passive practice target does NOT use this).
     PunchWeak(PunchSpec),
 }
 
@@ -577,7 +578,7 @@ pub struct BiteSpec {
     pub reach_px: f32,
 }
 
-/// Light reactive punch. Sandbag counter-attack.
+/// Light reactive punch — a reactive counter-jab (not used by passive targets).
 #[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
 pub struct PunchSpec {
     pub windup_s: f32,

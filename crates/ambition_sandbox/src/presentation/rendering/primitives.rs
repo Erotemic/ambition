@@ -142,7 +142,7 @@ pub(super) fn feature_z(kind: FeatureVisualKind) -> f32 {
         FeatureVisualKind::Npc => WORLD_Z_DUMMY + 2.0,
         FeatureVisualKind::Switch => WORLD_Z_DUMMY + 2.0,
         FeatureVisualKind::Enemy => WORLD_Z_DUMMY + 1.0,
-        FeatureVisualKind::Sandbag => WORLD_Z_DUMMY + 1.0,
+        FeatureVisualKind::TrainingDummy => WORLD_Z_DUMMY + 1.0,
         FeatureVisualKind::Boss => WORLD_Z_DUMMY + 1.0,
     }
 }
@@ -154,7 +154,7 @@ pub(super) fn feature_color(kind: FeatureVisualKind, flash: bool) -> Color {
     match kind {
         FeatureVisualKind::Hazard => Color::srgba(0.98, 0.12, 0.22, 0.94),
         FeatureVisualKind::Enemy => Color::srgba(0.93, 0.34, 0.28, 0.96),
-        FeatureVisualKind::Sandbag => Color::srgba(0.78, 0.62, 0.42, 0.96),
+        FeatureVisualKind::TrainingDummy => Color::srgba(0.78, 0.62, 0.42, 0.96),
         FeatureVisualKind::Boss => Color::srgba(0.78, 0.20, 0.92, 0.96),
         FeatureVisualKind::Breakable => Color::srgba(0.62, 0.42, 0.24, 0.96),
         FeatureVisualKind::Chest => Color::srgba(1.0, 0.74, 0.22, 0.96),

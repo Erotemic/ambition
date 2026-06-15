@@ -279,7 +279,7 @@ fn entity_sprite_for_kind_handles_all_visual_kinds() {
     // pattern-match catch-all and break the visual layer.
     for kind in [
         FeatureVisualKind::Hazard,
-        FeatureVisualKind::Sandbag,
+        FeatureVisualKind::TrainingDummy,
         FeatureVisualKind::Boss,
         FeatureVisualKind::Breakable,
         FeatureVisualKind::Chest,

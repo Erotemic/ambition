@@ -876,7 +876,7 @@ pub fn entity_sprite_for_enemy(brain: &crate::actor::EnemyBrain) -> Option<Entit
     // archetype data); other enemies use animated spritesheets, not a
     // static entity sprite — `upgrade_enemy_sprites` handles them.
     match crate::features::enemy_visual_kind(brain) {
-        crate::features::FeatureVisualKind::Sandbag => Some(EntitySprite::SandbagDummy),
+        crate::features::FeatureVisualKind::TrainingDummy => Some(EntitySprite::SandbagDummy),
         _ => None,
     }
 }
@@ -982,7 +982,7 @@ pub fn loading_zone_sprite(activation: LoadingZoneActivation) -> EntitySprite {
 pub fn entity_sprite_for_kind(kind: FeatureVisualKind) -> Option<EntitySprite> {
     match kind {
         FeatureVisualKind::Hazard => Some(EntitySprite::HazardSpikes),
-        FeatureVisualKind::Sandbag => Some(EntitySprite::SandbagDummy),
+        FeatureVisualKind::TrainingDummy => Some(EntitySprite::SandbagDummy),
         FeatureVisualKind::Boss => Some(EntitySprite::BossCore),
         FeatureVisualKind::Breakable => Some(EntitySprite::BreakableIntact),
         FeatureVisualKind::Chest => Some(EntitySprite::ChestClosed),

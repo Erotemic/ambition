@@ -222,7 +222,7 @@ pub fn upgrade_enemy_sprites(
         };
         if !matches!(
             view.kind,
-            FeatureVisualKind::Enemy | FeatureVisualKind::Sandbag
+            FeatureVisualKind::Enemy | FeatureVisualKind::TrainingDummy
         ) {
             continue;
         }

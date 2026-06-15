@@ -183,7 +183,7 @@ pub(crate) struct EnemyArchetypeSpec {
     /// and stay dormant until a system explicitly provokes them.
     #[serde(default = "default_true")]
     pub attacks_player: bool,
-    /// Body touch hurts the player. Sandbags and the composite shark
+    /// Body touch hurts the player. Training dummies and the composite shark
     /// (whose rider is the threat) opt out; the peaceful cove crew also
     /// stay non-damaging until provoked.
     #[serde(default = "default_true")]
@@ -278,6 +278,16 @@ impl EnemyRoster {
         fallback: EnemyArchetypeSpec,
     ) -> Self {
         Self { by_brain, fallback }
+    }
+
+    /// Invariant: a practice-target ("sandbag" / `is_sandbag`) archetype is
+    /// PASSIVE — it carries no melee attack and never strikes back. Pins the
+    /// authored roster against accidentally giving a dummy a counter-attack.
+    pub fn sandbags_are_passive(&self) -> bool {
+        self.by_brain
+            .values()
+            .chain(std::iter::once(&self.fallback))
+            .all(|spec| !spec.is_sandbag || spec.melee.is_none())
     }
 
     /// Resolve the authored spec for a spawn `EnemyBrain` payload by its
@@ -869,7 +879,7 @@ impl<'a> EnemyMut<'a> {
 
     pub fn visual_kind(&self) -> FeatureVisualKind {
         if self.config.tuning.is_sandbag {
-            FeatureVisualKind::Sandbag
+            FeatureVisualKind::TrainingDummy
         } else {
             FeatureVisualKind::Enemy
         }
@@ -996,7 +1006,7 @@ pub struct CompositeVisualPlan {
 /// sandbags; everything else as a standard enemy).
 pub fn enemy_visual_kind(payload: &crate::actor::EnemyBrain) -> FeatureVisualKind {
     if spec_for_brain(payload).is_sandbag {
-        FeatureVisualKind::Sandbag
+        FeatureVisualKind::TrainingDummy
     } else {
         FeatureVisualKind::Enemy
     }

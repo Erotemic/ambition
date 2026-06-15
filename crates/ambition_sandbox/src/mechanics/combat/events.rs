@@ -4,7 +4,9 @@ use super::*;
 pub enum FeatureVisualKind {
     Hazard,
     Enemy,
-    Sandbag,
+    /// A passive practice target (struck to test damage/feedback). Rendered with
+    /// a sandbag sprite — the depiction is content; the kit kind is generic.
+    TrainingDummy,
     Boss,
     Breakable,
     Chest,

@@ -76,7 +76,7 @@ impl CharacterSpriteAssets {
     pub fn enemy_asset(&self, kind: FeatureVisualKind) -> Option<&CharacterSpriteAsset> {
         match kind {
             FeatureVisualKind::Enemy => self.goblin.as_ref(),
-            FeatureVisualKind::Sandbag => self.sandbag.as_ref().or(self.goblin.as_ref()),
+            FeatureVisualKind::TrainingDummy => self.sandbag.as_ref().or(self.goblin.as_ref()),
             _ => None,
         }
     }

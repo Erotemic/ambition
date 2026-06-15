@@ -313,13 +313,9 @@
         damage_amount: 1,
         is_sandbag: true,
         brain_template: StandStill,
-        melee: Some(PunchWeak((
-            windup_s: 0.15,
-            active_s: 0.08,
-            recover_s: 0.40,
-            damage: 1,
-            reach_px: 22.0,
-        ))),
+        // A practice target is PASSIVE — no counter-attack. (It still deals
+        // light CONTACT damage if you walk into it; it just never strikes back.)
+        melee: None,
         move_style: Walk,
     ),
     "sandbag_finite": (
@@ -334,13 +330,9 @@
         damage_amount: 1,
         is_sandbag: true,
         brain_template: StandStill,
-        melee: Some(PunchWeak((
-            windup_s: 0.15,
-            active_s: 0.08,
-            recover_s: 0.40,
-            damage: 1,
-            reach_px: 22.0,
-        ))),
+        // A practice target is PASSIVE — no counter-attack. (It still deals
+        // light CONTACT damage if you walk into it; it just never strikes back.)
+        melee: None,
         move_style: Walk,
     ),
     "pirate_raider": (

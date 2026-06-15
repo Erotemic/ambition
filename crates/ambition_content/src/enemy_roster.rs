@@ -36,4 +36,17 @@ mod tests {
         // `from_ron` panics on a parse error or a missing `combatant` row.
         let _ = EnemyRoster::from_ron(ENEMY_ROSTER_RON);
     }
+
+    /// A practice-target ("sandbag") archetype is a PASSIVE dummy — it must not
+    /// carry a melee attack (it never strikes back). Pins the authored roster
+    /// against re-adding a counter-attack.
+    #[test]
+    fn sandbag_archetypes_are_passive() {
+        let roster = EnemyRoster::from_ron(ENEMY_ROSTER_RON);
+        assert!(
+            roster.sandbags_are_passive(),
+            "a sandbag/training-dummy archetype carries a melee attack — passive \
+             targets must have `melee: None`"
+        );
+    }
 }

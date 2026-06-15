@@ -304,6 +304,29 @@ fn read_spawn_allowlist() -> BTreeMap<String, usize> {
     allowlist
 }
 
+/// The `ambition_render` crate is the sandbox's renderer; the sim machinery
+/// (`ambition_sandbox`) must NOT depend on it. The render layer reads the sim,
+/// never the reverse — so a render change never rebuilds the machinery, and the
+/// sim/render seam is a hard crate boundary, not a convention. Presentation
+/// modules migrate into `ambition_render` incrementally; this guard ensures the
+/// dependency only ever points render -> sandbox.
+#[test]
+fn architecture_boundaries_sandbox_does_not_depend_on_render() {
+    assert_workspace_contains_crate("ambition_render");
+    let sandbox_root = repo_root().join("crates/ambition_sandbox");
+    assert_manifest_has_no_deps(
+        &sandbox_root,
+        &["ambition_render"],
+        "the sim machinery must not depend on its renderer (render depends on sim, not the reverse)",
+    );
+    // And no source file smuggles the crate in past the manifest.
+    assert_source_tree_has_no_code_refs(
+        sandbox_root.join("src"),
+        &["ambition_render"],
+        "ambition_sandbox must not reference the render crate",
+    );
+}
+
 #[test]
 fn architecture_boundaries_platformer_runtime_stays_content_free() {
     let forbidden = [

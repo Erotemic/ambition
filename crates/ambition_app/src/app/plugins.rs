@@ -627,9 +627,9 @@ fn install_fx_and_hud_systems(app: &mut App) {
     .add_systems(
         Update,
         (
-            ambition_sandbox::presentation::hud::regen_player_mana,
-            ambition_sandbox::presentation::hud::spawn_player_hud,
-            ambition_sandbox::presentation::hud::update_player_hud,
+            ambition_render::hud::regen_player_mana,
+            ambition_render::hud::spawn_player_hud,
+            ambition_render::hud::update_player_hud,
         )
             .chain(),
     );

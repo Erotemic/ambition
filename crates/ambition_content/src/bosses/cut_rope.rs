@@ -26,7 +26,7 @@ use ambition_sandbox::features::{
 use ambition_sandbox::character_sprites::{
     build_character_sprite, feet_anchor_for, CharacterAnimator,
 };
-use ambition_sandbox::presentation::fx::{
+use ambition_render::fx::{
     ExplosionKind, ExplosionRequest, FireworksRequest, ParticleKind, VfxMessage,
 };
 use ambition_sandbox::presentation::rendering::PropVisual;

@@ -26,6 +26,7 @@ ambition_sandbox = { path = "../ambition_sandbox", default-features = false, fea
     "input",
     "portal",
 ] }
+ambition_render = { path = "../ambition_render" }
 ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy", "sfx"] }
 ambition_sfx = { path = "../ambition_sfx" }
 ambition_platformer_runtime = { path = "../ambition_platformer_runtime" }

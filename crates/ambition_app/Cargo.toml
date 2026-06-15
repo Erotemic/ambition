@@ -92,7 +92,7 @@ ldtk_runtime = ["ambition_sandbox/ldtk_runtime", "dep:bevy_ecs_ldtk", "dep:bevy_
 audio = ["ambition_sandbox/audio", "ambition_content/audio", "dep:bevy_kira_audio"]
 ui = ["ambition_sandbox/ui", "ambition_content/ui", "dep:bevy_material_ui", "dep:bevy_yarnspinner"]
 physics_debris = ["ambition_sandbox/physics_debris"]
-input = ["ambition_sandbox/input", "dep:leafwing-input-manager"]
+input = ["ambition_sandbox/input", "ambition_render/input", "dep:leafwing-input-manager"]
 mobile_touch = ["input", "ambition_sandbox/mobile_touch", "dep:virtual_joystick"]
 falling_sand = ["ambition_sandbox/falling_sand"]
 bevy_ui_menu = ["ambition_sandbox/bevy_ui_menu"]
@@ -103,6 +103,7 @@ profile = ["ambition_sandbox/profile"]
 [dependencies]
 ambition_sandbox = { path = "../ambition_sandbox", default-features = false }
 ambition_content = { path = "../ambition_content" }
+ambition_render = { path = "../ambition_render" }
 ambition_engine_core = { path = "../ambition_engine_core" }
 ambition_input = { path = "../ambition_input" }
 ambition_platformer_runtime = { path = "../ambition_platformer_runtime" }

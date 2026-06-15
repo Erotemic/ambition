@@ -70,7 +70,7 @@ use ambition_sandbox::input::{MenuInputState, PlayerDashTriggerState};
 use ambition_sandbox::inventory;
 use ambition_sandbox::ldtk_world;
 use ambition_sandbox::platformer_runtime::lifecycle::RoomScopedEntity;
-use ambition_sandbox::presentation::fx::{self, vfx_spawn_messages, ParticleKind, VfxMessage};
+use ambition_render::fx::{self, vfx_spawn_messages, ParticleKind, VfxMessage};
 use ambition_sandbox::presentation::rendering::{
     animate_bosses, animate_characters, animate_player, camera_follow, spawn_room_visuals,
     sync_visuals, upgrade_boss_sprites, upgrade_enemy_sprites, upgrade_npc_sprites, HudText,

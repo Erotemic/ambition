@@ -26,7 +26,7 @@ use bevy_common_assets::ron::RonAssetPlugin;
 use super::setup_systems::setup_simulation_system;
 use ambition_sandbox::audio::SfxMessage;
 use ambition_sandbox::game_mode::GameMode;
-use ambition_sandbox::presentation::fx::{ExplosionRequest, FireworksRequest, VfxMessage};
+use ambition_render::fx::{ExplosionRequest, FireworksRequest, VfxMessage};
 use ambition_sandbox::runtime::data;
 use ambition_sandbox::world::physics::DebrisBurstMessage;
 use ambition_sandbox::PlayerDiedMessage;

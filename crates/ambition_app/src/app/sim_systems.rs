@@ -14,7 +14,7 @@ use ambition_sandbox::features::{
     self, FeatureEcsWorldOverlay, GameplayBanner, HitEvent as FeatureHitEvent,
 };
 use ambition_sandbox::input::ControlFrame;
-use ambition_sandbox::presentation::fx::VfxMessage;
+use ambition_render::fx::VfxMessage;
 use ambition_sandbox::rooms::{
     GatePortalRegistry, LoadingZoneActivation, RoomSet, RoomTransitionRequested,
 };

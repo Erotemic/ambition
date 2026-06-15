@@ -387,3 +387,50 @@ the final act; needs A4 done so the rename reflects a real boundary, not a label
 - **`ItemKind` / `BossAttackProfile` data-keying** (named content in machinery):
   big, unblocks the `inventory` extraction — Jon flagged as possible design-together.
 - **God-module splits** (goals 1+2, nav/compile only): safe filler, available anytime.
+
+## Run 2 (2026-06-15 continuation) — the god-file navigability sweep
+
+With the crate boundaries done (render + interaction extracted, named content
+moved out), the clean lever left for the #1 goal (agent-navigability) is
+splitting the remaining 700–1800-line god-files into concern submodules. This
+run swept the **largest source files across every crate** — not just the
+machinery lib — and split each one that decomposed cleanly. Method: a `foo/` dir
+with concern submodules using `use super::*`, the parent keeping a shared import
+prelude (`#![allow(unused_imports)]`) + `pub use sub::*` re-exports so every
+external path is unchanged; tests co-located with the code they exercise.
+
+| File (was → now biggest piece) | crate | LOC | split into | verify |
+|---|---|---|---|---|
+| `bosses/specials.rs` 1783 → 895 | content | XL | eye_beam / gradient_sentinel / mode_collapse / gradient_nova / echo_fan / seismic_stomp / overflow_flood | 49 content |
+| `brain/boss_pattern/mod.rs` 1327 → 740 | actor | L | data-model in mod.rs, `tick.rs` runtime | 187 actor |
+| `ledge_grab/mod.rs` 934 → 347 | engine_core | L | types+pure-geom in mod.rs, `runtime.rs` | 160 ec |
+| `rendering/actors/mod.rs` 883 → 355 | render | L | `animation.rs` / `overlays.rs` | 24 render |
+| `world/rooms/mod.rs` 823 → 95 | sandbox | L | loading_zone / gate_portal / metadata / camera / specs / room_graph | 911 sandbox |
+| `bosses/cut_rope.rs` 793 → 254 | content | L | lifecycle in mod.rs, `victory.rs` / `arena.rs` | 49 content |
+| `boss_encounter/attack_geometry/mod.rs` 782 → 476 | sandbox | M | `aabb.rs` / `frame.rs` / volume-API in mod.rs | 911 sandbox |
+| `character_sprites/sheets/mod.rs` 780 → 512 | sandbox | M | `geometry.rs` / `atlas.rs`, loading in mod.rs | 911 sandbox |
+
+**8 god-files split, across 5 crates (content, actor, engine_core, render,
+sandbox).** Every split: builds clean, 0 new warnings, no behavior change.
+
+**Traps re-confirmed this run** (added to memory): split boundaries cut the
+leading doc-comment of the NEXT (retained) item → relocate it; `pub(super)`
+items moved a module level deeper need `pub(crate)` if a non-descendant sibling
+calls them (ledge_grab/sheets `row`, attack_geometry frame helpers); a child
+`use super::*` DOES re-glob the parent's prelude (so the audio/mod.rs "unused
+`bevy::prelude::*`" lint is a FALSE POSITIVE — do not remove it, logged to
+code_smells.md); systems that mutate a moved struct's private fields must move
+WITH that struct (cut_rope arena reset).
+
+**Checkpoint after the sweep:** `cargo build --workspace` clean; 30 arch guards;
+`replay_fixture_regression` (determinism) + blink/gravity/dive reachability all
+green; sandbox 911 + content 49 + actor 187 + engine_core 160 + render 24 lib
+tests green. The render extraction's sim/render seam guard holds.
+
+**Files deliberately NOT split** (tangled / low-ROI): `falling_sand.rs` 1305
+(prototype, interleaved MaterialKind across mod/projection/spouts — reverted),
+`persistence/settings/model` 1123 (non-contiguous SettingsItem impls — reverted),
+`features/bosses.rs` 912 (one pub fn + 6 test modules — already test-organized),
+`brain/mod.rs` 987 (already 7 submodules). The app `menu/` files (4419/2212/1742)
+are the next frontier but are tangled kaleidoscope/grid rendering — a supervised
+pass, not a blind sweep.

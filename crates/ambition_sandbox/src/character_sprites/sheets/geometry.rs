@@ -67,27 +67,6 @@ pub fn feet_anchor_for_render_size(
     Anchor(Vec2::new(0.0, ay))
 }
 
-/// Feet anchor for a *surface-walker* (puppy-slug etc.) whose sprite rotates
-/// onto walls and ceilings.
-///
-/// A 1-D vertical anchor rotates *with* the sprite, so the only thing that has
-/// to be right is its magnitude: the contact ("belly") edge must sit on the
-/// surface-side end of the collision box for every orientation. We derive that
-/// purely from box geometry — the contact side is perpendicular to the long
-/// body axis, i.e. the box's *thinner* half — and pin it to the frame edge
-/// (`-0.5`) rather than the per-sheet `feet_anchor_y`. The humanoid
-/// `feet_anchor_y` ("feet at frame bottom") is meaningless for a horizontal
-/// blob and, when it resolves near 0, leaves the sprite floating at the box
-/// centre once rotated onto a wall.
-///
-/// On flat ground (collision = `long` x `thin`) this reduces to the same
-/// frame-bottom plant `feet_anchor_for` would give with `feet_anchor_y == -0.5`.
-pub fn surface_walker_feet_anchor(spec: &CharacterSheetSpec, collision: Vec2) -> Anchor {
-    let render_height = sprite_render_size(spec, collision).y.max(1.0);
-    let contact_half = collision.min_element() * 0.5;
-    Anchor(Vec2::new(0.0, -0.5 + contact_half / render_height))
-}
-
 /// Build the textured sprite for a character given its collision-box size.
 pub fn build_character_sprite(asset: &CharacterSpriteAsset, collision: Vec2) -> Sprite {
     build_character_sprite_with_render_size(asset, sprite_render_size(&asset.spec, collision))

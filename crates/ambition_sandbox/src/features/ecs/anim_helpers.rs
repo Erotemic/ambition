@@ -69,26 +69,6 @@ pub fn ecs_enemy_name(id: &str, actors: &Query<ActorSpriteData>) -> Option<Strin
         })
 }
 
-/// Whether the enemy with this id is a surface-walker (clings to and
-/// rotates onto walls/ceilings). Presentation uses this to center the
-/// sprite anchor: a blob like the puppy-slug has no "feet" to plant, so
-/// the humanoid feet-anchor would shove the rotated sprite to the
-/// wall-side edge of its (oriented) collision box.
-pub fn ecs_enemy_is_surface_walker(id: &str, actors: &Query<ActorSpriteData>) -> bool {
-    actors
-        .iter()
-        .find_map(|(feature_id, actor, _, _, _, config, _, _)| {
-            if feature_id.as_str() != id {
-                return None;
-            }
-            match actor {
-                ActorRuntime::Enemy => config.map(|c| c.tuning.surface_walker),
-                _ => None,
-            }
-        })
-        .unwrap_or(false)
-}
-
 pub fn ecs_enemy_anim_state(
     id: &str,
     actors: &Query<ActorSpriteData>,

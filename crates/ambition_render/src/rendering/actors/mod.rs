@@ -23,7 +23,7 @@ use ambition_sandbox::features::{
 };
 use ambition_sandbox::mechanics::combat::BoundFeatureKind;
 use ambition_sandbox::character_sprites::{
-    build_character_sprite, feet_anchor_for, surface_walker_feet_anchor, CharacterAnimator,
+    build_character_sprite, feet_anchor_for, CharacterAnimator,
 };
 
 mod animation;
@@ -290,20 +290,14 @@ pub fn upgrade_enemy_sprites(
             continue;
         }
         let sprite = build_character_sprite(character_asset, collision);
-        // Surface-walkers (e.g. the puppy-slug) rotate their sprite onto walls
-        // and ceilings, so they need a feet anchor whose magnitude is derived
-        // from box geometry (the contact edge planted on the surface-side end of
-        // the box) rather than the humanoid `feet_anchor_y`, which mis-plants a
-        // rotated horizontal blob. Keep the normal feet anchor for everyone else.
-        let anchor =
-            if ambition_sandbox::features::ecs_enemy_is_surface_walker(&visual.id, &ecs_actors) {
-                surface_walker_feet_anchor(&character_asset.spec, collision)
-            } else {
-                feet_anchor_for(&character_asset.spec, collision)
-            };
+        // The feet anchor plants the sprite's authored feet (`feet_anchor_y` from
+        // sprite metadata) on the gravity-side edge of the collision box. It is a
+        // 1-D anchor that rotates WITH the sprite, so for a surface-walker clung to
+        // a wall it correctly plants the contact edge once the collision box itself
+        // is oriented (see `update_enemy_actors`). No per-family special-casing.
         commands.entity(entity).insert((
             sprite,
-            anchor,
+            feet_anchor_for(&character_asset.spec, collision),
             CharacterAnimator::new(&character_asset.spec),
             BoundFeatureKind::new(view.kind, collision),
         ));

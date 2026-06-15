@@ -23,3 +23,7 @@ ambition_actor = { path = "../ambition_actor" }
 # The projectile substrate: ProjectileFaction + the EnemyProjectileSpawn request
 # carried by Effect::Projectiles.
 ambition_platformer_runtime = { path = "../ambition_platformer_runtime" }
+
+# SfxId for ExplosionRequest's paired sound cue + the explosion_sfx id mapping
+# that lives with the request vocab.
+ambition_sfx = { path = "../ambition_sfx" }

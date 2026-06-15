@@ -77,3 +77,83 @@ pub enum VfxMessage {
         text: String,
     },
 }
+
+/// Packed-bank SFX id an [`ExplosionKind`] plays. A pure id mapping (no bank
+/// loading), so it lives in the foundation with the request vocab — only the
+/// spritesheet-row mapping (`explosion_anim`) is render-specific and stays in
+/// presentation.
+pub fn explosion_sfx(kind: ExplosionKind) -> ambition_sfx::SfxId {
+    match kind {
+        ExplosionKind::ClassicBurst => ambition_sfx::ids::VFX_EXPLOSION_CLASSIC_BURST,
+        ExplosionKind::BurstRound => ambition_sfx::ids::VFX_EXPLOSION_BURST_ROUND,
+        ExplosionKind::Shockwave => ambition_sfx::ids::VFX_EXPLOSION_SHOCKWAVE,
+        ExplosionKind::SmokeBurst => ambition_sfx::ids::VFX_EXPLOSION_SMOKE_BURST,
+        ExplosionKind::Starburst => ambition_sfx::ids::VFX_EXPLOSION_STARBURST,
+    }
+}
+
+/// A reusable explosion CUE request: a sim system writes this to ask for an
+/// explosion's visual + paired sound, without depending on the renderer. The
+/// presentation `process_explosion_requests` fans it out to [`VfxMessage`] + the
+/// SFX channel.
+#[derive(Message, Clone, Debug)]
+pub struct ExplosionRequest {
+    pub pos: ae::Vec2,
+    pub kind: ExplosionKind,
+    pub scale: f32,
+    pub sfx: Option<ambition_sfx::SfxId>,
+}
+
+impl ExplosionRequest {
+    pub fn new(pos: ae::Vec2, kind: ExplosionKind) -> Self {
+        Self {
+            pos,
+            kind,
+            scale: 1.0,
+            sfx: Some(explosion_sfx(kind)),
+        }
+    }
+
+    pub fn classic(pos: ae::Vec2) -> Self {
+        Self::new(pos, ExplosionKind::ClassicBurst)
+    }
+
+    pub fn with_scale(mut self, scale: f32) -> Self {
+        self.scale = scale;
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn without_sfx(mut self) -> Self {
+        self.sfx = None;
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn with_sfx(mut self, sfx: ambition_sfx::SfxId) -> Self {
+        self.sfx = Some(sfx);
+        self
+    }
+}
+
+/// Request a short, spatially distributed sequence of explosion VFX/SFX. Higher
+/// level than several [`ExplosionRequest`]s: callers say "fireworks here" and the
+/// presentation `process_fireworks_requests` owns the temporal spread + variety.
+#[derive(Message, Clone, Debug)]
+pub struct FireworksRequest {
+    pub origin: ae::Vec2,
+    pub count: u32,
+    pub spread: ae::Vec2,
+    pub duration: f32,
+}
+
+impl FireworksRequest {
+    pub fn around(origin: ae::Vec2) -> Self {
+        Self {
+            origin,
+            count: 11,
+            spread: ae::Vec2::new(360.0, 210.0),
+            duration: 2.35,
+        }
+    }
+}

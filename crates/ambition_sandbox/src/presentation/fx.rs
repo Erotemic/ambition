@@ -18,9 +18,12 @@ use crate::presentation::character_sprites::{
 // The VFX MESSAGE vocabulary now lives in the foundation crate `ambition_effects`
 // (presentation-neutral data, so a sim system can emit a cue without depending on
 // this render module). Re-exported here so existing `crate::presentation::fx::*`
-// paths keep resolving; the render/audio mappings (`explosion_anim` /
-// `explosion_sfx`) stay below, where the render + packed-bank knowledge lives.
-pub use ambition_effects::vfx::{ExplosionKind, ParticleKind, VfxMessage};
+// paths keep resolving. The VFX request vocab (`ExplosionRequest` /
+// `FireworksRequest`) + the `explosion_sfx` id mapping moved down with the message
+// types; only the spritesheet-row mapping (`explosion_anim`) is render-specific.
+pub use ambition_effects::vfx::{
+    explosion_sfx, ExplosionKind, ExplosionRequest, FireworksRequest, ParticleKind, VfxMessage,
+};
 
 /// Spritesheet row an [`ExplosionKind`] renders as (presentation-only mapping).
 pub fn explosion_anim(kind: ExplosionKind) -> CharacterAnim {
@@ -30,17 +33,6 @@ pub fn explosion_anim(kind: ExplosionKind) -> CharacterAnim {
         ExplosionKind::Shockwave => CharacterAnim::Run,
         ExplosionKind::SmokeBurst => CharacterAnim::Hit,
         ExplosionKind::Starburst => CharacterAnim::Slash,
-    }
-}
-
-/// Packed-bank SFX an [`ExplosionKind`] plays (presentation/audio-only mapping).
-pub fn explosion_sfx(kind: ExplosionKind) -> ambition_sfx::SfxId {
-    match kind {
-        ExplosionKind::ClassicBurst => ambition_sfx::ids::VFX_EXPLOSION_CLASSIC_BURST,
-        ExplosionKind::BurstRound => ambition_sfx::ids::VFX_EXPLOSION_BURST_ROUND,
-        ExplosionKind::Shockwave => ambition_sfx::ids::VFX_EXPLOSION_SHOCKWAVE,
-        ExplosionKind::SmokeBurst => ambition_sfx::ids::VFX_EXPLOSION_SMOKE_BURST,
-        ExplosionKind::Starburst => ambition_sfx::ids::VFX_EXPLOSION_STARBURST,
     }
 }
 
@@ -136,46 +128,6 @@ pub struct BlinkPreviewVisual {
 /// matching packed-bank SFX. The presentation/audio bridge below fans it out
 /// into the existing message types, so headless tests can still ignore the
 /// render/audio backends while gameplay stays ECS-native.
-#[derive(Message, Clone, Debug)]
-pub struct ExplosionRequest {
-    pub pos: ae::Vec2,
-    pub kind: ExplosionKind,
-    pub scale: f32,
-    pub sfx: Option<ambition_sfx::SfxId>,
-}
-
-impl ExplosionRequest {
-    pub fn new(pos: ae::Vec2, kind: ExplosionKind) -> Self {
-        Self {
-            pos,
-            kind,
-            scale: 1.0,
-            sfx: Some(explosion_sfx(kind)),
-        }
-    }
-
-    pub fn classic(pos: ae::Vec2) -> Self {
-        Self::new(pos, ExplosionKind::ClassicBurst)
-    }
-
-    pub fn with_scale(mut self, scale: f32) -> Self {
-        self.scale = scale;
-        self
-    }
-
-    #[allow(dead_code)]
-    pub fn without_sfx(mut self) -> Self {
-        self.sfx = None;
-        self
-    }
-
-    #[allow(dead_code)]
-    pub fn with_sfx(mut self, sfx: ambition_sfx::SfxId) -> Self {
-        self.sfx = Some(sfx);
-        self
-    }
-}
-
 /// Fan out reusable explosion requests into the existing visual and audio
 /// message channels. Systems that want an explosion should write
 /// `ExplosionRequest` unless they specifically need visual-only behavior.
@@ -199,30 +151,9 @@ pub fn process_explosion_requests(
     }
 }
 
-/// Request a short, spatially distributed sequence of explosion VFX/SFX.
-///
-/// This is intentionally higher-level than writing several
-/// `ExplosionRequest`s at once: callers say "fireworks here" and the VFX
-/// system owns the temporal spread, per-burst variety, and sound pairing.
-#[derive(Message, Clone, Debug)]
-pub struct FireworksRequest {
-    pub origin: ae::Vec2,
-    pub count: u32,
-    pub spread: ae::Vec2,
-    pub duration: f32,
-}
-
-impl FireworksRequest {
-    pub fn around(origin: ae::Vec2) -> Self {
-        Self {
-            origin,
-            count: 11,
-            spread: ae::Vec2::new(360.0, 210.0),
-            duration: 2.35,
-        }
-    }
-}
-
+/// Own the temporal spread of a [`FireworksRequest`]: callers say "fireworks
+/// here" and this system fans it into a short, spatially distributed sequence of
+/// explosion VFX/SFX over the request's duration.
 pub fn process_fireworks_requests(
     mut commands: Commands,
     mut requests: MessageReader<FireworksRequest>,

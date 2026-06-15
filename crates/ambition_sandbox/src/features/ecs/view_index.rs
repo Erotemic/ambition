@@ -200,9 +200,25 @@ pub fn rebuild_feature_view_index(
                     Some(s) => f32::atan2(-s.surface_normal.x, -s.surface_normal.y),
                     None => roll_rad,
                 };
+                // Render size is the RAW (un-oriented) body box. The sprite is
+                // oriented by `rotation_rad`, so it must NOT also receive the
+                // surface-oriented footprint — that double-counts the rotation and,
+                // worse, changes `view.size` when the slug climbs a wall, tripping
+                // the `BoundFeatureKind` re-bind which re-bakes the feet anchor off
+                // the swapped (long) dimension and shoves the sprite off its box.
+                // The ORIENTED footprint still lives in the `FeatureAabb` component
+                // (read directly by the debug overlay + hurtbox), so un-swap here to
+                // recover the raw dims. Floor/ceiling (vertical normal) is unchanged.
+                let render_size = match surface {
+                    Some(s) if s.surface_normal.x.abs() > s.surface_normal.y.abs() => {
+                        let o = aabb.size();
+                        ae::Vec2::new(o.y, o.x)
+                    }
+                    _ => aabb.size(),
+                };
                 FeatureView {
                     pos: aabb.center,
-                    size: aabb.size(),
+                    size: render_size,
                     kind,
                     visible: alive,
                     flash,

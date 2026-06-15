@@ -365,6 +365,7 @@ ambition_combat = { path = "../ambition_combat" }
 ambition_cutscene = { path = "../ambition_cutscene" }
 ambition_effects = { path = "../ambition_effects" }
 ambition_engine_core = { path = "../ambition_engine_core" }
+ambition_interaction = { path = "../ambition_interaction" }
 # Device -> ControlFrame input layer (SandboxAction / ControlFrame / presets /
 # input-domain settings). Re-exported as `crate::input` from lib.rs (ADR 0019);
 # `crate::persistence::settings` re-exports its `settings` module so existing

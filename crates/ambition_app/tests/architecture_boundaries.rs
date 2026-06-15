@@ -470,6 +470,30 @@ fn architecture_boundaries_menu_crate_stays_content_free() {
     );
 }
 
+/// `ambition_interaction` is a reusable, content-free foundation crate: the
+/// interactive-world-object MODEL (Interactable / InteractionKind / Pickup / Chest
+/// / Breakable + state enums) over the actor + geometry foundations. It must not
+/// depend on the game machinery (`ambition_sandbox`) or name any game content, so
+/// another platformer reuses the interaction vocabulary by depending on it.
+#[test]
+fn architecture_boundaries_interaction_crate_is_foundation_only() {
+    let crate_root = repo_root().join("crates/ambition_interaction");
+    assert!(
+        crate_root.join("Cargo.toml").exists(),
+        "ambition_interaction crate should exist at crates/ambition_interaction"
+    );
+    assert_manifest_has_no_deps(
+        &crate_root,
+        &["ambition_sandbox", "ambition_content", "ambition_render", "bevy"],
+        "ambition_interaction is a content-free data model over the actor/geometry foundations",
+    );
+    assert_source_tree_has_no_code_refs(
+        crate_root.join("src"),
+        &["ambition_sandbox", "ambition_content", "gnu_ton", "gradient_sentinel"],
+        "ambition_interaction must stay content-free + machinery-free",
+    );
+}
+
 #[test]
 fn architecture_boundaries_effects_crate_is_foundation_only() {
     let crate_root = repo_root().join("crates/ambition_effects");

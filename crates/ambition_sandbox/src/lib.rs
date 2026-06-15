@@ -35,7 +35,7 @@ pub use ambition_engine_core as engine_core;
 // Re-export input types under the sandbox's stable `crate::input` path.
 pub use ambition_input as input;
 pub mod host;
-pub mod interaction;
+pub use ambition_interaction as interaction;
 // Re-export the reusable kinematic body/sweep runtime.
 pub use ambition_platformer_runtime::kinematic;
 pub mod platformer_runtime;

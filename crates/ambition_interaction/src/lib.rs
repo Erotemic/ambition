@@ -4,8 +4,8 @@
 //! prompts and play animations, but the identity and gameplay semantics belong
 //! in the engine so later story crates can share them.
 
-use crate::actor::{Health, RespawnPolicy};
-use crate::engine_core::Aabb;
+use ambition_actor::actor::{Health, RespawnPolicy};
+use ambition_engine_core::Aabb;
 
 /// A player-facing interaction trigger.
 #[derive(Clone, Debug, PartialEq)]

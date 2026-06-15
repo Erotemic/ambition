@@ -269,6 +269,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_interaction"
+version = "0.1.0"
+dependencies = [
+ "ambition_actor",
+ "ambition_engine_core",
+ "serde",
+]
+
+[[package]]
 name = "ambition_menu"
 version = "0.1.0"
 dependencies = [
@@ -331,6 +340,7 @@ dependencies = [
  "ambition_effects",
  "ambition_engine_core",
  "ambition_input",
+ "ambition_interaction",
  "ambition_menu",
  "ambition_platformer_runtime",
  "ambition_portal",

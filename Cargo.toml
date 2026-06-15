@@ -10,6 +10,7 @@ members = [
     "crates/ambition_effects",
     "crates/ambition_engine_core",
     "crates/ambition_input",
+    "crates/ambition_interaction",
     "crates/ambition_menu",
     "crates/ambition_platformer_runtime",
     "crates/ambition_portal",

@@ -16,12 +16,7 @@ mod state;
 mod systems;
 #[cfg(test)]
 pub(crate) mod test_support;
-mod visuals;
 
 pub use entity::EnemyProjectile;
 pub use state::{EnemyProjectileSpawn, EnemyProjectileState};
 pub use systems::apply_projectile_effects;
-pub use visuals::{
-    lasersword_projectile_sprite, sync_enemy_projectile_visuals, EnemyProjectileVisual,
-    LASERSWORD_SHEET,
-};

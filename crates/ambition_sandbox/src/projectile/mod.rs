@@ -29,7 +29,6 @@ mod spawn;
 mod spawn_message;
 mod state;
 mod systems;
-mod visuals;
 
 #[cfg(test)]
 mod tests;
@@ -43,9 +42,7 @@ pub use state::PlayerProjectileState;
 pub use systems::{
     apply_player_spawn_projectile_messages, player_projectile_input, step_projectiles,
 };
-pub use visuals::{sync_projectile_visuals, PlayerProjectileVisual};
 #[allow(unused_imports)]
-pub use visuals::{ProjectileVisualLink, VisualProjectile};
 
 #[cfg(test)]
 mod engine_tests;

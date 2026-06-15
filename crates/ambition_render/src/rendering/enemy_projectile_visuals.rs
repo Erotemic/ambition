@@ -9,8 +9,9 @@ use bevy::math::Vec2;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
-use super::entity::EnemyProjectile;
-use crate::projectile::{ProjectileOwnerId, ProjectileVisualLink, VisualProjectile};
+use ambition_sandbox::enemy_projectile::EnemyProjectile;
+use ambition_sandbox::projectile::ProjectileOwnerId;
+use super::projectile_visuals::{ProjectileVisualLink, VisualProjectile};
 
 #[derive(Component)]
 pub struct EnemyProjectileVisual;
@@ -84,7 +85,7 @@ impl EnemyProjectileVisualArt {
 /// identical spinning sword aligned to its velocity.
 pub fn lasersword_projectile_sprite(
     texture: Handle<Image>,
-    vel: crate::engine_core::Vec2,
+    vel: ambition_sandbox::engine_core::Vec2,
 ) -> (Sprite, Anchor, Quat) {
     // Bevy +Y is up; sandbox +Y is down — flip Y when computing rotation.
     let bevy_dx = vel.x;
@@ -131,14 +132,14 @@ fn is_lasersword_owner(owner_id: &str) -> bool {
 pub fn sync_enemy_projectile_visuals(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    world: Res<crate::GameWorld>,
+    world: Res<ambition_sandbox::GameWorld>,
     // Enemy projectiles that don't yet have a visual get one spawned.
     new_projectiles: Query<
-        (Entity, &crate::player::BodyKinematics, &ProjectileOwnerId),
+        (Entity, &ambition_sandbox::player::BodyKinematics, &ProjectileOwnerId),
         (With<EnemyProjectile>, Without<ProjectileVisualLink>),
     >,
     // Live bodies for the per-frame transform refresh.
-    bodies: Query<&crate::player::BodyKinematics, With<EnemyProjectile>>,
+    bodies: Query<&ambition_sandbox::player::BodyKinematics, With<EnemyProjectile>>,
     mut visuals: Query<
         (
             Entity,
@@ -157,7 +158,7 @@ pub fn sync_enemy_projectile_visuals(
     for (proj_entity, kin, owner) in &new_projectiles {
         let render_size = bevy::math::Vec2::new((kin.size.x).max(8.0), (kin.size.y).max(8.0));
         let translation =
-            crate::config::world_to_bevy(&world.0, kin.pos, crate::config::WORLD_Z_PLAYER + 1.8);
+            ambition_sandbox::config::world_to_bevy(&world.0, kin.pos, ambition_sandbox::config::WORLD_Z_PLAYER + 1.8);
         let visual = if is_apple_owner(&owner.0) {
             spawn_apple_visual(
                 &mut commands,
@@ -204,8 +205,8 @@ pub fn sync_enemy_projectile_visuals(
             commands.entity(visual_entity).despawn();
             continue;
         };
-        let z = crate::config::WORLD_Z_PLAYER + 1.8;
-        transform.translation = crate::config::world_to_bevy(&world.0, kin.pos, z);
+        let z = ambition_sandbox::config::WORLD_Z_PLAYER + 1.8;
+        transform.translation = ambition_sandbox::config::world_to_bevy(&world.0, kin.pos, z);
         match kind {
             EnemyVisualKind::Apple => {}
             EnemyVisualKind::Lasersword => {
@@ -230,7 +231,7 @@ fn spawn_lasersword_visual(
     commands: &mut Commands,
     texture: &Handle<Image>,
     translation: bevy::math::Vec3,
-    vel: crate::engine_core::Vec2,
+    vel: ambition_sandbox::engine_core::Vec2,
     projectile: Entity,
 ) -> Entity {
     let (sprite, anchor, rotation) = lasersword_projectile_sprite(texture.clone(), vel);

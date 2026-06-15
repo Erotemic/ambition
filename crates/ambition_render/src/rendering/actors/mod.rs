@@ -779,8 +779,8 @@ pub fn apply_placeholder_sprites_override(
         Option<&FeatureVisual>,
         Option<&PlayerVisual>,
         Option<&ambition_sandbox::player::BodyKinematics>,
-        Option<&ambition_sandbox::projectile::PlayerProjectileVisual>,
-        Option<&ambition_sandbox::enemy_projectile::EnemyProjectileVisual>,
+        Option<&crate::rendering::projectile_visuals::PlayerProjectileVisual>,
+        Option<&crate::rendering::enemy_projectile_visuals::EnemyProjectileVisual>,
     )>,
 ) {
     if developer_tools.placeholder_sprites {

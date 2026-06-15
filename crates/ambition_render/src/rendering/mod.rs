@@ -32,6 +32,8 @@ pub mod morph_ball;
 pub mod gravity_visuals;
 pub mod mark_beacon;
 pub mod shrine_visuals;
+pub mod projectile_visuals;
+pub mod enemy_projectile_visuals;
 mod item_visuals;
 mod deep_dream;
 mod features;

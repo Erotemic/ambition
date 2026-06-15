@@ -189,7 +189,7 @@ pub struct HeldProjectileVisualArt {
 impl HeldProjectileVisualArt {
     fn load(asset_server: &AssetServer) -> Self {
         Self {
-            lasersword: asset_server.load(ambition_sandbox::enemy_projectile::LASERSWORD_SHEET),
+            lasersword: asset_server.load(crate::rendering::enemy_projectile_visuals::LASERSWORD_SHEET),
             fireball: asset_server.load(format!("sprites/props/gauntlet_{FIREBALL_ID}.png")),
         }
     }
@@ -231,7 +231,7 @@ pub fn sync_held_projectile_visuals(
             continue;
         }
         let (sprite, anchor, rotation) =
-            ambition_sandbox::enemy_projectile::lasersword_projectile_sprite(art.lasersword.clone(), kin.vel);
+            crate::rendering::enemy_projectile_visuals::lasersword_projectile_sprite(art.lasersword.clone(), kin.vel);
         commands.spawn((
             HeldProjectileVisual,
             sprite,

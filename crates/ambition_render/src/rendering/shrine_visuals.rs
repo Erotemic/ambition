@@ -7,7 +7,6 @@ use bevy::{image::TextureAtlas, image::TextureAtlasLayout, math::UVec2};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
-use ambition_sandbox::engine_core::AabbExt;
 use ambition_sandbox::shrine::{HealShrine, ShrineActivationPulse};
 use ambition_sprite_sheet::{SheetRecord, SheetRegistry};
 

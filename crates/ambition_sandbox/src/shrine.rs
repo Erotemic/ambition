@@ -12,7 +12,6 @@
 //!   TODO "Healing / save-point shrine").
 
 use bevy::prelude::*;
-use std::hash::Hasher;
 
 use crate::engine_core::{self as ae, AabbExt};
 use crate::input::ControlFrame;

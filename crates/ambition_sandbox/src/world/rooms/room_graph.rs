@@ -1,0 +1,109 @@
+//! RoomSpec + the transition graph types.
+//!
+//! Split out of the former 823-line `rooms/mod.rs` (2026-06-15); the
+//! parent re-exports every type so `rooms::*` paths are unchanged.
+
+use super::*;
+
+/// Complete room data used by the Bevy sandbox.
+#[derive(Clone, Debug)]
+pub struct RoomSpec {
+    pub id: String,
+    pub world: ae::World,
+    pub loading_zones: Vec<LoadingZone>,
+    pub metadata: RoomMetadata,
+    pub camera_zones: Vec<CameraZoneSpec>,
+    /// LDtk-authored path index for platforms, hazards, NPC patrols,
+    /// camera rails, and future scripted room beats.
+    pub kinematic_paths: Vec<KinematicPathSpec>,
+    /// LDtk-authored moving platforms for this area. This is the
+    /// complete platform set for gameplay: empty means the room has
+    /// no moving platforms.
+    pub moving_platforms: Vec<crate::world::platforms::MovingPlatformState>,
+    /// LDtk-authored decorative props. Render-only — see [`PropSpec`].
+    pub props: Vec<PropSpec>,
+    /// LDtk-authored ground held-items (gauntlet / weapon pickups). See
+    /// [`GroundItemSpec`].
+    pub ground_items: Vec<GroundItemSpec>,
+    /// LDtk-authored portal-gun pickups. See [`PortalGunSpawnSpec`].
+    #[cfg(feature = "portal")]
+    pub portal_gun_spawns: Vec<PortalGunSpawnSpec>,
+    /// LDtk-authored static portals (pre-placed linked pairs). See [`PortalSpec`].
+    #[cfg(feature = "portal")]
+    pub portals: Vec<PortalSpec>,
+    /// LDtk-authored heal/save shrines. See [`ShrineSpec`].
+    pub shrines: Vec<ShrineSpec>,
+    /// LDtk-authored localized-gravity zones. See [`GravityZoneSpec`].
+    pub gravity_zones: Vec<GravityZoneSpec>,
+
+    // --- Per-family authored entity lists; each family spawns through ECS.
+    pub hazards: Vec<Authored<crate::combat::DamageVolume>>,
+    pub interactables: Vec<Authored<crate::interaction::Interactable>>,
+    pub pickups: Vec<Authored<crate::interaction::Pickup>>,
+    pub chests: Vec<Authored<crate::interaction::Chest>>,
+    pub breakables: Vec<Authored<crate::interaction::Breakable>>,
+    pub enemy_spawns: Vec<Authored<crate::actor::EnemyBrain>>,
+    pub boss_spawns: Vec<Authored<crate::actor::BossBrain>>,
+    pub debug_labels: Vec<Authored<crate::debug_label::DebugLabel>>,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct TransitionEdge {
+    pub(crate) from_zone: String,
+    pub(crate) to_zone: String,
+}
+
+/// Authored directed connection between loading zones in runtime rooms.
+#[derive(Clone, Debug)]
+pub struct RoomLink {
+    pub from_room: String,
+    pub from_zone: String,
+    pub to_room: String,
+    pub to_zone: String,
+    pub bidirectional: bool,
+}
+
+/// Resolved transition from the active room to a graph-linked destination room.
+#[derive(Clone, Debug)]
+pub struct RoomTransition {
+    pub zone: LoadingZone,
+    pub target_room: usize,
+    pub arrival: ae::Vec2,
+}
+
+/// Bevy message emitted when a room transition is triggered (player walks through
+/// a loading zone or door). The actual `load_room` call happens in
+/// `apply_room_transition_system`, which runs after the player tick in the
+/// `CoreSimulation` chain.
+///
+/// Carries the resolved `RoomTransition` payload and the optional SFX id for the
+/// zone type so the apply system can emit the sound at the correct player position
+/// after repositioning.
+#[derive(Message, Clone, Debug)]
+pub struct RoomTransitionRequested {
+    pub transition: RoomTransition,
+    /// SFX id to play at the new player position after the room loads.
+    pub zone_sfx: Option<ambition_sfx::SfxId>,
+}
+
+impl RoomTransitionRequested {
+    pub fn new(transition: RoomTransition, zone_sfx: Option<ambition_sfx::SfxId>) -> Self {
+        Self {
+            transition,
+            zone_sfx,
+        }
+    }
+}
+
+/// Small room graph for early loading-zone tests.
+#[derive(Resource, Clone, Debug)]
+pub struct RoomSet {
+    pub rooms: Vec<RoomSpec>,
+    pub active: usize,
+    /// Index of the room the player starts in on a fresh sandbox.
+    /// Captured at `from_parts` time so the "reset sandbox" flow can
+    /// warp the player back without round-tripping through LDtk.
+    pub start: usize,
+    pub(crate) graph: Graph<String, TransitionEdge>,
+    pub(crate) room_nodes: Vec<NodeIndex>,
+}

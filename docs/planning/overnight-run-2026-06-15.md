@@ -323,6 +323,8 @@ the final act; needs A4 done so the rename reflects a real boundary, not a label
 | S2-plan | presentation→`ambition_render` step-2 execution plan | ☑ | S | ~1 cycle | (plan doc) | — | scoped the real blocker (the 3 in-lib presentation importers / crate-cycle), with the message-inversion-vs-move-up decision + the `pub`-widening surface. Ready to execute in the 10h run. |
 | S5 | delete dead inventory UI markers | ☑ | S | ~1 cycle | (dead-code) | lib −28 | 8 zero-reader `#[derive(Component)]` markers from the Phase-D2-deleted adventure menu. |
 
+| S3-a | DELETE legacy `ItemKind`/`PlayerInventory` bag → one `OwnedItems` store | ☑ `behaviour Δ` | M | ~1 cycle | (item-unify) | lib −~110 | the dual-bag smell, RESOLVED. Collapsed onto the 24-row `Item` catalog (already an id-keyed registry); `inventory/` now owns only menu-nav state. Dialogue can grant any of the 24 items now (was: the legacy 3). Behaviour Δ: starter health 2→3 (OwnedItems::starter). App+sandbox+content+yarn tests + 28 guards green. **Step-3 named-content move #1 of 3.** |
+
 ## Final summary (run 1 — 2026-06-15)
 
 - **New foundation crates (3):** `ambition_ui_nav`, `ambition_cutscene` (format +

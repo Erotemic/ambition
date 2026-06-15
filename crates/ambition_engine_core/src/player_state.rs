@@ -263,9 +263,12 @@ impl BodyShape {
 /// returns `false`, which the caller can surface as a "blocked stand-up"
 /// trace event without re-deriving the geometry.
 ///
-/// AABB convention: `pos` is the AABB center and Ambition uses +Y down,
-/// so `feet_y == pos.y + size.y * 0.5`. Shrinking the body keeps feet
-/// planted by *increasing* `pos.y` by half the height delta.
+/// AABB convention: `pos` is the AABB center and Ambition uses +Y down.
+/// The body's FEET are the gravity-facing edge — `pos.y + size.y*0.5` under
+/// normal gravity, `pos.y - size.y*0.5` under inverted gravity — so shrinking
+/// the body keeps the feet planted by shifting `pos.y` along `gravity_dir`
+/// (`+dy` down, `-dy` up). A height resize is perpendicular to SIDEWAYS gravity,
+/// so it stays centred there (`gravity_dir.y.signum() == 0`).
 /// Transition the body mode while keeping the feet planted. Mutates
 /// only the kinematics (pos, size) and body-mode cluster components;
 /// the rest of the player state is untouched. Returns `false` (and
@@ -277,6 +280,7 @@ pub fn try_change_body_mode_clusters<F>(
     body_mode_state: &mut crate::player_clusters::PlayerBodyModeState,
     new_mode: BodyMode,
     world: &crate::world::World,
+    gravity_dir: Vec2,
     predicate: F,
 ) -> bool
 where
@@ -287,7 +291,7 @@ where
     }
     let new_shape = new_mode.shape(base_size.base_size);
     let dy = (kinematics.size.y - new_shape.size.y) * 0.5;
-    let new_center = Vec2::new(kinematics.pos.x, kinematics.pos.y + dy);
+    let new_center = Vec2::new(kinematics.pos.x, kinematics.pos.y + gravity_dir.y.signum() * dy);
     if !new_shape.fits_at(new_center, world, predicate) {
         return false;
     }
@@ -584,6 +588,7 @@ mod tests {
             &mut s.body_mode,
             BodyMode::Crouching,
             &world,
+            Vec2::new(0.0, 1.0),
             |_| true,
         );
         assert!(ok);
@@ -592,6 +597,36 @@ mod tests {
         assert_eq!(s.kinematics.size.x, original_size.x);
         let new_feet = s.kinematics.pos.y + s.kinematics.size.y * 0.5;
         assert!((new_feet - original_feet).abs() < 1e-3);
+    }
+
+    #[test]
+    fn try_change_body_mode_to_crouching_keeps_feet_planted_under_inverted_gravity() {
+        // Under inverted gravity the FEET are the AABB's TOP edge. Crouching must
+        // keep that top edge planted (against the ceiling the player stands on),
+        // not the world-bottom — otherwise the body floats off the surface and the
+        // crouch flickers / loses ground contact.
+        let world = World::new("test", Vec2::new(400.0, 400.0), Vec2::new(200.0, 200.0), Vec::new());
+        let mut s = scratch_at(Vec2::new(100.0, 100.0));
+        let original_size = s.kinematics.size;
+        let original_feet = s.kinematics.pos.y - s.kinematics.size.y * 0.5; // TOP edge
+
+        let ok = try_change_body_mode_clusters(
+            &mut s.kinematics,
+            &s.base_size,
+            &mut s.body_mode,
+            BodyMode::Crouching,
+            &world,
+            Vec2::new(0.0, -1.0), // inverted gravity
+            |_| true,
+        );
+        assert!(ok);
+        assert!(s.kinematics.size.y < original_size.y, "body should shrink");
+        let new_feet = s.kinematics.pos.y - s.kinematics.size.y * 0.5;
+        assert!(
+            (new_feet - original_feet).abs() < 1e-3,
+            "top-edge feet must stay planted under inverted gravity (moved {})",
+            new_feet - original_feet
+        );
     }
 
     #[test]
@@ -610,6 +645,7 @@ mod tests {
             &mut s.body_mode,
             BodyMode::Crouching,
             &world,
+            Vec2::new(0.0, 1.0),
             |_| true,
         );
         try_change_body_mode_clusters(
@@ -618,6 +654,7 @@ mod tests {
             &mut s.body_mode,
             BodyMode::Crouching,
             &world,
+            Vec2::new(0.0, 1.0),
             |_| true,
         );
         let ok = try_change_body_mode_clusters(
@@ -626,6 +663,7 @@ mod tests {
             &mut s.body_mode,
             BodyMode::Standing,
             &world,
+            Vec2::new(0.0, 1.0),
             |_| true,
         );
         assert!(ok);
@@ -657,6 +695,7 @@ mod tests {
             &mut s.body_mode,
             BodyMode::Crouching,
             &world,
+            Vec2::new(0.0, 1.0),
             |b| matches!(b.kind, crate::world::BlockKind::Solid),
         );
         assert!(ok);
@@ -667,6 +706,7 @@ mod tests {
             &mut s.body_mode,
             BodyMode::Standing,
             &world,
+            Vec2::new(0.0, 1.0),
             |b| matches!(b.kind, crate::world::BlockKind::Solid),
         );
         assert!(!stand_attempt);
@@ -690,6 +730,7 @@ mod tests {
             &mut s.body_mode,
             BodyMode::Standing,
             &world,
+            Vec2::new(0.0, 1.0),
             |_| true,
         );
         assert!(ok);

@@ -179,12 +179,12 @@ fn settle_on_floor(gdir: (f32, f32), one_way: bool) -> (SandboxSim, f32) {
     } else {
         Block::solid("floor", min, size)
     });
-    // Place the player's gravity-facing edge exactly ON the platform's anti-gravity
-    // face (top under down-gravity, bottom under up-gravity), embedded 1px so it
-    // grounds immediately regardless of room geometry.
-    let pos_y = fy - gdir.1 * (8.0 + half_h - 1.0);
-    sim.teleport_player((px, pos_y));
-    for _ in 0..10 {
+    // Drop the player NATURALLY onto the platform's gravity-facing face from 25px
+    // on the anti-gravity side (no embed — an embedded one-way contact is a weird
+    // state that makes crouch lose ground). rest_center is where it ends up resting.
+    let rest_y = fy - gdir.1 * (8.0 + half_h);
+    sim.teleport_player((px, rest_y - gdir.1 * 25.0));
+    for _ in 0..40 {
         if sim.step(base()).on_ground {
             break;
         }
@@ -221,13 +221,31 @@ fn crouch_is_gravity_symmetric() {
     );
 }
 
-// NOTE: drop-through-one-way symmetry (the originally-reported bug) is proven
-// DETERMINISTICALLY at the engine level in
-// `ambition_engine_core::movement::tests::wall_collision::
-//  one_way_drop_through_works_under_inverted_gravity` — that test controls the
-// world + gravity directly, avoiding this room's geometry/jump-buffer timing
-// which makes an app-harness drop test flaky. Crouch + pogo below exercise the
-// same gravity-`descend` seam through the full app.
+/// Drop-through a one-way platform = descend + jump. The reported bug: under
+/// flipped gravity this did nothing — because pressing the descend key (screen-up)
+/// ALSO fires crouch, whose world-bottom resize anchor floated the body off the
+/// ceiling and dropped `on_ground`, killing the drop-through gate. With the
+/// gravity-relative resize this works under both orientations. Full-app test (runs
+/// the sandbox crouch system, unlike the engine-level drop test).
+#[test]
+fn drop_through_one_way_is_gravity_symmetric_full_app() {
+    let drops = |gdir: (f32, f32)| -> bool {
+        let (mut sim, fy) = settle_on_floor(gdir, true);
+        let start = sim.observation().player_pos.1;
+        sim.step(descend(gdir, true)); // descend + jump (the gesture)
+        for _ in 0..40 {
+            sim.step(base());
+        }
+        let end = sim.observation().player_pos.1;
+        // moved well PAST the platform in the gravity-down direction (fell through)
+        (end - fy) * gdir.1 > (start - fy) * gdir.1 + 24.0
+    };
+    assert!(drops(DOWN), "should drop through under DOWN gravity");
+    assert!(
+        drops(UP),
+        "should drop through under UP gravity (the reported bug — crouch resize was floating the body)"
+    );
+}
 
 // NOTE: fast-fall's gravity-relativity has two parts, both verified outside this
 // flaky room: (a) the engine fast-fall accel already projects onto `gravity_dir`

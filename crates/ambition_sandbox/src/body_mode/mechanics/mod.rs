@@ -131,6 +131,7 @@ pub fn update_body_mode(
                 &mut body_mode_state,
                 ae::BodyMode::Standing,
                 &world.0,
+                gravity_dir,
                 solid,
             );
             return;
@@ -145,6 +146,7 @@ pub fn update_body_mode(
                 &mut body_mode_state,
                 ae::BodyMode::Standing,
                 &world.0,
+                gravity_dir,
                 solid,
             );
             return;
@@ -176,6 +178,7 @@ pub fn update_body_mode(
             &mut body_mode_state,
             ae::BodyMode::Climbing,
             &world.0,
+            gravity_dir,
             solid,
         );
         return;
@@ -196,6 +199,7 @@ pub fn update_body_mode(
                 &mut body_mode_state,
                 ae::BodyMode::Standing,
                 &world.0,
+                gravity_dir,
                 solid,
             );
         }
@@ -211,6 +215,7 @@ pub fn update_body_mode(
             &mut body_mode_state,
             ae::BodyMode::MorphBall,
             &world.0,
+            gravity_dir,
             solid,
         );
         return;
@@ -232,6 +237,7 @@ pub fn update_body_mode(
         &mut body_mode_state,
         target,
         &world.0,
+        gravity_dir,
         solid,
     );
 }

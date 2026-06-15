@@ -106,7 +106,7 @@ Ordered so each step compiles + commits; later steps unlock the big one.
    - Misc: `BoundFeatureKind`, `rider_hand_world_pos`, `ui_fonts::UiFontWeight`.
    - Whatever's left in the lib that imports presentation is HOST/SETUP wiring —
      it moves UP with presentation in step 2, not decoupled.
-2. **Extract `presentation/` → a new `ambition_render` crate** that depends on
+2. ✅ **DONE (2026-06-15, ~45min).** **Extract `presentation/` → a new `ambition_render` crate** that depends on
    `ambition_sandbox`. `git mv` the dir; rewrite its internal `crate::X` → `ambition_sandbox::X`;
    `ambition_app` + `ambition_content` repoint `presentation::*` → `ambition_render::*`.
    Add the architecture guard: **the sandbox lib does not import the render crate.**
@@ -324,6 +324,8 @@ the final act; needs A4 done so the rename reflects a real boundary, not a label
 | S5 | delete dead inventory UI markers | ☑ | S | ~1 cycle | (dead-code) | lib −28 | 8 zero-reader `#[derive(Component)]` markers from the Phase-D2-deleted adventure menu. |
 
 | S3-a | DELETE legacy `ItemKind`/`PlayerInventory` bag → one `OwnedItems` store | ☑ `behaviour Δ` | M | ~1 cycle | (item-unify) | lib −~110 | the dual-bag smell, RESOLVED. Collapsed onto the 24-row `Item` catalog (already an id-keyed registry); `inventory/` now owns only menu-nav state. Dialogue can grant any of the 24 items now (was: the legacy 3). Behaviour Δ: starter health 2→3 (OwnedItems::starter). App+sandbox+content+yarn tests + 28 guards green. **Step-3 named-content move #1 of 3.** |
+
+| S2 | **EXTRACT `ambition_render` crate (the ~6.6k presentation cut)** | ☑ | XL | ~45min | (5 commits) | sandbox −~6600 | THE HEADLINE. fx+hud (leaf) → reset-visual inversion → presentation_world→app (composition) → rendering/cutscene/ui_fonts/screen_effects/dialog_ui. Layering sandbox<render<content<app; sim CANNOT import its renderer (guard). Replay BIT-IDENTICAL throughout. DialogChoiceSlot moved DOWN to dialog::runtime; pub-widened 4 sandbox internals; SfxBankResource→audio. MONOLITH SEQUENCE step 2 DONE. |
 
 ## Final summary (run 1 — 2026-06-15)
 

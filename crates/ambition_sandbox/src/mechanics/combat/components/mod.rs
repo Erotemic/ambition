@@ -121,6 +121,10 @@ pub struct EnemyTuning {
     /// vertical surfaces and patrol probes ledges instead of walking
     /// off them.
     pub surface_walker: bool,
+    /// Surface-walker only: a hit knocks the actor off its surface (it
+    /// falls with gravity for a moment, then re-attaches). `false` keeps
+    /// it clinging when struck.
+    pub cling_breaks_on_hit: bool,
     /// Self-revives in place after its respawn timer instead of
     /// counting as defeated (finite training dummies).
     pub revives_in_place: bool,
@@ -150,6 +154,7 @@ impl Default for EnemyTuning {
             attack_cooldown_mult: 1.0,
             attacks_player: false,
             surface_walker: false,
+            cling_breaks_on_hit: false,
             revives_in_place: false,
             is_aerial: false,
             is_sandbag: false,

@@ -108,6 +108,11 @@ pub(crate) struct EnemyArchetypeSpec {
     /// crawler with ledge-aware patrol).
     #[serde(default)]
     pub surface_walker: bool,
+    /// Surface-walker only: a hit knocks the actor off its surface — it
+    /// loses cling and falls with gravity for a moment before re-attaching.
+    /// Authored `false` for crawlers that hold on when struck.
+    #[serde(default)]
+    pub cling_breaks_on_hit: bool,
     #[serde(default)]
     pub is_aerial: bool,
     #[serde(default)]
@@ -488,6 +493,7 @@ impl EnemyArchetypeSpec {
             attack_cooldown_mult: self.attack_cooldown_mult,
             attacks_player: self.attacks_player,
             surface_walker: self.surface_walker,
+            cling_breaks_on_hit: self.cling_breaks_on_hit,
             // Self-revive loop = the authored respawn-in-place timer exists.
             revives_in_place: self.respawn_in_place_seconds.is_some(),
             is_aerial: self.is_aerial,

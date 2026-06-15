@@ -518,6 +518,9 @@
         // Crawlid-style wall/ceiling crawler: hugs the surface normal and
         // probes ledges so it never walks off a platform.
         surface_walker: true,
+        // Knocked off its surface when hit: loses cling and falls with
+        // gravity for a moment, then re-attaches on landing.
+        cling_breaks_on_hit: true,
         max_health: 2,
         patrol_speed: 55.0,
         chase_speed: 80.0,

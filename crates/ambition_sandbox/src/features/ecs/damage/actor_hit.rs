@@ -25,6 +25,12 @@ use ambition_effects::vfx::{ParticleKind, VfxMessage};
 
 use super::*;
 
+/// Peel-off speed (px/s) applied along the surface normal when a struck
+/// surface-walker loses its cling. Enough to visibly pop off a wall/ceiling
+/// before gravity takes over; tuned well under the patrol speed's order so it
+/// reads as a knock, not a launch.
+const CLING_DETACH_POP_SPEED: f32 = 180.0;
+
 /// Apply one landed attacker-side hit to a single actor (peaceful NPC
 /// or hostile enemy) and emit its per-actor feedback (impact VFX,
 /// retaliation stimulus, banter, kill banner / debris / death SFX,
@@ -138,6 +144,22 @@ pub(crate) fn apply_actor_hit(
             };
             let impact = midpoint(event.volume.center(), em.kin.pos);
             writers.vfx.write(VfxMessage::Impact { pos: impact });
+            // Cling-break: a struck surface-walker (puppy-slug) is knocked off
+            // its surface — it peels away along the surface normal and falls with
+            // gravity until it lands and re-attaches (handled by the surface-walk
+            // integration's `fall_until_landed`). Archetypes authored with
+            // `cling_breaks_on_hit: false` hold on when hit. Surface_normal is reset
+            // to gravity-up `(0,-1)` so the body renders upright while it falls,
+            // matching `fall_until_landed`'s down-gravity assumption.
+            if !killed
+                && em.config.tuning.surface_walker
+                && em.config.tuning.cling_breaks_on_hit
+            {
+                let peel = em.surface.surface_normal * CLING_DETACH_POP_SPEED;
+                em.surface.on_ground = false;
+                em.surface.surface_normal = ae::Vec2::new(0.0, -1.0);
+                em.kin.vel += peel;
+            }
             if killed {
                 em.status.alive = false;
                 if let Some(respawn_s) = caps.respawn_in_place_seconds {

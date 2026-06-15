@@ -197,6 +197,97 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
     );
 }
 
+/// Shared setup for the cling-break tests: spawn a hostile actor, make it a
+/// surface-walker clung to a LEFT wall (outward normal +x), then slash it.
+fn slash_clung_surface_walker(cling_breaks_on_hit: bool) -> (App, bevy::prelude::Entity) {
+    let mut app = App::new();
+    app.insert_resource(GameplayBanner::default());
+    app.add_message::<HitEvent>();
+    app.add_message::<SetFlagRequested>();
+    app.add_message::<SfxMessage>();
+    app.add_message::<VfxMessage>();
+    app.add_message::<DebrisBurstMessage>();
+    app.add_message::<ActorStimulus>();
+    app.add_systems(Update, apply_feature_hit_events);
+
+    let actor = spawn_hostile_actor(&mut app); // HP 5 — survives one slash
+    {
+        let mut cfg = app
+            .world_mut()
+            .get_mut::<super::super::enemy_clusters::EnemyConfig>(actor)
+            .unwrap();
+        cfg.tuning.surface_walker = true;
+        cfg.tuning.cling_breaks_on_hit = cling_breaks_on_hit;
+    }
+    {
+        let mut surf = app
+            .world_mut()
+            .get_mut::<crate::features::ActorSurfaceState>(actor)
+            .unwrap();
+        surf.on_ground = true;
+        surf.surface_normal = ae::Vec2::new(1.0, 0.0);
+    }
+    app.world_mut().write_message(HitEvent {
+        volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)),
+        damage: 1,
+        source: HitSource::PlayerSlash { knock_x: 0.0 },
+        attacker: None,
+        target: HitTarget::Volume,
+        mode: HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+    });
+    app.update();
+    (app, actor)
+}
+
+#[test]
+fn struck_cling_breaker_loses_its_surface_and_falls() {
+    // The puppy-slug "panic on hit": a struck surface-walker authored
+    // `cling_breaks_on_hit` leaves its surface, re-orients upright (gravity-down)
+    // so it falls + renders upright, and peels away along the surface normal.
+    let (app, actor) = slash_clung_surface_walker(true);
+    let surf = app
+        .world()
+        .get::<crate::features::ActorSurfaceState>(actor)
+        .unwrap();
+    assert!(
+        !surf.on_ground,
+        "a struck cling-breaker should leave its surface and fall"
+    );
+    assert_eq!(
+        surf.surface_normal,
+        ae::Vec2::new(0.0, -1.0),
+        "it re-orients to gravity-down so the body falls + renders upright"
+    );
+    let kin = app
+        .world()
+        .get::<super::super::enemy_clusters::BodyKinematics>(actor)
+        .unwrap();
+    assert!(
+        kin.vel.x > 0.0,
+        "it peels away along the +x wall normal, got vel {:?}",
+        kin.vel
+    );
+}
+
+#[test]
+fn struck_surface_walker_holds_on_when_cling_does_not_break() {
+    // Crawlers authored `cling_breaks_on_hit: false` keep clinging when struck —
+    // their surface state is untouched by the hit.
+    let (app, actor) = slash_clung_surface_walker(false);
+    let surf = app
+        .world()
+        .get::<crate::features::ActorSurfaceState>(actor)
+        .unwrap();
+    assert!(surf.on_ground, "a non-breaking crawler keeps its footing");
+    assert_eq!(
+        surf.surface_normal,
+        ae::Vec2::new(1.0, 0.0),
+        "and stays oriented to its wall"
+    );
+}
+
 #[test]
 fn player_slash_shatters_a_breakable() {
     // Completes the attacker-side hit matrix: a player slash on a

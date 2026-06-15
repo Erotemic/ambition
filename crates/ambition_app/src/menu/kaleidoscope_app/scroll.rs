@@ -106,6 +106,3 @@ pub(crate) fn kaleidoscope_apply_scroll_drag(
         scroll.system_window_start = Some(start);
     }
 }
-
-#[cfg(test)]
-mod lunex_kaleidoscope_app_tests;

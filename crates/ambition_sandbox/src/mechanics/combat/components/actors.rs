@@ -2,7 +2,6 @@
 //! aggression, health, attack/combat state, cooldowns, and boss phase state.
 
 use super::super::*;
-use super::*;
 
 /// Actor-specific authored/runtime identity.
 ///

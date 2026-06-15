@@ -2,7 +2,6 @@
 //! breakable/switch/pogo feature families.
 
 use super::super::*;
-use super::*;
 
 /// Stable authored/runtime identity for a feature entity.
 ///

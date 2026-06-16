@@ -296,10 +296,26 @@ case. No rider list, no per-actor flag.
   case). Jon to eyeball riding a platform as the player + as the K-clone.
 - Commit: `feat(physics): player + clone ride via the emergent sweep carry (delete inline riding)`.
 
-### Increment C (next) — the slug
-`step_surface_walker` is the slug's own grounded path (it's glued to surfaces, not
-gravity-resting), so it needs the carry applied where it settles — by the FULL
-platform velocity (it's stuck to the surface, not just resting under gravity).
+### Increment C ✅ — the slug rides too
+`step_surface_walker` is the slug's own grounded path (glued to surfaces, not
+gravity-resting). Added the carry at the top of its grounded branch: probe toward
+the clung surface (`-surface_normal`) and add the supporting block's FULL velocity
+(both axes — it's stuck to the surface, not merely resting under gravity).
+`surface_solid_pred` already matches `BlinkWall` (the moving-platform kind), so it
+finds the platform. Pinned with `a_surface_walker_rides_a_moving_platform` (isolates
+the carry by comparing a moving platform against an identical static one — the crawl
+is the same, the +5px difference is the ride). 917 sandbox tests green.
+
+**Emergent riding is now complete across all three grounding paths** — regular
+enemies/NPCs (`step_kinematic`), player + clone (`integrate_velocity_clusters`),
+slug (`step_surface_walker`) — all from one rule: a body resting on a moving solid
+is carried by it. The lingering need to touch three paths is the multi-sweep fork;
+collapsing those into one sweep is the deeper follow-up the riding work motivates.
+Commit: `feat(physics): surface-walkers ride moving platforms (slug fix)`.
+
+### Next — 3c: clone → PlayerEntity, single_mut player systems → loops
+Drop the bespoke `drive_player_clones`; the clone already renders + rides via the
+shared core, so 3c is the marker swap + iterating the movement/combat systems.
 
 ## (superseded) earlier Stage 3 framing
 

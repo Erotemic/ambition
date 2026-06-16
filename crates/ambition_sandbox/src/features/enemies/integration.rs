@@ -275,6 +275,18 @@ impl<'a> EnemyMut<'a> {
             return;
         }
 
+        // Emergent riding for a surface-walker: it is GLUED to its surface (it crawls
+        // floors, walls, ceilings), so a MOVING surface carries it by the FULL
+        // velocity — both axes, not just the gravity-perpendicular component a
+        // gravity-resting body gets. Probe toward the surface it's clinging to.
+        {
+            let toward_surface = -self.surface.surface_normal;
+            let probe = ae::Aabb::new(self.kin.pos + toward_surface * 2.0, self.kin.size * 0.5);
+            if let Some(block) = world.first_overlapping_block(probe, surface_solid_pred) {
+                self.kin.pos += block.velocity;
+            }
+        }
+
         let n = self.surface.surface_normal;
         let speed = self.config.tuning.patrol_speed;
         let step_len = speed * dt;

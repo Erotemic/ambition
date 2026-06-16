@@ -609,4 +609,63 @@ mod conversion_tests {
     // `spawn_enemy_projectiles_from_brain_actions::tests::*` still
     // covers the projectile spawn shape; brain-side fire-intent
     // generation belongs in the relevant brain backend's tests.
+
+    /// A surface-walking enemy (PuppySlug) GLUED to a moving platform rides it by
+    /// the full platform velocity — the emergent-riding fix for "slugs behave weird
+    /// on moving platforms". Isolated by comparing a moving platform against an
+    /// identical static one: the surface-crawl is the same in both, so the extra
+    /// displacement is exactly the carry.
+    fn slug_step_on_platform(platform_velocity: ae::Vec2) -> f32 {
+        // A platform-shaped solid (BlinkWall, like real moving platforms) carrying
+        // `platform_velocity`. Slug stands on its top.
+        let mut platform = ae::Block::blink_wall(
+            String::from("platform"),
+            ae::Vec2::new(0.0, 500.0),
+            ae::Vec2::new(400.0, 40.0),
+            ae::BlinkWallTier::Soft,
+        );
+        platform.velocity = platform_velocity;
+        let world = ae::World::new(
+            String::from("slug_platform"),
+            ae::Vec2::new(2000.0, 2000.0),
+            ae::Vec2::new(100.0, 100.0),
+            vec![platform],
+        );
+        let aabb = ae::Aabb::new(ae::Vec2::new(200.0, 492.0), ae::Vec2::new(10.0, 8.0));
+        let mut enemy = super::ecs::enemy_clusters::EnemyClusterSeed::new(
+            "slug",
+            "PuppySlug",
+            aabb,
+            crate::actor::EnemyBrain::Passive,
+            &[],
+        );
+        // Force the surface-walker grounded state directly (independent of which
+        // archetype the brain resolves to): glued to the platform top.
+        enemy.config.tuning.surface_walker = true;
+        enemy.surface.on_ground = true;
+        enemy.surface.surface_normal = ae::Vec2::new(0.0, -1.0);
+        let x0 = enemy.kin.pos.x;
+        enemy.update_for_test(
+            &world,
+            ae::Vec2::new(1500.0, 492.0),
+            FeatureCombatTuning::default(),
+            None,
+            1.0 / 60.0,
+            false,
+            crate::actor::control::ActorControlFrame::neutral(),
+            ae::Vec2::new(0.0, 1.0),
+        );
+        enemy.kin.pos.x - x0
+    }
+
+    #[test]
+    fn a_surface_walker_rides_a_moving_platform() {
+        let static_dx = slug_step_on_platform(ae::Vec2::ZERO);
+        let moving_dx = slug_step_on_platform(ae::Vec2::new(5.0, 0.0));
+        // The crawl is identical in both; the difference is the +5px platform carry.
+        assert!(
+            (moving_dx - static_dx - 5.0).abs() < 0.01,
+            "slug should ride +5px with the platform: moving_dx={moving_dx}, static_dx={static_dx}"
+        );
+    }
 }

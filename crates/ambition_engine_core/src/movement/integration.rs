@@ -110,104 +110,18 @@ pub(super) fn integrate_velocity_clusters(
             tuning,
         );
     } else {
-        // Cardinal gravity DIRECTION (down `(0,1)` / up `(0,-1)` / wall-walking
-        // `(±1,0)`). The player model is gravity-direction-relative: gravity,
-        // fall-cap, fast-fall and glide all project onto `g` instead of assuming
-        // `+Y`. For down/up this is identical to the old `gravity_sign` path.
-        let g = tuning.gravity_dir;
-        // Fall-direction speed BEFORE this frame's gravity. Terminal velocity is
-        // an equilibrium gravity accelerates UP TO — not a brake that actively
-        // decelerates a body already moving faster (e.g. one flung out of a
-        // portal carrying built-up momentum). So the air cap below is raised to
-        // at least this pre-gravity speed: a normal fall (below the cap) is
-        // unchanged, while an over-cap fling is preserved instead of being
-        // clipped back to terminal on the very next tick.
-        let fall_along_before = clusters.kinematics.vel.dot(g).max(0.0);
-        let blink_hang_active =
-            clusters.blink.grace_timer > 0.0 && clusters.kinematics.vel.dot(g) >= 0.0;
-        let water_gravity_scale = clusters
-            .env_contact
-            .water
-            .map(|c| c.spec.gravity_scale)
-            .unwrap_or(1.0);
-        if !blink_hang_active {
-            clusters.kinematics.vel += tuning.gravity * g * water_gravity_scale * dt;
-        }
-        if input.fast_fall_pressed
-            && clusters.abilities.abilities.fast_fall
-            && !clusters.ground.on_ground
-        {
-            clusters.flight.fast_falling = true;
-        }
-        if clusters.flight.fast_falling
-            && !blink_hang_active
-            && clusters.env_contact.water.is_none()
-        {
-            clusters.kinematics.vel += tuning.fast_fall_accel * g * dt;
-        }
-        clusters.flight.gliding = clusters.abilities.abilities.glide
-            && !clusters.ground.on_ground
-            && !clusters.flight.fast_falling
-            && !blink_hang_active
-            && clusters.env_contact.water.is_none()
-            && input.jump_held
-            && clusters.kinematics.vel.dot(g) > 0.0;
-
-        if clusters.abilities.abilities.move_horizontal {
-            let accel = if clusters.ground.on_ground {
-                tuning.run_accel
-            } else if clusters.flight.gliding {
-                tuning.glide_air_accel
-            } else {
-                tuning.air_accel
-            };
-            // The run/friction act along the MOVEMENT axis: the control frame's
-            // `side`, so `axis_x = +1` walks the player toward THEIR right at any
-            // orientation. `move_axis` was sign-blind between the two walls
-            // (returned screen-down for BOTH left- and right-gravity); the control
-            // frame fixes that — right-gravity → screen-up, left-gravity →
-            // screen-down. `Hybrid` screen-aligns past ±90° so up-gravity controls
-            // don't invert. For down gravity `side == (1,0)`, identical to `vel.x`.
-            let m = crate::AccelerationFrame::new(g)
-                .control_frame(tuning.input_frame_mode)
-                .side;
-            let along = clusters.kinematics.vel.dot(m);
-            let target = input.axis_x * tuning.max_run_speed;
-            let mut new_along = approach(along, target, accel * dt);
-            let friction = if clusters.ground.on_ground {
-                tuning.ground_friction
-            } else {
-                tuning.air_friction
-            };
-            if input.axis_x.abs() <= 0.1 {
-                new_along = approach(new_along, 0.0, friction * dt);
-            }
-            clusters.kinematics.vel += (new_along - along) * m;
-        }
-
-        if let Some(contact) = clusters.env_contact.water {
-            let drag = contact.spec.drag.clamp(0.0, 1.0);
-            clusters.kinematics.vel *= 1.0 - drag;
-            cap_fall_speed(&mut clusters.kinematics.vel, g, contact.spec.max_fall_speed);
-        } else {
-            // `relax` = treat the cap as an equilibrium (never decelerate an
-            // over-cap fling like a portal exit). GLIDING is an intentional brake
-            // (a parachute that slows you BELOW terminal), so it keeps its hard
-            // clamp; the plain terminal velocity and fast-fall do not.
-            let (fall_cap, relax) = if clusters.flight.fast_falling {
-                (tuning.fast_fall_speed, true)
-            } else if clusters.flight.gliding {
-                (tuning.glide_fall_speed, false)
-            } else {
-                (tuning.max_fall_speed, true)
-            };
-            let effective_cap = if relax {
-                fall_cap.max(fall_along_before)
-            } else {
-                fall_cap
-            };
-            cap_fall_speed(&mut clusters.kinematics.vel, g, effective_cap);
-        }
+        // Normal mode — the shared physics spine (gravity-direction-relative).
+        integrate_normal_clusters(
+            clusters.kinematics,
+            clusters.flight,
+            clusters.ground,
+            clusters.blink,
+            clusters.env_contact,
+            clusters.abilities,
+            input,
+            dt,
+            tuning,
+        );
     }
 
     // Pre-X-sweep state.
@@ -331,6 +245,100 @@ pub(super) fn integrate_velocity_clusters(
 /// Ladder integration: drive vel.y from `axis_y * climb_speed`,
 /// scale x by `strafe_factor`, and clear transient flight flags.
 /// Suspends gravity by overwriting `vel.y` rather than accumulating.
+/// Normal-mode integration — the shared physics SPINE (not a composable limb):
+/// gravity-direction-relative gravity, fast-fall, glide-gate, run/friction, and
+/// the fall-speed cap. The fourth mode-select branch alongside dash (skip),
+/// climb, and flight. Everything projects onto `tuning.gravity_dir` so sideways /
+/// flipped gravity Just Works — the property enemies/NPCs inherit when they move
+/// onto this spine (and the reason their Y-only `gravity_sign` fall bug vanishes).
+pub(super) fn integrate_normal_clusters(
+    kinematics: &mut crate::player_clusters::BodyKinematics,
+    flight: &mut crate::player_clusters::PlayerFlightState,
+    ground: &crate::player_clusters::PlayerGroundState,
+    blink: &crate::player_clusters::PlayerBlinkState,
+    env_contact: &crate::player_clusters::PlayerEnvironmentContact,
+    abilities: &crate::player_clusters::PlayerAbilities,
+    input: InputState,
+    dt: f32,
+    tuning: MovementTuning,
+) {
+    let g = tuning.gravity_dir;
+    // Fall-direction speed BEFORE this frame's gravity (terminal velocity is an
+    // equilibrium gravity accelerates UP TO, not a brake on an over-cap fling).
+    let fall_along_before = kinematics.vel.dot(g).max(0.0);
+    let blink_hang_active = blink.grace_timer > 0.0 && kinematics.vel.dot(g) >= 0.0;
+    let water_gravity_scale = env_contact
+        .water
+        .map(|c| c.spec.gravity_scale)
+        .unwrap_or(1.0);
+    if !blink_hang_active {
+        kinematics.vel += tuning.gravity * g * water_gravity_scale * dt;
+    }
+    if input.fast_fall_pressed && abilities.abilities.fast_fall && !ground.on_ground {
+        flight.fast_falling = true;
+    }
+    if flight.fast_falling && !blink_hang_active && env_contact.water.is_none() {
+        kinematics.vel += tuning.fast_fall_accel * g * dt;
+    }
+    flight.gliding = abilities.abilities.glide
+        && !ground.on_ground
+        && !flight.fast_falling
+        && !blink_hang_active
+        && env_contact.water.is_none()
+        && input.jump_held
+        && kinematics.vel.dot(g) > 0.0;
+
+    if abilities.abilities.move_horizontal {
+        let accel = if ground.on_ground {
+            tuning.run_accel
+        } else if flight.gliding {
+            tuning.glide_air_accel
+        } else {
+            tuning.air_accel
+        };
+        // Run/friction act along the control frame's `side` axis so `axis_x = +1`
+        // walks the body toward THEIR right at any gravity orientation.
+        let m = crate::AccelerationFrame::new(g)
+            .control_frame(tuning.input_frame_mode)
+            .side;
+        let along = kinematics.vel.dot(m);
+        let target = input.axis_x * tuning.max_run_speed;
+        let mut new_along = approach(along, target, accel * dt);
+        let friction = if ground.on_ground {
+            tuning.ground_friction
+        } else {
+            tuning.air_friction
+        };
+        if input.axis_x.abs() <= 0.1 {
+            new_along = approach(new_along, 0.0, friction * dt);
+        }
+        kinematics.vel += (new_along - along) * m;
+    }
+
+    if let Some(contact) = env_contact.water {
+        let drag = contact.spec.drag.clamp(0.0, 1.0);
+        kinematics.vel *= 1.0 - drag;
+        cap_fall_speed(&mut kinematics.vel, g, contact.spec.max_fall_speed);
+    } else {
+        // `relax` = treat the cap as an equilibrium (never decelerate an over-cap
+        // fling like a portal exit). GLIDING is an intentional brake, so it keeps a
+        // hard clamp; terminal velocity + fast-fall do not.
+        let (fall_cap, relax) = if flight.fast_falling {
+            (tuning.fast_fall_speed, true)
+        } else if flight.gliding {
+            (tuning.glide_fall_speed, false)
+        } else {
+            (tuning.max_fall_speed, true)
+        };
+        let effective_cap = if relax {
+            fall_cap.max(fall_along_before)
+        } else {
+            fall_cap
+        };
+        cap_fall_speed(&mut kinematics.vel, g, effective_cap);
+    }
+}
+
 pub(super) fn integrate_climb_clusters(
     kinematics: &mut crate::player_clusters::BodyKinematics,
     env_contact: &crate::player_clusters::PlayerEnvironmentContact,

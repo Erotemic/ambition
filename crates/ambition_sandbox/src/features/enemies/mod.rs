@@ -805,8 +805,8 @@ mod capability_tests {
         assert!(sky.melee.is_some(), "sky_parrot has a dive/peck melee");
         assert_eq!(
             sky.brain_template,
-            EnemyBrainTemplate::Shark,
-            "sky_parrot reuses the aerial Shark dive brain",
+            EnemyBrainTemplate::Aerial,
+            "sky_parrot uses the aerial dive-bomber brain",
         );
 
         // Friendly cove form: a catalog character with a peaceful default.

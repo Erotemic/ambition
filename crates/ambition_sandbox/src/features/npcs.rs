@@ -452,6 +452,26 @@ pub(crate) fn npc_hostile_bark_line(config: &NpcConfig) -> &'static str {
     npc_hostile_bark(&key, &name)
 }
 
+/// Ambient "bark" one-liners a peaceful NPC mutters while idling (not the
+/// interact dialog). Returns `None` for NPCs with no ambient pool, so the
+/// idle-bark system skips them. Rotation cycles through the pool. The
+/// stochastic parrot riffs on the LLM "stochastic parrot" hypothesis.
+pub(crate) fn npc_idle_bark_line(config: &NpcConfig, rotation: u32) -> Option<&'static str> {
+    let pool: &[&str] = match npc_dialogue_key(config).as_str() {
+        "parrot_cove" => &[
+            "Awk! Polly wants a corpus.",
+            "Squawk! Next token... 'cracker'. High confidence.",
+            "I contain multitudes. Mostly other people's.",
+            "Pieces of prior! Pieces of prior!",
+            "Awk! I'm not parroting, I'm GENERALIZING. ...mostly.",
+            "Temperature's high today. Feeling creative. Brawk!",
+            "Attention is all you need! And crackers.",
+        ],
+        _ => return None,
+    };
+    Some(pool[(rotation as usize) % pool.len()])
+}
+
 /// Bark/speech-bubble anchor derived from the actor AABB (head height).
 pub(crate) fn npc_bark_anchor_from_aabb(aabb: ae::Aabb) -> ae::Vec2 {
     let size = aabb.half_size() * 2.0;

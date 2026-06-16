@@ -789,3 +789,73 @@ pub fn sync_actor_components_from_enemy(
         respawn_timer: em.status.respawn_timer,
     };
 }
+
+/// Per-NPC ambient-bark timing (decremented by sim dt; deterministic jitter).
+#[derive(Default)]
+pub struct NpcIdleBarkState {
+    timers: std::collections::HashMap<String, f32>,
+    rotations: std::collections::HashMap<String, u32>,
+}
+
+/// Deterministic ~6–10s ambient-bark interval keyed by NPC id + counter — a
+/// tiny FNV hash so we don't pull `rand` in for one cadence offset (mirrors the
+/// boss idle-bark jitter).
+fn npc_idle_bark_jitter(id: &str, counter: u32) -> f32 {
+    let mut h: u32 = 2166136261;
+    for b in id.bytes() {
+        h = (h ^ b as u32).wrapping_mul(16777619);
+    }
+    h ^= counter.wrapping_mul(2654435761);
+    6.0 + (h % 4000) as f32 / 1000.0
+}
+
+/// Ambient NPC chatter: a peaceful NPC carrying an idle-bark pool
+/// ([`crate::features::npcs::npc_idle_bark_line`]) mutters a line every
+/// ~6–10s, so it feels alive between conversations. Skips hostile NPCs and any
+/// still showing a hit-flash bubble (so it never talks over a hit bark). The
+/// stochastic parrot is the first user; any NPC gains barks by adding a pool.
+pub fn tick_npc_idle_barks(
+    world_time: Res<WorldTime>,
+    npcs: Query<
+        (
+            &super::super::enemy_clusters::BodyKinematics,
+            &super::super::npc_clusters::NpcConfig,
+            &super::super::npc_clusters::NpcStatus,
+        ),
+        With<FeatureSimEntity>,
+    >,
+    mut vfx: MessageWriter<ambition_effects::vfx::VfxMessage>,
+    mut state: Local<NpcIdleBarkState>,
+) {
+    let dt = world_time.scaled_dt;
+    if dt <= 0.0 {
+        return;
+    }
+    for (kin, config, status) in &npcs {
+        if status.hostile || status.hit_flash > 0.0 {
+            continue;
+        }
+        let rotation = *state.rotations.get(&config.id).unwrap_or(&0);
+        let Some(line) = super::super::npcs::npc_idle_bark_line(config, rotation) else {
+            continue;
+        };
+        let timer = state
+            .timers
+            .entry(config.id.clone())
+            .or_insert_with(|| npc_idle_bark_jitter(&config.id, 0));
+        *timer -= dt;
+        if *timer > 0.0 {
+            continue;
+        }
+        let anchor = kin.pos + ae::Vec2::new(0.0, -kin.size.y * 0.72 - 16.0);
+        vfx.write(ambition_effects::vfx::VfxMessage::SpeechBubble {
+            pos: anchor,
+            text: line.to_string(),
+        });
+        let next = rotation.wrapping_add(1);
+        state.rotations.insert(config.id.clone(), next);
+        state
+            .timers
+            .insert(config.id.clone(), npc_idle_bark_jitter(&config.id, next));
+    }
+}

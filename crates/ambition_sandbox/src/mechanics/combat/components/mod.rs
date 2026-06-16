@@ -204,6 +204,10 @@ pub enum EnemyBrainTemplate {
     /// Smash-brawl pipeline: observe → mode → action → difficulty →
     /// emit. See `crate::brain::smash`.
     Smash,
+    /// Lively flyer: an aerial dive-bomber when hostile (stalk → dive →
+    /// recover). Shares its code with the peaceful catalog `Aerial` bird via
+    /// `StateMachineCfg::Aerial` — hostility is just `aggressiveness > 0`.
+    Aerial,
 }
 
 /// The generic brain-construction inputs projected from an actor's

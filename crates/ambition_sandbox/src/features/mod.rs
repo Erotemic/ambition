@@ -101,8 +101,9 @@ pub use ecs::{
     sync_boss_reward_chests_ecs, sync_ecs_actors_with_save, sync_ecs_bosses_with_save,
     sync_ecs_npc_actors_with_save, sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs,
     sync_riders_to_mounts, tick_and_despawn_hitboxes, tick_boss_brains_system,
-    tick_gameplay_banner, update_ecs_actors, update_ecs_bosses, update_ecs_breakables,
-    update_ecs_falling_chests, update_ecs_hazards, update_ecs_npcs, ActorRuntime,
+    tick_gameplay_banner, tick_npc_idle_barks, update_ecs_actors, update_ecs_bosses,
+    update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards, update_ecs_npcs,
+    ActorRuntime,
     BossClusterQueryData, BossClusterRef, BossClusterScratch, BossConfig, BossMut, BossRef,
     BossStatus, FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex, HazardFeature,
     HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime, MountSlot, Mountable, Mounted,
@@ -182,6 +183,8 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // `update_ecs_actors` is irrelevant: NPCs and enemies
                 // touch disjoint entities.
                 update_ecs_npcs,
+                // Ambient NPC chatter (parrot squawks, etc.) on its own timer.
+                tick_npc_idle_barks,
                 // Rider/mount pose sync. Runs immediately after the
                 // per-actor brain tick so the rider's brain has had
                 // a chance to emit fire intent for the target from

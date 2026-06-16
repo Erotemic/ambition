@@ -892,3 +892,139 @@ fn is_hostile_reports_per_cfg() {
     }
     .is_hostile());
 }
+
+// ===== Aerial brain =====
+//
+// The Aerial brain is the lively flyer. These tests run a tiny headless
+// integration loop (advance sim_time, move the actor by its emitted
+// `desired_vel`) and assert the EMERGENT behavior — flight, perching,
+// landing beside the player, and the stalk→dive→peck→recover attack cycle —
+// since the feel can't be eyeballed in CI.
+
+fn aerial_cfg(aggressiveness: f32) -> AerialCfg {
+    AerialCfg {
+        aggressiveness,
+        cruise_speed: 120.0,
+        dive_speed: 300.0,
+        aggro_radius: 90.0,
+        attack_range: 40.0,
+        roam_radius: 120.0,
+    }
+}
+
+#[test]
+fn aerial_is_hostile_iff_aggressive() {
+    let peaceful = StateMachineCfg::Aerial {
+        cfg: aerial_cfg(0.0),
+        state: AerialState::default(),
+    };
+    let hostile = StateMachineCfg::Aerial {
+        cfg: aerial_cfg(1.0),
+        state: AerialState::default(),
+    };
+    assert!(!peaceful.is_hostile());
+    assert!(hostile.is_hostile());
+}
+
+#[test]
+fn aerial_peaceful_flits_between_perches_near_its_anchor() {
+    let mut sm = StateMachineCfg::Aerial {
+        cfg: aerial_cfg(0.0),
+        state: AerialState::default(),
+    };
+    let anchor = ae::Vec2::new(500.0, 300.0);
+    let mut pos = anchor;
+    let mut out = crate::actor::control::ActorControlFrame::default();
+    let dt = 1.0 / 60.0;
+    let (mut flew, mut perched, mut max_dist) = (false, false, 0.0_f32);
+    for i in 0..600 {
+        let mut s = BrainSnapshot::idle();
+        s.actor_pos = pos;
+        s.target_alive = false;
+        s.sim_time = i as f32 * dt;
+        s.dt = dt;
+        tick_state_machine(&mut sm, &s, &mut out);
+        pos += out.desired_vel * dt;
+        let speed = out.desired_vel.length();
+        flew |= speed > 30.0;
+        perched |= speed < 1.0;
+        max_dist = max_dist.max((pos - anchor).length());
+    }
+    assert!(flew, "a lively bird must actually fly (nonzero-velocity legs)");
+    assert!(perched, "a lively bird must perch (near-zero-velocity dwells)");
+    assert!(
+        max_dist <= aerial_cfg(0.0).roam_radius * 1.6,
+        "the bird stays near its captured anchor (max_dist={max_dist})",
+    );
+}
+
+#[test]
+fn aerial_peaceful_drops_beside_the_player_to_be_talked_to() {
+    let mut sm = StateMachineCfg::Aerial {
+        cfg: aerial_cfg(0.0),
+        state: AerialState::default(),
+    };
+    // Player within the talk radius (dist 60 < aggro_radius 90).
+    let target = ae::Vec2::new(560.0, 400.0);
+    let mut pos = ae::Vec2::new(500.0, 400.0);
+    let mut out = crate::actor::control::ActorControlFrame::default();
+    let dt = 1.0 / 60.0;
+    let mut last_mode = crate::actor::ai::CharacterAiMode::Idle;
+    for i in 0..240 {
+        let mut s = BrainSnapshot::idle();
+        s.actor_pos = pos;
+        s.target_pos = target;
+        s.target_alive = true;
+        s.sim_time = i as f32 * dt;
+        s.dt = dt;
+        tick_state_machine(&mut sm, &s, &mut out);
+        pos += out.desired_vel * dt;
+        if let StateMachineCfg::Aerial { state, .. } = &sm {
+            last_mode = state.mode;
+        }
+    }
+    assert_eq!(
+        last_mode,
+        crate::actor::ai::CharacterAiMode::Idle,
+        "near the player the bird holds (talk-ready), not patrol/chase",
+    );
+    assert!(
+        (pos.x - target.x).abs() < 45.0 && (pos.y - target.y).abs() < 12.0,
+        "the bird lands at the player's side/feet to talk (pos={pos:?})",
+    );
+}
+
+#[test]
+fn aerial_hostile_stalks_dives_pecks_then_recovers() {
+    let mut sm = StateMachineCfg::Aerial {
+        cfg: aerial_cfg(1.0),
+        state: AerialState::default(),
+    };
+    let mut pos = ae::Vec2::new(500.0, 100.0); // bird starts above
+    let target = ae::Vec2::new(520.0, 400.0); // player below, stationary
+    let mut out = crate::actor::control::ActorControlFrame::default();
+    let dt = 1.0 / 60.0;
+    let (mut saw_dive, mut pecked, mut saw_recover) = (false, false, false);
+    for i in 0..900 {
+        let mut s = BrainSnapshot::idle();
+        s.actor_pos = pos;
+        s.target_pos = target;
+        s.target_alive = true;
+        s.sim_time = i as f32 * dt;
+        s.dt = dt;
+        s.attack_cooldown_remaining = 0.0; // ready to peck whenever in range
+        tick_state_machine(&mut sm, &s, &mut out);
+        if let StateMachineCfg::Aerial { state, .. } = &sm {
+            match state.phase {
+                AerialPhase::Dive => saw_dive = true,
+                AerialPhase::Recover => saw_recover = true,
+                _ => {}
+            }
+        }
+        pecked |= out.melee_pressed;
+        pos += out.desired_vel * dt;
+    }
+    assert!(saw_dive, "the dive-bomber must commit to a Dive");
+    assert!(pecked, "it must peck (melee) when the dive reaches the target");
+    assert!(saw_recover, "it must peel off and Recover after the dive");
+}

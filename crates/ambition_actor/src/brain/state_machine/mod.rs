@@ -65,6 +65,9 @@ pub enum StateMachineCfg {
     /// only when the caller threads the ActionSet in. See
     /// [`tick_state_machine_with_actions`] below.
     Smash { cfg: SmashCfg, state: SmashState },
+    /// Lively flyer: peaceful (perch/fly/walk/land-by-player) or hostile
+    /// (stalk/dive/recover), selected by `cfg.aggressiveness`.
+    Aerial { cfg: AerialCfg, state: AerialState },
 }
 
 impl StateMachineCfg {
@@ -86,6 +89,7 @@ impl StateMachineCfg {
             // instead). If we add a peaceful Smash variant later, this
             // gate moves into `SmashCfg`.
             Self::Smash { .. } => true,
+            Self::Aerial { cfg, .. } => cfg.aggressiveness > 0.0,
         }
     }
 }
@@ -134,6 +138,7 @@ pub fn tick_state_machine_with_actions(
             tick_boss_pattern_via_state_machine(cfg, state, snapshot, out)
         }
         StateMachineCfg::Smash { cfg, state } => tick_smash(cfg, state, actions, snapshot, out),
+        StateMachineCfg::Aerial { cfg, state } => tick_aerial(cfg, state, snapshot, out),
     }
 }
 
@@ -739,6 +744,276 @@ fn apply_flying_separation(
         blended / speed * max_speed
     } else {
         blended
+    }
+}
+
+// ===== Aerial =====
+//
+// A lively flying brain with two faces selected by `aggressiveness`:
+//   - peaceful (0.0): a bird that feels ALIVE — it flits between airborne
+//     perches and ground spots, dwells/hops, and when the player comes near
+//     it drops down beside them to be talked to (like a grounded NPC).
+//   - hostile (>0): an aerial dive-bomber — stalks to an altitude above its
+//     target, dives, pecks on contact, then peels off to recover.
+//
+// Pure + DETERMINISTIC: every "random" choice is hashed from `sim_time` + the
+// spawn anchor, so the whole performance reproduces in a headless test (no RNG,
+// no frame-timing dependence beyond `dt`). The actor must be gravity-free
+// (enemy `is_aerial`, or a `Floating` NPC) so `desired_vel` controls 2D flight.
+
+/// Deterministic pseudo-random in `[0, 1)` from a float seed (the classic
+/// fract-of-a-big-sine hash). Keeps the brain reproducible without an RNG.
+fn aerial_hash01(seed: f32) -> f32 {
+    let x = (seed * 12.9898 + 7.137).sin() * 43758.5453;
+    x - x.floor()
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct AerialCfg {
+    /// `0.0` = lively peaceful bird; `>0.0` = aerial dive attacker.
+    pub aggressiveness: f32,
+    /// Wander / reposition speed (px/s).
+    pub cruise_speed: f32,
+    /// Attack dive speed (px/s).
+    pub dive_speed: f32,
+    /// Peaceful: drop-beside-player "talk" radius. Hostile: unused gate today.
+    pub aggro_radius: f32,
+    /// Melee reach (px) for the dive peck.
+    pub attack_range: f32,
+    /// How far the bird ranges from its anchor (px); also the dive altitude.
+    pub roam_radius: f32,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum AerialPhase {
+    /// Lively: airborne dwell on a high perch.
+    #[default]
+    Perch,
+    /// Lively: in transit to the current waypoint.
+    Fly,
+    /// Lively: small hops along the ground.
+    Walk,
+    /// Hostile: repositioning to an altitude above the target.
+    Stalk,
+    /// Hostile: committed dive at the target.
+    Dive,
+    /// Hostile: peeling off + climbing after a dive.
+    Recover,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct AerialState {
+    pub phase: AerialPhase,
+    /// Sim time at which the current dwell/recover ends.
+    pub phase_until: f32,
+    /// Current fly-to target (lively).
+    pub waypoint: ae::Vec2,
+    /// Home anchor — captured from the actor's position on the first tick, so
+    /// the brain needs no spawn coordinate threaded through construction. For a
+    /// lively bird `anchor.y` is also the ground/perch reference it lands on.
+    pub anchor: ae::Vec2,
+    /// Cached mode for HUD / animation.
+    pub mode: crate::actor::ai::CharacterAiMode,
+    /// Lazily seeded on first tick (anchor/waypoint/phase need real values).
+    pub initialized: bool,
+}
+
+fn aerial_pick_waypoint(cfg: &AerialCfg, state: &mut AerialState, now: f32) {
+    let anchor = state.anchor;
+    let h1 = aerial_hash01(now * 0.37 + anchor.x * 0.13);
+    let h2 = aerial_hash01(now * 0.71 + anchor.y * 0.17 + 3.3);
+    let dx = (h1 - 0.5) * 2.0 * cfg.roam_radius;
+    // ~60% airborne perches, ~40% ground stops, so it mixes flight + walking.
+    let airborne = h2 > 0.4;
+    let dy = if airborne {
+        -(0.3 + h2 * 0.7) * cfg.roam_radius
+    } else {
+        0.0
+    };
+    state.waypoint = ae::Vec2::new(anchor.x + dx, anchor.y + dy);
+}
+
+fn tick_aerial(
+    cfg: &AerialCfg,
+    state: &mut AerialState,
+    snapshot: &BrainSnapshot,
+    out: &mut crate::actor::control::ActorControlFrame,
+) {
+    *out = crate::actor::control::ActorControlFrame::neutral();
+    let pos = snapshot.actor_pos;
+    let now = snapshot.sim_time;
+
+    if cfg.aggressiveness > 0.0 {
+        tick_aerial_hostile(cfg, state, snapshot, out, pos, now);
+    } else {
+        tick_aerial_lively(cfg, state, snapshot, out, pos, now);
+    }
+
+    // Face the target if engaged, else the direction of travel.
+    let face_dx = if snapshot.target_alive {
+        snapshot.target_pos.x - pos.x
+    } else {
+        out.desired_vel.x
+    };
+    if face_dx.abs() > 4.0 {
+        out.facing = face_dx.signum();
+    }
+}
+
+fn tick_aerial_lively(
+    cfg: &AerialCfg,
+    state: &mut AerialState,
+    snapshot: &BrainSnapshot,
+    out: &mut crate::actor::control::ActorControlFrame,
+    pos: ae::Vec2,
+    now: f32,
+) {
+    use crate::actor::ai::CharacterAiMode;
+
+    // Player-near: drop down beside the player at their feet level and hold,
+    // so they can strike up a conversation — same "stop and face" feel as a
+    // grounded patrol NPC, but the bird flies down to do it.
+    if snapshot.target_alive {
+        let to_target = snapshot.target_pos - pos;
+        if to_target.length() < cfg.aggro_radius {
+            state.mode = CharacterAiMode::Idle;
+            state.initialized = false; // re-roll a fresh leg once the player leaves
+            let side = if to_target.x >= 0.0 { -1.0 } else { 1.0 };
+            let perch = ae::Vec2::new(snapshot.target_pos.x + side * 30.0, snapshot.target_pos.y);
+            let delta = perch - pos;
+            out.desired_vel = if delta.length() > 6.0 {
+                delta.normalize_or_zero() * cfg.cruise_speed
+            } else {
+                ae::Vec2::ZERO
+            };
+            return;
+        }
+    }
+
+    if !state.initialized {
+        state.initialized = true;
+        state.anchor = pos;
+        aerial_pick_waypoint(cfg, state, now);
+        state.phase = AerialPhase::Fly;
+    }
+
+    match state.phase {
+        AerialPhase::Fly => {
+            state.mode = CharacterAiMode::Patrol;
+            let delta = state.waypoint - pos;
+            if delta.length() <= 10.0 {
+                // Arrived: dwell. A high waypoint → perch; a ground one → walk.
+                let airborne = state.waypoint.y < state.anchor.y - 8.0;
+                state.phase = if airborne {
+                    AerialPhase::Perch
+                } else {
+                    AerialPhase::Walk
+                };
+                let dwell = 1.1 + aerial_hash01(now + state.anchor.x) * 1.7;
+                state.phase_until = now + dwell;
+                out.desired_vel = ae::Vec2::ZERO;
+            } else {
+                out.desired_vel = delta.normalize_or_zero() * cfg.cruise_speed;
+            }
+        }
+        AerialPhase::Walk => {
+            state.mode = CharacterAiMode::Patrol;
+            // Little ground hops: a slow back-and-forth drift.
+            let hop = (now * 2.4).sin() * cfg.cruise_speed * 0.3;
+            out.desired_vel = ae::Vec2::new(hop, 0.0);
+            if now >= state.phase_until {
+                aerial_pick_waypoint(cfg, state, now);
+                state.phase = AerialPhase::Fly;
+            }
+        }
+        AerialPhase::Perch => {
+            state.mode = CharacterAiMode::Patrol;
+            out.desired_vel = ae::Vec2::ZERO;
+            if now >= state.phase_until {
+                aerial_pick_waypoint(cfg, state, now);
+                state.phase = AerialPhase::Fly;
+            }
+        }
+        // Hostile phases can't occur on a peaceful bird; reset defensively.
+        _ => state.phase = AerialPhase::Fly,
+    }
+}
+
+fn tick_aerial_hostile(
+    cfg: &AerialCfg,
+    state: &mut AerialState,
+    snapshot: &BrainSnapshot,
+    out: &mut crate::actor::control::ActorControlFrame,
+    pos: ae::Vec2,
+    now: f32,
+) {
+    use crate::actor::ai::CharacterAiMode;
+
+    if !state.initialized {
+        state.initialized = true;
+        state.anchor = pos;
+        state.phase = AerialPhase::Stalk;
+    }
+
+    if !snapshot.target_alive {
+        // No prey: loiter near the captured anchor.
+        state.mode = CharacterAiMode::Patrol;
+        let delta = state.anchor - pos;
+        out.desired_vel = if delta.length() > 12.0 {
+            delta.normalize_or_zero() * cfg.cruise_speed
+        } else {
+            ae::Vec2::ZERO
+        };
+        return;
+    }
+
+    let target = snapshot.target_pos;
+    let to_t = target - pos;
+    let dist = to_t.length();
+    let altitude = cfg.roam_radius.max(80.0);
+
+    match state.phase {
+        AerialPhase::Stalk => {
+            state.mode = CharacterAiMode::Chase;
+            // Climb to a point above the target, then commit to a dive.
+            let anchor = ae::Vec2::new(target.x, target.y - altitude);
+            let delta = anchor - pos;
+            out.desired_vel = apply_flying_separation(
+                delta.normalize_or_zero() * cfg.cruise_speed,
+                cfg.cruise_speed,
+                snapshot,
+            );
+            let lined_up = pos.y < target.y - altitude * 0.5
+                && (pos.x - target.x).abs() < cfg.attack_range * 2.5;
+            if lined_up && snapshot.attack_cooldown_remaining <= 0.0 {
+                state.phase = AerialPhase::Dive;
+                state.mode = CharacterAiMode::Telegraph;
+            }
+        }
+        AerialPhase::Dive => {
+            state.mode = CharacterAiMode::Attack;
+            out.desired_vel = to_t.normalize_or_zero() * cfg.dive_speed;
+            if dist <= cfg.attack_range && snapshot.attack_cooldown_remaining <= 0.0 {
+                out.melee_pressed = true;
+            }
+            // Hit, or dropped below the target → peel off and recover.
+            if dist <= cfg.attack_range || pos.y > target.y + 8.0 {
+                state.phase = AerialPhase::Recover;
+                state.phase_until = now + 1.1;
+            }
+        }
+        AerialPhase::Recover => {
+            state.mode = CharacterAiMode::Chase;
+            let away =
+                ae::Vec2::new((pos.x - target.x).signum_or(1.0), -1.0).normalize_or_zero();
+            out.desired_vel =
+                apply_flying_separation(away * cfg.cruise_speed, cfg.cruise_speed, snapshot);
+            if now >= state.phase_until {
+                state.phase = AerialPhase::Stalk;
+            }
+        }
+        // Lively phases can't occur on a hostile bird; reset defensively.
+        _ => state.phase = AerialPhase::Stalk,
     }
 }
 

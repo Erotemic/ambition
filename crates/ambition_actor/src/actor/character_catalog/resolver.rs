@@ -118,6 +118,24 @@ pub fn brain_from_preset(preset: &BrainPreset, spawn_world_x: f32) -> Brain {
             },
             state: SniperState::default(),
         },
+        BrainPreset::Aerial {
+            aggressiveness,
+            cruise_speed,
+            dive_speed,
+            aggro_radius,
+            attack_range,
+            roam_radius,
+        } => StateMachineCfg::Aerial {
+            cfg: crate::brain::state_machine::AerialCfg {
+                aggressiveness: *aggressiveness,
+                cruise_speed: *cruise_speed,
+                dive_speed: *dive_speed,
+                aggro_radius: *aggro_radius,
+                attack_range: *attack_range,
+                roam_radius: *roam_radius,
+            },
+            state: crate::brain::state_machine::AerialState::default(),
+        },
         BrainPreset::BossPattern {
             aggressiveness,
             encounter_id,

@@ -56,6 +56,51 @@ Format: each entry = the friction + why it bites + a candidate fix.
   pattern (waypoints / phases) so a parrot's "fly–land–walk–bark" and "dive–strafe"
   are content, plus animation-binding keys for the extra attack rows.
 
+### P6 — NPC brains ignore the catalog `default_brain` (hardcoded Patrol/StandStill)
+- `NpcRuntime::build_brain` (features/npcs.rs) picks `Patrol` if `patrol_radius > 0`
+  else `StandStill` — it NEVER reads the catalog `default_brain` preset. So a catalog
+  row's `default_brain` is dead for an LDtk `NpcSpawn`; you cannot give a placed NPC a
+  richer brain (e.g. the new lively `Aerial`) from data. (Enemies DO honor their
+  archetype `brain_template` via `enemy_default_brain` — only the NPC path is stunted.)
+- Also: the `Npc` interaction kind carries no `character_id`, so the cluster can't even
+  resolve the catalog row to read `body_kind`/brain at spawn — the join is lost.
+- Why it bites: the friendly parrot can't be authored as a flyer in data; it's stuck on
+  the grounded Patrol brain regardless of its catalog row. This is the single biggest
+  blocker to "author a new character's behavior blind, in data."
+- Candidate fix (commit 3): thread `character_id` onto the NPC interaction, make
+  `build_brain` resolve the catalog `default_brain` preset, and let `body_kind: Floating`
+  zero gravity — so an `Aerial` peaceful NPC actually flies. THIS is the refactor that
+  makes the friendly parrot's lively flight a data row.
+
+### P7 — Hall regen duplicates the reciprocal hub→hall door
+- `area_authoring --replace-existing` re-adds the hub→hall `LoadingZone` without
+  noticing the existing one, producing two zones sharing id `hall_of_characters_door`
+  → fails content-graph validation. Cost a separate fix commit.
+- Candidate fix: the hall regen should upsert (dedup by id) its reciprocal door.
+
+### P8 — NPC brains tick with `sim_time = 0.0` (hardcoded)
+- `update_ecs_npcs` passes `sim_time = 0.0` into the brain ("NPC brains run Patrol/
+  StandStill, which don't read the clock"). Any sim-time-driven NPC brain — like the
+  new lively `Aerial` — gets a frozen clock (no waypoint variety, no dwell timing).
+- Why it bites: blocks giving an NPC a time-based behavior. Pairs with P6: even once
+  NPC brains are catalog-driven, they need the real sim clock to come alive.
+- Candidate fix (commit 3): thread the real sim time into `update_ecs_npcs`.
+
+## Commit 2 — ambitious behavior (what landed, what deferred)
+- **New `Aerial` brain** (`brain/state_machine`): one pure, deterministic policy with
+  two faces by `aggressiveness` — a lively peaceful bird (perch ↔ fly ↔ walk, drops
+  beside the player to talk) and a hostile dive-bomber (stalk → dive → peck → recover).
+  Captures its anchor from `actor_pos` on tick 1 (no spawn coord threading). Verified
+  by 4 headless integration tests (flight, perch, talk-landing, the dive cycle).
+- **Aggressive sky parrots** use it now (`brain_template: Aerial`) — they're already
+  `is_aerial` (gravity-free), so the dive works end-to-end.
+- **NPC idle barks** (`tick_npc_idle_barks`): ambient ~6–10s chatter; the parrot is the
+  first user (stochastic-parrot riffs).
+- **DEFERRED to commit 3 (the refactor):** the FRIENDLY parrot still flies only after
+  P6 + P8 are fixed (catalog-driven NPC brains + real NPC sim clock + `Floating` ⇒
+  gravity-free). That refactor is exactly "make the lively flyer a data row," so it is
+  the natural payload of commit 3 rather than a special-case hack here.
+
 ## Positives (what already works well)
 - **The spawn path is data-driven**: the basic friendly+hostile hookup needed ZERO
   Rust changes — catalog row + archetype row + yarn node + LDtk placement.

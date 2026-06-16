@@ -171,6 +171,16 @@ pub enum BrainPreset {
         aggro_radius: f32,
         fire_cooldown_s: f32,
     },
+    /// Lively flyer (perch/fly/walk + land-by-player when peaceful; stalk/dive/
+    /// recover when aggressive). `aggressiveness == 0` = peaceful bird.
+    Aerial {
+        aggressiveness: f32,
+        cruise_speed: f32,
+        dive_speed: f32,
+        aggro_radius: f32,
+        attack_range: f32,
+        roam_radius: f32,
+    },
     BossPattern {
         aggressiveness: f32,
         encounter_id: String,

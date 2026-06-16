@@ -201,7 +201,10 @@
         is_aerial: true,
         mass: 0.5,
         default_size: Some((76.0, 60.0)),
-        brain_template: Shark,
+        // Aerial dive-bomber: stalks to an altitude above the player, dives,
+        // pecks on contact, peels off to recover. Shares the lively `Aerial`
+        // brain with the peaceful cove bird (hostility = aggressiveness > 0).
+        brain_template: Aerial,
         melee: Some(Bite((
             windup_s: 0.16,
             active_s: 0.10,

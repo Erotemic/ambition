@@ -79,7 +79,32 @@ pub(in crate::features) fn enemy_default_brain(enemy: &EnemyConfig) -> Brain {
                 ..Default::default()
             },
         }),
+        EnemyBrainTemplate::Aerial => aerial_brain_for_enemy(enemy),
     }
+}
+
+/// Build the hostile aerial dive-bomber brain for an enemy archetype (the sky
+/// parrot). Per-actor jitter keeps a flock from diving in lockstep. Shares
+/// `StateMachineCfg::Aerial` with the peaceful catalog bird — only
+/// `aggressiveness` differs.
+fn aerial_brain_for_enemy(enemy: &EnemyConfig) -> Brain {
+    let t = &enemy.tuning;
+    let jitters = five_f32s_from_seed(seed_from_id(&enemy.id));
+    let cruise_speed = t.chase_speed * (0.55 + 0.25 * jitters.0);
+    let dive_speed = (t.chase_speed * (1.7 + 0.5 * jitters.1)).max(360.0);
+    // Dive altitude / range: a bit of spread so two parrots stack their dives.
+    let roam_radius = (110.0 + 60.0 * jitters.2).max(t.attack_range * 1.5);
+    Brain::StateMachine(StateMachineCfg::Aerial {
+        cfg: crate::brain::state_machine::AerialCfg {
+            aggressiveness: if t.attacks_player { 1.0 } else { 0.0 },
+            cruise_speed,
+            dive_speed,
+            aggro_radius: t.aggro_radius,
+            attack_range: t.attack_range,
+            roam_radius,
+        },
+        state: crate::brain::state_machine::AerialState::default(),
+    })
 }
 
 /// Build the explicitly-hostile behavior for an actor that is peaceful by

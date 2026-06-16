@@ -76,11 +76,23 @@ The decomposition foundation is in place. Next is the high-value, higher-risk wo
   enemies/NPCs share the literal player spine (`integrate_normal_clusters`) once the
   composable body (Stage 2) lands.
 
-### RESUME → Stage 3b (non-player jump/run gravity-relativity) then Stage 2 (composable body)
-Next iteration: make the enemy/NPC RUN act along the gravity-perpendicular axis +
-JUMP oppose `gravity_dir` (mirror the player's `integrate_normal_clusters` run/jump),
-so sideways-gravity actors patrol along the wall instead of drifting into it. Then
-return to Stage 2 (one composable body) → Stage 3 full spine-share → 4/5/6/7.
+### Stage 3b ✅ — non-player run/jump gravity-relative
+- Enemy + NPC run now acts along the gravity-perpendicular "side" axis (walk ALONG
+  the wall), jump opposes `gravity_dir` in 2D. Byte-identical for vertical (replay
+  green, 916 tests). Minor follow-up: patrol wall-stop facing-flip still reads vel.x.
+
+### RESUME → Stage 2 (composable body) — the big structural pivot
+Sideways gravity now fully works for non-players (3a fall + 3b run/jump) as targeted
+incremental wins. Next is the deeper unification:
+- **Stage 2:** one composable actor body = `BodyKinematics + ActorSurfaceState +
+  per-actor MovementTuning + opt-in ability components`; collapse the 4 cluster
+  query-datas (`PlayerClusterQueryData`/`Enemy`/`Npc`/`Boss`) toward one. Wide,
+  compiler-driven.
+- **Stage 3 (full):** enemies/NPCs run the LITERAL player spine
+  (`integrate_normal_clusters`) with restricted ability sets; DELETE
+  `integrate_standard_enemy_body` + the NPC integrators; author slug surface-crawl
+  + parrot dive-bomb as content ability components.
+- Then **4** rendering · **5** bosses · **6** player→input+camera+HUD · **7** combat.
 
 ### Notes / decisions / behavior changes
 - Stage 0 + Stage 1 + Stage 3a landed; foundation green + replay-identical.

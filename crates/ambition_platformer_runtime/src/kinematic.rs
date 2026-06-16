@@ -37,11 +37,16 @@ use ambition_engine_core::{BlockKind, World};
 #[derive(Clone, Copy, Debug)]
 pub struct KinematicTuning {
     pub gravity: f32,
-    /// Maximum downward speed (pixels/sec).
+    /// Maximum fall speed (pixels/sec), measured ALONG `gravity_dir`.
     pub max_fall_speed: f32,
-    /// Sign of gravity along Y: `+1` normal (down), `-1` flipped (up). Set from
-    /// the world `GravityField` so actors fall the way the player does.
-    pub gravity_sign: f32,
+    /// Unit gravity DIRECTION (cardinal): down `(0,1)`, up `(0,-1)`, or sideways
+    /// `(±1,0)`. Gravity accelerates the body along this, and "ground" is a
+    /// contact on this (feet) side — so actors fall the way the player does,
+    /// including SIDEWAYS. (Supersedes the Y-only `gravity_sign`, which only
+    /// handled down/up: the reason enemies/NPCs didn't fall under left/right
+    /// gravity. Vertical gravity is byte-identical: `gravity_dir.y` is the old
+    /// `gravity_sign`.)
+    pub gravity_dir: Vec2,
 }
 
 /// Per-tick AI/control inputs to [`step_kinematic`].
@@ -98,24 +103,25 @@ pub fn step_kinematic(
     inputs: KinematicInputs,
     dt: f32,
 ) {
-    // 1. Gravity along the world's down (`gravity_sign`: +1 down, -1 flipped),
-    //    capped so a long fall doesn't tunnel. Mirrors the player's
-    //    `MovementTuning.gravity_sign` so an enemy falls the same way the player
-    //    does when gravity flips.
-    let sign = tuning.gravity_sign;
+    // 1. Gravity along the world's `gravity_dir` (down / up / sideways), capped
+    //    so a long fall doesn't tunnel. `sign` = the vertical component, the old
+    //    `gravity_sign`, used by the Y-axis one-way + ground logic; it's 0 under
+    //    sideways gravity (so the Y sweep is pure collision and the X sweep owns
+    //    landing instead).
+    let g = tuning.gravity_dir;
+    let sign = g.y;
     // Terminal velocity is an equilibrium gravity accelerates UP TO, not a brake
     // that decelerates a body already moving faster (e.g. one flung out of a
     // portal). Raise the effective cap to at least the body's pre-gravity
     // fall-direction speed: a normal fall (below the cap) is unchanged, while
     // an over-cap fling is preserved instead of clipped back on the next tick.
-    let fall_before = (body.vel.y * sign).max(0.0);
+    let fall_before = body.vel.dot(g).max(0.0);
     let cap = tuning.max_fall_speed.max(fall_before);
-    let new_vy = body.vel.y + tuning.gravity * sign * dt;
-    body.vel.y = if sign >= 0.0 {
-        new_vy.min(cap)
-    } else {
-        new_vy.max(-cap)
-    };
+    body.vel += tuning.gravity * g * dt;
+    let along = body.vel.dot(g);
+    if along > cap {
+        body.vel -= (along - cap) * g;
+    }
 
     // Capture the bottom edge BEFORE we move so the OneWay direction
     // check (was the body above the platform?) reads the previous-tick
@@ -123,14 +129,20 @@ pub fn step_kinematic(
     // player's `sweep_player_y` uses.
     let prev_bottom = body.aabb().bottom();
 
-    // 2. X sweep. Solid + BlinkWall block; OneWay never blocks
-    //    horizontally (you can walk into / past a one-way platform's
-    //    horizontal extents from the side without hitting a wall).
+    let mut grounded = false;
+
+    // 2. X sweep. Solid + BlinkWall block; OneWay never blocks horizontally.
+    //    Under SIDEWAYS gravity the wall the body falls into IS its floor, so a
+    //    block while moving along gravity counts as landing.
     let old_x = body.pos.x;
+    let falling_along_x = body.vel.x * g.x > 0.0;
     body.pos.x += body.vel.x * dt;
     if body_blocked_x(body.aabb(), world) {
         body.pos.x = old_x;
         body.vel.x = 0.0;
+        if g.x != 0.0 && falling_along_x {
+            grounded = true;
+        }
     }
 
     // 3. Y sweep. Solid + BlinkWall always block. OneWay blocks only
@@ -150,10 +162,18 @@ pub fn step_kinematic(
         sign,
     ) {
         body.pos.y = old_y;
-        body.on_ground = was_falling;
         body.vel.y = 0.0;
-    } else {
-        body.on_ground = false;
+        if g.y != 0.0 && was_falling {
+            grounded = true;
+        }
+    }
+    body.on_ground = grounded;
+
+    // Gravity-axis depenetration runs on the VERTICAL axis (down/up gravity); the
+    // sideways case relies on the X sweep above. Skip it under sideways gravity so
+    // it never fights the horizontal landing.
+    if g.y == 0.0 {
+        return;
     }
 
     // Gravity-axis depenetration: if the body ENDS the tick overlapping a solid
@@ -254,7 +274,7 @@ mod tests {
         KinematicTuning {
             gravity: 1450.0,
             max_fall_speed: 760.0,
-            gravity_sign: 1.0,
+            gravity_dir: Vec2::new(0.0, 1.0),
         }
     }
 
@@ -269,7 +289,7 @@ mod tests {
         )]);
         let mut b = body(Vec2::new(50.0, 300.0));
         let mut tuning = tuning();
-        tuning.gravity_sign = -1.0; // up
+        tuning.gravity_dir = Vec2::new(0.0, -1.0); // up
         for _ in 0..120 {
             step_kinematic(
                 &mut b,
@@ -287,6 +307,46 @@ mod tests {
         assert!(
             b.on_ground,
             "the body should stand on the ceiling under flipped gravity"
+        );
+    }
+
+    #[test]
+    fn sideways_gravity_makes_a_body_fall_into_and_land_on_a_wall() {
+        // A wall on the RIGHT; right-pointing gravity pulls the body into it and
+        // it registers as grounded (standing on the wall). This is the enemy/NPC
+        // bug — under the old Y-only `gravity_sign` a sideways-gravity body never
+        // fell toward the wall at all.
+        let world = world_with(vec![Block::solid(
+            "right_wall",
+            Vec2::new(400.0, -400.0),
+            Vec2::new(40.0, 1200.0),
+        )]);
+        let mut b = body(Vec2::new(100.0, 50.0));
+        let mut tuning = tuning();
+        tuning.gravity_dir = Vec2::new(1.0, 0.0); // right
+        let start_x = b.pos.x;
+        for _ in 0..180 {
+            step_kinematic(
+                &mut b,
+                &world,
+                tuning,
+                KinematicInputs::default(),
+                1.0 / 60.0,
+            );
+        }
+        assert!(
+            b.pos.x > start_x + 100.0,
+            "right gravity should pull the body toward the wall, got x={} (start {start_x})",
+            b.pos.x
+        );
+        assert!(
+            b.on_ground,
+            "the body should land on (be grounded against) the wall it fell into",
+        );
+        assert!(
+            b.pos.x <= 400.0,
+            "the body should stop at the wall's left face, got x={}",
+            b.pos.x
         );
     }
 

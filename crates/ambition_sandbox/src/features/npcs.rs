@@ -38,9 +38,9 @@ impl<'a> NpcMut<'a> {
         target_pos: ae::Vec2,
         sim_time: f32,
         dt: f32,
-        // World gravity sign (+1 down / -1 up) so NPCs fall the way the player
-        // does when gravity flips.
-        gravity_sign: f32,
+        // World gravity DIRECTION at the NPC (down/up/sideways) so NPCs fall the
+        // way the player does under any gravity, including left/right.
+        gravity_dir: ae::Vec2,
     ) -> crate::actor::control::ActorControlFrame {
         self.status.hit_flash = (self.status.hit_flash - dt).max(0.0);
 
@@ -112,7 +112,7 @@ impl<'a> NpcMut<'a> {
             }
         }
 
-        let prev_vel_x = self.integrate_velocity(frame.desired_vel.x, world, dt, gravity_sign);
+        let prev_vel_x = self.integrate_velocity(frame.desired_vel.x, world, dt, gravity_dir);
 
         if matches!(
             self.status.ai_mode,
@@ -145,7 +145,7 @@ impl<'a> NpcMut<'a> {
         desired_vel_x: f32,
         world: &ae::World,
         dt: f32,
-        gravity_sign: f32,
+        gravity_dir: ae::Vec2,
     ) -> f32 {
         self.kin.vel.x = approach(self.kin.vel.x, desired_vel_x, 650.0 * dt);
         let mut body = crate::kinematic::KinematicBody {
@@ -162,7 +162,7 @@ impl<'a> NpcMut<'a> {
             crate::kinematic::KinematicTuning {
                 gravity: ENEMY_GRAVITY,
                 max_fall_speed: ENEMY_MAX_FALL,
-                gravity_sign,
+                gravity_dir,
             },
             crate::kinematic::KinematicInputs::default(),
             dt,
@@ -193,7 +193,7 @@ impl<'a> NpcMut<'a> {
             crate::kinematic::KinematicTuning {
                 gravity: 0.0,
                 max_fall_speed: ENEMY_MAX_FALL,
-                gravity_sign: 1.0,
+                gravity_dir: ae::Vec2::new(0.0, 1.0),
             },
             crate::kinematic::KinematicInputs::default(),
             dt,

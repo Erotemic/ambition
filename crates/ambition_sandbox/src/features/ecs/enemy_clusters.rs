@@ -205,7 +205,7 @@ impl EnemyClusterSeed {
         dt: f32,
         is_mounted: bool,
         frame: crate::actor::control::ActorControlFrame,
-        gravity_sign: f32,
+        gravity_dir: ae::Vec2,
     ) -> crate::actor::control::ActorControlFrame {
         EnemyMut {
             kin: &mut self.kin,
@@ -224,7 +224,7 @@ impl EnemyClusterSeed {
             dt,
             is_mounted,
             frame,
-            gravity_sign,
+            gravity_dir,
         )
     }
 

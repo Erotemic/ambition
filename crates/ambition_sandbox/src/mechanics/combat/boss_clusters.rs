@@ -174,7 +174,7 @@ impl<'a> BossMut<'a> {
             crate::kinematic::KinematicTuning {
                 gravity: 0.0,
                 max_fall_speed: 0.0,
-                gravity_sign: 1.0,
+                gravity_dir: ae::Vec2::new(0.0, 1.0),
             },
             crate::kinematic::KinematicInputs {
                 drop_through: false,

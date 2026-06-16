@@ -263,7 +263,7 @@ pub fn update_ecs_actors(
                 let previous_pos = em.kin.pos;
                 // Localized gravity: each enemy feels the gravity of the column
                 // it is standing in (its own position), not one global field.
-                let enemy_gravity_sign = gravity.sign_at(em.kin.pos);
+                let enemy_gravity_dir = gravity.dir_at(em.kin.pos);
                 let brain_frame = if let Some(p) = possessed {
                     // POSSESSED: drive this actor from the player's input through
                     // its OWN ActorControlFrame — the same translation the player
@@ -308,7 +308,7 @@ pub fn update_ecs_actors(
                     dt,
                     is_mounted,
                     brain_frame,
-                    enemy_gravity_sign,
+                    enemy_gravity_dir,
                 );
                 let shark_crashed =
                     shark_charge_crashed(&em, is_mounted, shark_charge_vec, previous_pos);
@@ -524,7 +524,7 @@ pub fn update_ecs_npcs(
         let mut npc = clusters.as_npc_mut();
         // Localized gravity: each NPC feels the gravity of the column it stands
         // in (its own position), so an NPC in a gravity room reorients on its own.
-        let gravity_sign = gravity.sign_at(npc.kin.pos);
+        let gravity_dir = gravity.dir_at(npc.kin.pos);
         let frame = if let Some(p) = possessed {
             // POSSESSED: drive the NPC body from the player's input through its
             // OWN ActorControlFrame — the unification flex ("drive any actor's
@@ -544,7 +544,7 @@ pub fn update_ecs_npcs(
                 bf.desired_vel.x * crate::abilities::traversal::possession::POSSESSED_MOVE_SPEED,
                 &feature_world,
                 dt,
-                gravity_sign,
+                gravity_dir,
             );
             bf
         } else if let Some(brain) = brain.as_deref_mut() {
@@ -554,7 +554,7 @@ pub fn update_ecs_npcs(
                 target_pos,
                 sim_time,
                 dt,
-                gravity_sign,
+                gravity_dir,
             )
         } else {
             // Brainless peaceful actor — should not happen post-Chunk 3
@@ -567,7 +567,7 @@ pub fn update_ecs_npcs(
                 target_pos,
                 sim_time,
                 dt,
-                gravity_sign,
+                gravity_dir,
             )
         };
         if let Some(control) = control.as_deref_mut() {

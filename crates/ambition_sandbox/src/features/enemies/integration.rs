@@ -77,8 +77,13 @@ fn integrate_standard_enemy_body(
     is_aerial: bool,
     frame: &crate::actor::control::ActorControlFrame,
     dt: f32,
-    gravity_sign: f32,
+    gravity_dir: ae::Vec2,
 ) {
+    // Vertical component drives the (still Y-only) jump impulse; the full vector
+    // drives the gravity-direction-relative fall in `step_kinematic`, so an enemy
+    // now falls toward SIDEWAYS gravity, not just down/up. (Sideways jump/run
+    // gravity-relativity is a follow-up.)
+    let gravity_sign = gravity_dir.y;
     let gravity = if is_aerial {
         0.0
     } else {
@@ -117,8 +122,8 @@ fn integrate_standard_enemy_body(
         crate::kinematic::KinematicTuning {
             gravity,
             max_fall_speed: ENEMY_MAX_FALL,
-            // Falls the same way the player does when gravity flips.
-            gravity_sign,
+            // Falls the same way the player does under any gravity (incl. sideways).
+            gravity_dir,
         },
         crate::kinematic::KinematicInputs {
             drop_through: frame.drop_through,
@@ -156,9 +161,10 @@ impl<'a> EnemyMut<'a> {
         dt: f32,
         _is_mounted: bool,
         frame: crate::actor::control::ActorControlFrame,
-        // Sign of world gravity (+1 down / -1 up) from `GravityField`, so the
-        // enemy falls + jumps the way the player does when gravity flips.
-        gravity_sign: f32,
+        // World gravity DIRECTION at the enemy (down/up/sideways) from
+        // `GravityField`, so the enemy falls the way the player does under ANY
+        // gravity — including left/right.
+        gravity_dir: ae::Vec2,
     ) -> crate::actor::control::ActorControlFrame {
         self.status.hit_flash = (self.status.hit_flash - dt).max(0.0);
         if !self.status.alive {
@@ -202,7 +208,7 @@ impl<'a> EnemyMut<'a> {
                 is_aerial,
                 &frame,
                 dt,
-                gravity_sign,
+                gravity_dir,
             );
         }
 
@@ -342,7 +348,7 @@ impl<'a> EnemyMut<'a> {
                 gravity: ENEMY_GRAVITY,
                 max_fall_speed: ENEMY_MAX_FALL,
                 // Spawn-time snap-to-ground assumes normal gravity.
-                gravity_sign: 1.0,
+                gravity_dir: ae::Vec2::new(0.0, 1.0),
             },
             crate::kinematic::KinematicInputs {
                 drop_through: false,

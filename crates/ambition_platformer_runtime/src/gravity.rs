@@ -244,6 +244,16 @@ pub fn snap_cardinal(dir: Vec2) -> Vec2 {
 /// keeps its default `(0,1)` "down" and the impulse launches the wrong way
 /// under a gravity flip. This is the single seam that keeps those mechanics
 /// flipping together; `pass `gravity_field.map(|g| g.dir)`.
+/// The live world gravity DIRECTION, or the default "down" `(0,1)` when no
+/// [`GravityField`] resource exists (headless / test apps). The standard way a
+/// per-frame actor tick reads gravity before `apply_gravity_dir`-syncing its
+/// tuning — every player/clone site used to open-code
+/// `field.as_deref().map_or((0,1), |g| g.dir)`. Call as
+/// `gravity_dir_or_default(gravity_field.as_deref())`.
+pub fn gravity_dir_or_default(field: Option<&GravityField>) -> Vec2 {
+    field.map_or(Vec2::new(0.0, 1.0), |g| g.dir)
+}
+
 pub fn apply_gravity_dir(tuning: &mut ambition_engine_core::MovementTuning, gravity_dir: Vec2) {
     tuning.gravity_dir = snap_cardinal(gravity_dir);
     tuning.gravity_sign = if tuning.gravity_dir.y != 0.0 {

@@ -138,6 +138,40 @@ snap) `vel` toward `desired_vel`, then sweep with gravity off. Unified into one
   function each, whether it's the player, an enemy, an NPC, or a boss.
 - Commit: `refactor(physics): Stage 5 — unify the floating free-mover (boss+aerial)`.
 
+## Stage 6 ✅ (substantially pre-existing) — player peeled to input+camera+HUD
+
+**Finding:** Stage 6's core thesis — "the only genuinely player-specific things are
+input, camera, and HUD/UI" — is ALREADY realized in the codebase (it predates this
+run). Evidence:
+- **Camera / HUD / fx / UI are scoped to `PrimaryPlayer`** via the `PrimaryPlayerOnly`
+  query alias (`With<PlayerEntity> + With<PrimaryPlayer>`): `camera_follow`
+  (`rendering/camera.rs`, doc already frames it as the primary target, multi-player-
+  ready), the HUD (`app/hud.rs`), screen-space fx (`render/fx.rs`, `morph_ball.rs`),
+  held-item visuals, and menu mana effects all filter on it.
+- **Input flows through `ActorControlFrame` for BOTH** the primary (`engine_input_
+  from_actor_control` in the sim phase) and the clone (`input_from_actor_control`) —
+  the universal-brain seam. Possession = point a device at another actor's control.
+- **Body state is `PlayerEntity`-scoped**, distinct from the `PrimaryPlayer`
+  camera/HUD identity. So "player body" and "the viewport's player" are already
+  separate concepts.
+
+**This run's concrete Stage 6 change:** removed the open-coded
+`gravity_field.as_deref().map_or((0,1), |g| g.dir)` idiom (repeated across the
+player control tick, sim attack tick, hit tick, and the clone driver) into one
+`physics::gravity_dir_or_default(field)` helper — the per-frame "read world gravity"
+seam every actor tick shares. Replay byte-identical; player-clone live test green.
+Commit: `refactor(player): Stage 6 — share the gravity-dir read; document the
+realized primary/body boundary`.
+
+**Deferred (documented, not done):** fully collapsing the remaining `single_mut()`
+body/combat systems into ONE loop over every player-bodied entity (so the clone
+drops its bespoke `drive_player_clones`). That requires peeling the global concerns
+(moving-platform riding, hard-fall screen-shake, sandbox reset) OUT of
+`player_simulation_phase` into primary-only systems — a wide, GUI-feel-sensitive
+change the replay fixture only partially guards (it covers the primary, not the
+multi-body topology). Not safe to land blind in an autonomous run; left as the
+explicit next step with the boundary already drawn (`PrimaryPlayer` vs `PlayerEntity`).
+
 ## (superseded) earlier Stage 3 framing
 
 The decomposition foundation is in place. Next is the high-value, higher-risk work:

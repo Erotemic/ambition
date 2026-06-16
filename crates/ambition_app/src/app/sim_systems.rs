@@ -446,9 +446,7 @@ pub fn attack_advance_system(
     // gravity-relative impulse this system applies) launches OPPOSITE the live
     // gravity, not a hardcoded world-up. Without this the attack-path pogo used
     // the default `(0,1)` down and bounced the wrong way under inverted gravity.
-    let gdir = gravity_field
-        .as_deref()
-        .map_or(ae::Vec2::new(0.0, 1.0), |g| g.dir);
+    let gdir = ambition_sandbox::physics::gravity_dir_or_default(gravity_field.as_deref());
     ambition_sandbox::physics::apply_gravity_dir(&mut tuning, gdir);
     let feel = *feel_tuning;
     let frame_dt = time.delta_secs();

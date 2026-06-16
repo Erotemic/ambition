@@ -117,11 +117,7 @@ pub fn player_control_system(
     // OPPOSITE tuning.gravity_dir — so sync it from the live gravity, exactly as
     // the simulation phase does. Without this the pogo used default `(0,1)` and
     // bounced into gravity under a flip.
-    let gdir = gravity_field
-        .as_deref()
-        .map_or(ambition_sandbox::engine_core::Vec2::new(0.0, 1.0), |g| {
-            g.dir
-        });
+    let gdir = ambition_sandbox::physics::gravity_dir_or_default(gravity_field.as_deref());
     ambition_sandbox::physics::apply_gravity_dir(&mut tuning, gdir);
     let feel = *feel_tuning;
     let frame_dt = time.delta_secs();
@@ -216,11 +212,7 @@ pub fn player_simulation_system(
     // vector so the AABB collision stays axis-aligned. The player movement model
     // is gravity-direction-relative (`gravity_dir`); `gravity_sign` is kept in
     // sync for the down/up case (the legacy Y-only scalar).
-    let gdir = gravity_field
-        .as_deref()
-        .map_or(ambition_sandbox::engine_core::Vec2::new(0.0, 1.0), |g| {
-            g.dir
-        });
+    let gdir = ambition_sandbox::physics::gravity_dir_or_default(gravity_field.as_deref());
     ambition_sandbox::physics::apply_gravity_dir(&mut tuning, gdir);
     let feel = *feel_tuning;
     let frame_dt = time.delta_secs();

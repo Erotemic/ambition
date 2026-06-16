@@ -171,9 +171,7 @@ pub fn drive_player_clones(
     }
     clock.0 += dt;
     let mut tuning = editable_tuning.as_engine();
-    let gdir = gravity_field
-        .as_deref()
-        .map_or(ae::Vec2::new(0.0, 1.0), |g| g.dir);
+    let gdir = ambition_sandbox::physics::gravity_dir_or_default(gravity_field.as_deref());
     ambition_sandbox::physics::apply_gravity_dir(&mut tuning, gdir);
     let control_world =
         ambition_sandbox::features::world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);

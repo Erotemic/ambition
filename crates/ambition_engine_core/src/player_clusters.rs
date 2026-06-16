@@ -170,6 +170,15 @@ impl BodyKinematics {
     pub fn aabb(self) -> crate::Aabb {
         crate::Aabb::new(self.pos, self.size * 0.5)
     }
+
+    /// The body's AABB ORIENTED to its gravity/acceleration frame: width<->height
+    /// swap under sideways gravity (the body lies along the wall), so the collision
+    /// footprint matches the gravity-rotated sprite. Identity under down/up gravity,
+    /// so vertical-gravity play is byte-identical to [`Self::aabb`].
+    pub fn aabb_oriented(self, gravity_dir: crate::Vec2) -> crate::Aabb {
+        let half = crate::AccelerationFrame::new(gravity_dir).to_world_half(self.size * 0.5);
+        crate::Aabb::new(self.pos, half)
+    }
 }
 
 /// The player's authored *standing* body size — the baseline the morph /

@@ -54,21 +54,22 @@ pub(super) fn sweep_player_x_clusters(
     body_mode: &crate::player_clusters::PlayerBodyModeState,
     env_contact: &crate::player_clusters::PlayerEnvironmentContact,
     delta_x: f32,
+    gravity_dir: Vec2,
 ) {
     let delta = Vec2::new(delta_x, 0.0);
     if delta.x.abs() <= 1.0e-5 {
-        resolve_axis_clusters(world, kinematics, wall, body_mode, env_contact, Axis::X);
+        resolve_axis_clusters(world, kinematics, wall, body_mode, env_contact, Axis::X, gravity_dir);
         return;
     }
 
-    if let Some(hit) = world.first_body_sweep(kinematics.aabb(), delta, |block| {
+    if let Some(hit) = world.first_body_sweep(kinematics.aabb_oriented(gravity_dir), delta, |block| {
         is_solid_for_axis(block.kind, Axis::X)
             && !matches!(block.kind, BlockKind::OneWay)
             && !block_passable_during_climb_clusters(body_mode, env_contact, block)
     }) {
         let toi_fraction = sweep_fraction(hit.time_of_impact);
         kinematics.pos.x += delta.x * toi_fraction;
-        let body = kinematics.aabb();
+        let body = kinematics.aabb_oriented(gravity_dir);
         let immediate_contact = hit.time_of_impact <= 1.0e-5;
         let overlap_x = (body.right().min(hit.block.aabb.right())
             - body.left().max(hit.block.aabb.left()))
@@ -100,7 +101,7 @@ pub(super) fn sweep_player_x_clusters(
         kinematics.pos.x += delta.x;
     }
 
-    resolve_axis_clusters(world, kinematics, wall, body_mode, env_contact, Axis::X);
+    resolve_axis_clusters(world, kinematics, wall, body_mode, env_contact, Axis::X, gravity_dir);
 }
 
 /// Swept-AABB Y-axis collision step. Handles the OneWay
@@ -139,11 +140,11 @@ pub(super) fn sweep_player_y_clusters(
         return;
     }
 
-    let start_body = kinematics.aabb();
+    let start_body = kinematics.aabb_oriented(gravity_dir);
     // Prev leading edge for one-way landing — bottom under normal gravity, top
     // under flipped (derived, so no extra param threads through the sweeps).
     let prev_top = prev_bottom - kinematics.size.y;
-    if let Some(hit) = world.first_body_sweep(kinematics.aabb(), delta, |block| {
+    if let Some(hit) = world.first_body_sweep(kinematics.aabb_oriented(gravity_dir), delta, |block| {
         if !is_solid_for_axis(block.kind, Axis::Y) {
             return false;
         }
@@ -173,7 +174,7 @@ pub(super) fn sweep_player_y_clusters(
         true
     }) {
         kinematics.pos.y += delta.y * sweep_fraction(hit.time_of_impact);
-        let body = kinematics.aabb();
+        let body = kinematics.aabb_oriented(gravity_dir);
         let approaching_from_above = delta.y > 0.0 && prev_bottom <= hit.block.aabb.top() + 4.0;
         let snap_to_top = approaching_from_above || body.center().y < hit.block.aabb.center().y;
         if snap_to_top {
@@ -295,8 +296,9 @@ fn resolve_axis_clusters(
     _body_mode: &crate::player_clusters::PlayerBodyModeState,
     _env_contact: &crate::player_clusters::PlayerEnvironmentContact,
     axis: Axis,
+    gravity_dir: Vec2,
 ) {
-    let mut aabb = kinematics.aabb();
+    let mut aabb = kinematics.aabb_oriented(gravity_dir);
     for block in &world.blocks {
         if !is_solid_for_axis(block.kind, axis) || !aabb.strict_intersects(block.aabb) {
             continue;
@@ -315,7 +317,7 @@ fn resolve_axis_clusters(
             }
             Axis::Y => {}
         }
-        aabb = kinematics.aabb();
+        aabb = kinematics.aabb_oriented(gravity_dir);
     }
 }
 
@@ -334,7 +336,7 @@ fn resolve_vertical_clusters(
     gravity_dir: Vec2,
 ) {
     let y_is_gravity = gravity_dir.y != 0.0;
-    let mut aabb = kinematics.aabb();
+    let mut aabb = kinematics.aabb_oriented(gravity_dir);
     for block in &world.blocks {
         if !is_solid_for_axis(block.kind, Axis::Y) || !aabb.strict_intersects(block.aabb) {
             continue;
@@ -372,7 +374,7 @@ fn resolve_vertical_clusters(
             ground.on_ground = true;
         }
         kinematics.vel.y = 0.0;
-        aabb = kinematics.aabb();
+        aabb = kinematics.aabb_oriented(gravity_dir);
     }
 }
 

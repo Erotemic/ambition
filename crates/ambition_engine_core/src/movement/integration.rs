@@ -236,6 +236,7 @@ pub(super) fn integrate_velocity_clusters(
         clusters.body_mode,
         clusters.env_contact,
         dt_x,
+        tuning.gravity_dir,
     );
 
     if !gravity_on_x {
@@ -253,7 +254,10 @@ pub(super) fn integrate_velocity_clusters(
     }
 
     // Pre-Y-sweep state.
-    let prev_bottom = clusters.kinematics.aabb().bottom();
+    let prev_bottom = clusters
+        .kinematics
+        .aabb_oriented(tuning.gravity_dir)
+        .bottom();
     if !gravity_on_x {
         // Y is the gravity axis (down/up): reset on_ground before the Y sweep
         // grounds the player. Under sideways gravity the probe below owns it.
@@ -280,7 +284,7 @@ pub(super) fn integrate_velocity_clusters(
     if gravity_on_x {
         clusters.ground.on_ground = super::collision::grounded_against_gravity(
             world,
-            clusters.kinematics.aabb(),
+            clusters.kinematics.aabb_oriented(tuning.gravity_dir),
             tuning.gravity_dir,
         );
         clusters.wall.on_wall = false;
@@ -303,7 +307,7 @@ pub(super) fn integrate_velocity_clusters(
 
     if clusters.abilities.abilities.rebound && clusters.ground.rebound_cooldown <= 0.0 {
         if let Some(impulse) =
-            super::collision::touching_rebound_aabb(world, clusters.kinematics.aabb())
+            super::collision::touching_rebound_aabb(world, clusters.kinematics.aabb_oriented(tuning.gravity_dir))
         {
             clusters.kinematics.vel = impulse;
             crate::player_clusters::refresh_movement_resources_clusters(

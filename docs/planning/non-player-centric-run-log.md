@@ -62,7 +62,27 @@ The decomposition foundation is in place. Next is the high-value, higher-risk wo
 - **Stage 4** rendering unify · **Stage 5** bosses · **Stage 6** player → input+
   camera+HUD · **Stage 7** combat unify (in scope this run).
 
+### Stage 3a ✅ — vector gravity for non-players (the sideways-gravity bug fix)
+- Generalized `step_kinematic` (`ambition_platformer_runtime/kinematic.rs`) from a
+  Y-only `gravity_sign` scalar to a 2D `KinematicTuning.gravity_dir`: gravity +
+  fall-cap project onto the direction; "ground" is a contact on the gravity side
+  (the X sweep owns landing under sideways gravity). Threaded `gravity_dir` (from
+  `GravityCtx::dir_at`) through the enemy + NPC integration chains.
+- **Fixes Jon's reported bug**: NPCs/enemies now fall toward left/right gravity, not
+  just down/up. Vertical gravity byte-identical (replay green); 916 sandbox tests
+  green; new `sideways_gravity_makes_a_body_fall_into_and_land_on_a_wall` test.
+- Follow-up (Stage 3b): sideways JUMP/RUN gravity-relativity for non-players (the
+  enemy run is still X-axis; jump still `* gravity_dir.y`). Then the deeper merge —
+  enemies/NPCs share the literal player spine (`integrate_normal_clusters`) once the
+  composable body (Stage 2) lands.
+
+### RESUME → Stage 3b (non-player jump/run gravity-relativity) then Stage 2 (composable body)
+Next iteration: make the enemy/NPC RUN act along the gravity-perpendicular axis +
+JUMP oppose `gravity_dir` (mirror the player's `integrate_normal_clusters` run/jump),
+so sideways-gravity actors patrol along the wall instead of drifting into it. Then
+return to Stage 2 (one composable body) → Stage 3 full spine-share → 4/5/6/7.
+
 ### Notes / decisions / behavior changes
-- Stage 0 + Stage 1 landed (4 commits incl. plan); foundation green + replay-identical.
+- Stage 0 + Stage 1 + Stage 3a landed; foundation green + replay-identical.
 - desired_vel dual-meaning (P10) + the `single_mut()` player systems (P9) get
   resolved in Stages 3/6 respectively; see the pain-points journal.

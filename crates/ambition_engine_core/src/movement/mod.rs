@@ -23,6 +23,7 @@
 
 use crate::world::World;
 
+mod abilities;
 mod blink;
 pub(crate) mod collision;
 mod control;
@@ -154,28 +155,17 @@ pub fn update_player_control_with_clusters(
         events.op_clusters(clusters.combo_trace, ops::MovementOp::DodgeRoll);
     }
 
-    // handle_dash — cluster-native (note: spend_dash_charge picks
-    // Dash vs DoubleDash op based on charge count before decrement).
-    if clusters.action_buffer.dash > 0.0
-        && clusters.abilities.abilities.dash
-        && clusters.dash.charges_available > 0
-        && clusters.dash.cooldown <= 0.0
-    {
-        let fallback = bevy_math::Vec2::new(clusters.kinematics.facing, 0.0);
-        let aim = bevy_math::Vec2::new(input.axis_x, input.axis_y).normalize_or(fallback);
-        clusters.kinematics.vel = aim * tuning.dash_speed;
-        clusters.dash.timer = tuning.dash_time;
-        clusters.dash.cooldown = tuning.dash_cooldown;
-        clusters.action_buffer.dash = 0.0;
-        let before = clusters.dash.charges_available;
-        clusters.dash.charges_available = clusters.dash.charges_available.saturating_sub(1);
-        let op = if before >= 2 {
-            ops::MovementOp::DoubleDash
-        } else {
-            ops::MovementOp::Dash
-        };
-        events.op_clusters(clusters.combo_trace, op);
-    }
+    // Dash — first verb peeled into the composable `abilities` module.
+    abilities::apply_dash(
+        clusters.kinematics,
+        clusters.dash,
+        clusters.action_buffer,
+        clusters.abilities,
+        clusters.combo_trace,
+        input,
+        tuning,
+        &mut events,
+    );
 
     // handle_shield — cluster-native.
     if !clusters.abilities.abilities.shield {

@@ -369,6 +369,9 @@ pub(crate) struct SystemMenuParams<'w> {
     // no-ops and reads "n/a".
     #[cfg(feature = "portal_render")]
     portal_effect: Option<ResMut<'w, ambition_sandbox::portal::PortalEffectSelection>>,
+    // The Gravity cycle's target (ambient gravity). Option so the System nav stays
+    // B0002-safe and fixtures without the resource render the row as "n/a".
+    base_gravity: Option<ResMut<'w, ambition_sandbox::physics::BaseGravity>>,
     reset: ResMut<'w, ambition_sandbox::runtime::reset::SandboxResetRequested>,
     // Movement tuning is derived from the active movement profile, so a
     // Reset All Settings must restore it to match the reset DeveloperTools
@@ -456,6 +459,7 @@ impl SystemMenuParams<'_> {
                         backend: &mut self.backend,
                         #[cfg(feature = "portal_render")]
                         portal_effect: self.portal_effect.as_deref_mut(),
+                        base_gravity: self.base_gravity.as_deref_mut(),
                     },
                     id,
                     0,
@@ -482,6 +486,7 @@ impl SystemMenuParams<'_> {
                         backend: &mut self.backend,
                         #[cfg(feature = "portal_render")]
                         portal_effect: self.portal_effect.as_deref_mut(),
+                        base_gravity: self.base_gravity.as_deref_mut(),
                     },
                     id,
                     dir,
@@ -537,6 +542,7 @@ impl SystemMenuParams<'_> {
             backend: *self.backend,
             #[cfg(feature = "portal_render")]
             portal_effect: self.portal_effect.as_deref(),
+            base_gravity: self.base_gravity.as_deref(),
         })
     }
 
@@ -567,6 +573,7 @@ pub(crate) struct SystemMenuSnapshotParams<'w> {
     backend: Res<'w, InventoryUiBackend>,
     #[cfg(feature = "portal_render")]
     portal_effect: Option<Res<'w, ambition_sandbox::portal::PortalEffectSelection>>,
+    base_gravity: Option<Res<'w, ambition_sandbox::physics::BaseGravity>>,
     #[cfg(feature = "audio")]
     library: Option<Res<'w, ambition_sandbox::audio::AudioLibrary>>,
     #[cfg(feature = "audio")]
@@ -597,6 +604,7 @@ impl SystemMenuSnapshotParams<'_> {
             backend: *self.backend,
             #[cfg(feature = "portal_render")]
             portal_effect: self.portal_effect.as_deref(),
+            base_gravity: self.base_gravity.as_deref(),
         })
     }
 }
@@ -1579,14 +1587,8 @@ fn cycle_dev_gravity(
     if !keys.just_pressed(KeyCode::Backslash) {
         return;
     }
-    // Engine y grows downward, so +y is screen-DOWN. Round the current dir to a
-    // cardinal and step to the next.
-    base.dir = match (base.dir.x.round() as i32, base.dir.y.round() as i32) {
-        (0, 1) => Vec2::new(-1.0, 0.0),  // down  -> left
-        (-1, 0) => Vec2::new(0.0, -1.0), // left  -> up
-        (0, -1) => Vec2::new(1.0, 0.0),  // up    -> right
-        _ => Vec2::new(0.0, 1.0),        // right (or any) -> down
-    };
+    // Same step the developer menu's Gravity row uses (shared `BaseGravity::cycle`).
+    base.cycle();
     info!(target: "ambition::gravity", "dev gravity cycle: dir = {:?}", base.dir);
 }
 

@@ -79,6 +79,10 @@ pub enum DevToggleId {
     // compiled-in effects (view cones / legacy masks / off) for in-session
     // A/B comparison and profiling.
     PortalEffect,
+    // Ambient gravity direction (sourced from `BaseGravity`, not `DeveloperTools`):
+    // cycles down → left → up → right. The in-menu equivalent of the `\` hotkey, so
+    // sideways/inverted gravity is testable on mobile (no keyboard).
+    Gravity,
 }
 
 impl DevToggleId {
@@ -87,7 +91,7 @@ impl DevToggleId {
     /// (DebugOverlay/SlowMotion) and the trailing LdtkAutoApply are sourced from
     /// `SandboxDevState` / `LdtkHotReloadState` (not `DeveloperTools`); they mirror
     /// the pause-menu Developer page's F1 / F2 / F12 rows.
-    pub const ALL: [Self; 20] = [
+    pub const ALL: [Self; 21] = [
         // Pinned FIRST so it lands under the cursor the instant you drill into
         // Developer — the menu-frontend toggle is the one developers flip most.
         Self::MenuBackend,
@@ -110,6 +114,7 @@ impl DevToggleId {
         Self::MovementProfile,
         Self::LdtkAutoApply,
         Self::PortalEffect,
+        Self::Gravity,
     ];
 
     pub fn label(self) -> &'static str {
@@ -134,6 +139,7 @@ impl DevToggleId {
             Self::LdtkAutoApply => "LDtk Auto-Reload (F12)",
             Self::MenuBackend => "Menu Backend",
             Self::PortalEffect => "Portal FX",
+            Self::Gravity => "Gravity",
         }
     }
 
@@ -163,6 +169,9 @@ impl DevToggleId {
             Self::PortalEffect => {
                 "Cycle the portal transit visual (view cones / masks / off) for A/B profiling."
             }
+            Self::Gravity => {
+                "Cycle ambient gravity: Down / Left / Up / Right. Same as the \\ key."
+            }
         }
     }
 
@@ -181,6 +190,8 @@ impl DevToggleId {
                 // PortalEffect cycles the compiled-in portal transit visuals
                 // (view cones / masks / off) for A/B profiling.
                 | Self::PortalEffect
+                // Gravity cycles the ambient direction (down/left/up/right).
+                | Self::Gravity
         )
     }
 }

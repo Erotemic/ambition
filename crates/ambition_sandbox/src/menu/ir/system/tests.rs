@@ -269,7 +269,11 @@ fn developer_screen_surfaces_the_three_extra_resource_toggles() {
         );
         assert!(!id.is_cycle(), "{id:?} is a toggle, not a cycle");
     }
-    assert_eq!(DevToggleId::ALL.len(), 20);
+    // Gravity (sourced from BaseGravity) is a CYCLE surfaced on the Developer
+    // screen — the in-menu equivalent of the `\` hotkey, for mobile testing.
+    assert!(DevToggleId::ALL.contains(&DevToggleId::Gravity));
+    assert!(DevToggleId::Gravity.is_cycle());
+    assert_eq!(DevToggleId::ALL.len(), 21);
 }
 
 #[test]

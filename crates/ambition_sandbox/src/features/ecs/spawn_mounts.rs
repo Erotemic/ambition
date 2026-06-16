@@ -164,7 +164,7 @@ pub(super) fn spawn_composite_mount_rider(
     commands.entity(mount_entity).insert((
         super::Mountable { rider_offset },
         super::MountSlot::default(),
-        super::mount::Mass(mount_spec.mass),
+        super::Mass(mount_spec.mass),
     ));
 
     // Rider-side bundles, with the RidingOn link pointing at the
@@ -198,7 +198,7 @@ pub(super) fn spawn_composite_mount_rider(
         super::RidingOn {
             mount: mount_entity,
         },
-        super::mount::Mass(rider_spec.mass),
+        super::Mass(rider_spec.mass),
     ));
 
     // Wire MountSlot.rider on the mount so death-side dissolution

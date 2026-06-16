@@ -78,6 +78,33 @@ impl Default for BaseGravity {
     }
 }
 
+impl BaseGravity {
+    /// Step the ambient gravity to the next cardinal direction, cycling
+    /// down → left → up → right → down. Shared by the `\` dev hotkey and the
+    /// developer menu's Gravity row so both stay in lock-step. Engine y grows
+    /// downward, so `+y` is screen-DOWN.
+    pub fn cycle(&mut self) {
+        self.dir = match (self.dir.x.round() as i32, self.dir.y.round() as i32) {
+            (0, 1) => Vec2::new(-1.0, 0.0),  // down  -> left
+            (-1, 0) => Vec2::new(0.0, -1.0), // left  -> up
+            (0, -1) => Vec2::new(1.0, 0.0),  // up    -> right
+            _ => Vec2::new(0.0, 1.0),        // right (or any) -> down
+        };
+    }
+
+    /// Human-readable cardinal label for the current ambient direction, for the
+    /// developer menu's Gravity row value.
+    pub fn direction_label(&self) -> &'static str {
+        match (self.dir.x.round() as i32, self.dir.y.round() as i32) {
+            (0, 1) => "Down",
+            (-1, 0) => "Left",
+            (0, -1) => "Up",
+            (1, 0) => "Right",
+            _ => "Custom",
+        }
+    }
+}
+
 /// An authored region with its own gravity direction — the building block of a
 /// "gravity room". Gravity is resolved **per body, by position**: any actor whose
 /// center is inside the zone's `aabb` feels gravity along `dir` (and reorients via

@@ -23,6 +23,9 @@ pub(crate) struct DevToggleRead<'a> {
     // fixtures without the resource still render the row (as "n/a").
     #[cfg(feature = "portal_render")]
     pub(crate) portal_effect: Option<&'a ambition_sandbox::portal::PortalEffectSelection>,
+    // The Gravity row's ambient direction (down/left/up/right). Option so
+    // fixtures without the resource still render the row (as "n/a").
+    pub(crate) base_gravity: Option<&'a ambition_sandbox::physics::BaseGravity>,
 }
 
 pub(crate) struct DevToggleWrite<'a> {
@@ -32,6 +35,7 @@ pub(crate) struct DevToggleWrite<'a> {
     pub(crate) backend: &'a mut InventoryUiBackend,
     #[cfg(feature = "portal_render")]
     pub(crate) portal_effect: Option<&'a mut ambition_sandbox::portal::PortalEffectSelection>,
+    pub(crate) base_gravity: Option<&'a mut ambition_sandbox::physics::BaseGravity>,
 }
 
 /// Read every developer toggle/cycle into a [`DevSnapshot`] for the SYSTEM IR. The
@@ -99,6 +103,12 @@ pub(crate) fn dev_snapshot(ctx: DevToggleRead<'_>) -> DevSnapshot {
     ));
     #[cfg(not(feature = "portal_render"))]
     values.push(DevSnapshot::cycle(D::PortalEffect, "not compiled"));
+    // Gravity (BaseGravity) — the `\`-hotkey row, a cycle whose value label is the
+    // active ambient direction (Down / Left / Up / Right).
+    values.push(DevSnapshot::cycle(
+        D::Gravity,
+        ctx.base_gravity.map_or("n/a", |g| g.direction_label()),
+    ));
     DevSnapshot { values }
 }
 
@@ -186,6 +196,16 @@ pub(crate) fn apply_dev_toggle(ctx: DevToggleWrite<'_>, id: DevToggleId, dir: i3
             }
             #[cfg(not(feature = "portal_render"))]
             let _ = dir;
+        }
+        // Cycle ambient gravity (down → left → up → right) via the shared
+        // `BaseGravity::cycle` — the in-menu equivalent of the `\` hotkey, so
+        // sideways/inverted gravity is reachable on mobile. Direction is moot
+        // (always steps forward); absent under fixtures: no-op.
+        D::Gravity => {
+            let _ = dir;
+            if let Some(base) = ctx.base_gravity {
+                base.cycle();
+            }
         }
     }
 }

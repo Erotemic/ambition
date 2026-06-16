@@ -67,11 +67,31 @@ The AccelerationFrame is the foundation; the remaining work is applying it every
 - DONE apple projectile rotates to its acceleration frame.
 - DONE joystick U/D/L/R glyphs (input→player mapping; no screen relationship).
 
-## Remaining (careful)
-- Player AABB: visible box + COLLISION orientation. The collision swap touches the
-  core movement sweep (risk) — needs gravity threaded + sweep review. Byte-identical
-  for up/down gravity; only sideways changes.
-- Grounded-boss footprint AABB (boss uses boss.aabb()/damageable_volumes, not
-  CenteredAabb — more involved than the enemy/NPC case).
-- Mount + rider as a unit + Mass (RON-authored, serde default): model confirmed
-  (mass-weighted COG + shared roll). New feature, multi-component.
+## Remaining (careful) — ALL DONE
+- DONE Player COLLISION box → `aabb_oriented(gravity_dir)` everywhere in the sweep
+  (sweep_x/sweep_y/resolve_axis/resolve_vertical). Byte-identical for vertical
+  gravity; replay green, 166 engine tests green.
+- DONE Player VISIBLE debug box → `aabb_oriented`; gravity threaded via
+  `FeatureDebugQueries` (SystemParam) to stay under Bevy's 16-param ceiling.
+- DONE Grounded-boss footprint AABB → `AccelerationFrame::to_world_half` in
+  `bosses/tick.rs` (gravity threaded via `GravityCtx`).
+- DONE Mount + rider rotate as a unit: new `Mass` component (RON-authored,
+  serde default 1.0; shark = 6.0). `sync_riders_to_mounts` rotates the saddle
+  offset by the gravity frame + pivots the rider around the mass-weighted COG.
+
+## Follow-up bugs from Jon's testing (FIXED)
+- Run-axis sign: `move_axis` returned screen-down for BOTH walls (sign-blind).
+  Run now follows the control-frame `side` → right-gravity = screen-up,
+  left-gravity = screen-down, up-gravity screen-aligned (Hybrid). `move_axis` deleted.
+- Facing: `gravity_aware_flip_x` dropped its `g.x > 0` term (an artifact of the old
+  screen-down move-axis). The rolled sprite's natural facing `(g.y,-g.x)` IS the
+  control-frame `side`, so the sprite faces the run direction; only up-gravity
+  inverts. Player now moves AND faces correctly under sideways gravity.
+
+## What to test (runtime-visual, shipped blind)
+- Cycle gravity with `\` (down→left→up→right). Under each: run left/right and check
+  the sprite both MOVES and FACES the player-relative direction.
+- Toggle the debug box (player hitbox) — the cyan box should rotate to match the
+  rolled sprite + collision under sideways gravity.
+- Grounded bosses (behemoth/gnuton/trex) + the pirate-on-shark under a flip: footprint
+  + saddle should track the rotation (shark heavy → pirate orbits it).

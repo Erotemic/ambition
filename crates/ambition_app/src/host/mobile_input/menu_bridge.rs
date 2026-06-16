@@ -21,7 +21,7 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 use super::bevy_plugin::{MenuTouchGestureState, MobileTouchState};
-use super::layout::{touch_action_at_position, TOUCH_SCALE};
+use super::exclusion::{touch_exclusion_contains, TouchExclusionZone};
 use super::state::{fold_touch_into_control_frame, touch_state_is_active, TouchInputState};
 use ambition_sandbox::input::{ControlFrame, MenuControlFrame, MenuInputState};
 
@@ -138,6 +138,7 @@ pub fn fold_to_menu_control_frame(
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window, With<PrimaryWindow>>,
     user_settings: Res<ambition_sandbox::persistence::settings::UserSettings>,
+    exclusion_zones: Query<&TouchExclusionZone>,
     mut gesture: ResMut<MenuTouchGestureState>,
     mut frame: ResMut<MenuControlFrame>,
     mut active_input: ResMut<ambition_sandbox::input::ActiveInputKind>,
@@ -202,11 +203,11 @@ pub fn fold_to_menu_control_frame(
     let touch_pos = touches
         .iter()
         .map(|touch| touch.position())
-        .find(|pos| !touch_control_area_contains(*pos, window_size));
+        .find(|pos| !touch_control_area_contains(*pos, window_size, &exclusion_zones));
     let mouse_pos = if mouse_buttons.pressed(MouseButton::Left) {
         window
             .cursor_position()
-            .filter(|pos| !touch_control_area_contains(*pos, window_size))
+            .filter(|pos| !touch_control_area_contains(*pos, window_size, &exclusion_zones))
     } else {
         None
     };
@@ -252,17 +253,10 @@ pub fn touch_move_to_menu_dir(
 /// Should `pos` count as occupied by an on-screen touch control?
 /// Used by the menu drag-scroll path so dragging the move stick or
 /// tapping an action button doesn't accidentally trigger menu scroll.
-pub(super) fn touch_control_area_contains(pos: Vec2, window_size: Vec2) -> bool {
-    if touch_action_at_position(pos, window_size).is_some() {
-        return true;
-    }
-    // Approximate virtual joystick footprint in the lower-left corner.
-    // The exact nodes are owned by `virtual_joystick`, so a geometric
-    // exclusion is the least-coupled way to avoid treating
-    // movement-stick drags as menu scroll gestures. The 300px envelope
-    // matches the original 1.0-scale stick (120px base + 24px margin +
-    // generous slop) and shrinks with `TOUCH_SCALE` so the smaller
-    // stick doesn't reserve a too-large dead zone for menu drags.
-    let stick_envelope = 300.0 * TOUCH_SCALE;
-    pos.x <= stick_envelope && pos.y >= window_size.y - stick_envelope
+pub(super) fn touch_control_area_contains(
+    pos: Vec2,
+    window_size: Vec2,
+    exclusion_zones: &Query<&TouchExclusionZone>,
+) -> bool {
+    touch_exclusion_contains(exclusion_zones.iter(), pos, window_size)
 }

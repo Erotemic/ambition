@@ -7,9 +7,10 @@ use bevy::window::PrimaryWindow;
 use virtual_joystick::*;
 
 use super::layout::{
-    touch_action_at_position, touch_action_layout, TouchActionButton, ACTION_BEZEL_H,
-    ACTION_BEZEL_W, ACTION_CLUSTER_H, ACTION_CLUSTER_MARGIN, ACTION_CLUSTER_W, MENU_ROW_MARGIN,
-    MENU_ROW_W,
+    movement_joystick_exclusion_zone, movement_joystick_layout, touch_action_at_position,
+    touch_action_exclusion_zone, touch_action_layout, touch_menu_button_exclusion_zone,
+    TouchActionButton, ACTION_BEZEL_H, ACTION_BEZEL_W, ACTION_CLUSTER_H, ACTION_CLUSTER_MARGIN,
+    ACTION_CLUSTER_W, MENU_ROW_MARGIN, MENU_ROW_W,
 };
 use super::menu_bridge::{fold_to_control_frame, fold_to_menu_control_frame};
 use super::state::TouchInputState;
@@ -256,13 +257,9 @@ fn spawn_touch_joysticks(mut cmd: Commands, mut images: ResMut<Assets<Image>>) {
     // a tap (a future polish could add a directional gesture).
     // Joystick footprint is scaled by `TOUCH_SCALE` from the original
     // 120x120 / 56x56 layout to match the shrunken action cluster.
-    // Keep the `JOYSTICK_*` constants in sync with the area exclusion
-    // in `menu_bridge::touch_control_area_contains` (uses the same
-    // base+margin geometry to skip the stick when matching menu
-    // drag-scroll gestures).
-    use super::layout::{JOYSTICK_MARGIN, TOUCH_SCALE};
-    let stick_base = 120.0 * TOUCH_SCALE;
-    let stick_knob = 56.0 * TOUCH_SCALE;
+    // The menu drag-scroll exclusion is attached to the joystick root
+    // as a `TouchExclusionZone` when `tag_virtual_joystick_root` runs.
+    let layout = movement_joystick_layout();
     create_joystick(
         &mut cmd,
         MobileStick::Move,
@@ -274,14 +271,14 @@ fn spawn_touch_joysticks(mut cmd: Commands, mut images: ResMut<Assets<Image>>) {
         Some(Color::srgba(0.95, 0.95, 0.95, 0.58)),
         Some(Color::srgba(0.20, 0.30, 0.45, 0.46)),
         Some(Color::srgba(0.10, 0.16, 0.24, 0.18)),
-        Vec2::new(stick_knob, stick_knob),
-        Vec2::new(stick_base, stick_base),
+        Vec2::new(layout.knob_size, layout.knob_size),
+        Vec2::new(layout.base_size, layout.base_size),
         Node {
-            width: Val::Px(stick_base),
-            height: Val::Px(stick_base),
+            width: Val::Px(layout.base_size),
+            height: Val::Px(layout.base_size),
             position_type: PositionType::Absolute,
-            left: Val::Px(JOYSTICK_MARGIN),
-            bottom: Val::Px(JOYSTICK_MARGIN),
+            left: Val::Px(layout.margin),
+            bottom: Val::Px(layout.margin),
             ..default()
         },
         // JoystickFixed: knob returns to base center on release
@@ -333,8 +330,11 @@ fn tag_virtual_joystick_root(
         // `fold_to_menu_control_frame` never sees a stick direction. The
         // high `GlobalZIndex` is the fix that makes the joystick a real
         // menu-nav source over the grid AND the cube.
-        cmd.entity(entity)
-            .insert((MobileTouchUiRoot, GlobalZIndex(TOUCH_HUD_Z)));
+        cmd.entity(entity).insert((
+            MobileTouchUiRoot,
+            GlobalZIndex(TOUCH_HUD_Z),
+            movement_joystick_exclusion_zone(),
+        ));
     }
 }
 
@@ -563,13 +563,16 @@ fn spawn_touch_buttons(mut cmd: Commands) {
         MobileTouchUiRoot,
     ))
     .with_children(|parent| {
-        for action in [TouchActionButton::Start, TouchActionButton::Reset] {
+        for (col, action) in [TouchActionButton::Start, TouchActionButton::Reset]
+            .into_iter()
+            .enumerate()
+        {
             let label = match action {
                 TouchActionButton::Start => "Menu",
                 TouchActionButton::Reset => "Back",
                 _ => "?",
             };
-            spawn_menu_button(parent, action, label);
+            spawn_menu_button(parent, action, label, col);
         }
     });
 }
@@ -603,6 +606,14 @@ fn spawn_action_button_at(
             BackgroundColor(Color::srgba(0.16, 0.19, 0.27, 0.38)),
             BorderColor::all(Color::srgba(0.68, 0.76, 0.92, 0.28)),
             action,
+            touch_action_exclusion_zone(super::layout::TouchActionSpec {
+                action,
+                label,
+                left,
+                top,
+                size,
+                font_size,
+            }),
             // Pressed-state flag (Phase 3) lives on the Button entity
             // so `sync_button_pressed_visual` can mutate
             // `BackgroundColor` on the same entity that carries the
@@ -896,7 +907,12 @@ pub fn sync_button_pressed_visual(
 
 /// Build one menu-row button. Used for Menu / Back, which are
 /// intermittent and live away from the gameplay action diamond.
-fn spawn_menu_button(parent: &mut ChildSpawnerCommands, action: TouchActionButton, label: &str) {
+fn spawn_menu_button(
+    parent: &mut ChildSpawnerCommands,
+    action: TouchActionButton,
+    label: &str,
+    col: usize,
+) {
     parent
         .spawn((
             Button,
@@ -910,6 +926,7 @@ fn spawn_menu_button(parent: &mut ChildSpawnerCommands, action: TouchActionButto
             },
             BackgroundColor(Color::srgba(0.20, 0.16, 0.22, 0.60)),
             action,
+            touch_menu_button_exclusion_zone(col),
             Name::new(format!("Touch{label}")),
         ))
         .with_children(|button| {

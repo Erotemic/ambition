@@ -44,6 +44,35 @@ pub fn display_name_for_character_id(character_id: &str) -> Option<&'static str>
         .map(|entry| entry.display_name.as_str())
 }
 
+/// Resolve a catalog `character_id` into its authored default [`Brain`], using
+/// `spawn_world_x` as the patrol/anchor center. This is the data-driven join
+/// that lets a placed NPC's behavior come from its catalog row (e.g. the lively
+/// `Aerial` flyer) instead of a hardcoded Patrol/StandStill. Returns `None` for
+/// an unknown id or a missing preset.
+pub fn default_brain_for_character_id(
+    character_id: &str,
+    spawn_world_x: f32,
+) -> Option<crate::brain::Brain> {
+    let entry = EMBEDDED_CATALOG.characters.get(character_id)?;
+    let preset = EMBEDDED_CATALOG.brain_presets.get(&entry.default_brain)?;
+    Some(crate::actor::character_catalog::brain_from_preset(
+        preset,
+        spawn_world_x,
+    ))
+}
+
+/// The catalog `body_kind` for a character id, if present. `Floating` means the
+/// actor is gravity-free (a flyer): the spawn zeroes its `gravity_scale` so the
+/// brain's full 2D `desired_vel` drives flight.
+pub fn body_kind_for_character_id(
+    character_id: &str,
+) -> Option<crate::actor::character_catalog::CharacterBodyKind> {
+    EMBEDDED_CATALOG
+        .characters
+        .get(character_id)
+        .map(|entry| entry.body_kind)
+}
+
 /// The catalog plugin pre-loaded with this game's roster.
 pub fn character_roster_plugin() -> CharacterCatalogPlugin {
     CharacterCatalogPlugin {

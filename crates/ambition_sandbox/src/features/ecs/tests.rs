@@ -40,6 +40,7 @@ fn peaceful_actor_damageable_volume_derives_pogo_overlay() {
             "Talk",
             aabb,
             crate::interaction::InteractionKind::Npc {
+                character_id: None,
                 dialogue_id: Some("hub_guide".into()),
                 patrol_radius: 0.0,
                 patrol_path_id: None,
@@ -290,6 +291,7 @@ fn interact_buffered_starts_npc_dialogue() {
             "Talk",
             npc_aabb,
             crate::interaction::InteractionKind::Npc {
+                character_id: None,
                 dialogue_id: Some("hub_guide".into()),
                 patrol_radius: 0.0,
                 patrol_path_id: None,

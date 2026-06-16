@@ -492,12 +492,16 @@ pub fn update_ecs_npcs(
         ),
         With<FeatureSimEntity>,
     >,
+    // Monotonic sim clock for time-driven NPC brains (the lively `Aerial`
+    // flyer's waypoint / dwell timing). `WorldTime` only exposes dt, so
+    // accumulate a scaled-dt clock here; it freezes with pause / bullet-time
+    // like everything else gameplay.
+    mut sim_clock: Local<f32>,
 ) {
     let dt = world_time.sim_dt();
     let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
-    // NPC brains run Patrol / StandStill, which don't read the absolute
-    // sim clock; 0.0 is safe (mirrors `update_ecs_actors`).
-    let sim_time = 0.0;
+    *sim_clock += dt;
+    let sim_time = *sim_clock;
     for (
         mut aabb,
         mut clusters,

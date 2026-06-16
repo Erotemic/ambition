@@ -43,6 +43,12 @@ pub enum InteractionKind {
         target: Option<String>,
     },
     Npc {
+        /// Catalog `character_id` this NPC was authored from (LDtk `NpcSpawn`
+        /// field). Carries the catalog join through to spawn so the runtime can
+        /// resolve the character's `default_brain` + `body_kind` from data
+        /// (instead of hardcoding Patrol/StandStill). `None` for NPCs built
+        /// without a catalog row (legacy / synthetic spawns).
+        character_id: Option<String>,
         dialogue_id: Option<String>,
         /// Half-range of the NPC's fallback patrol pace, in world pixels.
         /// `0.0` (the default) means the NPC stands still unless

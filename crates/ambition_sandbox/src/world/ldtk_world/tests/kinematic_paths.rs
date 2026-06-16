@@ -415,6 +415,7 @@ fn npc_path_id_resolves_through_room_spec_kinematic_paths() {
         .iter()
         .find_map(|authored| match &authored.payload.kind {
             crate::interaction::InteractionKind::Npc {
+                character_id: None,
                 patrol_path_id: Some(path_id),
                 ..
             } => Some(path_id.as_str()),

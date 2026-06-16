@@ -117,6 +117,23 @@ impl NpcClusterScratch {
             .as_ref()
             .and_then(PathMotion::start_pos)
             .unwrap_or(authored_pos);
+        // A `Floating` catalog body_kind = a gravity-free flyer (the stochastic
+        // parrot). Zero its gravity so the brain's full 2D `desired_vel` drives
+        // flight (see `NpcRuntime::integrate_velocity_aerial`). Data-driven via
+        // the NPC's catalog `character_id`.
+        let gravity_scale = match &interactable.kind {
+            crate::interaction::InteractionKind::Npc {
+                character_id: Some(cid),
+                ..
+            } if matches!(
+                crate::character_roster::body_kind_for_character_id(cid),
+                Some(crate::actor::character_catalog::CharacterBodyKind::Floating)
+            ) =>
+            {
+                0.0
+            }
+            _ => 1.0,
+        };
         Self {
             kin: BodyKinematics {
                 pos,
@@ -127,7 +144,7 @@ impl NpcClusterScratch {
             surface: ActorSurfaceState {
                 on_ground: false,
                 surface_normal: ae::Vec2::new(0.0, -1.0),
-                gravity_scale: 1.0,
+                gravity_scale,
                 air_jumps_remaining: 0,
             },
             motion: ActorMotionPath(motion),

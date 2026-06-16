@@ -54,6 +54,17 @@
             aggro_radius: 480.0,
             fire_cooldown_s: 1.5,
         ),
+        // Lively peaceful flyer (the cove parrot): flits between airborne perches
+        // and ground spots, and drops down beside the player to be talked to.
+        // Needs a `Floating` body_kind (gravity-free) to actually fly.
+        "parrot_lively": Aerial(
+            aggressiveness: 0.0,
+            cruise_speed: 95.0,
+            dive_speed: 240.0,
+            aggro_radius: 120.0,
+            attack_range: 0.0,
+            roam_radius: 130.0,
+        ),
     },
 
     action_set_presets: {
@@ -312,9 +323,10 @@
             spritesheet: "sprites/stochastic_parrot_spritesheet.png",
             manifest: "sprites/stochastic_parrot_spritesheet.ron",
             tier: MainHall,
-            body_kind: Standard,
+            // Floating = gravity-free, so the lively Aerial brain flies it.
+            body_kind: Floating,
             composition: None,
-            default_brain: "patrol_peaceful",
+            default_brain: "parrot_lively",
             default_action_set: "peaceful",
             tags: ["pirate", "bird", "npc"],
         ),

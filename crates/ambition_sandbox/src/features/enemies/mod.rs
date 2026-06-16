@@ -823,6 +823,30 @@ mod capability_tests {
             crate::character_sprites::sheet_for_character_id("stochastic_parrot").is_some(),
             "the parrot catalog row must resolve a sprite sheet",
         );
+
+        // Friendly form is authored ENTIRELY in data as a lively flyer (the
+        // commit-3 refactor payoff): the catalog default_brain resolves to a
+        // PEACEFUL Aerial brain, and body_kind is Floating so it's gravity-free.
+        let friendly = crate::character_roster::default_brain_for_character_id(
+            "stochastic_parrot",
+            0.0,
+        )
+        .expect("parrot has a catalog default brain");
+        assert!(
+            matches!(
+                friendly,
+                crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::Aerial {
+                    cfg,
+                    ..
+                }) if cfg.aggressiveness == 0.0
+            ),
+            "the cove parrot is authored as a peaceful Aerial flyer in data",
+        );
+        assert_eq!(
+            crate::character_roster::body_kind_for_character_id("stochastic_parrot"),
+            Some(crate::actor::character_catalog::CharacterBodyKind::Floating),
+            "the cove parrot is Floating (gravity-free) so the Aerial brain flies it",
+        );
     }
 
     /// Parity net for the Session-6/7 data migration: the four behaviors

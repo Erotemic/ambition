@@ -31,6 +31,7 @@ mod conversion_tests {
             String::from("Talk"),
             aabb,
             crate::interaction::InteractionKind::Npc {
+                character_id: None,
                 dialogue_id: Some(id.clone()),
                 patrol_radius,
                 patrol_path_id: None,

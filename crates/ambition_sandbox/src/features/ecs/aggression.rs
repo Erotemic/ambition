@@ -193,6 +193,7 @@ mod tests {
             "Talk",
             aabb,
             crate::interaction::InteractionKind::Npc {
+                character_id: None,
                 dialogue_id: None,
                 patrol_radius: 0.0,
                 patrol_path_id: None,

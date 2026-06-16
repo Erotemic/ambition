@@ -147,6 +147,7 @@ pub(super) fn convert_npc_spawn(
         field_string(entity, "prompt").unwrap_or_else(|| "Talk".to_string()),
         object_aabb(min, size),
         crate::interaction::InteractionKind::Npc {
+            character_id: (!character_id.is_empty()).then(|| character_id.clone()),
             dialogue_id: field_string(entity, "dialogue_id"),
             // Optional `patrol_radius` field on NpcSpawn. 0 (or unset)
             // → static NPC unless `path_id` is set.

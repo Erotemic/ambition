@@ -101,6 +101,34 @@ Format: each entry = the friction + why it bites + a candidate fix.
   gravity-free). That refactor is exactly "make the lively flyer a data row," so it is
   the natural payload of commit 3 rather than a special-case hack here.
 
+## Commit 3 — the refactor (data-driven NPC behavior)
+Fixes the keystone blockers (P6 + P8 + the `Floating` flag) so a placed NPC's
+behavior comes from its catalog row, not hardcoded Rust. The payoff IS the feature:
+the cove parrot now flies, authored entirely in data.
+
+- **`character_id` threaded onto `InteractionKind::Npc`** — the catalog join now
+  survives LDtk → spawn (was dropped after resolving the display name). (P6)
+- **`NpcRuntime::build_brain` is catalog-aware** — a catalog row asking for a RICH
+  brain (anything past Patrol/StandStill, e.g. `Aerial`) is honored via
+  `character_roster::default_brain_for_character_id`. Plain Patrol/StandStill rows
+  still use the legacy `patrol_radius` heuristic, so every existing NPC is unchanged
+  (replay byte-identical, 914 sandbox tests green). (P6)
+- **`Floating` body_kind ⇒ gravity-free** — `body_kind_for_character_id` zeroes the
+  NPC's `gravity_scale` at spawn, and a new `integrate_velocity_aerial` drives the
+  full 2D `desired_vel` with gravity off (mirrors the aerial-enemy integrator). The
+  bird actually flies.
+- **Real NPC sim clock** — `update_ecs_npcs` accumulates a scaled-dt `Local` clock
+  instead of passing `sim_time = 0.0`, so the `Aerial` brain's waypoint/dwell timing
+  comes alive (and freezes with pause/bullet-time). (P8)
+- **The parrot is now a pure data row**: catalog `default_brain: parrot_lively`
+  (a peaceful `Aerial` preset) + `body_kind: Floating`. No per-parrot Rust.
+
+What's STILL not data (future): P1/P2 (two rosters + display-name sprite join), P4
+(LDtk placement ergonomics), P7 (hall reciprocal-door dedup), and the extra attack
+animations (`dive_bomb`/`hover_peck`/`banked_strafe`) aren't bound to actions yet —
+only `slash` fires via `action.melee.primary`. The next refactor target is the
+sprite-by-name join (P2): give spawns a `character_id` for visuals too.
+
 ## Positives (what already works well)
 - **The spawn path is data-driven**: the basic friendly+hostile hookup needed ZERO
   Rust changes — catalog row + archetype row + yarn node + LDtk placement.

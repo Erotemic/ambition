@@ -78,6 +78,7 @@ fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
         prompt: "Talk".to_string(),
         aabb,
         kind: ambition_sandbox::interaction::InteractionKind::Npc {
+            character_id: None,
             dialogue_id: Some(CUT_ROPE_VICTORY_NPC_DIALOGUE_ID.to_string()),
             patrol_radius: 0.0,
             patrol_path_id: None,

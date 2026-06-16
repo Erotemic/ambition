@@ -73,6 +73,10 @@ impl<'a> NpcMut<'a> {
                 state,
                 ..
             }) => state.mode,
+            crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::Aerial {
+                state,
+                ..
+            }) => state.mode,
             crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::StandStill) => {
                 crate::actor::ai::CharacterAiMode::Idle
             }
@@ -81,6 +85,15 @@ impl<'a> NpcMut<'a> {
 
         if frame.facing.abs() > 0.001 {
             self.kin.facing = frame.facing;
+        }
+
+        // Aerial NPC (gravity-free flyer, e.g. the stochastic parrot): the brain
+        // drives the FULL 2D velocity — fly up to perches, dive, drop beside the
+        // player — so integrate the whole `desired_vel` with no gravity, mirroring
+        // the aerial-enemy path. Keyed off `gravity_scale` like the enemy side.
+        if self.surface.gravity_scale <= 0.001 {
+            self.integrate_velocity_aerial(frame.desired_vel, world, dt);
+            return frame;
         }
 
         if matches!(
@@ -160,7 +173,68 @@ impl<'a> NpcMut<'a> {
         prev_vel_x
     }
 
+    /// Gravity-free 2D integration for a flying NPC: approach the brain's full
+    /// `desired_vel` (both axes) and step through collision with gravity off, so
+    /// a `Floating` bird actually flies. Mirrors the aerial-enemy integrator.
+    pub fn integrate_velocity_aerial(
+        &mut self,
+        desired_vel: ae::Vec2,
+        world: &ae::World,
+        dt: f32,
+    ) {
+        let accel = 900.0 * dt;
+        self.kin.vel.x = approach(self.kin.vel.x, desired_vel.x, accel);
+        self.kin.vel.y = approach(self.kin.vel.y, desired_vel.y, accel);
+        let mut body = crate::kinematic::KinematicBody {
+            pos: self.kin.pos,
+            vel: self.kin.vel,
+            size: self.kin.size,
+            on_ground: self.surface.on_ground,
+            facing: self.kin.facing,
+        };
+        crate::kinematic::step_kinematic(
+            &mut body,
+            world,
+            crate::kinematic::KinematicTuning {
+                gravity: 0.0,
+                max_fall_speed: ENEMY_MAX_FALL,
+                gravity_sign: 1.0,
+            },
+            crate::kinematic::KinematicInputs::default(),
+            dt,
+        );
+        self.kin.pos = body.pos;
+        self.kin.vel = body.vel;
+        // A flyer is never "grounded" — keeps gravity-righting + anim aerial.
+        self.surface.on_ground = false;
+    }
+
     pub fn build_brain(&self) -> crate::brain::Brain {
+        // Data-driven: if this NPC was authored from a catalog row that asks for
+        // a RICH brain (anything past Patrol/StandStill — e.g. the lively Aerial
+        // flyer), honor the catalog `default_brain`. Plain Patrol/StandStill rows
+        // fall through to the LDtk `patrol_radius` heuristic so existing NPC
+        // placements stay byte-for-byte unchanged.
+        if let crate::interaction::InteractionKind::Npc {
+            character_id: Some(cid),
+            ..
+        } = &self.config.interactable.kind
+        {
+            if let Some(brain) =
+                crate::character_roster::default_brain_for_character_id(cid, self.config.spawn.x)
+            {
+                let is_basic = matches!(
+                    brain,
+                    crate::brain::Brain::StateMachine(
+                        crate::brain::StateMachineCfg::Patrol { .. }
+                            | crate::brain::StateMachineCfg::StandStill
+                    )
+                );
+                if !is_basic {
+                    return brain;
+                }
+            }
+        }
         if self.config.patrol_radius > 0.0 || self.motion.0.is_some() {
             let mut cfg = crate::brain::PatrolCfg::NPC_DEFAULT;
             cfg.spawn_x = self.config.spawn.x;

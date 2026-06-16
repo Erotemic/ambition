@@ -368,26 +368,34 @@ fn spawn_frame_axis_glyphs(mut cmd: Commands) {
     });
 }
 
-/// Rotate the reference-frame glyphs into screen space each frame from the live
-/// player gravity. Identity under normal gravity (U on top, D on bottom, …).
+/// Place each glyph at the INPUT-frame direction that maps to its player axis —
+/// i.e. how the joystick maps to the player frame, with NO screen relationship.
+/// Because the input (control) frame equals the player frame for ≤90° gravity
+/// (down / left / right), the glyphs DON'T move there (U stays on top); only the
+/// >90° accommodation (gravity up) — where the input reverts to screen-aligned but
+/// the player is flipped — swings them (U to the bottom). The math is the player
+/// axis re-expressed in the control frame's basis; world coords cancel out.
 fn position_frame_axis_glyphs(
     gravity: Option<Res<ambition_sandbox::physics::GravityField>>,
     mut glyphs: Query<(&FrameAxisGlyph, &mut Node)>,
 ) {
+    use ambition_sandbox::engine_core::{AccelerationFrame, InputFrameMode};
     let gdir = gravity
         .as_deref()
         .map_or(Vec2::new(0.0, 1.0), |g| Vec2::new(g.dir.x, g.dir.y));
-    // The raw player frame (no control accommodation): this is the player's own
-    // orientation, which is what the glyphs visualize.
-    let frame = ambition_sandbox::engine_core::AccelerationFrame::new(gdir);
+    let player = AccelerationFrame::new(gdir);
+    // The joystick maps input through the control frame (default mapping).
+    let control = player.control_frame(InputFrameMode::Hybrid);
     let layout = movement_joystick_layout();
     let center = layout.base_size * 0.5;
     let radius = layout.base_size * 0.36;
     for (glyph, mut node) in &mut glyphs {
-        // Engine `+y` is screen-down, same as UI `top`, so the mapping is direct.
-        let screen = frame.to_world(glyph.player_axis);
-        node.left = Val::Px(center + screen.x * radius - 7.0);
-        node.top = Val::Px(center + screen.y * radius - 13.0);
+        // player axis -> (intermediate world) -> input frame. For ≤90° gravity
+        // `control == player`, so this collapses to the player axis itself.
+        let world = player.to_world(glyph.player_axis);
+        let on_input = Vec2::new(world.dot(control.side), world.dot(control.down));
+        node.left = Val::Px(center + on_input.x * radius - 7.0);
+        node.top = Val::Px(center + on_input.y * radius - 13.0);
     }
 }
 

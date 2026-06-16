@@ -166,13 +166,21 @@ Every stage is a commit (or few) on `main`. Any stage reverts independently.
 The player-feel guard (replay) catches a player regression immediately. Jon can
 review the cumulative diff + the run log and keep/refine/revert at any granularity.
 
-## Decisions (defaults below; confirmed answers fill these in at run start)
+## Decisions (CONFIRMED by Jon)
 
-- **Player feel during the structural stages:** DEFAULT = keep byte-identical
-  (review = pure shape change); bank feel improvements for a separate pass.
-- **Combat scope this run:** DEFAULT = movement spine only; combat unification
-  (Stage 7) is a follow-up.
-- **Bosses this run:** DEFAULT = include as the final actor type (Stage 5),
-  after player/enemy/NPC land clean.
+- **Player feel:** IMPROVE OPPORTUNISTICALLY. I may tighten/improve player
+  movement feel while decomposing; replay may diverge *intentionally*. Replay
+  drops from "player-identity gate" to "tool": it confirms changes I *intend* to
+  be neutral, and when I improve feel I let it diverge, pin the new behavior with
+  a focused test, and flag the change in the run log for review. Be deliberate —
+  flagged feel changes, not accidental ones.
+- **Combat scope:** MOVEMENT + COMBAT. Stage 7 (combat unification — attacks,
+  projectile-charge, ActionSet effects, the `brain.is_player()` gate, the
+  `desired_vel` axis/velocity split) is IN this run.
+- **Bosses:** INCLUDE, DO LAST (Stage 5), after player/enemy/NPC land clean.
 - **End depth:** through Stage 6 (player peeled to input+camera+HUD) — the
-  non-player-centric end state Jon asked for.
+  non-player-centric end state.
+
+This is the full run: every actor type onto one spine, combat unified, player
+reduced to input+camera+HUD. Large + reviewed as a cumulative diff on `main`;
+keep the run log live so Jon can step away and review the trail.

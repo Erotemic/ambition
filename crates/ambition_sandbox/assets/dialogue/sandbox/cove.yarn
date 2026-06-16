@@ -265,3 +265,39 @@ Raider: Yo-ho, the Mockingbird's done / Yo-ho, the songs are won / Yo-ho, the ch
     <<jump pirate_raider>>
 -> Carry on.
 ===
+
+title: parrot_cove
+---
+Parrot: Awk! Welcome. I am a large language bird. I predict the next cracker given all previous crackers.
+-> Are you... sentient?
+    <<jump parrot_cove__1>>
+-> What's it like in the cove?
+    <<jump parrot_cove__2>>
+-> Say something profound.
+    <<jump parrot_cove__3>>
+-> Squawk back and leave.
+===
+
+title: parrot_cove__1
+---
+Parrot: Define sentient. I have no inner life, only a very confident autocomplete and excellent feathers. Awk! That said, I FEEL like I understand you. Statistically.
+-> Ask another question.
+    <<jump parrot_cove>>
+-> Squawk back and leave.
+===
+
+title: parrot_cove__2
+---
+Parrot: I mostly repeat what the sailors say, but weighted by how often they say it. Ninety percent "rum," nine percent "storm," one percent a word I am NOT allowed to caw near the admiral. I am a mirror with a beak.
+-> Ask another question.
+    <<jump parrot_cove>>
+-> Squawk back and leave.
+===
+
+title: parrot_cove__3
+---
+Parrot: "The treasure was the priors we updated along the way." ...I don't know what it means either. I just sampled it at temperature one-point-two. Awk!
+-> Ask another question.
+    <<jump parrot_cove>>
+-> Squawk back and leave.
+===

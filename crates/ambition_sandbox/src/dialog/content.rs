@@ -85,6 +85,7 @@ pub const KNOWN_DIALOGUE_IDS: &[&str] = &[
     "pirate_quartermaster",
     "pirate_raider",
     "pirate_raider_after_treasure",
+    "parrot_cove",
     // dojo.yarn
     "ninja_duelist",
     "ninja_leader",

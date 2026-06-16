@@ -183,6 +183,34 @@
         ranged: Some(Bolt(speed: 460.0, damage: 1)),
         move_style: Walk,
     ),
+    // Aggressive sky parrot — the hostile faction of the Stochastic Parrot,
+    // flying with the pirate shark-riders. Reuses the aerial Shark brain
+    // (charge-and-dive pursuit) since the parrot's attack art is a dive/peck.
+    // The EnemySpawn carries name "Stochastic Parrot" so the sprite resolver
+    // binds the parrot sheet (its melee fires the `slash` animation). Light,
+    // fast, low HP — a darting nuisance, not a bruiser. The ambitious pass
+    // differentiates the two sky spawns into distinct attack patterns.
+    "sky_parrot": (
+        max_health: 3,
+        patrol_speed: 120.0,
+        chase_speed: 240.0,
+        aggro_radius: 620.0,
+        attack_range: 60.0,
+        contact_strength: 0.55,
+        damage_amount: 1,
+        is_aerial: true,
+        mass: 0.5,
+        default_size: Some((76.0, 60.0)),
+        brain_template: Shark,
+        melee: Some(Bite((
+            windup_s: 0.16,
+            active_s: 0.10,
+            recover_s: 0.28,
+            damage: 1,
+            reach_px: 48.0,
+        ))),
+        move_style: Float,
+    ),
     // Sluggish wanderer. Tiny aggro so the player can walk past, but a
     // careless approach still punishes via the swipe.
     "small_lurker": (

@@ -301,6 +301,24 @@
             tags: ["pirate", "enemy"],
         ),
 
+        // ===== Stochastic Parrot. ONE character, two factions: a friendly
+        // cove bird (NpcSpawn -> this catalog row -> `patrol_peaceful`) and the
+        // aggressive sky raiders (EnemySpawn name="Stochastic Parrot" -> the
+        // `sky_parrot` enemy archetype, sprite bound by display-name match).
+        // Both share this sprite + body via the actor unification.
+        "stochastic_parrot": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Stochastic Parrot",
+            spritesheet: "sprites/stochastic_parrot_spritesheet.png",
+            manifest: "sprites/stochastic_parrot_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["pirate", "bird", "npc"],
+        ),
+
         // ===== Pirate Heavy bruisers (slow + hard hitting).
         "npc_pirate_heavy_broadside_bess": (
             sprite_tuning: Some((collision_scale: 1.95, frame_sample_inset: 1)),

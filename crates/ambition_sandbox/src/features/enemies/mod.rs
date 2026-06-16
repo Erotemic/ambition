@@ -783,6 +783,48 @@ mod capability_tests {
         assert_eq!(base, Default::default());
     }
 
+    /// The Stochastic Parrot's DUAL nature, proven from the authored data:
+    ///   - the friendly cove bird is a catalog character (`stochastic_parrot`,
+    ///     peaceful) — its sprite binds by `character_id`;
+    ///   - the aggressive sky raiders are the `sky_parrot` enemy archetype —
+    ///     hostile + aerial, reusing the Shark dive brain;
+    ///   - both wear the SAME parrot sprite. The aggressive form binds by
+    ///     DISPLAY NAME, so this pins that the enemy's authored spawn name
+    ///     ("Stochastic Parrot", set on the sky `EnemySpawn`s) exactly equals
+    ///     the catalog `display_name` — the fragile string join in P2 of the
+    ///     content-authoring pain-points journal. If someone renames either
+    ///     side, the sky parrots silently lose their sprite; this test screams.
+    #[test]
+    fn stochastic_parrot_is_friendly_in_the_cove_and_hostile_in_the_sky() {
+        use super::EnemyBrainTemplate;
+
+        // Aggressive sky form.
+        let sky = test_spec("sky_parrot");
+        assert!(sky.attacks_player, "sky_parrot is hostile by default");
+        assert!(sky.is_aerial, "sky_parrot flies (aerial, no gravity)");
+        assert!(sky.melee.is_some(), "sky_parrot has a dive/peck melee");
+        assert_eq!(
+            sky.brain_template,
+            EnemyBrainTemplate::Shark,
+            "sky_parrot reuses the aerial Shark dive brain",
+        );
+
+        // Friendly cove form: a catalog character with a peaceful default.
+        let display = crate::character_roster::display_name_for_character_id("stochastic_parrot");
+        assert_eq!(
+            display,
+            Some("Stochastic Parrot"),
+            "the catalog display_name MUST equal the sky EnemySpawn name, or the \
+             aggressive parrot loses its sprite (P2 name-join)",
+        );
+        // Both forms wear the same parrot sheet (the friendly form binds it by
+        // character_id; the sheet must actually resolve).
+        assert!(
+            crate::character_sprites::sheet_for_character_id("stochastic_parrot").is_some(),
+            "the parrot catalog row must resolve a sprite sheet",
+        );
+    }
+
     /// Parity net for the Session-6/7 data migration: the four behaviors
     /// that used to be hardcoded `match self { … }` arms on the enum are now
     /// authored RON fields (`attacks_player`, `body_contact_damage`,

@@ -23,22 +23,36 @@ use std::path::PathBuf;
 /// `~/Library/Application Support/ambition`; on Windows to
 /// `%APPDATA%\ambition`; on Android to the app's internal files
 /// directory.
+#[cfg(target_os = "android")]
 pub fn data_dir_root() -> PathBuf {
     if let Ok(value) = std::env::var("AMBITION_DATA_DIR") {
         // Tests / sandbox sessions can override the dir explicitly.
         return PathBuf::from(value);
     }
-    #[cfg(target_os = "android")]
-    {
-        // Android's process working directory is read-only in a GameActivity
-        // APK. Use the app's internal files directory instead so settings and
-        // saves persist without spamming logcat with EROFS warnings. The build
-        // script passes AMBITION_ANDROID_APP_ID at compile time so custom app
-        // IDs still get the matching package directory.
-        let app_id =
-            option_env!("AMBITION_ANDROID_APP_ID").unwrap_or("org.erotemic.ambition.sandbox");
-        return PathBuf::from("/data/data").join(app_id).join("files");
+
+    // Android's process working directory is read-only in a GameActivity APK.
+    // Use the app's internal files directory instead so settings and saves
+    // persist without spamming logcat with EROFS warnings. The build script
+    // passes AMBITION_ANDROID_APP_ID at compile time so custom app IDs still get
+    // the matching package directory.
+    let app_id = option_env!("AMBITION_ANDROID_APP_ID").unwrap_or("org.erotemic.ambition.sandbox");
+    PathBuf::from("/data/data").join(app_id).join("files")
+}
+
+/// Resolve the OS-conventional data directory for Ambition.
+///
+/// On Linux this resolves to `$XDG_DATA_HOME/ambition` or
+/// `$HOME/.local/share/ambition`; on macOS to
+/// `~/Library/Application Support/ambition`; on Windows to
+/// `%APPDATA%\ambition`; on Android to the app's internal files
+/// directory.
+#[cfg(not(target_os = "android"))]
+pub fn data_dir_root() -> PathBuf {
+    if let Ok(value) = std::env::var("AMBITION_DATA_DIR") {
+        // Tests / sandbox sessions can override the dir explicitly.
+        return PathBuf::from(value);
     }
+
     #[cfg(target_os = "linux")]
     {
         if let Ok(xdg) = std::env::var("XDG_DATA_HOME") {

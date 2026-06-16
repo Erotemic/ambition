@@ -649,6 +649,7 @@ PROJECT_DIR="$ROOT/target/android/ambition_sandbox_android"
 APP_DIR="$PROJECT_DIR/app"
 JNI_OUT="$APP_DIR/src/main/jniLibs"
 ASSETS_OUT="$APP_DIR/src/main/assets"
+ANDROID_NATIVE_LIB_NAME="ambition_app"
 ANDROID_ICON_SRC="$ROOT/assets/icons/android_icon2.png"
 # Adaptive icon (mipmap-anydpi-v26): the launcher composites a
 # background drawable + foreground drawable inside its own mask shape
@@ -799,7 +800,7 @@ import com.google.androidgamesdk.GameActivity;
  */
 public class MainActivity extends GameActivity {
     static {
-        System.loadLibrary("ambition_sandbox");
+        System.loadLibrary("$ANDROID_NATIVE_LIB_NAME");
     }
 }
 EOF
@@ -911,6 +912,7 @@ else
 fi
 log "APK asset tree size: $(dir_size "$ASSETS_OUT")"
 
+rm -rf "$JNI_OUT/$TARGET_ABI"
 CARGO_NDK_ARGS=(cargo ndk -t "$TARGET_ABI" -P "$MIN_SDK" -o "$JNI_OUT" build -p ambition_app --lib)
 case "$RUST_PROFILE" in
     debug) ;;
@@ -931,7 +933,7 @@ else
     AMBITION_ANDROID_APP_ID="$APP_ID" "${CARGO_NDK_ARGS[@]}"
 fi
 
-SO_PATH="$JNI_OUT/$TARGET_ABI/libambition_app.so"
+SO_PATH="$JNI_OUT/$TARGET_ABI/lib$ANDROID_NATIVE_LIB_NAME.so"
 copy_libcxx_shared "$TARGET_ABI" "$JNI_OUT/$TARGET_ABI"
 if [[ "$STRIP_NATIVE" == true ]]; then
     strip_native_library "$SO_PATH"

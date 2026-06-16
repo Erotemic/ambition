@@ -96,6 +96,27 @@ core, gated only by a tiny context.
   exists as `surface_walker` behavior; promoting these to first-class ability COMPONENTS
   is content polish, deferred — it does not block the structural unification (Stages 4-7).
 
+## Stage 4 ✅ — rendering tail unified
+
+**Scope decision (mine):** the rendering MECHANISM is already shared — player,
+enemy, and NPC all animate through `CharacterAnimator` + `Sprite` atlas + the
+gravity-aware facing flip + the hit-flash silhouette overlay. The only thing that
+legitimately differs between `animate_player` and `animate_characters` is the anim
+SELECTION richness (`pick_player_anim` reads 18 player clusters for crouch / slide
+/ ladder / blink / dash / ledge / dodge / shield; `pick_enemy_anim`/`pick_npc_anim`
+read a small actor state). That difference is correct pay-for-use, NOT duplication
+to merge — forcing the player into the `FeatureVisual` iteration would mean dragging
+its rich clusters into the actor query for zero behavior gain and real visual risk
+(can't GUI-verify). So Stage 4 = extract the duplicated frame-application TAIL.
+
+- New `apply_character_frame(sprite, animator, anim, dt, facing, gravity_dir, color)`
+  in `rendering/actors/animation.rs`: request anim → tick → push atlas frame →
+  gravity-aware flip → set tint. Both `animate_player` and `animate_characters` now
+  call it; the per-actor systems shrank to "gather state → pick anim → pick tint".
+- Byte-identical by construction (same operations, extracted). Render crate builds
+  clean; player tint stays `WHITE` (overlay flashes), enemy attack tint preserved.
+- Commit: `refactor(render): Stage 4 — extract the shared actor animation tail`.
+
 ## (superseded) earlier Stage 3 framing
 
 The decomposition foundation is in place. Next is the high-value, higher-risk work:

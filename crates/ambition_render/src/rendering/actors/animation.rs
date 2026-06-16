@@ -4,6 +4,34 @@
 
 use super::*;
 
+/// The shared animation TAIL every animated actor (player, enemy, NPC) runs:
+/// request the chosen anim, tick the animator by the entity's dt, push the
+/// resulting atlas frame onto the sprite, apply the gravity-aware facing flip,
+/// and set the sprite tint. The per-actor systems differ only in how they SELECT
+/// the anim + tint — pay-for-use: the player's picker reads its rich clusters
+/// (crouch / slide / ladder / blink / …), the enemy/NPC picker reads its small
+/// actor state. The frame-application MECHANISM is identical for every actor, so
+/// it lives here once instead of being duplicated per render path.
+pub(crate) fn apply_character_frame(
+    sprite: &mut Sprite,
+    animator: &mut CharacterAnimator,
+    anim: ambition_sandbox::character_sprites::CharacterAnim,
+    dt: f32,
+    facing: f32,
+    gravity_dir: ambition_sandbox::engine_core::Vec2,
+    color: Color,
+) {
+    animator.request(anim);
+    let index = animator.tick(dt);
+    if let Some(atlas) = sprite.texture_atlas.as_mut() {
+        atlas.index = index;
+    }
+    // Gravity-aware facing flip: a ~180° up-gravity roll already mirrors the
+    // sprite, so the flip inverts (fixes #33 "move left, face right upside down").
+    sprite.flip_x = ambition_sandbox::physics::gravity_aware_flip_x(facing, gravity_dir);
+    sprite.color = color;
+}
+
 /// Drive the player sprite's animation state, atlas index, and facing flip.
 /// Runs every frame; no-op on color-rectangle fallbacks (no `CharacterAnimator`).
 ///
@@ -86,33 +114,30 @@ pub fn animate_player(
         dodge,
         shield,
     );
-    animator.request(anim);
     // ADR 0011 — `entity_dt` collapses to `sim_dt` when no
     // ProperTimeScale is set (SP default), so bullet-time /
     // hitstop / pause still slow the animation in lockstep. Step 4
     // wires the player ProperTimeScale path so future MP regimes
     // can boost the player's cognitive rate without slowing the
     // world for other observers.
-    let index = animator.tick(
-        world_time
-            .entity_dt(ambition_sandbox::time::time_control::ProperTimeScale::or_default(scale)),
-    );
-    if let Some(atlas) = sprite.texture_atlas.as_mut() {
-        atlas.index = index;
-    }
-    // Gravity-aware facing flip: a ~180° up-gravity roll already mirrors the
-    // sprite, so the flip inverts (fixes #33 "move left, face right upside down").
+    let dt =
+        world_time.entity_dt(ambition_sandbox::time::time_control::ProperTimeScale::or_default(scale));
     let player_gravity = gravity
         .as_deref()
         .map_or(ambition_sandbox::engine_core::Vec2::Y, |g| g.dir);
-    sprite.flip_x =
-        ambition_sandbox::physics::gravity_aware_flip_x(kinematics.facing, player_gravity);
     // Hit feedback is drawn by the white-silhouette overlay in
-    // `presentation::rendering::hit_flash` — a sibling mesh that
-    // samples this atlas frame and outputs pure white modulated by
-    // `PlayerCombatState::flash_timer`. The source sprite stays at
-    // full opacity / untinted; the overlay does the flashing.
-    sprite.color = Color::WHITE;
+    // `presentation::rendering::hit_flash` — a sibling mesh that samples this
+    // atlas frame and outputs pure white modulated by `PlayerCombatState::
+    // flash_timer`. The source sprite stays untinted (`WHITE`); the overlay flashes.
+    apply_character_frame(
+        &mut sprite,
+        &mut animator,
+        anim,
+        dt,
+        kinematics.facing,
+        player_gravity,
+        Color::WHITE,
+    );
 }
 
 /// Drive enemy AND NPC sprite animation, atlas index, and facing flip.
@@ -177,25 +202,26 @@ pub fn animate_characters(
         } else {
             continue;
         };
-        animator.request(anim);
-        let index = animator.tick(dt);
-        if let Some(atlas) = sprite.texture_atlas.as_mut() {
-            atlas.index = index;
-        }
-        sprite.flip_x =
-            ambition_sandbox::physics::gravity_aware_flip_x(facing, gravity.dir_at(pos));
         // Hit feedback is drawn by the white-silhouette overlay in
-        // `presentation::rendering::hit_flash`. Keep the warm
-        // attack tint on the multiplicative `sprite.color` channel
-        // — it's a separate signal (telegraphing the actor's
-        // outgoing swing, not its own damage). The hit_flash
-        // boolean still feeds into anim selection upstream so the
-        // `hit` row plays.
-        sprite.color = if attacking {
+        // `presentation::rendering::hit_flash`. Keep the warm attack tint on the
+        // multiplicative `sprite.color` channel — it's a separate signal
+        // (telegraphing the actor's outgoing swing, not its own damage). The
+        // hit_flash boolean still feeds anim selection upstream so the `hit` row
+        // plays.
+        let color = if attacking {
             Color::srgba(1.0, 0.85, 0.55, 1.0)
         } else {
             Color::WHITE
         };
+        apply_character_frame(
+            &mut sprite,
+            &mut animator,
+            anim,
+            dt,
+            facing,
+            gravity.dir_at(pos),
+            color,
+        );
         let _ = hit_flash;
     }
 }

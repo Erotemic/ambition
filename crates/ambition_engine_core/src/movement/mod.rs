@@ -85,32 +85,26 @@ pub fn update_player_control_with_clusters(
         return events;
     }
 
-    // update_facing_and_control_intent — cluster-native.
-    {
-        let can_turn = clusters.ground.on_ground || clusters.flight.fly_enabled;
-        if can_turn && input.axis_x.abs() > 0.1 {
-            clusters.kinematics.facing = input.axis_x.signum();
-        }
-        if input.jump_pressed && clusters.abilities.abilities.jump {
-            clusters.action_buffer.jump = tuning.jump_buffer;
-        }
-        if input.dash_pressed && clusters.abilities.abilities.dash {
-            clusters.action_buffer.dash = tuning.dash_buffer;
-        }
-    }
+    abilities::apply_intent(
+        clusters.kinematics,
+        clusters.ground,
+        clusters.flight,
+        clusters.action_buffer,
+        clusters.abilities,
+        input,
+        tuning,
+    );
 
-    // handle_mode_toggles — cluster-native.
-    if input.fly_toggle_pressed && clusters.abilities.abilities.fly {
-        clusters.flight.fly_enabled = !clusters.flight.fly_enabled;
-        if clusters.flight.fly_enabled {
-            clusters.flight.fast_falling = false;
-            clusters.wall.wall_clinging = false;
-            clusters.wall.wall_climbing = false;
-            clusters.dash.timer = 0.0;
-            clusters.blink.grace_timer = 0.0;
-        }
-        events.op_clusters(clusters.combo_trace, ops::MovementOp::FlyToggle);
-    }
+    abilities::apply_fly_toggle(
+        clusters.flight,
+        clusters.wall,
+        clusters.dash,
+        clusters.blink,
+        clusters.abilities,
+        clusters.combo_trace,
+        input,
+        &mut events,
+    );
 
     // Blink hold / aim / release + melee + pogo dispatch.
     control::handle_blink_clusters(
@@ -136,26 +130,18 @@ pub fn update_player_control_with_clusters(
         &mut events,
     );
 
-    // handle_dodge — cluster-native.
-    if clusters.action_buffer.dash > 0.0
-        && clusters.abilities.abilities.dodge
-        && clusters.ground.on_ground
-        && clusters.dodge.cooldown <= 0.0
-    {
-        let dir = if input.axis_x.abs() > 0.1 {
-            input.axis_x.signum()
-        } else {
-            clusters.kinematics.facing
-        };
-        clusters.kinematics.vel.x = dir * tuning.dodge_roll_speed;
-        clusters.kinematics.vel.y = clusters.kinematics.vel.y.min(0.0);
-        clusters.dodge.roll_timer = tuning.dodge_roll_time;
-        clusters.dodge.cooldown = tuning.dodge_roll_cooldown;
-        clusters.action_buffer.dash = 0.0;
-        events.op_clusters(clusters.combo_trace, ops::MovementOp::DodgeRoll);
-    }
+    abilities::apply_dodge(
+        clusters.kinematics,
+        clusters.dodge,
+        clusters.action_buffer,
+        clusters.ground,
+        clusters.abilities,
+        clusters.combo_trace,
+        input,
+        tuning,
+        &mut events,
+    );
 
-    // Dash — first verb peeled into the composable `abilities` module.
     abilities::apply_dash(
         clusters.kinematics,
         clusters.dash,
@@ -167,27 +153,17 @@ pub fn update_player_control_with_clusters(
         &mut events,
     );
 
-    // handle_shield — cluster-native.
-    if !clusters.abilities.abilities.shield {
-        clusters.shield.active = false;
-        clusters.shield.parry_window_timer = 0.0;
-    } else {
-        let can_shield = clusters.dash.timer <= 0.0;
-        let want_shield = input.shield_held && can_shield;
-        if want_shield && !clusters.shield.active {
-            clusters.shield.parry_window_timer = tuning.parry_window_time;
-            events.op_clusters(clusters.combo_trace, ops::MovementOp::ShieldUp);
-        }
-        clusters.shield.active = want_shield;
-    }
+    abilities::apply_shield(
+        clusters.shield,
+        clusters.dash,
+        clusters.abilities,
+        clusters.combo_trace,
+        input,
+        tuning,
+        &mut events,
+    );
 
-    // handle_jump_release — cluster-native (variable jump height).
-    if clusters.abilities.abilities.variable_jump
-        && input.jump_released
-        && clusters.kinematics.vel.y < -120.0
-    {
-        clusters.kinematics.vel.y *= 0.54;
-    }
+    abilities::apply_jump_release(clusters.kinematics, clusters.abilities, input);
 
     events
 }

@@ -227,6 +227,31 @@ harness) → 5) content (aerial→flight spine, slug/parrot ability components).
   redundant work Jon flagged, so they stay put until step 3 (the natural seam).
 - Commit: `refactor(player): step 1 — platform advance is once-per-frame, not in the per-entity tick`.
 
+### Step 2 ✅ — the clone is a full VISUAL player body (it has a sprite now)
+
+This is also the fix for "why does the K-spawned clone have no sprite": it was a
+placeholder colored box, never wired into the character-sprite path.
+
+- **Clone spawn** (`player_clone.rs`) now attaches the real textured player sprite +
+  `CharacterAnimator` + `PlayerSpriteBaseline` + feet anchor (mirroring
+  `scene_setup`'s primary visual; falls back to a tinted box if the sheet didn't
+  load — headless), plus `PlayerAnimState` / `PlayerCombatState` /
+  `PlayerBlinkCameraState` + the `PlayerVisual` marker.
+- **`animate_player` generalized** from a `get_mut(entities.player)` single lookup to
+  a loop over every `With<PlayerVisual>` body, with per-entity
+  `Option<&ActivePlayerAttack>` (primary keeps its attack rows; a clone has None and
+  animates from movement). The player body is not special to rendering — only the
+  camera/HUD are. Primary anim logic is unchanged (replay green; render/app/boundary
+  suites green).
+- **Deliberately NOT a `PlayerEntity` yet:** the movement/combat player systems still
+  `single_mut()` over `With<PlayerEntity>`, so the marker swap (and dropping the
+  bespoke `drive_player_clones`) waits for step 3, when those become loops. The clone
+  thus moves via its bespoke driver but RENDERS via the shared path.
+- **Blind visual fix** — I can't see the GUI: the clone should now show the animated
+  player sprite when spawned with **K** (Jon to eyeball). The movement is unchanged
+  and proven by `player_clone_live`.
+- Commit: `feat(player): step 2 — clone is a full visual player body (shared animate_player)`.
+
 ## (superseded) earlier Stage 3 framing
 
 The decomposition foundation is in place. Next is the high-value, higher-risk work:

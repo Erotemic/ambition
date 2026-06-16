@@ -18,7 +18,13 @@
 
 use bevy::prelude::*;
 
+use ambition_render::rendering::{PlayerSpriteBaseline, PlayerVisual};
+use ambition_sandbox::assets::game_assets::GameAssets;
 use ambition_sandbox::brain::{ActorControl, Brain, BrainSnapshot, StateMachineCfg};
+use ambition_sandbox::character_sprites::{
+    build_character_sprite_with_render_size, feet_anchor_for_render_size,
+    player_placeholder_render_size, CharacterAnimator,
+};
 use ambition_sandbox::dev::dev_tools::EditableMovementTuning;
 use ambition_sandbox::engine_core as ae;
 use ambition_sandbox::engine_core::movement::InputState;
@@ -56,6 +62,9 @@ pub fn spawn_requested_player_clone(
     mut commands: Commands,
     mut request: ResMut<SpawnPlayerCloneRequest>,
     world: Res<GameWorld>,
+    // Optional: the headless RL harness has no loaded character sheets. Absent →
+    // the clone falls back to a tinted rectangle (movement still works).
+    game_assets: Option<Res<GameAssets>>,
     player_q: Query<
         &ambition_sandbox::player::BodyKinematics,
         With<ambition_sandbox::player::PlayerEntity>,
@@ -104,7 +113,7 @@ pub fn spawn_requested_player_clone(
         scratch.lifetime,
         scratch.combo_trace,
     );
-    commands.spawn((
+    let mut clone = commands.spawn((
         clusters_a,
         clusters_b,
         Brain::StateMachine(StateMachineCfg::PlayerDemo {
@@ -113,14 +122,51 @@ pub fn spawn_requested_player_clone(
         }),
         ActorControl::default(),
         PlayerClone,
-        Sprite {
-            color: Color::srgba(1.0, 0.55, 0.95, 0.9),
-            custom_size: Some(Vec2::new(size.x, size.y)),
-            ..default()
-        },
+        // Visual + combat state the SHARED `animate_player` path reads. With these
+        // (+ the textured sprite/animator below + `PlayerVisual`), the clone animates
+        // through the IDENTICAL player picker — `animate_player` now iterates every
+        // `PlayerVisual` body, not just the primary.
+        //
+        // The clone stays a `PlayerClone`, NOT a `PlayerEntity`, on purpose: the
+        // movement/combat player systems still use `single_mut()` over
+        // `With<PlayerEntity>`, so adding that marker now would panic them. The
+        // marker swap + dropping the bespoke `drive_player_clones` movement happen in
+        // step 3, when those systems become loops.
+        (
+            ambition_sandbox::player::PlayerAnimState::default(),
+            ambition_sandbox::player::PlayerCombatState::default(),
+            ambition_sandbox::player::PlayerBlinkCameraState::default(),
+        ),
         transform,
         Name::new("Player Clone (brain-driven)"),
     ));
+
+    // Real textured player sprite + animator, mirroring `scene_setup`'s primary
+    // visual, so the clone looks like the player instead of a placeholder box.
+    // Falls back to a tinted rectangle if the character sheet didn't load.
+    let collision = Vec2::new(ae::DEFAULT_PLAYER_BODY_WIDTH, ae::DEFAULT_PLAYER_BODY_HEIGHT);
+    let asset = game_assets
+        .as_ref()
+        .and_then(|g| g.characters.player.as_ref().or(g.characters.robot.as_ref()));
+    if let Some(asset) = asset {
+        let render = player_placeholder_render_size(&asset.spec, collision);
+        clone.insert((
+            build_character_sprite_with_render_size(asset, render),
+            feet_anchor_for_render_size(&asset.spec, collision, render),
+            CharacterAnimator::new(&asset.spec),
+            PlayerSpriteBaseline {
+                standing_render: render,
+                standing_collision: collision,
+            },
+            PlayerVisual,
+        ));
+    } else {
+        clone.insert(Sprite {
+            color: Color::srgba(1.0, 0.55, 0.95, 0.9),
+            custom_size: Some(Vec2::new(size.x, size.y)),
+            ..default()
+        });
+    }
 }
 
 /// Build the engine `InputState` from a clone's brain-emitted control frame.

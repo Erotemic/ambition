@@ -41,11 +41,6 @@ pub(crate) fn apply_character_frame(
 /// crawl / slide / ladder / swim.
 pub fn animate_player(
     world_time: Res<ambition_sandbox::WorldTime>,
-    primary_attack: Query<
-        &ambition_sandbox::player::ActivePlayerAttack,
-        ambition_sandbox::player::PrimaryPlayerOnly,
-    >,
-    entities: Res<SceneEntities>,
     gravity: Option<Res<ambition_sandbox::physics::GravityField>>,
     mut query: Query<
         (
@@ -69,13 +64,24 @@ pub fn animate_player(
                 &ambition_sandbox::player::PlayerAbilities,
                 &ambition_sandbox::player::PlayerDodgeState,
                 &ambition_sandbox::player::PlayerShieldState,
+                Option<&ambition_sandbox::player::ActivePlayerAttack>,
                 Option<&ambition_sandbox::time::time_control::ProperTimeScale>,
             ),
         ),
         With<PlayerVisual>,
     >,
 ) {
-    let Ok((
+    // Iterate EVERY player-bodied visual, not just the primary: the human player
+    // and any brain-driven player clone animate through the identical picker. The
+    // active-attack swing is per-entity (`Option<&ActivePlayerAttack>`) — the
+    // primary carries one and gets its attack rows; a clone has None and animates
+    // from movement alone. (Generalized from a `get_mut(entities.player)` single
+    // lookup as part of the non-player-centric peel: the player body is not special
+    // to rendering, only the camera/HUD are.)
+    let player_gravity = gravity
+        .as_deref()
+        .map_or(ambition_sandbox::engine_core::Vec2::Y, |g| g.dir);
+    for (
         (
             mut sprite,
             mut animator,
@@ -90,54 +96,47 @@ pub fn animate_player(
             anim_state,
             blink_cam,
         ),
-        (body_mode, env_contact, abilities, dodge, shield, scale),
-    )) = query.get_mut(entities.player)
-    else {
-        return;
-    };
-    let attack_state = primary_attack.iter().next().and_then(|a| a.0.as_ref());
-    let anim = ambition_sandbox::character_sprites::pick_player_anim(
-        anim_state,
-        player_combat,
-        blink_cam,
-        attack_state,
-        kinematics,
-        ground,
-        wall,
-        blink,
-        flight,
-        dash,
-        ledge,
-        body_mode,
-        env_contact,
-        abilities,
-        dodge,
-        shield,
-    );
-    // ADR 0011 — `entity_dt` collapses to `sim_dt` when no
-    // ProperTimeScale is set (SP default), so bullet-time /
-    // hitstop / pause still slow the animation in lockstep. Step 4
-    // wires the player ProperTimeScale path so future MP regimes
-    // can boost the player's cognitive rate without slowing the
-    // world for other observers.
-    let dt =
-        world_time.entity_dt(ambition_sandbox::time::time_control::ProperTimeScale::or_default(scale));
-    let player_gravity = gravity
-        .as_deref()
-        .map_or(ambition_sandbox::engine_core::Vec2::Y, |g| g.dir);
-    // Hit feedback is drawn by the white-silhouette overlay in
-    // `presentation::rendering::hit_flash` — a sibling mesh that samples this
-    // atlas frame and outputs pure white modulated by `PlayerCombatState::
-    // flash_timer`. The source sprite stays untinted (`WHITE`); the overlay flashes.
-    apply_character_frame(
-        &mut sprite,
-        &mut animator,
-        anim,
-        dt,
-        kinematics.facing,
-        player_gravity,
-        Color::WHITE,
-    );
+        (body_mode, env_contact, abilities, dodge, shield, active_attack, scale),
+    ) in &mut query
+    {
+        let attack_state = active_attack.and_then(|a| a.0.as_ref());
+        let anim = ambition_sandbox::character_sprites::pick_player_anim(
+            anim_state,
+            player_combat,
+            blink_cam,
+            attack_state,
+            kinematics,
+            ground,
+            wall,
+            blink,
+            flight,
+            dash,
+            ledge,
+            body_mode,
+            env_contact,
+            abilities,
+            dodge,
+            shield,
+        );
+        // ADR 0011 — `entity_dt` collapses to `sim_dt` when no ProperTimeScale is
+        // set (SP default), so bullet-time / hitstop / pause still slow the
+        // animation in lockstep.
+        let dt = world_time
+            .entity_dt(ambition_sandbox::time::time_control::ProperTimeScale::or_default(scale));
+        // Hit feedback is drawn by the white-silhouette overlay in
+        // `presentation::rendering::hit_flash` — a sibling mesh that samples this
+        // atlas frame and outputs pure white modulated by `PlayerCombatState::
+        // flash_timer`. The source sprite stays untinted (`WHITE`); the overlay flashes.
+        apply_character_frame(
+            &mut sprite,
+            &mut animator,
+            anim,
+            dt,
+            kinematics.facing,
+            player_gravity,
+            Color::WHITE,
+        );
+    }
 }
 
 /// Drive enemy AND NPC sprite animation, atlas index, and facing flip.

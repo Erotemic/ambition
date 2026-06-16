@@ -143,6 +143,10 @@ pub fn draw_debug_overlay(
     if developer_tools.show_moving_platform {
         draw_moving_platform_debug(&mut gizmos, world, &platform_set.0);
     }
+    let player_gravity = feature_q
+        .gravity
+        .as_deref()
+        .map_or(ae::Vec2::new(0.0, 1.0), |g| g.dir);
     draw_player_debug(
         &mut gizmos,
         world,
@@ -152,6 +156,7 @@ pub fn draw_debug_overlay(
         actions,
         gameplay_active,
         &developer_tools,
+        player_gravity,
     );
     if developer_tools.show_health_bars {
         draw_health_bars(

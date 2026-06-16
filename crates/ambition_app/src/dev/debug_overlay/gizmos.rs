@@ -154,6 +154,11 @@ pub struct FeatureDebugQueries<'w, 's> {
         ),
         Without<ambition_sandbox::player::PlayerEntity>,
     >,
+    /// The player's resolved gravity, so the player debug box can rotate to
+    /// match its (now gravity-oriented) collision box + sprite. Lives in this
+    /// bundle (not a top-level param) to keep `draw_debug_overlay` under Bevy's
+    /// 16-system-param ceiling.
+    pub gravity: Option<Res<'w, ambition_sandbox::physics::GravityField>>,
 }
 
 pub(crate) fn draw_room_bounds(gizmos: &mut Gizmos, world: &ae::World) {
@@ -305,6 +310,7 @@ pub(crate) fn draw_player_debug(
     actions: Option<&ActionState<SandboxAction>>,
     gameplay_active: bool,
     developer_tools: &DeveloperTools,
+    gravity_dir: ae::Vec2,
 ) {
     let pos = clusters.kinematics.pos;
     let vel = clusters.kinematics.vel;
@@ -313,7 +319,9 @@ pub(crate) fn draw_player_debug(
     let on_ground = clusters.ground.on_ground;
     let on_wall = clusters.wall.on_wall;
     let wall_normal_x = clusters.wall.wall_normal_x;
-    let body = clusters.kinematics.aabb();
+    // Oriented to the player's frame so the box matches the rotated sprite + the
+    // (now gravity-oriented) collision box; identity under vertical gravity.
+    let body = clusters.kinematics.aabb_oriented(gravity_dir);
     if developer_tools.show_player_hitbox {
         draw_aabb_styled(gizmos, world, body, cyan(), developer_tools);
     }

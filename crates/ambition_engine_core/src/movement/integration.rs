@@ -33,8 +33,8 @@ pub fn set_jump_velocity(vel: &mut crate::Vec2, gravity_dir: crate::Vec2, speed:
 /// Screen-vertical input (`axis_y`, +Y = screen-down) → the gravity-relative
 /// "descend" (toward-the-feet) intent that gates crouch / pogo / drop-through /
 /// fast-fall and drives gravity-relative vertical movement. The vertical sibling
-/// of [`move_axis`]: that keeps the run axis sign-consistent, this keeps the gate
-/// axis sign-consistent.
+/// of the run axis ([`crate::AccelerationFrame::control_frame`]'s `side`): that
+/// keeps the run axis player-relative, this keeps the gate axis sign-consistent.
 ///
 /// CONVENTION — this game's; change it HERE and every gate moves together. The
 /// gate stays on the up/down keys; its sign flips only when gravity rotates PAST
@@ -54,19 +54,6 @@ pub fn gravity_descend(axis_y: f32, gravity_dir: crate::Vec2) -> f32 {
 /// boundary.
 pub(super) fn wants_drop_through(axis_y: f32, jump_pressed: bool, gravity_dir: crate::Vec2) -> bool {
     gravity_descend(axis_y, gravity_dir) > 0.35 && jump_pressed
-}
-
-/// The MOVEMENT axis for a cardinal gravity direction: the unit axis the player
-/// runs along (perpendicular to gravity). Sign-consistent so `axis_x` never
-/// inverts under a gravity flip — screen `+X` under vertical gravity (down/up),
-/// screen `+Y` under horizontal gravity (wall-walking). `axis_x = +1` walks the
-/// player along this axis.
-pub(super) fn move_axis(gravity_dir: crate::Vec2) -> crate::Vec2 {
-    if gravity_dir.x == 0.0 {
-        crate::Vec2::new(1.0, 0.0)
-    } else {
-        crate::Vec2::new(0.0, 1.0)
-    }
 }
 
 use super::dec;
@@ -170,11 +157,16 @@ pub(super) fn integrate_velocity_clusters(
             } else {
                 tuning.air_accel
             };
-            // The run/friction act along the MOVEMENT axis (perpendicular to
-            // gravity), so `axis_x` walks the player ALONG the surface whatever
-            // the gravity direction — on a wall that's the vertical axis. For
-            // down/up gravity `m == (1,0)`, so this is identical to `vel.x`.
-            let m = move_axis(g);
+            // The run/friction act along the MOVEMENT axis: the control frame's
+            // `side`, so `axis_x = +1` walks the player toward THEIR right at any
+            // orientation. `move_axis` was sign-blind between the two walls
+            // (returned screen-down for BOTH left- and right-gravity); the control
+            // frame fixes that — right-gravity → screen-up, left-gravity →
+            // screen-down. `Hybrid` screen-aligns past ±90° so up-gravity controls
+            // don't invert. For down gravity `side == (1,0)`, identical to `vel.x`.
+            let m = crate::AccelerationFrame::new(g)
+                .control_frame(tuning.input_frame_mode)
+                .side;
             let along = clusters.kinematics.vel.dot(m);
             let target = input.axis_x * tuning.max_run_speed;
             let mut new_along = approach(along, target, accel * dt);

@@ -323,15 +323,22 @@ pub fn update_ecs_actors(
                     });
                     frame = crate::actor::control::ActorControlFrame::neutral();
                 }
-                // Publish the actor's surface-oriented footprint as the single
-                // source of truth: `EnemyMut::aabb()` already swaps width<->height
-                // for a surface-walker clung to a wall, so the debug overlay,
-                // player hurtbox, and target volumes (all readers of `CenteredAabb`)
-                // match the ~90°-rotated sprite. Flat-ground (vertical normal) is
-                // unchanged, so replay stays byte-identical.
-                let body = em.aabb();
-                aabb.center = body.center();
-                aabb.half_size = body.half_size();
+                // Publish the actor's footprint ORIENTED to its reference frame —
+                // the single source of truth read by the debug overlay, player
+                // hurtbox, and target volumes, so the box matches the rotated
+                // sprite. A surface-walker's frame is its clung surface
+                // (`-surface_normal`); everyone else's is gravity at their position.
+                // `to_world_half` swaps width<->height only under sideways gravity /
+                // a wall — vertical gravity (down/up) is unchanged, so replay stays
+                // byte-identical.
+                let down = if em.config.tuning.surface_walker {
+                    -em.surface.surface_normal
+                } else {
+                    gravity.dir_at(em.kin.pos)
+                };
+                let body_frame = crate::engine_core::AccelerationFrame::new(down);
+                aabb.center = em.kin.pos;
+                aabb.half_size = body_frame.to_world_half(em.kin.size * 0.5);
 
                 if let Some(control) = control.as_deref_mut() {
                     control.0 = frame;
@@ -559,8 +566,13 @@ pub fn update_ecs_npcs(
         if let Some(control) = control.as_deref_mut() {
             control.0 = frame;
         }
+        // Footprint oriented to gravity (the kernel guide, raiders, etc.), so the
+        // debug box + hurtbox match the gravity-rotated sprite. Byte-identical for
+        // vertical gravity; swaps width<->height only sideways.
+        let npc_frame =
+            crate::engine_core::AccelerationFrame::new(gravity.dir_at(npc.kin.pos));
         aabb.center = npc.kin.pos;
-        aabb.half_size = npc.kin.size * 0.5;
+        aabb.half_size = npc_frame.to_world_half(npc.kin.size * 0.5);
         // Mirror the NPC clusters onto the read-model components.
         sync_actor_components_from_npc(
             &npc,

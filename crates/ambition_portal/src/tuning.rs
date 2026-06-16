@@ -64,7 +64,7 @@ pub struct PortalTuning {
 impl Default for PortalTuning {
     fn default() -> Self {
         Self {
-            convention: PortalConvention::Reflection,
+            convention: PortalConvention::Rotation,
             raycast_recursion_depth: 4,
             min_exit_speed: MIN_EXIT_SPEED,
             teleport_cooldown_s: TELEPORT_COOLDOWN_S,

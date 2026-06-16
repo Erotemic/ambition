@@ -129,6 +129,48 @@ animations (`dive_bomb`/`hover_peck`/`banked_strafe`) aren't bound to actions ye
 only `slash` fires via `action.melee.primary`. The next refactor target is the
 sprite-by-name join (P2): give spawns a `character_id` for visuals too.
 
+## Probe: a brain-driven "player-copy" NPC (the real architectural work)
+Jon's test: spawn an NPC that is a COPY OF THE PLAYER and let a brain drive its
+full, rich action set (jump/dash/fly/blink/pogo/attack). "If there is pain here
+that means there is real architectural work to do." There is. Mapped, not built —
+it's a refactor of the player sim systems, too risky to land blind at the tail of
+this run.
+
+**What's genuinely unified (the seam is real up to the function boundary):**
+- `Brain` (Player | StateMachine) → `ActorControlFrame` → `engine_input_from_actor_control`
+  → `InputState` → `integrate_velocity_clusters`. The movement integration is PURE:
+  no `With<PlayerEntity>`, no singleton — it reads only `InputState` + cluster refs.
+- `ActorControlFrame` already carries EVERY player verb (jump/dash/fly_toggle/blink/
+  pogo/fast_fall/shield/special/melee/projectile/aim). An AI brain setting them is
+  byte-identical to the human setting them.
+- **Possession is the existing proof**: a possessed enemy/NPC is already a non-player
+  body driven through the player-brain→ActorControl path (it moves + attacks).
+
+**P9 — the pain: every player sim system is `single_mut()`-keyed to the one player.**
+- `crates/ambition_app/src/app/sim_systems.rs` runs ~8 systems (movement, abilities,
+  attack, dash-cam, …) via `player_q.single_mut()` with `With<PlayerEntity>`. The
+  integration FUNCTION is generic, but nothing ITERATES player-bodied entities — so a
+  second player-clustered entity is simply never driven.
+- Possession sidesteps this by routing the human's input into the EXISTING single
+  player slot; it never spawns a second player body. So possession proves the *control
+  seam*, not the *multi-body system shape*.
+- The real work (a dedicated session): turn the player into "an actor that happens to
+  carry the human brain," i.e. generalize those `single_mut()` systems to `iter_mut()`
+  over a `PlayerBodied` query, each driven by its OWN `ActorControl` (human brain for
+  the player; StateMachine for a clone). This is also the seam that unlocks real
+  multiplayer (the architecture-targets memo) and makes possession a brain swap rather
+  than an input shim.
+- Secondary gaps once the systems iterate: the projectile-CHARGE state machine is
+  gated on `brain.is_player()` (brain/mod.rs `emit_player_projectile_tick_messages`),
+  and HUD/camera/combo systems are `PlayerEntity`-anchored. Movement/jump/dash/fly/
+  blink/pogo/melee need no new code — only the iteration.
+
+**Recommendation:** land this as its own focused run — spawn a `PlayerBodied` clone +
+a "demo-movement" StateMachine brain, generalize the sim_systems driver loop, and
+assert (headless) the clone jumps/dashes/flies from its brain. That single refactor
+is worth more than any one character; it's the keystone the whole actor-unification
+was aiming at.
+
 ## Positives (what already works well)
 - **The spawn path is data-driven**: the basic friendly+hostile hookup needed ZERO
   Rust changes — catalog row + archetype row + yarn node + LDtk placement.

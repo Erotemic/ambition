@@ -240,7 +240,7 @@ android = ["visible", "android_platform", "mobile_touch", "rl_sim", "static_map"
 # Explicit alias for Android builds that still include sandbox/dev gameplay
 # behavior. Kept separate so future phone-only diagnostics can be added without
 # changing the base Android packaging feature.
-android_dev = ["android"]
+android_dev = ["android", "dev_tools"]
 
 # Subsystem gates. Deps are flipped to `optional = true` so toggling
 # these features actually moves crates in/out of the dep graph. Code

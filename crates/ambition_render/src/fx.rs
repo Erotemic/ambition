@@ -95,6 +95,9 @@ pub struct SpeechBubbleVisual {
     target_stack_offset: f32,
 }
 
+#[derive(Component)]
+pub struct SpeechBubbleOutline;
+
 struct PendingSpeechBubble {
     pos: ae::Vec2,
     text: String,
@@ -469,12 +472,7 @@ pub fn update_speech_bubbles(
     mut commands: Commands,
     time: Res<Time>,
     world: Res<ambition_sandbox::GameWorld>,
-    mut query: Query<(
-        Entity,
-        &mut SpeechBubbleVisual,
-        &mut Transform,
-        &mut TextColor,
-    )>,
+    mut query: Query<(Entity, &mut SpeechBubbleVisual, &mut Transform, &mut TextColor)>,
 ) {
     let dt = time.delta_secs();
     for (entity, mut bubble, mut transform, mut color) in &mut query {
@@ -494,6 +492,20 @@ pub fn update_speech_bubbles(
             &mut transform,
             &mut color,
         );
+    }
+}
+
+pub fn update_speech_bubble_outlines(
+    bubbles: Query<(&SpeechBubbleVisual, &Children)>,
+    mut outline_colors: Query<&mut TextColor, With<SpeechBubbleOutline>>,
+) {
+    for (bubble, children) in &bubbles {
+        let outline_alpha = 0.88 * speech_bubble_alpha(bubble.age, bubble.duration);
+        for child in children.iter() {
+            if let Ok(mut outline_color) = outline_colors.get_mut(child) {
+                *outline_color = TextColor(Color::srgba(0.0, 0.0, 0.0, outline_alpha));
+            }
+        }
     }
 }
 
@@ -619,23 +631,50 @@ pub fn spawn_speech_bubble(
         &mut transform,
         &mut color,
     );
-    commands.spawn((
-        Text2d::new(bubble_text),
-        TextFont {
-            font_size: 18.0,
-            ..default()
-        },
-        color,
-        transform,
-        SpeechBubbleVisual {
-            pos,
-            age,
-            duration,
-            stack_offset,
-            target_stack_offset,
-        },
-        Name::new(format!("Speech bubble: {text}")),
+    let outline_color = TextColor(Color::srgba(
+        0.0,
+        0.0,
+        0.0,
+        0.88 * speech_bubble_alpha(age, duration),
     ));
+    commands
+        .spawn((
+            Text2d::new(bubble_text.clone()),
+            TextFont {
+                font_size: 18.0,
+                ..default()
+            },
+            color,
+            transform,
+            SpeechBubbleVisual {
+                pos,
+                age,
+                duration,
+                stack_offset,
+                target_stack_offset,
+            },
+            Name::new(format!("Speech bubble: {text}")),
+        ))
+        .with_children(|parent| {
+            for offset in [
+                BVec2::new(-1.25, 0.0),
+                BVec2::new(1.25, 0.0),
+                BVec2::new(0.0, -1.25),
+                BVec2::new(0.0, 1.25),
+            ] {
+                parent.spawn((
+                    Text2d::new(bubble_text.clone()),
+                    TextFont {
+                        font_size: 18.0,
+                        ..default()
+                    },
+                    outline_color,
+                    Transform::from_xyz(offset.x, offset.y, -0.1),
+                    SpeechBubbleOutline,
+                    Name::new("Speech bubble outline"),
+                ));
+            }
+        });
 }
 
 pub fn spawn_slash_preview(commands: &mut Commands, world: &ae::World, hitbox: ae::Aabb) {

@@ -37,7 +37,7 @@ Options:
   --min-sdk API          Android minSdk and cargo-ndk platform. Default: 31.
   --compile-sdk API      Android compileSdk. Default: highest installed, else 35.
   --target-sdk API       Android targetSdk. Default: compileSdk.
-  --features LIST        Cargo features to add. Default: android.
+  --features LIST        Cargo features to add. Default: android_dev.
   --use-default-features Also enable ambition_sandbox default features. Off by default for Android.
   --no-default-features  Disable default features (default for Android builds).
   --static-map           Add static_map to the Android cargo features.
@@ -445,7 +445,7 @@ COMPILE_SDK=""
 TARGET_SDK=""
 RUST_PROFILE="release"
 APK_BUILD_TYPE="debug"
-FEATURES="android"
+FEATURES="android_dev"
 USE_DEFAULT_FEATURES=false
 STRIP_NATIVE=true
 SIZE_REPORT=false

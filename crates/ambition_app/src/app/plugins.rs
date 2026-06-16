@@ -618,6 +618,7 @@ fn install_fx_and_hud_systems(app: &mut App) {
             fx::update_impacts,
             fx::update_slash_previews,
             fx::update_speech_bubbles,
+            fx::update_speech_bubble_outlines,
             windowing::window_mode_hotkeys,
         )
             .chain()

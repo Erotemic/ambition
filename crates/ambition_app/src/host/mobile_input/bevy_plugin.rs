@@ -14,6 +14,7 @@ use super::layout::{
 };
 use super::menu_bridge::{fold_to_control_frame, fold_to_menu_control_frame};
 use super::state::TouchInputState;
+use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_sandbox::input::{ControlFrame, KeyboardPreset, MenuInputState, SandboxAction};
 use ambition_sandbox::ui_nav::DragScrollState;
 
@@ -129,7 +130,8 @@ impl Plugin for TouchControlsPlugin {
                     spawn_touch_buttons,
                     spawn_touch_joysticks,
                     spawn_frame_axis_glyphs,
-                ),
+                )
+                    .after(ambition_render::ui_fonts::load_ui_fonts),
             )
             .add_systems(
                 Update,
@@ -330,8 +332,9 @@ pub struct FrameAxisGlyph {
 /// Spawn the four reference-frame glyphs as a non-interactive overlay sharing the
 /// move joystick's footprint. Tagged `MobileTouchUiRoot` so it hides with the rest
 /// of the touch HUD.
-fn spawn_frame_axis_glyphs(mut cmd: Commands) {
+fn spawn_frame_axis_glyphs(mut cmd: Commands, ui_fonts: Option<Res<UiFonts>>) {
     let layout = movement_joystick_layout();
+    let font = touch_text_font(ui_fonts.as_deref(), 22.0);
     cmd.spawn((
         Node {
             width: Val::Px(layout.base_size),
@@ -360,10 +363,7 @@ fn spawn_frame_axis_glyphs(mut cmd: Commands) {
                     ..default()
                 },
                 Text::new(label),
-                TextFont {
-                    font_size: 22.0,
-                    ..default()
-                },
+                font.clone(),
                 TextColor(Color::srgba(0.80, 0.90, 1.0, 0.85)),
                 bevy::picking::Pickable::IGNORE,
                 FrameAxisGlyph { player_axis: axis },
@@ -572,7 +572,8 @@ struct TouchButtonEdges {
 /// ("Interact", "Jump", "Fly") rather than keyboard keys, so the
 /// same HUD makes sense on desktop mouse testing and on an
 /// Android phone.
-fn spawn_touch_buttons(mut cmd: Commands) {
+fn spawn_touch_buttons(mut cmd: Commands, ui_fonts: Option<Res<UiFonts>>) {
+    let ui_fonts = ui_fonts.as_deref();
     // -- Mobile HUD bezel + controller-style gameplay action cluster --
     // Right-thumb controls, bottom-right:
     //
@@ -629,6 +630,7 @@ fn spawn_touch_buttons(mut cmd: Commands) {
                 spec.top,
                 spec.size,
                 spec.font_size,
+                ui_fonts,
             );
         }
     });
@@ -667,9 +669,18 @@ fn spawn_touch_buttons(mut cmd: Commands) {
                 TouchActionButton::Reset => "Back",
                 _ => "?",
             };
-            spawn_menu_button(parent, action, label, col);
+            spawn_menu_button(parent, action, label, col, ui_fonts);
         }
     });
+}
+
+fn touch_text_font(ui_fonts: Option<&UiFonts>, font_size: f32) -> TextFont {
+    ui_fonts
+        .map(|fonts| fonts.text_font(font_size, UiFontWeight::Regular))
+        .unwrap_or(TextFont {
+            font_size,
+            ..default()
+        })
 }
 
 /// Build one absolutely-positioned gameplay-action button inside
@@ -683,6 +694,7 @@ fn spawn_action_button_at(
     top: f32,
     size: f32,
     font_size: f32,
+    ui_fonts: Option<&UiFonts>,
 ) {
     parent
         .spawn((
@@ -719,10 +731,7 @@ fn spawn_action_button_at(
         .with_children(|button| {
             button.spawn((
                 Text::new(label),
-                TextFont {
-                    font_size,
-                    ..default()
-                },
+                touch_text_font(ui_fonts, font_size),
                 TextColor(Color::srgb(0.96, 0.97, 1.0)),
                 // Center both lines (verb + glyph) horizontally
                 // inside the circular button. Without this, the
@@ -1007,6 +1016,7 @@ fn spawn_menu_button(
     action: TouchActionButton,
     label: &str,
     col: usize,
+    ui_fonts: Option<&UiFonts>,
 ) {
     parent
         .spawn((
@@ -1027,10 +1037,7 @@ fn spawn_menu_button(
         .with_children(|button| {
             button.spawn((
                 Text::new(label),
-                TextFont {
-                    font_size: 15.0,
-                    ..default()
-                },
+                touch_text_font(ui_fonts, 15.0),
                 TextColor(Color::srgb(0.94, 0.90, 0.96)),
             ));
         });

@@ -86,7 +86,7 @@ android = [
     "rl_sim",
     "static_map",
 ]
-android_dev = ["android"]
+android_dev = ["android", "dev_tools"]
 
 ldtk_runtime = ["ambition_sandbox/ldtk_runtime", "dep:bevy_ecs_ldtk", "dep:bevy_asset_loader"]
 audio = ["ambition_sandbox/audio", "ambition_content/audio", "dep:bevy_kira_audio"]

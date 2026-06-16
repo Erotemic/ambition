@@ -74,6 +74,11 @@ pub struct PlayerSimulationBundle {
     pub brain: Brain,
     pub action_set: ActionSet,
     pub actor_control: ActorControl,
+    /// Capability marker: this body uses the chargeable-projectile (Fireball)
+    /// ability. Gates `emit_player_projectile_tick_messages` by CAPABILITY rather
+    /// than `brain.is_player()`, so possession of this body keeps the charge
+    /// mechanic. Pay-for-use: actors without it never enter the charge stream.
+    pub charges_projectiles: crate::brain::ChargesProjectiles,
     /// Gameplay-space action origin / facing read model shared with
     /// non-player actors. Synced from `BodyKinematics`, not from any
     /// presentation `Transform`.
@@ -170,6 +175,7 @@ impl PlayerSimulationBundle {
             // default fires only for actual player entities.
             action_set,
             actor_control: ActorControl::default(),
+            charges_projectiles: crate::brain::ChargesProjectiles,
             actor_pose: ActorPose::from_parts(
                 kinematics.pos,
                 kinematics.size * 0.5,

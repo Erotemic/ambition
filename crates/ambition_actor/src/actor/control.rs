@@ -46,9 +46,22 @@ pub struct ActorFireRequest {
 /// `Default`) so adding a new field doesn't churn every caller.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct ActorControlFrame {
-    /// Desired velocity in px/s. The simulation either uses this
-    /// directly (aerial / kinematic / boss) or treats `desired_vel.x`
-    /// as an axis intent and lets gravity own vy (grounded).
+    /// Desired movement intent. **Two encodings share this field** (P10), and the
+    /// consumer picks by movement mode — the encodings agree in DIRECTION, differ
+    /// in MAGNITUDE:
+    /// - **Floating movers** (aerial enemies/NPCs, bosses) read it directly as a
+    ///   target VELOCITY in px/s (`features::step_floating_body`).
+    /// - **Grounded movers** read `desired_vel.x` as a run intent and let gravity
+    ///   own the fall axis. The PLAYER brain emits a normalized axis (`x ∈ [-1,1]`),
+    ///   scaled by `MovementTuning::max_run_speed`; enemy/NPC brains emit a px/s
+    ///   velocity, which `integrate_standard_enemy_body` bridges onto the shared
+    ///   spine by setting `max_run_speed = |desired_vel.x|`, `axis_x = sign`. So
+    ///   both reach `integrate_normal_spine` and agree; the velocity-encoding is
+    ///   the bridge, not a second physics path.
+    ///
+    /// The clean end-state (deferred): every brain emits a normalized axis and
+    /// carries its run speed in tuning, so this field is unambiguously an AXIS for
+    /// grounded movers. Until then, the bridge keeps it consistent.
     pub desired_vel: Vec2,
     /// Suppress the OneWay vertical block this tick so the body
     /// falls through the platform it is standing on. Mirrors the

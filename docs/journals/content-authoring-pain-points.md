@@ -213,6 +213,27 @@ was aiming at.
 - P10 (the `desired_vel` axis-vs-velocity dual meaning) is handled in the clone path
   by emitting axis intent; the unifying split is still worth doing.
 
+### UPDATE 3 — non-player-centric run (Stages 2–7): the spine + the capability gate
+- **P9 projectile-charge gate RESOLVED (Stage 7).** `emit_player_projectile_tick_
+  messages` no longer gates on `brain.is_player()` — it gates on a `ChargesProjectiles`
+  capability marker (ambition_actor). Only the player carries it today (so behavior is
+  byte-identical: same emitter set), but it's now pay-for-use and travels with the
+  body, so a possessed actor keeps the charge mechanic. Bosses/enemies that carry a
+  `ranged` ActionSet for their OWN projectiles are correctly NOT swept in (the marker
+  is distinct from the ActionSet slot).
+- **P10 made an explicit, documented contract (Stage 7).** `ActorControlFrame::
+  desired_vel`'s doc now states the two encodings precisely and names the BRIDGE:
+  `integrate_standard_enemy_body` maps an enemy's px/s velocity onto the shared
+  `integrate_normal_spine` via `max_run_speed = |desired_vel.x|`, `axis_x = sign`, so
+  both player (axis) and enemy (velocity) reach the SAME grounded spine and agree. The
+  velocity-encoding is a bridge, not a second physics path. The clean end-state (every
+  brain emits a normalized axis + carries run speed in tuning) is the deferred follow-up.
+- **P9' (single_mut globals) status:** the player-centric boundary is already drawn —
+  camera/HUD/fx/UI scope on `PrimaryPlayerOnly`, body on `PlayerEntity`, input via
+  `ActorControl` for both primary + clone. Collapsing the remaining `single_mut` body
+  systems into one loop still needs the globals (platform/shake/reset) peeled out of
+  `player_simulation_phase`; left as the documented next step (GUI-feel-sensitive).
+
 ## Positives (what already works well)
 - **The spawn path is data-driven**: the basic friendly+hostile hookup needed ZERO
   Rust changes — catalog row + archetype row + yarn node + LDtk placement.

@@ -172,6 +172,36 @@ change the replay fixture only partially guards (it covers the primary, not the
 multi-body topology). Not safe to land blind in an autonomous run; left as the
 explicit next step with the boundary already drawn (`PrimaryPlayer` vs `PlayerEntity`).
 
+## Stage 7 ✅ — combat: capability-gated projectile charge + the desired_vel contract
+
+- **The `brain.is_player()` projectile-charge gate is gone.**
+  `emit_player_projectile_tick_messages` now gates on a `ChargesProjectiles`
+  capability marker (new, ambition_actor) instead of brain type. Only the player
+  bundle carries it today → **byte-identical** (same single emitter; 916 sandbox +
+  55 projectile/charge tests + replay green), but the charge mechanic is now
+  pay-for-use and travels with the BODY, so possession keeps it. Enemies/bosses with
+  a `ranged` ActionSet (their own projectiles) are correctly excluded — the marker is
+  a distinct capability, not the ActionSet slot.
+- **`desired_vel` dual meaning (P10) made an explicit contract.** Documented the two
+  encodings (floating = velocity; grounded player = axis, grounded enemy = velocity)
+  AND the BRIDGE that already unifies them: `integrate_standard_enemy_body` maps the
+  enemy velocity onto the shared `integrate_normal_spine` (`max_run_speed = |vel.x|`,
+  `axis_x = sign`). So both reach the same grounded spine and agree — the velocity
+  encoding is a bridge, not a second path. The clean axis-only end-state (every brain
+  emits normalized axis + run speed in tuning) is the deferred follow-up — a wide,
+  enemy-feel-sensitive brain rewrite not worth the risk now that the bridge is sound.
+- Commit: `feat(combat): Stage 7 — capability-gate projectile charge; document desired_vel`.
+
+## Run complete (Stages 0–7)
+All seven stages landed on `main`. The actor stack is now: ONE grounded physics
+spine (`integrate_normal_spine`) + ONE floating mover (`step_floating_body`), shared
+by player / enemy / NPC / boss; one rendering tail; the player reduced to its
+genuinely-player-centric shell (camera/HUD/UI behind `PrimaryPlayer`, input via
+`ActorControl`); and combat charge gated by capability, not identity. Two deliberate
+deferrals are documented (the full single_mut→loop body merge, and the desired_vel
+axis-only unification) — both are wide/GUI-risky and gated on work the replay fixture
+can't guard blind; the seams for both are in place.
+
 ## (superseded) earlier Stage 3 framing
 
 The decomposition foundation is in place. Next is the high-value, higher-risk work:

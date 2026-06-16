@@ -325,8 +325,19 @@ pub fn emit_brain_action_messages(
     }
 }
 
+/// Capability marker: this actor uses the chargeable-projectile ability — the
+/// hold-to-charge / motion-gesture Fireball with its per-frame axis buffer. The
+/// projectile-tick stream (`emit_player_projectile_tick_messages`) fires for any
+/// actor that carries this, NOT for "the player" — so the mechanic is a per-actor
+/// CAPABILITY (pay-for-use, possession-ready), not a property of brain type.
+/// Only the player carries it today; a possessed body that adopts the player's
+/// kit gets it too. Distinct from an actor's `ActionSet::ranged` slot, which an
+/// enemy/boss uses for its OWN (non-chargeable) projectiles.
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct ChargesProjectiles;
+
 /// Bevy system: emit one `ActorActionMessage::PlayerProjectileTick`
-/// per player-brain actor per tick. The player projectile EFFECTS
+/// per charge-capable actor per tick. The player projectile EFFECTS
 /// consumer (`update_projectiles` (ambition_sandbox)) drives its
 /// motion-recognition buffer + Fireball charge state machine from
 /// this stream instead of reading `PlayerInputFrame` directly.
@@ -338,11 +349,16 @@ pub fn emit_brain_action_messages(
 /// the press frame). The consumer cheaply pushes the axis sample
 /// into the buffer on idle ticks.
 pub fn emit_player_projectile_tick_messages(
-    actors: Query<(Entity, &Brain, &ActorControl)>,
+    actors: Query<(Entity, &ActorControl, Option<&ChargesProjectiles>)>,
     mut writer: MessageWriter<ActorActionMessage>,
 ) {
-    for (entity, brain, control) in &actors {
-        if !brain.is_player() {
+    for (entity, control, charges) in &actors {
+        // Capability gate, not an identity gate: emit the charge-tick stream for
+        // any actor that carries the chargeable-projectile ability — the player
+        // today, a possessed body that adopts the player's kit tomorrow. (Was
+        // `brain.is_player()`; bosses/enemies carry a `ranged` ActionSet for their
+        // OWN projectiles, so this stays a dedicated opt-in marker, pay-for-use.)
+        if charges.is_none() {
             continue;
         }
         let frame = &control.0;

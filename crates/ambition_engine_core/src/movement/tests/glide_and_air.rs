@@ -440,3 +440,50 @@ fn fly_toggle_switches_mode_and_counters_gravity() {
         "flying upward input should accelerate upward"
     );
 }
+
+#[test]
+fn the_player_rides_a_horizontally_moving_platform() {
+    // A floor carrying a rightward per-frame velocity. The player standing on it is
+    // carried right by the platform — EMERGENT in the movement sweep (the same rule
+    // enemies get from `step_kinematic`), not a player-specific ride path. This is
+    // also why the brain-driven clone rides: it runs this exact movement core.
+    use crate::world::{Block, World};
+    let mut platform = Block::solid("platform", Vec2::new(0.0, 400.0), Vec2::new(400.0, 40.0));
+    platform.velocity = Vec2::new(3.0, 0.0); // 3 px/frame right
+    let world = World {
+        name: "moving platform".to_string(),
+        size: Vec2::new(800.0, 600.0),
+        spawn: Vec2::new(200.0, 360.0),
+        blocks: vec![platform],
+        climbable_regions: Vec::new(),
+        water_regions: Vec::new(),
+    };
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(200.0, 360.0));
+    let tuning = DEFAULT_TUNING;
+    for _ in 0..30 {
+        update_player_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            InputState::default(),
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+    assert!(
+        scratch.ground.on_ground,
+        "precondition: the player is resting on the platform"
+    );
+    let x_before = scratch.kinematics.pos.x;
+    update_player_with_tuning_scratch(
+        &world,
+        &mut scratch,
+        InputState::default(),
+        1.0 / 60.0,
+        tuning,
+    );
+    assert!(
+        (scratch.kinematics.pos.x - (x_before + 3.0)).abs() < 0.05,
+        "the player should ride +3px right with the platform, got dx={}",
+        scratch.kinematics.pos.x - x_before
+    );
+}

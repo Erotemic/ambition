@@ -277,6 +277,30 @@ case. No rider list, no per-actor flag.
   the two-sweeps fork; collapsing that is the deeper follow-up.
 - Commit: `feat(physics): emergent platform riding — a Block carries velocity, the sweep carries riders`.
 
+### Increment B ✅ — player + clone ride via the same emergent rule
+- Added the identical carry to the player movement sweep: at the end of
+  `integrate_velocity_clusters`, a grounded body resting on a moving solid is carried
+  by the supporting block's gravity-perpendicular velocity (probe-based, orientation-
+  agnostic — wall-walking rides sideways platforms). The player AND the brain-driven
+  clone ride through this one core.
+- **Deleted the player's inline `is_riding` carry** + the riding debug log + the
+  `PlayerPlatformRideState` bookkeeping from `player_simulation_phase`. Kept the
+  LEDGE-platform carry (hanging off a moving edge is player-specific AND happens while
+  NOT grounded, so the sweep carry can't apply). `PlayerPlatformRideState` is now
+  vestigial (left on the bundle; removable later).
+- Pinned with a new engine test `the_player_rides_a_horizontally_moving_platform`
+  (the replay fixture's hub has no moving platforms, so replay can't guard riding —
+  the test does). Replay still byte-identical; engine 167 + sandbox 916 + clone-live green.
+- **Blind feel note:** standing-platform riding moved from before-sim (full delta) to
+  end-of-sweep (perpendicular delta); identical for horizontal platforms (the common
+  case). Jon to eyeball riding a platform as the player + as the K-clone.
+- Commit: `feat(physics): player + clone ride via the emergent sweep carry (delete inline riding)`.
+
+### Increment C (next) — the slug
+`step_surface_walker` is the slug's own grounded path (it's glued to surfaces, not
+gravity-resting), so it needs the carry applied where it settles — by the FULL
+platform velocity (it's stuck to the surface, not just resting under gravity).
+
 ## (superseded) earlier Stage 3 framing
 
 The decomposition foundation is in place. Next is the high-value, higher-risk work:

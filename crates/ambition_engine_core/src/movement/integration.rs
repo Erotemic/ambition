@@ -200,6 +200,30 @@ pub(super) fn integrate_velocity_clusters(
         clusters.wall.on_wall = false;
     }
 
+    // Emergent platform riding — the SAME rule the shared `step_kinematic` sweep
+    // applies to enemies/NPCs: a grounded body resting on a MOVING solid is carried
+    // by that solid's gravity-perpendicular velocity (the gravity-axis ride is
+    // already handled by gravity + the landing). Static geometry carries `ZERO`, so
+    // this is a no-op off moving platforms. This is why the player — and the
+    // brain-driven clone, which runs this exact core — ride moving platforms: not a
+    // player feature, a property of standing on a moving solid.
+    if clusters.ground.on_ground {
+        let g = tuning.gravity_dir;
+        let oriented = clusters.kinematics.aabb_oriented(g);
+        let probe = crate::Aabb::new(oriented.center() + g * 2.0, oriented.half_size());
+        if let Some(support) = world.first_overlapping_block(probe, |block| {
+            matches!(
+                block.kind,
+                crate::BlockKind::Solid
+                    | crate::BlockKind::BlinkWall { .. }
+                    | crate::BlockKind::OneWay
+            )
+        }) {
+            let v = support.velocity;
+            clusters.kinematics.pos += v - v.dot(g) * g;
+        }
+    }
+
     if clusters.ground.on_ground {
         crate::player_clusters::refresh_movement_resources_clusters(
             clusters.abilities,

@@ -202,64 +202,26 @@ pub(super) fn player_simulation_phase(
             .iter()
             .position(|platform| platform.matches_ledge_contact(grab.contact, player_size_pre))
     });
-    // Platforms are advanced ONCE per frame by `advance_moving_platforms` in the
-    // caller (so the advance can't multiply when this per-entity tick iterates
-    // multiple player bodies). Here we only READ each platform's recorded
-    // `last_delta` to ride / carry the body — no platform mutation.
-    let mut ledge_platform_delta = None;
-    let mut riding_platform = None;
-    for (index, platform) in moving_platforms.iter().enumerate() {
-        let delta = platform.last_delta();
-        if Some(index) == active_ledge_platform {
-            ledge_platform_delta = Some(delta);
-        }
-        if riding_platform.is_none() && platform.is_riding(player_aabb_pre, on_ground_pre) {
-            riding_platform = Some((index, delta, platform.pos, platform.direction()));
-        }
-    }
-    let riding_now = riding_platform.is_some();
-    if riding_now != ride.was_riding {
-        // Diagnostic: log riding-state transitions. Useful for chasing the
-        // "intermittent glitchy platform behavior" repro (TODO S). With
-        // multiple authored platforms, the first current rider is reported.
-        let pos = clusters.kinematics.pos;
-        let vel = clusters.kinematics.vel;
-        let on_ground = clusters.ground.on_ground;
-        if let Some((platform_index, _, platform_pos, platform_dir)) = riding_platform {
-            debug!(
-                target: "ambition::platform",
-                riding = true,
-                platform_index,
-                player_pos = ?pos,
-                player_vel = ?vel,
-                on_ground,
-                platform_pos = ?platform_pos,
-                platform_dir,
-                "moving-platform riding transition"
-            );
-        } else {
-            debug!(
-                target: "ambition::platform",
-                riding = false,
-                player_pos = ?pos,
-                player_vel = ?vel,
-                on_ground,
-                "moving-platform riding transition"
-            );
-        }
-    }
-    ride.was_riding = riding_now;
-    if let Some(platform_delta) = ledge_platform_delta {
+    // Standing-on-platform RIDING is no longer here — it is EMERGENT in the movement
+    // sweep (`integrate_velocity_clusters` carries any grounded body by the supporting
+    // solid's velocity, the same rule `step_kinematic` applies to enemies), so the
+    // player rides like every other body, with no player-specific ride code or
+    // `PlayerPlatformRideState` bookkeeping. What stays is the LEDGE-platform carry:
+    // hanging off a moving platform's edge is player-specific (only the player
+    // ledge-grabs) AND the body isn't grounded then, so the sweep carry can't apply.
+    let _ = (on_ground_pre, ride); // PlayerPlatformRideState is now vestigial.
+    if let Some(platform_delta) =
+        active_ledge_platform.map(|idx| moving_platforms[idx].last_delta())
+    {
         // Ledge grabs can latch to the temporary moving-platform collision block.
         match ledge_platform_carry(world, player_aabb_pre, platform_delta) {
             // #126: the platform is about to carry the hanging player INTO a wall.
-            // Don't ride into it (that clips through) — get knocked off the ledge
-            // and fall, the same knock-off a hit triggers.
+            // Don't ride into it (that clips through) — knock off the ledge and fall.
             LedgePlatformCarry::KnockOff => {
                 clusters.ledge.knock_off_on_hit();
             }
             // Carry both the player and the stored ledge contact so hang / climb /
-            // roll interpolation remains platform-relative after the platform moves.
+            // roll interpolation stays platform-relative after the platform moves.
             LedgePlatformCarry::Carry => {
                 clusters.kinematics.pos += platform_delta;
                 if let Some(grab) = clusters.ledge.grab.as_mut() {
@@ -268,8 +230,6 @@ pub(super) fn player_simulation_phase(
                 }
             }
         }
-    } else if let Some((_, platform_delta, _, _)) = riding_platform {
-        clusters.kinematics.pos += platform_delta;
     }
     let collision_world =
         features::world_with_sandbox_solids(world, moving_platforms, feature_ecs_overlay);

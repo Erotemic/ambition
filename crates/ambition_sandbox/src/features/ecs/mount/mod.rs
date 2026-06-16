@@ -33,6 +33,21 @@ use super::brain_builders::dismounted_rider_brain_and_action_set;
 use super::{ActorRuntime, CenteredAabb};
 use crate::engine_core as ae;
 
+/// Physical mass of an actor, used to weight a mount+rider pair's center of
+/// gravity. A heavy mount (the shark) keeps the COG near itself so the lighter
+/// rider orbits it when the pair rolls under a gravity flip. Authored from the
+/// archetype RON (`EnemyArchetypeSpec::mass`), defaulting to 1.0. Lives here with
+/// the mount coupling for now; promote to a shared physics location if other
+/// systems start consuming it.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct Mass(pub f32);
+
+impl Default for Mass {
+    fn default() -> Self {
+        Mass(1.0)
+    }
+}
+
 /// Attached to a mount entity. Specifies where the rider rides
 /// relative to the mount's center (sandbox units; y grows downward).
 #[derive(Component, Clone, Copy, Debug)]
@@ -117,6 +132,7 @@ pub fn sync_riders_to_mounts(
             &ActorRuntime,
             &mut CenteredAabb,
             Option<&MountedSize>,
+            Option<&Mass>,
             Option<super::enemy_clusters::EnemyClusterQueryData>,
         ),
         Without<MountSlot>,
@@ -125,13 +141,21 @@ pub fn sync_riders_to_mounts(
         (
             &ActorRuntime,
             &Mountable,
+            Option<&Mass>,
             Option<super::enemy_clusters::EnemyClusterQueryData>,
         ),
         With<MountSlot>,
     >,
+    // Per-position gravity so the saddle offset rotates with the pair's reference
+    // frame (the rider orbits the mount under a gravity flip instead of floating
+    // off the saddle in fixed screen space).
+    gravity: crate::physics::GravityCtx,
 ) {
-    for (riding, rider_actor, mut rider_aabb, mounted_size, rider_clusters) in &mut riders {
-        let Ok((mount_actor, mountable, mount_clusters)) = mounts.get(riding.mount) else {
+    for (riding, rider_actor, mut rider_aabb, mounted_size, rider_mass, rider_clusters) in
+        &mut riders
+    {
+        let Ok((mount_actor, mountable, mount_mass, mount_clusters)) = mounts.get(riding.mount)
+        else {
             continue;
         };
         if !matches!(mount_actor, ActorRuntime::Enemy) {
@@ -163,8 +187,22 @@ pub fn sync_riders_to_mounts(
         // integrator can't drift the rider off the mount on the
         // next frame; gravity zeroed so a Bevy-side integrator that
         // applies gravity to all hostiles can't pull it down.
-        rider.kin.pos.x = mount_c.kin.pos.x + mountable.rider_offset.x;
-        rider.kin.pos.y = mount_c.kin.pos.y + mountable.rider_offset.y;
+        //
+        // Rotate-as-a-unit: the saddle offset is authored in the mount's local
+        // frame, so rotate it into world space by the pair's gravity frame and
+        // pivot the rider around the mass-weighted center of gravity. A heavy
+        // mount (large `Mass`) keeps the COG near itself, so the lighter rider
+        // orbits it on a gravity flip; vertical gravity is identity
+        // (`to_world` == I, COG term cancels), so this is byte-identical to the
+        // old fixed-offset snap.
+        let frame = ae::AccelerationFrame::new(gravity.dir_at(mount_c.kin.pos));
+        let mass_mount = mount_mass.copied().unwrap_or_default().0.max(0.0001);
+        let mass_rider = rider_mass.copied().unwrap_or_default().0.max(0.0001);
+        let w_rider = mass_rider / (mass_mount + mass_rider);
+        // COG relative to the mount center (mount at 0, rider at `rider_offset`).
+        let cog_local = mountable.rider_offset * w_rider;
+        let rider_local = cog_local + frame.to_world(mountable.rider_offset - cog_local);
+        rider.kin.pos = mount_c.kin.pos + rider_local;
         rider.kin.facing = mount_c.kin.facing;
         rider.kin.vel = ae::Vec2::ZERO;
         rider.surface.gravity_scale = 0.0;

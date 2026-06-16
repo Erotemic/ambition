@@ -104,6 +104,12 @@ pub(crate) struct EnemyArchetypeSpec {
     /// < 1.0, lumbering heavies > 1.0).
     #[serde(default = "default_attack_cooldown_mult")]
     pub attack_cooldown_mult: f32,
+    /// Physical mass, used to weight the mount+rider center of gravity (a heavy
+    /// shark vs a light rider) so the pair rotates as a unit around the COG under
+    /// a gravity flip. Defaults to 1.0 so existing archetypes need no RON change;
+    /// heavy mounts author a larger value.
+    #[serde(default = "default_mass")]
+    pub mass: f32,
     /// Walks surfaces hugging the surface normal (wall/ceiling
     /// crawler with ledge-aware patrol).
     #[serde(default)]
@@ -234,6 +240,10 @@ pub(super) use crate::mechanics::combat::EnemyBrainTemplate;
 /// Serde default for [`EnemyArchetypeSpec::attack_cooldown_mult`]: the
 /// multiplicative identity (most archetypes use the shared cooldown).
 fn default_attack_cooldown_mult() -> f32 {
+    1.0
+}
+
+fn default_mass() -> f32 {
     1.0
 }
 

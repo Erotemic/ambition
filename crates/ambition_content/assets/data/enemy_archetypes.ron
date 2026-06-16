@@ -376,6 +376,10 @@
         // off the shark's render height in pirate_rider.rs so the
         // composite stays proportional.
         default_size: Some((126.0, 52.0)),
+        // The shark is far heavier than its rider, so the mount+rider center of
+        // gravity sits near the shark and the lighter pirate orbits it when the
+        // pair rolls under a gravity flip (default actor mass is 1.0).
+        mass: 6.0,
         brain_template: Shark,
         melee: Some(Bite((
             windup_s: 0.18,

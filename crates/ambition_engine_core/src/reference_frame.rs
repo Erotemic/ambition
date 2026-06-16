@@ -19,6 +19,28 @@
 
 use crate::Vec2;
 
+/// How the INPUT frame maps onto the player frame — "which way is right when
+/// gravity is sideways or upside-down". A control preference, configurable per
+/// player (see [`AccelerationFrame::control_frame`]).
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize,
+)]
+pub enum InputFrameMode {
+    /// Input is always SCREEN-aligned: right is screen-right regardless of
+    /// gravity (the player mentally rotates).
+    Screen,
+    /// Input always follows the PLAYER frame: right is the player's own right,
+    /// fully rotated with gravity (no accommodation).
+    Player,
+    /// Default HYBRID (Jon's gut-feel): follow the player frame up to ±90° from
+    /// screen-down — gravity down / left / right, where a human tracks the
+    /// rotation fine — then revert to screen-aligned past 90° (gravity up-ish),
+    /// where the flip is hard to map. The vertical "descend" gate (pogo / crouch)
+    /// is independent and always flips with the player frame ([`Self::descend`]).
+    #[default]
+    Hybrid,
+}
+
 /// The player's reference frame under a net "down"-defining acceleration.
 ///
 /// The common source of `down` is gravity, but the frame is deliberately not
@@ -50,6 +72,27 @@ impl AccelerationFrame {
         Self {
             down,
             side: Vec2::new(down.y, -down.x),
+        }
+    }
+
+    /// The frame the INPUT stick maps through, per the player's [`InputFrameMode`].
+    /// `to_world(stick)` on the result turns raw `(axis_x, axis_y)` into a
+    /// world-space movement direction. `Screen` → identity; `Player` → this frame;
+    /// `Hybrid` → this frame up to ±90° (down.y ≥ 0), else screen-aligned. NOTE:
+    /// this drives free MOVEMENT (run / flight); the toward-feet GATE uses
+    /// [`Self::descend`] directly so pogo/crouch always flip with the player.
+    pub fn control_frame(self, mode: InputFrameMode) -> AccelerationFrame {
+        let screen = AccelerationFrame::new(Vec2::new(0.0, 1.0));
+        match mode {
+            InputFrameMode::Screen => screen,
+            InputFrameMode::Player => self,
+            InputFrameMode::Hybrid => {
+                if self.down.y >= 0.0 {
+                    self
+                } else {
+                    screen
+                }
+            }
         }
     }
 
@@ -146,6 +189,27 @@ mod tests {
         assert!((f.down - Vec2::new(inv_sqrt2, inv_sqrt2)).length() < 1e-6);
         let feet = f.to_world(Vec2::new(0.0, 10.0));
         assert!((feet - Vec2::new(10.0 * inv_sqrt2, 10.0 * inv_sqrt2)).length() < 1e-5);
+    }
+
+    #[test]
+    fn hybrid_control_frame_rotates_to_90_then_reverts() {
+        // Right gravity (≤90°): the control frame follows the player, so "right"
+        // on the stick maps to screen-up (the player's right).
+        let right = AccelerationFrame::new(Vec2::new(1.0, 0.0));
+        let cf = right.control_frame(InputFrameMode::Hybrid);
+        let world = cf.to_world(Vec2::new(1.0, 0.0));
+        assert!((world - Vec2::new(0.0, -1.0)).length() < 1e-6, "{world:?}");
+        // Up gravity (>90°): the control frame reverts to screen, so "right" maps
+        // to screen-right (= the player's left — the accommodation).
+        let up = AccelerationFrame::new(Vec2::new(0.0, -1.0));
+        let cf = up.control_frame(InputFrameMode::Hybrid);
+        assert_eq!(cf.to_world(Vec2::new(1.0, 0.0)), Vec2::new(1.0, 0.0));
+        // Player mode never reverts; Screen mode never rotates.
+        assert_eq!(up.control_frame(InputFrameMode::Player), up);
+        assert_eq!(
+            up.control_frame(InputFrameMode::Screen).down,
+            Vec2::new(0.0, 1.0)
+        );
     }
 
     #[test]

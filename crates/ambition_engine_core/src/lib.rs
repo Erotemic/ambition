@@ -36,7 +36,7 @@ pub mod world;
 // the main mechanics API while the internals stay organized by concern.
 pub use abilities::AbilitySet;
 pub use bevy_math::Vec2;
-pub use reference_frame::AccelerationFrame;
+pub use reference_frame::{AccelerationFrame, InputFrameMode};
 pub use geometry::{aabb_from_min_size, Aabb, AabbExt, CenteredAabb};
 pub use ledge_grab::{
     probe_ledge_grab, LedgeContact, LedgeGetupKind, LedgeGrabState, LEDGE_CLIMB_TIME,

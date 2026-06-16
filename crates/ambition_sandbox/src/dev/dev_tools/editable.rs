@@ -178,6 +178,9 @@ impl EditableMovementTuning {
             // upright here.
             gravity_sign: 1.0,
             gravity_dir: ae::Vec2::new(0.0, 1.0),
+            // Default; the live control preference is applied per-frame alongside
+            // `gravity_dir` (see player_tick / sim_systems `apply_gravity_dir`).
+            input_frame_mode: ae::InputFrameMode::default(),
             run_accel: self.run_accel,
             air_accel: self.air_accel,
             ground_friction: self.ground_friction,

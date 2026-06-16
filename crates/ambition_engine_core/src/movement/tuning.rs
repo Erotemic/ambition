@@ -203,6 +203,10 @@ pub struct MovementTuning {
     /// Set per-frame from the world `GravityField` (cardinal-snapped).
     #[serde(default = "default_gravity_dir")]
     pub gravity_dir: Vec2,
+    /// How raw stick input maps onto the player's gravity-relative frame for free
+    /// movement (run / flight). The toward-feet gate (pogo/crouch) is independent.
+    #[serde(default)]
+    pub input_frame_mode: crate::reference_frame::InputFrameMode,
     pub run_accel: f32,
     pub air_accel: f32,
     pub ground_friction: f32,
@@ -269,6 +273,7 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     gravity: GRAVITY,
     gravity_sign: 1.0,
     gravity_dir: Vec2::new(0.0, 1.0),
+    input_frame_mode: crate::reference_frame::InputFrameMode::Hybrid,
     run_accel: RUN_ACCEL,
     air_accel: AIR_ACCEL,
     ground_friction: GROUND_FRICTION,

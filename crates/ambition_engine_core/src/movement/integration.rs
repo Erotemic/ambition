@@ -382,30 +382,36 @@ pub(super) fn integrate_flight_clusters(
     wall.wall_climbing = false;
     flight.flight_phase += dt * tuning.flight_hover_hz * std::f32::consts::TAU;
 
-    let target_x = input.axis_x * tuning.flight_terminal_speed;
-    let mut target_y = input.axis_y * tuning.flight_terminal_speed;
+    // Free flight respects the reference frame: under sideways/up gravity the stick
+    // maps through the player's CONTROL frame (run = `side`, descend = `down`), so
+    // "right" moves the player player-right. We do the whole integration in those
+    // frame components and map back to world at the end — under normal gravity the
+    // control frame is the identity, so this is byte-identical.
+    let control = crate::reference_frame::AccelerationFrame::new(tuning.gravity_dir)
+        .control_frame(tuning.input_frame_mode);
+    let vel_run = kinematics.vel.dot(control.side);
+    let vel_descend = kinematics.vel.dot(control.down);
+
+    let target_run = input.axis_x * tuning.flight_terminal_speed;
+    let mut target_descend = input.axis_y * tuning.flight_terminal_speed;
     if input.axis_y.abs() <= 0.10 {
-        target_y = flight.flight_phase.sin() * tuning.flight_hover_speed;
+        target_descend = flight.flight_phase.sin() * tuning.flight_hover_speed;
     }
 
-    kinematics.vel.x = approach(kinematics.vel.x, target_x, tuning.flight_accel * dt);
-    kinematics.vel.y = approach(kinematics.vel.y, target_y, tuning.flight_accel * dt);
+    let mut new_run = approach(vel_run, target_run, tuning.flight_accel * dt);
+    let mut new_descend = approach(vel_descend, target_descend, tuning.flight_accel * dt);
 
     if input.axis_x.abs() <= 0.10 {
-        kinematics.vel.x = approach(kinematics.vel.x, 0.0, tuning.flight_drag * dt);
+        new_run = approach(new_run, 0.0, tuning.flight_drag * dt);
     }
     if input.axis_y.abs() <= 0.10 {
-        kinematics.vel.y = approach(kinematics.vel.y, target_y, tuning.flight_drag * dt);
+        new_descend = approach(new_descend, target_descend, tuning.flight_drag * dt);
     }
 
-    kinematics.vel.x = kinematics
-        .vel
-        .x
-        .clamp(-tuning.flight_terminal_speed, tuning.flight_terminal_speed);
-    kinematics.vel.y = kinematics
-        .vel
-        .y
-        .clamp(-tuning.flight_terminal_speed, tuning.flight_terminal_speed);
+    new_run = new_run.clamp(-tuning.flight_terminal_speed, tuning.flight_terminal_speed);
+    new_descend = new_descend.clamp(-tuning.flight_terminal_speed, tuning.flight_terminal_speed);
+
+    kinematics.vel = control.to_world(crate::Vec2::new(new_run, new_descend));
 }
 
 /// Wall ability ride: while pressed into a wall (axis_x against the

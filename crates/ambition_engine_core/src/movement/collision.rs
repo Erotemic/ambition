@@ -461,6 +461,26 @@ pub fn try_pogo_clusters(
         .blocks
         .iter()
         .find(|block| block.kind.is_pogo_target() && hitbox.strict_intersects(block.aabb));
+    // TEMP pogo diagnostic — `AMBITION_POGO_DEBUG=1`. Prints the probe vs every
+    // pogo-target block so we can see, under flipped gravity, whether the probe is
+    // in the right place and whether any target is in range.
+    if std::env::var_os("AMBITION_POGO_DEBUG").is_some() {
+        let targets: Vec<_> = world
+            .blocks
+            .iter()
+            .filter(|b| b.kind.is_pogo_target())
+            .map(|b| (b.aabb.center(), b.aabb.half_size()))
+            .collect();
+        eprintln!(
+            "[pogo] g={:?} feet_c={:?} probe_c={:?} probe_h={:?} hit={} targets={:?}",
+            g,
+            feet.center(),
+            probe_center,
+            probe_half,
+            hit.is_some(),
+            targets,
+        );
+    }
     if let Some(block) = hit {
         let aabb = block.aabb;
         super::integration::set_jump_velocity(

@@ -118,6 +118,24 @@ pub fn handle_attacks_clusters(
         return;
     }
     let can_pogo = abilities.abilities.pogo && !ground.on_ground;
+    // TEMP pogo diagnostic — `AMBITION_POGO_DEBUG=1`. Shows whether the gate is
+    // even reached (a missed pogo could be `can_pogo` false = stuck on_ground, or
+    // the descend gate failing under flipped gravity).
+    if (input.pogo_pressed || input.attack_pressed)
+        && std::env::var_os("AMBITION_POGO_DEBUG").is_some()
+    {
+        eprintln!(
+            "[pogo-gate] pogo_pressed={} attack_pressed={} ability_pogo={} on_ground={} can_pogo={} axis_y={:.2} g={:?} descend={:.2}",
+            input.pogo_pressed,
+            input.attack_pressed,
+            abilities.abilities.pogo,
+            ground.on_ground,
+            can_pogo,
+            input.axis_y,
+            tuning.gravity_dir,
+            super::integration::gravity_descend(input.axis_y, tuning.gravity_dir),
+        );
+    }
     if input.pogo_pressed && can_pogo {
         if let Some(orb_aabb) = super::collision::try_pogo_clusters(
             world, kinematics, abilities, dash, jump_state, ground, tuning,

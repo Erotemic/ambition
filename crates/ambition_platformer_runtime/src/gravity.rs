@@ -328,11 +328,19 @@ pub fn gravity_upright_angle(gravity_dir: Vec2) -> f32 {
 /// RIGHT gravity inverts (the 90° roll points the sprite opposite the down=right
 /// move-axis) — without this the body "moves left but faces right" (the #33 bug,
 /// first seen upside-down, then under sideways gravity). DOWN and LEFT keep the
-/// normal `facing < 0` flip. (Derivation: the rolled facing is `(g.y, -g.x)` in
-/// screen space; invert when it opposes the move-axis — `g.y < 0` for vertical
-/// gravity, `g.x > 0` for horizontal.)
+/// normal `facing < 0` flip.
+///
+/// UPDATE (run now follows the control-frame `side`): the rolled sprite's natural
+/// (unflipped) facing in screen space is `(g.y, -g.x)` — which is EXACTLY the
+/// player-frame `side` axis the run moves along (`AccelerationFrame::side`). So
+/// under any gravity where the `Hybrid` control frame keeps the player frame
+/// (down / left / right, `g.y >= 0`), the rolled sprite already faces the run
+/// direction and needs no inversion. Only UP gravity (`g.y < 0`), where `Hybrid`
+/// screen-aligns the run past 90°, makes the move-axis oppose the rolled facing —
+/// there `facing` inverts. The old `g.x > 0` term was an artifact of the previous
+/// screen-down `move_axis` and is gone now. (Tracks `InputFrameMode::Hybrid`.)
 pub fn gravity_aware_flip_x(facing: f32, gravity_dir: Vec2) -> bool {
-    (facing < 0.0) ^ (gravity_dir.y < 0.0 || gravity_dir.x > 0.0)
+    (facing < 0.0) ^ (gravity_dir.y < 0.0)
 }
 
 #[cfg(test)]
@@ -356,15 +364,16 @@ mod tests {
             "facing left must NOT flip upside down"
         );
         assert!(gravity_aware_flip_x(1.0, up));
-        // Sideways (#33, the bug Jon found after the up fix): RIGHT gravity
-        // inverts (the 90° roll points the rolled sprite opposite the down=right
-        // move-axis), LEFT keeps the normal flip.
+        // Sideways: now that the run follows the control-frame `side`, the rolled
+        // sprite's natural facing IS the move direction, so BOTH walls keep the
+        // normal `facing < 0` flip (no inversion). RIGHT gravity used to invert to
+        // match the old screen-down move-axis; that artifact is gone.
         let left = Vec2::new(-1.0, 0.0);
         assert!(
-            !gravity_aware_flip_x(-1.0, right),
-            "facing left under RIGHT gravity must NOT flip (the rolled sprite already faces that way)"
+            gravity_aware_flip_x(-1.0, right),
+            "facing left under RIGHT gravity flips (normal) — run follows the rolled facing now"
         );
-        assert!(gravity_aware_flip_x(1.0, right));
+        assert!(!gravity_aware_flip_x(1.0, right));
         assert!(
             gravity_aware_flip_x(-1.0, left),
             "facing left under LEFT gravity flips (normal)"

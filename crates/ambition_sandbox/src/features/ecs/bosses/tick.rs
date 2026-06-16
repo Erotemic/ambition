@@ -306,6 +306,9 @@ pub fn update_ecs_bosses(
         // boss query is provably disjoint from it.
         (With<FeatureSimEntity>, Without<crate::player::PlayerEntity>),
     >,
+    // Per-position gravity, so a grounded boss's footprint AABB orients to its
+    // reference frame (matches the rotated sprite + the actor/player footprints).
+    gravity: crate::physics::GravityCtx,
 ) {
     // Sim clock: bosses must slow with bullet-time (ADR 0010); a
     // boss locked-on to the player should not get free hits when
@@ -344,7 +347,13 @@ pub fn update_ecs_bosses(
             .as_boss_mut()
             .integrate_body(&feature_world, control.0.desired_vel, dt);
         aabb.center = feature.kin.pos;
-        aabb.half_size = feature.as_boss_ref().render_size() * 0.5;
+        // Orient the footprint to the boss's reference frame so the box matches
+        // the gravity-righted sprite. `to_world_half` swaps width<->height only
+        // under sideways gravity / a wall — vertical gravity is unchanged, so
+        // replay stays byte-identical.
+        let boss_frame =
+            crate::engine_core::AccelerationFrame::new(gravity.dir_at(feature.kin.pos));
+        aabb.half_size = boss_frame.to_world_half(feature.as_boss_ref().render_size() * 0.5);
         // Mirror the brain's pattern_timer (now living in
         // `BossPatternState`) into the presentation-side
         // `BossPatternTimer` component for sprite-animation

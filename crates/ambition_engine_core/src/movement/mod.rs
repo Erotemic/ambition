@@ -48,6 +48,11 @@ pub use integration::gravity_descend;
 /// pogo/jump impulse outside the engine (e.g. the sandbox attack path) MUST go
 /// through this instead of a hardcoded `vel.y = -speed`.
 pub use integration::set_jump_velocity;
+/// The actor-generic normal-mode physics SPINE: gravity-relative gravity, run,
+/// fast-fall/glide gates, and the fall cap. The player feeds it its rich ability
+/// clusters; enemies/NPCs feed it [`NormalSpineCtx::bare`] + per-actor tuning, so
+/// every actor falls + runs through the SAME core (the non-player-centric seam).
+pub use integration::{integrate_normal_spine, NormalSpineCtx};
 pub use ops::{ComboMark, MovementOp};
 pub use player::{default_player_body_size, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH};
 pub use tuning::{

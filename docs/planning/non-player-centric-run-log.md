@@ -43,7 +43,32 @@ pure, replay-guarded refactor.
 `integrate_velocity_clusters` are spine post-collision resolution (ground-refresh,
 rebound) — minor; extract opportunistically. **Stage 1 is effectively done.**
 
-## RESUME HERE → Stage 2 — one composable body (the big structural pivot)
+## Stage 2 ✅ — the shared spine made actor-generic (the convergence seam)
+
+**Architecture fork taken (mine, per the decision doc):** Stage 2 as literally
+written said "collapse the 4 cluster query-datas toward one." I deliberately did
+NOT do a cosmetic mega-merge of `PlayerClusterQueryData`/`Enemy`/`Npc`/`Boss` into
+one struct. Reason: that fights the pay-for-use principle Jon explicitly endorsed
+(a slug shouldn't carry 18 player components, nor sit in the rich queries), and the
+per-actor-TYPE clusters (enemy attack state, NPC dialogue, boss encounter phase)
+legitimately differ. The body is ALREADY shared (`BodyKinematics`); the real
+convergence is the SPINE + opt-in ability components. So Stage 2 = make the
+normal-mode spine actor-generic so a non-player can run the literal player physics
+core, gated only by a tiny context.
+
+- Extracted `integrate_normal_spine(&mut vel, &mut fast_falling, &mut gliding,
+  NormalSpineCtx, input, dt, tuning)` from `integrate_normal_clusters`. The player
+  adapter projects its rich ability clusters → `NormalSpineCtx` flags; the function
+  body is unchanged (field renames only) → **player byte-identical** (replay green,
+  166 engine tests green).
+- `NormalSpineCtx { on_ground, blink_grace, water, can_fast_fall, can_glide,
+  can_move_horizontal }` is the pay-for-use seam: `NormalSpineCtx::bare(on_ground)`
+  is what an actor with NO player ability components presents (run + fall, nothing
+  else). Both `pub`, re-exported from `movement/mod.rs`, so `ambition_sandbox` can
+  feed enemies/NPCs through the SAME core in Stage 3.
+- Commit: `feat(movement): Stage 2 — extract the actor-generic normal-mode spine`.
+
+## RESUME HERE → Stage 3 — enemies/NPCs onto the shared spine
 
 The decomposition foundation is in place. Next is the high-value, higher-risk work:
 

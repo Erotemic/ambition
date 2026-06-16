@@ -262,36 +262,99 @@ pub(super) fn integrate_normal_clusters(
     dt: f32,
     tuning: MovementTuning,
 ) {
+    // The player adapter: project its rich clusters into the actor-generic
+    // spine context (ability components → gating flags) and run the one spine.
+    integrate_normal_spine(
+        &mut kinematics.vel,
+        &mut flight.fast_falling,
+        &mut flight.gliding,
+        NormalSpineCtx {
+            on_ground: ground.on_ground,
+            blink_grace: blink.grace_timer > 0.0,
+            water: env_contact.water,
+            can_fast_fall: abilities.abilities.fast_fall,
+            can_glide: abilities.abilities.glide,
+            can_move_horizontal: abilities.abilities.move_horizontal,
+        },
+        input,
+        dt,
+        tuning,
+    );
+}
+
+/// Read-only gating the normal-mode spine consults. Every field models a player
+/// ability/contact; an actor that carries none of those components feeds
+/// `on_ground` + `can_move_horizontal` and leaves the rest at their "absent"
+/// values, getting pure gravity + run + fall-cap. This is the pay-for-use seam:
+/// the spine is the SAME core the player runs with its abilities switched on.
+#[derive(Clone, Copy)]
+pub struct NormalSpineCtx {
+    pub on_ground: bool,
+    /// Blink hang-time is active this frame (`PlayerBlinkState::grace_timer > 0`).
+    pub blink_grace: bool,
+    pub water: Option<crate::world::WaterContact>,
+    pub can_fast_fall: bool,
+    pub can_glide: bool,
+    pub can_move_horizontal: bool,
+}
+
+impl NormalSpineCtx {
+    /// The gating a bare actor (enemy/NPC) with no player ability components
+    /// presents: it moves horizontally (run) and falls, nothing else.
+    pub fn bare(on_ground: bool) -> Self {
+        Self {
+            on_ground,
+            blink_grace: false,
+            water: None,
+            can_fast_fall: false,
+            can_glide: false,
+            can_move_horizontal: true,
+        }
+    }
+}
+
+/// Normal-mode integration — the shared physics SPINE, actor-generic. Applies
+/// gravity-direction-relative gravity, fast-fall, glide-gate, run/friction, and
+/// the fall-speed cap to ANY body's `vel`, gated only by the small
+/// [`NormalSpineCtx`]. Everything projects onto `tuning.gravity_dir` so sideways /
+/// flipped gravity Just Works. The player feeds it via `integrate_normal_clusters`;
+/// enemies/NPCs feed it via [`NormalSpineCtx::bare`] (+ per-actor `tuning`).
+pub fn integrate_normal_spine(
+    kin_vel: &mut Vec2,
+    fast_falling: &mut bool,
+    gliding: &mut bool,
+    ctx: NormalSpineCtx,
+    input: InputState,
+    dt: f32,
+    tuning: MovementTuning,
+) {
     let g = tuning.gravity_dir;
     // Fall-direction speed BEFORE this frame's gravity (terminal velocity is an
     // equilibrium gravity accelerates UP TO, not a brake on an over-cap fling).
-    let fall_along_before = kinematics.vel.dot(g).max(0.0);
-    let blink_hang_active = blink.grace_timer > 0.0 && kinematics.vel.dot(g) >= 0.0;
-    let water_gravity_scale = env_contact
-        .water
-        .map(|c| c.spec.gravity_scale)
-        .unwrap_or(1.0);
+    let fall_along_before = kin_vel.dot(g).max(0.0);
+    let blink_hang_active = ctx.blink_grace && kin_vel.dot(g) >= 0.0;
+    let water_gravity_scale = ctx.water.map(|c| c.spec.gravity_scale).unwrap_or(1.0);
     if !blink_hang_active {
-        kinematics.vel += tuning.gravity * g * water_gravity_scale * dt;
+        *kin_vel += tuning.gravity * g * water_gravity_scale * dt;
     }
-    if input.fast_fall_pressed && abilities.abilities.fast_fall && !ground.on_ground {
-        flight.fast_falling = true;
+    if input.fast_fall_pressed && ctx.can_fast_fall && !ctx.on_ground {
+        *fast_falling = true;
     }
-    if flight.fast_falling && !blink_hang_active && env_contact.water.is_none() {
-        kinematics.vel += tuning.fast_fall_accel * g * dt;
+    if *fast_falling && !blink_hang_active && ctx.water.is_none() {
+        *kin_vel += tuning.fast_fall_accel * g * dt;
     }
-    flight.gliding = abilities.abilities.glide
-        && !ground.on_ground
-        && !flight.fast_falling
+    *gliding = ctx.can_glide
+        && !ctx.on_ground
+        && !*fast_falling
         && !blink_hang_active
-        && env_contact.water.is_none()
+        && ctx.water.is_none()
         && input.jump_held
-        && kinematics.vel.dot(g) > 0.0;
+        && kin_vel.dot(g) > 0.0;
 
-    if abilities.abilities.move_horizontal {
-        let accel = if ground.on_ground {
+    if ctx.can_move_horizontal {
+        let accel = if ctx.on_ground {
             tuning.run_accel
-        } else if flight.gliding {
+        } else if *gliding {
             tuning.glide_air_accel
         } else {
             tuning.air_accel
@@ -301,10 +364,10 @@ pub(super) fn integrate_normal_clusters(
         let m = crate::AccelerationFrame::new(g)
             .control_frame(tuning.input_frame_mode)
             .side;
-        let along = kinematics.vel.dot(m);
+        let along = kin_vel.dot(m);
         let target = input.axis_x * tuning.max_run_speed;
         let mut new_along = approach(along, target, accel * dt);
-        let friction = if ground.on_ground {
+        let friction = if ctx.on_ground {
             tuning.ground_friction
         } else {
             tuning.air_friction
@@ -312,20 +375,20 @@ pub(super) fn integrate_normal_clusters(
         if input.axis_x.abs() <= 0.1 {
             new_along = approach(new_along, 0.0, friction * dt);
         }
-        kinematics.vel += (new_along - along) * m;
+        *kin_vel += (new_along - along) * m;
     }
 
-    if let Some(contact) = env_contact.water {
+    if let Some(contact) = ctx.water {
         let drag = contact.spec.drag.clamp(0.0, 1.0);
-        kinematics.vel *= 1.0 - drag;
-        cap_fall_speed(&mut kinematics.vel, g, contact.spec.max_fall_speed);
+        *kin_vel *= 1.0 - drag;
+        cap_fall_speed(kin_vel, g, contact.spec.max_fall_speed);
     } else {
         // `relax` = treat the cap as an equilibrium (never decelerate an over-cap
         // fling like a portal exit). GLIDING is an intentional brake, so it keeps a
         // hard clamp; terminal velocity + fast-fall do not.
-        let (fall_cap, relax) = if flight.fast_falling {
+        let (fall_cap, relax) = if *fast_falling {
             (tuning.fast_fall_speed, true)
-        } else if flight.gliding {
+        } else if *gliding {
             (tuning.glide_fall_speed, false)
         } else {
             (tuning.max_fall_speed, true)
@@ -335,7 +398,7 @@ pub(super) fn integrate_normal_clusters(
         } else {
             fall_cap
         };
-        cap_fall_speed(&mut kinematics.vel, g, effective_cap);
+        cap_fall_speed(kin_vel, g, effective_cap);
     }
 }
 

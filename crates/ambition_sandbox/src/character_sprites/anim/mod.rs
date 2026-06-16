@@ -476,6 +476,9 @@ pub struct EnemyAnimState {
     pub attack_active: bool,
     pub attack_windup: bool,
     pub hit_flash: bool,
+    /// In a gravity-free flight state (`is_aerial` archetype — sky parrot,
+    /// shark). Plays `Fly` while moving rather than `Walk`.
+    pub aerial: bool,
 }
 
 pub fn pick_enemy_anim(state: EnemyAnimState) -> CharacterAnim {
@@ -487,6 +490,15 @@ pub fn pick_enemy_anim(state: EnemyAnimState) -> CharacterAnim {
     }
     if state.attack_active || state.attack_windup {
         return CharacterAnim::Slash;
+    }
+    // A flyer (aerial state) plays `Fly` while moving — the sky parrots /
+    // sharks beat their wings instead of "walking" through the air.
+    if state.aerial {
+        return if state.vel.length() > 12.0 {
+            CharacterAnim::Fly
+        } else {
+            CharacterAnim::Idle
+        };
     }
     if state.vel.x.abs() > 8.0 {
         CharacterAnim::Walk
@@ -507,17 +519,29 @@ pub struct NpcAnimState {
     pub vel: ae::Vec2,
     pub facing: f32,
     pub hit_flash: bool,
+    /// In a gravity-free FLIGHT state (a `Floating` flyer — the parrot). Picks
+    /// `Fly` while moving through the air. NOT "off the ground": a jump or
+    /// knockback is airborne but not flight, so a non-aerial NPC never flies.
+    pub aerial: bool,
 }
 
 /// Pick an NPC's animation. Hit-flash flickers `Hit` for a frame
-/// after a strike; non-zero horizontal speed plays `Walk`; otherwise
-/// `Idle`. Sheets without a Walk row fall back to Idle via
-/// `CharacterSheetSpec::resolve_anim`, so a stationary General
-/// rendered with the (idle-only) `ABSURD_GENERAL_SHEET` cycles its
-/// 8 idle frames the moment a `CharacterAnimator` is attached.
+/// after a strike. A FLYER (aerial flight state) plays `Fly` while moving
+/// and `Idle` while hovering/perched. A grounded NPC plays `Walk` on
+/// non-zero horizontal speed, else `Idle`. Sheets without the chosen row
+/// fall back to Idle via `CharacterSheetSpec::resolve_anim`.
 pub fn pick_npc_anim(state: NpcAnimState) -> CharacterAnim {
     if state.hit_flash {
         return CharacterAnim::Hit;
+    }
+    if state.aerial {
+        // Only flies when actually moving through the air; a still hover /
+        // landed perch reads as Idle (the authored perched pose).
+        return if state.vel.length() > 12.0 {
+            CharacterAnim::Fly
+        } else {
+            CharacterAnim::Idle
+        };
     }
     if state.vel.x.abs() > 8.0 {
         CharacterAnim::Walk

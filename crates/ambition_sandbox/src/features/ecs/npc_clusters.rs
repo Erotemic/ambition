@@ -29,6 +29,10 @@ pub struct NpcConfig {
     pub interactable: crate::interaction::Interactable,
     pub patrol_radius: f32,
     pub talk_radius: f32,
+    /// This NPC is in a gravity-free FLIGHT state (a `Floating` catalog body —
+    /// the parrot). Distinct from merely being airborne: a jump or knockback is
+    /// NOT flight. Drives the `Fly` animation (vs `Idle`/`Walk`) when moving.
+    pub aerial: bool,
 }
 
 /// Per-tick NPC status: last-evaluated AI mode, hit-flash timer,
@@ -155,6 +159,7 @@ impl NpcClusterScratch {
                 interactable,
                 patrol_radius,
                 talk_radius: super::super::npcs::NPC_TALK_RADIUS,
+                aerial: gravity_scale <= 0.001,
             },
             status: NpcStatus {
                 ai_mode: crate::actor::ai::CharacterAiMode::Idle,

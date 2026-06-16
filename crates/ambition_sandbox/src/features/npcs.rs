@@ -211,10 +211,15 @@ impl<'a> NpcMut<'a> {
 
     pub fn build_brain(&self) -> crate::brain::Brain {
         // Data-driven: if this NPC was authored from a catalog row that asks for
-        // a RICH brain (anything past Patrol/StandStill — e.g. the lively Aerial
-        // flyer), honor the catalog `default_brain`. Plain Patrol/StandStill rows
-        // fall through to the LDtk `patrol_radius` heuristic so existing NPC
-        // placements stay byte-for-byte unchanged.
+        // a RICH, PEACEFUL brain (past Patrol/StandStill but not hostile — e.g.
+        // the lively Aerial flyer), honor the catalog `default_brain`.
+        //
+        // A placed `NpcSpawn` is peaceful/talkable BY CONSTRUCTION, so a catalog
+        // row whose `default_brain` is HOSTILE (the cove pirates carry
+        // `melee_brute_striker` for when they spawn as ENEMIES) must NOT turn the
+        // friendly NPC into a player-chaser — those fall through to the legacy
+        // peaceful patrol/standstill below, unchanged. (An NPC only turns hostile
+        // by being struck past its retaliation threshold.)
         if let crate::interaction::InteractionKind::Npc {
             character_id: Some(cid),
             ..
@@ -230,7 +235,7 @@ impl<'a> NpcMut<'a> {
                             | crate::brain::StateMachineCfg::StandStill
                     )
                 );
-                if !is_basic {
+                if !is_basic && !brain.is_hostile() {
                     return brain;
                 }
             }

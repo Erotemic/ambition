@@ -362,3 +362,58 @@ fn from_name_resolves_all_new_action_rows() {
         );
     }
 }
+
+#[test]
+fn aerial_actors_fly_when_moving_and_idle_when_still() {
+    use super::{pick_enemy_anim, pick_npc_anim, EnemyAnimState, NpcAnimState};
+
+    // Flyer NPC (parrot): Fly while moving, Idle while hovering/perched.
+    let flying = NpcAnimState {
+        pos: ae::Vec2::ZERO,
+        vel: ae::Vec2::new(40.0, -30.0),
+        facing: 1.0,
+        hit_flash: false,
+        aerial: true,
+    };
+    assert_eq!(pick_npc_anim(flying), CharacterAnim::Fly);
+    assert_eq!(
+        pick_npc_anim(NpcAnimState {
+            vel: ae::Vec2::ZERO,
+            ..flying
+        }),
+        CharacterAnim::Idle,
+        "a still hover / landed perch is Idle, not Fly",
+    );
+
+    // A grounded (non-aerial) NPC moving plays Walk, never Fly — a jump or
+    // knockback (airborne but not flight) must not fly-anim.
+    assert_eq!(
+        pick_npc_anim(NpcAnimState {
+            aerial: false,
+            vel: ae::Vec2::new(40.0, -200.0), // launched upward, NOT flying
+            ..flying
+        }),
+        CharacterAnim::Walk,
+    );
+
+    // Aerial enemy (sky parrot) flies while cruising.
+    let enemy = EnemyAnimState {
+        pos: ae::Vec2::ZERO,
+        vel: ae::Vec2::new(50.0, 0.0),
+        facing: 1.0,
+        alive: true,
+        attack_active: false,
+        attack_windup: false,
+        hit_flash: false,
+        aerial: true,
+    };
+    assert_eq!(pick_enemy_anim(enemy), CharacterAnim::Fly);
+    // ...but an attack still wins (the dive peck plays its slash).
+    assert_eq!(
+        pick_enemy_anim(EnemyAnimState {
+            attack_active: true,
+            ..enemy
+        }),
+        CharacterAnim::Slash,
+    );
+}

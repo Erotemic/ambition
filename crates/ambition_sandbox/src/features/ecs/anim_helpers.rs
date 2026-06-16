@@ -75,7 +75,7 @@ pub fn ecs_enemy_anim_state(
 ) -> Option<crate::character_sprites::EnemyAnimState> {
     actors
         .iter()
-        .find_map(|(feature_id, actor, kin, status, attack, _, _, _)| {
+        .find_map(|(feature_id, actor, kin, status, attack, config, _, _)| {
             if feature_id.as_str() != id {
                 return None;
             }
@@ -92,6 +92,7 @@ pub fn ecs_enemy_anim_state(
                         attack_active: attack.is_active(),
                         attack_windup: attack.is_winding_up(),
                         hit_flash: status.hit_flash > 0.0,
+                        aerial: config.map(|c| c.tuning.is_aerial).unwrap_or(false),
                     })
                 }
                 _ => None,
@@ -105,7 +106,7 @@ pub fn ecs_npc_anim_state(
 ) -> Option<crate::character_sprites::NpcAnimState> {
     actors
         .iter()
-        .find_map(|(feature_id, actor, kin, _, _, _, _, npc_status)| {
+        .find_map(|(feature_id, actor, kin, _, _, _, npc_config, npc_status)| {
             if feature_id.as_str() != id {
                 return None;
             }
@@ -118,6 +119,7 @@ pub fn ecs_npc_anim_state(
                         vel: kin.vel,
                         facing: kin.facing,
                         hit_flash: status.hit_flash > 0.0,
+                        aerial: npc_config.map(|c| c.aerial).unwrap_or(false),
                     })
                 }
                 _ => None,

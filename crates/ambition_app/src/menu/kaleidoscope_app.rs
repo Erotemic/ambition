@@ -233,7 +233,7 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
                 kaleidoscope_sync_focus_visuals.run_if(kaleidoscope_menu_visible),
                 kaleidoscope_sync_detail_text.run_if(kaleidoscope_menu_visible),
                 gate_kaleidoscope_menu,
-                toggle_inventory_backend,
+                cycle_dev_gravity,
                 // The readability dim-scrim is cube-only; the Startup node stays
                 // transparent when the cube backend is inactive.
                 retarget_kaleidoscope_scrim.run_if(kaleidoscope_render_needed),
@@ -1566,20 +1566,28 @@ fn close_kaleidoscope_menu(
     }
 }
 
-/// Dev runtime toggle (#31): `\` flips the inventory frontend between the Bevy-UI
-/// grid and the 3D cube. Logs the new backend so it's visible in the console.
-fn toggle_inventory_backend(
+/// Dev hotkey: `\` cycles the room's ambient gravity through the four cardinal
+/// directions — down → left → up → right — so flipped / sideways-gravity behavior
+/// (pogo, cling, orientation, slug-crawl) is testable without an authored switch.
+/// Mutates [`BaseGravity`]; a gravity zone the player overlaps still wins locally,
+/// and a room reset restores the authored default. The inventory-frontend toggle
+/// this key used to own now lives only on the dev menu (`D::MenuBackend`).
+fn cycle_dev_gravity(
     keys: Res<ButtonInput<KeyCode>>,
-    mut backend: ResMut<InventoryUiBackend>,
+    mut base: ResMut<ambition_sandbox::physics::BaseGravity>,
 ) {
-    if keys.just_pressed(KeyCode::Backslash) {
-        *backend = backend.next();
-        info!(
-            "inventory backend → {:?}{}",
-            backend.effective(),
-            backend.unavailable_note()
-        );
+    if !keys.just_pressed(KeyCode::Backslash) {
+        return;
     }
+    // Engine y grows downward, so +y is screen-DOWN. Round the current dir to a
+    // cardinal and step to the next.
+    base.dir = match (base.dir.x.round() as i32, base.dir.y.round() as i32) {
+        (0, 1) => Vec2::new(-1.0, 0.0),  // down  -> left
+        (-1, 0) => Vec2::new(0.0, -1.0), // left  -> up
+        (0, -1) => Vec2::new(1.0, 0.0),  // up    -> right
+        _ => Vec2::new(0.0, 1.0),        // right (or any) -> down
+    };
+    info!(target: "ambition::gravity", "dev gravity cycle: dir = {:?}", base.dir);
 }
 
 /// Pause-gate the cube: its order-8 `Camera3d` clears the whole screen every frame,

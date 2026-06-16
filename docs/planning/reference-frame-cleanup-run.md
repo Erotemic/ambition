@@ -59,3 +59,19 @@ The AccelerationFrame is the foundation; the remaining work is applying it every
 
 - Jon: **mass comes from authored RON** (serde default so no sprite regen).
 - Jon picked: mass-weighted COG + shared roll for mount/rider; sequence = joystick → AABB → apple → mount/mass.
+
+## Batch delivered (testable)
+- DONE flight gravity-relative; pogo player-frame fix; engine-pogo consolidation.
+- DONE boss orientation (sprite roll + gravity-aware facing) — earlier this session.
+- DONE enemy + NPC + slug footprint AABB → AccelerationFrame (kernel guide fixed).
+- DONE apple projectile rotates to its acceleration frame.
+- DONE joystick U/D/L/R glyphs (input→player mapping; no screen relationship).
+
+## Remaining (careful)
+- Player AABB: visible box + COLLISION orientation. The collision swap touches the
+  core movement sweep (risk) — needs gravity threaded + sweep review. Byte-identical
+  for up/down gravity; only sideways changes.
+- Grounded-boss footprint AABB (boss uses boss.aabb()/damageable_volumes, not
+  CenteredAabb — more involved than the enemy/NPC case).
+- Mount + rider as a unit + Mass (RON-authored, serde default): model confirmed
+  (mass-weighted COG + shared roll). New feature, multi-component.

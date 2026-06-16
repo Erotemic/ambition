@@ -24,6 +24,9 @@
 //! - [`state`] — pure types ([`TouchInputState`], [`TouchButton`],
 //!   [`apply_deadzone`], [`fold_touch_into_control_frame`]); always
 //!   built.
+//! - [`exclusion`] — ECS marker + pure hit-test helpers for touch UI
+//!   regions that should not become menu drag-scroll gestures;
+//!   `mobile_touch`-gated.
 //! - [`layout`] — touch HUD positions + visible-circle hit testing;
 //!   `mobile_touch`-gated.
 //! - [`menu_bridge`] — touch/mouse/joystick → `ControlFrame` /
@@ -35,6 +38,9 @@
 //! "Android demo touch controls" for the full plan.
 
 mod state;
+
+#[cfg(feature = "mobile_touch")]
+pub mod exclusion;
 
 #[cfg(feature = "mobile_touch")]
 pub mod layout;

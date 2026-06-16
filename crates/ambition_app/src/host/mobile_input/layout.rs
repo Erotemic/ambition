@@ -10,6 +10,8 @@
 
 use bevy::prelude::*;
 
+use super::exclusion::{TouchExclusionAnchor, TouchExclusionZone};
+
 /// Marker + identity for touch action buttons. Each `TouchActionButton`
 /// entity is a Bevy `Button` whose `Interaction` state is folded into
 /// the matching `TouchInputState` field each frame.
@@ -45,7 +47,9 @@ pub(super) const ACTION_BEZEL_H: f32 = ACTION_CLUSTER_H + ACTION_BEZEL_PAD * 2.0
 /// Inset for the movement stick from the lower-left corner.
 /// A slightly larger gap keeps the thumb control away from the
 /// screen edge and leaves a cleaner buffer for gesture navigation.
-pub(super) const JOYSTICK_MARGIN: f32 = 32.0 * TOUCH_SCALE;
+pub(super) const JOYSTICK_MARGIN: f32 = 64.0 * TOUCH_SCALE;
+/// Generous movement-stick footprint reserved from menu drag-scroll gestures.
+pub(super) const JOYSTICK_EXCLUSION_SIZE: f32 = 300.0 * TOUCH_SCALE;
 pub(super) const MENU_ROW_MARGIN: f32 = 12.0;
 pub(super) const MENU_ROW_W: f32 = 198.0 * TOUCH_SCALE;
 pub(super) const MENU_W: f32 = 88.0 * TOUCH_SCALE;
@@ -63,6 +67,32 @@ pub struct TouchActionSpec {
     pub top: f32,
     pub size: f32,
     pub font_size: f32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TouchJoystickLayout {
+    pub margin: f32,
+    pub base_size: f32,
+    pub knob_size: f32,
+    pub exclusion_size: f32,
+}
+
+pub fn movement_joystick_layout() -> TouchJoystickLayout {
+    TouchJoystickLayout {
+        margin: JOYSTICK_MARGIN,
+        base_size: 200.0 * TOUCH_SCALE,
+        knob_size: 100.0 * TOUCH_SCALE,
+        exclusion_size: JOYSTICK_EXCLUSION_SIZE,
+    }
+}
+
+pub fn movement_joystick_exclusion_zone() -> TouchExclusionZone {
+    let layout = movement_joystick_layout();
+    TouchExclusionZone::rect(
+        TouchExclusionAnchor::BottomLeft,
+        Vec2::ZERO,
+        Vec2::splat(layout.exclusion_size),
+    )
 }
 
 /// Canonical lower-right action layout used by both the rendered UI and
@@ -149,6 +179,26 @@ pub fn touch_action_at_position(pos: Vec2, window_size: Vec2) -> Option<TouchAct
     None
 }
 
+pub fn touch_action_exclusion_zone(spec: TouchActionSpec) -> TouchExclusionZone {
+    let offset = Vec2::new(
+        ACTION_CLUSTER_MARGIN + ACTION_CLUSTER_W - spec.left - spec.size * 0.5,
+        ACTION_CLUSTER_MARGIN + ACTION_CLUSTER_H - spec.top - spec.size * 0.5,
+    );
+    TouchExclusionZone::circle(TouchExclusionAnchor::BottomRight, offset, spec.size * 0.5)
+}
+
+pub fn touch_menu_button_exclusion_zone(col: usize) -> TouchExclusionZone {
+    let offset = Vec2::new(
+        MENU_ROW_MARGIN + MENU_ROW_W - (col as f32 * MENU_CELL + 4.0 + MENU_W * 0.5),
+        MENU_ROW_MARGIN + 4.0 + MENU_H * 0.5,
+    );
+    TouchExclusionZone::rect(
+        TouchExclusionAnchor::TopRight,
+        offset - Vec2::new(MENU_W * 0.5, MENU_H * 0.5),
+        Vec2::new(MENU_W, MENU_H),
+    )
+}
+
 #[cfg(test)]
 mod layout_tests {
     //! Touch HUD hit-testing. The layout is the single source for both the
@@ -207,5 +257,31 @@ mod layout_tests {
             touch_action_at_position(start_center, WINDOW),
             Some(TouchActionButton::Start),
         );
+    }
+
+    #[test]
+    fn action_exclusion_matches_visible_button_center() {
+        let origin = touch_action_cluster_origin(WINDOW);
+        for spec in touch_action_layout() {
+            let center = Vec2::new(
+                origin.x + spec.left + spec.size * 0.5,
+                origin.y + spec.top + spec.size * 0.5,
+            );
+            assert!(
+                touch_action_exclusion_zone(spec).contains(center, WINDOW),
+                "exclusion for {:?} should contain its visible center",
+                spec.action,
+            );
+        }
+    }
+
+    #[test]
+    fn joystick_exclusion_preserves_legacy_envelope() {
+        let zone = movement_joystick_exclusion_zone();
+        assert!(zone.contains(Vec2::new(4.0, WINDOW.y - 4.0), WINDOW));
+        assert!(!zone.contains(
+            Vec2::new(JOYSTICK_EXCLUSION_SIZE + 1.0, WINDOW.y - 4.0),
+            WINDOW
+        ));
     }
 }

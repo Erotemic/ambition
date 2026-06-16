@@ -123,10 +123,14 @@ impl Plugin for TouchControlsPlugin {
             .insert_resource(MenuTouchGestureState::default())
             .insert_resource(TouchButtonEdges::default())
             .insert_resource(TouchControlsVisible::default())
-            .add_systems(Startup, (spawn_touch_buttons, spawn_touch_joysticks))
+            .add_systems(
+                Startup,
+                (spawn_touch_buttons, spawn_touch_joysticks, spawn_frame_axis_glyphs),
+            )
             .add_systems(
                 Update,
                 (
+                    position_frame_axis_glyphs,
                     tag_virtual_joystick_root,
                     sync_touch_visibility_from_settings,
                     sync_touch_ui_visibility,
@@ -306,6 +310,85 @@ fn spawn_touch_joysticks(mut cmd: Commands, mut images: ResMut<Assets<Image>>) {
     // `tag_virtual_joystick_root` (added to the plugin's
     // Update systems).
     let _ = &mut cmd; // suppress unused mut warning when no follow-up insert
+}
+
+/// A U/D/L/R glyph overlaid on the move joystick, marking one axis of the
+/// PLAYER's reference frame in screen space. `player_axis` is the unit direction
+/// in the player frame (down `(0,1)`, up `(0,-1)`, right `(1,0)`, left `(-1,0)`);
+/// `position_frame_axis_glyphs` rotates it into screen space each frame via the
+/// live [`AccelerationFrame`], so the labels spin as gravity rotates — a live
+/// readout of the player's reference frame vs the control (joystick) frame.
+#[derive(Component, Clone, Copy)]
+pub struct FrameAxisGlyph {
+    pub player_axis: Vec2,
+}
+
+/// Spawn the four reference-frame glyphs as a non-interactive overlay sharing the
+/// move joystick's footprint. Tagged `MobileTouchUiRoot` so it hides with the rest
+/// of the touch HUD.
+fn spawn_frame_axis_glyphs(mut cmd: Commands) {
+    let layout = movement_joystick_layout();
+    cmd.spawn((
+        Node {
+            width: Val::Px(layout.base_size),
+            height: Val::Px(layout.base_size),
+            position_type: PositionType::Absolute,
+            left: Val::Px(layout.margin),
+            bottom: Val::Px(layout.margin),
+            ..default()
+        },
+        // The joystick underneath owns the touches.
+        bevy::picking::Pickable::IGNORE,
+        GlobalZIndex(TOUCH_HUD_Z + 1),
+        MobileTouchUiRoot,
+        Name::new("FrameAxisGlyphs"),
+    ))
+    .with_children(|root| {
+        for (label, axis) in [
+            ("U", Vec2::new(0.0, -1.0)),
+            ("D", Vec2::new(0.0, 1.0)),
+            ("L", Vec2::new(-1.0, 0.0)),
+            ("R", Vec2::new(1.0, 0.0)),
+        ] {
+            root.spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    ..default()
+                },
+                Text::new(label),
+                TextFont {
+                    font_size: 22.0,
+                    ..default()
+                },
+                TextColor(Color::srgba(0.80, 0.90, 1.0, 0.85)),
+                bevy::picking::Pickable::IGNORE,
+                FrameAxisGlyph { player_axis: axis },
+            ));
+        }
+    });
+}
+
+/// Rotate the reference-frame glyphs into screen space each frame from the live
+/// player gravity. Identity under normal gravity (U on top, D on bottom, …).
+fn position_frame_axis_glyphs(
+    gravity: Option<Res<ambition_sandbox::physics::GravityField>>,
+    mut glyphs: Query<(&FrameAxisGlyph, &mut Node)>,
+) {
+    let gdir = gravity
+        .as_deref()
+        .map_or(Vec2::new(0.0, 1.0), |g| Vec2::new(g.dir.x, g.dir.y));
+    // The raw player frame (no control accommodation): this is the player's own
+    // orientation, which is what the glyphs visualize.
+    let frame = ambition_sandbox::engine_core::AccelerationFrame::new(gdir);
+    let layout = movement_joystick_layout();
+    let center = layout.base_size * 0.5;
+    let radius = layout.base_size * 0.36;
+    for (glyph, mut node) in &mut glyphs {
+        // Engine `+y` is screen-down, same as UI `top`, so the mapping is direct.
+        let screen = frame.to_world(glyph.player_axis);
+        node.left = Val::Px(center + screen.x * radius - 7.0);
+        node.top = Val::Px(center + screen.y * radius - 13.0);
+    }
 }
 
 /// Find any `VirtualJoystickNode` entity that doesn't yet have

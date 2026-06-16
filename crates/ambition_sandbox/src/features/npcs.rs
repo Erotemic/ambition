@@ -147,7 +147,13 @@ impl<'a> NpcMut<'a> {
         dt: f32,
         gravity_dir: ae::Vec2,
     ) -> f32 {
-        self.kin.vel.x = approach(self.kin.vel.x, desired_vel_x, 650.0 * dt);
+        // Run along the gravity-perpendicular "side" axis so a wall-standing NPC
+        // walks ALONG the wall under sideways gravity; gravity owns the gravity
+        // axis. For vertical gravity `side == (1,0)`, byte-identical to `vel.x`.
+        let side = ae::Vec2::new(gravity_dir.y, -gravity_dir.x);
+        let along_side = self.kin.vel.dot(side);
+        let new_side = approach(along_side, desired_vel_x, 650.0 * dt);
+        self.kin.vel += (new_side - along_side) * side;
         let mut body = crate::kinematic::KinematicBody {
             pos: self.kin.pos,
             vel: self.kin.vel,

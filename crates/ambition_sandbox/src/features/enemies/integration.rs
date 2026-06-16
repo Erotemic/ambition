@@ -79,11 +79,6 @@ fn integrate_standard_enemy_body(
     dt: f32,
     gravity_dir: ae::Vec2,
 ) {
-    // Vertical component drives the (still Y-only) jump impulse; the full vector
-    // drives the gravity-direction-relative fall in `step_kinematic`, so an enemy
-    // now falls toward SIDEWAYS gravity, not just down/up. (Sideways jump/run
-    // gravity-relativity is a follow-up.)
-    let gravity_sign = gravity_dir.y;
     let gravity = if is_aerial {
         0.0
     } else {
@@ -104,14 +99,24 @@ fn integrate_standard_enemy_body(
         body.vel.x = approach(body.vel.x, frame.desired_vel.x, accel);
         body.vel.y = approach(body.vel.y, frame.desired_vel.y, accel);
     } else {
-        body.vel.x = approach(body.vel.x, frame.desired_vel.x, 650.0 * dt);
+        // Run along the gravity-perpendicular "side" axis so a wall-standing
+        // enemy walks ALONG the wall (not into / out of it); gravity owns the
+        // gravity axis. For vertical gravity `side == (1,0)`, byte-identical to
+        // the old `vel.x` run.
+        let g = gravity_dir;
+        let side = ae::Vec2::new(g.y, -g.x);
+        let along_side = body.vel.dot(side);
+        let new_side = approach(along_side, frame.desired_vel.x, 650.0 * dt);
+        body.vel += (new_side - along_side) * side;
         if frame.jump_pressed {
-            // Jumps oppose gravity, so they flip with it.
+            // Jump opposes gravity (2D): keep the perpendicular component, set the
+            // gravity-axis component to -jump_speed. Vertical-identical.
+            let jump_off = |vel: ae::Vec2, speed: f32| vel - vel.dot(g) * g - speed * g;
             if body.on_ground {
-                body.vel.y = -ENEMY_JUMP_SPEED * gravity_sign;
+                body.vel = jump_off(body.vel, ENEMY_JUMP_SPEED);
                 body.on_ground = false;
             } else if surface.air_jumps_remaining > 0 {
-                body.vel.y = -ENEMY_DOUBLE_JUMP_SPEED * gravity_sign;
+                body.vel = jump_off(body.vel, ENEMY_DOUBLE_JUMP_SPEED);
                 surface.air_jumps_remaining -= 1;
             }
         }

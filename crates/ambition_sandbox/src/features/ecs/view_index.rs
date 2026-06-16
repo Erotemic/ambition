@@ -109,6 +109,10 @@ pub fn rebuild_feature_view_index(
         &super::super::components::ActorCombatState,
         Option<&BossDeathAnimation>,
         Option<&BossPhase>,
+        // Gravity-upright roll — the SAME `ActorRoll` the player / enemies / NPCs
+        // use, so a boss rights itself under flipped / sideways gravity instead of
+        // staying screen-axis-aligned (it floats, but it should still flip).
+        Option<&crate::platformer_runtime::orientation::ActorRoll>,
     )>,
 ) {
     index.begin_rebuild();
@@ -189,16 +193,25 @@ pub fn rebuild_feature_view_index(
                 } else {
                     FeatureVisualKind::Enemy
                 };
-                // Surface-walker (PuppySlug) sprite rotation: while clung to a
-                // surface, orient to that surface's normal; while airborne, use the
-                // gravity/portal aerial roll. These must NOT be summed — under a
-                // sideways gravity zone the clung surface IS the gravity floor, so
-                // `surface_rotation` and `roll_rad` both rotate to the wall and the
-                // slug over-rotates. (Byte-identical under normal gravity, where a
-                // grounded slug has `roll_rad == 0`.)
-                let rotation_rad = match surface {
-                    Some(s) => f32::atan2(-s.surface_normal.x, -s.surface_normal.y),
-                    None => roll_rad,
+                // Sprite rotation. A *surface-walker* (PuppySlug) orients to the
+                // surface it clings to (its `surface_normal` already encodes which
+                // floor/wall/ceiling it's on, so it handles gravity flips too). EVERY
+                // OTHER actor rights to gravity via `roll_rad` — the SAME path NPCs
+                // and the player use, so a flipped-gravity sprite flips upright. Using
+                // `surface_normal` here for a non-walker pinned it to `(0,-1)` and
+                // left it gravity-blind, so a now-hostile NPC (NPC -> Enemy) stopped
+                // tracking gravity (the orientation diverged on the hostility flip).
+                // The two must NOT be summed — under a sideways gravity zone a
+                // surface-walker's clung surface IS the gravity floor, so adding both
+                // over-rotates.
+                let is_surface_walker = config.is_some_and(|c| c.tuning.surface_walker);
+                let rotation_rad = if is_surface_walker {
+                    match surface {
+                        Some(s) => f32::atan2(-s.surface_normal.x, -s.surface_normal.y),
+                        None => roll_rad,
+                    }
+                } else {
+                    roll_rad
                 };
                 // Render size is the RAW (un-oriented) body box. The sprite is
                 // oriented by `rotation_rad`, so it must NOT also receive the
@@ -208,9 +221,12 @@ pub fn rebuild_feature_view_index(
                 // the swapped (long) dimension and shoves the sprite off its box.
                 // The ORIENTED footprint still lives in the `CenteredAabb` component
                 // (read directly by the debug overlay + hurtbox), so un-swap here to
-                // recover the raw dims. Floor/ceiling (vertical normal) is unchanged.
+                // recover the raw dims. Only a surface-walker on a wall swaps.
                 let render_size = match surface {
-                    Some(s) if s.surface_normal.x.abs() > s.surface_normal.y.abs() => {
+                    Some(s)
+                        if is_surface_walker
+                            && s.surface_normal.x.abs() > s.surface_normal.y.abs() =>
+                    {
                         let o = aabb.size();
                         ae::Vec2::new(o.y, o.x)
                     }
@@ -243,7 +259,7 @@ pub fn rebuild_feature_view_index(
             },
         );
     }
-    for (id, feature, attack_state, combat, death_anim, phase) in &bosses {
+    for (id, feature, attack_state, combat, death_anim, phase, roll) in &bosses {
         let boss = feature.as_boss_ref();
         // `alive` reads the shared `ActorCombatState` mirror; pos / size
         // still come from `BossRuntime` until the boss body migrates to
@@ -265,7 +281,7 @@ pub fn rebuild_feature_view_index(
                     || attack_state.telegraph_profile.is_some()
                     || attack_state.active_profile.is_some(),
                 switch_on: false,
-                rotation_rad: 0.0,
+                rotation_rad: roll.map_or(0.0, |r| r.angle),
             },
         );
     }

@@ -240,6 +240,10 @@ pub fn animate_bosses(
         ),
         Without<PlayerVisual>,
     >,
+    // Localized gravity, so a boss under flipped / sideways gravity flips the
+    // same way the player and enemies do (it self-rights via `ActorRoll`, so its
+    // facing must be gravity-aware too or the 180° roll mirrors it backwards).
+    gravity: ambition_sandbox::physics::GravityCtx,
 ) {
     // ADR 0011 — per-entity proper time. The "boss got root on the
     // simulator" pattern (ADR 0010 §Narrative authority) plays out
@@ -277,8 +281,15 @@ pub fn animate_bosses(
         }
         // Default art faces +x (right). A sheet drawn facing left (the
         // mockingbird) sets `authored_faces_left`, which inverts the flip so
-        // the boss faces the player instead of always facing away.
-        sprite.flip_x = animator.spec.flip_x(state.facing);
+        // the boss faces the player instead of always facing away. The
+        // gravity-aware flip matches the player / enemy path: under normal
+        // gravity it reduces to `spec.flip_x(facing)` (the gravity term is 0), and
+        // under a flip it cancels the `ActorRoll` 180° mirror so the boss keeps
+        // facing the player.
+        sprite.flip_x = ambition_sandbox::physics::gravity_aware_flip_x(
+            state.facing,
+            gravity.dir_at(state.pos),
+        ) ^ animator.spec.authored_faces_left;
         // Same split as `animate_characters`: hit feedback rides on
         // the white-silhouette `hit_flash` overlay; the warm
         // attack tint stays on `sprite.color` so the player can

@@ -240,6 +240,7 @@ fn boss_anim_state_for(
             .and_then(boss_anim_for_attack_profile),
         pattern_timer,
         facing: boss.kin.facing,
+        pos: boss.kin.pos,
     }
 }
 

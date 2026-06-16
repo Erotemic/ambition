@@ -872,6 +872,10 @@ pub struct BossAnimState {
     pub pattern_timer: f32,
     /// Horizontal facing: -1.0 = left, +1.0 = right.
     pub facing: f32,
+    /// World position — used to resolve localized gravity for the
+    /// gravity-aware facing flip (so a boss under flipped / sideways gravity
+    /// faces the right way, like the player and enemies).
+    pub pos: Vec2,
 }
 
 impl BossAnimState {

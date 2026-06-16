@@ -191,6 +191,28 @@ was aiming at.
   `single_mut()`-keyed player sim systems generalized to iterate (P9). The seam is
   ready; the systems aren't.
 
+### UPDATE 2 — the LIVE in-game clone works (press K)
+- `crates/ambition_app/src/app/player_clone.rs`: a `PlayerClone` is a non-player
+  entity carrying all 18 player movement clusters + a `PlayerDemo` brain + an
+  `ActorControl`. `drive_player_clones` ticks its brain → `ActorControl` and runs
+  the SHARED `update_player_with_tuning_clusters` (the exact human-player movement
+  core) on it. Press **K** in-game to spawn one at the player; it runs/jumps/dashes/
+  flies on its own. Live integration test `tests/player_clone_live.rs` asserts it
+  moves + leaves the ground in the real app schedule; replay stays byte-identical
+  (no clone in the fixture).
+- **Design decision (resolving the P9 entanglement pragmatically):** the PRIMARY
+  player keeps its full, entangled tick — it owns the global concerns (world clock,
+  moving-platform advance, camera, sandbox reset) that a clone must NOT touch. The
+  clone gets a focused driver that reuses the per-entity movement core WITHOUT those
+  globals. This is not a duplicate integration (the core is shared); it's an honest
+  split of "per-body movement" from "the primary player's world responsibilities."
+- **The deeper refactor still open (P9'):** decouple those globals into their own
+  primary-only systems so ONE loop drives every player-bodied entity (player +
+  clones) uniformly. That's the multiplayer shape; the clone driver is the first
+  consumer proving the per-body half is clean.
+- P10 (the `desired_vel` axis-vs-velocity dual meaning) is handled in the clone path
+  by emitting axis intent; the unifying split is still worth doing.
+
 ## Positives (what already works well)
 - **The spawn path is data-driven**: the basic friendly+hostile hookup needed ZERO
   Rust changes — catalog row + archetype row + yarn node + LDtk placement.

@@ -283,6 +283,20 @@ fn register_player_input_systems(app: &mut App) {
 /// the player so same-frame respawns are not clobbered.
 fn register_player_simulation_systems(app: &mut App) {
     app.init_resource::<crate::app::SandboxResetThisFrame>();
+    // Brain-driven player clone (press K): a non-player body driven by a
+    // PlayerDemo brain through the SAME movement core as the human player.
+    app.init_resource::<crate::app::player_clone::PlayerCloneClock>()
+        .init_resource::<crate::app::player_clone::SpawnPlayerCloneRequest>()
+        .add_systems(
+            Update,
+            (
+                crate::app::player_clone::request_player_clone_on_key,
+                crate::app::player_clone::spawn_requested_player_clone,
+                crate::app::player_clone::drive_player_clones.run_if(gameplay_allowed),
+                crate::app::player_clone::sync_player_clone_transform,
+            )
+                .chain(),
+        );
     // Possession systems stay interleaved with the player tick; lifting
     // them would change the `not_possessing` run-condition window.
     app.add_systems(

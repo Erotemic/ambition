@@ -93,6 +93,7 @@ mod dev_runtime;
 mod feedback;
 mod hud;
 mod phases;
+mod player_clone;
 mod player_tick;
 mod plugins;
 mod progression_schedule;
@@ -117,6 +118,7 @@ pub use cli::run_visible;
 pub use cli::run_web;
 pub use feedback::{ProgressionResources, SandboxEventWriters, SandboxQueues};
 pub use hud::update_quest_panel;
+pub use player_clone::{PlayerClone, SpawnPlayerCloneRequest};
 pub use player_tick::{
     clear_sandbox_reset_this_frame, player_control_system, player_simulation_system,
 };

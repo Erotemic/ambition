@@ -4,8 +4,9 @@
 //! the app (home button, screen off, app switcher, notification
 //! shade), the game flips to `GameMode::Paused` and every audio
 //! channel is paused so kira's audio thread stops mixing. On return
-//! the audio channels resume; the game stays paused so the user must
-//! tap Resume from the pause menu before play continues.
+//! the audio channels resume and the game mode is restored to whatever
+//! it was before the suspend (unless the user navigated off the
+//! forced-pause while backgrounded), so play continues automatically.
 //!
 //! We listen to three Bevy signals at once and treat any of them as
 //! "backgrounded":
@@ -77,6 +78,10 @@ struct AndroidSuspendState {
     /// systems (audio, game mode) react on the edge instead of
     /// every frame.
     just_changed: bool,
+    /// The `GameMode` we forced away from on the suspend edge, so the
+    /// resume edge can restore it. `Some` only while a suspend-induced
+    /// pause is in effect; cleared (taken) when we restore it.
+    mode_before_suspend: Option<GameMode>,
 }
 
 /// Fold every "app is going to the background" signal into a single
@@ -149,12 +154,16 @@ fn detect_android_suspend_state(
     }
 }
 
-/// On the suspend edge, force `GameMode::Paused`. On the resume edge,
-/// leave the mode alone — Android convention is that the user
-/// explicitly resumes from the pause menu when they return.
+/// On the suspend edge, force `GameMode::Paused` and remember the mode
+/// we came from. On the resume edge, restore that mode — but only if
+/// we're still sitting in the `Paused` we forced, so we never stomp a
+/// menu / dialogue / transition the user navigated into while the app
+/// was backgrounded. This mirrors the audio channels, which already
+/// auto-resume on the same edge; without it the game stays frozen with
+/// no visible affordance to un-pause.
 #[cfg(target_os = "android")]
 fn apply_android_suspend_to_game_mode(
-    state: Res<AndroidSuspendState>,
+    mut state: ResMut<AndroidSuspendState>,
     mode: Res<State<GameMode>>,
     mut next_mode: ResMut<NextState<GameMode>>,
 ) {
@@ -167,7 +176,16 @@ fn apply_android_suspend_to_game_mode(
         // conversation when the user briefly checks notifications;
         // Paused / RoomTransition are already non-playing states.
         if matches!(mode.get(), GameMode::Playing | GameMode::Cutscene) {
+            state.mode_before_suspend = Some(*mode.get());
             next_mode.set(GameMode::Paused);
+        }
+    } else if let Some(prev) = state.mode_before_suspend.take() {
+        // Resume edge: restore the pre-suspend mode, but only if the
+        // suspend-induced Paused is still the current mode. If the user
+        // opened a menu or otherwise moved off it while backgrounded,
+        // leave their navigation alone.
+        if matches!(mode.get(), GameMode::Paused) {
+            next_mode.set(prev);
         }
     }
 }

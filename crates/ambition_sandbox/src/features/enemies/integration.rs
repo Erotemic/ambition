@@ -79,11 +79,6 @@ fn integrate_standard_enemy_body(
     dt: f32,
     gravity_dir: ae::Vec2,
 ) {
-    let gravity = if is_aerial {
-        0.0
-    } else {
-        ENEMY_GRAVITY * surface.gravity_scale
-    };
     let mut body = crate::kinematic::KinematicBody {
         pos: kin.pos,
         vel: kin.vel,
@@ -99,18 +94,51 @@ fn integrate_standard_enemy_body(
         body.vel.x = approach(body.vel.x, frame.desired_vel.x, accel);
         body.vel.y = approach(body.vel.y, frame.desired_vel.y, accel);
     } else {
-        // Run along the gravity-perpendicular "side" axis so a wall-standing
-        // enemy walks ALONG the wall (not into / out of it); gravity owns the
-        // gravity axis. For vertical gravity `side == (1,0)`, byte-identical to
-        // the old `vel.x` run.
-        let g = gravity_dir;
-        let side = ae::Vec2::new(g.y, -g.x);
-        let along_side = body.vel.dot(side);
-        let new_side = approach(along_side, frame.desired_vel.x, 650.0 * dt);
-        body.vel += (new_side - along_side) * side;
+        // Grounded walkers run the SHARED player physics spine: gravity + run +
+        // fall-cap, gravity-direction-relative. The spine projects `axis_x` onto
+        // the gravity-perpendicular "side" axis (so a wall-standing enemy walks
+        // ALONG the wall) and applies gravity along `gravity_dir`. We map the AI's
+        // velocity-valued `desired_vel.x` onto the spine's `axis_x * max_run_speed`
+        // model by setting `max_run_speed = |desired|` and `axis_x = sign(desired)`,
+        // with run/air accel = ENEMY_RUN_ACCEL and friction = 0, so this is
+        // byte-identical under vertical gravity to the old hand-rolled run.
+        let desired = frame.desired_vel.x;
+        let axis_x = if desired.abs() > 1e-3 {
+            desired.signum()
+        } else {
+            0.0
+        };
+        let spine_tuning = ae::MovementTuning {
+            gravity: ENEMY_GRAVITY * surface.gravity_scale,
+            gravity_dir,
+            run_accel: ENEMY_RUN_ACCEL,
+            air_accel: ENEMY_RUN_ACCEL,
+            ground_friction: 0.0,
+            air_friction: 0.0,
+            max_run_speed: desired.abs(),
+            max_fall_speed: ENEMY_MAX_FALL,
+            ..ae::MovementTuning::default()
+        };
+        // A grounded enemy carries no player ability components: the spine's
+        // fast-fall / glide / water / blink gates are all off (pay-for-use).
+        let mut fast_falling = false;
+        let mut gliding = false;
+        ae::integrate_normal_spine(
+            &mut body.vel,
+            &mut fast_falling,
+            &mut gliding,
+            ae::NormalSpineCtx::bare(body.on_ground),
+            ae::InputState {
+                axis_x,
+                ..Default::default()
+            },
+            dt,
+            spine_tuning,
+        );
         if frame.jump_pressed {
             // Jump opposes gravity (2D): keep the perpendicular component, set the
             // gravity-axis component to -jump_speed. Vertical-identical.
+            let g = gravity_dir;
             let jump_off = |vel: ae::Vec2, speed: f32| vel - vel.dot(g) * g - speed * g;
             if body.on_ground {
                 body.vel = jump_off(body.vel, ENEMY_JUMP_SPEED);
@@ -125,9 +153,12 @@ fn integrate_standard_enemy_body(
         &mut body,
         world,
         crate::kinematic::KinematicTuning {
-            gravity,
+            // The spine (grounded) already applied gravity along `gravity_dir`;
+            // the sweep is pure collision resolution, the same split the player
+            // uses (spine integrates intent, the sweep only resolves collisions).
+            // Aerial enemies are gravity-free, so gravity is 0 for them too.
+            gravity: 0.0,
             max_fall_speed: ENEMY_MAX_FALL,
-            // Falls the same way the player does under any gravity (incl. sideways).
             gravity_dir,
         },
         crate::kinematic::KinematicInputs {

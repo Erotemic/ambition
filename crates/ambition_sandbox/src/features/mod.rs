@@ -11,6 +11,11 @@ use bevy::prelude::*;
 
 const ENEMY_GRAVITY: f32 = 1450.0;
 const ENEMY_MAX_FALL: f32 = 760.0;
+/// Run acceleration (px/s²) a grounded enemy approaches its desired velocity at,
+/// fed to the shared movement spine as both `run_accel` and `air_accel`. Matches
+/// the historical hand-rolled `approach(.., 650.0 * dt)` enemy run so routing
+/// enemies through the player spine is byte-identical under vertical gravity.
+const ENEMY_RUN_ACCEL: f32 = 650.0;
 /// Vertical impulse (px/s) applied when a grounded enemy's
 /// `ActorControlFrame.jump_pressed` is true. Slightly under the
 /// player's `JUMP_SPEED` (630) so goblins jump a touch lower than

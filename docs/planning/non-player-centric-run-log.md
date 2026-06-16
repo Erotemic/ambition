@@ -68,7 +68,35 @@ core, gated only by a tiny context.
   feed enemies/NPCs through the SAME core in Stage 3.
 - Commit: `feat(movement): Stage 2 — extract the actor-generic normal-mode spine`.
 
-## RESUME HERE → Stage 3 — enemies/NPCs onto the shared spine
+## Stage 3 — enemies/NPCs onto the shared spine
+
+### 3-core ✅ — grounded enemies + NPCs run the LITERAL player spine
+- `integrate_standard_enemy_body` (grounded branch) and `NpcRuntime::integrate_velocity`
+  no longer hand-roll gravity + run + fall-cap. They build a per-actor `MovementTuning`
+  (gravity, gravity_dir, `run_accel`/`air_accel = ENEMY_RUN_ACCEL`, friction 0,
+  `max_run_speed = |desired_vel.x|`, `max_fall_speed = ENEMY_MAX_FALL`) and call the
+  shared `ae::integrate_normal_spine(..., NormalSpineCtx::bare(on_ground), ...)` — the
+  exact physics core the player runs. The collision sweep (`step_kinematic`) now runs
+  with `gravity = 0` (the spine already applied gravity) — the same intent/sweep split
+  the player uses.
+- **Byte-identical under vertical gravity** (the mapping `axis_x = sign(desired)`,
+  `max_run_speed = |desired|`, friction 0 reproduces the old `approach(.., 650·dt)`
+  run exactly; the spine's gravity + fall-cap formula is identical to `step_kinematic`'s).
+  916 sandbox tests green; 166 engine tests green.
+- The duplicate *physics* is gone; `integrate_standard_enemy_body` / `integrate_velocity`
+  remain as thin brain→body orchestrators (jump impulse, motion-path advance, patrol
+  facing-flip, aerial branch) — that glue is per-actor and stays.
+- Commit: `feat(physics): Stage 3 — grounded enemies/NPCs run the shared spine`.
+
+### Still open in Stage 3
+- **Aerial** enemies/NPCs (parrot) still use the bespoke 2D `approach` integrator
+  (not the player FLIGHT spine). Folding them onto `integrate_flight_clusters` is a
+  follow-up (flight tuning mapping); their behavior is already gravity-free + correct.
+- **Content abilities** (slug surface-crawl, parrot dive-bomb): surface-crawl already
+  exists as `surface_walker` behavior; promoting these to first-class ability COMPONENTS
+  is content polish, deferred — it does not block the structural unification (Stages 4-7).
+
+## (superseded) earlier Stage 3 framing
 
 The decomposition foundation is in place. Next is the high-value, higher-risk work:
 

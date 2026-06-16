@@ -147,13 +147,12 @@ impl<'a> NpcMut<'a> {
         dt: f32,
         gravity_dir: ae::Vec2,
     ) -> f32 {
-        // Run along the gravity-perpendicular "side" axis so a wall-standing NPC
-        // walks ALONG the wall under sideways gravity; gravity owns the gravity
-        // axis. For vertical gravity `side == (1,0)`, byte-identical to `vel.x`.
-        let side = ae::Vec2::new(gravity_dir.y, -gravity_dir.x);
-        let along_side = self.kin.vel.dot(side);
-        let new_side = approach(along_side, desired_vel_x, 650.0 * dt);
-        self.kin.vel += (new_side - along_side) * side;
+        // Grounded NPCs run the SHARED player physics spine (gravity + run +
+        // fall-cap, gravity-direction-relative) — the same core enemies and the
+        // player use. The AI's velocity-valued `desired_vel_x` maps onto the
+        // spine's `axis_x * max_run_speed` model (max_run_speed = |desired|,
+        // axis_x = sign), accel = ENEMY_RUN_ACCEL, friction = 0, so it's
+        // byte-identical under vertical gravity to the old hand-rolled run.
         let mut body = crate::kinematic::KinematicBody {
             pos: self.kin.pos,
             vel: self.kin.vel,
@@ -162,11 +161,42 @@ impl<'a> NpcMut<'a> {
             facing: self.kin.facing,
         };
         let prev_vel_x = body.vel.x;
+        let axis_x = if desired_vel_x.abs() > 1e-3 {
+            desired_vel_x.signum()
+        } else {
+            0.0
+        };
+        let spine_tuning = ae::MovementTuning {
+            gravity: ENEMY_GRAVITY,
+            gravity_dir,
+            run_accel: ENEMY_RUN_ACCEL,
+            air_accel: ENEMY_RUN_ACCEL,
+            ground_friction: 0.0,
+            air_friction: 0.0,
+            max_run_speed: desired_vel_x.abs(),
+            max_fall_speed: ENEMY_MAX_FALL,
+            ..ae::MovementTuning::default()
+        };
+        let mut fast_falling = false;
+        let mut gliding = false;
+        ae::integrate_normal_spine(
+            &mut body.vel,
+            &mut fast_falling,
+            &mut gliding,
+            ae::NormalSpineCtx::bare(body.on_ground),
+            ae::InputState {
+                axis_x,
+                ..Default::default()
+            },
+            dt,
+            spine_tuning,
+        );
         crate::kinematic::step_kinematic(
             &mut body,
             world,
             crate::kinematic::KinematicTuning {
-                gravity: ENEMY_GRAVITY,
+                // Spine already applied gravity; the sweep is pure collision.
+                gravity: 0.0,
                 max_fall_speed: ENEMY_MAX_FALL,
                 gravity_dir,
             },

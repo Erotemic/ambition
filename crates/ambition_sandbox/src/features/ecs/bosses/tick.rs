@@ -8,9 +8,7 @@ use crate::brain::{
     BossAttackState, BossPatternContext, Brain, StateMachineCfg,
 };
 use crate::engine_core::AabbExt;
-use crate::features::{
-    boss_attack_damage, boss_special_for_profile, BossVolumeContext,
-};
+use crate::features::{boss_attack_damage, boss_special_for_profile, BossVolumeContext};
 use bevy::prelude::MessageWriter;
 
 /// Sync each boss's `encounter_phase` mirror from `BossEncounterRegistry`.

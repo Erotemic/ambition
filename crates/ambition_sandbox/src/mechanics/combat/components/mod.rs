@@ -3,7 +3,6 @@
 //! Gameplay feature families are represented as normal Bevy entities/components,
 //! paired with typed messages for cross-system effects.
 
-
 use super::*;
 
 mod actors;
@@ -273,4 +272,3 @@ pub enum EnemyRespawnPolicy {
     /// `encounter:*` ids (which have their own state machine).
     Never,
 }
-

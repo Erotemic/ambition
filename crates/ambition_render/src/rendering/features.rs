@@ -10,7 +10,7 @@ use super::primitives::{feature_color, feature_z, FeatureVisual, RoomVisual};
 use ambition_sandbox::assets::game_assets::{self, entity_sprite_or_color, GameAssets};
 use ambition_sandbox::config::world_to_bevy;
 use ambition_sandbox::features::{
-    ActorRuntime, BossRewardChest, ChestFeature, EncounterMob, EncounterRewardChest, CenteredAabb,
+    ActorRuntime, BossRewardChest, CenteredAabb, ChestFeature, EncounterMob, EncounterRewardChest,
     FeatureId, FeatureName, FeatureVisualKind,
 };
 

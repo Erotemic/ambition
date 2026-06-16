@@ -35,7 +35,9 @@ pub fn apply_hide_sprites_override(
     *prev_active = active;
 }
 
-fn effective_hide_sprites(developer_tools: &ambition_sandbox::dev::dev_tools::DeveloperTools) -> bool {
+fn effective_hide_sprites(
+    developer_tools: &ambition_sandbox::dev::dev_tools::DeveloperTools,
+) -> bool {
     // Placeholder art is a visible debug-art mode. If an old persisted or
     // inspector-mutated state leaves both booleans true, keep placeholders
     // visible instead of letting hide mode erase them.
@@ -82,7 +84,11 @@ const GRADIENT_LANE_VISUAL_Z: f32 = 10.5;
 pub fn manage_gradient_lane_visual(
     mut commands: Commands,
     world: Res<ambition_sandbox::GameWorld>,
-    bosses: Query<(Entity, BossClusterRef, &ambition_sandbox::brain::BossAttackState)>,
+    bosses: Query<(
+        Entity,
+        BossClusterRef,
+        &ambition_sandbox::brain::BossAttackState,
+    )>,
     mut visuals: Query<(Entity, &GradientLaneVisual, &mut Transform, &mut Sprite)>,
 ) {
     use ambition_sandbox::brain::BossAttackProfile;

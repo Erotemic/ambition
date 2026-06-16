@@ -15,6 +15,10 @@ use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
 use ambition_sandbox::engine_core as ae;
 
+use ambition_render::rendering::{
+    spawn_parallax_layers, spawn_room_visuals, HudText, PlayerSpriteBaseline, QuestPanelText,
+};
+use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_sandbox::assets::game_assets::GameAssets;
 #[cfg(feature = "audio")]
 use ambition_sandbox::assets::sandbox_assets::{ids, SandboxAssetCatalog};
@@ -25,10 +29,6 @@ use ambition_sandbox::character_sprites::{
     player_placeholder_render_size, CharacterAnimator,
 };
 use ambition_sandbox::platformer_runtime::lifecycle::SceneEntities;
-use ambition_render::rendering::{
-    spawn_parallax_layers, spawn_room_visuals, HudText, PlayerSpriteBaseline, QuestPanelText,
-};
-use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_sandbox::rooms::RoomSet;
 use ambition_sandbox::runtime::data::SandboxDataSpec;
 use ambition_sandbox::world::physics::PhysicsSandboxSettings;
@@ -71,8 +71,11 @@ pub fn presentation_world(
     // Resolve music-track ids through the sandbox asset catalog so the
     // library stores catalog-blessed paths (the generic library takes a
     // resolver closure instead of naming the catalog type).
-    let resolve_track_path =
-        |id: &str| catalog.path_for(&ambition_sandbox::assets::sandbox_assets::ids::music_track(id));
+    let resolve_track_path = |id: &str| {
+        catalog.path_for(&ambition_sandbox::assets::sandbox_assets::ids::music_track(
+            id,
+        ))
+    };
     let audio_library = AudioLibrary::new(
         audio_sources,
         &sandbox_data.audio,
@@ -265,7 +268,9 @@ fn presentation_world_inner(
         Name::new("Front HUD Camera"),
     ));
 
-    commands.insert_resource(ambition_sandbox::runtime::camera_layers::MainCameraEntity(main_camera));
+    commands.insert_resource(ambition_sandbox::runtime::camera_layers::MainCameraEntity(
+        main_camera,
+    ));
 
     // `Instant::now()` is unsupported under `wasm32-unknown-unknown`
     // (panics with "time not implemented on this platform"). Gate the

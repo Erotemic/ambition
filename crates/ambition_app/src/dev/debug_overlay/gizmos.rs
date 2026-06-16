@@ -208,7 +208,11 @@ pub(crate) fn draw_camera_frame(gizmos: &mut Gizmos, world: &ae::World, view: &C
     );
 }
 
-pub(crate) fn draw_world_blocks(gizmos: &mut Gizmos, world: &ae::World, developer_tools: &DeveloperTools) {
+pub(crate) fn draw_world_blocks(
+    gizmos: &mut Gizmos,
+    world: &ae::World,
+    developer_tools: &DeveloperTools,
+) {
     for block in &world.blocks {
         let color = match block.kind {
             ae::BlockKind::Solid => gray(),

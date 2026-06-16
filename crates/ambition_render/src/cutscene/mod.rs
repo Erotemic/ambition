@@ -238,36 +238,23 @@ pub fn tick_active_cutscene(
     let mut completed = false;
     for event in events {
         match event {
-            crate::cutscene::script::CutsceneEvent::BeatEntered { beat, .. } => {
-                match beat {
-                    crate::cutscene::script::CutsceneBeat::Dialogue {
-                        speaker,
-                        text,
-                    } => {
-                        active.current_dialogue = Some((speaker, text));
-                        active.current_banner = None;
-                    }
-                    crate::cutscene::script::CutsceneBeat::Banner {
-                        text,
-                        seconds,
-                    } => {
-                        active.current_dialogue = None;
-                        active.current_banner = Some((text, seconds));
-                    }
-                    crate::cutscene::script::CutsceneBeat::CameraPan {
-                        target,
-                        ..
-                    } => {
-                        active.camera_target = Some(Vec2::new(target[0], target[1]));
-                    }
-                    crate::cutscene::script::CutsceneBeat::Fade {
-                        to_alpha, ..
-                    } => {
-                        active.fade_alpha = to_alpha.clamp(0.0, 1.0);
-                    }
-                    _ => {}
+            crate::cutscene::script::CutsceneEvent::BeatEntered { beat, .. } => match beat {
+                crate::cutscene::script::CutsceneBeat::Dialogue { speaker, text } => {
+                    active.current_dialogue = Some((speaker, text));
+                    active.current_banner = None;
                 }
-            }
+                crate::cutscene::script::CutsceneBeat::Banner { text, seconds } => {
+                    active.current_dialogue = None;
+                    active.current_banner = Some((text, seconds));
+                }
+                crate::cutscene::script::CutsceneBeat::CameraPan { target, .. } => {
+                    active.camera_target = Some(Vec2::new(target[0], target[1]));
+                }
+                crate::cutscene::script::CutsceneBeat::Fade { to_alpha, .. } => {
+                    active.fade_alpha = to_alpha.clamp(0.0, 1.0);
+                }
+                _ => {}
+            },
             crate::cutscene::script::CutsceneEvent::FlagWritten { id, on } => {
                 save.data_mut().set_flag(id, on);
             }

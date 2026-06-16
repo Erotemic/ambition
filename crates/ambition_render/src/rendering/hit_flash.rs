@@ -206,7 +206,10 @@ pub fn sync_hit_flash_overlays(
     images: Res<Assets<Image>>,
     actors: Query<ambition_sandbox::features::ActorSpriteData>,
     bosses: Query<(&FeatureId, BossClusterRef)>,
-    player_state: Query<&ambition_sandbox::player::PlayerCombatState, ambition_sandbox::player::PrimaryPlayerOnly>,
+    player_state: Query<
+        &ambition_sandbox::player::PlayerCombatState,
+        ambition_sandbox::player::PrimaryPlayerOnly,
+    >,
     sources: Query<
         (
             Entity,
@@ -316,7 +319,10 @@ fn hit_flash_secs_for_source(
     player: Option<&PlayerVisual>,
     actors: &Query<ambition_sandbox::features::ActorSpriteData>,
     bosses: &Query<(&FeatureId, BossClusterRef)>,
-    player_state: &Query<&ambition_sandbox::player::PlayerCombatState, ambition_sandbox::player::PrimaryPlayerOnly>,
+    player_state: &Query<
+        &ambition_sandbox::player::PlayerCombatState,
+        ambition_sandbox::player::PrimaryPlayerOnly,
+    >,
 ) -> Option<f32> {
     // Player path: the entity that carries `PlayerVisual` is the
     // same one that carries `PlayerCombatState`, so the

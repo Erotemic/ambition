@@ -4,10 +4,9 @@
 use crate::engine_core as ae;
 use bevy::prelude::*;
 
-
+use super::*;
 use crate::features::FeatureVisualKind;
 use crate::rooms::LoadingZoneActivation;
-use super::*;
 
 pub fn entity_sprite(
     assets: &GameAssets,

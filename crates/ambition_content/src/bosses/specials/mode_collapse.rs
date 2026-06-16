@@ -141,8 +141,8 @@ pub fn spawn_mode_collapse_converge_from_special_messages(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::*;
+    use super::*;
 
     #[test]
     fn mode_collapse_ring_spawns_around_center_and_aims_inward() {

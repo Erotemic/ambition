@@ -16,23 +16,23 @@ use super::primitives::{
 };
 use ambition_sandbox::assets::game_assets::{self, EntitySprite, GameAssets};
 use ambition_sandbox::boss_encounter::sprites::{self, BossAnimState, BossAnimator};
+use ambition_sandbox::character_sprites::{
+    build_character_sprite, feet_anchor_for, CharacterAnimator,
+};
 use ambition_sandbox::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_sandbox::features::{
     BossClusterRef, BreakableFeature, ChestFeature, FeatureId, FeatureViewIndex, FeatureVisualKind,
     Opened,
 };
 use ambition_sandbox::mechanics::combat::BoundFeatureKind;
-use ambition_sandbox::character_sprites::{
-    build_character_sprite, feet_anchor_for, CharacterAnimator,
-};
 
 mod animation;
-mod overlays;
 mod boss;
+mod overlays;
 
 pub use animation::*;
-pub use overlays::*;
 pub use boss::*;
+pub use overlays::*;
 
 pub fn sync_visuals(
     world: Res<ambition_sandbox::GameWorld>,
@@ -166,11 +166,12 @@ fn state_aware_entity_sprite(
     ecs_breakables: &Query<(&FeatureId, &BreakableFeature)>,
 ) -> Option<EntitySprite> {
     match kind {
-        FeatureVisualKind::Breakable => ambition_sandbox::features::ecs_breakable_state(id, ecs_breakables)
-            .map(game_assets::breakable_state_sprite),
-        FeatureVisualKind::Chest => {
-            ambition_sandbox::features::ecs_chest_opened(id, ecs_chests).map(game_assets::chest_state_sprite)
+        FeatureVisualKind::Breakable => {
+            ambition_sandbox::features::ecs_breakable_state(id, ecs_breakables)
+                .map(game_assets::breakable_state_sprite)
         }
+        FeatureVisualKind::Chest => ambition_sandbox::features::ecs_chest_opened(id, ecs_chests)
+            .map(game_assets::chest_state_sprite),
         // Switch shows its on/off button sprite (armed = on, disabled = off)
         // instead of a flat colored block (#57).
         FeatureVisualKind::Switch => Some(if switch_on {
@@ -240,7 +241,8 @@ pub fn upgrade_enemy_sprites(
         // placeholder sheet this way without authors having to
         // duplicate the registry entry on an
         // enemy-side table.
-        let override_name = ambition_sandbox::features::ecs_enemy_sprite_override(&visual.id, &ecs_actors);
+        let override_name =
+            ambition_sandbox::features::ecs_enemy_sprite_override(&visual.id, &ecs_actors);
         let enemy_name = ambition_sandbox::features::ecs_enemy_name(&visual.id, &ecs_actors);
         // Resolve a *named* sprite first (override label, then the enemy's own
         // name), then fall back to the generic kind sheet.

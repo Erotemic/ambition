@@ -48,8 +48,8 @@ mod host_adapter {
     use crate::abilities::traversal::possession::PossessionState;
     use crate::features::CenteredAabb;
     use crate::platformer_runtime::body::BodyKinematics;
-    use crate::player::{PlayerEntity, PrimaryPlayer};
     use crate::platformer_runtime::lifecycle::PlayerVisual;
+    use crate::player::{PlayerEntity, PrimaryPlayer};
     use crate::GameWorld;
 
     /// Bridge the controlled character + the collision world → the crate-owned

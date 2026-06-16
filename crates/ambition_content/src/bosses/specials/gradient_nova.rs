@@ -97,8 +97,8 @@ pub fn spawn_gradient_nova_from_special_messages(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::*;
+    use super::*;
 
     /// End-to-end wiring check (public-API only): drive a boss to fire the
     /// gradient nova and confirm the full burst of projectile entities

@@ -14,8 +14,8 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 
 use crate::banter::CombatBanterRegistry;
-use ambition_sandbox::features::BossClusterRef;
 use ambition_render::fx::VfxMessage;
+use ambition_sandbox::features::BossClusterRef;
 
 /// Register hit-bark + idle-bark lines for all boss encounters.
 pub fn install_boss_banter(registry: &mut CombatBanterRegistry) {

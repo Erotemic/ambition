@@ -285,7 +285,10 @@ pub fn cleanup_puppy_slug_deep_dream_overlays(
     }
 }
 
-fn puppy_slug_seed(id: &str, actors: &Query<ambition_sandbox::features::ActorSpriteData>) -> Option<f32> {
+fn puppy_slug_seed(
+    id: &str,
+    actors: &Query<ambition_sandbox::features::ActorSpriteData>,
+) -> Option<f32> {
     actors.iter().find_map(
         |(feature_id, actor, _kin, _status, _attack, config, npc_config, _)| {
             if feature_id.as_str() != id {

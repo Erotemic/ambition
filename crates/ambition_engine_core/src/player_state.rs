@@ -291,7 +291,10 @@ where
     }
     let new_shape = new_mode.shape(base_size.base_size);
     let dy = (kinematics.size.y - new_shape.size.y) * 0.5;
-    let new_center = Vec2::new(kinematics.pos.x, kinematics.pos.y + gravity_dir.y.signum() * dy);
+    let new_center = Vec2::new(
+        kinematics.pos.x,
+        kinematics.pos.y + gravity_dir.y.signum() * dy,
+    );
     if !new_shape.fits_at(new_center, world, predicate) {
         return false;
     }
@@ -605,7 +608,12 @@ mod tests {
         // keep that top edge planted (against the ceiling the player stands on),
         // not the world-bottom — otherwise the body floats off the surface and the
         // crouch flickers / loses ground contact.
-        let world = World::new("test", Vec2::new(400.0, 400.0), Vec2::new(200.0, 200.0), Vec::new());
+        let world = World::new(
+            "test",
+            Vec2::new(400.0, 400.0),
+            Vec2::new(200.0, 200.0),
+            Vec::new(),
+        );
         let mut s = scratch_at(Vec2::new(100.0, 100.0));
         let original_size = s.kinematics.size;
         let original_feet = s.kinematics.pos.y - s.kinematics.size.y * 0.5; // TOP edge

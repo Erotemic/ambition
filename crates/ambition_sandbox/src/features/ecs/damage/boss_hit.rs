@@ -3,12 +3,8 @@
 use crate::engine_core::AabbExt;
 
 use super::super::super::util::midpoint;
-use super::super::damage_drops::{
-    drop_ability_pickup, drop_currency_coin, drop_health_pickup,
-};
-use super::super::{
-    ae, GameplayBanner, HitEvent, HitSource,
-};
+use super::super::damage_drops::{drop_ability_pickup, drop_currency_coin, drop_health_pickup};
+use super::super::{ae, GameplayBanner, HitEvent, HitSource};
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.

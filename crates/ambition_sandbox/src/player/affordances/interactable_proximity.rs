@@ -18,7 +18,7 @@ use bevy::prelude::*;
 
 use super::variants::InteractVariant;
 use crate::features::{
-    ActorRuntime, ChestFeature, CenteredAabb, FeatureSimEntity, Opened, SwitchFeature,
+    ActorRuntime, CenteredAabb, ChestFeature, FeatureSimEntity, Opened, SwitchFeature,
 };
 
 /// Resource: the nearest live interactable overlapping the primary

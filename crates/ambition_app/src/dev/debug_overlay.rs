@@ -11,14 +11,14 @@ use bevy::ecs::system::SystemParam;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
+#[cfg(feature = "input")]
+use ambition_render::rendering::PlayerVisual;
+use ambition_render::rendering::{CameraViewState, SceneEntities};
 use ambition_sandbox::config::world_to_bevy;
 use ambition_sandbox::dev::dev_tools::DeveloperTools;
 use ambition_sandbox::input::ControlFrame;
 #[cfg(feature = "input")]
 use ambition_sandbox::input::SandboxAction;
-#[cfg(feature = "input")]
-use ambition_render::rendering::PlayerVisual;
-use ambition_render::rendering::{CameraViewState, SceneEntities};
 use ambition_sandbox::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
 use ambition_sandbox::world::platforms;
 use ambition_sandbox::{GameMode, GameWorld, SandboxDevState};

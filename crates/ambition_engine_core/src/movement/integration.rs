@@ -52,7 +52,11 @@ pub fn gravity_descend(axis_y: f32, gravity_dir: crate::Vec2) -> f32 {
 /// gravity it reads screen-UP + jump. Computed here at the consumer (where
 /// `gravity_dir` is known) rather than precomputed gravity-blind at the input
 /// boundary.
-pub(super) fn wants_drop_through(axis_y: f32, jump_pressed: bool, gravity_dir: crate::Vec2) -> bool {
+pub(super) fn wants_drop_through(
+    axis_y: f32,
+    jump_pressed: bool,
+    gravity_dir: crate::Vec2,
+) -> bool {
     gravity_descend(axis_y, gravity_dir) > 0.35 && jump_pressed
 }
 
@@ -298,9 +302,10 @@ pub(super) fn integrate_velocity_clusters(
     }
 
     if clusters.abilities.abilities.rebound && clusters.ground.rebound_cooldown <= 0.0 {
-        if let Some(impulse) =
-            super::collision::touching_rebound_aabb(world, clusters.kinematics.aabb_oriented(tuning.gravity_dir))
-        {
+        if let Some(impulse) = super::collision::touching_rebound_aabb(
+            world,
+            clusters.kinematics.aabb_oriented(tuning.gravity_dir),
+        ) {
             clusters.kinematics.vel = impulse;
             crate::player_clusters::refresh_movement_resources_clusters(
                 clusters.abilities,
@@ -345,8 +350,7 @@ pub(super) fn integrate_climb_clusters(
     // The boost GATE ("press away from gravity") is gravity-relative; the climb
     // SPEED stays raw `axis_y` (screen-vertical along the ladder, already
     // gravity-symmetric since it's a direct screen-space velocity).
-    let pressing_away_from_gravity =
-        gravity_descend(input.axis_y, tuning.gravity_dir) < -0.1;
+    let pressing_away_from_gravity = gravity_descend(input.axis_y, tuning.gravity_dir) < -0.1;
     let target_vy = if jump.ladder_jump_boost > 0.0 && pressing_away_from_gravity {
         -tuning.jump_speed * tuning.gravity_sign
     } else {

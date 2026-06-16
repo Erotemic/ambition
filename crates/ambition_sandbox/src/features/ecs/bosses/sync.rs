@@ -3,9 +3,7 @@
 
 use super::super::*;
 
-use crate::brain::{
-    BossAttackState, Brain, StateMachineCfg,
-};
+use crate::brain::{BossAttackState, Brain, StateMachineCfg};
 use crate::engine_core::AabbExt;
 use crate::features::bosses::BossSpriteMetrics;
 use crate::features::bounding_aabb;

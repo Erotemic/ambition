@@ -34,7 +34,8 @@ pub fn sync_gravity_zone_visual(
         };
         let center = (zone.aabb.min + zone.aabb.max) * 0.5;
         let size = zone.aabb.max - zone.aabb.min;
-        let translation = ambition_sandbox::engine_core::config::world_to_bevy(&world.0, center, 7.5);
+        let translation =
+            ambition_sandbox::engine_core::config::world_to_bevy(&world.0, center, 7.5);
         commands.spawn((
             GravityZoneVisual,
             Sprite::from_color(color, size),
@@ -91,7 +92,8 @@ pub fn sync_gravity_switch_visual(
         Color::srgba(0.40, 0.90, 0.60, 0.65)
     };
     for sw in &switches {
-        let translation = ambition_sandbox::engine_core::config::world_to_bevy(&world.0, sw.pos, 8.5);
+        let translation =
+            ambition_sandbox::engine_core::config::world_to_bevy(&world.0, sw.pos, 8.5);
         commands.spawn((
             GravitySwitchVisual,
             Sprite::from_color(color, sw.half_extent * 2.0),

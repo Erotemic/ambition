@@ -12,7 +12,9 @@
 
 use bevy::prelude::*;
 
-use ambition_sandbox::player::{PlayerEntity, PlayerHealth, PlayerMana, PlayerWallet, PrimaryPlayer};
+use ambition_sandbox::player::{
+    PlayerEntity, PlayerHealth, PlayerMana, PlayerWallet, PrimaryPlayer,
+};
 
 /// Bar width / height in logical px.
 const BAR_W: f32 = 168.0;

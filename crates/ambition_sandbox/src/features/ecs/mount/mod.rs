@@ -389,4 +389,3 @@ pub fn rider_hand_world_pos(
     let hand_local_y = HAND_OFFSET_NORM.y * rider_height;
     crate::engine_core::Vec2::new(rider_pos.x + hand_local_x, rider_pos.y + hand_local_y)
 }
-

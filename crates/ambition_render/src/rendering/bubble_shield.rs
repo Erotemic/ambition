@@ -131,8 +131,11 @@ pub fn sync_bubble_shield_visual(
     }
 
     // Position centered on the player body.
-    transform.translation =
-        ambition_sandbox::config::world_to_bevy(&world.0, kin.pos, ambition_sandbox::config::WORLD_Z_PLAYER - 0.05);
+    transform.translation = ambition_sandbox::config::world_to_bevy(
+        &world.0,
+        kin.pos,
+        ambition_sandbox::config::WORLD_Z_PLAYER - 0.05,
+    );
 
     // Scale the ring to be slightly larger than the player collider so it
     // reads as surrounding the body without clipping into it.

@@ -440,4 +440,3 @@ fn fly_toggle_switches_mode_and_counters_gravity() {
         "flying upward input should accelerate upward"
     );
 }
-

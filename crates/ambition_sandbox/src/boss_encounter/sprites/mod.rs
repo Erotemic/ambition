@@ -696,7 +696,10 @@ pub fn dedicated_boss_sheets() -> [(&'static str, BossSheetSpec); 7] {
         ("smirking_behemoth_boss", SMIRKING_BEHEMOTH_SHEET),
         ("gnu_ton_body", GNU_TON_SHEET),
         ("gnu_ton_hands", GNU_TON_SHEET),
-        ("flying_spaghetti_monster_boss", FLYING_SPAGHETTI_MONSTER_SHEET),
+        (
+            "flying_spaghetti_monster_boss",
+            FLYING_SPAGHETTI_MONSTER_SHEET,
+        ),
         ("trex_boss", TREX_BOSS_SHEET),
     ]
 }
@@ -720,14 +723,8 @@ pub fn load_boss_sprite_in(
     )
 }
 
-
-
 /// Build the Smirking Behemoth boss sprite asset.
 ///
-
-
-
-
 
 pub(crate) fn load_named_boss_sprite_via_catalog(
     catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,

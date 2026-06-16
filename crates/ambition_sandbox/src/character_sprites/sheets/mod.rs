@@ -502,7 +502,6 @@ fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterShee
 /// as the representative — both ninja manifests report
 /// `feet_anchor_norm.y = -0.4921875` and identical row layout, so the
 /// pair stays interchangeable.
-
 mod atlas;
 mod geometry;
 pub use atlas::*;

@@ -138,7 +138,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn no_heal_without_interact_or_when_not_touching() {
         let mut app = App::new();

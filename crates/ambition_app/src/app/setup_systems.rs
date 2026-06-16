@@ -14,9 +14,9 @@ use super::player_tick::*;
 use super::plugins::*;
 #[allow(unused_imports)]
 use super::resources::*;
+use super::scene_setup;
 #[allow(unused_imports)]
 use super::world_flow::*;
-use super::scene_setup;
 #[allow(unused_imports)]
 use super::*;
 #[allow(unused_imports)]

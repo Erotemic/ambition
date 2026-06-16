@@ -121,8 +121,7 @@ pub fn populate_control_frame_from_actions(
             }
             if action_state.pressed(&SandboxAction::Reset) {
                 cutscene_request.skip_hold_seconds += time.delta_secs();
-                if cutscene_request.skip_hold_seconds
-                    >= ambition_cutscene::SKIP_HOLD_THRESHOLD_SECS
+                if cutscene_request.skip_hold_seconds >= ambition_cutscene::SKIP_HOLD_THRESHOLD_SECS
                 {
                     cutscene_request.skip_cutscene = true;
                     cutscene_request.skip_hold_seconds = 0.0;
@@ -253,9 +252,7 @@ pub fn apply_menu_frame_to_cutscene_request(
     }
     if menu_frame.back_held {
         cutscene_request.skip_hold_seconds += time.delta_secs();
-        if cutscene_request.skip_hold_seconds
-            >= ambition_cutscene::SKIP_HOLD_THRESHOLD_SECS
-        {
+        if cutscene_request.skip_hold_seconds >= ambition_cutscene::SKIP_HOLD_THRESHOLD_SECS {
             cutscene_request.skip_cutscene = true;
             cutscene_request.skip_hold_seconds = 0.0;
         }

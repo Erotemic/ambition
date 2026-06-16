@@ -58,7 +58,10 @@ pub fn sync_projectile_visuals(
         ),
     >,
     // Live bodies for the transform refresh of already-linked projectiles.
-    bodies: Query<&ambition_sandbox::player::BodyKinematics, With<ambition_sandbox::projectile::PlayerProjectile>>,
+    bodies: Query<
+        &ambition_sandbox::player::BodyKinematics,
+        With<ambition_sandbox::projectile::PlayerProjectile>,
+    >,
     mut visuals: Query<
         (Entity, &VisualProjectile, &mut Transform, &mut Sprite),
         With<PlayerProjectileVisual>,
@@ -123,11 +126,17 @@ pub fn sync_projectile_visuals(
         // orange). The tint applies whether or not the textured sprite
         // loads; a missing texture falls through to a colored quad.
         let tint = match game.kind {
-            ambition_sandbox::projectile::ProjectileKind::Fireball => Color::srgba(1.0, 0.74, 0.30, 0.95),
-            ambition_sandbox::projectile::ProjectileKind::Hadouken => Color::srgba(0.45, 0.78, 1.0, 0.96),
+            ambition_sandbox::projectile::ProjectileKind::Fireball => {
+                Color::srgba(1.0, 0.74, 0.30, 0.95)
+            }
+            ambition_sandbox::projectile::ProjectileKind::Hadouken => {
+                Color::srgba(0.45, 0.78, 1.0, 0.96)
+            }
             // Stronger tint for the Super so the player can see at a
             // glance that they fired the harder gesture.
-            ambition_sandbox::projectile::ProjectileKind::HadoukenSuper => Color::srgba(0.30, 0.55, 1.0, 1.0),
+            ambition_sandbox::projectile::ProjectileKind::HadoukenSuper => {
+                Color::srgba(0.30, 0.55, 1.0, 1.0)
+            }
         };
         let mut sprite = match handle.clone() {
             Some(image) => Sprite {
@@ -152,8 +161,12 @@ pub fn sync_projectile_visuals(
                 PlayerProjectileVisual,
                 VisualProjectile(proj_entity),
                 Name::new(match game.kind {
-                    ambition_sandbox::projectile::ProjectileKind::Fireball => "Player projectile: fireball",
-                    ambition_sandbox::projectile::ProjectileKind::Hadouken => "Player projectile: hadouken",
+                    ambition_sandbox::projectile::ProjectileKind::Fireball => {
+                        "Player projectile: fireball"
+                    }
+                    ambition_sandbox::projectile::ProjectileKind::Hadouken => {
+                        "Player projectile: hadouken"
+                    }
                     ambition_sandbox::projectile::ProjectileKind::HadoukenSuper => {
                         "Player projectile: hadouken_super"
                     }
@@ -172,8 +185,11 @@ pub fn sync_projectile_visuals(
             commands.entity(visual_entity).despawn();
             continue;
         };
-        transform.translation =
-            ambition_sandbox::config::world_to_bevy(&world.0, kin.pos, ambition_sandbox::config::WORLD_Z_PLAYER + 2.0);
+        transform.translation = ambition_sandbox::config::world_to_bevy(
+            &world.0,
+            kin.pos,
+            ambition_sandbox::config::WORLD_Z_PLAYER + 2.0,
+        );
         // Track travel direction each frame; fireballs can reverse on bounce.
         sprite.flip_x = kin.vel.x < 0.0;
     }

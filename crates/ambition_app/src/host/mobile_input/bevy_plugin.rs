@@ -125,7 +125,11 @@ impl Plugin for TouchControlsPlugin {
             .insert_resource(TouchControlsVisible::default())
             .add_systems(
                 Startup,
-                (spawn_touch_buttons, spawn_touch_joysticks, spawn_frame_axis_glyphs),
+                (
+                    spawn_touch_buttons,
+                    spawn_touch_joysticks,
+                    spawn_frame_axis_glyphs,
+                ),
             )
             .add_systems(
                 Update,

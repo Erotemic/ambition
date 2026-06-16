@@ -43,7 +43,6 @@ pub struct HudText;
 #[derive(Component)]
 pub struct QuestPanelText;
 
-
 /// Marker for an encounter-driven lock-wall block visual. The
 /// encounter system inserts `Block::solid` entries named
 /// `lockwall:<encounter_id>` into `world.blocks` while the encounter

@@ -2,13 +2,13 @@
 //! sprite sync + activation-pulse animation. Reads the sim shrine state
 //! (HealShrine, ShrineActivationPulse) from ambition_sandbox.
 
+use ambition_sandbox::shrine::{HealShrine, ShrineActivationPulse};
+use ambition_sprite_sheet::{SheetRecord, SheetRegistry};
 use bevy::prelude::*;
 use bevy::{image::TextureAtlas, image::TextureAtlasLayout, math::UVec2};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
-use ambition_sandbox::shrine::{HealShrine, ShrineActivationPulse};
-use ambition_sprite_sheet::{SheetRecord, SheetRegistry};
 
 /// Marks the shrine's visual.
 #[derive(Component)]
@@ -40,7 +40,6 @@ pub struct ShrineVisualAtlas {
     activate_frame_count: usize,
     activate_duration: f32,
 }
-
 
 #[derive(Clone)]
 pub enum ShrineVisualSource {

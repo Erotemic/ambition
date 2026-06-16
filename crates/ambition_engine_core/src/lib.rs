@@ -24,19 +24,18 @@
 
 pub mod abilities;
 pub mod config;
-pub mod reference_frame;
 pub mod geometry;
 pub mod ledge_grab;
 pub mod movement;
 pub mod player_clusters;
 pub mod player_state;
+pub mod reference_frame;
 pub mod world;
 
 // Re-export the public surface so story/sandbox crates can treat the engine as
 // the main mechanics API while the internals stay organized by concern.
 pub use abilities::AbilitySet;
 pub use bevy_math::Vec2;
-pub use reference_frame::{AccelerationFrame, InputFrameMode};
 pub use geometry::{aabb_from_min_size, Aabb, AabbExt, CenteredAabb};
 pub use ledge_grab::{
     probe_ledge_grab, LedgeContact, LedgeGetupKind, LedgeGrabState, LEDGE_CLIMB_TIME,
@@ -79,6 +78,7 @@ pub use player_state::{
     classify_safety_from_kinematics, try_change_body_mode_clusters, BodyMode, BodyShape,
     LocomotionState, PlayerSafetyVerdict, ResourceMeter,
 };
+pub use reference_frame::{AccelerationFrame, InputFrameMode};
 pub use world::{
     BlinkWallTier, Block, BlockKind, ClimbableContact, ClimbableKind, ClimbableRegion,
     ClimbableSpec, WaterContact, WaterKind, WaterRegion, WaterVolumeSpec, World,

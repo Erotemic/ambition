@@ -27,13 +27,13 @@ use ambition_sandbox::player::{BodyKinematics, PlayerEntity};
 use ambition_sandbox::projectile::ProjectileFaction;
 use ambition_sandbox::WorldTime;
 
+mod echo_fan;
 mod eye_beam;
+mod gradient_nova;
 mod gradient_sentinel;
 mod mode_collapse;
-mod gradient_nova;
-mod echo_fan;
-mod seismic_stomp;
 mod overflow_flood;
+mod seismic_stomp;
 
 pub use echo_fan::*;
 pub use eye_beam::*;

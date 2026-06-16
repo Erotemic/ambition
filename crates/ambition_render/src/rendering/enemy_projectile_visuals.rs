@@ -9,9 +9,9 @@ use bevy::math::Vec2;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
+use super::projectile_visuals::{ProjectileVisualLink, VisualProjectile};
 use ambition_sandbox::enemy_projectile::EnemyProjectile;
 use ambition_sandbox::projectile::ProjectileOwnerId;
-use super::projectile_visuals::{ProjectileVisualLink, VisualProjectile};
 
 #[derive(Component)]
 pub struct EnemyProjectileVisual;
@@ -137,7 +137,11 @@ pub fn sync_enemy_projectile_visuals(
     gravity: ambition_sandbox::physics::GravityCtx,
     // Enemy projectiles that don't yet have a visual get one spawned.
     new_projectiles: Query<
-        (Entity, &ambition_sandbox::player::BodyKinematics, &ProjectileOwnerId),
+        (
+            Entity,
+            &ambition_sandbox::player::BodyKinematics,
+            &ProjectileOwnerId,
+        ),
         (With<EnemyProjectile>, Without<ProjectileVisualLink>),
     >,
     // Live bodies for the per-frame transform refresh.
@@ -159,8 +163,11 @@ pub fn sync_enemy_projectile_visuals(
     // Spawn one persistent visual per NEW enemy projectile entity.
     for (proj_entity, kin, owner) in &new_projectiles {
         let render_size = bevy::math::Vec2::new((kin.size.x).max(8.0), (kin.size.y).max(8.0));
-        let translation =
-            ambition_sandbox::config::world_to_bevy(&world.0, kin.pos, ambition_sandbox::config::WORLD_Z_PLAYER + 1.8);
+        let translation = ambition_sandbox::config::world_to_bevy(
+            &world.0,
+            kin.pos,
+            ambition_sandbox::config::WORLD_Z_PLAYER + 1.8,
+        );
         let visual = if is_apple_owner(&owner.0) {
             spawn_apple_visual(
                 &mut commands,

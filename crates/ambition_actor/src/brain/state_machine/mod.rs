@@ -1013,8 +1013,7 @@ fn tick_aerial_hostile(
         }
         AerialPhase::Recover => {
             state.mode = CharacterAiMode::Chase;
-            let away =
-                ae::Vec2::new((pos.x - target.x).signum_or(1.0), -1.0).normalize_or_zero();
+            let away = ae::Vec2::new((pos.x - target.x).signum_or(1.0), -1.0).normalize_or_zero();
             out.desired_vel =
                 apply_flying_separation(away * cfg.cruise_speed, cfg.cruise_speed, snapshot);
             if now >= state.phase_until {

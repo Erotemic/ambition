@@ -204,7 +204,10 @@ fn settle_on_floor(gdir: (f32, f32), one_way: bool) -> (SandboxSim, f32) {
 fn crouch_is_gravity_symmetric() {
     let crouches = |gdir: (f32, f32)| -> bool {
         let (mut sim, _) = settle_on_floor(gdir, false);
-        assert!(sim.observation().on_ground, "test setup: should be grounded");
+        assert!(
+            sim.observation().on_ground,
+            "test setup: should be grounded"
+        );
         let mut got = false;
         for _ in 0..20 {
             if sim.step(descend(gdir, false)).body_mode.contains("Crouch") {

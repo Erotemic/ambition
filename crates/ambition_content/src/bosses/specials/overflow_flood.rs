@@ -138,8 +138,8 @@ pub fn spawn_overflow_flood_from_special_messages(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::*;
+    use super::*;
 
     #[test]
     fn overflow_flood_leaves_exactly_one_safe_lane() {

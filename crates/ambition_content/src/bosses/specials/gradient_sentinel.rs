@@ -829,8 +829,8 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::*;
+    use super::*;
 
     #[test]
     fn gradient_cascade_minion_offsets_spread_symmetrically() {

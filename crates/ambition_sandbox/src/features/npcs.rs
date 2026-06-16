@@ -176,12 +176,7 @@ impl<'a> NpcMut<'a> {
     /// Gravity-free 2D integration for a flying NPC: approach the brain's full
     /// `desired_vel` (both axes) and step through collision with gravity off, so
     /// a `Floating` bird actually flies. Mirrors the aerial-enemy integrator.
-    pub fn integrate_velocity_aerial(
-        &mut self,
-        desired_vel: ae::Vec2,
-        world: &ae::World,
-        dt: f32,
-    ) {
+    pub fn integrate_velocity_aerial(&mut self, desired_vel: ae::Vec2, world: &ae::World, dt: f32) {
         let accel = 900.0 * dt;
         self.kin.vel.x = approach(self.kin.vel.x, desired_vel.x, accel);
         self.kin.vel.y = approach(self.kin.vel.y, desired_vel.y, accel);

@@ -299,8 +299,7 @@ impl LoadedMusicCueAssets {
             for source in &section.sources {
                 let key = MusicSourceKey::new(&cue.id, &section.id, &source.layer_id);
                 if !self.sources.contains_key(&key) {
-                    let rel =
-                        format!("{}/{}", cue.asset_root.trim_end_matches('/'), source.path);
+                    let rel = format!("{}/{}", cue.asset_root.trim_end_matches('/'), source.path);
                     self.sources.insert(key, asset_server.load(rel));
                 }
             }

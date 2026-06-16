@@ -39,7 +39,11 @@ pub fn upgrade_boss_sprites(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
     images: Res<Assets<Image>>,
-    ecs_bosses: Query<(&FeatureId, BossClusterRef, &ambition_sandbox::brain::BossAttackState)>,
+    ecs_bosses: Query<(
+        &FeatureId,
+        BossClusterRef,
+        &ambition_sandbox::brain::BossAttackState,
+    )>,
     new_bosses: Query<
         (Entity, &FeatureVisual),
         (Without<CharacterAnimator>, Without<BossAnimator>),
@@ -84,7 +88,8 @@ pub fn upgrade_boss_sprites(
         // bosses fall back to the gradient-sentinel sheet.
         // If no asset is available we skip — the colored rectangle
         // fallback in `sync_visuals` continues to render.
-        let boss_name = ambition_sandbox::features::ecs_boss_name(&visual.id, &ecs_bosses).unwrap_or("");
+        let boss_name =
+            ambition_sandbox::features::ecs_boss_name(&visual.id, &ecs_bosses).unwrap_or("");
         let boss_behavior_id = ecs_bosses
             .iter()
             .find_map(|(feature_id, item, _)| {
@@ -251,9 +256,8 @@ pub fn animate_bosses(
     // own animation while the world is frozen by its SimClock
     // request.
     for (visual, mut sprite, mut animator, scale) in &mut query {
-        let dt = world_time.entity_dt(ambition_sandbox::time::time_control::ProperTimeScale::or_default(
-            scale,
-        ));
+        let dt = world_time
+            .entity_dt(ambition_sandbox::time::time_control::ProperTimeScale::or_default(scale));
         let Some((boss_entity, state)): Option<(Entity, BossAnimState)> =
             ambition_sandbox::features::ecs_boss_anim_state_and_entity(&visual.id, &ecs_bosses)
         else {

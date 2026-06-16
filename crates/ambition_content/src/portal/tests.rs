@@ -852,10 +852,10 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
 #[cfg(feature = "portal_render")]
 #[test]
 fn partial_render_keeps_the_sprite_and_adds_the_exit_copy() {
+    use ambition_render::rendering::PlayerVisual;
     use ambition_sandbox::portal::{
         sync_portal_world_frame, tag_portal_scene_bodies, PortalWorldFrame,
     };
-    use ambition_render::rendering::PlayerVisual;
     let mut app = App::new();
     app.insert_resource(world_with_two_walls());
     // Drive the visual through the REAL host adapter chain: world-frame sync +

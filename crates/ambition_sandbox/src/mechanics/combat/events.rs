@@ -38,7 +38,6 @@ impl BoundFeatureKind {
     }
 }
 
-
 #[derive(Clone, Copy, Debug)]
 pub struct FeatureView {
     pub pos: ae::Vec2,

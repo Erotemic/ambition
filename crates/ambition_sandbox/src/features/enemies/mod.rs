@@ -827,11 +827,9 @@ mod capability_tests {
         // Friendly form is authored ENTIRELY in data as a lively flyer (the
         // commit-3 refactor payoff): the catalog default_brain resolves to a
         // PEACEFUL Aerial brain, and body_kind is Floating so it's gravity-free.
-        let friendly = crate::character_roster::default_brain_for_character_id(
-            "stochastic_parrot",
-            0.0,
-        )
-        .expect("parrot has a catalog default brain");
+        let friendly =
+            crate::character_roster::default_brain_for_character_id("stochastic_parrot", 0.0)
+                .expect("parrot has a catalog default brain");
         assert!(
             matches!(
                 friendly,

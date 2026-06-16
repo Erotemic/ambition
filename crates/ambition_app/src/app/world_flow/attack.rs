@@ -207,11 +207,11 @@ pub(crate) fn advance_attack(
             let attack_world =
                 features::world_with_sandbox_solids(world, moving_platforms, feature_ecs_overlay);
             if let Some(orb_aabb) = pogo_target_for_attack_hitbox(&attack_world, attack) {
-            ae::movement::set_jump_velocity(
-                &mut clusters.kinematics.vel,
-                tuning.gravity_dir,
-                tuning.pogo_speed,
-            );
+                ae::movement::set_jump_velocity(
+                    &mut clusters.kinematics.vel,
+                    tuning.gravity_dir,
+                    tuning.pogo_speed,
+                );
                 ae::refresh_movement_resources_clusters(
                     clusters.abilities,
                     &mut *clusters.dash,

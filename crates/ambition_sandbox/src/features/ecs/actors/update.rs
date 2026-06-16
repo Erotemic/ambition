@@ -35,8 +35,11 @@ pub fn sync_actor_poses_from_feature_aabbs(
                 .map(|feature| feature.kin.facing)
                 .unwrap_or(pose.facing),
         };
-        *pose =
-            super::super::super::components::ActorPose::from_parts(aabb.center, aabb.half_size, facing);
+        *pose = super::super::super::components::ActorPose::from_parts(
+            aabb.center,
+            aabb.half_size,
+            facing,
+        );
     }
 }
 
@@ -573,8 +576,7 @@ pub fn update_ecs_npcs(
         // Footprint oriented to gravity (the kernel guide, raiders, etc.), so the
         // debug box + hurtbox match the gravity-rotated sprite. Byte-identical for
         // vertical gravity; swaps width<->height only sideways.
-        let npc_frame =
-            crate::engine_core::AccelerationFrame::new(gravity.dir_at(npc.kin.pos));
+        let npc_frame = crate::engine_core::AccelerationFrame::new(gravity.dir_at(npc.kin.pos));
         aabb.center = npc.kin.pos;
         aabb.half_size = npc_frame.to_world_half(npc.kin.size * 0.5);
         // Mirror the NPC clusters onto the read-model components.

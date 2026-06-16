@@ -22,9 +22,7 @@ use crate::Vec2;
 /// How the INPUT frame maps onto the player frame — "which way is right when
 /// gravity is sideways or upside-down". A control preference, configurable per
 /// player (see [`AccelerationFrame::control_frame`]).
-#[derive(
-    Clone, Copy, Debug, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize,
-)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum InputFrameMode {
     /// Input is always SCREEN-aligned: right is screen-right regardless of
     /// gravity (the player mentally rotates).
@@ -156,7 +154,10 @@ mod tests {
         assert_eq!(f.side, Vec2::new(1.0, 0.0));
         assert_eq!(f.descend(0.7), 0.7);
         assert_eq!(f.to_world(Vec2::new(3.0, 5.0)), Vec2::new(3.0, 5.0));
-        assert_eq!(f.to_world_half(Vec2::new(26.0, 34.0)), Vec2::new(26.0, 34.0));
+        assert_eq!(
+            f.to_world_half(Vec2::new(26.0, 34.0)),
+            Vec2::new(26.0, 34.0)
+        );
     }
 
     #[test]
@@ -167,7 +168,10 @@ mod tests {
         // A player-frame "toward feet" offset (+y) maps to screen-up.
         assert_eq!(f.to_world(Vec2::new(0.0, 32.0)), Vec2::new(0.0, -32.0));
         // Vertical half-extent unchanged (still a 180° frame, no axis swap).
-        assert_eq!(f.to_world_half(Vec2::new(26.0, 34.0)), Vec2::new(26.0, 34.0));
+        assert_eq!(
+            f.to_world_half(Vec2::new(26.0, 34.0)),
+            Vec2::new(26.0, 34.0)
+        );
     }
 
     #[test]
@@ -177,7 +181,10 @@ mod tests {
         // Toward-feet (+y player) maps to screen-right.
         assert_eq!(f.to_world(Vec2::new(0.0, 32.0)), Vec2::new(32.0, 0.0));
         // A wide-thin down-attack box becomes thin-wide in world.
-        assert_eq!(f.to_world_half(Vec2::new(26.0, 34.0)), Vec2::new(34.0, 26.0));
+        assert_eq!(
+            f.to_world_half(Vec2::new(26.0, 34.0)),
+            Vec2::new(34.0, 26.0)
+        );
     }
 
     #[test]

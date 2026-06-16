@@ -2,8 +2,7 @@
 //! systems/observers as the app wires them.
 use super::*;
 use crate::menu::test_support::{
-    click_control, pointer_location, spawn_control, trigger_move, trigger_press,
-    trigger_release,
+    click_control, pointer_location, spawn_control, trigger_move, trigger_press, trigger_release,
 };
 use ambition_sandbox::brain::ActionSet;
 use ambition_sandbox::game_mode::GameMode;
@@ -17,13 +16,25 @@ fn system_row_wrap_is_cube_only() {
     // count = 4 rows (indices 0..=3).
     // Cube (wrap): UP off the top → bottom, DOWN off the bottom → top.
     assert_eq!(step_system_row(0, -1, 4, true), 3, "cube UP off top wraps");
-    assert_eq!(step_system_row(3, 1, 4, true), 0, "cube DOWN off bottom wraps");
+    assert_eq!(
+        step_system_row(3, 1, 4, true),
+        0,
+        "cube DOWN off bottom wraps"
+    );
     // Cube interior moves are unchanged.
     assert_eq!(step_system_row(1, 1, 4, true), 2);
     assert_eq!(step_system_row(2, -1, 4, true), 1);
     // Grid (clamp): the ends hold.
-    assert_eq!(step_system_row(0, -1, 4, false), 0, "grid UP off top clamps");
-    assert_eq!(step_system_row(3, 1, 4, false), 3, "grid DOWN off bottom clamps");
+    assert_eq!(
+        step_system_row(0, -1, 4, false),
+        0,
+        "grid UP off top clamps"
+    );
+    assert_eq!(
+        step_system_row(3, 1, 4, false),
+        3,
+        "grid DOWN off bottom clamps"
+    );
     // Single-row list: wrap is a no-op, never a divide-by-zero.
     assert_eq!(step_system_row(0, -1, 1, true), 0);
 }
@@ -56,8 +67,7 @@ fn base_kaleidoscope_test_app() -> App {
     app.init_resource::<MenuControlFrame>();
     app.add_message::<PlayerHealRequested>();
     app.add_message::<SfxMessage>();
-    *app.world_mut().resource_mut::<InventoryUiBackend>() =
-        InventoryUiBackend::LunexKaleidoscope;
+    *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::LunexKaleidoscope;
     app
 }
 
@@ -859,8 +869,8 @@ fn pointer_motion_selects_a_kaleidoscope_control() {
 /// `menu.start` and `menu.back`).
 #[test]
 fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
-    use ambition_sandbox::input::SandboxAction;
     use ambition_render::rendering::PlayerVisual;
+    use ambition_sandbox::input::SandboxAction;
     use leafwing_input_manager::prelude::*;
 
     let mut app = App::new();
@@ -899,8 +909,7 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
         )
             .chain(),
     );
-    *app.world_mut().resource_mut::<InventoryUiBackend>() =
-        InventoryUiBackend::LunexKaleidoscope;
+    *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::LunexKaleidoscope;
 
     // Esc → both Start (pause) and MenuBack, exactly like the keyboard preset.
     let mut map = InputMap::<SandboxAction>::default();
@@ -1601,9 +1610,7 @@ fn highlight_app(owned_item: Item) -> App {
 /// the writer raises is consumed one frame too late — and the writer is
 /// change-detection-gated, so it never re-raises it. The highlight never shows.
 fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
-    use ambition_menu::kaleidoscope::{
-        sync_control_focus_visuals, sync_selection_corner_visuals,
-    };
+    use ambition_menu::kaleidoscope::{sync_control_focus_visuals, sync_selection_corner_visuals};
     // The icon asset loads (`AssetServer::load`) need the IO task pool.
     bevy::tasks::IoTaskPool::get_or_init(Default::default);
     let mut app = App::new();
@@ -1633,8 +1640,7 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
     app.init_resource::<UserSettings>();
     app.init_resource::<ambition_sandbox::inventory::InventoryUiState>();
     app.add_message::<SfxMessage>();
-    *app.world_mut().resource_mut::<InventoryUiBackend>() =
-        InventoryUiBackend::LunexKaleidoscope;
+    *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::LunexKaleidoscope;
     app.world_mut()
         .resource_mut::<ambition_sandbox::inventory::InventoryUiState>()
         .visible = true;
@@ -1678,9 +1684,7 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
                 kaleidoscope_sync_focus_visuals,
             )
                 .chain()
-                .after(
-                    ambition_menu::kaleidoscope::rebuild_cube_faces::<MenuPage, MenuPageAction>,
-                ),
+                .after(ambition_menu::kaleidoscope::rebuild_cube_faces::<MenuPage, MenuPageAction>),
         );
         app.add_systems(
             Update,
@@ -1767,7 +1771,10 @@ fn highlight_resets_inactive_face_controls() {
     };
     // Active-face control (marked) — must stay lit; inactive (unmarked) — reset.
     let (a_ctrl, a_vis, _) = control(true);
-    let active = app.world_mut().spawn((a_ctrl, a_vis, KaleidoscopeActiveFaceControl)).id();
+    let active = app
+        .world_mut()
+        .spawn((a_ctrl, a_vis, KaleidoscopeActiveFaceControl))
+        .id();
     let (i_ctrl, i_vis, _) = control(false);
     let inactive = app.world_mut().spawn((i_ctrl, i_vis)).id();
 
@@ -1778,7 +1785,10 @@ fn highlight_resets_inactive_face_controls() {
         "the active-face control matching the cursor stays highlighted"
     );
     assert!(
-        !app.world().get::<MenuVisualState>(inactive).unwrap().focused,
+        !app.world()
+            .get::<MenuVisualState>(inactive)
+            .unwrap()
+            .focused,
         "an inactive-face control (no marker) is reset, even though its action \
          matches the cursor focus — fixes the rotate 'flash'/stuck-lit highlight"
     );

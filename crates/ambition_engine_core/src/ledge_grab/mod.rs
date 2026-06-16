@@ -339,7 +339,6 @@ fn ledge_clearance_blocker_kind(kind: BlockKind) -> bool {
 /// - `world` — the active collision world.
 ///
 /// The probe scans for a standable ledge surface (`Solid`, `BlinkWall`, or
-
 mod runtime;
 pub use runtime::*;
 

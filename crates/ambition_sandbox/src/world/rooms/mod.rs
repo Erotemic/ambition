@@ -25,12 +25,12 @@ pub use systems::{
 };
 
 // --- data-type submodules (split out 2026-06-15; re-exported below) ---
-mod loading_zone;
-mod gate_portal;
-mod metadata;
 mod camera;
-mod specs;
+mod gate_portal;
+mod loading_zone;
+mod metadata;
 mod room_graph;
+mod specs;
 
 pub use camera::*;
 pub use gate_portal::*;

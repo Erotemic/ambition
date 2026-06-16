@@ -13,7 +13,10 @@ use super::*;
 /// crawl / slide / ladder / swim.
 pub fn animate_player(
     world_time: Res<ambition_sandbox::WorldTime>,
-    primary_attack: Query<&ambition_sandbox::player::ActivePlayerAttack, ambition_sandbox::player::PrimaryPlayerOnly>,
+    primary_attack: Query<
+        &ambition_sandbox::player::ActivePlayerAttack,
+        ambition_sandbox::player::PrimaryPlayerOnly,
+    >,
     entities: Res<SceneEntities>,
     gravity: Option<Res<ambition_sandbox::physics::GravityField>>,
     mut query: Query<
@@ -90,9 +93,10 @@ pub fn animate_player(
     // wires the player ProperTimeScale path so future MP regimes
     // can boost the player's cognitive rate without slowing the
     // world for other observers.
-    let index = animator.tick(world_time.entity_dt(
-        ambition_sandbox::time::time_control::ProperTimeScale::or_default(scale),
-    ));
+    let index = animator.tick(
+        world_time
+            .entity_dt(ambition_sandbox::time::time_control::ProperTimeScale::or_default(scale)),
+    );
     if let Some(atlas) = sprite.texture_atlas.as_mut() {
         atlas.index = index;
     }
@@ -101,7 +105,8 @@ pub fn animate_player(
     let player_gravity = gravity
         .as_deref()
         .map_or(ambition_sandbox::engine_core::Vec2::Y, |g| g.dir);
-    sprite.flip_x = ambition_sandbox::physics::gravity_aware_flip_x(kinematics.facing, player_gravity);
+    sprite.flip_x =
+        ambition_sandbox::physics::gravity_aware_flip_x(kinematics.facing, player_gravity);
     // Hit feedback is drawn by the white-silhouette overlay in
     // `presentation::rendering::hit_flash` — a sibling mesh that
     // samples this atlas frame and outputs pure white modulated by
@@ -147,9 +152,8 @@ pub fn animate_characters(
     // boss freezes the world but leaves the player un-frozen, or
     // future MP boosts one player's proper time.
     for (visual, mut sprite, mut animator, scale) in &mut query {
-        let dt = world_time.entity_dt(ambition_sandbox::time::time_control::ProperTimeScale::or_default(
-            scale,
-        ));
+        let dt = world_time
+            .entity_dt(ambition_sandbox::time::time_control::ProperTimeScale::or_default(scale));
         let (anim, facing, pos, hit_flash, attacking) = if let Some(state) =
             ambition_sandbox::features::ecs_enemy_anim_state(&visual.id, &ecs_actors)
         {
@@ -160,7 +164,9 @@ pub fn animate_characters(
                 state.hit_flash,
                 state.attack_active || state.attack_windup,
             )
-        } else if let Some(state) = ambition_sandbox::features::ecs_npc_anim_state(&visual.id, &ecs_actors) {
+        } else if let Some(state) =
+            ambition_sandbox::features::ecs_npc_anim_state(&visual.id, &ecs_actors)
+        {
             (
                 ambition_sandbox::character_sprites::pick_npc_anim(state),
                 state.facing,
@@ -176,7 +182,8 @@ pub fn animate_characters(
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
             atlas.index = index;
         }
-        sprite.flip_x = ambition_sandbox::physics::gravity_aware_flip_x(facing, gravity.dir_at(pos));
+        sprite.flip_x =
+            ambition_sandbox::physics::gravity_aware_flip_x(facing, gravity.dir_at(pos));
         // Hit feedback is drawn by the white-silhouette overlay in
         // `presentation::rendering::hit_flash`. Keep the warm
         // attack tint on the multiplicative `sprite.color` channel
@@ -243,9 +250,8 @@ pub fn animate_props(
             }
             continue;
         }
-        let dt = world_time.entity_dt(ambition_sandbox::time::time_control::ProperTimeScale::or_default(
-            scale,
-        ));
+        let dt = world_time
+            .entity_dt(ambition_sandbox::time::time_control::ProperTimeScale::or_default(scale));
         animator.request(ambition_sandbox::character_sprites::CharacterAnim::Idle);
         let index = animator.tick(dt);
         if let Some(atlas) = sprite.texture_atlas.as_mut() {

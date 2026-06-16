@@ -3,18 +3,12 @@
 use crate::engine_core::AabbExt;
 use bevy::prelude::Entity;
 
-use super::super::super::{
-    util::midpoint,
-    NPC_HOSTILE_STRIKE_THRESHOLD,
-};
+use super::super::super::{util::midpoint, NPC_HOSTILE_STRIKE_THRESHOLD};
 use super::super::damage_drops::{
-    drop_currency_coin, drop_health_pickup, id_drops_health,
-    spawn_death_explosion, spawn_split_offspring,
+    drop_currency_coin, drop_health_pickup, id_drops_health, spawn_death_explosion,
+    spawn_split_offspring,
 };
-use super::super::{
-    ae, ActorRuntime, GameplayBanner, HitEvent, HitSource,
-    SetFlagRequested,
-};
+use super::super::{ae, ActorRuntime, GameplayBanner, HitEvent, HitSource, SetFlagRequested};
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.
@@ -103,7 +97,8 @@ pub(crate) fn apply_actor_hit(
             } else {
                 writers.vfx.write(VfxMessage::SpeechBubble {
                     pos: bark_anchor,
-                    text: super::super::super::npcs::npc_hit_bark_line(npc.config, npc.status).to_string(),
+                    text: super::super::super::npcs::npc_hit_bark_line(npc.config, npc.status)
+                        .to_string(),
                 });
             }
             true
@@ -151,10 +146,7 @@ pub(crate) fn apply_actor_hit(
             // `cling_breaks_on_hit: false` hold on when hit. Surface_normal is reset
             // to gravity-up `(0,-1)` so the body renders upright while it falls,
             // matching `fall_until_landed`'s down-gravity assumption.
-            if !killed
-                && em.config.tuning.surface_walker
-                && em.config.tuning.cling_breaks_on_hit
-            {
+            if !killed && em.config.tuning.surface_walker && em.config.tuning.cling_breaks_on_hit {
                 let peel = em.surface.surface_normal * CLING_DETACH_POP_SPEED;
                 em.surface.on_ground = false;
                 em.surface.surface_normal = ae::Vec2::new(0.0, -1.0);

@@ -5,8 +5,8 @@ use bevy::prelude::*;
 use std::collections::HashMap;
 
 use ambition_asset_manager::{
-    AmbitionAssetCatalog, AssetEntry, AssetId, AssetKind, AssetManifest,
-    MissingAssetPolicy, PreloadGroup,
+    AmbitionAssetCatalog, AssetEntry, AssetId, AssetKind, AssetManifest, MissingAssetPolicy,
+    PreloadGroup,
 };
 
 use super::*;

@@ -2,11 +2,11 @@
 //! ground-item quads, the held-item sprite, and held-projectile sprites. Render
 //! systems that read the item SIM state in `ambition_sandbox::items::pickup`.
 
-use bevy::prelude::*;
-use ambition_sandbox::items::pickup::{held_shot_aim, GroundItem, HeldProjectile, FIREBALL_ID};
 use ambition_sandbox::features::HeldItem;
 use ambition_sandbox::input::ControlFrame;
+use ambition_sandbox::items::pickup::{held_shot_aim, GroundItem, HeldProjectile, FIREBALL_ID};
 use ambition_sandbox::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use bevy::prelude::*;
 
 // Presentation (visible build only).
 
@@ -189,7 +189,8 @@ pub struct HeldProjectileVisualArt {
 impl HeldProjectileVisualArt {
     fn load(asset_server: &AssetServer) -> Self {
         Self {
-            lasersword: asset_server.load(crate::rendering::enemy_projectile_visuals::LASERSWORD_SHEET),
+            lasersword: asset_server
+                .load(crate::rendering::enemy_projectile_visuals::LASERSWORD_SHEET),
             fireball: asset_server.load(format!("sprites/props/gauntlet_{FIREBALL_ID}.png")),
         }
     }
@@ -231,7 +232,10 @@ pub fn sync_held_projectile_visuals(
             continue;
         }
         let (sprite, anchor, rotation) =
-            crate::rendering::enemy_projectile_visuals::lasersword_projectile_sprite(art.lasersword.clone(), kin.vel);
+            crate::rendering::enemy_projectile_visuals::lasersword_projectile_sprite(
+                art.lasersword.clone(),
+                kin.vel,
+            );
         commands.spawn((
             HeldProjectileVisual,
             sprite,

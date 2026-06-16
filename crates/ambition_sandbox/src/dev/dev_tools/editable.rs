@@ -1,9 +1,9 @@
 //! Live-editable tuning resources (abilities, movement, player stats) + the
 //! systems that mirror their edits into the running player clusters.
 
+use super::*;
 use crate::engine_core as ae;
 use bevy::prelude::*;
-use super::*;
 
 /// Reflected mirror of `crate::engine_core::AbilitySet` for live inspector editing.
 #[derive(Resource, Reflect, Clone, Copy, Debug)]

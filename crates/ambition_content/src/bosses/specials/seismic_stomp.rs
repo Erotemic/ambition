@@ -82,8 +82,8 @@ pub fn spawn_seismic_stomp_from_special_messages(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::*;
+    use super::*;
 
     #[test]
     fn seismic_offsets_are_symmetric_and_include_the_boss_tile() {

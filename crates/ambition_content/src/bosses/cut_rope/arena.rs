@@ -30,9 +30,7 @@ pub fn tick_cut_rope_boss_arena(
     mut bosses: Query<(&CenteredAabb, BossClusterQueryData), With<FeatureSimEntity>>,
     mut boss_registry: Option<ResMut<BossEncounterRegistry>>,
     mut music_request: Option<ResMut<ambition_sandbox::encounter::BossEncounterMusicRequest>>,
-    mut cutscene_queue: Option<
-        ResMut<ambition_render::cutscene::CutsceneTriggerQueue>,
-    >,
+    mut cutscene_queue: Option<ResMut<ambition_render::cutscene::CutsceneTriggerQueue>>,
     mut banner: ResMut<GameplayBanner>,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,

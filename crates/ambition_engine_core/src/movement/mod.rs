@@ -36,17 +36,17 @@ mod tuning;
 
 pub use blink::{blink_destination_clusters, blink_destination_to_point_clusters};
 pub use events::{BlinkEvent, FrameEvents};
-/// The canonical "launch at `speed` opposite `gravity_dir`" velocity primitive
-/// shared by jump, wall-kick, and pogo so a gravity flip moves them all. Any
-/// pogo/jump impulse outside the engine (e.g. the sandbox attack path) MUST go
-/// through this instead of a hardcoded `vel.y = -speed`.
-pub use integration::set_jump_velocity;
+pub use input::InputState;
 /// Screen-vertical input → gravity-relative "descend" intent (the vertical
 /// sibling of the run-axis transform). Every crouch/pogo/drop-through/fast-fall
 /// gate and gravity-relative vertical movement reads input through this so a
 /// gravity flip moves them all together. See its doc for the convention.
 pub use integration::gravity_descend;
-pub use input::InputState;
+/// The canonical "launch at `speed` opposite `gravity_dir`" velocity primitive
+/// shared by jump, wall-kick, and pogo so a gravity flip moves them all. Any
+/// pogo/jump impulse outside the engine (e.g. the sandbox attack path) MUST go
+/// through this instead of a hardcoded `vel.y = -speed`.
+pub use integration::set_jump_velocity;
 pub use ops::{ComboMark, MovementOp};
 pub use player::{default_player_body_size, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH};
 pub use tuning::{

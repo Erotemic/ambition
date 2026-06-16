@@ -58,8 +58,10 @@ fn a_brain_drives_a_full_player_body_through_the_player_movement() {
         vec![floor],
     );
 
-    let mut scratch =
-        ae::PlayerClusterScratch::new_with_abilities(Vec2::new(0.0, 460.0), ae::AbilitySet::sandbox_all());
+    let mut scratch = ae::PlayerClusterScratch::new_with_abilities(
+        Vec2::new(0.0, 460.0),
+        ae::AbilitySet::sandbox_all(),
+    );
 
     let dt = 1.0 / 60.0;
 

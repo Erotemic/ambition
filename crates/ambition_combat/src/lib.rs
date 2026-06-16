@@ -93,7 +93,6 @@ impl DamageVolume {
             enabled: true,
         }
     }
-
 }
 
 /// Player melee intent resolved from input + movement state.

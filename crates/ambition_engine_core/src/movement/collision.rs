@@ -58,15 +58,25 @@ pub(super) fn sweep_player_x_clusters(
 ) {
     let delta = Vec2::new(delta_x, 0.0);
     if delta.x.abs() <= 1.0e-5 {
-        resolve_axis_clusters(world, kinematics, wall, body_mode, env_contact, Axis::X, gravity_dir);
+        resolve_axis_clusters(
+            world,
+            kinematics,
+            wall,
+            body_mode,
+            env_contact,
+            Axis::X,
+            gravity_dir,
+        );
         return;
     }
 
-    if let Some(hit) = world.first_body_sweep(kinematics.aabb_oriented(gravity_dir), delta, |block| {
-        is_solid_for_axis(block.kind, Axis::X)
-            && !matches!(block.kind, BlockKind::OneWay)
-            && !block_passable_during_climb_clusters(body_mode, env_contact, block)
-    }) {
+    if let Some(hit) =
+        world.first_body_sweep(kinematics.aabb_oriented(gravity_dir), delta, |block| {
+            is_solid_for_axis(block.kind, Axis::X)
+                && !matches!(block.kind, BlockKind::OneWay)
+                && !block_passable_during_climb_clusters(body_mode, env_contact, block)
+        })
+    {
         let toi_fraction = sweep_fraction(hit.time_of_impact);
         kinematics.pos.x += delta.x * toi_fraction;
         let body = kinematics.aabb_oriented(gravity_dir);
@@ -101,7 +111,15 @@ pub(super) fn sweep_player_x_clusters(
         kinematics.pos.x += delta.x;
     }
 
-    resolve_axis_clusters(world, kinematics, wall, body_mode, env_contact, Axis::X, gravity_dir);
+    resolve_axis_clusters(
+        world,
+        kinematics,
+        wall,
+        body_mode,
+        env_contact,
+        Axis::X,
+        gravity_dir,
+    );
 }
 
 /// Swept-AABB Y-axis collision step. Handles the OneWay
@@ -144,35 +162,37 @@ pub(super) fn sweep_player_y_clusters(
     // Prev leading edge for one-way landing — bottom under normal gravity, top
     // under flipped (derived, so no extra param threads through the sweeps).
     let prev_top = prev_bottom - kinematics.size.y;
-    if let Some(hit) = world.first_body_sweep(kinematics.aabb_oriented(gravity_dir), delta, |block| {
-        if !is_solid_for_axis(block.kind, Axis::Y) {
-            return false;
-        }
-        if block_passable_during_climb_clusters(body_mode, env_contact, block) {
-            return false;
-        }
-        if matches!(block.kind, BlockKind::OneWay) {
-            if !y_is_gravity {
+    if let Some(hit) =
+        world.first_body_sweep(kinematics.aabb_oriented(gravity_dir), delta, |block| {
+            if !is_solid_for_axis(block.kind, Axis::Y) {
                 return false;
             }
-            // Land on the one-way's gravity-up face — its TOP under normal
-            // gravity, its BOTTOM under flipped — solid from the side you fall
-            // from, passable from the other (#55).
-            let landing = if gravity_dir.y >= 0.0 {
-                delta.y >= 0.0 && prev_bottom <= block.aabb.top() + 8.0
-            } else {
-                delta.y <= 0.0 && prev_top >= block.aabb.bottom() - 8.0
-            };
-            return landing && !drop_through;
-        }
-        if body_is_side_contact(start_body, block.aabb) {
-            return false;
-        }
-        if start_body.strict_intersects(block.aabb) {
-            return false;
-        }
-        true
-    }) {
+            if block_passable_during_climb_clusters(body_mode, env_contact, block) {
+                return false;
+            }
+            if matches!(block.kind, BlockKind::OneWay) {
+                if !y_is_gravity {
+                    return false;
+                }
+                // Land on the one-way's gravity-up face — its TOP under normal
+                // gravity, its BOTTOM under flipped — solid from the side you fall
+                // from, passable from the other (#55).
+                let landing = if gravity_dir.y >= 0.0 {
+                    delta.y >= 0.0 && prev_bottom <= block.aabb.top() + 8.0
+                } else {
+                    delta.y <= 0.0 && prev_top >= block.aabb.bottom() - 8.0
+                };
+                return landing && !drop_through;
+            }
+            if body_is_side_contact(start_body, block.aabb) {
+                return false;
+            }
+            if start_body.strict_intersects(block.aabb) {
+                return false;
+            }
+            true
+        })
+    {
         kinematics.pos.y += delta.y * sweep_fraction(hit.time_of_impact);
         let body = kinematics.aabb_oriented(gravity_dir);
         let approaching_from_above = delta.y > 0.0 && prev_bottom <= hit.block.aabb.top() + 4.0;

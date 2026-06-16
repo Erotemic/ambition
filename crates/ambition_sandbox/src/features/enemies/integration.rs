@@ -7,7 +7,12 @@ use super::*;
 
 /// Enemy physics/AI integration, operating directly on the authoritative
 /// ECS components through the [`EnemyMut`] view.
-pub(crate) fn enemy_attack_aabb_dir(pos: ae::Vec2, size: ae::Vec2, facing: f32, axis: ae::Vec2) -> ae::Aabb {
+pub(crate) fn enemy_attack_aabb_dir(
+    pos: ae::Vec2,
+    size: ae::Vec2,
+    facing: f32,
+    axis: ae::Vec2,
+) -> ae::Aabb {
     let horizontal = axis.x.abs() >= axis.y.abs();
     if horizontal {
         let side = if axis.x.abs() > 0.1 {

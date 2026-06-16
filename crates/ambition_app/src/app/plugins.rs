@@ -720,7 +720,9 @@ fn install_misc_visual_sync_systems(app: &mut App) {
             .after(ambition_render::rendering::morph_ball::sync_morph_ball_visual)
             .after(ambition_render::rendering::bubble_shield::sync_bubble_shield_visual)
             .after(ambition_render::rendering::projectile_visuals::sync_projectile_visuals)
-            .after(ambition_render::rendering::enemy_projectile_visuals::sync_enemy_projectile_visuals),
+            .after(
+                ambition_render::rendering::enemy_projectile_visuals::sync_enemy_projectile_visuals,
+            ),
     )
     // Mouse / touch dismissal for the map menu.
     .add_systems(
@@ -728,7 +730,10 @@ fn install_misc_visual_sync_systems(app: &mut App) {
         ambition_sandbox::menu::map::map_menu_pointer_dismiss,
     )
     // Quest panel runs alongside the verbose HUD.
-    .add_systems(Update, update_quest_panel.after(ambition_render::dialog_ui::sync_dialog_ui));
+    .add_systems(
+        Update,
+        update_quest_panel.after(ambition_render::dialog_ui::sync_dialog_ui),
+    );
 }
 
 /// Projectile sprite ring + VFX/debris message subscribers + (input-

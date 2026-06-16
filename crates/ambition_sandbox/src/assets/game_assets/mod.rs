@@ -493,4 +493,3 @@ pub fn ensure_parallax_layers_for_room(
 
 #[cfg(test)]
 mod tests;
-

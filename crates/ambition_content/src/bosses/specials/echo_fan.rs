@@ -121,8 +121,8 @@ pub fn spawn_echo_fan_from_special_messages(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::*;
+    use super::*;
 
     #[test]
     fn echo_fan_spreads_evenly_around_the_aim() {

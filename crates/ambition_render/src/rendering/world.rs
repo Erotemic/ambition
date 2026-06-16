@@ -12,12 +12,14 @@ use super::primitives::{
     block_color, feature_color, feature_z, spawn_world_label, FeatureVisual, LockWallVisual,
     PropVisual, RoomVisual,
 };
-use ambition_sandbox::assets::game_assets::{self, entity_sprite, entity_sprite_or_color, GameAssets};
-use ambition_sandbox::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_PLAYER};
-use ambition_sandbox::features::FeatureVisualKind;
+use ambition_sandbox::assets::game_assets::{
+    self, entity_sprite, entity_sprite_or_color, GameAssets,
+};
 use ambition_sandbox::character_sprites::{
     build_character_sprite, feet_anchor_for, sprite_render_size, CharacterAnimator,
 };
+use ambition_sandbox::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_PLAYER};
+use ambition_sandbox::features::FeatureVisualKind;
 use ambition_sandbox::rooms::{LoadingZone, LoadingZoneActivation, PropSpec};
 use ambition_sandbox::world::physics;
 
@@ -40,7 +42,12 @@ pub fn respawn_room_visuals_on_request(
     }
     requests.clear();
     let spec = room_set.active_spec();
-    super::spawn_parallax_layers(&mut commands, &spec.world, &spec.metadata, assets.as_deref());
+    super::spawn_parallax_layers(
+        &mut commands,
+        &spec.world,
+        &spec.metadata,
+        assets.as_deref(),
+    );
     spawn_room_visuals(&mut commands, spec, *physics_settings, assets.as_deref());
 }
 

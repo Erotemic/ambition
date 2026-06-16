@@ -108,8 +108,7 @@ fn intro_raid_script() -> ambition_render::cutscene::script::CutsceneScript {
     .with_seen_flag("intro_raid_seen")
 }
 
-fn drain_market_arrival_script() -> ambition_render::cutscene::script::CutsceneScript
-{
+fn drain_market_arrival_script() -> ambition_render::cutscene::script::CutsceneScript {
     ambition_render::cutscene::script::CutsceneScript::new(
         "drain_market_arrival",
         vec![
@@ -159,8 +158,7 @@ fn first_ripple_script() -> ambition_render::cutscene::script::CutsceneScript {
     .with_seen_flag("first_ripple_seen")
 }
 
-fn creator_final_fragment_script(
-) -> ambition_render::cutscene::script::CutsceneScript {
+fn creator_final_fragment_script() -> ambition_render::cutscene::script::CutsceneScript {
     // Played on the creator's interrupted final lines. v1 plays the
     // normal route; the fast/impossible variants are listed in the
     // design doc for a v1.x pass.

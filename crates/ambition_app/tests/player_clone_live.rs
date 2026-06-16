@@ -32,9 +32,7 @@ fn brain_driven_player_clone_runs_and_leaves_the_ground_in_the_live_app() {
 
     // Ask the app to spawn a brain-driven clone next frame (the K-hotkey path,
     // poked directly so the test needs no synthetic key event).
-    sim.world_mut()
-        .resource_mut::<SpawnPlayerCloneRequest>()
-        .0 = true;
+    sim.world_mut().resource_mut::<SpawnPlayerCloneRequest>().0 = true;
     // Spawn, then let it fall + settle onto the floor before timing the demo.
     sim.step_n(base(), 50);
 

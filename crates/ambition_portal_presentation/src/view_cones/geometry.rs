@@ -18,7 +18,11 @@ pub(crate) struct RebuildKey {
 /// along-surface (lateral) axis at the configured density up to the cap; the
 /// SHORT side covers the bounded window depth. A wall exit is tall-thin, a
 /// floor/ceiling exit wide-short.
-pub(crate) fn capture_dims(config: &PortalViewConeConfig, world_size: Vec2, exit_normal: Vec2) -> UVec2 {
+pub(crate) fn capture_dims(
+    config: &PortalViewConeConfig,
+    world_size: Vec2,
+    exit_normal: Vec2,
+) -> UVec2 {
     let density = config.texels_per_world_px.max(0.05);
     let long = ((world_size.x.max(world_size.y) * density) as u32)
         .clamp(256, config.max_resolution.max(256));
@@ -120,7 +124,11 @@ pub(crate) struct ApertureLosRay {
     pub(crate) hit: Option<Vec2>,
 }
 
-pub(crate) fn aperture_los_ray(eye: Vec2, enter: &PortalFrame, occluders: &[ae::Aabb]) -> ApertureLosRay {
+pub(crate) fn aperture_los_ray(
+    eye: Vec2,
+    enter: &PortalFrame,
+    occluders: &[ae::Aabb],
+) -> ApertureLosRay {
     let target = enter.pos + enter.normal * 12.0;
     let d = target - eye;
     let dist = d.length();

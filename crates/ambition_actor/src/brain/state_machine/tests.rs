@@ -950,8 +950,14 @@ fn aerial_peaceful_flits_between_perches_near_its_anchor() {
         perched |= speed < 1.0;
         max_dist = max_dist.max((pos - anchor).length());
     }
-    assert!(flew, "a lively bird must actually fly (nonzero-velocity legs)");
-    assert!(perched, "a lively bird must perch (near-zero-velocity dwells)");
+    assert!(
+        flew,
+        "a lively bird must actually fly (nonzero-velocity legs)"
+    );
+    assert!(
+        perched,
+        "a lively bird must perch (near-zero-velocity dwells)"
+    );
     assert!(
         max_dist <= aerial_cfg(0.0).roam_radius * 1.6,
         "the bird stays near its captured anchor (max_dist={max_dist})",
@@ -1025,6 +1031,9 @@ fn aerial_hostile_stalks_dives_pecks_then_recovers() {
         pos += out.desired_vel * dt;
     }
     assert!(saw_dive, "the dive-bomber must commit to a Dive");
-    assert!(pecked, "it must peck (melee) when the dive reaches the target");
+    assert!(
+        pecked,
+        "it must peck (melee) when the dive reaches the target"
+    );
     assert!(saw_recover, "it must peel off and Recover after the dive");
 }

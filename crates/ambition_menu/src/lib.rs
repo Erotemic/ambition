@@ -1010,8 +1010,8 @@ mod tests {
             // The face plane sits at +page_radius; the camera at −camera_distance.
             let distance = geo.page_radius + geo.camera_distance;
             let face_half_height = geo.page_height * 0.5;
-            let fill = face_half_height
-                / (distance * (MenuCubeGeometry::CAMERA_FOV_RADIANS * 0.5).tan());
+            let fill =
+                face_half_height / (distance * (MenuCubeGeometry::CAMERA_FOV_RADIANS * 0.5).tan());
             assert!(
                 (fill - MenuCubeGeometry::TARGET_FACE_FILL).abs() < 1.0e-4,
                 "radius {radius}: face fills {fill} of the half-screen, want {} \

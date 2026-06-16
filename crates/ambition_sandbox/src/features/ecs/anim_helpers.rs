@@ -104,9 +104,8 @@ pub fn ecs_npc_anim_state(
     id: &str,
     actors: &Query<ActorSpriteData>,
 ) -> Option<crate::character_sprites::NpcAnimState> {
-    actors
-        .iter()
-        .find_map(|(feature_id, actor, kin, _, _, _, npc_config, npc_status)| {
+    actors.iter().find_map(
+        |(feature_id, actor, kin, _, _, _, npc_config, npc_status)| {
             if feature_id.as_str() != id {
                 return None;
             }
@@ -124,7 +123,8 @@ pub fn ecs_npc_anim_state(
                 }
                 _ => None,
             }
-        })
+        },
+    )
 }
 
 /// ECS chest-opened lookup for sprite swapping.

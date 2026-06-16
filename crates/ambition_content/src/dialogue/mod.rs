@@ -19,15 +19,9 @@ impl Plugin for AmbitionDialogueContentPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(ambition_render::cutscene::default_cutscene_library())
             .insert_resource(ambition_render::cutscene::ActiveCutscene::default())
-            .insert_resource(
-                ambition_render::cutscene::CutsceneTriggerQueue::default(),
-            )
-            .insert_resource(
-                ambition_render::cutscene::CutsceneAdvanceRequest::default(),
-            )
-            .insert_resource(
-                ambition_render::cutscene::RoomCutsceneBindings::defaults(),
-            )
+            .insert_resource(ambition_render::cutscene::CutsceneTriggerQueue::default())
+            .insert_resource(ambition_render::cutscene::CutsceneAdvanceRequest::default())
+            .insert_resource(ambition_render::cutscene::RoomCutsceneBindings::defaults())
             // Combat-banter registry — story-content lines for the
             // `apply_feature_hit_events` hit handler. Boss barks are
             // installed inline; IntroPlugin adds the intro raiders' lines

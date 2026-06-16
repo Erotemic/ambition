@@ -19,8 +19,7 @@ fn backend_switch_carries_the_active_page() {
         .visible = true;
 
     // Open on the cube, System page; the first update snapshots the current page.
-    *app.world_mut().resource_mut::<InventoryUiBackend>() =
-        InventoryUiBackend::LunexKaleidoscope;
+    *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::LunexKaleidoscope;
     app.world_mut()
         .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
         .active = Some(MenuPage::System);
@@ -37,11 +36,11 @@ fn backend_switch_carries_the_active_page() {
 
     // Navigate the grid to Map and let it settle one frame (the snapshot), then
     // switch back to the cube: the cube page carries it.
-    app.world_mut().resource_mut::<GridMenuTabState>().active_tab =
-        tab_index_of(MenuPage::Map);
+    app.world_mut()
+        .resource_mut::<GridMenuTabState>()
+        .active_tab = tab_index_of(MenuPage::Map);
     app.update();
-    *app.world_mut().resource_mut::<InventoryUiBackend>() =
-        InventoryUiBackend::LunexKaleidoscope;
+    *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::LunexKaleidoscope;
     app.update();
     assert_eq!(
         app.world()

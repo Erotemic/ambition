@@ -10,10 +10,10 @@ use bevy::prelude::*;
 use std::f32::consts::TAU;
 
 use ambition_sandbox::audio::SfxMessage;
-use ambition_sandbox::config::{rgba, world_to_bevy, WORLD_Z_FX};
 use ambition_sandbox::character_sprites::{
     build_character_sprite_with_render_size, CharacterAnim, CharacterAnimator,
 };
+use ambition_sandbox::config::{rgba, world_to_bevy, WORLD_Z_FX};
 
 // The VFX MESSAGE vocabulary now lives in the foundation crate `ambition_effects`
 // (presentation-neutral data, so a sim system can emit a cue without depending on

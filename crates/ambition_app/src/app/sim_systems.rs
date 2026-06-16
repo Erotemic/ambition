@@ -8,13 +8,13 @@
 use ambition_sandbox::engine_core as ae;
 use bevy::prelude::*;
 
+use ambition_render::fx::VfxMessage;
 use ambition_sandbox::audio::SfxMessage;
 use ambition_sandbox::dev::dev_tools::{self, EditableAbilitySet, EditableMovementTuning};
 use ambition_sandbox::features::{
     self, FeatureEcsWorldOverlay, GameplayBanner, HitEvent as FeatureHitEvent,
 };
 use ambition_sandbox::input::ControlFrame;
-use ambition_render::fx::VfxMessage;
 use ambition_sandbox::rooms::{
     GatePortalRegistry, LoadingZoneActivation, RoomSet, RoomTransitionRequested,
 };
@@ -104,11 +104,8 @@ pub fn input_timer_system(
     } else {
         control_frame.down_pressed
     };
-    let double_tap_down = interaction.register_down_tap(
-        descend_pressed,
-        frame_dt,
-        feel.down_double_tap_window,
-    );
+    let double_tap_down =
+        interaction.register_down_tap(descend_pressed, frame_dt, feel.down_double_tap_window);
     control_frame.fast_fall_pressed = double_tap_down;
     if double_tap_down {
         interaction.double_tap_down_pending = true;

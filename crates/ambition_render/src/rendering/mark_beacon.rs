@@ -2,9 +2,9 @@
 //! glowing beacon sprite at the player's dropped mark. Render-only; reads the
 //! sim-side `PlayerMark` from ambition_sandbox.
 
-use bevy::prelude::*;
-use ambition_sandbox::engine_core as ae;
 use ambition_sandbox::abilities::traversal::mark_recall::PlayerMark;
+use ambition_sandbox::engine_core as ae;
+use bevy::prelude::*;
 
 /// Marks the persistent beacon sprite shown at a player's dropped recall mark.
 #[derive(Component)]
@@ -35,8 +35,11 @@ pub fn sync_mark_beacon_visual(
             continue;
         };
         // +Y is down in world space, so "up" (toward the ceiling) is -Y.
-        let translation =
-            ambition_sandbox::config::world_to_bevy(&world.0, pos - ae::Vec2::new(0.0, BEACON_RISE), 7.0);
+        let translation = ambition_sandbox::config::world_to_bevy(
+            &world.0,
+            pos - ae::Vec2::new(0.0, BEACON_RISE),
+            7.0,
+        );
         let mut sprite = Sprite::from_image(asset_server.load("sprites/props/mark_beacon.png"));
         sprite.custom_size = Some(BEACON_SIZE);
         commands.spawn((

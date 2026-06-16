@@ -100,7 +100,9 @@ fn kaleidoscope_render_needed(
     ui_state: Option<Res<ambition_sandbox::inventory::InventoryUiState>>,
     open_state: Option<Res<ambition_menu::kaleidoscope::KaleidoscopeOpenState>>,
 ) -> bool {
-    let (target, amount) = open_state.map(|s| (s.target, s.amount)).unwrap_or((0.0, 0.0));
+    let (target, amount) = open_state
+        .map(|s| (s.target, s.amount))
+        .unwrap_or((0.0, 0.0));
     cube_render_needed(
         KALEIDOSCOPE_MENU_BACKEND_ENABLED,
         backend.effective() == InventoryUiBackend::LunexKaleidoscope,

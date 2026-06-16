@@ -355,4 +355,3 @@ use boss_hit::*;
 
 #[cfg(test)]
 mod tests;
-

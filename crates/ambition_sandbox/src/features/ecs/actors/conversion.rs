@@ -166,11 +166,12 @@ impl HostileNpcConversionPlan {
         combat_kit: &CombatKit,
         held_item: Option<&HeldItem>,
     ) -> Self {
-        let (brain, action_set) = super::super::brain_builders::aggressive_brain_and_action_set_for_enemy(
-            &hostile.config,
-            combat_kit,
-            held_item,
-        );
+        let (brain, action_set) =
+            super::super::brain_builders::aggressive_brain_and_action_set_for_enemy(
+                &hostile.config,
+                combat_kit,
+                held_item,
+            );
         Self {
             hostile,
             brain,

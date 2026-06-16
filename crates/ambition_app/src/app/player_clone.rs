@@ -126,7 +126,10 @@ pub fn spawn_requested_player_clone(
 /// Build the engine `InputState` from a clone's brain-emitted control frame.
 /// Mirrors `engine_input_from_actor_control` for the player path: `desired_vel`
 /// is the normalized stick AXIS. No hitstun on a clone.
-fn input_from_actor_control(f: &ambition_sandbox::actor::control::ActorControlFrame, dt: f32) -> InputState {
+fn input_from_actor_control(
+    f: &ambition_sandbox::actor::control::ActorControlFrame,
+    dt: f32,
+) -> InputState {
     InputState {
         axis_x: f.desired_vel.x,
         axis_y: f.desired_vel.y,
@@ -172,11 +175,8 @@ pub fn drive_player_clones(
         .as_deref()
         .map_or(ae::Vec2::new(0.0, 1.0), |g| g.dir);
     ambition_sandbox::physics::apply_gravity_dir(&mut tuning, gdir);
-    let control_world = ambition_sandbox::features::world_with_sandbox_solids(
-        &world.0,
-        &platform_set.0,
-        &overlay,
-    );
+    let control_world =
+        ambition_sandbox::features::world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
 
     for (mut cluster_item, mut brain, mut control) in &mut clones {
         let mut clusters = cluster_item.as_clusters_mut();

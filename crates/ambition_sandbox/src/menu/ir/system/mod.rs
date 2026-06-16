@@ -169,9 +169,7 @@ impl DevToggleId {
             Self::PortalEffect => {
                 "Cycle the portal transit visual (view cones / masks / off) for A/B profiling."
             }
-            Self::Gravity => {
-                "Cycle ambient gravity: Down / Left / Up / Right. Same as the \\ key."
-            }
+            Self::Gravity => "Cycle ambient gravity: Down / Left / Up / Right. Same as the \\ key.",
         }
     }
 

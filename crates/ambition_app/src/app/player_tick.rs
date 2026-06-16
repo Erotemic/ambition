@@ -119,7 +119,9 @@ pub fn player_control_system(
     // bounced into gravity under a flip.
     let gdir = gravity_field
         .as_deref()
-        .map_or(ambition_sandbox::engine_core::Vec2::new(0.0, 1.0), |g| g.dir);
+        .map_or(ambition_sandbox::engine_core::Vec2::new(0.0, 1.0), |g| {
+            g.dir
+        });
     ambition_sandbox::physics::apply_gravity_dir(&mut tuning, gdir);
     let feel = *feel_tuning;
     let frame_dt = time.delta_secs();

@@ -26,22 +26,22 @@
 //!   encounter transitions ([`camera_follow`]).
 
 pub mod actors;
-mod camera;
 pub mod bubble_shield;
-pub mod morph_ball;
-pub mod gravity_visuals;
-pub mod mark_beacon;
-pub mod shrine_visuals;
-pub mod projectile_visuals;
-pub mod enemy_projectile_visuals;
-mod item_visuals;
+mod camera;
 mod deep_dream;
+pub mod enemy_projectile_visuals;
 mod features;
+pub mod gravity_visuals;
 mod health;
 mod hit_flash;
+mod item_visuals;
+pub mod mark_beacon;
+pub mod morph_ball;
 mod parallax;
 mod pirate_weapon;
 mod primitives;
+pub mod projectile_visuals;
+pub mod shrine_visuals;
 mod world;
 
 pub use actors::{
@@ -61,8 +61,8 @@ pub use health::{sync_boss_health_bar_overlay, sync_health_overlays};
 // Re-exported so simulation/effects code can place projectile-spawn
 // origins at the same hand position the visual lays the gun-sword on.
 // Keeps "where the muzzle is" defined in one module.
-pub use parallax::{spawn_parallax_layers, sync_parallax_layers};
 pub use ambition_sandbox::features::rider_hand_world_pos;
+pub use parallax::{spawn_parallax_layers, sync_parallax_layers};
 pub use primitives::{
     HudText, LoadingZoneVisual, PlayerSpriteBaseline, PlayerVisual, PropVisual, QuestPanelText,
     RoomScopedEntity, RoomVisual, SceneEntities,
@@ -98,10 +98,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
             // Bubble shield visual: similar pattern — toggle / tint every
             // frame from `PlayerShieldState::active` and
             // `PlayerShieldState::parrying()`.
-            .add_systems(
-                Startup,
-                bubble_shield::build_bubble_shield_sprite,
-            )
+            .add_systems(Startup, bubble_shield::build_bubble_shield_sprite)
             .add_systems(
                 Update,
                 (
@@ -121,8 +118,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     item_visuals::sync_held_projectile_visuals.after(actors::sync_visuals),
                     shrine_visuals::sync_shrine_visual.after(actors::sync_visuals),
                     shrine_visuals::animate_shrine_visuals.after(actors::animate_props),
-                    mark_beacon::sync_mark_beacon_visual
-                        .after(actors::sync_visuals),
+                    mark_beacon::sync_mark_beacon_visual.after(actors::sync_visuals),
                 ),
             );
 
@@ -145,17 +141,17 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                 .add_systems(
                     Update,
                     (
-                        ambition_sandbox::portal::sync_portal_world_frame.before(PortalPresentationSet),
+                        ambition_sandbox::portal::sync_portal_world_frame
+                            .before(PortalPresentationSet),
                         ambition_sandbox::portal::sync_portal_viewer.before(PortalPresentationSet),
                         ambition_sandbox::portal::sync_portal_debug_overlay_to_f1
                             .before(PortalPresentationSet),
-                        ambition_sandbox::portal::tag_portal_scene_bodies.after(actors::sync_visuals),
+                        ambition_sandbox::portal::tag_portal_scene_bodies
+                            .after(actors::sync_visuals),
                         ambition_sandbox::portal::portal_dev_toggle_system,
                         ambition_sandbox::portal::portal_convention_toggle_system,
-                        gravity_visuals::sync_gravity_switch_visual
-                            .after(actors::sync_visuals),
-                        gravity_visuals::sync_gravity_zone_visual
-                            .after(actors::sync_visuals),
+                        gravity_visuals::sync_gravity_switch_visual.after(actors::sync_visuals),
+                        gravity_visuals::sync_gravity_zone_visual.after(actors::sync_visuals),
                     ),
                 );
         }

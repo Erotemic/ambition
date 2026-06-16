@@ -27,9 +27,9 @@ pub use ambition_sandbox::features;
 /// content-plugin build time.
 pub mod enemy_roster;
 pub mod intro;
+pub mod items;
 #[cfg(feature = "audio")]
 pub mod music;
-pub mod items;
 pub mod plugin;
 pub mod quest;
 pub mod quests;

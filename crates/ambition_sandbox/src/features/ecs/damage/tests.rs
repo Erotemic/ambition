@@ -1,9 +1,9 @@
-use super::*;
-use crate::engine_core as ae;
 use super::super::damage_drops::{
     drop_ability_pickup, drop_health_pickup, id_drops_health, spawn_death_explosion,
     spawn_split_offspring,
 };
+use super::*;
+use crate::engine_core as ae;
 use crate::features::ecs::enemy_component_snapshot;
 use crate::features::{HitMode, HitTarget};
 use bevy::prelude::{App, Update};

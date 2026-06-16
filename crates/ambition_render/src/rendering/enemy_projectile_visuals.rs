@@ -133,6 +133,8 @@ pub fn sync_enemy_projectile_visuals(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     world: Res<ambition_sandbox::GameWorld>,
+    // Localized gravity so a projectile's "upright" follows the acceleration frame.
+    gravity: ambition_sandbox::physics::GravityCtx,
     // Enemy projectiles that don't yet have a visual get one spawned.
     new_projectiles: Query<
         (Entity, &ambition_sandbox::player::BodyKinematics, &ProjectileOwnerId),
@@ -208,7 +210,15 @@ pub fn sync_enemy_projectile_visuals(
         let z = ambition_sandbox::config::WORLD_Z_PLAYER + 1.8;
         transform.translation = ambition_sandbox::config::world_to_bevy(&world.0, kin.pos, z);
         match kind {
-            EnemyVisualKind::Apple => {}
+            EnemyVisualKind::Apple => {
+                // Keep the apple upright relative to its local gravity (identity
+                // under normal gravity; rotates under sideways/inverted).
+                transform.rotation = Quat::from_rotation_z(
+                    ambition_sandbox::platformer_runtime::gravity::gravity_upright_angle(
+                        gravity.dir_at(kin.pos),
+                    ),
+                );
+            }
             EnemyVisualKind::Lasersword => {
                 // Re-align the blade to the live velocity each frame (the old
                 // per-frame rebuild recomputed the rotation from `vel`).

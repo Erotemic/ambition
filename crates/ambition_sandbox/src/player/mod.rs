@@ -17,6 +17,8 @@
 
 pub mod affordances;
 pub mod bundles;
+#[cfg(test)]
+mod clone_probe_tests;
 pub mod components;
 pub mod events;
 pub mod ledge_grab;

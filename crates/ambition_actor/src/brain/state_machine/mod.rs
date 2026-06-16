@@ -68,6 +68,13 @@ pub enum StateMachineCfg {
     /// Lively flyer: peaceful (perch/fly/walk/land-by-player) or hostile
     /// (stalk/dive/recover), selected by `cfg.aggressiveness`.
     Aerial { cfg: AerialCfg, state: AerialState },
+    /// Drives the PLAYER's own movement verbs (run/jump/dash/fly) in a cycle —
+    /// proves a brain can control a full player body through the shared
+    /// `ActorControlFrame`. Peaceful (it only moves).
+    PlayerDemo {
+        cfg: PlayerDemoCfg,
+        state: PlayerDemoState,
+    },
 }
 
 impl StateMachineCfg {
@@ -90,6 +97,7 @@ impl StateMachineCfg {
             // gate moves into `SmashCfg`.
             Self::Smash { .. } => true,
             Self::Aerial { cfg, .. } => cfg.aggressiveness > 0.0,
+            Self::PlayerDemo { .. } => false,
         }
     }
 }
@@ -139,6 +147,7 @@ pub fn tick_state_machine_with_actions(
         }
         StateMachineCfg::Smash { cfg, state } => tick_smash(cfg, state, actions, snapshot, out),
         StateMachineCfg::Aerial { cfg, state } => tick_aerial(cfg, state, snapshot, out),
+        StateMachineCfg::PlayerDemo { cfg, state } => tick_player_demo(cfg, state, snapshot, out),
     }
 }
 
@@ -1014,6 +1023,131 @@ fn tick_aerial_hostile(
         }
         // Lively phases can't occur on a hostile bird; reset defensively.
         _ => state.phase = AerialPhase::Stalk,
+    }
+}
+
+// ===== PlayerDemo =====
+//
+// A brain that drives the PLAYER's own movement verbs — run, jump, dash, fly —
+// in a repeating cycle. It exists to PROVE the universal-brain seam: an entity
+// carrying the player movement clusters + this brain is driven through the exact
+// same `update_player_control_with_clusters` integration the human player uses,
+// with no player-specific code path. It emits `jump_pressed` / `dash_pressed` /
+// `fly_toggle_pressed` on the shared [`ActorControlFrame`] — byte-identical to a
+// human pressing those buttons. The clock comes from `snapshot.sim_time`.
+
+#[derive(Clone, Copy, Debug)]
+pub struct PlayerDemoCfg {
+    /// Horizontal run AXIS intent in `[-1, 1]` (NOT px/s). The player movement
+    /// path reads `desired_vel` as a normalized stick axis (the human brain
+    /// feeds it that way) and scales by `max_run_speed` itself — unlike enemy
+    /// brains, which put a px/s velocity in `desired_vel`. (That dual meaning of
+    /// `desired_vel` is a documented wrinkle in the player-clone probe.)
+    pub run_axis: f32,
+    /// Seconds spent in each verb phase before cycling to the next.
+    pub phase_secs: f32,
+}
+
+impl Default for PlayerDemoCfg {
+    fn default() -> Self {
+        Self {
+            run_axis: 1.0,
+            phase_secs: 1.0,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum PlayerDemoPhase {
+    /// Walk to the right.
+    #[default]
+    Run,
+    /// Jump (and keep moving).
+    Jump,
+    /// Ground dash.
+    Dash,
+    /// Toggle fly on and climb; toggles off again on exit.
+    Fly,
+}
+
+impl PlayerDemoPhase {
+    fn next(self) -> Self {
+        match self {
+            Self::Run => Self::Jump,
+            Self::Jump => Self::Dash,
+            Self::Dash => Self::Fly,
+            Self::Fly => Self::Run,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct PlayerDemoState {
+    pub phase: PlayerDemoPhase,
+    pub phase_until: f32,
+    /// Whether the demo currently has fly toggled on (so it can toggle off when
+    /// it leaves the Fly phase).
+    pub fly_on: bool,
+    pub initialized: bool,
+}
+
+fn tick_player_demo(
+    cfg: &PlayerDemoCfg,
+    state: &mut PlayerDemoState,
+    snapshot: &BrainSnapshot,
+    out: &mut crate::actor::control::ActorControlFrame,
+) {
+    *out = crate::actor::control::ActorControlFrame::neutral();
+    let now = snapshot.sim_time;
+
+    if !state.initialized {
+        state.initialized = true;
+        state.phase = PlayerDemoPhase::Run;
+        state.phase_until = now + cfg.phase_secs;
+    }
+
+    let mut just_entered = false;
+    if now >= state.phase_until {
+        state.phase = state.phase.next();
+        state.phase_until = now + cfg.phase_secs;
+        just_entered = true;
+    }
+
+    let run = cfg.run_axis;
+    match state.phase {
+        PlayerDemoPhase::Run => {
+            out.facing = 1.0;
+            out.desired_vel = ae::Vec2::new(run, 0.0);
+        }
+        PlayerDemoPhase::Jump => {
+            out.facing = 1.0;
+            out.desired_vel = ae::Vec2::new(run, 0.0);
+            // Rising edge on entry; sustain the hold for a variable-height jump.
+            out.jump_pressed = just_entered;
+            out.jump_held = true;
+        }
+        PlayerDemoPhase::Dash => {
+            out.facing = 1.0;
+            out.desired_vel = ae::Vec2::new(run, 0.0);
+            out.dash_pressed = just_entered;
+        }
+        PlayerDemoPhase::Fly => {
+            // Toggle fly ON when entering the phase, then climb (engine `+y` is
+            // down, so up is negative). Forward drift too, to read as flight.
+            if just_entered && !state.fly_on {
+                out.fly_toggle_pressed = true;
+                state.fly_on = true;
+            }
+            out.facing = 1.0;
+            out.desired_vel = ae::Vec2::new(run * 0.4, -1.0);
+        }
+    }
+
+    // Toggle fly back OFF whenever we're not in the Fly phase, so the body
+    // falls + walks again (a controller turning the ability off near ground).
+    if !matches!(state.phase, PlayerDemoPhase::Fly) && state.fly_on {
+        out.fly_toggle_pressed = true;
+        state.fly_on = false;
     }
 }
 

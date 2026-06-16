@@ -171,6 +171,26 @@ assert (headless) the clone jumps/dashes/flies from its brain. That single refac
 is worth more than any one character; it's the keystone the whole actor-unification
 was aiming at.
 
+### UPDATE — the seam is PROVEN (headless), and a new wrinkle surfaced
+- New `StateMachineCfg::PlayerDemo` brain emits the player's own verbs (run/jump/
+  dash/fly) on the shared `ActorControlFrame`. The test
+  `player::clone_probe_tests::a_brain_drives_a_full_player_body_through_the_player_movement`
+  assembles the 18 player clusters + this brain and drives them through the SAME
+  `update_player_clusters` the human uses — the body runs, leaves the ground, and
+  flies, with no player-specific path. **The Brain→ActorControlFrame→InputState→
+  movement seam is genuinely actor-generic.** Proven.
+- **P10 — `desired_vel` has TWO meanings on the shared control frame.** The PLAYER
+  path reads `desired_vel` as a normalized stick AXIS in `[-1,1]` (the human brain
+  feeds it that way; `engine_input_from_actor_control` copies it straight into
+  `InputState.axis_x`, then movement scales by `max_run_speed`). ENEMY brains put a
+  px/s VELOCITY in the same field (the enemy integrator uses it directly). So a brain
+  that wants to drive a player body must emit axis intent, not velocity — a silent
+  unit mismatch on one struct field. Candidate fix: split into `move_axis` (intent)
+  vs `move_velocity`, or make both consumers agree on one convention.
+- The remaining work is unchanged: the live in-game clone still needs the
+  `single_mut()`-keyed player sim systems generalized to iterate (P9). The seam is
+  ready; the systems aren't.
+
 ## Positives (what already works well)
 - **The spawn path is data-driven**: the basic friendly+hostile hookup needed ZERO
   Rust changes — catalog row + archetype row + yarn node + LDtk placement.

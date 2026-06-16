@@ -206,6 +206,7 @@ impl Brain {
                 StateMachineCfg::BossPattern { .. } => "boss_pattern",
                 StateMachineCfg::Smash { .. } => "smash",
                 StateMachineCfg::Aerial { .. } => "aerial",
+                StateMachineCfg::PlayerDemo { .. } => "player_demo",
             },
         }
     }

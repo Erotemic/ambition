@@ -127,12 +127,8 @@ pub fn update_player_control_with_clusters(
         &mut events,
     );
     control::handle_attacks_clusters(
-        world,
         clusters.kinematics,
         clusters.abilities,
-        clusters.ground,
-        clusters.dash,
-        clusters.jump,
         clusters.combo_trace,
         input,
         tuning,

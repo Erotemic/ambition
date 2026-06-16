@@ -1,4 +1,3 @@
-use crate::geometry::Aabb;
 use crate::Vec2;
 
 use super::MovementOp;
@@ -18,10 +17,6 @@ pub struct FrameEvents {
     pub blinks: Vec<BlinkEvent>,
     pub reset: bool,
     pub hazard: bool,
-    /// AABBs of pogo-orb-like blocks the player bounced off this frame.
-    /// The sandbox uses this to damage breakable pogo orbs whose runtime
-    /// AABB matches; non-breakable pogo orbs are ignored.
-    pub pogo_hits: Vec<Aabb>,
 }
 
 impl FrameEvents {
@@ -49,6 +44,5 @@ impl FrameEvents {
         self.blinks.extend(other.blinks);
         self.reset |= other.reset;
         self.hazard |= other.hazard;
-        self.pogo_hits.extend(other.pogo_hits);
     }
 }

@@ -102,13 +102,17 @@ pub fn handle_blink_clusters(
 }
 
 /// Cluster-ref attack handler used by `update_player_control_with_clusters`.
+///
+/// Pogo (the dedicated button AND the air down-attack) is owned by the sandbox
+/// attack system (`advance_attack`), which detects the target with the real
+/// attack hitbox and bounces gravity-relatively. The engine here only applies the
+/// slash recoil + records the combo op for a plain melee press. The old
+/// probe-based `try_pogo_clusters` was a redundant second pogo mechanism (same
+/// `world.blocks` check, same `set_jump_velocity`, same `PogoBounce` event) and
+/// was removed (2026-06-16).
 pub fn handle_attacks_clusters(
-    world: &World,
     kinematics: &mut crate::player_clusters::BodyKinematics,
     abilities: &crate::player_clusters::PlayerAbilities,
-    ground: &mut crate::player_clusters::PlayerGroundState,
-    dash: &mut crate::player_clusters::PlayerDashState,
-    jump_state: &mut crate::player_clusters::PlayerJumpState,
     combo_trace: &mut crate::player_clusters::PlayerComboTrace,
     input: InputState,
     tuning: MovementTuning,
@@ -117,31 +121,8 @@ pub fn handle_attacks_clusters(
     if !abilities.abilities.attack {
         return;
     }
-    let can_pogo = abilities.abilities.pogo && !ground.on_ground;
-    if input.pogo_pressed && can_pogo {
-        if let Some(orb_aabb) = super::collision::try_pogo_clusters(
-            world, kinematics, abilities, dash, jump_state, ground, tuning,
-        ) {
-            events.op_clusters(combo_trace, MovementOp::Pogo);
-            events.pogo_hits.push(orb_aabb);
-        } else {
-            kinematics.vel.x -= kinematics.facing * (tuning.slash_recoil * 0.45);
-            events.op_clusters(combo_trace, MovementOp::Slash);
-        }
-    } else if input.attack_pressed {
-        if can_pogo && super::integration::gravity_descend(input.axis_y, tuning.gravity_dir) > 0.25 {
-            if let Some(orb_aabb) = super::collision::try_pogo_clusters(
-                world, kinematics, abilities, dash, jump_state, ground, tuning,
-            ) {
-                events.op_clusters(combo_trace, MovementOp::Pogo);
-                events.pogo_hits.push(orb_aabb);
-            } else {
-                kinematics.vel.x -= kinematics.facing * tuning.slash_recoil;
-                events.op_clusters(combo_trace, MovementOp::Slash);
-            }
-        } else {
-            kinematics.vel.x -= kinematics.facing * tuning.slash_recoil;
-            events.op_clusters(combo_trace, MovementOp::Slash);
-        }
+    if input.attack_pressed {
+        kinematics.vel.x -= kinematics.facing * tuning.slash_recoil;
+        events.op_clusters(combo_trace, MovementOp::Slash);
     }
 }

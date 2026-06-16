@@ -2,8 +2,6 @@ use crate::geometry::{Aabb, AabbExt};
 use crate::world::{BlockKind, World};
 use crate::Vec2;
 
-use super::tuning::MovementTuning;
-
 #[derive(Clone, Copy)]
 enum Axis {
     X,
@@ -430,50 +428,6 @@ pub fn touching_rebound_aabb(world: &World, aabb: crate::Aabb) -> Option<Vec2> {
     })
 }
 
-/// Pogo attempt: spawn a downward hitbox, return the orb AABB if hit.
-/// Mutates kinematics velocity,
-/// refreshes movement resources on the dash/jump clusters, and
-/// clears the ground flag.
-pub fn try_pogo_clusters(
-    world: &World,
-    kinematics: &mut crate::player_clusters::BodyKinematics,
-    abilities: &crate::player_clusters::PlayerAbilities,
-    dash: &mut crate::player_clusters::PlayerDashState,
-    jump_state: &mut crate::player_clusters::PlayerJumpState,
-    ground: &mut crate::player_clusters::PlayerGroundState,
-    tuning: MovementTuning,
-) -> Option<Aabb> {
-    let feet = kinematics.aabb();
-    // Probe just past the player's gravity-facing ("down") edge, gravity-RELATIVE
-    // so pogo works under inverted / wall gravity instead of only world-down.
-    // `gravity_dir` is cardinal: the box is thin (22) along the gravity axis and
-    // a narrowed body-width across it.
-    let g = tuning.gravity_dir;
-    let half = feet.half_size();
-    let edge = half.x * g.x.abs() + half.y * g.y.abs();
-    let probe_center = feet.center() + g * (edge + 18.0);
-    let probe_half = Vec2::new(
-        if g.x == 0.0 { half.x * 0.76 } else { 22.0 },
-        if g.y == 0.0 { half.y * 0.76 } else { 22.0 },
-    );
-    let hitbox = Aabb::new(probe_center, probe_half);
-    let hit = world
-        .blocks
-        .iter()
-        .find(|block| block.kind.is_pogo_target() && hitbox.strict_intersects(block.aabb));
-    if let Some(block) = hit {
-        let aabb = block.aabb;
-        super::integration::set_jump_velocity(
-            &mut kinematics.vel,
-            tuning.gravity_dir,
-            tuning.pogo_speed,
-        );
-        crate::player_clusters::refresh_movement_resources_clusters(
-            abilities, dash, jump_state, tuning,
-        );
-        ground.on_ground = false;
-        Some(aabb)
-    } else {
-        None
-    }
-}
+// `try_pogo_clusters` (the probe-based engine pogo) was removed 2026-06-16 — it
+// was a redundant duplicate of the sandbox hitbox pogo (`advance_attack`), which
+// detects the target with the real attack hitbox and bounces gravity-relatively.

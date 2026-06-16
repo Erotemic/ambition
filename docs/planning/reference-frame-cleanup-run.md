@@ -32,3 +32,9 @@ Foundation already landed this session: `engine_core::reference_frame::Accelerat
   `AccelerationFrame::control_frame(mode)`; `MovementTuning.input_frame_mode`;
   flight integrates in control-frame components (byte-identical normal gravity,
   rotates under sideways/up). Next: D runtime config switch + dev key.
+
+- DONE **A (dead code)**: deleted the redundant probe-based engine pogo
+  (`try_pogo_clusters` + `handle_attacks_clusters` pogo branch + `FrameEvents.pogo_hits`
+  + phases consumer + 2 engine-pogo unit tests). One pogo path now: the sandbox
+  hitbox pogo (`advance_attack`). Replay byte-identical; 166 engine tests green.
+  (`player_control_phase` has 2 now-vestigial params marked `_`, removable later.)

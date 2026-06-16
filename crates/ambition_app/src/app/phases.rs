@@ -65,7 +65,9 @@ pub(super) fn ledge_platform_carry(
 /// real time (jump buffers, blink aim, dash chains) belong here. Returns
 /// `Return` if the engine asked for a sandbox reset.
 pub(super) fn player_control_phase(
-    player_entity: bevy::prelude::Entity,
+    // Vestigial since the engine `pogo_hits` path was removed (orb damage now
+    // flows from the sandbox attack pogo). Kept on the signature for now.
+    _player_entity: bevy::prelude::Entity,
     actor_control: ambition_sandbox::actor::control::ActorControlFrame,
     world: &ae::World,
     clusters: &mut ae::PlayerClustersMut<'_>,
@@ -81,7 +83,7 @@ pub(super) fn player_control_phase(
     frame_dt: f32,
     feature_ecs_overlay: &features::FeatureEcsWorldOverlay,
     reset_room_features: &mut MessageWriter<features::ResetRoomFeaturesEvent>,
-    hit_events: &mut MessageWriter<features::HitEvent>,
+    _hit_events: &mut MessageWriter<features::HitEvent>,
     anim: &mut ambition_sandbox::player::PlayerAnimState,
     combat: &mut ambition_sandbox::player::PlayerCombatState,
     interaction: &mut ambition_sandbox::player::PlayerInteractionState,
@@ -125,27 +127,9 @@ pub(super) fn player_control_phase(
         });
         return PhaseOutcome::Return;
     }
-    // Damage breakable pogo orbs the player just bounced off. The
-    // engine reports orb AABBs; the sandbox matches them against
-    // breakables flagged `pogo_refresh` and routes hit/break events
-    // through the standard feature pipeline.
-    for &orb_aabb in &control_events.pogo_hits {
-        hit_events.write(features::HitEvent {
-            volume: orb_aabb,
-            damage: 1,
-            source: features::HitSource::PogoBounce,
-            // Engine-reported pogo bounces from `control_events`
-            // belong to the player whose control phase produced
-            // them — stamp the attacker so the player-side
-            // consumer can attribute the hit back to this player
-            // (multi-player ready).
-            attacker: Some(player_entity),
-            target: features::HitTarget::OrbMatch,
-            mode: features::HitMode::Knockback,
-            knockback: None,
-            ignored_targets: Vec::new(),
-        });
-    }
+    // (Breakable pogo-orb damage now flows solely from the sandbox attack pogo
+    // (`advance_attack` → `PogoBounce` HitEvent); the engine `pogo_hits` path was
+    // a redundant duplicate and was removed.)
     handle_player_events(
         sfx_writer,
         vfx_writer,

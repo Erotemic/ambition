@@ -234,6 +234,9 @@ impl MovingPlatformState {
         ae::Block {
             name: self.name.clone(),
             aabb: self.aabb(),
+            // This frame's displacement — the collision sweep carries any body
+            // resting on this platform by it, so riding is emergent + uniform.
+            velocity: self.last_delta,
             // Moving platforms are ordinary solids for walking/riding because
             // `BlockKind::BlinkWall` still resolves as solid collision on both
             // axes. They are deliberately *not* hard blink blockers: if the

@@ -252,6 +252,31 @@ placeholder colored box, never wired into the character-sprite path.
   and proven by `player_clone_live`.
 - Commit: `feat(player): step 2 — clone is a full visual player body (shared animate_player)`.
 
+## Riding made EMERGENT (folded in — the "should the clone ride?" tell)
+
+Jon's catch: asking which entities ride a platform is per-entity feature-thinking;
+riding is a *consequence* of being a body resting on something that moved. Fixing
+it as a "carry system that lists body types" would be the same mistake, more general.
+The right home: a solid can carry a velocity, and the collision SWEEP carries any
+body resting on a moving solid. Static geometry is the `velocity == ZERO` degenerate
+case. No rider list, no per-actor flag.
+
+### Increment A ✅ — engine model + the shared `step_kinematic` sweep
+- `ae::Block` gains `velocity: Vec2` (a moving platform's `last_delta`; `ZERO` for
+  static). `MovingPlatformState::as_collision_block` sets it.
+- `step_kinematic` (the sweep regular enemies / NPCs share): when a body is grounded,
+  it probes the supporting block and adds that block's gravity-PERPENDICULAR velocity
+  (the gravity-axis ride is already handled by gravity + landing). New tests:
+  `a_body_rides_a_horizontally_moving_platform`, `a_body_does_not_ride_static_geometry`.
+- Off moving platforms it's a no-op (ZERO velocity), so existing behavior is
+  byte-identical: 916 sandbox + 40 platformer-runtime tests + replay green.
+- **Two grounding paths still to carry** (the same fix, applied where each resolves
+  ground): the **slug** (`step_surface_walker` — its own surface-snap path, NOT
+  `step_kinematic`) and the **player/clone** (`sweep_player_*`). Doing those next, then
+  delete the player's inline `is_riding` carry. The lingering need to touch >1 path is
+  the two-sweeps fork; collapsing that is the deeper follow-up.
+- Commit: `feat(physics): emergent platform riding — a Block carries velocity, the sweep carries riders`.
+
 ## (superseded) earlier Stage 3 framing
 
 The decomposition foundation is in place. Next is the high-value, higher-risk work:

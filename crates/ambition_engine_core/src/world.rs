@@ -51,6 +51,13 @@ pub struct Block {
     pub name: String,
     pub aabb: Aabb,
     pub kind: BlockKind,
+    /// Per-frame displacement of this solid (a moving platform's `last_delta`;
+    /// `ZERO` for static geometry — the common case). The collision sweep carries
+    /// any body resting on the block by this, so "riding a moving platform" is an
+    /// emergent property of standing on a moving solid — uniform across every body
+    /// (player, clone, enemy, slug), with no per-actor wiring. A static solid is
+    /// just the `velocity == ZERO` degenerate case.
+    pub velocity: Vec2,
 }
 
 impl Block {
@@ -59,6 +66,7 @@ impl Block {
             name: name.into(),
             aabb: aabb_from_min_size(min, size),
             kind: BlockKind::Solid,
+            velocity: Vec2::ZERO,
         }
     }
 
@@ -67,6 +75,7 @@ impl Block {
             name: name.into(),
             aabb: aabb_from_min_size(min, size),
             kind: BlockKind::BlinkWall { tier },
+            velocity: Vec2::ZERO,
         }
     }
 
@@ -75,6 +84,7 @@ impl Block {
             name: name.into(),
             aabb: aabb_from_min_size(min, size),
             kind: BlockKind::OneWay,
+            velocity: Vec2::ZERO,
         }
     }
 
@@ -83,6 +93,7 @@ impl Block {
             name: name.into(),
             aabb: aabb_from_min_size(min, size),
             kind: BlockKind::Hazard,
+            velocity: Vec2::ZERO,
         }
     }
 
@@ -91,6 +102,7 @@ impl Block {
             name: name.into(),
             aabb: Aabb::new(center, Vec2::new(radius, radius)),
             kind: BlockKind::PogoOrb,
+            velocity: Vec2::ZERO,
         }
     }
 
@@ -99,6 +111,7 @@ impl Block {
             name: name.into(),
             aabb: aabb_from_min_size(min, size),
             kind: BlockKind::Rebound { impulse },
+            velocity: Vec2::ZERO,
         }
     }
 }
@@ -374,6 +387,18 @@ impl World {
         self.blocks
             .iter()
             .any(|block| predicate(block) && body.strict_intersects(block.aabb))
+    }
+
+    /// The first block matching `predicate` that `body` overlaps, if any. Used to
+    /// read the surface a body is resting on — e.g. a moving platform's `velocity`,
+    /// so the sweep can carry the rider.
+    pub fn first_overlapping_block<F>(&self, body: Aabb, mut predicate: F) -> Option<&Block>
+    where
+        F: FnMut(&Block) -> bool,
+    {
+        self.blocks
+            .iter()
+            .find(|block| predicate(block) && body.strict_intersects(block.aabb))
     }
 
     /// Return the earliest Parry-backed swept-AABB hit for `body` moving by `delta`.

@@ -69,6 +69,8 @@ fn carve_portal_apertures(blocks: &mut Vec<ae::Block>, holes: &[ae::Aabb]) {
                 name: block.name.clone(),
                 aabb,
                 kind: block.kind,
+                // A carved piece of a moving host keeps its motion.
+                velocity: block.velocity,
             });
         }
     }

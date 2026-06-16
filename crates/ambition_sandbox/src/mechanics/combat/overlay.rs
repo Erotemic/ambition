@@ -60,6 +60,7 @@ pub fn rebuild_feature_ecs_world_overlay(
             name: format!("ecs-breakable {}", name.0.as_str()),
             aabb: aabb.aabb(),
             kind,
+            velocity: ae::Vec2::ZERO,
         });
         if feature.breakable.collision.blocks_movement() && feature.breakable.trigger.allows_stand()
         {
@@ -67,6 +68,7 @@ pub fn rebuild_feature_ecs_world_overlay(
                 name: format!("ecs-breakable-pogo-target {}", id.as_str()),
                 aabb: aabb.aabb(),
                 kind: ae::BlockKind::PogoOrb,
+                velocity: ae::Vec2::ZERO,
             });
         }
     }
@@ -79,6 +81,7 @@ pub fn rebuild_feature_ecs_world_overlay(
             name: format!("ecs-legacy-pogo-target {}", id.as_str()),
             aabb: aabb.aabb(),
             kind: ae::BlockKind::PogoOrb,
+            velocity: ae::Vec2::ZERO,
         });
     }
 
@@ -91,6 +94,7 @@ pub fn rebuild_feature_ecs_world_overlay(
                 name: format!("ecs-pogo-target {} {}", id.as_str(), idx),
                 aabb,
                 kind: ae::BlockKind::PogoOrb,
+                velocity: ae::Vec2::ZERO,
             });
         }
     }

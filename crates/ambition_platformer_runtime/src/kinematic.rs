@@ -169,6 +169,27 @@ pub fn step_kinematic(
     }
     body.on_ground = grounded;
 
+    // Emergent platform riding: a body resting on a MOVING solid is carried by that
+    // solid's per-frame `velocity`. Only the gravity-PERPENDICULAR component is added
+    // — the gravity-axis ride is already handled by gravity + the landing collision,
+    // so adding it would double-count a vertical lift. Static solids carry `ZERO`, so
+    // this is a no-op off moving platforms. No rider list, no per-actor flag: any body
+    // that lands on a moving platform rides it because it is a body resting on a moving
+    // solid. (Probe the body's own footprint nudged into the gravity side to read the
+    // supporting block; orientation-correct, so wall-walking rides sideways platforms.)
+    if grounded {
+        let support_probe = Aabb::new(body.pos + g * 2.0, body.size * 0.5);
+        if let Some(support) = world.first_overlapping_block(support_probe, |block| {
+            matches!(
+                block.kind,
+                BlockKind::Solid | BlockKind::BlinkWall { .. } | BlockKind::OneWay
+            )
+        }) {
+            let v = support.velocity;
+            body.pos += v - v.dot(g) * g;
+        }
+    }
+
     // Gravity-axis depenetration runs on the VERTICAL axis (down/up gravity); the
     // sideways case relies on the X sweep above. Skip it under sideways gravity so
     // it never fights the horizontal landing.
@@ -535,6 +556,73 @@ mod tests {
         );
         assert!(!b.on_ground, "should be airborne after clearing the edge");
         assert!(b.vel.y > 0.0, "should be falling");
+    }
+
+    #[test]
+    fn a_body_rides_a_horizontally_moving_platform() {
+        // A solid floor carrying a rightward per-frame velocity. ANY body resting on
+        // it is carried right by that velocity — emergent riding, no per-actor flag.
+        let mut platform = Block::solid("platform", Vec2::new(0.0, 100.0), Vec2::new(400.0, 32.0));
+        platform.velocity = Vec2::new(3.0, 0.0); // 3 px/frame to the right
+        let world = world_with(vec![platform]);
+        let mut b = body(Vec2::new(50.0, 50.0));
+        for _ in 0..30 {
+            step_kinematic(
+                &mut b,
+                &world,
+                tuning(),
+                KinematicInputs::default(),
+                1.0 / 60.0,
+            );
+        }
+        assert!(b.on_ground, "precondition: resting on the platform");
+        let x_before = b.pos.x;
+        step_kinematic(
+            &mut b,
+            &world,
+            tuning(),
+            KinematicInputs::default(),
+            1.0 / 60.0,
+        );
+        assert!(
+            (b.pos.x - (x_before + 3.0)).abs() < 1e-3,
+            "body should ride +3px right with the platform, got dx={}",
+            b.pos.x - x_before
+        );
+    }
+
+    #[test]
+    fn a_body_does_not_ride_static_geometry() {
+        // velocity ZERO (the static default) → no carry. Standing on normal ground is
+        // byte-identical to before riding existed.
+        let world = world_with(vec![Block::solid(
+            "floor",
+            Vec2::new(0.0, 100.0),
+            Vec2::new(200.0, 32.0),
+        )]);
+        let mut b = body(Vec2::new(50.0, 50.0));
+        for _ in 0..30 {
+            step_kinematic(
+                &mut b,
+                &world,
+                tuning(),
+                KinematicInputs::default(),
+                1.0 / 60.0,
+            );
+        }
+        let x_before = b.pos.x;
+        step_kinematic(
+            &mut b,
+            &world,
+            tuning(),
+            KinematicInputs::default(),
+            1.0 / 60.0,
+        );
+        assert!(
+            (b.pos.x - x_before).abs() < 1e-3,
+            "a body must NOT drift on static ground, got dx={}",
+            b.pos.x - x_before
+        );
     }
 
     #[test]

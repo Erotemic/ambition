@@ -115,6 +115,7 @@ mod tests {
             name: "wall".into(),
             aabb: ae::Aabb::new(center, half),
             kind,
+            velocity: ae::Vec2::ZERO,
         });
         w
     }

@@ -71,6 +71,10 @@ pub(crate) fn start_attack(
     // melee spec re-tunes the swing (timing / reach / damage) so the held item
     // *replaces* the default attack instead of merely gating it.
     held_melee: Option<ambition_sandbox::brain::MeleeActionSpec>,
+    // The live gravity, so the attack is classified + placed in the player's
+    // reference frame (a toward-feet down-attack is `AirDown`/pogoable, and its
+    // hitbox lands toward the feet, under ANY gravity).
+    gravity_dir: ae::Vec2,
 ) {
     if !clusters.abilities.abilities.attack || attack.is_some() {
         return;
@@ -89,10 +93,14 @@ pub(crate) fn start_attack(
         dash_timer: clusters.dash.timer,
         abilities_directional_primary: clusters.abilities.abilities.directional_primary,
     };
+    let frame = ae::AccelerationFrame::new(gravity_dir);
+    // INPUT → PLAYER: classify the swing in the player's frame. `descend` is the
+    // toward-feet intent, so a down-attack reads as `AirDown` (pogoable) under any
+    // gravity — raw `desired_vel.y` would mis-read it as `AirUp` past ±90°.
     let intent = ambition_sandbox::combat::resolve_attack_intent_from_view(
         &view,
         actor.desired_vel.x,
-        actor.desired_vel.y,
+        frame.descend(actor.desired_vel.y),
         actor.pogo_pressed,
     );
     let mut spec = ambition_sandbox::combat::attack_spec_from_view(&view, intent);
@@ -103,34 +111,39 @@ pub(crate) fn start_attack(
             spec = spec.with_held_melee(melee);
         }
     }
+    // PLAYER → WORLD: the spec's hitbox + self-impulse are authored for an upright
+    // player; rotate them into the live gravity so a down-attack's box lands toward
+    // the feet (and overlaps the pogo orb there). Identity under normal gravity.
+    spec.hitbox_offset = frame.to_world(spec.hitbox_offset);
+    spec.hitbox_half_size = frame.to_world_half(spec.hitbox_half_size);
+    spec.self_impulse = frame.to_world(spec.self_impulse);
 
     // Directional attacks get small self-motion so the hitbox feels connected
     // to the controller. Keep these impulses modest; the engine control path
     // still owns the canonical slash/pogo op + recoil bookkeeping.
     clusters.kinematics.vel += spec.self_impulse;
+    // Vertical commit, expressed in the player frame: up-attacks guarantee a
+    // minimum ASCEND (away from feet); the air down-spike a minimum DESCEND
+    // (toward feet). Identity under normal gravity (descend == +vel.y).
+    let descend = frame.descend_speed(clusters.kinematics.vel);
     if matches!(
         intent,
         ambition_sandbox::combat::AttackIntent::AirUp | ambition_sandbox::combat::AttackIntent::Up
-    ) && clusters.kinematics.vel.y > -40.0
+    ) && descend > -40.0
     {
-        clusters.kinematics.vel.y = -40.0;
+        clusters.kinematics.vel += frame.down * (-40.0 - descend);
     }
-    // Force downward commitment ONLY for the aerial down spike. The
-    // grounded `Down` is now a kneeling forward poke (Marth-style
-    // down-tilt) — it's rooted to the floor, so injecting downward
-    // velocity here would punch the player into the ground / through
-    // one-way platforms and make the attack feel like a glitched
-    // pogo. AirDown still wants the commit, but not when the control
-    // phase already applied an upward pogo bounce earlier this frame.
-    // That same-frame ordering matters for 1hp breakable pogo orbs:
-    // the bounce is real even when the orb shatters immediately, so
-    // slash startup must not overwrite the negative Y velocity.
+    // Force the toward-feet commit ONLY for the aerial down spike. The grounded
+    // `Down` is a kneeling forward poke rooted to the floor, so committing it would
+    // punch through one-way platforms. Skip when the player was already pogo-bounced
+    // this frame (the bounce is real even when a 1hp orb shatters instantly, so
+    // startup must not overwrite the away-from-feet velocity).
     if !actor.pogo_pressed
         && intent == ambition_sandbox::combat::AttackIntent::AirDown
-        && clusters.kinematics.vel.y >= 0.0
-        && clusters.kinematics.vel.y < 80.0
+        && descend >= 0.0
+        && descend < 80.0
     {
-        clusters.kinematics.vel.y = 80.0;
+        frame.ensure_descend_speed(&mut clusters.kinematics.vel, 80.0);
     }
 
     let player_pos = clusters.kinematics.pos;

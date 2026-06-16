@@ -471,6 +471,7 @@ pub fn attack_advance_system(
             &mut anim,
             actor_frame,
             held_melee,
+            tuning.gravity_dir,
         );
     }
     super::world_flow::advance_attack(

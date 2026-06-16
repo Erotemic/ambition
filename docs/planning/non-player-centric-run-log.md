@@ -117,6 +117,27 @@ its rich clusters into the actor query for zero behavior gain and real visual ri
   clean; player tint stays `WHITE` (overlay flashes), enemy attack tint preserved.
 - Commit: `refactor(render): Stage 4 — extract the shared actor animation tail`.
 
+## Stage 5 ✅ — bosses onto the shared movement (the floating free-mover path)
+
+Bosses were ALREADY on the shared body (`BodyKinematics`) + shared collision
+sweep (`step_kinematic`) — they're floating actors whose pattern brain emits a
+`desired_vel` each tick. So there was no gravity/run spine to fold them onto (they're
+zero-g). The genuinely-special boss parts (the `BossPattern` brain, multi-volume
+hurtboxes, encounter phases) correctly stay as boss components.
+
+The real remaining MOVEMENT duplication was the "floating free-mover" shape, which
+the boss, aerial enemies, and aerial NPCs (the parrot) each hand-rolled: smooth (or
+snap) `vel` toward `desired_vel`, then sweep with gravity off. Unified into one
+`features::step_floating_body(body, world, desired_vel, accel, max_fall, dt)`:
+- **Boss** `integrate_body`: `accel: None` (snap to the pattern's exact velocity).
+- **Aerial enemy / aerial NPC**: `accel: Some(900·dt)` (smooth approach).
+- Byte-identical under normal gravity (the three already agreed on gravity-free,
+  `gravity_dir = (0,1)`, `drop_through = false` for the floating sweep). 916 sandbox
+  tests green. This is the floating counterpart to `integrate_normal_spine`: now an
+  actor either RUNS (grounded spine) or FLIES (floating mover) through one shared
+  function each, whether it's the player, an enemy, an NPC, or a boss.
+- Commit: `refactor(physics): Stage 5 — unify the floating free-mover (boss+aerial)`.
+
 ## (superseded) earlier Stage 3 framing
 
 The decomposition foundation is in place. Next is the high-value, higher-risk work:

@@ -32,6 +32,47 @@ const ENEMY_DOUBLE_JUMP_SPEED: f32 = 430.0;
 /// double-jump (matches the player's default). Resets when the
 /// body transitions `on_ground: false → true` in `enemy.update()`.
 pub(crate) const MAX_ENEMY_AIR_JUMPS: u8 = 1;
+
+/// Shared "floating free-mover" integration for gravity-free actors — aerial
+/// enemies, aerial NPCs (the parrot), and floating bosses. They share one shape:
+/// move `vel` toward the brain-emitted `desired_vel` (smoothly at `accel`, or
+/// SNAP to it when `accel` is `None` — the boss case, whose pattern drives an
+/// exact velocity each tick), then resolve collisions through the shared
+/// gravity-free [`crate::kinematic::step_kinematic`] sweep. The caller owns the
+/// facing / status / brain glue.
+///
+/// This is the FLOATING counterpart to the grounded `integrate_normal_spine`
+/// path: one source of truth for how a non-grounded actor moves, so a boss, a
+/// dive-bombing parrot, and a hover-drone all collide and stop identically.
+pub(crate) fn step_floating_body(
+    body: &mut crate::kinematic::KinematicBody,
+    world: &ae::World,
+    desired_vel: ae::Vec2,
+    accel: Option<f32>,
+    max_fall_speed: f32,
+    dt: f32,
+) {
+    match accel {
+        Some(a) => {
+            body.vel.x = crate::mechanics::combat::util::approach(body.vel.x, desired_vel.x, a);
+            body.vel.y = crate::mechanics::combat::util::approach(body.vel.y, desired_vel.y, a);
+        }
+        // Snap: the boss pattern emits an exact velocity each tick (no smoothing).
+        None => body.vel = desired_vel,
+    }
+    crate::kinematic::step_kinematic(
+        body,
+        world,
+        crate::kinematic::KinematicTuning {
+            // Gravity-free: a floating actor's brain owns its full 2D velocity.
+            gravity: 0.0,
+            max_fall_speed,
+            gravity_dir: ae::Vec2::new(0.0, 1.0),
+        },
+        crate::kinematic::KinematicInputs::default(),
+        dt,
+    );
+}
 // Archetype data owns enemy speed/range tuning; keep only shared fallback
 // clocks here.
 const ENEMY_ATTACK_COOLDOWN: f32 = 1.05;

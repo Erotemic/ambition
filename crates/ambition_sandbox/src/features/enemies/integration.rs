@@ -91,8 +91,15 @@ fn integrate_standard_enemy_body(
         let target_speed = frame.desired_vel.length();
         let archetype_chase = tuning.chase_speed;
         let accel = (target_speed.max(archetype_chase) * 3.0).max(900.0) * dt;
-        body.vel.x = approach(body.vel.x, frame.desired_vel.x, accel);
-        body.vel.y = approach(body.vel.y, frame.desired_vel.y, accel);
+        // Aerial enemies are floating free-movers (shared with NPC flyers + bosses).
+        super::super::step_floating_body(
+            &mut body,
+            world,
+            frame.desired_vel,
+            Some(accel),
+            ENEMY_MAX_FALL,
+            dt,
+        );
     } else {
         // Grounded walkers run the SHARED player physics spine: gravity + run +
         // fall-cap, gravity-direction-relative. The spine projects `axis_x` onto
@@ -148,24 +155,23 @@ fn integrate_standard_enemy_body(
                 surface.air_jumps_remaining -= 1;
             }
         }
+        // Grounded sweep: the spine already applied gravity along `gravity_dir`,
+        // so this is pure collision resolution (the same intent/sweep split the
+        // player uses). The aerial branch did its own sweep via step_floating_body.
+        crate::kinematic::step_kinematic(
+            &mut body,
+            world,
+            crate::kinematic::KinematicTuning {
+                gravity: 0.0,
+                max_fall_speed: ENEMY_MAX_FALL,
+                gravity_dir,
+            },
+            crate::kinematic::KinematicInputs {
+                drop_through: frame.drop_through,
+            },
+            dt,
+        );
     }
-    crate::kinematic::step_kinematic(
-        &mut body,
-        world,
-        crate::kinematic::KinematicTuning {
-            // The spine (grounded) already applied gravity along `gravity_dir`;
-            // the sweep is pure collision resolution, the same split the player
-            // uses (spine integrates intent, the sweep only resolves collisions).
-            // Aerial enemies are gravity-free, so gravity is 0 for them too.
-            gravity: 0.0,
-            max_fall_speed: ENEMY_MAX_FALL,
-            gravity_dir,
-        },
-        crate::kinematic::KinematicInputs {
-            drop_through: frame.drop_through,
-        },
-        dt,
-    );
     kin.pos = body.pos;
     kin.vel = body.vel;
     surface.on_ground = if is_aerial { false } else { body.on_ground };

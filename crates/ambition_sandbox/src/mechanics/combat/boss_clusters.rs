@@ -168,19 +168,11 @@ impl<'a> BossMut<'a> {
             on_ground: false,
             facing: self.kin.facing,
         };
-        crate::kinematic::step_kinematic(
-            &mut body,
-            world,
-            crate::kinematic::KinematicTuning {
-                gravity: 0.0,
-                max_fall_speed: 0.0,
-                gravity_dir: ae::Vec2::new(0.0, 1.0),
-            },
-            crate::kinematic::KinematicInputs {
-                drop_through: false,
-            },
-            dt,
-        );
+        // Bosses are floating free-movers: the pattern brain emits an exact
+        // `desired_vel` each tick (SNAP, `accel: None`) and the shared floating
+        // integrator resolves it against the world — the same path aerial enemies
+        // and the parrot fly through. `max_fall_speed: 0` is inert under zero gravity.
+        crate::features::step_floating_body(&mut body, world, desired_vel, None, 0.0, dt);
         self.kin.pos = body.pos;
         self.kin.facing = if body.facing.abs() > 0.001 {
             body.facing.signum()

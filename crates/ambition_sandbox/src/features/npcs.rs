@@ -213,9 +213,6 @@ impl<'a> NpcMut<'a> {
     /// `desired_vel` (both axes) and step through collision with gravity off, so
     /// a `Floating` bird actually flies. Mirrors the aerial-enemy integrator.
     pub fn integrate_velocity_aerial(&mut self, desired_vel: ae::Vec2, world: &ae::World, dt: f32) {
-        let accel = 900.0 * dt;
-        self.kin.vel.x = approach(self.kin.vel.x, desired_vel.x, accel);
-        self.kin.vel.y = approach(self.kin.vel.y, desired_vel.y, accel);
         let mut body = crate::kinematic::KinematicBody {
             pos: self.kin.pos,
             vel: self.kin.vel,
@@ -223,17 +220,8 @@ impl<'a> NpcMut<'a> {
             on_ground: self.surface.on_ground,
             facing: self.kin.facing,
         };
-        crate::kinematic::step_kinematic(
-            &mut body,
-            world,
-            crate::kinematic::KinematicTuning {
-                gravity: 0.0,
-                max_fall_speed: ENEMY_MAX_FALL,
-                gravity_dir: ae::Vec2::new(0.0, 1.0),
-            },
-            crate::kinematic::KinematicInputs::default(),
-            dt,
-        );
+        // Shared floating free-mover path (aerial enemies, bosses use the same).
+        super::step_floating_body(&mut body, world, desired_vel, Some(900.0 * dt), ENEMY_MAX_FALL, dt);
         self.kin.pos = body.pos;
         self.kin.vel = body.vel;
         // A flyer is never "grounded" — keeps gravity-righting + anim aerial.

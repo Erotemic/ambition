@@ -202,6 +202,31 @@ deferrals are documented (the full single_mut→loop body merge, and the desired
 axis-only unification) — both are wide/GUI-risky and gated on work the replay fixture
 can't guard blind; the seams for both are in place.
 
+## Follow-up run (post-Stage-7) — finishing the deferrals, ordered to avoid rework
+
+Plan (Jon, minimize redundant work): 1) decouple the globals from the player tick →
+2) make the clone a full PlayerEntity body → 3) ONE sweep generalizing every
+player-singleton system to iterate (drops `drive_player_clones`, fixes the K-clone
+sprite for free) → 4) `desired_vel` axis-unification (needs an enemy-position parity
+harness) → 5) content (aerial→flight spine, slug/parrot ability components).
+
+### Step 1 ✅ — peel the platform ADVANCE out of the per-entity player tick
+- The only genuinely SHARED mutation inside `player_simulation_phase` was
+  `platform.update(sim_dt)` — it advances every moving platform. Left inside a tick
+  that step 3 will iterate over N bodies, it would advance platforms N× per frame.
+- Hoisted it into a once-per-frame step in the primary caller
+  (`player_simulation_system`, in `player_tick.rs`), using the same `sandbox_dt`.
+  `MovingPlatformState` now records `last_delta`; the per-entity phase READS
+  `platform.last_delta()` for ride / ledge-carry and takes platforms as `&[]` (no
+  mutation). Replay byte-identical (the ledge-match's 8px tolerance absorbs the
+  sub-pixel pre/post-advance shift); 916 sandbox + 179 app tests green.
+- **Note on shake + reset:** the hard-fall screen-shake and sandbox-reset are also
+  primary-only, but they are CONSEQUENCES of the per-entity sim, not shared
+  mutations — they gate trivially with `is_primary` when the caller becomes a loop
+  in step 3. Peeling them now then re-touching the phase in step 3 would be the
+  redundant work Jon flagged, so they stay put until step 3 (the natural seam).
+- Commit: `refactor(player): step 1 — platform advance is once-per-frame, not in the per-entity tick`.
+
 ## (superseded) earlier Stage 3 framing
 
 The decomposition foundation is in place. Next is the high-value, higher-risk work:

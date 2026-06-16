@@ -167,7 +167,7 @@ pub(super) fn player_simulation_phase(
     sim_state: &mut ambition_sandbox::SandboxSimState,
     clock: &mut ambition_sandbox::time::clock_state::ClockState,
     safety: &mut ambition_sandbox::player::PlayerSafetyState,
-    moving_platforms: &mut [ambition_sandbox::world::platforms::MovingPlatformState],
+    moving_platforms: &[ambition_sandbox::world::platforms::MovingPlatformState],
     attack: &mut Option<ambition_sandbox::PlayerAttackState>,
     sfx_writer: &mut MessageWriter<SfxMessage>,
     vfx_writer: &mut MessageWriter<VfxMessage>,
@@ -202,10 +202,14 @@ pub(super) fn player_simulation_phase(
             .iter()
             .position(|platform| platform.matches_ledge_contact(grab.contact, player_size_pre))
     });
+    // Platforms are advanced ONCE per frame by `advance_moving_platforms` in the
+    // caller (so the advance can't multiply when this per-entity tick iterates
+    // multiple player bodies). Here we only READ each platform's recorded
+    // `last_delta` to ride / carry the body — no platform mutation.
     let mut ledge_platform_delta = None;
     let mut riding_platform = None;
-    for (index, platform) in moving_platforms.iter_mut().enumerate() {
-        let delta = platform.update(sim_dt);
+    for (index, platform) in moving_platforms.iter().enumerate() {
+        let delta = platform.last_delta();
         if Some(index) == active_ledge_platform {
             ledge_platform_delta = Some(delta);
         }

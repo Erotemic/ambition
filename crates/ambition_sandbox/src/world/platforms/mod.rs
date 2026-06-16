@@ -91,6 +91,12 @@ pub struct MovingPlatformState {
     pub pos: ae::Vec2,
     pub size: ae::Vec2,
     motion: MovingPlatformMotion,
+    /// Displacement applied by the most recent [`Self::update`] advance. The
+    /// platform advance is now a once-per-frame step BEFORE the per-entity player
+    /// tick (so it can't multiply when the tick iterates multiple bodies); the
+    /// per-entity ride / ledge-carry logic reads this instead of advancing the
+    /// platform itself. `ZERO` until the first advance.
+    last_delta: ae::Vec2,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -150,6 +156,7 @@ impl MovingPlatformState {
                 speed: speed.max(0.0),
                 dir,
             },
+            last_delta: ae::Vec2::ZERO,
         }
     }
 
@@ -170,10 +177,19 @@ impl MovingPlatformState {
                 segment: 0,
                 dir: 1,
             },
+            last_delta: ae::Vec2::ZERO,
         }
     }
 
-    /// Advance the platform and return its displacement this frame.
+    /// Displacement applied by the most recent [`Self::update`] advance. Read by
+    /// the per-entity player tick (platform-ride / ledge-carry) so the advance can
+    /// run once per frame instead of being interleaved with per-body logic.
+    pub fn last_delta(&self) -> ae::Vec2 {
+        self.last_delta
+    }
+
+    /// Advance the platform and return its displacement this frame. Also records
+    /// it as [`Self::last_delta`] for readers that run after the advance.
     pub fn update(&mut self, dt: f32) -> ae::Vec2 {
         let old = self.pos;
         match &mut self.motion {
@@ -196,7 +212,8 @@ impl MovingPlatformState {
                 self.pos = advance_path_position(path, segment, dir, self.pos, dt);
             }
         }
-        self.pos - old
+        self.last_delta = self.pos - old;
+        self.last_delta
     }
 
     pub fn aabb(&self) -> ae::Aabb {

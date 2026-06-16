@@ -221,6 +221,16 @@ pub fn player_simulation_system(
     // story-content callers but isn't read here.
     let _ = input;
 
+    // Advance the moving platforms ONCE this frame, peeled out of the per-entity
+    // player tick (it used to live inside `player_simulation_phase`). Done here so
+    // the advance can't multiply when the tick later iterates multiple player
+    // bodies; the per-entity phase now only READS each platform's `last_delta`.
+    // Uses the same sandbox dt the player sim uses, so the primary is byte-identical.
+    let sim_dt = sandbox_dt(combat.hitstop_timer, queues.clock.time_scale, frame_dt);
+    for platform in queues.moving_platforms.0.iter_mut() {
+        platform.update(sim_dt);
+    }
+
     let mut clusters = cluster_item.as_clusters_mut();
     let outcome = player_simulation_phase(
         actor_control.0,
@@ -230,7 +240,7 @@ pub fn player_simulation_system(
         &mut queues.sim_state,
         &mut queues.clock,
         &mut safety,
-        &mut queues.moving_platforms.0,
+        &queues.moving_platforms.0,
         &mut attack.0,
         &mut event_writers.sfx,
         &mut event_writers.vfx,

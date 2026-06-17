@@ -44,9 +44,12 @@ Outputs:
     Both share a crate filter, fuzzy search, a "root tree here" action, a sort
     control (name / lines of code / num dependencies / num dependants, with an
     ascending/descending toggle; folder LOC is the filesystem-subtree sum), a
-    drag-to-resize side panel, and a per-node detail panel showing the docstring
-    plus dependencies, dependants, filesystem children, and (for crates)
-    crate-level deps — in every view, with folders/files/crates distinguished.
+    drag-to-resize side panel, and a per-node detail panel with two tabs:
+    Overview (docstring plus dependencies, dependants, filesystem children, and
+    for crates crate-level deps — in every view, folders/files/crates
+    distinguished) and Source (the module's defining file, syntax-highlighted
+    via highlight.js; embedded so it works from a file:// URL — pass
+    ``--no-source`` for a smaller, source-free build).
     Transitive reduction uses ``nx.transitive_reduction`` on DAG layers and an
     SCC-condensation for the cyclic imports layer.
   * Optional per-layer GraphML (--graphml) for Gephi/yEd.
@@ -553,6 +556,7 @@ def write_json(
     crate_edges,
     crate_names: set[str],
     reduced: dict[str, list[tuple[str, str]]],
+    include_source: bool = True,
 ) -> None:
     # Filesystem-subtree aggregates: a folder's LOC is its own module file plus
     # every descendant. `is_folder` distinguishes directory modules from leaves.
@@ -602,6 +606,18 @@ def write_json(
             layer: [[s, d] for s, d in edges] for layer, edges in reduced.items()
         },
     }
+    if include_source:
+        # Each module's defining file, embedded for the panel's Source tab
+        # (browsers can't fetch local files from a file:// HTML).
+        sources: dict[str, str] = {}
+        for n in all_nodes.values():
+            if n.file is None:
+                continue
+            try:
+                sources[n.node_id] = n.file.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                pass
+        data["sources"] = sources
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
@@ -659,6 +675,8 @@ HTML_TEMPLATE = r"""<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Ambition module explorer</title>
 <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
@@ -672,8 +690,22 @@ HTML_TEMPLATE = r"""<!doctype html>
   #net { flex: 1; min-width: 0; }
   #gutter { width: 6px; flex: none; cursor: col-resize; background: #2a2e37; }
   #gutter:hover, #gutter.drag { background: #3d4a6b; }
-  #side { width: 380px; flex: none; overflow: auto; padding: 14px; background: #1a1d23;
-          border-left: 1px solid #2a2e37; }
+  #side { width: 380px; flex: none; display: flex; flex-direction: column;
+          background: #1a1d23; border-left: 1px solid #2a2e37; }
+  #side-tabs { display: flex; gap: 4px; padding: 6px 8px 0; flex: none;
+               border-bottom: 1px solid #2a2e37; }
+  .tab { background: transparent; border: 1px solid transparent; border-bottom: none;
+         border-radius: 6px 6px 0 0; padding: 5px 14px; color: #9aa1ac; }
+  .tab.active { background: #0f1115; color: #e6e9ee; border-color: #2a2e37; }
+  #side-body { flex: 1; overflow: auto; padding: 14px; }
+  .srcpath { margin-bottom: 8px; word-break: break-all; }
+  .srcwrap { display: flex; align-items: flex-start; width: max-content;
+             font: 12px/1.5 ui-monospace, SFMono-Regular, monospace; }
+  .lineno { margin: 0; padding: 0 8px; text-align: right; color: #4b515c;
+            user-select: none; position: sticky; left: 0; background: #1a1d23;
+            border-right: 1px solid #262a33; }
+  .src { margin: 0; padding: 0 0 0 10px; }
+  .src code.hljs { background: transparent; padding: 0; }
   .pill.kind-folder { background: #3a466b; color: #cdd7f5; }
   .pill.kind-file { background: #2f3a33; color: #c7e0cd; }
   .pill.kind-crate { background: #5a3f6b; color: #e6d2f5; }
@@ -767,7 +799,13 @@ HTML_TEMPLATE = r"""<!doctype html>
   <div id="net" class="hidden"></div>
   <div id="tree"></div>
   <div id="gutter" title="drag to resize"></div>
-  <div id="side"><div class="meta">Click a node to inspect it.</div></div>
+  <div id="side">
+    <div id="side-tabs">
+      <button class="tab active" id="tab-overview">Overview</button>
+      <button class="tab" id="tab-source">Source</button>
+    </div>
+    <div id="side-body"><div class="meta">Click a node to inspect it.</div></div>
+  </div>
 </div>
 <script>
 const DATA = /*__DATA__*/;
@@ -1066,10 +1104,45 @@ function neighborList(layer, id) {
   return out;
 }
 
+let activeTab = "overview";
+const sideBody = document.getElementById("side-body");
+
+// Selecting a node renders whichever tab is active.
 function showNode(id) {
+  selectedId = id;
+  if (activeTab === "source") renderSource(id); else renderOverview(id);
+}
+
+function setTab(tab) {
+  activeTab = tab;
+  document.getElementById("tab-overview").classList.toggle("active", tab === "overview");
+  document.getElementById("tab-source").classList.toggle("active", tab === "source");
+  if (selectedId) showNode(selectedId);
+  else sideBody.innerHTML = `<div class="meta">Select a node to view its ${tab}.</div>`;
+}
+
+function renderSource(id) {
+  const n = nodeById.get(id) || {};
+  const code = (DATA.sources && DATA.sources[id] != null) ? DATA.sources[id] : null;
+  if (code == null) {
+    sideBody.innerHTML = `<div class="meta">No source embedded${n.path ? " for " + esc(n.path) : ""}.</div>`;
+    return;
+  }
+  const nLines = code.split("\n").length;
+  sideBody.innerHTML =
+    `<div class="meta srcpath">${esc(n.path || id)}</div>` +
+    `<div class="srcwrap"><pre class="lineno"></pre><pre class="src"><code class="language-rust"></code></pre></div>`;
+  let nums = "";
+  for (let i = 1; i <= nLines; i++) nums += i + "\n";
+  sideBody.querySelector(".lineno").textContent = nums;
+  const codeEl = sideBody.querySelector("code");
+  codeEl.textContent = code;
+  if (window.hljs) { try { hljs.highlightElement(codeEl); } catch (e) {} }
+}
+
+function renderOverview(id) {
   const n = nodeById.get(id);
-  const side = document.getElementById("side");
-  if (!n) { side.innerHTML = '<div class="meta">No data for '+esc(id)+'</div>'; return; }
+  if (!n) { sideBody.innerHTML = '<div class="meta">No data for '+esc(id)+'</div>'; return; }
   // Show every relationship regardless of the active view/layer.
   const imp = neighborList("imports", id);
   const fs = neighborList("filesystem", id);
@@ -1086,7 +1159,7 @@ function showNode(id) {
     ? `<span class="pill" title="filesystem-subtree total">Σ ${_subloc(id)} loc</span>` +
       `<span class="pill" title="this module's own file (e.g. mod.rs)">${n.loc} own</span>`
     : `<span class="pill">${n.loc} loc</span>`;
-  side.innerHTML = `
+  sideBody.innerHTML = `
     <h2>${esc(n.label)}</h2>
     <div class="meta">${esc(n.id)}</div>
     <div><span class="pill ${kindClass}">${kindLabel}</span> <span class="pill">${esc(n.crate)}</span>
@@ -1158,6 +1231,8 @@ function update() {
   if (tree) renderTree(); else renderGraph();
 }
 
+document.getElementById("tab-overview").addEventListener("click", () => setTab("overview"));
+document.getElementById("tab-source").addEventListener("click", () => setTab("source"));
 viewSel.addEventListener("change", update);
 layerSel.addEventListener("change", () => { rootOverride = null; update(); });
 dirSel.addEventListener("change", () => { rootOverride = null; update(); });
@@ -1238,6 +1313,8 @@ def main(argv: list[str]) -> int:
     p.add_argument("--no-print", dest="do_print", action="store_false",
                    help="skip nx.write_network_text stdout summary")
     p.add_argument("--no-html", dest="do_html", action="store_false", help="skip HTML explorer")
+    p.add_argument("--no-source", dest="include_source", action="store_false",
+                   help="don't embed module source in the JSON/HTML (smaller output)")
     args = p.parse_args(argv)
 
     root = (args.root or repo_root()).resolve()
@@ -1255,7 +1332,8 @@ def main(argv: list[str]) -> int:
         "crate": reduce_graph(g_crate),
     }
     json_path = out_dir / "module_graph.json"
-    write_json(json_path, all_nodes, fs_edges, import_weights, crate_edges, crate_names, reduced)
+    write_json(json_path, all_nodes, fs_edges, import_weights, crate_edges, crate_names, reduced,
+               include_source=args.include_source)
 
     if args.graphml:
         write_graphml(out_dir, g_fs, g_imports, g_crate)

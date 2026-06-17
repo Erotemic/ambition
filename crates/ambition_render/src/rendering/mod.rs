@@ -49,9 +49,9 @@ pub use actors::{
     apply_placeholder_sprites_override, sync_visuals, upgrade_boss_sprites, upgrade_enemy_sprites,
     upgrade_npc_sprites,
 };
-// `BoundFeatureKind` moved to `mechanics::combat` (sim owns it); re-exported here
+// `BoundFeatureKind` moved to `combat` (sim owns it); re-exported here
 // so existing render call sites resolve unchanged.
-pub use ambition_gameplay_core::mechanics::combat::BoundFeatureKind;
+pub use ambition_gameplay_core::combat::BoundFeatureKind;
 // `manage_gradient_lane_visual` + `GradientLaneVisual` stay
 // module-private; the schedule registration uses
 // `actors::manage_gradient_lane_visual` directly so no outside

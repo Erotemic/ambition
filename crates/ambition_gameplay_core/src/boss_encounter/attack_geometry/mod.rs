@@ -282,8 +282,8 @@ pub fn boss_attack_damage(
     player_body: ae::Aabb,
 ) -> Option<crate::features::HitEvent> {
     use crate::engine_core::AabbExt;
-    use crate::mechanics::combat::events::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
-    use crate::mechanics::combat::util::midpoint;
+    use crate::combat::events::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
+    use crate::combat::util::midpoint;
 
     let signum_or = |x: f32, fallback: f32| {
         if x.abs() < f32::EPSILON {

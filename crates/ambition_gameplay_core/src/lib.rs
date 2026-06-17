@@ -44,11 +44,6 @@ pub use ambition_characters::actor;
 pub mod app;
 pub mod audio;
 pub mod character_roster;
-// The pure combat MODEL (Damage / Hitbox / AttackSpec / DamageVolume / slots)
-// is the reusable `ambition_combat` foundation crate. Re-exported at the
-// historical `crate::combat` path so every `crate::combat::*` consumer resolves
-// unchanged; the ECS combat SYSTEMS that consume it stay in `mechanics::combat`.
-pub use ambition_combat as combat;
 pub mod debug_label;
 // Re-export the pure-logic core under the sandbox's stable `crate::engine_core` path.
 pub use ambition_engine_core as engine_core;
@@ -87,7 +82,8 @@ pub mod inventory;
 pub mod items;
 // Stable facade for dialogue shop bindings.
 pub use items::shop;
-pub mod mechanics;
+pub mod combat;
+pub mod gravity;
 pub mod music;
 // Unified menu content (model + concrete settings IR + Map tab). See
 // `docs/planning/unified_tabbed_menu.md` §10.

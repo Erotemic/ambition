@@ -13,7 +13,7 @@ rustc, but fast directional feedback.
 - Foundation crates (`ambition_platformer_primitives`, `ambition_portal`,
 `ambition_time`, `ambition_input`, `ambition_menu`, `ambition_audio`) must not
 depend on `ambition_gameplay_core`/content/app or name game content.
-- The combat kit (`mechanics::combat`) must name no archetype/boss content.
+- The combat kit (`combat`) must name no archetype/boss content.
 - The enemy roster is content-owned DATA: the lib's persisted `EnemyConfig` +
 per-frame `EnemyMut` stay archetype-free (project `EnemyTuning` /
 `EnemyBrainSpec` / `CombatCapabilities` at spawn), and there is no

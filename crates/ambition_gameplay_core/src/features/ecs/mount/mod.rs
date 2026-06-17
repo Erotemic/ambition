@@ -352,7 +352,7 @@ pub fn enforce_mount_rider_link(
                     .remove::<Mounted>()
                     // Sprite-binding refresh so the rider's sheet
                     // re-resolves on the next presentation pass.
-                    .remove::<crate::mechanics::combat::BoundFeatureKind>();
+                    .remove::<crate::combat::BoundFeatureKind>();
             }
             // Mount dead, rider already dissolved → steady state.
             (false, false) => {}

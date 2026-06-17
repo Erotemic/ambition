@@ -6,7 +6,7 @@
 //!
 //! The gravity *mechanic* layered on top (`GravityFlipSwitch`, the room-reset
 //! reset, the `GravityPlugin`, and the zone / switch visuals) stays sandbox-side
-//! in `crate::mechanics::gravity` because it depends on sandbox content
+//! in `crate::gravity` because it depends on sandbox content
 //! (audio / features / app schedule / presentation); it consumes the moved core
 //! types through this facade.
 pub use ambition_platformer_primitives::gravity::*;

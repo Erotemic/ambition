@@ -28,7 +28,7 @@ fn shark_charge_crashed(
 
 #[allow(clippy::too_many_arguments)]
 fn shark_charge_crashed_parts(
-    caps: &crate::mechanics::combat::CombatCapabilities,
+    caps: &crate::combat::CombatCapabilities,
     alive: bool,
     pos: ae::Vec2,
     vel: ae::Vec2,

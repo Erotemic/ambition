@@ -58,6 +58,12 @@ pub mod util;
 pub mod variation;
 pub mod world_overlay;
 
+// The pure combat MODEL (Damage / Hitbox / AttackSpec / DamageVolume / slots) is
+// the reusable `ambition_combat` foundation crate, re-exported here so the whole
+// combat surface — model + the ECS systems below — lives under one `crate::combat`
+// namespace (`crate::combat::AttackSpec` and `crate::combat::hazards` both resolve).
+pub use ambition_combat::*;
+
 pub use components::*;
 pub use events::*;
 // `FeatureSimEntity` is the generic entity-marker queried by the reusable

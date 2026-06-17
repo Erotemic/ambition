@@ -74,7 +74,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     // feature is currently gated off by default inside player/trail.rs.
     app.add_plugins(ambition_gameplay_core::player::trail::PlayerTrailPlugin);
     // Gravity zones / switches and their per-frame ambient-gravity snapshot.
-    app.add_plugins(ambition_gameplay_core::mechanics::gravity::GravityPlugin);
+    app.add_plugins(ambition_gameplay_core::gravity::GravityPlugin);
     #[cfg(feature = "portal")]
     {
         app.add_plugins(ambition_gameplay_core::portal::PortalPlugin);

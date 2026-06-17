@@ -27,7 +27,7 @@ pub(super) struct EnemyActorSpawnPlan {
     aggression: super::ActorAggression,
     brain: crate::brain::Brain,
     action_set: crate::brain::ActionSet,
-    combat_kit: crate::mechanics::combat::CombatKit,
+    combat_kit: crate::combat::CombatKit,
     held_item: Option<crate::brain::HeldItemSpec>,
 }
 
@@ -80,7 +80,7 @@ impl EnemyActorSpawnPlan {
 
     pub(super) fn with_combat_kit(
         mut self,
-        combat_kit: crate::mechanics::combat::CombatKit,
+        combat_kit: crate::combat::CombatKit,
     ) -> Self {
         self.combat_kit = combat_kit;
         self
@@ -149,7 +149,7 @@ pub(super) struct NpcActorSpawnPlan {
     npc: super::npc_clusters::NpcClusterScratch,
     brain: crate::brain::Brain,
     action_set: crate::brain::ActionSet,
-    combat_kit: crate::mechanics::combat::CombatKit,
+    combat_kit: crate::combat::CombatKit,
     aggression: super::ActorAggression,
 }
 

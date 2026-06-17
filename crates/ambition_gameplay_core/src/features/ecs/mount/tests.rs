@@ -12,7 +12,7 @@ type EnemyClusterBundle = (
     super::super::enemy_clusters::ActorMotionPath,
     crate::features::ActorSurfaceState,
     crate::features::ActorAttackState,
-    crate::mechanics::combat::CombatCapabilities,
+    crate::combat::CombatCapabilities,
 );
 
 fn hostile(

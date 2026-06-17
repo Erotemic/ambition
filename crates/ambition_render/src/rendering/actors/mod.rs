@@ -24,7 +24,7 @@ use ambition_gameplay_core::features::{
     BossClusterRef, BreakableFeature, ChestFeature, FeatureId, FeatureViewIndex, FeatureVisualKind,
     Opened,
 };
-use ambition_gameplay_core::mechanics::combat::BoundFeatureKind;
+use ambition_gameplay_core::combat::BoundFeatureKind;
 
 mod animation;
 mod boss;

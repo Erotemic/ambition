@@ -50,11 +50,11 @@ pub struct EnemyConfig {
     pub name: String,
     /// Per-frame runtime tuning snapshot (kit vocabulary), projected
     /// from the archetype's authored spec at spawn.
-    pub tuning: crate::mechanics::combat::EnemyTuning,
+    pub tuning: crate::combat::EnemyTuning,
     /// Generic brain-construction inputs (kit vocabulary), projected
     /// from the archetype at spawn so the runtime brain rebuilds
     /// reconstruct a brain without naming the roster enum.
-    pub brain_spec: crate::mechanics::combat::EnemyBrainSpec,
+    pub brain_spec: crate::combat::EnemyBrainSpec,
     pub brain: crate::actor::EnemyBrain,
     pub spawn: ActorSpawnState,
     /// LDtk display name of the original NPC when this enemy was spawned
@@ -79,7 +79,7 @@ pub struct EnemyMut<'a> {
     /// Spawn-resolved special-behavior flags (kit vocabulary). Read-only:
     /// the per-frame integration and the damage hook branch on these
     /// instead of calling back into the named archetype enum.
-    pub caps: &'a crate::mechanics::combat::CombatCapabilities,
+    pub caps: &'a crate::combat::CombatCapabilities,
 }
 
 #[derive(QueryData)]
@@ -91,7 +91,7 @@ pub struct EnemyClusterQueryData {
     pub attack: &'static mut ActorAttackState,
     pub config: &'static mut EnemyConfig,
     pub motion: &'static mut ActorMotionPath,
-    pub caps: &'static crate::mechanics::combat::CombatCapabilities,
+    pub caps: &'static crate::combat::CombatCapabilities,
 }
 
 impl<'w, 's> EnemyClusterQueryDataItem<'w, 's> {
@@ -125,7 +125,7 @@ pub struct EnemyClusterSeed {
     pub motion: ActorMotionPath,
     /// Spawn-resolved special-behavior flags (kit vocabulary), spawned
     /// alongside the clusters by [`Self::into_components`].
-    pub caps: crate::mechanics::combat::CombatCapabilities,
+    pub caps: crate::combat::CombatCapabilities,
     /// The authored roster spec (resolved by string key from the spawn
     /// brain). Spawn-time ONLY: brain / combat-kit / held-item construction
     /// reads it here before the entity exists; it is deliberately NOT
@@ -200,7 +200,7 @@ impl EnemyClusterSeed {
         &mut self,
         world: &ae::World,
         target_pos: ae::Vec2,
-        tuning: crate::mechanics::combat::FeatureCombatTuning,
+        tuning: crate::combat::FeatureCombatTuning,
         nearest_neighbor: Option<ae::Vec2>,
         dt: f32,
         is_mounted: bool,
@@ -238,7 +238,7 @@ impl EnemyClusterSeed {
         ActorMotionPath,
         ActorSurfaceState,
         ActorAttackState,
-        crate::mechanics::combat::CombatCapabilities,
+        crate::combat::CombatCapabilities,
     ) {
         (
             self.kin,

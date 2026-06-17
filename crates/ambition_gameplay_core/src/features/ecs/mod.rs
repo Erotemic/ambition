@@ -18,7 +18,7 @@
 //!   and overlays consumed by presentation, engine, and combat code.
 //!
 //! Facade: many `ecs::<name>` paths re-export from the reusable
-//! `mechanics::combat` kit (`banner`, `breakables`, `chests`, `hazards`,
+//! `combat` kit (`banner`, `breakables`, `chests`, `hazards`,
 //! `hitbox`, `overlay`, `pickups`, `boss_clusters`, ...) so call sites stay
 //! stable while the generic mechanics live DOWN in that kit (ADR 0019).
 
@@ -59,8 +59,8 @@ mod target_volumes;
 mod view_index;
 
 // Combat-kit aliases keep `ecs::<module>` paths stable for callers.
-pub use crate::mechanics::combat::boss_clusters;
-pub use crate::mechanics::combat::{
+pub use crate::combat::boss_clusters;
+pub use crate::combat::{
     banner, breakables, chests, falling_chest, hazards, held_items, hitbox, overlay, pickups,
     spawn_static, targeting, variation,
 };
@@ -142,7 +142,7 @@ pub use view_index::{rebuild_feature_view_index, FeatureViewIndex};
 pub use ambition_platformer_primitives::markers::FeatureSimEntity;
 
 // `HazardFeature` moved to the combat kit with the hazard runtime.
-pub use crate::mechanics::combat::hazard_runtime::HazardFeature;
+pub use crate::combat::hazard_runtime::HazardFeature;
 
 #[cfg(test)]
 mod tests;

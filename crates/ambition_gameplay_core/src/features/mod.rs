@@ -65,8 +65,8 @@ pub(crate) fn step_floating_body(
 ) {
     match accel {
         Some(a) => {
-            body.vel.x = crate::mechanics::combat::util::approach(body.vel.x, desired_vel.x, a);
-            body.vel.y = crate::mechanics::combat::util::approach(body.vel.y, desired_vel.y, a);
+            body.vel.x = crate::combat::util::approach(body.vel.x, desired_vel.x, a);
+            body.vel.y = crate::combat::util::approach(body.vel.y, desired_vel.y, a);
         }
         // Snap: the boss pattern emits an exact velocity each tick (no smoothing).
         None => body.vel = desired_vel,
@@ -99,12 +99,12 @@ mod enemies;
 mod npcs;
 
 // Re-export the generic combat kit so existing feature-facing paths stay stable.
-pub use crate::mechanics::combat::components;
-pub use crate::mechanics::combat::events;
-pub use crate::mechanics::combat::hazard_runtime as hazards;
-pub use crate::mechanics::combat::path_motion;
-pub use crate::mechanics::combat::world_overlay;
-pub use crate::mechanics::combat::{bus, util};
+pub use crate::combat::components;
+pub use crate::combat::events;
+pub use crate::combat::hazard_runtime as hazards;
+pub use crate::combat::path_motion;
+pub use crate::combat::world_overlay;
+pub use crate::combat::{bus, util};
 
 pub use boss_attack_geometry::{
     active_attack_volumes, body_damage_aabb, boss_attack_damage, bounding_aabb, damageable_volumes,

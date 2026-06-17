@@ -94,7 +94,7 @@ pub fn fire_puppy_slug_gun_system(
 mod tests {
     use super::*;
     use crate::abilities::test_support::spawn_primary_player_holding;
-    use crate::mechanics::combat::ActorFaction as Faction;
+    use crate::combat::ActorFaction as Faction;
 
     fn test_app() -> App {
         let mut app = App::new();

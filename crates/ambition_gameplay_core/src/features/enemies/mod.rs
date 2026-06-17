@@ -73,7 +73,7 @@ pub struct ActorSurfaceState {
 // `EnemyRespawnPolicy` moved to the combat kit (generic death/respawn
 // vocabulary); re-exported so `crate::features::EnemyRespawnPolicy`
 // paths keep working.
-pub use crate::mechanics::combat::EnemyRespawnPolicy;
+pub use crate::combat::EnemyRespawnPolicy;
 
 /// Flag-id suffix used by `_dead_until_rest` flags. Constant so the
 /// kill hook, save sync, and `clear_dead_until_rest_flags` all
@@ -242,8 +242,8 @@ mod vec2_option {
 /// Brain template choice keyed off `EnemyArchetype`. The definition is
 /// generic kit vocabulary — re-exported here so the archetype spec row
 /// (`brain_template`) and the spawn-site projection keep their existing
-/// path. See [`crate::mechanics::combat::EnemyBrainTemplate`].
-pub(super) use crate::mechanics::combat::EnemyBrainTemplate;
+/// path. See [`crate::combat::EnemyBrainTemplate`].
+pub(super) use crate::combat::EnemyBrainTemplate;
 
 /// Serde default for [`EnemyArchetypeSpec::attack_cooldown_mult`]: the
 /// multiplicative identity (most archetypes use the shared cooldown).
@@ -454,8 +454,8 @@ pub(crate) const ALL_BRAIN_KEYS: &[&str] = &[
 impl EnemyArchetypeSpec {
     /// Project the generic brain-construction inputs (kit vocabulary) the
     /// runtime brain rebuilds reconstruct without naming the roster.
-    pub(super) fn brain_spec(&self) -> crate::mechanics::combat::EnemyBrainSpec {
-        crate::mechanics::combat::EnemyBrainSpec {
+    pub(super) fn brain_spec(&self) -> crate::combat::EnemyBrainSpec {
+        crate::combat::EnemyBrainSpec {
             template: self.brain_template,
             smash_hit_band: self.smash_hit_band.unwrap_or(36.0),
             smash_heavy: self.smash_heavy,
@@ -499,8 +499,8 @@ impl EnemyArchetypeSpec {
     }
 
     /// Project the per-frame runtime tuning carried on `EnemyConfig.tuning`.
-    pub(crate) fn tuning(&self) -> crate::mechanics::combat::EnemyTuning {
-        crate::mechanics::combat::EnemyTuning {
+    pub(crate) fn tuning(&self) -> crate::combat::EnemyTuning {
+        crate::combat::EnemyTuning {
             max_health: self.max_health,
             patrol_speed: self.patrol_speed,
             chase_speed: self.chase_speed,
@@ -522,8 +522,8 @@ impl EnemyArchetypeSpec {
     }
 
     /// Project the authored capability flags into the combat kit.
-    pub(crate) fn combat_capabilities(&self) -> crate::mechanics::combat::CombatCapabilities {
-        crate::mechanics::combat::CombatCapabilities {
+    pub(crate) fn combat_capabilities(&self) -> crate::combat::CombatCapabilities {
+        crate::combat::CombatCapabilities {
             explodes_on_death: self.explodes_on_death,
             divides_on_death: self.divides_on_death,
             charge_crash_explodes: self.charge_crash_explodes,

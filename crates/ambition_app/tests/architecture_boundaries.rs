@@ -833,10 +833,9 @@ fn architecture_boundaries_gravity_zone_mechanic_left_portal() {
     assert_paths_exist(
         &src_root,
         &[
-            "mechanics/mod.rs",
-            "mechanics/gravity/mod.rs",
-            "mechanics/gravity/plugin.rs",
-            "mechanics/gravity/lifecycle.rs",
+            "gravity/mod.rs",
+            "gravity/plugin.rs",
+            "gravity/lifecycle.rs",
         ],
         "extracted gravity mechanic",
     );
@@ -847,14 +846,14 @@ fn architecture_boundaries_gravity_zone_mechanic_left_portal() {
         &["gravity_visuals.rs"],
         "gravity visuals live in the render crate",
     );
-    let gravity_plugin = fs::read_to_string(src_root.join("mechanics/gravity/plugin.rs"))
+    let gravity_plugin = fs::read_to_string(src_root.join("gravity/plugin.rs"))
         .expect("read gravity plugin");
     assert!(
         gravity_plugin.contains("pub struct GravityPlugin"),
         "gravity mechanic should own a GravityPlugin"
     );
     assert_code_refs_absent(
-        &[src_root.join("mechanics/gravity")],
+        &[src_root.join("gravity")],
         &[
             "ambition_gameplay_core::portal::",
             "ambition_gameplay_core::portal;",
@@ -880,7 +879,7 @@ fn architecture_boundaries_gravity_zone_mechanic_left_portal() {
         |_| true,
         |file, line| {
             file.file_name().and_then(|n| n.to_str()) == Some("tests.rs")
-                && line.contains("ambition_gameplay_core::mechanics::gravity")
+                && line.contains("ambition_gameplay_core::gravity")
         },
     );
     assert!(
@@ -1158,7 +1157,7 @@ fn architecture_boundaries_machinery_does_not_import_content() {
         "interaction.rs",
         "inventory",
         "items",
-        "mechanics",
+        "gravity",
         "menu",
         "music",
         "persistence",
@@ -1191,7 +1190,7 @@ fn architecture_boundaries_machinery_does_not_import_content() {
 #[test]
 fn architecture_boundaries_combat_kit_stays_content_free() {
     assert_code_refs_absent(
-        &[crate_src().join("mechanics/combat")],
+        &[crate_src().join("combat")],
         &[
             "crate::content",
             "crate::ambition_content",

@@ -78,7 +78,7 @@ fn distance_squared(a: ae::Vec2, b: ae::Vec2) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mechanics::combat::components::{ActorAggression, ActorTarget, CenteredAabb};
+    use crate::combat::components::{ActorAggression, ActorTarget, CenteredAabb};
     use crate::player::{BodyKinematics, PlayerEntity, PlayerSlot, PrimaryPlayer};
 
     fn dummy_player_body(pos: ae::Vec2) -> BodyKinematics {

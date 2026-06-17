@@ -41,7 +41,7 @@ fn evaluate_enemy_ai_output(
     pos: ae::Vec2,
     target_pos: ae::Vec2,
     brain: &crate::actor::EnemyBrain,
-    tuning: &crate::mechanics::combat::EnemyTuning,
+    tuning: &crate::combat::EnemyTuning,
     attack: &crate::features::ActorAttackState,
     alive: bool,
 ) -> crate::actor::ai::CharacterAiOutput {
@@ -76,7 +76,7 @@ fn integrate_standard_enemy_body(
     kin: &mut super::super::ecs::enemy_clusters::BodyKinematics,
     surface: &mut ActorSurfaceState,
     motion: &mut super::super::ecs::enemy_clusters::ActorMotionPath,
-    tuning: &crate::mechanics::combat::EnemyTuning,
+    tuning: &crate::combat::EnemyTuning,
     ai_intent: crate::actor::ai::CharacterAiIntent,
     is_aerial: bool,
     frame: &crate::actor::control::ActorControlFrame,

@@ -40,7 +40,7 @@ use crate::WorldTime;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
 // The hitbox COMPONENTS moved to the reusable `ambition_vfx` crate (the
-// damage-box primitive). Re-exported here so `mechanics::combat::hitbox::Hitbox`
+// damage-box primitive). Re-exported here so `combat::hitbox::Hitbox`
 // (and `features::Hitbox`) paths are unchanged; the SYSTEMS below (damage
 // resolution, melee spawn, lifecycle) stay in the lib.
 pub use ambition_vfx::{Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime};

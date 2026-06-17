@@ -220,9 +220,9 @@ pub(crate) fn apply_boss_hit(
 }
 
 // `begin_ecs_breakable_respawn` / `emit_breakable_destroyed` moved to
-// the combat kit (`crate::mechanics::combat::breakables`) — they are
+// the combat kit (`crate::combat::breakables`) — they are
 // generic breakable side-effect helpers shared by the typed-damage
 // path here and the kit's stand-to-break path.
-pub(crate) use crate::mechanics::combat::breakables::{
+pub(crate) use crate::combat::breakables::{
     begin_ecs_breakable_respawn, emit_breakable_destroyed,
 };

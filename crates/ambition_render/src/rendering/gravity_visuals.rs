@@ -9,7 +9,7 @@ use ambition_gameplay_core::engine_core::{self as ae};
 use ambition_gameplay_core::physics::{GravityField, GravityZone};
 use ambition_gameplay_core::GameWorld;
 
-use ambition_gameplay_core::mechanics::gravity::GravityFlipSwitch;
+use ambition_gameplay_core::gravity::GravityFlipSwitch;
 
 /// Marks the visual for a [`GravityZone`].
 #[derive(Component)]

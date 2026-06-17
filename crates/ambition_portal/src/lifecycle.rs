@@ -2,7 +2,7 @@
 //! despawn gun-orphaned portals.
 //!
 //! The gravity-zone mechanic (room-reset gravity reset + the ambient
-//! gravity-flip switch) moved to `crate::mechanics::gravity` (Stage 6 follow-up):
+//! gravity-flip switch) moved to `crate::gravity` (Stage 6 follow-up):
 //! it is a gravity mechanic, not portal behavior.
 
 use bevy::prelude::*;

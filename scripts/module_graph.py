@@ -32,9 +32,19 @@ Three edge layers are produced over a shared node set:
 Outputs:
   * ``nx.write_network_text`` summaries to stdout (--print, default on).
   * A combined JSON (nodes + per-layer adjacency) consumed by the HTML viewer.
-  * A self-contained interactive HTML explorer (vis-network via CDN) with a
-    layer toggle, crate filter, search, and a per-node detail panel showing the
-    docstring and neighbors in every layer.
+  * A self-contained interactive HTML explorer (vis-network via CDN) with two
+    views over each layer:
+      - a collapsible **tree/forest** (the default): a transitive-reduced,
+        ``write_network_text``-style skeleton you churn through linearly.
+        Already-seen nodes appear as clickable back-reference stubs (``↪``).
+        Expand either direction -- ``dependencies`` (what a node needs, top
+        down from the apps) or ``dependants`` (what needs it, up from the
+        leaves). Crate deps reduce to a single root (``ambition_app``).
+      - the force/hierarchical **graph** for when you want the gnarled ball.
+    Both share a crate filter, fuzzy search, a "root tree here" action, and a
+    per-node detail panel (docstring + neighbors in the active layer).
+    Transitive reduction uses ``nx.transitive_reduction`` on DAG layers and an
+    SCC-condensation for the cyclic imports layer.
   * Optional per-layer GraphML (--graphml) for Gephi/yEd.
 
 Why a custom tool? `cargo-modules` (module tree/deps) and `cargo-depgraph`
@@ -409,6 +419,40 @@ def resolve_use(
 # --------------------------------------------------------------------------- #
 
 
+def reduce_graph(g: nx.DiGraph) -> list[tuple[str, str]]:
+    """Transitive reduction as an edge list.
+
+    For a DAG (the crate layer always is — cargo forbids cyclic deps), this is
+    the unique minimal edge set with the same reachability. For a cyclic graph
+    (the imports layer can be), we condense strongly-connected components into a
+    DAG, reduce that, lift each surviving inter-component edge back to a single
+    representative original edge, and chain each component's members so the
+    cycle stays reachable. The result is a tree-friendly skeleton; the full
+    adjacency is still available in the ``layers`` JSON for the graph view.
+    """
+    if g.number_of_edges() == 0:
+        return []
+    if nx.is_directed_acyclic_graph(g):
+        return list(nx.transitive_reduction(g).edges())
+
+    cond = nx.condensation(g)  # DAG; each node has a 'members' set attribute
+    reduced_cond = nx.transitive_reduction(cond)
+    members = nx.get_node_attributes(cond, "members")
+    edges: list[tuple[str, str]] = []
+    for cu, cv in reduced_cond.edges():
+        rep = next(
+            ((u, v) for u in sorted(members[cu]) for v in sorted(members[cv]) if g.has_edge(u, v)),
+            None,
+        )
+        if rep is not None:
+            edges.append(rep)
+    for mem in members.values():
+        chain = sorted(mem)
+        for a, b in zip(chain, chain[1:]):
+            edges.append((a, b))
+    return edges
+
+
 def build_graphs(root: Path, crate_filter: str | None):
     crates = load_workspace(root)
     if crate_filter:
@@ -504,6 +548,7 @@ def write_json(
     import_weights,
     crate_edges,
     crate_names: set[str],
+    reduced: dict[str, list[tuple[str, str]]],
 ) -> None:
     nodes_json = [
         {
@@ -525,6 +570,10 @@ def write_json(
             "filesystem": [[s, d] for s, d in fs_edges],
             "imports": [[s, d, w] for (s, d), w in import_weights.items()],
             "crate": [[s, d, k] for s, d, k in crate_edges],
+        },
+        # Transitive-reduced edge lists used by the collapsible tree view.
+        "layers_reduced": {
+            layer: [[s, d] for s, d in edges] for layer, edges in reduced.items()
         },
     }
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
@@ -613,16 +662,48 @@ HTML_TEMPLATE = r"""<!doctype html>
              max-height: 260px; overflow: auto; width: 320px; display: none; border-radius: 6px; }
   #results div { padding: 4px 8px; cursor: pointer; }
   #results div:hover { background: #262a33; }
+  button { background: #232733; color: #d7dae0; border: 1px solid #2a2e37;
+           border-radius: 5px; padding: 4px 8px; font: inherit; cursor: pointer; }
+  button:hover { background: #2c313d; }
+  #tree { flex: 1; min-width: 0; overflow: auto; padding: 8px 4px;
+          font: 12.5px/1.5 ui-monospace, SFMono-Regular, monospace; }
+  .trow { display: flex; align-items: center; gap: 4px; padding: 1px 6px;
+          white-space: nowrap; cursor: pointer; border-radius: 4px; }
+  .trow:hover { background: #20242d; }
+  .trow.sel { background: #2d3550; }
+  .trow.stub { color: #6b7280; font-style: italic; }
+  .tw { display: inline-block; width: 12px; text-align: center; color: #7f8794; flex: none; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .trow .dim { color: #6b7280; }
+  .trow.crate-row { font-weight: 600; }
+  .flash { animation: flash 1s ease-out; }
+  @keyframes flash { from { background: #3d4a6b; } to { background: transparent; } }
+  .hidden { display: none !important; }
 </style>
 </head>
 <body>
 <div id="bar">
+  <label>View
+    <select id="view">
+      <option value="tree">tree</option>
+      <option value="graph">graph</option>
+    </select>
+  </label>
   <label>Layer
     <select id="layer">
-      <option value="filesystem">filesystem (containment)</option>
-      <option value="imports">imports (use)</option>
       <option value="crate">crate deps</option>
+      <option value="imports">imports (use)</option>
+      <option value="filesystem">filesystem (containment)</option>
     </select>
+  </label>
+  <label class="tree-only">Expand
+    <select id="direction">
+      <option value="dependencies">dependencies (what it needs) ↓</option>
+      <option value="dependants">dependants (what needs it) ↓</option>
+    </select>
+  </label>
+  <label class="tree-only" title="Transitive reduction: drop edges implied by a longer path; cycles condensed into SCC chains">
+    <input type="checkbox" id="reduced" checked /> reduce
   </label>
   <label>Crate
     <select id="crate"><option value="">all</option></select>
@@ -631,10 +712,13 @@ HTML_TEMPLATE = r"""<!doctype html>
     <input id="search" placeholder="module name..." autocomplete="off" />
     <div id="results"></div>
   </label>
+  <button id="expandAll" class="tree-only">expand all</button>
+  <button id="collapseAll" class="tree-only">collapse all</button>
   <span id="stats"></span>
 </div>
 <div id="wrap">
-  <div id="net"></div>
+  <div id="net" class="hidden"></div>
+  <div id="tree"></div>
   <div id="side"><div class="meta">Click a node to inspect it.</div></div>
 </div>
 <script>
@@ -656,7 +740,25 @@ const resultsEl = document.getElementById("results");
 const statsEl = document.getElementById("stats");
 crateList.forEach(c => { const o=document.createElement("option"); o.value=c; o.textContent=c; crateSel.appendChild(o); });
 
+const viewSel = document.getElementById("view");
+const dirSel = document.getElementById("direction");
+const reducedEl = document.getElementById("reduced");
+const treeEl = document.getElementById("tree");
+const netEl = document.getElementById("net");
+
 let network = null;
+let rootOverride = null;       // when set, the tree is a single subtree from here
+let selectedId = null;
+let selRow = null;
+let currentFirstDom = new Map(); // node id -> dom id of its first (expanded) occurrence
+
+const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const jsq = (s) => String(s).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+const shortLabel = (id) => { const p = id.split("::"); return p.length > 1 ? p[p.length-1] : id; };
+
+// --------------------------------------------------------------------------- //
+// Graph view (vis-network force / hierarchical layout)
+// --------------------------------------------------------------------------- //
 
 function edgesFor(layer) {
   if (layer === "filesystem") return DATA.layers.filesystem.map(([s,d]) => ({from:s,to:d}));
@@ -665,30 +767,23 @@ function edgesFor(layer) {
       dashes:k!=="normal", title:k}));
 }
 
-function render() {
+function renderGraph() {
   const layer = layerSel.value;
   const crate = crateSel.value;
   const rawEdges = edgesFor(layer);
-
-  // Which nodes participate in this layer?
   const participating = new Set();
   rawEdges.forEach(e => { participating.add(e.from); participating.add(e.to); });
 
   let nodes = DATA.nodes.filter(n => {
     if (layer === "crate" && n.kind !== "crate") return false;
     if (crate && n.crate !== crate) return false;
-    if (layer !== "crate" && !participating.has(n.id) && (n.kind!=="crate")) {
-      // keep crate roots even if isolated, drop dangling leaves with no edge
-    }
     return true;
   });
   const keep = new Set(nodes.map(n => n.id));
   let edges = rawEdges.filter(e => keep.has(e.from) && keep.has(e.to));
 
   const visNodes = nodes.map(n => ({
-    id: n.id,
-    label: n.label,
-    title: n.summary || n.id,
+    id: n.id, label: n.label, title: n.summary || n.id,
     color: { background: crateColor[n.crate] || "#888",
              border: n.kind==="crate" ? "#fff" : "#0008" },
     shape: n.kind==="crate" ? "box" : "dot",
@@ -707,21 +802,186 @@ function render() {
              levelSeparation: 180, nodeSpacing: 28 } } : {},
     interaction: { hover: true, tooltipDelay: 120 },
   };
-
-  network = new vis.Network(document.getElementById("net"),
+  network = new vis.Network(netEl,
       { nodes: new vis.DataSet(visNodes), edges: new vis.DataSet(edges) }, options);
   network.on("selectNode", p => showNode(p.nodes[0]));
   statsEl.textContent = `${visNodes.length} nodes · ${edges.length} edges · ${layer}`;
 }
 
+// --------------------------------------------------------------------------- //
+// Tree view: transitive-reduced forest, expandable, with back-reference stubs
+// --------------------------------------------------------------------------- //
+
+function rawPairs(layer) {
+  if (layer === "filesystem") return DATA.layers.filesystem;
+  if (layer === "imports") return DATA.layers.imports.map(e => [e[0], e[1]]);
+  return DATA.layers.crate.map(e => [e[0], e[1]]);
+}
+
+// Build a child-adjacency for the chosen direction.
+//   dependencies: A -> (things A depends on / its fs children)
+//   dependants:   A -> (things that depend on A / its fs parent)
+function buildAdj(layer, direction, reduced) {
+  const src = reduced ? DATA.layers_reduced[layer] : rawPairs(layer);
+  const adj = new Map(), indeg = new Map(), hasEdge = new Set();
+  for (const pair of src) {
+    let s = pair[0], d = pair[1];
+    if (direction === "dependants") { const t = s; s = d; d = t; }
+    if (!adj.has(s)) adj.set(s, []);
+    adj.get(s).push(d);
+    indeg.set(d, (indeg.get(d) || 0) + 1);
+    hasEdge.add(pair[0]); hasEdge.add(pair[1]);
+  }
+  return { adj, indeg, hasEdge };
+}
+
+function buildForest() {
+  const layer = layerSel.value, direction = dirSel.value, reduced = reducedEl.checked;
+  const crate = crateSel.value;
+  const { adj, indeg, hasEdge } = buildAdj(layer, direction, reduced);
+
+  const universe = new Set();
+  if (layer === "crate") DATA.crates.forEach(c => universe.add(c));
+  else DATA.nodes.forEach(n => { if (!crate || n.crate === crate) universe.add(n.id); });
+  const inU = (id) => universe.has(id);
+
+  let roots;
+  if (rootOverride && universe.has(rootOverride)) {
+    roots = [rootOverride];
+  } else {
+    // A root is a top node (nothing points to it). Keep nodes that take part in
+    // an edge, plus every crate node so single-file crates stay visible.
+    roots = [...universe].filter(id => {
+      if (indeg.get(id) > 0) return false;
+      const nn = nodeById.get(id);
+      return hasEdge.has(id) || (nn && nn.kind === "crate");
+    });
+    roots.sort();
+  }
+
+  const visited = new Set(), firstDom = new Map();
+  let counter = 0;
+  function expand(id) {
+    const domId = "t" + (counter++);
+    if (visited.has(id)) return { id, domId, stub: true, ref: firstDom.get(id), children: [] };
+    visited.add(id); firstDom.set(id, domId);
+    const kids = (adj.get(id) || []).filter(inU);
+    kids.sort();
+    return { id, domId, stub: false, children: kids.map(expand) };
+  }
+  let forest = roots.map(expand);
+  // Cycle islands with no in-edge-free entry point: surface them as extra roots.
+  for (const id of universe) {
+    if (hasEdge.has(id) && !visited.has(id)) forest.push(expand(id));
+  }
+  return { forest, firstDom };
+}
+
+function openRoots() {
+  treeEl.querySelectorAll(":scope > div > .tkids").forEach(k => {
+    k.classList.remove("hidden");
+    const tw = k.previousElementSibling && k.previousElementSibling.querySelector(".tw");
+    if (tw) tw.textContent = "▾";
+  });
+}
+
+function renderTree() {
+  const { forest, firstDom } = buildForest();
+  currentFirstDom = firstDom;
+  treeEl.innerHTML = "";
+  selRow = null;
+  const frag = document.createDocumentFragment();
+  let rows = 0, stubs = 0;
+
+  function make(node, depth) {
+    const n = nodeById.get(node.id) || {};
+    const wrap = document.createElement("div");
+    const row = document.createElement("div");
+    row.className = "trow" + (node.stub ? " stub" : "") + (n.kind === "crate" ? " crate-row" : "");
+    row.id = node.domId;
+    row.style.paddingLeft = (depth * 14 + 4) + "px";
+    rows++;
+
+    if (node.stub) {
+      stubs++;
+      row.innerHTML = `<span class="tw">↪</span>` +
+        `<span class="dot" style="background:${crateColor[n.crate] || "#888"}"></span>` +
+        `<span>${esc(shortLabel(node.id))}</span><span class="dim"> ↑ shown above</span>`;
+      row.title = node.id + "  (already expanded above — click to jump there)";
+      row.onclick = (e) => { e.stopPropagation(); select(row, node.id); jumpToTreeRow(node.ref); };
+      wrap.appendChild(row);
+      return wrap;
+    }
+
+    const hasKids = node.children.length > 0;
+    row.innerHTML = `<span class="tw">${hasKids ? "▸" : "·"}</span>` +
+      `<span class="dot" style="background:${crateColor[n.crate] || "#888"}"></span>` +
+      `<span>${esc(shortLabel(node.id))}</span>` +
+      `<span class="dim">${n.loc ? " " + n.loc : ""}${hasKids ? " (" + node.children.length + ")" : ""}</span>`;
+    row.title = node.id + (n.summary ? "  —  " + n.summary : "");
+    wrap.appendChild(row);
+
+    if (hasKids) {
+      const kids = document.createElement("div");
+      kids.className = "tkids hidden";
+      node.children.forEach(c => kids.appendChild(make(c, depth + 1)));
+      wrap.appendChild(kids);
+      const tw = row.querySelector(".tw");
+      row.onclick = (e) => {
+        e.stopPropagation(); select(row, node.id);
+        const open = kids.classList.toggle("hidden") === false;
+        tw.textContent = open ? "▾" : "▸";
+      };
+    } else {
+      row.onclick = (e) => { e.stopPropagation(); select(row, node.id); };
+    }
+    return wrap;
+  }
+
+  forest.forEach(node => frag.appendChild(make(node, 0)));
+  treeEl.appendChild(frag);
+  openRoots();
+  const note = rootOverride ? ` · rooted @ ${shortLabel(rootOverride)}` : "";
+  statsEl.textContent = `${rows} rows · ${stubs} back-refs · ${layerSel.value} · ${dirSel.value}${note}`;
+}
+
+function select(row, id) {
+  if (selRow) selRow.classList.remove("sel");
+  selRow = row; if (row) row.classList.add("sel");
+  selectedId = id; showNode(id);
+}
+
+function openAncestors(el) {
+  let p = el.parentElement;
+  while (p && p !== treeEl) {
+    if (p.classList && p.classList.contains("tkids") && p.classList.contains("hidden")) {
+      p.classList.remove("hidden");
+      const tw = p.previousElementSibling && p.previousElementSibling.querySelector(".tw");
+      if (tw) tw.textContent = "▾";
+    }
+    p = p.parentElement;
+  }
+}
+
+function jumpToTreeRow(domId) {
+  const el = document.getElementById(domId);
+  if (!el) return;
+  openAncestors(el);
+  el.scrollIntoView({ block: "center", behavior: "smooth" });
+  el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash");
+  if (selRow) selRow.classList.remove("sel"); selRow = el; el.classList.add("sel");
+}
+
+// --------------------------------------------------------------------------- //
+// Shared detail panel + navigation
+// --------------------------------------------------------------------------- //
+
 function neighborList(layer, id) {
   const out = { in: [], out: [] };
   const push = (arr, x) => { if (!arr.includes(x)) arr.push(x); };
-  if (layer === "filesystem") DATA.layers.filesystem.forEach(([s,d]) => {
-    if (s===id) push(out.out,d); if (d===id) push(out.in,s); });
-  else if (layer === "imports") DATA.layers.imports.forEach(([s,d]) => {
-    if (s===id) push(out.out,d); if (d===id) push(out.in,s); });
-  else DATA.layers.crate.forEach(([s,d]) => {
+  const pairs = layer === "filesystem" ? DATA.layers.filesystem
+              : layer === "imports" ? DATA.layers.imports : DATA.layers.crate;
+  pairs.forEach(e => { const s=e[0], d=e[1];
     if (s===id) push(out.out,d); if (d===id) push(out.in,s); });
   return out;
 }
@@ -729,52 +989,100 @@ function neighborList(layer, id) {
 function showNode(id) {
   const n = nodeById.get(id);
   const side = document.getElementById("side");
-  if (!n) { side.innerHTML = '<div class="meta">No data for '+id+'</div>'; return; }
+  if (!n) { side.innerHTML = '<div class="meta">No data for '+esc(id)+'</div>'; return; }
   const layer = layerSel.value;
   const nb = neighborList(layer, id);
-  const link = (x) => `<div class="nbr" onclick="focusNode('${x.replace(/'/g,"\\'")}')">${x}</div>`;
+  const link = (x) => `<div class="nbr" onclick="goTo('${jsq(x)}')">${esc(x)}</div>`;
+  const inLabel = layer === "filesystem" ? "parent" : "dependants (used by)";
+  const outLabel = layer === "filesystem" ? "children" : "dependencies (uses)";
   side.innerHTML = `
-    <h2>${n.label}</h2>
-    <div class="meta">${n.id}</div>
-    <div><span class="pill">${n.kind}</span> <span class="pill">${n.crate}</span>
+    <h2>${esc(n.label)}</h2>
+    <div class="meta">${esc(n.id)}</div>
+    <div><span class="pill">${n.kind}</span> <span class="pill">${esc(n.crate)}</span>
          <span class="pill">${n.loc} loc</span></div>
-    <div class="seclabel">path</div><div class="meta">${n.path || "—"}</div>
+    <div style="margin:8px 0"><button onclick="rootTreeHere('${jsq(id)}')">⌖ root tree here</button></div>
+    <div class="seclabel">path</div><div class="meta">${esc(n.path) || "—"}</div>
     <div class="seclabel">docstring</div>
-    <pre>${(n.doc || "(no //! doc)").replace(/</g,"&lt;")}</pre>
-    <div class="seclabel">${layer}: imported-by / parents (${nb.in.length})</div>
+    <pre>${esc(n.doc || "(no //! doc)")}</pre>
+    <div class="seclabel">${inLabel} (${nb.in.length})</div>
     ${nb.in.map(link).join("") || '<div class="meta">—</div>'}
-    <div class="seclabel">${layer}: imports / children (${nb.out.length})</div>
+    <div class="seclabel">${outLabel} (${nb.out.length})</div>
     ${nb.out.map(link).join("") || '<div class="meta">—</div>'}
   `;
 }
 
-function focusNode(id) {
+function focusGraphNode(id) {
   if (!network) return;
   try { network.selectNodes([id]); network.focus(id, { scale: 1.1, animation: true }); } catch(e){}
-  showNode(id);
 }
-window.focusNode = focusNode;
 
-// Search-as-you-type over all nodes (jumps across layers if needed).
+// Navigate to a node in whatever view is active.
+window.goTo = (id) => {
+  if (viewSel.value === "tree") {
+    const dom = currentFirstDom.get(id);
+    if (dom) { jumpToTreeRow(dom); showNode(id); }
+    else { rootTreeHere(id); }      // not in current forest (filtered/unreachable) -> reroot
+  } else {
+    focusGraphNode(id); showNode(id);
+  }
+};
+
+window.rootTreeHere = (id) => {
+  const n = nodeById.get(id);
+  viewSel.value = "tree";
+  rootOverride = id;
+  if (n && crateSel.value && n.crate !== crateSel.value && n.kind !== "crate") crateSel.value = "";
+  update();
+  const dom = currentFirstDom.get(id);
+  if (dom) jumpToTreeRow(dom);
+  showNode(id);
+};
+
+// Search-as-you-type over every node id.
 searchEl.addEventListener("input", () => {
   const q = searchEl.value.toLowerCase().trim();
-  if (!q) { resultsEl.style.display="none"; return; }
+  if (!q) { resultsEl.style.display = "none"; return; }
   const hits = DATA.nodes.filter(n => n.id.toLowerCase().includes(q)).slice(0, 40);
   resultsEl.innerHTML = hits.map(n =>
-     `<div onclick="pick('${n.id.replace(/'/g,"\\'")}')">${n.id}</div>`).join("");
+     `<div onclick="pick('${jsq(n.id)}')">${esc(n.id)}</div>`).join("");
   resultsEl.style.display = hits.length ? "block" : "none";
 });
 window.pick = (id) => {
   resultsEl.style.display = "none"; searchEl.value = "";
   const n = nodeById.get(id);
-  // If the node isn't in the current layer's filtered view, relax the crate filter.
-  if (n && crateSel.value && n.crate !== crateSel.value) crateSel.value = "";
-  render(); setTimeout(() => focusNode(id), 60);
+  if (n && crateSel.value && n.crate !== crateSel.value && n.kind !== "crate") crateSel.value = "";
+  update();
+  setTimeout(() => goTo(id), 50);
 };
 
-layerSel.addEventListener("change", render);
-crateSel.addEventListener("change", render);
-render();
+// --------------------------------------------------------------------------- //
+// View dispatch + wiring
+// --------------------------------------------------------------------------- //
+
+function update() {
+  const tree = viewSel.value === "tree";
+  treeEl.classList.toggle("hidden", !tree);
+  netEl.classList.toggle("hidden", tree);
+  document.querySelectorAll(".tree-only").forEach(e => { e.style.display = tree ? "" : "none"; });
+  if (tree) renderTree(); else renderGraph();
+}
+
+viewSel.addEventListener("change", update);
+layerSel.addEventListener("change", () => { rootOverride = null; update(); });
+dirSel.addEventListener("change", () => { rootOverride = null; update(); });
+reducedEl.addEventListener("change", update);
+crateSel.addEventListener("change", () => { rootOverride = null; update(); });
+document.getElementById("expandAll").onclick = () => {
+  treeEl.querySelectorAll(".tkids").forEach(k => k.classList.remove("hidden"));
+  treeEl.querySelectorAll(".trow .tw").forEach(tw => { if (tw.textContent === "▸") tw.textContent = "▾"; });
+};
+document.getElementById("collapseAll").onclick = () => {
+  treeEl.querySelectorAll(".tkids").forEach(k => k.classList.add("hidden"));
+  treeEl.querySelectorAll(".trow .tw").forEach(tw => { if (tw.textContent === "▾") tw.textContent = "▸"; });
+  openRoots();
+};
+
+update();
 </script>
 </body>
 </html>
@@ -820,8 +1128,13 @@ def main(argv: list[str]) -> int:
     )
 
     fs_edges = list(g_fs.edges())
+    reduced = {
+        "filesystem": reduce_graph(g_fs),
+        "imports": reduce_graph(g_imports),
+        "crate": reduce_graph(g_crate),
+    }
     json_path = out_dir / "module_graph.json"
-    write_json(json_path, all_nodes, fs_edges, import_weights, crate_edges, crate_names)
+    write_json(json_path, all_nodes, fs_edges, import_weights, crate_edges, crate_names, reduced)
 
     if args.graphml:
         write_graphml(out_dir, g_fs, g_imports, g_crate)

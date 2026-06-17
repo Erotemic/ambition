@@ -329,21 +329,6 @@ impl PlayerBlinkCameraState {
     }
 }
 
-/// Sandbox-only scratch flag: whether the player was riding a moving
-/// platform last simulation frame. Used by `player_simulation_phase`'s
-/// diagnostic debug log that prints riding-state transitions while
-/// chasing the "glitchy platform behavior" repro.
-///
-/// Lives on the player ECS entity rather than on `ae::Player` because
-/// moving platforms are a sandbox concept — the engine controller is
-/// platform-agnostic. Auto-resets to `false` because the field has no
-/// meaningful initial value; on a player reset we don't need to carry
-/// the previous riding state across.
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct PlayerPlatformRideState {
-    pub was_riding: bool,
-}
-
 /// Per-player "last known safe spot" used by hazard knockback and debug
 /// respawn helpers. Stored on each player so future co-op builds keep safe
 /// anchors independent.

@@ -183,7 +183,6 @@ pub fn player_simulation_system(
             &mut ambition_sandbox::player::PlayerCombatState,
             &mut ambition_sandbox::player::PlayerInteractionState,
             &mut ambition_sandbox::player::PlayerBlinkCameraState,
-            &mut ambition_sandbox::player::PlayerPlatformRideState,
             &mut ambition_sandbox::player::ActivePlayerAttack,
             &mut ambition_sandbox::player::PlayerSafetyState,
             &ambition_sandbox::player::PlayerInputFrame,
@@ -218,7 +217,6 @@ pub fn player_simulation_system(
         mut combat,
         mut interaction,
         mut blink_cam,
-        mut ride,
         mut attack,
         mut safety,
         input,
@@ -251,7 +249,6 @@ pub fn player_simulation_system(
             &mut combat,
             &mut interaction,
             &mut blink_cam,
-            &mut ride,
             is_primary,
         );
         if is_primary && matches!(outcome, PhaseOutcome::Return) {

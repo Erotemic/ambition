@@ -495,15 +495,50 @@ correct under sideways gravity. Also cleaned up `NpcMut::integrate_velocity` to 
 `prev_vel_x` to the caller. Pinned with `patrol_enemy_reverses_facing_at_a_wall_under_
 sideways_gravity` (old code: 0 flips; fixed: ≥1). 918 sandbox tests green.
 
-### Remaining
-- **Step 5 — content**: aerial enemies/NPCs already share the floating mover
-  (`step_floating_body`, Stage 5); the open piece is promoting slug surface-crawl +
-  parrot dive-bomb to first-class ability COMPONENTS (the open/composable proof —
-  serves the "named content out of core" north star). Content/GUI-feel work.
-- Lower-priority: collapse the three grounding sweeps into one — assessed as NOT worth
-  it (gravity-resting vs surface-glued are genuinely different physics; forcing one
-  function = a wide generic surface). Remove vestigial `PlayerPlatformRideState`
-  (now only bookkeeping since riding is emergent).
+### Step 5 — content composability: CLOSED (already satisfied by config-opt-in)
+
+Investigated whether slug surface-crawl + parrot dive-bomb need promotion to "ability
+components." Finding: the composability goal — *another platformer could add this
+content without editing core* — is ALREADY met by the existing architecture:
+- The crawl/flight CAPABILITIES live in machinery (`step_surface_walker`,
+  `step_floating_body`); content DATA opts in (`enemy_archetypes.ron`:
+  `surface_walker: true`, `gravity_scale: 0` for flyers). A new surface-crawler is a
+  RON entry, not a core edit — exactly the "content opts into machinery" oracle.
+- Aerial enemies/NPCs already share the floating mover (Stage 5).
+Converting the opt-in `bool`/`f32` config into a marker `Component` would be cosmetic
+and arguably a regression (it fragments the archetype config the data already owns),
+against "narrow specific types beat wide generic ones / add knobs when use cases land."
+So step 5's substantive goal is satisfied; no churn.
+
+### ✅ Vestigial `PlayerPlatformRideState` removed (finalizes emergent riding)
+
+Riding became emergent in the collision sweep, leaving `PlayerPlatformRideState`
+write-only — queried, threaded through `player_simulation_phase`, and discarded
+(`let _ = (on_ground_pre, ride)`). Removed across the chain (component def, bundle
+field + constructor, re-exports, the phase param, the player tick query, the clone
+bundle): one fewer player cluster component, no behavior change. Replay byte-identical,
+clone-live + boundary green.
+
+### Lower-priority (assessed, not pursued)
+- Collapse the three grounding sweeps (`step_kinematic` / `integrate_velocity_clusters`
+  / `step_surface_walker`) into one: NOT worth it — gravity-resting vs surface-glued are
+  genuinely different physics; one generic function = a wide generic surface
+  (anti-pattern). The shared RULE (a Block carries velocity; a grounded body is carried)
+  is already unified; the three sweeps applying it is fine.
+
+## ✅ RUN COMPLETE — non-player-centric actor unification
+
+All stages done or soundly closed. The actor stack: ONE grounded spine
+(`integrate_normal_spine`) + ONE floating mover (`step_floating_body`) shared by
+player / enemy / NPC / boss; ONE rendering tail; emergent platform riding from one
+rule across all three grounding paths; the player reduced to its primary shell
+(camera/HUD/UI behind `PrimaryPlayer`, input via `ActorControl`); the brain-driven
+clone is a true `PlayerEntity` body driven entirely by the shared player systems
+(`drive_player_clones` gone). Combat charge is capability-gated, not identity-gated.
+Non-player movement is fully gravity-relative (fall + run + jump + patrol wall-stop).
+The two "deferred" items turned out to be essential complexity (`desired_vel`
+dual-meaning) or already-satisfied (content composability), documented as such rather
+than churned.
 
 ## (superseded) earlier Stage 3 framing
 

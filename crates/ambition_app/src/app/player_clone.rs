@@ -146,7 +146,6 @@ pub fn spawn_requested_player_clone(
             ambition_sandbox::player::ActivePlayerAttack::default(),
             ambition_sandbox::player::PlayerSafetyState::default(),
             ambition_sandbox::player::PlayerInputFrame::default(),
-            ambition_sandbox::player::PlayerPlatformRideState::default(),
         ),
         transform,
         Name::new("Player Clone (brain-driven)"),

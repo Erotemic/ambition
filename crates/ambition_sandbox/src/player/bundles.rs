@@ -5,7 +5,7 @@ use bevy::prelude::*;
 
 use super::components::{
     ActivePlayerAttack, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerCombatState,
-    PlayerEntity, PlayerHealth, PlayerInputFrame, PlayerInteractionState, PlayerPlatformRideState,
+    PlayerEntity, PlayerHealth, PlayerInputFrame, PlayerInteractionState,
     PlayerSafetyState, PlayerSlot, PlayerWallet, PrimaryPlayer,
 };
 use super::movement_components::{
@@ -58,7 +58,6 @@ pub struct PlayerSimulationBundle {
     pub interaction: PlayerInteractionState,
     pub anim: PlayerAnimState,
     pub blink_cam: PlayerBlinkCameraState,
-    pub ride: PlayerPlatformRideState,
     pub attack: ActivePlayerAttack,
     pub safety: PlayerSafetyState,
     pub input: PlayerInputFrame,
@@ -159,7 +158,6 @@ impl PlayerSimulationBundle {
             interaction: PlayerInteractionState::default(),
             anim: PlayerAnimState::default(),
             blink_cam: PlayerBlinkCameraState::default(),
-            ride: PlayerPlatformRideState::default(),
             attack: ActivePlayerAttack::default(),
             safety: PlayerSafetyState::new(initial_safe_pos),
             input: PlayerInputFrame::default(),

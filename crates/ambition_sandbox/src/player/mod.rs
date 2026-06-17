@@ -30,7 +30,7 @@ pub mod systems;
 pub use bundles::{PlayerIdentityBundle, PlayerSimulationBundle};
 pub use components::{
     ActivePlayerAttack, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerCombatState,
-    PlayerEntity, PlayerHealth, PlayerInputFrame, PlayerInteractionState, PlayerPlatformRideState,
+    PlayerEntity, PlayerHealth, PlayerInputFrame, PlayerInteractionState,
     PlayerSafetyState, PlayerSlot, PlayerWallet, PrimaryPlayer,
 };
 pub use events::PlayerHealRequested;

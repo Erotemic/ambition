@@ -185,7 +185,6 @@ pub(super) fn player_simulation_phase(
     combat: &mut ambition_sandbox::player::PlayerCombatState,
     interaction: &mut ambition_sandbox::player::PlayerInteractionState,
     blink_cam: &mut ambition_sandbox::player::PlayerBlinkCameraState,
-    ride: &mut ambition_sandbox::player::PlayerPlatformRideState,
     // True only for the camera/HUD-owning primary. Non-primary player bodies (the
     // clone) run the same per-entity sim but must not shake the camera or reset the
     // world — those are primary-only.
@@ -213,11 +212,11 @@ pub(super) fn player_simulation_phase(
     // Standing-on-platform RIDING is no longer here — it is EMERGENT in the movement
     // sweep (`integrate_velocity_clusters` carries any grounded body by the supporting
     // solid's velocity, the same rule `step_kinematic` applies to enemies), so the
-    // player rides like every other body, with no player-specific ride code or
-    // `PlayerPlatformRideState` bookkeeping. What stays is the LEDGE-platform carry:
-    // hanging off a moving platform's edge is player-specific (only the player
-    // ledge-grabs) AND the body isn't grounded then, so the sweep carry can't apply.
-    let _ = (on_ground_pre, ride); // PlayerPlatformRideState is now vestigial.
+    // player rides like every other body, with no player-specific ride code. What
+    // stays is the LEDGE-platform carry: hanging off a moving platform's edge is
+    // player-specific (only the player ledge-grabs) AND the body isn't grounded
+    // then, so the sweep carry can't apply.
+    let _ = on_ground_pre;
     if let Some(platform_delta) =
         active_ledge_platform.map(|idx| moving_platforms[idx].last_delta())
     {

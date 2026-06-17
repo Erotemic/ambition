@@ -89,7 +89,7 @@ impl fmt::Display for HeadlessReport {
 /// Builds an `App` from `MinimalPlugins` plus the small set of Bevy
 /// foundation plugins the sim's resources / assets / states / transforms
 /// need, then composes `init_sandbox_resources` and
-/// `add_simulation_plugins` from `ambition_gameplay_core::app`. Calls `app.update()`
+/// `add_simulation_plugins` from `ambition_gameplay_core::schedule`. Calls `app.update()`
 /// `max_ticks` times and returns a `HeadlessReport`.
 ///
 /// Validation failures from the embedded LDtk project propagate as `Err`,

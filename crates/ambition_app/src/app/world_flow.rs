@@ -22,7 +22,7 @@ use super::setup_systems::*;
 #[allow(unused_imports)]
 use super::*;
 #[allow(unused_imports)]
-use ambition_gameplay_core::app::*;
+use ambition_gameplay_core::schedule::*;
 
 /// Bundle of the two room-reset clock/sim resources, so systems that
 /// already sit near Bevy's 16-SystemParam limit (e.g.

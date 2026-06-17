@@ -185,7 +185,7 @@ pub(super) use npcs::NPC_HOSTILE_STRIKE_THRESHOLD;
 use util::*;
 
 /// Schedules the gameplay-effect bus chain into
-/// [`crate::app::SandboxSet::GameplayEffects`].
+/// [`crate::schedule::SandboxSet::GameplayEffects`].
 pub struct GameplayEffectsSchedulePlugin;
 
 impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
@@ -202,7 +202,7 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 bus::apply_gameplay_sfx_effects,
             )
                 .chain()
-                .in_set(crate::app::SandboxSet::GameplayEffects),
+                .in_set(crate::schedule::SandboxSet::GameplayEffects),
         );
     }
 }
@@ -260,14 +260,14 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 sync_actor_poses_from_feature_aabbs,
             )
                 .chain()
-                .in_set(crate::app::SandboxSet::WorldPrep),
+                .in_set(crate::schedule::SandboxSet::WorldPrep),
         );
         app.configure_sets(
             Update,
-            crate::app::BossSteerSlot
+            crate::schedule::BossSteerSlot
                 .after(tick_boss_brains_system)
                 .before(update_ecs_bosses)
-                .in_set(crate::app::SandboxSet::WorldPrep),
+                .in_set(crate::schedule::SandboxSet::WorldPrep),
         );
         // The cut-rope steer system itself is registered by the content
         // plugin (`crate::content::bosses`), in `BossSteerSlot`.
@@ -289,7 +289,7 @@ impl bevy::prelude::Plugin for FeatureCollectionSchedulePlugin {
                 crate::player::apply_player_heal_requests,
             )
                 .chain()
-                .in_set(crate::app::SandboxSet::FeatureCollection),
+                .in_set(crate::schedule::SandboxSet::FeatureCollection),
         );
     }
 }
@@ -312,7 +312,7 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
                 crate::encounter::rebuild_encounter_switch_index,
             )
                 .chain()
-                .in_set(crate::app::SandboxSet::FeatureInteraction),
+                .in_set(crate::schedule::SandboxSet::FeatureInteraction),
         );
     }
 }
@@ -325,7 +325,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
         use bevy::prelude::{IntoScheduleConfigs, Update};
         app.add_systems(
             Update,
-            rebuild_feature_view_index.in_set(crate::app::SandboxSet::FeatureViewSync),
+            rebuild_feature_view_index.in_set(crate::schedule::SandboxSet::FeatureViewSync),
         );
     }
 }

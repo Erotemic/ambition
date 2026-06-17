@@ -194,7 +194,7 @@ embed_core_assets! {
 ///
 /// `EmbeddedAssetRegistry` is created by Bevy's `AssetPlugin`. The
 /// plugin therefore must run AFTER `DefaultPlugins`. The visible app
-/// builder ([`crate::app::run_visible`] / [`crate::app::run_web`])
+/// builder ([`crate::schedule::run_visible`] / [`crate::schedule::run_web`])
 /// adds it as the last plugin in the
 /// `SandboxPresentationPlugin` install order.
 pub struct AmbitionAssetSourcePlugin {

@@ -426,7 +426,7 @@ fn feature_view_index_first_write_wins_on_duplicate_ids() {
 /// pin the ordering.
 #[test]
 fn feature_view_index_reflects_same_frame_reset_spawn() {
-    use crate::app::{configure_sandbox_sets, SandboxSet};
+    use crate::schedule::{configure_sandbox_sets, SandboxSet};
 
     fn fake_reset_system(mut commands: Commands, existing: Query<Entity, With<FeatureSimEntity>>) {
         for entity in &existing {
@@ -483,8 +483,8 @@ fn feature_view_index_reflects_same_frame_reset_spawn() {
 
 /// Regression for the presentation-reader ordering contract:
 /// every system added to
-/// [`crate::app::SandboxSet::PresentationVisualSync`] must run
-/// after [`crate::app::SandboxSet::FeatureViewSync`].
+/// [`crate::schedule::SandboxSet::PresentationVisualSync`] must run
+/// after [`crate::schedule::SandboxSet::FeatureViewSync`].
 ///
 /// Structural check: inspect the actual Bevy schedule graph
 /// rather than depend on the executor's behavior with two
@@ -498,7 +498,7 @@ fn feature_view_index_reflects_same_frame_reset_spawn() {
 /// Bevy ships or how it tie-breaks unordered systems.
 #[test]
 fn presentation_visual_sync_runs_after_feature_view_sync() {
-    use crate::app::{configure_sandbox_sets, SandboxSet};
+    use crate::schedule::{configure_sandbox_sets, SandboxSet};
     use bevy::ecs::schedule::{NodeId, Schedules};
     use bevy::prelude::{IntoScheduleConfigs, Update};
 

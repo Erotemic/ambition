@@ -19,7 +19,7 @@ use super::world_flow::*;
 #[allow(unused_imports)]
 use super::*;
 #[allow(unused_imports)]
-use ambition_gameplay_core::app::*;
+use ambition_gameplay_core::schedule::*;
 
 /// Programmatic start-room override. SandboxSim and other library
 /// callers insert this resource before `init_sandbox_resources` runs;

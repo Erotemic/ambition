@@ -160,7 +160,7 @@ impl Plugin for AmbitionBossContentPlugin {
         // inside the WorldPrep boss chain).
         app.add_systems(
             Update,
-            cut_rope::steer_cut_rope_boss_under_anvil.in_set(ambition_gameplay_core::app::BossSteerSlot),
+            cut_rope::steer_cut_rope_boss_under_anvil.in_set(ambition_gameplay_core::schedule::BossSteerSlot),
         );
 
         // Cut-rope Yarn vocabulary: installed on the DialogueRunner via the

@@ -20,7 +20,7 @@ use super::world_flow::*;
 #[allow(unused_imports)]
 use super::*;
 #[allow(unused_imports)]
-use ambition_gameplay_core::app::*;
+use ambition_gameplay_core::schedule::*;
 
 // `GameWorld` and the time-scale ramp helper `move_toward` live in
 // `ambition_gameplay_core::lib` (`ambition_gameplay_core`) and are re-imported above through

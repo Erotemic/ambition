@@ -105,11 +105,11 @@ mod sim_systems;
 mod world_flow;
 
 #[cfg(feature = "input")]
-pub use ambition_gameplay_core::app::{
+pub use ambition_gameplay_core::schedule::{
     apply_menu_frame_to_cutscene_request, populate_control_frame_from_actions,
     populate_menu_control_frame_from_actions, MenuNavConsume,
 };
-pub use ambition_gameplay_core::app::{
+pub use ambition_gameplay_core::schedule::{
     configure_sandbox_sets, BossSteerSlot, PresentationSetupSet, SandboxSet,
 };
 #[cfg(not(target_arch = "wasm32"))]

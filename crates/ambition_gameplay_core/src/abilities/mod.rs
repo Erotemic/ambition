@@ -12,7 +12,7 @@
 //! register nothing with the Bevy `App`. The one exception is
 //! [`traversal::possession`], whose `PossessionState` resource is
 //! initialized by [`AmbitionAbilitiesPlugin`]. The possession *systems*
-//! stay chained inside `crate::app::plugins::register_player_simulation_systems`
+//! stay chained inside `crate::schedule::plugins::register_player_simulation_systems`
 //! because they are interleaved (via `not_possessing` run conditions and a
 //! single `.chain()`) with the player control / simulation tick; lifting
 //! them would change execution order, so they are deliberately left in

@@ -47,7 +47,7 @@ pub(crate) use embedded::{
 /// Wrapped [`AmbitionAssetCatalog`] + active [`AssetProfile`].
 ///
 /// One instance per app session, installed as a Bevy `Resource` by
-/// [`crate::app::init_sandbox_resources`]. Every subsystem that loads
+/// [`crate::schedule::init_sandbox_resources`]. Every subsystem that loads
 /// an asset goes through this; nothing else owns asset-source policy.
 ///
 /// Cheap to clone (the underlying manifest is wrapped in an `Arc`-like

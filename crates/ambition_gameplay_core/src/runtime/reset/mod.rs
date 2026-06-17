@@ -263,7 +263,7 @@ impl Plugin for SandboxResetSchedulePlugin {
                 process_sandbox_reset_request,
             )
                 .chain()
-                .in_set(crate::app::SandboxSet::ResetProcessing),
+                .in_set(crate::schedule::SandboxSet::ResetProcessing),
         );
     }
 }

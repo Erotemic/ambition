@@ -205,13 +205,13 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
                 // press AFTER the fold writes the pressed_this_frame bit.
                 kaleidoscope_menu_open_routing
                     .run_if(kaleidoscope_backend_active)
-                    .in_set(ambition_gameplay_core::app::MenuNavConsume),
+                    .in_set(ambition_gameplay_core::schedule::MenuNavConsume),
                 // Nav first (mutates the cursor), then republish (reads the cursor +
                 // inventory) so the highlight + detail panel reflect this frame's move.
                 // Also in `MenuNavConsume` for the same fold-ordering reason above.
                 kaleidoscope_focus_nav
                     .run_if(kaleidoscope_menu_visible)
-                    .in_set(ambition_gameplay_core::app::MenuNavConsume),
+                    .in_set(ambition_gameplay_core::schedule::MenuNavConsume),
                 // Scroll the System window independently of selection before republish.
                 kaleidoscope_scroll_wheel.run_if(kaleidoscope_menu_visible),
                 kaleidoscope_apply_scroll_drag.run_if(kaleidoscope_menu_visible),

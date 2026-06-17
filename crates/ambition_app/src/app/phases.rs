@@ -19,7 +19,7 @@ use super::world_flow::*;
 #[allow(unused_imports)]
 use super::*;
 #[allow(unused_imports)]
-use ambition_gameplay_core::app::*;
+use ambition_gameplay_core::schedule::*;
 
 /// How a ledge-grabbing player should react to the moving platform that carries
 /// them this frame: ride along with it, or be knocked off because the carry

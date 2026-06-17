@@ -15,7 +15,7 @@ use super::components::{
     AmbitionLdtkEntity, AmbitionLdtkMarkerBundle, LdtkDamageVolume, LdtkOneWayPlatform, LdtkSolid,
 };
 use super::indices::LdtkRuntimeSpineStats;
-use crate::app::SandboxSet;
+use crate::schedule::SandboxSet;
 
 pub struct AmbitionLdtkRegistrationPlugin;
 

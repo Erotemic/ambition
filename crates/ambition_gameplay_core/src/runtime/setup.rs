@@ -86,7 +86,7 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
         bevy::log::debug!(target: "ambition::room_layout", "{warning}");
     }
     // The LdtkWorldBundle spawn lives in the Ldtk-runtime startup system
-    // (`crate::app::add_ldtk_runtime_plugin`) because asset_server.load on a
+    // (`crate::schedule::add_ldtk_runtime_plugin`) because asset_server.load on a
     // typed `LdtkProject` handle requires `LdtkPlugin` to be registered.
     // Headless builds skip LdtkPlugin (its tile pipeline needs RenderApp),
     // so this function must not assume the LDtk asset type is available.

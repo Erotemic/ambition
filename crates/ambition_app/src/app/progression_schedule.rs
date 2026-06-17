@@ -10,7 +10,7 @@
 
 use bevy::prelude::*;
 
-use ambition_gameplay_core::app::SandboxSet;
+use ambition_gameplay_core::schedule::SandboxSet;
 
 /// Schedules the `SandboxSet::Progression` system chain plus the
 /// registry-populate systems that share the same set.

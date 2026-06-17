@@ -19,7 +19,7 @@ use super::world_flow::*;
 #[allow(unused_imports)]
 use super::*;
 #[allow(unused_imports)]
-use ambition_gameplay_core::app::*;
+use ambition_gameplay_core::schedule::*;
 
 /// Resolve the on-disk asset root for the desktop app.
 ///

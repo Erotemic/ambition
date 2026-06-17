@@ -19,7 +19,7 @@ use super::world_flow::*;
 #[allow(unused_imports)]
 use super::*;
 #[allow(unused_imports)]
-use ambition_gameplay_core::app::*;
+use ambition_gameplay_core::schedule::*;
 
 /// Bundled `MessageWriter`s for the sim → presentation event channels
 /// the player tick (and the inline `*_phase` helpers it calls) writes

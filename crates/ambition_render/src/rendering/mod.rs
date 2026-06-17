@@ -159,7 +159,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
 }
 
 /// Module-local Bevy plugin: schedules the per-frame visual animation
-/// chain into [`ambition_gameplay_core::app::SandboxSet::PresentationVisualSync`].
+/// chain into [`ambition_gameplay_core::schedule::SandboxSet::PresentationVisualSync`].
 ///
 /// Spawns dynamic feature visuals first (so `sync_visuals` finds them
 /// the same frame), then mirrors transforms / sprite atlas indices,
@@ -236,7 +236,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 pirate_weapon::sync_pirate_weapon_visuals,
             )
                 .chain()
-                .in_set(ambition_gameplay_core::app::SandboxSet::PresentationVisualSync)
+                .in_set(ambition_gameplay_core::schedule::SandboxSet::PresentationVisualSync)
                 .after(ambition_gameplay_core::menu::map::handle_map_menu_hotkeys),
         );
 

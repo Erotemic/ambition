@@ -1,6 +1,6 @@
 //! Module-local Bevy [`Plugin`] for the gameplay trace recorder.
 //!
-//! The trace runs in [`crate::app::SandboxSet::Trace`] (configured by
+//! The trace runs in [`crate::schedule::SandboxSet::Trace`] (configured by
 //! `app/schedule.rs`), which orders after `CoreSimulation` so the
 //! per-frame snapshot captures the resolved player state. Both the
 //! visible binary and the headless driver install this plugin via
@@ -8,7 +8,7 @@
 
 use bevy::prelude::*;
 
-use crate::app::SandboxSet;
+use crate::schedule::SandboxSet;
 
 pub struct TraceSchedulePlugin;
 

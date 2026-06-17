@@ -60,7 +60,7 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
                 crate::features::tick_gameplay_banner,
             )
                 .chain()
-                .in_set(crate::app::SandboxSet::EncounterSimulation),
+                .in_set(crate::schedule::SandboxSet::EncounterSimulation),
         );
     }
 }

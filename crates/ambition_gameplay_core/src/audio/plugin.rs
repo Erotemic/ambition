@@ -12,7 +12,7 @@
 //! `crate::music`, the two domain modules that own audio playback.
 //! The one cross-module ordering hook — `.after(setup_presentation_system)`
 //! on the `load_music_cues` startup chain — pulls
-//! `crate::app::setup_presentation_system` through the `pub(crate)`
+//! `crate::schedule::setup_presentation_system` through the `pub(crate)`
 //! re-export added in `app.rs`.
 
 use bevy::prelude::*;
@@ -76,7 +76,7 @@ impl Plugin for SandboxAudioPlugin {
                     crate::dev::profiling::phase_mark("after_audio_init"),
                 )
                     .chain()
-                    .after(crate::app::PresentationSetupSet),
+                    .after(crate::schedule::PresentationSetupSet),
             )
             // Deferred music start: polls each Update for (a) user
             // gesture observed (AudioUnlockState) and (b) the default
@@ -88,7 +88,7 @@ impl Plugin for SandboxAudioPlugin {
             .add_systems(Update, start_default_music_when_ready)
             .add_systems(
                 Update,
-                audio_play_sfx_messages.after(crate::app::SandboxSet::CoreSimulation),
+                audio_play_sfx_messages.after(crate::schedule::SandboxSet::CoreSimulation),
             )
             // Observe the player's WaterContact and request the matching
             // audio environment; the smoother ramps `wetness`, then
@@ -103,7 +103,7 @@ impl Plugin for SandboxAudioPlugin {
                     apply_audio_environment,
                 )
                     .chain()
-                    .after(crate::app::SandboxSet::CoreSimulation),
+                    .after(crate::schedule::SandboxSet::CoreSimulation),
             )
             // Neutral music intent: the content layer resolves Ambition
             // encounter/boss/room/radio gameplay into a content-agnostic
@@ -125,7 +125,7 @@ impl Plugin for SandboxAudioPlugin {
                     crate::music::drive_music_director,
                 )
                     .chain()
-                    .after(crate::app::SandboxSet::CoreSimulation),
+                    .after(crate::schedule::SandboxSet::CoreSimulation),
             );
     }
 }

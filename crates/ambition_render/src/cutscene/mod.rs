@@ -509,7 +509,7 @@ pub fn sync_cutscene_ui(
 
 /// Module-local Bevy plugin: schedules the cutscene chain
 /// (`auto_trigger_room_cutscenes` → `drain_cutscene_triggers` →
-/// `tick_active_cutscene`) into [`ambition_gameplay_core::app::SandboxSet::Cutscene`].
+/// `tick_active_cutscene`) into [`ambition_gameplay_core::schedule::SandboxSet::Cutscene`].
 ///
 /// Carved out of `app/plugins.rs::register_cutscene_systems` per
 /// OVERNIGHT-TODO #6 (module-local plugins). Every system in this
@@ -527,7 +527,7 @@ impl Plugin for CutsceneSchedulePlugin {
                 tick_active_cutscene,
             )
                 .chain()
-                .in_set(ambition_gameplay_core::app::SandboxSet::Cutscene),
+                .in_set(ambition_gameplay_core::schedule::SandboxSet::Cutscene),
         );
     }
 }

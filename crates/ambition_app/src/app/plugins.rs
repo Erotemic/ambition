@@ -21,7 +21,7 @@ use super::world_flow::*;
 #[allow(unused_imports)]
 use super::*;
 #[allow(unused_imports)]
-use ambition_gameplay_core::app::*;
+use ambition_gameplay_core::schedule::*;
 
 /// Register core simulation plugins, message types, and the gameplay
 /// schedule. Headless and visible both call this.
@@ -585,7 +585,7 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                 // this slot: audio init (and any future machinery startup
                 // work) orders `.after(the set)` instead of naming this
                 // app system.
-                setup_presentation_system.in_set(ambition_gameplay_core::app::PresentationSetupSet),
+                setup_presentation_system.in_set(ambition_gameplay_core::schedule::PresentationSetupSet),
                 ambition_gameplay_core::dev::profiling::phase_mark("after_setup_presentation"),
                 ambition_gameplay_core::menu::map::populate_map_rooms,
                 ambition_gameplay_core::menu::map::spawn_map_menu,

@@ -143,7 +143,7 @@ impl Plugin for TouchControlsPlugin {
                     read_joystick_messages,
                     update_buttons_from_interactions,
                     fold_to_menu_control_frame
-                        .after(ambition_gameplay_core::app::populate_menu_control_frame_from_actions)
+                        .after(ambition_gameplay_core::schedule::populate_menu_control_frame_from_actions)
                         // Must run AFTER update_buttons_from_interactions so it
                         // reads this frame's MobileTouchState, not last frame's.
                         // Without this pin Bevy is free (based on conflict graph)
@@ -153,7 +153,7 @@ impl Plugin for TouchControlsPlugin {
                         // (added ActiveInputKind), which silently changed Bevy's
                         // implicit ordering and broke the menu Start button.
                         .after(update_buttons_from_interactions)
-                        .before(ambition_gameplay_core::app::apply_menu_frame_to_cutscene_request)
+                        .before(ambition_gameplay_core::schedule::apply_menu_frame_to_cutscene_request)
                         // Bug 2: the touch joystick must reach
                         // `MenuControlFrame.up/down/left/right` BEFORE the
                         // menu nav consumers read it, or the frame is consumed
@@ -161,7 +161,7 @@ impl Plugin for TouchControlsPlugin {
                         // so the on-screen joystick never moved either menu's
                         // cursor. Pin the fold ahead of BOTH backends' nav
                         // (Grid + cube) via the shared `MenuNavConsume` set.
-                        .before(ambition_gameplay_core::app::MenuNavConsume),
+                        .before(ambition_gameplay_core::schedule::MenuNavConsume),
                     fold_to_control_frame
                         // ControlFrame writer: join the input populate set so
                         // the schedule pins it before the consume boundary.
@@ -175,7 +175,7 @@ impl Plugin for TouchControlsPlugin {
                         // run AFTER fold_to_control_frame, which
                         // resets ControlFrame to defaults / leafwing's
                         // values and stomps the touch button merge.
-                        .after(ambition_gameplay_core::app::populate_control_frame_from_actions)
+                        .after(ambition_gameplay_core::schedule::populate_control_frame_from_actions)
                         // Same issue as fold_to_menu_control_frame above:
                         // must see this frame's button state.
                         .after(update_buttons_from_interactions)
@@ -199,7 +199,7 @@ impl Plugin for TouchControlsPlugin {
                         // menu open-routing / nav reads it. The fold runs after
                         // populate; pinning `.before(MenuNavConsume)` wins the
                         // tie so the fold also runs before the menu consumes it.
-                        .before(ambition_gameplay_core::app::MenuNavConsume),
+                        .before(ambition_gameplay_core::schedule::MenuNavConsume),
                 )
                     .chain(),
             )

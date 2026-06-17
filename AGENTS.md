@@ -42,7 +42,7 @@ Historical notes under `docs/archive/` are evidence, not current authority. Gene
   binary (playable `ambition_gameplay_core` bin, `headless`, `rl_*`) + the full-stack
   integration tests, and is the only crate allowed to name both layers.
   Machinery must not import content — `architecture_boundaries` enforces it.
-  Schedule vocabulary (`SandboxSet` etc.) stays in `ambition_gameplay_core::app`.
+  Schedule vocabulary (`SandboxSet` etc.) stays in `ambition_gameplay_core::schedule`.
 
 ## Autonomous decision-making
 

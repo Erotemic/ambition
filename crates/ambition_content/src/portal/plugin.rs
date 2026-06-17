@@ -106,7 +106,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
             portal_input_adapter_system
                 .run_if(ambition_gameplay_core::gameplay_allowed)
                 .in_set(PortalSet::InputAdapter)
-                .in_set(ambition_gameplay_core::app::SandboxSet::PlayerSimulation),
+                .in_set(ambition_gameplay_core::schedule::SandboxSet::PlayerSimulation),
         );
 
         // Resolve the `FirePortalGun` gesture → the generic `PortalFireIntent`
@@ -121,7 +121,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
             resolve_portal_fire_intent
                 .run_if(ambition_gameplay_core::gameplay_allowed)
                 .in_set(PortalSet::InputAdapter)
-                .in_set(ambition_gameplay_core::app::SandboxSet::PlayerSimulation)
+                .in_set(ambition_gameplay_core::schedule::SandboxSet::PlayerSimulation)
                 .after(portal_input_adapter_system),
         );
 
@@ -303,7 +303,7 @@ mod schedule_tests {
     //! pure round-trip).
     use bevy::prelude::*;
 
-    use ambition_gameplay_core::app::{configure_sandbox_sets, SandboxSet};
+    use ambition_gameplay_core::schedule::{configure_sandbox_sets, SandboxSet};
     use ambition_gameplay_core::input::ControlFrame;
     use ambition_gameplay_core::player::{PlayerEntity, PrimaryPlayer};
     use ambition_gameplay_core::portal::PlayerMovementIntent;

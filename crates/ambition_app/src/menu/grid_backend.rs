@@ -1103,14 +1103,14 @@ pub fn install_grid_unified_menu(app: &mut App) {
                 // Join the shared menu-nav consume set so the touch-joystick
                 // fold (mobile_input) can pin `.before(MenuNavConsume)` and
                 // land its directional intent before this reads the frame.
-                .in_set(ambition_gameplay_core::app::MenuNavConsume),
+                .in_set(ambition_gameplay_core::schedule::MenuNavConsume),
         )
             .chain()
-            .before(ambition_gameplay_core::app::SandboxSet::CoreSimulation),
+            .before(ambition_gameplay_core::schedule::SandboxSet::CoreSimulation),
     );
     app.add_systems(
         Update,
-        grid_menu_republish_view.after(ambition_gameplay_core::app::SandboxSet::CoreSimulation),
+        grid_menu_republish_view.after(ambition_gameplay_core::schedule::SandboxSet::CoreSimulation),
     );
     // Carry the active page across a backend switch BEFORE the Grid republishes its
     // body, so you land on the same screen you were on (not Inventory). Ordered AFTER
@@ -1120,7 +1120,7 @@ pub fn install_grid_unified_menu(app: &mut App) {
     app.add_systems(
         Update,
         sync_menu_page_across_backend_switch
-            .after(ambition_gameplay_core::app::MenuNavConsume)
+            .after(ambition_gameplay_core::schedule::MenuNavConsume)
             .before(grid_menu_republish_view),
     );
     // Features C/D: the wheel + scrollbar-drag scroll appliers run BEFORE republish so

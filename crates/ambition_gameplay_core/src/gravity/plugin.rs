@@ -53,7 +53,7 @@ impl Plugin for GravityPlugin {
             )
                 .chain()
                 .in_set(GravitySet::ZoneSnapshot)
-                .before(crate::app::SandboxSet::CoreSimulation),
+                .before(crate::schedule::SandboxSet::CoreSimulation),
         );
 
         // NOTE: `gravity_flip_switch_system` is intentionally NOT registered.
@@ -70,7 +70,7 @@ impl Plugin for GravityPlugin {
             Update,
             reset_gravity_on_room_reset
                 .in_set(GravitySet::RoomReset)
-                .in_set(crate::app::SandboxSet::RoomTransition)
+                .in_set(crate::schedule::SandboxSet::RoomTransition)
                 .after(crate::runtime::reset::ContentRoomResetSet),
         );
     }

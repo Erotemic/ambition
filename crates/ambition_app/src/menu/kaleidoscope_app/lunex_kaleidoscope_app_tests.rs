@@ -903,7 +903,7 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
     app.add_systems(
         Update,
         (
-            ambition_gameplay_core::app::populate_menu_control_frame_from_actions,
+            ambition_gameplay_core::schedule::populate_menu_control_frame_from_actions,
             kaleidoscope_menu_open_routing,
             kaleidoscope_focus_nav,
         )

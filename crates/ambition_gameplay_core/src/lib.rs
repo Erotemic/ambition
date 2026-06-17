@@ -18,9 +18,9 @@
 //! unchanged.
 //!
 //! Top-level modules group coherent slices: `world`, `player`, `abilities`,
-//! `mechanics`, `combat`, `items`/`inventory`, `dialog`, `menu`, `music`,
+//! `combat`, `gravity`, `items`/`inventory`, `dialog`, `menu`, `music`,
 //! `persistence`, `effects`, `projectile`, `enemy_projectile`, `boss_encounter`,
-//! `quest`, plus the `app`/`host`/`runtime` assembly and `dev` tooling.
+//! `quest`, plus the `schedule`/`host`/`runtime` assembly and `dev` tooling.
 //!
 //! This crate owns the module graph and the cross-cutting types (`GameWorld`,
 //! `SandboxSimState`, `SandboxDevState`) that submodules reference via `crate::*`.
@@ -41,7 +41,7 @@
 // into these modules. Everything else stays `pub(crate)` so the compiler
 // can tell us what's actually depended on from outside.
 pub use ambition_characters::actor;
-pub mod app;
+pub mod schedule;
 pub mod audio;
 pub mod character_roster;
 pub mod debug_label;

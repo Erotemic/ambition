@@ -183,7 +183,7 @@ impl Plugin for FallingSandRoomPlugin {
                     grant_room_swim_controls,
                 )
                     .chain()
-                    .in_set(crate::app::SandboxSet::WorldPrep),
+                    .in_set(crate::schedule::SandboxSet::WorldPrep),
             )
             .add_systems(
                 Update,
@@ -197,7 +197,7 @@ impl Plugin for FallingSandRoomPlugin {
                     sync_falling_sand_switch_visuals,
                 )
                     .chain()
-                    .in_set(crate::app::SandboxSet::GameplayEffects),
+                    .in_set(crate::schedule::SandboxSet::GameplayEffects),
             )
             // Diagnostic: once per second while in the falling-sand room,
             // dump per-type particle counts and Y-distribution. Lets us

@@ -25,7 +25,7 @@ for font_asset in \
 done
 
 # Safest build: keep default desktop features, add static_map fallback.
-cargo build -p ambition_app --bin ambition_gameplay_core --release --features static_map
+cargo build -p ambition_app --bin ambition_game_bin --release --features static_map
 
 ssh "$DECK" "mkdir -p '$APPDIR'"
 

@@ -201,7 +201,7 @@ if [[ "$validate_only" -eq 1 ]]; then
     exit 0
 fi
 
-cargo_args=(run -p ambition_app --bin ambition_gameplay_core)
+cargo_args=(run -p ambition_app --bin ambition_game_bin)
 
 if [[ "$no_default_features" -eq 1 ]]; then
     cargo_args+=(--no-default-features)

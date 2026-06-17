@@ -61,6 +61,16 @@ worked, but each of these cost real time or caused a (caught) mistake.
 9. **A format-on-read hook reflows code in files merely *read*** (seen in the prior
    docstring sweep) — not sed-specific, but it muddies "did my edit do that?" forensics.
 
+## Naming rule (Jon, 2026-06-17)
+
+**If we aren't 100% sure on a name, pick something deliberately *sed-able*** — a
+unique, unambiguous token we can cheaply find-and-replace later — rather than
+agonizing now or settling on something that collides. (e.g. the game binary was
+parked as `ambition_game_bin`: a clear unique token, trivially renamable once we
+decide the real product name.) Avoid names that are common English words or
+substrings of other identifiers, since those are the ones that *aren't* cleanly
+sed-able (see pain points 4 & 6).
+
 ## Follow-on plan (after the rename sweep lands)
 
 - Build a small `rename-crate`/`rename-module` script (or adopt `cargo-rename`-like

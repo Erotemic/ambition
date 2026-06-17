@@ -176,7 +176,7 @@ crates/ambition_gameplay_core/assets/audio/music/generated/first_goblin_tune_v2/
 
 ```bash
 cd ~/code/ambition
-cargo run -p ambition_gameplay_core --bin ambition_gameplay_core --features dev_hot_reload --release -- --start-room goblin_encounter
+cargo run -p ambition_gameplay_core --bin ambition_game_bin --features dev_hot_reload --release -- --start-room goblin_encounter
 ```
 
 ### 3. Capture music logs around the transition
@@ -436,7 +436,7 @@ python tools/ambition_music_renderer/audit_cue_balance.py \
 
 ./generate_audio_assets.sh --force
 
-cargo run -p ambition_gameplay_core --bin ambition_gameplay_core --features dev_hot_reload --release -- --start-room goblin_encounter
+cargo run -p ambition_gameplay_core --bin ambition_game_bin --features dev_hot_reload --release -- --start-room goblin_encounter
 ```
 
 ```

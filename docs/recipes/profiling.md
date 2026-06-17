@@ -79,7 +79,7 @@ cargo build --release -p ambition_gameplay_core
 # get `Path not found: target/release/assets/...` for every asset
 # and bevy_yarnspinner panics on the missing dialogue/ folder.
 BEVY_ASSET_ROOT=$PWD/crates/ambition_gameplay_core \
-cargo flamegraph -p ambition_gameplay_core --bin ambition_gameplay_core \
+cargo flamegraph -p ambition_gameplay_core --bin ambition_game_bin \
     --release \
     --output flamegraph_startup.svg \
     -- --start-room=central_hub_complex

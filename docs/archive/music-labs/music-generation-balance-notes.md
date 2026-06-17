@@ -51,7 +51,7 @@ This pass changes generation inputs. Re-render and reinstall the OGG assets:
 Then run the encounter room:
 
 ```bash
-cargo run -p ambition_gameplay_core --bin ambition_gameplay_core --features dev_hot_reload --release -- --start-room mob_lab
+cargo run -p ambition_gameplay_core --bin ambition_game_bin --features dev_hot_reload --release -- --start-room mob_lab
 ```
 
 Expected runtime log shape after re-render:

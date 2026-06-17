@@ -152,7 +152,7 @@ recorded `player.pos`. Use cases:
 
 ## Visible-binary headless fallback
 
-`run_visible` (the `cargo run -p ambition_gameplay_core --bin ambition_gameplay_core`
+`run_visible` (the `cargo run -p ambition_gameplay_core --bin ambition_game_bin`
 entry point) detects missing display before installing `DefaultPlugins`
 and falls back to `run_headless`:
 

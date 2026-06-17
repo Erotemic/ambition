@@ -41,8 +41,10 @@ Outputs:
         down from the apps) or ``dependants`` (what needs it, up from the
         leaves). Crate deps reduce to a single root (``ambition_app``).
       - the force/hierarchical **graph** for when you want the gnarled ball.
-    Both share a crate filter, fuzzy search, a "root tree here" action, and a
-    per-node detail panel (docstring + neighbors in the active layer).
+    Both share a crate filter, fuzzy search, a "root tree here" action, a sort
+    control (name / lines of code / num dependencies / num dependants), and a
+    per-node detail panel showing the docstring plus dependencies, dependants,
+    filesystem children, and (for crates) crate-level deps — in every view.
     Transitive reduction uses ``nx.transitive_reduction`` on DAG layers and an
     SCC-condensation for the cyclic imports layer.
   * Optional per-layer GraphML (--graphml) for Gephi/yEd.
@@ -672,7 +674,14 @@ HTML_TEMPLATE = r"""<!doctype html>
   .trow:hover { background: #20242d; }
   .trow.sel { background: #2d3550; }
   .trow.stub { color: #6b7280; font-style: italic; }
-  .tw { display: inline-block; width: 12px; text-align: center; color: #7f8794; flex: none; }
+  .tw { display: inline-block; width: 15px; text-align: center; flex: none; }
+  /* Expandable nodes get a bright filled caret; leaves get a small dim dot. */
+  .trow.has-children > .tw { color: #8ab4f8; font-size: 11px; }
+  .trow.has-children > .tw:hover { color: #c8def8; }
+  .trow.leaf > .tw { color: #444a55; font-size: 8px; }
+  .trow.stub > .tw { color: #6b7280; }
+  .trow.has-children > .tlabel { font-weight: 600; }
+  .trow.leaf > .tlabel { color: #aeb4be; }
   .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
   .trow .dim { color: #6b7280; }
   .trow.crate-row { font-weight: 600; }
@@ -704,6 +713,14 @@ HTML_TEMPLATE = r"""<!doctype html>
   </label>
   <label class="tree-only" title="Transitive reduction: drop edges implied by a longer path; cycles condensed into SCC chains">
     <input type="checkbox" id="reduced" checked /> reduce
+  </label>
+  <label>Sort
+    <select id="sort">
+      <option value="name">name</option>
+      <option value="loc">lines of code</option>
+      <option value="dependencies">num dependencies</option>
+      <option value="dependants">num dependants</option>
+    </select>
   </label>
   <label>Crate
     <select id="crate"><option value="">all</option></select>
@@ -743,6 +760,7 @@ crateList.forEach(c => { const o=document.createElement("option"); o.value=c; o.
 const viewSel = document.getElementById("view");
 const dirSel = document.getElementById("direction");
 const reducedEl = document.getElementById("reduced");
+const sortSel = document.getElementById("sort");
 const treeEl = document.getElementById("tree");
 const netEl = document.getElementById("net");
 
@@ -818,6 +836,30 @@ function rawPairs(layer) {
   return DATA.layers.crate.map(e => [e[0], e[1]]);
 }
 
+// Per-layer degree of every node, cached. out = dependencies / fs children,
+// inc = dependants / fs parents. Distinct neighbors only (dedupes crate dev+normal).
+const _metricCache = {};
+function metrics(layer) {
+  if (_metricCache[layer]) return _metricCache[layer];
+  const out = new Map(), inc = new Map();
+  const add = (m, k, v) => { (m.get(k) || m.set(k, new Set()).get(k)).add(v); };
+  for (const [s, d] of rawPairs(layer)) { add(out, s, d); add(inc, d, s); }
+  return (_metricCache[layer] = { out, inc });
+}
+const _loc = (id) => (nodeById.get(id) || {}).loc || 0;
+const _deg = (m, id) => { const s = m.get(id); return s ? s.size : 0; };
+
+// Comparator over node ids for the chosen sort key (degrees from `layer`).
+function makeCmp(sortKey, layer) {
+  const m = metrics(layer);
+  const byName = (a, b) => a.localeCompare(b);
+  if (sortKey === "loc") return (a, b) => (_loc(b) - _loc(a)) || byName(a, b);
+  if (sortKey === "dependencies") return (a, b) => (_deg(m.out, b) - _deg(m.out, a)) || byName(a, b);
+  if (sortKey === "dependants") return (a, b) => (_deg(m.inc, b) - _deg(m.inc, a)) || byName(a, b);
+  return byName;
+}
+const sortIds = (ids, layer) => ids.slice().sort(makeCmp(sortSel.value, layer));
+
 // Build a child-adjacency for the chosen direction.
 //   dependencies: A -> (things A depends on / its fs children)
 //   dependants:   A -> (things that depend on A / its fs parent)
@@ -839,6 +881,7 @@ function buildForest() {
   const layer = layerSel.value, direction = dirSel.value, reduced = reducedEl.checked;
   const crate = crateSel.value;
   const { adj, indeg, hasEdge } = buildAdj(layer, direction, reduced);
+  const cmp = makeCmp(sortSel.value, layer);
 
   const universe = new Set();
   if (layer === "crate") DATA.crates.forEach(c => universe.add(c));
@@ -856,7 +899,7 @@ function buildForest() {
       const nn = nodeById.get(id);
       return hasEdge.has(id) || (nn && nn.kind === "crate");
     });
-    roots.sort();
+    roots.sort(cmp);
   }
 
   const visited = new Set(), firstDom = new Map();
@@ -866,7 +909,7 @@ function buildForest() {
     if (visited.has(id)) return { id, domId, stub: true, ref: firstDom.get(id), children: [] };
     visited.add(id); firstDom.set(id, domId);
     const kids = (adj.get(id) || []).filter(inU);
-    kids.sort();
+    kids.sort(cmp);
     return { id, domId, stub: false, children: kids.map(expand) };
   }
   let forest = roots.map(expand);
@@ -881,7 +924,7 @@ function openRoots() {
   treeEl.querySelectorAll(":scope > div > .tkids").forEach(k => {
     k.classList.remove("hidden");
     const tw = k.previousElementSibling && k.previousElementSibling.querySelector(".tw");
-    if (tw) tw.textContent = "▾";
+    if (tw) tw.textContent = "▼";
   });
 }
 
@@ -906,7 +949,7 @@ function renderTree() {
       stubs++;
       row.innerHTML = `<span class="tw">↪</span>` +
         `<span class="dot" style="background:${crateColor[n.crate] || "#888"}"></span>` +
-        `<span>${esc(shortLabel(node.id))}</span><span class="dim"> ↑ shown above</span>`;
+        `<span class="tlabel">${esc(shortLabel(node.id))}</span><span class="dim"> ↑ shown above</span>`;
       row.title = node.id + "  (already expanded above — click to jump there)";
       row.onclick = (e) => { e.stopPropagation(); select(row, node.id); jumpToTreeRow(node.ref); };
       wrap.appendChild(row);
@@ -914,9 +957,10 @@ function renderTree() {
     }
 
     const hasKids = node.children.length > 0;
-    row.innerHTML = `<span class="tw">${hasKids ? "▸" : "·"}</span>` +
+    row.classList.add(hasKids ? "has-children" : "leaf");
+    row.innerHTML = `<span class="tw">${hasKids ? "▶" : "◦"}</span>` +
       `<span class="dot" style="background:${crateColor[n.crate] || "#888"}"></span>` +
-      `<span>${esc(shortLabel(node.id))}</span>` +
+      `<span class="tlabel">${esc(shortLabel(node.id))}</span>` +
       `<span class="dim">${n.loc ? " " + n.loc : ""}${hasKids ? " (" + node.children.length + ")" : ""}</span>`;
     row.title = node.id + (n.summary ? "  —  " + n.summary : "");
     wrap.appendChild(row);
@@ -930,7 +974,7 @@ function renderTree() {
       row.onclick = (e) => {
         e.stopPropagation(); select(row, node.id);
         const open = kids.classList.toggle("hidden") === false;
-        tw.textContent = open ? "▾" : "▸";
+        tw.textContent = open ? "▼" : "▶";
       };
     } else {
       row.onclick = (e) => { e.stopPropagation(); select(row, node.id); };
@@ -957,7 +1001,7 @@ function openAncestors(el) {
     if (p.classList && p.classList.contains("tkids") && p.classList.contains("hidden")) {
       p.classList.remove("hidden");
       const tw = p.previousElementSibling && p.previousElementSibling.querySelector(".tw");
-      if (tw) tw.textContent = "▾";
+      if (tw) tw.textContent = "▼";
     }
     p = p.parentElement;
   }
@@ -990,11 +1034,14 @@ function showNode(id) {
   const n = nodeById.get(id);
   const side = document.getElementById("side");
   if (!n) { side.innerHTML = '<div class="meta">No data for '+esc(id)+'</div>'; return; }
-  const layer = layerSel.value;
-  const nb = neighborList(layer, id);
+  // Show every relationship regardless of the active view/layer.
+  const imp = neighborList("imports", id);
+  const fs = neighborList("filesystem", id);
+  const crateNb = n.kind === "crate" ? neighborList("crate", id) : null;
   const link = (x) => `<div class="nbr" onclick="goTo('${jsq(x)}')">${esc(x)}</div>`;
-  const inLabel = layer === "filesystem" ? "parent" : "dependants (used by)";
-  const outLabel = layer === "filesystem" ? "children" : "dependencies (uses)";
+  const section = (label, arr, layer) =>
+    `<div class="seclabel">${label} (${arr.length})</div>` +
+    (sortIds(arr, layer).map(link).join("") || '<div class="meta">—</div>');
   side.innerHTML = `
     <h2>${esc(n.label)}</h2>
     <div class="meta">${esc(n.id)}</div>
@@ -1004,10 +1051,10 @@ function showNode(id) {
     <div class="seclabel">path</div><div class="meta">${esc(n.path) || "—"}</div>
     <div class="seclabel">docstring</div>
     <pre>${esc(n.doc || "(no //! doc)")}</pre>
-    <div class="seclabel">${inLabel} (${nb.in.length})</div>
-    ${nb.in.map(link).join("") || '<div class="meta">—</div>'}
-    <div class="seclabel">${outLabel} (${nb.out.length})</div>
-    ${nb.out.map(link).join("") || '<div class="meta">—</div>'}
+    ${section("dependencies — uses (imports →)", imp.out, "imports")}
+    ${section("dependants — used by (imports ←)", imp.in, "imports")}
+    ${section("filesystem children", fs.out, "filesystem")}
+    ${crateNb ? section("crate deps →", crateNb.out, "crate") + section("crate dependants ←", crateNb.in, "crate") : ""}
   `;
 }
 
@@ -1071,14 +1118,15 @@ viewSel.addEventListener("change", update);
 layerSel.addEventListener("change", () => { rootOverride = null; update(); });
 dirSel.addEventListener("change", () => { rootOverride = null; update(); });
 reducedEl.addEventListener("change", update);
+sortSel.addEventListener("change", () => { update(); if (selectedId) showNode(selectedId); });
 crateSel.addEventListener("change", () => { rootOverride = null; update(); });
 document.getElementById("expandAll").onclick = () => {
   treeEl.querySelectorAll(".tkids").forEach(k => k.classList.remove("hidden"));
-  treeEl.querySelectorAll(".trow .tw").forEach(tw => { if (tw.textContent === "▸") tw.textContent = "▾"; });
+  treeEl.querySelectorAll(".trow .tw").forEach(tw => { if (tw.textContent === "▶") tw.textContent = "▼"; });
 };
 document.getElementById("collapseAll").onclick = () => {
   treeEl.querySelectorAll(".tkids").forEach(k => k.classList.add("hidden"));
-  treeEl.querySelectorAll(".trow .tw").forEach(tw => { if (tw.textContent === "▾") tw.textContent = "▸"; });
+  treeEl.querySelectorAll(".trow .tw").forEach(tw => { if (tw.textContent === "▼") tw.textContent = "▶"; });
   openRoots();
 };
 

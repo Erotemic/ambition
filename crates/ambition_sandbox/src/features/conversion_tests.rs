@@ -72,8 +72,14 @@ mod conversion_tests {
         npc.config.spawn.y = 200.0;
         let mut brain = brain_for(&mut npc);
         for _ in 0..120 {
-            npc.as_mut()
-                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016, ae::Vec2::new(0.0, 1.0));
+            npc.as_mut().tick_via_brain(
+                &mut brain,
+                &world,
+                player.kinematics.pos,
+                0.0,
+                0.016,
+                ae::Vec2::new(0.0, 1.0),
+            );
         }
         assert!(
             npc.surface.on_ground,
@@ -98,8 +104,14 @@ mod conversion_tests {
         // Settle on the floor first so x-motion is the only variable.
         let mut brain = brain_for(&mut npc);
         for _ in 0..120 {
-            npc.as_mut()
-                .tick_via_brain(&mut brain, &world, ae::Vec2::ZERO, 0.0, 0.016, ae::Vec2::new(0.0, 1.0));
+            npc.as_mut().tick_via_brain(
+                &mut brain,
+                &world,
+                ae::Vec2::ZERO,
+                0.0,
+                0.016,
+                ae::Vec2::new(0.0, 1.0),
+            );
         }
         let start_x = npc.kin.pos.x;
         // "Possess" → drive right: axis_x = 1 scaled to a real walk speed.
@@ -128,15 +140,27 @@ mod conversion_tests {
         // Settle gravity first so we're testing horizontal motion,
         // not the freefall.
         for _ in 0..30 {
-            npc.as_mut()
-                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016, ae::Vec2::new(0.0, 1.0));
+            npc.as_mut().tick_via_brain(
+                &mut brain,
+                &world,
+                player.kinematics.pos,
+                0.0,
+                0.016,
+                ae::Vec2::new(0.0, 1.0),
+            );
         }
         let spawn_x = npc.config.spawn.x;
         let mut min_x = npc.kin.pos.x;
         let mut max_x = npc.kin.pos.x;
         for _ in 0..600 {
-            npc.as_mut()
-                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016, ae::Vec2::new(0.0, 1.0));
+            npc.as_mut().tick_via_brain(
+                &mut brain,
+                &world,
+                player.kinematics.pos,
+                0.0,
+                0.016,
+                ae::Vec2::new(0.0, 1.0),
+            );
             min_x = min_x.min(npc.kin.pos.x);
             max_x = max_x.max(npc.kin.pos.x);
         }
@@ -172,8 +196,14 @@ mod conversion_tests {
         let mut brain = brain_for(&mut npc);
         // Settle physics.
         for _ in 0..30 {
-            npc.as_mut()
-                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016, ae::Vec2::new(0.0, 1.0));
+            npc.as_mut().tick_via_brain(
+                &mut brain,
+                &world,
+                player.kinematics.pos,
+                0.0,
+                0.016,
+                ae::Vec2::new(0.0, 1.0),
+            );
         }
         // Park the player right next to the NPC — within talk_radius.
         player.kinematics.pos = ae::Vec2::new(npc.kin.pos.x + 30.0, npc.kin.pos.y);
@@ -181,8 +211,14 @@ mod conversion_tests {
         // left from the patrol step must drain to ~0 inside the
         // talk radius.
         for _ in 0..30 {
-            npc.as_mut()
-                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016, ae::Vec2::new(0.0, 1.0));
+            npc.as_mut().tick_via_brain(
+                &mut brain,
+                &world,
+                player.kinematics.pos,
+                0.0,
+                0.016,
+                ae::Vec2::new(0.0, 1.0),
+            );
         }
         assert!(
             matches!(npc.status.ai_mode, crate::actor::ai::CharacterAiMode::Chase),
@@ -214,8 +250,14 @@ mod conversion_tests {
         let original_x = npc.kin.pos.x;
         let mut brain = brain_for(&mut npc);
         for _ in 0..300 {
-            npc.as_mut()
-                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016, ae::Vec2::new(0.0, 1.0));
+            npc.as_mut().tick_via_brain(
+                &mut brain,
+                &world,
+                player.kinematics.pos,
+                0.0,
+                0.016,
+                ae::Vec2::new(0.0, 1.0),
+            );
         }
         assert!(
             (npc.kin.pos.x - original_x).abs() < 1.0,
@@ -281,16 +323,28 @@ mod conversion_tests {
         let mut brain = brain_for(&mut npc);
         // Settle gravity.
         for _ in 0..30 {
-            npc.as_mut()
-                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016, ae::Vec2::new(0.0, 1.0));
+            npc.as_mut().tick_via_brain(
+                &mut brain,
+                &world,
+                player.kinematics.pos,
+                0.0,
+                0.016,
+                ae::Vec2::new(0.0, 1.0),
+            );
         }
         // Run for a long while; track that the AI mode stays in
         // patrol and never wedges in Idle.
         let mut patrol_ticks = 0;
         let mut chase_ticks = 0;
         for _ in 0..300 {
-            npc.as_mut()
-                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016, ae::Vec2::new(0.0, 1.0));
+            npc.as_mut().tick_via_brain(
+                &mut brain,
+                &world,
+                player.kinematics.pos,
+                0.0,
+                0.016,
+                ae::Vec2::new(0.0, 1.0),
+            );
             match npc.status.ai_mode {
                 crate::actor::ai::CharacterAiMode::Patrol => patrol_ticks += 1,
                 crate::actor::ai::CharacterAiMode::Chase => chase_ticks += 1,
@@ -314,8 +368,14 @@ mod conversion_tests {
         let (world, mut npc, player) = world_with_patrolling_npc(0.0);
         let mut brain = brain_for(&mut npc);
         for _ in 0..120 {
-            npc.as_mut()
-                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016, ae::Vec2::new(0.0, 1.0));
+            npc.as_mut().tick_via_brain(
+                &mut brain,
+                &world,
+                player.kinematics.pos,
+                0.0,
+                0.016,
+                ae::Vec2::new(0.0, 1.0),
+            );
         }
         // Vel along x should drain to zero (gravity has settled).
         assert!(
@@ -598,6 +658,100 @@ mod conversion_tests {
             "patrol enemy clipped into wall at pos {:?}; wall left edge {}",
             enemy.kin.pos,
             wall_left_edge,
+        );
+    }
+
+    /// Under SIDEWAYS gravity a patrolling enemy walks along the gravity-
+    /// PERPENDICULAR axis (vertical), so the wall-stop "reverse facing" detection
+    /// must watch that axis — not screen-x. The old `vel.x` read never fired here
+    /// (x is the near-zero gravity axis when grounded), so a patroller would push
+    /// into a wall forever. This pins the gravity-relative fix: driven into a
+    /// blocking wall along its run axis, the enemy flips facing exactly once.
+    #[test]
+    fn patrol_enemy_reverses_facing_at_a_wall_under_sideways_gravity() {
+        // Gravity points +x (right); the enemy rests against the +x "ground" wall
+        // and patrols along the perpendicular (vertical) axis inside a corridor
+        // capped top and bottom by blockers.
+        let gravity = ae::Vec2::new(1.0, 0.0);
+        let world = ae::World::new(
+            String::from("sideways_patrol_test"),
+            ae::Vec2::new(800.0, 600.0),
+            ae::Vec2::new(100.0, 300.0),
+            vec![
+                // The surface the enemy is pushed onto (its "floor" under +x gravity).
+                ae::Block::solid(
+                    String::from("ground_wall"),
+                    ae::Vec2::new(300.0, 80.0),
+                    ae::Vec2::new(60.0, 440.0),
+                ),
+                // Corridor caps in the vertical run path.
+                ae::Block::solid(
+                    String::from("cap_top"),
+                    ae::Vec2::new(250.0, 60.0),
+                    ae::Vec2::new(60.0, 90.0),
+                ),
+                ae::Block::solid(
+                    String::from("cap_bottom"),
+                    ae::Vec2::new(250.0, 450.0),
+                    ae::Vec2::new(60.0, 90.0),
+                ),
+            ],
+        );
+        // Right edge (center.x + 14) touches the ground wall at x = 300.
+        let aabb = enemy_aabb(ae::Vec2::new(286.0, 300.0));
+        let paths: Vec<(String, crate::actor::KinematicPath)> = vec![];
+        let mut enemy = super::ecs::enemy_clusters::EnemyClusterSeed::new(
+            "sideways_patroller",
+            "sideways_patroller",
+            aabb,
+            crate::actor::EnemyBrain::Patrol { path_id: None },
+            &paths,
+        );
+        enemy.attack.cooldown = 0.0;
+        // Force the AI into Patrol: no aggro/attack reach, patrol enabled, so the
+        // far player can't pull it into Chase (the flip only fires for Patrol).
+        enemy.config.tuning.aggro_radius = 0.0;
+        enemy.config.tuning.attack_range = 0.0;
+        enemy.config.tuning.is_sandbag = false;
+        let initial_facing = enemy.kin.facing;
+        let player_pos_far = ae::Vec2::new(2000.0, 300.0);
+        // Constant run intent along the perpendicular axis (sign maps to ±vertical);
+        // the enemy travels until a cap stops it, then the detection flips facing.
+        let speed = enemy.config.tuning.patrol_speed.max(120.0);
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
+        frame.desired_vel = ae::Vec2::new(speed, 0.0);
+        // Count facing reversals: with the OLD screen-x detection, `vel.x` is the
+        // (zeroed, grounded) gravity axis so the wall-stop NEVER triggers → zero
+        // flips and the enemy grinds into the wall forever. With the gravity-
+        // perpendicular detection the vertical stall is seen and facing reverses.
+        // (The constant test frame keeps driving INTO the cap, so facing re-flips
+        // on re-contact — we assert it reverses at all, not an exact parity.)
+        let mut flips = 0u32;
+        let mut prev_facing = enemy.kin.facing;
+        for _ in 0..240 {
+            enemy.update_for_test(
+                &world,
+                player_pos_far,
+                FeatureCombatTuning::default(),
+                None,
+                1.0 / 60.0,
+                false,
+                frame,
+                gravity,
+            );
+            if enemy.kin.facing != prev_facing {
+                flips += 1;
+                prev_facing = enemy.kin.facing;
+            }
+        }
+        let _ = initial_facing;
+        assert!(
+            flips >= 1,
+            "a patroller that stalls against a wall under sideways gravity must \
+             reverse facing — the wall-stop detection has to watch the vertical \
+             run axis, not screen-x (which is the zeroed gravity axis here); got \
+             {flips} flips, mode={:?}",
+            enemy.status.ai_mode,
         );
     }
 

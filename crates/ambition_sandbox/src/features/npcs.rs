@@ -112,13 +112,12 @@ impl<'a> NpcMut<'a> {
             }
         }
 
-        let prev_vel_x = self.integrate_velocity(frame.desired_vel.x, world, dt, gravity_dir);
+        let stalled_on_wall = self.integrate_velocity(frame.desired_vel.x, world, dt, gravity_dir);
 
         if matches!(
             self.status.ai_mode,
             crate::actor::ai::CharacterAiMode::Patrol
-        ) && prev_vel_x.abs() > 1.0
-            && self.kin.vel.x.abs() < 0.01
+        ) && stalled_on_wall
         {
             self.kin.facing *= -1.0;
         }
@@ -138,15 +137,20 @@ impl<'a> NpcMut<'a> {
     /// Step the NPC body one tick toward `desired_vel_x` (the rest — gravity,
     /// collision, ground contact — comes from `step_kinematic`). Shared by
     /// `tick_via_brain` and the *possession* path, where the desired velocity
-    /// comes from the player's input instead of the NPC's brain. Returns the
-    /// pre-integration x-velocity so the caller can detect a wall stop.
+    /// comes from the player's input instead of the NPC's brain.
+    ///
+    /// Returns whether the body STALLED on its run (gravity-perpendicular) axis
+    /// this tick — i.e. it was moving along the ground and is now stopped, the
+    /// signature of running into a wall. Detected on the gravity-PERPENDICULAR
+    /// "side" axis (not screen-x), so it stays correct under sideways gravity; the
+    /// patrol caller reverses facing on a stall.
     pub fn integrate_velocity(
         &mut self,
         desired_vel_x: f32,
         world: &ae::World,
         dt: f32,
         gravity_dir: ae::Vec2,
-    ) -> f32 {
+    ) -> bool {
         // Grounded NPCs run the SHARED player physics spine (gravity + run +
         // fall-cap, gravity-direction-relative) — the same core enemies and the
         // player use. The AI's velocity-valued `desired_vel_x` maps onto the
@@ -160,7 +164,10 @@ impl<'a> NpcMut<'a> {
             on_ground: self.surface.on_ground,
             facing: self.kin.facing,
         };
-        let prev_vel_x = body.vel.x;
+        // Run axis = gravity-perpendicular. Under vertical gravity `perp = (-1,0)`
+        // so `side == ±vel.x` (byte-identical to the old screen-x read).
+        let perp = ae::Vec2::new(-gravity_dir.y, gravity_dir.x);
+        let prev_side_speed = body.vel.dot(perp);
         let axis_x = if desired_vel_x.abs() > 1e-3 {
             desired_vel_x.signum()
         } else {
@@ -206,7 +213,7 @@ impl<'a> NpcMut<'a> {
         self.kin.pos = body.pos;
         self.kin.vel = body.vel;
         self.surface.on_ground = body.on_ground;
-        prev_vel_x
+        prev_side_speed.abs() > 1.0 && body.vel.dot(perp).abs() < 0.01
     }
 
     /// Gravity-free 2D integration for a flying NPC: approach the brain's full
@@ -221,7 +228,14 @@ impl<'a> NpcMut<'a> {
             facing: self.kin.facing,
         };
         // Shared floating free-mover path (aerial enemies, bosses use the same).
-        super::step_floating_body(&mut body, world, desired_vel, Some(900.0 * dt), ENEMY_MAX_FALL, dt);
+        super::step_floating_body(
+            &mut body,
+            world,
+            desired_vel,
+            Some(900.0 * dt),
+            ENEMY_MAX_FALL,
+            dt,
+        );
         self.kin.pos = body.pos;
         self.kin.vel = body.vel;
         // A flyer is never "grounded" — keeps gravity-righting + anim aerial.

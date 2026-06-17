@@ -86,7 +86,13 @@ fn integrate_standard_enemy_body(
         on_ground: surface.on_ground,
         facing: kin.facing,
     };
-    let prev_vel_x = body.vel.x;
+    // Wall-stop detection runs on the gravity-PERPENDICULAR "side" axis the enemy
+    // actually walks along (the spine projects run onto it). Under vertical gravity
+    // `perp = (-1, 0)` so this is `±vel.x` — byte-identical to the old `vel.x` read;
+    // under sideways gravity it correctly watches `vel.y`, so a patroller still
+    // reverses when it stalls against a wall.
+    let perp = ae::Vec2::new(-gravity_dir.y, gravity_dir.x);
+    let prev_side_speed = body.vel.dot(perp);
     if is_aerial {
         let target_speed = frame.desired_vel.length();
         let archetype_chase = tuning.chase_speed;
@@ -185,8 +191,8 @@ fn integrate_standard_enemy_body(
 
     if !is_aerial
         && matches!(ai_intent, crate::actor::ai::CharacterAiIntent::Patrol)
-        && prev_vel_x.abs() > 1.0
-        && kin.vel.x.abs() < 0.01
+        && prev_side_speed.abs() > 1.0
+        && kin.vel.dot(perp).abs() < 0.01
     {
         kin.facing *= -1.0;
     }

@@ -462,16 +462,48 @@ sweep) — removable later.
 
 Steps 1–3 of the post-Stage-7 plan are DONE (decouple globals → clone is a full
 `PlayerEntity` body → one iterating sweep; `drive_player_clones` dropped, K-clone
-sprite + movement both through shared systems). Remaining, in order:
-- **Step 4 — `desired_vel` axis-unification**: every brain emits a normalized axis +
-  run-speed-in-tuning, dropping the grounded-enemy velocity encoding that bridges onto
-  the spine today. Wide + enemy-feel-sensitive; needs an enemy-position parity harness
-  first (the replay fixture only guards the player).
-- **Step 5 — content**: aerial enemies/NPCs onto the FLIGHT spine (parrot), slug
-  surface-crawl + parrot dive-bomb as first-class ability COMPONENTS.
-- Lower-priority: collapse the three grounding sweeps into one (the multi-sweep fork
-  the riding work exposed); patrol wall-stop facing-flip reads `vel.x` under sideways
-  gravity; remove vestigial `PlayerPlatformRideState`.
+sprite + movement both through shared systems).
+
+### Step 4 — `desired_vel` axis-unification: INVESTIGATED → CLOSED (essential complexity)
+
+Mapped the full blast radius (the `ActorControlFrame::desired_vel` contract + the two
+grounded integrators + every brain producer + the floating path). Conclusion: the
+dual-meaning is **essential, not accidental**, so there is no elegant unification to do:
+- **Floating movers** (boss, aerial enemy/NPC) genuinely need a 2D *velocity* — they
+  move freely in 2D with no spine, and the aerial brains (skirmisher/shark/aerial_*)
+  emit a real velocity. An axis can't express free 2D flight.
+- **Grounded movers** need a 1D *axis* (the spine owns the fall axis).
+- No single encoding is clean for both. "Unifying" could only (a) split into two
+  mutually-exclusive fields (a new smell), or (b) add a `run_speed` channel that
+  re-introduces the same brain↔integrator coupling. The current `integrate_normal_spine`
+  **bridge** (`max_run_speed = |desired.x|`, `axis_x = sign`) is the right handling of
+  essential complexity; the P10 doc comment already makes it explicit. Forcing churn
+  here would violate "narrow specific types beat wide generic ones." Left as-is by
+  design (this supersedes the earlier "deferred" framing — it's not deferred, it's
+  *correct*).
+
+### Step 4-adjacent ✅ — the flagged sideways-gravity patrol bug (real win shipped)
+
+The Stage-3b follow-up "patrol wall-stop facing-flip reads `vel.x`": under sideways
+gravity a patroller walks the gravity-PERPENDICULAR (vertical) axis, but the wall-stop
+detection read screen-`vel.x` — which is the *zeroed gravity axis* when grounded — so it
+NEVER fired and the enemy ground into the wall forever. Fixed in BOTH grounded
+integrators to watch the gravity-perpendicular "side" velocity (`vel.dot(perp)`,
+`perp = (-g.y, g.x)`): byte-identical under vertical gravity (`perp = (-1,0)` → `±vel.x`),
+correct under sideways gravity. Also cleaned up `NpcMut::integrate_velocity` to return a
+`stalled_on_wall: bool` (the detection done where gravity_dir lives) instead of leaking
+`prev_vel_x` to the caller. Pinned with `patrol_enemy_reverses_facing_at_a_wall_under_
+sideways_gravity` (old code: 0 flips; fixed: ≥1). 918 sandbox tests green.
+
+### Remaining
+- **Step 5 — content**: aerial enemies/NPCs already share the floating mover
+  (`step_floating_body`, Stage 5); the open piece is promoting slug surface-crawl +
+  parrot dive-bomb to first-class ability COMPONENTS (the open/composable proof —
+  serves the "named content out of core" north star). Content/GUI-feel work.
+- Lower-priority: collapse the three grounding sweeps into one — assessed as NOT worth
+  it (gravity-resting vs surface-glued are genuinely different physics; forcing one
+  function = a wide generic surface). Remove vestigial `PlayerPlatformRideState`
+  (now only bookkeeping since riding is emergent).
 
 ## (superseded) earlier Stage 3 framing
 

@@ -91,8 +91,8 @@ Do not fix trace-visible teleports by only widening margins. If a trace shows a 
 Dumps are written under `debug_traces/` relative to the sandbox working directory. Each dump produces two files with the same stem:
 
 ```text
-debug_traces/ambition_trace_{secs}-{nanos}-{seq}_{Dd}d{HH}h{MM}m{SS}s.json
-debug_traces/ambition_trace_{secs}-{nanos}-{seq}_{Dd}d{HH}h{MM}m{SS}s.md
+debug_traces/ambition_gameplay_trace_{secs}-{nanos}-{seq}_{Dd}d{HH}h{MM}m{SS}s.json
+debug_traces/ambition_gameplay_trace_{secs}-{nanos}-{seq}_{Dd}d{HH}h{MM}m{SS}s.md
 ```
 
 The JSON is the machine-readable source of truth. The Markdown summary is for triage and should include:

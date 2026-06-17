@@ -38,11 +38,11 @@ mod systems;
 mod tests;
 
 // The reusable trace FORMAT (schema + buffer + dump writers) now lives in the
-// `ambition_trace` foundation crate; re-exported so existing `crate::trace::*`
+// `ambition_gameplay_trace` foundation crate; re-exported so existing `crate::trace::*`
 // paths (and the headless replay harness) keep resolving. The recording SYSTEMS
 // below (`detect` / `systems` / `plugin`) stay here, next to the live player +
 // world state they sample.
-pub use ambition_trace::*;
+pub use ambition_gameplay_trace::*;
 
 pub use detect::{build_frame, detect_oob_from_kinematics, detect_oob_scratch, record_frame};
 pub(crate) use detect::{synthesize_events_from_diff, update_previous_snapshot};

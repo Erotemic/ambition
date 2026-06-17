@@ -259,6 +259,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_gameplay_trace"
+version = "0.1.0"
+dependencies = [
+ "ambition_engine_core",
+ "ambition_input",
+ "bevy",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ambition_input"
 version = "0.1.0"
 dependencies = [
@@ -340,6 +351,7 @@ dependencies = [
  "ambition_cutscene",
  "ambition_effects",
  "ambition_engine_core",
+ "ambition_gameplay_trace",
  "ambition_input",
  "ambition_interaction",
  "ambition_menu",
@@ -349,7 +361,6 @@ dependencies = [
  "ambition_sfx",
  "ambition_sprite_sheet",
  "ambition_time",
- "ambition_trace",
  "ambition_ui_nav",
  "avian2d",
  "bevy",
@@ -410,17 +421,6 @@ name = "ambition_time"
 version = "0.1.0"
 dependencies = [
  "bevy",
-]
-
-[[package]]
-name = "ambition_trace"
-version = "0.1.0"
-dependencies = [
- "ambition_engine_core",
- "ambition_input",
- "bevy",
- "serde",
- "serde_json",
 ]
 
 [[package]]

@@ -4,7 +4,7 @@
 //!
 //! Use cases:
 //!
-//! - **Bug repro from production** — drop a `ambition_trace_*.json`
+//! - **Bug repro from production** — drop a `ambition_gameplay_trace_*.json`
 //!   from a player's machine into the repo, run `cargo run --bin
 //!   trace_replay -- path.json`, and watch where the live sim
 //!   diverges from the recorded state. The first non-trivial

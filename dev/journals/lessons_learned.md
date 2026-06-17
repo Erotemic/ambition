@@ -875,7 +875,7 @@ The first revision of the side-contact filter required `overlap_x > 0`
 `cast_shapes(stop_at_penetration=true)` still returns `time_of_impact
 = 0` and the snap teleports the player to a different position
 (`pos.y = wall.top - half_height = 32 - 23 = 9` for the second
-reproduction). The next dump (`debug_traces/ambition_trace_1777905256-*`)
+reproduction). The next dump (`debug_traces/ambition_gameplay_trace_1777905256-*`)
 showed the exact-edge case as `inside solid (ldtk solid)` at `(62, 9)`.
 
 The current predicate (`body_is_side_contact`) keys on the body's

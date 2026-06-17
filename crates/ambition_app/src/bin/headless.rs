@@ -17,7 +17,7 @@
 //!
 //! `--dump-trace DIR` writes a GameplayTraceBuffer JSON+Markdown dump
 //! after the final tick so trace_replay can re-drive the same input
-//! sequence later. The dump is named `ambition_trace_<timestamp>.json`
+//! sequence later. The dump is named `ambition_gameplay_trace_<timestamp>.json`
 //! per the existing dump_paths convention.
 
 use std::path::PathBuf;

@@ -844,7 +844,7 @@ The acceptance criterion that proves the guard is real:
 
 ```text
 cargo run --bin headless -- 30 --dump-trace /tmp/t/
-cargo run --bin trace_replay -- /tmp/t/ambition_trace_*.json
+cargo run --bin trace_replay -- /tmp/t/ambition_gameplay_trace_*.json
 # expected: max_dx == 0.0 && max_dy == 0.0  (NOT "close to zero")
 ```
 

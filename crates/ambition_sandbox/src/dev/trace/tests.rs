@@ -223,7 +223,7 @@ fn write_dump_writes_two_files() {
         "Standing",
     );
     record_frame(&mut buf, frame, None);
-    let dir = std::env::temp_dir().join("ambition_trace_test_dump");
+    let dir = std::env::temp_dir().join("ambition_gameplay_trace_test_dump");
     let _ = std::fs::remove_dir_all(&dir);
     let json_path = write_dump(&buf, &DumpReason::Manual, &dir).expect("write dump");
     assert!(json_path.exists());
@@ -316,7 +316,7 @@ fn synthesizes_input_edge_event_on_button_press() {
 /// P2 — an unexplained position delta (much larger than the velocity
 /// budget) should produce a `CollisionCorrection` event so the
 /// trace surfaces teleports of the kind that landed in
-/// `debug_traces/ambition_trace_1777902031_*.json`.
+/// `debug_traces/ambition_gameplay_trace_1777902031_*.json`.
 #[test]
 fn synthesizes_collision_correction_on_unexplained_teleport() {
     let mut buf = GameplayTraceBuffer::with_capacity(16, 16);

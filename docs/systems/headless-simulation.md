@@ -141,7 +141,7 @@ the recorded `ControlFrame` sequence at fixed-60Hz timestep. It prints
 max-divergence + first-divergence frame between the live sim and the
 recorded `player.pos`. Use cases:
 
-- **Bug repro from production**: drop an `ambition_trace_*.json` from
+- **Bug repro from production**: drop an `ambition_gameplay_trace_*.json` from
   a player's machine into the repo, run the binary, watch where the
   live sim diverges from the recorded state.
 - **Determinism validation**: replay an old trace after a refactor; if

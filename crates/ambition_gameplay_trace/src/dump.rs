@@ -35,7 +35,7 @@ struct DumpPayload<'a> {
 /// stay fast and the function is safe to call when the dump directory
 /// doesn't yet exist.
 pub fn dump_paths(dir: &Path, timestamp_label: &str) -> (PathBuf, PathBuf) {
-    let stem = format!("ambition_trace_{timestamp_label}");
+    let stem = format!("ambition_gameplay_trace_{timestamp_label}");
     let json = dir.join(format!("{stem}.json"));
     let md = dir.join(format!("{stem}.md"));
     (json, md)

@@ -186,13 +186,19 @@ pub fn update_player_hud(
         node.width = Val::Percent(mp_frac * 100.0);
     }
     if let Ok(mut text) = labels.p0().single_mut() {
-        **text = format!("HP {}/{}", health.current(), health.max());
+        set_text_if_changed(&mut text, format!("HP {}/{}", health.current(), health.max()));
     }
     if let Ok(mut text) = labels.p1().single_mut() {
-        **text = format!("MP {}", mana.meter.current as i32);
+        set_text_if_changed(&mut text, format!("MP {}", mana.meter.current as i32));
     }
     if let Ok(mut text) = labels.p2().single_mut() {
-        **text = format!("${}", wallet.balance);
+        set_text_if_changed(&mut text, format!("${}", wallet.balance));
+    }
+}
+
+fn set_text_if_changed(text: &mut Text, next: String) {
+    if text.as_str() != next.as_str() {
+        **text = next;
     }
 }
 

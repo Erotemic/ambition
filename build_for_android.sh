@@ -935,6 +935,16 @@ fi
 
 SO_PATH="$JNI_OUT/$TARGET_ABI/lib$ANDROID_NATIVE_LIB_NAME.so"
 copy_libcxx_shared "$TARGET_ABI" "$JNI_OUT/$TARGET_ABI"
+for extra_so in "$JNI_OUT/$TARGET_ABI"/lib*.so; do
+    [[ -e "$extra_so" ]] || continue
+    case "$(basename "$extra_so")" in
+        "lib$ANDROID_NATIVE_LIB_NAME.so"|"libc++_shared.so") ;;
+        *)
+            log "removing unused native library from APK: $(basename "$extra_so")"
+            rm -f "$extra_so"
+            ;;
+    esac
+done
 if [[ "$STRIP_NATIVE" == true ]]; then
     strip_native_library "$SO_PATH"
 else

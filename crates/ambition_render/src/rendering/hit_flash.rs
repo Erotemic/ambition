@@ -112,6 +112,14 @@ pub struct HitFlashOverlay {
 /// doesn't already have one. Gates on `FeatureVisual` / `PlayerVisual`
 /// presence so prop visuals and one-shot VFX don't pick up the
 /// overlay accidentally.
+#[cfg(target_os = "android")]
+pub fn attach_hit_flash_overlays() {}
+
+/// Attach a flash overlay to every textured character sprite that
+/// doesn't already have one. Gates on `FeatureVisual` / `PlayerVisual`
+/// presence so prop visuals and one-shot VFX don't pick up the
+/// overlay accidentally.
+#[cfg(not(target_os = "android"))]
 pub fn attach_hit_flash_overlays(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -200,6 +208,13 @@ pub fn attach_hit_flash_overlays(
 /// Mirror the source sprite's atlas frame / facing / world transform
 /// into the overlay material and toggle visibility based on the
 /// source's current `hit_flash` timer.
+#[cfg(target_os = "android")]
+pub fn sync_hit_flash_overlays() {}
+
+/// Mirror the source sprite's atlas frame / facing / world transform
+/// into the overlay material and toggle visibility based on the
+/// source's current `hit_flash` timer.
+#[cfg(not(target_os = "android"))]
 pub fn sync_hit_flash_overlays(
     mut commands: Commands,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
@@ -284,6 +299,15 @@ pub fn sync_hit_flash_overlays(
 /// FeatureViewSync and PresentationVisualAnimationPlugin can leave
 /// the white silhouette frozen mid-air for one frame on the next
 /// scene load.
+#[cfg(target_os = "android")]
+pub fn cleanup_hit_flash_overlays() {}
+
+/// Remove orphan overlays whose source entity despawned. Mirrors the
+/// deep-dream cleanup pass — without it a despawn between
+/// FeatureViewSync and PresentationVisualAnimationPlugin can leave
+/// the white silhouette frozen mid-air for one frame on the next
+/// scene load.
+#[cfg(not(target_os = "android"))]
 pub fn cleanup_hit_flash_overlays(
     mut commands: Commands,
     sources: Query<(), With<HitFlashSource>>,

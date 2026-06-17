@@ -149,6 +149,44 @@ Tracy adds ~5-10% CPU overhead and grows the binary by ~3 MB. Both
 are negligible during dev. Default builds drop the dep entirely
 since `profile` is opt-in.
 
+## 2c. Android native allocation profiling
+
+For Android allocation callstacks, use Perfetto/heapprofd through the
+Android profile script:
+
+```bash
+# Build/install a symbol-friendly APK if needed.
+scripts/profile_android.sh prepare --profile-build
+
+# Open the game on the phone, navigate to the slow state, then attach.
+scripts/profile_android.sh heap --no-launch --duration 30
+```
+
+The output directory contains `heap.perfetto-trace`. Open that file in
+<https://ui.perfetto.dev>, click the `Native heap profile` track, and
+switch between:
+
+- `Total Malloc Size` for allocation bytes/churn.
+- `Total Malloc Count` for allocation frequency/churn.
+- `Unreleased Malloc Size` / `Unreleased Malloc Count` for retained
+  allocations.
+
+`--profile-build` keeps debug info and forces an ELF Build ID on the
+Android app library. That Build ID is important for matching Perfetto
+heap-profile mappings back to the local `libambition_app.so` symbols.
+To verify the latest profile APK:
+
+```bash
+readelf -n target/android/ambition_gameplay_core_android/app/src/main/jniLibs/arm64-v8a/libambition_app.so | grep -A1 "Build ID"
+```
+
+If the capture reports heapprofd buffer overruns, rerun with a coarser
+sample interval:
+
+```bash
+scripts/profile_android.sh heap --no-launch --duration 30 --heap-sampling-interval 16384
+```
+
 ## Quick recipes
 
 **"Why is startup slow?"** Default build → check the `[startup]`

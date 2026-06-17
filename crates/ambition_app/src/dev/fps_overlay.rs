@@ -26,6 +26,8 @@ use bevy::prelude::*;
 use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_gameplay_core::persistence::settings::UserSettings;
 
+const FPS_OVERLAY_REFRESH_SECONDS: f32 = 0.25;
+
 /// Runtime mirror of [`UserSettings::video::show_fps`]. Updated by
 /// [`sync_fps_overlay_state_from_settings`] when the persisted flag
 /// changes; the overlay systems read this resource instead of querying
@@ -192,9 +194,20 @@ fn window_stats(diagnostic: &bevy::diagnostic::Diagnostic) -> Option<(f64, f64, 
 /// best-case sample in the same window so a single hitched frame
 /// shows up as an outlier without polluting the mean.
 fn update_fps_overlay_text(
+    time: Res<Time>,
+    state: Res<FpsOverlayState>,
     diagnostics: Res<DiagnosticsStore>,
+    mut elapsed: Local<f32>,
     mut query: Query<&mut Text, With<FpsOverlayText>>,
 ) {
+    if !state.visible {
+        return;
+    }
+    *elapsed += time.delta_secs();
+    if *elapsed < FPS_OVERLAY_REFRESH_SECONDS && !state.is_changed() {
+        return;
+    }
+    *elapsed = 0.0;
     let Ok(mut text) = query.single_mut() else {
         return;
     };
@@ -208,7 +221,10 @@ fn update_fps_overlay_text(
         .and_then(window_stats)
         .map(|(min, mean, max)| format!("frame  {mean:>5.1}  min {min:>4.1} max {max:>4.1} ms"))
         .unwrap_or_else(|| "frame  --     min  --   max  --   ms".to_owned());
-    text.0 = format!("{fps_line}\n{frame_line}");
+    let next = format!("{fps_line}\n{frame_line}");
+    if text.as_str() != next.as_str() {
+        text.0 = next;
+    }
 }
 
 /// Sync the overlay entity's `Visibility` with `FpsOverlayState`.

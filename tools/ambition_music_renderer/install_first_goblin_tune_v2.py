@@ -4,9 +4,9 @@
 Reads a renderer output directory (default: ``target/generated-audio/first_goblin_tune_v2``),
 finds the adaptive manifest, and copies each section/stem OGG to a stable,
 hash-free filename under
-``crates/ambition_sandbox/assets/audio/music/generated/first_goblin_tune_v2/``.
+``crates/ambition_gameplay_core/assets/audio/music/generated/first_goblin_tune_v2/``.
 
-The Rust loader (``crates/ambition_sandbox/src/generated_music.rs``) targets
+The Rust loader (``crates/ambition_gameplay_core/src/generated_music.rs``) targets
 those stable filenames, so re-rendering the cue does not require Rust changes.
 """
 
@@ -160,7 +160,7 @@ def main() -> int:
         raise SystemExit(f"manifest id must be {CUE_ID}, got {manifest.get('id')!r}")
     file_base = f"{CUE_ID}_{manifest['hash']}"
 
-    asset_root = repo_root() / "crates/ambition_sandbox/assets/audio/music/generated"
+    asset_root = repo_root() / "crates/ambition_gameplay_core/assets/audio/music/generated"
     dest = asset_root / CUE_ID
 
     if args.clean:

@@ -222,19 +222,19 @@ Tags: `rust-module-refactor`, `rust-attributes`, `rustdoc`, `serde`, `bevy-resou
 You are splitting a large Bevy/Rust file:
 
 ```text
-crates/ambition_sandbox/src/trace.rs
+crates/ambition_gameplay_core/src/trace.rs
 ```
 
 into a facade plus private children:
 
 ```text
-crates/ambition_sandbox/src/trace.rs
-crates/ambition_sandbox/src/trace/model.rs
-crates/ambition_sandbox/src/trace/buffer.rs
-crates/ambition_sandbox/src/trace/detect.rs
-crates/ambition_sandbox/src/trace/dump.rs
-crates/ambition_sandbox/src/trace/systems.rs
-crates/ambition_sandbox/src/trace/tests.rs
+crates/ambition_gameplay_core/src/trace.rs
+crates/ambition_gameplay_core/src/trace/model.rs
+crates/ambition_gameplay_core/src/trace/buffer.rs
+crates/ambition_gameplay_core/src/trace/detect.rs
+crates/ambition_gameplay_core/src/trace/dump.rs
+crates/ambition_gameplay_core/src/trace/systems.rs
+crates/ambition_gameplay_core/src/trace/tests.rs
 ```
 
 The original file contains adjacent item decorations like these:
@@ -294,7 +294,7 @@ Before handoff, run or simulate checks that catch orphaned decorations:
 
 ```bash
 cargo fmt --all
-cargo test -p ambition_sandbox --lib
+cargo test -p ambition_gameplay_core --lib
 ```
 
 If Rust tooling is unavailable, perform a textual audit:
@@ -325,16 +325,16 @@ Tags: `rust-module-refactor`, `rust-visibility`, `procedural-audio`
 You split a large audio module:
 
 ```text
-crates/ambition_sandbox/src/audio.rs
+crates/ambition_gameplay_core/src/audio.rs
 ```
 
 into:
 
 ```text
-crates/ambition_sandbox/src/audio.rs          # facade
-crates/ambition_sandbox/src/audio/render.rs   # waveform/music rendering helpers
-crates/ambition_sandbox/src/audio/runtime.rs  # runtime handles, Kira channels, radio state
-crates/ambition_sandbox/src/audio/tests.rs
+crates/ambition_gameplay_core/src/audio.rs          # facade
+crates/ambition_gameplay_core/src/audio/render.rs   # waveform/music rendering helpers
+crates/ambition_gameplay_core/src/audio/runtime.rs  # runtime handles, Kira channels, radio state
+crates/ambition_gameplay_core/src/audio/tests.rs
 ```
 
 Before the split, a private helper and its call site were in the same file:
@@ -405,16 +405,16 @@ Tags: `rust-module-refactor`, `include-str`, `asset-paths`, `game-assets`
 You are splitting a large Bevy game module:
 
 ```text
-crates/ambition_sandbox/src/audio.rs
+crates/ambition_gameplay_core/src/audio.rs
 ```
 
 into a facade plus private children:
 
 ```text
-crates/ambition_sandbox/src/audio.rs
-crates/ambition_sandbox/src/audio/runtime.rs
-crates/ambition_sandbox/src/audio/render.rs
-crates/ambition_sandbox/src/audio/tests.rs
+crates/ambition_gameplay_core/src/audio.rs
+crates/ambition_gameplay_core/src/audio/runtime.rs
+crates/ambition_gameplay_core/src/audio/render.rs
+crates/ambition_gameplay_core/src/audio/tests.rs
 ```
 
 The original inline tests in `audio.rs` loaded a checked-in tune example at
@@ -427,7 +427,7 @@ let track: MusicTrackSpec = ron::from_str(include_str!(
 ```
 
 That path was correct when the code lived directly in `src/audio.rs`, because
-`../assets` resolved to `crates/ambition_sandbox/assets`.
+`../assets` resolved to `crates/ambition_gameplay_core/assets`.
 
 ### Question
 
@@ -460,7 +460,7 @@ The handoff check should include tests, not just `cargo check`, because this
 class of error may live under `#[cfg(test)]`:
 
 ```bash
-cargo test -p ambition_sandbox --lib
+cargo test -p ambition_gameplay_core --lib
 ```
 
 ### Why this was easy to miss
@@ -536,7 +536,7 @@ changing runtime behavior.
 The handoff check should compile tests, not just library code:
 
 ```bash
-cargo test -p ambition_sandbox --lib
+cargo test -p ambition_gameplay_core --lib
 ```
 
 ### Why this was easy to miss

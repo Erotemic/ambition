@@ -49,7 +49,7 @@ Generates and publishes 2D character/entity spritesheets and their actor rigs.
 - **Publish** one target (what `regen_sprites.sh` calls per target):
   `python -m ambition_sprite2d_renderer publish <target> --dest-root <dest>`.
 - **`./regen_sprites.sh`** renders + installs everything: adapter targets and
-  standalone sheets into `crates/ambition_sandbox/assets/sprites/`, entity
+  standalone sheets into `crates/ambition_gameplay_core/assets/sprites/`, entity
   sprites (chest, breakable, door zone, …) into `…/assets/sprites/entities/`.
   `--target <name>` does just one. It fingerprints the renderer's `.py` + config
   sources, so a source edit invalidates the cache and forces a re-render.
@@ -63,7 +63,7 @@ Generates and publishes 2D character/entity spritesheets and their actor rigs.
 - `tools/ambition_parallax_renderer/`
 
 `./regen_backgrounds.sh` regenerates procedural backgrounds / parallax layers
-into `crates/ambition_sandbox/assets/backgrounds/parallax_layers/`. These
+into `crates/ambition_gameplay_core/assets/backgrounds/parallax_layers/`. These
 deliberately live under `assets/backgrounds/`, **not** `assets/sprites/` —
 `regen_sprites.sh` neither creates nor publishes them.
 

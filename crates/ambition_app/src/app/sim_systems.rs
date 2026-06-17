@@ -5,21 +5,21 @@
 //! [`super::schedule::configure_sandbox_sets`]. Cross-set ordering lives in the
 //! schedule; intra-set ordering is expressed by `.chain()` where registered.
 
-use ambition_sandbox::engine_core as ae;
+use ambition_gameplay_core::engine_core as ae;
 use bevy::prelude::*;
 
 use ambition_render::fx::VfxMessage;
-use ambition_sandbox::audio::SfxMessage;
-use ambition_sandbox::dev::dev_tools::{self, EditableAbilitySet, EditableMovementTuning};
-use ambition_sandbox::features::{
+use ambition_gameplay_core::audio::SfxMessage;
+use ambition_gameplay_core::dev::dev_tools::{self, EditableAbilitySet, EditableMovementTuning};
+use ambition_gameplay_core::features::{
     self, FeatureEcsWorldOverlay, GameplayBanner, HitEvent as FeatureHitEvent,
 };
-use ambition_sandbox::input::ControlFrame;
-use ambition_sandbox::rooms::{
+use ambition_gameplay_core::input::ControlFrame;
+use ambition_gameplay_core::rooms::{
     GatePortalRegistry, LoadingZoneActivation, RoomSet, RoomTransitionRequested,
 };
-use ambition_sandbox::time::feel::SandboxFeelTuning;
-use ambition_sandbox::{
+use ambition_gameplay_core::time::feel::SandboxFeelTuning;
+use ambition_gameplay_core::{
     GameWorld, MovingPlatformSet, PlayerDiedMessage, SafePositionContext, SandboxSimState,
 };
 
@@ -30,13 +30,13 @@ pub fn sync_live_player_dev_edits_system(
     editable_abilities: Res<EditableAbilitySet>,
     mut player_q: Query<
         (
-            &mut ambition_sandbox::player::PlayerAbilities,
-            &mut ambition_sandbox::player::PlayerFlightState,
-            &mut ambition_sandbox::player::PlayerBlinkState,
-            &mut ambition_sandbox::player::PlayerDashState,
-            &mut ambition_sandbox::player::PlayerJumpState,
+            &mut ambition_gameplay_core::player::PlayerAbilities,
+            &mut ambition_gameplay_core::player::PlayerFlightState,
+            &mut ambition_gameplay_core::player::PlayerBlinkState,
+            &mut ambition_gameplay_core::player::PlayerDashState,
+            &mut ambition_gameplay_core::player::PlayerJumpState,
         ),
-        ambition_sandbox::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::player::PrimaryPlayerOnly,
     >,
 ) {
     let Ok((mut abilities, mut flight, mut blink, mut dash, mut jump)) = player_q.single_mut()
@@ -58,8 +58,8 @@ pub fn sync_live_player_dev_edits_system(
 /// zero so presentation animations freeze and the smoother cannot ramp up next
 /// frame. Gameplay mode leaves scale control to the normal time-control pipeline.
 pub fn apply_suspended_time_scale_system(
-    mut clock: ResMut<ambition_sandbox::time::clock_state::ClockState>,
-    mut target: ResMut<ambition_sandbox::time::time_control::RequestedClockScale>,
+    mut clock: ResMut<ambition_gameplay_core::time::clock_state::ClockState>,
+    mut target: ResMut<ambition_gameplay_core::time::time_control::RequestedClockScale>,
 ) {
     clock.time_scale = 0.0;
     target.sim_clock = 0.0;
@@ -76,15 +76,15 @@ pub fn apply_suspended_time_scale_system(
 pub fn input_timer_system(
     time: Res<Time>,
     feel_tuning: Res<SandboxFeelTuning>,
-    gravity_field: Option<Res<ambition_sandbox::physics::GravityField>>,
-    mut sim_state: ResMut<ambition_sandbox::SandboxSimState>,
+    gravity_field: Option<Res<ambition_gameplay_core::physics::GravityField>>,
+    mut sim_state: ResMut<ambition_gameplay_core::SandboxSimState>,
     mut control_frame: ResMut<ControlFrame>,
     mut player_q: Query<
         (
-            &mut ambition_sandbox::player::PlayerCombatState,
-            &mut ambition_sandbox::player::PlayerInteractionState,
+            &mut ambition_gameplay_core::player::PlayerCombatState,
+            &mut ambition_gameplay_core::player::PlayerInteractionState,
         ),
-        ambition_sandbox::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::player::PrimaryPlayerOnly,
     >,
 ) {
     let frame_dt = time.delta_secs();
@@ -124,7 +124,7 @@ pub fn input_timer_system(
 /// Fold the explicit `Interact` action together with the
 /// `double_tap_up_pending` gesture, gate the result on hit-stun, and
 /// advance the per-frame interact buffer on
-/// [`ambition_sandbox::player::PlayerInteractionState`].
+/// [`ambition_gameplay_core::player::PlayerInteractionState`].
 ///
 /// Downstream consumers read the buffered signal from
 /// `PlayerInteractionState::buffered()`. Gated by `gameplay_allowed` so the
@@ -140,10 +140,10 @@ pub fn interaction_input_system(
     control_frame: Res<ControlFrame>,
     mut player_q: Query<
         (
-            &ambition_sandbox::player::PlayerCombatState,
-            &mut ambition_sandbox::player::PlayerInteractionState,
+            &ambition_gameplay_core::player::PlayerCombatState,
+            &mut ambition_gameplay_core::player::PlayerInteractionState,
         ),
-        ambition_sandbox::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::player::PrimaryPlayerOnly,
     >,
 ) {
     let frame_dt = time.delta_secs();
@@ -189,21 +189,21 @@ pub fn apply_player_reset_input_system(
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     mut sim_state: ResMut<SandboxSimState>,
-    mut clock: ResMut<ambition_sandbox::time::clock_state::ClockState>,
+    mut clock: ResMut<ambition_gameplay_core::time::clock_state::ClockState>,
     mut reset_room_features: MessageWriter<features::ResetRoomFeaturesEvent>,
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,
     mut player_q: Query<
         (
             ae::PlayerClusterQueryData,
-            &mut ambition_sandbox::player::PlayerAnimState,
-            &mut ambition_sandbox::player::PlayerCombatState,
-            &mut ambition_sandbox::player::PlayerInteractionState,
-            &mut ambition_sandbox::player::PlayerBlinkCameraState,
-            &mut ambition_sandbox::player::ActivePlayerAttack,
-            &mut ambition_sandbox::player::PlayerSafetyState,
+            &mut ambition_gameplay_core::player::PlayerAnimState,
+            &mut ambition_gameplay_core::player::PlayerCombatState,
+            &mut ambition_gameplay_core::player::PlayerInteractionState,
+            &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
+            &mut ambition_gameplay_core::player::ActivePlayerAttack,
+            &mut ambition_gameplay_core::player::PlayerSafetyState,
         ),
-        ambition_sandbox::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::player::PrimaryPlayerOnly,
     >,
 ) {
     if !control_frame.reset_pressed {
@@ -260,24 +260,24 @@ pub fn apply_cut_rope_room_replay_request_system(
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     mut sim_state: ResMut<SandboxSimState>,
-    mut clock: ResMut<ambition_sandbox::time::clock_state::ClockState>,
-    mut boss_registry: ResMut<ambition_sandbox::boss_encounter::BossEncounterRegistry>,
-    mut save: Option<ResMut<ambition_sandbox::persistence::save::SandboxSave>>,
-    mut boss_music: Option<ResMut<ambition_sandbox::encounter::BossEncounterMusicRequest>>,
+    mut clock: ResMut<ambition_gameplay_core::time::clock_state::ClockState>,
+    mut boss_registry: ResMut<ambition_gameplay_core::boss_encounter::BossEncounterRegistry>,
+    mut save: Option<ResMut<ambition_gameplay_core::persistence::save::SandboxSave>>,
+    mut boss_music: Option<ResMut<ambition_gameplay_core::encounter::BossEncounterMusicRequest>>,
     mut reset_room_features: MessageWriter<features::ResetRoomFeaturesEvent>,
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,
     mut player_q: Query<
         (
             ae::PlayerClusterQueryData,
-            &mut ambition_sandbox::player::PlayerAnimState,
-            &mut ambition_sandbox::player::PlayerCombatState,
-            &mut ambition_sandbox::player::PlayerInteractionState,
-            &mut ambition_sandbox::player::PlayerBlinkCameraState,
-            &mut ambition_sandbox::player::ActivePlayerAttack,
-            &mut ambition_sandbox::player::PlayerSafetyState,
+            &mut ambition_gameplay_core::player::PlayerAnimState,
+            &mut ambition_gameplay_core::player::PlayerCombatState,
+            &mut ambition_gameplay_core::player::PlayerInteractionState,
+            &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
+            &mut ambition_gameplay_core::player::ActivePlayerAttack,
+            &mut ambition_gameplay_core::player::PlayerSafetyState,
         ),
-        ambition_sandbox::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::player::PrimaryPlayerOnly,
     >,
 ) {
     if replay_requests.read().count() == 0 {
@@ -347,9 +347,9 @@ pub fn detect_room_transition_system(
     mut player_q: Query<
         (
             ae::PlayerClusterQueryData,
-            &mut ambition_sandbox::player::PlayerInteractionState,
+            &mut ambition_gameplay_core::player::PlayerInteractionState,
         ),
-        ambition_sandbox::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::player::PrimaryPlayerOnly,
     >,
 ) {
     if sim_state.room_transition_cooldown > 0.0 {
@@ -402,20 +402,20 @@ pub fn attack_advance_system(
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     feature_ecs_overlay: Res<FeatureEcsWorldOverlay>,
-    gravity_field: Option<Res<ambition_sandbox::physics::GravityField>>,
+    gravity_field: Option<Res<ambition_gameplay_core::physics::GravityField>>,
     mut player_q: Query<
         (
             Entity,
             ae::PlayerClusterQueryData,
-            &mut ambition_sandbox::player::PlayerAnimState,
-            &mut ambition_sandbox::player::PlayerCombatState,
-            &mut ambition_sandbox::player::ActivePlayerAttack,
-            &ambition_sandbox::brain::ActorControl,
-            Option<&ambition_sandbox::features::HeldItem>,
+            &mut ambition_gameplay_core::player::PlayerAnimState,
+            &mut ambition_gameplay_core::player::PlayerCombatState,
+            &mut ambition_gameplay_core::player::ActivePlayerAttack,
+            &ambition_gameplay_core::brain::ActorControl,
+            Option<&ambition_gameplay_core::features::HeldItem>,
         ),
-        ambition_sandbox::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::player::PrimaryPlayerOnly,
     >,
-    mut brain_actions: MessageReader<ambition_sandbox::brain::ActorActionMessage>,
+    mut brain_actions: MessageReader<ambition_gameplay_core::brain::ActorActionMessage>,
     mut hit_events: MessageWriter<FeatureHitEvent>,
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,
@@ -446,8 +446,8 @@ pub fn attack_advance_system(
     // gravity-relative impulse this system applies) launches OPPOSITE the live
     // gravity, not a hardcoded world-up. Without this the attack-path pogo used
     // the default `(0,1)` down and bounced the wrong way under inverted gravity.
-    let gdir = ambition_sandbox::physics::gravity_dir_or_default(gravity_field.as_deref());
-    ambition_sandbox::physics::apply_gravity_dir(&mut tuning, gdir);
+    let gdir = ambition_gameplay_core::physics::gravity_dir_or_default(gravity_field.as_deref());
+    ambition_gameplay_core::physics::apply_gravity_dir(&mut tuning, gdir);
     let feel = *feel_tuning;
     let frame_dt = time.delta_secs();
 
@@ -513,10 +513,10 @@ pub fn apply_player_hit_events(
     moving_platforms: Res<MovingPlatformSet>,
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
-    user_settings: Res<ambition_sandbox::persistence::settings::UserSettings>,
+    user_settings: Res<ambition_gameplay_core::persistence::settings::UserSettings>,
     feature_ecs_overlay: Res<FeatureEcsWorldOverlay>,
     mut sim_state: ResMut<SandboxSimState>,
-    mut clock: ResMut<ambition_sandbox::time::clock_state::ClockState>,
+    mut clock: ResMut<ambition_gameplay_core::time::clock_state::ClockState>,
     mut banner: ResMut<GameplayBanner>,
     mut hit_events: MessageReader<FeatureHitEvent>,
     mut died_writer: MessageWriter<PlayerDiedMessage>,
@@ -525,20 +525,20 @@ pub fn apply_player_hit_events(
     primary_q: Query<
         Entity,
         (
-            With<ambition_sandbox::player::PlayerEntity>,
-            With<ambition_sandbox::player::PrimaryPlayer>,
+            With<ambition_gameplay_core::player::PlayerEntity>,
+            With<ambition_gameplay_core::player::PrimaryPlayer>,
         ),
     >,
     mut player_q: Query<
         (
             Entity,
             ae::PlayerClusterQueryData,
-            Option<&mut ambition_sandbox::player::PlayerHealth>,
-            &mut ambition_sandbox::player::PlayerAnimState,
-            &mut ambition_sandbox::player::PlayerCombatState,
-            &mut ambition_sandbox::player::PlayerSafetyState,
+            Option<&mut ambition_gameplay_core::player::PlayerHealth>,
+            &mut ambition_gameplay_core::player::PlayerAnimState,
+            &mut ambition_gameplay_core::player::PlayerCombatState,
+            &mut ambition_gameplay_core::player::PlayerSafetyState,
         ),
-        ambition_sandbox::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::player::PrimaryPlayerOnly,
     >,
 ) {
     let primary = primary_q.single().ok();
@@ -553,8 +553,8 @@ pub fn apply_player_hit_events(
         .collect();
 
     let assist_factor = match user_settings.gameplay.assist {
-        ambition_sandbox::persistence::settings::AssistMode::Off => 1.0,
-        ambition_sandbox::persistence::settings::AssistMode::On => 0.5,
+        ambition_gameplay_core::persistence::settings::AssistMode::Off => 1.0,
+        ambition_gameplay_core::persistence::settings::AssistMode::On => 0.5,
     };
     let difficulty_multiplier = user_settings.gameplay.difficulty.damage_taken_multiplier()
         * user_settings.gameplay.player_damage_multiplier
@@ -619,7 +619,7 @@ pub fn apply_player_hit_events(
             blink_grace_active: clusters.blink.grace_timer > 0.0,
             room_transitioning: sim_state.room_transition_cooldown > 0.0,
         };
-        ambition_sandbox::remember_safe_player_position(&mut safety, &clusters, &safe_world, ctx);
+        ambition_gameplay_core::remember_safe_player_position(&mut safety, &clusters, &safe_world, ctx);
     }
 }
 
@@ -633,17 +633,17 @@ pub fn apply_player_hit_events(
 /// `input_timer_system`.
 pub fn cleanup_timers_system(
     time: Res<Time>,
-    mut dev_state: ResMut<ambition_sandbox::SandboxDevState>,
+    mut dev_state: ResMut<ambition_gameplay_core::SandboxDevState>,
     mut player_q: Query<
         (
-            &ambition_sandbox::player::BodyKinematics,
-            &ambition_sandbox::player::PlayerGroundState,
-            &ambition_sandbox::player::PlayerDashState,
-            &mut ambition_sandbox::player::PlayerAnimState,
-            &mut ambition_sandbox::player::PlayerCombatState,
-            &mut ambition_sandbox::player::PlayerBlinkCameraState,
+            &ambition_gameplay_core::player::BodyKinematics,
+            &ambition_gameplay_core::player::PlayerGroundState,
+            &ambition_gameplay_core::player::PlayerDashState,
+            &mut ambition_gameplay_core::player::PlayerAnimState,
+            &mut ambition_gameplay_core::player::PlayerCombatState,
+            &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
         ),
-        ambition_sandbox::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::player::PrimaryPlayerOnly,
     >,
 ) {
     let frame_dt = time.delta_secs();
@@ -679,7 +679,7 @@ fn update_anim_signal_timers(
     on_ground: bool,
     vel_y: f32,
     dash_timer: f32,
-    anim: &mut ambition_sandbox::player::PlayerAnimState,
+    anim: &mut ambition_gameplay_core::player::PlayerAnimState,
     frame_dt: f32,
 ) {
     // Hard-landing threshold: pre-touchdown downward speed (px/s) above
@@ -732,9 +732,9 @@ fn update_anim_signal_timers(
 #[cfg(test)]
 mod suspended_time_tests {
     use super::*;
-    use ambition_sandbox::game_mode::{gameplay_suspended, GameMode};
-    use ambition_sandbox::time::time_control::RequestedClockScale;
-    use ambition_sandbox::WorldTime;
+    use ambition_gameplay_core::game_mode::{gameplay_suspended, GameMode};
+    use ambition_gameplay_core::time::time_control::RequestedClockScale;
+    use ambition_gameplay_core::WorldTime;
     use bevy::state::app::StatesPlugin;
 
     /// Regression: when gameplay is suspended (pause / dialogue /
@@ -750,7 +750,7 @@ mod suspended_time_tests {
         let mut app = App::new();
         app.add_plugins(StatesPlugin);
         app.insert_state(GameMode::Paused);
-        app.insert_resource(ambition_sandbox::time::clock_state::ClockState { time_scale: 1.0 });
+        app.insert_resource(ambition_gameplay_core::time::clock_state::ClockState { time_scale: 1.0 });
         app.insert_resource(RequestedClockScale {
             sim_clock: 1.0,
             ..Default::default()
@@ -767,7 +767,7 @@ mod suspended_time_tests {
             Update,
             (
                 apply_suspended_time_scale_system.run_if(gameplay_suspended),
-                ambition_sandbox::refresh_world_time,
+                ambition_gameplay_core::refresh_world_time,
             )
                 .chain(),
         );
@@ -779,7 +779,7 @@ mod suspended_time_tests {
 
         let clock = app
             .world()
-            .resource::<ambition_sandbox::time::clock_state::ClockState>();
+            .resource::<ambition_gameplay_core::time::clock_state::ClockState>();
         let target = app.world().resource::<RequestedClockScale>();
         let wt = app.world().resource::<WorldTime>();
         assert_eq!(
@@ -811,7 +811,7 @@ mod suspended_time_tests {
         let mut app = App::new();
         app.add_plugins(StatesPlugin);
         app.insert_state(GameMode::Playing);
-        app.insert_resource(ambition_sandbox::time::clock_state::ClockState::default());
+        app.insert_resource(ambition_gameplay_core::time::clock_state::ClockState::default());
         app.insert_resource(RequestedClockScale::default());
         app.insert_resource(WorldTime::default());
         app.insert_resource(Time::<()>::default());
@@ -820,7 +820,7 @@ mod suspended_time_tests {
             Update,
             (
                 apply_suspended_time_scale_system.run_if(gameplay_suspended),
-                ambition_sandbox::refresh_world_time,
+                ambition_gameplay_core::refresh_world_time,
             )
                 .chain(),
         );

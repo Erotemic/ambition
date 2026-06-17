@@ -9,19 +9,19 @@ description = "Ambition's named game content: quests, bosses, items, dialogue, i
 [features]
 default = []
 # Forwarders: the cfg(feature = "...") gates inside this crate's code key off
-# OUR feature names; each forwards to the matching ambition_sandbox machinery
+# OUR feature names; each forwards to the matching ambition_gameplay_core machinery
 # feature so a mismatched combination is a compile error, never a silent
 # missing-registration.
-portal = ["ambition_sandbox/portal"]
-portal_render = ["portal", "ambition_sandbox/portal_render"]
-ui = ["ambition_sandbox/ui", "dep:bevy_yarnspinner"]
-audio = ["ambition_sandbox/audio", "dep:ambition_audio"]
+portal = ["ambition_gameplay_core/portal"]
+portal_render = ["portal", "ambition_gameplay_core/portal_render"]
+ui = ["ambition_gameplay_core/ui", "dep:bevy_yarnspinner"]
+audio = ["ambition_gameplay_core/audio", "dep:ambition_audio"]
 
 [dependencies]
 # Baseline machinery features: the sandbox lib was never built fully bare
 # (ldtk/input/portal code is not end-to-end cfg-gated), so the content crate
 # pins the same always-on baseline every persona used pre-split.
-ambition_sandbox = { path = "../ambition_sandbox", default-features = false, features = [
+ambition_gameplay_core = { path = "../ambition_gameplay_core", default-features = false, features = [
     "ldtk_runtime",
     "input",
     "portal",

@@ -16,7 +16,7 @@ use ambition_menu::{
     ActiveMenuPages, AmbitionInventoryUiPlugin, AmbitionMenuControl, MenuDynamicText,
     MenuDynamicTextContent, MenuVisualState,
 };
-use ambition_sandbox::menu::backend::{InventoryUiBackend, KALEIDOSCOPE_MENU_BACKEND_ENABLED};
+use ambition_gameplay_core::menu::backend::{InventoryUiBackend, KALEIDOSCOPE_MENU_BACKEND_ENABLED};
 use bevy::prelude::*;
 
 use crate::menu::effects::{MenuEffectManaQuery, MenuEffectPlayers};
@@ -25,16 +25,16 @@ use crate::menu::model::{
     system_detail_slot_text, system_effective_window_start, system_max_window_start, system_rows,
     MenuFocus, MenuPage, MenuPageAction, SystemRow, SYSTEM_VISIBLE_ROWS,
 };
-use ambition_sandbox::audio::SfxMessage;
-use ambition_sandbox::engine_core::Vec2;
-use ambition_sandbox::input::MenuControlFrame;
-use ambition_sandbox::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
-use ambition_sandbox::persistence::settings::{
+use ambition_gameplay_core::audio::SfxMessage;
+use ambition_gameplay_core::engine_core::Vec2;
+use ambition_gameplay_core::input::MenuControlFrame;
+use ambition_gameplay_core::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
+use ambition_gameplay_core::persistence::settings::{
     apply_settings_option, settings_menu_model, DevSnapshot, DevToggleId, RadioSnapshot,
     SettingsOptionId, SettingsOptionKind, SystemMenuAction, SystemMenuEntryId, SystemMenuModel,
     SystemOptionId, UserSettings,
 };
-use ambition_sandbox::player::PlayerHealRequested;
+use ambition_gameplay_core::player::PlayerHealRequested;
 
 /// Play a one-shot UI sound for the cube menu: `Play { id, pos }` with `pos = ZERO`.
 /// `Play` is non-spatialized (see `audio::runtime::audio_play_sfx_messages` — it
@@ -59,7 +59,7 @@ pub fn install_unified_menu_shared(app: &mut App) {
         // The pointer-hover handlers read `ActiveInputKind`. The input plugin
         // also inits it; init here too so the menu remains self-sufficient
         // (`init_resource` is idempotent).
-        .init_resource::<ambition_sandbox::input::ActiveInputKind>()
+        .init_resource::<ambition_gameplay_core::input::ActiveInputKind>()
         .init_resource::<KaleidoscopeSystemNav>()
         .init_resource::<CachedSystemMenu>()
         .add_plugins(AmbitionInventoryUiPlugin);
@@ -83,7 +83,7 @@ fn kaleidoscope_backend_active(backend: Res<InventoryUiBackend>) -> bool {
 /// they must run while closed so they can open the menu and keep the camera off.
 fn kaleidoscope_menu_visible(
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Res<ambition_sandbox::inventory::InventoryUiState>>,
+    ui_state: Option<Res<ambition_gameplay_core::inventory::InventoryUiState>>,
 ) -> bool {
     KALEIDOSCOPE_MENU_BACKEND_ENABLED
         && backend.effective() == InventoryUiBackend::LunexKaleidoscope
@@ -97,7 +97,7 @@ fn kaleidoscope_menu_visible(
 /// off the close animation — including the close triggered by SWITCHING backends.
 fn kaleidoscope_render_needed(
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Res<ambition_sandbox::inventory::InventoryUiState>>,
+    ui_state: Option<Res<ambition_gameplay_core::inventory::InventoryUiState>>,
     open_state: Option<Res<ambition_menu::kaleidoscope::KaleidoscopeOpenState>>,
 ) -> bool {
     let (target, amount) = open_state
@@ -205,13 +205,13 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
                 // press AFTER the fold writes the pressed_this_frame bit.
                 kaleidoscope_menu_open_routing
                     .run_if(kaleidoscope_backend_active)
-                    .in_set(ambition_sandbox::app::MenuNavConsume),
+                    .in_set(ambition_gameplay_core::app::MenuNavConsume),
                 // Nav first (mutates the cursor), then republish (reads the cursor +
                 // inventory) so the highlight + detail panel reflect this frame's move.
                 // Also in `MenuNavConsume` for the same fold-ordering reason above.
                 kaleidoscope_focus_nav
                     .run_if(kaleidoscope_menu_visible)
-                    .in_set(ambition_sandbox::app::MenuNavConsume),
+                    .in_set(ambition_gameplay_core::app::MenuNavConsume),
                 // Scroll the System window independently of selection before republish.
                 kaleidoscope_scroll_wheel.run_if(kaleidoscope_menu_visible),
                 kaleidoscope_apply_scroll_drag.run_if(kaleidoscope_menu_visible),
@@ -257,7 +257,7 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
 }
 
 /// Which input source currently owns the cube cursor. Mirrors the grid's
-/// [`ambition_sandbox::ui_nav::MenuFocusOwner`]: keyboard/gamepad nav claims focus and keeps
+/// [`ambition_gameplay_core::ui_nav::MenuFocusOwner`]: keyboard/gamepad nav claims focus and keeps
 /// it until the pointer moves to a DIFFERENT control. A stationary hover must not
 /// keep reasserting itself over newer directional navigation (the "can't move away
 /// from the hovered option" bug).
@@ -358,11 +358,11 @@ pub(crate) struct KaleidoscopeScroll {
 /// copies (`SystemMenuSnapshotParams`) in a third system.
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct SystemMenuParams<'w> {
-    dev_tools: ResMut<'w, ambition_sandbox::dev::dev_tools::DeveloperTools>,
+    dev_tools: ResMut<'w, ambition_gameplay_core::dev::dev_tools::DeveloperTools>,
     // The Developer screen also reaches the F1/F2 global flags + F12 LDtk
     // auto-reload, which live on these two resources (not `DeveloperTools`).
-    dev_state: ResMut<'w, ambition_sandbox::SandboxDevState>,
-    ldtk_reload: ResMut<'w, ambition_sandbox::ldtk_world::LdtkHotReloadState>,
+    dev_state: ResMut<'w, ambition_gameplay_core::SandboxDevState>,
+    ldtk_reload: ResMut<'w, ambition_gameplay_core::ldtk_world::LdtkHotReloadState>,
     // The active menu frontend, mutated by the Developer "Menu Backend" row (the
     // in-menu `\` toggle). Always present (inserted at startup).
     backend: ResMut<'w, InventoryUiBackend>,
@@ -370,30 +370,30 @@ pub(crate) struct SystemMenuParams<'w> {
     // Option: absent in non-portal personas / minimal fixtures — the row then
     // no-ops and reads "n/a".
     #[cfg(feature = "portal_render")]
-    portal_effect: Option<ResMut<'w, ambition_sandbox::portal::PortalEffectSelection>>,
+    portal_effect: Option<ResMut<'w, ambition_gameplay_core::portal::PortalEffectSelection>>,
     // The Gravity cycle's target (ambient gravity). Option so the System nav stays
     // B0002-safe and fixtures without the resource render the row as "n/a".
-    base_gravity: Option<ResMut<'w, ambition_sandbox::physics::BaseGravity>>,
-    reset: ResMut<'w, ambition_sandbox::runtime::reset::SandboxResetRequested>,
+    base_gravity: Option<ResMut<'w, ambition_gameplay_core::physics::BaseGravity>>,
+    reset: ResMut<'w, ambition_gameplay_core::runtime::reset::SandboxResetRequested>,
     // Movement tuning is derived from the active movement profile, so a
     // Reset All Settings must restore it to match the reset DeveloperTools
     // defaults (mirrors the pause menu's `ResetAllSettings`).
-    editable_tuning: ResMut<'w, ambition_sandbox::dev::dev_tools::EditableMovementTuning>,
+    editable_tuning: ResMut<'w, ambition_gameplay_core::dev::dev_tools::EditableMovementTuning>,
     // The radio resources are `Option`-wrapped so the System nav stays B0002-safe
     // and never panics when audio is off / a fixture omits them: a missing radio
     // resource simply disables station audition (the rows still render). Gated on
     // `audio` so non-audio builds carry none of the types.
     #[cfg(feature = "audio")]
-    library: Option<ResMut<'w, ambition_sandbox::audio::AudioLibrary>>,
+    library: Option<ResMut<'w, ambition_gameplay_core::audio::AudioLibrary>>,
     #[cfg(feature = "audio")]
     asset_server: Option<Res<'w, AssetServer>>,
     #[cfg(feature = "audio")]
-    music_state: Option<ResMut<'w, ambition_sandbox::audio::MusicPlaybackState>>,
+    music_state: Option<ResMut<'w, ambition_gameplay_core::audio::MusicPlaybackState>>,
     #[cfg(feature = "audio")]
-    radio: Option<ResMut<'w, ambition_sandbox::audio::RadioStationState>>,
+    radio: Option<ResMut<'w, ambition_gameplay_core::audio::RadioStationState>>,
     #[cfg(feature = "audio")]
     music_channel: Option<
-        Res<'w, bevy_kira_audio::prelude::AudioChannel<ambition_sandbox::audio::MusicChannel>>,
+        Res<'w, bevy_kira_audio::prelude::AudioChannel<ambition_gameplay_core::audio::MusicChannel>>,
     >,
 }
 
@@ -429,7 +429,7 @@ impl SystemMenuParams<'_> {
                     self.music_channel.as_deref(),
                 ) {
                     if let Some(track_id) = library.track_at(index).map(|t| t.id.clone()) {
-                        ambition_sandbox::audio::set_radio_track(
+                        ambition_gameplay_core::audio::set_radio_track(
                             library,
                             asset_server,
                             radio,
@@ -512,8 +512,8 @@ impl SystemMenuParams<'_> {
     /// it has no live player to poke); the persisted resources still reset fully.
     pub(crate) fn reset_all_settings(&mut self, settings: &mut UserSettings) {
         *settings = UserSettings::default();
-        *self.dev_tools = ambition_sandbox::dev::dev_tools::DeveloperTools::default();
-        ambition_sandbox::dev::dev_tools::apply_movement_profile(
+        *self.dev_tools = ambition_gameplay_core::dev::dev_tools::DeveloperTools::default();
+        ambition_gameplay_core::dev::dev_tools::apply_movement_profile(
             &mut self.editable_tuning,
             self.dev_tools.movement_profile,
             None,
@@ -560,8 +560,8 @@ impl SystemMenuParams<'_> {
 /// [`close_kaleidoscope_menu`] via [`Self::mode`] + [`Self::next_mode`].
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct GameModeIo<'w> {
-    state: Res<'w, State<ambition_sandbox::runtime::game_mode::GameMode>>,
-    next: ResMut<'w, NextState<ambition_sandbox::runtime::game_mode::GameMode>>,
+    state: Res<'w, State<ambition_gameplay_core::runtime::game_mode::GameMode>>,
+    next: ResMut<'w, NextState<ambition_gameplay_core::runtime::game_mode::GameMode>>,
 }
 
 /// Resources `republish_kaleidoscope_pages` reads (immutably) to snapshot the radio + dev
@@ -569,19 +569,19 @@ pub(crate) struct GameModeIo<'w> {
 /// mutable `SystemMenuParams` (different systems).
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct SystemMenuSnapshotParams<'w> {
-    dev_tools: Res<'w, ambition_sandbox::dev::dev_tools::DeveloperTools>,
-    dev_state: Res<'w, ambition_sandbox::SandboxDevState>,
-    ldtk_reload: Res<'w, ambition_sandbox::ldtk_world::LdtkHotReloadState>,
+    dev_tools: Res<'w, ambition_gameplay_core::dev::dev_tools::DeveloperTools>,
+    dev_state: Res<'w, ambition_gameplay_core::SandboxDevState>,
+    ldtk_reload: Res<'w, ambition_gameplay_core::ldtk_world::LdtkHotReloadState>,
     backend: Res<'w, InventoryUiBackend>,
     #[cfg(feature = "portal_render")]
-    portal_effect: Option<Res<'w, ambition_sandbox::portal::PortalEffectSelection>>,
-    base_gravity: Option<Res<'w, ambition_sandbox::physics::BaseGravity>>,
+    portal_effect: Option<Res<'w, ambition_gameplay_core::portal::PortalEffectSelection>>,
+    base_gravity: Option<Res<'w, ambition_gameplay_core::physics::BaseGravity>>,
     #[cfg(feature = "audio")]
-    library: Option<Res<'w, ambition_sandbox::audio::AudioLibrary>>,
+    library: Option<Res<'w, ambition_gameplay_core::audio::AudioLibrary>>,
     #[cfg(feature = "audio")]
-    music_state: Option<Res<'w, ambition_sandbox::audio::MusicPlaybackState>>,
+    music_state: Option<Res<'w, ambition_gameplay_core::audio::MusicPlaybackState>>,
     #[cfg(feature = "audio")]
-    radio: Option<Res<'w, ambition_sandbox::audio::RadioStationState>>,
+    radio: Option<Res<'w, ambition_gameplay_core::audio::RadioStationState>>,
 }
 
 impl SystemMenuSnapshotParams<'_> {
@@ -615,9 +615,9 @@ impl SystemMenuSnapshotParams<'_> {
 /// single place that maps the audio runtime onto the SYSTEM IR's station list.
 #[cfg(feature = "audio")]
 fn radio_snapshot_from(
-    library: &ambition_sandbox::audio::AudioLibrary,
-    music_state: &ambition_sandbox::audio::MusicPlaybackState,
-    radio: Option<&ambition_sandbox::audio::RadioStationState>,
+    library: &ambition_gameplay_core::audio::AudioLibrary,
+    music_state: &ambition_gameplay_core::audio::MusicPlaybackState,
+    radio: Option<&ambition_gameplay_core::audio::RadioStationState>,
 ) -> RadioSnapshot {
     let active_id = radio
         .and_then(|r| r.selected_track())
@@ -662,7 +662,7 @@ fn kaleidoscope_focus_nav(
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
     // Single mutable access to the overlay state — also read `.visible` from it (a
     // separate `Res<InventoryUiState>` would be a B0002 conflict with this `ResMut`).
-    mut overlay: ResMut<ambition_sandbox::inventory::InventoryUiState>,
+    mut overlay: ResMut<ambition_gameplay_core::inventory::InventoryUiState>,
     // A close-via-action (e.g. Reset Sandbox) must restore `GameMode::Playing` exactly
     // like the canonical Esc-close — so thread the game mode through to
     // `close_kaleidoscope_menu` instead of bare `overlay.visible = false`. Bundled into
@@ -927,9 +927,9 @@ pub(crate) fn system_focus_nav(
     cursor: &mut KaleidoscopeCursor,
     system_nav: &mut KaleidoscopeSystemNav,
     pages: &mut ActiveMenuPages<MenuPage, MenuPageAction>,
-    overlay: &mut ambition_sandbox::inventory::InventoryUiState,
-    mode: &ambition_sandbox::runtime::game_mode::GameMode,
-    next_mode: &mut NextState<ambition_sandbox::runtime::game_mode::GameMode>,
+    overlay: &mut ambition_gameplay_core::inventory::InventoryUiState,
+    mode: &ambition_gameplay_core::runtime::game_mode::GameMode,
+    next_mode: &mut NextState<ambition_gameplay_core::runtime::game_mode::GameMode>,
     settings: &mut UserSettings,
     active_page: MenuPage,
     owned: &mut OwnedItems,
@@ -1092,7 +1092,7 @@ pub(crate) fn system_row_action_for(
 ) -> Option<MenuPageAction> {
     match row {
         SystemRow::Entry(id) => match model.entry(id).map(|e| &e.target) {
-            Some(ambition_sandbox::persistence::settings::SystemMenuTarget::Action(action)) => {
+            Some(ambition_gameplay_core::persistence::settings::SystemMenuTarget::Action(action)) => {
                 Some(MenuPageAction::SystemAction(*action))
             }
             _ => Some(MenuPageAction::OpenSystemEntry(id)),
@@ -1408,18 +1408,18 @@ pub(crate) use pointer::*;
 #[allow(clippy::too_many_arguments)]
 fn kaleidoscope_menu_open_routing(
     mut menu: ResMut<MenuControlFrame>,
-    mut overlay: ResMut<ambition_sandbox::inventory::InventoryUiState>,
-    mode: Res<State<ambition_sandbox::runtime::game_mode::GameMode>>,
-    mut next_mode: ResMut<NextState<ambition_sandbox::runtime::game_mode::GameMode>>,
+    mut overlay: ResMut<ambition_gameplay_core::inventory::InventoryUiState>,
+    mode: Res<State<ambition_gameplay_core::runtime::game_mode::GameMode>>,
+    mut next_mode: ResMut<NextState<ambition_gameplay_core::runtime::game_mode::GameMode>>,
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
-    mut map: ResMut<ambition_sandbox::menu::map::MapMenuState>,
+    mut map: ResMut<ambition_gameplay_core::menu::map::MapMenuState>,
     mut sfx: MessageWriter<SfxMessage>,
     // Tracks last frame's `menu.start` so we only act on its RISING edge (below).
     mut last_start: Local<bool>,
 ) {
-    use ambition_sandbox::runtime::game_mode::GameMode;
+    use ambition_gameplay_core::runtime::game_mode::GameMode;
 
     // pause / Esc: toggle the cube on the System page.
     //
@@ -1532,15 +1532,15 @@ fn kaleidoscope_menu_open_routing(
 #[allow(clippy::too_many_arguments)]
 fn open_kaleidoscope_menu(
     page: MenuPage,
-    overlay: &mut ambition_sandbox::inventory::InventoryUiState,
-    mode: &ambition_sandbox::runtime::game_mode::GameMode,
-    next_mode: &mut NextState<ambition_sandbox::runtime::game_mode::GameMode>,
+    overlay: &mut ambition_gameplay_core::inventory::InventoryUiState,
+    mode: &ambition_gameplay_core::runtime::game_mode::GameMode,
+    next_mode: &mut NextState<ambition_gameplay_core::runtime::game_mode::GameMode>,
     pages: &mut ActiveMenuPages<MenuPage, MenuPageAction>,
     cursor: &mut KaleidoscopeCursor,
     system_nav: &mut KaleidoscopeSystemNav,
-    map: &mut ambition_sandbox::menu::map::MapMenuState,
+    map: &mut ambition_gameplay_core::menu::map::MapMenuState,
 ) {
-    use ambition_sandbox::runtime::game_mode::GameMode;
+    use ambition_gameplay_core::runtime::game_mode::GameMode;
     overlay.visible = true;
     overlay.opened_from_pause = matches!(mode, GameMode::Paused);
     pages.active = Some(page);
@@ -1564,11 +1564,11 @@ fn open_kaleidoscope_menu(
 /// close-via-action paths (`kaleidoscope_focus_nav` / `system_focus_nav` /
 /// `kaleidoscope_pointer_release`) so an action-triggered close unpauses identically.
 fn close_kaleidoscope_menu(
-    overlay: &mut ambition_sandbox::inventory::InventoryUiState,
-    mode: &ambition_sandbox::runtime::game_mode::GameMode,
-    next_mode: &mut NextState<ambition_sandbox::runtime::game_mode::GameMode>,
+    overlay: &mut ambition_gameplay_core::inventory::InventoryUiState,
+    mode: &ambition_gameplay_core::runtime::game_mode::GameMode,
+    next_mode: &mut NextState<ambition_gameplay_core::runtime::game_mode::GameMode>,
 ) {
-    use ambition_sandbox::runtime::game_mode::GameMode;
+    use ambition_gameplay_core::runtime::game_mode::GameMode;
     let opened_from_pause = overlay.opened_from_pause;
     overlay.visible = false;
     if !opened_from_pause && matches!(mode, GameMode::Paused) {
@@ -1584,7 +1584,7 @@ fn close_kaleidoscope_menu(
 /// this key used to own now lives only on the dev menu (`D::MenuBackend`).
 fn cycle_dev_gravity(
     keys: Res<ButtonInput<KeyCode>>,
-    mut base: ResMut<ambition_sandbox::physics::BaseGravity>,
+    mut base: ResMut<ambition_gameplay_core::physics::BaseGravity>,
 ) {
     if !keys.just_pressed(KeyCode::Backslash) {
         return;
@@ -1599,7 +1599,7 @@ fn cycle_dev_gravity(
 /// selected). Off otherwise → the lower-order game cameras render normally.
 fn gate_kaleidoscope_menu(
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Res<ambition_sandbox::inventory::InventoryUiState>>,
+    ui_state: Option<Res<ambition_gameplay_core::inventory::InventoryUiState>>,
     mut open_state: ResMut<ambition_menu::kaleidoscope::KaleidoscopeOpenState>,
     mut cameras: Query<(
         &mut Camera,

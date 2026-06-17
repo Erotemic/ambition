@@ -338,7 +338,7 @@ pub struct ChargesProjectiles;
 
 /// Bevy system: emit one `ActorActionMessage::PlayerProjectileTick`
 /// per charge-capable actor per tick. The player projectile EFFECTS
-/// consumer (`update_projectiles` (ambition_sandbox)) drives its
+/// consumer (`update_projectiles` (ambition_gameplay_core)) drives its
 /// motion-recognition buffer + Fireball charge state machine from
 /// this stream instead of reading `PlayerInputFrame` directly.
 ///
@@ -401,7 +401,7 @@ pub fn observe_brain_action_counter(
 
 /// Bevy system: log each `ActorActionMessage` at debug level using
 /// `tracing::debug!`. Gated by the standard tracing filter — set
-/// `RUST_LOG=ambition_sandbox::brain=debug` to see the per-tick
+/// `RUST_LOG=ambition_gameplay_core::brain=debug` to see the per-tick
 /// resolver output. Useful for EFFECTS-consumer verification
 /// without a HUD readout. Not registered by default.
 #[allow(dead_code, reason = "diagnostic system; off by default")]

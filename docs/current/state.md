@@ -3,7 +3,7 @@
 This is the compact active-state document for Ambition. Update it when the current architecture or active direction changes. Keep old migration plans in `docs/archive/`, not here.
 
 **Review date:** 2026-06-13. The monolith was bisected into a layered crate
-graph (Stage 20); `ambition_sandbox` is now the **machinery library**, not the
+graph (Stage 20); `ambition_gameplay_core` is now the **machinery library**, not the
 playable shell. The remaining monolith-breakup backlog lives in
 [`next.md`](next.md).
 
@@ -29,7 +29,7 @@ Crate layers (low → high; lower must never import higher):
                gravity, rooms, projectile), ambition_portal, ambition_time,
                ambition_input, ambition_menu (reusable renderers), ambition_audio,
                ambition_sfx[_bank], ambition_asset_manager.
-  machinery    ambition_sandbox (lib): mechanics, features (named
+  machinery    ambition_gameplay_core (lib): mechanics, features (named
                actor/boss ECS world), presentation, world/LDtk, items, encounter,
                persistence, the dev STATE, the menu IR/map. Content-free
                (guard-enforced). Re-exports the foundation crates under their
@@ -38,7 +38,7 @@ Crate layers (low → high; lower must never import higher):
                roster (installed into the lib's generic holder), items roster,
                dialogue, intro, banter, portal adapters.
   app          ambition_app: Bevy assembly, host glue, ALL binaries (playable
-               `ambition_sandbox` bin, headless, rl_*), the menu host stack +
+               `ambition_gameplay_core` bin, headless, rl_*), the menu host stack +
                DevToolsPlugin, and the full-stack integration tests.
 ```
 
@@ -119,7 +119,7 @@ Landed or scaffolded mechanics include:
 - LDtk-authored goblin encounter / encounter-style areas and transition validation;
 - character catalog and Hall of Characters content flow;
 - RON-authored boss encounter numeric specs with Rust behavior profiles;
-- universal-brain interface in `crates/ambition_characters/src/brain/`: every controllable entity carries `Brain` + `ActionSet` + `ActorControl` sibling components, with sandbox effect consumers such as `crates/ambition_sandbox/src/features/ecs/brain_effects.rs` translating resolved actor requests into world effects.
+- universal-brain interface in `crates/ambition_characters/src/brain/`: every controllable entity carries `Brain` + `ActionSet` + `ActorControl` sibling components, with sandbox effect consumers such as `crates/ambition_gameplay_core/src/features/ecs/brain_effects.rs` translating resolved actor requests into world effects.
 
 The actor/brain unification is live, not a shadow seam: player movement/control,
 melee-start gating, projectile tick/charge, enemy ranged + melee windups, and

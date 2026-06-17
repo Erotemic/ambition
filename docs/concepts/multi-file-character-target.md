@@ -51,7 +51,7 @@ tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/
 The runtime asset layout matches:
 
 ```
-crates/ambition_sandbox/assets/sprites/<character_name>/
+crates/ambition_gameplay_core/assets/sprites/<character_name>/
     <character_name>_spritesheet.png
     <character_name>_spritesheet.ron       # consumed by `SheetRegistry`; canonical runtime metadata
     <character_name>_actor.ron             # actor catalog sidecar

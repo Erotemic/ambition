@@ -54,7 +54,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--ldtk",
         type=Path,
-        default=Path("crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk"),
+        default=Path("crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk"),
     )
     args = parser.parse_args(argv)
 

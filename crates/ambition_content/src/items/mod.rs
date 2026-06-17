@@ -2,7 +2,7 @@
 //!
 //! Owns inserting the starter [`OwnedItems`] roster (the 24-item catalog's
 //! default ownership set). The item enum + metadata still live in
-//! `ambition_sandbox::items`; this module only owns the decision to seed the default
+//! `ambition_gameplay_core::items`; this module only owns the decision to seed the default
 //! inventory as a sandbox resource.
 //!
 //! NOTE: this is installed from the *presentation* assembly
@@ -22,6 +22,6 @@ impl Plugin for AmbitionItemRosterPlugin {
     fn build(&self, app: &mut App) {
         // The 24-item catalog ownership model is always-on core state (pickups
         // and dialogue read/write it regardless of which menu renders it).
-        app.insert_resource(ambition_sandbox::items::OwnedItems::starter());
+        app.insert_resource(ambition_gameplay_core::items::OwnedItems::starter());
     }
 }

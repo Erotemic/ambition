@@ -18,7 +18,7 @@ use super::*;
 /// The hitstun gate is applied to the FINAL `InputState` so every
 /// verb is zeroed uniformly.
 pub(crate) fn engine_input_from_actor_control(
-    actor: ambition_sandbox::actor::control::ActorControlFrame,
+    actor: ambition_gameplay_core::actor::control::ActorControlFrame,
     feel: SandboxFeelTuning,
     hitstun_timer: f32,
     control_dt: f32,
@@ -64,13 +64,13 @@ pub(crate) fn start_attack(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
     clusters: &mut ae::PlayerClustersMut<'_>,
-    attack: &mut Option<ambition_sandbox::PlayerAttackState>,
-    anim: &mut ambition_sandbox::player::PlayerAnimState,
-    actor: ambition_sandbox::actor::control::ActorControlFrame,
+    attack: &mut Option<ambition_gameplay_core::PlayerAttackState>,
+    anim: &mut ambition_gameplay_core::player::PlayerAnimState,
+    actor: ambition_gameplay_core::actor::control::ActorControlFrame,
     // When the player is holding a melee weapon (axe etc.), its `ActionSet`
     // melee spec re-tunes the swing (timing / reach / damage) so the held item
     // *replaces* the default attack instead of merely gating it.
-    held_melee: Option<ambition_sandbox::brain::MeleeActionSpec>,
+    held_melee: Option<ambition_gameplay_core::brain::MeleeActionSpec>,
     // The live gravity, so the attack is classified + placed in the player's
     // reference frame (a toward-feet down-attack is `AirDown`/pogoable, and its
     // hitbox lands toward the feet, under ANY gravity).
@@ -84,7 +84,7 @@ pub(crate) fn start_attack(
     // directly from cluster components without going through
     // `to_player`. Read-only; cluster fields stay the source of
     // truth for any state changes below.
-    let view = ambition_sandbox::combat::AttackView {
+    let view = ambition_gameplay_core::combat::AttackView {
         pos: clusters.kinematics.pos,
         size: clusters.kinematics.size,
         facing: clusters.kinematics.facing,
@@ -97,17 +97,17 @@ pub(crate) fn start_attack(
     // INPUT → PLAYER: classify the swing in the player's frame. `descend` is the
     // toward-feet intent, so a down-attack reads as `AirDown` (pogoable) under any
     // gravity — raw `desired_vel.y` would mis-read it as `AirUp` past ±90°.
-    let intent = ambition_sandbox::combat::resolve_attack_intent_from_view(
+    let intent = ambition_gameplay_core::combat::resolve_attack_intent_from_view(
         &view,
         actor.desired_vel.x,
         frame.descend(actor.desired_vel.y),
         actor.pogo_pressed,
     );
-    let mut spec = ambition_sandbox::combat::attack_spec_from_view(&view, intent);
+    let mut spec = ambition_gameplay_core::combat::attack_spec_from_view(&view, intent);
     // A held melee weapon re-tunes the swing to its own feel (axe = slow,
     // long-reach, heavier). Pogo (AirDown) keeps its spike timing.
     if let Some(melee) = held_melee {
-        if !matches!(intent, ambition_sandbox::combat::AttackIntent::AirDown) {
+        if !matches!(intent, ambition_gameplay_core::combat::AttackIntent::AirDown) {
             spec = spec.with_held_melee(melee);
         }
     }
@@ -128,7 +128,7 @@ pub(crate) fn start_attack(
     let descend = frame.descend_speed(clusters.kinematics.vel);
     if matches!(
         intent,
-        ambition_sandbox::combat::AttackIntent::AirUp | ambition_sandbox::combat::AttackIntent::Up
+        ambition_gameplay_core::combat::AttackIntent::AirUp | ambition_gameplay_core::combat::AttackIntent::Up
     ) && descend > -40.0
     {
         clusters.kinematics.vel += frame.down * (-40.0 - descend);
@@ -139,7 +139,7 @@ pub(crate) fn start_attack(
     // this frame (the bounce is real even when a 1hp orb shatters instantly, so
     // startup must not overwrite the away-from-feet velocity).
     if !actor.pogo_pressed
-        && intent == ambition_sandbox::combat::AttackIntent::AirDown
+        && intent == ambition_gameplay_core::combat::AttackIntent::AirDown
         && descend >= 0.0
         && descend < 80.0
     {
@@ -149,9 +149,9 @@ pub(crate) fn start_attack(
     let player_pos = clusters.kinematics.pos;
     sfx.write(SfxMessage::Slash { pos: player_pos });
     anim.slash_anim_timer = spec.total_seconds().max(0.20);
-    *attack = Some(ambition_sandbox::PlayerAttackState::new(spec));
+    *attack = Some(ambition_gameplay_core::PlayerAttackState::new(spec));
     vfx.write(VfxMessage::SlashPreview {
-        hitbox: ambition_sandbox::combat::attack_hitbox_from_view(&view, spec),
+        hitbox: ambition_gameplay_core::combat::attack_hitbox_from_view(&view, spec),
     });
 }
 
@@ -160,11 +160,11 @@ pub(crate) fn advance_attack(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
     world: &ae::World,
-    moving_platforms: &[ambition_sandbox::world::platforms::MovingPlatformState],
+    moving_platforms: &[ambition_gameplay_core::world::platforms::MovingPlatformState],
     clusters: &mut ae::PlayerClustersMut<'_>,
-    attack: &mut Option<ambition_sandbox::PlayerAttackState>,
-    anim: &mut ambition_sandbox::player::PlayerAnimState,
-    combat: &mut ambition_sandbox::player::PlayerCombatState,
+    attack: &mut Option<ambition_gameplay_core::PlayerAttackState>,
+    anim: &mut ambition_gameplay_core::player::PlayerAnimState,
+    combat: &mut ambition_gameplay_core::player::PlayerCombatState,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     frame_dt: f32,
@@ -181,8 +181,8 @@ pub(crate) fn advance_attack(
         return;
     };
 
-    if phase == ambition_sandbox::combat::AttackPhase::Active {
-        let view = ambition_sandbox::combat::AttackView {
+    if phase == ambition_gameplay_core::combat::AttackPhase::Active {
+        let view = ambition_gameplay_core::combat::AttackView {
             pos: clusters.kinematics.pos,
             size: clusters.kinematics.size,
             facing: clusters.kinematics.facing,
@@ -191,7 +191,7 @@ pub(crate) fn advance_attack(
             dash_timer: clusters.dash.timer,
             abilities_directional_primary: clusters.abilities.abilities.directional_primary,
         };
-        let attack = ambition_sandbox::combat::attack_hitbox_from_view(&view, attack_state.spec);
+        let attack = ambition_gameplay_core::combat::attack_hitbox_from_view(&view, attack_state.spec);
         let first_active_frame = !attack_state.active_started;
         if first_active_frame {
             attack_state.active_started = true;

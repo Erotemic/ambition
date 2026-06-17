@@ -2,15 +2,15 @@
 //! a `Health` resource. Toggled via
 //! `DeveloperTools::show_health_bars`.
 
-use ambition_sandbox::engine_core as ae;
-use ambition_sandbox::engine_core::AabbExt;
+use ambition_gameplay_core::engine_core as ae;
+use ambition_gameplay_core::engine_core::AabbExt;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
 use super::primitives::HealthOverlayVisual;
 use crate::ui_fonts::{UiFontWeight, UiFonts};
-use ambition_sandbox::config::{world_to_bevy, WORLD_Z_PLAYER};
-use ambition_sandbox::features::{
+use ambition_gameplay_core::config::{world_to_bevy, WORLD_Z_PLAYER};
+use ambition_gameplay_core::features::{
     ActorCombatState, ActorDisposition, ActorHealth, BossClusterRef, BossConfig, BreakableFeature,
     CenteredAabb, FeatureName,
 };
@@ -133,16 +133,16 @@ pub fn sync_boss_health_bar_overlay(
 
 pub fn sync_health_overlays(
     mut commands: Commands,
-    world: Res<ambition_sandbox::GameWorld>,
-    dev_state: Res<ambition_sandbox::SandboxDevState>,
-    developer_tools: Res<ambition_sandbox::dev::dev_tools::DeveloperTools>,
+    world: Res<ambition_gameplay_core::GameWorld>,
+    dev_state: Res<ambition_gameplay_core::SandboxDevState>,
+    developer_tools: Res<ambition_gameplay_core::dev::dev_tools::DeveloperTools>,
     overlays: Query<Entity, With<HealthOverlayVisual>>,
     player: Query<
         (
-            &ambition_sandbox::player::BodyKinematics,
-            &ambition_sandbox::player::PlayerHealth,
+            &ambition_gameplay_core::player::BodyKinematics,
+            &ambition_gameplay_core::player::PlayerHealth,
         ),
-        ambition_sandbox::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::player::PrimaryPlayerOnly,
     >,
     ecs_breakables: Query<(&FeatureName, &CenteredAabb, &BreakableFeature)>,
     ecs_actors: Query<
@@ -225,7 +225,7 @@ fn spawn_health_overlay(
     world: &ae::World,
     name: &str,
     aabb: ae::Aabb,
-    health: ambition_sandbox::actor::Health,
+    health: ambition_gameplay_core::actor::Health,
     fill_color: Color,
 ) {
     let width = aabb.width().max(56.0);

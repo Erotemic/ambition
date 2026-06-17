@@ -1,6 +1,6 @@
 //! App-level dev presentation: the F1 debug overlay and the F3 FPS
 //! counter. These are pure presentation/host systems with no lib
-//! consumer, moved up from `ambition_sandbox::dev` (Stage 20 devtools
+//! consumer, moved up from `ambition_gameplay_core::dev` (Stage 20 devtools
 //! split). The lib keeps the dev STATE (`DeveloperTools` + editable
 //! profiles, read by persistence/presentation), the gameplay `trace`
 //! recorder (written by sim code), and `profiling` (read by audio).
@@ -13,7 +13,7 @@ use bevy::prelude::*;
 /// the F1 debug overlay + F3 FPS counter, plus (behind the `dev_tools`
 /// feature) the egui resource/world inspectors. The dev STATE it drives
 /// (`DeveloperTools`, the editable profiles) lives in the machinery lib
-/// (`ambition_sandbox::dev::dev_tools`); this plugin only wires the
+/// (`ambition_gameplay_core::dev::dev_tools`); this plugin only wires the
 /// app-side presentation/inspection of it.
 pub struct DevToolsPlugin;
 
@@ -31,12 +31,12 @@ impl Plugin for DevToolsPlugin {
 /// `EguiPlugin` first, hence the shared gate.
 #[cfg(feature = "dev_tools")]
 fn install_egui_inspectors(app: &mut App) {
-    use ambition_sandbox::dev::dev_tools::{
+    use ambition_gameplay_core::dev::dev_tools::{
         inspector_visible, world_inspector_visible, DeveloperTools, EditableAbilitySet,
         EditableMovementTuning, EditablePlayerStats,
     };
-    use ambition_sandbox::portal::PortalTuning;
-    use ambition_sandbox::time::feel::SandboxFeelTuning;
+    use ambition_gameplay_core::portal::PortalTuning;
+    use ambition_gameplay_core::time::feel::SandboxFeelTuning;
     use bevy_inspector_egui::bevy_egui::EguiPlugin;
     use bevy_inspector_egui::quick::{ResourceInspectorPlugin, WorldInspectorPlugin};
 
@@ -58,11 +58,11 @@ fn install_egui_inspectors(app: &mut App) {
 
     #[cfg(feature = "portal_render")]
     app.add_plugins(
-        ResourceInspectorPlugin::<ambition_sandbox::portal::PortalEffectSelection>::default()
+        ResourceInspectorPlugin::<ambition_gameplay_core::portal::PortalEffectSelection>::default()
             .run_if(inspector_visible),
     )
     .add_plugins(
-        ResourceInspectorPlugin::<ambition_sandbox::portal::PortalViewConeConfig>::default()
+        ResourceInspectorPlugin::<ambition_gameplay_core::portal::PortalViewConeConfig>::default()
             .run_if(inspector_visible),
     );
 

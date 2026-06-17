@@ -10,7 +10,7 @@
 // `MorphBallSprite` handle to a loaded asset and the same toggle logic
 // applies.
 
-use ambition_sandbox::engine_core as ae;
+use ambition_gameplay_core::engine_core as ae;
 use bevy::asset::RenderAssetUsages;
 use bevy::image::Image;
 use bevy::prelude::*;
@@ -118,7 +118,7 @@ pub fn spawn_morph_ball_visual(
             custom_size: Some(bevy::math::Vec2::new(16.0, 16.0)),
             ..default()
         },
-        Transform::from_xyz(0.0, 0.0, ambition_sandbox::config::WORLD_Z_PLAYER + 0.05),
+        Transform::from_xyz(0.0, 0.0, ambition_gameplay_core::config::WORLD_Z_PLAYER + 0.05),
         Visibility::Hidden,
         MorphBallVisual,
         Name::new("Morph Ball Visual"),
@@ -130,19 +130,19 @@ pub fn spawn_morph_ball_visual(
 /// AABB. Hides the regular player sprite while the ball is active so
 /// the standing-rig animation doesn't show through.
 pub fn sync_morph_ball_visual(
-    world: Res<ambition_sandbox::GameWorld>,
-    entities: Res<ambition_sandbox::platformer_runtime::lifecycle::SceneEntities>,
+    world: Res<ambition_gameplay_core::GameWorld>,
+    entities: Res<ambition_gameplay_core::platformer_runtime::lifecycle::SceneEntities>,
     player_q: Query<
         (
-            &ambition_sandbox::player::BodyKinematics,
-            &ambition_sandbox::player::PlayerBodyModeState,
+            &ambition_gameplay_core::player::BodyKinematics,
+            &ambition_gameplay_core::player::PlayerBodyModeState,
         ),
-        ambition_sandbox::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::player::PrimaryPlayerOnly,
     >,
     mut player_query: Query<
         &mut Visibility,
         (
-            With<ambition_sandbox::platformer_runtime::lifecycle::PlayerVisual>,
+            With<ambition_gameplay_core::platformer_runtime::lifecycle::PlayerVisual>,
             Without<MorphBallVisual>,
         ),
     >,
@@ -156,10 +156,10 @@ pub fn sync_morph_ball_visual(
     };
     let in_morph = body_mode.body_mode == ae::BodyMode::MorphBall;
     if in_morph {
-        transform.translation = ambition_sandbox::config::world_to_bevy(
+        transform.translation = ambition_gameplay_core::config::world_to_bevy(
             &world.0,
             kin.pos,
-            ambition_sandbox::config::WORLD_Z_PLAYER + 0.05,
+            ambition_gameplay_core::config::WORLD_Z_PLAYER + 0.05,
         );
         // Slightly larger than the AABB so the soft anti-aliased rim
         // reads as the ball's outline rather than as background.

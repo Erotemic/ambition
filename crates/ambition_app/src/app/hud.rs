@@ -19,43 +19,43 @@ use super::world_flow::*;
 #[allow(unused_imports)]
 use super::*;
 #[allow(unused_imports)]
-use ambition_sandbox::app::*;
+use ambition_gameplay_core::app::*;
 use bevy::ecs::system::SystemParam;
 
 #[derive(SystemParam)]
 pub(super) struct HudCameraParams<'w, 's> {
-    user_settings: Res<'w, ambition_sandbox::persistence::settings::UserSettings>,
+    user_settings: Res<'w, ambition_gameplay_core::persistence::settings::UserSettings>,
     player: bevy::prelude::Query<
         'w,
         's,
         (
-            &'static ambition_sandbox::player::BodyKinematics,
-            &'static ambition_sandbox::player::PlayerGroundState,
-            &'static ambition_sandbox::player::PlayerWallState,
-            &'static ambition_sandbox::player::PlayerDashState,
-            &'static ambition_sandbox::player::PlayerJumpState,
-            &'static ambition_sandbox::player::PlayerMana,
-            &'static ambition_sandbox::player::PlayerBodyModeState,
-            &'static ambition_sandbox::player::PlayerLedgeState,
-            &'static ambition_sandbox::player::PlayerFlightState,
-            &'static ambition_sandbox::player::PlayerBlinkState,
-            &'static ambition_sandbox::player::PlayerComboTrace,
-            &'static ambition_sandbox::player::PlayerHealth,
-            &'static ambition_sandbox::player::PlayerCombatState,
-            &'static ambition_sandbox::player::ActivePlayerAttack,
+            &'static ambition_gameplay_core::player::BodyKinematics,
+            &'static ambition_gameplay_core::player::PlayerGroundState,
+            &'static ambition_gameplay_core::player::PlayerWallState,
+            &'static ambition_gameplay_core::player::PlayerDashState,
+            &'static ambition_gameplay_core::player::PlayerJumpState,
+            &'static ambition_gameplay_core::player::PlayerMana,
+            &'static ambition_gameplay_core::player::PlayerBodyModeState,
+            &'static ambition_gameplay_core::player::PlayerLedgeState,
+            &'static ambition_gameplay_core::player::PlayerFlightState,
+            &'static ambition_gameplay_core::player::PlayerBlinkState,
+            &'static ambition_gameplay_core::player::PlayerComboTrace,
+            &'static ambition_gameplay_core::player::PlayerHealth,
+            &'static ambition_gameplay_core::player::PlayerCombatState,
+            &'static ambition_gameplay_core::player::ActivePlayerAttack,
         ),
-        ambition_sandbox::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::player::PrimaryPlayerOnly,
     >,
     ecs_actors: bevy::prelude::Query<
         'w,
         's,
         (
-            &'static ambition_sandbox::features::FeatureName,
-            &'static ambition_sandbox::features::ActorDisposition,
-            &'static ambition_sandbox::features::ActorHealth,
-            &'static ambition_sandbox::features::ActorCombatState,
+            &'static ambition_gameplay_core::features::FeatureName,
+            &'static ambition_gameplay_core::features::ActorDisposition,
+            &'static ambition_gameplay_core::features::ActorHealth,
+            &'static ambition_gameplay_core::features::ActorCombatState,
         ),
-        bevy::prelude::Without<ambition_sandbox::features::BossConfig>,
+        bevy::prelude::Without<ambition_gameplay_core::features::BossConfig>,
     >,
 }
 
@@ -200,8 +200,8 @@ pub(super) fn update_hud(
         for (_id, state) in encounter_registry.encounters.iter() {
             if matches!(
                 state.phase,
-                ambition_sandbox::encounter::EncounterPhase::Starting { .. }
-                    | ambition_sandbox::encounter::EncounterPhase::Active { .. }
+                ambition_gameplay_core::encounter::EncounterPhase::Starting { .. }
+                    | ambition_gameplay_core::encounter::EncounterPhase::Active { .. }
             ) {
                 bits.push(state.hud_summary());
             }
@@ -315,7 +315,7 @@ pub(super) fn update_hud(
 /// quests, which collapses the panel visually.
 pub fn update_quest_panel(
     quests: Res<ambition_content::quest::QuestRegistry>,
-    user_settings: Res<ambition_sandbox::persistence::settings::UserSettings>,
+    user_settings: Res<ambition_gameplay_core::persistence::settings::UserSettings>,
     entities: Res<SceneEntities>,
     mut query: Query<&mut Text, With<ambition_render::rendering::QuestPanelText>>,
 ) {

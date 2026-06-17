@@ -253,7 +253,7 @@ def ensure_climbable_layer_def(project: dict) -> dict:
     returns it without modifying the project.
 
     Mirrors the runtime's Climbable IntGrid value mapping in
-    `crates/ambition_sandbox/src/ldtk_world.rs`:
+    `crates/ambition_gameplay_core/src/ldtk_world.rs`:
         1 = Ladder, 2 = Vine, 3 = Wall
     """
     existing = find_layer_def_optional(project, "Climbable")
@@ -1490,7 +1490,7 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--ldtk",
         type=Path,
-        default=Path("crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk"),
+        default=Path("crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk"),
         help="Target LDtk file to extend (default: sandbox.ldtk)",
     )
     parser.add_argument(

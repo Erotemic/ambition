@@ -5,12 +5,12 @@
 
 use bevy::prelude::*;
 
-use ambition_sandbox::brain::ActionSet;
-use ambition_sandbox::items::pickup::{
+use ambition_gameplay_core::brain::ActionSet;
+use ambition_gameplay_core::items::pickup::{
     equip_held_spec, held_spec_for_item, unequip_held, StashedActionSet,
 };
-use ambition_sandbox::items::{Item, ItemCategory, OwnedItems};
-use ambition_sandbox::player::{PlayerEntity, PlayerHealRequested, PlayerMana, PrimaryPlayer};
+use ambition_gameplay_core::items::{Item, ItemCategory, OwnedItems};
+use ambition_gameplay_core::player::{PlayerEntity, PlayerHealRequested, PlayerMana, PrimaryPlayer};
 
 /// One health cell restores this much HP; one mana cell this much mana. Sandbox
 /// values — a real balance pass is just a number change.
@@ -146,11 +146,11 @@ pub(crate) fn apply_menu_action(
                     #[cfg(feature = "portal")]
                     commands
                         .entity(player)
-                        .remove::<ambition_sandbox::portal::PortalGun>();
+                        .remove::<ambition_gameplay_core::portal::PortalGun>();
                 }
                 #[cfg(feature = "portal")]
                 if is_portal_gun {
-                    ambition_sandbox::items::pickup::equip_portal_gun(
+                    ambition_gameplay_core::items::pickup::equip_portal_gun(
                         commands,
                         player,
                         &mut action_set,
@@ -172,7 +172,7 @@ pub(crate) fn apply_menu_action(
                 #[cfg(feature = "portal")]
                 commands
                     .entity(player)
-                    .remove::<ambition_sandbox::portal::PortalGun>();
+                    .remove::<ambition_gameplay_core::portal::PortalGun>();
             }
             owned.set_equipped(None);
         }

@@ -2,14 +2,14 @@
 
 Ambition's sandbox ships two binaries:
 
-- `cargo run -p ambition_sandbox` — the visible Bevy app (windowed gameplay)
-- `cargo run -p ambition_sandbox --bin headless [TICKS]` — a no-display
+- `cargo run -p ambition_gameplay_core` — the visible Bevy app (windowed gameplay)
+- `cargo run -p ambition_gameplay_core --bin headless [TICKS]` — a no-display
   simulation runner that drives the **full gameplay loop**
 
-Both depend on the `ambition_sandbox` library crate, which owns the module
+Both depend on the `ambition_gameplay_core` library crate, which owns the module
 graph and the cross-cutting resources (`GameWorld`, `RoomSet`). The
 visible binary's `main.rs` is the existing playable shell; the headless
-binary is a thin shim around `ambition_sandbox::run_headless`.
+binary is a thin shim around `ambition_gameplay_core::run_headless`.
 
 > **Phase status (2026-05-07):** Phase 1 (no-display tick), Phase 2
 > (gameplay loop runs headless), and the **first half of Phase 3** (RL
@@ -152,7 +152,7 @@ recorded `player.pos`. Use cases:
 
 ## Visible-binary headless fallback
 
-`run_visible` (the `cargo run -p ambition_sandbox --bin ambition_sandbox`
+`run_visible` (the `cargo run -p ambition_gameplay_core --bin ambition_gameplay_core`
 entry point) detects missing display before installing `DefaultPlugins`
 and falls back to `run_headless`:
 
@@ -172,10 +172,10 @@ foundation entirely.
 - The library/binary split is the cheapest way to share the module graph
   between the visible app and a headless driver. The presentation
   binary's `main.rs` is now ~10 lines (it just calls
-  `ambition_sandbox::run_app`); systems and resources live in the
+  `ambition_gameplay_core::run_app`); systems and resources live in the
   library.
 - Player state is ECS-authoritative (cluster components, completed
-  2026-05-28; see `crates/ambition_sandbox/src/player/` and the 18
+  2026-05-28; see `crates/ambition_gameplay_core/src/player/` and the 18
   cluster component types in
   `crates/ambition_engine_core/src/player_clusters.rs`).
   Headless drivers and the scripted-gameplay integration tests query
@@ -192,9 +192,9 @@ foundation entirely.
 In the dev VM (no display, no GPU):
 
 ```bash
-cargo test -p ambition_sandbox --lib engine_core
-cargo test -p ambition_sandbox            # ~330 tests pass
-cargo run -p ambition_sandbox --bin headless 30
+cargo test -p ambition_gameplay_core --lib engine_core
+cargo test -p ambition_gameplay_core            # ~330 tests pass
+cargo run -p ambition_gameplay_core --bin headless 30
 ```
 
 The last command prints a `HeadlessReport` summary and exits 0. Test
@@ -216,7 +216,7 @@ non-presentation use sites (`BackgroundColor` / `TextColor` /
 `Node` / `UiRect` in cutscene scaffolding, fx HUD primitives, runtime
 setup widgets) reference these types directly. `ui_api` transitively
 pulls in `default_app` → `bevy_window` → `bevy_winit`, so
-`cargo check -p ambition_sandbox --no-default-features --features
+`cargo check -p ambition_gameplay_core --no-default-features --features
 headless` still fails on winit's "platform you're compiling for is
 not supported." A true no-winit headless build needs the
 non-presentation modules cfg-gated behind `visible` first — a

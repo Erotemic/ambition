@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Reusable, content-free cutscene SCRIPT format + runtime stepper: the CutsceneBeat vocabulary, a CutsceneScript (ordered beats + seen-flag), and CutsceneRuntime (ticks beats into CutsceneEvents) with NO renderer attached. A game authors scripts as content; the presentation layer plays the emitted events. Extracted from ambition_sandbox."
+description = "Reusable, content-free cutscene SCRIPT format + runtime stepper: the CutsceneBeat vocabulary, a CutsceneScript (ordered beats + seen-flag), and CutsceneRuntime (ticks beats into CutsceneEvents) with NO renderer attached. A game authors scripts as content; the presentation layer plays the emitted events. Extracted from ambition_gameplay_core."
 
 [lib]
 crate-type = ["rlib"]

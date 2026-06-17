@@ -6,10 +6,10 @@
 use super::*;
 
 // ===================================================================
-// Migrated boss-special Techniques (from ambition_sandbox brain_effects).
+// Migrated boss-special Techniques (from ambition_gameplay_core brain_effects).
 // Each owns its key + per-boss state + params + behavior; the engine
 // names none of them. Tuning consts (APPLE_RAIN_*, OVERFIT_VOLLEY_*, …)
-// still live in ambition_sandbox::features::bosses for now (just numbers).
+// still live in ambition_gameplay_core::features::bosses for now (just numbers).
 // ===================================================================
 
 const APPLE_RAIN_KEY: &str = "apple_rain";
@@ -114,9 +114,9 @@ fn apple_rain_spawn_x(spawn_index: u32, world_width: f32, boss_aabb: ae::Aabb) -
 /// leftover dt.
 pub fn spawn_gnu_apple_rain_from_special_messages(
     world_time: Res<WorldTime>,
-    world: Res<ambition_sandbox::GameWorld>,
+    world: Res<ambition_gameplay_core::GameWorld>,
     mut messages: MessageReader<ActorActionMessage>,
-    mut effects: MessageWriter<ambition_sandbox::effects::EffectRequest>,
+    mut effects: MessageWriter<ambition_gameplay_core::effects::EffectRequest>,
     mut bosses: Query<(Entity, &mut AppleRainSpawnState, BossClusterRef), With<FeatureSimEntity>>,
 ) {
     let dt = world_time.sim_dt();
@@ -163,10 +163,10 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
             let spawn_x = apple_rain_spawn_x(state.spawn_index, world.0.size.x, self_aabb);
             let spawn_y = (boss.kin.pos.y - APPLE_RAIN_SPAWN_HEIGHT_ABOVE_PLAYER)
                 .max(APPLE_RAIN_HALF_EXTENT.y + 8.0);
-            effects.write(ambition_sandbox::effects::EffectRequest {
+            effects.write(ambition_gameplay_core::effects::EffectRequest {
                 owner: entity,
-                effect: ambition_sandbox::effects::Effect::Projectiles {
-                    faction: ambition_sandbox::projectile::ProjectileFaction::Enemy,
+                effect: ambition_gameplay_core::effects::Effect::Projectiles {
+                    faction: ambition_gameplay_core::projectile::ProjectileFaction::Enemy,
                     shots: vec![EnemyProjectileSpawn {
                         origin: ae::Vec2::new(spawn_x, spawn_y),
                         // Downward initial velocity so the apple commits to
@@ -179,7 +179,7 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
                         half_extent: APPLE_RAIN_HALF_EXTENT,
                         owner_id: format!(
                             "{}:{}",
-                            ambition_sandbox::features::bosses::GNU_TON_APPLE_OWNER_PREFIX,
+                            ambition_gameplay_core::features::bosses::GNU_TON_APPLE_OWNER_PREFIX,
                             boss.config.id,
                         ),
                         gravity: APPLE_RAIN_GRAVITY,
@@ -214,7 +214,7 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
 // the variant, advance/reset state from the message stream + the
 // boss's live `BossAttackState`. The brain emits the Special
 // messages directly from `tick_boss_brains_system` via
-// `boss_special_for_profile` (see `ambition_sandbox::features::bosses`).
+// `boss_special_for_profile` (see `ambition_gameplay_core::features::bosses`).
 
 /// Per-boss state for MemorizedVolley. Sampled positions are
 /// memorized during the telegraph window; the strike edge fires one
@@ -278,7 +278,7 @@ pub struct GradientCascadeState {
 /// the consumer doesn't need to round-trip through the spec on every
 /// telegraph tick (the spec only arrives via the strike-tick
 /// message; sampling happens during telegraph too). Tuning lives in
-/// `ambition_sandbox::features::bosses` — these are local mirrors.
+/// `ambition_gameplay_core::features::bosses` — these are local mirrors.
 const OVERFIT_VOLLEY_BOLT_HALF_EXTENT: ae::Vec2 = ae::Vec2::new(8.0, 8.0);
 const OVERFIT_VOLLEY_BOLT_LIFETIME: f32 = 2.4;
 const OVERFIT_VOLLEY_OWNER_PREFIX: &str = "gradient_sentinel_overfit";
@@ -301,7 +301,7 @@ const OVERFIT_VOLLEY_OWNER_PREFIX: &str = "gradient_sentinel_overfit";
 /// from zero.
 pub fn spawn_overfit_volley_from_special_messages(
     world_time: Res<WorldTime>,
-    mut effects: MessageWriter<ambition_sandbox::effects::EffectRequest>,
+    mut effects: MessageWriter<ambition_gameplay_core::effects::EffectRequest>,
     mut messages: MessageReader<ActorActionMessage>,
     // Per-actor target: each boss carries an `ActorTarget` populated
     // upstream by `select_actor_targets` (nearest-player resolution).
@@ -309,8 +309,8 @@ pub fn spawn_overfit_volley_from_special_messages(
     // system multi-player ready — single-player behavior is preserved
     // because there's only one player today.
     player_query: Query<
-        &ambition_sandbox::player::BodyKinematics,
-        With<ambition_sandbox::player::PlayerEntity>,
+        &ambition_gameplay_core::player::BodyKinematics,
+        With<ambition_gameplay_core::player::PlayerEntity>,
     >,
     mut bosses: Query<
         (
@@ -318,7 +318,7 @@ pub fn spawn_overfit_volley_from_special_messages(
             BossClusterRef,
             &BossAttackState,
             &mut OverfitVolleyState,
-            Option<&ambition_sandbox::features::ActorTarget>,
+            Option<&ambition_gameplay_core::features::ActorTarget>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -397,10 +397,10 @@ pub fn spawn_overfit_volley_from_special_messages(
                     if dir.length_squared() < 1e-4 {
                         continue;
                     }
-                    effects.write(ambition_sandbox::effects::EffectRequest {
+                    effects.write(ambition_gameplay_core::effects::EffectRequest {
                         owner: entity,
-                        effect: ambition_sandbox::effects::Effect::Projectiles {
-                            faction: ambition_sandbox::projectile::ProjectileFaction::Enemy,
+                        effect: ambition_gameplay_core::effects::Effect::Projectiles {
+                            faction: ambition_gameplay_core::projectile::ProjectileFaction::Enemy,
                             shots: vec![EnemyProjectileSpawn {
                                 origin,
                                 dir,
@@ -459,21 +459,21 @@ const MINIMA_TRAP_MINION_SPAWN_OFFSET_PX: f32 = 90.0;
 /// once-per-strike `HitboxHits` set ensures the player takes at
 /// most one hit per pit lifetime.
 pub fn spawn_minima_trap_from_special_messages(
-    mut effects: MessageWriter<ambition_sandbox::effects::EffectRequest>,
+    mut effects: MessageWriter<ambition_gameplay_core::effects::EffectRequest>,
     mut messages: MessageReader<ActorActionMessage>,
     // Per-boss target via `ActorTarget` (populated by
     // `select_actor_targets`); same multi-player-ready pattern as
     // the overfit-volley consumer above.
     player_query: Query<
-        &ambition_sandbox::player::BodyKinematics,
-        With<ambition_sandbox::player::PlayerEntity>,
+        &ambition_gameplay_core::player::BodyKinematics,
+        With<ambition_gameplay_core::player::PlayerEntity>,
     >,
     mut bosses: Query<
         (
             Entity,
             BossClusterRef,
             &mut MinimaTrapState,
-            Option<&ambition_sandbox::features::ActorTarget>,
+            Option<&ambition_gameplay_core::features::ActorTarget>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -519,10 +519,10 @@ pub fn spawn_minima_trap_from_special_messages(
         );
         let pit_center = player_pos.unwrap_or(boss.kin.pos);
 
-        effects.write(ambition_sandbox::effects::EffectRequest {
+        effects.write(ambition_gameplay_core::effects::EffectRequest {
             owner: entity,
-            effect: ambition_sandbox::effects::Effect::DamageBox(
-                ambition_sandbox::effects::DamageBoxEffect {
+            effect: ambition_gameplay_core::effects::Effect::DamageBox(
+                ambition_gameplay_core::effects::DamageBoxEffect {
                     center: pit_center,
                     faction: ActorFaction::Boss,
                     half_extent: ae::Vec2::new(hx, hy),
@@ -568,17 +568,17 @@ pub fn spawn_minima_trap_from_special_messages(
                 pit_center.x + toward_boss_x * minion_offset_px,
                 pit_center.y,
             );
-            effects.write(ambition_sandbox::effects::EffectRequest {
+            effects.write(ambition_gameplay_core::effects::EffectRequest {
                 owner: entity,
-                effect: ambition_sandbox::effects::Effect::Summon(
-                    ambition_sandbox::effects::SummonSpec {
+                effect: ambition_gameplay_core::effects::Effect::Summon(
+                    ambition_gameplay_core::effects::SummonSpec {
                         id: minion_id,
                         name: "Puppy Slug".to_string(),
                         pos: minion_pos,
                         half_size: MINIMA_TRAP_MINION_HALF_SIZE,
                         archetype_id: MINIMA_TRAP_MINION_ARCHETYPE.to_string(),
                         encounter_id,
-                        faction: ambition_sandbox::features::ActorFaction::Enemy,
+                        faction: ambition_gameplay_core::features::ActorFaction::Enemy,
                     },
                 ),
             });
@@ -676,12 +676,12 @@ pub fn spawn_saddle_point_from_special_messages(
             // despawn it on toggle, and the fire-and-forget `EffectRequest` seam
             // can't hand the spawned entity back. Effects you need a handle to
             // use the spawn helper directly; fire-and-forget ones emit a request.
-            ambition_sandbox::effects::spawn_damage_box(
+            ambition_gameplay_core::effects::spawn_damage_box(
                 commands,
                 entity,
                 ActorFaction::Boss,
                 boss.kin.pos,
-                ambition_sandbox::effects::DamageBox {
+                ambition_gameplay_core::effects::DamageBox {
                     half_extent: ae::Vec2::new(he_x, he_y),
                     damage,
                     knockback: SADDLE_POINT_KNOCKBACK,
@@ -764,7 +764,7 @@ fn gradient_cascade_minion_x_offset(i: i32, count: i32) -> f32 {
 /// centered on the boss x. Gravity carries them down toward the
 /// player; their default `MeleeBrute` brain chases on contact.
 pub fn spawn_gradient_cascade_minions_from_special_messages(
-    mut effects: MessageWriter<ambition_sandbox::effects::EffectRequest>,
+    mut effects: MessageWriter<ambition_gameplay_core::effects::EffectRequest>,
     mut messages: MessageReader<ActorActionMessage>,
     mut bosses: Query<(Entity, BossClusterRef, &mut GradientCascadeState), With<FeatureSimEntity>>,
 ) {
@@ -807,17 +807,17 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
                 "gradient_sentinel_cascade:{}:{}:{}",
                 boss.config.id, state.spawn_index, i
             );
-            effects.write(ambition_sandbox::effects::EffectRequest {
+            effects.write(ambition_gameplay_core::effects::EffectRequest {
                 owner: entity,
-                effect: ambition_sandbox::effects::Effect::Summon(
-                    ambition_sandbox::effects::SummonSpec {
+                effect: ambition_gameplay_core::effects::Effect::Summon(
+                    ambition_gameplay_core::effects::SummonSpec {
                         id: minion_id,
                         name: "Slop Lurker".to_string(),
                         pos: spawn_pos,
                         half_size: GRADIENT_CASCADE_MINION_HALF_SIZE,
                         archetype_id: GRADIENT_CASCADE_MINION_ARCHETYPE.to_string(),
                         encounter_id: encounter_id.clone(),
-                        faction: ambition_sandbox::features::ActorFaction::Enemy,
+                        faction: ambition_gameplay_core::features::ActorFaction::Enemy,
                     },
                 ),
             });

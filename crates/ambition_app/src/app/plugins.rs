@@ -21,7 +21,7 @@ use super::world_flow::*;
 #[allow(unused_imports)]
 use super::*;
 #[allow(unused_imports)]
-use ambition_sandbox::app::*;
+use ambition_gameplay_core::app::*;
 
 /// Register core simulation plugins, message types, and the gameplay
 /// schedule. Headless and visible both call this.
@@ -33,7 +33,7 @@ use ambition_sandbox::app::*;
 pub fn add_simulation_plugins(app: &mut App) {
     // AmbitionPhysicsPlugin (Avian2D) is intentionally NOT here. Per
     // ADR 0007 Avian is secondary physics for debris/ragdoll visuals;
-    // the player controller is custom via parry2d in ambition_sandbox::engine_core.
+    // the player controller is custom via parry2d in ambition_gameplay_core::engine_core.
     // Avian's collider backend needs `SceneSpawner` (from ScenePlugin in
     // DefaultPlugins), which headless doesn't have. Until Avian's debris
     // role is migrated to presentation events end-to-end (or Avian gains
@@ -45,7 +45,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     // need to pin a cross-set system via `.after(other_system)`. Intra-set
     // `.chain()` ordering is still expressed per-system.
     configure_sandbox_sets(app);
-    app.init_resource::<ambition_sandbox::shrine::ShrineActivationPulse>();
+    app.init_resource::<ambition_gameplay_core::shrine::ShrineActivationPulse>();
 
     app.add_plugins(super::sim_resources::SandboxSimulationResourcesPlugin);
 
@@ -58,62 +58,62 @@ pub fn add_simulation_plugins(app: &mut App) {
     // state, and register the commands / functions / markup used by content.
     #[cfg(feature = "ui")]
     {
-        app.add_plugins(ambition_sandbox::dialog::yarn_spinner_plugin());
-        app.add_plugins(ambition_sandbox::dialog::YarnBridgePlugin);
-        app.add_plugins(ambition_sandbox::dialog::YarnBindingsPlugin);
+        app.add_plugins(ambition_gameplay_core::dialog::yarn_spinner_plugin());
+        app.add_plugins(ambition_gameplay_core::dialog::YarnBridgePlugin);
+        app.add_plugins(ambition_gameplay_core::dialog::YarnBindingsPlugin);
     }
 
-    app.add_plugins(ambition_sandbox::features::WorldPrepSchedulePlugin);
+    app.add_plugins(ambition_gameplay_core::features::WorldPrepSchedulePlugin);
     // Universal-brain messages/resources; per-tick systems are registered below.
-    app.add_plugins(ambition_sandbox::brain::BrainPlugin);
+    app.add_plugins(ambition_gameplay_core::brain::BrainPlugin);
     register_player_input_systems(app);
     register_player_simulation_systems(app);
     // Ambition's player ability/weapon kit plus its small shared app state.
-    app.add_plugins(ambition_sandbox::abilities::AmbitionAbilitiesPlugin);
+    app.add_plugins(ambition_gameplay_core::abilities::AmbitionAbilitiesPlugin);
     // "Tie a knot": the passive verlet trail rope the player drags. The rope
     // feature is currently gated off by default inside player_rope.rs.
-    app.add_plugins(ambition_sandbox::player_rope::PlayerRopePlugin);
+    app.add_plugins(ambition_gameplay_core::player_rope::PlayerRopePlugin);
     // Gravity zones / switches and their per-frame ambient-gravity snapshot.
-    app.add_plugins(ambition_sandbox::mechanics::gravity::GravityPlugin);
+    app.add_plugins(ambition_gameplay_core::mechanics::gravity::GravityPlugin);
     #[cfg(feature = "portal")]
     {
-        app.add_plugins(ambition_sandbox::portal::PortalPlugin);
+        app.add_plugins(ambition_gameplay_core::portal::PortalPlugin);
         // Host-side placement for portal's internal sets.
         wire_portal_schedule(app);
     }
-    app.add_plugins(ambition_sandbox::items::pickup::ItemPickupSimulationPlugin);
+    app.add_plugins(ambition_gameplay_core::items::pickup::ItemPickupSimulationPlugin);
     register_room_transition_systems(app);
     app.add_plugins(super::combat_schedule::CombatSchedulePlugin);
     register_presentation_sync_systems(app);
-    app.add_plugins(ambition_sandbox::features::FeatureCollectionSchedulePlugin);
-    app.add_plugins(ambition_sandbox::features::FeatureInteractionSchedulePlugin);
+    app.add_plugins(ambition_gameplay_core::features::FeatureCollectionSchedulePlugin);
+    app.add_plugins(ambition_gameplay_core::features::FeatureInteractionSchedulePlugin);
     app.add_plugins(ldtk_world::LdtkRuntimeSpinePlugin);
-    app.add_plugins(ambition_sandbox::encounter::EncounterSimulationSchedulePlugin);
+    app.add_plugins(ambition_gameplay_core::encounter::EncounterSimulationSchedulePlugin);
     app.add_plugins(ambition_render::cutscene::CutsceneSchedulePlugin);
-    app.add_plugins(ambition_sandbox::features::GameplayEffectsSchedulePlugin);
+    app.add_plugins(ambition_gameplay_core::features::GameplayEffectsSchedulePlugin);
     app.add_plugins(super::progression_schedule::ProgressionSchedulePlugin);
-    app.add_plugins(ambition_sandbox::features::FeatureViewSyncSchedulePlugin);
-    app.add_plugins(ambition_sandbox::runtime::reset::SandboxResetSchedulePlugin);
-    app.add_plugins(ambition_sandbox::trace::TraceSchedulePlugin);
+    app.add_plugins(ambition_gameplay_core::features::FeatureViewSyncSchedulePlugin);
+    app.add_plugins(ambition_gameplay_core::runtime::reset::SandboxResetSchedulePlugin);
+    app.add_plugins(ambition_gameplay_core::trace::TraceSchedulePlugin);
     // Per-frame "what would each verb do right now?" table consumed
     // by the touch / control-prompt HUD and (future) gameplay code.
     // Registered alongside simulation so headless / RL builds can
     // also inspect affordances; the resources are cheap and the
     // compute systems no-op when no primary player exists.
-    app.add_plugins(ambition_sandbox::player::affordances::AffordancesPlugin);
+    app.add_plugins(ambition_gameplay_core::player::affordances::AffordancesPlugin);
 }
 
 /// Host-side placement for portal systems: map each portal-internal set to
 /// the sandbox phase, cross-set ordering edge, and gameplay run condition.
 #[cfg(feature = "portal")]
 fn wire_portal_schedule(app: &mut App) {
-    use ambition_sandbox::portal::PortalSet;
+    use ambition_gameplay_core::portal::PortalSet;
 
     // Carves publish after gravity-zone collection and before core simulation.
     app.configure_sets(
         Update,
         PortalSet::Carves
-            .after(ambition_sandbox::physics::collect_gravity_zones)
+            .after(ambition_gameplay_core::physics::collect_gravity_zones)
             .before(SandboxSet::CoreSimulation),
     );
 
@@ -125,8 +125,8 @@ fn wire_portal_schedule(app: &mut App) {
         PortalSet::InputWarp
             .in_set(SandboxSet::PlayerInput)
             .after(crate::app::interaction_input_system)
-            .before(ambition_sandbox::player::sync_local_player_input_frame)
-            .run_if(ambition_sandbox::gameplay_allowed),
+            .before(ambition_gameplay_core::player::sync_local_player_input_frame)
+            .run_if(ambition_gameplay_core::gameplay_allowed),
     );
 
     // Weapon maintenance stays ungated for orphan cleanup / roll readiness.
@@ -134,7 +134,7 @@ fn wire_portal_schedule(app: &mut App) {
         Update,
         PortalSet::WeaponAndProjectiles
             .in_set(SandboxSet::PlayerSimulation)
-            .run_if(ambition_sandbox::gameplay_allowed),
+            .run_if(ambition_gameplay_core::gameplay_allowed),
     );
     app.configure_sets(
         Update,
@@ -147,7 +147,7 @@ fn wire_portal_schedule(app: &mut App) {
         Update,
         PortalSet::RoomReset
             .in_set(SandboxSet::RoomTransition)
-            .after(ambition_sandbox::runtime::reset::ContentRoomResetSet),
+            .after(ambition_gameplay_core::runtime::reset::ContentRoomResetSet),
     );
 
     // TransitGuards: suppress ledge-grab while transiting, before player
@@ -157,7 +157,7 @@ fn wire_portal_schedule(app: &mut App) {
         PortalSet::TransitGuards
             .in_set(SandboxSet::PlayerSimulation)
             .before(crate::app::player_simulation_system)
-            .run_if(ambition_sandbox::gameplay_allowed),
+            .run_if(ambition_gameplay_core::gameplay_allowed),
     );
 
     // Transit: teleports run after player + ground-item integration so this
@@ -168,8 +168,8 @@ fn wire_portal_schedule(app: &mut App) {
         PortalSet::Transit
             .in_set(SandboxSet::PlayerSimulation)
             .after(crate::app::player_simulation_system)
-            .after(ambition_sandbox::items::pickup::ItemPickupSet::CoreHeldItems)
-            .run_if(ambition_sandbox::gameplay_allowed),
+            .after(ambition_gameplay_core::items::pickup::ItemPickupSet::CoreHeldItems)
+            .run_if(ambition_gameplay_core::gameplay_allowed),
     );
 }
 
@@ -210,47 +210,47 @@ fn register_player_input_systems(app: &mut App) {
             // `gameplay_allowed` so suspended frames don't re-emit a
             // default 1.0 request that would compete with the
             // suspended fallback above.
-            ambition_sandbox::time::time_control::emit_player_time_intent_system
+            ambition_gameplay_core::time::time_control::emit_player_time_intent_system
                 .run_if(gameplay_allowed),
-            ambition_sandbox::time::time_control::apply_clock_scale_requests
+            ambition_gameplay_core::time::time_control::apply_clock_scale_requests
                 .run_if(gameplay_allowed),
-            ambition_sandbox::time::time_control::smooth_sim_clock_toward_target_system
+            ambition_gameplay_core::time::time_control::smooth_sim_clock_toward_target_system
                 .run_if(gameplay_allowed),
             // Unconditional: snapshot whichever path (suspended-zero
             // or gameplay-smoothed) wrote `SandboxSimState::time_scale`
             // this frame into `WorldTime` for downstream readers.
-            ambition_sandbox::refresh_world_time,
+            ambition_gameplay_core::refresh_world_time,
             // Mirror the freshly-snapshotted `WorldTime::sim_dt()` into the
             // runtime crate's neutral `SimDt` so every downstream runtime
             // system (gravity / zones / orient-roll) reads scaled dt without a
             // sandbox dependency. Runs immediately after `refresh_world_time`.
-            ambition_sandbox::mirror_sim_dt_into_runtime,
+            ambition_gameplay_core::mirror_sim_dt_into_runtime,
             sync_live_player_dev_edits_system,
             apply_player_reset_input_system.run_if(gameplay_allowed),
             ambition_content::bosses::emit_cut_rope_room_replay_after_dialogue_closes,
             apply_cut_rope_room_replay_request_system,
             input_timer_system
                 .run_if(gameplay_allowed)
-                .in_set(ambition_sandbox::input::InputSet::Populate),
+                .in_set(ambition_gameplay_core::input::InputSet::Populate),
             interaction_input_system.run_if(gameplay_allowed),
             // Portal-warped held movement input is registered by
-            // `ambition_sandbox::portal::PortalPlugin` so the portal subsystem owns
+            // `ambition_gameplay_core::portal::PortalPlugin` so the portal subsystem owns
             // its input seam.
             // Mirror the finalized global control frame onto the local
             // primary player's input component after every input writer.
-            ambition_sandbox::player::sync_local_player_input_frame,
+            ambition_gameplay_core::player::sync_local_player_input_frame,
             // Ladder body-mode policy needs the freshly mirrored input
             // frame, but it must still run before the player tick so
             // climb/jump/dash exits land on the same frame as the edge.
-            ambition_sandbox::body_mode::update_body_mode,
+            ambition_gameplay_core::body_mode::update_body_mode,
             // Universal-brain seam: translate PlayerInputFrame into
             // the player's ActorControl frame. Runs after the input
             // sync so the brain sees this frame's inputs. The
             // ActorControl output is the polarity-flip authority for
             // `player_control_system` / `player_simulation_system`
             // (see `engine_input_from_actor_control`).
-            ambition_sandbox::player::tick_player_brains,
-            ambition_sandbox::player::sync_player_actor_poses,
+            ambition_gameplay_core::player::tick_player_brains,
+            ambition_gameplay_core::player::sync_player_actor_poses,
             // Universal-brain effects resolver: walk every actor's
             // ActionSet against the actor's ActorControl frame and
             // emit ActorActionMessage entries for each concrete
@@ -258,20 +258,20 @@ fn register_player_input_systems(app: &mut App) {
             // Combat: enemy ranged, enemy melee start, player
             // melee + pogo start gating, GNU-ton apple rain, and
             // Gradient Sentinel specials.
-            ambition_sandbox::brain::emit_brain_action_messages,
+            ambition_gameplay_core::brain::emit_brain_action_messages,
             // Sibling emitter: for every player-brain actor, surface
             // the per-tick projectile state (axis sample + press /
             // held / released edges) into the same ActorActionMessage
             // channel under `ActionRequest::PlayerProjectileTick`.
-            // `ambition_sandbox::projectile::update_projectiles` consumes this
+            // `ambition_gameplay_core::projectile::update_projectiles` consumes this
             // stream instead of reading `PlayerInputFrame` directly,
             // so player projectile charging now flows through the
             // universal action seam.
-            ambition_sandbox::brain::emit_player_projectile_tick_messages,
+            ambition_gameplay_core::brain::emit_player_projectile_tick_messages,
             // Observe the resolver output into a per-frame counter
             // so the HUD + debug tooling have a quick "any brain
             // wants something this tick" signal.
-            ambition_sandbox::brain::observe_brain_action_counter,
+            ambition_gameplay_core::brain::observe_brain_action_counter,
         )
             .chain()
             .in_set(SandboxSet::PlayerInput),
@@ -317,7 +317,7 @@ fn register_player_simulation_systems(app: &mut App) {
             Update,
             crate::app::player_clone::despawn_player_clones_on_reset
                 .in_set(SandboxSet::ResetProcessing)
-                .before(ambition_sandbox::runtime::reset::process_sandbox_reset_request),
+                .before(ambition_gameplay_core::runtime::reset::process_sandbox_reset_request),
         );
     // Possession systems stay interleaved with the player tick; lifting
     // them would change the `not_possessing` run-condition window.
@@ -329,13 +329,13 @@ fn register_player_simulation_systems(app: &mut App) {
             // input sync run before the player tick so the possessed actor reads
             // fresh input; the player's own control is gated OFF while possessing
             // so the same input doesn't drive both bodies.
-            ambition_sandbox::abilities::traversal::possession::possession_trigger_system
+            ambition_gameplay_core::abilities::traversal::possession::possession_trigger_system
                 .run_if(gameplay_allowed),
-            ambition_sandbox::abilities::traversal::possession::release_possession_if_target_lost,
-            ambition_sandbox::abilities::traversal::possession::sync_possession_input,
+            ambition_gameplay_core::abilities::traversal::possession::release_possession_if_target_lost,
+            ambition_gameplay_core::abilities::traversal::possession::sync_possession_input,
             player_control_system
                 .run_if(gameplay_allowed)
-                .run_if(ambition_sandbox::abilities::traversal::possession::not_possessing),
+                .run_if(ambition_gameplay_core::abilities::traversal::possession::not_possessing),
             // Advance the world's moving platforms once, after the control phase and
             // before the simulation phase (the order they were advanced in when the
             // advance lived inside `player_simulation_system`), so every body rides
@@ -359,15 +359,15 @@ fn register_room_transition_systems(app: &mut App) {
             detect_room_transition_system.run_if(gameplay_allowed),
             ensure_requested_room_parallax_system,
             apply_room_transition_system,
-            ambition_sandbox::features::reset_ecs_room_features,
-            ambition_sandbox::features::reset_ecs_npc_actors,
+            ambition_gameplay_core::features::reset_ecs_room_features,
+            ambition_gameplay_core::features::reset_ecs_npc_actors,
             // Content-side reset work carries the ContentRoomResetSet
             // label so generic plugins (gravity, portal) can order
             // after it without naming content systems.
             ambition_content::bosses::reset_cut_rope_boss_arena_on_room_reset
-                .in_set(ambition_sandbox::runtime::reset::ContentRoomResetSet),
+                .in_set(ambition_gameplay_core::runtime::reset::ContentRoomResetSet),
             // Portal room-reset cleanup is registered by
-            // `ambition_sandbox::portal::PortalPlugin`.
+            // `ambition_gameplay_core::portal::PortalPlugin`.
         )
             .chain()
             .in_set(SandboxSet::RoomTransition),
@@ -383,7 +383,7 @@ fn register_presentation_sync_systems(app: &mut App) {
     app.add_systems(
         Update,
         (
-            ambition_sandbox::player::write_player_ecs_components,
+            ambition_gameplay_core::player::write_player_ecs_components,
             cleanup_timers_system,
         )
             .chain()
@@ -504,7 +504,7 @@ pub(super) fn spawn_ldtk_world_root(
 /// and VFX subscribers, HUD, debug overlays). Visible binary only.
 pub fn add_presentation_plugins(app: &mut App) {
     install_presentation_resources_and_subplugins(app);
-    app.add_plugins(ambition_sandbox::persistence::PersistenceSchedulePlugin);
+    app.add_plugins(ambition_gameplay_core::persistence::PersistenceSchedulePlugin);
     install_menu_setup_and_hotkeys(app);
     app.add_plugins(ambition_render::rendering::PresentationVisualAnimationPlugin);
     install_camera_and_debug_overlay_systems(app);
@@ -527,18 +527,18 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
         .register_type::<EditableMovementTuning>()
         .register_type::<EditablePlayerStats>()
         .register_type::<SandboxFeelTuning>()
-        .register_type::<ambition_sandbox::portal::PortalConvention>()
-        .register_type::<ambition_sandbox::portal::PortalTuning>();
+        .register_type::<ambition_gameplay_core::portal::PortalConvention>()
+        .register_type::<ambition_gameplay_core::portal::PortalTuning>();
 
     #[cfg(feature = "portal_render")]
-    app.register_type::<ambition_sandbox::portal::PortalVisualEffect>()
-        .register_type::<ambition_sandbox::portal::PortalEffectSelection>()
-        .register_type::<ambition_sandbox::portal::PortalViewConeConfig>();
+    app.register_type::<ambition_gameplay_core::portal::PortalVisualEffect>()
+        .register_type::<ambition_gameplay_core::portal::PortalEffectSelection>()
+        .register_type::<ambition_gameplay_core::portal::PortalViewConeConfig>();
 
     app.add_plugins(crate::host::platform::PlatformPlugin);
     app.add_plugins(ambition_render::screen_effects::ScreenEffectsPlugin);
     // Loads baked `*_spritesheet.ron` manifests for runtime sheet metadata.
-    app.add_plugins(ambition_sandbox::character_sprites::SheetRegistryPlugin);
+    app.add_plugins(ambition_gameplay_core::character_sprites::SheetRegistryPlugin);
     app.add_plugins(crate::dev::DevToolsPlugin);
     add_physics_debris_plugins(app);
     add_ui_plugins(app);
@@ -546,7 +546,7 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     add_audio_plugins(app);
     add_mobile_touch_plugin(app);
     #[cfg(feature = "falling_sand")]
-    app.add_plugins(ambition_sandbox::falling_sand::FallingSandRoomPlugin);
+    app.add_plugins(ambition_gameplay_core::falling_sand::FallingSandRoomPlugin);
     // Frame pacing / battery saver. Enabled by the normal visible personas so
     // desktop and Android exercise the same pacing behavior by default.
     #[cfg(feature = "frame_pacing")]
@@ -561,35 +561,35 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
     // Starter item-ownership roster (the 24-item catalog default set).
     app.add_plugins(ambition_content::items::AmbitionItemRosterPlugin);
     app.insert_resource(inventory::InventoryUiState::default())
-        .init_resource::<ambition_sandbox::items::persist::InventoryRestored>()
+        .init_resource::<ambition_gameplay_core::items::persist::InventoryRestored>()
         // Persist the inventory + wallet across save/load: restore the saved set
         // once the player exists, then mirror live changes back into the save
         // (the existing autosave writes the dirtied save to disk).
         .add_systems(
             Update,
             (
-                ambition_sandbox::items::persist::restore_inventory_from_save,
-                ambition_sandbox::items::persist::persist_inventory_to_save,
+                ambition_gameplay_core::items::persist::restore_inventory_from_save,
+                ambition_gameplay_core::items::persist::persist_inventory_to_save,
             )
                 .chain(),
         )
         .add_systems(
             Update,
-            (ambition_sandbox::menu::map::sync_map_menu,).after(SandboxSet::CoreSimulation),
+            (ambition_gameplay_core::menu::map::sync_map_menu,).after(SandboxSet::CoreSimulation),
         )
         .add_systems(
             Startup,
             (
-                ambition_sandbox::dev::profiling::phase_mark("before_setup_presentation"),
+                ambition_gameplay_core::dev::profiling::phase_mark("before_setup_presentation"),
                 // `PresentationSetupSet` is the machinery-facing label for
                 // this slot: audio init (and any future machinery startup
                 // work) orders `.after(the set)` instead of naming this
                 // app system.
-                setup_presentation_system.in_set(ambition_sandbox::app::PresentationSetupSet),
-                ambition_sandbox::dev::profiling::phase_mark("after_setup_presentation"),
-                ambition_sandbox::menu::map::populate_map_rooms,
-                ambition_sandbox::menu::map::spawn_map_menu,
-                ambition_sandbox::dev::profiling::phase_mark("after_map_menu_spawn"),
+                setup_presentation_system.in_set(ambition_gameplay_core::app::PresentationSetupSet),
+                ambition_gameplay_core::dev::profiling::phase_mark("after_setup_presentation"),
+                ambition_gameplay_core::menu::map::populate_map_rooms,
+                ambition_gameplay_core::menu::map::spawn_map_menu,
+                ambition_gameplay_core::dev::profiling::phase_mark("after_map_menu_spawn"),
             )
                 .chain()
                 .after(setup_simulation_system)
@@ -602,8 +602,8 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                 handle_ldtk_hot_reload,
                 handle_debug_hotkeys,
                 dev_tools::sync_developer_body_profile,
-                ambition_sandbox::trace::handle_trace_hotkey,
-                ambition_sandbox::menu::map::handle_map_menu_hotkeys,
+                ambition_gameplay_core::trace::handle_trace_hotkey,
+                ambition_gameplay_core::menu::map::handle_map_menu_hotkeys,
             )
                 .chain()
                 .after(SandboxSet::CoreSimulation),
@@ -614,11 +614,11 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
     // platform-neutral so desktop and Android stay in sync unless a build profile
     // intentionally opts out of a backend.
     crate::menu::kaleidoscope_app::install_unified_menu_shared(app);
-    if ambition_sandbox::menu::backend::KALEIDOSCOPE_MENU_BACKEND_ENABLED {
+    if ambition_gameplay_core::menu::backend::KALEIDOSCOPE_MENU_BACKEND_ENABLED {
         crate::menu::kaleidoscope_app::install_kaleidoscope_menu_backend(app);
     }
     #[cfg(feature = "bevy_ui_menu")]
-    if ambition_sandbox::menu::backend::BEVY_UI_MENU_BACKEND_ENABLED {
+    if ambition_gameplay_core::menu::backend::BEVY_UI_MENU_BACKEND_ENABLED {
         crate::menu::grid_backend::install_grid_unified_menu(app);
     }
 }
@@ -627,7 +627,7 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
     app.add_systems(
         Update,
         (
-            ambition_sandbox::time::camera_ease::tick_camera_shake,
+            ambition_gameplay_core::time::camera_ease::tick_camera_shake,
             camera_follow,
             debug_overlay::draw_debug_overlay,
         )
@@ -699,10 +699,10 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     .add_systems(
         Update,
         (
-            ambition_sandbox::rooms::sync_portal_sprite_visibility,
-            ambition_sandbox::rooms::sync_portal_sprite_animation,
-            ambition_sandbox::rooms::sync_portal_ring_rotation_system,
-            ambition_sandbox::rooms::hide_portal_loading_zone_visuals,
+            ambition_gameplay_core::rooms::sync_portal_sprite_visibility,
+            ambition_gameplay_core::rooms::sync_portal_sprite_animation,
+            ambition_gameplay_core::rooms::sync_portal_ring_rotation_system,
+            ambition_gameplay_core::rooms::hide_portal_loading_zone_visuals,
         )
             .after(sync_visuals),
     )
@@ -719,7 +719,7 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     .add_systems(
         Update,
         ambition_render::rendering::sync_lock_wall_visuals
-            .after(ambition_sandbox::encounter::update_encounters_from_world),
+            .after(ambition_gameplay_core::encounter::update_encounters_from_world),
     )
     // NPC spritesheet upgrade. `.after(sync_visuals)` preserves the
     // ordering guarantee the chain otherwise provided (FeatureVisuals
@@ -755,7 +755,7 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     // Mouse / touch dismissal for the map menu.
     .add_systems(
         Update,
-        ambition_sandbox::menu::map::map_menu_pointer_dismiss,
+        ambition_gameplay_core::menu::map::map_menu_pointer_dismiss,
     )
     // Quest panel runs alongside the verbose HUD.
     .add_systems(
@@ -777,9 +777,9 @@ fn install_projectile_and_vfx_systems(app: &mut App) {
         Update,
         (
             ambition_render::rendering::projectile_visuals::sync_projectile_visuals
-                .after(ambition_sandbox::projectile::step_projectiles),
+                .after(ambition_gameplay_core::projectile::step_projectiles),
             ambition_render::rendering::enemy_projectile_visuals::sync_enemy_projectile_visuals
-                .after(ambition_sandbox::projectile::step_projectiles),
+                .after(ambition_gameplay_core::projectile::step_projectiles),
         ),
     )
     // VFX + debris subscribe on the visible binary only. Audio's
@@ -856,7 +856,7 @@ pub(super) fn add_input_plugins(app: &mut App) {
     app.init_resource::<MenuInputState>()
         .init_resource::<MenuControlFrame>()
         .init_resource::<PlayerDashTriggerState>()
-        .init_resource::<ambition_sandbox::input::ActiveInputKind>()
+        .init_resource::<ambition_gameplay_core::input::ActiveInputKind>()
         .add_plugins(InputManagerPlugin::<SandboxAction>::default())
         // Track which input source is CURRENTLY active (last to produce
         // GENUINE input). This gates the menu mouse-hover handlers so a
@@ -869,8 +869,8 @@ pub(super) fn add_input_plugins(app: &mut App) {
         // mobile_input plugin flips it to `Touch` itself.
         .add_systems(
             Update,
-            ambition_sandbox::input::update_active_input_kind
-                .in_set(ambition_sandbox::input::InputSet::Populate),
+            ambition_gameplay_core::input::update_active_input_kind
+                .in_set(ambition_gameplay_core::input::InputSet::Populate),
         )
         .add_systems(
             Startup,
@@ -898,7 +898,7 @@ pub(super) fn add_input_plugins(app: &mut App) {
             (
                 populate_menu_control_frame_from_actions,
                 populate_control_frame_from_actions
-                    .in_set(ambition_sandbox::input::InputSet::Populate),
+                    .in_set(ambition_gameplay_core::input::InputSet::Populate),
                 apply_menu_frame_to_cutscene_request,
                 dialog::dialog_pointer_input,
             )
@@ -945,7 +945,7 @@ pub(super) fn add_mobile_touch_plugin(_app: &mut App) {}
 /// per the ADR 0012 seam.
 #[cfg(feature = "audio")]
 pub(super) fn add_audio_plugins(app: &mut App) {
-    app.add_plugins(ambition_sandbox::audio::SandboxAudioPlugin);
+    app.add_plugins(ambition_gameplay_core::audio::SandboxAudioPlugin);
 }
 
 #[cfg(not(feature = "audio"))]

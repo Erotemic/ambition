@@ -6,7 +6,7 @@ directory is referenced by `cargo`; it does not affect builds or tests.
 ## What this slice does
 
 Defers the eager `asset_server.load(...)` calls in `AudioLibrary::new`
-([crates/ambition_sandbox/src/audio/runtime.rs:284-302](../../../crates/ambition_sandbox/src/audio/runtime.rs#L284-L302))
+([crates/ambition_gameplay_core/src/audio/runtime.rs:284-302](../../../crates/ambition_gameplay_core/src/audio/runtime.rs#L284-L302))
 so file-backed music tracks load on first request instead of at startup.
 File-backed tracks total ~58 MB across 25 OGGs today; only the default
 track plus whatever the player switches to actually need to be live.
@@ -34,7 +34,7 @@ they're cheap, deterministic, and required by tests that don't have an
 - `changes.md` — file-by-file change manifest with before/after snippets
   for the small surgical edits.
 - `runtime_new.rs` — full proposed replacement for
-  [crates/ambition_sandbox/src/audio/runtime.rs](../../../crates/ambition_sandbox/src/audio/runtime.rs).
+  [crates/ambition_gameplay_core/src/audio/runtime.rs](../../../crates/ambition_gameplay_core/src/audio/runtime.rs).
   Heavy edits — easier to review as a complete file than as a hand-written
   diff.
 
@@ -42,15 +42,15 @@ they're cheap, deterministic, and required by tests that don't have an
 
 Mechanical, in order:
 
-1. Replace `crates/ambition_sandbox/src/audio/runtime.rs` with
+1. Replace `crates/ambition_gameplay_core/src/audio/runtime.rs` with
    `runtime_new.rs`.
 2. Apply the surgical edits in `changes.md` to:
-   - `crates/ambition_sandbox/src/audio/tests.rs`
-   - `crates/ambition_sandbox/src/music/director.rs`
-   - `crates/ambition_sandbox/src/pause_menu.rs`
+   - `crates/ambition_gameplay_core/src/audio/tests.rs`
+   - `crates/ambition_gameplay_core/src/music/director.rs`
+   - `crates/ambition_gameplay_core/src/pause_menu.rs`
    (`audio.rs`'s re-exports list and `setup.rs` need NO changes.)
-3. `cd crates/ambition_sandbox && cargo check --features audio,input`.
-4. Run the audio tests: `cargo test -p ambition_sandbox --features audio
+3. `cd crates/ambition_gameplay_core && cargo check --features audio,input`.
+4. Run the audio tests: `cargo test -p ambition_gameplay_core --features audio
    --lib audio::`.
 5. Smoke-test in the sandbox: confirm music starts on boot and that
    switching radio tracks still works.

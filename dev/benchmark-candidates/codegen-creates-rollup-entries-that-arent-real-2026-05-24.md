@@ -117,7 +117,7 @@ The agent has to:
 ## Validation
 
 ```bash
-~/.cargo/bin/cargo test -p ambition_sandbox --lib \
+~/.cargo/bin/cargo test -p ambition_gameplay_core --lib \
     every_character_catalog_entry_resolves_a_load_path
 ```
 

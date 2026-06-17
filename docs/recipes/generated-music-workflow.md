@@ -81,7 +81,7 @@ Three tiers, and — unlike sprites — **no audio is committed at all**:
 |------|----------|-----|
 | **Source of truth** (edit + commit these) | score specs `tools/ambition_music_renderer/scores/active/*.music.yaml`, renderer code, install scripts | committed |
 | **Staging / scratch** | `tools/ambition_music_renderer/output/`, `…/generated/`, `target/generated-audio/` | gitignored |
-| **Runtime** (what the game loads) | the entire `crates/ambition_sandbox/assets/audio/` tree — music OGGs *and* `sfx.bank` | **gitignored** (`.gitignore` line 66) |
+| **Runtime** (what the game loads) | the entire `crates/ambition_gameplay_core/assets/audio/` tree — music OGGs *and* `sfx.bank` | **gitignored** (`.gitignore` line 66) |
 
 Consequences worth internalizing:
 

@@ -6,14 +6,14 @@
 //! fallback-friendly loading behavior without forcing the room renderer through
 //! an external API.
 
-use ambition_sandbox::engine_core as ae;
+use ambition_gameplay_core::engine_core as ae;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
 use super::primitives::RoomVisual;
-use ambition_sandbox::assets::game_assets::{GameAssets, ParallaxLayerAsset, ParallaxTheme};
-use ambition_sandbox::config::{WINDOW_H, WINDOW_W};
-use ambition_sandbox::rooms::RoomMetadata;
+use ambition_gameplay_core::assets::game_assets::{GameAssets, ParallaxLayerAsset, ParallaxTheme};
+use ambition_gameplay_core::config::{WINDOW_H, WINDOW_W};
+use ambition_gameplay_core::rooms::RoomMetadata;
 
 #[derive(Component, Clone, Copy, Debug)]
 pub struct ParallaxLayerVisual {
@@ -112,7 +112,7 @@ pub fn sync_parallax_layers(
     camera: Query<
         &Transform,
         (
-            With<ambition_sandbox::runtime::camera_layers::MainCamera>,
+            With<ambition_gameplay_core::runtime::camera_layers::MainCamera>,
             Without<ParallaxLayerVisual>,
         ),
     >,

@@ -26,8 +26,8 @@ LDtk changes are high-risk because they affect:
 Use:
 
 ```bash
-python -m ambition_ldtk_tools validate crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
-python -m ambition_ldtk_tools repair crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk --in-place
+python -m ambition_ldtk_tools validate crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
+python -m ambition_ldtk_tools repair crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk --in-place
 python -m ambition_ldtk_tools area create <spec.yaml> --backup
 ```
 

@@ -20,13 +20,13 @@ use super::world_flow::*;
 #[allow(unused_imports)]
 use super::*;
 #[allow(unused_imports)]
-use ambition_sandbox::app::*;
+use ambition_gameplay_core::app::*;
 
 // `GameWorld` and the time-scale ramp helper `move_toward` live in
-// `ambition_sandbox::lib` (`ambition_sandbox`) and are re-imported above through
-// `use ambition_sandbox::*;`.
+// `ambition_gameplay_core::lib` (`ambition_gameplay_core`) and are re-imported above through
+// `use ambition_gameplay_core::*;`.
 
-/// Sim-only startup. Calls `ambition_sandbox::runtime::setup::simulation_world` to spawn the
+/// Sim-only startup. Calls `ambition_gameplay_core::runtime::setup::simulation_world` to spawn the
 /// LdtkWorldBundle and the player entity (with gameplay-essential components
 /// but no Sprite). Inserts SceneEntities with `hud: Entity::PLACEHOLDER`;
 /// the presentation startup system later overwrites that with the real HUD entity.
@@ -41,7 +41,7 @@ pub(super) fn setup_simulation_system(
     ldtk_index: Res<ldtk_world::LdtkRuntimeIndex>,
     editable_tuning: Res<EditableMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
-    mut platform_set: ResMut<ambition_sandbox::MovingPlatformSet>,
+    mut platform_set: ResMut<ambition_gameplay_core::MovingPlatformSet>,
 ) {
     let _player = setup::simulation_world(
         &mut commands,
@@ -58,11 +58,11 @@ pub(super) fn setup_simulation_system(
         },
     );
     platform_set.0 =
-        ambition_sandbox::world::platforms::moving_platforms_for_room(room_set.active_spec());
+        ambition_gameplay_core::world::platforms::moving_platforms_for_room(room_set.active_spec());
     // `PlayerSafetyState::last_safe_pos` is initialized by the player
     // bundle to the player's spawn position (which is `world.0.spawn`),
     // so we don't need to overwrite it here. See
-    // `ambition_sandbox::player::PlayerSimulationBundle::new`.
+    // `ambition_gameplay_core::player::PlayerSimulationBundle::new`.
 }
 
 /// Presentation startup. Runs after `setup_simulation_system` so the
@@ -76,7 +76,7 @@ pub(crate) fn setup_presentation_system(
     world: Res<GameWorld>,
     room_set: Res<rooms::RoomSet>,
     sandbox_data: Res<data::SandboxDataSpec>,
-    sandbox_catalog: Res<ambition_sandbox::assets::sandbox_assets::SandboxAssetCatalog>,
+    sandbox_catalog: Res<ambition_gameplay_core::assets::sandbox_assets::SandboxAssetCatalog>,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
     mut audio_sources: ResMut<Assets<KiraAudioSource>>,
     asset_server: Res<AssetServer>,
@@ -84,7 +84,7 @@ pub(crate) fn setup_presentation_system(
     asset_config: Res<GameAssetConfig>,
     scene_entities: Res<SceneEntities>,
     ui_fonts: Option<Res<ui_fonts::UiFonts>>,
-    mut profiler: ResMut<ambition_sandbox::dev::profiling::StartupProfiler>,
+    mut profiler: ResMut<ambition_gameplay_core::dev::profiling::StartupProfiler>,
 ) {
     // `std::time::Instant::now()` panics on `wasm32-unknown-unknown`
     // with "time not implemented on this platform". Gate the per-step
@@ -135,7 +135,7 @@ pub(crate) fn setup_presentation_system(
     {
         // Wasm path: no per-step timing, no profiler marks (the
         // wasm `StartupProfiler` doesn't take Instants — see
-        // `ambition_sandbox::profiling`). The presentation world still spawns.
+        // `ambition_gameplay_core::profiling`). The presentation world still spawns.
         let _ = &profiler; // silence unused-resource warning
         scene_setup::presentation_world(
             &mut commands,
@@ -162,7 +162,7 @@ pub(crate) fn setup_presentation_system(
     world: Res<GameWorld>,
     room_set: Res<rooms::RoomSet>,
     sandbox_data: Res<data::SandboxDataSpec>,
-    sandbox_catalog: Res<ambition_sandbox::assets::sandbox_assets::SandboxAssetCatalog>,
+    sandbox_catalog: Res<ambition_gameplay_core::assets::sandbox_assets::SandboxAssetCatalog>,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
     asset_server: Res<AssetServer>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,

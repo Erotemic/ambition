@@ -4,9 +4,9 @@ NpcSpawn pedestal, whether its catalog id will render a real sprite
 or fall back to a colored-rectangle placeholder.
 
 Reads:
-  - `crates/ambition_sandbox/assets/data/character_catalog.ron`
-  - `crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk`
-  - `crates/ambition_sandbox/assets/sprites/`
+  - `crates/ambition_gameplay_core/assets/data/character_catalog.ron`
+  - `crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk`
+  - `crates/ambition_gameplay_core/assets/sprites/`
 
 For each NpcSpawn in `hall_of_characters`:
   - "ok"          — catalog entry + manifest on disk (sheet will load)
@@ -40,7 +40,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 CATALOG_PATH = (
     REPO_ROOT
     / "crates"
-    / "ambition_sandbox"
+    / "ambition_gameplay_core"
     / "assets"
     / "data"
     / "character_catalog.ron"
@@ -48,17 +48,17 @@ CATALOG_PATH = (
 LDTK_PATH = (
     REPO_ROOT
     / "crates"
-    / "ambition_sandbox"
+    / "ambition_gameplay_core"
     / "assets"
     / "ambition"
     / "worlds"
     / "sandbox.ldtk"
 )
-SPRITES_DIR = REPO_ROOT / "crates" / "ambition_sandbox" / "assets" / "sprites"
+SPRITES_DIR = REPO_ROOT / "crates" / "ambition_gameplay_core" / "assets" / "sprites"
 
 # Mirror of the Rust `CharacterAnim::from_name` Idle-equivalent
 # aliases. Keep in sync with
-# `crates/ambition_sandbox/src/presentation/character_sprites/anim.rs`.
+# `crates/ambition_gameplay_core/src/presentation/character_sprites/anim.rs`.
 IDLE_ALIASES = {"idle", "opening", "rest", "front_idle", "side_idle"}
 
 

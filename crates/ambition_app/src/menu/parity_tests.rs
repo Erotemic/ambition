@@ -2,7 +2,7 @@
 //!
 //! The unified menu has ONE content model
 //! ([`crate::menu::model::build_inventory_pages`] + the settings IR in
-//! [`ambition_sandbox::menu::ir`]) rendered by TWO presentations (the flat Grid
+//! [`ambition_gameplay_core::menu::ir`]) rendered by TWO presentations (the flat Grid
 //! [`crate::menu::grid_backend`] and the 3D cube [`crate::menu::kaleidoscope_app`]),
 //! dispatched through ONE [`crate::menu::dispatch::dispatch_menu_action`]. The
 //! tests here LOCK that the two presentations can never silently drift:
@@ -22,8 +22,8 @@
 //!    `MenuPageAction::ChangePage` edge page-turn controls which the Grid strips.
 
 use super::model::{build_inventory_pages, MenuFocus, MenuPage, MenuPageAction};
-use ambition_sandbox::items::{Item, OwnedItems};
-use ambition_sandbox::persistence::settings::{
+use ambition_gameplay_core::items::{Item, OwnedItems};
+use ambition_gameplay_core::persistence::settings::{
     settings_menu_model, DevSnapshot, RadioSnapshot, SettingsOptionId, SystemMenuEntryId,
     SystemMenuModel, UserSettings,
 };
@@ -379,14 +379,14 @@ mod dispatch_parity {
     };
     use crate::menu::model::{MenuPage, MenuPageAction};
     use crate::menu::test_support::click_control as click;
-    use ambition_sandbox::audio::SfxMessage;
-    use ambition_sandbox::brain::ActionSet;
-    use ambition_sandbox::input::MenuControlFrame;
-    use ambition_sandbox::inventory::InventoryUiState;
-    use ambition_sandbox::menu::backend::InventoryUiBackend;
-    use ambition_sandbox::persistence::settings::{SystemMenuEntryId, UserSettings};
-    use ambition_sandbox::player::{PlayerEntity, PlayerHealRequested, PlayerMana, PrimaryPlayer};
-    use ambition_sandbox::runtime::game_mode::GameMode;
+    use ambition_gameplay_core::audio::SfxMessage;
+    use ambition_gameplay_core::brain::ActionSet;
+    use ambition_gameplay_core::input::MenuControlFrame;
+    use ambition_gameplay_core::inventory::InventoryUiState;
+    use ambition_gameplay_core::menu::backend::InventoryUiBackend;
+    use ambition_gameplay_core::persistence::settings::{SystemMenuEntryId, UserSettings};
+    use ambition_gameplay_core::player::{PlayerEntity, PlayerHealRequested, PlayerMana, PrimaryPlayer};
+    use ambition_gameplay_core::runtime::game_mode::GameMode;
 
     /// Build a menu app for one backend, with every resource/observer the shared
     /// cursor/dispatch path touches. Mirrors the per-backend harnesses in
@@ -404,16 +404,16 @@ mod dispatch_parity {
         app.init_resource::<GridPointerPress>();
         app.init_resource::<GridMenuTabState>();
         app.init_resource::<OwnedItems>();
-        app.init_resource::<ambition_sandbox::dev::dev_tools::DeveloperTools>();
-        app.init_resource::<ambition_sandbox::SandboxDevState>();
-        app.init_resource::<ambition_sandbox::ldtk_world::LdtkHotReloadState>();
-        app.init_resource::<ambition_sandbox::runtime::reset::SandboxResetRequested>();
-        app.init_resource::<ambition_sandbox::dev::dev_tools::EditableMovementTuning>();
+        app.init_resource::<ambition_gameplay_core::dev::dev_tools::DeveloperTools>();
+        app.init_resource::<ambition_gameplay_core::SandboxDevState>();
+        app.init_resource::<ambition_gameplay_core::ldtk_world::LdtkHotReloadState>();
+        app.init_resource::<ambition_gameplay_core::runtime::reset::SandboxResetRequested>();
+        app.init_resource::<ambition_gameplay_core::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
         app.init_resource::<InventoryUiState>();
-        app.init_resource::<ambition_sandbox::menu::map::MapMenuState>();
+        app.init_resource::<ambition_gameplay_core::menu::map::MapMenuState>();
         app.init_resource::<MenuControlFrame>();
-        app.init_resource::<ambition_sandbox::input::ActiveInputKind>();
+        app.init_resource::<ambition_gameplay_core::input::ActiveInputKind>();
         app.add_message::<PlayerHealRequested>();
         app.add_message::<SfxMessage>();
         app.add_message::<bevy::app::AppExit>();

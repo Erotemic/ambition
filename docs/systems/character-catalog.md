@@ -4,7 +4,7 @@
 > Here. Just the catalog file. No Rust changes for the common case.
 > No LDtk schema changes either.
 
-The character catalog (`crates/ambition_sandbox/assets/data/character_catalog.ron`)
+The character catalog (`crates/ambition_gameplay_core/assets/data/character_catalog.ron`)
 is the single source of truth for every character the sandbox can
 spawn — players, NPCs, enemies, bosses. Each catalog entry pairs a
 stable `character_id` with:
@@ -83,7 +83,7 @@ same brain with different tuning by editing one row.
 
 ## Runtime shape
 
-The Bevy plugin is `ambition_characters::actor::character_catalog::CharacterCatalogPlugin`; sandbox wires it through `crates/ambition_sandbox/src/character_roster.rs`.
+The Bevy plugin is `ambition_characters::actor::character_catalog::CharacterCatalogPlugin`; sandbox wires it through `crates/ambition_gameplay_core/src/character_roster.rs`.
 At app build it:
 
 1. Parses the embedded RON via `include_str!` (synchronous; no
@@ -116,7 +116,7 @@ impl CharacterCatalog {
 to derive the patrol center for `Patrol`-brain characters; for non-
 patrol brains the argument is ignored.
 
-A non-Bevy lookup path (`crates/ambition_sandbox/src/character_roster.rs::EMBEDDED_CATALOG`
+A non-Bevy lookup path (`crates/ambition_gameplay_core/src/character_roster.rs::EMBEDDED_CATALOG`
 + `display_name_for_character_id`) is available for code that
 doesn't have `Res<>` access — the LDtk parser uses it to translate
 `NpcSpawn.character_id` into a display name for `Authored.name`.

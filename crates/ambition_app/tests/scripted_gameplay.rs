@@ -1,7 +1,7 @@
 //! Multi-frame scripted-gameplay integration test.
 //!
 //! Companion to the per-system slice tests in
-//! `crates/ambition_sandbox/src/headless.rs`. This test drives the
+//! `crates/ambition_gameplay_core/src/headless.rs`. This test drives the
 //! sim through a sequence of `ControlFrame`s across several
 //! `app.update()` calls and asserts on the cumulative event timeline.
 //!
@@ -10,9 +10,9 @@
 //! seam without any visible plugin (AudioPlugin / RenderPlugin /
 //! InputPlugin / inspector / Avian2D).
 
-use ambition_sandbox::audio::SfxMessage;
-use ambition_sandbox::input::ControlFrame;
-use ambition_sandbox::GameMode;
+use ambition_gameplay_core::audio::SfxMessage;
+use ambition_gameplay_core::input::ControlFrame;
+use ambition_gameplay_core::GameMode;
 use bevy::asset::AssetPlugin;
 use bevy::ecs::message::Messages;
 use bevy::image::ImagePlugin;

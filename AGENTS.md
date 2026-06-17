@@ -35,14 +35,14 @@ Historical notes under `docs/archive/` are evidence, not current authority. Gene
 - Prefer data-driven ECS flow: authored/generated data -> Bevy components/entities -> systems -> messages/effects.
 - LDtk owns world/level authoring. RON room manifests are historical; RON may still be used for tuning, save/settings, and other data where appropriate.
 - Preserve desktop, web, Android/mobile/touch, controller, and Steam Deck paths. iOS is deferred for hardware, not excluded.
-- **Three-layer crate split (Stage 20, 2026-06-10):** `ambition_sandbox` is the
+- **Three-layer crate split (Stage 20, 2026-06-10):** `ambition_gameplay_core` is the
   MACHINERY lib (mechanics, runtime, presentation, world, brain, features);
   `ambition_content` is the named game content (quests, bosses, items, dialogue,
   intro) and depends on the machinery; `ambition_app` is the assembly + every
-  binary (playable `ambition_sandbox` bin, `headless`, `rl_*`) + the full-stack
+  binary (playable `ambition_gameplay_core` bin, `headless`, `rl_*`) + the full-stack
   integration tests, and is the only crate allowed to name both layers.
   Machinery must not import content — `architecture_boundaries` enforces it.
-  Schedule vocabulary (`SandboxSet` etc.) stays in `ambition_sandbox::app`.
+  Schedule vocabulary (`SandboxSet` etc.) stays in `ambition_gameplay_core::app`.
 
 ## Autonomous decision-making
 
@@ -117,7 +117,7 @@ To keep merge conflicts simple to resolve use a style formatter.
 
 ```bash
 cargo fmt --check
-cargo test -p ambition_sandbox --lib
+cargo test -p ambition_gameplay_core --lib
 cargo test -p ambition_content --all-features
 cargo run -p ambition_app --bin headless
 python scripts/check_agent_kb.py

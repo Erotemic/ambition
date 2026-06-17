@@ -37,7 +37,7 @@ Adopt the standard Bevy compile-time toolkit, gated behind a `dev` feature
 (opt-in for fast iteration; off for release/distribution):
 
 ```toml
-# crates/ambition_sandbox/Cargo.toml
+# crates/ambition_gameplay_core/Cargo.toml
 [features]
 dev = ["bevy/dynamic_linking", "bevy/file_watcher"]
 
@@ -84,8 +84,8 @@ or distribution builds — it prevents LTO and ships unstable internal
 symbols.
 
 ```bash
-cargo run -p ambition_sandbox --features dev      # fast iteration
-cargo run -p ambition_sandbox --release           # final build
+cargo run -p ambition_gameplay_core --features dev      # fast iteration
+cargo run -p ambition_gameplay_core --release           # final build
 ```
 
 ### Workspace structure
@@ -125,7 +125,7 @@ machines. It is significantly faster than `cargo test` and integrates
 cleanly with CI.
 
 ```bash
-cargo nextest run -p ambition_sandbox
+cargo nextest run -p ambition_gameplay_core
 ```
 
 ### Periodic audits
@@ -181,7 +181,7 @@ Conservative, sequenced:
    default builds; faster dev/distribution profiles available).
 2. Add a `.cargo/config.toml` with `lld` (or `mold` if installed) as
    the linker. Document `mold` install in the contributor README.
-3. Add a `dev` feature in `crates/ambition_sandbox/Cargo.toml`
+3. Add a `dev` feature in `crates/ambition_gameplay_core/Cargo.toml`
    bundling `bevy/dynamic_linking` and `bevy/file_watcher`. Document
    the new run command in the README.
 4. Add `cargo nextest` to the recommended test commands.

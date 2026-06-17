@@ -15,7 +15,7 @@ pub fn spawn_cut_rope_victory_npc(
     mut commands: Commands,
     room_set: Res<RoomSet>,
     registry: Res<BossEncounterRegistry>,
-    save: Res<ambition_sandbox::persistence::save::SandboxSave>,
+    save: Res<ambition_gameplay_core::persistence::save::SandboxSave>,
     existing: Query<&FeatureId, With<SmirkingBehemothVictoryNpc>>,
     bosses: Query<(&FeatureId, &CenteredAabb, BossClusterRef), With<FeatureSimEntity>>,
 ) {
@@ -42,20 +42,20 @@ pub fn spawn_cut_rope_victory_npc(
             .is_some_and(|encounter| {
                 matches!(
                     encounter.phase,
-                    ambition_sandbox::boss_encounter::BossEncounterPhase::Death
+                    ambition_gameplay_core::boss_encounter::BossEncounterPhase::Death
                 ) && encounter.death_complete()
             });
     let boss_persisted_cleared = {
         let data = save.data();
         matches!(
             data.boss(CUT_ROPE_BOSS_ID),
-            ambition_sandbox::persistence::save_data::PersistedEncounterState::Cleared
+            ambition_gameplay_core::persistence::save_data::PersistedEncounterState::Cleared
         ) || matches!(
             data.boss(&boss.config.behavior.id),
-            ambition_sandbox::persistence::save_data::PersistedEncounterState::Cleared
+            ambition_gameplay_core::persistence::save_data::PersistedEncounterState::Cleared
         ) || matches!(
             data.boss(&boss.config.id),
-            ambition_sandbox::persistence::save_data::PersistedEncounterState::Cleared
+            ambition_gameplay_core::persistence::save_data::PersistedEncounterState::Cleared
         )
     };
     if !encounter_death_complete && !boss_persisted_cleared {
@@ -73,11 +73,11 @@ fn victory_npc_size() -> ae::Vec2 {
 fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
     let size = victory_npc_size();
     let aabb = ae::Aabb::new(pos, size * 0.5);
-    let interactable = ambition_sandbox::interaction::Interactable {
+    let interactable = ambition_gameplay_core::interaction::Interactable {
         id: CUT_ROPE_VICTORY_NPC_ID.to_string(),
         prompt: "Talk".to_string(),
         aabb,
-        kind: ambition_sandbox::interaction::InteractionKind::Npc {
+        kind: ambition_gameplay_core::interaction::InteractionKind::Npc {
             character_id: None,
             dialogue_id: Some(CUT_ROPE_VICTORY_NPC_DIALOGUE_ID.to_string()),
             patrol_radius: 0.0,
@@ -86,7 +86,7 @@ fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
         requires_facing: false,
         enabled: true,
     };
-    let mut npc = ambition_sandbox::features::NpcClusterScratch::new_with_paths(
+    let mut npc = ambition_gameplay_core::features::NpcClusterScratch::new_with_paths(
         CUT_ROPE_VICTORY_NPC_ID,
         CUT_ROPE_VICTORY_NPC_NAME,
         ae::Aabb::new(pos, size * 0.5),
@@ -95,11 +95,11 @@ fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
     );
     npc.kin.facing = -1.0;
     let brain = npc.as_mut().build_brain();
-    let combat_kit = ambition_sandbox::features::CombatKit::default();
+    let combat_kit = ambition_gameplay_core::features::CombatKit::default();
     let cluster_bundle = npc.into_components();
     let facing = cluster_bundle.0.facing;
     let (identity, disposition, health, combat, intent, cooldowns) =
-        ambition_sandbox::features::npc_component_snapshot(&cluster_bundle.3, &cluster_bundle.4);
+        ambition_gameplay_core::features::npc_component_snapshot(&cluster_bundle.3, &cluster_bundle.4);
     commands
         .spawn((
             Name::new("Post-boss NPC: Smirking Behemoth victory"),
@@ -113,11 +113,11 @@ fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
                 ),
                 identity,
                 disposition,
-                faction: ambition_sandbox::features::ActorFaction::Npc,
-                target: ambition_sandbox::features::ActorTarget::default(),
+                faction: ambition_gameplay_core::features::ActorFaction::Npc,
+                target: ambition_gameplay_core::features::ActorTarget::default(),
                 pose: ActorPose::from_parts(aabb.center(), aabb.half_size(), facing),
                 combat_kit,
-                aggression: ambition_sandbox::features::ActorAggression::passive(),
+                aggression: ambition_gameplay_core::features::ActorAggression::passive(),
                 health,
                 combat,
                 intent,
@@ -129,7 +129,7 @@ fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
             ActorRuntime::Npc,
             cluster_bundle,
             brain,
-            ambition_sandbox::brain::ActionSet::peaceful(),
+            ambition_gameplay_core::brain::ActionSet::peaceful(),
             ActorControl::default(),
         ))
         .id()

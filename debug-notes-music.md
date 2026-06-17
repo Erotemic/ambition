@@ -23,7 +23,7 @@ outro.full.ogg
 The relevant installed game assets live here:
 
 ```text
-crates/ambition_sandbox/assets/audio/music/generated/first_goblin_tune_v2/
+crates/ambition_gameplay_core/assets/audio/music/generated/first_goblin_tune_v2/
 ```
 
 The generated/staging assets live here:
@@ -41,7 +41,7 @@ tools/ambition_music_renderer/scores/active/first_goblin_tune_v2.music.yaml
 The runtime cue spec is:
 
 ```text
-crates/ambition_sandbox/src/music/first_goblin.rs
+crates/ambition_gameplay_core/src/music/first_goblin.rs
 ```
 
 ## Current symptom
@@ -169,14 +169,14 @@ tools/ambition_music_renderer/generated/first_goblin_tune_v2/
 and installs to:
 
 ```text
-crates/ambition_sandbox/assets/audio/music/generated/first_goblin_tune_v2/
+crates/ambition_gameplay_core/assets/audio/music/generated/first_goblin_tune_v2/
 ```
 
 ### 2. Run the game directly in the encounter room
 
 ```bash
 cd ~/code/ambition
-cargo run -p ambition_sandbox --bin ambition_sandbox --features dev_hot_reload --release -- --start-room goblin_encounter
+cargo run -p ambition_gameplay_core --bin ambition_gameplay_core --features dev_hot_reload --release -- --start-room goblin_encounter
 ```
 
 ### 3. Capture music logs around the transition
@@ -436,7 +436,7 @@ python tools/ambition_music_renderer/audit_cue_balance.py \
 
 ./generate_audio_assets.sh --force
 
-cargo run -p ambition_sandbox --bin ambition_sandbox --features dev_hot_reload --release -- --start-room goblin_encounter
+cargo run -p ambition_gameplay_core --bin ambition_gameplay_core --features dev_hot_reload --release -- --start-room goblin_encounter
 ```
 
 ```

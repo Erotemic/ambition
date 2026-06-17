@@ -180,7 +180,7 @@ the under-town grate.
 ### Script D — cartography state check
 
 ```text
- 1. Run `cargo run -p ambition_sandbox --bin headless -- --start-room=intro_wake_room`
+ 1. Run `cargo run -p ambition_gameplay_core --bin headless -- --start-room=intro_wake_room`
     OR launch the desktop binary with the intro entry. Open the
     in-game M menu / `MapMenuState` HUD to confirm room visits accumulate.
  2. Inspect the save file (sandbox save resource / persistence) for
@@ -325,16 +325,16 @@ LABELLED (DebugLabel; no behavioral effect yet)
 # intro.ldtk schema + content graph
 PYTHONPATH=tools/ambition_ldtk_tools python3 \
   tools/ambition_ldtk_tools/ambition_ldtk_tools/validate.py \
-  --secondary-world crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk \
-  crates/ambition_sandbox/assets/ambition/worlds/intro.ldtk
+  --secondary-world crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
+  crates/ambition_gameplay_core/assets/ambition/worlds/intro.ldtk
 # → OK: 0 warnings, 11 levels.
 
 # sandbox unit/integration tests (no UI)
-cargo test -p ambition_sandbox --lib
+cargo test -p ambition_gameplay_core --lib
 # → 584 passed; 0 failed.
 
 # headless smoke (full intro start, 120 ticks)
-cargo run -p ambition_sandbox --bin headless -- --start-room=intro_wake_room
+cargo run -p ambition_gameplay_core --bin headless -- --start-room=intro_wake_room
 # → headless run completed: 120 ticks; active room intro_wake_room;
 #   39 rooms loaded (intro + sandbox merge).
 
@@ -376,7 +376,7 @@ validation extension.
 
 ## What was validated
 LDtk schema + content graph (0 warnings), `cargo test
--p ambition_sandbox --lib` (584/584), headless smoke for 120 ticks.
+-p ambition_gameplay_core --lib` (584/584), headless smoke for 120 ticks.
 
 ## What remains placeholder
 Conditional LockWalls; report/tamper Switch + listener; chained
@@ -408,7 +408,7 @@ with a polish wave that landed several stretch goals from this
 handoff's "next polish order" list. Captured here so the post-
 polish state is visible from the same file.
 
-### A. Chained flag system (`crates/ambition_sandbox/src/intro/route_state.rs`)
+### A. Chained flag system (`crates/ambition_gameplay_core/src/intro/route_state.rs`)
 
 Constant table `INTRO_FLAG_CHAINS` plus per-frame
 `emit_intro_flag_chains` system that promotes trigger flags to
@@ -570,15 +570,15 @@ switch_gate_official_report_used        (polish C)
 # 1. LDtk schema + cross-world content graph.
 PYTHONPATH=tools/ambition_ldtk_tools python3 \
   tools/ambition_ldtk_tools/ambition_ldtk_tools/validate.py \
-  --secondary-world crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk \
-  crates/ambition_sandbox/assets/ambition/worlds/intro.ldtk
+  --secondary-world crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
+  crates/ambition_gameplay_core/assets/ambition/worlds/intro.ldtk
 # → OK: 0 warnings, 11 levels.
 
 # 2. Doctor (polish B fixed the --secondary-world forwarding).
 PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools \
   doctor --secondary-world \
-    crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk \
-    crates/ambition_sandbox/assets/ambition/worlds/intro.ldtk
+    crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
+    crates/ambition_gameplay_core/assets/ambition/worlds/intro.ldtk
 # → OK: ... is valid and safe (roundtrip).
 # → OK: ... passes Ambition LDtk validation (0 warnings).
 
@@ -586,11 +586,11 @@ PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools \
 PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools \
   level diff-specs tools/ambition_ldtk_tools/specs/intro_*.yaml \
   tools/ambition_ldtk_tools/specs/{drain_alley,gate_stack_lower,under_town_pipes,alice_relay,bob_relay,combat_calibration_lab,first_system_boss}_area.yaml \
-  --ldtk crates/ambition_sandbox/assets/ambition/worlds/intro.ldtk
+  --ldtk crates/ambition_gameplay_core/assets/ambition/worlds/intro.ldtk
 # → All ten OK / one SKIP for the door-add spec; exit code 0.
 
 # 4. Sandbox lib tests.
-cargo test -p ambition_sandbox --lib
+cargo test -p ambition_gameplay_core --lib
 # → 596 passed; 0 failed.
 
 # 5. LDtk tool python tests (polish V).
@@ -598,7 +598,7 @@ cd tools/ambition_ldtk_tools && python3 -m pytest tests/test_spec_diff.py
 # → 7 passed.
 
 # 6. Headless intro smoke.
-cargo run -p ambition_sandbox --bin headless -- --start-room=intro_wake_room
+cargo run -p ambition_gameplay_core --bin headless -- --start-room=intro_wake_room
 # → headless run completed: 120 ticks; active room intro_wake_room;
 #   39 rooms loaded (intro + sandbox merge).
 ```

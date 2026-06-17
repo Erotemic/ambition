@@ -15,10 +15,10 @@ use super::*;
 pub(crate) fn apply_character_frame(
     sprite: &mut Sprite,
     animator: &mut CharacterAnimator,
-    anim: ambition_sandbox::character_sprites::CharacterAnim,
+    anim: ambition_gameplay_core::character_sprites::CharacterAnim,
     dt: f32,
     facing: f32,
-    gravity_dir: ambition_sandbox::engine_core::Vec2,
+    gravity_dir: ambition_gameplay_core::engine_core::Vec2,
     color: Color,
 ) {
     animator.request(anim);
@@ -28,7 +28,7 @@ pub(crate) fn apply_character_frame(
     }
     // Gravity-aware facing flip: a ~180° up-gravity roll already mirrors the
     // sprite, so the flip inverts (fixes #33 "move left, face right upside down").
-    sprite.flip_x = ambition_sandbox::physics::gravity_aware_flip_x(facing, gravity_dir);
+    sprite.flip_x = ambition_gameplay_core::physics::gravity_aware_flip_x(facing, gravity_dir);
     sprite.color = color;
 }
 
@@ -40,32 +40,32 @@ pub(crate) fn apply_character_frame(
 /// clusters (body_mode, env_contact, abilities) to cover crouch /
 /// crawl / slide / ladder / swim.
 pub fn animate_player(
-    world_time: Res<ambition_sandbox::WorldTime>,
-    gravity: Option<Res<ambition_sandbox::physics::GravityField>>,
+    world_time: Res<ambition_gameplay_core::WorldTime>,
+    gravity: Option<Res<ambition_gameplay_core::physics::GravityField>>,
     mut query: Query<
         (
             (
                 &mut Sprite,
                 &mut CharacterAnimator,
-                &ambition_sandbox::player::BodyKinematics,
-                &ambition_sandbox::player::PlayerGroundState,
-                &ambition_sandbox::player::PlayerWallState,
-                &ambition_sandbox::player::PlayerBlinkState,
-                &ambition_sandbox::player::PlayerFlightState,
-                &ambition_sandbox::player::PlayerDashState,
-                &ambition_sandbox::player::PlayerLedgeState,
-                &ambition_sandbox::player::PlayerCombatState,
-                &ambition_sandbox::player::PlayerAnimState,
-                &ambition_sandbox::player::PlayerBlinkCameraState,
+                &ambition_gameplay_core::player::BodyKinematics,
+                &ambition_gameplay_core::player::PlayerGroundState,
+                &ambition_gameplay_core::player::PlayerWallState,
+                &ambition_gameplay_core::player::PlayerBlinkState,
+                &ambition_gameplay_core::player::PlayerFlightState,
+                &ambition_gameplay_core::player::PlayerDashState,
+                &ambition_gameplay_core::player::PlayerLedgeState,
+                &ambition_gameplay_core::player::PlayerCombatState,
+                &ambition_gameplay_core::player::PlayerAnimState,
+                &ambition_gameplay_core::player::PlayerBlinkCameraState,
             ),
             (
-                &ambition_sandbox::player::PlayerBodyModeState,
-                &ambition_sandbox::player::PlayerEnvironmentContact,
-                &ambition_sandbox::player::PlayerAbilities,
-                &ambition_sandbox::player::PlayerDodgeState,
-                &ambition_sandbox::player::PlayerShieldState,
-                Option<&ambition_sandbox::player::ActivePlayerAttack>,
-                Option<&ambition_sandbox::time::time_control::ProperTimeScale>,
+                &ambition_gameplay_core::player::PlayerBodyModeState,
+                &ambition_gameplay_core::player::PlayerEnvironmentContact,
+                &ambition_gameplay_core::player::PlayerAbilities,
+                &ambition_gameplay_core::player::PlayerDodgeState,
+                &ambition_gameplay_core::player::PlayerShieldState,
+                Option<&ambition_gameplay_core::player::ActivePlayerAttack>,
+                Option<&ambition_gameplay_core::time::time_control::ProperTimeScale>,
             ),
         ),
         With<PlayerVisual>,
@@ -80,7 +80,7 @@ pub fn animate_player(
     // to rendering, only the camera/HUD are.)
     let player_gravity = gravity
         .as_deref()
-        .map_or(ambition_sandbox::engine_core::Vec2::Y, |g| g.dir);
+        .map_or(ambition_gameplay_core::engine_core::Vec2::Y, |g| g.dir);
     for (
         (
             mut sprite,
@@ -100,7 +100,7 @@ pub fn animate_player(
     ) in &mut query
     {
         let attack_state = active_attack.and_then(|a| a.0.as_ref());
-        let anim = ambition_sandbox::character_sprites::pick_player_anim(
+        let anim = ambition_gameplay_core::character_sprites::pick_player_anim(
             anim_state,
             player_combat,
             blink_cam,
@@ -122,7 +122,7 @@ pub fn animate_player(
         // set (SP default), so bullet-time / hitstop / pause still slow the
         // animation in lockstep.
         let dt = world_time
-            .entity_dt(ambition_sandbox::time::time_control::ProperTimeScale::or_default(scale));
+            .entity_dt(ambition_gameplay_core::time::time_control::ProperTimeScale::or_default(scale));
         // Hit feedback is drawn by the white-silhouette overlay in
         // `presentation::rendering::hit_flash` — a sibling mesh that samples this
         // atlas frame and outputs pure white modulated by `PlayerCombatState::
@@ -151,24 +151,24 @@ pub fn animate_player(
 /// One system instead of two avoids the borrow conflict on the
 /// shared `(&mut Sprite, &mut CharacterAnimator)` query.
 pub fn animate_characters(
-    world_time: Res<ambition_sandbox::WorldTime>,
+    world_time: Res<ambition_gameplay_core::WorldTime>,
     mut query: Query<
         (
             &FeatureVisual,
             &mut Sprite,
             &mut CharacterAnimator,
-            Option<&ambition_sandbox::time::time_control::ProperTimeScale>,
+            Option<&ambition_gameplay_core::time::time_control::ProperTimeScale>,
         ),
         (
             Without<PlayerVisual>,
-            Without<ambition_sandbox::rooms::PortalSprite>,
+            Without<ambition_gameplay_core::rooms::PortalSprite>,
             Without<PropVisual>,
         ),
     >,
-    ecs_actors: Query<ambition_sandbox::features::ActorSpriteData>,
+    ecs_actors: Query<ambition_gameplay_core::features::ActorSpriteData>,
     // Localized gravity, so an enemy/NPC wall-walking or on a flipped-gravity
     // ceiling flips the right way (the same gravity-aware facing the player got).
-    gravity: ambition_sandbox::physics::GravityCtx,
+    gravity: ambition_gameplay_core::physics::GravityCtx,
 ) {
     // ADR 0011 — per-entity proper time. SP today: no entity carries
     // ProperTimeScale, so `entity_dt` collapses to `sim_dt` and
@@ -177,22 +177,22 @@ pub fn animate_characters(
     // future MP boosts one player's proper time.
     for (visual, mut sprite, mut animator, scale) in &mut query {
         let dt = world_time
-            .entity_dt(ambition_sandbox::time::time_control::ProperTimeScale::or_default(scale));
+            .entity_dt(ambition_gameplay_core::time::time_control::ProperTimeScale::or_default(scale));
         let (anim, facing, pos, hit_flash, attacking) = if let Some(state) =
-            ambition_sandbox::features::ecs_enemy_anim_state(&visual.id, &ecs_actors)
+            ambition_gameplay_core::features::ecs_enemy_anim_state(&visual.id, &ecs_actors)
         {
             (
-                ambition_sandbox::character_sprites::pick_enemy_anim(state),
+                ambition_gameplay_core::character_sprites::pick_enemy_anim(state),
                 state.facing,
                 state.pos,
                 state.hit_flash,
                 state.attack_active || state.attack_windup,
             )
         } else if let Some(state) =
-            ambition_sandbox::features::ecs_npc_anim_state(&visual.id, &ecs_actors)
+            ambition_gameplay_core::features::ecs_npc_anim_state(&visual.id, &ecs_actors)
         {
             (
-                ambition_sandbox::character_sprites::pick_npc_anim(state),
+                ambition_gameplay_core::character_sprites::pick_npc_anim(state),
                 state.facing,
                 state.pos,
                 state.hit_flash,
@@ -237,7 +237,7 @@ pub const PROP_KINDS_STATIC_UNTIL_MOVING: &[&str] = &["intro_cart"];
 /// the regular `animate_characters` lookup would skip them — without
 /// this system the sprite stays pinned to frame 0 forever.
 ///
-/// Filtered with `Without<ambition_sandbox::rooms::PortalSprite>` so the gate
+/// Filtered with `Without<ambition_gameplay_core::rooms::PortalSprite>` so the gate
 /// ring + gate portal stay owned by the portal-presentation systems
 /// (which drive the animator from `GatePortalPhase` instead of a flat
 /// Idle row tick).
@@ -249,15 +249,15 @@ pub const PROP_KINDS_STATIC_UNTIL_MOVING: &[&str] = &["intro_cart"];
 /// cart look like it's drifting in place. Until a `PropMotionState`
 /// component lands, hold these kinds at rest.
 pub fn animate_props(
-    world_time: Res<ambition_sandbox::WorldTime>,
+    world_time: Res<ambition_gameplay_core::WorldTime>,
     mut query: Query<
         (
             &mut Sprite,
             &mut CharacterAnimator,
             &PropVisual,
-            Option<&ambition_sandbox::time::time_control::ProperTimeScale>,
+            Option<&ambition_gameplay_core::time::time_control::ProperTimeScale>,
         ),
-        Without<ambition_sandbox::rooms::PortalSprite>,
+        Without<ambition_gameplay_core::rooms::PortalSprite>,
     >,
 ) {
     // ADR 0011 — per-entity proper time. Props that need to keep
@@ -268,7 +268,7 @@ pub fn animate_props(
             // Force-rest at frame 0 of the Idle row. `request` selects
             // the row; ticking with dt=0 holds the row's current frame
             // and matches the asset's first frame on entry.
-            animator.request(ambition_sandbox::character_sprites::CharacterAnim::Idle);
+            animator.request(ambition_gameplay_core::character_sprites::CharacterAnim::Idle);
             let index = animator.tick(0.0);
             if let Some(atlas) = sprite.texture_atlas.as_mut() {
                 atlas.index = index;
@@ -276,8 +276,8 @@ pub fn animate_props(
             continue;
         }
         let dt = world_time
-            .entity_dt(ambition_sandbox::time::time_control::ProperTimeScale::or_default(scale));
-        animator.request(ambition_sandbox::character_sprites::CharacterAnim::Idle);
+            .entity_dt(ambition_gameplay_core::time::time_control::ProperTimeScale::or_default(scale));
+        animator.request(ambition_gameplay_core::character_sprites::CharacterAnim::Idle);
         let index = animator.tick(dt);
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
             atlas.index = index;

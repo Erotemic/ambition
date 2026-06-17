@@ -7,7 +7,7 @@ authors.workspace = true
 description = "Device -> ControlFrame input layer for ambition: SandboxAction (leafwing), the per-frame ControlFrame / MenuControlFrame seams, keyboard/gamepad presets, and the input-domain settings (deadzones / trigger hysteresis / dash mode). The upper-sibling input abstraction (ADR 0019); decoupled from sandbox content so the input-ordering bug class cannot silently recur. See docs/planning/plugin_refactor/15_post_task_k_revision.md."
 
 [lib]
-# rlib only: a library consumed by ambition_sandbox. Packaging is the
+# rlib only: a library consumed by ambition_gameplay_core. Packaging is the
 # consuming binary's responsibility.
 crate-type = ["rlib"]
 
@@ -46,7 +46,7 @@ leafwing-input-manager = { version = "0.20", optional = true }
 
 # The content-free pure-logic foundation. Input maps the device-side
 # `ControlFrame` into `engine_core::InputState` (`ControlFrame::engine_input`),
-# so it depends DOWN on the foundation — never on ambition_sandbox.
+# so it depends DOWN on the foundation — never on ambition_gameplay_core.
 ambition_engine_core = { path = "../ambition_engine_core" }
 
 serde = { version = "1", features = ["derive"] }

@@ -136,7 +136,7 @@ def main(argv=None) -> int:
         type=Path,
         default=REPO_ROOT
         / "crates"
-        / "ambition_sandbox"
+        / "ambition_gameplay_core"
         / "assets"
         / "ambition"
         / "worlds"

@@ -5,8 +5,8 @@
 //! state for tuning and feel work.
 
 #![allow(unused_imports)]
-use ambition_sandbox::engine_core as ae;
-use ambition_sandbox::engine_core::AabbExt;
+use ambition_gameplay_core::engine_core as ae;
+use ambition_gameplay_core::engine_core::AabbExt;
 use bevy::ecs::system::SystemParam;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
@@ -14,14 +14,14 @@ use bevy::prelude::*;
 #[cfg(feature = "input")]
 use ambition_render::rendering::PlayerVisual;
 use ambition_render::rendering::{CameraViewState, SceneEntities};
-use ambition_sandbox::config::world_to_bevy;
-use ambition_sandbox::dev::dev_tools::DeveloperTools;
-use ambition_sandbox::input::ControlFrame;
+use ambition_gameplay_core::config::world_to_bevy;
+use ambition_gameplay_core::dev::dev_tools::DeveloperTools;
+use ambition_gameplay_core::input::ControlFrame;
 #[cfg(feature = "input")]
-use ambition_sandbox::input::SandboxAction;
-use ambition_sandbox::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
-use ambition_sandbox::world::platforms;
-use ambition_sandbox::{GameMode, GameWorld, SandboxDevState};
+use ambition_gameplay_core::input::SandboxAction;
+use ambition_gameplay_core::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
+use ambition_gameplay_core::world::platforms;
+use ambition_gameplay_core::{GameMode, GameWorld, SandboxDevState};
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::ActionState;
 
@@ -43,10 +43,10 @@ pub fn draw_debug_overlay(
     mut gizmos: Gizmos,
     world: Res<GameWorld>,
     dev_state: Res<SandboxDevState>,
-    platform_set: Res<ambition_sandbox::MovingPlatformSet>,
+    platform_set: Res<ambition_gameplay_core::MovingPlatformSet>,
     developer_tools: Res<DeveloperTools>,
     room_set: Res<RoomSet>,
-    ldtk_spine_index: Res<ambition_sandbox::ldtk_world::LdtkRuntimeSpineIndex>,
+    ldtk_spine_index: Res<ambition_gameplay_core::ldtk_world::LdtkRuntimeSpineIndex>,
     camera_view: Res<CameraViewState>,
     mode: Res<State<GameMode>>,
     entities: Res<SceneEntities>,
@@ -56,28 +56,28 @@ pub fn draw_debug_overlay(
     // this read of `BodyKinematics` is disjoint from the `&mut` player query
     // below (B0001).
     player_projectiles: Query<
-        &ambition_sandbox::player::BodyKinematics,
+        &ambition_gameplay_core::player::BodyKinematics,
         (
-            With<ambition_sandbox::projectile::PlayerProjectile>,
-            Without<ambition_sandbox::player::PlayerEntity>,
+            With<ambition_gameplay_core::projectile::PlayerProjectile>,
+            Without<ambition_gameplay_core::player::PlayerEntity>,
         ),
     >,
     // In-flight enemy projectiles are ECS entities now (Phase 3c-iii) — draw
     // each one's AABB from its kinematic body. Same `Without<PlayerEntity>`
     // disjointness as the player projectiles above.
     enemy_projectiles: Query<
-        &ambition_sandbox::player::BodyKinematics,
+        &ambition_gameplay_core::player::BodyKinematics,
         (
-            With<ambition_sandbox::enemy_projectile::EnemyProjectile>,
-            Without<ambition_sandbox::player::PlayerEntity>,
+            With<ambition_gameplay_core::enemy_projectile::EnemyProjectile>,
+            Without<ambition_gameplay_core::player::PlayerEntity>,
         ),
     >,
     action_query: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
     mut player_q: Query<
         (
             ae::PlayerClusterQueryData,
-            Option<&ambition_sandbox::player::PlayerHealth>,
-            &ambition_sandbox::player::ActivePlayerAttack,
+            Option<&ambition_gameplay_core::player::PlayerHealth>,
+            &ambition_gameplay_core::player::ActivePlayerAttack,
         ),
         // The primary player never carries `FeatureSimEntity` (player vs
         // feature-sim entities are mutually exclusive — see the kinematics
@@ -86,12 +86,12 @@ pub fn draw_debug_overlay(
         // not conflict with the `bosses`/`actors` feature queries that read
         // `BodyKinematics` under `With<FeatureSimEntity>` (B0001).
         (
-            ambition_sandbox::player::PrimaryPlayerOnly,
-            Without<ambition_sandbox::features::FeatureSimEntity>,
+            ambition_gameplay_core::player::PrimaryPlayerOnly,
+            Without<ambition_gameplay_core::features::FeatureSimEntity>,
         ),
     >,
     feature_q: FeatureDebugQueries,
-    #[cfg(feature = "portal")] portals: Query<&ambition_sandbox::portal::PlacedPortal>,
+    #[cfg(feature = "portal")] portals: Query<&ambition_gameplay_core::portal::PlacedPortal>,
 ) {
     if !dev_state.debug_enabled() || !developer_tools.gizmos_enabled {
         return;

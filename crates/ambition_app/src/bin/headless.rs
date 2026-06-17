@@ -9,10 +9,10 @@
 //! Usage:
 //!
 //! ```bash
-//! cargo run -p ambition_sandbox --bin headless                       # 120 ticks (default)
-//! cargo run -p ambition_sandbox --bin headless -- 600                # 600 ticks
-//! cargo run -p ambition_sandbox --bin headless -- 600 --dump-trace path/  # dump trace to dir
-//! cargo run -p ambition_sandbox --bin headless -- 600 --start-room goblin_encounter
+//! cargo run -p ambition_gameplay_core --bin headless                       # 120 ticks (default)
+//! cargo run -p ambition_gameplay_core --bin headless -- 600                # 600 ticks
+//! cargo run -p ambition_gameplay_core --bin headless -- 600 --dump-trace path/  # dump trace to dir
+//! cargo run -p ambition_gameplay_core --bin headless -- 600 --start-room goblin_encounter
 //! ```
 //!
 //! `--dump-trace DIR` writes a GameplayTraceBuffer JSON+Markdown dump
@@ -23,8 +23,8 @@
 use std::path::PathBuf;
 
 use ambition_app::rl_sim::{SandboxSim, SandboxSimOptions, TimestepMode};
-use ambition_sandbox::input::ControlFrame;
-use ambition_sandbox::trace::{self, record_simulation_frame, DumpReason, GameplayTraceBuffer};
+use ambition_gameplay_core::input::ControlFrame;
+use ambition_gameplay_core::trace::{self, record_simulation_frame, DumpReason, GameplayTraceBuffer};
 
 fn parse_max_ticks(args: &[String]) -> u32 {
     // First positional non-flag arg is the tick count.
@@ -74,10 +74,10 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
     // Idle inputs only -- the trace captures the deterministic gameplay
     // baseline; agents that want a richer trace can replay this binary
     // pattern from their own scripted policy.
-    use ambition_sandbox::game_mode::GameMode as GameModeState;
-    use ambition_sandbox::player::PlayerSafetyState;
-    use ambition_sandbox::rooms::RoomSet;
-    use ambition_sandbox::GameWorld;
+    use ambition_gameplay_core::game_mode::GameMode as GameModeState;
+    use ambition_gameplay_core::player::PlayerSafetyState;
+    use ambition_gameplay_core::rooms::RoomSet;
+    use ambition_gameplay_core::GameWorld;
     use bevy::state::state::State;
 
     for _ in 0..max_ticks {
@@ -90,11 +90,11 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
         // for a once-per-tick trace dump.
         let (clock, control_frame, active_area, mode_label, moving_platforms, game_world) = {
             let world_ref = sim.world();
-            let clock = *world_ref.resource::<ambition_sandbox::ClockState>();
+            let clock = *world_ref.resource::<ambition_gameplay_core::ClockState>();
             let control_frame = *world_ref.resource::<ControlFrame>();
             let room_set = world_ref.resource::<RoomSet>();
             let game_mode = world_ref.resource::<State<GameModeState>>();
-            let moving_platforms = world_ref.resource::<ambition_sandbox::MovingPlatformSet>();
+            let moving_platforms = world_ref.resource::<ambition_gameplay_core::MovingPlatformSet>();
             let game_world = world_ref.resource::<GameWorld>();
             let active_area = room_set.active_spec().id.clone();
             let mode_label = format!("{:?}", game_mode.get());
@@ -111,7 +111,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
         let safety = {
             let mut safety_q = sim
                 .world_mut()
-                .query_filtered::<&PlayerSafetyState, ambition_sandbox::player::PrimaryPlayerOnly>();
+                .query_filtered::<&PlayerSafetyState, ambition_gameplay_core::player::PrimaryPlayerOnly>();
             safety_q.single(sim.world()).copied().unwrap_or_default()
         };
 
@@ -120,12 +120,12 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
         // recorder can read them through a `PlayerClustersMut` view.
         let mut cluster_q = sim
             .world_mut()
-            .query_filtered::<ambition_sandbox::engine_core::PlayerClusterQueryData, ambition_sandbox::player::PrimaryPlayerOnly>();
+            .query_filtered::<ambition_gameplay_core::engine_core::PlayerClusterQueryData, ambition_gameplay_core::player::PrimaryPlayerOnly>();
         let Ok(mut cluster_item) = cluster_q.single_mut(sim.world_mut()) else {
             continue;
         };
         let clusters = cluster_item.as_clusters_mut();
-        let locomotion_state = ambition_sandbox::engine_core::LocomotionState::from_clusters(
+        let locomotion_state = ambition_gameplay_core::engine_core::LocomotionState::from_clusters(
             clusters.ground,
             clusters.wall,
             clusters.flight,
@@ -134,7 +134,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
             clusters.ledge,
         );
         let body_mode_state =
-            ambition_sandbox::engine_core::BodyMode::from_clusters(clusters.body_mode);
+            ambition_gameplay_core::engine_core::BodyMode::from_clusters(clusters.body_mode);
         record_simulation_frame(
             &mut buffer,
             &clusters,

@@ -1,7 +1,7 @@
 //! The data seam between Ambition's live 24-item inventory and the reusable
 //! `ambition_menu` 3D-cube OoT pause menu (#31).
 //!
-//! The game owns the item state (`ambition_sandbox::items`); this module builds the cube's
+//! The game owns the item state (`ambition_gameplay_core::items`); this module builds the cube's
 //! page MODELS from it via the lib's host-data seam (`ItemsOnlyPageSpec`, which is
 //! deliberately renderer-agnostic — it can feed the Lunex cube, a Bevy-UI grid
 //! fallback, or a test renderer). The cube RENDERER itself is the shared lib.
@@ -30,8 +30,8 @@ use ambition_menu::{
     MenuTextAlign,
 };
 
-use ambition_sandbox::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
-use ambition_sandbox::persistence::settings::{
+use ambition_gameplay_core::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
+use ambition_gameplay_core::persistence::settings::{
     DevSnapshot, RadioSnapshot, SettingsOption, SettingsOptionId, SettingsOptionKind,
     SystemMenuAction, SystemMenuEntryId, SystemMenuModel, SystemMenuTarget, SystemOptionId,
     UserSettings,
@@ -207,7 +207,7 @@ impl MenuFocus {
     /// report slot 0 so callers always have a valid item to describe.
     pub fn item_index(self) -> usize {
         match self {
-            MenuFocus::Item(idx) => idx.min(ambition_sandbox::items::ITEM_COUNT - 1),
+            MenuFocus::Item(idx) => idx.min(ambition_gameplay_core::items::ITEM_COUNT - 1),
             _ => 0,
         }
     }
@@ -711,7 +711,7 @@ pub fn system_window_start(rows: &[SystemRow], focus: MenuFocus) -> usize {
     if rows.len() <= SYSTEM_VISIBLE_ROWS {
         return 0;
     }
-    ambition_sandbox::ui_nav::visible_window_start(focused, rows.len(), SYSTEM_VISIBLE_ROWS)
+    ambition_gameplay_core::ui_nav::visible_window_start(focused, rows.len(), SYSTEM_VISIBLE_ROWS)
 }
 
 /// The EFFECTIVE scroll-window START for the System face (Features C/D).

@@ -15,7 +15,7 @@ Reinterpret `gate_stack_lower` as a route-choice room connecting Drain Market to
 ## Files likely to change
 
 - `tools/ambition_ldtk_tools/specs/gate_stack_lower_area.yaml`
-- `crates/ambition_sandbox/assets/ambition/worlds/intro.ldtk`
+- `crates/ambition_gameplay_core/assets/ambition/worlds/intro.ldtk`
 
 
 ## Design target
@@ -157,7 +157,7 @@ For LDtk edits, run from the repository root:
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools doctor \
-  crates/ambition_sandbox/assets/ambition/worlds/intro.ldtk
+  crates/ambition_gameplay_core/assets/ambition/worlds/intro.ldtk
 ```
 
 If the area spec changed, use the relevant `area create --dry-run` command first
@@ -169,8 +169,8 @@ When code or dialogue changes are made, also run the narrowest relevant checks:
 
 ```bash
 cargo fmt --check
-cargo test -p ambition_sandbox --lib
-cargo run -p ambition_sandbox --bin headless
+cargo test -p ambition_gameplay_core --lib
+cargo run -p ambition_gameplay_core --bin headless
 ```
 
 If a command fails for a known pre-existing reason, record the exact command and

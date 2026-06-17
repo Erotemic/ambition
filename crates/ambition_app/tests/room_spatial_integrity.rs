@@ -7,7 +7,7 @@
 //! stuck). The `render_room_geometry -- report` example prints the same
 //! check for humans; this fails the build if a future room regresses.
 
-use ambition_sandbox as sb;
+use ambition_gameplay_core as sb;
 use sb::engine_core::{self as ae, AabbExt};
 
 fn entity_aabbs(room: &sb::rooms::RoomSpec) -> Vec<(&'static str, ae::Aabb)> {

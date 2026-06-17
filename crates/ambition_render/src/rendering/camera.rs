@@ -1,8 +1,8 @@
 //! Player-following camera with smooth zoom in/out around encounter
 //! transitions and an overview-camera dev mode.
 
-use ambition_sandbox::engine_core as ae;
-use ambition_sandbox::engine_core::AabbExt;
+use ambition_gameplay_core::engine_core as ae;
+use ambition_gameplay_core::engine_core::AabbExt;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
@@ -32,9 +32,9 @@ use bevy::window::PrimaryWindow;
 const MAX_CAMERA_SMOOTH_DT: f32 = 1.0 / 30.0;
 
 use super::primitives::PlayerVisual;
-use ambition_sandbox::config::world_to_bevy;
-use ambition_sandbox::persistence::settings::CameraAspectPolicy;
-use ambition_sandbox::rooms::{CameraClampMode, CameraZoneSpec, RoomSet};
+use ambition_gameplay_core::config::world_to_bevy;
+use ambition_gameplay_core::persistence::settings::CameraAspectPolicy;
+use ambition_gameplay_core::rooms::{CameraClampMode, CameraZoneSpec, RoomSet};
 
 /// Live camera diagnostics and feel-lab data.
 ///
@@ -88,32 +88,32 @@ impl Default for CameraViewState {
 /// the lone player today. A future co-op build needs to follow the
 /// player with `PrimaryPlayer` (or compute a midpoint between local
 /// players); the query should switch to
-/// `With<ambition_sandbox::player::PrimaryPlayer>` once a second player can
-/// exist. See [`ambition_sandbox::player::queries::PrimaryPlayerOnly`].
+/// `With<ambition_gameplay_core::player::PrimaryPlayer>` once a second player can
+/// exist. See [`ambition_gameplay_core::player::queries::PrimaryPlayerOnly`].
 pub fn camera_follow(
-    world: Res<ambition_sandbox::GameWorld>,
+    world: Res<ambition_gameplay_core::GameWorld>,
     room_set: Res<RoomSet>,
     time: Res<Time>,
-    developer_tools: Res<ambition_sandbox::dev::dev_tools::DeveloperTools>,
-    encounter_registry: Res<ambition_sandbox::encounter::EncounterRegistry>,
-    user_settings: Res<ambition_sandbox::persistence::settings::UserSettings>,
-    mut camera_state: ResMut<ambition_sandbox::CameraEaseState>,
+    developer_tools: Res<ambition_gameplay_core::dev::dev_tools::DeveloperTools>,
+    encounter_registry: Res<ambition_gameplay_core::encounter::EncounterRegistry>,
+    user_settings: Res<ambition_gameplay_core::persistence::settings::UserSettings>,
+    mut camera_state: ResMut<ambition_gameplay_core::CameraEaseState>,
     mut view_state: ResMut<CameraViewState>,
-    ease_tuning: Res<ambition_sandbox::CameraEaseTuning>,
-    shake: Res<ambition_sandbox::time::camera_ease::CameraShakeState>,
+    ease_tuning: Res<ambition_gameplay_core::CameraEaseTuning>,
+    shake: Res<ambition_gameplay_core::time::camera_ease::CameraShakeState>,
     mut last_camera_room: Local<Option<String>>,
     player: Query<
         (
-            &ambition_sandbox::player::BodyKinematics,
-            &ambition_sandbox::player::PlayerBaseSize,
-            &ambition_sandbox::player::PlayerBlinkCameraState,
+            &ambition_gameplay_core::player::BodyKinematics,
+            &ambition_gameplay_core::player::PlayerBaseSize,
+            &ambition_gameplay_core::player::PlayerBlinkCameraState,
         ),
-        ambition_sandbox::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::player::PrimaryPlayerOnly,
     >,
     // While possessing, the camera follows the possessed actor (so the player
     // can see the body they're driving), resolved from its CenteredAabb.
-    possession: Res<ambition_sandbox::abilities::traversal::possession::PossessionState>,
-    feature_aabbs: Query<&ambition_sandbox::features::CenteredAabb>,
+    possession: Res<ambition_gameplay_core::abilities::traversal::possession::PossessionState>,
+    feature_aabbs: Query<&ambition_gameplay_core::features::CenteredAabb>,
     windows: Query<&Window, With<PrimaryWindow>>,
     // `With<MainCamera>` (not the broad `With<Camera2d>`): besides the #31 cube
     // pause-menu Camera3d, the portal view-cone renderer spawns offscreen
@@ -125,7 +125,7 @@ pub fn camera_follow(
     mut query: Query<
         (&mut Transform, &mut Projection),
         (
-            With<ambition_sandbox::runtime::camera_layers::MainCamera>,
+            With<ambition_gameplay_core::runtime::camera_layers::MainCamera>,
             Without<PlayerVisual>,
         ),
     >,
@@ -232,8 +232,8 @@ pub fn camera_follow(
         .single()
         .map(|w| (w.width().max(1.0), w.height().max(1.0)))
         .unwrap_or((
-            ambition_sandbox::config::WINDOW_W as f32,
-            ambition_sandbox::config::WINDOW_H as f32,
+            ambition_gameplay_core::config::WINDOW_W as f32,
+            ambition_gameplay_core::config::WINDOW_H as f32,
         ));
 
     let scale_by_height = target_view_h / window_h;

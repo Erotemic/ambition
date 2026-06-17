@@ -154,8 +154,8 @@ Register it at the tail of the `CoreSimulation` chain:
 ## Validation
 
 ```bash
-~/.cargo/bin/cargo build -p ambition_sandbox
-~/.cargo/bin/cargo test -p ambition_sandbox --lib
+~/.cargo/bin/cargo build -p ambition_gameplay_core
+~/.cargo/bin/cargo test -p ambition_gameplay_core --lib
 # Expect: 445 passed, 0 failed
 ```
 

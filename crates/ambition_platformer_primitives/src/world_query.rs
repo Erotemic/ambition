@@ -17,7 +17,7 @@ use ambition_engine_core as ae;
 /// `raycast_solids` only ever reads, per block, whether the block is hittable
 /// (given the `include_one_way` policy) and its [`ae::Aabb`]. This trait
 /// captures exactly that — the world decides which blocks count as solid; the
-/// raycast just consumes their AABBs. The host (`ambition_sandbox`) supplies the
+/// raycast just consumes their AABBs. The host (`ambition_gameplay_core`) supplies the
 /// `impl SolidWorldQuery for ae::World` adapter, keeping this module
 /// content-free.
 pub trait SolidWorldQuery {

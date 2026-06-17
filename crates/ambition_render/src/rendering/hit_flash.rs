@@ -11,10 +11,10 @@
 //!
 //! Source-of-truth for the flash timer:
 //!
-//! - **Enemy / NPC**: [`ambition_sandbox::features::ActorRuntime`] inner
+//! - **Enemy / NPC**: [`ambition_gameplay_core::features::ActorRuntime`] inner
 //!   `hit_flash: f32` (seconds remaining).
-//! - **Boss**: [`ambition_sandbox::features::BossStatus::hit_flash`].
-//! - **Player**: [`ambition_sandbox::player::PlayerCombatState::flash_timer`].
+//! - **Boss**: [`ambition_gameplay_core::features::BossStatus::hit_flash`].
+//! - **Player**: [`ambition_gameplay_core::player::PlayerCombatState::flash_timer`].
 //!
 //! Replaces the pink multiplicative tint that
 //! [`super::actors::animate_characters`] and
@@ -31,7 +31,7 @@ use bevy::{
 };
 
 use super::primitives::{FeatureVisual, PlayerVisual, PropVisual};
-use ambition_sandbox::features::{ActorRuntime, BossClusterRef, FeatureId};
+use ambition_gameplay_core::features::{ActorRuntime, BossClusterRef, FeatureId};
 
 const SHADER_ASSET_PATH: &str = "shaders/hit_flash.wgsl";
 
@@ -204,11 +204,11 @@ pub fn sync_hit_flash_overlays(
     mut commands: Commands,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
     images: Res<Assets<Image>>,
-    actors: Query<ambition_sandbox::features::ActorSpriteData>,
+    actors: Query<ambition_gameplay_core::features::ActorSpriteData>,
     bosses: Query<(&FeatureId, BossClusterRef)>,
     player_state: Query<
-        &ambition_sandbox::player::PlayerCombatState,
-        ambition_sandbox::player::PrimaryPlayerOnly,
+        &ambition_gameplay_core::player::PlayerCombatState,
+        ambition_gameplay_core::player::PrimaryPlayerOnly,
     >,
     sources: Query<
         (
@@ -317,11 +317,11 @@ pub fn cleanup_hit_flash_overlays(
 fn hit_flash_secs_for_source(
     feature: Option<&FeatureVisual>,
     player: Option<&PlayerVisual>,
-    actors: &Query<ambition_sandbox::features::ActorSpriteData>,
+    actors: &Query<ambition_gameplay_core::features::ActorSpriteData>,
     bosses: &Query<(&FeatureId, BossClusterRef)>,
     player_state: &Query<
-        &ambition_sandbox::player::PlayerCombatState,
-        ambition_sandbox::player::PrimaryPlayerOnly,
+        &ambition_gameplay_core::player::PlayerCombatState,
+        ambition_gameplay_core::player::PrimaryPlayerOnly,
     >,
 ) -> Option<f32> {
     // Player path: the entity that carries `PlayerVisual` is the

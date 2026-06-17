@@ -192,7 +192,7 @@ the published `full.ogg` is unchanged.
 - Automation expansion: `apply_automation` in `musicir_renderer.py:544-590`.
 - Per-section vs master postprocess split:
   `render_isolated.py:300-316`.
-- Game asset destination: `crates/ambition_sandbox/assets/audio/music/generated/how_to_kill_a_mockingbird/full.ogg`
+- Game asset destination: `crates/ambition_gameplay_core/assets/audio/music/generated/how_to_kill_a_mockingbird/full.ogg`
   (only the master preview is consumed in-game).
 
 ### Validation

@@ -8,11 +8,11 @@
 //! Mana is a real spendable resource: [`regen_player_mana`] refills the
 //! `PlayerMana` meter over time so charge attacks / the fireball (which already
 //! spend it via the projectile spawner) draw it down and it recovers. Money is
-//! fed by `PickupKind::Currency` collection crediting [`ambition_sandbox::player::PlayerWallet`].
+//! fed by `PickupKind::Currency` collection crediting [`ambition_gameplay_core::player::PlayerWallet`].
 
 use bevy::prelude::*;
 
-use ambition_sandbox::player::{
+use ambition_gameplay_core::player::{
     PlayerEntity, PlayerHealth, PlayerMana, PlayerWallet, PrimaryPlayer,
 };
 
@@ -47,7 +47,7 @@ pub struct MoneyLabel;
 /// field so we don't change `PlayerMana::default` (and any test that relies on
 /// it). Scaled by sim dt, so bullet-time / pause slow it with the world.
 pub fn regen_player_mana(
-    time: Res<ambition_sandbox::WorldTime>,
+    time: Res<ambition_gameplay_core::WorldTime>,
     mut players: Query<&mut PlayerMana, (With<PlayerEntity>, With<PrimaryPlayer>)>,
 ) {
     let dt = time.sim_dt();
@@ -217,7 +217,7 @@ mod tests {
     #[test]
     fn mana_regenerates_over_time_but_clamps_to_max() {
         let mut app = App::new();
-        app.insert_resource(ambition_sandbox::WorldTime {
+        app.insert_resource(ambition_gameplay_core::WorldTime {
             raw_dt: 1.0,
             scaled_dt: 1.0,
         });

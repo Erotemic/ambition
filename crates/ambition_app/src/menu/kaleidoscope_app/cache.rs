@@ -58,7 +58,7 @@ pub(crate) fn cache_system_menu(
 /// only when something it depends on actually changed: the inventory, the focus
 /// cursor, the active page, the just-opened edge, or the very first publish.
 pub(crate) fn republish_kaleidoscope_pages(
-    ui_state: Option<Res<ambition_sandbox::inventory::InventoryUiState>>,
+    ui_state: Option<Res<ambition_gameplay_core::inventory::InventoryUiState>>,
     owned: Option<Res<OwnedItems>>,
     // Read-only here. The mutators (`kaleidoscope_focus_nav`, `kaleidoscope_pointer_release`) take
     // `ResMut<UserSettings>` in SEPARATE systems, so this `Res` is not a B0002

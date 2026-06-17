@@ -24,9 +24,9 @@ use common::{base, first_floor_authored_portal_pair, fixed_60hz_room_sim};
 use ambition_platformer_primitives::projectile::{
     ProjectileFaction, ProjectileGameplay, ProjectileKind,
 };
-use ambition_sandbox::items::pickup::HeldProjectile;
-use ambition_sandbox::platformer_runtime::body::BodyKinematics;
-use ambition_sandbox::portal::{PortalBody, PortalPolicy};
+use ambition_gameplay_core::items::pickup::HeldProjectile;
+use ambition_gameplay_core::platformer_runtime::body::BodyKinematics;
+use ambition_gameplay_core::portal::{PortalBody, PortalPolicy};
 use bevy::prelude::*;
 
 #[test]

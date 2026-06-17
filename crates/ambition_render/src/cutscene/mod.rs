@@ -119,10 +119,10 @@ pub fn default_cutscene_library() -> CutsceneLibrary {
     lib
 }
 
-// The trigger CHANNEL moved to `ambition_sandbox::cutscene_trigger` (a presentation-neutral
+// The trigger CHANNEL moved to `ambition_gameplay_core::cutscene_trigger` (a presentation-neutral
 // request queue) so gameplay can request a cutscene without depending on this
 // renderer module. Re-exported here so existing paths keep resolving.
-pub use ambition_sandbox::cutscene_trigger::CutsceneTriggerQueue;
+pub use ambition_gameplay_core::cutscene_trigger::CutsceneTriggerQueue;
 
 /// Mapping from room id → cutscene id to play the first time the
 /// player walks into that room. Drained by `auto_trigger_room_cutscenes`.
@@ -157,7 +157,7 @@ impl RoomCutsceneBindings {
 /// the new room has a binding and the cutscene hasn't been seen.
 pub fn auto_trigger_room_cutscenes(
     bindings: Res<RoomCutsceneBindings>,
-    room_set: Res<ambition_sandbox::rooms::RoomSet>,
+    room_set: Res<ambition_gameplay_core::rooms::RoomSet>,
     mut queue: ResMut<CutsceneTriggerQueue>,
     mut last_room: Local<Option<String>>,
 ) {
@@ -181,7 +181,7 @@ pub fn drain_cutscene_triggers(
     mut queue: ResMut<CutsceneTriggerQueue>,
     library: Res<CutsceneLibrary>,
     mut active: ResMut<ActiveCutscene>,
-    save: Res<ambition_sandbox::persistence::save::SandboxSave>,
+    save: Res<ambition_gameplay_core::persistence::save::SandboxSave>,
 ) {
     if active.is_playing() {
         return;
@@ -211,7 +211,7 @@ pub fn tick_active_cutscene(
     time: Res<Time>,
     mut active: ResMut<ActiveCutscene>,
     mut request: ResMut<CutsceneAdvanceRequest>,
-    mut save: ResMut<ambition_sandbox::persistence::save::SandboxSave>,
+    mut save: ResMut<ambition_gameplay_core::persistence::save::SandboxSave>,
 ) {
     let dismiss = std::mem::take(&mut request.dismiss_dialogue);
     let skip = std::mem::take(&mut request.skip_cutscene);
@@ -443,7 +443,7 @@ pub fn sync_cutscene_ui(
                     ));
                     panel.spawn((
                         // The actual bindings live in
-                        // `ambition_sandbox::input::presets::ControlPreset::input_map`
+                        // `ambition_gameplay_core::input::presets::ControlPreset::input_map`
                         // (Interact = E by default, Jump = Space/W).
                         // The hint names the *semantic* actions so a
                         // rebound key isn't a lie.
@@ -509,7 +509,7 @@ pub fn sync_cutscene_ui(
 
 /// Module-local Bevy plugin: schedules the cutscene chain
 /// (`auto_trigger_room_cutscenes` → `drain_cutscene_triggers` →
-/// `tick_active_cutscene`) into [`ambition_sandbox::app::SandboxSet::Cutscene`].
+/// `tick_active_cutscene`) into [`ambition_gameplay_core::app::SandboxSet::Cutscene`].
 ///
 /// Carved out of `app/plugins.rs::register_cutscene_systems` per
 /// OVERNIGHT-TODO #6 (module-local plugins). Every system in this
@@ -527,7 +527,7 @@ impl Plugin for CutsceneSchedulePlugin {
                 tick_active_cutscene,
             )
                 .chain()
-                .in_set(ambition_sandbox::app::SandboxSet::Cutscene),
+                .in_set(ambition_gameplay_core::app::SandboxSet::Cutscene),
         );
     }
 }

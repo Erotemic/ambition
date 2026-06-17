@@ -16,7 +16,7 @@
 //!    sim-clock player update.
 //!
 //! The systems query the 18 player cluster components through
-//! [`ambition_sandbox::engine_core::PlayerClusterQueryData`] and call the
+//! [`ambition_gameplay_core::engine_core::PlayerClusterQueryData`] and call the
 //! cluster-native engine entry points
 //! (`player_control_phase` / `player_simulation_phase`) directly.
 //! The legacy `PlayerMovementAuthority` wrapper + tick-local
@@ -43,9 +43,9 @@ use super::world_flow::*;
 #[allow(unused_imports)]
 use super::*;
 #[allow(unused_imports)]
-use ambition_sandbox::app::*;
+use ambition_gameplay_core::app::*;
 
-use ambition_sandbox::engine_core as ae;
+use ambition_gameplay_core::engine_core as ae;
 
 /// First system in the player tick chain: clear the per-frame
 /// `SandboxResetThisFrame` flag.
@@ -77,7 +77,7 @@ pub fn player_control_system(
     world: Res<GameWorld>,
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
-    gravity_field: Option<Res<ambition_sandbox::physics::GravityField>>,
+    gravity_field: Option<Res<ambition_gameplay_core::physics::GravityField>>,
     mut reset_this_frame: ResMut<SandboxResetThisFrame>,
     mut event_writers: SandboxEventWriters,
     mut queues: SandboxQueues,
@@ -85,17 +85,17 @@ pub fn player_control_system(
         (
             Entity,
             ae::PlayerClusterQueryData,
-            &mut ambition_sandbox::player::PlayerAnimState,
-            &mut ambition_sandbox::player::PlayerCombatState,
-            &mut ambition_sandbox::player::PlayerInteractionState,
-            &mut ambition_sandbox::player::PlayerBlinkCameraState,
-            &mut ambition_sandbox::player::ActivePlayerAttack,
-            &mut ambition_sandbox::player::PlayerSafetyState,
-            &ambition_sandbox::player::PlayerInputFrame,
-            &ambition_sandbox::brain::ActorControl,
-            Option<&ambition_sandbox::player::PrimaryPlayer>,
+            &mut ambition_gameplay_core::player::PlayerAnimState,
+            &mut ambition_gameplay_core::player::PlayerCombatState,
+            &mut ambition_gameplay_core::player::PlayerInteractionState,
+            &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
+            &mut ambition_gameplay_core::player::ActivePlayerAttack,
+            &mut ambition_gameplay_core::player::PlayerSafetyState,
+            &ambition_gameplay_core::player::PlayerInputFrame,
+            &ambition_gameplay_core::brain::ActorControl,
+            Option<&ambition_gameplay_core::player::PrimaryPlayer>,
         ),
-        With<ambition_sandbox::player::PlayerEntity>,
+        With<ambition_gameplay_core::player::PlayerEntity>,
     >,
 ) {
     let mut tuning = editable_tuning.as_engine();
@@ -103,8 +103,8 @@ pub fn player_control_system(
     // OPPOSITE tuning.gravity_dir — so sync it from the live gravity, exactly as
     // the simulation phase does. Without this the pogo used default `(0,1)` and
     // bounced into gravity under a flip.
-    let gdir = ambition_sandbox::physics::gravity_dir_or_default(gravity_field.as_deref());
-    ambition_sandbox::physics::apply_gravity_dir(&mut tuning, gdir);
+    let gdir = ambition_gameplay_core::physics::gravity_dir_or_default(gravity_field.as_deref());
+    ambition_gameplay_core::physics::apply_gravity_dir(&mut tuning, gdir);
     let feel = *feel_tuning;
     let frame_dt = time.delta_secs();
 
@@ -174,22 +174,22 @@ pub fn player_simulation_system(
     mut reset_this_frame: ResMut<SandboxResetThisFrame>,
     mut event_writers: SandboxEventWriters,
     mut queues: SandboxQueues,
-    mut shake: ResMut<ambition_sandbox::time::camera_ease::CameraShakeState>,
-    gravity_field: Option<Res<ambition_sandbox::physics::GravityField>>,
+    mut shake: ResMut<ambition_gameplay_core::time::camera_ease::CameraShakeState>,
+    gravity_field: Option<Res<ambition_gameplay_core::physics::GravityField>>,
     mut player_q: Query<
         (
             ae::PlayerClusterQueryData,
-            &mut ambition_sandbox::player::PlayerAnimState,
-            &mut ambition_sandbox::player::PlayerCombatState,
-            &mut ambition_sandbox::player::PlayerInteractionState,
-            &mut ambition_sandbox::player::PlayerBlinkCameraState,
-            &mut ambition_sandbox::player::ActivePlayerAttack,
-            &mut ambition_sandbox::player::PlayerSafetyState,
-            &ambition_sandbox::player::PlayerInputFrame,
-            &ambition_sandbox::brain::ActorControl,
-            Option<&ambition_sandbox::player::PrimaryPlayer>,
+            &mut ambition_gameplay_core::player::PlayerAnimState,
+            &mut ambition_gameplay_core::player::PlayerCombatState,
+            &mut ambition_gameplay_core::player::PlayerInteractionState,
+            &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
+            &mut ambition_gameplay_core::player::ActivePlayerAttack,
+            &mut ambition_gameplay_core::player::PlayerSafetyState,
+            &ambition_gameplay_core::player::PlayerInputFrame,
+            &ambition_gameplay_core::brain::ActorControl,
+            Option<&ambition_gameplay_core::player::PrimaryPlayer>,
         ),
-        With<ambition_sandbox::player::PlayerEntity>,
+        With<ambition_gameplay_core::player::PlayerEntity>,
     >,
 ) {
     if reset_this_frame.0 {
@@ -201,8 +201,8 @@ pub fn player_simulation_system(
     // vector so the AABB collision stays axis-aligned. The player movement model
     // is gravity-direction-relative (`gravity_dir`); `gravity_sign` is kept in
     // sync for the down/up case (the legacy Y-only scalar).
-    let gdir = ambition_sandbox::physics::gravity_dir_or_default(gravity_field.as_deref());
-    ambition_sandbox::physics::apply_gravity_dir(&mut tuning, gdir);
+    let gdir = ambition_gameplay_core::physics::gravity_dir_or_default(gravity_field.as_deref());
+    ambition_gameplay_core::physics::apply_gravity_dir(&mut tuning, gdir);
     let feel = *feel_tuning;
     let frame_dt = time.delta_secs();
 
@@ -265,12 +265,12 @@ pub fn player_simulation_system(
 /// exactly as before).
 pub fn advance_moving_platforms(
     time: Res<Time>,
-    clock: Res<ambition_sandbox::time::clock_state::ClockState>,
+    clock: Res<ambition_gameplay_core::time::clock_state::ClockState>,
     reset_this_frame: Res<SandboxResetThisFrame>,
-    mut platforms: ResMut<ambition_sandbox::MovingPlatformSet>,
+    mut platforms: ResMut<ambition_gameplay_core::MovingPlatformSet>,
     primary_combat: Query<
-        &ambition_sandbox::player::PlayerCombatState,
-        ambition_sandbox::player::PrimaryPlayerOnly,
+        &ambition_gameplay_core::player::PlayerCombatState,
+        ambition_gameplay_core::player::PrimaryPlayerOnly,
     >,
 ) {
     if reset_this_frame.0 {

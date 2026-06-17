@@ -48,5 +48,5 @@ ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 # The portal mechanic this crate draws: placed portals, gun, shot, transit
 # components, and the pieces/view-cone geometry (the Core invariant math every
 # visual derives from). Presentation sits directly above the mechanic; never a
-# host crate (ambition_sandbox / ambition_content).
+# host crate (ambition_gameplay_core / ambition_content).
 ambition_portal = { path = "../ambition_portal" }

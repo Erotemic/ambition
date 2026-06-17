@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Reusable, content-free UI/menu navigation primitives: windowed list math (visible window + discrete scroll-to-row), pointer row-activation resolution, and drag-scroll accumulation. Keeps the keyboard/gamepad/touch menu paths from drifting apart. Pure over the input foundation; extracted from ambition_sandbox."
+description = "Reusable, content-free UI/menu navigation primitives: windowed list math (visible window + discrete scroll-to-row), pointer row-activation resolution, and drag-scroll accumulation. Keeps the keyboard/gamepad/touch menu paths from drifting apart. Pure over the input foundation; extracted from ambition_gameplay_core."
 
 [lib]
 crate-type = ["rlib"]

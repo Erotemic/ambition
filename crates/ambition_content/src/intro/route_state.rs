@@ -23,7 +23,7 @@
 
 use bevy::prelude::*;
 
-use ambition_sandbox::features::SetFlagRequested;
+use ambition_gameplay_core::features::SetFlagRequested;
 
 /// `(trigger_flag, target_flag)` — when the trigger lands in the save
 /// layer, the system emits a SetFlag for the target. Targets are listed
@@ -61,7 +61,7 @@ pub const INTRO_FLAG_CHAINS: &[(&str, &str)] = &[
 /// frame; cost is O(chains × set-flag-lookups) and the chain table is
 /// expected to stay under a few dozen entries.
 pub fn emit_intro_flag_chains(
-    save: Res<ambition_sandbox::persistence::save::SandboxSave>,
+    save: Res<ambition_gameplay_core::persistence::save::SandboxSave>,
     mut effects: MessageWriter<SetFlagRequested>,
 ) {
     let data = save.data();
@@ -104,18 +104,18 @@ pub const INTRO_FLAG_GATED_LOCK_WALLS: &[(&str, &str)] = &[
 /// as `intro_lock:<id>` blocks this frame. Extracted so the Bevy
 /// system can be tested without spinning up a full ECS world.
 pub fn compute_intro_flag_gated_lock_walls(
-    project: &ambition_sandbox::world::ldtk_world::LdtkProject,
+    project: &ambition_gameplay_core::world::ldtk_world::LdtkProject,
     active_room_id: &str,
-    save: &ambition_sandbox::persistence::save_data::SandboxSaveData,
+    save: &ambition_gameplay_core::persistence::save_data::SandboxSaveData,
 ) -> Vec<(
     String,
-    ambition_sandbox::engine_core::Vec2,
-    ambition_sandbox::engine_core::Vec2,
+    ambition_gameplay_core::engine_core::Vec2,
+    ambition_gameplay_core::engine_core::Vec2,
 )> {
     let mut out: Vec<(
         String,
-        ambition_sandbox::engine_core::Vec2,
-        ambition_sandbox::engine_core::Vec2,
+        ambition_gameplay_core::engine_core::Vec2,
+        ambition_gameplay_core::engine_core::Vec2,
     )> = Vec::new();
     for level in &project.levels {
         if level.active_area() != active_room_id {
@@ -125,7 +125,7 @@ pub fn compute_intro_flag_gated_lock_walls(
             if entity.identifier != "LockWall" {
                 continue;
             }
-            let Some(id) = ambition_sandbox::world::ldtk_world::field_string(entity, "id") else {
+            let Some(id) = ambition_gameplay_core::world::ldtk_world::field_string(entity, "id") else {
                 continue;
             };
             let id_trim = id.trim();
@@ -139,9 +139,9 @@ pub fn compute_intro_flag_gated_lock_walls(
                 continue;
             }
             let min =
-                ambition_sandbox::engine_core::Vec2::new(entity.px[0] as f32, entity.px[1] as f32);
+                ambition_gameplay_core::engine_core::Vec2::new(entity.px[0] as f32, entity.px[1] as f32);
             let size =
-                ambition_sandbox::engine_core::Vec2::new(entity.width as f32, entity.height as f32);
+                ambition_gameplay_core::engine_core::Vec2::new(entity.width as f32, entity.height as f32);
             out.push((id_trim.to_string(), min, size));
         }
     }
@@ -154,10 +154,10 @@ pub fn compute_intro_flag_gated_lock_walls(
 /// [`compute_intro_flag_gated_lock_walls`] so the policy is testable
 /// in isolation.
 pub fn sync_intro_flag_gated_lock_walls(
-    project: Option<Res<ambition_sandbox::world::ldtk_world::SandboxLdtkProject>>,
-    room_set: Option<Res<ambition_sandbox::rooms::RoomSet>>,
-    save: Option<Res<ambition_sandbox::persistence::save::SandboxSave>>,
-    world: Option<ResMut<ambition_sandbox::GameWorld>>,
+    project: Option<Res<ambition_gameplay_core::world::ldtk_world::SandboxLdtkProject>>,
+    room_set: Option<Res<ambition_gameplay_core::rooms::RoomSet>>,
+    save: Option<Res<ambition_gameplay_core::persistence::save::SandboxSave>>,
+    world: Option<ResMut<ambition_gameplay_core::GameWorld>>,
 ) {
     let (Some(project), Some(room_set), Some(save), Some(mut world)) =
         (project, room_set, save, world)
@@ -183,7 +183,7 @@ pub fn sync_intro_flag_gated_lock_walls(
             world
                 .0
                 .blocks
-                .push(ambition_sandbox::engine_core::Block::solid(name, min, size));
+                .push(ambition_gameplay_core::engine_core::Block::solid(name, min, size));
         }
     }
 }
@@ -215,8 +215,8 @@ mod tests {
     /// Hand-build a minimal LdtkProject with a single level whose
     /// activeArea = "alice_relay" and one LockWall entity matching a
     /// known intro gated lock id.
-    fn synthetic_alice_relay_project() -> ambition_sandbox::world::ldtk_world::LdtkProject {
-        use ambition_sandbox::world::ldtk_world::{
+    fn synthetic_alice_relay_project() -> ambition_gameplay_core::world::ldtk_world::LdtkProject {
+        use ambition_gameplay_core::world::ldtk_world::{
             LdtkEntityInstance, LdtkFieldInstance, LdtkLayerInstance, LdtkLevel, LdtkProject,
         };
         use serde_json::Value;
@@ -275,13 +275,13 @@ mod tests {
     #[test]
     fn lock_wall_compute_returns_block_when_flag_clear() {
         let project = synthetic_alice_relay_project();
-        let save = ambition_sandbox::persistence::save_data::SandboxSaveData::default();
+        let save = ambition_gameplay_core::persistence::save_data::SandboxSaveData::default();
         let walls = compute_intro_flag_gated_lock_walls(&project, "alice_relay", &save);
         assert_eq!(walls.len(), 1, "expected one lock wall");
         let (id, min, size) = &walls[0];
         assert_eq!(id, "alice_private_return_lock");
-        assert_eq!(*min, ambition_sandbox::engine_core::Vec2::new(800.0, 624.0));
-        assert_eq!(*size, ambition_sandbox::engine_core::Vec2::new(96.0, 112.0));
+        assert_eq!(*min, ambition_gameplay_core::engine_core::Vec2::new(800.0, 624.0));
+        assert_eq!(*size, ambition_gameplay_core::engine_core::Vec2::new(96.0, 112.0));
     }
 
     /// Once the unlock flag flips, compute should drop the LockWall
@@ -289,7 +289,7 @@ mod tests {
     #[test]
     fn lock_wall_compute_drops_block_when_flag_set() {
         let project = synthetic_alice_relay_project();
-        let mut save = ambition_sandbox::persistence::save_data::SandboxSaveData::default();
+        let mut save = ambition_gameplay_core::persistence::save_data::SandboxSaveData::default();
         save.set_flag("bob_field_survey_received", true);
         let walls = compute_intro_flag_gated_lock_walls(&project, "alice_relay", &save);
         assert!(walls.is_empty(), "expected no lock walls after unlock");
@@ -301,7 +301,7 @@ mod tests {
     #[test]
     fn lock_wall_compute_skips_other_rooms() {
         let project = synthetic_alice_relay_project();
-        let save = ambition_sandbox::persistence::save_data::SandboxSaveData::default();
+        let save = ambition_gameplay_core::persistence::save_data::SandboxSaveData::default();
         let walls = compute_intro_flag_gated_lock_walls(&project, "drain_alley", &save);
         assert!(walls.is_empty(), "expected no lock walls for inactive room");
     }
@@ -311,7 +311,7 @@ mod tests {
     /// LockWall in the project.
     #[test]
     fn lock_wall_compute_ignores_unregistered_ids() {
-        use ambition_sandbox::world::ldtk_world::LdtkFieldInstance;
+        use ambition_gameplay_core::world::ldtk_world::LdtkFieldInstance;
         let mut project = synthetic_alice_relay_project();
         // Mutate the one entity's `id` field to something not in
         // INTRO_FLAG_GATED_LOCK_WALLS.
@@ -325,7 +325,7 @@ mod tests {
                 real_editor_values: vec![serde_json::Value::Null],
             }];
         }
-        let save = ambition_sandbox::persistence::save_data::SandboxSaveData::default();
+        let save = ambition_gameplay_core::persistence::save_data::SandboxSaveData::default();
         let walls = compute_intro_flag_gated_lock_walls(&project, "alice_relay", &save);
         assert!(
             walls.is_empty(),
@@ -356,9 +356,9 @@ mod tests {
     #[test]
     fn emit_chains_promotes_bob_survey_to_private_marks() {
         use crate::quest::QuestRegistry;
-        use ambition_sandbox::features::apply_flag_effects;
-        use ambition_sandbox::features::SetFlagRequested;
-        use ambition_sandbox::persistence::save::SandboxSave;
+        use ambition_gameplay_core::features::apply_flag_effects;
+        use ambition_gameplay_core::features::SetFlagRequested;
+        use ambition_gameplay_core::persistence::save::SandboxSave;
         use bevy::app::{App, Update};
 
         let mut app = App::new();
@@ -399,9 +399,9 @@ mod tests {
     #[test]
     fn cartography_quest_advances_through_alice_bob_p5() {
         use crate::quest::{apply_quest_advance_events, default_quest_specs, QuestRegistry};
-        use ambition_sandbox::features::{apply_flag_effects, apply_quest_effects};
-        use ambition_sandbox::features::{QuestAdvanceRequested, SetFlagRequested};
-        use ambition_sandbox::persistence::save::SandboxSave;
+        use ambition_gameplay_core::features::{apply_flag_effects, apply_quest_effects};
+        use ambition_gameplay_core::features::{QuestAdvanceRequested, SetFlagRequested};
+        use ambition_gameplay_core::persistence::save::SandboxSave;
         use bevy::app::{App, Update};
 
         let mut app = App::new();
@@ -451,7 +451,7 @@ mod tests {
             .data_mut()
             .set_flag("alice_route_note_carried", true);
         app.world_mut().resource_mut::<QuestRegistry>().push_event(
-            ambition_sandbox::quest::QuestAdvanceEvent::FlagSet("alice_route_note_carried".into()),
+            ambition_gameplay_core::quest::QuestAdvanceEvent::FlagSet("alice_route_note_carried".into()),
         );
         app.update();
         assert_eq!(
@@ -466,7 +466,7 @@ mod tests {
             .data_mut()
             .set_flag("bob_field_survey_received", true);
         app.world_mut().resource_mut::<QuestRegistry>().push_event(
-            ambition_sandbox::quest::QuestAdvanceEvent::FlagSet("bob_field_survey_received".into()),
+            ambition_gameplay_core::quest::QuestAdvanceEvent::FlagSet("bob_field_survey_received".into()),
         );
         app.update();
         assert_eq!(step(&app), 2, "after bob survey, quest should be at step 2");
@@ -479,7 +479,7 @@ mod tests {
             .data_mut()
             .set_flag("intro_p5_route_memory_received", true);
         app.world_mut().resource_mut::<QuestRegistry>().push_event(
-            ambition_sandbox::quest::QuestAdvanceEvent::FlagSet(
+            ambition_gameplay_core::quest::QuestAdvanceEvent::FlagSet(
                 "intro_p5_route_memory_received".into(),
             ),
         );
@@ -497,9 +497,9 @@ mod tests {
     #[test]
     fn emit_chains_promotes_p5_to_route_memory() {
         use crate::quest::QuestRegistry;
-        use ambition_sandbox::features::apply_flag_effects;
-        use ambition_sandbox::features::SetFlagRequested;
-        use ambition_sandbox::persistence::save::SandboxSave;
+        use ambition_gameplay_core::features::apply_flag_effects;
+        use ambition_gameplay_core::features::SetFlagRequested;
+        use ambition_gameplay_core::persistence::save::SandboxSave;
         use bevy::app::{App, Update};
 
         let mut app = App::new();

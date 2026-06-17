@@ -1,7 +1,7 @@
 //! Reusable, content-free platformer runtime primitives.
 //!
 //! This crate owns shared body, gravity, projectile, transit, lifecycle, and
-//! schedule seams without depending on `ambition_sandbox`, content,
+//! schedule seams without depending on `ambition_gameplay_core`, content,
 //! presentation, app assembly, or devtool modules.
 
 pub mod body;

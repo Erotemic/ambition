@@ -32,7 +32,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 LDTK_PATH = (
     REPO_ROOT
     / "crates"
-    / "ambition_sandbox"
+    / "ambition_gameplay_core"
     / "assets"
     / "ambition"
     / "worlds"

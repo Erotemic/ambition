@@ -10,32 +10,32 @@ cd "$REPO"
 # Optional but useful: fail before deploying a bad map.
 PYTHONPATH="$REPO/tools/ambition_ldtk_tools" \
     python -m ambition_ldtk_tools validate \
-    crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+    crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
 
 # Verify the distributable bundled fonts have been materialized locally.
 # Do not package assets/fonts/local; those are local-machine fallback fonts.
 for font_asset in \
-    crates/ambition_sandbox/assets/fonts/bundled/InterDisplay-Regular.otf \
-    crates/ambition_sandbox/assets/fonts/bundled/InterDisplay-SemiBold.otf \
-    crates/ambition_sandbox/assets/fonts/bundled/JetBrainsMono-Regular.ttf \
-    crates/ambition_sandbox/assets/fonts/bundled/licenses/Inter-4-1-OFL.txt \
-    crates/ambition_sandbox/assets/fonts/bundled/licenses/JetBrains-Mono-2-304-OFL.txt
+    crates/ambition_gameplay_core/assets/fonts/bundled/InterDisplay-Regular.otf \
+    crates/ambition_gameplay_core/assets/fonts/bundled/InterDisplay-SemiBold.otf \
+    crates/ambition_gameplay_core/assets/fonts/bundled/JetBrainsMono-Regular.ttf \
+    crates/ambition_gameplay_core/assets/fonts/bundled/licenses/Inter-4-1-OFL.txt \
+    crates/ambition_gameplay_core/assets/fonts/bundled/licenses/JetBrains-Mono-2-304-OFL.txt
  do
     test -f "$font_asset"
 done
 
 # Safest build: keep default desktop features, add static_map fallback.
-cargo build -p ambition_app --bin ambition_sandbox --release --features static_map
+cargo build -p ambition_app --bin ambition_gameplay_core --release --features static_map
 
 ssh "$DECK" "mkdir -p '$APPDIR'"
 
 rsync -av --delete \
-    target/release/ambition_sandbox \
+    target/release/ambition_gameplay_core \
     "$DECK:$APPDIR/"
 
 rsync -av --delete \
     --exclude '/fonts/local/' \
-    crates/ambition_sandbox/assets/ \
+    crates/ambition_gameplay_core/assets/ \
     "$DECK:$APPDIR/assets/"
 
 # Ensure old local-only fonts from previous deploys do not linger on the Deck.
@@ -79,14 +79,14 @@ export AMBITION_LDTK="$APPDIR/assets/ambition/worlds/sandbox.ldtk"
 export RUST_BACKTRACE=1
 export RUST_LOG="${RUST_LOG:-warn}"
 
-exec "$APPDIR/ambition_sandbox" "$@"
+exec "$APPDIR/ambition_gameplay_core" "$@"
 EOF_INNER
 
 # Remote sanity checks for both real files and compatibility paths.
 ssh "$DECK" "bash -s" <<EOF_CHECK
 set -euo pipefail
 APPDIR='$APPDIR'
-test -x "\$APPDIR/ambition_sandbox"
+test -x "\$APPDIR/ambition_gameplay_core"
 test -f "\$APPDIR/assets/sprites/robot_spritesheet.png"
 test -f "\$APPDIR/sprites/robot_spritesheet.png"
 test -f "\$APPDIR/assets/sprites/entities/chest_closed.png"

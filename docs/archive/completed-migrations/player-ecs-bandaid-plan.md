@@ -13,7 +13,7 @@
 ## Current anchors
 
 - `crates/ambition_engine_core/src/player_clusters.rs`
-- `crates/ambition_sandbox/src/player/`
+- `crates/ambition_gameplay_core/src/player/`
 - `docs/current/state.md`
 - `docs/systems/character-ai-refactor.md`
 

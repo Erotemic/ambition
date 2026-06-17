@@ -12,8 +12,8 @@ aliases:
 implemented_by:
   - crates/ambition_engine_core/src/movement/mod.rs
   - crates/ambition_platformer_primitives/src/kinematic.rs
-  - crates/ambition_sandbox/src/combat/mod.rs
-  - crates/ambition_sandbox/src/projectile/mod.rs
+  - crates/ambition_gameplay_core/src/combat/mod.rs
+  - crates/ambition_gameplay_core/src/projectile/mod.rs
   - crates/ambition_engine_core/src/player_state.rs
   - crates/ambition_engine_core/src/ledge_grab.rs
 related_docs:
@@ -49,9 +49,9 @@ Movement collision covers kinematic player motion, swept collision, body modes, 
 ## Validation
 
 ```bash
-cargo test -p ambition_sandbox engine_core::movement::
-cargo test -p ambition_sandbox engine_core::combat::
-cargo test -p ambition_sandbox engine_core::projectile::
-cargo test -p ambition_sandbox --test wall_cling_fuzz
-cargo test -p ambition_sandbox --test body_shape_fits_at
+cargo test -p ambition_gameplay_core engine_core::movement::
+cargo test -p ambition_gameplay_core engine_core::combat::
+cargo test -p ambition_gameplay_core engine_core::projectile::
+cargo test -p ambition_gameplay_core --test wall_cling_fuzz
+cargo test -p ambition_gameplay_core --test body_shape_fits_at
 ```

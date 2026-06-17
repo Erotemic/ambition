@@ -26,7 +26,7 @@ pub enum AssetKind {
     /// `.sfxbank` packed multi-clip container (see `ambition_sfx_bank`).
     AudioBank,
     /// LDtk project JSON, parsed by `bevy_ecs_ldtk` (or our direct loader
-    /// in `ambition_sandbox::ldtk_world::loading`).
+    /// in `ambition_gameplay_core::ldtk_world::loading`).
     LdtkProject,
     /// `.ron` data file (tuning, manifest, encounter spec).
     RonData,

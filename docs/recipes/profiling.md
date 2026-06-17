@@ -26,7 +26,7 @@ Phase marks are inserted between Startup-chained systems via
 `profiling::phase_mark("name")`. The defaults today bracket
 `load_data_asset_handle` and `setup_simulation_system`. Add more by
 chaining `phase_mark(...)` between Startup systems in
-[crates/ambition_sandbox/src/app/mod.rs](../../crates/ambition_app/src/app/plugins.rs):
+[crates/ambition_gameplay_core/src/app/mod.rs](../../crates/ambition_app/src/app/plugins.rs):
 
 ```rust
 .add_systems(Startup, (
@@ -39,7 +39,7 @@ chaining `phase_mark(...)` between Startup systems in
 ```
 
 Code lives in
-[crates/ambition_sandbox/src/dev/profiling.rs](../../crates/ambition_sandbox/src/dev/profiling.rs).
+[crates/ambition_gameplay_core/src/dev/profiling.rs](../../crates/ambition_gameplay_core/src/dev/profiling.rs).
 
 ## 2a. cargo flamegraph (no-GUI flame graph SVG)
 
@@ -57,7 +57,7 @@ sudo sysctl kernel.perf_event_paranoid=1
 # Optional, restart-persistent: echo "kernel.perf_event_paranoid=1" | sudo tee /etc/sysctl.d/local-perf.conf
 ```
 
-Add this to `crates/ambition_sandbox/Cargo.toml` for symbol-rich
+Add this to `crates/ambition_gameplay_core/Cargo.toml` for symbol-rich
 release builds (already there if you've enabled it elsewhere; safe
 to keep on for normal `cargo run --release`):
 
@@ -70,16 +70,16 @@ debug = true  # keep DWARF for unmangled flamegraph frames
 
 ```bash
 # Build first so capture only times the run, not compilation.
-cargo build --release -p ambition_sandbox
+cargo build --release -p ambition_gameplay_core
 
 # BEVY_ASSET_ROOT is required: cargo-flamegraph runs the binary
 # directly (not via `cargo run`), so Bevy looks for assets relative
 # to the binary path (`target/release/assets/`) instead of the
-# package's `crates/ambition_sandbox/assets/`. Without this var, you
+# package's `crates/ambition_gameplay_core/assets/`. Without this var, you
 # get `Path not found: target/release/assets/...` for every asset
 # and bevy_yarnspinner panics on the missing dialogue/ folder.
-BEVY_ASSET_ROOT=$PWD/crates/ambition_sandbox \
-cargo flamegraph -p ambition_sandbox --bin ambition_sandbox \
+BEVY_ASSET_ROOT=$PWD/crates/ambition_gameplay_core \
+cargo flamegraph -p ambition_gameplay_core --bin ambition_gameplay_core \
     --release \
     --output flamegraph_startup.svg \
     -- --start-room=central_hub_complex
@@ -113,7 +113,7 @@ GUI listener.
 ### Build + run
 
 ```bash
-cargo run -p ambition_sandbox --features profile
+cargo run -p ambition_gameplay_core --features profile
 ```
 
 The binary will block on startup until Tracy connects (or proceed
@@ -126,7 +126,7 @@ without if the GUI isn't running — your build, your call).
    metadata if you upgrade.
 2. Launch the GUI **before** the game so the live capture starts at
    T=0.
-3. `cargo run -p ambition_sandbox --features profile`.
+3. `cargo run -p ambition_gameplay_core --features profile`.
 4. Click "Connect" in Tracy. Watch the flamegraph populate live.
 5. To save: Tracy menu → "Save trace". `.tracy` files compress well
    and are reproducible.

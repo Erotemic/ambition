@@ -39,7 +39,7 @@ impl Plugin for AmbitionContentPlugin {
         // Install authored encounter wave timelines (goblin mob-lab, …) into the
         // machinery lib's wave book before the encounter loader runs — the engine
         // hard-codes no encounter's waves.
-        ambition_sandbox::encounter::install_encounter_waves(
+        ambition_gameplay_core::encounter::install_encounter_waves(
             ron::from_str(include_str!(
                 "../assets/data/encounters/goblin_encounter.ron"
             ))

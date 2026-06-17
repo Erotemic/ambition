@@ -145,7 +145,7 @@ class CatalogProfile:
 
 def _repo_root() -> Path | None:
     for parent in Path(__file__).resolve().parents:
-        if (parent / "crates" / "ambition_sandbox" / "assets" / "data" / "character_catalog.ron").exists():
+        if (parent / "crates" / "ambition_gameplay_core" / "assets" / "data" / "character_catalog.ron").exists():
             return parent
     return None
 
@@ -154,7 +154,7 @@ def _catalog_path() -> Path | None:
     root = _repo_root()
     if root is None:
         return None
-    path = root / "crates" / "ambition_sandbox" / "assets" / "data" / "character_catalog.ron"
+    path = root / "crates" / "ambition_gameplay_core" / "assets" / "data" / "character_catalog.ron"
     return path if path.exists() else None
 
 

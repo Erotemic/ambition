@@ -11,11 +11,11 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
 if cargo modules --help >/dev/null 2>&1; then
-    cargo modules structure --package ambition_sandbox --lib \
-        > "$REPO_ROOT"/.agent/reports/module-tree-ambition_sandbox.md
+    cargo modules structure --package ambition_gameplay_core --lib \
+        > "$REPO_ROOT"/.agent/reports/module-tree-ambition_gameplay_core.md
 
-    cargo modules dependencies --package ambition_sandbox --lib \
-        > .agent/reports/module-dependencies-ambition_sandbox.md
+    cargo modules dependencies --package ambition_gameplay_core --lib \
+        > .agent/reports/module-dependencies-ambition_gameplay_core.md
 
 fi
 

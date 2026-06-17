@@ -10,11 +10,11 @@ crate graph**; lower layers must never import higher ones. Survey + remaining wo
 | Layer | Crates | Responsibility |
 |---|---|---|
 | foundations | `ambition_engine_core` (movement/collision/body/geometry/world/player clusters), `ambition_characters` (unified actor system: control vocabulary + universal brain + character catalog — bosses are actors), `ambition_platformer_primitives` (kinematic, gravity, rooms, projectile), `ambition_portal`, `ambition_time`, `ambition_input`, `ambition_menu` (reusable renderers), `ambition_audio`, `ambition_sfx[_bank]`, `ambition_asset_manager` | Reusable, content-free, no dep on the layers below |
-| machinery | `ambition_sandbox` (lib) | brain, actor, mechanics, `features` (named actor/boss ECS world), presentation, world/LDtk, items, encounter, persistence, dev STATE, menu IR/map. Content-free (guard-enforced). Re-exports foundations under facade paths (`crate::engine_core`, `crate::input`, …). |
+| machinery | `ambition_gameplay_core` (lib) | brain, actor, mechanics, `features` (named actor/boss ECS world), presentation, world/LDtk, items, encounter, persistence, dev STATE, menu IR/map. Content-free (guard-enforced). Re-exports foundations under facade paths (`crate::engine_core`, `crate::input`, …). |
 | content | `ambition_content` | Named game content: quests, bosses, items roster, dialogue, intro, banter, portal adapters |
-| app | `ambition_app` | Bevy assembly, host glue, ALL binaries (playable `ambition_sandbox` bin, headless, rl_*), menu host stack + `DevToolsPlugin`, full-stack integration tests |
+| app | `ambition_app` | Bevy assembly, host glue, ALL binaries (playable `ambition_gameplay_core` bin, headless, rl_*), menu host stack + `DevToolsPlugin`, full-stack integration tests |
 
-## Machinery (`ambition_sandbox`) module shape
+## Machinery (`ambition_gameplay_core`) module shape
 
 ```text
 src/mechanics/        combat kit + gravity (content-free)
@@ -35,7 +35,7 @@ src/app/              SCHEDULE VOCABULARY only (SandboxSet, input populate) — 
 ## Boundary rules
 
 - Reusable, dependency-clean mechanics → a foundation crate. Still-coupled
-  machinery stays in `ambition_sandbox` until its outward deps are inverted.
+  machinery stays in `ambition_gameplay_core` until its outward deps are inverted.
 - Named game content → `ambition_content`. App assembly / bins / host glue →
   `ambition_app`. The machinery lib must import neither (guard-enforced).
 - New gameplay subsystems are self-owning `Plugin`s (components-as-plugins).
@@ -55,7 +55,7 @@ src/app/              SCHEDULE VOCABULARY only (SandboxSet, input populate) — 
 ```bash
 cargo fmt --check
 cargo test -p ambition_engine_core            # engine core unit tests (now its own crate)
-cargo test -p ambition_sandbox --lib          # machinery
+cargo test -p ambition_gameplay_core --lib          # machinery
 cargo test -p ambition_content --all-features  # named content
 cargo test -p ambition_app                    # assembly + integration suites (replay, boundaries, …)
 python scripts/generate_agent_index.py

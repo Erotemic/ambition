@@ -9,7 +9,7 @@
 //! python3 tools/ambition_sfx_pack/pack.py --dump
 //! ```
 //!
-//! and grep `crates/ambition_sandbox/assets/audio/sfx.bank.txt`.
+//! and grep `crates/ambition_gameplay_core/assets/audio/sfx.bank.txt`.
 
 use crate::SfxId;
 

@@ -7,7 +7,7 @@
 //!
 //! A build script's `rustc-cfg` / `rustc-env` only apply to ITS OWN crate, so
 //! this must live next to the consumer. It previously lived in
-//! `ambition_sandbox/build.rs` and silently went dead (cfg never set, env never
+//! `ambition_gameplay_core/build.rs` and silently went dead (cfg never set, env never
 //! exported) when the loader moved up to `ambition_app` — which is exactly the
 //! `unexpected cfg` warning + dead static-bank path this restores.
 
@@ -30,7 +30,7 @@ fn main() {
         .or_else(|| {
             // Default to the sandbox content crate's packed bank (the assets
             // live there, not under this crate).
-            let default_path = manifest_dir.join("../ambition_sandbox/assets/audio/sfx.bank");
+            let default_path = manifest_dir.join("../ambition_gameplay_core/assets/audio/sfx.bank");
             default_path.is_file().then_some(default_path)
         });
 

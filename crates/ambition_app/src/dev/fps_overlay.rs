@@ -6,7 +6,7 @@
 //!
 //! **Visible by default on every platform** — desktop, browser,
 //! Android. Toggle via the **Video settings page → "FPS Overlay"** row
-//! (persisted across sessions via `ambition_sandbox::persistence::settings::persistence`), or
+//! (persisted across sessions via `ambition_gameplay_core::persistence::settings::persistence`), or
 //! press `F3` for an in-session keyboard toggle that mutates the same
 //! setting.
 //!
@@ -24,7 +24,7 @@ use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
 
 use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
-use ambition_sandbox::persistence::settings::UserSettings;
+use ambition_gameplay_core::persistence::settings::UserSettings;
 
 /// Runtime mirror of [`UserSettings::video::show_fps`]. Updated by
 /// [`sync_fps_overlay_state_from_settings`] when the persisted flag
@@ -121,7 +121,7 @@ fn spawn_fps_overlay(
 /// F3 toggles the FPS overlay by writing to
 /// [`UserSettings::video::show_fps`]. The next
 /// `sync_fps_overlay_state_from_settings` tick mirrors the change into
-/// `FpsOverlayState`, and `ambition_sandbox::persistence::settings::persistence` autosaves the
+/// `FpsOverlayState`, and `ambition_gameplay_core::persistence::settings::persistence` autosaves the
 /// new value so the toggle survives a restart.
 fn toggle_fps_overlay_on_f3(keys: Res<ButtonInput<KeyCode>>, mut settings: ResMut<UserSettings>) {
     if keys.just_pressed(KeyCode::F3) {
@@ -245,7 +245,7 @@ mod tests {
 
     #[test]
     fn default_video_settings_show_fps_is_true() {
-        let settings = ambition_sandbox::persistence::settings::UserSettings::default();
+        let settings = ambition_gameplay_core::persistence::settings::UserSettings::default();
         assert!(
             settings.video.show_fps,
             "VideoSettings::show_fps default must be true so the overlay shows out of the box",

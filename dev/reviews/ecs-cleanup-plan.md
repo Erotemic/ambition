@@ -14,7 +14,7 @@ targets pass). Each item committed separately on
 ## PROGRESS LOG (2026-06-02, autonomous session)
 
 Executed the recommended-order patches #1–#4 from the bottom of this doc,
-each behavior-preserving, compiled (`cargo check -p ambition_sandbox
+each behavior-preserving, compiled (`cargo check -p ambition_gameplay_core
 --all-targets` clean) and committed on branch
 `sprite-props-and-per-sheet-cache`:
 

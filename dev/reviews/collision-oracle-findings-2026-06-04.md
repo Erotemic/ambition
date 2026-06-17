@@ -8,7 +8,7 @@ with a precise repro list instead of flying around by hand.
 
 ## What it is
 
-`crates/ambition_sandbox/tests/collision_invariant_oracle.rs` — a fuzz-driven
+`crates/ambition_gameplay_core/tests/collision_invariant_oracle.rs` — a fuzz-driven
 per-tick invariant checker over the deterministic `SandboxSim`. Each tick it
 reads the player's live AABB + the room's Solid collision world and flags:
 
@@ -29,7 +29,7 @@ deferred bug. So the in-CI `collision_oracle_smoke` only proves the harness runs
 the catalog comes from the `#[ignore]`d full sweep:
 
 ```bash
-cargo test -p ambition_sandbox --test collision_invariant_oracle \
+cargo test -p ambition_gameplay_core --test collision_invariant_oracle \
     -- --ignored --nocapture
 ```
 
@@ -47,7 +47,7 @@ OOB above the ceiling"** bugs Jon reported this session **did not reproduce in
 52k fuzzed steps across every room** — consistent with the two OOB fixes shipped
 earlier in this run (`resolve_x_penetration` far-edge/never-eject de-pen, and the
 ceiling-graze swept-de-pen defer-regardless-of-immediate-contact;
-`crates/ambition_sandbox/src/engine_core/movement/collision.rs`). The *stuck-
+`crates/ambition_gameplay_core/src/engine_core/movement/collision.rs`). The *stuck-
 inside-a-wall* (embedded) class looks closed.
 
 ### UPDATE — the embed check was not the whole story (clip-through-a-wall)
@@ -130,7 +130,7 @@ in, so transitions attribute correctly):
 | intro_escape_shaft | OOB-BELOW-FLOOR | 48 | 1 / 112 / (-96,1299) | 1280×1280 |
 | tiny_chamber | OOB-SIDE | 40 | 2026 / 189 / (926,156) | 900×520 |
 
-Reproduce one: `cargo run -p ambition_sandbox --bin rl_random_walker -- <STEPS>
+Reproduce one: `cargo run -p ambition_gameplay_core --bin rl_random_walker -- <STEPS>
 <SEED>` after launching that room as `--start-room`.
 
 ### Interpretation — characterized: these are OPEN boundaries, not clips

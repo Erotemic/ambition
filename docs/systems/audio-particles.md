@@ -17,7 +17,7 @@ For the current sandbox, the useful cues are jump, double jump, dash, slash, hit
 
 ## Generated music
 
-Music remains procedural/declarative in `crates/ambition_sandbox/assets/ambition/sandbox.ron`. The manifest now has `default_music_track` and a `music_tracks` list; each track has an id, display name, and arrangement body. The original 32-beat loop was ported as `original_lofi_loop`, and a longer 128-beat generated track is currently the default.
+Music remains procedural/declarative in `crates/ambition_gameplay_core/assets/ambition/sandbox.ron`. The manifest now has `default_music_track` and a `music_tracks` list; each track has an id, display name, and arrangement body. The original 32-beat loop was ported as `original_lofi_loop`, and a longer 128-beat generated track is currently the default.
 
 ## Particle system
 

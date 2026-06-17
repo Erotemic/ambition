@@ -3,7 +3,7 @@
 //! The runtime's generic systems (gravity integration, oscillating /
 //! temporary zones, the orient-to-gravity roll) advance world-anchored state and
 //! must scale with bullet-time / hitstop / pause. In the sandbox that scaled dt
-//! is [`ambition_sandbox::WorldTime::sim_dt`], but the runtime crate cannot
+//! is [`ambition_gameplay_core::WorldTime::sim_dt`], but the runtime crate cannot
 //! depend on the sandbox. [`SimDt`] is the inversion seam: a content-free
 //! resource the runtime reads, which the **host** mirrors from its own clock
 //! each frame BEFORE any system that reads it.

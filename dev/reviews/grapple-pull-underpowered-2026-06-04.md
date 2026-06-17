@@ -8,7 +8,7 @@ travels ~45px no matter how far the grappled surface is.
 
 ## What the grapple does (code)
 
-`crates/ambition_sandbox/src/grapple.rs` — `Attack` while holding the grapple
+`crates/ambition_gameplay_core/src/grapple.rs` — `Attack` while holding the grapple
 casts `raycast_solids` along the aim up to `GRAPPLE_RANGE = 300`; on a hit it sets
 the player's velocity toward the hit at `GRAPPLE_PULL_SPEED = 620` (a *burst
 impulse* — "collision resolution then settles them at the surface"). The engine

@@ -5,10 +5,10 @@ Settings and save data are runtime state with disk persistence. They are sandbox
 ## Current paths
 
 ```text
-crates/ambition_sandbox/src/persistence/save.rs
+crates/ambition_gameplay_core/src/persistence/save.rs
   game/save flags, player/world progression state
 
-crates/ambition_sandbox/src/persistence/settings/
+crates/ambition_gameplay_core/src/persistence/settings/
   model.rs           aggregate settings model
   audio.rs           volume/mute policy
   controls.rs        deadzones, trigger thresholds, profile defaults
@@ -18,7 +18,7 @@ crates/ambition_sandbox/src/persistence/settings/
   platform_paths.rs  platform-specific storage location selection
 ```
 
-The older `crates/ambition_sandbox/src/settings/` path is retired. Do not add new code or docs that point there.
+The older `crates/ambition_gameplay_core/src/settings/` path is retired. Do not add new code or docs that point there.
 
 ## Runtime policy
 
@@ -38,8 +38,8 @@ The older `crates/ambition_sandbox/src/settings/` path is retired. Do not add ne
 ## Validation anchors
 
 ```bash
-cargo test -p ambition_sandbox settings
-cargo test -p ambition_sandbox save
+cargo test -p ambition_gameplay_core settings
+cargo test -p ambition_gameplay_core save
 cargo test -p ambition_app --tests --features "bevy_ui_menu kaleidoscope_menu input"
 ```
 

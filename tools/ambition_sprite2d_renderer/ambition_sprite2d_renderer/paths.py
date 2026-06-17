@@ -23,7 +23,7 @@ def repo_root(start: str | Path | None = None) -> Path:
     if start_path.is_file():
         start_path = start_path.parent
     for path in [start_path, *start_path.parents]:
-        if (path / "crates" / "ambition_sandbox").exists() and (
+        if (path / "crates" / "ambition_gameplay_core").exists() and (
             path / "tools" / "ambition_sprite2d_renderer"
         ).exists():
             return path
@@ -36,4 +36,4 @@ def generated_root() -> Path:
 
 
 def sandbox_sprites_dir() -> Path:
-    return repo_root() / "crates" / "ambition_sandbox" / "assets" / "sprites"
+    return repo_root() / "crates" / "ambition_gameplay_core" / "assets" / "sprites"

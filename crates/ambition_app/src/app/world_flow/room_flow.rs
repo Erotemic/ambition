@@ -10,14 +10,14 @@ pub(crate) fn reset_sandbox(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
     clusters: &mut ae::PlayerClustersMut<'_>,
-    sim_state: &mut ambition_sandbox::SandboxSimState,
-    clock: &mut ambition_sandbox::time::clock_state::ClockState,
-    safety: &mut ambition_sandbox::player::PlayerSafetyState,
-    attack: &mut Option<ambition_sandbox::PlayerAttackState>,
-    anim: &mut ambition_sandbox::player::PlayerAnimState,
-    combat: &mut ambition_sandbox::player::PlayerCombatState,
-    interaction: &mut ambition_sandbox::player::PlayerInteractionState,
-    blink_cam: &mut ambition_sandbox::player::PlayerBlinkCameraState,
+    sim_state: &mut ambition_gameplay_core::SandboxSimState,
+    clock: &mut ambition_gameplay_core::time::clock_state::ClockState,
+    safety: &mut ambition_gameplay_core::player::PlayerSafetyState,
+    attack: &mut Option<ambition_gameplay_core::PlayerAttackState>,
+    anim: &mut ambition_gameplay_core::player::PlayerAnimState,
+    combat: &mut ambition_gameplay_core::player::PlayerCombatState,
+    interaction: &mut ambition_gameplay_core::player::PlayerInteractionState,
+    blink_cam: &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
 ) {
@@ -52,15 +52,15 @@ pub(crate) fn load_room(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
     clusters: &mut ae::PlayerClustersMut<'_>,
-    dev_state: &mut ambition_sandbox::SandboxDevState,
-    sim_state: &mut ambition_sandbox::SandboxSimState,
-    clock: &mut ambition_sandbox::time::clock_state::ClockState,
-    safety: &mut ambition_sandbox::player::PlayerSafetyState,
-    moving_platforms: &mut Vec<ambition_sandbox::world::platforms::MovingPlatformState>,
-    dialogue: &mut ambition_sandbox::dialog::DialogState,
-    combat: &mut ambition_sandbox::player::PlayerCombatState,
-    interaction: &mut ambition_sandbox::player::PlayerInteractionState,
-    blink_cam: &mut ambition_sandbox::player::PlayerBlinkCameraState,
+    dev_state: &mut ambition_gameplay_core::SandboxDevState,
+    sim_state: &mut ambition_gameplay_core::SandboxSimState,
+    clock: &mut ambition_gameplay_core::time::clock_state::ClockState,
+    safety: &mut ambition_gameplay_core::player::PlayerSafetyState,
+    moving_platforms: &mut Vec<ambition_gameplay_core::world::platforms::MovingPlatformState>,
+    dialogue: &mut ambition_gameplay_core::dialog::DialogState,
+    combat: &mut ambition_gameplay_core::player::PlayerCombatState,
+    interaction: &mut ambition_gameplay_core::player::PlayerInteractionState,
+    blink_cam: &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
     world: &mut GameWorld,
     room_set: &mut rooms::RoomSet,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
@@ -68,7 +68,7 @@ pub(crate) fn load_room(
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     physics_settings: physics::PhysicsSandboxSettings,
-    assets: Option<&ambition_sandbox::assets::game_assets::GameAssets>,
+    assets: Option<&ambition_gameplay_core::assets::game_assets::GameAssets>,
 ) {
     let old_velocity = clusters.kinematics.vel;
     let fly_enabled = clusters.flight.fly_enabled;
@@ -110,7 +110,7 @@ pub(crate) fn load_room(
     blink_cam.camera_snap_timer = if edge_exit {
         0.0
     } else {
-        ambition_sandbox::ROOM_DOOR_CAMERA_SNAP_TIME
+        ambition_gameplay_core::ROOM_DOOR_CAMERA_SNAP_TIME
     };
     combat.flash_timer = if edge_exit {
         feel.edge_transition_flash
@@ -171,9 +171,9 @@ pub(crate) fn load_room(
 /// other post-sim systems run in the same frame.
 pub fn ensure_requested_room_parallax_system(
     mut requests: MessageReader<rooms::RoomTransitionRequested>,
-    mut game_assets: Option<ResMut<ambition_sandbox::assets::game_assets::GameAssets>>,
+    mut game_assets: Option<ResMut<ambition_gameplay_core::assets::game_assets::GameAssets>>,
     room_set: Res<rooms::RoomSet>,
-    sandbox_catalog: Res<ambition_sandbox::assets::sandbox_assets::SandboxAssetCatalog>,
+    sandbox_catalog: Res<ambition_gameplay_core::assets::sandbox_assets::SandboxAssetCatalog>,
     asset_server: Res<AssetServer>,
 ) {
     let Some(assets) = game_assets.as_deref_mut() else {
@@ -181,7 +181,7 @@ pub fn ensure_requested_room_parallax_system(
     };
     for request in requests.read() {
         if let Some(target_spec) = room_set.rooms.get(request.transition.target_room) {
-            ambition_sandbox::assets::game_assets::ensure_parallax_layers_for_room(
+            ambition_gameplay_core::assets::game_assets::ensure_parallax_layers_for_room(
                 assets,
                 &sandbox_catalog,
                 &asset_server,
@@ -198,26 +198,26 @@ pub(crate) fn apply_room_transition_system(
     mut player_q: Query<
         (
             ae::PlayerClusterQueryData,
-            &mut ambition_sandbox::player::PlayerCombatState,
-            &mut ambition_sandbox::player::PlayerInteractionState,
-            &mut ambition_sandbox::player::PlayerBlinkCameraState,
-            &mut ambition_sandbox::player::PlayerSafetyState,
+            &mut ambition_gameplay_core::player::PlayerCombatState,
+            &mut ambition_gameplay_core::player::PlayerInteractionState,
+            &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
+            &mut ambition_gameplay_core::player::PlayerSafetyState,
         ),
         // PRIMARY-only: a room transition flips the one active room around the
         // camera body crossing an edge/door; the clone rides along in-room.
-        ambition_sandbox::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::player::PrimaryPlayerOnly,
     >,
     mut world: ResMut<GameWorld>,
     mut room_set: ResMut<rooms::RoomSet>,
-    mut dev_state: ResMut<ambition_sandbox::SandboxDevState>,
+    mut dev_state: ResMut<ambition_gameplay_core::SandboxDevState>,
     mut room_clock: RoomClock,
-    mut moving_platforms: ResMut<ambition_sandbox::MovingPlatformSet>,
-    mut dialogue: ResMut<ambition_sandbox::dialog::DialogState>,
+    mut moving_platforms: ResMut<ambition_gameplay_core::MovingPlatformSet>,
+    mut dialogue: ResMut<ambition_gameplay_core::dialog::DialogState>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
-    game_assets: Option<Res<ambition_sandbox::assets::game_assets::GameAssets>>,
+    game_assets: Option<Res<ambition_gameplay_core::assets::game_assets::GameAssets>>,
     mut combat_reset: super::super::feedback::CombatRoomReset,
 ) {
     for request in requests.read() {
@@ -299,7 +299,7 @@ fn log_room_transition_landing(
     pos: ae::Vec2,
     size: ae::Vec2,
     world: &ae::World,
-    feature_overlay: &ambition_sandbox::features::FeatureEcsWorldOverlay,
+    feature_overlay: &ambition_gameplay_core::features::FeatureEcsWorldOverlay,
 ) {
     let target_id = room_set
         .rooms

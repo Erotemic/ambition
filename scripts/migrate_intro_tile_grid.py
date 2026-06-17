@@ -32,7 +32,7 @@ python3 scripts/migrate_intro_tile_grid.py
 # then repaint from collision:
 PYTHONPATH=tools/ambition_ldtk_tools \\
 python3 -m ambition_ldtk_tools tileset paint \\
-    crates/ambition_sandbox/assets/ambition/worlds/intro.ldtk \\
+    crates/ambition_gameplay_core/assets/ambition/worlds/intro.ldtk \\
     intro_lab --layer IntroLabTiles --from-intgrid Collision \\
     --map 1=0 --all-levels --overwrite --in-place
 ```
@@ -48,11 +48,11 @@ from pathlib import Path
 from PIL import Image
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-LDTK_PATH = REPO_ROOT / "crates/ambition_sandbox/assets/ambition/worlds/intro.ldtk"
+LDTK_PATH = REPO_ROOT / "crates/ambition_gameplay_core/assets/ambition/worlds/intro.ldtk"
 INTRO_LAB_PNG = (
-    REPO_ROOT / "crates/ambition_sandbox/assets/sprites/intro_lab_tileset.png"
+    REPO_ROOT / "crates/ambition_gameplay_core/assets/sprites/intro_lab_tileset.png"
 )
-TOWN_PNG = REPO_ROOT / "crates/ambition_sandbox/assets/sprites/town_tileset.png"
+TOWN_PNG = REPO_ROOT / "crates/ambition_gameplay_core/assets/sprites/town_tileset.png"
 
 NEW_TILE_GRID = 16
 LAYER_IDENTIFIER = "IntroLabTiles"

@@ -2,7 +2,7 @@
 //! collision routines.
 
 use ae::{AbilitySet, Block, InputState, PlayerClusterScratch, World, DEFAULT_TUNING};
-use ambition_sandbox as sb;
+use ambition_gameplay_core as sb;
 use sb::engine_core as ae;
 
 fn scratch_at(spawn: ae::Vec2) -> PlayerClusterScratch {

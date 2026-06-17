@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Reusable, content-free gameplay flight-recorder format: the per-frame trace schema (GameplayTraceFrame / GameplayTraceEvent), the rolling GameplayTraceBuffer resource, and the markdown/JSON dump writers. The game's sim systems fill the buffer; this crate owns the format the replay harness reads. Extracted from ambition_sandbox."
+description = "Reusable, content-free gameplay flight-recorder format: the per-frame trace schema (GameplayTraceFrame / GameplayTraceEvent), the rolling GameplayTraceBuffer resource, and the markdown/JSON dump writers. The game's sim systems fill the buffer; this crate owns the format the replay harness reads. Extracted from ambition_gameplay_core."
 
 [lib]
 crate-type = ["rlib"]

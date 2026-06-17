@@ -9,7 +9,7 @@ aliases:
 implemented_by:
   - tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/toon_side.py
   - tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/configs/review/
-  - crates/ambition_sandbox/assets/sprites/
+  - crates/ambition_gameplay_core/assets/sprites/
 related_docs:
   - docs/concepts/llm-spatial-authoring-discipline.md
 last_verified: 2026-05-21
@@ -49,7 +49,7 @@ Lean into the names as character ideas, not as job descriptions.
 ## Batch 1 — landed (2026-05-21)
 
 These six are PRESETS in `toon_side.py`, with review configs in
-`configs/review/` and rendered into `crates/ambition_sandbox/assets/sprites/` via
+`configs/review/` and rendered into `crates/ambition_gameplay_core/assets/sprites/` via
 `draw-runtime-npcs`.
 
 | Name | Silhouette read | Prop | Palette signal |
@@ -214,7 +214,7 @@ from preset tuning alone.
   to iterate on one character without overwriting the live assets.
 - Per the repo's "never commit binary/generated data" rule, the
   spritesheet + canonical PNGs are gitignored under
-  `crates/ambition_sandbox/assets/sprites/.gitignore` (`*.png`). The
+  `crates/ambition_gameplay_core/assets/sprites/.gitignore` (`*.png`). The
   manifest YAMLs (`*_spritesheet.yaml`) ARE committed because they
   carry the frame/animation metadata the runtime reads. PNGs
   regenerate deterministically from the seed in the review YAML, so

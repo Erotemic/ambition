@@ -15,24 +15,24 @@ use ambition_render::fx::{
     ExplosionKind, ExplosionRequest, FireworksRequest, ParticleKind, VfxMessage,
 };
 use ambition_render::rendering::PropVisual;
-use ambition_sandbox::assets::game_assets::GameAssets;
-use ambition_sandbox::audio::SfxMessage;
-use ambition_sandbox::boss_encounter::{force_boss_death, BossEncounterRegistry};
-use ambition_sandbox::brain::ActorControl;
-use ambition_sandbox::brain::BossAttackState;
-use ambition_sandbox::character_sprites::{
+use ambition_gameplay_core::assets::game_assets::GameAssets;
+use ambition_gameplay_core::audio::SfxMessage;
+use ambition_gameplay_core::boss_encounter::{force_boss_death, BossEncounterRegistry};
+use ambition_gameplay_core::brain::ActorControl;
+use ambition_gameplay_core::brain::BossAttackState;
+use ambition_gameplay_core::character_sprites::{
     build_character_sprite, feet_anchor_for, CharacterAnimator,
 };
-use ambition_sandbox::config::world_to_bevy;
-use ambition_sandbox::engine_core::{self as ae, AabbExt};
-use ambition_sandbox::features::{
+use ambition_gameplay_core::config::world_to_bevy;
+use ambition_gameplay_core::engine_core::{self as ae, AabbExt};
+use ambition_gameplay_core::features::{
     ActorPose, ActorRuntime, BossClusterQueryData, BossClusterRef, BossRef, CenteredAabb,
     DamageableVolumes, EnemyActorBundle, FeatureBaseBundle, FeatureId, FeatureName,
     FeatureSimEntity, GameplayBanner, HitEvent, HitSource, PogoPolicy, PogoTargetVolumes,
     PostBossNpc, ResetRoomFeaturesEvent,
 };
-use ambition_sandbox::rooms::{PropSpec, RoomSet};
-use ambition_sandbox::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
+use ambition_gameplay_core::rooms::{PropSpec, RoomSet};
+use ambition_gameplay_core::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 
 pub const CUT_ROPE_BOSS_ID: &str = "smirking_behemoth_boss";
 pub const CUT_ROPE_VICTORY_NPC_ID: &str = "smirking_behemoth_victory_npc";
@@ -126,7 +126,7 @@ impl CutRopeHeavyObjectCycle {
 /// Convert a pending dialogue-authored replay into the normal replay message after
 /// the final dialog line has been dismissed.
 pub fn emit_cut_rope_room_replay_after_dialogue_closes(
-    dialogue: Res<ambition_sandbox::dialog::DialogState>,
+    dialogue: Res<ambition_gameplay_core::dialog::DialogState>,
     mut pending: ResMut<PendingCutRopeRoomReplay>,
     mut replay_requests: MessageWriter<CutRopeRoomReplayRequested>,
 ) {
@@ -144,8 +144,8 @@ pub fn emit_cut_rope_room_replay_after_dialogue_closes(
 /// helper only clears the boss encounter/save state that would otherwise keep the boss retired.
 pub fn reset_cut_rope_boss_attempt(
     registry: &mut BossEncounterRegistry,
-    save: Option<&mut ambition_sandbox::persistence::save::SandboxSave>,
-    music_request: Option<&mut ambition_sandbox::encounter::BossEncounterMusicRequest>,
+    save: Option<&mut ambition_gameplay_core::persistence::save::SandboxSave>,
+    music_request: Option<&mut ambition_gameplay_core::encounter::BossEncounterMusicRequest>,
 ) {
     let runtime_id = registry.runtime_ids.get(CUT_ROPE_BOSS_ID).cloned();
     let intro_track = registry.encounters.get_mut(CUT_ROPE_BOSS_ID).map(|state| {
@@ -156,12 +156,12 @@ pub fn reset_cut_rope_boss_attempt(
         let data = save.data_mut();
         data.set_boss(
             CUT_ROPE_BOSS_ID,
-            ambition_sandbox::persistence::save_data::PersistedEncounterState::Untouched,
+            ambition_gameplay_core::persistence::save_data::PersistedEncounterState::Untouched,
         );
         if let Some(runtime_id) = runtime_id.as_deref() {
             data.set_boss(
                 runtime_id,
-                ambition_sandbox::persistence::save_data::PersistedEncounterState::Untouched,
+                ambition_gameplay_core::persistence::save_data::PersistedEncounterState::Untouched,
             );
         }
         // The NPC appears only after the victory beat. Replaying the room should

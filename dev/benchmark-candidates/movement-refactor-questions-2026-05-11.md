@@ -105,7 +105,7 @@ Validation command:
 
 ```bash
 cargo test -p ambition_engine --lib
-cargo test -p ambition_sandbox --test repro_walls
+cargo test -p ambition_gameplay_core --test repro_walls
 ```
 
 Expected invariant:
@@ -161,7 +161,7 @@ simulation system must exist in `SandboxSim`.
 Validation command:
 
 ```bash
-cargo test -p ambition_sandbox --test fuzz_random_walker
+cargo test -p ambition_gameplay_core --test fuzz_random_walker
 ```
 
 Tags: `bevy-resource`, `headless-simulation`, `presentation-sim-seam`.

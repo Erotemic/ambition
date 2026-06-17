@@ -8,6 +8,6 @@ Current references:
 
 - `docs/concepts/sim-presentation-seam.md`
 - `docs/systems/gameplay-trace-recorder.md`
-- `crates/ambition_sandbox/src/dev/trace/`
+- `crates/ambition_gameplay_core/src/dev/trace/`
 
 Use git history for the original roadmap.

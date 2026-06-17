@@ -6,14 +6,14 @@ fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
         .nth(2)
-        .expect("crate lives under <repo>/crates/ambition_sandbox")
+        .expect("crate lives under <repo>/crates/ambition_gameplay_core")
         .to_path_buf()
 }
 
 /// The machinery lib's source root (most boundaries guard the
-/// `ambition_sandbox` lib; this test crate lives in `ambition_app`).
+/// `ambition_gameplay_core` lib; this test crate lives in `ambition_app`).
 fn crate_src() -> PathBuf {
-    repo_root().join("crates/ambition_sandbox/src")
+    repo_root().join("crates/ambition_gameplay_core/src")
 }
 
 /// The app-assembly crate's source root.
@@ -305,7 +305,7 @@ fn read_spawn_allowlist() -> BTreeMap<String, usize> {
 }
 
 /// The `ambition_render` crate is the sandbox's renderer; the sim machinery
-/// (`ambition_sandbox`) must NOT depend on it. The render layer reads the sim,
+/// (`ambition_gameplay_core`) must NOT depend on it. The render layer reads the sim,
 /// never the reverse — so a render change never rebuilds the machinery, and the
 /// sim/render seam is a hard crate boundary, not a convention. Presentation
 /// modules migrate into `ambition_render` incrementally; this guard ensures the
@@ -313,7 +313,7 @@ fn read_spawn_allowlist() -> BTreeMap<String, usize> {
 #[test]
 fn architecture_boundaries_sandbox_does_not_depend_on_render() {
     assert_workspace_contains_crate("ambition_render");
-    let sandbox_root = repo_root().join("crates/ambition_sandbox");
+    let sandbox_root = repo_root().join("crates/ambition_gameplay_core");
     assert_manifest_has_no_deps(
         &sandbox_root,
         &["ambition_render"],
@@ -323,7 +323,7 @@ fn architecture_boundaries_sandbox_does_not_depend_on_render() {
     assert_source_tree_has_no_code_refs(
         sandbox_root.join("src"),
         &["ambition_render"],
-        "ambition_sandbox must not reference the render crate",
+        "ambition_gameplay_core must not reference the render crate",
     );
 }
 
@@ -381,7 +381,7 @@ fn architecture_boundaries_platformer_runtime_crate_is_extracted() {
     );
     assert_manifest_has_no_deps(
         &crate_root,
-        &["ambition_sandbox"],
+        &["ambition_gameplay_core"],
         "ambition_platformer_primitives must remain reusable and content-free",
     );
     assert_paths_absent(
@@ -404,11 +404,11 @@ fn architecture_boundaries_platformer_runtime_crate_is_extracted() {
     let physics_facade = fs::read_to_string(crate_src().join("physics.rs")).expect("read physics");
     assert!(
         physics_facade.contains("ambition_platformer_primitives::gravity"),
-        "ambition_sandbox::physics should re-export the extracted gravity module"
+        "ambition_gameplay_core::physics should re-export the extracted gravity module"
     );
 }
 
-/// Pure simulation/gameplay code in `ambition_sandbox` must not import the
+/// Pure simulation/gameplay code in `ambition_gameplay_core` must not import the
 /// presentation layer. The render layer depends on the sim — never the reverse —
 /// so that `presentation/` can be lifted into a standalone render crate without
 /// dragging gameplay logic along.
@@ -460,12 +460,12 @@ fn architecture_boundaries_menu_crate_stays_content_free() {
     );
     assert_manifest_has_no_deps(
         &crate_root,
-        &["ambition_sandbox"],
+        &["ambition_gameplay_core"],
         "ambition_menu is the reusable renderer; the game owns menu content",
     );
     assert_source_tree_has_no_code_refs(
         crate_root.join("src"),
-        &["ambition_sandbox"],
+        &["ambition_gameplay_core"],
         "ambition_menu must stay content-free",
     );
 }
@@ -473,7 +473,7 @@ fn architecture_boundaries_menu_crate_stays_content_free() {
 /// `ambition_interaction` is a reusable, content-free foundation crate: the
 /// interactive-world-object MODEL (Interactable / InteractionKind / Pickup / Chest
 /// / Breakable + state enums) over the actor + geometry foundations. It must not
-/// depend on the game machinery (`ambition_sandbox`) or name any game content, so
+/// depend on the game machinery (`ambition_gameplay_core`) or name any game content, so
 /// another platformer reuses the interaction vocabulary by depending on it.
 #[test]
 fn architecture_boundaries_interaction_crate_is_foundation_only() {
@@ -485,7 +485,7 @@ fn architecture_boundaries_interaction_crate_is_foundation_only() {
     assert_manifest_has_no_deps(
         &crate_root,
         &[
-            "ambition_sandbox",
+            "ambition_gameplay_core",
             "ambition_content",
             "ambition_render",
             "bevy",
@@ -495,7 +495,7 @@ fn architecture_boundaries_interaction_crate_is_foundation_only() {
     assert_source_tree_has_no_code_refs(
         crate_root.join("src"),
         &[
-            "ambition_sandbox",
+            "ambition_gameplay_core",
             "ambition_content",
             "gnu_ton",
             "gradient_sentinel",
@@ -513,13 +513,13 @@ fn architecture_boundaries_effects_crate_is_foundation_only() {
     );
     assert_manifest_has_no_deps(
         &crate_root,
-        &["ambition_sandbox"],
+        &["ambition_gameplay_core"],
         "ambition_vfx is the reusable effect substrate (Effect vocabulary + \
          Hitbox + executor); it must never depend on the game lib",
     );
     assert_source_tree_has_no_code_refs(
         crate_root.join("src"),
-        &["ambition_sandbox"],
+        &["ambition_gameplay_core"],
         "ambition_vfx must stay content-free / foundation-only",
     );
 }
@@ -543,7 +543,7 @@ fn architecture_boundaries_input_crate_is_extracted() {
     );
     assert_manifest_has_no_deps(
         &crate_root,
-        &["ambition_sandbox"],
+        &["ambition_gameplay_core"],
         "ambition_input must stay decoupled from sandbox content",
     );
     assert_paths_absent(
@@ -555,7 +555,7 @@ fn architecture_boundaries_input_crate_is_extracted() {
     let lib = fs::read_to_string(crate_src().join("lib.rs")).expect("read sandbox lib.rs");
     assert!(
         lib.contains("pub use ambition_input as input"),
-        "ambition_sandbox::input should re-export ambition_input"
+        "ambition_gameplay_core::input should re-export ambition_input"
     );
     let settings_mod = fs::read_to_string(crate_src().join("persistence/settings/mod.rs"))
         .expect("read persistence settings mod.rs");
@@ -608,12 +608,12 @@ fn architecture_boundaries_app_plugins_does_not_reown_moved_subsystems() {
     let forbidden = [
         "fn register_portal_systems",
         "fn register_item_pickup_systems",
-        "ambition_sandbox::portal::portal_fire_system",
-        "ambition_sandbox::portal::portal_projectile_step",
-        "ambition_sandbox::portal::portal_transit",
-        "ambition_sandbox::item_pickup::pickup_held_item_system",
-        "ambition_sandbox::item_pickup::throw_held_item_system",
-        "ambition_sandbox::item_pickup::ground_item_physics",
+        "ambition_gameplay_core::portal::portal_fire_system",
+        "ambition_gameplay_core::portal::portal_projectile_step",
+        "ambition_gameplay_core::portal::portal_transit",
+        "ambition_gameplay_core::item_pickup::pickup_held_item_system",
+        "ambition_gameplay_core::item_pickup::throw_held_item_system",
+        "ambition_gameplay_core::item_pickup::ground_item_physics",
     ];
 
     let violations = forbidden
@@ -646,7 +646,7 @@ fn architecture_boundaries_non_portal_mechanics_use_runtime_raycast_seam() {
         let text = fs::read_to_string(&path).expect("read source file");
         if text.contains("crate::portal::raycast_solids") {
             violations.push(format!(
-                "{rel} still reaches into portal for a generic solid raycast; use ambition_sandbox::platformer_runtime::collision::raycast_solids"
+                "{rel} still reaches into portal for a generic solid raycast; use ambition_gameplay_core::platformer_runtime::collision::raycast_solids"
             ));
         }
     }
@@ -664,7 +664,7 @@ fn architecture_boundaries_portal_orders_against_item_set_not_function() {
         .expect("read portal plugin source");
     let names_item_set_in_code = portal_text.lines().any(|raw| {
         let line = raw.trim();
-        !is_comment_line(line) && line.contains("ambition_sandbox::items::pickup")
+        !is_comment_line(line) && line.contains("ambition_gameplay_core::items::pickup")
     });
     assert!(
         !names_item_set_in_code,
@@ -674,11 +674,11 @@ fn architecture_boundaries_portal_orders_against_item_set_not_function() {
     let wiring =
         fs::read_to_string(app_src().join("app/plugins.rs")).expect("read sandbox plugins source");
     assert!(
-        !wiring.contains("after(ambition_sandbox::items::pickup::ground_item_physics)"),
+        !wiring.contains("after(ambition_gameplay_core::items::pickup::ground_item_physics)"),
         "host wiring should order PortalSet::Transit against ItemPickupSet, not a concrete function"
     );
     assert!(
-        wiring.contains("ambition_sandbox::items::pickup::ItemPickupSet::CoreHeldItems"),
+        wiring.contains("ambition_gameplay_core::items::pickup::ItemPickupSet::CoreHeldItems"),
         "host wiring should order PortalSet::Transit on the held-item/ground-item simulation set"
     );
 }
@@ -691,19 +691,19 @@ fn architecture_boundaries_portal_core_does_not_import_ambition_content_roster()
         crate_src().join("portal"),
     ];
     let forbidden = [
-        "ambition_sandbox::items",
+        "ambition_gameplay_core::items",
         "Item::PortalGun",
         "OwnedItems",
-        "ambition_sandbox::inventory",
-        "ambition_sandbox::menu::effects",
+        "ambition_gameplay_core::inventory",
+        "ambition_gameplay_core::menu::effects",
         "StashedActionSet",
-        "ambition_sandbox::content",
-        "ambition_sandbox::quest",
-        "ambition_sandbox::ldtk_world",
-        "ambition_sandbox::world::ldtk_world",
-        "ambition_sandbox::persistence",
-        "ambition_sandbox::input::ControlFrame",
-        "ambition_sandbox::items::pickup::GroundItem",
+        "ambition_gameplay_core::content",
+        "ambition_gameplay_core::quest",
+        "ambition_gameplay_core::ldtk_world",
+        "ambition_gameplay_core::world::ldtk_world",
+        "ambition_gameplay_core::persistence",
+        "ambition_gameplay_core::input::ControlFrame",
+        "ambition_gameplay_core::items::pickup::GroundItem",
     ];
     let violations = scan_code_refs_filtered(
         &roots,
@@ -711,10 +711,10 @@ fn architecture_boundaries_portal_core_does_not_import_ambition_content_roster()
         |_| true,
         |file, line| {
             let is_test = file.file_name().and_then(|n| n.to_str()) == Some("tests.rs");
-            line.contains("ambition_sandbox::items::pickup::ItemPickupSet")
-                || line.contains("ambition_sandbox::items::pickup::axe_spec")
-                || (is_test && line.contains("ambition_sandbox::items::pickup::GroundItem"))
-                || (is_test && line.contains("ambition_sandbox::input::ControlFrame"))
+            line.contains("ambition_gameplay_core::items::pickup::ItemPickupSet")
+                || line.contains("ambition_gameplay_core::items::pickup::axe_spec")
+                || (is_test && line.contains("ambition_gameplay_core::items::pickup::GroundItem"))
+                || (is_test && line.contains("ambition_gameplay_core::input::ControlFrame"))
         },
     );
     assert!(
@@ -734,13 +734,13 @@ fn architecture_boundaries_portal_core_does_not_name_host_world_or_reset() {
     assert_code_refs_filtered(
         &[root],
         &[
-            "ambition_sandbox::features",
-            "ambition_sandbox::GameWorld",
+            "ambition_gameplay_core::features",
+            "ambition_gameplay_core::GameWorld",
             "Res<GameWorld>",
             "FeatureEcsWorldOverlay",
             "ResetRoomFeaturesEvent",
-            "ambition_sandbox::input::ControlFrame",
-            "ambition_sandbox::player",
+            "ambition_gameplay_core::input::ControlFrame",
+            "ambition_gameplay_core::player",
         ],
         |file| {
             let name = file.file_name().and_then(|n| n.to_str()).unwrap_or("");
@@ -822,7 +822,7 @@ fn architecture_boundaries_named_content_registers_through_content_plugin() {
         "app/sim_resources.rs still constructs named content inline: {violations:?}"
     );
     assert!(
-        !plugins_text.contains("ambition_sandbox::items::OwnedItems::starter()"),
+        !plugins_text.contains("ambition_gameplay_core::items::OwnedItems::starter()"),
         "app/plugins.rs should install the item roster through the content plugin"
     );
 }
@@ -856,11 +856,11 @@ fn architecture_boundaries_gravity_zone_mechanic_left_portal() {
     assert_code_refs_absent(
         &[src_root.join("mechanics/gravity")],
         &[
-            "ambition_sandbox::portal::",
-            "ambition_sandbox::portal;",
-            "ambition_sandbox::portal}",
-            "ambition_sandbox::portal,",
-            "ambition_sandbox::portal ",
+            "ambition_gameplay_core::portal::",
+            "ambition_gameplay_core::portal;",
+            "ambition_gameplay_core::portal}",
+            "ambition_gameplay_core::portal,",
+            "ambition_gameplay_core::portal ",
         ],
         "gravity mechanic must be portal-independent",
     );
@@ -880,7 +880,7 @@ fn architecture_boundaries_gravity_zone_mechanic_left_portal() {
         |_| true,
         |file, line| {
             file.file_name().and_then(|n| n.to_str()) == Some("tests.rs")
-                && line.contains("ambition_sandbox::mechanics::gravity")
+                && line.contains("ambition_gameplay_core::mechanics::gravity")
         },
     );
     assert!(
@@ -941,7 +941,7 @@ fn architecture_boundaries_abilities_live_under_abilities_layer() {
     let plugins_text =
         fs::read_to_string(app_src().join("app/plugins.rs")).expect("read app/plugins.rs");
     assert!(
-        plugins_text.contains("ambition_sandbox::abilities::AmbitionAbilitiesPlugin"),
+        plugins_text.contains("ambition_gameplay_core::abilities::AmbitionAbilitiesPlugin"),
         "app/plugins.rs should compose abilities through AmbitionAbilitiesPlugin"
     );
 }
@@ -1007,7 +1007,7 @@ fn architecture_boundaries_portal_crate_is_extracted() {
     assert_manifest_has_no_deps(
         &crate_root,
         &[
-            "ambition_sandbox",
+            "ambition_gameplay_core",
             "ambition_content",
             "ambition_input",
             "ambition_sfx",
@@ -1022,7 +1022,7 @@ fn architecture_boundaries_portal_crate_is_extracted() {
     );
     assert_code_refs_absent(
         &[crate_root.join("src")],
-        &["ambition_sandbox"],
+        &["ambition_gameplay_core"],
         "ambition_portal source must stay content-free",
     );
 
@@ -1054,7 +1054,7 @@ fn architecture_boundaries_portal_presentation_crate_is_extracted() {
     assert_manifest_has_no_deps(
         &crate_root,
         &[
-            "ambition_sandbox",
+            "ambition_gameplay_core",
             "ambition_content",
             "ambition_input",
             "ambition_sfx",
@@ -1080,7 +1080,7 @@ fn architecture_boundaries_portal_presentation_crate_is_extracted() {
     );
     assert_code_refs_absent(
         &[crate_root.join("src")],
-        &["ambition_sandbox", "ambition_content"],
+        &["ambition_gameplay_core", "ambition_content"],
         "ambition_portal_presentation source must stay host-free",
     );
 
@@ -1108,12 +1108,12 @@ fn architecture_boundaries_time_crate_is_extracted() {
     assert_workspace_contains_crate("ambition_time");
     assert_manifest_has_no_deps(
         &crate_root,
-        &["ambition_sandbox"],
+        &["ambition_gameplay_core"],
         "ambition_time is the reusable time layer",
     );
     assert_code_refs_absent(
         &[crate_root.join("src")],
-        &["ambition_sandbox"],
+        &["ambition_gameplay_core"],
         "ambition_time source must stay content-free",
     );
 
@@ -1334,7 +1334,7 @@ fn architecture_boundaries_actor_crate_is_content_free_and_foundation_clean() {
     assert_code_refs_absent(
         &[repo_root().join("crates/ambition_characters/src")],
         &[
-            "ambition_sandbox",
+            "ambition_gameplay_core",
             "ambition_content",
             "ambition_app",
             "GnuTon",

@@ -4,7 +4,7 @@
 #
 # Pipeline:
 #   1. ambition_sfx_renderer render-all  →  tools/ambition_sfx_renderer/output/<cue>/
-#   2. ambition_sfx_pack                 →  crates/ambition_sandbox/assets/audio/sfx.bank
+#   2. ambition_sfx_pack                 →  crates/ambition_gameplay_core/assets/audio/sfx.bank
 #
 # Usage:
 #   ./regen_sfx.sh              # render (incremental) + repack (default)
@@ -98,7 +98,7 @@ if [ "$skip_render" -eq 0 ]; then
     (cd "$renderer_dir" && "$renderer_py" -m ambition_sfx_renderer "${render_args[@]}")
 fi
 
-echo "==> pack → crates/ambition_sandbox/assets/audio/sfx.bank"
+echo "==> pack → crates/ambition_gameplay_core/assets/audio/sfx.bank"
 python3 "$pack_script" --dump
 
 echo "==> done"

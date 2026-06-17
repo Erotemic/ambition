@@ -7,7 +7,7 @@ LDtk hot reload is a development convenience for applying the on-disk sandbox wo
 Run the sandbox with hot reload enabled:
 
 ```bash
-cargo run -p ambition_sandbox --features dev_hot_reload --release
+cargo run -p ambition_gameplay_core --features dev_hot_reload --release
 ```
 
 Useful dev hotkeys:
@@ -20,7 +20,7 @@ Before and after significant LDtk edits, run:
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools doctor \
-  crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
 ```
 
 ## Rules

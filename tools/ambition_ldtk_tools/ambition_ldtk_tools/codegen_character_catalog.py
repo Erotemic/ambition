@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """One-shot codegen: synthesize missing entries in
-`crates/ambition_sandbox/assets/data/character_catalog.ron` from the
+`crates/ambition_gameplay_core/assets/data/character_catalog.ron` from the
 renderer's `list-targets` output.
 
 Phase 3 of the character-catalog refactor (see
@@ -51,7 +51,7 @@ RENDERER_DIR = REPO_ROOT / "tools" / "ambition_sprite2d_renderer"
 CATALOG_PATH = (
     REPO_ROOT
     / "crates"
-    / "ambition_sandbox"
+    / "ambition_gameplay_core"
     / "assets"
     / "data"
     / "character_catalog.ron"

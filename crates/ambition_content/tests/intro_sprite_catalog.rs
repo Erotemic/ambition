@@ -2,8 +2,8 @@
 //! entries resolve through the prebuilt sandbox catalog.
 
 use ambition_asset_manager::{AssetKind, AssetProfile};
-use ambition_sandbox::assets::game_assets::GameAssetConfig;
-use ambition_sandbox::runtime::data::SandboxDataSpec;
+use ambition_gameplay_core::assets::game_assets::GameAssetConfig;
+use ambition_gameplay_core::runtime::data::SandboxDataSpec;
 
 #[test]
 fn intro_npc_and_prop_sprite_ids_resolve_through_the_catalog() {
@@ -16,7 +16,7 @@ fn intro_npc_and_prop_sprite_ids_resolve_through_the_catalog() {
     let spec = SandboxDataSpec::load_embedded();
     // The intro entries are a CONTENT extension (the app assembly wires
     // them through `build_sandbox_catalog_with`); mirror that wiring here.
-    let catalog = ambition_sandbox::assets::sandbox_assets::build_sandbox_catalog_with(
+    let catalog = ambition_gameplay_core::assets::sandbox_assets::build_sandbox_catalog_with(
         &config,
         &spec.audio,
         |manifest| {

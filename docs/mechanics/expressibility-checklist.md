@@ -82,11 +82,11 @@ Legend: `[x]` expressible now, `[~]` scaffolded but incomplete, `[ ]` not yet re
 ## Validation anchors
 
 ```bash
-cargo test -p ambition_sandbox --lib combat
-cargo test -p ambition_sandbox --lib projectile
-cargo test -p ambition_sandbox --lib engine_core::movement
-cargo test -p ambition_sandbox --lib brain::
-cargo test -p ambition_sandbox projectile
+cargo test -p ambition_gameplay_core --lib combat
+cargo test -p ambition_gameplay_core --lib projectile
+cargo test -p ambition_gameplay_core --lib engine_core::movement
+cargo test -p ambition_gameplay_core --lib brain::
+cargo test -p ambition_gameplay_core projectile
 cargo test -p ambition_app --test scripted_gameplay --features "rl_sim portal"
 ```
 

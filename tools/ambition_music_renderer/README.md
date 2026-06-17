@@ -73,7 +73,7 @@ generated/<cue>/
 Runtime assets live under:
 
 ```text
-crates/ambition_sandbox/assets/audio/music/generated/<cue>/
+crates/ambition_gameplay_core/assets/audio/music/generated/<cue>/
 ```
 
 For `first_goblin_tune_v2`, the top-level wrapper currently renders/installs the active cue path used by the sandbox. By default, prefer full-mix render/install for the cue the game actually loads. Use stem rendering when auditing or reviving stem-driven runtime playback.

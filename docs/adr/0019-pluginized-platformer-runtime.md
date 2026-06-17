@@ -6,7 +6,7 @@ Accepted.
 
 ## Context
 
-`ambition_sandbox` contains reusable platformer behavior, Ambition-specific
+`ambition_gameplay_core` contains reusable platformer behavior, Ambition-specific
 content, presentation adapters, authoring adapters, and app assembly. That made
 feature work fast early on, but the central app plugin file and room lifecycle
 conventions are now carrying too much architectural meaning implicitly.
@@ -57,7 +57,7 @@ can be mapped cleanly onto reusable runtime phases.
 
 ```bash
 cargo test -p ambition_app --test architecture_boundaries
-cargo test -p ambition_sandbox --lib room_scoped
+cargo test -p ambition_gameplay_core --lib room_scoped
 cargo test -p ambition_app --test portal_lab_usable
 cargo test -p ambition_app --test gravity_room_reachability
 ```
@@ -67,15 +67,15 @@ cargo test -p ambition_app --test gravity_room_reachability
 - The crate extraction this ADR set up has LARGELY HAPPENED (Stage 20, 2026-06).
   The workspace is now `ambition_engine_core` / `ambition_platformer_primitives` /
   `ambition_portal` / `ambition_time` / `ambition_input` / `ambition_menu` /
-  `ambition_audio` (foundations) ← `ambition_sandbox` (machinery lib) ←
+  `ambition_audio` (foundations) ← `ambition_gameplay_core` (machinery lib) ←
   `ambition_content` (named game content) ← `ambition_app` (assembly + bins +
   tests). See `docs/planning/plugin_refactor/22_monolith_breaker_survey.md`.
 - `crate::engine_core`, `crate::kinematic`, `crate::input`, `crate::time`,
-  `crate::portal` inside `ambition_sandbox` are FACADE re-exports of those crates —
+  `crate::portal` inside `ambition_gameplay_core` are FACADE re-exports of those crates —
   edit the crate, not a (nonexistent) lib module.
 - Machinery must not import content: the `architecture_boundaries` guards (in
   `ambition_app/tests`) enforce it. Add a guard when you win a new boundary.
 - New gameplay subsystems should be self-owning `Plugin`s (components-as-plugins),
   not functions hand-wired in the app assembly.
 - Integration tests + binaries live in `ambition_app`; machinery unit tests in
-  `ambition_sandbox --lib`; content tests in `ambition_content --all-features`.
+  `ambition_gameplay_core --lib`; content tests in `ambition_content --all-features`.

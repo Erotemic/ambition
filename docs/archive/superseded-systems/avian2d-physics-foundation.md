@@ -17,7 +17,7 @@ ambition_engine::physics
   backend-neutral intent types:
   PhysicsBodySpec, PhysicsShape, PhysicsMaterial, RagdollSpec
 
-ambition_sandbox::physics
+ambition_gameplay_core::physics
   Avian2D plugin and runtime adapter:
   static colliders for room blocks,
   dynamic debris/ragdoll bursts,

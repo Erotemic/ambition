@@ -49,7 +49,7 @@ Build a debug-signed APK with an optimized Rust shared library:
 The generated Android project is intentionally not checked in. It lives under:
 
 ```text
-target/android/ambition_sandbox_android/
+target/android/ambition_gameplay_core_android/
 ```
 
 The generated project writes its own `gradle.properties` with:
@@ -64,10 +64,10 @@ dependency; without it Gradle fails `checkDebugAarMetadata`.
 The final APK is copied to:
 
 ```text
-target/android/apks/ambition_sandbox-debug-arm64-v8a.apk
+target/android/apks/ambition_gameplay_core-debug-arm64-v8a.apk
 ```
 
-The build script copies `crates/ambition_sandbox/assets/` into the generated
+The build script copies `crates/ambition_gameplay_core/assets/` into the generated
 Gradle project's `app/src/main/assets/`, so LDtk, RON, dialogue, sprites, fonts,
 and audio assets are packaged into the APK rather than needing loose files next
 to the app.
@@ -164,7 +164,7 @@ sudo chown -R "$USER:$USER" "$HOME/.gradle"
 
 The generated project uses a tiny app-local `MainActivity` Java class that
 extends `com.google.androidgamesdk.GameActivity` and loads
-`libambition_sandbox.so`. Do not point `AndroidManifest.xml` directly at
+`libambition_gameplay_core.so`. Do not point `AndroidManifest.xml` directly at
 `androidx.games.activity.GameActivity`; the runtime class provided by the
 GameActivity AAR is in the `com.google.androidgamesdk` package, and using the
 wrong manifest class crashes before Rust starts.
@@ -201,11 +201,11 @@ full Android project.
 
 ## Phone usability notes
 
-Android builds package the checked-out `crates/ambition_sandbox/assets/` tree into
+Android builds package the checked-out `crates/ambition_gameplay_core/assets/` tree into
 `app/src/main/assets/`. Generated sprite PNGs are usually ignored by git, so the
 build script now prints how many sprite PNGs were copied. If that count is zero,
 the APK will still run but character/entity art falls back to colored rectangles.
-Regenerate or copy the sprite PNGs into `crates/ambition_sandbox/assets/sprites/`
+Regenerate or copy the sprite PNGs into `crates/ambition_gameplay_core/assets/sprites/`
 before rebuilding the APK.
 
 The Android build starts with debug HUD/gizmo overlays disabled so the small
@@ -248,12 +248,12 @@ between these commands:
 
 ```bash
 ./build_for_android.sh --clean
-ls -lh target/android/ambition_sandbox_android/app/src/main/jniLibs/arm64-v8a/libambition_sandbox.so \
-      target/android/apks/ambition_sandbox-debug-arm64-v8a.apk
+ls -lh target/android/ambition_gameplay_core_android/app/src/main/jniLibs/arm64-v8a/libambition_gameplay_core.so \
+      target/android/apks/ambition_gameplay_core-debug-arm64-v8a.apk
 
 ./build_for_android.sh --clean --size-profile
-ls -lh target/android/ambition_sandbox_android/app/src/main/jniLibs/arm64-v8a/libambition_sandbox.so \
-      target/android/apks/ambition_sandbox-debug-arm64-v8a.apk
+ls -lh target/android/ambition_gameplay_core_android/app/src/main/jniLibs/arm64-v8a/libambition_gameplay_core.so \
+      target/android/apks/ambition_gameplay_core-debug-arm64-v8a.apk
 ```
 
 Note: the Android composite feature still includes `static_map` today because the
@@ -270,7 +270,7 @@ The current SFX-bank runtime loader is synchronous and path/byte based. Desktop
 can read `assets/audio/sfx.bank` directly from the checkout, but Android APK
 assets are not ordinary filesystem files. Until the SFX bank gets an Android
 asset-reader backend, `build_for_android.sh` automatically enables the
-`static_sfx_bank` Cargo feature when `crates/ambition_sandbox/assets/audio/sfx.bank`
+`static_sfx_bank` Cargo feature when `crates/ambition_gameplay_core/assets/audio/sfx.bank`
 exists and passes the bank path to Rust for `include_bytes!`.
 
 That keeps the phone build using the real SFX bank instead of falling back to
@@ -313,7 +313,7 @@ should no longer emit the noisy `bevy_gilrs` unsupported-platform error.
 
 ## LDtk loading policy on Android
 
-Android builds still package `crates/ambition_sandbox/assets/` into APK assets,
+Android builds still package `crates/ambition_gameplay_core/assets/` into APK assets,
 but the startup LDtk JSON is synchronously parsed before the Android AssetServer
 path is convenient for world composition. For now, `static_map` Android builds
 load the embedded `sandbox.ldtk` first unless an explicit `--ldtk`, `--map`, or
@@ -325,7 +325,7 @@ external checked-in LDtk path for iteration and hot reload.
 The app prefers fonts under:
 
 ```text
-crates/ambition_sandbox/assets/fonts/bundled/
+crates/ambition_gameplay_core/assets/fonts/bundled/
 ```
 
 Generate them with:

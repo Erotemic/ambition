@@ -9,7 +9,7 @@
 //! reference frames, and the cluster components (`BodyKinematics`,
 //! `PlayerGroundState`, …, `PlayerComboTrace`) that make up the player ECS
 //! entity. `ambition_characters` (minds/cast), `ambition_content` (named game
-//! content), and `ambition_sandbox` (machinery) all sit above it.
+//! content), and `ambition_gameplay_core` (machinery) all sit above it.
 //!
 //! Top-level modules: [`abilities`] (capability flags), [`config`]
 //! (coordinate/layer constants), [`geometry`] (Aabb2d-backed collision

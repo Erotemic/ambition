@@ -4,7 +4,7 @@ catalog.
 
 Phase 5 of the character-catalog refactor (see
 `TODO-character-catalog-and-hall.md`). Reads
-`crates/ambition_sandbox/assets/data/character_catalog.ron`, lays out
+`crates/ambition_gameplay_core/assets/data/character_catalog.ron`, lays out
 one pedestal per character, and emits
 `tools/ambition_ldtk_tools/specs/hall_of_characters_area.ron`.
 
@@ -61,7 +61,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 CATALOG_PATH = (
     REPO_ROOT
     / "crates"
-    / "ambition_sandbox"
+    / "ambition_gameplay_core"
     / "assets"
     / "data"
     / "character_catalog.ron"

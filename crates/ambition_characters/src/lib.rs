@@ -17,7 +17,7 @@
 //!   phase logic; per-phase attack data lives in [`brain`]).
 //!
 //! Named world content (the actual cast of bosses/enemies) stays in
-//! `ambition_content`; `ambition_sandbox` re-exports these modules at the
+//! `ambition_content`; `ambition_gameplay_core` re-exports these modules at the
 //! historical `crate::actor` / `crate::brain` paths.
 
 pub mod actor;

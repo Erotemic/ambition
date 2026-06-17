@@ -11,8 +11,8 @@ use super::state::{apply_deadzone, fold_touch_into_control_frame, TouchButton, T
 fn fold_system_touch_down_sets_menu_down_and_active_touch() {
     use super::bevy_plugin::{MenuTouchGestureState, MobileTouchState};
     use super::menu_bridge::fold_to_menu_control_frame;
-    use ambition_sandbox::game_mode::GameMode;
-    use ambition_sandbox::input::{ActiveInputKind, MenuControlFrame};
+    use ambition_gameplay_core::game_mode::GameMode;
+    use ambition_gameplay_core::input::{ActiveInputKind, MenuControlFrame};
     use bevy::input::touch::Touches;
     use bevy::input::ButtonInput;
     use bevy::prelude::*;
@@ -28,7 +28,7 @@ fn fold_system_touch_down_sets_menu_down_and_active_touch() {
     app.init_resource::<MobileTouchState>();
     app.init_resource::<MenuTouchGestureState>();
     app.init_resource::<MenuControlFrame>();
-    app.init_resource::<ambition_sandbox::persistence::settings::UserSettings>();
+    app.init_resource::<ambition_gameplay_core::persistence::settings::UserSettings>();
     // Start the active-input marker on Keyboard so the flip to Touch is
     // unambiguous (not a no-op from a default that already equals Touch).
     app.insert_resource(ActiveInputKind::Keyboard);
@@ -177,7 +177,7 @@ fn fold_propagates_all_action_buttons() {
 #[test]
 fn touch_move_to_menu_dir_flips_touch_y_for_menu_navigation() {
     use super::menu_bridge::touch_move_to_menu_dir;
-    use ambition_sandbox::input::MenuDir;
+    use ambition_gameplay_core::input::MenuDir;
 
     let mut state = TouchInputState::default();
     state.move_y = 1.0;
@@ -206,7 +206,7 @@ fn axis_override_drives_knob_only_during_gameplay() {
     // drags it to navigate the menu. During gameplay the override DOES
     // run so the knob mirrors the move axis.
     use super::bevy_plugin::axis_override_drives_knob;
-    use ambition_sandbox::game_mode::GameMode;
+    use ambition_gameplay_core::game_mode::GameMode;
 
     assert!(
         axis_override_drives_knob(GameMode::Playing),
@@ -233,8 +233,8 @@ fn touch_drag_folds_into_menu_frame_while_kaleidoscope_paused() {
     // mode is covered by the menu-active gate (no separate state to
     // miss).
     use super::menu_bridge::{menu_move_active, touch_move_to_menu_dir};
-    use ambition_sandbox::game_mode::GameMode;
-    use ambition_sandbox::input::MenuDir;
+    use ambition_gameplay_core::game_mode::GameMode;
+    use ambition_gameplay_core::input::MenuDir;
 
     // Kaleidoscope (and grid) open in Paused -> menu fold is active.
     assert!(menu_move_active(GameMode::Paused));
@@ -258,8 +258,8 @@ fn touch_joystick_drag_down_drives_debounced_menu_down() {
     // `fold_to_menu_control_frame` runs: touch stick -> MenuDir ->
     // `MenuInputState::step` -> `MenuControlFrame::from_menu_input`.
     use super::menu_bridge::{menu_move_active, touch_move_to_menu_dir};
-    use ambition_sandbox::game_mode::GameMode;
-    use ambition_sandbox::input::{MenuControlFrame, MenuInputState};
+    use ambition_gameplay_core::game_mode::GameMode;
+    use ambition_gameplay_core::input::{MenuControlFrame, MenuInputState};
 
     assert!(menu_move_active(GameMode::Paused));
 
@@ -267,7 +267,7 @@ fn touch_joystick_drag_down_drives_debounced_menu_down() {
     state.move_y = 1.0; // drag the on-screen stick fully DOWN
 
     let dir = touch_move_to_menu_dir(state, 0.05);
-    assert_eq!(dir, Some(ambition_sandbox::input::MenuDir::Down));
+    assert_eq!(dir, Some(ambition_gameplay_core::input::MenuDir::Down));
 
     let mut menu_state = MenuInputState::default();
     let dt = 1.0 / 60.0;
@@ -351,7 +351,7 @@ fn touch_back_button_sets_menu_back_frame() {
     // fires in BOTH backends. `fold_to_menu_control_frame` does
     // `frame.back |= touch.reset.pressed_this_frame`; pin that mapping
     // on the pure state so the wiring can't silently regress.
-    use ambition_sandbox::input::MenuControlFrame;
+    use ambition_gameplay_core::input::MenuControlFrame;
 
     let mut touch = TouchInputState::default();
     touch.reset = TouchButton::pressed_now();

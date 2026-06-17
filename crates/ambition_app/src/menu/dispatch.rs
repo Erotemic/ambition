@@ -15,13 +15,13 @@ use crate::menu::kaleidoscope_app::{
     KaleidoscopeSystemNav, SystemMenuParams,
 };
 use crate::menu::model::{MenuFocus, MenuPage, MenuPageAction};
-use ambition_sandbox::audio::SfxMessage;
-use ambition_sandbox::items::OwnedItems;
-use ambition_sandbox::persistence::settings::{
+use ambition_gameplay_core::audio::SfxMessage;
+use ambition_gameplay_core::items::OwnedItems;
+use ambition_gameplay_core::persistence::settings::{
     apply_settings_option, settings_menu_model, SettingsOptionId, SettingsOptionKind,
     SystemMenuAction, UserSettings,
 };
-use ambition_sandbox::player::PlayerHealRequested;
+use ambition_gameplay_core::player::PlayerHealRequested;
 
 /// Dispatch a [`MenuPageAction`]. Item Equip/Use reuse the grid's shared
 /// [`dispatch_item_confirm`] (no portal/equip/heal duplication); page-change sets

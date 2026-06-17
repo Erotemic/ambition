@@ -1,5 +1,5 @@
 //! Sandbox app-builder: domain plugins, helpers, and gameplay systems shared
-//! between the visible binary (`src/bin/ambition_sandbox.rs`) and headless drivers
+//! between the visible binary (`src/bin/ambition_gameplay_core.rs`) and headless drivers
 //! (`src/headless.rs`, `src/rl_sim/runtime.rs`).
 //!
 //! ## Plugin API (preferred)
@@ -21,7 +21,7 @@
 
 #![allow(unused_imports)]
 
-use ambition_sandbox::engine_core as ae;
+use ambition_gameplay_core::engine_core as ae;
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, WindowResizeConstraints, WindowResolution};
@@ -52,40 +52,40 @@ use ambition_render::rendering::{
     PlayerVisual, SceneEntities,
 };
 use ambition_render::ui_fonts;
-use ambition_sandbox::assets::game_assets::{self, GameAssetConfig};
-use ambition_sandbox::assets::loading;
-use ambition_sandbox::audio::SfxMessage;
+use ambition_gameplay_core::assets::game_assets::{self, GameAssetConfig};
+use ambition_gameplay_core::assets::loading;
+use ambition_gameplay_core::audio::SfxMessage;
 #[cfg(feature = "audio")]
-use ambition_sandbox::audio::{
+use ambition_gameplay_core::audio::{
     apply_audio_environment, audio_play_sfx_messages, detect_audio_environment,
     smooth_audio_environment, start_default_music_when_ready, AudioEnvironment,
     DefaultMusicStarted, MusicChannel, SfxChannel,
 };
-use ambition_sandbox::config::{WINDOW_H, WINDOW_W};
-use ambition_sandbox::dev::dev_tools::{
+use ambition_gameplay_core::config::{WINDOW_H, WINDOW_W};
+use ambition_gameplay_core::dev::dev_tools::{
     self, DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
     MovementProfile, PlayerBodyProfile,
 };
-use ambition_sandbox::dialog;
-use ambition_sandbox::features;
-use ambition_sandbox::game_mode::{gameplay_allowed, gameplay_suspended, GameMode};
+use ambition_gameplay_core::dialog;
+use ambition_gameplay_core::features;
+use ambition_gameplay_core::game_mode::{gameplay_allowed, gameplay_suspended, GameMode};
 #[cfg(feature = "input")]
-use ambition_sandbox::input::SandboxAction;
-use ambition_sandbox::input::{ControlFrame, MenuControlFrame, GAMEPAD_MAP};
+use ambition_gameplay_core::input::SandboxAction;
+use ambition_gameplay_core::input::{ControlFrame, MenuControlFrame, GAMEPAD_MAP};
 #[cfg(feature = "input")]
-use ambition_sandbox::input::{MenuInputState, PlayerDashTriggerState};
-use ambition_sandbox::inventory;
-use ambition_sandbox::ldtk_world;
-use ambition_sandbox::platformer_runtime::lifecycle::RoomScopedEntity;
-use ambition_sandbox::rooms;
-use ambition_sandbox::runtime::data;
-use ambition_sandbox::runtime::setup;
-use ambition_sandbox::time::feel::SandboxFeelTuning;
+use ambition_gameplay_core::input::{MenuInputState, PlayerDashTriggerState};
+use ambition_gameplay_core::inventory;
+use ambition_gameplay_core::ldtk_world;
+use ambition_gameplay_core::platformer_runtime::lifecycle::RoomScopedEntity;
+use ambition_gameplay_core::rooms;
+use ambition_gameplay_core::runtime::data;
+use ambition_gameplay_core::runtime::setup;
+use ambition_gameplay_core::time::feel::SandboxFeelTuning;
 #[cfg(feature = "physics_debris")]
-use ambition_sandbox::world::physics::physics_spawn_debris_messages;
-use ambition_sandbox::world::physics::{self, DebrisBurstMessage};
-use ambition_sandbox::world::platforms;
-use ambition_sandbox::{GameWorld, PlayerDiedMessage, SandboxDevState};
+use ambition_gameplay_core::world::physics::physics_spawn_debris_messages;
+use ambition_gameplay_core::world::physics::{self, DebrisBurstMessage};
+use ambition_gameplay_core::world::platforms;
+use ambition_gameplay_core::{GameWorld, PlayerDiedMessage, SandboxDevState};
 
 mod cli;
 mod combat_schedule;
@@ -105,11 +105,11 @@ mod sim_systems;
 mod world_flow;
 
 #[cfg(feature = "input")]
-pub use ambition_sandbox::app::{
+pub use ambition_gameplay_core::app::{
     apply_menu_frame_to_cutscene_request, populate_control_frame_from_actions,
     populate_menu_control_frame_from_actions, MenuNavConsume,
 };
-pub use ambition_sandbox::app::{
+pub use ambition_gameplay_core::app::{
     configure_sandbox_sets, BossSteerSlot, PresentationSetupSet, SandboxSet,
 };
 #[cfg(not(target_arch = "wasm32"))]

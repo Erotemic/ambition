@@ -44,7 +44,7 @@ def _load_real_project() -> dict:
     src = (
         REPO_ROOT
         / "crates"
-        / "ambition_sandbox"
+        / "ambition_gameplay_core"
         / "assets"
         / "ambition"
         / "worlds"

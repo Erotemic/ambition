@@ -12,8 +12,8 @@
 
 use bevy::prelude::*;
 
-use ambition_sandbox::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
-use ambition_sandbox::portal::{FirePortalGun, PortalFireIntent, PortalGun};
+use ambition_gameplay_core::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use ambition_gameplay_core::portal::{FirePortalGun, PortalFireIntent, PortalGun};
 
 /// Resolve a [`FirePortalGun`] gesture into a generic [`PortalFireIntent`] for
 /// the primary player: origin = the player's body position, dir = the gesture's

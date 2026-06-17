@@ -26,12 +26,12 @@ Important paths:
 
 | File | What it owns |
 |---|---|
-| `crates/ambition_sandbox/src/player/affordances/intent.rs` | `Aim`, `PlayerIntent`, `compute_player_intent`. |
-| `crates/ambition_sandbox/src/player/affordances/variants.rs` | `AttackVariant`, `JumpVariant`, `ShieldVariant`, `DashVariant`, `InteractVariant`, `SpecialVariant`, and `VariantLabel`. |
-| `crates/ambition_sandbox/src/player/affordances/resolvers.rs` | Pure resolver functions from body/world/aim views to variants. |
-| `crates/ambition_sandbox/src/player/affordances/interactable_proximity.rs` | Nearest interactable classification. |
-| `crates/ambition_sandbox/src/player/affordances/pogo_proximity.rs` | Downward pogo-target proximity; aerial down-attack can label as `Pogo` when a pogo target is below. |
-| `crates/ambition_sandbox/src/player/affordances/devices.rs` | Active input method and glyph lookup. |
+| `crates/ambition_gameplay_core/src/player/affordances/intent.rs` | `Aim`, `PlayerIntent`, `compute_player_intent`. |
+| `crates/ambition_gameplay_core/src/player/affordances/variants.rs` | `AttackVariant`, `JumpVariant`, `ShieldVariant`, `DashVariant`, `InteractVariant`, `SpecialVariant`, and `VariantLabel`. |
+| `crates/ambition_gameplay_core/src/player/affordances/resolvers.rs` | Pure resolver functions from body/world/aim views to variants. |
+| `crates/ambition_gameplay_core/src/player/affordances/interactable_proximity.rs` | Nearest interactable classification. |
+| `crates/ambition_gameplay_core/src/player/affordances/pogo_proximity.rs` | Downward pogo-target proximity; aerial down-attack can label as `Pogo` when a pogo target is below. |
+| `crates/ambition_gameplay_core/src/player/affordances/devices.rs` | Active input method and glyph lookup. |
 | `crates/ambition_app/src/host/mobile_input/bevy_plugin.rs` | HUD consumer for touch/control prompt buttons. |
 
 ## Current variants
@@ -97,5 +97,5 @@ The long-term target is for gameplay systems and HUD systems to share the same p
 ## Testing anchors
 
 ```bash
-cargo test -p ambition_sandbox --lib affordances
+cargo test -p ambition_gameplay_core --lib affordances
 ```

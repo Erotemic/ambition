@@ -79,7 +79,7 @@ Character pipeline follow-up:
 ## P3: polish and testing
 - Golden-image or perceptual smoke tests for all entity sprites.
 - Review sheets grouped by category/state.
-- A command to copy generated PNGs into `crates/ambition_sandbox/assets/sprites` or `assets/entities` once the Rust loader path is finalized.
+- A command to copy generated PNGs into `crates/ambition_gameplay_core/assets/sprites` or `assets/entities` once the Rust loader path is finalized.
 - More projectile, VFX, and boss hazard variants.
 
 ## Character review sheet follow-ups

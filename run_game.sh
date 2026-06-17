@@ -103,9 +103,9 @@ require_positive_integer() {
 }
 
 run_ldtk_validation() {
-    local sandbox_world="$repo_root/crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk"
-    local intro_world="$repo_root/crates/ambition_sandbox/assets/ambition/worlds/intro.ldtk"
-    local cut_rope_world="$repo_root/crates/ambition_sandbox/assets/ambition/worlds/you_have_to_cut_the_rope.ldtk"
+    local sandbox_world="$repo_root/crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk"
+    local intro_world="$repo_root/crates/ambition_gameplay_core/assets/ambition/worlds/intro.ldtk"
+    local cut_rope_world="$repo_root/crates/ambition_gameplay_core/assets/ambition/worlds/you_have_to_cut_the_rope.ldtk"
 
     local cmd=(
         "$python_bin" -m ambition_ldtk_tools validate
@@ -201,7 +201,7 @@ if [[ "$validate_only" -eq 1 ]]; then
     exit 0
 fi
 
-cargo_args=(run -p ambition_app --bin ambition_sandbox)
+cargo_args=(run -p ambition_app --bin ambition_gameplay_core)
 
 if [[ "$no_default_features" -eq 1 ]]; then
     cargo_args+=(--no-default-features)

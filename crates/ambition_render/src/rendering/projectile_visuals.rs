@@ -2,7 +2,7 @@
 //! charge-indicator quad in front of the player. Each projectile owns one linked
 //! visual entity that is transformed from the live body and despawned with it.
 
-use ambition_sandbox::engine_core as ae;
+use ambition_gameplay_core::engine_core as ae;
 use bevy::prelude::*;
 
 /// Marker on the persistent per-projectile sprite entity produced by
@@ -34,33 +34,33 @@ pub struct PlayerChargeVisual;
 /// are transform-updated until their projectile entity despawns.
 pub fn sync_projectile_visuals(
     mut commands: Commands,
-    world: Res<ambition_sandbox::GameWorld>,
-    assets: Option<Res<ambition_sandbox::assets::game_assets::GameAssets>>,
+    world: Res<ambition_gameplay_core::GameWorld>,
+    assets: Option<Res<ambition_gameplay_core::assets::game_assets::GameAssets>>,
     // Per-player charge UI: iterate every player so each one's charge
     // indicator renders independently. Single-player behavior unchanged.
     player_q: Query<
         (
-            &ambition_sandbox::player::BodyKinematics,
-            &ambition_sandbox::projectile::PlayerProjectileState,
+            &ambition_gameplay_core::player::BodyKinematics,
+            &ambition_gameplay_core::projectile::PlayerProjectileState,
         ),
-        With<ambition_sandbox::player::PlayerEntity>,
+        With<ambition_gameplay_core::player::PlayerEntity>,
     >,
     // Spawn visuals for in-flight projectiles that do not have a link yet.
     new_projectiles: Query<
         (
             Entity,
-            &ambition_sandbox::player::BodyKinematics,
-            &ambition_sandbox::projectile::ProjectileGameplay,
+            &ambition_gameplay_core::player::BodyKinematics,
+            &ambition_gameplay_core::projectile::ProjectileGameplay,
         ),
         (
-            With<ambition_sandbox::projectile::PlayerProjectile>,
+            With<ambition_gameplay_core::projectile::PlayerProjectile>,
             Without<ProjectileVisualLink>,
         ),
     >,
     // Live bodies for the transform refresh of already-linked projectiles.
     bodies: Query<
-        &ambition_sandbox::player::BodyKinematics,
-        With<ambition_sandbox::projectile::PlayerProjectile>,
+        &ambition_gameplay_core::player::BodyKinematics,
+        With<ambition_gameplay_core::projectile::PlayerProjectile>,
     >,
     mut visuals: Query<
         (Entity, &VisualProjectile, &mut Transform, &mut Sprite),
@@ -75,7 +75,7 @@ pub fn sync_projectile_visuals(
         .as_deref()
         .and_then(|a| {
             a.entities
-                .get(ambition_sandbox::assets::game_assets::EntitySprite::ProjectileEnergy)
+                .get(ambition_gameplay_core::assets::game_assets::EntitySprite::ProjectileEnergy)
         })
         .cloned();
     for (body, state) in &player_q {
@@ -86,7 +86,7 @@ pub fn sync_projectile_visuals(
         // committed to a Hadouken motion.
         if let Some(hold) = state.charging {
             let tier = state.charge_tuning.tier_for_hold(hold);
-            let base = ambition_sandbox::projectile::ProjectileKind::Fireball.half_extent();
+            let base = ambition_gameplay_core::projectile::ProjectileKind::Fireball.half_extent();
             let (size_mult, alpha) = match tier {
                 0 => (0.7, 0.55),
                 1 => (1.1, 0.78),
@@ -108,10 +108,10 @@ pub fn sync_projectile_visuals(
                     Color::srgba(1.0, 0.74, 0.30, alpha),
                     bevy::math::Vec2::new(render_size.x, render_size.y),
                 ),
-                Transform::from_translation(ambition_sandbox::config::world_to_bevy(
+                Transform::from_translation(ambition_gameplay_core::config::world_to_bevy(
                     &world.0,
                     charge_pos,
-                    ambition_sandbox::config::WORLD_Z_PLAYER + 1.5,
+                    ambition_gameplay_core::config::WORLD_Z_PLAYER + 1.5,
                 )),
                 PlayerChargeVisual,
                 Name::new("Player projectile charge indicator"),
@@ -126,15 +126,15 @@ pub fn sync_projectile_visuals(
         // orange). The tint applies whether or not the textured sprite
         // loads; a missing texture falls through to a colored quad.
         let tint = match game.kind {
-            ambition_sandbox::projectile::ProjectileKind::Fireball => {
+            ambition_gameplay_core::projectile::ProjectileKind::Fireball => {
                 Color::srgba(1.0, 0.74, 0.30, 0.95)
             }
-            ambition_sandbox::projectile::ProjectileKind::Hadouken => {
+            ambition_gameplay_core::projectile::ProjectileKind::Hadouken => {
                 Color::srgba(0.45, 0.78, 1.0, 0.96)
             }
             // Stronger tint for the Super so the player can see at a
             // glance that they fired the harder gesture.
-            ambition_sandbox::projectile::ProjectileKind::HadoukenSuper => {
+            ambition_gameplay_core::projectile::ProjectileKind::HadoukenSuper => {
                 Color::srgba(0.30, 0.55, 1.0, 1.0)
             }
         };
@@ -153,21 +153,21 @@ pub fn sync_projectile_visuals(
         let visual = commands
             .spawn((
                 sprite,
-                Transform::from_translation(ambition_sandbox::config::world_to_bevy(
+                Transform::from_translation(ambition_gameplay_core::config::world_to_bevy(
                     &world.0,
                     kin.pos,
-                    ambition_sandbox::config::WORLD_Z_PLAYER + 2.0,
+                    ambition_gameplay_core::config::WORLD_Z_PLAYER + 2.0,
                 )),
                 PlayerProjectileVisual,
                 VisualProjectile(proj_entity),
                 Name::new(match game.kind {
-                    ambition_sandbox::projectile::ProjectileKind::Fireball => {
+                    ambition_gameplay_core::projectile::ProjectileKind::Fireball => {
                         "Player projectile: fireball"
                     }
-                    ambition_sandbox::projectile::ProjectileKind::Hadouken => {
+                    ambition_gameplay_core::projectile::ProjectileKind::Hadouken => {
                         "Player projectile: hadouken"
                     }
-                    ambition_sandbox::projectile::ProjectileKind::HadoukenSuper => {
+                    ambition_gameplay_core::projectile::ProjectileKind::HadoukenSuper => {
                         "Player projectile: hadouken_super"
                     }
                 }),
@@ -185,10 +185,10 @@ pub fn sync_projectile_visuals(
             commands.entity(visual_entity).despawn();
             continue;
         };
-        transform.translation = ambition_sandbox::config::world_to_bevy(
+        transform.translation = ambition_gameplay_core::config::world_to_bevy(
             &world.0,
             kin.pos,
-            ambition_sandbox::config::WORLD_Z_PLAYER + 2.0,
+            ambition_gameplay_core::config::WORLD_Z_PLAYER + 2.0,
         );
         // Track travel direction each frame; fireballs can reverse on bounce.
         sprite.flip_x = kin.vel.x < 0.0;

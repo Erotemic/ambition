@@ -87,7 +87,7 @@ happens to match SOME generated layouts and not others.
 
 ## Level B prompt
 
-In Ambition's `crates/ambition_sandbox/src/presentation/character_sprites/sheets.rs`,
+In Ambition's `crates/ambition_gameplay_core/src/presentation/character_sprites/sheets.rs`,
 `CharacterSheetSpec::build_atlas` builds a `TextureAtlasLayout` from
 a spec loaded from a `*_spritesheet.ron` manifest. The user reports
 that the **kernel guide** and **absurd general** sprite sheets render
@@ -167,7 +167,7 @@ the padded region.
 ## Validation
 
 ```bash
-~/.cargo/bin/cargo check -p ambition_sandbox
+~/.cargo/bin/cargo check -p ambition_gameplay_core
 # Should build cleanly. No new tests fire — the regression is purely
 # visual.
 ```

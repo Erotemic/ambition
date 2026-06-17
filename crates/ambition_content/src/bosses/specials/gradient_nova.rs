@@ -109,12 +109,12 @@ mod tests {
     /// so no engine `test-support` plumbing is needed.
     #[test]
     fn gradient_nova_consumer_materializes_a_full_burst_of_projectiles() {
-        use ambition_sandbox::actor::BossBrain;
-        use ambition_sandbox::enemy_projectile::{
+        use ambition_gameplay_core::actor::BossBrain;
+        use ambition_gameplay_core::enemy_projectile::{
             apply_projectile_effects, EnemyProjectile, EnemyProjectileState,
         };
-        use ambition_sandbox::features::BossClusterScratch;
-        use ambition_sandbox::projectile::ProjectileSeqCounter;
+        use ambition_gameplay_core::features::BossClusterScratch;
+        use ambition_gameplay_core::projectile::ProjectileSeqCounter;
 
         // The boss-profile registry must be installed before `BossClusterScratch`
         // resolves a behavior (the lib panics otherwise in non-test builds, which

@@ -52,7 +52,7 @@ No Bevy / virtual_joystick deps; fully unit-tested. Use it from:
 Behind the `mobile_touch` feature. To enable:
 
 ```bash
-cargo run -p ambition_sandbox --features mobile_touch
+cargo run -p ambition_gameplay_core --features mobile_touch
 ```
 
 Default features include `mobile_touch`, so a plain `cargo run`
@@ -76,7 +76,7 @@ Mobile + RL features can both be disabled for distribution / console
 ports / minimal builds:
 
 ```bash
-cargo build -p ambition_sandbox --no-default-features --features visible
+cargo build -p ambition_gameplay_core --no-default-features --features visible
 ```
 
 This skips `virtual_joystick` (mobile_touch) and the `crate::rl_sim`
@@ -162,7 +162,7 @@ may proxy touch on desktop for testing. Gameplay `ControlFrame` movement should
 be suppressed while dialog/pause/menu state owns the input.
 
 Shared list/windowing, pointer-row activation, and drag-scroll accumulation now
-live in `crate::ui_nav` (`crates/ambition_sandbox/src/ui_nav/`). Pause menus,
+live in `crate::ui_nav` (`crates/ambition_gameplay_core/src/ui_nav/`). Pause menus,
 dialog choices, and the mobile touch bridge should reuse those helpers instead
 of reimplementing scroll sign conventions or visible-window math locally.
 

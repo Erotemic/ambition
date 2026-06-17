@@ -1,6 +1,6 @@
 //! The dialog-box overlay UI: spawns/refreshes the on-screen dialog panel.
 //!
-//! Render-only. [`sync_dialog_ui`] mirrors `ambition_sandbox::dialog::DialogState`
+//! Render-only. [`sync_dialog_ui`] mirrors `ambition_gameplay_core::dialog::DialogState`
 //! into a Bevy UI tree under [`DialogOverlayRoot`]; the per-choice
 //! `DialogChoiceSlot` marker (owned sim-side) bridges to the dialog pointer-input
 //! system. Fonts come from [`crate::ui_fonts`].
@@ -12,7 +12,7 @@ use crate::ui_fonts::{UiFontWeight, UiFonts};
 // The choice-row marker bridges this UI (which spawns it) and the sim-side
 // dialog pointer-input system (which reads it), so it lives in the sandbox
 // dialog module, not here.
-use ambition_sandbox::dialog::DialogChoiceSlot;
+use ambition_gameplay_core::dialog::DialogChoiceSlot;
 
 const DIALOG_CONTINUE_HINT: &str =
     "Tap an option, press Confirm / Jump / Interact, or drag / use Up-Down. Back closes.";
@@ -22,7 +22,7 @@ pub struct DialogOverlayRoot;
 
 pub fn sync_dialog_ui(
     mut commands: Commands,
-    dialogue: Res<ambition_sandbox::dialog::DialogState>,
+    dialogue: Res<ambition_gameplay_core::dialog::DialogState>,
     overlays: Query<Entity, With<DialogOverlayRoot>>,
     ui_fonts: Option<Res<UiFonts>>,
     mut logged_font_state: Local<bool>,

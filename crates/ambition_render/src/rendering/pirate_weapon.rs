@@ -1,5 +1,5 @@
 //! Gun-sword (`lasersword_with_guns`) visual layered on top of any
-//! actor entity carrying a [`ambition_sandbox::features::HeldItem`] component.
+//! actor entity carrying a [`ambition_gameplay_core::features::HeldItem`] component.
 //! Mounted riders and dismounted pirates both keep the component while
 //! they still have the weapon, so this visual is item-driven rather
 //! than mount-state-driven.
@@ -19,19 +19,19 @@
 //! `sync_enemy_projectile_visuals` — no per-entity lifecycle
 //! plumbing, the visual set always reflects the live rider set.
 
-use ambition_sandbox::features::rider_hand_world_pos;
+use ambition_gameplay_core::features::rider_hand_world_pos;
 use bevy::math::Vec2;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
-use ambition_sandbox::config::{world_to_bevy, WORLD_Z_PLAYER};
-use ambition_sandbox::features::{ActorRuntime, FeatureId, HeldItem};
+use ambition_gameplay_core::config::{world_to_bevy, WORLD_Z_PLAYER};
+use ambition_gameplay_core::features::{ActorRuntime, FeatureId, HeldItem};
 
 #[derive(Component)]
 pub struct PirateWeaponVisual;
 
 /// Filename of the wielded gun-sword spritesheet. Lives under
-/// `crates/ambition_sandbox/assets/sprites/` (installed by
+/// `crates/ambition_gameplay_core/assets/sprites/` (installed by
 /// `python3 -m ambition_sprite2d_renderer install lasersword_with_guns`).
 const WEAPON_SHEET_PATH: &str = "sprites/lasersword_with_guns_spritesheet.png";
 
@@ -87,19 +87,19 @@ const WEAPON_WIDTH_PER_RIDER_HEIGHT: f32 = 64.0 / 72.0;
 pub fn sync_pirate_weapon_visuals(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    world: Res<ambition_sandbox::GameWorld>,
+    world: Res<ambition_gameplay_core::GameWorld>,
     rider_actors: Query<(
         &FeatureId,
         &ActorRuntime,
         &HeldItem,
-        Option<&ambition_sandbox::features::BodyKinematics>,
-        Option<&ambition_sandbox::features::EnemyStatus>,
+        Option<&ambition_gameplay_core::features::BodyKinematics>,
+        Option<&ambition_gameplay_core::features::EnemyStatus>,
     )>,
     player_q: Query<
-        &ambition_sandbox::player::BodyKinematics,
+        &ambition_gameplay_core::player::BodyKinematics,
         (
-            With<ambition_sandbox::player::PlayerEntity>,
-            With<ambition_sandbox::player::PrimaryPlayer>,
+            With<ambition_gameplay_core::player::PlayerEntity>,
+            With<ambition_gameplay_core::player::PrimaryPlayer>,
         ),
     >,
     existing: Query<Entity, With<PirateWeaponVisual>>,
@@ -222,7 +222,7 @@ mod tests {
 
     #[test]
     fn hand_offset_flips_with_facing() {
-        let pos = ambition_sandbox::engine_core::Vec2::new(100.0, 50.0);
+        let pos = ambition_gameplay_core::engine_core::Vec2::new(100.0, 50.0);
         let right = rider_hand_world_pos(pos, 1.0, 78.0);
         let left = rider_hand_world_pos(pos, -1.0, 78.0);
         assert!(right.x > pos.x, "right-facing hand should be to the right");

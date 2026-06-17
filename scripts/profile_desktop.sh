@@ -34,11 +34,11 @@ Usage:
 
 Modes:
   perf-run        Launch ./run_game.sh under perf record, then emit bounded text reports.
-  perf-attach     Attach perf record to an already-running ambition_sandbox process.
+  perf-attach     Attach perf record to an already-running ambition_gameplay_core process.
   stat-run        Launch ./run_game.sh under perf stat with interval output.
-  stat-attach     Attach perf stat to an already-running ambition_sandbox process.
+  stat-attach     Attach perf stat to an already-running ambition_gameplay_core process.
   asset-run       Launch ./run_game.sh under strace and summarize repeated asset opens.
-  asset-attach    Attach strace to an already-running ambition_sandbox process.
+  asset-attach    Attach strace to an already-running ambition_gameplay_core process.
   all-run         Run perf-run, stat-run, then asset-run sequentially.
 
 Default mode: perf-attach
@@ -48,7 +48,7 @@ Options:
   -d, --duration SEC      Capture duration in seconds. Default: 30.
   -F, --freq HZ           Sampling frequency for perf record. Default: 99.
   -I, --interval MS       perf stat interval in milliseconds. Default: 1000.
-  -p, --pid PID           PID to attach to. If omitted, newest ambition_sandbox PID is used.
+  -p, --pid PID           PID to attach to. If omitted, newest ambition_gameplay_core PID is used.
   -o, --out DIR           Output base directory. Default: target/profiles.
   --name NAME             Output directory name suffix. Default: MODE-UTC_TIMESTAMP.
   --events LIST           perf stat events. Default: task-clock,cycles,instructions,...
@@ -145,9 +145,9 @@ make_profile_dir() {
 find_game_pid() {
     if [[ -n "$pid" ]]; then printf '%s\n' "$pid"; return 0; fi
     local found=""
-    found="$(pgrep -n -x ambition_sandbox 2>/dev/null || true)"
-    if [[ -z "$found" ]]; then found="$(pgrep -n -f 'ambition_sandbox' 2>/dev/null || true)"; fi
-    [[ -n "$found" ]] || fail "could not find ambition_sandbox; pass --pid or use a *-run mode"
+    found="$(pgrep -n -x ambition_gameplay_core 2>/dev/null || true)"
+    if [[ -z "$found" ]]; then found="$(pgrep -n -f 'ambition_gameplay_core' 2>/dev/null || true)"; fi
+    [[ -n "$found" ]] || fail "could not find ambition_gameplay_core; pass --pid or use a *-run mode"
     printf '%s\n' "$found"
 }
 
@@ -183,7 +183,7 @@ derive_cargo_build_cmd() {
         esac
         shift
     done
-    local cmd=(cargo build -p ambition_app --bin ambition_sandbox)
+    local cmd=(cargo build -p ambition_app --bin ambition_gameplay_core)
     [[ "$no_default_features" -eq 1 ]] && cmd+=(--no-default-features)
     [[ -n "$cargo_jobs" ]] && cmd+=(--jobs "$cargo_jobs")
     [[ "$cargo_timings" -eq 1 ]] && cmd+=(--timings)

@@ -15,7 +15,7 @@
 
 use ambition_asset_manager::AssetId;
 
-use ambition_sandbox::character_sprites::{
+use ambition_gameplay_core::character_sprites::{
     sheet_for_character_id, try_load_spec_for_target, CharacterSheetSpec, SheetTuning,
 };
 

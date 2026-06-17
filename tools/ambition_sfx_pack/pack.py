@@ -281,7 +281,7 @@ def main(argv: list[str] | None = None) -> int:
     repo_root = here.parent.parent
     default_input = repo_root / "tools" / "ambition_sfx_renderer" / "output"
     default_output = (
-        repo_root / "crates" / "ambition_sandbox" / "assets" / "audio" / "sfx.bank"
+        repo_root / "crates" / "ambition_gameplay_core" / "assets" / "audio" / "sfx.bank"
     )
     parser.add_argument(
         "--input",

@@ -1,8 +1,8 @@
-//! Shrine visuals (was the render tail of ambition_sandbox::shrine): the obelisk
+//! Shrine visuals (was the render tail of ambition_gameplay_core::shrine): the obelisk
 //! sprite sync + activation-pulse animation. Reads the sim shrine state
-//! (HealShrine, ShrineActivationPulse) from ambition_sandbox.
+//! (HealShrine, ShrineActivationPulse) from ambition_gameplay_core.
 
-use ambition_sandbox::shrine::{HealShrine, ShrineActivationPulse};
+use ambition_gameplay_core::shrine::{HealShrine, ShrineActivationPulse};
 use ambition_sprite_sheet::{SheetRecord, SheetRegistry};
 use bevy::prelude::*;
 use bevy::{image::TextureAtlas, image::TextureAtlasLayout, math::UVec2};
@@ -63,7 +63,7 @@ pub enum ShrineVisualSource {
 /// sits at the floor.
 pub fn sync_shrine_visual(
     mut commands: Commands,
-    world: Res<ambition_sandbox::GameWorld>,
+    world: Res<ambition_gameplay_core::GameWorld>,
     asset_server: Res<AssetServer>,
     sheet_registry: Option<Res<SheetRegistry>>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
@@ -89,7 +89,7 @@ pub fn sync_shrine_visual(
     for shrine in &shrines {
         let key = shrine_visual_key(shrine);
         present.insert(key);
-        let translation = ambition_sandbox::config::world_to_bevy(&world.0, shrine.pos, 8.0);
+        let translation = ambition_gameplay_core::config::world_to_bevy(&world.0, shrine.pos, 8.0);
 
         if let Some(&entity) = visual_cache.get(&key) {
             let mut matched = true;
@@ -134,7 +134,7 @@ pub fn sync_shrine_visual(
                 shrine_visual_atlas(&source),
                 sprite,
                 Transform::from_translation(translation),
-                ambition_sandbox::platformer_runtime::lifecycle::RoomVisual,
+                ambition_gameplay_core::platformer_runtime::lifecycle::RoomVisual,
                 Name::new("Shrine visual"),
             ))
             .id();
@@ -160,7 +160,7 @@ pub fn sync_shrine_visual(
 }
 
 pub fn animate_shrine_visuals(
-    world_time: Res<ambition_sandbox::WorldTime>,
+    world_time: Res<ambition_gameplay_core::WorldTime>,
     mut activation: ResMut<ShrineActivationPulse>,
     mut visuals: Query<
         (&mut Sprite, &mut ShrineVisualAnim, &ShrineVisualAtlas),
@@ -381,7 +381,7 @@ mod tests {
     use super::*;
     #[test]
     fn shrine_sheet_exposes_idle_then_activate_rows() {
-        let registry = ambition_sandbox::character_sprites::baked_sheet_registry();
+        let registry = ambition_gameplay_core::character_sprites::baked_sheet_registry();
         let record = registry.get("shrine").expect("shrine sheet record");
         assert_eq!(record.rows.len(), 2);
         assert_eq!(shrine_row_start_index(record, "idle"), Some(0));

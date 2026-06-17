@@ -11,7 +11,7 @@
 `tools/ambition_music_renderer` is the offline authoring tool. It takes
 a YAML cue file describing the arrangement and writes
 `assets/audio/music/generated/<id>/full.ogg`. The RON manifest
-(`crates/ambition_sandbox/assets/ambition/sandbox.ron`) points at those
+(`crates/ambition_gameplay_core/assets/ambition/sandbox.ron`) points at those
 files via `asset_path: Some("audio/music/generated/<id>/full.ogg")`.
 
 To add or revise a track:
@@ -24,7 +24,7 @@ To add or revise a track:
    making sure `asset_path` is set (the runtime warns and skips tracks
    with `asset_path: None`).
 4. The asset manager catalog
-   (`crates/ambition_sandbox/src/sandbox_assets.rs::extend_with_music_entries`)
+   (`crates/ambition_gameplay_core/src/sandbox_assets.rs::extend_with_music_entries`)
    picks up every track with an `asset_path` automatically — no
    additional Rust changes needed.
 

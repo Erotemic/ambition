@@ -1,18 +1,18 @@
 //! Ambition's authored quests + their completion payouts.
 //!
 //! The generic quest runtime (registry resource, advance-event
-//! draining, save mirroring) lives in [`ambition_sandbox::quest::registry`]; the
-//! Bevy-free data shapes in [`ambition_sandbox::quest`]. This module owns what is
+//! draining, save mirroring) lives in [`ambition_gameplay_core::quest::registry`]; the
+//! Bevy-free data shapes in [`ambition_gameplay_core::quest`]. This module owns what is
 //! specifically Ambition's: WHICH quests ship, which auto-start, and
 //! named payouts like the pirate treasure.
 
 use bevy::prelude::*;
 
-use ambition_sandbox::items::{Item, OwnedItems};
+use ambition_gameplay_core::items::{Item, OwnedItems};
 
-/// Facade: the generic registry half moved to [`ambition_sandbox::quest::registry`].
+/// Facade: the generic registry half moved to [`ambition_gameplay_core::quest::registry`].
 /// Inbound `crate::quest::QuestRegistry` paths keep working.
-pub use ambition_sandbox::quest::registry::{
+pub use ambition_gameplay_core::quest::registry::{
     apply_quest_advance_events, push_room_entered_quest_events, QuestRegistry,
 };
 
@@ -45,56 +45,56 @@ const AUTO_START_QUESTS: &[&str] = &[
 /// a tutorial that walks the player through talking to a hub NPC,
 /// clearing the goblin encounter, and defeating the prototype boss — exactly
 /// the systems the rest of this build pass introduces.
-pub fn default_quest_specs() -> Vec<ambition_sandbox::quest::QuestSpec> {
+pub fn default_quest_specs() -> Vec<ambition_gameplay_core::quest::QuestSpec> {
     vec![
-        ambition_sandbox::quest::QuestSpec::new(
+        ambition_gameplay_core::quest::QuestSpec::new(
             "first_steps",
             "First Steps",
             "Find your bearings as a new instance.",
             vec![
-                ambition_sandbox::quest::QuestStepSpec::new(
+                ambition_gameplay_core::quest::QuestStepSpec::new(
                     "Speak with someone in the hub.",
-                    ambition_sandbox::quest::QuestStepCondition::FlagSet("met_any_hub_npc".into()),
+                    ambition_gameplay_core::quest::QuestStepCondition::FlagSet("met_any_hub_npc".into()),
                 ),
-                ambition_sandbox::quest::QuestStepSpec::new(
+                ambition_gameplay_core::quest::QuestStepSpec::new(
                     "Clear the goblin encounter.",
-                    ambition_sandbox::quest::QuestStepCondition::EncounterCleared(
+                    ambition_gameplay_core::quest::QuestStepCondition::EncounterCleared(
                         "goblin_encounter".into(),
                     ),
                 ),
-                ambition_sandbox::quest::QuestStepSpec::new(
+                ambition_gameplay_core::quest::QuestStepSpec::new(
                     "Defeat the clockwork warden.",
-                    ambition_sandbox::quest::QuestStepCondition::BossDefeated(
+                    ambition_gameplay_core::quest::QuestStepCondition::BossDefeated(
                         "clockwork_warden".into(),
                     ),
                 ),
             ],
         ),
-        ambition_sandbox::quest::QuestSpec::new(
+        ambition_gameplay_core::quest::QuestSpec::new(
             "test_switch_quest",
             "Test the Memory",
             "Verify that the world remembers what you do.",
-            vec![ambition_sandbox::quest::QuestStepSpec::new(
+            vec![ambition_gameplay_core::quest::QuestStepSpec::new(
                 "Toggle the persistence test switch.",
-                ambition_sandbox::quest::QuestStepCondition::FlagSet("test_switch_toggled".into()),
+                ambition_gameplay_core::quest::QuestStepCondition::FlagSet("test_switch_toggled".into()),
             )],
         ),
         // Quest lab proof: minimal RoomEntered-driven quest. Auto-
         // starts at boot, advances when the player enters the
         // quest_lab room, completes when they walk back to the
         // basement.
-        ambition_sandbox::quest::QuestSpec::new(
+        ambition_gameplay_core::quest::QuestSpec::new(
             "quest_lab_visit",
             "Visit the Quest Lab",
             "Walk into the quest lab and back to verify quest progression.",
             vec![
-                ambition_sandbox::quest::QuestStepSpec::new(
+                ambition_gameplay_core::quest::QuestStepSpec::new(
                     "Enter the quest lab from the basement door.",
-                    ambition_sandbox::quest::QuestStepCondition::RoomEntered("quest_lab".into()),
+                    ambition_gameplay_core::quest::QuestStepCondition::RoomEntered("quest_lab".into()),
                 ),
-                ambition_sandbox::quest::QuestStepSpec::new(
+                ambition_gameplay_core::quest::QuestStepSpec::new(
                     "Return to the basement.",
-                    ambition_sandbox::quest::QuestStepCondition::RoomEntered(
+                    ambition_gameplay_core::quest::QuestStepCondition::RoomEntered(
                         "central_hub_complex".into(),
                     ),
                 ),
@@ -110,18 +110,18 @@ pub fn default_quest_specs() -> Vec<ambition_sandbox::quest::QuestSpec> {
         // doesn't match step 0 and the quest stays put. The fallback
         // path (kill the bird first, then walk in) lands the player
         // at step 1 with no extra preamble required.
-        ambition_sandbox::quest::QuestSpec::new(
+        ambition_gameplay_core::quest::QuestSpec::new(
             "pirate_treasure",
             "The Plundered Hoard",
             "A mockingbird looted the pirate cove. Bring the chest back.",
             vec![
-                ambition_sandbox::quest::QuestStepSpec::new(
+                ambition_gameplay_core::quest::QuestStepSpec::new(
                     "Hunt the mockingbird and reclaim the chest.",
-                    ambition_sandbox::quest::QuestStepCondition::BossDefeated("mockingbird".into()),
+                    ambition_gameplay_core::quest::QuestStepCondition::BossDefeated("mockingbird".into()),
                 ),
-                ambition_sandbox::quest::QuestStepSpec::new(
+                ambition_gameplay_core::quest::QuestStepSpec::new(
                     "Return the treasure to the pirate admiral.",
-                    ambition_sandbox::quest::QuestStepCondition::FlagSet(
+                    ambition_gameplay_core::quest::QuestStepCondition::FlagSet(
                         "npc_pirate_admiral_talked".into(),
                     ),
                 ),
@@ -133,26 +133,26 @@ pub fn default_quest_specs() -> Vec<ambition_sandbox::quest::QuestSpec> {
         // placed in alice_relay, bob_relay, and first_system_boss.
         // Auto-starts at boot so the player sees the quest from the
         // moment they leave the lab.
-        ambition_sandbox::quest::QuestSpec::new(
+        ambition_gameplay_core::quest::QuestSpec::new(
             "intro_cartography_route",
             "Carry the Quiet Route",
             "Alice trusts you with a sealed note. Bob owes her a survey.",
             vec![
-                ambition_sandbox::quest::QuestStepSpec::new(
+                ambition_gameplay_core::quest::QuestStepSpec::new(
                     "Find Alice and accept her sealed route note.",
-                    ambition_sandbox::quest::QuestStepCondition::FlagSet(
+                    ambition_gameplay_core::quest::QuestStepCondition::FlagSet(
                         "alice_route_note_carried".into(),
                     ),
                 ),
-                ambition_sandbox::quest::QuestStepSpec::new(
+                ambition_gameplay_core::quest::QuestStepSpec::new(
                     "Reach Bob and pick up his field survey.",
-                    ambition_sandbox::quest::QuestStepCondition::FlagSet(
+                    ambition_gameplay_core::quest::QuestStepCondition::FlagSet(
                         "bob_field_survey_received".into(),
                     ),
                 ),
-                ambition_sandbox::quest::QuestStepSpec::new(
+                ambition_gameplay_core::quest::QuestStepSpec::new(
                     "Clear the first system encounter and bank route memory.",
-                    ambition_sandbox::quest::QuestStepCondition::FlagSet(
+                    ambition_gameplay_core::quest::QuestStepCondition::FlagSet(
                         "intro_p5_route_memory_received".into(),
                     ),
                 ),
@@ -161,20 +161,20 @@ pub fn default_quest_specs() -> Vec<ambition_sandbox::quest::QuestSpec> {
         // Intro-v1 P1 Stabilizer beat. Oiler is the social anchor in
         // Drain Market; talking to him plus picking up the stabilizer
         // entity (drain_alley spec) closes the beat.
-        ambition_sandbox::quest::QuestSpec::new(
+        ambition_gameplay_core::quest::QuestSpec::new(
             "intro_p1_stabilizer",
             "Stabilizer Drop",
             "Oiler can stabilize the under-town descent.",
             vec![
-                ambition_sandbox::quest::QuestStepSpec::new(
+                ambition_gameplay_core::quest::QuestStepSpec::new(
                     "Speak with Oiler in Drain Market.",
-                    ambition_sandbox::quest::QuestStepCondition::FlagSet(
+                    ambition_gameplay_core::quest::QuestStepCondition::FlagSet(
                         "npc_oiler_intro_talked".into(),
                     ),
                 ),
-                ambition_sandbox::quest::QuestStepSpec::new(
+                ambition_gameplay_core::quest::QuestStepSpec::new(
                     "Pick up the stabilizer kit.",
-                    ambition_sandbox::quest::QuestStepCondition::FlagSet(
+                    ambition_gameplay_core::quest::QuestStepCondition::FlagSet(
                         "p1_stabilizer_received".into(),
                     ),
                 ),
@@ -186,13 +186,13 @@ pub fn default_quest_specs() -> Vec<ambition_sandbox::quest::QuestSpec> {
         // Mirrors the existing pirate_treasure / first_steps boss
         // hooks so the cartography quest stays flag-driven while the
         // boss-kill itself produces a separate durable record.
-        ambition_sandbox::quest::QuestSpec::new(
+        ambition_gameplay_core::quest::QuestSpec::new(
             "intro_first_system_boss",
             "Capstone: First System",
             "Reach the system boss at the end of the gate stack and clear it.",
-            vec![ambition_sandbox::quest::QuestStepSpec::new(
+            vec![ambition_gameplay_core::quest::QuestStepSpec::new(
                 "Defeat the system boss (clockwork_warden brain).",
-                ambition_sandbox::quest::QuestStepCondition::BossDefeated(
+                ambition_gameplay_core::quest::QuestStepCondition::BossDefeated(
                     "clockwork_warden".into(),
                 ),
             )],
@@ -205,7 +205,7 @@ pub fn default_quest_specs() -> Vec<ambition_sandbox::quest::QuestSpec> {
 /// registry it fills is generic.
 pub fn populate_quest_registry(
     mut registry: ResMut<QuestRegistry>,
-    save: Res<ambition_sandbox::persistence::save::SandboxSave>,
+    save: Res<ambition_gameplay_core::persistence::save::SandboxSave>,
 ) {
     if registry.initialized {
         return;
@@ -241,9 +241,9 @@ pub fn grant_pirate_treasure_reward(inventory: &mut OwnedItems) -> String {
 /// quests that need rewards on completion can extend the match.
 pub fn grant_quest_completion_rewards(
     registry: Res<QuestRegistry>,
-    mut save: ResMut<ambition_sandbox::persistence::save::SandboxSave>,
+    mut save: ResMut<ambition_gameplay_core::persistence::save::SandboxSave>,
     mut inventory: ResMut<OwnedItems>,
-    mut banner_state: ResMut<ambition_sandbox::features::GameplayBanner>,
+    mut banner_state: ResMut<ambition_gameplay_core::features::GameplayBanner>,
 ) {
     let Some(state) = registry.quests.get("pirate_treasure") else {
         return;
@@ -263,15 +263,15 @@ pub fn grant_quest_completion_rewards(
 mod tests {
     use super::*;
 
-    fn pirate_treasure_spec() -> ambition_sandbox::quest::QuestSpec {
+    fn pirate_treasure_spec() -> ambition_gameplay_core::quest::QuestSpec {
         default_quest_specs()
             .into_iter()
             .find(|s| s.id == "pirate_treasure")
             .expect("pirate_treasure spec")
     }
 
-    fn pirate_treasure_state() -> ambition_sandbox::quest::QuestState {
-        let mut state = ambition_sandbox::quest::QuestState::new(pirate_treasure_spec());
+    fn pirate_treasure_state() -> ambition_gameplay_core::quest::QuestState {
+        let mut state = ambition_gameplay_core::quest::QuestState::new(pirate_treasure_spec());
         state.start();
         state
     }
@@ -281,13 +281,13 @@ mod tests {
         let mut state = pirate_treasure_state();
         assert!(state.is_active());
         assert!(
-            state.try_advance(&ambition_sandbox::quest::QuestAdvanceEvent::BossDefeated(
+            state.try_advance(&ambition_gameplay_core::quest::QuestAdvanceEvent::BossDefeated(
                 "mockingbird".into()
             ))
         );
         assert!(state.is_active());
         assert!(
-            state.try_advance(&ambition_sandbox::quest::QuestAdvanceEvent::FlagSet(
+            state.try_advance(&ambition_gameplay_core::quest::QuestAdvanceEvent::FlagSet(
                 "npc_pirate_admiral_talked".into()
             ))
         );
@@ -305,7 +305,7 @@ mod tests {
         // Talk to admiral first — wrong condition for step 0 (which
         // wants BossDefeated). Quest must stay put.
         assert!(
-            !state.try_advance(&ambition_sandbox::quest::QuestAdvanceEvent::FlagSet(
+            !state.try_advance(&ambition_gameplay_core::quest::QuestAdvanceEvent::FlagSet(
                 "npc_pirate_admiral_talked".into()
             ))
         );
@@ -313,14 +313,14 @@ mod tests {
         assert!(state.is_active());
         // Kill the bird → step advances.
         assert!(
-            state.try_advance(&ambition_sandbox::quest::QuestAdvanceEvent::BossDefeated(
+            state.try_advance(&ambition_gameplay_core::quest::QuestAdvanceEvent::BossDefeated(
                 "mockingbird".into()
             ))
         );
         assert_eq!(state.step, 1);
         // Walk back and talk again → completes.
         assert!(
-            state.try_advance(&ambition_sandbox::quest::QuestAdvanceEvent::FlagSet(
+            state.try_advance(&ambition_gameplay_core::quest::QuestAdvanceEvent::FlagSet(
                 "npc_pirate_admiral_talked".into()
             ))
         );

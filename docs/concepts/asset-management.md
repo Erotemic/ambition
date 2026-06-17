@@ -7,8 +7,8 @@ aliases:
   - platform assets
 implemented_by:
   - crates/ambition_asset_manager/src
-  - crates/ambition_sandbox/src/assets/mod.rs
-  - crates/ambition_sandbox/assets/ambition/sandbox.ron
+  - crates/ambition_gameplay_core/src/assets/mod.rs
+  - crates/ambition_gameplay_core/assets/ambition/sandbox.ron
 related_docs:
   - docs/systems/asset-manager.md
   - docs/systems/asset-manager.md
@@ -42,6 +42,6 @@ Asset management covers logical asset IDs, manifests, preload/profile policy, pl
 
 ```bash
 cargo test -p ambition_asset_manager
-cargo test -p ambition_sandbox --lib assets
-cargo run -p ambition_sandbox --bin headless
+cargo test -p ambition_gameplay_core --lib assets
+cargo run -p ambition_gameplay_core --bin headless
 ```

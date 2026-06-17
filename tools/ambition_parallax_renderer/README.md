@@ -3,7 +3,7 @@
 `ambition_parallax_renderer` generates biome-specific background plates and
 parallax atmosphere layers for the sandbox. This is the background/parallax art
 pipeline, not the sprite pipeline. Generated files install under
-`crates/ambition_sandbox/assets/backgrounds/parallax_layers/`.
+`crates/ambition_gameplay_core/assets/backgrounds/parallax_layers/`.
 
 The package supersedes the earlier background-renderer experiments while
 keeping their scheme: every biome gets an opaque sky/backdrop color field plus
@@ -25,7 +25,7 @@ Direct renderer call:
 ```bash
 cd tools/ambition_parallax_renderer
 python -m ambition_parallax_renderer draw-backgrounds \
-  --out-dir ../../crates/ambition_sandbox/assets/backgrounds/parallax_layers
+  --out-dir ../../crates/ambition_gameplay_core/assets/backgrounds/parallax_layers
 ```
 
 The output directory is ignored by git; regenerate locally when you want to

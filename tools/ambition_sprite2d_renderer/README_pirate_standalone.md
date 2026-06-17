@@ -52,7 +52,7 @@ or
 This copies only the runtime pair for each target into:
 
 ```text
-crates/ambition_sandbox/assets/sprites/
+crates/ambition_gameplay_core/assets/sprites/
 ```
 
 ## Included animations

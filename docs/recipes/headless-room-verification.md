@@ -8,7 +8,7 @@ no GPU, wgpu, or window.
 ## Render a room to a PNG
 
 ```bash
-cargo run -p ambition_sandbox --example render_room_geometry -- <ROOM_ID> [OUT.png]
+cargo run -p ambition_gameplay_core --example render_room_geometry -- <ROOM_ID> [OUT.png]
 ```
 
 Draws the lowered `RoomSpec`: filled collision blocks (gray Solid, blue
@@ -26,7 +26,7 @@ hurtbox-vs-spawn-box alignment.
 ## Scan all rooms for spatial anomalies
 
 ```bash
-cargo run -p ambition_sandbox --example render_room_geometry -- report
+cargo run -p ambition_gameplay_core --example render_room_geometry -- report
 ```
 
 Text-only. Flags runtime-projection bugs the LDtk validator can't see
@@ -40,7 +40,7 @@ The same checks run as a build-failing test so authoring regressions
 are caught automatically:
 
 ```bash
-cargo test -p ambition_sandbox --test room_spatial_integrity
+cargo test -p ambition_gameplay_core --test room_spatial_integrity
 ```
 
 ## When to reach for this vs the LDtk validator

@@ -136,5 +136,5 @@ Run:
 
 ```bash
 cargo fmt --all
-cargo test -p ambition_sandbox --lib
+cargo test -p ambition_gameplay_core --lib
 ```

@@ -1,5 +1,5 @@
 #![allow(unused_imports)]
-use ambition_sandbox::engine_core::AabbExt;
+use ambition_gameplay_core::engine_core::AabbExt;
 
 #[allow(unused_imports)]
 use super::cli::*;
@@ -22,18 +22,18 @@ use super::setup_systems::*;
 #[allow(unused_imports)]
 use super::*;
 #[allow(unused_imports)]
-use ambition_sandbox::app::*;
+use ambition_gameplay_core::app::*;
 
 /// Bundle of the two room-reset clock/sim resources, so systems that
 /// already sit near Bevy's 16-SystemParam limit (e.g.
 /// [`apply_room_transition_system`]) can take both in one slot. The
-/// sim-clock `time_scale` (time-owned [`ambition_sandbox::time::clock_state::ClockState`])
-/// and the room-transition cooldown (sim-owned [`ambition_sandbox::SandboxSimState`])
+/// sim-clock `time_scale` (time-owned [`ambition_gameplay_core::time::clock_state::ClockState`])
+/// and the room-transition cooldown (sim-owned [`ambition_gameplay_core::SandboxSimState`])
 /// are reset together on every room load / death / respawn.
 #[derive(bevy::ecs::system::SystemParam)]
 pub(super) struct RoomClock<'w> {
-    pub sim_state: ResMut<'w, ambition_sandbox::SandboxSimState>,
-    pub clock: ResMut<'w, ambition_sandbox::time::clock_state::ClockState>,
+    pub sim_state: ResMut<'w, ambition_gameplay_core::SandboxSimState>,
+    pub clock: ResMut<'w, ambition_gameplay_core::time::clock_state::ClockState>,
 }
 
 pub(super) fn sandbox_dt(hitstop_timer: f32, time_scale: f32, frame_dt: f32) -> f32 {
@@ -64,7 +64,7 @@ fn ground_gap_below_feet(
     feet_y: f32,
     body: &ae::Aabb,
     world: &ae::World,
-    feature_overlay: &ambition_sandbox::features::FeatureEcsWorldOverlay,
+    feature_overlay: &ambition_gameplay_core::features::FeatureEcsWorldOverlay,
 ) -> Option<(f32, &'static str)> {
     const MAX_PROBE_PX: f32 = 256.0;
     let probe = |blocks: &[ae::Block]| {
@@ -103,9 +103,9 @@ pub(super) fn handle_player_events(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
     clusters: &ae::PlayerClustersMut<'_>,
-    combat: &mut ambition_sandbox::player::PlayerCombatState,
-    blink_cam: &mut ambition_sandbox::player::PlayerBlinkCameraState,
-    anim: &mut ambition_sandbox::player::PlayerAnimState,
+    combat: &mut ambition_gameplay_core::player::PlayerCombatState,
+    blink_cam: &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
+    anim: &mut ambition_gameplay_core::player::PlayerAnimState,
     events: ae::FrameEvents,
     was_grounded: Option<bool>,
 ) {
@@ -247,7 +247,7 @@ pub(super) fn handle_player_events(
             pos: blink.from,
             precision: blink.precision,
         });
-        blink_cam.blink_in_duration = ambition_sandbox::BLINK_IN_ANIM_TIME;
+        blink_cam.blink_in_duration = ambition_gameplay_core::BLINK_IN_ANIM_TIME;
         blink_cam.blink_in_timer = blink_cam.blink_in_duration;
         blink_cam.blink_camera_from = blink.from;
         blink_cam.blink_camera_to = blink.to;
@@ -276,16 +276,16 @@ pub(super) fn death_respawn_player(
     vfx: &mut MessageWriter<VfxMessage>,
     died: &mut MessageWriter<PlayerDiedMessage>,
     clusters: &mut ae::PlayerClustersMut<'_>,
-    sim_state: &mut ambition_sandbox::SandboxSimState,
-    clock: &mut ambition_sandbox::time::clock_state::ClockState,
-    safety: &mut ambition_sandbox::player::PlayerSafetyState,
+    sim_state: &mut ambition_gameplay_core::SandboxSimState,
+    clock: &mut ambition_gameplay_core::time::clock_state::ClockState,
+    safety: &mut ambition_gameplay_core::player::PlayerSafetyState,
     banner: &mut features::GameplayBanner,
-    player_health: Option<&mut ambition_sandbox::player::PlayerHealth>,
+    player_health: Option<&mut ambition_gameplay_core::player::PlayerHealth>,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     from: ae::Vec2,
-    anim: &mut ambition_sandbox::player::PlayerAnimState,
-    combat: &mut ambition_sandbox::player::PlayerCombatState,
+    anim: &mut ambition_gameplay_core::player::PlayerAnimState,
+    combat: &mut ambition_gameplay_core::player::PlayerCombatState,
 ) {
     let to = world.spawn;
     ae::reset_player_clusters(clusters, world.spawn);
@@ -333,17 +333,17 @@ pub(super) fn handle_player_damage_events(
     vfx: &mut MessageWriter<VfxMessage>,
     died: &mut MessageWriter<PlayerDiedMessage>,
     clusters: &mut ae::PlayerClustersMut<'_>,
-    sim_state: &mut ambition_sandbox::SandboxSimState,
-    clock: &mut ambition_sandbox::time::clock_state::ClockState,
-    safety: &mut ambition_sandbox::player::PlayerSafetyState,
+    sim_state: &mut ambition_gameplay_core::SandboxSimState,
+    clock: &mut ambition_gameplay_core::time::clock_state::ClockState,
+    safety: &mut ambition_gameplay_core::player::PlayerSafetyState,
     banner: &mut features::GameplayBanner,
-    mut player_health: Option<&mut ambition_sandbox::player::PlayerHealth>,
+    mut player_health: Option<&mut ambition_gameplay_core::player::PlayerHealth>,
     damage_events: &[features::HitEvent],
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     difficulty_multiplier: f32,
-    anim: &mut ambition_sandbox::player::PlayerAnimState,
-    combat: &mut ambition_sandbox::player::PlayerCombatState,
+    anim: &mut ambition_gameplay_core::player::PlayerAnimState,
+    combat: &mut ambition_gameplay_core::player::PlayerCombatState,
 ) {
     let Some(mut damage) = damage_events.first().cloned() else {
         return;
@@ -431,9 +431,9 @@ pub(super) fn safe_respawn_player(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
     clusters: &mut ae::PlayerClustersMut<'_>,
-    clock: &mut ambition_sandbox::time::clock_state::ClockState,
-    safety: &ambition_sandbox::player::PlayerSafetyState,
-    combat: &mut ambition_sandbox::player::PlayerCombatState,
+    clock: &mut ambition_gameplay_core::time::clock_state::ClockState,
+    safety: &ambition_gameplay_core::player::PlayerSafetyState,
+    combat: &mut ambition_gameplay_core::player::PlayerCombatState,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     from: ae::Vec2,
@@ -459,7 +459,7 @@ pub(super) fn apply_player_knockback(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
     clusters: &mut ae::PlayerClustersMut<'_>,
-    combat: &mut ambition_sandbox::player::PlayerCombatState,
+    combat: &mut ambition_gameplay_core::player::PlayerCombatState,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     damage: &features::HitEvent,

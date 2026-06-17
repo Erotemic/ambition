@@ -5,7 +5,7 @@
 //! (regardless of the `mobile_touch` feature) so RL agents, tests,
 //! and the active-build code path share the same types.
 
-use ambition_sandbox::input::ControlFrame;
+use ambition_gameplay_core::input::ControlFrame;
 
 /// Edge-vs-held button state. Two flags per button so the sim's
 /// "pressed this frame" semantics survive the touch path. The Bevy

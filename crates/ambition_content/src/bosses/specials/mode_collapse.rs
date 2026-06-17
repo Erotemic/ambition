@@ -9,7 +9,7 @@ use super::*;
 // NEW boss special authored entirely on the open `Special(key)` seam —
 // Mode Collapse's converging ring. Proves the engine-content boundary:
 // behavior + params + state + telegraph + schedule all live here in
-// `ambition_content`; NOTHING in the engine lib (`ambition_sandbox`) was
+// `ambition_content`; NOTHING in the engine lib (`ambition_gameplay_core`) was
 // edited to add it. (The app's combat schedule wires the consumer in, the
 // same as every other special consumer — composition is the app's job.)
 // ===================================================================

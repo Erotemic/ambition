@@ -98,7 +98,7 @@ pub fn spawn_bubble_shield_visual(
         },
         // Render behind the player sprite so the ring feels like a field
         // around the body rather than a foreground overlay.
-        Transform::from_xyz(0.0, 0.0, ambition_sandbox::config::WORLD_Z_PLAYER - 0.05),
+        Transform::from_xyz(0.0, 0.0, ambition_gameplay_core::config::WORLD_Z_PLAYER - 0.05),
         Visibility::Hidden,
         BubbleShieldVisual,
         Name::new("Bubble Shield Visual"),
@@ -108,13 +108,13 @@ pub fn spawn_bubble_shield_visual(
 /// Show / hide and tint the shield ring based on `PlayerShieldState`.
 /// Position and scale track the player body size.
 pub fn sync_bubble_shield_visual(
-    world: Res<ambition_sandbox::GameWorld>,
+    world: Res<ambition_gameplay_core::GameWorld>,
     player_q: Query<
         (
-            &ambition_sandbox::player::BodyKinematics,
-            &ambition_sandbox::player::PlayerShieldState,
+            &ambition_gameplay_core::player::BodyKinematics,
+            &ambition_gameplay_core::player::PlayerShieldState,
         ),
-        ambition_sandbox::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::player::PrimaryPlayerOnly,
     >,
     mut shield_q: Query<(&mut Transform, &mut Sprite, &mut Visibility), With<BubbleShieldVisual>>,
 ) {
@@ -131,10 +131,10 @@ pub fn sync_bubble_shield_visual(
     }
 
     // Position centered on the player body.
-    transform.translation = ambition_sandbox::config::world_to_bevy(
+    transform.translation = ambition_gameplay_core::config::world_to_bevy(
         &world.0,
         kin.pos,
-        ambition_sandbox::config::WORLD_Z_PLAYER - 0.05,
+        ambition_gameplay_core::config::WORLD_Z_PLAYER - 0.05,
     );
 
     // Scale the ring to be slightly larger than the player collider so it

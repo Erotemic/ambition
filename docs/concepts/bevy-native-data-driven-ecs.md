@@ -12,9 +12,9 @@ related_adrs:
   - docs/adr/0003-data-specs-and-asset-loading.md
   - docs/adr/0009-world-composition-and-ldtk-authoring.md
 implemented_by:
-  - crates/ambition_sandbox/src/app/mod.rs
-  - crates/ambition_sandbox/src/world/mod.rs
-  - crates/ambition_sandbox/src/world/ldtk_world/mod.rs
+  - crates/ambition_gameplay_core/src/app/mod.rs
+  - crates/ambition_gameplay_core/src/world/mod.rs
+  - crates/ambition_gameplay_core/src/world/ldtk_world/mod.rs
 related_docs:
   - docs/systems/architecture.md
   - docs/systems/ldtk-world-composition.md

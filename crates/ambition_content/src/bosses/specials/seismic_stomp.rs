@@ -65,7 +65,7 @@ pub fn spawn_seismic_stomp_from_special_messages(
         for dx in seismic_offsets(SEISMIC_SEGMENTS_PER_SIDE, SEISMIC_SPACING) {
             effects.write(EffectRequest {
                 owner: entity,
-                effect: Effect::DamageBox(ambition_sandbox::effects::DamageBoxEffect {
+                effect: Effect::DamageBox(ambition_gameplay_core::effects::DamageBoxEffect {
                     center: ae::Vec2::new(boss.kin.pos.x + dx, foot_y),
                     faction: ActorFaction::Boss,
                     half_extent: SEISMIC_HALF_EXTENT,

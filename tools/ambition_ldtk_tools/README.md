@@ -13,26 +13,26 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools <subcommand> 
 ```bash
 # Validate gameplay/editor contracts without mutating the file.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools validate \
-  crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
 
 # Check whether the package repair pass would change the file.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools roundtrip \
-  crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
 
 # Run roundtrip + validate.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools doctor \
-  crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
 
 # Repair in place, then inspect the diff before committing.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools repair \
-  crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk \
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
   --in-place
-git diff -- crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+git diff -- crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
 
 # Schema helpers.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools schema fetch
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools schema validate \
-  crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk \
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
   --schema tools/ambition_ldtk_tools/schemas/ldtk/JSON_SCHEMA.json \
   --require-schema
 

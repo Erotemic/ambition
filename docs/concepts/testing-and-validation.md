@@ -9,7 +9,7 @@ implemented_by:
   - crates/ambition_engine_core/src/movement
   - crates/ambition_app/tests
   - crates/ambition_content/src
-  - crates/ambition_sandbox/src
+  - crates/ambition_gameplay_core/src
   - .github/workflows
 related_docs:
   - docs/systems/testing-strategy.md
@@ -46,9 +46,9 @@ Testing and validation are part of the knowledge system. Every non-trivial patch
 
 ```bash
 cargo fmt --check
-cargo test -p ambition_sandbox
-cargo test -p ambition_sandbox --lib
-cargo run -p ambition_sandbox --bin headless
+cargo test -p ambition_gameplay_core
+cargo test -p ambition_gameplay_core --lib
+cargo run -p ambition_gameplay_core --bin headless
 ```
 
 Cargo accepts one test-name filter position per test binary. Use separate invocations or package/module filters instead of inventing multi-filter grammar.

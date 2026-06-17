@@ -15,7 +15,7 @@
 #   tools/ambition_music_renderer/generated/first_goblin_tune_v2/
 #
 # Installed assets:
-#   crates/ambition_sandbox/assets/audio/music/generated/first_goblin_tune_v2/
+#   crates/ambition_gameplay_core/assets/audio/music/generated/first_goblin_tune_v2/
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -129,7 +129,7 @@ fi
 echo "==> audit generated cue balance"
 "$python_bin" "$auditor" "$staging" || true
 
-echo "==> installing into crates/ambition_sandbox/assets/audio/music/generated/first_goblin_tune_v2"
+echo "==> installing into crates/ambition_gameplay_core/assets/audio/music/generated/first_goblin_tune_v2"
 install_args=(--src "$staging" --clean)
 if [ "$with_stems" -eq 1 ]; then
     install_args+=(--with-stems)

@@ -9,7 +9,7 @@
 //!   [`ambition_render::cutscene::RoomCutsceneBindings`] with the intro scripts
 //!   and room bindings from [`crate::intro::cutscene`].
 //! - [`load_intro_npc_sprites_system`] extends
-//!   [`ambition_sandbox::assets::game_assets::GameAssets`]`.characters.npcs` with the
+//!   [`ambition_gameplay_core::assets::game_assets::GameAssets`]`.characters.npcs` with the
 //!   intro placeholder sprite rows from [`crate::intro::sprites`].
 //!
 //! Both systems run after the sandbox's own startup systems insert the
@@ -23,9 +23,9 @@ use bevy::prelude::*;
 // system in the sandbox `dialog` module owns its own scheduling.
 use crate::banter::CombatBanterRegistry;
 use ambition_render::cutscene::{CutsceneLibrary, RoomCutsceneBindings};
-use ambition_sandbox::assets::game_assets::{GameAssetConfig, GameAssets};
-use ambition_sandbox::character_sprites::{build_npc_sprite_asset, build_prop_sprite_asset};
-use ambition_sandbox::rooms::GatePortalRegistry;
+use ambition_gameplay_core::assets::game_assets::{GameAssetConfig, GameAssets};
+use ambition_gameplay_core::character_sprites::{build_npc_sprite_asset, build_prop_sprite_asset};
+use ambition_gameplay_core::rooms::GatePortalRegistry;
 
 use super::banter::install_intro_banter;
 use super::cutscene::{install_intro_cutscenes, intro_room_cutscene_bindings};
@@ -182,7 +182,7 @@ pub(crate) fn load_intro_npc_sprites_system(
     asset_server: Option<Res<AssetServer>>,
     layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
     game_assets: Option<ResMut<GameAssets>>,
-    catalog: Option<Res<ambition_sandbox::assets::sandbox_assets::SandboxAssetCatalog>>,
+    catalog: Option<Res<ambition_gameplay_core::assets::sandbox_assets::SandboxAssetCatalog>>,
 ) {
     if installed.0 {
         return;
@@ -230,7 +230,7 @@ pub(crate) fn load_intro_prop_sprites_system(
     asset_server: Option<Res<AssetServer>>,
     layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
     game_assets: Option<ResMut<GameAssets>>,
-    catalog: Option<Res<ambition_sandbox::assets::sandbox_assets::SandboxAssetCatalog>>,
+    catalog: Option<Res<ambition_gameplay_core::assets::sandbox_assets::SandboxAssetCatalog>>,
 ) {
     if installed.0 {
         return;

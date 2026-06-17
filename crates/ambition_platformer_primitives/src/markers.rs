@@ -4,7 +4,7 @@
 //! sandbox-internal dependencies. They live in the runtime crate so portal,
 //! gravity, and other extracted mechanics can query the player / simulated
 //! feature entities without depending on the sandbox's `player` or `features`
-//! modules. The host (`ambition_sandbox`) re-exports them from their original
+//! modules. The host (`ambition_gameplay_core`) re-exports them from their original
 //! paths so existing call sites compile unchanged.
 
 use bevy::prelude::*;

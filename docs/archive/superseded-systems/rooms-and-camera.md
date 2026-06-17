@@ -12,10 +12,10 @@ This prototype now tests more than a single fixed screen.
 
 ## Current room graph
 
-The Bevy sandbox owns a small `RoomSet` in `crates/ambition_sandbox/src/rooms.rs`:
+The Bevy sandbox owns a small `RoomSet` in `crates/ambition_gameplay_core/src/rooms.rs`:
 
 - **Room 1: Scroll Lab**
-  - Uses the active RON-backed `RoomSet` world from `ambition_sandbox::rooms`.
+  - Uses the active RON-backed `RoomSet` world from `ambition_gameplay_core::rooms`.
   - Widened to `3200 x 900` so the camera must scroll horizontally with the player.
   - Contains the original movement sandbox plus a right-side scroll wing.
   - Has a loading zone near the far-right door area.

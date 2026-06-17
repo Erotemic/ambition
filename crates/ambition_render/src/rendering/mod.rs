@@ -51,7 +51,7 @@ pub use actors::{
 };
 // `BoundFeatureKind` moved to `mechanics::combat` (sim owns it); re-exported here
 // so existing render call sites resolve unchanged.
-pub use ambition_sandbox::mechanics::combat::BoundFeatureKind;
+pub use ambition_gameplay_core::mechanics::combat::BoundFeatureKind;
 // `manage_gradient_lane_visual` + `GradientLaneVisual` stay
 // module-private; the schedule registration uses
 // `actors::manage_gradient_lane_visual` directly so no outside
@@ -61,7 +61,7 @@ pub use health::{sync_boss_health_bar_overlay, sync_health_overlays};
 // Re-exported so simulation/effects code can place projectile-spawn
 // origins at the same hand position the visual lays the gun-sword on.
 // Keeps "where the muzzle is" defined in one module.
-pub use ambition_sandbox::features::rider_hand_world_pos;
+pub use ambition_gameplay_core::features::rider_hand_world_pos;
 pub use parallax::{spawn_parallax_layers, sync_parallax_layers};
 pub use primitives::{
     HudText, LoadingZoneVisual, PlayerSpriteBaseline, PlayerVisual, PropVisual, QuestPanelText,
@@ -126,7 +126,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
         // disorientation / mode indicators) now live in the reusable
         // `ambition_portal_presentation` crate; the sandbox adds its plugin,
         // places its set, and bridges the host seams (world frame, scene-body
-        // tag, gun art — see `ambition_sandbox::portal::host_adapter`). Gravity visuals
+        // tag, gun art — see `ambition_gameplay_core::portal::host_adapter`). Gravity visuals
         // and the F7 dev off-switch stay host-side. All of it only compiles
         // with the portal mechanic + its render feature.
         #[cfg(feature = "portal_render")]
@@ -137,19 +137,19 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
             // pieces ("feet in, feet out") override the player's visibility
             // while crossing, so they must see this frame's mirrored sprite.
             app.configure_sets(Update, PortalPresentationSet.after(actors::sync_visuals));
-            app.add_systems(Startup, ambition_sandbox::portal::load_portal_gun_art)
+            app.add_systems(Startup, ambition_gameplay_core::portal::load_portal_gun_art)
                 .add_systems(
                     Update,
                     (
-                        ambition_sandbox::portal::sync_portal_world_frame
+                        ambition_gameplay_core::portal::sync_portal_world_frame
                             .before(PortalPresentationSet),
-                        ambition_sandbox::portal::sync_portal_viewer.before(PortalPresentationSet),
-                        ambition_sandbox::portal::sync_portal_debug_overlay_to_f1
+                        ambition_gameplay_core::portal::sync_portal_viewer.before(PortalPresentationSet),
+                        ambition_gameplay_core::portal::sync_portal_debug_overlay_to_f1
                             .before(PortalPresentationSet),
-                        ambition_sandbox::portal::tag_portal_scene_bodies
+                        ambition_gameplay_core::portal::tag_portal_scene_bodies
                             .after(actors::sync_visuals),
-                        ambition_sandbox::portal::portal_dev_toggle_system,
-                        ambition_sandbox::portal::portal_convention_toggle_system,
+                        ambition_gameplay_core::portal::portal_dev_toggle_system,
+                        ambition_gameplay_core::portal::portal_convention_toggle_system,
                         gravity_visuals::sync_gravity_switch_visual.after(actors::sync_visuals),
                         gravity_visuals::sync_gravity_zone_visual.after(actors::sync_visuals),
                     ),
@@ -159,7 +159,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
 }
 
 /// Module-local Bevy plugin: schedules the per-frame visual animation
-/// chain into [`ambition_sandbox::app::SandboxSet::PresentationVisualSync`].
+/// chain into [`ambition_gameplay_core::app::SandboxSet::PresentationVisualSync`].
 ///
 /// Spawns dynamic feature visuals first (so `sync_visuals` finds them
 /// the same frame), then mirrors transforms / sprite atlas indices,
@@ -236,8 +236,8 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 pirate_weapon::sync_pirate_weapon_visuals,
             )
                 .chain()
-                .in_set(ambition_sandbox::app::SandboxSet::PresentationVisualSync)
-                .after(ambition_sandbox::menu::map::handle_map_menu_hotkeys),
+                .in_set(ambition_gameplay_core::app::SandboxSet::PresentationVisualSync)
+                .after(ambition_gameplay_core::menu::map::handle_map_menu_hotkeys),
         );
 
         // Rebuild the active room's static visuals + parallax when the sim asks

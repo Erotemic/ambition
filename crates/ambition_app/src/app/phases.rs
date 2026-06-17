@@ -19,7 +19,7 @@ use super::world_flow::*;
 #[allow(unused_imports)]
 use super::*;
 #[allow(unused_imports)]
-use ambition_sandbox::app::*;
+use ambition_gameplay_core::app::*;
 
 /// How a ledge-grabbing player should react to the moving platform that carries
 /// them this frame: ride along with it, or be knocked off because the carry
@@ -41,7 +41,7 @@ pub(super) fn ledge_platform_carry(
     player_aabb: ae::Aabb,
     delta: ae::Vec2,
 ) -> LedgePlatformCarry {
-    use ambition_sandbox::engine_core::AabbExt;
+    use ambition_gameplay_core::engine_core::AabbExt;
     let carried = player_aabb.translated(delta);
     let into_wall = world
         .blocks
@@ -68,14 +68,14 @@ pub(super) fn player_control_phase(
     // Vestigial since the engine `pogo_hits` path was removed (orb damage now
     // flows from the sandbox attack pogo). Kept on the signature for now.
     _player_entity: bevy::prelude::Entity,
-    actor_control: ambition_sandbox::actor::control::ActorControlFrame,
+    actor_control: ambition_gameplay_core::actor::control::ActorControlFrame,
     world: &ae::World,
     clusters: &mut ae::PlayerClustersMut<'_>,
-    sim_state: &mut ambition_sandbox::SandboxSimState,
-    clock: &mut ambition_sandbox::time::clock_state::ClockState,
-    safety: &mut ambition_sandbox::player::PlayerSafetyState,
-    moving_platforms: &[ambition_sandbox::world::platforms::MovingPlatformState],
-    attack: &mut Option<ambition_sandbox::PlayerAttackState>,
+    sim_state: &mut ambition_gameplay_core::SandboxSimState,
+    clock: &mut ambition_gameplay_core::time::clock_state::ClockState,
+    safety: &mut ambition_gameplay_core::player::PlayerSafetyState,
+    moving_platforms: &[ambition_gameplay_core::world::platforms::MovingPlatformState],
+    attack: &mut Option<ambition_gameplay_core::PlayerAttackState>,
     sfx_writer: &mut MessageWriter<SfxMessage>,
     vfx_writer: &mut MessageWriter<VfxMessage>,
     tuning: ae::MovementTuning,
@@ -84,10 +84,10 @@ pub(super) fn player_control_phase(
     feature_ecs_overlay: &features::FeatureEcsWorldOverlay,
     reset_room_features: &mut MessageWriter<features::ResetRoomFeaturesEvent>,
     _hit_events: &mut MessageWriter<features::HitEvent>,
-    anim: &mut ambition_sandbox::player::PlayerAnimState,
-    combat: &mut ambition_sandbox::player::PlayerCombatState,
-    interaction: &mut ambition_sandbox::player::PlayerInteractionState,
-    blink_cam: &mut ambition_sandbox::player::PlayerBlinkCameraState,
+    anim: &mut ambition_gameplay_core::player::PlayerAnimState,
+    combat: &mut ambition_gameplay_core::player::PlayerCombatState,
+    interaction: &mut ambition_gameplay_core::player::PlayerInteractionState,
+    blink_cam: &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
     // True only for the camera/HUD-owning primary player. A brain-driven clone (or
     // any other player-bodied entity) runs the SAME per-entity movement core but must
     // NOT trigger the world-global sandbox reset — that is the primary's concern.
@@ -159,32 +159,32 @@ pub(super) fn player_control_phase(
 /// sandbox reset.
 ///
 /// Time-scale authority moved out of this phase in ADR 0010 step 4
-/// — see `ambition_sandbox::time::time_control::{emit_player_time_intent_system,
+/// — see `ambition_gameplay_core::time::time_control::{emit_player_time_intent_system,
 /// apply_clock_scale_requests, smooth_sim_clock_toward_target_system}`.
 /// This phase observes the smoothed `sim_state.time_scale` set by
 /// the PlayerInput pipeline.
 pub(super) fn player_simulation_phase(
-    actor_control: ambition_sandbox::actor::control::ActorControlFrame,
+    actor_control: ambition_gameplay_core::actor::control::ActorControlFrame,
     world: &ae::World,
     clusters: &mut ae::PlayerClustersMut<'_>,
-    dev_state: &ambition_sandbox::SandboxDevState,
-    sim_state: &mut ambition_sandbox::SandboxSimState,
-    clock: &mut ambition_sandbox::time::clock_state::ClockState,
-    safety: &mut ambition_sandbox::player::PlayerSafetyState,
-    moving_platforms: &[ambition_sandbox::world::platforms::MovingPlatformState],
-    attack: &mut Option<ambition_sandbox::PlayerAttackState>,
+    dev_state: &ambition_gameplay_core::SandboxDevState,
+    sim_state: &mut ambition_gameplay_core::SandboxSimState,
+    clock: &mut ambition_gameplay_core::time::clock_state::ClockState,
+    safety: &mut ambition_gameplay_core::player::PlayerSafetyState,
+    moving_platforms: &[ambition_gameplay_core::world::platforms::MovingPlatformState],
+    attack: &mut Option<ambition_gameplay_core::PlayerAttackState>,
     sfx_writer: &mut MessageWriter<SfxMessage>,
     vfx_writer: &mut MessageWriter<VfxMessage>,
-    shake: &mut ambition_sandbox::time::camera_ease::CameraShakeState,
+    shake: &mut ambition_gameplay_core::time::camera_ease::CameraShakeState,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     frame_dt: f32,
     feature_ecs_overlay: &features::FeatureEcsWorldOverlay,
     reset_room_features: &mut MessageWriter<features::ResetRoomFeaturesEvent>,
-    anim: &mut ambition_sandbox::player::PlayerAnimState,
-    combat: &mut ambition_sandbox::player::PlayerCombatState,
-    interaction: &mut ambition_sandbox::player::PlayerInteractionState,
-    blink_cam: &mut ambition_sandbox::player::PlayerBlinkCameraState,
+    anim: &mut ambition_gameplay_core::player::PlayerAnimState,
+    combat: &mut ambition_gameplay_core::player::PlayerCombatState,
+    interaction: &mut ambition_gameplay_core::player::PlayerInteractionState,
+    blink_cam: &mut ambition_gameplay_core::player::PlayerBlinkCameraState,
     // True only for the camera/HUD-owning primary. Non-primary player bodies (the
     // clone) run the same per-entity sim but must not shake the camera or reset the
     // world — those are primary-only.
@@ -253,7 +253,7 @@ pub(super) fn player_simulation_phase(
     // Hard-fall screen shake: pure trigger function in
     // `time::camera_ease`. Avoids tiny hops, saturates above
     // terminal velocity via the `kick()` cap.
-    let shake_amplitude = ambition_sandbox::time::camera_ease::hard_fall_shake_amplitude(
+    let shake_amplitude = ambition_gameplay_core::time::camera_ease::hard_fall_shake_amplitude(
         was_grounded,
         clusters.ground.on_ground,
         pre_sim_vy,
@@ -303,7 +303,7 @@ pub(super) fn player_simulation_phase(
 #[cfg(test)]
 mod ledge_carry_tests {
     use super::{ledge_platform_carry, LedgePlatformCarry};
-    use ambition_sandbox::engine_core as ae;
+    use ambition_gameplay_core::engine_core as ae;
 
     fn world_with_right_wall() -> ae::World {
         // A solid wall occupying x[100,120], full height; open space to its left.

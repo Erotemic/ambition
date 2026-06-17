@@ -19,7 +19,7 @@ use super::world_flow::*;
 #[allow(unused_imports)]
 use super::*;
 #[allow(unused_imports)]
-use ambition_sandbox::app::*;
+use ambition_gameplay_core::app::*;
 
 /// Presentation-side debug hotkey reader.
 ///
@@ -86,26 +86,26 @@ pub(super) fn handle_ldtk_hot_reload(
     mut world: ResMut<GameWorld>,
     mut room_set: ResMut<rooms::RoomSet>,
     mut dev_state: ResMut<SandboxDevState>,
-    mut sim_state: ResMut<ambition_sandbox::SandboxSimState>,
-    mut dialogue: ResMut<ambition_sandbox::dialog::DialogState>,
+    mut sim_state: ResMut<ambition_gameplay_core::SandboxSimState>,
+    mut dialogue: ResMut<ambition_gameplay_core::dialog::DialogState>,
     mut ldtk_index: ResMut<ldtk_world::LdtkRuntimeIndex>,
     mut ldtk_reload: ResMut<ldtk_world::LdtkHotReloadState>,
     editable_tuning: Res<EditableMovementTuning>,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
-    mut platform_set: ResMut<ambition_sandbox::MovingPlatformSet>,
+    mut platform_set: ResMut<ambition_gameplay_core::MovingPlatformSet>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
-    game_assets: Option<Res<ambition_sandbox::assets::game_assets::GameAssets>>,
+    game_assets: Option<Res<ambition_gameplay_core::assets::game_assets::GameAssets>>,
     mut player_q: Query<
         (
             ae::PlayerClusterQueryData,
-            &mut ambition_sandbox::player::PlayerCombatState,
-            &mut ambition_sandbox::player::PlayerSafetyState,
+            &mut ambition_gameplay_core::player::PlayerCombatState,
+            &mut ambition_gameplay_core::player::PlayerSafetyState,
         ),
         // PRIMARY-only: LDtk hot-reload repositions the camera body to the
         // validated spawn — a single-player dev flow.
-        ambition_sandbox::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::player::PrimaryPlayerOnly,
     >,
-    catalog: Res<ambition_sandbox::assets::sandbox_assets::SandboxAssetCatalog>,
+    catalog: Res<ambition_gameplay_core::assets::sandbox_assets::SandboxAssetCatalog>,
 ) {
     if keys.just_pressed(KeyCode::F12) {
         ldtk_reload.auto_apply = !ldtk_reload.auto_apply;
@@ -186,7 +186,7 @@ pub(super) struct LdtkReloadTransaction {
 
 pub(super) fn prepare_ldtk_reload_transaction(
     watch_path: &std::path::Path,
-    catalog: &ambition_sandbox::assets::sandbox_assets::SandboxAssetCatalog,
+    catalog: &ambition_gameplay_core::assets::sandbox_assets::SandboxAssetCatalog,
     current_room_id: &str,
     preserved_pos: ae::Vec2,
     player_size: ae::Vec2,
@@ -239,18 +239,18 @@ pub(super) fn reload_ldtk_world_from_disk(
     room_set: &mut rooms::RoomSet,
     clusters: &mut ae::PlayerClustersMut<'_>,
     dev_state: &mut SandboxDevState,
-    sim_state: &mut ambition_sandbox::SandboxSimState,
-    safety: &mut ambition_sandbox::player::PlayerSafetyState,
-    dialogue: &mut ambition_sandbox::dialog::DialogState,
-    combat: &mut ambition_sandbox::player::PlayerCombatState,
+    sim_state: &mut ambition_gameplay_core::SandboxSimState,
+    safety: &mut ambition_gameplay_core::player::PlayerSafetyState,
+    dialogue: &mut ambition_gameplay_core::dialog::DialogState,
+    combat: &mut ambition_gameplay_core::player::PlayerCombatState,
     ldtk_index: &mut ldtk_world::LdtkRuntimeIndex,
     tuning: ae::MovementTuning,
     physics_settings: physics::PhysicsSandboxSettings,
-    moving_platforms: &mut Vec<ambition_sandbox::world::platforms::MovingPlatformState>,
+    moving_platforms: &mut Vec<ambition_gameplay_core::world::platforms::MovingPlatformState>,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
-    assets: Option<&ambition_sandbox::assets::game_assets::GameAssets>,
+    assets: Option<&ambition_gameplay_core::assets::game_assets::GameAssets>,
     watch_path: &std::path::Path,
-    catalog: &ambition_sandbox::assets::sandbox_assets::SandboxAssetCatalog,
+    catalog: &ambition_gameplay_core::assets::sandbox_assets::SandboxAssetCatalog,
 ) -> Result<String, Vec<String>> {
     let current_room_id = room_set.active_spec().id.clone();
     let preserved_pos = clusters.kinematics.pos;

@@ -28,12 +28,12 @@ Entry format:
 - **Suggested fix / size:** S — grep docs for "RON room|world|manifest|level" prose, archive or rewrite.
 
 ## 2026-06-10 FeatureVisualKind::Sandbag variant in the generic kit
-- **Where:** crates/ambition_sandbox/src/mechanics/combat/events.rs (FeatureVisualKind)
+- **Where:** crates/ambition_gameplay_core/src/mechanics/combat/events.rs (FeatureVisualKind)
 - **Smell:** a named-ish variant in kit vocabulary (excluded from the combat-kit guard word list).
 - **Suggested fix / size:** S — rename to TrainingDummy, BUT it touches LDtk/content mapping, so do it with `ambition_ldtk_tools`, not a blind rename.
 
 ## 2026-06-10 Special-attack EFFECTS consumers are half-vocabulary (post de-name)
-- **Where:** crates/ambition_sandbox/src/features/ecs/brain_effects.rs (spawn_gnu_apple_rain_*, spawn_overfit_volley_*, LockOnBeam/PitTrap/RotatingCross/MinionCascade consumers); SpecialActionSpec docs in ambition_characters/src/brain/action_set.rs
+- **Where:** crates/ambition_gameplay_core/src/features/ecs/brain_effects.rs (spawn_gnu_apple_rain_*, spawn_overfit_volley_*, LockOnBeam/PitTrap/RotatingCross/MinionCascade consumers); SpecialActionSpec docs in ambition_characters/src/brain/action_set.rs
 - **Smell:** the BossAttackProfile de-name is honest at the key/schedule/geometry/param layers, but the consumer impls still bake content (apple art identity, gnu-named fns, "GNU-ton boss:" spec docs).
 - **Suggested fix / size:** M — lift baked constants + projectile-art identity into RON spec fields; rename consumers to the vocabulary. The active target of the Technique/Effects framework design (2026-06-13).
 
@@ -44,7 +44,7 @@ are now gravity-relative. These four remain world-Y-locked — each is a DESIGN 
 (should it be gravity-relative?), cheaply verifiable by adding a symmetry case:
 - **Directional attack hitbox offset** — `ambition_combat/src/lib.rs:446` (`view.pos + spec.hitbox_offset`): down/up/forward offsets are world-locked, so directional attacks are screen-relative.
 - **`ground_gap_below_feet`** — `ambition_app/src/app/world_flow.rs:63` probes world-down for landing feedback.
-- **Thrown ground-item physics** — `ambition_sandbox/src/items/pickup/mod.rs:169` (`GROUND_ITEM_GRAVITY`): thrown items fall world-down regardless of the gravity field.
+- **Thrown ground-item physics** — `ambition_gameplay_core/src/items/pickup/mod.rs:169` (`GROUND_ITEM_GRAVITY`): thrown items fall world-down regardless of the gravity field.
 - **Player knockback** — `apply_player_hit_events` builds `editable_tuning.as_engine()` without `apply_gravity_dir`; UNTESTED under a flip.
 
 ## Resolved

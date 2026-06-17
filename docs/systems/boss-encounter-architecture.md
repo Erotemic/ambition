@@ -74,7 +74,7 @@ when test fixtures don't install the boss machine). Unit tests in
 
 The encounter's numeric fields (HP, phase thresholds, timings,
 music ids) are now content rather than Rust constants. Each
-authored boss ships `crates/ambition_sandbox/assets/data/boss_encounters/<id>.ron`;
+authored boss ships `crates/ambition_gameplay_core/assets/data/boss_encounters/<id>.ron`;
 `load_boss_specs_from_disk()` loads them at profile assembly time
 and any RON whose id matches an authored profile overrides the
 hardcoded `ae::BossEncounterSpec::<id>()` constructor's numeric

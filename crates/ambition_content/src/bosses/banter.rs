@@ -15,7 +15,7 @@ use bevy::prelude::*;
 
 use crate::banter::CombatBanterRegistry;
 use ambition_render::fx::VfxMessage;
-use ambition_sandbox::features::BossClusterRef;
+use ambition_gameplay_core::features::BossClusterRef;
 
 /// Register hit-bark + idle-bark lines for all boss encounters.
 pub fn install_boss_banter(registry: &mut CombatBanterRegistry) {
@@ -133,7 +133,7 @@ const IDLE_BARK_INTERVAL_JITTER: f32 = 3.0;
 /// Fire idle barks for active bosses on a 5-10s cadence while they are
 /// in an attacking phase. Skips bosses with no idle lines registered.
 pub fn tick_boss_idle_barks(
-    world_time: Res<ambition_sandbox::WorldTime>,
+    world_time: Res<ambition_gameplay_core::WorldTime>,
     registry: Option<Res<CombatBanterRegistry>>,
     ecs_bosses: Query<BossClusterRef>,
     mut vfx: MessageWriter<VfxMessage>,
@@ -153,9 +153,9 @@ pub fn tick_boss_idle_barks(
         }
         if !matches!(
             boss.status.encounter_phase,
-            ambition_sandbox::boss_encounter::BossEncounterPhase::Phase1
-                | ambition_sandbox::boss_encounter::BossEncounterPhase::Phase2
-                | ambition_sandbox::boss_encounter::BossEncounterPhase::Enrage
+            ambition_gameplay_core::boss_encounter::BossEncounterPhase::Phase1
+                | ambition_gameplay_core::boss_encounter::BossEncounterPhase::Phase2
+                | ambition_gameplay_core::boss_encounter::BossEncounterPhase::Enrage
         ) {
             continue;
         }

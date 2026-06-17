@@ -19,7 +19,7 @@ use super::world_flow::*;
 #[allow(unused_imports)]
 use super::*;
 #[allow(unused_imports)]
-use ambition_sandbox::app::*;
+use ambition_gameplay_core::app::*;
 
 /// Resolve the on-disk asset root for the desktop app.
 ///
@@ -27,7 +27,7 @@ use ambition_sandbox::app::*;
 /// `BEVY_ASSET_ROOT` / the RUNNING binary's `CARGO_MANIFEST_DIR` — which
 /// has been `crates/ambition_app/` since the Stage 20 / A3 bisection,
 /// while the asset tree stays with the machinery lib at
-/// `crates/ambition_sandbox/assets` (the lib's `include_str!` paths and
+/// `crates/ambition_gameplay_core/assets` (the lib's `include_str!` paths and
 /// the regen scripts anchor there). Under `cargo run` that default broke
 /// every AssetServer load (sprites, music OGGs, `.yarn` dialogue, menu
 /// icons) while direct-filesystem readers (SFX bank, LDtk) kept working.
@@ -44,7 +44,7 @@ pub(super) fn desktop_asset_root() -> String {
         return "assets".to_string();
     }
     let dev_assets =
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../ambition_sandbox/assets");
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../ambition_gameplay_core/assets");
     match dev_assets.canonicalize() {
         Ok(path) if path.is_dir() => path.to_string_lossy().into_owned(),
         _ => "assets".to_string(),
@@ -139,7 +139,7 @@ mod headless_arg_tests {
             root.is_absolute(),
             "dev checkout should resolve an absolute sandbox assets path, got {root:?}"
         );
-        assert!(root.ends_with("crates/ambition_sandbox/assets") || root.ends_with("assets"));
+        assert!(root.ends_with("crates/ambition_gameplay_core/assets") || root.ends_with("assets"));
         assert!(
             root.join("ambition/sandbox.ron").exists(),
             "asset root {root:?} must contain ambition/sandbox.ron"
@@ -178,7 +178,7 @@ pub fn run_visible() {
             "no DISPLAY / WAYLAND_DISPLAY env var"
         };
         eprintln!(
-            "ambition_sandbox: running headless ({reason}); use `--bin headless` for the dedicated runner"
+            "ambition_gameplay_core: running headless ({reason}); use `--bin headless` for the dedicated runner"
         );
         match crate::headless::run_headless(max_ticks) {
             Ok(report) => {
@@ -193,7 +193,7 @@ pub fn run_visible() {
     }
     let asset_config = GameAssetConfig::from_args();
     let asset_root = desktop_asset_root();
-    eprintln!("ambition_sandbox: asset root = {asset_root}");
+    eprintln!("ambition_gameplay_core: asset root = {asset_root}");
     let mut app = App::new();
     app.add_plugins(
         DefaultPlugins
@@ -231,7 +231,7 @@ pub fn run_visible() {
     // AssetSource registration runs LAST so EmbeddedAssetRegistry
     // (added by `AssetPlugin` inside `DefaultPlugins`) is already present.
     app.add_plugins(
-        ambition_sandbox::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(
+        ambition_gameplay_core::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(
             active_profile,
         ),
     );
@@ -254,7 +254,7 @@ pub fn run_visible() {
 /// synchronous filesystem reader for `sandbox.ldtk` in this pass.
 ///
 /// The `#[wasm_bindgen(start)]` shim that calls this lives in
-/// `ambition_sandbox::lib`'s root, behind the same `cfg(target_arch = "wasm32")` +
+/// `ambition_gameplay_core::lib`'s root, behind the same `cfg(target_arch = "wasm32")` +
 /// `feature = "web_platform"` gate.
 #[cfg(all(target_arch = "wasm32", feature = "web_platform"))]
 pub fn run_web() {
@@ -263,7 +263,7 @@ pub fn run_web() {
         primary_window: Some(Window {
             title: "Ambition - Tangent Space Sandbox (Web)".into(),
             // The canvas selector matches `<canvas id="bevy">` in
-            // `crates/ambition_sandbox/web/index.html`. Without this Bevy
+            // `crates/ambition_gameplay_core/web/index.html`. Without this Bevy
             // would mint its own canvas and append it to <body>; pinning
             // the selector lets the page own layout / sizing / focus.
             canvas: Some("#bevy".to_string()),
@@ -308,7 +308,7 @@ pub fn run_web() {
     // AssetSource registration runs LAST so EmbeddedAssetRegistry (added
     // by `AssetPlugin` inside `DefaultPlugins`) is already present.
     app.add_plugins(
-        ambition_sandbox::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(
+        ambition_gameplay_core::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(
             active_profile,
         ),
     );

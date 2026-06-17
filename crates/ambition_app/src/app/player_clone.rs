@@ -3,7 +3,7 @@
 //! the EXACT same movement integration the human player uses.
 //!
 //! This is the live, in-game counterpart to the headless proof in
-//! `ambition_sandbox::player::clone_probe_tests`. It demonstrates the
+//! `ambition_gameplay_core::player::clone_probe_tests`. It demonstrates the
 //! universal-brain seam: the clone runs / jumps / dashes / flies entirely from
 //! brain-emitted `ActorControlFrame` verbs.
 //!
@@ -19,14 +19,14 @@
 use bevy::prelude::*;
 
 use ambition_render::rendering::{PlayerSpriteBaseline, PlayerVisual};
-use ambition_sandbox::assets::game_assets::GameAssets;
-use ambition_sandbox::brain::{ActorControl, Brain, BrainSnapshot, StateMachineCfg};
-use ambition_sandbox::character_sprites::{
+use ambition_gameplay_core::assets::game_assets::GameAssets;
+use ambition_gameplay_core::brain::{ActorControl, Brain, BrainSnapshot, StateMachineCfg};
+use ambition_gameplay_core::character_sprites::{
     build_character_sprite_with_render_size, feet_anchor_for_render_size,
     player_placeholder_render_size, CharacterAnimator,
 };
-use ambition_sandbox::engine_core as ae;
-use ambition_sandbox::GameWorld;
+use ambition_gameplay_core::engine_core as ae;
+use ambition_gameplay_core::GameWorld;
 
 /// Marks a brain-driven player-body clone (NOT the human player).
 #[derive(Component)]
@@ -66,8 +66,8 @@ pub fn spawn_requested_player_clone(
     // PRIMARY-only: spawn the clone relative to the camera body. Once a clone is
     // itself a PlayerEntity, a bare single() here would Err on the second spawn.
     player_q: Query<
-        &ambition_sandbox::player::BodyKinematics,
-        ambition_sandbox::player::PrimaryPlayerOnly,
+        &ambition_gameplay_core::player::BodyKinematics,
+        ambition_gameplay_core::player::PrimaryPlayerOnly,
     >,
 ) {
     if !request.0 {
@@ -83,10 +83,10 @@ pub fn spawn_requested_player_clone(
         ae::PlayerClusterScratch::new_with_abilities(spawn, ae::AbilitySet::sandbox_all());
 
     let size = scratch.kinematics.size;
-    let transform = Transform::from_translation(ambition_sandbox::config::world_to_bevy(
+    let transform = Transform::from_translation(ambition_gameplay_core::config::world_to_bevy(
         &world.0,
         spawn,
-        ambition_sandbox::config::WORLD_Z_PLAYER,
+        ambition_gameplay_core::config::WORLD_Z_PLAYER,
     ));
 
     // 18 cluster components are over Bevy's tuple-bundle arity, so nest them.
@@ -117,7 +117,7 @@ pub fn spawn_requested_player_clone(
         clusters_a,
         clusters_b,
         Brain::StateMachine(StateMachineCfg::PlayerDemo {
-            cfg: ambition_sandbox::brain::state_machine::PlayerDemoCfg::default(),
+            cfg: ambition_gameplay_core::brain::state_machine::PlayerDemoCfg::default(),
             state: Default::default(),
         }),
         ActorControl::default(),
@@ -127,9 +127,9 @@ pub fn spawn_requested_player_clone(
         // through the IDENTICAL player picker — `animate_player` now iterates every
         // `PlayerVisual` body, not just the primary.
         (
-            ambition_sandbox::player::PlayerAnimState::default(),
-            ambition_sandbox::player::PlayerCombatState::default(),
-            ambition_sandbox::player::PlayerBlinkCameraState::default(),
+            ambition_gameplay_core::player::PlayerAnimState::default(),
+            ambition_gameplay_core::player::PlayerCombatState::default(),
+            ambition_gameplay_core::player::PlayerBlinkCameraState::default(),
         ),
         // The clone IS a `PlayerEntity` (3c-ii): the iterating
         // `player_control_system` / `player_simulation_system` move it through the
@@ -140,12 +140,12 @@ pub fn spawn_requested_player_clone(
         // NOT a `PlayerSlot` (so the device-input `tick_player_brains` skips it — its
         // `PlayerDemo` brain is ticked by `tick_player_clone_brains` with real
         // sim-time/dt instead).
-        ambition_sandbox::player::PlayerEntity,
+        ambition_gameplay_core::player::PlayerEntity,
         (
-            ambition_sandbox::player::PlayerInteractionState::default(),
-            ambition_sandbox::player::ActivePlayerAttack::default(),
-            ambition_sandbox::player::PlayerSafetyState::default(),
-            ambition_sandbox::player::PlayerInputFrame::default(),
+            ambition_gameplay_core::player::PlayerInteractionState::default(),
+            ambition_gameplay_core::player::ActivePlayerAttack::default(),
+            ambition_gameplay_core::player::PlayerSafetyState::default(),
+            ambition_gameplay_core::player::PlayerInputFrame::default(),
         ),
         transform,
         Name::new("Player Clone (brain-driven)"),
@@ -195,8 +195,8 @@ pub fn tick_player_clone_brains(
     mut clock: ResMut<PlayerCloneClock>,
     mut clones: Query<
         (
-            &ambition_sandbox::player::BodyKinematics,
-            &ambition_sandbox::player::PlayerGroundState,
+            &ambition_gameplay_core::player::BodyKinematics,
+            &ambition_gameplay_core::player::PlayerGroundState,
             &mut Brain,
             &mut ActorControl,
         ),
@@ -218,7 +218,7 @@ pub fn tick_player_clone_brains(
         snapshot.sim_time = clock.0;
         snapshot.dt = dt;
 
-        let mut frame = ambition_sandbox::actor::control::ActorControlFrame::neutral();
+        let mut frame = ambition_gameplay_core::actor::control::ActorControlFrame::neutral();
         brain.tick(&snapshot, &mut frame);
         control.0 = frame;
     }
@@ -231,7 +231,7 @@ pub fn tick_player_clone_brains(
 /// `process_sandbox_reset_request` consumes the request flag, so a reset returns
 /// to a clean single-primary world instead of leaving orphaned clones wandering.
 pub fn despawn_player_clones_on_reset(
-    request: Res<ambition_sandbox::runtime::reset::SandboxResetRequested>,
+    request: Res<ambition_gameplay_core::runtime::reset::SandboxResetRequested>,
     clones: Query<Entity, With<PlayerClone>>,
     mut commands: Commands,
 ) {
@@ -247,15 +247,15 @@ pub fn despawn_player_clones_on_reset(
 pub fn sync_player_clone_transform(
     world: Res<GameWorld>,
     mut clones: Query<
-        (&ambition_sandbox::player::BodyKinematics, &mut Transform),
+        (&ambition_gameplay_core::player::BodyKinematics, &mut Transform),
         With<PlayerClone>,
     >,
 ) {
     for (kin, mut transform) in &mut clones {
-        transform.translation = ambition_sandbox::config::world_to_bevy(
+        transform.translation = ambition_gameplay_core::config::world_to_bevy(
             &world.0,
             kin.pos,
-            ambition_sandbox::config::WORLD_Z_PLAYER,
+            ambition_gameplay_core::config::WORLD_Z_PLAYER,
         );
     }
 }

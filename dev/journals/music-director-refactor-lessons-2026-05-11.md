@@ -2,11 +2,11 @@
 
 ## Symptom
 
-After splitting `crates/ambition_sandbox/src/music/director.rs` into child modules, `cargo fmt --all` failed with:
+After splitting `crates/ambition_gameplay_core/src/music/director.rs` into child modules, `cargo fmt --all` failed with:
 
 ```text
 error: expected item after doc comment
-  --> crates/ambition_sandbox/src/music/director/loader.rs:34:1
+  --> crates/ambition_gameplay_core/src/music/director/loader.rs:34:1
 ```
 
 `cargo test` then failed with privacy errors such as:

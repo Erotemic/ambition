@@ -42,7 +42,7 @@ pub fn upgrade_boss_sprites(
     ecs_bosses: Query<(
         &FeatureId,
         BossClusterRef,
-        &ambition_sandbox::brain::BossAttackState,
+        &ambition_gameplay_core::brain::BossAttackState,
     )>,
     new_bosses: Query<
         (Entity, &FeatureVisual),
@@ -65,7 +65,7 @@ pub fn upgrade_boss_sprites(
                 let boss = item.as_boss_ref();
                 // `flash` reads `BossAttackState` instead of the deleted
                 // `attack_timer` / `attack_windup_timer` mirror fields.
-                Some(ambition_sandbox::features::FeatureView {
+                Some(ambition_gameplay_core::features::FeatureView {
                     pos: boss.kin.pos,
                     size: boss.render_size(),
                     kind: FeatureVisualKind::Boss,
@@ -89,7 +89,7 @@ pub fn upgrade_boss_sprites(
         // If no asset is available we skip — the colored rectangle
         // fallback in `sync_visuals` continues to render.
         let boss_name =
-            ambition_sandbox::features::ecs_boss_name(&visual.id, &ecs_bosses).unwrap_or("");
+            ambition_gameplay_core::features::ecs_boss_name(&visual.id, &ecs_bosses).unwrap_or("");
         let boss_behavior_id = ecs_bosses
             .iter()
             .find_map(|(feature_id, item, _)| {
@@ -228,27 +228,27 @@ pub fn sync_gnu_ton_hands(
 /// Per-frame state-driven animation for boss entities.
 pub fn animate_bosses(
     mut commands: Commands,
-    world_time: Res<ambition_sandbox::WorldTime>,
+    world_time: Res<ambition_gameplay_core::WorldTime>,
     ecs_bosses: Query<(
         Entity,
         &FeatureId,
         BossClusterRef,
-        &ambition_sandbox::brain::BossAttackState,
-        &ambition_sandbox::brain::Brain,
+        &ambition_gameplay_core::brain::BossAttackState,
+        &ambition_gameplay_core::brain::Brain,
     )>,
     mut query: Query<
         (
             &FeatureVisual,
             &mut Sprite,
             &mut BossAnimator,
-            Option<&ambition_sandbox::time::time_control::ProperTimeScale>,
+            Option<&ambition_gameplay_core::time::time_control::ProperTimeScale>,
         ),
         Without<PlayerVisual>,
     >,
     // Localized gravity, so a boss under flipped / sideways gravity flips the
     // same way the player and enemies do (it self-rights via `ActorRoll`, so its
     // facing must be gravity-aware too or the 180° roll mirrors it backwards).
-    gravity: ambition_sandbox::physics::GravityCtx,
+    gravity: ambition_gameplay_core::physics::GravityCtx,
 ) {
     // ADR 0011 — per-entity proper time. The "boss got root on the
     // simulator" pattern (ADR 0010 §Narrative authority) plays out
@@ -257,9 +257,9 @@ pub fn animate_bosses(
     // request.
     for (visual, mut sprite, mut animator, scale) in &mut query {
         let dt = world_time
-            .entity_dt(ambition_sandbox::time::time_control::ProperTimeScale::or_default(scale));
+            .entity_dt(ambition_gameplay_core::time::time_control::ProperTimeScale::or_default(scale));
         let Some((boss_entity, state)): Option<(Entity, BossAnimState)> =
-            ambition_sandbox::features::ecs_boss_anim_state_and_entity(&visual.id, &ecs_bosses)
+            ambition_gameplay_core::features::ecs_boss_anim_state_and_entity(&visual.id, &ecs_bosses)
         else {
             continue;
         };
@@ -267,7 +267,7 @@ pub fn animate_bosses(
         let drive_phase = state.drive_phase();
         animator.request_for_phase(anim, drive_phase);
         let index = animator.tick(dt);
-        let animation_sample = ambition_sandbox::features::ecs_boss_animation_frame_sample(
+        let animation_sample = ambition_gameplay_core::features::ecs_boss_animation_frame_sample(
             &visual.id,
             &ecs_bosses,
             anim,
@@ -278,7 +278,7 @@ pub fn animate_bosses(
         } else {
             commands
                 .entity(boss_entity)
-                .remove::<ambition_sandbox::features::BossAnimationFrameSample>();
+                .remove::<ambition_gameplay_core::features::BossAnimationFrameSample>();
         }
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
             atlas.index = index;
@@ -290,7 +290,7 @@ pub fn animate_bosses(
         // gravity it reduces to `spec.flip_x(facing)` (the gravity term is 0), and
         // under a flip it cancels the `ActorRoll` 180° mirror so the boss keeps
         // facing the player.
-        sprite.flip_x = ambition_sandbox::physics::gravity_aware_flip_x(
+        sprite.flip_x = ambition_gameplay_core::physics::gravity_aware_flip_x(
             state.facing,
             gravity.dir_at(state.pos),
         ) ^ animator.spec.authored_faces_left;

@@ -57,7 +57,7 @@ ANIMATIONS = [
 ]
 
 # Mirror of the Rust `CharacterAnim::from_name` alias table at
-# `crates/ambition_sandbox/src/presentation/character_sprites/anim.rs`.
+# `crates/ambition_gameplay_core/src/presentation/character_sprites/anim.rs`.
 # Two sets so `is_character_sheet` can detect *any* CharacterAnim row
 # while `IDLE_ALIASES` flags the missing-Idle case specifically.
 IDLE_ALIASES = frozenset(("idle", "opening", "rest", "front_idle", "side_idle"))
@@ -597,7 +597,7 @@ def _ron_row(row):
 def _emit_sheet_ron(manifest):
     """Serialize the manifest dict to RON in the shape
     `Vec<SheetRecord>` (defined in
-    `crates/ambition_sandbox/src/presentation/character_sprites/registry.rs`)
+    `crates/ambition_gameplay_core/src/presentation/character_sprites/registry.rs`)
     expects. Even for single-target sheets the top-level is a list — the
     loader always parses `Vec<SheetRecord>`, and shared PNGs (lab props)
     use the same emitter to write multiple records.

@@ -4,9 +4,9 @@ Living index of faction/lair content that is represented in the sandbox. Use thi
 
 ## Authoring rules
 
-1. Character identity comes from `crates/ambition_sandbox/assets/data/character_catalog.ron`.
+1. Character identity comes from `crates/ambition_gameplay_core/assets/data/character_catalog.ron`.
 2. LDtk `NpcSpawn.character_id` should reference a catalog id; display names are resolved through the character roster adapter.
-3. Sprite metadata lives under `crates/ambition_sandbox/assets/sprites/` and the character catalog points at the relevant sheet/manifest.
+3. Sprite metadata lives under `crates/ambition_gameplay_core/assets/sprites/` and the character catalog points at the relevant sheet/manifest.
 4. Music cue ids should match the generated-audio catalog / asset manager entries.
 5. Update this table in the same patch that adds or materially changes a faction lair.
 
@@ -21,7 +21,7 @@ Living index of faction/lair content that is represented in the sandbox. Use thi
 
 ## Roadmap factions (sprite/music concept exists, lair pending)
 
-Faction target specs live under `tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/configs/factions/` or the current sprite target/config directories. When a roadmap faction becomes active, publish the sprite metadata into `crates/ambition_sandbox/assets/sprites/`, add or update the character catalog entry, and author the LDtk lair.
+Faction target specs live under `tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/configs/factions/` or the current sprite target/config directories. When a roadmap faction becomes active, publish the sprite metadata into `crates/ambition_gameplay_core/assets/sprites/`, add or update the character catalog entry, and author the LDtk lair.
 
 | Faction | Theme hook | Leader concept | Music cue |
 |---|---|---|---|

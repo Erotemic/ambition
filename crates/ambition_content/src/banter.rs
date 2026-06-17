@@ -1,12 +1,12 @@
 //! Ambition's authored combat-banter lines.
 //!
 //! The registry type moved machinery-side
-//! ([`ambition_sandbox::features::banter::CombatBanterRegistry`]) so
+//! ([`ambition_gameplay_core::features::banter::CombatBanterRegistry`]) so
 //! the combat hit path can read it; this module keeps WHAT the named
 //! enemies say. Re-exported here so `crate::banter::CombatBanterRegistry`
 //! paths keep working.
 
-pub use ambition_sandbox::features::banter::CombatBanterRegistry;
+pub use ambition_gameplay_core::features::banter::CombatBanterRegistry;
 
 /// Install pirate-cove combat barks for every pirate variant
 /// (Admiral / Raider / Quartermaster / Lookout / Navigator and the

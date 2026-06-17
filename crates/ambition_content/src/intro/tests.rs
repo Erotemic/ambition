@@ -8,7 +8,7 @@ use super::cutscene::{install_intro_cutscenes, intro_room_cutscene_bindings};
 use super::dialog::intro_dialogue_ids;
 use super::sprites::intro_npc_sprite_rows;
 use ambition_render::cutscene::CutsceneLibrary;
-use ambition_sandbox::dialog::DialogState;
+use ambition_gameplay_core::dialog::DialogState;
 
 #[test]
 fn every_intro_dialogue_id_is_registered_with_validator() {
@@ -17,7 +17,7 @@ fn every_intro_dialogue_id_is_registered_with_validator() {
     // references. With the Yarn migration the dialogue content
     // lives in `.yarn` files; the runtime body smoke-check moved
     // to the bridge's integration tests.
-    let known: std::collections::HashSet<&str> = ambition_sandbox::dialog::known_dialogue_ids()
+    let known: std::collections::HashSet<&str> = ambition_gameplay_core::dialog::known_dialogue_ids()
         .into_iter()
         .collect();
     for id in intro_dialogue_ids() {
@@ -44,7 +44,7 @@ fn dialog_start_sets_dialogue_id_for_intro_and_sandbox() {
 
 #[test]
 fn known_dialogue_ids_contains_every_intro_id() {
-    let known = ambition_sandbox::dialog::known_dialogue_ids();
+    let known = ambition_gameplay_core::dialog::known_dialogue_ids();
     for id in intro_dialogue_ids() {
         assert!(
             known.contains(id),

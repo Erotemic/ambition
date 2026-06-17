@@ -24,7 +24,7 @@
 //! run on demand to produce the repro catalog:
 //!
 //! ```text
-//! cargo test -p ambition_sandbox --test collision_invariant_oracle \
+//! cargo test -p ambition_gameplay_core --test collision_invariant_oracle \
 //!     -- --ignored --nocapture
 //! ```
 //!
@@ -33,8 +33,8 @@
 
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::{RandomWalkPolicy, SandboxSim, SandboxSimOptions};
-use ambition_sandbox::engine_core as ae;
-use ambition_sandbox::GameWorld;
+use ambition_gameplay_core::engine_core as ae;
+use ambition_gameplay_core::GameWorld;
 
 // --- the oracle ---
 
@@ -118,7 +118,7 @@ fn solid_blocks(sim: &SandboxSim) -> Vec<ae::Aabb> {
 /// leaving through an opening, not clipping a solid boundary — the cross-check
 /// that turns the raw OOB-SIDE noise into "OOB through a wall with no exit".
 fn load_loading_zones() -> std::collections::HashMap<String, Vec<ae::Aabb>> {
-    use ambition_sandbox as sb;
+    use ambition_gameplay_core as sb;
     let mut map = std::collections::HashMap::new();
     let Ok(project) = sb::ldtk_world::LdtkProject::load_default_for_dev() else {
         return map;

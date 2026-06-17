@@ -12,8 +12,8 @@
 use bevy::prelude::*;
 
 use super::sim_systems::attack_advance_system;
-use ambition_sandbox::app::SandboxSet;
-use ambition_sandbox::runtime::game_mode::gameplay_allowed;
+use ambition_gameplay_core::app::SandboxSet;
+use ambition_gameplay_core::runtime::game_mode::gameplay_allowed;
 
 /// Schedules the `SandboxSet::Combat` system chain.
 pub struct CombatSchedulePlugin;
@@ -24,7 +24,7 @@ impl Plugin for CombatSchedulePlugin {
         // phase-transition slam, …) emit `EffectRequest`; `apply_effects` below
         // drains it. Registered here so the writers never hit an unregistered
         // message.
-        app.add_message::<ambition_sandbox::effects::EffectRequest>();
+        app.add_message::<ambition_gameplay_core::effects::EffectRequest>();
         app.add_systems(
             Update,
             (
@@ -35,7 +35,7 @@ impl Plugin for CombatSchedulePlugin {
                 // BEFORE `update_enemy_projectiles` so projectiles spawned
                 // this tick already advance one step this frame, matching
                 // the pre-migration latency.
-                ambition_sandbox::features::spawn_enemy_projectiles_from_brain_actions
+                ambition_gameplay_core::features::spawn_enemy_projectiles_from_brain_actions
                     .run_if(gameplay_allowed),
                 // EFFECTS-stage consumer: reads ActorActionMessage::Melee
                 // and starts the enemy's attack windup + cooldown.
@@ -44,7 +44,7 @@ impl Plugin for CombatSchedulePlugin {
                 // happens upstream in `update_ecs_actors` (the runtime is
                 // the only place that owns the windup → active transition);
                 // `apply_hitbox_damage` below resolves the overlap.
-                ambition_sandbox::features::start_enemy_melee_from_brain_actions.run_if(gameplay_allowed),
+                ambition_gameplay_core::features::start_enemy_melee_from_brain_actions.run_if(gameplay_allowed),
                 // EFFECTS-stage consumer: reads
                 // `ActorActionMessage::Special { SpecialActionSpec::Special("apple_rain") }`
                 // and accumulates per-boss apple-rain spawn cadence.
@@ -94,8 +94,8 @@ impl Plugin for CombatSchedulePlugin {
                 // lib-side (the enemy roster) so `apply_effects` is substrate-free;
                 // same slot as before, so minion spawn timing is unchanged.
                 (
-                    ambition_sandbox::effects::apply_effects.run_if(gameplay_allowed),
-                    ambition_sandbox::features::apply_summon_effects.run_if(gameplay_allowed),
+                    ambition_gameplay_core::effects::apply_effects.run_if(gameplay_allowed),
+                    ambition_gameplay_core::features::apply_summon_effects.run_if(gameplay_allowed),
                 )
                     .chain(),
                 // Phase 3b enemy-pool spawn consumer: drains SpawnProjectile
@@ -104,26 +104,26 @@ impl Plugin for CombatSchedulePlugin {
                 // sentry / meteor / volley) into EnemyProjectileState.bodies
                 // BEFORE the step below, so a body spawned this tick advances
                 // one step this frame — identical to the old direct push.
-                ambition_sandbox::enemy_projectile::apply_projectile_effects
+                ambition_gameplay_core::enemy_projectile::apply_projectile_effects
                     .run_if(gameplay_allowed),
                 // Unified projectile step (player + enemy, faction-routed). Runs
                 // AFTER the enemy spawn consumer (so an enemy body spawned this
                 // tick advances one step this frame) and BEFORE the player input +
                 // spawn below (so a player shot FIRED this frame first ticks next
                 // frame — the old asymmetric spawn timing, preserved).
-                ambition_sandbox::projectile::step_projectiles.run_if(gameplay_allowed),
+                ambition_gameplay_core::projectile::step_projectiles.run_if(gameplay_allowed),
                 // Player projectile INPUT: charge / Hadouken / fire → SpawnProjectile.
-                ambition_sandbox::projectile::player_projectile_input,
+                ambition_gameplay_core::projectile::player_projectile_input,
                 // Phase 3b player-pool spawn consumer: materializes player-fired
                 // bodies AFTER the step, so the new body first ticks next frame.
-                ambition_sandbox::projectile::apply_player_spawn_projectile_messages,
+                ambition_gameplay_core::projectile::apply_player_spawn_projectile_messages,
                 // Hitbox-entity lifecycle for melee strikes (Task A of the
                 // actor/brain follow-up plan). `apply_hitbox_damage`
                 // resolves overlap → damage event; `tick_and_despawn_hitboxes`
                 // advances lifetimes and cleans expired entities.
-                ambition_sandbox::features::apply_hitbox_damage.run_if(gameplay_allowed),
-                ambition_sandbox::features::tick_and_despawn_hitboxes,
-                ambition_sandbox::features::apply_feature_hit_events,
+                ambition_gameplay_core::features::apply_hitbox_damage.run_if(gameplay_allowed),
+                ambition_gameplay_core::features::tick_and_despawn_hitboxes,
+                ambition_gameplay_core::features::apply_feature_hit_events,
                 ambition_content::bosses::tick_cut_rope_boss_arena.run_if(gameplay_allowed),
                 ambition_content::bosses::sync_cut_rope_boss_arena_prop_visuals,
                 // Mount/rider link bookkeeping. Runs after damage so
@@ -131,7 +131,7 @@ impl Plugin for CombatSchedulePlugin {
                 // side; a dead mount releases its rider (gravity on,
                 // solo brain restored) and a dead rider clears the
                 // mount's MountSlot back-reference.
-                ambition_sandbox::features::enforce_mount_rider_link,
+                ambition_gameplay_core::features::enforce_mount_rider_link,
             )
                 .chain()
                 .in_set(SandboxSet::Combat),

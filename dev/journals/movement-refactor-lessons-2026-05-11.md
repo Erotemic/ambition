@@ -36,7 +36,7 @@ that the child module will compile.
 ## Symptom 2: full-world wall-cling repro teleported to `y=-23`
 
 After replacing bespoke sweep snapping with a normal-derived correction,
-`cargo test -p ambition_sandbox --test repro_walls` failed:
+`cargo test -p ambition_gameplay_core --test repro_walls` failed:
 
 ```text
 FULL WORLD step: pos=(62, -23) vel=(0, 0) on_ground=true on_wall=true cling=false
@@ -76,7 +76,7 @@ API.
 
 ## Symptom 3: headless random-walker fuzz panicked on missing inventory
 
-`cargo test -p ambition_sandbox --test fuzz_random_walker` failed in Bevy's
+`cargo test -p ambition_gameplay_core --test fuzz_random_walker` failed in Bevy's
 system parameter validation:
 
 ```text

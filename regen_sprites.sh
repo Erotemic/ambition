@@ -6,13 +6,13 @@
 #     target (run `ambition_sprite2d_renderer list`) — the adapter rigs are
 #     driven by YAML in the renderer package's config dir
 #     tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/configs/*.yaml
-#     — straight into crates/ambition_sandbox/assets/sprites/.
+#     — straight into crates/ambition_gameplay_core/assets/sprites/.
 #   - Entity sprites (chest, breakable, door zone, etc.): re-rendered into
-#     crates/ambition_sandbox/assets/sprites/entities/.
+#     crates/ambition_gameplay_core/assets/sprites/entities/.
 #   - Standalone pirate sheets: rendered and published into
-#     crates/ambition_sandbox/assets/sprites/.
+#     crates/ambition_gameplay_core/assets/sprites/.
 #   - Tack-on targets (sandbag, mockingbird): rendered into the renderer's
-#     generated/ dir then installed into crates/ambition_sandbox/assets/sprites/.
+#     generated/ dir then installed into crates/ambition_gameplay_core/assets/sprites/.
 #
 # Usage:
 #   ./regen_sprites.sh                  # render + install everything (cache-skipped if fresh)
@@ -34,7 +34,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$repo_root"
 
 renderer_dir="$repo_root/tools/ambition_sprite2d_renderer"
-sprites_dir="$repo_root/crates/ambition_sandbox/assets/sprites"
+sprites_dir="$repo_root/crates/ambition_gameplay_core/assets/sprites"
 entities_dir="$sprites_dir/entities"
 
 select_python() {
@@ -458,9 +458,9 @@ echo "==> review NPC sheets (toon-target NPCs) → $sprites_dir"
 # in-game into $sprites_dir. Promoting a review config to a
 # permanent runtime sheet means: add the cue id to the copy list
 # below AND register a CharacterSheetSpec for it in
-# `crates/ambition_sandbox/src/character_sprites/sheets.rs`, plus
+# `crates/ambition_gameplay_core/src/character_sprites/sheets.rs`, plus
 # wire it into `NPC_SPRITE_REGISTRY` in
-# `crates/ambition_sandbox/src/character_sprites/assets.rs`.
+# `crates/ambition_gameplay_core/src/character_sprites/assets.rs`.
 review_scratch="$renderer_dir/generated/review"
 mkdir -p "$review_scratch"
 (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer draw-review --out-dir "$review_scratch")

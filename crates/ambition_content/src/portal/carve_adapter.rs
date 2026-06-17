@@ -1,8 +1,8 @@
 //! Ambition bridge: portal-owned carves → the host collision overlay.
 //!
-//! Portal core's [`publish_portal_carves`](ambition_sandbox::portal::publish_portal_carves)
+//! Portal core's [`publish_portal_carves`](ambition_gameplay_core::portal::publish_portal_carves)
 //! writes the aperture geometry into the portal-owned
-//! [`PortalCarves`](ambition_sandbox::portal::PortalCarves) resource. Portal core never
+//! [`PortalCarves`](ambition_gameplay_core::portal::PortalCarves) resource. Portal core never
 //! names `FeatureEcsWorldOverlay` — it owns the carve *geometry*, while Ambition
 //! owns how a carve alters its collision representation. This bridge copies the
 //! published carves into `FeatureEcsWorldOverlay.portal_carves` each frame,
@@ -11,8 +11,8 @@
 
 use bevy::prelude::*;
 
-use ambition_sandbox::features::FeatureEcsWorldOverlay;
-use ambition_sandbox::portal::PortalCarves;
+use ambition_gameplay_core::features::FeatureEcsWorldOverlay;
+use ambition_gameplay_core::portal::PortalCarves;
 
 /// Copy this frame's portal-owned carves into the host collision overlay.
 ///

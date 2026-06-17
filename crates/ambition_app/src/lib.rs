@@ -4,10 +4,10 @@
 //! (`host/`), app-level dev overlays (`dev/`), the game-side menu host stack
 //! (`menu/`), the headless driver (`headless`), and the RL stepping API
 //! (`rl_sim`, feature-gated). Sits on top of the machinery lib
-//! (`ambition_sandbox`) and the named-content crate (`ambition_content`); this is
+//! (`ambition_gameplay_core`) and the named-content crate (`ambition_content`); this is
 //! the only crate allowed to name both.
 //!
-//! Binaries: the playable `ambition_sandbox` bin plus the `headless` /
+//! Binaries: the playable `ambition_gameplay_core` bin plus the `headless` /
 //! `rl_random_walker` / `rl_smoke` / `trace_replay` drivers (rl_sim feature).
 
 pub mod app;
@@ -27,12 +27,12 @@ pub use rl_sim::{
 
 /// Android shared-library entry point.
 ///
-/// Desktop builds enter through `src/bin/ambition_sandbox.rs`, but the Android
+/// Desktop builds enter through `src/bin/ambition_gameplay_core.rs`, but the Android
 /// Gradle project packages this crate as a shared library. GameActivity /
 /// android-activity expects the library to export `android_main`; Bevy's
 /// `#[bevy_main]` macro generates that boilerplate and registers the Android
 /// app handle for `bevy_winit` before calling into our normal visible app
-/// builder. NOTE (A3): the .so was previously `libambition_sandbox.so` built
+/// builder. NOTE (A3): the .so was previously `libambition_gameplay_core.so` built
 /// from the old monolith; the Gradle config must point at `libambition_app.so`
 /// after this split.
 #[cfg(target_os = "android")]

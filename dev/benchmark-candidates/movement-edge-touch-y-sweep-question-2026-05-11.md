@@ -67,7 +67,7 @@ the side-wall helper.
 Validation command:
 
 ```bash
-cargo test -p ambition_sandbox --test repro_walls
+cargo test -p ambition_gameplay_core --test repro_walls
 ```
 
 ### Why this was easy to miss

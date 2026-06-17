@@ -53,14 +53,14 @@ must derive a stable per-actor seed and apply at minimum:
   radius): per-actor offset around the authored target geometry.
   ±20% on radii, full `[0, τ)` on orbital phase.
 
-The seed is `crates/ambition_sandbox/src/mechanics/combat/variation.rs::seed_from_id(&enemy.id)`,
+The seed is `crates/ambition_gameplay_core/src/mechanics/combat/variation.rs::seed_from_id(&enemy.id)`,
 which is stable across runs (deterministic) but distinct per
 authored `EnemyRuntime.id`. Composite spawn paths use the rider /
 mount sub-id (e.g. `"<authored>:rider"`) so a fan-out doesn't
 collapse two children to the same seed.
 
 The canonical helper is `five_f32s_from_seed(seed) -> (f32, f32,
-f32, f32, f32)` in `crates/ambition_sandbox/src/mechanics/combat/variation.rs`: an xorshift32
+f32, f32, f32)` in `crates/ambition_gameplay_core/src/mechanics/combat/variation.rs`: an xorshift32
 sequence producing five independent uniforms in `[0, 1)`. Per-brain
 config decides which jitter dimensions consume which slot.
 
@@ -130,12 +130,12 @@ heuristics that the rest of the system can't observe.
 
 - Every new brain template must specify which jitter dimensions
   apply at construction. The `enemy_default_brain` function in
-  `crates/ambition_sandbox/src/features/ecs/brain_builders.rs` is the canonical reference: every
+  `crates/ambition_gameplay_core/src/features/ecs/brain_builders.rs` is the canonical reference: every
   template that has parameters worth jittering does so there.
 - Tests for "deterministic brain tick given fixed snapshot" still
   hold — the jitter is per-actor, not per-tick, and the seed is
   stable across runs.
-- The `crates/ambition_sandbox/src/mechanics/combat/variation.rs` helpers are the single jitter source. New
+- The `crates/ambition_gameplay_core/src/mechanics/combat/variation.rs` helpers are the single jitter source. New
   brains that need more than five slots either (a) reduce, (b)
   reuse with a second offset seed, or (c) extend the helper. Do not
   introduce a parallel jitter source.
@@ -148,7 +148,7 @@ heuristics that the rest of the system can't observe.
 
 When constructing hostile actor brains, do not hand-roll a parallel source of
 per-actor randomness. Use the shared variation helpers in
-`crates/ambition_sandbox/src/mechanics/combat/variation.rs`, and keep
+`crates/ambition_gameplay_core/src/mechanics/combat/variation.rs`, and keep
 mount/rider fan-out, dismount, encounter-spawn, and default enemy-brain paths
 on the same seeding policy. A new brain construction path should make its
 variation choice explicit in the same place it builds the `Brain` and
@@ -162,7 +162,7 @@ variation choice explicit in the same place it builds the `Brain` and
   wide generic ones; add knobs when use cases land". This ADR is
   the canonical jitter knob; future variation adds more knobs
   rather than baking variation into archetypes.
-- `crates/ambition_sandbox/src/mechanics/combat/variation.rs`
+- `crates/ambition_gameplay_core/src/mechanics/combat/variation.rs`
   — the canonical seed + jitter helpers.
-- `crates/ambition_sandbox/src/features/ecs/mount.rs::enforce_mount_rider_link`
+- `crates/ambition_gameplay_core/src/features/ecs/mount.rs::enforce_mount_rider_link`
   — dissolve path that applies the rule for dismounted riders.

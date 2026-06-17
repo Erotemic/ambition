@@ -8,7 +8,7 @@ It is designed to behave more like the other Ambition tool renderers:
 
 - outputs into `tools/ambition_sprite2d_renderer/generated/mockingbird_boss/`
 - exposes `render`, `preview`, `install`, and `render-publish` commands
-- writes installable assets under `crates/ambition_sandbox/assets/sprites/mockingbird_boss/`
+- writes installable assets under `crates/ambition_gameplay_core/assets/sprites/mockingbird_boss/`
 - emits a manifest JSON alongside the spritesheet
 
 ## Commands

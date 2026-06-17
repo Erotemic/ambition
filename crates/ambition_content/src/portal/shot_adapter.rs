@@ -1,7 +1,7 @@
 //! Ambition world-seam adapter for the in-flight portal shot.
 //!
 //! Portal core's [`step_portal_shot`] is a pure helper over the reusable
-//! [`SolidWorldQuery`](ambition_sandbox::platformer_runtime::collision::SolidWorldQuery)
+//! [`SolidWorldQuery`](ambition_gameplay_core::platformer_runtime::collision::SolidWorldQuery)
 //! seam (+ world bounds): it decides whether a shot travels, places a portal, or
 //! fizzles, without ever reading the concrete `Res<GameWorld>`. This adapter owns
 //! the concrete world — it reads `Res<GameWorld>`, calls the helper per shot, and
@@ -10,11 +10,11 @@
 
 use bevy::prelude::*;
 
-use ambition_sandbox::platformer_runtime::prelude::SpawnScopedExt;
-use ambition_sandbox::portal::{
+use ambition_gameplay_core::platformer_runtime::prelude::SpawnScopedExt;
+use ambition_gameplay_core::portal::{
     portal_half_extent, step_portal_shot, PlacedPortal, PortalShot, PortalShotStep, PortalShotWorld,
 };
-use ambition_sandbox::GameWorld;
+use ambition_gameplay_core::GameWorld;
 
 /// Advance portal shots against the concrete collision world. For each shot,
 /// call the pure [`step_portal_shot`] over the `GameWorld`'s solids + bounds and
@@ -22,7 +22,7 @@ use ambition_sandbox::GameWorld;
 /// placeable surface (the warping whoosh + close/attach sfx), or fizzle past
 /// range / out of bounds / on a non-placeable surface (the rejection buzz).
 pub fn portal_projectile_step(
-    time: Res<ambition_sandbox::WorldTime>,
+    time: Res<ambition_gameplay_core::WorldTime>,
     world: Res<GameWorld>,
     mut commands: Commands,
     mut projectiles: Query<(Entity, &mut PortalShot)>,

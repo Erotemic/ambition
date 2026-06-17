@@ -13,7 +13,7 @@
 
 use bevy::prelude::*;
 
-use ambition_sandbox::portal::{PortalBodyEntered, PortalBodyTransited, PortalShotFired};
+use ambition_gameplay_core::portal::{PortalBodyEntered, PortalBodyTransited, PortalShotFired};
 
 /// Play the portal audio cues from the portal-owned signals:
 ///

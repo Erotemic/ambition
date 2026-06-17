@@ -21,7 +21,7 @@ pub struct CutRopeBossArenaState {
 
 /// Drive the Smirking Behemoth's environmental win condition.
 pub fn tick_cut_rope_boss_arena(
-    world_time: Res<ambition_sandbox::WorldTime>,
+    world_time: Res<ambition_gameplay_core::WorldTime>,
     room_set: Res<RoomSet>,
     mut state: ResMut<CutRopeBossArenaState>,
     heavy_object: Res<CutRopeHeavyObjectCycle>,
@@ -29,7 +29,7 @@ pub fn tick_cut_rope_boss_arena(
     mut reset_events: MessageReader<ResetRoomFeaturesEvent>,
     mut bosses: Query<(&CenteredAabb, BossClusterQueryData), With<FeatureSimEntity>>,
     mut boss_registry: Option<ResMut<BossEncounterRegistry>>,
-    mut music_request: Option<ResMut<ambition_sandbox::encounter::BossEncounterMusicRequest>>,
+    mut music_request: Option<ResMut<ambition_gameplay_core::encounter::BossEncounterMusicRequest>>,
     mut cutscene_queue: Option<ResMut<ambition_render::cutscene::CutsceneTriggerQueue>>,
     mut banner: ResMut<GameplayBanner>,
     mut sfx: MessageWriter<SfxMessage>,

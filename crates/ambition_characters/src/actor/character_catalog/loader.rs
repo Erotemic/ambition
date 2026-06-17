@@ -1,7 +1,7 @@
 //! Catalog parsing for the character catalog.
 //!
 //! This crate owns the catalog SCHEMA + parser + resolver; the GAME
-//! owns the roster data. `ambition_sandbox::character_roster` embeds
+//! owns the roster data. `ambition_gameplay_core::character_roster` embeds
 //! `assets/data/character_catalog.ron` (which ships with the sandbox)
 //! and exposes the parsed `EMBEDDED_CATALOG` to runtime consumers.
 

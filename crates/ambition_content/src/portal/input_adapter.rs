@@ -16,12 +16,12 @@
 
 use bevy::prelude::*;
 
-use ambition_sandbox::input::ControlFrame;
-use ambition_sandbox::player::affordances::{InteractVariant, NearestInteractable};
-use ambition_sandbox::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use ambition_gameplay_core::input::ControlFrame;
+use ambition_gameplay_core::player::affordances::{InteractVariant, NearestInteractable};
+use ambition_gameplay_core::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 #[cfg(feature = "portal_render")]
-use ambition_sandbox::portal::PortalAimHint;
-use ambition_sandbox::portal::{
+use ambition_gameplay_core::portal::PortalAimHint;
+use ambition_gameplay_core::portal::{
     DropPortalGun, FirePortalGun, PickUpPortalGun, PortalGun, TogglePortalGun,
 };
 

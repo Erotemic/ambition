@@ -1,14 +1,14 @@
 # Ambition Sandbox — Web (wasm32) build
 
 Browser build for the Ambition app cdylib. Targets `wasm32-unknown-unknown`
-and boots the visible Bevy app inside a `<canvas>` with keyboard input. The JS/wasm output is still named `ambition_sandbox` for web bootstrap compatibility.
+and boots the visible Bevy app inside a `<canvas>` with keyboard input. The JS/wasm output is still named `ambition_gameplay_core` for web bootstrap compatibility.
 
 There are **two browser personas**, selected by Cargo feature:
 
 | Persona | Cargo feature | `AssetProfile` | Asset source | Use case |
 | ------- | ------------- | -------------- | ------------ | -------- |
 | **WebStatic** (embedded core) | `--features web` | `WebStatic` | LDtk + a bounded set of UI fonts + primary character sheets + core entity sprites embedded via `include_bytes!`. Out-of-set art falls back to colored rectangles. | Smoke build, single-file demo (~86 MB bg.wasm). |
-| **WebServedAssets** (served full game) | `--features web_served_assets` | `WebServedAssets` | LDtk embedded; everything else fetched over HTTP from `/assets/...` served alongside `index.html` via the symlink `crates/ambition_sandbox/web/assets/`. | "Same game in the browser." Smaller wasm (~81 MB bg.wasm); art served separately. |
+| **WebServedAssets** (served full game) | `--features web_served_assets` | `WebServedAssets` | LDtk embedded; everything else fetched over HTTP from `/assets/...` served alongside `index.html` via the symlink `crates/ambition_gameplay_core/web/assets/`. | "Same game in the browser." Smaller wasm (~81 MB bg.wasm); art served separately. |
 
 Common to both:
 - `web_platform` — Bevy's `bevy/web` + `bevy/webgl2` + canvas-backed
@@ -51,7 +51,7 @@ procedural music + SFX synthesizer was retired (see
   `/assets/audio/music/generated/<id>/full.ogg` through Bevy's wasm
   HTTP reader; the SFX bank loads from `/assets/audio/sfx.bank`
   through the custom `SfxBankAsset` loader in
-  `crates/ambition_sandbox/src/audio/bank_asset.rs`.
+  `crates/ambition_gameplay_core/src/audio/bank_asset.rs`.
 - **WebStatic** (`./build_for_web.sh`) ships silent unless you also
   add `web_audio` (and, optionally, `static_sfx_bank` to embed the
   bank into the wasm). The smoke profile is intentionally minimal.
@@ -69,7 +69,7 @@ resume silently fails and audio stays muted for the session.
 
 The fix in this repo is two-layer:
 
-1. **`crates/ambition_sandbox/web/index.html` JS shim** — patches
+1. **`crates/ambition_gameplay_core/web/index.html` JS shim** — patches
    `window.AudioContext` to track every context cpal creates, then
    calls `ctx.resume()` from a real DOM
    `pointerdown` / `keydown` / `touchstart` / `click` listener. This
@@ -123,7 +123,7 @@ cargo check -p ambition_app --lib \
     --no-default-features --features web
 ```
 
-Run after any change that touches the app web entry, sandbox web features, or asset profile code. Pairs with the desktop `cargo check -p ambition_app` / `cargo check -p ambition_sandbox` smoke checks.
+Run after any change that touches the app web entry, sandbox web features, or asset profile code. Pairs with the desktop `cargo check -p ambition_app` / `cargo check -p ambition_gameplay_core` smoke checks.
 
 ## Browser smoke — WebStatic (embedded core)
 
@@ -136,8 +136,8 @@ Run after any change that touches the app web entry, sandbox web features, or as
 
 `build_for_web.sh` (default) runs:
 1. `cargo build -p ambition_app --lib --release --target wasm32-unknown-unknown --no-default-features --features web`
-2. `wasm-bindgen --out-name ambition_sandbox` → `crates/ambition_sandbox/web/pkg/{ambition_sandbox.js, ambition_sandbox_bg.wasm}`
-3. `python3 -m http.server -d crates/ambition_sandbox/web 8000` (or
+2. `wasm-bindgen --out-name ambition_gameplay_core` → `crates/ambition_gameplay_core/web/pkg/{ambition_gameplay_core.js, ambition_gameplay_core_bg.wasm}`
+3. `python3 -m http.server -d crates/ambition_gameplay_core/web 8000` (or
    `basic-http-server` if Python is missing).
 
 ## Browser smoke — WebServedAssets (full game, served `/assets/`)
@@ -151,8 +151,8 @@ The `--served` flag flips three things:
 - Cargo features: `--features web_served_assets` (drops `static_core_assets`
   to keep the wasm small; selects `AssetProfile::WebServedAssets` at runtime
   via the `web_served` marker).
-- Symlinks `crates/ambition_sandbox/assets` into
-  `crates/ambition_sandbox/web/assets` so `/assets/...` URLs the page
+- Symlinks `crates/ambition_gameplay_core/assets` into
+  `crates/ambition_gameplay_core/web/assets` so `/assets/...` URLs the page
   fetches actually resolve (falls back to `rsync -a` if symlinks aren't
   available on the filesystem).
 - Boot banner reads `AssetProfile = web_served_assets` instead of `web_static`.
@@ -169,16 +169,16 @@ cargo build -p ambition_app --lib \
 # 2. Wrap it for the browser.
 wasm-bindgen \
     target/wasm32-unknown-unknown/release/ambition_app.wasm \
-    --out-dir crates/ambition_sandbox/web/pkg \
-    --out-name ambition_sandbox \
+    --out-dir crates/ambition_gameplay_core/web/pkg \
+    --out-name ambition_gameplay_core \
     --target web --no-typescript
 
 # 3. Make the page-served `/assets/` URL reachable.
-ln -sfn $PWD/crates/ambition_sandbox/assets \
-        $PWD/crates/ambition_sandbox/web/assets
+ln -sfn $PWD/crates/ambition_gameplay_core/assets \
+        $PWD/crates/ambition_gameplay_core/web/assets
 
 # 4. Serve.
-python3 -m http.server -d crates/ambition_sandbox/web 8000
+python3 -m http.server -d crates/ambition_gameplay_core/web 8000
 ```
 
 The same `python3 -m http.server` serves `/`, `/pkg/...`, and
@@ -193,10 +193,10 @@ cargo build -p ambition_app --lib \
     --release
 wasm-bindgen \
     target/wasm32-unknown-unknown/release/ambition_app.wasm \
-    --out-dir crates/ambition_sandbox/web/pkg \
-    --out-name ambition_sandbox \
+    --out-dir crates/ambition_gameplay_core/web/pkg \
+    --out-name ambition_gameplay_core \
     --target web --no-typescript
-python3 -m http.server -d crates/ambition_sandbox/web 8000
+python3 -m http.server -d crates/ambition_gameplay_core/web 8000
 ```
 
 ### What you should see
@@ -264,10 +264,10 @@ Bevy's `AssetServer` on wasm does not have the native host filesystem. The asset
    into Bevy's `EmbeddedAssetRegistry`. The catalog's authored
    `EmbeddedBinary` candidates point at the same `embedded://...`
    URLs, so `try_path_for_load` returns paths that actually load.
-2. **Served `/assets/` path** — the `WebServedAssets` profile emits synthesized `BevyPath` candidates for non-embedded assets. `build_for_web.sh --served` symlinks or copies `crates/ambition_sandbox/assets` into `crates/ambition_sandbox/web/assets`, and Bevy's wasm HTTP reader fetches those `/assets/...` URLs.
+2. **Served `/assets/` path** — the `WebServedAssets` profile emits synthesized `BevyPath` candidates for non-embedded assets. `build_for_web.sh --served` symlinks or copies `crates/ambition_gameplay_core/assets` into `crates/ambition_gameplay_core/web/assets`, and Bevy's wasm HTTP reader fetches those `/assets/...` URLs.
 
 The macro-emitted `register_embedded_core_assets` in
-`crates/ambition_sandbox/src/assets/sandbox_assets/` is the canonical list
+`crates/ambition_gameplay_core/src/assets/sandbox_assets/` is the canonical list
 of registered URLs. Adding a new embedded asset is **one row in the
 `embed_core_assets!` table** plus one `with_embedded_core_candidate(...)`
 call on the corresponding catalog entry. The
@@ -294,12 +294,12 @@ its own once the wasm module finishes instantiating. `web_start`:
 
 ## Where things live
 
-- `crates/ambition_sandbox/web/index.html` — page + JS bootstrap.
-- `crates/ambition_sandbox/web/pkg/` — generated by `wasm-bindgen` (git-ignored).
+- `crates/ambition_gameplay_core/web/index.html` — page + JS bootstrap.
+- `crates/ambition_gameplay_core/web/pkg/` — generated by `wasm-bindgen` (git-ignored).
 - `crates/ambition_app/src/lib.rs` — `web_start` `#[wasm_bindgen(start)]` entry.
 - `crates/ambition_app/src/app/cli.rs::run_web` — Bevy `App` builder for the browser.
-- `crates/ambition_sandbox/src/assets/sandbox_assets/mod.rs::AmbitionAssetSourcePlugin` — embedded asset registration.
-- `crates/ambition_sandbox/src/assets/sandbox_assets/embedded.rs::embed_core_assets!` — declarative table of embedded core assets.
-- `crates/ambition_app/Cargo.toml` and `crates/ambition_sandbox/Cargo.toml` — browser feature composites (`web`, `web_served_assets`, `web_platform`, `static_core_assets`) and forwarded sandbox feature flags.
+- `crates/ambition_gameplay_core/src/assets/sandbox_assets/mod.rs::AmbitionAssetSourcePlugin` — embedded asset registration.
+- `crates/ambition_gameplay_core/src/assets/sandbox_assets/embedded.rs::embed_core_assets!` — declarative table of embedded core assets.
+- `crates/ambition_app/Cargo.toml` and `crates/ambition_gameplay_core/Cargo.toml` — browser feature composites (`web`, `web_served_assets`, `web_platform`, `static_core_assets`) and forwarded sandbox feature flags.
 - `scripts/setup_web_prereq.sh` — installs the wasm rustup target + version-matched `wasm-bindgen-cli`.
 - `build_for_web.sh` — runs `cargo build` + `wasm-bindgen` + optional `--serve`.

@@ -18,7 +18,7 @@ shared machinery an actor opts into.
   (+ `NormalSpineCtx::bare`): gravity + run + fall-cap, gravity-direction-relative.
   Player feeds rich ability flags; enemies/NPCs feed `bare` + a per-actor
   `MovementTuning`. Fully gravity-relative (fall + run + jump + patrol wall-stop).
-- **One floating mover** — `ambition_sandbox::features::step_floating_body`: shared
+- **One floating mover** — `ambition_gameplay_core::features::step_floating_body`: shared
   by aerial enemy, aerial NPC, and boss (`accel: None` = snap to pattern velocity).
 - **One render tail** — `apply_character_frame` (`ambition_render`); anim-picker
   richness differs by actor (correct pay-for-use).

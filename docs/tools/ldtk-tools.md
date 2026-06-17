@@ -11,9 +11,9 @@ Run from the repo root:
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools --help
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools doctor \
-  crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools repair \
-  crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk \
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
   --in-place
 ```
 
@@ -23,10 +23,10 @@ Area/entity specs live under `tools/ambition_ldtk_tools/specs/`.
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools validate \
-  crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
 
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools roundtrip \
-  crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
 
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools area create \
   tools/ambition_ldtk_tools/specs/goblin_encounter_area.yaml \

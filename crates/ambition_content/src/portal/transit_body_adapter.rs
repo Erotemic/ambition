@@ -8,19 +8,19 @@
 //! primary player's input/trace side effects after a generic transit event so the
 //! controller sees `PortalEmission` / `PortalInputWarp` on the same frame.
 //!
-//! [`BodyKinematics`]: ambition_sandbox::platformer_runtime::body::BodyKinematics
-//! [`PortalBody`]: ambition_sandbox::portal::PortalBody
-//! [`PortalPolicy`]: ambition_sandbox::portal::PortalPolicy
+//! [`BodyKinematics`]: ambition_gameplay_core::platformer_runtime::body::BodyKinematics
+//! [`PortalBody`]: ambition_gameplay_core::portal::PortalBody
+//! [`PortalPolicy`]: ambition_gameplay_core::portal::PortalPolicy
 
 use bevy::prelude::*;
 
-use ambition_sandbox::features::{BodyKinematics, BossConfig};
-use ambition_sandbox::player::{PlayerEntity, PrimaryPlayer};
-use ambition_sandbox::portal::{
+use ambition_gameplay_core::features::{BodyKinematics, BossConfig};
+use ambition_gameplay_core::player::{PlayerEntity, PrimaryPlayer};
+use ambition_gameplay_core::portal::{
     BodyTeleported, PlayerMovementIntent, PortalBody, PortalBodyTransited, PortalEmission,
     PortalInputWarp, PortalPolicy, PortalTuning,
 };
-use ambition_sandbox::projectile::ProjectileGameplay;
+use ambition_gameplay_core::projectile::ProjectileGameplay;
 
 /// Ensure every body that transited before the unification carries the portal
 /// transit opt-in. Maps Ambition identity → behavioral [`PortalPolicy`]:
@@ -46,7 +46,7 @@ pub fn ensure_portal_bodies(
             Without<PortalBody>,
             // Projectiles are not actors; a dedicated adapter opts them into transit
             // with projectile-specific policy.
-            Without<ambition_sandbox::projectile::ProjectileGameplay>,
+            Without<ambition_gameplay_core::projectile::ProjectileGameplay>,
         ),
     >,
     players: Query<(), (With<PlayerEntity>, With<PrimaryPlayer>)>,
@@ -176,17 +176,17 @@ mod projectile_transit_tests {
 
     use bevy::prelude::*;
 
-    use ambition_sandbox::portal::{
+    use ambition_gameplay_core::portal::{
         portal_half_extent, portal_transit, PlacedPortal, PortalBody, PortalChannel, PortalGunColor,
     };
-    use ambition_sandbox::projectile::{ProjectileFaction, ProjectileGameplay, ProjectileKind};
+    use ambition_gameplay_core::projectile::{ProjectileFaction, ProjectileGameplay, ProjectileKind};
 
     use super::ensure_projectile_portal_bodies;
 
     const BLUE: PortalChannel = PortalChannel::Gun(PortalGunColor::Blue);
     const ORANGE: PortalChannel = PortalChannel::Gun(PortalGunColor::Orange);
 
-    use ambition_sandbox::platformer_runtime::body::BodyKinematics;
+    use ambition_gameplay_core::platformer_runtime::body::BodyKinematics;
 
     /// A straight-flying, gravity-free projectile gameplay half (Hadouken: no
     /// bounce, no arc) so the test isolates the portal velocity rotation.
@@ -206,9 +206,9 @@ mod projectile_transit_tests {
     /// `ensure → transit` as in the real plugin.
     fn app_with_transit() -> App {
         let mut app = App::new();
-        app.add_message::<ambition_sandbox::portal::PortalBodyEntered>();
-        app.add_message::<ambition_sandbox::portal::PortalBodyTransited>();
-        app.init_resource::<ambition_sandbox::portal::PortalTuning>();
+        app.add_message::<ambition_gameplay_core::portal::PortalBodyEntered>();
+        app.add_message::<ambition_gameplay_core::portal::PortalBodyTransited>();
+        app.init_resource::<ambition_gameplay_core::portal::PortalTuning>();
         app.add_systems(
             Update,
             (ensure_projectile_portal_bodies, portal_transit).chain(),
@@ -339,7 +339,7 @@ mod projectile_transit_tests {
         );
         assert!(
             app.world()
-                .get::<ambition_sandbox::portal::PortalTransit>(proj)
+                .get::<ambition_gameplay_core::portal::PortalTransit>(proj)
                 .is_none(),
             "no PortalTransit latch should be set for a projectile away from portals",
         );

@@ -13,9 +13,9 @@
 //! Regenerate the fixture (e.g. when an intentional gameplay change
 //! shifts the trajectory):
 //!
-//!     cargo run -p ambition_sandbox --bin headless -- 60 --dump-trace /tmp/t/
+//!     cargo run -p ambition_gameplay_core --bin headless -- 60 --dump-trace /tmp/t/
 //!     cp /tmp/t/ambition_gameplay_trace_*.json \
-//!        crates/ambition_sandbox/tests/fixtures/replay_central_hub_60f_v1.json
+//!        crates/ambition_gameplay_core/tests/fixtures/replay_central_hub_60f_v1.json
 //!
 //! Mirrors the `trace_replay` binary's logic but inline so the test
 //! doesn't shell out.

@@ -8,7 +8,7 @@
 //! - [`suppress_ledge_grab_during_transit`] — while a body carries the
 //!   portal-owned [`PortalTransit`] latch, suppress the player's wall abilities
 //!   (ledge-grab / cling / wall-jump / wall-climb) so they don't grab the carved
-//!   aperture edges. Touches `ambition_sandbox::player::PlayerAbilities`, so it is Ambition
+//!   aperture edges. Touches `ambition_gameplay_core::player::PlayerAbilities`, so it is Ambition
 //!   glue, not crate core.
 //! - [`warp_portal_input`] — apply the portal-owned [`PortalInputWarp`] /
 //!   [`PortalEmission`] guards (both inserted by
@@ -22,9 +22,9 @@
 
 use bevy::prelude::*;
 
-use ambition_sandbox::player::{PlayerEntity, PrimaryPlayer};
-use ambition_sandbox::portal::pieces::portal_map_vec;
-use ambition_sandbox::portal::{
+use ambition_gameplay_core::player::{PlayerEntity, PrimaryPlayer};
+use ambition_gameplay_core::portal::pieces::portal_map_vec;
+use ambition_gameplay_core::portal::{
     PlayerMovementIntent, PortalEmission, PortalInputWarp, PortalTransit, PortalTuning,
 };
 
@@ -68,7 +68,7 @@ pub fn suppress_ledge_grab_during_transit(
     tuning: Res<PortalTuning>,
     mut players: Query<
         (
-            &mut ambition_sandbox::player::PlayerAbilities,
+            &mut ambition_gameplay_core::player::PlayerAbilities,
             Option<&PortalTransit>,
         ),
         (With<PlayerEntity>, With<PrimaryPlayer>),
@@ -106,7 +106,7 @@ pub fn suppress_ledge_grab_during_transit(
 /// `ControlFrame` directly. This is INPUT shaping, so it lives in Ambition (moved
 /// out of the portal crate, Stage 19 Phase 5a); identical-sim.
 pub fn warp_portal_input(
-    time: Option<Res<ambition_sandbox::WorldTime>>,
+    time: Option<Res<ambition_gameplay_core::WorldTime>>,
     mut commands: Commands,
     intent: Option<ResMut<PlayerMovementIntent>>,
     tuning: Res<PortalTuning>,
@@ -164,9 +164,9 @@ mod tests {
     //! drive the REAL adapters + the portal-owned marker components.
     use bevy::prelude::*;
 
-    use ambition_sandbox::input::ControlFrame;
-    use ambition_sandbox::player::{PlayerEntity, PrimaryPlayer};
-    use ambition_sandbox::portal::{
+    use ambition_gameplay_core::input::ControlFrame;
+    use ambition_gameplay_core::player::{PlayerEntity, PrimaryPlayer};
+    use ambition_gameplay_core::portal::{
         PlayerMovementIntent, PortalChannel, PortalEmission, PortalGunColor, PortalInputWarp,
         PortalTransit, PortalTuning,
     };
@@ -245,7 +245,7 @@ mod tests {
 
     #[test]
     fn wall_ability_suppression_reapplies_every_frame_against_the_loadout_reset() {
-        use ambition_sandbox::player::PlayerAbilities;
+        use ambition_gameplay_core::player::PlayerAbilities;
         let mut app = App::new();
         app.init_resource::<PortalTuning>();
         // Stand in for the per-frame loadout reset that clobbered the old

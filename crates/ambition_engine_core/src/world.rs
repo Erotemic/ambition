@@ -275,7 +275,7 @@ pub struct ClimbableContact {
 /// size / spawn / display name. Authored entities (hazards, pickups,
 /// chests, enemies, bosses, NPCs, switches, labels) live on the
 /// sandbox-side `RoomSpec` in per-family Vecs — see
-/// `crate::rooms::RoomSpec` in `ambition_sandbox`. The engine has no
+/// `crate::rooms::RoomSpec` in `ambition_gameplay_core`. The engine has no
 /// authored-entity IR.
 #[derive(Clone, Debug)]
 pub struct World {

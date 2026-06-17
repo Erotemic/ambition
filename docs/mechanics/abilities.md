@@ -42,17 +42,17 @@ The next reusable combat work should enrich `HitResult` semantics — stagger/po
 ## Placement rules
 
 - Put reusable ability math and state vocabulary in `engine_core` or an explicitly focused sandbox mechanics module.
-- Put player ECS state, input bridging, animation, audio, VFX, and LDtk/content-specific unlocks in `ambition_sandbox`.
+- Put player ECS state, input bridging, animation, audio, VFX, and LDtk/content-specific unlocks in `ambition_gameplay_core`.
 - Put authored showcase-room procedures in recipes, not in this file.
 - Keep status summaries in `docs/mechanics/expressibility-checklist.md`.
 
 ## Validation anchors
 
 ```bash
-cargo test -p ambition_sandbox --lib engine_core::movement
-cargo test -p ambition_sandbox --lib combat
-cargo test -p ambition_sandbox --lib projectile
-cargo test -p ambition_sandbox --lib brain::
-cargo test -p ambition_sandbox projectile
+cargo test -p ambition_gameplay_core --lib engine_core::movement
+cargo test -p ambition_gameplay_core --lib combat
+cargo test -p ambition_gameplay_core --lib projectile
+cargo test -p ambition_gameplay_core --lib brain::
+cargo test -p ambition_gameplay_core projectile
 cargo test -p ambition_app --test scripted_gameplay --features "rl_sim portal"
 ```

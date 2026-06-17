@@ -1,6 +1,6 @@
 # LDtk authoring workflow
 
-Ambition treats `crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk` as the sandbox world source. LDtk owns authored spatial data; Ambition owns runtime gameplay semantics, validation, persistence, and hot-reload policy.
+Ambition treats `crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk` as the sandbox world source. LDtk owns authored spatial data; Ambition owns runtime gameplay semantics, validation, persistence, and hot-reload policy.
 
 Agents should not hand-edit LDtk JSON. Use the `ambition_ldtk_tools` package so edits are repaired, normalized, and validated before write.
 
@@ -10,17 +10,17 @@ Run from the repo root:
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools doctor \
-  crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
 
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools repair \
-  crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk \
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
   --in-place
 
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools roundtrip \
-  crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
 
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools validate \
-  crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
 ```
 
 ### Multi-file worlds: validate with `--secondary-world`
@@ -35,8 +35,8 @@ cross-file links:
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools validate \
-  crates/ambition_sandbox/assets/ambition/worlds/intro.ldtk \
-  --secondary-world crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+  crates/ambition_gameplay_core/assets/ambition/worlds/intro.ldtk \
+  --secondary-world crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
 ```
 
 (Use `python3` if `python` is unavailable. `--secondary-world` may be
@@ -54,8 +54,8 @@ pickups, chests, breakables, hazards, doors, spawn) to a PNG you can open
 or inspect:
 
 ```bash
-cargo run -p ambition_sandbox --example render_room_geometry            # list rooms
-cargo run -p ambition_sandbox --example render_room_geometry -- <ROOM_ID>  # -> /tmp/room_<id>.png
+cargo run -p ambition_gameplay_core --example render_room_geometry            # list rooms
+cargo run -p ambition_gameplay_core --example render_room_geometry -- <ROOM_ID>  # -> /tmp/room_<id>.png
 ```
 
 Filled boxes are collision (gray=Solid, blue=OneWay, red=Hazard,
@@ -77,8 +77,8 @@ where you expect — the same checks the validator lints, but rendered.
 Test an alternate map without recompiling:
 
 ```bash
-cargo run -p ambition_sandbox -- --ldtk mods/my_world.ldtk
-AMBITION_LDTK=mods/my_world.ldtk cargo run -p ambition_sandbox
+cargo run -p ambition_gameplay_core -- --ldtk mods/my_world.ldtk
+AMBITION_LDTK=mods/my_world.ldtk cargo run -p ambition_gameplay_core
 ```
 
 For a self-contained executable, build with `--features static_map`; the checked-in `sandbox.ldtk` is embedded and used as fallback if the external map is missing or invalid.
@@ -86,7 +86,7 @@ For a self-contained executable, build with `--features static_map`; the checked
 For dev hot reload:
 
 ```bash
-cargo run -p ambition_sandbox --features dev_hot_reload --release
+cargo run -p ambition_gameplay_core --features dev_hot_reload --release
 ```
 
 Hotkeys:
@@ -164,7 +164,7 @@ uv pip install jsonschema
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools validate \
   --schema tools/ambition_ldtk_tools/schemas/ldtk/JSON_SCHEMA.json \
   --require-schema \
-  crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
 ```
 
 The official schema catches editor-format problems. Ambition validation catches game-specific problems such as invalid loading-zone graph links, unsafe transition arrivals, missing active areas, stale definition IDs, and unknown music tracks.

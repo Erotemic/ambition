@@ -14,7 +14,7 @@ use super::*;
 /// in morph-ball mode, etc.) and makes them flicker back to visible.
 /// UI uses `Node`/`ImageNode`, not `Sprite`, so HUD/menus are unaffected.
 pub fn apply_hide_sprites_override(
-    developer_tools: Res<ambition_sandbox::dev::dev_tools::DeveloperTools>,
+    developer_tools: Res<ambition_gameplay_core::dev::dev_tools::DeveloperTools>,
     mut prev_active: Local<bool>,
     mut sprites: Query<&mut Visibility, With<Sprite>>,
 ) {
@@ -36,7 +36,7 @@ pub fn apply_hide_sprites_override(
 }
 
 fn effective_hide_sprites(
-    developer_tools: &ambition_sandbox::dev::dev_tools::DeveloperTools,
+    developer_tools: &ambition_gameplay_core::dev::dev_tools::DeveloperTools,
 ) -> bool {
     // Placeholder art is a visible debug-art mode. If an old persisted or
     // inspector-mutated state leaves both booleans true, keep placeholders
@@ -83,15 +83,15 @@ const GRADIENT_LANE_VISUAL_Z: f32 = 10.5;
 /// the visible rectangle always matches the damage geometry.
 pub fn manage_gradient_lane_visual(
     mut commands: Commands,
-    world: Res<ambition_sandbox::GameWorld>,
+    world: Res<ambition_gameplay_core::GameWorld>,
     bosses: Query<(
         Entity,
         BossClusterRef,
-        &ambition_sandbox::brain::BossAttackState,
+        &ambition_gameplay_core::brain::BossAttackState,
     )>,
     mut visuals: Query<(Entity, &GradientLaneVisual, &mut Transform, &mut Sprite)>,
 ) {
-    use ambition_sandbox::brain::BossAttackProfile;
+    use ambition_gameplay_core::brain::BossAttackProfile;
     let mut active: std::collections::HashMap<Entity, (bool, ae::Vec2, BVec2)> =
         std::collections::HashMap::new();
     for (entity, item, attack_state) in &bosses {
@@ -112,7 +112,7 @@ pub fn manage_gradient_lane_visual(
         }
         // Use the same volume math as damage so the visual and the
         // hitbox are exactly coincident.
-        let mut volumes = ambition_sandbox::features::volumes_for_profile(
+        let mut volumes = ambition_gameplay_core::features::volumes_for_profile(
             &BossAttackProfile::HazardColumn,
             boss.kin.pos,
             boss.combat_size(),
@@ -186,7 +186,7 @@ pub struct SpriteOriginalState {
 /// falls back to the existing sprite color (kept as-is).
 pub fn apply_placeholder_sprites_override(
     mut commands: Commands,
-    developer_tools: Res<ambition_sandbox::dev::dev_tools::DeveloperTools>,
+    developer_tools: Res<ambition_gameplay_core::dev::dev_tools::DeveloperTools>,
     feature_views: Res<FeatureViewIndex>,
     mut sprites: Query<(
         Entity,
@@ -194,7 +194,7 @@ pub fn apply_placeholder_sprites_override(
         Option<&SpriteOriginalState>,
         Option<&FeatureVisual>,
         Option<&PlayerVisual>,
-        Option<&ambition_sandbox::player::BodyKinematics>,
+        Option<&ambition_gameplay_core::player::BodyKinematics>,
         Option<&crate::rendering::projectile_visuals::PlayerProjectileVisual>,
         Option<&crate::rendering::enemy_projectile_visuals::EnemyProjectileVisual>,
     )>,
@@ -281,7 +281,7 @@ fn pick_placeholder_color(
 #[cfg(test)]
 mod tests {
     use super::effective_hide_sprites;
-    use ambition_sandbox::dev::dev_tools::{DebugArtMode, DeveloperTools};
+    use ambition_gameplay_core::dev::dev_tools::{DebugArtMode, DeveloperTools};
 
     #[test]
     fn placeholder_art_wins_over_stale_hide_flag() {

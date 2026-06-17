@@ -16,7 +16,7 @@ This causes the user to hear a clear audio cut,  and from their point of view th
 
 * If the mouse is hovering over an option, but the user is using the arrow keys to navigate, the mouse prevents them from moving in any menu.
 
-* the crates/ambition_sandbox/src/music/first_goblin.rs is probably too specific. We will have lots of encounters moving forward, so we need a generalized structure.
+* the crates/ambition_gameplay_core/src/music/first_goblin.rs is probably too specific. We will have lots of encounters moving forward, so we need a generalized structure.
 
 * moving on a ladder shouldn't slow you down. Need to be able to jump or dash off of it.
 

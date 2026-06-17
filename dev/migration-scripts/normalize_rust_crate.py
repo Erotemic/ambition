@@ -15,7 +15,7 @@ owner prefers it. This script performs A->B across a crate, recursively.
 
 Usage:
     python3 normalize_rust_crate.py <crate-or-src-dir> [more dirs ...] [--dry-run]
-    python3 normalize_rust_crate.py crates/ambition_sandbox/src --dry-run
+    python3 normalize_rust_crate.py crates/ambition_gameplay_core/src --dry-run
 
 Notes:
 - `lib.rs` and `main.rs` are crate roots, never sidecars — always skipped.

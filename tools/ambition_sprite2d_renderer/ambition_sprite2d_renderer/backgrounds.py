@@ -4,7 +4,7 @@ The sandbox treats these PNGs as generated runtime assets, not source
 files.  Regenerate them with::
 
     python -m ambition_sprite2d_renderer draw-backgrounds \
-        --out-dir crates/ambition_sandbox/assets/sprites/backgrounds
+        --out-dir crates/ambition_gameplay_core/assets/sprites/backgrounds
 
 Each foreground is a 512x512 transparent PNG with sparse, soft edge
 motifs.  The runtime stretches it over the visible camera with overscan

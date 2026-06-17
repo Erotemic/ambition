@@ -21,7 +21,7 @@ files, finds each one's matching level in the live LDtk (by
 Usage:
 
   python -m ambition_ldtk_tools level diff-specs \\
-      --ldtk crates/ambition_sandbox/assets/ambition/worlds/intro.ldtk \\
+      --ldtk crates/ambition_gameplay_core/assets/ambition/worlds/intro.ldtk \\
       tools/ambition_ldtk_tools/specs/intro_*.yaml
 
 Exit code is 0 if every named spec matches the live LDtk, 1 if any
@@ -110,7 +110,7 @@ def main(argv=None) -> int:
         type=Path,
         default=REPO_ROOT
         / "crates"
-        / "ambition_sandbox"
+        / "ambition_gameplay_core"
         / "assets"
         / "ambition"
         / "worlds"

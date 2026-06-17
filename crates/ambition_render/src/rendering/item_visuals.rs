@@ -1,11 +1,11 @@
-//! Item visuals (was `ambition_sandbox::items::pickup`'s presentation tail):
+//! Item visuals (was `ambition_gameplay_core::items::pickup`'s presentation tail):
 //! ground-item quads, the held-item sprite, and held-projectile sprites. Render
-//! systems that read the item SIM state in `ambition_sandbox::items::pickup`.
+//! systems that read the item SIM state in `ambition_gameplay_core::items::pickup`.
 
-use ambition_sandbox::features::HeldItem;
-use ambition_sandbox::input::ControlFrame;
-use ambition_sandbox::items::pickup::{held_shot_aim, GroundItem, HeldProjectile, FIREBALL_ID};
-use ambition_sandbox::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use ambition_gameplay_core::features::HeldItem;
+use ambition_gameplay_core::input::ControlFrame;
+use ambition_gameplay_core::items::pickup::{held_shot_aim, GroundItem, HeldProjectile, FIREBALL_ID};
+use ambition_gameplay_core::player::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 use bevy::prelude::*;
 
 // Presentation (visible build only).
@@ -84,7 +84,7 @@ fn item_sprite(art: &ItemArt, spec_id: &str) -> Option<(Handle<Image>, Vec2)> {
 
 pub fn sync_ground_item_visuals(
     mut commands: Commands,
-    world: Res<ambition_sandbox::GameWorld>,
+    world: Res<ambition_gameplay_core::GameWorld>,
     art: Option<Res<ItemArt>>,
     visuals: Query<Entity, With<GroundItemVisual>>,
     grounds: Query<&GroundItem>,
@@ -93,7 +93,7 @@ pub fn sync_ground_item_visuals(
         commands.entity(entity).despawn();
     }
     for ground in &grounds {
-        let translation = ambition_sandbox::config::world_to_bevy(&world.0, ground.pos, 8.0);
+        let translation = ambition_gameplay_core::config::world_to_bevy(&world.0, ground.pos, 8.0);
         let sprite = art
             .as_ref()
             .and_then(|a| item_sprite(a, ground.spec.id.as_str()))
@@ -123,7 +123,7 @@ pub struct HeldItemVisual;
 pub fn sync_held_item_visual(
     mut commands: Commands,
     control: Res<ControlFrame>,
-    world: Res<ambition_sandbox::GameWorld>,
+    world: Res<ambition_gameplay_core::GameWorld>,
     art: Option<Res<ItemArt>>,
     visuals: Query<Entity, With<HeldItemVisual>>,
     players: Query<(&BodyKinematics, &HeldItem), (With<PlayerEntity>, With<PrimaryPlayer>)>,
@@ -137,7 +137,7 @@ pub fn sync_held_item_visual(
     let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
     // In the player's hand: just in front at hand height (y-down → small +y).
     let hand = kin.pos + Vec2::new(facing * (kin.size.x * 0.45 + 4.0), kin.size.y * 0.06);
-    let translation = ambition_sandbox::config::world_to_bevy(&world.0, hand, 12.0);
+    let translation = ambition_gameplay_core::config::world_to_bevy(&world.0, hand, 12.0);
 
     // A ranged held item (the gun-sword) points where you're AIMING — the same
     // direction it fires — just like the pirates' wielded gun-sword. Melee /
@@ -205,7 +205,7 @@ pub struct HeldProjectileVisual;
 pub fn sync_held_projectile_visuals(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    world: Res<ambition_sandbox::GameWorld>,
+    world: Res<ambition_gameplay_core::GameWorld>,
     visuals: Query<Entity, With<HeldProjectileVisual>>,
     projectiles: Query<(&BodyKinematics, &HeldProjectile)>,
     mut art: Local<Option<HeldProjectileVisualArt>>,
@@ -215,7 +215,7 @@ pub fn sync_held_projectile_visuals(
     }
     let art = art.get_or_insert_with(|| HeldProjectileVisualArt::load(&asset_server));
     for (kin, proj) in &projectiles {
-        let translation = ambition_sandbox::config::world_to_bevy(&world.0, kin.pos, 9.5);
+        let translation = ambition_gameplay_core::config::world_to_bevy(&world.0, kin.pos, 9.5);
         if proj.explode_half > 0.0 {
             // Fireball: a glowing ball, sized a touch over the contact box so the
             // fire visibly fills the space that hits. No rotation — it's radial.

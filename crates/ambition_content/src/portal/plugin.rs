@@ -4,12 +4,12 @@
 //! inventory drop adapter into the portal subsystem's schedule sets so the
 //! reusable portal core consumes intents the same frame they are produced. The
 //! pickup adapter is registered alongside the held-item simulation (in
-//! `ambition_sandbox::items::pickup`) because it must run last in that set, after the core
+//! `ambition_gameplay_core::items::pickup`) because it must run last in that set, after the core
 //! fire system, so picking up the gun doesn't also fire on the same press.
 
 use bevy::prelude::*;
 
-use ambition_sandbox::portal::{
+use ambition_gameplay_core::portal::{
     clear_portals_on_reset, portal_fire_system, portal_teleport_ground_items, portal_transit,
     publish_portal_carves, PortalSet,
 };
@@ -79,11 +79,11 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // Advance in-flight portal shots against the concrete `GameWorld` (the
         // world-seam adapter, Phase 2 Seam 2). Runs in the weapon set after the
         // core fire system, preserving the old `toggle → fire → step` order; the
-        // pure decision lives in `ambition_sandbox::portal::step_portal_shot`.
+        // pure decision lives in `ambition_gameplay_core::portal::step_portal_shot`.
         app.add_systems(
             Update,
             portal_projectile_step
-                .run_if(ambition_sandbox::gameplay_allowed)
+                .run_if(ambition_gameplay_core::gameplay_allowed)
                 .in_set(PortalSet::WeaponAndProjectiles)
                 .after(portal_fire_system),
         );
@@ -104,9 +104,9 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             Update,
             portal_input_adapter_system
-                .run_if(ambition_sandbox::gameplay_allowed)
+                .run_if(ambition_gameplay_core::gameplay_allowed)
                 .in_set(PortalSet::InputAdapter)
-                .in_set(ambition_sandbox::app::SandboxSet::PlayerSimulation),
+                .in_set(ambition_gameplay_core::app::SandboxSet::PlayerSimulation),
         );
 
         // Resolve the `FirePortalGun` gesture → the generic `PortalFireIntent`
@@ -119,24 +119,24 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             Update,
             resolve_portal_fire_intent
-                .run_if(ambition_sandbox::gameplay_allowed)
+                .run_if(ambition_gameplay_core::gameplay_allowed)
                 .in_set(PortalSet::InputAdapter)
-                .in_set(ambition_sandbox::app::SandboxSet::PlayerSimulation)
+                .in_set(ambition_gameplay_core::app::SandboxSet::PlayerSimulation)
                 .after(portal_input_adapter_system),
         );
 
         // Portal-gun ground pickups: the Ambition inventory grant on Attack.
         // Ordered `.after(arm_portal_pickups)` (registered by
-        // `ambition_sandbox::items::pickup` in `ItemPickupSet::CoreHeldItems`) so the
+        // `ambition_gameplay_core::items::pickup` in `ItemPickupSet::CoreHeldItems`) so the
         // arm → grant chain edge is identical to the old inline `.chain()`,
         // and after `portal_fire` (via the set order) so grabbing the gun
         // does not also fire on the same Attack press.
         app.add_systems(
             Update,
             pickup_portal_gun_system
-                .run_if(ambition_sandbox::gameplay_allowed)
-                .in_set(ambition_sandbox::items::pickup::ItemPickupSet::CoreHeldItems)
-                .after(ambition_sandbox::portal::arm_portal_pickups),
+                .run_if(ambition_gameplay_core::gameplay_allowed)
+                .in_set(ambition_gameplay_core::items::pickup::ItemPickupSet::CoreHeldItems)
+                .after(ambition_gameplay_core::portal::arm_portal_pickups),
         );
 
         // The drop consumer touches Ambition item state (StashedActionSet), so
@@ -145,7 +145,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             Update,
             drop_portal_gun_system
-                .run_if(ambition_sandbox::gameplay_allowed)
+                .run_if(ambition_gameplay_core::gameplay_allowed)
                 // `PortalSet::WeaponAndProjectiles` is wired
                 // `.in_set(PlayerSimulation)` in `wire_portal_schedule`, so the
                 // parent placement is already implied — a direct
@@ -178,7 +178,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             Update,
             sync_movement_intent_from_control
-                .run_if(ambition_sandbox::gameplay_allowed)
+                .run_if(ambition_gameplay_core::gameplay_allowed)
                 // `PortalSet::InputWarp` is wired `.in_set(PlayerInput)` (and
                 // `.before(sync_local_player_input_frame)`) in
                 // `wire_portal_schedule`, so the parent placement + consume window
@@ -190,7 +190,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             Update,
             apply_movement_intent_to_control
-                .run_if(ambition_sandbox::gameplay_allowed)
+                .run_if(ambition_gameplay_core::gameplay_allowed)
                 // `PortalSet::InputWarp` already places this in `PlayerInput`
                 // (see `wire_portal_schedule`), so a direct
                 // `.in_set(PlayerInput)` would be a redundant hierarchy edge.
@@ -198,9 +198,9 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 // `PlayerInput`), so it stays — it pins this write-back inside the
                 // `Populate.before(sync_local_player_input_frame)` consume window.
                 .in_set(PortalSet::InputWarp)
-                .in_set(ambition_sandbox::input::InputSet::Populate)
+                .in_set(ambition_gameplay_core::input::InputSet::Populate)
                 .after(warp_portal_input)
-                .before(ambition_sandbox::player::sync_local_player_input_frame),
+                .before(ambition_gameplay_core::player::sync_local_player_input_frame),
         );
         // The player-input adapter reads `PlayerMovementIntent` as the warp
         // anchor; re-sync from `ControlFrame` immediately before the generic
@@ -209,7 +209,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             Update,
             sync_movement_intent_from_control
-                .run_if(ambition_sandbox::gameplay_allowed)
+                .run_if(ambition_gameplay_core::gameplay_allowed)
                 .in_set(PortalSet::Transit)
                 .before(portal_transit),
         );
@@ -222,7 +222,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             Update,
             ensure_portal_bodies
-                .run_if(ambition_sandbox::gameplay_allowed)
+                .run_if(ambition_gameplay_core::gameplay_allowed)
                 .in_set(PortalSet::Transit)
                 .before(portal_transit),
         );
@@ -245,7 +245,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             Update,
             ensure_projectile_portal_bodies
-                .run_if(ambition_sandbox::gameplay_allowed)
+                .run_if(ambition_gameplay_core::gameplay_allowed)
                 .in_set(PortalSet::Transit)
                 .before(portal_transit),
         );
@@ -256,7 +256,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             Update,
             portal_player_input_adapter
-                .run_if(ambition_sandbox::gameplay_allowed)
+                .run_if(ambition_gameplay_core::gameplay_allowed)
                 .in_set(PortalSet::Transit)
                 .after(portal_transit),
         );
@@ -268,14 +268,14 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             Update,
             sync_ground_items_to_transitable
-                .run_if(ambition_sandbox::gameplay_allowed)
+                .run_if(ambition_gameplay_core::gameplay_allowed)
                 .in_set(PortalSet::Transit)
                 .before(portal_teleport_ground_items),
         );
         app.add_systems(
             Update,
             sync_transitable_to_ground_items
-                .run_if(ambition_sandbox::gameplay_allowed)
+                .run_if(ambition_gameplay_core::gameplay_allowed)
                 .in_set(PortalSet::Transit)
                 .after(portal_teleport_ground_items),
         );
@@ -303,10 +303,10 @@ mod schedule_tests {
     //! pure round-trip).
     use bevy::prelude::*;
 
-    use ambition_sandbox::app::{configure_sandbox_sets, SandboxSet};
-    use ambition_sandbox::input::ControlFrame;
-    use ambition_sandbox::player::{PlayerEntity, PrimaryPlayer};
-    use ambition_sandbox::portal::PlayerMovementIntent;
+    use ambition_gameplay_core::app::{configure_sandbox_sets, SandboxSet};
+    use ambition_gameplay_core::input::ControlFrame;
+    use ambition_gameplay_core::player::{PlayerEntity, PrimaryPlayer};
+    use ambition_gameplay_core::portal::PlayerMovementIntent;
 
     use super::super::ability_adapter::warp_portal_input;
     use super::super::transit_adapter::{
@@ -334,7 +334,7 @@ mod schedule_tests {
         configure_sandbox_sets(&mut app);
         app.init_resource::<ControlFrame>();
         app.init_resource::<PlayerMovementIntent>();
-        app.init_resource::<ambition_sandbox::portal::PortalTuning>();
+        app.init_resource::<ambition_gameplay_core::portal::PortalTuning>();
         app.init_resource::<ConsumedAxis>();
         // A primary player so `warp_portal_input` runs its body.
         app.world_mut().spawn((PlayerEntity, PrimaryPlayer));
@@ -398,7 +398,7 @@ mod schedule_tests {
     /// written axis there proves the populate ran first.
     #[test]
     fn input_set_populate_runs_before_the_real_consumer() {
-        use ambition_sandbox::player::{
+        use ambition_gameplay_core::player::{
             sync_local_player_input_frame, LocalPlayer, PlayerEntity, PlayerInputFrame,
         };
 
@@ -412,7 +412,7 @@ mod schedule_tests {
 
         app.add_systems(
             Update,
-            populate_only_via_set.in_set(ambition_sandbox::input::InputSet::Populate),
+            populate_only_via_set.in_set(ambition_gameplay_core::input::InputSet::Populate),
         );
         app.add_systems(
             Update,

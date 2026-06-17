@@ -10,7 +10,7 @@
 //!
 //! The fix has two halves:
 //!
-//! 1. **JS-side resume** — `crates/ambition_sandbox/web/index.html`
+//! 1. **JS-side resume** — `crates/ambition_gameplay_core/web/index.html`
 //!    patches `window.AudioContext` to track every context cpal
 //!    creates, then resumes them all from a real DOM gesture handler
 //!    (`pointerdown` / `keydown` / `touchstart` / `click`). This is

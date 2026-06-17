@@ -33,7 +33,7 @@ from scipy.signal import resample_poly
 from transition_audit import db, peak, rms
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_ROOT = REPO_ROOT / "crates/ambition_sandbox/assets/audio/music/generated"
+DEFAULT_ROOT = REPO_ROOT / "crates/ambition_gameplay_core/assets/audio/music/generated"
 CLIP_DBTP = -1.0  # ITU true-peak ceiling convention; above this we flag.
 
 try:

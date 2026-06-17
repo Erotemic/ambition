@@ -45,9 +45,9 @@ Design-risk notes that remain relevant: do not introduce a parallel “unbrained
 ## Validation anchors
 
 ```bash
-cargo test -p ambition_sandbox actor_control
-cargo test -p ambition_sandbox --lib brain::
-cargo test -p ambition_sandbox --lib content::features::ecs::brain_effects
-cargo test -p ambition_sandbox --lib player::systems
-cargo run -p ambition_sandbox --bin headless -- --ticks 30
+cargo test -p ambition_gameplay_core actor_control
+cargo test -p ambition_gameplay_core --lib brain::
+cargo test -p ambition_gameplay_core --lib content::features::ecs::brain_effects
+cargo test -p ambition_gameplay_core --lib player::systems
+cargo run -p ambition_gameplay_core --bin headless -- --ticks 30
 ```

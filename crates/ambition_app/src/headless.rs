@@ -21,9 +21,9 @@ use bevy::time::TimePlugin;
 use bevy::transform::TransformPlugin;
 
 use crate::app::SandboxSimulationPlugin;
-use ambition_sandbox::game_mode::GameMode;
-use ambition_sandbox::ldtk_world;
-use ambition_sandbox::rooms::RoomSet;
+use ambition_gameplay_core::game_mode::GameMode;
+use ambition_gameplay_core::ldtk_world;
+use ambition_gameplay_core::rooms::RoomSet;
 
 /// Summary of a `run_headless` call. Used by tests, the headless binary, and
 /// future RL drivers to verify the simulation actually progressed instead of
@@ -89,7 +89,7 @@ impl fmt::Display for HeadlessReport {
 /// Builds an `App` from `MinimalPlugins` plus the small set of Bevy
 /// foundation plugins the sim's resources / assets / states / transforms
 /// need, then composes `init_sandbox_resources` and
-/// `add_simulation_plugins` from `ambition_sandbox::app`. Calls `app.update()`
+/// `add_simulation_plugins` from `ambition_gameplay_core::app`. Calls `app.update()`
 /// `max_ticks` times and returns a `HeadlessReport`.
 ///
 /// Validation failures from the embedded LDtk project propagate as `Err`,
@@ -153,7 +153,7 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
         .map(|r| r.quest_log_lines())
         .unwrap_or_default();
     let visited_rooms = world
-        .get_resource::<ambition_sandbox::menu::map::MapMenuState>()
+        .get_resource::<ambition_gameplay_core::menu::map::MapMenuState>()
         .map(|m| m.visited.iter().cloned().collect::<Vec<_>>())
         .unwrap_or_default();
 
@@ -172,8 +172,8 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_sandbox::audio::SfxMessage;
-    use ambition_sandbox::input::ControlFrame;
+    use ambition_gameplay_core::audio::SfxMessage;
+    use ambition_gameplay_core::input::ControlFrame;
     use bevy::ecs::message::Messages;
 
     fn sandbox_sim_app() -> App {
@@ -249,7 +249,7 @@ mod tests {
     /// counter resource gets reset/leaked between frames.
     #[test]
     fn sim_completes_60_ticks_with_counter_intact() {
-        use ambition_sandbox::brain::BrainActionCounter;
+        use ambition_gameplay_core::brain::BrainActionCounter;
         let mut app = sandbox_sim_app();
         // Run 60 ticks (1 sim second at 60Hz).
         for _ in 0..60 {
@@ -272,10 +272,10 @@ mod tests {
     /// — adding the plugin should mean ActorActionMessage +
     /// BrainActionCounter are both registered. Catches a future
     /// app-plugin refactor that accidentally drops the
-    /// `app.add_plugins(ambition_sandbox::brain::BrainPlugin)` call.
+    /// `app.add_plugins(ambition_gameplay_core::brain::BrainPlugin)` call.
     #[test]
     fn sim_includes_brain_plugin_registration() {
-        use ambition_sandbox::brain::{ActorActionMessage, BrainActionCounter};
+        use ambition_gameplay_core::brain::{ActorActionMessage, BrainActionCounter};
         use bevy::ecs::message::Messages;
         let app = initialized_sandbox_sim_app();
         // Both resources should be present.
@@ -298,7 +298,7 @@ mod tests {
     /// (not just single-tick poison).
     #[test]
     fn sim_accumulates_messages_across_repeated_attacks() {
-        use ambition_sandbox::brain::BrainActionCounter;
+        use ambition_gameplay_core::brain::BrainActionCounter;
         let mut app = initialized_sandbox_sim_app();
         for i in 0..20 {
             let attack = i % 2 == 0;
@@ -326,8 +326,8 @@ mod tests {
     /// runs through the real Startup schedule.
     #[test]
     fn sim_spawns_player_with_brain_and_action_set() {
-        use ambition_sandbox::brain::{ActionSet, ActorControl, Brain};
-        use ambition_sandbox::player::PlayerEntity;
+        use ambition_gameplay_core::brain::{ActionSet, ActorControl, Brain};
+        use ambition_gameplay_core::player::PlayerEntity;
         let mut app = initialized_sandbox_sim_app();
         let mut q = app
             .world_mut()
@@ -354,7 +354,7 @@ mod tests {
     /// in `player/systems.rs` tests).
     #[test]
     fn sim_emits_action_messages_when_player_attacks() {
-        use ambition_sandbox::brain::{ActorActionMessage, BrainActionCounter};
+        use ambition_gameplay_core::brain::{ActorActionMessage, BrainActionCounter};
         let mut app = initialized_sandbox_sim_app();
         // Stamp an attack press into the control frame.
         *app.world_mut().resource_mut::<ControlFrame>() = ControlFrame {

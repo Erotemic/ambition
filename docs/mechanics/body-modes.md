@@ -5,8 +5,8 @@ Body modes describe traversal states that change collision shape, movement affor
 ## Current status
 
 - Reusable vocabulary lives in `crates/ambition_engine_core/src/player_state.rs`: `LocomotionState`, `BodyMode`, `BodyShape`, and `ResourceMeter`.
-- The sandbox has body-mode modules under `crates/ambition_sandbox/src/body_mode/`.
-- Player-authoritative runtime state lives on ECS player components under `crates/ambition_sandbox/src/player/` and the engine `Player` state.
+- The sandbox has body-mode modules under `crates/ambition_gameplay_core/src/body_mode/`.
+- Player-authoritative runtime state lives on ECS player components under `crates/ambition_gameplay_core/src/player/` and the engine `Player` state.
 - Authored traversal examples should be LDtk rooms/specs, not hard-coded one-off checks.
 
 ## Engine contract
@@ -90,8 +90,8 @@ Current examples:
 ## Validation anchors
 
 ```bash
-cargo test -p ambition_sandbox --lib engine_core::player_state
-cargo test -p ambition_sandbox --lib engine_core::movement
-cargo test -p ambition_sandbox body_mode
+cargo test -p ambition_gameplay_core --lib engine_core::player_state
+cargo test -p ambition_gameplay_core --lib engine_core::movement
+cargo test -p ambition_gameplay_core body_mode
 cargo test -p ambition_app --test scripted_gameplay --features "rl_sim portal"
 ```

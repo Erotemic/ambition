@@ -3,17 +3,17 @@
 //! Particles are CPU-side Bevy sprite entities for now. Keeping this behind a
 //! compact module gives us a later migration seam to GPU particles or Hanabi.
 
-use ambition_sandbox::engine_core as ae;
-use ambition_sandbox::engine_core::AabbExt;
+use ambition_gameplay_core::engine_core as ae;
+use ambition_gameplay_core::engine_core::AabbExt;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 use std::f32::consts::TAU;
 
-use ambition_sandbox::audio::SfxMessage;
-use ambition_sandbox::character_sprites::{
+use ambition_gameplay_core::audio::SfxMessage;
+use ambition_gameplay_core::character_sprites::{
     build_character_sprite_with_render_size, CharacterAnim, CharacterAnimator,
 };
-use ambition_sandbox::config::{rgba, world_to_bevy, WORLD_Z_FX};
+use ambition_gameplay_core::config::{rgba, world_to_bevy, WORLD_Z_FX};
 
 // The VFX MESSAGE vocabulary now lives in the foundation crate `ambition_vfx`
 // (presentation-neutral data, so a sim system can emit a cue without depending on
@@ -210,7 +210,7 @@ pub fn process_fireworks_requests(
 
 pub fn tick_firework_sequences(
     mut commands: Commands,
-    world_time: Res<ambition_sandbox::WorldTime>,
+    world_time: Res<ambition_gameplay_core::WorldTime>,
     mut sequences: Query<(Entity, &mut FireworkSequence)>,
     mut explosions: MessageWriter<ExplosionRequest>,
 ) {
@@ -244,8 +244,8 @@ pub fn tick_firework_sequences(
 pub fn vfx_spawn_messages(
     mut commands: Commands,
     mut messages: MessageReader<VfxMessage>,
-    world: Res<ambition_sandbox::GameWorld>,
-    assets: Option<Res<ambition_sandbox::assets::game_assets::GameAssets>>,
+    world: Res<ambition_gameplay_core::GameWorld>,
+    assets: Option<Res<ambition_gameplay_core::assets::game_assets::GameAssets>>,
     mut speech_bubbles: Query<(&mut SpeechBubbleVisual, &mut Transform, &mut TextColor)>,
 ) {
     let world = &world.0;
@@ -316,7 +316,7 @@ pub fn vfx_spawn_messages(
 fn spawn_explosion(
     commands: &mut Commands,
     world: &ae::World,
-    assets: Option<&ambition_sandbox::assets::game_assets::GameAssets>,
+    assets: Option<&ambition_gameplay_core::assets::game_assets::GameAssets>,
     pos: ae::Vec2,
     kind: ExplosionKind,
     scale: f32,
@@ -471,7 +471,7 @@ fn apply_speech_bubble_visual(
 pub fn update_speech_bubbles(
     mut commands: Commands,
     time: Res<Time>,
-    world: Res<ambition_sandbox::GameWorld>,
+    world: Res<ambition_gameplay_core::GameWorld>,
     mut query: Query<(Entity, &mut SpeechBubbleVisual, &mut Transform, &mut TextColor)>,
 ) {
     let dt = time.delta_secs();
@@ -512,7 +512,7 @@ pub fn update_speech_bubble_outlines(
 pub fn update_explosions(
     mut commands: Commands,
     time: Res<Time>,
-    world: Res<ambition_sandbox::GameWorld>,
+    world: Res<ambition_gameplay_core::GameWorld>,
     mut query: Query<(
         Entity,
         &mut ExplosionVisual,
@@ -542,7 +542,7 @@ pub fn update_explosions(
 pub fn update_particles(
     mut commands: Commands,
     time: Res<Time>,
-    world: Res<ambition_sandbox::GameWorld>,
+    world: Res<ambition_gameplay_core::GameWorld>,
     mut query: Query<(Entity, &mut ParticleVisual, &mut Transform, &mut Sprite)>,
 ) {
     let dt = time.delta_secs();
@@ -573,7 +573,7 @@ pub fn update_particles(
 pub fn update_impacts(
     mut commands: Commands,
     time: Res<Time>,
-    world: Res<ambition_sandbox::GameWorld>,
+    world: Res<ambition_gameplay_core::GameWorld>,
     mut query: Query<(Entity, &mut ImpactVisual, &mut Transform, &mut Sprite)>,
 ) {
     let dt = time.delta_secs();
@@ -861,25 +861,25 @@ pub fn spawn_blink_effects(
 pub fn update_blink_preview(
     mut commands: Commands,
     time: Res<Time>,
-    world: Res<ambition_sandbox::GameWorld>,
-    platform_set: Res<ambition_sandbox::MovingPlatformSet>,
-    mode: Res<State<ambition_sandbox::game_mode::GameMode>>,
-    scene: Res<ambition_sandbox::platformer_runtime::lifecycle::SceneEntities>,
+    world: Res<ambition_gameplay_core::GameWorld>,
+    platform_set: Res<ambition_gameplay_core::MovingPlatformSet>,
+    mode: Res<State<ambition_gameplay_core::game_mode::GameMode>>,
+    scene: Res<ambition_gameplay_core::platformer_runtime::lifecycle::SceneEntities>,
     action_query: Query<
-        &leafwing_input_manager::prelude::ActionState<ambition_sandbox::input::SandboxAction>,
-        bevy::prelude::With<ambition_sandbox::platformer_runtime::lifecycle::PlayerVisual>,
+        &leafwing_input_manager::prelude::ActionState<ambition_gameplay_core::input::SandboxAction>,
+        bevy::prelude::With<ambition_gameplay_core::platformer_runtime::lifecycle::PlayerVisual>,
     >,
     player_q: Query<
         (
-            &ambition_sandbox::player::BodyKinematics,
-            &ambition_sandbox::player::PlayerAbilities,
-            &ambition_sandbox::player::PlayerBlinkState,
+            &ambition_gameplay_core::player::BodyKinematics,
+            &ambition_gameplay_core::player::PlayerAbilities,
+            &ambition_gameplay_core::player::PlayerBlinkState,
         ),
-        ambition_sandbox::player::PrimaryPlayerOnly,
+        ambition_gameplay_core::player::PrimaryPlayerOnly,
     >,
     mut existing: Query<(Entity, &BlinkPreviewVisual, &mut Transform, &mut Sprite)>,
 ) {
-    use ambition_sandbox::input::ControlFrame;
+    use ambition_gameplay_core::input::ControlFrame;
 
     let Ok((kin, abilities, blink_state)) = player_q.single() else {
         for (entity, _, _, _) in &existing {
@@ -907,7 +907,7 @@ pub fn update_blink_preview(
     // moving-platform-aware temporary world is what the actual blink
     // resolves against, so the preview must use it too.
     let blink_world =
-        ambition_sandbox::world::platforms::world_with_moving_platforms(&world.0, &platform_set.0);
+        ambition_gameplay_core::world::platforms::world_with_moving_platforms(&world.0, &platform_set.0);
     let target = if blink_state.aiming {
         ae::blink_destination_to_point_clusters(
             &blink_world,

@@ -39,8 +39,8 @@ The current `bevy_kira_audio` wrapper does not expose the Kira effect handles ne
 ## Validation
 
 ```bash
-cargo test -p ambition_sandbox --lib audio
-cargo test -p ambition_sandbox --lib water
+cargo test -p ambition_gameplay_core --lib audio
+cargo test -p ambition_gameplay_core --lib water
 ```
 
 For web audio behavior, also use [`../recipes/web-audio-manual-test.md`](../recipes/web-audio-manual-test.md).

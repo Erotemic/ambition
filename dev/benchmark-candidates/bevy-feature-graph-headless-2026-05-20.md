@@ -18,7 +18,7 @@ The feature graph union is what cargo computes — `--no-default-features`
 does not give you a "minimal bevy."
 
 The trap is easy to fall into because:
-1. Default desktop builds keep passing — `cargo check -p ambition_sandbox`
+1. Default desktop builds keep passing — `cargo check -p ambition_gameplay_core`
    succeeds and tests run.
 2. The user-facing cargo feature `headless = []` looks self-contained.
 3. The agent's natural model is "remove `default_app` from the base

@@ -26,10 +26,10 @@
 //! the next attempt. Cross-session persistence inherits whatever
 //! state the boss runtime restores on respawn — no extra hookup here.
 
-use ambition_sandbox::engine_core as ae;
+use ambition_gameplay_core::engine_core as ae;
 use bevy::prelude::*;
 
-use ambition_sandbox::features::BossClusterRef;
+use ambition_gameplay_core::features::BossClusterRef;
 
 /// LDtk level identifier of the arena room whose ladder this system
 /// gates. Held as a constant so it's grep-able alongside the matching
@@ -68,14 +68,14 @@ pub struct GnuTonLadderGate {
 /// arena rooms after stash/reveal completes.
 /// GNU-ton recognizer (id or authored display name). Lives content-side:
 /// the generic cluster views no longer carry named-boss predicates.
-fn boss_is_gnu_ton(boss: &ambition_sandbox::features::BossRef<'_>) -> bool {
+fn boss_is_gnu_ton(boss: &ambition_gameplay_core::features::BossRef<'_>) -> bool {
     boss.config.behavior.id == "gnu_ton"
         || boss.config.name.eq_ignore_ascii_case("gnu_ton")
         || boss.config.name.eq_ignore_ascii_case("gnu-ton")
 }
 
 pub fn gate_gnu_ton_arena_ladder(
-    mut world: ResMut<ambition_sandbox::GameWorld>,
+    mut world: ResMut<ambition_gameplay_core::GameWorld>,
     bosses: Query<BossClusterRef>,
     mut state: Local<GnuTonLadderGate>,
 ) {
@@ -148,12 +148,12 @@ pub fn gate_gnu_ton_arena_ladder(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_sandbox::features::{BossBehaviorProfile, BossClusterScratch};
+    use ambition_gameplay_core::features::{BossBehaviorProfile, BossClusterScratch};
 
     fn make_game_world(
         name: &str,
         ladders: Vec<ae::ClimbableRegion>,
-    ) -> ambition_sandbox::GameWorld {
+    ) -> ambition_gameplay_core::GameWorld {
         let world = ae::World::new(
             name,
             ae::Vec2::new(2_000.0, 2_000.0),
@@ -161,13 +161,13 @@ mod tests {
             Vec::new(),
         )
         .with_climbable_regions(ladders);
-        ambition_sandbox::GameWorld(world)
+        ambition_gameplay_core::GameWorld(world)
     }
 
     fn make_game_world_with_floor_gate(
         name: &str,
         ladders: Vec<ae::ClimbableRegion>,
-    ) -> ambition_sandbox::GameWorld {
+    ) -> ambition_gameplay_core::GameWorld {
         let gate_block = ae::Block::solid(
             FLOOR_GATE_BLOCK_NAME,
             ae::Vec2::new(112.0, 208.0),
@@ -180,12 +180,12 @@ mod tests {
             vec![gate_block],
         )
         .with_climbable_regions(ladders);
-        ambition_sandbox::GameWorld(world)
+        ambition_gameplay_core::GameWorld(world)
     }
 
     fn floor_gate_count(app: &App) -> usize {
         app.world()
-            .resource::<ambition_sandbox::GameWorld>()
+            .resource::<ambition_gameplay_core::GameWorld>()
             .0
             .blocks
             .iter()
@@ -202,7 +202,7 @@ mod tests {
             "boss_gnu_ton",
             "GNU-ton",
             aabb,
-            ambition_sandbox::actor::BossBrain::Dormant,
+            ambition_gameplay_core::actor::BossBrain::Dormant,
         );
         scratch.config.behavior = behavior;
         scratch
@@ -218,22 +218,22 @@ mod tests {
     /// while the body envelope carries `combat_offset`.
     #[test]
     fn gnu_ton_head_hurtbox_overlaps_the_body_envelope() {
-        use ambition_sandbox::engine_core::AabbExt;
+        use ambition_gameplay_core::engine_core::AabbExt;
 
         crate::bosses::install_boss_roster();
         let mut app = App::new();
-        app.add_plugins(ambition_sandbox::character_sprites::SheetRegistryPlugin);
+        app.add_plugins(ambition_gameplay_core::character_sprites::SheetRegistryPlugin);
         let entity = app
             .world_mut()
             .spawn((
-                ambition_sandbox::features::FeatureSimEntity,
+                ambition_gameplay_core::features::FeatureSimEntity,
                 spawn_gnu_ton_runtime().into_components(),
-                ambition_sandbox::brain::BossAttackState::default(),
+                ambition_gameplay_core::brain::BossAttackState::default(),
             ))
             .id();
         app.add_systems(
             Update,
-            ambition_sandbox::features::derive_boss_sprite_metrics,
+            ambition_gameplay_core::features::derive_boss_sprite_metrics,
         );
         // First update runs Startup (loads the baked sprite registry)
         // then Update (derives the boss's sprite metrics from it).
@@ -241,7 +241,7 @@ mod tests {
 
         let status = app
             .world()
-            .get::<ambition_sandbox::features::BossStatus>(entity)
+            .get::<ambition_gameplay_core::features::BossStatus>(entity)
             .unwrap();
         assert!(
             status.sprite_metrics.is_some(),
@@ -249,44 +249,44 @@ mod tests {
         );
         let attack = app
             .world()
-            .get::<ambition_sandbox::brain::BossAttackState>(entity)
+            .get::<ambition_gameplay_core::brain::BossAttackState>(entity)
             .unwrap();
         let kin = app
             .world()
-            .get::<ambition_sandbox::features::BodyKinematics>(entity)
+            .get::<ambition_gameplay_core::features::BodyKinematics>(entity)
             .unwrap();
         let config = app
             .world()
-            .get::<ambition_sandbox::features::BossConfig>(entity)
+            .get::<ambition_gameplay_core::features::BossConfig>(entity)
             .unwrap();
         let status = app
             .world()
-            .get::<ambition_sandbox::features::BossStatus>(entity)
+            .get::<ambition_gameplay_core::features::BossStatus>(entity)
             .unwrap();
-        let boss_ref = ambition_sandbox::features::BossRef {
+        let boss_ref = ambition_gameplay_core::features::BossRef {
             kin,
             config,
             status,
         };
-        let ctx = ambition_sandbox::features::BossVolumeContext::from_ref(boss_ref, attack);
-        let hurtboxes = ambition_sandbox::features::damageable_volumes(&ctx);
+        let ctx = ambition_gameplay_core::features::BossVolumeContext::from_ref(boss_ref, attack);
+        let hurtboxes = ambition_gameplay_core::features::damageable_volumes(&ctx);
         assert!(
             !hurtboxes.is_empty(),
             "gnu_ton should expose at least one damageable hurtbox at rest"
         );
         let kin = app
             .world()
-            .get::<ambition_sandbox::features::BodyKinematics>(entity)
+            .get::<ambition_gameplay_core::features::BodyKinematics>(entity)
             .unwrap();
         let config = app
             .world()
-            .get::<ambition_sandbox::features::BossConfig>(entity)
+            .get::<ambition_gameplay_core::features::BossConfig>(entity)
             .unwrap();
         let status = app
             .world()
-            .get::<ambition_sandbox::features::BossStatus>(entity)
+            .get::<ambition_gameplay_core::features::BossStatus>(entity)
             .unwrap();
-        let body = ambition_sandbox::features::BossRef {
+        let body = ambition_gameplay_core::features::BossRef {
             kin,
             config,
             status,
@@ -301,7 +301,7 @@ mod tests {
         }
     }
 
-    fn make_app(world: ambition_sandbox::GameWorld) -> App {
+    fn make_app(world: ambition_gameplay_core::GameWorld) -> App {
         crate::bosses::install_boss_roster();
         let mut app = App::new();
         app.insert_resource(world);
@@ -315,7 +315,7 @@ mod tests {
 
     fn climbable_regions_len(app: &App) -> usize {
         app.world()
-            .resource::<ambition_sandbox::GameWorld>()
+            .resource::<ambition_gameplay_core::GameWorld>()
             .0
             .climbable_regions
             .len()
@@ -352,13 +352,13 @@ mod tests {
 
         // Kill the boss; next tick should add the ladder back.
         app.world_mut()
-            .get_mut::<ambition_sandbox::features::BossStatus>(boss_entity)
+            .get_mut::<ambition_gameplay_core::features::BossStatus>(boss_entity)
             .unwrap()
             .alive = false;
         app.update();
         let regions = &app
             .world()
-            .resource::<ambition_sandbox::GameWorld>()
+            .resource::<ambition_gameplay_core::GameWorld>()
             .0
             .climbable_regions;
         assert_eq!(regions.len(), 1, "ladder should be back after defeat");
@@ -405,7 +405,7 @@ mod tests {
         app.update();
         assert_eq!(floor_gate_count(&app), 1);
         app.world_mut()
-            .get_mut::<ambition_sandbox::features::BossStatus>(boss_entity)
+            .get_mut::<ambition_gameplay_core::features::BossStatus>(boss_entity)
             .unwrap()
             .alive = false;
         app.update();
@@ -457,7 +457,7 @@ mod tests {
             .id();
         app.update();
         app.world_mut()
-            .get_mut::<ambition_sandbox::features::BossStatus>(boss_entity)
+            .get_mut::<ambition_gameplay_core::features::BossStatus>(boss_entity)
             .unwrap()
             .alive = false;
         app.update();
@@ -467,7 +467,7 @@ mod tests {
         // boss entity despawned in the real flow but irrelevant
         // here since the room-name check fires first).
         app.world_mut()
-            .resource_mut::<ambition_sandbox::GameWorld>()
+            .resource_mut::<ambition_gameplay_core::GameWorld>()
             .0 = ae::World::new(
             "some_other_room",
             ae::Vec2::new(2_000.0, 2_000.0),
@@ -478,7 +478,7 @@ mod tests {
 
         // Re-enter arena with fresh ladder + fresh (alive) boss.
         app.world_mut()
-            .resource_mut::<ambition_sandbox::GameWorld>()
+            .resource_mut::<ambition_gameplay_core::GameWorld>()
             .0 = ae::World::new(
             ARENA_ROOM_NAME,
             ae::Vec2::new(2_000.0, 2_000.0),

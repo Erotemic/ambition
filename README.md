@@ -26,7 +26,7 @@ Historical notes are preserved under `docs/archive/`. They explain the path here
 ## Project shape
 
 ```text
-ambition_sandbox
+ambition_gameplay_core
   Playable Bevy shell + reusable mechanics:
     src/engine_core/       Bevy-native movement, collision, body modes,
                            geometry, ability gates, world data,
@@ -62,7 +62,7 @@ tools/
 ## Run
 
 ```bash
-cargo run -p ambition_sandbox --release
+cargo run -p ambition_gameplay_core --release
 ```
 
 The first Bevy build can take a while. For targeted validation, prefer the focused command listed in the relevant concept page or recipe.

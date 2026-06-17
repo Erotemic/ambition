@@ -1,9 +1,9 @@
 //! The recall-mark beacon visual (was in abilities/traversal/mark_recall) — a
 //! glowing beacon sprite at the player's dropped mark. Render-only; reads the
-//! sim-side `PlayerMark` from ambition_sandbox.
+//! sim-side `PlayerMark` from ambition_gameplay_core.
 
-use ambition_sandbox::abilities::traversal::mark_recall::PlayerMark;
-use ambition_sandbox::engine_core as ae;
+use ambition_gameplay_core::abilities::traversal::mark_recall::PlayerMark;
+use ambition_gameplay_core::engine_core as ae;
 use bevy::prelude::*;
 
 /// Marks the persistent beacon sprite shown at a player's dropped recall mark.
@@ -22,7 +22,7 @@ const BEACON_SIZE: ae::Vec2 = ae::Vec2::new(30.0, 70.0);
 /// cleared. Visible build only.
 pub fn sync_mark_beacon_visual(
     mut commands: Commands,
-    world: Res<ambition_sandbox::GameWorld>,
+    world: Res<ambition_gameplay_core::GameWorld>,
     asset_server: Res<AssetServer>,
     visuals: Query<Entity, With<MarkBeaconVisual>>,
     marks: Query<&PlayerMark>,
@@ -35,7 +35,7 @@ pub fn sync_mark_beacon_visual(
             continue;
         };
         // +Y is down in world space, so "up" (toward the ceiling) is -Y.
-        let translation = ambition_sandbox::config::world_to_bevy(
+        let translation = ambition_gameplay_core::config::world_to_bevy(
             &world.0,
             pos - ae::Vec2::new(0.0, BEACON_RISE),
             7.0,

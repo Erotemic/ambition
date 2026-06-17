@@ -1,7 +1,7 @@
 //! Ambition transit bindings for the portal mechanic.
 //!
-//! Portal core's transit ([`ambition_sandbox::portal::portal_transit`] /
-//! [`ambition_sandbox::portal::warp_portal_input`] / [`ambition_sandbox::portal::portal_teleport_ground_items`])
+//! Portal core's transit ([`ambition_gameplay_core::portal::portal_transit`] /
+//! [`ambition_gameplay_core::portal::warp_portal_input`] / [`ambition_gameplay_core::portal::portal_teleport_ground_items`])
 //! is content-agnostic: it reads/writes a [`PlayerMovementIntent`] resource and a
 //! [`PortalTransitable`] body component instead of the Ambition [`ControlFrame`]
 //! input type or the [`GroundItem`] body. These adapters own that glue:
@@ -17,20 +17,20 @@
 //!   marker to ground items and keeps it in sync with the `GroundItem` body around
 //!   transit.
 //!
-//! [`ControlFrame`]: ambition_sandbox::input::ControlFrame
-//! [`GroundItem`]: ambition_sandbox::items::pickup::GroundItem
-//! [`PlayerMovementIntent`]: ambition_sandbox::portal::PlayerMovementIntent
-//! [`PortalTransitable`]: ambition_sandbox::portal::PortalTransitable
+//! [`ControlFrame`]: ambition_gameplay_core::input::ControlFrame
+//! [`GroundItem`]: ambition_gameplay_core::items::pickup::GroundItem
+//! [`PlayerMovementIntent`]: ambition_gameplay_core::portal::PlayerMovementIntent
+//! [`PortalTransitable`]: ambition_gameplay_core::portal::PortalTransitable
 
 use bevy::prelude::*;
 
-use ambition_sandbox::input::ControlFrame;
-use ambition_sandbox::items::pickup::GroundItem;
-use ambition_sandbox::portal::{PlayerMovementIntent, PortalTransitable};
+use ambition_gameplay_core::input::ControlFrame;
+use ambition_gameplay_core::items::pickup::GroundItem;
+use ambition_gameplay_core::portal::{PlayerMovementIntent, PortalTransitable};
 
 /// Copy this frame's `ControlFrame` movement axes into the portal-core
-/// [`PlayerMovementIntent`]. Runs before [`ambition_sandbox::portal::warp_portal_input`] and
-/// again before [`ambition_sandbox::portal::portal_transit`] so portal core always
+/// [`PlayerMovementIntent`]. Runs before [`ambition_gameplay_core::portal::warp_portal_input`] and
+/// again before [`ambition_gameplay_core::portal::portal_transit`] so portal core always
 /// reads the live held direction without naming `ControlFrame`.
 pub fn sync_movement_intent_from_control(
     control: Option<Res<ControlFrame>>,
@@ -43,7 +43,7 @@ pub fn sync_movement_intent_from_control(
 
 /// Copy the (possibly warped) portal-core [`PlayerMovementIntent`] back into the
 /// `ControlFrame` movement axes. Runs immediately after
-/// [`ambition_sandbox::portal::warp_portal_input`], so the brain / movement see the adjusted
+/// [`ambition_gameplay_core::portal::warp_portal_input`], so the brain / movement see the adjusted
 /// axes exactly as they did when portal core mutated `ControlFrame` directly.
 pub fn apply_movement_intent_to_control(
     intent: Res<PlayerMovementIntent>,
@@ -58,7 +58,7 @@ pub fn apply_movement_intent_to_control(
 /// Attach the portal-core [`PortalTransitable`] marker to any [`GroundItem`] that
 /// lacks it, and mirror the item's body into it. Resting items (`vel == ZERO`)
 /// carry the marker too but never transit (portal core skips them). Runs before
-/// [`ambition_sandbox::portal::portal_teleport_ground_items`].
+/// [`ambition_gameplay_core::portal::portal_teleport_ground_items`].
 pub fn sync_ground_items_to_transitable(
     mut commands: Commands,
     mut items: Query<(Entity, &GroundItem, Option<&mut PortalTransitable>)>,
@@ -83,7 +83,7 @@ pub fn sync_ground_items_to_transitable(
 
 /// Mirror the (possibly teleported) [`PortalTransitable`] body back into the
 /// `GroundItem`. Runs immediately after
-/// [`ambition_sandbox::portal::portal_teleport_ground_items`].
+/// [`ambition_gameplay_core::portal::portal_teleport_ground_items`].
 pub fn sync_transitable_to_ground_items(mut items: Query<(&mut GroundItem, &PortalTransitable)>) {
     for (mut item, t) in &mut items {
         item.pos = t.pos;

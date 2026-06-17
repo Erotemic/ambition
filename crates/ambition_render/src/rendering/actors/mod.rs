@@ -5,8 +5,8 @@
 //! the asset is loaded.
 
 #![allow(unused_imports)]
-use ambition_sandbox::engine_core as ae;
-use ambition_sandbox::engine_core::AabbExt;
+use ambition_gameplay_core::engine_core as ae;
+use ambition_gameplay_core::engine_core::AabbExt;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
@@ -14,17 +14,17 @@ use super::primitives::{
     feature_color, feature_z, switch_on_color, FeatureVisual, PlayerSpriteBaseline, PlayerVisual,
     PropVisual, SceneEntities,
 };
-use ambition_sandbox::assets::game_assets::{self, EntitySprite, GameAssets};
-use ambition_sandbox::boss_encounter::sprites::{self, BossAnimState, BossAnimator};
-use ambition_sandbox::character_sprites::{
+use ambition_gameplay_core::assets::game_assets::{self, EntitySprite, GameAssets};
+use ambition_gameplay_core::boss_encounter::sprites::{self, BossAnimState, BossAnimator};
+use ambition_gameplay_core::character_sprites::{
     build_character_sprite, feet_anchor_for, CharacterAnimator,
 };
-use ambition_sandbox::config::{world_to_bevy, WORLD_Z_PLAYER};
-use ambition_sandbox::features::{
+use ambition_gameplay_core::config::{world_to_bevy, WORLD_Z_PLAYER};
+use ambition_gameplay_core::features::{
     BossClusterRef, BreakableFeature, ChestFeature, FeatureId, FeatureViewIndex, FeatureVisualKind,
     Opened,
 };
-use ambition_sandbox::mechanics::combat::BoundFeatureKind;
+use ambition_gameplay_core::mechanics::combat::BoundFeatureKind;
 
 mod animation;
 mod boss;
@@ -35,7 +35,7 @@ pub use boss::*;
 pub use overlays::*;
 
 pub fn sync_visuals(
-    world: Res<ambition_sandbox::GameWorld>,
+    world: Res<ambition_gameplay_core::GameWorld>,
     entities: Res<SceneEntities>,
     assets: Option<Res<GameAssets>>,
     feature_views: Res<FeatureViewIndex>,
@@ -44,10 +44,10 @@ pub fn sync_visuals(
             &mut Transform,
             &mut Sprite,
             Option<&PlayerSpriteBaseline>,
-            &ambition_sandbox::player::BodyKinematics,
-            &ambition_sandbox::player::PlayerBaseSize,
-            &ambition_sandbox::player::PlayerCombatState,
-            Option<&ambition_sandbox::platformer_runtime::orientation::ActorRoll>,
+            &ambition_gameplay_core::player::BodyKinematics,
+            &ambition_gameplay_core::player::PlayerBaseSize,
+            &ambition_gameplay_core::player::PlayerCombatState,
+            Option<&ambition_gameplay_core::platformer_runtime::orientation::ActorRoll>,
         ),
         With<PlayerVisual>,
     >,
@@ -167,10 +167,10 @@ fn state_aware_entity_sprite(
 ) -> Option<EntitySprite> {
     match kind {
         FeatureVisualKind::Breakable => {
-            ambition_sandbox::features::ecs_breakable_state(id, ecs_breakables)
+            ambition_gameplay_core::features::ecs_breakable_state(id, ecs_breakables)
                 .map(game_assets::breakable_state_sprite)
         }
-        FeatureVisualKind::Chest => ambition_sandbox::features::ecs_chest_opened(id, ecs_chests)
+        FeatureVisualKind::Chest => ambition_gameplay_core::features::ecs_chest_opened(id, ecs_chests)
             .map(game_assets::chest_state_sprite),
         // Switch shows its on/off button sprite (armed = on, disabled = off)
         // instead of a flat colored block (#57).
@@ -201,7 +201,7 @@ pub fn upgrade_enemy_sprites(
     images: Res<Assets<Image>>,
     feature_views: Res<FeatureViewIndex>,
     features: Query<(Entity, &FeatureVisual, Option<&BoundFeatureKind>)>,
-    ecs_actors: Query<ambition_sandbox::features::ActorSpriteData>,
+    ecs_actors: Query<ambition_gameplay_core::features::ActorSpriteData>,
     // Names we've already warned about resolving no sprite, so the warning fires
     // once per offending name instead of every frame the actor is unbound.
     mut warned_sprite_names: Local<std::collections::HashSet<String>>,
@@ -242,8 +242,8 @@ pub fn upgrade_enemy_sprites(
         // duplicate the registry entry on an
         // enemy-side table.
         let override_name =
-            ambition_sandbox::features::ecs_enemy_sprite_override(&visual.id, &ecs_actors);
-        let enemy_name = ambition_sandbox::features::ecs_enemy_name(&visual.id, &ecs_actors);
+            ambition_gameplay_core::features::ecs_enemy_sprite_override(&visual.id, &ecs_actors);
+        let enemy_name = ambition_gameplay_core::features::ecs_enemy_name(&visual.id, &ecs_actors);
         // Resolve a *named* sprite first (override label, then the enemy's own
         // name), then fall back to the generic kind sheet.
         let named = override_name
@@ -322,7 +322,7 @@ pub fn upgrade_npc_sprites(
     images: Res<Assets<Image>>,
     feature_views: Res<FeatureViewIndex>,
     features: Query<(Entity, &FeatureVisual, Option<&BoundFeatureKind>)>,
-    ecs_actors: Query<ambition_sandbox::features::ActorSpriteData>,
+    ecs_actors: Query<ambition_gameplay_core::features::ActorSpriteData>,
 ) {
     let Some(assets) = assets else {
         return;
@@ -338,7 +338,7 @@ pub fn upgrade_npc_sprites(
         if bound.is_some_and(|b| b.matches(view.kind, view.size)) {
             continue;
         }
-        let Some(name) = ambition_sandbox::features::ecs_npc_name(&visual.id, &ecs_actors) else {
+        let Some(name) = ambition_gameplay_core::features::ecs_npc_name(&visual.id, &ecs_actors) else {
             continue;
         };
         let Some(character_asset) = assets.characters.npc_asset_for_name(&name) else {

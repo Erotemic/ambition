@@ -3,7 +3,7 @@
 //! Owns the install of the default [`BossEncounterRegistry`] so the named
 //! boss roster is constructed in one content-owned place. The general boss
 //! machinery (profiles, specs, encounter registry/system, patterns) still
-//! lives in `ambition_sandbox::boss_encounter`; this module owns the bespoke per-boss
+//! lives in `ambition_gameplay_core::boss_encounter`; this module owns the bespoke per-boss
 //! *behavior* and *bark content* that names individual bosses:
 //!
 //! - [`gnu_ton`] — GNU-ton's bespoke arena gating (retreat-ladder reveal +
@@ -39,8 +39,8 @@ pub use gnu_ton::gate_gnu_ton_arena_ladder;
 /// full app. First install wins (idempotent across the test binary).
 pub fn install_boss_roster() {
     // Per-boss behavior (movement / attacks / rewards).
-    ambition_sandbox::boss_encounter::install_boss_profiles(
-        ambition_sandbox::boss_encounter::BossProfileRegistry::from_ron(include_str!(
+    ambition_gameplay_core::boss_encounter::install_boss_profiles(
+        ambition_gameplay_core::boss_encounter::BossProfileRegistry::from_ron(include_str!(
             "../../assets/data/boss_profiles.ron"
         )),
     );
@@ -62,17 +62,17 @@ pub fn install_boss_roster() {
     let specs = BOSS_ENCOUNTER_RONS
         .iter()
         .map(|text| {
-            ron::from_str::<ambition_sandbox::boss_encounter::BossEncounterSpec>(text)
+            ron::from_str::<ambition_gameplay_core::boss_encounter::BossEncounterSpec>(text)
                 .expect("boss_encounters/*.ron should parse as BossEncounterSpec")
         })
         .collect();
-    ambition_sandbox::boss_encounter::install_boss_encounter_specs(specs);
+    ambition_gameplay_core::boss_encounter::install_boss_encounter_specs(specs);
 
     // Telegraph anim rows for each content boss-special key. The engine ships
     // no anim row for content specials (it names none); this is where the
     // key→sprite-row mapping lives. `apple_rain` damages via projectile bodies
     // and has no body-mounted telegraph row, so it's simply absent (→ no row).
-    ambition_sandbox::boss_encounter::install_boss_special_anim_keys(
+    ambition_gameplay_core::boss_encounter::install_boss_special_anim_keys(
         std::collections::HashMap::from([
             (
                 "overfit_volley".to_string(),
@@ -103,54 +103,54 @@ impl Plugin for AmbitionBossContentPlugin {
         // the lib embeds no boss data in production. Mirrors the enemy roster.
         install_boss_roster();
 
-        app.insert_resource(ambition_sandbox::boss_encounter::BossEncounterRegistry::default());
+        app.insert_resource(ambition_gameplay_core::boss_encounter::BossEncounterRegistry::default());
 
         // Boss special Techniques own their per-boss temporal state. Attach each
         // to every boss (the `BossConfig` marker) via required components, so the
         // machinery lib's spawn no longer names a boss technique. Registered
         // before any boss spawns (plugin build time). First: the eye beam.
         app.register_required_components::<
-            ambition_sandbox::features::BossConfig,
+            ambition_gameplay_core::features::BossConfig,
             specials::EyeBeamState,
         >();
         app.register_required_components::<
-            ambition_sandbox::features::BossConfig,
+            ambition_gameplay_core::features::BossConfig,
             specials::AppleRainSpawnState,
         >();
         app.register_required_components::<
-            ambition_sandbox::features::BossConfig,
+            ambition_gameplay_core::features::BossConfig,
             specials::OverfitVolleyState,
         >();
         app.register_required_components::<
-            ambition_sandbox::features::BossConfig,
+            ambition_gameplay_core::features::BossConfig,
             specials::MinimaTrapState,
         >();
         app.register_required_components::<
-            ambition_sandbox::features::BossConfig,
+            ambition_gameplay_core::features::BossConfig,
             specials::SaddlePointState,
         >();
         app.register_required_components::<
-            ambition_sandbox::features::BossConfig,
+            ambition_gameplay_core::features::BossConfig,
             specials::GradientCascadeState,
         >();
         app.register_required_components::<
-            ambition_sandbox::features::BossConfig,
+            ambition_gameplay_core::features::BossConfig,
             specials::ModeCollapseState,
         >();
         app.register_required_components::<
-            ambition_sandbox::features::BossConfig,
+            ambition_gameplay_core::features::BossConfig,
             specials::ExplodingGradientState,
         >();
         app.register_required_components::<
-            ambition_sandbox::features::BossConfig,
+            ambition_gameplay_core::features::BossConfig,
             specials::OverflowState,
         >();
         app.register_required_components::<
-            ambition_sandbox::features::BossConfig,
+            ambition_gameplay_core::features::BossConfig,
             specials::SeismicStompState,
         >();
         app.register_required_components::<
-            ambition_sandbox::features::BossConfig,
+            ambition_gameplay_core::features::BossConfig,
             specials::EchoFanState,
         >();
 
@@ -160,7 +160,7 @@ impl Plugin for AmbitionBossContentPlugin {
         // inside the WorldPrep boss chain).
         app.add_systems(
             Update,
-            cut_rope::steer_cut_rope_boss_under_anvil.in_set(ambition_sandbox::app::BossSteerSlot),
+            cut_rope::steer_cut_rope_boss_under_anvil.in_set(ambition_gameplay_core::app::BossSteerSlot),
         );
 
         // Cut-rope Yarn vocabulary: installed on the DialogueRunner via the
@@ -169,15 +169,15 @@ impl Plugin for AmbitionBossContentPlugin {
         // is consistent within the tick).
         #[cfg(feature = "ui")]
         {
-            app.init_resource::<ambition_sandbox::dialog::yarn_bindings::YarnContentBindings>();
+            app.init_resource::<ambition_gameplay_core::dialog::yarn_bindings::YarnContentBindings>();
             app.world_mut()
-                .resource_mut::<ambition_sandbox::dialog::yarn_bindings::YarnContentBindings>()
+                .resource_mut::<ambition_gameplay_core::dialog::yarn_bindings::YarnContentBindings>()
                 .installers
                 .push(yarn::install_cut_rope_yarn_bindings);
             app.add_systems(
                 Update,
                 yarn::mirror_cut_rope_heavy_object
-                    .after(ambition_sandbox::dialog::yarn_bindings::refresh_yarn_state_mirror),
+                    .after(ambition_gameplay_core::dialog::yarn_bindings::refresh_yarn_state_mirror),
             );
         }
     }

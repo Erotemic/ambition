@@ -13,10 +13,10 @@ Flip the rule once an external consumer ships.
 
 ## Status snapshot (2026-05-28)
 
-- `cargo test -p ambition_sandbox --lib` → **1140 passing, 0 failing**
+- `cargo test -p ambition_gameplay_core --lib` → **1140 passing, 0 failing**
   (engine + sandbox merged; the former `ambition_engine` test suite
   now runs as part of the sandbox lib tests under
-  `crates/ambition_sandbox/src/engine_core/`).
+  `crates/ambition_gameplay_core/src/engine_core/`).
 - `cargo run --bin rl_smoke` → 42/42 rooms ok (200 ticks each).
 - `cargo check --workspace` → **zero warnings**.
 - `ambition_engine` crate was deleted 2026-05-28 — see
@@ -26,7 +26,7 @@ Flip the rule once an external consumer ships.
 
 ### Earlier snapshot (2026-05-20)
 
-- `cargo test -p ambition_sandbox --lib` → 577 passing
+- `cargo test -p ambition_gameplay_core --lib` → 577 passing
 - `cargo test -p ambition_engine --lib` → 222 passing
 
 Recently retired (autonomous-mission pass 2026-05-20, see git log
@@ -226,7 +226,7 @@ smoke tests).
 
 ### 1. Make `headless` / minimal feature builds real
 
-`crates/ambition_sandbox/Cargo.toml` defines `headless = []` but disabling
+`crates/ambition_gameplay_core/Cargo.toml` defines `headless = []` but disabling
 runtime dependencies only works once subsystem code is gated end-to-end.
 
 **Patch shape**
@@ -238,9 +238,9 @@ runtime dependencies only works once subsystem code is gated end-to-end.
 * Add CI or local commands for:
 
   ```bash
-  cargo check -p ambition_sandbox --no-default-features --features headless
-  cargo check -p ambition_sandbox --no-default-features --features visible
-  cargo check -p ambition_sandbox --no-default-features --features web
+  cargo check -p ambition_gameplay_core --no-default-features --features headless
+  cargo check -p ambition_gameplay_core --no-default-features --features visible
+  cargo check -p ambition_gameplay_core --no-default-features --features web
   ```
 * Treat this as a boundary-cleanup refactor, not just cfg sprinkling.
 
@@ -251,13 +251,13 @@ other refactor and gives a fast simulation/test target.
 
 ### 2. Finish breaking up `sandbox_update` into Bevy-native systems
 
-`crates/ambition_sandbox/src/app/update.rs` still has a large `sandbox_update`
+`crates/ambition_gameplay_core/src/app/update.rs` still has a large `sandbox_update`
 system that takes many resources and delegates to big phase functions.
 `crates/ambition_app/src/app/feedback.rs` has `SandboxEventWriters`,
 `SandboxQueues`, and `ProgressionResources` wrappers partly to stay under
 Bevy's system-param limit. Parameter-limit management is shaping architecture.
 
-The schedule is already strong: `crates/ambition_sandbox/src/app/schedule.rs`
+The schedule is already strong: `crates/ambition_gameplay_core/src/app/schedule.rs`
 defines ordered `SandboxSet`s such as `WorldPrep`, `PlayerInput`,
 `PlayerSimulation`, `RoomTransition`, `Combat`, `PresentationSync`,
 `FeatureCollection`, `FeatureInteraction`, `EncounterSimulation`,
@@ -313,7 +313,7 @@ live near the domain that owns them. Overlaps #2.
 
 ### 8. Make boss encounter state authoritative, not mirrored
 
-`crates/ambition_sandbox/src/boss_encounter/systems.rs` comments say
+`crates/ambition_gameplay_core/src/boss_encounter/systems.rs` comments say
 `BossRuntime.health` is still the source of truth because existing combat /
 feature systems mutate it, while engine `BossEncounterState` is fed by
 deltas. The same system clones registry maps to work around borrow structure,
@@ -451,7 +451,7 @@ despawns and respawns room rectangles.
 
 ### 14. Move narrative / cutscene / dialog content out of Rust constructors
 
-`crates/ambition_sandbox/src/dialog/content.rs` (1016 lines) and intro /
+`crates/ambition_gameplay_core/src/dialog/content.rs` (1016 lines) and intro /
 cutscene modules are large content-heavy Rust files.
 
 **Patch shape**

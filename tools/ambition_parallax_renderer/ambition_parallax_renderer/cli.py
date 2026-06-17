@@ -21,7 +21,7 @@ def repo_root() -> Path:
 DEFAULT_OUT_DIR = (
     repo_root()
     / "crates"
-    / "ambition_sandbox"
+    / "ambition_gameplay_core"
     / "assets"
     / "backgrounds"
     / "parallax_layers"

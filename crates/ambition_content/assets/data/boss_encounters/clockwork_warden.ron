@@ -7,7 +7,7 @@
 // authoritative when this file exists.
 //
 // Mirrors `BossProfile::clockwork_warden()` in
-// `crates/ambition_sandbox/src/boss_encounter/profile.rs`; the
+// `crates/ambition_gameplay_core/src/boss_encounter/profile.rs`; the
 // spec equivalence is pinned by
 // `clockwork_warden_profile_encounter_matches_hardcoded_constructor`.
 

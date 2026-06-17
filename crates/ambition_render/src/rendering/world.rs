@@ -3,8 +3,8 @@
 //! `spawn_room_visuals` is the entry point called once per room
 //! load.
 
-use ambition_sandbox::engine_core as ae;
-use ambition_sandbox::engine_core::AabbExt;
+use ambition_gameplay_core::engine_core as ae;
+use ambition_gameplay_core::engine_core::AabbExt;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
@@ -12,18 +12,18 @@ use super::primitives::{
     block_color, feature_color, feature_z, spawn_world_label, FeatureVisual, LockWallVisual,
     PropVisual, RoomVisual,
 };
-use ambition_sandbox::assets::game_assets::{
+use ambition_gameplay_core::assets::game_assets::{
     self, entity_sprite, entity_sprite_or_color, GameAssets,
 };
-use ambition_sandbox::character_sprites::{
+use ambition_gameplay_core::character_sprites::{
     build_character_sprite, feet_anchor_for, sprite_render_size, CharacterAnimator,
 };
-use ambition_sandbox::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_PLAYER};
-use ambition_sandbox::features::FeatureVisualKind;
-use ambition_sandbox::rooms::{LoadingZone, LoadingZoneActivation, PropSpec};
-use ambition_sandbox::world::physics;
+use ambition_gameplay_core::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_PLAYER};
+use ambition_gameplay_core::features::FeatureVisualKind;
+use ambition_gameplay_core::rooms::{LoadingZone, LoadingZoneActivation, PropSpec};
+use ambition_gameplay_core::world::physics;
 
-/// Presentation consumer of [`ambition_sandbox::runtime::RespawnRoomVisualsRequested`].
+/// Presentation consumer of [`ambition_gameplay_core::runtime::RespawnRoomVisualsRequested`].
 ///
 /// The sim (sandbox reset) emits the request after flipping the active room; this
 /// reads the active room from [`RoomSet`] and rebuilds its static visuals +
@@ -31,9 +31,9 @@ use ambition_sandbox::world::physics;
 /// render layer, and a headless build (no presentation plugins) simply never runs
 /// this system — correct, since it needs no visuals.
 pub fn respawn_room_visuals_on_request(
-    mut requests: MessageReader<ambition_sandbox::runtime::RespawnRoomVisualsRequested>,
+    mut requests: MessageReader<ambition_gameplay_core::runtime::RespawnRoomVisualsRequested>,
     mut commands: Commands,
-    room_set: Res<ambition_sandbox::rooms::RoomSet>,
+    room_set: Res<ambition_gameplay_core::rooms::RoomSet>,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
     assets: Option<Res<GameAssets>>,
 ) {
@@ -53,7 +53,7 @@ pub fn respawn_room_visuals_on_request(
 
 pub fn spawn_room_visuals(
     commands: &mut Commands,
-    spec: &ambition_sandbox::rooms::RoomSpec,
+    spec: &ambition_gameplay_core::rooms::RoomSpec,
     physics_settings: physics::PhysicsSandboxSettings,
     assets: Option<&GameAssets>,
 ) {
@@ -104,14 +104,14 @@ pub fn spawn_room_visuals(
         );
     }
     for enemy in &spec.enemy_spawns {
-        let kind = ambition_sandbox::features::enemy_visual_kind(&enemy.payload);
+        let kind = ambition_gameplay_core::features::enemy_visual_kind(&enemy.payload);
         // Composite "X on Shark" spawns become a mount entity + a
         // rider entity on the sim side (see
         // `content::features::ecs::mount`). Fan the same way here
         // so each side has its own FeatureVisual entity — without
         // this both sims point at ids that don't match any room
         // visual, and `sync_visuals` hides them.
-        if let Some(plan) = ambition_sandbox::features::composite_visual_plan(&enemy.payload) {
+        if let Some(plan) = ambition_gameplay_core::features::composite_visual_plan(&enemy.payload) {
             spawn_composite_visuals(commands, world, enemy, kind, assets, &plan);
             continue;
         }
@@ -164,7 +164,7 @@ pub fn spawn_room_visuals(
 ///   rest of the room's presentation.
 /// - `PropVisual { id, kind }` so the generic prop-anim tick can
 ///   find it and so debug overlays can label it.
-/// - `ambition_sandbox::features::FeatureName(prop.name)` so per-name systems
+/// - `ambition_gameplay_core::features::FeatureName(prop.name)` so per-name systems
 ///   (portal visibility / ring rotation / portal anim) keep finding
 ///   the gate ring + gate portal entities after the migration from
 ///   NpcSpawn-as-prop.
@@ -187,7 +187,7 @@ pub fn spawn_room_prop(
             id: prop.id.clone(),
             kind: prop.kind.clone(),
         },
-        ambition_sandbox::features::FeatureName::new(prop.name.clone()),
+        ambition_gameplay_core::features::FeatureName::new(prop.name.clone()),
     ));
 
     if let Some(asset) = assets.and_then(|a| a.characters.prop_asset_for_kind(&prop.kind)) {
@@ -489,7 +489,7 @@ fn spawn_authored_basic(
         Transform::from_translation(world_to_bevy(world, aabb.center(), feature_z(kind))),
         Name::new(format!("Room entity: {}", name)),
         FeatureVisual { id: id.to_string() },
-        ambition_sandbox::features::FeatureName::new(name.to_string()),
+        ambition_gameplay_core::features::FeatureName::new(name.to_string()),
         RoomVisual,
     ));
 }
@@ -509,10 +509,10 @@ fn spawn_authored_basic(
 fn spawn_composite_visuals(
     commands: &mut Commands,
     world: &ae::World,
-    enemy: &ambition_sandbox::rooms::Authored<ambition_sandbox::actor::EnemyBrain>,
+    enemy: &ambition_gameplay_core::rooms::Authored<ambition_gameplay_core::actor::EnemyBrain>,
     kind: FeatureVisualKind,
     assets: Option<&GameAssets>,
-    plan: &ambition_sandbox::features::CompositeVisualPlan,
+    plan: &ambition_gameplay_core::features::CompositeVisualPlan,
 ) {
     // Mount: keep authored id; reuse the authored aabb (the mount's
     // default_size is what the sim-side composite spawn uses too).
@@ -560,7 +560,7 @@ fn spawn_composite_visuals(
 fn spawn_authored_hazard(
     commands: &mut Commands,
     world: &ae::World,
-    authored: &ambition_sandbox::rooms::Authored<ambition_sandbox::combat::DamageVolume>,
+    authored: &ambition_gameplay_core::rooms::Authored<ambition_gameplay_core::combat::DamageVolume>,
     assets: Option<&GameAssets>,
 ) {
     spawn_authored_basic(
@@ -578,7 +578,7 @@ fn spawn_authored_hazard(
 fn spawn_authored_chest(
     commands: &mut Commands,
     world: &ae::World,
-    authored: &ambition_sandbox::rooms::Authored<ambition_sandbox::interaction::Chest>,
+    authored: &ambition_gameplay_core::rooms::Authored<ambition_gameplay_core::interaction::Chest>,
     assets: Option<&GameAssets>,
 ) {
     spawn_authored_basic(
@@ -605,16 +605,16 @@ fn spawn_authored_chest(
 fn spawn_authored_interactable(
     commands: &mut Commands,
     world: &ae::World,
-    authored: &ambition_sandbox::rooms::Authored<ambition_sandbox::interaction::Interactable>,
+    authored: &ambition_gameplay_core::rooms::Authored<ambition_gameplay_core::interaction::Interactable>,
     assets: Option<&GameAssets>,
 ) {
     let interactable = &authored.payload;
     let kind = if matches!(
         interactable.kind,
-        ambition_sandbox::interaction::InteractionKind::Npc { .. }
+        ambition_gameplay_core::interaction::InteractionKind::Npc { .. }
     ) {
         FeatureVisualKind::Npc
-    } else if matches!(&interactable.kind, ambition_sandbox::interaction::InteractionKind::Custom(s) if s.starts_with("switch:"))
+    } else if matches!(&interactable.kind, ambition_gameplay_core::interaction::InteractionKind::Custom(s) if s.starts_with("switch:"))
     {
         FeatureVisualKind::Switch
     } else {
@@ -680,7 +680,7 @@ fn is_lock_wall_block(name: &str) -> bool {
 /// "this just slammed shut" beat reads at a glance.
 pub fn sync_lock_wall_visuals(
     mut commands: Commands,
-    world: Res<ambition_sandbox::GameWorld>,
+    world: Res<ambition_gameplay_core::GameWorld>,
     assets: Option<Res<GameAssets>>,
     existing: Query<(Entity, &LockWallVisual)>,
 ) {

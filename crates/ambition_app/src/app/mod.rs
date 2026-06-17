@@ -74,7 +74,7 @@ use ambition_gameplay_core::input::SandboxAction;
 use ambition_gameplay_core::input::{ControlFrame, MenuControlFrame, GAMEPAD_MAP};
 #[cfg(feature = "input")]
 use ambition_gameplay_core::input::{MenuInputState, PlayerDashTriggerState};
-use ambition_gameplay_core::inventory;
+use ambition_gameplay_core::inventory_ui;
 use ambition_gameplay_core::ldtk_world;
 use ambition_gameplay_core::platformer_runtime::lifecycle::RoomScopedEntity;
 use ambition_gameplay_core::rooms;

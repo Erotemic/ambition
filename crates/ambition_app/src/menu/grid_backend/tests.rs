@@ -15,7 +15,7 @@ fn backend_switch_carries_the_active_page() {
     let mut app = grid_app();
     app.add_systems(Update, sync_menu_page_across_backend_switch);
     app.world_mut()
-        .resource_mut::<ambition_gameplay_core::inventory::InventoryUiState>()
+        .resource_mut::<ambition_gameplay_core::inventory_ui::InventoryUiState>()
         .visible = true;
 
     // Open on the cube, System page; the first update snapshots the current page.
@@ -69,7 +69,7 @@ fn grid_app() -> App {
     app.init_resource::<ambition_gameplay_core::session::reset::SandboxResetRequested>();
     app.init_resource::<ambition_gameplay_core::dev::dev_tools::EditableMovementTuning>();
     app.init_resource::<UserSettings>();
-    app.init_resource::<ambition_gameplay_core::inventory::InventoryUiState>();
+    app.init_resource::<ambition_gameplay_core::inventory_ui::InventoryUiState>();
     app.init_resource::<ambition_gameplay_core::menu::map::MapMenuState>();
     app.init_resource::<MenuControlFrame>();
     app.init_resource::<GridMenuTabState>();
@@ -103,7 +103,7 @@ fn active_tab(app: &App) -> MenuPage {
 
 fn is_open(app: &App) -> bool {
     app.world()
-        .resource::<ambition_gameplay_core::inventory::InventoryUiState>()
+        .resource::<ambition_gameplay_core::inventory_ui::InventoryUiState>()
         .visible
 }
 
@@ -348,7 +348,7 @@ fn back_closes_and_respects_opened_from_pause() {
     assert!(is_open(&app));
     assert!(
         app.world()
-            .resource::<ambition_gameplay_core::inventory::InventoryUiState>()
+            .resource::<ambition_gameplay_core::inventory_ui::InventoryUiState>()
             .opened_from_pause,
         "opened while already Paused records opened_from_pause"
     );
@@ -881,7 +881,7 @@ fn scroll_grid_app() -> App {
     );
     // Open on the System tab, drilled into Developer (the long, scrollable list).
     app.world_mut()
-        .resource_mut::<ambition_gameplay_core::inventory::InventoryUiState>()
+        .resource_mut::<ambition_gameplay_core::inventory_ui::InventoryUiState>()
         .visible = true;
     {
         let mut ts = app.world_mut().resource_mut::<GridMenuTabState>();

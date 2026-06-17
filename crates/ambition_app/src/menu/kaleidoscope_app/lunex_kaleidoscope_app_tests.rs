@@ -62,7 +62,7 @@ fn base_kaleidoscope_test_app() -> App {
     app.init_resource::<ambition_gameplay_core::session::reset::SandboxResetRequested>();
     app.init_resource::<ambition_gameplay_core::dev::dev_tools::EditableMovementTuning>();
     app.init_resource::<UserSettings>();
-    app.init_resource::<ambition_gameplay_core::inventory::InventoryUiState>();
+    app.init_resource::<ambition_gameplay_core::inventory_ui::InventoryUiState>();
     app.init_resource::<ambition_gameplay_core::menu::map::MapMenuState>();
     app.init_resource::<MenuControlFrame>();
     app.add_message::<PlayerHealRequested>();
@@ -73,7 +73,7 @@ fn base_kaleidoscope_test_app() -> App {
 
 fn set_kaleidoscope_visible(app: &mut App, visible: bool) {
     app.world_mut()
-        .resource_mut::<ambition_gameplay_core::inventory::InventoryUiState>()
+        .resource_mut::<ambition_gameplay_core::inventory_ui::InventoryUiState>()
         .visible = visible;
 }
 
@@ -628,7 +628,7 @@ fn clicking_a_radio_station_keeps_the_menu_open() {
     );
     assert!(
         app.world()
-            .resource::<ambition_gameplay_core::inventory::InventoryUiState>()
+            .resource::<ambition_gameplay_core::inventory_ui::InventoryUiState>()
             .visible,
         "auditioning a station keeps the cube open"
     );
@@ -647,7 +647,7 @@ fn reset_sandbox_action_closes_and_unpauses() {
         .active = Some(MenuPage::System);
     // Open the menu from gameplay: paused, but NOT nested under the pause menu.
     app.world_mut()
-        .resource_mut::<ambition_gameplay_core::inventory::InventoryUiState>()
+        .resource_mut::<ambition_gameplay_core::inventory_ui::InventoryUiState>()
         .opened_from_pause = false;
     app.world_mut()
         .resource_mut::<NextState<GameMode>>()
@@ -667,7 +667,7 @@ fn reset_sandbox_action_closes_and_unpauses() {
 
     assert!(
         !app.world()
-            .resource::<ambition_gameplay_core::inventory::InventoryUiState>()
+            .resource::<ambition_gameplay_core::inventory_ui::InventoryUiState>()
             .visible,
         "Reset Sandbox hides the cube"
     );
@@ -733,7 +733,7 @@ fn reset_all_settings_action_resets_settings_and_closes() {
     // The cube folds shut (same close as Reset Sandbox).
     assert!(
         !app.world()
-            .resource::<ambition_gameplay_core::inventory::InventoryUiState>()
+            .resource::<ambition_gameplay_core::inventory_ui::InventoryUiState>()
             .visible,
         "Reset All Settings closes the cube"
     );
@@ -784,7 +784,7 @@ fn quit_action_writes_app_exit_and_closes() {
     // The cube folds shut (same close as the other immediate actions).
     assert!(
         !app.world()
-            .resource::<ambition_gameplay_core::inventory::InventoryUiState>()
+            .resource::<ambition_gameplay_core::inventory_ui::InventoryUiState>()
             .visible,
         "Quit closes the cube"
     );
@@ -831,7 +831,7 @@ fn system_row_horizontal_moves_to_the_edge_buttons() {
 fn pointer_motion_selects_a_kaleidoscope_control() {
     let mut app = open_app();
     app.world_mut()
-        .resource_mut::<ambition_gameplay_core::inventory::InventoryUiState>()
+        .resource_mut::<ambition_gameplay_core::inventory_ui::InventoryUiState>()
         .visible = true;
     app.world_mut()
         .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
@@ -894,7 +894,7 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
     app.init_resource::<ambition_gameplay_core::session::reset::SandboxResetRequested>();
     app.init_resource::<ambition_gameplay_core::dev::dev_tools::EditableMovementTuning>();
     app.init_resource::<UserSettings>();
-    app.init_resource::<ambition_gameplay_core::inventory::InventoryUiState>();
+    app.init_resource::<ambition_gameplay_core::inventory_ui::InventoryUiState>();
     app.init_resource::<ambition_gameplay_core::menu::map::MapMenuState>();
     app.init_resource::<MenuControlFrame>();
     app.init_resource::<ambition_gameplay_core::input::MenuInputState>();
@@ -936,7 +936,7 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
     };
     let visible = |app: &App| {
         app.world()
-            .resource::<ambition_gameplay_core::inventory::InventoryUiState>()
+            .resource::<ambition_gameplay_core::inventory_ui::InventoryUiState>()
             .visible
     };
 
@@ -992,7 +992,7 @@ fn opening_the_kaleidoscope_clears_stale_pointer_hover_state() {
         .last_pointer_focus = Some(MenuFocus::Item(7));
     app.world_mut().resource_mut::<MenuControlFrame>().start = true;
     app.world_mut()
-        .resource_mut::<ambition_gameplay_core::inventory::InventoryUiState>()
+        .resource_mut::<ambition_gameplay_core::inventory_ui::InventoryUiState>()
         .visible = false;
     app.update();
 
@@ -1638,11 +1638,11 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
     app.init_resource::<ambition_gameplay_core::session::reset::SandboxResetRequested>();
     app.init_resource::<ambition_gameplay_core::dev::dev_tools::EditableMovementTuning>();
     app.init_resource::<UserSettings>();
-    app.init_resource::<ambition_gameplay_core::inventory::InventoryUiState>();
+    app.init_resource::<ambition_gameplay_core::inventory_ui::InventoryUiState>();
     app.add_message::<SfxMessage>();
     *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::LunexKaleidoscope;
     app.world_mut()
-        .resource_mut::<ambition_gameplay_core::inventory::InventoryUiState>()
+        .resource_mut::<ambition_gameplay_core::inventory_ui::InventoryUiState>()
         .visible = true;
 
     // The lib's ring root that `rebuild_cube_faces` parents faces under. We spawn
@@ -1960,7 +1960,7 @@ fn render_set_is_gated_off_under_the_grid_backend() {
         app.init_resource::<InventoryUiBackend>();
         app.init_resource::<RenderRan>();
         *app.world_mut().resource_mut::<InventoryUiBackend>() = backend;
-        let mut ui_state = ambition_gameplay_core::inventory::InventoryUiState::default();
+        let mut ui_state = ambition_gameplay_core::inventory_ui::InventoryUiState::default();
         ui_state.visible = menu_visible;
         app.insert_resource(ui_state);
         // Exactly the host's gating from `install_kaleidoscope_menu`.

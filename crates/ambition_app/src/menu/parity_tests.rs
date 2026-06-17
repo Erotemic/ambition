@@ -382,7 +382,7 @@ mod dispatch_parity {
     use ambition_gameplay_core::audio::SfxMessage;
     use ambition_gameplay_core::brain::ActionSet;
     use ambition_gameplay_core::input::MenuControlFrame;
-    use ambition_gameplay_core::inventory::InventoryUiState;
+    use ambition_gameplay_core::inventory_ui::InventoryUiState;
     use ambition_gameplay_core::menu::backend::InventoryUiBackend;
     use ambition_gameplay_core::persistence::settings::{SystemMenuEntryId, UserSettings};
     use ambition_gameplay_core::player::{PlayerEntity, PlayerHealRequested, PlayerMana, PrimaryPlayer};

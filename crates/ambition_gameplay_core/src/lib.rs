@@ -18,7 +18,7 @@
 //! unchanged.
 //!
 //! Top-level modules group coherent slices: `world`, `player`, `abilities`,
-//! `combat`, `gravity`, `items`/`inventory`, `dialog`, `menu`, `music`,
+//! `combat`, `gravity`, `items`/`inventory_ui`, `dialog`, `menu`, `music`,
 //! `persistence`, `effects`, `projectile`, `enemy_projectile`, `boss_encounter`,
 //! `quest`, plus the `schedule`/`host`/`session` assembly and `dev` tooling.
 //!
@@ -78,7 +78,7 @@ pub mod encounter;
 pub mod enemy_projectile;
 #[cfg(feature = "falling_sand")]
 pub mod falling_sand;
-pub mod inventory;
+pub mod inventory_ui;
 pub mod items;
 // Stable facade for dialogue shop bindings.
 pub use items::shop;

@@ -31,6 +31,7 @@ pub mod movement_components;
 pub mod queries;
 pub mod swim;
 pub mod systems;
+pub mod trail;
 
 pub use bundles::{PlayerIdentityBundle, PlayerSimulationBundle};
 pub use components::{

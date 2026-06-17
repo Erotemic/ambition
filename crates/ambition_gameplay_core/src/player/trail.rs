@@ -1,9 +1,8 @@
-//! Despite the name, NOT a grapple rope — a generic verlet **trail** the player
-//! drags behind them. A chain of verlet points pinned at the player; gravity
-//! makes it hang, distance constraints keep it rope-like, and (next increment)
-//! world collision makes it drape over ledges. Intended as the substrate for
-//! future "homotopy" skills/quests (a deformable curve through the world), not
-//! a traversal/pull mechanic.
+//! A generic verlet **trail** the player drags behind them (NOT a grapple/pull
+//! mechanic). A chain of verlet points pinned at the player; gravity makes it
+//! hang, distance constraints keep it taut, and (next increment) world collision
+//! makes it drape over ledges. Intended as the substrate for future "homotopy"
+//! skills/quests — a deformable curve through the world.
 //!
 //! This module is the **pure, deterministic simulation** — no Bevy, no RNG — so
 //! the rope's shape is headless-testable even though its on-screen line is not.
@@ -17,32 +16,32 @@ use bevy::prelude::*;
 
 /// Number of rope segments (so `SEGMENTS + 1` points). Short enough to verlet
 /// cheaply every tick, long enough to drape a body-height ledge.
-pub const ROPE_SEGMENTS: usize = 14;
+pub const TRAIL_SEGMENTS: usize = 14;
 /// Rest length of each segment (px). `SEGMENTS * SEGMENT_LEN` ≈ the rope's reach.
-pub const ROPE_SEGMENT_LEN: f32 = 18.0;
+pub const TRAIL_SEGMENT_LEN: f32 = 18.0;
 /// Downward acceleration on the free points (px/s²). Heavier than player gravity
 /// so the rope settles quickly into a readable drape rather than floating.
-pub const ROPE_GRAVITY: f32 = 1400.0;
+pub const TRAIL_GRAVITY: f32 = 1400.0;
 /// Jakobsen constraint-relaxation iterations per tick. More = stiffer / less
 /// stretchy rope; 16 keeps a 14-segment rope visually inextensible.
-pub const ROPE_CONSTRAINT_ITERS: usize = 16;
+pub const TRAIL_CONSTRAINT_ITERS: usize = 16;
 /// Velocity retention per tick (verlet implicit damping). `< 1.0` bleeds energy
 /// so the rope doesn't oscillate forever after the player stops.
-pub const ROPE_DAMPING: f32 = 0.97;
+pub const TRAIL_DAMPING: f32 = 0.97;
 
 /// Feature gate for the rope trail.
 ///
 /// The trail is disabled by default. We can wire an explicit toggle later
 /// without changing the simulation plumbing again.
 #[derive(Resource, Clone, Copy, Debug, Default)]
-pub struct PlayerTrailRopeEnabled {
+pub struct PlayerTrailEnabled {
     pub enabled: bool,
 }
 
 /// One verlet point: current + previous position (velocity is implicit in their
 /// difference, the verlet integration trick).
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct RopePoint {
+pub struct TrailPoint {
     pub pos: ae::Vec2,
     pub prev: ae::Vec2,
 }
@@ -50,18 +49,18 @@ pub struct RopePoint {
 /// The player's dragged rope. `points[0]` is pinned to the player each tick; the
 /// rest are free verlet points.
 #[derive(Component, Clone, Debug)]
-pub struct PlayerTrailRope {
-    pub points: Vec<RopePoint>,
+pub struct PlayerTrail {
+    pub points: Vec<TrailPoint>,
 }
 
-impl PlayerTrailRope {
+impl PlayerTrail {
     /// A fresh rope hanging straight down from `anchor` (all points at rest, so
     /// the first frame doesn't snap).
     pub fn hanging_from(anchor: ae::Vec2, segments: usize, seg_len: f32) -> Self {
         let points = (0..=segments)
             .map(|i| {
                 let p = ae::Vec2::new(anchor.x, anchor.y + i as f32 * seg_len);
-                RopePoint { pos: p, prev: p }
+                TrailPoint { pos: p, prev: p }
             })
             .collect();
         Self { points }
@@ -72,7 +71,7 @@ impl PlayerTrailRope {
 /// points under gravity, then relax the segment distance constraints toward
 /// `seg_len`. Pure + deterministic — the testable core of the rope.
 pub fn verlet_step(
-    points: &mut [RopePoint],
+    points: &mut [TrailPoint],
     anchor: ae::Vec2,
     gravity: f32,
     dt: f32,
@@ -90,7 +89,7 @@ pub fn verlet_step(
     let accel = ae::Vec2::new(0.0, gravity);
     let dt2 = dt * dt;
     for p in points.iter_mut().skip(1) {
-        let vel = (p.pos - p.prev) * ROPE_DAMPING;
+        let vel = (p.pos - p.prev) * TRAIL_DAMPING;
         p.prev = p.pos;
         p.pos = p.pos + vel + accel * dt2;
     }
@@ -123,15 +122,15 @@ pub fn verlet_step(
 
 /// Give the primary player a rope if it doesn't have one yet (so the trail
 /// starts hanging from wherever the player currently is, no first-frame snap).
-pub fn ensure_player_rope(
+pub fn ensure_player_trail(
     mut commands: Commands,
-    enabled: Option<Res<PlayerTrailRopeEnabled>>,
+    enabled: Option<Res<PlayerTrailEnabled>>,
     players: Query<
         (Entity, &crate::player::BodyKinematics),
         (
             With<crate::player::PlayerEntity>,
             With<crate::player::PrimaryPlayer>,
-            Without<PlayerTrailRope>,
+            Without<PlayerTrail>,
         ),
     >,
 ) {
@@ -142,10 +141,10 @@ pub fn ensure_player_rope(
         let anchor = rope_anchor(kin);
         commands
             .entity(entity)
-            .insert(PlayerTrailRope::hanging_from(
+            .insert(PlayerTrail::hanging_from(
                 anchor,
-                ROPE_SEGMENTS,
-                ROPE_SEGMENT_LEN,
+                TRAIL_SEGMENTS,
+                TRAIL_SEGMENT_LEN,
             ));
     }
 }
@@ -155,7 +154,7 @@ pub fn ensure_player_rope(
 /// the surface instead of tunnelling through (and its velocity into the surface
 /// is killed, so it drapes rather than bounces). This is the "drape down onto the
 /// collision" half of the feature. Pure given a world — testable with a fixture.
-pub fn resolve_rope_collisions(points: &mut [RopePoint], world: &ae::World) {
+pub fn resolve_trail_collisions(points: &mut [TrailPoint], world: &ae::World) {
     // Skip the pinned head (it lives wherever the player is, even inside geometry
     // briefly during a transit).
     for p in points.iter_mut().skip(1) {
@@ -179,12 +178,12 @@ pub fn resolve_rope_collisions(points: &mut [RopePoint], world: &ae::World) {
 /// Advance the player's rope one sim step, pinned to the player's hip, then drape
 /// it over the world. Uses `sim_dt` so bullet-time / pause slow the rope with the
 /// rest of the world (`[[feedback_world_time_pattern]]`).
-pub fn update_player_rope(
+pub fn update_player_trail(
     world_time: Res<crate::WorldTime>,
     world: Option<Res<crate::GameWorld>>,
-    enabled: Option<Res<PlayerTrailRopeEnabled>>,
+    enabled: Option<Res<PlayerTrailEnabled>>,
     mut players: Query<
-        (&crate::player::BodyKinematics, &mut PlayerTrailRope),
+        (&crate::player::BodyKinematics, &mut PlayerTrail),
         With<crate::player::PlayerEntity>,
     >,
 ) {
@@ -200,13 +199,13 @@ pub fn update_player_rope(
         verlet_step(
             &mut rope.points,
             anchor,
-            ROPE_GRAVITY,
+            TRAIL_GRAVITY,
             dt,
-            ROPE_SEGMENT_LEN,
-            ROPE_CONSTRAINT_ITERS,
+            TRAIL_SEGMENT_LEN,
+            TRAIL_CONSTRAINT_ITERS,
         );
         if let Some(w) = world.as_deref() {
-            resolve_rope_collisions(&mut rope.points, &w.0);
+            resolve_trail_collisions(&mut rope.points, &w.0);
         }
     }
 }
@@ -220,16 +219,16 @@ fn rope_anchor(kin: &crate::player::BodyKinematics) -> ae::Vec2 {
 
 /// Hemp/manila rope colour — warm brown, fully opaque so the line reads against
 /// both bright and dark backgrounds.
-const ROPE_COLOR: Color = Color::srgb(0.62, 0.47, 0.30);
+const TRAIL_COLOR: Color = Color::srgb(0.62, 0.47, 0.30);
 
 /// Draw the rope as a single gizmo linestrip through its points, mapped from sim
 /// space into Bevy world space. This is presentation-only (no sim state touched),
 /// so it is harness-blind but replay-neutral. Drawn just behind the player so the
 /// rope reads as trailing from the body.
-pub fn render_player_rope(
+pub fn render_player_trail(
     world: Option<Res<crate::GameWorld>>,
-    enabled: Option<Res<PlayerTrailRopeEnabled>>,
-    ropes: Query<&PlayerTrailRope, With<crate::player::PlayerEntity>>,
+    enabled: Option<Res<PlayerTrailEnabled>>,
+    ropes: Query<&PlayerTrail, With<crate::player::PlayerEntity>>,
     mut gizmos: Gizmos,
 ) {
     if !enabled.is_some_and(|enabled| enabled.enabled) {
@@ -247,7 +246,7 @@ pub fn render_player_rope(
             .points
             .iter()
             .map(|p| crate::config::world_to_bevy(&world.0, p.pos, z).truncate());
-        gizmos.linestrip_2d(pts, ROPE_COLOR);
+        gizmos.linestrip_2d(pts, TRAIL_COLOR);
     }
 }
 
@@ -255,19 +254,19 @@ pub fn render_player_rope(
 /// keeps the player carrying a verlet trail rope, simulates its drape against
 /// world solids, and draws it as a gizmo linestrip. Portal transit (the rope
 /// threading an aperture) is the documented next increment.
-pub struct PlayerRopePlugin;
+pub struct PlayerTrailPlugin;
 
-impl Plugin for PlayerRopePlugin {
+impl Plugin for PlayerTrailPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<PlayerTrailRopeEnabled>();
+        app.init_resource::<PlayerTrailEnabled>();
         app.add_systems(
             Update,
             (
-                (ensure_player_rope, update_player_rope).chain(),
+                (ensure_player_trail, update_player_trail).chain(),
                 // Gizmo rendering only runs once the GizmoPlugin's config store
                 // exists — headless apps (replay/tests) carry no gizmos, so the
                 // draw system simply doesn't run there.
-                render_player_rope
+                render_player_trail
                     .run_if(resource_exists::<bevy::gizmos::config::GizmoConfigStore>),
             ),
         );
@@ -278,23 +277,23 @@ impl Plugin for PlayerRopePlugin {
 mod tests {
     use super::*;
 
-    fn settle(anchor: ae::Vec2, frames: usize) -> Vec<RopePoint> {
+    fn settle(anchor: ae::Vec2, frames: usize) -> Vec<TrailPoint> {
         // Start the rope laid out HORIZONTALLY (all at anchor.y) so we can watch
         // it fall and drape, not just confirm a pre-hung shape.
-        let mut points: Vec<RopePoint> = (0..=ROPE_SEGMENTS)
+        let mut points: Vec<TrailPoint> = (0..=TRAIL_SEGMENTS)
             .map(|i| {
-                let p = ae::Vec2::new(anchor.x + i as f32 * ROPE_SEGMENT_LEN, anchor.y);
-                RopePoint { pos: p, prev: p }
+                let p = ae::Vec2::new(anchor.x + i as f32 * TRAIL_SEGMENT_LEN, anchor.y);
+                TrailPoint { pos: p, prev: p }
             })
             .collect();
         for _ in 0..frames {
             verlet_step(
                 &mut points,
                 anchor,
-                ROPE_GRAVITY,
+                TRAIL_GRAVITY,
                 1.0 / 60.0,
-                ROPE_SEGMENT_LEN,
-                ROPE_CONSTRAINT_ITERS,
+                TRAIL_SEGMENT_LEN,
+                TRAIL_CONSTRAINT_ITERS,
             );
         }
         points
@@ -314,13 +313,13 @@ mod tests {
                                           // +Y is down: a settled rope hangs, so the tail sits well below the head.
         let tail = points.last().unwrap();
         assert!(
-            tail.pos.y > anchor.y + ROPE_SEGMENT_LEN * 4.0,
+            tail.pos.y > anchor.y + TRAIL_SEGMENT_LEN * 4.0,
             "tail {:?} should hang well below the anchor {anchor:?}",
             tail.pos,
         );
         // And it hangs roughly straight down (no sideways drift without forces).
         assert!(
-            (tail.pos.x - anchor.x).abs() < ROPE_SEGMENT_LEN * 2.0,
+            (tail.pos.x - anchor.x).abs() < TRAIL_SEGMENT_LEN * 2.0,
             "settled rope hangs ~straight down, tail x={} vs anchor x={}",
             tail.pos.x,
             anchor.x,
@@ -334,8 +333,8 @@ mod tests {
         for w in points.windows(2) {
             let len = (w[1].pos - w[0].pos).length();
             assert!(
-                (len - ROPE_SEGMENT_LEN).abs() < ROPE_SEGMENT_LEN * 0.25,
-                "segment length {len} drifted from rest {ROPE_SEGMENT_LEN} — rope is too stretchy",
+                (len - TRAIL_SEGMENT_LEN).abs() < TRAIL_SEGMENT_LEN * 0.25,
+                "segment length {len} drifted from rest {TRAIL_SEGMENT_LEN} — rope is too stretchy",
             );
         }
     }
@@ -359,27 +358,27 @@ mod tests {
         // Lay the rope out HORIZONTALLY just above the floor so it has to fall
         // onto it (spread points so the segment constraints engage — coincident
         // points have no direction to relax along).
-        let mut points: Vec<RopePoint> = (0..=ROPE_SEGMENTS)
+        let mut points: Vec<TrailPoint> = (0..=TRAIL_SEGMENTS)
             .map(|i| {
-                let p = ae::Vec2::new(anchor.x + i as f32 * ROPE_SEGMENT_LEN, anchor.y);
-                RopePoint { pos: p, prev: p }
+                let p = ae::Vec2::new(anchor.x + i as f32 * TRAIL_SEGMENT_LEN, anchor.y);
+                TrailPoint { pos: p, prev: p }
             })
             .collect();
         for _ in 0..300 {
             verlet_step(
                 &mut points,
                 anchor,
-                ROPE_GRAVITY,
+                TRAIL_GRAVITY,
                 1.0 / 60.0,
-                ROPE_SEGMENT_LEN,
-                ROPE_CONSTRAINT_ITERS,
+                TRAIL_SEGMENT_LEN,
+                TRAIL_CONSTRAINT_ITERS,
             );
-            resolve_rope_collisions(&mut points, &world);
+            resolve_trail_collisions(&mut points, &world);
         }
         // No point sinks meaningfully past the floor's top face (y=200).
         for p in &points {
             assert!(
-                p.pos.y <= 200.0 + ROPE_SEGMENT_LEN,
+                p.pos.y <= 200.0 + TRAIL_SEGMENT_LEN,
                 "rope point {:?} tunnelled through the floor (top y=200)",
                 p.pos,
             );
@@ -395,7 +394,7 @@ mod tests {
     #[test]
     fn rope_is_disabled_by_default() {
         assert!(
-            !PlayerTrailRopeEnabled::default().enabled,
+            !PlayerTrailEnabled::default().enabled,
             "the trail should start disabled until an explicit toggle exists",
         );
     }
@@ -403,13 +402,13 @@ mod tests {
     #[test]
     fn an_empty_rope_is_a_no_op() {
         // Degenerate guard — never panics on an empty point list.
-        let mut points: Vec<RopePoint> = Vec::new();
+        let mut points: Vec<TrailPoint> = Vec::new();
         verlet_step(
             &mut points,
             ae::Vec2::ZERO,
-            ROPE_GRAVITY,
+            TRAIL_GRAVITY,
             1.0 / 60.0,
-            ROPE_SEGMENT_LEN,
+            TRAIL_SEGMENT_LEN,
             4,
         );
         assert!(points.is_empty());

@@ -85,7 +85,6 @@ pub mod enemy_projectile;
 pub mod falling_sand;
 pub mod inventory;
 pub mod items;
-pub mod player_rope;
 // Stable facade for dialogue shop bindings.
 pub use items::shop;
 pub mod mechanics;

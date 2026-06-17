@@ -71,8 +71,8 @@ pub fn add_simulation_plugins(app: &mut App) {
     // Ambition's player ability/weapon kit plus its small shared app state.
     app.add_plugins(ambition_gameplay_core::abilities::AmbitionAbilitiesPlugin);
     // "Tie a knot": the passive verlet trail rope the player drags. The rope
-    // feature is currently gated off by default inside player_rope.rs.
-    app.add_plugins(ambition_gameplay_core::player_rope::PlayerRopePlugin);
+    // feature is currently gated off by default inside player/trail.rs.
+    app.add_plugins(ambition_gameplay_core::player::trail::PlayerTrailPlugin);
     // Gravity zones / switches and their per-frame ambient-gravity snapshot.
     app.add_plugins(ambition_gameplay_core::mechanics::gravity::GravityPlugin);
     #[cfg(feature = "portal")]

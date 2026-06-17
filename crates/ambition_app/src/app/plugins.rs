@@ -312,6 +312,12 @@ fn register_player_simulation_systems(app: &mut App) {
             Update,
             crate::app::player_clone::sync_player_clone_transform
                 .in_set(SandboxSet::PresentationSync),
+        )
+        .add_systems(
+            Update,
+            crate::app::player_clone::despawn_player_clones_on_reset
+                .in_set(SandboxSet::ResetProcessing)
+                .before(ambition_sandbox::runtime::reset::process_sandbox_reset_request),
         );
     // Possession systems stay interleaved with the player tick; lifting
     // them would change the `not_possessing` run-condition window.

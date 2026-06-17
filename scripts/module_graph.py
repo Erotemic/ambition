@@ -699,7 +699,7 @@ HTML_TEMPLATE = r"""<!doctype html>
   #tree { flex: 1; min-width: 0; overflow: auto; padding: 8px 4px;
           font: 12.5px/1.5 ui-monospace, SFMono-Regular, monospace; }
   .trow { display: flex; align-items: center; gap: 4px; padding: 1px 6px;
-          white-space: nowrap; cursor: pointer; border-radius: 4px; }
+          white-space: nowrap; cursor: pointer; border-radius: 4px; user-select: none; }
   .trow:hover { background: #20242d; }
   .trow.sel { background: #2d3550; }
   .trow.stub { color: #6b7280; font-style: italic; }
@@ -729,9 +729,9 @@ HTML_TEMPLATE = r"""<!doctype html>
   </label>
   <label>Layer
     <select id="layer">
+      <option value="filesystem">filesystem (containment)</option>
       <option value="crate">crate deps</option>
       <option value="imports">imports (use)</option>
-      <option value="filesystem">filesystem (containment)</option>
     </select>
   </label>
   <label class="tree-only">Expand
@@ -960,14 +960,6 @@ function buildForest() {
   return { forest, firstDom };
 }
 
-function openRoots() {
-  treeEl.querySelectorAll(":scope > div > .tkids").forEach(k => {
-    k.classList.remove("hidden");
-    const tw = k.previousElementSibling && k.previousElementSibling.querySelector(".tw");
-    if (tw) tw.textContent = "▼";
-  });
-}
-
 function renderTree() {
   const { forest, firstDom } = buildForest();
   currentFirstDom = firstDom;
@@ -1012,20 +1004,23 @@ function renderTree() {
       node.children.forEach(c => kids.appendChild(make(c, depth + 1)));
       wrap.appendChild(kids);
       const tw = row.querySelector(".tw");
-      row.onclick = (e) => {
-        e.stopPropagation(); select(row, node.id);
+      const toggle = () => {
         const open = kids.classList.toggle("hidden") === false;
         tw.textContent = open ? "▼" : "▶";
       };
+      // Arrow toggles; single click on the row selects; double click toggles.
+      tw.style.cursor = "pointer";
+      tw.addEventListener("click", (e) => { e.stopPropagation(); toggle(); });
+      row.addEventListener("click", () => select(row, node.id));
+      row.addEventListener("dblclick", (e) => { e.preventDefault(); toggle(); });
     } else {
-      row.onclick = (e) => { e.stopPropagation(); select(row, node.id); };
+      row.addEventListener("click", () => select(row, node.id));
     }
     return wrap;
   }
 
   forest.forEach(node => frag.appendChild(make(node, 0)));
   treeEl.appendChild(frag);
-  openRoots();
   const note = rootOverride ? ` · rooted @ ${shortLabel(rootOverride)}` : "";
   statsEl.textContent = `${rows} rows · ${stubs} back-refs · ${layerSel.value} · ${dirSel.value}${note}`;
 }
@@ -1203,9 +1198,11 @@ document.getElementById("expandAll").onclick = () => {
 document.getElementById("collapseAll").onclick = () => {
   treeEl.querySelectorAll(".tkids").forEach(k => k.classList.add("hidden"));
   treeEl.querySelectorAll(".trow .tw").forEach(tw => { if (tw.textContent === "▼") tw.textContent = "▶"; });
-  openRoots();
 };
 
+// Initialize sort direction to match the default key, then render (collapsed).
+sortAsc = sortSel.value === "name";
+sortDirBtn.textContent = sortAsc ? "▲ asc" : "▼ desc";
 update();
 </script>
 </body>

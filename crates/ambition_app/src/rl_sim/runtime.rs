@@ -197,20 +197,20 @@ impl SandboxSim {
         let mut cluster_query = self
             .app
             .world_mut()
-            .query_filtered::<ambition_sandbox::engine_core::PlayerClusterQueryData, With<ambition_sandbox::player::PlayerEntity>>();
+            .query_filtered::<ambition_sandbox::engine_core::PlayerClusterQueryData, ambition_sandbox::player::PrimaryPlayerOnly>();
         let mut combat_query = self
             .app
             .world_mut()
-            .query_filtered::<&ambition_sandbox::player::PlayerCombatState, With<ambition_sandbox::player::PlayerEntity>>(
+            .query_filtered::<&ambition_sandbox::player::PlayerCombatState, ambition_sandbox::player::PrimaryPlayerOnly>(
             );
         let mut health_query = self
             .app
             .world_mut()
-            .query_filtered::<&ambition_sandbox::player::PlayerHealth, With<ambition_sandbox::player::PlayerEntity>>();
+            .query_filtered::<&ambition_sandbox::player::PlayerHealth, ambition_sandbox::player::PrimaryPlayerOnly>();
         let mut safety_query = self
             .app
             .world_mut()
-            .query_filtered::<&ambition_sandbox::player::PlayerSafetyState, With<ambition_sandbox::player::PlayerEntity>>(
+            .query_filtered::<&ambition_sandbox::player::PlayerSafetyState, ambition_sandbox::player::PrimaryPlayerOnly>(
             );
         // World-side observability (enemies, pickups) for combat /
         // collection assertions. Read once per tick; cheap.
@@ -376,7 +376,7 @@ impl SandboxSim {
         let mut q = self
             .app
             .world_mut()
-            .query_filtered::<&mut ambition_sandbox::player::BodyKinematics, With<ambition_sandbox::player::PlayerEntity>>();
+            .query_filtered::<&mut ambition_sandbox::player::BodyKinematics, ambition_sandbox::player::PrimaryPlayerOnly>();
         if let Ok(mut kin) = q.single_mut(self.app.world_mut()) {
             kin.pos = ae::Vec2::new(pos.0, pos.1);
             kin.vel = ae::Vec2::ZERO;
@@ -388,7 +388,7 @@ impl SandboxSim {
         let mut q = self
             .app
             .world_mut()
-            .query_filtered::<&mut ambition_sandbox::player::PlayerAbilities, With<ambition_sandbox::player::PlayerEntity>>();
+            .query_filtered::<&mut ambition_sandbox::player::PlayerAbilities, ambition_sandbox::player::PrimaryPlayerOnly>();
         if let Ok(mut abilities) = q.single_mut(self.app.world_mut()) {
             abilities.abilities.pogo = true;
         }

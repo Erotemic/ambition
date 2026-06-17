@@ -25,9 +25,7 @@ use ambition_sandbox::character_sprites::{
     build_character_sprite_with_render_size, feet_anchor_for_render_size,
     player_placeholder_render_size, CharacterAnimator,
 };
-use ambition_sandbox::dev::dev_tools::EditableMovementTuning;
 use ambition_sandbox::engine_core as ae;
-use ambition_sandbox::engine_core::movement::InputState;
 use ambition_sandbox::GameWorld;
 
 /// Marks a brain-driven player-body clone (NOT the human player).
@@ -65,9 +63,11 @@ pub fn spawn_requested_player_clone(
     // Optional: the headless RL harness has no loaded character sheets. Absent →
     // the clone falls back to a tinted rectangle (movement still works).
     game_assets: Option<Res<GameAssets>>,
+    // PRIMARY-only: spawn the clone relative to the camera body. Once a clone is
+    // itself a PlayerEntity, a bare single() here would Err on the second spawn.
     player_q: Query<
         &ambition_sandbox::player::BodyKinematics,
-        With<ambition_sandbox::player::PlayerEntity>,
+        ambition_sandbox::player::PrimaryPlayerOnly,
     >,
 ) {
     if !request.0 {
@@ -126,16 +126,27 @@ pub fn spawn_requested_player_clone(
         // (+ the textured sprite/animator below + `PlayerVisual`), the clone animates
         // through the IDENTICAL player picker — `animate_player` now iterates every
         // `PlayerVisual` body, not just the primary.
-        //
-        // The clone stays a `PlayerClone`, NOT a `PlayerEntity`, on purpose: the
-        // movement/combat player systems still use `single_mut()` over
-        // `With<PlayerEntity>`, so adding that marker now would panic them. The
-        // marker swap + dropping the bespoke `drive_player_clones` movement happen in
-        // step 3, when those systems become loops.
         (
             ambition_sandbox::player::PlayerAnimState::default(),
             ambition_sandbox::player::PlayerCombatState::default(),
             ambition_sandbox::player::PlayerBlinkCameraState::default(),
+        ),
+        // The clone IS a `PlayerEntity` (3c-ii): the iterating
+        // `player_control_system` / `player_simulation_system` move it through the
+        // EXACT shared player core, driven by its own `ActorControl`. These are the
+        // remaining components those queries require (the 18 movement clusters + the
+        // three visual states above complete the set). It is deliberately NOT a
+        // `PrimaryPlayer` (so `is_primary` gates the world-globals off for it) and
+        // NOT a `PlayerSlot` (so the device-input `tick_player_brains` skips it — its
+        // `PlayerDemo` brain is ticked by `tick_player_clone_brains` with real
+        // sim-time/dt instead).
+        ambition_sandbox::player::PlayerEntity,
+        (
+            ambition_sandbox::player::PlayerInteractionState::default(),
+            ambition_sandbox::player::ActivePlayerAttack::default(),
+            ambition_sandbox::player::PlayerSafetyState::default(),
+            ambition_sandbox::player::PlayerInputFrame::default(),
+            ambition_sandbox::player::PlayerPlatformRideState::default(),
         ),
         transform,
         Name::new("Player Clone (brain-driven)"),
@@ -169,45 +180,27 @@ pub fn spawn_requested_player_clone(
     }
 }
 
-/// Build the engine `InputState` from a clone's brain-emitted control frame.
-/// Mirrors `engine_input_from_actor_control` for the player path: `desired_vel`
-/// is the normalized stick AXIS. No hitstun on a clone.
-fn input_from_actor_control(
-    f: &ambition_sandbox::actor::control::ActorControlFrame,
-    dt: f32,
-) -> InputState {
-    InputState {
-        axis_x: f.desired_vel.x,
-        axis_y: f.desired_vel.y,
-        jump_pressed: f.jump_pressed,
-        jump_held: f.jump_held,
-        jump_released: f.jump_released,
-        dash_pressed: f.dash_pressed,
-        fly_toggle_pressed: f.fly_toggle_pressed,
-        fast_fall_pressed: f.fast_fall_pressed,
-        attack_pressed: f.melee_pressed,
-        pogo_pressed: f.pogo_pressed,
-        interact_pressed: f.interact_pressed,
-        shield_held: f.shield_held,
-        control_dt: dt,
-        ..InputState::default()
-    }
-}
-
-/// Drive every player clone: tick its brain → `ActorControl`, then run the
-/// shared player movement core on its clusters. The SAME
-/// `update_player_with_tuning_clusters` the human player uses — no clone-
-/// specific integration.
-pub fn drive_player_clones(
+/// Tick every player clone's `PlayerDemo` brain → its `ActorControl` frame.
+///
+/// This is the clone's counterpart to `tick_player_brains` (which produces the
+/// PRIMARY's `ActorControl` from device input). The clone's brain is a *timed*
+/// demo cycle, so it needs real `sim_time`/`dt` in its snapshot — which is why it
+/// can't ride the unfiltered `tick_player_brains` (that passes `dt = 0`) and the
+/// clone carries no `PlayerSlot`. Movement itself is NO LONGER here: now that the
+/// clone is a `PlayerEntity`, the iterating `player_control_system` /
+/// `player_simulation_system` integrate its clusters from this `ActorControl` —
+/// the same shared core the human player runs. Runs in `PlayerInput`, before the
+/// control phase consumes the frame.
+pub fn tick_player_clone_brains(
     time: Res<Time>,
-    world: Res<GameWorld>,
-    editable_tuning: Res<EditableMovementTuning>,
-    gravity_field: Option<Res<ambition_sandbox::physics::GravityField>>,
-    platform_set: Res<ambition_sandbox::MovingPlatformSet>,
-    overlay: Res<ambition_sandbox::features::FeatureEcsWorldOverlay>,
     mut clock: ResMut<PlayerCloneClock>,
     mut clones: Query<
-        (ae::PlayerClusterQueryData, &mut Brain, &mut ActorControl),
+        (
+            &ambition_sandbox::player::BodyKinematics,
+            &ambition_sandbox::player::PlayerGroundState,
+            &mut Brain,
+            &mut ActorControl,
+        ),
         With<PlayerClone>,
     >,
 ) {
@@ -216,19 +209,12 @@ pub fn drive_player_clones(
         return;
     }
     clock.0 += dt;
-    let mut tuning = editable_tuning.as_engine();
-    let gdir = ambition_sandbox::physics::gravity_dir_or_default(gravity_field.as_deref());
-    ambition_sandbox::physics::apply_gravity_dir(&mut tuning, gdir);
-    let control_world =
-        ambition_sandbox::features::world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
-
-    for (mut cluster_item, mut brain, mut control) in &mut clones {
-        let mut clusters = cluster_item.as_clusters_mut();
+    for (kin, ground, mut brain, mut control) in &mut clones {
         let mut snapshot = BrainSnapshot::idle();
-        snapshot.actor_pos = clusters.kinematics.pos;
-        snapshot.actor_vel = clusters.kinematics.vel;
-        snapshot.actor_facing = clusters.kinematics.facing;
-        snapshot.actor_on_ground = clusters.ground.on_ground;
+        snapshot.actor_pos = kin.pos;
+        snapshot.actor_vel = kin.vel;
+        snapshot.actor_facing = kin.facing;
+        snapshot.actor_on_ground = ground.on_ground;
         snapshot.alive = true;
         snapshot.sim_time = clock.0;
         snapshot.dt = dt;
@@ -236,9 +222,6 @@ pub fn drive_player_clones(
         let mut frame = ambition_sandbox::actor::control::ActorControlFrame::neutral();
         brain.tick(&snapshot, &mut frame);
         control.0 = frame;
-
-        let input = input_from_actor_control(&frame, dt);
-        ae::update_player_with_tuning_clusters(&control_world, &mut clusters, input, dt, tuning);
     }
 }
 

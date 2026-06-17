@@ -283,8 +283,14 @@ fn register_player_input_systems(app: &mut App) {
 /// the player so same-frame respawns are not clobbered.
 fn register_player_simulation_systems(app: &mut App) {
     app.init_resource::<crate::app::SandboxResetThisFrame>();
-    // Brain-driven player clone (press K): a non-player body driven by a
-    // PlayerDemo brain through the SAME movement core as the human player.
+    // Brain-driven player clone (press K): a `PlayerEntity` body driven by a
+    // PlayerDemo brain through the SAME shared player systems as the human player.
+    // Spawn lands in `WorldPrep` (the earliest set) so the new body exists before
+    // the PlayerInput/PlayerSimulation phases pick it up the same frame; the brain
+    // tick produces its `ActorControl` in `PlayerInput` (before the control phase
+    // consumes it); the transform sync runs in `PresentationSync` after the shared
+    // simulation has moved it. Movement itself is no longer here — it flows through
+    // `player_control_system` / `player_simulation_system` like every player body.
     app.init_resource::<crate::app::player_clone::PlayerCloneClock>()
         .init_resource::<crate::app::player_clone::SpawnPlayerCloneRequest>()
         .add_systems(
@@ -292,10 +298,20 @@ fn register_player_simulation_systems(app: &mut App) {
             (
                 crate::app::player_clone::request_player_clone_on_key,
                 crate::app::player_clone::spawn_requested_player_clone,
-                crate::app::player_clone::drive_player_clones.run_if(gameplay_allowed),
-                crate::app::player_clone::sync_player_clone_transform,
             )
-                .chain(),
+                .chain()
+                .in_set(SandboxSet::WorldPrep),
+        )
+        .add_systems(
+            Update,
+            crate::app::player_clone::tick_player_clone_brains
+                .run_if(gameplay_allowed)
+                .in_set(SandboxSet::PlayerInput),
+        )
+        .add_systems(
+            Update,
+            crate::app::player_clone::sync_player_clone_transform
+                .in_set(SandboxSet::PresentationSync),
         );
     // Possession systems stay interleaved with the player tick; lifting
     // them would change the `not_possessing` run-condition window.

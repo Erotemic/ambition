@@ -203,7 +203,9 @@ pub(crate) fn apply_room_transition_system(
             &mut ambition_sandbox::player::PlayerBlinkCameraState,
             &mut ambition_sandbox::player::PlayerSafetyState,
         ),
-        With<ambition_sandbox::player::PlayerEntity>,
+        // PRIMARY-only: a room transition flips the one active room around the
+        // camera body crossing an edge/door; the clone rides along in-room.
+        ambition_sandbox::player::PrimaryPlayerOnly,
     >,
     mut world: ResMut<GameWorld>,
     mut room_set: ResMut<rooms::RoomSet>,

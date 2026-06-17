@@ -89,7 +89,10 @@ pub fn process_sandbox_reset_request(
             &mut crate::player::ActivePlayerAttack,
             &mut crate::player::PlayerSafetyState,
         ),
-        With<crate::player::PlayerEntity>,
+        // PRIMARY-only: the reset warps THE player to the start-room spawn. A
+        // brain-driven clone is a transient demo body; scoping to the primary keeps
+        // the reset working once a second PlayerEntity exists (bare single_mut would Err).
+        crate::player::PrimaryPlayerOnly,
     >,
 ) {
     if !request.request {

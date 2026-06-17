@@ -101,7 +101,9 @@ pub(super) fn handle_ldtk_hot_reload(
             &mut ambition_sandbox::player::PlayerCombatState,
             &mut ambition_sandbox::player::PlayerSafetyState,
         ),
-        With<ambition_sandbox::player::PlayerEntity>,
+        // PRIMARY-only: LDtk hot-reload repositions the camera body to the
+        // validated spawn — a single-player dev flow.
+        ambition_sandbox::player::PrimaryPlayerOnly,
     >,
     catalog: Res<ambition_sandbox::assets::sandbox_assets::SandboxAssetCatalog>,
 ) {

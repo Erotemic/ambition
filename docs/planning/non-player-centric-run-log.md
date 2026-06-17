@@ -407,6 +407,72 @@ to a brain-tick that only fills `ActorControl` (movement now comes from the iter
 player systems); verify replay byte-identical + clone-live (clone runs entirely
 through shared systems).
 
+### 3c-ii ✅ DONE — clone is a real `PlayerEntity`; `drive_player_clones` gone
+
+**Key finding (re-verified the whole map fresh, 4 parallel Explore agents + greps):**
+the "~113-site reclassification" was *already ~90% done* by 3c-i and earlier work —
+every ability/shrine/persist/portal/affordance/HUD/menu site that means "THE player"
+already carried `(With<PlayerEntity>, With<PrimaryPlayer>)`, and the genuine
+all-bodies sites (hazards, pickups, targeting, damage, hitbox, projectile, boss
+specials' `get(target)`) already `iter()`/resolve a specific entity. The actual
+remaining danger was a SMALL set of **bare `With<PlayerEntity>` + `single()`/`single_mut()`**
+sites that would silently `Err` (→ no-op) for the primary once a second `PlayerEntity`
+exists. That's the real shape of "PlayerEntity-as-singleton", not 113 sites.
+
+**Sites fixed:**
+- `body_mode/mechanics/update_body_mode` — was bare `single_mut()` but is genuinely
+  PER-BODY locomotion (each body computes its own crouch/morph/climb). Did the
+  **elegant refactor, not a primary-shim**: converted the `single_mut()` guard into a
+  `for … in &mut player_q` loop (each early `return` → `continue`); `cargo fmt`
+  reindented. The clone now runs body-mode through the same shared system.
+- Genuinely-PRIMARY single reads scoped to `PrimaryPlayer` (correct classification per
+  the rule — reset/persist/dev/headless/room-transition/camera): `runtime/reset` (warps
+  the persistent player to the one spawn), `app/dev_runtime` (LDtk hot-reload),
+  `app/world_flow/room_flow` (room transition around the camera body),
+  `app/bin/headless` + `app/rl_sim/runtime` (single-player RL/trace reads),
+  `app/player_clone` spawn (spawns relative to the camera body).
+- `render/pirate_weapon` was already primary-filtered (multi-line, grep false positive).
+
+**Clone promotion:** the K-spawned clone now carries `PlayerEntity` +
+`PlayerInteractionState`/`ActivePlayerAttack`/`PlayerSafetyState`/`PlayerInputFrame`/
+`PlayerPlatformRideState` (completing the iterating control/sim queries' component set),
+plus the 18 clusters + 3 visual states it already had. It is deliberately NOT a
+`PrimaryPlayer` (so `is_primary` gates world-globals off) and NOT a `PlayerSlot` (so the
+device-input `tick_player_brains` skips it). `drive_player_clones` collapsed to
+`tick_player_clone_brains` — brain → `ActorControl` ONLY; movement now flows through the
+iterating `player_control_system`/`player_simulation_system`, the EXACT shared player
+core. Schedule: spawn in `WorldPrep`, brain-tick in `PlayerInput` (before the control
+phase consumes `ActorControl`), transform-sync in `PresentationSync` (after the shared
+sim moved it). The bespoke clone integrator + its `input_from_actor_control` helper are
+deleted.
+
+**Verified:** replay `fixture_replays_with_zero_divergence` byte-identical (primary
+untouched); `player_clone_live` green (the clone runs/jumps/flies via the shared
+systems, not its old driver); sandbox lib 917, app boundary 30, app lib + render all
+green; `cargo build -p ambition_app --features rl_sim` clean.
+
+**Deferred (noted, low-risk):** the clone is not despawned on sandbox reset (it survives
+as a dev toy — `PlayerClone` lives in `ambition_app`, the reset transient-query in
+`ambition_sandbox` can't name it; an app-side despawn-on-reset is the clean fix). The
+clone carries no `PlayerHealth` (targetable but invincible bait — fine for a movement
+demo). `PlayerPlatformRideState` is now only bookkeeping (riding is emergent via the
+sweep) — removable later.
+
+## Follow-up run status after 3c-ii
+
+Steps 1–3 of the post-Stage-7 plan are DONE (decouple globals → clone is a full
+`PlayerEntity` body → one iterating sweep; `drive_player_clones` dropped, K-clone
+sprite + movement both through shared systems). Remaining, in order:
+- **Step 4 — `desired_vel` axis-unification**: every brain emits a normalized axis +
+  run-speed-in-tuning, dropping the grounded-enemy velocity encoding that bridges onto
+  the spine today. Wide + enemy-feel-sensitive; needs an enemy-position parity harness
+  first (the replay fixture only guards the player).
+- **Step 5 — content**: aerial enemies/NPCs onto the FLIGHT spine (parrot), slug
+  surface-crawl + parrot dive-bomb as first-class ability COMPONENTS.
+- Lower-priority: collapse the three grounding sweeps into one (the multi-sweep fork
+  the riding work exposed); patrol wall-stop facing-flip reads `vel.x` under sideways
+  gravity; remove vestigial `PlayerPlatformRideState`.
+
 ## (superseded) earlier Stage 3 framing
 
 The decomposition foundation is in place. Next is the high-value, higher-risk work:

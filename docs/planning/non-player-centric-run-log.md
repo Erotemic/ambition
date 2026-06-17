@@ -354,6 +354,59 @@ sweep. The movement-tick half (3c-i) is the safe foundation; the codebase-wide
 reclassification is the remaining piece. Clone keeps its `drive_player_clones` driver
 until then (the honest per-body / primary-responsibility split).
 
+### 3c-ii — RESUME HERE: the `PlayerEntity`→`PrimaryPlayer` reclassification sweep
+
+Jon said push. Approach + safety: today there is exactly ONE `PlayerEntity` (the
+primary), so `With<PlayerEntity>` and `PrimaryPlayerOnly` select the SAME entity —
+changing a "the player" site to `PrimaryPlayer` is **byte-identical now** (replay
+guards it). Mis-classification only manifests once the clone is a `PlayerEntity`
+(caught by clone-live + eyeball). So: change every "THE player" site to
+`PrimaryPlayer`; leave genuine all-bodies sites on `With<PlayerEntity>` (most already
+`iter()`). THEN add `PlayerEntity` + the missing player components to the clone and
+delete the movement half of `drive_player_clones`.
+
+An Explore sweep classified ~113 `With<PlayerEntity>` sites (47 PRIMARY / 66
+ALL-BODIES). **Its calls need my review** before editing — a few look wrong (e.g.
+`ability_cooldown.rs:60`, `runtime/reset/mod.rs:92/219`, `body_mode/mechanics/mod.rs:60`
+were tagged ALL-BODIES but are arguably primary; `player/systems.rs` input/pose/attack
+mirror is genuinely all-bodies). The judgement rule: **anything the WORLD does to the
+player** (hazards, pickups, chests, breakables, enemy/boss targeting, damage,
+projectile-impacts) = all-bodies/iterate; **anything that IS the player's singular
+identity** (HUD, camera, affordance hints, abilities fired on device input, portal
+gun, rope, reset/persist/save, dev/headless single reads) = PRIMARY.
+
+PRIMARY sites to switch to `PrimaryPlayer` (review each, then edit), by crate:
+- **ambition_sandbox**: shrine.rs:37 · items/persist.rs:29,52 · items/pickup/mod.rs:563,658
+  · abilities/thrown/puppy_slug_gun.rs:44 · abilities/traversal/{dive:90,grapple:46,
+  possession:80,blink:51,mark_recall:64} · abilities/ranged/{sentry:56,shockwave:41,
+  meteor:87,vortex:53,volley:45,beam:84} · portal/mod.rs:66 · mechanics/gravity/
+  lifecycle.rs:50 · player_rope.rs:131,187,231 · player/affordances/{pogo_proximity:47,
+  interactable_proximity:44,intent:145,mod:101,113} · features/ecs/actors/update.rs:83
+  (primary fallback) · features/ecs/damage/mod.rs:138 (primary fallback)
+- **ambition_render**: hud.rs:51,65,161 · rendering/item_visuals.rs:129 ·
+  rendering/pirate_weapon.rs:101
+- **ambition_portal_presentation**: visuals.rs:52,213
+- **ambition_app**: bin/headless.rs:115,124 · menu/effects.rs:94 (already
+  PrimaryPlayerOnly? verify) · app/player_clone.rs:70 (spawn reads primary — keep)
+- **ambition_content**: portal/{inventory_adapter:55,103,105,111, input_adapter:53,
+  fire_adapter:26, transit_body_adapter:52,141, ability_adapter:74,119}
+
+ALL-BODIES (stay `With<PlayerEntity>`, must iterate — verify none still `single()`):
+ability_cooldown:60 · items/pickup:348,356,416 · player/systems.rs:21,35,106,123 ·
+mechanics/combat/{targeting:38,hazards:23,pickups:38,breakables:12,chests:16,hitbox:70}
+· encounter/systems:54 · runtime/reset:92,219 · features/ecs/{interact:22,actors/
+update:78,damage:133,bosses/tick:287} · projectile/systems:96,395 · body_mode/
+mechanics:60 · render/projectile_visuals:46 · app/{headless:334,world_flow/room_flow:206,
+rl_sim/runtime:*,dev_runtime:104} · content/bosses/specials/{mode_collapse,echo_fan,
+overflow_flood,eye_beam,gradient_sentinel:313,469}
+
+Then 3c-ii final: clone gets `PlayerEntity` + `PlayerInteractionState`,
+`ActivePlayerAttack`, `PlayerSafetyState`, `PlayerInputFrame`, `PlayerPlatformRideState`
+(the components the iterating movement queries require); reduce `drive_player_clones`
+to a brain-tick that only fills `ActorControl` (movement now comes from the iterating
+player systems); verify replay byte-identical + clone-live (clone runs entirely
+through shared systems).
+
 ## (superseded) earlier Stage 3 framing
 
 The decomposition foundation is in place. Next is the high-value, higher-risk work:

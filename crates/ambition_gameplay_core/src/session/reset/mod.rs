@@ -76,7 +76,7 @@ pub fn process_sandbox_reset_request(
     mut room_set: ResMut<RoomSet>,
     mut world: ResMut<crate::GameWorld>,
     tuning: Res<crate::dev::dev_tools::EditableMovementTuning>,
-    mut respawn_visuals: MessageWriter<crate::runtime::RespawnRoomVisualsRequested>,
+    mut respawn_visuals: MessageWriter<crate::session::RespawnRoomVisualsRequested>,
     mut commands: Commands,
     mut banner: ResMut<crate::features::GameplayBanner>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
@@ -175,7 +175,7 @@ pub fn process_sandbox_reset_request(
     //    the render layer's `respawn_room_visuals_on_request` consumes it and
     //    reads the active room from `RoomSet`. A headless build has no consumer
     //    and correctly skips the (purely visual) respawn.
-    respawn_visuals.write(crate::runtime::RespawnRoomVisualsRequested);
+    respawn_visuals.write(crate::session::RespawnRoomVisualsRequested);
     platforms::spawn_moving_platforms(&mut commands, &world.0, &play_state.moving_platforms.0);
 
     // 8. User feedback: surface a banner so the reset is visibly
@@ -253,7 +253,7 @@ pub struct SandboxResetSchedulePlugin;
 
 impl Plugin for SandboxResetSchedulePlugin {
     fn build(&self, app: &mut App) {
-        app.add_message::<crate::runtime::RespawnRoomVisualsRequested>();
+        app.add_message::<crate::session::RespawnRoomVisualsRequested>();
         app.add_systems(
             Update,
             // Clear transient portals/held-items/summons BEFORE the request flag

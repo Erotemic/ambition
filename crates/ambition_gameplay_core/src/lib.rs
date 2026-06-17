@@ -20,7 +20,7 @@
 //! Top-level modules group coherent slices: `world`, `player`, `abilities`,
 //! `combat`, `gravity`, `items`/`inventory`, `dialog`, `menu`, `music`,
 //! `persistence`, `effects`, `projectile`, `enemy_projectile`, `boss_encounter`,
-//! `quest`, plus the `schedule`/`host`/`runtime` assembly and `dev` tooling.
+//! `quest`, plus the `schedule`/`host`/`session` assembly and `dev` tooling.
 //!
 //! This crate owns the module graph and the cross-cutting types (`GameWorld`,
 //! `SandboxSimState`, `SandboxDevState`) that submodules reference via `crate::*`.
@@ -95,7 +95,7 @@ pub mod portal;
 // The presentation layer was extracted to the `ambition_render` crate (the
 // sim/render seam is now a crate boundary). Consumers import `ambition_render::*`.
 pub mod projectile;
-pub mod runtime;
+pub mod session;
 pub mod shrine;
 pub mod time;
 pub use ambition_ui_nav as ui_nav;
@@ -104,7 +104,7 @@ pub mod world;
 // Public re-exports double as the external API for bins, tests, and docs.
 pub mod features;
 pub use dev::trace;
-pub use runtime::game_mode;
+pub use session::game_mode;
 pub use world::{ldtk_world, rooms};
 
 // Crate-root types/consts whose definitions moved into themed modules but

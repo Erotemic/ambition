@@ -94,7 +94,7 @@ pub(in super::super) fn extend_with_world_entries(manifest: &mut AssetManifest) 
 
 /// Sandbox tuning RON entry. Required — the game refuses to run
 /// without it. Today the live consumer is
-/// [`crate::runtime::data::SandboxDataSpec::load_embedded`] (always via
+/// [`crate::session::data::SandboxDataSpec::load_embedded`] (always via
 /// `include_str!`); the catalog entry exists so future code that asks
 /// for the Bevy path under a non-static profile gets a real answer.
 pub(in super::super) fn extend_with_data_entries(manifest: &mut AssetManifest) {

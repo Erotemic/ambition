@@ -59,7 +59,7 @@ fn base_kaleidoscope_test_app() -> App {
     app.init_resource::<ambition_gameplay_core::dev::dev_tools::DeveloperTools>();
     app.init_resource::<ambition_gameplay_core::SandboxDevState>();
     app.init_resource::<ambition_gameplay_core::ldtk_world::LdtkHotReloadState>();
-    app.init_resource::<ambition_gameplay_core::runtime::reset::SandboxResetRequested>();
+    app.init_resource::<ambition_gameplay_core::session::reset::SandboxResetRequested>();
     app.init_resource::<ambition_gameplay_core::dev::dev_tools::EditableMovementTuning>();
     app.init_resource::<UserSettings>();
     app.init_resource::<ambition_gameplay_core::inventory::InventoryUiState>();
@@ -891,7 +891,7 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
     app.init_resource::<ambition_gameplay_core::dev::dev_tools::DeveloperTools>();
     app.init_resource::<ambition_gameplay_core::SandboxDevState>();
     app.init_resource::<ambition_gameplay_core::ldtk_world::LdtkHotReloadState>();
-    app.init_resource::<ambition_gameplay_core::runtime::reset::SandboxResetRequested>();
+    app.init_resource::<ambition_gameplay_core::session::reset::SandboxResetRequested>();
     app.init_resource::<ambition_gameplay_core::dev::dev_tools::EditableMovementTuning>();
     app.init_resource::<UserSettings>();
     app.init_resource::<ambition_gameplay_core::inventory::InventoryUiState>();
@@ -1635,7 +1635,7 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
     app.init_resource::<ambition_gameplay_core::dev::dev_tools::DeveloperTools>();
     app.init_resource::<ambition_gameplay_core::SandboxDevState>();
     app.init_resource::<ambition_gameplay_core::ldtk_world::LdtkHotReloadState>();
-    app.init_resource::<ambition_gameplay_core::runtime::reset::SandboxResetRequested>();
+    app.init_resource::<ambition_gameplay_core::session::reset::SandboxResetRequested>();
     app.init_resource::<ambition_gameplay_core::dev::dev_tools::EditableMovementTuning>();
     app.init_resource::<UserSettings>();
     app.init_resource::<ambition_gameplay_core::inventory::InventoryUiState>();

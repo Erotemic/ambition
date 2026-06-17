@@ -78,8 +78,8 @@ use ambition_gameplay_core::inventory;
 use ambition_gameplay_core::ldtk_world;
 use ambition_gameplay_core::platformer_runtime::lifecycle::RoomScopedEntity;
 use ambition_gameplay_core::rooms;
-use ambition_gameplay_core::runtime::data;
-use ambition_gameplay_core::runtime::setup;
+use ambition_gameplay_core::session::data;
+use ambition_gameplay_core::session::setup;
 use ambition_gameplay_core::time::feel::SandboxFeelTuning;
 #[cfg(feature = "physics_debris")]
 use ambition_gameplay_core::world::physics::physics_spawn_debris_messages;

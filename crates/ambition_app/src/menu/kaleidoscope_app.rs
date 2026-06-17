@@ -374,7 +374,7 @@ pub(crate) struct SystemMenuParams<'w> {
     // The Gravity cycle's target (ambient gravity). Option so the System nav stays
     // B0002-safe and fixtures without the resource render the row as "n/a".
     base_gravity: Option<ResMut<'w, ambition_gameplay_core::physics::BaseGravity>>,
-    reset: ResMut<'w, ambition_gameplay_core::runtime::reset::SandboxResetRequested>,
+    reset: ResMut<'w, ambition_gameplay_core::session::reset::SandboxResetRequested>,
     // Movement tuning is derived from the active movement profile, so a
     // Reset All Settings must restore it to match the reset DeveloperTools
     // defaults (mirrors the pause menu's `ResetAllSettings`).
@@ -560,8 +560,8 @@ impl SystemMenuParams<'_> {
 /// [`close_kaleidoscope_menu`] via [`Self::mode`] + [`Self::next_mode`].
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct GameModeIo<'w> {
-    state: Res<'w, State<ambition_gameplay_core::runtime::game_mode::GameMode>>,
-    next: ResMut<'w, NextState<ambition_gameplay_core::runtime::game_mode::GameMode>>,
+    state: Res<'w, State<ambition_gameplay_core::session::game_mode::GameMode>>,
+    next: ResMut<'w, NextState<ambition_gameplay_core::session::game_mode::GameMode>>,
 }
 
 /// Resources `republish_kaleidoscope_pages` reads (immutably) to snapshot the radio + dev
@@ -928,8 +928,8 @@ pub(crate) fn system_focus_nav(
     system_nav: &mut KaleidoscopeSystemNav,
     pages: &mut ActiveMenuPages<MenuPage, MenuPageAction>,
     overlay: &mut ambition_gameplay_core::inventory::InventoryUiState,
-    mode: &ambition_gameplay_core::runtime::game_mode::GameMode,
-    next_mode: &mut NextState<ambition_gameplay_core::runtime::game_mode::GameMode>,
+    mode: &ambition_gameplay_core::session::game_mode::GameMode,
+    next_mode: &mut NextState<ambition_gameplay_core::session::game_mode::GameMode>,
     settings: &mut UserSettings,
     active_page: MenuPage,
     owned: &mut OwnedItems,
@@ -1409,8 +1409,8 @@ pub(crate) use pointer::*;
 fn kaleidoscope_menu_open_routing(
     mut menu: ResMut<MenuControlFrame>,
     mut overlay: ResMut<ambition_gameplay_core::inventory::InventoryUiState>,
-    mode: Res<State<ambition_gameplay_core::runtime::game_mode::GameMode>>,
-    mut next_mode: ResMut<NextState<ambition_gameplay_core::runtime::game_mode::GameMode>>,
+    mode: Res<State<ambition_gameplay_core::session::game_mode::GameMode>>,
+    mut next_mode: ResMut<NextState<ambition_gameplay_core::session::game_mode::GameMode>>,
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
@@ -1419,7 +1419,7 @@ fn kaleidoscope_menu_open_routing(
     // Tracks last frame's `menu.start` so we only act on its RISING edge (below).
     mut last_start: Local<bool>,
 ) {
-    use ambition_gameplay_core::runtime::game_mode::GameMode;
+    use ambition_gameplay_core::session::game_mode::GameMode;
 
     // pause / Esc: toggle the cube on the System page.
     //
@@ -1533,14 +1533,14 @@ fn kaleidoscope_menu_open_routing(
 fn open_kaleidoscope_menu(
     page: MenuPage,
     overlay: &mut ambition_gameplay_core::inventory::InventoryUiState,
-    mode: &ambition_gameplay_core::runtime::game_mode::GameMode,
-    next_mode: &mut NextState<ambition_gameplay_core::runtime::game_mode::GameMode>,
+    mode: &ambition_gameplay_core::session::game_mode::GameMode,
+    next_mode: &mut NextState<ambition_gameplay_core::session::game_mode::GameMode>,
     pages: &mut ActiveMenuPages<MenuPage, MenuPageAction>,
     cursor: &mut KaleidoscopeCursor,
     system_nav: &mut KaleidoscopeSystemNav,
     map: &mut ambition_gameplay_core::menu::map::MapMenuState,
 ) {
-    use ambition_gameplay_core::runtime::game_mode::GameMode;
+    use ambition_gameplay_core::session::game_mode::GameMode;
     overlay.visible = true;
     overlay.opened_from_pause = matches!(mode, GameMode::Paused);
     pages.active = Some(page);
@@ -1565,10 +1565,10 @@ fn open_kaleidoscope_menu(
 /// `kaleidoscope_pointer_release`) so an action-triggered close unpauses identically.
 fn close_kaleidoscope_menu(
     overlay: &mut ambition_gameplay_core::inventory::InventoryUiState,
-    mode: &ambition_gameplay_core::runtime::game_mode::GameMode,
-    next_mode: &mut NextState<ambition_gameplay_core::runtime::game_mode::GameMode>,
+    mode: &ambition_gameplay_core::session::game_mode::GameMode,
+    next_mode: &mut NextState<ambition_gameplay_core::session::game_mode::GameMode>,
 ) {
-    use ambition_gameplay_core::runtime::game_mode::GameMode;
+    use ambition_gameplay_core::session::game_mode::GameMode;
     let opened_from_pause = overlay.opened_from_pause;
     overlay.visible = false;
     if !opened_from_pause && matches!(mode, GameMode::Paused) {

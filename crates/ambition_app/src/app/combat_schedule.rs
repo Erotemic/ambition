@@ -13,7 +13,7 @@ use bevy::prelude::*;
 
 use super::sim_systems::attack_advance_system;
 use ambition_gameplay_core::schedule::SandboxSet;
-use ambition_gameplay_core::runtime::game_mode::gameplay_allowed;
+use ambition_gameplay_core::session::game_mode::gameplay_allowed;
 
 /// Schedules the `SandboxSet::Combat` system chain.
 pub struct CombatSchedulePlugin;

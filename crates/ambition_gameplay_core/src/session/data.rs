@@ -64,7 +64,7 @@ pub fn load_data_asset_handle(
 // Spatial/world authoring moved to LDtk. This module intentionally contains
 // only non-spatial sandbox tuning; the generated-audio data schema
 // (`AudioSpec` & friends) moved DOWN into the `ambition_audio` crate.
-// Re-exported so every `crate::runtime::data::AudioSpec` path resolves
+// Re-exported so every `crate::session::data::AudioSpec` path resolves
 // unchanged.
 pub use ambition_audio::spec::{
     AudioSpec, MusicSpec, MusicTrackSpec, SfxSpec, SoundCueKey, WaveformSpec,

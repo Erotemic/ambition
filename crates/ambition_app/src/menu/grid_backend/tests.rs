@@ -4,7 +4,7 @@ use ambition_gameplay_core::brain::ActionSet;
 use ambition_gameplay_core::items::Item;
 use ambition_gameplay_core::persistence::settings::{SystemMenuEntryId, SystemMenuModel};
 use ambition_gameplay_core::player::{PlayerEntity, PlayerMana, PrimaryPlayer};
-use ambition_gameplay_core::runtime::game_mode::GameMode;
+use ambition_gameplay_core::session::game_mode::GameMode;
 
 /// Switching the inventory frontend mid-session lands you on the SAME page in the
 /// new frontend (not back on Inventory). The cube stores the page in
@@ -66,7 +66,7 @@ fn grid_app() -> App {
     app.init_resource::<ambition_gameplay_core::dev::dev_tools::DeveloperTools>();
     app.init_resource::<ambition_gameplay_core::SandboxDevState>();
     app.init_resource::<ambition_gameplay_core::ldtk_world::LdtkHotReloadState>();
-    app.init_resource::<ambition_gameplay_core::runtime::reset::SandboxResetRequested>();
+    app.init_resource::<ambition_gameplay_core::session::reset::SandboxResetRequested>();
     app.init_resource::<ambition_gameplay_core::dev::dev_tools::EditableMovementTuning>();
     app.init_resource::<UserSettings>();
     app.init_resource::<ambition_gameplay_core::inventory::InventoryUiState>();

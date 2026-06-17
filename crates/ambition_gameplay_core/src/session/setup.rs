@@ -23,7 +23,7 @@ use crate::dev::dev_tools::{EditableAbilitySet, EditableMovementTuning};
 use crate::ldtk_world::{LdtkRuntimeIndex, SandboxLdtkAsset};
 use crate::platformer_runtime::lifecycle::{PlayerVisual, SceneEntities};
 use crate::rooms::RoomSet;
-use crate::runtime::data::SandboxDataAsset;
+use crate::session::data::SandboxDataAsset;
 use crate::GameWorld;
 
 /// Borrowed inputs for `simulation_world`.

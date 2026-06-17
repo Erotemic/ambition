@@ -5,7 +5,7 @@
 //! `web_audio` implies `audio`.
 
 use super::*;
-use crate::runtime::data::SandboxDataSpec;
+use crate::session::data::SandboxDataSpec;
 use ambition_sfx::SfxProvider;
 
 #[test]
@@ -136,7 +136,7 @@ fn embedded_music_tracks_all_have_asset_paths() {
 /// so the radio menu never offers a silent entry.
 #[test]
 fn audio_library_skips_music_tracks_without_asset_path() {
-    use crate::runtime::data::{
+    use crate::session::data::{
         AudioSpec, MusicSpec, MusicTrackSpec, SfxSpec, SoundCueKey, WaveformSpec,
     };
 
@@ -404,7 +404,7 @@ fn ambition_gameplay_core_uses_only_bevy_kira_audio() {
 #[test]
 fn every_live_music_track_resolves_under_web_served_assets() {
     use crate::assets::game_assets::GameAssetConfig;
-    use crate::runtime::data::SandboxDataSpec;
+    use crate::session::data::SandboxDataSpec;
     use ambition_asset_manager::AssetProfile;
 
     let spec = SandboxDataSpec::load_embedded();

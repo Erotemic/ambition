@@ -231,7 +231,7 @@ pub fn tick_player_clone_brains(
 /// `process_sandbox_reset_request` consumes the request flag, so a reset returns
 /// to a clean single-primary world instead of leaving orphaned clones wandering.
 pub fn despawn_player_clones_on_reset(
-    request: Res<ambition_gameplay_core::runtime::reset::SandboxResetRequested>,
+    request: Res<ambition_gameplay_core::session::reset::SandboxResetRequested>,
     clones: Query<Entity, With<PlayerClone>>,
     mut commands: Commands,
 ) {

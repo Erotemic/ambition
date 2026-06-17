@@ -6,7 +6,7 @@
 //! `static_core_assets` feature.
 
 use super::super::*;
-use crate::runtime::data::SandboxDataSpec;
+use crate::session::data::SandboxDataSpec;
 use std::collections::HashSet;
 
 /// Every URL in `embedded_core::ALL_URLS` is unique. Catches a

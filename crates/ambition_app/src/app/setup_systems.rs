@@ -26,7 +26,7 @@ use ambition_gameplay_core::schedule::*;
 // `ambition_gameplay_core::lib` (`ambition_gameplay_core`) and are re-imported above through
 // `use ambition_gameplay_core::*;`.
 
-/// Sim-only startup. Calls `ambition_gameplay_core::runtime::setup::simulation_world` to spawn the
+/// Sim-only startup. Calls `ambition_gameplay_core::session::setup::simulation_world` to spawn the
 /// LdtkWorldBundle and the player entity (with gameplay-essential components
 /// but no Sprite). Inserts SceneEntities with `hud: Entity::PLACEHOLDER`;
 /// the presentation startup system later overwrites that with the real HUD entity.

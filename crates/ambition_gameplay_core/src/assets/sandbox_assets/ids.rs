@@ -43,7 +43,7 @@ pub fn font_debug_mono() -> AssetId {
 }
 
 /// `music.track.<id>` where `id` is the
-/// [`crate::runtime::data::MusicTrackSpec::id`] authored in
+/// [`crate::session::data::MusicTrackSpec::id`] authored in
 /// `sandbox.ron`. The runtime registers one catalog entry per track
 /// and looks them up by this id.
 pub fn music_track(track_id: &str) -> AssetId {

@@ -48,6 +48,6 @@ pub use plugin::AmbitionContentPlugin;
 // entries live in `assets/data/character_catalog.ron`.
 
 /// Facade: the data-manifest *machinery* (spec schema + asset wiring)
-/// moved to [`ambition_gameplay_core::runtime::data`]; the authored RON it loads is the
+/// moved to [`ambition_gameplay_core::session::data`]; the authored RON it loads is the
 /// content. Inbound `crate::data::…` paths keep working.
-pub use ambition_gameplay_core::runtime::data;
+pub use ambition_gameplay_core::session::data;

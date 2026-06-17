@@ -18,7 +18,7 @@ use crate::encounter::{
     BossEncounterMusicRequest, EncounterMusicRequest, EncounterPhase, EncounterRegistry,
 };
 use crate::rooms::RoomMusicRequest;
-use crate::runtime::data::SandboxDataSpec;
+use crate::session::data::SandboxDataSpec;
 
 use ambition_audio::music::{
     AdaptiveCueDirective, MusicDirectorMode, MusicDirectorState, MusicIntent,

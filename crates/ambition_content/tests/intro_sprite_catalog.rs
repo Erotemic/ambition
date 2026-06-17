@@ -3,7 +3,7 @@
 
 use ambition_asset_manager::{AssetKind, AssetProfile};
 use ambition_gameplay_core::assets::game_assets::GameAssetConfig;
-use ambition_gameplay_core::runtime::data::SandboxDataSpec;
+use ambition_gameplay_core::session::data::SandboxDataSpec;
 
 #[test]
 fn intro_npc_and_prop_sprite_ids_resolve_through_the_catalog() {

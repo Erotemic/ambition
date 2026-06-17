@@ -27,7 +27,7 @@ use super::setup_systems::setup_simulation_system;
 use ambition_render::fx::{ExplosionRequest, FireworksRequest, VfxMessage};
 use ambition_gameplay_core::audio::SfxMessage;
 use ambition_gameplay_core::game_mode::GameMode;
-use ambition_gameplay_core::runtime::data;
+use ambition_gameplay_core::session::data;
 use ambition_gameplay_core::world::physics::DebrisBurstMessage;
 use ambition_gameplay_core::PlayerDiedMessage;
 
@@ -187,6 +187,6 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             .insert_resource(ambition_gameplay_core::CameraEaseTuning::default())
             .insert_resource(ambition_gameplay_core::time::camera_ease::CameraShakeState::default())
             .insert_resource(ambition_render::rendering::CameraViewState::default())
-            .insert_resource(ambition_gameplay_core::runtime::reset::SandboxResetRequested::default());
+            .insert_resource(ambition_gameplay_core::session::reset::SandboxResetRequested::default());
     }
 }

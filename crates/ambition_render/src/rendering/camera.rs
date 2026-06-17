@@ -125,7 +125,7 @@ pub fn camera_follow(
     mut query: Query<
         (&mut Transform, &mut Projection),
         (
-            With<ambition_gameplay_core::runtime::camera_layers::MainCamera>,
+            With<ambition_gameplay_core::session::camera_layers::MainCamera>,
             Without<PlayerVisual>,
         ),
     >,

@@ -71,7 +71,7 @@ impl Plugin for GravityPlugin {
             reset_gravity_on_room_reset
                 .in_set(GravitySet::RoomReset)
                 .in_set(crate::schedule::SandboxSet::RoomTransition)
-                .after(crate::runtime::reset::ContentRoomResetSet),
+                .after(crate::session::reset::ContentRoomResetSet),
         );
     }
 }

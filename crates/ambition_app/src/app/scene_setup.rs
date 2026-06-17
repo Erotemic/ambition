@@ -3,7 +3,7 @@
 //! `presentation_world` spawns the cameras, the player sprite, the HUD/quest-panel
 //! text, the static room visuals + parallax, and wires the audio library / SFX
 //! bank. It is the render+audio composition that pairs with
-//! `ambition_gameplay_core::runtime::setup::simulation_world` (which stays sim-only).
+//! `ambition_gameplay_core::session::setup::simulation_world` (which stays sim-only).
 //! Moved out of the machinery crate so the sim never imports the render layer —
 //! the app, as the composition root, owns the wiring that crosses the seam.
 #![allow(clippy::too_many_arguments)]
@@ -30,7 +30,7 @@ use ambition_gameplay_core::character_sprites::{
 };
 use ambition_gameplay_core::platformer_runtime::lifecycle::SceneEntities;
 use ambition_gameplay_core::rooms::RoomSet;
-use ambition_gameplay_core::runtime::data::SandboxDataSpec;
+use ambition_gameplay_core::session::data::SandboxDataSpec;
 use ambition_gameplay_core::world::physics::PhysicsSandboxSettings;
 use ambition_gameplay_core::world::platforms;
 use ambition_gameplay_core::GameWorld;
@@ -237,7 +237,7 @@ fn presentation_world_inner(
     let main_camera = commands
         .spawn((
             Camera2d,
-            ambition_gameplay_core::runtime::camera_layers::MainCamera,
+            ambition_gameplay_core::session::camera_layers::MainCamera,
             #[cfg(feature = "portal_render")]
             bevy::camera::visibility::RenderLayers::layer(0)
                 .with(ambition_gameplay_core::portal::PORTAL_WINDOW_RENDER_LAYER),
@@ -260,15 +260,15 @@ fn presentation_world_inner(
             clear_color: ClearColorConfig::None,
             ..default()
         },
-        ambition_gameplay_core::runtime::camera_layers::FrontHudCamera,
+        ambition_gameplay_core::session::camera_layers::FrontHudCamera,
         IsDefaultUiCamera,
         bevy::camera::visibility::RenderLayers::layer(
-            ambition_gameplay_core::runtime::camera_layers::FRONT_HUD_LAYER,
+            ambition_gameplay_core::session::camera_layers::FRONT_HUD_LAYER,
         ),
         Name::new("Front HUD Camera"),
     ));
 
-    commands.insert_resource(ambition_gameplay_core::runtime::camera_layers::MainCameraEntity(
+    commands.insert_resource(ambition_gameplay_core::session::camera_layers::MainCameraEntity(
         main_camera,
     ));
 

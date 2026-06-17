@@ -93,7 +93,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     app.add_plugins(ambition_gameplay_core::features::GameplayEffectsSchedulePlugin);
     app.add_plugins(super::progression_schedule::ProgressionSchedulePlugin);
     app.add_plugins(ambition_gameplay_core::features::FeatureViewSyncSchedulePlugin);
-    app.add_plugins(ambition_gameplay_core::runtime::reset::SandboxResetSchedulePlugin);
+    app.add_plugins(ambition_gameplay_core::session::reset::SandboxResetSchedulePlugin);
     app.add_plugins(ambition_gameplay_core::trace::TraceSchedulePlugin);
     // Per-frame "what would each verb do right now?" table consumed
     // by the touch / control-prompt HUD and (future) gameplay code.
@@ -147,7 +147,7 @@ fn wire_portal_schedule(app: &mut App) {
         Update,
         PortalSet::RoomReset
             .in_set(SandboxSet::RoomTransition)
-            .after(ambition_gameplay_core::runtime::reset::ContentRoomResetSet),
+            .after(ambition_gameplay_core::session::reset::ContentRoomResetSet),
     );
 
     // TransitGuards: suppress ledge-grab while transiting, before player
@@ -317,7 +317,7 @@ fn register_player_simulation_systems(app: &mut App) {
             Update,
             crate::app::player_clone::despawn_player_clones_on_reset
                 .in_set(SandboxSet::ResetProcessing)
-                .before(ambition_gameplay_core::runtime::reset::process_sandbox_reset_request),
+                .before(ambition_gameplay_core::session::reset::process_sandbox_reset_request),
         );
     // Possession systems stay interleaved with the player tick; lifting
     // them would change the `not_possessing` run-condition window.
@@ -365,7 +365,7 @@ fn register_room_transition_systems(app: &mut App) {
             // label so generic plugins (gravity, portal) can order
             // after it without naming content systems.
             ambition_content::bosses::reset_cut_rope_boss_arena_on_room_reset
-                .in_set(ambition_gameplay_core::runtime::reset::ContentRoomResetSet),
+                .in_set(ambition_gameplay_core::session::reset::ContentRoomResetSet),
             // Portal room-reset cleanup is registered by
             // `ambition_gameplay_core::portal::PortalPlugin`.
         )

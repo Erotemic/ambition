@@ -112,7 +112,7 @@ pub fn sync_parallax_layers(
     camera: Query<
         &Transform,
         (
-            With<ambition_gameplay_core::runtime::camera_layers::MainCamera>,
+            With<ambition_gameplay_core::session::camera_layers::MainCamera>,
             Without<ParallaxLayerVisual>,
         ),
     >,

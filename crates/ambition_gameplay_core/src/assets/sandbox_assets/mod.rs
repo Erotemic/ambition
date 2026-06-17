@@ -27,7 +27,7 @@ use ambition_asset_manager::{
 use ambition_asset_manager::{AssetKind, AssetLocation, MissingAssetPolicy, PreloadGroup};
 
 use crate::assets::game_assets::{sandbox_image_manifest, GameAssetConfig};
-use crate::runtime::data::AudioSpec;
+use crate::session::data::AudioSpec;
 
 mod builders;
 mod embedded;
@@ -77,7 +77,7 @@ impl SandboxAssetCatalog {
             asset_profile: AssetProfile::DesktopDevLoose,
             ..Default::default()
         };
-        let spec = crate::runtime::data::SandboxDataSpec::load_embedded();
+        let spec = crate::session::data::SandboxDataSpec::load_embedded();
         build_sandbox_catalog(&config, &spec.audio)
     }
 
@@ -267,7 +267,7 @@ fn desktop_candidate_roots(rel_path: &str) -> Vec<std::path::PathBuf> {
 /// Build the full sandbox catalog: every visible-sandbox asset id +
 /// the active profile. Called once during `init_sandbox_resources`.
 ///
-/// `audio` is borrowed from the already-loaded [`crate::runtime::data::SandboxDataSpec`]
+/// `audio` is borrowed from the already-loaded [`crate::session::data::SandboxDataSpec`]
 /// so music-track ids land in the catalog at startup; the spec itself
 /// is loaded via `include_str!`, so the catalog doesn't depend on
 /// disk-resident files for bootstrap.

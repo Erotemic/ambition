@@ -386,7 +386,7 @@ mod dispatch_parity {
     use ambition_gameplay_core::menu::backend::InventoryUiBackend;
     use ambition_gameplay_core::persistence::settings::{SystemMenuEntryId, UserSettings};
     use ambition_gameplay_core::player::{PlayerEntity, PlayerHealRequested, PlayerMana, PrimaryPlayer};
-    use ambition_gameplay_core::runtime::game_mode::GameMode;
+    use ambition_gameplay_core::session::game_mode::GameMode;
 
     /// Build a menu app for one backend, with every resource/observer the shared
     /// cursor/dispatch path touches. Mirrors the per-backend harnesses in
@@ -407,7 +407,7 @@ mod dispatch_parity {
         app.init_resource::<ambition_gameplay_core::dev::dev_tools::DeveloperTools>();
         app.init_resource::<ambition_gameplay_core::SandboxDevState>();
         app.init_resource::<ambition_gameplay_core::ldtk_world::LdtkHotReloadState>();
-        app.init_resource::<ambition_gameplay_core::runtime::reset::SandboxResetRequested>();
+        app.init_resource::<ambition_gameplay_core::session::reset::SandboxResetRequested>();
         app.init_resource::<ambition_gameplay_core::dev::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
         app.init_resource::<InventoryUiState>();

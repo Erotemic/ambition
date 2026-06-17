@@ -306,15 +306,15 @@ fn cursor_focus_key(
 pub(crate) fn grid_menu_open_routing(
     mut menu: ResMut<MenuControlFrame>,
     mut overlay: ResMut<ambition_gameplay_core::inventory::InventoryUiState>,
-    mode: Res<State<ambition_gameplay_core::runtime::game_mode::GameMode>>,
-    mut next_mode: ResMut<NextState<ambition_gameplay_core::runtime::game_mode::GameMode>>,
+    mode: Res<State<ambition_gameplay_core::session::game_mode::GameMode>>,
+    mut next_mode: ResMut<NextState<ambition_gameplay_core::session::game_mode::GameMode>>,
     mut tab_state: ResMut<GridMenuTabState>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
     mut sfx: MessageWriter<SfxMessage>,
     mut last_start: Local<bool>,
 ) {
-    use ambition_gameplay_core::runtime::game_mode::GameMode;
+    use ambition_gameplay_core::session::game_mode::GameMode;
 
     // Esc / Start: rising-edge toggle (debounced like the cube to avoid the
     // close-then-reopen on a multi-frame `just_pressed`).
@@ -398,12 +398,12 @@ pub(crate) fn grid_menu_open_routing(
 fn open_grid_unified_menu(
     active_tab: usize,
     overlay: &mut ambition_gameplay_core::inventory::InventoryUiState,
-    mode: &ambition_gameplay_core::runtime::game_mode::GameMode,
-    next_mode: &mut NextState<ambition_gameplay_core::runtime::game_mode::GameMode>,
+    mode: &ambition_gameplay_core::session::game_mode::GameMode,
+    next_mode: &mut NextState<ambition_gameplay_core::session::game_mode::GameMode>,
     cursor: &mut KaleidoscopeCursor,
     system_nav: &mut KaleidoscopeSystemNav,
 ) {
-    use ambition_gameplay_core::runtime::game_mode::GameMode;
+    use ambition_gameplay_core::session::game_mode::GameMode;
     overlay.visible = true;
     overlay.opened_from_pause = matches!(mode, GameMode::Paused);
     system_nav.open_entry = None;
@@ -427,10 +427,10 @@ fn seed_cursor_for_tab(active_tab: usize, cursor: &mut KaleidoscopeCursor) {
 /// `close_kaleidoscope_menu`.
 pub(crate) fn close_grid_unified_menu(
     overlay: &mut ambition_gameplay_core::inventory::InventoryUiState,
-    mode: &ambition_gameplay_core::runtime::game_mode::GameMode,
-    next_mode: &mut NextState<ambition_gameplay_core::runtime::game_mode::GameMode>,
+    mode: &ambition_gameplay_core::session::game_mode::GameMode,
+    next_mode: &mut NextState<ambition_gameplay_core::session::game_mode::GameMode>,
 ) {
-    use ambition_gameplay_core::runtime::game_mode::GameMode;
+    use ambition_gameplay_core::session::game_mode::GameMode;
     let opened_from_pause = overlay.opened_from_pause;
     overlay.visible = false;
     if !opened_from_pause && matches!(mode, GameMode::Paused) {
@@ -452,8 +452,8 @@ pub(crate) fn grid_menu_nav(
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut overlay: ResMut<ambition_gameplay_core::inventory::InventoryUiState>,
-    mode: Res<State<ambition_gameplay_core::runtime::game_mode::GameMode>>,
-    mut next_mode: ResMut<NextState<ambition_gameplay_core::runtime::game_mode::GameMode>>,
+    mode: Res<State<ambition_gameplay_core::session::game_mode::GameMode>>,
+    mut next_mode: ResMut<NextState<ambition_gameplay_core::session::game_mode::GameMode>>,
     mut fx: MenuDispatchParams,
 ) {
     // Read the backend from `fx.system` (it owns the resource); a separate `Res`
@@ -987,8 +987,8 @@ pub(crate) fn grid_menu_pointer_release(
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut overlay: ResMut<ambition_gameplay_core::inventory::InventoryUiState>,
-    mode: Res<State<ambition_gameplay_core::runtime::game_mode::GameMode>>,
-    mut next_mode: ResMut<NextState<ambition_gameplay_core::runtime::game_mode::GameMode>>,
+    mode: Res<State<ambition_gameplay_core::session::game_mode::GameMode>>,
+    mut next_mode: ResMut<NextState<ambition_gameplay_core::session::game_mode::GameMode>>,
     mut fx: MenuDispatchParams,
 ) {
     // Backend read from `fx.system` (it owns the resource); a separate `Res` would

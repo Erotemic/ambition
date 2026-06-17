@@ -23,7 +23,7 @@ use ambition_gameplay_core::features::FeatureVisualKind;
 use ambition_gameplay_core::rooms::{LoadingZone, LoadingZoneActivation, PropSpec};
 use ambition_gameplay_core::world::physics;
 
-/// Presentation consumer of [`ambition_gameplay_core::runtime::RespawnRoomVisualsRequested`].
+/// Presentation consumer of [`ambition_gameplay_core::session::RespawnRoomVisualsRequested`].
 ///
 /// The sim (sandbox reset) emits the request after flipping the active room; this
 /// reads the active room from [`RoomSet`] and rebuilds its static visuals +
@@ -31,7 +31,7 @@ use ambition_gameplay_core::world::physics;
 /// render layer, and a headless build (no presentation plugins) simply never runs
 /// this system — correct, since it needs no visuals.
 pub fn respawn_room_visuals_on_request(
-    mut requests: MessageReader<ambition_gameplay_core::runtime::RespawnRoomVisualsRequested>,
+    mut requests: MessageReader<ambition_gameplay_core::session::RespawnRoomVisualsRequested>,
     mut commands: Commands,
     room_set: Res<ambition_gameplay_core::rooms::RoomSet>,
     physics_settings: Res<physics::PhysicsSandboxSettings>,

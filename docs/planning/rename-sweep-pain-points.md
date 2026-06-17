@@ -61,6 +61,26 @@ worked, but each of these cost real time or caused a (caught) mistake.
 9. **A format-on-read hook reflows code in files merely *read*** (seen in the prior
    docstring sweep) — not sed-specific, but it muddies "did my edit do that?" forensics.
 
+10. **NEVER `git add -A` in this tree (it bit hard).** During the sandbox→gameplay_core
+    rename I reached for `git add -A` to stage the wide change — it swept in (a) three
+    **embedded git repos** (`.tmp-…-stage`, `.worktrees/`, a de-init'd submodule) as
+    gitlinks, and (b) ~28 untracked root-level junk files **including binary blobs**
+    (`PSDs.zip`, `.psd`, a `.gif`, a `SkelForm` binary) — all committed. Recovery took
+    a `reset --soft` + restage. ALWAYS stage with explicit pathspecs or
+    `git add $(git grep -l <NEW-token>)`; the working tree permanently carries dev junk.
+    Mitigation also landed: `.worktrees/` and `.tmp-ambition-agent-source-*/` are now
+    gitignored.
+
+11. **Concurrent agents commit each other's staged work.** A second agent ran
+    `git commit` mid-sweep and captured *my* staged `git mv` renames (the move-half of
+    the mechanics dissolve) together with its own `scripts/module_graph.py` change — so
+    one logical refactor split across two commits, conflated with unrelated work.
+    A harness crash compounded it. Lesson for multi-agent work: a rename sweep wants an
+    exclusive lock on the index, or each agent should work in its own worktree; at
+    minimum, commit your `git mv` + content **in one shot** so a neighbor can't commit
+    the half-staged state. Untangling needed a `reset --soft` back past both commits and
+    a clean re-split (dissolve / module_graph / gitignore).
+
 ## Naming rule (Jon, 2026-06-17)
 
 **If we aren't 100% sure on a name, pick something deliberately *sed-able*** — a

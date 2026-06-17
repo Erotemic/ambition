@@ -56,7 +56,7 @@ pub fn update_ecs_actors(
     overlay: Res<FeatureEcsWorldOverlay>,
     mut slot_board: ResMut<crate::combat::slots::CombatSlotsRes>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
-    mut vfx: MessageWriter<ambition_effects::vfx::VfxMessage>,
+    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut hit_events: MessageWriter<HitEvent>,
     // Multi-player ready: iterate every player and resolve each
@@ -830,7 +830,7 @@ pub fn tick_npc_idle_barks(
         ),
         With<FeatureSimEntity>,
     >,
-    mut vfx: MessageWriter<ambition_effects::vfx::VfxMessage>,
+    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut state: Local<NpcIdleBarkState>,
 ) {
     let dt = world_time.scaled_dt;
@@ -854,7 +854,7 @@ pub fn tick_npc_idle_barks(
             continue;
         }
         let anchor = kin.pos + ae::Vec2::new(0.0, -kin.size.y * 0.72 - 16.0);
-        vfx.write(ambition_effects::vfx::VfxMessage::SpeechBubble {
+        vfx.write(ambition_vfx::vfx::VfxMessage::SpeechBubble {
             pos: anchor,
             text: line.to_string(),
         });

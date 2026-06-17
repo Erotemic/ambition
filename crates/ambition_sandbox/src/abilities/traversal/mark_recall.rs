@@ -64,7 +64,7 @@ pub fn mark_recall_system(
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
-    mut vfx: MessageWriter<ambition_effects::vfx::VfxMessage>,
+    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut hits: MessageWriter<crate::features::HitEvent>,
 ) {
     let Ok((player, mut kin, held, mut mark)) = players.single_mut() else {
@@ -90,9 +90,9 @@ pub fn mark_recall_system(
             id: ambition_sfx::ids::PLAYER_DASH,
             pos,
         });
-        vfx.write(ambition_effects::vfx::VfxMessage::Explosion {
+        vfx.write(ambition_vfx::vfx::VfxMessage::Explosion {
             pos,
-            kind: ambition_effects::vfx::ExplosionKind::ClassicBurst,
+            kind: ambition_vfx::vfx::ExplosionKind::ClassicBurst,
             scale: 0.4,
         });
         return;
@@ -118,9 +118,9 @@ pub fn mark_recall_system(
                 id: ambition_sfx::ids::PLAYER_BLINK,
                 pos: target,
             });
-            vfx.write(ambition_effects::vfx::VfxMessage::Explosion {
+            vfx.write(ambition_vfx::vfx::VfxMessage::Explosion {
                 pos: target,
-                kind: ambition_effects::vfx::ExplosionKind::ClassicBurst,
+                kind: ambition_vfx::vfx::ExplosionKind::ClassicBurst,
                 scale: 0.6,
             });
         }
@@ -136,7 +136,7 @@ mod tests {
     fn test_app() -> App {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
-        app.add_message::<ambition_effects::vfx::VfxMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxMessage>();
         app.add_message::<crate::features::HitEvent>();
         app.insert_resource(ControlFrame::default());
         app.add_systems(Update, mark_recall_system);

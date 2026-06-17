@@ -56,7 +56,7 @@ impl Damage {
 }
 
 // NOTE: the old spec-layer `Hitbox` / `Hurtbox` structs were removed (2026-06-15).
-// They were never constructed at runtime — the live model is `ambition_effects::Hitbox`
+// They were never constructed at runtime — the live model is `ambition_vfx::Hitbox`
 // (transient strike volume) for dealing damage and the `DamageableVolumes` component
 // for receiving it; every hit path resolves through `Aabb::strict_intersects`.
 

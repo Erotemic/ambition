@@ -332,14 +332,14 @@ pub fn cmd_play_sfx(In(id_str): In<String>, mut sfx: MessageWriter<crate::audio:
 /// VFX/SFX near the player. Authored from the Kernel Guide dialog so designers
 /// can verify the explosion pipeline without entering a boss room.
 pub fn cmd_spawn_fireworks(
-    mut fireworks: MessageWriter<ambition_effects::vfx::FireworksRequest>,
+    mut fireworks: MessageWriter<ambition_vfx::vfx::FireworksRequest>,
     player_q: Query<&crate::player::BodyKinematics, crate::player::PrimaryPlayerOnly>,
 ) {
     let origin = player_q
         .single()
         .map(|kin| kin.pos + ae::Vec2::new(0.0, -40.0))
         .unwrap_or(ae::Vec2::new(480.0, 260.0));
-    fireworks.write(ambition_effects::vfx::FireworksRequest::around(origin));
+    fireworks.write(ambition_vfx::vfx::FireworksRequest::around(origin));
 }
 
 /// `<<camera_zoom factor>>` — adjust camera zoom. Logged-stub; the

@@ -15,13 +15,13 @@ use ambition_sandbox::character_sprites::{
 };
 use ambition_sandbox::config::{rgba, world_to_bevy, WORLD_Z_FX};
 
-// The VFX MESSAGE vocabulary now lives in the foundation crate `ambition_effects`
+// The VFX MESSAGE vocabulary now lives in the foundation crate `ambition_vfx`
 // (presentation-neutral data, so a sim system can emit a cue without depending on
 // this render module). Re-exported here so existing `crate::fx::*`
 // paths keep resolving. The VFX request vocab (`ExplosionRequest` /
 // `FireworksRequest`) + the `explosion_sfx` id mapping moved down with the message
 // types; only the spritesheet-row mapping (`explosion_anim`) is render-specific.
-pub use ambition_effects::vfx::{
+pub use ambition_vfx::vfx::{
     explosion_sfx, ExplosionKind, ExplosionRequest, FireworksRequest, ParticleKind, VfxMessage,
 };
 

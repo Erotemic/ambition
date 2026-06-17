@@ -55,7 +55,7 @@ pub fn tick_gravity_grenade_fuses(
     mut commands: Commands,
     mut grenades: Query<(Entity, &GroundItem, &mut GravityGrenadeFuse)>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
-    mut vfx: MessageWriter<ambition_effects::vfx::VfxMessage>,
+    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
     let dt = time.sim_dt();
     if dt <= 0.0 {
@@ -80,9 +80,9 @@ pub fn tick_gravity_grenade_fuses(
             id: ambition_sfx::ids::PORTAL_POWERUP,
             pos: ground.pos,
         });
-        vfx.write(ambition_effects::vfx::VfxMessage::Explosion {
+        vfx.write(ambition_vfx::vfx::VfxMessage::Explosion {
             pos: ground.pos,
-            kind: ambition_effects::vfx::ExplosionKind::ClassicBurst,
+            kind: ambition_vfx::vfx::ExplosionKind::ClassicBurst,
             scale: 0.7,
         });
         commands.entity(entity).despawn();
@@ -126,7 +126,7 @@ mod tests {
     fn fuse_expiry_opens_a_temporary_up_well_and_despawns() {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
-        app.add_message::<ambition_effects::vfx::VfxMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxMessage>();
         let mut wt = crate::WorldTime::default();
         wt.scaled_dt = GRAVITY_GRENADE_FUSE_SECS + 0.1;
         app.insert_resource(wt);

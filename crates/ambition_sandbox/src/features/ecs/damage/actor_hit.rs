@@ -15,7 +15,7 @@ use super::super::{ae, ActorRuntime, GameplayBanner, HitEvent, HitSource, SetFla
 use crate::audio::SfxMessage;
 use crate::features::ActorStimulus;
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
-use ambition_effects::vfx::{ParticleKind, VfxMessage};
+use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
 use super::*;
 
@@ -175,7 +175,7 @@ pub(crate) fn apply_actor_hit(
                         spawn_death_explosion(&mut writers.commands, actor_entity, em.kin.pos);
                         writers.vfx.write(VfxMessage::Explosion {
                             pos: em.kin.pos,
-                            kind: ambition_effects::vfx::ExplosionKind::ClassicBurst,
+                            kind: ambition_vfx::vfx::ExplosionKind::ClassicBurst,
                             scale: 0.85,
                         });
                     }

@@ -46,7 +46,7 @@ pub fn grapple_system(
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
-    mut vfx: MessageWriter<ambition_effects::vfx::VfxMessage>,
+    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
     if !control.attack_pressed || control.shield_held {
         return;
@@ -95,15 +95,15 @@ pub fn grapple_system(
     const GRAPPLE_LINE_SEGMENTS: i32 = 8;
     for i in 1..GRAPPLE_LINE_SEGMENTS {
         let p = from.lerp(hit, i as f32 / GRAPPLE_LINE_SEGMENTS as f32);
-        vfx.write(ambition_effects::vfx::VfxMessage::Burst {
+        vfx.write(ambition_vfx::vfx::VfxMessage::Burst {
             pos: p,
             count: 2,
             speed: 28.0,
             color: [0.86, 0.78, 0.48, 0.95],
-            kind: ambition_effects::vfx::ParticleKind::Spark,
+            kind: ambition_vfx::vfx::ParticleKind::Spark,
         });
     }
-    vfx.write(ambition_effects::vfx::VfxMessage::Impact { pos: hit });
+    vfx.write(ambition_vfx::vfx::VfxMessage::Impact { pos: hit });
 }
 
 #[cfg(test)]
@@ -130,7 +130,7 @@ mod tests {
     fn test_app(world: Option<crate::GameWorld>) -> App {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
-        app.add_message::<ambition_effects::vfx::VfxMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxMessage>();
         app.insert_resource(ControlFrame::default());
         if let Some(w) = world {
             app.insert_resource(w);

@@ -37,13 +37,13 @@ use super::util::midpoint;
 use crate::audio::SfxMessage;
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 use crate::WorldTime;
-use ambition_effects::vfx::{ParticleKind, VfxMessage};
+use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
-// The hitbox COMPONENTS moved to the reusable `ambition_effects` crate (the
+// The hitbox COMPONENTS moved to the reusable `ambition_vfx` crate (the
 // damage-box primitive). Re-exported here so `mechanics::combat::hitbox::Hitbox`
 // (and `features::Hitbox`) paths are unchanged; the SYSTEMS below (damage
 // resolution, melee spawn, lifecycle) stay in the lib.
-pub use ambition_effects::{Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime};
+pub use ambition_vfx::{Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime};
 
 /// Apply each live hitbox's damage to the right faction's targets.
 ///

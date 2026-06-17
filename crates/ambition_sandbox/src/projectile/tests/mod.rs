@@ -21,7 +21,7 @@ use crate::input::ControlFrame;
 use crate::trace::GameplayTraceBuffer;
 use crate::world::physics::DebrisBurstMessage;
 use crate::GameWorld;
-use ambition_effects::vfx::VfxMessage;
+use ambition_vfx::vfx::VfxMessage;
 
 mod charging;
 mod collision;

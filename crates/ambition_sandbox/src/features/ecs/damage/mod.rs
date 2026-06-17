@@ -38,7 +38,7 @@ use crate::cutscene_trigger::CutsceneTriggerQueue;
 use crate::encounter::BossEncounterMusicRequest;
 use crate::features::ActorStimulus;
 use crate::world::physics::DebrisBurstMessage;
-use ambition_effects::vfx::VfxMessage;
+use ambition_vfx::vfx::VfxMessage;
 
 #[derive(SystemParam)]
 pub struct FeatureHitWriters<'w, 's> {

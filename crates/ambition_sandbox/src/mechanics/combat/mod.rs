@@ -23,7 +23,7 @@ use crate::platformer_runtime::lifecycle::RoomVisual;
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 use crate::world::platforms::MovingPlatformState;
 use crate::WorldTime;
-use ambition_effects::vfx::{ParticleKind, VfxMessage};
+use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
 /// Seconds a player must stand on a breakable before it shatters.
 const BREAK_ON_STAND_SECONDS: f32 = 0.85;

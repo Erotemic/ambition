@@ -22,7 +22,7 @@ use crate::player::BodyKinematics;
 use crate::projectile::ProjectileGameplay;
 use crate::trace::GameplayTraceBuffer;
 use crate::GameWorld;
-use ambition_effects::vfx::VfxMessage;
+use ambition_vfx::vfx::VfxMessage;
 
 /// Speed multiplier applied to a parried shot as it reverses — a timed parry
 /// sends the bolt back a little faster than it arrived.
@@ -38,7 +38,7 @@ fn lasersword_detonation(owner_id: &str, pos: ae::Vec2) -> Option<VfxMessage> {
         .starts_with("lasersword")
         .then_some(VfxMessage::Explosion {
             pos,
-            kind: ambition_effects::vfx::ExplosionKind::ClassicBurst,
+            kind: ambition_vfx::vfx::ExplosionKind::ClassicBurst,
             scale: 0.7,
         })
 }

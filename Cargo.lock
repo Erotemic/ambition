@@ -238,17 +238,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ambition_effects"
-version = "0.1.0"
-dependencies = [
- "ambition_actor",
- "ambition_engine_core",
- "ambition_platformer_runtime",
- "ambition_sfx",
- "bevy",
-]
-
-[[package]]
 name = "ambition_engine_core"
 version = "0.1.0"
 dependencies = [
@@ -331,11 +320,11 @@ version = "0.1.0"
 dependencies = [
  "ambition_asset_manager",
  "ambition_cutscene",
- "ambition_effects",
  "ambition_platformer_runtime",
  "ambition_portal_presentation",
  "ambition_sandbox",
  "ambition_sprite_sheet",
+ "ambition_vfx",
  "bevy",
  "leafwing-input-manager",
 ]
@@ -349,7 +338,6 @@ dependencies = [
  "ambition_audio",
  "ambition_combat",
  "ambition_cutscene",
- "ambition_effects",
  "ambition_engine_core",
  "ambition_gameplay_trace",
  "ambition_input",
@@ -362,6 +350,7 @@ dependencies = [
  "ambition_sprite_sheet",
  "ambition_time",
  "ambition_ui_nav",
+ "ambition_vfx",
  "avian2d",
  "bevy",
  "bevy-inspector-egui",
@@ -428,6 +417,17 @@ name = "ambition_ui_nav"
 version = "0.1.0"
 dependencies = [
  "ambition_input",
+ "bevy",
+]
+
+[[package]]
+name = "ambition_vfx"
+version = "0.1.0"
+dependencies = [
+ "ambition_actor",
+ "ambition_engine_core",
+ "ambition_platformer_runtime",
+ "ambition_sfx",
  "bevy",
 ]
 

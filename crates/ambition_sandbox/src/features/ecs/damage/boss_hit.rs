@@ -13,7 +13,7 @@ use crate::boss_encounter::{record_boss_damage, BossEncounterRegistry};
 use crate::cutscene_trigger::CutsceneTriggerQueue;
 use crate::encounter::BossEncounterMusicRequest;
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
-use ambition_effects::vfx::{ParticleKind, VfxMessage};
+use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
 use super::*;
 

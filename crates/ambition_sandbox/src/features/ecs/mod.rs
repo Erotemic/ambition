@@ -27,7 +27,7 @@ use super::*;
 use crate::audio::SfxMessage;
 use crate::platformer_runtime::lifecycle::RoomVisual;
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
-use ambition_effects::vfx::{ParticleKind, VfxMessage};
+use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 use bevy::prelude::{
     Commands, Component, Entity, MessageReader, MessageWriter, NextState, Query, Res, ResMut,
     Resource, With, Without,

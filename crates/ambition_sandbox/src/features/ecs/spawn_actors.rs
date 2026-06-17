@@ -554,7 +554,7 @@ pub(super) fn despawn_encounter_mobs(
 
 /// Lib-side executor for `Effect::Summon`: materializes each summon via
 /// `spawn_runtime_minion`. Lives next to the spawner (not in
-/// `effects::apply_effects`) so the `ambition_effects` crate stays free of the
+/// `effects::apply_effects`) so the `ambition_vfx` crate stays free of the
 /// enemy-roster substrate. Summons authored so far are all hostile-to-player.
 pub fn apply_summon_effects(
     mut commands: bevy::prelude::Commands,

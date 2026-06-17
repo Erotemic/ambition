@@ -515,7 +515,7 @@ fn emit_fireball_explosion(
     attacker: Option<Entity>,
     feature_damage: &mut MessageWriter<crate::features::HitEvent>,
     sfx: &mut MessageWriter<crate::audio::SfxMessage>,
-    vfx: &mut MessageWriter<ambition_effects::vfx::VfxMessage>,
+    vfx: &mut MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
     feature_damage.write(crate::features::HitEvent {
         volume: ae::Aabb::new(pos, Vec2::splat(half)),
@@ -533,9 +533,9 @@ fn emit_fireball_explosion(
         id: ambition_sfx::ids::WORLD_ROCK_HIT,
         pos,
     });
-    vfx.write(ambition_effects::vfx::VfxMessage::Explosion {
+    vfx.write(ambition_vfx::vfx::VfxMessage::Explosion {
         pos,
-        kind: ambition_effects::vfx::ExplosionKind::ClassicBurst,
+        kind: ambition_vfx::vfx::ExplosionKind::ClassicBurst,
         scale: 1.0,
     });
 }
@@ -688,7 +688,7 @@ pub fn held_projectile_step(
     >,
     mut feature_damage: MessageWriter<crate::features::HitEvent>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
-    mut vfx: MessageWriter<ambition_effects::vfx::VfxMessage>,
+    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
     let dt = time.sim_dt();
     if dt <= 0.0 {
@@ -764,7 +764,7 @@ pub fn held_projectile_step(
                     &mut vfx,
                 );
             } else {
-                vfx.write(ambition_effects::vfx::VfxMessage::Impact { pos: hit_pos });
+                vfx.write(ambition_vfx::vfx::VfxMessage::Impact { pos: hit_pos });
             }
             commands.entity(entity).despawn();
             continue;

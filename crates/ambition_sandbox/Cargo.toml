@@ -363,7 +363,7 @@ ambition_combat = { path = "../ambition_combat" }
 # Cutscene script format + runtime stepper (pure data; re-exported as
 # `presentation::cutscene::script`).
 ambition_cutscene = { path = "../ambition_cutscene" }
-ambition_effects = { path = "../ambition_effects" }
+ambition_vfx = { path = "../ambition_vfx" }
 ambition_engine_core = { path = "../ambition_engine_core" }
 ambition_interaction = { path = "../ambition_interaction" }
 # Device -> ControlFrame input layer (SandboxAction / ControlFrame / presets /

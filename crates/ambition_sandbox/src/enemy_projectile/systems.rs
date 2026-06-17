@@ -53,7 +53,7 @@ mod tests {
     use crate::audio::SfxMessage;
     use crate::engine_core as ae;
     use crate::features::{HitEvent, HitSource};
-    use ambition_effects::vfx::VfxMessage;
+    use ambition_vfx::vfx::VfxMessage;
 
     use crate::enemy_projectile::test_support::{enemy_projectile_bodies, spawn_enemy_projectile};
     use crate::enemy_projectile::EnemyProjectileSpawn;

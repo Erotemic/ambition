@@ -15,7 +15,7 @@ use bevy::prelude::Resource;
 
 // `EnemyProjectileSpawn` (a substrate-neutral projectile spawn request) moved
 // down to `ambition_platformer_runtime::projectile` so the foundation
-// `ambition_effects` vocabulary can reference it. Re-exported here at its
+// `ambition_vfx` vocabulary can reference it. Re-exported here at its
 // historical path.
 pub use ambition_platformer_runtime::projectile::EnemyProjectileSpawn;
 

@@ -27,8 +27,8 @@ ambition_sandbox = { path = "../ambition_sandbox", default-features = false, fea
     "portal",
 ] }
 ambition_platformer_runtime = { path = "../ambition_platformer_runtime" }
-# The VFX message vocabulary `fx` re-exports (`ambition_effects::vfx::*`).
-ambition_effects = { path = "../ambition_effects" }
+# The VFX message vocabulary `fx` re-exports (`ambition_vfx::vfx::*`).
+ambition_vfx = { path = "../ambition_vfx" }
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
 # The cutscene format + live state the cutscene UI plays back.
 ambition_cutscene = { path = "../ambition_cutscene" }

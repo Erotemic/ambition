@@ -44,6 +44,7 @@ pub struct ActionKeys {
     pub map: KeyCode,
     pub inventory: KeyCode,
     pub projectile: KeyCode,
+    pub trail_toggle: KeyCode,
     pub pause: KeyCode,
     pub select_reset: KeyCode,
     /// Optional dedicated pogo key. When `None`, pogo falls back to
@@ -100,6 +101,7 @@ impl KeyboardPreset {
                 map: KeyCode::Tab,
                 inventory: KeyCode::KeyI,
                 projectile: KeyCode::KeyV,
+                trail_toggle: KeyCode::KeyB,
                 pause: KeyCode::Escape,
                 select_reset: KeyCode::Delete,
                 dedicated_pogo: None,
@@ -129,6 +131,7 @@ impl KeyboardPreset {
                 map: KeyCode::Tab,
                 inventory: KeyCode::KeyV,
                 projectile: KeyCode::KeyH,
+                trail_toggle: KeyCode::KeyB,
                 pause: KeyCode::Escape,
                 select_reset: KeyCode::Delete,
                 dedicated_pogo: None,
@@ -158,6 +161,7 @@ impl KeyboardPreset {
                 map: KeyCode::Tab,
                 inventory: KeyCode::KeyI,
                 projectile: KeyCode::KeyV,
+                trail_toggle: KeyCode::KeyB,
                 pause: KeyCode::Escape,
                 select_reset: KeyCode::Delete,
                 dedicated_pogo: None,
@@ -187,6 +191,7 @@ impl KeyboardPreset {
                 map: KeyCode::Tab,
                 inventory: KeyCode::KeyV,
                 projectile: KeyCode::KeyL,
+                trail_toggle: KeyCode::KeyB,
                 pause: KeyCode::Escape,
                 select_reset: KeyCode::Delete,
                 dedicated_pogo: None,
@@ -279,6 +284,7 @@ impl KeyboardPreset {
         map.insert(SandboxAction::Map, self.actions.map);
         map.insert(SandboxAction::Inventory, self.actions.inventory);
         map.insert(SandboxAction::Projectile, self.actions.projectile);
+        map.insert(SandboxAction::TrailToggle, self.actions.trail_toggle);
         insert_optional(&mut map, SandboxAction::Pogo, self.actions.dedicated_pogo);
 
         // Gamepad bindings. Every action has a button so both input modes
@@ -371,6 +377,7 @@ impl KeyboardPreset {
             ("Modifier", self.actions.modifier),
             ("Fly", self.actions.utility),
             ("Fireball", self.actions.projectile),
+            ("Trail", self.actions.trail_toggle),
             ("Map", self.actions.map),
             ("Inventory", self.actions.inventory),
             ("Select", self.actions.select_reset),

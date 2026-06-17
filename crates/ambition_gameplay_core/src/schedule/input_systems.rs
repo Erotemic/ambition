@@ -75,6 +75,31 @@ pub fn attach_player_input_components(
         .insert((ActionState::<SandboxAction>::default(), input_map));
 }
 
+/// Toggle player-trail emission from the logical input action.
+///
+/// The physical key or button belongs to `KeyboardPreset::input_map`; this bridge
+/// only consumes the semantic `SandboxAction` and flips the simulation resource
+/// that the trail system reads.
+#[cfg(feature = "input")]
+pub fn toggle_player_trail_emission_from_actions(
+    mode: Res<State<GameMode>>,
+    player_input: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
+    enabled: Option<ResMut<crate::player::trail::PlayerTrailEnabled>>,
+) {
+    if !mode.get().allows_gameplay() {
+        return;
+    }
+    let Some(mut enabled) = enabled else {
+        return;
+    };
+    let Ok(actions) = player_input.single() else {
+        return;
+    };
+    if actions.just_pressed(&SandboxAction::TrailToggle) {
+        enabled.enabled = !enabled.enabled;
+    }
+}
+
 /// Bridge leafwing's `ActionState` into the sim-side `ControlFrame` resource.
 ///
 /// This is the visible-binary half of the ADR 0012 input seam. The sim

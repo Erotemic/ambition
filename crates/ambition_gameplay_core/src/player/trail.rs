@@ -1,127 +1,254 @@
-//! A generic verlet **trail** the player drags behind them (NOT a grapple/pull
-//! mechanic). A chain of verlet points pinned at the player; gravity makes it
-//! hang, distance constraints keep it taut, and (next increment) world collision
-//! makes it drape over ledges. Intended as the substrate for future "homotopy"
-//! skills/quests — a deformable curve through the world.
+//! Player-emitted **trail** mechanics.
 //!
-//! This module is the **pure, deterministic simulation** — no Bevy, no RNG — so
-//! the rope's shape is headless-testable even though its on-screen line is not.
-//! The ECS system + spawn + render wiring layer on top of [`verlet_step`].
+//! The trail is not a grapple/pull rope. It is the topological breadcrumb the
+//! player chooses to emit: while emission is ON, the trail samples the player's
+//! path in world space and grows behind them. Existing samples remain where they
+//! were placed instead of being dragged around by the player. When emission stops,
+//! a trail whose endpoint returns near its start closes into a cycle; otherwise it
+//! collapses away as an unfinished chain.
 //!
-//! Sim convention: **+Y is down** (so gravity is `+y` and the rope hangs toward
-//! larger `y`), matching the rest of the sandbox physics.
+//! This module keeps the simulation deterministic and mostly presentation-free:
+//! the pure helpers decide how a path is sampled, closed, or collapsed, while the
+//! Bevy systems only attach it to the primary player and draw the resulting
+//! polyline. Future homology/cohomology spells should consume [`PlayerTrail`]
+//! cycles rather than raw input gestures.
 
 use crate::engine_core as ae;
 use bevy::prelude::*;
 
-/// Number of rope segments (so `SEGMENTS + 1` points). Short enough to verlet
-/// cheaply every tick, long enough to drape a body-height ledge.
-pub const TRAIL_SEGMENTS: usize = 14;
-/// Rest length of each segment (px). `SEGMENTS * SEGMENT_LEN` ≈ the rope's reach.
-pub const TRAIL_SEGMENT_LEN: f32 = 18.0;
-/// Downward acceleration on the free points (px/s²). Heavier than player gravity
-/// so the rope settles quickly into a readable drape rather than floating.
-pub const TRAIL_GRAVITY: f32 = 1400.0;
-/// Jakobsen constraint-relaxation iterations per tick. More = stiffer / less
-/// stretchy rope; 16 keeps a 14-segment rope visually inextensible.
-pub const TRAIL_CONSTRAINT_ITERS: usize = 16;
-/// Velocity retention per tick (verlet implicit damping). `< 1.0` bleeds energy
-/// so the rope doesn't oscillate forever after the player stops.
-pub const TRAIL_DAMPING: f32 = 0.97;
+/// Minimum distance the player must move before the trail records another fixed
+/// sample. The live endpoint still follows the player every frame while emitting;
+/// this only controls how dense the preserved breadcrumb polyline is.
+pub const TRAIL_SAMPLE_SPACING: f32 = 10.0;
 
-/// Feature gate for the rope trail.
+/// Endpoint distance from the start point required to close an emitted trail into
+/// a cycle when the player stops emitting.
+pub const TRAIL_CLOSE_RADIUS: f32 = 24.0;
+
+/// A tiny wiggle near the start point should not count as a spell cycle even if
+/// its endpoint is technically close to its start.
+pub const TRAIL_MIN_CYCLE_LENGTH: f32 = 72.0;
+
+/// Minimum number of recorded samples, including the final endpoint, before a
+/// loop can close into a cycle.
+pub const TRAIL_MIN_CYCLE_POINTS: usize = 6;
+
+/// Safety cap for runaway trails. At the default sample spacing this is still a
+/// very long line for a platformer room, but it prevents accidental unbounded
+/// memory growth during long dev sessions.
+pub const TRAIL_MAX_POINTS: usize = 4096;
+
+/// Duration of the collapse animation for unfinished trails.
+pub const TRAIL_COLLAPSE_SECONDS: f32 = 0.22;
+
+/// Current global emission switch for the primary player.
 ///
-/// The trail is disabled by default. We can wire an explicit toggle later
-/// without changing the simulation plumbing again.
+/// `enabled == true` means the player is currently emitting a trail. It does not
+/// mean an already-closed trail should be hidden: closed cycles remain visible
+/// after emission is turned off.
 #[derive(Resource, Clone, Copy, Debug, Default)]
 pub struct PlayerTrailEnabled {
     pub enabled: bool,
 }
 
-/// One verlet point: current + previous position (velocity is implicit in their
-/// difference, the verlet integration trick).
+/// One sampled point on the emitted trail.
+///
+/// `prev` is kept for compatibility with earlier rope/debug code and future
+/// smoothing/collision work, but emitted trail samples are intentionally pinned in
+/// world space, so it is normally equal to `pos`.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct TrailPoint {
     pub pos: ae::Vec2,
     pub prev: ae::Vec2,
 }
 
-/// The player's dragged rope. `points[0]` is pinned to the player each tick; the
-/// rest are free verlet points.
+impl TrailPoint {
+    fn pinned(pos: ae::Vec2) -> Self {
+        Self { pos, prev: pos }
+    }
+}
+
+/// Lifecycle state of the player's current trail.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum TrailStatus {
+    /// Emission is active. `points` are fixed samples; `live_end` follows the
+    /// player until the next sample is committed.
+    Emitting,
+    /// Emission stopped near the start point, so the trail has become a closed
+    /// cycle. This is the state future homology spell code should inspect.
+    Closed,
+    /// Emission stopped with loose endpoints. The open chain has no stable loop
+    /// charge, so it is shrinking to a point and will be removed.
+    Collapsing { elapsed: f32 },
+}
+
+impl Default for TrailStatus {
+    fn default() -> Self {
+        Self::Emitting
+    }
+}
+
+/// The player's emitted trail.
+///
+/// `points` stores fixed world-space samples. While [`TrailStatus::Emitting`],
+/// `live_end` is the current unsampled endpoint attached to the player's body.
 #[derive(Component, Clone, Debug)]
 pub struct PlayerTrail {
     pub points: Vec<TrailPoint>,
+    pub live_end: ae::Vec2,
+    pub status: TrailStatus,
 }
 
 impl PlayerTrail {
-    /// A fresh rope hanging straight down from `anchor` (all points at rest, so
-    /// the first frame doesn't snap).
-    pub fn hanging_from(anchor: ae::Vec2, segments: usize, seg_len: f32) -> Self {
-        let points = (0..=segments)
-            .map(|i| {
-                let p = ae::Vec2::new(anchor.x, anchor.y + i as f32 * seg_len);
-                TrailPoint { pos: p, prev: p }
-            })
-            .collect();
-        Self { points }
-    }
-}
-
-/// Advance the rope one step: pin `points[0]` to `anchor`, integrate the free
-/// points under gravity, then relax the segment distance constraints toward
-/// `seg_len`. Pure + deterministic — the testable core of the rope.
-pub fn verlet_step(
-    points: &mut [TrailPoint],
-    anchor: ae::Vec2,
-    gravity: f32,
-    dt: f32,
-    seg_len: f32,
-    iters: usize,
-) {
-    if points.is_empty() {
-        return;
-    }
-    // Pin the head to the player (carry no velocity into it).
-    points[0].pos = anchor;
-    points[0].prev = anchor;
-
-    // Verlet integrate the free points: x' = x + (x - x_prev) * damping + a*dt².
-    let accel = ae::Vec2::new(0.0, gravity);
-    let dt2 = dt * dt;
-    for p in points.iter_mut().skip(1) {
-        let vel = (p.pos - p.prev) * TRAIL_DAMPING;
-        p.prev = p.pos;
-        p.pos = p.pos + vel + accel * dt2;
-    }
-
-    // Jakobsen relaxation: pull each segment back toward its rest length,
-    // keeping the head pinned. A few iterations make the rope ~inextensible.
-    for _ in 0..iters {
-        points[0].pos = anchor;
-        for i in 0..points.len() - 1 {
-            let a = points[i].pos;
-            let b = points[i + 1].pos;
-            let delta = b - a;
-            let dist = delta.length();
-            if dist < 1e-6 {
-                continue;
-            }
-            let diff = (dist - seg_len) / dist;
-            let correction = delta * (0.5 * diff);
-            if i == 0 {
-                // Head is pinned — move only the tail point of this segment, by
-                // the full correction.
-                points[i + 1].pos = b - correction * 2.0;
-            } else {
-                points[i].pos = a + correction;
-                points[i + 1].pos = b - correction;
-            }
+    /// Start a fresh emitted trail at `anchor`.
+    pub fn emitting_from(anchor: ae::Vec2) -> Self {
+        Self {
+            points: vec![TrailPoint::pinned(anchor)],
+            live_end: anchor,
+            status: TrailStatus::Emitting,
         }
     }
+
+    /// Whether this trail has closed into a stable cycle.
+    pub fn is_closed_cycle(&self) -> bool {
+        matches!(self.status, TrailStatus::Closed)
+    }
+
+    /// Append fixed samples between the previous fixed sample and `anchor` while
+    /// keeping the live endpoint on the player. Existing samples are not moved.
+    pub fn emit_to(&mut self, anchor: ae::Vec2) {
+        if !matches!(self.status, TrailStatus::Emitting) {
+            return;
+        }
+        if self.points.is_empty() {
+            self.points.push(TrailPoint::pinned(anchor));
+            self.live_end = anchor;
+            return;
+        }
+
+        self.live_end = anchor;
+        let mut last = self.points.last().map(|p| p.pos).unwrap_or(anchor);
+        let mut delta = anchor - last;
+        let mut dist = delta.length();
+        while dist >= TRAIL_SAMPLE_SPACING && self.points.len() < TRAIL_MAX_POINTS {
+            let dir = delta / dist;
+            last += dir * TRAIL_SAMPLE_SPACING;
+            self.points.push(TrailPoint::pinned(last));
+            delta = anchor - last;
+            dist = delta.length();
+        }
+    }
+
+    /// Stop emission. Near-returning paths become closed cycles; open paths start
+    /// collapsing toward their centroid.
+    pub fn finish_emission(&mut self, final_anchor: ae::Vec2) {
+        if !matches!(self.status, TrailStatus::Emitting) {
+            return;
+        }
+        self.live_end = final_anchor;
+        self.push_endpoint_if_distinct(final_anchor);
+
+        if self.can_close(final_anchor) {
+            let start = self.points[0].pos;
+            if let Some(last) = self.points.last_mut() {
+                if last.pos.distance(start) <= 1.0 {
+                    *last = TrailPoint::pinned(start);
+                } else if self.points.len() < TRAIL_MAX_POINTS {
+                    self.points.push(TrailPoint::pinned(start));
+                }
+            }
+            self.live_end = start;
+            self.status = TrailStatus::Closed;
+        } else {
+            self.status = TrailStatus::Collapsing { elapsed: 0.0 };
+        }
+    }
+
+    /// Advance the collapse animation. Returns `true` once the component can be
+    /// removed.
+    pub fn collapse_step(&mut self, dt: f32) -> bool {
+        let TrailStatus::Collapsing { elapsed } = self.status else {
+            return false;
+        };
+        let next_elapsed = elapsed + dt.max(0.0);
+        let finished = next_elapsed >= TRAIL_COLLAPSE_SECONDS;
+        let center = self.centroid();
+        let t = if TRAIL_COLLAPSE_SECONDS <= 0.0 {
+            1.0
+        } else {
+            (dt.max(0.0) / TRAIL_COLLAPSE_SECONDS).clamp(0.0, 1.0)
+        };
+        for p in &mut self.points {
+            p.pos = p.pos.lerp(center, t);
+            p.prev = p.pos;
+        }
+        self.live_end = self.live_end.lerp(center, t);
+        self.status = TrailStatus::Collapsing {
+            elapsed: next_elapsed,
+        };
+        finished
+    }
+
+    /// Points to draw this frame, including the live endpoint while emitting.
+    pub fn render_points(&self) -> Vec<ae::Vec2> {
+        let mut out: Vec<ae::Vec2> = self.points.iter().map(|p| p.pos).collect();
+        if matches!(self.status, TrailStatus::Emitting) {
+            if out
+                .last()
+                .map_or(true, |last| last.distance(self.live_end) > 0.5)
+            {
+                out.push(self.live_end);
+            }
+        }
+        out
+    }
+
+    fn push_endpoint_if_distinct(&mut self, endpoint: ae::Vec2) {
+        if self.points.is_empty() {
+            self.points.push(TrailPoint::pinned(endpoint));
+            return;
+        }
+        if self
+            .points
+            .last()
+            .is_some_and(|last| last.pos.distance(endpoint) > 0.5)
+            && self.points.len() < TRAIL_MAX_POINTS
+        {
+            self.points.push(TrailPoint::pinned(endpoint));
+        }
+    }
+
+    fn can_close(&self, endpoint: ae::Vec2) -> bool {
+        let Some(start) = self.points.first().map(|p| p.pos) else {
+            return false;
+        };
+        self.points.len() >= TRAIL_MIN_CYCLE_POINTS
+            && self.path_length() >= TRAIL_MIN_CYCLE_LENGTH
+            && endpoint.distance(start) <= TRAIL_CLOSE_RADIUS
+    }
+
+    fn path_length(&self) -> f32 {
+        self.points
+            .windows(2)
+            .map(|w| w[0].pos.distance(w[1].pos))
+            .sum()
+    }
+
+    fn centroid(&self) -> ae::Vec2 {
+        if self.points.is_empty() {
+            return self.live_end;
+        }
+        let sum = self
+            .points
+            .iter()
+            .fold(ae::Vec2::ZERO, |acc, p| acc + p.pos);
+        sum / self.points.len() as f32
+    }
 }
 
-/// Give the primary player a rope if it doesn't have one yet (so the trail
-/// starts hanging from wherever the player currently is, no first-frame snap).
+/// Give the primary player an emitting trail if emission is already enabled but
+/// the player does not have a trail component yet. This covers spawn/reset cases
+/// and headless tests that flip [`PlayerTrailEnabled`] directly.
 pub fn ensure_player_trail(
     mut commands: Commands,
     enabled: Option<Res<PlayerTrailEnabled>>,
@@ -134,126 +261,99 @@ pub fn ensure_player_trail(
         ),
     >,
 ) {
-    if !enabled.is_some_and(|enabled| enabled.enabled) {
+    let emission_enabled = enabled.as_ref().is_some_and(|enabled| enabled.enabled);
+    if !emission_enabled {
         return;
     }
     for (entity, kin) in &players {
-        let anchor = rope_anchor(kin);
         commands
             .entity(entity)
-            .insert(PlayerTrail::hanging_from(
-                anchor,
-                TRAIL_SEGMENTS,
-                TRAIL_SEGMENT_LEN,
-            ));
+            .insert(PlayerTrail::emitting_from(trail_anchor(kin)));
     }
 }
 
-/// Drape the rope over world solids: each free point sweeps from its previous to
-/// its new position; if that move crosses a solid surface, the point rests on
-/// the surface instead of tunnelling through (and its velocity into the surface
-/// is killed, so it drapes rather than bounces). This is the "drape down onto the
-/// collision" half of the feature. Pure given a world — testable with a fixture.
-pub fn resolve_trail_collisions(points: &mut [TrailPoint], world: &ae::World) {
-    // Skip the pinned head (it lives wherever the player is, even inside geometry
-    // briefly during a transit).
-    for p in points.iter_mut().skip(1) {
-        let delta = p.pos - p.prev;
-        let dist = delta.length();
-        if dist < 1e-4 {
-            continue;
-        }
-        let dir = delta / dist;
-        if let Some((hit, _normal)) =
-            crate::platformer_runtime::collision::raycast_solids(world, p.prev, dir, dist, false)
-        {
-            // Rest on the surface; pin prev=pos so it doesn't carry momentum into
-            // the solid next tick (a drape, not a bounce).
-            p.pos = hit;
-            p.prev = hit;
-        }
-    }
-}
-
-/// Advance the player's rope one sim step, pinned to the player's hip, then drape
-/// it over the world. Uses `sim_dt` so bullet-time / pause slow the rope with the
-/// rest of the world (`[[feedback_world_time_pattern]]`).
+/// Advance the player's emitted trail: append samples while emission is active,
+/// or animate unfinished trails as they collapse away.
 pub fn update_player_trail(
     world_time: Res<crate::WorldTime>,
-    world: Option<Res<crate::GameWorld>>,
     enabled: Option<Res<PlayerTrailEnabled>>,
+    mut commands: Commands,
     mut players: Query<
-        (&crate::player::BodyKinematics, &mut PlayerTrail),
+        (Entity, &crate::player::BodyKinematics, &mut PlayerTrail),
         With<crate::player::PlayerEntity>,
     >,
 ) {
-    if !enabled.is_some_and(|enabled| enabled.enabled) {
-        return;
-    }
     let dt = world_time.sim_dt();
-    if dt <= 0.0 {
-        return;
-    }
-    for (kin, mut rope) in &mut players {
-        let anchor = rope_anchor(kin);
-        verlet_step(
-            &mut rope.points,
-            anchor,
-            TRAIL_GRAVITY,
-            dt,
-            TRAIL_SEGMENT_LEN,
-            TRAIL_CONSTRAINT_ITERS,
-        );
-        if let Some(w) = world.as_deref() {
-            resolve_trail_collisions(&mut rope.points, &w.0);
+    let emission_enabled = enabled.as_ref().is_some_and(|enabled| enabled.enabled);
+    for (entity, kin, mut trail) in &mut players {
+        let anchor = trail_anchor(kin);
+        match trail.status {
+            TrailStatus::Emitting => {
+                if emission_enabled {
+                    trail.emit_to(anchor);
+                } else {
+                    trail.finish_emission(anchor);
+                }
+            }
+            TrailStatus::Closed => {
+                if emission_enabled {
+                    *trail = PlayerTrail::emitting_from(anchor);
+                }
+            }
+            TrailStatus::Collapsing { .. } => {
+                if emission_enabled {
+                    *trail = PlayerTrail::emitting_from(anchor);
+                } else if trail.collapse_step(dt) {
+                    commands.entity(entity).remove::<PlayerTrail>();
+                }
+            }
         }
     }
 }
 
-/// The rope's pin point: the player's hip (centre, lowered slightly) so the
-/// trail reads as dragged from the body rather than the head.
-fn rope_anchor(kin: &crate::player::BodyKinematics) -> ae::Vec2 {
+/// The trail's sampling point: the player's centre. Keeping this as a helper lets
+/// future work move the emission point to a hand/hip socket without touching the
+/// trail state machine.
+fn trail_anchor(kin: &crate::player::BodyKinematics) -> ae::Vec2 {
     use crate::engine_core::AabbExt;
     kin.aabb().center()
 }
 
-/// Hemp/manila rope colour — warm brown, fully opaque so the line reads against
-/// both bright and dark backgrounds.
-const TRAIL_COLOR: Color = Color::srgb(0.62, 0.47, 0.30);
+const TRAIL_EMITTING_COLOR: Color = Color::srgb(0.62, 0.47, 0.30);
+const TRAIL_CLOSED_COLOR: Color = Color::srgb(0.95, 0.78, 0.32);
+const TRAIL_COLLAPSING_COLOR: Color = Color::srgb(0.40, 0.32, 0.26);
 
-/// Draw the rope as a single gizmo linestrip through its points, mapped from sim
-/// space into Bevy world space. This is presentation-only (no sim state touched),
-/// so it is harness-blind but replay-neutral. Drawn just behind the player so the
-/// rope reads as trailing from the body.
+/// Draw each trail as a gizmo linestrip in Bevy world space. Closed cycles remain
+/// visible even after emission has been turned off.
 pub fn render_player_trail(
     world: Option<Res<crate::GameWorld>>,
-    enabled: Option<Res<PlayerTrailEnabled>>,
     ropes: Query<&PlayerTrail, With<crate::player::PlayerEntity>>,
     mut gizmos: Gizmos,
 ) {
-    if !enabled.is_some_and(|enabled| enabled.enabled) {
-        return;
-    }
     let Some(world) = world.as_deref() else {
         return;
     };
     let z = crate::config::WORLD_Z_PLAYER - 0.1;
     for rope in &ropes {
-        if rope.points.len() < 2 {
+        let pts = rope.render_points();
+        if pts.len() < 2 {
             continue;
         }
-        let pts = rope
-            .points
-            .iter()
-            .map(|p| crate::config::world_to_bevy(&world.0, p.pos, z).truncate());
-        gizmos.linestrip_2d(pts, TRAIL_COLOR);
+        let color = match rope.status {
+            TrailStatus::Emitting => TRAIL_EMITTING_COLOR,
+            TrailStatus::Closed => TRAIL_CLOSED_COLOR,
+            TrailStatus::Collapsing { .. } => TRAIL_COLLAPSING_COLOR,
+        };
+        let bevy_pts = pts
+            .into_iter()
+            .map(|p| crate::config::world_to_bevy(&world.0, p, z).truncate());
+        gizmos.linestrip_2d(bevy_pts, color);
     }
 }
 
-/// Passive plugin: the rope trail is disabled by default, but once enabled it
-/// keeps the player carrying a verlet trail rope, simulates its drape against
-/// world solids, and draws it as a gizmo linestrip. Portal transit (the rope
-/// threading an aperture) is the documented next increment.
+/// Trail plugin: registers the emission state, sampling/update, and debug-line
+/// rendering. Input systems may toggle [`PlayerTrailEnabled`], but this module
+/// does not know which physical key or device action caused that change.
 pub struct PlayerTrailPlugin;
 
 impl Plugin for PlayerTrailPlugin {
@@ -261,14 +361,13 @@ impl Plugin for PlayerTrailPlugin {
         app.init_resource::<PlayerTrailEnabled>();
         app.add_systems(
             Update,
-            (
-                (ensure_player_trail, update_player_trail).chain(),
-                // Gizmo rendering only runs once the GizmoPlugin's config store
-                // exists — headless apps (replay/tests) carry no gizmos, so the
-                // draw system simply doesn't run there.
-                render_player_trail
-                    .run_if(resource_exists::<bevy::gizmos::config::GizmoConfigStore>),
-            ),
+            (ensure_player_trail, update_player_trail)
+                .chain()
+                .in_set(crate::schedule::SandboxSet::CoreSimulation),
+        );
+        app.add_systems(
+            Update,
+            render_player_trail.run_if(resource_exists::<bevy::gizmos::config::GizmoConfigStore>),
         );
     }
 }
@@ -277,140 +376,82 @@ impl Plugin for PlayerTrailPlugin {
 mod tests {
     use super::*;
 
-    fn settle(anchor: ae::Vec2, frames: usize) -> Vec<TrailPoint> {
-        // Start the rope laid out HORIZONTALLY (all at anchor.y) so we can watch
-        // it fall and drape, not just confirm a pre-hung shape.
-        let mut points: Vec<TrailPoint> = (0..=TRAIL_SEGMENTS)
-            .map(|i| {
-                let p = ae::Vec2::new(anchor.x + i as f32 * TRAIL_SEGMENT_LEN, anchor.y);
-                TrailPoint { pos: p, prev: p }
-            })
-            .collect();
-        for _ in 0..frames {
-            verlet_step(
-                &mut points,
-                anchor,
-                TRAIL_GRAVITY,
-                1.0 / 60.0,
-                TRAIL_SEGMENT_LEN,
-                TRAIL_CONSTRAINT_ITERS,
-            );
-        }
-        points
+    fn v(x: f32, y: f32) -> ae::Vec2 {
+        ae::Vec2::new(x, y)
     }
 
     #[test]
-    fn rope_head_stays_pinned_to_the_anchor() {
-        let anchor = ae::Vec2::new(640.0, 400.0);
-        let points = settle(anchor, 5);
-        assert_eq!(points[0].pos, anchor, "head is pinned to the player");
-    }
-
-    #[test]
-    fn rope_falls_and_hangs_below_the_anchor() {
-        let anchor = ae::Vec2::new(640.0, 400.0);
-        let points = settle(anchor, 240); // ~4s — plenty to settle
-                                          // +Y is down: a settled rope hangs, so the tail sits well below the head.
-        let tail = points.last().unwrap();
-        assert!(
-            tail.pos.y > anchor.y + TRAIL_SEGMENT_LEN * 4.0,
-            "tail {:?} should hang well below the anchor {anchor:?}",
-            tail.pos,
-        );
-        // And it hangs roughly straight down (no sideways drift without forces).
-        assert!(
-            (tail.pos.x - anchor.x).abs() < TRAIL_SEGMENT_LEN * 2.0,
-            "settled rope hangs ~straight down, tail x={} vs anchor x={}",
-            tail.pos.x,
-            anchor.x,
-        );
-    }
-
-    #[test]
-    fn segments_stay_near_their_rest_length() {
-        let anchor = ae::Vec2::new(640.0, 400.0);
-        let points = settle(anchor, 240);
-        for w in points.windows(2) {
-            let len = (w[1].pos - w[0].pos).length();
-            assert!(
-                (len - TRAIL_SEGMENT_LEN).abs() < TRAIL_SEGMENT_LEN * 0.25,
-                "segment length {len} drifted from rest {TRAIL_SEGMENT_LEN} — rope is too stretchy",
-            );
-        }
-    }
-
-    #[test]
-    fn rope_drapes_over_a_floor_instead_of_tunnelling_through() {
-        // A floor solid at y[200,220] spanning the arena; the anchor sits above
-        // it at y=100. Free-hanging the rope would reach y ≈ 100 + 14*18 = 352,
-        // well past the floor — so a correct drape must rest it on top (~y=200).
-        let world = ae::World::new(
-            "rope_drape_test",
-            ae::Vec2::new(900.0, 400.0),
-            ae::Vec2::new(450.0, 50.0),
-            vec![ae::Block::solid(
-                "floor",
-                ae::Vec2::new(0.0, 200.0),
-                ae::Vec2::new(900.0, 20.0),
-            )],
-        );
-        let anchor = ae::Vec2::new(450.0, 100.0);
-        // Lay the rope out HORIZONTALLY just above the floor so it has to fall
-        // onto it (spread points so the segment constraints engage — coincident
-        // points have no direction to relax along).
-        let mut points: Vec<TrailPoint> = (0..=TRAIL_SEGMENTS)
-            .map(|i| {
-                let p = ae::Vec2::new(anchor.x + i as f32 * TRAIL_SEGMENT_LEN, anchor.y);
-                TrailPoint { pos: p, prev: p }
-            })
-            .collect();
-        for _ in 0..300 {
-            verlet_step(
-                &mut points,
-                anchor,
-                TRAIL_GRAVITY,
-                1.0 / 60.0,
-                TRAIL_SEGMENT_LEN,
-                TRAIL_CONSTRAINT_ITERS,
-            );
-            resolve_trail_collisions(&mut points, &world);
-        }
-        // No point sinks meaningfully past the floor's top face (y=200).
-        for p in &points {
-            assert!(
-                p.pos.y <= 200.0 + TRAIL_SEGMENT_LEN,
-                "rope point {:?} tunnelled through the floor (top y=200)",
-                p.pos,
-            );
-        }
-        // And the rope actually reached the floor (it didn't just float) — the
-        // tail rests near it, not way up at the anchor.
-        assert!(
-            points.last().unwrap().pos.y > 150.0,
-            "the rope should have fallen down onto the floor",
-        );
-    }
-
-    #[test]
-    fn rope_is_disabled_by_default() {
+    fn trail_emission_is_disabled_by_default() {
         assert!(
             !PlayerTrailEnabled::default().enabled,
-            "the trail should start disabled until an explicit toggle exists",
+            "the trail should start inactive until the player toggles emission",
         );
     }
 
     #[test]
-    fn an_empty_rope_is_a_no_op() {
-        // Degenerate guard — never panics on an empty point list.
-        let mut points: Vec<TrailPoint> = Vec::new();
-        verlet_step(
-            &mut points,
-            ae::Vec2::ZERO,
-            TRAIL_GRAVITY,
-            1.0 / 60.0,
-            TRAIL_SEGMENT_LEN,
-            4,
+    fn emitting_trail_samples_movement_but_keeps_old_points_fixed() {
+        let mut trail = PlayerTrail::emitting_from(v(0.0, 0.0));
+        trail.emit_to(v(TRAIL_SAMPLE_SPACING * 2.5, 0.0));
+
+        assert_eq!(trail.points[0].pos, v(0.0, 0.0));
+        assert!(
+            trail.points.len() >= 3,
+            "moving several sample spacings should commit breadcrumb samples",
         );
-        assert!(points.is_empty());
+        assert_eq!(trail.live_end, v(TRAIL_SAMPLE_SPACING * 2.5, 0.0));
+    }
+
+    #[test]
+    fn near_returning_trail_finishes_as_closed_cycle() {
+        let mut trail = PlayerTrail::emitting_from(v(0.0, 0.0));
+        for p in [
+            v(30.0, 0.0),
+            v(60.0, 0.0),
+            v(60.0, 30.0),
+            v(30.0, 60.0),
+            v(0.0, 60.0),
+            v(0.0, 20.0),
+            v(3.0, 2.0),
+        ] {
+            trail.emit_to(p);
+        }
+        trail.finish_emission(v(3.0, 2.0));
+
+        assert!(trail.is_closed_cycle());
+        assert_eq!(
+            trail.points.first().unwrap().pos,
+            trail.points.last().unwrap().pos
+        );
+    }
+
+    #[test]
+    fn far_endpoint_finishes_as_collapsing_open_chain() {
+        let mut trail = PlayerTrail::emitting_from(v(0.0, 0.0));
+        for p in [v(40.0, 0.0), v(80.0, 0.0), v(120.0, 0.0)] {
+            trail.emit_to(p);
+        }
+        trail.finish_emission(v(120.0, 0.0));
+
+        assert!(matches!(trail.status, TrailStatus::Collapsing { .. }));
+    }
+
+    #[test]
+    fn tiny_near_start_wiggle_does_not_form_a_cycle() {
+        let mut trail = PlayerTrail::emitting_from(v(0.0, 0.0));
+        trail.emit_to(v(5.0, 0.0));
+        trail.emit_to(v(2.0, 1.0));
+        trail.finish_emission(v(2.0, 1.0));
+
+        assert!(matches!(trail.status, TrailStatus::Collapsing { .. }));
+    }
+
+    #[test]
+    fn collapse_step_eventually_removes_open_chain() {
+        let mut trail = PlayerTrail::emitting_from(v(0.0, 0.0));
+        trail.emit_to(v(100.0, 0.0));
+        trail.finish_emission(v(100.0, 0.0));
+
+        assert!(!trail.collapse_step(TRAIL_COLLAPSE_SECONDS * 0.5));
+        assert!(trail.collapse_step(TRAIL_COLLAPSE_SECONDS));
     }
 }

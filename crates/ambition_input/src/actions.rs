@@ -47,6 +47,13 @@ pub enum SandboxAction {
     /// and the gamepad West face button (with Attack on the same button
     /// when no projectile is unlocked yet — sandbox always-on for now).
     Projectile,
+    /// Toggle player trail emission.
+    ///
+    /// The physical binding lives in the keyboard preset, not in gameplay code.
+    /// This is intentionally separate from projectile/spell input: the trail is
+    /// a persistent topological drawing mode, so it starts/stops on a press edge
+    /// instead of firing an instantaneous ability.
+    TrailToggle,
     /// Menu navigation seam. These are the only actions the pause /
     /// settings menu reads; gameplay never consumes them. Bindings:
     /// arrow keys, WASD, D-pad, left stick (with deadzone applied

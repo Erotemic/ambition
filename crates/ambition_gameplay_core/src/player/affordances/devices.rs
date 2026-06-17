@@ -181,6 +181,7 @@ fn keyboard_glyph(action: SandboxAction, preset: &KeyboardPreset) -> &'static st
         SandboxAction::Reset => key_glyph(keys.select_reset),
         SandboxAction::Start => key_glyph(keys.pause),
         SandboxAction::Projectile => key_glyph(keys.projectile),
+        SandboxAction::TrailToggle => key_glyph(keys.trail_toggle),
         SandboxAction::MenuNavigateUp
         | SandboxAction::MenuNavigateDown
         | SandboxAction::MenuNavigateLeft
@@ -234,6 +235,7 @@ fn gamepad_glyph(action: SandboxAction, kind: GamepadKind) -> &'static str {
         SandboxAction::Modifier => lt,
         SandboxAction::Utility => lb,
         SandboxAction::Projectile => north,
+        SandboxAction::TrailToggle => "",
         SandboxAction::Map => "L3",
         SandboxAction::Inventory => "R3",
         SandboxAction::Pogo => "D+X",

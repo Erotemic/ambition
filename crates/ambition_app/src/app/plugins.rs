@@ -70,8 +70,8 @@ pub fn add_simulation_plugins(app: &mut App) {
     register_player_simulation_systems(app);
     // Ambition's player ability/weapon kit plus its small shared app state.
     app.add_plugins(ambition_gameplay_core::abilities::AmbitionAbilitiesPlugin);
-    // "Tie a knot": the passive verlet trail rope the player drags. The rope
-    // feature is currently gated off by default inside player/trail.rs.
+    // "Tie a knot": the emitted player trail used as the substrate for future
+    // cycle/spell mechanics. Emission starts disabled until input toggles it.
     app.add_plugins(ambition_gameplay_core::player::trail::PlayerTrailPlugin);
     // Gravity zones / switches and their per-frame ambient-gravity snapshot.
     app.add_plugins(ambition_gameplay_core::gravity::GravityPlugin);
@@ -899,6 +899,7 @@ pub(super) fn add_input_plugins(app: &mut App) {
                 populate_menu_control_frame_from_actions,
                 populate_control_frame_from_actions
                     .in_set(ambition_gameplay_core::input::InputSet::Populate),
+                toggle_player_trail_emission_from_actions,
                 apply_menu_frame_to_cutscene_request,
                 dialog::dialog_pointer_input,
             )

@@ -14,6 +14,7 @@ mod schedule;
 #[cfg(feature = "input")]
 pub use input_systems::{
     apply_menu_frame_to_cutscene_request, attach_player_input_components,
-    populate_control_frame_from_actions, populate_menu_control_frame_from_actions, MenuNavConsume,
+    populate_control_frame_from_actions, populate_menu_control_frame_from_actions,
+    toggle_player_trail_emission_from_actions, MenuNavConsume,
 };
 pub use schedule::{configure_sandbox_sets, BossSteerSlot, PresentationSetupSet, SandboxSet};

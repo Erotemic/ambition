@@ -26,6 +26,7 @@ serial=""
 launch_mode="auto"
 warmup_seconds="0"
 device_perf="/data/local/tmp/ambition.simpleperf.data"
+device_heap_trace="/data/misc/perfetto-traces/ambition.heap.${stamp}.perfetto-trace"
 keep_device_file="no"
 report_timeout="45"
 profile_build="no"
@@ -39,6 +40,9 @@ include_raw_data="yes"
 include_large_reports="no"
 large_report_limit_mb="64"
 callgraph_head_lines="40000"
+symbol_lib_name="libambition_app.so"
+heap_sampling_interval_bytes="4096"
+heap_dump_interval_ms="5000"
 
 usage() {
     cat <<'USAGE'
@@ -47,6 +51,7 @@ Usage:
 
 Modes:
   record      Record a simpleperf CPU profile, pull perf.data, and emit reports.
+  heap        Record a Perfetto/heapprofd native heap allocation trace.
   stat        Run simpleperf stat and package the text output.
   gfxinfo     Reset and capture dumpsys gfxinfo for the app.
   prepare     Build/install a symbol-friendly profiling APK and exit.
@@ -58,6 +63,12 @@ Common one-command workflows:
 
   # App is already running in the slow state; do not relaunch.
   scripts/profile_android.sh all --no-launch --duration 30
+
+  # App is already running in the slow state; capture allocation callstacks.
+  scripts/profile_android.sh heap --no-launch --duration 30
+
+  # Attach to the currently running app without rebuilding, reinstalling, or relaunching.
+  scripts/profile_android.sh heap --no-launch --duration 60 --heap-sampling-interval 4096
 
   # Build/install symbols first, then manually open the menu and attach.
   scripts/profile_android.sh prepare --profile-build
@@ -81,11 +92,14 @@ Options:
   --auto-launch           Launch only if the app is not already running. Default.
   --warmup SEC            Sleep before capture after launch/check. Default: 0.
   --device-perf PATH      Device-side perf.data path. Default: /data/local/tmp/ambition.simpleperf.data.
+  --device-heap-trace PATH
+                           Device-side Perfetto heap trace path.
+                           Default: /data/misc/perfetto-traces/ambition.heap.${stamp}.perfetto-trace.
   --keep-device-file      Do not remove the device-side perf.data at the end.
   --report-timeout SEC    Max seconds per report command. Default: 45.
 
 Symbol/profile-build options:
-  --profile-build         Run ./build_for_android.sh before capture with --no-strip --install --no-logs.
+  --profile-build         Run ./build_for_android.sh before capture with --no-strip --fresh-install --no-logs.
   --build-profile NAME    With --profile-build, use a Cargo profile. Default: android-profile.
   --build-release         With --profile-build, build Rust release native library.
   --build-debug           With --profile-build, build Rust dev native library.
@@ -93,9 +107,17 @@ Symbol/profile-build options:
   --symfs DIR             Add host simpleperf --symfs DIR. Repeatable.
   --no-auto-symfs         Do not build an output symfs mirror for host simpleperf.
   --include-symbol-candidates
-                           Copy discovered libambition_sandbox.so candidates into output.
+                           Copy discovered libambition_app.so candidates into output.
   --include-symbol-files  Include heavy .so/symfs symbol files in the upload tarball.
                            By default, symbols stay in the local output dir only.
+
+Heap profiling options:
+  --heap-sampling-interval BYTES
+                           Native heap sampling interval for heapprofd. Default: 4096.
+                           Increase, e.g. 16384, if heapprofd reports buffer overruns.
+  --heap-dump-interval-ms MS
+                           Continuous heap dump interval. Default: 5000.
+                           Set 0 to keep only the final dump.
 
 Packaging options:
   --include-raw-data      Include perf.data in upload tarball. Default for Android.
@@ -109,9 +131,24 @@ Packaging options:
 
 Notes:
   - simpleperf uses --app with cpu-clock by default to avoid hardware counter permission failures.
+  - heap mode writes the device trace under /data/misc/perfetto-traces and
+    copies it back as heap.perfetto-trace. Open it at https://ui.perfetto.dev,
+    click the Native heap profile track, and switch between Total Malloc Size
+    and Total Malloc Count to find allocation churn.
   - --profile-build installs a symbol-friendly APK and therefore restarts/kills the app.
-  - If device reports still show libambition_sandbox.so[+offset], install with --profile-build
+  - Do not combine --profile-build with --no-launch. To profile the current
+    running app state, first run prepare --profile-build if needed, navigate on
+    the phone, then run heap/all with --no-launch and without --profile-build.
+  - --profile-build also forces an ELF Build ID on the aarch64 app library so
+    Perfetto/simpleperf can match captured mappings to local symbols.
+  - If device reports still show libambition_app.so[+offset], install with --profile-build
     and ensure host simpleperf is available on PATH, or pass --symfs to the unstripped build tree.
+
+Jon's local Android tool paths, because future-you will forget:
+  export PATH="/home/joncrall/Android/Sdk/ndk/27.2.12479018/simpleperf/bin/linux/x86_64:$PATH"
+  /home/joncrall/Android/Sdk/ndk/27.2.12479018/simpleperf/bin/linux/x86_64/simpleperf
+  /data/tmp/shitspotter-app-toolchain/android-sdk/ndk/26.3.11579264/simpleperf/bin/linux/x86_64/simpleperf
+  Do not use the bin/android/* simpleperf binaries on the host; those run on devices.
 USAGE
 }
 
@@ -123,7 +160,7 @@ is_nonnegative_int() { [[ "$1" =~ ^[0-9]+$ ]]; }
 quote_cmd() { printf '%q ' "$@"; }
 
 parse_mode_or_option() {
-    case "$1" in record|stat|gfxinfo|prepare|all) mode="$1"; return 0 ;; *) return 1 ;; esac
+    case "$1" in record|heap|stat|gfxinfo|prepare|all) mode="$1"; return 0 ;; *) return 1 ;; esac
 }
 
 while [[ $# -gt 0 ]]; do
@@ -153,6 +190,8 @@ while [[ $# -gt 0 ]]; do
         --warmup=*) warmup_seconds="${1#--warmup=}"; is_nonnegative_int "$warmup_seconds" || fail "--warmup must be non-negative" ;;
         --device-perf) shift; [[ $# -gt 0 ]] || fail "--device-perf requires a path"; device_perf="$1" ;;
         --device-perf=*) device_perf="${1#--device-perf=}" ;;
+        --device-heap-trace) shift; [[ $# -gt 0 ]] || fail "--device-heap-trace requires a path"; device_heap_trace="$1" ;;
+        --device-heap-trace=*) device_heap_trace="${1#--device-heap-trace=}" ;;
         --keep-device-file) keep_device_file="yes" ;;
         --report-timeout) shift; [[ $# -gt 0 ]] || fail "--report-timeout requires a value"; is_positive_int "$1" || fail "--report-timeout must be positive"; report_timeout="$1" ;;
         --report-timeout=*) report_timeout="${1#--report-timeout=}"; is_positive_int "$report_timeout" || fail "--report-timeout must be positive" ;;
@@ -175,6 +214,10 @@ while [[ $# -gt 0 ]]; do
         --large-report-limit-mb=*) large_report_limit_mb="${1#--large-report-limit-mb=}"; is_positive_int "$large_report_limit_mb" || fail "--large-report-limit-mb must be positive" ;;
         --callgraph-head-lines) shift; [[ $# -gt 0 ]] || fail "--callgraph-head-lines requires a value"; is_positive_int "$1" || fail "--callgraph-head-lines must be positive"; callgraph_head_lines="$1" ;;
         --callgraph-head-lines=*) callgraph_head_lines="${1#--callgraph-head-lines=}"; is_positive_int "$callgraph_head_lines" || fail "--callgraph-head-lines must be positive" ;;
+        --heap-sampling-interval) shift; [[ $# -gt 0 ]] || fail "--heap-sampling-interval requires a value"; is_positive_int "$1" || fail "--heap-sampling-interval must be positive"; heap_sampling_interval_bytes="$1" ;;
+        --heap-sampling-interval=*) heap_sampling_interval_bytes="${1#--heap-sampling-interval=}"; is_positive_int "$heap_sampling_interval_bytes" || fail "--heap-sampling-interval must be positive" ;;
+        --heap-dump-interval-ms) shift; [[ $# -gt 0 ]] || fail "--heap-dump-interval-ms requires a value"; is_nonnegative_int "$1" || fail "--heap-dump-interval-ms must be non-negative"; heap_dump_interval_ms="$1" ;;
+        --heap-dump-interval-ms=*) heap_dump_interval_ms="${1#--heap-dump-interval-ms=}"; is_nonnegative_int "$heap_dump_interval_ms" || fail "--heap-dump-interval-ms must be non-negative" ;;
         --*) fail "unknown option '$1'" ;;
         *) fail "unknown mode or option '$1'" ;;
     esac
@@ -185,6 +228,9 @@ adb_cmd=("$adb_bin")
 if [[ -n "$serial" ]]; then adb_cmd+=(-s "$serial"); fi
 if [[ "$mode" == "prepare" && "$profile_build" != "yes" ]]; then
     fail "prepare mode requires --profile-build"
+fi
+if [[ "$profile_build" == "yes" && "$launch_mode" == "no" && "$mode" != "prepare" ]]; then
+    fail "--profile-build installs/replaces the APK, which kills the running app. To attach to the current app state, omit --profile-build: scripts/profile_android.sh $mode --no-launch --duration $duration. If symbols are not installed yet, run scripts/profile_android.sh prepare --profile-build first, navigate on the phone, then attach with --no-launch."
 fi
 
 make_profile_dir() {
@@ -265,13 +311,22 @@ run_profile_build() {
         release) cmd+=(--rust-release) ;;
         *) cmd+=(--cargo-profile "$build_rust_mode") ;;
     esac
-    cmd+=(--apk-debug --no-strip --install --no-logs)
+    # The no-strip profile APK is large enough that Android's package manager
+    # can fail a replace install while trying to keep old + new copies staged.
+    cmd+=(--apk-debug --no-strip --fresh-install --no-logs)
     if [[ -n "$serial" ]]; then cmd+=(--device "$serial"); fi
     if [[ "${#build_extra_args[@]}" -gt 0 ]]; then cmd+=("${build_extra_args[@]}"); fi
-    echo "CARGO_PROFILE_RELEASE_STRIP=none CARGO_PROFILE_RELEASE_DEBUG=1 CARGO_PROFILE_RELEASE_SPLIT_DEBUGINFO=off $(quote_cmd "${cmd[@]}")" > "$out_dir/profile-build.command.txt"
+    local android_rustflags="${CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS:-}"
+    if [[ "$android_rustflags" != *"--build-id"* ]]; then
+        android_rustflags="${android_rustflags:+$android_rustflags }-C link-arg=-Wl,--build-id=sha1"
+    fi
+    echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS=$(printf '%q' "$android_rustflags") CARGO_PROFILE_RELEASE_STRIP=none CARGO_PROFILE_RELEASE_DEBUG=1 CARGO_PROFILE_RELEASE_SPLIT_DEBUGINFO=off $(quote_cmd "${cmd[@]}")" > "$out_dir/profile-build.command.txt"
     log "building/installing symbol-friendly Android profile APK: $(quote_cmd "${cmd[@]}")"
+    log "profile-build Android Rust flags: $android_rustflags"
+    printf '[profile-android] profile-build: %s\n' "$(quote_cmd "${cmd[@]}")"
     set +e
     (cd "$repo_root" && \
+        CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS="$android_rustflags" \
         CARGO_PROFILE_RELEASE_STRIP=none \
         CARGO_PROFILE_RELEASE_DEBUG=1 \
         CARGO_PROFILE_RELEASE_SPLIT_DEBUGINFO=off \
@@ -290,8 +345,8 @@ prepare_app() {
     prepare_auto_symfs "$out_dir"
     before_pid="$(get_pid)"; echo "$before_pid" > "$out_dir/pid-before.txt"
     case "$launch_mode" in
-        yes) log "launching $package"; run_logged "$out_dir" launch-monkey "${adb_cmd[@]}" shell monkey -p "$package" 1 ;;
-        auto) if [[ -z "$before_pid" ]]; then log "$package is not running; launching"; run_logged "$out_dir" launch-monkey "${adb_cmd[@]}" shell monkey -p "$package" 1; fi ;;
+        yes) log "launching $package"; run_logged_stream "$out_dir" launch-monkey "${adb_cmd[@]}" shell monkey -p "$package" 1 ;;
+        auto) if [[ -z "$before_pid" ]]; then log "$package is not running; launching"; run_logged_stream "$out_dir" launch-monkey "${adb_cmd[@]}" shell monkey -p "$package" 1; fi ;;
         no) ;;
         *) fail "invalid launch mode '$launch_mode'" ;;
     esac
@@ -303,9 +358,9 @@ prepare_app() {
 find_symbol_candidates() {
     local out_dir="$1"
     {
-        echo "# libambition_sandbox.so candidates"
-        find "$repo_root/target" -type f -name 'libambition_sandbox.so' -print 2>/dev/null | sort
-        find "$repo_root" -path '*/jniLibs/*/libambition_sandbox.so' -type f -print 2>/dev/null | sort
+        echo "# $symbol_lib_name candidates"
+        find "$repo_root/target" -type f -name "$symbol_lib_name" -print 2>/dev/null | sort
+        find "$repo_root" -path "*/jniLibs/*/$symbol_lib_name" -type f -print 2>/dev/null | sort
     } | awk '!seen[$0]++' > "$out_dir/symbol-candidates.txt"
     if command -v file >/dev/null 2>&1; then
         while IFS= read -r path; do
@@ -326,7 +381,7 @@ find_symbol_candidates() {
         local n=0 path dest
         while IFS= read -r path; do
             [[ -f "$path" ]] || continue
-            n=$((n + 1)); dest="$out_dir/symbol-candidates/libambition_sandbox.$n.so"
+            n=$((n + 1)); dest="$out_dir/symbol-candidates/${symbol_lib_name%.so}.$n.so"
             cp -f "$path" "$dest" || true
             echo "$dest <- $path" >> "$out_dir/symbol-candidates/copied.txt"
         done < "$out_dir/symbol-candidates.txt"
@@ -339,7 +394,7 @@ best_symbol_candidate() {
     while IFS= read -r path; do
         [[ -f "$path" ]] || continue
         case "$path" in
-            */app/src/main/jniLibs/*/libambition_sandbox.so) ;;
+            */app/src/main/jniLibs/*/"$symbol_lib_name") ;;
             *) continue ;;
         esac
         if command -v file >/dev/null 2>&1; then
@@ -368,8 +423,8 @@ prepare_auto_symfs() {
     local src pkg_path app_dir dest_dir src_best
     src_best="$(best_symbol_candidate "$out_dir" || true)"
     if [[ -z "$src_best" ]]; then
-        log "no unstripped libambition_sandbox.so candidate found for auto symfs"
-        echo "no unstripped libambition_sandbox.so candidate found" > "$out_dir/auto-symfs.stderr"
+        log "no unstripped $symbol_lib_name candidate found for auto symfs"
+        echo "no unstripped $symbol_lib_name candidate found" > "$out_dir/auto-symfs.stderr"
         return 0
     fi
     pkg_path="$(${adb_cmd[@]} shell pm path "$package" 2>/dev/null | tr -d '
@@ -382,8 +437,8 @@ prepare_auto_symfs() {
     app_dir="${pkg_path%/base.apk}"
     dest_dir="$out_dir/symfs$app_dir/lib/arm64"
     mkdir -p "$dest_dir"
-    cp -f "$src_best" "$dest_dir/libambition_sandbox.so"
-    echo "$src_best -> $dest_dir/libambition_sandbox.so" > "$out_dir/auto-symfs.txt"
+    cp -f "$src_best" "$dest_dir/$symbol_lib_name"
+    echo "$src_best -> $dest_dir/$symbol_lib_name" > "$out_dir/auto-symfs.txt"
     symfs_dirs+=("$out_dir/symfs")
 }
 
@@ -400,6 +455,9 @@ write_metadata() {
         echo "record_event=$event"
         echo "stat_events=$stat_events"
         echo "device_perf=$device_perf"
+        echo "device_heap_trace=$device_heap_trace"
+        echo "heap_sampling_interval_bytes=$heap_sampling_interval_bytes"
+        echo "heap_dump_interval_ms=$heap_dump_interval_ms"
         echo "launch_mode=$launch_mode"
         echo "warmup_seconds=$warmup_seconds"
         echo "report_timeout_seconds=$report_timeout"
@@ -424,6 +482,7 @@ write_metadata() {
     run_logged "$out_dir" adb-version "${adb_cmd[@]}" version
     run_logged "$out_dir" adb-devices "${adb_cmd[@]}" devices -l
     run_logged "$out_dir" simpleperf-version-device "${adb_cmd[@]}" shell simpleperf --version
+    run_logged "$out_dir" perfetto-version-device "${adb_cmd[@]}" shell perfetto --version
     run_logged "$out_dir" getprop-summary "${adb_cmd[@]}" shell getprop
     run_logged "$out_dir" package-dumpsys "${adb_cmd[@]}" shell dumpsys package "$package"
     if command -v simpleperf >/dev/null 2>&1; then
@@ -503,6 +562,98 @@ record_cpu() {
     write_reports "$out_dir"
 }
 
+write_heap_config() {
+    local out_dir="$1" duration_ms
+    duration_ms=$((duration * 1000))
+    {
+        cat <<EOF
+buffers {
+  size_kb: 32768
+  fill_policy: RING_BUFFER
+}
+duration_ms: $duration_ms
+data_sources {
+  config {
+    name: "android.heapprofd"
+    target_buffer: 0
+    heapprofd_config {
+      sampling_interval_bytes: $heap_sampling_interval_bytes
+      shmem_size_bytes: 8388608
+      process_cmdline: "$package"
+EOF
+        if [[ "$heap_dump_interval_ms" -gt 0 ]]; then
+            cat <<EOF
+      continuous_dump_config {
+        dump_interval_ms: $heap_dump_interval_ms
+      }
+EOF
+        fi
+        cat <<'EOF'
+    }
+  }
+}
+EOF
+    } > "$out_dir/heapprofd-config.textproto"
+}
+
+record_heap() {
+    local out_dir="$1" status pull_status rm_status
+    log "recording Android native heap profile for ${duration}s"
+    write_heap_config "$out_dir"
+
+    # Perfetto's Android daemon is constrained by SELinux and cannot reliably
+    # create traces under /data/local/tmp on all devices. The default path is
+    # under /data/misc/perfetto-traces, which is the Android/Perfetto-supported
+    # location for command-line traces. Keep it unique to avoid stale ownership
+    # conflicts across runs.
+    run_logged "$out_dir" rm-old-device-heap-trace "${adb_cmd[@]}" shell rm -f "$device_heap_trace"
+    rm_status="$(cat "$out_dir/rm-old-device-heap-trace.status" 2>/dev/null || true)"
+    if [[ -n "$rm_status" && "$rm_status" != "0" ]]; then
+        log "warning: could not remove old heap trace path before recording: $device_heap_trace"
+    fi
+
+    echo "$(quote_cmd "${adb_cmd[@]}" shell perfetto --txt -c - -o "$device_heap_trace") < $out_dir/heapprofd-config.textproto" > "$out_dir/perfetto-heap.command.txt"
+    set +e
+    "${adb_cmd[@]}" shell perfetto --txt -c - -o "$device_heap_trace" < "$out_dir/heapprofd-config.textproto" > >(tee "$out_dir/perfetto-heap.stdout") 2> >(tee "$out_dir/perfetto-heap.stderr" >&2)
+    status=$?
+    set -e
+    echo "$status" > "$out_dir/perfetto-heap.status"
+    if [[ "$status" -ne 0 ]]; then
+        log "perfetto heap profile exited with status $status"
+        run_logged "$out_dir" device-heap-trace-ls-after-failure "${adb_cmd[@]}" shell ls -lh "$device_heap_trace"
+        {
+            echo "Perfetto heap profiling failed with status $status."
+            echo "Device trace path: $device_heap_trace"
+            echo "For non-root Android devices, Perfetto traces should normally be written under /data/misc/perfetto-traces."
+            echo "If you passed --device-heap-trace, try omitting it or choose a unique path under /data/misc/perfetto-traces."
+            echo "See perfetto-heap.stderr for the original error."
+        } > "$out_dir/heap-failure-hint.txt"
+        return 0
+    fi
+
+    run_logged "$out_dir" device-heap-trace-ls "${adb_cmd[@]}" shell ls -lh "$device_heap_trace"
+
+    # Use exec-out + cat instead of adb pull. Perfetto trace files are commonly
+    # mode 0600 on user devices; the shell user can read/cat them, while direct
+    # adb pull may fail or be less portable. Avoid tee here because this is a
+    # binary trace file.
+    echo "$(quote_cmd "${adb_cmd[@]}" exec-out cat "$device_heap_trace") > $out_dir/heap.perfetto-trace" > "$out_dir/adb-pull-heap-trace.command.txt"
+    set +e
+    "${adb_cmd[@]}" exec-out cat "$device_heap_trace" > "$out_dir/heap.perfetto-trace" 2> >(tee "$out_dir/adb-pull-heap-trace.stderr" >&2)
+    pull_status=$?
+    set -e
+    echo "$pull_status" > "$out_dir/adb-pull-heap-trace.status"
+    if [[ "$pull_status" -ne 0 ]]; then
+        log "copying heap.perfetto-trace from device exited with status $pull_status"
+    fi
+    if [[ ! -s "$out_dir/heap.perfetto-trace" ]]; then
+        log "heap.perfetto-trace missing or empty after device cat"
+    fi
+    if [[ "$keep_device_file" != "yes" ]]; then
+        run_logged "$out_dir" rm-device-heap-trace "${adb_cmd[@]}" shell rm -f "$device_heap_trace"
+    fi
+}
+
 run_stat() {
     local out_dir="$1"
     log "recording Android simpleperf stat for ${duration}s"
@@ -544,10 +695,19 @@ def status(name):
     txt = read(name + '.status').strip(); return txt or 'missing'
 lines = ['# Android profile summary', '']
 lines.append('## Status')
-for name in ['profile-build','simpleperf-record','adb-pull-perf','simpleperf-device-callgraph','simpleperf-device-flat-comm-dso-symbol','simpleperf-host-callgraph','simpleperf-host-flat-comm-dso-symbol','simpleperf-stat','gfxinfo','gfxinfo-framestats','gfxinfo-after-record','gfxinfo-framestats-after-record']:
+for name in ['profile-build','simpleperf-record','adb-pull-perf','simpleperf-device-callgraph','simpleperf-device-flat-comm-dso-symbol','simpleperf-host-callgraph','simpleperf-host-flat-comm-dso-symbol','perfetto-heap','adb-pull-heap-trace','simpleperf-stat','gfxinfo','gfxinfo-framestats','gfxinfo-after-record','gfxinfo-framestats-after-record']:
     if os.path.exists(os.path.join(out, name + '.status')): lines.append(f'- {name}: {status(name)}')
 perf = os.path.join(out, 'perf.data')
 if os.path.exists(perf): lines.append(f'- perf.data bytes: {os.path.getsize(perf)}')
+heap_trace = os.path.join(out, 'heap.perfetto-trace')
+if os.path.exists(heap_trace):
+    lines.append(f'- heap.perfetto-trace bytes: {os.path.getsize(heap_trace)}')
+    lines += ['', '## Heap profile trace', '```text']
+    lines.append('Open heap.perfetto-trace at https://ui.perfetto.dev')
+    lines.append('Click the Native heap profile track.')
+    lines.append('Use Total Malloc Size for allocation bytes and Total Malloc Count for allocation churn.')
+    lines.append('Use Unreleased Malloc Size/Count for retained allocations.')
+    lines.append('```')
 for label, fname in [('record stdout','simpleperf-record.stdout'), ('record stderr','simpleperf-record.stderr')]:
     txt = read(fname); interesting = []
     for line in txt.splitlines():
@@ -612,7 +772,7 @@ package_dir() {
     tar_args=(-czf "$tarball")
     if [[ "$include_raw_data" != "yes" ]]; then tar_args+=(--exclude='*/perf.data'); fi
     if [[ "$include_symbol_files" != "yes" ]]; then
-        tar_args+=(--exclude='*/symfs/*' --exclude='*/symbol-candidates/*.so' --exclude='*/libambition_sandbox*.so' --exclude='*.so')
+        tar_args+=(--exclude='*/symfs/*' --exclude='*/symbol-candidates/*.so' --exclude='*/libambition_app*.so' --exclude='*.so')
     fi
     if [[ "$include_large_reports" != "yes" ]]; then
         limit_bytes=$((large_report_limit_mb * 1024 * 1024))
@@ -638,6 +798,7 @@ main() {
     case "$mode" in
         prepare) ;;
         record) record_cpu "$out_dir" ;;
+        heap) record_heap "$out_dir" ;;
         stat) run_stat "$out_dir" ;;
         gfxinfo) run_gfxinfo "$out_dir" ;;
         all)

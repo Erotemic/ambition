@@ -576,3 +576,12 @@ We might travel to Cantors world of infinities and encounter set theoretic parad
 There is a barber who shaves everyone in town who doesn't shave themself.
 
 There are excluded middles
+
+----
+
+A player can emit a path or trail, and when it connects to itself it becomes a
+representative of a first homology class. But it does nothing unless the player
+can attune to the latent co-homology field that permeates the world and
+measures homology.
+
+The world is or can be viewed as a cell-complex. 

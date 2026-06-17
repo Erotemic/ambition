@@ -111,3 +111,7 @@ tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/generated/
 # Generated sprite YAML sidecars; runtime uses *_spritesheet.ron.
 crates/ambition_gameplay_core/assets/sprites/*_spritesheet.yaml
 crates/ambition_gameplay_core/assets/sprites/**/*_spritesheet.yaml
+
+# Agent/worktree scratch (must never be committed)
+.worktrees/
+.tmp-ambition-agent-source-*/

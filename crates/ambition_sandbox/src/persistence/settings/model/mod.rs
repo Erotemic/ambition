@@ -173,8 +173,7 @@ impl SettingsItem {
     ///   - the action rows `ResetAllSettings`,
     ///   - the entire Developer page (rendered through `DevToggleSnapshot`; the
     ///     cube renders the matching dev toggles via the IR's `DevToggleId`
-    ///     screen — see `unified_tabbed_menu_settings_diff.md` for the
-    ///     row-by-row diff),
+    ///     screen),
     ///   - `GameplayFlashes` (a *second* surface on `video.flashes` with the
     ///     distinct label "Flashes (gameplay)"; the IR exposes the field once
     ///     as `Flashes`).

@@ -42,9 +42,11 @@ Outputs:
         leaves). Crate deps reduce to a single root (``ambition_app``).
       - the force/hierarchical **graph** for when you want the gnarled ball.
     Both share a crate filter, fuzzy search, a "root tree here" action, a sort
-    control (name / lines of code / num dependencies / num dependants), and a
-    per-node detail panel showing the docstring plus dependencies, dependants,
-    filesystem children, and (for crates) crate-level deps — in every view.
+    control (name / lines of code / num dependencies / num dependants, with an
+    ascending/descending toggle; folder LOC is the filesystem-subtree sum), a
+    drag-to-resize side panel, and a per-node detail panel showing the docstring
+    plus dependencies, dependants, filesystem children, and (for crates)
+    crate-level deps — in every view, with folders/files/crates distinguished.
     Transitive reduction uses ``nx.transitive_reduction`` on DAG layers and an
     SCC-condensation for the cyclic imports layer.
   * Optional per-layer GraphML (--graphml) for Gephi/yEd.
@@ -552,6 +554,26 @@ def write_json(
     crate_names: set[str],
     reduced: dict[str, list[tuple[str, str]]],
 ) -> None:
+    # Filesystem-subtree aggregates: a folder's LOC is its own module file plus
+    # every descendant. `is_folder` distinguishes directory modules from leaves.
+    fs_children: dict[str, list[str]] = {}
+    for s, d in fs_edges:
+        fs_children.setdefault(s, []).append(d)
+    subtree_loc: dict[str, int] = {}
+
+    def _subtree_loc(nid: str) -> int:
+        if nid in subtree_loc:
+            return subtree_loc[nid]
+        node = all_nodes.get(nid)
+        total = node.loc if node else 0
+        for child in fs_children.get(nid, []):
+            total += _subtree_loc(child)
+        subtree_loc[nid] = total
+        return total
+
+    for nid in all_nodes:
+        _subtree_loc(nid)
+
     nodes_json = [
         {
             "id": n.node_id,
@@ -560,6 +582,8 @@ def write_json(
             "crate": n.crate,
             "path": n.rel_path,
             "loc": n.loc,
+            "subtree_loc": subtree_loc.get(n.node_id, n.loc),
+            "is_folder": bool(fs_children.get(n.node_id)),
             "summary": n.doc.splitlines()[0] if n.doc else "",
             "doc": n.doc,
         }
@@ -646,8 +670,13 @@ HTML_TEMPLATE = r"""<!doctype html>
                   border-radius: 5px; padding: 4px 6px; font: inherit; }
   #wrap { display: flex; height: calc(100vh - 49px); }
   #net { flex: 1; min-width: 0; }
-  #side { width: 380px; overflow: auto; padding: 14px; background: #1a1d23;
+  #gutter { width: 6px; flex: none; cursor: col-resize; background: #2a2e37; }
+  #gutter:hover, #gutter.drag { background: #3d4a6b; }
+  #side { width: 380px; flex: none; overflow: auto; padding: 14px; background: #1a1d23;
           border-left: 1px solid #2a2e37; }
+  .pill.kind-folder { background: #3a466b; color: #cdd7f5; }
+  .pill.kind-file { background: #2f3a33; color: #c7e0cd; }
+  .pill.kind-crate { background: #5a3f6b; color: #e6d2f5; }
   #side h2 { font-size: 15px; margin: 0 0 2px; word-break: break-all; }
   #side .meta { color: #9aa1ac; font-size: 12px; margin-bottom: 10px; }
   #side pre { white-space: pre-wrap; word-break: break-word; background: #0f1115;
@@ -722,6 +751,7 @@ HTML_TEMPLATE = r"""<!doctype html>
       <option value="dependants">num dependants</option>
     </select>
   </label>
+  <button id="sortDir" title="toggle ascending / descending">▼ desc</button>
   <label>Crate
     <select id="crate"><option value="">all</option></select>
   </label>
@@ -736,6 +766,7 @@ HTML_TEMPLATE = r"""<!doctype html>
 <div id="wrap">
   <div id="net" class="hidden"></div>
   <div id="tree"></div>
+  <div id="gutter" title="drag to resize"></div>
   <div id="side"><div class="meta">Click a node to inspect it.</div></div>
 </div>
 <script>
@@ -761,8 +792,12 @@ const viewSel = document.getElementById("view");
 const dirSel = document.getElementById("direction");
 const reducedEl = document.getElementById("reduced");
 const sortSel = document.getElementById("sort");
+const sortDirBtn = document.getElementById("sortDir");
 const treeEl = document.getElementById("tree");
 const netEl = document.getElementById("net");
+const sideEl = document.getElementById("side");
+const gutterEl = document.getElementById("gutter");
+let sortAsc = false;   // numeric sorts default to descending; name flips to asc
 
 let network = null;
 let rootOverride = null;       // when set, the tree is a single subtree from here
@@ -847,16 +882,21 @@ function metrics(layer) {
   return (_metricCache[layer] = { out, inc });
 }
 const _loc = (id) => (nodeById.get(id) || {}).loc || 0;
+// Folder LOC is the filesystem-subtree sum (own module file + all descendants).
+const _subloc = (id) => { const n = nodeById.get(id) || {}; return n.subtree_loc != null ? n.subtree_loc : (n.loc || 0); };
 const _deg = (m, id) => { const s = m.get(id); return s ? s.size : 0; };
 
-// Comparator over node ids for the chosen sort key (degrees from `layer`).
+// Comparator over node ids for the chosen sort key + direction (sortAsc).
+// Degrees come from `layer`; "loc" uses the subtree aggregate.
 function makeCmp(sortKey, layer) {
   const m = metrics(layer);
-  const byName = (a, b) => a.localeCompare(b);
-  if (sortKey === "loc") return (a, b) => (_loc(b) - _loc(a)) || byName(a, b);
-  if (sortKey === "dependencies") return (a, b) => (_deg(m.out, b) - _deg(m.out, a)) || byName(a, b);
-  if (sortKey === "dependants") return (a, b) => (_deg(m.inc, b) - _deg(m.inc, a)) || byName(a, b);
-  return byName;
+  const nameAsc = (a, b) => a.localeCompare(b);
+  if (sortKey === "name") return sortAsc ? nameAsc : (a, b) => nameAsc(b, a);
+  const val = sortKey === "loc" ? _subloc
+            : sortKey === "dependencies" ? (id) => _deg(m.out, id)
+            : (id) => _deg(m.inc, id);
+  const dir = sortAsc ? 1 : -1;
+  return (a, b) => dir * (val(a) - val(b)) || nameAsc(a, b);
 }
 const sortIds = (ids, layer) => ids.slice().sort(makeCmp(sortSel.value, layer));
 
@@ -958,10 +998,11 @@ function renderTree() {
 
     const hasKids = node.children.length > 0;
     row.classList.add(hasKids ? "has-children" : "leaf");
+    const sloc = _subloc(node.id);  // subtree LOC for folders, own LOC for leaves
     row.innerHTML = `<span class="tw">${hasKids ? "▶" : "◦"}</span>` +
       `<span class="dot" style="background:${crateColor[n.crate] || "#888"}"></span>` +
       `<span class="tlabel">${esc(shortLabel(node.id))}</span>` +
-      `<span class="dim">${n.loc ? " " + n.loc : ""}${hasKids ? " (" + node.children.length + ")" : ""}</span>`;
+      `<span class="dim">${sloc ? " " + sloc : ""}${hasKids ? " (" + node.children.length + ")" : ""}</span>`;
     row.title = node.id + (n.summary ? "  —  " + n.summary : "");
     wrap.appendChild(row);
 
@@ -1042,11 +1083,19 @@ function showNode(id) {
   const section = (label, arr, layer) =>
     `<div class="seclabel">${label} (${arr.length})</div>` +
     (sortIds(arr, layer).map(link).join("") || '<div class="meta">—</div>');
+  const isFolder = !!n.is_folder;
+  const kindLabel = n.kind === "crate" ? "crate" : (isFolder ? "folder" : "file");
+  const kindClass = n.kind === "crate" ? "kind-crate" : (isFolder ? "kind-folder" : "kind-file");
+  const aggregate = n.kind === "crate" || isFolder;
+  const locPills = aggregate
+    ? `<span class="pill" title="filesystem-subtree total">Σ ${_subloc(id)} loc</span>` +
+      `<span class="pill" title="this module's own file (e.g. mod.rs)">${n.loc} own</span>`
+    : `<span class="pill">${n.loc} loc</span>`;
   side.innerHTML = `
     <h2>${esc(n.label)}</h2>
     <div class="meta">${esc(n.id)}</div>
-    <div><span class="pill">${n.kind}</span> <span class="pill">${esc(n.crate)}</span>
-         <span class="pill">${n.loc} loc</span></div>
+    <div><span class="pill ${kindClass}">${kindLabel}</span> <span class="pill">${esc(n.crate)}</span>
+         ${locPills}</div>
     <div style="margin:8px 0"><button onclick="rootTreeHere('${jsq(id)}')">⌖ root tree here</button></div>
     <div class="seclabel">path</div><div class="meta">${esc(n.path) || "—"}</div>
     <div class="seclabel">docstring</div>
@@ -1118,8 +1167,35 @@ viewSel.addEventListener("change", update);
 layerSel.addEventListener("change", () => { rootOverride = null; update(); });
 dirSel.addEventListener("change", () => { rootOverride = null; update(); });
 reducedEl.addEventListener("change", update);
-sortSel.addEventListener("change", () => { update(); if (selectedId) showNode(selectedId); });
+function refreshSort() {
+  sortDirBtn.textContent = sortAsc ? "▲ asc" : "▼ desc";
+  update();
+  if (selectedId) showNode(selectedId);
+}
+sortSel.addEventListener("change", () => {
+  sortAsc = sortSel.value === "name";   // names read best A→Z; metrics biggest-first
+  refreshSort();
+});
+sortDirBtn.addEventListener("click", () => { sortAsc = !sortAsc; refreshSort(); });
 crateSel.addEventListener("change", () => { rootOverride = null; update(); });
+
+// Drag the gutter to resize the side panel.
+let dragging = false;
+gutterEl.addEventListener("mousedown", (e) => {
+  dragging = true; gutterEl.classList.add("drag");
+  document.body.style.userSelect = "none"; e.preventDefault();
+});
+window.addEventListener("mousemove", (e) => {
+  if (!dragging) return;
+  const w = window.innerWidth - e.clientX;
+  sideEl.style.width = Math.max(220, Math.min(window.innerWidth - 200, w)) + "px";
+});
+window.addEventListener("mouseup", () => {
+  if (!dragging) return;
+  dragging = false; gutterEl.classList.remove("drag");
+  document.body.style.userSelect = "";
+  if (network) network.redraw();
+});
 document.getElementById("expandAll").onclick = () => {
   treeEl.querySelectorAll(".tkids").forEach(k => k.classList.remove("hidden"));
   treeEl.querySelectorAll(".trow .tw").forEach(tw => { if (tw.textContent === "▶") tw.textContent = "▼"; });

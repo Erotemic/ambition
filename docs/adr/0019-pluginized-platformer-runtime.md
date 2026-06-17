@@ -65,7 +65,7 @@ cargo test -p ambition_app --test gravity_room_reachability
 ## Current implications for agents
 
 - The crate extraction this ADR set up has LARGELY HAPPENED (Stage 20, 2026-06).
-  The workspace is now `ambition_engine_core` / `ambition_platformer_runtime` /
+  The workspace is now `ambition_engine_core` / `ambition_platformer_primitives` /
   `ambition_portal` / `ambition_time` / `ambition_input` / `ambition_menu` /
   `ambition_audio` (foundations) ← `ambition_sandbox` (machinery lib) ←
   `ambition_content` (named game content) ← `ambition_app` (assembly + bins +

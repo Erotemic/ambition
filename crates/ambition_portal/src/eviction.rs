@@ -29,7 +29,7 @@ use bevy::prelude::*;
 
 use ambition_engine_core as ae;
 
-use ambition_platformer_runtime::body::BodyKinematics;
+use ambition_platformer_primitives::body::BodyKinematics;
 
 use crate::color::PortalChannel;
 use crate::pieces::{self as pp, PortalFrame};

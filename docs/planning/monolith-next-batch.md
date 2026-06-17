@@ -4,7 +4,7 @@ The monolith-breakup effort is done. `ambition_sandbox` is a reusable
 2D-platformer **engine** with named content in `ambition_content`; the layering
 (machinery ← content ← app, plus extracted `ambition_render`, `ambition_time`,
 `ambition_portal*`, `ambition_combat`, `ambition_actor`, `ambition_menu`,
-`ambition_platformer_runtime`, …) is enforced by the
+`ambition_platformer_primitives`, …) is enforced by the
 `architecture_boundaries` guard test.
 
 **Oracle (still the design test):** could a different platformer be built by

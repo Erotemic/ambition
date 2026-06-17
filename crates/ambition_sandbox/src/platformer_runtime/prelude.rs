@@ -5,4 +5,4 @@
 //! pre-extraction `crate::platformer_runtime::prelude::*` API is unchanged.
 
 pub use super::collision::raycast_solids;
-pub use ambition_platformer_runtime::prelude::*;
+pub use ambition_platformer_primitives::prelude::*;

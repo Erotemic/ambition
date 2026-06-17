@@ -31,7 +31,7 @@ pub struct PortalGunPickup {
 /// becomes grabbable after the short delay. Always runs (cheap; at most a
 /// couple of pickups).
 pub fn arm_portal_pickups(
-    time: Res<ambition_platformer_runtime::time::SimDt>,
+    time: Res<ambition_platformer_primitives::time::SimDt>,
     mut pickups: Query<&mut PortalGunPickup>,
 ) {
     let dt = time.get();

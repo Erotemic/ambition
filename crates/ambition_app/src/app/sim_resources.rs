@@ -167,7 +167,7 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             // platformer-runtime crate's generic systems read scaled dt
             // through this sandbox-free resource. Filled each frame by
             // `mirror_sim_dt_into_runtime` right after `refresh_world_time`.
-            .insert_resource(ambition_platformer_runtime::time::SimDt::default())
+            .insert_resource(ambition_platformer_primitives::time::SimDt::default())
             // Portal registry — per-portal lifecycle state machine
             // (Off / Opening / On / Closing). The portal itself owns
             // traversal readiness; the switch only commands the

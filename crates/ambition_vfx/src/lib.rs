@@ -17,7 +17,7 @@ use bevy::prelude::*;
 
 use ambition_actor::actor::ActorFaction;
 use ambition_engine_core as ae;
-use ambition_platformer_runtime::projectile::{EnemyProjectileSpawn, ProjectileFaction};
+use ambition_platformer_primitives::projectile::{EnemyProjectileSpawn, ProjectileFaction};
 
 pub mod vfx;
 pub use vfx::{

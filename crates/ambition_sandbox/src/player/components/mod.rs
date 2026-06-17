@@ -10,7 +10,7 @@ use bevy::prelude::*;
 use crate::input::ControlFrame;
 
 // Re-export generic player markers from the platformer runtime.
-pub use ambition_platformer_runtime::markers::{PlayerEntity, PrimaryPlayer};
+pub use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
 // Stable facade for the player-slot marker used by brain/player code.
 pub use crate::brain::PlayerSlot;
 

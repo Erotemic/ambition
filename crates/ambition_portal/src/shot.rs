@@ -2,7 +2,7 @@
 //! lands on a solid (opening a portal) or fizzles.
 //!
 //! World access is captured through the reusable
-//! [`SolidWorldQuery`](ambition_platformer_runtime::world_query::SolidWorldQuery)
+//! [`SolidWorldQuery`](ambition_platformer_primitives::world_query::SolidWorldQuery)
 //! seam — the pure [`step_portal_shot`] helper raycasts against it (plus a
 //! world-bounds rectangle) and decides the outcome, so portal core never reads
 //! the concrete `Res<GameWorld>`. The Bevy adapter that owns `GameWorld` lives in
@@ -10,8 +10,8 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer_runtime::prelude::SpawnScopedExt;
-use ambition_platformer_runtime::world_query::{raycast_solids, SolidWorldQuery};
+use ambition_platformer_primitives::prelude::SpawnScopedExt;
+use ambition_platformer_primitives::world_query::{raycast_solids, SolidWorldQuery};
 
 use super::color::PortalChannel;
 use super::messages::{PortalFireIntent, PortalShotFired};
@@ -70,7 +70,7 @@ pub fn portal_fire_system(
 /// [`step_portal_shot`] reasons about it through this seam, never `GameWorld`.
 ///
 /// `solids` is the reusable
-/// [`SolidWorldQuery`](ambition_platformer_runtime::world_query::SolidWorldQuery)
+/// [`SolidWorldQuery`](ambition_platformer_primitives::world_query::SolidWorldQuery)
 /// surface (Stage 16); `size` is the world rectangle (origin at `(0,0)`) the
 /// shot fizzles 64px outside of.
 pub struct PortalShotWorld<'a, W: SolidWorldQuery + ?Sized> {

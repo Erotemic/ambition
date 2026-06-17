@@ -40,7 +40,7 @@ pub use ambition_portal_presentation::*;
 mod host_adapter {
     use bevy::prelude::*;
 
-    use ambition_platformer_runtime::world_query::SolidWorldQuery;
+    use ambition_platformer_primitives::world_query::SolidWorldQuery;
     use ambition_portal_presentation::{
         PortalDebugOverlay, PortalGunArt, PortalSceneBody, PortalViewer, PortalWorldFrame,
     };

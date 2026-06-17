@@ -2,7 +2,7 @@
 //! facade: motion-buffer gesture recognition (quarter/half-circle), the
 //! `ProjectileSpawner` cooldown/resource gate, and `ProjectileBody` flight +
 //! world-collision behavior re-exported from
-//! `ambition_platformer_runtime::projectile`.
+//! `ambition_platformer_primitives::projectile`.
 
 use crate::engine_core::Vec2;
 

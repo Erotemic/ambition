@@ -1,7 +1,7 @@
 //! Shared world physics facade.
 //!
 //! Re-exports the content-free gravity runtime from
-//! `ambition_platformer_runtime::gravity` under the sandbox's stable
+//! `ambition_platformer_primitives::gravity` under the sandbox's stable
 //! `crate::physics::{…}` path.
 //!
 //! The gravity *mechanic* layered on top (`GravityFlipSwitch`, the room-reset
@@ -9,4 +9,4 @@
 //! in `crate::mechanics::gravity` because it depends on sandbox content
 //! (audio / features / app schedule / presentation); it consumes the moved core
 //! types through this facade.
-pub use ambition_platformer_runtime::gravity::*;
+pub use ambition_platformer_primitives::gravity::*;

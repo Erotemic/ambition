@@ -21,7 +21,7 @@
 mod common;
 use common::{base, first_floor_authored_portal_pair, fixed_60hz_room_sim};
 
-use ambition_platformer_runtime::projectile::{
+use ambition_platformer_primitives::projectile::{
     ProjectileFaction, ProjectileGameplay, ProjectileKind,
 };
 use ambition_sandbox::items::pickup::HeldProjectile;

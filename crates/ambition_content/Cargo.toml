@@ -30,7 +30,7 @@ ambition_render = { path = "../ambition_render" }
 ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy", "sfx"] }
 ambition_sfx = { path = "../ambition_sfx" }
 ambition_audio = { path = "../ambition_audio", optional = true }
-ambition_platformer_runtime = { path = "../ambition_platformer_runtime" }
+ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 bevy = { version = "0.18.1", default-features = false, features = ["ui_api"] }
 bevy_yarnspinner = { version = "0.8", optional = true }
 serde = { version = "1", features = ["derive"] }

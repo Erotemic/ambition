@@ -5,7 +5,7 @@
 //! persistence — assembled into Bevy plugins. It is the middle of the stack:
 //!
 //! - below it, `ambition_engine_core` is the pure (Bevy-free) movement model
-//!   and `ambition_platformer_runtime` holds content-free Bevy primitives
+//!   and `ambition_platformer_primitives` holds content-free Bevy primitives
 //!   (kinematic body, gravity, projectile, lifecycle, schedule). Both are
 //!   re-exported here at stable `crate::engine_core` / `crate::kinematic` paths.
 //! - above it, `ambition_content` provides the named game DATA (rooms, bosses,
@@ -57,7 +57,7 @@ pub use ambition_input as input;
 pub mod host;
 pub use ambition_interaction as interaction;
 // Re-export the reusable kinematic body/sweep runtime.
-pub use ambition_platformer_runtime::kinematic;
+pub use ambition_platformer_primitives::kinematic;
 pub mod platformer_runtime;
 pub mod player;
 pub mod quest;

@@ -2,7 +2,7 @@
 //! near-duplicate faction faces of the same idea, the other being
 //! `crate::enemy_projectile` (enemy volleys). The reusable projectile PHYSICS
 //! (spec / body / per-frame tick / world collision) is SHARED: it lives in
-//! `ambition_platformer_runtime::projectile` and is re-exported below, so both
+//! `ambition_platformer_primitives::projectile` and is re-exported below, so both
 //! factions step through identical motion. This module owns only the
 //! player-specific seam: charge/motion-gesture firing, input sampling, and
 //! per-player state. Behavior is faction-routed in one unified `step_projectiles`
@@ -51,12 +51,12 @@ pub use systems::{
 mod engine_tests;
 
 // The generic projectile-physics primitive (spec / body / collision) lives in
-// `ambition_platformer_runtime::projectile` (Stage 18 T2). Re-export it here so
+// `ambition_platformer_primitives::projectile` (Stage 18 T2). Re-export it here so
 // `crate::projectile::ProjectileBody` etc. resolve unchanged for every sandbox
 // call site, and so `crate::enemy_projectile` consumes the same reusable
 // primitive through this facade. The brain-coupled SPAWN (`systems`) stays in
 // sandbox as a thin consumer.
-pub use ambition_platformer_runtime::projectile::{
+pub use ambition_platformer_primitives::projectile::{
     resolve_world_collision, FireballChargeTuning, InFlightProjectile, ProjectileBody,
     ProjectileFaction, ProjectileGameplay, ProjectileKind, ProjectileSolidHit, ProjectileSpec,
     WorldHitOutcome, WorldHitPolicy,

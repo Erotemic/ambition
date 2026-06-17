@@ -25,7 +25,7 @@ Crate layers (low → high; lower must never import higher):
   foundations  ambition_engine_core (geometry/collision/movement/body/player
                clusters/world), ambition_actor (unified actor system: control
                vocabulary + universal brain + character catalog; bosses are
-               actors), ambition_platformer_runtime (kinematic body,
+               actors), ambition_platformer_primitives (kinematic body,
                gravity, rooms, projectile), ambition_portal, ambition_time,
                ambition_input, ambition_menu (reusable renderers), ambition_audio,
                ambition_sfx[_bank], ambition_asset_manager.

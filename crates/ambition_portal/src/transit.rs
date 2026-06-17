@@ -7,9 +7,9 @@ use bevy::prelude::*;
 
 use crate::pieces as pp;
 use ambition_engine_core::{self as ae, AabbExt};
-use ambition_platformer_runtime::body::BodyKinematics;
-use ambition_platformer_runtime::orientation::ActorRoll;
-use ambition_platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
+use ambition_platformer_primitives::body::BodyKinematics;
+use ambition_platformer_primitives::orientation::ActorRoll;
+use ambition_platformer_primitives::transit::rotate_velocity_between_normals as portal_transform_velocity;
 
 use super::color::PortalChannel;
 use super::placement::{transit_step_with_tuning, TransitStep};
@@ -231,7 +231,7 @@ pub fn portal_transit(
         ),
         With<PortalBody>,
     >,
-    gravity: Option<Res<ambition_platformer_runtime::gravity::GravityField>>,
+    gravity: Option<Res<ambition_platformer_primitives::gravity::GravityField>>,
     tuning: Res<PortalTuning>,
     mut entered: MessageWriter<super::messages::PortalBodyEntered>,
     mut transited: MessageWriter<PortalBodyTransited>,
@@ -423,7 +423,7 @@ pub fn portal_teleport_ground_items(
 
 /// Tick down (and clear) per-actor [`PortalTransitCooldown`]s.
 pub fn tick_portal_cooldowns(
-    time: Res<ambition_platformer_runtime::time::SimDt>,
+    time: Res<ambition_platformer_primitives::time::SimDt>,
     mut commands: Commands,
     mut cooldowns: Query<(Entity, &mut PortalTransitCooldown)>,
 ) {

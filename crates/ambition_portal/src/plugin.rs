@@ -17,7 +17,7 @@ use super::{
     sync_portal_tuning_convention, tick_portal_cooldowns, BodyTeleported, PlayerMovementIntent,
     PortalBodyTransited, PortalCarves, PortalTuning,
 };
-use ambition_platformer_runtime::orientation::{ensure_actor_roll, update_actor_roll};
+use ambition_platformer_primitives::orientation::{ensure_actor_roll, update_actor_roll};
 
 /// Top-level portal mechanic plugin.
 ///

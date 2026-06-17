@@ -11,9 +11,9 @@ use bevy::prelude::*;
 use ambition_engine_core as ae;
 #[cfg(feature = "effect_transit_masks")]
 use ambition_engine_core::AabbExt;
-use ambition_platformer_runtime::body::BodyKinematics;
-use ambition_platformer_runtime::markers::{PlayerEntity, PrimaryPlayer};
-use ambition_platformer_runtime::orientation::ActorRoll;
+use ambition_platformer_primitives::body::BodyKinematics;
+use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
+use ambition_platformer_primitives::orientation::ActorRoll;
 
 use ambition_portal::pieces as pp;
 use ambition_portal::{

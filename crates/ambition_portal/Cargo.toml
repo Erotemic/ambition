@@ -33,4 +33,4 @@ ambition_engine_core = { path = "../ambition_engine_core" }
 # SolidWorldQuery collision seam (the portal shot raycasts against it), the
 # ActorRoll orientation, the SimDt sim-clock seam, and the room-scoped spawn
 # helpers. Portal sits directly above it (ADR 0019). Never ambition_sandbox.
-ambition_platformer_runtime = { path = "../ambition_platformer_runtime" }
+ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }

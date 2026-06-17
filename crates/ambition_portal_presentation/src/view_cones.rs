@@ -49,7 +49,7 @@ use bevy::render::render_resource::TextureFormat;
 use bevy::sprite_render::AlphaMode2d;
 
 use ambition_engine_core as ae;
-use ambition_platformer_runtime::world_query::{raycast_solids, SolidWorldQuery};
+use ambition_platformer_primitives::world_query::{raycast_solids, SolidWorldQuery};
 use ambition_portal::pieces::PortalFrame;
 use ambition_portal::view::{aperture_wedge_multi, blend_cones, view_cone, ViewCone};
 use ambition_portal::{find_portal, PlacedPortal, PortalChannel};

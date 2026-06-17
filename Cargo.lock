@@ -155,7 +155,7 @@ dependencies = [
  "ambition_engine_core",
  "ambition_input",
  "ambition_menu",
- "ambition_platformer_runtime",
+ "ambition_platformer_primitives",
  "ambition_render",
  "ambition_sandbox",
  "ambition_sfx",
@@ -217,7 +217,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_asset_manager",
  "ambition_audio",
- "ambition_platformer_runtime",
+ "ambition_platformer_primitives",
  "ambition_render",
  "ambition_sandbox",
  "ambition_sfx",
@@ -287,7 +287,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ambition_platformer_runtime"
+name = "ambition_platformer_primitives"
 version = "0.1.0"
 dependencies = [
  "ambition_engine_core",
@@ -300,7 +300,7 @@ name = "ambition_portal"
 version = "0.1.0"
 dependencies = [
  "ambition_engine_core",
- "ambition_platformer_runtime",
+ "ambition_platformer_primitives",
  "bevy",
 ]
 
@@ -309,7 +309,7 @@ name = "ambition_portal_presentation"
 version = "0.1.0"
 dependencies = [
  "ambition_engine_core",
- "ambition_platformer_runtime",
+ "ambition_platformer_primitives",
  "ambition_portal",
  "bevy",
 ]
@@ -320,7 +320,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_asset_manager",
  "ambition_cutscene",
- "ambition_platformer_runtime",
+ "ambition_platformer_primitives",
  "ambition_portal_presentation",
  "ambition_sandbox",
  "ambition_sprite_sheet",
@@ -343,7 +343,7 @@ dependencies = [
  "ambition_input",
  "ambition_interaction",
  "ambition_menu",
- "ambition_platformer_runtime",
+ "ambition_platformer_primitives",
  "ambition_portal",
  "ambition_portal_presentation",
  "ambition_sfx",
@@ -426,7 +426,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_actor",
  "ambition_engine_core",
- "ambition_platformer_runtime",
+ "ambition_platformer_primitives",
  "ambition_sfx",
  "bevy",
 ]

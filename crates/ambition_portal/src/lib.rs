@@ -5,10 +5,10 @@
 //! collision-world application, room-reset policy, rendering/audio/VFX,
 //! and content-specific behavior through adapters around [`PortalPlugin`].
 //!
-//! Any entity with [`BodyKinematics`](ambition_platformer_runtime::body::BodyKinematics),
+//! Any entity with [`BodyKinematics`](ambition_platformer_primitives::body::BodyKinematics),
 //! [`PortalBody`], and a [`PortalPolicy`] can use the generic
 //! [`portal_transit`] path. The crate depends only on `bevy`,
-//! `ambition_engine_core`, and `ambition_platformer_runtime`, so it stays
+//! `ambition_engine_core`, and `ambition_platformer_primitives`, so it stays
 //! deterministic and host-free.
 
 mod color;
@@ -36,11 +36,11 @@ pub mod view;
 
 // Re-export the lower-crate surfaces the portal mechanic builds on, so a host's
 // `crate::portal::…` facade and the portal adapters keep resolving these paths.
-pub use ambition_platformer_runtime::orientation::{
+pub use ambition_platformer_primitives::orientation::{
     ensure_actor_roll, update_actor_roll, ActorRoll,
 };
-pub use ambition_platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
-pub use ambition_platformer_runtime::world_query::raycast_solids;
+pub use ambition_platformer_primitives::transit::rotate_velocity_between_normals as portal_transform_velocity;
+pub use ambition_platformer_primitives::world_query::raycast_solids;
 
 pub use color::{PortalChannel, PortalChannelColor, PortalGunColor};
 pub use eviction::{evict_straddlers_on_portal_change, PortalFrameHistory};

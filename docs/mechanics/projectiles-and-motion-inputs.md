@@ -5,7 +5,7 @@ Projectiles and command-input abilities are reusable combat/movement primitives.
 ## Current status
 
 - `crates/ambition_sandbox/src/projectile/` owns Ambition's projectile vocabulary and player command-input handling.
-- `ambition_platformer_runtime::projectile` owns reusable projectile body/gameplay pieces.
+- `ambition_platformer_primitives::projectile` owns reusable projectile body/gameplay pieces.
 - In-flight projectiles are ECS entities, not Vec entries in player/enemy resources.
 - Player Fireball / Hadouken / HadoukenSuper examples are wired through the sandbox projectile systems.
 - Projectile trace events report fire, resource block, hit, and expiry events.
@@ -79,5 +79,5 @@ Useful anchors:
 
 ```text
 crates/ambition_sandbox/src/projectile/
-crates/ambition_platformer_runtime/src/projectile/
+crates/ambition_platformer_primitives/src/projectile/
 ```

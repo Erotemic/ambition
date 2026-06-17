@@ -7,7 +7,7 @@
 //! that [`PortalPresentationPlugin`] flag and registering an alternative system.
 //!
 //! Depends only on `bevy`, `ambition_engine_core`,
-//! `ambition_platformer_runtime`, and `ambition_portal`; it never names a host
+//! `ambition_platformer_primitives`, and `ambition_portal`; it never names a host
 //! crate.
 
 use bevy::prelude::*;

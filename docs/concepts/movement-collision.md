@@ -11,7 +11,7 @@ aliases:
   - projectile collision
 implemented_by:
   - crates/ambition_engine_core/src/movement/mod.rs
-  - crates/ambition_platformer_runtime/src/kinematic.rs
+  - crates/ambition_platformer_primitives/src/kinematic.rs
   - crates/ambition_sandbox/src/combat/mod.rs
   - crates/ambition_sandbox/src/projectile/mod.rs
   - crates/ambition_engine_core/src/player_state.rs

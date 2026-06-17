@@ -23,12 +23,12 @@ use ambition_engine_core::{self as ae, AabbExt};
 use bevy::math::Vec2;
 
 // The pure portal-map vector math (orientation-between-two-normals transforms)
-// now lives in the content-free `ambition_platformer_runtime` crate. Re-export
+// now lives in the content-free `ambition_platformer_primitives` crate. Re-export
 // it here so portal_pieces' AABB/piece geometry and every other in-sandbox user
 // (world_overlay, debug_overlay, portal/*) keep referencing
 // `crate::pieces::{portal_rotation, rotate, portal_tangent,
 // portal_map_vec}` unchanged.
-pub use ambition_platformer_runtime::math::{
+pub use ambition_platformer_primitives::math::{
     portal_map_rotation, portal_map_vec, portal_map_vec_reflection, portal_map_vec_rotation,
     portal_rotation, portal_tangent, rotate, set_portal_map_rotation,
 };

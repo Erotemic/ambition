@@ -332,7 +332,7 @@ ambition_audio = { path = "../ambition_audio" }
 # (`crate::platformer_runtime` is now a facade over this crate plus the
 # not-yet-extracted local modules collision/orientation/transit). See
 # docs/planning/plugin_refactor/14_action_plan.md Stage 13 / Task K.
-ambition_platformer_runtime = { path = "../ambition_platformer_runtime" }
+ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 # Reusable, content-free portal MECHANIC (portal-gun place/replace/channel,
 # aperture transit math, the one generic `portal_transit` over PortalBody +
 # PortalPolicy, carve publishing, pieces geometry, lifecycle, the pure shot

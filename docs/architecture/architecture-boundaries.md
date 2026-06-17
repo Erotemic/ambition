@@ -10,7 +10,7 @@ rustc, but fast directional feedback.
 - **Machinery imports no content**: every `ambition_sandbox` dir is scanned for
 `crate::content::` / `ambition_content::` — none may appear. `crate::features`
 (the named actor/boss ECS world still in the lib) is the one tracked exception.
-- Foundation crates (`ambition_platformer_runtime`, `ambition_portal`,
+- Foundation crates (`ambition_platformer_primitives`, `ambition_portal`,
 `ambition_time`, `ambition_input`, `ambition_menu`, `ambition_audio`) must not
 depend on `ambition_sandbox`/content/app or name game content.
 - The combat kit (`mechanics::combat`) must name no archetype/boss content.

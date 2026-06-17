@@ -8,7 +8,7 @@
 //! resolving with zero call-site churn.
 //!
 //! What stays sandbox-side is [`mirror_sim_dt_into_runtime`] — the bridge
-//! that copies the scaled sim dt into the `ambition_platformer_runtime`
+//! that copies the scaled sim dt into the `ambition_platformer_primitives`
 //! crate's neutral `SimDt` resource. It couples two sibling crates, so it
 //! belongs to the game shell, not the generic time crate.
 
@@ -17,7 +17,7 @@ use bevy::prelude::{Res, ResMut};
 pub use ambition_time::{refresh_world_time, ClockDomain, WorldTime};
 
 /// Mirror [`WorldTime::sim_dt`] into the runtime crate's neutral
-/// [`ambition_platformer_runtime::time::SimDt`] resource each frame.
+/// [`ambition_platformer_primitives::time::SimDt`] resource each frame.
 ///
 /// The platformer runtime crate is sandbox-dep-free, so its generic systems
 /// (gravity integration, oscillating / temporary zones, the orient-to-gravity
@@ -28,7 +28,7 @@ pub use ambition_time::{refresh_world_time, ClockDomain, WorldTime};
 /// downstream runtime reader sees a current value.
 pub fn mirror_sim_dt_into_runtime(
     world_time: Res<WorldTime>,
-    mut sim_dt: ResMut<ambition_platformer_runtime::time::SimDt>,
+    mut sim_dt: ResMut<ambition_platformer_primitives::time::SimDt>,
 ) {
     sim_dt.dt = world_time.sim_dt();
 }

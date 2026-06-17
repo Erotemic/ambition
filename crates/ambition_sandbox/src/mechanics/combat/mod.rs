@@ -62,8 +62,8 @@ pub use components::*;
 pub use events::*;
 // `FeatureSimEntity` is the generic entity-marker queried by the reusable
 // mechanics; its definition lives DOWN in
-// `ambition_platformer_runtime::markers` (ADR 0019).
-pub use ambition_platformer_runtime::markers::FeatureSimEntity;
+// `ambition_platformer_primitives::markers` (ADR 0019).
+pub use ambition_platformer_primitives::markers::FeatureSimEntity;
 pub use hazard_runtime::*;
 pub use path_motion::*;
 pub use world_overlay::*;

@@ -14,10 +14,10 @@ use crate::engine_core as ae;
 use bevy::prelude::Resource;
 
 // `EnemyProjectileSpawn` (a substrate-neutral projectile spawn request) moved
-// down to `ambition_platformer_runtime::projectile` so the foundation
+// down to `ambition_platformer_primitives::projectile` so the foundation
 // `ambition_vfx` vocabulary can reference it. Re-exported here at its
 // historical path.
-pub use ambition_platformer_runtime::projectile::EnemyProjectileSpawn;
+pub use ambition_platformer_primitives::projectile::EnemyProjectileSpawn;
 
 /// Bevy resource for the enemy-projectile pool. The in-flight bodies are ECS
 /// entities now (Phase 3c-iii); this type owns no `Vec` — it survives as a

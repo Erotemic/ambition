@@ -240,7 +240,7 @@ mod tests {
         app.add_message::<DropPortalGun>();
         app.add_message::<PickUpPortalGun>();
         app.add_message::<PortalGunEquipped>();
-        app.insert_resource(ambition_platformer_runtime::time::SimDt { dt: 1.0 / 60.0 });
+        app.insert_resource(ambition_platformer_primitives::time::SimDt { dt: 1.0 / 60.0 });
         app.add_systems(
             Update,
             (

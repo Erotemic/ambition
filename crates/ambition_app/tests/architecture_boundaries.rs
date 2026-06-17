@@ -356,7 +356,7 @@ fn architecture_boundaries_platformer_runtime_stays_content_free() {
 #[test]
 fn architecture_boundaries_platformer_runtime_crate_is_extracted() {
     let root = repo_root();
-    let crate_root = root.join("crates/ambition_platformer_runtime");
+    let crate_root = root.join("crates/ambition_platformer_primitives");
     let sandbox_runtime = crate_src().join("platformer_runtime");
 
     assert_paths_exist(
@@ -377,12 +377,12 @@ fn architecture_boundaries_platformer_runtime_crate_is_extracted() {
             "src/gravity.rs",
             "src/orientation.rs",
         ],
-        "ambition_platformer_runtime extracted crate",
+        "ambition_platformer_primitives extracted crate",
     );
     assert_manifest_has_no_deps(
         &crate_root,
         &["ambition_sandbox"],
-        "ambition_platformer_runtime must remain reusable and content-free",
+        "ambition_platformer_primitives must remain reusable and content-free",
     );
     assert_paths_absent(
         &sandbox_runtime,
@@ -392,18 +392,18 @@ fn architecture_boundaries_platformer_runtime_crate_is_extracted() {
 
     let facade = fs::read_to_string(sandbox_runtime.join("mod.rs")).expect("read facade mod.rs");
     assert!(
-        facade.contains("ambition_platformer_runtime::{gravity, lifecycle, math, schedule, transit}"),
+        facade.contains("ambition_platformer_primitives::{gravity, lifecycle, math, schedule, transit}"),
         "sandbox platformer_runtime facade should re-export extracted gravity/lifecycle/math/schedule/transit"
     );
     let orientation_facade = fs::read_to_string(sandbox_runtime.join("orientation.rs"))
         .expect("read orientation facade");
     assert!(
-        orientation_facade.contains("ambition_platformer_runtime::orientation"),
+        orientation_facade.contains("ambition_platformer_primitives::orientation"),
         "sandbox orientation should re-export the extracted orientation module"
     );
     let physics_facade = fs::read_to_string(crate_src().join("physics.rs")).expect("read physics");
     assert!(
-        physics_facade.contains("ambition_platformer_runtime::gravity"),
+        physics_facade.contains("ambition_platformer_primitives::gravity"),
         "ambition_sandbox::physics should re-export the extracted gravity module"
     );
 }
@@ -1017,7 +1017,7 @@ fn architecture_boundaries_portal_crate_is_extracted() {
     );
     assert_manifest_path_deps_only(
         &crate_root,
-        &["ambition_engine_core", "ambition_platformer_runtime"],
+        &["ambition_engine_core", "ambition_platformer_primitives"],
         "ambition_portal path deps",
     );
     assert_code_refs_absent(
@@ -1066,7 +1066,7 @@ fn architecture_boundaries_portal_presentation_crate_is_extracted() {
         &crate_root,
         &[
             "ambition_engine_core",
-            "ambition_platformer_runtime",
+            "ambition_platformer_primitives",
             "ambition_portal",
         ],
         "ambition_portal_presentation path deps",

@@ -272,7 +272,7 @@ rewrite.
 | Host-surface carve | `crates/ambition_portal/src/placement.rs::publish_portal_carves` → content carve adapter/world overlay |
 | Partial render (feet in / feet out) | `crates/ambition_portal_presentation/src/visuals.rs::sync_portal_body_pieces` |
 | Accommodation: input warp | `crates/ambition_content/src/portal/ability_adapter.rs::warp_portal_input`, driven by portal-owned `PortalInputWarp` / `PortalEmission` |
-| Accommodation: auto-orientation | `ambition_portal` roll helpers plus `ambition_platformer_runtime::orientation::{ActorRoll, update_actor_roll}` |
+| Accommodation: auto-orientation | `ambition_portal` roll helpers plus `ambition_platformer_primitives::orientation::{ActorRoll, update_actor_roll}` |
 | Recursive ray | `crates/ambition_portal/src/transit.rs::raycast_through_portals` |
 | Linked portal identity | `crates/ambition_portal/src/link.rs` and authored LDtk link ids; colors remain presentation/authoring vocabulary |
 | LDtk-authored static portals | LDtk `Portal` entity → content conversion → portal core spawn/components |

@@ -136,10 +136,10 @@ pub use view_index::{rebuild_feature_view_index, FeatureViewIndex};
 
 // `FeatureSimEntity` is a generic entity-marker queried by the reusable
 // mechanics, so its definition lives DOWN in
-// `ambition_platformer_runtime::markers` (ADR 0019). Re-exported here so all
+// `ambition_platformer_primitives::markers` (ADR 0019). Re-exported here so all
 // existing `crate::features::ecs::FeatureSimEntity` call sites compile
 // unchanged.
-pub use ambition_platformer_runtime::markers::FeatureSimEntity;
+pub use ambition_platformer_primitives::markers::FeatureSimEntity;
 
 // `HazardFeature` moved to the combat kit with the hazard runtime.
 pub use crate::mechanics::combat::hazard_runtime::HazardFeature;

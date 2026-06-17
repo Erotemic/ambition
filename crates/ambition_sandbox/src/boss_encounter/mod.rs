@@ -45,7 +45,7 @@ pub use ids::encounter_id_from_name;
 // redirect that read it moved to the data-driven
 // `assets/data/dialogue/registry.ron` `BossCleared("mockingbird")`
 // rule. Internal tests reference it via `super::ids::MOCKINGBIRD_ENCOUNTER_ID`.
-pub use ambition_actor::boss_encounter::{
+pub use ambition_characters::boss_encounter::{
     BossEncounterEvent, BossEncounterPhase, BossEncounterSpec, BossEncounterState,
 };
 pub use behavior::{install_boss_profiles, install_boss_special_anim_keys, BossProfileRegistry};

@@ -13,7 +13,7 @@
 //!
 //! Despite the historical `ambition_sandbox` name, it is content-light: concrete
 //! content has been migrated out to `ambition_content`. Other foundation crates
-//! (`ambition_combat`, `ambition_input`, `ambition_actor`, `ambition_render`, …)
+//! (`ambition_combat`, `ambition_input`, `ambition_characters`, `ambition_render`, …)
 //! are re-exported under their historical `crate::*` paths so call sites resolve
 //! unchanged.
 //!
@@ -40,7 +40,7 @@
 // External API surface — bins, tests, and Android/wasm entry points reach
 // into these modules. Everything else stays `pub(crate)` so the compiler
 // can tell us what's actually depended on from outside.
-pub use ambition_actor::actor;
+pub use ambition_characters::actor;
 pub mod app;
 pub mod audio;
 pub mod character_roster;
@@ -71,7 +71,7 @@ pub mod assets;
 pub mod body_mode;
 pub mod boss_encounter;
 pub mod character_sprites;
-pub use ambition_actor::brain;
+pub use ambition_characters::brain;
 pub mod config;
 pub mod cutscene_trigger;
 pub mod dev;

@@ -12,7 +12,7 @@ crate-type = ["rlib"]
 [dependencies]
 # Actor faction / damage-team / kinematic-path + the brain MeleeActionSpec the
 # attack specs reference.
-ambition_actor = { path = "../ambition_actor" }
+ambition_characters = { path = "../ambition_characters" }
 # Geometry (Vec2 / Aabb / AabbExt).
 ambition_engine_core = { path = "../ambition_engine_core" }
 # One Resource derive (the slot registry); ECS surface only.

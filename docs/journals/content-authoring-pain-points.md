@@ -216,7 +216,7 @@ was aiming at.
 ### UPDATE 3 — non-player-centric run (Stages 2–7): the spine + the capability gate
 - **P9 projectile-charge gate RESOLVED (Stage 7).** `emit_player_projectile_tick_
   messages` no longer gates on `brain.is_player()` — it gates on a `ChargesProjectiles`
-  capability marker (ambition_actor). Only the player carries it today (so behavior is
+  capability marker (ambition_characters). Only the player carries it today (so behavior is
   byte-identical: same emitter set), but it's now pay-for-use and travels with the
   body, so a possessed actor keeps the charge mechanic. Bosses/enemies that carry a
   `ranged` ActionSet for their OWN projectiles are correctly NOT swept in (the marker

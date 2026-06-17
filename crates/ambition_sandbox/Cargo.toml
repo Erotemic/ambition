@@ -358,7 +358,7 @@ ambition_time = { path = "../ambition_time" }
 # abilities / ledge_grab / world / player_clusters + the shared BodyKinematics
 # body component). The build-time foundation; re-exported as `crate::engine_core`
 # from lib.rs (ADR 0019). See docs/planning/plugin_refactor/15_post_task_k_revision.md.
-ambition_actor = { path = "../ambition_actor" }
+ambition_characters = { path = "../ambition_characters" }
 ambition_combat = { path = "../ambition_combat" }
 # Cutscene script format + runtime stepper (pure data; re-exported as
 # `presentation::cutscene::script`).

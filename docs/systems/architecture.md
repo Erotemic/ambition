@@ -9,7 +9,7 @@ crate graph**; lower layers must never import higher ones. Survey + remaining wo
 
 | Layer | Crates | Responsibility |
 |---|---|---|
-| foundations | `ambition_engine_core` (movement/collision/body/geometry/world/player clusters), `ambition_actor` (unified actor system: control vocabulary + universal brain + character catalog — bosses are actors), `ambition_platformer_primitives` (kinematic, gravity, rooms, projectile), `ambition_portal`, `ambition_time`, `ambition_input`, `ambition_menu` (reusable renderers), `ambition_audio`, `ambition_sfx[_bank]`, `ambition_asset_manager` | Reusable, content-free, no dep on the layers below |
+| foundations | `ambition_engine_core` (movement/collision/body/geometry/world/player clusters), `ambition_characters` (unified actor system: control vocabulary + universal brain + character catalog — bosses are actors), `ambition_platformer_primitives` (kinematic, gravity, rooms, projectile), `ambition_portal`, `ambition_time`, `ambition_input`, `ambition_menu` (reusable renderers), `ambition_audio`, `ambition_sfx[_bank]`, `ambition_asset_manager` | Reusable, content-free, no dep on the layers below |
 | machinery | `ambition_sandbox` (lib) | brain, actor, mechanics, `features` (named actor/boss ECS world), presentation, world/LDtk, items, encounter, persistence, dev STATE, menu IR/map. Content-free (guard-enforced). Re-exports foundations under facade paths (`crate::engine_core`, `crate::input`, …). |
 | content | `ambition_content` | Named game content: quests, bosses, items roster, dialogue, intro, banter, portal adapters |
 | app | `ambition_app` | Bevy assembly, host glue, ALL binaries (playable `ambition_sandbox` bin, headless, rl_*), menu host stack + `DevToolsPlugin`, full-stack integration tests |

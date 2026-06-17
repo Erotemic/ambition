@@ -15,7 +15,7 @@
 
 use bevy::prelude::*;
 
-use ambition_actor::actor::ActorFaction;
+use ambition_characters::actor::ActorFaction;
 use ambition_engine_core as ae;
 use ambition_platformer_primitives::projectile::{EnemyProjectileSpawn, ProjectileFaction};
 

@@ -408,7 +408,7 @@ pub fn observe_brain_action_counter(
 pub fn log_brain_action_messages(mut reader: MessageReader<ActorActionMessage>) {
     for msg in reader.read() {
         bevy::log::debug!(
-            target: "ambition_actor::brain",
+            target: "ambition_characters::brain",
             "brain action: actor={:?} req={}",
             msg.actor,
             msg.request,

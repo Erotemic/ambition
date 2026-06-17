@@ -12,7 +12,7 @@
    inbound mechanic deps. Two move shapes: extract a reusable crate DOWN
    (foundations) vs. move named content UP (into `ambition_content` / `app`).
 
-   Done this push: `menu` host → app; `ambition_actor` extracted; portal +
+   Done this push: `menu` host → app; `ambition_characters` extracted; portal +
    portal-presentation crates; the **enemy roster** is now content-owned data
    installed into a lib holder (no `EnemyArchetype` enum — see
    [`state.md`](state.md), the content-installed-roster pattern); the **boss
@@ -24,7 +24,7 @@
 
    Remaining backlog, by readiness:
    - **Unified actor+brain crate (deferred carve).** Fold the boss runtime fully
-     into `ambition_actor`, leaving only named boss data in content.
+     into `ambition_characters`, leaving only named boss data in content.
    - **`mechanics` crate extraction — verified HARD.** Needs ~15 dependency
      inversions (or pre-extracting half the lib first). Do NOT attempt as a
      quick crate; pre-invert its inbound deps incrementally instead.

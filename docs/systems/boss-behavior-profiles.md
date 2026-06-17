@@ -60,7 +60,7 @@ simulation half guarantees collision. Profiles should keep their
 `desired_vel`) rather than asking for position-space teleports.
 
 See `docs/systems/character-ai-refactor.md` for the parallel enemy
-migration and `crates/ambition_actor/src/actor/control.rs` for the
+migration and `crates/ambition_characters/src/actor/control.rs` for the
 shared frame definition.
 
 ## Universal-brain integration

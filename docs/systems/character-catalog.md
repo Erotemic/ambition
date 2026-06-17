@@ -83,7 +83,7 @@ same brain with different tuning by editing one row.
 
 ## Runtime shape
 
-The Bevy plugin is `ambition_actor::actor::character_catalog::CharacterCatalogPlugin`; sandbox wires it through `crates/ambition_sandbox/src/character_roster.rs`.
+The Bevy plugin is `ambition_characters::actor::character_catalog::CharacterCatalogPlugin`; sandbox wires it through `crates/ambition_sandbox/src/character_roster.rs`.
 At app build it:
 
 1. Parses the embedded RON via `include_str!` (synchronous; no
@@ -173,5 +173,5 @@ The module ships a tight set of pins:
   seam the catalog feeds into.
 - [`docs/recipes/extending-brains-and-action-sets.md`](../recipes/extending-brains-and-action-sets.md)
   — how to add a new brain *variant* (the Rust side).
-- `crates/ambition_actor/src/actor/character_catalog/`
+- `crates/ambition_characters/src/actor/character_catalog/`
   — the live source.

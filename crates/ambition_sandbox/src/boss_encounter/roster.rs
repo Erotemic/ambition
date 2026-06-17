@@ -1,6 +1,6 @@
 //! The lib's generic boss-encounter base.
 //!
-//! The actor crate (`ambition_actor::boss_encounter`) owns the spec schema +
+//! The actor crate (`ambition_characters::boss_encounter`) owns the spec schema +
 //! the phase state machine. Ambition's *named* boss encounter specs are
 //! content: they live in `ambition_content/assets/data/boss_encounters/*.ron`
 //! and are installed via `ambition_content::bosses::install_boss_roster`

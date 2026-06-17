@@ -10,6 +10,6 @@ description = "Reusable, content-free interactive-world-object MODEL: the Intera
 crate-type = ["rlib"]
 
 [dependencies]
-ambition_actor = { path = "../ambition_actor" }
+ambition_characters = { path = "../ambition_characters" }
 ambition_engine_core = { path = "../ambition_engine_core" }
 serde = { version = "1", features = ["derive"] }

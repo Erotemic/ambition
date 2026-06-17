@@ -8,7 +8,7 @@
 //! probes, world collision/water/climbable region data, gravity-relative
 //! reference frames, and the cluster components (`BodyKinematics`,
 //! `PlayerGroundState`, …, `PlayerComboTrace`) that make up the player ECS
-//! entity. `ambition_actor` (minds/cast), `ambition_content` (named game
+//! entity. `ambition_characters` (minds/cast), `ambition_content` (named game
 //! content), and `ambition_sandbox` (machinery) all sit above it.
 //!
 //! Top-level modules: [`abilities`] (capability flags), [`config`]

@@ -9,6 +9,6 @@ Current references:
 - `docs/current/state.md`
 - `docs/planning/universal-brain-interface.md`
 - `crates/ambition_engine_core/src/player_clusters.rs`
-- `crates/ambition_actor/src/`
+- `crates/ambition_characters/src/`
 
 Use git history for the original long audit.

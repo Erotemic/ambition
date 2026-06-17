@@ -1332,7 +1332,7 @@ fn architecture_boundaries_dev_overlays_live_in_app() {
 #[test]
 fn architecture_boundaries_actor_crate_is_content_free_and_foundation_clean() {
     assert_code_refs_absent(
-        &[repo_root().join("crates/ambition_actor/src")],
+        &[repo_root().join("crates/ambition_characters/src")],
         &[
             "ambition_sandbox",
             "ambition_content",
@@ -1349,6 +1349,6 @@ fn architecture_boundaries_actor_crate_is_content_free_and_foundation_clean() {
             "clockwork_warden",
             "EnemyArchetype",
         ],
-        "ambition_actor must stay content-free with no upward imports",
+        "ambition_characters must stay content-free with no upward imports",
     );
 }

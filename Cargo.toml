@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "crates/ambition_actor",
+    "crates/ambition_characters",
     "crates/ambition_app",
     "crates/ambition_asset_manager",
     "crates/ambition_audio",

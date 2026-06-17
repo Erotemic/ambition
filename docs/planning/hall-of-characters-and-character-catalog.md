@@ -5,7 +5,7 @@ Status: completed historical planning note. The old hand-maintained sprite regis
 ## Current truth
 
 - Character data lives in `crates/ambition_sandbox/assets/data/character_catalog.ron`.
-- Catalog implementation lives in `crates/ambition_actor/src/actor/character_catalog/`.
+- Catalog implementation lives in `crates/ambition_characters/src/actor/character_catalog/`.
 - Sandbox integration / embedded lookup lives in `crates/ambition_sandbox/src/character_roster.rs`.
 - Runtime sprite loading uses the catalog plus `crates/ambition_sandbox/src/presentation/character_sprites/` sheet registry/manifest code.
 - The Hall of Characters room is generated from catalog data; do not recreate the old multi-table registry workflow.

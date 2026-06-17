@@ -71,10 +71,10 @@ flow above still applies.
 See [`docs/recipes/extending-brains-and-action-sets.md`](extending-brains-and-action-sets.md)
 for the full brain-extension recipe. The short version:
 
-1. Add a variant to `StateMachineCfg` in `crates/ambition_actor/src/brain/state_machine.rs` only when the existing templates are not enough.
+1. Add a variant to `StateMachineCfg` in `crates/ambition_characters/src/brain/state_machine.rs` only when the existing templates are not enough.
 2. Add a `tick_<your_brain>` function and dispatch on the enum.
 3. Add a `BrainPreset::<YourBrain>` mirror to
-   `crates/ambition_actor/src/actor/character_catalog/entry.rs`; keep authored catalog data in `crates/ambition_sandbox/assets/data/character_catalog.ron`.
+   `crates/ambition_characters/src/actor/character_catalog/entry.rs`; keep authored catalog data in `crates/ambition_sandbox/assets/data/character_catalog.ron`.
 4. Extend `brain_from_preset` in `resolver.rs` to construct your
    variant from the preset.
 5. Register a preset in `character_catalog.ron` (`brain_presets:

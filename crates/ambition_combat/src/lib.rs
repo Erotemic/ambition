@@ -7,7 +7,7 @@
 
 pub mod slots;
 
-use ambition_actor::actor::{DamageTeam, KinematicPath, RespawnPolicy};
+use ambition_characters::actor::{DamageTeam, KinematicPath, RespawnPolicy};
 use ambition_engine_core::Vec2;
 use ambition_engine_core::{Aabb, AabbExt};
 
@@ -181,8 +181,8 @@ impl AttackSpec {
     /// whether a swing happens. (Hitbox geometry is left to the directional
     /// `attack_spec_from_view` default — the player's reach already exceeds the
     /// enemy-scale `reach_px`, so importing it would *shrink* the swing.)
-    pub fn with_held_melee(mut self, melee: ambition_actor::brain::MeleeActionSpec) -> Self {
-        let ambition_actor::brain::MeleeActionSpec::Swipe(s) = melee else {
+    pub fn with_held_melee(mut self, melee: ambition_characters::brain::MeleeActionSpec) -> Self {
+        let ambition_characters::brain::MeleeActionSpec::Swipe(s) = melee else {
             return self;
         };
         self.startup_seconds = s.windup_s.max(0.0);
@@ -432,8 +432,8 @@ mod tests {
     fn held_axe_retunes_swing_timing_reach_and_damage() {
         let view = view_at(Vec2::new(0.0, 0.0), 1.0);
         let base = attack_spec_from_view(&view, AttackIntent::Forward);
-        let axe = base.with_held_melee(ambition_actor::brain::MeleeActionSpec::Swipe(
-            ambition_actor::brain::SwipeSpec {
+        let axe = base.with_held_melee(ambition_characters::brain::MeleeActionSpec::Swipe(
+            ambition_characters::brain::SwipeSpec {
                 windup_s: 0.22,
                 active_s: 0.12,
                 recover_s: 0.30,

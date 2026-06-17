@@ -23,7 +23,7 @@ Bevy ECS runtime
 
 Crate layers (low → high; lower must never import higher):
   foundations  ambition_engine_core (geometry/collision/movement/body/player
-               clusters/world), ambition_actor (unified actor system: control
+               clusters/world), ambition_characters (unified actor system: control
                vocabulary + universal brain + character catalog; bosses are
                actors), ambition_platformer_primitives (kinematic body,
                gravity, rooms, projectile), ambition_portal, ambition_time,
@@ -119,7 +119,7 @@ Landed or scaffolded mechanics include:
 - LDtk-authored goblin encounter / encounter-style areas and transition validation;
 - character catalog and Hall of Characters content flow;
 - RON-authored boss encounter numeric specs with Rust behavior profiles;
-- universal-brain interface in `crates/ambition_actor/src/brain/`: every controllable entity carries `Brain` + `ActionSet` + `ActorControl` sibling components, with sandbox effect consumers such as `crates/ambition_sandbox/src/features/ecs/brain_effects.rs` translating resolved actor requests into world effects.
+- universal-brain interface in `crates/ambition_characters/src/brain/`: every controllable entity carries `Brain` + `ActionSet` + `ActorControl` sibling components, with sandbox effect consumers such as `crates/ambition_sandbox/src/features/ecs/brain_effects.rs` translating resolved actor requests into world effects.
 
 The actor/brain unification is live, not a shadow seam: player movement/control,
 melee-start gating, projectile tick/charge, enemy ranged + melee windups, and

@@ -24,8 +24,8 @@ Still-direct paths include:
 
 ## Three places work usually lands
 
-1. **Brain template** (`crates/ambition_actor/src/brain/state_machine.rs`) — when an actor needs a new policy or state graph. Add a new `StateMachineCfg` variant only when existing templates cannot express the behavior.
-2. **ActionSet spec** (`crates/ambition_actor/src/brain/action_set.rs`) — when an actor needs a new concrete capability: melee, ranged, move style, or special.
+1. **Brain template** (`crates/ambition_characters/src/brain/state_machine.rs`) — when an actor needs a new policy or state graph. Add a new `StateMachineCfg` variant only when existing templates cannot express the behavior.
+2. **ActionSet spec** (`crates/ambition_characters/src/brain/action_set.rs`) — when an actor needs a new concrete capability: melee, ranged, move style, or special.
 3. **Effect consumer** (`crates/ambition_sandbox/src/features/ecs/brain_effects.rs` or another focused module) — when an `ActionRequest` is emitted but not yet translated into hitboxes, projectiles, VFX/SFX, boss hazards, or other world effects.
 
 Per-entity brain construction usually lives in `crates/ambition_sandbox/src/features/ecs/brain_builders.rs` or the relevant boss/profile setup code.

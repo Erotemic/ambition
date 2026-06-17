@@ -28,7 +28,7 @@ focused EFFECTS/Combat consumers
 Key files:
 
 ```text
-crates/ambition_actor/src/brain/
+crates/ambition_characters/src/brain/
 ├── mod.rs              # Brain enum, ActorControl, ActorActionMessage, resolver emission
 ├── snapshot.rs         # BrainSnapshot, player input slot, wall/contact view
 ├── state_machine.rs    # reusable AI templates + tick_state_machine

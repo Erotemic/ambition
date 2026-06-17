@@ -51,5 +51,5 @@ Not every backend is equally implemented today. Treat this table as the stable d
 - `docs/systems/brain-driver.md`
 - `docs/recipes/extending-brains-and-action-sets.md`
 - `docs/adr/0016-actor-unification.md`
-- `crates/ambition_actor/src/brain/`
-- `crates/ambition_actor/src/actor/control.rs`
+- `crates/ambition_characters/src/brain/`
+- `crates/ambition_characters/src/actor/control.rs`

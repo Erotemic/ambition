@@ -2,7 +2,7 @@
 
 **Review date:** 2026-05-30. Reviewed against source archive `ambition-source-2026-05-30T104014-5-e721ea65c578`.
 
-This is the companion doc for `crates/ambition_actor/src/actor/ai.rs` and the brain modules. It captures the current state of the shared character-AI vocabulary and the path forward for making actor policy, movement, and effects reusable across NPCs, enemies, bosses, and future player-controlled bodies.
+This is the companion doc for `crates/ambition_characters/src/actor/ai.rs` and the brain modules. It captures the current state of the shared character-AI vocabulary and the path forward for making actor policy, movement, and effects reusable across NPCs, enemies, bosses, and future player-controlled bodies.
 
 ## Current status
 
@@ -36,7 +36,7 @@ This lets two actors share one brain template but look different because their `
 
 ## Engine AI vocabulary
 
-`crates/ambition_actor/src/actor/ai.rs` remains the pure-data evaluator vocabulary:
+`crates/ambition_characters/src/actor/ai.rs` remains the pure-data evaluator vocabulary:
 
 - `CharacterAiSnapshot` — read-only view of actor/target state.
 - `CharacterAiMode` — canonical coarse mode (`Idle`, `Patrol`, `Chase`, `Telegraph`, `Attack`, `Recover`, `Stunned`, `Dead`).
@@ -47,7 +47,7 @@ The sandbox brain system is now the higher-level runtime that maps actor snapsho
 
 ## Current brain templates
 
-`crates/ambition_actor/src/brain/state_machine.rs` currently exposes a small set of reusable templates rather than one bespoke brain per enemy:
+`crates/ambition_characters/src/brain/state_machine.rs` currently exposes a small set of reusable templates rather than one bespoke brain per enemy:
 
 | Template | Use |
 |---|---|

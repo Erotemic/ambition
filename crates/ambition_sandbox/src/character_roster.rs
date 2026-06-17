@@ -1,7 +1,7 @@
 //! The GAME's character roster: the embedded `character_catalog.ron`
 //! data plus its lookup helpers.
 //!
-//! `ambition_actor::character_catalog` owns the catalog SCHEMA +
+//! `ambition_characters::character_catalog` owns the catalog SCHEMA +
 //! parser + preset resolver (machinery, content-free); this module
 //! owns Ambition's actual roster DATA — the same machinery/data split
 //! as `enemy_archetypes.ron` and the sprite-sheet tuning. The RON

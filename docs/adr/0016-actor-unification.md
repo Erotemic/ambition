@@ -29,7 +29,7 @@ Earlier patch notes separated interactions, hazards, enemies, bosses, labels, an
 ## Faction vocabulary (2026-05-20 update)
 
 The shared actor-faction tag landed as the `ActorFaction` component
-in `crates/ambition_actor/src/actor/pose.rs`:
+in `crates/ambition_characters/src/actor/pose.rs`:
 
 ```rust
 pub enum ActorFaction { Player, Enemy, Npc, Boss, Neutral }
@@ -59,7 +59,7 @@ without translation.
 ## Universal-brain (2026-05-24 update)
 
 Beyond the faction tag, the actor-unification work extended to a
-universal-brain interface (`crates/ambition_actor/src/brain/`):
+universal-brain interface (`crates/ambition_characters/src/brain/`):
 every controllable entity now carries `Brain` + `ActionSet` +
 `ActorControl` sibling components. Brains tick each frame to fill
 the abstract intent frame; ActionSets resolve abstract intent into

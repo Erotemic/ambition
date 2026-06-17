@@ -33,7 +33,7 @@ Entry format:
 - **Suggested fix / size:** S — rename to TrainingDummy, BUT it touches LDtk/content mapping, so do it with `ambition_ldtk_tools`, not a blind rename.
 
 ## 2026-06-10 Special-attack EFFECTS consumers are half-vocabulary (post de-name)
-- **Where:** crates/ambition_sandbox/src/features/ecs/brain_effects.rs (spawn_gnu_apple_rain_*, spawn_overfit_volley_*, LockOnBeam/PitTrap/RotatingCross/MinionCascade consumers); SpecialActionSpec docs in ambition_actor/src/brain/action_set.rs
+- **Where:** crates/ambition_sandbox/src/features/ecs/brain_effects.rs (spawn_gnu_apple_rain_*, spawn_overfit_volley_*, LockOnBeam/PitTrap/RotatingCross/MinionCascade consumers); SpecialActionSpec docs in ambition_characters/src/brain/action_set.rs
 - **Smell:** the BossAttackProfile de-name is honest at the key/schedule/geometry/param layers, but the consumer impls still bake content (apple art identity, gnu-named fns, "GNU-ton boss:" spec docs).
 - **Suggested fix / size:** M — lift baked constants + projectile-art identity into RON spec fields; rename consumers to the vocabulary. The active target of the Technique/Effects framework design (2026-06-13).
 

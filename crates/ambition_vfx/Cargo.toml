@@ -18,7 +18,7 @@ bevy = { version = "0.18.1", default-features = false }
 ambition_engine_core = { path = "../ambition_engine_core" }
 
 # ActorFaction (a hitbox / effect is faction-tagged).
-ambition_actor = { path = "../ambition_actor" }
+ambition_characters = { path = "../ambition_characters" }
 
 # The projectile substrate: ProjectileFaction + the EnemyProjectileSpawn request
 # carried by Effect::Projectiles.

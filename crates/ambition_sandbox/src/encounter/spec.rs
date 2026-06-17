@@ -1,3 +1,9 @@
+//! Authored encounter data types (serde RON). `EncounterSpec` is the whole
+//! encounter: ordered `EncounterWaveSpec`s of `EncounterMobSpec`s, the trigger
+//! AABB, camera zoom, intro timing, optional `LockWallSpec`, music track, and
+//! reward. The lib's `loading.rs` builds these from LDtk + the content wave
+//! book; the `state.rs` machine consumes them. Pure data — no behavior here.
+
 use serde::{Deserialize, Serialize};
 
 use crate::engine_core as ae;

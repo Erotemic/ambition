@@ -1,3 +1,12 @@
+//! ECS components/bundles for plugin-spawned Ambition LDtk entities.
+//!
+//! `AmbitionLdtkMarkerBundle` registers every authored entity with
+//! bevy_ecs_ldtk (so it owns lifecycle without drawing placeholders);
+//! `AmbitionLdtkEntity`/`AmbitionLdtkMarker` carry identity. `LdtkRuntimeRole`
+//! classifies an identifier (with `promoted()`/`label()`), and `LdtkSolid`/
+//! `LdtkOneWayPlatform`/`LdtkDamageVolume` are the typed collision tags read by
+//! sibling `systems`/`indices`.
+
 use bevy::prelude::{Bundle, Component};
 use bevy_ecs_ldtk::prelude::{EntityInstance as PluginEntityInstance, LdtkEntity};
 

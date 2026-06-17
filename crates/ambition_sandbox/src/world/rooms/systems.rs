@@ -1,3 +1,12 @@
+//! Bevy systems that drive room state from the data types in sibling modules.
+//!
+//! Syncs active-room metadata + music request (`sync_active_room_metadata`,
+//! `sync_room_music_request`), ticks gate-portal phases
+//! (`tick_portal_phases_system`), and animates portal sprites/rings
+//! (`sync_portal_sprite_visibility`/`_animation`, `sync_portal_ring_rotation_system`,
+//! `hide_portal_loading_zone_visuals`). `PortalSprite` is the visual marker.
+//! Pure-data types/phase logic live in `gate_portal`/`metadata`/`room_graph`.
+
 use bevy::prelude::{
     Commands, Component, Entity, Query, Res, ResMut, Sprite, Transform, Visibility,
 };

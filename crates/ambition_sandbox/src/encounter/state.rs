@@ -1,3 +1,10 @@
+//! The headless encounter state machine: `EncounterPhase`
+//! (Inactive→Starting→Active→Cleared/Failed), the per-run `EncounterRun`
+//! (pending/alive/elapsed), and the `EncounterState` resource. Entry points
+//! `maybe_start` / `tick_intro_or_wave` / `on_player_death` / `reset_for_retry`
+//! take an `enemy_alive` closure instead of touching the ECS, so the whole
+//! flow stays unit-testable; `systems.rs` is the Bevy wiring around it.
+
 use bevy::math::bounding::IntersectsVolume;
 use bevy::prelude::Resource;
 

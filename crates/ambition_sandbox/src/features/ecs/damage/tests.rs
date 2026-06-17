@@ -1,3 +1,6 @@
+//! Tests for hit-event application to ECS actors/bosses/breakables and the
+//! death-driven drop/explosion/split spawners.
+
 use super::super::damage_drops::{
     drop_ability_pickup, drop_health_pickup, id_drops_health, spawn_death_explosion,
     spawn_split_offspring,

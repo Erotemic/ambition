@@ -1,3 +1,6 @@
+//! Unit tests for the settings IR: model build (category order, live value
+//! labels) and `apply_settings_option` mutation/close behaviour.
+
 use super::*;
 use crate::persistence::settings::UserSettings;
 

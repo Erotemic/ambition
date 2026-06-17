@@ -1,3 +1,8 @@
+//! The `ControlFrame` resource — the device-agnostic per-frame player-input
+//! snapshot the simulation reads (`Res<ControlFrame>`), plus dash-trigger edge
+//! state. This is the sim/presentation seam (ADR 0012): the visible binary fills
+//! it from leafwing, headless tests fill it directly; gameplay never sees a device.
+
 use super::*;
 
 /// Per-frame snapshot of player input feeding the simulation.

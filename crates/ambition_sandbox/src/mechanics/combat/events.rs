@@ -1,3 +1,13 @@
+//! Combat-kit message/event vocabulary + small shared value types.
+//!
+//! Holds the feature-visual taxonomy (`FeatureVisualKind`, `BoundFeatureKind`,
+//! the `FeatureView` render snapshot, `FeatureCombatTuning`), the hit model
+//! (`HitMode`, `HitKnockback`, `ActorStimulus`), the typed gameplay-effect
+//! messages consumed in [`bus`](super::bus) (`SetFlagRequested`,
+//! `QuestAdvanceRequested`, `SwitchActivated`, `GameplaySfxRequested`), the
+//! room-reset signals (`RoomResetReason`, `ResetRoomFeaturesEvent`), and the
+//! `GameplayBanner` HUD resource. Pure data/messages — no systems.
+
 use super::*;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

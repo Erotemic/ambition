@@ -1,3 +1,6 @@
+//! Tests for the actor tick helpers: shark charge-crash geometry, nearest-same-kind
+//! neighbor lookup, holding-position spread, per-actor crowding, and pose sync.
+
 use super::*;
 
 #[test]

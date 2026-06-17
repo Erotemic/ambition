@@ -1,7 +1,7 @@
 //! Adaptive music core: cue catalog, layered Kira channels, the
 //! director (simple + adaptive cue playback), and its tuning. The
 //! HOST supplies a [`crate::mix::MusicMix`] (synced from its settings)
-//! and a [`crate::state::MusicIntent`] (mapped from its game state) —
+//! and a [`state::MusicIntent`] (mapped from its game state) —
 //! this module never reads game state directly.
 
 use std::collections::HashMap;

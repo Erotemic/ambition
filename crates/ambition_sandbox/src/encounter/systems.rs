@@ -1,3 +1,10 @@
+//! The Bevy wiring around the headless `state.rs` machine.
+//! `populate_encounter_registry` (startup) loads specs from LDtk + the save;
+//! `update_encounters_from_world` is the per-frame tick: death/area-exit
+//! cancellation, switch-armed trigger entry, `tick_intro_or_wave`, applying
+//! `SpawnCommand`s to ECS mobs, auto-greening the cleared switch + reward
+//! chest, lock-wall sync, music request, save projection, and trace push.
+
 use bevy::prelude::*;
 
 use crate::engine_core as ae;

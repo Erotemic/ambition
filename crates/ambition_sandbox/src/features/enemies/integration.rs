@@ -1,5 +1,9 @@
 //! Enemy physics/AI integration: the per-frame tick that drives enemy
-//! movement + attack geometry through the `EnemyMut` ECS view.
+//! movement + attack geometry through the [`EnemyMut`] ECS view. Grounded
+//! enemies run the shared grounded movement spine (`integrate_normal_spine`
+//! + `step_kinematic` sweep); aerial enemies and the shark/rider composite
+//! go through [`super::super::step_floating_body`]. Attack AABBs are derived
+//! here; archetype tuning comes from the [`super::EnemyRoster`].
 
 use super::super::ecs::enemy_clusters::EnemyMut;
 use super::super::*;

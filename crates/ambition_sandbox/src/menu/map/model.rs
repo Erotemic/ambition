@@ -1,15 +1,10 @@
-//! Map / minimap state.
+//! Map / minimap state — the source of truth the Map tab renders.
 //!
-//! Tracks which rooms the player has visited (write `room_visited_<id>`
-//! flag whenever the active room changes — already done by
-//! `quest::push_room_entered_quest_events` via `RoomEntered`).
-//! Surfaces the visited set + room dimensions / connections to the HUD
-//! so a future map UI can render them.
-//!
-//! Right now there's no full-screen map UI; the data is exposed
-//! through `MapMenuState::summary_lines` which the existing HUD picks
-//! up. Pressing `M` toggles `MapMenuState::open`. When a richer UI
-//! lands, this resource is the source of truth.
+//! `MapMenuState` holds the visited-room set, per-room geometry
+//! (`MapRoomNode`), open/minimap toggles, and the clamped zoom level
+//! (`MAP_ZOOM_MIN`..`MAP_ZOOM_MAX`). `summary_lines` produces the text the HUD
+//! shows; the full panel + minimap live in the sibling `ui` module. Visits are
+//! recorded by the sibling `systems` module from room changes + save flags.
 
 use std::collections::BTreeSet;
 

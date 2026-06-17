@@ -1,3 +1,11 @@
+//! Typed `Surface` authoring primitive: parse + compile to engine collision.
+//!
+//! A single rectangular `Surface` LDtk entity carries `collision`/`breakability`/
+//! `contact`/`respawn` fields instead of a zoo of one-purpose entities.
+//! `parse_surface_spec` reads the fields into `LdtkSurfaceSpec` and the
+//! `Surface*` enums; `compile_surface` lowers a spec to a `SurfaceCompiled`
+//! (typed `Block`/`Breakable`/contact data). Consumed by sibling `conversion`.
+
 use crate::engine_core as ae;
 
 use super::fields::{field_f32, field_i32, field_string};

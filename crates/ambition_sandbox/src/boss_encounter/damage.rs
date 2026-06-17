@@ -1,3 +1,13 @@
+//! Boss damage routing into the encounter phase machine.
+//!
+//! `record_boss_damage` / `force_boss_death` look up the encounter by its
+//! linked boss-runtime id in [`BossEncounterRegistry`], apply the delta to the
+//! phase machine (the source of truth for boss HP), and publish the resulting
+//! events via [`events::publish_events`]. Returns a [`BossDamageOutcome`]
+//! (post-hit HP + `killed`/`applied` flags) so the caller can fire same-frame
+//! death VFX. `force_boss_death` bypasses phase invulnerability (environmental
+//! kills); `record_boss_damage` honors it.
+
 use crate::cutscene_trigger::CutsceneTriggerQueue;
 
 use super::{events::publish_events, BossEncounterRegistry};

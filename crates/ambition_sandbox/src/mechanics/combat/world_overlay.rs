@@ -1,3 +1,11 @@
+//! Augmented-collision-world builders that fold dynamic state into the static
+//! room world. `world_with_sandbox_solids` adds moving-platform + ECS-overlay
+//! solids and carves portal apertures; `world_with_portal_carves` carves only
+//! the apertures (borrowing when none are active, for the projectile path).
+//! `carve_portal_apertures` splits solid host blocks around the holes.
+//! The overlay *resource* lives in [`overlay`](super::overlay); this is the
+//! consumption side. Re-exported via `pub use world_overlay::*`.
+
 use super::overlay::FeatureEcsWorldOverlay;
 use super::*;
 

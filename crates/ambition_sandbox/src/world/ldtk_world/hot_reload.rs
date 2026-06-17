@@ -1,3 +1,11 @@
+//! LDtk file-watch + transactional hot-reload state.
+//!
+//! `LdtkHotReloadState` tracks the watched `.ldtk` path and a pending/applied/
+//! failed reload status; `poll_ldtk_file_changes` (Bevy system) debounces mtime
+//! checks and marks pending reloads. `sandbox_ldtk_asset_path` /
+//! `SANDBOX_LDTK_ASSET` give the bevy_ecs_ldtk asset path. Pure file/policy
+//! state — actual parse + convert happens in `loading`/`conversion`.
+
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;

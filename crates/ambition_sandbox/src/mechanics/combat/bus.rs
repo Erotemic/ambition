@@ -1,3 +1,10 @@
+//! Consumer systems for the typed gameplay-effect messages declared in
+//! [`events`](super::events): one focused applier per channel — flag writes
+//! (`apply_flag_effects`, mirrors `on` into a quest event), quest advances,
+//! switch activations (forwarded to the encounter queue + click SFX), and bare
+//! audio cues. Replaces the former single `GameplayEffect` enum bus; schedule
+//! composition stays content-side, not here.
+
 use crate::features::events::{
     GameplaySfxRequested, QuestAdvanceRequested, SetFlagRequested, SwitchActivated,
 };

@@ -1,3 +1,9 @@
+//! Tests for the per-actor animation pickers: that player/enemy/NPC
+//! state (ledge, shield, dodge, swim, climb, crouch, shoot, aim,
+//! wall-jump, interact, aerial flight) maps to the expected
+//! `CharacterAnim`, and that the action/ledge rows resolve by name and
+//! loop correctly.
+
 use super::*;
 use crate::player::{PlayerBlinkCameraState, PlayerCombatState};
 

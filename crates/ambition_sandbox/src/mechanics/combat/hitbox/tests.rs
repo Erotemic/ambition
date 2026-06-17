@@ -1,3 +1,5 @@
+//! Unit tests for hitbox AABB resolution and the despawn/overlap lifecycle.
+
 use super::*;
 use bevy::prelude::*;
 

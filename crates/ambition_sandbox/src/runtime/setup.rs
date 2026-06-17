@@ -1,19 +1,18 @@
 //! Sim/presentation split for the sandbox's startup setup.
 //!
-//! Slice 4 of ADR 0012's events refactor: the previous monolithic `setup`
-//! system in `main.rs` mixed simulation-only world construction
+//! Slice 4 of ADR 0012's events refactor: an earlier monolithic setup
+//! system mixed simulation-only world construction
 //! (`LdtkWorldBundle`, the player entity's gameplay components) with
 //! presentation-only spawns (Camera2d, sprites, HUD text, and generated
-//! audio library setup). This module factors that into two reusable helpers
-//! so the visible binary can call both, the future Slice 5
-//! `add_simulation_plugins` / `add_presentation_plugins` split has a clean
-//! seam, and the headless binary can call `simulation_world` standalone
-//! once the LdtkPlugin-headless question is resolved.
+//! audio library setup). This module factors the sim half into
+//! [`simulation_world`] so the headless binary can build the world without
+//! presentation, while the visible-app setup keeps that seam clean.
 //!
-//! Both helpers take `&mut Commands` plus borrowed resource handles so they
-//! can be invoked from any Bevy startup system that has gathered the right
-//! parameters. They are not Bevy systems themselves; the outer `setup`
-//! system in `main.rs` does the param wiring and calls them in sequence.
+//! [`simulation_world`] takes `&mut Commands` plus borrowed resource handles
+//! ([`SimulationSetup`]) so it can be invoked from any Bevy startup system
+//! that has gathered the right parameters. It is not a Bevy system itself;
+//! the `ambition_app` crate's startup setup (`app/setup_systems.rs`) does the
+//! param wiring and pairs it with the presentation-side spawns.
 
 use crate::engine_core as ae;
 use bevy::prelude::*;

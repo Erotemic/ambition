@@ -1,26 +1,15 @@
-//! Pure boss-attack volume math.
+//! Pure boss-attack volume math (no ECS, no mutation).
 //!
-//! Final step of the "move boss policy out of `BossRuntime`" migration.
-//! `BossRuntime` used to expose:
-//!
-//! ```text
-//! attack_volumes()
-//! attack_telegraph_volumes()
-//! cycle_pattern_volumes()
-//! volumes_for(profile)
-//! damageable_aabbs()
-//! player_damage(player_body)
-//! ```
-//!
-//! All of those read mirror fields (`attack_timer`, `attack_windup_timer`,
-//! `active_strike_profile`, `telegraph_profile`, `pattern_timer`) that
-//! the brain wrote into the runtime via `sync_runtime_mirror_from_attack_state`.
-//! After this module lands the mirror fields go away and the helpers
-//! here read [`BossAttackState`] + [`BossBehaviorProfile`] + the boss's
-//! body fields (`pos`, `size`, `combat_size`) directly.
-//!
-//! No method on `BossRuntime` survives in the final form if it
-//! depends on attack state — those become free functions here.
+//! Free functions that derive world-space AABBs for a boss's active strike,
+//! telegraph, damageable hurtbox, and body-contact zone, then resolve the
+//! per-tick boss -> player `HitEvent`. Inputs are bundled in
+//! [`BossVolumeContext`] (body fields + `BossAttackState` + optional
+//! [`BossSpriteMetrics`] + an optional [`BossAnimationFrameSample`]); helpers
+//! prefer sprite-author-declared hit/hurtboxes and fall back to
+//! `volumes_for_profile`'s hardcoded geometry per `BossAttackProfile`.
+//! Submodules: `aabb` (pixel-rect -> world-AABB derivation), `frame`
+//! (animation-frame sampling). Distinct from the engine's collision system —
+//! this is boss-attack-specific geometry only.
 
 use crate::engine_core as ae;
 

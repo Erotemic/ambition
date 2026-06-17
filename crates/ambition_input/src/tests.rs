@@ -1,3 +1,5 @@
+//! Unit tests for the input crate (deadzone filtering, preset tables, analog→dir).
+
 use super::*;
 use crate::settings::ControlSettings;
 

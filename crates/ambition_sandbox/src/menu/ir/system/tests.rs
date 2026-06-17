@@ -1,3 +1,7 @@
+//! Unit tests for the SYSTEM IR: top-level entry order, dev-build gating, the
+//! curated per-screen settings subsets, and the Radio / Language / Developer
+//! screen contents built by `SystemMenuModel::build`.
+
 use super::*;
 
 #[test]

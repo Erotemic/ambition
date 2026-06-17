@@ -1,3 +1,10 @@
+//! The dialog-box overlay UI: spawns/refreshes the on-screen dialog panel.
+//!
+//! Render-only. [`sync_dialog_ui`] mirrors `ambition_sandbox::dialog::DialogState`
+//! into a Bevy UI tree under [`DialogOverlayRoot`]; the per-choice
+//! `DialogChoiceSlot` marker (owned sim-side) bridges to the dialog pointer-input
+//! system. Fonts come from [`crate::ui_fonts`].
+
 use bevy::log::info;
 use bevy::prelude::*;
 

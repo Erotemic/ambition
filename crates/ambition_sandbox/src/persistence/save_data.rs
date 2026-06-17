@@ -1,13 +1,12 @@
-//! Save-game data shapes shared by sandbox and future story crates.
+//! Pure save-game data shapes (`SandboxSaveData`, `PersistedEncounter`,
+//! `PersistedSwitch`, ability/quest flags) — the vocabulary the save format
+//! is built from.
 //!
-//! These types are pure data + `serde`. They don't know about Bevy, file
-//! paths, autosave timing, or the LDtk layer — those live in the sandbox
-//! crate (`crate::persistence::save_data` over there) so the engine stays free of I/O and
-//! presentation concerns.
-//!
-//! The engine owns the *vocabulary* so reusable mechanics (encounter
-//! defeat, switch latch, ability flags) keep one canonical shape across
-//! game, sandbox, and editor tooling.
+//! These types are pure data + `serde`: no Bevy, file paths, autosave timing,
+//! or LDtk. The Bevy-side disk shim that loads/saves them lives in the sibling
+//! `crate::persistence::save` module. Keeping the shapes I/O-free gives reusable
+//! mechanics (encounter defeat, switch latch, ability flags) one canonical form
+//! shared across sandbox and any future story / editor tooling.
 
 use serde::{Deserialize, Serialize};
 

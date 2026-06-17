@@ -1,3 +1,9 @@
+//! Encounter→audio music request resources. `EncounterMusicRequest` (this
+//! generic wave system) and `BossEncounterMusicRequest` (the separate
+//! `crate::boss_encounter` fight) are split so the per-frame encounter tick,
+//! which writes `desired_track` every frame (including `None`), can't clobber
+//! boss music; the audio backend prefers boss > encounter > room default.
+
 use bevy::prelude::Resource;
 
 /// Music request from the encounter system to the audio backend.

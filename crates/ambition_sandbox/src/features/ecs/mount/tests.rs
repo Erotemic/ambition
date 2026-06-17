@@ -1,3 +1,6 @@
+//! Tests for the rider/mount link: per-tick rider-to-mount snapping and the
+//! mount-death dissolution that re-grounds and re-brains the rider.
+
 use super::super::CenteredAabb;
 use super::*;
 use bevy::prelude::*;

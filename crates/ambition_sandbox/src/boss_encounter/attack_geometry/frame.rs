@@ -1,7 +1,11 @@
 //! Sprite animation-frame sampling — picks the authored/runtime frame and its
 //! world-space animation-box AABBs that the volume queries read.
 //!
-//! Split out of the former 782-line `attack_geometry/mod.rs` (2026-06-15).
+//! Resolves which animation row + frame a boss is showing (preferring a live
+//! `BossAnimationFrameSample` over elapsed-time sampling), the world size to
+//! scale against (`sprite_world_size`), and the per-frame hit/hurtbox AABBs
+//! (`sprite_authored_volumes`, `world_space_animation_box_aabbs`). Consumed by
+//! `mod`'s `active_attack_volumes` / `telegraph_volumes` / `damageable_volumes`.
 
 use super::*;
 

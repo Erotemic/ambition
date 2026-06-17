@@ -1,3 +1,8 @@
+//! Boss encounter id helpers: `encounter_id_from_name` slugs an authored boss
+//! name into a stable id (`"Clockwork Warden"` -> `"clockwork_warden"`), and
+//! `MOCKINGBIRD_ENCOUNTER_ID` is the one remaining hard-coded id (referenced by
+//! tests + a planned data-driven boss-reward table).
+
 /// Encounter id of the pirate-cove boss. The chest dropped on its
 /// defeat reuses the standard `encounter_chest_<id>` naming so the
 /// existing open / looted-flag plumbing

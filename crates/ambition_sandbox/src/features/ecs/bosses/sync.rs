@@ -1,5 +1,6 @@
-//! Boss component sync: mirror runtime boss state into ECS components, derive
-//! sprite metrics + render targets, and the spawn-time hurtbox volumes.
+//! Boss component sync: mirror boss cluster state onto the generic actor
+//! read-model components, derive sprite metrics + render targets, and build the
+//! spawn-time hurtbox volumes. Sibling of `tick.rs` (the per-frame boss update).
 
 use super::super::*;
 

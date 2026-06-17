@@ -1,3 +1,6 @@
+//! `SpawnScopedExt` — `Commands` extension giving each spawn site an explicit
+//! lifecycle scope (room / run / persistent).
+
 use bevy::prelude::*;
 
 use super::{PersistentEntity, RoomScopedEntity, RunScopedEntity};

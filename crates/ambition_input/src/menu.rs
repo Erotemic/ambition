@@ -1,3 +1,8 @@
+//! Menu-side input vocabulary: the device-agnostic `MenuInputFrame` /
+//! `MenuControlFrame` / `MenuInputState` resources and the `MenuDir` / `analog_to_dir`
+//! helpers. The menu companion to `control` — keyboard/gamepad/touch fold into one
+//! semantic UI intent here so menu systems never read leafwing or raw touch events.
+
 use super::*;
 
 /// Per-frame menu navigation snapshot. Decoded from `SandboxAction`'s

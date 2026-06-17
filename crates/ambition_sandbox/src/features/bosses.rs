@@ -1,3 +1,12 @@
+//! Boss runtime glue for the actor simulation: the [`boss_special_for_profile`]
+//! resolver that maps a `BossAttackProfile::Special(key)` to a
+//! `SpecialActionSpec` (the open seam `tick_boss_brains_system` uses to emit
+//! `ActorActionMessage::Special`), plus stable boss encounter-id consts
+//! ([`GNU_TON_ENCOUNTER_ID`], [`GRADIENT_SENTINEL_ENCOUNTER_ID`],
+//! [`GNU_TON_APPLE_OWNER_PREFIX`]). The boss PROFILE/pattern vocabulary and
+//! sprite metrics now live in `crate::brain::boss_pattern` and
+//! `crate::boss_encounter::behavior` and are re-exported here for legacy paths.
+
 // Boss policy vocabulary (`BossMovementProfile`, `BossPatternStep`,
 // `BossPattern`, `BossAttackPattern`, `BossAttackProfile`,
 // `step_duration`) moved to `crate::brain::boss_pattern` per the

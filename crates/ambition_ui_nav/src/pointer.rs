@@ -1,3 +1,8 @@
+//! Pointer/touch row activation: `MenuFocusOwner` / `MenuFocusState` track which
+//! source owns focus, and `resolve_selectable_row_interaction` applies the host's
+//! `MenuTapMode` (from `ambition_input::settings`) to a Bevy `Interaction` to
+//! decide hover-vs-select-vs-activate.
+
 use bevy::prelude::Interaction;
 
 use ambition_input::settings::{MenuPointerPress, MenuTapMode};

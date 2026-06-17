@@ -1,3 +1,8 @@
+//! Tests for `game_assets`: CLI/`GameAssetConfig` arg parsing, stable
+//! entity-sprite / parallax `AssetId` namespaces, sandbox image-manifest
+//! contents, per-`AssetProfile` catalog path resolution, and the
+//! `entity_sprite_for_kind` resolver.
+
 use super::*;
 use crate::features::FeatureVisualKind;
 

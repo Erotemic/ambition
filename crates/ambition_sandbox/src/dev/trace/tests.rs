@@ -1,3 +1,6 @@
+//! Unit tests for trace OOB detection and frame-diff event synthesis against a
+//! dummy world.
+
 use super::*;
 use ae::{Block, World};
 use std::path::Path;

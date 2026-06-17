@@ -1,3 +1,7 @@
+//! Drag accumulation: `DragScrollState` turns continuous pointer/touch motion
+//! into discrete row-scroll steps so swipe-scroll reuses the same navigation path
+//! as arrow-key/d-pad row movement.
+
 use bevy::prelude::Vec2;
 
 /// Accumulates pointer/touch drag into discrete menu scroll steps.

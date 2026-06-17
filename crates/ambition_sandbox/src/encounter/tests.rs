@@ -1,3 +1,8 @@
+//! Integration tests for the encounter module: state-machine flow
+//! (start/wave/clear/fail/retry), multi-wave + delayed sub-spawn timing,
+//! switch arming, LDtk loading of the `goblin_encounter` fixture, reward-chest
+//! placement, and lock-wall sync.
+
 use super::*;
 use crate::encounter::switches::{EncounterSwitchIndex, EncounterSwitchLink};
 use crate::engine_core as ae;

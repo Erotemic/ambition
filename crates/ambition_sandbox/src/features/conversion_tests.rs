@@ -1,3 +1,8 @@
+//! Headless movement + collision tests for the actor simulation: NPC gravity
+//! settle / patrol / talk-stop / possession and enemy aerial / patrol / wall /
+//! sideways-gravity / moving-platform-ride behaviour, plus archetype-tuning
+//! invariants — all driven through the cluster scratch views without a renderer.
+
 use super::*;
 
 #[cfg(test)]

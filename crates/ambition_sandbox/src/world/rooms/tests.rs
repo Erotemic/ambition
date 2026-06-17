@@ -1,3 +1,5 @@
+//! Unit tests for gate-portal phase transitions and room-graph behavior.
+
 use super::*;
 
 #[test]

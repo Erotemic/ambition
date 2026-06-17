@@ -1,3 +1,7 @@
+//! Pins for the `update_body_mode` driver: morph-ball entry/exit,
+//! ladder grab/exit, the down-jump fall-off + re-grab lock, and
+//! flight suppressing ladder auto-climb.
+
 use super::*;
 use crate::engine_core::world::{ClimbableKind, ClimbableRegion, ClimbableSpec, World};
 use crate::engine_core::Vec2;

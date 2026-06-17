@@ -1,16 +1,17 @@
-//! Reusable data model and seam primitives for the Ambition inventory UI.
+//! Engine-side unified menu: the renderer-agnostic content model plus two
+//! interchangeable presentations of it.
 //!
-//! This crate is intentionally split into host-owned data and renderer-owned
-//! presentation. Host games should build [`MenuPageModel`] values from their
-//! own inventory resources, then translate [`MenuActionActivated`] messages back
-//! into gameplay events. Renderers such as the Lunex cube prototype, a flat
-//! Bevy UI debug view, or a future mobile layout should all consume the same
-//! page model.
+//! This crate is split into host-owned DATA and renderer-owned PRESENTATION.
+//! Hosts build generic [`MenuPageModel`] / [`ItemsOnlyPageSpec`] values from
+//! their own resources, then translate the [`MenuActionActivated`] /
+//! [`MenuClosedRequested`] messages this crate emits back into gameplay events;
+//! it never names `OwnedItems`, health, or player components. The two real
+//! renderers live in [`render`]: [`render::kaleidoscope`] (the bevy_lunex 3D
+//! OoT-style cube) and [`render::bevy_ui`] (a flat tabbed `bevy_ui` view) — both
+//! consume the same page model, which is what validates the seam.
 //!
-//! The items-only helpers in this module are the lowest-risk integration path
-//! for Ambition itself: the game keeps `OwnedItems` and equip/use side effects,
-//! while this crate only receives item-slot descriptors and emits host-defined
-//! actions.
+//! [`AmbitionInventoryUiPlugin`] installs only the renderer-agnostic
+//! resources/messages, so a host can keep it even with no renderer enabled.
 
 use bevy::prelude::{App, Component, Message, Plugin, Resource};
 

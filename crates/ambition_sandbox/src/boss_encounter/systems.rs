@@ -1,3 +1,14 @@
+//! Boss-encounter Bevy systems — the per-frame driver.
+//!
+//! `populate_boss_encounter_registry` (startup) loads profiles + carries over
+//! save-cleared bosses. `update_boss_encounters` (per sim-tick) registers/wakes
+//! bosses in the active room, ticks each phase machine, publishes events,
+//! mirrors phase-machine HP/phase onto the boss ECS clusters, manages the
+//! adaptive-music request lifetime, and syncs reward chests.
+//! `boss_phase_transition_feedback` diffs each boss's phase against a `Local`
+//! snapshot to fire camera shake + a `DamageBox` shockwave + scream VFX on
+//! dramatic transitions — decoupled from the event pipeline on purpose.
+
 use crate::engine_core as ae;
 use bevy::prelude::*;
 

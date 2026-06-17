@@ -1,3 +1,13 @@
+//! Assembled per-boss profile: the content-facing bundle.
+//!
+//! `BossProfile` stitches the two data registries into one struct —
+//! encounter numbers (`BossEncounterSpec` from `boss_encounters/<id>.ron`) plus
+//! behavior + reward (`BossBehaviorProfile` from `boss_profiles.ron`).
+//! `BossProfile::from_id` / `for_encounter_id_or_name` resolve one by id (with
+//! the legacy `gradient_sentinel` -> `clockwork_warden` save alias);
+//! `default_boss_profiles` builds the full installed list. Consumed by
+//! `registry`/`systems` to register encounters.
+
 /// Full authored profile for a boss encounter.
 ///
 /// This is the sandbox-side bridge from encounter progression to actual play.

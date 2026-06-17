@@ -1,26 +1,30 @@
-//! Sandbox player projectile (Fireball / Hadouken).
+//! Sandbox PLAYER-faction projectile (Fireball / Hadouken) — one of two
+//! near-duplicate faction faces of the same idea, the other being
+//! `crate::enemy_projectile` (enemy volleys). The reusable projectile PHYSICS
+//! (spec / body / per-frame tick / world collision) is SHARED: it lives in
+//! `ambition_platformer_runtime::projectile` and is re-exported below, so both
+//! factions step through identical motion. This module owns only the
+//! player-specific seam: charge/motion-gesture firing, input sampling, and
+//! per-player state. Behavior is faction-routed in one unified `step_projectiles`
+//! (see [`entity::LiveProjectile`]); the `PlayerProjectile`/`EnemyProjectile`
+//! tags only select which renderer draws the shot.
 //!
-//! The engine owns the reusable primitives:
+//! Damage routes through `HitEvent` messages — same path as slashes, pogo
+//! bounces, and any future damage volume.
 //!
-//! * `crate::projectile::ProjectileSpec` / `ProjectileBody` (data + per-frame tick),
-//! * `crate::projectile::ProjectileSpawner` (cooldown + resource meter),
-//! * `crate::projectile::MotionInputBuffer` (quarter / half-circle motion recognition).
+//! ## Submodule layout
 //!
-//! This module wires those primitives into the Bevy sandbox: input
-//! sampling, collision against the active world, and trace events.
-//! Damage is routed through `HitEvent` messages — the same path
-//! slashes, pogo-bounces, and any future tool / hazard / spell that
-//! produces a damage volume go through.
-//!
-//! ## Submodule layout (post-2026-05-09 split)
-//!
-//! - [`state`] — `PlayerProjectileState`, `PlayerProjectile`,
-//!   `ProjectileUnlocks`, `ProjectileTraceEvent`.
-//! - [`systems`] — the `update_projectiles` Bevy system + private
-//!   `try_fire_projectile` helper.
-//! - [`visuals`] — `sync_projectile_visuals` system + visual marker
-//!   components.
-//! - [`diagnostics`] — internal motion-press logging helper.
+//! - [`state`] — `PlayerProjectileState` (per-player charge machine + motion
+//!   buffer + unlocks) and `ProjectileTraceEvent`.
+//! - [`entity`] — the per-projectile ECS components (`LiveProjectile`,
+//!   `PlayerProjectile`, `ProjectileOwner`, `ProjectileSeq`, …).
+//! - [`systems`] — `step_projectiles` (the unified stepper),
+//!   `player_projectile_input`, and the spawn-message consumer.
+//! - [`spawn`] — `ProjectileSpawner`: cooldown + resource-meter gating.
+//! - [`spawn_message`] — `SpawnProjectile` / `ProjectilePool`: decouples fire
+//!   sites from per-pool storage.
+//! - [`portal_transit`] — pure portal-aperture transit shared by both factions.
+//! - [`diagnostics`] — motion-press logging helper.
 
 mod diagnostics;
 mod entity;

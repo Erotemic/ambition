@@ -17,11 +17,12 @@
 //! ## How a rig works
 //! Per placed portal with a placed partner, a **rig**: one offscreen image, a
 //! capture `Camera2d` framing the partner-side source rect, and a window
-//! `Mesh2d` set into the entry's surface. The display map is
-//! `view::display_point` — the transit sprite copy's map — so the window and
-//! the copy read as one continuous image; its rotation/mirror lives entirely
-//! in the **UV mapping** (`cone_uvs`, pinned below), and the capture camera
-//! stays axis-aligned. The capture
+//! `Mesh2d` set into the entry's surface. The window source wedge comes from
+//! [`view::view_cone`](ambition_portal::view::view_cone) (the body map, same as
+//! the transit sprite copy) so the window and the copy read as one continuous
+//! image; its rotation/mirror lives entirely in the per-vertex **UV mapping**
+//! (computed inline below), and the capture camera stays axis-aligned. The
+//! capture
 //! renders into a fixed **square** texture; non-square source rects are stored
 //! stretched and un-stretched by the UVs (mesh geometry is world-space), so the
 //! texture never needs resizing as the viewer-dependent rect changes shape.

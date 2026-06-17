@@ -1,3 +1,5 @@
+//! Scope-agnostic despawn helper for lifecycle-scoped entities.
+
 use bevy::prelude::*;
 
 /// Despawn a scoped entity without encoding the scope in the caller.

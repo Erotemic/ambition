@@ -1,8 +1,9 @@
-//! "Tie a knot" — a verlet rope the player drags behind them (Jon's polish
-//! list: "the player emits a trail, that might drape down onto the collision,
-//! and perhaps be pulled taught"). The rope is a chain of verlet points pinned
-//! at the player; gravity makes it hang, distance constraints keep it rope-like,
-//! and (next increment) world collision makes it drape over ledges.
+//! Despite the name, NOT a grapple rope — a generic verlet **trail** the player
+//! drags behind them. A chain of verlet points pinned at the player; gravity
+//! makes it hang, distance constraints keep it rope-like, and (next increment)
+//! world collision makes it drape over ledges. Intended as the substrate for
+//! future "homotopy" skills/quests (a deformable curve through the world), not
+//! a traversal/pull mechanic.
 //!
 //! This module is the **pure, deterministic simulation** — no Bevy, no RNG — so
 //! the rope's shape is headless-testable even though its on-screen line is not.

@@ -1,3 +1,11 @@
+//! `BossEncounterRegistry` — the live boss-encounter resource.
+//!
+//! Maps encounter id -> phase-machine `BossEncounterState`, authored
+//! `BossProfile`, and the linked boss-runtime id (`runtime_ids`, used to route
+//! combat damage). `ensure`/`ensure_profile` register lazily; `link_runtime`
+//! wires an LDtk boss to its encounter; `active_phase` finds the one boss
+//! currently mid-fight. Populated + ticked by `systems`, mutated by `damage`.
+
 use std::collections::BTreeMap;
 
 use bevy::prelude::Resource;

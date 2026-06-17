@@ -1,6 +1,10 @@
 //! Pure AABB geometry derivation for boss attack volumes.
 //!
-//! Split out of the former 782-line `attack_geometry/mod.rs` (2026-06-15).
+//! Transforms sprite-frame pixel rects (`body_pixel_bbox` /
+//! `body_pixel_parts`) into world-space AABBs given a render position + size
+//! (`world_aabb_from_pixel_rect`, `world_space_body_aabbs_from_parts` /
+//! `_from_metrics`). `bounding_aabb` collapses multi-part bodies into one box
+//! for movement/clamping. Consumed by `mod` and `frame`.
 
 use super::*;
 

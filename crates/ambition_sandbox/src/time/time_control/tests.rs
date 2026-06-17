@@ -1,3 +1,6 @@
+//! Unit tests for the time-control authority: `ProperTimeScale` defaults and
+//! the `ClockScaleRequest` → policy dispatch in the `Solo` regime.
+
 use super::*;
 use crate::player::components::PlayerSlot;
 

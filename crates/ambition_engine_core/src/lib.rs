@@ -1,26 +1,29 @@
-//! Reusable Bevy-native simulation primitives.
+//! The pure, content-free movement/physics MODEL — the math the rest of
+//! the workspace builds on.
 //!
-//! Formerly the `ambition_engine` crate; collapsed into the sandbox
-//! 2026-05-28. This module owns the testable gameplay rules a future
-//! sibling crate could reuse: kinematic player movement, AABB
-//! collision semantics, ability gates, ledge-grab probes, world
-//! collision/water/climbable region data, and the cluster components
-//! (`BodyKinematics`, `PlayerGroundState`, …, `PlayerComboTrace`)
-//! that make up the player ECS entity.
+//! This is the foundation crate: a deterministic, mostly Bevy-free
+//! kinematic platformer simulation with no game-specific content. It owns
+//! the testable gameplay rules every sibling crate reuses — kinematic
+//! player movement, AABB collision semantics, ability gates, ledge-grab
+//! probes, world collision/water/climbable region data, gravity-relative
+//! reference frames, and the cluster components (`BodyKinematics`,
+//! `PlayerGroundState`, …, `PlayerComboTrace`) that make up the player ECS
+//! entity. `ambition_actor` (minds/cast), `ambition_content` (named game
+//! content), and `ambition_sandbox` (machinery) all sit above it.
 //!
-//! Sandbox-side concerns (LDtk entities, per-room authored Vecs,
-//! sandbox dispatch tables, presentation) stay outside this module.
+//! Top-level modules: [`abilities`] (capability flags), [`config`]
+//! (coordinate/layer constants), [`geometry`] (Aabb2d-backed collision
+//! primitives), [`ledge_grab`] (ledge probe + state), [`movement`] (the
+//! player movement spine + tuning), [`player_clusters`] (the authoritative
+//! cluster components + the `PlayerClustersMut` view), [`player_state`]
+//! (locomotion/body-mode/resource-meter vocabulary), [`reference_frame`]
+//! (gravity-relative frame transforms), and [`world`] (room block data).
 //!
-//! As of 2026-05-28 the monolithic `ae::Player` aggregate has been
-//! deleted. The 18 cluster components on the player entity are the
-//! only player state, and every engine entry point
-//! (`update_player_{control,simulation}_with_clusters`,
-//! `tick_active_ledge_grab_clusters`, `try_start_ledge_grab_clusters`,
-//! `integrate_velocity_clusters`, the sweep helpers in
-//! `movement/collision`) operates on cluster refs natively. Tests
-//! build a non-ECS scratchpad via
-//! [`player_clusters::PlayerClusterScratch::new_with_abilities`]. See
-//! `dev/journals/player-cluster-native-push-2026-05-28.md`.
+//! There is no monolithic player aggregate: the cluster components are the
+//! only player state, and every entry point in [`movement`] operates on a
+//! [`player_clusters::PlayerClustersMut`] view natively. Tests build a
+//! non-ECS scratchpad via
+//! [`player_clusters::PlayerClusterScratch::new_with_abilities`].
 
 pub mod abilities;
 pub mod config;

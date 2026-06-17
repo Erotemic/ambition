@@ -1,3 +1,11 @@
+//! Grab-bag of small feature-side helpers — not a cohesive subsystem.
+//!
+//! Collision predicates (`player_is_standing_on`, `approximately_same_aabb`),
+//! plain math (`approach` toward-target clamp, `midpoint`, the zero-safe
+//! `SignumOr`), keyword-based hazard SFX lookup (`hazard_sfx_id`), and
+//! `room_spec_paths` (RoomSpec → id/name → KinematicPath pairs). Grep here when
+//! a feature system needs a one-liner; no shared theme beyond that.
+
 use super::*;
 
 pub(crate) fn player_is_standing_on(player: ae::Aabb, platform: ae::Aabb) -> bool {

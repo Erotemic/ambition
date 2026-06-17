@@ -1,3 +1,12 @@
+//! LDtk field accessors + value parsers for entity instances.
+//!
+//! Typed getters off an `LdtkEntityInstance` (`field_string`/`field_f32`/
+//! `field_i32`/`field_bool` — first two re-exported `pub` for `crate::encounter`),
+//! entity geometry helpers (`entity_rect`, `entity_touches_level_edge`,
+//! `pivot_is_top_left`), and string→enum parsers (`parse_points`,
+//! `parse_path_mode`, `parse_pickup_kind`, `parse_enemy_brain`/`parse_boss_brain`,
+//! `parse_debug_label_kind`). Consumed by sibling `conversion`/`surfaces`.
+
 use serde_json::Value;
 
 use crate::engine_core as ae;

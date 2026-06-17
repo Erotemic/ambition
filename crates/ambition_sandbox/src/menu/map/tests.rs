@@ -1,3 +1,5 @@
+//! Unit tests for map state: zoom clamping and the short-room-label helper.
+
 use super::*;
 
 #[test]

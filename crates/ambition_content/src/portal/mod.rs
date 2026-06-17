@@ -6,11 +6,10 @@
 //! [`ambition_sandbox::portal`]. The reusable portal mechanic never imports Ambition input
 //! or inventory types; this boundary owns that glue.
 //!
+//! Gated behind the `portal` feature.
+//!
 //! [`ControlFrame`]: ambition_sandbox::input::ControlFrame
 //! [`OwnedItems`]: ambition_sandbox::items::OwnedItems
-//!
-//! This is the first slice of the `ambition_content` boundary (Stage 9 / Task H);
-//! Stage 11 / Task J expands it to the rest of the named Ambition content.
 
 mod ability_adapter;
 mod carve_adapter;

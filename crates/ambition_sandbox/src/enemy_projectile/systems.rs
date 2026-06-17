@@ -1,12 +1,9 @@
-//! Per-tick advance + collision for in-flight enemy projectiles.
-//!
-//! Phase 3c-iii: the in-flight bodies are ECS entities now
-//! (`crate::enemy_projectile::entity`), mirroring the player pool. The spawn
-//! consumer spawns one entity per `SpawnProjectile`; `update_enemy_projectiles`
-//! is an ECS system that collects the entities, sorts by the shared
-//! `ProjectileSeq`, and steps each (tick → faction routing → world collision →
-//! keep/despawn) in that stable order — byte-identical to the old
-//! `Vec`-iteration order.
+//! Enemy-projectile spawn executor. `apply_projectile_effects` materializes
+//! one entity per `crate::effects::Effect::Projectiles` request (enemy / boss
+//! volleys). The per-tick advance + world collision is NOT here: it shares the
+//! unified, faction-routed `crate::projectile::step_projectiles` with the
+//! player pool. In-flight bodies are ECS entities (mirroring the player pool),
+//! sorted by the shared `ProjectileSeq` for deterministic order.
 
 use bevy::prelude::*;
 

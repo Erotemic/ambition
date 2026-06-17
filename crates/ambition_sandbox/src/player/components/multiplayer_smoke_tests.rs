@@ -1,3 +1,7 @@
+//! Multi-player smoke tests: spawn two player entities and assert their
+//! per-player components (attacks, safety anchors, input frames) and the
+//! singleton queries / heal routing stay independent and correct.
+
 use super::*;
 use crate::engine_core as ae;
 use crate::player::PrimaryPlayerOnly;

@@ -1,3 +1,10 @@
+//! Systems that rebuild the runtime-spine collision indices from the ECS.
+//!
+//! Each `rebuild_ldtk_runtime_*_index` system scans the typed `LdtkSolid`/
+//! `LdtkOneWayPlatform`/`LdtkDamageVolume` components (sibling `components`)
+//! and refills the matching resource in sibling `indices`. Pure index
+//! maintenance — consumed downstream by collision queries and sibling `parity`.
+
 use std::collections::BTreeMap;
 
 use bevy::prelude::{Query, Res, ResMut, With};

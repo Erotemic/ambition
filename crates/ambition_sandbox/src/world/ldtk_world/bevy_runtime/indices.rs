@@ -1,3 +1,11 @@
+//! Resource indices summarizing plugin-spawned LDtk collision entities.
+//!
+//! Per-kind AABB lists rebuilt from the ECS each frame — `LdtkRuntimeSolidIndex`,
+//! `LdtkRuntimeOneWayIndex`, `LdtkRuntimeDamageIndex` (plus the spine
+//! roll-up `LdtkRuntimeSpineIndex`/`LdtkRuntimeSpineStats`) — so collision/parity
+//! code can read the runtime-spine geometry without re-querying. Populated by
+//! sibling `systems`; cross-checked against the JSON world in sibling `parity`.
+
 use std::collections::BTreeMap;
 
 use bevy::prelude::Resource;

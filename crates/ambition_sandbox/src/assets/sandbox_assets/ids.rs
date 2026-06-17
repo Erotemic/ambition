@@ -2,8 +2,9 @@
 //! assets.
 //!
 //! Bulk per-enum entries (entity sprites, parallax layers) have their
-//! own builders in `game_assets.rs`; the music helper here stays
-//! generic because music ids come from the RON catalog at runtime.
+//! own id constructors in `game_assets/entity_sprite.rs`; the music
+//! helper here stays generic because music ids come from the RON
+//! catalog at runtime.
 
 use ambition_asset_manager::AssetId;
 

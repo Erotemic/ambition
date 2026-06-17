@@ -14,6 +14,11 @@
 //! - [`bundles`]    — [`PlayerSimulationBundle`] for spawning a sim-side player.
 //! - [`events`]     — player-domain message types.
 //! - [`systems`]    — frame systems that read or sync the player components.
+//! - [`affordances`] — "what would each button do right now?" table +
+//!   HUD/input-glyph support.
+//! - [`queries`]    — singleton-vs-multiplayer-explicit player query helpers.
+//! - [`ledge_grab`] / [`swim`] — thin sandbox shims over engine-owned
+//!   ledge-grab and water mechanics (constants + end-to-end test fixtures).
 
 pub mod affordances;
 pub mod bundles;

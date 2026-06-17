@@ -1,10 +1,11 @@
 //! Ambition app shell (Stage 20 / A3 bisection).
 //!
 //! The COMPOSITION layer: Bevy app assembly (`app/`), platform/host glue
-//! (`host/`), the headless driver (`headless`), and the RL stepping API
-//! (`rl_sim`). Sits on top of the machinery lib (`ambition_sandbox`) and the
-//! named-content crate (`ambition_content`); this is the only crate allowed to
-//! name both.
+//! (`host/`), app-level dev overlays (`dev/`), the game-side menu host stack
+//! (`menu/`), the headless driver (`headless`), and the RL stepping API
+//! (`rl_sim`, feature-gated). Sits on top of the machinery lib
+//! (`ambition_sandbox`) and the named-content crate (`ambition_content`); this is
+//! the only crate allowed to name both.
 //!
 //! Binaries: the playable `ambition_sandbox` bin plus the `headless` /
 //! `rl_random_walker` / `rl_smoke` / `trace_replay` drivers (rl_sim feature).

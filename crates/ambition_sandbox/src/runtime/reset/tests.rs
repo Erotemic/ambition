@@ -1,3 +1,6 @@
+//! Unit tests for the sandbox reset flow: idle-by-default request resource,
+//! request/consume edge behavior, and the post-reset gameplay-state rebuild.
+
 use super::*;
 use crate::dev::dev_tools::EditableMovementTuning;
 use crate::player::PlayerBlinkCameraState;

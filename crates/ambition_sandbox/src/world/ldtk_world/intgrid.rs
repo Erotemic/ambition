@@ -1,3 +1,12 @@
+//! IntGrid layer decoding: grid-cell values → engine collision/water/climbable.
+//!
+//! Owns the layer-name + IntGrid-value constants (Collision/Water/Climbable/
+//! Ambition layers) and the emit helpers that merge contiguous cells into
+//! rectangles and translate them to `ae::Block`s, water regions, and climbable
+//! regions (`emit_collision_blocks_from_intgrid`, `emit_water_regions_*`,
+//! `emit_climbable_regions_*`, `merge_intgrid_rects`). All `pub(super)`;
+//! consumed by sibling `conversion`.
+
 use crate::engine_core as ae;
 
 use super::LdtkLayerInstance;

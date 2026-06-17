@@ -1,3 +1,8 @@
+//! The portal-owned [`PortalSet`] schedule labels (carves, input warp, weapon,
+//! transit, room-reset ordering). Host systems order against these only on a
+//! real portal dependency; [`PortalSimulationPlugin`](crate::PortalSimulationPlugin)
+//! wires the simulation systems into them.
+
 use bevy::prelude::*;
 
 /// Portal-owned schedule labels.

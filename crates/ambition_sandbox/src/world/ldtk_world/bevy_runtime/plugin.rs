@@ -1,3 +1,11 @@
+//! Plugins wiring the LDtk runtime spine into the Bevy app.
+//!
+//! `AmbitionLdtkRegistrationPlugin` registers the entity bundle/markers so
+//! bevy_ecs_ldtk spawns Ambition entities; `LdtkRuntimeSpinePlugin` adds the
+//! index-rebuild systems. `sync_plugin_spawned_ambition_entities` attaches
+//! gameplay semantics + names to freshly spawned plugin entities. Components
+//! live in sibling `components`, rebuild systems in `systems`.
+
 use bevy::prelude::{
     Added, App, Commands, Entity, IntoScheduleConfigs, Name, Plugin, Query, ResMut, Update,
 };

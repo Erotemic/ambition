@@ -9,12 +9,12 @@
 //! §10 for the full plan.
 //!
 //! Submodules:
-//! - [`model`] — `MenuPage` / `MenuFocus` / `MenuPageAction` + the page builders
-//!   (was `crate::menu_model`).
+//! - [`backend`] — the `InventoryUiBackend` vocabulary that picks which compiled
+//!   frontend (Grid / cube) renders, collapsing to an available one per build.
 //! - [`ir`] — Ambition's concrete settings IR: the shared `SettingsOption`
 //!   model ([`ir::settings`]) and the System-menu layer ([`ir::system`]) that
 //!   the cube System face renders. Reads `crate::persistence::settings`.
-//! - [`map`] — the Map tab content (was `crate::map_menu`).
+//! - [`map`] — the Map tab content (map / minimap state, hydration, and UI).
 
 pub mod backend;
 pub mod ir;

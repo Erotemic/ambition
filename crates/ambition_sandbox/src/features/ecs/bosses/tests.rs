@@ -1,3 +1,6 @@
+//! Tests for boss sprite-metrics derivation (the pure, App-free path) and the
+//! boss tick/sync systems.
+
 use super::*;
 use crate::engine_core as ae;
 

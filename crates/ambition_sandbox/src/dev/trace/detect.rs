@@ -1,3 +1,10 @@
+//! OOB/anomaly detection + frame-snapshot construction for the trace recorder.
+//!
+//! Pure functions that classify a player frame: out-of-bounds reasons
+//! (`detect_oob_*`, delegating envelope/inside-solid checks to
+//! `ae::classify_player_safety`), teleport/collision-correction synthesis from
+//! frame diffs, and `build_frame`/`record_frame` snapshot assembly.
+
 use super::*;
 
 /// Inspect the current player state against the active world and produce

@@ -1,3 +1,7 @@
+//! Lifetime-scope marker components (room / run / persistent) and the rendered
+//! room-visual markers, all runtime-owned so sim systems can tag entities
+//! without importing presentation.
+
 use bevy::prelude::*;
 
 /// Lifetime-scope marker: despawn when the current authored room is unloaded.

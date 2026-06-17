@@ -1,8 +1,9 @@
-//! Read-only hit-test predicates, split out of `damage.rs` (Refactor 6: shrink
-//! the incremental rebuild unit). The `ecs_hit_event_hits_*` functions let the
-//! projectile / attack systems pre-check whether a queued `HitEvent` will land
-//! before kicking off cues — the same overlap rules `apply_feature_hit_events`
-//! applies (including multi-part boss hurtboxes). A straight code move.
+//! Read-only hit-test predicates for the damage path.
+//!
+//! The `ecs_hit_event_hits_*` functions let the projectile / attack systems
+//! pre-check whether a queued `HitEvent` will land before kicking off cues,
+//! using the same overlap rules `apply_feature_hit_events` (in `damage/`)
+//! applies — including multi-part boss hurtboxes.
 
 use bevy::prelude::{Query, With, Without};
 

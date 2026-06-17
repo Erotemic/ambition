@@ -1,3 +1,9 @@
+//! Unit + guardrail tests for the sandbox audio runtime: `SfxMessage`→cue
+//! mapping, dB conversion, `AudioLibrary` loading from the real SFX bank /
+//! music specs, and source/Cargo.toml guards that the retired fundsp
+//! procedural renderer (and non-Kira audio backends) stay out, plus that
+//! `web_audio` implies `audio`.
+
 use super::*;
 use crate::runtime::data::SandboxDataSpec;
 use ambition_sfx::SfxProvider;

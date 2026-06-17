@@ -1,3 +1,8 @@
+//! `EncounterEvent` — the output stream of the encounter state machine
+//! (`state.rs`). Trace markers (Started/WaveStarted/Cleared/...) plus the
+//! one side-effect variant `SpawnCommand` that `systems.rs` turns into a real
+//! ECS mob. Keeps the headless state machine decoupled from Bevy spawning.
+
 /// Trace + side-effect events emitted by the encounter state machine.
 /// The sandbox projects these into `GameplayTraceEvent` and routes
 /// `SpawnCommand` to ECS actor spawning.

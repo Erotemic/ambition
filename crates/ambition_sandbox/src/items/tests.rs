@@ -1,3 +1,6 @@
+//! Unit tests for the 24-item catalog: grid/index alignment, the `ItemMeta`
+//! table layout, dialog/held-item id round-trips, and `OwnedItems` grant/take.
+
 use super::*;
 
 #[test]

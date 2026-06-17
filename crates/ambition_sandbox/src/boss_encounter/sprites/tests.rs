@@ -1,3 +1,5 @@
+//! Tests pinning each boss sheet's row count + frame dimensions to its published layout.
+
 use super::*;
 
 #[test]

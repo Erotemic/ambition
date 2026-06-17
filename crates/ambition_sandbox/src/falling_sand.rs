@@ -1,11 +1,13 @@
-//! Falling-sand prototype room integration.
+//! Falling-sand prototype room integration (feature-gated, in-progress).
 //!
-//! The LDtk-authored `falling_sand_room` contains four switches whose save
-//! flags gate particle spouts. This module bridges the particle sim back into
-//! Ambition's movement world by projecting dense sand/liquid tiles into one-way
-//! platforms and temporary water regions before the player simulation runs.
+//! Bridges the external `bevy_falling_sand` particle crate into Ambition's
+//! movement world. The whole module is behind the `falling_sand` cargo feature
+//! (off by default). The LDtk-authored `falling_sand_room` contains four
+//! switches whose save flags gate particle spouts; this module projects dense
+//! sand/liquid tiles back into the movement world as one-way platforms and
+//! temporary water regions before the player simulation runs.
 //!
-//! # Status: semi-landed, in-progress (2026-05-22)
+//! # Status: SEMI-LANDED PROTOTYPE, in-progress (2026-05-22)
 //!
 //! Movement, accumulation, and player-collision projection all work end-to-end
 //! after the v0.7.0 `ChunkLoader` requirement was tracked down (see

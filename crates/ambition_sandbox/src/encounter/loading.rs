@@ -1,3 +1,12 @@
+//! LDtk → `EncounterSpec` loader plus the content-installed wave book.
+//!
+//! `load_encounter_specs_from_ldtk` scans `EncounterTrigger`/`LockWall` markers
+//! and builds one spec per area. Authored multi-wave timelines live in content
+//! (`ambition_content/.../encounters/*.ron`) and are installed via
+//! `install_encounter_waves` into the `ENCOUNTER_WAVE_BOOK`, keyed by trigger
+//! id; any unbooked encounter falls back to a single wave from its `EnemySpawn`
+//! markers. The loader names no specific encounter — that's the content seam.
+
 use crate::persistence::save_data::PersistedEncounterState;
 
 use crate::ldtk_world::LdtkProject;

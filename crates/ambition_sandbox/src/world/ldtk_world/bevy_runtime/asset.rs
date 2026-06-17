@@ -1,3 +1,11 @@
+//! LDtk asset handles + per-area `LevelSet` selection (bevy_ecs_ldtk side).
+//!
+//! Holds the loaded-project handles (`SandboxLdtkAsset`/`IntroLdtkAsset`/
+//! `CutRopeLdtkAsset`), world-root markers, and `LdtkRuntimeIndex` — the
+//! area→level-IID/`LevelSet`/bounds map that drives streaming. Systems:
+//! `load_ldtk_asset_handle` (kick the load) and `sync_ldtk_level_set` (swap the
+//! visible `LevelSet` when the active area changes).
+
 use std::collections::BTreeMap;
 
 use bevy::asset::{AssetServer, Handle};

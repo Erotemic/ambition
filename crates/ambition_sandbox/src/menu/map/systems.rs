@@ -1,3 +1,8 @@
+//! Map-state hydration systems that feed `MapMenuState`: `track_room_visits`
+//! records the active room (and persists a `room_visited_<id>` save flag),
+//! `sync_map_from_save` replays those flags into the visited set on load, and
+//! `populate_map_rooms` fills room geometry from the LDtk project levels.
+
 use bevy::prelude::*;
 
 use super::model::{MapMenuState, MapRoomNode};

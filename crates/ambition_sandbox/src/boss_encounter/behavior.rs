@@ -1,12 +1,14 @@
 //! Boss behavior-profile vocabulary (data-driven).
 //!
-//! `BossBehaviorProfile` / `BossRewardProfile` / `BossSpriteMetrics` are the
-//! machinery shapes every boss instance is authored INTO: the named rows live
-//! in `assets/data/boss_profiles.ron`, parsed once into a registry. Moved here
-//! from `features/bosses.rs` (Stage 20 / A2 stretch) so `boss_encounter` owns
-//! its profile types instead of reverse-re-exporting them from the feature
-//! world; the named convenience constructors are thin `from_data("id")` data
-//! lookups (see dev/journals/code_smells.md for the dissolve-them-later note).
+//! `BossBehaviorProfile` / `BarkAnchorSpec` / `BossRewardProfile` /
+//! `BossSpriteMetrics` are the schemas every boss instance is authored INTO:
+//! the named rows live in `boss_profiles.ron`, parsed by `BossProfileRegistry`
+//! and installed via `install_boss_profiles`. Owns movement/attacks/damage/
+//! hitbox tuning (the engine `BossEncounterSpec` owns phase progression + HP).
+//! `BossBehaviorProfile::from_data("id")` clones an installed row; the named
+//! constructors (`clockwork_warden()` etc.) are thin lookups. Also holds
+//! `boss_animation_keys_for_profile` (attack-profile -> sprite-row keys) and
+//! `canonical_boss_id_from` (resolves the boss kind from LDtk name + brain).
 
 use crate::brain::boss_pattern::{BossAttackPattern, BossAttackProfile, BossMovementProfile};
 use crate::engine_core as ae;

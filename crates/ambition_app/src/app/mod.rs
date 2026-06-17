@@ -1,5 +1,5 @@
 //! Sandbox app-builder: domain plugins, helpers, and gameplay systems shared
-//! between the visible binary (`src/main.rs`) and headless drivers
+//! between the visible binary (`src/bin/ambition_sandbox.rs`) and headless drivers
 //! (`src/headless.rs`, `src/rl_sim/runtime.rs`).
 //!
 //! ## Plugin API (preferred)

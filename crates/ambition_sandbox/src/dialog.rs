@@ -1,4 +1,9 @@
-//! Sandbox dialogue runtime and UI.
+//! Sandbox dialogue runtime and UI — module facade over `dialog/`.
+//!
+//! This root file is the module entry: it declares and re-exports the
+//! `dialog/` submodules ([`runtime`], [`systems`], [`content`],
+//! [`yarn_bridge`], [`yarn_bindings`]) and owns the Yarn Spinner plugin
+//! wiring. No dialogue logic lives here directly — it all sits in `dialog/`.
 //!
 //! Authored conversation content lives in
 //! `assets/dialogue/sandbox/*.yarn` and is loaded by
@@ -11,8 +16,8 @@
 //!   on `DialogState`.
 //! - [`systems::dialog_reveal_tick`] — presentation timer that
 //!   advances the visible substring of the current line.
-//! - [`ui::sync_dialog_ui`] — renderer (poll-based, reads
-//!   `DialogState`).
+//! - The dialog-box renderer (poll-based, reads `DialogState`) lives in
+//!   the `ambition_render` crate (`ambition_render::dialog_ui`), not here.
 //! - [`yarn_bridge`] — observers + dispatch that route runner
 //!   events into `DialogState` writes and `DialogState` requests
 //!   into runner calls.

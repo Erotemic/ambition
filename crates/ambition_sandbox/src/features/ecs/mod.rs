@@ -1,15 +1,26 @@
-//! ECS-native feature simulation.
+//! ECS backbone of the actor / world-object simulation.
 //!
-//! Authored and dynamic pickups, chests, breakables, switches, NPCs, enemies,
-//! hazards, mounts, and bosses are spawned as Bevy entities and updated by this
-//! module. This is the authoritative feature implementation.
+//! Despite the `features/` name, this is NOT a set of toggleable feature
+//! slices — it is the enemy / NPC / boss ACTOR SIMULATION plus the authored
+//! room objects they share a world with (pickups, chests, breakables,
+//! switches, hazards, mounts). Every one is a Bevy entity spawned and ticked
+//! here; this is the authoritative implementation.
 //!
-//! Main responsibilities:
-//! - spawn authored room features and encounter mobs;
-//! - update actors, NPCs, bosses, interactables, damage, rewards, save mirrors, and
-//!   reset behavior;
-//! - maintain the per-frame collision/read-model overlays used by engine and
-//!   presentation code.
+//! Module map (each sibling owns one slice of that sim):
+//! - `spawn*` — spawn authored room objects, encounter mobs, mounts/riders;
+//! - `actors` / `npc_clusters` / `enemy_clusters` / `bosses` — the per-frame
+//!   actor tick over the ECS cluster components that hold actor state;
+//! - `damage*` / `aggression` / `interact` — hit routing, provocation, and
+//!   player interactions;
+//! - `encounter_rewards` / `reset` / `save_sync` — reward chests, room reset,
+//!   and save-state mirroring;
+//! - `view_index` / `anim_helpers` / `target_volumes` — per-frame read models
+//!   and overlays consumed by presentation, engine, and combat code.
+//!
+//! Facade: many `ecs::<name>` paths re-export from the reusable
+//! `mechanics::combat` kit (`banner`, `breakables`, `chests`, `hazards`,
+//! `hitbox`, `overlay`, `pickups`, `boss_clusters`, ...) so call sites stay
+//! stable while the generic mechanics live DOWN in that kit (ADR 0019).
 
 use super::*;
 #[cfg(test)]

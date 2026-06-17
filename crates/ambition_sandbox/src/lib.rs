@@ -1,11 +1,31 @@
-//! Ambition sandbox library.
+//! Ambition's gameplay-systems ("machinery") layer.
 //!
-//! The sandbox crate exposes both the playable Bevy app (`src/main.rs`) and a
-//! headless simulation entry point (`run_headless`, used by `bin/headless.rs`
-//! and tests/CI on machines without a display). Both binaries depend on this
-//! library; the library owns the module graph and the cross-cutting types
-//! (`GameWorld`, `SandboxSimState`, `SandboxDevState`) that submodules reference
-//! via `crate::*`.
+//! This crate owns the reusable game SYSTEMS — world/rooms, actors & brains,
+//! player clusters, abilities, combat, items/inventory, dialog, menu, music,
+//! persistence — assembled into Bevy plugins. It is the middle of the stack:
+//!
+//! - below it, `ambition_engine_core` is the pure (Bevy-free) movement model
+//!   and `ambition_platformer_runtime` holds content-free Bevy primitives
+//!   (kinematic body, gravity, projectile, lifecycle, schedule). Both are
+//!   re-exported here at stable `crate::engine_core` / `crate::kinematic` paths.
+//! - above it, `ambition_content` provides the named game DATA (rooms, bosses,
+//!   rosters) and `ambition_app` does final wiring + the binaries.
+//!
+//! Despite the historical `ambition_sandbox` name, it is content-light: concrete
+//! content has been migrated out to `ambition_content`. Other foundation crates
+//! (`ambition_combat`, `ambition_input`, `ambition_actor`, `ambition_render`, …)
+//! are re-exported under their historical `crate::*` paths so call sites resolve
+//! unchanged.
+//!
+//! Top-level modules group coherent slices: `world`, `player`, `abilities`,
+//! `mechanics`, `combat`, `items`/`inventory`, `dialog`, `menu`, `music`,
+//! `persistence`, `effects`, `projectile`, `enemy_projectile`, `boss_encounter`,
+//! `quest`, plus the `app`/`host`/`runtime` assembly and `dev` tooling.
+//!
+//! This crate owns the module graph and the cross-cutting types (`GameWorld`,
+//! `SandboxSimState`, `SandboxDevState`) that submodules reference via `crate::*`.
+//! It is a library only; the playable app, the headless entry point
+//! (`run_headless`), and all binaries live in `ambition_app`.
 //!
 //! Player state is authoritative on the 18 player cluster components
 //! (`BodyKinematics`, `PlayerGroundState`, …, `PlayerComboTrace`).

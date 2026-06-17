@@ -1,3 +1,5 @@
+//! Unit tests for moving-platform sweep/path motion, riding, and ledge-carry.
+
 use super::*;
 
 fn test_world() -> ae::World {

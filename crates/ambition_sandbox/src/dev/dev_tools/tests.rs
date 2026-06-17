@@ -1,3 +1,6 @@
+//! Unit tests for the editable tuning mirrors: round-tripping
+//! `EditableAbilitySet`/movement edits through their `engine_core` counterparts.
+
 use super::*;
 
 #[test]

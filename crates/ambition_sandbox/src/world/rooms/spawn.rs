@@ -1,3 +1,10 @@
+//! Spawn-point resolution: where the player lands after a room transition.
+//!
+//! `validated_spawn` clamps/repairs a proposed spawn out of walls and solids;
+//! `arrival_from_target_zone` picks the landing point per `LoadingZoneActivation`
+//! (edge inset for `EdgeExit`, target-zone center for `Door`/`Walk`). Helpers
+//! and the player-half/inset constants are `pub(super)` for sibling `graph`.
+
 use crate::engine_core::AabbExt;
 
 use super::*;

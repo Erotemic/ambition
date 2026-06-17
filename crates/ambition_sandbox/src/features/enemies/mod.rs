@@ -1,3 +1,11 @@
+//! Enemy data + state for the actor simulation: the [`EnemyRoster`] of
+//! archetype specs (loaded from `enemy_archetypes.ron`, installed via
+//! [`install_enemy_roster`]), per-actor locomotion state ([`ActorSpawnState`],
+//! [`ActorSurfaceState`]), surface-walker (PuppySlug) cling/wall predicates,
+//! and composite-visual planning. The per-frame physics/AI tick lives in the
+//! `integration` submodule; grounded enemies route through the shared
+//! `integrate_normal_spine`, aerial ones through [`super::step_floating_body`].
+
 use super::*;
 
 mod integration;

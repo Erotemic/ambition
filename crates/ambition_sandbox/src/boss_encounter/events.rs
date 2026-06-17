@@ -1,3 +1,11 @@
+//! Boss-encounter event sink.
+//!
+//! `publish_events` is the single fan-out for `BossEncounterEvent`s emitted by
+//! the phase machine: `PhaseChanged` drives the gameplay banner text + queues
+//! the `boss_intro_<id>` cutscene, `MusicRequested` sets the adaptive-music
+//! request track, `Defeated` shows the victory banner. Called by `damage` and
+//! `systems` after every phase-machine tick.
+
 use crate::cutscene_trigger::CutsceneTriggerQueue;
 
 pub(super) fn publish_events(

@@ -1,3 +1,8 @@
+//! Tests for the character spritesheet pipeline: `sprite_render_size`
+//! geometry, atlas flat-index math, and that every reachable catalog
+//! sprite resolves a `SheetRecord`/spec from its `*_spritesheet.ron`
+//! (parses, has an Idle row, reproduces the legacy hardcoded tuning).
+
 use bevy::prelude::Vec2;
 
 use super::anim::CharacterAnim;

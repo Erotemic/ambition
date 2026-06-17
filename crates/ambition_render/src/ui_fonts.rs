@@ -1,5 +1,9 @@
-// crates/ambition_sandbox/src/ui_fonts.rs
-//
+//! UI font loading for the presentation layer.
+//!
+//! Loads the regular / semibold / mono `Handle<Font>`s into the [`UiFonts`]
+//! resource for the dialog overlay, HUD, and menus. All path/existence policy
+//! goes through `ambition_sandbox::assets::sandbox_assets::SandboxAssetCatalog`.
+
 // UI font loading. All path/existence policy goes through
 // `ambition_sandbox::assets::sandbox_assets::SandboxAssetCatalog`; there are no
 // `target_os = "android"` cfg branches or `BEVY_ASSET_ROOT` probes

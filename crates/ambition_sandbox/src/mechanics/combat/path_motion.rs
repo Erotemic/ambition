@@ -1,3 +1,10 @@
+//! `PathMotion`: waypoint-following used by moving hazards/platforms.
+//!
+//! Walks a position along a `crate::actor::KinematicPath` by `speed * dt`
+//! (`advance`), with the `(segment, dir)` cursor stepped by `lookahead_advance`
+//! under Once / Loop / PingPong end-reversal rules. Re-exported via
+//! `pub use path_motion::*`.
+
 use super::*;
 
 #[derive(Clone, Debug)]

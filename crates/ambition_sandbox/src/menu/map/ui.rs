@@ -1,3 +1,8 @@
+//! Bevy-UI for the map: spawns and syncs the full-screen map panel
+//! (`spawn_map_menu` / `sync_map_menu`, rooted at `MapMenuRoot`) and the corner
+//! minimap, drawing visited rooms from `MapMenuState` room geometry. Owns the
+//! panel/minimap layout constants and the `short_room_label` helper.
+
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 use bevy::prelude::*;

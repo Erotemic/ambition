@@ -1,3 +1,7 @@
+//! The `GameplayTraceBuffer` resource: a rolling ring buffer of per-frame
+//! snapshots and discrete events that the game's recorder systems push into. Owns
+//! capacity/tick/sequence bookkeeping; the dump writers live in `dump`.
+
 use crate::*;
 use bevy::prelude::*;
 use std::collections::VecDeque;

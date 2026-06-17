@@ -9,8 +9,8 @@
 //! possessing so input drives the possessed actor, not both bodies.
 //!
 //! Bounded to **non-boss** actors: bosses still `unreachable!()` on
-//! `Brain::Player` (`content/features/ecs/bosses.rs`), so they're excluded from
-//! the candidate set. The 2s hold, camera follow, and body-vacate visuals from
+//! `Brain::Player` (`crate::features::ecs::bosses::tick`), so they're excluded
+//! from the candidate set. The 2s hold, camera follow, and body-vacate visuals from
 //! the TODO are a handoff; this is the control slice + its verification.
 
 use bevy::prelude::*;

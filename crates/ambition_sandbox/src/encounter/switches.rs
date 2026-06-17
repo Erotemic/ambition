@@ -1,3 +1,10 @@
+//! Switch-arming gate for encounters. `EncounterSwitchIndex` is rebuilt each
+//! frame from `SwitchFeature + SwitchOn` components and answers
+//! `encounter_armed(id)` (semantics: off/red switch arms, green/on disables,
+//! unlinked = always armed, any one off switch arms a multi-switch fight).
+//! `SwitchActivationQueue` is the per-frame FIFO of activations the encounter
+//! tick drains to apply resets.
+
 use bevy::prelude::{Query, ResMut, Resource};
 
 use super::SwitchActivation;

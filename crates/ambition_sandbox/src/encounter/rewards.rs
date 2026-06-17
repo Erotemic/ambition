@@ -1,3 +1,9 @@
+//! Encounter reward-chest helpers: `encounter_reward_looted_flag` (the
+//! per-encounter save-flag id that remembers a chest was opened across
+//! save/load) and `encounter_reward_chest_pos` (where the `EncounterSpec`'s
+//! reward chest spawns — centered on the trigger, resting on its floor). The
+//! reward payload itself lives in `EncounterSpec::reward` (`spec.rs`).
+
 use crate::engine_core as ae;
 
 use super::EncounterSpec;

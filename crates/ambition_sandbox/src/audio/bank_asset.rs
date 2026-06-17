@@ -1,11 +1,12 @@
 //! Bevy `Asset` + `AssetLoader` for the packed SFX bank.
 //!
-//! Two paths produce a [`crate::runtime::setup::SfxBankResource`]:
+//! Two paths produce the [`SfxBankResource`] defined in this module:
 //!
-//! 1. **Sync fast path** — `setup::try_load_sfx_bank_via_catalog` runs
-//!    during `presentation_world` and inserts the resource immediately
-//!    when the bank can be read synchronously (the `static_sfx_bank`
-//!    embed or the `AMBITION_SFX_BANK_PATH` dev override).
+//! 1. **Sync fast path** — `try_load_sfx_bank_via_catalog` (in
+//!    `ambition_app`'s scene setup) runs during scene init and inserts
+//!    the resource immediately when the bank can be read synchronously
+//!    (the `static_sfx_bank` embed or the `AMBITION_SFX_BANK_PATH` dev
+//!    override).
 //!
 //! 2. **Async asset path (this module)** — when the sync path returns
 //!    `None`, the SFX bank loads through Bevy's `AssetServer`. That

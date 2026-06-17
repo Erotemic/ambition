@@ -1,3 +1,9 @@
+//! `HazardRuntime`: the per-hazard runtime blob (id/name/pos/size, its
+//! `DamageVolume`, optional patrol `PathMotion`, and resolve `HitMode`) carried
+//! by LDtk-entity hazards. Tile-grid hazards never reach here. The per-frame
+//! tick lives in [`hazards`](super::hazards); this module just holds the type
+//! and its constructors. Re-exported via `pub use hazard_runtime::*`.
+
 use super::*;
 
 #[derive(Clone, Debug)]

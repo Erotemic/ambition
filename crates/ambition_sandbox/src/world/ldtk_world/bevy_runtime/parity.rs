@@ -1,3 +1,11 @@
+//! Runtime-spine parity diagnostic: ECS indices vs. the JSON collision world.
+//!
+//! `check_ldtk_runtime_spine_parity` (Bevy system) compares per-kind counts
+//! from sibling `indices` against the JSON-derived `ae::World::blocks`
+//! (the current collision authority) and records the result in
+//! `LdtkRuntimeSpineParity`. A mismatch signals the typed component path has
+//! drifted from the validated JSON; pure diagnostic, drives no gameplay.
+
 use bevy::prelude::{debug, warn, Res, ResMut, Resource};
 
 use crate::engine_core as ae;

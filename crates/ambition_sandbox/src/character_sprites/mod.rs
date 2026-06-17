@@ -1,22 +1,29 @@
-//! Sprite-sheet rendering for the player robot and goblin enemies.
+//! Spritesheet metadata, atlas/animation logic, and loading for every
+//! animated character (player robot, goblins, sandbag, boss, NPCs).
 //!
-//! All character sheets (player robot, goblins, sandbag, boss) are
-//! produced by `tools/ambition_sprite2d_renderer` and copied into
-//! `assets/sprites/`. If a PNG is missing at startup the corresponding
-//! `Option` stays `None` and callers fall back to the colored-rectangle
-//! visuals that predate this module — the game must always run.
+//! All character sheets are produced by `tools/ambition_sprite2d_renderer`
+//! and copied into `assets/sprites/`. If a PNG is missing at startup the
+//! corresponding `Option` stays `None` and callers fall back to the
+//! colored-rectangle visuals that predate this module — the game must
+//! always run.
 //!
-//! ## Submodule layout (post-2026-05-09 split)
+//! ## Submodule layout
 //!
 //! - [`anim`] — `CharacterAnim` enum + per-actor animation pickers
-//!   (`pick_player_anim`, `pick_enemy_anim`, `EnemyAnimState`).
-//! - [`sheets`] — `CharacterSheetSpec`, `AnimRow`, the `ROBOT_SHEET`
-//!   / `GOBLIN_SHEET` / `SANDBAG_SHEET` data tables, plus
-//!   `sprite_render_size`, `feet_anchor_for`, and
-//!   `build_character_sprite`.
+//!   (`pick_player_anim`, `pick_enemy_anim`, `pick_npc_anim`,
+//!   `EnemyAnimState`, `NpcAnimState`).
+//! - [`sheets`] — `CharacterSheetSpec`, `AnimRow`, atlas/geometry
+//!   helpers (`sprite_render_size`, `feet_anchor_for`,
+//!   `build_character_sprite`); the `*_SHEET` constants now come from
+//!   the catalog-keyed spec resolver, not in-file statics.
 //! - [`assets`] — `CharacterSpriteAsset`, `CharacterSpriteAssets`
-//!   resource, `load_character_sprites_in`.
-//! - [`animator`] — the `CharacterAnimator` per-entity component.
+//!   resource, `load_character_sprites_in`, `sheet_for_character_id`.
+//! - [`animator`] — the `CharacterAnimator` per-entity cursor component.
+//! - [`registry`] — host wiring for the reusable `ambition_sprite_sheet`
+//!   `SheetRegistry` (plugin + headless builder from the baked table).
+//! - [`baked_sheet_rons`] — `build.rs`-generated `(root, ron_text)`
+//!   table of every `*_spritesheet.ron` (so non-desktop builds carry
+//!   the metadata without reading disk).
 
 mod anim;
 mod animator;

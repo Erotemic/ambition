@@ -1,3 +1,8 @@
+//! The `SandboxAction` leafwing action enum — the logical-input vocabulary the
+//! device-binding layer maps physical keys/sticks onto, before it is folded into
+//! the device-agnostic `ControlFrame`/`MenuInputFrame`. Gated behind the `input`
+//! feature (pulls in leafwing's `Actionlike`).
+
 #[cfg(feature = "input")]
 use super::*;
 

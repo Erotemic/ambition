@@ -1,8 +1,9 @@
 //! Sandbox save game I/O + autosave.
 //!
-//! The data shape lives in `crate::engine_core::save` (`SandboxSaveData`,
+//! The data shape lives in `crate::persistence::save_data` (`SandboxSaveData`,
 //! `PersistedEncounter`, `PersistedSwitch`). This module is the
-//! Bevy-side shim that loads/saves to disk and coordinates autosave.
+//! Bevy-side shim (`SandboxSave` resource) that loads/saves to disk and
+//! coordinates autosave.
 //!
 //! Convention: the save file lives next to `settings.ron` under the
 //! OS-conventional data dir. One slot for now ("sandbox") because the

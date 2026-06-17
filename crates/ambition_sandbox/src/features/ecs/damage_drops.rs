@@ -1,8 +1,9 @@
-//! Loot / drop spawners, split out of `damage.rs` (Refactor 6 from TODO.md:
-//! shrink the incremental rebuild unit + improve navigability). These are the
-//! pure helpers `apply_actor_hit` / `apply_boss_hit` call when something dies —
-//! currency coins, health hearts, ability pickups, the exploding-mite death
-//! blast, and the dividing-mite split. A straight code move: no behavior change.
+//! Loot / drop spawners for the damage path.
+//!
+//! The pure helpers `apply_actor_hit` / `apply_boss_hit` (in `damage/`) call
+//! these when something dies — currency coins, health hearts, ability pickups,
+//! the exploding-mite death blast, and the dividing-mite split. Sibling of
+//! `damage/` (which owns hit application) and `damage_predicates`.
 
 use bevy::prelude::{Commands, Entity};
 

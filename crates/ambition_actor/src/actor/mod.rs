@@ -1,8 +1,11 @@
-//! Reusable actor taxonomy for Ambition rooms.
+//! Reusable, content-free actor vocabulary: identity + the control contract.
 //!
-//! This module is intentionally data-first. Patch 2 establishes the shared
-//! vocabulary for enemies, bosses, NPCs, moving hazards, and other authored
-//! entities before any one feature grows a bespoke sandbox-only system.
+//! Data-first shared vocabulary for enemies, bosses, NPCs, moving hazards,
+//! and other authored entities. Owns [`ActorKind`]/[`DamageTeam`] identity,
+//! the [`control`] `ActorControl`/`ActorControlFrame` contract that brains
+//! write and simulation consumes, the [`ai`] intent layer
+//! (`CharacterAiIntent`), [`pose`] (`ActorPose`/`ActorFaction`), and the
+//! [`character_catalog`] cast data.
 
 pub mod pose;
 pub use pose::{ActorFaction, ActorPose};

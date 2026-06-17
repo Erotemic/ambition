@@ -1,3 +1,6 @@
+//! `DialogState` unit tests: activation, typewriter reveal (multibyte-safe),
+//! confirm/advance, option selection, and the visible-window math.
+
 use super::*;
 use crate::ui_nav::visible_window_start;
 

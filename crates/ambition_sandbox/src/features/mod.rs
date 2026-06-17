@@ -1,9 +1,20 @@
-//! Sandbox gameplay feature systems.
+//! The enemy / NPC / boss ECS ACTOR SIMULATION — NOT a feature-toggle layer.
+//! Despite the name, "features" here means in-world entities (actors plus room
+//! props: pickups, chests, switches, breakables, hazards), all as Bevy
+//! components.
 //!
-//! Authored and dynamic feature families live as Bevy entities/components. This
-//! facade re-exports the component types, messages, and systems used by the
-//! simulation, presentation, encounter, and test layers while domain logic lives
-//! in `features/*.rs`.
+//! This `mod.rs` is the facade + scheduling root: it re-exports the component
+//! types, messages, and systems for the simulation/presentation/encounter/test
+//! layers, defines shared movement glue (`step_floating_body`, the floating
+//! counterpart to the grounded `integrate_normal_spine`), and registers the
+//! `WorldPrep`/`GameplayEffects`/`FeatureCollection`/`FeatureInteraction`/
+//! `FeatureViewSync` schedule plugins.
+//!
+//! Domain logic lives in siblings: `enemies/` (grounded + aerial enemy
+//! integration onto the shared spine), `npcs` (per-NPC runtime glue + barks),
+//! `bosses` (boss special-spec resolver + tuning), `banter` (ambient combat
+//! chatter registry), and the private `ecs` tree (cluster components + the
+//! per-actor tick/spawn/damage systems).
 
 use crate::engine_core as ae;
 use crate::engine_core::AabbExt;

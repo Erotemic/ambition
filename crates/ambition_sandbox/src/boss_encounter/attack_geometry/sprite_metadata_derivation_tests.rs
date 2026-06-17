@@ -1,3 +1,5 @@
+//! Tests for the pixel-frame -> world-space AABB derivation used by boss attack volumes.
+
 use super::*;
 use crate::engine_core::AabbExt;
 use ambition_sprite_sheet::{NamedPixelRect, PixelRect};

@@ -1,3 +1,13 @@
+//! Dialogue Bevy systems: input translation + the typewriter reveal tick.
+//!
+//! These read [`super::runtime::DialogState`] and write its `pending_*`
+//! request fields (which [`super::yarn_bridge`] later drains into the runner):
+//! - [`dialog_reveal_tick`] — advances the visible substring of the line/options.
+//! - [`dialog_input`] — keyboard/gamepad nav (up/down/select/back), `input`-gated.
+//! - [`dialog_pointer_input`] — mouse/touch choice-row selection, `input`-gated.
+//!
+//! Presentation only; the Yarn runner owns the line/option state machine.
+
 use bevy::prelude::*;
 
 use super::runtime::DialogChoiceSlot;

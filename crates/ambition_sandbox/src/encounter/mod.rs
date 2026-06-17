@@ -1,14 +1,16 @@
-//! Reusable encounter / wave system.
+//! Generic, reusable enemy-WAVE / arena-lockdown system (data-driven, not
+//! scripted) — distinct from `crate::boss_encounter`, which is one specific
+//! scripted boss fight with hand-authored phases.
 //!
-//! An "encounter" is a scripted sequence of mob waves with explicit
-//! lock / unlock semantics: entering the trigger zone starts the
-//! sequence, exits are sealed until all waves are defeated, the
-//! player dies → reset / unlock, all enemies defeated → cleared and
-//! exits unlock.
+//! An "encounter" is a sequence of mob waves with explicit lock / unlock
+//! semantics: entering the trigger zone starts it, exits seal until all waves
+//! are defeated, player death resets/unlocks, all-defeated → cleared + exits
+//! unlock. Any number of encounters coexist via `EncounterRegistry`.
 //!
-//! This module is now a facade. Encounter data types live in the
-//! child modules below, and the Bevy/system implementation is split
-//! by responsibility so this entry point stays easy to scan.
+//! Facade module. Data types + Bevy systems split by responsibility:
+//! `spec`/`state` (authored data + state machine), `loading` (LDtk + content
+//! wave book), `systems` (the per-frame ECS tick), `registry`, `switches`
+//! (arming gate), `lock_walls`, `music`, `rewards`, `events`.
 
 mod events;
 mod loading;

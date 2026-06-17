@@ -1,3 +1,12 @@
+//! `RoomSet` graph assembly + queries (petgraph-backed transition graph).
+//!
+//! `impl RoomSet` block: builds the node/edge graph from runtime rooms
+//! (`from_parts`), exposes active-room accessors (`active_spec`/`active_world`/
+//! `active_loading_zones`/…), and resolves player transitions
+//! (`transition_for_player`, `nearby_zone_hints`, `layout_warnings`). The
+//! `RoomSet` type itself lives in sibling `room_graph`; spawn/arrival math is in
+//! sibling `spawn`.
+
 use std::collections::HashMap;
 
 use crate::engine_core::AabbExt;

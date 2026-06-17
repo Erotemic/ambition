@@ -1,3 +1,14 @@
+//! Device → frame populate systems: the schedule-anchored input vocabulary.
+//!
+//! Bridges leafwing `ActionState<SandboxAction>` into the sim-side
+//! `ControlFrame` ([`populate_control_frame_from_actions`]) and the
+//! menu-side [`MenuControlFrame`] ([`populate_menu_control_frame_from_actions`]),
+//! the device-agnostic seam the sim/menu read instead of raw devices
+//! (ADR 0012). Also: [`MenuNavConsume`] (the set menu-nav consumers join so
+//! touch/joystick writers can pin `.before` it), cutscene advance/skip
+//! routing, and [`attach_player_input_components`] (presentation-side
+//! component attach). All gated behind the `input` feature.
+
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 #[cfg(feature = "input")]

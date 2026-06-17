@@ -1,17 +1,21 @@
-//! THE Ambition content module — everything that names this game's
+//! THE named Ambition game content — everything that names this game's
 //! specific world: quests, bosses, items, dialogue, banter, the intro,
-//! the feature/actor roster, and the cross-content validator.
+//! the enemy roster, music cues, and the cross-content validator.
 //!
-//! Unified from the former `content/` + `ambition_content/` pair
-//! (Stage 20 / A1): one inward-facing content tree with a single
-//! dependency direction — content → machinery, never the reverse.
-//! Registration flows through one seam, [`AmbitionContentPlugin`].
-//! `crate::…` paths still resolve via the alias in
-//! `lib.rs`.
+//! This is the content crate, distinct from the reusable machinery crate
+//! `ambition_sandbox` it depends on. The dependency direction is strict and
+//! one-way — content → machinery, never the reverse — so the named cast and
+//! data installed here build on top of the generic schemas/pipelines that
+//! live machinery-side. Registration flows through one seam,
+//! [`AmbitionContentPlugin`].
 //!
-//! This module is the seed of the future `ambition_content` crate:
-//! when it is promoted, these submodules go there while the reusable
-//! machinery (mechanics, runtime, presentation, …) stays behind.
+//! Most top-level modules are thin install plugins ([`plugin`], [`quests`],
+//! [`bosses`], [`dialogue`], [`items`]) that seed named rosters into
+//! machinery resources, alongside the authored data/content itself
+//! ([`quest`], [`enemy_roster`], [`banter`], [`music`], [`intro`]) and the
+//! [`content_validation`] cross-reference checker. Several names re-export
+//! their machinery half (e.g. [`data`], [`features`]) so historical
+//! `crate::…` paths keep resolving.
 
 pub mod banter;
 pub mod bosses;

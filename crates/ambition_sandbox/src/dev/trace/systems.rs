@@ -1,3 +1,9 @@
+//! Trace recorder Bevy systems + the headless entry point.
+//!
+//! `record_simulation_frame` is the sim-side core (callable from the headless
+//! driver); `record_frame_system` wires it into the live app, `handle_trace_hotkey`
+//! arms a manual dump, and `flush_pending_dump` writes the ring buffer to disk.
+
 use super::*;
 
 /// SystemParam-friendly bundle: gives the player tick everything it

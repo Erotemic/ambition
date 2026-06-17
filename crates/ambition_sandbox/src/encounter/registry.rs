@@ -1,3 +1,9 @@
+//! `EncounterRegistry` resource: the multi-encounter holder keyed by id
+//! (matching LDtk `EncounterTrigger.id`), so the sandbox runs several
+//! encounters at once. Also `SwitchActivation` — the typed
+//! `switch:<id>:<action>:<target>` payload parsed once at LDtk→ECS spawn and
+//! consumed by the switch-arming gate (`switches.rs`) and the encounter tick.
+
 use std::collections::BTreeMap;
 
 use bevy::prelude::*;

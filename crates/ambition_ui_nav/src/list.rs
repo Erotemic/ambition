@@ -1,3 +1,7 @@
+//! Windowed-list math: visible-window start computation and converting discrete
+//! scroll steps into up/down menu edges on a `MenuInputFrame` (from
+//! `ambition_input`, behind the `input` feature). Pure helpers, no ECS.
+
 #![allow(dead_code)] // Several helpers are reserved API for future menu callers.
 
 #[cfg(feature = "input")]

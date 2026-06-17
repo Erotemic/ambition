@@ -1,3 +1,7 @@
+//! Default binding presets: the selectable keyboard layouts (`PresetId` /
+//! `KeyboardPreset` / `MovementKeys` / `ActionKeys`) and the shared gamepad map
+//! (`GAMEPAD_MAP`) that seed leafwing's input map for `SandboxAction`.
+
 use super::*;
 
 /// Minimum magnitude on a stick axis before a

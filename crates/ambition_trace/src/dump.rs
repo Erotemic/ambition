@@ -1,3 +1,7 @@
+//! Dump writers: serialize a `GameplayTraceBuffer` to a timestamped markdown +
+//! JSON pair (`write_dump`, path/label helpers). The markdown is a human-readable
+//! tail summary; the JSON is the full payload the replay harness reads back.
+
 use crate::*;
 use serde::Serialize;
 use std::path::{Path, PathBuf};

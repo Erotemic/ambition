@@ -1,3 +1,6 @@
+//! Held-item pickup/throw tests: axe melee grant + restore, gun-sword/fireball
+//! ranged swap, attack-press consume, and thrown-item gravity settling.
+
 use super::*;
 use crate::player::PlayerBaseSize;
 

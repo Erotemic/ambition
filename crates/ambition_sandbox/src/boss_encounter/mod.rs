@@ -1,20 +1,25 @@
-//! Sandbox-side boss encounter coordinator.
+//! Sandbox-side coordinator for ONE scripted boss fight (distinct from the
+//! generic `crate::encounter` enemy-wave system).
 //!
-//! Bridges `crate::boss_encounter::BossEncounterState` (the phase machine) with the
-//! existing `BossRuntime` (the in-arena physical actor) and the
-//! adaptive music + cutscene + save-state systems.
+//! Bridges `BossEncounterState` (the actor-crate phase machine, re-exported
+//! here) with the in-arena boss ECS clusters (`features::BossClusterQueryData`
+//! / `BossRef`) and the adaptive music + cutscene + save-state systems.
 //!
-//! `boss_encounter.rs` is intentionally a facade: type ownership,
-//! registration, runtime update systems, rewards, event publication, and
-//! damage routing live in child modules. This keeps future boss work from
-//! piling new behavior into the module entry point.
+//! This `mod.rs` is intentionally a facade: type ownership, registration,
+//! update systems, rewards, event publication, and damage routing live in
+//! child modules so future boss work doesn't pile into the entry point.
+//! Children: `behavior`/`profile`/`specs`/`roster` (data schemas + installed
+//! registries), `registry` (`BossEncounterRegistry` resource), `systems`
+//! (per-frame tick + HP mirror), `damage`/`events` (damage routing +
+//! publication), `ids` (id slugging), `attack_geometry` (hitbox math),
+//! `sprites` (boss spritesheets).
 //!
 //! Each `BossSpawn` LDtk entity in the active room maps to one encounter id
 //! (defaulting to the boss `name`). When the player enters the room the
 //! encounter goes Dormant -> Intro and the cutscene queue is asked to play
-//! `boss_intro_<id>`. From that point the engine state machine drives
-//! transitions; this module mirrors them onto the seldom_state `BossPhase`
-//! component, the audio request, and the save resource.
+//! `boss_intro_<id>`. From that point the phase machine drives transitions;
+//! this module mirrors them onto the boss cluster, the audio request, and
+//! the save resource.
 
 pub mod attack_geometry;
 pub mod behavior;

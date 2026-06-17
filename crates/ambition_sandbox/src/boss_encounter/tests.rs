@@ -1,3 +1,5 @@
+//! Tests for `encounter_id_from_name` slugging and registry profile/runtime linking.
+
 use super::ids::MOCKINGBIRD_ENCOUNTER_ID;
 use super::*;
 

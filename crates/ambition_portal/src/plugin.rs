@@ -1,3 +1,9 @@
+//! Portal mechanic plugin assembly: the public [`PortalPlugin`] hosts install,
+//! and the [`PortalSimulationPlugin`] it delegates to (registers the portal
+//! messages, resources, and simulation systems against
+//! [`PortalSet`](crate::PortalSet)). Render/authoring/debug stay out of here —
+//! those are host or `ambition_portal_presentation` concerns.
+
 use bevy::prelude::*;
 
 use super::messages::{

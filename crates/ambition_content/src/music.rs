@@ -1,3 +1,11 @@
+//! Ambition's authored music-cue catalog + encounter bindings.
+//!
+//! Named content data: the adaptive cues that ship and the encounters they
+//! bind to (e.g. the goblin-lab tune). The reusable music director in
+//! `ambition_audio` plays whatever [`MusicCueCatalog`] the host inserts;
+//! this module is the one Ambition installs. Gated behind the `audio`
+//! feature.
+
 use ambition_audio::music::{
     EncounterMusicBinding, MusicCueCatalog, MusicCueSpec, MusicLayerGainSpec, MusicLayerSourceSpec,
     MusicLayerSpec, MusicSectionSpec, MusicStateSpec,

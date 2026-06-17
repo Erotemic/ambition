@@ -1,3 +1,6 @@
+//! Tests for `sheets`: that `spec_from_record` prefers manifest-authored
+//! `tuning:` over the passed-in Rust `SheetTuning` const.
+
 use super::*;
 
 /// When the manifest carries a `tuning:` block,

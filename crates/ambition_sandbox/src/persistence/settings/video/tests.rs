@@ -1,3 +1,5 @@
+//! Unit tests for video settings: shader-strength clamping and related nudges.
+
 use super::*;
 
 #[test]

@@ -5,7 +5,7 @@
 //!
 //! 1. [`sync_boss_encounter_phase`] — copy the active encounter
 //!    phase from `BossEncounterRegistry` into each boss's
-//!    `BossRuntime::encounter_phase` mirror. Runs first so the
+//!    `BossStatus::encounter_phase` cluster mirror. Runs first so the
 //!    brain tick below sees the current phase this frame.
 //! 2. [`tick_boss_brains_system`] — for every boss with a
 //!    `Brain::StateMachine(BossPattern)`, build a
@@ -17,7 +17,7 @@
 //!    helpers in `content/features/boss_attack_geometry`.
 //! 3. [`update_ecs_bosses`] — **integration only**. Reads
 //!    `ActorControl::0.desired_vel`, integrates the boss body via
-//!    `BossRuntime::integrate_body`, syncs presentation mirrors,
+//!    `BossMut::integrate_body` (boss cluster view), syncs presentation mirrors,
 //!    and publishes both strike and body-contact damage by calling
 //!    `boss_attack_damage` against the boss's `BossAttackState` —
 //!    no runtime attack-state fields are involved.

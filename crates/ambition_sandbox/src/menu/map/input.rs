@@ -1,3 +1,9 @@
+//! Map-screen keyboard/menu-control input: `handle_map_menu_hotkeys` toggles
+//! the map (`M`) and minimap (`N`) and drives zoom on `MapMenuState`. Under the
+//! cube inventory backend the `menu.map` intent opens the cube's Map page
+//! instead, so it is suppressed here; the `M` key still toggles this standalone
+//! panel. No-op stub when the `input` feature is off.
+
 use bevy::prelude::*;
 
 use super::model::MapMenuState;

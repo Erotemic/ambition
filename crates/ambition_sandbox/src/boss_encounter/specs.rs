@@ -1,3 +1,12 @@
+//! Installed boss-encounter spec holder.
+//!
+//! Holds the content-installed `BossEncounterSpec`s (the numeric encounter
+//! schema from `boss_encounters/<id>.ron`, per ADR 0017). `ambition_content`
+//! calls `install_boss_encounter_specs`; production REQUIRES it, while
+//! `cfg(test)` falls back to reading the content RON dir directly so lib tests
+//! resolve standalone. `boss_encounter_specs` / `default_boss_specs` read the
+//! installed set; the lib embeds no boss data itself.
+
 use super::profile::default_boss_profiles;
 
 /// Default boss specs shipped with the sandbox. Populated lazily so

@@ -1,3 +1,8 @@
+//! Unit tests for the encounter→adaptive-cue resolver (`intent.rs`):
+//! per-binding directive resolution across encounter phases (starting /
+//! active-wave / wave-2 reinforced promotion / cleared / failed / unknown),
+//! multi-binding iteration, and notes on the outro/restart race fix.
+
 use super::*;
 use crate::encounter::{EncounterPhase, EncounterRegistry, EncounterRun};
 

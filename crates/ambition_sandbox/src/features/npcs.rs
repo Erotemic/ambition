@@ -1,3 +1,12 @@
+//! Per-NPC runtime glue for the actor simulation: [`NpcMut`] integration
+//! (grounded NPCs run the shared `integrate_normal_spine` via
+//! [`NpcMut::integrate_velocity`]; flyers like the parrot route through
+//! [`super::step_floating_body`] via `integrate_velocity_aerial`), brain
+//! selection ([`NpcMut::build_brain`]: catalog default vs patrol/stand-still),
+//! and the hit/hostile/dialogue/idle-bark line tables. Talk/hostility tuning
+//! consts ([`NPC_TALK_RADIUS`], [`NPC_HOSTILE_STRIKE_THRESHOLD`]) live here;
+//! `NpcConfig`/`NpcStatus`/`NpcMut` cluster components live in the `ecs` tree.
+
 use super::ecs::npc_clusters::NpcMut;
 use super::*;
 

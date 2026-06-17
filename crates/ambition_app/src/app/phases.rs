@@ -88,6 +88,10 @@ pub(super) fn player_control_phase(
     combat: &mut ambition_sandbox::player::PlayerCombatState,
     interaction: &mut ambition_sandbox::player::PlayerInteractionState,
     blink_cam: &mut ambition_sandbox::player::PlayerBlinkCameraState,
+    // True only for the camera/HUD-owning primary player. A brain-driven clone (or
+    // any other player-bodied entity) runs the SAME per-entity movement core but must
+    // NOT trigger the world-global sandbox reset — that is the primary's concern.
+    is_primary: bool,
 ) -> PhaseOutcome {
     // Two-clock update:
     // - control_dt is real time for responsive inputs and precision-blink aim;
@@ -105,7 +109,7 @@ pub(super) fn player_control_phase(
         features::world_with_sandbox_solids(world, moving_platforms, feature_ecs_overlay);
     let control_events =
         ae::update_player_control_with_clusters(&control_world, clusters, input, frame_dt, tuning);
-    if control_events.reset {
+    if control_events.reset && is_primary {
         reset_sandbox(
             world,
             sfx_writer,
@@ -182,6 +186,10 @@ pub(super) fn player_simulation_phase(
     interaction: &mut ambition_sandbox::player::PlayerInteractionState,
     blink_cam: &mut ambition_sandbox::player::PlayerBlinkCameraState,
     ride: &mut ambition_sandbox::player::PlayerPlatformRideState,
+    // True only for the camera/HUD-owning primary. Non-primary player bodies (the
+    // clone) run the same per-entity sim but must not shake the camera or reset the
+    // world — those are primary-only.
+    is_primary: bool,
 ) -> PhaseOutcome {
     let input =
         engine_input_from_actor_control(actor_control, feel, combat.hitstop_timer, frame_dt);
@@ -251,14 +259,14 @@ pub(super) fn player_simulation_phase(
         clusters.ground.on_ground,
         pre_sim_vy,
     );
-    if shake_amplitude > 0.0 {
+    if is_primary && shake_amplitude > 0.0 {
         shake.kick(shake_amplitude);
         sfx_writer.write(SfxMessage::Play {
             id: ambition_sfx::ids::PLAYER_LAND,
             pos: clusters.kinematics.pos,
         });
     }
-    if sim_events.reset {
+    if sim_events.reset && is_primary {
         reset_sandbox(
             world,
             sfx_writer,

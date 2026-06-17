@@ -93,11 +93,25 @@ pub fn player_control_system(
             &mut ambition_sandbox::player::PlayerSafetyState,
             &ambition_sandbox::player::PlayerInputFrame,
             &ambition_sandbox::brain::ActorControl,
+            Option<&ambition_sandbox::player::PrimaryPlayer>,
         ),
         With<ambition_sandbox::player::PlayerEntity>,
     >,
 ) {
-    let Ok((
+    let mut tuning = editable_tuning.as_engine();
+    // The control phase runs the engine pogo (try_pogo_clusters), which launches
+    // OPPOSITE tuning.gravity_dir — so sync it from the live gravity, exactly as
+    // the simulation phase does. Without this the pogo used default `(0,1)` and
+    // bounced into gravity under a flip.
+    let gdir = ambition_sandbox::physics::gravity_dir_or_default(gravity_field.as_deref());
+    ambition_sandbox::physics::apply_gravity_dir(&mut tuning, gdir);
+    let feel = *feel_tuning;
+    let frame_dt = time.delta_secs();
+
+    // Iterate EVERY player-bodied entity (primary + brain-driven clones): each runs
+    // the SAME per-entity control core, driven by its own `ActorControl`. The
+    // world-global reset is gated to the primary via `is_primary`.
+    for (
         player_entity,
         mut cluster_item,
         mut anim,
@@ -108,51 +122,41 @@ pub fn player_control_system(
         mut safety,
         input,
         actor_control,
-    )) = player_q.single_mut()
-    else {
-        return;
-    };
-    let mut tuning = editable_tuning.as_engine();
-    // The control phase runs the engine pogo (try_pogo_clusters), which launches
-    // OPPOSITE tuning.gravity_dir — so sync it from the live gravity, exactly as
-    // the simulation phase does. Without this the pogo used default `(0,1)` and
-    // bounced into gravity under a flip.
-    let gdir = ambition_sandbox::physics::gravity_dir_or_default(gravity_field.as_deref());
-    ambition_sandbox::physics::apply_gravity_dir(&mut tuning, gdir);
-    let feel = *feel_tuning;
-    let frame_dt = time.delta_secs();
-    // PlayerInputFrame is still kept on the player entity (story-
-    // content systems read it for upstream input edge cases like
-    // start-press for pause menu). The player simulation no longer
-    // touches it directly — `ActorControl` is the sole input source.
-    let _ = input;
-
-    let mut clusters = cluster_item.as_clusters_mut();
-    let outcome = player_control_phase(
-        player_entity,
-        actor_control.0,
-        &world.0,
-        &mut clusters,
-        &mut queues.sim_state,
-        &mut queues.clock,
-        &mut safety,
-        &queues.moving_platforms.0,
-        &mut attack.0,
-        &mut event_writers.sfx,
-        &mut event_writers.vfx,
-        tuning,
-        feel,
-        frame_dt,
-        &queues.feature_ecs_overlay,
-        &mut queues.reset_room_features,
-        &mut queues.hit_events,
-        &mut anim,
-        &mut combat,
-        &mut interaction,
-        &mut blink_cam,
-    );
-    if matches!(outcome, PhaseOutcome::Return) {
-        reset_this_frame.0 = true;
+        primary,
+    ) in &mut player_q
+    {
+        // PlayerInputFrame is kept on the entity for story-content edge cases; the
+        // simulation reads `ActorControl` as the sole input source.
+        let _ = input;
+        let is_primary = primary.is_some();
+        let mut clusters = cluster_item.as_clusters_mut();
+        let outcome = player_control_phase(
+            player_entity,
+            actor_control.0,
+            &world.0,
+            &mut clusters,
+            &mut queues.sim_state,
+            &mut queues.clock,
+            &mut safety,
+            &queues.moving_platforms.0,
+            &mut attack.0,
+            &mut event_writers.sfx,
+            &mut event_writers.vfx,
+            tuning,
+            feel,
+            frame_dt,
+            &queues.feature_ecs_overlay,
+            &mut queues.reset_room_features,
+            &mut queues.hit_events,
+            &mut anim,
+            &mut combat,
+            &mut interaction,
+            &mut blink_cam,
+            is_primary,
+        );
+        if is_primary && matches!(outcome, PhaseOutcome::Return) {
+            reset_this_frame.0 = true;
+        }
     }
 }
 
@@ -184,6 +188,7 @@ pub fn player_simulation_system(
             &mut ambition_sandbox::player::PlayerSafetyState,
             &ambition_sandbox::player::PlayerInputFrame,
             &ambition_sandbox::brain::ActorControl,
+            Option<&ambition_sandbox::player::PrimaryPlayer>,
         ),
         With<ambition_sandbox::player::PlayerEntity>,
     >,
@@ -191,21 +196,6 @@ pub fn player_simulation_system(
     if reset_this_frame.0 {
         return;
     }
-    let Ok((
-        mut cluster_item,
-        mut anim,
-        mut combat,
-        mut interaction,
-        mut blink_cam,
-        mut ride,
-        mut attack,
-        mut safety,
-        input,
-        actor_control,
-    )) = player_q.single_mut()
-    else {
-        return;
-    };
     let mut tuning = editable_tuning.as_engine();
     // Cardinal gravity DIRECTION from the world GravityField (the gravity-flip
     // switch / gravity rooms / wall-walking zones). Snapped to a cardinal unit
@@ -216,47 +206,84 @@ pub fn player_simulation_system(
     ambition_sandbox::physics::apply_gravity_dir(&mut tuning, gdir);
     let feel = *feel_tuning;
     let frame_dt = time.delta_secs();
-    // Same polarity flip as the control phase — ActorControl is the
-    // sole input source. PlayerInputFrame stays attached for legacy
-    // story-content callers but isn't read here.
-    let _ = input;
 
-    // Advance the moving platforms ONCE this frame, peeled out of the per-entity
-    // player tick (it used to live inside `player_simulation_phase`). Done here so
-    // the advance can't multiply when the tick later iterates multiple player
-    // bodies; the per-entity phase now only READS each platform's `last_delta`.
-    // Uses the same sandbox dt the player sim uses, so the primary is byte-identical.
-    let sim_dt = sandbox_dt(combat.hitstop_timer, queues.clock.time_scale, frame_dt);
-    for platform in queues.moving_platforms.0.iter_mut() {
-        platform.update(sim_dt);
+    // Iterate EVERY player-bodied entity (primary + brain-driven clones): the SAME
+    // per-entity simulation core, driven by each body's own `ActorControl`. The
+    // camera shake + world-global sandbox reset are gated to the primary via
+    // `is_primary`. Platforms are advanced once per frame by
+    // `advance_moving_platforms` ahead of this system.
+    for (
+        mut cluster_item,
+        mut anim,
+        mut combat,
+        mut interaction,
+        mut blink_cam,
+        mut ride,
+        mut attack,
+        mut safety,
+        input,
+        actor_control,
+        primary,
+    ) in &mut player_q
+    {
+        let _ = input; // ActorControl is the sole input source.
+        let is_primary = primary.is_some();
+        let mut clusters = cluster_item.as_clusters_mut();
+        let outcome = player_simulation_phase(
+            actor_control.0,
+            &world.0,
+            &mut clusters,
+            &queues.dev_state,
+            &mut queues.sim_state,
+            &mut queues.clock,
+            &mut safety,
+            &queues.moving_platforms.0,
+            &mut attack.0,
+            &mut event_writers.sfx,
+            &mut event_writers.vfx,
+            &mut shake,
+            tuning,
+            feel,
+            frame_dt,
+            &queues.feature_ecs_overlay,
+            &mut queues.reset_room_features,
+            &mut anim,
+            &mut combat,
+            &mut interaction,
+            &mut blink_cam,
+            &mut ride,
+            is_primary,
+        );
+        if is_primary && matches!(outcome, PhaseOutcome::Return) {
+            reset_this_frame.0 = true;
+        }
     }
+}
 
-    let mut clusters = cluster_item.as_clusters_mut();
-    let outcome = player_simulation_phase(
-        actor_control.0,
-        &world.0,
-        &mut clusters,
-        &queues.dev_state,
-        &mut queues.sim_state,
-        &mut queues.clock,
-        &mut safety,
-        &queues.moving_platforms.0,
-        &mut attack.0,
-        &mut event_writers.sfx,
-        &mut event_writers.vfx,
-        &mut shake,
-        tuning,
-        feel,
-        frame_dt,
-        &queues.feature_ecs_overlay,
-        &mut queues.reset_room_features,
-        &mut anim,
-        &mut combat,
-        &mut interaction,
-        &mut blink_cam,
-        &mut ride,
-    );
-    if matches!(outcome, PhaseOutcome::Return) {
-        reset_this_frame.0 = true;
+/// Advance the world's moving platforms ONCE per frame, ahead of the player tick
+/// and the actor ticks, so every body (player, clone, enemy, slug) rides this
+/// frame's platform positions. Peeled out of the per-entity player simulation so it
+/// can't multiply when that loop iterates multiple player bodies. Uses the PRIMARY
+/// player's hitstop for `sim_dt` (so platforms freeze during the player's hitstop,
+/// exactly as before).
+pub fn advance_moving_platforms(
+    time: Res<Time>,
+    clock: Res<ambition_sandbox::time::clock_state::ClockState>,
+    reset_this_frame: Res<SandboxResetThisFrame>,
+    mut platforms: ResMut<ambition_sandbox::MovingPlatformSet>,
+    primary_combat: Query<
+        &ambition_sandbox::player::PlayerCombatState,
+        ambition_sandbox::player::PrimaryPlayerOnly,
+    >,
+) {
+    if reset_this_frame.0 {
+        return;
+    }
+    let Ok(combat) = primary_combat.single() else {
+        return;
+    };
+    let sim_dt = sandbox_dt(combat.hitstop_timer, clock.time_scale, time.delta_secs());
+    for platform in platforms.0.iter_mut() {
+        platform.update(sim_dt);
     }
 }

@@ -36,7 +36,7 @@ pub fn sync_live_player_dev_edits_system(
             &mut ambition_sandbox::player::PlayerDashState,
             &mut ambition_sandbox::player::PlayerJumpState,
         ),
-        With<ambition_sandbox::player::PlayerEntity>,
+        ambition_sandbox::player::PrimaryPlayerOnly,
     >,
 ) {
     let Ok((mut abilities, mut flight, mut blink, mut dash, mut jump)) = player_q.single_mut()
@@ -84,7 +84,7 @@ pub fn input_timer_system(
             &mut ambition_sandbox::player::PlayerCombatState,
             &mut ambition_sandbox::player::PlayerInteractionState,
         ),
-        With<ambition_sandbox::player::PlayerEntity>,
+        ambition_sandbox::player::PrimaryPlayerOnly,
     >,
 ) {
     let frame_dt = time.delta_secs();
@@ -143,7 +143,7 @@ pub fn interaction_input_system(
             &ambition_sandbox::player::PlayerCombatState,
             &mut ambition_sandbox::player::PlayerInteractionState,
         ),
-        With<ambition_sandbox::player::PlayerEntity>,
+        ambition_sandbox::player::PrimaryPlayerOnly,
     >,
 ) {
     let frame_dt = time.delta_secs();
@@ -203,7 +203,7 @@ pub fn apply_player_reset_input_system(
             &mut ambition_sandbox::player::ActivePlayerAttack,
             &mut ambition_sandbox::player::PlayerSafetyState,
         ),
-        With<ambition_sandbox::player::PlayerEntity>,
+        ambition_sandbox::player::PrimaryPlayerOnly,
     >,
 ) {
     if !control_frame.reset_pressed {
@@ -277,7 +277,7 @@ pub fn apply_cut_rope_room_replay_request_system(
             &mut ambition_sandbox::player::ActivePlayerAttack,
             &mut ambition_sandbox::player::PlayerSafetyState,
         ),
-        With<ambition_sandbox::player::PlayerEntity>,
+        ambition_sandbox::player::PrimaryPlayerOnly,
     >,
 ) {
     if replay_requests.read().count() == 0 {
@@ -349,7 +349,7 @@ pub fn detect_room_transition_system(
             ae::PlayerClusterQueryData,
             &mut ambition_sandbox::player::PlayerInteractionState,
         ),
-        With<ambition_sandbox::player::PlayerEntity>,
+        ambition_sandbox::player::PrimaryPlayerOnly,
     >,
 ) {
     if sim_state.room_transition_cooldown > 0.0 {
@@ -413,7 +413,7 @@ pub fn attack_advance_system(
             &ambition_sandbox::brain::ActorControl,
             Option<&ambition_sandbox::features::HeldItem>,
         ),
-        With<ambition_sandbox::player::PlayerEntity>,
+        ambition_sandbox::player::PrimaryPlayerOnly,
     >,
     mut brain_actions: MessageReader<ambition_sandbox::brain::ActorActionMessage>,
     mut hit_events: MessageWriter<FeatureHitEvent>,
@@ -538,7 +538,7 @@ pub fn apply_player_hit_events(
             &mut ambition_sandbox::player::PlayerCombatState,
             &mut ambition_sandbox::player::PlayerSafetyState,
         ),
-        With<ambition_sandbox::player::PlayerEntity>,
+        ambition_sandbox::player::PrimaryPlayerOnly,
     >,
 ) {
     let primary = primary_q.single().ok();
@@ -643,7 +643,7 @@ pub fn cleanup_timers_system(
             &mut ambition_sandbox::player::PlayerCombatState,
             &mut ambition_sandbox::player::PlayerBlinkCameraState,
         ),
-        With<ambition_sandbox::player::PlayerEntity>,
+        ambition_sandbox::player::PrimaryPlayerOnly,
     >,
 ) {
     let frame_dt = time.delta_secs();

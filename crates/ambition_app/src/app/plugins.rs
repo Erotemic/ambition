@@ -314,6 +314,11 @@ fn register_player_simulation_systems(app: &mut App) {
             player_control_system
                 .run_if(gameplay_allowed)
                 .run_if(ambition_sandbox::abilities::traversal::possession::not_possessing),
+            // Advance the world's moving platforms once, after the control phase and
+            // before the simulation phase (the order they were advanced in when the
+            // advance lived inside `player_simulation_system`), so every body rides
+            // this frame's platform positions.
+            advance_moving_platforms.run_if(gameplay_allowed),
             player_simulation_system.run_if(gameplay_allowed),
             apply_player_hit_events.run_if(gameplay_allowed),
         )

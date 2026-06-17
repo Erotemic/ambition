@@ -317,6 +317,43 @@ Commit: `feat(physics): surface-walkers ride moving platforms (slug fix)`.
 Drop the bespoke `drive_player_clones`; the clone already renders + rides via the
 shared core, so 3c is the marker swap + iterating the movement/combat systems.
 
+## 3c — clone → PlayerEntity (movement half done; a big blocker surfaced)
+
+### 3c-i ✅ — the player movement tick is now multi-body-ready
+- `player_control_system` + `player_simulation_system` converted from `single_mut()`
+  to a `for` loop over `With<PlayerEntity>`, each body driven by its own `ActorControl`.
+- The world-global concerns are gated to the primary: `player_control_phase` /
+  `player_simulation_phase` take `is_primary` and skip the sandbox RESET + camera
+  SHAKE for non-primary bodies. The moving-platform ADVANCE moved into its own
+  `advance_moving_platforms` system (primary's hitstop → `sim_dt`), chained between
+  control and simulation — so it runs once and can't multiply over multiple bodies.
+- The other player `single_mut()` systems (dev edits, input timers, interaction,
+  reset input, room transition, attack-advance, cleanup) scoped to `PrimaryPlayerOnly`
+  — they're genuinely primary concerns, and this makes them clone-safe.
+- **Replay byte-identical** (loop over the single primary == the old single_mut; gates
+  are no-ops with one primary); app-lib 179 + boundary 30 + clone-live green.
+- Commit: `refactor(player): 3c-i — player movement tick iterates; globals gated to primary`.
+
+### 3c-ii ⛔ BLOCKED — `PlayerEntity` is assumed singular in ~40 places
+Making the clone a `PlayerEntity` is NOT safe yet. A sweep found **~40 `With<PlayerEntity>`
+query sites** across sandbox + render + bins that call `single()`/`single_mut()` and
+assume exactly one player: enemy + boss AI **targeting** (`actors/update.rs`,
+`bosses/tick.rs`), **hazards / pickups / chests / breakables / targeting**
+(`mechanics/combat/*`), **projectiles**, **affordances** (interactable / pogo / intent
+proximity), **reset**, **rope**, player **pose / health / attack** systems, render
+(`projectile_visuals`, `pirate_weapon`). With two `PlayerEntity` bodies, every one of
+those `single()` calls returns `Err` and the system **silently no-ops** — the PRIMARY
+player would stop taking hazard damage, grabbing pickups, being targeted, etc.
+
+So "clone → PlayerEntity / drop `drive_player_clones`" requires first reclassifying
+each of those ~40 sites: the ones that mean "**the** player" become `PrimaryPlayer`
+(targeting, hazards, pickups, HUD, camera, reset), and only the genuinely all-bodies
+ones stay `PlayerEntity` and iterate. That is the true scope of "PlayerEntity is a
+singleton" baked through the codebase — a large, dedicated, mostly-GUI-unverifiable
+sweep. The movement-tick half (3c-i) is the safe foundation; the codebase-wide
+reclassification is the remaining piece. Clone keeps its `drive_player_clones` driver
+until then (the honest per-body / primary-responsibility split).
+
 ## (superseded) earlier Stage 3 framing
 
 The decomposition foundation is in place. Next is the high-value, higher-risk work:

@@ -11,7 +11,7 @@ set -euo pipefail
 original_args=("$@")
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
-mode="perf-attach"
+mode="perf-run"
 duration="30"
 freq="99"
 interval_ms="1000"
@@ -34,21 +34,21 @@ Usage:
 
 Modes:
   perf-run        Launch ./run_game.sh under perf record, then emit bounded text reports.
-  perf-attach     Attach perf record to an already-running ambition_gameplay_core process.
+  perf-attach     Attach perf record to an already-running ambition_game process.
   stat-run        Launch ./run_game.sh under perf stat with interval output.
-  stat-attach     Attach perf stat to an already-running ambition_gameplay_core process.
+  stat-attach     Attach perf stat to an already-running ambition_game process.
   asset-run       Launch ./run_game.sh under strace and summarize repeated asset opens.
-  asset-attach    Attach strace to an already-running ambition_gameplay_core process.
+  asset-attach    Attach strace to an already-running ambition_game process.
   all-run         Run perf-run, stat-run, then asset-run sequentially.
 
-Default mode: perf-attach
+  Default mode: perf-run
 
 Options:
   -h, --help              Show this help.
   -d, --duration SEC      Capture duration in seconds. Default: 30.
   -F, --freq HZ           Sampling frequency for perf record. Default: 99.
   -I, --interval MS       perf stat interval in milliseconds. Default: 1000.
-  -p, --pid PID           PID to attach to. If omitted, newest ambition_gameplay_core PID is used.
+  -p, --pid PID           PID to attach to. If omitted, newest ambition_game_bin PID is used.
   -o, --out DIR           Output base directory. Default: target/profiles.
   --name NAME             Output directory name suffix. Default: MODE-UTC_TIMESTAMP.
   --events LIST           perf stat events. Default: task-clock,cycles,instructions,...
@@ -144,11 +144,22 @@ make_profile_dir() {
 
 find_game_pid() {
     if [[ -n "$pid" ]]; then printf '%s\n' "$pid"; return 0; fi
-    local found=""
-    found="$(pgrep -n -x ambition_gameplay_core 2>/dev/null || true)"
-    if [[ -z "$found" ]]; then found="$(pgrep -n -f 'ambition_gameplay_core' 2>/dev/null || true)"; fi
-    [[ -n "$found" ]] || fail "could not find ambition_gameplay_core; pass --pid or use a *-run mode"
-    printf '%s\n' "$found"
+    local found="" candidate
+    for candidate in ambition_game_bin ambition_gameplay_core; do
+        found="$(pgrep -n -x "$candidate" 2>/dev/null || true)"
+        if [[ -n "$found" ]]; then
+            printf '%s\n' "$found"
+            return 0
+        fi
+    done
+    for candidate in ambition_game_bin ambition_gameplay_core; do
+        found="$(pgrep -n -f "$candidate" 2>/dev/null || true)"
+        if [[ -n "$found" ]]; then
+            printf '%s\n' "$found"
+            return 0
+        fi
+    done
+    fail "could not find ambition_game_bin or ambition_gameplay_core; pass --pid or use a *-run mode"
 }
 
 mode_uses_launch() { case "$1" in perf-run|stat-run|asset-run) return 0 ;; *) return 1 ;; esac; }

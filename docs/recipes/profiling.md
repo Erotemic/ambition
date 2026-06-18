@@ -149,6 +149,24 @@ Tracy adds ~5-10% CPU overhead and grows the binary by ~3 MB. Both
 are negligible during dev. Default builds drop the dep entirely
 since `profile` is opt-in.
 
+### Desktop perf/stat/strace captures
+
+For bounded desktop captures without Tracy, use
+[`scripts/profile_desktop.sh`](../../scripts/profile_desktop.sh):
+
+```bash
+scripts/profile_desktop.sh
+scripts/profile_desktop.sh perf-run --duration 30
+scripts/profile_desktop.sh perf-attach --duration 30
+scripts/profile_desktop.sh stat-run --duration 30
+scripts/profile_desktop.sh asset-run --duration 30
+```
+
+With no arguments, the script does a `perf-run`.
+Attach modes look for the current desktop game process, `ambition_game_bin`,
+and also accept the historical `ambition_gameplay_core` name for older local
+builds.
+
 ## 2c. Android native allocation profiling
 
 For Android allocation callstacks, use Perfetto/heapprofd through the

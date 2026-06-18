@@ -116,6 +116,12 @@ pub(crate) const LOS_NEAR_SKIP: f32 = 70.0;
 /// that is flush against a wall does not sneak through as "clear" by exact
 /// point geometry.
 const LOS_SAMPLE_INSET: f32 = 2.0;
+/// Lift LOS aperture samples away from the portal host face so rays do not land
+/// exactly on the uncarved wall/floor geometry.
+const APERTURE_LOS_SURFACE_LIFT: f32 = 12.0;
+/// Stop LOS casts a little before the lifted target, preserving the old center
+/// ray behavior and avoiding false hits on the host face near the aperture.
+const APERTURE_LOS_TARGET_BACKOFF: f32 = 4.0;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct ApertureLosRay {
@@ -124,12 +130,65 @@ pub(crate) struct ApertureLosRay {
     pub(crate) hit: Option<Vec2>,
 }
 
-pub(crate) fn aperture_los_ray(
-    eye: Vec2,
+fn aperture_tangent(enter: &PortalFrame) -> Vec2 {
+    let tangent = Vec2::new(-enter.normal.y, enter.normal.x);
+    if tangent.length_squared() > f32::EPSILON {
+        tangent.normalize()
+    } else {
+        Vec2::X
+    }
+}
+
+fn aperture_half_width(enter: &PortalFrame) -> f32 {
+    // Support radius of the axis-aligned portal AABB along the portal surface.
+    // For the current cardinal portal frames this picks X for floors/ceilings
+    // and Y for walls, while staying correct if a future frame stores a rotated
+    // unit normal.
+    let t = aperture_tangent(enter);
+    enter.half_extent.dot(Vec2::new(t.x.abs(), t.y.abs()))
+}
+
+pub(crate) struct ApertureLosTargets {
+    points: [Vec2; 3],
+    len: usize,
+}
+
+impl ApertureLosTargets {
+    pub(crate) fn as_slice(&self) -> &[Vec2] {
+        &self.points[..self.len]
+    }
+}
+
+pub(crate) fn aperture_los_targets(
     enter: &PortalFrame,
+    quality: PortalApertureLosQuality,
+) -> ApertureLosTargets {
+    let center = enter.pos + enter.normal * APERTURE_LOS_SURFACE_LIFT;
+    match quality {
+        PortalApertureLosQuality::Low => ApertureLosTargets {
+            points: [center, center, center],
+            len: 1,
+        },
+        PortalApertureLosQuality::Medium => {
+            let tangent = aperture_tangent(enter);
+            let half_width = aperture_half_width(enter);
+            ApertureLosTargets {
+                points: [
+                    center - tangent * half_width,
+                    center,
+                    center + tangent * half_width,
+                ],
+                len: 3,
+            }
+        }
+    }
+}
+
+pub(crate) fn aperture_los_ray_to(
+    eye: Vec2,
+    target: Vec2,
     occluders: &[ae::Aabb],
 ) -> ApertureLosRay {
-    let target = enter.pos + enter.normal * 12.0;
     let d = target - eye;
     let dist = d.length();
     if dist < 2.0 {
@@ -143,7 +202,7 @@ pub(crate) fn aperture_los_ray(
         &SliceSolids(occluders),
         eye,
         d,
-        (dist - 4.0).max(0.0),
+        (dist - APERTURE_LOS_TARGET_BACKOFF).max(0.0),
         false,
     )
     .map(|(hit, _)| hit);
@@ -152,6 +211,56 @@ pub(crate) fn aperture_los_ray(
         target,
         hit,
     }
+}
+
+/// Original low-quality LOS ray helper: one ray from `eye` to the lifted center
+/// of the finite aperture. Kept for tests and debug callers that want the
+/// previous center-only behavior.
+pub(crate) fn aperture_los_ray(
+    eye: Vec2,
+    enter: &PortalFrame,
+    occluders: &[ae::Aabb],
+) -> ApertureLosRay {
+    let target = aperture_los_targets(enter, PortalApertureLosQuality::Low)
+        .as_slice()[0];
+    aperture_los_ray_to(eye, target, occluders)
+}
+
+pub(crate) fn aperture_los_rays(
+    eye: Vec2,
+    enter: &PortalFrame,
+    occluders: &[ae::Aabb],
+    quality: PortalApertureLosQuality,
+) -> Vec<ApertureLosRay> {
+    aperture_los_targets(enter, quality)
+        .as_slice()
+        .iter()
+        .copied()
+        .map(|target| aperture_los_ray_to(eye, target, occluders))
+        .collect()
+}
+
+pub(crate) fn aperture_visibility_fraction(
+    eye: Vec2,
+    enter: &PortalFrame,
+    occluders: &[ae::Aabb],
+    quality: PortalApertureLosQuality,
+) -> f32 {
+    let targets = aperture_los_targets(enter, quality);
+    let samples = targets.as_slice();
+    if samples.is_empty() {
+        return 0.0;
+    }
+    let clear = samples
+        .iter()
+        .copied()
+        .filter(|target| {
+            aperture_los_ray_to(eye, *target, occluders)
+                .hit
+                .is_none()
+        })
+        .count();
+    clear as f32 / samples.len() as f32
 }
 
 pub(crate) fn inset_viewer_corners(eye: Vec2, half_size: Vec2) -> [Vec2; 4] {
@@ -169,9 +278,15 @@ pub(crate) fn inset_viewer_corners(eye: Vec2, half_size: Vec2) -> [Vec2; 4] {
 /// target is lifted a little OFF the surface (along the normal) so the ray
 /// never has to land exactly on the host face — a grazing ray along a shared
 /// floor line would otherwise clip the (uncarved) host blocks themselves —
-/// and the cast still stops short of the lifted point.
+/// and the cast still stops short of the lifted point. Uses the original
+/// low-quality center ray for compatibility with existing tests/callers.
 pub(crate) fn aperture_occluded(eye: Vec2, enter: &PortalFrame, occluders: &[ae::Aabb]) -> bool {
-    aperture_los_ray(eye, enter, occluders).hit.is_some()
+    aperture_visibility_fraction(
+        eye,
+        enter,
+        occluders,
+        PortalApertureLosQuality::Low,
+    ) <= 0.0
 }
 
 /// One frame's window plan for a pair: the minimum cone, the (full) visible
@@ -241,9 +356,9 @@ pub(crate) fn compute_cone(
     let dt = ((dist - config.dist_close) / (config.dist_far - config.dist_close).max(1.0))
         .clamp(0.0, 1.0);
     let depth = config.depth_close + (config.depth_far - config.depth_close) * smooth01(dt);
-    // Visibility fraction: real corners ray-test to the nearer aperture
-    // (skipped at the doorway — straddling, where the rays would graze the
-    // host blocks and sight is trivially clear).
+    // Visibility fraction: real corners ray-test to the nearer finite aperture
+    // using the configured quality. The doorway case is still skipped because
+    // rays there would graze the host blocks and sight is trivially clear.
     let faced = if v.eye.distance(enter.pos) <= v.eye.distance(exit.pos) {
         &enter
     } else {
@@ -252,11 +367,18 @@ pub(crate) fn compute_cone(
     let target = if v.eye.distance(faced.pos) <= LOS_NEAR_SKIP {
         1.0
     } else {
-        let clear = corners
+        corners
             .iter()
-            .filter(|c| !aperture_occluded(**c, faced, &v.occluders))
-            .count();
-        clear as f32 / corners.len() as f32
+            .map(|c| {
+                aperture_visibility_fraction(
+                    *c,
+                    faced,
+                    &v.occluders,
+                    config.aperture_los_quality,
+                )
+            })
+            .sum::<f32>()
+            / corners.len() as f32
     };
     if target <= 0.0 {
         return closed(min);
@@ -418,6 +540,70 @@ mod tests {
         assert!(!aperture_occluded(eye, &enter, &[aside]));
         // No occluders at all → clear.
         assert!(!aperture_occluded(eye, &enter, &[]));
+    }
+
+    #[test]
+    fn medium_aperture_los_sees_around_center_blockers() {
+        let enter = PortalFrame {
+            pos: Vec2::new(100.0, 300.0),
+            normal: Vec2::new(0.0, -1.0),
+            half_extent: Vec2::new(46.0, 9.0),
+        };
+        let eye = Vec2::new(100.0, 100.0);
+        let center_blocker = ae::Aabb::new(
+            Vec2::new(100.0, 200.0),
+            Vec2::new(6.0, 8.0),
+        );
+
+        assert_eq!(
+            aperture_visibility_fraction(
+                eye,
+                &enter,
+                &[center_blocker],
+                PortalApertureLosQuality::Low,
+            ),
+            0.0
+        );
+        assert!(
+            aperture_visibility_fraction(
+                eye,
+                &enter,
+                &[center_blocker],
+                PortalApertureLosQuality::Medium,
+            ) > 0.0,
+            "medium quality should keep the aperture partially visible when only the center ray is blocked",
+        );
+    }
+
+    #[test]
+    fn medium_aperture_los_does_not_require_visible_endpoints() {
+        let enter = PortalFrame {
+            pos: Vec2::new(100.0, 300.0),
+            normal: Vec2::new(0.0, -1.0),
+            half_extent: Vec2::new(46.0, 9.0),
+        };
+        let eye = Vec2::new(100.0, 100.0);
+        // Block the left/right endpoint rays near y=200 while leaving the center
+        // line open. Endpoint-only LOS would fail this case.
+        let left_blocker = ae::Aabb::new(
+            Vec2::new(75.5, 200.0),
+            Vec2::new(5.0, 8.0),
+        );
+        let right_blocker = ae::Aabb::new(
+            Vec2::new(124.5, 200.0),
+            Vec2::new(5.0, 8.0),
+        );
+
+        let visibility = aperture_visibility_fraction(
+            eye,
+            &enter,
+            &[left_blocker, right_blocker],
+            PortalApertureLosQuality::Medium,
+        );
+        assert!(
+            visibility > 0.0 && visibility < 1.0,
+            "medium quality should report partial visibility when the center is visible but endpoints are blocked: {visibility}",
+        );
     }
 
     /// The debug ray helper reports the same blocker that the occlusion test

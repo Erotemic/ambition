@@ -29,7 +29,7 @@ When you wake up here, pick the next task from this list and work on it without 
 
 ## Jon's Polish List
 
-- [ ] **Tie-a-knot trail mechanic** `[V?/D?]` - Add a feature where the player emits a trail that can drape onto collision, be pulled taut, and work through portals.
+- [x] **Tie-a-knot trail mechanic** `[V?/D?]` - Add a feature where the player emits a trail that can drape onto collision, be pulled taut, and work through portals.
 
 ## Jon's List
 

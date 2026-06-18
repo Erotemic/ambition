@@ -10,9 +10,9 @@
 //! straddling viewer's presence at both ends feeds one continuous wedge
 //! (`aperture_wedge_multi` unions them), with no abrupt flip at the midpoint of
 //! a pair. Depth scales with proximity to the nearer aperture; line of sight is
-//! a 4-corner raycast fraction (partial cover ⇒ partial window). Set
-//! [`PortalViewConeConfig::viewer_gated`] to `false` (or leave the viewer
-//! unset) to fall back to the static, always-on `view_cone`.
+//! a 4-corner × aperture-sample raycast fraction (partial cover ⇒ partial
+//! window). Set [`PortalViewConeConfig::viewer_gated`] to `false` (or leave the
+//! viewer unset) to fall back to the static, always-on `view_cone`.
 //!
 //! ## How a rig works
 //! Per placed portal with a placed partner, a **rig**: one offscreen image, a
@@ -106,6 +106,24 @@ pub struct PortalDebugOverlay {
     pub enabled: bool,
 }
 
+/// Quality/performance knob for viewer-dependent portal aperture LOS.
+///
+/// `Low` preserves the original center-point test. `Medium` treats the aperture
+/// as a short segment by sampling its left endpoint, center, and right endpoint.
+#[derive(Clone, Copy, Debug, Reflect, PartialEq, Eq)]
+pub enum PortalApertureLosQuality {
+    /// One LOS ray per viewer corner, aimed at the lifted aperture center.
+    Low,
+    /// Three LOS rays per viewer corner: left endpoint, center, right endpoint.
+    Medium,
+}
+
+impl Default for PortalApertureLosQuality {
+    fn default() -> Self {
+        Self::Medium
+    }
+}
+
 /// Tuning for the view windows. A host overwrites the resource to retune; set
 /// [`PortalPresentationPlugin::view_cones`](crate::PortalPresentationPlugin)
 /// to `false` to drop the feature (and its capture passes) entirely.
@@ -117,6 +135,10 @@ pub struct PortalViewConeConfig {
     /// from the minimum cone. When false, windows render the static, always-on
     /// `view_cone` — the "always show this much" mode that needs no viewer.
     pub viewer_gated: bool,
+    /// Aperture LOS quality. `Low` is the original single center ray per viewer
+    /// corner. `Medium` is the default finite-aperture heuristic: sample the
+    /// left endpoint, center, and right endpoint, then average visible samples.
+    pub aperture_los_quality: PortalApertureLosQuality,
     /// Max window depth behind the surface (world px), reached when the viewer
     /// is within `dist_close` of the aperture — the "large maximum." The depth
     /// is proximity-proportional: the closer you are, the deeper you see (down
@@ -183,9 +205,10 @@ pub struct PortalViewConeConfig {
     /// `ViewCone::source` rect, in the portal's channel color, in front of its
     /// partner) and the entry window.
     pub debug_outline: bool,
-    /// Debug: draw the four line-of-sight rays used to decide whether the
-    /// viewer can see into the portal. Rays that reach the aperture are drawn
-    /// brightly; rays blocked by a wall are truncated at the blocker.
+    /// Debug: draw the line-of-sight rays used to decide whether the viewer can
+    /// see into the portal. In low quality this is four rays; in medium quality
+    /// it is four viewer corners times three aperture samples. Rays that reach
+    /// the aperture are drawn brightly; blocked rays are truncated at the blocker.
     pub debug_los_rays: bool,
 }
 
@@ -193,6 +216,7 @@ impl Default for PortalViewConeConfig {
     fn default() -> Self {
         Self {
             viewer_gated: true,
+            aperture_los_quality: PortalApertureLosQuality::Medium,
             // Large but not so deep it punches through thin "door" walls into
             // the far room (which is what drives the heaviest recursion); also
             // keeps the near-face↔deep-content parallax modest.
@@ -544,38 +568,50 @@ pub fn debug_portal_view_zones(
             };
             let near = viewer.eye.distance(faced.pos) <= LOS_NEAR_SKIP;
             for origin in corners {
-                let ray = if near {
-                    ApertureLosRay {
+                let rays: Vec<ApertureLosRay> = if near {
+                    aperture_los_targets(faced, config.aperture_los_quality)
+                        .as_slice()
+                        .iter()
+                        .copied()
+                        .map(|target| ApertureLosRay {
+                            origin,
+                            target,
+                            hit: None,
+                        })
+                        .collect()
+                } else {
+                    aperture_los_rays(
                         origin,
-                        target: faced.pos + faced.normal * 12.0,
-                        hit: None,
-                    }
-                } else {
-                    aperture_los_ray(origin, faced, &viewer.occluders)
+                        faced,
+                        &viewer.occluders,
+                        config.aperture_los_quality,
+                    )
                 };
-                let clear = ray.hit.is_none();
-                let end = ray.hit.unwrap_or(ray.target);
-                let color = if clear {
-                    core.with_alpha(0.95)
-                } else {
-                    core.with_alpha(0.30)
-                };
-                let hit_color = if clear {
-                    Color::srgba(0.14, 1.00, 0.65, 0.95)
-                } else {
-                    Color::srgba(1.00, 0.32, 0.28, 0.80)
-                };
-                gizmos.line_2d(to_render(ray.origin), to_render(end), color);
-                gizmos.line_2d(
-                    to_render(end + Vec2::new(-3.0, -3.0)),
-                    to_render(end + Vec2::new(3.0, 3.0)),
-                    hit_color,
-                );
-                gizmos.line_2d(
-                    to_render(end + Vec2::new(-3.0, 3.0)),
-                    to_render(end + Vec2::new(3.0, -3.0)),
-                    hit_color,
-                );
+                for ray in rays {
+                    let clear = ray.hit.is_none();
+                    let end = ray.hit.unwrap_or(ray.target);
+                    let color = if clear {
+                        core.with_alpha(0.95)
+                    } else {
+                        core.with_alpha(0.30)
+                    };
+                    let hit_color = if clear {
+                        Color::srgba(0.14, 1.00, 0.65, 0.95)
+                    } else {
+                        Color::srgba(1.00, 0.32, 0.28, 0.80)
+                    };
+                    gizmos.line_2d(to_render(ray.origin), to_render(end), color);
+                    gizmos.line_2d(
+                        to_render(end + Vec2::new(-3.0, -3.0)),
+                        to_render(end + Vec2::new(3.0, 3.0)),
+                        hit_color,
+                    );
+                    gizmos.line_2d(
+                        to_render(end + Vec2::new(-3.0, 3.0)),
+                        to_render(end + Vec2::new(3.0, -3.0)),
+                        hit_color,
+                    );
+                }
             }
         }
     }

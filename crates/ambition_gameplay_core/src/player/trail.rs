@@ -212,13 +212,28 @@ impl PlayerTrail {
     /// Append fixed samples between the previous fixed sample and `anchor` while
     /// keeping the live endpoint on the player. Existing samples are not moved.
     pub fn emit_to(&mut self, anchor: ae::Vec2) {
+        self.emit_to_with_world_surfaces(anchor, None);
+    }
+
+    /// Append trail samples like [`Self::emit_to`], but keep a self-crossed
+    /// loop intact when it contains or touches an authored world surface.
+    ///
+    /// This is an intentionally local obstruction test, not a full homology
+    /// classifier. A loop that encloses a `World::blocks` AABB is treated as
+    /// nontrivial enough to preserve; empty Euclidean self-loops still shrink
+    /// away.
+    pub fn emit_to_with_world_surfaces(
+        &mut self,
+        anchor: ae::Vec2,
+        world: Option<&ae::World>,
+    ) {
         if !matches!(self.status, TrailStatus::Emitting) {
             return;
         }
         self.ensure_current_chunk(anchor);
 
         let old_live_end = self.live_end;
-        self.try_extract_trivial_self_crossing(old_live_end, anchor);
+        self.try_extract_trivial_self_crossing(old_live_end, anchor, world);
         self.append_fixed_samples_to(anchor);
         self.live_end = anchor;
     }
@@ -448,7 +463,12 @@ impl PlayerTrail {
         self.chunks.last_mut()
     }
 
-    fn try_extract_trivial_self_crossing(&mut self, old_live_end: ae::Vec2, anchor: ae::Vec2) {
+    fn try_extract_trivial_self_crossing(
+        &mut self,
+        old_live_end: ae::Vec2,
+        anchor: ae::Vec2,
+        world: Option<&ae::World>,
+    ) {
         if old_live_end.distance(anchor) <= TRAIL_INTERSECTION_EPSILON {
             return;
         }
@@ -507,6 +527,9 @@ impl PlayerTrail {
         if polyline_length(&loop_positions) < TRAIL_MIN_SELF_LOOP_LENGTH {
             return;
         }
+        if world.is_some_and(|world| loop_contains_world_surface(&loop_positions, world)) {
+            return;
+        }
 
         let mut prefix: Vec<ae::Vec2> = polyline.iter().take(hit_segment + 1).copied().collect();
         prefix.push(hit);
@@ -550,6 +573,7 @@ pub fn ensure_player_trail(
 /// trails as they collapse away.
 pub fn update_player_trail(
     world_time: Res<crate::WorldTime>,
+    world: Option<Res<crate::GameWorld>>,
     enabled: Option<Res<PlayerTrailEnabled>>,
     mut continuity_breaks: MessageReader<TrailContinuityBreak>,
     mut commands: Commands,
@@ -559,6 +583,7 @@ pub fn update_player_trail(
     >,
 ) {
     let dt = world_time.sim_dt();
+    let world_surfaces = world.as_deref().map(|world| &world.0);
     let emission_enabled = enabled.as_ref().is_some_and(|enabled| enabled.enabled);
     let breaks: Vec<TrailContinuityBreak> = continuity_breaks.read().copied().collect();
     for (entity, kin, mut trail) in &mut players {
@@ -570,7 +595,7 @@ pub fn update_player_trail(
                     for ev in breaks.iter().filter(|ev| ev.body == entity) {
                         trail.continue_after_break(ev.resume_at);
                     }
-                    trail.emit_to(anchor);
+                    trail.emit_to_with_world_surfaces(anchor, world_surfaces);
                 } else {
                     trail.finish_emission(anchor);
                 }
@@ -666,6 +691,146 @@ impl Plugin for PlayerTrailPlugin {
             render_player_trail.run_if(resource_exists::<bevy::gizmos::config::GizmoConfigStore>),
         );
     }
+}
+
+fn loop_contains_world_surface(loop_positions: &[ae::Vec2], world: &ae::World) -> bool {
+    if loop_positions.len() < 4 {
+        return false;
+    }
+    let Some(loop_bounds) = polygon_bounds(loop_positions) else {
+        return false;
+    };
+    world.blocks.iter().any(|block| {
+        aabb_overlaps(loop_bounds, block.aabb)
+            && polygon_touches_or_contains_aabb(loop_positions, block.aabb)
+    })
+}
+
+fn polygon_touches_or_contains_aabb(poly: &[ae::Vec2], aabb: ae::Aabb) -> bool {
+    let witnesses = aabb_witness_points(aabb);
+    if witnesses
+        .iter()
+        .any(|point| polygon_contains_point(poly, *point))
+    {
+        return true;
+    }
+    if poly.iter().any(|point| point_in_aabb(*point, aabb)) {
+        return true;
+    }
+    let edges = aabb_edges(aabb);
+    poly.windows(2).any(|segment| {
+        edges
+            .iter()
+            .any(|(a, b)| segments_intersect_inclusive(segment[0], segment[1], *a, *b))
+    })
+}
+
+fn polygon_bounds(points: &[ae::Vec2]) -> Option<ae::Aabb> {
+    let first = *points.first()?;
+    let (min, max) = points.iter().copied().fold((first, first), |(min, max), p| {
+        (
+            ae::Vec2::new(min.x.min(p.x), min.y.min(p.y)),
+            ae::Vec2::new(max.x.max(p.x), max.y.max(p.y)),
+        )
+    });
+    Some(ae::Aabb::new((min + max) * 0.5, (max - min) * 0.5))
+}
+
+fn aabb_witness_points(aabb: ae::Aabb) -> [ae::Vec2; 5] {
+    let min = aabb.min;
+    let max = aabb.max;
+    let center = (min + max) * 0.5;
+    [
+        center,
+        ae::Vec2::new(min.x, min.y),
+        ae::Vec2::new(max.x, min.y),
+        ae::Vec2::new(max.x, max.y),
+        ae::Vec2::new(min.x, max.y),
+    ]
+}
+
+fn aabb_edges(aabb: ae::Aabb) -> [(ae::Vec2, ae::Vec2); 4] {
+    let min = aabb.min;
+    let max = aabb.max;
+    let top_left = ae::Vec2::new(min.x, min.y);
+    let top_right = ae::Vec2::new(max.x, min.y);
+    let bottom_right = ae::Vec2::new(max.x, max.y);
+    let bottom_left = ae::Vec2::new(min.x, max.y);
+    [
+        (top_left, top_right),
+        (top_right, bottom_right),
+        (bottom_right, bottom_left),
+        (bottom_left, top_left),
+    ]
+}
+
+fn aabb_overlaps(lhs: ae::Aabb, rhs: ae::Aabb) -> bool {
+    lhs.min.x <= rhs.max.x
+        && lhs.max.x >= rhs.min.x
+        && lhs.min.y <= rhs.max.y
+        && lhs.max.y >= rhs.min.y
+}
+
+fn point_in_aabb(point: ae::Vec2, aabb: ae::Aabb) -> bool {
+    point.x >= aabb.min.x - TRAIL_INTERSECTION_EPSILON
+        && point.x <= aabb.max.x + TRAIL_INTERSECTION_EPSILON
+        && point.y >= aabb.min.y - TRAIL_INTERSECTION_EPSILON
+        && point.y <= aabb.max.y + TRAIL_INTERSECTION_EPSILON
+}
+
+fn polygon_contains_point(poly: &[ae::Vec2], point: ae::Vec2) -> bool {
+    let mut inside = false;
+    for segment in poly.windows(2) {
+        let a = segment[0];
+        let b = segment[1];
+        if point_on_segment(point, a, b) {
+            return true;
+        }
+        let crosses_y = (a.y > point.y) != (b.y > point.y);
+        if crosses_y {
+            let x_at_y = a.x + (point.y - a.y) * (b.x - a.x) / (b.y - a.y);
+            if x_at_y >= point.x - TRAIL_INTERSECTION_EPSILON {
+                inside = !inside;
+            }
+        }
+    }
+    inside
+}
+
+fn segments_intersect_inclusive(
+    a: ae::Vec2,
+    b: ae::Vec2,
+    c: ae::Vec2,
+    d: ae::Vec2,
+) -> bool {
+    let o1 = cross(b - a, c - a);
+    let o2 = cross(b - a, d - a);
+    let o3 = cross(d - c, a - c);
+    let o4 = cross(d - c, b - c);
+
+    if o1.abs() <= TRAIL_INTERSECTION_EPSILON && point_on_segment(c, a, b) {
+        return true;
+    }
+    if o2.abs() <= TRAIL_INTERSECTION_EPSILON && point_on_segment(d, a, b) {
+        return true;
+    }
+    if o3.abs() <= TRAIL_INTERSECTION_EPSILON && point_on_segment(a, c, d) {
+        return true;
+    }
+    if o4.abs() <= TRAIL_INTERSECTION_EPSILON && point_on_segment(b, c, d) {
+        return true;
+    }
+
+    ((o1 > 0.0 && o2 < 0.0) || (o1 < 0.0 && o2 > 0.0))
+        && ((o3 > 0.0 && o4 < 0.0) || (o3 < 0.0 && o4 > 0.0))
+}
+
+fn point_on_segment(point: ae::Vec2, a: ae::Vec2, b: ae::Vec2) -> bool {
+    cross(point - a, b - a).abs() <= TRAIL_INTERSECTION_EPSILON
+        && point.x >= a.x.min(b.x) - TRAIL_INTERSECTION_EPSILON
+        && point.x <= a.x.max(b.x) + TRAIL_INTERSECTION_EPSILON
+        && point.y >= a.y.min(b.y) - TRAIL_INTERSECTION_EPSILON
+        && point.y <= a.y.max(b.y) + TRAIL_INTERSECTION_EPSILON
 }
 
 fn centroid_positions(points: &[ae::Vec2]) -> Option<ae::Vec2> {
@@ -825,5 +990,57 @@ mod tests {
         );
         assert!(!trail.collapsing_loops[0].step(TRAIL_SELF_LOOP_COLLAPSE_SECONDS * 0.5));
         assert!(trail.collapsing_loops[0].step(TRAIL_SELF_LOOP_COLLAPSE_SECONDS));
+    }
+
+    #[test]
+    fn self_crossing_loop_around_world_surface_is_preserved() {
+        let world = ae::World::new(
+            "test",
+            v(200.0, 200.0),
+            v(0.0, 0.0),
+            vec![ae::Block::solid(
+                "obstruction",
+                v(20.0, 20.0),
+                v(10.0, 10.0),
+            )],
+        );
+        let mut trail = PlayerTrail::emitting_from(v(0.0, 0.0));
+        trail.emit_to_with_world_surfaces(v(50.0, 0.0), Some(&world));
+        trail.emit_to_with_world_surfaces(v(50.0, 50.0), Some(&world));
+        trail.emit_to_with_world_surfaces(v(0.0, 50.0), Some(&world));
+        trail.emit_to_with_world_surfaces(v(20.0, -10.0), Some(&world));
+
+        assert_eq!(
+            trail.collapsing_loops.len(),
+            0,
+            "self-crossed loops containing world surfaces should not be erased as empty",
+        );
+        assert!(
+            trail.render_points().iter().any(|p| p.y > 40.0),
+            "the lobe around the surface should remain in the active trail",
+        );
+    }
+
+    #[test]
+    fn world_surface_overlap_with_loop_boundary_prevents_collapse() {
+        let world = ae::World::new(
+            "test",
+            v(200.0, 200.0),
+            v(0.0, 0.0),
+            vec![ae::Block::solid(
+                "crossing",
+                v(45.0, 20.0),
+                v(20.0, 20.0),
+            )],
+        );
+        let loop_positions = vec![
+            v(0.0, 0.0),
+            v(50.0, 0.0),
+            v(50.0, 50.0),
+            v(0.0, 50.0),
+            v(0.0, 0.0),
+        ];
+
+        assert!(loop_contains_world_surface(&loop_positions, &world));
     }
 }

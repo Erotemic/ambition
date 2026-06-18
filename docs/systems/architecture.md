@@ -1,36 +1,44 @@
 # Architecture
 
 Ambition is a Rust/Bevy workspace, Bevy-native and ECS-first (old backend-neutral
-constraints superseded by ADR 0002). Post-bisection (Stage 20) it is a **4-layer
-crate graph**; lower layers must never import higher ones. Survey + remaining work:
-`docs/planning/plugin_refactor/22_monolith_breaker_survey.md`.
+constraints superseded by ADR 0002). Post-bisection (Stage 20) it is a layered
+crate graph; lower layers must never import higher ones. Current remaining
+module-boundary work is tracked in `docs/current/next.md` and
+`docs/planning/tech-debt-log.md`.
 
 ## Crate layers
 
 | Layer | Crates | Responsibility |
 |---|---|---|
-| foundations | `ambition_engine_core` (movement/collision/body/geometry/world/player clusters), `ambition_characters` (unified actor system: control vocabulary + universal brain + character catalog — bosses are actors), `ambition_platformer_primitives` (kinematic, gravity, rooms, projectile), `ambition_portal`, `ambition_time`, `ambition_input`, `ambition_menu` (reusable renderers), `ambition_audio`, `ambition_sfx[_bank]`, `ambition_asset_manager` | Reusable, content-free, no dep on the layers below |
-| machinery | `ambition_gameplay_core` (lib) | brain, actor, mechanics, `features` (named actor/boss ECS world), presentation, world/LDtk, items, encounter, persistence, dev STATE, menu IR/map. Content-free (guard-enforced). Re-exports foundations under facade paths (`crate::engine_core`, `crate::input`, …). |
-| content | `ambition_content` | Named game content: quests, bosses, items roster, dialogue, intro, banter, portal adapters |
-| app | `ambition_app` | Bevy assembly, host glue, ALL binaries (playable `ambition_gameplay_core` bin, headless, rl_*), menu host stack + `DevToolsPlugin`, full-stack integration tests |
+| foundations | `ambition_engine_core`, `ambition_characters`, `ambition_platformer_primitives`, `ambition_portal`, `ambition_time`, `ambition_input`, `ambition_menu`, `ambition_audio`, `ambition_sfx[_bank]`, `ambition_asset_manager`, `ambition_gameplay_trace`, `ambition_cutscene`, `ambition_interaction`, `ambition_sprite_sheet`, `ambition_ui_nav`, `ambition_vfx` | Reusable/content-free vocabulary, data models, and low-level systems. |
+| machinery | `ambition_gameplay_core` (lib) | Content-free simulation systems, runtime state, world/LDtk integration, player/session systems, combat/items/encounter machinery, persistence, schedules, and compatibility facade re-exports. |
+| presentation | `ambition_render`, `ambition_portal_presentation` | Bevy presentation: sprite/world sync, camera, parallax, HUD, screen-space effects, dialog/cutscene UI, fonts, and render-only visual systems. Reads gameplay state; does not own app entrypoints. |
+| content | `ambition_content` | Named game content: quests, bosses, enemy/item rosters, dialogue, intro, banter, portal adapters. |
+| app | `ambition_app` | Bevy assembly, host glue, ALL binaries (`ambition_game_bin`, `headless`, `trace_replay`, `rl_*`), menu host stack + `DevToolsPlugin`, full-stack integration tests. |
 
 ## Machinery (`ambition_gameplay_core`) module shape
 
 ```text
-src/mechanics/        combat kit + gravity (content-free)
-src/features/         named actor/boss ECS world (still lib; B3-tracked)
+src/abilities/        player ability and weapon-kit systems
+src/combat/           combat buses, hazards, damage, hitboxes, pickups, variation
+src/features/         room-authored ECS entity runtime and spawn/view sync
 src/world/            LDtk world, room building, physics, platforms
-src/player/           player ECS components and systems
-src/presentation/     sprites, camera, parallax, rendering, UI fonts
-src/persistence/      save data and settings
-src/dev/              dev STATE (dev_tools), trace recorder, profiling
-src/menu/             settings IR, Map tab, backend selector (host stack is in ambition_app)
-src/app/              SCHEDULE VOCABULARY only (SandboxSet, input populate) — assembly is in ambition_app
+src/player/           player ECS components, systems, affordances, trail scaffold
+src/portal/           gameplay-side portal host adapter and schedule facade
+src/persistence/      save data and settings (control settings facade re-exports ambition_input)
+src/dev/              dev state, trace recorder, profiling
+src/menu/             settings/menu IR and map model (host stack is in ambition_app)
+src/schedule/         schedule vocabulary (`SandboxSet`, input population, ordering)
+src/session/          game mode, reset, and session state
 ```
 
+Presentation modules that used to live under
+`ambition_gameplay_core::presentation` now live in `ambition_render`
+(`rendering/`, `hud`, `fx`, `dialog_ui`, `cutscene`, `screen_effects`,
+`ui_fonts`). App assembly and binaries live in `ambition_app`.
+
 `lib.rs` re-exports the foundation crates under facade paths (`engine_core`,
-`kinematic`, `input`, `time`, `portal`, `actor`, `brain`) plus a few historical shims (`features`,
-`ldtk_world`, `rooms`, `game_mode`, `trace`). Edit the crate, not a facade.
+`kinematic`, `input`, `time`, `portal`, `actor`, `brain`) plus a few historical shims (`features`, `ldtk_world`, `rooms`, `game_mode`, `trace`). Edit the crate, not a facade.
 
 ## Boundary rules
 

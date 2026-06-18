@@ -886,7 +886,7 @@ def module_bucket(file: str) -> str:
         parts = parts[:-1]
     if parts[0] == "content" and len(parts) > 1 and parts[1] == "features":
         if len(parts) > 2 and parts[2] == "ecs":
-            return "content/features/ecs"
+            return "features/ecs"
         return "content/features"
     if parts[0] == "presentation" and len(parts) > 1:
         return "presentation/" + parts[1]

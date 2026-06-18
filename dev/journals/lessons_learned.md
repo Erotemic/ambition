@@ -6,7 +6,7 @@ This journal records unexpected errors encountered while iterating on the Ambiti
 
 Symptom (a full session of blind iteration with the user, ~6 rebuild/test rounds): the new #31 OoT-style 3D inventory cube — a `Camera3d` overlaid on the 2D game — rendered as black, then purple, then gizmo-lines-only, with run-to-run variance, never showing the faces, even though the bevy_lunex meshes were demonstrably built.
 
-Root cause: the game's camera systems — the follow in [`presentation/rendering/camera.rs`](../../crates/ambition_gameplay_core/src/presentation/rendering/camera.rs), plus `parallax.rs` and `foreground.rs` — all query `With<Camera>`. Adding ANY second camera makes those queries match it too. The camera-follow obediently dragged the cube `Camera3d` up to the player's world position (`y≈120.5`), aiming it at empty space, while the 85 cube meshes sat correctly at the origin. The cube camera was rendering fine — at nothing.
+Root cause: the game's camera systems — the follow in [`presentation/rendering/camera.rs`](../../crates/ambition_render/src/rendering/camera.rs), plus `parallax.rs` and `foreground.rs` — all query `With<Camera>`. Adding ANY second camera makes those queries match it too. The camera-follow obediently dragged the cube `Camera3d` up to the player's world position (`y≈120.5`), aiming it at empty space, while the 85 cube meshes sat correctly at the origin. The cube camera was rendering fine — at nothing.
 
 Wrong turns (each a real but *different* issue, none of them the reported black):
 - Pause-gating the cube camera (it was clearing black every frame over the game). Real fix, wrong layer.
@@ -114,7 +114,7 @@ Benchmark candidate: [`dev/benchmark-candidates/rust-questions.md`](../benchmark
 
 ## 2026-05-10: Movement-snap probes must validate world bounds, not just intra-block clearance
 
-[`ambition_engine::probe_ledge_grab`](../../crates/ambition_engine_core/src/ledge_grab.rs) checked that the platform on top of a candidate ledge was clear of *other* solid blocks (good), but did not check that the climbed-onto position lay inside the world rect. The mob_lab arena has a ceiling tile at y≈1; a wall-clinging player whose head touched that ceiling could pass `probe_ledge_grab`'s clearance test, get snapped to a `climb_target.y = -23`, and end up above the world.
+[`ambition_engine::probe_ledge_grab`](../../crates/ambition_engine_core/src/ledge_grab/mod.rs) checked that the platform on top of a candidate ledge was clear of *other* solid blocks (good), but did not check that the climbed-onto position lay inside the world rect. The mob_lab arena has a ceiling tile at y≈1; a wall-clinging player whose head touched that ceiling could pass `probe_ledge_grab`'s clearance test, get snapped to a `climb_target.y = -23`, and end up above the world.
 
 The visible symptom was a teleport-loop trapping the player in the goblin encounter:
 

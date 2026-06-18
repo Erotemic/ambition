@@ -44,7 +44,7 @@ can stop at any checkpoint if budget runs out.
 | 4. Area specs YAML → RON migration | 1.0 h | 0.10 h | ✅ done | 28 YAML specs converted to RON in-place. Initially hand-rolled a 200-LOC RON parser; per Jon's mid-run guidance switched to upstream `python-ron` (wraps the Rust `ron` crate) so the Python side parses exactly what Rust does. Keeps in-house struct-style `dumps` for idiomatic output. 774 lib tests green. |
 | 5. Hall of Characters generator + room | 1.5 h | 0.19 h | ✅ done | Generator: `generate_hall_of_characters.py` reads catalog, partitions by tier (pyron drops Rust enum discriminators on unit variants so regex extracts `tier:` directly), lays out 6 floors × 16 main slots + 2 basement rows × 8 = 112 capacity. Spec: 2048×1840 at world (40000, 0). 89 main + 10 basement pedestals (each = NpcSpawn + DebugLabel). LDtk pin test added. 775 lib tests + headless 200 ticks all green. |
 | 6. Cleanup (delete legacy registries, merge review_npcs) | 1.0 h | 0.24 h | ✅ done | Three sub-commits: 6A drop YAML support + archive one-shots (def5b2f); 6B delete NPC_SPRITE_REGISTRY + npc_sprite_label, sprite loader iterates catalog via sheet_for_character_id (26000cd, -298+151 lines); 6C renderer review_npcs → characters merge (9ed4a39). |
-| 7. Documentation + ADR 0017 | 0.5 h | 0.07 h | ✅ done | ADR 0017, character-catalog system doc, adding-a-character recipe, FEATURES.md row, TODO.md "landed" entry with deferred follow-ups, docs/recipes/index.md + docs/systems/index.md updates, dev/SEARCH.md grep tip. |
+| 7. Documentation + ADR 0017 | 0.5 h | 0.07 h | ✅ done | ADR 0017, character-catalog system doc, adding-a-character recipe, TODO.md "landed" entry with deferred follow-ups, docs/recipes/index.md + docs/systems/index.md updates, dev/SEARCH.md grep tip. |
 | **Total (planned 1–7)** | **8.5 h** | **0.94 h** | | All 7 phases landed in roughly one ninth of the estimate. Every phase shaped largely by foundational design work already in place: brain/action-set vocabulary from the universal-brain run, LDtk runtime spine, and the renderer's existing target enumeration. Estimates were padded for the worst case (unexpected coupling, EMFILE retries); none of those materialized. |
 | 8. (stretch) Sprite-regen caching | ~0.75 h | 0.08 h | ✅ done | regen_sprites.sh now fingerprints every renderer .py + .yaml + .sh into `.cache/regen-fingerprint`; on next run, if fingerprint matches AND every expected output sheet exists, skips all rendering. `--force` bypasses cache. Cache-hit verified (112 renders skipped); `--force` bypass verified. `.cache/` already gitignored at repo root. |
 | **Grand total (1–8)** | **9.25 h** | **1.10 h** | | ~12% of budgeted time used. Remaining time being spent on deferred follow-ups (see below). |
@@ -374,9 +374,9 @@ example, leaving the real phase schedules for follow-up work.
 Tool: `tools/ambition_ldtk_tools/ambition_ldtk_tools/codegen_character_catalog.py`
 
 Reads:
-- `crates/ambition_gameplay_core/src/presentation/character_sprites/assets.rs::NPC_SPRITE_REGISTRY` (parsed from Rust)
+- `crates/ambition_gameplay_core/src/character_sprites/assets.rs::NPC_SPRITE_REGISTRY` (parsed from Rust)
 - `crates/ambition_gameplay_core/src/features/ecs/spawn.rs::enemy_default_brain()` (parsed for archetype → preset mapping)
-- `crates/ambition_gameplay_core/src/brain/state_machine.rs::*_DEFAULT` consts (parsed for preset values)
+- `crates/ambition_gameplay_core/src/brain/state_machine/mod.rs::*_DEFAULT` consts (parsed for preset values)
 - Renderer's `list-targets` output (cross-reference for missing sprites)
 
 Emits:
@@ -452,7 +452,7 @@ phase if budget runs out.
 
 **Exit criteria:**
 - `cargo test -p ambition_gameplay_core --lib content::character_catalog` green
-- `cargo run -p ambition_gameplay_core --bin headless -- --ticks 60` clean
+- `cargo run -p ambition_app --bin headless -- 60` clean
 - Catalog has one entry per character in `NPC_SPRITE_REGISTRY`
 - Loaded catalog matches the codegen'd RON (round-trip stable)
 
@@ -478,7 +478,7 @@ phase if budget runs out.
 **Exit criteria:**
 - `python -m ambition_ldtk_tools validate sandbox.ldtk` warning-free
 - `python -m ambition_ldtk_tools validate intro.ldtk` warning-free
-- `cargo run -p ambition_gameplay_core --bin headless -- --ticks 200` clean
+- `cargo run -p ambition_app --bin headless -- 200` clean
 - LDtk NpcSpawn `name` field gone everywhere; `character_id` everywhere
 
 **Commit message:** `ldtk: rename NpcSpawn.name → character_id; route through CharacterCatalog`
@@ -557,8 +557,8 @@ Each new catalog entry: `character_id`, `display_name`, sprite/manifest paths, `
 **Goal:** Single source of truth. Catalog wins; legacy registries delete.
 
 **Files (deletions):**
-- Delete: `NPC_SPRITE_REGISTRY` array in `crates/ambition_gameplay_core/src/presentation/character_sprites/assets.rs`
-- Delete: per-character `*_SHEET` `LazyLock<CharacterSheetSpec>` consts in `crates/ambition_gameplay_core/src/presentation/character_sprites/sheets.rs` (where the catalog now resolves the spec)
+- Delete: `NPC_SPRITE_REGISTRY` array in `crates/ambition_gameplay_core/src/character_sprites/assets.rs`
+- Delete: per-character `*_SHEET` `LazyLock<CharacterSheetSpec>` consts in `crates/ambition_gameplay_core/src/character_sprites/sheets.rs` (where the catalog now resolves the spec)
 - Delete: `sheet_consts_match_their_yaml_manifests` test (catalog validator replaces it)
 - Delete: `tests::npc_sprite_label` (now `character_id`)
 - Delete: YAML path in `area create` (RON only after phase 4)
@@ -581,7 +581,6 @@ Each new catalog entry: `character_id`, `display_name`, sprite/manifest paths, `
 - New: `docs/systems/character-catalog.md`
 - New: `docs/recipes/adding-a-character.md`
 - Edit: `docs/systems/index.md`, `docs/recipes/index.md`
-- Edit: `FEATURES.md` (add Character Catalog row)
 - Edit: `TODO.md` (mark this entry done)
 - Edit: `dev/SEARCH.md` (add catalog search line)
 
@@ -600,7 +599,7 @@ Each new catalog entry: `character_id`, `display_name`, sprite/manifest paths, `
 ~/.cargo/bin/cargo check -p ambition_gameplay_core
 ~/.cargo/bin/cargo test  -p ambition_gameplay_core  --lib
 ~/.cargo/bin/cargo test  -p ambition_gameplay_core --lib
-~/.cargo/bin/cargo run   -p ambition_gameplay_core --bin headless -- --ticks 100
+~/.cargo/bin/cargo run   -p ambition_app --bin headless -- 100
 python3 -m ambition_ldtk_tools validate crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
 python3 scripts/check_doc_links.py
 ```
@@ -644,7 +643,7 @@ preserves them:
 - **`>1 hr` diagnoses get a dev/journals/ entry** per [[reference-lessons-learned]].
 - **`Reflect` only when something needs it** — keep new components / enum variants out of the registry until a consumer demands it.
 - **Pre-poison tests** ([[feedback-pre-poison-test-pattern]]): for any new `fn(&mut Out)` test, pre-poison Out with non-default values so early-return-without-write branches trip the assertion.
-- **Update FEATURES.md / TODO.md as items complete**.
+- **Update current docs / TODO.md as items complete**.
 - **Match memory format when writing notes** — `dev/journals/<topic>-<YYYY-MM-DD>.md` for incidents.
 - **Stopping checkpoints:** end of every phase. Commit, run validation, move on. The session naturally ends when (a) Phase 7 lands, or (b) time runs out at a green checkpoint.
 - **Memory updates:** if this work changes any [[feedback-*]] or [[project-*]] memory's accuracy, update it.
@@ -671,7 +670,7 @@ preserves them:
 - [`docs/recipes/extending-brains-and-action-sets.md`](docs/recipes/extending-brains-and-action-sets.md) — current "add a new brain" procedure
 - [`TODO-controllable-entity.md`](TODO-controllable-entity.md) — the previous overnight run's plan, same shape as this one
 - [`tools/ambition_ldtk_tools/specs/hall_of_bosses_area.yaml`](tools/ambition_ldtk_tools/specs/hall_of_bosses_area.yaml) — precedent hall room
-- [`crates/ambition_gameplay_core/src/presentation/character_sprites/assets.rs`](crates/ambition_gameplay_core/src/presentation/character_sprites/assets.rs) — current `NPC_SPRITE_REGISTRY` to be retired
+- [`crates/ambition_gameplay_core/src/character_sprites/assets.rs`](crates/ambition_gameplay_core/src/character_sprites/assets.rs) — current `NPC_SPRITE_REGISTRY` to be retired
 - [`crates/ambition_gameplay_core/src/brain/`](crates/ambition_gameplay_core/src/brain/) — brain module that the catalog references
 - ADR 0003 — data-driven specs and asset loading (catalog aligns with this)
 - ADR 0016 — actor unification (universal-brain section)

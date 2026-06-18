@@ -12,7 +12,7 @@ Items here should not contradict canon; where a beat needs a new world fact,
 stage it in `cannon_expansions.md` and let Jon promote it.
 
 ## Status legend
-- `[ ]` not started · `[~]` in progress / partial · `[x]` done (move durable history to `FEATURES.md` / `docs/history/`)
+- `[ ]` not started · `[~]` in progress / partial · `[x]` done (move durable history to current docs / `docs/archive/`)
 - `[V#/D#]` rough V(alue)/D(ifficulty) 1–5, like TODO.md.
 
 ---

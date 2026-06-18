@@ -27,19 +27,26 @@ Crate layers (low → high; lower must never import higher):
                vocabulary + universal brain + character catalog; bosses are
                actors), ambition_platformer_primitives (kinematic body,
                gravity, rooms, projectile), ambition_portal, ambition_time,
-               ambition_input, ambition_menu (reusable renderers), ambition_audio,
-               ambition_sfx[_bank], ambition_asset_manager.
-  machinery    ambition_gameplay_core (lib): mechanics, features (named
-               actor/boss ECS world), presentation, world/LDtk, items, encounter,
-               persistence, the dev STATE, the menu IR/map. Content-free
-               (guard-enforced). Re-exports the foundation crates under their
-               historical `crate::engine_core` / `crate::input` / … facade paths.
+               ambition_input, ambition_menu, ambition_audio, ambition_sfx[_bank],
+               ambition_asset_manager, ambition_gameplay_trace, ambition_cutscene,
+               ambition_interaction, ambition_sprite_sheet, ambition_ui_nav,
+               ambition_vfx.
+  machinery    ambition_gameplay_core (lib): content-free simulation systems,
+               runtime state, world/LDtk integration, player/session systems,
+               combat/items/encounter machinery, persistence, schedules, and
+               compatibility facade re-exports.
+  presentation ambition_render: Bevy sprite/world sync, camera, parallax, HUD,
+               screen-space effects, dialog/cutscene UI, fonts, and render-only
+               visual systems. It reads gameplay state and should not mutate the
+               sim as presentation. ambition_portal_presentation is reusable
+               portal rendering used by this layer.
   content      ambition_content: named game content — quests, bosses, the enemy
                roster (installed into the lib's generic holder), items roster,
                dialogue, intro, banter, portal adapters.
-  app          ambition_app: Bevy assembly, host glue, ALL binaries (playable
-               `ambition_gameplay_core` bin, headless, rl_*), the menu host stack +
-               DevToolsPlugin, and the full-stack integration tests.
+  app          ambition_app: Bevy assembly, host glue, ALL binaries
+               (`ambition_game_bin`, `headless`, `trace_replay`, `rl_*`), the
+               menu host stack + DevToolsPlugin, and the full-stack integration
+               tests.
 ```
 
 The old direction of keeping the engine backend-neutral is superseded (ADR 0002).

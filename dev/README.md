@@ -19,7 +19,7 @@ dev/
 ```
 
 `dev/` is **not** a TODO list (use `TODO.md`), **not** a feature log
-(use `FEATURES.md`), **not** a code documentation tree
+(use current system/concept docs or archive notes), **not** a code documentation tree
 (use `docs/`), and **not** a place to dump WIP scratch (those go in
 the working directory and get gitignored / cleaned up).
 
@@ -118,7 +118,7 @@ Standalone per-incident files are preferred when a lesson has a focused symptom.
 
 ```text
 TODO.md            -> what's in flight
-FEATURES.md        -> what's shipped
+docs/current/      -> active architecture and implementation state
 docs/              -> how things work today
 crates/            -> the game itself
 tools/             -> authoring + build tooling

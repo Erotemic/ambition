@@ -28,7 +28,6 @@ SKIP_DIR_PARTS = {
 ROOT_MARKDOWN = {
     "AGENTS.md",
     "CLAUDE.md",
-    "FEATURES.md",
     "README.md",
     "TODO.md",
 }

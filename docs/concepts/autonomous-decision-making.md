@@ -1,3 +1,12 @@
+---
+id: autonomous-decision-making
+aliases:
+  - autonomous agent decisions
+  - design fork policy
+  - Jon-style decisions
+last_verified: 2026-06-17
+---
+
 # Autonomous decision-making
 
 When you are operating autonomously and hit a fork — an architecture choice, a

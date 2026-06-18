@@ -47,7 +47,7 @@ The sandbox brain system is now the higher-level runtime that maps actor snapsho
 
 ## Current brain templates
 
-`crates/ambition_characters/src/brain/state_machine.rs` currently exposes a small set of reusable templates rather than one bespoke brain per enemy:
+`crates/ambition_characters/src/brain/state_machine/mod.rs` currently exposes a small set of reusable templates rather than one bespoke brain per enemy:
 
 | Template | Use |
 |---|---|
@@ -86,6 +86,6 @@ When adding a new enemy, boss behavior, or actor-controlled mechanic:
 cargo test -p ambition_gameplay_core --lib character_ai
 cargo test -p ambition_gameplay_core --lib actor_control
 cargo test -p ambition_gameplay_core --lib brain::
-cargo test -p ambition_gameplay_core --lib content::features::ecs::brain_effects
-cargo run -p ambition_gameplay_core --bin headless -- --ticks 30
+cargo test -p ambition_gameplay_core --lib features::ecs::brain_effects
+cargo run -p ambition_app --bin headless -- 30
 ```

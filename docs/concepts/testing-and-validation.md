@@ -48,7 +48,7 @@ Testing and validation are part of the knowledge system. Every non-trivial patch
 cargo fmt --check
 cargo test -p ambition_gameplay_core
 cargo test -p ambition_gameplay_core --lib
-cargo run -p ambition_gameplay_core --bin headless
+cargo run -p ambition_app --bin headless
 ```
 
 Cargo accepts one test-name filter position per test binary. Use separate invocations or package/module filters instead of inventing multi-filter grammar.

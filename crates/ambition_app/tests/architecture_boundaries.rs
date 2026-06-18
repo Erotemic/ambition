@@ -568,7 +568,12 @@ fn architecture_boundaries_input_crate_is_extracted() {
 #[test]
 fn architecture_boundaries_room_feature_spawns_do_not_add_raw_spawns() {
     let src_root = crate_src();
-    let spawn_dir = src_root.join("content/features/ecs");
+    let spawn_dir = src_root.join("features/ecs");
+    assert!(
+        spawn_dir.exists(),
+        "spawn guardrail path does not exist: {}",
+        spawn_dir.display()
+    );
     let allowlist = read_spawn_allowlist();
     let mut violations = Vec::new();
 

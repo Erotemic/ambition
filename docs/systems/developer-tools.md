@@ -27,7 +27,7 @@ Asset hot reload is split into its own feature, `dev_hot_reload`. Enable
 it only when you are actually iterating on textures/fonts/spritesheets:
 
 ```bash
-cargo run -p ambition_gameplay_core --bin ambition_game_bin --features dev_hot_reload
+cargo run -p ambition_app --bin ambition_game_bin --features dev_hot_reload
 ```
 
 If you DO want hot reload but still hit `EMFILE`, raise the per-user

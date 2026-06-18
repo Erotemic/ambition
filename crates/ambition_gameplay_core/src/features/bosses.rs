@@ -526,7 +526,7 @@ mod scripted_pattern_tests {
     // longer exists. The same invariants (downward gravity, owner
     // prefix, self-aabb dodge, full-width coverage, reset-on-leave)
     // are now exercised in
-    // `content/features/ecs/brain_effects.rs::tests` against the
+    // `features/ecs/brain_effects.rs::tests` against the
     // EFFECTS consumer `spawn_gnu_apple_rain_from_special_messages`.
 
     #[test]

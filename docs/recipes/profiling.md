@@ -70,7 +70,7 @@ debug = true  # keep DWARF for unmangled flamegraph frames
 
 ```bash
 # Build first so capture only times the run, not compilation.
-cargo build --release -p ambition_gameplay_core
+cargo build --release -p ambition_app --bin ambition_game_bin
 
 # BEVY_ASSET_ROOT is required: cargo-flamegraph runs the binary
 # directly (not via `cargo run`), so Bevy looks for assets relative
@@ -79,7 +79,7 @@ cargo build --release -p ambition_gameplay_core
 # get `Path not found: target/release/assets/...` for every asset
 # and bevy_yarnspinner panics on the missing dialogue/ folder.
 BEVY_ASSET_ROOT=$PWD/crates/ambition_gameplay_core \
-cargo flamegraph -p ambition_gameplay_core --bin ambition_game_bin \
+cargo flamegraph -p ambition_app --bin ambition_game_bin \
     --release \
     --output flamegraph_startup.svg \
     -- --start-room=central_hub_complex
@@ -113,7 +113,7 @@ GUI listener.
 ### Build + run
 
 ```bash
-cargo run -p ambition_gameplay_core --features profile
+cargo run -p ambition_app --bin ambition_game_bin --features profile
 ```
 
 The binary will block on startup until Tracy connects (or proceed
@@ -126,7 +126,7 @@ without if the GUI isn't running — your build, your call).
    metadata if you upgrade.
 2. Launch the GUI **before** the game so the live capture starts at
    T=0.
-3. `cargo run -p ambition_gameplay_core --features profile`.
+3. `cargo run -p ambition_app --bin ambition_game_bin --features profile`.
 4. Click "Connect" in Tracy. Watch the flamegraph populate live.
 5. To save: Tracy menu → "Save trace". `.tracy` files compress well
    and are reproducible.

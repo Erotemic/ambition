@@ -5,7 +5,7 @@
 # These are known legacy raw spawn sites in room-feature spawn modules. New
 # room-authored spawns should use platformer_runtime lifecycle helpers instead
 # of increasing these counts.
-content/features/ecs/spawn.rs=0
-content/features/ecs/spawn_actors.rs=3
-content/features/ecs/spawn_mounts.rs=0
-content/features/ecs/spawn_static.rs=0
+features/ecs/spawn.rs=0
+features/ecs/spawn_actors.rs=3
+features/ecs/spawn_mounts.rs=0
+features/ecs/spawn_static.rs=0

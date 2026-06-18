@@ -7,7 +7,7 @@ aliases:
   - gameplay effects
 implemented_by:
   - crates/ambition_engine_core/src
-  - crates/ambition_gameplay_core/src/presentation
+  - crates/ambition_render/src
   - crates/ambition_app/tests/scripted_gameplay.rs
 related_adrs:
   - docs/adr/0012-sim-presentation-split-and-events-refactor.md
@@ -43,6 +43,6 @@ The sim/presentation seam separates reusable gameplay state and messages from sa
 
 ```bash
 cargo test -p ambition_app --test scripted_gameplay --features "rl_sim portal"
-cargo run -p ambition_gameplay_core --bin headless
+cargo run -p ambition_app --bin headless
 cargo test -p ambition_gameplay_core --lib
 ```

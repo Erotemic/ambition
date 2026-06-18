@@ -91,7 +91,7 @@ loader is uniform regardless of which publish pattern produced the
 sheet:
 
 1. `load_character_sprites_in` (in
-   `crates/ambition_gameplay_core/src/presentation/character_sprites/assets.rs`)
+   `crates/ambition_gameplay_core/src/character_sprites/assets.rs`)
    iterates the embedded `character_catalog.ron`.
 2. For each entry, `sheet_for_character_id(cid)` resolves a
    `CharacterSheetSpec`:

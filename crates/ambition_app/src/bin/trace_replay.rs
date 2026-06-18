@@ -27,8 +27,8 @@
 //! Usage:
 //!
 //! ```bash
-//! cargo run -p ambition_gameplay_core --bin trace_replay -- path/to/trace.json
-//! cargo run -p ambition_gameplay_core --bin trace_replay -- path/to/trace.json --tolerance 0.5
+//! cargo run -p ambition_app --bin trace_replay -- path/to/trace.json
+//! cargo run -p ambition_app --bin trace_replay -- path/to/trace.json --tolerance 0.5
 //! ```
 //!
 //! The binary reads only the `frames[*].controls` array from the JSON

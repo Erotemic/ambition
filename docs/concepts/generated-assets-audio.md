@@ -79,7 +79,7 @@ renderer code, runtime catalog ids, and SFX constants; then regenerate locally.
 cargo test -p ambition_gameplay_core --lib music
 ./regen_music.sh
 ./regen_sfx.sh
-cargo run -p ambition_gameplay_core --bin headless
+cargo run -p ambition_app --bin headless
 ```
 
 Use generator-specific commands when working on sprites/backgrounds instead of audio.

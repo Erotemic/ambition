@@ -149,7 +149,7 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
 ///
 /// Damage application during the active window flows through the
 /// `Hitbox` entity lifecycle (see
-/// `content/features/ecs/hitbox.rs`): `update_ecs_actors` spawns
+/// `features/ecs/hitbox.rs`): `update_ecs_actors` spawns
 /// the strike's hitbox on the windup → active edge, and
 /// `apply_hitbox_damage` resolves the overlap once per strike.
 pub fn start_enemy_melee_from_brain_actions(

@@ -8,7 +8,9 @@ Use the archive only when investigating why a decision happened or recovering de
 
 | Area | Meaning |
 |---|---|
+| `FEATURES.md` | Retired capability snapshot. It is historical evidence, not the current feature inventory. |
 | `historical-roadmaps/` | Landed or abandoned implementation roadmaps kept when they still explain history. |
+| `vertical-slices/` | Archived intro-v1 vertical-slice task handoffs. |
 | `music-labs/` | Old generated-music transition and balance experiments. |
 | `old-system-notes/` | Pre-KB system notes kept for historical context. |
 | `port_notes/` | Historical porting notes. |

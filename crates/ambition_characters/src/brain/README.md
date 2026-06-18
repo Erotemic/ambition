@@ -19,7 +19,7 @@ Every controllable actor in the sandbox — player, NPC, enemy, boss, and
 | Component | Role | Defined in |
 |---|---|---|
 | `Brain` | the *policy*: decides intent each tick | `mod.rs` |
-| `ActionSet` | the *capability*: what this body can actually do | `action_set.rs` |
+| `ActionSet` | the *capability*: what this body can actually do | `action_set/mod.rs` |
 | `ActorControl(ActorControlFrame)` | last-tick *intent* sink (the brain writes it; the sim reads it) | `mod.rs` (frame type lives in `crate::actor::control`) |
 
 The same `Brain::StateMachine(MeleeBrute(..))` on two different enemies can
@@ -42,10 +42,10 @@ the possession / multi-body invariant.
         ┌─────────────────┐   Brain::tick(_with_actions)
         │      Brain      │   match on backend:
         │   (the policy)  │     • Player(slot)      → player.rs
-        └────────┬────────┘     • StateMachine(cfg) → state_machine.rs
-                 │              dispatch (state_machine.rs) fans out to:
+        └────────┬────────┘     • StateMachine(cfg) → state_machine/mod.rs
+                 │              dispatch (state_machine/mod.rs) fans out to:
                  │                Patrol/Wanderer/MeleeBrute/Skirmisher/
-                 │                Sniper/Shark/StandStill   → state_machine.rs
+                 │                Sniper/Shark/StandStill   → state_machine/mod.rs
                  │                BossPattern                → boss_pattern.rs
                  │                Smash                      → smash/ (5-stage)
                  ▼  writes ABSTRACT intent
@@ -61,8 +61,8 @@ the possession / multi-body invariant.
         │   Special/PlayerProjectile) │  (mod.rs)
         └────────┬────────────────────┘
                  ▼  consumed OUTSIDE brain/ by the sim ("EFFECTS" stage):
-        content::features::ecs::brain_effects        (specials, GNU-ton, sentinel)
-        content::features::ecs::spawn_enemy_projectiles_from_brain_actions (ranged)
+        features::ecs::brain_effects        (specials, GNU-ton, sentinel)
+        features::ecs::spawn_enemy_projectiles_from_brain_actions (ranged)
         runtime melee windup → active hitbox edge    (melee)
         crate::projectile::update_projectiles        (player projectile tick)
 ```
@@ -88,13 +88,13 @@ in `app/plugins.rs` because they must chain after sandbox input systems:
 | Actor kind | Brain backend | Behavior code | Spawned/wired from |
 |---|---|---|---|
 | **Player** | `Brain::Player(slot)` | `player.rs` — *pure translation* of `PlayerInputFrame` → frame; makes **no** gameplay decisions | player spawn |
-| **NPC (peaceful)** | `StateMachine(Patrol{aggressiveness:0})` / `StandStill` | `state_machine.rs` (`tick_patrol`, `tick_stand_still`) | `content/features/npcs.rs` |
-| **Enemy (common)** | `StateMachine(MeleeBrute/Skirmisher/Sniper/Shark/Wanderer)` | `state_machine.rs` (`tick_*` per template) | `content/features/ecs/brain_builders.rs` (`enemy_default_brain`, archetype-driven from `enemy_archetypes.ron`) |
+| **NPC (peaceful)** | `StateMachine(Patrol{aggressiveness:0})` / `StandStill` | `state_machine/mod.rs` (`tick_patrol`, `tick_stand_still`) | `features/npcs.rs` |
+| **Enemy (common)** | `StateMachine(MeleeBrute/Skirmisher/Sniper/Shark/Wanderer)` | `state_machine/mod.rs` (`tick_*` per template) | `features/ecs/brain_builders.rs` (`enemy_default_brain`, archetype-driven from `enemy_archetypes.ron`) |
 | **Enemy (brawler)** | `StateMachine(Smash{..})` | `smash/` 5-stage pipeline | `brain_builders.rs` (`smash_cfg_for_archetype`) |
-| **Boss** | `StateMachine(BossPattern{..})` | `boss_pattern.rs` | `content/features/ecs/spawn_actors.rs`, `bosses.rs` |
+| **Boss** | `StateMachine(BossPattern{..})` | `boss_pattern.rs` | `features/ecs/spawn_actors.rs`, `bosses.rs` |
 
 > **To improve a specific enemy's behavior**, start at its template's `tick_*`
-> function in `state_machine.rs` (or the `smash/` stage for brawlers), and at
+> function in `state_machine/mod.rs` (or the `smash/` stage for brawlers), and at
 > its archetype row in `enemy_archetypes.ron` + `brain_builders.rs` for tuning.
 > The *capability* (which attacks exist) is the `ActionSet` built in
 > `brain_builders.rs`; the *policy* (when to use them) is the `tick_*`.
@@ -113,14 +113,14 @@ in `app/plugins.rs` because they must chain after sandbox input systems:
   every backend consumes; `WallContact`. Fields grouped by who fills them
   (actor-self / combat-timers / target / per-template options). Add a field
   here only when a real template consumes it.
-- **`action_set.rs`** (1513) — *capability*. `ActionSet` component + every attack
+- **`action_set/mod.rs`** (1513) — *capability*. `ActionSet` component + every attack
   spec (`SwipeSpec`, `LungeSpec`, `SlamSpec`, `BiteSpec`, `PunchSpec`,
   `RangedActionSpec`, `SpecialActionSpec`, `MoveStyleSpec`, `HeldItemSpec`), the
   `ActionRequest` enum, and `resolve()` — the intent→concrete translation.
 
 ### Brain backends
 - **`player.rs`** (317) — player input → frame translation. No decisions.
-- **`state_machine.rs`** (1680) — the closed set of reusable AI policy
+- **`state_machine/mod.rs`** (1680) — the closed set of reusable AI policy
   templates: `StateMachineCfg` enum + `tick_state_machine[_with_actions]`
   dispatch + one `tick_*` fn and a `Cfg`/`State` pair per template
   (StandStill, Patrol, Wanderer, MeleeBrute, Skirmisher, Sniper, Shark; plus the
@@ -174,7 +174,7 @@ change contract of the structural run). Each note says where it would plug in.
 1. **Flanking / lateral steering for ground enemies.** Today `MeleeBrute` /
    `Patrol` chase is purely `direction_x` toward the target (1-D close).
    Add an approach-angle offset so a pack doesn't stack on one axis.
-   *Plug in:* a new `Chase`-intent branch in `state_machine.rs` (`tick_melee_brute`),
+   *Plug in:* a new `Chase`-intent branch in `state_machine/mod.rs` (`tick_melee_brute`),
    driven by a new `flank_bias` field on `MeleeBruteCfg`; for the brawler path the
    natural home is `smash/mode.rs` `Reposition` mode + `smash/action.rs`.
 
@@ -186,12 +186,12 @@ change contract of the structural run). Each note says where it would plug in.
    for state-machine enemies, add a shared "attack budget" the `tick_*` reads.
 
 3. **Richer windup telegraphs.** Telegraph timing is already owned per-attack by
-   the `*Spec` windup→active→recover (`action_set.rs`) — no brain change needed
+   the `*Spec` windup→active→recover (`action_set/mod.rs`) — no brain change needed
    to *lengthen* a telegraph (data-only via `enemy_archetypes.ron`). For a
    *behavioral* telegraph (back-step before a lunge, flash, audio cue), add a
    pre-strike beat: for bosses that's a `BossPatternStep::Telegraph` already
    (`boss_pattern.rs`); for common enemies add a `Windup` micro-state to the
-   template's `State` in `state_machine.rs`.
+   template's `State` in `state_machine/mod.rs`.
 
 4. **Reaction-delay & feinting for difficulty.** `DifficultyProfile`
    (`smash/difficulty.rs`) already carries `reaction_delay_s` and
@@ -211,13 +211,13 @@ change contract of the structural run). Each note says where it would plug in.
 6. **Skirmisher kiting (maintain a preferred range band).** `Skirmisher`/`Sniper`
    currently fire-and-hold. Add a min/max range band: back-pedal when the target
    closes inside `min`, advance when outside `max`. *Plug in:* `SkirmisherCfg`
-   gets `preferred_min`/`preferred_max`; `tick_skirmisher` in `state_machine.rs`
+   gets `preferred_min`/`preferred_max`; `tick_skirmisher` in `state_machine/mod.rs`
    chooses retreat vs advance vs fire from the band.
 
 7. **Aggro/threat memory (don't instantly forget the player).** Chase currently
    re-evaluates from the live snapshot each tick, so breaking line-of-sight drops
    aggro immediately. Add a decaying `aggro_timer` to the template `State`
-   (`state_machine.rs`) so enemies keep pursuing for a short window after losing
+   (`state_machine/mod.rs`) so enemies keep pursuing for a short window after losing
    the target. Pairs well with idea 4's stale-sample mechanism.
 
 8. **Boss phase reactions to player state.** `BossPatternContext` (`boss_pattern.rs`)
@@ -228,7 +228,7 @@ change contract of the structural run). Each note says where it would plug in.
    per the existing design note).
 
 When implementing any of these: add the *capability* (new `*Spec` / `ActionSet`
-field) in `action_set.rs`, the *policy* in the relevant `tick_*` / smash stage,
+field) in `action_set/mod.rs`, the *policy* in the relevant `tick_*` / smash stage,
 and the *tuning* in `enemy_archetypes.ron` + `brain_builders.rs`. Verify against
 `scripted_gameplay` + `replay_fixture_regression` (a behavior change will and
 should move those — regenerate fixtures intentionally, with the owner watching).

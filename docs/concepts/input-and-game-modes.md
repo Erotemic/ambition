@@ -49,7 +49,7 @@ Input and game modes cover semantic actions, control presets, menu/dialogue/cuts
 ```bash
 cargo test -p ambition_gameplay_core --lib input
 cargo test -p ambition_gameplay_core --lib menu
-cargo run -p ambition_gameplay_core --bin headless
+cargo run -p ambition_app --bin headless
 ```
 
 Manual playtesting is still important for feel and touch layout.

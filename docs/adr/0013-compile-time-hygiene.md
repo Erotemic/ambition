@@ -6,7 +6,7 @@ Accepted.
 
 ## Context
 
-The sandbox's clean test build already takes ~10 minutes on the dev VM
+The app/gameplay clean test build already takes ~10 minutes on the dev VM
 (Bevy + bevy_ecs_ldtk + bevy-inspector-egui + avian2d + the wider Bevy
 ecosystem). Compile time is invisible in any single PR but lethal
 cumulatively. Every iteration cycle (`cargo check`, `cargo test`,
@@ -33,14 +33,13 @@ features. The following practices apply.
 
 ### Cargo profile and linker setup
 
-Adopt the standard Bevy compile-time toolkit, gated behind a `dev` feature
-(opt-in for fast iteration; off for release/distribution):
+Adopt the standard Bevy compile-time toolkit through workspace profiles and
+explicit feature gates. There is no current `dev` Cargo feature; the default
+desktop development persona is `desktop_dev`, with focused opt-ins such as
+`dev_hot_reload` and `profile` when needed. Keep those feature names distinct
+from Cargo's `[profile.dev]`.
 
 ```toml
-# crates/ambition_gameplay_core/Cargo.toml
-[features]
-dev = ["bevy/dynamic_linking", "bevy/file_watcher"]
-
 # Repo-root Cargo.toml (workspace)
 [profile.dev]
 debug = 0
@@ -77,26 +76,30 @@ rustflags = ["-C", "link-arg=-fuse-ld=lld"]
 recommendation for VMs/dev workstations. `lld` is the cross-platform
 default.
 
-### Bevy dynamic linking
+### Bevy dynamic linking and hot reload
 
-Adopt for dev builds via the `dev` feature. **Never** enable in release
-or distribution builds — it prevents LTO and ships unstable internal
-symbols.
+Do not document a generic `dev` feature unless one is added and validated.
+Use the default desktop development build for normal iteration, and opt into
+specific tooling features by name when required:
 
 ```bash
-cargo run -p ambition_gameplay_core --features dev      # fast iteration
-cargo run -p ambition_gameplay_core --release           # final build
+cargo run -p ambition_app --bin ambition_game_bin                         # default desktop_dev persona
+cargo run -p ambition_app --bin ambition_game_bin --features dev_hot_reload
+cargo run -p ambition_app --bin ambition_game_bin --release                # final desktop build
 ```
+
+Dynamic linking may be revisited as a dedicated, validated feature later, but it
+is not part of the current feature graph.
 
 ### Workspace structure
 
-The original engine/sandbox crate split was collapsed 2026-05-28:
-`ambition_engine` was deleted and its mechanics moved into
-`crates/ambition_engine_core/src/` as a sandbox submodule. The
-boundary is now intra-crate. New reusable mechanics still live in
-`engine_core/`; new sandbox-specific content stays in its themed
-sandbox module. Future story/content/tooling may split into separate
-crates again when concrete reuse demand emerges.
+The earlier monolith has since been split into focused crates. Reusable engine
+semantics live in `crates/ambition_engine_core/`; content-free gameplay systems
+and runtime state live in `crates/ambition_gameplay_core/`; presentation lives
+in `crates/ambition_render/`; named authored content lives in
+`crates/ambition_content/`; and runnable binaries/app assembly live in
+`crates/ambition_app/`. Keep new dependencies at the lowest layer that actually
+needs them.
 
 ### Macro and generics discipline
 
@@ -160,9 +163,7 @@ and maintenance:
 
 ## Consequences
 
-- A `dev` feature lands in the sandbox crate; documentation directs
-  contributors to use it for iteration.
-- Workspace `Cargo.toml` gains the profile blocks above. CI uses the
+- Workspace `Cargo.toml` owns the development/release profile blocks. CI uses the
   default profile or `--release` as appropriate; nothing changes in
   ship behavior.
 - Existing code stays as-is until the next refactor pass. New code
@@ -181,9 +182,9 @@ Conservative, sequenced:
    default builds; faster dev/distribution profiles available).
 2. Add a `.cargo/config.toml` with `lld` (or `mold` if installed) as
    the linker. Document `mold` install in the contributor README.
-3. Add a `dev` feature in `crates/ambition_gameplay_core/Cargo.toml`
-   bundling `bevy/dynamic_linking` and `bevy/file_watcher`. Document
-   the new run command in the README.
+3. Keep development-only tooling behind explicit features such as
+   `dev_hot_reload`, `dev_tools`, or `profile`; do not add them silently to
+   release/distribution commands.
 4. Add `cargo nextest` to the recommended test commands.
 5. Run a baseline `cargo build --timings` and record the output through `tools/optimization_report/` or a focused performance note.
 

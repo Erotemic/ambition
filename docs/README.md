@@ -21,12 +21,11 @@ Use this file to choose what to read. Do not load the whole documentation tree b
 - [`mechanics/index.md`](mechanics/index.md) — mechanics expressibility and current gameplay primitives.
 - [`adr/`](adr/) — decisions that supersede older plans.
 
-## Direction, planning, history
+## Direction and planning
 
 - [`brainstorms/`](brainstorms/) — active design incubation. This is alive, not archive.
 - [`vision/index.md`](vision/index.md) — distilled product direction.
 - [`planning/index.md`](planning/index.md) — active sequencing and debt management.
-- [`history/index.md`](history/index.md) — compact chronology.
 - [`archive/README.md`](archive/README.md) — superseded notes, old handoffs, retired systems, and historical overlays.
 
 ## Generated agent indexes

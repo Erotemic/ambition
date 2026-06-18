@@ -43,5 +43,5 @@ Asset management covers logical asset IDs, manifests, preload/profile policy, pl
 ```bash
 cargo test -p ambition_asset_manager
 cargo test -p ambition_gameplay_core --lib assets
-cargo run -p ambition_gameplay_core --bin headless
+cargo run -p ambition_app --bin headless
 ```

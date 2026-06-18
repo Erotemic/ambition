@@ -52,11 +52,10 @@ No Bevy / virtual_joystick deps; fully unit-tested. Use it from:
 Behind the `mobile_touch` feature. To enable:
 
 ```bash
-cargo run -p ambition_gameplay_core --features mobile_touch
+cargo run -p ambition_app --bin ambition_game_bin --features mobile_touch
 ```
 
-Default features include `mobile_touch`, so a plain `cargo run`
-already picks it up.
+Default desktop features include `mobile_touch`, so `cargo run -p ambition_app --bin ambition_game_bin` already picks it up.
 
 The plugin:
 
@@ -76,10 +75,10 @@ Mobile + RL features can both be disabled for distribution / console
 ports / minimal builds:
 
 ```bash
-cargo build -p ambition_gameplay_core --no-default-features --features visible
+cargo build -p ambition_app --bin ambition_game_bin --no-default-features --features visible
 ```
 
-This skips `virtual_joystick` (mobile_touch) and the `crate::rl_sim`
+This skips `virtual_joystick` (mobile_touch) and the `ambition_app::rl_sim`
 module. Headless / RL binaries (rl_random_walker / rl_smoke /
 trace_replay / headless) all `required-features = ["rl_sim"]` so they
 naturally drop out of a no-rl_sim build.

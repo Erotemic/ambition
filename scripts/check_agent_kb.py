@@ -39,7 +39,6 @@ REQUIRED_FILES = [
     "docs/mechanics/expressibility-checklist.md",
     "docs/vision/index.md",
     "docs/planning/index.md",
-    "docs/history/index.md",
     "docs/adr/README.md",
     "docs/adr/0002-engine-must-be-bevy-native.md",
     "dev/README.md",

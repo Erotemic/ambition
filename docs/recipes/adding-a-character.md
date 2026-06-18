@@ -55,7 +55,7 @@ the same in bulk for every registered target.)
 
 ```bash
 ~/.cargo/bin/cargo test -p ambition_gameplay_core --lib content::character_catalog
-~/.cargo/bin/cargo run -p ambition_gameplay_core --bin headless -- --ticks 100
+~/.cargo/bin/cargo run -p ambition_app --bin headless -- 100
 ```
 
 The Startup validator flags any catalog inconsistency immediately;
@@ -71,7 +71,7 @@ flow above still applies.
 See [`docs/recipes/extending-brains-and-action-sets.md`](extending-brains-and-action-sets.md)
 for the full brain-extension recipe. The short version:
 
-1. Add a variant to `StateMachineCfg` in `crates/ambition_characters/src/brain/state_machine.rs` only when the existing templates are not enough.
+1. Add a variant to `StateMachineCfg` in `crates/ambition_characters/src/brain/state_machine/mod.rs` only when the existing templates are not enough.
 2. Add a `tick_<your_brain>` function and dispatch on the enum.
 3. Add a `BrainPreset::<YourBrain>` mirror to
    `crates/ambition_characters/src/actor/character_catalog/entry.rs`; keep authored catalog data in `crates/ambition_gameplay_core/assets/data/character_catalog.ron`.
@@ -139,8 +139,8 @@ needed for the common case.
 Touch Rust ONLY if you want bespoke tuning (different scale, a
 specific `feet_anchor_y_override`, a custom `frame_sample_inset` to
 fight bilinear bleed). Add a `*_SHEET` const + a `SheetTuning` in
-`presentation/character_sprites/sheets.rs`, then add a row to
-`sheet_for_character_id` in `presentation/character_sprites/assets.rs`
+`character_sprites/sheets/mod.rs`, then add a row to
+`sheet_for_character_id` in `character_sprites/assets.rs`
 pointing at the const. The hardcoded path takes precedence over the
 manifest-driven fallback.
 

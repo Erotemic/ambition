@@ -748,18 +748,27 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
     // double-buffered message store.
     #[derive(Resource, Default)]
     struct TeleportedThisFrame(bool);
+    #[derive(Resource, Default)]
+    struct TrailBreakThisFrame(bool);
     fn record_teleport(
         mut flag: ResMut<TeleportedThisFrame>,
+        mut trail_flag: ResMut<TrailBreakThisFrame>,
         mut reader: MessageReader<BodyTeleported>,
+        mut trail_reader: MessageReader<
+            ambition_gameplay_core::player::trail::TrailContinuityBreak,
+        >,
     ) {
         flag.0 = reader.read().next().is_some();
+        trail_flag.0 = trail_reader.read().next().is_some();
     }
 
     let mut app = App::new();
     app.add_message::<ambition_gameplay_core::portal::PortalBodyEntered>();
     app.add_message::<BodyTeleported>();
+    app.add_message::<ambition_gameplay_core::player::trail::TrailContinuityBreak>();
     app.add_message::<ambition_gameplay_core::portal::PortalBodyTransited>();
     app.init_resource::<TeleportedThisFrame>();
+    app.init_resource::<TrailBreakThisFrame>();
     app.insert_resource(ambition_gameplay_core::WorldTime::default());
     app.init_resource::<ambition_gameplay_core::portal::PortalTuning>();
     // The player-input adapter now emits `BodyTeleported` from the core's
@@ -831,6 +840,10 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
         app.world().resource::<TeleportedThisFrame>().0,
         "the centroid transfer emits BodyTeleported (suppresses the trace auto-dump)"
     );
+    assert!(
+        app.world().resource::<TrailBreakThisFrame>().0,
+        "the centroid transfer emits a neutral trail continuity break"
+    );
 
     // Move clear of the exit plane → transit ends (re-armed via cooldown).
     app.world_mut()
@@ -846,6 +859,10 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
     assert!(
         !app.world().resource::<TeleportedThisFrame>().0,
         "the teleport message is a single frame"
+    );
+    assert!(
+        !app.world().resource::<TrailBreakThisFrame>().0,
+        "the trail continuity break is a single frame"
     );
 }
 

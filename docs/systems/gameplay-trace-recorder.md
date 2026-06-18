@@ -160,7 +160,7 @@ Use traces for bugs involving:
 
 ```bash
 cargo test -p ambition_gameplay_core trace
-cargo run -p ambition_gameplay_core --bin trace_replay -- --help
+cargo run -p ambition_app --bin trace_replay -- --help
 ```
 
 Related docs: `docs/planning/tech-debt-log.md`, `docs/systems/headless-simulation.md`, `dev/journals/lessons_learned.md`.

@@ -31,8 +31,8 @@ Key files:
 crates/ambition_characters/src/brain/
 ├── mod.rs              # Brain enum, ActorControl, ActorActionMessage, resolver emission
 ├── snapshot.rs         # BrainSnapshot, player input slot, wall/contact view
-├── state_machine.rs    # reusable AI templates + tick_state_machine
-├── action_set.rs       # ActionSet, ActionRequest, action specs, resolve()
+├── state_machine/mod.rs    # reusable AI templates + tick_state_machine
+├── action_set/mod.rs       # ActionSet, ActionRequest, action specs, resolve()
 ├── boss_pattern.rs     # boss pattern brain profiles/states
 ├── player.rs           # PlayerInputFrame / ControlFrame -> ActorControlFrame
 └── smash/              # Smash-style experimental brain and observation/action types
@@ -143,6 +143,6 @@ commands.entity(goblin).insert(Brain::Player(PlayerSlot::PRIMARY));
 cargo test -p ambition_gameplay_core --lib actor_control
 cargo test -p ambition_gameplay_core --lib brain::
 cargo test -p ambition_gameplay_core --lib player::systems
-cargo test -p ambition_gameplay_core --lib content::features::ecs::brain_effects
-cargo run -p ambition_gameplay_core --bin headless -- --ticks 30
+cargo test -p ambition_gameplay_core --lib features::ecs::brain_effects
+cargo run -p ambition_app --bin headless -- 30
 ```

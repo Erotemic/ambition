@@ -15,7 +15,9 @@
 use bevy::prelude::*;
 
 use ambition_gameplay_core::features::{BodyKinematics, BossConfig};
-use ambition_gameplay_core::player::{PlayerEntity, PrimaryPlayer};
+use ambition_gameplay_core::player::{
+    trail::TrailContinuityBreak, PlayerEntity, PrimaryPlayer,
+};
 use ambition_gameplay_core::portal::{
     BodyTeleported, PlayerMovementIntent, PortalBody, PortalBodyTransited, PortalEmission,
     PortalInputWarp, PortalPolicy, PortalTuning,
@@ -138,6 +140,7 @@ pub fn portal_player_input_adapter(
     tuning: Res<PortalTuning>,
     mut transited: MessageReader<PortalBodyTransited>,
     mut teleported: MessageWriter<BodyTeleported>,
+    mut trail_breaks: MessageWriter<TrailContinuityBreak>,
     players: Query<(), (With<PlayerEntity>, With<PrimaryPlayer>)>,
 ) {
     let held = intent.as_deref().map_or(Vec2::ZERO, |i| i.dir);
@@ -148,6 +151,13 @@ pub fn portal_player_input_adapter(
         }
         // Trace: the position snap is intentional.
         teleported.write(BodyTeleported { body: ev.body });
+        // Trail: the body remained continuous in the quotient space, but its
+        // ordinary world coordinates snapped. Emit the neutral trail seam so
+        // the trail chunks instead of drawing a fake line across the room.
+        trail_breaks.write(TrailContinuityBreak {
+            body: ev.body,
+            resume_at: ev.exit_pos,
+        });
         // Protect the emergence so the floored exit velocity carries the body
         // out before held input can fight it.
         commands.entity(ev.body).insert(PortalEmission {

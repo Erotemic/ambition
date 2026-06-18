@@ -7,8 +7,8 @@
 //! (`ambition_gameplay_core`) and the named-content crate (`ambition_content`); this is
 //! the only crate allowed to name both.
 //!
-//! Binaries: the playable `ambition_gameplay_core` bin plus the `headless` /
-//! `rl_random_walker` / `rl_smoke` / `trace_replay` drivers (rl_sim feature).
+//! Binaries: `ambition_game_bin`, `headless`, `rl_random_walker`, `rl_smoke`,
+//! and `trace_replay` (rl_sim feature for the stepping drivers).
 
 pub mod app;
 pub mod dev;
@@ -27,7 +27,7 @@ pub use rl_sim::{
 
 /// Android shared-library entry point.
 ///
-/// Desktop builds enter through `src/bin/ambition_gameplay_core.rs`, but the Android
+/// Desktop builds enter through `src/bin/ambition_game_bin.rs`, but the Android
 /// Gradle project packages this crate as a shared library. GameActivity /
 /// android-activity expects the library to export `android_main`; Bevy's
 /// `#[bevy_main]` macro generates that boilerplate and registers the Android

@@ -26,18 +26,27 @@ Historical notes are preserved under `docs/archive/`. They explain the path here
 ## Project shape
 
 ```text
+ambition_engine_core
+  Reusable engine semantics: geometry, collision, movement, body modes,
+  player clusters, and world/block policy.
+
 ambition_gameplay_core
-  Playable Bevy shell + reusable mechanics:
-    src/engine_core/       Bevy-native movement, collision, body modes,
-                           geometry, ability gates, world data,
-                           player cluster components.
-                           (Formerly the standalone `ambition_engine`
-                           crate; collapsed into the sandbox 2026-05-28.)
-    src/                   LDtk-authored world, ECS runtime,
-                           input/touch/controller adapters, presentation,
-                           audio, debug tools, content (actors, combat,
-                           interactions, etc.), and platform-specific
-                           app composition.
+  Gameplay core library: content-free simulation systems, runtime state,
+  world/LDtk integration, player/session systems, combat/items/encounter
+  machinery, persistence, schedules, and historical facade re-exports.
+
+ambition_render
+  Bevy presentation layer: sprite/world sync, camera, parallax, HUD,
+  screen-space effects, dialog/cutscene UI, fonts, and render-only visual
+  systems. It reads gameplay state; it is not on the simulation critical path.
+
+ambition_content
+  Named authored game content: quests, bosses, enemy/item rosters, dialogue,
+  intro hooks, banter, and content-side portal adapters.
+
+ambition_app
+  App assembly and host glue. Owns every runnable binary: `ambition_game_bin`,
+  `headless`, `trace_replay`, and `rl_*`.
 
 ambition_asset_manager
   Asset identity/resolution policy across desktop, web, Android, Steam Deck,
@@ -62,7 +71,7 @@ tools/
 ## Run
 
 ```bash
-cargo run -p ambition_gameplay_core --release
+cargo run -p ambition_app --bin ambition_game_bin --release
 ```
 
 The first Bevy build can take a while. For targeted validation, prefer the focused command listed in the relevant concept page or recipe.

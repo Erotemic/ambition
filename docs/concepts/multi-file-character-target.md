@@ -111,7 +111,7 @@ subdir path:
 ```
 
 The runtime's `record_index()` scans one level deep into subdirs
-(see `presentation/character_sprites/sheets.rs::record_index`) so
+(see `character_sprites/sheets/mod.rs::record_index`) so
 the manifest reaches the catalog → sprite chain without special-
 casing each multi-file target by name.
 

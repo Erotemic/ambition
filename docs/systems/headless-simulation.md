@@ -1,227 +1,138 @@
 # Headless simulation
 
-Ambition's sandbox ships two binaries:
+Ambition's runnable binaries live in `ambition_app`:
 
-- `cargo run -p ambition_gameplay_core` — the visible Bevy app (windowed gameplay)
-- `cargo run -p ambition_gameplay_core --bin headless [TICKS]` — a no-display
-  simulation runner that drives the **full gameplay loop**
+- `cargo run -p ambition_app --bin ambition_game_bin` — visible Bevy app.
+- `cargo run -p ambition_app --bin ambition_game_bin -- --headless --headless-ticks 120` — visible binary's no-display fallback path.
+- `cargo run -p ambition_app --bin headless -- 120` — dedicated no-display simulation runner.
 
-Both depend on the `ambition_gameplay_core` library crate, which owns the module
-graph and the cross-cutting resources (`GameWorld`, `RoomSet`). The
-visible binary's `main.rs` is the existing playable shell; the headless
-binary is a thin shim around `ambition_gameplay_core::run_headless`.
+`ambition_gameplay_core` is the gameplay core library used by those binaries. It
+is not the playable or headless package.
 
-> **Phase status (2026-05-07):** Phase 1 (no-display tick), Phase 2
-> (gameplay loop runs headless), and the **first half of Phase 3** (RL
-> adapter API) are all complete. The events refactor (ADR 0012, slices
-> `c49c1e5`–`81900dd`) shipped end-to-end; `sandbox_update` emits
-> `SfxMessage`/`VfxMessage`/`DebrisBurstMessage` and presentation
-> subscribers consume them, so the simulation has no presentation
-> coupling. Remaining Phase 3 work: fixed-timestep determinism + RNG
-> seeding + a Python binding via PyO3.
+## Dedicated headless binary
 
-This document describes the sim/presentation contract the headless runner
-exposes today.
+The current dedicated entry point is:
 
-## What headless does today (Phases 1 + 2)
+```text
+crates/ambition_app/src/bin/headless.rs
+  -> ambition_app::run_headless(max_ticks)
+  -> crates/ambition_app/src/headless.rs
+  -> builds a Bevy App with MinimalPlugins + minimal asset/image/transform/state plugins
+  -> installs SandboxSimulationPlugin
+```
 
-`run_headless(max_ticks)` constructs a Bevy `App` via
-`add_simulation_plugins(app)` — `MinimalPlugins`, `AssetPlugin`,
-`StatesPlugin`, the LDtk runtime spine, the state-machine plugin, the
-physics plugin, and the simulation systems including `sandbox_update`. It
-ticks `Update` `max_ticks` times and returns a `HeadlessReport`
-summarizing what ran. It validates that:
+Usage:
+
+```bash
+cargo run -p ambition_app --bin headless                 # 120 ticks (default)
+cargo run -p ambition_app --bin headless -- 600          # 600 ticks
+cargo run -p ambition_app --bin headless -- 600 --dump-trace path/
+cargo run -p ambition_app --bin headless -- 600 --start-room goblin_encounter
+```
+
+`--dump-trace DIR` writes a `GameplayTraceBuffer` JSON + Markdown dump after the
+final tick so `trace_replay` can re-drive the same input sequence later. The
+first positional non-flag argument is the tick count; the dedicated `headless`
+binary does not currently accept `--ticks`.
+
+## What headless does today
+
+`run_headless(max_ticks)` constructs a Bevy `App`, installs
+`SandboxSimulationPlugin`, ticks `Update` `max_ticks` times, and returns a
+`HeadlessReport` summarizing what ran. It validates that:
 
 - the embedded LDtk world parses and validates,
-- the runtime `RoomSet` and `LdtkRuntimeIndex` construct from LDtk,
-- the runtime-spine systems (`sync_plugin_spawned_ambition_entities`,
-  `rebuild_ldtk_runtime_spine_index`, `rebuild_ldtk_runtime_solid_index`,
-  `poll_ldtk_file_changes`) compile and tick on a no-display machine,
-- `sandbox_update` and the gameplay loop tick to completion under
-  scripted `ControlFrame` input without touching presentation.
+- `RoomSet` and the LDtk runtime resources initialize,
+- room/entity runtime-spine systems compile and tick on a no-display machine,
+- gameplay systems can run to completion under scripted `ControlFrame` input,
+- named content needed by the sim is installed through `AmbitionContentPlugin`.
 
-It does NOT install `bevy_ecs_ldtk::LdtkPlugin`, because that plugin's tile
-spawning depends on Bevy's image/render plugins. Without LDtk-spawned
-entities the runtime-spine systems run as no-ops on tile data; entities
-still spawn through the `sync_plugin_spawned_ambition_entities` path
-when the simulation seeds them.
+The sim-only path skips the full visible app stack: no window, no camera, no HUD,
+no audio mixer, no inspector, and no visible sprite presentation.
 
-## What headless deliberately does NOT do
+## Simulation composition
 
-The presentation layer is excluded by construction:
-`add_presentation_plugins(app)` (which the visible binary calls and the
-headless binary does not) installs `DefaultPlugins`, `EguiPlugin`,
-`MaterialUiPlugin`, `InputManagerPlugin`, the dialog plugin, the
-inspector, audio mixers, and the HUD/VFX subscriber systems that consume
-the simulation's `SfxMessage` / `VfxMessage` / `DebrisBurstMessage`
-output. The headless binary skips this layer and so:
+`SandboxSimulationPlugin` is the app-level composition point for a sim-only Bevy
+App. It lives in `ambition_app` because it names the gameplay core and named
+content together. It installs:
 
-- emits but does not realize SFX/VFX events,
-- does not spawn Camera2d, player Sprite, or HUD Text,
-- does not start the Kira audio engine,
-- does not read `ButtonInput<KeyCode>` (input is supplied as
-  `ControlFrame` values).
+- simulation resources and schedules,
+- `ambition_content::AmbitionContentPlugin`,
+- gameplay core plugins/systems for player, gravity, portal mechanics, items,
+  combat, LDtk runtime, encounters, effects, reset, traces, and affordances,
+- a small amount of neutral schedule glue needed by the sim.
 
-Scripted gameplay tests in `crates/ambition_app/tests/scripted_gameplay.rs`
-inject `ControlFrame`s and assert on emitted message counts.
+Presentation belongs to `SandboxPresentationPlugin` and `ambition_render`.
+Visible builds add that layer in addition to `SandboxSimulationPlugin`.
 
-## Phase 3 — RL adapter (in progress)
+## Current boundary note
 
-The first half of the RL adapter has landed in
-`crates/ambition_app/src/rl_sim/`. It exposes:
+`SandboxSimulationPlugin` currently installs
+`ambition_render::cutscene::CutsceneSchedulePlugin`. That plugin uses neutral
+cutscene state/schedule vocabulary, but it lives in the render crate today. Treat
+this as known boundary debt: it is allowed by the current source tree, but future
+cleanup should move neutral cutscene scheduling into `ambition_cutscene` or
+`ambition_gameplay_core` and leave only visual cutscene UI in `ambition_render`.
 
-- **`AgentAction`** — sparse per-tick intent struct (move x/y, jump,
-  jump_held, dash, attack, blink, interact, projectile, fly_toggle,
-  reset, aim x/y, …). All fields default to zero / false; agents can
-  set just the knobs they care about. `From<AgentAction> for ControlFrame`
-  does the conversion at the seam.
-- **`AgentObservation`** — owned `String` / primitive-tuple snapshot of
-  player pos/vel/size, on_ground/on_wall/clinging/climbing flags,
-  facing, fast_falling/fly/glide flags, dash_charges/air_jumps/blink
-  state, hp / hp_max, mana / mana_max, time_alive, resets, body_mode
-  label, active_room id, world_size, world_spawn, last_safe_pos, plus
-  per-tick flags (`recently_damaged`, `in_hitstun`, `invincible`).
-- **`SandboxSim::new()`** — builds the same App `run_headless` does
-  (MinimalPlugins + AssetPlugin + ImagePlugin + TransformPlugin +
-  StatesPlugin + `init_sandbox_resources` + `add_simulation_plugins`).
-  Runs the first tick so the player entity and its ECS components are
-  spawned before the caller sees an observation. Returns `Err` on LDtk
-  validation failure.
-- **`sim.step(action)`** — writes the converted `ControlFrame` into the
-  resource and calls `app.update()` once. Returns `AgentObservation`.
-- **`sim.step_n(action, n)`** — convenience for "hold this action for
-  n frames" without writing the loop.
-- **`sim.step_with_reward(action)`** — steps one frame and returns
-  `(AgentObservation, f32)` where the reward is `rl_sim::reward::default_shaped`
-  over the pre→post transition. The `rl_sim::reward` module also exposes
-  the separable terms (`survival`, `exploration`, `health_preservation`)
-  as pure functions over two observations, so a task-specific harness can
-  compose its own reward instead of using the example composite.
-- **`sim.reset_episode()`** — presses Reset for one frame, idles for
-  one, returns the post-reset observation. Goes through the existing
-  reset machinery rather than rebuilding the App.
-- **`sim.world()` / `sim.world_mut()`** — escape hatches for advanced
-  consumers (custom observation extractors, scripted teleports, etc.)
-  that want to inspect / mutate ECS state directly.
+## RL stepping API
 
-The whole module is `Send` + thread-local; multi-threaded RL training
-should keep one `SandboxSim` per worker.
+`crates/ambition_app/src/rl_sim/` contains the Rust stepping API used by the
+headless binary's trace-dump path and experimental RL drivers:
 
-Remaining Phase 3 work:
+- `AgentAction` — sparse per-tick intent struct converted to `ControlFrame`.
+- `AgentObservation` — owned snapshot of player, room, health, ability, and
+  episode state.
+- `SandboxSim::new()` / `SandboxSim::new_with_options(...)` — build the same
+  sim app shape used by headless and run an initial tick.
+- `sim.step(action)` / `step_n` / `step_with_reward` — tick the sim with scripted
+  input.
+- `sim.reset_episode()` — drives the existing reset machinery.
+- `sim.world()` / `sim.world_mut()` — escape hatches for focused inspection or
+  scripted setup.
 
-- **PyO3 binding**: a thin Python module exposing `SandboxSim` /
-  `AgentAction` / `AgentObservation` so research code in Python can
-  step the simulation without writing Rust glue. Not required for
-  fuzz / scripted-replay use cases (which are happy in pure Rust).
-- **`bevy_rl` evaluation**: we may converge `SandboxSim` toward the
-  `bevy_rl` adapter shape if it buys us tooling we'd otherwise build
-  from scratch.
+The `rl_sim` feature-gated binaries currently rely on the default app feature set.
+Do not advertise `--no-default-features --features rl_sim` as a supported command
+until that feature combination is fixed and validated.
 
-### Determinism (landed)
+## Trace replay
 
-`TimestepMode::Fixed { dt }` makes step-level trajectories bit-exact
-reproducible. Internally this installs Bevy's
-`TimeUpdateStrategy::ManualDuration(dt)` resource before the Startup
-tick runs so tick 0 lands at the same state regardless of how long
-LDtk validation took on the host. Two sims with the same fixed timestep
-+ same action sequence end up with identical (player_pos, player_vel,
-hp) at every step — the property the determinism unit test pins.
+`crates/ambition_app/src/bin/trace_replay.rs` reads a `GameplayTraceBuffer` JSON
+dump and drives a fresh `SandboxSim` with the recorded `ControlFrame` sequence at
+fixed-60Hz timestep. Use it for:
 
-Gameplay code does not currently consume any RNG (no procedural
-generation in the gameplay loop), so RNG seeding is not required for
-determinism today. If a future system adds RNG, route it through a
-seeded resource that `SandboxSim::new_with_timestep` initializes from a
-configurable seed parameter.
+- reproducing a player-submitted trace,
+- checking deterministic replay after a refactor,
+- pinning broad gameplay invariants with an in-tree fixture trace.
 
-### Bug record / replay
+Current command shape:
 
-`crates/ambition_app/src/bin/trace_replay.rs` reads a
-`GameplayTraceBuffer` JSON dump and drives a fresh `SandboxSim` with
-the recorded `ControlFrame` sequence at fixed-60Hz timestep. It prints
-max-divergence + first-divergence frame between the live sim and the
-recorded `player.pos`. Use cases:
-
-- **Bug repro from production**: drop an `ambition_gameplay_trace_*.json` from
-  a player's machine into the repo, run the binary, watch where the
-  live sim diverges from the recorded state.
-- **Determinism validation**: replay an old trace after a refactor; if
-  every frame matches within tolerance, the change preserved
-  semantics.
-- **CI guardrail (future)**: an in-tree fixture trace can become a
-  regression test that pins many gameplay invariants in one shot.
+```bash
+cargo run -p ambition_app --bin trace_replay -- path/to/trace.json
+cargo run -p ambition_app --bin trace_replay -- path/to/trace.json --tolerance 0.5
+```
 
 ## Visible-binary headless fallback
 
-`run_visible` (the `cargo run -p ambition_gameplay_core --bin ambition_game_bin`
-entry point) detects missing display before installing `DefaultPlugins`
-and falls back to `run_headless`:
+`run_visible` (`cargo run -p ambition_app --bin ambition_game_bin`) detects a
+missing display before installing `DefaultPlugins` and falls back to
+`run_headless`:
 
-- Linux: if neither `DISPLAY` nor `WAYLAND_DISPLAY` nor `WAYLAND_SOCKET`
-  is set, fall back.
-- Any platform: if the user passed `--headless` on the CLI, fall back.
+- Linux: if neither `DISPLAY` nor `WAYLAND_DISPLAY` nor `WAYLAND_SOCKET` is set.
+- Any platform: if the user passed `--headless` on the CLI.
 - Override the tick count with `--headless-ticks N` (default 120).
 
-The fallback prints a one-line diagnostic to stderr so users on a
-display-less VM see why their `cargo run` didn't open a window. The
-dedicated `--bin headless` runner is still the recommended entry point
-for CI / RL drivers that want to skip the visible-binary plugin
-foundation entirely.
-
-## Architecture notes that informed Phase 1
-
-- The library/binary split is the cheapest way to share the module graph
-  between the visible app and a headless driver. The presentation
-  binary's `main.rs` is now ~10 lines (it just calls
-  `ambition_gameplay_core::run_app`); systems and resources live in the
-  library.
-- Player state is ECS-authoritative (cluster components, completed
-  2026-05-28; see `crates/ambition_gameplay_core/src/player/` and the 18
-  cluster component types in
-  `crates/ambition_engine_core/src/player_clusters.rs`).
-  Headless drivers and the scripted-gameplay integration tests query
-  / mutate the player via `PlayerClusterQueryData::as_clusters_mut()`
-  (or the `PlayerClusterScratch` non-ECS helper). `GameWorld` and the
-  small set of narrow Bevy resources (`SandboxSimState`,
-  `SandboxDevState`, `MovingPlatformSet`, `CurrentPlayerAttack`) cover
-  what is genuinely global. There is no longer a god-resource — and
-  no longer a monolithic `ae::Player` aggregate — that callers reach
-  into for player position / abilities / timers.
+The dedicated `--bin headless` runner remains the recommended entry point for CI
+or scripted runs that do not need the visible-binary fallback behavior.
 
 ## Verification
 
-In the dev VM (no display, no GPU):
+In a no-display development VM:
 
 ```bash
-cargo test -p ambition_gameplay_core --lib engine_core
-cargo test -p ambition_gameplay_core            # ~330 tests pass
-cargo run -p ambition_gameplay_core --bin headless 30
+cargo test -p ambition_gameplay_core --lib
+cargo test -p ambition_app --test scripted_gameplay
+cargo run -p ambition_app --bin headless -- 30
 ```
 
-The last command prints a `HeadlessReport` summary and exits 0. Test
-counts grow as coverage expands — the count above is a snapshot, not a
-guarantee. The relevant invariant is "exit code 0, no panic."
-
-## `headless = []` cargo feature — partial gate (2026-05-20)
-
-The sandbox `Cargo.toml` declares an empty `headless` cargo feature
-intended to flip a `--no-default-features --features headless` build
-into a no-rendering / no-windowing path. As of #1's first slice (see
-`dev/journals/bevy-headless-feature-graph-2026-05-20.md`), the bevy
-**rendering** features (`2d_bevy_render`, `ui_bevy_render`, `scene`,
-`png`) live on the `visible` cargo feature; the headless build no
-longer compiles the renderer.
-
-`bevy/ui_api` still lives on the base bevy dep because hundreds of
-non-presentation use sites (`BackgroundColor` / `TextColor` /
-`Node` / `UiRect` in cutscene scaffolding, fx HUD primitives, runtime
-setup widgets) reference these types directly. `ui_api` transitively
-pulls in `default_app` → `bevy_window` → `bevy_winit`, so
-`cargo check -p ambition_gameplay_core --no-default-features --features
-headless` still fails on winit's "platform you're compiling for is
-not supported." A true no-winit headless build needs the
-non-presentation modules cfg-gated behind `visible` first — a
-follow-up that's intentionally staged so the contributor doesn't end
-up doing the 848-edit cfg-gate pass in one go. The
-`--bin headless` runner above stays the recommended headless entry
-point until then; it uses the default feature set (with the
-presentation pieces installed but not driven from the binary).
+The last command should print a `HeadlessReport` summary and exit 0. Test counts
+change over time; the invariant is exit code 0 with no panic.

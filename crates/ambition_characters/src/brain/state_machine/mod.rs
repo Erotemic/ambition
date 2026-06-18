@@ -53,7 +53,7 @@ pub enum StateMachineCfg {
     /// Scripted multi-phase boss policy. The cfg + state live in
     /// `brain/boss_pattern.rs`; this variant carries them but the
     /// real tick driver is `tick_boss_brains_system` in
-    /// `content/features/ecs/bosses.rs` (see the dispatch fn below).
+    /// `features/ecs/bosses.rs` (see the dispatch fn below).
     BossPattern {
         cfg: super::BossPatternCfg,
         state: super::BossPatternState,

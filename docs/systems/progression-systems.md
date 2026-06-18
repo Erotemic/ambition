@@ -11,7 +11,7 @@ crates/ambition_content/src/quests/                # authored quest registration
 crates/ambition_gameplay_core/src/persistence/save.rs    # durable save facts
 crates/ambition_gameplay_core/src/dialog/                # dialogue runtime/read model
 crates/ambition_gameplay_core/src/encounter/             # encounter progression hooks
-crates/ambition_gameplay_core/src/presentation/cutscene.rs
+crates/ambition_render/src/cutscene/
 crates/ambition_gameplay_core/src/intro/cutscene.rs
 ```
 

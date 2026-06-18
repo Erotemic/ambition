@@ -86,7 +86,7 @@ For a self-contained executable, build with `--features static_map`; the checked
 For dev hot reload:
 
 ```bash
-cargo run -p ambition_gameplay_core --features dev_hot_reload --release
+cargo run -p ambition_app --bin ambition_game_bin --features dev_hot_reload --release
 ```
 
 Hotkeys:

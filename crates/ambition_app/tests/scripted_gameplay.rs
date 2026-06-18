@@ -1,7 +1,7 @@
 //! Multi-frame scripted-gameplay integration test.
 //!
 //! Companion to the per-system slice tests in
-//! `crates/ambition_gameplay_core/src/headless.rs`. This test drives the
+//! `crates/ambition_app/src/headless.rs`. This test drives the
 //! sim through a sequence of `ControlFrame`s across several
 //! `app.update()` calls and asserts on the cumulative event timeline.
 //!
@@ -22,7 +22,7 @@ use bevy::transform::TransformPlugin;
 use bevy::MinimalPlugins;
 
 /// Minimal-plugin App that boots `add_simulation_plugins`. Mirrors
-/// the `sim_emits_sfx_reset_*` pattern in `headless.rs::tests`.
+/// the `sim_emits_sfx_reset_*` pattern in `ambition_app::headless` tests.
 fn build_minimal_sim_app() -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);

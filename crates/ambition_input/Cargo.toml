@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Device -> ControlFrame input layer for ambition: SandboxAction (leafwing), the per-frame ControlFrame / MenuControlFrame seams, keyboard/gamepad presets, and the input-domain settings (deadzones / trigger hysteresis / dash mode). The upper-sibling input abstraction (ADR 0019); decoupled from sandbox content so the input-ordering bug class cannot silently recur. See docs/planning/plugin_refactor/15_post_task_k_revision.md."
+description = "Device -> ControlFrame input layer for ambition: SandboxAction (leafwing), the per-frame ControlFrame / MenuControlFrame seams, keyboard/gamepad presets, and the input-domain settings (deadzones / trigger hysteresis / dash mode). The upper-sibling input abstraction (ADR 0019); decoupled from sandbox content so the input-ordering bug class cannot silently recur. See docs/current/state.md and docs/systems/architecture.md."
 
 [lib]
 # rlib only: a library consumed by ambition_gameplay_core. Packaging is the

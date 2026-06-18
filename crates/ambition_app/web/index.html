@@ -66,7 +66,7 @@
         from a real DOM gesture handler. This is run BEFORE the wasm
         module so the patch wraps cpal's eventual `new AudioContext()`.
 
-        Source-link this in `docs/web_audio_manual_test.md` when
+        Source-link this in `docs/recipes/web-audio-manual-test.md` when
         debugging silent audio.
     -->
     <script>
@@ -145,16 +145,16 @@
 
     <!--
         First-pass JS bootstrap. The wasm-bindgen `--target web` pipeline
-        emits `pkg/ambition_gameplay_core.js` (the JS shim) and
-        `pkg/ambition_gameplay_core_bg.wasm` (the module) next to this HTML file.
+        emits `pkg/ambition_app.js` (the JS shim) and
+        `pkg/ambition_app_bg.wasm` (the module) next to this HTML file.
         `init()` instantiates the module; the `#[wasm_bindgen(start)]`
         hook in `lib.rs` (`web_start`) then fires on its own and boots
         `app::run_web()`.
 
-        See `docs/web_build.md` for the build command that produces `pkg/`.
+        See `docs/recipes/web-build.md` for the build command that produces `pkg/`.
     -->
     <script type="module">
-        import init from "./pkg/ambition_gameplay_core.js";
+        import init from "./pkg/ambition_app.js";
 
         const status = document.getElementById("status");
         const canvas = document.getElementById("bevy");

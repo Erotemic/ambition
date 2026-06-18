@@ -24,23 +24,15 @@ pub fn populate_boss_encounter_registry(
     if registry.specs_loaded {
         return;
     }
-    // Per ADR 0017: boss-encounter numeric fields can come from
-    // `assets/data/boss_encounters/<id>.ron` (override) or the
-    // hardcoded `crate::boss_encounter::BossEncounterSpec::<id>()` constructor
-    // (fallback). Log a one-time startup census so a regression where
-    // a RON file silently fails to parse (loader returns empty) is
-    // visible in dev logs without paging through every spec field.
-    let ron_ids: std::collections::BTreeSet<String> = super::specs::boss_encounter_specs()
-        .into_iter()
-        .map(|s| s.id)
-        .collect();
+    // Per ADR 0017: named boss encounter specs are authored in
+    // `ambition_content/assets/data/boss_encounters/<id>.ron` and installed
+    // before the registry is populated. Log a one-time startup census so a
+    // missing content install or empty roster is visible immediately.
     let profiles = default_boss_profiles();
-    let ron_count = profiles.iter().filter(|p| ron_ids.contains(&p.id)).count();
     let total = profiles.len();
     bevy::log::info!(
         target: "ambition::boss_encounter",
-        "boss_encounter registry: {total} profile(s) loaded ({ron_count} RON-overridden, {} constructor-only)",
-        total - ron_count
+        "boss_encounter registry: {total} content-installed profile(s) loaded"
     );
     for profile in profiles {
         registry.ensure_profile(profile);

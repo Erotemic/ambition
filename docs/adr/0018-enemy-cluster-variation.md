@@ -164,5 +164,5 @@ variation choice explicit in the same place it builds the `Brain` and
   rather than baking variation into archetypes.
 - `crates/ambition_gameplay_core/src/combat/variation.rs`
   — the canonical seed + jitter helpers.
-- `crates/ambition_gameplay_core/src/features/ecs/mount.rs::enforce_mount_rider_link`
+- `crates/ambition_gameplay_core/src/features/ecs/mount/mod.rs::enforce_mount_rider_link`
   — dissolve path that applies the rule for dismounted riders.

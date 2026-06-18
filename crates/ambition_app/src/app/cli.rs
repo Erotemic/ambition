@@ -178,7 +178,7 @@ pub fn run_visible() {
             "no DISPLAY / WAYLAND_DISPLAY env var"
         };
         eprintln!(
-            "ambition_gameplay_core: running headless ({reason}); use `--bin headless` for the dedicated runner"
+            "ambition_app: running headless ({reason}); use `--bin headless` for the dedicated runner"
         );
         match crate::headless::run_headless(max_ticks) {
             Ok(report) => {
@@ -193,7 +193,7 @@ pub fn run_visible() {
     }
     let asset_config = GameAssetConfig::from_args();
     let asset_root = desktop_asset_root();
-    eprintln!("ambition_gameplay_core: asset root = {asset_root}");
+    eprintln!("ambition_app: asset root = {asset_root}");
     let mut app = App::new();
     app.add_plugins(
         DefaultPlugins
@@ -254,7 +254,7 @@ pub fn run_visible() {
 /// synchronous filesystem reader for `sandbox.ldtk` in this pass.
 ///
 /// The `#[wasm_bindgen(start)]` shim that calls this lives in
-/// `ambition_gameplay_core::lib`'s root, behind the same `cfg(target_arch = "wasm32")` +
+/// `ambition_app::lib`'s root, behind the same `cfg(target_arch = "wasm32")` +
 /// `feature = "web_platform"` gate.
 #[cfg(all(target_arch = "wasm32", feature = "web_platform"))]
 pub fn run_web() {
@@ -263,7 +263,7 @@ pub fn run_web() {
         primary_window: Some(Window {
             title: "Ambition - Tangent Space Sandbox (Web)".into(),
             // The canvas selector matches `<canvas id="bevy">` in
-            // `crates/ambition_gameplay_core/web/index.html`. Without this Bevy
+            // `crates/ambition_app/web/index.html`. Without this Bevy
             // would mint its own canvas and append it to <body>; pinning
             // the selector lets the page own layout / sizing / focus.
             canvas: Some("#bevy".to_string()),

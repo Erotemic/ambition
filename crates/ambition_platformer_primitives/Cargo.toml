@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Reusable, content-free platformer runtime primitives (lifecycle vocabulary + schedule sets) extracted from ambition_gameplay_core. See docs/planning/plugin_refactor/14_action_plan.md."
+description = "Reusable, content-free platformer runtime primitives (lifecycle vocabulary + schedule sets) extracted from ambition_gameplay_core. See docs/current/state.md and docs/systems/architecture.md."
 
 [lib]
 # rlib only: a library consumed by ambition_gameplay_core (and future runtime

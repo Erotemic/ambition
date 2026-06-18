@@ -77,8 +77,8 @@ where you expect — the same checks the validator lints, but rendered.
 Test an alternate map without recompiling:
 
 ```bash
-cargo run -p ambition_gameplay_core -- --ldtk mods/my_world.ldtk
-AMBITION_LDTK=mods/my_world.ldtk cargo run -p ambition_gameplay_core
+cargo run -p ambition_app --bin ambition_game_bin -- --ldtk mods/my_world.ldtk
+AMBITION_LDTK=mods/my_world.ldtk cargo run -p ambition_app --bin ambition_game_bin
 ```
 
 For a self-contained executable, build with `--features static_map`; the checked-in `sandbox.ldtk` is embedded and used as fallback if the external map is missing or invalid.

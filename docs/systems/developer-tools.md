@@ -124,7 +124,7 @@ source is still `crates/ambition_gameplay_core/assets/ambition/sandbox.ron`. Onc
 tuned value feels good, copy it back to the RON manifest or promote it to a more
 formal editor/save workflow later.
 
-Implementation note: `ResourceInspectorPlugin` and `WorldInspectorPlugin` require `EguiPlugin::default()` to be added first. The visible-app builder in `crates/ambition_gameplay_core/src/app/mod.rs` (`add_presentation_plugins`) registers `EguiPlugin` immediately after `DefaultPlugins` so the inspector quick plugins can initialize safely.
+Implementation note: `ResourceInspectorPlugin` and `WorldInspectorPlugin` require `EguiPlugin::default()` to be added first. The visible-app composition in `crates/ambition_app/src/app/plugins.rs` (`SandboxPresentationPlugin`) registers `EguiPlugin` immediately after `DefaultPlugins` so the inspector quick plugins can initialize safely.
 
 ## Other dev hotkeys (cross-references)
 

@@ -12,7 +12,7 @@
 //! The named actor layer (`EnemyConfig`/archetype-coupled systems:
 //! actors / damage / mount / spawn / save_sync) intentionally remains
 //! content-side until the archetype hub is dissolved into capability
-//! components — see `docs/planning/plugin_refactor/21_stage20_attack_plan.md`.
+//! components; see `docs/current/state.md` for the current Stage 20 crate split.
 
 use crate::engine_core as ae;
 use crate::engine_core::AabbExt;

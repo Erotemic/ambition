@@ -26,7 +26,7 @@ Phase marks are inserted between Startup-chained systems via
 `profiling::phase_mark("name")`. The defaults today bracket
 `load_data_asset_handle` and `setup_simulation_system`. Add more by
 chaining `phase_mark(...)` between Startup systems in
-[crates/ambition_gameplay_core/src/app/mod.rs](../../crates/ambition_app/src/app/plugins.rs):
+[crates/ambition_app/src/app/plugins.rs](../../crates/ambition_app/src/app/plugins.rs):
 
 ```rust
 .add_systems(Startup, (

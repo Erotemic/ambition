@@ -6,7 +6,7 @@ set -euo pipefail
 # This is the web-build counterpart to ./build_for_android.sh. It
 # compiles the sandbox crate for `wasm32-unknown-unknown` with the
 # `web` feature composite, runs `wasm-bindgen --target web` to emit
-# the JS/wasm pair into `crates/ambition_gameplay_core/web/pkg/`, and
+# the JS/wasm pair into `crates/ambition_app/web/pkg/`, and
 # optionally serves the directory so a browser can load it.
 #
 # Default: Rust release build + wasm-bindgen output, no auto-serve.
@@ -29,17 +29,17 @@ Options:
   --bindgen-target T    Pass-through to wasm-bindgen --target. Default: web
                         Other supported values: bundler, no-modules, nodejs, deno.
   --out-dir DIR         Where wasm-bindgen writes the JS/wasm pair.
-                        Default: crates/ambition_gameplay_core/web/pkg
+                        Default: crates/ambition_app/web/pkg
   --skip-bindgen        Compile the wasm but skip the wasm-bindgen step.
   --skip-build          Skip the cargo build (re-run wasm-bindgen against an existing artifact).
   --served              Build the served-assets browser persona:
                         switches the default feature to `web_served_assets`,
                         symlinks crates/ambition_gameplay_core/assets into
-                        crates/ambition_gameplay_core/web/assets/ so the page-served
+                        crates/ambition_app/web/assets/ so the page-served
                         `/assets/...` URLs Bevy's wasm HTTP reader fetches
                         actually resolve. Selects `AssetProfile::WebServedAssets`
                         at runtime via the `web_served` feature.
-  --serve [PORT]        After building, serve `crates/ambition_gameplay_core/web/` on PORT (default 8000).
+  --serve [PORT]        After building, serve `crates/ambition_app/web/` on PORT (default 8000).
   --open                Open the served URL in the default browser. Implies --serve.
   --clean               Delete the wasm-bindgen output dir before building.
   --doctor              Check tools/environment and print what would be used.
@@ -106,6 +106,22 @@ detect_wasm_bindgen_version() {
     ' "$lock"
 }
 
+# Cargo may be configured to put target artifacts outside the repo
+# (this checkout's .cargo/config.toml does exactly that). Ask Cargo
+# where the target directory is instead of assuming ./target.
+cargo_target_dir() {
+    local metadata
+    if metadata=$("$CARGO_CMD" metadata --format-version 1 --no-deps 2>/dev/null); then
+        if command -v python3 >/dev/null 2>&1; then
+            python3 -c 'import json,sys; print(json.load(sys.stdin)["target_directory"])' <<<"$metadata"
+            return 0
+        fi
+        printf '%s\n' "$metadata" | sed -n 's/.*"target_directory":"\([^"]*\)".*/\1/p'
+        return 0
+    fi
+    printf '%s/target\n' "$ROOT"
+}
+
 PROFILE="release"
 FEATURES=""
 FEATURES_EXPLICIT=false
@@ -169,7 +185,7 @@ CARGO_CMD=${CARGO:-cargo}
 WASM_BINDGEN_CMD=${WASM_BINDGEN:-wasm-bindgen}
 SERVE_PORT=${SERVE_PORT:-${AMBITION_WEB_PORT:-8000}}
 
-WEB_DIR="$ROOT/crates/ambition_gameplay_core/web"
+WEB_DIR="$ROOT/crates/ambition_app/web"
 if [[ -z "$OUT_DIR" ]]; then
     OUT_DIR="$WEB_DIR/pkg"
 fi
@@ -178,14 +194,12 @@ fi
 LOCK="$ROOT/Cargo.lock"
 WANT_BINDGEN_VERSION=$(detect_wasm_bindgen_version "$LOCK")
 
+TARGET_DIR=$(cargo_target_dir)
 case "$PROFILE" in
-    release) WASM_BUILD_DIR="$ROOT/target/wasm32-unknown-unknown/release" ;;
-    debug)   WASM_BUILD_DIR="$ROOT/target/wasm32-unknown-unknown/debug" ;;
+    release) WASM_BUILD_DIR="$TARGET_DIR/wasm32-unknown-unknown/release" ;;
+    debug)   WASM_BUILD_DIR="$TARGET_DIR/wasm32-unknown-unknown/debug" ;;
     *) fatal "unknown profile: $PROFILE (expected release or debug)" ;;
 esac
-# The wasm cdylib moved to the ambition_app crate (Stage 20 / A3);
-# wasm-bindgen --out-name below keeps the JS/wasm pair named
-# ambition_gameplay_core so web/index.html needs no changes.
 WASM_ARTIFACT="$WASM_BUILD_DIR/ambition_app.wasm"
 
 log "repo: $ROOT"
@@ -273,11 +287,11 @@ if [[ "$SKIP_BINDGEN" != true ]]; then
     "$WASM_BINDGEN_CMD" \
         "$WASM_ARTIFACT" \
         --out-dir "$OUT_DIR" \
-        --out-name ambition_gameplay_core \
+        --out-name ambition_app \
         --target "$BINDGEN_TARGET" \
         --no-typescript
-    OUT_WASM="$OUT_DIR/ambition_gameplay_core_bg.wasm"
-    OUT_JS="$OUT_DIR/ambition_gameplay_core.js"
+    OUT_WASM="$OUT_DIR/ambition_app_bg.wasm"
+    OUT_JS="$OUT_DIR/ambition_app.js"
     if [[ -f "$OUT_WASM" ]]; then
         log "wasm-bindgen output: $(human_size "$OUT_WASM") wasm, $(human_size "$OUT_JS") js"
     else

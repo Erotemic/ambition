@@ -105,7 +105,7 @@ naturally drop out of a no-rl_sim build.
   (Pause/Reset) with text labels
 - ✅ Bottom-right cluster + bezel layout (192x128 + 216x152 backdrop)
 - ✅ TouchControlsVisible runtime toggle
-- ✅ Shared `ui_nav` helpers for windowed lists, drag-scroll accumulation, and pointer-row behavior
+- ✅ Shared `ambition_ui_nav` helpers for windowed lists, drag-scroll accumulation, and pointer-row behavior
 - ✅ Android/touch defaults to tap-to-select-then-confirm for menu rows to avoid accidental activation while dragging
 - ✅ Activity-gated ControlFrame write (empty touch state doesn't
   stomp keyboard input)
@@ -161,7 +161,7 @@ may proxy touch on desktop for testing. Gameplay `ControlFrame` movement should
 be suppressed while dialog/pause/menu state owns the input.
 
 Shared list/windowing, pointer-row activation, and drag-scroll accumulation now
-live in `crate::ui_nav` (`crates/ambition_gameplay_core/src/ui_nav/`). Pause menus,
+live in `ambition_ui_nav` (`crates/ambition_ui_nav/src/`). Pause menus,
 dialog choices, and the mobile touch bridge should reuse those helpers instead
 of reimplementing scroll sign conventions or visible-window math locally.
 

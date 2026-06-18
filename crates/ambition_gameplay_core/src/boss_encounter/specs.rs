@@ -83,12 +83,10 @@ fn boss_encounter_specs_fallback() -> Vec<BossEncounterSpec> {
 mod tests {
     use super::*;
 
-    /// Every RON file under `boss_encounters/` must correspond to an
-    /// authored profile in `AUTHORED_BOSS_PROFILES`. A stray RON
-    /// (typo'd filename, leftover from a renamed boss) would be
-    /// silently ignored by the loader override loop; this test trips
-    /// instead. The reverse (profile without RON) is fine — the in-lib
-    /// generic `gradient_sentinel` base covers an unauthored boss.
+    /// Every installed RON spec under `boss_encounters/` must correspond to an
+    /// authored behavior profile. A stray RON (typo'd filename, leftover from a
+    /// renamed boss) would otherwise install unusable content; this test trips
+    /// instead.
     #[test]
     fn every_on_disk_ron_matches_an_authored_profile() {
         let profile_ids: std::collections::BTreeSet<String> =
@@ -110,7 +108,7 @@ mod tests {
     /// then nondeterministically pick whichever the BTreeMap collected
     /// last. This test trips on that case.
     #[test]
-    fn load_boss_specs_from_disk_has_no_duplicate_ids() {
+    fn installed_boss_specs_have_no_duplicate_ids() {
         let specs = boss_encounter_specs();
         let mut seen: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
         let dupes: Vec<String> = specs
@@ -125,7 +123,7 @@ mod tests {
             .collect();
         assert!(
             dupes.is_empty(),
-            "duplicate boss spec ids on disk: {dupes:?}"
+            "duplicate installed boss spec ids: {dupes:?}"
         );
     }
 }

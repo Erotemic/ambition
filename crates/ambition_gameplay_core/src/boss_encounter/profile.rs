@@ -41,9 +41,8 @@ pub use behavior::BossRewardProfile;
 
 impl BossProfile {
     /// Assemble a boss profile from its canonical id by combining the
-    /// two data registries:
-    /// * encounter numbers from `boss_encounters/<id>.ron`
-    ///   (falling back to the in-memory default specs), and
+    /// two content-installed data registries:
+    /// * encounter numbers from `boss_encounters/<id>.ron`, and
     /// * behavior + reward from `boss_profiles.ron`.
     ///
     /// Returns `None` if the id has no authored encounter spec.
@@ -87,11 +86,9 @@ impl BossProfile {
     }
 }
 
-/// Default encounter specs keyed by id. Reads from disk
-/// (`boss_encounters/<id>.ron`) per ADR 0017; the on-disk RON is the
-/// authoritative numeric source. Authored ids without a RON file fall
-/// back to the in-memory default spec for that id so a fresh clone
-/// still boots before any RON has been written.
+/// Installed encounter specs keyed by id. Per ADR 0017, named boss encounter
+/// numbers live in `ambition_content/assets/data/boss_encounters/<id>.ron`;
+/// gameplay-core only holds the generic schema and the installed roster.
 fn default_boss_specs_by_id(
 ) -> std::collections::BTreeMap<String, crate::boss_encounter::BossEncounterSpec> {
     let mut specs: std::collections::BTreeMap<String, crate::boss_encounter::BossEncounterSpec> =

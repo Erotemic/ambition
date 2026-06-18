@@ -30,8 +30,7 @@
      quick crate; pre-invert its inbound deps incrementally instead.
    - **`dev` state/systems split (partial).** ~1.3k of presentation-only dev
      overlays already moved up; the dev STATE + systems split is deferred.
-   - **`presentation` (~10k) / `world`+LDtk (~9k).** Large; measure outward deps
-     before promising any extraction.
+   - **Render-boundary polish / `world`+LDtk (~9k).** Presentation has moved to `ambition_render` / `ambition_portal_presentation`; the remaining work is policing residual sim→presentation leaks and measuring `world`+LDtk outward deps before promising any extraction.
 1. Keep ADRs and concept pages modern enough that agents can trust them.
 2. Continue shifting runtime integration toward data-driven Bevy ECS instead of parallel code-owned world state.
 3. Replace obsolete migration docs with current systems/concepts or archive them.

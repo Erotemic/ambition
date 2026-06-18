@@ -24,12 +24,12 @@
 //! run on demand to produce the repro catalog:
 //!
 //! ```text
-//! cargo test -p ambition_gameplay_core --test collision_invariant_oracle \
+//! cargo test -p ambition_app --test collision_invariant_oracle \
 //!     -- --ignored --nocapture
 //! ```
 //!
 //! Each flagged step prints `(room, seed, tick, pos)` so it reproduces through
-//! `cargo run --bin rl_random_walker -- <STEPS> <SEED>` after a `--start-room`.
+//! `cargo run -p ambition_app --bin rl_random_walker -- <STEPS> <SEED>` after a `--start-room`.
 
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::{RandomWalkPolicy, SandboxSim, SandboxSimOptions};

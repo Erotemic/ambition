@@ -2,10 +2,10 @@
 /target/
 
 # Generated browser bundle (wasm-bindgen output from ./build_for_web.sh).
-crates/ambition_gameplay_core/web/pkg/
+crates/ambition_app/web/pkg/
 # Symlink (or rsync copy) created by `./build_for_web.sh --served` so
 # the served browser persona can fetch `/assets/...` over HTTP.
-crates/ambition_gameplay_core/web/assets
+crates/ambition_app/web/assets
 
 # proptest writes regression seeds when a property fails. Useful
 # locally to reproduce a flake but shouldn't go to git.

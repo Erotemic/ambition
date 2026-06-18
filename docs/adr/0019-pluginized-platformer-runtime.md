@@ -11,11 +11,7 @@ content, presentation adapters, authoring adapters, and app assembly. That made
 feature work fast early on, but the central app plugin file and room lifecycle
 conventions are now carrying too much architectural meaning implicitly.
 
-The plugin refactor plan in `docs/planning/plugin_refactor/` proposes a staged
-move toward reusable platformer runtime modules, optional mechanics plugins,
-adapter/render/authoring plugins, and Ambition content plugins. The immediate
-risk is doing a large crate split before the dependency direction is visible and
-testable.
+The old plugin-refactor plan has been superseded by the Stage 20 crate split documented in `docs/current/state.md` and `docs/systems/architecture.md`. The original decision still matters as historical context: use same-crate proto-boundaries before extracting real crates, and make dependency direction visible before broad moves.
 
 ## Decision
 
@@ -69,7 +65,7 @@ cargo test -p ambition_app --test gravity_room_reachability
   `ambition_portal` / `ambition_time` / `ambition_input` / `ambition_menu` /
   `ambition_audio` (foundations) ← `ambition_gameplay_core` (machinery lib) ←
   `ambition_content` (named game content) ← `ambition_app` (assembly + bins +
-  tests). See `docs/planning/plugin_refactor/22_monolith_breaker_survey.md`.
+  tests). See `docs/current/state.md` and `docs/systems/architecture.md`.
 - `crate::engine_core`, `crate::kinematic`, `crate::input`, `crate::time`,
   `crate::portal` inside `ambition_gameplay_core` are FACADE re-exports of those crates —
   edit the crate, not a (nonexistent) lib module.

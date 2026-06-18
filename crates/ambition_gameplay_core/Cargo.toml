@@ -70,9 +70,9 @@ android_platform = [
 # Web/browser platform support. First-pass wasm32 build: bevy's canvas-backed
 # winit, default font, and WebGL2 renderer plus the `bevy/web` glue. Excludes
 # `bevy_gilrs`, x11/wayland, sysinfo_plugin, and `multi_threaded` (the latter
-# needs wasm atomics + nightly). `console_error_panic_hook` and `wasm-bindgen`
-# wire the JS bootstrap that loads the wasm module from `web/index.html` and
-# routes panics to the browser console.
+# needs wasm atomics + nightly). The browser start function now lives in
+# `ambition_app`; this feature keeps gameplay-core's wasm-facing Bevy deps in
+# sync with the app web persona.
 web_platform = [
     "bevy/std",
     "bevy/bevy_winit",
@@ -161,7 +161,7 @@ web = ["visible_web", "web_platform"]
 
 # Browser persona — served assets. Use with `./build_for_web.sh --served`
 # (which symlinks/copies `crates/ambition_gameplay_core/assets/` into
-# `crates/ambition_gameplay_core/web/assets/` so the served pages can reach
+# `crates/ambition_app/web/assets/` so the served pages can reach
 # them under `/assets/...`). Full media: visuals + authored audio.
 web_served_assets = ["visible_web_served", "web_platform"]
 
@@ -331,7 +331,7 @@ ambition_audio = { path = "../ambition_audio" }
 # schedule sets). First real crate extracted from the proto-runtime
 # (`crate::platformer_runtime` is now a facade over this crate plus the
 # not-yet-extracted local modules collision/orientation/transit). See
-# docs/planning/plugin_refactor/14_action_plan.md Stage 13 / Task K.
+# docs/current/state.md Stage 13 / Task K.
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 # Reusable, content-free portal MECHANIC (portal-gun place/replace/channel,
 # aperture transit math, the one generic `portal_transit` over PortalBody +
@@ -340,7 +340,7 @@ ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 # module is a facade re-exporting this crate; the sandbox keeps presentation
 # (render-gated) + the `ambition_content::portal` adapters (input / inventory /
 # carve bridge / room-reset / sfx / ability) on top. ADR 0019; Stage 19. See
-# docs/planning/plugin_refactor/19_portal_crate_and_projectile_ecs.md.
+# docs/current/state.md and docs/systems/architecture.md.
 ambition_portal = { path = "../ambition_portal" }
 # The reusable default renderer for the portal mechanic (quads/labels, held
 # gun, body pieces, disorientation, view cones). Optional: only the
@@ -352,12 +352,12 @@ ambition_portal_presentation = { path = "../ambition_portal_presentation", optio
 # `crate::time` module is a facade re-exporting these; the sandbox keeps the
 # game-specific time-control POLICY (Regime / requester table / feel-tuned
 # smoother), camera-ease, and feel modules on top. ADR 0010/0011. See
-# docs/planning/plugin_refactor/18_overnight_reusable_extraction_run.md (T1b).
+# docs/current/state.md (T1b).
 ambition_time = { path = "../ambition_time" }
 # ECS-native pure-logic core (geometry / movement / collision / player_state /
 # abilities / ledge_grab / world / player_clusters + the shared BodyKinematics
 # body component). The build-time foundation; re-exported as `crate::engine_core`
-# from lib.rs (ADR 0019). See docs/planning/plugin_refactor/15_post_task_k_revision.md.
+# from lib.rs (ADR 0019). See docs/current/state.md.
 ambition_characters = { path = "../ambition_characters" }
 ambition_combat = { path = "../ambition_combat" }
 # Cutscene script format + runtime stepper (pure data; re-exported as
@@ -371,7 +371,7 @@ ambition_interaction = { path = "../ambition_interaction" }
 # `crate::persistence::settings` re-exports its `settings` module so existing
 # `crate::persistence::settings::ControlSettings` paths resolve unchanged. The
 # sandbox `input` feature forwards to this crate's `input` feature. See
-# docs/planning/plugin_refactor/15_post_task_k_revision.md.
+# docs/current/state.md.
 ambition_input = { path = "../ambition_input" }
 # Reusable UI/menu nav primitives (windowed list math, pointer activation, drag
 # scroll). Extracted leaf; the sandbox `input` feature forwards to its `input`
@@ -425,10 +425,8 @@ bevy_falling_sand = { version = "0.7", default-features = false, features = ["re
 bevy_framepace = { version = "0.21", default-features = false, optional = true }
 leafwing-input-manager = { version = "0.20", optional = true }
 virtual_joystick = { version = "2.7.2", default-features = false, optional = true }
-# Browser bootstrap deps. Pulled in only by the `web_platform` feature.
-# `wasm-bindgen` exposes the `#[wasm_bindgen(start)]` entry point that
-# `web/index.html` loads; `console_error_panic_hook` forwards panics to the
-# browser console so a first-pass crash is debuggable.
+# Browser support deps. Pulled in only by the `web_platform` feature; the actual
+# `#[wasm_bindgen(start)]` entry point lives in `ambition_app`.
 console_error_panic_hook = { version = "0.1", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 petgraph = "0.8"

@@ -13,3 +13,10 @@ target-dir = "/home/joncrall/ambition-target"
 [target.x86_64-unknown-linux-gnu]
 linker = "clang"
 rustflags = ["-C", "link-arg=-fuse-ld=mold"]
+
+[target.wasm32-unknown-unknown]
+# Browser wasm builds use getrandom through wasm-bindgen/Web Crypto.
+# getrandom 0.3 requires selecting the wasm_js backend explicitly for
+# wasm32-unknown-unknown; keep this target-specific so native builds are
+# unaffected.
+rustflags = ['--cfg', 'getrandom_backend="wasm_js"']

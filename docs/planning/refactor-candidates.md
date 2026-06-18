@@ -15,7 +15,7 @@ This file tracks structural cleanup candidates. It is planning material, not a r
 | Area | Candidate cleanup | Validation |
 |---|---|---|
 | Sandbox runtime phases | Continue promoting inline `sandbox_update` phases into named Bevy systems. | `cargo test -p ambition_gameplay_core --lib` plus focused gameplay tests. |
-| Content feature modules | Retire compatibility references to old root `features` paths once call sites use `content/features`. | `cargo test -p ambition_gameplay_core content_validation` and conversion tests. |
+| Gameplay feature/content boundary | Keep generic feature ECS machinery in `ambition_gameplay_core/src/features/`; move named rosters, boss specials, enemy data, and authored game content into `ambition_content` where possible. | `cargo test -p ambition_gameplay_core content_validation` plus `cargo test -p ambition_content --all-features`. |
 | Trace/dev tools | Keep trace recorder under `crates/ambition_gameplay_core/src/dev/trace/`; remove stale docs that mention root `trace.rs`. | `cargo test -p ambition_gameplay_core trace`. |
 | Settings/UI | Keep settings under `persistence/settings` and route UI through the unified menu stack. | `cargo test -p ambition_gameplay_core settings menu` plus app menu tests. |
 | Architecture docs | Keep `docs/systems/architecture.md` as the consolidated system overview. | `python scripts/check_doc_links.py`. |

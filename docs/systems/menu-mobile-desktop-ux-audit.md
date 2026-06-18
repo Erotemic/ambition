@@ -5,7 +5,7 @@ Status: historical UX audit kept as risk context, not current system ownership d
 ## Current menu stack
 
 - `crates/ambition_input/src/menu.rs` defines semantic menu input.
-- `crates/ambition_gameplay_core/src/ui_nav/` contains shared list, pointer, and drag helpers.
+- `crates/ambition_ui_nav/src/` contains shared list, pointer, and drag helpers.
 - `crates/ambition_gameplay_core/src/menu/ir/` and `crates/ambition_gameplay_core/src/menu/map/` own sandbox menu data and map-tab behavior.
 - `crates/ambition_menu/src/render/` owns reusable Bevy-UI/kaleidoscope renderers.
 - `crates/ambition_app/src/menu/` owns app menu state, dispatch, pointer integration, and renderer wiring.

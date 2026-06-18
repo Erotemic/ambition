@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "ECS-native, content-free pure-logic core (geometry / movement / collision / player_state / abilities / ledge_grab / world / player_clusters + the shared BodyKinematics body component) extracted from ambition_gameplay_core. The build-time foundation everything rebuilds against. See docs/planning/plugin_refactor/15_post_task_k_revision.md."
+description = "ECS-native, content-free pure-logic core (geometry / movement / collision / player_state / abilities / ledge_grab / world / player_clusters + the shared BodyKinematics body component) extracted from ambition_gameplay_core. The build-time foundation everything rebuilds against. See docs/current/state.md and docs/systems/architecture.md."
 
 [lib]
 # rlib only: the foundation library consumed by ambition_gameplay_core (and the

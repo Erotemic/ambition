@@ -3,7 +3,7 @@
 //! The import-clean lifecycle vocabulary, schedule sets, pure portal-map math,
 //! and body-transit velocity helper now live in the standalone
 //! `ambition_platformer_primitives` crate (Stage 13 / Task K + Stage M1 of
-//! `docs/planning/plugin_refactor/14_action_plan.md`). This module re-exports
+//! `docs/current/state.md`). This module re-exports
 //! them unchanged so every
 //! `crate::platformer_runtime::{lifecycle, schedule, math, transit}` path keeps
 //! resolving for sandbox callers.

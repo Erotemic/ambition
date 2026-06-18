@@ -70,34 +70,26 @@ the runtime id has no registered encounter — gracefully degrades
 when test fixtures don't install the boss machine). Unit tests in
 `boss_encounter::damage::tests` lock in the four outcome paths.
 
-## Boss encounter spec as content (2026-05-24, ADR 0017)
+## Boss encounter spec as content (ADR 0017, current ownership)
 
 The encounter's numeric fields (HP, phase thresholds, timings,
-music ids) are now content rather than Rust constants. Each
-authored boss ships `crates/ambition_gameplay_core/assets/data/boss_encounters/<id>.ron`;
-`load_boss_specs_from_disk()` loads them at profile assembly time
-and any RON whose id matches an authored profile overrides the
-hardcoded `ae::BossEncounterSpec::<id>()` constructor's numeric
-fields. The Rust profile constructor still owns the behavior
-wiring (`BossBehaviorProfile`, `BossRewardProfile`).
+music ids) are content rather than Rust constants. Each authored boss ships an
+encounter RON under `crates/ambition_content/assets/data/boss_encounters/<id>.ron`.
+`ambition_content::bosses::install_boss_roster` embeds and installs those specs
+into gameplay-core's generic holder during sandbox resource initialization.
 
-This implements the "boss encounter scripts" half of ADR 0017
-(`Rust = behavior, RON = content, LDtk = space`). Adding a new
-boss tunings pass is now a `<id>.ron` edit + no Rust patch.
-Renaming a boss requires keeping the constructor as a compile-
-time fallback for fresh clones; the on-disk RON is the live
-source of truth.
+`ambition_gameplay_core` owns the reusable schema and encounter state machine.
+It does not own the named boss roster. Behavior/reward data comes from
+`crates/ambition_content/assets/data/boss_profiles.ron`; LDtk owns spatial
+placement. That is the current ADR 0017 split: Rust = reusable behavior/schema,
+RON in `ambition_content` = named game content, LDtk = space.
 
 Layered guards keep the migration honest:
 
-- `specs::tests::load_boss_specs_from_disk_finds_*` — per-boss
-  field-by-field equivalence against the hardcoded constructor.
-- `specs::tests::every_on_disk_ron_matches_an_authored_profile` —
-  orphan RON files (typo'd filename, leftover from rename) trip
-  with a focused diff.
-- `specs::tests::load_boss_specs_from_disk_has_no_duplicate_ids` —
-  two files with the same `id:` would let the override map
-  nondeterministically pick one.
-- Python `tests/test_boss_encounters_ron.py` — 7 schema pins
-  fire without compilation (catches missing field / out-of-range
-  fraction / negative timing / filename↔id mismatch).
+- `specs::tests::every_on_disk_ron_matches_an_authored_profile` — orphan RON
+  files (typo'd filename, leftover from rename) trip with a focused diff.
+- `specs::tests::load_boss_specs_from_disk_has_no_duplicate_ids` — two files
+  with the same `id:` would make roster resolution ambiguous.
+- Python `tests/test_boss_encounters_ron.py` — schema pins fire without
+  compilation (catches missing field / out-of-range fraction / negative timing /
+  filename↔id mismatch).

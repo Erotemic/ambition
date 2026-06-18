@@ -17,7 +17,7 @@
 //!   exactly" pins all the gameplay invariants in one shot).
 //!
 //! The replay drives the same fixed-60Hz timestep the determinism
-//! test in `crates/ambition_gameplay_core/src/rl_sim.rs` uses, so live-sim
+//! test in `crates/ambition_app/src/rl_sim/` uses, so live-sim
 //! divergence on a deterministic-mode trace localizes a behavior
 //! change. Wall-clock-recorded traces will diverge by construction
 //! (the original wasn't deterministic) — the binary still prints the

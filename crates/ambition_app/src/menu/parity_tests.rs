@@ -25,7 +25,7 @@ use super::model::{build_inventory_pages, MenuFocus, MenuPage, MenuPageAction};
 use ambition_gameplay_core::items::{Item, OwnedItems};
 use ambition_gameplay_core::persistence::settings::{
     settings_menu_model, DevSnapshot, RadioSnapshot, SettingsOptionId, SystemMenuEntryId,
-    SystemMenuModel, UserSettings,
+    SystemMenuModel, SystemMenuTarget, UserSettings,
 };
 
 // ---------------------------------------------------------------------------
@@ -257,6 +257,47 @@ fn every_system_menu_entry_is_surfaced_by_the_system_model() {
                  (or document it as an explicit exclusion in this test)"
             ),
         }
+    }
+}
+
+/// No-drift: every `SettingsOptionId` is not just in the IR but actually
+/// *curated* into the System menu (`SystemMenuModel::build` → `curated_options`),
+/// which is what BOTH the grid and the kaleidoscope render. An option can sit in
+/// `settings_menu_model` yet be invisible in-game if it is never added to a
+/// System entry's curated list — exactly the gap that hid "Input Frame" /
+/// "Portal Reverses Facing" after they were wired into the IR. This guards both
+/// renderers at once because they share `SystemMenuModel`.
+#[test]
+fn every_settings_option_is_curated_into_the_system_model() {
+    let model = SystemMenuModel::build(
+        &UserSettings::default(),
+        &RadioSnapshot::default(),
+        &DevSnapshot::default(),
+    );
+    let curated: std::collections::HashSet<SettingsOptionId> = model
+        .entries
+        .iter()
+        .filter_map(|e| match &e.target {
+            SystemMenuTarget::Settings(options) => Some(options),
+            _ => None,
+        })
+        .flatten()
+        .map(|o| o.id)
+        .collect();
+
+    for id in ALL_SETTINGS_OPTION_IDS {
+        // DOCUMENTED EXCLUSION: `Close` is the close-menu pseudo-option, never a
+        // curated settings row.
+        if *id == SettingsOptionId::Close {
+            assert!(!curated.contains(id), "Close is not a curated settings row");
+            continue;
+        }
+        assert!(
+            curated.contains(id),
+            "{id:?} is in the settings IR but NOT curated into any System entry — add it to \
+             `curated_options(..)` in menu/ir/system so it renders in BOTH the grid and the \
+             kaleidoscope (or document it as an explicit exclusion here)"
+        );
     }
 }
 

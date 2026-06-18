@@ -473,6 +473,8 @@ fn curated_options(id: SystemMenuEntryId) -> &'static [SettingsOptionId] {
             SettingsOptionId::Difficulty,
             SettingsOptionId::Assist,
             SettingsOptionId::PlayerDamage,
+            SettingsOptionId::InputFrameMode,
+            SettingsOptionId::PortalReverseFacing,
             SettingsOptionId::DebugHud,
             SettingsOptionId::QuestHud,
             SettingsOptionId::TraceAutoDump,

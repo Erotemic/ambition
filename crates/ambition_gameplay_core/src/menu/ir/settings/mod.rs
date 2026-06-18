@@ -131,6 +131,9 @@ pub enum SettingsOptionId {
     /// Suppress gameplay + menu input while the OS window is unfocused (opt-in
     /// guard against background input bleed). Default OFF.
     PauseInputUnfocused,
+    /// Reverse the player's facing when transiting a same-wall portal pair.
+    /// Default OFF; mirrored into `PortalTuning::reorient_facing`.
+    PortalReverseFacing,
     // Menu-level action (not under any category).
     Close,
 }

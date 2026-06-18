@@ -59,6 +59,16 @@ pub struct PortalTuning {
     /// While a player is in a portal aperture, disable wall movement abilities
     /// so carved aperture edges cannot catch them.
     pub suppress_wall_abilities: bool,
+    /// Whether a same-wall turn-around transit re-orients the body's `facing`
+    /// (the `policy.reorient && facing_flip` write in [`transit`](crate::transit)).
+    /// This is a global gate ANDed with the per-body [`PortalPolicy`]'s `reorient`
+    /// flag, so it only ever suppresses the flip — bodies whose policy already
+    /// keeps facing (bosses, projectiles) are unaffected either way. The portal
+    /// crate defaults it ON to preserve standalone behavior; Ambition mirrors the
+    /// `portal_reverses_facing` gameplay setting into it (defaulting OFF).
+    ///
+    /// [`PortalPolicy`]: crate::transit::PortalPolicy
+    pub reorient_facing: bool,
 }
 
 impl Default for PortalTuning {
@@ -72,6 +82,7 @@ impl Default for PortalTuning {
             input_held_epsilon: 0.25,
             input_warp_keep_cos: 0.5,
             suppress_wall_abilities: true,
+            reorient_facing: true,
         }
     }
 }

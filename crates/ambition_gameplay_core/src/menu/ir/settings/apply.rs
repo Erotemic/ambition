@@ -236,6 +236,9 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
         SettingsOptionId::PauseInputUnfocused => {
             tog!(settings.gameplay.pause_input_when_unfocused)
         }
+        SettingsOptionId::PortalReverseFacing => {
+            tog!(settings.gameplay.portal_reverses_facing)
+        }
 
         SettingsOptionId::Close => return true,
     }

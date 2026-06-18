@@ -77,6 +77,30 @@ pub fn ensure_portal_bodies(
     }
 }
 
+/// Mirror the `portal_reverses_facing` gameplay setting into the global
+/// [`PortalTuning::reorient_facing`] knob each frame so toggling it in the
+/// settings menu takes effect live (the portal core reads the tuning resource on
+/// every transit). The gameplay setting defaults OFF — so by default the player
+/// keeps the same facing through a same-wall portal turn-around — while the portal
+/// crate's own default stays ON for standalone use.
+///
+/// Change-guarded so it only writes (and trips Bevy change detection) when the
+/// user actually flips the setting.
+pub fn sync_portal_reorient_from_settings(
+    // Optional: headless / unit-test apps may run portal transit without the
+    // settings resource. Absent → leave the portal crate's default (ON).
+    settings: Option<Res<ambition_gameplay_core::persistence::settings::UserSettings>>,
+    mut tuning: ResMut<PortalTuning>,
+) {
+    let Some(settings) = settings else {
+        return;
+    };
+    let want = settings.gameplay.portal_reverses_facing;
+    if tuning.reorient_facing != want {
+        tuning.reorient_facing = want;
+    }
+}
+
 /// Opt every in-flight projectile entity into the generic transit algorithm by
 /// giving it the [`PortalBody`] marker plus a free-flying [`PortalPolicy`]:
 ///

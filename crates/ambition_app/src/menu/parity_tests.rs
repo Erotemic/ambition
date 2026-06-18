@@ -88,6 +88,7 @@ const ALL_SETTINGS_OPTION_IDS: &[SettingsOptionId] = &[
     SettingsOptionId::QuestHud,
     SettingsOptionId::TraceAutoDump,
     SettingsOptionId::PauseInputUnfocused,
+    SettingsOptionId::PortalReverseFacing,
     SettingsOptionId::Close,
 ];
 
@@ -150,6 +151,7 @@ fn assert_all_settings_option_ids_listed(id: SettingsOptionId) {
         | SettingsOptionId::QuestHud
         | SettingsOptionId::TraceAutoDump
         | SettingsOptionId::PauseInputUnfocused
+        | SettingsOptionId::PortalReverseFacing
         | SettingsOptionId::Close => {}
     }
 }

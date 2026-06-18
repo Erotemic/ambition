@@ -289,8 +289,10 @@ pub fn portal_transit(
                     kin.vel = vel;
                 }
                 // Re-orientation is the optional part: flip facing to the exit
-                // aperture on a same-wall turn-around, only if the policy asks.
-                if policy.reorient && facing_flip {
+                // aperture on a same-wall turn-around, only if the policy asks AND
+                // the global `reorient_facing` knob is on (the Ambition
+                // `portal_reverses_facing` gameplay setting mirrors into it).
+                if policy.reorient && facing_flip && tuning.reorient_facing {
                     kin.facing = -kin.facing;
                 }
                 if let Some(roll) = roll.as_deref_mut() {

@@ -28,6 +28,7 @@ use super::transit_adapter::{
 };
 use super::transit_body_adapter::{
     ensure_portal_bodies, ensure_projectile_portal_bodies, portal_player_input_adapter,
+    sync_portal_reorient_from_settings,
 };
 
 /// Installs the Ambition-specific portal input/inventory adapters.
@@ -223,6 +224,15 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
             Update,
             ensure_portal_bodies
                 .run_if(ambition_gameplay_core::gameplay_allowed)
+                .in_set(PortalSet::Transit)
+                .before(portal_transit),
+        );
+        // Mirror the `portal_reverses_facing` gameplay setting into the global
+        // `PortalTuning::reorient_facing` knob each frame, before the transit core
+        // reads it, so the toggle takes effect live.
+        app.add_systems(
+            Update,
+            sync_portal_reorient_from_settings
                 .in_set(PortalSet::Transit)
                 .before(portal_transit),
         );

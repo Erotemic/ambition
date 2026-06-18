@@ -498,6 +498,12 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                 g.pause_input_when_unfocused,
                 "Ignore gameplay + menu input while the window is in the background.",
             ),
+            toggle(
+                SettingsOptionId::PortalReverseFacing,
+                "Portal Reverses Facing",
+                g.portal_reverses_facing,
+                "Reverse the player's facing when a portal turns them back along the same wall.",
+            ),
         ],
     };
 
